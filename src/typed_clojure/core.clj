@@ -61,8 +61,6 @@
 ;(make-pred-ty symbol? Symbol)
 
 (defnt ^{:- (make-Function Number Number)}
-  f
+  iden
   [x]
-  (if (number? x)
-    (+ x)
-    (- x)))
+  x)
