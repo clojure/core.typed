@@ -15,7 +15,13 @@ Qi/Shen also has optional static typing.
 
 ## Clojure Implementation
 
-If possible, Typed Clojure should be a library. 
+If possible, Typed Clojure should be a library. I *think* we have enough tools at our
+disposal to keep changes to clojure.core very minimal. Maybe we don't need to touch it. But that's me being
+naive and optimistic.
+
+With that assumption, I'll be targetting Clojure (JVM) initially.
+
+If it gets hairy with the Compiler, I will consider ClojureScript.
 
 ## Clojure Type Hints
 
@@ -27,10 +33,6 @@ We should not reuse the syntax of type hints.
 ```
 
 Type hints are not type declarations, they are hints to the compiler.
-
-## Clojure Metadata
-
-Metadata provides an easy extension point for 
 
 ## Predicates and Occurances
 
