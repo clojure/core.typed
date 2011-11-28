@@ -13,15 +13,13 @@ aimed at providing a path to combine statically- and dynamically-typed code.
 
 Qi/Shen also has optional static typing.
 
-## Clojure Implementation
+## Implementation Hurdles
 
-If possible, Typed Clojure should be a library. I *think* we have enough tools at our
-disposal to keep changes to clojure.core very minimal. Maybe we don't need to touch it. But that's me being
-naive and optimistic.
+Currently there is no way to interface with the Clojure Compiler.
 
-With that assumption, I'll be targetting Clojure (JVM) initially.
+The analysis phase is most useful with respect to a port of Typed Racket.
 
-If it gets hairy with the Compiler, I will consider ClojureScript.
+Here is a [discussion page](http://dev.clojure.org/display/design/Exposing+the+Compiler%27s+Analysis+Phase)
 
 ## Clojure Type Hints
 
