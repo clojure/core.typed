@@ -56,6 +56,10 @@ Can we expand a multimethod call to refine the types of occurances?
 * [Dr. Racket](http://racket-lang.org/download/)
 * [Racket Blog](http://blog.racket-lang.org/)
 
+## Getting Started with Typed Racket
+
+* [Typed Racket Docs](http://docs.racket-lang.org/ts-guide/index.html?q=typed)
+
 ## Racket Macros
 
 * Dr. Racket's Macro Stepper
