@@ -1,66 +1,50 @@
-(ns typed-clojure.core)
+(ns typed-clojure.core
+  (:require [cljs.compiler :as cljs]))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Global type environment
+;; Union Type
 
-(defprotocol ITypeEnv
-  (extend-env! [this name type])
-  (get-env [this]))
+(defprotocol ITypePredicate
+  (type-predicate [this]))
 
-(deftype TypeEnv [env]
-  ITypeEnv
-  (get-env [this] env)
-  (extend-env! [this name type]
-    (swap! env assoc name type)))
+(deftype Union [types]
+  ITypePredicate
+  (type-predicate [this] ;TODO
+                  ))
 
-(def the-env (TypeEnv. (atom {})))
+(def empty-union (->Union nil))
 
-(defn extend-env [name type]
-  (extend-env! the-env name type))
+(defn Un 
+  ([] empty-union)
+  ([t] t)
+  ([t & types]
+   (->Union (set (cons t types)))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Type utilities
+(defmacro def-type [name & {:keys [pred]}]
+  `(def ~name
+     (reify 
+       ITypePredicate
+       (type-predicate [this] ~pred))))
 
-(defn make-union [& types]
-  (vec types))
+;; Numeric Types
 
-(defmacro defnt [name & body]
-  (extend-env name (-> (meta name) :-))
-  `(defn ~name ~@body))
+(def-type Zero 
+          :pred #(= 0 %1))
+(def-type One 
+          :pred #(= 1 %1))
 
-(defn type-declaration [name type]
-  (extend-env name type))
+(def-type PositiveInteger
+          :pred (comp pos? integer?))
 
-(defmacro make-type [name]
-  `(do
-     (deftype ~name [])
-     (new ~name)))
+(def-type NegativeInteger
+          :pred (comp neg? integer?))
 
-(defmacro make-type-alias [name type]
-  `(make-type ~name))
+(def -Integer (Un NegativeInteger Zero PositiveInteger))
 
-(deftype Function [sig])
-(defn make-Function [& types]
-  (Function. types))
+;; Primitives
 
-(deftype List [type])
-(defn make-Listof [sig]
-  (List. sig))
+(defmacro def-typed [[name _ type] & body]
+  `(def ~(with-meta name {::type type})
+     ~@body))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Primitive types
-
-;; TODO Work out proposition representation
-
-(make-type Any)
-(make-type None)
-
-(type-declaration + (make-Function Number Number Number))
-(type-declaration - (make-Function Number Number Number))
-
-;(make-pred-ty symbol? Symbol)
-
-(defnt ^{:- (make-Function Number Number)}
-  iden
-  [x]
-  x)
+(def-typed (a :- -Integer) 
+           1)
