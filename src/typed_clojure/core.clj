@@ -2,23 +2,10 @@
   (:require [cljs.compiler :as cljs])
   (:require [trammel.core :as c]))
 
-;; Union Type
+;; Primitives
 
 (defprotocol ITypePredicate
   (type-predicate [this]))
-
-(deftype Union [types]
-  ITypePredicate
-  (type-predicate [this] ;TODO
-                  ))
-
-(def empty-union (->Union nil))
-
-(defn Un 
-  ([] empty-union)
-  ([t] t)
-  ([t & types]
-   (->Union (set (cons t types)))))
 
 (defmacro def-type [name fields-contracts & {:keys [pred]}]
   (let [fields (map first fields-contracts)
@@ -30,6 +17,23 @@
        ~contracts
        ITypePredicate
        (type-predicate [this] ~pred))))
+
+;; Union Type
+
+;; TODO
+;; rep/type-rep.rkt, line 344
+(def-type Union [elems ]
+  ITypePredicate
+  (type-predicate [this] ;TODO
+                  ))
+
+(def empty-union (->Union nil))
+
+(defn Un 
+  ([] empty-union)
+  ([t] t)
+  ([t & types]
+   (->Union (set (cons t types)))))
 
 ;; Numeric Types
 
