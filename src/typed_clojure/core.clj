@@ -1,5 +1,6 @@
 (ns typed-clojure.core
-  (:require [cljs.compiler :as cljs]))
+  (:require [cljs.compiler :as cljs])
+  (:require [trammel.core :as c]))
 
 ;; Union Type
 
@@ -19,23 +20,28 @@
   ([t & types]
    (->Union (set (cons t types)))))
 
-(defmacro def-type [name & {:keys [pred]}]
-  `(def ~name
-     (reify 
+(defmacro def-type [name fields-contracts & {:keys [pred]}]
+  (let [fields (map first fields-contracts)
+        contracts (-> (map second fields-contracts) vec)
+        fields-defaults (-> (interleave fields (repeat nil)) vec)]
+    `(c/defconstrainedtype  ;; TODO Should be defconstrainedtype, waiting on bugfix from Trammel
+       ~name
+       ~fields-defaults
+       ~contracts
        ITypePredicate
        (type-predicate [this] ~pred))))
 
 ;; Numeric Types
 
-(def-type Zero 
+(def-type Zero []
           :pred #(= 0 %1))
-(def-type One 
+(def-type One []
           :pred #(= 1 %1))
 
-(def-type PositiveInteger
+(def-type PositiveInteger []
           :pred (comp pos? integer?))
 
-(def-type NegativeInteger
+(def-type NegativeInteger []
           :pred (comp neg? integer?))
 
 (def -Integer (Un NegativeInteger Zero PositiveInteger))
