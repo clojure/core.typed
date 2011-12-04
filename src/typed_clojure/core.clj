@@ -4,57 +4,70 @@
 
 ;; Primitives
 
-(defprotocol ITypePredicate
+(defprotocol IType
+  (type-fields [this])
   (type-predicate [this]))
 
-(defmacro def-type [name fields-contracts & {:keys [pred]}]
-  (let [fields (map first fields-contracts)
-        contracts (-> (map second fields-contracts) vec)
-        fields-defaults (-> (interleave fields (repeat nil)) vec)]
-    `(c/defconstrainedtype  ;; TODO Should be defconstrainedtype, waiting on bugfix from Trammel
-       ~name
-       ~fields-defaults
-       ~contracts
-       ITypePredicate
-       (type-predicate [this] ~pred))))
+(defn type? [t]
+  (contains? (ancestors (class t)) Type))
+
+(def Type ::Type)
+
+(defmacro def-type [name & body]
+  `(do
+     (c/defconstrainedtype ~name
+                           ~@body)
+     (derive ~name Type)))
 
 ;; Union Type
 
-;; TODO
-;; rep/type-rep.rkt, line 344
-(def-type Union [elems ]
-  ITypePredicate
-  (type-predicate [this] ;TODO
-                  ))
+(def-type Union 
+          [elems]
+          [(every? type? elems)])
 
-(def empty-union (->Union nil))
-
-(defn Un 
-  ([] empty-union)
-  ([t] t)
-  ([t & types]
-   (->Union (set (cons t types)))))
+(defn Un [& types]
+  (->Union types))
 
 ;; Numeric Types
 
-(def-type Zero []
-          :pred #(= 0 %1))
-(def-type One []
-          :pred #(= 1 %1))
+(def-type Base 
+          [name pred]
+          [(symbol? name)])
 
-(def-type PositiveInteger []
-          :pred (comp pos? integer?))
-
-(def-type NegativeInteger []
-          :pred (comp neg? integer?))
+(def Zero (->Base 'Zero #(= 0 %1)))
+(def One  (->Base 'One #(= 1 %1)))
+(def PositiveInteger (->Base 'PositiveInteger (comp pos? integer?)))
+(def NegativeInteger (->Base 'NegativeInteger (comp neg? integer?)))
 
 (def -Integer (Un NegativeInteger Zero PositiveInteger))
 
+;; Functions
+
+(def-type Function 
+          [dom rng]
+          [(every? type? dom)
+           (type? rng)])
+
 ;; Primitives
 
-(defmacro def-typed [[name _ type] & body]
-  `(def ~(with-meta name {::type type})
-     ~@body))
+(defmacro def-typed [name type & body]
+  (let [name ^{::type `~type} name]
+    `(def ~name
+       ~@body)))
 
-(def-typed (a :- -Integer) 
+(defmacro defn-typed [name args-dom rng & body]
+  (let [args (-> (map first args-dom) vec)
+        dom (map (comp deref resolve second) args-dom)
+        rng (-> rng resolve deref)
+        type (->Function dom rng)
+        name ^{::type type} name]
+    `(defn ~name ~args
+       ~@body)))
+
+;; Examples
+
+(defn-typed asdf [[a -Integer]] -Integer
+           1)
+
+(def-typed a -Integer
            1)
