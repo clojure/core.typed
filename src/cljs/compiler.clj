@@ -682,7 +682,7 @@
         block (binding [*recur-frames* (cons recur-frame *recur-frames*)]
                 (analyze-block (assoc env :context :return :locals locals) body))]
     
-    (merge {:env env :variadic variadic :params (map munge params) :max-fixed-arity fixed-arity :gthis gthis :recurs @(:flag recur-frame)} block)))
+    (merge {:env env :variadic variadic :params (map #(with-meta (munge %1) (-> (meta %1) :analyze)) params) :max-fixed-arity fixed-arity :gthis gthis :recurs @(:flag recur-frame)} block)))
 
 (defmethod parse 'fn*
   [op env [_ & args] name]
