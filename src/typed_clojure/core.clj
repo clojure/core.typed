@@ -3,6 +3,9 @@
             [clojure.walk :as walk]
             [trammel.core :as c]))
 
+(defn symbol-ns [s]
+  (symbol (name (ns-name *ns*)) (name s)))
+
 ;; Primitives
 
 (def Type ::Type)
@@ -64,7 +67,7 @@
    (type? rng)]
   
   Object
-  (toString [_] (str (apply str (interpose " " dom) " -> " rng))))
+  (toString [_] (apply str (concat (apply str (interpose " " dom)) (str " -> " rng)))))
 
 (defn arity? [a]
   (instance? Arity a))
@@ -107,7 +110,7 @@
 (defn type-of 
   "Get the type of a binding from metadata"
   [id]
-  (if-let [t (-> name meta ::type)]
+  (if-let [t (-> id meta ::type)]
     t
     (throw (Exception. (str "untyped variable" id)))))
 
@@ -123,27 +126,37 @@
            t
            (lookup-type (:form exp-obj)))
 
-    :def (let [name (-> (:form exp-obj) second resolve)
+    :def (let [id (-> (:form exp-obj) second symbol-ns)
                body (:init exp-obj)]
-           (type-check body (type-check name)))
+           (type-check body (type-check id)))
 
     :if (let [then-type (type-check (:then exp-obj))
               else-type (type-check (:else exp-obj))]
-          (when-not (== then-type else-type) ;; TODO subtyping
+          (when-not (= then-type else-type) ;; TODO subtyping
             (type-error "Expected: " then-type " Found: " else-type))
           else-type)
 
     :fn (let [methods (:methods exp-obj)
-              arities (map (fn [{params :params}]
-                             (assert (not (:variadic m)) "Variadic functions not yet supported")
+              arities (map (fn [{params :params children :children variadic :variadic}]
+                             (assert (not variadic) "Variadic functions not yet supported")
                              (let [rng (map (comp ::type meta) params)
-                                   dom (type-check 
-                             )
+                                   local-type-env (merge (map extend-local-type-env params rng))]
+                               (binding [*local-type-env* local-type-env]
+                                 ;; TODO type check each form in the body, while accumulating local type env ...
+                                 ;(type-check 
+                               )))
                            methods)]
-          )
+          (->Function arities))
 
-;    :invoke (let [arg-types (map type-check (-> exp-obj :methods first :params))
-;                  local-env (reduce merge
+    :invoke (let [id (-> exp-obj :f :form)
+                  id-type (type-check id)
+                  formals-type (.dom ^Function id-type)
+                  actuals (-> exp-obj :args)
+                  _ (when-not (= (count formals-type) (count actuals))
+                      (type-error "Wrong number of arguments"))
+                  _ (map type-check actuals formals-type)
+                  rng (.rng ^Function formals-type)]
+              rng)
 
     ))
 
@@ -156,7 +169,7 @@
    (type-check* exp-obj))
   ([exp-obj expected-type]
    (let [t (type-check* exp-obj)]
-     (when-not (== t expected-type) ;; TODO subtyping
+     (when-not (= t expected-type) ;; TODO subtyping
        (type-error "Expected " expected-type " found " t))
      t)))
 
@@ -180,7 +193,7 @@
       (map prepare-method body (.arrs type))))) ;; Multi arity
 
 (defmacro defn. [name & body]
-  (let [type (lookup-type (resolve name))
+  (let [type (lookup-type (symbol-ns name))
         _ (assert type)]
     `(def. ~name
        (fn. ~@(add-fn-arg-types body type)))))
@@ -205,7 +218,7 @@
   a)
 
 (defmacro T [id type]
-  (add-type-ann! (resolve id) (eval type))
+  (add-type-ann! (symbol-ns id) (eval type))
   nil)
 
 ;; Examples
