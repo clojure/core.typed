@@ -1,8 +1,11 @@
 (ns typed-clojure.core
-  (:require [cljs.compiler :as cljs])
-  (:require [trammel.core :as c]))
+  (:require [cljs.compiler :as cljs]
+            [clojure.walk :as walk]
+            [trammel.core :as c]))
 
 ;; Primitives
+
+(def Type ::Type)
 
 (defprotocol IType
   (type-fields [this])
@@ -10,8 +13,6 @@
 
 (defn type? [t]
   (isa? (class t) Type))
-
-(def Type ::Type)
 
 (defmacro def-type-constructor [name & body]
   `(do
@@ -24,7 +25,10 @@
 (def-type-constructor 
   Union 
   [elems]
-  [(every? type? elems)])
+  [(every? type? elems)]
+
+  Object
+  (toString [_] (str "(Un " (apply str (interpose " " elems)) ")")))
 
 (defn Un [& types]
   (->Union types))
@@ -34,22 +38,44 @@
 (def-type-constructor 
   Base 
   [name pred]
-  [(symbol? name)])
+  [(symbol? name)]
+  
+  Object
+  (toString [_] (str name)))
 
 (def Zero (->Base 'Zero #(= 0 %1)))
 (def One  (->Base 'One #(= 1 %1)))
 (def PositiveInteger (->Base 'PositiveInteger (comp pos? integer?)))
 (def NegativeInteger (->Base 'NegativeInteger (comp neg? integer?)))
 
-(def -Integer (Un NegativeInteger Zero PositiveInteger))
+(def IntegerT (Un NegativeInteger Zero PositiveInteger))
+(def FloatT (->Base 'FloatT float?))
+
+(def TopT (->Base 'TopT (constantly true)))
+
+(def NumberT (Un IntegerT FloatT))
 
 ;; Functions
 
-(def-type-constructor 
-  Function 
+(c/defconstrainedtype 
+  Arity 
   [dom rng]
   [(every? type? dom)
-   (type? rng)])
+   (type? rng)]
+  
+  Object
+  (toString [_] (str (apply str (interpose " " dom) " -> " rng))))
+
+(defn arity? [a]
+  (instance? Arity a))
+
+(def-type-constructor 
+  Function 
+  [arrs]
+  [(every? arity? arrs)]
+  
+  Object
+  (toString [_] (apply str (interpose " , " (map str arrs)))))
 
 ;; Type ann database
 
@@ -58,58 +84,135 @@
 (defn add-type-ann! [id type]
   (swap! type-anns assoc id type))
 
-(defn get-type-ann [id]
+(defn lookup-type [id]
   (if-let [t (@type-anns id)]
     t
     (throw (Exception. (str "No type annotation for " id)))))
 
+(def ^:dynamic *local-type-env* {})
+
+(defn lookup-local-type [id]
+  (*local-type-env* id))
+
+(defn extend-local-type-env [id type]
+  (assoc *local-type-env* id type))
+
 ;; Primitives
 
-(defn register-def-type-ann [def-form]
-  (let [[_ name type] def-form]
-    (add-type-ann! `~name type)))
+(defn type-error [& msg]
+  (throw (Exception. (apply str msg))))
+
+(declare type-check)
+
+(defn type-of 
+  "Get the type of a binding from metadata"
+  [id]
+  (if-let [t (-> name meta ::type)]
+    t
+    (throw (Exception. (str "untyped variable" id)))))
+
+(defn type-check* [exp-obj]
+  (case (:op exp-obj)
+    :constant (let [f (:form exp-obj)]
+                (cond (integer? f) IntegerT
+                      (float? f) FloatT
+                      (number? f) NumberT
+                      :else TopT))
+
+    :var (if-let [t (lookup-local-type (:form exp-obj))]
+           t
+           (lookup-type (:form exp-obj)))
+
+    :def (let [name (-> (:form exp-obj) second resolve)
+               children (:children exp-obj)
+               _ (assert (or (nil? children) (== 1 (count children)))) ;; TODO Pretty sure a def can only have 0 or 1 child (?)
+               ;; FIXME should probably be :init key ?
+               body (first children)]
+           (type-check body (type-check name)))
+
+    :if (let [then-type (type-check (:then exp-obj))
+              else-type (type-check (:else exp-obj))]
+          (when-not (== then-type else-type) ;; TODO subtyping
+            (type-error "Expected: " then-type " Found: " else-type))
+          else-type)
+
+    :fn (let [methods (:methods exp-obj)]
+
+          )
+
+;    :invoke (let [arg-types (map type-check (-> exp-obj :methods first :params))
+;                  local-env (reduce merge
+
+    ))
+
+
 
 ;; Languages as Libraries, Sam TH
 (defn type-check 
-  "Type check a form"
-  [form]
-  (let [anal (cljs/analyze {} form)]
-    (case (:op anal)
-      :var (get-type-ann `~form)
-      :def (register-def-type-ann))))
+  "Type check a form returned from analyze"
+  ([exp-obj]
+   (type-check* exp-obj))
+  ([exp-obj expected-type]
+   (let [t (type-check* exp-obj)]
+     (when-not (== t expected-type) ;; TODO subtyping
+       (type-error "Expected " expected-type " found " t))
+     t)))
 
-(defmacro def-typed [name type & body]
-  (let [form `(def ~name ~@body)]
-    (type-check form)
-    `~form))
-
-(defmacro defn-typed [name args-dom rng & body]
-  (let [args (-> (map first args-dom) vec)
-        dom (map (comp deref resolve second) args-dom)
-        rng (-> rng resolve deref)
-        type (->Function dom rng)]
-    `(def-typed ~name ~type
-       (fn-typed ~args-dom
-         ~@body))))
-
-;; TODO how do fn's store type information? in args?
-(defmacro fn-typed [name ann-formals & body]
-  (let [args (-> (map first ann-formals) vec)
-        dom (map (comp deref resolve second) ann-formals)
-        args (map #(with-meta %1 {::type %2}) args dom)
-        type (->Function dom (type-check `(do ~@body)))
-        form `(fn ~name ~args 
+(defmacro def. [name type & body]
+  (let [form `(def ^{:analyze {::type ~type}} ~name  ;;TODO need to quote ~name ?
                 ~@body)]
-    (type-check form)
-    `~form))
+    (type-check (cljs/analyze {} form))
+    form))
 
-(fn-typed [[a -Integer]]
+(defn add-fn-arg-types 
+  "Convert fn body from (fn [arg] ..) to (fn [[arg :- type]] ..)"
+  [body ^Function type]
+  (letfn [(prepare-param [name ptype]
+            [name :- ptype])
+          (prepare-arg-vector [v atypes]
+            (vec (map prepare-param v atypes)))
+          (prepare-method [[args & rest] ^Arity mtype]
+            (cons (prepare-arg-vector args (.dom mtype)) rest))]
+    (if (vector? (first body))
+      (prepare-method body type)                ;; Single arity
+      (map prepare-method body (.arrs type))))) ;; Multi arity
+
+(defmacro defn. [name & body]
+  (let [type (lookup-type (resolve name))
+        _ (assert type)]
+    `(def. ~name
+       (fn. ~@(add-fn-arg-types body type)))))
+
+(defn normalize-fn-arg-types
+  "Convert fn body from (fn [[arg :- type]] ...) to (fn [^{:analyze {::type type} name] ..)"
+  [body]
+  (letfn [(prepare-param [[name _ type]]
+            (with-meta name {:analyze {::type type}}))
+          (prepare-arg-vector [v]
+            (vec (map prepare-param v)))
+          (prepare-method [[args & rest]]
+            (cons (prepare-arg-vector args) rest))]
+    (if (vector? (first body))
+      (prepare-method body)        ;; Single arity
+      (map prepare-method body)))) ;; Multi arity
+
+(defmacro fn. [& body]
+  `(fn ~@(normalize-fn-arg-types body)))
+
+(fn. [[a :- IntegerT]]
   a)
+
+(defmacro T [id type]
+  (add-type-ann! (resolve id) (eval type))
+  nil)
 
 ;; Examples
 
-(defn-typed asdf [[a -Integer]] -Integer
-           1)
+(T asdf (->Function (list (->Arity (list IntegerT) IntegerT))))
+(defn. asdf
+  ([a] 1))
 
-(def-typed a -Integer
-           1)
+(T a IntegerT)
+(def. a
+  1)
+
