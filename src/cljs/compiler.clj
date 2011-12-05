@@ -86,7 +86,7 @@
 
            (namespace sym)
            (let [ns (namespace sym)
-                 ns (if (= "clojure.core" ns) "cljs.core" ns)
+                 ns (if (= "clojure.core" ns) "clojure.core" ns)
                  full-ns (resolve-ns-alias env ns)]
              (confirm-var-exists env full-ns (symbol (name sym)))
              (symbol (str full-ns "." (munge (name sym)))))
@@ -107,7 +107,7 @@
 
            :else
            (let [full-ns (if (core-name? env sym)
-                           'cljs.core
+                           'clojure.core
                            (-> env :ns :name))]
              (confirm-var-exists env full-ns sym)
              (munge (symbol (str full-ns "." (munge (name sym)))))))]
@@ -124,7 +124,7 @@
          
            (namespace sym)
            (let [ns (namespace sym)
-                 ns (if (= "clojure.core" ns) "cljs.core" ns)]
+                 ns (if (= "clojure.core" ns) "clojure.core" ns)]
              (symbol (str (resolve-ns-alias env ns) "." (munge (name sym)))))
 
            (.contains s ".")
@@ -139,7 +139,7 @@
            :else
            (munge (symbol (str
                            (if (core-name? env sym)
-                             'cljs.core
+                             'clojure.core
                              (-> env :ns :name))
                            "." (munge (name sym))))))]
       {:name nm})))
@@ -809,7 +809,7 @@
                                            libs))))
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
     (set! *cljs-ns* name)
-    (require 'cljs.core)
+    (require 'clojure.core)
     (doseq [nsym (concat (vals requires-macros) (vals uses-macros))]
       (clojure.core/require nsym))
     (swap! namespaces #(-> %
@@ -897,14 +897,14 @@
         (when-not (-> env :locals sym)  ;locals hide macros
           (if-let [nstr (namespace sym)]
             (when-let [ns (cond
-                           (= "clojure.core" nstr) (find-ns 'cljs.core)
+                           (= "clojure.core" nstr) (find-ns 'clojure.core)
                            (.contains nstr ".") (find-ns (symbol nstr))
                            :else
                            (-> env :ns :requires-macros (get (symbol nstr))))]
               (.findInternedVar ^clojure.lang.Namespace ns (symbol (name sym))))
             (if-let [nsym (-> env :ns :uses-macros sym)]
               (.findInternedVar ^clojure.lang.Namespace (find-ns nsym) sym)
-              (.findInternedVar ^clojure.lang.Namespace (find-ns 'cljs.core) sym))))]
+              (.findInternedVar ^clojure.lang.Namespace (find-ns 'clojure.core) sym))))]
     (when (and mvar (.isMacro ^clojure.lang.Var mvar))
       @mvar)))
 

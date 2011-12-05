@@ -124,10 +124,7 @@
            (lookup-type (:form exp-obj)))
 
     :def (let [name (-> (:form exp-obj) second resolve)
-               children (:children exp-obj)
-               _ (assert (or (nil? children) (== 1 (count children)))) ;; TODO Pretty sure a def can only have 0 or 1 child (?)
-               ;; FIXME should probably be :init key ?
-               body (first children)]
+               body (:init exp-obj)]
            (type-check body (type-check name)))
 
     :if (let [then-type (type-check (:then exp-obj))
@@ -136,8 +133,13 @@
             (type-error "Expected: " then-type " Found: " else-type))
           else-type)
 
-    :fn (let [methods (:methods exp-obj)]
-
+    :fn (let [methods (:methods exp-obj)
+              arities (map (fn [{params :params}]
+                             (assert (not (:variadic m)) "Variadic functions not yet supported")
+                             (let [rng (map (comp ::type meta) params)
+                                   dom (type-check 
+                             )
+                           methods)]
           )
 
 ;    :invoke (let [arg-types (map type-check (-> exp-obj :methods first :params))
