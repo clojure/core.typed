@@ -896,15 +896,8 @@
   (let [mvar
         (when-not (-> env :locals sym)  ;locals hide macros
           (if-let [nstr (namespace sym)]
-            (when-let [ns (cond
-                           (= "clojure.core" nstr) (find-ns 'clojure.core)
-                           (.contains nstr ".") (find-ns (symbol nstr))
-                           :else
-                           (-> env :ns :requires-macros (get (symbol nstr))))]
-              (.findInternedVar ^clojure.lang.Namespace ns (symbol (name sym))))
-            (if-let [nsym (-> env :ns :uses-macros sym)]
-              (.findInternedVar ^clojure.lang.Namespace (find-ns nsym) sym)
-              (.findInternedVar ^clojure.lang.Namespace (find-ns 'clojure.core) sym))))]
+            (.findInternedVar ^clojure.lang.Namespace (find-ns (symbol nstr)) (symbol (name sym)))
+            (.findInternedVar ^clojure.lang.Namespace *ns* sym)))]
     (when (and mvar (.isMacro ^clojure.lang.Var mvar))
       @mvar)))
 
