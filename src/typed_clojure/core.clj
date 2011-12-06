@@ -4,7 +4,9 @@
             [trammel.core :as c]))
 
 (defn symbol-ns [s]
-  (symbol (name (ns-name *ns*)) (name s)))
+  (if (namespace s)
+    s
+    (symbol (name (ns-name *ns*)) (name s))))
 
 ;; Primitives
 
@@ -156,13 +158,16 @@
                              methods))]
           (->Function arities))
 
-    :invoke (let [invoke-type (type-check (-> exp-obj :f))
-                  formals-type (.dom ^Function invoke-type)
-                  actuals (-> exp-obj :args)
-                  _ (when-not (= (count formals-type) (count actuals))
+    :invoke (let [invoked-fn-type (type-check (-> exp-obj :f))
+                  actual-args (-> exp-obj :args)
+                  same-arity-type (some (fn [^Arity a] 
+                                          (and (= (count (.dom a)) (count actual-args))
+                                               a))
+                                        (.arrs ^Function invoked-fn-type))
+                  _ (when-not same-arity-type
                       (type-error "Wrong number of arguments"))
-                  _ (map type-check actuals formals-type)
-                  rng (.rng ^Function formals-type)]
+                  _ (map type-check actual-args (.dom ^Arity same-arity-type))
+                  rng (.rng ^Arity same-arity-type)]
               rng)
     (throw (Exception. (str exp-obj)))
     ))
@@ -225,9 +230,12 @@
             (vec (map prepare-param v)))
           (prepare-method [[args & rest]]
             (cons (prepare-arg-vector args) rest))]
-    (if (vector? (first body))
-      (prepare-method body)        ;; Single arity
-      (map prepare-method body)))) ;; Multi arity
+    (let [unqualified
+          (if (vector? (first body))
+            (prepare-method body)        ;; Single arity
+            (map prepare-method body))] ;; Multi arity
+      ;;TODO qualify symbols
+      unqualified)))
 
 (defmacro fn-T [& body]
   `(fn* ~@(normalize-fn-arg-types body))) ;; TODO should fn be a special form?
@@ -273,4 +281,4 @@
 
 (T test-def-plus :- IntegerT)
 (def-T test-def-plus
-  (+ 1 2))
+  (clojure.core/+ "asdf" "asdf"))
