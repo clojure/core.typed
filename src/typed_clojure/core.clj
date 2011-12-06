@@ -3,29 +3,38 @@
             [clojure.walk :as walk]
             [trammel.core :as c]))
 
-(defn symbol-ns [s]
-  (if (namespace s)
-    s
-    (symbol (name (ns-name *ns*)) (name s))))
-
 ;; Primitives
 
 (def Type ::Type)
 
 (defprotocol IType
   (type-fields [this])
-  (type-predicate [this]))
+  (type-predicate [this])
+  (subtype [this super]))
 
 (defn type? [t]
   (isa? (class t) Type))
 
-(defmacro def-type-constructor [name & body]
+
+
+(defmacro def-type-constructor [name fields contracts & body]
   `(do
      (c/defconstrainedtype ~name
+                           ~fields
+                           ~contracts
+
+                           java.lang.Comparable
+                           (compareTo [this# that#]
+                                      (cond
+                                        (= this# that#) 0
+                                        (subtype this# that#) -1
+                                        :else 1))
                            ~@body)
      (derive ~name Type))) ;; TODO Should this be the global hierarchy?
 
 ;; Union Type
+
+(declare union?)
 
 (def-type-constructor 
   Union 
@@ -34,10 +43,20 @@
 
   Object
   (toString [_] (str "(Un " (apply str (interpose " " elems)) ")"))
-  (equals [_ that] (= (.elems ^Union that) elems)))
+  (equals [_ that] (and (union? that)
+                        (= (.elems ^Union that) elems)))
+  
+  IType
+  (subtype [this super]
+            (if (union? super)
+              (every? true? (map #(subtype %1 super) elems))
+              false)))
+
+(defn union? [a]
+  (instance? Union a))
 
 (defn Un [& types]
-  (->Union types))
+  (->Union types)) ;; TODO sort types uniformly
 
 ;; Numeric Types
 
@@ -47,21 +66,31 @@
   [(symbol? name)]
   
   Object
-  (toString [_] (str name)))
+  (toString [_] (str name))
+  (equals [this that] (identical? this that))
+  
+  IType
+  (subtype [this super]
+            (cond 
+              (= this super) true
+              (union? super) (boolean (some true? (map #(subtype this %1) (.elems ^Union super))))
+              :else false)))
 
 (def Zero (->Base 'Zero #(= 0 %1)))
-(def One  (->Base 'One #(= 1 %1)))
 (def PositiveInteger (->Base 'PositiveInteger (comp pos? integer?)))
 (def NegativeInteger (->Base 'NegativeInteger (comp neg? integer?)))
 
 (def IntegerT (Un NegativeInteger Zero PositiveInteger))
 (def FloatT (->Base 'FloatT float?))
 
+;; TODO subtyping for TopT
 (def TopT (->Base 'TopT (constantly true)))
 
 (def NumberT (Un IntegerT FloatT))
 
 ;; Functions
+
+(declare arity?)
 
 (c/defconstrainedtype 
   Arity 
@@ -71,11 +100,42 @@
   
   Object
   (toString [_] (apply str (concat (apply str (interpose " " dom)) (str " -> " rng))))
-  (equals [_ that] (and (= (.dom that) dom)
-                        (= (.rng that) rng))))
+  (equals [_ that] (and (arity? that)
+                        (= (.dom that) dom)
+                        (= (.rng that) rng)))
+
+  ;; TODO copied from def-type, should refactor out
+  java.lang.Comparable
+  (compareTo [this that]
+             (cond
+               (= this that) 0
+               (subtype this that) -1
+               :else 1))
+
+  IType
+  (subtype [this supertype]
+           (if (arity? supertype)
+             ;; One function type is a subtype of another if they have the same number of arguments, 
+             ;; the subtype’s arguments are more permissive (is a supertype), and the subtype’s 
+             ;; result type is less permissive (is a subtype). 
+             ;; For example, (Any -> String) is a subtype of (Number -> (U String #f)).
+             (or (= this supertype)
+                 (let [sub-dom dom
+                       sub-rng rng
+                       sup-dom (.dom ^Arity supertype)
+                       sup-rng (.rng ^Arity supertype)]
+                   (and (= (count sub-dom)
+                           (count sup-dom))
+                        (= sub-rng
+                           sup-rng)
+                        (every? true? (map subtype sup-dom sub-dom))
+                        (subtype sub-rng sup-rng))))
+             false)))
 
 (defn arity? [a]
   (instance? Arity a))
+
+(declare function?)
 
 (def-type-constructor 
   Function 
@@ -83,27 +143,50 @@
   [(every? arity? arrs)]
   
   Object
-  (toString [_] (apply str (interpose " , " (map str arrs))))
-  (equals [_ that] (= (.arrs that) arrs)))
+  (toString [_] (str "(Fn " (apply str (map #(str "(" %1 ")") arrs)) ")"))
+  (equals [_ that] (and (function? that)
+                        (= (.arrs that) arrs)))
+  
+  IType
+  (subtype [this supertype]
+           (if (function? supertype)
+             ;; One function type is a subtype of another if they have the same number of arguments, 
+             ;; the subtype’s arguments are more permissive (is a supertype), and the subtype’s 
+             ;; result type is less permissive (is a subtype). 
+             ;; For example, (Any -> String) is a subtype of (Number -> (U String #f)).
+             (let [sub-arrs (sort arrs)
+                   sup-arrs (sort (.arrs ^Function supertype))]
+               (and (= (count sub-arrs)
+                       (count sup-arrs))
+                    (every? true? (map subtype sub-arrs sup-arrs))))
+             false)))
+
+(defn function? [a]
+  (instance? Function a))
 
 ;; Type ann database
 
-(def type-anns (atom {}))
-
 (defn add-type-ann! [id type]
-  (swap! type-anns assoc id type))
+  (assert (var? id))
+  (assert (type? type))
+  (alter-meta! id assoc ::type type))
 
 (defn lookup-type [id]
-  (if-let [t (@type-anns id)]
+  (assert (var? id))
+  (if-let [t (-> id meta ::type)]
     t
     (throw (Exception. (str "No type annotation for " id)))))
 
 (def ^:dynamic *local-type-env* {})
 
 (defn lookup-local-type [id]
+  (assert (symbol? id))
   (*local-type-env* id))
 
 (defn extend-local-type-env [id type]
+  (assert (and (not (namespace id))
+               (symbol? id)))
+  (assert (type? type))
   (assoc *local-type-env* id type))
 
 ;; Primitives
@@ -123,26 +206,25 @@
 (defn type-check* [exp-obj]
   (case (:op exp-obj)
     :constant (let [f (:form exp-obj)]
-                (cond (integer? f) IntegerT
+                (cond (zero? f) Zero
+                      (integer? f) IntegerT
                       (float? f) FloatT
                       (number? f) NumberT
                       :else TopT))
 
     :var (if-let [t (lookup-local-type (:form exp-obj))]
            t
-           (lookup-type (:form exp-obj)))
+           (lookup-type (resolve (:form exp-obj))))
 
-    :def (let [id (-> (:form exp-obj) second symbol-ns)
+    :def (let [id-var (-> (:form exp-obj) second resolve)
                body (:init exp-obj)
-               id-type (lookup-type id)
+               id-type (lookup-type id-var)
                _ (assert id-type)]
            (type-check body id-type))
 
     :if (let [then-type (type-check (:then exp-obj))
               else-type (type-check (:else exp-obj))]
-          (when-not (= then-type else-type) ;; TODO subtyping
-            (type-error "Expected: " then-type " Found: " else-type))
-          else-type)
+          (Un then-type else-type))
 
     :fn (let [methods (:methods exp-obj)
               arities (doall
@@ -172,8 +254,6 @@
     (throw (Exception. (str exp-obj)))
     ))
 
-
-
 ;; Languages as Libraries, Sam TH
 (defn type-check 
   "Type check a form returned from analyze"
@@ -181,8 +261,8 @@
    (type-check* exp-obj))
   ([exp-obj expected-type]
    (let [t (type-check* exp-obj)]
-     (when-not (= t expected-type) ;; TODO subtyping
-       (type-error "Expected " expected-type " found " t))
+     (when-not (subtype t expected-type)
+       (type-error "Not a subtype: " t ", " expected-type))
      t)))
 
 
@@ -216,7 +296,7 @@
       (map prepare-method body (.arrs type))))) ;; Multi arity
 
 (defmacro defn-T [name & body]
-  (let [type (lookup-type (symbol-ns name))
+  (let [type (lookup-type (resolve name))
         _ (assert type)]
     `(def-T ~name
        (fn-T ~@(add-fn-arg-types body type)))))
@@ -249,8 +329,12 @@
   a)
 
 (defmacro T [id _ type]
-  (add-type-ann! (symbol-ns id) (emit-type type))
-  nil)
+  (assert (symbol? id))
+  (let [id-var (if-let [n (namespace id)]
+                 (intern (symbol n) (symbol (name id)))
+                 (intern *ns* id))]
+    (add-type-ann! id-var (emit-type type))
+    id-var))
 
 ;; Examples
 
@@ -264,9 +348,11 @@
   (fn-T 
     ([[a :- IntegerT]] 1)))
 
-(T asdf :- (Fn (IntegerT -> IntegerT)))
+(T asdf :- (Fn (IntegerT -> IntegerT)
+               (IntegerT IntegerT -> IntegerT)))
 (defn-T asdf
-  ([a] 1))
+  ([a] 1)
+  ([a b] 3))
 
 (T a :- IntegerT)
 (def-T a 1)
@@ -276,9 +362,9 @@
   (fn-T 
     ([[a :- IntegerT]] 1)))
 
-(T clojure.core/+ :- (Fn (IntegerT IntegerT -> IntegerT)
-                         (FloatT FloatT -> FloatT)))
+(T clojure.core/inc :- (Fn (NumberT -> NumberT)))
+(T clojure.core/dec :- (Fn (NumberT -> NumberT)))
 
-(T test-def-plus :- IntegerT)
-(def-T test-def-plus
-  (clojure.core/+ "asdf" "asdf"))
+(T test-inc-dec :- IntegerT)
+(def-T test-inc-dec
+  (inc 1))
