@@ -310,20 +310,35 @@
             (vec (map prepare-param v)))
           (prepare-method [[args & rest]]
             (cons (prepare-arg-vector args) rest))]
-    (let [unqualified
-          (if (vector? (first body))
-            (prepare-method body)        ;; Single arity
-            (map prepare-method body))] ;; Multi arity
-      ;;TODO qualify symbols
-      unqualified)))
+    (if (vector? (first body))
+      (prepare-method body)        ;; Single arity
+      (map prepare-method body)))) ;; Multi arity
 
 (defmacro fn-T [& body]
-  `(fn* ~@(normalize-fn-arg-types body))) ;; TODO should fn be a special form?
+  `(fn ~@(normalize-fn-arg-types body))) ;; TODO should fn be a special form?
 
-;; TODO
+(defn normalize-lhs [lhs]
+  (letfn [(normalize-type-syntax [form]
+            (if (and (vector? form)
+                     (= (second form) :-))
+              (let [[name _ type] form]
+                (with-meta name {:analyze {::type (emit-type type)}}))
+              form))]
+    (walk/walk normalize-type-syntax normalize-type-syntax lhs)))
+
+
+(defn normalize-bindings-vector 
+  "Convert binding vector from [[a :- IntegerT] 1] to [^{:analyze {::type IntegerT}} a 1]
+  Handles destructuring"
+  [bind-v]
+  (let [clauses (partition 2 bind-v)
+        norm-clauses (map (fn [[lhs rhs]]
+                            [(normalize-lhs lhs) rhs])
+                          clauses)]
+    (vec (apply concat norm-clauses))))
+
 (defmacro let-T [bindings & body]
-  `(let ~@(normalize-fn-arg-types body)
-     ))
+  `(let ~(normalize-bindings-vector bindings) ~@body))
 
 (fn-T [[a :- IntegerT]]
   a)
@@ -367,4 +382,7 @@
 
 (T test-inc-dec :- NumberT)
 (def-T test-inc-dec
-  (inc 1))
+  (let-T [[[a :- IntegerT]
+           [b :- IntegerT]] [1 2]
+          [a :- IntegerT] 1]
+    a))

@@ -895,9 +895,7 @@
 (defn get-expander [sym env]
   (let [mvar
         (when-not (-> env :locals sym)  ;locals hide macros
-          (if-let [nstr (namespace sym)]
-            (.findInternedVar ^clojure.lang.Namespace (find-ns (symbol nstr)) (symbol (name sym)))
-            (.findInternedVar ^clojure.lang.Namespace *ns* sym)))]
+          (resolve sym))]
     (when (and mvar (.isMacro ^clojure.lang.Var mvar))
       @mvar)))
 
