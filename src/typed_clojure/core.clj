@@ -365,6 +365,6 @@
 (T clojure.core/inc :- (Fn (NumberT -> NumberT)))
 (T clojure.core/dec :- (Fn (NumberT -> NumberT)))
 
-(T test-inc-dec :- IntegerT)
+(T test-inc-dec :- NumberT)
 (def-T test-inc-dec
   (inc 1))
