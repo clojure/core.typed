@@ -92,6 +92,7 @@
 
 (declare arity?)
 
+;; Arity is not a type
 (c/defconstrainedtype 
   Arity 
   [dom rng]
@@ -188,13 +189,6 @@
   (throw (Exception. (apply str msg))))
 
 (declare type-check)
-
-(defn type-of 
-  "Get the type of a binding from metadata"
-  [id]
-  (if-let [t (-> id meta ::type)]
-    t
-    (throw (Exception. (str "untyped variable" id)))))
 
 (defn type-check* [exp-obj]
   (case (:op exp-obj)
@@ -352,11 +346,6 @@
     id-var))
 
 ;; Examples
-
-;(let-T [[^{:T IntegerT} a 
-;        ^{:T Integer} b] [1 2]
-;       ^{:T FloatT} c 2.3]
-;  c)
 
 (T test-typed-def-fn :- (Fn (IntegerT -> IntegerT)))
 (def-T test-typed-def-fn
