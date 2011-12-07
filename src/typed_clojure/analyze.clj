@@ -10,13 +10,14 @@
 
 (ns typed-clojure.analyze
   (:refer-clojure :exclude [munge macroexpand-1])
-  (:require [clojure.java.io :as io]
+  (:require [typed-clojure.types :as t]
+            [clojure.java.io :as io]
             [clojure.string :as string]))
 
 (declare resolve-var)
 
-(defonce namespaces (atom '{clojure.core {:name cljs.core}
-                            clojure.user {:name cljs.user}}))
+(defonce namespaces (atom '{clojure.core {:name clojure.core}
+                            clojure.user {:name clojure.user}}))
 
 (def ^:dynamic *analyzer-ns* 'clojure.user)
 
@@ -133,7 +134,7 @@
 (defmethod parse 'T
   [op env [_ id _ type-syntax :as form] _]
   (resolve id)
-  (let [type (typed-clojure.core/emit-type type-syntax)]
+  (let [type (t/emit-type type-syntax)]
     (if-let [nid (symbol (namespace id))]
       (swap! namespaces assoc-in [nid :type id] type)
       (swap! namespaces assoc-in [(-> env :ns :name) :type id] type))

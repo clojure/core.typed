@@ -1,180 +1,15 @@
 (ns typed-clojure.core
   (:require [typed-clojure.analyze :as analyze]
+            [typed-clojure.types :as t]
             [clojure.walk :as walk]
-            [trammel.core :as c]))
-
-;; Primitives
-
-(def ^:dynamic *type-check* false)
-
-(def Type ::Type)
-
-(defprotocol IType
-  (type-fields [this])
-  (type-predicate [this])
-  (subtype [this super]))
-
-(defn type? [t]
-  (isa? (class t) Type))
-
-(defmacro def-type-constructor [name fields contracts & body]
-  `(do
-     (c/defconstrainedtype ~name
-                           ~fields
-                           ~contracts
-
-                           java.lang.Comparable
-                           (compareTo [this# that#]
-                                      (cond
-                                        (= this# that#) 0
-                                        (subtype this# that#) -1
-                                        :else 1))
-                           ~@body)
-     (derive ~name Type))) ;; TODO Should this be the global hierarchy?
-
-;; Union Type
-
-(declare union?)
-
-(def-type-constructor 
-  Union 
-  [elems]
-  [(every? type? elems)]
-
-  Object
-  (toString [_] (str "(Un " (apply str (interpose " " elems)) ")"))
-  (equals [_ that] (and (union? that)
-                        (= (.elems ^Union that) elems)))
-  
-  IType
-  (subtype [this super]
-            (if (union? super)
-              (every? true? (map #(subtype %1 super) elems))
-              false)))
-
-(defn union? [a]
-  (instance? Union a))
-
-(defn Un [& types]
-  (->Union types)) ;; TODO sort types uniformly
-
-;; Numeric Types
-
-(def-type-constructor 
-  Base 
-  [name pred]
-  [(symbol? name)]
-  
-  Object
-  (toString [_] (str name))
-  (equals [this that] (identical? this that))
-  
-  IType
-  (subtype [this super]
-            (cond 
-              (= this super) true
-              (union? super) (boolean (some true? (map #(subtype this %1) (.elems ^Union super))))
-              :else false)))
-
-(def Zero (->Base 'Zero #(= 0 %1)))
-(def PositiveInteger (->Base 'PositiveInteger (comp pos? integer?)))
-(def NegativeInteger (->Base 'NegativeInteger (comp neg? integer?)))
-
-(def IntegerT (Un NegativeInteger Zero PositiveInteger))
-(def FloatT (->Base 'FloatT float?))
-
-;; TODO subtyping for TopT
-(def TopT (->Base 'TopT (constantly true)))
-
-(def NumberT (Un IntegerT FloatT))
-
-;; Functions
-
-(declare arity?)
-
-;; Arity is not a type
-(c/defconstrainedtype 
-  Arity 
-  [dom rng]
-  [(every? type? dom)
-   (type? rng)]
-  
-  Object
-  (toString [_] (apply str (concat (apply str (interpose " " dom)) (str " -> " rng))))
-  (equals [_ that] (and (arity? that)
-                        (= (.dom that) dom)
-                        (= (.rng that) rng)))
-
-  ;; TODO copied from def-type, should refactor out
-  java.lang.Comparable
-  (compareTo [this that]
-             (cond
-               (= this that) 0
-               (subtype this that) -1
-               :else 1))
-
-  IType
-  (subtype [this supertype]
-           (if (arity? supertype)
-             ;; One function type is a subtype of another if they have the same number of arguments, 
-             ;; the subtype’s arguments are more permissive (is a supertype), and the subtype’s 
-             ;; result type is less permissive (is a subtype). 
-             ;; For example, (Any -> String) is a subtype of (Number -> (U String #f)).
-             (or (= this supertype)
-                 (let [sub-dom dom
-                       sub-rng rng
-                       sup-dom (.dom ^Arity supertype)
-                       sup-rng (.rng ^Arity supertype)]
-                   (and (= (count sub-dom)
-                           (count sup-dom))
-                        (= sub-rng
-                           sup-rng)
-                        (every? true? (map subtype sup-dom sub-dom))
-                        (subtype sub-rng sup-rng))))
-             false)))
-
-(defn arity? [a]
-  (instance? Arity a))
-
-(declare function?)
-
-(def-type-constructor 
-  Function 
-  [arrs]
-  [(every? arity? arrs)]
-  
-  Object
-  (toString [_] (str "(Fn " (apply str (map #(str "(" %1 ")") arrs)) ")"))
-  (equals [_ that] (and (function? that)
-                        (= (.arrs that) arrs)))
-  
-  IType
-  (subtype [this supertype]
-           (if (function? supertype)
-             ;; One function type is a subtype of another if they have the same number of arguments, 
-             ;; the subtype’s arguments are more permissive (is a supertype), and the subtype’s 
-             ;; result type is less permissive (is a subtype). 
-             ;; For example, (Any -> String) is a subtype of (Number -> (U String #f)).
-             (let [sub-arrs (sort arrs)
-                   sup-arrs (sort (.arrs ^Function supertype))]
-               (and (= (count sub-arrs)
-                       (count sup-arrs))
-                    (every? true? (map subtype sub-arrs sup-arrs))))
-             false)))
-
-(defn function? [a]
-  (instance? Function a))
+            [trammel.core :as c])
+  (:import [typed_clojure.types Arity Function]))
 
 ;; Type ann database
 
-(defn add-type-ann! [id type]
-  (assert (var? id))
-  (assert (type? type))
-  (alter-meta! id assoc ::type type))
-
 (defn lookup-type [id]
-  (@analyze/namespaces *ns*
-    (throw (Exception. (str "No type annotation for " id)))))
+;  (@analyze/namespaces *ns* 
+    (throw (Exception. (str "No type annotation for " id))))
 
 (defn lookup-local-type [env id]
   (assert (symbol? id))
@@ -190,11 +25,11 @@
 (defn type-check* [exp-obj]
   (case (:op exp-obj)
     :constant (let [f (:form exp-obj)]
-                (cond (zero? f) Zero
-                      (integer? f) IntegerT
-                      (float? f) FloatT
-                      (number? f) NumberT
-                      :else TopT))
+                (cond (zero? f) t/Zero
+                      (integer? f) t/IntegerT
+                      (float? f) t/FloatT
+                      (number? f) t/NumberT
+                      :else t/TopT))
 
     :var (if-let [t (lookup-local-type (:env exp-obj) (:form exp-obj))]
            t
@@ -208,7 +43,7 @@
 
     :if (let [then-type (type-check (:then exp-obj))
               else-type (type-check (:else exp-obj))]
-          (Un then-type else-type))
+          (t/Un then-type else-type))
 
     :fn (let [arities (doall
                         (map (fn [{params :params variadic :variadic ret :ret}]
@@ -216,9 +51,9 @@
                                (let [arg-types (doall (map (comp ::type meta) params))
                                      rng (type-check ret)]
                                  ;; TODO side effects from body
-                                 (->Arity arg-types rng)))
+                                 (t/->Arity arg-types rng)))
                              (:methods exp-obj)))]
-          (->Function arities))
+          (t/->Function arities))
 
     :invoke (let [invoked-fn-type (type-check (-> exp-obj :f))
                   actual-args (-> exp-obj :args)
@@ -249,7 +84,7 @@
    (type-check* exp-obj))
   ([exp-obj expected-type]
    (let [t (type-check* exp-obj)]
-     (when-not (subtype t expected-type)
+     (when-not (t/subtype t expected-type)
        (type-error "Not a subtype: " t ", " expected-type))
      t)))
 
@@ -260,15 +95,6 @@
     (str t)))
 
 ;; Frontend
-
-(defn emit-type [t]
-  (cond
-    (type? t) t
-    (symbol? t) (-> t resolve deref)
-    (= 'Un (first t)) (apply Un (map emit-type (rest t)))   ;; Union
-    (= 'Fn (first t)) (->Function (map emit-type (rest t))) ;; Function
-    (= '-> (-> t butlast last)) (->Arity (map emit-type (-> t butlast butlast)) (emit-type (last t)))   ;; Arity
-    :else (assert (symbol? t) (str "Invalid type syntax " t))))
 
 (defmacro def-T [name & body]
   `(def ~name ~@body))
@@ -296,7 +122,7 @@
   "Convert fn body from (fn [[arg :- type]] ...) to (fn [^{::type type} name] ..)"
   [body]
   (letfn [(prepare-param [[name _ type]]
-            (with-meta name (merge {::type (emit-type type)} (meta name))))
+            (with-meta name (merge {::type (t/emit-type type)} (meta name))))
           (prepare-arg-vector [v]
             (vec (map prepare-param v)))
           (prepare-method [[args & rest]]
@@ -313,7 +139,7 @@
             (if (and (vector? form)
                      (= (second form) :-))
               (let [[name _ type] form]
-                (with-meta name (merge {::type (emit-type type)} (meta name))))
+                (with-meta name (merge {::type (t/emit-type type)} (meta name))))
               form))]
     (walk/walk normalize-type-syntax normalize-type-syntax lhs)))
 
@@ -350,3 +176,5 @@
         {:ns (or ns-name 'clojure.user)
          :provides [ns-name]
          :requires (if (= ns-name 'cljs.core) (set (vals deps)) (conj (set (vals deps)) 'cljs.core))})))) ;; TODO this line ?
+
+;(analyze-file "src/typed_clojure/test.clj")
