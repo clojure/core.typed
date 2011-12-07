@@ -177,17 +177,10 @@
     t
     (throw (Exception. (str "No type annotation for " id)))))
 
-(def ^:dynamic *local-type-env* {})
-
-(defn lookup-local-type [id]
+(defn lookup-local-type [env id]
   (assert (symbol? id))
-  (*local-type-env* id))
-
-(defn extend-local-type-env [id type]
-  (assert (and (not (namespace id))
-               (symbol? id)))
-  (assert (type? type))
-  (assoc *local-type-env* id type))
+  (when-not (namespace id)
+    (-> env :locals (find id) key meta ::type)))
 
 ;; Primitives
 
@@ -212,7 +205,7 @@
                       (number? f) NumberT
                       :else TopT))
 
-    :var (if-let [t (lookup-local-type (:form exp-obj))]
+    :var (if-let [t (lookup-local-type (:env exp-obj) (:form exp-obj))]
            t
            (lookup-type (resolve (:form exp-obj))))
 
@@ -226,18 +219,14 @@
               else-type (type-check (:else exp-obj))]
           (Un then-type else-type))
 
-    :fn (let [methods (:methods exp-obj)
-              arities (doall
+    :fn (let [arities (doall
                         (map (fn [{params :params variadic :variadic ret :ret}]
                                (assert (not variadic) "Variadic functions not yet supported")
-                               (let [arg-types (doall (map (comp ::type meta) params)) ;; TODO bleh, store actual type in metadata
-                                     local-type-env (merge (map extend-local-type-env params arg-types))]
-                                 (binding [*local-type-env* local-type-env]
-                                   ;; TODO type check each form in the body, while accumulating local type env ...
-                                   (let [rng (type-check ret)
-                                         a (->Arity arg-types rng)]
-                                     a))))
-                             methods))]
+                               (let [arg-types (doall (map (comp ::type meta) params))
+                                     rng (type-check ret)]
+                                 ;; TODO side effects from body
+                                 (->Arity arg-types rng)))
+                             (:methods exp-obj)))]
           (->Function arities))
 
     :invoke (let [invoked-fn-type (type-check (-> exp-obj :f))
@@ -251,7 +240,13 @@
                   _ (map type-check actual-args (.dom ^Arity same-arity-type))
                   rng (.rng ^Arity same-arity-type)]
               rng)
-    (throw (Exception. (str exp-obj)))
+
+    :let (if-not (:loop exp-obj)
+           ;TODO side effects from body
+           (type-check (:ret exp-obj))
+           (throw (Exception. ":loop not implemented")))
+
+    (throw (Exception. (str (:op exp-obj) " not implemented, fell through")))
     ))
 
 ;; Languages as Libraries, Sam TH
@@ -264,6 +259,11 @@
      (when-not (subtype t expected-type)
        (type-error "Not a subtype: " t ", " expected-type))
      t)))
+
+(defmacro type-check-form
+  "For debugging"
+  [form]
+  `(type-check (cljs/analyze {} '~form)))
 
 
 ;; Frontend
@@ -302,10 +302,10 @@
        (fn-T ~@(add-fn-arg-types body type)))))
 
 (defn normalize-fn-arg-types
-  "Convert fn body from (fn [[arg :- type]] ...) to (fn [^{:analyze {::type type} name] ..)"
+  "Convert fn body from (fn [[arg :- type]] ...) to (fn [^{::type type} name] ..)"
   [body]
   (letfn [(prepare-param [[name _ type]]
-            (with-meta name {:analyze {::type (emit-type type)}}))
+            (with-meta name (merge {::type (emit-type type)} (meta name))))
           (prepare-arg-vector [v]
             (vec (map prepare-param v)))
           (prepare-method [[args & rest]]
@@ -322,13 +322,13 @@
             (if (and (vector? form)
                      (= (second form) :-))
               (let [[name _ type] form]
-                (with-meta name {:analyze {::type (emit-type type)}}))
+                (with-meta name (merge {::type (emit-type type)} (meta name))))
               form))]
     (walk/walk normalize-type-syntax normalize-type-syntax lhs)))
 
 
 (defn normalize-bindings-vector 
-  "Convert binding vector from [[a :- IntegerT] 1] to [^{:analyze {::type IntegerT}} a 1]
+  "Convert binding vector from [[a :- IntegerT] 1] to [^{::type IntegerT} a 1]
   Handles destructuring"
   [bind-v]
   (let [clauses (partition 2 bind-v)
