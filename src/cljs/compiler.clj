@@ -808,7 +808,7 @@
                                                    (map vector expr (repeat lib)))))
                                            libs))))
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
-    (set! *cljs-ns* name)
+;    (set! *cljs-ns* name)
     (require 'clojure.core)
     (doseq [nsym (concat (vals requires-macros) (vals uses-macros))]
       (clojure.core/require nsym))

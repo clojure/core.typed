@@ -1,9 +1,11 @@
 (ns typed-clojure.core
-  (:require [cljs.compiler :as cljs]
+  (:require [typed-clojure.analyze :as analyze]
             [clojure.walk :as walk]
             [trammel.core :as c]))
 
 ;; Primitives
+
+(def ^:dynamic *type-check* false)
 
 (def Type ::Type)
 
@@ -14,8 +16,6 @@
 
 (defn type? [t]
   (isa? (class t) Type))
-
-
 
 (defmacro def-type-constructor [name fields contracts & body]
   `(do
@@ -173,15 +173,12 @@
   (alter-meta! id assoc ::type type))
 
 (defn lookup-type [id]
-  (assert (var? id))
-  (if-let [t (-> id meta ::type)]
-    t
+  (@analyze/namespaces *ns*
     (throw (Exception. (str "No type annotation for " id)))))
 
 (defn lookup-local-type [env id]
   (assert (symbol? id))
-  (when-not (namespace id)
-    (-> env :locals (find id) key meta ::type)))
+  (analyze/resolve-var env id))
 
 ;; Primitives
 
@@ -240,7 +237,9 @@
            (type-check (:ret exp-obj))
            (throw (Exception. ":loop not implemented")))
 
-    (throw (Exception. (str (:op exp-obj) " not implemented, fell through")))
+    :ns nil ;;todo
+
+    (throw (Exception. (str (:op exp-obj) " not implemented, fell through" exp-obj)))
     ))
 
 ;; Languages as Libraries, Sam TH
@@ -257,8 +256,8 @@
 (defmacro type-check-form
   "For debugging"
   [form]
-  `(type-check (cljs/analyze {} '~form)))
-
+  (let [t (type-check (analyze/analyze {} form))]
+    (str t)))
 
 ;; Frontend
 
@@ -272,9 +271,7 @@
     :else (assert (symbol? t) (str "Invalid type syntax " t))))
 
 (defmacro def-T [name & body]
-  (let [form `(def ~name ~@body)]
-    (type-check (cljs/analyze {} form))
-    form))
+  `(def ~name ~@body))
 
 (defn add-fn-arg-types 
   "Convert fn body from (fn [arg] ..) to (fn [[arg :- type]] ..)"
@@ -286,14 +283,14 @@
           (prepare-method [[args & rest] ^Arity mtype]
             (cons (prepare-arg-vector args (.dom mtype)) rest))]
     (if (vector? (first body))
-      (prepare-method body type)                ;; Single arity
+      (do
+        (assert (= 1 (count (.arrs type)))) ;; Assume only one arity
+        (prepare-method body (first (.arrs type))))                ;; Single arity)
       (map prepare-method body (.arrs type))))) ;; Multi arity
 
 (defmacro defn-T [name & body]
-  (let [type (lookup-type (resolve name))
-        _ (assert type)]
-    `(def-T ~name
-       (fn-T ~@(add-fn-arg-types body type)))))
+  `(def-T ~name
+     (fn-T ~@(add-fn-arg-types body type))))
 
 (defn normalize-fn-arg-types
   "Convert fn body from (fn [[arg :- type]] ...) to (fn [^{::type type} name] ..)"
@@ -309,7 +306,7 @@
       (map prepare-method body)))) ;; Multi arity
 
 (defmacro fn-T [& body]
-  `(fn ~@(normalize-fn-arg-types body))) ;; TODO should fn be a special form?
+  `(fn* ~@(normalize-fn-arg-types body))) ;; TODO should fn be a special form?
 
 (defn normalize-lhs [lhs]
   (letfn [(normalize-type-syntax [form]
@@ -334,44 +331,22 @@
 (defmacro let-T [bindings & body]
   `(let ~(normalize-bindings-vector bindings) ~@body))
 
-(fn-T [[a :- IntegerT]]
-  a)
+(defmacro T [id _ type])
 
-(defmacro T [id _ type]
-  (assert (symbol? id))
-  (let [id-var (if-let [n (namespace id)]
-                 (intern (symbol n) (symbol (name id)))
-                 (intern *ns* id))]
-    (add-type-ann! id-var (emit-type type))
-    id-var))
+;; Frontend type checker
 
-;; Examples
-
-(T test-typed-def-fn :- (Fn (IntegerT -> IntegerT)))
-(def-T test-typed-def-fn
-  (fn-T 
-    ([[a :- IntegerT]] 1)))
-
-(T asdf :- (Fn (IntegerT -> IntegerT)
-               (IntegerT IntegerT -> IntegerT)))
-(defn-T asdf
-  ([a] 1)
-  ([a b] 3))
-
-(T a :- IntegerT)
-(def-T a 1)
-
-(T test-typed-def-fn :- (Fn (IntegerT -> IntegerT)))
-(def-T test-typed-def-fn
-  (fn-T 
-    ([[a :- IntegerT]] 1)))
-
-(T clojure.core/inc :- (Fn (NumberT -> NumberT)))
-(T clojure.core/dec :- (Fn (NumberT -> NumberT)))
-
-(T test-inc-dec :- NumberT)
-(def-T test-inc-dec
-  (let-T [[[a :- IntegerT]
-           [b :- IntegerT]] [1 2]
-          [a :- IntegerT] 1]
-    a))
+(defn analyze-file [src]
+  (binding [analyze/*analyzer-ns* 'clojure.user]
+    (loop [forms (analyze/forms-seq src)
+           ns-name nil
+           deps nil]
+      (if (seq forms)
+        (let [env {:ns (@analyze/namespaces analyze/*analyzer-ns*) :context :statement :locals {}}
+              ast (analyze/analyze env (first forms))]
+          (do (type-check ast)
+              (if (= (:op ast) :ns)
+                (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
+                (recur (rest forms) ns-name deps))))
+        {:ns (or ns-name 'clojure.user)
+         :provides [ns-name]
+         :requires (if (= ns-name 'cljs.core) (set (vals deps)) (conj (set (vals deps)) 'cljs.core))})))) ;; TODO this line ?
