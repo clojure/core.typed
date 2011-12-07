@@ -74,6 +74,8 @@
 
     :ns nil ;;todo
 
+    :T nil
+
     (throw (Exception. (str (:op exp-obj) " not implemented, fell through" exp-obj)))
     ))
 
@@ -107,7 +109,7 @@
           (prepare-arg-vector [v atypes]
             (vec (map prepare-param v atypes)))
           (prepare-method [[args & rest] ^Arity mtype]
-            (cons (prepare-arg-vector args (.dom mtype)) rest))]
+            (cons (prepare-arg-vector args (.dom ^Arity mtype)) rest))]
     (if (vector? (first body))
       (do
         (assert (= 1 (count (.arrs type)))) ;; Assume only one arity
@@ -122,7 +124,7 @@
   "Convert fn body from (fn [[arg :- type]] ...) to (fn [^{::type type} name] ..)"
   [body]
   (letfn [(prepare-param [[name _ type]]
-            (with-meta name (merge {::type (t/emit-type type)} (meta name))))
+            (with-meta name (merge {::type (eval type)} (meta name))))
           (prepare-arg-vector [v]
             (vec (map prepare-param v)))
           (prepare-method [[args & rest]]
@@ -139,7 +141,7 @@
             (if (and (vector? form)
                      (= (second form) :-))
               (let [[name _ type] form]
-                (with-meta name (merge {::type (t/emit-type type)} (meta name))))
+                (with-meta name (merge {::type (eval type)} (meta name))))
               form))]
     (walk/walk normalize-type-syntax normalize-type-syntax lhs)))
 
@@ -157,7 +159,7 @@
 (defmacro let-T [bindings & body]
   `(let ~(normalize-bindings-vector bindings) ~@body))
 
-(defmacro T [id _ type])
+(defn T [id])
 
 ;; Frontend type checker
 
@@ -176,5 +178,11 @@
         {:ns (or ns-name 'clojure.user)
          :provides [ns-name]
          :requires (if (= ns-name 'cljs.core) (set (vals deps)) (conj (set (vals deps)) 'cljs.core))})))) ;; TODO this line ?
+
+(binding [analyze/*analyzer-ns* 'clojure.user]
+  (analyze/analyze {}
+                   '(ns typed-clojure.test
+                      (:use [typed-clojure.core]
+                            [typed-clojure.types]))))
 
 ;(analyze-file "src/typed_clojure/test.clj")

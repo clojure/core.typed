@@ -161,13 +161,7 @@
 (defn function? [a]
   (instance? Function a))
 
-;; Utilities
-
-(defn emit-type [t]
-  (cond
-    (type? t) t
-    (symbol? t) (-> t resolve deref)
-    (= 'Un (first t)) (apply Un (map emit-type (rest t)))   ;; Union
-    (= 'Fn (first t)) (->Function (map emit-type (rest t))) ;; Function
-    (= '-> (-> t butlast last)) (->Arity (map emit-type (-> t butlast butlast)) (emit-type (last t)))   ;; Arity
-    :else (assert (symbol? t) (str "Invalid type syntax " t))))
+(defn Fn [& arities]
+  (->Function (map (fn [t] 
+                     (->Arity (-> t butlast butlast) (last t)))
+                   arities)))

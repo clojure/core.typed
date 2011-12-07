@@ -132,12 +132,15 @@
 (defmulti parse (fn [op & rest] op))
 
 (defmethod parse 'T
-  [op env [_ id _ type-syntax :as form] _]
-  (resolve id)
-  (let [type (t/emit-type type-syntax)]
-    (if-let [nid (symbol (namespace id))]
-      (swap! namespaces assoc-in [nid :type id] type)
-      (swap! namespaces assoc-in [(-> env :ns :name) :type id] type))
+  [op env [_ id :as form] _]
+  (let [type (-> id meta :type)]
+    (println id type)
+    (if-let [nid (namespace (symbol id))]
+      (do (println "here")
+        (swap! namespaces assoc-in [(symbol nid) :type id] type))
+      (do (println "there")
+        (swap! namespaces assoc-in [(-> env :ns :name) :type id] type)
+        ))
     {:env env :op :T :form form :name id :type type}))
 
 (defmethod parse 'if
@@ -340,12 +343,17 @@
                   (assoc m k (into {}
                                    (mapcat (fn [[lib kw expr]]
                                              (case k
-                                               (:require :require-macros)
+                                               :require
                                                (do (assert (and expr (= :as kw))
                                                            "Only (:require [lib.ns :as alias]*) form of :require / :require-macros is supported")
                                                    [[expr lib]])
-                                               (:use :use-macros)
-                                               (do (map vector expr (repeat lib)))))
+                                               :use
+                                               (do (assert (or (and lib (not kw) (not expr))
+                                                               (and expr (= :only kw)))
+                                                           "Only (:use [lib.ns :only [names]]*) and (:use [lib.ns]) form of :use is supported")
+                                                 (cond
+                                                   (not kw) (map vector (keys (ns-publics lib)) (repeat lib))
+                                                   (= :only kw) (map vector expr (repeat lib))))))
                                            libs))))
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
     (set! *analyzer-ns* name)
