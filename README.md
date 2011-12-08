@@ -2,24 +2,53 @@
 
 Clojure with a type system. 
 
-# Thoughts
+## Utilizing the ClojureScript analyzer
 
-## First Steps
+Type checking will be performed a la carte. It will not be complected with compilation.
 
-Get a good feel for the implementation of Typed Racket.
+If a compelling reason is found to run type checking at compilation, it may be incorporated.
+But for now, a separate tool is both easier conceptually and in implementation.
 
-Study the goals of Typed Racket. Does this match up with Clojure? Typed Racket is
-aimed at providing a path to combine statically- and dynamically-typed code.
+(Thanks rhickey and dnolen for explaining this)
 
-Qi/Shen also has optional static typing.
+### Type checking usage
 
-## Implementation Hurdles
+Type checking could be performed at the REPL
 
-Currently there is no way to interface with the Clojure Compiler.
+```clojure
+(type-check "src/typed-clojure/test.clj")
+```
 
-The analysis phase is most useful with respect to a port of Typed Racket.
+This would trigger some preparatory events
 
-Here is a [discussion page](http://dev.clojure.org/display/design/Exposing+the+Compiler%27s+Analysis+Phase)
+- `clojure.core` is loaded into the analyzer's namespaces mechanism
+
+Types should be namespaced as usual.
+
+```clojure
+(ns typed-clojure.test
+  (:require [typed-clojure.types :as t]))
+```
+
+`T` form is for annotating global bindings.
+
+```
+(ns typed-clojure.test
+  (:require [typed-clojure.types :as t]))
+
+(t/T one :- t/IntegerT)
+(def one 1)
+```
+
+`T` is a noop during normal compilation. At type-checking time, it
+adds `:type` entry to the analyzer's namespace mechanism. For example, the
+previous example adds the following entry (roughly)
+
+```clojure
+{typed-clojure.test {:defs {one {:type typed-clojure.types/IntegerT}}}}
+```
+
+### 
 
 ## Clojure Type Hints
 
@@ -30,7 +59,7 @@ We should not reuse the syntax of type hints.
   (int a))
 ```
 
-Type hints are not type declarations, they are hints to the compiler.
+This seems like a role for a separate tool.
 
 ## Predicates and Occurances
 
