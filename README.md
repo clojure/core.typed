@@ -21,14 +21,9 @@ Type checking could be performed at the REPL
 
 This would trigger some preparatory events
 
-- `clojure.core` is loaded into the analyzer's namespaces mechanism
+- `clojure.core` is loaded into the analyzer's namespaces mechanism, if not already
 
 Types should be namespaced as usual.
-
-```clojure
-(ns typed-clojure.test
-  (:require [typed-clojure.types :as t]))
-```
 
 `T` form is for annotating global bindings.
 
@@ -41,14 +36,31 @@ Types should be namespaced as usual.
 ```
 
 `T` is a noop during normal compilation. At type-checking time, it
-adds `:type` entry to the analyzer's namespace mechanism. For example, the
+adds `:type` entry to the analyzer's namespacer. For example, the
 previous example adds the following entry (roughly)
 
 ```clojure
 {typed-clojure.test {:defs {one {:type typed-clojure.types/IntegerT}}}}
 ```
 
-### 
+### Resolving macroexpanders
+
+ClojureScript requires that macros from Clojure be imported explicitly via
+`:require-macros` and `:use-macros`. It a basically triggers a `require` of
+each namespace provided during analysis *in the Clojure environment*.
+
+Since we don't have such a directive in Clojure (`:require-macros`), we could `require` all `:use`d/`:require`d namespaces
+during analysis, as well as adding to the analyzer's namespacer (as usual).
+
+This would be compatible with ClojureScript's resolution of macroexpanders at analysis.
+
+This seems reasonable. An alternative might be for the analyzer's namespacer to be used for
+resolving macroexpanders. This is different from ClojureScript's approach, but may avoid some
+overhead with unnessessary `require`s. 
+
+I prefer the first option, it is compatible with the existing analyzer, and separates the roles of the
+analyzer namespacer (for analysis) and the Clojure namespacer (for macroexpanders). Though there are probably
+better justifications.
 
 ## Clojure Type Hints
 
