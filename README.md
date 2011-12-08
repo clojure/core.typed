@@ -62,6 +62,12 @@ I prefer the first option, it is compatible with the existing analyzer, and sepa
 analyzer namespacer (for analysis) and the Clojure namespacer (for macroexpanders). Though there are probably
 better justifications.
 
+### Defining Macros
+
+The ClojureScript analyzer does not understand how to define a macro during analysis.
+
+This is a problem when analyzing a file that defines macros it uses.
+
 ## Clojure Type Hints
 
 We should not reuse the syntax of type hints.

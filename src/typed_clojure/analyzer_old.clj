@@ -8,7 +8,7 @@
 
 (set! *warn-on-reflection* true)
 
-(ns typed-clojure.analyze
+(ns typed-clojure.analyzer-old
   (:refer-clojure :exclude [munge macroexpand-1])
   (:require [typed-clojure.types :as t]
             [clojure.java.io :as io]
@@ -350,10 +350,10 @@
                                                (do (assert (or (and lib (not kw) (not expr))
                                                                (and expr (= :only kw)))
                                                            "Only (:use [lib.ns :only [names]]*) and (:use [lib.ns]) form of :use is supported")
-                                                 (cond
-                                                   (not kw) (do (require lib)
-                                                                (map vector (keys (ns-publics lib)) (repeat lib)))
-                                                   (= :only kw) (map vector expr (repeat lib))))))
+                                                   (cond
+                                                     (not kw) (do (require lib)
+                                                                  (map vector (keys (ns-publics lib)) (repeat lib)))
+                                                     (= :only kw) (map vector expr (repeat lib))))))
                                            libs))))
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
     (set! *analyzer-ns* name)
@@ -412,9 +412,7 @@
       (assoc ret :op :var :info (resolve-existing-var env sym)))))
 
 (defn get-expander [sym env]
-  (let [mvar
-        (when-not (-> env :locals sym)  ;locals hide macros
-          (resolve sym))]
+  (let [mvar (resolve (resolve-existing-var env sym))]
     (when (and mvar (.isMacro ^clojure.lang.Var mvar))
       @mvar)))
 

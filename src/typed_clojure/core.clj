@@ -1,5 +1,5 @@
 (ns typed-clojure.core
-  (:require [typed-clojure.analyze :as analyze]
+  (:require [clojure-analyzer.compiler :as analyze]
             [typed-clojure.types :as t]
             [clojure.walk :as walk]
             [trammel.core :as c])
@@ -25,11 +25,11 @@
 (defn type-check* [exp-obj]
   (case (:op exp-obj)
     :constant (let [f (:form exp-obj)]
-                (cond (zero? f) t/Zero
-                      (integer? f) t/IntegerT
-                      (float? f) t/FloatT
-                      (number? f) t/NumberT
-                      :else t/TopT))
+                (cond (zero? f) t/+zero
+                      (integer? f) t/+integer
+                      (float? f) t/+float
+                      (number? f) t/+number
+                      :else t/+top))
 
     :var (if-let [t (lookup-local-type (:env exp-obj) (:form exp-obj))]
            t
@@ -43,7 +43,7 @@
 
     :if (let [then-type (type-check (:then exp-obj))
               else-type (type-check (:else exp-obj))]
-          (t/Un then-type else-type))
+          (t/+union then-type else-type))
 
     :fn (let [arities (doall
                         (map (fn [{params :params variadic :variadic ret :ret}]
@@ -159,30 +159,31 @@
 (defmacro let-T [bindings & body]
   `(let ~(normalize-bindings-vector bindings) ~@body))
 
-(defn T [id])
+(defmacro T [id syntax type]
+  nil)
 
 ;; Frontend type checker
 
-(defn analyze-file [src]
-  (binding [analyze/*analyzer-ns* 'clojure.user]
-    (loop [forms (analyze/forms-seq src)
-           ns-name nil
-           deps nil]
-      (if (seq forms)
-        (let [env {:ns (@analyze/namespaces analyze/*analyzer-ns*) :context :statement :locals {}}
-              ast (analyze/analyze env (first forms))]
-          (do (type-check ast)
-              (if (= (:op ast) :ns)
-                (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
-                (recur (rest forms) ns-name deps))))
-        {:ns (or ns-name 'clojure.user)
-         :provides [ns-name]
-         :requires (if (= ns-name 'cljs.core) (set (vals deps)) (conj (set (vals deps)) 'cljs.core))})))) ;; TODO this line ?
-
-(binding [analyze/*analyzer-ns* 'clojure.user]
-  (analyze/analyze {}
-                   '(ns typed-clojure.test
-                      (:use [typed-clojure.core]
-                            [typed-clojure.types]))))
-
+;(defn analyze-file [src]
+;  (binding [analyze/*analyzer-ns* 'clojure.user]
+;    (loop [forms (analyze/forms-seq src)
+;           ns-name nil
+;           deps nil]
+;      (if (seq forms)
+;        (let [env {:ns (@analyze/namespaces analyze/*analyzer-ns*) :context :statement :locals {}}
+;              ast (analyze/analyze env (first forms))]
+;          (do (type-check ast)
+;              (if (= (:op ast) :ns)
+;                (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
+;                (recur (rest forms) ns-name deps))))
+;        {:ns (or ns-name 'clojure.user)
+;         :provides [ns-name]
+;         :requires (if (= ns-name 'cljs.core) (set (vals deps)) (conj (set (vals deps)) 'cljs.core))})))) ;; TODO this line ?
+;
+;(binding [analyze/*analyzer-ns* 'clojure.user]
+;  (analyze/analyze {}
+;                   '(ns typed-clojure.test
+;                      (:use [typed-clojure.core]
+;                            [typed-clojure.types]))))
+;
 ;(analyze-file "src/typed_clojure/test.clj")

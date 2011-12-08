@@ -51,7 +51,7 @@
 (defn union? [a]
   (instance? Union a))
 
-(defn Un [& types]
+(defn +union [& types]
   (->Union types)) ;; TODO sort types uniformly
 
 ;; Numeric Types
@@ -72,17 +72,17 @@
               (union? super) (boolean (some true? (map #(subtype this %1) (.elems ^Union super))))
               :else false)))
 
-(def Zero (->Base 'Zero #(= 0 %1)))
-(def PositiveInteger (->Base 'PositiveInteger (comp pos? integer?)))
-(def NegativeInteger (->Base 'NegativeInteger (comp neg? integer?)))
+(def +zero (->Base 'Zero #(= 0 %1)))
+(def +positive-integer (->Base 'PositiveInteger (comp pos? integer?)))
+(def +negative-integer (->Base 'NegativeInteger (comp neg? integer?)))
 
-(def IntegerT (Un NegativeInteger Zero PositiveInteger))
-(def FloatT (->Base 'FloatT float?))
+(def +integer (+union +negative-integer +zero +positive-integer))
+(def +float (->Base 'FloatT float?))
 
 ;; TODO subtyping for TopT
-(def TopT (->Base 'TopT (constantly true)))
+(def +top (->Base 'TopT (constantly true)))
 
-(def NumberT (Un IntegerT FloatT))
+(def +number (+union +integer +float))
 
 ;; Functions
 
@@ -161,7 +161,7 @@
 (defn function? [a]
   (instance? Function a))
 
-(defn Fn [& arities]
+(defn +fn [& arities]
   (->Function (map (fn [t] 
                      (->Arity (-> t butlast butlast) (last t)))
                    arities)))
