@@ -134,13 +134,9 @@
 (defmethod parse 'T
   [op env [_ id :as form] _]
   (let [type (-> id meta :type)]
-    (println id type)
     (if-let [nid (namespace (symbol id))]
-      (do (println "here")
-        (swap! namespaces assoc-in [(symbol nid) :type id] type))
-      (do (println "there")
-        (swap! namespaces assoc-in [(-> env :ns :name) :type id] type)
-        ))
+      (swap! namespaces assoc-in [(symbol nid) :type id] type)
+      (swap! namespaces assoc-in [(-> env :ns :name) :type id] type))
     {:env env :op :T :form form :name id :type type}))
 
 (defmethod parse 'if
@@ -344,15 +340,19 @@
                                    (mapcat (fn [[lib kw expr]]
                                              (case k
                                                :require
-                                               (do (assert (and expr (= :as kw))
-                                                           "Only (:require [lib.ns :as alias]*) form of :require / :require-macros is supported")
-                                                   [[expr lib]])
+                                               (do (assert (or (and lib (not kw) (not expr))
+                                                               (and expr (= :as kw)))
+                                                           "Only (:require [lib.ns :as alias]*) and (:require [lib.ns]) form of :require is supported")
+                                                   (cond 
+                                                     (not kw) [[lib lib]]
+                                                     (= :only kw) [[expr lib]]))
                                                :use
                                                (do (assert (or (and lib (not kw) (not expr))
                                                                (and expr (= :only kw)))
                                                            "Only (:use [lib.ns :only [names]]*) and (:use [lib.ns]) form of :use is supported")
                                                  (cond
-                                                   (not kw) (map vector (keys (ns-publics lib)) (repeat lib))
+                                                   (not kw) (do (require lib)
+                                                                (map vector (keys (ns-publics lib)) (repeat lib)))
                                                    (= :only kw) (map vector expr (repeat lib))))))
                                            libs))))
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
@@ -364,14 +364,8 @@
                            (assoc-in [name :name] name)
                            (assoc-in [name :excludes] excludes)
                            (assoc-in [name :uses] uses)
-                           (assoc-in [name :requires] requires)
-                           (assoc-in [name :uses-macros] uses-macros)
-                           (assoc-in [name :requires-macros]
-                                     (into {} (map (fn [[alias nsym]]
-                                                     [alias (find-ns nsym)])
-                                                   requires-macros)))))
-    {:env env :op :ns :name name :uses uses :requires requires
-     :uses-macros uses-macros :requires-macros requires-macros :excludes excludes}))
+                           (assoc-in [name :requires] requires)))
+    {:env env :op :ns :name name :uses uses :requires requires :excludes excludes}))
 
 (defmethod parse 'deftype*
   [_ env [_ tsym fields] _]
