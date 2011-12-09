@@ -88,6 +88,9 @@
 
 (declare arity?)
 
+(defn space-sep [xs]
+  (apply str (interpose " " xs)))
+
 ;; Arity is not a type
 (c/defconstrainedtype 
   Arity 
@@ -96,7 +99,7 @@
    (type? rng)]
   
   Object
-  (toString [_] (apply str (concat (apply str (interpose " " dom)) (str " -> " rng))))
+  (toString [_] (apply str (concat (space-sep dom) (str " -> " rng))))
   (equals [_ that] (and (arity? that)
                         (= (.dom that) dom)
                         (= (.rng that) rng)))

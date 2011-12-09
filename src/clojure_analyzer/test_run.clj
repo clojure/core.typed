@@ -14,8 +14,8 @@
 
 (defn compile-file* [src dest]
   (with-core-clj
-    (with-open [out ^java.io.Writer (io/make-writer dest {})]
-      (binding [*out* out
+;    (with-open [out ^java.io.Writer (io/make-writer dest {})]
+      (binding [*out* *out*
                 a/*cljs-ns* 'clojure.user]
         (loop [forms (a/forms-seq src)
                ns-name nil
@@ -30,6 +30,8 @@
             {:ns (or ns-name 'clojure.user)
              :provides [ns-name]
              :requires (if (= ns-name 'clojure.core) (set (vals deps)) (conj (set (vals deps)) 'clojure.core))
-             :file dest}))))))
+             :file dest})))
+;    )
+  ))
 
 (compile-file* "src/clojure_analyzer/test.clj" "src/clojure_analyzer/output.clj")
