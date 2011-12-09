@@ -406,7 +406,7 @@
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
     (set! *cljs-ns* name)
 ;    (require 'cljs.core)
-    (doseq [nsym (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))]
+    (doseq [nsym (remove #(not= % 'clojure.core) (set (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))))]
       (analyze-namespace nsym))
     (swap! namespaces #(-> %
                            (assoc-in [name :name] name)
