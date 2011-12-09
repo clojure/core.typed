@@ -10,7 +10,10 @@
 
 (ns clojure-analyzer.compiler
   (:refer-clojure :exclude [munge macroexpand-1])
+  (:import (java.io LineNumberReader InputStreamReader PushbackReader)
+           (clojure.lang RT))
   (:require [clojure.java.io :as io]
+            [clojure.pprint :as pprint]
             [clojure.string :as string]))
 
 (declare resolve-var)
@@ -139,7 +142,7 @@
 
 (declare analyze analyze-symbol analyze-seq)
 
-(def specials '#{if def fn* do let* loop* throw try* recur new set! ns deftype* defrecord* . js* & quote})
+(def specials '#{defmacro if def fn* do let* loop* throw try* recur new set! ns deftype* defrecord* . js* & quote})
 
 (def ^:dynamic *recur-frames* nil)
 
@@ -157,6 +160,10 @@
     {:statements statements :ret ret :children (vec (cons ret statements))}))
 
 (defmulti parse (fn [op & rest] op))
+
+(defmethod parse 'defmacro
+  [op env form name]
+  {:env env :op :defmacro :form form})
 
 (defmethod parse 'if
   [op env [_ test then else :as form] name]
@@ -342,9 +349,15 @@
      (assert targetexpr "set! target must be a field or a symbol naming a var")
      {:env env :op :set! :target targetexpr :val valexpr :children [targetexpr valexpr]})))
 
+(declare analyze-namespace)
+
 (defmethod parse 'ns
   [_ env [_ name & args] _]
-  (let [excludes
+  (println name)
+  (let [args (if (string? (first args))
+               (rest args)
+               args)
+        excludes
         (reduce (fn [s [k exclude xs]]
                   (if (= k :refer-clojure)
                     (do
@@ -352,30 +365,53 @@
                       (into s xs))
                     s))
                 #{} args)
-        {uses :use requires :require uses-macros :use-macros requires-macros :require-macros :as params}
+        {imports :import uses :use requires :require uses-macros :use-macros requires-macros :require-macros :as params}
         (reduce (fn [m [k & libs]]
-                  (assert (#{:use :use-macros :require :require-macros} k)
-                          "Only :refer-clojure, :require, :require-macros, :use and :use-macros libspecs supported")
+                  (assert (#{:import :use :use-macros :require :require-macros} k)
+                          (str "Only :import, :refer-clojure, :require, :require-macros, :use and :use-macros libspecs supported, found " k name))
                   (assoc m k (into {}
-                                   (mapcat (fn [[lib kw expr]]
+                                   (mapcat (fn [form]
                                              (case k
+                                               :import
+                                               (let [[prefix & suffixes] form]
+                                                 (if (seq suffixes)
+                                                   (map (fn [s] [s (symbol (str prefix "." s))]) suffixes)
+                                                   (let [ssym (str prefix)]
+                                                     [[(symbol (subs ssym (inc (.lastIndexOf ssym "."))))
+                                                       prefix]])))
+
                                                (:require :require-macros)
-                                               (do (assert (and expr (= :as kw))
-                                                           "Only (:require [lib.ns :as alias]*) form of :require / :require-macros is supported")
-                                                   [[expr lib]])
+                                               (if (symbol? form)
+                                                 [[form form]]
+                                                 (let [[lib kw expr] form]
+                                                   (assert (or (not kw)
+                                                               (and expr (= :as kw)))
+                                                           "Only (:require [lib.ns :as alias]*) or (:require [lib.ns]*) or (:require lib.ns) form of :require / :require-macros is supported")
+                                                   (if kw
+                                                     [[expr lib]]
+                                                     [[expr expr]])))
+
+
                                                (:use :use-macros)
-                                               (do (assert (and expr (= :only kw))
-                                                           "Only (:use [lib.ns :only [names]]*) form of :use / :use-macros is supported")
-                                                   (map vector expr (repeat lib)))))
+                                               (if (symbol? form) 
+                                                 [[form form]]
+                                                 (let [[lib kw expr] form]
+                                                   (assert (or (not kw)
+                                                               (and expr (= :only kw)))
+                                                           "Only (:use [lib.ns :only [names]]*) (:use [lib.ns]*) form of :use / :use-macros is supported")
+                                                   (if kw
+                                                     (map vector expr (repeat lib))
+                                                     (map vector (keys (ns-publics lib)) (repeat lib)))))))
                                            libs))))
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
     (set! *cljs-ns* name)
 ;    (require 'cljs.core)
     (doseq [nsym (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))]
-      (clojure.core/require nsym))
+      (analyze-namespace nsym))
     (swap! namespaces #(-> %
                            (assoc-in [name :name] name)
                            (assoc-in [name :excludes] excludes)
+                           (assoc-in [name :imports] imports)
                            (assoc-in [name :uses] uses)
                            (assoc-in [name :requires] requires)
                            (assoc-in [name :uses-macros] uses-macros)
@@ -576,3 +612,32 @@
      (if-let [form (read rdr nil nil)]
        (lazy-seq (cons form (forms-seq f rdr)))
        (.close rdr))))
+
+(defmacro with-core-clj
+  "Ensure that clojure.core has been loaded."
+  [& body]
+  `(do (when-not (:defs (get @namespaces 'clojure.core))
+         (doseq [[defsym# _#] (ns-publics 'clojure.core)]
+           (swap! namespaces assoc-in ['clojure.core :defs defsym#] (symbol "clojure.core" (name defsym#)))))
+       ~@body))
+
+(defn analyze-namespace [nssym]
+  (require nssym)
+  (with-core-clj
+    (binding [*cljs-ns* 'clojure.user]
+      (let [ns (-> (ns-publics nssym) first second meta :file)
+            strm (.getResourceAsStream (RT/baseLoader) ns)]
+        (with-open [rdr (PushbackReader. (InputStreamReader. strm))]
+          (loop [forms (forms-seq nil rdr)
+                 ns-name nil
+                 deps nil]
+            (if (seq forms)
+              (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
+                    ast (analyze env (first forms))]
+                (do (pprint/pprint ast)
+                  (if (= (:op ast) :ns)
+                    (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
+                    (recur (rest forms) ns-name deps))))
+              {:ns (or ns-name 'clojure.user)
+               :provides [ns-name]
+               :requires (if (= ns-name 'clojure.core) (set (vals deps)) (conj (set (vals deps)) 'clojure.core))})))))))
