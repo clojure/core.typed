@@ -1,4 +1,6 @@
 (ns clojure-analyzer.test-run
+  (:import (java.io LineNumberReader InputStreamReader PushbackReader)
+           (clojure.lang RT))
   (:require [clojure.pprint :as pprint]
             [clojure-analyzer.compiler :as a]
             [clojure.java.io :as io]
@@ -12,27 +14,26 @@
            (swap! a/namespaces assoc-in ['clojure.core :defs defsym#] (symbol "clojure.core" (name defsym#)))))
        ~@body))
 
-(defn compile-file* [src dest]
+(defn analyze-namespace [nssym]
+  (require nssym)
   (with-core-clj
-;    (with-open [out ^java.io.Writer (io/make-writer dest {})]
-      (binding [*out* *out*
-                a/*cljs-ns* 'clojure.user]
-        (loop [forms (a/forms-seq src)
-               ns-name nil
-               deps nil]
-          (if (seq forms)
-            (let [env {:ns (@a/namespaces a/*cljs-ns*) :context :statement :locals {}}
-                  ast (a/analyze env (first forms))]
-              (do (pprint/pprint ast)
+    (binding [a/*cljs-ns* 'clojure.user]
+      (let [ns (-> (ns-publics nssym) first second meta :file)
+            strm (.getResourceAsStream (RT/baseLoader) ns)]
+        (with-open [rdr (PushbackReader. (InputStreamReader. strm))]
+          (loop [forms (a/forms-seq nil rdr)
+                 ns-name nil
+                 deps nil]
+            (if (seq forms)
+              (let [env {:ns (@a/namespaces a/*cljs-ns*) :context :statement :locals {}}
+                    ast (a/analyze env (first forms))]
+                (do (pprint/pprint ast)
                   (if (= (:op ast) :ns)
                     (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
                     (recur (rest forms) ns-name deps))))
-            {:ns (or ns-name 'clojure.user)
-             :provides [ns-name]
-             :requires (if (= ns-name 'clojure.core) (set (vals deps)) (conj (set (vals deps)) 'clojure.core))
-             :file dest})))
-;    )
-  ))
+              {:ns (or ns-name 'clojure.user)
+               :provides [ns-name]
+               :requires (if (= ns-name 'clojure.core) (set (vals deps)) (conj (set (vals deps)) 'clojure.core))})))))))
 
-(compile-file* "src/clojure_analyzer/test.clj" "src/clojure_analyzer/output.clj")
-(compile-file* "src/clojure_analyzer/test2.clj" "")
+(analyze-namespace 'clojure-analyzer.test)
+;(analyze-namespace "src/clojure_analyzer/test2.clj" "")
