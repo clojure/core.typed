@@ -7,3 +7,8 @@
 (T a :- t/+integer)
 (defn a [b c]
   (+ b c))
+
+(defn blah2 [a] a)
+
+(defmacro testfn [c]
+  `(blah2 ~c))

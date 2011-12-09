@@ -35,3 +35,4 @@
   ))
 
 (compile-file* "src/clojure_analyzer/test.clj" "src/clojure_analyzer/output.clj")
+(compile-file* "src/clojure_analyzer/test2.clj" "")
