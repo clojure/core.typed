@@ -313,6 +313,7 @@
   [op env [_ & exprs] _]
   (let [context (:context env)
         frame (first *recur-frames*)]
+    (println "Recur frames:" *recur-frames*)
     (assert frame "Can't recur here")
     (assert (= (count exprs) (count (:names frame))) "recur argument count mismatch")
     (reset! (:flag frame) true)
@@ -373,7 +374,8 @@
                                    (mapcat (fn [form]
                                              (case k
                                                :import
-                                               (let [[prefix & suffixes] form]
+                                               (let [form (if (symbol? form) [form] form)
+                                                     [prefix & suffixes] form]
                                                  (if (seq suffixes)
                                                    (map (fn [s] [s (symbol (str prefix "." s))]) suffixes)
                                                    (let [ssym (str prefix)]
@@ -425,6 +427,7 @@
 
 (defmethod parse 'deftype*
   [_ env [_ tsym fields] _]
+  (println "found deftype* " tsym)
   (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))]
     (swap! namespaces assoc-in [(-> env :ns :name) :defs tsym] t)
     {:env env :op :deftype* :t t :fields fields}))
@@ -493,21 +496,45 @@
 (defn get-expander [sym env]
   ;; TODO ensure "sym" actually points to either a Class or a var
   (println "getting expander" sym ", in" (-> env :ns :name))
-  (let [mvar
-        (when-not (-> env :locals sym)  ;locals hide macros
+  (let [imported-class (if-let [nsym (namespace sym)]
+                         (or (-> env :ns :imports (get (symbol nsym)))
+                             (try
+                               (class? (resolve (symbol nsym)))
+                               (catch RuntimeException e)))
+                         (or (-> env :ns :imports (get (symbol sym)))
+                             (try
+                               (class? (resolve sym))
+                               (catch RuntimeException e))))
+
+        is-implicit (fn [^clojure.lang.Symbol csym]
+                      (let [c (resolve (symbol csym))]
+                        (and (class? c)
+                             (.startsWith (str c) "java.lang"))))
+
+        implicit-import (if-let [nsym (namespace sym)]
+                          (try
+                            (is-implicit (symbol nsym))
+                            (catch RuntimeException e
+                              nil))
+                          (try
+                            (is-implicit (symbol sym))
+                            (catch RuntimeException e
+                              nil)))
+        mvar
+        (when (and (not imported-class)
+                   (not implicit-import)
+                   (not (-> env :locals sym)))  ;locals hide macros
           (if-let [nstr (namespace sym)]
             ;; Could be a class
-            (when-let [ns (find-ns
-                            (cond
-                              (= "clojure.core" nstr) 'clojure.core
-                              (.contains nstr ".") (symbol nstr)
-                              :else
-                              (or (-> env :ns :requires-macros (get (symbol nstr)))
-                                  (-> env :ns :requires (get (symbol nstr))))))]
-              (.findInternedVar ^clojure.lang.Namespace ns (symbol (name sym))))
+            (when-let [ns (cond
+                            (= "clojure.core" nstr) 'clojure.core
+                            (.contains nstr ".") (symbol nstr)
+                            :else
+                            (or (-> env :ns :requires-macros (get (symbol nstr)))
+                                (-> env :ns :requires (get (symbol nstr)))))]
+              (.findInternedVar ^clojure.lang.Namespace (find-ns ns) (symbol (name sym))))
             (if-let [nsym (or (-> env :ns :uses-macros sym)
                               (-> env :ns :uses sym))]
-              ;; Could be a class
               (when-let [ns (find-ns nsym)]
                 (.findInternedVar ^clojure.lang.Namespace (find-ns nsym) sym))
               (.findInternedVar ^clojure.lang.Namespace (find-ns 'clojure.core) sym))))]
@@ -628,24 +655,35 @@
            (swap! namespaces assoc-in ['clojure.core :defs defsym#] (symbol "clojure.core" (name defsym#)))))
        ~@body))
 
+(defn requires-analysis? [nssym ^java.io.File nsfile]
+  (println "requires analyze?" nssym)
+  (let [last-modified (-> (@namespaces nssym) :modified)]
+    (not= last-modified (.lastModified nsfile))))
+
 (defn analyze-namespace [nssym]
-  (println "Analyzing" nssym)
+  (println "top of analyze namespace" nssym)
   (require nssym)
   (with-core-clj
     (binding [*cljs-ns* 'clojure.user]
-      (let [ns (-> (ns-publics nssym) first second meta :file)
-            strm (.getResourceAsStream (RT/baseLoader) ns)]
-        (with-open [rdr (PushbackReader. (InputStreamReader. strm))]
-          (loop [forms (forms-seq nil rdr)
-                 ns-name nil
-                 deps nil]
-            (if (seq forms)
-              (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
-                    ast (analyze env (first forms))]
-                (do ;(pprint/pprint ast)
-                  (if (= (:op ast) :ns)
-                    (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
-                    (recur (rest forms) ns-name deps))))
-              {:ns (or ns-name 'clojure.user)
-               :provides [ns-name]
-               :requires (if (= ns-name 'clojure.core) (set (vals deps)) (conj (set (vals deps)) 'clojure.core))})))))))
+      (let [file-name (-> (ns-publics nssym) first second meta :file) ;; TODO better way to get file name
+            _ (assert file-name)
+            file (io/file (.getFile (.getResource (RT/baseLoader) file-name)))]
+        (if (requires-analysis? nssym file)
+          (do (println "Analyzing" nssym)
+            (swap! namespaces assoc-in [nssym :modified] (.lastModified ^java.io.File file))
+            (let [strm (.getResourceAsStream (RT/baseLoader) file-name)]
+              (with-open [rdr (PushbackReader. (InputStreamReader. strm))]
+                (loop [forms (forms-seq nil rdr)
+                       ns-name nil
+                       deps nil]
+                  (if (seq forms)
+                    (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
+                          ast (analyze env (first forms))]
+                      (do ;(pprint/pprint ast)
+                        (if (= (:op ast) :ns)
+                          (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
+                          (recur (rest forms) ns-name deps))))
+                    {:ns (or ns-name 'clojure.user)
+                     :provides [ns-name]
+                     :requires (if (= ns-name 'clojure.core) (set (vals deps)) (conj (set (vals deps)) 'clojure.core))})))))
+          (println "Skipping" nssym))))))
