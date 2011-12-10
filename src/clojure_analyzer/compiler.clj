@@ -353,7 +353,7 @@
 
 (defmethod parse 'ns
   [_ env [_ name & args] _]
-  (println name)
+  (println "Parsing ns " name)
   (let [args (if (string? (first args))
                (rest args)
                args)
@@ -406,7 +406,8 @@
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
     (set! *cljs-ns* name)
 ;    (require 'cljs.core)
-    (doseq [nsym (remove #(not= % 'clojure.core) (set (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))))]
+    (doseq [nsym (remove #(= % 'clojure.core) (set (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))))]
+      (println "Analysing namespace "nsym)
       (analyze-namespace nsym))
     (swap! namespaces #(-> %
                            (assoc-in [name :name] name)
@@ -490,19 +491,24 @@
       (assoc ret :op :var :info (resolve-existing-var env sym)))))
 
 (defn get-expander [sym env]
+  (println "getting expander" sym ", in" (-> env :ns :name))
   (let [mvar
         (when-not (-> env :locals sym)  ;locals hide macros
           (if-let [nstr (namespace sym)]
-            (when-let [ns (cond
-                           (= "clojure.core" nstr) (find-ns 'clojure.core)
-                           (.contains nstr ".") (find-ns (symbol nstr))
-                           :else
-                           (or (-> env :ns :requires-macros (get (symbol nstr)))
-                               (-> env :ns :requires (get (symbol nstr)))))]
+            ;; Could be a class
+            (when-let [ns (find-ns
+                            (cond
+                              (= "clojure.core" nstr) 'clojure.core
+                              (.contains nstr ".") (symbol nstr)
+                              :else
+                              (or (-> env :ns :requires-macros (get (symbol nstr)))
+                                  (-> env :ns :requires (get (symbol nstr))))))]
               (.findInternedVar ^clojure.lang.Namespace ns (symbol (name sym))))
             (if-let [nsym (or (-> env :ns :uses-macros sym)
                               (-> env :ns :uses sym))]
-              (.findInternedVar ^clojure.lang.Namespace (find-ns nsym) sym)
+              ;; Could be a class
+              (when-let [ns (find-ns nsym)]
+                (.findInternedVar ^clojure.lang.Namespace (find-ns nsym) sym))
               (.findInternedVar ^clojure.lang.Namespace (find-ns 'clojure.core) sym))))]
     (when (and mvar (.isMacro ^clojure.lang.Var mvar))
       @mvar)))
@@ -622,6 +628,7 @@
        ~@body))
 
 (defn analyze-namespace [nssym]
+  (println "Analyzing" nssym)
   (require nssym)
   (with-core-clj
     (binding [*cljs-ns* 'clojure.user]
@@ -634,7 +641,7 @@
             (if (seq forms)
               (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
                     ast (analyze env (first forms))]
-                (do (pprint/pprint ast)
+                (do ;(pprint/pprint ast)
                   (if (= (:op ast) :ns)
                     (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
                     (recur (rest forms) ns-name deps))))
