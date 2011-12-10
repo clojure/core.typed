@@ -142,7 +142,7 @@
 
 (declare analyze analyze-symbol analyze-seq)
 
-(def specials '#{defmacro if def fn* do let* loop* throw try* recur new set! ns deftype* defrecord* . js* & quote})
+(def ^:dynamic *specials* '#{defmacro if def fn* do let* loop* throw try* recur new set! ns deftype* defrecord* . js* & quote})
 
 (def ^:dynamic *recur-frames* nil)
 
@@ -313,7 +313,6 @@
   [op env [_ & exprs] _]
   (let [context (:context env)
         frame (first *recur-frames*)]
-    (println "Recur frames:" *recur-frames*)
     (assert frame "Can't recur here")
     (assert (= (count exprs) (count (:names frame))) "recur argument count mismatch")
     (reset! (:flag frame) true)
@@ -409,7 +408,6 @@
     (set! *cljs-ns* name)
 ;    (require 'cljs.core)
     (doseq [nsym (remove #(= % 'clojure.core) (set (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))))]
-      (println "Analysing namespace "nsym)
       (analyze-namespace nsym))
     (swap! namespaces #(-> %
                            (assoc-in [name :name] name)
@@ -543,7 +541,7 @@
 
 (defn macroexpand-1 [env form]
   (let [op (first form)]
-    (if (specials op)
+    (if (*specials* op)
       form
       (if-let [mac (and (symbol? op) (get-expander op env))]
         (apply mac form env (rest form))
@@ -563,7 +561,7 @@
       (assert (not (nil? op)) "Can't call nil")
       (let [mform (macroexpand-1 env form)]
         (if (identical? form mform)
-          (if (specials op)
+          (if (*specials* op)
             (parse op env form name)
             (parse-invoke env form))
           (analyze env mform name))))))
@@ -687,3 +685,7 @@
                      :provides [ns-name]
                      :requires (if (= ns-name 'clojure.core) (set (vals deps)) (conj (set (vals deps)) 'clojure.core))})))))
           (println "Skipping" nssym))))))
+
+(defmacro with-specials [specials & body]
+  `(binding [*specials* (set (concat ~specials analyze/*specials*))]
+     ~@body))

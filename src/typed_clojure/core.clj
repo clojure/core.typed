@@ -164,26 +164,11 @@
 
 ;; Frontend type checker
 
-;(defn analyze-file [src]
-;  (binding [analyze/*analyzer-ns* 'clojure.user]
-;    (loop [forms (analyze/forms-seq src)
-;           ns-name nil
-;           deps nil]
-;      (if (seq forms)
-;        (let [env {:ns (@analyze/namespaces analyze/*analyzer-ns*) :context :statement :locals {}}
-;              ast (analyze/analyze env (first forms))]
-;          (do (type-check ast)
-;              (if (= (:op ast) :ns)
-;                (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
-;                (recur (rest forms) ns-name deps))))
-;        {:ns (or ns-name 'clojure.user)
-;         :provides [ns-name]
-;         :requires (if (= ns-name 'cljs.core) (set (vals deps)) (conj (set (vals deps)) 'cljs.core))})))) ;; TODO this line ?
-;
-;(binding [analyze/*analyzer-ns* 'clojure.user]
-;  (analyze/analyze {}
-;                   '(ns typed-clojure.test
-;                      (:use [typed-clojure.core]
-;                            [typed-clojure.types]))))
-;
-;(analyze-file "src/typed_clojure/test.clj")
+(defmethod analyze/parse 'T
+  [_ env [_ id _ type :as form] _]
+  (let [t (analyze/analyze env type)]
+    {:env env :op :T :form form}))
+
+(defn type-check-namespace [ns-sym]
+  (analyze/with-specials ['T]
+    (analyze/analyze-namespace ns-sym)))
