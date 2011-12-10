@@ -491,6 +491,7 @@
       (assoc ret :op :var :info (resolve-existing-var env sym)))))
 
 (defn get-expander [sym env]
+  ;; TODO ensure "sym" actually points to either a Class or a var
   (println "getting expander" sym ", in" (-> env :ns :name))
   (let [mvar
         (when-not (-> env :locals sym)  ;locals hide macros
