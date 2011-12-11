@@ -2,6 +2,8 @@
   (:use [typed-clojure.core]
         [typed-clojure.types]))
 
+;(type-check-namespace 'typed-clojure.test)
+
 ;(T test-typed-def-fn :- (+Fun [+integer -> +integer]))
 ;(def test-typed-def-fn
 ;  (fn-T ([[a :- +integer]] 1)))
@@ -12,7 +14,7 @@
 (+T test-typed-def :- +number)
 (+def test-typed-def
   (+let [[a :- +number] (- 2 (+ 1 1))
-         [b :- +integer] 2]
+         [[b :- +integer]] [2]]
     (+ a b)))
 
         
