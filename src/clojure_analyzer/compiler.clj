@@ -33,8 +33,13 @@
     "transient" "try" "typeof" "var" "void"
     "volatile" "while" "with" "yield" "methods"})
 
-(defonce namespaces (atom '{clojure.core {:name clojure.core}
-                            clojure.user {:name clojure.user}}))
+(def initial-namespaces '{clojure.core {:name clojure.core}
+                          clojure.user {:name clojure.user}})
+
+(defonce namespaces (atom initial-namespaces))
+
+(defn reset-namespaces! []
+  (swap! namespaces (constantly initial-namespaces)))
 
 (def ^:dynamic *cljs-ns* 'clojure.user)
 (def ^:dynamic *cljs-warn-on-undeclared* false)
@@ -108,7 +113,7 @@
                          'clojure.core
                          (-> env :ns :name))]
            (confirm-var-exists env full-ns sym)
-           (munge (symbol (str full-ns "." (munge (name sym)))))))]
+           (munge (symbol (str full-ns "/" (munge (name sym)))))))]
     {:name nm}))
 
 (defn resolve-var [env sym]
@@ -139,6 +144,33 @@
                            (-> env :ns :name))
                          "/" (munge (name sym))))))]
     {:name nm}))
+
+(def emit-constant identity)
+
+;; Return an executable form
+(defmulti emit :op)
+
+(defmethod emit :var
+  [{:keys [info env] :as arg}]
+  (:name info))
+
+(defmethod emit :constant
+  [{:keys [form env]}]
+  (emit-constant form))
+
+(defmethod emit :invoke
+  [{:keys [f args env]}]
+  (let [fcall (emit f)]
+    (map emit (cons f args))))
+
+(defmethod emit :vector
+  [{:keys [children env]}]
+  (vec (map emit children)))
+
+(defmethod emit :default
+  [form]
+  (println "No dispatch for emit: " form)
+  (throw (Exception.)))
 
 (declare analyze analyze-symbol analyze-seq)
 
@@ -353,7 +385,7 @@
 
 (defmethod parse 'ns
   [_ env [_ name & args] _]
-  (println "Parsing ns " name)
+;  (println "Parsing ns " name)
   (let [args (if (string? (first args))
                (rest args)
                args)
@@ -425,7 +457,7 @@
 
 (defmethod parse 'deftype*
   [_ env [_ tsym fields] _]
-  (println "found deftype* " tsym)
+;  (println "found deftype* " tsym)
   (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))]
     (swap! namespaces assoc-in [(-> env :ns :name) :defs tsym] t)
     {:env env :op :deftype* :t t :fields fields}))
@@ -493,7 +525,7 @@
 
 (defn get-expander [sym env]
   ;; TODO ensure "sym" actually points to either a Class or a var
-  (println "getting expander" sym ", in" (-> env :ns :name))
+;  (println "getting expander" sym ", in" (-> env :ns :name))
   (let [imported-class (if-let [nsym (namespace sym)]
                          (or (-> env :ns :imports (get (symbol nsym)))
                              (try
@@ -654,18 +686,22 @@
        ~@body))
 
 (defn requires-analysis? [nssym ^java.io.File nsfile]
-  (println "requires analyze?" nssym)
-  (let [last-modified (-> (@namespaces nssym) :modified)]
+;  (println "requires analyze?" nssym)
+  (let [_ (assert nsfile)
+        last-modified (-> (@namespaces nssym) :modified)]
     (not= last-modified (.lastModified nsfile))))
 
 (defn analyze-namespace [nssym]
-  (println "top of analyze namespace" nssym)
+;  (println "top of analyze namespace" nssym)
   (require nssym)
+;  (println "req'ed" nssym)
   (with-core-clj
     (binding [*cljs-ns* 'clojure.user]
       (let [file-name (-> (ns-publics nssym) first second meta :file) ;; TODO better way to get file name
             _ (assert file-name)
-            file (io/file (.getFile (.getResource (RT/baseLoader) file-name)))]
+            res (.getResource (RT/baseLoader) file-name)
+            _ (assert res)
+            file (io/file (.getFile res))]
         (if (requires-analysis? nssym file)
           (do (println "Analyzing" nssym)
             (swap! namespaces assoc-in [nssym :modified] (.lastModified ^java.io.File file))
@@ -684,7 +720,9 @@
                     {:ns (or ns-name 'clojure.user)
                      :provides [ns-name]
                      :requires (if (= ns-name 'clojure.core) (set (vals deps)) (conj (set (vals deps)) 'clojure.core))})))))
-          (println "Skipping" nssym))))))
+          (do
+            (println "Skipping" nssym)
+            ))))))
 
 (defmacro with-specials [specials & body]
   `(binding [*specials* (set (concat ~specials analyze/*specials*))]

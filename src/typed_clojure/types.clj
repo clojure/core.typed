@@ -164,7 +164,9 @@
 (defn function? [a]
   (instance? Function a))
 
-(defn +fn [& arities]
-  (->Function (map (fn [t] 
-                     (->Arity (-> t butlast butlast) (last t)))
-                   arities)))
+(defmacro +fn [& arities]
+  `(->Function ~(->
+                  (map (fn [t] 
+                       `(->Arity ~(-> t butlast butlast vec) ~(last t)))
+                     arities)
+                  vec)))

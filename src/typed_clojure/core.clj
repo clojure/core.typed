@@ -124,7 +124,7 @@
   "Convert fn body from (fn [[arg :- type]] ...) to (fn [^{::type type} name] ..)"
   [body]
   (letfn [(prepare-param [[name _ type]]
-            (with-meta name (merge {::type (eval type)} (meta name))))
+            (with-meta name (merge {::type type} (meta name))))
           (prepare-arg-vector [v]
             (vec (map prepare-param v)))
           (prepare-method [[args & rest]]
@@ -141,7 +141,7 @@
             (if (and (vector? form)
                      (= (second form) :-))
               (let [[name _ type] form]
-                (with-meta name (merge {::type (eval type)} (meta name))))
+                (with-meta name (merge {::type type} (meta name))))
               form))]
     (walk/walk normalize-type-syntax normalize-type-syntax lhs)))
 
@@ -166,9 +166,16 @@
 
 (defmethod analyze/parse 'T
   [_ env [_ id _ type :as form] _]
-  (let [t (analyze/analyze env type)]
-    {:env env :op :T :form form}))
+  (let [t (analyze/analyze env type)
+        exec (analyze/emit t)
+        type-obj (eval exec)]
+    {:env env :op :T :form form :type type-obj}))
 
 (defn type-check-namespace [ns-sym]
   (analyze/with-specials ['T]
+    (println "specials: " analyze/*specials*)
     (analyze/analyze-namespace ns-sym)))
+
+(comment
+  (type-check-namespace 'typed-clojure.test)
+)
