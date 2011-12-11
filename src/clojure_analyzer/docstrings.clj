@@ -12,8 +12,10 @@
 (defn check-docstring-namespace [ns-sym]
   (analyze/analyze-namespace ns-sym check-docstring))
 
-(doseq [n '#{clojure.set}]
-  (check-docstring-namespace n))
+(doseq [n (->> (all-ns) (remove #(let [n (str (.name ^clojure.lang.Namespace %))]
+                                   (or (= 'clojure.user n)
+                                       (= 'leiningen.util.injected n)))))]
+  (check-docstring-namespace (.name n)))
 
 ;; Output
 

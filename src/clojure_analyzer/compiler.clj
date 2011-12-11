@@ -438,7 +438,7 @@
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
     (set! *cljs-ns* name)
 ;    (require 'cljs.core)
-    (doseq [nsym (remove #(= % 'clojure.core) (set (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))))]
+    (doseq [nsym (remove #(or (= % 'clojure.core) (= % 'clojure.user)) (set (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))))]
       (analyze-namespace nsym identity))
     (swap! namespaces #(-> %
                            (assoc-in [name :name] name)
@@ -575,7 +575,8 @@
     (if (*specials* op)
       form
       (if-let [mac (and (symbol? op) (get-expander op env))]
-        (apply mac form env (rest form))
+        (binding [*ns* (or (find-ns (-> env :ns :name)) *ns*)]
+          (apply mac form env (rest form)))
         (if (symbol? op)
           (let [opname (str op)]
             (cond
