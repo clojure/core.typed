@@ -14,3 +14,8 @@
 
 (doseq [n '#{clojure.set}]
   (check-docstring-namespace n))
+
+;; Output
+
+;Analyzing clojure.set
+;Found suspicious function clojure.set/bubble-max-key , in clojure.set
