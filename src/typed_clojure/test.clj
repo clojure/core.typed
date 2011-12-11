@@ -2,9 +2,13 @@
   (:use [typed-clojure.core]
         [typed-clojure.types]))
 
-(T test-typed-def-fn :- (+fn [+integer -> +integer]))
-(def test-typed-def-fn
-  (fn-T ([[a :- +integer]] 1)))
+;(T test-typed-def-fn :- (+fn [+integer -> +integer]))
+;(def test-typed-def-fn
+;  (fn-T ([[a :- +integer]] 1)))
+
+(T test-typed-def :- +integer)
+(def test-typed-def
+  1)
 
 ;(T ^{:type (Fn [IntegerT :-> IntegerT]
 ;               [IntegerT IntegerT :-> IntegerT])} 'asdf)

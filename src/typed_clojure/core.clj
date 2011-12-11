@@ -22,79 +22,86 @@
 
 (declare type-check)
 
-(defn type-check* [exp-obj]
-  (case (:op exp-obj)
-    :constant (let [f (:form exp-obj)]
-                (cond (zero? f) t/+zero
-                      (integer? f) t/+integer
-                      (float? f) t/+float
-                      (number? f) t/+number
-                      :else t/+top))
+(defmulti get-type :op)
 
-    :var (if-let [t (lookup-local-type (:env exp-obj) (:form exp-obj))]
-           t
-           (lookup-type (resolve (:form exp-obj))))
+(defmethod get-type :constant
+  [{:keys [form]}]
+  (cond (zero? form) t/+zero
+        (integer? form) t/+integer
+        (float? form) t/+float
+        (number? form) t/+number
+        :else t/+top))
 
-    :def (let [id-var (-> (:form exp-obj) second resolve)
-               body (:init exp-obj)
-               id-type (lookup-type id-var)
-               _ (assert id-type)]
-           (type-check body id-type))
+;; TODO fix
+(defmethod get-type :var
+  [{:keys [env form]}]
+  (if-let [t (lookup-local-type env form)]
+         t
+         (lookup-type (resolve form))))
 
-    :if (let [then-type (type-check (:then exp-obj))
-              else-type (type-check (:else exp-obj))]
-          (t/+union then-type else-type))
+(defmethod get-type :def
+  [{:keys [form init]}]
+  (let [id-var (-> form second resolve)
+        id-type (lookup-type id-var)
+        _ (assert id-type)]
+    (type-check init id-type)))
 
-    :fn (let [arities (doall
-                        (map (fn [{params :params variadic :variadic ret :ret}]
-                               (assert (not variadic) "Variadic functions not yet supported")
-                               (let [arg-types (doall (map (comp ::type meta) params))
-                                     rng (type-check ret)]
-                                 ;; TODO side effects from body
-                                 (t/->Arity arg-types rng)))
-                             (:methods exp-obj)))]
-          (t/->Function arities))
+(defmethod get-type :if
+  [{:keys [then else]}]
+  (let [then-type (get-type then)
+        else-type (get-type else)]
+    (t/+union then-type else-type)))
 
-    :invoke (let [invoked-fn-type (type-check (-> exp-obj :f))
-                  actual-args (-> exp-obj :args)
-                  same-arity-type (some (fn [^Arity a] 
-                                          (and (= (count (.dom a)) (count actual-args))
-                                               a))
-                                        (.arrs ^Function invoked-fn-type))
-                  _ (when-not same-arity-type
-                      (type-error "Wrong number of arguments"))
-                  _ (map type-check actual-args (.dom ^Arity same-arity-type))
-                  rng (.rng ^Arity same-arity-type)]
-              rng)
+(defmethod get-type :fn
+  [{:keys [methods]}]
+  (let [arities (doall
+                  (map (fn [{params :params variadic :variadic ret :ret}]
+                         (assert (not variadic) "Variadic functions not yet supported")
+                         (let [arg-types (doall (map (comp ::type meta) params))
+                               rng (get-type ret)]
+                           ;; TODO side effects from body
+                           (t/->Arity arg-types rng)))
+                       methods))]
+    (t/->Function arities)))
 
-    :let (if-not (:loop exp-obj)
-           ;TODO side effects from body
-           (type-check (:ret exp-obj))
-           (throw (Exception. ":loop not implemented")))
+(defmethod get-type :invoke
+  [{:keys [f args]}]
+  (let [invoked-fn-type (get-type f)
+        same-arity-type (some (fn [^Arity a] 
+                                (and (= (count (.dom a)) (count args))
+                                     a))
+                              (.arrs ^Function invoked-fn-type))
+        _ (when-not same-arity-type
+            (type-error "Wrong number of arguments"))
+        _ (map type-check args (.dom ^Arity same-arity-type))
+        rng (.rng ^Arity same-arity-type)]
+    rng))
 
-    :ns nil ;;todo
+(defmethod get-type :let
+  [{:keys [loop ret]}]
+  (if-not loop 
+    ;TODO side effects from body
+    (get-type ret)
+    (throw (Exception. ":loop not implemented"))))
 
-    :T nil
-
-    (throw (Exception. (str (:op exp-obj) " not implemented, fell through" exp-obj)))
-    ))
+(defmethod get-type :default
+  [{:keys [op]}]
+  (throw (Exception. (str op " not implemented, fell through"))))
 
 ;; Languages as Libraries, Sam TH
 (defn type-check 
   "Type check a form returned from analyze"
-  ([exp-obj]
-   (type-check* exp-obj))
-  ([exp-obj expected-type]
-   (let [t (type-check* exp-obj)]
-     (when-not (t/subtype t expected-type)
-       (type-error "Not a subtype: " t ", " expected-type))
-     t)))
+  [exp-obj expected-type]
+  (let [t (get-type exp-obj)]
+    (when-not (t/subtype t expected-type)
+      (type-error "Not a subtype: " t ", " expected-type))
+    t))
 
-(defmacro type-check-form
-  "For debugging"
-  [form]
-  (let [t (type-check (analyze/analyze {} form))]
-    (str t)))
+;(defmacro type-check-form
+;  "For debugging"
+;  [form]
+;  (let [t (type-check (analyze/analyze {} form))]
+;    (str t)))
 
 ;; Frontend
 
@@ -168,12 +175,14 @@
   [_ env [_ id _ type :as form] _]
   (let [t (analyze/analyze env type)
         exec (analyze/emit t)
-        type-obj (eval exec)]
+        type-obj (eval exec)
+        {varname :name} (analyze/resolve-var env id)
+        _ (assert (namespace varname) (name varname))]
+    (swap! analyze/namespaces assoc-in [(symbol (namespace varname)) :types (symbol (name varname))] type-obj)
     {:env env :op :T :form form :type type-obj}))
 
 (defn type-check-namespace [ns-sym]
   (analyze/with-specials ['T]
-    (println "specials: " analyze/*specials*)
     (analyze/analyze-namespace ns-sym)))
 
 (comment
