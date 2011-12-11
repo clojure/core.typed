@@ -7,18 +7,19 @@
 
 ;; Primitives
 
-(declare emit-concrete-type resolve-var)
+(declare type-check emit-concrete-type)
 
 (defn type-error [& msg]
   (throw (Exception. (apply str msg))))
 
-(declare type-check)
-
-(defmulti get-type :op)
+(defmulti get-type 
+  {:post [#(t/type? %)]}
+  :op)
 
 (defmethod get-type :constant
   [{:keys [form]}]
-  (cond (zero? form) t/+zero
+  (cond (and (number? form)
+             (zero? form)) t/+zero
         (integer? form) t/+integer
         (float? form) t/+float
         (number? form) t/+number
@@ -26,17 +27,22 @@
 
 (defmethod get-type :var
   [{:keys [env form]}]
-  (let [nm (resolve-var form)]
+  (let [{nm :name} (analyze/resolve-var env form)]
     (if-let [local-type (-> nm meta ::type (emit-concrete-type env))]
       local-type
-      (do 
-        (assert (namespace nm))
-        (-> @analyze/namespaces nm ::types nm)))))
+      (let [ns (namespace nm)
+            _ (assert ns)
+            ns-sym (symbol ns)
+            name-sym (symbol (name nm))]
+        (-> @analyze/namespaces ns-sym ::types name-sym)))))
 
-(defmethod get-type :def
-  [{:keys [env form init name]}]
-  (let [id-var (symbol (str (-> env :ns :name) name))
-        id-type (-> @analyze/namespaces (-> env :ns :name) :types id-var)
+(defmethod get-type ::+def
+  [{:keys [def-op]}]
+  (let [{env :env form :form init :init namesym :name} def-op
+        _ (println "get-type ::+def" namesym)
+        id-var (symbol (name namesym))
+        ns (-> env :ns :name)
+        id-type (-> @analyze/namespaces ns ::types id-var)
         _ (assert id-type)]
     (type-check init id-type)))
 
@@ -73,6 +79,7 @@
 
 (defmethod get-type ::+let
   [{:keys [let-op]}]
+  (println "get-type ::+let")
   (let [{env :env bindings :bindings loop :loop ret :ret} let-op]
     (if-not loop
       ;TODO side effects from body
@@ -84,7 +91,9 @@
 
 (defmethod get-type :default
   [{:keys [op]}]
-  (throw (Exception. (str op " not implemented, fell through"))))
+;  (when-not (#{:ns ::+T ::+def} op)
+  (when-not (#{:ns ::+T} op)
+    (throw (Exception. (str op " not implemented, fell through")))))
 
 ;; Languages as Libraries, Sam TH
 (defn type-check 
@@ -187,7 +196,7 @@
 
 (defn type-check-namespace [ns-sym]
   (analyze/with-specials ['+T '+def '+let]
-    (analyze/analyze-namespace ns-sym)))
+    (analyze/analyze-namespace ns-sym get-type)))
 
 (comment
   (type-check-namespace 'typed-clojure.test)

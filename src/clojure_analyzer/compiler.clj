@@ -439,7 +439,7 @@
     (set! *cljs-ns* name)
 ;    (require 'cljs.core)
     (doseq [nsym (remove #(= % 'clojure.core) (set (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))))]
-      (analyze-namespace nsym))
+      (analyze-namespace nsym identity))
     (swap! namespaces #(-> %
                            (assoc-in [name :name] name)
                            (assoc-in [name :excludes] excludes)
@@ -690,7 +690,7 @@
         last-modified (-> (@namespaces nssym) :modified)]
     (not= last-modified (.lastModified nsfile))))
 
-(defn analyze-namespace [nssym]
+(defn analyze-namespace [nssym analyze-fn]
 ;  (println "top of analyze namespace" nssym)
   (require nssym)
 ;  (println "req'ed" nssym)
@@ -712,7 +712,7 @@
                   (if (seq forms)
                     (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
                           ast (analyze env (first forms))]
-                      (do ;(pprint/pprint ast)
+                      (do (analyze-fn ast)
                         (if (= (:op ast) :ns)
                           (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
                           (recur (rest forms) ns-name deps))))

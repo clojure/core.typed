@@ -6,9 +6,22 @@
 ;(def test-typed-def-fn
 ;  (fn-T ([[a :- +integer]] 1)))
 
-(+T test-typed-def :- +integer)
+(+T clojure.core/+ :- (+Fun [+number +number -> +number]))
+(+T clojure.core/- :- (+Fun [+number +number -> +number]))
+
+(+T test-typed-def :- +number)
 (+def test-typed-def
-  1)
+  (+let [[a :- +number] (- 2 (+ 1 1))
+         [b :- +integer] 2]
+    (+ a b)))
+
+        
+
+(comment
+  (+T test-wrong-def :- +integer)
+  (+def test-typed-def
+    1.1)
+  )
 
 (+let [[a :- +integer] 1]
   a)
