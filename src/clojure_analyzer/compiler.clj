@@ -147,7 +147,7 @@
 
 (def emit-constant identity)
 
-;; Return an executable form
+;; Return an executable Clojure form
 (defmulti emit :op)
 
 (defmethod emit :var
@@ -169,12 +169,11 @@
 
 (defmethod emit :default
   [form]
-  (println "No dispatch for emit: " form)
-  (throw (Exception.)))
+  (throw (Exception. (str "Dispatch not implemented for emit, :op = " (:op form)))))
 
 (declare analyze analyze-symbol analyze-seq)
 
-(def ^:dynamic *specials* '#{defmacro if def fn* do let* loop* throw try* recur new set! ns deftype* defrecord* . js* & quote})
+(def ^:dynamic *specials* '#{defmacro if def fn* do let* loop* throw try* recur new set! ns deftype* defrecord* . & quote})
 
 (def ^:dynamic *recur-frames* nil)
 
@@ -321,7 +320,7 @@
              (do
                (assert (not (or (namespace name) (.contains (str name) "."))) (str "Invalid local name: " name))
                (let [init-expr (analyze env init)
-                     be {:name (gensym (str (munge name) "__")) :init init-expr}]
+                     be {:name name :init init-expr}]
                  (recur (conj bes be)
                         (assoc-in env [:locals name] be)
                         (next bindings))))
