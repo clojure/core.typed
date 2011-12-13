@@ -1,6 +1,112 @@
 (ns typed-clojure.types
   (:require [trammel.core :as c]))
 
+;; Filter rep
+
+(c/defconstrainedtype 
+  PathElem
+  [selector]
+  [(fn? selector)])
+
+(def path-elem? (partial instance? PathElem))
+
+(def Filter ::Filter)
+
+(defmacro def-filter [name fields contracts & body]
+  `(do
+     (c/defconstrainedtype ~name
+                           ~fields
+                           ~contracts
+
+                           ~@body)
+     (derive ~name Filter)))
+
+(defn filter? [t]
+  (isa? (class t) Filter))
+
+(declare type?)
+
+(def-filter
+  Top
+  []
+  [])
+
+(def top? (partial instance? Top))
+
+(def-filter
+  Bot
+  []
+  [])
+
+(def bot? (partial instance? Bot))
+
+(def-filter 
+  TypeFilter 
+  [ty path vname]
+  [(type? ty)
+   (every? path-elem? path)
+   (symbol? vname)])
+
+(def-filter
+  NotTypeFilter
+  [ty path vname]
+  [(type? ty)
+   (every? path-elem? path)
+   (symbol? vname)])
+
+(def-filter
+  ImpFilter
+  [a c]
+  [(filter? a)
+   (filter? c)])
+
+(def-filter
+  AndFilter
+  [fs]
+  [(and (seq fs)
+        (every? filter? fs))])
+
+(def-filter
+  OrFilter
+  [fs]
+  [(and (seq fs)
+        (every? filter? fs))])
+
+(def-filter
+  FilterSet
+  [thn els]
+  [(filter? thn)
+   (filter? els)])
+
+(c/defconstrainedfn 
+  -imp 
+  [p1 p2]
+  [(filter? p1) (filter? p2) => filter?]
+  (cond
+    (bot? p1) Top
+    (top? p1) p2
+    :else (->ImpFilter p1 p2)))
+
+;; TODO study original -or imp
+(c/defconstrainedfn
+  -or
+  [& fs]
+  [(every? filter? fs) => filter?]
+  (cond
+    (empty? fs) Bot
+    (= 1 (count fs)) (first fs)
+    :else (->OrFilter fs)))
+
+;; TODO study original -and imp
+(c/defconstrainedfn
+  -and
+  [& fs]
+  [(every? filter? fs) => filter?]
+  (cond
+    (empty? fs) Bot
+    (= 1 (count fs)) (first fs)
+    :else (->AndFilter fs)))
+
 ;; Primitives
 
 (def Type ::Type)
