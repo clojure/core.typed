@@ -19,20 +19,6 @@
 (declare resolve-var)
 ;(require 'cljs.core)
 
-(def js-reserved
-  #{"abstract" "boolean" "break" "byte" "case"
-    "catch" "char" "class" "const" "continue"
-    "debugger" "default" "delete" "do" "double"
-    "else" "enum" "export" "extends" "final"
-    "finally" "float" "for" "function" "goto" "if"
-    "implements" "import" "in" "instanceof" "int"
-    "interface" "let" "long" "native" "new"
-    "package" "private" "protected" "public"
-    "return" "short" "static" "super" "switch"
-    "synchronized" "this" "throw" "throws"
-    "transient" "try" "typeof" "var" "void"
-    "volatile" "while" "with" "yield" "methods"})
-
 (def initial-namespaces '{clojure.core {:name clojure.core}
                           clojure.user {:name clojure.user}})
 
@@ -44,19 +30,6 @@
 (def ^:dynamic *cljs-ns* 'clojure.user)
 (def ^:dynamic *cljs-warn-on-undeclared* false)
 
-;(defn munge [s]
-;  (let [ss (str s)
-;        ms (if (.contains ss "]")
-;             (let [idx (inc (.lastIndexOf ss "]"))]
-;               (str (subs ss 0 idx)
-;                    (clojure.lang.Compiler/munge (subs ss idx))))
-;             (clojure.lang.Compiler/munge ss))
-;        ms (if (js-reserved ms) (str ms "$") ms)]
-;    (if (symbol? s)
-;      (symbol ms)
-;      ms)))
-
-;; Easier to experiment without munging
 (def munge identity)
 
 (defn confirm-var-exists [env prefix suffix]
@@ -384,7 +357,6 @@
 
 (defmethod parse 'ns
   [_ env [_ name & args] _]
-;  (println "Parsing ns " name)
   (let [args (if (string? (first args))
                (rest args)
                args)
@@ -439,7 +411,8 @@
     (set! *cljs-ns* name)
 ;    (require 'cljs.core)
     (doseq [nsym (remove #(or (= % 'clojure.core) (= % 'clojure.user)) (set (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))))]
-      (analyze-namespace nsym identity))
+;      (analyze-namespace nsym identity))
+      (require nsym))
     (swap! namespaces #(-> %
                            (assoc-in [name :name] name)
                            (assoc-in [name :excludes] excludes)
@@ -456,7 +429,6 @@
 
 (defmethod parse 'deftype*
   [_ env [_ tsym fields] _]
-;  (println "found deftype* " tsym)
   (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))]
     (swap! namespaces assoc-in [(-> env :ns :name) :defs tsym] t)
     {:env env :op :deftype* :t t :fields fields}))
@@ -524,7 +496,6 @@
 
 (defn get-expander [sym env]
   ;; TODO ensure "sym" actually points to either a Class or a var
-;  (println "getting expander" sym ", in" (-> env :ns :name))
   (let [imported-class (if-let [nsym (namespace sym)]
                          (or (-> env :ns :imports (get (symbol nsym)))
                              (try
@@ -679,50 +650,30 @@
 
 (defmacro with-core-clj
   "Ensure that clojure.core has been loaded."
-  [& body]
-  `(do (when-not (:defs (get @namespaces 'clojure.core))
+  [[nssym] & body]
+  `(do (when (not= ~nssym 'clojure.core)
          (doseq [[defsym# _#] (ns-publics 'clojure.core)]
            (swap! namespaces assoc-in ['clojure.core :defs defsym#] (symbol "clojure.core" (name defsym#)))))
        ~@body))
 
-(defn requires-analysis? [nssym ^java.io.File nsfile]
-;  (println "requires analyze?" nssym)
-  (let [_ (assert nsfile)
-        last-modified (-> (@namespaces nssym) :modified)]
-    (not= last-modified (.lastModified nsfile))))
-
-(defn analyze-namespace [nssym analyze-fn]
-;  (println "top of analyze namespace" nssym)
-  (require nssym)
-;  (println "req'ed" nssym)
-  (with-core-clj
+(defn analyze-namespace [nssym]
+  (require nssym) ;; require macroexpanders
+  (reset-namespaces!)
+  (with-core-clj [nssym]
     (binding [*cljs-ns* 'clojure.user]
       (let [file-name (-> (ns-publics nssym) first second meta :file) ;; TODO better way to get file name
             _ (assert file-name)
             res (.getResource (RT/baseLoader) file-name)
-            _ (assert res)
-            file (io/file (.getFile res))]
-        (if (requires-analysis? nssym file)
-          (do (println "Analyzing" nssym)
-            (swap! namespaces assoc-in [nssym :modified] (.lastModified ^java.io.File file))
-            (let [strm (.getResourceAsStream (RT/baseLoader) file-name)]
-              (with-open [rdr (PushbackReader. (InputStreamReader. strm))]
-                (loop [forms (forms-seq nil rdr)
-                       ns-name nil
-                       deps nil]
-                  (if (seq forms)
-                    (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
-                          ast (analyze env (first forms))]
-                      (do (analyze-fn ast)
-                        (if (= (:op ast) :ns)
-                          (recur (rest forms) (:name ast) (merge (:uses ast) (:requires ast)))
-                          (recur (rest forms) ns-name deps))))
-                    {:ns (or ns-name 'clojure.user)
-                     :provides [ns-name]
-                     :requires (if (= ns-name 'clojure.core) (set (vals deps)) (conj (set (vals deps)) 'clojure.core))})))))
-          (do
-            (println "Skipping" nssym)
-            ))))))
+            _ (assert res) 
+            strm (.getResourceAsStream (RT/baseLoader) file-name)
+            out (atom [])]
+        (do
+          (with-open [rdr (PushbackReader. (InputStreamReader. strm))]
+            (doseq [form (forms-seq nil rdr)]
+              (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
+                    ast (analyze env form)]
+                (swap! out conj ast))))
+          @out)))))
 
 (defmacro with-specials [specials & body]
   `(binding [*specials* (set (concat ~specials analyze/*specials*))]

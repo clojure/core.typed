@@ -7,6 +7,7 @@
 ;(T test-typed-def-fn :- (+Fun [+integer -> +integer]))
 ;(def test-typed-def-fn
 ;  (fn-T ([[a :- +integer]] 1)))
+(comment
 
 (+T clojure.core/list :- (IPersistentList b) => a * -> b)
 
@@ -189,9 +190,9 @@
 
 (+T clojure.core/sorted-map :- (IPersistentMap b) (Sorted b) => a * -> b)
 
-(+T clojure.core/sorted-map-by :- (IFn a) (IPersistentMap c) (Sorted c) => a b * -> c)
+(+T clojure.core/sorted-map-by :- (Comparator a) (IPersistentMap c) (Sorted c) => a b * -> c)
 
-(+T clojure.core/sorted-set-by :- (IFn a) (IPersistentSet c) (Sorted c) => a b * -> c)
+(+T clojure.core/sorted-set-by :- (Comparator a) (IPersistentSet c) (Sorted c) => a b * -> c)
 
 (+T clojure.core/nil? :- nil -> true)
 (+T clojure.core/nil? :- (not nil) -> false)
@@ -236,7 +237,7 @@
 (+T clojure.core/find-keyword :- String -> Keyword)
 (+T clojure.core/find-keyword :- String String -> Keyword)
 
-(+T clojure.core/list* :- (ISeq c) => a * b -> c)
+(+T clojure.core/list* (ISeq c) => a * b -> c)
 
 (+T clojure.core/apply :- (IFn a) => a b * c -> d)
 
@@ -244,7 +245,7 @@
 
 (+T clojure.core/lazy-seq :- a * -> LazySeq) ;; TODO a* returns an ISeq or nil
 
-(+T clojure.core/chunk-buffer :- int -> ChunkBuffer) ;; TODO a* returns an ISeq or nil
+(+T clojure.core/chunk-buffer :- Integer/TYPE -> ChunkBuffer) ;; TODO a* returns an ISeq or nil
                                                      ;; TODO int or Long or ...
 
 (+T clojure.core/chunk-append :- ChunkBuffer a -> nil)
@@ -654,6 +655,7 @@
 (+T clojure.core/reset-meta! :- (IReference a) (IPersistentMap b) (IPersistentMap c) => a b -> c)
 
 (+T clojure.core/commute :-  (IFn b) => Ref b c * -> d)
+  )
 
 (comment
   (+T test-wrong-def :- +integer)
@@ -661,20 +663,14 @@
     1.1)
   )
 
-(comment
-(+T clojure.core/+ :- (+Fun [+number +number -> +number]))
-(+T clojure.core/- :- (+Fun [+number +number -> +number]))
+(+T clojure.core/+ :- (Number a) => & [a] -> a)
+(+T clojure.core/- :- (Number a) => & [a] -> a)
 
-(+T test-typed-def :- +number)
-(+def test-typed-def
-  (+let [[a :- +number] (- 2 (+ 1 1))
-         [[b :- +integer]] [2]]
+(+T test-typed-def :- (Number a) => a)
+(def test-typed-def
+  (let [a (- 2 (+ 1 1))
+        b 2]
     (+ a b)))
-  )
-
-
-(+let [[a :- +integer] 1]
-  a)
 
 ;(T ^{:type (Fn [IntegerT :-> IntegerT]
 ;               [IntegerT IntegerT :-> IntegerT])} 'asdf)

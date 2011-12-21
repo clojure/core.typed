@@ -9,13 +9,13 @@
            (string? (:form f))
            (println "Found suspicious function" name  ", in" (-> env :ns :name))))))
 
-(defn check-docstring-namespace [ns-sym]
-  (analyze/analyze-namespace ns-sym check-docstring))
+(def analyzed
+  (map analyze/analyze-namespace '[clojure.test clojure.set clojure.java.io clojure.stacktrace clojure.pprint
+                                   clojure.walk clojure.string clojure.repl clojure.core.protocols clojure.template]))
 
-(doseq [n (->> (all-ns) (remove #(let [n (str (.name ^clojure.lang.Namespace %))]
-                                   (or (= 'clojure.user n)
-                                       (= 'leiningen.util.injected n)))))]
-  (check-docstring-namespace (.name n)))
+(doseq [ns-ast analyzed
+        top-lvl-ast ns-ast]
+  (check-docstring top-lvl-ast))
 
 ;; Output
 

@@ -18,12 +18,7 @@
 
 (defmethod get-type :constant
   [{:keys [form]}]
-  (cond (and (number? form)
-             (zero? form)) t/+zero
-        (integer? form) t/+integer
-        (float? form) t/+float
-        (number? form) t/+number
-        :else t/+top))
+  (class form))
 
 (defmethod get-type :var
   [{:keys [env form]}]

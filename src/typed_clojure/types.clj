@@ -273,6 +273,6 @@
 (defmacro +Fun [& arities]
   `(->Function ~(->
                   (map (fn [t] 
-                       `(->Arity ~(-> t butlast butlast vec) ~(last t)))
-                     arities)
+                         `(->Arity ~(-> t butlast butlast vec) ~(last t)))
+                       arities)
                   vec)))
