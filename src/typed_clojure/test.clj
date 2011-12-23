@@ -1,6 +1,7 @@
 (ns typed-clojure.test
   (:use [typed-clojure.core]
-        [typed-clojure.types]))
+        [typed-clojure.types]
+        [clojure.core.logic :only [lvar]]))
 
 ;(type-check-namespace 'typed-clojure.test)
 
@@ -663,14 +664,54 @@
     1.1)
   )
 
-(+T clojure.core/+ :- (Number a) => & [a] -> a)
-(+T clojure.core/- :- (Number a) => & [a] -> a)
+(+T clojure.core/symbol? :- {:kind :fn
+                          :arities [{:kind :arity
+                                     :max-fixed-arity 1
+                                     :variadic false
+                                     :refinements 
+                                     [{:kind :refinement
+                                       :dom [{:kind :type
+                                              :type clojure.lang.Symbol}]
+                                       :rng {:kind :value
+                                             :value true}}
+
+                                     {:kind :refinement
+                                      :dom [{:kind :type
+                                             :not-type clojure.lang.Symbol}]
+                                      :rng {:kind :value
+                                            :value false}}]}]})
+
+
+(+T clojure.core/instance? :- {:kind :fn
+                                :arities [{:kind :arity
+                                           :max-fixed-arity 2
+                                           :variadic false
+                                           :refinements 
+                                           [(map->Refinement {
+                                             :dom [(map->Type {
+                                                    :type clojure.lang.Symbol})]
+                                             :rng (map->Value {
+                                                    :value true})})
+
+                                            (map->Refinement {
+                                             :dom [(map->NotType {
+                                                    :not-type clojure.lang.Symbol})]
+                                             :rng (map->Value {
+                                                   :value false})})]}]})
 
 (+T test-typed-def :- (Number a) => a)
 (def test-typed-def
   (let [a (- 2 (+ 1 1))
         b 2]
     (+ a b)))
+
+(deftype: None)
+(deftype: [a] Some [[x : a]])
+
+(def-type-alias (Opt a) (U None (Some a)))
+
+(+T seq-opt (
+(defn seq-opt [
 
 ;(T ^{:type (Fn [IntegerT :-> IntegerT]
 ;               [IntegerT IntegerT :-> IntegerT])} 'asdf)
