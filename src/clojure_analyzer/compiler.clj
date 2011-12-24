@@ -10,7 +10,7 @@
 
 (ns clojure-analyzer.compiler
   (:refer-clojure :exclude [macroexpand-1])
-  (:import (java.io LineNumberReader InputStreamReader PushbackReader)
+  (:import (java.io InputStreamReader PushbackReader)
            (clojure.lang RT))
   (:require [clojure.java.io :as io]
             [clojure.pprint :as pprint]
@@ -40,41 +40,66 @@
 
 (defn resolve-ns-alias [env name]
   (let [sym (symbol name)]
-    (get (:requires (:ns env)) sym sym)))
+    (or (get (:requires (:ns env)) sym)
+        (find-ns sym))))
 
-(defn resolve-existing-var [env sym]
+(defn resolve-class-alias [env name]
+  (let [sym (symbol name)]
+    (or (get (:imports (:ns env)) sym)
+        (when (class? (resolve sym))
+          (resolve sym)))))
+
+(defn resolve-existing [env sym]
   (let [s (str sym)
-        lb (-> env :locals sym)
-        nm
-        (cond
-         lb (:name lb)
+        lb (-> env :locals sym)]
+    (cond
+      ;; local binding reference
+      lb {:op :local :info {:name (:name lb)}}
 
-         (namespace sym)
-         (let [ns (namespace sym)
-               full-ns (resolve-ns-alias env ns)]
-           (confirm-var-exists env full-ns (symbol (name sym)))
-           (symbol (str full-ns "/" (name sym))))
+      ;; aliased or qualified var reference
+      (when-let [ns (namespace sym)]
+        (resolve-ns-alias env ns))
+      (let [ns (namespace sym)
+            full-ns (resolve-ns-alias env ns)]
+        (confirm-var-exists env full-ns (symbol (name sym)))
+        {:op :var :info {:ns {:name full-ns
+                              :alias (symbol ns)}
+                         :name (symbol (str full-ns "/" (name sym)))}})
 
-         (.contains s ".")
-         (let [idx (.indexOf s ".")
-               prefix (symbol (subs s 0 idx))
-               suffix (subs s idx)
-               lb (-> env :locals prefix)]
-           (if lb
-             (symbol (str (:name lb) suffix))
-             (do
-               (confirm-var-exists env prefix (symbol suffix))
-               sym)))
+      ;; aliased or fully qualified Java field/method reference
+      (when-let [ns (namespace sym)]
+        (resolve-class-alias env ns))
+      (let [ns (namespace sym)
+            class-obj (resolve-class-alias env ns)]
+        {:op :field-or-method :info {:name (symbol (str ns "/" (name sym)))
+                                     :field-or-method {:name (symbol (name sym))
+                                                       :class class-obj}}})
 
-         (get-in @namespaces [(-> env :ns :name) :uses sym])
-         (symbol (str (get-in @namespaces [(-> env :ns :name) :uses sym]) "/" (name sym)))
+      ;; fully qualified Java Class reference
+      (.contains s ".")
+      (let [_ (assert (not (.contains s "/")))
+            classobj (resolve sym)
+            _ (assert (class? classobj))]
+        {:op :class :info {:class sym}})
 
-         :else
-         (let [full-ns (-> env :ns :name)
-               _ (assert full-ns)]
-           (confirm-var-exists env full-ns sym)
-           (symbol (str full-ns "/" (name sym)))))]
-    {:name nm}))
+      ;; aliased Java Class reference
+      (get-in env [:imports sym])
+      {:op :class :info {:name sym
+                         :class (get-in env [:imports sym])}}
+
+      ;; use'd var reference (unqualified)
+      (get-in env [:uses sym])
+      {:op :var :info {:name (symbol (str (get-in env [:uses sym]) "/" (name sym)))}}
+
+      :else
+      (let [full-ns (-> env :ns :name)
+            _ (assert full-ns)]
+        (if-let [class-obj (get-in env [:imports sym])]
+          ;; 
+          {:op :class :info {:name full-ns
+                             :class class-obj}}
+          (do (confirm-var-exists env full-ns sym)
+            {:op :var :info {:name (symbol (str full-ns "/" (name sym)))}}))))))
 
 (defn resolve-var [env sym]
   (let [s (str sym)
@@ -129,7 +154,7 @@
 
 (defmethod parse 'if
   [op env [_ test then else :as form] name]
-  (let [test-expr (disallowing-recur (analyze (assoc env :context :expr) test)) 
+  (let [test-expr (disallowing-recur (analyze (assoc env :context :expr) test))
         then-expr (analyze env then)
         else-expr (analyze env else)]
     {:env env :op :if :form form
@@ -204,7 +229,7 @@
         fixed-arity (count (if variadic (butlast params) params))
         body (next meth)
         locals (reduce (fn [m name] (assoc m name {:name name})) locals params)
-        recur-frame {:names [params] :flag (atom nil)}
+        recur-frame {:names (vec params) :flag (atom nil)}
         block (binding [*recur-frames* (cons recur-frame *recur-frames*)]
                 (analyze-block (assoc env :context :return :locals locals) body))]
     
@@ -379,7 +404,7 @@
                            (assoc-in [name :imports] imports)
                            (assoc-in [name :uses] uses)
                            (assoc-in [name :requires] requires)))
-    {:env env :op :ns :name name :uses uses :requires requires :excludes excludes}))
+    {:env env :op :ns :name name :excludes excludes :imports imports :uses uses :requires requires}))
 
 (defmethod parse 'deftype*
   [_ env [_ tsym fields] _]
@@ -419,11 +444,8 @@
 (defn analyze-symbol
   "Finds the var associated with sym"
   [env sym]
-  (let [ret {:env env :form sym}
-        lb (-> env :locals sym)]
-    (if lb
-      (assoc ret :op :var :info lb)
-      (assoc ret :op :var :info (resolve-existing-var env sym)))))
+  (let [ret {:env env :form sym}]
+    (merge ret (resolve-existing env sym))))
 
 ;; TODO look at this again
 (defn get-expander [sym env]
@@ -586,9 +608,10 @@
             _ (assert res) 
             strm (.getResourceAsStream (RT/baseLoader) file-name)]
         (with-open [rdr (PushbackReader. (InputStreamReader. strm))]
-          (map #(let [env {:ns (@namespaces *analyzer-ns*) :context :statement :locals {}}]
-                  (analyze env %))
-               (forms-seq nil rdr)))))))
+          (doall
+            (map #(let [env {:ns (@namespaces *analyzer-ns*) :context :statement :locals {}}]
+                    (analyze env %))
+                 (forms-seq nil rdr))))))))
 
 (defmacro with-specials [specials & body]
   `(binding [*specials* (set (concat ~specials analyze/*specials*))]
