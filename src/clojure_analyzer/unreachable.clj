@@ -23,40 +23,102 @@
                    (concat hits
                            (find-maps-with-entry (vals (dissoc ds :env)) k v)))))))
 
-(defn find-unreachable-clauses [ast]
-  (doseq [{then :then else :else test-expr :test form :form} (find-maps-with-entry ast :op :if)]
-    (find-unreachable-clauses test-expr)
+(defmulti check-unreachable 
+  (fn [e] (assert (map? e))
+    (:op e)))
 
-    (if (and (= (:op test-expr) :constant)
-             (not (:form test-expr))
-             (not= nil (:form then)))
-      (println "Warning: unreachable then clause")
-      (find-unreachable-clauses then))
+(defmethod check-unreachable :constant
+  [exp])
 
-    (if (and (= (:op test-expr) :constant)
-             (:form test-expr)
-             (not= nil (:form else))) 
-      (println "Warning: unreachable else clause" form)
-      (find-unreachable-clauses else))))
+(defmethod check-unreachable :var
+  [exp])
+
+(defmethod check-unreachable :local
+  [exp])
+
+(defmethod check-unreachable :set
+  [exp])
+
+(defmethod check-unreachable :recur
+  [exp])
+
+(defmethod check-unreachable :map
+  [exp])
+
+(defmethod check-unreachable :vector
+  [exp])
+
+(defmethod check-unreachable :def
+  [{:keys [init]}]
+  (check-unreachable init))
+
+(defmethod check-unreachable :if
+  [{:keys [then else test form]}]
+  (if (and (= (:op test) :constant)
+           (not (:form test))
+           (not= nil (:form then)))
+    (println "Warning: unreachable then clause")
+    (check-unreachable then))
+
+  (if (and (= (:op test) :constant)
+           (:form test)
+           (not= nil (:form else))) 
+    (println "Warning: unreachable else clause" form)
+    (check-unreachable else)))
+
+(defmethod check-unreachable :fn
+  [{:keys [methods]}]
+  (doseq [m methods
+          child (:children m)]
+    (check-unreachable child)))
+
+(defmethod check-unreachable :invoke
+  [{:keys [children]}]
+  (doseq [child children]
+    (check-unreachable child)))
+
+(defmethod check-unreachable :let
+  [{:keys [children bindings]}]
+  (doseq [child children]
+    (check-unreachable child))
+  (doseq [bnd bindings]
+    (check-unreachable (:init bnd))))
+
+(defmethod check-unreachable :do
+  [{:keys [children]}]
+  (doseq [child children]
+    (check-unreachable child)))
+
+(defmethod check-unreachable :default
+  [{:keys [op] :as exp}]
+  (when (not (#{:ns} op))
+    (throw (Exception. (str "Fell through :op " op (class exp))))))
+
+(defn find-unreachable-clauses [asts]
+  (assert (not (map? asts)))
+  (doseq [ast asts]
+    (check-unreachable ast)))
 
 (do
   (find-unreachable-clauses (analyzer/analyze-namespace 'clojure.set))
+;  (find-unreachable-clauses (analyzer/analyze-namespace 'clojure.repl))
+;  (find-unreachable-clauses (analyzer/analyze-namespace 'clojure.java.io))
 
-  (find-unreachable-clauses (analyzer/analyze {:ns {:name 'myns}} 
+  (find-unreachable-clauses [(analyzer/analyze {:ns {:name 'myns}} 
                                               '(cond
-                                                 :else 2)))
+                                                 :else 2))])
 
-  (find-unreachable-clauses (analyzer/analyze {:ns {:name 'myns}} 
+  (find-unreachable-clauses [(analyzer/analyze {:ns {:name 'myns}} 
                                               '(cond 
                                                  (fn-call 1 2 3) 1
                                                  :else 2
-                                                 :another-else 3)))
+                                                 :another-else 3))])
 ;Warning: unreachable else clause (if :else 2 (clojure.core/cond :another-else 3))
 
-  (find-unreachable-clauses (analyzer/analyze {:ns {:name 'myns}} 
+  (find-unreachable-clauses [(analyzer/analyze {:ns {:name 'myns}} 
                                               '(cond 
                                                  :constant 2
                                                  (fn-call 1 2 3) 1
                                                  :else 2
-                                                 :another-else 3))))
+                                                 :another-else 3))]))
 ;Warning: unreachable else clause (if :constant 2 (clojure.core/cond (fn-call 1 2 3) 1 :else 2 :another-else 3))

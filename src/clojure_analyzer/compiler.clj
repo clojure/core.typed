@@ -280,7 +280,7 @@
         (binding [*recur-frames* (if recur-frame (cons recur-frame *recur-frames*) *recur-frames*)]
           (analyze-block (assoc env :context (if (= :expr context) :return context)) exprs))]
     {:env encl-env :op :let :loop is-loop
-     :bindings bes :statements statements :ret ret :form form :children (into [children] (map :init bes))}))
+     :bindings bes :statements statements :ret ret :form form :children (into (vec children) (map :init bes))}))
 
 (defmethod parse 'let*
   [op encl-env form _]
