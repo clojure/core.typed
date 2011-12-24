@@ -14,7 +14,50 @@
            (clojure.lang RT))
   (:require [clojure.java.io :as io]
             [clojure.pprint :as pprint]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [trammel.core :as c]))
+
+(c/defconstrainedrecord LocalBinding
+  [name nil init nil]
+  [(symbol? name)
+   (not (or (namespace name) (.contains (str name) ".")))])
+
+(c/defconstrainedrecord NsEnvEntry
+  [name nil excludes nil imports nil uses nil requires nil]
+  [(symbol? name)
+   (every? symbol? excludes)
+   (every? #(and (symbol? (key %))
+                 (class? (val %)))
+           imports)
+   (every? #(and (symbol? (key %))
+                 (not (namespace (key %)))
+                 (find-ns (val %)))
+           uses)
+   (every? #(and (symbol? (key %))
+                 (find-ns (val %)))
+           requires)])
+
+(c/defconstrainedrecord Env
+  [ns nil context nil locals nil]
+  [(instance? NsEnvEntry ns)
+   (keyword? context)])
+
+(c/defconstrainedrecord MethodAST
+  [env nil variadic nil params nil max-fixed-arity nil recurs nil statements nil ret nil children nil]
+  [(instance? Env env)
+   (every? map? statements)
+   (map? ret)
+   (every? map? children)])
+
+(c/defconstrainedrecord FnAST 
+  [env nil name nil methods nil variadic nil recur-frames nil max-fixed-arity nil statements nil ret nil children nil]
+  [(instance? Env env)
+   (or (nil? name)
+       (symbol? name))
+   (every? #(instance? MethodAST %) methods)
+   (instance? Boolean variadic)
+   (instance? clojure.lang.IRef recur-frames)
+   (integer? max-fixed-arity)])
 
 (def initial-namespaces '{clojure.core {:name clojure.core}
                           clojure.user {:name clojure.user}})
