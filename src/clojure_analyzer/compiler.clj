@@ -17,7 +17,6 @@
             [clojure.string :as string]))
 
 (declare resolve-var)
-;(require 'cljs.core)
 
 (def initial-namespaces '{clojure.core {:name clojure.core}
                           clojure.user {:name clojure.user}})
@@ -27,7 +26,7 @@
 (defn reset-namespaces! []
   (swap! namespaces (constantly initial-namespaces)))
 
-(def ^:dynamic *cljs-ns* 'clojure.user)
+(def ^:dynamic *analyzer-ns* 'clojure.user)
 (def ^:dynamic *cljs-warn-on-undeclared* false)
 
 (def munge identity)
@@ -117,32 +116,6 @@
                            (-> env :ns :name))
                          "/" (munge (name sym))))))]
     {:name nm}))
-
-(def emit-constant identity)
-
-;; Return an executable Clojure form
-(defmulti emit :op)
-
-(defmethod emit :var
-  [{:keys [info env] :as arg}]
-  (:name info))
-
-(defmethod emit :constant
-  [{:keys [form env]}]
-  (emit-constant form))
-
-(defmethod emit :invoke
-  [{:keys [f args env]}]
-  (let [fcall (emit f)]
-    (map emit (cons f args))))
-
-(defmethod emit :vector
-  [{:keys [children env]}]
-  (vec (map emit children)))
-
-(defmethod emit :default
-  [form]
-  (throw (Exception. (str "Dispatch not implemented for emit, :op = " (:op form)))))
 
 (declare analyze analyze-symbol analyze-seq)
 
@@ -273,7 +246,6 @@
     ;;(assert (= 1 (count methods)) "Arity overloading not yet supported")
     ;;todo - validate unique arities, at most one variadic, variadic takes max required args
     {:env env :op :fn :name mname :methods methods :variadic variadic :recur-frames *recur-frames*
-     :jsdoc [(when variadic "@param {...*} var_args")]
      :max-fixed-arity max-fixed-arity}))
 
 (defmethod parse 'do
@@ -368,10 +340,10 @@
                       (into s xs))
                     s))
                 #{} args)
-        {imports :import uses :use requires :require uses-macros :use-macros requires-macros :require-macros :as params}
+        {imports :import uses :use requires :require :as params}
         (reduce (fn [m [k & libs]]
-                  (assert (#{:import :use :use-macros :require :require-macros} k)
-                          (str "Only :import, :refer-clojure, :require, :require-macros, :use and :use-macros libspecs supported, found " k name))
+                  (assert (#{:import :use :require } k)
+                          (str "Only :import, :refer-clojure, :require and :use libspecs supported, found " k name))
                   (assoc m k (into {}
                                    (mapcat (fn [form]
                                              (case k
@@ -384,7 +356,7 @@
                                                      [[(symbol (subs ssym (inc (.lastIndexOf ssym "."))))
                                                        prefix]])))
 
-                                               (:require :require-macros)
+                                               :require
                                                (if (symbol? form)
                                                  [[form form]]
                                                  (let [[lib kw expr] form]
@@ -396,7 +368,7 @@
                                                      [[expr expr]])))
 
 
-                                               (:use :use-macros)
+                                               :use
                                                (if (symbol? form) 
                                                  [[form form]]
                                                  (let [[lib kw expr] form]
@@ -408,24 +380,19 @@
                                                      (map vector (keys (ns-publics lib)) (repeat lib)))))))
                                            libs))))
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
-    (set! *cljs-ns* name)
-;    (require 'cljs.core)
-    (doseq [nsym (remove #(or (= % 'clojure.core) (= % 'clojure.user)) (set (concat (vals requires) (vals uses) (vals requires-macros) (vals uses-macros))))]
-;      (analyze-namespace nsym identity))
+    (set! *analyzer-ns* name)
+    (doseq [nsym (set (concat (vals requires) (vals uses)))]
       (require nsym))
     (swap! namespaces #(-> %
                            (assoc-in [name :name] name)
                            (assoc-in [name :excludes] excludes)
                            (assoc-in [name :imports] imports)
                            (assoc-in [name :uses] uses)
-                           (assoc-in [name :requires] requires)
-                           (assoc-in [name :uses-macros] uses-macros)
-                           (assoc-in [name :requires-macros]
+                           (assoc-in [name :requires]
                                      (into {} (map (fn [[alias nsym]]
                                                      [alias (find-ns nsym)])
-                                                   requires-macros)))))
-    {:env env :op :ns :name name :uses uses :requires requires
-     :uses-macros uses-macros :requires-macros requires-macros :excludes excludes}))
+                                                   requires)))))
+    {:env env :op :ns :name name :uses uses :requires requires :excludes excludes}))
 
 (defmethod parse 'deftype*
   [_ env [_ tsym fields] _]
@@ -454,29 +421,6 @@
              argexprs (map #(analyze enve %) args)]
          {:env env :op :dot :target targetexpr :method (munge method) :args argexprs :children (into children argexprs)})))))
 
-(defmethod parse 'js*
-  [op env [_ form & args] _]
-  (assert (string? form))
-  (if args
-    (disallowing-recur
-     (let [seg (fn seg [^String s]
-                 (let [idx (.indexOf s "~{")]
-                   (if (= -1 idx)
-                     (list s)
-                     (let [end (.indexOf s "}" idx)]
-                       (cons (subs s 0 idx) (seg (subs s (inc end))))))))
-           enve (assoc env :context :expr)
-           argexprs (vec (map #(analyze enve %) args))]
-       {:env env :op :js :segs (seg form) :args argexprs :children argexprs}))
-    (let [interp (fn interp [^String s]
-                   (let [idx (.indexOf s "~{")]
-                     (if (= -1 idx)
-                       (list s)
-                       (let [end (.indexOf s "}" idx)
-                             inner (:name (resolve-existing-var env (symbol (subs s (+ 2 idx) end))))]
-                         (cons (subs s 0 idx) (cons inner (interp (subs s (inc end)))))))))]
-      {:env env :op :js :code (apply str (interp form))})))
-
 (defn parse-invoke
   [env [f & args]]
   (disallowing-recur
@@ -495,49 +439,17 @@
       (assoc ret :op :var :info (resolve-existing-var env sym)))))
 
 (defn get-expander [sym env]
-  ;; TODO ensure "sym" actually points to either a Class or a var
-  (let [imported-class (if-let [nsym (namespace sym)]
-                         (or (-> env :ns :imports (get (symbol nsym)))
-                             (try
-                               (class? (resolve (symbol nsym)))
-                               (catch RuntimeException e)))
-                         (or (-> env :ns :imports (get (symbol sym)))
-                             (try
-                               (class? (resolve sym))
-                               (catch RuntimeException e))))
-
-        is-implicit (fn [^clojure.lang.Symbol csym]
-                      (let [c (resolve (symbol csym))]
-                        (and (class? c)
-                             (.startsWith (str c) "java.lang"))))
-
-        implicit-import (if-let [nsym (namespace sym)]
-                          (try
-                            (is-implicit (symbol nsym))
-                            (catch RuntimeException e
-                              nil))
-                          (try
-                            (is-implicit (symbol sym))
-                            (catch RuntimeException e
-                              nil)))
-        mvar
-        (when (and (not imported-class)
-                   (not implicit-import)
-                   (not (-> env :locals sym)))  ;locals hide macros
+  (let [mvar
+        (when-not (-> env :locals sym)  ;locals hide macros
           (if-let [nstr (namespace sym)]
-            ;; Could be a class
-            (when-let [ns (cond
-                            (= "clojure.core" nstr) 'clojure.core
-                            (.contains nstr ".") (symbol nstr)
-                            :else
-                            (or (-> env :ns :requires-macros (get (symbol nstr)))
-                                (-> env :ns :requires (get (symbol nstr)))))]
-              (.findInternedVar ^clojure.lang.Namespace (find-ns ns) (symbol (name sym))))
-            (if-let [nsym (or (-> env :ns :uses-macros sym)
-                              (-> env :ns :uses sym))]
-              (when-let [ns (find-ns nsym)]
-                (.findInternedVar ^clojure.lang.Namespace (find-ns nsym) sym))
-              (.findInternedVar ^clojure.lang.Namespace (find-ns 'clojure.core) sym))))]
+            (when-let [ns (if-let [reqd (-> env :ns :requires (get (symbol nstr)))]
+                            reqd
+                            (find-ns (symbol nstr)))]
+              (.findInternedVar ^clojure.lang.Namespace ns (symbol (name sym))))
+            (if-let [nsym (-> env :ns :uses sym)]
+              (.findInternedVar ^clojure.lang.Namespace (find-ns nsym) sym)
+              (when-not (-> env :ns :excludes (get (symbol (name sym))))
+                (.findInternedVar ^clojure.lang.Namespace (find-ns 'clojure.core) sym)))))]
     (when (and mvar (.isMacro ^clojure.lang.Var mvar))
       @mvar)))
 
@@ -546,7 +458,8 @@
     (if (*specials* op)
       form
       (if-let [mac (and (symbol? op) (get-expander op env))]
-        (binding [*ns* (or (find-ns (-> env :ns :name)) *ns*)]
+        (binding [*ns* (or (when-let [ns (-> env :ns :name)] (find-ns ns)) 
+                           *ns*)]
           (apply mac form env (rest form)))
         (if (symbol? op)
           (let [opname (str op)]
@@ -624,21 +537,6 @@
         (set? form) (analyze-set env form name)
         :else {:op :constant :env env :form form}))))
 
-(defn analyze-file
-  [f]
-  (binding [*cljs-ns* 'cljs.user]
-    (let [res (if (= \/ (first f)) f (io/resource f))]
-      (assert res (str "Can't find " f " in classpath"))
-      (with-open [r (io/reader res)]
-        (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
-              pbr (clojure.lang.LineNumberingPushbackReader. r)
-              eof (Object.)]
-          (loop [r (read pbr false eof false)]
-            (let [env (assoc env :ns (@namespaces *cljs-ns*))]
-              (when-not (identical? eof r)
-                (analyze env r)
-                (recur (read pbr false eof false))))))))))
-
 (defn forms-seq
   "Seq of forms in a Clojure or ClojureScript file."
   ([f]
@@ -660,21 +558,24 @@
   (require nssym) ;; require macroexpanders
   (reset-namespaces!)
   (with-core-clj [nssym]
-    (binding [*cljs-ns* 'clojure.user]
+    (binding [*analyzer-ns* 'clojure.user]
       (let [file-name (-> (ns-publics nssym) first second meta :file) ;; TODO better way to get file name
             _ (assert file-name)
             res (.getResource (RT/baseLoader) file-name)
             _ (assert res) 
-            strm (.getResourceAsStream (RT/baseLoader) file-name)
-            out (atom [])]
-        (do
-          (with-open [rdr (PushbackReader. (InputStreamReader. strm))]
-            (doseq [form (forms-seq nil rdr)]
-              (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
-                    ast (analyze env form)]
-                (swap! out conj ast))))
-          @out)))))
+            strm (.getResourceAsStream (RT/baseLoader) file-name)]
+        (with-open [rdr (PushbackReader. (InputStreamReader. strm))]
+          (doall
+            (map #(let [env {:ns (@namespaces *analyzer-ns*) :context :statement :locals {}}]
+                    (analyze env %))
+                 (forms-seq nil rdr))))))))
+
 
 (defmacro with-specials [specials & body]
   `(binding [*specials* (set (concat ~specials analyze/*specials*))]
      ~@body))
+
+(comment
+(analyze {} '(fn [a] 1))
+(analyze {:ns {:name 'test.ns}} '(fn [a] 1))
+  )
