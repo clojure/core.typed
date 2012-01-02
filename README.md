@@ -1,29 +1,19 @@
-# typed-clojure
+# Typed Clojure
 
 Clojure with a type system, as a library.
 
 ## Status
 
-Lots of experimentation. Starting to realize parallels between Haskell typeclasses and Clojure protocols/interfaces.
+Completed analyze 0.1
 
-## Utilizing the ClojureScript analyzer
+Exploring leveraging analyze for local type inference.
 
-I've started porting the ClojureScript analyzer to Clojure.
+## Utilizing the Clojure analyzer
 
-Still some refinements to be done.
+`analyze`, a separate project (https://github.com/frenchy64/analyze), gives sufficient access to the analyzer.
 
-Play around with `clojure-analyzer.compiler` to try the analyzer.
-
-## Clojure Type Hints
-
-We should not reuse the syntax of type hints. Or should it? They look useful :)
-
-```clojure
-(defn ^Integer foo [^Double a])
-  (int a))
-```
-
-This seems like a role for a separate tool.
+The analyzer produces rich type information which can be utilized for inference, and produces a macroexpanded
+AST which can be walked separately.
 
 ## Predicates and Occurances
 
