@@ -31,6 +31,32 @@ Is this a common idiom in Clojure? How do Multimethods and Protocols come into p
 
 Can we expand a multimethod call to refine the types of occurances?
 
+# Seq Types
+
+Functions that operate on seqs should have type annotations in terms of seqs.
+
+Then, any "seqable" type should be declared as a subtype of a seq.
+
+This is trivial without parameterized types, otherwise we have to define how to convert each type to a seq.
+
+eg. Seq<Integer> :< Seq<Any>
+eg. IPersistentVector<Integer>  :< Seq<Integer>
+eg. IPersistentMap<Integer, String> :< Seq< Seq<Integer, String> >
+
+Typed Racket takes a similar approach wrt the TR `Sequence` type.
+
+# nil-able
+
+Assume everything can be nil-able. How do other type systems approach this? I think Java and Scala (?) take this approach.
+
+Use propositions to refine types and assert something cannot be nil.
+
+```clojure
+(let [a (something)]
+  (when a
+    (.getMyThing a))) ;; a cannot be nil/false
+```
+
 # Resources
 
 ## Getting Started with Racket
