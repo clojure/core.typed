@@ -1,3 +1,9 @@
+# Notice
+
+There is nothing much of real value here yet. Just months of experimentation, without much organization.
+
+This will be fixed in the following months.
+
 # Typed Clojure
 
 Clojure with a type system, as a library.
