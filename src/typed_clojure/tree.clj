@@ -1,5 +1,5 @@
 (ns typed-clojure.tree
-  (:use [typed-clojure.test-rep]))
+  (:use [typed-clojure.primitives]))
 
 (declare Tree)
 

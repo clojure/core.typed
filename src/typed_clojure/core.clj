@@ -1,19 +1,4 @@
-(ns typed-clojure.core
-  (:require [clojure-analyzer.compiler :as analyze]
-            [typed-clojure.types :as t]
-            [clojure.walk :as walk]
-            [trammel.core :as c]))
-
-(defrecord Union [types])
-
-(defrecord TypeFilter [type])
-(defrecord NotTypeFilter [not-type])
-(defrecord ValueFilter [value])
-(defrecord NotValueFilter [not-value])
-
-(defrecord ImplFilter [if then])
-(defrecord AndFilter [])
-(defrecord OrFilter [ else])
+(ns typed-clojure.core)
 
 (defrecord Fn [max-fixed-arity variadic refinements])
 (defrecord Arity [max-fixed-arity variadic refinements])
