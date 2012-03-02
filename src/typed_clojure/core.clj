@@ -33,6 +33,7 @@
 (defn type-error [& msg]
   (throw (Exception. (apply str msg))))
 
+;(+T ensure-type (IPersistentMap :-> Type))
 (defmulti ensure-type :op)
 
 (defmethod ensure-type :constant
