@@ -1,7 +1,7 @@
 (ns typed-clojure.tree
-  (:use [typed-clojure.primitives]))
+  (:use [typed-clojure.checker :only [deftypeT +T new-type union]]))
 
-(declare Tree)
+(declare)
 
 (deftypeT Leaf
   [[val :- Number]])
