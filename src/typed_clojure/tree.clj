@@ -1,7 +1,7 @@
 (ns typed-clojure.tree
-  (:use [typed-clojure.checker :only [deftypeT +T new-type union]]))
+  (:use [typed-clojure.checker :only [deftypeT +T new-type union fun arity]]))
 
-(declare)
+(declare Tree)
 
 (deftypeT Leaf
   [[val :- Number]])
@@ -12,7 +12,7 @@
 
 (new-type Tree (union Leaf Node))
 
-(+T tree-height [Tree :-> Number])
+(+T tree-height (fun (arity [Tree] Number)))
 (defn tree-height [t]
   (cond 
     (instance? Leaf t) 1
