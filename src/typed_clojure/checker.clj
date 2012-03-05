@@ -3,6 +3,7 @@
   (:use [analyze.core :only [analyze-path]])
   (:require [analyze.util :as util]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Utils
 
 (def third (comp second rest))
@@ -14,6 +15,7 @@
     (var? var-or-class) (symbol (str (.name (.ns var-or-class))) (str (.sym var-or-class)))
     :else (symbol (.getName var-or-class))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Database
 
 ; Namespaced symbol -> type
@@ -35,6 +37,7 @@
   (println "add type for" sym)
   (swap! type-db #(assoc % sym type)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Types
 
 (deftype Union [types]
@@ -71,6 +74,7 @@
   (assert (<= 0 (count dom)))
   (->Arity dom rng))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Subtyping
 
 (defmulti subtype* (fn [super sub] (vec (map class [super sub]))))
@@ -91,6 +95,7 @@
 (defn subtype? [super sub]
   (boolean (subtype* super sub)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Front end macros
 
 (defmacro new-type [& body]
@@ -122,6 +127,7 @@
         `(declare ~nme))
      (add-type (var-or-class->sym (resolve '~nme)) ~type)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Annotations for core functions
 
 (+T add-type (fun (arity [Symbol] Object)))
@@ -134,6 +140,7 @@
 (+T clojure.core/resolve (fun (arity [Symbol] (union Var Class))
                               (arity [IPersistentMap Symbol] (union Var Class))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
 
 (defn type-error []
@@ -217,7 +224,8 @@
   (util/print-expr expr :children :env :Expr-obj :ObjMethod-obj)
   (type-error))
 
-; # Type checker interface
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; # Type checker interface
 
 (defn type-check-path [path nsym]
   (let [analysis (analyze-path path nsym)]
