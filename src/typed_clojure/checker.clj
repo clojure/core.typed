@@ -1,5 +1,5 @@
 (ns typed-clojure.checker
-  (:import (clojure.lang Symbol Var IPersistentMap))
+  (:import (clojure.lang Symbol Var IPersistentMap IPersistentCollection))
   (:use [analyze.core :only [analyze-path]])
   (:require [analyze.util :as util]))
 
@@ -25,7 +25,7 @@
   (do (assert (find @type-db qual-sym) (str "No type for " qual-sym))
     (@type-db qual-sym)))
 
-;(+T add-type [Symbol :-> Object])
+;(+T add-type [Symbol Object :> Object])
 (defn add-type [sym type]
   (assert (symbol? sym))
   (assert (or (not (find @type-db sym))
@@ -77,22 +77,21 @@
   (assert (instance? clojure.lang.IPersistentCollection dom))
   (->Arity dom rng))
 
-(defn variable-arity? [arity]
-  (assert (instance? Arity arity))
-  (= :&
-     (nth (.dom arity) (- (count (.dom arity)) 2) nil)))
+(def arity? (partial instance? Arity))
+(def fun? (partial instance? Fun))
 
-(defn find-matching-arity [fn-type arity]
-  ; Try fixed arity
-  (let [arg-num (count (.dom arity))
-        fn-arity (some #(and (= (count (.dom %)) arg-num)
-                             %)
-                       (.arities fn-type))
-        _ (assert fn-arity "Variable-arity not supported")]
-    [fn-arity arity]))
+(defn variable-arity [arity]
+  (assert (instance? Arity arity))
+  (and (= :&
+          (nth (.dom arity) (- (count (.dom arity)) 2) nil))
+       arity))
+
+(def fixed-arity? (complement variable-arity))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Subtyping
+
+(declare matching-arity)
 
 (defprotocol ISubtype
   "A protocol for specifying subtyping rules"
@@ -111,19 +110,30 @@
   (subtype [this sub]
     (when (instance? Fun sub)
       (assert (= 1 (count (.arities sub))))
-      (let [[type-arity sub-arity :as arities] (find-matching-arity this (first (.arities sub)))]
+      (let [[type-arity sub-arity :as arities] (matching-arity this (first (.arities sub)))]
         (when arities
           (subtype type-arity sub-arity)))))
 
   Arity
   (subtype [this sub]
     (and (instance? Arity sub)
-         (every? identity (map subtype (.dom this) (.dom sub)))
-         (subtype (.rng sub) (.rng this))))
+         (cond
+           (variable-arity this)
+           (let [fixed-dom (take-while #(not (= :& %)) (.dom this))
+                 rest-type (last (.dom this))]
+             (every? identity (map subtype (concat fixed-dom (repeat rest-type)) (.dom sub))))
+
+
+           :else
+           (and (instance? Arity sub)
+                (every? identity (map subtype (.dom this) (.dom sub)))
+                (subtype (.rng sub) (.rng this))))))
 
   Class
   (subtype [this sub]
-    (isa? sub this))
+    (if (instance? Union sub)
+      (every? identity (map subtype (repeat this) (.types sub)))
+      (isa? sub this)))
 
   nil
   (subtype [this sub]
@@ -167,10 +177,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Annotations for core functions
 
-(+T add-type (fun (arity [Symbol] Object)))
+(+T add-type (fun (arity [Symbol Object] Object)))
 (+T var-or-class->sym (fun (arity [(union Class Var)] Symbol)))
-;; TODO type for fun, variable arity
-;(+T fun (fun (arity [Object] Fun)))
+
+(+T fun (fun (arity [:& Arity] Fun)))
+(+T arity (fun (arity [IPersistentCollection Object] Arity)))
 
 ;clojure.core
 
@@ -197,10 +208,19 @@
 (defn matching-arity 
   "Returns the matching arity type corresponding to the args"
   [fun args]
-  (some #(and (= (count (.dom %))
-                 (count args))
-              %)
-        (.arities fun)))
+  (or (some #(and (= (count (.dom %))
+                     (count args))
+                  %)
+            (filter fixed-arity? (.arities fun))) ; fixed arities
+      (some variable-arity (.arities fun)))) ; variable arity
+
+(defn rest-type [arity]
+  (assert (variable-arity arity))
+  (last (.dom arity)))
+
+(defn fixed-args [arity]
+  (assert (arity? arity))
+  (take-while #(not (= :& %)) (.dom arity)))
 
 (defmethod type-check :invoke
   [{:keys [fexpr args] :as expr}]
@@ -211,20 +231,26 @@
                            (util/print-expr expr :children :env :Expr-obj :ObjMethod-obj)
                            (println arg-types)
                            (println fn-type)))
-    (assert (= (count (.dom matched-arity))
-               (count arg-types)))
-    (assert (every? true? (doall (map subtype? (.dom matched-arity) arg-types)))
-            (println (.dom matched-arity) arg-types (map subtype? (.dom matched-arity) arg-types)))
+    (assert (or (variable-arity matched-arity)
+                (= (count (.dom matched-arity))
+                   (count arg-types))))
+
+    ; Typecheck args compared to fn signature
+    (assert (every? true? (doall (map subtype? 
+                                      (concat (fixed-args matched-arity)
+                                              (when (variable-arity matched-arity)
+                                                (repeat (rest-type matched-arity))))
+                                      arg-types)))
+            (str "Invoke: type error: "
+                 arg-types " is not a subtype of " (.dom matched-arity)))
     (.rng matched-arity)))
 
 (defmethod type-check :import*
   [{:keys [class-str]}]
-  (println "Import" class-str)
   nil)
 
 (defmethod type-check :deftype*
   [{:keys []}]
-  (println "Defined type") ;TODO get name
   nil)
 
 (defmethod type-check :fn-expr
