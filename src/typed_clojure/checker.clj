@@ -201,9 +201,11 @@
   (class val))
 
 (defmethod type-check :var
-  [{:keys [var]}]
+  [{:keys [var env]}]
   (let [sym (var-or-class->sym var)]
-    (type-of sym)))
+    (if-let [local-type (-> env ::local-types sym)]
+      local-type
+      (type-of sym))))
 
 (defn matching-arity 
   "Returns the matching arity type corresponding to the args"
@@ -263,8 +265,17 @@
   (type-check body))
 
 (defmethod type-check :let
-  [{:keys [binding-inits body]}]
-  (type-check body))
+  [{:keys [env binding-inits body]}]
+  (let [local-types
+        (loop [local-types (-> env ::local-types)
+               binding-inits binding-inits]
+          (if (seq binding-inits)
+            (let [{sym :sym, init :init} (:local-binding (first binding-inits))
+                  bnd-type (type-check (assoc-in init [:env ::local-types] local-types))]
+              (recur (assoc local-types sym bnd-type)
+                     (rest binding-inits)))
+            local-types))]
+    (type-check (assoc-in body [:env ::local-types] local-types))))
 
 (defmethod type-check :do
   [{:keys [exprs]}]
