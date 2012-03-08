@@ -69,31 +69,68 @@
     (str dom " " rng)))
 
 (defn fun [& arities]
+  (assert (<= 1 (count arities)))
+  (assert (every? #(instance? Arity %) arities))
   (->Fun arities))
+
 (defn arity [dom rng]
-  (assert (<= 0 (count dom)))
+  (assert (instance? clojure.lang.IPersistentCollection dom))
   (->Arity dom rng))
+
+(defn variable-arity? [arity]
+  (assert (instance? Arity arity))
+  (= :&
+     (nth (.dom arity) (- (count (.dom arity)) 2) nil)))
+
+(defn find-matching-arity [fn-type arity]
+  ; Try fixed arity
+  (let [arg-num (count (.dom arity))
+        fn-arity (some #(and (= (count (.dom %)) arg-num)
+                             %)
+                       (.arities fn-type))
+        _ (assert fn-arity "Variable-arity not supported")]
+    [fn-arity arity]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Subtyping
 
-(defmulti subtype* (fn [super sub] (vec (map class [super sub]))))
+(defprotocol ISubtype
+  "A protocol for specifying subtyping rules"
+  (subtype [this sub] "A function to determine if sub is a subtype of this"))
 
-(defmethod subtype* [Union Union]
-  [super sub]
-  (every? identity (map #(subtype* super %) (.types sub))))
+(extend-protocol ISubtype
+  Union
+  (subtype [this sub]
+    (cond 
+      (instance? Union sub) 
+      (every? identity (map #(subtype this %) (.types sub)))
 
-(defmethod subtype* [Union Object]
-  [super sub]
-  (some #(subtype* % sub) (.types super)))
+      :else (boolean (some #(subtype % sub) (.types this)))))
 
-(defmethod subtype* [Object Object]
-  [super sub]
-  (or (= super sub)
-      (isa? sub super)))
+  Fun
+  (subtype [this sub]
+    (when (instance? Fun sub)
+      (assert (= 1 (count (.arities sub))))
+      (let [[type-arity sub-arity :as arities] (find-matching-arity this (first (.arities sub)))]
+        (when arities
+          (subtype type-arity sub-arity)))))
 
-(defn subtype? [super sub]
-  (boolean (subtype* super sub)))
+  Arity
+  (subtype [this sub]
+    (and (instance? Arity sub)
+         (every? identity (map subtype (.dom this) (.dom sub)))
+         (subtype (.rng sub) (.rng this))))
+
+  Class
+  (subtype [this sub]
+    (isa? sub this))
+
+  nil
+  (subtype [this sub]
+    (isa? sub this)))
+
+(defn subtype? [type sub]
+  (boolean (subtype type sub)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Front end macros
