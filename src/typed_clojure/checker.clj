@@ -161,8 +161,15 @@
     `(let []
        ~(@#'clojure.core/emit-deftype* name gname (vec hinted-fields) (vec interfaces) methods)
        (import ~classname)
+
+       ; Type for generated ->Type factory
        (+T ~(symbol (str "->" name)) (fun (arity ~(vec (map third typed-fields))
                                                  (resolve '~name))))
+       
+       ; Type for Type. constructor
+       (+T ~(symbol (.getName (resolve name))) (fun (arity ~(vec (map third typed-fields))
+                                                          (resolve '~name))))
+
        ~(@#'clojure.core/build-positional-factory gname classname fields)
        (swap! type-db #(assoc % (resolve '~name)
                               '~(apply merge (map (fn [[n _ t]] {n t}) typed-fields))))
@@ -199,6 +206,9 @@
 (defmethod type-check :literal
   [{:keys [val]}]
   (class val))
+
+;(defmethod type-check :new
+;  [{:keys [ctro class args]}]
 
 (defmethod type-check :var
   [{:keys [var env]}]
