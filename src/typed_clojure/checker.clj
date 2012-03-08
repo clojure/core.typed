@@ -211,13 +211,13 @@
   (class val))
 
 (defmethod type-check :new
-  [{:keys [ctor class args :as expr]}]
-  (let [_ (assert (:class class))
-        fn-type (type-of (symbol (.getName (:class class))))]
+  [{:keys [ctor class args] :as expr}]
+  (let [_ (assert class (util/print-expr expr :env :children))
+        fn-type (type-of (symbol (.getName class)))]
     (assert fn-type "Constructors only typed if declared with deftypeT")
     (let [matched-arity (matching-arity fn-type args)
           arg-types (map type-check args)]
-      (every? true? (map subtype? (.dom matching-arity) arg-types)))))
+      (every? true? (map subtype? (.dom matched-arity) arg-types)))))
 
 (defmethod type-check :var
   [{:keys [var env]}]
