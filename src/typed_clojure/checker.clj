@@ -34,8 +34,8 @@
                " Expected: " (@type-db sym)
                " Found: " type
                " (= (@type-db sym) type): " (= (@type-db sym) type)))
-  (println "add type for" sym)
-  (swap! type-db #(assoc % sym type)))
+  (swap! type-db #(assoc % sym type))
+  nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Types
@@ -163,12 +163,12 @@
        (import ~classname)
 
        ; Type for generated ->Type factory
-       (+T ~(symbol (str "->" name)) (fun (arity ~(vec (map third typed-fields))
-                                                 (resolve '~name))))
+       (add-type (symbol (str "->" '~name)) (fun (arity ~(vec (map third typed-fields))
+                                                       (resolve '~name))))
        
-       ; Type for Type. constructor
-       (+T ~(symbol (.getName (resolve name))) (fun (arity ~(vec (map third typed-fields))
-                                                          (resolve '~name))))
+       ; Type for interop dot constructor
+       (add-type '~classname (fun (arity ~(vec (map third typed-fields))
+                                         (resolve '~name))))
 
        ~(@#'clojure.core/build-positional-factory gname classname fields)
        (swap! type-db #(assoc % (resolve '~name)
@@ -194,6 +194,9 @@
 
 (+T clojure.core/resolve (fun (arity [Symbol] (union Var Class))
                               (arity [IPersistentMap Symbol] (union Var Class))))
+(+T clojure.core/symbol (fun (arity [(union Symbol String)] Symbol)
+                             (arity [clojure.lang.Namespace (union Symbol String)] Symbol)))
+(+T clojure.core/str (fun (arity [:& Object] String)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
@@ -207,8 +210,14 @@
   [{:keys [val]}]
   (class val))
 
-;(defmethod type-check :new
-;  [{:keys [ctro class args]}]
+(defmethod type-check :new
+  [{:keys [ctor class args :as expr]}]
+  (let [_ (assert (:class class))
+        fn-type (type-of (symbol (.getName (:class class))))]
+    (assert fn-type "Constructors only typed if declared with deftypeT")
+    (let [matched-arity (matching-arity fn-type args)
+          arg-types (map type-check args)]
+      (every? true? (map subtype? (.dom matching-arity) arg-types)))))
 
 (defmethod type-check :var
   [{:keys [var env]}]
