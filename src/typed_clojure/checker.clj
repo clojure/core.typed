@@ -198,6 +198,7 @@
 (+T clojure.core/symbol (fun (arity [(union Symbol String)] Symbol)
                              (arity [clojure.lang.Namespace (union Symbol String)] Symbol)))
 (+T clojure.core/str (fun (arity [:& Object] String)))
+(+T clojure.core/*ns* clojure.lang.Namespace)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
@@ -275,14 +276,42 @@
   [{:keys []}]
   nil)
 
+(defn- matching-arity-expr [{:keys [required-params rest-params] :as expr} ^Fun fn-type]
+  (assert fn-type)
+  (if rest-params
+    (some variable-arity fn-type)
+    (some #(and (= (count (.dom ^Arity %))
+                   (count required-params))
+                %)
+          (filter fixed-arity? (.arities fn-type)))))
+
+
 (defmethod type-check :fn-expr
-  [{:keys [methods]}]
-  (doseq [method methods]
-    (type-check method))) ;; TODO what does this return?
+  [{:keys [methods] :as expr}]
+  (let [expected-type (::expected-type expr)
+ ;       _ (assert expected-type (str "No type found for function" (util/print-expr expr :env :children :Expr-obj)))
+
+        actual-type 
+        (apply fun (for [method methods]
+                     (type-check (assoc method ::expected-type (when expected-type
+                                                                 (matching-arity-expr method expected-type))))))]
+    actual-type))
 
 (defmethod type-check :fn-method
-  [{:keys [required-params rest-params body]}]
-  (type-check body))
+  [{:keys [required-params rest-params body] :as expr}]
+  (let [expected-type (::expected-type expr)
+        _ (assert (or expected-type
+                      (and (empty? required-params) (not rest-params)))
+                  "Found arguments without types")
+        local-types (let [fixed-types (when expected-type
+                                        (map vector (map :sym required-params) (.dom ^Arity expected-type)))
+                          rest-type (when rest-params
+                                      [(:sym rest-params) clojure.lang.ISeq]) ;; TODO make parameterised with polymorphic types 
+                                                                              ;; (poly ISeq (rest-type expected-type)
+                          ]
+                      (hash-map (flatten (concat fixed-types rest-type))))
+        rng-type (type-check (update-in body [:env ::local-types] merge local-types))]
+    (arity (.dom expected-type) rng-type)))
 
 (defmethod type-check :let
   [{:keys [env binding-inits body]}]
@@ -291,7 +320,7 @@
                binding-inits binding-inits]
           (if (seq binding-inits)
             (let [{sym :sym, init :init} (:local-binding (first binding-inits))
-                  bnd-type (type-check (assoc-in init [:env ::local-types] local-types))]
+                  bnd-type (type-check (update-in init [:env ::local-types] merge local-types))]
               (recur (assoc local-types sym bnd-type)
                      (rest binding-inits)))
             local-types))]
@@ -307,8 +336,8 @@
 (defmethod type-check :def
   [{:keys [env init-provided init var]}]
   (if init-provided
-    (let [actual-type (type-check init)
-          expected-type (type-of (var-or-class->sym var))]
+    (let [expected-type (type-of (var-or-class->sym var))
+          actual-type (type-check (assoc init ::expected-type expected-type))]
       (assert (subtype? expected-type actual-type))
       actual-type)
     (println "No init provided for" (var-or-class->sym var))))
