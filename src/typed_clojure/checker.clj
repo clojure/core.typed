@@ -303,13 +303,14 @@
         _ (assert (or expected-type
                       (and (empty? required-params) (not rest-params)))
                   "Found arguments without types")
-        local-types (let [fixed-types (when expected-type
+        local-types (let [fixed-types (when (seq required-params)
+                                        (assert expected-type)
                                         (map vector (map :sym required-params) (.dom ^Arity expected-type)))
                           rest-type (when rest-params
                                       [(:sym rest-params) clojure.lang.ISeq]) ;; TODO make parameterised with polymorphic types 
                                                                               ;; (poly ISeq (rest-type expected-type)
                           ]
-                      (hash-map (flatten (concat fixed-types rest-type))))
+                      (apply hash-map (flatten (concat fixed-types rest-type))))
         rng-type (type-check (update-in body [:env ::local-types] merge local-types))]
     (arity (.dom expected-type) rng-type)))
 
@@ -351,6 +352,7 @@
 ;; # Type checker interface
 
 (defn type-check-path [path nsym]
+  (require nsym)
   (let [analysis (analyze-path path nsym)]
     (doseq [a (rest analysis)]
       (type-check a))))
