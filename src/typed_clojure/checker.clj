@@ -39,6 +39,14 @@
   nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; # Protocols
+
+(defprotocol ITypedClojureType
+  "A protocol for specifying subtyping rules"
+  (subtype [this sub] "A function to determine if sub is a subtype of this"))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Types
 
 (deftype Union [types]
@@ -76,6 +84,7 @@
 
 (defn arity [dom rng]
   (assert (instance? clojure.lang.IPersistentCollection dom))
+  (assert (extends? ITypedClojureType (class rng)) rng)
   (->Arity dom rng))
 
 (def arity? (partial instance? Arity))
@@ -94,11 +103,7 @@
 
 (declare matching-arity)
 
-(defprotocol ISubtype
-  "A protocol for specifying subtyping rules"
-  (subtype [this sub] "A function to determine if sub is a subtype of this"))
-
-(extend-protocol ISubtype
+(extend-protocol ITypedClojureType
   Union
   (subtype [this sub]
     (cond 
@@ -110,10 +115,10 @@
   Fun
   (subtype [this sub]
     (when (instance? Fun sub)
-      (assert (= 1 (count (.arities sub))))
-      (let [[type-arity sub-arity :as arities] (matching-arity this (first (.arities sub)))]
-        (when arities
-          (subtype type-arity sub-arity)))))
+      (every? identity
+              (for [sub-arity (.arities sub)]
+                (let [type-arity (matching-arity this (.dom sub-arity))]
+                  (subtype type-arity sub-arity))))))
 
   Arity
   (subtype [this sub]
@@ -219,7 +224,8 @@
     (assert fn-type "Constructors only typed if declared with deftypeT")
     (let [matched-arity (matching-arity fn-type args)
           arg-types (map type-check args)]
-      (every? true? (map subtype? (.dom matched-arity) arg-types)))))
+      (assert (every? true? (map subtype? (.dom matched-arity) arg-types)))
+      (.rng matched-arity))))
 
 (defmethod type-check :var
   [{:keys [var env]}]
@@ -231,6 +237,8 @@
 (defn matching-arity 
   "Returns the matching arity type corresponding to the args"
   [fun args]
+  (assert (instance? Fun fun))
+  (assert (not (instance? Arity args)))
   (or (some #(and (= (count (.dom %))
                      (count args))
                   %)
@@ -314,6 +322,15 @@
         rng-type (type-check (update-in body [:env ::local-types] merge local-types))]
     (arity (.dom expected-type) rng-type)))
 
+(defmethod type-check :local-binding-expr
+  [{:keys [local-binding]}]
+  (type-check local-binding))
+
+(defmethod type-check :local-binding
+  [{:keys [init]}]
+  (when init
+    (type-check init)))
+
 (defmethod type-check :let
   [{:keys [env binding-inits body]}]
   (let [local-types
@@ -336,6 +353,7 @@
 
 (defmethod type-check :def
   [{:keys [env init-provided init var]}]
+  (println "type checking" var)
   (if init-provided
     (let [expected-type (type-of (var-or-class->sym var))
           actual-type (type-check (assoc init ::expected-type expected-type))]
@@ -345,7 +363,7 @@
 
 (defmethod type-check :default
   [expr]
-  (util/print-expr expr :children :env :Expr-obj :ObjMethod-obj)
+  (util/print-expr expr :children :Expr-obj :ObjMethod-obj)
   (type-error))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
