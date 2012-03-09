@@ -34,6 +34,7 @@
                " Expected: " (@type-db sym)
                " Found: " type
                " (= (@type-db sym) type): " (= (@type-db sym) type)))
+  (println "add type for" sym)
   (swap! type-db #(assoc % sym type))
   nil)
 
@@ -163,7 +164,7 @@
        (import ~classname)
 
        ; Type for generated ->Type factory
-       (add-type (symbol (str "->" '~name)) (fun (arity ~(vec (map third typed-fields))
+       (add-type (symbol (str *ns* "/->" '~name)) (fun (arity ~(vec (map third typed-fields))
                                                        (resolve '~name))))
        
        ; Type for interop dot constructor
