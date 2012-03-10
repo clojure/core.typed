@@ -5,3 +5,7 @@ pom.xml
 .lein-failures
 .lein-deps-sum
 *.swp
+*.aux
+*.dvi
+*.pdf
+*.log

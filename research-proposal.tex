@@ -1,0 +1,170 @@
+
+\documentclass[12pt, a4paper]{article}
+\setlength{\oddsidemargin}{0.5cm}
+\setlength{\evensidemargin}{0.5cm}
+\setlength{\topmargin}{-1.6cm}
+\setlength{\leftmargin}{0.5cm}
+\setlength{\rightmargin}{0.5cm}
+\setlength{\textheight}{24.00cm} 
+\setlength{\textwidth}{15.00cm}
+\parindent 0pt
+\parskip 5pt
+\pagestyle{plain}
+
+\title{Research Proposal}
+\author{}
+\date{}
+
+\newcommand{\namelistlabel}[1]{\mbox{#1}\hfil}
+\newenvironment{namelist}[1]{%1
+\begin{list}{}
+    {
+        \let\makelabel\namelistlabel
+        \settowidth{\labelwidth}{#1}
+        \setlength{\leftmargin}{1.1\labelwidth}
+    }
+  }{%1
+\end{list}}
+
+\begin{document}
+\maketitle
+
+\begin{namelist}{xxxxxxxxxxxx}
+\item[{\bf Title:}]
+	Optional Static Type Checking for Dynamic Languages
+\item[{\bf Author:}]
+	Ambrose Bonnaire-Sergeant
+\item[{\bf Supervisor:}]
+	Rowan Davies
+\end{namelist}
+
+\section*{Background} 
+
+% In this section you should give some background to your
+% research area. What is the problem you are tackling, and why is it
+% worthwhile solving? Who has already done some work in this area,
+% and what have they achieved?
+
+Programmers have long been divided between statically typed and 
+dynamically typed languages.
+Traditionally, languages have been defined as using one of these styles,
+but recently languages such as Racket/Typed Racket, Dart and Qi/Shen
+have borrowed from both.
+
+The tradeoffs of both styles has been subject to much debate, but some
+points have general agreement. Dynamically typed languages
+are generally more convenient for writing smaller 
+programs, whereas statically typed languages are usually preferred 
+when writing large programs.
+
+There has been little practical experience writing programs in a single
+language that combine both styles.  One example is
+Typed Racket, which provides a statically typed variation of Racket 
+with the intention of safely porting untyped code to typed code. 
+Typed code can interact with untyped code while preserving some properties
+of typed code by, for example, delaying static type checks until runtime.
+Porting untyped Racket code to Typed Racket generally involves 
+adding type annotations to top level declarations with minimal (usually zero)
+modification to existing code structure.
+
+Type checking is often an operation complected with compilation. This is
+because languages that have type checkers generally enforce the rule that
+if a program does not satisfy the type checker, then the program should not be 
+allowed to compile. When considering an optional type checker, it makes sense
+to provide type checking as a simple operation, callable a la carte. 
+This relieves a common restriction associated with statically typed languages;
+programs can now compile regardless of the results of the 
+type checker.
+
+
+\section*{Aim} 
+
+% Now state explicitly the hypothesis you aim to
+% test. Make references to the items listed in the Reference section
+% that back up your arguments for why this is a reasonable
+% hypothesis to test, for example the work of Knuth~\cite{knuth}.
+% Explain what you expect will be accomplished by undertaking this
+% particular project.  Moreover, is it likely to have any other
+% applications?
+
+I hypothesise that adding an optional static type system to a dynamic language
+will increase its utility, while avoiding some disadvantages of static
+languages.
+
+I expect to develop a library for Clojure which provides an optional static
+type system, intended for practical use. 
+
+The rich type annotations that will be accumulated could also be
+useful elsewhere, such as a function search engine like
+(name of haskell search engine? TODO)
+
+\section*{Method}
+
+% In this section you should outline how you intend to go
+% about accomplishing the aims you have set in the previous
+% section. Try to break your grand aims down into small,
+% achievable tasks. Try to estimate how long you will
+% spend on each task, and draw up a timetable for each
+% sub-task.
+
+\begin{description}
+\item[0.1]
+	\begin{itemize}
+	\item Concrete types (no type variables)
+	\item Union types
+	\item Fixed arity function types
+	\item Typed deftype
+	\item Uniform variable-arity function types
+	\item Type checking without refinements or occurance typing
+	\end{itemize}
+\item[0.2]
+	\begin{itemize}
+	\item Occurance typing for type inference
+	\item Type variables (polymorphic types)
+	\end{itemize}
+\item[0.3]
+	\begin{itemize}
+	\item Typed defrecord
+	\item All Types annotated for clojure.core library
+	\end{itemize}
+\item[0.4]
+	\begin{itemize}
+	\item Manage interactions between typed namespaces
+	\end{itemize}
+\item[0.5]
+	\begin{itemize}
+	\end{itemize}
+\item[0.6]
+	\begin{itemize}
+	\item Mutable reference types
+	\item Non-uniform variable arity polymorphism
+	\end{itemize}
+
+\end{description}
+\section*{Software and Hardware Requirements}
+% Outline what your specific requirements will be with regard
+% to software and hardware, but note that any special requests
+% might need to be approved by your supervisor and the Head of
+% Department.
+
+Linux environment with Java, git, and maven installed.
+
+% Overall, you should aim to produce roughly a two page document
+% (and certainly no more than four pages)
+% outlining your plan for the year.
+
+% \begin{thebibliography}{9}
+% \bibitem{knuth} D. E. Knuth. {\em The \TeX~book.}\/ Addison-Wesley,
+% Reading, Massachusetts, 1984.
+% \bibitem{lamport} L. Lamport. {\em \LaTeX~: A Document Preparation
+% System}.\/ Addison-Wesley, Reading, Massachusetts, 1986.
+% \bibitem{ken} Ken Wessen, Preparing a thesis using \LaTeX~, private
+% communication, 1994.
+% \bibitem{lamport2} L. Lamport. Document Production: Visual
+% or Logical, {\em Notices of the Amer. Maths. Soc.},\/ Vol. 34,
+% 1987, pp. 621-624.
+% \end{thebibliography}
+
+
+\end{document}
+
