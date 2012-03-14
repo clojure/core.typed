@@ -3,7 +3,9 @@
         [typed-clojure.checker :only [type-check-path]])
   (:require [analyze.util :as util]))
 
-(type-check-path "typed_clojure/tree.clj" 'typed-clojure.tree)
+;(type-check-path "typed_clojure/tree.clj" 'typed-clojure.tree)
+(require 'typed-clojure.simple :reload)
+(type-check-path "typed_clojure/simple.clj" 'typed-clojure.simple)
 
 (comment
   (analyze-path "typed_clojure/tree.clj" 'typed-clojure.tree)
