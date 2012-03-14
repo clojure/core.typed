@@ -132,8 +132,8 @@
 
            :else
            (and (instance? Arity sub)
-                (every? identity (map subtype (.dom this) (.dom sub)))
-                (subtype (.rng sub) (.rng this))))))
+                (every? identity (map subtype (.dom sub) (.dom this)))
+                (subtype (.rng this) (.rng sub))))))
 
   Class
   (subtype [this sub]
@@ -224,7 +224,8 @@
     (assert fn-type "Constructors only typed if declared with deftypeT")
     (let [matched-arity (matching-arity fn-type args)
           arg-types (map type-check args)]
-      (assert (every? true? (map subtype? (.dom matched-arity) arg-types)))
+      (assert (every? true? (map subtype? (.dom matched-arity) arg-types))
+              (str (.dom matched-arity) arg-types " " (count arg-types) " " (first arg-types)))
       (.rng matched-arity))))
 
 (defmethod type-check :var
@@ -357,7 +358,8 @@
   (if init-provided
     (let [expected-type (type-of (var-or-class->sym var))
           actual-type (type-check (assoc init ::expected-type expected-type))]
-      (assert (subtype? expected-type actual-type))
+      (assert (subtype? expected-type actual-type) (str "Found " actual-type 
+                                                        " where expecting " expected-type))
       actual-type)
     (println "No init provided for" (var-or-class->sym var))))
 
