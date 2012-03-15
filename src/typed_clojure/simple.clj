@@ -19,12 +19,19 @@
 (+T my-empty-list clojure.lang.IPersistentList)
 (def my-empty-list '())
 
-(+T head (fun (arity [(union nil clojure.lang.IPersistentCollection)] Object)))
+(+T head (fun (arity [(union nil clojure.lang.IPersistentCollection)] (union nil Object))))
 (defn head [c]
   (first c))
 
-(head nil)
+(first nil)
+(first [1])
+(rest nil)
+(next nil)
 
-(+T tail (fun (arity [clojure.lang.IPersistentCollection] Object)))
-(defn tail [c]
+(+T error-first (fun (arity [] typed_clojure.checker.Fun)))
+#_(defn error-first []
+  (fn []))
+
+#_(+T tail (fun (arity [clojure.lang.IPersistentCollection] Object)))
+#_(defn tail [c]
   (rest c))

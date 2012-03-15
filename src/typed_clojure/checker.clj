@@ -33,7 +33,7 @@
   `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
      ~@body))
 
-;(+T add-type [Symbol Object :> Object])
+;(+T add-type (fun (arity [Symbol ITypedClojureType] nil)))
 (defn add-type [sym type]
   (assert (symbol? sym))
   (assert (namespace sym))
@@ -46,6 +46,13 @@
   (println "add type for" sym)
   (swap! type-db #(assoc % sym type))
   nil)
+
+(defmacro +T [nme type]
+  `(let [sym# (if (namespace '~nme)
+               '~nme
+               (symbol (name (ns-name *ns*)) (name '~nme)))]
+     (add-type sym# ~type)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Protocols
@@ -92,9 +99,11 @@
   (->Fun arities))
 
 (defn arity [dom rng]
-  (assert rng)
-  (assert (instance? clojure.lang.IPersistentCollection dom))
-  (assert (extends? ITypedClojureType (class rng)) rng)
+  (assert (every? #(or (= :& %)
+                       (satisfies? ITypedClojureType (class %)))
+                  dom)
+          dom)
+  (assert (satisfies? ITypedClojureType (class rng)) rng)
   (->Arity dom rng))
 
 (def arity? (partial instance? Arity))
@@ -151,6 +160,11 @@
       (every? identity (map subtype (repeat this) (.types sub)))
       (isa? sub this)))
 
+  IPersistentMap ;; Protocols
+  (subtype [this sub]
+    (or (= this sub)
+        (satisfies? this sub)))
+
   nil
   (subtype [this sub]
     (isa? sub this)))
@@ -191,20 +205,17 @@
                               '~(apply merge (map (fn [[n _ t]] {n t}) typed-fields))))
        ~classname)))
 
-(defmacro +T [nme type]
-  `(do
-     ~(when (not (namespace nme))
-        `(declare ~nme))
-     (add-type (var-or-class->sym (resolve '~nme)) ~type)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Annotations for core functions
 
-(+T add-type (fun (arity [Symbol Object] Object)))
+(+T add-type (fun (arity [Symbol ITypedClojureType] nil)))
 (+T var-or-class->sym (fun (arity [(union Class Var)] Symbol)))
 
 (+T fun (fun (arity [:& Arity] Fun)))
 (+T arity (fun (arity [IPersistentCollection Object] Arity)))
+
+(+T union (fun (arity [:& ITypedClojureType] Union)))
 
 ;clojure.core
 
@@ -216,8 +227,9 @@
 (+T clojure.core/*ns* clojure.lang.Namespace)
 (+T clojure.core/atom (fun (arity [Object] clojure.lang.Atom)
                            (arity [Object :& Object] clojure.lang.Atom)))
-(+T clojure.core/first (fun (arity [(union nil clojure.lang.IPersistentCollection)] Object)))
-(+T clojure.core/rest (fun (arity [clojure.lang.IPersistentCollection] Object))) ;;TODO
+(+T clojure.core/first (fun (arity [(union nil clojure.lang.IPersistentCollection)] (union nil Object))))
+(+T clojure.core/rest (fun (arity [(union nil clojure.lang.IPersistentCollection)] clojure.lang.IPersistentCollection)))
+(+T clojure.core/next (fun (arity [(union nil clojure.lang.IPersistentCollection)] (union nil clojure.lang.IPersistentCollection))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
@@ -343,7 +355,10 @@
                       (apply hash-map (flatten (concat fixed-types rest-type))))
         rng-type (with-local-types local-types
                    (type-check body))]
-    (arity (.dom expected-type) rng-type)))
+    (arity (if expected-type
+             (.dom expected-type)
+             [])
+           rng-type)))
 
 (defmethod type-check :local-binding-expr
   [{:keys [local-binding]}]
