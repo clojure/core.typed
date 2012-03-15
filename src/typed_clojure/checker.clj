@@ -21,13 +21,22 @@
 ; Namespaced symbol -> type
 (def type-db (atom {}))
 
+(def ^:dynamic *local-type-db* {})
+
 (defn type-of [qual-sym]
-  (do (assert (find @type-db qual-sym) (str "No type for " qual-sym))
-    (@type-db qual-sym)))
+  (if-let [local (*local-type-db* qual-sym)]
+    local
+    (do (assert (find @type-db qual-sym) (str "No type for " qual-sym))
+      (@type-db qual-sym))))
+
+(defmacro with-local-types [type-map & body]
+  `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
+     ~@body))
 
 ;(+T add-type [Symbol Object :> Object])
 (defn add-type [sym type]
   (assert (symbol? sym))
+  (assert (namespace sym))
   (assert (or (not (find @type-db sym))
               (= (@type-db sym) type))
           (str "Conflicting type annotation for " sym
@@ -83,6 +92,7 @@
   (->Fun arities))
 
 (defn arity [dom rng]
+  (assert rng)
   (assert (instance? clojure.lang.IPersistentCollection dom))
   (assert (extends? ITypedClojureType (class rng)) rng)
   (->Arity dom rng))
@@ -231,9 +241,7 @@
 (defmethod type-check :var
   [{:keys [var env]}]
   (let [sym (var-or-class->sym var)]
-    (if-let [local-type (-> env ::local-types sym)]
-      local-type
-      (type-of sym))))
+    (type-of sym)))
 
 (defn matching-arity 
   "Returns the matching arity type corresponding to the args"
@@ -253,6 +261,7 @@
 (defn fixed-args [arity]
   (assert (arity? arity))
   (take-while #(not (= :& %)) (.dom arity)))
+
 
 (defmethod type-check :invoke
   [{:keys [fexpr args] :as expr}]
@@ -320,7 +329,10 @@
                                                                               ;; (poly ISeq (rest-type expected-type)
                           ]
                       (apply hash-map (flatten (concat fixed-types rest-type))))
-        rng-type (type-check (update-in body [:env ::local-types] merge local-types))]
+        rng-type (with-local-types local-types
+                   (println "body is" (util/print-expr body :env))
+                   (println "locals is" *local-type-db*)
+                   (type-check body))]
     (arity (.dom expected-type) rng-type)))
 
 (defmethod type-check :local-binding-expr
@@ -328,22 +340,23 @@
   (type-check local-binding))
 
 (defmethod type-check :local-binding
-  [{:keys [init]}]
-  (when init
-    (type-check init)))
+  [{:keys [sym init]}]
+  (type-of sym))
 
 (defmethod type-check :let
   [{:keys [env binding-inits body]}]
   (let [local-types
-        (loop [local-types (-> env ::local-types)
+        (loop [local-types *local-type-db*
                binding-inits binding-inits]
           (if (seq binding-inits)
             (let [{sym :sym, init :init} (:local-binding (first binding-inits))
-                  bnd-type (type-check (update-in init [:env ::local-types] merge local-types))]
+                  bnd-type (with-local-types local-types
+                             (type-check init))]
               (recur (assoc local-types sym bnd-type)
                      (rest binding-inits)))
             local-types))]
-    (type-check (assoc-in body [:env ::local-types] local-types))))
+    (with-local-types local-types
+      (type-check body))))
 
 (defmethod type-check :do
   [{:keys [exprs]}]
