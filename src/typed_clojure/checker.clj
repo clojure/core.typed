@@ -214,6 +214,8 @@
                              (arity [clojure.lang.Namespace (union Symbol String)] Symbol)))
 (+T clojure.core/str (fun (arity [:& Object] String)))
 (+T clojure.core/*ns* clojure.lang.Namespace)
+(+T clojure.core/atom (fun (arity [Object] clojure.lang.Atom)
+                           (arity [Object :& Object] clojure.lang.Atom)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
@@ -226,6 +228,10 @@
 (defmethod type-check :literal
   [{:keys [val]}]
   (class val))
+
+(defmethod type-check :empty-expr
+  [{:keys [coll]}]
+  (class coll))
 
 (defmethod type-check :new
   [{:keys [ctor class args] :as expr}]
@@ -330,8 +336,6 @@
                           ]
                       (apply hash-map (flatten (concat fixed-types rest-type))))
         rng-type (with-local-types local-types
-                   (println "body is" (util/print-expr body :env))
-                   (println "locals is" *local-type-db*)
                    (type-check body))]
     (arity (.dom expected-type) rng-type)))
 

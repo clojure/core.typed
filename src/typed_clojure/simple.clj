@@ -5,3 +5,9 @@
 (defn return-number [a]
   a)
 
+(+T return-string (fun (arity [String] String)))
+(defn return-string [a]
+  "a")
+
+(+T my-atom clojure.lang.Atom)
+(def my-atom (atom {}))

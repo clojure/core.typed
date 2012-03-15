@@ -1,5 +1,5 @@
 (ns typed-clojure.test
-  (:use [analyze.core :only [analyze-path]]
+  (:use [analyze.core :only [analyze-path analyze-one]]
         [typed-clojure.checker :only [type-check-path]])
   (:require [analyze.util :as util]))
 
@@ -13,4 +13,5 @@
                    :children :env :Expr-obj :ObjMethod-obj)
   (util/print-expr (first (analyze-path "typed_clojure/tree.clj" 'typed-clojure.tree))
                    :children :env :Expr-obj :ObjMethod-obj)
-  )
+(analyze-one {:ns {:name 'user} :context :eval} (def my-atom (atom {}))
+  ))
