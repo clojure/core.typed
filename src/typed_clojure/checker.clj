@@ -216,6 +216,8 @@
 (+T clojure.core/*ns* clojure.lang.Namespace)
 (+T clojure.core/atom (fun (arity [Object] clojure.lang.Atom)
                            (arity [Object :& Object] clojure.lang.Atom)))
+(+T clojure.core/first (fun (arity [(union nil clojure.lang.IPersistentCollection)] Object)))
+(+T clojure.core/rest (fun (arity [clojure.lang.IPersistentCollection] Object))) ;;TODO
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
@@ -232,6 +234,10 @@
 (defmethod type-check :empty-expr
   [{:keys [coll]}]
   (class coll))
+
+(defmethod type-check :vector
+  [{:keys [args]}]
+  clojure.lang.IPersistentVector)
 
 (defmethod type-check :new
   [{:keys [ctor class args] :as expr}]
