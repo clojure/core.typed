@@ -60,3 +60,14 @@
 (+T hash1 (fun (arity [:& Object] IPersistentMap)))
 (defn hash1 [& as]
   (apply hash-map as))
+
+(+T let1 (fun (arity [Number] Boolean)))
+(defn let1 [n]
+  (let [b (+ n 1)
+        c (= b n)]
+    c))
+
+(+T loop1 (fun (arity [Number] Boolean)))
+(defn loop1 [n]
+  (loop [b [1 2 3]]
+    b))

@@ -52,7 +52,7 @@
                " Expected: " (@type-db sym)
                " Found: " type
                " (= (@type-db sym) type): " (= (@type-db sym) type)))
-  (println "add type for" sym)
+  #_(println "add type for" sym)
   (swap! type-db #(assoc % sym type))
   nil)
 
@@ -111,7 +111,7 @@
   (assert (every? #(or (= :& %)
                        (satisfies? ITypedClojureType %))
                   dom)
-          dom)
+          (with-out-str (prn dom)))
   (assert (satisfies? ITypedClojureType (class rng)) rng)
   (->Arity dom rng))
 
@@ -174,8 +174,14 @@
            (instance? Arity sub))
       true
 
-      (.isPrimitive this) (do (println "WARNING: Assuming" sub "coerces to primitive type" this)
-                            true)
+      (.isPrimitive this) 
+      (do (println "WARNING: Assuming" sub "coerces to primitive type" this)
+        true)
+
+      (when (class? sub)
+        (.isPrimitive sub))
+      (do (println "WARNING: Assuming" this "coerces to primitive type" sub)
+        true)
 
       :else
       (if (instance? Union sub)
@@ -312,12 +318,20 @@
 
 ;(+T resolve-class-symbol (fun (arity [Symbol] Class)))
 (defn- resolve-class-symbol 
-  {:post [#(class? %)]}
   [sym]
+  {:post [(or (nil? %) (class? %))]}
   (case sym
+    char Character/TYPE
+    boolean Boolean/TYPE
+    byte Byte/TYPE
+    short Short/TYPE
     int Integer/TYPE
+    long Long/TYPE
+    float Float/TYPE
     double Double/TYPE
-    (resolve sym)))
+    void nil
+    (do (assert (fully-qualified sym) sym)
+      (resolve sym))))
 
 ;(+T method->fun (fun (arity [clojure.reflect.Method] Fun)))
 (defn- method->fun [method]
@@ -441,11 +455,7 @@
 
 (defmethod type-check :fn-method
   [{:keys [required-params rest-param body] :as expr}]
-  (let [
-        expected-type (::expected-type expr)
-        _ (assert (or expected-type
-                      #_(and (empty? required-params) (not rest-param)))
-                  "Found arguments without types")
+  (let [expected-type (::expected-type expr)
         local-types (let [fixed-types (when (seq required-params)
                                         (assert expected-type)
                                         (vec (map vector (map :sym required-params) (.dom ^Arity expected-type))))
@@ -454,7 +464,6 @@
                                                                               ;; (poly ISeq (rest-type expected-type)
                           ]
                       (apply hash-map (flatten (concat fixed-types rest-type))))
-        _ (println local-types)
         rng-type (with-local-types local-types
                    (type-check body))]
     (arity (if expected-type
@@ -471,7 +480,8 @@
   (type-of sym))
 
 (defmethod type-check :let
-  [{:keys [env binding-inits body]}]
+  [{:keys [env binding-inits body is-loop]}]
+  (assert (not is-loop))
   (let [local-types
         (loop [local-types *local-type-db*
                binding-inits binding-inits]
@@ -494,12 +504,12 @@
 
 (defmethod type-check :def
   [{:keys [env init-provided init var]}]
-  (println "type checking" var)
+  #_(println "type checking" var)
   (if init-provided
     (let [expected-type (type-of (var-or-class->sym var))
           actual-type (type-check (assoc init ::expected-type expected-type))]
-      (assert (subtype? expected-type actual-type) (str "Found " actual-type 
-                                                        " where expecting " expected-type))
+      (assert (subtype? expected-type actual-type) (str "Found " (with-out-str (pr actual-type))
+                                                        " where expecting " (with-out-str (pr expected-type))))
       actual-type)
     (println "No init provided for" (var-or-class->sym var))))
 
