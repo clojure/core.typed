@@ -287,6 +287,22 @@
               (str arg-types " is not a subtype of " matched-arity))
       (.rng matched-arity))))
 
+(defn- method->fun [method]
+  (fun (arity (:parameter-types method)
+              (:return-type method))))
+
+(defmethod type-check :static-method
+  [{:keys [method args]}]
+  (let [method-type (method->fun method)
+        arg-types (map type-check args)
+        matched-arity (matching-arity method-type args)]
+    (println args)
+    (println (.dom matched-arity) (map class (.dom matched-arity)))
+    (println arg-types)
+    (assert (every? true? (map subtype? (.dom matched-arity) arg-types))
+            (str arg-types " is not a subtype of " matched-arity))
+    (.rng matched-arity)))
+
 (defmethod type-check :var
   [{:keys [var env]}]
   (let [sym (var-or-class->sym var)]
