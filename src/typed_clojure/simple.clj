@@ -46,23 +46,23 @@
 (defn construct [n s]
   (MyType. n s))
 
-(+T destruct (fun (arity [IPersistentCollection] Object)))
+(+T destruct (fun (arity [IPersistentCollection] (union nil Object))))
 (defn destruct [[a]]
   a)
 
-(+T destruct2 (fun (arity [IPersistentCollection] Object)))
+(+T destruct2 (fun (arity [IPersistentCollection] (union nil Object))))
 (defn destruct2 [{:keys [a b c] :as d}]
   a)
 
-(+T method1 (fun (arity [Class] Object)))
+(+T method1 (fun (arity [Class] (union nil Object))))
 (defn method1 [a]
   (.getName ^Class a))
 
-(+T hash1 (fun (arity [:& Object] IPersistentMap)))
+(+T hash1 (fun (arity [:& Object] Object)))
 (defn hash1 [& as]
   (apply hash-map as))
 
-(+T let1 (fun (arity [Number] Boolean)))
+(+T let1 (fun (arity [Number] (union nil Boolean))))
 (defn let1 [n]
   (let [b (+ n 1)
         c (= b n)]
@@ -71,7 +71,7 @@
 (+T fn1 (fun (arity [Number]
                     (fun (arity [Number] Long)))))
 (defn fn1 [n]
-  (fn [n] 1))
+  (fn [^{:+T Number} n] 1))
 
 ;(+T loop1 (fun (arity [Number] Boolean)))
 ;(defn loop1 [n]

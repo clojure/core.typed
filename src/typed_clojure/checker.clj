@@ -80,7 +80,7 @@
     (and (instance? Union that)
          (= types (.types that))))
   (toString [this]
-    (str "#<Union " types ">")))
+    (with-out-str (pr types))))
 
 (defn union [& types]
   (->Union types))
@@ -129,7 +129,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Subtyping
 
-(declare matching-arity)
+(declare matching-arity subtype?)
 
 (extend-protocol ITypedClojureType
   Union
@@ -200,7 +200,7 @@
 
 ;(+T subtype? (fun (arity [ITypedClojureType ITypedClojureType] Boolean)))
 (defn subtype? [type sub]
-  (boolean (or (nil? sub) ;; follow Java Type system, nil/null as Bottom
+  (boolean (or ;(nil? sub) ;; follow Java Type system, nil/null as Bottom
                (subtype type sub))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -335,26 +335,28 @@
 
 ;(+T method->fun (fun (arity [clojure.reflect.Method] Fun)))
 (defn- method->fun [method]
-  (fun (arity (map resolve-class-symbol (:parameter-types method))
-              (resolve-class-symbol (:return-type method)))))
+  (fun (arity (->> (map resolve-class-symbol (:parameter-types method))
+                (map #(union nil %)))
+              (-> (resolve-class-symbol (:return-type method))
+                (union nil)))))
 
 (defmethod type-check :static-field
   [{:keys [field]}]
   (assert (:type field) "No field resolvable, needs type hint")
-  (:type field))
+  (union nil (:type field)))
 
 (defmethod type-check :instance-field
   [{:keys [field]}]
   (assert (:type field) "No field resolvable, needs type hint")
-  (:type field))
+  (union nil (:type field)))
 
 (defn- check-method [method args]
   (let [method-type (method->fun method)
         arg-types (map type-check args)
         matched-arity (matching-arity method-type args)]
     (assert (every? true? (map subtype? (.dom matched-arity) arg-types))
-            (with-out-str
-              (pr arg-types " is not a subtype of " matched-arity " when checking method "  method)))
+            (str (with-out-str (pr arg-types)) " is not a subtype of " (with-out-str (pr matched-arity)) 
+                 " when checking method "  (with-out-str (pr method))))
     (.rng matched-arity)))
 
 (defmethod type-check :static-method
@@ -456,19 +458,27 @@
 (defmethod type-check :fn-method
   [{:keys [required-params rest-param body] :as expr}]
   (let [expected-type (::expected-type expr)
-        local-types (let [fixed-types (when (seq required-params)
-                                        (assert expected-type)
-                                        (vec (map vector (map :sym required-params) (.dom ^Arity expected-type))))
-                          rest-type (when rest-param
-                                      [[(:sym rest-param) clojure.lang.ISeq]]) ;; TODO make parameterised with polymorphic types 
-                                                                              ;; (poly ISeq (rest-type expected-type)
-                          ]
-                      (apply hash-map (flatten (concat fixed-types rest-type))))
+        fixed-types (when (seq required-params)
+                      (vec (map vector 
+                                (map :sym required-params) 
+                                (if expected-type
+                                  (.dom ^Arity expected-type)
+                                  (let [ann-doms (map #(-> % :sym meta :+T resolve) required-params)]
+                                    (assert (= (count ann-doms) 
+                                               (count required-params)))
+                                    (assert (every? #(satisfies? ITypedClojureType %) ann-doms) 
+                                            (with-out-str (pr ann-doms)))
+                                    ann-doms)))))
+        rest-type (when rest-param
+                    [[(:sym rest-param) clojure.lang.ISeq]])
+        local-types (apply hash-map (flatten (concat fixed-types rest-type)))
         rng-type (with-local-types local-types
                    (type-check body))]
     (arity (if expected-type
              (.dom expected-type)
-             [])
+             (vec (concat (map second fixed-types) 
+                          (when rest-type
+                            [:& Object])))) ; TODO hardwired, recover this info
            rng-type)))
 
 (defmethod type-check :local-binding-expr
@@ -504,7 +514,7 @@
 
 (defmethod type-check :def
   [{:keys [env init-provided init var]}]
-  #_(println "type checking" var)
+  (println "type checking" var)
   (if init-provided
     (let [expected-type (type-of (var-or-class->sym var))
           actual-type (type-check (assoc init ::expected-type expected-type))]
