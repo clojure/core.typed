@@ -1,5 +1,5 @@
 (ns typed-clojure.simple
-  (:import (clojure.lang IPersistentCollection))
+  (:import (clojure.lang IPersistentCollection IPersistentMap))
   (:use [typed-clojure.checker :only [deftypeT +T new-type union fun arity]]))
 
 (+T return-number (fun (arity [Long] Long)))
@@ -48,3 +48,15 @@
 (+T destruct (fun (arity [IPersistentCollection] Object)))
 (defn destruct [[a]]
   a)
+
+(+T destruct2 (fun (arity [IPersistentCollection] Object)))
+(defn destruct [{:keys [a b c] :as d}]
+  a)
+
+(+T method1 (fun (arity [Class] Object)))
+(defn method1 [a]
+  (.getName ^Class a))
+
+(+T hash1 (fun (arity [:& Object] IPersistentMap)))
+(defn hash1 [& as]
+  (apply hash-map as))

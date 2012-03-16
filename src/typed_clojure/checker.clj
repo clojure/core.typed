@@ -91,7 +91,7 @@
     (and (instance? Fun that)
          (= arities (.arities that))))
   (toString [this]
-    (str "#<Fun " arities ">")))
+    (str arities)))
 
 (deftype Arity [dom rng]
   Object
@@ -100,7 +100,7 @@
          (= dom (.dom that))
          (= rng (.rng that))))
   (toString [this]
-    (str "#<Arity " dom ", " rng ">")))
+    (str (with-out-str (pr dom)) ", " (with-out-str (pr rng)))))
 
 (defn fun [& arities]
   (assert (<= 1 (count arities)))
@@ -136,9 +136,9 @@
   (subtype [this sub]
     (cond 
       (instance? Union sub) 
-      (every? identity (map #(subtype this %) (.types sub)))
+      (every? identity (map #(subtype? this %) (.types sub)))
 
-      :else (boolean (some #(subtype % sub) (.types this)))))
+      :else (some #(subtype? % sub) (.types this))))
 
   Fun
   (subtype [this sub]
@@ -146,7 +146,7 @@
       (every? identity
               (for [sub-arity (.arities sub)]
                 (let [type-arity (matching-arity this (.dom sub-arity))]
-                  (subtype type-arity sub-arity))))))
+                  (subtype? type-arity sub-arity))))))
 
   Arity
   (subtype [this sub]
@@ -155,25 +155,37 @@
            (variable-arity this)
            (let [fixed-dom (take-while #(not (= :& %)) (.dom this))
                  rest-type (last (.dom this))]
-             (every? identity (map subtype (concat fixed-dom (repeat rest-type)) (.dom sub))))
+             (every? true? (map subtype? (concat fixed-dom (repeat rest-type)) (.dom sub))))
 
 
            :else
            (and (instance? Arity sub)
-                (every? identity (map subtype (.dom sub) (.dom this)))
-                (subtype (.rng this) (.rng sub))))))
+                (every? true? (map subtype? (.dom sub) (.dom this)))
+                (subtype? (.rng this) (.rng sub))))))
 
   Class
   (subtype [this sub]
-    (assert (not (.isPrimitive this)))
-    (if (instance? Union sub)
-      (every? identity (map subtype (repeat this) (.types sub)))
-      (isa? sub this)))
+    (cond 
+      (and (identical? this Fun) ; (subtype? Fun (fun ...))
+           (instance? Fun sub))
+      true
+
+      (and (identical? this Arity) ; (subtype? Arity (arity ...))
+           (instance? Arity sub))
+      true
+
+      (.isPrimitive this) (do (println "WARNING: Assuming" sub "coerces to primitive type" this)
+                            true)
+
+      :else
+      (if (instance? Union sub)
+        (every? true? (map subtype? (repeat this) (.types sub)))
+        (isa? sub this))))
 
   IPersistentMap ;; Protocols
   (subtype [this sub]
     (if (instance? Union sub)
-      (every? identity (map subtype (repeat this) (.types sub)))
+      (every? true? (map subtype? (repeat this) (.types sub)))
       (satisfies? this sub)))
 
   nil
@@ -182,7 +194,8 @@
 
 ;(+T subtype? (fun (arity [ITypedClojureType ITypedClojureType] Boolean)))
 (defn subtype? [type sub]
-  (boolean (subtype type sub)))
+  (boolean (or (nil? sub) ;; follow Java Type system, nil/null as Bottom
+               (subtype type sub))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Front end macros
@@ -230,7 +243,7 @@
 
 (+T union (fun (arity [:& ITypedClojureType] Union)))
 
-(+T fully-qualified (fun (arity [Symbol] (union nil Object))))
+(+T fully-qualified (fun (arity [Symbol] Object)))
 ;clojure.core
 
 (+T clojure.core/in-ns (fun (arity [Symbol] Namespace)))
@@ -249,6 +262,9 @@
 (+T clojure.core/ns-name (fun (arity [Namespace] Symbol)))
 (+T clojure.core/refer (fun (arity [Symbol :& Object] nil)))
 (+T clojure.core/use (fun (arity [:& Object] nil)))
+(+T clojure.core/seq? (fun (arity [Object] Boolean)))
+(+T clojure.core/apply (fun (arity [Fun :& Object] Object)))
+(+T clojure.core/hash-map (fun (arity [:& Object] IPersistentMap)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
@@ -291,7 +307,7 @@
     (let [matched-arity (matching-arity fn-type args)
           arg-types (map type-check args)]
       (assert (every? true? (map subtype? (.dom matched-arity) arg-types))
-              (str arg-types " is not a subtype of " matched-arity))
+              (str arg-types " is not a subtype of " matched-arity " , when trying to invoke constructor " ctor))
       (.rng matched-arity))))
 
 ;(+T resolve-class-symbol (fun (arity [Symbol] Class)))
@@ -310,7 +326,12 @@
 
 (defmethod type-check :static-field
   [{:keys [field]}]
-  (assert (:type field))
+  (assert (:type field) "No field resolvable, needs type hint")
+  (:type field))
+
+(defmethod type-check :instance-field
+  [{:keys [field]}]
+  (assert (:type field) "No field resolvable, needs type hint")
   (:type field))
 
 (defn- check-method [method args]
@@ -318,7 +339,8 @@
         arg-types (map type-check args)
         matched-arity (matching-arity method-type args)]
     (assert (every? true? (map subtype? (.dom matched-arity) arg-types))
-            (str arg-types " is not a subtype of " matched-arity))
+            (with-out-str
+              (pr arg-types " is not a subtype of " matched-arity " when checking method "  method)))
     (.rng matched-arity)))
 
 (defmethod type-check :static-method
@@ -365,7 +387,7 @@
   (let [fn-type (type-check fexpr)
         arg-types (doall (map type-check args))
         matched-arity (matching-arity fn-type args)]
-    (println "invoke" fexpr)
+    #_(println "invoke" fexpr)
     (assert matched-arity (do
                            (util/print-expr expr :children :env :Expr-obj :ObjMethod-obj)
                            (println arg-types)
@@ -381,8 +403,7 @@
                                                 (repeat (rest-type matched-arity))))
                                       arg-types)))
             (str "Invoke: type error: " 
-                 (do (count arg-types) ; how to realize lazy-seq? 
-                   (vec arg-types)) " is not a subtype of " (.dom matched-arity)))
+                 (with-out-str (pr arg-types)) " is not a subtype of " (.dom matched-arity)))
     (.rng matched-arity)))
 
 (defmethod type-check :import*
@@ -410,24 +431,30 @@
 
         actual-type 
         (apply fun (for [method methods]
-                     (type-check (assoc method ::expected-type (when expected-type
-                                                                 (matching-arity-expr method expected-type))))))]
+                     (try
+                       (type-check (assoc method ::expected-type (when expected-type
+                                                                   (matching-arity-expr method expected-type))))
+                       (catch AssertionError e
+                         (util/print-expr expr :children :env :Expr-obj)
+                         (throw e)))))]
     actual-type))
 
 (defmethod type-check :fn-method
-  [{:keys [required-params rest-params body] :as expr}]
-  (let [expected-type (::expected-type expr)
+  [{:keys [required-params rest-param body] :as expr}]
+  (let [
+        expected-type (::expected-type expr)
         _ (assert (or expected-type
-                      (and (empty? required-params) (not rest-params)))
+                      #_(and (empty? required-params) (not rest-param)))
                   "Found arguments without types")
         local-types (let [fixed-types (when (seq required-params)
                                         (assert expected-type)
-                                        (map vector (map :sym required-params) (.dom ^Arity expected-type)))
-                          rest-type (when rest-params
-                                      [(:sym rest-params) clojure.lang.ISeq]) ;; TODO make parameterised with polymorphic types 
+                                        (vec (map vector (map :sym required-params) (.dom ^Arity expected-type))))
+                          rest-type (when rest-param
+                                      [[(:sym rest-param) clojure.lang.ISeq]]) ;; TODO make parameterised with polymorphic types 
                                                                               ;; (poly ISeq (rest-type expected-type)
                           ]
                       (apply hash-map (flatten (concat fixed-types rest-type))))
+        _ (println local-types)
         rng-type (with-local-types local-types
                    (type-check body))]
     (arity (if expected-type
