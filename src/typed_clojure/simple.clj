@@ -1,4 +1,5 @@
 (ns typed-clojure.simple
+  (:import (clojure.lang IPersistentCollection))
   (:use [typed-clojure.checker :only [deftypeT +T new-type union fun arity]]))
 
 (+T return-number (fun (arity [Long] Long)))
@@ -28,10 +29,22 @@
 (rest nil)
 (next nil)
 
-(+T error-first (fun (arity [] typed_clojure.checker.Fun)))
-#_(defn error-first []
+(+T error-first (fun (arity [] (fun (arity [] nil)))))
+(defn error-first []
   (fn []))
 
-#_(+T tail (fun (arity [clojure.lang.IPersistentCollection] Object)))
-#_(defn tail [c]
+(+T tail (fun (arity [IPersistentCollection] IPersistentCollection)))
+(defn tail [c]
   (rest c))
+
+(deftypeT MyType
+  [[a :- Number]
+   [b :- String]])
+
+(+T construct (fun (arity [Number String] MyType)))
+(defn construct [n s]
+  (MyType. n s))
+
+(+T destruct (fun (arity [IPersistentCollection] Object)))
+(defn destruct [[a]]
+  a)

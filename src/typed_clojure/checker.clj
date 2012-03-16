@@ -1,7 +1,8 @@
 (ns typed-clojure.checker
-  (:import (clojure.lang Symbol Var IPersistentMap IPersistentCollection))
+  (:import (clojure.lang Symbol Var IPersistentMap IPersistentCollection Keyword Namespace))
   (:use [analyze.core :only [analyze-path]])
-  (:require [analyze.util :as util]))
+  (:require [analyze.util :as util]
+            [typed-clojure.flag :as flag]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Utils
@@ -23,6 +24,9 @@
 
 (def ^:dynamic *local-type-db* {})
 
+(defn reset-type-db []
+  (swap! type-db (constantly {})))
+
 (defn type-of [qual-sym]
   (if-let [local (*local-type-db* qual-sym)]
     local
@@ -33,10 +37,15 @@
   `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
      ~@body))
 
+;(+T fully-qualified (fun (arity [Symbol] (union nil Object))))
+(defn fully-qualified [sym]
+  (or (namespace sym)
+      (some #(= \. %) (str sym))))
+
 ;(+T add-type (fun (arity [Symbol ITypedClojureType] nil)))
 (defn add-type [sym type]
   (assert (symbol? sym))
-  (assert (namespace sym))
+  (assert (fully-qualified sym))
   (assert (or (not (find @type-db sym))
               (= (@type-db sym) type))
           (str "Conflicting type annotation for " sym
@@ -48,10 +57,11 @@
   nil)
 
 (defmacro +T [nme type]
-  `(let [sym# (if (namespace '~nme)
-               '~nme
-               (symbol (name (ns-name *ns*)) (name '~nme)))]
-     (add-type sym# ~type)))
+  (when @flag/type-check-flag
+    `(let [sym# (if (fully-qualified '~nme)
+                  '~nme
+                  (symbol (name (ns-name *ns*)) (name '~nme)))]
+       (add-type sym# ~type))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -71,7 +81,7 @@
     (and (instance? Union that)
          (= types (.types that))))
   (toString [this]
-    (str types)))
+    (str "#<Union " types ">")))
 
 (defn union [& types]
   (->Union types))
@@ -82,7 +92,7 @@
     (and (instance? Fun that)
          (= arities (.arities that))))
   (toString [this]
-    (str arities)))
+    (str "#<Fun " arities ">")))
 
 (deftype Arity [dom rng]
   Object
@@ -91,7 +101,7 @@
          (= dom (.dom that))
          (= rng (.rng that))))
   (toString [this]
-    (str dom " " rng)))
+    (str "#<Arity " dom ", " rng ">")))
 
 (defn fun [& arities]
   (assert (<= 1 (count arities)))
@@ -193,16 +203,17 @@
        (import ~classname)
 
        ; Type for generated ->Type factory
-       (add-type (symbol (str *ns* "/->" '~name)) (fun (arity ~(vec (map third typed-fields))
-                                                       (resolve '~name))))
+       ~(when @flag/type-check-flag
+          `(add-type (symbol (str *ns* "/->" '~name)) (fun (arity ~(vec (map third typed-fields))
+                                                                  ~classname))))
        
-       ; Type for interop dot constructor
-       (add-type '~classname (fun (arity ~(vec (map third typed-fields))
-                                         (resolve '~name))))
-
        ~(@#'clojure.core/build-positional-factory gname classname fields)
-       (swap! type-db #(assoc % (resolve '~name)
-                              '~(apply merge (map (fn [[n _ t]] {n t}) typed-fields))))
+
+       ; Type for interop dot constructor
+       ~(when @flag/type-check-flag
+          `(add-type '~classname (fun (arity ~(vec (map third typed-fields))
+                                             ~classname))))
+
        ~classname)))
 
 
@@ -213,23 +224,30 @@
 (+T var-or-class->sym (fun (arity [(union Class Var)] Symbol)))
 
 (+T fun (fun (arity [:& Arity] Fun)))
-(+T arity (fun (arity [IPersistentCollection Object] Arity)))
+(+T arity (fun (arity [IPersistentCollection ITypedClojureType] Arity)))
 
 (+T union (fun (arity [:& ITypedClojureType] Union)))
 
+(+T fully-qualified (fun (arity [Symbol] (union nil Object))))
 ;clojure.core
 
 (+T clojure.core/resolve (fun (arity [Symbol] (union Var Class))
                               (arity [IPersistentMap Symbol] (union Var Class))))
 (+T clojure.core/symbol (fun (arity [(union Symbol String)] Symbol)
-                             (arity [clojure.lang.Namespace (union Symbol String)] Symbol)))
+                             (arity [String String] Symbol)))
 (+T clojure.core/str (fun (arity [:& Object] String)))
 (+T clojure.core/*ns* clojure.lang.Namespace)
 (+T clojure.core/atom (fun (arity [Object] clojure.lang.Atom)
                            (arity [Object :& Object] clojure.lang.Atom)))
-(+T clojure.core/first (fun (arity [(union nil clojure.lang.IPersistentCollection)] (union nil Object))))
-(+T clojure.core/rest (fun (arity [(union nil clojure.lang.IPersistentCollection)] clojure.lang.IPersistentCollection)))
-(+T clojure.core/next (fun (arity [(union nil clojure.lang.IPersistentCollection)] (union nil clojure.lang.IPersistentCollection))))
+(+T clojure.core/first (fun (arity [(union nil IPersistentCollection)] (union nil Object))))
+(+T clojure.core/rest (fun (arity [(union nil IPersistentCollection)] IPersistentCollection)))
+(+T clojure.core/next (fun (arity [(union nil IPersistentCollection)] (union nil IPersistentCollection))))
+(+T clojure.core/namespace (fun (arity [(union String Symbol Keyword)]
+                                       (union nil String))))
+(+T clojure.core/name (fun (arity [(union String Symbol Keyword)]
+                                  String)))
+(+T clojure.core/ns-name (fun (arity [Namespace]
+                                     Symbol)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
@@ -251,6 +269,13 @@
   [{:keys [args]}]
   clojure.lang.IPersistentVector)
 
+(defmethod type-check :if
+  [{:keys [test then else]}]
+  (do
+    (type-check test)
+    (union (type-check then)
+           (type-check else))))
+
 (defmethod type-check :new
   [{:keys [ctor class args] :as expr}]
   (let [_ (assert class (util/print-expr expr :env :children))
@@ -259,7 +284,7 @@
     (let [matched-arity (matching-arity fn-type args)
           arg-types (map type-check args)]
       (assert (every? true? (map subtype? (.dom matched-arity) arg-types))
-              (str (.dom matched-arity) arg-types " " (count arg-types) " " (first arg-types)))
+              (str arg-types " is not a subtype of " matched-arity))
       (.rng matched-arity))))
 
 (defmethod type-check :var
@@ -306,8 +331,9 @@
                                               (when (variable-arity matched-arity)
                                                 (repeat (rest-type matched-arity))))
                                       arg-types)))
-            (str "Invoke: type error: "
-                 arg-types " is not a subtype of " (.dom matched-arity)))
+            (str "Invoke: type error: " 
+                 (do (count arg-types) ; how to realize lazy-seq? 
+                   (vec arg-types)) " is not a subtype of " (.dom matched-arity)))
     (.rng matched-arity)))
 
 (defmethod type-check :import*
@@ -410,8 +436,11 @@
 ;; # Type checker interface
 
 (defn type-check-path [path nsym]
+  (swap! flag/type-check-flag (constantly false))
   (require nsym)
+  (swap! flag/type-check-flag (constantly true))
   (let [analysis (analyze-path path nsym)]
     (doseq [a (rest analysis)]
-      (type-check a))))
+      (type-check a)))
+  (swap! flag/type-check-flag (constantly false)))
 
