@@ -1,5 +1,6 @@
 (ns typed-clojure.simple
-  (:import (clojure.lang IPersistentCollection IPersistentMap))
+  (:import (clojure.lang IPersistentCollection IPersistentMap)
+           (typed_clojure.checker Fun))
   (:use [typed-clojure.checker :only [deftypeT +T new-type union fun arity]]))
 
 (+T return-number (fun (arity [Long] Long)))
@@ -50,7 +51,7 @@
   a)
 
 (+T destruct2 (fun (arity [IPersistentCollection] Object)))
-(defn destruct [{:keys [a b c] :as d}]
+(defn destruct2 [{:keys [a b c] :as d}]
   a)
 
 (+T method1 (fun (arity [Class] Object)))
@@ -67,7 +68,12 @@
         c (= b n)]
     c))
 
-(+T loop1 (fun (arity [Number] Boolean)))
-(defn loop1 [n]
-  (loop [b [1 2 3]]
-    b))
+(+T fn1 (fun (arity [Number]
+                    (fun (arity [Number] Long)))))
+(defn fn1 [n]
+  (fn [n] 1))
+
+;(+T loop1 (fun (arity [Number] Boolean)))
+;(defn loop1 [n]
+;  (loop [b [1 2 3]]
+;    b))
