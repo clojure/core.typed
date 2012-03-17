@@ -69,7 +69,6 @@
 (defn- split-arity-syntax 
   "Splits arity syntax into [dom rng]"
   [arity-syntax]
-  (println arity-syntax)
   (assert (some #(= '-> %) arity-syntax) (str "Arity syntax " arity-syntax " missing arrow"))
   (let [[dom [_ rng]] (split-with #(not= '-> %) arity-syntax)]
     [dom rng]))
@@ -105,6 +104,7 @@
   nil
   (parse-type* [this] nil))
 
+
 (defn parse-syntax 
   "Type syntax parser, entry point"
   [syn]
@@ -117,7 +117,6 @@
     `(let [sym# (if (fully-qualified '~nme)
                   '~nme
                   (symbol (name (ns-name *ns*)) (name '~nme)))]
-       (println "Adding type " sym#)
        (add-type sym# (parse-syntax '~type)))))
 
 
@@ -126,7 +125,7 @@
 
 (defprotocol ITypedClojureType
   "A protocol for specifying subtyping rules"
-  (subtype [this sub] "A function to determine if sub is a subtype of this"))
+  (subtype* [this sub] "A function to determine if sub is a subtype of this"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Types
@@ -182,7 +181,7 @@
                        (satisfies? ITypedClojureType %))
                   dom)
           (str "Every type must satisfy ITypedClojureType: " (with-out-str (prn dom))))
-  (assert (satisfies? ITypedClojureType (class rng)) rng)
+  (assert (satisfies? ITypedClojureType rng) rng)
   (->Arity dom rng))
 
 (def arity? (partial instance? Arity))
@@ -206,7 +205,7 @@
 
 (extend-protocol ITypedClojureType
   Union
-  (subtype [this sub]
+  (subtype* [this sub]
     (cond 
       (instance? Union sub) 
       (every? identity (map #(subtype? this %) (.types sub)))
@@ -214,7 +213,7 @@
       :else (some #(subtype? % sub) (.types this))))
 
   Fun
-  (subtype [this sub]
+  (subtype* [this sub]
     (when (instance? Fun sub)
       (every? identity
               (for [sub-arity (.arities sub)]
@@ -222,7 +221,7 @@
                   (subtype? type-arity sub-arity))))))
 
   Arity
-  (subtype [this sub]
+  (subtype* [this sub]
     (and (instance? Arity sub)
          (cond
            (variable-arity this)
@@ -248,7 +247,7 @@
                 (subtype? (.rng this) (.rng sub))))))
 
   Class
-  (subtype [this sub]
+  (subtype* [this sub]
     (cond 
       (and (identical? this Fun) ; (subtype? Fun (fun ...))
            (instance? Fun sub))
@@ -273,19 +272,19 @@
         (isa? sub this))))
 
   IPersistentMap ;; Protocols
-  (subtype [this sub]
+  (subtype* [this sub]
     (if (instance? Union sub)
       (every? true? (map subtype? (repeat this) (.types sub)))
       (satisfies? this sub)))
 
   nil
-  (subtype [this sub]
+  (subtype* [this sub]
     (nil? sub)))
 
 ;(+T subtype? [ITypedClojureType ITypedClojureType -> Boolean)))
 (defn subtype? [type sub]
   (boolean (or ;(nil? sub) ;; follow Java Type system, nil/null as Bottom
-               (subtype type sub))))
+               (subtype* type sub))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Front end macros
@@ -334,6 +333,8 @@
 (+T union [& ITypedClojureType -> Union])
 
 (+T fully-qualified [Symbol -> Object])
+(+T parse-syntax [IParseType -> ITypedClojureType])
+
 ;clojure.core
 
 (+T clojure.core/in-ns [Symbol -> Namespace])
@@ -352,9 +353,10 @@
 (+T clojure.core/ns-name [Namespace -> Symbol])
 (+T clojure.core/refer [Symbol & Object -> nil])
 (+T clojure.core/use [& Object -> nil])
-(+T clojure.core/seq? [Object -> Boolean])
-(+T clojure.core/apply [Fun & Object -> Object])
-(+T clojure.core/hash-map [& Object -> IPersistentMap])
+(+T clojure.core/seq? [(U nil Object) -> Boolean])
+(+T clojure.core/apply [Fun & (U nil Object) -> (U nil Object)])
+(+T clojure.core/hash-map [& (U nil Object) -> IPersistentMap])
+(+T clojure.core/println [& (U nil Object) -> nil])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
