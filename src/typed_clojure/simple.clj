@@ -1,7 +1,7 @@
 (ns typed-clojure.simple
-  (:import (clojure.lang IPersistentCollection IPersistentMap)
-           (typed_clojure.checker Fun))
-  (:use [typed-clojure.checker :only [deftypeT +T new-type union fun arity]]))
+  (:use [typed-clojure.checker :only [deftypeT +T new-type union fun arity]])
+  (:import (clojure.lang IPersistentCollection IPersistentMap Atom)
+           (typed_clojure.checker Fun)))
 
 (+T return-number [Long -> Long])
 (defn return-number [a]
@@ -11,17 +11,17 @@
 (defn return-string [a]
   "a")
 
-(+T my-atom clojure.lang.Atom)
+(+T my-atom Atom)
 (def my-atom (atom {}))
 
-(+T my-empty-map clojure.lang.IPersistentMap)
+(+T my-empty-map IPersistentMap)
 (def my-empty-map {})
-(+T my-empty-vec clojure.lang.IPersistentVector)
+(+T my-empty-vec IPersistentVector)
 (def my-empty-vec [])
-(+T my-empty-list clojure.lang.IPersistentList)
+(+T my-empty-list IPersistentList)
 (def my-empty-list '())
 
-(+T head [(U nil clojure.lang.IPersistentCollection) -> (U nil Object)])
+(+T head [(U nil IPersistentCollection) -> (U nil Object)])
 (defn head [c]
   (first c))
 
