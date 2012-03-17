@@ -3,11 +3,11 @@
            (typed_clojure.checker Fun))
   (:use [typed-clojure.checker :only [deftypeT +T new-type union fun arity]]))
 
-(+T return-number (fun (arity [Long] Long)))
+(+T return-number [Long -> Long])
 (defn return-number [a]
   a)
 
-(+T return-string (fun (arity [String] String)))
+(+T return-string [String -> String])
 (defn return-string [a]
   "a")
 
@@ -21,7 +21,7 @@
 (+T my-empty-list clojure.lang.IPersistentList)
 (def my-empty-list '())
 
-(+T head (fun (arity [(union nil clojure.lang.IPersistentCollection)] (union nil Object))))
+(+T head [(U nil clojure.lang.IPersistentCollection) -> (U nil Object)])
 (defn head [c]
   (first c))
 
@@ -30,11 +30,11 @@
 (rest nil)
 (next nil)
 
-(+T error-first (fun (arity [] (fun (arity [] nil)))))
+(+T error-first [-> [-> nil]])
 (defn error-first []
   (fn []))
 
-(+T tail (fun (arity [IPersistentCollection] IPersistentCollection)))
+(+T tail [IPersistentCollection -> IPersistentCollection])
 (defn tail [c]
   (rest c))
 
@@ -42,34 +42,33 @@
   [[a :- Number]
    [b :- String]])
 
-(+T construct (fun (arity [Number String] MyType)))
+(+T construct [Number String -> MyType])
 (defn construct [n s]
   (MyType. n s))
 
-(+T destruct (fun (arity [IPersistentCollection] (union nil Object))))
+(+T destruct [IPersistentCollection -> (U nil Object)])
 (defn destruct [[a]]
   a)
 
-(+T destruct2 (fun (arity [IPersistentCollection] (union nil Object))))
+(+T destruct2 [IPersistentCollection -> (U nil Object)])
 (defn destruct2 [{:keys [a b c] :as d}]
   a)
 
-(+T method1 (fun (arity [Class] (union nil Object))))
+(+T method1 [Class -> (U nil Object)])
 (defn method1 [a]
   (.getName ^Class a))
 
-(+T hash1 (fun (arity [:& Object] Object)))
+(+T hash1 [& Object -> Object])
 (defn hash1 [& as]
   (apply hash-map as))
 
-(+T let1 (fun (arity [Number] (union nil Boolean))))
+(+T let1 [Number -> (U nil Boolean)])
 (defn let1 [n]
   (let [b (+ n 1)
         c (= b n)]
     c))
 
-(+T fn1 (fun (arity [Number]
-                    (fun (arity [Number] Long)))))
+(+T fn1 [Number -> [Number -> Long]])
 (defn fn1 [n]
   (fn [^{:+T Number} n] 1))
 

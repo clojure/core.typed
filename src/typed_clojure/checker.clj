@@ -1,5 +1,6 @@
 (ns typed-clojure.checker
-  (:import (clojure.lang Symbol Var IPersistentMap IPersistentCollection Keyword Namespace Atom))
+  (:import (clojure.lang Symbol Var IPersistentMap IPersistentCollection Keyword Namespace Atom
+                         IPersistentList IPersistentVector))
   (:use [analyze.core :only [analyze-path]])
   (:require [analyze.util :as util]
             [typed-clojure.flag :as flag]))
@@ -37,12 +38,12 @@
   `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
      ~@body))
 
-;(+T fully-qualified (fun (arity [Symbol] (union nil Object))))
+;(+T fully-qualified [Symbol -> (U nil Object))
 (defn fully-qualified [sym]
   (or (namespace sym)
       (some #(= \. %) (str sym))))
 
-;(+T add-type (fun (arity [Symbol ITypedClojureType] nil)))
+;(+T add-type [Symbol ITypedClojureType -> nil])
 (defn add-type [sym type]
   (assert (symbol? sym))
   (assert (fully-qualified sym))
@@ -56,12 +57,68 @@
   (swap! type-db #(assoc % sym type))
   nil)
 
+(defprotocol IParseType
+  (parse-type* [this]))
+
+(defn- split-dom-syntax
+  "Splits domain syntax into [fixed variable]"
+  [dom]
+  (let [[fixed [_ variable]] (split-with #(not= '& %) dom)]
+    [fixed variable]))
+
+(defn- split-arity-syntax 
+  "Splits arity syntax into [dom rng]"
+  [arity-syntax]
+  (println arity-syntax)
+  (assert (some #(= '-> %) arity-syntax) (str "Arity syntax " arity-syntax " missing arrow"))
+  (let [[dom [_ rng]] (split-with #(not= '-> %) arity-syntax)]
+    [dom rng]))
+
+(declare parse-syntax arity fun union)
+
+(extend-protocol IParseType
+  Symbol
+  (parse-type* [this] 
+    (let [res (resolve this)]
+      (cond
+        (var? res) (deref res) ; handle protocols
+        :else res)))
+
+  IPersistentList ; Union and Fun syntax
+  (parse-type* [this]
+    (if (= 'U (first this))
+      (apply union (map parse-syntax (rest this)))
+      (apply fun (map parse-type* this)))) ; don't use implicit single arity syntax
+
+  IPersistentVector ; Arity syntax
+  (parse-type* [this]
+    (let [[dom rng] (split-arity-syntax this)
+          [fixed-dom variable-dom] (split-dom-syntax dom)
+          fixed-dom-types (map parse-syntax fixed-dom)
+          variable-dom-type (when variable-dom
+                              (parse-syntax variable-dom))
+          rng-type (parse-syntax rng)]
+      (arity (vec (concat fixed-dom-types (when (some #(= '& %) this)
+                                            [:& variable-dom-type])))
+             rng-type)))
+  
+  nil
+  (parse-type* [this] nil))
+
+(defn parse-syntax 
+  "Type syntax parser, entry point"
+  [syn]
+  (parse-type* (if (vector? syn)
+                 (list syn) ; handle implicit single arity syntax
+                 syn)))
+
 (defmacro +T [nme type]
   (when @flag/type-check-flag
     `(let [sym# (if (fully-qualified '~nme)
                   '~nme
                   (symbol (name (ns-name *ns*)) (name '~nme)))]
-       (add-type sym# ~type))))
+       (println "Adding type " sym#)
+       (add-type sym# (parse-syntax '~type)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -93,6 +150,10 @@
   (toString [this]
     (str arities)))
 
+(defprotocol IArity
+  (fixed-params [this])
+  (variable-param [this]))
+
 (deftype Arity [dom rng]
   Object
   (equals [this that]
@@ -100,31 +161,43 @@
          (= dom (.dom that))
          (= rng (.rng that))))
   (toString [this]
-    (str (with-out-str (pr dom)) ", " (with-out-str (pr rng)))))
+    (str (with-out-str (pr dom)) ", " (with-out-str (pr rng))))
+  
+  IArity
+  (fixed-params [this]
+    (take-while #(not= :& %) dom))
+  (variable-param [this]
+    (when (= :&
+             (-> dom butlast last))
+      (last dom))))
 
 (defn fun [& arities]
-  (assert (<= 1 (count arities)))
-  (assert (every? #(instance? Arity %) arities))
+  (assert (seq arities) "Must provide at least one arity")
+  (assert (every? #(instance? Arity %) arities) 
+          (str "All arguments to fun must be arities: " (with-out-str (pr arities))))
   (->Fun arities))
 
 (defn arity [dom rng]
   (assert (every? #(or (= :& %)
                        (satisfies? ITypedClojureType %))
                   dom)
-          (with-out-str (prn dom)))
+          (str "Every type must satisfy ITypedClojureType: " (with-out-str (prn dom))))
   (assert (satisfies? ITypedClojureType (class rng)) rng)
   (->Arity dom rng))
 
 (def arity? (partial instance? Arity))
 (def fun? (partial instance? Fun))
 
-(defn variable-arity [arity]
+(defn variable-arity 
+  "Returns the arity if variable, otherwise false"
+  [arity]
   (assert (instance? Arity arity))
-  (and (= :&
-          (nth (.dom arity) (- (count (.dom arity)) 2) nil))
-       arity))
+  (when (= :&
+           (-> (.dom arity) butlast last))
+    arity))
 
-(def fixed-arity? (complement variable-arity))
+(def ^{:doc "Returns the arity if fixed, otherwise false"}
+  fixed-arity? (complement variable-arity))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Subtyping
@@ -153,9 +226,20 @@
     (and (instance? Arity sub)
          (cond
            (variable-arity this)
-           (let [fixed-dom (take-while #(not (= :& %)) (.dom this))
-                 rest-type (last (.dom this))]
-             (every? true? (map subtype? (concat fixed-dom (repeat rest-type)) (.dom sub))))
+           (every? true? 
+                   (cond
+                     (variable-arity sub)
+                     (map subtype? 
+                          (conj (vec (fixed-params this))
+                                (variable-param this))
+                          (conj (vec (fixed-params sub))
+                                (variable-param sub)))
+
+                     :else
+                     (map subtype? 
+                          (concat (fixed-params this)
+                                  (repeat (variable-param this)))
+                          (fixed-params sub))))
 
 
            :else
@@ -198,7 +282,7 @@
   (subtype [this sub]
     (nil? sub)))
 
-;(+T subtype? (fun (arity [ITypedClojureType ITypedClojureType] Boolean)))
+;(+T subtype? [ITypedClojureType ITypedClojureType -> Boolean)))
 (defn subtype? [type sub]
   (boolean (or ;(nil? sub) ;; follow Java Type system, nil/null as Bottom
                (subtype type sub))))
@@ -225,15 +309,15 @@
 
        ; Type for generated ->Type factory
        ~(when @flag/type-check-flag
-          `(add-type (symbol (str *ns* "/->" '~name)) (fun (arity ~(vec (map third typed-fields))
-                                                                  ~classname))))
+          `(add-type (symbol (str *ns* "/->" '~name)) (parse-syntax '~(vec (concat (map third typed-fields)
+                                                                                   ['-> classname])))))
        
        ~(@#'clojure.core/build-positional-factory gname classname fields)
 
        ; Type for interop dot constructor
        ~(when @flag/type-check-flag
-          `(add-type '~classname (fun (arity ~(vec (map third typed-fields))
-                                             ~classname))))
+          `(add-type '~classname (parse-syntax '~(vec (concat (map third typed-fields)
+                                                              ['-> classname])))))
 
        ~classname)))
 
@@ -241,36 +325,36 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Annotations for core functions
 
-(+T add-type (fun (arity [Symbol ITypedClojureType] nil)))
-(+T var-or-class->sym (fun (arity [(union Class Var)] Symbol)))
+(+T add-type [Symbol ITypedClojureType -> nil])
+(+T var-or-class->sym [(U Class Var) -> Symbol])
 
-(+T fun (fun (arity [:& Arity] Fun)))
-(+T arity (fun (arity [IPersistentCollection ITypedClojureType] Arity)))
+(+T fun [& Arity -> Fun])
+(+T arity [IPersistentCollection ITypedClojureType -> Arity])
 
-(+T union (fun (arity [:& ITypedClojureType] Union)))
+(+T union [& ITypedClojureType -> Union])
 
-(+T fully-qualified (fun (arity [Symbol] Object)))
+(+T fully-qualified [Symbol -> Object])
 ;clojure.core
 
-(+T clojure.core/in-ns (fun (arity [Symbol] Namespace)))
-(+T clojure.core/resolve (fun (arity [Symbol] (union nil Var Class))
-                              (arity [IPersistentMap Symbol] (union nil Var Class))))
-(+T clojure.core/symbol (fun (arity [(union Symbol String)] Symbol)
-                             (arity [String String] Symbol)))
-(+T clojure.core/str (fun (arity [:& Object] String)))
+(+T clojure.core/in-ns [Symbol -> Namespace])
+(+T clojure.core/resolve ([Symbol -> (U nil Var Class)]
+                          [IPersistentMap Symbol -> (U nil Var Class)]))
+(+T clojure.core/symbol ([(U Symbol String) -> Symbol]
+                         [String String -> Symbol]))
+(+T clojure.core/str [& Object -> String])
 (+T clojure.core/*ns* Namespace)
-(+T clojure.core/atom (fun (arity [Object :& Object] Atom)))
-(+T clojure.core/first (fun (arity [(union nil IPersistentCollection)] (union nil Object))))
-(+T clojure.core/rest (fun (arity [(union nil IPersistentCollection)] IPersistentCollection)))
-(+T clojure.core/next (fun (arity [(union nil IPersistentCollection)] (union nil IPersistentCollection))))
-(+T clojure.core/namespace (fun (arity [(union String Symbol Keyword)] (union nil String))))
-(+T clojure.core/name (fun (arity [(union String Symbol Keyword)] String)))
-(+T clojure.core/ns-name (fun (arity [Namespace] Symbol)))
-(+T clojure.core/refer (fun (arity [Symbol :& Object] nil)))
-(+T clojure.core/use (fun (arity [:& Object] nil)))
-(+T clojure.core/seq? (fun (arity [Object] Boolean)))
-(+T clojure.core/apply (fun (arity [Fun :& Object] Object)))
-(+T clojure.core/hash-map (fun (arity [:& Object] IPersistentMap)))
+(+T clojure.core/atom [Object & Object -> Atom])
+(+T clojure.core/first [(U nil IPersistentCollection) -> (U nil Object)])
+(+T clojure.core/rest [(U nil IPersistentCollection) -> IPersistentCollection])
+(+T clojure.core/next [(U nil IPersistentCollection) -> (U nil IPersistentCollection)])
+(+T clojure.core/namespace [(U String Symbol Keyword) -> (U nil String)])
+(+T clojure.core/name [(U String Symbol Keyword) -> String])
+(+T clojure.core/ns-name [Namespace -> Symbol])
+(+T clojure.core/refer [Symbol & Object -> nil])
+(+T clojure.core/use [& Object -> nil])
+(+T clojure.core/seq? [Object -> Boolean])
+(+T clojure.core/apply [Fun & Object -> Object])
+(+T clojure.core/hash-map [& Object -> IPersistentMap])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
@@ -316,7 +400,7 @@
               (str arg-types " is not a subtype of " matched-arity " , when trying to invoke constructor " ctor))
       (.rng matched-arity))))
 
-;(+T resolve-class-symbol (fun (arity [Symbol] Class)))
+;(+T resolve-class-symbol [Symbol -> Class])
 (defn- resolve-class-symbol 
   [sym]
   {:post [(or (nil? %) (class? %))]}
@@ -333,7 +417,7 @@
     (do (assert (fully-qualified sym) sym)
       (resolve sym))))
 
-;(+T method->fun (fun (arity [clojure.reflect.Method] Fun)))
+;(+T method->fun [clojure.reflect.Method -> Fun])
 (defn- method->fun [method]
   (fun (arity (->> (map resolve-class-symbol (:parameter-types method))
                 (map #(union nil %)))
