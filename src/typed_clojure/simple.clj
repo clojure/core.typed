@@ -84,10 +84,21 @@
     (recur a)
     "a"))
 
-(+T loop1 [Number -> Boolean])
+(+T loop1 [Number -> (U Long IPersistentVector)])
 (defn loop1 [n]
   (loop [^{:+T (U Long IPersistentVector)}
          b [1 2 3]]
     (if false
       (recur 1)
       b)))
+
+(+T loop2 [-> String])
+(defn loop2 []
+  (loop [b "a"]
+    b))
+
+(+T cond1 [Number -> (U nil String)])
+(defn cond1 [a]
+  (cond
+    (number? a)
+    "a"))

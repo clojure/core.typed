@@ -444,10 +444,11 @@
 (+T clojure.core/ns-name [Namespace -> Symbol])
 (+T clojure.core/refer [Symbol & Object -> nil])
 (+T clojure.core/use [& Object -> nil])
-(+T clojure.core/seq? [(U nil Object) -> Boolean])
-(+T clojure.core/apply [Fun & (U nil Object) -> (U nil Object)])
-(+T clojure.core/hash-map [& (U nil Object) -> IPersistentMap])
-(+T clojure.core/println [& (U nil Object) -> nil])
+(+T clojure.core/seq? [Any -> Boolean])
+(+T clojure.core/apply [Fun & Any -> Any])
+(+T clojure.core/hash-map [& Any -> IPersistentMap])
+(+T clojure.core/println [& Any -> nil])
+(+T clojure.core/number? [Any -> Boolean])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
@@ -700,13 +701,16 @@
             (if (seq binding-inits)
               (let [{sym :sym, init :init} (:local-binding (first binding-inits))
                     local-types (merge-entries local-types-vec)
-                    [_ t :as has-annot] (-> sym meta (find :+T))
-                    t (parse-syntax t)
+                    [_ t-syn :as has-annot] (-> sym meta (find :+T))
+                    t-annot (parse-syntax t-syn)
                     bnd-type (with-local-types local-types
                                (type-check (if has-annot
-                                             (assoc init ::expected-type t)
-                                             init)))]
-                (recur (vec (conj local-types-vec [sym bnd-type]))
+                                             (assoc init ::expected-type t-annot)
+                                             init)))
+                    sym-type (if has-annot
+                               t-annot
+                               bnd-type)]
+                (recur (vec (conj local-types-vec [sym sym-type]))
                        (rest binding-inits)))
               local-types-vec))
           dom-types (map second local-types-vec)
