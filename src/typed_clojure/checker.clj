@@ -123,10 +123,10 @@
 (def union? (partial instance? Union))
 
 (defn- simplify-union [types]
-  (set (concat (map #(if (union? %)
-                       (first (simplify-union (.types %)))
-                       %)
-                    types))))
+  (set (map #(if (union? %)
+               (first (simplify-union (.types %)))
+               %)
+            types)))
 
 (defn union [& types]
   (->Union (simplify-union types)))
