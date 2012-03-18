@@ -198,7 +198,7 @@
     (let [res (resolve this)
           _ (assert (or (not (nil? res))
                         (nil? this))
-                    (str "Unresolvable type " this))]
+                    (str "Unresolvable type " this " in " *ns*))]
       (cond
         (var? res) (deref res) ; handle protocols
         :else res)))
@@ -233,7 +233,7 @@
 
   Fun
   (unparse-type* [this]
-    (apply list (map unparse-type* (.arities this))))
+    (apply list (map unparse-type (.arities this))))
 
   Arity
   (unparse-type* [this]
@@ -241,16 +241,16 @@
       (let [dom (->> (.dom this)
                   (split-with #(not= :& %))
                   first
-                  (map unparse-type*))
+                  (map unparse-type))
             dom (if (variable-arity? this)
-                  (concat dom ['& (unparse-type* (last (.dom this)))])
+                  (concat dom ['& (unparse-type (last (.dom this)))])
                   dom)
-            rng (unparse-type* (.rng this))]
+            rng (unparse-type (.rng this))]
         (concat dom ['-> rng]))))
   
   Union
   (unparse-type* [this]
-    (apply list 'U (.types this)))
+    (apply list 'U (map unparse-type (.types this))))
   
   nil
   (unparse-type* [this]
@@ -748,7 +748,8 @@
   (require nsym)
   (swap! flag/type-check-flag (constantly true))
   (let [analysis (analyze-path path nsym)]
-    (doseq [a analysis]
-      (type-check a)))
+    (binding [*ns* nsym]
+      (doseq [a analysis]
+        (type-check a))))
   (swap! flag/type-check-flag (constantly false)))
 
