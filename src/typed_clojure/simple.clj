@@ -112,3 +112,7 @@
     :a 4
     :b 5
     :else 6))
+
+(+T MyProtocol IPersistentMap)
+(defprotocol MyProtocol
+  (blah [a]))

@@ -22,5 +22,5 @@
                    :children :env :Expr-obj :ObjMethod-obj)
   (util/print-expr (first (analyze-path "typed_clojure/tree.clj" 'typed-clojure.tree))
                    :children :env :Expr-obj :ObjMethod-obj)
-  (analyze-one {:ns {:name 'user} :context :eval} (def my-atom (atom {}))
+  (analyze-one {:ns {:name 'user} :context :eval} '(def my-atom (atom {}))
   ))

@@ -1,6 +1,6 @@
 (ns typed-clojure.checker
   (:import (clojure.lang Symbol Var IPersistentMap IPersistentCollection Keyword Namespace Atom
-                         IPersistentList IPersistentVector))
+                         IPersistentList IPersistentVector IReference Var))
   (:use [analyze.core :only [analyze-path]])
   (:require [analyze.util :as util]
             [typed-clojure.flag :as flag]))
@@ -29,6 +29,13 @@
                      (when-let [t (@#'clojure.core/reduce1 @#'clojure.core/pref (filter impl (disj (supers c) Object)))]
                        (impl t))
                      (impl Object)))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; # Protocols
+
+(defprotocol ITypedClojureType
+  "A protocol for specifying subtyping rules"
+  (subtype* [this sub] "A function to determine if sub is a subtype of this"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Database
@@ -65,17 +72,26 @@
   (or (namespace sym)
       (some #(= \. %) (str sym))))
 
+(declare unparse-type)
+
+(defn- type-map? [m]
+  (and (map? m)
+       (boolean (find m :type))
+       ;(satisfies? ITypedClojureType (:type m))   ; too hard with namespacing.. don't really need anyway
+       ))
+
 ;(+T add-type [Symbol ITypedClojureType -> nil])
 (defn add-type [sym type]
   (assert (symbol? sym))
   (assert (fully-qualified sym))
+  (assert (type-map? type))
   (assert (or (not (find @type-db sym))
               (= (@type-db sym) type))
           (str "Conflicting type annotation for " sym
                " Expected: " (@type-db sym)
                " Found: " type
                " (= (@type-db sym) type): " (= (@type-db sym) type)))
-  #_(println "add type for" sym type)
+  (println "add type for" sym (unparse-type type))
   (swap! type-db #(assoc % sym type))
   nil)
 
@@ -103,13 +119,6 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; # Protocols
-
-(defprotocol ITypedClojureType
-  "A protocol for specifying subtyping rules"
-  (subtype* [this sub] "A function to determine if sub is a subtype of this"))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Types
 
 (deftype Union [types]
@@ -122,16 +131,20 @@
 
 (def union? (partial instance? Union))
 
-(defn- simplify-union [types]
-  (set (map #(if (union? %)
-               (first (simplify-union (.types %)))
-               %)
-            types)))
+(defn- simplify-union [type-maps]
+  (set (apply concat (map #(cond
+                             (union? (:type %))
+                             (let [ts (.types (:type %))]
+                               (when (seq ts)
+                                 (simplify-union ts)))
+                             :else [%])
+                          type-maps))))
 
 (defn union [& types]
+  (assert (every? type-map? types) types)
   (->Union (simplify-union types)))
 
-(def Any (union nil Object))
+(def Any (union {:type nil} {:type Object}))
 
 (deftype Nothing [])
 
@@ -164,18 +177,18 @@
              (-> dom butlast last))
       (last dom))))
 
+(declare arity?)
+
 (defn fun [& arities]
   (assert (seq arities) "Must provide at least one arity")
-  (assert (every? #(instance? Arity %) arities) 
+  (assert (and (every? type-map? arities) 
+               (every? (comp arity? :type) arities))
           (str "All arguments to fun must be arities: " (with-out-str (pr arities))))
   (->Fun arities))
 
 (defn arity [dom rng]
-  (assert (every? #(or (= :& %)
-                       (satisfies? ITypedClojureType %))
-                  dom)
-          (str "Every type must satisfy ITypedClojureType: " (with-out-str (prn dom))))
-  (assert (satisfies? ITypedClojureType rng) rng)
+  (assert (every? type-map? (filter #(not= :& %) dom)))
+  (assert (type-map? rng))
   (->Arity dom rng))
 
 (def arity? (partial instance? Arity))
@@ -202,20 +215,21 @@
 
 (extend-protocol IParseType
   Symbol
-  (parse-type* [this] 
+  (parse-type* [this]
     (let [res (resolve this)
           _ (assert (or (not (nil? res))
                         (nil? this))
                     (str "Unresolvable type " this " in " *ns*))]
-      (cond
-        (var? res) (deref res) ; handle protocols
-        :else res)))
+      {:type (cond
+               (var? res) (deref res) ; handle protocols
+               :else res)}))
 
   IPersistentList ; Union and Fun syntax
   (parse-type* [this]
-    (if (= 'U (first this))
-      (apply union (map parse-syntax (rest this)))
-      (apply fun (map parse-type* this)))) ; don't use implicit single arity syntax
+    {:type
+     (if (= 'U (first this))
+       (apply union (map parse-syntax (rest this)))
+       (apply fun (map parse-type* this)))}) ; don't use implicit single arity syntax
 
   IPersistentVector ; Arity syntax
   (parse-type* [this]
@@ -225,13 +239,15 @@
           variable-dom-type (when variable-dom
                               (parse-syntax variable-dom))
           rng-type (parse-syntax rng)]
-      (arity (vec (concat fixed-dom-types (when (some #(= '& %) this)
-                                            [:& variable-dom-type])))
-             rng-type)))
+      {:type (arity (vec (concat fixed-dom-types (when (some #(= '& %) this)
+                                                   [:& variable-dom-type])))
+                    rng-type)}))
   
   nil
   (parse-type* [this] 
-    nil))
+    {:type nil}))
+
+(declare unparse-type)
 
 (extend-protocol IUnparseType
   Class
@@ -259,10 +275,22 @@
   Union
   (unparse-type* [this]
     (apply list 'U (map unparse-type (.types this))))
+
+  IPersistentMap ;Protocols
+  (unparse-type* [this]
+    (let [the-var (:var this)]
+      (assert (var? the-var))
+      (symbol (-> the-var .ns .name str)
+              (-> the-var .sym str))))
   
   nil
   (unparse-type* [this]
-    nil))
+    nil)
+  
+  Object
+  (unparse-type* [this]
+    (assert false
+            (str "Cannot unparse " this))))
 
 (defn parse-syntax 
   "Type syntax parser, entry point"
@@ -272,8 +300,11 @@
                  syn)))
 
 (defn unparse-type
-  [type]
-  (unparse-type* type))
+  [type-map]
+  (assert (type-map? type-map))
+  (assert (not (type-map? (:type type-map)))
+          type-map)
+  (unparse-type* (:type type-map)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Subtyping
@@ -287,7 +318,7 @@
       (instance? Union sub) 
       (every? identity (map #(subtype? this %) (.types sub)))
 
-      :else (some #(subtype? % sub) (.types this))))
+      :else (some #(subtype? % {:type sub}) (.types this))))
 
   Fun
   (subtype* [this sub]
@@ -353,7 +384,7 @@
 
       :else
       (if (instance? Union sub)
-        (every? true? (map subtype? (repeat this) (.types sub)))
+        (every? true? (map subtype? (repeat {:type this}) (.types sub)))
         (isa? sub this))))
 
   IPersistentMap ;; Protocols
@@ -363,7 +394,7 @@
       true
 
       (instance? Union sub)
-      (every? true? (map subtype? (repeat this) (.types sub)))
+      (every? true? (map subtype? (repeat {:type this}) (.types sub)))
 
       (map? sub)  ; both protocols
       (= this sub)
@@ -380,10 +411,11 @@
     (or (= Nothing sub)
         (nil? sub))))
 
-;(+T subtype? [ITypedClojureType ITypedClojureType -> Boolean)))
+;(+T subtype? [IPersistentMap IPersistentMap -> Boolean)))
 (defn subtype? [type sub]
-  (boolean (or ;(nil? sub) ;; follow Java Type system, nil/null as Bottom
-               (subtype* type sub))))
+  (assert (type-map? type))
+  (assert (type-map? sub))
+  (boolean (subtype* (:type type) (:type sub))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Front end macros
@@ -457,6 +489,8 @@
 (+T clojure.core/hash-map [& Any -> IPersistentMap])
 (+T clojure.core/println [& Any -> nil])
 (+T clojure.core/number? [Any -> Boolean])
+(+T clojure.core/alter-meta! [IReference Fun & Any -> Any])
+(+T clojure.core/assoc [(U IPersistentMap IPersistentVector) Any Any & Any -> (U IPersistentMap IPersistentVector)])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Checker
@@ -468,28 +502,28 @@
 
 (defmethod type-check :literal
   [{:keys [val]}]
-  (class val))
+  {:type (class val)})
 
 (defmethod type-check :empty-expr
   [{:keys [coll]}]
-  (class coll))
+  {:type (class coll)})
 
 (defmethod type-check :map
   [{:keys [keyvals]}]
   (assert (every? identity (map type-check keyvals)))
-  clojure.lang.IPersistentMap)
+  {:type clojure.lang.IPersistentMap})
 
 (defmethod type-check :vector
   [{:keys [args]}]
   (assert (every? identity (map type-check args)))
-  clojure.lang.IPersistentVector)
+  {:type clojure.lang.IPersistentVector})
 
 (defmethod type-check :if
   [{:keys [test then else]}]
   (do
     (type-check test)
-    (union (type-check then)
-           (type-check else))))
+    {:type (union (type-check then)
+                  (type-check else))}))
 
 (defmethod type-check :new
   [{:keys [ctor class args] :as expr}]
@@ -497,84 +531,96 @@
         fn-type (type-of (symbol (.getName class)))]
     (assert fn-type "Constructors only typed if declared with deftypeT")
     (let [matched-arity (matching-arity fn-type args)
-          arg-types (map type-check args)]
-      (assert (every? true? (map subtype? (.dom matched-arity) arg-types))
-              (str arg-types " is not a subtype of " matched-arity " , when trying to invoke constructor " ctor))
-      (.rng matched-arity))))
+          arg-types-maps (map type-check args)]
+      (assert (every? true? (map subtype? (.dom matched-arity) arg-types-maps))
+              (str (map unparse-type arg-types-maps) " is not a subtype of " matched-arity " , when trying to invoke constructor " ctor))
+      {:type (.rng matched-arity)})))
 
 ;(+T resolve-class-symbol [Symbol -> Class])
 (defn- resolve-class-symbol 
   [sym]
-  {:post [(or (nil? %) (class? %))]}
-  (case sym
-    char Character/TYPE
-    boolean Boolean/TYPE
-    byte Byte/TYPE
-    short Short/TYPE
-    int Integer/TYPE
-    long Long/TYPE
-    float Float/TYPE
-    double Double/TYPE
-    void nil
-    (do (assert (fully-qualified sym) sym)
-      (resolve sym))))
+  {:post [(type-map? %)
+          (or (nil? (:type %)) (class? (:type %)))]}
+  {:type
+   (case sym
+     char Character/TYPE
+     boolean Boolean/TYPE
+     byte Byte/TYPE
+     short Short/TYPE
+     int Integer/TYPE
+     long Long/TYPE
+     float Float/TYPE
+     double Double/TYPE
+     void nil
+     (do (assert (fully-qualified sym) sym)
+       (resolve sym)))})
 
-;(+T method->fun [clojure.reflect.Method -> Fun])
+;(+T method->fun [clojure.reflect.Method -> IPersistentMap])
 (defn- method->fun [method]
-  (fun (arity (->> (map resolve-class-symbol (:parameter-types method))
-                (map #(union nil %)))
-              (-> (resolve-class-symbol (:return-type method))
-                (union nil)))))
+  {:type (fun {:type (arity (->> 
+                              (map resolve-class-symbol (:parameter-types method))
+                              (map #(union {:type nil} %)) ; Java methods can return null
+                              (map #(hash-map :type %)))
+                            {:type (-> (resolve-class-symbol (:return-type method))
+                                     (union {:type nil}))})})})
 
 (defmethod type-check :static-field
   [{:keys [field]}]
   (assert (:type field) "No field resolvable, needs type hint")
-  (union nil (:type field)))
+  {:type (union {:type nil} {:type (:type field)})})
 
 (defmethod type-check :instance-field
   [{:keys [field]}]
   (assert (:type field) "No field resolvable, needs type hint")
-  (union nil (:type field)))
+  {:type (union {:type nil} {:type (:type field)})})
 
 (defn- check-method [method args]
-  (let [method-type (method->fun method)
-        arg-types (map type-check args)
-        matched-arity (matching-arity method-type args)]
-    (assert (every? true? (map subtype? (.dom matched-arity) arg-types))
-            (str (with-out-str (pr arg-types)) " is not a subtype of " (with-out-str (pr matched-arity)) 
+  (let [method-type-map (method->fun method)
+        arg-types-maps (map type-check args)
+        matched-arity-map (matching-arity method-type-map args)]
+    (assert (every? true? (map subtype? (.dom (:type matched-arity-map)) arg-types-maps))
+            (str (map unparse-type arg-types-maps) " is not a subtype of " (unparse-type matched-arity-map)
                  " when checking method "  (with-out-str (pr method))))
-    (.rng matched-arity)))
+    {:type (.rng ^Arity (:type matched-arity-map))}))
 
 (defmethod type-check :static-method
   [{:keys [method args]}]
-  (check-method method args))
+  (let [type-map (check-method method args)]
+    type-map))
 
 (defmethod type-check :instance-method
   [{:keys [method args]}]
-  (check-method method args))
+  {:type (check-method method args)})
 
 (defmethod type-check :try
   [{:keys [try-expr catch-exprs finally-expr]}]
-  (do
-    (type-check finally-expr)
-    (apply union (map type-check (cons try-expr catch-exprs)))))
+  (assert (type-check finally-expr))
+  (let [types-maps (map type-check (cons try-expr catch-exprs))]
+    {:type (apply union types-maps)}))
 
 (defmethod type-check :var
   [{:keys [var env]}]
-  (let [sym (var-or-class->sym var)]
-    (type-of sym)))
+  (let [sym (var-or-class->sym var)
+        type-map (type-of sym)]
+    type-map))
 
-(defn matching-arity 
+(defmethod type-check :the-var
+  [{:keys [var]}]
+  {:type Var
+   :the-var var})
+
+(defn- matching-arity 
   "Returns the matching arity type corresponding to the args"
-  [fun args]
-  (assert (instance? Fun fun))
-  (assert (not (instance? Arity args)))
-  (or (some #(and (= (count (.dom %))
-                     (count args))
-                  %)
-            (filter fixed-arity? (.arities fun))) ; fixed arities
-      (some #(and (variable-arity? %)
-                  %) (.arities fun)))) ; variable arity
+  [fun-map args]
+  (assert (type-map? fun-map))
+  (let [fun (:type fun-map)]
+    (assert (instance? Fun fun) fun)
+    (or (some #(and (= (count (.dom (:type %)))
+                       (count args))
+                    %)
+              (filter (comp fixed-arity? :type) (.arities fun))) ; fixed arities
+        (some #(and (variable-arity? (:type %))
+                    %) (.arities fun))))) ; variable arity
 
 (defn rest-type [arity]
   (assert (variable-arity? arity))
@@ -582,71 +628,77 @@
 
 (defmethod type-check :invoke
   [{:keys [fexpr args] :as expr}]
-  (let [fn-type (type-check fexpr)
-        arg-types (doall (map type-check args))
-        matched-arity (matching-arity fn-type args)]
-    #_(println "invoke" fexpr)
-    (assert matched-arity (do
-                           (util/print-expr expr :children :env :Expr-obj :ObjMethod-obj)
-                           (println arg-types)
-                           (println fn-type)))
-    (assert (or (variable-arity? matched-arity)
-                (= (count (.dom matched-arity))
-                   (count arg-types))))
+  #_(println "invoking ") (util/print-expr fexpr :children :env :Expr-obj)
+  (let [fexpr-type-map (type-check fexpr)
+        _ (println "Type is:" (unparse-type fexpr-type-map))
+        _ (assert fexpr-type-map)
+        _ (assert (fun? (:type fexpr-type-map)))
+        fn-type-map fexpr-type-map
+        arg-types-maps (map type-check args)
+        _ (println "arg-types-maps" arg-types-maps)
+        matched-arity-map (matching-arity fn-type-map args)
+        matched-arity (:type matched-arity-map)
+        _ (println "matched arity map" matched-arity-map)
+        _ (assert matched-arity-map (util/print-expr expr :children :env :Expr-obj :ObjMethod-obj))
+        _ (assert (or (variable-arity? matched-arity)
+                      (= (count (.dom matched-arity))
+                         (count arg-types-maps))))
 
-    ; Typecheck args compared to fn signature
-    (assert (every? true? (doall (map subtype? 
-                                      (concat (fixed-params matched-arity)
-                                              (when (variable-arity? matched-arity)
-                                                (repeat (rest-type matched-arity))))
-                                      arg-types)))
-            (str "Invoke: type error: " 
-                 (with-out-str (pr arg-types)) " is not a subtype of " (.dom matched-arity)))
-    (.rng matched-arity)))
+        ; Typecheck args compared to fn signature
+        _ (assert (every? true? (doall (map subtype? 
+                                            (concat (fixed-params matched-arity)
+                                                    (when (variable-arity? matched-arity)
+                                                      (repeat (rest-type matched-arity))))
+                                            arg-types-maps)))
+                  (str "Invoke: type error: " 
+                       (with-out-str (pr (map unparse-type arg-types-maps))) " is not a subtype of " (.dom matched-arity)))]
+    {:type (.rng matched-arity)}))
 
 (defmethod type-check :import*
   [{:keys [class-str]}]
-  nil)
+  {:type nil})
 
 (defmethod type-check :deftype*
   [{:keys []}]
-  nil)
+  {:type nil})
 
-(defn- matching-arity-expr [{:keys [required-params rest-params] :as expr} ^Fun fn-type]
-  (assert fn-type)
+(defn- matching-arity-expr [{:keys [required-params rest-params] :as expr} fn-type-map]
+  (assert (type-map? fn-type-map))
   (if rest-params
-    (some #(and (variable-arity? %) %) fn-type)
-    (some #(and (= (count (.dom ^Arity %))
+    (some #(and (variable-arity? (:type %)) %) fn-type-map)
+    (some #(and (= (count (.dom ^Arity (:type %)))
                    (count required-params))
                 %)
-          (filter fixed-arity? (.arities fn-type)))))
+          (filter fixed-arity? (.arities (:type fn-type-map))))))
 
 
 (defmethod type-check :fn-expr
   [{:keys [methods] :as expr}]
-  (let [expected-type (::expected-type expr)
+  (let [expected-type-map (::expected-type-map expr)
  ;       _ (assert expected-type (str "No type found for function" (util/print-expr expr :env :children :Expr-obj)))
 
         actual-type 
         (apply fun (for [method methods]
                      (try
-                       (type-check (assoc method ::expected-type (when expected-type
-                                                                   (matching-arity-expr method expected-type))))
+                       (let [type-map (type-check (assoc method ::expected-type-map (when expected-type-map
+                                                                                      (matching-arity-expr method expected-type-map))))]
+                         (assert type-map)
+                         type-map)
                        (catch AssertionError e
-                         (util/print-expr expr :children :env :Expr-obj)
+                         #_(util/print-expr expr :children :env :Expr-obj)
                          (throw e)))))]
-    actual-type))
+    {:type actual-type}))
 
 (defmethod type-check :fn-method
   [{:keys [required-params rest-param body] :as expr}]
-  (let [expected-type (::expected-type expr)
+  (let [expected-type-map (::expected-type-map expr)
 
         ;[[sym type] ...]
         fixed-types (when (seq required-params)
                       (vec (map vector 
                                 (map :sym required-params) 
-                                (if expected-type
-                                  (.dom ^Arity expected-type)
+                                (if expected-type-map
+                                  (.dom ^Arity (:type expected-type-map))
                                   (let [ann-doms (map #(let [sym (:sym %)
                                                              [_ syntax :as m] (-> sym meta (find :+T))
                                                              _ (assert m (str "No type annotation for parameter " sym))]
@@ -660,44 +712,45 @@
 
         ;[sym type]
         rest-type (when rest-param
-                    [[(:sym rest-param) clojure.lang.ISeq]])
+                    [[(:sym rest-param) {:type clojure.lang.ISeq}]])
         local-types (apply hash-map (flatten (concat fixed-types rest-type)))
-        dom-types (if expected-type
-                   (.dom expected-type)
-                   (vec (concat (map second fixed-types) 
-                                (when rest-type
-                                  [:& Object])))) ; TODO hardwired, recover this info
-        rng-type (with-local-types local-types
-                   (with-recur-frame (arity dom-types Nothing)
-                     (type-check body)))]
-    (arity dom-types rng-type)))
+        dom-types-maps (if expected-type-map
+                         (.dom (:type expected-type-map))
+                         (vec (concat (map second fixed-types) 
+                                      (when rest-type
+                                        [:& {:type Object}])))) ; TODO hardwired, recover this info
+        rng-type-map (with-local-types local-types
+                       (with-recur-frame (arity dom-types-maps {:type Nothing})
+                         (type-check body)))]
+    {:type (arity dom-types-maps rng-type-map)}))
 
 (defmethod type-check :local-binding-expr
   [{:keys [local-binding]}]
-  (type-check local-binding))
+  (let [type-map (type-check local-binding)]
+    type-map))
 
 (defmethod type-check :local-binding
   [{:keys [sym init]}]
-  (type-of sym))
+  {:type (type-of sym)})
 
 (defmethod type-check :recur
   [{:keys [loop-locals args]}]
   (let [expected-arity *recur-frame*
         _ (assert (arity? expected-arity) "No recur frame")
-        arg-types (map type-check args)
+        arg-types-maps (map type-check args)
         _ (assert (let [op (if (variable-arity? expected-arity)
                              <=
                              =)]
                     (op (count (fixed-params expected-arity))
-                        (count arg-types)))
+                        (count arg-types-maps)))
                   "Not enough arguments")
-        _ (doseq [ty (concat (fixed-params expected-arity)
-                             (when (variable-arity? expected-arity)
-                               (repeat (variable-param expected-arity))))
-                  sub arg-types]
-            (assert (subtype? ty sub) (str (unparse-type sub) " is not a subtype of "
-                                           (unparse-type ty))))]
-    (.rng expected-arity)))
+        _ (doseq [ty-map (concat (fixed-params expected-arity)
+                                 (when (variable-arity? expected-arity)
+                                   (repeat (variable-param expected-arity))))
+                  sub-map arg-types-maps]
+            (assert (subtype? ty-map sub-map) (str (unparse-type sub-map) " is not a subtype of "
+                                                   (unparse-type ty-map))))]
+    {:type (.rng expected-arity)}))
 
 (defmethod type-check :let
   [{:keys [env binding-inits body is-loop]}]
@@ -711,45 +764,49 @@
                     local-types (merge-entries local-types-vec)
                     [_ t-syn :as has-annot] (-> sym meta (find :+T))
                     t-annot (parse-syntax t-syn)
-                    bnd-type (with-local-types local-types
-                               (type-check (if has-annot
-                                             (assoc init ::expected-type t-annot)
-                                             init)))
-                    sym-type (if has-annot
-                               t-annot
-                               bnd-type)]
-                (recur (vec (conj local-types-vec [sym sym-type]))
+                    bnd-type-map (with-local-types local-types
+                                   (type-check (if has-annot
+                                                 (assoc init ::expected-type-map t-annot)
+                                                 init)))
+                    sym-type-map (if has-annot
+                                   {:type t-annot}
+                                   bnd-type-map)]
+                (recur (vec (conj local-types-vec [sym sym-type-map]))
                        (rest binding-inits)))
               local-types-vec))
-          dom-types (map second local-types-vec)
-          local-types (merge-entries local-types-vec)]
-      (with-local-types local-types
-        (if is-loop
-          (with-recur-frame (arity dom-types Nothing)
-            (type-check body))
-          (type-check body))))))
+          dom-types-maps (map second local-types-vec)
+          local-types (merge-entries local-types-vec)
+          type-map (with-local-types local-types
+                     (if is-loop
+                       (with-recur-frame (arity (map :type dom-types-maps) Nothing)
+                         (type-check body))
+                       (type-check body)))]
+      type-map)))
 
 (defmethod type-check :do
   [{:keys [exprs]}]
-  (do
-    (doseq [expr (butlast exprs)]
-      (type-check expr))
-    (type-check (last exprs))))
+  (doseq [expr (butlast exprs)]
+    (assert (type-check expr)))
+  (let [type-map (type-check (last exprs))]
+    type-map))
 
 (defmethod type-check :def
   [{:keys [env init-provided init var]}]
   (println "type checking" var)
   (if init-provided
-    (let [expected-type (type-of (var-or-class->sym var))
-          actual-type (type-check (assoc init ::expected-type expected-type))]
-      (assert (subtype? expected-type actual-type) (str "Found " (unparse-type actual-type)
-                                                        " where expecting " (unparse-type expected-type)))
-      actual-type)
-    (println "No init provided for" (var-or-class->sym var))))
+    (let [expected-type-map (type-of (var-or-class->sym var))
+          actual-type-map (type-check (assoc init ::expected-type-map expected-type-map))]
+      (assert (subtype? expected-type-map actual-type-map) (str "Found " (unparse-type actual-type-map)
+                                                            " where expecting " (unparse-type expected-type-map)))
+      actual-type-map)
+    (do
+      (println "No init provided for" (var-or-class->sym var))
+      {:type Nothing})))
 
 (defmethod type-check :default
   [expr]
-  (util/print-expr expr :children :Expr-obj :ObjMethod-obj)
+  (println (:op expr))
+  #_(util/print-expr expr :children :Expr-obj :ObjMethod-obj)
   (type-error))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -762,6 +819,14 @@
   (let [analysis (analyze-path path nsym)]
     (binding [*ns* nsym]
       (doseq [a analysis]
-        (type-check a))))
+        (assert (type-check a) (util/print-expr a :children :env :Expr-obj)))))
   (swap! flag/type-check-flag (constantly false)))
+
+(defn- type-check-one [form ns]
+  (let [a (analyze.core/analyze-one {:ns {:name ns} :context :eval} form)]
+    (type-check a)))
+
+(comment
+  (util/print-expr (analyze.core/analyze-one {:ns {:name 'user} :context :eval} '(def my-atom (atom {})))
+  :children :env :Expr-obj))
 
