@@ -1,8 +1,8 @@
 (ns typed-clojure.simple
-  (:use [typed-clojure.checker :only [deftypeT +T new-type union fun arity]])
+  (:use [typed-clojure.checker :only [deftypeT +T Any]])
   (:import (clojure.lang IPersistentCollection IPersistentMap Atom IPersistentVector
                          IPersistentList)
-           (typed_clojure.checker Fun)))
+           (typed_clojure.checker Fun Nothing)))
 
 (+T return-number [Long -> Long])
 (defn return-number [a]
@@ -22,7 +22,7 @@
 (+T my-empty-list IPersistentList)
 (def my-empty-list '())
 
-(+T head [(U nil IPersistentCollection) -> (U nil Object)])
+(+T head [(U nil IPersistentCollection) -> Any])
 (defn head [c]
   (first c))
 
@@ -47,19 +47,19 @@
 (defn construct [n s]
   (MyType. n s))
 
-(+T destruct [IPersistentCollection -> (U nil Object)])
+(+T destruct [IPersistentCollection -> Any])
 (defn destruct [[a]]
   a)
 
-(+T destruct2 [IPersistentCollection -> (U nil Object)])
+(+T destruct2 [IPersistentCollection -> Any])
 (defn destruct2 [{:keys [a b c] :as d}]
   a)
 
-(+T method1 [Class -> (U nil Object)])
+(+T method1 [Class -> (U nil String)])
 (defn method1 [a]
   (.getName ^Class a))
 
-(+T hash1 [& Object -> Object])
+(+T hash1 [& Any -> Object])
 (defn hash1 [& as]
   (apply hash-map as))
 
@@ -73,7 +73,21 @@
 (defn fn1 [n]
   (fn [^{:+T Number} n] 1))
 
-;(+T loop1 (fun (arity [Number] Boolean)))
-;(defn loop1 [n]
-;  (loop [b [1 2 3]]
-;    b))
+(+T recur1 [String -> (U Nothing nil)])
+(defn recur1 [a]
+  (when true
+    (recur a)))
+
+(+T recur2 [String -> String])
+(defn recur2 [a]
+  (if false
+    (recur a)
+    "a"))
+
+(+T loop1 [Number -> Boolean])
+(defn loop1 [n]
+  (loop [^{:+T (U Long IPersistentVector)}
+         b [1 2 3]]
+    (if false
+      (recur 1)
+      b)))

@@ -34,9 +34,18 @@
 ;; # Type Database
 
 ; Namespaced symbol -> type
+;(+T type-db Atom)
 (def type-db (atom {}))
 
+;(+T *local-type-db* IPersistentMap)
 (def ^:dynamic *local-type-db* {})
+
+;(+T *recur-frame* (U nil Arity))
+(def ^:dynamic *recur-frame* nil)
+
+(defmacro with-recur-frame [typ & body]
+  `(binding [*recur-frame* ~typ]
+     ~@body))
 
 (defn reset-type-db []
   (swap! type-db (constantly {})))
@@ -113,6 +122,10 @@
 
 (defn union [& types]
   (->Union types))
+
+(def Any (union nil Object))
+
+(deftype Nothing [])
 
 (deftype Fun [arities]
   Object
@@ -270,41 +283,52 @@
 
   Fun
   (subtype* [this sub]
-    (when (instance? Fun sub)
+    (cond
+      (instance? Fun sub)
       (every? identity
               (for [sub-arity (.arities sub)]
                 (let [type-arity (matching-arity this (.dom sub-arity))]
-                  (subtype? type-arity sub-arity))))))
+                  (subtype? type-arity sub-arity))))
+      
+      :else
+      (= Nothing sub)))
 
   Arity
   (subtype* [this sub]
-    (and (instance? Arity sub)
-         (cond
-           (variable-arity? this)
-           (every? true? 
-                   (cond
-                     (variable-arity? sub)
-                     (map subtype? 
-                          (conj (vec (fixed-params this))
-                                (variable-param this))
-                          (conj (vec (fixed-params sub))
-                                (variable-param sub)))
+    (cond
+      (instance? Arity sub)
+      (cond
+        (variable-arity? this)
+        (every? true? 
+                (cond
+                  (variable-arity? sub)
+                  (map subtype? 
+                       (conj (vec (fixed-params this))
+                             (variable-param this))
+                       (conj (vec (fixed-params sub))
+                             (variable-param sub)))
 
-                     :else
-                     (map subtype? 
-                          (concat (fixed-params this)
-                                  (repeat (variable-param this)))
-                          (fixed-params sub))))
+                  :else
+                  (map subtype? 
+                       (concat (fixed-params this)
+                               (repeat (variable-param this)))
+                       (fixed-params sub))))
 
 
-           :else
-           (and (instance? Arity sub)
-                (every? true? (map subtype? (.dom sub) (.dom this)))
-                (subtype? (.rng this) (.rng sub))))))
+        :else
+        (and (instance? Arity sub)
+             (every? true? (map subtype? (.dom sub) (.dom this)))
+             (subtype? (.rng this) (.rng sub))))
+
+      :else
+      (= Nothing sub)))
 
   Class
   (subtype* [this sub]
     (cond 
+      (= Nothing sub)
+      true
+
       (and (identical? this Fun) ; (subtype? Fun (fun ...))
            (instance? Fun sub))
       true
@@ -327,6 +351,9 @@
   IPersistentMap ;; Protocols
   (subtype* [this sub]
     (cond 
+      (= Nothing sub)
+      true
+
       (instance? Union sub)
       (every? true? (map subtype? (repeat this) (.types sub)))
 
@@ -336,9 +363,14 @@
       :else
       (class-satisfies-protocol this sub)))
 
+  Nothing
+  (subtype* [this sub]
+    false) ;TODO is Nothing a subtype of itself?
+
   nil
   (subtype* [this sub]
-    (nil? sub)))
+    (or (= Nothing sub)
+        (nil? sub))))
 
 ;(+T subtype? [ITypedClojureType ITypedClojureType -> Boolean)))
 (defn subtype? [type sub]
@@ -539,11 +571,6 @@
   (assert (variable-arity? arity))
   (last (.dom arity)))
 
-(defn fixed-args [arity]
-  (assert (arity? arity))
-  (take-while #(not (= :& %)) (.dom arity)))
-
-
 (defmethod type-check :invoke
   [{:keys [fexpr args] :as expr}]
   (let [fn-type (type-check fexpr)
@@ -560,7 +587,7 @@
 
     ; Typecheck args compared to fn signature
     (assert (every? true? (doall (map subtype? 
-                                      (concat (fixed-args matched-arity)
+                                      (concat (fixed-params matched-arity)
                                               (when (variable-arity? matched-arity)
                                                 (repeat (rest-type matched-arity))))
                                       arg-types)))
@@ -604,6 +631,8 @@
 (defmethod type-check :fn-method
   [{:keys [required-params rest-param body] :as expr}]
   (let [expected-type (::expected-type expr)
+
+        ;[[sym type] ...]
         fixed-types (when (seq required-params)
                       (vec (map vector 
                                 (map :sym required-params) 
@@ -619,17 +648,20 @@
                                     (assert (every? #(satisfies? ITypedClojureType %) ann-doms) 
                                             (with-out-str (pr ann-doms)))
                                     ann-doms)))))
+
+        ;[sym type]
         rest-type (when rest-param
                     [[(:sym rest-param) clojure.lang.ISeq]])
         local-types (apply hash-map (flatten (concat fixed-types rest-type)))
+        dom-types (if expected-type
+                   (.dom expected-type)
+                   (vec (concat (map second fixed-types) 
+                                (when rest-type
+                                  [:& Object])))) ; TODO hardwired, recover this info
         rng-type (with-local-types local-types
-                   (type-check body))]
-    (arity (if expected-type
-             (.dom expected-type)
-             (vec (concat (map second fixed-types) 
-                          (when rest-type
-                            [:& Object])))) ; TODO hardwired, recover this info
-           rng-type)))
+                   (with-recur-frame (arity dom-types Nothing)
+                     (type-check body)))]
+    (arity dom-types rng-type)))
 
 (defmethod type-check :local-binding-expr
   [{:keys [local-binding]}]
@@ -639,21 +671,51 @@
   [{:keys [sym init]}]
   (type-of sym))
 
+(defmethod type-check :recur
+  [{:keys [loop-locals args]}]
+  (let [expected-arity *recur-frame*
+        _ (assert (arity? expected-arity) "No recur frame")
+        arg-types (map type-check args)
+        _ (assert (let [op (if (variable-arity? expected-arity)
+                             <=
+                             =)]
+                    (op (count (fixed-params expected-arity))
+                        (count arg-types)))
+                  "Not enough arguments")
+        _ (doseq [ty (concat (fixed-params expected-arity)
+                             (when (variable-arity? expected-arity)
+                               (repeat (variable-param expected-arity))))
+                  sub arg-types]
+            (assert (subtype? ty sub) (str (unparse-type sub) " is not a subtype of "
+                                           (unparse-type ty))))]
+    (.rng expected-arity)))
+
 (defmethod type-check :let
   [{:keys [env binding-inits body is-loop]}]
-  (assert (not is-loop))
-  (let [local-types
-        (loop [local-types *local-type-db*
-               binding-inits binding-inits]
-          (if (seq binding-inits)
-            (let [{sym :sym, init :init} (:local-binding (first binding-inits))
-                  bnd-type (with-local-types local-types
-                             (type-check init))]
-              (recur (assoc local-types sym bnd-type)
-                     (rest binding-inits)))
-            local-types))]
-    (with-local-types local-types
-      (type-check body))))
+  (letfn [(merge-entries [vec-entries]
+            (apply merge (map (partial apply hash-map) vec-entries)))]
+    (let [local-types-vec ; [[sym type] ...]
+          (loop [local-types-vec []
+                 binding-inits binding-inits]
+            (if (seq binding-inits)
+              (let [{sym :sym, init :init} (:local-binding (first binding-inits))
+                    local-types (merge-entries local-types-vec)
+                    [_ t :as has-annot] (-> sym meta (find :+T))
+                    t (parse-syntax t)
+                    bnd-type (with-local-types local-types
+                               (type-check (if has-annot
+                                             (assoc init ::expected-type t)
+                                             init)))]
+                (recur (vec (conj local-types-vec [sym bnd-type]))
+                       (rest binding-inits)))
+              local-types-vec))
+          dom-types (map second local-types-vec)
+          local-types (merge-entries local-types-vec)]
+      (with-local-types local-types
+        (if is-loop
+          (with-recur-frame (arity dom-types Nothing)
+            (type-check body))
+          (type-check body))))))
 
 (defmethod type-check :do
   [{:keys [exprs]}]
@@ -664,7 +726,7 @@
 
 (defmethod type-check :def
   [{:keys [env init-provided init var]}]
-  #_(println "type checking" var)
+  (println "type checking" var)
   (if init-provided
     (let [expected-type (type-of (var-or-class->sym var))
           actual-type (type-check (assoc init ::expected-type expected-type))]
