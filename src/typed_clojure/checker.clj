@@ -52,6 +52,7 @@
 
 (defmacro with-recur-frame [typ & body]
   `(binding [*recur-frame* ~typ]
+     (assert (type-map? ~typ))
      ~@body))
 
 (defn reset-type-db []
@@ -91,7 +92,7 @@
                " Expected: " (@type-db sym)
                " Found: " type
                " (= (@type-db sym) type): " (= (@type-db sym) type)))
-  (println "add type for" sym (unparse-type type))
+  #_(println "add type for" sym (unparse-type type))
   (swap! type-db #(assoc % sym type))
   nil)
 
@@ -141,8 +142,9 @@
                           type-maps))))
 
 (defn union [& types]
-  (assert (every? type-map? types) types)
-  (->Union (simplify-union types)))
+  (let [simp (simplify-union types)
+        _ (assert (every? type-map? simp) simp)]
+    (->Union simp)))
 
 (def Any (union {:type nil} {:type Object}))
 
@@ -197,7 +199,7 @@
 (defn variable-arity? 
   "Returns the arity if variable, otherwise false"
   [arity]
-  (assert (instance? Arity arity))
+  (assert (instance? Arity arity) arity)
   (= :&
      (-> (.dom arity) butlast last)))
 
@@ -316,7 +318,7 @@
   (subtype* [this sub]
     (cond 
       (instance? Union sub) 
-      (every? identity (map #(subtype? this %) (.types sub)))
+      (every? identity (map #(subtype? {:type this} %) (.types sub)))
 
       :else (some #(subtype? % {:type sub}) (.types this))))
 
@@ -325,9 +327,10 @@
     (cond
       (instance? Fun sub)
       (every? identity
-              (for [sub-arity (.arities sub)]
-                (let [type-arity (matching-arity this (.dom sub-arity))]
-                  (subtype? type-arity sub-arity))))
+              (for [sub-arity-map (.arities sub)]
+                (do (assert false "Matching-arity expression below is used incorrectly")
+                  (let [type-arity-map (matching-arity {:type this} (.dom (:type sub-arity-map)))]
+                    (subtype? type-arity-map sub-arity-map)))))
       
       :else
       (= Nothing sub)))
@@ -413,8 +416,10 @@
 
 ;(+T subtype? [IPersistentMap IPersistentMap -> Boolean)))
 (defn subtype? [type sub]
-  (assert (type-map? type))
+  (assert (type-map? type) type)
+  (assert (not (type-map? (:type type))))
   (assert (type-map? sub))
+  (assert (not (type-map? (:type sub))) sub)
   (boolean (subtype* (:type type) (:type sub))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -502,6 +507,7 @@
 
 (defmethod type-check :literal
   [{:keys [val]}]
+  #_(println "literal" (class val))
   {:type (class val)})
 
 (defmethod type-check :empty-expr
@@ -528,13 +534,13 @@
 (defmethod type-check :new
   [{:keys [ctor class args] :as expr}]
   (let [_ (assert class (util/print-expr expr :env :children))
-        fn-type (type-of (symbol (.getName class)))]
-    (assert fn-type "Constructors only typed if declared with deftypeT")
-    (let [matched-arity (matching-arity fn-type args)
+        fn-type-map (type-of (symbol (.getName class)))]
+    (assert fn-type-map "Constructors only typed if declared with deftypeT")
+    (let [matched-arity-map (matching-arity fn-type-map args)
           arg-types-maps (map type-check args)]
-      (assert (every? true? (map subtype? (.dom matched-arity) arg-types-maps))
-              (str (map unparse-type arg-types-maps) " is not a subtype of " matched-arity " , when trying to invoke constructor " ctor))
-      {:type (.rng matched-arity)})))
+      (assert (every? true? (map subtype? (.dom (:type matched-arity-map)) arg-types-maps))
+              (str (map unparse-type arg-types-maps) " is not a subtype of " matched-arity-map " , when trying to invoke constructor " ctor))
+      (.rng (:type matched-arity-map)))))
 
 ;(+T resolve-class-symbol [Symbol -> Class])
 (defn- resolve-class-symbol 
@@ -557,12 +563,14 @@
 
 ;(+T method->fun [clojure.reflect.Method -> IPersistentMap])
 (defn- method->fun [method]
-  {:type (fun {:type (arity (->> 
-                              (map resolve-class-symbol (:parameter-types method))
-                              (map #(union {:type nil} %)) ; Java methods can return null
-                              (map #(hash-map :type %)))
-                            {:type (-> (resolve-class-symbol (:return-type method))
-                                     (union {:type nil}))})})})
+  (let [type-map
+        {:type (fun {:type (arity (->> 
+                                    (map resolve-class-symbol (:parameter-types method))
+                                    (map #(hash-map :type (union {:type nil} %)))) ; Java methods can return null
+                                    
+                                  {:type (-> (resolve-class-symbol (:return-type method))
+                                           (union {:type nil}))})})}]
+    type-map))
 
 (defmethod type-check :static-field
   [{:keys [field]}]
@@ -581,7 +589,7 @@
     (assert (every? true? (map subtype? (.dom (:type matched-arity-map)) arg-types-maps))
             (str (map unparse-type arg-types-maps) " is not a subtype of " (unparse-type matched-arity-map)
                  " when checking method "  (with-out-str (pr method))))
-    {:type (.rng ^Arity (:type matched-arity-map))}))
+    (.rng ^Arity (:type matched-arity-map))))
 
 (defmethod type-check :static-method
   [{:keys [method args]}]
@@ -590,7 +598,7 @@
 
 (defmethod type-check :instance-method
   [{:keys [method args]}]
-  {:type (check-method method args)})
+  (check-method method args))
 
 (defmethod type-check :try
   [{:keys [try-expr catch-exprs finally-expr]}]
@@ -599,9 +607,11 @@
     {:type (apply union types-maps)}))
 
 (defmethod type-check :var
-  [{:keys [var env]}]
+  [{:keys [var env tag]}]
   (let [sym (var-or-class->sym var)
         type-map (type-of sym)]
+    (when tag 
+      (println "Unused tag " tag ", for " sym "!"))
     type-map))
 
 (defmethod type-check :the-var
@@ -612,6 +622,7 @@
 (defn- matching-arity 
   "Returns the matching arity type corresponding to the args"
   [fun-map args]
+  {:post [(type-map? %)]}
   (assert (type-map? fun-map))
   (let [fun (:type fun-map)]
     (assert (instance? Fun fun) fun)
@@ -628,17 +639,13 @@
 
 (defmethod type-check :invoke
   [{:keys [fexpr args] :as expr}]
-  #_(println "invoking ") (util/print-expr fexpr :children :env :Expr-obj)
   (let [fexpr-type-map (type-check fexpr)
-        _ (println "Type is:" (unparse-type fexpr-type-map))
         _ (assert fexpr-type-map)
         _ (assert (fun? (:type fexpr-type-map)))
         fn-type-map fexpr-type-map
         arg-types-maps (map type-check args)
-        _ (println "arg-types-maps" arg-types-maps)
         matched-arity-map (matching-arity fn-type-map args)
         matched-arity (:type matched-arity-map)
-        _ (println "matched arity map" matched-arity-map)
         _ (assert matched-arity-map (util/print-expr expr :children :env :Expr-obj :ObjMethod-obj))
         _ (assert (or (variable-arity? matched-arity)
                       (= (count (.dom matched-arity))
@@ -652,7 +659,7 @@
                                             arg-types-maps)))
                   (str "Invoke: type error: " 
                        (with-out-str (pr (map unparse-type arg-types-maps))) " is not a subtype of " (.dom matched-arity)))]
-    {:type (.rng matched-arity)}))
+    (.rng matched-arity)))
 
 (defmethod type-check :import*
   [{:keys [class-str]}]
@@ -665,11 +672,11 @@
 (defn- matching-arity-expr [{:keys [required-params rest-params] :as expr} fn-type-map]
   (assert (type-map? fn-type-map))
   (if rest-params
-    (some #(and (variable-arity? (:type %)) %) fn-type-map)
+    (some #(and (variable-arity? (:type %)) %) (.arities (:type fn-type-map)))
     (some #(and (= (count (.dom ^Arity (:type %)))
                    (count required-params))
                 %)
-          (filter fixed-arity? (.arities (:type fn-type-map))))))
+          (filter (comp fixed-arity? :type) (.arities (:type fn-type-map))))))
 
 
 (defmethod type-check :fn-expr
@@ -720,7 +727,7 @@
                                       (when rest-type
                                         [:& {:type Object}])))) ; TODO hardwired, recover this info
         rng-type-map (with-local-types local-types
-                       (with-recur-frame (arity dom-types-maps {:type Nothing})
+                       (with-recur-frame {:type (arity dom-types-maps {:type Nothing})}
                          (type-check body)))]
     {:type (arity dom-types-maps rng-type-map)}))
 
@@ -731,26 +738,27 @@
 
 (defmethod type-check :local-binding
   [{:keys [sym init]}]
-  {:type (type-of sym)})
+  (type-of sym))
 
 (defmethod type-check :recur
   [{:keys [loop-locals args]}]
-  (let [expected-arity *recur-frame*
-        _ (assert (arity? expected-arity) "No recur frame")
+  (let [expected-arity-map *recur-frame*
+        _ (assert (arity? (:type expected-arity-map)) "No recur frame")
         arg-types-maps (map type-check args)
-        _ (assert (let [op (if (variable-arity? expected-arity)
+        _ (assert (let [op (if (variable-arity? (:type expected-arity-map))
                              <=
                              =)]
-                    (op (count (fixed-params expected-arity))
+                    (op (count (fixed-params (:type expected-arity-map)))
                         (count arg-types-maps)))
                   "Not enough arguments")
-        _ (doseq [ty-map (concat (fixed-params expected-arity)
-                                 (when (variable-arity? expected-arity)
-                                   (repeat (variable-param expected-arity))))
-                  sub-map arg-types-maps]
-            (assert (subtype? ty-map sub-map) (str (unparse-type sub-map) " is not a subtype of "
-                                                   (unparse-type ty-map))))]
-    {:type (.rng expected-arity)}))
+        _ (map (fn [ty-map sub-map]
+                 (assert (subtype? ty-map sub-map) (str (unparse-type sub-map) " is not a subtype of "
+                                                        (unparse-type ty-map))))
+               (concat (fixed-params (:type expected-arity-map))
+                       (when (variable-arity? (:type expected-arity-map))
+                         (repeat (variable-param (:type expected-arity-map)))))
+               arg-types-maps)]
+    (.rng (:type expected-arity-map))))
 
 (defmethod type-check :let
   [{:keys [env binding-inits body is-loop]}]
@@ -778,7 +786,7 @@
           local-types (merge-entries local-types-vec)
           type-map (with-local-types local-types
                      (if is-loop
-                       (with-recur-frame (arity (map :type dom-types-maps) Nothing)
+                       (with-recur-frame {:type (arity dom-types-maps {:type Nothing})}
                          (type-check body))
                        (type-check body)))]
       type-map)))
@@ -792,7 +800,7 @@
 
 (defmethod type-check :def
   [{:keys [env init-provided init var]}]
-  (println "type checking" var)
+  #_(println "type checking" var)
   (if init-provided
     (let [expected-type-map (type-of (var-or-class->sym var))
           actual-type-map (type-check (assoc init ::expected-type-map expected-type-map))]
