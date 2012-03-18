@@ -102,3 +102,13 @@
   (cond
     (number? a)
     "a"))
+
+(+T cond2 [Any -> (U nil Long)])
+(defn cond2 [a]
+  (cond
+    (number? a) 1
+    true 2
+    false 3
+    :a 4
+    :b 5
+    :else 6))

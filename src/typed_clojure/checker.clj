@@ -120,8 +120,16 @@
   (toString [this]
     (with-out-str (pr types))))
 
+(def union? (partial instance? Union))
+
+(defn- simplify-union [types]
+  (set (concat (map #(if (union? %)
+                       (first (simplify-union (.types %)))
+                       %)
+                    types))))
+
 (defn union [& types]
-  (->Union types))
+  (->Union (simplify-union types)))
 
 (def Any (union nil Object))
 
