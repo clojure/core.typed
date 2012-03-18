@@ -1,6 +1,7 @@
 (ns typed-clojure.simple
   (:use [typed-clojure.checker :only [deftypeT +T new-type union fun arity]])
-  (:import (clojure.lang IPersistentCollection IPersistentMap Atom)
+  (:import (clojure.lang IPersistentCollection IPersistentMap Atom IPersistentVector
+                         IPersistentList)
            (typed_clojure.checker Fun)))
 
 (+T return-number [Long -> Long])
@@ -32,7 +33,7 @@
 
 (+T error-first [-> [-> nil]])
 (defn error-first []
-  (fn []))
+  (fn [] nil))
 
 (+T tail [IPersistentCollection -> IPersistentCollection])
 (defn tail [c]

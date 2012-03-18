@@ -17,6 +17,19 @@
     (var? var-or-class) (symbol (str (.name (.ns var-or-class))) (str (.sym var-or-class)))
     :else (symbol (.getName var-or-class))))
 
+(defn- class-satisfies-protocol 
+  "Returns the method that would be dispatched by applying
+  an instance of Class c to protocol"
+  [protocol c]
+  (if (isa? c (:on-interface protocol))
+    c
+    (let [impl #(get (:impls protocol) %)]
+      (or (impl c)
+          (and c (or (first (remove nil? (map impl (butlast (@#'clojure.core/super-chain c)))))
+                     (when-let [t (@#'clojure.core/reduce1 @#'clojure.core/pref (filter impl (disj (supers c) Object)))]
+                       (impl t))
+                     (impl Object)))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Type Database
 
@@ -53,12 +66,9 @@
                " Expected: " (@type-db sym)
                " Found: " type
                " (= (@type-db sym) type): " (= (@type-db sym) type)))
-  #_(println "add type for" sym)
+  #_(println "add type for" sym type)
   (swap! type-db #(assoc % sym type))
   nil)
-
-(defprotocol IParseType
-  (parse-type* [this]))
 
 (defn- split-dom-syntax
   "Splits domain syntax into [fixed variable]"
@@ -69,48 +79,11 @@
 (defn- split-arity-syntax 
   "Splits arity syntax into [dom rng]"
   [arity-syntax]
-  (assert (some #(= '-> %) arity-syntax) (str "Arity syntax " arity-syntax " missing arrow"))
+  (assert (some #(= '-> %) arity-syntax) (str "Arity " arity-syntax " missing return type"))
   (let [[dom [_ rng]] (split-with #(not= '-> %) arity-syntax)]
     [dom rng]))
 
-(declare parse-syntax arity fun union)
-
-(extend-protocol IParseType
-  Symbol
-  (parse-type* [this] 
-    (let [res (resolve this)]
-      (cond
-        (var? res) (deref res) ; handle protocols
-        :else res)))
-
-  IPersistentList ; Union and Fun syntax
-  (parse-type* [this]
-    (if (= 'U (first this))
-      (apply union (map parse-syntax (rest this)))
-      (apply fun (map parse-type* this)))) ; don't use implicit single arity syntax
-
-  IPersistentVector ; Arity syntax
-  (parse-type* [this]
-    (let [[dom rng] (split-arity-syntax this)
-          [fixed-dom variable-dom] (split-dom-syntax dom)
-          fixed-dom-types (map parse-syntax fixed-dom)
-          variable-dom-type (when variable-dom
-                              (parse-syntax variable-dom))
-          rng-type (parse-syntax rng)]
-      (arity (vec (concat fixed-dom-types (when (some #(= '& %) this)
-                                            [:& variable-dom-type])))
-             rng-type)))
-  
-  nil
-  (parse-type* [this] nil))
-
-
-(defn parse-syntax 
-  "Type syntax parser, entry point"
-  [syn]
-  (parse-type* (if (vector? syn)
-                 (list syn) ; handle implicit single arity syntax
-                 syn)))
+(declare parse-syntax)
 
 (defmacro +T [nme type]
   (when @flag/type-check-flag
@@ -187,16 +160,99 @@
 (def arity? (partial instance? Arity))
 (def fun? (partial instance? Fun))
 
-(defn variable-arity 
+(defn variable-arity? 
   "Returns the arity if variable, otherwise false"
   [arity]
   (assert (instance? Arity arity))
-  (when (= :&
-           (-> (.dom arity) butlast last))
-    arity))
+  (= :&
+     (-> (.dom arity) butlast last)))
 
 (def ^{:doc "Returns the arity if fixed, otherwise false"}
-  fixed-arity? (complement variable-arity))
+  fixed-arity? (complement variable-arity?))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type Syntax
+
+(defprotocol IParseType
+  (parse-type* [this]))
+
+(defprotocol IUnparseType
+  (unparse-type* [this]))
+
+(extend-protocol IParseType
+  Symbol
+  (parse-type* [this] 
+    (let [res (resolve this)
+          _ (assert (or (not (nil? res))
+                        (nil? this))
+                    (str "Unresolvable type " this))]
+      (cond
+        (var? res) (deref res) ; handle protocols
+        :else res)))
+
+  IPersistentList ; Union and Fun syntax
+  (parse-type* [this]
+    (if (= 'U (first this))
+      (apply union (map parse-syntax (rest this)))
+      (apply fun (map parse-type* this)))) ; don't use implicit single arity syntax
+
+  IPersistentVector ; Arity syntax
+  (parse-type* [this]
+    (let [[dom rng] (split-arity-syntax this)
+          [fixed-dom variable-dom] (split-dom-syntax dom)
+          fixed-dom-types (map parse-syntax fixed-dom)
+          variable-dom-type (when variable-dom
+                              (parse-syntax variable-dom))
+          rng-type (parse-syntax rng)]
+      (arity (vec (concat fixed-dom-types (when (some #(= '& %) this)
+                                            [:& variable-dom-type])))
+             rng-type)))
+  
+  nil
+  (parse-type* [this] 
+    nil))
+
+(extend-protocol IUnparseType
+  Class
+  (unparse-type* [this]
+    (assert (not (.isPrimitive this))) 
+    (symbol (.getName this)))
+
+  Fun
+  (unparse-type* [this]
+    (apply list (map unparse-type* (.arities this))))
+
+  Arity
+  (unparse-type* [this]
+    (vec
+      (let [dom (->> (.dom this)
+                  (split-with #(not= :& %))
+                  first
+                  (map unparse-type*))
+            dom (if (variable-arity? this)
+                  (concat dom ['& (unparse-type* (last (.dom this)))])
+                  dom)
+            rng (unparse-type* (.rng this))]
+        (concat dom ['-> rng]))))
+  
+  Union
+  (unparse-type* [this]
+    (apply list 'U (.types this)))
+  
+  nil
+  (unparse-type* [this]
+    nil))
+
+(defn parse-syntax 
+  "Type syntax parser, entry point"
+  [syn]
+  (parse-type* (if (vector? syn)
+                 (list syn) ; handle implicit single arity syntax
+                 syn)))
+
+(defn unparse-type
+  [type]
+  (unparse-type* type))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Subtyping
@@ -224,10 +280,10 @@
   (subtype* [this sub]
     (and (instance? Arity sub)
          (cond
-           (variable-arity this)
+           (variable-arity? this)
            (every? true? 
                    (cond
-                     (variable-arity sub)
+                     (variable-arity? sub)
                      (map subtype? 
                           (conj (vec (fixed-params this))
                                 (variable-param this))
@@ -257,12 +313,9 @@
            (instance? Arity sub))
       true
 
-      (.isPrimitive this) 
-      (do (println "WARNING: Assuming" sub "coerces to primitive type" this)
-        true)
-
-      (when (class? sub)
-        (.isPrimitive sub))
+      (or (.isPrimitive this) 
+          (when (class? sub)
+            (.isPrimitive sub)))
       (do (println "WARNING: Assuming" this "coerces to primitive type" sub)
         true)
 
@@ -273,9 +326,15 @@
 
   IPersistentMap ;; Protocols
   (subtype* [this sub]
-    (if (instance? Union sub)
+    (cond 
+      (instance? Union sub)
       (every? true? (map subtype? (repeat this) (.types sub)))
-      (satisfies? this sub)))
+
+      (map? sub)  ; both protocols
+      (= this sub)
+
+      :else
+      (class-satisfies-protocol this sub)))
 
   nil
   (subtype* [this sub]
@@ -473,10 +532,11 @@
                      (count args))
                   %)
             (filter fixed-arity? (.arities fun))) ; fixed arities
-      (some variable-arity (.arities fun)))) ; variable arity
+      (some #(and (variable-arity? %)
+                  %) (.arities fun)))) ; variable arity
 
 (defn rest-type [arity]
-  (assert (variable-arity arity))
+  (assert (variable-arity? arity))
   (last (.dom arity)))
 
 (defn fixed-args [arity]
@@ -494,14 +554,14 @@
                            (util/print-expr expr :children :env :Expr-obj :ObjMethod-obj)
                            (println arg-types)
                            (println fn-type)))
-    (assert (or (variable-arity matched-arity)
+    (assert (or (variable-arity? matched-arity)
                 (= (count (.dom matched-arity))
                    (count arg-types))))
 
     ; Typecheck args compared to fn signature
     (assert (every? true? (doall (map subtype? 
                                       (concat (fixed-args matched-arity)
-                                              (when (variable-arity matched-arity)
+                                              (when (variable-arity? matched-arity)
                                                 (repeat (rest-type matched-arity))))
                                       arg-types)))
             (str "Invoke: type error: " 
@@ -519,7 +579,7 @@
 (defn- matching-arity-expr [{:keys [required-params rest-params] :as expr} ^Fun fn-type]
   (assert fn-type)
   (if rest-params
-    (some variable-arity fn-type)
+    (some #(and (variable-arity? %) %) fn-type)
     (some #(and (= (count (.dom ^Arity %))
                    (count required-params))
                 %)
@@ -549,7 +609,11 @@
                                 (map :sym required-params) 
                                 (if expected-type
                                   (.dom ^Arity expected-type)
-                                  (let [ann-doms (map #(-> % :sym meta :+T resolve) required-params)]
+                                  (let [ann-doms (map #(let [sym (:sym %)
+                                                             [_ syntax :as m] (-> sym meta (find :+T))
+                                                             _ (assert m (str "No type annotation for parameter " sym))]
+                                                         (parse-syntax syntax))
+                                                      required-params)]
                                     (assert (= (count ann-doms) 
                                                (count required-params)))
                                     (assert (every? #(satisfies? ITypedClojureType %) ann-doms) 
@@ -600,12 +664,12 @@
 
 (defmethod type-check :def
   [{:keys [env init-provided init var]}]
-  (println "type checking" var)
+  #_(println "type checking" var)
   (if init-provided
     (let [expected-type (type-of (var-or-class->sym var))
           actual-type (type-check (assoc init ::expected-type expected-type))]
-      (assert (subtype? expected-type actual-type) (str "Found " (with-out-str (pr actual-type))
-                                                        " where expecting " (with-out-str (pr expected-type))))
+      (assert (subtype? expected-type actual-type) (str "Found " (unparse-type actual-type)
+                                                        " where expecting " (unparse-type expected-type)))
       actual-type)
     (println "No init provided for" (var-or-class->sym var))))
 
