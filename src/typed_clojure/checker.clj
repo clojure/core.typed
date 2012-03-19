@@ -235,8 +235,14 @@
   IPersistentList ; Union and Fun syntax
   (parse-type* [this]
     (type-map
-     (if (= 'U (first this))
+     (cond 
+       (= 'U (first this))
        (apply union (map parse-syntax (rest this)))
+
+       (= 'exist (first this))
+       (assert false "TODO type variables")
+
+       :else
        (apply fun (map parse-type* this))))) ; don't use implicit single arity syntax
 
   IPersistentVector ; Arity syntax
@@ -330,7 +336,6 @@
 
   Fun
   (subtype* [this sub]
-    (println this)
     (cond
       (instance? Fun sub)
       (every? identity
@@ -659,6 +664,7 @@
 
 (defmethod type-check :invoke
   [{:keys [fexpr args] :as expr}]
+  (println "Invoking " (:var fexpr))
   (let [fexpr-type-map (type-check fexpr)
         _ (assert fexpr-type-map)
         fn-type-map (let [t (:type fexpr-type-map)]

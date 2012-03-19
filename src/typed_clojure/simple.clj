@@ -1,7 +1,7 @@
 (ns typed-clojure.simple
   (:use [typed-clojure.checker :only [deftypeT +T Any]])
   (:import (clojure.lang IPersistentCollection IPersistentMap Atom IPersistentVector
-                         IPersistentList)
+                         IPersistentList Var Symbol)
            (typed_clojure.checker Fun Nothing)))
 
 (+T return-number [Long -> Long])
@@ -113,6 +113,19 @@
     :b 5
     :else 6))
 
-(+T MyProtocol IPersistentMap)
-(defprotocol MyProtocol
-  (blah [a]))
+(+T type-var1 (exist [a]
+                [a -> a]))
+(defn type-var1 [a]
+  a)
+
+;(+T symbol-manip1 [Symbol -> Var])
+;(defn symbol-manip1 [sym]
+;  (intern
+;    *ns*
+;    (with-meta ;; need type variables
+;      'a 
+;       {})))
+
+;(+T MyProtocol IPersistentMap)
+;(defprotocol MyProtocol
+;  (blah [a]))
