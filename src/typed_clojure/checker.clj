@@ -327,11 +327,15 @@
   nil
   (unparse-type* [this]
     nil)
+
+  TypeVariable
+  (unparse-type* [this]
+    (.sym this))
   
   Object
   (unparse-type* [this]
     (assert false
-            (str "Cannot unparse " this))))
+            (str "Cannot unparse " (with-out-str (pr this))))))
 
 (defn parse-syntax 
   "Type syntax parser, entry point"
@@ -340,12 +344,19 @@
                  (list syn) ; handle implicit single arity syntax
                  syn)))
 
+(defn- unparse-exist [type-map]
+  `(~'exist ~(vec (keys (:type-var-scope type-map)))
+     ~(unparse-type (dissoc type-map :type-var-scope))))
+
 (defn unparse-type
   [type-map]
   (assert (type-map? type-map))
   (assert (not (type-map? (:type type-map)))
           (prn "The type-map" type-map))
-  (unparse-type* (:type type-map)))
+  (cond
+    (:type-var-scope type-map) (unparse-exist type-map)
+
+    :else (unparse-type* (:type type-map))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Subtyping
