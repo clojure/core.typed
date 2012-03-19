@@ -81,7 +81,7 @@
   (instance? TypeMap m))
 
 (defn type-map [t & keyvals]
-  (assert (not (type-map? t)) t)
+  (assert (not (type-map? t)) (prn t))
   (merge 
     (->TypeMap t)
     (apply hash-map keyvals)))
@@ -126,6 +126,13 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; # Types
+
+(deftype TypeVariable [sym]
+  Object
+  (toString [this]
+    (with-out-str (pr sym)))
+  (equals [this that]
+    (identical? sym that)))
 
 (deftype Union [types]
   Object
@@ -221,29 +228,49 @@
 (defprotocol IUnparseType
   (unparse-type* [this]))
 
+(def ^:dynamic *type-vars-scope* {})
+
+(defmacro with-type-vars [vars & body]
+  `(binding [*type-vars-scope* (merge *type-vars-scope* ~vars)]
+     ~@body))
+
+(defn- lookup-type-var [sym]
+  (*type-vars-scope* sym))
+
 (extend-protocol IParseType
   Symbol
   (parse-type* [this]
-    (let [res (resolve this)
-          _ (assert (or (not (nil? res))
-                        (nil? this))
-                    (str "Unresolvable type " this " in " *ns*))]
-      (type-map (cond
-                  (var? res) (deref res) ; handle protocols
-                  :else res))))
+    (let [type-variable-map (lookup-type-var this)]
+      (if type-variable-map
+        type-variable-map
+        (let [ res (resolve this)
+              _ (assert (or (not (nil? res))
+                            (nil? this))
+                        (str "Unresolvable type " this " in " *ns*))]
+          (type-map (cond
+                      (var? res) (deref res) ; handle protocols
+                      :else res))))))
 
   IPersistentList ; Union and Fun syntax
   (parse-type* [this]
-    (type-map
-     (cond 
-       (= 'U (first this))
-       (apply union (map parse-syntax (rest this)))
+    (cond 
+      (= 'U (first this))
+      (type-map (apply union (map parse-syntax (rest this))))
 
-       (= 'exist (first this))
-       (assert false "TODO type variables")
+      (= 'exist (first this))
+      (let [[_ vars body] this
+            _ (assert (every? symbol? vars))
+            var-type-map (apply merge (map #(let [type-var-map (type-map (->TypeVariable %))]
+                                              {% type-var-map}) 
+                                           vars))
+            _ (assert (map? var-type-map) (prn var-type-map))]
+        (assoc (with-type-vars var-type-map
+                 (parse-syntax body))
+               :type-var-scope
+               var-type-map))
 
-       :else
-       (apply fun (map parse-type* this))))) ; don't use implicit single arity syntax
+      :else
+      (type-map (apply fun (map parse-type* this))))) ; don't use implicit single arity syntax
 
   IPersistentVector ; Arity syntax
   (parse-type* [this]
@@ -438,6 +465,8 @@
   (assert (not (type-map? (:type type))))
   (assert (type-map? sub))
   (assert (not (type-map? (:type sub))) (unparse-type sub))
+  (assert (not (:type-var-scope type)))
+  (assert (not (:type-var-scope sub)))
   (boolean (subtype* (:type type) (:type sub))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -664,7 +693,7 @@
 
 (defmethod type-check :invoke
   [{:keys [fexpr args] :as expr}]
-  (println "Invoking " (:var fexpr))
+  #_(println "Invoking " (:var fexpr))
   (let [fexpr-type-map (type-check fexpr)
         _ (assert fexpr-type-map)
         fn-type-map (let [t (:type fexpr-type-map)]
