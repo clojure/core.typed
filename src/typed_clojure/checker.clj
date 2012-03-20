@@ -281,7 +281,7 @@
                               (parse-syntax variable-dom))
           rng-type (parse-syntax rng)]
       (type-map (arity (vec (concat fixed-dom-types (when (some #(= '& %) this)
-                                                   [:& variable-dom-type])))
+                                                      [:& variable-dom-type])))
                     rng-type))))
   
   nil
@@ -438,7 +438,7 @@
       (or (.isPrimitive this) 
           (when (class? sub)
             (.isPrimitive sub)))
-      (do (println "WARNING: Assuming" this "coerces to primitive type" sub)
+      (do (println "WARNING: Assuming value of type" this "coerces to instance of" sub)
         true)
 
       :else
@@ -470,7 +470,7 @@
     (or (= Nothing sub)
         (nil? sub))))
 
-;(+T subtype? [IPersistentMap IPersistentMap -> Boolean)))
+;(+T subtype? [IPersistentMap IPersistentMap -> Boolean])
 (defn subtype? [type sub]
   (assert (type-map? type) type)
   (assert (not (type-map? (:type type))))
