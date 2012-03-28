@@ -23,6 +23,46 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
+(declare map->PrimitiveClass map->TClass)
+
+(defn resolve-or-primitive [sym]
+  (case sym
+    char Character/TYPE
+    boolean Boolean/TYPE
+    byte Byte/TYPE
+    short Short/TYPE
+    int Integer/TYPE
+    long Long/TYPE
+    float Float/TYPE
+    double Double/TYPE
+    void nil
+    (if-let [res (resolve sym)]
+      res
+      (throw (Exception. (str sym " does not resolve to a type"))))))
+
+;(+T resolve-class-symbol [Symbol -> Object])
+(defn- resolve-class-symbol 
+  [sym]
+  (let [t (resolve-or-primitive sym)]
+    (assert (or (nil? sym) (= 'void sym) (class? t)) (str sym " expected to resolve to a class, instead " t))
+    (if (.isPrimitive ^Class t)
+      (map->PrimitiveClass
+        {:the-class t})
+      (map->TClass
+        {:the-class t}))))
+
+(declare map->Fun map->FixedArity ->NilType)
+
+;(+T method->fun [clojure.reflect.Method -> ITypedClojureType])
+(defn- method->Fun [method]
+  (map->Fun
+    {:arities [(map->FixedArity 
+                 {:dom (->> 
+                         (map resolve-class-symbol (:parameter-types method))
+                         (map #(union [(->NilType) %]))) ; Java methods can return null
+                  :rng (union [->NilType
+                               (resolve-class-symbol (:return-type method))])})]}))
+
 (defn var-or-class->sym [var-or-class]
   (assert (or (var? var-or-class)
               (class? var-or-class)))
@@ -77,10 +117,22 @@
 (defrecord NilType [])
 (defrecord Fun [arities])
 (defrecord TClass [the-class])
+(defrecord PrimitiveClass [the-class])
 (defrecord TProtocol [the-protocol])
 (defrecord Union [types])
 
-(def the-tc-types #{Any Nothing Fun TClass TProtocol Union NilType})
+(defn- simplify-union [the-union]
+  (if (some #(instance? Union %) (:types the-union))
+    (recur (->Union (set (mapcat #(or (and (instance? Union %)
+                                           (:types %))
+                                      [%])
+                                 (:types the-union)))))
+    the-union))
+
+(defn union [types]
+  (simplify-union (->Union (set types))))
+
+(def the-tc-types #{Any Nothing Fun TClass PrimitiveClass TProtocol Union NilType})
 
 (defprotocol IArity
   (matches-args [this args] "Return the arity if it matches the number of args,
@@ -114,18 +166,6 @@
 (defn arity? [a]
   (boolean (the-arity-types (class a))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Inheritance relationships
-
-(doseq [t the-tc-types]
-  (derive t ::any-type))
-
-(doseq [t (remove #(= Nothing %) the-tc-types)]
-  (derive t ::any-type-but-Nothing))
-
-(doseq [t (remove #(= Any %) the-tc-types)]
-  (derive t ::any-type-but-Any))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parse Type syntax
 
@@ -142,23 +182,28 @@
 (extend-protocol IParseType
   Symbol
   (parse-syntax* [this]
-    (let [res (resolve this)
-          _ (assert (or (not (nil? res))
-                        (nil? this))
-                    (str "Unresolvable type " this " in " *ns*))]
-      (cond
-        (var? res) (map->TProtocol
-                     {:the-protocol @res})
-        :else (map->TClass
-                {:the-class res})))))
+    (cond
+      (nil? this) (->NilType) ;; nil
+      :else (let [res (resolve-or-primitive this)]
+              (cond
+                (nil? res) (->NilType) ;; void primtive
+
+                (var? res) (map->TProtocol
+                             {:the-protocol @res})
+
+                (class? res) (if (.isPrimitive res) 
+                               (map->PrimitiveClass
+                                 {:the-class res})
+                               (map->TClass
+                                 {:the-class res})))))))
+
 
 (defmulti parse-list-syntax first
   :default :default-fun-syntax)
 
 (defmethod parse-list-syntax 'U
   [[_ & syn]]
-  (map->Union
-    {:types (map parse-syntax syn)}))
+  (union (doall (map parse-syntax syn))))
 
 (defmethod parse-list-syntax :default-fun-syntax
   [[& arities]]
@@ -206,17 +251,21 @@
   (unparse-type* [this]
     (symbol (.getName (:the-class this))))
 
+  PrimitiveClass
+  (unparse-type* [this]
+    (symbol (.getName (:the-class this))))
+
   Union
   (unparse-type* [this]
-    (apply list 'U (map unparse-type (:types this))))
+    (apply list 'U (doall (map unparse-type (:types this)))))
 
   Fun
   (unparse-type* [this]
-    (apply list (map unparse-type (:arities this))))
+    (apply list (doall (map unparse-type (:arities this)))))
 
   FixedArity
   (unparse-type* [this]
-    (vec (concat (map unparse-type (:dom this)) ['-> (unparse-type (:rng this))])))
+    (vec (concat (doall (map unparse-type (:dom this))) ['-> (unparse-type (:rng this))])))
 
   TProtocol
   (unparse-type* [this]
@@ -245,6 +294,12 @@
 
   TClass
   (subtype?* [s t]
+    (assert (instance? TClass t) t)
+    (isa? (:the-class s)
+          (:the-class t)))
+
+  PrimitiveClass
+  (subtype?* [s t]
     (assert (instance? TClass t))
     (isa? (:the-class s)
           (:the-class t)))
@@ -261,7 +316,19 @@
     (every? true?
             (for [sub-arity (:arities s)]
               (when-let [t-arity (match-to-fun-arity sub-arity t)]
-                (subtype? sub-arity t-arity))))))
+                (subtype? sub-arity t-arity)))))
+  
+  Union
+  (subtype?* [s t]
+    (cond 
+      (instance? Union t) 
+      (map-all-true? #(subtype? % t) (:types s)))
+
+      :else (boolean (some #(subtype? % t) (:types s))))
+  
+  NilType
+  (subtype?* [s t]
+    (instance? NilType t)))
 
 (defn subtype? [s t]
   (assert (satisfies? ISubtype t) t)
@@ -295,10 +362,10 @@
         _ (assert arity-type)
         _ (assert (instance? FixedArity arity-type))
 
-        checked-args (map #(-> %1
-                             (assoc ::+T %2)
-                             check) 
-                          args (.dom arity-type))
+        checked-args (doall (map #(-> %1
+                                    (assoc ::+T %2)
+                                    check) 
+                                 args (.dom arity-type)))
         return-type (.rng arity-type)]
     (assoc expr
            :fexpr synthesized-fexpr
@@ -327,17 +394,16 @@
   
 (defmethod check :literal
   [{:keys [val] :as expr}]
-  (assert (= (-> expr ::+T :the-class)
-             (class val))
-          (str "Expected " (unparse-type (-> expr ::+T)) ", found " (class val)))
+  (assert (subtype? (map->TClass {:the-class (class val)})
+                    (::+T expr))
+          (str "Expected " (with-out-str (pr (-> expr ::+T))) ", found " (class val)))
   expr)
 
 (defmethod check :fn-expr
   [{:keys [methods] :as expr}]
   (let [expected-type (::+T expr)
-        _ (assert (instance? Fun expected-type) (str "Expected Fun type, instead found " (unparse-type expected-type)))
+        _ (assert (instance? Fun expected-type) (str "Expected Fun type, instead found " expected-type))
 
-        _ (println "here")
         checked-methods (doall 
                           (for [method methods]
                             (let [_ (assert (not (:rest-param method)))
@@ -345,13 +411,12 @@
                                   _ (assert arity 
                                             (str "No arity with " (count (:required-params method)) 
                                                  " parameters in type "
-                                                 (unparse-type expected-type)))]
+                                                 expected-type))]
                               (check (assoc method
                                             ::+T arity)))))
-        _ (println "there")
 
         actual-type (map->Fun
-                      {:arities (map ::+T checked-methods)})
+                      {:arities (doall (map ::+T checked-methods))})
 
         _ (assert (subtype? actual-type expected-type))]
     (assoc expr
@@ -363,18 +428,19 @@
   (assert (not rest-param))
   (let [expected-type (::+T expr)
         
-        typed-required-params (map #(assoc %1 ::+T %2)
-                                   required-params
-                                   expected-type)
+        typed-required-params (doall 
+                                (map #(assoc %1 ::+T %2)
+                                     required-params
+                                     expected-type))
 
         typed-lbndings (apply hash-map 
-                              (mapcat #(vector (:sym %) 
-                                               (::+T %))
-                                      typed-required-params))
+                              (doall (mapcat #(vector (:sym %) 
+                                                      (::+T %))
+                                             typed-required-params)))
 
         checked-body (with-local-types typed-lbndings
                        (check (assoc body
-                                   ::+T (:rng expected-type))))]
+                                     ::+T (:rng expected-type))))]
     (assoc expr
            :required-params typed-required-params
            :body checked-body)))
@@ -384,12 +450,26 @@
   (let [expected-type (::+T expr)
         _ (assert expected-type)
 
-        typed-exprs (map check (butlast exprs))
+        typed-exprs (doall (map check (butlast exprs)))
         _ (assert (seq exprs))
         last-typed-expr (check (assoc (last exprs)
                                       ::+T expected-type))]
     (assoc expr
            :exprs (concat typed-exprs [last-typed-expr]))))
+
+(defmethod check :static-method
+  [{:keys [method args] :as expr}]
+  (let [fun-type (method->Fun method)
+        arity-type (first (:arities fun-type))
+        _ (assert (instance? FixedArity arity-type))
+        checked-args (doall 
+                       (map #(check (assoc %1
+                                           ::+T %2))
+                            args
+                            (:dom arity-type)))]
+    (assoc expr
+           :args checked-args
+           ::+T (:rng arity-type))))
 
 (comment
 
@@ -400,7 +480,7 @@
   (with-type-anns
     {a [Integer -> Integer]}
     (check-form (defn a [b]
-                  (+  1 1))))
+                  (+ 1 1))))
 
   ;; Literals
   (synthesize-form 1)
