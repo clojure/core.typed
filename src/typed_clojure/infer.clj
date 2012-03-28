@@ -1,4 +1,10 @@
-(ns typed-clojure.infer)
+(ns typed-clojure.infer
+  (:require [analyze.core :as a]
+            [analyze.util :as util]))
+
+(defmacro ast [form]
+  `(-> (a/analyze-one {:ns {:name '~'user} :context :eval} '~form)
+    (util/print-expr :children :Expr-obj :LocalBinding-obj :ObjMethod-obj :env)))
 
 (defmacro map-all-true? [& body]
   `(every? true? (map ~@body)))
@@ -28,98 +34,136 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed Clojure Kinds
 
-(def tc-any ::tc-any)
+(defrecord Any [])
+(defrecord Nothing [])
+(defrecord NilType [])
+(defrecord Fun [arities])
+(defrecord TClass [the-class])
+(defrecord Union [types])
 
-(def bot ::bot)
-(def top ::top)
+(def types #{Any Nothing Fun TClass Union NilType})
 
-(def fun ::fun)
-(def fixed-arity ::fixed-arity) ; not a type
+(defprotocol IArity
+  (matches-args [this args] "Return the arity if it matches the number of args,
+                            otherwise nil"))
 
-(def tc-types #{bot top fun})
+(defrecord FixedArity [dom rng]
+  IArity
+  (matches-args [this args]
+    (when (= (count dom)
+             (count args))
+      this)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defrecord VariableArity [fixed-dom rest-type rng]
+  IArity
+  (matches-args [this args]
+    (when (<= (count fixed-dom)
+              (count args))
+      this)))
+
+(def arities #{FixedArity VariableArity})
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Inheritance relationships
 
-(doseq [t tc-types]
-  (derive t tc-any))
+(doseq [t types]
+  (derive t ::any-type))
+
+(doseq [t (remove #(= Nothing %) types)]
+  (derive t ::any-type-but-Nothing))
+
+(doseq [t (remove #(= Any %) types)]
+  (derive t ::any-type-but-Any))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtyping
 
-(defmulti subtype? (fn [s t] (vec (map :tc-type [s t]))))
 
-(prefer-method subtype? 
-  [bot tc-any]
-  [tc-any top])
+(defmulti subtype? (fn [s t] (vec (map class [s t]))))
+(defmulti subtype-arity? (fn [s t] (vec (map class [s t]))))
 
-(defmethod subtype? [bot tc-any]
+(defmethod subtype? [::any-type Any]
   [s t]
   true)
 
-(defmethod subtype? [tc-any top]
+(defmethod subtype? [Nothing ::any-type]
   [s t]
   true)
 
-(defmethod subtype? [fun fun]
+(defmethod subtype? [Any Nothing]
   [s t]
-  (map-all-true? subtype? (:arities s) (:arities t)))
+  false)
 
-(defmethod subtype? [fixed-arity fixed-arity]
+(defmethod subtype? [Any ::any-type-but-Any]
   [s t]
-  (and (map-all-true? subtype? (:dom t) (:dom s))
-       (subtype? (:rng s) (:rng t))))
+  false)
 
-(defmethod subtype? [tc-any top]
+(defmethod subtype? [::any-type-but-Nothing Nothing]
   [s t]
-  (= s t))
+  false)
+
+(defmethod subtype? [Fun Fun]
+  [s t]
+  (map-all-true? subtype-arity? (.arities s) (.arities t)))
+
+(defmethod subtype-arity? [FixedArity FixedArity]
+  [s t]
+  (and (map-all-true? subtype? (.dom t) (.dom s))
+       (subtype? (.rng s) (.rng t))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
 
 ;; Bidirectional checking (Local Type Inference (2000) Pierce & Turner, Chapter 4)
 
-(defmulti infer-type :op)
-
-(defmulti synthesize :op)
 (defmulti check :op)
+(defmulti synthesize :op)
 
-(defmethod infer-type :var
-  [{:keys [var tag] :as expr}]
-  (if (::+T expr)
-    (check expr)
-    (synthesize expr)))
+(defmethod check :def
+  [{:keys [var init init-provided] :as expr}]
+  (assert init-provided)
+  (let [synthesized-var-expr (synthesize var)
+        var-type (::+T synthesized-var-expr)
+        checked-init-expr (-> init
+                            (assoc ::+T var-type)
+                            check)]
+    (assoc expr
+           :var synthesized-var-expr
+           :init checked-init-expr)))
 
-(defmethod synthesize :var
-  [{:keys [var tag] :as expr}]
-  (assoc expr ::+T (type-of var)))
+(defmethod check :invoke
+  [{:keys [fexpr args] :as expr}]
+  (assert (::+T expr) "Checking context for function invocation requires full
+                      type annotations")
+  (let [return-type (::+T expr)
+        synthesized-fexpr (synthesize fexpr)
+        fexpr-type (::+T synthesized-fexpr)
+        arity-type (some #(matches-args % args) fexpr-type)
 
-(defmethod check :var
-  [{:keys [var tag] :as expr}]
-  (assert (subtype? (type-of var) (::+T expr)))
-  expr)
+        _ (assert arity-type)
+        _ (assert (instance? FixedArity arity-type))
 
-(defmethod infer-type :fn-expr
-  [{:keys [methods] :as expr}]
-  (let [ann-methods (->> methods
-                      (map #(assoc % ::+T (::+T expr)))
-                      (map infer-type))]
-    (merge expr 
-           {::+T {:tc-type fun
-                  :arities (map ::+T ann-methods)}
-            :methods ann-methods})))
+        checked-args (map #(-> %1
+                             (assoc ::+T %2)
+                             check) 
+                          args (.dom arity-type))]
+    (assoc expr
+           :fexpr synthesized-fexpr
+           :args checked-args)))
 
-(defmethod infer-type :fn-method
-  [{:keys [required-params rest-param body] :as expr}]
-  (assert (not rest-param))
-  (if (::+T expr)
-    (synthesize expr)
-    (check expr)))
+(comment
 
-(defmethod synthesize :fn-method
-  [{:keys [required-params rest-param body] :as expr}]
-  (assert (not rest-param))
-  (assert (::+T expr))
-  ;; TODO keep track of locals, preferably in analyze
-)
-
+{:op :fn-expr,
+ :methods
+ ({:op :fn-method,
+   :body
+   {:op :do,
+    :exprs
+    ({:op :local-binding-expr,
+      :local-binding {:op :local-binding, :sym a, :tag nil, :init nil},
+      :tag nil})},
+   :required-params
+   ({:op :local-binding, :sym a, :tag nil, :init nil}),
+   :rest-param nil}),
+ :variadic-method nil,
+ :tag nil})
