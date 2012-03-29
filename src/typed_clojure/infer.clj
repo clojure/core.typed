@@ -51,7 +51,7 @@
       (map->TClass
         {:the-class t}))))
 
-(declare map->Fun map->FixedArity ->NilType)
+(declare map->Fun map->FixedArity ->NilType union)
 
 ;(+T method->fun [clojure.reflect.Method -> ITypedClojureType])
 (defn- method->Fun [method]
@@ -73,6 +73,12 @@
 (defmacro map-all-true? [& body]
   `(every? true? (map ~@body)))
 
+(declare subtype?)
+
+(defn assert-subtype [actual-type expected-type]
+  (assert (subtype? actual-type expected-type)
+          (str "Expected " (unparse-type expected-type) ", found " (unparse-type actual-type))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type contexts
 
@@ -83,15 +89,16 @@
   (swap! *type-db* (constantly {})))
 
 (defn type-of [sym-or-var]
-  (let [qual-sym (if (var? sym-or-var)
+  (let [sym (if (var? sym-or-var)
                    (symbol (str (.name (.ns sym-or-var))) (str (.sym sym-or-var)))
-                   sym-or-var)
-        _ (assert (namespace qual-sym))]
-    (if-let [the-local-type (*local-type-db* qual-sym)]
+                   sym-or-var)]
+    (if-let [the-local-type (and (not (namespace sym))
+                                 (*local-type-db* sym))]
       the-local-type
-      (if-let [the-type (@*type-db* qual-sym)]
+      (if-let [the-type (and (namespace sym)
+                             (@*type-db* sym))]
         the-type
-        (throw (Exception. (str "No type for " qual-sym)))))))
+        (throw (Exception. (str "No type for " sym)))))))
 
 (defmacro with-local-types [type-map & body]
   `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
@@ -154,14 +161,21 @@
                 %)
           (:arities fun-type))))
 
-(defrecord VariableArity [fixed-dom rest-type rng]
+(defrecord UniformVariableArity [fixed-dom rest-type rng]
   IArity
   (matches-args [this args]
     (when (<= (count fixed-dom)
               (count args))
-      this)))
+      this))
 
-(def the-arity-types #{FixedArity VariableArity})
+  (match-to-fun-arity [this fun-type]
+    (some #(and (instance? UniformVariableArity %)
+                (= (count (:fixed-dom %))
+                   (count (:fixed-dom this)))
+                %)
+          (:arities fun-type))))
+
+(def the-arity-types #{FixedArity UniformVariableArity})
 
 (defn arity? [a]
   (boolean (the-arity-types (class a))))
@@ -208,7 +222,7 @@
 (defmethod parse-list-syntax :default-fun-syntax
   [[& arities]]
   (map->Fun 
-    {:arities (map parse-syntax* arities)}))
+    {:arities (doall (map parse-syntax* arities))}))
 
 (extend-protocol IParseType
   IPersistentList
@@ -225,16 +239,29 @@
 (extend-protocol IParseType
   IPersistentVector
   (parse-syntax* [this]
-    (let [_ (assert (not (some #(= '& %) this)) "Variable arity not implemented")
-          [dom rng] (split-arity-syntax this)
-          dom-types (map parse-syntax dom)
+    (let [[dom rng] (split-arity-syntax this)
+
+          [fixed-dom [_ uniform-rest-type :as rest-args]]
+          (split-with #(not= '& %) dom)
+
+          _ (assert (or (not (seq rest-args))
+                        (= 2 (count rest-args)))
+                    "Incorrect uniform variable arity syntax")
+
+          fixed-dom-types (doall (map parse-syntax fixed-dom))
           rng-type (parse-syntax rng)]
-      (map->FixedArity
-        {:dom dom-types
-         :rng rng-type})))
+      (if (seq rest-args)
+        (map->UniformVariableArity
+          {:fixed-dom fixed-dom-types
+           :rest-type (parse-syntax uniform-rest-type)
+           :rng rng-type})
+        (map->FixedArity
+          {:dom fixed-dom-types
+           :rng rng-type}))))
+
   nil
   (parse-syntax* [_]
-    (map->NilType {})))
+    (->NilType)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unparse type syntax
@@ -267,6 +294,11 @@
   (unparse-type* [this]
     (vec (concat (doall (map unparse-type (:dom this))) ['-> (unparse-type (:rng this))])))
 
+  UniformVariableArity
+  (unparse-type* [this]
+    (vec (concat (doall (map unparse-type (:fixed-dom this))) ['& (unparse-type (:rest-type this))
+                                                               '-> (unparse-type (:rng this))])))
+
   TProtocol
   (unparse-type* [this]
     (var-or-class->sym (-> this :the-protocol :var)))
@@ -294,15 +326,17 @@
 
   TClass
   (subtype?* [s t]
-    (assert (instance? TClass t) t)
-    (isa? (:the-class s)
-          (:the-class t)))
+    (boolean
+      (when (instance? TClass t)
+        (isa? (:the-class s)
+              (:the-class t)))))
 
   PrimitiveClass
   (subtype?* [s t]
-    (assert (instance? TClass t))
-    (isa? (:the-class s)
-          (:the-class t)))
+    (boolean
+      (when (instance? PrimitiveClass t)
+        (isa? (:the-class s)
+              (:the-class t)))))
 
   FixedArity
   (subtype?* [s t]
@@ -312,7 +346,6 @@
 
   Fun
   (subtype?* [s t]
-    (println s t)
     (every? true?
             (for [sub-arity (:arities s)]
               (when-let [t-arity (match-to-fun-arity sub-arity t)]
@@ -332,7 +365,9 @@
 
 (defn subtype? [s t]
   (assert (satisfies? ISubtype t) t)
-  (subtype?* s t))
+  (if (instance? Union t)
+    (map-all-true? #(subtype? s %) (:types t))
+    (subtype?* s t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
@@ -341,6 +376,20 @@
 
 (defmulti check :op)
 (defmulti synthesize :op)
+
+(defmethod check :var
+  [{:keys [var tag] :as expr}]
+  (let [expected-type (::+T expr)
+        actual-type (type-of var)]
+    (assert-subtype actual-type expected-type)
+    (assoc expr
+           ::+T actual-type)))
+
+(defmethod synthesize :var
+  [{:keys [var tag] :as expr}]
+  (let [actual-type (type-of var)]
+    (assoc expr
+           ::+T actual-type)))
 
 (defmethod check :def
   [{:keys [var init init-provided] :as expr}]
@@ -357,15 +406,24 @@
 (defn- infer-invoke [{:keys [fexpr args] :as expr}]
   (let [synthesized-fexpr (synthesize fexpr)
         fexpr-type (::+T synthesized-fexpr)
-        arity-type (some #(matches-args % args) fexpr-type)
+        arity-type (some #(matches-args % args) (:arities fexpr-type))
 
         _ (assert arity-type)
-        _ (assert (instance? FixedArity arity-type))
 
         checked-args (doall (map #(-> %1
                                     (assoc ::+T %2)
-                                    check) 
-                                 args (.dom arity-type)))
+                                    check)
+                                 args
+                                 (cond
+                                   (instance? FixedArity arity-type)
+                                   (:dom arity-type)
+
+                                   (instance? UniformVariableArity arity-type)
+                                   (concat (:fixed-dom arity-type)
+                                           (repeat (:rest-type arity-type)))
+
+                                   :else (assert false (str "Unsupported Arity" arity-type)))))
+
         return-type (.rng arity-type)]
     (assoc expr
            :fexpr synthesized-fexpr
@@ -383,8 +441,46 @@
                                 type annotations")
         inferred-expr (infer-invoke expr)
         actual-type (::+T inferred-expr)
-        _ (assert (subtype? actual-type expected-type))]
+        _ (assert-subtype actual-type expected-type)]
     inferred-expr))
+
+(defmethod check :if
+  [{:keys [test then else] :as expr}]
+  (let [expected-type (::+T expr)
+        _ (assert expected-type "if in checking mode requires full annotation")
+
+        synthesized-test (synthesize test)
+
+        [checked-then
+         checked-else]
+        (map check (map #(assoc %
+                                ::+T expected-type)
+                        [else then]))]
+    (assoc expr 
+           :test synthesized-test
+           :then checked-then
+           :else checked-else)))
+
+(defmethod check :local-binding-expr
+  [{:keys [local-binding] :as expr}]
+  (let [expected-type (::+T local-binding)
+        _ (assert expected-type)
+        checked-lb (check (assoc local-binding
+                                 ::+T expected-type))
+        actual-type (::+T checked-lb)
+        _ (assert-subtype actual-type expected-type)]
+    (assoc expr
+           :local-binding checked-lb
+           ::+T actual-type)))
+
+(defmethod check :local-binding
+  [{:keys [sym init] :as expr}]
+  (let [expected-type (::+T expr)
+        _ (assert expected-type sym)
+        actual-type (type-of sym)
+        _ (assert-subtype actual-type expected-type)]
+    (assoc expr
+           ::+T actual-type)))
 
 (defmethod synthesize :literal
   [{:keys [val] :as expr}]
@@ -394,10 +490,12 @@
   
 (defmethod check :literal
   [{:keys [val] :as expr}]
-  (assert (subtype? (map->TClass {:the-class (class val)})
-                    (::+T expr))
-          (str "Expected " (with-out-str (pr (-> expr ::+T))) ", found " (class val)))
-  expr)
+  (let [expected-type (::+T expr)
+        _ (assert expected-type "Literal in checking context requires annotation")
+        actual-type (map->TClass {:the-class (class val)})
+        _ (assert-subtype actual-type expected-type)]
+    (assoc expr
+           ::+T actual-type)))
 
 (defmethod check :fn-expr
   [{:keys [methods] :as expr}]
@@ -418,7 +516,7 @@
         actual-type (map->Fun
                       {:arities (doall (map ::+T checked-methods))})
 
-        _ (assert (subtype? actual-type expected-type))]
+        _ (assert-subtype actual-type expected-type)]
     (assoc expr
            ::+T actual-type
            :methods checked-methods)))
@@ -457,8 +555,7 @@
     (assoc expr
            :exprs (concat typed-exprs [last-typed-expr]))))
 
-(defmethod check :static-method
-  [{:keys [method args] :as expr}]
+(defn infer-static-method [{:keys [method args] :as expr}]
   (let [fun-type (method->Fun method)
         arity-type (first (:arities fun-type))
         _ (assert (instance? FixedArity arity-type))
@@ -466,10 +563,27 @@
                        (map #(check (assoc %1
                                            ::+T %2))
                             args
-                            (:dom arity-type)))]
+                            (:dom arity-type)))
+
+        actual-type (:rng arity-type)]
     (assoc expr
            :args checked-args
-           ::+T (:rng arity-type))))
+           ::+T actual-type)))
+
+(defmethod synthesize :static-method
+  [expr]
+  (infer-static-method expr))
+
+(defmethod check :static-method
+  [expr]
+  (let [expected-type (::+T expr)
+        _ (assert expected-type "Static method in checking mode requires annotation")
+
+        inferred-expr (infer-static-method expr)
+
+        actual-type (::+T inferred-expr)
+        _ (assert-subtype actual-type expected-type)]
+    expr))
 
 (comment
 
@@ -478,9 +592,22 @@
     (check-form (def a 1)))
 
   (with-type-anns
-    {a [Integer -> Integer]}
+    {str [Object -> String]
+     a [Integer -> String]}
     (check-form (defn a [b]
-                  (+ 1 1))))
+                  (str 1))))
+
+  (with-type-anns
+    {str [& Object -> String]
+     a [Integer -> String]}
+    (check-form (defn a [b]
+                  (str "a" 1))))
+  (with-type-anns
+    {str [& Object -> String]
+     a [Integer -> String]}
+    (check-form (defn a [b]
+                  (if (= a 1)
+                    "a"))))
 
   ;; Literals
   (synthesize-form 1)
