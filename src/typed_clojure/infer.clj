@@ -78,9 +78,14 @@
 
 (declare subtype? unparse-type)
 
+(defn unp
+  "Unparse a type and return string representation"
+  [t]
+  (with-out-str (-> t unparse-type pr)))
+
 (defn assert-subtype [actual-type expected-type & msgs]
   (assert (subtype? actual-type expected-type)
-          (apply str "Expected " (unparse-type expected-type) ", found " (unparse-type actual-type)
+          (apply str "Expected " (unp expected-type) ", found " (unp actual-type)
                  msgs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -530,7 +535,7 @@
 (defmethod check :fn-expr
   [{:keys [methods] :as expr}]
   (let [expected-type (::+T expr)
-        _ (assert (instance? Fun expected-type) (str "Expected Fun type, instead found " expected-type))
+        _ (assert (instance? Fun expected-type) (str "Expected Fun type, instead found " (unparse-type expected-type)))
 
         checked-methods (doall 
                           (for [method methods]
@@ -607,7 +612,7 @@
                    (method->Fun method))
         arity-type (some #(matches-args % args) (:arities fun-type))
         _ (assert (instance? FixedArity arity-type) (str "No matching arity found for "
-                                                         (unparse-type fun-type) " with args "
+                                                         (unp fun-type) " with args "
                                                          args))
         checked-args (doall 
                        (map #(-> %1
