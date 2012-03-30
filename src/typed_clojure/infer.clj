@@ -130,18 +130,18 @@
 (defrecord Nothing [])
 (defrecord NilType [])
 (defconstrainedrecord Fun [arities]
-  [(every? arity? arities)])
+  {:pre [(every? arity? arities)]})
 (defconstrainedrecord TClass [the-class]
-  [(class? the-class)])
+  {:pre [(class? the-class)]})
 (defconstrainedrecord PrimitiveClass [the-class]
-  [(and (class? the-class)
-        (.isPrimitive the-class))])
+  {:pre [(and (class? the-class)
+              (.isPrimitive the-class))]})
 (defconstrainedrecord TProtocol [the-protocol]
-  [(and (map? the-protocol)
-        (:on the-protocol)
-        (:var the-protocol))])
+  {:pre [(and (map? the-protocol)
+              (:on the-protocol)
+              (:var the-protocol))]})
 (defconstrainedrecord Union [types]
-  [(every? tc-type? types)])
+  {:pre [(every? tc-type? types)]})
 
 (defn- simplify-union [the-union]
   (if (some #(instance? Union %) (:types the-union))
@@ -165,7 +165,9 @@
   (match-to-fun-arity [this fun-type] "Return an arity than appears to match a fun-type
                                       arity, by counting arguments, not subtyping"))
 
-(defrecord FixedArity [dom rng]
+(defconstrainedrecord FixedArity [dom rng]
+  {:pre [(every? isubtype? dom)
+         (isubtype? rng)]}
   IArity
   (matches-args [this args]
     (when (= (count dom)
@@ -179,7 +181,10 @@
                 %)
           (:arities fun-type))))
 
-(defrecord UniformVariableArity [fixed-dom rest-type rng]
+(defconstrainedrecord UniformVariableArity [fixed-dom rest-type rng]
+  {:pre [(every? isubtype? fixed-dom)
+         (isubtype? rest-type)
+         (isubtype? rng)]}
   IArity
   (matches-args [this args]
     (when (<= (count fixed-dom)
@@ -515,7 +520,9 @@
   [{:keys [val] :as expr}]
   (let [expected-type (::+T expr)
         _ (assert expected-type "Literal in checking context requires annotation")
-        actual-type (map->TClass {:the-class (class val)})
+        actual-type (if (nil? val)
+                      (->NilType)
+                      (map->TClass {:the-class (class val)}))
         _ (assert-subtype actual-type expected-type)]
     (assoc expr
            ::+T actual-type)))
