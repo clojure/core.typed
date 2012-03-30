@@ -92,7 +92,10 @@
 (defn reset-type-db []
   (swap! *type-db* (constantly {})))
 
+(declare isubtype?)
+
 (defn type-of [sym-or-var]
+  {:post [(isubtype? %)]}
   (let [sym (if (var? sym-or-var)
                    (symbol (str (.name (.ns sym-or-var))) (str (.sym sym-or-var)))
                    sym-or-var)]
@@ -121,16 +124,24 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed Clojure Kinds
 
-(declare arity?)
+(declare arity? tc-type?)
 
 (defrecord Any [])
 (defrecord Nothing [])
 (defrecord NilType [])
-(defrecord Fun [arities])
-(defrecord TClass [the-class])
-(defrecord PrimitiveClass [the-class])
-(defrecord TProtocol [the-protocol])
-(defrecord Union [types])
+(defconstrainedrecord Fun [arities]
+  [(every? arity? arities)])
+(defconstrainedrecord TClass [the-class]
+  [(class? the-class)])
+(defconstrainedrecord PrimitiveClass [the-class]
+  [(and (class? the-class)
+        (.isPrimitive the-class))])
+(defconstrainedrecord TProtocol [the-protocol]
+  [(and (map? the-protocol)
+        (:on the-protocol)
+        (:var the-protocol))])
+(defconstrainedrecord Union [types]
+  [(every? tc-type? types)])
 
 (defn- simplify-union [the-union]
   (if (some #(instance? Union %) (:types the-union))
@@ -144,6 +155,9 @@
   (simplify-union (->Union (set types))))
 
 (def the-tc-types #{Any Nothing Fun TClass PrimitiveClass TProtocol Union NilType})
+
+(defn tc-type? [t]
+  (boolean (the-tc-types (class t))))
 
 (defprotocol IArity
   (matches-args [this args] "Return the arity if it matches the number of args,
@@ -280,11 +294,11 @@
 (extend-protocol IUnparseType
   TClass
   (unparse-type* [this]
-    (symbol (.getName (:the-class this))))
+    (symbol (.getName ^Class (:the-class this))))
 
   PrimitiveClass
   (unparse-type* [this]
-    (symbol (.getName (:the-class this))))
+    (symbol (.getName ^Class (:the-class this))))
 
   Union
   (unparse-type* [this]
@@ -316,6 +330,9 @@
 
 (defprotocol ISubtype
   (subtype?* [this t]))
+
+(defn isubtype? [a]
+  (satisfies? ISubtype a))
 
 (declare subtype?)
 
@@ -436,6 +453,7 @@
 
 (defmethod synthesize :invoke
   [expr]
+  (assert false "TODO propagate synthesis to infer-invoke")
   (infer-invoke expr))
 
 (defmethod check :invoke
@@ -467,7 +485,7 @@
 
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr}]
-  (let [expected-type (::+T local-binding)
+  (let [expected-type (::+T expr)
         _ (assert expected-type (str "Local binding " (:sym local-binding)
                                      " requires type annotation in checking context."))
         checked-lb (check (assoc local-binding
@@ -529,12 +547,13 @@
 (defmethod check :fn-method
   [{:keys [required-params rest-param body] :as expr}]
   (assert (not rest-param))
-  (let [expected-type (::+T expr)
+  (let [expected-arity-type (::+T expr)
+        _ (assert (instance? FixedArity expected-arity-type))
         
         typed-required-params (doall 
                                 (map #(assoc %1 ::+T %2)
                                      required-params
-                                     expected-type))
+                                     (:dom expected-arity-type)))
 
         typed-lbndings (apply hash-map 
                               (doall (mapcat #(vector (:sym %) 
@@ -543,7 +562,7 @@
 
         checked-body (with-local-types typed-lbndings
                        (check (assoc body
-                                     ::+T (:rng expected-type))))]
+                                     ::+T (:rng expected-arity-type))))]
     (assoc expr
            :required-params typed-required-params
            :body checked-body)))
@@ -584,8 +603,9 @@
                                                          (unparse-type fun-type) " with args "
                                                          args))
         checked-args (doall 
-                       (map #(check (assoc %1
-                                           ::+T %2))
+                       (map #(-> %1
+                               (assoc ::+T %2)
+                               check)
                             args
                             (:dom arity-type)))
 
