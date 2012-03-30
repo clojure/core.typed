@@ -485,9 +485,9 @@
 
         [checked-then
          checked-else]
-        (map check (map #(assoc %
-                                ::+T expected-type)
-                        [else then]))]
+        (doall (map check (map #(assoc %
+                                       ::+T expected-type)
+                               [then else])))]
     (assoc expr 
            :test synthesized-test
            :then checked-then
