@@ -10,6 +10,9 @@
 (defmacro ast [form]
   `(a/analyze-one {:ns {:name ~'(ns-name *ns*)} :context :eval} '~form))
 
+(defn- ppexpr [form]
+  (util/print-expr form :children :env :Expr-obj :ObjMethod-obj))
+
 (defmacro print-ast [form]
   `(-> (a/analyze-one {:ns {:name '~'user} :context :eval} '~form)
     (util/print-expr :children :Expr-obj :LocalBinding-obj :ObjMethod-obj :env)))
@@ -73,11 +76,12 @@
 (defmacro map-all-true? [& body]
   `(every? true? (map ~@body)))
 
-(declare subtype?)
+(declare subtype? unparse-type)
 
-(defn assert-subtype [actual-type expected-type]
+(defn assert-subtype [actual-type expected-type & msgs]
   (assert (subtype? actual-type expected-type)
-          (str "Expected " (unparse-type expected-type) ", found " (unparse-type actual-type))))
+          (apply str "Expected " (unparse-type expected-type) ", found " (unparse-type actual-type)
+                 msgs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type contexts
@@ -381,7 +385,7 @@
   [{:keys [var tag] :as expr}]
   (let [expected-type (::+T expr)
         actual-type (type-of var)]
-    (assert-subtype actual-type expected-type)
+    (assert-subtype actual-type expected-type (str " for var " var))
     (assoc expr
            ::+T actual-type)))
 
@@ -464,7 +468,8 @@
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr}]
   (let [expected-type (::+T local-binding)
-        _ (assert expected-type)
+        _ (assert expected-type (str "Local binding " (:sym local-binding)
+                                     " requires type annotation in checking context."))
         checked-lb (check (assoc local-binding
                                  ::+T expected-type))
         actual-type (::+T checked-lb)
@@ -555,10 +560,29 @@
     (assoc expr
            :exprs (concat typed-exprs [last-typed-expr]))))
 
+(defn- overriden-annotation [{name-sym :name, class-sym :declaring-class,
+                              :keys [declaring-class parameter-types] :as method}]
+  (let [_ (assert (and class-sym name-sym)
+                  (str "Unresolvable static method " class-sym name-sym))
+        method-sym (symbol (name class-sym) (name name-sym))]
+    (try
+      (type-of method-sym)
+      (catch Exception e))))
+
 (defn infer-static-method [{:keys [method args] :as expr}]
-  (let [fun-type (method->Fun method)
-        arity-type (first (:arities fun-type))
-        _ (assert (instance? FixedArity arity-type))
+  (let [override (overriden-annotation method)
+        _ (if override
+            (println "Overriding static method " (symbol (name (:declaring-class method))
+                                                         (name (:name method))))
+            (println "Not overriding static method " (symbol (name (:declaring-class method))
+                                                             (name (:name method)))))
+        fun-type (if override
+                   override
+                   (method->Fun method))
+        arity-type (some #(matches-args % args) (:arities fun-type))
+        _ (assert (instance? FixedArity arity-type) (str "No matching arity found for "
+                                                         (unparse-type fun-type) " with args "
+                                                         args))
         checked-args (doall 
                        (map #(check (assoc %1
                                            ::+T %2))
@@ -604,9 +628,10 @@
                   (str "a" 1))))
   (with-type-anns
     {str [& Object -> String]
+     clojure.lang.Util/equiv [Number Number -> Boolean]
      a [Integer -> String]}
     (check-form (defn a [b]
-                  (if (= a 1)
+                  (if (= b 1)
                     "a"))))
 
   ;; Literals
