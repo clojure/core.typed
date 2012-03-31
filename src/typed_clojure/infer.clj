@@ -8,6 +8,11 @@
 ;; Debug macros
 
 (def debug-mode (atom true))
+(def print-warnings (atom true))
+
+(defmacro warn [& body]
+  `(when @print-warnings
+     (println ~@body)))
 
 (defmacro debug [& body]
   `(when @debug-mode
@@ -186,6 +191,12 @@
 
 (defconstrainedrecord LongType [the-long]
   [(instance? Long the-long)])
+
+(defconstrainedrecord ConstantVector [types]
+  [(every? isubtype? types)])
+
+(defconstrainedrecord ConstantList [types]
+  [(every? isubtype? types)])
 
 (defn- simplify-union [the-union]
   (if (some #(instance? Union %) (:types the-union))
@@ -518,12 +529,38 @@
       (instance? Union t) 
       (map-all-true? #(subtype? % t) (:types s)))
 
-      :else (boolean (some #(subtype? % t) (:types s))))
+      :else (every? #(subtype? % t) (:types s)))
   
   NilType
   (subtype?* [s t]
     (assert (identical? Nil s))
     (identical? Nil t)))
+
+; literals
+
+(defn- literal-subtyping-fn [dispatch-class isa-class keyword-accessor]
+  (fn [s t]
+    (cond
+      (instance? dispatch-class t) (= (keyword-accessor s)
+                                      (keyword-accessor t))
+
+      (instance? TClass t) (subtype? (->TClass dispatch-class) t)
+
+      :else false)))
+
+(defmacro literal-subtyping [dispatch-class isa-class keyword-accessor]
+  `(extend ~dispatch-class
+     ISubtype
+     {:subtype*
+      (literal-subtyping-fn ~dispatch-class ~isa-class ~keyword-accessor)}))
+
+(doseq [[dispatch-class isa-class keyword-accessor]
+        #{[LongType Long :the-long]
+          [StringType String :the-string]
+          [SymbolType Symbol :the-symbol]
+          [KeywordType Keyword :the-keyword]}]
+
+  (literal-subtyping dispatch-class isa-class keyword-accessor))
 
 (defn subtype? [s t]
   (assert (satisfies? ISubtype t) t)
@@ -632,6 +669,21 @@
 
 ;; if
 
+(defmethod synthesize :if
+  [{:keys [test then else] :as expr}]
+  (let [[synthesized-test
+         synthesized-then
+         synthesized-else
+         :as typed-exprs]
+        (map synthesize [test then else])
+        
+        actual-type (union (map ::+T typed-exprs))]
+    (assoc expr
+           :test synthesized-test
+           :then synthesized-then
+           :else synthesized-else
+           ::+T actual-type)))
+
 (defmethod check :if
   [{:keys [test then else] :as expr}]
   (let [expected-type (::+T expr)
@@ -647,7 +699,9 @@
         inferred-else (if check-else?
                         (check (assoc else
                                       ::+T expected-type))
-                        (synthesize else))
+                        (do 
+                          (warn "Unreachable else clause")
+                          (synthesize else)))
         
         actual-type (union (map ::+T (concat [checked-then] (when check-else?
                                                               inferred-else))))
@@ -684,12 +738,48 @@
 
 ;; literals
 
+(defmulti constant-type class)
+
+(defmethod constant-type Boolean
+  [b]
+  (if (true? b)
+    True
+    False))
+
+(defmethod constant-type nil
+  [k]
+  Nil)
+
+(defmethod constant-type Keyword
+  [k]
+  (->KeywordType k))
+
+(defmethod constant-type Symbol
+  [s]
+  (->SymbolType s))
+
+(defmethod constant-type String
+  [s]
+  (->StringType s))
+
+(defmethod constant-type Long
+  [l]
+  (->LongType l))
+
+(defmethod constant-type Double
+  [d]
+  (->DoubleType d))
+
+(defmethod constant-type IPersistentVector
+  [v]
+  (->ConstantVector (map constant-type v)))
+
 (defmacro literal-dispatches [disp-keyword]
   `(do
      (defmethod synthesize ~disp-keyword
        [expr#]
        (let [val# (:val expr#)
-             actual-type# (parse-syntax val#)]
+             actual-type# (constant-type val#)]
          (assoc expr#
                 ::+T actual-type#)))
 
@@ -697,17 +787,13 @@
        [expr#]
        (let [val# (:val expr#)
              expected-type# (::+T expr#)
-             actual-type# (parse-syntax val#)]
+             actual-type# (constant-type val#)]
          (assert-subtype actual-type# expected-type#)
          (assoc expr#
                 ::+T actual-type#)))))
 
-(literal-dispatches :keyword)
-(literal-dispatches :string)
-(literal-dispatches :symbol)
-(literal-dispatches :number)
-(literal-dispatches :constant)
-(literal-dispatches :nil)
+(doseq [k #{:keyword :string :symbol :constant :number :boolean :nil}]
+  (literal-dispatches k))
 
 ;; let
 
