@@ -155,10 +155,6 @@
 (defconstrainedrecord Fun [arities]
   {:pre [(every? arity? arities)]})
 
-(defconstrainedrecord PredicateFun [arity pred-type]
-  {:pre [(arity? arity)
-         (isubtype? pred-type)]})
-
 (defconstrainedrecord TClass [the-class]
   {:pre [(class? the-class)]})
 
@@ -227,9 +223,11 @@
   (match-to-fun-arity [this fun-type] "Return an arity than appears to match a fun-type
                                       arity, by counting arguments, not subtyping"))
 
-(defconstrainedrecord FixedArity [dom rng]
+(defconstrainedrecord FixedArity [dom rng pred-type]
   {:pre [(every? isubtype? dom)
-         (isubtype? rng)]}
+         (isubtype? rng)
+         (or (nil? pred-type)
+             (isubtype? pred-type))]}
   IArity
   (matches-args [this args]
     (when (= (count dom)
@@ -339,9 +337,10 @@
   [[_ & [typ-syntax :as args]]]
   (assert (= 1 (count args)))
   (let [pred-type (parse-syntax typ-syntax)]
-    (map->PredicateFun
-      {:arity (parse-syntax '[Any -> Boolean])
-       :pred-type pred-type})))
+    (->Fun [(map->FixedArity 
+              {:dom [Any] 
+               :rng (->TClass Boolean)
+               :pred-type pred-type})])))
 
 (defmethod parse-list-syntax 'quote
   [[_ & [sym :as args]]]
