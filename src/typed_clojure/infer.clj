@@ -543,6 +543,8 @@
 (defmulti check :op)
 (defmulti synthesize :op)
 
+;; var
+
 (defmethod check :var
   [{:keys [var tag] :as expr}]
   (let [expected-type (::+T expr)
@@ -556,6 +558,8 @@
   (let [actual-type (type-of var)]
     (assoc expr
            ::+T actual-type)))
+
+;; def
 
 (defn infer-def [{:keys [var init init-provided] :as expr}]
   (let [var-type (type-of var)
@@ -610,6 +614,8 @@
            :args checked-args
            ::+T return-type)))
 
+;; invoke
+
 (defmethod synthesize :invoke
   [expr]
   (infer-invoke expr))
@@ -623,6 +629,8 @@
         actual-type (::+T inferred-expr)
         _ (assert-subtype actual-type expected-type)]
     inferred-expr))
+
+;; if
 
 (defmethod check :if
   [{:keys [test then else] :as expr}]
@@ -650,6 +658,8 @@
            :else inferred-else
            ::+T actual-type)))
 
+;; local bindings
+
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr}]
   (let [expected-type (::+T expr)
@@ -672,23 +682,21 @@
     (assoc expr
            ::+T actual-type)))
 
-(defmethod synthesize :number
-  [{:keys [val] :as expr}]
-  (let [actual-type (parse-syntax val)]
-    (assoc expr
-           ::+T actual-type)))
+;; literals
 
 (defmacro literal-dispatches [disp-keyword]
   `(do
      (defmethod synthesize ~disp-keyword
-       [{:keys [val#] :as expr#}]
-       (let [actual-type# (parse-syntax val#)]
+       [expr#]
+       (let [val# (:val expr#)
+             actual-type# (parse-syntax val#)]
          (assoc expr#
                 ::+T actual-type#)))
 
      (defmethod check ~disp-keyword
-       [{:keys [val#] :as expr#}]
-       (let [expected-type# (::+T expr#)
+       [expr#]
+       (let [val# (:val expr#)
+             expected-type# (::+T expr#)
              actual-type# (parse-syntax val#)]
          (assert-subtype actual-type# expected-type#)
          (assoc expr#
@@ -697,6 +705,11 @@
 (literal-dispatches :keyword)
 (literal-dispatches :string)
 (literal-dispatches :symbol)
+(literal-dispatches :number)
+(literal-dispatches :constant)
+(literal-dispatches :nil)
+
+;; let
 
 (defmethod synthesize :binding-init
   [{:keys [sym init] :as expr}]
@@ -734,6 +747,8 @@
            :binding-inits typed-binding-inits
            :body checked-body
            ::+T (-> body ::+T))))
+
+;; fn
 
 (defmethod check :fn-expr
   [{:keys [methods] :as expr}]
@@ -782,6 +797,8 @@
            :required-params typed-required-params
            :body checked-body)))
 
+;; do
+
 (defmethod synthesize :do
   [{:keys [exprs] :as expr}]
   (let [synthesized-exprs (vec (doall (map synthesize exprs)))
@@ -807,6 +824,8 @@
     (assoc expr
            :exprs typed-exprs
            ::+T actual-type)))
+
+;; static method
 
 (defn- overriden-annotation [{name-sym :name, class-sym :declaring-class,
                               :keys [declaring-class parameter-types] :as method}]
