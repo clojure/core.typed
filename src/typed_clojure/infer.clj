@@ -155,6 +155,10 @@
 (defconstrainedrecord Fun [arities]
   {:pre [(every? arity? arities)]})
 
+(defconstrainedrecord PredicateFun [arity pred-type]
+  {:pre [(arity? arity)
+         (isubtype? pred-type)]})
+
 (defconstrainedrecord TClass [the-class]
   {:pre [(class? the-class)]})
 
@@ -330,6 +334,14 @@
 (defmethod parse-list-syntax 'U
   [[_ & syn]]
   (union (doall (map parse-syntax syn))))
+
+(defmethod parse-list-syntax 'predicate
+  [[_ & [typ-syntax :as args]]]
+  (assert (= 1 (count args)))
+  (let [pred-type (parse-syntax typ-syntax)]
+    (map->PredicateFun
+      {:arity (parse-syntax '[Any -> Boolean])
+       :pred-type pred-type})))
 
 (defmethod parse-list-syntax 'quote
   [[_ & [sym :as args]]]
@@ -544,21 +556,23 @@
       (instance? dispatch-class t) (= (keyword-accessor s)
                                       (keyword-accessor t))
 
-      (instance? TClass t) (subtype? (->TClass dispatch-class) t)
+      (instance? TClass t) (subtype? (->TClass isa-class) t)
 
       :else false)))
 
 (defmacro literal-subtyping [dispatch-class isa-class keyword-accessor]
   `(extend ~dispatch-class
      ISubtype
-     {:subtype*
+     {:subtype?*
       (literal-subtyping-fn ~dispatch-class ~isa-class ~keyword-accessor)}))
 
 (doseq [[dispatch-class isa-class keyword-accessor]
         #{[LongType Long :the-long]
           [StringType String :the-string]
           [SymbolType Symbol :the-symbol]
-          [KeywordType Keyword :the-keyword]}]
+          [KeywordType Keyword :the-keyword]
+          [FalseType Boolean identity]
+          [TrueType Boolean identity]}]
 
   (literal-subtyping dispatch-class isa-class keyword-accessor))
 
