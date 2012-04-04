@@ -106,6 +106,9 @@
 (def ^:dynamic *type-db* (atom {}))
 (def ^:dynamic *local-type-db* {})
 
+;(+T *type-var-scope* (IPersistentMap Symbol UnboundedTypeVariable))
+(def ^:dynamic *type-var-scope* {})
+
 (defn reset-type-db []
   (swap! *type-db* (constantly {})))
 
@@ -123,6 +126,10 @@
                              (@*type-db* sym))]
         the-type
         (throw (Exception. (str "No type for " sym)))))))
+
+(defmacro with-type-vars [var-map & body]
+  `(binding [*type-var-scope* (merge *type-var-scope* ~var-map)]
+     ~@body))
 
 (defmacro with-local-types [type-map & body]
   `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
@@ -152,23 +159,29 @@
 (defrecord NilType [])
 (def Nil (->NilType))
 
-(defconstrainedrecord Fun [arities]
-  {:pre [(every? arity? arities)]})
+(defconstrainedrecord Fun [arities type-params]
+  "Function with one or more arities"
+  {:pre [(seq arities)
+         (every? arity? arities)]})
 
 (defconstrainedrecord TClass [the-class]
+  "A class"
   {:pre [(class? the-class)]})
 
 (defconstrainedrecord PrimitiveClass [the-class]
+  "A primitive class"
   {:pre [(or (nil? the-class) ; void primitive
              (and (class? the-class)
                   (.isPrimitive the-class)))]})
 
 (defconstrainedrecord TProtocol [the-protocol]
+  "A protocol"
   {:pre [(and (map? the-protocol)
               (:on the-protocol)
               (:var the-protocol))]})
 
 (defconstrainedrecord Union [types]
+  "A union of types"
   {:pre [(every? tc-type? types)]})
 
 (defrecord TrueType [])
@@ -178,24 +191,31 @@
 (def False (->FalseType))
 
 (defconstrainedrecord KeywordType [the-keyword]
+  "A keyword instance"
   [(keyword? the-keyword)])
 
 (defconstrainedrecord SymbolType [the-symbol]
+  "A symbol instance"
   [(symbol? the-symbol)])
 
 (defconstrainedrecord StringType [the-string]
+  "A string instance"
   [(string? the-string)])
 
 (defconstrainedrecord DoubleType [the-double]
+  "A Double instance"
   [(instance? Double the-double)])
 
 (defconstrainedrecord LongType [the-long]
+  "A Long instance"
   [(instance? Long the-long)])
 
 (defconstrainedrecord ConstantVector [types]
+  "A constant vector type"
   [(every? isubtype? types)])
 
 (defconstrainedrecord ConstantList [types]
+  "A constant list type"
   [(every? isubtype? types)])
 
 (defn- simplify-union [the-union]
@@ -223,11 +243,16 @@
   (match-to-fun-arity [this fun-type] "Return an arity than appears to match a fun-type
                                       arity, by counting arguments, not subtyping"))
 
-(defconstrainedrecord FixedArity [dom rng pred-type]
+(declare filter? type-variable?)
+
+(defconstrainedrecord FixedArity [dom rng flter type-params]
+  "An arity with fixed domain. Supports optional filter, and optional type parameters"
   {:pre [(every? isubtype? dom)
          (isubtype? rng)
-         (or (nil? pred-type)
-             (isubtype? pred-type))]}
+         (or (nil? flter)
+             (filter? flter))
+         (or (nil? type-params)
+             (every? type-variable? type-params))]}
   IArity
   (matches-args [this args]
     (when (= (count dom)
@@ -241,10 +266,13 @@
                 %)
           (:arities fun-type))))
 
-(defconstrainedrecord UniformVariableArity [fixed-dom rest-type rng]
+(defconstrainedrecord UniformVariableArity [fixed-dom rest-type rng type-params]
+  "An arity with variable domain, with uniform rest type, optional type parameters"
   {:pre [(every? isubtype? fixed-dom)
          (isubtype? rest-type)
-         (isubtype? rng)]}
+         (isubtype? rng)
+         (or (nil? type-params)
+             (every? type-variable? type-params))]}
   IArity
   (matches-args [this args]
     (when (<= (count fixed-dom)
@@ -258,10 +286,47 @@
                 %)
           (:arities fun-type))))
 
-(def the-arity-types #{FixedArity UniformVariableArity})
+(def arities #{FixedArity UniformVariableArity})
 
 (defn arity? [a]
-  (boolean (the-arity-types (class a))))
+  (-> (class a) arities boolean))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type variables
+
+(defconstrainedrecord UnboundedTypeVariable [nme]
+  "A record for unbounded type variables, with an unqualified symbol as a name"
+  {:pre [(symbol? nme)
+         (not (namespace nme))]})
+
+(def type-variables #{UnboundedTypeVariable})
+
+(defn type-variable? [t]
+  (boolean (type-variables (class t))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type refinement
+
+(declare filter?)
+
+(defconstrainedrecord Filter [then-prop else-prop]
+  "A pair of filters, then-prop the proposition for a true value,
+  else-prop for a false value"
+  {:pre [(filter? then-prop)
+         (filter? else-prop)]})
+
+(defconstrainedrecord TypeFilter [the-type]
+  "A refinement saying it is of type the-type"
+  {:pre [(isubtype? the-type)]})
+
+(defconstrainedrecord NotTypeFilter [the-type]
+  "A refinement saying it is not of type the-type"
+  {:pre [(isubtype? the-type)]})
+
+(def filters #{TypeFilter NotTypeFilter})
+
+(defn filter? [a]
+  (-> (class a) filters boolean))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parse Type syntax
@@ -269,11 +334,13 @@
 (defprotocol IParseType
   (parse-syntax* [this]))
 
+(declare Fun-literal)
+
 (defn parse-syntax
   "Type syntax parser, entry point"
   [syn]
   (parse-syntax* (if (vector? syn)
-                   (list syn) ; handle implicit single arity syntax
+                   (list Fun-literal syn) ; wrap arity sugar [] with (Fun ..)
                    syn)))
 
 (def parse parse-syntax)
@@ -282,6 +349,7 @@
   Symbol
   (parse-syntax* [this]
     (cond
+      (*type-var-scope* this) (*type-var-scope* this) ; type variables
       (nil? this) Nil ;; nil
       :else (let [res (resolve-or-primitive this)]
               (cond
@@ -326,10 +394,32 @@
     (map->LongType
       {:the-long this})))
 
-(defmulti parse-list-syntax first
-  :default :default-fun-syntax)
+(defmulti parse-list-syntax first)
 
-(defmethod parse-list-syntax 'U
+(def All-literal 'All)
+(def U-literal 'U)
+(def Fun-literal 'Fun)
+
+(defmethod parse-list-syntax All-literal
+  [[_ [& type-var-names] & [syn & more]]]
+  (let [_ (assert (not more) "Only one type allowed in All")
+        type-vars (map #(map->UnboundedTypeVariable {:nme %})
+                       type-var-names)
+
+        type-var-scope (->> (mapcat vector type-var-names type-vars)
+                         (apply hash-map))
+
+        fun-type
+        (with-type-vars type-var-scope
+          (parse-syntax syn))
+        
+        _ (assert (instance? Fun fun-type) (str "Type variable syntax only for functions, found "
+                                                (unparse-type fun-type)))]
+    (assoc fun-type
+           :arities (doall (map #(assoc % :type-params type-vars) (:arities fun-type))) ; add type var scope to arities
+           )))
+
+(defmethod parse-list-syntax U-literal
   [[_ & syn]]
   (union (doall (map parse-syntax syn))))
 
@@ -338,7 +428,7 @@
   (assert (= 1 (count args)))
   (let [pred-type (parse-syntax typ-syntax)]
     (->Fun [(map->FixedArity 
-              {:dom [Any] 
+              {:dom [Any]
                :rng (->TClass Boolean)
                :pred-type pred-type})])))
 
@@ -349,10 +439,10 @@
   (map->SymbolType
     {:the-symbol sym}))
 
-(defmethod parse-list-syntax :default-fun-syntax
-  [[& arities]]
+(defmethod parse-list-syntax Fun-literal
+  [[_ & arities]]
   (map->Fun 
-    {:arities (doall (map parse-syntax* arities))}))
+    {:arities (doall (map parse-syntax* arities))})) ; parse-syntax* to avoid implicit arity sugar wrapping
 
 (extend-protocol IParseType
   IPersistentList
@@ -422,20 +512,30 @@
 
   Union
   (unparse-type* [this]
-    (list* 'U (doall (map unparse-type (:types this)))))
+    (list* U-literal (doall (map unparse-type (:types this)))))
 
   Fun
   (unparse-type* [this]
-    (list* (doall (map unparse-type (:arities this)))))
+    (let [fun-syntax (list* Fun-literal (doall (map unparse-type (:arities this))))]
+      (if-let [type-params (seq (:type-params (first (:arities this))))]
+        (list All-literal 
+              (-> (doall (map unparse-type type-params))
+                vec)
+              fun-syntax)
+        fun-syntax)))
 
   FixedArity
   (unparse-type* [this]
-    (vec (concat (doall (map unparse-type (:dom this))) ['-> (unparse-type (:rng this))])))
+    (-> (concat (doall (map unparse-type (:dom this))) 
+                ['-> (unparse-type (:rng this))])
+      vec))
 
   UniformVariableArity
   (unparse-type* [this]
-    (vec (concat (doall (map unparse-type (:fixed-dom this))) ['& (unparse-type (:rest-type this))
-                                                               '-> (unparse-type (:rng this))])))
+    (-> (concat (doall (map unparse-type (:fixed-dom this))) 
+                ['& (unparse-type (:rest-type this))
+                 '-> (unparse-type (:rng this))])
+      vec))
 
   TProtocol
   (unparse-type* [this]
@@ -480,6 +580,10 @@
   SymbolType
   (unparse-type* [{:keys [the-symbol]}]
     `'~the-symbol)
+
+  UnboundedTypeVariable
+  (unparse-type* [{:keys [nme]}]
+    nme)
 
   NilType
   (unparse-type* [this]
@@ -541,6 +645,10 @@
       (map-all-true? #(subtype? % t) (:types s)))
 
       :else (every? #(subtype? % t) (:types s)))
+
+  UnboundedTypeVariable
+  (subtype?* [s t]
+    (identical? s t))
   
   NilType
   (subtype?* [s t]
@@ -576,7 +684,7 @@
   (literal-subtyping dispatch-class isa-class keyword-accessor))
 
 (defn subtype? [s t]
-  (assert (satisfies? ISubtype t) t)
+  (assert (isubtype? t) t)
   (cond
     (identical? Any t) true
 
@@ -586,9 +694,101 @@
     :else (subtype?* s t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Variable Elimination
+
+(defmulti replace-variable 
+  "In type t, replace all occurrences of x with v"
+  (fn [t x v] 
+    (assert (type-variable? x))
+    (class t)))
+
+(defmethod replace-variable FixedArity
+  [t x v]
+  (letfn [(rename-shadowing-variable [t x v]
+            (let [gen-nme (-> x :nme name gensym)
+                  new-type-var (map->UnboundedTypeVariable
+                                 {:nme gen-nme})
+                  rplc-capture #(replace-variable % x new-type-var)]
+              (assoc t
+                     :dom (doall (map rplc-capture (:dom t)))
+                     :rng (rplc-capture (:rng t))
+                     :type-params (doall (map rplc-capture (:type-params t))))))
+          
+          (replace-free-variable [t x v]
+            (let [rplc #(replace-variable % x v)]
+              (assoc t
+                     :dom (doall (map rplc (:dom t)))
+                     :rng (rplc (:rng t)))))
+          
+          (introduces-shadow? [t x]
+            (some #(= % x) (:type-params t)))]
+
+    ;; handle inner scopes, generate unique names for
+    ;; variables with same name but different scope
+    (cond
+      (introduces-shadow? t x)
+      (rename-shadowing-variable t x v)
+
+      :else
+      (replace-free-variable t x v))))
+
+(defmethod replace-variable Fun
+  [t x v]
+  (let [rplc #(replace-variable % x v)]
+    (update-in t
+               [:arities]
+               #(doall (map rplc %)))))
+
+(defmethod replace-variable UnboundedTypeVariable
+  [t x v]
+  (if (= (:nme t) (:nme x))
+    v
+    t))
+
+(defmethod replace-variable :default
+  [t x v]
+  t)
+
+;; Local Type Inference (2000) Pierce & Turner, Section 3.2
+
+(defmulti promote 
+  "Eliminate all variables in type s that occur in set v by promoting the type"
+  (fn [s v] (class s)))
+
+(defmulti demote 
+  "Eliminate all variables in type s that occur in set v by demoting the type"
+  (fn [s v] (class s)))
+
+(defmethod promote Any
+  [s v]
+  Any)
+
+(defmethod promote Nothing
+  [s v]
+  Nothing)
+
+(defmethod promote UnboundedTypeVariable
+  [s v]
+  (if (v s)
+    Any
+    s))
+
+(defmethod promote FixedArity
+  [s v]
+  (assoc s
+         :dom (doall (map #(demote % v) (:dom s)))
+         :rng (promote (:rng s) v)))
+
+(defmethod promote Fun
+  [s v]
+  (update-in s
+             [:arities] 
+             #(doall (map promote %))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
 
-;; Bidirectional checking (Local Type Inference (2000) Pierce & Turner, Chapter 4)
+;; Bidirectional checking (Local Type Inference (2000) Pierce & Turner, Section 4)
 
 (defmulti check :op)
 (defmulti synthesize :op)
@@ -605,6 +805,7 @@
 
 (defmethod synthesize :var
   [{:keys [var tag] :as expr}]
+  (println var)
   (let [actual-type (type-of var)]
     (assoc expr
            ::+T actual-type)))
@@ -628,6 +829,7 @@
 (defmethod check :def
   [expr]
   (let [expected-type (::+T expr)
+        _ (assert expected-type "def in checking mode requires full type annotation")
         inferred-def (infer-def expr)
         actual-type (::+T inferred-def)
         _ (assert-subtype actual-type expected-type)]
@@ -726,6 +928,14 @@
            ::+T actual-type)))
 
 ;; local bindings
+
+(defmethod synthesize :local-binding-expr
+  [{:keys [local-binding] :as expr}]
+  (let [synthesized-lb (synthesize local-binding)
+        actual-type (::+T synthesized-lb)]
+    (assoc expr
+           :local-binding synthesized-lb
+           ::+T actual-type)))
 
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr}]
@@ -997,9 +1207,9 @@
     {str [& Object -> String]
      clojure.lang.Util/equiv [Number Number -> Boolean]
      a [Integer -> String]}
-    (check-form (defn a [b]
-                  (if (= b 1)
-                    "a"))))
+    (synthesize-form (defn a [b]
+                       (if (= b 1)
+                         "a"))))
 
   (with-type-anns
     {ret-fn [-> [-> nil]]}
@@ -1022,8 +1232,25 @@
           b))))
 
   (with-type-anns
-    {float? [Any -> Boolean]
-     integer? [Any -> Boolean]
+    {var-occ [Any -> Boolean]
+     arg-not-nil [Object -> Boolean]}
+    (check-form 
+      (defn var-occ [a]
+        (when a
+          (arg-not-nil a)))))
+
+  (with-type-anns
+    {identity (All [a]
+                   [a -> a])
+     id-long [Long -> Long]}
+    (synthesize-form
+      (defn id-long [a]
+        (identity a))))
+
+
+  (with-type-anns
+    {float? (predicate Float)
+     integer? (predicate Integer)
      takes-float [Float -> Boolean]
      takes-integer [Integer -> Boolean]
      occur [(U Float Integer) -> Boolean]}
@@ -1036,7 +1263,6 @@
             (integer? a) (takes-integer a)
             :else false)))))
 
-  ;; TODO split :literal op into finer grained :op's in analyze
 
   ;; Literals
   (synthesize-form 1)
