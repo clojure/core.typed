@@ -696,26 +696,26 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable Elimination
 
-(defmulti replace-variable 
+(defmulti replace-variables 
   "In type t, replace all occurrences of x with v"
-  (fn [t x v] 
-    (assert (type-variable? x))
+  (fn [t x->v]
+    (assert (every? type-variable? (keys x->v)))
     (class t)))
 
-(defmethod replace-variable FixedArity
-  [t x v]
+(defmethod replace-variables FixedArity
+  [t x->v]
   (letfn [(rename-shadowing-variable [t x v]
             (let [gen-nme (-> x :nme name gensym)
                   new-type-var (map->UnboundedTypeVariable
                                  {:nme gen-nme})
-                  rplc-capture #(replace-variable % x new-type-var)]
+                  rplc-capture #(replace-variables % {x new-type-var})]
               (assoc t
                      :dom (doall (map rplc-capture (:dom t)))
                      :rng (rplc-capture (:rng t))
                      :type-params (doall (map rplc-capture (:type-params t))))))
           
           (replace-free-variable [t x v]
-            (let [rplc #(replace-variable % x v)]
+            (let [rplc #(replace-variables % {x v})]
               (assoc t
                      :dom (doall (map rplc (:dom t)))
                      :rng (rplc (:rng t)))))
@@ -725,28 +725,35 @@
 
     ;; handle inner scopes, generate unique names for
     ;; variables with same name but different scope
-    (cond
-      (introduces-shadow? t x)
-      (rename-shadowing-variable t x v)
+    (loop [t t
+           x->v x->v]
+      (let [[x v] (first x->v)]
+        (if (seq x->v)
+          (recur
+            (cond
+              (introduces-shadow? t x)
+              (rename-shadowing-variable t x v)
 
-      :else
-      (replace-free-variable t x v))))
+              :else
+              (replace-free-variable t x v))
+            (next x->v))
+          t)))))
 
-(defmethod replace-variable Fun
-  [t x v]
-  (let [rplc #(replace-variable % x v)]
+(defmethod replace-variables Fun
+  [t x->v]
+  (let [rplc #(replace-variables % x->v)]
     (update-in t
                [:arities]
                #(doall (map rplc %)))))
 
-(defmethod replace-variable UnboundedTypeVariable
-  [t x v]
-  (if (= (:nme t) (:nme x))
+(defmethod replace-variables UnboundedTypeVariable
+  [t x->v]
+  (if-let [v (x->v t)]
     v
     t))
 
-(defmethod replace-variable :default
-  [t x v]
+(defmethod replace-variables :default
+  [t x->v]
   t)
 
 ;; Local Type Inference (2000) Pierce & Turner, Section 3.2
@@ -759,11 +766,11 @@
   "Eliminate all variables in type s that occur in set v by demoting the type"
   (fn [s v] (class s)))
 
-(defmethod promote Any
+(defmethod promote AnyType
   [s v]
   Any)
 
-(defmethod promote Nothing
+(defmethod promote NothingType
   [s v]
   Nothing)
 
@@ -773,17 +780,55 @@
     Any
     s))
 
+(defn- rename-type-args 
+  "Rename any type parameters conflicting with type variables in set v"
+  [s v]
+  (assert (instance? FixedArity s))
+  (let [renames (apply hash-map 
+                       (mapcat #(vector % (-> % :nme name gensym))
+                               (filter v (:type-params s))))]
+    (if (seq renames)
+      ; rename shadowing variables
+      (let [rplc #(replace-variables % renames)]
+        (assoc s
+               :dom (doall (map rplc (:dom s)))
+               :rng (rplc (:dom s))
+               :type-params (doall (map (rplc (:dom s))))))
+      s)))
+
 (defmethod promote FixedArity
   [s v]
-  (assoc s
-         :dom (doall (map #(demote % v) (:dom s)))
-         :rng (promote (:rng s) v)))
+  (let [s (rename-type-args s v)]
+    (assoc s
+           :dom (doall (map #(demote % v) (:dom s)))
+           :rng (promote (:rng s) v))))
 
 (defmethod promote Fun
   [s v]
   (update-in s
              [:arities] 
              #(doall (map promote %))))
+
+(defmethod demote AnyType
+  [s v]
+  Any)
+
+(defmethod demote NothingType
+  [s v]
+  Nothing)
+
+(defmethod demote UnboundedTypeVariable
+  [s v]
+  (if (v s)
+    Nothing
+    s))
+
+(defmethod demote FixedArity
+  [s v]
+  (let [s (rename-type-args s v)]
+    (assoc s
+           :dom (doall (map #(promote % v) (:dom s)))
+           :rng (demote (:rng s)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
