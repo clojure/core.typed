@@ -670,7 +670,7 @@
 
   UnboundedTypeVariable
   (subtype?* [s t]
-    (identical? s t))
+    (instance? UnboundedTypeVariable t))
   
   NilType
   (subtype?* [s t]
