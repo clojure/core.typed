@@ -184,6 +184,10 @@
   "A union of types"
   {:pre [(every? tc-type? types)]})
 
+(defconstrainedrecord Intersection [types]
+  "An intersection of types"
+  {:pre [(every? tc-type? types)]})
+
 (defrecord TrueType [])
 (def True (->TrueType))
 
@@ -398,6 +402,7 @@
 
 (def All-literal 'All)
 (def U-literal 'U)
+(def I-literal 'I)
 (def Fun-literal 'Fun)
 
 (defmethod parse-list-syntax All-literal
@@ -422,6 +427,11 @@
 (defmethod parse-list-syntax U-literal
   [[_ & syn]]
   (union (doall (map parse-syntax syn))))
+
+(defmethod parse-list-syntax I-literal
+  [[_ & syn]]
+  (map->Intersection 
+    {:types (doall (map parse-syntax syn))}))
 
 (defmethod parse-list-syntax 'predicate
   [[_ & [typ-syntax :as args]]]
@@ -513,6 +523,10 @@
   Union
   (unparse-type* [this]
     (list* U-literal (doall (map unparse-type (:types this)))))
+
+  Intersection
+  (unparse-type* [this]
+    (list* I-literal (doall (map unparse-type (:types this)))))
 
   Fun
   (unparse-type* [this]
@@ -646,6 +660,14 @@
 
       :else (every? #(subtype? % t) (:types s)))
 
+  Intersection
+  (subtype?* [s t]
+    (cond
+      (instance? Intersection t)
+      (map-all-true? #(subtype? s %) (:types t))
+
+      :else (boolean (some #(subtype? % t) (:types s)))))
+
   UnboundedTypeVariable
   (subtype?* [s t]
     (identical? s t))
@@ -689,6 +711,9 @@
     (identical? Any t) true
 
     (instance? Union t)
+    (boolean (some #(subtype? s %) (:types t)))
+
+    (instance? Intersection t)
     (map-all-true? #(subtype? s %) (:types t))
     
     :else (subtype?* s t)))
@@ -829,6 +854,25 @@
     (assoc s
            :dom (doall (map #(promote % v) (:dom s)))
            :rng (demote (:rng s)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Constraint generation
+
+;; Local Type Inference (2000) Pierce & Turner, Section 3.3
+
+(defconstrainedrecord TypeVariableConstraint [type-var upper-bound lower-bound]
+  "A constraint on a type variable type-var. Records an upper and lower bound"
+  {:pre [(type-variable? type-var)
+         (isubtype? upper-bound)
+         (isubtype? lower-bound)]})
+
+
+
+;(defn constraint-gen [s t xs v]
+;  (cond
+;    (identical? Any t) nil
+;    (identical? Nothing s) nil
+;))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
