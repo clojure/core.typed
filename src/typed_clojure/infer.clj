@@ -242,6 +242,7 @@
   (boolean (the-tc-types (class t))))
 
 (defprotocol IArity
+  (type-parameters [this] "Return the type parameters associated with this arity")
   (matches-args [this args] "Return the arity if it matches the number of args,
                             otherwise nil")
   (match-to-fun-arity [this fun-type] "Return an arity than appears to match a fun-type
@@ -268,7 +269,9 @@
                 (= (count (:dom %))
                    (count (:dom this)))
                 %)
-          (:arities fun-type))))
+          (:arities fun-type)))
+          
+  (type-parameters [this] type-params))
 
 (defconstrainedrecord UniformVariableArity [fixed-dom rest-type rng type-params]
   "An arity with variable domain, with uniform rest type, optional type parameters"
@@ -288,7 +291,9 @@
                 (= (count (:fixed-dom %))
                    (count (:fixed-dom this)))
                 %)
-          (:arities fun-type))))
+          (:arities fun-type)))
+  
+  (type-parameters [this] type-params))
 
 (def arities #{FixedArity UniformVariableArity})
 
@@ -531,7 +536,7 @@
   Fun
   (unparse-type* [this]
     (let [fun-syntax (list* Fun-literal (doall (map unparse-type (:arities this))))]
-      (if-let [type-params (seq (:type-params (first (:arities this))))]
+      (if-let [type-params (seq (type-parameters (first (:arities this))))]
         (list All-literal 
               (-> (doall (map unparse-type type-params))
                 vec)
@@ -727,42 +732,78 @@
     (assert (every? type-variable? (keys x->v)))
     (class t)))
 
+(defn- arity-introduces-shadow? [t x]
+  (some #(= % x) (type-parameters t)))
+
+(defn- rename-shadowing-variable 
+  "Renames a type parameter provided by arity t, from variable x to v.
+  Takes function f that takes 1 argument providing the replacement function"
+  [t x v f]
+  (let [gen-nme (-> x :nme name gensym)
+        new-type-var (map->UnboundedTypeVariable
+                       {:nme gen-nme})
+        rplc-capture #(replace-variables % {x new-type-var})]
+    (f rplc-capture)))
+
+(defn- handle-replace-arity 
+  [t x->v rename-arity replace-free]
+  ;; handle inner scopes, generate unique names for
+  ;; variables with same name but different scope
+  (loop [t t
+         x->v x->v]
+    (let [[x v] (first x->v)]
+      (if (seq x->v)
+        (recur
+          (cond
+            (arity-introduces-shadow? t x)
+            (rename-arity t x v)
+
+            :else
+            (replace-free t x v))
+          (next x->v))
+        t))))
+
+(defmethod replace-variables UniformVariableArity
+  [t x->v]
+  (letfn [(rename-variable-arity-shadow [t x v]
+            (rename-shadowing-variable t x v
+                                       #(assoc t
+                                               :fixed-dom (doall (map % (:fixed-dom t)))
+                                               :rest-type (% (:rest-type t))
+                                               :rng (% (:rng t))
+                                               :type-params (doall (map % (type-parameters t))))))
+          
+          (replace-variable-arity-free-variable [t x v]
+            (let [rplc #(replace-variables % {x v})]
+              (assoc t
+                     :fixed-dom (doall (map rplc (:fixed-dom t)))
+                     :rest-type (rplc (:rest-type t))
+                     :rng (rplc (:rng t)))))]
+    (handle-replace-arity 
+      t 
+      x->v 
+      rename-variable-arity-shadow
+      replace-variable-arity-free-variable)))
+
 (defmethod replace-variables FixedArity
   [t x->v]
-  (letfn [(rename-shadowing-variable [t x v]
-            (let [gen-nme (-> x :nme name gensym)
-                  new-type-var (map->UnboundedTypeVariable
-                                 {:nme gen-nme})
-                  rplc-capture #(replace-variables % {x new-type-var})]
-              (assoc t
-                     :dom (doall (map rplc-capture (:dom t)))
-                     :rng (rplc-capture (:rng t))
-                     :type-params (doall (map rplc-capture (:type-params t))))))
+  (letfn [(rename-fixed-arity-shadow [t x v]
+            (rename-shadowing-variable t x v
+                                       #(assoc t
+                                               :dom (doall (map % (:dom t)))
+                                               :rng (% (:rng t))
+                                               :type-params (doall (map % (type-parameters t))))))
           
-          (replace-free-variable [t x v]
+          (replace-fixed-arity-free-variable [t x v]
             (let [rplc #(replace-variables % {x v})]
               (assoc t
                      :dom (doall (map rplc (:dom t)))
-                     :rng (rplc (:rng t)))))
-          
-          (introduces-shadow? [t x]
-            (some #(= % x) (:type-params t)))]
-
-    ;; handle inner scopes, generate unique names for
-    ;; variables with same name but different scope
-    (loop [t t
-           x->v x->v]
-      (let [[x v] (first x->v)]
-        (if (seq x->v)
-          (recur
-            (cond
-              (introduces-shadow? t x)
-              (rename-shadowing-variable t x v)
-
-              :else
-              (replace-free-variable t x v))
-            (next x->v))
-          t)))))
+                     :rng (rplc (:rng t)))))]
+    (handle-replace-arity
+      t
+      x->v
+      rename-fixed-arity-shadow
+      replace-fixed-arity-free-variable)))
 
 (defmethod replace-variables Fun
   [t x->v]
@@ -811,7 +852,7 @@
   (assert (instance? FixedArity s))
   (let [renames (apply hash-map 
                        (mapcat #(vector % (-> % :nme name gensym))
-                               (filter v (:type-params s))))]
+                               (filter v (type-parameters s))))]
     (if (seq renames)
       ; rename shadowing variables
       (let [rplc #(replace-variables % renames)]
@@ -868,11 +909,11 @@
 
 
 
-;(defn constraint-gen [s t xs v]
-;  (cond
-;    (identical? Any t) nil
-;    (identical? Nothing s) nil
-;))
+(defn constraint-gen [s t xs v]
+  (cond
+    (identical? Any t) nil
+    (identical? Nothing s) nil
+))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
