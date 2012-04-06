@@ -184,8 +184,13 @@
               (:var the-protocol))]})
 
 (defconstrainedrecord Union [types]
-  "A union of types"
-  {:pre [(every? tc-type? types)]})
+  "A disjoint union of types"
+  {:pre [(every? tc-type? types)
+         (every? 
+           (fn [t]
+             (every? #(not (subtype? % t))
+                     (disj (set types) t)))
+           types)]})
 
 (defconstrainedrecord Intersection [types]
   "An intersection of types"
@@ -1208,8 +1213,7 @@
                          (apply intersect-constraint-sets cs))
         
         min-sub (minimal-substitution arity-type constraint-set)
-        _ (println min-sub)
-        _ (println "before" (unparse arity-type))
+        _ (println "before" (unp arity-type))
         arity-type (let [rplc #(replace-variables % min-sub)]
                      (cond
                        (fixed-arity? arity-type)
@@ -1225,7 +1229,7 @@
 
                        :else (assert false "unsupported arity")))
 
-        _ (println "after" (unparse arity-type))
+        _ (println "after" (unp arity-type))
 
         return-type (:rng arity-type)]
     (assoc expr
