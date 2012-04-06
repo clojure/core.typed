@@ -162,7 +162,7 @@
 (defrecord NilType [])
 (def Nil (->NilType))
 
-(defconstrainedrecord Fun [arities type-params]
+(defconstrainedrecord Fun [arities]
   "Function with one or more arities"
   {:pre [(seq arities)
          (every? arity? arities)]})
@@ -338,14 +338,17 @@
 (defprotocol IParseType
   (parse-syntax* [this]))
 
-(declare Fun-literal)
+(declare Fun-literal All-literal)
 
 (defn parse-syntax
   "Type syntax parser, entry point"
   [syn]
-  (parse-syntax* (if (vector? syn)
-                   (list Fun-literal syn) ; wrap arity sugar [] with (Fun ..)
-                   syn)))
+  (parse-syntax* (cond 
+                   (and (list? syn)
+                        (= (first syn)
+                           All-literal)) (list Fun-literal syn) ; wrap (All [x] [x -> x]) sugar with (Fun ..)
+                   (vector? syn) (list Fun-literal syn) ; wrap arity sugar [] with (Fun ..)
+                   :else syn)))
 
 (def parse parse-syntax)
 
@@ -407,24 +410,17 @@
 
 (defmethod parse-list-syntax All-literal
   [[_ [& type-var-names] & [syn & more]]]
-  (let [_ (assert (not more) "Only one type allowed in All")
+  (let [_ (assert (not more) "Only one arity allowed in All scope")
         type-vars (map #(map->UnboundedTypeVariable {:nme %})
                        type-var-names)
 
         type-var-scope (->> (mapcat vector type-var-names type-vars)
-                         (apply hash-map))
+                         (apply hash-map))]
 
-        fun-type
-        (with-type-vars type-var-scope
-          (parse-syntax syn))
+    (with-type-vars type-var-scope
+      (assoc (parse-syntax* syn)
+             :type-params type-vars))))
         
-        _ (assert (instance? Fun fun-type) (str "Type variable syntax only for functions, found "
-                                                (unparse-type fun-type)))
-        
-        add-type-var-scope #(assoc % :type-params type-vars)]
-    (-> fun-type
-      (update-in [:arities] #(doall (map add-type-var-scope %))) ; add type var scope to arities
-           )))
 
 (defmethod parse-list-syntax U-literal
   [[_ & syn]]
@@ -532,26 +528,28 @@
 
   Fun
   (unparse-type* [this]
-    (let [fun-syntax (list* Fun-literal (doall (map unparse-type (:arities this))))]
-      (if-let [type-params (seq (type-parameters (first (:arities this))))]
-        (list All-literal 
-              (-> (doall (map unparse-type type-params))
-                vec)
-              fun-syntax)
-        fun-syntax)))
+    (list* Fun-literal (doall (map unparse-type (:arities this)))))
 
   FixedArity
   (unparse-type* [this]
-    (-> (concat (doall (map unparse-type (:dom this))) 
-                ['-> (unparse-type (:rng this))])
-      vec))
+    (let [sig (-> (concat (doall (map unparse-type (:dom this)))
+                          ['-> (unparse-type (:rng this))])
+                vec)]
+      (if (seq (:type-params this))
+        (list All-literal (vec (doall (map unparse-type (:type-params this))))
+              sig)
+        sig)))
 
   UniformVariableArity
   (unparse-type* [this]
-    (-> (concat (doall (map unparse-type (:fixed-dom this))) 
-                ['& (unparse-type (:rest-type this))
-                 '-> (unparse-type (:rng this))])
-      vec))
+    (let [sig (-> (concat (doall (map unparse-type (:fixed-dom this))) 
+                          ['& (unparse-type (:rest-type this))
+                           '-> (unparse-type (:rng this))])
+                vec)]
+      (if (seq (:type-params this))
+        (list All-literal (vec (doall (map unparse-type (:type-params this))))
+              sig)
+        sig)))
 
   TProtocol
   (unparse-type* [this]
