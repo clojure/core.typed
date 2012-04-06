@@ -2,7 +2,8 @@
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons))
   (:use [trammel.core :only [defconstrainedrecord]])
   (:require [analyze.core :as a]
-            [analyze.util :as util]))
+            [analyze.util :as util]
+            [clojure.set :as set]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Debug macros
@@ -152,9 +153,11 @@
 
 (defrecord AnyType [])
 (def Any (->AnyType))
+(def Any? (partial identical? Any))
 
 (defrecord NothingType [])
 (def Nothing (->NothingType))
+(def Nothing? (partial identical? Nothing))
 
 (defrecord NilType [])
 (def Nil (->NilType))
@@ -223,18 +226,40 @@
   [(every? isubtype? types)])
 
 (defn- simplify-union [the-union]
-  (if (some #(instance? Union %) (:types the-union))
+  (cond 
+    (some #(instance? Union %) (:types the-union))
     (recur (->Union (set (doall (mapcat #(or (and (instance? Union %)
                                                   (:types %))
                                              [%])
                                         (:types the-union))))))
-    the-union))
+
+    (= 1
+       (count (:types the-union)))
+    (first (:types the-union))
+    
+    :else the-union))
 
 (defn union [types]
   (simplify-union (->Union (set types))))
 
+(defconstrainedrecord UnboundedTypeVariable [nme]
+  "A record for unbounded type variables, with an unqualified symbol as a name"
+  {:pre [(symbol? nme)
+         (not (namespace nme))]})
+
+(def type-variables #{UnboundedTypeVariable})
+
+(defn type-variable? [t]
+  (boolean (type-variables (class t))))
+
 (def the-tc-types #{AnyType NothingType Fun TClass PrimitiveClass TProtocol Union NilType
-                    StringType SymbolType KeywordType LongType DoubleType TrueType FalseType})
+                    StringType SymbolType KeywordType LongType DoubleType TrueType FalseType
+                    UnboundedTypeVariable})
+
+(def AllTcTypes ::all-tc-types)
+
+(doseq [t the-tc-types]
+  (derive t AllTcTypes))
 
 (def falsy-values #{False Nil})
 
@@ -268,6 +293,8 @@
     (some #(and (instance? FixedArity %)
                 (= (count (:dom %))
                    (count (:dom this)))
+                (= (count (:type-params %))
+                   (count (:type-params this)))
                 %)
           (:arities fun-type)))
           
@@ -290,52 +317,20 @@
     (some #(and (instance? UniformVariableArity %)
                 (= (count (:fixed-dom %))
                    (count (:fixed-dom this)))
+                (= (count (:type-params %))
+                   (count (:type-params this)))
                 %)
           (:arities fun-type)))
   
   (type-parameters [this] type-params))
 
+(def fixed-arity? (partial instance? FixedArity))
+(def uniform-variable-arity? (partial instance? UniformVariableArity))
+
 (def arities #{FixedArity UniformVariableArity})
 
 (defn arity? [a]
   (-> (class a) arities boolean))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Type variables
-
-(defconstrainedrecord UnboundedTypeVariable [nme]
-  "A record for unbounded type variables, with an unqualified symbol as a name"
-  {:pre [(symbol? nme)
-         (not (namespace nme))]})
-
-(def type-variables #{UnboundedTypeVariable})
-
-(defn type-variable? [t]
-  (boolean (type-variables (class t))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Type refinement
-
-(declare filter?)
-
-(defconstrainedrecord Filter [then-prop else-prop]
-  "A pair of filters, then-prop the proposition for a true value,
-  else-prop for a false value"
-  {:pre [(filter? then-prop)
-         (filter? else-prop)]})
-
-(defconstrainedrecord TypeFilter [the-type]
-  "A refinement saying it is of type the-type"
-  {:pre [(isubtype? the-type)]})
-
-(defconstrainedrecord NotTypeFilter [the-type]
-  "A refinement saying it is not of type the-type"
-  {:pre [(isubtype? the-type)]})
-
-(def filters #{TypeFilter NotTypeFilter})
-
-(defn filter? [a]
-  (-> (class a) filters boolean))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parse Type syntax
@@ -424,9 +419,11 @@
           (parse-syntax syn))
         
         _ (assert (instance? Fun fun-type) (str "Type variable syntax only for functions, found "
-                                                (unparse-type fun-type)))]
-    (assoc fun-type
-           :arities (doall (map #(assoc % :type-params type-vars) (:arities fun-type))) ; add type var scope to arities
+                                                (unparse-type fun-type)))
+        
+        add-type-var-scope #(assoc % :type-params type-vars)]
+    (-> fun-type
+      (update-in [:arities] #(doall (map add-type-var-scope %))) ; add type var scope to arities
            )))
 
 (defmethod parse-list-syntax U-literal
@@ -652,10 +649,12 @@
 
   Fun
   (subtype?* [s t]
-    (every? true?
-            (for [sub-arity (:arities s)]
-              (when-let [t-arity (match-to-fun-arity sub-arity t)]
-                (subtype? sub-arity t-arity)))))
+    (and (= (count (:arities s))
+            (count (:arities t)))
+         (every? true?
+                 (for [sub-arity (:arities s)]
+                   (when-let [t-arity (match-to-fun-arity sub-arity t)]
+                     (subtype? sub-arity t-arity))))))
   
   Union
   (subtype?* [s t]
@@ -675,7 +674,7 @@
 
   UnboundedTypeVariable
   (subtype?* [s t]
-    (instance? UnboundedTypeVariable t))
+    true)
   
   NilType
   (subtype?* [s t]
@@ -713,6 +712,8 @@
 (defn subtype? [s t]
   (assert (isubtype? t) t)
   (cond
+    (type-variable? t) true
+
     (identical? Any t) true
 
     (instance? Union t)
@@ -729,21 +730,25 @@
 (defmulti replace-variables 
   "In type t, replace all occurrences of x with v"
   (fn [t x->v]
-    (assert (every? type-variable? (keys x->v)))
+    (assert (every? type-variable? (keys x->v)) x->v)
+    (assert (every? tc-type? (vals x->v)) x->v)
     (class t)))
 
 (defn- arity-introduces-shadow? [t x]
   (some #(= % x) (type-parameters t)))
 
+(defn- unique-variable
+  "Generate a globally unique type variable based on t"
+  [t]
+  (assert (type-variable? t))
+  (-> t
+    (update-in [:nme] #(-> % name gensym))))
+
 (defn- rename-shadowing-variable 
   "Renames a type parameter provided by arity t, from variable x to v.
   Takes function f that takes 1 argument providing the replacement function"
   [t x v f]
-  (let [gen-nme (-> x :nme name gensym)
-        new-type-var (map->UnboundedTypeVariable
-                       {:nme gen-nme})
-        rplc-capture #(replace-variables % {x new-type-var})]
-    (f rplc-capture)))
+  (f #(replace-variables % {x (unique-variable x)})))
 
 (defn- handle-replace-arity 
   [t x->v rename-arity replace-free]
@@ -767,18 +772,19 @@
   [t x->v]
   (letfn [(rename-variable-arity-shadow [t x v]
             (rename-shadowing-variable t x v
-                                       #(assoc t
-                                               :fixed-dom (doall (map % (:fixed-dom t)))
-                                               :rest-type (% (:rest-type t))
-                                               :rng (% (:rng t))
-                                               :type-params (doall (map % (type-parameters t))))))
+                                       (fn [rplc]
+                                         (-> t
+                                           (update-in [:fixed-dom] #(doall (map rplc %)))
+                                           (update-in [:rest-type] rplc) 
+                                           (update-in [:rng] rplc)
+                                           (update-in [:type-params] #(doall (map rplc %)))))))
           
           (replace-variable-arity-free-variable [t x v]
             (let [rplc #(replace-variables % {x v})]
-              (assoc t
-                     :fixed-dom (doall (map rplc (:fixed-dom t)))
-                     :rest-type (rplc (:rest-type t))
-                     :rng (rplc (:rng t)))))]
+              (-> t
+                (update-in [:fixed-dom] #(doall (map rplc %)))
+                (update-in [:rest-type] rplc) 
+                (update-in [:rng] rplc))))]
     (handle-replace-arity 
       t 
       x->v 
@@ -789,16 +795,17 @@
   [t x->v]
   (letfn [(rename-fixed-arity-shadow [t x v]
             (rename-shadowing-variable t x v
-                                       #(assoc t
-                                               :dom (doall (map % (:dom t)))
-                                               :rng (% (:rng t))
-                                               :type-params (doall (map % (type-parameters t))))))
+                                       (fn [rplc]
+                                         (-> t
+                                           (update-in [:dom] #(doall (map rplc %)))
+                                           (update-in [:rng] rplc) 
+                                           (update-in [:type-params] #(doall (map rplc %)))))))
           
           (replace-fixed-arity-free-variable [t x v]
             (let [rplc #(replace-variables % {x v})]
-              (assoc t
-                     :dom (doall (map rplc (:dom t)))
-                     :rng (rplc (:rng t)))))]
+              (-> t
+                (update-in [:dom] #(doall (map rplc %)))
+                (update-in [:rng] rplc))))]
     (handle-replace-arity
       t
       x->v
@@ -808,9 +815,8 @@
 (defmethod replace-variables Fun
   [t x->v]
   (let [rplc #(replace-variables % x->v)]
-    (update-in t
-               [:arities]
-               #(doall (map rplc %)))))
+    (-> t
+      (update-in [:arities] #(doall (map rplc %))))))
 
 (defmethod replace-variables UnboundedTypeVariable
   [t x->v]
@@ -825,11 +831,13 @@
 ;; Local Type Inference (2000) Pierce & Turner, Section 3.2
 
 (defmulti promote 
-  "Eliminate all variables in type s that occur in set v by promoting the type"
+  "Return the least supertype of s that does not reference any type variables
+  in the set v"
   (fn [s v] (class s)))
 
 (defmulti demote 
-  "Eliminate all variables in type s that occur in set v by demoting the type"
+  "Return the greatest subtype of s that does not reference any type variables
+  in the set v"
   (fn [s v] (class s)))
 
 (defmethod promote AnyType
@@ -850,30 +858,36 @@
   "Rename any type parameters conflicting with type variables in set v"
   [s v]
   (assert (instance? FixedArity s))
-  (let [renames (apply hash-map 
-                       (mapcat #(vector % (-> % :nme name gensym))
-                               (filter v (type-parameters s))))]
+  (let [renames (into {}
+                      (map #(vector % (unique-variable %))
+                           (filter v (type-parameters s))))]
     (if (seq renames)
       ; rename shadowing variables
       (let [rplc #(replace-variables % renames)]
-        (assoc s
-               :dom (doall (map rplc (:dom s)))
-               :rng (rplc (:dom s))
-               :type-params (doall (map (rplc (:dom s))))))
+        (-> s
+          (update-in [:dom] #(doall (map rplc %)))
+          (update-in [:rng] rplc)
+          (update-in [:type-params] #(doall (map rplc %)))))
       s)))
 
 (defmethod promote FixedArity
   [s v]
-  (let [s (rename-type-args s v)]
-    (assoc s
-           :dom (doall (map #(demote % v) (:dom s)))
-           :rng (promote (:rng s) v))))
+  (let [s (rename-type-args s v)
+        dmt #(demote % v)
+        pmt #(promote % v)]
+    (-> s
+      (update-in [:dom] #(doall (map dmt %)))
+      (update-in [:rng] pmt))))
 
 (defmethod promote Fun
   [s v]
-  (update-in s
-             [:arities] 
-             #(doall (map promote %))))
+  (let [pmt #(promote % v)]
+    (-> s
+      (update-in [:arities] #(doall (map pmt %))))))
+
+(defmethod promote AllTcTypes
+  [s v]
+  s)
 
 (defmethod demote AnyType
   [s v]
@@ -891,10 +905,16 @@
 
 (defmethod demote FixedArity
   [s v]
-  (let [s (rename-type-args s v)]
-    (assoc s
-           :dom (doall (map #(promote % v) (:dom s)))
-           :rng (demote (:rng s)))))
+  (let [s (rename-type-args s v)
+        pmt #(promote % v)
+        dmt #(demote % v)]
+    (-> s
+      (update-in [:dom] #(doall (map pmt %)))
+      (update-in [:rng] dmt))))
+
+(defmethod demote AllTcTypes
+  [s v]
+  s)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint generation
@@ -907,14 +927,204 @@
          (isubtype? upper-bound)
          (isubtype? lower-bound)]})
 
+(def type-variable-constraint? (partial instance? TypeVariableConstraint))
 
+(defconstrainedrecord ConstraintSet [constraints]
+  "A constraint set, each constraint for a different variable"
+  {:pre [(every? type-variable-constraint? constraints)
+         (let [no-duplicates? (fn [{:keys [type-var]}]
+                                (= 1
+                                   (count 
+                                     (filter #(= (:type-var %) type-var)
+                                             constraints))))]
+           (every? no-duplicates? constraints))]})
+
+(defn intersect-constraint-sets
+  "Returns the intersection of constraint sets cs"
+  [& cs]
+  (let [merged-constraints (for [[t constraints] (group-by :type-var (mapcat :constraints cs))]
+                             (map->TypeVariableConstraint
+                               {:type-var t
+                                :lower-bound (union (map :lower-bound constraints))
+                                :upper-bound (map->Intersection
+                                               {:types (map :upper-bound constraints)})}))]
+    (map->ConstraintSet
+      {:constraints merged-constraints})))
+
+(defn trivial-constraint 
+  "Return the trivial constraint for variable x"
+  [x]
+  (map->TypeVariableConstraint
+    {:type-var x
+     :lower-bound Nothing
+     :upper-bound Any}))
+
+(defn empty-constraint-set
+  "Returns the empty constraint set for variables in xs"
+  [xs]
+  (map->ConstraintSet
+    {:constraints (map trivial-constraint xs)}))
+
+(defn singleton-constraint-set
+  "Returns the singleton constraint set, containing the provided
+  constraint, with the trivial constraint for each variable in set xs"
+  [constraint xs]
+  (map->ConstraintSet
+    {:constraints (cons constraint (map trivial-constraint xs))}))
+
+(declare constraint-gen*)
 
 (defn constraint-gen [s t xs v]
-  (cond
-    (identical? Any t) nil
-    (identical? Nothing s) nil
-))
+  (let [conflicts (set/intersection xs v)
+        renames (into {}
+                      (for [n conflicts]
+                        [n (unique-variable n)]))
 
+        ;; enforce (set/intersection xs v) => #{}
+        [s t] (map #(replace-variables % renames) [s t])
+        xs (set (replace renames xs))]
+    (constraint-gen* s t xs v)))
+
+(defmulti constraint-gen*
+  "Given a set of type variables v, a set of unknowns xs, and
+  two types s and t, calculate the minimal (ie. least contraining)
+  xs/v constraint set C that guarantees s <: t"
+  (fn [s t xs v]
+    (assert (set? xs))
+    [(class s) (class t)]))
+
+(defn- eliminate-variables 
+  "Eliminate all variables in set v that occur in type t
+  by renaming them. Respects inner scopes, renaming accordingly"
+  [t v]
+  (let [subst (into {}
+                    (for [tv v]
+                      [tv (unique-variable tv)]))]
+    (replace-variables t subst)))
+
+(defn cg-upper [y s xs v]
+  (let [s (eliminate-variables s xs)
+        t (demote s v)]
+    (singleton-constraint-set
+      (map->TypeVariableConstraint
+        {:type-var y
+         :lower-bound Nothing
+         :upper-bound t})
+      (disj xs y))))
+
+(defn cg-lower [s y xs v]
+  (let [s (eliminate-variables s xs)
+        t (promote s v)]
+    (singleton-constraint-set
+      (map->TypeVariableConstraint
+        {:type-var y
+         :lower-bound t
+         :upper-bound Any})
+      (disj xs y))))
+
+(defmethod constraint-gen* [AllTcTypes AllTcTypes]
+  [s t xs v]
+  (cond
+    (xs s) (cg-upper s t xs v)
+    (xs t) (cg-lower s t xs v)
+    ;; cg-refl
+    :else (empty-constraint-set xs)))
+
+(defmethod constraint-gen* [FixedArity FixedArity]
+  [s t xs v]
+  (let [;; enforce (set/intersection (:type-params s)
+        ;;                           (set/union xs v))
+        ;;         => #{}
+        conflicts (set/intersection (set (:type-params s))
+                                    (set/union xs v))
+
+        renames (into {}
+                      (for [v conflicts]
+                        [v (unique-variable v)]))
+        
+        [s t] (map #(replace-variables % renames)
+                   [s t])
+
+        v-union-ys (set/union v (:type-params s))
+
+        cs (map #(constraint-gen %1 %2 xs v-union-ys)
+                 (:dom t)
+                 (:dom s))
+        
+        d (constraint-gen (:rng s) (:rng t) xs v-union-ys)]
+    (apply intersect-constraint-sets d cs)))
+
+(defmethod constraint-gen* [UniformVariableArity UniformVariableArity]
+  [s t xs v]
+  (let [;; enforce (set/intersection (:type-params s)
+        ;;                           (set/union xs v))
+        ;;         => #{}
+        conflicts (set/intersection (set (:type-params s))
+                                    (set/union xs v))
+
+        renames (into {}
+                      (for [v conflicts]
+                        [v (unique-variable v)]))
+        
+        [s t] (map #(replace-variables % renames)
+                   [s t])
+
+        v-union-ys (set/union v (:type-params s))
+
+        cs (map #(constraint-gen %1 %2 xs v-union-ys)
+                (concat (:fixed-dom t) [(:rest-type t)])
+                (concat (:fixed-dom s) [(:rest-type s)]))
+        
+        d (constraint-gen (:rng s) (:rng t) xs v-union-ys)]
+    (apply intersect-constraint-sets d cs)))
+
+(defmethod constraint-gen* [Fun Fun]
+  [s t xs v]
+  (->>
+    (for [s-arity (:arities s)]
+      (constraint-gen
+        s-arity
+        (match-to-fun-arity s-arity t)
+        xs 
+        v))
+    (apply intersect-constraint-sets)))
+
+(defn minimal-substitution [r constraint-set]
+  (into {}
+        (loop
+          [min-sub {}
+           cs (:constraints constraint-set)]
+          (if (empty? cs)
+            min-sub
+            (let [{x :type-var
+                   s :lower-bound
+                   t :upper-bound} (first cs)
+                  sub-entry (cond
+                              ;; r is constant or covariant in x
+                              (or (subtype? (replace-variables r {x Nothing})
+                                            (replace-variables r {x Any}))
+                                  (subtype? (replace-variables r {x s})
+                                            (replace-variables r {x t})))
+                              [x s]
+
+                              ;; r is contravariant in x
+                              (subtype? (replace-variables r {x t})
+                                        (replace-variables r {x s}))
+                              [x t]
+
+                              ;; r is invariant in x and (= s t)
+                              (and (= s t)
+                                   (subtype? (replace-variables r {x s})
+                                             (replace-variables r {x t})))
+                              [x s]
+
+                              :else (throw (Exception. "No substitution exists to satisfy type")))]
+              (recur 
+                (into min-sub
+                      [sub-entry])
+                (next cs)))))))
+
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
 
@@ -976,19 +1186,48 @@
 
         _ (assert arity-type)
 
+        expected-dom (take (count args)
+                           (cond
+                             (instance? FixedArity arity-type)
+                             (:dom arity-type)
+
+                             (instance? UniformVariableArity arity-type)
+                             (concat (:fixed-dom arity-type)
+                                     (repeat (:rest-type arity-type)))
+
+                             :else (assert false (str "Unsupported Arity" arity-type))))
+
         checked-args (doall (map #(-> %1
                                     (assoc ::+T %2)
                                     check)
                                  args
-                                 (cond
-                                   (instance? FixedArity arity-type)
-                                   (:dom arity-type)
+                                 expected-dom))
 
-                                   (instance? UniformVariableArity arity-type)
-                                   (concat (:fixed-dom arity-type)
-                                           (repeat (:rest-type arity-type)))
+        ;; instatiate type arguments
+        constraint-set (let [cs (map #(constraint-gen %1 %2 (set (:type-params arity-type)) #{})
+                                     (map ::+T checked-args)
+                                     expected-dom)]
+                         (apply intersect-constraint-sets cs))
+        
+        min-sub (minimal-substitution arity-type constraint-set)
+        _ (println min-sub)
+        _ (println "before" (unparse arity-type))
+        arity-type (let [rplc #(replace-variables % min-sub)]
+                     (cond
+                       (fixed-arity? arity-type)
+                       (-> arity-type
+                         (update-in [:dom] #(doall (map rplc %)))
+                         (update-in [:rng] rplc))
 
-                                   :else (assert false (str "Unsupported Arity" arity-type)))))
+                       (uniform-variable-arity? arity-type)
+                       (-> arity-type
+                         (update-in [:fixed-dom] #(doall (map rplc %)))
+                         (update-in [:rest-type] rplc)
+                         (update-in [:rng] rplc))
+
+                       :else (assert false "unsupported arity")))
+
+        _ (println "after" (unparse arity-type))
 
         return-type (:rng arity-type)]
     (assoc expr
@@ -1392,6 +1631,20 @@
             (float? a) (takes-float a)
             (integer? a) (takes-integer a)
             :else false)))))
+
+  (with-type-anns
+    {identity (All [a]
+                   [a -> a])}
+    (synthesize-form
+      (identity 1)))
+
+  (with-type-anns
+    {both-same (All [a]
+                    [a a -> a])}
+    (synthesize-form
+      (do
+        (declare both-same)
+        (both-same 1 "a"))))
 
 
   ;; Literals
