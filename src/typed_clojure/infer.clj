@@ -259,7 +259,7 @@
 
 (def the-tc-types #{AnyType NothingType Fun TClass PrimitiveClass TProtocol Union NilType
                     StringType SymbolType KeywordType LongType DoubleType TrueType FalseType
-                    UnboundedTypeVariable})
+                    UnboundedTypeVariable Intersection})
 
 (def AllTcTypes ::all-tc-types)
 
@@ -278,14 +278,14 @@
   (match-to-fun-arity [this fun-type] "Return an arity than appears to match a fun-type
                                       arity, by counting arguments, not subtyping"))
 
-(declare filter? type-variable?)
+(declare case-filter? type-variable?)
 
 (defconstrainedrecord FixedArity [dom rng flter type-params]
   "An arity with fixed domain. Supports optional filter, and optional type parameters"
   {:pre [(every? isubtype? dom)
          (isubtype? rng)
          (or (nil? flter)
-             (filter? flter))
+             (case-filter? flter))
          (or (nil? type-params)
              (every? type-variable? type-params))]}
   IArity
@@ -336,6 +336,32 @@
 
 (defn arity? [a]
   (-> (class a) arities boolean))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Filters
+
+(defconstrainedrecord TypeFilter [var type]
+  "A proposition that says var is of type type"
+  {:pre [(symbol? var)
+         (tc-type? type)]})
+
+(defconstrainedrecord NotTypeFilter [var type]
+  "A proposition that says var is not of type type"
+  {:pre [(symbol? var)
+         (tc-type? type)]})
+
+(def the-filters #{TypeFilter NotTypeFilter})
+
+(defn filter? [a]
+  (-> (class a) the-filters boolean))
+
+(defconstrainedrecord CaseFilter [then else]
+  "Contains two propositions, then for the truthy result,
+  else for the falsy result"
+  {:pre [(filter? then)
+         (filter? else)]})
+
+(def case-filter? (partial instance? CaseFilter))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parse Type syntax
@@ -412,6 +438,7 @@
 (def U-literal 'U)
 (def I-literal 'I)
 (def Fun-literal 'Fun)
+(def predicate-literal 'predicate)
 
 (defmethod parse-list-syntax All-literal
   [[_ [& type-var-names] & [syn & more]]]
@@ -436,7 +463,7 @@
   (map->Intersection 
     {:types (doall (map parse-syntax syn))}))
 
-(defmethod parse-list-syntax 'predicate
+(defmethod parse-list-syntax predicate-literal
   [[_ & [typ-syntax :as args]]]
   (assert (= 1 (count args)))
   (let [pred-type (parse-syntax typ-syntax)]
@@ -467,23 +494,57 @@
     (parse-list-syntax this)))
 
 (defn- split-arity-syntax 
-  "Splits arity syntax into [dom rng]"
+  "Splits arity syntax into [dom rng opts-map]"
   [arity-syntax]
   (assert (some #(= '-> %) arity-syntax) (str "Arity " arity-syntax " missing return type"))
-  (let [[dom [_ rng]] (split-with #(not= '-> %) arity-syntax)]
-    [dom rng]))
+  (let [[dom [_ rng & opts]] (split-with #(not= '-> %) arity-syntax)]
+    [dom rng (apply hash-map opts)]))
+
+(defn- parse-filter [syn]
+  (assert (vector? syn))
+  (let [[nme-sym keyw type-syn] syn
+        type (parse-syntax type-syn)]
+    (case keyw
+      :-> (map->TypeFilter
+            {:var nme-sym
+             :type type})
+      :!-> (map->NotTypeFilter
+             {:var nme-sym
+              :type type}))))
 
 (extend-protocol IParseType
   IPersistentVector
   (parse-syntax* [this]
-    (let [[dom rng] (split-arity-syntax this)
+    (let [[dom rng opts-map] (split-arity-syntax this)
 
-          [fixed-dom [_ uniform-rest-type :as rest-args]]
+          [fixed-dom-maybe-named [_ uniform-rest-type :as rest-args]]
           (split-with #(not= '& %) dom)
+
+          _ (assert (or (and (every? vector? fixed-dom-maybe-named)
+                             (not (seq rest-args)))
+                        (every? (complement vector?) fixed-dom-maybe-named))
+                    "Either all or no parameters must be named, and cannot name a rest argument")
+
+          named-params (when (every? vector? fixed-dom-maybe-named)
+                         (map first fixed-dom-maybe-named))
+
+          fixed-dom (if (every? vector? fixed-dom-maybe-named)
+                      (map #(nth % 2) fixed-dom-maybe-named)
+                      fixed-dom-maybe-named)
 
           _ (assert (or (not (seq rest-args))
                         (= 2 (count rest-args)))
                     "Incorrect uniform variable arity syntax")
+
+          _ (println "opts" opts-map)
+          extras (into {}
+                       (for [[nme syn] opts-map]
+                         (cond
+                           (= :filter nme) [:flter (map->CaseFilter
+                                                     {:then (parse-filter (:then syn))
+                                                      :else (parse-filter (:else syn))})]
+
+                           :else (throw (Exception. (str "Unsupported option " nme))))))
 
           fixed-dom-types (doall (map parse-syntax fixed-dom))
           rng-type (parse-syntax rng)]
@@ -493,8 +554,11 @@
            :rest-type (parse-syntax uniform-rest-type)
            :rng rng-type})
         (map->FixedArity
-          {:dom fixed-dom-types
-           :rng rng-type}))))
+          (merge 
+            extras
+            {:dom fixed-dom-types
+             :rng rng-type
+             :named-params named-params})))))
 
   nil
   (parse-syntax* [_]
@@ -511,6 +575,21 @@
   (unparse-type* type-obj))
 
 (def unparse unparse-type)
+
+(defmulti unparse-filter class)
+
+(defmethod unparse-filter CaseFilter
+  [{:keys [then else]}]
+  {:then (unparse-filter then)
+   :else (unparse-filter else)})
+
+(defmethod unparse-filter TypeFilter
+  [{:keys [var type]}]
+  [var :-> (unparse-type type)])
+
+(defmethod unparse-filter NotTypeFilter
+  [{:keys [var type]}]
+  [var :!-> (unparse-type type)])
 
 (extend-protocol IUnparseType
   TClass
@@ -537,8 +616,19 @@
 
   FixedArity
   (unparse-type* [this]
-    (let [sig (-> (concat (doall (map unparse-type (:dom this)))
-                          ['-> (unparse-type (:rng this))])
+    (let [dom (doall (map unparse-type (:dom this)))
+          ;; handle named parameters
+          dom (if-let [names (seq (:named-params this))]
+                (map #(vector %1 :- %2)
+                     names
+                     dom)
+                dom)
+          rng (unparse-type (:rng this))
+          flter (when-let [flter (:flter this)]
+                  (unparse-filter flter))
+
+          sig (-> (concat dom ['-> rng] (when flter
+                                          [:filter flter]))
                 vec)]
       (if (seq (:type-params this))
         (list All-literal (vec (doall (map unparse-type (:type-params this))))
@@ -1207,9 +1297,9 @@
                                  expected-dom))
 
         ;; instatiate type arguments
-        constraint-set (let [cs (map #(constraint-gen %1 %2 (set (:type-params arity-type)) #{})
-                                     (map ::+T checked-args)
-                                     expected-dom)]
+        constraint-set (let [cs (doall (map #(constraint-gen %1 %2 (set (:type-params arity-type)) #{})
+                                            (doall (map ::+T checked-args))
+                                            expected-dom))]
                          (apply intersect-constraint-sets cs))
         
         min-sub (minimal-substitution arity-type constraint-set)
@@ -1231,9 +1321,11 @@
 
         _ (println "after" (unp arity-type))
 
+        instatiated-fexpr (assoc synthesized-fexpr
+                                 ::+T (map->Fun {:arities [arity-type]}))
         return-type (:rng arity-type)]
     (assoc expr
-           :fexpr synthesized-fexpr
+           :fexpr instatiated-fexpr
            :args checked-args
            ::+T return-type)))
 
@@ -1388,6 +1480,23 @@
 
 (doseq [k #{:keyword :string :symbol :constant :number :boolean :nil}]
   (literal-dispatches k))
+
+;; empty-expr
+
+(defmethod check :empty-expr
+  [{:keys [coll] :as expr}]
+  (let [expected-type (::+T expr)
+        _ (assert expected-type "empty-expr: must provide expected type in checking mode")
+        actual-type (map->TClass {:the-class (class coll)})
+        _ (assert-subtype actual-type expected-type)]
+    (assoc expr
+           ::+T actual-type)))
+
+(defmethod synthesize :empty-expr
+  [{:keys [coll] :as expr}]
+  (let [actual-type (map->TClass {:the-class (class coll)})]
+    (assoc expr
+           ::+T actual-type)))
 
 ;; let
 
@@ -1618,6 +1727,19 @@
       (defn id-long [a]
         (identity a))))
 
+  (with-type-anns
+    {inter [(I clojure.lang.Seqable
+               clojure.lang.IPersistentCollection)
+            -> nil]}
+    (synthesize-form
+      (do
+        (inter '{})
+        (inter '())
+        (inter []))))
+
+(+T float? [[x :- Any] -> Boolean 
+            :filter {:then (TypeFilter x Float)
+                     :else (NotTypeFilter x Float)}])
 
   (with-type-anns
     {float? (predicate Float)
@@ -1638,7 +1760,10 @@
     {identity (All [a]
                    [a -> a])}
     (synthesize-form
-      (identity 1)))
+      (do
+        (defn identity [b]
+          b)
+        (identity 1))))
 
   (with-type-anns
     {both-same (All [a]
