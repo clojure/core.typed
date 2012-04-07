@@ -802,6 +802,7 @@
 
 (doseq [[dispatch-class isa-class keyword-accessor]
         #{[LongType Long :the-long]
+          [DoubleType Double :the-double]
           [StringType String :the-string]
           [SymbolType Symbol :the-symbol]
           [KeywordType Keyword :the-keyword]
