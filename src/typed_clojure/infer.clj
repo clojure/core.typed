@@ -470,7 +470,15 @@
     (->Fun [(map->FixedArity 
               {:dom [Any]
                :rng (->TClass Boolean)
-               :pred-type pred-type})])))
+               :pred-type pred-type
+               :named-params '(a)
+               :flter (map->CaseFilter
+                        {:then (map->TypeFilter
+                                 {:var 'a
+                                  :type pred-type})
+                         :else (map->NotTypeFilter
+                                 {:var 'a
+                                  :type pred-type})})})])))
 
 (defmethod parse-list-syntax 'quote
   [[_ & [sym :as args]]]
