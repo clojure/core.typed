@@ -544,7 +544,6 @@
                         (= 2 (count rest-args)))
                     "Incorrect uniform variable arity syntax")
 
-          _ (println "opts" opts-map)
           extras (into {}
                        (for [[nme syn] opts-map]
                          (cond
@@ -761,9 +760,12 @@
   (subtype?* [s t]
     (cond 
       (instance? Union t) 
-      (map-all-true? #(subtype? % t) (:types s)))
+      ;; each element of s is a subtype of some type in t
+      (map-all-true? (fn [sub]
+                       (boolean (some #(subtype? sub %) (:types t))))
+                     (:types s))
 
-      :else (every? #(subtype? % t) (:types s)))
+      :else (every? #(subtype? % t) (:types s))))
 
   Intersection
   (subtype?* [s t]
@@ -818,7 +820,8 @@
 
     (identical? Any t) true
 
-    (instance? Union t)
+    (and (instance? Union t)
+         (not (instance? Union s)))
     (boolean (some #(subtype? s %) (:types t)))
 
     (instance? Intersection t)
@@ -1544,7 +1547,7 @@
     (assoc expr
            :binding-inits typed-binding-inits
            :body checked-body
-           ::+T (-> body ::+T))))
+           ::+T (-> checked-body ::+T))))
 
 ;; fn
 
@@ -1614,11 +1617,11 @@
         butlast-synthesized-exprs (vec (doall (map synthesize (butlast exprs))))
         _ (assert (seq exprs))
         last-checked-expr (check (assoc (last exprs)
-                                      ::+T expected-type))
+                                        ::+T expected-type))
         typed-exprs (conj butlast-synthesized-exprs last-checked-expr)
 
         actual-type (::+T last-checked-expr)
-        _ (assert actual-type)]
+        _ (assert actual-type last-checked-expr)]
     (assoc expr
            :exprs typed-exprs
            ::+T actual-type)))
