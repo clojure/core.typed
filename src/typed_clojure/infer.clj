@@ -1,6 +1,7 @@
 (ns typed-clojure.infer
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons))
-  (:use [trammel.core :only [defconstrainedrecord]])
+  (:use [trammel.core :only [defconstrainedrecord defconstrainedvar
+                             constrained-atom]])
   (:require [analyze.core :as a]
             [analyze.util :as util]
             [clojure.set :as set]))
@@ -19,22 +20,11 @@
   `(when @debug-mode
      (println ~@body)))
 
-(defmacro ast [form]
-  `(a/analyze-one {:ns {:name (ns-name *ns*)} :context :eval} '~form))
-
-(defn- ppexpr [form]
-  (util/print-expr form :children :env :Expr-obj :ObjMethod-obj))
-
-(defmacro print-ast [form]
-  `(-> (a/analyze-one {:ns {:name '~'user} :context :eval} '~form)
-    (util/print-expr :children :Expr-obj :LocalBinding-obj :ObjMethod-obj :env)))
-
 (defmacro check-form [form]
-  `(-> (check (ast ~form))
-     (util/print-expr :children :Expr-obj :env)))
+  `(check (a/ast ~form)))
 
 (defmacro synthesize-form [form]
-  `(synthesize (ast ~form)))
+  `(synthesize (a/ast ~form)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
@@ -80,8 +70,8 @@
                                (resolve-class-symbol (:return-type method))])})]}))
 
 (defn var-or-class->sym [var-or-class]
-  (assert (or (var? var-or-class)
-              (class? var-or-class)))
+  {:pre [(or (var? var-or-class)
+             (class? var-or-class))]}
   (cond
     (var? var-or-class) (symbol (str (.name (.ns var-or-class))) (str (.sym var-or-class)))
     :else (symbol (.getName var-or-class))))
@@ -104,19 +94,50 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type contexts
 
-(def ^:dynamic *type-db* (atom {}))
-(def ^:dynamic *local-type-db* {})
+(declare Type?)
+
+(defn type-db-var-contract [m]
+  (and (every? namespace (keys @m))
+       (every? Type? (vals @m))))
+
+(defn type-db-atom-contract [m]
+  (and (every? namespace (keys m))
+       (every? Type? (vals m))))
+
+(defconstrainedvar 
+  ^:dynamic *type-db* 
+  (constrained-atom {}
+                    "Map from qualified symbols to types"
+                    [type-db-atom-contract])
+  "Map from qualified symbols to types"
+  [type-db-var-contract])
+
+(defn local-type-db-contract [m]
+  (and (every? (complement namespace) (keys m))
+       (every? Type? (vals m))))
+
+(defconstrainedvar 
+  ^:dynamic *local-type-db* {}
+  "Map from unqualified names to types"
+  [local-type-db-contract])
+
+(defn type-var-scope-contract [m]
+  (and (every? (complement namespace) (keys m))
+       (every? Type? (vals m))))
 
 ;(+T *type-var-scope* (IPersistentMap Symbol UnboundedTypeVariable))
-(def ^:dynamic *type-var-scope* {})
+(defconstrainedvar
+  ^:dynamic *type-var-scope* {}
+  "Map from unqualified names to types"
+  [type-var-scope-contract])
 
 (defn reset-type-db []
   (swap! *type-db* (constantly {})))
 
-(declare isubtype?)
-
 (defn type-of [sym-or-var]
-  {:post [(isubtype? %)]}
+  {:pre [(or (symbol? sym-or-var)
+             (var? sym-or-var))]
+   :post [(Type? %)]}
   (let [sym (if (var? sym-or-var)
               (symbol (str (.name (.ns sym-or-var))) (str (.sym sym-or-var)))
               sym-or-var)]
@@ -149,86 +170,113 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed Clojure Kinds
 
-(declare arity? tc-type?)
+(def Type ::type-type)
 
-(defrecord AnyType [])
+(defn Type? [t]
+  (isa? (class t) Type))
+
+(defmacro def-type [nme & body]
+  `(let [a# (defconstrainedrecord ~nme ~@body)]
+     (derive a# Type)
+     a#))
+
+;; Single instance types
+
+(def-type AnyType []
+  "The top type, supertype of all types"
+  [])
 (def Any (->AnyType))
 (def Any? (partial identical? Any))
 
-(defrecord NothingType [])
+(def-type NothingType []
+  "The bottom type, subtype of all types"
+  [])
 (def Nothing (->NothingType))
 (def Nothing? (partial identical? Nothing))
 
-(defrecord NilType [])
+(def-type NilType []
+  "Type for nil"
+  [])
 (def Nil (->NilType))
+(def Nil? (partial identical? Nil))
 
-(defconstrainedrecord Fun [arities]
+(def-type TrueType []
+  "The type for the true literal"
+  [])
+(def True (->TrueType))
+(def True? (partial identical? True))
+
+(def-type FalseType []
+  "The type for the false literal"
+  [])
+(def False (->FalseType))
+(def False? (partial identical? False))
+
+(def falsy-values #{False Nil})
+
+;; singleton types
+
+(def-type KeywordType [the-keyword]
+  "A keyword instance"
+  [(keyword? the-keyword)])
+
+(def-type SymbolType [the-symbol]
+  "A symbol instance"
+  [(symbol? the-symbol)])
+
+(def-type StringType [the-string]
+  "A string instance"
+  [(string? the-string)])
+
+(def-type DoubleType [the-double]
+  "A Double instance"
+  [(instance? Double the-double)])
+
+(def-type LongType [the-long]
+  "A Long instance"
+  [(instance? Long the-long)])
+
+(def-type ConstantVector [types]
+  "A constant vector type"
+  [(every? Type? types)])
+
+(def-type ConstantList [types]
+  "A constant list type"
+  [(every? Type? types)])
+
+;; Base types
+
+(declare Arity?)
+
+(def-type Fun [arities]
   "Function with one or more arities"
   {:pre [(seq arities)
-         (every? arity? arities)]})
+         (every? Arity? arities)]})
 
-(defconstrainedrecord TClass [the-class]
+(def-type TClass [the-class]
   "A class"
   {:pre [(class? the-class)]})
 
-(defconstrainedrecord PrimitiveClass [the-class]
+(def-type PrimitiveClass [the-class]
   "A primitive class"
   {:pre [(or (nil? the-class) ; void primitive
              (and (class? the-class)
                   (.isPrimitive the-class)))]})
 
-(defconstrainedrecord TProtocol [the-protocol]
+(def-type TProtocol [the-protocol]
   "A protocol"
   {:pre [(and (map? the-protocol)
               (:on the-protocol)
               (:var the-protocol))]})
 
-(defconstrainedrecord Union [types]
+(def-type Union [types]
   "A disjoint union of types"
-  {:pre [(every? tc-type? types)
+  {:pre [(every? Type? types)
          (every? 
            (fn [t]
              (every? #(not (subtype? % t))
                      (disj (set types) t)))
            types)]})
-
-(defconstrainedrecord Intersection [types]
-  "An intersection of types"
-  {:pre [(every? tc-type? types)]})
-
-(defrecord TrueType [])
-(def True (->TrueType))
-
-(defrecord FalseType [])
-(def False (->FalseType))
-
-(defconstrainedrecord KeywordType [the-keyword]
-  "A keyword instance"
-  [(keyword? the-keyword)])
-
-(defconstrainedrecord SymbolType [the-symbol]
-  "A symbol instance"
-  [(symbol? the-symbol)])
-
-(defconstrainedrecord StringType [the-string]
-  "A string instance"
-  [(string? the-string)])
-
-(defconstrainedrecord DoubleType [the-double]
-  "A Double instance"
-  [(instance? Double the-double)])
-
-(defconstrainedrecord LongType [the-long]
-  "A Long instance"
-  [(instance? Long the-long)])
-
-(defconstrainedrecord ConstantVector [types]
-  "A constant vector type"
-  [(every? isubtype? types)])
-
-(defconstrainedrecord ConstantList [types]
-  "A constant list type"
-  [(every? isubtype? types)])
 
 (defn- simplify-union [the-union]
   (cond 
@@ -247,7 +295,13 @@
 (defn union [types]
   (simplify-union (->Union (set types))))
 
-(defconstrainedrecord UnboundedTypeVariable [nme]
+(def-type Intersection [types]
+  "An intersection of types"
+  {:pre [(every? Type? types)]})
+
+;; type variables
+
+(def-type UnboundedTypeVariable [nme]
   "A record for unbounded type variables, with an unqualified symbol as a name"
   {:pre [(symbol? nme)
          (not (namespace nme))]})
@@ -257,19 +311,7 @@
 (defn type-variable? [t]
   (boolean (type-variables (class t))))
 
-(def the-tc-types #{AnyType NothingType Fun TClass PrimitiveClass TProtocol Union NilType
-                    StringType SymbolType KeywordType LongType DoubleType TrueType FalseType
-                    UnboundedTypeVariable Intersection})
-
-(def AllTcTypes ::all-tc-types)
-
-(doseq [t the-tc-types]
-  (derive t AllTcTypes))
-
-(def falsy-values #{False Nil})
-
-(defn tc-type? [t]
-  (boolean (the-tc-types (class t))))
+;; arities
 
 (defprotocol IArity
   (type-parameters [this] "Return the type parameters associated with this arity")
@@ -278,16 +320,27 @@
   (match-to-fun-arity [this fun-type] "Return an arity than appears to match a fun-type
                                       arity, by counting arguments, not subtyping"))
 
-(declare case-filter? type-variable?)
+(def Arity ::arity-type)
 
-(defconstrainedrecord FixedArity [dom rng flter type-params]
+(defn Arity? [a]
+  (isa? (class a) Arity))
+
+(defmacro def-arity [nme & body]
+  `(let [a# (def-type ~nme ~@body)]
+     (derive a# Arity)
+     a#))
+
+(declare FilterSet?)
+
+(def-arity FixedArity [dom rng flter type-params]
   "An arity with fixed domain. Supports optional filter, and optional type parameters"
-  {:pre [(every? isubtype? dom)
-         (isubtype? rng)
+  {:pre [(every? Type? dom)
+         (Type? rng)
          (or (nil? flter)
-             (case-filter? flter))
+             (FilterSet? flter))
          (or (nil? type-params)
              (every? type-variable? type-params))]}
+
   IArity
   (matches-args [this args]
     (when (= (count dom)
@@ -305,11 +358,11 @@
           
   (type-parameters [this] type-params))
 
-(defconstrainedrecord UniformVariableArity [fixed-dom rest-type rng type-params]
+(def-arity UniformVariableArity [fixed-dom rest-type rng type-params]
   "An arity with variable domain, with uniform rest type, optional type parameters"
-  {:pre [(every? isubtype? fixed-dom)
-         (isubtype? rest-type)
-         (isubtype? rng)
+  {:pre [(every? Type? fixed-dom)
+         (Type? rest-type)
+         (Type? rng)
          (or (nil? type-params)
              (every? type-variable? type-params))]}
   IArity
@@ -329,39 +382,42 @@
   
   (type-parameters [this] type-params))
 
-(def fixed-arity? (partial instance? FixedArity))
-(def uniform-variable-arity? (partial instance? UniformVariableArity))
-
-(def arities #{FixedArity UniformVariableArity})
-
-(defn arity? [a]
-  (-> (class a) arities boolean))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
 
-(defconstrainedrecord TypeFilter [var type]
+(def ^:private Filter ::filter-type)
+
+(defmacro def-filter [nme & body]
+  `(let [a# (defconstrainedrecord ~nme ~@body)]
+     (derive a# Filter)
+     a#))
+
+(defn Filter? [a]
+  (isa? (class a) Filter))
+
+(def-filter TrivialFilter []
+  "A proposition that is always true"
+  [])
+
+(def-filter ImpossibleFilter []
+  "A proposition that is never true"
+  [])
+
+(def-filter TypeFilter [var type]
   "A proposition that says var is of type type"
   {:pre [(symbol? var)
-         (tc-type? type)]})
+         (Type? type)]})
 
-(defconstrainedrecord NotTypeFilter [var type]
+(def-filter NotTypeFilter [var type]
   "A proposition that says var is not of type type"
   {:pre [(symbol? var)
-         (tc-type? type)]})
+         (Type? type)]})
 
-(def the-filters #{TypeFilter NotTypeFilter})
-
-(defn filter? [a]
-  (-> (class a) the-filters boolean))
-
-(defconstrainedrecord CaseFilter [then else]
+(def-filter FilterSet [then else]
   "Contains two propositions, then for the truthy result,
   else for the falsy result"
-  {:pre [(filter? then)
-         (filter? else)]})
-
-(def case-filter? (partial instance? CaseFilter))
+  {:pre [(Filter? then)
+         (Filter? else)]})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parse Type syntax
@@ -373,6 +429,7 @@
 
 (defn parse-syntax
   "Type syntax parser, entry point"
+  {:post [Type?]}
   [syn]
   (parse-syntax* (cond 
                    (and (list? syn)
@@ -472,7 +529,7 @@
                :rng (->TClass Boolean)
                :pred-type pred-type
                :named-params '(a)
-               :flter (map->CaseFilter
+               :flter (map->FilterSet
                         {:then (map->TypeFilter
                                  {:var 'a
                                   :type pred-type})
@@ -547,7 +604,7 @@
           extras (into {}
                        (for [[nme syn] opts-map]
                          (cond
-                           (= :filter nme) [:flter (map->CaseFilter
+                           (= :filter nme) [:flter (map->FilterSet
                                                      {:then (parse-filter (:then syn))
                                                       :else (parse-filter (:else syn))})]
 
@@ -585,7 +642,7 @@
 
 (defmulti unparse-filter class)
 
-(defmethod unparse-filter CaseFilter
+(defmethod unparse-filter FilterSet
   [{:keys [then else]}]
   {:then (unparse-filter then)
    :else (unparse-filter else)})
@@ -712,9 +769,6 @@
 (defprotocol ISubtype
   (subtype?* [this t]))
 
-(defn isubtype? [a]
-  (satisfies? ISubtype a))
-
 (declare subtype?)
 
 (extend-protocol ISubtype
@@ -814,7 +868,8 @@
   (literal-subtyping dispatch-class isa-class keyword-accessor))
 
 (defn subtype? [s t]
-  (assert (isubtype? t) t)
+  {:pre [(Type? t)
+         (Type? s)]}
   (cond
     (type-variable? t) true
 
@@ -836,7 +891,7 @@
   "In type t, replace all occurrences of x with v"
   (fn [t x->v]
     (assert (every? type-variable? (keys x->v)) x->v)
-    (assert (every? tc-type? (vals x->v)) x->v)
+    (assert (every? Type? (vals x->v)) x->v)
     (class t)))
 
 (defn- arity-introduces-shadow? [t x]
@@ -990,7 +1045,7 @@
     (-> s
       (update-in [:arities] #(doall (map pmt %))))))
 
-(defmethod promote AllTcTypes
+(defmethod promote Type
   [s v]
   s)
 
@@ -1017,7 +1072,7 @@
       (update-in [:dom] #(doall (map pmt %)))
       (update-in [:rng] dmt))))
 
-(defmethod demote AllTcTypes
+(defmethod demote Type
   [s v]
   s)
 
@@ -1029,14 +1084,12 @@
 (defconstrainedrecord TypeVariableConstraint [type-var upper-bound lower-bound]
   "A constraint on a type variable type-var. Records an upper and lower bound"
   {:pre [(type-variable? type-var)
-         (isubtype? upper-bound)
-         (isubtype? lower-bound)]})
-
-(def type-variable-constraint? (partial instance? TypeVariableConstraint))
+         (Type? upper-bound)
+         (Type? lower-bound)]})
 
 (defconstrainedrecord ConstraintSet [constraints]
   "A constraint set, each constraint for a different variable"
-  {:pre [(every? type-variable-constraint? constraints)
+  {:pre [(every? TypeVariableConstraint? constraints)
          (let [no-duplicates? (fn [{:keys [type-var]}]
                                 (= 1
                                    (count 
@@ -1127,7 +1180,7 @@
          :upper-bound Any})
       (disj xs y))))
 
-(defmethod constraint-gen* [AllTcTypes AllTcTypes]
+(defmethod constraint-gen* [Type Type]
   [s t xs v]
   (cond
     (xs s) (cg-upper s t xs v)
@@ -1235,8 +1288,16 @@
 
 ;; Bidirectional checking (Local Type Inference (2000) Pierce & Turner, Section 4)
 
-(defmulti check :op)
-(defmulti synthesize :op)
+(defmulti check 
+  (fn [m]
+    {:pre [(::+T m)]
+     :post [::+T]}
+    (:op m)))
+
+(defmulti synthesize 
+  (fn [m]
+    {:post [::+T]}
+    (m :op)))
 
 ;; var
 
@@ -1250,7 +1311,6 @@
 
 (defmethod synthesize :var
   [{:keys [var tag] :as expr}]
-  (println var)
   (let [actual-type (type-of var)]
     (assoc expr
            ::+T actual-type)))
@@ -1318,12 +1378,12 @@
         _ (println "before" (unp arity-type))
         arity-type (let [rplc #(replace-variables % min-sub)]
                      (cond
-                       (fixed-arity? arity-type)
+                       (FixedArity? arity-type)
                        (-> arity-type
                          (update-in [:dom] #(doall (map rplc %)))
                          (update-in [:rng] rplc))
 
-                       (uniform-variable-arity? arity-type)
+                       (UniformVariableArity? arity-type)
                        (-> arity-type
                          (update-in [:fixed-dom] #(doall (map rplc %)))
                          (update-in [:rest-type] rplc)
@@ -1748,10 +1808,6 @@
         (inter '{})
         (inter '())
         (inter []))))
-
-(+T float? [[x :- Any] -> Boolean 
-            :filter {:then (TypeFilter x Float)
-                     :else (NotTypeFilter x Float)}])
 
   (with-type-anns
     {float? (predicate Float)
