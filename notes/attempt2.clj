@@ -683,9 +683,10 @@
     (let [dom (doall (map unparse-type (:dom this)))
           ;; handle named parameters
           dom (if-let [names (seq (:named-params this))]
-                (map #(vector %1 :- %2)
-                     names
-                     dom)
+                (doall
+                  (map #(vector %1 :- %2)
+                       names
+                       dom))
                 dom)
           rng (unparse-type (:rng this))
           flter (when-let [flter (:flter this)]
