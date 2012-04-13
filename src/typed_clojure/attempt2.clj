@@ -1,7 +1,8 @@
 (ns typed-clojure.attempt2
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons))
   (:use [trammel.core :only [defconstrainedrecord defconstrainedvar
-                             constrained-atom]])
+                             constrained-atom]]
+        [analyze.core :only [ast]])
   (:require [analyze.core :as a]
             [analyze.util :as util]
             [clojure.set :as set]))
@@ -29,7 +30,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
-(declare map->PrimitiveClass map->TClass)
+(declare map->PrimitiveClass map->ClassType)
 
 (defn resolve-or-primitive [sym]
   (case sym
@@ -54,7 +55,7 @@
     (if (.isPrimitive ^Class t)
       (map->PrimitiveClass
         {:the-class t})
-      (map->TClass
+      (map->ClassType
         {:the-class t}))))
 
 (declare map->Fun map->arity union Nil)
@@ -182,59 +183,47 @@
 
 ;; Single instance types
 
-(def-type AnyType []
-  "The top type, supertype of all types"
-  [])
-(def Any (->AnyType))
-(def Any? (partial identical? Any))
+(def-type Value [val]
+  "A singleton type for values, except nil"
+  {:pre [(not (nil? val))]})
 
-(def-type NothingType []
-  "The bottom type, subtype of all types"
-  [])
-(def Nothing (->NothingType))
-(def Nothing? (partial identical? Nothing))
+(declare subtype?)
+
+(def-type Union [types]
+  "A disjoint union of types"
+  {:pre [(every? Type? types)
+         (every? 
+           (fn [t]
+             (every? #(not (subtype? % t))
+                     (disj (set types) t)))
+           types)]})
 
 (def-type NilType []
-  "Type for nil"
+  "The nil value"
   [])
+
 (def Nil (->NilType))
-(def Nil? (partial identical? Nil))
 
-(def-type TrueType []
-  "The type for the true literal"
-  [])
-(def True (->TrueType))
-(def True? (partial identical? True))
+(def-type ClassType [the-class]
+  "A class"
+  {:pre [(class? the-class)]})
 
-(def-type FalseType []
-  "The type for the false literal"
-  [])
-(def False (->FalseType))
-(def False? (partial identical? False))
+(def Any (Union. #{Nil (->ClassType Object)})) ; avoid constrained constructor because of
+                                               ; call to subtype?, which is undefined
+(def Any? (partial = Any))
+
+(def Nothing (Union. []))
+(def Nothing? (partial = Nothing))
+
+(def True (->Value true))
+(def True? (partial = True))
+
+(def False (->Value false))
+(def False? (partial = False))
 
 (def falsy-values #{False Nil})
 
 ;; singleton types
-
-(def-type KeywordType [the-keyword]
-  "A keyword instance"
-  [(keyword? the-keyword)])
-
-(def-type SymbolType [the-symbol]
-  "A symbol instance"
-  [(symbol? the-symbol)])
-
-(def-type StringType [the-string]
-  "A string instance"
-  [(string? the-string)])
-
-(def-type DoubleType [the-double]
-  "A Double instance"
-  [(instance? Double the-double)])
-
-(def-type LongType [the-long]
-  "A Long instance"
-  [(instance? Long the-long)])
 
 (def-type ConstantVector [types]
   "A constant vector type"
@@ -253,10 +242,6 @@
   {:pre [(seq arities)
          (every? arity? arities)]})
 
-(def-type TClass [the-class]
-  "A class"
-  {:pre [(class? the-class)]})
-
 (def-type PrimitiveClass [the-class]
   "A primitive class"
   {:pre [(or (nil? the-class) ; void primitive
@@ -268,15 +253,6 @@
   {:pre [(and (map? the-protocol)
               (:on the-protocol)
               (:var the-protocol))]})
-
-(def-type Union [types]
-  "A disjoint union of types"
-  {:pre [(every? Type? types)
-         (every? 
-           (fn [t]
-             (every? #(not (subtype? % t))
-                     (disj (set types) t)))
-           types)]})
 
 (defn- simplify-union [the-union]
   (cond 
@@ -517,40 +493,40 @@
                 (class? res) (if (.isPrimitive res) 
                                (map->PrimitiveClass
                                  {:the-class res})
-                               (map->TClass
+                               (map->ClassType
                                  {:the-class res}))
 
-                (identical? Any @res) Any
-                (identical? Nothing @res) Nothing
+                (Any? @res) Any
+                (Nothing? @res) Nothing
 
                 (var? res) (map->TProtocol
                              {:the-protocol @res})))))
   
   Boolean
   (parse-syntax* [this]
-    (if (true? this) 
-      True 
+    (if this
+      True
       False))
 
   String
   (parse-syntax* [this]
-    (map->StringType
-      {:the-string this}))
+    (->Value this))
 
   Keyword
   (parse-syntax* [this]
-    (map->KeywordType
-      {:the-keyword this}))
+    (->Value this))
 
   Double
   (parse-syntax* [this]
-    (map->DoubleType
-      {:the-double this}))
+    (->Value this))
   
   Long
   (parse-syntax* [this]
-    (map->LongType
-      {:the-long this})))
+    (->Value this))
+  
+  nil
+  (parse-syntax* [this]
+    Nil))
 
 (defmulti parse-list-syntax first)
 
@@ -589,7 +565,7 @@
   (let [pred-type (parse-syntax typ-syntax)]
     (->Fun [(map->arity
               {:dom [Any]
-               :rng (->TClass Boolean)
+               :rng (->ClassType Boolean)
                :pred-type pred-type
                :named-params '(a)
                :flter (map->FilterSet
@@ -604,8 +580,7 @@
   [[_ & [sym :as args]]]
   (assert (= 1 (count args)))
   (assert (symbol? sym))
-  (map->SymbolType
-    {:the-symbol sym}))
+  (->Value sym))
 
 (defmethod parse-list-syntax Fun-literal
   [[_ & arities]]
@@ -718,7 +693,7 @@
   [var :!-> (unparse-type type)])
 
 (extend-protocol IUnparseType
-  TClass
+  ClassType
   (unparse-type* [this]
     (symbol (.getName ^Class (:the-class this))))
 
@@ -770,182 +745,149 @@
   (unparse-type* [this]
     (var-or-class->sym (-> this :the-protocol :var)))
 
-  AnyType
-  (unparse-type* [this]
-    (assert (identical? Any this))
-    (var-or-class->sym #'Any))
-
-  NothingType
-  (unparse-type* [this]
-    (assert (identical? Nothing this))
-    (var-or-class->sym #'Nothing))
-
-  KeywordType
-  (unparse-type* [{:keys [the-keyword]}]
-    the-keyword)
-
-  StringType
-  (unparse-type* [{:keys [the-string]}]
-    the-string)
-
-  DoubleType
-  (unparse-type* [{:keys [the-double]}]
-    the-double)
-
-  LongType
-  (unparse-type* [{:keys [the-long]}]
-    the-long)
-
-  TrueType
-  (unparse-type* [this]
-    (assert (identical? True this))
-    true)
-
-  FalseType
-  (unparse-type* [this]
-    (assert (identical? False this))
-    false)
-
-  SymbolType
-  (unparse-type* [{:keys [the-symbol]}]
-    `'~the-symbol)
-
   UnboundedTypeVariable
   (unparse-type* [{:keys [nme]}]
-    nme)
-
-  NilType
-  (unparse-type* [this]
-    (assert (identical? Nil this))
-    nil))
+    nme))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtyping
 
-(defprotocol ISubtype
-  (subtype?* [this t]))
+;(defprotocol ISubtype
+;  (subtype?* [this t]))
+;
+;(declare subtype? subtypes?)
+;
+;(extend-protocol ISubtype
+;  ClassType
+;  (subtype?* [s t]
+;    (boolean
+;      (when (instance? ClassType t)
+;        (isa? (:the-class s)
+;              (:the-class t)))))
+;
+;  PrimitiveClass
+;  (subtype?* [s t]
+;    (boolean
+;      (when (instance? PrimitiveClass t)
+;        (isa? (:the-class s)
+;              (:the-class t)))))
+;
+;  arity
+;  (subtype?* [s t]
+;    (and (arity? t)
+;         (let [{s-dom :dom 
+;                s-rng :rng
+;                s-rest :rest-type} s
+;               {t-dom :dom
+;                t-rng :rng
+;                t-rest :rest-type} t]
+;           (cond
+;             ;; simple case
+;             (and (not s-rest)
+;                  (not t-rest))
+;             (and (subtypes? t-dom s-dom)
+;                  (subtype? s-rng t-rng))
+;
+;             (not s-rest)
+;             false
+;
+;             (and s-rest
+;                  (not t-rest))
+;             (and (subtypes?*-varargs t-dom s-dom s-rest)
+;                  (subtype? s-rng t-rng))
+;             
+;             (and s-rest
+;                  t-rest)
+;             (and (subtypes?*-varargs t-dom s-dom s-rest)
+;                  (subtype? t-rest s-rest)
+;                  (subtype? s-rng t-rng))
+;             
+;             :else false))))
+;
+;
+;  Fun
+;  (subtype?* [s t]
+;    (every? true?
+;            (for [sub-arity (:arities s)]
+;              (some #(subtype? sub-arity %) (:arities t)))))
+;  
+;  Union
+;  (subtype?* [s t]
+;    (cond 
+;      (instance? Union t) 
+;      ;; each element of s is a subtype of some type in t
+;      (map-all-true? (fn [sub]
+;                       (boolean (some #(subtype? sub %) (:types t))))
+;                     (:types s))
+;
+;      :else (every? #(subtype? % t) (:types s))))
+;
+;  Intersection
+;  (subtype?* [s t]
+;    (cond
+;      (instance? Intersection t)
+;      (map-all-true? #(subtype? s %) (:types t))
+;
+;      :else (boolean (some #(subtype? % t) (:types s)))))
+;
+;  UnboundedTypeVariable
+;  (subtype?* [s t]
+;    true))
 
-(declare subtype? subtypes?)
+;; TODO Type variables
 
-(extend-protocol ISubtype
-  AnyType
-  (subtype?* [_ t]
-    (identical? Any t))
+(declare subtypes-of supertypes-of)
 
-  NothingType
-  (subtype?* [s t]
-    (assert (identical? s Nothing))
-    true)
+(defmulti subtype?* (fn [s t]
+                      [(class s)
+                       (class t)]))
 
-  TClass
-  (subtype?* [s t]
-    (boolean
-      (when (instance? TClass t)
-        (isa? (:the-class s)
-              (:the-class t)))))
+(defmethod subtype?* [Union Union]
+  [s t]
+  (subtypes-of t (:types s)))
 
-  PrimitiveClass
-  (subtype?* [s t]
-    (boolean
-      (when (instance? PrimitiveClass t)
-        (isa? (:the-class s)
-              (:the-class t)))))
+(defmethod subtype?* [Type Union]
+  [s t]
+  (supertypes-of s (:types t)))
 
-  arity
-  (subtype?* [s t]
-    (and (arity? t)
-         (let [{s-dom :dom 
-                s-rng :rng
-                s-rest :rest-type} s
-               {t-dom :dom
-                t-rng :rng
-                t-rest :rest-type} t]
-           (cond
-             ;; simple case
-             (and (not s-rest)
-                  (not t-rest))
-             (and (subtypes? t-dom s-dom)
-                  (subtype? s-rng t-rng))
+(defmethod subtype?* [Union Type]
+  [s t]
+  (subtypes-of t (:types s)))
 
-             (not s-rest)
-             false
+(defmethod subtype?* [Value Value]
+  [s t]
+  (= (:val s)
+     (:val t)))
 
-             (and s-rest
-                  (not t-rest))
-             (and (subtypes?*-varargs t-dom s-dom s-rest)
-                  (subtype? s-rng t-rng))
-             
-             (and s-rest
-                  t-rest)
-             (and (subtypes?*-varargs t-dom s-dom s-rest)
-                  (subtype? t-rest s-rest)
-                  (subtype? s-rng t-rng))
-             
-             :else false))))
+(defmethod subtype?* [Value ClassType]
+  [s t]
+  (subtype?* (->ClassType (-> s :val class))
+             t))
 
+(defmethod subtype?* [ClassType ClassType]
+  [s t]
+  (isa? (:the-class s)
+        (:the-class t)))
 
-  Fun
-  (subtype?* [s t]
-    (every? true?
-            (for [sub-arity (:arities s)]
-              (some #(subtype? sub-arity %) (:arities t)))))
-  
-  Union
-  (subtype?* [s t]
-    (cond 
-      (instance? Union t) 
-      ;; each element of s is a subtype of some type in t
-      (map-all-true? (fn [sub]
-                       (boolean (some #(subtype? sub %) (:types t))))
-                     (:types s))
+(defmethod subtype?* [NilType NilType]
+  [s t]
+  true)
 
-      :else (every? #(subtype? % t) (:types s))))
+(defmethod subtype?* [Type Type]
+  [s t]
+  false)
 
-  Intersection
-  (subtype?* [s t]
-    (cond
-      (instance? Intersection t)
-      (map-all-true? #(subtype? s %) (:types t))
+(defn supertypes-of 
+  "True if all ts are supertypes of s"
+  [s ts]
+  (every? true?
+          (map #(subtype? s %) ts)))
 
-      :else (boolean (some #(subtype? % t) (:types s)))))
-
-  UnboundedTypeVariable
-  (subtype?* [s t]
-    true)
-  
-  NilType
-  (subtype?* [s t]
-    (assert (identical? Nil s))
-    (identical? Nil t)))
-
-; literals
-
-(defn- literal-subtyping-fn [dispatch-class isa-class keyword-accessor]
-  (fn [s t]
-    (cond
-      (instance? dispatch-class t) (= (keyword-accessor s)
-                                      (keyword-accessor t))
-
-      (instance? TClass t) (subtype? (->TClass isa-class) t)
-
-      :else false)))
-
-(defmacro literal-subtyping [dispatch-class isa-class keyword-accessor]
-  `(extend ~dispatch-class
-     ISubtype
-     {:subtype?*
-      (literal-subtyping-fn ~dispatch-class ~isa-class ~keyword-accessor)}))
-
-(doseq [[dispatch-class isa-class keyword-accessor]
-        #{[LongType Long :the-long]
-          [DoubleType Double :the-double]
-          [StringType String :the-string]
-          [SymbolType Symbol :the-symbol]
-          [KeywordType Keyword :the-keyword]
-          [FalseType Boolean identity]
-          [TrueType Boolean identity]}]
-
-  (literal-subtyping dispatch-class isa-class keyword-accessor))
+(defn subtypes-of 
+  "True if all ss are subtypes of t"
+  [t ss]
+  (every? true?
+          (map #(subtype? % t) ss)))
 
 (defn subtypes? [ss ts]
   (and (= (count ss)
@@ -954,21 +896,24 @@
                (map subtype? ss ts))))
 
 (defn subtype? [s t]
-  (assert (Type? t) t)
-  (assert (Type? s) s)
-  (cond
-    (type-variable? t) true ;TODO should probably be subtype on identical name?
+  (subtype?* s t))
 
-    (identical? Any t) true
-
-    (and (instance? Union t)
-         (not (instance? Union s)))
-    (boolean (some #(subtype? s %) (:types t)))
-
-    (instance? Intersection t)
-    (map-all-true? #(subtype? s %) (:types t))
-    
-    :else (subtype?* s t)))
+;(defn subtype? [s t]
+;  (assert (Type? t) t)
+;  (assert (Type? s) s)
+;  (cond
+;    (type-variable? t) true ;TODO should probably be subtype on identical name?
+;
+;    (identical? Any t) true
+;
+;    (and (instance? Union t)
+;         (not (instance? Union s)))
+;    (boolean (some #(subtype? s %) (:types t)))
+;
+;    (instance? Intersection t)
+;    (map-all-true? #(subtype? s %) (:types t))
+;    
+;    :else (subtype?* s t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable Elimination
@@ -1065,13 +1010,12 @@
   in the set v"
   (fn [s v] (class s)))
 
-(defmethod promote AnyType
+(defmethod promote Type
   [s v]
-  Any)
-
-(defmethod promote NothingType
-  [s v]
-  Nothing)
+  (cond
+    (Any? s) Any
+    (Nothing? s) Nothing
+    :else s))
 
 (defmethod promote UnboundedTypeVariable
   [s v]
@@ -1113,17 +1057,12 @@
     (-> s
       (update-in [:arities] #(doall (map pmt %))))))
 
-(defmethod promote Type
+(defmethod demote Type
   [s v]
-  s)
-
-(defmethod demote AnyType
-  [s v]
-  Any)
-
-(defmethod demote NothingType
-  [s v]
-  Nothing)
+  (cond
+    (Any? s) Any
+    (Nothing? s) Nothing
+    :else s))
 
 (defmethod demote UnboundedTypeVariable
   [s v]
@@ -1140,10 +1079,6 @@
       (update-in [:dom] #(doall (map pmt %)))
       (update-in [:rest-type] #(when % (pmt %)))
       (update-in [:rng] dmt))))
-
-(defmethod demote Type
-  [s v]
-  s)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint generation
@@ -1333,438 +1268,441 @@
 
 ;; Bidirectional checking (Local Type Inference (2000) Pierce & Turner, Section 4)
 
-(defmulti check 
-  (fn [m]
-    {:pre [(::+T m)]
-     :post [::+T]}
-    (:op m)))
+(declare tc-expr)
 
-(defmulti synthesize 
-  (fn [m]
-    {:post [::+T]}
-    (m :op)))
+(defn tc-expr-check [expr expected-type]
+  (let [typed-expr (tc-expr expr)]
+    (assert-subtype (::+T expr) expected-type)
+    typed-expr))
+
+(defmulti tc-expr :op)
+
+(defmethod tc-expr :number
+  [{:keys [val] :as expr}]
+  (assoc expr
+         ::+T (->Value 1)))
 
 ;; var
 
-(defmethod check :var
-  [{:keys [var tag] :as expr}]
-  (let [expected-type (::+T expr)
-        actual-type (type-of var)]
-    (assert-subtype actual-type expected-type (str " for var " var))
-    (assoc expr
-           ::+T actual-type)))
-
-(defmethod synthesize :var
-  [{:keys [var tag] :as expr}]
-  (let [actual-type (type-of var)]
-    (assoc expr
-           ::+T actual-type)))
-
-;; def
-
-(defn infer-def [{:keys [var init init-provided] :as expr}]
-  (let [var-type (type-of var)
-        checked-init-expr (if init-provided
-                            (-> init
-                              (assoc ::+T var-type)
-                              check)
-                            (do
-                              (debug "No init provided for" var ", ignore body")
-                              init))]
-    (assoc expr
-           :init checked-init-expr
-           ::+T (map->TClass
-                  {:the-class Var}))))
-
-(defmethod check :def
-  [expr]
-  (let [expected-type (::+T expr)
-        _ (assert expected-type "def in checking mode requires full type annotation")
-        inferred-def (infer-def expr)
-        actual-type (::+T inferred-def)
-        _ (assert-subtype actual-type expected-type)]
-    inferred-def))
-
-(defmethod synthesize :def
-  [expr]
-  (infer-def expr))
-
-(defn- infer-invoke [{:keys [fexpr args] :as expr}]
-  (let [synthesized-fexpr (synthesize fexpr)
-        fexpr-type (::+T synthesized-fexpr)
-        arity-type (some #(matches-args % args) (:arities fexpr-type))
-
-        _ (assert arity-type)
-
-        expected-dom (take (count args)
-                           (concat (:dom arity-type)
-                                   (when (:rest-type arity-type)
-                                     (repeat (:rest-type arity-type)))))
-
-        checked-args (doall (map #(-> %1
-                                    (assoc ::+T %2)
-                                    check)
-                                 args
-                                 expected-dom))
-
-        ;; instatiate type arguments
-        constraint-set (let [cs (doall (map #(constraint-gen %1 %2 (set (:type-params arity-type)) #{})
-                                            (doall (map ::+T checked-args))
-                                            expected-dom))]
-                         (apply intersect-constraint-sets cs))
-        
-        min-sub (minimal-substitution arity-type constraint-set)
-        _ (println "before" (unp arity-type))
-        arity-type (let [rplc #(replace-variables % min-sub)]
-                     (-> arity-type
-                       (update-in [:dom] #(doall (map rplc %)))
-                       (update-in [:rest-type] #(when % (rplc %)))
-                       (update-in [:rng] rplc)))
-
-        _ (println "after" (unp arity-type))
-
-        instatiated-fexpr (assoc synthesized-fexpr
-                                 ::+T (map->Fun {:arities [arity-type]}))
-        return-type (:rng arity-type)]
-    (assoc expr
-           :fexpr instatiated-fexpr
-           :args checked-args
-           ::+T return-type)))
-
-;; invoke
-
-(defmethod synthesize :invoke
-  [expr]
-  (infer-invoke expr))
-
-(defmethod check :invoke
-  [expr]
-  (let [expected-type (::+T expr)
-        _ (assert expected-type "Checking context for function invocation requires full
-                                type annotations")
-        inferred-expr (infer-invoke expr)
-        actual-type (::+T inferred-expr)
-        _ (assert-subtype actual-type expected-type)]
-    inferred-expr))
-
-;; if
-
-(defmethod synthesize :if
-  [{:keys [test then else] :as expr}]
-  (let [[synthesized-test
-         synthesized-then
-         synthesized-else
-         :as typed-exprs]
-        (map synthesize [test then else])
-        
-        actual-type (union (map ::+T typed-exprs))]
-    (assoc expr
-           :test synthesized-test
-           :then synthesized-then
-           :else synthesized-else
-           ::+T actual-type)))
-
-(defmethod check :if
-  [{:keys [test then else] :as expr}]
-  (let [expected-type (::+T expr)
-        _ (assert expected-type "if in checking mode requires full annotation")
-
-        synthesized-test (synthesize test)
-
-        check-else? (boolean (falsy-values (::+T synthesized-test)))
-
-        checked-then (check (assoc then 
-                                   ::+T expected-type))
-
-        inferred-else (if check-else?
-                        (check (assoc else
-                                      ::+T expected-type))
-                        (do 
-                          (warn "Unreachable else clause")
-                          (synthesize else)))
-        
-        actual-type (union (map ::+T (concat [checked-then] (when check-else?
-                                                              inferred-else))))
-        _ (assert-subtype actual-type expected-type)]
-    (assoc expr 
-           :test synthesized-test
-           :then checked-then
-           :else inferred-else
-           ::+T actual-type)))
-
-;; local bindings
-
-(defmethod synthesize :local-binding-expr
-  [{:keys [local-binding] :as expr}]
-  (let [synthesized-lb (synthesize local-binding)
-        actual-type (::+T synthesized-lb)]
-    (assoc expr
-           :local-binding synthesized-lb
-           ::+T actual-type)))
-
-(defmethod check :local-binding-expr
-  [{:keys [local-binding] :as expr}]
-  (let [expected-type (::+T expr)
-        _ (assert expected-type (str "Local binding " (:sym local-binding)
-                                     " requires type annotation in checking context."))
-        checked-lb (check (assoc local-binding
-                                 ::+T expected-type))
-        actual-type (::+T checked-lb)
-        _ (assert-subtype actual-type expected-type)]
-    (assoc expr
-           :local-binding checked-lb
-           ::+T actual-type)))
-
-(defmethod check :local-binding
-  [{:keys [sym init] :as expr}]
-  (let [expected-type (::+T expr)
-        _ (assert expected-type sym)
-        actual-type (type-of sym)
-        _ (assert-subtype actual-type expected-type)]
-    (assoc expr
-           ::+T actual-type)))
-
-;; literals
-
-(defmulti constant-type class)
-
-(defmethod constant-type Boolean
-  [b]
-  (if (true? b)
-    True
-    False))
-
-(defmethod constant-type nil
-  [k]
-  Nil)
-
-(defmethod constant-type Keyword
-  [k]
-  (->KeywordType k))
-
-(defmethod constant-type Symbol
-  [s]
-  (->SymbolType s))
-
-(defmethod constant-type String
-  [s]
-  (->StringType s))
-
-(defmethod constant-type Long
-  [l]
-  (->LongType l))
-
-(defmethod constant-type Double
-  [d]
-  (->DoubleType d))
-
-(defmethod constant-type IPersistentVector
-  [v]
-  (->ConstantVector (map constant-type v)))
-
-(defmacro literal-dispatches [disp-keyword]
-  `(do
-     (defmethod synthesize ~disp-keyword
-       [expr#]
-       (let [val# (:val expr#)
-             actual-type# (constant-type val#)]
-         (assoc expr#
-                ::+T actual-type#)))
-
-     (defmethod check ~disp-keyword
-       [expr#]
-       (let [val# (:val expr#)
-             expected-type# (::+T expr#)
-             actual-type# (constant-type val#)]
-         (assert-subtype actual-type# expected-type#)
-         (assoc expr#
-                ::+T actual-type#)))))
-
-(doseq [k #{:keyword :string :symbol :constant :number :boolean :nil}]
-  (literal-dispatches k))
-
-;; empty-expr
-
-(defmethod check :empty-expr
-  [{:keys [coll] :as expr}]
-  (let [expected-type (::+T expr)
-        _ (assert expected-type "empty-expr: must provide expected type in checking mode")
-        actual-type (map->TClass {:the-class (class coll)})
-        _ (assert-subtype actual-type expected-type)]
-    (assoc expr
-           ::+T actual-type)))
-
-(defmethod synthesize :empty-expr
-  [{:keys [coll] :as expr}]
-  (let [actual-type (map->TClass {:the-class (class coll)})]
-    (assoc expr
-           ::+T actual-type)))
-
-;; let
-
-(defmethod synthesize :binding-init
-  [{:keys [sym init] :as expr}]
-  (let [synthesized-init (synthesize init)]
-    (assoc expr
-           :init synthesized-init
-           ::+T (::+T synthesized-init))))
-
-(defmethod check :let
-  [{:keys [binding-inits body is-loop] :as expr}]
-  (assert (not is-loop) "Loop not implemented")
-  (let [expected-type (::+T expr)
-        _ (assert expected-type)
-        
-        [typed-binding-inits local-types]
-        (loop [binding-inits binding-inits
-               typed-binding-inits []
-               local-types {}]
-          (if (empty? binding-inits)
-            [typed-binding-inits local-types]
-            (let [[bnd-init] binding-inits
-                  typed-bnd-init (with-local-types local-types
-                                   (synthesize bnd-init))
-                  local-type-entry [(-> typed-bnd-init :local-binding :sym)
-                                    (-> typed-bnd-init ::+T)]
-                  _ (assert (every? identity local-type-entry))]
-              (recur (rest binding-inits)
-                     (conj typed-binding-inits typed-bnd-init)
-                     (conj local-types local-type-entry)))))
-        
-        checked-body (with-local-types local-types
-                       (check (assoc body
-                                     ::+T expected-type)))]
-    (assoc expr
-           :binding-inits typed-binding-inits
-           :body checked-body
-           ::+T (-> checked-body ::+T))))
-
-;; fn
-
-(defmethod check :fn-expr
-  [{:keys [methods] :as expr}]
-  (let [expected-type (::+T expr)
-        _ (assert (instance? Fun expected-type) (str "Expected Fun type, instead found " (unparse-type expected-type)))
-
-        checked-methods (doall 
-                          (for [method methods]
-                            (let [_ (assert (not (:rest-param method)))
-                                  arity (some #(matches-args % (:required-params method)) (:arities expected-type))
-                                  _ (assert arity 
-                                            (str "No arity with " (count (:required-params method)) 
-                                                 " parameters in type "
-                                                 expected-type))]
-                              (check (assoc method
-                                            ::+T arity)))))
-
-        actual-type (map->Fun
-                      {:arities (doall (map ::+T checked-methods))})
-
-        _ (assert-subtype actual-type expected-type)]
-    (assoc expr
-           ::+T actual-type
-           :methods checked-methods)))
-
-(defmethod check :fn-method
-  [{:keys [required-params rest-param body] :as expr}]
-  (assert (not rest-param))
-  (let [expected-arity-type (::+T expr)
-        _ (assert (not (:rest-type expected-arity-type)))
-        
-        typed-required-params (doall 
-                                (map #(assoc %1 ::+T %2)
-                                     required-params
-                                     (:dom expected-arity-type)))
-
-        typed-lbndings (apply hash-map 
-                              (doall (mapcat #(vector (:sym %) 
-                                                      (::+T %))
-                                             typed-required-params)))
-
-        checked-body (with-local-types typed-lbndings
-                       (check (assoc body
-                                     ::+T (:rng expected-arity-type))))]
-    (assoc expr
-           :required-params typed-required-params
-           :body checked-body)))
-
-;; do
-
-(defmethod synthesize :do
-  [{:keys [exprs] :as expr}]
-  (let [synthesized-exprs (vec (doall (map synthesize exprs)))
-        actual-type (-> synthesized-exprs last ::+T)
-        _ (assert actual-type)]
-    (assoc expr
-           :exprs synthesized-exprs
-           ::+T actual-type)))
-
-(defmethod check :do
-  [{:keys [exprs] :as expr}]
-  (let [expected-type (::+T expr)
-        _ (assert expected-type "do requires type annotation in checking mode")
-
-        butlast-synthesized-exprs (vec (doall (map synthesize (butlast exprs))))
-        _ (assert (seq exprs))
-        last-checked-expr (check (assoc (last exprs)
-                                        ::+T expected-type))
-        typed-exprs (conj butlast-synthesized-exprs last-checked-expr)
-
-        actual-type (::+T last-checked-expr)
-        _ (assert actual-type last-checked-expr)]
-    (assoc expr
-           :exprs typed-exprs
-           ::+T actual-type)))
-
-;; static method
-
-(defn- overriden-annotation [{name-sym :name, class-sym :declaring-class,
-                              :keys [declaring-class parameter-types] :as method}]
-  (let [_ (assert (and class-sym name-sym)
-                  (str "Unresolvable static method " class-sym name-sym))
-        method-sym (symbol (name class-sym) (name name-sym))]
-    (try
-      (type-of method-sym)
-      (catch Exception e))))
-
-(defn infer-static-method [{:keys [method args] :as expr}]
-  (let [override (overriden-annotation method)
-        _ (if override
-            (println "Overriding static method " (symbol (name (:declaring-class method))
-                                                         (name (:name method))))
-            (println "Not overriding static method " (symbol (name (:declaring-class method))
-                                                             (name (:name method)))))
-        fun-type (if override
-                   override
-                   (method->Fun method))
-        arity-type (some #(matches-args % args) (:arities fun-type))
-
-        checked-args (doall 
-                       (map #(-> %1
-                               (assoc ::+T %2)
-                               check)
-                            args
-                            (:dom arity-type)))
-
-        actual-type (:rng arity-type)]
-    (assoc expr
-           :args checked-args
-           ::+T actual-type)))
-
-(defmethod synthesize :static-method
-  [expr]
-  (infer-static-method expr))
-
-(defmethod check :static-method
-  [expr]
-  (let [expected-type (::+T expr)
-        _ (assert expected-type "Static method in checking mode requires annotation")
-
-        inferred-expr (infer-static-method expr)
-
-        actual-type (::+T inferred-expr)
-        _ (assert-subtype actual-type expected-type)]
-    expr))
+;(defmethod check :var
+;  [{:keys [var tag] :as expr}]
+;  (let [expected-type (::+T expr)
+;        actual-type (type-of var)]
+;    (assert-subtype actual-type expected-type (str " for var " var))
+;    (assoc expr
+;           ::+T actual-type)))
+;
+;(defmethod synthesize :var
+;  [{:keys [var tag] :as expr}]
+;  (let [actual-type (type-of var)]
+;    (assoc expr
+;           ::+T actual-type)))
+;
+;;; def
+;
+;(defn infer-def [{:keys [var init init-provided] :as expr}]
+;  (let [var-type (type-of var)
+;        checked-init-expr (if init-provided
+;                            (-> init
+;                              (assoc ::+T var-type)
+;                              check)
+;                            (do
+;                              (debug "No init provided for" var ", ignore body")
+;                              init))]
+;    (assoc expr
+;           :init checked-init-expr
+;           ::+T (map->TClass
+;                  {:the-class Var}))))
+;
+;(defmethod check :def
+;  [expr]
+;  (let [expected-type (::+T expr)
+;        _ (assert expected-type "def in checking mode requires full type annotation")
+;        inferred-def (infer-def expr)
+;        actual-type (::+T inferred-def)
+;        _ (assert-subtype actual-type expected-type)]
+;    inferred-def))
+;
+;(defmethod synthesize :def
+;  [expr]
+;  (infer-def expr))
+;
+;(defn- infer-invoke [{:keys [fexpr args] :as expr}]
+;  (let [synthesized-fexpr (synthesize fexpr)
+;        fexpr-type (::+T synthesized-fexpr)
+;        arity-type (some #(matches-args % args) (:arities fexpr-type))
+;
+;        _ (assert arity-type)
+;
+;        expected-dom (take (count args)
+;                           (concat (:dom arity-type)
+;                                   (when (:rest-type arity-type)
+;                                     (repeat (:rest-type arity-type)))))
+;
+;        checked-args (doall (map #(-> %1
+;                                    (assoc ::+T %2)
+;                                    check)
+;                                 args
+;                                 expected-dom))
+;
+;        ;; instatiate type arguments
+;        constraint-set (let [cs (doall (map #(constraint-gen %1 %2 (set (:type-params arity-type)) #{})
+;                                            (doall (map ::+T checked-args))
+;                                            expected-dom))]
+;                         (apply intersect-constraint-sets cs))
+;        
+;        min-sub (minimal-substitution arity-type constraint-set)
+;        _ (println "before" (unp arity-type))
+;        arity-type (let [rplc #(replace-variables % min-sub)]
+;                     (-> arity-type
+;                       (update-in [:dom] #(doall (map rplc %)))
+;                       (update-in [:rest-type] #(when % (rplc %)))
+;                       (update-in [:rng] rplc)))
+;
+;        _ (println "after" (unp arity-type))
+;
+;        instatiated-fexpr (assoc synthesized-fexpr
+;                                 ::+T (map->Fun {:arities [arity-type]}))
+;        return-type (:rng arity-type)]
+;    (assoc expr
+;           :fexpr instatiated-fexpr
+;           :args checked-args
+;           ::+T return-type)))
+;
+;;; invoke
+;
+;(defmethod synthesize :invoke
+;  [expr]
+;  (infer-invoke expr))
+;
+;(defmethod check :invoke
+;  [expr]
+;  (let [expected-type (::+T expr)
+;        _ (assert expected-type "Checking context for function invocation requires full
+;                                type annotations")
+;        inferred-expr (infer-invoke expr)
+;        actual-type (::+T inferred-expr)
+;        _ (assert-subtype actual-type expected-type)]
+;    inferred-expr))
+;
+;;; if
+;
+;(defmethod synthesize :if
+;  [{:keys [test then else] :as expr}]
+;  (let [[synthesized-test
+;         synthesized-then
+;         synthesized-else
+;         :as typed-exprs]
+;        (map synthesize [test then else])
+;        
+;        actual-type (union (map ::+T typed-exprs))]
+;    (assoc expr
+;           :test synthesized-test
+;           :then synthesized-then
+;           :else synthesized-else
+;           ::+T actual-type)))
+;
+;(defmethod check :if
+;  [{:keys [test then else] :as expr}]
+;  (let [expected-type (::+T expr)
+;        _ (assert expected-type "if in checking mode requires full annotation")
+;
+;        synthesized-test (synthesize test)
+;
+;        check-else? (boolean (falsy-values (::+T synthesized-test)))
+;
+;        checked-then (check (assoc then 
+;                                   ::+T expected-type))
+;
+;        inferred-else (if check-else?
+;                        (check (assoc else
+;                                      ::+T expected-type))
+;                        (do 
+;                          (warn "Unreachable else clause")
+;                          (synthesize else)))
+;        
+;        actual-type (union (map ::+T (concat [checked-then] (when check-else?
+;                                                              inferred-else))))
+;        _ (assert-subtype actual-type expected-type)]
+;    (assoc expr 
+;           :test synthesized-test
+;           :then checked-then
+;           :else inferred-else
+;           ::+T actual-type)))
+;
+;;; local bindings
+;
+;(defmethod synthesize :local-binding-expr
+;  [{:keys [local-binding] :as expr}]
+;  (let [synthesized-lb (synthesize local-binding)
+;        actual-type (::+T synthesized-lb)]
+;    (assoc expr
+;           :local-binding synthesized-lb
+;           ::+T actual-type)))
+;
+;(defmethod check :local-binding-expr
+;  [{:keys [local-binding] :as expr}]
+;  (let [expected-type (::+T expr)
+;        _ (assert expected-type (str "Local binding " (:sym local-binding)
+;                                     " requires type annotation in checking context."))
+;        checked-lb (check (assoc local-binding
+;                                 ::+T expected-type))
+;        actual-type (::+T checked-lb)
+;        _ (assert-subtype actual-type expected-type)]
+;    (assoc expr
+;           :local-binding checked-lb
+;           ::+T actual-type)))
+;
+;(defmethod check :local-binding
+;  [{:keys [sym init] :as expr}]
+;  (let [expected-type (::+T expr)
+;        _ (assert expected-type sym)
+;        actual-type (type-of sym)
+;        _ (assert-subtype actual-type expected-type)]
+;    (assoc expr
+;           ::+T actual-type)))
+;
+;;; literals
+;
+;(defmulti constant-type class)
+;
+;(defmethod constant-type Boolean
+;  [b]
+;  (if (true? b)
+;    True
+;    False))
+;
+;(defmethod constant-type nil
+;  [k]
+;  Nil)
+;
+;(defmethod constant-type Keyword
+;  [k]
+;  (->KeywordType k))
+;
+;(defmethod constant-type Symbol
+;  [s]
+;  (->SymbolType s))
+;
+;(defmethod constant-type String
+;  [s]
+;  (->StringType s))
+;
+;(defmethod constant-type Long
+;  [l]
+;  (->LongType l))
+;
+;(defmethod constant-type Double
+;  [d]
+;  (->DoubleType d))
+;
+;(defmethod constant-type IPersistentVector
+;  [v]
+;  (->ConstantVector (map constant-type v)))
+;
+;(defmacro literal-dispatches [disp-keyword]
+;  `(do
+;     (defmethod synthesize ~disp-keyword
+;       [expr#]
+;       (let [val# (:val expr#)
+;             actual-type# (constant-type val#)]
+;         (assoc expr#
+;                ::+T actual-type#)))
+;
+;     (defmethod check ~disp-keyword
+;       [expr#]
+;       (let [val# (:val expr#)
+;             expected-type# (::+T expr#)
+;             actual-type# (constant-type val#)]
+;         (assert-subtype actual-type# expected-type#)
+;         (assoc expr#
+;                ::+T actual-type#)))))
+;
+;(doseq [k #{:keyword :string :symbol :constant :number :boolean :nil}]
+;  (literal-dispatches k))
+;
+;;; empty-expr
+;
+;(defmethod check :empty-expr
+;  [{:keys [coll] :as expr}]
+;  (let [expected-type (::+T expr)
+;        _ (assert expected-type "empty-expr: must provide expected type in checking mode")
+;        actual-type (map->TClass {:the-class (class coll)})
+;        _ (assert-subtype actual-type expected-type)]
+;    (assoc expr
+;           ::+T actual-type)))
+;
+;(defmethod synthesize :empty-expr
+;  [{:keys [coll] :as expr}]
+;  (let [actual-type (map->TClass {:the-class (class coll)})]
+;    (assoc expr
+;           ::+T actual-type)))
+;
+;;; let
+;
+;(defmethod synthesize :binding-init
+;  [{:keys [sym init] :as expr}]
+;  (let [synthesized-init (synthesize init)]
+;    (assoc expr
+;           :init synthesized-init
+;           ::+T (::+T synthesized-init))))
+;
+;(defmethod check :let
+;  [{:keys [binding-inits body is-loop] :as expr}]
+;  (assert (not is-loop) "Loop not implemented")
+;  (let [expected-type (::+T expr)
+;        _ (assert expected-type)
+;        
+;        [typed-binding-inits local-types]
+;        (loop [binding-inits binding-inits
+;               typed-binding-inits []
+;               local-types {}]
+;          (if (empty? binding-inits)
+;            [typed-binding-inits local-types]
+;            (let [[bnd-init] binding-inits
+;                  typed-bnd-init (with-local-types local-types
+;                                   (synthesize bnd-init))
+;                  local-type-entry [(-> typed-bnd-init :local-binding :sym)
+;                                    (-> typed-bnd-init ::+T)]
+;                  _ (assert (every? identity local-type-entry))]
+;              (recur (rest binding-inits)
+;                     (conj typed-binding-inits typed-bnd-init)
+;                     (conj local-types local-type-entry)))))
+;        
+;        checked-body (with-local-types local-types
+;                       (check (assoc body
+;                                     ::+T expected-type)))]
+;    (assoc expr
+;           :binding-inits typed-binding-inits
+;           :body checked-body
+;           ::+T (-> checked-body ::+T))))
+;
+;;; fn
+;
+;(defmethod check :fn-expr
+;  [{:keys [methods] :as expr}]
+;  (let [expected-type (::+T expr)
+;        _ (assert (instance? Fun expected-type) (str "Expected Fun type, instead found " (unparse-type expected-type)))
+;
+;        checked-methods (doall 
+;                          (for [method methods]
+;                            (let [_ (assert (not (:rest-param method)))
+;                                  arity (some #(matches-args % (:required-params method)) (:arities expected-type))
+;                                  _ (assert arity 
+;                                            (str "No arity with " (count (:required-params method)) 
+;                                                 " parameters in type "
+;                                                 expected-type))]
+;                              (check (assoc method
+;                                            ::+T arity)))))
+;
+;        actual-type (map->Fun
+;                      {:arities (doall (map ::+T checked-methods))})
+;
+;        _ (assert-subtype actual-type expected-type)]
+;    (assoc expr
+;           ::+T actual-type
+;           :methods checked-methods)))
+;
+;(defmethod check :fn-method
+;  [{:keys [required-params rest-param body] :as expr}]
+;  (assert (not rest-param))
+;  (let [expected-arity-type (::+T expr)
+;        _ (assert (not (:rest-type expected-arity-type)))
+;        
+;        typed-required-params (doall 
+;                                (map #(assoc %1 ::+T %2)
+;                                     required-params
+;                                     (:dom expected-arity-type)))
+;
+;        typed-lbndings (apply hash-map 
+;                              (doall (mapcat #(vector (:sym %) 
+;                                                      (::+T %))
+;                                             typed-required-params)))
+;
+;        checked-body (with-local-types typed-lbndings
+;                       (check (assoc body
+;                                     ::+T (:rng expected-arity-type))))]
+;    (assoc expr
+;           :required-params typed-required-params
+;           :body checked-body)))
+;
+;;; do
+;
+;(defmethod synthesize :do
+;  [{:keys [exprs] :as expr}]
+;  (let [synthesized-exprs (vec (doall (map synthesize exprs)))
+;        actual-type (-> synthesized-exprs last ::+T)
+;        _ (assert actual-type)]
+;    (assoc expr
+;           :exprs synthesized-exprs
+;           ::+T actual-type)))
+;
+;(defmethod check :do
+;  [{:keys [exprs] :as expr}]
+;  (let [expected-type (::+T expr)
+;        _ (assert expected-type "do requires type annotation in checking mode")
+;
+;        butlast-synthesized-exprs (vec (doall (map synthesize (butlast exprs))))
+;        _ (assert (seq exprs))
+;        last-checked-expr (check (assoc (last exprs)
+;                                        ::+T expected-type))
+;        typed-exprs (conj butlast-synthesized-exprs last-checked-expr)
+;
+;        actual-type (::+T last-checked-expr)
+;        _ (assert actual-type last-checked-expr)]
+;    (assoc expr
+;           :exprs typed-exprs
+;           ::+T actual-type)))
+;
+;;; static method
+;
+;(defn- overriden-annotation [{name-sym :name, class-sym :declaring-class,
+;                              :keys [declaring-class parameter-types] :as method}]
+;  (let [_ (assert (and class-sym name-sym)
+;                  (str "Unresolvable static method " class-sym name-sym))
+;        method-sym (symbol (name class-sym) (name name-sym))]
+;    (try
+;      (type-of method-sym)
+;      (catch Exception e))))
+;
+;(defn infer-static-method [{:keys [method args] :as expr}]
+;  (let [override (overriden-annotation method)
+;        _ (if override
+;            (println "Overriding static method " (symbol (name (:declaring-class method))
+;                                                         (name (:name method))))
+;            (println "Not overriding static method " (symbol (name (:declaring-class method))
+;                                                             (name (:name method)))))
+;        fun-type (if override
+;                   override
+;                   (method->Fun method))
+;        arity-type (some #(matches-args % args) (:arities fun-type))
+;
+;        checked-args (doall 
+;                       (map #(-> %1
+;                               (assoc ::+T %2)
+;                               check)
+;                            args
+;                            (:dom arity-type)))
+;
+;        actual-type (:rng arity-type)]
+;    (assoc expr
+;           :args checked-args
+;           ::+T actual-type)))
+;
+;(defmethod synthesize :static-method
+;  [expr]
+;  (infer-static-method expr))
+;
+;(defmethod check :static-method
+;  [expr]
+;  (let [expected-type (::+T expr)
+;        _ (assert expected-type "Static method in checking mode requires annotation")
+;
+;        inferred-expr (infer-static-method expr)
+;
+;        actual-type (::+T inferred-expr)
+;        _ (assert-subtype actual-type expected-type)]
+;    expr))
 
 (comment
 

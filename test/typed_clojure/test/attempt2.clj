@@ -7,6 +7,12 @@
   `(subtype? (parse '~s)
              (parse '~t)))
 
+(deftest subtype-classes
+  (is (sub? Long Long))
+  (is (sub? Long Object))
+  (is (not (sub? Long Integer)))
+  (is (not (sub? Long Integer))))
+
 (deftest subtype-singletons
   (is (not (sub? 1 2)))
   (is (sub? 1 1))
@@ -18,7 +24,22 @@
   (is (not (sub? clojure.lang.Keyword :a)))
   (is (sub? (U :a :b) clojure.lang.Keyword)))
 
-(deftest subtype-funs
+(deftest subtype-nil
+  (is (sub? nil nil))
+  (is (sub? (U nil) nil))
+  (is (not (sub? nil 1))))
+
+(deftest subtype-unions
+  (is (sub? (U) (U)))
+  (is (sub? (U) (U Object nil)))
+  (is (sub? (U Long) (U Long)))
+  (is (not (sub? (U Object) (U Long))))
+  (is (not (sub? Object (U Long))))
+  (is (sub? Long (U Object)))
+  (is (sub? (U Float Integer Double) Object))
+  )
+
+#_(deftest subtype-funs
   (is (sub? [1 -> 2] 
             [1 -> 2]))
   (is (sub? [Long -> 1] 
@@ -26,7 +47,7 @@
   (is (sub? [Object Long -> 1] 
             [Long Long -> Long])))
 
-(deftest subtype-varargs
+#_(deftest subtype-varargs
   (is (sub? [Number & Object -> Boolean] 
             [Number & Number -> Boolean]))
   (is (sub? [Object & Number -> Boolean]
