@@ -370,57 +370,6 @@
                (count args)))
     arr))
 
-
-;(def-arity FixedArity [dom rng flter type-params]
-;  "An arity with fixed domain. Supports optional filter, and optional type parameters"
-;  {:pre [(every? Type? dom)
-;         (Type? rng)
-;         (or (nil? flter)
-;             (FilterSet? flter))
-;         (or (nil? type-params)
-;             (every? type-variable? type-params))]}
-;
-;  IArity
-;  (matches-args [this args]
-;    (when (= (count dom)
-;             (count args))
-;      this))
-;
-;  (match-to-fun-arity [this fun-type]
-;    (some #(and (instance? FixedArity %)
-;                (= (count (:dom %))
-;                   (count (:dom this)))
-;                (= (count (:type-params %))
-;                   (count (:type-params this)))
-;                %)
-;          (:arities fun-type)))
-;          
-;  (type-parameters [this] type-params))
-;
-;(def-arity UniformVariableArity [fixed-dom rest-type rng type-params]
-;  "An arity with variable domain, with uniform rest type, optional type parameters"
-;  {:pre [(every? Type? fixed-dom)
-;         (Type? rest-type)
-;         (Type? rng)
-;         (or (nil? type-params)
-;             (every? type-variable? type-params))]}
-;  IArity
-;  (matches-args [this args]
-;    (when (<= (count fixed-dom)
-;              (count args))
-;      this))
-;
-;  (match-to-fun-arity [this fun-type]
-;    (some #(and (instance? UniformVariableArity %)
-;                (= (count (:fixed-dom %))
-;                   (count (:fixed-dom this)))
-;                (= (count (:type-params %))
-;                   (count (:type-params this)))
-;                %)
-;          (:arities fun-type)))
-;  
-;  (type-parameters [this] type-params))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
 
@@ -752,107 +701,29 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtyping
 
-;(defprotocol ISubtype
-;  (subtype?* [this t]))
-;
-;(declare subtype? subtypes?)
-;
-;(extend-protocol ISubtype
-;  ClassType
-;  (subtype?* [s t]
-;    (boolean
-;      (when (instance? ClassType t)
-;        (isa? (:the-class s)
-;              (:the-class t)))))
-;
-;  PrimitiveClass
-;  (subtype?* [s t]
-;    (boolean
-;      (when (instance? PrimitiveClass t)
-;        (isa? (:the-class s)
-;              (:the-class t)))))
-;
-;  arity
-;  (subtype?* [s t]
-;    (and (arity? t)
-;         (let [{s-dom :dom 
-;                s-rng :rng
-;                s-rest :rest-type} s
-;               {t-dom :dom
-;                t-rng :rng
-;                t-rest :rest-type} t]
-;           (cond
-;             ;; simple case
-;             (and (not s-rest)
-;                  (not t-rest))
-;             (and (subtypes? t-dom s-dom)
-;                  (subtype? s-rng t-rng))
-;
-;             (not s-rest)
-;             false
-;
-;             (and s-rest
-;                  (not t-rest))
-;             (and (subtypes?*-varargs t-dom s-dom s-rest)
-;                  (subtype? s-rng t-rng))
-;             
-;             (and s-rest
-;                  t-rest)
-;             (and (subtypes?*-varargs t-dom s-dom s-rest)
-;                  (subtype? t-rest s-rest)
-;                  (subtype? s-rng t-rng))
-;             
-;             :else false))))
-;
-;
-;  Fun
-;  (subtype?* [s t]
-;    (every? true?
-;            (for [sub-arity (:arities s)]
-;              (some #(subtype? sub-arity %) (:arities t)))))
-;  
-;  Union
-;  (subtype?* [s t]
-;    (cond 
-;      (instance? Union t) 
-;      ;; each element of s is a subtype of some type in t
-;      (map-all-true? (fn [sub]
-;                       (boolean (some #(subtype? sub %) (:types t))))
-;                     (:types s))
-;
-;      :else (every? #(subtype? % t) (:types s))))
-;
-;  Intersection
-;  (subtype?* [s t]
-;    (cond
-;      (instance? Intersection t)
-;      (map-all-true? #(subtype? s %) (:types t))
-;
-;      :else (boolean (some #(subtype? % t) (:types s)))))
-;
-;  UnboundedTypeVariable
-;  (subtype?* [s t]
-;    true))
-
 ;; TODO Type variables
 
-(declare subtypes-of supertypes-of)
+(declare supertype-of-all subtype-of-all supertype-of-one)
 
 (defmulti subtype?* (fn [s t]
                       [(class s)
                        (class t)]))
 
+;unions
+
 (defmethod subtype?* [Union Union]
   [s t]
-  (subtypes-of t (:types s)))
+  (supertype-of-all t (:types s)))
 
 (defmethod subtype?* [Type Union]
   [s t]
-  (supertypes-of s (:types t)))
+  (subtype-of-all s (:types t)))
 
 (defmethod subtype?* [Union Type]
   [s t]
-  (subtypes-of t (:types s)))
+  (supertype-of-all t (:types s)))
+
+;singletons
 
 (defmethod subtype?* [Value Value]
   [s t]
@@ -864,27 +735,78 @@
   (subtype?* (->ClassType (-> s :val class))
              t))
 
+;classes
+
 (defmethod subtype?* [ClassType ClassType]
   [s t]
   (isa? (:the-class s)
         (:the-class t)))
 
+;nil
+
 (defmethod subtype?* [NilType NilType]
   [s t]
   true)
+
+;function
+
+(defmethod subtype?* [Fun Fun]
+  [{s-arities :arities} {t-arities :arities}]
+  (every? true?
+          (map #(supertype-of-one % s-arities)
+               t-arities)))
+
+(defmethod subtype?* [arity arity]
+  [{s-dom :dom 
+    s-rng :rng
+    s-rest :rest-type
+    :as s}
+   {t-dom :dom
+    t-rng :rng
+    t-rest :rest-type
+    :as t}]
+  (cond
+    ;; simple case
+    (and (not s-rest)
+         (not t-rest))
+    (and (subtypes? t-dom s-dom)
+         (subtype? s-rng t-rng))
+
+    (not s-rest)
+    false
+
+    (and s-rest
+         (not t-rest))
+    (and (subtypes?*-varargs t-dom s-dom s-rest)
+         (subtype? s-rng t-rng))
+
+    (and s-rest
+         t-rest)
+    (and (subtypes?*-varargs t-dom s-dom s-rest)
+         (subtype? t-rest s-rest)
+         (subtype? s-rng t-rng))
+
+    :else false))
+
+;default
 
 (defmethod subtype?* [Type Type]
   [s t]
   false)
 
-(defn supertypes-of 
-  "True if all ts are supertypes of s"
+(defn supertype-of-one
+  "True if t is a supertype to at least one ss"
+  [t ss]
+  (some #(subtype? % t) ss))
+
+(defn subtype-of-all 
+  "True if s is subtype of all ts"
   [s ts]
   (every? true?
           (map #(subtype? s %) ts)))
 
-(defn subtypes-of 
-  "True if all ss are subtypes of t"
+(defn supertype-of-all
+  "True if t is a supertype of all ss"
   [t ss]
   (every? true?
           (map #(subtype? % t) ss)))
@@ -897,23 +819,6 @@
 
 (defn subtype? [s t]
   (subtype?* s t))
-
-;(defn subtype? [s t]
-;  (assert (Type? t) t)
-;  (assert (Type? s) s)
-;  (cond
-;    (type-variable? t) true ;TODO should probably be subtype on identical name?
-;
-;    (identical? Any t) true
-;
-;    (and (instance? Union t)
-;         (not (instance? Union s)))
-;    (boolean (some #(subtype? s %) (:types t)))
-;
-;    (instance? Intersection t)
-;    (map-all-true? #(subtype? s %) (:types t))
-;    
-;    :else (subtype?* s t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable Elimination

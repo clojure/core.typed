@@ -39,7 +39,7 @@
   (is (sub? (U Float Integer Double) Object))
   )
 
-#_(deftest subtype-funs
+(deftest subtype-funs
   (is (sub? [1 -> 2] 
             [1 -> 2]))
   (is (sub? [Long -> 1] 
@@ -47,7 +47,7 @@
   (is (sub? [Object Long -> 1] 
             [Long Long -> Long])))
 
-#_(deftest subtype-varargs
+(deftest subtype-varargs
   (is (sub? [Number & Object -> Boolean] 
             [Number & Number -> Boolean]))
   (is (sub? [Object & Number -> Boolean]
