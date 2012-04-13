@@ -1,4 +1,4 @@
-(ns typed-clojure.infer
+(ns typed-clojure.attempt2
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons))
   (:use [trammel.core :only [defconstrainedrecord defconstrainedvar
                              constrained-atom]])
@@ -57,12 +57,12 @@
       (map->TClass
         {:the-class t}))))
 
-(declare map->Fun map->FixedArity union Nil)
+(declare map->Fun map->arity union Nil)
 
 ;(+T method->fun [clojure.reflect.Method -> ITypedClojureType])
 (defn- method->Fun [method]
   (map->Fun
-    {:arities [(map->FixedArity 
+    {:arities [(map->arity 
                  {:dom (->> 
                          (map resolve-class-symbol (:parameter-types method))
                          (map #(union [Nil %]))) ; Java methods can return null
@@ -246,12 +246,12 @@
 
 ;; Base types
 
-(declare Arity?)
+(declare arity?)
 
 (def-type Fun [arities]
   "Function with one or more arities"
   {:pre [(seq arities)
-         (every? Arity? arities)]})
+         (every? arity? arities)]})
 
 (def-type TClass [the-class]
   "A class"
@@ -313,74 +313,137 @@
 
 ;; arities
 
-(defprotocol IArity
-  (type-parameters [this] "Return the type parameters associated with this arity")
-  (matches-args [this args] "Return the arity if it matches the number of args,
-                            otherwise nil")
-  (match-to-fun-arity [this fun-type] "Return an arity than appears to match a fun-type
-                                      arity, by counting arguments, not subtyping"))
+;(defprotocol IArity
+;  (matches-args [this args] "Return the arity if it matches the number of args,
+;                            otherwise nil")
+;  (match-to-fun-arity [this fun-type] "Return an arity than appears to match a fun-type
+;                                      arity, by counting arguments, not subtyping"))
 
 (def Arity ::arity-type)
 
 (defn Arity? [a]
   (isa? (class a) Arity))
 
-(defmacro def-arity [nme & body]
-  `(let [a# (def-type ~nme ~@body)]
-     (derive a# Arity)
-     a#))
-
 (declare FilterSet?)
 
-(def-arity FixedArity [dom rng flter type-params]
-  "An arity with fixed domain. Supports optional filter, and optional type parameters"
+;; arity is NOT a type
+(def-type arity [dom rng rest-type flter type-params]
+  "An arity with fixed or variable domain. Supports optional filter, and optional type parameters"
   {:pre [(every? Type? dom)
          (Type? rng)
+         (or (nil? rest-type)
+             (Type? rest-type))
          (or (nil? flter)
              (FilterSet? flter))
          (or (nil? type-params)
-             (every? type-variable? type-params))]}
+             (every? type-variable? type-params))]})
 
-  IArity
-  (matches-args [this args]
-    (when (= (count dom)
-             (count args))
-      this))
+(defn subtypes?*-varargs [argtys dom rst]
+  (loop [dom dom
+         argtys argtys]
+    (cond
+      (and (empty? argtys)
+           (empty? dom))
+      true
 
-  (match-to-fun-arity [this fun-type]
-    (some #(and (instance? FixedArity %)
-                (= (count (:dom %))
-                   (count (:dom this)))
-                (= (count (:type-params %))
-                   (count (:type-params this)))
-                %)
-          (:arities fun-type)))
-          
-  (type-parameters [this] type-params))
+      (empty? argtys)
+      false
 
-(def-arity UniformVariableArity [fixed-dom rest-type rng type-params]
-  "An arity with variable domain, with uniform rest type, optional type parameters"
-  {:pre [(every? Type? fixed-dom)
-         (Type? rest-type)
-         (Type? rng)
-         (or (nil? type-params)
-             (every? type-variable? type-params))]}
-  IArity
-  (matches-args [this args]
-    (when (<= (count fixed-dom)
-              (count args))
-      this))
+      (and (empty? dom)
+           rst)
+      (if (subtype? (first argtys) rst)
+        (recur dom (next argtys))
+        false)
 
-  (match-to-fun-arity [this fun-type]
-    (some #(and (instance? UniformVariableArity %)
-                (= (count (:fixed-dom %))
-                   (count (:fixed-dom this)))
-                (= (count (:type-params %))
-                   (count (:type-params this)))
-                %)
-          (:arities fun-type)))
-  
-  (type-parameters [this] type-params))
+      (empty? dom)
+      false
+
+      (subtype? (first argtys)
+                (first dom))
+      (recur (next argtys)
+             (next dom))
+
+      :else false)))
+
+
+(def top-arity ::top-arity)
+
+(declare subtype?)
+
+(defn subtype?*-arity [s t]
+  (assert (not (:rest-type s)))
+  (assert (not (:rest-type t)))
+  (and (map-all-true? subtype? 
+                      (:dom s)
+                      (:dom t))
+       (subtype? (:rng s)
+                 (:rng t))))
+
+(defn match-to-fun-arity [s fun-type]
+  (first 
+    (filter #(= (count (:dom s))
+                (count (:dom %)))
+            (:arities fun-type))))
+
+
+(defn matches-args [arr args]
+  (when (or (and (:rest-type arr)
+                 (<= (count (:dom arr))
+                     (count args)))
+            (= (count (:dom arr))
+               (count args)))
+    arr))
+
+
+;(def-arity FixedArity [dom rng flter type-params]
+;  "An arity with fixed domain. Supports optional filter, and optional type parameters"
+;  {:pre [(every? Type? dom)
+;         (Type? rng)
+;         (or (nil? flter)
+;             (FilterSet? flter))
+;         (or (nil? type-params)
+;             (every? type-variable? type-params))]}
+;
+;  IArity
+;  (matches-args [this args]
+;    (when (= (count dom)
+;             (count args))
+;      this))
+;
+;  (match-to-fun-arity [this fun-type]
+;    (some #(and (instance? FixedArity %)
+;                (= (count (:dom %))
+;                   (count (:dom this)))
+;                (= (count (:type-params %))
+;                   (count (:type-params this)))
+;                %)
+;          (:arities fun-type)))
+;          
+;  (type-parameters [this] type-params))
+;
+;(def-arity UniformVariableArity [fixed-dom rest-type rng type-params]
+;  "An arity with variable domain, with uniform rest type, optional type parameters"
+;  {:pre [(every? Type? fixed-dom)
+;         (Type? rest-type)
+;         (Type? rng)
+;         (or (nil? type-params)
+;             (every? type-variable? type-params))]}
+;  IArity
+;  (matches-args [this args]
+;    (when (<= (count fixed-dom)
+;              (count args))
+;      this))
+;
+;  (match-to-fun-arity [this fun-type]
+;    (some #(and (instance? UniformVariableArity %)
+;                (= (count (:fixed-dom %))
+;                   (count (:fixed-dom this)))
+;                (= (count (:type-params %))
+;                   (count (:type-params this)))
+;                %)
+;          (:arities fun-type)))
+;  
+;  (type-parameters [this] type-params))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -524,7 +587,7 @@
   [[_ & [typ-syntax :as args]]]
   (assert (= 1 (count args)))
   (let [pred-type (parse-syntax typ-syntax)]
-    (->Fun [(map->FixedArity 
+    (->Fun [(map->arity
               {:dom [Any]
                :rng (->TClass Boolean)
                :pred-type pred-type
@@ -611,18 +674,17 @@
                            :else (throw (Exception. (str "Unsupported option " nme))))))
 
           fixed-dom-types (doall (map parse-syntax fixed-dom))
-          rng-type (parse-syntax rng)]
-      (if (seq rest-args)
-        (map->UniformVariableArity
-          {:fixed-dom fixed-dom-types
-           :rest-type (parse-syntax uniform-rest-type)
-           :rng rng-type})
-        (map->FixedArity
-          (merge 
-            extras
-            {:dom fixed-dom-types
-             :rng rng-type
-             :named-params named-params})))))
+          rng-type (parse-syntax rng)
+          uniform-rest-type (when uniform-rest-type
+                              (parse-syntax uniform-rest-type))]
+      (map->arity
+        (merge
+          {:dom fixed-dom-types
+           :rng rng-type}
+          (when uniform-rest-type
+            {:rest-type uniform-rest-type})
+          (when named-params
+            {:named-params named-params})))))
 
   nil
   (parse-syntax* [_]
@@ -678,7 +740,7 @@
   (unparse-type* [this]
     (list* Fun-literal (doall (map unparse-type (:arities this)))))
 
-  FixedArity
+  arity
   (unparse-type* [this]
     (let [dom (doall (map unparse-type (:dom this)))
           ;; handle named parameters
@@ -692,19 +754,12 @@
           flter (when-let [flter (:flter this)]
                   (unparse-filter flter))
 
-          sig (-> (concat dom ['-> rng] (when flter
-                                          [:filter flter]))
-                vec)]
-      (if (seq (:type-params this))
-        (list All-literal (vec (doall (map unparse-type (:type-params this))))
-              sig)
-        sig)))
-
-  UniformVariableArity
-  (unparse-type* [this]
-    (let [sig (-> (concat (doall (map unparse-type (:fixed-dom this))) 
-                          ['& (unparse-type (:rest-type this))
-                           '-> (unparse-type (:rng this))])
+          sig (-> (concat dom 
+                          (when (:rest-type this)
+                            ['& (unparse-type (:rest-type this))])
+                          ['-> rng]
+                          (when flter
+                            [:filter flter]))
                 vec)]
       (if (seq (:type-params this))
         (list All-literal (vec (doall (map unparse-type (:type-params this))))
@@ -770,7 +825,7 @@
 (defprotocol ISubtype
   (subtype?* [this t]))
 
-(declare subtype?)
+(declare subtype? subtypes?)
 
 (extend-protocol ISubtype
   AnyType
@@ -796,20 +851,44 @@
         (isa? (:the-class s)
               (:the-class t)))))
 
-  FixedArity
+  arity
   (subtype?* [s t]
-    (and (instance? FixedArity t)
-         (map-all-true? subtype? (:dom t) (:dom s))
-         (subtype? (:rng s) (:rng t))))
+    (and (arity? t)
+         (let [{s-dom :dom 
+                s-rng :rng
+                s-rest :rest-type} s
+               {t-dom :dom
+                t-rng :rng
+                t-rest :rest-type} t]
+           (cond
+             ;; simple case
+             (and (not s-rest)
+                  (not t-rest))
+             (and (subtypes? t-dom s-dom)
+                  (subtype? s-rng t-rng))
+
+             (not s-rest)
+             false
+
+             (and s-rest
+                  (not t-rest))
+             (and (subtypes?*-varargs t-dom s-dom s-rest)
+                  (subtype? s-rng t-rng))
+             
+             (and s-rest
+                  t-rest)
+             (and (subtypes?*-varargs t-dom s-dom s-rest)
+                  (subtype? t-rest s-rest)
+                  (subtype? s-rng t-rng))
+             
+             :else false))))
+
 
   Fun
   (subtype?* [s t]
-    (and (= (count (:arities s))
-            (count (:arities t)))
-         (every? true?
-                 (for [sub-arity (:arities s)]
-                   (when-let [t-arity (match-to-fun-arity sub-arity t)]
-                     (subtype? sub-arity t-arity))))))
+    (every? true?
+            (for [sub-arity (:arities s)]
+              (some #(subtype? sub-arity %) (:arities t)))))
   
   Union
   (subtype?* [s t]
@@ -868,11 +947,17 @@
 
   (literal-subtyping dispatch-class isa-class keyword-accessor))
 
+(defn subtypes? [ss ts]
+  (and (= (count ss)
+          (count ts))
+       (every? true? 
+               (map subtype? ss ts))))
+
 (defn subtype? [s t]
-  {:pre [(Type? t)
-         (Type? s)]}
+  (assert (Type? t) t)
+  (assert (Type? s) s)
   (cond
-    (type-variable? t) true
+    (type-variable? t) true ;TODO should probably be subtype on identical name?
 
     (identical? Any t) true
 
@@ -896,7 +981,7 @@
     (class t)))
 
 (defn- arity-introduces-shadow? [t x]
-  (some #(= % x) (type-parameters t)))
+  (some #(= % x) (:type-params t)))
 
 (defn- unique-variable
   "Generate a globally unique type variable based on t"
@@ -929,36 +1014,14 @@
           (next x->v))
         t))))
 
-(defmethod replace-variables UniformVariableArity
-  [t x->v]
-  (letfn [(rename-variable-arity-shadow [t x v]
-            (rename-shadowing-variable t x v
-                                       (fn [rplc]
-                                         (-> t
-                                           (update-in [:fixed-dom] #(doall (map rplc %)))
-                                           (update-in [:rest-type] rplc) 
-                                           (update-in [:rng] rplc)
-                                           (update-in [:type-params] #(doall (map rplc %)))))))
-          
-          (replace-variable-arity-free-variable [t x v]
-            (let [rplc #(replace-variables % {x v})]
-              (-> t
-                (update-in [:fixed-dom] #(doall (map rplc %)))
-                (update-in [:rest-type] rplc) 
-                (update-in [:rng] rplc))))]
-    (handle-replace-arity 
-      t 
-      x->v 
-      rename-variable-arity-shadow
-      replace-variable-arity-free-variable)))
-
-(defmethod replace-variables FixedArity
+(defmethod replace-variables arity
   [t x->v]
   (letfn [(rename-fixed-arity-shadow [t x v]
             (rename-shadowing-variable t x v
                                        (fn [rplc]
                                          (-> t
                                            (update-in [:dom] #(doall (map rplc %)))
+                                           (update-in [:rest-type] #(when % (rplc %)))
                                            (update-in [:rng] rplc) 
                                            (update-in [:type-params] #(doall (map rplc %)))))))
           
@@ -966,6 +1029,7 @@
             (let [rplc #(replace-variables % {x v})]
               (-> t
                 (update-in [:dom] #(doall (map rplc %)))
+                (update-in [:rest-type] #(when % (rplc %)))
                 (update-in [:rng] rplc))))]
     (handle-replace-arity
       t
@@ -1018,26 +1082,29 @@
 (defn- rename-type-args 
   "Rename any type parameters conflicting with type variables in set v"
   [s v]
-  (assert (instance? FixedArity s))
+  (assert (and (arity? s)
+               (not (:rest-type s))))
   (let [renames (into {}
                       (map #(vector % (unique-variable %))
-                           (filter v (type-parameters s))))]
+                           (filter v (:type-params s))))]
     (if (seq renames)
       ; rename shadowing variables
       (let [rplc #(replace-variables % renames)]
         (-> s
           (update-in [:dom] #(doall (map rplc %)))
           (update-in [:rng] rplc)
+          (update-in [:rest-type] #(when % (rplc %)))
           (update-in [:type-params] #(doall (map rplc %)))))
       s)))
 
-(defmethod promote FixedArity
+(defmethod promote arity
   [s v]
   (let [s (rename-type-args s v)
         dmt #(demote % v)
         pmt #(promote % v)]
     (-> s
       (update-in [:dom] #(doall (map dmt %)))
+      (update-in [:rest-type] #(when % (dmt %)))
       (update-in [:rng] pmt))))
 
 (defmethod promote Fun
@@ -1064,13 +1131,14 @@
     Nothing
     s))
 
-(defmethod demote FixedArity
+(defmethod demote arity
   [s v]
   (let [s (rename-type-args s v)
         pmt #(promote % v)
         dmt #(demote % v)]
     (-> s
       (update-in [:dom] #(doall (map pmt %)))
+      (update-in [:rest-type] #(when % (pmt %)))
       (update-in [:rng] dmt))))
 
 (defmethod demote Type
@@ -1189,7 +1257,7 @@
     ;; cg-refl
     :else (empty-constraint-set xs)))
 
-(defmethod constraint-gen* [FixedArity FixedArity]
+(defmethod constraint-gen* [arity arity]
   [s t xs v]
   (let [;; enforce (set/intersection (:type-params s)
         ;;                           (set/union xs v))
@@ -1207,32 +1275,8 @@
         v-union-ys (set/union v (:type-params s))
 
         cs (map #(constraint-gen %1 %2 xs v-union-ys)
-                 (:dom t)
-                 (:dom s))
-        
-        d (constraint-gen (:rng s) (:rng t) xs v-union-ys)]
-    (apply intersect-constraint-sets d cs)))
-
-(defmethod constraint-gen* [UniformVariableArity UniformVariableArity]
-  [s t xs v]
-  (let [;; enforce (set/intersection (:type-params s)
-        ;;                           (set/union xs v))
-        ;;         => #{}
-        conflicts (set/intersection (set (:type-params s))
-                                    (set/union xs v))
-
-        renames (into {}
-                      (for [v conflicts]
-                        [v (unique-variable v)]))
-        
-        [s t] (map #(replace-variables % renames)
-                   [s t])
-
-        v-union-ys (set/union v (:type-params s))
-
-        cs (map #(constraint-gen %1 %2 xs v-union-ys)
-                (concat (:fixed-dom t) [(:rest-type t)])
-                (concat (:fixed-dom s) [(:rest-type s)]))
+                 (concat (:dom t) (when (:rest-type t) [(:rest-type t)]))
+                 (concat (:dom s) (when (:rest-type s) [(:rest-type s)])))
         
         d (constraint-gen (:rng s) (:rng t) xs v-union-ys)]
     (apply intersect-constraint-sets d cs)))
@@ -1353,15 +1397,9 @@
         _ (assert arity-type)
 
         expected-dom (take (count args)
-                           (cond
-                             (instance? FixedArity arity-type)
-                             (:dom arity-type)
-
-                             (instance? UniformVariableArity arity-type)
-                             (concat (:fixed-dom arity-type)
-                                     (repeat (:rest-type arity-type)))
-
-                             :else (assert false (str "Unsupported Arity" arity-type))))
+                           (concat (:dom arity-type)
+                                   (when (:rest-type arity-type)
+                                     (repeat (:rest-type arity-type)))))
 
         checked-args (doall (map #(-> %1
                                     (assoc ::+T %2)
@@ -1378,19 +1416,10 @@
         min-sub (minimal-substitution arity-type constraint-set)
         _ (println "before" (unp arity-type))
         arity-type (let [rplc #(replace-variables % min-sub)]
-                     (cond
-                       (FixedArity? arity-type)
-                       (-> arity-type
-                         (update-in [:dom] #(doall (map rplc %)))
-                         (update-in [:rng] rplc))
-
-                       (UniformVariableArity? arity-type)
-                       (-> arity-type
-                         (update-in [:fixed-dom] #(doall (map rplc %)))
-                         (update-in [:rest-type] rplc)
-                         (update-in [:rng] rplc))
-
-                       :else (assert false "unsupported arity")))
+                     (-> arity-type
+                       (update-in [:dom] #(doall (map rplc %)))
+                       (update-in [:rest-type] #(when % (rplc %)))
+                       (update-in [:rng] rplc)))
 
         _ (println "after" (unp arity-type))
 
@@ -1640,7 +1669,7 @@
   [{:keys [required-params rest-param body] :as expr}]
   (assert (not rest-param))
   (let [expected-arity-type (::+T expr)
-        _ (assert (instance? FixedArity expected-arity-type))
+        _ (assert (not (:rest-type expected-arity-type)))
         
         typed-required-params (doall 
                                 (map #(assoc %1 ::+T %2)
@@ -1709,9 +1738,7 @@
                    override
                    (method->Fun method))
         arity-type (some #(matches-args % args) (:arities fun-type))
-        _ (assert (instance? FixedArity arity-type) (str "No matching arity found for "
-                                                         (unp fun-type) " with args "
-                                                         args))
+
         checked-args (doall 
                        (map #(-> %1
                                (assoc ::+T %2)
