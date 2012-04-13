@@ -373,6 +373,12 @@
                (count args)))
     arr))
 
+; data structures
+
+(def-type Vector [type]
+  "A vector of type type"
+  {:pre [(Type? type)]})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
 
@@ -499,6 +505,7 @@
 (def I-literal 'I)
 (def Fun-literal 'Fun)
 (def predicate-literal 'predicate)
+(def Vectorof-literal 'Vectorof)
 
 (defmethod parse-list-syntax All-literal
   [[_ [& type-var-names] & [syn & more]]]
@@ -513,6 +520,9 @@
       (assoc (parse-syntax* syn)
              :type-params type-vars))))
         
+(defmethod parse-list-syntax Vectorof-literal
+  [[_ syn]]
+  (->Vector (parse syn)))
 
 (defmethod parse-list-syntax U-literal
   [[_ & syn]]
@@ -622,6 +632,10 @@
 (defprotocol IUnparseType
   (unparse-type* [this]))
 
+(defmethod parse-list-syntax U-literal
+  [[_ & syn]]
+  (union (doall (map parse-syntax syn))))
+
 (defn unparse-type
   [type-obj]
   (unparse-type* type-obj))
@@ -695,6 +709,10 @@
   TProtocol
   (unparse-type* [this]
     (var-or-class->sym (-> this :the-protocol :var)))
+
+  Vector
+  (unparse-type* [this]
+    (list Vectorof-literal (unparse-type (:type this))))
 
   UnboundedTypeVariable
   (unparse-type* [{:keys [nme]}]
@@ -790,6 +808,12 @@
          (subtype? s-rng t-rng))
 
     :else false))
+
+;vectors
+
+(defmethod subtype?* [Vector ClassType]
+  [s {:keys [the-class]}]
+  (isa? the-class IPersistentVector))
 
 ;default
 

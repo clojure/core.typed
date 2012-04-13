@@ -75,6 +75,10 @@
             [Number Number Boolean Boolean -> Number]))
   )
 
+(deftest subtype-vector
+  (is (sub? (Vectorof Number)
+            clojure.lang.IPersistentVector)))
+
 (defmacro subfrm [form expected]
   `(subtype? (type-key (tc-expr (ast ~form)))
              (parse '~expected)))
