@@ -224,16 +224,6 @@
 
 (def falsy-values #{False Nil})
 
-;; singleton types
-
-(def-type ConstantVector [types]
-  "A constant vector type"
-  [(every? Type? types)])
-
-(def-type ConstantList [types]
-  "A constant list type"
-  [(every? Type? types)])
-
 ;; Base types
 
 (declare arity?)
@@ -376,8 +366,20 @@
 ; data structures
 
 (def-type Vector [type]
-  "A vector of type type"
+  "A vector of type type, subtype of clojure.lang.IPersistentVector"
   {:pre [(Type? type)]})
+
+(def-type ConstantVector [types]
+  "A constant vector type, subtype of clojure.lang.IPersistentVector"
+  [(every? Type? types)])
+
+(def-type Sequential [type]
+  "A sequential collection type, subtype of clojure.lang.Sequential"
+  [(Type? type)])
+
+(def-type ConstantSequential [types]
+  "A constant sequential collection type, subtype of clojure.lang.Sequential"
+  [(every? Type? types)])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -506,6 +508,9 @@
 (def Fun-literal 'Fun)
 (def predicate-literal 'predicate)
 (def Vectorof-literal 'Vectorof)
+(def Vector*-literal 'Vector*)
+(def Sequentialof-literal 'Sequentialof)
+(def Sequential*-literal 'Sequential*)
 
 (defmethod parse-list-syntax All-literal
   [[_ [& type-var-names] & [syn & more]]]
@@ -520,9 +525,21 @@
       (assoc (parse-syntax* syn)
              :type-params type-vars))))
         
+(defmethod parse-list-syntax Vector*-literal
+  [[_ & syns]]
+  (->ConstantVector (doall (map parse syns))))
+        
 (defmethod parse-list-syntax Vectorof-literal
   [[_ syn]]
   (->Vector (parse syn)))
+        
+(defmethod parse-list-syntax Sequentialof-literal
+  [[_ syn]]
+  (->Sequential (parse syn)))
+        
+(defmethod parse-list-syntax Sequential*-literal
+  [[_ & syns]]
+  (->ConstantSequential (doall (map parse syns))))
 
 (defmethod parse-list-syntax U-literal
   [[_ & syn]]
@@ -706,6 +723,12 @@
               sig)
         sig)))
 
+  Value
+  (unparse-type* [{:keys [val]}]
+    (if (symbol? val)
+      `'~val
+      val))
+
   TProtocol
   (unparse-type* [this]
     (var-or-class->sym (-> this :the-protocol :var)))
@@ -713,6 +736,18 @@
   Vector
   (unparse-type* [this]
     (list Vectorof-literal (unparse-type (:type this))))
+
+  ConstantVector
+  (unparse-type* [this]
+    (list* Vector*-literal (map (unparse-type (:types this)))))
+
+  Sequential
+  (unparse-type* [this]
+    (list Sequentialof-literal (unparse-type (:type this))))
+
+  ConstantSequential
+  (unparse-type* [this]
+    (list* Sequential*-literal (map (unparse-type (:types this)))))
 
   UnboundedTypeVariable
   (unparse-type* [{:keys [nme]}]
@@ -732,9 +767,14 @@
 ;unions
 
 (defmethod subtype?* [Union Union]
-  [s t]
-  (or (= s t)
-      (supertype-of-all t (:types s))))
+  [{s-types :types :as s} 
+   {t-types :types :as t}]
+  (if (empty? t-types) ; ie. t is Nothing
+    (empty? s-types)   ; s <: Nothing when s = Nothing
+    (or (and (empty? t-types)
+             (not (empty? s)))
+        (= s t)
+        (supertype-of-all t s-types))))
 
 (defmethod subtype?* [Type Union]
   [s t]
@@ -811,9 +851,54 @@
 
 ;vectors
 
+(defmethod subtype?* [Vector Vector]
+  [{s-type :type :as s} 
+   {t-type :type :as t}]
+  (subtype? s-type t-type))
+
 (defmethod subtype?* [Vector ClassType]
-  [s {:keys [the-class]}]
-  (isa? the-class IPersistentVector))
+  [s t]
+  (subtype? (->ClassType IPersistentVector) t))
+
+(defmethod subtype?* [ConstantVector ClassType]
+  [s t]
+  (subtype? (->ClassType IPersistentVector) t))
+
+(defmethod subtype?* [ConstantVector ConstantVector]
+  [{s-types :types :as s} 
+   {t-types :types :as t}]
+  (subtypes? s-types t-types))
+
+(defmethod subtype?* [ConstantVector Vector]
+  [{s-types :types :as s} 
+   {t-type :type :as t}]
+  (supertype-of-all t-type s-types))
+
+;sequentials
+
+(defmethod subtype?* [Sequential Sequential]
+  [{s-type :type :as s}
+   {t-type :type :as t}]
+  (subtype? s-type t-type))
+
+(defmethod subtype?* [Sequential ClassType]
+  [s t]
+  (subtype? (->ClassType clojure.lang.Sequential) t))
+
+(defmethod subtype?* [ConstantVector Sequential]
+  [{s-types :types :as s} 
+   {t-type :type :as t}]
+  (supertype-of-all t-type s-types))
+
+(defmethod subtype?* [Vector Sequential]
+  [{s-type :type :as s} 
+   {t-type :type :as t}]
+  (subtype? s-type t-type))
+
+(defmethod subtype?* [ConstantVector ConstantSequential]
+  [{s-types :types :as s} 
+   {t-types :types :as t}]
+  (subtypes? s-types t-types))
 
 ;default
 
@@ -861,6 +946,9 @@
 
 (defmulti tc-expr 
   (fn [expr & opts] (:op expr)))
+
+(defn tc-exprs [exprs]
+  (doall (map tc-expr exprs)))
 
 ;number
 
@@ -954,15 +1042,15 @@
 (defmethod tc-expr :fn-expr
   [{:keys [methods] :as expr} & opts]
   (let [expr (-> expr
-               (update-in [:methods] #(doall (map tc-expr %))))]
+               (update-in [:methods] tc-exprs))]
     (assoc expr
-           type-key (->Fun (doall (map type-key (:methods expr)))))))
+           type-key (->Fun (map type-key (:methods expr))))))
 
 (defmethod tc-expr :fn-method
   [{:keys [required-params rest-param] :as expr} & opts]
   (letfn [(meta-type-annot [expr]
             (-> expr :sym meta (get '+T) parse))]
-    (let [dom-syms (doall (map :sym required-params))
+    (let [dom-syms (map :sym required-params)
           rest-sym (:sym rest-param)
 
           meta-annots-reqd (doall (map meta-type-annot required-params))
@@ -971,22 +1059,27 @@
 
           dom-types meta-annots-reqd
           rest-type meta-annot-rst
+          actual-rest-arg-type (when rest-param
+                                 (->Sequential rest-type))
           
-          expr (-> expr
-                 (update-in [:body] #(with-local-types
-                                       (into {}
-                                             (doall
-                                               (map vector 
-                                                    (concat dom-syms (when rest-param
-                                                                       [rest-sym]))
-                                                    (concat dom-types (when rest-param
-                                                                        [rest-type])))))
-                                       (tc-expr %))))]
+          {cbody :body
+           :as expr} 
+          (-> expr
+            (update-in [:body] #(with-local-types
+                                  (into {}
+                                        (map vector 
+                                             (concat dom-syms (when rest-param
+                                                                [rest-sym]))
+                                             (concat dom-types (when rest-param
+                                                                 [actual-rest-arg-type]))))
+                                  (tc-expr %))))
+          
+          rng-type (type-key cbody)]
       (assoc expr
              type-key (map->arity
                         {:dom dom-types
                          :rest-type rest-type
-                         :rng (-> expr :body type-key)})))))
+                         :rng rng-type})))))
 
 ;local binding expr
 
@@ -994,6 +1087,39 @@
   [{:keys [local-binding] :as expr} & opts]
   (assoc expr
          type-key (type-of (:sym local-binding))))
+
+;var
+
+(defmethod tc-expr :var
+  [{:keys [var] :as expr} & opts]
+  (assoc expr
+         type-key (type-of var)))
+
+;invoke
+
+(defn- invoke-type [arg-types {:keys [arities] :as fun-type}]
+  (let [dummy-arity (map->arity 
+                      {:dom arg-types
+                       :rng Nothing})
+        
+        mtched-arity (first (filter #(subtype? % dummy-arity)
+                                    arities))
+        _ (assert mtched-arity (str "Invoke args " (with-out-str (pr (map unparse arg-types)))
+                                    " do not match any arity in "
+                                    (unp fun-type)))]
+    (:rng mtched-arity)))
+
+(defmethod tc-expr :invoke
+  [expr & opts]
+  (let [{cfexpr :fexpr
+         cargs :args
+         :as expr}
+        (-> expr
+          (update-in [:fexpr] tc-expr)
+          (update-in [:args] tc-exprs))]
+  (assoc expr
+         type-key (invoke-type (map type-key cargs)
+                               (type-key cfexpr)))))
 
 (comment
 

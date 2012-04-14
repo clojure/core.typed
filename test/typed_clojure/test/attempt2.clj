@@ -1,5 +1,5 @@
 (ns typed-clojure.test.attempt2
-  (:import (clojure.lang Keyword))
+  (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList))
   (:use [typed-clojure.attempt2]
         [analyze.core :only [ast]])
   (:use [clojure.test]))
@@ -31,10 +31,12 @@
   (is (not (sub? nil 1))))
 
 (deftest subtype-unions
-  (is (sub? (U) 
+  (is (sub? (U)
             (U)))
-  (is (sub? (U) 
+  (is (sub? (U)
             (U Object nil)))
+  (is (not (sub? (U Object nil) 
+                 (U))))
   (is (sub? (U Long) 
             (U Long)))
   (is (sub? (U Long Integer) 
@@ -75,9 +77,44 @@
             [Number Number Boolean Boolean -> Number]))
   )
 
-(deftest subtype-vector
+(deftest subtype-vectors
   (is (sub? (Vectorof Number)
-            clojure.lang.IPersistentVector)))
+            clojure.lang.IPersistentVector))
+  (is (sub? (Vectorof Number)
+            clojure.lang.Sequential))
+  (is (sub? (Vectorof Integer)
+            (Vectorof Number)))
+  (is (not (sub? (Vectorof Number)
+                 (Vectorof Integer))))
+
+  (is (sub? (Vector* Integer Float Double)
+            (Vector* Number Number Number)))
+  (is (not (sub? (Vector* Number Number Number)
+                 (Vector* Integer Float Double))))
+
+  (is (sub? (Vector* Integer Float Double)
+            (Vectorof Number)))
+  (is (sub? (Vector* Integer Float Double)
+            clojure.lang.IPersistentVector))
+  )
+
+(deftest subtype-sequentials
+  (is (sub? (Sequentialof Double)
+            (Sequentialof Number)))
+  (is (not (sub? (Sequentialof Number)
+                 (Sequentialof Double))))
+  (is (sub? (Sequentialof Double)
+            clojure.lang.Sequential))
+  (is (not (sub? (Sequentialof Double)
+                 clojure.lang.IPersistentVector)))
+  (is (not (sub? clojure.lang.Sequential
+                 (Sequentialof Double))))
+
+  (is (sub? (Vectorof Double)
+            (Sequentialof Double)))
+  (is (sub? (Vector* Double Double)
+            (Sequential* Double Number)))
+  )
 
 (defmacro subfrm [form expected]
   `(subtype? (type-key (tc-expr (ast ~form)))
@@ -158,4 +195,21 @@
   (is (subfrm
         (fn [& ^{+T Long} a]
           a)
-        [& Long * -> (U Object nil)])))
+        [& Long * -> (Sequentialof Long)])))
+
+(deftest tc-expr-var
+  (is (with-type-anns
+        {a [Long -> Long]}
+        (subfrm
+          (do (declare a)
+            a)
+          [Long -> Long]))))
+
+(deftest tc-expr-invoke
+  (is (with-type-anns
+        {a [Long -> Long]}
+        (subfrm
+          (do (declare a)
+            (a 1))
+          Long))))
+        
