@@ -996,17 +996,14 @@
 
 (defmethod tc-expr :if
   [expr & opts]
-  (let [{ctest :test
-         cthen :then
-         celse :else
-         :as expr}
+  (let [{:keys [test then else] :as expr}
         (-> expr
           (update-in [:test] tc-expr)
           (update-in [:then] tc-expr)
           (update-in [:else] tc-expr))]
     (assoc expr
-           type-key (union [(type-key cthen)
-                            (type-key celse)]))))
+           type-key (union [(type-key then)
+                            (type-key else)]))))
 
 ;do
 
@@ -1120,6 +1117,43 @@
   (assoc expr
          type-key (invoke-type (map type-key cargs)
                                (type-key cfexpr)))))
+
+;let
+
+(defn- binding-init-map 
+  "Returns a map with a single entry, associating
+  the name of the binding with its type"
+  [{:keys [local-binding init] :as binding-init}]
+  (let [init (tc-expr init)
+        {:keys [sym]} local-binding]
+    {sym (type-key init)}))
+
+(defmethod tc-expr :let
+  [{:keys [binding-inits] :as expr} & opts]
+  (let [[binding-inits local-env]
+        (loop [local-env {}  ;accumulate local environment
+               binding-inits binding-inits
+               typed-binits []]
+          (if (empty? binding-inits)
+            [typed-binits local-env]
+            (let [tbinit (-> (first binding-inits)
+                           (update-in [:init]
+                                      #(with-local-types local-env ;with local environment so far
+                                                         (tc-expr %))))
+                  env-entry {(-> tbinit :local-binding :sym) 
+                             (-> tbinit :init type-key)}
+                  local-env (merge local-env env-entry)]
+              (recur local-env
+                     (next binding-inits)
+                     (concat typed-binits [tbinit])))))
+
+        expr
+        (-> expr
+          (update-in [:binding-inits] (constantly binding-inits))
+          (update-in [:body] #(with-local-types local-env
+                                (tc-expr %))))]
+    (assoc expr
+           type-key (type-key (:body expr)))))
 
 (comment
 

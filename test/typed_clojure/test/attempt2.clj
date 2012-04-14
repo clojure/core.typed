@@ -75,6 +75,9 @@
               [Number Number Number -> Number])))
   (is (sub? [Number Number & Boolean * -> Number]
             [Number Number Boolean Boolean -> Number]))
+  (is (sub? 
+        [Long Long Long Long -> (U Object nil)]
+        [Long Long & Long * -> (U)]))
   )
 
 (deftest subtype-vectors
@@ -211,5 +214,47 @@
         (subfrm
           (do (declare a)
             (a 1))
-          Long))))
-        
+          Long)))
+  (is (with-type-anns
+        {a (Fun [Long -> Long]
+                [Long Long -> Double])}
+        (subfrm
+          (do (declare a)
+            (a 1))
+          Long)))
+  (is (with-type-anns
+        {a (Fun [Long -> Long]
+                [Long Long -> Double])}
+        (subfrm
+          (do (declare a)
+            (a 1 1))
+          Double)))
+  (is (with-type-anns
+        {a (Fun [Long -> Long]
+                [Long Long & Long * -> Double])}
+        (subfrm
+          (do (declare a)
+            (a 1 1 1 1 1 1))
+          Double)))
+         )
+
+(deftest tc-expr-let
+  (is (subfrm 
+        (let [x 1]
+          x)
+        1))
+  (is (subfrm 
+        (let [x 2
+              x 3]
+          (let [x 1]
+            x))
+        1))
+  (is (with-type-anns
+        {a [Long -> Long]}
+        (subfrm 
+          (do (declare a)
+            (let [x (a 1)
+                  y (a x)]
+              y))
+          Long)))
+      )
