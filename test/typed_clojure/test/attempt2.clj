@@ -4,6 +4,10 @@
         [analyze.core :only [ast]])
   (:use [clojure.test]))
 
+(deftest parse-resolve
+  (is (= (parse 'False)
+         False)))
+
 (defmacro sub? [s t]
   `(subtype? (parse '~s)
              (parse '~t)))
@@ -76,8 +80,14 @@
   (is (sub? [Number Number & Boolean * -> Number]
             [Number Number Boolean Boolean -> Number]))
   (is (sub? 
-        [Long Long Long Long -> (U Object nil)]
-        [Long Long & Long * -> (U)]))
+        [Long Long Long Long -> Any]
+        [Long Long & Long * -> Nothing]))
+  (is (sub? 
+        [Long Long Long Long -> Any]
+        clojure.lang.IFn))
+  (is (not (sub? 
+             clojure.lang.IFn
+             [Long Long Long Long -> Any])))
   )
 
 (deftest subtype-vectors
@@ -118,6 +128,16 @@
   (is (sub? (Vector* Double Double)
             (Sequential* Double Number)))
   )
+
+(deftest subtype-primitives
+  (is (sub? void void))
+  (is (sub? nil void))
+  (is (sub? void nil))
+  (is (sub? int int))
+  (is (sub? double double))
+  (is (sub? float float))
+  (is (sub? boolean boolean))
+  (is (sub? long long)))
 
 (defmacro subfrm [form expected]
   `(subtype? (type-key (tc-expr (ast ~form)))

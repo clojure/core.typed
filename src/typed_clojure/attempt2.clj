@@ -24,12 +24,6 @@
   `(when @debug-mode
      (println ~@body)))
 
-(defmacro check-form [form]
-  `(check (a/ast ~form)))
-
-(defmacro synthesize-form [form]
-  `(synthesize (a/ast ~form)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
@@ -204,6 +198,7 @@
   [])
 
 (def Nil (->NilType))
+(def Nil? (partial = Nil))
 
 (def-type ClassType [the-class]
   "A class"
@@ -450,17 +445,18 @@
                 (nil? res) (map->PrimitiveClass
                              {:the-class nil}) ;; void primtive
 
-                (class? res) (if (.isPrimitive res) 
+                (class? res) (if (.isPrimitive res)
                                (map->PrimitiveClass
                                  {:the-class res})
                                (map->ClassType
                                  {:the-class res}))
 
-                (Any? @res) Any
-                (Nothing? @res) Nothing
+                (Type? @res) @res
 
-                (var? res) (map->TProtocol
-                             {:the-protocol @res})))))
+                (map? @res) (map->TProtocol
+                              {:the-protocol @res})
+
+                :else (assert false (str "Could not resolve " res))))))
   
   Boolean
   (parse-syntax* [this]
@@ -518,8 +514,7 @@
         type-vars (map #(map->UnboundedTypeVariable {:nme %})
                        type-var-names)
 
-        type-var-scope (->> (mapcat vector type-var-names type-vars)
-                         (apply hash-map))]
+        type-var-scope (into {} (map vector type-var-names type-vars))]
 
     (with-type-vars type-var-scope
       (assoc (parse-syntax* syn)
@@ -719,7 +714,7 @@
                             [:filter flter]))
                 vec)]
       (if (seq (:type-params this))
-        (list All-literal (vec (doall (map unparse-type (:type-params this))))
+        (list All-literal (doall (mapv unparse-type (:type-params this)))
               sig)
         sig)))
 
@@ -761,8 +756,7 @@
 (declare supertype-of-all subtype-of-all supertype-of-one)
 
 (defmulti subtype?* (fn [s t]
-                      [(class s)
-                       (class t)]))
+                      [(class s) (class t)]))
 
 ;unions
 
@@ -809,7 +803,28 @@
   [s t]
   true)
 
+;void primitive
+
+(defmethod subtype?* [PrimitiveClass NilType]
+  [{s-class :the-class :as s} t]
+  (nil? s-class))
+
+(defmethod subtype?* [NilType PrimitiveClass]
+  [s {t-class :the-class :as t}]
+  (nil? t-class))
+
+;primitives
+
+(defmethod subtype?* [PrimitiveClass PrimitiveClass]
+  [{s-class :the-class :as s}
+   {t-class :the-class :as t}] 
+  (isa? s-class t-class))
+
 ;function
+
+(defmethod subtype?* [Fun ClassType]
+  [s {t-class :the-class :as t}]
+  (isa? t-class clojure.lang.IFn))
 
 (defmethod subtype?* [Fun Fun]
   [{s-arities :arities} {t-arities :arities}]
@@ -899,6 +914,14 @@
   [{s-types :types :as s} 
    {t-types :types :as t}]
   (subtypes? s-types t-types))
+
+;Object
+
+;; everthing except nil is a subtype of java.lang.Object
+(defmethod subtype?* [Type ClassType]
+  [s t]
+  (and (subtype? (->ClassType Object) t)
+       (not (Nil? s))))
 
 ;default
 
