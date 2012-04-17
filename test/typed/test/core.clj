@@ -1,17 +1,17 @@
-(ns typed-clojure.test.attempt2
+(ns typed.test.core
   (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList Var Ratio
                          Symbol IPersistentMap))
-  (:require [typed-clojure.attempt2 :refer :all]
+  (:require [typed.core :refer :all]
             [analyze.core :refer [ast]]
             [clojure.test :refer :all]))
 
 ; add base type anns
 (binding [*add-type-ann-fn* (fn [sym type-syn]
                               (add-type-ann sym (parse type-syn)))]
-  (require 'typed-clojure.base))
+  (require 'typed.base))
 
 (defmacro sub? [s t]
-  `(binding [*ns* (find-ns 'typed-clojure.test.attempt2)]
+  `(binding [*ns* (find-ns 'typed.test.core)]
      (subtype? (parse '~s)
                (parse '~t))))
 
@@ -169,7 +169,7 @@
   (is (sub? double Double)))
 
 (defmacro subfrm [form expected]
-  `(binding [*ns* (find-ns 'typed-clojure.test.attempt2)]
+  `(binding [*ns* (find-ns 'typed.test.core)]
      (subtype? (type-key (tc-expr (ast ~form)))
                (parse '~expected))))
 
@@ -228,11 +228,11 @@
               1)))
 
 (defmacro tc [form]
-  `(binding [*ns* (find-ns 'typed-clojure.test.attempt2)]
+  `(binding [*ns* (find-ns 'typed.test.core)]
      (tc-expr (ast ~form))))
 
 (defmacro with-env [& body]
-  `(binding [*ns* (find-ns 'typed-clojure.test.attempt2)]
+  `(binding [*ns* (find-ns 'typed.test.core)]
      (with-type-anns ~@body)))
 
 (deftest tc-expr-def

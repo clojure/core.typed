@@ -1,6 +1,6 @@
-(ns typed-clojure.base
+(ns typed.base
   (:import (clojure.lang Symbol Namespace IPersistentMap Var))
-  (:require [typed-clojure.attempt2 :refer [+T]]))
+  (:require [typed.core :refer [+T]]))
 
 (+T clojure.core/in-ns [Symbol -> Namespace])
 (+T clojure.core/resolve 

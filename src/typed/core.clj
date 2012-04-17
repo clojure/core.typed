@@ -1,4 +1,4 @@
-(ns typed-clojure.attempt2
+(ns typed.core
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons
                          Ratio Atom IPersistentMap))
   (:use [trammel.core :only [defconstrainedrecord defconstrainedvar
@@ -55,7 +55,7 @@
         ;; 1. Collect all type annotations
         _ (binding [*add-type-ann-fn* (fn [sym type-syn]
                                         (add-type-ann sym (parse type-syn)))]
-            (require :reload 'typed-clojure.base)
+            (require :reload 'typed.base)
             (require :reload nsym))
         
         ;; 2. Perform type checking
