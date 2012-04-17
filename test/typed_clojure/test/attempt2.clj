@@ -1,6 +1,6 @@
 (ns typed-clojure.test.attempt2
   (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList Var Ratio
-                         Symbol))
+                         Symbol IPersistentMap))
   (:use [typed-clojure.attempt2]
         [analyze.core :only [ast]])
   (:use [clojure.test]))
@@ -294,3 +294,8 @@
   (is (subfrm
         (+ 1 1)
         long)))
+
+(deftest tc-map
+  (is (subfrm
+        {:a :b}
+        IPersistentMap)))

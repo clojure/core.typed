@@ -1,6 +1,6 @@
 (ns typed-clojure.attempt2
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons
-                         Ratio Atom))
+                         Ratio Atom IPersistentMap))
   (:use [trammel.core :only [defconstrainedrecord defconstrainedvar
                              constrained-atom]]
         [analyze.core :only [ast]])
@@ -59,10 +59,13 @@
             (require :reload nsym))
         
         ;; 2. Perform type checking
-        forms (analyze-path nsym)
+        asts (analyze-path nsym)
         
-        _ (doseq [frm forms]
-            (tc-expr frm))]
+        _ (doseq [a asts]
+            (try (tc-expr a)
+              (catch Exception e
+                (println a)
+                (throw e))))]
     nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -117,7 +120,8 @@
   [sym]
   (let [t (resolve-or-primitive sym)]
     (assert (or (nil? sym) (= 'void sym) (class? t)) (str sym " expected to resolve to a class, instead " t))
-    (if (.isPrimitive ^Class t)
+    (if (or (nil? t)
+            (.isPrimitive ^Class t))
       (map->PrimitiveClass
         {:the-class t})
       (map->ClassType
@@ -1106,6 +1110,10 @@
 ;constant
 
 (defmulti constant-type class)
+
+(defmethod constant-type IPersistentMap
+  [r]
+  (->ClassType IPersistentMap))
 
 (defmethod constant-type Ratio
   [r]
