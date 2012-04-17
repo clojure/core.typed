@@ -1195,11 +1195,19 @@
 
 (defmethod constant-type IPersistentMap
   [r]
-  (->ClassType IPersistentMap))
+  (->ConstantMap (doall (map constant-type (apply concat r)))))
 
 (defmethod constant-type Ratio
   [r]
   (->Value r))
+
+(defmethod constant-type Keyword
+  [s]
+  (->Value s))
+
+(defmethod constant-type Long
+  [s]
+  (->Value s))
 
 (defmethod constant-type Symbol
   [s]
@@ -1446,7 +1454,7 @@
         (-> expr
           (update-in [:keyvals] tc-exprs))]
     (assoc expr
-           type-key (->ClassType IPersistentMap))))
+           type-key (->ConstantMap (map type-key ckeyvals)))))
 
 ;emptyexpr
 

@@ -18,14 +18,18 @@
 (deftest subtype-unit
   (is (sub? Unit Unit)))
 
-(deftest subtype-any
+(deftest subtype-any-nothing
   (is (sub? [1 -> 1] Any))
+  (is (sub? Nothing [1 -> 1]))
+  (is (sub? Nothing Any))
   (is (sub? Long Any)))
 
 (deftest subtype-object
   (is (sub? [1 -> 1] Object))
   (is (sub? long Object))
+  (is (not (sub? Object long)))
   (is (sub? float Object))
+  (is (not (sub? Object float)))
   (is (sub? Object Object)))
 
 (deftest subtype-classes
@@ -179,7 +183,10 @@
 
 (deftest subtype-primitive-boxing
   (is (sub? long Long))
-  (is (sub? double Double)))
+  (is (sub? Long long))
+  (is (sub? double Double))
+  (is (sub? Double double))
+         )
 
 (defmacro subfrm [form expected]
   `(binding [*ns* (find-ns 'typed.test.core)]
@@ -212,6 +219,12 @@
   (is (subfrm
         {:a :b}
         IPersistentMap))
+  (is (subfrm
+        {:a :b}
+        (Map* :a :b)))
+  (is (subfrm
+        {1 2 3 4 5 6 7 8}
+        (Map* 1 2 5 6 7 8 3 4)))
          )
 
 (deftest tc-expr-keyword
@@ -354,4 +367,4 @@
 (deftest tc-map
   (is (subfrm
         {(get {} 1) 1}
-        (Map* nil 1))))
+        (Map* Any 1))))
