@@ -1,19 +1,83 @@
 (ns typed-clojure.attempt2
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons
-                         Ratio))
+                         Ratio Atom))
   (:use [trammel.core :only [defconstrainedrecord defconstrainedvar
                              constrained-atom]]
         [analyze.core :only [ast]])
-  (:require [analyze.core :as a]
+  (:require [analyze.core :as a :refer [analyze-path]]
             [analyze.util :as util]
             [clojure.set :as set]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type Annotation
+
+;(+T *add-type-ann-fn* [Symbol Any -> nil])
+(def ^:dynamic 
+  *add-type-ann-fn* 
+  (fn [sym type-syn]
+    [sym :- type-syn]))
+
+(defmacro +T [nme type-syn]
+  `(*add-type-ann-fn* 
+     ~(if (namespace nme)
+        `'~nme
+        `(symbol (-> *ns* ns-name name) (name '~nme)))
+     '~type-syn))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Typed require
+
+;(+T type-db-var-contract [clojure.lang.IPersistentMap -> Boolean])
+(defn ns-deps-contract [m]
+  (and (every? symbol? (keys m))
+       (every? set? (vals m))
+       (every? #(every? symbol? %) (vals m))))
+
+(def ns-deps (constrained-atom {}
+                               "Map from symbols to seqs of symbols"
+                               [ns-deps-contract]))
+
+(defn add-ns-dep [nsym ns-dep]
+  (swap! ns-deps update-in [nsym] #(set/union % #{ns-dep}))
+  nil)
+
+(defmacro require-typed [nsym]
+  `(add-ns-dep (symbol (-> *ns* ns-name name))
+               '~nsym))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Top levels
+
+(declare add-type-ann parse ^:dynamic *type-db* tc-expr unparse)
+
+(defn check-namespace [nsym]
+  (let [ 
+        ;; 1. Collect all type annotations
+        _ (binding [*add-type-ann-fn* (fn [sym type-syn]
+                                        (add-type-ann sym (parse type-syn)))]
+            (require :reload 'typed-clojure.base)
+            (require :reload nsym))
+        
+        ;; 2. Perform type checking
+        forms (analyze-path nsym)
+        
+        _ (doseq [frm forms]
+            (tc-expr frm))]
+    nil))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type hierarchy
+
+;(+T type-key Keyword)
 (def type-key ::+T)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Debug macros
 
+;(+T debug-mode Atom)
 (def debug-mode (atom true))
+
+;(+T print-warnings Atom)
 (def print-warnings (atom true))
 
 (defmacro warn [& body]
@@ -24,11 +88,15 @@
   `(when @debug-mode
      (println ~@body)))
 
+(defmacro tc-form [frm]
+  `(-> (ast ~frm) tc-expr))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
-(declare map->PrimitiveClass map->ClassType)
+(declare map->PrimitiveClass map->ClassType Type)
 
+;(+T resolve-or-primitive [Symbol -> (U Class nil)])
 (defn resolve-or-primitive [sym]
   (case sym
     char Character/TYPE
@@ -44,7 +112,7 @@
       res
       (throw (Exception. (str sym " does not resolve to a type"))))))
 
-;(+T resolve-class-symbol [Symbol -> Object])
+;(+T resolve-class-symbol [Symbol -> (U ClassType PrimitiveClass)])
 (defn- resolve-class-symbol 
   [sym]
   (let [t (resolve-or-primitive sym)]
@@ -57,16 +125,21 @@
 
 (declare map->Fun map->arity union Nil)
 
-;(+T method->fun [clojure.reflect.Method -> ITypedClojureType])
+;(+T method->fun [clojure.reflect.Method -> Fun])
 (defn- method->Fun [method]
   (map->Fun
     {:arities [(map->arity 
                  {:dom (->> 
                          (map resolve-class-symbol (:parameter-types method))
-                         (map #(union [Nil %]))) ; Java methods can return null
-                  :rng (union [Nil
-                               (resolve-class-symbol (:return-type method))])})]}))
+                         (map #(if (PrimitiveClass? %)
+                                 %                  ; nil cannot substutitute for JVM primtiives
+                                 (union [Nil %])))) ; Java Objects can be the nil/null pointer
+                  :rng (let [typ (resolve-class-symbol (:return-type method))]
+                         (if (PrimitiveClass? typ)
+                           typ                       ; nil cannot substutitute for JVM primtiives
+                           (union [Nil typ])))})]})) ; Java Objects can be the nil/null pointer
 
+;(+T var-or-class->sym [(U Var Class) -> Symbol])
 (defn var-or-class->sym [var-or-class]
   {:pre [(or (var? var-or-class)
              (class? var-or-class))]}
@@ -79,11 +152,13 @@
 
 (declare subtype? unparse-type)
 
+;(+T unp [Type -> String])
 (defn unp
   "Unparse a type and return string representation"
   [t]
   (with-out-str (-> t unparse-type pr)))
 
+;(+T assert-subtype [Type Type & Any * -> nil])
 (defn assert-subtype [actual-type expected-type & msgs]
   (assert (subtype? actual-type expected-type)
           (apply str "Expected " (unp expected-type) ", found " (unp actual-type)
@@ -94,14 +169,17 @@
 
 (declare Type?)
 
+;(+T type-db-var-contract [clojure.lang.IPersistentMap -> Boolean])
 (defn type-db-var-contract [m]
   (and (every? namespace (keys @m))
        (every? Type? (vals @m))))
 
+;(+T type-db-atom-contract [clojure.lang.IPersistentMap -> Boolean])
 (defn type-db-atom-contract [m]
   (and (every? namespace (keys m))
        (every? Type? (vals m))))
 
+;(+T *type-db* (Mapof Symbol Type))
 (defconstrainedvar 
   ^:dynamic *type-db* 
   (constrained-atom {}
@@ -110,28 +188,34 @@
   "Map from qualified symbols to types"
   [type-db-var-contract])
 
+;(+T local-type-db-contract [clojure.lang.IPersistentMap -> Boolean])
 (defn local-type-db-contract [m]
   (and (every? (complement namespace) (keys m))
        (every? Type? (vals m))))
 
+;(+T *local-type-db* (Mapof Symbol Type))
 (defconstrainedvar 
   ^:dynamic *local-type-db* {}
   "Map from unqualified names to types"
   [local-type-db-contract])
 
+;(+T type-var-scope-contract [clojure.lang.IPersistentMap -> Boolean])
 (defn type-var-scope-contract [m]
   (and (every? (complement namespace) (keys m))
        (every? Type? (vals m))))
 
-;(+T *type-var-scope* (IPersistentMap Symbol UnboundedTypeVariable))
+;(+T *type-var-scope* (Mapof Symbol UnboundedTypeVariable))
 (defconstrainedvar
   ^:dynamic *type-var-scope* {}
   "Map from unqualified names to types"
   [type-var-scope-contract])
 
+;(+T reset-type-db [-> nil])
 (defn reset-type-db []
-  (swap! *type-db* (constantly {})))
+  (swap! *type-db* (constantly {}))
+  nil)
 
+;(+T type-of [(U Symbol Var) -> Type])
 (defn type-of [sym-or-var]
   {:pre [(or (symbol? sym-or-var)
              (var? sym-or-var))]
@@ -155,21 +239,31 @@
   `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
      ~@body))
 
+;(+T add-type-ann [Symbol Type -> (Vector* Symbol :- Any)])
+(defn add-type-ann [sym typ]
+  (when-let [oldtyp (@*type-db* sym)]
+    (warn "Overwriting type for" sym ":" typ "from" (unparse oldtyp)))
+  (swap! *type-db* assoc sym typ)
+  [sym :- (unparse typ)])
+
 (defmacro with-type-anns [type-map-syn & body]
-  `(binding [*type-db* (atom (apply hash-map (doall (mapcat #(list (or (when-let [var-or-class# (resolve (first %))]
-                                                                         (var-or-class->sym var-or-class#))
-                                                                       (when (namespace (first %))
-                                                                         (first %))
-                                                                       (symbol (str (ns-name *ns*)) (name (first %))))
-                                                                   (parse-syntax (second %)))
-                                                            '~type-map-syn))))]
+  `(binding [*type-db* (atom (into {} 
+                                   (doall (map #(vector (or (when-let [var-or-class# (resolve (first %))]
+                                                              (var-or-class->sym var-or-class#))
+                                                            (when (namespace (first %))
+                                                              (first %))
+                                                            (symbol (str (ns-name *ns*)) (name (first %))))
+                                                        (parse-syntax (second %)))
+                                               '~type-map-syn))))]
      ~@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types
 
+;(+T Type Keyword)
 (def Type ::type-type)
 
+;(+T Type? [Any -> Boolean])
 (defn Type? [t]
   (isa? (class t) Type))
 
@@ -746,7 +840,11 @@
 
   UnboundedTypeVariable
   (unparse-type* [{:keys [nme]}]
-    nme))
+    nme)
+  
+  NilType
+  (unparse-type* [this]
+    nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtyping
@@ -790,6 +888,11 @@
   (subtype?* (->ClassType (-> s :val class))
              t))
 
+(defmethod subtype?* [Value PrimitiveClass]
+  [s t]
+  (subtype?* (->ClassType (-> s :val class))
+             t))
+
 ;classes
 
 (defmethod subtype?* [ClassType ClassType]
@@ -817,8 +920,24 @@
 
 (defmethod subtype?* [PrimitiveClass PrimitiveClass]
   [{s-class :the-class :as s}
-   {t-class :the-class :as t}] 
+   {t-class :the-class :as t}]
   (isa? s-class t-class))
+
+(def ^:private coersions
+  {Double/TYPE #{Double}
+   Long/TYPE #{Long}})
+
+(defmethod subtype?* [PrimitiveClass ClassType]
+  [{s-pclass :the-class :as s}
+   {t-class :the-class :as t}]
+  (-> (coersions s-pclass)
+    (contains? t-class)))
+
+(defmethod subtype?* [ClassType PrimitiveClass]
+  [{s-class :the-class :as s}
+   {t-pclass :the-class :as t}]
+  (-> (coersions t-pclass)
+    (contains? s-class)))
 
 ;function
 
@@ -917,7 +1036,11 @@
 
 ;Object
 
-;; everthing except nil is a subtype of java.lang.Object
+(prefer-method subtype?*
+  [Union Type]
+  [Type ClassType])
+
+;; everything except nil is a subtype of java.lang.Object
 (defmethod subtype?* [Type ClassType]
   [s t]
   (and (subtype? (->ClassType Object) t)
@@ -1178,76 +1301,18 @@
     (assoc expr
            type-key (type-key (:body expr)))))
 
+(defmethod tc-expr :static-method
+  [{:keys [method] :as expr} & opts]
+  (let [method-type (method->Fun method)
+        {cargs :args
+         :as expr} 
+        (-> expr
+          (update-in [:args] tc-exprs))]
+    (assoc expr
+           type-key (invoke-type (map type-key cargs)
+                                 method-type))))
+
 (comment
-
-  (with-type-anns
-    {a Keyword}
-    (check-form (def a 1)))
-
-  (with-type-anns
-    {str [Object -> String]
-     a [Integer -> String]}
-    (check-form (defn a [b]
-                  (str 1))))
-
-  (with-type-anns
-    {str [& Object -> String]
-     a [Integer -> String]}
-    (check-form (defn a [b]
-                  (str "a" 1))))
-  (with-type-anns
-    {str [& Object -> String]
-     clojure.lang.Util/equiv [Number Number -> Boolean]
-     a [Integer -> String]}
-    (synthesize-form (defn a [b]
-                       (if (= b 1)
-                         "a"))))
-
-  (with-type-anns
-    {ret-fn [-> [-> nil]]}
-    (check-form 
-      (defn ret-fn []
-        (fn []))))
-
-  (with-type-anns
-    {test-let [Integer -> Boolean]}
-    (check-form 
-      (defn test-let [a]
-        (let [b true]
-          b))))
-
-  (with-type-anns
-    {test-let [Integer -> Boolean]}
-    (check-form 
-      (defn test-let [a]
-        (loop [b true]
-          b))))
-
-  (with-type-anns
-    {var-occ [Any -> Boolean]
-     arg-not-nil [Object -> Boolean]}
-    (check-form 
-      (defn var-occ [a]
-        (when a
-          (arg-not-nil a)))))
-
-  (with-type-anns
-    {identity (All [a]
-                   [a -> a])
-     id-long [Long -> Long]}
-    (synthesize-form
-      (defn id-long [a]
-        (identity a))))
-
-  (with-type-anns
-    {inter [(I clojure.lang.Seqable
-               clojure.lang.IPersistentCollection)
-            -> nil]}
-    (synthesize-form
-      (do
-        (inter '{})
-        (inter '())
-        (inter []))))
 
   (with-type-anns
     {float? (predicate Float)
@@ -1281,11 +1346,8 @@
         (declare both-same)
         (both-same 1 "a"))))
 
+  (tc-expr (+ 1 1))
 
-  ;; Literals
-  (synthesize-form 1)
-  (synthesize-form "a")
-  (synthesize-form :a)
-  (synthesize-form [1])
+  (check-namespace 'typed-clojure.example.typed)
 
 )

@@ -1,16 +1,14 @@
 (ns typed-clojure.test.attempt2
-  (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList))
+  (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList Var Ratio
+                         Symbol))
   (:use [typed-clojure.attempt2]
         [analyze.core :only [ast]])
   (:use [clojure.test]))
 
-(deftest parse-resolve
-  (is (= (parse 'False)
-         False)))
-
 (defmacro sub? [s t]
-  `(subtype? (parse '~s)
-             (parse '~t)))
+  `(binding [*ns* (find-ns 'typed-clojure.test.attempt2)]
+     (subtype? (parse '~s)
+               (parse '~t))))
 
 (deftest subtype-classes
   (is (sub? Long Long))
@@ -25,9 +23,9 @@
   (is (not (sub? Long 1)))
   (is (sub? :a :a))
   (is (not (sub? :a :b)))
-  (is (sub? :a clojure.lang.Keyword))
-  (is (not (sub? clojure.lang.Keyword :a)))
-  (is (sub? (U :a :b) clojure.lang.Keyword)))
+  (is (sub? :a Keyword))
+  (is (not (sub? Keyword :a)))
+  (is (sub? (U :a :b) Keyword)))
 
 (deftest subtype-nil
   (is (sub? nil nil))
@@ -92,9 +90,9 @@
 
 (deftest subtype-vectors
   (is (sub? (Vectorof Number)
-            clojure.lang.IPersistentVector))
+            IPersistentVector))
   (is (sub? (Vectorof Number)
-            clojure.lang.Sequential))
+            Sequential))
   (is (sub? (Vectorof Integer)
             (Vectorof Number)))
   (is (not (sub? (Vectorof Number)
@@ -108,7 +106,7 @@
   (is (sub? (Vector* Integer Float Double)
             (Vectorof Number)))
   (is (sub? (Vector* Integer Float Double)
-            clojure.lang.IPersistentVector))
+            IPersistentVector))
   )
 
 (deftest subtype-sequentials
@@ -117,10 +115,10 @@
   (is (not (sub? (Sequentialof Number)
                  (Sequentialof Double))))
   (is (sub? (Sequentialof Double)
-            clojure.lang.Sequential))
+            Sequential))
   (is (not (sub? (Sequentialof Double)
-                 clojure.lang.IPersistentVector)))
-  (is (not (sub? clojure.lang.Sequential
+                 IPersistentVector)))
+  (is (not (sub? Sequential
                  (Sequentialof Double))))
 
   (is (sub? (Vectorof Double)
@@ -139,9 +137,14 @@
   (is (sub? boolean boolean))
   (is (sub? long long)))
 
+(deftest subtype-primitive-boxing
+  (is (sub? long Long))
+  (is (sub? double Double)))
+
 (defmacro subfrm [form expected]
-  `(subtype? (type-key (tc-expr (ast ~form)))
-             (parse '~expected)))
+  `(binding [*ns* (find-ns 'typed-clojure.test.attempt2)]
+     (subtype? (type-key (tc-expr (ast ~form)))
+               (parse '~expected))))
 
 (deftest tc-expr-number
   (is (subfrm 1
@@ -157,11 +160,11 @@
   (is (subfrm 1/2
               1/2))
   (is (subfrm 1/2
-              clojure.lang.Ratio))
+              Ratio))
   (is (subfrm 'a
               'a))
   (is (subfrm 'a
-              clojure.lang.Symbol))
+              Symbol))
   (is (subfrm \c
               \c))
   (is (subfrm \c
@@ -172,7 +175,7 @@
   (is (subfrm :a
               :a))
   (is (subfrm :a
-              clojure.lang.Keyword)))
+              Keyword)))
 
 (deftest tc-expr-string
   (is (subfrm "a"
@@ -195,12 +198,17 @@
               1)))
 
 (defmacro tc [form]
-  `(tc-expr (ast ~form)))
+  `(binding [*ns* (find-ns 'typed-clojure.test.attempt2)]
+     (tc-expr (ast ~form))))
+
+(defmacro with-env [& body]
+  `(binding [*ns* (find-ns 'typed-clojure.test.attempt2)]
+     (with-type-anns ~@body)))
 
 (deftest tc-expr-def
   (is (subfrm (def a)
-              clojure.lang.Var))
-  (is (with-type-anns
+              Var))
+  (is (with-env
         {b Long}
         (tc 
           (def b 1)))))
@@ -221,7 +229,7 @@
         [& Long * -> (Sequentialof Long)])))
 
 (deftest tc-expr-var
-  (is (with-type-anns
+  (is (with-env
         {a [Long -> Long]}
         (subfrm
           (do (declare a)
@@ -229,27 +237,27 @@
           [Long -> Long]))))
 
 (deftest tc-expr-invoke
-  (is (with-type-anns
+  (is (with-env
         {a [Long -> Long]}
         (subfrm
           (do (declare a)
             (a 1))
           Long)))
-  (is (with-type-anns
+  (is (with-env
         {a (Fun [Long -> Long]
                 [Long Long -> Double])}
         (subfrm
           (do (declare a)
             (a 1))
           Long)))
-  (is (with-type-anns
+  (is (with-env
         {a (Fun [Long -> Long]
                 [Long Long -> Double])}
         (subfrm
           (do (declare a)
             (a 1 1))
           Double)))
-  (is (with-type-anns
+  (is (with-env
         {a (Fun [Long -> Long]
                 [Long Long & Long * -> Double])}
         (subfrm
@@ -269,7 +277,7 @@
           (let [x 1]
             x))
         1))
-  (is (with-type-anns
+  (is (with-env
         {a [Long -> Long]}
         (subfrm 
           (do (declare a)
@@ -278,3 +286,11 @@
               y))
           Long)))
       )
+
+(deftest tc-static-method
+  (is (subfrm
+        (+ 1 1.1)
+        double))
+  (is (subfrm
+        (+ 1 1)
+        long)))
