@@ -1,10 +1,9 @@
 (ns typed.core
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons
                          Ratio Atom IPersistentMap))
-  (:use [trammel.core :only [defconstrainedrecord defconstrainedvar
-                             constrained-atom]]
-        [analyze.core :only [ast]])
-  (:require [analyze.core :as a :refer [analyze-path]]
+  (:require [trammel.core :refer [defconstrainedrecord defconstrainedvar
+                                  constrained-atom]]
+            [analyze.core :as a :refer [analyze-path ast]]
             [analyze.util :as util]
             [clojure.set :as set]))
 

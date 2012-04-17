@@ -1,5 +1,5 @@
 (ns typed.example.typed
-  (:require [typed.attempt2 :refer [+T require-typed]]
+  (:require [typed.core :refer [+T require-typed]]
             [typed.example.typed2 :refer [add-twice]]))
 
 (require-typed typed.example.typed2)
