@@ -1398,6 +1398,26 @@
            type-key (invoke-type (map type-key cargs)
                                  method-type))))
 
+;static-field
+
+;(+T field->Type [java.lang.reflect.Field -> Type]
+(defn field->Type [field]
+  (let [cls (resolve (:type field))]
+    (if (.isPrimitive cls)
+      (->PrimitiveClass cls)
+      (->ClassType cls))))
+
+(defmethod tc-expr :static-field
+  [{:keys [field] :as expr} & opts]
+  (assoc expr
+         type-key (field->Type field)))
+
+;instance-field
+
+(defmethod tc-expr :instance-field
+  [{:keys [field] :as expr} & opts]
+  (assoc expr
+         type-key (field->Type field)))
 ;map
 
 (defmethod tc-expr :map

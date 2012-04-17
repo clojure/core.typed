@@ -325,6 +325,16 @@
         (+ 1 1)
         long)))
 
+(deftest tc-static-field
+  (is (subfrm
+        (. Integer TYPE)
+        Class)))
+
+(deftest tc-instance-field
+  (is (subfrm
+        (.getClass 1)
+        Class)))
+
 (deftest tc-map
   (is (subfrm
         {(get {} 1) 1}
