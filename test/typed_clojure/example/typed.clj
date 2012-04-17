@@ -7,3 +7,6 @@
 (+T double-num [Number -> Number])
 (defn double-num [n]
   (add-twice n))
+
+(+T my-map (Mapof Number Number))
+(def my-map {1 2 3 4})

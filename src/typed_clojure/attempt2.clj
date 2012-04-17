@@ -127,7 +127,7 @@
       (map->ClassType
         {:the-class t}))))
 
-(declare map->Fun map->arity union Nil)
+(declare map->Fun map->arity union Nil PrimitiveClass?)
 
 ;(+T method->fun [clojure.reflect.Method -> Fun])
 (defn- method->Fun [method]
@@ -275,6 +275,12 @@
   `(let [a# (defconstrainedrecord ~nme ~@body)]
      (derive a# Type)
      a#))
+
+(def-type UnitType []
+  "The unit type"
+  [])
+(def Unit (->UnitType))
+(def Unit? (partial = Unit))
 
 (def-type Value [val]
   "A singleton type for values, except nil"
@@ -474,6 +480,17 @@
   "A constant sequential collection type, subtype of clojure.lang.Sequential"
   [(every? Type? types)])
 
+(def-type Map [ktype vtype]
+  "A sequential collection type, subtype of clojure.lang.IPersistentMap"
+  [(Type? ktype)
+   (Type? vtype)])
+
+(def-type ConstantMap [kvtypes]
+  "A constant sequential collection type, subtype of clojure.lang.IPersistentMap"
+  [(even? (count kvtypes))
+   (every? Type? kvtypes)])
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
 
@@ -605,6 +622,8 @@
 (def Vector*-literal 'Vector*)
 (def Sequentialof-literal 'Sequentialof)
 (def Sequential*-literal 'Sequential*)
+(def Mapof-literal 'Mapof)
+(def Map*-literal 'Map*)
 
 (defmethod parse-list-syntax All-literal
   [[_ [& type-var-names] & [syn & more]]]
@@ -626,13 +645,21 @@
   [[_ syn]]
   (->Vector (parse syn)))
         
+(defmethod parse-list-syntax Sequential*-literal
+  [[_ & syns]]
+  (->ConstantSequential (doall (map parse syns))))
+        
 (defmethod parse-list-syntax Sequentialof-literal
   [[_ syn]]
   (->Sequential (parse syn)))
         
-(defmethod parse-list-syntax Sequential*-literal
-  [[_ & syns]]
-  (->ConstantSequential (doall (map parse syns))))
+(defmethod parse-list-syntax Map*-literal
+  [[_ & kvsyns]]
+  (->ConstantMap (doall (map parse kvsyns))))
+
+(defmethod parse-list-syntax Mapof-literal
+  [[_ ksyn vsyn]]
+  (->Map (parse ksyn) (parse vsyn)))
 
 (defmethod parse-list-syntax U-literal
   [[_ & syn]]
@@ -842,6 +869,20 @@
   (unparse-type* [this]
     (list* Sequential*-literal (map (unparse-type (:types this)))))
 
+  Map
+  (unparse-type* [this]
+    (list Mapof-literal 
+          (unparse-type (:ktype this))
+          (unparse-type (:vtype this))))
+
+  ConstantMap
+  (unparse-type* [this]
+    (list* Map*-literal (map (unparse-type (:kvtypes this)))))
+
+  UnitType
+  (unparse-type* [this]
+    `Unit)
+
   UnboundedTypeVariable
   (unparse-type* [{:keys [nme]}]
     nme)
@@ -859,6 +900,12 @@
 
 (defmulti subtype?* (fn [s t]
                       [(class s) (class t)]))
+
+;unit
+
+(defmethod subtype?* [UnitType UnitType]
+  [s t]
+  true)
 
 ;unions
 
@@ -1037,6 +1084,35 @@
   [{s-types :types :as s} 
    {t-types :types :as t}]
   (subtypes? s-types t-types))
+
+;maps
+
+(def AnyMap ::any-map)
+
+(derive AnyMap Type)
+(doseq [c #{Map ConstantMap}]
+  (derive c AnyMap))
+
+(defmethod subtype?* [AnyMap ClassType]
+  [s {t-class :the-class :as t}]
+  (isa? t-class IPersistentMap))
+
+(defmethod subtype?* [Map Map]
+  [{s-ktype :ktype s-vtype :vtype :as s} 
+   {t-ktype :ktype t-vtype :vtype :as t}]
+  (subtypes? [s-ktype s-vtype]
+             [t-ktype t-vtype]))
+
+(defmethod subtype?* [ConstantMap ConstantMap]
+  [{s-kvtypes :kvtypes :as s} 
+   {t-kvtypes :kvtypes :as t}]
+  (subtypes? s-kvtypes t-kvtypes))
+
+(defmethod subtype?* [ConstantMap Map]
+  [{s-kvtypes :kvtypes :as s} 
+   {t-ktype :ktype t-vtype :vtype :as t}]
+  (subtypes? s-kvtypes (take (count s-kvtypes)
+                             (cycle [t-ktype t-vtype]))))
 
 ;Object
 
@@ -1309,6 +1385,8 @@
     (assoc expr
            type-key (type-key (:body expr)))))
 
+;static-method
+
 (defmethod tc-expr :static-method
   [{:keys [method] :as expr} & opts]
   (let [method-type (method->Fun method)
@@ -1319,6 +1397,30 @@
     (assoc expr
            type-key (invoke-type (map type-key cargs)
                                  method-type))))
+
+;map
+
+(defmethod tc-expr :map
+  [expr & opts]
+  (let [{ckeyvals :keyvals
+         :as expr}
+        (-> expr
+          (update-in [:keyvals] tc-exprs))]
+    (assoc expr
+           type-key (->ClassType IPersistentMap))))
+
+;emptyexpr
+
+(defmulti empty-types class)
+
+(defmethod empty-types IPersistentMap
+  [m]
+  (->Map Unit Unit))
+
+(defmethod tc-expr :empty-expr
+  [{:keys [coll] :as expr} & opts]
+  (assoc expr
+         type-key (empty-types coll)))
 
 (comment
 

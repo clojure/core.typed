@@ -1,14 +1,22 @@
 (ns typed-clojure.test.attempt2
   (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList Var Ratio
                          Symbol IPersistentMap))
-  (:use [typed-clojure.attempt2]
-        [analyze.core :only [ast]])
-  (:use [clojure.test]))
+  (:require [typed-clojure.attempt2 :refer :all]
+            [analyze.core :refer [ast]]
+            [clojure.test :refer :all]))
+
+; add base type anns
+(binding [*add-type-ann-fn* (fn [sym type-syn]
+                              (add-type-ann sym (parse type-syn)))]
+  (require 'typed-clojure.base))
 
 (defmacro sub? [s t]
   `(binding [*ns* (find-ns 'typed-clojure.test.attempt2)]
      (subtype? (parse '~s)
                (parse '~t))))
+
+(deftest subtype-unit
+  (is (sub? Unit Unit)))
 
 (deftest subtype-classes
   (is (sub? Long Long))
@@ -127,6 +135,25 @@
             (Sequential* Double Number)))
   )
 
+(deftest subtype-maps
+  (is (sub? (Mapof Unit Unit)
+            IPersistentMap))
+  (is (sub? (Mapof Keyword Double)
+            IPersistentMap))
+  (is (sub? (Map* Integer Object Double Integer Number Number)
+            IPersistentMap))
+  (is (sub? (Mapof Integer Double)
+            (Mapof Number Number)))
+  (is (not (sub? (Mapof Number Number)
+                 (Mapof Integer Double))))
+  (is (sub? (Map* Integer Double Double Integer Number Number)
+            (Mapof Number Number)))
+  (is (not (sub? (Map* Integer Object Double Integer Number Number)
+                 (Mapof Number Number))))
+  (is (sub? (Map*)
+            (Mapof Unit Unit)))
+         )
+
 (deftest subtype-primitives
   (is (sub? void void))
   (is (sub? nil void))
@@ -169,6 +196,9 @@
               \c))
   (is (subfrm \c
               Character))
+  (is (subfrm
+        {:a :b}
+        IPersistentMap))
          )
 
 (deftest tc-expr-keyword
@@ -297,5 +327,5 @@
 
 (deftest tc-map
   (is (subfrm
-        {:a :b}
-        IPersistentMap)))
+        {(get {} 1) 1}
+        (Map* nil 1))))
