@@ -18,6 +18,16 @@
 (deftest subtype-unit
   (is (sub? Unit Unit)))
 
+(deftest subtype-any
+  (is (sub? [1 -> 1] Any))
+  (is (sub? Long Any)))
+
+(deftest subtype-object
+  (is (sub? [1 -> 1] Object))
+  (is (sub? long Object))
+  (is (sub? float Object))
+  (is (sub? Object Object)))
+
 (deftest subtype-classes
   (is (sub? Long Long))
   (is (sub? Long Object))
@@ -65,7 +75,10 @@
   (is (sub? [Long -> 1] 
             [1 -> Long]))
   (is (sub? [Object Long -> 1] 
-            [Long Long -> Long])))
+            [Long Long -> Long]))
+  (is (sub? [Long -> Long]
+            [1 -> Any]
+            )))
 
 (deftest subtype-varargs
   (is (sub? [Number & Object * -> Boolean] 
@@ -330,10 +343,13 @@
         (. Integer TYPE)
         Class)))
 
-(deftest tc-instance-field
+(deftest tc-instance-method
   (is (subfrm
-        (.getClass 1)
-        Class)))
+        (.getClass "a")
+        (U nil Class))))
+
+;; TODO find instance field to test
+(deftest tc-instance-field)
 
 (deftest tc-map
   (is (subfrm

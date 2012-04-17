@@ -10,12 +10,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Annotation
 
-;(+T *add-type-ann-fn* [Symbol Any -> nil])
-(def ^:dynamic 
-  *add-type-ann-fn* 
-  (fn [sym type-syn]
-    [sym :- type-syn]))
-
 (defmacro +T [nme type-syn]
   `(*add-type-ann-fn* 
      ~(if (namespace nme)
@@ -23,10 +17,17 @@
         `(symbol (-> *ns* ns-name name) (name '~nme)))
      '~type-syn))
 
+(def ^:dynamic 
+  *add-type-ann-fn* 
+  (fn [sym type-syn]
+    [sym :- type-syn]))
+
+(+T *add-type-ann-fn* [Symbol Any -> nil])
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed require
 
-;(+T type-db-var-contract [clojure.lang.IPersistentMap -> Boolean])
+(+T type-db-var-contract [clojure.lang.IPersistentMap -> Boolean])
 (defn ns-deps-contract [m]
   (and (every? symbol? (keys m))
        (every? set? (vals m))
@@ -895,7 +896,7 @@
 
 ;; TODO Type variables
 
-(declare supertype-of-all subtype-of-all supertype-of-one)
+(declare supertype-of-all subtype-of-all supertype-of-one subtype-of-one)
 
 (defmulti subtype?* (fn [s t]
                       [(class s) (class t)]))
@@ -920,7 +921,7 @@
 
 (defmethod subtype?* [Type Union]
   [s t]
-  (subtype-of-all s (:types t)))
+  (subtype-of-one s (:types t)))
 
 (defmethod subtype?* [Union Type]
   [s t]
@@ -980,8 +981,9 @@
 (defmethod subtype?* [PrimitiveClass ClassType]
   [{s-pclass :the-class :as s}
    {t-class :the-class :as t}]
-  (-> (coersions s-pclass)
-    (contains? t-class)))
+  (or (subtype? (->ClassType Object) t)
+      (-> (coersions s-pclass)
+        (contains? t-class))))
 
 (defmethod subtype?* [ClassType PrimitiveClass]
   [{s-class :the-class :as s}
@@ -992,8 +994,8 @@
 ;function
 
 (defmethod subtype?* [Fun ClassType]
-  [s {t-class :the-class :as t}]
-  (isa? t-class clojure.lang.IFn))
+  [s t]
+  (subtype? (->ClassType clojure.lang.IFn) t))
 
 (defmethod subtype?* [Fun Fun]
   [{s-arities :arities} {t-arities :arities}]
@@ -1093,8 +1095,8 @@
   (derive c AnyMap))
 
 (defmethod subtype?* [AnyMap ClassType]
-  [s {t-class :the-class :as t}]
-  (isa? t-class IPersistentMap))
+  [s t]
+  (subtype? (->ClassType IPersistentMap) t))
 
 (defmethod subtype?* [Map Map]
   [{s-ktype :ktype s-vtype :vtype :as s} 
@@ -1131,10 +1133,15 @@
   [s t]
   false)
 
+(defn subtype-of-one
+  "True if s is a subtype to at least one ts"
+  [s ts]
+  (boolean (some #(subtype? s %) ts)))
+
 (defn supertype-of-one
   "True if t is a supertype to at least one ss"
   [t ss]
-  (some #(subtype? % t) ss))
+  (boolean (some #(subtype? % t) ss)))
 
 (defn subtype-of-all 
   "True if s is subtype of all ts"
@@ -1326,7 +1333,7 @@
 (defn- invoke-type [arg-types {:keys [arities] :as fun-type}]
   (let [dummy-arity (map->arity 
                       {:dom arg-types
-                       :rng Nothing})
+                       :rng Any})
         
         mtched-arity (first (filter #(subtype? % dummy-arity)
                                     arities))
@@ -1386,8 +1393,7 @@
 
 ;static-method
 
-(defmethod tc-expr :static-method
-  [{:keys [method] :as expr} & opts]
+(defn tc-method [{:keys [method] :as expr}]
   (let [method-type (method->Fun method)
         {cargs :args
          :as expr} 
@@ -1396,6 +1402,18 @@
     (assoc expr
            type-key (invoke-type (map type-key cargs)
                                  method-type))))
+
+(defmethod tc-expr :static-method
+  [{:keys [method method-name] :as expr} & opts]
+  (assert method (str "Unresolvable static method " method-name))
+  (tc-method expr))
+
+;instance-method
+
+(defmethod tc-expr :instance-method
+  [{:keys [method method-name] :as expr} & opts]
+  (assert method (str "Unresolvable instance method " method-name))
+  (tc-method expr))
 
 ;static-field
 
@@ -1407,14 +1425,16 @@
       (->ClassType cls))))
 
 (defmethod tc-expr :static-field
-  [{:keys [field] :as expr} & opts]
+  [{:keys [field field-name] :as expr} & opts]
+  (assert field (str "Unresolvable static field " field-name))
   (assoc expr
          type-key (field->Type field)))
 
 ;instance-field
 
 (defmethod tc-expr :instance-field
-  [{:keys [field] :as expr} & opts]
+  [{:keys [field field-name] :as expr} & opts]
+  (assert field (str "Unresolvable instance field " field-name))
   (assoc expr
          type-key (field->Type field)))
 ;map
@@ -1477,6 +1497,6 @@
 
   (tc-expr (+ 1 1))
 
-  (check-namespace 'typed-clojure.example.typed)
+  (check-namespace 'typed.example.typed)
 
 )
