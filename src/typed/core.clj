@@ -1001,20 +1001,24 @@
 
 (def ^:private coersions
   {Double/TYPE #{Double}
-   Long/TYPE #{Long}})
+   Long/TYPE #{Long}
+   Byte/TYPE #{Byte}
+   Character/TYPE #{Character}
+   Integer/TYPE #{Integer}
+   Float/TYPE #{Float}
+   Short/TYPE #{Short}
+   Boolean/TYPE #{Boolean}})
 
 (defmethod subtype?* [PrimitiveClass ClassType]
-  [{s-pclass :the-class :as s}
-   {t-class :the-class :as t}]
-  (or (subtype? (->ClassType Object) t)
-      (-> (coersions s-pclass)
-        (contains? t-class))))
+  [{s-pclass :the-class :as s} t]
+  (let [possible-types (coersions s-pclass)]
+    (boolean
+      (some #(subtype? (->ClassType %) t) possible-types))))
 
 (defmethod subtype?* [ClassType PrimitiveClass]
   [{s-class :the-class :as s}
    {t-pclass :the-class :as t}]
-  (-> (coersions t-pclass)
-    (contains? s-class)))
+  (contains? (coersions t-pclass) s-class))
 
 ;function
 
@@ -1230,6 +1234,10 @@
 
 (defmulti constant-type class)
 
+(defmethod constant-type IPersistentList
+  [l]
+  (->ConstantSequential (doall (map constant-type l))))
+
 (defmethod constant-type IPersistentVector
   [v]
   (->ConstantVector (doall (map constant-type v))))
@@ -1312,12 +1320,15 @@
 
 (defmethod tc-expr :def
   [{:keys [init-provided var] :as expr} & opts]
-  (let [expr (-> expr
-               (update-in [:init] #(if init-provided
-                                     (tc-expr-check % (type-of var))
-                                     (tc-expr %))))]
-    (assoc expr
-           type-key (->ClassType Var))))
+  (cond 
+    (.isMacro var) expr
+    :else
+    (let [expr (-> expr
+                 (update-in [:init] #(if init-provided
+                                       (tc-expr-check % (type-of var))
+                                       (tc-expr %))))]
+      (assoc expr
+             type-key (->ClassType Var)))))
 
 ;fn
 
@@ -1556,6 +1567,17 @@
     (assoc expr
            type-key (->ConstantMap (map type-key ckeyvals)))))
 
+;vector
+
+(defmethod tc-expr :vector
+  [expr & opts]
+  (let [{cargs :args
+         :as expr}
+        (-> expr
+          (update-in [:args] tc-exprs))]
+    (assoc expr
+           type-key (->ConstantVector (map type-key cargs)))))
+
 ;emptyexpr
 
 (defmulti empty-types class)
@@ -1646,6 +1668,20 @@
           (update-in [:args] tc-exprs))]
     (assoc expr
            type-key (invoke-type (map type-key cargs) ctor-fun))))
+
+;import
+
+(defmethod tc-expr :import*
+  [expr & opts]
+  (assoc expr
+         type-key (->ClassType Class)))
+
+;var
+
+(defmethod tc-expr :the-var
+  [expr & opts]
+  (assoc expr
+         type-key (->ClassType Var)))
 
 (comment
 

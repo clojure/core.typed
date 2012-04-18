@@ -202,6 +202,14 @@
   (is (sub? Double double))
          )
 
+(deftest subtype-primitive-numbers
+  (is (sub? long Number))
+  (is (sub? double Number))
+  (is (sub? int Number))
+  (is (sub? byte Number))
+  (is (sub? short Number))
+         )
+
 (deftest subtype-protocols
   (is (sub? Symbol typed.core/IParseType))
   (is (sub? nil typed.core/IParseType))
@@ -426,6 +434,20 @@
           (finally 3))
         (U 1 2))))
 
+(deftest tc-import
+  (is (subfrm
+        (import 'clojure.lang.IPersistentList)
+        Class)))
+
+(deftest tc-vector
+  (is (subfrm
+        [1 (+ 1 1)]
+        (Vector* Number Number))))
+
+(deftest tc-the-var
+  (is (subfrm
+        #'a
+        Var)))
 
 (comment
   (binding [*add-type-ann-fn* (fn [sym type-syn]
