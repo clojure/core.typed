@@ -1,7 +1,9 @@
 (ns typed.test.core
   (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList Var Ratio
-                         Symbol IPersistentMap))
-  (:require [typed.core :refer :all]
+                         Symbol IPersistentMap)
+           (typed.core ClassType))
+  (:require [typed.core :refer :all
+             :as t]
             [analyze.core :refer [ast]]
             [clojure.test :refer :all]))
 
@@ -97,6 +99,12 @@
   (is (sub? [Long -> Long]
             [1 -> Any]
             )))
+
+(deftest subtype-qual-keywords
+  (is (sub? ::a ::a))
+  (is (sub? t/Type t/Type))
+  (is (sub? ClassType t/Type))
+  (is (not (sub? t/Type Object))))
 
 (deftest subtype-varargs
   (is (sub? [Number & Object * -> Boolean] 

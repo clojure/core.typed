@@ -22,21 +22,25 @@
   (fn [sym type-syn]
     [sym :- type-syn]))
 
-;(+T *add-type-ann-fn* [Symbol Any -> nil])
+;must go after definition, as +T expands to *add-type-ann-fn*
+(+T *add-type-ann-fn* [Symbol IParseType -> nil])
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed require
 
-(+T ns-deps-contract [clojure.lang.IPersistentMap -> Boolean])
+(+T ns-deps-contract [IPersistentMap -> Boolean])
 (defn ns-deps-contract [m]
   (and (every? symbol? (keys m))
        (every? set? (vals m))
        (every? #(every? symbol? %) (vals m))))
 
+(+T ns-deps Atom)
 (def ns-deps (constrained-atom {}
                                "Map from symbols to seqs of symbols"
                                [ns-deps-contract]))
 
+(+T add-ns-dep [Symbol Symbol -> nil])
 (defn add-ns-dep [nsym ns-dep]
   (swap! ns-deps update-in [nsym] #(set/union % #{ns-dep}))
   nil)
@@ -50,6 +54,7 @@
 
 (declare add-type-ann parse ^:dynamic *type-db* tc-expr unparse)
 
+(+T check-namespace [Symbol -> nil])
 (defn check-namespace [nsym]
   (let [ 
         ;; 1. Collect all type annotations
@@ -71,16 +76,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type hierarchy
 
-;(+T type-key Keyword)
+(+T type-key Keyword)
 (def type-key ::+T)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Debug macros
 
-;(+T debug-mode Atom)
+(+T debug-mode Atom)
 (def debug-mode (atom true))
 
-;(+T print-warnings Atom)
+(+T print-warnings Atom)
 (def print-warnings (atom true))
 
 (defmacro warn [& body]
@@ -97,6 +102,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
+(+T class-satisfies-protocol? [IPersistentMap Class -> Boolean])
 (defn class-satisfies-protocol?
   "Returns the method that would be dispatched by applying
   an instance of Class c to protocol"
@@ -113,7 +119,7 @@
 
 (declare map->PrimitiveClass map->ClassType Type)
 
-;(+T resolve-or-primitive [Symbol -> (U Class nil)])
+(+T resolve-or-primitive [Symbol -> (U Class nil)])
 (defn resolve-or-primitive [sym]
   (case sym
     char Character/TYPE
@@ -129,7 +135,7 @@
       res
       (throw (Exception. (str sym " does not resolve to a type"))))))
 
-;(+T resolve-class-symbol [Symbol -> (U ClassType PrimitiveClass)])
+(+T resolve-class-symbol [Symbol -> (U ClassType PrimitiveClass)])
 (defn- resolve-class-symbol 
   [sym]
   (let [t (resolve-or-primitive sym)]
@@ -143,7 +149,7 @@
 
 (declare map->Fun map->arity union Nil PrimitiveClass?)
 
-;(+T method->fun [clojure.reflect.Method -> Fun])
+(+T method->fun [clojure.reflect.Method -> Fun])
 (defn- method->Fun [method]
   (map->Fun
     {:arities [(map->arity 
@@ -157,7 +163,7 @@
                            typ                       ; nil cannot substutitute for JVM primtiives
                            (union [Nil typ])))})]})) ; Java Objects can be the nil/null pointer
 
-;(+T var-or-class->sym [(U Var Class) -> Symbol])
+(+T var-or-class->sym [(U Var Class) -> Symbol])
 (defn var-or-class->sym [var-or-class]
   {:pre [(or (var? var-or-class)
              (class? var-or-class))]}
@@ -170,13 +176,13 @@
 
 (declare subtype? unparse-type)
 
-;(+T unp [Type -> String])
+(+T unp [Type -> String])
 (defn unp
   "Unparse a type and return string representation"
   [t]
   (with-out-str (-> t unparse-type pr)))
 
-;(+T assert-subtype [Type Type & Any * -> nil])
+(+T assert-subtype [Type Type & Any * -> nil])
 (defn assert-subtype [actual-type expected-type & msgs]
   (assert (subtype? actual-type expected-type)
           (apply str "Expected " (unp expected-type) ", found " (unp actual-type)
@@ -187,50 +193,50 @@
 
 (declare Type?)
 
-;(+T type-db-var-contract [clojure.lang.IPersistentMap -> Boolean])
+(+T type-db-var-contract [IPersistentMap -> Boolean])
 (defn type-db-var-contract [m]
   (and (every? namespace (keys @m))
        (every? Type? (vals @m))))
 
-;(+T type-db-atom-contract [clojure.lang.IPersistentMap -> Boolean])
+(+T type-db-atom-contract [IPersistentMap -> Boolean])
 (defn type-db-atom-contract [m]
   (and (every? namespace (keys m))
        (every? Type? (vals m))))
 
-;(+T *type-db* (Mapof Symbol Type))
+(+T *type-db* (Mapof Symbol Type))
 (defonce ^:dynamic *type-db* 
   (constrained-atom {}
                     "Map from qualified symbols to types"
                     [type-db-atom-contract]))
 
-;(+T local-type-db-contract [clojure.lang.IPersistentMap -> Boolean])
+(+T local-type-db-contract [IPersistentMap -> Boolean])
 (defn local-type-db-contract [m]
   (and (every? (complement namespace) (keys m))
        (every? Type? (vals m))))
 
-;(+T *local-type-db* (Mapof Symbol Type))
+(+T *local-type-db* (Mapof Symbol Type))
 (defconstrainedvar 
   ^:dynamic *local-type-db* {}
   "Map from unqualified names to types"
   [local-type-db-contract])
 
-;(+T type-var-scope-contract [clojure.lang.IPersistentMap -> Boolean])
+(+T type-var-scope-contract [IPersistentMap -> Boolean])
 (defn type-var-scope-contract [m]
   (and (every? (complement namespace) (keys m))
        (every? Type? (vals m))))
 
-;(+T *type-var-scope* (Mapof Symbol UnboundedTypeVariable))
+(+T *type-var-scope* (Mapof Symbol UnboundedTypeVariable))
 (defconstrainedvar
   ^:dynamic *type-var-scope* {}
   "Map from unqualified names to types"
   [type-var-scope-contract])
 
-;(+T reset-type-db [-> nil])
+(+T reset-type-db [-> nil])
 (defn reset-type-db []
   (swap! *type-db* (constantly {}))
   nil)
 
-;(+T type-of [(U Symbol Var) -> Type])
+(+T type-of [(U Symbol Var) -> Type])
 (defn type-of [sym-or-var]
   {:pre [(or (symbol? sym-or-var)
              (var? sym-or-var))]
@@ -254,7 +260,7 @@
   `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
      ~@body))
 
-;(+T add-type-ann [Symbol Type -> (Vector* Symbol :- Any)])
+(+T add-type-ann [Symbol Type -> (Vector* Symbol Any)])
 (defn add-type-ann [sym typ]
   (when-let [oldtyp (@*type-db* sym)]
     (warn "Overwriting type for" sym ":" typ "from" (unparse oldtyp)))
@@ -262,14 +268,16 @@
   [sym :- (unparse typ)])
 
 (defmacro with-type-anns [type-map-syn & body]
-  `(binding [*type-db* (atom (into {} 
-                                   (doall (map #(vector (or (when-let [var-or-class# (resolve (first %))]
-                                                              (var-or-class->sym var-or-class#))
-                                                            (when (namespace (first %))
-                                                              (first %))
-                                                            (symbol (str (ns-name *ns*)) (name (first %))))
-                                                        (parse-syntax (second %)))
-                                               '~type-map-syn))))]
+  `(binding [*type-db* (constrained-atom (into {} 
+                                               (doall (map #(vector (or (when-let [var-or-class# (resolve (first %))]
+                                                                          (var-or-class->sym var-or-class#))
+                                                                        (when (namespace (first %))
+                                                                          (first %))
+                                                                        (symbol (str (ns-name *ns*)) (name (first %))))
+                                                                    (parse-syntax (second %)))
+                                                           '~type-map-syn)))
+                                         "Map from qualified symbols to types"
+                                         [type-db-atom-contract])]
      ~@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -333,6 +341,13 @@
 (def False? (partial = False))
 
 (def falsy-values #{False Nil})
+
+;keyword
+
+(def-type QualifiedKeyword [kwrd]
+  "A fully qualified keyword"
+  [(keyword? kwrd)
+   (namespace kwrd)])
 
 ;; Base types
 
@@ -580,6 +595,10 @@
                 (map? @res) (map->ProtocolType
                               {:the-protocol-var res})
 
+                (and (keyword? @res)
+                     (namespace @res))
+                (->QualifiedKeyword @res)
+
                 :else (assert false (str "Could not resolve " res))))))
   
   Boolean
@@ -598,7 +617,9 @@
 
   Keyword
   (parse-syntax* [this]
-    (->Value this))
+    (if (namespace this)
+      (->QualifiedKeyword this)
+      (->Value this)))
 
   Double
   (parse-syntax* [this]
@@ -858,6 +879,10 @@
       `'~val
       val))
 
+  QualifiedKeyword
+  (unparse-type* [{:keys [kwrd]}]
+    kwrd)
+
   ProtocolType
   (unparse-type* [this]
     (var-or-class->sym (-> this :the-protocol-var)))
@@ -952,6 +977,23 @@
   [s t]
   (subtype?* (->ClassType (-> s :val class))
              t))
+
+;qualified keywords
+
+(defmethod subtype?* [QualifiedKeyword QualifiedKeyword]
+  [{s-kwrd :kwrd :as s} 
+   {t-kwrd :kwrd :as t}]
+  (isa? s-kwrd t-kwrd))
+
+(defmethod subtype?* [ClassType QualifiedKeyword]
+  [{s-class :the-class :as s}
+   {t-kwrd :kwrd :as t}]
+  (isa? s-class t-kwrd))
+
+; keyword represents a hierarchy, Object or Keyword are not supertypes
+(defmethod subtype?* [QualifiedKeyword ClassType]
+  [s t]
+  false)
 
 ;classes
 
@@ -1251,8 +1293,10 @@
   (->Value r))
 
 (defmethod constant-type Keyword
-  [s]
-  (->Value s))
+  [kw]
+  (if (namespace kw)
+    (->QualifiedKeyword kw)
+    (->Value kw)))
 
 (defmethod constant-type Long
   [s]
@@ -1320,6 +1364,7 @@
 
 (defmethod tc-expr :def
   [{:keys [init-provided var] :as expr} & opts]
+  (println "def:" var)
   (cond 
     (.isMacro var) expr
     :else
