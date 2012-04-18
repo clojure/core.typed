@@ -56,7 +56,7 @@
         _ (binding [*add-type-ann-fn* (fn [sym type-syn]
                                         (add-type-ann sym (parse type-syn)))]
             (require :reload 'typed.base)
-            (require :reload nsym))
+            (require :reload-all nsym))
         
         ;; 2. Perform type checking
         asts (analyze-path nsym)
@@ -198,13 +198,10 @@
        (every? Type? (vals m))))
 
 ;(+T *type-db* (Mapof Symbol Type))
-(defconstrainedvar 
-  ^:dynamic *type-db* 
+(defonce ^:dynamic *type-db* 
   (constrained-atom {}
                     "Map from qualified symbols to types"
-                    [type-db-atom-contract])
-  "Map from qualified symbols to types"
-  [type-db-var-contract])
+                    [type-db-atom-contract]))
 
 ;(+T local-type-db-contract [clojure.lang.IPersistentMap -> Boolean])
 (defn local-type-db-contract [m]
@@ -1212,7 +1209,7 @@
 (declare tc-expr)
 
 (defn tc-expr-check [expr expected-type]
-  (let [expr (tc-expr expr)]
+  (let [expr (tc-expr expr :expected-type expected-type)]
     (assert-subtype (type-key expr) expected-type)
     expr))
 
@@ -1314,7 +1311,7 @@
 ;def
 
 (defmethod tc-expr :def
-  [{:keys [init-provided var] :as expr}]
+  [{:keys [init-provided var] :as expr} & opts]
   (let [expr (-> expr
                (update-in [:init] #(if init-provided
                                      (tc-expr-check % (type-of var))
@@ -1325,14 +1322,53 @@
 ;fn
 
 (defmethod tc-expr :fn-expr
-  [{:keys [methods] :as expr} & opts]
+  [{:keys [methods] :as expr} & {:keys [expected-type]}]
   (let [expr (-> expr
-               (update-in [:methods] tc-exprs))]
+               (update-in [:methods] (if expected-type
+                                       (fn [m]
+                                         (doall (map #(tc-expr % :expected-type expected-type) m)))
+                                       tc-exprs)))]
     (assoc expr
            type-key (->Fun (map type-key (:methods expr))))))
 
-(defmethod tc-expr :fn-method
-  [{:keys [required-params rest-param] :as expr} & opts]
+(defn check-fn-method 
+  [{:keys [required-params rest-param] :as expr} expected-fun-type]
+  (let [[mtched-arity :as mtched-arities]
+        (filter #(or (and (not rest-param)
+                          (= (count required-params)
+                             (count (:dom %))))
+                     (and rest-param
+                          (<= (count required-params)
+                              (count (:dom %)))))
+                (:arities expected-fun-type))
+
+        _ (assert (= 1 (count mtched-arities)))
+
+        dom-syms (map :sym required-params)
+        rest-sym (:sym rest-param)
+
+        dom-types (:dom mtched-arity)
+        rng-type (:rng mtched-arity)
+        rest-type (:rest-type mtched-arity)
+
+        actual-rest-arg-type (when rest-param
+                               (->Sequential rest-type))
+
+        expr
+        (-> expr
+          (update-in [:body] #(with-local-types
+                                (into {}
+                                      (map vector 
+                                           (concat dom-syms (when rest-param
+                                                              [rest-sym]))
+                                           (concat dom-types (when rest-param
+                                                               [actual-rest-arg-type]))))
+                                (tc-expr %))))]
+    (assoc expr
+           type-key mtched-arity)))
+
+(defn synthesize-fn-method
+  [{:keys [required-params rest-param] :as expr}]
   (letfn [(meta-type-annot [expr]
             (-> expr :sym meta (get '+T) parse))]
     (let [dom-syms (map :sym required-params)
@@ -1342,11 +1378,15 @@
           meta-annot-rst (when rest-param
                            (meta-type-annot rest-param))
 
+          _ (assert (every? Type? (concat meta-annots-reqd (when rest-param
+                                                             [meta-annot-rst])))
+                    "All function parameters must be annotated in synthesis mode")
+
           dom-types meta-annots-reqd
           rest-type meta-annot-rst
           actual-rest-arg-type (when rest-param
                                  (->Sequential rest-type))
-          
+
           {cbody :body
            :as expr} 
           (-> expr
@@ -1358,13 +1398,19 @@
                                              (concat dom-types (when rest-param
                                                                  [actual-rest-arg-type]))))
                                   (tc-expr %))))
-          
+
           rng-type (type-key cbody)]
       (assoc expr
              type-key (map->arity
                         {:dom dom-types
                          :rest-type rest-type
                          :rng rng-type})))))
+
+(defmethod tc-expr :fn-method
+  [{:keys [required-params rest-param] :as expr} & {expected-fun-type :expected-type}]
+  (cond
+    expected-fun-type (check-fn-method expr expected-fun-type)
+    :else (synthesize-fn-method expr)))
 
 ;local binding expr
 
@@ -1383,16 +1429,23 @@
 ;invoke
 
 (defn- invoke-type [arg-types {:keys [arities] :as fun-type}]
-  (let [dummy-arity (map->arity 
-                      {:dom arg-types
-                       :rng Any})
+  (let [[mtched-arity :as mtched-arities]
+        (filter #(or (and (not (:rest-type %))
+                          (= (count (:dom %))
+                             (count arg-types)))
+                     (and (:rest-type %)
+                          (<= (count (:dom %))
+                              (count arg-types))))
+                arities)
+
+        _ (assert (= 1 (count mtched-arities))
+                  (str "Invoke args " (with-out-str (pr (map unparse arg-types)))
+                       " do not match any arity in "
+                       (unp fun-type)))
         
-        mtched-arity (first (filter #(subtype? % dummy-arity)
-                                    arities))
-        _ (assert mtched-arity (str "Invoke args " (with-out-str (pr (map unparse arg-types)))
-                                    " do not match any arity in "
-                                    (unp fun-type)
-                                    " Dummy: " (unp dummy-arity)))]
+        _ (map assert-subtype arg-types (concat (:dom mtched-arity)
+                                                (when (:rest-type mtched-arity)
+                                                  (repeat (:rest-type mtched-arity)))))]
     (:rng mtched-arity)))
 
 (defmethod tc-expr :invoke

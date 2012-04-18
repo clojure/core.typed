@@ -286,7 +286,18 @@
   (is (with-env
         {b Long}
         (tc 
-          (def b 1)))))
+          (def b 1))))
+  (is (with-env
+        {double-num [Number -> Number]
+         add-twice [Number -> Number]}
+        (subfrm 
+          (do
+            (defn add-twice [n]
+              (+ n n))
+            (defn double-num [n]
+              (add-twice n))
+            (double-num 1))
+        Number))))
 
 (deftest tc-expr-fn-meta-annot
   (is (subfrm 
