@@ -22,12 +22,12 @@
   (fn [sym type-syn]
     [sym :- type-syn]))
 
-(+T *add-type-ann-fn* [Symbol Any -> nil])
+;(+T *add-type-ann-fn* [Symbol Any -> nil])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed require
 
-(+T type-db-var-contract [clojure.lang.IPersistentMap -> Boolean])
+(+T ns-deps-contract [clojure.lang.IPersistentMap -> Boolean])
 (defn ns-deps-contract [m]
   (and (every? symbol? (keys m))
        (every? set? (vals m))
@@ -96,6 +96,20 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
+
+(defn class-satisfies-protocol?
+  "Returns the method that would be dispatched by applying
+  an instance of Class c to protocol"
+  [protocol c]
+  (boolean
+    (if (isa? c (:on-interface protocol))
+      c
+      (let [impl #(get (:impls protocol) %)]
+        (or (impl c)
+            (and c (or (first (remove nil? (map impl (butlast (@#'clojure.core/super-chain c)))))
+                       (when-let [t (@#'clojure.core/reduce1 @#'clojure.core/pref (filter impl (disj (supers c) Object)))]
+                         (impl t))
+                       (impl Object))))))))
 
 (declare map->PrimitiveClass map->ClassType Type)
 
@@ -338,17 +352,15 @@
              (and (class? the-class)
                   (.isPrimitive the-class)))]})
 
-(def-type TProtocol [the-protocol]
+(def-type ProtocolType [the-protocol-var]
   "A protocol"
-  {:pre [(and (map? the-protocol)
-              (:on the-protocol)
-              (:var the-protocol))]})
+  {:pre [(var? the-protocol-var)]})
 
 (defn- simplify-union [the-union]
   (cond 
-    (some #(instance? Union %) (:types the-union))
-    (recur (->Union (set (doall (mapcat #(or (and (instance? Union %)
-                                                  (:types %))
+    (some #(Union? %) (:types the-union))
+    (recur (->Union (set (doall (mapcat #(or (and (Union? %)
+                                               (:types %))
                                              [%])
                                         (:types the-union))))))
 
@@ -568,8 +580,8 @@
 
                 (Type? @res) @res
 
-                (map? @res) (map->TProtocol
-                              {:the-protocol @res})
+                (map? @res) (map->ProtocolType
+                              {:the-protocol-var res})
 
                 :else (assert false (str "Could not resolve " res))))))
   
@@ -849,9 +861,9 @@
       `'~val
       val))
 
-  TProtocol
+  ProtocolType
   (unparse-type* [this]
-    (var-or-class->sym (-> this :the-protocol :var)))
+    (var-or-class->sym (-> this :the-protocol-var)))
 
   Vector
   (unparse-type* [this]
@@ -947,15 +959,31 @@
 ;classes
 
 (defmethod subtype?* [ClassType ClassType]
-  [s t]
-  (isa? (:the-class s)
-        (:the-class t)))
+  [{s-class :the-class :as s}
+   {t-class :the-class :as t}]
+  (isa? s-class t-class))
+
+;protocols
+
+(defmethod subtype?* [ProtocolType ProtocolType]
+  [{s-var :the-protocol-var :as s} 
+   {t-var :the-protocol-var :as t}]
+  (isa? @s-var @t-var))
+
+(defmethod subtype?* [ClassType ProtocolType]
+  [{s-class :the-class :as s}
+   {t-var :the-protocol-var :as t}]
+  (class-satisfies-protocol? @t-var s-class))
 
 ;nil
 
 (defmethod subtype?* [NilType NilType]
   [s t]
   true)
+
+(defmethod subtype?* [NilType ProtocolType]
+  [s {t-var :the-protocol-var :as t}]
+  (class-satisfies-protocol? @t-var nil))
 
 ;void primitive
 
@@ -1042,7 +1070,15 @@
    {t-type :type :as t}]
   (subtype? s-type t-type))
 
+(defmethod subtype?* [Vector ProtocolType]
+  [s t]
+  (subtype? (->ClassType IPersistentVector) t))
+
 (defmethod subtype?* [Vector ClassType]
+  [s t]
+  (subtype? (->ClassType IPersistentVector) t))
+
+(defmethod subtype?* [ConstantVector ProtocolType]
   [s t]
   (subtype? (->ClassType IPersistentVector) t))
 
@@ -1066,6 +1102,10 @@
   [{s-type :type :as s}
    {t-type :type :as t}]
   (subtype? s-type t-type))
+
+(defmethod subtype?* [Sequential ProtocolType]
+  [s t]
+  (subtype? (->ClassType clojure.lang.Sequential) t))
 
 (defmethod subtype?* [Sequential ClassType]
   [s t]
@@ -1192,6 +1232,10 @@
 ;constant
 
 (defmulti constant-type class)
+
+(defmethod constant-type IPersistentVector
+  [v]
+  (->ConstantVector (doall (map constant-type v))))
 
 (defmethod constant-type IPersistentMap
   [r]
@@ -1347,11 +1391,14 @@
                                     arities))
         _ (assert mtched-arity (str "Invoke args " (with-out-str (pr (map unparse arg-types)))
                                     " do not match any arity in "
-                                    (unp fun-type)))]
+                                    (unp fun-type)
+                                    " Dummy: " (unp dummy-arity)))]
     (:rng mtched-arity)))
 
 (defmethod tc-expr :invoke
   [expr & opts]
+  (println "invoke:" (or (-> expr :fexpr :var)
+                         "??"))
   (let [{cfexpr :fexpr
          cargs :args
          :as expr}
@@ -1468,6 +1515,84 @@
   [{:keys [coll] :as expr} & opts]
   (assoc expr
          type-key (empty-types coll)))
+
+;case
+
+(defmethod tc-expr :case*
+  [expr & opts]
+  (let [{cthens :thens
+         cdefault :default
+         :as expr}
+        (-> expr
+          (update-in [:tests] tc-exprs)
+          (update-in [:thens] tc-exprs)
+          (update-in [:default] tc-expr))]
+  (assoc expr
+         type-key (union (map type-key (concat (when (not= Nothing (type-key cdefault)) ;; hmm should probably filter 
+                                                                                        ;; out Nothings from unions
+                                                [cdefault])
+                                               cthens))))))
+
+;throw
+
+(defmethod tc-expr :throw
+  [expr & opts]
+  (let [{cexception :exception
+         :as expr}
+        (-> expr
+          (update-in [:exception] tc-expr))
+
+        _ (assert-subtype (type-key cexception) (->ClassType Throwable))]
+    (assoc expr
+           type-key Nothing)))
+
+;try
+
+(defmethod tc-expr :try
+  [expr & opts]
+  (let [{ctry-expr :try-expr
+         ccatch-exprs :catch-exprs
+         :as expr}
+        (-> expr
+          (update-in [:try-expr] tc-expr)
+          (update-in [:finally-expr] #(if %
+                                        (tc-expr %)
+                                        %))
+          (update-in [:catch-exprs] tc-exprs))]
+    (assoc expr
+           type-key (union (map type-key (cons ctry-expr ccatch-exprs))))))
+
+(defmethod tc-expr :catch
+  [{:keys [local-binding class] :as expr} & opts]
+  (let [lenv {(:sym local-binding) (->ClassType class)}
+
+        {chandler :handler
+         :as expr}
+        (-> expr
+          (update-in [:handler] #(with-local-types lenv
+                                   (tc-expr %))))]
+    (assoc expr
+           type-key (type-key chandler))))
+
+
+;(+T constructor->Fun [clojure.reflect.Constructor -> Fun])
+(defn constructor->Fun [{:keys [parameter-types declaring-class] :as ctor}]
+  (assert ctor "Unresolved constructor")
+  (map->Fun
+    {:arities [(map->arity 
+                 {:dom (map parse parameter-types)
+                  :rng (parse declaring-class)})]}))
+
+(defmethod tc-expr :new
+  [{:keys [ctor] :as expr} & opts]
+  (let [ctor-fun (constructor->Fun ctor)
+
+        {cargs :args
+         :as expr}
+        (-> expr
+          (update-in [:args] tc-exprs))]
+    (assoc expr
+           type-key (invoke-type (map type-key cargs) ctor-fun))))
 
 (comment
 

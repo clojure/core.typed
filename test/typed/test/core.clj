@@ -6,9 +6,12 @@
             [clojure.test :refer :all]))
 
 ; add base type anns
-(binding [*add-type-ann-fn* (fn [sym type-syn]
+(defn load-base-env []
+  (binding [*add-type-ann-fn* (fn [sym type-syn]
                               (add-type-ann sym (parse type-syn)))]
-  (require 'typed.base))
+    (require 'typed.base)))
+
+(load-base-env)
 
 (defmacro sub? [s t]
   `(binding [*ns* (find-ns 'typed.test.core)]
@@ -22,14 +25,23 @@
   (is (sub? [1 -> 1] Any))
   (is (sub? Nothing [1 -> 1]))
   (is (sub? Nothing Any))
+  (is (sub? Nothing Object))
+  (is (sub? Nothing nil))
+  (is (sub? nil Any))
   (is (sub? Long Any)))
 
 (deftest subtype-object
   (is (sub? [1 -> 1] Object))
+  (is (sub? byte Object))
+  (is (sub? short Object))
+  (is (sub? int Object))
   (is (sub? long Object))
-  (is (not (sub? Object long)))
   (is (sub? float Object))
-  (is (not (sub? Object float)))
+  (is (sub? double Object))
+  (is (sub? char Object))
+  (is (sub? boolean Object))
+  (is (not (sub? nil Object)))
+  (is (not (sub? nil Object)))
   (is (sub? Object Object)))
 
 (deftest subtype-classes
@@ -55,6 +67,8 @@
   (is (not (sub? nil 1))))
 
 (deftest subtype-unions
+  (is (sub? (U)
+            (U)))
   (is (sub? (U)
             (U)))
   (is (sub? (U)
@@ -103,8 +117,8 @@
   (is (sub? [Number Number & Boolean * -> Number]
             [Number Number Boolean Boolean -> Number]))
   (is (sub? 
-        [Long Long Long Long -> Any]
-        [Long Long & Long * -> Nothing]))
+        [Long Long & Long * -> Long]
+        [1 1 1 1 1 1 1 -> Any]))
   (is (sub? 
         [Long Long Long Long -> Any]
         clojure.lang.IFn))
@@ -187,6 +201,11 @@
   (is (sub? double Double))
   (is (sub? Double double))
          )
+
+(deftest subtype-protocols
+  (is (sub? Symbol typed.core/IParseType))
+  (is (sub? nil typed.core/IParseType))
+  (is (sub? (Vectorof Double) typed.core/IParseType)))
 
 (defmacro subfrm [form expected]
   `(binding [*ns* (find-ns 'typed.test.core)]
@@ -368,3 +387,39 @@
   (is (subfrm
         {(get {} 1) 1}
         (Map* Any 1))))
+
+(deftest tc-new
+  (is (subfrm 
+        (Exception. "a")
+        Exception)))
+
+(deftest tc-throw
+  (is (subfrm
+        (throw (Exception. "a"))
+        Nothing)))
+
+(deftest tc-case
+  (is (subfrm
+        (let [a 1]
+          (case a
+            1 :a
+            2 :b))
+        Keyword)))
+
+(deftest tc-try
+  (is (subfrm
+        (try
+          1
+          (catch Exception e
+            2)
+          (finally 3))
+        (U 1 2))))
+
+
+(comment
+  (binding [*add-type-ann-fn* (fn [sym type-syn]
+                              (add-type-ann sym (parse type-syn)))]
+    (require :reload 'typed.base))
+
+(tc-expr (ast (ns a (:require [b]))))
+  )
