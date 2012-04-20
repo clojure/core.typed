@@ -7,6 +7,13 @@ Clojure with a type system, as a library.
 Typed Clojure will be the subject of my dissertation.
 
 [Final Draft Project Proposal](https://github.com/downloads/frenchy64/papers/research-proposal-final-draft.pdf)
+[Early Draft Literary Review](https://github.com/downloads/frenchy64/papers/lit-review-draft.pdf)
+
+# Download
+
+Leiningen:
+
+[typed "0.1-alpha2]
 
 # Immediate Future work
 
