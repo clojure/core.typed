@@ -17,30 +17,27 @@
         `(symbol (-> *ns* ns-name name) (name '~nme)))
      '~type-syn))
 
+;(+T *add-type-ann-fn* [Symbol IParseType -> nil])
 (def ^:dynamic 
   *add-type-ann-fn* 
   (fn [sym type-syn]
     [sym :- type-syn]))
 
-;must go after definition, as +T expands to *add-type-ann-fn*
-(+T *add-type-ann-fn* [Symbol IParseType -> nil])
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed require
 
-(+T ns-deps-contract [IPersistentMap -> Boolean])
+;(+T ns-deps-contract [IPersistentMap -> Boolean])
 (defn ns-deps-contract [m]
   (and (every? symbol? (keys m))
        (every? set? (vals m))
        (every? #(every? symbol? %) (vals m))))
 
-(+T ns-deps Atom)
+;(+T ns-deps Atom)
 (def ns-deps (constrained-atom {}
                                "Map from symbols to seqs of symbols"
                                [ns-deps-contract]))
 
-(+T add-ns-dep [Symbol Symbol -> nil])
+;(+T add-ns-dep [Symbol Symbol -> nil])
 (defn add-ns-dep [nsym ns-dep]
   (swap! ns-deps update-in [nsym] #(set/union % #{ns-dep}))
   nil)
@@ -54,14 +51,20 @@
 
 (declare add-type-ann parse ^:dynamic *type-db* tc-expr unparse)
 
-(+T check-namespace [Symbol -> nil])
+(defn require-typed-deps [nsym]
+  (doseq [depsym (@ns-deps nsym)]
+    (require :reload depsym)
+    (require-typed-deps depsym)))
+
+;(+T check-namespace [Symbol -> nil])
 (defn check-namespace [nsym]
   (let [ 
         ;; 1. Collect all type annotations
         _ (binding [*add-type-ann-fn* (fn [sym type-syn]
                                         (add-type-ann sym (parse type-syn)))]
             (require :reload 'typed.base)
-            (require :reload-all nsym))
+            (require :reload nsym)
+            (require-typed-deps nsym))
         
         ;; 2. Perform type checking
         asts (analyze-path nsym)
@@ -76,16 +79,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type hierarchy
 
-(+T type-key Keyword)
+;(+T type-key Keyword)
 (def type-key ::+T)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Debug macros
 
-(+T debug-mode Atom)
+;(+T debug-mode Atom)
 (def debug-mode (atom true))
 
-(+T print-warnings Atom)
+;(+T print-warnings Atom)
 (def print-warnings (atom true))
 
 (defmacro warn [& body]
@@ -102,7 +105,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
-(+T class-satisfies-protocol? [IPersistentMap Class -> Boolean])
+;(+T class-satisfies-protocol? [IPersistentMap Class -> Boolean])
 (defn class-satisfies-protocol?
   "Returns the method that would be dispatched by applying
   an instance of Class c to protocol"
@@ -119,7 +122,7 @@
 
 (declare map->PrimitiveClass map->ClassType Type)
 
-(+T resolve-or-primitive [Symbol -> (U Class nil)])
+;(+T resolve-or-primitive [Symbol -> (U Class nil)])
 (defn resolve-or-primitive [sym]
   (case sym
     char Character/TYPE
@@ -135,7 +138,7 @@
       res
       (throw (Exception. (str sym " does not resolve to a type"))))))
 
-(+T resolve-class-symbol [Symbol -> (U ClassType PrimitiveClass)])
+;(+T resolve-class-symbol [Symbol -> (U ClassType PrimitiveClass)])
 (defn- resolve-class-symbol 
   [sym]
   (let [t (resolve-or-primitive sym)]
@@ -149,7 +152,7 @@
 
 (declare map->Fun map->arity union Nil PrimitiveClass?)
 
-(+T method->fun [clojure.reflect.Method -> Fun])
+;(+T method->fun [clojure.reflect.Method -> Fun])
 (defn- method->Fun [method]
   (map->Fun
     {:arities [(map->arity 
@@ -163,7 +166,7 @@
                            typ                       ; nil cannot substutitute for JVM primtiives
                            (union [Nil typ])))})]})) ; Java Objects can be the nil/null pointer
 
-(+T var-or-class->sym [(U Var Class) -> Symbol])
+;(+T var-or-class->sym [(U Var Class) -> Symbol])
 (defn var-or-class->sym [var-or-class]
   {:pre [(or (var? var-or-class)
              (class? var-or-class))]}
@@ -176,13 +179,13 @@
 
 (declare subtype? unparse-type)
 
-(+T unp [Type -> String])
+;(+T unp [Type -> String])
 (defn unp
   "Unparse a type and return string representation"
   [t]
   (with-out-str (-> t unparse-type pr)))
 
-(+T assert-subtype [Type Type & Any * -> nil])
+;(+T assert-subtype [Type Type & Any * -> nil])
 (defn assert-subtype [actual-type expected-type & msgs]
   (assert (subtype? actual-type expected-type)
           (apply str "Expected " (unp expected-type) ", found " (unp actual-type)
@@ -193,50 +196,50 @@
 
 (declare Type?)
 
-(+T type-db-var-contract [IPersistentMap -> Boolean])
+;(+T type-db-var-contract [IPersistentMap -> Boolean])
 (defn type-db-var-contract [m]
   (and (every? namespace (keys @m))
        (every? Type? (vals @m))))
 
-(+T type-db-atom-contract [IPersistentMap -> Boolean])
+;(+T type-db-atom-contract [IPersistentMap -> Boolean])
 (defn type-db-atom-contract [m]
   (and (every? namespace (keys m))
        (every? Type? (vals m))))
 
-(+T *type-db* (Mapof Symbol Type))
+;(+T *type-db* (Mapof Symbol Type))
 (defonce ^:dynamic *type-db* 
   (constrained-atom {}
                     "Map from qualified symbols to types"
                     [type-db-atom-contract]))
 
-(+T local-type-db-contract [IPersistentMap -> Boolean])
+;(+T local-type-db-contract [IPersistentMap -> Boolean])
 (defn local-type-db-contract [m]
   (and (every? (complement namespace) (keys m))
        (every? Type? (vals m))))
 
-(+T *local-type-db* (Mapof Symbol Type))
+;(+T *local-type-db* (Mapof Symbol Type))
 (defconstrainedvar 
   ^:dynamic *local-type-db* {}
   "Map from unqualified names to types"
   [local-type-db-contract])
 
-(+T type-var-scope-contract [IPersistentMap -> Boolean])
+;(+T type-var-scope-contract [IPersistentMap -> Boolean])
 (defn type-var-scope-contract [m]
   (and (every? (complement namespace) (keys m))
        (every? Type? (vals m))))
 
-(+T *type-var-scope* (Mapof Symbol UnboundedTypeVariable))
+;(+T *type-var-scope* (Mapof Symbol UnboundedTypeVariable))
 (defconstrainedvar
   ^:dynamic *type-var-scope* {}
   "Map from unqualified names to types"
   [type-var-scope-contract])
 
-(+T reset-type-db [-> nil])
+;(+T reset-type-db [-> nil])
 (defn reset-type-db []
   (swap! *type-db* (constantly {}))
   nil)
 
-(+T type-of [(U Symbol Var) -> Type])
+;(+T type-of [(U Symbol Var) -> Type])
 (defn type-of [sym-or-var]
   {:pre [(or (symbol? sym-or-var)
              (var? sym-or-var))]
@@ -260,7 +263,7 @@
   `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
      ~@body))
 
-(+T add-type-ann [Symbol Type -> (Vector* Symbol Any)])
+;(+T add-type-ann [Symbol Type -> (Vector* Symbol Any)])
 (defn add-type-ann [sym typ]
   (when-let [oldtyp (@*type-db* sym)]
     (warn "Overwriting type for" sym ":" typ "from" (unparse oldtyp)))
@@ -893,7 +896,7 @@
 
   ConstantVector
   (unparse-type* [this]
-    (list* Vector*-literal (map (unparse-type (:types this)))))
+    (list* Vector*-literal (doall (map unparse-type (:types this)))))
 
   Sequential
   (unparse-type* [this]
@@ -901,7 +904,7 @@
 
   ConstantSequential
   (unparse-type* [this]
-    (list* Sequential*-literal (map (unparse-type (:types this)))))
+    (list* Sequential*-literal (doall (map unparse-type (:types this)))))
 
   Map
   (unparse-type* [this]
@@ -911,7 +914,7 @@
 
   ConstantMap
   (unparse-type* [this]
-    (list* Map*-literal (map (unparse-type (:kvtypes this)))))
+    (list* Map*-literal (map unparse-type (:kvtypes this))))
 
   UnitType
   (unparse-type* [this]
@@ -970,13 +973,13 @@
 
 (defmethod subtype?* [Value ClassType]
   [s t]
-  (subtype?* (->ClassType (-> s :val class))
-             t))
+  (subtype? (->ClassType (-> s :val class))
+            t))
 
 (defmethod subtype?* [Value PrimitiveClass]
   [s t]
-  (subtype?* (->ClassType (-> s :val class))
-             t))
+  (subtype? (->ClassType (-> s :val class))
+            t))
 
 ;qualified keywords
 
@@ -1012,7 +1015,9 @@
 (defmethod subtype?* [ClassType ProtocolType]
   [{s-class :the-class :as s}
    {t-var :the-protocol-var :as t}]
-  (class-satisfies-protocol? @t-var s-class))
+  (->> (map isa? (extenders @t-var) (repeat s-class))
+    (some true?)
+    boolean))
 
 ;nil
 
@@ -1146,6 +1151,10 @@
    {t-type :type :as t}]
   (subtype? s-type t-type))
 
+(defmethod subtype?* [ConstantSequential ProtocolType]
+  [s t]
+  (subtype? (->ClassType clojure.lang.Sequential) t))
+
 (defmethod subtype?* [Sequential ProtocolType]
   [s t]
   (subtype? (->ClassType clojure.lang.Sequential) t))
@@ -1207,7 +1216,7 @@
 ;; everything except nil is a subtype of java.lang.Object
 (defmethod subtype?* [Type ClassType]
   [s t]
-  (and (subtype? (->ClassType Object) t)
+  (and (isa? Object (:the-class t))
        (not (Nil? s))))
 
 ;default
@@ -1371,7 +1380,7 @@
     (let [expr (-> expr
                  (update-in [:init] #(if init-provided
                                        (tc-expr-check % (type-of var))
-                                       (tc-expr %))))]
+                                       %)))]
       (assoc expr
              type-key (->ClassType Var)))))
 
@@ -1379,13 +1388,15 @@
 
 (defmethod tc-expr :fn-expr
   [{:keys [methods] :as expr} & {:keys [expected-type]}]
-  (let [expr (-> expr
-               (update-in [:methods] (if expected-type
-                                       (fn [m]
-                                         (doall (map #(tc-expr % :expected-type expected-type) m)))
-                                       tc-exprs)))]
+  (let [{cmethods :methods
+         :as expr}
+        (-> expr
+          (update-in [:methods] (if expected-type
+                                  (fn [m]
+                                    (doall (map #(tc-expr % :expected-type expected-type) m)))
+                                  tc-exprs)))]
     (assoc expr
-           type-key (->Fun (map type-key (:methods expr))))))
+           type-key (->Fun (map type-key cmethods)))))
 
 (defn check-fn-method 
   [{:keys [required-params rest-param] :as expr} expected-fun-type]
@@ -1499,9 +1510,9 @@
                        " do not match any arity in "
                        (unp fun-type)))
         
-        _ (map assert-subtype arg-types (concat (:dom mtched-arity)
-                                                (when (:rest-type mtched-arity)
-                                                  (repeat (:rest-type mtched-arity)))))]
+        _ (doall (map assert-subtype arg-types (concat (:dom mtched-arity)
+                                                       (when (:rest-type mtched-arity)
+                                                         (repeat (:rest-type mtched-arity))))))]
     (:rng mtched-arity)))
 
 (defmethod tc-expr :invoke
@@ -1700,7 +1711,7 @@
   (assert ctor "Unresolved constructor")
   (map->Fun
     {:arities [(map->arity 
-                 {:dom (map parse parameter-types)
+                 {:dom (doall (map parse parameter-types))
                   :rng (parse declaring-class)})]}))
 
 (defmethod tc-expr :new
@@ -1765,5 +1776,6 @@
   (tc-expr (+ 1 1))
 
   (check-namespace 'typed.example.typed)
+  (check-namespace 'typed.core)
 
 )

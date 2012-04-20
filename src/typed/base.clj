@@ -2,6 +2,9 @@
   (:import (clojure.lang Symbol Namespace IPersistentMap Var Keyword Namespace))
   (:require [typed.core :refer [+T Any IParseType]]))
 
+(+T typed.core/add-ns-dep [Symbol Symbol -> nil])
+(+T typed.core/*add-type-ann-fn* [Symbol IParseType -> nil])
+
 (+T clojure.core/in-ns [Symbol -> Namespace])
 (+T clojure.core/resolve 
     (Fun [Symbol -> (U nil Var Class)]
