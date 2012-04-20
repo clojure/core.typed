@@ -1028,6 +1028,11 @@
     (some true?)
     boolean))
 
+(defmethod subtype?* [Value ProtocolType]
+  [{s-val :val :as s}
+   {t-var :the-protocol-var :as t}]
+  (satisfies? @t-var s-val))
+
 ;nil
 
 (defmethod subtype?* [NilType NilType]
