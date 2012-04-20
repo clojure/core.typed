@@ -10,7 +10,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Annotation
 
-(defmacro +T [nme type-syn]
+(defmacro +T 
+  "Annotate a top level identifier. Takes
+  a symbol and a type. If the symbol is unqualified,
+  it is implicitly qualified in the current namespace."
+  [nme type-syn]
   `(*add-type-ann-fn* 
      ~(if (namespace nme)
         `'~nme
@@ -49,7 +53,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Top levels
 
-(declare add-type-ann parse ^:dynamic *type-db* tc-expr unparse)
+(declare add-type-ann parse ^:dynamic *type-db* tc-expr unparse debug)
 
 (defn require-typed-deps [nsym]
   (doseq [depsym (@ns-deps nsym)]
@@ -72,7 +76,7 @@
         _ (doseq [a asts]
             (try (tc-expr a)
               (catch Exception e
-                (println a)
+                (debug a)
                 (throw e))))]
     nil))
 
@@ -86,7 +90,7 @@
 ;; Debug macros
 
 ;(+T debug-mode Atom)
-(def debug-mode (atom true))
+(def debug-mode (atom false))
 
 ;(+T print-warnings Atom)
 (def print-warnings (atom true))
@@ -98,6 +102,11 @@
 (defmacro debug [& body]
   `(when @debug-mode
      (println ~@body)))
+
+(defmacro log [& body]
+  `(when @debug-mode
+     (println ~@body)))
+
 
 (defmacro tc-form [frm]
   `(-> (ast ~frm) tc-expr))
@@ -1373,7 +1382,7 @@
 
 (defmethod tc-expr :def
   [{:keys [init-provided var] :as expr} & opts]
-  (println "def:" var)
+  (debug "def:" var)
   (cond 
     (.isMacro var) expr
     :else
@@ -1517,7 +1526,7 @@
 
 (defmethod tc-expr :invoke
   [expr & opts]
-  (println "invoke:" (or (-> expr :fexpr :var)
+  (debug "invoke:" (or (-> expr :fexpr :var)
                          "??"))
   (let [{cfexpr :fexpr
          cargs :args
