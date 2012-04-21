@@ -1,6 +1,6 @@
 (ns typed.core
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons
-                         Ratio Atom IPersistentMap Seqable Counted ILookup IFn ISeq
+                         Ratio Atom IPersistentMap Seqable Counted ILookup ISeq
                          IMeta IObj Associative))
   (:require [trammel.core :refer [defconstrainedrecord defconstrainedvar
                                   constrained-atom]]
@@ -36,7 +36,7 @@
 (defn ns-deps-contract [m]
   (and (every? symbol? (keys m))
        (every? set? (vals m))
-       (every? (fn [^{+T (Seqentialof Any)} vs] 
+       (every? (fn [^{+T (Seqof Any)} vs] 
                  (every? symbol? vs)) 
                (vals m))))
 
@@ -143,8 +143,8 @@
                          (impl t))
                        (impl Object))))))))
 
-(declare PrimitiveClass-from ClassType-from Type Type? map->ProtocolType
-         ->QualifiedKeyword)
+(declare PrimitiveClass-from ClassType-from Type Type? ->ProtocolType
+         ->QualifiedKeyword var-or-class->sym)
 
 (+T primitives (Mapof [Symbol Class]))
 (def ^:private primitive-symbol
@@ -161,6 +161,7 @@
 (+T resolve-symbol [Symbol -> Type])
 (defn- resolve-symbol [sym]
   (assert (symbol? sym))
+  (println "resolve:" sym)
   (if (primitive-symbol sym)
     (PrimitiveClass-from sym)
     (let [res (resolve sym)]
@@ -173,8 +174,7 @@
                      (cond
                        (Type? v) v 
 
-                       (map? v) (map->ProtocolType
-                                  {:the-protocol-var res})
+                       (map? v) (->ProtocolType (var-or-class->sym res))
 
                        (and (keyword? v)
                             (namespace v))
@@ -321,6 +321,13 @@
      ~@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Typed Protocol
+
+;(defmacro def-typed-protocol [name]
+;  `(defprotocol ~name
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types
 
 (+T Type Keyword)
@@ -426,7 +433,8 @@
 
 (def-type ProtocolType [the-protocol-var]
   "A protocol"
-  {:pre [(var? the-protocol-var)]})
+  {:pre [(symbol? the-protocol-var)
+         (namespace the-protocol-var)]})
 
 (defn- simplify-union [the-union]
   (cond 
@@ -443,7 +451,6 @@
     :else the-union))
 
 (defn union [types]
-  (println "union:" types)
   (simplify-union (->Union (set types))))
 
 (def-type Intersection [types]
@@ -463,12 +470,6 @@
   (boolean (type-variables (class t))))
 
 ;; arities
-
-;(defprotocol IArity
-;  (matches-args [this args] "Return the arity if it matches the number of args,
-;                            otherwise nil")
-;  (match-to-fun-arity [this fun-type] "Return an arity than appears to match a fun-type
-;                                      arity, by counting arguments, not subtyping"))
 
 (def Arity ::arity-type)
 
@@ -548,6 +549,10 @@
     arr))
 
 ; data structures
+
+(def-type Seq [type]
+  "A seq of type type, subtype of clojure.lang.ISeq"
+  {:pre [(Type? type)]})
 
 (def-type Vector [type]
   "A vector of type type, subtype of clojure.lang.IPersistentVector"
@@ -693,6 +698,7 @@
 (def Vector*-literal 'Vector*)
 (def Sequentialof-literal 'Sequentialof)
 (def Sequential*-literal 'Sequential*)
+(def Seqof-literal 'Seqof)
 (def Mapof-literal 'Mapof)
 (def Map*-literal 'Map*)
 
@@ -723,6 +729,10 @@
 (defmethod parse-list-syntax Sequentialof-literal
   [[_ syn]]
   (->Sequential (parse syn)))
+
+(defmethod parse-list-syntax Seqof-literal
+  [[_ syn]]
+  (->Seq (parse syn)))
         
 #_(defmethod parse-list-syntax Map*-literal
   [[_ & kvsyns]]
@@ -927,8 +937,12 @@
     kwrd)
 
   ProtocolType
+  (unparse-type* [{:keys [the-protocol-var]}]
+    the-protocol-var)
+
+  Seq
   (unparse-type* [this]
-    (var-or-class->sym (-> this :the-protocol-var)))
+    (list Seqof-literal (unparse-type (:type this))))
 
   Vector
   (unparse-type* [this]
@@ -1059,22 +1073,26 @@
 ;protocols
 
 (defmethod subtype?* [ProtocolType ProtocolType]
-  [{s-var :the-protocol-var :as s} 
-   {t-var :the-protocol-var :as t}]
-  (isa? @s-var @t-var))
+  [{s-var-sym :the-protocol-var :as s} 
+   {t-var-sym :the-protocol-var :as t}]
+  (let [s-var (resolve s-var-sym)
+        t-var (resolve t-var-sym)]
+    (isa? @s-var @t-var)))
 
 (defmethod subtype?* [ClassType ProtocolType]
   [{s-class-sym :the-class :as s}
-   {t-var :the-protocol-var :as t}]
-  (let [s-class (resolve s-class-sym)]
+   {t-var-sym :the-protocol-var :as t}]
+  (let [s-class (resolve s-class-sym)
+        t-var (resolve t-var-sym)]
     (->> (map isa? (extenders @t-var) (repeat s-class))
       (some true?)
       boolean)))
 
 (defmethod subtype?* [Value ProtocolType]
   [{s-val :val :as s}
-   {t-var :the-protocol-var :as t}]
-  (satisfies? @t-var s-val))
+   {t-var-sym :the-protocol-var :as t}]
+  (let [t-var (resolve t-var-sym)]
+    (satisfies? @t-var s-val)))
 
 ;nil
 
@@ -1092,8 +1110,9 @@
   true)
 
 (defmethod subtype?* [NilType ProtocolType]
-  [s {t-var :the-protocol-var :as t}]
-  (class-satisfies-protocol? @t-var nil))
+  [s {t-var-sym :the-protocol-var :as t}]
+  (let [t-var (resolve t-var-sym)]
+    (class-satisfies-protocol? @t-var nil)))
 
 ;void primitive
 
@@ -1150,7 +1169,7 @@
 
 (defmethod subtype?* [Fun ClassType]
   [s t]
-  (subtype? (ClassType-from IFn) t))
+  (supertype-of-one t (map ClassType-from (-> #() class ancestors))))
 
 (defmethod subtype?* [Fun Fun]
   [{s-arities :arities} {t-arities :arities}]
@@ -1189,6 +1208,31 @@
          (subtype? s-rng t-rng))
 
     :else false))
+
+;seq
+
+(defmethod subtype?* [Seq Seq]
+  [{s-type :type :as s} 
+   {t-type :type :as t}]
+  (subtype? s-type t-type))
+
+(defmethod subtype?* [Seq ProtocolType]
+  [s t]
+  (subtype? (ClassType-from ISeq) t))
+
+(defmethod subtype?* [Seq ClassType]
+  [s t]
+  (subtype? (ClassType-from ISeq) t))
+
+(defmethod subtype?* [Vector Seq]
+  [{s-type :type :as s} 
+   {t-type :type :as t}]
+  (subtype? s-type t-type))
+
+(defmethod subtype?* [Sequential Seq]
+  [{s-type :type :as s} 
+   {t-type :type :as t}]
+  (subtype? s-type t-type))
 
 ;vectors
 

@@ -3,7 +3,7 @@
   (:require [typed.core :refer :all, :as t])
   (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList Var Ratio
                          Symbol IPersistentMap ISeq Seqable Counted ILookup Associative
-                         IMeta IObj)
+                         IMeta IObj IFn)
            (typed.core ClassType))
   (:require [analyze.core :refer [ast]]
             [clojure.test :refer :all]))
@@ -46,6 +46,11 @@
   (is (not (sub? nil Object)))
   (is (not (sub? nil Object)))
   (is (sub? Object Object)))
+
+(deftest subtype-fun
+  (is (sub? [-> nil] IFn))
+  (is (sub? [-> nil] clojure.lang.AFn))
+  (is (sub? [-> nil] IObj)))
 
 (deftest subtype-classes
   (is (sub? Long Long))
@@ -175,6 +180,16 @@
   (is (sub? (Vector* Integer Float Double)
             IPersistentVector))
   )
+
+(deftest subtype-seqable
+  (is (sub? (Seqof Double)
+            ISeq))
+  (is (sub? (Seqof Double)
+            (Seqof Number)))
+  (is (sub? (Sequentialof Double)
+            (Seqof Number)))
+  (is (sub? (Vectorof Double)
+            (Seqof Number))))
 
 (deftest subtype-sequentials
   (is (sub? (Sequentialof Double)

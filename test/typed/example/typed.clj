@@ -37,4 +37,14 @@
 (defn some-vec-test [vs]
   (boolean (first vs)))
 
+(def-typed-protocol IProt
+  (prot-fun [this (arg1 :- Number)] :- Number)
+  (prot-fun [this & (arg1 :- Number)] :- Any)
+  )
+
+(def-typed-record A [(f1 :- (Mapof Any Any))
+                     (f2 :- Double)]
+  IProt
+  (prot-fun [this [arg1 :- Double]] :- Double)
+
 (check-namespace 'typed.example.typed)
