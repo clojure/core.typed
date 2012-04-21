@@ -9,6 +9,12 @@ Typed Clojure will be the subject of my dissertation.
 [Final Draft Project Proposal](https://github.com/downloads/frenchy64/papers/research-proposal-final-draft.pdf)
 [Early Draft Literary Review](https://github.com/downloads/frenchy64/papers/lit-review-draft.pdf)
 
+# License
+
+Typed Clojure is released under the same license as Clojure: Eclipse Public License v 1.0.
+
+See `LICENSE`.
+
 # Download
 
 Leiningen:
