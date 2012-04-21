@@ -1,9 +1,10 @@
 (ns typed.base
-  (:import (clojure.lang Symbol Namespace IPersistentMap Var Keyword Namespace))
+  (:import (clojure.lang Symbol Namespace IPersistentMap Var Keyword Namespace ISeq Seqable))
   (:require [typed.core :refer [+T Any IParseType]]))
 
 (+T typed.core/add-ns-dep [Symbol Symbol -> nil])
 (+T typed.core/*add-type-ann-fn* [Symbol IParseType -> nil])
+(+T typed.core/check-namespace [Symbol -> nil])
 
 (+T clojure.core/in-ns [Symbol -> Namespace])
 (+T clojure.core/resolve 
@@ -18,3 +19,7 @@
 (+T clojure.core/ns-name [Namespace -> String])
 (+T clojure.core/*ns* Namespace)
 (+T clojure.core/+ [& Number * -> Number])
+(+T clojure.core/prn [& Any * -> nil])
+(+T clojure.core/first [Seqable -> Any])
+(+T clojure.core/rest [Seqable -> ISeq])
+(+T clojure.core/next [Seqable -> ISeq])

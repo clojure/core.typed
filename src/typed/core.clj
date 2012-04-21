@@ -1,11 +1,13 @@
 (ns typed.core
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons
-                         Ratio Atom IPersistentMap))
+                         Ratio Atom IPersistentMap Seqable Counted ILookup IFn ISeq
+                         IMeta IObj))
   (:require [trammel.core :refer [defconstrainedrecord defconstrainedvar
                                   constrained-atom]]
             [analyze.core :as a :refer [analyze-path ast]]
             [analyze.util :as util]
             [clojure.set :as set]))
+(prn "RELOAD CORE")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Annotation
@@ -50,42 +52,6 @@
   `(add-ns-dep (symbol (-> *ns* ns-name name))
                '~nsym))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Top levels
-
-(declare add-type-ann parse ^:dynamic *type-db* tc-expr unparse debug)
-
-(defn require-typed-deps [nsym]
-  (doseq [depsym (@ns-deps nsym)]
-    (require :reload depsym)
-    (require-typed-deps depsym)))
-
-;(+T check-namespace [Symbol -> nil])
-(defn check-namespace [nsym]
-  (let [ 
-        ;; 1. Collect all type annotations
-        _ (binding [*add-type-ann-fn* (fn [sym type-syn]
-                                        (add-type-ann sym (parse type-syn)))]
-            (require :reload 'typed.base)
-            (require :reload nsym)
-            (require-typed-deps nsym))
-        
-        ;; 2. Perform type checking
-        asts (analyze-path nsym)
-        
-        _ (doseq [a asts]
-            (try (tc-expr a)
-              (catch Exception e
-                (debug a)
-                (throw e))))]
-    nil))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Type hierarchy
-
-;(+T type-key Keyword)
-(def type-key ::+T)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Debug macros
 
@@ -107,9 +73,54 @@
   `(when @debug-mode
      (println ~@body)))
 
-
 (defmacro tc-form [frm]
   `(-> (ast ~frm) tc-expr))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Top levels
+
+(declare add-type-ann parse ^:dynamic *type-db* tc-expr unparse)
+
+(def ^:dynamic *already-reloaded*)
+
+(defn reload-ns [nsym]
+  (prn "reload" nsym)
+  (prn "already reloaded" @*already-reloaded*)
+  (when (not (contains? @*already-reloaded* nsym))
+    (require :reload nsym)
+    (swap! *already-reloaded* set/union #{nsym})))
+
+(defn require-typed-deps [nsym]
+  (doseq [depsym (@ns-deps nsym)]
+    (reload-ns depsym)
+    (require-typed-deps depsym)))
+
+;(+T check-namespace [Symbol -> nil])
+(defn check-namespace [nsym]
+  (let [ 
+        ;; 1. Collect all type annotations
+        _ (binding [*add-type-ann-fn* (fn [sym type-syn]
+                                        (add-type-ann sym (parse type-syn)))
+                    *already-reloaded* (atom #{})]
+            (reload-ns 'typed.base)
+            (reload-ns nsym)
+            (require-typed-deps nsym))
+        
+        ;; 2. Perform type checking
+        asts (analyze-path nsym)
+        
+        _ (doseq [a asts]
+            (try (tc-expr a)
+              (catch Exception e
+                (debug a)
+                (throw e))))]
+    nil))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type hierarchy
+
+;(+T type-key Keyword)
+(def type-key ::+T)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
@@ -129,48 +140,59 @@
                          (impl t))
                        (impl Object))))))))
 
-(declare map->PrimitiveClass map->ClassType Type)
+(declare PrimitiveClass-from ClassType-from Type Type? map->ProtocolType
+         ->QualifiedKeyword)
 
-;(+T resolve-or-primitive [Symbol -> (U Class nil)])
-(defn resolve-or-primitive [sym]
-  (case sym
-    char Character/TYPE
-    boolean Boolean/TYPE
-    byte Byte/TYPE
-    short Short/TYPE
-    int Integer/TYPE
-    long Long/TYPE
-    float Float/TYPE
-    double Double/TYPE
-    void nil
-    (if-let [res (resolve sym)]
-      res
-      (throw (Exception. (str sym " does not resolve to a type"))))))
+;(+T primitives (Mapof [Symbol Class]))
+(def ^:private primitive-symbol
+  {'char Character/TYPE
+   'boolean Boolean/TYPE
+   'byte Byte/TYPE
+   'short Short/TYPE
+   'int Integer/TYPE
+   'long Long/TYPE
+   'float Float/TYPE
+   'double Double/TYPE
+   'void Void/TYPE})
 
-;(+T resolve-class-symbol [Symbol -> (U ClassType PrimitiveClass)])
-(defn- resolve-class-symbol 
-  [sym]
-  (let [t (resolve-or-primitive sym)]
-    (assert (or (nil? sym) (= 'void sym) (class? t)) (str sym " expected to resolve to a class, instead " t))
-    (if (or (nil? t)
-            (.isPrimitive ^Class t))
-      (map->PrimitiveClass
-        {:the-class t})
-      (map->ClassType
-        {:the-class t}))))
+;(+T resolve-symbol [Symbol -> Type])
+(defn- resolve-symbol [sym]
+  (assert (symbol? sym))
+  (if (primitive-symbol sym)
+    (PrimitiveClass-from sym)
+    (let [res (resolve sym)]
+      (cond
+        (class? res) (if (.isPrimitive res)
+                       (PrimitiveClass-from res)
+                       (ClassType-from res))
+
+        (var? res) (let [v @res]
+                     (cond
+                       (Type? v) v 
+
+                       (map? v) (map->ProtocolType
+                                  {:the-protocol-var res})
+
+                       (and (keyword? v)
+                            (namespace v))
+                       (->QualifiedKeyword v)
+                       
+                       :else (throw (Exception. (str "Not a type: " sym)))))
+
+        :else (throw (Exception. (str "Could not resolve " sym)))))))
 
 (declare map->Fun map->arity union Nil PrimitiveClass?)
 
-;(+T method->fun [clojure.reflect.Method -> Fun])
+;(+T method->Fun [clojure.reflect.Method -> Fun])
 (defn- method->Fun [method]
   (map->Fun
     {:arities [(map->arity 
                  {:dom (->> 
-                         (map resolve-class-symbol (:parameter-types method))
+                         (map resolve-symbol (:parameter-types method))
                          (map #(if (PrimitiveClass? %)
                                  %                  ; nil cannot substutitute for JVM primtiives
                                  (union [Nil %])))) ; Java Objects can be the nil/null pointer
-                  :rng (let [typ (resolve-class-symbol (:return-type method))]
+                  :rng (let [typ (resolve-symbol (:return-type method))]
                          (if (PrimitiveClass? typ)
                            typ                       ; nil cannot substutitute for JVM primtiives
                            (union [Nil typ])))})]})) ; Java Objects can be the nil/null pointer
@@ -337,10 +359,18 @@
 
 (def-type ClassType [the-class]
   "A class"
-  {:pre [(class? the-class)]})
+  {:pre [(symbol? the-class)
+         (let [c (resolve the-class)]
+           (and (class? c)
+                (not (.isPrimitive c))))]})
 
-(def Any (Union. #{Nil (->ClassType Object)})) ; avoid constrained constructor because of
-                                               ; call to subtype?, which is undefined
+;(+T ClassType-from [Class -> ClassType])
+(defn ClassType-from [cls]
+  (assert (class? cls))
+  (->ClassType (symbol (.getName cls))))
+
+(def Any (Union. #{Nil (ClassType-from Object)})) ; avoid constrained constructor because of
+                                                  ; call to subtype?, which is undefined
 (def Any? (partial = Any))
 
 (def Nothing (Union. #{}))
@@ -372,9 +402,20 @@
 
 (def-type PrimitiveClass [the-class]
   "A primitive class"
-  {:pre [(or (nil? the-class) ; void primitive
-             (and (class? the-class)
-                  (.isPrimitive the-class)))]})
+  {:pre [(symbol? the-class)
+         (let [c (primitive-symbol the-class)]
+           (and (class? c)
+                (.isPrimitive c)))]})
+
+;(+T PrimitiveClass-from [Symbol -> PrimitiveClass])
+(defn PrimitiveClass-from 
+  "Create a PrimitiveClass from a symbol representing a
+  primitive class name (int, long etc.) or a primitive Class
+  object"
+  [sym]
+  (->PrimitiveClass
+    (symbol (.getName (or (primitive-symbol sym)
+                          (resolve-symbol sym))))))
 
 (def-type ProtocolType [the-protocol-var]
   "A protocol"
@@ -568,6 +609,7 @@
 ;; Parse Type syntax
 
 (defprotocol IParseType
+  ;(+T parse-syntax* [IParseType -> Type])
   (parse-syntax* [this]))
 
 (declare Fun-literal All-literal)
@@ -588,30 +630,7 @@
 (extend-protocol IParseType
   Symbol
   (parse-syntax* [this]
-    (cond
-      (*type-var-scope* this) (*type-var-scope* this) ; type variables
-      (nil? this) Nil ;; nil
-      :else (let [res (resolve-or-primitive this)]
-              (cond
-                (nil? res) (map->PrimitiveClass
-                             {:the-class nil}) ;; void primtive
-
-                (class? res) (if (.isPrimitive res)
-                               (map->PrimitiveClass
-                                 {:the-class res})
-                               (map->ClassType
-                                 {:the-class res}))
-
-                (Type? @res) @res
-
-                (map? @res) (map->ProtocolType
-                              {:the-protocol-var res})
-
-                (and (keyword? @res)
-                     (namespace @res))
-                (->QualifiedKeyword @res)
-
-                :else (assert false (str "Could not resolve " res))))))
+    (resolve-symbol this))
   
   Boolean
   (parse-syntax* [this]
@@ -718,7 +737,7 @@
   (let [pred-type (parse-syntax typ-syntax)]
     (->Fun [(map->arity
               {:dom [Any]
-               :rng (->ClassType Boolean)
+               :rng (ClassType-from Boolean)
                :pred-type pred-type
                :named-params '(a)
                :flter (map->FilterSet
@@ -839,13 +858,11 @@
 (extend-protocol IUnparseType
   ClassType
   (unparse-type* [this]
-    (symbol (.getName ^Class (:the-class this))))
+    (:the-class this))
 
   PrimitiveClass
   (unparse-type* [this]
-    (cond
-      (nil? (:the-class this)) 'void
-      :else (symbol (.getName ^Class (:the-class this)))))
+    (:the-class this))
 
   Union
   (unparse-type* [this]
@@ -982,12 +999,12 @@
 
 (defmethod subtype?* [Value ClassType]
   [s t]
-  (subtype? (->ClassType (-> s :val class))
+  (subtype? (ClassType-from (-> s :val class))
             t))
 
 (defmethod subtype?* [Value PrimitiveClass]
   [s t]
-  (subtype? (->ClassType (-> s :val class))
+  (subtype? (ClassType-from (-> s :val class))
             t))
 
 ;qualified keywords
@@ -998,9 +1015,10 @@
   (isa? s-kwrd t-kwrd))
 
 (defmethod subtype?* [ClassType QualifiedKeyword]
-  [{s-class :the-class :as s}
+  [{s-class-sym :the-class :as s}
    {t-kwrd :kwrd :as t}]
-  (isa? s-class t-kwrd))
+  (let [s-class (resolve s-class-sym)]
+    (isa? s-class t-kwrd)))
 
 ; keyword represents a hierarchy, Object or Keyword are not supertypes
 (defmethod subtype?* [QualifiedKeyword ClassType]
@@ -1009,10 +1027,18 @@
 
 ;classes
 
+(def ^:private extends-Seqable #{Iterable java.util.Map})
+
+;hardcode Clojure interfaces that should "extend" Seqable
 (defmethod subtype?* [ClassType ClassType]
-  [{s-class :the-class :as s}
-   {t-class :the-class :as t}]
-  (isa? s-class t-class))
+  [{s-class-sym :the-class :as s}
+   {t-class-sym :the-class :as t}]
+  (let [s-class (resolve s-class-sym)
+        t-class (resolve t-class-sym)]
+    (or (and (identical? t-class Seqable)
+             (boolean
+               (some #(isa? s-class %) extends-Seqable)))
+        (isa? s-class t-class))))
 
 ;protocols
 
@@ -1022,11 +1048,12 @@
   (isa? @s-var @t-var))
 
 (defmethod subtype?* [ClassType ProtocolType]
-  [{s-class :the-class :as s}
+  [{s-class-sym :the-class :as s}
    {t-var :the-protocol-var :as t}]
-  (->> (map isa? (extenders @t-var) (repeat s-class))
-    (some true?)
-    boolean))
+  (let [s-class (resolve s-class-sym)]
+    (->> (map isa? (extenders @t-var) (repeat s-class))
+      (some true?)
+      boolean)))
 
 (defmethod subtype?* [Value ProtocolType]
   [{s-val :val :as s}
@@ -1034,6 +1061,15 @@
   (satisfies? @t-var s-val))
 
 ;nil
+
+(def ^:private extends-nil #{ISeq Counted ILookup IObj IMeta})
+
+;hardcode Clojure interfaces that should "extend" to nil
+(defmethod subtype?* [NilType ClassType]
+  [s {t-class-sym :the-class :as t}]
+  (let [t-class (resolve t-class-sym)]
+    (boolean
+      (some #(isa? t-class %) extends-nil))))
 
 (defmethod subtype?* [NilType NilType]
   [s t]
@@ -1047,45 +1083,58 @@
 
 (defmethod subtype?* [PrimitiveClass NilType]
   [{s-class :the-class :as s} t]
-  (nil? s-class))
+  (= 'void s-class))
 
 (defmethod subtype?* [NilType PrimitiveClass]
   [s {t-class :the-class :as t}]
-  (nil? t-class))
+  (= 'void t-class))
 
 ;primitives
+
+(def ^:private primitive-coersions
+  {'int #{'long}})
 
 (defmethod subtype?* [PrimitiveClass PrimitiveClass]
   [{s-class :the-class :as s}
    {t-class :the-class :as t}]
-  (isa? s-class t-class))
+  (or (= s-class t-class)
+      (let [coerce? (contains? (primitive-coersions s-class)
+                               t-class)
+            _ (when coerce?
+                (debug "coercing primitive" s-class "->" t-class))]
+        coerce?)))
 
 (def ^:private coersions
-  {Double/TYPE #{Double}
-   Long/TYPE #{Long}
-   Byte/TYPE #{Byte}
-   Character/TYPE #{Character}
-   Integer/TYPE #{Integer}
-   Float/TYPE #{Float}
-   Short/TYPE #{Short}
-   Boolean/TYPE #{Boolean}})
+  {'double #{Double}
+   'long #{Long}
+   'byte #{Byte}
+   'char #{Character}
+   'int #{Integer}
+   'float #{Float}
+   'short #{Short}
+   'boolean #{Boolean}
+   'void #{Void}})
 
 (defmethod subtype?* [PrimitiveClass ClassType]
   [{s-pclass :the-class :as s} t]
   (let [possible-types (coersions s-pclass)]
     (boolean
-      (some #(subtype? (->ClassType %) t) possible-types))))
+      (some #(subtype? (ClassType-from %) t) possible-types))))
 
 (defmethod subtype?* [ClassType PrimitiveClass]
-  [{s-class :the-class :as s}
+  [{s-class-sym :the-class :as s}
    {t-pclass :the-class :as t}]
-  (contains? (coersions t-pclass) s-class))
+  (let [s-class (resolve s-class-sym)
+        coerce? (contains? (coersions t-pclass) s-class)
+        _ (when coerce?
+            (debug "coercing" s-class "->" t-pclass))]
+    coerce?))
 
 ;function
 
 (defmethod subtype?* [Fun ClassType]
   [s t]
-  (subtype? (->ClassType clojure.lang.IFn) t))
+  (subtype? (ClassType-from IFn) t))
 
 (defmethod subtype?* [Fun Fun]
   [{s-arities :arities} {t-arities :arities}]
@@ -1134,19 +1183,19 @@
 
 (defmethod subtype?* [Vector ProtocolType]
   [s t]
-  (subtype? (->ClassType IPersistentVector) t))
+  (subtype? (ClassType-from IPersistentVector) t))
 
 (defmethod subtype?* [Vector ClassType]
   [s t]
-  (subtype? (->ClassType IPersistentVector) t))
+  (subtype? (ClassType-from IPersistentVector) t))
 
 (defmethod subtype?* [ConstantVector ProtocolType]
   [s t]
-  (subtype? (->ClassType IPersistentVector) t))
+  (subtype? (ClassType-from IPersistentVector) t))
 
 (defmethod subtype?* [ConstantVector ClassType]
   [s t]
-  (subtype? (->ClassType IPersistentVector) t))
+  (subtype? (ClassType-from IPersistentVector) t))
 
 (defmethod subtype?* [ConstantVector ConstantVector]
   [{s-types :types :as s} 
@@ -1167,15 +1216,15 @@
 
 (defmethod subtype?* [ConstantSequential ProtocolType]
   [s t]
-  (subtype? (->ClassType clojure.lang.Sequential) t))
+  (subtype? (ClassType-from clojure.lang.Sequential) t))
 
 (defmethod subtype?* [Sequential ProtocolType]
   [s t]
-  (subtype? (->ClassType clojure.lang.Sequential) t))
+  (subtype? (ClassType-from clojure.lang.Sequential) t))
 
 (defmethod subtype?* [Sequential ClassType]
   [s t]
-  (subtype? (->ClassType clojure.lang.Sequential) t))
+  (subtype? (ClassType-from clojure.lang.Sequential) t))
 
 (defmethod subtype?* [ConstantVector Sequential]
   [{s-types :types :as s} 
@@ -1202,7 +1251,7 @@
 
 (defmethod subtype?* [AnyMap ClassType]
   [s t]
-  (subtype? (->ClassType IPersistentMap) t))
+  (subtype? (ClassType-from IPersistentMap) t))
 
 (defmethod subtype?* [Map Map]
   [{s-ktype :ktype s-vtype :vtype :as s} 
@@ -1230,7 +1279,7 @@
 ;; everything except nil is a subtype of java.lang.Object
 (defmethod subtype?* [Type ClassType]
   [s t]
-  (and (isa? Object (:the-class t))
+  (and (isa? Object (resolve (:the-class t)))
        (not (Nil? s))))
 
 ;default
@@ -1396,7 +1445,7 @@
                                        (tc-expr-check % (type-of var))
                                        %)))]
       (assoc expr
-             type-key (->ClassType Var)))))
+             type-key (ClassType-from Var)))))
 
 ;fn
 
@@ -1523,6 +1572,8 @@
                   (str "Invoke args " (with-out-str (pr (map unparse arg-types)))
                        " do not match any arity in "
                        (unp fun-type)))
+
+        _ (debug "invoke type" (unp mtched-arity))
         
         _ (doall (map assert-subtype arg-types (concat (:dom mtched-arity)
                                                        (when (:rest-type mtched-arity)
@@ -1593,8 +1644,9 @@
                                  method-type))))
 
 (defmethod tc-expr :static-method
-  [{:keys [method method-name] :as expr} & opts]
+  [{:keys [method method-name class] :as expr} & opts]
   (assert method (str "Unresolvable static method " method-name))
+  (debug "static-method:" class method-name)
   (tc-method expr))
 
 ;instance-method
@@ -1608,10 +1660,7 @@
 
 ;(+T field->Type [java.lang.reflect.Field -> Type]
 (defn field->Type [field]
-  (let [cls (resolve (:type field))]
-    (if (.isPrimitive cls)
-      (->PrimitiveClass cls)
-      (->ClassType cls))))
+  (resolve-symbol (:type field)))
 
 (defmethod tc-expr :static-field
   [{:keys [field field-name] :as expr} & opts]
@@ -1687,7 +1736,7 @@
         (-> expr
           (update-in [:exception] tc-expr))
 
-        _ (assert-subtype (type-key cexception) (->ClassType Throwable))]
+        _ (assert-subtype (type-key cexception) (ClassType-from Throwable))]
     (assoc expr
            type-key Nothing)))
 
@@ -1709,7 +1758,7 @@
 
 (defmethod tc-expr :catch
   [{:keys [local-binding class] :as expr} & opts]
-  (let [lenv {(:sym local-binding) (->ClassType class)}
+  (let [lenv {(:sym local-binding) (ClassType-from class)}
 
         {chandler :handler
          :as expr}
@@ -1744,14 +1793,14 @@
 (defmethod tc-expr :import*
   [expr & opts]
   (assoc expr
-         type-key (->ClassType Class)))
+         type-key (ClassType-from Class)))
 
 ;var
 
 (defmethod tc-expr :the-var
   [expr & opts]
   (assoc expr
-         type-key (->ClassType Var)))
+         type-key (ClassType-from Var)))
 
 (comment
 

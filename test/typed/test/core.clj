@@ -1,16 +1,17 @@
 (ns typed.test.core
+  ; above :import to ensure ClassType is created
+  (:require [typed.core :refer :all, :as t])
   (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList Var Ratio
-                         Symbol IPersistentMap)
+                         Symbol IPersistentMap ISeq Seqable Counted ILookup Associative
+                         IMeta IObj)
            (typed.core ClassType))
-  (:require [typed.core :refer :all
-             :as t]
-            [analyze.core :refer [ast]]
+  (:require [analyze.core :refer [ast]]
             [clojure.test :refer :all]))
 
 ; add base type anns
 (defn load-base-env []
   (binding [*add-type-ann-fn* (fn [sym type-syn]
-                              (add-type-ann sym (parse type-syn)))]
+                                (add-type-ann sym (parse type-syn)))]
     (require 'typed.base)))
 
 (load-base-env)
@@ -66,7 +67,25 @@
 (deftest subtype-nil
   (is (sub? nil nil))
   (is (sub? (U nil) nil))
-  (is (not (sub? nil 1))))
+  (is (not (sub? nil 1)))
+  (is (sub? nil ISeq))
+  (is (not (sub? nil Seqable)))
+  (is (sub? nil IMeta))
+  (is (sub? nil IObj))
+  (is (sub? nil Counted))
+  (is (sub? nil ILookup))
+  (is (sub? nil Associative)) ;from ILookup
+         )
+
+(deftest subtype-ISeq
+  (is (sub? nil ISeq))
+  (is (not (sub? Iterable ISeq)))
+  (is (not (sub? java.util.Map ISeq))))
+
+(deftest subtype-Seqable
+  (is (not (sub? nil Seqable)))
+  (is (sub? Iterable Seqable))
+  (is (sub? java.util.Map Seqable)))
 
 (deftest subtype-unions
   (is (sub? (U)
