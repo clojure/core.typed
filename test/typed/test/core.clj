@@ -70,7 +70,7 @@
   (is (not (sub? nil Var)))
   (is (not (sub? nil 1)))
   (is (sub? nil ISeq))
-  (is (not (sub? nil Seqable)))
+  (is (sub? nil Seqable))
   (is (sub? nil IMeta))
   (is (sub? nil IObj))
   (is (sub? nil Counted))
@@ -84,7 +84,7 @@
   (is (not (sub? java.util.Map ISeq))))
 
 (deftest subtype-Seqable
-  (is (not (sub? nil Seqable)))
+  (is (sub? nil Seqable))
   (is (sub? Iterable Seqable))
   (is (sub? java.util.Map Seqable)))
 
@@ -195,22 +195,22 @@
   )
 
 (deftest subtype-maps
-  (is (sub? (Mapof Unit Unit)
+  (is (sub? (Mapof [Unit Unit])
             IPersistentMap))
-  (is (sub? (Mapof Keyword Double)
+  (is (sub? (Mapof [Keyword Double])
             IPersistentMap))
-  (is (sub? (Map* Integer Object Double Integer Number Number)
+  #_(is (sub? (Map* [Integer Object] [Double Integer] [Number Number])
             IPersistentMap))
-  (is (sub? (Mapof Integer Double)
-            (Mapof Number Number)))
-  (is (not (sub? (Mapof Number Number)
-                 (Mapof Integer Double))))
-  (is (sub? (Map* Integer Double Double Integer Number Number)
-            (Mapof Number Number)))
-  (is (not (sub? (Map* Integer Object Double Integer Number Number)
-                 (Mapof Number Number))))
-  (is (sub? (Map*)
-            (Mapof Unit Unit)))
+  (is (sub? (Mapof [Integer Double])
+            (Mapof [Number Number])))
+  (is (not (sub? (Mapof [Number Number])
+                 (Mapof [Integer Double]))))
+  #_(is (sub? (Map* [Integer Double] [Double Integer] [Number Number])
+            (Mapof [Number Number])))
+  #_(is (not (sub? (Map* [Integer Object] [Double Integer] [Number Number])
+                 (Mapof [Number Number]))))
+  #_(is (sub? (Map*)
+            (Mapof [Unit Unit])))
          )
 
 (deftest subtype-primitives
@@ -274,10 +274,10 @@
   (is (subfrm
         {:a :b}
         IPersistentMap))
-  (is (subfrm
+  #_(is (subfrm
         {:a :b}
-        (Map* :a :b)))
-  (is (subfrm
+        (Map* [:a :b])))
+  #_(is (subfrm
         {1 2 3 4 5 6 7 8}
         (Map* 1 2 5 6 7 8 3 4)))
          )
@@ -430,10 +430,10 @@
 ;; TODO find instance field to test
 (deftest tc-instance-field)
 
-(deftest tc-map
+#_(deftest tc-map
   (is (subfrm
         {(get {} 1) 1}
-        (Map* Any 1))))
+        (Map* [Any 1]))))
 
 (deftest tc-new
   (is (subfrm 

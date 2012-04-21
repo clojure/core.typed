@@ -32,11 +32,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed require
 
-(+T ns-deps-contract [IPersistentMap -> Boolean])
+(+T ns-deps-contract [(Mapof [Any Any]) -> Boolean])
 (defn ns-deps-contract [m]
   (and (every? symbol? (keys m))
        (every? set? (vals m))
-       (every? #(every? symbol? %) (vals m))))
+       (every? (fn [^{+T (Seqentialof Any)} vs] 
+                 (every? symbol? vs)) 
+               (vals m))))
 
 (+T ns-deps Atom)
 (def ns-deps (constrained-atom {}
@@ -182,7 +184,7 @@
 
         :else (throw (Exception. (str "Could not resolve " sym)))))))
 
-(declare map->Fun map->arity union Nil PrimitiveClass?)
+(declare map->Fun map->arity union Nil PrimitiveClass? subtype?)
 
 (+T method->Fun [clojure.reflect.Method -> Fun])
 (defn- method->Fun [method]
@@ -190,11 +192,13 @@
     {:arities [(map->arity 
                  {:dom (->> 
                          (map resolve-symbol (:parameter-types method))
-                         (map #(if (PrimitiveClass? %)
+                         (map #(if (or (PrimitiveClass? %)
+                                       (subtype? Nil %))
                                  %                  ; nil cannot substutitute for JVM primtiives
                                  (union [Nil %])))) ; Java Objects can be the nil/null pointer
                   :rng (let [typ (resolve-symbol (:return-type method))]
-                         (if (PrimitiveClass? typ)
+                         (if (or (PrimitiveClass? typ)
+                                 (subtype? Nil typ))
                            typ                       ; nil cannot substutitute for JVM primtiives
                            (union [Nil typ])))})]})) ; Java Objects can be the nil/null pointer
 
@@ -238,7 +242,7 @@
   (and (every? namespace (keys m))
        (every? Type? (vals m))))
 
-(+T *type-db* (Mapof Symbol Type))
+(+T *type-db* (Mapof [Symbol Type]))
 (defonce ^:dynamic *type-db* 
   (constrained-atom {}
                     "Map from qualified symbols to types"
@@ -249,7 +253,7 @@
   (and (every? (complement namespace) (keys m))
        (every? Type? (vals m))))
 
-(+T *local-type-db* (Mapof Symbol Type))
+(+T *local-type-db* (Mapof [Symbol Type]))
 (defconstrainedvar 
   ^:dynamic *local-type-db* {}
   "Map from unqualified names to types"
@@ -260,7 +264,7 @@
   (and (every? (complement namespace) (keys m))
        (every? Type? (vals m))))
 
-(+T *type-var-scope* (Mapof Symbol UnboundedTypeVariable))
+(+T *type-var-scope* (Mapof [Symbol UnboundedTypeVariable]))
 (defconstrainedvar
   ^:dynamic *type-var-scope* {}
   "Map from unqualified names to types"
@@ -327,9 +331,10 @@
   (isa? (class t) Type))
 
 (defmacro def-type [nme & body]
-  `(let [a# (defconstrainedrecord ~nme ~@body)]
-     (derive a# Type)
-     a#))
+  `(when-not (resolve '~nme)
+     (let [a# (defconstrainedrecord ~nme ~@body)]
+       (derive a# Type)
+       a#)))
 
 (def-type UnitType []
   "The unit type"
@@ -560,15 +565,17 @@
   "A constant sequential collection type, subtype of clojure.lang.Sequential"
   [(every? Type? types)])
 
-(def-type Map [ktype vtype]
+(def-type Map [kvtype]
   "A sequential collection type, subtype of clojure.lang.IPersistentMap"
-  [(Type? ktype)
-   (Type? vtype)])
+  [(= 2 (count kvtype))
+   (Type? (first kvtype))
+   (Type? (second kvtype))])
 
-(def-type ConstantMap [kvtypes]
+#_(def-type ConstantMap [kvtypes]
   "A constant sequential collection type, subtype of clojure.lang.IPersistentMap"
-  [(even? (count kvtypes))
-   (every? Type? kvtypes)])
+  [(every? #(and (Type? (first %))
+                 (Type? (second %)))
+           kvtypes)])
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -717,13 +724,17 @@
   [[_ syn]]
   (->Sequential (parse syn)))
         
-(defmethod parse-list-syntax Map*-literal
+#_(defmethod parse-list-syntax Map*-literal
   [[_ & kvsyns]]
-  (->ConstantMap (doall (map parse kvsyns))))
+  (->ConstantMap (doall (map #(vector (parse (first %))
+                                      (parse (second %)))
+                             kvsyns))))
 
 (defmethod parse-list-syntax Mapof-literal
-  [[_ ksyn vsyn]]
-  (->Map (parse ksyn) (parse vsyn)))
+  [[_ kvsyn]]
+  (let [_ (assert (vector? kvsyn) "Mapof takes a vector map-entry")
+        [ksyn vsyn] kvsyn]
+    (->Map [(parse ksyn) (parse vsyn)])))
 
 (defmethod parse-list-syntax U-literal
   [[_ & syn]]
@@ -936,14 +947,16 @@
     (list* Sequential*-literal (doall (map unparse-type (:types this)))))
 
   Map
-  (unparse-type* [this]
+  (unparse-type* [{[ktype vtype] :kvtype :as this}]
     (list Mapof-literal 
-          (unparse-type (:ktype this))
-          (unparse-type (:vtype this))))
+          [(unparse-type ktype)
+           (unparse-type vtype)]))
 
-  ConstantMap
-  (unparse-type* [this]
-    (list* Map*-literal (map unparse-type (:kvtypes this))))
+  #_ConstantMap
+  #_(unparse-type* [this]
+    (list* Map*-literal (map #(vector (unparse-type (first %))
+                                      (unparse-type (second %)))
+                             (:kvtypes this))))
 
   UnitType
   (unparse-type* [this]
@@ -1065,7 +1078,7 @@
 
 ;nil
 
-(def ^:private extends-nil #{ISeq Counted ILookup IObj IMeta Associative})
+(def ^:private extends-nil #{ISeq Counted ILookup IObj IMeta Associative Seqable})
 
 ;hardcode Clojure interfaces that should "extend" to nil
 (defmethod subtype?* [NilType ClassType]
@@ -1246,30 +1259,24 @@
 
 ;maps
 
-(def AnyMap ::any-map)
-
-(derive AnyMap Type)
-(doseq [c #{Map ConstantMap}]
-  (derive c AnyMap))
-
-(defmethod subtype?* [AnyMap ClassType]
+(defmethod subtype?* [Map ClassType]
   [s t]
   (subtype? (ClassType-from IPersistentMap) t))
 
 (defmethod subtype?* [Map Map]
-  [{s-ktype :ktype s-vtype :vtype :as s} 
-   {t-ktype :ktype t-vtype :vtype :as t}]
+  [{[s-ktype s-vtype] :kvtype :as s} 
+   {[t-ktype t-vtype] :kvtype :as t}]
   (subtypes? [s-ktype s-vtype]
              [t-ktype t-vtype]))
 
-(defmethod subtype?* [ConstantMap ConstantMap]
+#_(defmethod subtype?* [ConstantMap ConstantMap]
   [{s-kvtypes :kvtypes :as s} 
    {t-kvtypes :kvtypes :as t}]
   (subtypes? s-kvtypes t-kvtypes))
 
-(defmethod subtype?* [ConstantMap Map]
+#_(defmethod subtype?* [ConstantMap Map]
   [{s-kvtypes :kvtypes :as s} 
-   {t-ktype :ktype t-vtype :vtype :as t}]
+   {[t-ktype t-vtype] :kvtype :as t}]
   (subtypes? s-kvtypes (take (count s-kvtypes)
                              (cycle [t-ktype t-vtype]))))
 
@@ -1351,6 +1358,10 @@
 
 (defmulti constant-type class)
 
+(defmethod constant-type nil
+  [_]
+  Nil)
+
 (defmethod constant-type IPersistentList
   [l]
   (->ConstantSequential (doall (map constant-type l))))
@@ -1359,7 +1370,7 @@
   [v]
   (->ConstantVector (doall (map constant-type v))))
 
-(defmethod constant-type IPersistentMap
+#_(defmethod constant-type IPersistentMap
   [r]
   (->ConstantMap (doall (map constant-type (apply concat r)))))
 
@@ -1503,6 +1514,8 @@
 (defn synthesize-fn-method
   [{:keys [required-params rest-param] :as expr}]
   (letfn [(meta-type-annot [expr]
+            (assert (-> expr :sym meta (find '+T))
+                    (str "No type for parameter " (-> expr :sym)))
             (-> expr :sym meta (get '+T) parse))]
     (let [dom-syms (map :sym required-params)
           rest-sym (:sym rest-param)
@@ -1549,6 +1562,7 @@
 
 (defmethod tc-expr :local-binding-expr
   [{:keys [local-binding] :as expr} & opts]
+  (debug "local-binding-expr:" (:sym local-binding) ":-" (type-of (:sym local-binding)))
   (assoc expr
          type-key (type-of (:sym local-binding))))
 
@@ -1685,9 +1699,12 @@
   (let [{ckeyvals :keyvals
          :as expr}
         (-> expr
-          (update-in [:keyvals] tc-exprs))]
+          (update-in [:keyvals] tc-exprs))
+        
+        keytype (union (map type-key (-> (apply hash-map ckeyvals) keys)))
+        valtype (union (map type-key (-> (apply hash-map ckeyvals) vals)))]
     (assoc expr
-           type-key (->ConstantMap (map type-key ckeyvals)))))
+           type-key (->Map [keytype valtype]))))
 
 ;vector
 
@@ -1706,7 +1723,7 @@
 
 (defmethod empty-types IPersistentMap
   [m]
-  (->Map Unit Unit))
+  (->Map [Unit Unit]))
 
 (defmethod tc-expr :empty-expr
   [{:keys [coll] :as expr} & opts]
