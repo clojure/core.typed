@@ -67,6 +67,7 @@
 (deftest subtype-nil
   (is (sub? nil nil))
   (is (sub? (U nil) nil))
+  (is (not (sub? nil Var)))
   (is (not (sub? nil 1)))
   (is (sub? nil ISeq))
   (is (not (sub? nil Seqable)))
@@ -74,7 +75,7 @@
   (is (sub? nil IObj))
   (is (sub? nil Counted))
   (is (sub? nil ILookup))
-  (is (sub? nil Associative)) ;from ILookup
+  (is (sub? nil Associative))
          )
 
 (deftest subtype-ISeq
