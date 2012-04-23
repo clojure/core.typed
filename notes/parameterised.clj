@@ -47,10 +47,11 @@ nil <: Associative
 ; - (seq x) is really [(U Seqable nil Iterable ...) -> (U nil ISeq)]
 ; - Would rather [Seqable -> ISeq]
 ; - We could introduce a new type
-; - (def-type SeqableI (A) (U nil (Seqable A) (Iterable A) ..))
-; - (def-type SeqI (A) (U nil (ISeq A)))
-; - seq :- [(SeqableI A) -> (SeqI A)]
-; - count :- [(SeqableI A) -> (SeqI A)]
+; - (def-type-alias SeqableI (A) (U (Seqable A) (Iterable A) (Array A) ...))
+; - (def-type-alias SeqableOrNil (A) (U nil (SeqableI A)))
+; - (def-type-alias SeqOrNil (A) (U nil (ISeq A)))
+; - seq :- [(SeqableOrNil A) -> (SeqOrNil A)]
+; - count :- [(SeqableOrNil A) -> (SeqOrNil A)]
 
 (def-typed-interface Seqable (+A)
   :methods
@@ -122,6 +123,7 @@ nil <: Associative
   [(hashEq [this])])
 
 (def-typed-interface MapEntry 
+                     )
 
 (defprotocol ISeq (+A)
   (-first [this] ...))
@@ -141,3 +143,38 @@ APersistentVector[X] extends AFn[Long -> X] implements IPersistentVector[X], Ite
 ; See scala's function1..function20..function?
 AFn
 
+(defn symbol? [a :- Any]
+  :filters
+  [a :- Symbol
+   a !:- Symbol])
+
+(defn identity (A) [a :- A] A
+  :filters
+  [a !:- (U nil false)
+   a :- (U nil false)]
+  a)
+
+(defn every? (A) 
+  [f :- [A -> B]
+   coll :- (Seqable A)]
+  boolean
+  :filter
+  [coll :- (Seqable (then-filter f))
+   coll :- (Seqable (U (then-filter f)
+                       (else-filter f)))]
+  )
+
+(let [x (long-or-nil-seq)] ; (Seq (U Long nil))
+  (when (every? identity x)
+    ; x :- (Seqable (U Long nil))
+    ; with proposition x :- (Seqable !:- (U nil false))
+    ; update (Seqable (U Long nil)
+    ;        (Seqable !:- (U nil false))
+    ; => x :- (Seqable Long)
+    (apply + x)))
+
+(let [x (some-seq)] ; (Seq Any)
+  (if (symbol? (first x))
+    ; x :- (Seq Any)
+    ; and (first x) :- Symbol
+    (str (namespace (first x)) (name (first x)))))
