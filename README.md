@@ -19,12 +19,19 @@ See `LICENSE`.
 
 Leiningen:
 
-[typed "0.1-alpha2]
+`[typed "0.1-alpha2]`
 
-# Immediate Future work
+# Roadmap
 
-- Complete type checking algorithm
-- Type variables
+* Bounded polymorphism 
+** (with future F-bounded extension)
+* Occurrence typing
+* Recursive types
+* Type check multimethods
+* Design polymorphic class hierarchy
+** clojure.lang.*
+** Variance annotations
+* Typed Protocol, Type and Record definitions
 
 # Usage
 
