@@ -3,7 +3,7 @@
   (:require [typed.core :refer :all, :as t])
   (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList Var Ratio
                          Symbol IPersistentMap ISeq Seqable Counted ILookup Associative
-                         IMeta IObj IFn)
+                         IMeta IObj IFn Symbol)
            (typed.core ClassType))
   (:require [analyze.core :refer [ast]]
             [clojure.test :refer :all]))
@@ -15,6 +15,15 @@
     (require 'typed.base)))
 
 (load-base-env)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Variable elimination
+
+(deftest var-elim-promote
+  (is (promote Any #{}) Any))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Subtyping
 
 (defmacro sub? [s t]
   `(binding [*ns* (find-ns 'typed.test.core)]
@@ -74,14 +83,13 @@
   (is (sub? (U nil) nil))
   (is (not (sub? nil Var)))
   (is (not (sub? nil 1)))
-  (is (sub? nil ISeq))
-  (is (sub? nil Seqable))
+  (is (sub? nil ISeq))          ; nil implements first, rest, cons
+  (is (not (sub? nil Seqable))) ; nil does not implement clojure.lang.ISeq/seq
   (is (sub? nil IMeta))
   (is (sub? nil IObj))
   (is (sub? nil Counted))
   (is (sub? nil ILookup))
-  (is (sub? nil Associative))
-         )
+  (is (sub? nil Associative)))
 
 (deftest subtype-ISeq
   (is (sub? nil ISeq))
@@ -89,7 +97,7 @@
   (is (not (sub? java.util.Map ISeq))))
 
 (deftest subtype-Seqable
-  (is (sub? nil Seqable))
+  (is (not (sub? nil Seqable)))
   (is (sub? Iterable Seqable))
   (is (sub? java.util.Map Seqable)))
 
@@ -257,6 +265,17 @@
   (is (sub? Symbol typed.core/IParseType))
   (is (sub? nil typed.core/IParseType))
   (is (sub? (Vectorof Double) typed.core/IParseType)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; All literal
+
+(deftest all-parse-unparse
+  (is (let [syn '(All [x] (U x clojure.lang.Symbol))]
+        (subtype? (-> syn parse unparse parse)
+                  (parse syn)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type Checking
 
 (defmacro subfrm [form expected]
   `(binding [*ns* (find-ns 'typed.test.core)]

@@ -58,10 +58,10 @@
 ;; Debug macros
 
 (+T debug-mode Atom)
-(def debug-mode (atom true))
+(def debug-mode (atom false))
 
 (+T print-warnings Atom)
-(def print-warnings (atom true))
+(def print-warnings (atom false))
 
 (defmacro warn [& body]
   `(when @print-warnings
@@ -125,6 +125,11 @@
 (+T type-key Keyword)
 (def type-key ::+T)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type variable Scope
+
+(def tvar-scope ::tvar-scope)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
@@ -158,12 +163,19 @@
    'double Double/TYPE
    'void Void/TYPE})
 
+(declare ^:dynamic *type-var-scope*)
+
 (+T resolve-symbol [Symbol -> Type])
 (defn- resolve-symbol [sym]
   (assert (symbol? sym))
-  (println "resolve:" sym)
-  (if (primitive-symbol sym)
+  (cond
+    (primitive-symbol sym)
     (PrimitiveClass-from sym)
+
+    (*type-var-scope* sym)
+    (*type-var-scope* sym)
+
+    :else
     (let [res (resolve sym)]
       (cond
         (class? res) (if (.isPrimitive res)
@@ -192,15 +204,13 @@
     {:arities [(map->arity 
                  {:dom (->> 
                          (map resolve-symbol (:parameter-types method))
-                         (map #(if (or (PrimitiveClass? %)
-                                       (subtype? Nil %))
-                                 %                  ; nil cannot substutitute for JVM primtiives
-                                 (union [Nil %])))) ; Java Objects can be the nil/null pointer
+                         (map #(if (PrimitiveClass? %)
+                                 %                   ; null cannot substutitute for JVM primtiives
+                                 (union [Nil %])))) ; Java Objects can be the null pointer
                   :rng (let [typ (resolve-symbol (:return-type method))]
-                         (if (or (PrimitiveClass? typ)
-                                 (subtype? Nil typ))
-                           typ                       ; nil cannot substutitute for JVM primtiives
-                           (union [Nil typ])))})]})) ; Java Objects can be the nil/null pointer
+                         (if (PrimitiveClass? typ)
+                           typ                        ; null cannot substutitute for JVM primtiives
+                           (union [Nil typ])))})]})) ; Java Objects can be the null pointer
 
 (+T var-or-class->sym [(U Var Class) -> Symbol])
 (defn var-or-class->sym [var-or-class]
@@ -261,10 +271,11 @@
 
 (+T type-var-scope-contract [IPersistentMap -> Boolean])
 (defn type-var-scope-contract [m]
-  (and (every? (complement namespace) (keys m))
+  (and (every? (every-pred symbol? (complement namespace)) 
+               (keys m))
        (every? Type? (vals m))))
 
-(+T *type-var-scope* (Mapof [Symbol UnboundedTypeVariable]))
+(+T *type-var-scope* (Mapof [Symbol TypeVariable]))
 (defconstrainedvar
   ^:dynamic *type-var-scope* {}
   "Map from unqualified names to types"
@@ -323,6 +334,40 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed Protocol
 
+(comment
+  (def-typed-protocol IPro
+    (myfn [this (at :- Double)] :- Number
+          [this (blah :- Object) & (blahs :- Any *)] :- Long
+          "Blah"))
+
+  (def-typed-record A
+    IPro
+    (myfn 
+      ([this (at :- Double)] :- Number
+       (+ 1 at))
+      ([this (blah :- Object) & (blahs :- Any *)] :- Long
+       (when (every? number? blahs)
+         (apply + blahs)))))
+    )
+
+
+;(defn- convert-protocol-arity [[dom-syn rng-syn]]
+;  (let [doms (map last (rest dom-syn))
+;        doms ]
+;
+;(defn- build-protocol-method [[nme & ms]]
+;  (let [doc (when (string? (last ms))
+;              (last ms))
+;        methods (apply hash-map
+;                       (remove #(= :- %)
+;                               (if (string? (last m))
+;                                 (butlast m)
+;                                 m)))]
+;    (list* nme (concat (map convert-protocol-arity methods)
+;                       (when doc
+;                         [doc])))))
+;
+;
 ;(defmacro def-typed-protocol [name]
 ;  `(defprotocol ~name
 
@@ -365,7 +410,7 @@
            types)]})
 
 (def-type NilType []
-  "The nil value"
+  "The nil type"
   [])
 
 (def Nil (->NilType))
@@ -383,6 +428,7 @@
   (assert (class? cls))
   (->ClassType (symbol (.getName cls))))
 
+;TODO primitives?
 (def Any (Union. #{Nil (ClassType-from Object)})) ; avoid constrained constructor because of
                                                   ; call to subtype?, which is undefined
 (def Any? (partial = Any))
@@ -459,12 +505,12 @@
 
 ;; type variables
 
-(def-type UnboundedTypeVariable [nme]
-  "A record for unbounded type variables, with an unqualified symbol as a name"
+(def-type TypeVariable [nme]
+  "A record for bounded type variables, with an unqualified symbol as a name"
   {:pre [(symbol? nme)
          (not (namespace nme))]})
 
-(def type-variables #{UnboundedTypeVariable})
+(def type-variables #{TypeVariable})
 
 (defn type-variable? [t]
   (boolean (type-variables (class t))))
@@ -582,6 +628,20 @@
                  (Type? (second %)))
            kvtypes)])
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Variable Elimination
+
+(defprotocol IVariableElim
+  (promote [this ^{+T (IPersistentSet TypeVariable)} v])
+  (demote [this ^{+T (IPersistentSet TypeVariable)} v]))
+
+(extend-protocol IVariableElim
+  Union
+  (promote [this v]
+    (cond
+      (= Any this) Any
+      (= Nothing this) Nothing))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -633,12 +693,26 @@
   "Type syntax parser, entry point"
   {:post [Type?]}
   [syn]
-  (parse-syntax* (cond 
-                   (and (list? syn)
-                        (= (first syn)
-                           All-literal)) (list Fun-literal syn) ; wrap (All [x] [x -> x]) sugar with (Fun ..)
-                   (vector? syn) (list Fun-literal syn) ; wrap arity sugar [] with (Fun ..)
-                   :else syn)))
+  (cond
+    ;Parse (All ..) forms
+    (and (list? syn)
+         (= All-literal
+            (first syn)))
+    (let [[_ tvars body-syn] syn
+          scope (into {}
+                      (map vector
+                           tvars
+                           (map ->TypeVariable tvars)))]
+      (with-type-vars scope
+        (-> (parse-syntax body-syn)
+          (update-in [tvar-scope] #(concat (vals scope) %))))) ; handle nested scopes
+
+    ;Parse single arity function syntax
+    (vector? syn)
+    (parse-syntax* (list Fun-literal syn))
+
+    :else
+    (parse-syntax* syn)))
 
 (def parse parse-syntax)
 
@@ -701,18 +775,6 @@
 (def Seqof-literal 'Seqof)
 (def Mapof-literal 'Mapof)
 (def Map*-literal 'Map*)
-
-(defmethod parse-list-syntax All-literal
-  [[_ [& type-var-names] & [syn & more]]]
-  (let [_ (assert (not more) "Only one arity allowed in All scope")
-        type-vars (map #(map->UnboundedTypeVariable {:nme %})
-                       type-var-names)
-
-        type-var-scope (into {} (map vector type-var-names type-vars))]
-
-    (with-type-vars type-var-scope
-      (assoc (parse-syntax* syn)
-             :type-params type-vars))))
         
 (defmethod parse-list-syntax Vector*-literal
   [[_ & syns]]
@@ -860,7 +922,10 @@
 
 (defn unparse-type
   [type-obj]
-  (unparse-type* type-obj))
+  (if (tvar-scope type-obj)
+    (list All-literal (doall (mapv unparse-type (tvar-scope type-obj)))
+          (unparse-type (dissoc type-obj tvar-scope)))
+    (unparse-type* type-obj)))
 
 (def unparse unparse-type)
 
@@ -898,7 +963,9 @@
 
   Fun
   (unparse-type* [this]
-    (list* Fun-literal (doall (map unparse-type (:arities this)))))
+    (if (= 1 (count (:arities this)))
+      (-> this :arities first unparse-type) ; single arity syntax
+      (list* Fun-literal (doall (map unparse-type (:arities this))))))
 
   arity
   (unparse-type* [this]
@@ -921,10 +988,7 @@
                           (when flter
                             [:filter flter]))
                 vec)]
-      (if (seq (:type-params this))
-        (list All-literal (doall (mapv unparse-type (:type-params this)))
-              sig)
-        sig)))
+      sig))
 
   Value
   (unparse-type* [{:keys [val]}]
@@ -976,7 +1040,7 @@
   (unparse-type* [this]
     `Unit)
 
-  UnboundedTypeVariable
+  TypeVariable
   (unparse-type* [{:keys [nme]}]
     nme)
   
@@ -1096,7 +1160,7 @@
 
 ;nil
 
-(def ^:private extends-nil #{ISeq Counted ILookup IObj IMeta Associative Seqable})
+(def ^:private extends-nil #{ISeq Counted ILookup IObj IMeta Associative})
 
 ;hardcode Clojure interfaces that should "extend" to nil
 (defmethod subtype?* [NilType ClassType]
@@ -1335,6 +1399,7 @@
   [s t]
   (and (isa? Object (resolve (:the-class t)))
        (not (Nil? s))))
+;TODO primitives?
 
 ;default
 
@@ -1405,6 +1470,11 @@
 (defmethod constant-type nil
   [_]
   Nil)
+
+(defmethod constant-type IPersistentMap
+  [m]
+  (->Map [(union (doall (map constant-type (keys m))))
+          (union (doall (map constant-type (vals m))))]))
 
 (defmethod constant-type IPersistentList
   [l]
