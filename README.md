@@ -154,8 +154,8 @@ Same as protocols
 
 ## Sequentials
 
-; (Sequentialof n) is a subtype of clojure.lang.Sequential
 ```clojure
+; (Sequentialof n) is a subtype of clojure.lang.Sequential
 (+T s1 [(Sequentialof Double) -> Boolean])
 (defn s1 [s]
   true)

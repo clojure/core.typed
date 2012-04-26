@@ -58,6 +58,16 @@
                   (-tv 'y)})
          (parse 'Object))))
 
+(deftest res-conflict-test
+  (is (let [x (-tv 'x)
+            t (parse '(All [x] x))]
+        (not= (resolve-conflicts t #{x})
+              t)))
+  (is (let [x (-tv 'x)
+            t (parse '(All [y] y))]
+        (= (resolve-conflicts t #{x})
+           t))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable elimination
 
@@ -98,17 +108,17 @@
   (is (= (promote (parse '(All [x] [x -> x])) #{})
          (parse '(All [x] [x -> x]))))
   ;x is free
-  (is (let [fun (-fun [(with-meta (map->arity {:dom [(-tv 'x)]
-                                                :rest-type (-tv 'y)
-                                                :rng (-tv 'y)})
-                                   {tvar-scope [(-tv 'y)]})])]
+  (is (let [fun (-fun [(make-tvar-binding (map->arity {:dom [(-tv 'x)]
+                                                       :rest-type (-tv 'y)
+                                                       :rng (-tv 'y)})
+                                          [(-tv 'y)])])]
         (= (promote fun #{(-tv 'x)})
            (prse (All [y] [Nothing & y * -> y])))))
   ;x is free
-  (is (let [fun (-fun [(with-meta (map->arity {:dom [(-tv 'y)]
+  (is (let [fun (-fun [(make-tvar-binding (map->arity {:dom [(-tv 'y)]
                                                 :rest-type (-tv 'x)
                                                 :rng (-tv 'x)})
-                                   {tvar-scope [(-tv 'y)]})])]
+                                          [(-tv 'y)])])]
         (= (promote fun #{(-tv 'x)})
            (prse (All [y] [y & Nothing * -> Any])))))
          )
@@ -146,17 +156,17 @@
   (is (= (demote (parse '(All [x] [x -> x])) #{})
          (parse '(All [x] [x -> x]))))
   ;x is free
-  (is (let [fun (-fun [(with-meta (map->arity {:dom [(-tv 'x)]
-                                                :rest-type (-tv 'y)
-                                                :rng (-tv 'y)})
-                                   {tvar-scope [(-tv 'y)]})])]
+  (is (let [fun (-fun [(make-tvar-binding (map->arity {:dom [(-tv 'x)]
+                                                       :rest-type (-tv 'y)
+                                                       :rng (-tv 'y)})
+                                          [(-tv 'y)])])]
         (= (demote fun #{(-tv 'x)})
            (prse (All [y] [Any & y * -> y])))))
   ;x is free
-  (is (let [fun (-fun [(with-meta (map->arity {:dom [(-tv 'y)]
-                                                :rest-type (-tv 'x)
-                                                :rng (-tv 'x)})
-                                   {tvar-scope [(-tv 'y)]})])]
+  (is (let [fun (-fun [(make-tvar-binding (map->arity {:dom [(-tv 'y)]
+                                                       :rest-type (-tv 'x)
+                                                       :rng (-tv 'x)})
+                                          [(-tv 'y)])])]
         (= (demote fun #{(-tv 'x)})
            (prse (All [y] [y & Any * -> Nothing]))))))
 
@@ -178,6 +188,15 @@
                    #{y})
            Nothing))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Constraint Generation
+
+(deftest empty-constraint-set-test
+  (is (let [x (-tv 'x)
+            y (-tv 'y)]
+        (= (empty-constraint-set #{x y})
+           {x (->SubConstraint Nothing Any)
+            y (->SubConstraint Nothing Any)}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Equality

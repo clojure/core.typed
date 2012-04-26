@@ -129,6 +129,28 @@
 ;; Type variable Scope
 
 (def tvar-scope ::tvar-scope)
+(defn make-tvar-binding 
+  "Make Type t a binding position for variables s"
+  [t s]
+  (assert (Type? t))
+  (assert (every? TypeVariable? s))
+  (with-meta t {tvar-scope s}))
+
+(defn tvar-binding 
+  "If Type t is a binding position, return the variables binded there"
+  [t]
+  (assert (Type? t))
+  (-> t meta tvar-scope))
+
+(defn update-tvar-binding 
+  "Use function f to update the binding position t"
+  [t f]
+  (vary-meta t #(update-in % [tvar-scope] f)))
+
+(defn remove-tvar-binding
+  "Return Type t without a binding position"
+  [t]
+  (vary-meta t #(dissoc % tvar-scope)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
@@ -630,6 +652,16 @@
        (subtype? (:rng s)
                  (:rng t))))
 
+(defn similar-arity 
+  "Return a2 if a1 looks like it, using number of arguments"
+  [a1 a2]
+  (when (or (:rest-type a1)
+            (:rest-type a2)
+            (= (count (:dom a1))
+               (count (:dom a2))))
+    a2))
+
+
 (defn match-to-fun-arity [s fun-type]
   (first 
     (filter #(= (count (:dom s))
@@ -765,11 +797,7 @@
                            (map -tv tvars)))]
       (with-type-vars scope
         (let [t (parse-syntax body-syn)]
-          (vary-meta t
-                     (fn [m]
-                       (-> m
-                         (update-in [tvar-scope]
-                                    #(concat (vals scope) %)))))))) ; handle nested scopes
+          (update-tvar-binding t #(concat (vals scope) %))))) ; handle nested scopes
 
     ;Parse single arity function syntax
     (vector? syn)
@@ -986,10 +1014,9 @@
 
 (defn unparse-type
   [type-obj]
-  (if-let [scope (-> type-obj meta tvar-scope)]
+  (if-let [scope (tvar-binding type-obj)]
     (list All-literal (doall (mapv unparse-type scope))
-          (unparse-type (vary-meta type-obj 
-                                   #(dissoc % tvar-scope)))) ;remove binding scope
+          (unparse-type (remove-tvar-binding type-obj))) ;remove binding scope
     (unparse-type* type-obj)))
 
 (def unparse unparse-type)
@@ -1503,7 +1530,7 @@
 (defn- unique-variable
   ([] (-tv (gensym)))
   ([^{+T TypeVariable} t] 
-   (-tv (-> t :nme gensym))))
+   (update-in t [:nme] gensym)))
 
 (defprotocol IVariableRename
   (-rename [this ^{+T (IPersistentMap [TypeVariable TypeVariable])} rmap] 
@@ -1518,7 +1545,7 @@
   (assert (Type? t) t)
   (assert (map? rmap))
   (assert (every? TypeVariable? (concat (keys rmap) (vals rmap))))
-  (let [conflicts (set/intersection (-> t meta tvar-scope set) (-> rmap keys set))]
+  (let [conflicts (set/intersection (-> t tvar-binding set) (-> rmap keys set))]
     ;scope introduces conflicting variables
     (if (seq conflicts)
       (let [renames (into {}
@@ -1526,9 +1553,7 @@
                                conflicts))
             resolved-conflicts 
             (-> (-rename t renames)
-              (vary-meta (fn [m] 
-                           (-> m
-                             (update-in [tvar-scope] #(replace renames %))))))] ;update binding scope
+              (update-tvar-binding #(replace renames %)))] ;update binding scope
         (-rename resolved-conflicts rmap))
       (-rename t rmap))))
 
@@ -1577,14 +1602,14 @@
           "Demote type until type variables vs do not occur in it.
            Assumes no conflicting variables are introduced by inner scopes."))
 
-(defn- resolve-conflicts
+(defn resolve-conflicts
   "Resolves conflicting type variables introduced by inner scopes
   by uniquely renaming them"
   [^{+T Type} t 
    ^{+T (IPersistentSet TypeVariable)} vs]
-  (assert (Type? t))
-  (assert (set? vs))
-  (let [conflicts (set/intersection (set (tvar-scope t)) vs)]
+    (assert (Type? t))
+    (assert (set? vs))
+  (let [conflicts (set/intersection (set (tvar-binding t)) vs)]
     (if (seq conflicts)
       (rename t (into {}
                       (doall (map #(vector % (unique-variable %))
@@ -1596,9 +1621,9 @@
   Handles conflicting inner scopes"
   [^{+T Type} t 
    ^{+T (IPersistentSet TypeVariable)} vs]
-  (assert (Type? t) t)
-  (assert (set? vs))
-  (assert (every? TypeVariable? vs))
+    (assert (Type? t) t)
+    (assert (set? vs))
+    (assert (every? TypeVariable? vs))
   (let [no-conflicts (resolve-conflicts t vs)
         frees (set (free-vars t))
         frees-in-bnds (set (mapcat #(-> % :bnd free-vars) frees))
@@ -1612,9 +1637,9 @@
   Handles conflicting inner scopes"
   [^{+T Type} t 
    ^{+T (IPersistentSet TypeVariable)} vs]
-  (assert (Type? t))
-  (assert (set? vs))
-  (assert (every? TypeVariable? vs))
+    (assert (Type? t))
+    (assert (set? vs))
+    (assert (every? TypeVariable? vs))
   (let [no-conflicts (resolve-conflicts t vs)
         frees (set (free-vars t))
         frees-in-bnds (set (mapcat #(-> % :bnd free-vars) frees))
@@ -1676,6 +1701,156 @@
                                  (promote % vs)))
       (update-in [:rng] #(demote % vs))))
   )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Constraint Generation
+;;
+;; Local Type Inference, Pierce & Turner
+;; Section 5.4
+
+(defconstrainedrecord EqConstraint [type]
+  "Type R satisfies an EqConstraint [S] if (= R S)"
+  {:pre [(Type? type)]})
+
+(defconstrainedrecord SubConstraint [lower upper]
+  "Type R satisfies a SubConstraint [S T] if (subtype? R S) and (subtype? R T)"
+  {:pre [(Type? lower)
+         (Type? upper)]})
+
+(def constraints #{EqConstraint SubConstraint})
+(def constraint? #(contains? constraints (class %)))
+
+(defn empty-constraint-set
+  "The empty xs-without-vs constraint set 
+  maps each variable x in xs to the constraint [Bot, Top]"
+  [xs]
+  {:post [(every? TypeVariable? (keys %))
+          (every? constraint? (vals %))]}
+    (assert (every? TypeVariable? xs))
+    (assert (set? xs))
+  (into {}
+        (map vector
+             xs
+             (repeat (->SubConstraint Nothing Any)))))
+
+(defn singleton-constraint-set
+  "The singleton xs-without-vs constraint set
+  map variable v to constraint c, and
+  maps each variable x in xs to the constraint [Bot, Top]"
+  [v c xs]
+  {:post [(every? TypeVariable? (keys %))
+          (every? constraint? (vals %))]}
+    (assert (TypeVariable? v))
+    (assert (constraint? c))
+    (assert (set? xs))
+    (assert (every? TypeVariable? xs))
+    (assert (not (contains? xs v)))
+  (merge (empty-constraint-set xs)
+         {v c}))
+
+(declare constraint-gen*)
+
+(defn constraint-gen
+  "Given a set of type variables vs, a set of unknowns xs, and two
+  two types s and t, calculates the minimal xs-without-vs constraint set
+  C guaranteeing that (subtype? s t)"
+  [vs xs s t]
+  (let [s (resolve-conflicts s (set/union vs xs))
+        t (resolve-conflicts t (set/union vs xs))]
+    (constraint-gen* vs xs s t)))
+
+(defn- constraint-gen*
+  "Assumes types have unique variable names"
+  [vs xs s t]
+    (assert (set? vs))
+    (assert (set? xs))
+    (assert (Type? s))
+    (assert (Type? t))
+    ;variables xs does not occur in one type s or t
+    (assert (or (empty?
+                  (set/intersection 
+                    (free-vars t)
+                    xs))
+                (empty?
+                  (set/intersection 
+                    (free-vars t)
+                    xs))))
+  (cond
+    (= Any t)
+    (empty-constraint-set xs)
+    
+    (= Nothing s)
+    (empty-constraint-set xs)
+
+    (and (contains? xs s)
+         (empty?
+           (set/intersection 
+             (free-vars t)
+             xs)))
+    (let [r (demote t vs)
+          c (->SubConstraint Nothing r)]
+      (singleton-constraint-set s c (disj xs s)))
+
+    (and (contains? xs t)
+         (empty?
+           (set/intersection 
+             (free-vars s)
+             xs)))
+    (let [r (promote s vs)
+          c (->SubConstraint r Any)]
+      (singleton-constraint-set t c (disj xs t)))
+
+    (= s t)
+    (empty-constraint-set xs)
+
+    (TypeVariable? s)
+    (constraint-gen vs xs (:bnd s) t)
+
+    (and (Fun? s)
+         (Fun? t))
+    (apply intersect-constraints
+           (for [super-arity (:arities t)]
+             (constraint-gen-arity
+               xs vs
+               (some #(similar-arity super-arity %)
+                     (:arities s))
+               super-arity)))
+    
+    :else (throw (Exception. "Cannot generate constraint"))))
+
+(defn constraint-gen-arity 
+  [vs xs a-sub a-sup]
+    (assert (arity? a-sub))
+    (assert (arity? a-sup))
+  (let [[sub-dom sup-dom]
+        (cond
+          (and (:rest-type a-sub)
+               (:rest-type a-sup))
+          [(concat (:dom a-sub) [(:rest-type a-sub)])
+           (concat (:dom a-sup) [(:rest-type a-sup)])]
+
+          (:rest-type a-sub)
+          [(take (count (:dom a-sup))
+                 (concat (:dom a-sub) (repeat (:rest-type a-sub))))
+           (:dom a-sup)]
+
+          (:rest-type a-sup)
+          [(:dom a-sub)
+           (take (count (:dom a-sub))
+                 (concat (:dom a-sup) (repeat (:rest-type a-sup))))]
+
+          :else
+          [(:dom a-sub)
+           (:dom a-sup)])
+        
+        dom-constraints (map constraint-gen sup-dom sub-dom)
+        rng-constraint (constraint-gen (:rng a-sub) (:rng a-sup))
+        ]
+    (apply intersect-constraints rng-constraint dom-constraints)))
+
+(defn match-constraint
+  "Returns a vector [u c]. u is equal
+  [vs xs s t]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
