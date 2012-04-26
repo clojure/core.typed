@@ -16,11 +16,213 @@
 
 (load-base-env)
 
+(defmacro type= [s t]
+  `(binding [*ns* (find-ns 'typed.test.core)]
+     (= (parse '~s)
+        (parse '~t))))
+
+(defmacro prse [t]
+  `(binding [*ns* (find-ns 'typed.test.core)]
+     (parse '~t)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Free Variables
+
+(deftest free-vars-fun
+  (is (= (-> (free-vars (parse '(All [x y] [x -> y])))
+           set)
+         #{(-tv 'x) (-tv 'y)})))
+
+(deftest free-vars-bnd-vars
+  (is (= (-> (free-vars (-tv 'x (parse '(All [y] 
+                                             (Vectorof y)))))
+           set)
+         #{(-tv 'x (parse '(All [y] 
+                                (Vectorof y)))) 
+           (-tv 'y)})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Variable rename
+
+(deftest var-rename
+  (is (= (rename (-tv 'x)
+                 {(-tv 'x) 
+                  (-tv 'y)})
+         (-tv 'y)))
+  (is (not= (rename (parse '(All [x] x))
+                    {(-tv 'x) 
+                     (-tv 'y)})
+            (-tv 'y)))
+  (is (= (rename (parse 'Object)
+                 {(-tv 'x)
+                  (-tv 'y)})
+         (parse 'Object))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable elimination
 
-(deftest var-elim-promote
-  (is (promote Any #{}) Any))
+;; Promote
+
+(deftest var-elim-promote-no-vars
+  (is (= (promote Any #{}) 
+         Any))
+  (is (= (promote Nothing #{}) 
+         Nothing))
+  (is (= (promote Nil #{}) 
+         Nil))
+  (is (= (promote (parse 'Object) #{})
+         (parse 'Object))))
+
+(deftest var-elim-promote-vars
+  (is (let [t1 (-tv 'x)]
+        (= (promote t1 #{t1}) 
+           Any)))
+  (is (let [t1 (-tv 'x)
+            t2 (-tv 'y)]
+        (= (promote t1 #{t2})
+           t1))))
+
+(deftest var-elim-promote-vars-with-bnd
+  (is (let [bnd (parse 'Double)
+            t1 (-tv 'x bnd)]
+        (= (promote t1 #{t1}) 
+           bnd)))
+  (is (let [bnd (parse 'Double)
+            t1 (-tv 'x bnd)
+            t2 (-tv 'y)]
+        (= (promote t1 #{t2}) 
+           t1))))
+
+(deftest var-elim-promote-funs
+  ;identity
+  (is (= (promote (parse '(All [x] [x -> x])) #{})
+         (parse '(All [x] [x -> x]))))
+  ;x is free
+  (is (let [fun (-fun [(with-meta (map->arity {:dom [(-tv 'x)]
+                                                :rest-type (-tv 'y)
+                                                :rng (-tv 'y)})
+                                   {tvar-scope [(-tv 'y)]})])]
+        (= (promote fun #{(-tv 'x)})
+           (prse (All [y] [Nothing & y * -> y])))))
+  ;x is free
+  (is (let [fun (-fun [(with-meta (map->arity {:dom [(-tv 'y)]
+                                                :rest-type (-tv 'x)
+                                                :rng (-tv 'x)})
+                                   {tvar-scope [(-tv 'y)]})])]
+        (= (promote fun #{(-tv 'x)})
+           (prse (All [y] [y & Nothing * -> Any])))))
+         )
+
+;; Demote
+
+(deftest var-elim-demote-no-vars
+  (is (= (demote Any #{}) Any))
+  (is (= (demote Nothing #{}) Nothing))
+  (is (= (demote Nil #{}) Nil))
+  (is (= (demote (parse 'Object) #{}) (parse 'Object))))
+
+(deftest var-elim-demote-vars
+  (is (let [t1 (-tv 'x)]
+        (= (demote t1 #{t1}) 
+           Nothing)))
+  (is (let [t1 (-tv 'x)
+            t2 (-tv 'y)]
+        (= (demote t1 #{t2}) 
+           t1))))
+
+(deftest var-elim-demote-vars-with-bnd
+  (is (let [bnd (parse 'Double)
+            t1 (-tv 'x bnd)]
+        (= (demote t1 #{t1}) 
+           Nothing)))
+  (is (let [bnd (parse 'Double)
+            t1 (-tv 'x bnd)
+            t2 (-tv 'y)]
+        (= (demote t1 #{t2}) 
+           t1))))
+         
+(deftest var-elim-demote-funs
+  ;identity
+  (is (= (demote (parse '(All [x] [x -> x])) #{})
+         (parse '(All [x] [x -> x]))))
+  ;x is free
+  (is (let [fun (-fun [(with-meta (map->arity {:dom [(-tv 'x)]
+                                                :rest-type (-tv 'y)
+                                                :rng (-tv 'y)})
+                                   {tvar-scope [(-tv 'y)]})])]
+        (= (demote fun #{(-tv 'x)})
+           (prse (All [y] [Any & y * -> y])))))
+  ;x is free
+  (is (let [fun (-fun [(with-meta (map->arity {:dom [(-tv 'y)]
+                                                :rest-type (-tv 'x)
+                                                :rng (-tv 'x)})
+                                   {tvar-scope [(-tv 'y)]})])]
+        (= (demote fun #{(-tv 'x)})
+           (prse (All [y] [y & Any * -> Nothing]))))))
+
+;; Eliminating vars occuring in bounds of variables
+
+(deftest var-elim-promote-vs-in-bnds
+  ; Rule VU-Fun-2
+  (is (let [y (-tv 'y)
+            x (-tv 'x (->Vector (-tv 'y)))]
+        (= (promote x
+                    #{y})
+           Any))))
+
+(deftest var-elim-demote-vs-in-bnds
+  ; Rule VD-Fun-2
+  (is (let [y (-tv 'y)
+            x (-tv 'x (->Vector (-tv 'y)))]
+        (= (demote x
+                   #{y})
+           Nothing))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Equality
+
+(deftest eq-tvar
+  (is (= (-tv 'x)
+         (-tv 'x)))
+  (is (not (= (-tv 'y)
+              (-tv 'x)))))
+
+(deftest eq-union
+  (is (type= (U nil Object)
+             (U Object nil)))
+  (is (not (type= (U Object)
+                  (U Object nil))))
+  (is (not (type= (U Object nil)
+                  (U Object))))
+  (is (type= Any Any))
+  (is (type= (U (U 1 2) (U 3 4))
+             (U 1 2 3 4)))
+  (is (type= (U (U 1 2) (U 3 4))
+             (U (U 1 2) (U 3 4)))))
+         
+(deftest eq-fun
+  (is (type= [-> nil]
+             [-> nil]))
+  (is (type= (Fun [-> nil]
+                  [nil -> nil]
+                  [nil nil -> nil])
+             (Fun [nil nil -> nil]
+                  [nil -> nil]
+                  [-> nil])))
+  (is (not (type= [-> nil]
+                  [-> Object])))
+  (is (type= [Integer & Nothing * -> Object]
+             [Integer & Nothing * -> Object])))
+
+(deftest eq-class-and-prim
+  (is (type= Object Object))
+  (is (not (type= Integer Object)))
+  (is (not (type= int Integer)))
+  (is (type= int int)))
+
+(deftest eq-all
+  (is (type= Object (All [x] Object))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtyping
@@ -29,9 +231,6 @@
   `(binding [*ns* (find-ns 'typed.test.core)]
      (subtype? (parse '~s)
                (parse '~t))))
-
-(deftest subtype-unit
-  (is (sub? Unit Unit)))
 
 (deftest subtype-any-nothing
   (is (sub? [1 -> 1] Any))
@@ -218,7 +417,7 @@
   )
 
 (deftest subtype-maps
-  (is (sub? (Mapof [Unit Unit])
+  (is (sub? (Mapof [Nothing Nothing])
             IPersistentMap))
   (is (sub? (Mapof [Keyword Double])
             IPersistentMap))
@@ -233,7 +432,7 @@
   #_(is (not (sub? (Map* [Integer Object] [Double Integer] [Number Number])
                  (Mapof [Number Number]))))
   #_(is (sub? (Map*)
-            (Mapof [Unit Unit])))
+              (Mapof [Nothing Nothing])))
          )
 
 (deftest subtype-primitives
@@ -265,6 +464,12 @@
   (is (sub? Symbol typed.core/IParseType))
   (is (sub? nil typed.core/IParseType))
   (is (sub? (Vectorof Double) typed.core/IParseType)))
+
+(deftest subtype-variables
+  (is (sub? (All [x] x)
+            (All [x] x)))
+  (is (not (sub? (All [x] x)
+                 (All [y] y)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; All literal

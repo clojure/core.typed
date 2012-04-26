@@ -201,7 +201,7 @@
 (+T method->Fun [clojure.reflect.Method -> Fun])
 (defn- method->Fun [method]
   (map->Fun
-    {:arities [(map->arity 
+    {:arities #{(map->arity 
                  {:dom (->> 
                          (map resolve-symbol (:parameter-types method))
                          (map #(if (PrimitiveClass? %)
@@ -210,7 +210,7 @@
                   :rng (let [typ (resolve-symbol (:return-type method))]
                          (if (PrimitiveClass? typ)
                            typ                        ; null cannot substutitute for JVM primtiives
-                           (union [Nil typ])))})]})) ; Java Objects can be the null pointer
+                           (union [Nil typ])))})}})) ; Java Objects can be the null pointer
 
 (+T var-or-class->sym [(U Var Class) -> Symbol])
 (defn var-or-class->sym [var-or-class]
@@ -382,21 +382,23 @@
 (defn Type? [t]
   (isa? (class t) Type))
 
-(defmacro def-type [nme & body]
-  `(when-not (resolve '~nme)
-     (let [a# (defconstrainedrecord ~nme ~@body)]
-       (derive a# Type)
-       a#)))
+(defprotocol IFreeVars
+  (-free-vars [this]))
 
-(def-type UnitType []
-  "The unit type"
-  [])
-(def Unit (->UnitType))
-(def Unit? (partial = Unit))
+(defn free-vars [t]
+  (-free-vars t))
+
+(defmacro def-type [nme & body]
+  `(let [a# (defconstrainedrecord ~nme ~@body)]
+     (derive a# Type)
+     a#))
 
 (def-type Value [val]
   "A singleton type for values, except nil"
-  {:pre [(not (nil? val))]})
+  {:pre [(not (nil? val))]}
+  
+  IFreeVars
+  (-free-vars [this] nil))
 
 (declare subtype?)
 
@@ -407,11 +409,18 @@
            (fn [t]
              (every? #(not (subtype? % t))
                      (disj (set types) t)))
-           types)]})
+           types)]}
+  
+  IFreeVars
+  (-free-vars [this] 
+    (mapcat free-vars types)))
 
 (def-type NilType []
   "The nil type"
-  [])
+  []
+  
+  IFreeVars
+  (-free-vars [this] nil))
 
 (def Nil (->NilType))
 (def Nil? (partial = Nil))
@@ -421,7 +430,10 @@
   {:pre [(symbol? the-class)
          (let [c (resolve the-class)]
            (and (class? c)
-                (not (.isPrimitive c))))]})
+                (not (.isPrimitive c))))]}
+
+  IFreeVars
+  (-free-vars [this] nil))
 
 (+T ClassType-from [Class -> ClassType])
 (defn ClassType-from [cls]
@@ -449,7 +461,10 @@
 (def-type QualifiedKeyword [kwrd]
   "A fully qualified keyword"
   [(keyword? kwrd)
-   (namespace kwrd)])
+   (namespace kwrd)]
+
+  IFreeVars
+  (-free-vars [this] nil))
 
 ;; Base types
 
@@ -457,15 +472,26 @@
 
 (def-type Fun [arities]
   "Function with one or more arities"
-  {:pre [(seq arities)
-         (every? arity? arities)]})
+  {:pre [(set? arities)
+         (seq arities)
+         (every? arity? arities)]}
+
+  IFreeVars
+  (-free-vars [this] 
+    (mapcat free-vars arities)))
+
+(defn -fun [arities]
+  (->Fun (set arities)))
 
 (def-type PrimitiveClass [the-class]
   "A primitive class"
   {:pre [(symbol? the-class)
          (let [c (primitive-symbol the-class)]
            (and (class? c)
-                (.isPrimitive c)))]})
+                (.isPrimitive c)))]}
+
+  IFreeVars
+  (-free-vars [this] nil))
 
 (+T PrimitiveClass-from [Symbol -> PrimitiveClass])
 (defn PrimitiveClass-from 
@@ -480,7 +506,10 @@
 (def-type ProtocolType [the-protocol-var]
   "A protocol"
   {:pre [(symbol? the-protocol-var)
-         (namespace the-protocol-var)]})
+         (namespace the-protocol-var)]}
+
+  IFreeVars
+  (-free-vars [this] nil))
 
 (defn- simplify-union [the-union]
   (cond 
@@ -501,14 +530,29 @@
 
 (def-type Intersection [types]
   "An intersection of types"
-  {:pre [(every? Type? types)]})
+  {:pre [(every? Type? types)]}
+
+  IFreeVars
+  (-free-vars [this] 
+    (mapcat free-vars types)))
 
 ;; type variables
 
-(def-type TypeVariable [nme]
+(def-type TypeVariable [nme bnd]
   "A record for bounded type variables, with an unqualified symbol as a name"
   {:pre [(symbol? nme)
-         (not (namespace nme))]})
+         (not (namespace nme))
+         (Type? bnd)
+         (not (TypeVariable? bnd))]}
+
+  IFreeVars
+  (-free-vars [this]
+    (concat [this] (free-vars bnd))))
+
+(defn -tv 
+  "Create a type variable with an optional bound"
+  ([nme] (->TypeVariable nme Any))
+  ([nme bnd] (->TypeVariable nme bnd)))
 
 (def type-variables #{TypeVariable})
 
@@ -525,16 +569,23 @@
 (declare FilterSet?)
 
 ;; arity is NOT a type
-(def-type arity [dom rng rest-type flter type-params]
+(def-type arity [dom rng rest-type flter]
   "An arity with fixed or variable domain. Supports optional filter, and optional type parameters"
   {:pre [(every? Type? dom)
          (Type? rng)
          (or (nil? rest-type)
              (Type? rest-type))
          (or (nil? flter)
-             (FilterSet? flter))
-         (or (nil? type-params)
-             (every? type-variable? type-params))]})
+             (FilterSet? flter))]}
+
+  IFreeVars
+  (-free-vars [this]
+    (mapcat free-vars 
+            (concat dom
+                    [rng]
+                    (when rest-type
+                      [rest-type])))))
+
 
 (declare subtypes?)
 
@@ -598,50 +649,59 @@
 
 (def-type Seq [type]
   "A seq of type type, subtype of clojure.lang.ISeq"
-  {:pre [(Type? type)]})
+  {:pre [(Type? type)]}
+  
+  IFreeVars
+  (-free-vars [this]
+    (free-vars type)))
 
 (def-type Vector [type]
   "A vector of type type, subtype of clojure.lang.IPersistentVector"
-  {:pre [(Type? type)]})
+  {:pre [(Type? type)]}
+
+  IFreeVars
+  (-free-vars [this]
+    (free-vars type)))
 
 (def-type ConstantVector [types]
   "A constant vector type, subtype of clojure.lang.IPersistentVector"
-  [(every? Type? types)])
+  [(every? Type? types)]
+
+  IFreeVars
+  (-free-vars [this]
+    (mapcat free-vars types)))
 
 (def-type Sequential [type]
   "A sequential collection type, subtype of clojure.lang.Sequential"
-  [(Type? type)])
+  [(Type? type)]
+
+  IFreeVars
+  (-free-vars [this]
+    (free-vars type)))
 
 (def-type ConstantSequential [types]
   "A constant sequential collection type, subtype of clojure.lang.Sequential"
-  [(every? Type? types)])
+  [(every? Type? types)]
+
+  IFreeVars
+  (-free-vars [this]
+    (mapcat free-vars types)))
 
 (def-type Map [kvtype]
   "A sequential collection type, subtype of clojure.lang.IPersistentMap"
   [(= 2 (count kvtype))
    (Type? (first kvtype))
-   (Type? (second kvtype))])
+   (Type? (second kvtype))]
+
+  IFreeVars
+  (-free-vars [this]
+    (mapcat free-vars kvtype)))
 
 #_(def-type ConstantMap [kvtypes]
   "A constant sequential collection type, subtype of clojure.lang.IPersistentMap"
   [(every? #(and (Type? (first %))
                  (Type? (second %)))
            kvtypes)])
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Variable Elimination
-
-(defprotocol IVariableElim
-  (promote [this ^{+T (IPersistentSet TypeVariable)} v])
-  (demote [this ^{+T (IPersistentSet TypeVariable)} v]))
-
-(extend-protocol IVariableElim
-  Union
-  (promote [this v]
-    (cond
-      (= Any this) Any
-      (= Nothing this) Nothing))
-  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -702,10 +762,14 @@
           scope (into {}
                       (map vector
                            tvars
-                           (map ->TypeVariable tvars)))]
+                           (map -tv tvars)))]
       (with-type-vars scope
-        (-> (parse-syntax body-syn)
-          (update-in [tvar-scope] #(concat (vals scope) %))))) ; handle nested scopes
+        (let [t (parse-syntax body-syn)]
+          (vary-meta t
+                     (fn [m]
+                       (-> m
+                         (update-in [tvar-scope]
+                                    #(concat (vals scope) %)))))))) ; handle nested scopes
 
     ;Parse single arity function syntax
     (vector? syn)
@@ -821,7 +885,7 @@
   [[_ & [typ-syntax :as args]]]
   (assert (= 1 (count args)))
   (let [pred-type (parse-syntax typ-syntax)]
-    (->Fun [(map->arity
+    (-fun [(map->arity
               {:dom [Any]
                :rng (ClassType-from Boolean)
                :pred-type pred-type
@@ -843,7 +907,7 @@
 (defmethod parse-list-syntax Fun-literal
   [[_ & arities]]
   (map->Fun 
-    {:arities (doall (map parse-syntax* arities))})) ; parse-syntax* to avoid implicit arity sugar wrapping
+    {:arities (set (doall (map parse-syntax* arities)))})) ; parse-syntax* to avoid implicit arity sugar wrapping
 
 (extend-protocol IParseType
   IPersistentList
@@ -922,9 +986,10 @@
 
 (defn unparse-type
   [type-obj]
-  (if (tvar-scope type-obj)
-    (list All-literal (doall (mapv unparse-type (tvar-scope type-obj)))
-          (unparse-type (dissoc type-obj tvar-scope)))
+  (if-let [scope (-> type-obj meta tvar-scope)]
+    (list All-literal (doall (mapv unparse-type scope))
+          (unparse-type (vary-meta type-obj 
+                                   #(dissoc % tvar-scope)))) ;remove binding scope
     (unparse-type* type-obj)))
 
 (def unparse unparse-type)
@@ -1036,10 +1101,6 @@
                                       (unparse-type (second %)))
                              (:kvtypes this))))
 
-  UnitType
-  (unparse-type* [this]
-    `Unit)
-
   TypeVariable
   (unparse-type* [{:keys [nme]}]
     nme)
@@ -1051,18 +1112,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtyping
 
-;; TODO Type variables
-
 (declare supertype-of-all subtype-of-all supertype-of-one subtype-of-one)
 
 (defmulti subtype?* (fn [s t]
                       [(class s) (class t)]))
 
-;unit
+;type variables
 
-(defmethod subtype?* [UnitType UnitType]
-  [s t]
-  true)
+(defmethod subtype?* [TypeVariable TypeVariable]
+  [{s-nme :nme} {t-nme :nme}]
+  (= s-nme t-nme))
 
 ;unions
 
@@ -1439,6 +1498,186 @@
   (subtype?* s t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Variable Renaming
+
+(defn- unique-variable
+  ([] (-tv (gensym)))
+  ([^{+T TypeVariable} t] 
+   (-tv (-> t :nme gensym))))
+
+(defprotocol IVariableRename
+  (-rename [this ^{+T (IPersistentMap [TypeVariable TypeVariable])} rmap] 
+           "Rename all occurrences of variables in rmap in this.
+           Assumes no conflicting variables (no inner scopes introduce variables
+           that conflict with rmap)"))
+
+(defn rename 
+  "Rename all occurrences of variables in rmap in t"
+  [^{+T Type} t 
+   ^{+T (IPersistentMap [TypeVariable TypeVariable])} rmap]
+  (assert (Type? t) t)
+  (assert (map? rmap))
+  (assert (every? TypeVariable? (concat (keys rmap) (vals rmap))))
+  (let [conflicts (set/intersection (-> t meta tvar-scope set) (-> rmap keys set))]
+    ;scope introduces conflicting variables
+    (if (seq conflicts)
+      (let [renames (into {}
+                          (map #(vector % (unique-variable %))
+                               conflicts))
+            resolved-conflicts 
+            (-> (-rename t renames)
+              (vary-meta (fn [m] 
+                           (-> m
+                             (update-in [tvar-scope] #(replace renames %))))))] ;update binding scope
+        (-rename resolved-conflicts rmap))
+      (-rename t rmap))))
+
+(defn rename-all [ts vs]
+  (doall (map rename ts (repeat vs))))
+
+(extend-protocol IVariableRename
+  Union
+  (-rename [this rmap]
+    (-> this
+     (update-in [:types] #(rename-all % rmap))))
+
+  TypeVariable
+  (-rename [this rmap]
+    (if-let [r (rmap this)]
+      r
+      this))
+  
+  ClassType
+  (-rename [this rmap] this)
+
+  Fun
+  (-rename [this rmap]
+    (-> this
+      (update-in [:arities] #(set (rename-all % rmap)))))
+
+  arity
+  (-rename [this rmap]
+    (-> this
+      (update-in [:dom] #(rename-all % rmap))
+      (update-in [:rest-type] #(when %
+                                 (rename % rmap)))
+      (update-in [:rng] #(rename % rmap)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Variable Elimination
+;;
+;; Local Type Inference, Pierce & Turner
+;; Section 5.3
+
+(defprotocol IVariableElim
+  (-promote [this ^{+T (IPersistentSet TypeVariable)} vs] 
+           "Promote type until type variables vs do not occur in it.
+           Assumes no conflicting variables are introduced by inner scopes.")
+  (-demote [this ^{+T (IPersistentSet TypeVariable)} vs] 
+          "Demote type until type variables vs do not occur in it.
+           Assumes no conflicting variables are introduced by inner scopes."))
+
+(defn- resolve-conflicts
+  "Resolves conflicting type variables introduced by inner scopes
+  by uniquely renaming them"
+  [^{+T Type} t 
+   ^{+T (IPersistentSet TypeVariable)} vs]
+  (assert (Type? t))
+  (assert (set? vs))
+  (let [conflicts (set/intersection (set (tvar-scope t)) vs)]
+    (if (seq conflicts)
+      (rename t (into {}
+                      (doall (map #(vector % (unique-variable %))
+                                  conflicts))))
+      t)))
+
+(defn promote 
+  "Promote type until type variables vs do not occur in it. 
+  Handles conflicting inner scopes"
+  [^{+T Type} t 
+   ^{+T (IPersistentSet TypeVariable)} vs]
+  (assert (Type? t) t)
+  (assert (set? vs))
+  (assert (every? TypeVariable? vs))
+  (let [no-conflicts (resolve-conflicts t vs)
+        frees (set (free-vars t))
+        frees-in-bnds (set (mapcat #(-> % :bnd free-vars) frees))
+        vs-in-bnds (set/intersection frees-in-bnds vs)]
+    (if (seq vs-in-bnds)
+      Any                            ; VU-Fun-2 - Give up if vs occur in bounds of variables inside t
+      (-promote no-conflicts vs))))
+
+(defn demote 
+  "Demotes type until type variables vs do not occur in it. 
+  Handles conflicting inner scopes"
+  [^{+T Type} t 
+   ^{+T (IPersistentSet TypeVariable)} vs]
+  (assert (Type? t))
+  (assert (set? vs))
+  (assert (every? TypeVariable? vs))
+  (let [no-conflicts (resolve-conflicts t vs)
+        frees (set (free-vars t))
+        frees-in-bnds (set (mapcat #(-> % :bnd free-vars) frees))
+        vs-in-bnds (set/intersection frees-in-bnds vs)]
+    (if (seq vs-in-bnds)
+      Nothing                        ; VD-Fun-2 - Give up if vs occur in bounds of variables inside t
+      (-demote no-conflicts vs))))
+
+(defn- promote-all [ts vs]
+  (doall (map promote ts (repeat vs))))
+
+(defn- demote-all [ts vs]
+  (doall (map demote ts (repeat vs))))
+
+(extend-protocol IVariableElim
+  Union
+  (-promote [this vs]
+    (union (promote-all (:types this) vs)))
+  (-demote [this vs]
+    (union (demote-all (:types this) vs)))
+
+  TypeVariable
+  (-promote [this vs]
+    (if (vs this)
+      (:bnd this)
+      this))
+  (-demote [this vs]
+    (if (vs this)
+      Nothing
+      this))
+  
+  ClassType
+  (-promote [this vs] this)
+  (-demote [this vs] this)
+  
+  NilType
+  (-promote [this vs] this)
+  (-demote [this vs] this)
+
+  Fun
+  (-promote [this vs]
+    (-> this
+      (update-in [:arities] #(set (promote-all % vs)))))
+  (-demote [this vs]
+    (-> this
+      (update-in [:arities] #(set (demote-all % vs)))))
+
+  arity
+  (-promote [this vs]
+    (-> this
+      (update-in [:dom] #(demote-all % vs))
+      (update-in [:rest-type] #(when %
+                                 (demote % vs)))
+      (update-in [:rng] #(promote % vs))))
+  (-demote [this vs]
+    (-> this
+      (update-in [:dom] #(promote-all % vs))
+      (update-in [:rest-type] #(when %
+                                 (promote % vs)))
+      (update-in [:rng] #(demote % vs))))
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
 
 ;; Bidirectional checking (Local Type Inference (2000) Pierce & Turner, Section 4)
@@ -1587,7 +1826,7 @@
                                     (doall (map #(tc-expr % :expected-type expected-type) m)))
                                   tc-exprs)))]
     (assoc expr
-           type-key (->Fun (map type-key cmethods)))))
+           type-key (-fun (map type-key cmethods)))))
 
 (defn check-fn-method 
   [{:keys [required-params rest-param] :as expr} expected-fun-type]
@@ -1837,7 +2076,7 @@
 
 (defmethod empty-types IPersistentMap
   [m]
-  (->Map [Unit Unit]))
+  (->Map [Nothing Nothing]))
 
 (defmethod tc-expr :empty-expr
   [{:keys [coll] :as expr} & opts]
@@ -1907,9 +2146,9 @@
 (defn constructor->Fun [{:keys [parameter-types declaring-class] :as ctor}]
   (assert ctor "Unresolved constructor")
   (map->Fun
-    {:arities [(map->arity 
-                 {:dom (doall (map parse parameter-types))
-                  :rng (parse declaring-class)})]}))
+    {:arities #{(map->arity 
+                  {:dom (doall (map parse parameter-types))
+                   :rng (parse declaring-class)})}}))
 
 (defmethod tc-expr :new
   [{:keys [ctor] :as expr} & opts]
