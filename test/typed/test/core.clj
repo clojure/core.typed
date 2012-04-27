@@ -66,7 +66,8 @@
   (is (let [x (-tv 'x)
             t (parse '(All [y] y))]
         (= (resolve-conflicts t #{x})
-           t))))
+           t)))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable elimination
@@ -242,6 +243,15 @@
 
 (deftest eq-all
   (is (type= Object (All [x] Object))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Bounds
+
+(deftest all-bounded
+  (is (= (parse '(All [(x <! Number)]
+                      x))
+         (make-tvar-binding (-tv 'x (parse 'Number))
+                            [(-tv 'x (parse 'Number))]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtyping

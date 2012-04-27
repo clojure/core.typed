@@ -128,6 +128,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type variable Scope
 
+(declare Type? TypeVariable?)
+
 (def tvar-scope ::tvar-scope)
 (defn make-tvar-binding 
   "Make Type t a binding position for variables s"
@@ -790,14 +792,17 @@
     (and (list? syn)
          (= All-literal
             (first syn)))
-    (let [[_ tvars body-syn] syn
-          scope (into {}
-                      (map vector
-                           tvars
-                           (map -tv tvars)))]
+    (let [[_ tvar-syn body-syn] syn
+          ;; tvar-syn with optional bound (All [x (y <: Number)] ..)
+          tvars (map #(if (symbol? %)
+                        (-tv %)
+                        (-tv (first %)
+                               (nth % 2)))
+                     tvar-syn)
+          scope (into {} (map #(vector (:nme %) %) tvars))]
       (with-type-vars scope
         (let [t (parse-syntax body-syn)]
-          (update-tvar-binding t #(concat (vals scope) %))))) ; handle nested scopes
+          (update-tvar-binding t #(concat tvars %))))) ; handle nested scopes
 
     ;Parse single arity function syntax
     (vector? syn)
@@ -1012,10 +1017,16 @@
   [[_ & syn]]
   (union (doall (map parse-syntax syn))))
 
+(defn unparse-tvar-binding [tvar]
+    (assert (TypeVariable? tvar))
+  (if (= Any (:bnd tvar))
+    (:nme tvar)
+    (list (:nme tvar) '<! (unparse-type (:bnd tvar)))))
+
 (defn unparse-type
   [type-obj]
   (if-let [scope (tvar-binding type-obj)]
-    (list All-literal (doall (mapv unparse-type scope))
+    (list All-literal (doall (mapv unparse-tvar-binding scope))
           (unparse-type (remove-tvar-binding type-obj))) ;remove binding scope
     (unparse-type* type-obj)))
 
