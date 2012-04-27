@@ -788,6 +788,10 @@
   {:post [Type?]}
   [syn]
   (cond
+    ;Parse single arity function syntax
+    (vector? syn)
+    (parse-syntax (list Fun-literal syn))
+
     ;Parse (All ..) forms
     (and (list? syn)
          (= All-literal
@@ -803,10 +807,6 @@
       (with-type-vars scope
         (let [t (parse-syntax body-syn)]
           (update-tvar-binding t #(concat tvars %))))) ; handle nested scopes
-
-    ;Parse single arity function syntax
-    (vector? syn)
-    (parse-syntax* (list Fun-literal syn))
 
     :else
     (parse-syntax* syn)))
@@ -1731,26 +1731,31 @@
 (def constraints #{EqConstraint SubConstraint})
 (def constraint? #(contains? constraints (class %)))
 
+(defconstrainedrecord ConstraintSet [cs]
+  "A map of type variables to constraints"
+  {:pre [(map? cs)
+         (every? TypeVariable? (keys cs))
+         (every? constraint? (vals cs))]})
+
 (defn empty-constraint-set
   "The empty xs-without-vs constraint set 
   maps each variable x in xs to the constraint [Bot, Top]"
   [xs]
-  {:post [(every? TypeVariable? (keys %))
-          (every? constraint? (vals %))]}
+  {:post [ConstraintSet?]}
     (assert (every? TypeVariable? xs))
     (assert (set? xs))
-  (into {}
-        (map vector
-             xs
-             (repeat (->SubConstraint Nothing Any)))))
+  (->ConstraintSet
+    (into {}
+          (map vector
+               xs
+               (repeat (->SubConstraint Nothing Any))))))
 
 (defn singleton-constraint-set
   "The singleton xs-without-vs constraint set
   map variable v to constraint c, and
   maps each variable x in xs to the constraint [Bot, Top]"
   [v c xs]
-  {:post [(every? TypeVariable? (keys %))
-          (every? constraint? (vals %))]}
+  {:post [ConstraintSet?]}
     (assert (TypeVariable? v))
     (assert (constraint? c))
     (assert (set? xs))
@@ -1759,6 +1764,38 @@
   (merge (empty-constraint-set xs)
          {v c}))
 
+(defmulti intersect-constraint
+  (fn [c1 c2] [(class c1) (class c2)]))
+
+(defmethod intersect-constraint [EqConstraint EqConstraint]
+  [{l-type :type :as c1} {r-type :type :as c2}]
+  (assert (= l-type r-type) "Intersect of two constraints must be both equal")
+  c1)
+
+(defmethod intersect-constraint [EqConstraint SubConstraint]
+  [{l-type :type :as c1} 
+   {r-lower :lower r-upper :upper :as c2}]
+  (assert (and (subtype? r-lower l-type)
+               (subtype? l-type r-upper)))
+  c1)
+
+(defmethod intersect-constraint [SubConstraint EqConstraint]
+  [{l-lower :lower l-upper :upper :as c1}
+   {r-type :type :as c2}]
+  (assert (and (subtype? l-lower r-type)
+               (subtype? r-type l-upper)))
+  c2)
+
+(defmethod intersect-constraint [SubConstraint SubConstraint]
+  [{l-lower :lower l-upper :upper :as c1}
+   {r-lower :lower r-upper :upper :as c2}]
+  (->SubConstraint (union l-lower r-lower)
+                   (->Intersection [l-upper r-upper])))
+
+(defn- intersect-constraint-sets [& cs]
+  (assert (every? ConstraintSet? cs))
+  (apply merge-with intersect-constraint cs))
+
 (declare constraint-gen*)
 
 (defn constraint-gen
@@ -1766,25 +1803,36 @@
   two types s and t, calculates the minimal xs-without-vs constraint set
   C guaranteeing that (subtype? s t)"
   [vs xs s t]
+    (assert (set? vs))
+    (assert (set? xs))
+    (assert (every? TypeVariable vs))
+    (assert (every? TypeVariable xs))
+    (assert (Type? s))
+    (assert (Type? t))
   (let [s (resolve-conflicts s (set/union vs xs))
         t (resolve-conflicts t (set/union vs xs))]
     (constraint-gen* vs xs s t)))
 
+(declare constraint-gen-arity)
+
 (defn- constraint-gen*
   "Assumes types have unique variable names"
   [vs xs s t]
+  {:post [ConstraintSet?]}
     (assert (set? vs))
     (assert (set? xs))
+    (assert (every? TypeVariable? vs))
+    (assert (every? TypeVariable? xs))
     (assert (Type? s))
     (assert (Type? t))
     ;variables xs does not occur in one type s or t
     (assert (or (empty?
                   (set/intersection 
-                    (free-vars t)
+                    (set (free-vars t))
                     xs))
                 (empty?
                   (set/intersection 
-                    (free-vars t)
+                    (set (free-vars t))
                     xs))))
   (cond
     (= Any t)
@@ -1796,7 +1844,7 @@
     (and (contains? xs s)
          (empty?
            (set/intersection 
-             (free-vars t)
+             (set (free-vars t))
              xs)))
     (let [r (demote t vs)
           c (->SubConstraint Nothing r)]
@@ -1805,7 +1853,7 @@
     (and (contains? xs t)
          (empty?
            (set/intersection 
-             (free-vars s)
+             (set (free-vars s))
              xs)))
     (let [r (promote s vs)
           c (->SubConstraint r Any)]
@@ -1819,7 +1867,7 @@
 
     (and (Fun? s)
          (Fun? t))
-    (apply intersect-constraints
+    (apply intersect-constraint-sets
            (for [super-arity (:arities t)]
              (constraint-gen-arity
                xs vs
@@ -1829,39 +1877,147 @@
     
     :else (throw (Exception. "Cannot generate constraint"))))
 
+(defn- align-doms [a-sub a-sup]
+  (cond
+    (and (:rest-type a-sub)
+         (:rest-type a-sup))
+    (cond
+      (= (count (:dom a-sub))
+         (count (:dom a-sup)))
+      [(concat (:dom a-sub) [(:rest-type a-sub)])
+       (concat (:dom a-sup) [(:rest-type a-sup)])]
+
+      (< (count (:dom a-sub))
+         (count (:dom a-sup)))
+      (let [l (concat (:dom a-sub) [(:rest-type a-sub)])]
+        [l 
+         (take (count l)
+               (concat (:dom a-sup) (repeat (:rest-type a-sup))))])
+
+      :else
+      (let [r (concat (:dom a-sup) [(:rest-type a-sup)])]
+        [(take (count r)
+               (concat (:dom a-sub) [(:rest-type a-sub)]))
+         r]))
+
+    (:rest-type a-sub)
+    (let [r (:dom a-sup)]
+      [(take r 
+             (concat (:dom a-sub) (repeat (:rest-type a-sub))))
+       r])
+
+    (:rest-type a-sup)
+    (let [l (:dom a-sub)]
+      [l
+       (take (count l)
+             (concat (:dom a-sup) (repeat (:rest-type a-sup))))])
+
+    :else
+    [(:dom a-sub)
+     (:dom a-sup)]))
+
 (defn constraint-gen-arity 
+  [vs xs a-sub a-sup]
+  {:post [ConstraintSet?]}
+    (assert (arity? a-sub))
+    (assert (arity? a-sup))
+  (let [[sub-dom sup-dom]
+        (align-doms a-sub a-sup)
+        
+        dom-constraint-sets (map constraint-gen sup-dom sub-dom)
+        rng-constraint-set (constraint-gen (:rng a-sub) (:rng a-sup))]
+    (apply intersect-constraint-sets rng-constraint-set dom-constraint-sets)))
+
+(declare match-constraint-arity)
+
+(defn match-constraint
+  "Returns a vector [u c]. u is equal to whichever of s or t is concrete, and
+  c is a constraint set whose solutions make s and t identical"
+  [vs xs s t]
+  {:post [(vector? %)
+          (Type? (first %))
+          (ConstraintSet? (second %))]}
+    (assert (set? vs))
+    (assert (set? xs))
+    (assert (every? TypeVariable? vs))
+    (assert (every? TypeVariable? xs))
+    (assert (Type? s))
+    (assert (Type? t))
+    ;variables xs does not occur in one type s or t
+    (assert (or (empty?
+                  (set/intersection 
+                    (set (free-vars t))
+                    xs))
+                (empty?
+                  (set/intersection 
+                    (set (free-vars t))
+                    xs))))
+  (cond
+    (and (= Any s)
+         (= Any t))
+    [Any (empty-constraint-set xs)]
+
+    (and (= Nothing s)
+         (= Nothing t))
+    [Nothing (empty-constraint-set xs)]
+
+    (and (contains? xs s)
+         (empty?
+           (set/intersection
+             (set (free-vars t))
+             (set/union vs xs))))
+    [t (singleton-constraint-set s (->EqConstraint t) (disj xs s))]
+
+    (and (contains? xs s)
+         (empty?
+           (set/intersection
+             (set (free-vars s))
+             (set/union vs xs))))
+    [s (singleton-constraint-set t (->EqConstraint s) (disj xs t))]
+
+    (and (= s t)
+         (not (contains? xs s)))
+    [s (empty-constraint-set xs)]
+
+    (and (Fun? s)
+         (Fun? t))
+    (apply intersect-constraint-sets
+           (for [super-arity (:arities t)]
+             (match-constraint-arity
+               xs vs
+               (some #(similar-arity super-arity %)
+                     (:arities s))
+               super-arity)))))
+
+(defn match-constraint-arity
   [vs xs a-sub a-sup]
     (assert (arity? a-sub))
     (assert (arity? a-sup))
   (let [[sub-dom sup-dom]
-        (cond
-          (and (:rest-type a-sub)
-               (:rest-type a-sup))
-          [(concat (:dom a-sub) [(:rest-type a-sub)])
-           (concat (:dom a-sup) [(:rest-type a-sup)])]
-
-          (:rest-type a-sub)
-          [(take (count (:dom a-sup))
-                 (concat (:dom a-sub) (repeat (:rest-type a-sub))))
-           (:dom a-sup)]
-
-          (:rest-type a-sup)
-          [(:dom a-sub)
-           (take (count (:dom a-sub))
-                 (concat (:dom a-sup) (repeat (:rest-type a-sup))))]
-
-          :else
-          [(:dom a-sub)
-           (:dom a-sup)])
+        (align-doms a-sub a-sup)
         
-        dom-constraints (map constraint-gen sup-dom sub-dom)
-        rng-constraint (constraint-gen (:rng a-sub) (:rng a-sup))
-        ]
-    (apply intersect-constraints rng-constraint dom-constraints)))
+        dom-constraint-sets (map match-constraint sup-dom sub-dom)
+        rng-constraint-set (match-constraint (:rng a-sub) (:rng a-sup))]
+    (apply intersect-constraint-sets rng-constraint-set dom-constraint-sets)))
 
-(defn match-constraint
-  "Returns a vector [u c]. u is equal
-  [vs xs s t]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Calculating Type Arguments
+;;
+;; Local Type Inference, Pierce & Turner
+;; Section 5.7
+
+(defprotocol IMaxMinType
+  (max-type [this])
+  (min-type [this]))
+
+(extend-protocol IMaxMinType
+  EqConstraint
+  (max-type [this] (:type this))
+  (min-type [this] (:type this))
+
+  SubConstraint
+  (max-type [this] (:upper this))
+  (min-type [this] (:lower this)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
