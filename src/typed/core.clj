@@ -23,11 +23,26 @@
         `(symbol (-> *ns* ns-name name) (name '~nme)))
      '~type-syn))
 
+(def unevaled-typedcore-anns
+  "Unevaluated annotations for typed.core namespace"
+  (atom []))
+
+(declare parse-dom)
+
 (def ^:dynamic 
   *add-type-ann-fn* 
   (fn [sym type-syn]
+    (when (= *ns* (find-ns 'typed.core))
+      (swap! unevaled-typedcore-anns 
+             (fn [^{:- Seqable} a]
+               (conj a
+                     [(if (namespace sym)
+                        sym 
+                        (symbol "typed.core" (name sym)))
+                      type-syn]))))
     [sym :- type-syn]))
 (+T *add-type-ann-fn* [Symbol IParseType -> nil])
+(+T unevaled-typedcore-anns Atom)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed require
@@ -58,7 +73,7 @@
 ;; Debug macros
 
 (+T debug-mode Atom)
-(def debug-mode (atom false))
+(def debug-mode (atom true))
 
 (+T print-warnings Atom)
 (def print-warnings (atom false))
@@ -104,18 +119,20 @@
         _ (binding [*add-type-ann-fn* (fn [sym type-syn]
                                         (debug "add type:" sym :- type-syn)
                                         (add-type-ann sym (parse type-syn)))
-                    *already-reloaded* (atom #{})]
+                    *already-reloaded* (atom #{'typed.core})]
             (reload-ns 'typed.base)
             (reload-ns nsym)
-            (require-typed-deps nsym))
+            (require-typed-deps nsym)
+            (doseq [[sym syntax] @unevaled-typedcore-anns]
+              (prn "add typed.core type" sym)
+              (add-type-ann sym (parse syntax))))
         
         ;; 2. Perform type checking
         asts (analyze-path nsym)
         
         _ (doseq [a asts]
             (try (tc-expr a)
-              (catch Exception e
-                (debug a)
+              (catch Throwable e
                 (throw e))))]
     nil))
 
@@ -138,10 +155,10 @@
   (assert (every? TypeVariable? s))
   (with-meta t {tvar-scope s}))
 
-(defn tvar-binding 
+(defn tvar-binding
   "If Type t is a binding position, return the variables binded there"
   [t]
-  (assert (Type? t))
+  (assert (Type? t) (class t))
   (-> t meta tvar-scope))
 
 (defn update-tvar-binding 
@@ -224,17 +241,23 @@
 
 (+T method->Fun [clojure.reflect.Method -> Fun])
 (defn- method->Fun [method]
-  (map->Fun
-    {:arities #{(map->arity 
-                 {:dom (->> 
-                         (map resolve-symbol (:parameter-types method))
-                         (map #(if (PrimitiveClass? %)
-                                 %                   ; null cannot substutitute for JVM primtiives
-                                 (union [Nil %])))) ; Java Objects can be the null pointer
-                  :rng (let [typ (resolve-symbol (:return-type method))]
-                         (if (PrimitiveClass? typ)
-                           typ                        ; null cannot substutitute for JVM primtiives
-                           (union [Nil typ])))})}})) ; Java Objects can be the null pointer
+  (try
+    (map->Fun
+      {:arities #{(map->arity 
+                    {:dom (->> 
+                            (map resolve-symbol (:parameter-types method))
+                            (map #(if (or (PrimitiveClass? %)
+                                          (subtype? Nil %))
+                                    %                   ; null cannot substutitute for JVM primtiives
+                                    (union [Nil %])))) ; Java Objects can be the null reference
+                     :rng (let [typ (resolve-symbol (:return-type method))]
+                            (if (or (PrimitiveClass? typ)
+                                    (subtype? Nil typ))
+                              typ                        ; null cannot substutitute for JVM primtiives
+                              (union [Nil typ])))})}}) ; Java Objects can be the null reference
+    (catch Throwable e
+      (throw (ex-info "Could not create Fun from Method" {:method method} e)))))
+
 
 (+T var-or-class->sym [(U Var Class) -> Symbol])
 (defn var-or-class->sym [var-or-class]
@@ -277,7 +300,7 @@
        (every? Type? (vals m))))
 
 (+T *type-db* (Mapof [Symbol Type]))
-(defonce ^:dynamic *type-db* 
+(def ^:dynamic *type-db* 
   (constrained-atom {}
                     "Map from qualified symbols to types"
                     [type-db-atom-contract]))
@@ -565,6 +588,7 @@
 (def-type TypeVariable [nme bnd]
   "A record for bounded type variables, with an unqualified symbol as a name"
   {:pre [(symbol? nme)
+         (not (primitive-symbol nme))
          (not (namespace nme))
          (Type? bnd)
          (not (TypeVariable? bnd))]}
@@ -951,12 +975,15 @@
   (parse-syntax* [this]
     (parse-list-syntax this)))
 
+(defn- split-no-check [arity-syntax]
+  (let [[dom [_ rng & opts]] (split-with #(not= '-> %) arity-syntax)]
+    [dom rng (apply hash-map opts)]))
+
 (defn- split-arity-syntax 
   "Splits arity syntax into [dom rng opts-map]"
   [arity-syntax]
   (assert (some #(= '-> %) arity-syntax) (str "Arity " arity-syntax " missing return type"))
-  (let [[dom [_ rng & opts]] (split-with #(not= '-> %) arity-syntax)]
-    [dom rng (apply hash-map opts)]))
+  (split-no-check arity-syntax))
 
 (defn- parse-filter [syn]
   (assert (vector? syn))
@@ -970,18 +997,32 @@
              {:var nme-sym
               :type type}))))
 
+(defn- parse-dom 
+  "Given syntax to the left of an arrow, returns a map with keys
+  :dom, :rest-type"
+  [dom]
+  (let [[fixed-dom [_ & rest-args]]
+        (split-with #(not= '& %) dom)
+
+        uniform-rest-syntax (when (seq rest-args)
+                              (if (= '* (second rest-args))
+                                (first rest-args)
+                                (assert false (str "Invalid rest args syntax " dom))))
+
+        fixed-dom-types (doall (map parse-syntax fixed-dom))
+        uniform-rest-type (when rest-args
+                            (parse-syntax uniform-rest-syntax))]
+    {:dom fixed-dom-types 
+     :rest-type uniform-rest-type}))
+
 (extend-protocol IParseType
   IPersistentVector
   (parse-syntax* [this]
     (let [[dom rng opts-map] (split-arity-syntax this)
 
-          [fixed-dom [_ & rest-args]]
-          (split-with #(not= '& %) dom)
-
-          uniform-rest-syntax (when (seq rest-args)
-                                (if (= '* (second rest-args))
-                                  (first rest-args)
-                                  (assert false (str "Invalid rest args syntax " this))))
+          {fixed-dom-types :dom
+           rest-type :rest-type}
+           (parse-dom dom)
 
           extras (into {}
                        (for [[nme syn] opts-map]
@@ -992,16 +1033,13 @@
 
                            :else (throw (Exception. (str "Unsupported option " nme))))))
 
-          fixed-dom-types (doall (map parse-syntax fixed-dom))
-          rng-type (parse-syntax rng)
-          uniform-rest-type (when rest-args
-                              (parse-syntax uniform-rest-syntax))]
+          rng-type (parse-syntax rng)]
       (map->arity
         (merge
           {:dom fixed-dom-types
            :rng rng-type}
-          (when uniform-rest-type
-            {:rest-type uniform-rest-type})))))
+          (when rest-type
+            {:rest-type rest-type})))))
 
   nil
   (parse-syntax* [_]
@@ -1924,7 +1962,7 @@
   (let [[sub-dom sup-dom]
         (align-doms a-sub a-sup)
         
-        dom-constraint-sets (map constraint-gen sup-dom sub-dom)
+        dom-constraint-sets (doall (map constraint-gen sup-dom sub-dom))
         rng-constraint-set (constraint-gen (:rng a-sub) (:rng a-sup))]
     (apply intersect-constraint-sets rng-constraint-set dom-constraint-sets)))
 
@@ -1996,7 +2034,7 @@
   (let [[sub-dom sup-dom]
         (align-doms a-sub a-sup)
         
-        dom-constraint-sets (map match-constraint sup-dom sub-dom)
+        dom-constraint-sets (doall (map match-constraint sup-dom sub-dom))
         rng-constraint-set (match-constraint (:rng a-sub) (:rng a-sup))]
     (apply intersect-constraint-sets rng-constraint-set dom-constraint-sets)))
 
@@ -2067,6 +2105,10 @@
   ClassType
   (collect-variances [this xs m] m)
 
+  Vector
+  (collect-variances [this xs m] 
+    (collect-variances (:type this) xs m))
+
   TypeVariable
   (collect-variances [this xs m]
     (let [bnd-variances (collect-variances (:bnd this) xs m)]
@@ -2079,21 +2121,22 @@
   Union 
   (collect-variances [this xs m]
     (apply merge-with update-variance
-           (map #(collect-variances % xs m) (:types this))))
+           (doall (map #(collect-variances % xs m) (:types this)))))
   
   Fun
   (collect-variances [this xs m]
     (apply
       merge-with update-variance
-      (map #(collect-variances % xs m) (:arities this))))
+      (doall (map #(collect-variances % xs m) (:arities this)))))
 
   arity
   (collect-variances [this xs m]
     (let [dom-variances (with-flipped-variance
-                          (map #(collect-variances % xs m)
+                          (doall 
+                            (map #(collect-variances % xs m)
                                (concat (:dom this)
                                        (when (:rest-type this)
-                                         [(:rest-type this)]))))
+                                         [(:rest-type this)])))))
           rng-variances (collect-variances (:rng this) xs m)]
       (apply merge-with update-variance
              (concat dom-variances [rng-variances])))))
@@ -2116,6 +2159,38 @@
   SubConstraint
   (max-type [this] (:upper this))
   (min-type [this] (:lower this)))
+
+(defn gen-substitution 
+  "Given a type and a satisfiable constraint set, return the substitution map"
+  [t xs cs]
+  {:post [(map? %)
+          (every? TypeVariable? (keys %))
+          (every? Type? (vals %))]}
+    (assert (Type? t))
+    (assert (ConstraintSet? cs))
+    (assert (set? xs))
+    (assert (every? TypeVariable? xs))
+  (let [cs (:cs cs)
+        variance (with-covariance
+                   (calculate-variances t xs))]
+    (into {}
+          (for [x xs]
+            [x
+             (cond
+               (= covariant (variance x))
+               (min-type (cs x))
+
+               (= contravariant (variance x))
+               (max-type (cs x))
+
+               (= invariant (variance x))
+               (min-type (cs x))
+
+               ;;TODO rigid?
+
+               :else
+               (throw (Exception. "No variance")))]))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Inference
@@ -2304,12 +2379,18 @@
     (assoc expr
            type-key mtched-arity)))
 
+(defmacro parse-params [dom-syn]
+  `(parse-dom '~dom-syn))
+
+(def annotate-param-syntax :-)
+(def annotate-dom-syntax :-params)
+
 (defn synthesize-fn-method
   [{:keys [required-params rest-param] :as expr}]
   (letfn [(meta-type-annot [expr]
-            (assert (-> expr :sym meta (find '+T))
+            (assert (-> expr :sym meta (find annotate-param-syntax))
                     (str "No type for parameter " (-> expr :sym)))
-            (-> expr :sym meta (get '+T) parse))]
+            (-> expr :sym meta (get annotate-param-syntax) parse))]
     (let [dom-syms (map :sym required-params)
           rest-sym (:sym rest-param)
 
@@ -2514,9 +2595,8 @@
 
 (defmulti empty-types class)
 
-(defmethod empty-types IPersistentMap
-  [m]
-  (->Map [Nothing Nothing]))
+(defmethod empty-types IPersistentMap [m] (->Map [Nothing Nothing]))
+(defmethod empty-types IPersistentVector [m] (->Vector Nothing))
 
 (defmethod tc-expr :empty-expr
   [{:keys [coll] :as expr} & opts]

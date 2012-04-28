@@ -208,97 +208,133 @@
      (parse '~tsyn)))
 
 (deftest variance-type-variables
-  ; with covariance
-  (is (let [x (-tv 'x)
-            variance (with-covariance 
-                       (calculate-variances x #{x}))]
-        (= {x covariant}
-           variance)))
-  ; with contravariance
-  (is (let [x (-tv 'x)
-            variance (with-contravariance
-                       (calculate-variances x #{x}))]
-        (= {x contravariant}
-           variance)))
-  ; in a scope
-  (is (let [x (-tv 'x)
-            t (with-frees [x]
-                (All [y] x))
-            variance (with-covariance
-                       (calculate-variances t #{x}))]
-        (= {x covariant}
-           variance)))
-  ; in a scope
-  (is (let [x (-tv 'x)
-            t (with-frees [x]
-                (All [y] x))
-            variance (with-covariance
-                       (calculate-variances t #{x}))]
-        (= {x covariant}
-           variance))))
+  (testing "with covariance"
+           (is (let [x (-tv 'x)
+                     variance (with-covariance 
+                                (calculate-variances x #{x}))]
+                 (= {x covariant}
+                    variance))))
+  (testing "with contravariance"
+           (is (let [x (-tv 'x)
+                     variance (with-contravariance
+                                (calculate-variances x #{x}))]
+                 (= {x contravariant}
+                    variance))))
+  (testing "in a scope"
+           (is (let [x (-tv 'x)
+                     t (with-frees [x]
+                                   (All [y] x))
+                     variance (with-covariance
+                                (calculate-variances t #{x}))]
+                 (= {x covariant}
+                    variance))))
+  (testing "shadowed (x does not occur)"
+           (is (let [x (-tv 'x)
+                     t (with-frees [x]
+                                   (All [x] x))
+                     variance (with-covariance
+                                (calculate-variances t #{x}))]
+                 (= {}
+                    variance)))))
 
 (deftest variance-function-fixed-domain
-  ;function domain, with covariance
-  (is (let [x (-tv 'x)
-            t (with-frees [x]
-                (All [y] [x -> y]))
-            variance (with-covariance
-                       (calculate-variances t #{x}))]
-        (= {x contravariant}
-           variance)))
-  ;function domain, with contravariance
-  (is (let [x (-tv 'x)
-            t (with-frees [x]
-                (All [y] [x -> y]))
-            variance (with-contravariance
-                       (calculate-variances t #{x}))]
-        (= {x covariance}
-           variance))))
+  (testing "function domain, with covariance"
+    (is (let [x (-tv 'x)
+              t (with-frees [x]
+                            (All [y] [x -> y]))
+              variance (with-covariance
+                         (calculate-variances t #{x}))]
+          (= {x contravariant}
+             variance))))
+  (testing "function domain, with contravariance"
+    (is (let [x (-tv 'x)
+              t (with-frees [x]
+                            (All [y] [x -> y]))
+              variance (with-contravariance
+                         (calculate-variances t #{x}))]
+          (= {x covariant}
+             variance)))))
 
 (deftest variance-function-rest-type
-  ;function rest type, with covariance
-  (is (let [x (-tv 'x)
-            t (with-frees [x]
-                (All [y] [& x * -> y]))
-            variance (with-covariance
-                       (calculate-variances t #{x}))]
-        (= {x contravariant}
-           variance)))
-  ;function rest type, with contravariance
+  (testing "function rest type, with covariance"
+           (is (let [x (-tv 'x)
+                     t (with-frees [x]
+                                   (All [y] [& x * -> y]))
+                     variance (with-covariance
+                                (calculate-variances t #{x}))]
+                 (= {x contravariant}
+                    variance))))
+  (testing "function rest type, with contravariance"
   (is (let [x (-tv 'x)
             t (with-frees [x]
                 (All [y] [& x * -> y]))
             variance (with-contravariance
-                       (calculate-variances t #{x}))]
-        (= {x covariance}
-           variance))))
-
-(deftest variance-function-range
-  ;function range, with covariance
-  (is (let [x (-tv 'x)
-            t (with-frees [x]
-                (All [y] [y -> x]))
-            variance (with-covariance
                        (calculate-variances t #{x}))]
         (= {x covariant}
-           variance)))
-  ;function range, with contravariance
-  (is (let [x (-tv 'x)
-            t (with-frees [x]
-                (All [y] [y -> x]))
-            variance (with-contravariance
-                       (calculate-variances t #{x}))]
-        (= {x contravariance}
-           variance))))
+           variance)))))
+
+(deftest variance-function-range
+  (testing "function range, with covariance"
+    (is (let [x (-tv 'x)
+              t (with-frees [x]
+                            (All [y] [y -> x]))
+              variance (with-covariance
+                         (calculate-variances t #{x}))]
+          (= {x covariant}
+             variance))))
+  (testing "function range, with contravariance"
+    (is (let [x (-tv 'x)
+              t (with-frees [x]
+                            (All [y] [y -> x]))
+              variance (with-contravariance
+                         (calculate-variances t #{x}))]
+          (= {x contravariant}
+             variance)))))
 
 (deftest invariant-tests
-  (is (let [x (-tv 'x)
-            t (with-frees [x]
-                [x -> x])
-            variance (with-covariance
-                       (calculate-variances t #{x}))]
-        (= {x invariant}
-           variance))))
+  (testing "variable on both sides of arrow"
+    (is (let [x (-tv 'x)
+              t (with-frees [x]
+                            [x -> x])
+              variance (with-covariance
+                         (calculate-variances t #{x}))]
+          (= {x invariant}
+             variance)))))
+
+(deftest variance-calc-complex-nesting
+  (testing "variance in nested functions"
+    (is (let [x (-tv 'x)
+              y (-tv 'y)
+              z (-tv 'z)
+              t (with-frees [x y z]
+                  [x y x & [z -> x] * -> [x -> y]])
+              variance (with-covariance
+                         (calculate-variances t #{x y z}))]
+          (= {x contravariant
+              y invariant
+              z covariant}
+             variance)))))
+
+(deftest variance-calc-bnds
+  (testing "variable in bound"
+    (testing "covariant"
+      (is (let [x (-tv 'x)
+                t (with-frees [x]
+                    (All [(y <! (Vectorof x))]
+                      y))
+                variance (with-covariance
+                           (calculate-variances t #{x}))]
+            (= {x covariant}
+               variance)))))
+    (testing "contravariant"
+      (is (let [x (-tv 'x)
+                t (with-frees [x]
+                    (All [(y <! (Vectorof x))]
+                      y))
+                variance (with-contravariance
+                           (calculate-variances t #{x}))]
+            (= {x contravariant}
+               variance)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Equality
@@ -382,7 +418,6 @@
   (is (sub? char Object))
   (is (sub? boolean Object))
   (is (not (sub? nil Object)))
-  (is (not (sub? nil Object)))
   (is (sub? Object Object)))
 
 (deftest subtype-fun
@@ -431,8 +466,6 @@
   (is (sub? java.util.Map Seqable)))
 
 (deftest subtype-unions
-  (is (sub? (U)
-            (U)))
   (is (sub? (U)
             (U)))
   (is (sub? (U)
@@ -709,9 +742,15 @@
         (fn [] 1)
         [-> 1]))
   (is (subfrm 
-        (fn [^{+T Long} b]
+        (fn [^{:- Long} b]
           b)
-        [Long -> Long])))
+        [Long -> Long]))
+  (is (let [f 
+            ^{:-params [Seqable]} 
+            #(conj % 1)]
+        (subfrm
+          f
+          [Seqable -> Seqable]))))
 
 (deftest tc-expr-fn-rest-type
   (is (subfrm
