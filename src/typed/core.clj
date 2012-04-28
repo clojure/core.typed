@@ -801,7 +801,7 @@
           tvars (map #(if (symbol? %)
                         (-tv %)
                         (-tv (first %)
-                               (nth % 2)))
+                             (parse-syntax (nth % 2))))
                      tvar-syn)
           scope (into {} (map #(vector (:nme %) %) tvars))]
       (with-type-vars scope
@@ -1999,6 +1999,104 @@
         dom-constraint-sets (map match-constraint sup-dom sub-dom)
         rng-constraint-set (match-constraint (:rng a-sub) (:rng a-sup))]
     (apply intersect-constraint-sets rng-constraint-set dom-constraint-sets)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Calculating Variance
+
+(def covariant ::covariant)
+(def contravariant ::contravariant)
+(def invariant ::invariant)
+
+(def variances #{covariant contravariant invariant})
+
+(def any-variance ::any-variance)
+
+(doseq [v variances]
+  (derive v any-variance))
+
+(def ^:dynamic *current-variance*)
+(set-validator! #'*current-variance* variances)
+
+(defmulti update-variance vector)
+
+(defmethod update-variance [nil any-variance] [_ v] v)
+(defmethod update-variance [any-variance nil] [v _] v)
+
+(defmethod update-variance [covariant covariant] [& v] covariant)
+(defmethod update-variance [contravariant contravariant] [& v] contravariant)
+
+(defmethod update-variance [contravariant covariant] [& v] invariant)
+(defmethod update-variance [covariant contravariant] [& v] invariant)
+
+(defmethod update-variance [any-variance invariant] [& v] invariant)
+(defmethod update-variance [invariant any-variance] [& v] invariant)
+
+(prefer-method update-variance 
+               [invariant any-variance]
+               [any-variance invariant])
+
+(defmacro with-flipped-variance [& body]
+  `(binding [*current-variance* (if (= covariant *current-variance*)
+                                  contravariant
+                                  covariant)]
+     ~@body))
+
+(defmacro with-contravariance [& body]
+  `(binding [*current-variance* contravariant]
+     ~@body))
+
+(defmacro with-covariance [& body]
+  `(binding [*current-variance* covariant]
+     ~@body))
+
+(defprotocol IVariance
+  (collect-variances [this xs m]))
+
+(defn calculate-variances [t xs]
+    (assert (Type? t))
+    (assert (set? xs))
+    (assert (every? TypeVariable? xs))
+    (assert (bound? #'*current-variance*))
+  (let [t (resolve-conflicts t xs)]
+    (collect-variances t xs {})))
+
+(extend-protocol IVariance
+  NilType
+  (collect-variances [this xs m] m)
+
+  ClassType
+  (collect-variances [this xs m] m)
+
+  TypeVariable
+  (collect-variances [this xs m]
+    (let [bnd-variances (collect-variances (:bnd this) xs m)]
+      (merge-with 
+        update-variance
+        bnd-variances
+        (when (xs this)
+          (update-in m [this] #(update-variance % *current-variance*))))))
+
+  Union 
+  (collect-variances [this xs m]
+    (apply merge-with update-variance
+           (map #(collect-variances % xs m) (:types this))))
+  
+  Fun
+  (collect-variances [this xs m]
+    (apply
+      merge-with update-variance
+      (map #(collect-variances % xs m) (:arities this))))
+
+  arity
+  (collect-variances [this xs m]
+    (let [dom-variances (with-flipped-variance
+                          (map #(collect-variances % xs m)
+                               (concat (:dom this)
+                                       (when (:rest-type this)
+                                         [(:rest-type this)]))))
+          rng-variances (collect-variances (:rng this) xs m)]
+      (apply merge-with update-variance
+             (concat dom-variances [rng-variances])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Calculating Type Arguments
