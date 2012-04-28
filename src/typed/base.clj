@@ -1,9 +1,7 @@
 (ns typed.base
   (:import (clojure.lang Symbol Namespace IPersistentMap Var Keyword Namespace ISeq Seqable
-                         Atom IRef IObj IPersistentList))
-  (:require [typed.core :refer [+T Any IParseType Nothing]]))
-
-(annotate-interface Seqable (a)
+                         Atom IRef IObj IPersistentList IDeref IRef IMeta))
+  (:require [typed.core :refer [+T Any IParseType Nothing annotate-class]]))
 
 (+T typed.core/add-ns-dep [Symbol Symbol -> nil])
 (+T typed.core/*add-type-ann-fn* [Symbol IParseType -> nil])

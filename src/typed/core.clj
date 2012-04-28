@@ -349,6 +349,37 @@
         the-type
         (throw (Exception. (str "No type for " sym)))))))
 
+(declare ParameterisedType?)
+
+(defn typed-classes-var-contract [a]
+  (and (map? @a)
+       (every? symbol? (keys @a))
+       (every? #(class? (resolve %)) (keys @a))
+       (every? ParameterisedType? (vals @a))))
+
+(defn typed-classes-atom-contract [m]
+  (and (map? m)
+       (every? symbol? (keys m))
+       (every? #(class? (resolve %)) (keys m))
+       (every? ParameterisedType? (vals m))))
+
+(defconstrainedvar 
+  ^:dynamic *typed-classes* 
+  (constrained-atom {}
+                    "A map of qualified symbols to ParameterisedType's"
+                    [typed-classes-atom-contract])
+  "Atom containing a map of qualified symbols to ParameterisedType's"
+  [typed-classes-var-contract])
+
+(defn add-typed-class [cls fields opts]
+    (assert (class? cls))
+    (assert (every? TypeVariable? fields))
+  (let [csym (symbol (.getName cls))
+        extends (:extends opts)]
+    (swap! *typed-classes* #(assoc %
+                                   csym
+                                   (->ParameterisedType csym fields)))))
+
 (defmacro with-type-vars [var-map & body]
   `(binding [*type-var-scope* (merge *type-var-scope* ~var-map)]
      ~@body))
@@ -377,6 +408,15 @@
                                          "Map from qualified symbols to types"
                                          [type-db-atom-contract])]
      ~@body))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Typed Classes
+
+(defmacro annotate-class [nme fields & opts]
+  `(let [r# (resolve '~nme)]
+       (assert (class? r#) r#)
+     (add-typed-class r# (map -tv '~fields) (apply hash-map '~opts))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed Protocol
@@ -486,6 +526,14 @@
 (defn ClassType-from [cls]
   (assert (class? cls))
   (->ClassType (symbol (.getName cls))))
+
+(def-type ParameterisedType [class-sym fields]
+  "A type for parameterised classes. Takes a symbol
+  representing the class it is parameterising, and a list
+  of fields, type variables"
+  {:pre [(symbol? class-sym)
+         (class? (resolve class-sym))
+         (every? TypeVariable? fields)]})
 
 ;TODO primitives?
 (def Any (Union. #{Nil (ClassType-from Object)})) ; avoid constrained constructor because of
@@ -965,6 +1013,10 @@
   [[_ & arities]]
   (map->Fun 
     {:arities (set (doall (map parse-syntax* arities)))})) ; parse-syntax* to avoid implicit arity sugar wrapping
+
+(defmethod parse-list-syntax :default
+  [[c & inst]]
+  (throw (Exception. (str "no list syntax " c))))
 
 (extend-protocol IParseType
   IPersistentList
