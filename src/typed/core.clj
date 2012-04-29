@@ -349,7 +349,7 @@
         the-type
         (throw (Exception. (str "No type for " sym)))))))
 
-(declare ParameterisedType?)
+(declare ->ParameterisedType ParameterisedType?)
 
 (defn typed-classes-var-contract [a]
   (and (map? @a)
@@ -2515,6 +2515,24 @@
                   (str "Invoke args " (with-out-str (pr (map unparse arg-types)))
                        " do not match any arity in "
                        (unp fun-type)))
+
+        xs (-> fun-type tvar-binding set) 
+        _ (assert (empty?
+                    (set/intersection 
+                      (set (mapcat #(free-vars (:bnd %)) xs))
+                      xs))
+                  "xs cannot occur in bounds")
+
+        bnd-cons (map #(constraint-gen #{} xs % (:bnd %)) xs)
+        dom-cons (map #(constraint-gen #{} xs %1 %2)
+                      arg-types
+                      (concat (:dom mtched-arities)
+                              (repeat (:rest-type mtched-arities))))
+
+        subst (gen-substitution mtched-arity xs (apply intersect-constraint-sets
+                                                  (concat bnd-cons dom-cons)))
+
+        _ (prn subst)
 
         _ (debug "invoke type" (unp mtched-arity))
         

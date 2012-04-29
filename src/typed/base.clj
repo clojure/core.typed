@@ -11,7 +11,7 @@
 (+T clojure.core/import [& (U Symbol IPersistentList) * ->  nil])
 (+T clojure.core/find-ns [Symbol -> (U nil Namespace)])
 (+T clojure.core/swap! (All [x y]
-                         [(Atom x) [x & y * -> x] & y * -> x]))
+                         [Atom [x & y * -> x] & y * -> x]))
 ;(+T clojure.core/swap! [Atom [Any & Any * -> Nothing] & Any * -> Nothing])
 (+T clojure.core/resolve 
     (Fun [Symbol -> (U nil Var Class)]

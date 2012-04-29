@@ -337,6 +337,25 @@
                variance)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Polymorphic calls
+
+(defmacro tc [form]
+  `(binding [*ns* (find-ns 'typed.test.core)]
+     (tc-expr (ast ~form))))
+
+(defmacro with-env [& body]
+  `(binding [*ns* (find-ns 'typed.test.core)]
+     (with-type-anns ~@body)))
+
+(deftest poly-call-test
+  (is (= (with-env 
+           {id (All [x] [x -> x])}
+           (tc
+             (do (declare id)
+               (id 1))))
+         (parse 1))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Equality
 
 (deftest eq-tvar
@@ -709,14 +728,6 @@
               1))
   (is (subfrm (do 2 1)
               1)))
-
-(defmacro tc [form]
-  `(binding [*ns* (find-ns 'typed.test.core)]
-     (tc-expr (ast ~form))))
-
-(defmacro with-env [& body]
-  `(binding [*ns* (find-ns 'typed.test.core)]
-     (with-type-anns ~@body)))
 
 (deftest tc-expr-def
   (is (subfrm (def a)
