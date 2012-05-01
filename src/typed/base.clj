@@ -4,16 +4,12 @@
   (:import (java.util Collection))
   (:require [typed.core :refer [+T Any IParseType Nothing annotate-class]]))
 
-(+T typed.core/add-ns-dep [Symbol Symbol -> nil])
-(+T typed.core/*add-type-ann-fn* [Symbol IParseType -> nil])
-(+T typed.core/check-namespace [Symbol -> nil])
-
 (+T clojure.core/in-ns [Symbol -> Namespace])
-(+T clojure.core/import [& (U Symbol IPersistentList) * ->  nil])
+(+T clojure.core/import [& (U Symbol (List Symbol)) * ->  nil])
 (+T clojure.core/find-ns [Symbol -> (U nil Namespace)])
 (+T clojure.core/resolve 
     (Fun [Symbol -> (U nil Var Class)]
-         [IPersistentMap Symbol -> (U nil Var Class)]))
+         [(Map Symbol Any) Symbol -> (U nil Var Class)]))
 (+T clojure.core/refer [Symbol & Any * -> nil])
 (+T clojure.core/require [& Any * -> nil])
 (+T clojure.core/ns-name [Namespace -> String])

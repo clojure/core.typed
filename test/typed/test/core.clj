@@ -14,7 +14,7 @@
                                 (add-type-ann sym (parse type-syn)))]
     (require 'typed.base)))
 
-(load-base-env)
+#_(load-base-env)
 
 (defmacro type= [s t]
   `(binding [*ns* (find-ns 'typed.test.core)]
@@ -757,7 +757,7 @@
           b)
         [Long -> Long]))
   (is (let [f 
-            ^{:-params [Seqable]} 
+            ^{:-params [Seqable]}
             #(conj % 1)]
         (subfrm
           f
@@ -765,7 +765,7 @@
 
 (deftest tc-expr-fn-rest-type
   (is (subfrm
-        (fn [& ^{+T Long} a]
+        (fn [& ^{:- Long} a]
           a)
         [& Long * -> (Sequentialof Long)])))
 

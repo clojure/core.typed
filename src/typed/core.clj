@@ -1,7 +1,7 @@
 (ns typed.core
   (:import (clojure.lang Var Symbol IPersistentList IPersistentVector Keyword Cons
                          Ratio Atom IPersistentMap Seqable Counted ILookup ISeq
-                         IMeta IObj Associative))
+                         IMeta IObj Associative IFn))
   (:require [trammel.core :refer [defconstrainedrecord defconstrainedvar
                                   constrained-atom]]
             [analyze.core :as a :refer [analyze-path ast]]
@@ -23,32 +23,46 @@
         `(symbol (-> *ns* ns-name name) (name '~nme)))
      '~type-syn))
 
+(declare parse-dom IParseType)
+
+; NOTE: definition below
+;(+T UnevaledTypeEntry (Record Symbol IParseType))
+(defconstrainedrecord UnevaledTypeEntry [nme syn]
+  "An unevaluated type entry"
+  [(symbol? nme)])
+
+; NOTE: definition below
+;(+T unevaled-typedcore-anns 
+;    (Atom (Vector UnevaledTypeEntry)))
 (def unevaled-typedcore-anns
   "Unevaluated annotations for typed.core namespace"
-  (atom []))
-
-(declare parse-dom)
+  (constrained-atom []
+                    "Vector of UnevaledTypeEntry's"
+                    [(partial every? UnevaledTypeEntry?)]))
 
 (def ^:dynamic 
   *add-type-ann-fn* 
   (fn [sym type-syn]
     (when (= *ns* (find-ns 'typed.core))
       (swap! unevaled-typedcore-anns 
-             (fn [^{:- Seqable} a]
+             (fn [a]
                (conj a
-                     [(if (namespace sym)
-                        sym 
-                        (symbol "typed.core" (name sym)))
-                      type-syn]))))
+                     (->UnevaledTypeEntry
+                       (if (namespace sym)
+                         sym 
+                         (symbol "typed.core" (name sym)))
+                       type-syn)))))
     [sym :- type-syn]))
+
 (+T *add-type-ann-fn* [Symbol IParseType -> nil])
 (+T unevaled-typedcore-anns 
-    (Atom (Vector '[Symbol IParseType])))
+    (Atom (Vector UnevaledTypeEntry)))
+(+T UnevaledTypeEntry (Record Symbol IParseType))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed require
 
-(+T ns-deps-contract [(IPersistentMap Any Any) -> Boolean])
+(+T ns-deps-contract [(Map Any Any) -> Boolean])
 (defn ns-deps-contract [m]
   (and (every? symbol? (keys m))
        (every? set? (vals m))
@@ -127,7 +141,7 @@
             (reload-ns 'typed.base)
             (reload-ns nsym)
             (require-typed-deps nsym)
-            (doseq [[sym syntax] @unevaled-typedcore-anns]
+            (doseq [{sym :nme syntax :syn} @unevaled-typedcore-anns]
               (prn "add typed.core type" sym)
               (add-type-ann sym (parse syntax))))
         
@@ -152,56 +166,53 @@
 (declare Type? TypeVariable?)
 
 (+T tvar-scope Keyword)
-(def tvar-scope ::tvar-scope)
+(def tvar-scope :ts)
 
-;(def-type-alias TvarBinding (I Sequential (Seqable TypeVariable)))
+#_(def-type-alias TvarBinding (SequentialSeq TypeVariable))
 
-(+T make-tvar-binding (All [(t <! Type)
-                            (x <! TvarBinding)
-                            r (I t (Meta '{:with {tvar-scope x}}))]
-                        [t x -> r]))
+(+T ScopeBinding (Record TvarBinding))
+(defconstrainedrecord ScopeBinding [ts]
+  "A binding list for type variables"
+  [(sequential? ts)
+   (every? TypeVariable? ts)])
+
+
+(+T make-tvar-binding (All [(t <! Type)]
+                        [t TvarBinding -> (I t (Meta ScopeBinding))]))
 (defn make-tvar-binding 
   "Make Type t a binding position for variables s"
   [t s]
   (assert (Type? t))
   (assert (every? TypeVariable? s))
-  (with-meta t {tvar-scope s}))
+  (with-meta t (->ScopeBinding s)))
 
-(+T tvar-binding (All [(x <! TvarBinding)
-                       (t <! (I Type (Meta '{:optional [tvar-scope x]})))]
-                   [t -> x]))
+(+T tvar-binding [(I Type 
+                     (Meta (U nil ScopeBinding)))
+                  -> TvarBinding])
 (defn tvar-binding
   "If Type t is a binding position, return the variables binded there"
   [t]
   (assert (Type? t) (class t))
   (-> t meta tvar-scope))
 
-(+T tvar-binding (All [(x <! TvarBinding)
-                       (y <! TvarBinding)
-                       (t <! Type)
-                       (m <! (I t (Meta '{:optional {tvar-scope x}})))
-                       (r <! (I t (Meta '{:optional {tvar-scope y}})))]
-                   [m [x -> y] -> r]))
+(+T tvar-binding (All [(m <! (I Type (Meta ScopeBinding)))]
+                   [m [TvarBinding -> TvarBinding] -> m]))
 (defn update-tvar-binding 
   "Use function f to update the binding position t"
   [t f]
   (vary-meta t #(update-in % [tvar-scope] f)))
 
-(+T tvar-binding (All [(t <! Type)
-                       (x <! (Map Any Any))
-                       (a <! (I t (Meta '{:optional {tvar-scope (Seqable TypeVariable)}
-                                          :rest x})))
-                       (r <! (I t (Meta x)))]  ;returns a without the tvar-scope key in its metadata
-                   [a -> r]))
+(+T tvar-binding (All [(t <! Type)]
+                   [t -> (I t (Meta nil))]))
 (defn remove-tvar-binding
   "Return Type t without a binding position"
   [t]
-  (vary-meta t #(dissoc % tvar-scope)))
+  (vary-meta t (constantly nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
-(+T class-satisfies-protocol? [Protocol Class -> Boolean])
+(+T class-satisfies-protocol? [Protocol Class -> boolean])
 (defn class-satisfies-protocol?
   "Returns the method that would be dispatched by applying
   an instance of Class c to protocol"
@@ -420,7 +431,7 @@
   `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
      ~@body))
 
-(+T add-type-ann [Symbol Type -> '[Symbol :- Any]])
+(+T add-type-ann [Symbol Type -> Any])
 (defn add-type-ann [sym typ]
   (when-let [oldtyp (@*type-db* sym)]
     (when (not= oldtyp typ)
@@ -502,11 +513,10 @@
   (isa? (class t) Type))
 
 (defprotocol IFreeVars
-  #_(+T free-vars (All [x]
-                    [x -> (Seq TypeVariables)]))
-  (-free-vars [this]))
+  (^{+T [IFreeVars -> (Seq TypeVariables)]}
+   -free-vars [this]))
 
-(+T free-vars [IFreeVars -> (Seq TypeVariables)])
+(+T free-vars [Type -> (Seq TypeVariables)])
 (defn free-vars [t]
   (-free-vars t))
 
@@ -515,11 +525,7 @@
      (derive a# Type)
      a#))
 
-#_(def-type-alias ValueLiteral
-                  Any)
-
-
-(+T Value (Record ValueLiteral))
+(+T Value (Record Any))
 (def-type Value [val]
   "A singleton type for values, except nil"
   {:pre [(not (nil? val))]}
@@ -529,7 +535,7 @@
 
 (declare subtype?)
 
-(+T Union (Record (Seq Type)))
+(+T Union (Record (Set Type)))
 (def-type Union [types]
   "A disjoint union of types"
   {:pre [(every? Type? types)
@@ -573,7 +579,7 @@
   (assert (class? cls))
   (->ClassType (symbol (.getName cls))))
 
-(+T ParameterisedType (Record Symbol (I Sequential (Seq TypeVariables))))
+(+T ParameterisedType (Record Symbol (SequentialSeq TypeVariables)))
 (def-type ParameterisedType [class-sym fields]
   "A type for parameterised classes. Takes a symbol
   representing the class it is parameterising, and a list
@@ -739,7 +745,7 @@
 (declare FilterSet?)
 
 ;; arity is NOT a type
-(+T arity (Record (I Sequential (Seq Type))
+(+T arity (Record (SequentialSeq Type)
                   Type
                   (U nil Type)
                   (U nil FilterSet)))
@@ -763,8 +769,8 @@
 
 (declare subtypes?)
 
-(+T subtypes?*-varargs [(I Sequential (Seq Type)) 
-                        (I Sequential (Seq Type))
+(+T subtypes?*-varargs [(SequentialSeq Type)
+                        (SequentialSeq Type)
                         Type -> boolean])
 (defn subtypes?*-varargs [argtys dom rst]
   (loop [dom dom
@@ -809,8 +815,7 @@
        (subtype? (:rng s)
                  (:rng t))))
 
-(+T similar-arity (All [(x <! arity)]
-                    [arity x -> (U x nil)]))
+(+T similar-arity [arity arity -> (U arity nil)])
 (defn similar-arity 
   "Return a2 if a1 looks like it, using number of arguments"
   [a1 a2]
@@ -828,8 +833,7 @@
                 (count (:dom %)))
             (:arities fun-type))))
 
-(+T matches-args (All [(x <! arity)]
-                   [x (Seq Type) -> (U nil x)]))
+(+T matches-args [arity (Seq Type) -> (U nil arity)])
 (defn matches-args [arr args]
   (when (or (and (:rest-type arr)
                  (<= (count (:dom arr))
@@ -858,7 +862,7 @@
   (-free-vars [this]
     (free-vars type)))
 
-(+T ConstantVector (Record (I Sequential (Seq Type))))
+(+T ConstantVector (Record (SequentialSeq Type)))
 (def-type ConstantVector [types]
   "A constant vector type, subtype of clojure.lang.IPersistentVector"
   [(every? Type? types)]
@@ -876,7 +880,7 @@
   (-free-vars [this]
     (free-vars type)))
 
-(+T ConstantSequential (Record (I Sequential (Seq Type))))
+(+T ConstantSequential (Record (SequentialSeq Type)))
 (def-type ConstantSequential [types]
   "A constant sequential collection type, subtype of clojure.lang.Sequential"
   [(every? Type? types)]
@@ -885,22 +889,15 @@
   (-free-vars [this]
     (mapcat free-vars types)))
 
-(+T Map (Record '[Type Type]))
-(def-type Map [kvtype]
+(+T Map (Record Type Type))
+(def-type Map [ktype vtype]
   "A sequential collection type, subtype of clojure.lang.IPersistentMap"
-  [(= 2 (count kvtype))
-   (Type? (first kvtype))
-   (Type? (second kvtype))]
+  [(Type? ktype)
+   (Type? vtype)]
 
   IFreeVars
   (-free-vars [this]
-    (mapcat free-vars kvtype)))
-
-#_(def-type ConstantMap [kvtypes]
-  "A constant sequential collection type, subtype of clojure.lang.IPersistentMap"
-  [(every? #(and (Type? (first %))
-                 (Type? (second %)))
-           kvtypes)])
+    (mapcat free-vars [ktype vtype])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -949,12 +946,12 @@
 ;; Parse Type syntax
 
 (defprotocol IParseType
-  (^{+T Type}
+  (^{+T [IParseType -> Type]}
    parse-syntax* [this]))
 
 (declare Fun-literal All-literal)
 
-(+T parse-syntax [IParseType -> Type])
+(+T parse-syntax [Any -> Type])
 (defn parse-syntax
   "Type syntax parser, entry point"
   {:post [Type?]}
@@ -987,75 +984,48 @@
 
 (extend-protocol IParseType
   Symbol
-  (^{+T Type}
-   parse-syntax* [this]
+  (parse-syntax* [this]
     (resolve-symbol this))
   
   Boolean
-  (^{+T (U True False)}
-   parse-syntax* [this]
+  (parse-syntax* [this]
     (if this
       True
       False))
 
   String
-  (^{+T Value}
-   parse-syntax* [this]
+  (parse-syntax* [this]
     (->Value this))
 
   Character
-  (^{+T Value}
-   parse-syntax* [this]
+  (parse-syntax* [this]
     (->Value this))
 
   Keyword
-  (^{+T (U Value QualifiedKeyword)}
-   parse-syntax* [this]
+  (parse-syntax* [this]
     (if (namespace this)
       (->QualifiedKeyword this)
       (->Value this)))
 
   Double
-  (^{+T Value}
-   parse-syntax* [this]
+  (parse-syntax* [this]
     (->Value this))
 
   java.math.BigDecimal
-  (^{+T Value}
-   parse-syntax* [this]
+  (parse-syntax* [this]
     (->Value this))
 
   clojure.lang.Ratio
-  (^{+T Value}
-   parse-syntax* [this]
+  (parse-syntax* [this]
     (->Value this))
   
   Long
-  (^{+T Value}
-   parse-syntax* [this]
+  (parse-syntax* [this]
     (->Value this))
   
   nil
-  (^{+T Nil}
-   parse-syntax* [this]
+  (parse-syntax* [this]
     Nil))
-
-#_(def-type-alias TVarSyntax
-                (U Symbol '(Symbol '<! ParseSyntax)))
-
-#_(def-type-alias ListSyntax
-                (U '(All-literal (Vector TVarSyntax) TypeSyntax)
-                   '(U-literal & TypeSyntax *)
-                   '(Fun-literal & TypeSyntax *)
-                   '(predicate-literal TypeSyntax)
-                   '(Vectorof-literal TypeSyntax)
-                   '(Vector*-literal & TypeSyntax *)
-                   '(Sequentialof-literal TypeSyntax)
-                   '(Sequential*-literal & TypeSyntax *)
-                   '(Seqof-literal TypeSyntax)
-                   '(Mapof-literal TypeSyntax)
-                   '(Map*-literal & '[TypeSyntax TypeSyntax] *)
-                   '('quote ValueLiteral)))
 
 (defmulti 
   ^{'+T '[(IPersistentList Any) -> Type]}
@@ -1071,7 +1041,7 @@
 (def Sequentialof-literal 'Sequentialof)
 (def Sequential*-literal 'Sequential*)
 (def Seqof-literal 'Seqof)
-(def Mapof-literal 'Mapof)
+(def Mapof-literal 'Map)
 (def Map*-literal 'Map*)
 
 (defmethod parse-list-syntax Vector*-literal
@@ -1101,10 +1071,8 @@
                              kvsyns))))
 
 (defmethod parse-list-syntax Mapof-literal
-  [[_ kvsyn]]
-  (let [_ (assert (vector? kvsyn) "Mapof takes a vector map-entry")
-        [ksyn vsyn] kvsyn]
-    (->Map [(parse ksyn) (parse vsyn)])))
+  [[_ ksyn vsyn]]
+  (->Map (parse ksyn) (parse vsyn)))
 
 (defmethod parse-list-syntax U-literal
   [[_ & syn]]
@@ -1201,21 +1169,21 @@
                     ;.. etc
                     )))
 
+(defrecord AritySyntax [dom rng opts])
 
-(+T split-no-check [arity-syntax -> '[(SequentialSeq TypeSyntax) TypeSyntax (Map Any Any)]])
+(+T split-no-check [(Vector Any) -> AritySyntax])
 (defn- split-no-check [arity-syntax]
   (let [[dom [_ rng & opts]] (split-with #(not= '-> %) arity-syntax)]
-    [dom rng (apply hash-map opts)]))
+    (->AritySyntax dom rng (apply hash-map opts))))
 
-(+T split-no-check [arity-syntax -> '[(Seq Type) Type (Map Any Any)]])
+(+T split-no-check [arity-syntax -> AritySyntax])
 (defn- split-arity-syntax
   "Splits arity syntax into [dom rng opts-map]"
   [arity-syntax]
   (assert (some #(= '-> %) arity-syntax) (str "Arity " arity-syntax " missing return type"))
   (split-no-check arity-syntax))
 
-(+T parse-filter [(U thenfilter-syntax elsefilter-syntax) 
-                  -> (U TypeFilter NotTypeFilter)])
+(+T parse-filter [Any -> Filter])
 (defn- parse-filter [syn]
   (assert (vector? syn))
   (let [[nme-sym keyw type-syn] syn
@@ -1228,13 +1196,9 @@
              {:var nme-sym
               :type type}))))
 
-#_(def-type-alias dom-syntax
-                  '[& TypeSyntax *
-                    ~@(U '['& TypeSyntax *]
-                         '[])])
+(defrecord DomTypes [fixed rest-type])
 
-(+T parse-dom [dom-syntax -> '{:optional {:dom (Seq Type)
-                                          :rest-type (U nil Type)}}])
+(+T parse-dom [Any -> DomTypes])
 (defn- parse-dom 
   "Given syntax to the left of an arrow, returns a map with keys
   :dom, :rest-type"
@@ -1250,15 +1214,14 @@
         fixed-dom-types (doall (map parse-syntax fixed-dom))
         uniform-rest-type (when rest-args
                             (parse-syntax uniform-rest-syntax))]
-    {:dom fixed-dom-types 
-     :rest-type uniform-rest-type}))
+    (->DomTypes fixed-dom-types uniform-rest-type)))
 
 (extend-protocol IParseType
   IPersistentVector
   (parse-syntax* [this]
-    (let [[dom rng opts-map] (split-arity-syntax this)
+    (let [{dom :dom rng :rng opts-map :opts} (split-arity-syntax this)
 
-          {fixed-dom-types :dom
+          {fixed-dom-types :fixed
            rest-type :rest-type}
            (parse-dom dom)
 
@@ -1287,14 +1250,17 @@
 ;; Unparse type syntax
 
 (defprotocol IUnparseType
-  (unparse-type* [this]))
+  (^{+T [IUnparseType -> Any]}
+   unparse-type* [this]))
 
+(+T unparse-tvar-binding [TypeVariable -> Any])
 (defn unparse-tvar-binding [tvar]
     (assert (TypeVariable? tvar))
   (if (= Any (:bnd tvar))
     (:nme tvar)
     (list (:nme tvar) '<! (unparse-type (:bnd tvar)))))
 
+(+T unparse-type [Type -> Any])
 (defn unparse-type
   [type-obj]
   (if-let [scope (tvar-binding type-obj)]
@@ -1304,7 +1270,9 @@
 
 (def unparse unparse-type)
 
-(defmulti unparse-filter class)
+(defmulti 
+  ^{'+T '[Filter -> Any]}
+  unparse-filter class)
 
 (defmethod unparse-filter FilterSet
   [{:keys [then else]}]
@@ -1400,16 +1368,10 @@
     (list* Sequential*-literal (doall (map unparse-type (:types this)))))
 
   Map
-  (unparse-type* [{[ktype vtype] :kvtype :as this}]
+  (unparse-type* [{:keys [ktype vtype] :as this}]
     (list Mapof-literal 
-          [(unparse-type ktype)
-           (unparse-type vtype)]))
-
-  #_ConstantMap
-  #_(unparse-type* [this]
-    (list* Map*-literal (map #(vector (unparse-type (first %))
-                                      (unparse-type (second %)))
-                             (:kvtypes this))))
+          (unparse-type ktype)
+          (unparse-type vtype)))
 
   TypeVariable
   (unparse-type* [{:keys [nme]}]
@@ -1424,8 +1386,10 @@
 
 (declare supertype-of-all subtype-of-all supertype-of-one subtype-of-one)
 
-(defmulti subtype?* (fn [s t]
-                      [(class s) (class t)]))
+(defmulti 
+  ^{'+T '[Type Type -> boolean]}
+  subtype?* (fn [s t]
+              [(class s) (class t)]))
 
 ;type variables
 
@@ -1741,21 +1705,10 @@
   (subtype? (ClassType-from IPersistentMap) t))
 
 (defmethod subtype?* [Map Map]
-  [{[s-ktype s-vtype] :kvtype :as s} 
-   {[t-ktype t-vtype] :kvtype :as t}]
+  [{s-ktype :ktype s-vtype :vtype :as s} 
+   {t-ktype :ktype t-vtype :vtype :as t}]
   (subtypes? [s-ktype s-vtype]
              [t-ktype t-vtype]))
-
-#_(defmethod subtype?* [ConstantMap ConstantMap]
-  [{s-kvtypes :kvtypes :as s} 
-   {t-kvtypes :kvtypes :as t}]
-  (subtypes? s-kvtypes t-kvtypes))
-
-#_(defmethod subtype?* [ConstantMap Map]
-  [{s-kvtypes :kvtypes :as s} 
-   {[t-ktype t-vtype] :kvtype :as t}]
-  (subtypes? s-kvtypes (take (count s-kvtypes)
-                             (cycle [t-ktype t-vtype]))))
 
 ;Object
 
@@ -1776,28 +1729,33 @@
   [s t]
   false)
 
+(+T subtype-of-one [Type (Seq Type) -> boolean])
 (defn subtype-of-one
   "True if s is a subtype to at least one ts"
   [s ts]
   (boolean (some #(subtype? s %) ts)))
 
+(+T supertype-of-one [Type (Seq Type) -> boolean])
 (defn supertype-of-one
   "True if t is a supertype to at least one ss"
   [t ss]
   (boolean (some #(subtype? % t) ss)))
 
+(+T subtype-of-all [Type (Seq Type) -> boolean])
 (defn subtype-of-all 
   "True if s is subtype of all ts"
   [s ts]
   (every? true?
           (map #(subtype? s %) ts)))
 
+(+T supertype-of-all [Type (Seq Type) -> boolean])
 (defn supertype-of-all
   "True if t is a supertype of all ss"
   [t ss]
   (every? true?
           (map #(subtype? % t) ss)))
 
+(+T subtypes? [(SequentialSeq Type) (SequentialSeq Type) -> boolean])
 (defn subtypes? [ss ts]
   (and (= (count ss)
           (count ts))
@@ -1814,14 +1772,15 @@
                          [TypeVariable -> TypeVariable]))
 (defn- unique-variable
   ([] (-tv (gensym)))
-  ([^{+T TypeVariable} t] 
+  ([t] 
    (update-in t [:nme] gensym)))
 
-;recursive protocol example, self type
+;recursive protocol example, self type, late binding
 
-(defprotocol IVariableRename #_(A)
-  #_(+T -rename [A (Map TypeVariable TypeVariable) -> A])
-  (-rename [this rmap] 
+(defprotocol IVariableRename
+  (^{+T (All [a]
+          [a (Map TypeVariable TypeVariable) -> a])}
+   -rename [this rmap] 
            "Rename all occurrences of variables in rmap in this.
            Assumes no conflicting variables (no inner scopes introduce variables
            that conflict with rmap)"))
@@ -1830,8 +1789,7 @@
              [x (Map TypeVariable TypeVariable) -> x]))
 (defn rename 
   "Rename all occurrences of variables in rmap in t"
-  [^{+T Type} t 
-   ^{+T (IPersistentMap [TypeVariable TypeVariable])} rmap]
+  [t rmap]
   (assert (Type? t) t)
   (assert (map? rmap))
   (assert (every? TypeVariable? (concat (keys rmap) (vals rmap))))
@@ -1847,14 +1805,8 @@
         (-rename resolved-conflicts rmap))
       (-rename t rmap))))
 
-
-; doesn't seem correct because return type of x isn't necessarily
-; the same collection as argument
-;(+T rename-all (All [(x <! (Seq Type))]
-;                 [x (Seq TypeVariable) -> x]))
-; '() is (Seqable* )
-(+T rename-all (All [(... t <! Type)]
-                 ['(x ... t) (Seq TypeVariable) -> '(x ... t)]))
+(+T rename-all (All [(x <! (Seq Type))]
+                 [x (Seq TypeVariable) -> x]))
 (defn rename-all [ts vs]
   (doall (map rename ts (repeat vs))))
 
@@ -1893,18 +1845,20 @@
 ;; Section 5.3
 
 (defprotocol IVariableElim
-  (-promote [this ^{+T (IPersistentSet TypeVariable)} vs] 
+  (^{+T [IVariableElim (Set TypeVariable) -> Type]}
+   -promote [this vs] 
            "Promote type until type variables vs do not occur in it.
            Assumes no conflicting variables are introduced by inner scopes.")
-  (-demote [this ^{+T (IPersistentSet TypeVariable)} vs] 
+  (^{+T [IVariableElim (Set TypeVariable) -> Type]}
+   -demote [this vs] 
           "Demote type until type variables vs do not occur in it.
            Assumes no conflicting variables are introduced by inner scopes."))
 
+(+T resolve-conflicts [Type (Set TypeVariable) -> Type])
 (defn resolve-conflicts
   "Resolves conflicting type variables introduced by inner scopes
   by uniquely renaming them"
-  [^{+T Type} t 
-   ^{+T (IPersistentSet TypeVariable)} vs]
+  [t vs]
     (assert (Type? t))
     (assert (set? vs))
   (let [conflicts (set/intersection (set (tvar-binding t)) vs)]
@@ -1914,11 +1868,11 @@
                                   conflicts))))
       t)))
 
+(+T promote [Type (Set TypeVariable) -> Type])
 (defn promote 
   "Promote type until type variables vs do not occur in it. 
   Handles conflicting inner scopes"
-  [^{+T Type} t 
-   ^{+T (IPersistentSet TypeVariable)} vs]
+  [t vs]
     (assert (Type? t) t)
     (assert (set? vs))
     (assert (every? TypeVariable? vs))
@@ -1930,11 +1884,11 @@
       Any                            ; VU-Fun-2 - Give up if vs occur in bounds of variables inside t
       (-promote no-conflicts vs))))
 
+(+T demote [Type (Set TypeVariable) -> Type])
 (defn demote 
   "Demotes type until type variables vs do not occur in it. 
   Handles conflicting inner scopes"
-  [^{+T Type} t 
-   ^{+T (IPersistentSet TypeVariable)} vs]
+  [t vs]
     (assert (Type? t))
     (assert (set? vs))
     (assert (every? TypeVariable? vs))
@@ -1946,9 +1900,11 @@
       Nothing                        ; VD-Fun-2 - Give up if vs occur in bounds of variables inside t
       (-demote no-conflicts vs))))
 
+(+T promote-all [(Seq Type) (Set TypeVariable) -> (Seq Type)])
 (defn- promote-all [ts vs]
   (doall (map promote ts (repeat vs))))
 
+(+T demote-all [(Seq Type) (Set TypeVariable) -> (Seq Type)])
 (defn- demote-all [ts vs]
   (doall (map demote ts (repeat vs))))
 
@@ -2006,24 +1962,36 @@
 ;; Local Type Inference, Pierce & Turner
 ;; Section 5.4
 
+(+T EqConstraint (Record Type))
 (defconstrainedrecord EqConstraint [type]
   "Type R satisfies an EqConstraint [S] if (= R S)"
   {:pre [(Type? type)]})
 
+(+T SubConstraint (Record Type Type))
 (defconstrainedrecord SubConstraint [lower upper]
   "Type R satisfies a SubConstraint [S T] if (subtype? R S) and (subtype? R T)"
   {:pre [(Type? lower)
          (Type? upper)]})
 
+(+T constraints (Set Class))
 (def constraints #{EqConstraint SubConstraint})
-(def constraint? #(contains? constraints (class %)))
+(def Constraint ::constraint)
 
+(doseq [c constraints]
+  (derive c Constraint))
+
+(+T constraint? [Any -> boolean])
+(defn constraint? [a]
+  (isa? (class a) Constraint))
+
+(+T ConstraintSet (Record (Map TypeVariable Constraint)))
 (defconstrainedrecord ConstraintSet [cs]
   "A map of type variables to constraints"
   {:pre [(map? cs)
          (every? TypeVariable? (keys cs))
          (every? constraint? (vals cs))]})
 
+(+T empty-constraint-set [(Set TypeVariable) -> ConstraintSet])
 (defn empty-constraint-set
   "The empty xs-without-vs constraint set 
   maps each variable x in xs to the constraint [Bot, Top]"
@@ -2037,6 +2005,7 @@
                xs
                (repeat (->SubConstraint Nothing Any))))))
 
+(+T singleton-constraint-set [TypeVariable Constraint (Set TypeVariable) -> ConstraintSet])
 (defn singleton-constraint-set
   "The singleton xs-without-vs constraint set
   map variable v to constraint c, and
@@ -2049,9 +2018,11 @@
     (assert (every? TypeVariable? xs))
     (assert (not (contains? xs v)))
   (merge (empty-constraint-set xs)
-         {v c}))
+         (->ConstraintSet {v c})))
 
-(defmulti intersect-constraint
+(defmulti 
+  ^{'+T '[Constraint Constraint -> Constraint]}
+  intersect-constraint
   (fn [c1 c2] [(class c1) (class c2)]))
 
 (defmethod intersect-constraint [EqConstraint EqConstraint]
@@ -2079,12 +2050,14 @@
   (->SubConstraint (union l-lower r-lower)
                    (->Intersection [l-upper r-upper])))
 
+(+T intersect-constraint-sets [& ConstraintSet * -> ConstraintSet])
 (defn- intersect-constraint-sets [& cs]
   (assert (every? ConstraintSet? cs))
   (apply merge-with intersect-constraint cs))
 
 (declare constraint-gen*)
 
+(+T constraint-gen [(Set TypeVariable) (Set TypeVariable) Type Type -> ConstraintSet])
 (defn constraint-gen
   "Given a set of type variables vs, a set of unknowns xs, and two
   two types s and t, calculates the minimal xs-without-vs constraint set
@@ -2092,8 +2065,8 @@
   [vs xs s t]
     (assert (set? vs))
     (assert (set? xs))
-    (assert (every? TypeVariable vs))
-    (assert (every? TypeVariable xs))
+    (assert (every? TypeVariable? vs))
+    (assert (every? TypeVariable? xs))
     (assert (Type? s))
     (assert (Type? t))
   (let [s (resolve-conflicts s (set/union vs xs))
@@ -2102,6 +2075,7 @@
 
 (declare constraint-gen-arity)
 
+(+T constraint-gen* [(Set TypeVariable) (Set TypeVariable) Type Type -> ConstraintSet])
 (defn- constraint-gen*
   "Assumes types have unique variable names"
   [vs xs s t]
@@ -2164,6 +2138,7 @@
     
     :else (throw (Exception. "Cannot generate constraint"))))
 
+(+T align-doms [arity arity -> (Pair (Seq Type))])
 (defn- align-doms [a-sub a-sup]
   (cond
     (and (:rest-type a-sub)
@@ -2203,6 +2178,7 @@
     [(:dom a-sub)
      (:dom a-sup)]))
 
+(+T constraint-gen-arity [(Set TypeVariable) (Set TypeVariable) Type Type -> ConstraintSet])
 (defn constraint-gen-arity 
   [vs xs a-sub a-sup]
   {:post [ConstraintSet?]}
@@ -2217,6 +2193,7 @@
 
 (declare match-constraint-arity)
 
+(+T match-constraint [(Set TypeVariable) (Set TypeVariable) Type Type -> (Pair Type ConstraintSet)])
 (defn match-constraint
   "Returns a vector [u c]. u is equal to whichever of s or t is concrete, and
   c is a constraint set whose solutions make s and t identical"
@@ -2276,6 +2253,7 @@
                      (:arities s))
                super-arity)))))
 
+(+T match-constraint-arity [(Set TypeVariable) (Set TypeVariable) arity arity -> ConstraintSet])
 (defn match-constraint-arity
   [vs xs a-sub a-sup]
     (assert (arity? a-sub))
@@ -2304,7 +2282,9 @@
 (def ^:dynamic *current-variance*)
 (set-validator! #'*current-variance* variances)
 
-(defmulti update-variance vector)
+(defmulti 
+  ^{'+T '[(U nil any-variance) (U nil any-variance) -> any-variance]}
+  update-variance vector)
 
 (defmethod update-variance [nil any-variance] [_ v] v)
 (defmethod update-variance [any-variance nil] [v _] v)
@@ -2337,7 +2317,8 @@
      ~@body))
 
 (defprotocol IVariance
-  (collect-variances [this xs m]))
+  (^{+T [IVariance (Set TypeVariable) (Map Symbol any-variance) -> (Map Symbol any-variance)]}
+   collect-variances [this xs m]))
 
 (defn calculate-variances [t xs]
     (assert (Type? t))
@@ -2397,8 +2378,10 @@
 ;; Section 5.7
 
 (defprotocol IMaxMinType
-  (max-type [this])
-  (min-type [this]))
+  (^{+T [IMaxMinType -> Type]}
+   max-type [this])
+  (^{+T [IMaxMinType -> Type]}
+   min-type [this]))
 
 (extend-protocol IMaxMinType
   EqConstraint
@@ -2409,6 +2392,9 @@
   (max-type [this] (:upper this))
   (min-type [this] (:lower this)))
 
+;(def-type-alias Substitution (Map Symbol Type))
+
+(+T gen-substitution [Type (Set TypeVariable) ConstraintSet -> Substitution])
 (defn gen-substitution 
   "Given a type and a satisfiable constraint set, return the substitution map"
   [t xs cs]
@@ -2448,14 +2434,18 @@
 
 (declare tc-expr)
 
+(+T tc-expr-check [(Map Any Any) Type -> (Map Any Any)])
 (defn tc-expr-check [expr expected-type]
   (let [expr (tc-expr expr :expected-type expected-type)]
     (assert-subtype (type-key expr) expected-type)
     expr))
 
-(defmulti tc-expr 
+(defmulti 
+  ^{'+T '[(Map Any Any) & Any * -> (Map Any Any)]}
+  tc-expr 
   (fn [expr & opts] (:op expr)))
 
+(+T tc-exprs [(Seq (Map Any Any)) -> (Seq (Map Any Any))])
 (defn tc-exprs [exprs]
   (doall (map tc-expr exprs)))
 
@@ -2468,7 +2458,9 @@
 
 ;constant
 
-(defmulti constant-type class)
+(defmulti 
+  ^{'+T '[Any -> Type]}
+  constant-type class)
 
 (defmethod constant-type nil
   [_]
@@ -2476,8 +2468,8 @@
 
 (defmethod constant-type IPersistentMap
   [m]
-  (->Map [(union (doall (map constant-type (keys m))))
-          (union (doall (map constant-type (vals m))))]))
+  (->Map (union (doall (map constant-type (keys m))))
+         (union (doall (map constant-type (vals m))))))
 
 (defmethod constant-type IPersistentList
   [l]
@@ -2592,6 +2584,7 @@
     (assoc expr
            type-key (-fun (map type-key cmethods)))))
 
+(+T check-fn-method [(Map Any Any) Fun -> (Map Any Any)])
 (defn check-fn-method 
   [{:keys [required-params rest-param] :as expr} expected-fun-type]
   (let [[mtched-arity :as mtched-arities]
@@ -2634,6 +2627,7 @@
 (def annotate-param-syntax :-)
 (def annotate-dom-syntax :-params)
 
+(+T synthesize-fn-method [(Map Any Any) -> (Map Any Any)])
 (defn synthesize-fn-method
   [{:keys [required-params rest-param] :as expr}]
   (letfn [(meta-type-annot [expr]
@@ -2698,6 +2692,30 @@
 
 ;invoke
 
+(defn- check-poly [xs arg-types arity-type]
+    (assert (set? xs))
+    (assert (every? TypeVariable? xs))
+    (assert (sequential? arg-types))
+    (assert (every? Type? arg-types))
+    (assert (arity? arity-type))
+  (let [_ (assert (empty?
+                    (set/intersection 
+                      (set (mapcat #(free-vars (:bnd %)) xs))
+                      xs))
+                  "xs cannot occur in bounds")
+
+        bnd-cons (map #(constraint-gen #{} xs % (:bnd %)) xs)
+        dom-cons (map #(constraint-gen #{} xs %1 %2)
+                      arg-types
+                      (concat (:dom arity-type)
+                              (repeat (:rest-type arity-type))))
+        rng-con (constraint-gen #{} xs (:rng arity-type) (:rng arity-type))
+
+        subst (gen-substitution arity-type xs (apply intersect-constraint-sets
+                                                     (concat bnd-cons dom-cons)))]
+    ))
+
+(+T invoke-type [(SequentialSeq Type) Fun -> Type])
 (defn- invoke-type [arg-types {:keys [arities] :as fun-type}]
   (let [[mtched-arity :as mtched-arities]
         (filter #(or (and (not (:rest-type %))
@@ -2713,30 +2731,16 @@
                        " do not match any arity in "
                        (unp fun-type)))
 
-        xs (-> fun-type tvar-binding set) 
-        _ (assert (empty?
-                    (set/intersection 
-                      (set (mapcat #(free-vars (:bnd %)) xs))
-                      xs))
-                  "xs cannot occur in bounds")
+        xs (-> fun-type tvar-binding set)
 
-        bnd-cons (map #(constraint-gen #{} xs % (:bnd %)) xs)
-        dom-cons (map #(constraint-gen #{} xs %1 %2)
-                      arg-types
-                      (concat (:dom mtched-arities)
-                              (repeat (:rest-type mtched-arities))))
-
-        subst (gen-substitution mtched-arity xs (apply intersect-constraint-sets
-                                                  (concat bnd-cons dom-cons)))
-
-        _ (prn subst)
-
-        _ (debug "invoke type" (unp mtched-arity))
+        rng-poly (when (seq xs)
+                   (check-poly xs arg-types mtched-arity))
         
         _ (doall (map assert-subtype arg-types (concat (:dom mtched-arity)
                                                        (when (:rest-type mtched-arity)
                                                          (repeat (:rest-type mtched-arity))))))]
-    (:rng mtched-arity)))
+    (or rng-poly
+        (:rng mtched-arity))))
 
 (defmethod tc-expr :invoke
   [expr & opts]
@@ -2747,20 +2751,14 @@
          :as expr}
         (-> expr
           (update-in [:fexpr] tc-expr)
-          (update-in [:args] tc-exprs))]
+          (update-in [:args] tc-exprs))
+        
+        _ (assert-subtype (type-key cfexpr) (ClassType-from IFn))]
   (assoc expr
          type-key (invoke-type (map type-key cargs)
                                (type-key cfexpr)))))
 
 ;let
-
-(defn- binding-init-map 
-  "Returns a map with a single entry, associating
-  the name of the binding with its type"
-  [{:keys [local-binding init] :as binding-init}]
-  (let [init (tc-expr init)
-        {:keys [sym]} local-binding]
-    {sym (type-key init)}))
 
 (defmethod tc-expr :let
   [{:keys [binding-inits] :as expr} & opts]
@@ -2845,7 +2843,7 @@
         keytype (union (map type-key (-> (apply hash-map ckeyvals) keys)))
         valtype (union (map type-key (-> (apply hash-map ckeyvals) vals)))]
     (assoc expr
-           type-key (->Map [keytype valtype]))))
+           type-key (->Map keytype valtype))))
 
 ;vector
 
@@ -2860,9 +2858,11 @@
 
 ;emptyexpr
 
-(defmulti empty-types class)
+(defmulti 
+  ^{'+T '[Any -> Type]}
+  empty-types class)
 
-(defmethod empty-types IPersistentMap [m] (->Map [Nothing Nothing]))
+(defmethod empty-types IPersistentMap [m] (->Map Nothing Nothing))
 (defmethod empty-types IPersistentVector [m] (->Vector Nothing))
 
 (defmethod tc-expr :empty-expr

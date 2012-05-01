@@ -7,33 +7,20 @@
   :extends [(IPersistentCollection a)])
 
 (annotate-class (IPersistentList a)
-  :extends [Sequential
-            (IPersistentStack a)])
+  :extends [(IPersistentStack a)])
 
 (annotate-class (IPersistentVector a)
   :extends [(Associative Long a)
-            Sequential
-            (IPersistentStack a)
-            Reversible
-            Indexed])
+            (IPersistentStack a)])
 
 (annotate-class (APersistentVector a)
-  :extends [AFn
-            (IPersistentVector a)
-            Iterable
-            List
-            RandomAccess
-            Comparable
-            Serializable
-            IHashEq])
+  :extends [(IPersistentVector a)])
 
 (annotate-class (PersistentVector a)
   :extends [(APersistentVector a)
-            (IObj IPersistentMap)
-            IEditableCollection])
+            (IObj Any)])
 
-(annotate-class (IMapEntry a b)
-  :extends [java.util.Map.Entry])
+(annotate-class (IMapEntry a b))
 
 (annotate-class (AMapEntry a b)
   :extends [(IMapEntry a b)
@@ -49,9 +36,7 @@
             (ILookup a b)])
 
 (annotate-class (IPersistentMap a b)
-  :extends [Iterable
-            (Associative a b)
-            Counted])
+  :extends [(Associative a b)])
 
 (annotate-class (IDeref a))
 
@@ -77,7 +62,6 @@
 
 (annotate-class Ref [a]
   :extends [(Comparable Ref)
-            IFn
             (ARef a)
             (IRef a)])
 
