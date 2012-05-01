@@ -1,23 +1,23 @@
 
-(annotate-class Seqable [a])
-(annotate-class IPersistentCollection [a]
+(annotate-class (Seqable a))
+(annotate-class (IPersistentCollection a)
   :extends [(Seqable a)])
 
-(annotate-class IPersistentStack [a]
+(annotate-class (IPersistentStack a)
   :extends [(IPersistentCollection a)])
 
-(annotate-class IPersistentList [a]
+(annotate-class (IPersistentList a)
   :extends [Sequential
             (IPersistentStack a)])
 
-(annotate-class IPersistentVector [a]
+(annotate-class (IPersistentVector a)
   :extends [(Associative Long a)
             Sequential
             (IPersistentStack a)
             Reversible
             Indexed])
 
-(annotate-class APersistentVector [a]
+(annotate-class (APersistentVector a)
   :extends [AFn
             (IPersistentVector a)
             Iterable
@@ -27,26 +27,33 @@
             Serializable
             IHashEq])
 
-(annotate-class PersistentVector [a]
+(annotate-class (PersistentVector a)
   :extends [(APersistentVector a)
             (IObj IPersistentMap)
             IEditableCollection])
 
-(annotate-class IMapEntry [a b])
+(annotate-class (IMapEntry a b)
+  :extends [java.util.Map.Entry])
 
-(annotate-class ILookup [a b])
+(annotate-class (AMapEntry a b)
+  :extends [(IMapEntry a b)
+            (APersistentVector* a b)]) ;; TODO * extends to constant class?
 
-(annotate-class Associative [a b]
+(annotate-class (MapEntry a b)
+  :extends [(AMapEntry a b)])
+
+(annotate-class (ILookup a b))
+
+(annotate-class (Associative a b)
   :extends [(IPersistentCollection (IMapEntry a b))
             (ILookup a b)])
 
-(annotate-class IPersistentMap [a b]
+(annotate-class (IPersistentMap a b)
   :extends [Iterable
             (Associative a b)
             Counted])
 
-
-(annotate-class IDeref [a])
+(annotate-class (IDeref a))
 
 (annotate-class IMeta [(a <! IPersistentMap)])
 (annotate-class IObj [(a <! IPersistentMap)]
