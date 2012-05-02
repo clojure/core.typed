@@ -465,12 +465,12 @@
 ;; Typed Protocol
 
 (comment
-  (def-typed-protocol IPro
+  #_(def-typed-protocol IPro
     (myfn [this (at :- Double)] :- Number
           [this (blah :- Object) & (blahs :- Any *)] :- Long
           "Blah"))
 
-  (def-typed-record A
+  #_(def-typed-record A
     IPro
     (myfn 
       ([this (at :- Double)] :- Number
@@ -604,11 +604,13 @@
 
 (+T True Value)
 (def True (->Value true))
+
 (+T True? [Any -> boolean])
 (def True? (partial = True))
 
 (+T False Value)
 (def False (->Value false))
+
 (+T False? [Any -> boolean])
 (def False? (partial = False))
 
@@ -1124,50 +1126,10 @@
   (parse-syntax* [this]
     (parse-list-syntax this)))
 
-#_(def-ptype-alias SequentialSeq [a]
-                   (I Sequential
-                      (Seq a)))
-
-#_(def-type-alias thenfilter-syntax
-                  '[Symbol :-> TypeSyntax])
-#_(def-type-alias elsefilter-syntax
-                  '[Symbol :-> TypeSyntax])
-
-#_(def-type-alias filterset-syntax
-                  '[thenfilter-syntax
-                    elsefilter-syntax])
-
-#_(def-type-alias arity-syntax
-                  '[& TypeSyntax *
-                    ~@(U '['& TypeSyntax '*]
-                         '[])
-                    '-> TypeSyntax
-                    & {:optional {:filter FilterSyntax}}])
-
-;; above is equivalent to:
-(comment
-  (def-type-alias arity-syntax
-                  (U 
-                    '['-> TypeSyntax]
-                    '[TypeSyntax '-> TypeSyntax]
-                    '[TypeSyntax TypeSyntax '-> TypeSyntax]
-                    '[TypeSyntax TypeSyntax TypeSyntax '-> TypeSyntax]
-                    ;... etc
-
-                    '['& TypeSyntax '* '-> TypeSyntax]
-                    '[TypeSyntax '& TypeSyntax '* '-> TypeSyntax]
-                    '[TypeSyntax TypeSyntax '& TypeSyntax '* '-> TypeSyntax]
-                    '[TypeSyntax TypeSyntax TypeSyntax '& TypeSyntax '* '-> TypeSyntax]
-                    ;... etc
-
-
-                    ; and above, with optional keys
-                    '['-> TypeSyntax :filter FilterSyntax]
-                    ;... etc
-
-                    '['& TypeSyntax '* '-> TypeSyntax :filter FilterSyntax]
-                    ;.. etc
-                    )))
+#_(def-type-alias SequentialSeq
+                  (All [a]
+                    (I Sequential
+                       (Seq a))))
 
 (defrecord AritySyntax [dom rng opts])
 
@@ -1176,7 +1138,7 @@
   (let [[dom [_ rng & opts]] (split-with #(not= '-> %) arity-syntax)]
     (->AritySyntax dom rng (apply hash-map opts))))
 
-(+T split-no-check [arity-syntax -> AritySyntax])
+(+T split-no-check [(Vector Any) -> AritySyntax])
 (defn- split-arity-syntax
   "Splits arity syntax into [dom rng opts-map]"
   [arity-syntax]
