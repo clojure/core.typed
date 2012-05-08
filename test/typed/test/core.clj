@@ -8,13 +8,7 @@
   (:require [analyze.core :refer [ast]]
             [clojure.test :refer :all]))
 
-; add base type anns
-(defn load-base-env []
-  (binding [*add-type-ann-fn* (fn [sym type-syn]
-                                (add-type-ann sym (parse type-syn)))]
-    (require 'typed.base)))
-
-#_(load-base-env)
+(load-env)
 
 (defmacro type= [s t]
   `(binding [*ns* (find-ns 'typed.test.core)]
@@ -200,6 +194,39 @@
              {x (->SubConstraint Nothing Any)
               y (->SubConstraint Nothing Any)})))))
 
+(deftest singleton-constraint-set-test
+  (is (let [x (-tv 'x)
+            y (-tv 'y)]
+        (= (singleton-constraint-set x (->EqConstraint (ClassType-from Number)) #{y})
+           (->ConstraintSet
+             {x (->EqConstraint (ClassType-from Number))
+              y (->SubConstraint Nothing Any)})))))
+
+(deftest tvar-constraints-test
+  (testing "x is at most a Number, must be a subtype of itself"
+  (is (let [x (-tv 'x (ClassType-from Number))
+            xs #{x}]
+        (= (constraint-gen #{} xs x x)
+           (->ConstraintSet
+             {x (sub-constraint Nothing (ClassType-from Number))})))))
+
+  (testing "x is at most a Number, y is anything, both bounded by Any"
+  (is (let [x (-tv 'x)
+            y (-tv 'y)
+            xs #{x y}]
+        (= (constraint-gen #{} xs x (ClassType-from Number))
+           (->ConstraintSet
+             {x (->SubConstraint Nothing (ClassType-from Number))
+              y (->SubConstraint Nothing Any)})))))
+
+  (testing "x is bounded by Number, can't be constrained to Any"
+  (is (let [x (-tv 'x (ClassType-from Number))
+            xs #{x}]
+        (= (constraint-gen #{} xs x Any)
+           (->ConstraintSet
+             {x (->SubConstraint Nothing (ClassType-from Number))})))))
+         )
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Calculating Variances
 
@@ -228,13 +255,13 @@
                                 (calculate-variances t #{x}))]
                  (= {x covariant}
                     variance))))
-  (testing "shadowed (x does not occur)"
+  (testing "constant x, (x does not occur)"
            (is (let [x (-tv 'x)
                      t (with-frees [x]
                                    (All [x] x))
                      variance (with-covariance
                                 (calculate-variances t #{x}))]
-                 (= {}
+                 (= {x constant}
                     variance)))))
 
 (deftest variance-function-fixed-domain
@@ -317,20 +344,29 @@
 
 (deftest variance-calc-bnds
   (testing "variable in bound"
-    (testing "covariant"
+    (testing "covariant position is rigid"
       (is (let [x (-tv 'x)
                 t (with-frees [x]
                     (All [(y <! (Vectorof x))]
                       y))
                 variance (with-covariance
                            (calculate-variances t #{x}))]
-            (= {x covariant}
+            (= {x rigid}
                variance)))))
-    (testing "contravariant"
+    (testing "contravariant position is rigid"
       (is (let [x (-tv 'x)
                 t (with-frees [x]
                     (All [(y <! (Vectorof x))]
                       y))
+                variance (with-contravariance
+                           (calculate-variances t #{x}))]
+            (= {x rigid}
+               variance))))
+    (testing "bound variable does not occur in body"
+      (is (let [x (-tv 'x)
+                t (with-frees [x]
+                    (All [(y <! (Vectorof x))]
+                      x))
                 variance (with-contravariance
                            (calculate-variances t #{x}))]
             (= {x contravariant}
@@ -347,13 +383,40 @@
   `(binding [*ns* (find-ns 'typed.test.core)]
      (with-type-anns ~@body)))
 
+(deftest poly-manual-inst
+  (is (= (->
+           (with-env 
+             {id (All [x] [x -> x])}
+             (tc
+               (do (declare id)
+                 (with-type-args [Number]
+                   (id 1)))))
+           type-key)
+         (ClassType-from 'Number))))
+
 (deftest poly-call-test
-  (is (= (with-env 
-           {id (All [x] [x -> x])}
-           (tc
-             (do (declare id)
-               (id 1))))
-         (parse 1))))
+  (testing "identity"
+    (is (= (type-key
+             (with-env 
+               {id (All [x] [x -> x])}
+               (tc
+                 (do (declare id)
+                   (id 1)))))
+           (parse 1))))
+  (is (thrown?
+        Exception
+        (with-env 
+          {id (All [(x <! Number)] [x -> x])}
+          (tc
+            (do (declare id)
+              (id \c)))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Parameterised Types
+
+(deftest param-type-test
+  (= (map->ParameterisedType :class-sym 'clojure.lang.Atom :fields [(ClassType-fro Number)])
+     (parse '(Atom Number))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Equality
@@ -372,10 +435,10 @@
   (is (not (type= (U Object nil)
                   (U Object))))
   (is (type= Any Any))
+  (is (not (type= (U (U 1 2) (U 3 4))
+                  (U 1 2 3 4))))
   (is (type= (U (U 1 2) (U 3 4))
-             (U 1 2 3 4)))
-  (is (type= (U (U 1 2) (U 3 4))
-             (U (U 1 2) (U 3 4)))))
+             (U (U 3 4) (U 1 2)))))
          
 (deftest eq-fun
   (is (type= [-> nil]

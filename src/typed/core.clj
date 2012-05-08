@@ -23,6 +23,10 @@
         `(symbol (-> *ns* ns-name name) (name '~nme)))
      '~type-syn))
 
+(defmacro with-type-args [type-syns form]
+  `(do (next-form-targs '~type-syns)
+     ~form))
+
 (declare parse-dom IParseType)
 
 ; NOTE: definition below
@@ -40,10 +44,13 @@
                     "Vector of UnevaledTypeEntry's"
                     [(partial every? UnevaledTypeEntry?)]))
 
+(declare debug add-type-ann parse)
+
 (def ^:dynamic 
   *add-type-ann-fn* 
   (fn [sym type-syn]
-    (when (= *ns* (find-ns 'typed.core))
+    (cond 
+      (= *ns* (find-ns 'typed.core))
       (swap! unevaled-typedcore-anns 
              (fn [a]
                (conj a
@@ -51,13 +58,22 @@
                        (if (namespace sym)
                          sym 
                          (symbol "typed.core" (name sym)))
-                       type-syn)))))
+                       type-syn))))
+      :else
+      (do
+        (debug "add type:" sym :- type-syn)
+        (add-type-ann sym (parse type-syn))))
     [sym :- type-syn]))
 
 (+T *add-type-ann-fn* [Symbol IParseType -> nil])
 (+T unevaled-typedcore-anns 
     (Atom (Vector UnevaledTypeEntry)))
 (+T UnevaledTypeEntry (Record Symbol IParseType))
+
+;placeholder for communicating with analysis
+(+T next-form-targs [Any -> nil])
+(defn next-form-targs [types]
+  nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed require
@@ -88,7 +104,7 @@
 ;; Debug macros
 
 (+T debug-mode (Atom Any))
-(def debug-mode (atom true))
+(def debug-mode (atom false))
 
 (+T print-warnings (Atom Any))
 (def print-warnings (atom false))
@@ -113,6 +129,19 @@
 
 (declare add-type-ann parse ^:dynamic *type-db* tc-expr unparse)
 
+(+T TYPE-ARGS (Atom Any))
+(def TYPE-ARGS (atom nil))
+
+(+T set-type-args [Any -> nil])
+(defn set-type-args [targs]
+  (reset! TYPE-ARGS targs)
+  nil)
+
+(+T delete-type-args [-> nil])
+(defn delete-type-args []
+  (reset! TYPE-ARGS nil)
+  nil)
+
 (def ^:dynamic *already-reloaded*)
 
 (+T reload-ns [Symbol -> nil])
@@ -130,20 +159,25 @@
     (reload-ns depsym)
     (require-typed-deps depsym)))
 
+(+T load-env [& Symbol * -> nil])
+(defn load-env [& nsyms]
+  (binding [*add-type-ann-fn* (fn [sym type-syn]
+                                (debug "add type:" sym :- type-syn)
+                                (add-type-ann sym (parse type-syn)))
+            *already-reloaded* (atom #{'typed.core})]
+    (reload-ns 'typed.base)
+    (doseq [nsym nsyms]
+      (reload-ns nsym)
+      (require-typed-deps nsym))
+    (doseq [{sym :nme syntax :syn} @unevaled-typedcore-anns]
+      (prn "add typed.core type" sym)
+      (add-type-ann sym (parse syntax)))))
+
 (+T check-namespace [Symbol -> nil])
 (defn check-namespace [nsym]
   (let [ 
         ;; 1. Collect all type annotations
-        _ (binding [*add-type-ann-fn* (fn [sym type-syn]
-                                        (debug "add type:" sym :- type-syn)
-                                        (add-type-ann sym (parse type-syn)))
-                    *already-reloaded* (atom #{'typed.core})]
-            (reload-ns 'typed.base)
-            (reload-ns nsym)
-            (require-typed-deps nsym)
-            (doseq [{sym :nme syntax :syn} @unevaled-typedcore-anns]
-              (prn "add typed.core type" sym)
-              (add-type-ann sym (parse syntax))))
+        _ (load-env nsym)
         
         ;; 2. Perform type checking
         asts (analyze-path nsym)
@@ -404,23 +438,28 @@
        (every? ParameterisedType? (vals m))))
 
 (defconstrainedvar 
-  ^:dynamic *typed-classes*
+  ^:dynamic *parameterised-classes*
   (constrained-atom {}
                     "A map of qualified symbols to ParameterisedType's"
                     [typed-classes-atom-contract])
   "Atom containing a map of qualified symbols to ParameterisedType's"
   [typed-classes-var-contract])
 
-(+T add-typed-class [Class (Seq TypeVariable) '{:optional {:extends Any}}
+(declare parse-tvar-decl)
+
+(defmacro annotate-class [cls flds & opts]
+  `(add-typed-class ~cls (map parse-tvar-decl '~flds) '~@opts))
+
+(+T add-typed-class [Class (Seq TypeVariable) & '{:optional {:extends Any}}
                      -> nil])
-(defn add-typed-class [cls fields opts]
+(defn add-typed-class [cls fields & opts]
     (assert (class? cls))
     (assert (every? TypeVariable? fields))
   (let [csym (symbol (.getName cls))
         extends (:extends opts)]
-    (swap! *typed-classes* #(assoc %
-                                   csym
-                                   (->ParameterisedType csym fields))))
+    (swap! *parameterised-classes* #(assoc %
+                                           csym
+                                           (->ParameterisedType csym fields))))
   nil)
 
 (defmacro with-type-vars [var-map & body]
@@ -452,14 +491,6 @@
                                          [type-db-atom-contract])]
      ~@body))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Typed Classes
-
-(defmacro annotate-class [nme fields & opts]
-  `(let [r# (resolve '~nme)]
-       (assert (class? r#) r#)
-     (add-typed-class r# (map -tv '~fields) (apply hash-map '~opts))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed Protocol
@@ -537,13 +568,8 @@
 
 (+T Union (Record (Set Type)))
 (def-type Union [types]
-  "A disjoint union of types"
-  {:pre [(every? Type? types)
-         (every? 
-           (fn [t]
-             (every? #(not (subtype? % t))
-                     (disj (set types) t)))
-           types)]}
+  "A union of types"
+  {:pre [(every? Type? types)]}
   
   IFreeVars
   (-free-vars [this] 
@@ -579,14 +605,14 @@
   (assert (class? cls))
   (->ClassType (symbol (.getName cls))))
 
-(+T ParameterisedType (Record Symbol (SequentialSeq TypeVariables)))
+(+T ParameterisedType (Record Symbol (SequentialSeq Type)))
 (def-type ParameterisedType [class-sym fields]
   "A type for parameterised classes. Takes a symbol
   representing the class it is parameterising, and a list
   of fields, type variables"
   {:pre [(symbol? class-sym)
          (class? (resolve class-sym))
-         (every? TypeVariable? fields)]})
+         (every? Type? fields)]})
 
 (+T Any Union)
 ;TODO primitives?
@@ -677,33 +703,30 @@
   IFreeVars
   (-free-vars [this] nil))
 
-(+T simplify-union [Union -> Type])
-(defn- simplify-union [the-union]
-  (cond 
-    (some #(Union? %) (:types the-union))
-    (recur (->Union (set (doall (mapcat #(or (and (Union? %)
-                                               (:types %))
-                                             [%])
-                                        (:types the-union))))))
-
-    (= 1
-       (count (:types the-union)))
-    (first (:types the-union))
-    
-    :else the-union))
-
 (+T union [(Seq types) -> Type])
-(defn union [types]
-  (simplify-union (->Union (set types))))
+(defn union [ts]
+  (let [ts (set ts)]
+    (cond
+      (empty? ts) Nothing
+      (= 1 (count ts)) (first ts)
+      :else (->Union ts))))
 
 (+T Intersection (Record (Set Type)))
 (def-type Intersection [types]
   "An intersection of types"
-  {:pre [(every? Type? types)]}
+  {:pre [(set? types)
+         (every? Type? types)]}
 
   IFreeVars
   (-free-vars [this] 
     (mapcat free-vars types)))
+
+(defn -intersection [ts]
+  (let [ts (set ts)]
+    (cond
+      (empty? ts) Nothing
+      (= 1 (count ts)) (first ts)
+      :else (->Intersection ts))))
 
 ;; type variables
 
@@ -951,7 +974,7 @@
   (^{+T [IParseType -> Type]}
    parse-syntax* [this]))
 
-(declare Fun-literal All-literal)
+(declare Fun-literal All-literal parse-tvar-decl)
 
 (+T parse-syntax [Any -> Type])
 (defn parse-syntax
@@ -969,11 +992,7 @@
             (first syn)))
     (let [[_ tvar-syn body-syn] syn
           ;; tvar-syn with optional bound (All [x (y <: Number)] ..)
-          tvars (map #(if (symbol? %)
-                        (-tv %)
-                        (-tv (first %)
-                             (parse-syntax (nth % 2))))
-                     tvar-syn)
+          tvars (map parse-tvar-decl tvar-syn)
           scope (into {} (map #(vector (:nme %) %) tvars))]
       (with-type-vars scope
         (let [t (parse-syntax body-syn)]
@@ -981,6 +1000,12 @@
 
     :else
     (parse-syntax* syn)))
+
+(defn parse-tvar-decl [tvarsyn]
+  (if (symbol? tvarsyn)
+    (-tv tvarsyn)
+    (-tv (first tvarsyn)
+         (parse-syntax (nth tvarsyn 2)))))
 
 (def parse parse-syntax)
 
@@ -1082,8 +1107,7 @@
 
 (defmethod parse-list-syntax I-literal
   [[_ & syn]]
-  (map->Intersection 
-    {:types (doall (map parse-syntax syn))}))
+  (-intersection (doall (map parse-syntax syn))))
 
 (defmethod parse-list-syntax predicate-literal
   [[_ & [typ-syntax :as args]]]
@@ -1114,8 +1138,17 @@
     {:arities (set (doall (map parse-syntax* arities)))})) ; parse-syntax* to avoid implicit arity sugar wrapping
 
 (defmethod parse-list-syntax :default
-  [[c & inst]]
-  (throw (Exception. (str "no list syntax " c))))
+  [[c & args-syn :as syn]]
+  (let [args (doall (map parse args-syn))
+        cls-type (resolve-symbol c)
+        _ (assert (ClassType? cls-type))
+        param-type-template (@*parameterised-classes* (:the-class cls-type))
+        _ (assert param-type-template (str "Not a parameterised type: " c))
+        _ (assert (= (count args)
+                     (count (:fields param-type-template)))
+                  (str "Malformed syntax: " syn))]
+    (->ParameterisedType (:the-class cls-type)
+                         args)))
 
 (extend-protocol IParseType
   IPersistentList
@@ -1156,7 +1189,8 @@
              :type type})
       :!-> (map->NotTypeFilter
              {:var nme-sym
-              :type type}))))
+              :type type})
+      (throw (Exception. (str "Bad filter syntax: " syn))))))
 
 (defrecord DomTypes [fixed rest-type])
 
@@ -1253,6 +1287,10 @@
   ClassType
   (unparse-type* [this]
     (:the-class this))
+
+  ParameterisedType
+  (unparse-type* [this]
+    (list* (:class-sym this) (map unparse (:fields this))))
 
   PrimitiveClass
   (unparse-type* [this]
@@ -1754,7 +1792,8 @@
   [t rmap]
   (assert (Type? t) t)
   (assert (map? rmap))
-  (assert (every? TypeVariable? (concat (keys rmap) (vals rmap))))
+  (assert (every? TypeVariable? (keys rmap)))
+  (assert (every? Type? (vals rmap)))
   (let [conflicts (set/intersection (-> t tvar-binding set) (-> rmap keys set))]
     ;scope introduces conflicting variables
     (if (seq conflicts)
@@ -1890,6 +1929,10 @@
   ClassType
   (-promote [this vs] this)
   (-demote [this vs] this)
+
+  Value
+  (-promote [this vs] this)
+  (-demote [this vs] this)
   
   NilType
   (-promote [this vs] this)
@@ -1925,15 +1968,20 @@
 ;; Section 5.4
 
 (+T EqConstraint (Record Type))
-(defconstrainedrecord EqConstraint [type]
+(defconstrainedrecord EqConstraint [eqtype]
   "Type R satisfies an EqConstraint [S] if (= R S)"
-  {:pre [(Type? type)]})
+  {:pre [(Type? eqtype)]})
 
 (+T SubConstraint (Record Type Type))
 (defconstrainedrecord SubConstraint [lower upper]
   "Type R satisfies a SubConstraint [S T] if (subtype? R S) and (subtype? R T)"
   {:pre [(Type? lower)
-         (Type? upper)]})
+         (Type? upper)
+         (subtype? lower upper)]})
+
+(defn sub-constraint [lower upper]
+  (assert (subtype? lower upper))
+  (->SubConstraint lower upper))
 
 (+T constraints (Set Class))
 (def constraints #{EqConstraint SubConstraint})
@@ -1965,7 +2013,9 @@
     (into {}
           (map vector
                xs
-               (repeat (->SubConstraint Nothing Any))))))
+               (repeat (sub-constraint Nothing Any))))))
+
+(declare intersect-constraint-sets)
 
 (+T singleton-constraint-set [TypeVariable Constraint (Set TypeVariable) -> ConstraintSet])
 (defn singleton-constraint-set
@@ -1975,12 +2025,12 @@
   [v c xs]
   {:post [ConstraintSet?]}
     (assert (TypeVariable? v))
-    (assert (constraint? c))
+    (assert (constraint? c) c)
     (assert (set? xs))
     (assert (every? TypeVariable? xs))
     (assert (not (contains? xs v)))
-  (merge (empty-constraint-set xs)
-         (->ConstraintSet {v c})))
+  (intersect-constraint-sets (empty-constraint-set xs)
+                             (->ConstraintSet {v c})))
 
 (defmulti 
   ^{'+T '[Constraint Constraint -> Constraint]}
@@ -1988,12 +2038,12 @@
   (fn [c1 c2] [(class c1) (class c2)]))
 
 (defmethod intersect-constraint [EqConstraint EqConstraint]
-  [{l-type :type :as c1} {r-type :type :as c2}]
+  [{l-type :eqtype :as c1} {r-type :eqtype :as c2}]
   (assert (= l-type r-type) "Intersect of two constraints must be both equal")
   c1)
 
 (defmethod intersect-constraint [EqConstraint SubConstraint]
-  [{l-type :type :as c1} 
+  [{l-type :eqtype :as c1} 
    {r-lower :lower r-upper :upper :as c2}]
   (assert (and (subtype? r-lower l-type)
                (subtype? l-type r-upper)))
@@ -2001,7 +2051,7 @@
 
 (defmethod intersect-constraint [SubConstraint EqConstraint]
   [{l-lower :lower l-upper :upper :as c1}
-   {r-type :type :as c2}]
+   {r-type :eqtype :as c2}]
   (assert (and (subtype? l-lower r-type)
                (subtype? r-type l-upper)))
   c2)
@@ -2009,13 +2059,16 @@
 (defmethod intersect-constraint [SubConstraint SubConstraint]
   [{l-lower :lower l-upper :upper :as c1}
    {r-lower :lower r-upper :upper :as c2}]
-  (->SubConstraint (union l-lower r-lower)
-                   (->Intersection [l-upper r-upper])))
+  (let [new-lower (union [l-lower r-lower])
+        new-upper (-intersection [l-upper r-upper])]
+    (assert (subtype? new-lower new-upper))
+    (sub-constraint new-lower new-upper)))
 
 (+T intersect-constraint-sets [& ConstraintSet * -> ConstraintSet])
 (defn- intersect-constraint-sets [& cs]
   (assert (every? ConstraintSet? cs))
-  (apply merge-with intersect-constraint cs))
+  (->ConstraintSet 
+    (apply merge-with intersect-constraint (map :cs cs))))
 
 (declare constraint-gen*)
 
@@ -2048,15 +2101,16 @@
     (assert (every? TypeVariable? xs))
     (assert (Type? s))
     (assert (Type? t))
-    ;variables xs does not occur in one type s or t
     (assert (or (empty?
                   (set/intersection 
-                    (set (free-vars t))
+                    (set (free-vars s))
                     xs))
                 (empty?
                   (set/intersection 
                     (set (free-vars t))
-                    xs))))
+                    xs)))
+            (str "Variables " (with-out-str (pr (map :nme xs))) " occur in both types: "
+                 (unp s) " " (unp t)))
   (cond
     (= Any t)
     (empty-constraint-set xs)
@@ -2064,29 +2118,26 @@
     (= Nothing s)
     (empty-constraint-set xs)
 
-    (and (contains? xs s)
-         (empty?
-           (set/intersection 
-             (set (free-vars t))
-             xs)))
+    (contains? xs s)
     (let [r (demote t vs)
-          c (->SubConstraint Nothing r)]
-      (singleton-constraint-set s c (disj xs s)))
+          c (sub-constraint Nothing r)]
+      (assert (empty?
+                (set/intersection 
+                  (set (free-vars t))
+                  xs))
+      (singleton-constraint-set s c (disj xs s))))
 
-    (and (contains? xs t)
-         (empty?
-           (set/intersection 
-             (set (free-vars s))
-             xs)))
+    (contains? xs t)
     (let [r (promote s vs)
-          c (->SubConstraint r Any)]
+          c (sub-constraint r Any)]
+      (assert (empty?
+                (set/intersection 
+                  (set (free-vars s))
+                  xs)))
       (singleton-constraint-set t c (disj xs t)))
 
     (= s t)
     (empty-constraint-set xs)
-
-    (TypeVariable? s)
-    (constraint-gen vs xs (:bnd s) t)
 
     (and (Fun? s)
          (Fun? t))
@@ -2230,48 +2281,69 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Calculating Variance
 
+(def constant ::constant)
 (def covariant ::covariant)
 (def contravariant ::contravariant)
 (def invariant ::invariant)
+(def rigid ::rigid)
 
-(def variances #{covariant contravariant invariant})
+(def variances #{covariant contravariant invariant constant rigid})
 
 (def any-variance ::any-variance)
+(def but-rigid ::but-rigid)
 
 (doseq [v variances]
   (derive v any-variance))
 
+(doseq [v (disj variances rigid)]
+  (derive v but-rigid))
+
+(+T *current-variance* any-variance)
 (def ^:dynamic *current-variance*)
 (set-validator! #'*current-variance* variances)
 
 (defmulti 
-  ^{'+T '[(U nil any-variance) (U nil any-variance) -> any-variance]}
+  ^{'+T '[any-variance any-variance -> any-variance]}
   update-variance vector)
 
-(defmethod update-variance [nil any-variance] [_ v] v)
-(defmethod update-variance [any-variance nil] [v _] v)
+(defmethod update-variance [constant constant] [& v] constant)
 
+(defmethod update-variance [constant covariant] [& v] covariant)
+(defmethod update-variance [covariant constant] [& v] covariant)
 (defmethod update-variance [covariant covariant] [& v] covariant)
+
+(defmethod update-variance [constant contravariant] [& v] contravariant)
+(defmethod update-variance [contravariant constant] [& v] contravariant)
 (defmethod update-variance [contravariant contravariant] [& v] contravariant)
 
 (defmethod update-variance [contravariant covariant] [& v] invariant)
 (defmethod update-variance [covariant contravariant] [& v] invariant)
 
-(defmethod update-variance [any-variance invariant] [& v] invariant)
-(defmethod update-variance [invariant any-variance] [& v] invariant)
+(defmethod update-variance [invariant invariant] [& v] invariant)
+(defmethod update-variance [invariant contravariant] [& v] invariant)
+(defmethod update-variance [invariant covariant] [& v] invariant)
+(defmethod update-variance [covariant invariant] [& v] invariant)
+(defmethod update-variance [contravariant invariant] [& v] invariant)
+(defmethod update-variance [constant invariant] [& v] invariant)
+(defmethod update-variance [invariant constant] [& v] invariant)
 
-(prefer-method update-variance 
-               [invariant any-variance]
-               [any-variance invariant])
+(defmethod update-variance [but-rigid rigid] [& v] rigid)
+(defmethod update-variance [rigid but-rigid] [& v] rigid)
+(defmethod update-variance [rigid rigid] [& v] rigid)
 
 (defmacro with-flipped-variance [& body]
-  `(binding [*current-variance* (if (= covariant *current-variance*)
-                                  contravariant
-                                  covariant)]
+  `(binding [*current-variance* (cond
+                                  (= rigid *current-variance*) rigid
+                                  (= covariant *current-variance*) contravariant
+                                  :else covariant)]
      ~@body))
 
 (defmacro with-contravariance [& body]
   `(binding [*current-variance* contravariant]
+     ~@body))
+
+(defmacro with-rigidity [& body]
+  `(binding [*current-variance* rigid]
      ~@body))
 
 (defmacro with-covariance [& body]
@@ -2288,7 +2360,7 @@
     (assert (every? TypeVariable? xs))
     (assert (bound? #'*current-variance*))
   (let [t (resolve-conflicts t xs)]
-    (collect-variances t xs {})))
+    (collect-variances t xs (zipmap xs (repeat constant)))))
 
 (extend-protocol IVariance
   NilType
@@ -2303,7 +2375,8 @@
 
   TypeVariable
   (collect-variances [this xs m]
-    (let [bnd-variances (collect-variances (:bnd this) xs m)]
+    (let [bnd-variances (with-rigidity
+                          (collect-variances (:bnd this) xs m))]
       (merge-with 
         update-variance
         bnd-variances
@@ -2339,6 +2412,12 @@
 ;; Local Type Inference, Pierce & Turner
 ;; Section 5.7
 
+(defprotocol IRigid
+  (rigid-constraint? [this]))
+
+(defprotocol ITight
+  (tight-constraint? [this]))
+
 (defprotocol IMaxMinType
   (^{+T [IMaxMinType -> Type]}
    max-type [this])
@@ -2347,17 +2426,34 @@
 
 (extend-protocol IMaxMinType
   EqConstraint
-  (max-type [this] (:type this))
-  (min-type [this] (:type this))
+  (max-type [this] (:eqtype this))
+  (min-type [this] (:eqtype this))
 
   SubConstraint
   (max-type [this] (:upper this))
   (min-type [this] (:lower this)))
 
+(extend-protocol IRigid
+  EqConstraint
+  (rigid-constraint? [this] true)
+
+  SubConstraint
+  (rigid-constraint? [this] (= (:upper this)
+                               (:lower this))))
+
+(extend-protocol ITight
+  EqConstraint
+  (tight-constraint? [this] true)
+
+  SubConstraint
+  (tight-constraint? [this] (and (subtype? (:upper this) (:lower this))
+                                 (subtype? (:lower this) (:upper this)))))
+
+
 ;(def-type-alias Substitution (Map Symbol Type))
 
 (+T gen-substitution [Type (Set TypeVariable) ConstraintSet -> Substitution])
-(defn gen-substitution 
+(defn gen-substitution
   "Given a type and a satisfiable constraint set, return the substitution map"
   [t xs cs]
   {:post [(map? %)
@@ -2367,26 +2463,33 @@
     (assert (ConstraintSet? cs))
     (assert (set? xs))
     (assert (every? TypeVariable? xs))
-  (let [cs (:cs cs)
-        variance (with-covariance
-                   (calculate-variances t xs))]
+  (let [variance (with-covariance
+                   (calculate-variances t xs))
+        _(prn variance)]
     (into {}
-          (for [x xs]
-            [x
-             (cond
-               (= covariant (variance x))
-               (min-type (cs x))
+          (doall 
+            (for [x xs]
+              [x
+               (cond
+                 (#{constant covariant} (variance x))
+                 (min-type (get-in cs [:cs x]))
 
-               (= contravariant (variance x))
-               (max-type (cs x))
+                 (#{contravariant} (variance x))
+                 (max-type (get-in cs [:cs x]))
 
-               (= invariant (variance x))
-               (min-type (cs x))
+                 (and (#{invariant} (variance x))
+                      (tight-constraint? (get-in cs [:cs x])))
+                 (min-type (get-in cs [:cs x]))
 
-               ;;TODO rigid?
+                 (and (#{rigid} (variance x))
+                      (rigid-constraint? (get-in cs [:cs x])))
+                 (min-type (get-in cs [:cs x]))
 
-               :else
-               (throw (Exception. "No variance")))]))))
+                 :else
+                 (throw (Exception. (str "Substitution is undefined for variables "
+                                         (with-out-str (pr (map :nme xs))) " and constraints "
+                                         (with-out-str (pr cs))
+                                         " for type " (unp t)))))])))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2666,20 +2769,39 @@
                       xs))
                   "xs cannot occur in bounds")
 
+        ;_ (prn "xs" xs)
         bnd-cons (map #(constraint-gen #{} xs % (:bnd %)) xs)
+        ;_ (prn "bnd-cons" bnd-cons)
+        ;_ (prn "arg-types" arg-types)
         dom-cons (map #(constraint-gen #{} xs %1 %2)
                       arg-types
                       (concat (:dom arity-type)
                               (repeat (:rest-type arity-type))))
-        rng-con (constraint-gen #{} xs (:rng arity-type) (:rng arity-type))
+        ;_ (prn "dom-cons" bnd-cons)
 
-        subst (gen-substitution arity-type xs (apply intersect-constraint-sets
-                                                     (concat bnd-cons dom-cons)))]
-    ))
+        subst (gen-substitution (:rng arity-type) xs (apply intersect-constraint-sets
+                                                            (concat bnd-cons dom-cons)))
+        ;_ (prn "subst" subst)
+        ]
+    (rename (:rng arity-type) subst)))
+
+(+T subst-type-args [(SequentialSeq Type) Fun -> Fun])
+(defn- subst-type-args [type-args fun-type]
+    (assert (= (count type-args)
+               (tvar-binding fun-type)))
+    (assert (= 1 (count (:arities fun-type))))
+  (let [subst (zipmap (map :nme tvar-binding) type-args)]
+    (-> fun-type
+      (update-in [:arities] #(set [(rename (first %) subst)])))))
 
 (+T invoke-type [(SequentialSeq Type) Fun -> Type])
 (defn- invoke-type [arg-types {:keys [arities] :as fun-type}]
-  (let [[mtched-arity :as mtched-arities]
+  (let [type-args-syn @TYPE-ARGS
+        type-args (seq (map parse type-args-syn))
+
+        _ (delete-type-args)
+
+        [mtched-arity :as mtched-arities]
         (filter #(or (and (not (:rest-type %))
                           (= (count (:dom %))
                              (count arg-types)))
@@ -2695,30 +2817,45 @@
 
         xs (-> fun-type tvar-binding set)
 
-        rng-poly (when (seq xs)
+        rng-poly (if (and (seq xs)
+                          (empty? type-args))
                    (check-poly xs arg-types mtched-arity))
+        _ (prn "rng-poly" rng-poly)
         
-        _ (doall (map assert-subtype arg-types (concat (:dom mtched-arity)
-                                                       (when (:rest-type mtched-arity)
-                                                         (repeat (:rest-type mtched-arity))))))]
+        _ (when-not rng-poly ; no type args
+            (doall (map assert-subtype arg-types (concat (:dom mtched-arity)
+                                                         (when (:rest-type mtched-arity)
+                                                           (repeat (:rest-type mtched-arity)))))))]
     (or rng-poly
         (:rng mtched-arity))))
+
+(def type-args-key ::type-args)
 
 (defmethod tc-expr :invoke
   [expr & opts]
   (debug "invoke:" (or (-> expr :fexpr :var)
                          "??"))
-  (let [{cfexpr :fexpr
-         cargs :args
-         :as expr}
-        (-> expr
-          (update-in [:fexpr] tc-expr)
-          (update-in [:args] tc-exprs))
-        
-        _ (assert-subtype (type-key cfexpr) (ClassType-from IFn))]
-  (assoc expr
-         type-key (invoke-type (map type-key cargs)
-                               (type-key cfexpr)))))
+  (cond
+    ;handle setting type args for next form
+    (and (-> :fexpr :var)
+         (= `next-form-targs
+            (-> :fexpr :var var-or-class->sym)))
+    (do (set-type-args (map parse (-> expr :args first :val)))
+      (assoc expr
+             type-key (parse nil)))
+
+    :else
+    (let [{cfexpr :fexpr
+           cargs :args
+           :as expr}
+          (-> expr
+            (update-in [:fexpr] tc-expr)
+            (update-in [:args] tc-exprs))
+
+          _ (assert-subtype (type-key cfexpr) (ClassType-from IFn))]
+      (assoc expr
+             type-key (invoke-type (map type-key cargs)
+                                   (type-key cfexpr))))))
 
 ;let
 

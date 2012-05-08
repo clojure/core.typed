@@ -11,3 +11,4 @@ pom.xml
 *.pdf
 *.log
 papers
+*~
