@@ -1,12 +1,11 @@
 (ns typed.test.core
-  ; above :import to ensure ClassType is created
-  (:require [typed.core :refer :all, :as t])
+  (:require [typed.core :refer :all, :as t]
+            [analyze.core :refer [ast]]
+            [clojure.test :refer :all])
   (:import (clojure.lang Keyword IPersistentVector Sequential IPersistentList Var Ratio
                          Symbol IPersistentMap ISeq Seqable Counted ILookup Associative
                          IMeta IObj IFn Symbol)
-           (typed.core ClassType))
-  (:require [analyze.core :refer [ast]]
-            [clojure.test :refer :all]))
+           (typed.core ClassType)))
 
 (load-env)
 

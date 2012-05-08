@@ -66,9 +66,9 @@
     [sym :- type-syn]))
 
 (+T *add-type-ann-fn* [Symbol IParseType -> nil])
+(+T UnevaledTypeEntry (Record Symbol IParseType))
 (+T unevaled-typedcore-anns 
     (Atom (Vector UnevaledTypeEntry)))
-(+T UnevaledTypeEntry (Record Symbol IParseType))
 
 ;placeholder for communicating with analysis
 (+T next-form-targs [Any -> nil])
@@ -165,6 +165,7 @@
                                 (debug "add type:" sym :- type-syn)
                                 (add-type-ann sym (parse type-syn)))
             *already-reloaded* (atom #{'typed.core})]
+    (reload-ns 'typed.class)
     (reload-ns 'typed.base)
     (doseq [nsym nsyms]
       (reload-ns nsym)
@@ -563,6 +564,13 @@
   
   IFreeVars
   (-free-vars [this] nil))
+
+(def-type Record [fields]
+  "A type for records"
+  {:pre [(every? Type? fields)]}
+  
+  IFreeVars
+  (-free-vars [this] (doall (map free-vars fields))))
 
 (declare subtype?)
 
@@ -1059,6 +1067,7 @@
   parse-list-syntax first)
 
 (def All-literal 'All)
+(def Record-literal 'Record)
 (def U-literal 'U)
 (def I-literal 'I)
 (def Fun-literal 'Fun)
