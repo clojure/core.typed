@@ -4,60 +4,33 @@
                          IMapEntry AMapEntry MapEntry ILookup Associative IPersistentMap
                          IDeref IMeta IObj IRef IReference AReference ARef Atom Ref ISeq
                          IPersistentSet Delay Agent IBlockingDeref IEditableCollection
-                         IHashEq PersistentHashMap))
+                         IHashEq PersistentHashMap PersistentTreeSet PersistentHashSet))
   (:require [typed.core :refer [annotate-class]]))
 
-;all classes/interfaces know how to directly coerce to each parameterised ancestor
-; Note: not very useful just doing this for concrete classes, as most return types
-; in the core library are interfaces. eg. IPersistentVector instead of PersistentVector
+
+;interfaces, like protocols here. Mix and match, but none imply others.
 
 (parameterise-interface Seqable [a])
 
-(parameterise-interface IPersistentCollection [a]
-  (Seqable a))
+(parameterise-interface IPersistentCollection [a])
 
-(parameterise-interface ISeq [a]
-  (IPersistentCollection a)
-  (Seqable a))
+(parameterise-interface ISeq [a])
 
-(parameterise-interface IPersistentStack [a]
-  (IPersistentCollection a)
-  (Seqable a))
+(parameterise-interface IPersistentStack [a])
 
-(parameterise-interface IEditableCollection [])
+(parameterise-interface IPersistentSet [a])
 
-(parameterise-interface IPersistentSet [a]
-  (IPersistentCollection a)
-  (Seqable a))
+(parameterise-interface IPersistentList [a])
 
-(parameterise-interface IPersistentList [a]
-  (IPersistentCollection a)
-  (Seqable a)
-  (IPersistentStack a))
-
-(parameterise-interface IPersistentVector [a]
-  (IPersistentCollection a)
-  (Associative Number a)
-  (ILookup Number a)
-  (Seqable a)
-  (IPersistentStack a))
+(parameterise-interface IPersistentVector [a])
 
 (parameterise-interface IMapEntry [a b])
 
 (parameterise-interface ILookup [a b])
 
-(parameterise-interface IHashEq [])
+(parameterise-interface Associative [a b])
 
-(parameterise-interface Associative [a b]
-  (IPersistentCollection Any)
-  (ILookup a b)
-  (Seqable Any))
-
-(parameterise-interface IPersistentMap [a b]
-  (IPersistentCollection (IMapEntry a b))
-  (Associative a b)
-  (ILookup a b)
-  (Seqable (IMapEntry a b)))
+(parameterise-interface IPersistentMap [a b])
 
 (parameterise-interface IDeref [a])
 
@@ -65,77 +38,161 @@
 
 (parameterise-interface IMeta [(a <! (U nil (IPersistentMap Any Any)))])
 
-(parameterise-interface IObj [(a <! (U nil (IPersistentMap Any Any)))])
+;abstract classes, more like type aliases here
 
-;TODO
-;(parameterise-interface IFn [])
+(parameterise-abstract-class APersistentMap [a b]
+  (I Iterable 
+     (IPersistentCollection (MapEntryT a b))
+     IHashEq 
+     [Any -> (U nil b)] 
+     (Associative a b)
+     MapEquivalence 
+     java.util.concurrent.Callable 
+     (clojure.lang.IPersistentMap a b)
+     (ILookup a b)
+     java.io.Serializable
+     java.lang.Runnable 
+     java.util.Map 
+     Counted 
+     (Seqable (MapEntryT a b))
+     java.lang.Object))
 
-; ignore abstract classes
+(parameterise-abstract-class APersistentVector [a]
+  (I Reversible 
+     Indexed 
+     Iterable 
+     (IPersistentCollection a) 
+     IHashEq 
+     [Long -> a] 
+     (Associative Long a) 
+     Comparable 
+     RandomAccess 
+     java.util.concurrent.Callable 
+     (IPersistentVector a) 
+     java.util.List 
+     java.util.Collection 
+     (ILookup Long a) 
+     Serializable 
+     Runnable 
+     Counted 
+     (Seqable a)
+     Object 
+     (IPersistentStack a)
+     Sequential 
+     IEditableCollection))
+
+(parameterise-abstract-class AMapEntry [a b]
+  (I Reversible 
+     Indexed 
+     Iterable 
+     (IPersistentCollection (U a b))
+     IHashEq 
+     [Long -> (U a b)]
+     (Associative Long (U a b))
+     java.lang.Comparable 
+     java.util.RandomAccess 
+     java.util.concurrent.Callable 
+     (IPersistentVector (U a b))
+     java.util.List 
+     java.util.Collection 
+     (ILookup Long (U a b))
+     java.io.Serializable 
+     java.util.Map$Entry 
+     (IMapEntry a b) 
+     java.lang.Runnable 
+     Counted 
+     (Seqable (U a b)) 
+     Object 
+     (IPersistentStack (U a b))
+     Sequential))
+
+(parameterise-abstract-class APersistentSet [a]
+  (I (IPersistentSet a)
+     [Any -> (U nil a)]
+     Iterable 
+     (IPersistentCollection a) 
+     IHashEq 
+     java.util.Set 
+     java.util.concurrent.Callable 
+     java.util.Collection 
+     java.io.Serializable 
+     java.lang.Runnable 
+     Counted 
+     (Seqable a) 
+     java.lang.Object))
+
+(parameterise-abstract-class Obj [a]
+  (I IObj
+     (IMeta a)
+     java.io.Serializable))
+
+(parameterise-abstract-class ASeq [a]
+  (I java.lang.Iterable 
+     (IPersistentCollection a) 
+     IHashEq 
+     java.util.List 
+     java.util.Collection 
+     java.io.Serializable 
+     (ISeq a)
+     (Seqable a)
+     java.lang.Object 
+     Sequential 
+     (Obj (APersistentMap Any Any))))
+
+;concrete classes, again more like type aliases. Abstract classes useful for abstraction
 
 (parameterise-class PersistentVector [a]
-  (clojure.lang.Associative Number a)
-  ;clojure.lang.IFn 
-  (clojure.lang.ILookup Long a)
-  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IObj (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IPersistentCollection a)
-  (clojure.lang.IPersistentStack a)
-  (clojure.lang.IPersistentVector a)
-  (clojure.lang.Seqable a))
+  (I IObj
+     (IMeta (Map Any Any))
+     (APersistentVector a)))
 
-(annotate-class PersistentHashMap [a b]
-  (clojure.lang.Associative a b)
-  ;clojure.lang.IFn 
-  (clojure.lang.ILookup a b)
-  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IObj (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IPersistentCollection (IMapEntry a b))
-  (clojure.lang.IPersistentMap a b)
-  (clojure.lang.Seqable (IMapEntry a b)))
+(parameterise-class PersistentHashMap [a b]
+  (I (Map a b)
+     IObj
+     (IMeta (Map Any Any))
+     IEditableCollection))
 
 (parameterise-class PersistentTreeMap [a b]
-  (clojure.lang.Associative a b)
-  ;clojure.lang.IFn 
-  (clojure.lang.ILookup a b)
-  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IObj (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IPersistentCollection (IMapEntry a b))
-  (clojure.lang.IPersistentMap a b)
-  (clojure.lang.Seqable (IMapEntry a b)))
+  (I (Map a b) 
+     IObj
+     (IMeta (Map Any Any))
+     Reversible 
+     Sorted))
 
 (parameterise-class PersistentHashSet [a]
-  ;clojure.lang.IFn 
-  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IObj (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IPersistentCollection a)
-  (clojure.lang.IPersistentSet a)
-  (clojure.lang.Seqable a))
+  (I IEditableCollection
+     (IMeta (Map Any Any))
+     IObj))
 
 (parameterise-class PersistentTreeSet [a]
-  ;clojure.lang.AFn 
-  ;clojure.lang.APersistentSet 
-  ;clojure.lang.IFn 
-  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IObj (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IPersistentCollection a)
-  (clojure.lang.IPersistentSet a)
-  (clojure.lang.Seqable a))
+  (I Reversible
+     Sorted
+     (IMeta (Map Any Any))
+     IObj))
 
 (parameterise-class MapEntry [a b]
-  (clojure.lang.Associative Long (U a b))
-  ;clojure.lang.IFn 
-  (clojure.lang.ILookup Long (U a b))
-  (clojure.lang.IMapEntry a b)
-  (clojure.lang.IPersistentCollection (U a b))
-  (clojure.lang.IPersistentStack (U a b))
-  (clojure.lang.IPersistentVector (U a b))
-  (clojure.lang.Seqable (U a b)))
+  (MapEntryT a b))
 
 (parameterise-class Keyword []
-  ;clojure.lang.IFn    ; [Keyword (IPersistentMap Any Any) -> Any]
-  )
+  (I (All [k v o] 
+       (Fun [(Map k v) -> (U nil v)]
+            [(Map k v) o -> (U o v)]))
+     java.lang.Comparable 
+     java.util.concurrent.Callable 
+     java.io.Serializable 
+     java.lang.Runnable 
+     Named 
+     java.lang.Object))
 
 (parameterise-class Symbol []
-  ;clojure.lang.IFn  ; [Symbol (IPersistentMap Any Any) -> Any]
-  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
-  (clojure.lang.IObj (U nil (IPersistentMap Any Any))))
+  (I (All [k v o] 
+       (Fun [(Map k v) -> (U nil v)]
+            [(Map k v) o -> (U o v)]))
+     (IMeta (Map Any Any))
+     IObj
+     java.lang.Comparable 
+     java.util.concurrent.Callable 
+     java.io.Serializable 
+     java.lang.Runnable 
+     Named 
+     java.lang.Object)
