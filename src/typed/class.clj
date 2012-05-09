@@ -3,87 +3,139 @@
                          IPersistentList IPersistentVector APersistentVector PersistentVector
                          IMapEntry AMapEntry MapEntry ILookup Associative IPersistentMap
                          IDeref IMeta IObj IRef IReference AReference ARef Atom Ref ISeq
-                         IPersistentSet Delay Agent IBlockingDeref))
+                         IPersistentSet Delay Agent IBlockingDeref IEditableCollection
+                         IHashEq PersistentHashMap))
   (:require [typed.core :refer [annotate-class]]))
 
-(annotate-class Seqable [a])
-(annotate-class IPersistentCollection [a]
-  :extends [(Seqable a)])
+;all classes/interfaces know how to directly coerce to each parameterised ancestor
+; Note: not very useful just doing this for concrete classes, as most return types
+; in the core library are interfaces. eg. IPersistentVector instead of PersistentVector
 
-(annotate-class ISeq [a]
-  :extends [(IPersistentCollection a)])
+(parameterise-interface Seqable [a])
 
-(annotate-class IPersistentStack [a]
-  :extends [(IPersistentCollection a)])
+(parameterise-interface IPersistentCollection [a]
+  (Seqable a))
 
-(annotate-class IPersistentSet [a]
-  :extends [(IPersistentCollection a)])
+(parameterise-interface ISeq [a]
+  (IPersistentCollection a)
+  (Seqable a))
 
-(annotate-class IPersistentList [a]
-  :extends [(IPersistentStack a)])
+(parameterise-interface IPersistentStack [a]
+  (IPersistentCollection a)
+  (Seqable a))
 
-(annotate-class IPersistentVector [a]
-  :extends [(Associative Long a)
-            (IPersistentStack a)])
+(parameterise-interface IEditableCollection [])
 
-(annotate-class APersistentVector [a]
-  :extends [(IPersistentVector a)])
+(parameterise-interface IPersistentSet [a]
+  (IPersistentCollection a)
+  (Seqable a))
 
-(annotate-class PersistentVector [a]
-  :extends [(APersistentVector a)
-            (IObj Any)])
+(parameterise-interface IPersistentList [a]
+  (IPersistentCollection a)
+  (Seqable a)
+  (IPersistentStack a))
 
-(annotate-class IMapEntry [a b])
+(parameterise-interface IPersistentVector [a]
+  (IPersistentCollection a)
+  (Associative Number a)
+  (ILookup Number a)
+  (Seqable a)
+  (IPersistentStack a))
 
-(annotate-class AMapEntry [a b]
-  :extends [(IMapEntry a b)
-            (APersistentVector* a b)]) ;; TODO * extends to constant class?
+(parameterise-interface IMapEntry [a b])
 
-(annotate-class MapEntry [a b]
-  :extends [(AMapEntry a b)])
+(parameterise-interface ILookup [a b])
 
-(annotate-class ILookup [a b])
+(parameterise-interface IHashEq [])
 
-(annotate-class Associative [a b]
-  :extends [(IPersistentCollection (IMapEntry a b))
-            (ILookup a b)])
+(parameterise-interface Associative [a b]
+  (IPersistentCollection Any)
+  (ILookup a b)
+  (Seqable Any))
 
-(annotate-class IPersistentMap [a b]
-  :extends [(Associative a b)])
+(parameterise-interface IPersistentMap [a b]
+  (IPersistentCollection (IMapEntry a b))
+  (Associative a b)
+  (ILookup a b)
+  (Seqable (IMapEntry a b)))
 
-(annotate-class IDeref [a])
+(parameterise-interface IDeref [a])
 
-(annotate-class IBlockingDeref [a])
+(parameterise-interface IBlockingDeref [a])
 
-(annotate-class Delay [a]
-  :extends [(IDeref a)
-            (IPending a)])
+(parameterise-interface IMeta [(a <! (U nil (IPersistentMap Any Any)))])
 
-(annotate-class IMeta [(a <! IPersistentMap)])
-(annotate-class IObj [(a <! IPersistentMap)]
-  :extends [(IMeta a)])
+(parameterise-interface IObj [(a <! (U nil (IPersistentMap Any Any)))])
 
-(annotate-class IRef [a]
-  :extends [(IDeref a)])
+;TODO
+;(parameterise-interface IFn [])
 
-(annotate-class IReference [(a <! IPersistentMap)]
-  :extends [(IMeta a)])
+; ignore abstract classes
 
-(annotate-class AReference [(a <! IPersistentMap)]
-  :extends [(IReference a)])
+(parameterise-class PersistentVector [a]
+  (clojure.lang.Associative Number a)
+  ;clojure.lang.IFn 
+  (clojure.lang.ILookup Long a)
+  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IObj (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IPersistentCollection a)
+  (clojure.lang.IPersistentStack a)
+  (clojure.lang.IPersistentVector a)
+  (clojure.lang.Seqable a))
 
-(annotate-class ARef [a]
-  :extends [(AReference IPersistentMap)
-            (IRef a)])
+(annotate-class PersistentHashMap [a b]
+  (clojure.lang.Associative a b)
+  ;clojure.lang.IFn 
+  (clojure.lang.ILookup a b)
+  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IObj (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IPersistentCollection (IMapEntry a b))
+  (clojure.lang.IPersistentMap a b)
+  (clojure.lang.Seqable (IMapEntry a b)))
 
-(annotate-class Agent [a]
-  :extends [(ARef a)])
+(parameterise-class PersistentTreeMap [a b]
+  (clojure.lang.Associative a b)
+  ;clojure.lang.IFn 
+  (clojure.lang.ILookup a b)
+  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IObj (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IPersistentCollection (IMapEntry a b))
+  (clojure.lang.IPersistentMap a b)
+  (clojure.lang.Seqable (IMapEntry a b)))
 
-(annotate-class Atom [a]
-  :extends [(ARef a)])
+(parameterise-class PersistentHashSet [a]
+  ;clojure.lang.IFn 
+  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IObj (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IPersistentCollection a)
+  (clojure.lang.IPersistentSet a)
+  (clojure.lang.Seqable a))
 
-(annotate-class Ref [a]
-  :extends [(Comparable Ref)
-            (ARef a)
-            (IRef a)])
+(parameterise-class PersistentTreeSet [a]
+  ;clojure.lang.AFn 
+  ;clojure.lang.APersistentSet 
+  ;clojure.lang.IFn 
+  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IObj (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IPersistentCollection a)
+  (clojure.lang.IPersistentSet a)
+  (clojure.lang.Seqable a))
 
+(parameterise-class MapEntry [a b]
+  (clojure.lang.Associative Long (U a b))
+  ;clojure.lang.IFn 
+  (clojure.lang.ILookup Long (U a b))
+  (clojure.lang.IMapEntry a b)
+  (clojure.lang.IPersistentCollection (U a b))
+  (clojure.lang.IPersistentStack (U a b))
+  (clojure.lang.IPersistentVector (U a b))
+  (clojure.lang.Seqable (U a b)))
+
+(parameterise-class Keyword []
+  ;clojure.lang.IFn    ; [Keyword (IPersistentMap Any Any) -> Any]
+  )
+
+(parameterise-class Symbol []
+  ;clojure.lang.IFn  ; [Symbol (IPersistentMap Any Any) -> Any]
+  (clojure.lang.IMeta (U nil (IPersistentMap Any Any)))
+  (clojure.lang.IObj (U nil (IPersistentMap Any Any))))

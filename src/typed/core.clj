@@ -448,6 +448,9 @@
 
 (declare parse-tvar-decl)
 
+(defmacro parameterised-interface [cls flds]
+  `(add-parameterised-interface ~cls (map parse-tvar-decl '~flds)))
+
 (defmacro annotate-class [cls flds & opts]
   `(add-typed-class ~cls (map parse-tvar-decl '~flds) '~@opts))
 

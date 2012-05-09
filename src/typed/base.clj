@@ -24,9 +24,9 @@
 ;                          {:then [(refine-type (arg 0) NonEmptySeq)]
 ;                           :else 'tt}]))
 (+T clojure.core/rest (All [x]
-                        [(Seqable x) -> (ISeq x)]))
+                        [(Seqable x) -> (Seqable x)]))
 (+T clojure.core/next (All [x]
-                        [(Seqable x) -> (ISeq x)]))
+                        [(Seqable x) -> (Seqable x)]))
 ;                         :filter 
 ;                         {:then [(refine-type (arg 0) NonEmptySeq)]
 ;                          :else [(refine-type (arg 0) EmptySeq)]}]))
@@ -39,10 +39,10 @@
 (+T clojure.core/set-validator! (All [x r]
                                   [(IRef x) (U nil [x -> r]) -> nil]))
 (+T clojure.core/cons (All [x] 
-                        [x (Seqable x) -> (ISeq x)]))
+                        [x (Seqable x) -> (Seqable x)]))
 
 (+T clojure.core/conj (All [x]
-                        [(Seqable x) x & x * -> (ISeq x)]))
+                        [(Seqable x) x & x * -> (Seqable x)]))
 
 
 (+T clojure.core/list (All [x]
@@ -62,7 +62,7 @@
 (+T clojure.core/nnext (All [x y]
                           [(Seqable x) -> (Seqable y)]))
 (+T clojure.core/seq (All [x]
-                       [(Seqable x) -> (U nil (ISeq x))]))
+                       [(Seqable x) -> (U nil (Seqable x))]))
 ;                        :filter 
 ;                        {:then [(refine-type (arg 0) NonEmptySeq)]
 ;                         :else [(refine-type (arg 0) EmptySeq)]}]))
@@ -86,7 +86,7 @@
 (+T clojure.core/last (All [x]
                         [(Seqable x) -> x]))
 (+T clojure.core/butlast (All [x]
-                           [(Seqable x) -> (ISeq x)]))
+                           [(Seqable x) -> (Seqable x)]))
 (+T clojure.core/cast (All [x]
                         [Class x -> x]))
 (+T clojure.core/to-array [Collection -> Any]) ;TODO array types
@@ -247,9 +247,9 @@
                                [(IPersistentMap k v) (Seqable Any) -> (IPersistentMap k v)]))
 
 (+T clojure.core/keys (All [k]
-                        [(IPersistentMap k Any) -> (ISeq k)]))
+                        [(IPersistentMap k Any) -> (Seqable k)]))
 (+T clojure.core/vals (All [v]
-                        [(IPersistentMap Any v) -> (ISeq v)]))
+                        [(IPersistentMap Any v) -> (Seqable v)]))
 
 (+T clojure.core/key (All [k]
                        [(IMapEntry k Any) -> k]))
