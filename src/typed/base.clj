@@ -1,257 +1,264 @@
 (ns typed.base
-  (:import (clojure.lang Symbol Namespace IPersistentMap Var Keyword Namespace ISeq Seqable
-                         Atom IRef IObj IPersistentList IDeref IRef IMeta Named ChunkBuffer
-                         IPersistentSet IPersistentVector Associative Sorted Delay IMapEntry
-                         Reversible Agent IBlockingDeref IFn APersistentMap))
   (:import (java.util Collection))
-  (:require [typed.core :refer [+T Any IParseType Nothing annotate-class]]))
+  (:require [typed.core :refer [add-type-ann Any IParseType Nothing parse-typed-ns]]))
 
-(+T clojure.core/in-ns [Symbol -> Namespace])
-(+T clojure.core/import [& (U Symbol (APersistentList Symbol)) * ->  nil])
-(+T clojure.core/find-ns [Symbol -> (U nil Namespace)])
-(+T clojure.core/resolve 
-    (Fun [Symbol -> (U nil Var Class)]
-         [(APersistentMap Symbol Any) Symbol -> (U nil Var Class)]))
-(+T clojure.core/refer [Symbol & Any * -> nil])
-(+T clojure.core/require [& Any * -> nil])
-(+T clojure.core/ns-name [Namespace -> String])
-(+T clojure.core/*ns* Namespace)
-(+T clojure.core/+ [& Number * -> Number])
-(+T clojure.core/prn [& Any * -> nil])
-(+T clojure.core/first (All [x]
-                         [(Seqable x) -> x]))
-(+T clojure.core/rest (All [x]
-                        [(Seqable x) -> (Seqable x)]))
-(+T clojure.core/next (All [x]
-                        [(Seqable x) -> (Seqable x)]))
-(+T clojure.core/every? (All [x y]
-                          [[x -> y] (Seqable x) -> Boolean]))
-(+T clojure.core/set? (predicate IPersistentSet))
-(+T clojure.core/set-validator! (All [x r]
+(let [base-ns
+      (parse-typed-ns 'typed.base
+                      '((:import (clojure.lang Symbol Namespace IPersistentMap Var Keyword Namespace ISeq Seqable
+                                               Atom IRef IObj IPersistentList IDeref IRef IMeta Named ChunkBuffer
+                                               IPersistentSet IPersistentVector Associative Sorted Delay IMapEntry
+                                               Reversible Agent IBlockingDeref IFn APersistentMap))))
+
+      _ (swap! typed.core/namespaces assoc-in [(:name base-ns)] base-ns)])
+
+(defmacro type-ann [sym tsyn]
+  `(add-type-ann '~sym '~tsyn))
+
+(type-ann clojure.core/in-ns [symbol -> namespace])
+(type-ann clojure.core/import [& (U symbol (nlist symbol)) * -> nil])
+(type-ann clojure.core/find-ns [symbol -> (U nil namespace)])
+(type-ann clojure.core/resolve 
+    (Fun [symbol -> (U nil var Class)]
+         [(nmap symbol Any) symbol -> (U nil var Class)]))
+(type-ann clojure.core/refer [symbol & Any * -> nil])
+(type-ann clojure.core/require [& Any * -> nil])
+(type-ann clojure.core/ns-name [symbol -> string])
+(type-ann clojure.core/*ns* namespace)
+(type-ann clojure.core/+ [& number * -> number])
+(type-ann clojure.core/prn [& Any * -> nil])
+(type-ann clojure.core/first (All [x]
+                         [(nseqable x) -> (U nil x)]))
+(type-ann clojure.core/rest (All [x]
+                        [(nseqable x) -> (seq x)]))
+(type-ann clojure.core/next (All [x]
+                        [(nseqable x) -> (nseq x)]))
+(type-ann clojure.core/every? (All [x y]
+                          [[x -> y] (nseqable x) -> boolean]))
+(type-ann clojure.core/set? (predicate iset))
+(type-ann clojure.core/set-validator! (All [x r]
                                   [(IRef x) (U nil [x -> r]) -> nil]))
-(+T clojure.core/cons (All [x] 
-                        [x (Seqable x) -> (Seqable x)]))
+(type-ann clojure.core/cons (All [x] 
+                        [x (nseqable x) -> (seq x)]))
 
-(+T clojure.core/conj (All [x]
-                        [(Seqable x) x & x * -> (Seqable x)]))
+(type-ann clojure.core/conj (All [x]
+                        [(ncoll x) x & x * -> (coll x)]))
 
+(type-ann clojure.core/list (All [x]
+                        [& x * -> (list x)]))
 
-(+T clojure.core/list (All [x]
-                        [& x * -> (APersistentList x)]))
-
-(+T clojure.core/second (All [x]
-                          [(Seqable x) -> x]))
-(+T clojure.core/ffirst (All [x]
-                          [(Seqable (Seqable x)) -> x]))
-(+T clojure.core/nfirst (All [x]
-                          [(Seqable x) -> x]))
-(+T clojure.core/fnext (All [x]
-                          [(Seqable (Seqable x)) -> x]))
-(+T clojure.core/nnext (All [x y]
-                          [(Seqable x) -> (Seqable y)]))
-(+T clojure.core/seq (All [x]
-                       [(Seqable x) -> (U nil (ASeq x))]))
+(type-ann clojure.core/second (All [x]
+                          [(nseqable x) -> (U nil x)]))
+(type-ann clojure.core/ffirst (All [x]
+                          [(nseqable (nseqable x)) -> (U nil x)]))
+(type-ann clojure.core/nfirst (All [x]
+                          [(nseqable (nseqable x)) -> (nseqable x)]))
+(type-ann clojure.core/fnext (All [x]
+                          [(nseqable (nseqable x)) -> (U nil x)]))
+(type-ann clojure.core/nnext (All [x y]
+                          [(nseqable x) -> (nseqable y)]))
+(type-ann clojure.core/seq (All [x]
+                       [(nseqable x) -> (nseq x)]))
 ;TODO predicate on 1st argument
-(+T clojure.core/instance? (All [y]
+(type-ann clojure.core/instance? (All [y]
                              [Class y -> boolean]))
-(+T clojure.core/seq? (predicate ISeq))
-(+T clojure.core/char? (predicate Character))
-(+T clojure.core/map? (predicate IPersistentMap))
-(+T clojure.core/vector? (predicate IPersistentVector))
+(type-ann clojure.core/seq? (predicate iseq))
+(type-ann clojure.core/char? (predicate icharacter))
+(type-ann clojure.core/map? (predicate imap))
+(type-ann clojure.core/vector? (predicate ivector))
 ;; TODO repeated key-values
-(+T clojure.core/assoc (All [k v]
-                         [(Associative k v) k v & Any * -> (Associative k v)]))
+(type-ann clojure.core/assoc (All [k v]
+                         [(nassociative k v) k v & Any * -> (associative k v)]))
 
-(+T clojure.core/meta (All [x]
-                        [(U Any (IMeta x)) -> x]))
+(type-ann clojure.core/meta (All [x]
+                        [(U Any (meta x)) -> x]))
 
-(+T clojure.core/with-meta (All [(x <! IObj) (y <! (APersistentMap Any Any))]
-                             [x y -> (I x (IMeta y))]))
+(type-ann clojure.core/with-meta (All [(x <! iobj) (y <! (map Any Any))]
+                             [x y -> (I x (meta y))])) ; remove previous metadata?
 
-(+T clojure.core/last (All [x]
-                        [(Seqable x) -> x]))
-(+T clojure.core/butlast (All [x]
-                           [(Seqable x) -> (Seqable x)]))
-(+T clojure.core/cast (All [x]
+(type-ann clojure.core/last (All [x]
+                        [(nseqable x) -> (U nil x)]))
+(type-ann clojure.core/butlast (All [x]
+                           [(nseqable x) -> (nseqable x)]))
+(type-ann clojure.core/cast (All [x]
                         [Class x -> x]))
-(+T clojure.core/to-array [Collection -> Any]) ;TODO array types
-(+T clojure.core/vector (All [x]
-                          [& x * -> (APersistentVector x)]))
-(+T clojure.core/vec (All [x]
-                       [(Seqable x) -> (APersistentVector x)]))
+(type-ann clojure.core/to-array [Collection -> Any]) ;TODO array types
+(type-ann clojure.core/vector (All [x]
+                          [& x * -> (vector x)]))
+(type-ann clojure.core/vec (All [x]
+                       [(nseqable x) -> (vector x)]))
 ;TODO type key-value pairs
-(+T clojure.core/hash-map [& Any * -> (APersistentMap Any Any)])
-(+T clojure.core/hash-set (All [x]
-                            [& x * -> (APersistentSet x)]))
+(type-ann clojure.core/hash-map [& Any * -> (map Any Any)])
+(type-ann clojure.core/hash-set (All [x]
+                            [& x * -> (set x)]))
 ;TODO key-value pairs
-(+T clojure.core/sorted-map [& Any * -> (I Sorted
-                                           (APersistentMap Any))])
+(type-ann clojure.core/sorted-map [& Any * -> (sorted-map Any Any)])
 
 ;; TODO key-value rest args
-(+T clojure.core/sorted-map-by (All [x]
-                                 [[x -> boolean] & x * -> (I Sorted
-                                                             (IPersistentMap x x))]))
-(+T clojure.core/sorted-set (All [x]
-                              [& x * -> (I Sorted (IPersistentSet x))]))
+(type-ann clojure.core/sorted-map-by (All [x]
+                                 [[x -> boolean] & Any * -> (sorted-map Any Any)]))
+(type-ann clojure.core/sorted-set (All [x]
+                              [& x * -> (sorted-set x)]))
 
-(+T clojure.core/sorted-set-by (All [x]
-                                 [[x -> boolean] & x * -> (I Sorted
-                                                             (IPersistentSet x))]))
-(+T clojure.core/nil? (predicate nil))
+(type-ann clojure.core/sorted-set-by (All [x]
+                                 [[x -> boolean] & x * -> (sorted-set x)]))
+(type-ann clojure.core/nil? (predicate nil))
 
-(+T clojure.core/false? (predicate false))
-(+T clojure.core/true? (predicate true))
-(+T clojure.core/not [Any -> boolean])
-(+T clojure.core/str [& Any * -> String])
-(+T clojure.core/symbol? (predicate Symbol))
-(+T clojure.core/keyword? (predicate Keyword))
-(+T clojure.core/symbol (Fun [(U Symbol String) -> Symbol]
-                             [String String -> Symbol]))
-(+T clojure.core/gensym (Fun [-> Symbol]
-                             [String -> Symbol]))
-(+T clojure.core/keyword (Fun [(U Keyword String) -> Keyword]
-                              [String String -> Keyword]))
-(+T clojure.core/find-keyword (Fun [(U Keyword String) -> (U nil Keyword)]
-                                   [String String -> (U nil Keyword)]))
+(type-ann clojure.core/false? (predicate false))
+(type-ann clojure.core/true? (predicate true))
+(type-ann clojure.core/not [Any -> boolean])
+(type-ann clojure.core/str [& Any * -> String])
+(type-ann clojure.core/symbol? (predicate symbol))
+(type-ann clojure.core/keyword? (predicate keyword))
+(type-ann clojure.core/symbol (Fun [(U symbol string) -> symbol]
+                             [string string -> symbol]))
+(type-ann clojure.core/gensym (Fun [-> symbol]
+                             [string -> symbol]))
+(type-ann clojure.core/keyword (Fun [(U keyword string) -> keyword]
+                              [string string -> keyword]))
+(type-ann clojure.core/find-keyword (Fun [(U keyword string) -> (U nil keyword)]
+                                   [string string -> (U nil keyword)]))
 ;;TODO any number of prefix arguments + special last param
-(+T clojure.core/list* [Any -> (APersistentList Any)])
+(type-ann clojure.core/list* [Any & Any * -> (list Any)])
 
 ;;TODO any number of prefix arguments + special last param
-(+T clojure.core/apply (All [r]
+(type-ann clojure.core/apply (All [r]
                          [[& Any * -> r] & Any * -> r]))
 
 ;;TODO tricky, return arg
-(+T clojure.core/vary-meta (All [(x <! (IMeta Any))]
-                             [x [(IPersistentMap Any Any) & Any * -> Any] & Any * -> x]))
+(type-ann clojure.core/vary-meta (All [(x <! (meta Any))]
+                             [x [(map Any Any) & Any * -> Any] & Any * -> x]))
 
-;(+T clojure.core/chunk-buffer (All [x]
+;(type-ann clojure.core/chunk-buffer (All [x]
 ;                                (ChunkBuffer x)))
 
 ;; other chunk fns ..
 
-(+T clojure.core/concat (All [x]
-                          [& (Seqable x) * -> (ISeq x)]))
+(type-ann clojure.core/concat (All [x]
+                          [& (nseqable x) * -> (seq x)]))
 
-(+T clojure.core/delay? (predicate clojure.lang.Delay))
+(type-ann clojure.core/delay? (predicate idelay))
 
 ;; TODO something interesting here, do disjoint union get in way?
-(+T clojure.core/force (All [x y]
-                         [(U (Delay x) y) -> (U x y)]))
+(type-ann clojure.core/force (All [x y]
+                         [(U (delay x) y) -> (U x y)]))
 
-(+T clojure.core/identical? (All [x y]
+(type-ann clojure.core/identical? (All [x y]
                               [x y -> boolean]))
 ;                               :filter
 ;                               {:then [(= (class (arg 0)) 
 ;                                          (class (arg 1)))]
 ;                                :else 'tt}]))
-(+T clojure.core/= (All [x y]
+(type-ann clojure.core/= (All [x y]
                      [x & y * -> boolean]))
-(+T clojure.core/not= (All [x y]
+(type-ann clojure.core/not= (All [x y]
                         [x & y * -> boolean]))
 
-(+T clojure.core/compare (All [(x <! Comparable) y]
-                           [x y -> Number]))
+(type-ann clojure.core/compare (All [(x <! Comparable) y]
+                           [x y -> number]))
 
-(+T clojure.core/zero? [Number -> boolean])
+(type-ann clojure.core/zero? [number -> boolean])
 
-(+T clojure.core/count [(Seqable Any) -> Number])
-(+T clojure.core/int [(U Character Number) -> int])
+(type-ann clojure.core/count [(nseqable Any) -> integer])
+(type-ann clojure.core/int [(U char number) -> int])
 
 ; interdependent bounds
 ;; TODO works for regexs, how does that relate to Seqable?
-(+T clojure.core/nth (All [x y]
-                       (Fun [(Seqable x) Number -> x]
+;; TODO nth seems extremely forgiving
+(type-ann clojure.core/nth (All [x y]
+                       (Fun [(nseqable x) integer -> x]
                             [(Seqable x) Number y -> (U x y)])))
 
-(+T clojure.core/< [& Number * -> boolean])
-(+T clojure.core/inc [Number -> Number])
+(type-ann clojure.core/< [& number * -> boolean])
+(type-ann clojure.core/inc [number -> number])
 
 ;; TODO interdependent bound
-(+T clojure.core/reverse (All [x]
-                           [(Seqable x) -> (Seqable x)]))
+(type-ann clojure.core/reverse (All [x]
+                           [(nseqable x) -> (seq x)]))
 
-(+T clojure.core/+' [& Number * -> Number])
-(+T clojure.core/+ [& Number * -> Number])
-(+T clojure.core/*' [& Number * -> Number])
-(+T clojure.core/* [& Number * -> Number])
-(+T clojure.core// [Number & Number * -> Number])
-(+T clojure.core/-' [Number & Number * -> Number])
-(+T clojure.core/- [Number & Number * -> Number])
+(type-ann clojure.core/+' [& number * -> number])
+(type-ann clojure.core/+ [& number * -> number])
+(type-ann clojure.core/*' [& number * -> number])
+(type-ann clojure.core/* [& number * -> number])
+(type-ann clojure.core// [number & number * -> number])
+(type-ann clojure.core/-' [number & number * -> number])
+(type-ann clojure.core/- [number & number * -> number])
 
-(+T clojure.core/<= [Number & Number * -> boolean])
-(+T clojure.core/> [Number & Number * -> boolean])
-(+T clojure.core/>= [Number & Number * -> boolean])
+(type-ann clojure.core/<= [number & number * -> boolean])
+(type-ann clojure.core/> [number & number * -> boolean])
+(type-ann clojure.core/>= [number & number * -> boolean])
 
-(+T clojure.core/== [Object & Object * -> boolean])
+(type-ann clojure.core/== [Object & Object * -> boolean])
 
-(+T clojure.core/max [Number & Number * -> Number])
-(+T clojure.core/min [Number & Number * -> Number])
+(type-ann clojure.core/max [number & number * -> number])
+(type-ann clojure.core/min [number & number * -> number])
 
-(+T clojure.core/dec' [Number -> Number])
-(+T clojure.core/dec [Number -> Number])
+(type-ann clojure.core/dec' [number -> number])
+(type-ann clojure.core/dec [number -> number])
 
 ;; some unchecked arith ..
 
 ;; some other arith ..
 
 ; TODO dotted pretype
-(+T clojure.core/complement [[& Any * -> Any] -> [& Any * -> boolean]])
-(+T clojure.core/constantly (All [x]
+(type-ann clojure.core/complement [[& Any * -> Any] -> [& Any * -> boolean]])
+(type-ann clojure.core/constantly (All [x]
                               [x -> [& Any * -> x]]))
-(+T clojure.core/identity (All [x]
+(type-ann clojure.core/identity (All [x]
                             [x -> x]))
 
-(+T clojure.core/peek (All [x]
-                        [(Seqable x) -> x]))
+(type-ann clojure.core/peek (All [x]
+                        [(nseqable x) -> (U nil x)]))
 
 ;interdependent bounds
-(+T clojure.core/pop (All [x]
-                       [(Seqable x) -> (Seqable x)]))
+;TODO return value
+(type-ann clojure.core/pop (All [x]
+                       [(nseqable x) -> (seq x)]))
 
-(+T clojure.core/contains? [(Seqable Any) Any -> boolean])
+(type-ann clojure.core/contains? [(nseqable Any) Any -> boolean])
 
 ;; interdependent bounds
 ;; has interesting filters
-(+T clojure.core/get (All [k v n]
+(type-ann clojure.core/get (All [k v n]
                        (Fun
                          [(Associative k v) Any -> (U v nil)]
                          [(Associative k v) Any n -> (U v n)])))
 
 ; interdependent bounds
 ;doesn't track keys
-(+T clojure.core/dissoc (All [k v]
-                          [(IPersistentMap k v) & Any * -> (IPersistentMap k v)]))
+;
+(type-ann clojure.core/dissoc (All [k v]
+                          [(nmap k v) & Any * -> (nmap k v)]))
 
 ; TODO dotted pretype
-(+T clojure.core/disj (All [x]
-                        [(IPersistentSet x) & Any * -> (IPersistentSet x)]))
+(type-ann clojure.core/disj (All [x]
+                        [(nset x) & Any * -> (nset x)]))
 
-(+T clojure.core/select-keys (All [k v]
-                               [(IPersistentMap k v) (Seqable Any) -> (IPersistentMap k v)]))
+(type-ann clojure.core/select-keys (All [k v]
+                               [(nmap Any v) (nseqable k) -> (map k v)]))
 
-(+T clojure.core/keys (All [k]
-                        [(IPersistentMap k Any) -> (Seqable k)]))
-(+T clojure.core/vals (All [v]
-                        [(IPersistentMap Any v) -> (Seqable v)]))
+(type-ann clojure.core/keys (All [k]
+                        [(nmap k Any) -> (nseq k)]))
+(type-ann clojure.core/vals (All [v]
+                        [(nmap Any v) -> (nseq v)]))
 
-(+T clojure.core/key (All [k]
-                       [(IMapEntry k Any) -> k]))
-(+T clojure.core/val (All [v]
-                       [(IMapEntry Any v) -> v]))
+(type-ann clojure.core/key (All [k]
+                       [(map-entry k Any) -> k]))
+(type-ann clojure.core/val (All [v]
+                       [(map-entry Any v) -> v]))
 
 ;(def-type-alias ReversibleSeq [a] (I (Seqable a) Reversible))
 
-(+T clojure.core/rseq (All [x]
-                        [(I (Seqable x) Reversible) -> (U nil (Seqable x))]))
-(+T clojure.core/name [(U String Named) -> String])
-(+T clojure.core/namespace [Named -> (U nil String)])
+(type-ann clojure.core/rseq (All [x]
+                        [(I (seqable x) reversible) -> (nseq x)]))
+(type-ann clojure.core/name [(U string named) -> string])
+(type-ann clojure.core/namespace [named -> (U nil string)])
 
 ;;TODO Multifn stuff ..
 
-(+T clojure.core/agent (All [x]
+(type-ann clojure.core/agent (All [x]
                          [x & Any * -> (Agent x)]))
 
-;(+T clojure.core/agent (All [x (y <! IPersistentMap)]
+;(type-ann clojure.core/agent (All [x (y <! IPersistentMap)]
 ;                         [x & {:meta y
 ;                               :validator [x -> Any]
 ;                               :error-handler [Agent Throwable -> Any]
@@ -260,124 +267,124 @@
 ;                                (IReference y))]))
 
 ;TODO arities take differing type arguments
-(+T clojure.core/deref (All [x y]
+(type-ann clojure.core/deref (All [x y]
                             (Fun 
                               [(IDeref x) -> x]
                               [(IBlockingDeref x) Long y -> (U x y)])))
 
-(+T clojure.core/atom (All [x]
+(type-ann clojure.core/atom (All [x]
                         [x & Any * -> (Atom x)]))
 
-;(+T clojure.core/atom (All [x r m]
+;(type-ann clojure.core/atom (All [x r m]
 ;                        [x & {:validator [x -> r]
 ;                              :meta (IPersistentMap m)} *
 ;                         -> (I (IMeta (IPersistentMap m))
 ;                               (Atom x))]))
 
 ; interdependent bounds
-(+T clojure.core/swap! (All [x]
+(type-ann clojure.core/swap! (All [x]
                          [(Atom x) [x & Any * -> x] & Any * -> x]))
 
 ; interdependent bounds
-(+T clojure.core/compare-and-set! (All [x]
+(type-ann clojure.core/compare-and-set! (All [x]
                                     [(Atom x) x x -> boolean]))
 
 ; interdependent bounds
-(+T clojure.core/reset! (All [x]
+(type-ann clojure.core/reset! (All [x]
                           [(Atom x) x -> x]))
 
 ;;TODO validators
 
 ;TODO tricky!
-(+T clojure.core/comp [& IFn * -> [& Any * -> Any]])
+(type-ann clojure.core/comp [& IFn * -> [& Any * -> Any]])
 
 ;TODO tricky!
-(+T clojure.core/juxt [& IFn * -> [& Any * -> Any]])
+(type-ann clojure.core/juxt [& IFn * -> [& Any * -> Any]])
 
 ;TODO tricky!
-(+T clojure.core/partial [[Any & Any * -> Any] -> [& Any * -> Any]])
+(type-ann clojure.core/partial [[Any & Any * -> Any] -> [& Any * -> Any]])
 
 ; If truthy result, we know Seqable argument is NonEmptySeqable
 ; If falsy, either argument is EmptySeqable, or argument is NonEmptySeqable
 ;   and r cannot
-(+T clojure.core/some (All [y r]
+(type-ann clojure.core/some (All [y r]
                         [[y -> r] (Seqable y) -> (U nil r)]))
 ;                         :filters
 ;                         {:then [(refine-type (arg 2) NonEmptySeqable)]
 ;                          :else tt}]))
 
-(+T clojure.core/not-any? [[& Any * -> Any] (Seqable Any) -> boolean])
+(type-ann clojure.core/not-any? [[& Any * -> Any] (Seqable Any) -> boolean])
 
 ; dotted pretype
-(+T clojure.core/map (All [a d]
+(type-ann clojure.core/map (All [a d]
                        [[a & Any * -> d] (Seqable a) & (Seqable Any) * -> (Seqable d)]))
 
 ; dotted pretype
-(+T clojure.core/mapcat (All [a d]
+(type-ann clojure.core/mapcat (All [a d]
                           [[a & Any * -> (Seqable d)] (Seqable a) & (Seqable Any) * -> (Seqable d)]))
 
-(+T clojure.core/filter (All [x]
+(type-ann clojure.core/filter (All [x]
                           [[x -> Any] (Seqable x) -> (Seqable x)]))
 
-(+T clojure.core/take (All [x]
+(type-ann clojure.core/take (All [x]
                         [(Seqable x) Number -> (Seqable x)]))
 
-(+T clojure.core/take-while (All [x]
+(type-ann clojure.core/take-while (All [x]
                               [[x -> Any] (Seqable x) -> (Seqable x)]))
 
-(+T clojure.core/drop (All [x]
+(type-ann clojure.core/drop (All [x]
                         [(Seqable x) Number -> (Seqable x)]))
 
-(+T clojure.core/drop-last (All [x]
+(type-ann clojure.core/drop-last (All [x]
                              (Fun [(Seqable x) -> (Seqable x)]
                                   [(Seqable x) Number -> (Seqable x)])))
 
-(+T clojure.core/take-last (All [x]
+(type-ann clojure.core/take-last (All [x]
                              (Fun [(Seqable x) -> (Seqable x)]
                                   [(Seqable x) Number -> (Seqable x)])))
 
-(+T clojure.core/drop-while (All [x]
+(type-ann clojure.core/drop-while (All [x]
                               [[x -> Any] (Seqable x) -> (Seqable x)]))
 
-(+T clojure.core/cycle (All [x]
+(type-ann clojure.core/cycle (All [x]
                          [(Seqable x) -> (Seqable x)]))
 
-(+T clojure.core/split-at (All [x]
+(type-ann clojure.core/split-at (All [x]
                             [Number (Seqable x) -> (IPersistentVector (Seqable x))]))
 
-(+T clojure.core/split-with (All [x]
+(type-ann clojure.core/split-with (All [x]
                               [[x -> Any] (Seqable x) -> (IPersistentVector (Seqable x))]))
 
-(+T clojure.core/repeat (All [x]
+(type-ann clojure.core/repeat (All [x]
                           (Fun [x -> (Seqable x)]
                                [Number x -> (Seqable x)])))
 
-(+T clojure.core/iterate (All [x]
+(type-ann clojure.core/iterate (All [x]
                            [[x -> x] x -> (Seqable x)]))
 
-(+T clojure.core/range (Fun [-> (ISeq Number)]
+(type-ann clojure.core/range (Fun [-> (ISeq Number)]
                             [Number -> (ISeq Number)]
                             [Number Number -> (ISeq Number)]
                             [Number Number Number -> (ISeq Number)]))
 
 ;merging different kinds of Maps?
-(+T clojure.core/merge (All [(x <! IPersistentMap)]
+(type-ann clojure.core/merge (All [(x <! IPersistentMap)]
                          [& x * -> x]))
 
 ;interdependent bounds
-(+T clojure.core/merge-with (All [k v]
+(type-ann clojure.core/merge-with (All [k v]
                               [[v v -> v] & (IPersistentMap k v) * -> (IPersistentMap k v)]))
 
-(+T clojure.core/zipmap (All [k v]
+(type-ann clojure.core/zipmap (All [k v]
                           [(Seqable k) (Seqable v) -> (IPersistentMap k v)]))
 
-(+T clojure.core/partition (All [x]
+(type-ann clojure.core/partition (All [x]
                              [Number (Seqable x) -> (Seqable (IPersistentList x))]))
 
-(+T clojure.core/eval (All [x y]
+(type-ann clojure.core/eval (All [x y]
                         [x -> y]))
 
-;(+T clojure.core/reduce (All [x]
+;(type-ann clojure.core/reduce (All [x]
 ;                          (Fun 
 ;                            [[-> x] (EmptySeqable x) -> x]
 ;                            [[x x -> x] (NonEmptySeqable x) -> x]

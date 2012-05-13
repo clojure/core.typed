@@ -12,101 +12,103 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Annotation
 
+#_(+T qual-sym [ns symbol -> symbol])
+(defn qual-sym 
+  "If sym is qualified, return it. Otherwise return
+  a new symbol with the namespace portion being the namespace a-ns,
+  and preserving the name of sym"
+  [a-ns sym]
+  (if (namespace sym)
+    sym
+    (symbol (-> a-ns ns-name name) (name sym))))
+
 (defmacro +T 
   "Annotate a top level identifier. Takes
   a symbol and a type. If the symbol is unqualified,
   it is implicitly qualified in the current namespace."
   [nme type-syn]
-  `(*add-type-ann-fn* 
-     ~(if (namespace nme)
-        `'~nme
-        `(symbol (-> *ns* ns-name name) (name '~nme)))
-     '~type-syn))
+  `(annotate-def* '~nme '~type-syn))
 
 (defmacro with-type-args [type-syns form]
   `(do (next-form-targs '~type-syns)
-     ~form))
+       ~form))
 
-(declare parse-dom IParseType)
-
-; NOTE: definition below
-;(+T UnevaledTypeEntry (Record Symbol IParseType))
-(defconstrainedrecord UnevaledTypeEntry [nme syn]
-  "An unevaluated type entry"
-  [(symbol? nme)])
-
-; NOTE: definition below
-;(+T unevaled-typedcore-anns 
-;    (Atom (Vector UnevaledTypeEntry)))
-(def unevaled-typedcore-anns
-  "Unevaluated annotations for typed.core namespace"
-  (constrained-atom []
-                    "Vector of UnevaledTypeEntry's"
-                    [(partial every? UnevaledTypeEntry?)]))
-
-(declare debug add-type-ann parse)
-
-(def ^:dynamic 
-  *add-type-ann-fn* 
-  (fn [sym type-syn]
-    (cond 
-      (= *ns* (find-ns 'typed.core))
-      (swap! unevaled-typedcore-anns 
-             (fn [a]
-               (conj a
-                     (->UnevaledTypeEntry
-                       (if (namespace sym)
-                         sym 
-                         (symbol "typed.core" (name sym)))
-                       type-syn))))
-      :else
-      (do
-        (debug "add type:" sym :- type-syn)
-        (add-type-ann sym (parse type-syn))))
-    [sym :- type-syn]))
-
-(+T *add-type-ann-fn* [Symbol IParseType -> nil])
-(+T UnevaledTypeEntry (Record Symbol IParseType))
-(+T unevaled-typedcore-anns 
-    (Atom (Vector UnevaledTypeEntry)))
-
-;placeholder for communicating with analysis
-(+T next-form-targs [Any -> nil])
+#_(+T next-form-targs [Any -> nil])
 (defn next-form-targs [types]
+  nil)
+
+#_(+T next-form-targs [symbol Any -> nil])
+(defn annotate-def* [sym tsyn]
   nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed require
 
-(+T ns-deps-contract [(Map Any Any) -> Boolean])
-(defn ns-deps-contract [m]
-  (and (every? symbol? (keys m))
-       (every? set? (vals m))
-       (every? (fn [^{+T (Seqof Any)} vs] 
-                 (every? symbol? vs)) 
-               (vals m))))
+(defonce namespaces (atom '{clojure.core {:name clojure.core}
+                            typed.base {:name typed.base}}))
 
-(+T ns-deps (Atom (Map Symbol (Set Symbol))))
-(def ns-deps (constrained-atom {}
-                               "Map from symbols to sets of symbols"
-                               [ns-deps-contract]))
+(declare parse)
 
-(+T add-ns-dep [Symbol Symbol -> nil])
-(defn add-ns-dep [nsym ns-dep]
-  (swap! ns-deps update-in [nsym] #(set/union % #{ns-dep}))
+(defn add-type-ann [sym typ]
+  (assert (namespace sym))
+  (let [nsym (symbol (namespace sym))]
+    (swap! namespaces assoc-in [nsym :anns sym] (parse typ))))
+
+(defn parse-ns-typed [nsym args]
+  (let [requires
+        (reduce (fn [rs [op & libs]]
+                  (if (= op :require)
+                    (into rs (map first libs))
+                    rs))
+                #{} args)
+
+        aliases
+        (reduce (fn [rs [op & libs]]
+                  (if (= op :require)
+                    (into rs
+                          (map #(let [opts (apply hash-map (rest %))
+                                      nme (first %)]
+                                  [(:as opts) nme])
+                               libs))
+                    rs))
+                {} args)
+
+        refers
+        (reduce (fn [rs [op & libs]]
+                  (if (= op :require)
+                    (into rs
+                          (mapcat #(let [opts (apply hash-map (rest %))
+                                         nme (first %)
+                                         refs (:refer-type opts)]
+                                     (map (fn [r] [r (symbol (name nme) (name r))]) refs))
+                                  libs))
+                    rs))
+                {} args)
+        
+        imports
+        (reduce (fn [rs [op & libs]]
+                  (if (= op :import)
+                    (into rs
+                          (mapcat (fn [[pre & sufs]]
+                                    (map #(vector % (symbol (str pre "." %))) sufs))
+                                  libs))
+                    rs))
+                {} args)]
+    {:name nsym :requires requires :aliases aliases :refers refers :imports imports}))
+
+(defn typed-ns* [nme opts]
   nil)
 
-(defmacro require-typed [nsym]
-  `(add-ns-dep (symbol (-> *ns* ns-name name))
-               '~nsym))
+(defmacro typed-ns [nsym & opts]
+  `(typed-ns* '~nsym '~opts))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Debug macros
 
-(+T debug-mode (Atom Any))
+#_(+T debug-mode (atom boolean))
 (def debug-mode (atom false))
 
-(+T print-warnings (Atom Any))
+#_(+T print-warnings (atom boolean))
 (def print-warnings (atom false))
 
 (defmacro warn [& body]
@@ -127,72 +129,43 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Top levels
 
-(declare add-type-ann parse ^:dynamic *type-db* tc-expr unparse)
+(declare parse ^:dynamic *type-db* tc-expr unparse)
 
-(+T TYPE-ARGS (Atom Any))
+#_(+T TYPE-ARGS (Atom (nseqable Any)))
 (def TYPE-ARGS (atom nil))
 
-(+T set-type-args [Any -> nil])
+#_(+T set-type-args [Any -> nil])
 (defn set-type-args [targs]
   (reset! TYPE-ARGS targs)
   nil)
 
-(+T delete-type-args [-> nil])
+#_(+T delete-type-args [-> nil])
 (defn delete-type-args []
   (reset! TYPE-ARGS nil)
   nil)
 
 (def ^:dynamic *already-reloaded*)
 
-(+T reload-ns [Symbol -> nil])
-(defn reload-ns [nsym]
-  (prn "reload" nsym)
-  (prn "already reloaded" @*already-reloaded*)
-  (when (not (contains? @*already-reloaded* nsym))
-    (require :reload nsym)
-    (swap! *already-reloaded* set/union #{nsym})
-    nil))
+(defn- type-check-ns [nsym]
+  (let [asts (analyze-path nsym)
 
-(+T require-typed-deps [Symbol -> nil])
-(defn require-typed-deps [nsym]
-  (doseq [depsym (@ns-deps nsym)]
-    (reload-ns depsym)
-    (require-typed-deps depsym)))
-
-(+T load-env [& Symbol * -> nil])
-(defn load-env [& nsyms]
-  (binding [*add-type-ann-fn* (fn [sym type-syn]
-                                (debug "add type:" sym :- type-syn)
-                                (add-type-ann sym (parse type-syn)))
-            *already-reloaded* (atom #{'typed.core})]
-    (reload-ns 'typed.class)
-    (reload-ns 'typed.base)
-    (doseq [nsym nsyms]
-      (reload-ns nsym)
-      (require-typed-deps nsym))
-    (doseq [{sym :nme syntax :syn} @unevaled-typedcore-anns]
-      (prn "add typed.core type" sym)
-      (add-type-ann sym (parse syntax)))))
-
-(+T check-namespace [Symbol -> nil])
-(defn check-namespace [nsym]
-  (let [ 
-        ;; 1. Collect all type annotations
-        _ (load-env nsym)
-        
-        ;; 2. Perform type checking
-        asts (analyze-path nsym)
-        
         _ (doseq [a asts]
             (try (tc-expr a)
               (catch Throwable e
                 (throw e))))]
     nil))
 
+#_(+T check-namespace [symbol -> nil])
+(defn check-namespace [nsym]
+  (let [_ (type-check-ns 'typed.class)
+        _ (type-check-ns 'typed.base)
+        _ (type-check-ns nsym)]
+    nil))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type hierarchy
 
-(+T type-key Keyword)
+#_(+T type-key keyword)
 (def type-key ::+T)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -200,20 +173,20 @@
 
 (declare Type? TypeVariable?)
 
-(+T tvar-scope Keyword)
+#_(+T tvar-scope keyword)
 (def tvar-scope :ts)
 
 #_(def-type-alias TvarBinding (SequentialSeq TypeVariable))
 
-(+T ScopeBinding (Record TvarBinding))
+#_(+T ScopeBinding (record TvarBinding))
 (defconstrainedrecord ScopeBinding [ts]
   "A binding list for type variables"
   [(sequential? ts)
    (every? TypeVariable? ts)])
 
 
-(+T make-tvar-binding (All [(t <! Type)]
-                        [t TvarBinding -> (I t (Meta ScopeBinding))]))
+#_(+T make-tvar-binding (All [(t <! Type)]
+                             [t TvarBinding -> (I t (meta ScopeBinding))]))
 (defn make-tvar-binding 
   "Make Type t a binding position for variables s"
   [t s]
@@ -221,24 +194,24 @@
   (assert (every? TypeVariable? s))
   (with-meta t (->ScopeBinding s)))
 
-(+T tvar-binding [(I Type 
-                     (Meta (U nil ScopeBinding)))
-                  -> TvarBinding])
+#_(+T tvar-binding [(I Type 
+                       (meta (U nil ScopeBinding)))
+                    -> TvarBinding])
 (defn tvar-binding
   "If Type t is a binding position, return the variables binded there"
   [t]
   (assert (Type? t) (class t))
   (-> t meta tvar-scope))
 
-(+T tvar-binding (All [(m <! (I Type (Meta ScopeBinding)))]
-                   [m [TvarBinding -> TvarBinding] -> m]))
+#_(+T tvar-binding (All [(m <! (I Type (Meta ScopeBinding)))]
+                        [m [TvarBinding -> TvarBinding] -> m]))
 (defn update-tvar-binding 
   "Use function f to update the binding position t"
   [t f]
   (vary-meta t #(update-in % [tvar-scope] f)))
 
-(+T tvar-binding (All [(t <! Type)]
-                   [t -> (I t (Meta nil))]))
+#_(+T tvar-binding (All [(t <! Type)]
+                        [t -> (I t (meta nil))])) ;TODO minus metadata
 (defn remove-tvar-binding
   "Return Type t without a binding position"
   [t]
@@ -247,7 +220,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
-(+T class-satisfies-protocol? [Protocol Class -> boolean])
+#_(+T class-satisfies-protocol? [Protocol Class -> boolean])
 (defn class-satisfies-protocol?
   "Returns the method that would be dispatched by applying
   an instance of Class c to protocol"
@@ -265,21 +238,21 @@
 (declare PrimitiveClass-from ClassType-from Type Type? ->ProtocolType
          ->QualifiedKeyword var-or-class->sym)
 
-(+T primitives (Map Symbol Class))
+#_(+T primitives (map symbol Class))
 (def ^:private primitive-symbol
-  {'char Character/TYPE
-   'boolean Boolean/TYPE
-   'byte Byte/TYPE
-   'short Short/TYPE
-   'int Integer/TYPE
-   'long Long/TYPE
-   'float Float/TYPE
-   'double Double/TYPE
-   'void Void/TYPE})
+  {'pchar Character/TYPE
+   'pboolean Boolean/TYPE
+   'pbyte Byte/TYPE
+   'pshort Short/TYPE
+   'pint Integer/TYPE
+   'plong Long/TYPE
+   'pfloat Float/TYPE
+   'pdouble Double/TYPE
+   'pvoid Void/TYPE})
 
-(declare ^:dynamic *type-var-scope*)
+(declare ^:dynamic *type-var-scope* TYPES)
 
-(+T resolve-symbol [Symbol -> Type])
+#_(+T resolve-symbol [symbol -> Type])
 (defn- resolve-symbol [sym]
   (assert (symbol? sym))
   (cond
@@ -288,6 +261,9 @@
 
     (*type-var-scope* sym)
     (*type-var-scope* sym)
+
+    (@TYPES sym)
+    (@TYPES sym)
 
     :else
     (let [res (resolve sym)]
@@ -312,7 +288,7 @@
 
 (declare map->Fun map->arity union Nil PrimitiveClass? subtype?)
 
-(+T method->Fun [clojure.reflect.Method -> Fun])
+#_(+T method->Fun [clojure.reflect.Method -> Fun])
 (defn- method->Fun [method]
   (try
     (map->Fun
@@ -332,7 +308,7 @@
       (throw (ex-info "Could not create Fun from Method" {:method method} e)))))
 
 
-(+T var-or-class->sym [(U Var Class) -> Symbol])
+#_(+T var-or-class->sym [(U var Class) -> symbol])
 (defn var-or-class->sym [var-or-class]
   {:pre [(or (var? var-or-class)
              (class? var-or-class))]}
@@ -345,13 +321,13 @@
 
 (declare subtype? unparse-type)
 
-(+T unp [Type -> String])
+#_(+T unp [Type -> string])
 (defn unp
   "Unparse a type and return string representation"
   [t]
   (with-out-str (-> t unparse-type pr)))
 
-(+T assert-subtype [Type Type & Any * -> nil])
+#_(+T assert-subtype [Type Type & Any * -> nil])
 (defn assert-subtype [actual-type expected-type & msgs]
   (assert (subtype? actual-type expected-type)
           (apply str "Expected " (unp expected-type) ", found " (unp actual-type)
@@ -362,51 +338,107 @@
 
 (declare Type?)
 
-(+T type-db-var-contract [(Map Any Any) -> boolean])
+#_(+T type-db-var-contract [(map Any Any) -> boolean])
 (defn type-db-var-contract [m]
   (and (every? namespace (keys @m))
        (every? Type? (vals @m))))
 
-(+T type-db-atom-contract [(Map Any Any) -> boolean])
+#_(+T type-db-atom-contract [(map Any Any) -> boolean])
 (defn type-db-atom-contract [m]
   (and (every? namespace (keys m))
        (every? Type? (vals m))))
 
-(+T *type-db* (Map Symbol Type))
+#_(+T *type-db* (map Symbol Type))
 (def ^:dynamic *type-db* 
   (constrained-atom {}
                     "Map from qualified symbols to types"
                     [type-db-atom-contract]))
 
-(+T local-type-db-contract [(Map Any Any) -> boolean])
+#_(+T local-type-db-contract [(map Any Any) -> boolean])
 (defn local-type-db-contract [m]
   (and (every? (complement namespace) (keys m))
        (every? Type? (vals m))))
 
-(+T *local-type-db* (Map Symbol Type))
+#_(+T *local-type-db* (map symbol Type))
 (defconstrainedvar 
   ^:dynamic *local-type-db* {}
   "Map from unqualified names to types"
   [local-type-db-contract])
 
-(+T type-var-scope-contract [(Map Any Any) -> boolean])
+#_(+T type-var-scope-contract [(map Any Any) -> boolean])
 (defn type-var-scope-contract [m]
   (and (every? (every-pred symbol? (complement namespace)) 
                (keys m))
        (every? Type? (vals m))))
 
-(+T *type-var-scope* (Map Symbol TypeVariable))
+#_(+T *type-var-scope* (map symbol TypeVariable))
 (defconstrainedvar
   ^:dynamic *type-var-scope* {}
   "Map from unqualified names to types"
   [type-var-scope-contract])
 
-(+T reset-type-db [-> nil])
+#_(+T reset-type-db [-> nil])
 (defn reset-type-db []
   (swap! *type-db* (constantly {}))
   nil)
 
-(+T type-of [(U Symbol Var) -> Type])
+#_(+T TYPES (atom (map symbol Type)))
+(def TYPES (atom {}))
+
+#_(+T add-type [symbol Type -> nil])
+(defn add-type [sym t]
+  (assert (namespace sym))
+  (assert (symbol? sym))
+  (assert (Type? t))
+  (swap! TYPES assoc sym t)
+  nil)
+
+;new-type
+
+(declare ->NewType)
+
+#_(+T add-new-type [symbol -> nil])
+(defn add-new-type [sym]
+  (assert (symbol? sym) "New type must be a symbol")
+  (let [sym (qual-sym *ns* sym)]
+    (add-type sym (->NewType sym))
+    nil))
+
+(defmacro def-new-type [sym]
+  `(add-new-type '~sym))
+
+;type-alias
+
+(declare ->TypeAlias All-literal)
+
+#_(+T type-param-syn [(U symbol (list Any)) Any])
+(defn- type-param-syn 
+  "Convert type parameter sugar (a b c) to (All [b c] ..)"
+  [sym-or-list t]
+  (if (list? sym-or-list)
+    `(~All-literal ~(vec (rest sym-or-list))
+        ~t)
+    t))
+
+#_(+T add-type-alias [(U symbol (list Any)) Any -> nil])
+(defn add-type-alias [sym-or-list t]
+  (let [sym (if (symbol? sym-or-list)
+              sym-or-list
+              (first sym-or-list))
+        sym (qual-sym *ns* sym)
+
+        t (type-param-syn sym-or-list t)
+
+        _ (add-type sym (->TypeAlias sym t))]
+    nil))
+
+(defn def-type-alias* [nme t]
+  nil)
+
+(defmacro def-type-alias [sym tsyn]
+  `(def-type-alias* '~sym '~tsyn))
+
+#_(+T type-of [(U symbol var) -> Type])
 (defn type-of [sym-or-var]
   {:pre [(or (symbol? sym-or-var)
              (var? sym-or-var))]
@@ -424,14 +456,14 @@
 
 (declare ->ParameterisedType ParameterisedType?)
 
-(+T typed-classes-var-contract [(Atom Any) -> boolean])
+#_(+T typed-classes-var-contract [(atom Any) -> boolean])
 (defn typed-classes-var-contract [a]
   (and (map? @a)
        (every? symbol? (keys @a))
        (every? #(class? (resolve %)) (keys @a))
        (every? ParameterisedType? (vals @a))))
 
-(+T typed-classes-atom-contract [Any -> boolean])
+#_(+T typed-classes-atom-contract [Any -> boolean])
 (defn typed-classes-atom-contract [m]
   (and (map? m)
        (every? symbol? (keys m))
@@ -448,24 +480,6 @@
 
 (declare parse-tvar-decl)
 
-(defmacro parameterised-interface [cls flds]
-  `(add-parameterised-interface ~cls (map parse-tvar-decl '~flds)))
-
-(defmacro annotate-class [cls flds & opts]
-  `(add-typed-class ~cls (map parse-tvar-decl '~flds) '~@opts))
-
-(+T add-typed-class [Class (Seq TypeVariable) & '{:optional {:extends Any}}
-                     -> nil])
-(defn add-typed-class [cls fields & opts]
-    (assert (class? cls))
-    (assert (every? TypeVariable? fields))
-  (let [csym (symbol (.getName cls))
-        extends (:extends opts)]
-    (swap! *parameterised-classes* #(assoc %
-                                           csym
-                                           (->ParameterisedType csym fields))))
-  nil)
-
 (defmacro with-type-vars [var-map & body]
   `(binding [*type-var-scope* (merge *type-var-scope* ~var-map)]
      ~@body))
@@ -474,8 +488,8 @@
   `(binding [*local-type-db* (merge *local-type-db* ~type-map)]
      ~@body))
 
-(+T add-type-ann [Symbol Type -> Any])
-(defn add-type-ann [sym typ]
+#_(+T add-type-ann [symbol Type -> Any])
+#_(defn add-type-ann [sym typ]
   (when-let [oldtyp (@*type-db* sym)]
     (when (not= oldtyp typ)
       (warn "Overwriting type for" sym ":" typ "from" (unparse oldtyp))))
@@ -540,18 +554,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types
 
-(+T Type QualifiedKeyword)
+#_(+T Type QualifiedKeyword)
 (def Type ::type-type)
 
-(+T Type? [Any -> Boolean])
+#_(+T Type? [Any -> boolean])
 (defn Type? [t]
   (isa? (class t) Type))
 
 (defprotocol IFreeVars
-  (^{+T [IFreeVars -> (Seq TypeVariables)]}
+  (^{+T [IFreeVars -> (seq TypeVariables)]}
    -free-vars [this]))
 
-(+T free-vars [Type -> (Seq TypeVariables)])
+#_(+T free-vars [Type -> (seq TypeVariables)])
 (defn free-vars [t]
   (-free-vars t))
 
@@ -560,7 +574,20 @@
      (derive a# Type)
      a#))
 
-(+T Value (Record Any))
+#_(+T NewType (record symbol))
+(def-type NewType [nme]
+  "Types created with def-new-type"
+  {:pre [(symbol? nme)
+         (namespace nme)]})
+
+#_(+T TypeAlias (record symbol Type))
+(def-type TypeAlias [nme als-type]
+  "Type alias created with def-type-alias"
+  {:pre [(symbol? nme)
+         (namespace nme)
+         (Type? als-type)]})
+
+#_(+T Value (record Any))
 (def-type Value [val]
   "A singleton type for values, except nil"
   {:pre [(not (nil? val))]}
@@ -577,7 +604,7 @@
 
 (declare subtype?)
 
-(+T Union (Record (Set Type)))
+#_(+T Union (record (set Type)))
 (def-type Union [types]
   "A union of types"
   {:pre [(every? Type? types)]}
@@ -586,7 +613,7 @@
   (-free-vars [this] 
     (mapcat free-vars types)))
 
-(+T NilType (Record))
+#_(+T NilType (Record))
 (def-type NilType []
   "The nil type"
   []
@@ -594,13 +621,13 @@
   IFreeVars
   (-free-vars [this] nil))
 
-(+T Nil NilType)
+#_(+T Nil NilType)
 (def Nil (->NilType))
 
-(+T Nil? [Any -> boolean]) ;predicate, does not test on type...
+#_(+T Nil? [Any -> boolean]) ;predicate, does not test on type...
 (def Nil? (partial = Nil))
 
-(+T ClassType (Record Symbol))
+#_(+T ClassType (record symbol))
 (def-type ClassType [the-class]
   "A class"
   {:pre [(symbol? the-class)
@@ -611,12 +638,12 @@
   IFreeVars
   (-free-vars [this] nil))
 
-(+T ClassType-from [Class -> ClassType])
+#_(+T ClassType-from [Class -> ClassType])
 (defn ClassType-from [cls]
   (assert (class? cls))
   (->ClassType (symbol (.getName cls))))
 
-(+T ParameterisedType (Record Symbol (SequentialSeq Type)))
+#_(+T ParameterisedType (record symbol (SequentialSeq Type)))
 (def-type ParameterisedType [class-sym fields]
   "A type for parameterised classes. Takes a symbol
   representing the class it is parameterising, and a list
@@ -625,38 +652,38 @@
          (class? (resolve class-sym))
          (every? Type? fields)]})
 
-(+T Any Union)
+#_(+T Any Union)
 ;TODO primitives?
 (def Any (Union. #{Nil (ClassType-from Object)})) ; avoid constrained constructor because of
                                                   ; call to subtype?, which is undefined
 
-(+T Any? [Any -> boolean])
+#_(+T Any? [Any -> boolean])
 (def Any? (partial = Any))
 
-(+T Nothing Union)
+#_(+T Nothing Union)
 (def Nothing (Union. #{}))
 
-(+T Nothing? [Any -> boolean])
+#_(+T Nothing? [Any -> boolean])
 (def Nothing? (partial = Nothing))
 
-(+T True Value)
+#_(+T True Value)
 (def True (->Value true))
 
-(+T True? [Any -> boolean])
+#_(+T True? [Any -> boolean])
 (def True? (partial = True))
 
-(+T False Value)
+#_(+T False Value)
 (def False (->Value false))
 
-(+T False? [Any -> boolean])
+#_(+T False? [Any -> boolean])
 (def False? (partial = False))
 
-(+T falsy-values (Set Value))
+#_(+T falsy-values (Set Value))
 (def falsy-values #{False Nil})
 
 ;keyword
 
-(+T QualifiedKeyword (Record Keyword))
+#_(+T QualifiedKeyword (Record Keyword))
 (def-type QualifiedKeyword [kwrd]
   "A fully qualified keyword"
   [(keyword? kwrd)
@@ -669,7 +696,7 @@
 
 (declare arity?)
 
-(+T Fun (Record (Set arity)))
+#_(+T Fun (record (set arity)))
 (def-type Fun [arities]
   "Function with one or more arities"
   {:pre [(set? arities)
@@ -680,11 +707,11 @@
   (-free-vars [this] 
     (mapcat free-vars arities)))
 
-(+T -fun [(Seq arities) -> Fun])
+#_(+T -fun [(Seq arities) -> Fun])
 (defn -fun [arities]
   (->Fun (set arities)))
 
-(+T PrimitiveClass (Record Symbol))
+#_(+T PrimitiveClass (Record Symbol))
 (def-type PrimitiveClass [the-class]
   "A primitive class"
   {:pre [(symbol? the-class)
@@ -695,7 +722,7 @@
   IFreeVars
   (-free-vars [this] nil))
 
-(+T PrimitiveClass-from [Symbol -> PrimitiveClass])
+#_(+T PrimitiveClass-from [Symbol -> PrimitiveClass])
 (defn PrimitiveClass-from 
   "Create a PrimitiveClass from a symbol representing a
   primitive class name (int, long etc.) or a primitive Class
@@ -705,7 +732,7 @@
     (symbol (.getName (or (primitive-symbol sym)
                           (resolve-symbol sym))))))
 
-(+T ProtocolType (Record Symbol))
+#_(+T ProtocolType (Record Symbol))
 (def-type ProtocolType [the-protocol-var]
   "A protocol"
   {:pre [(symbol? the-protocol-var)
@@ -714,7 +741,7 @@
   IFreeVars
   (-free-vars [this] nil))
 
-(+T union [(Seq types) -> Type])
+#_(+T union [(Seq types) -> Type])
 (defn union [ts]
   (let [ts (set ts)]
     (cond
@@ -722,7 +749,7 @@
       (= 1 (count ts)) (first ts)
       :else (->Union ts))))
 
-(+T Intersection (Record (Set Type)))
+#_(+T Intersection (Record (Set Type)))
 (def-type Intersection [types]
   "An intersection of types"
   {:pre [(set? types)
@@ -741,7 +768,7 @@
 
 ;; type variables
 
-(+T TypeVariable (Record Symbol Type))
+#_(+T TypeVariable (Record Symbol Type))
 (def-type TypeVariable [nme bnd]
   "A record for bounded type variables, with an unqualified symbol as a name"
   {:pre [(symbol? nme)
@@ -754,7 +781,7 @@
   (-free-vars [this]
     (concat [this] (free-vars bnd))))
 
-(+T -tv (Fun [Symbol -> TypeVariable]
+#_(+T -tv (Fun [Symbol -> TypeVariable]
              [Symbol Type -> TypeVariable]))
 (defn -tv 
   "Create a type variable with an optional bound. Bound
@@ -762,26 +789,26 @@
   ([nme] (-tv nme Any))
   ([nme bnd] (->TypeVariable nme bnd)))
 
-(+T type-variables (Set Class))
+#_(+T type-variables (Set Class))
 (def type-variables #{TypeVariable})
 
-(+T type-variable? [Any -> boolean])
+#_(+T type-variable? [Any -> boolean])
 (defn type-variable? [t]
   (boolean (type-variables (class t))))
 
 ;; arities
 
-(+T Arity QualifiedKeyword)
+#_(+T Arity QualifiedKeyword)
 (def Arity ::arity-type)
 
-(+T Arity? [Any -> boolean])
+#_(+T Arity? [Any -> boolean])
 (defn Arity? [a]
   (isa? (class a) Arity))
 
 (declare FilterSet?)
 
 ;; arity is NOT a type
-(+T arity (Record (SequentialSeq Type)
+#_(+T arity (Record (SequentialSeq Type)
                   Type
                   (U nil Type)
                   (U nil FilterSet)))
@@ -805,7 +832,7 @@
 
 (declare subtypes?)
 
-(+T subtypes?*-varargs [(SequentialSeq Type)
+#_(+T subtypes?*-varargs [(SequentialSeq Type)
                         (SequentialSeq Type)
                         Type -> boolean])
 (defn subtypes?*-varargs [argtys dom rst]
@@ -836,12 +863,12 @@
       :else false)))
 
 
-(+T top-arity QualifiedKeyword)
+#_(+T top-arity QualifiedKeyword)
 (def top-arity ::top-arity)
 
 (declare subtype?)
 
-(+T subtype?*-arity [arity arity -> boolean])
+#_(+T subtype?*-arity [arity arity -> boolean])
 (defn subtype?*-arity [s t]
   (assert (not (:rest-type s)))
   (assert (not (:rest-type t)))
@@ -851,7 +878,7 @@
        (subtype? (:rng s)
                  (:rng t))))
 
-(+T similar-arity [arity arity -> (U arity nil)])
+#_(+T similar-arity [arity arity -> (U arity nil)])
 (defn similar-arity 
   "Return a2 if a1 looks like it, using number of arguments"
   [a1 a2]
@@ -862,14 +889,14 @@
     a2))
 
 
-(+T match-to-fun-arity [arity Fun -> (U nil arity)])
+#_(+T match-to-fun-arity [arity Fun -> (U nil arity)])
 (defn match-to-fun-arity [s fun-type]
   (first 
     (filter #(= (count (:dom s))
                 (count (:dom %)))
             (:arities fun-type))))
 
-(+T matches-args [arity (Seq Type) -> (U nil arity)])
+#_(+T matches-args [arity (Seq Type) -> (U nil arity)])
 (defn matches-args [arr args]
   (when (or (and (:rest-type arr)
                  (<= (count (:dom arr))
@@ -880,7 +907,7 @@
 
 ; data structures
 
-(+T Seq (Record Type))
+#_(+T Seq (Record Type))
 (def-type Seq [type]
   "A seq of type type, subtype of clojure.lang.ISeq"
   {:pre [(Type? type)]}
@@ -889,7 +916,7 @@
   (-free-vars [this]
     (free-vars type)))
 
-(+T Vector (Record Type))
+#_(+T Vector (Record Type))
 (def-type Vector [type]
   "A vector of type type, subtype of clojure.lang.IPersistentVector"
   {:pre [(Type? type)]}
@@ -898,7 +925,7 @@
   (-free-vars [this]
     (free-vars type)))
 
-(+T ConstantVector (Record (SequentialSeq Type)))
+#_(+T ConstantVector (Record (SequentialSeq Type)))
 (def-type ConstantVector [types]
   "A constant vector type, subtype of clojure.lang.IPersistentVector"
   [(every? Type? types)]
@@ -907,7 +934,7 @@
   (-free-vars [this]
     (mapcat free-vars types)))
 
-(+T Sequential (Record Type))
+#_(+T Sequential (Record Type))
 (def-type Sequential [type]
   "A sequential collection type, subtype of clojure.lang.Sequential"
   [(Type? type)]
@@ -916,7 +943,7 @@
   (-free-vars [this]
     (free-vars type)))
 
-(+T ConstantSequential (Record (SequentialSeq Type)))
+#_(+T ConstantSequential (Record (SequentialSeq Type)))
 (def-type ConstantSequential [types]
   "A constant sequential collection type, subtype of clojure.lang.Sequential"
   [(every? Type? types)]
@@ -925,7 +952,7 @@
   (-free-vars [this]
     (mapcat free-vars types)))
 
-(+T Map (Record Type Type))
+#_(+T Map (Record Type Type))
 (def-type Map [ktype vtype]
   "A sequential collection type, subtype of clojure.lang.IPersistentMap"
   [(Type? ktype)
@@ -945,33 +972,33 @@
      (derive a# Filter)
      a#))
 
-(+T Filter? [Any -> boolean])
+#_(+T Filter? [Any -> boolean])
 (defn Filter? [a]
   (isa? (class a) Filter))
 
-(+T TrivialFilter (Record))
+#_(+T TrivialFilter (Record))
 (def-filter TrivialFilter []
   "A proposition that is always true"
   [])
 
-(+T ImpossibleFilter (Record))
+#_(+T ImpossibleFilter (Record))
 (def-filter ImpossibleFilter []
   "A proposition that is never true"
   [])
 
-(+T TypeFilter (Record Symbol Type))
+#_(+T TypeFilter (Record Symbol Type))
 (def-filter TypeFilter [var type]
   "A proposition that says var is of type type"
   {:pre [(symbol? var)
          (Type? type)]})
 
-(+T NotTypeFilter (Record Symbol Type))
+#_(+T NotTypeFilter (Record Symbol Type))
 (def-filter NotTypeFilter [var type]
   "A proposition that says var is not of type type"
   {:pre [(symbol? var)
          (Type? type)]})
 
-(+T FilterSet (Record Filter Filter))
+#_(+T FilterSet (Record Filter Filter))
 (def-filter FilterSet [then else]
   "Contains two propositions, then for the truthy result,
   else for the falsy result"
@@ -987,7 +1014,7 @@
 
 (declare Fun-literal All-literal parse-tvar-decl)
 
-(+T parse-syntax [Any -> Type])
+#_(+T parse-syntax [Any -> Type])
 (defn parse-syntax
   "Type syntax parser, entry point"
   {:post [Type?]}
@@ -1178,19 +1205,19 @@
 
 (defrecord AritySyntax [dom rng opts])
 
-(+T split-no-check [(Vector Any) -> AritySyntax])
+#_(+T split-no-check [(Vector Any) -> AritySyntax])
 (defn- split-no-check [arity-syntax]
   (let [[dom [_ rng & opts]] (split-with #(not= '-> %) arity-syntax)]
     (->AritySyntax dom rng (apply hash-map opts))))
 
-(+T split-no-check [(Vector Any) -> AritySyntax])
+#_(+T split-no-check [(Vector Any) -> AritySyntax])
 (defn- split-arity-syntax
   "Splits arity syntax into [dom rng opts-map]"
   [arity-syntax]
   (assert (some #(= '-> %) arity-syntax) (str "Arity " arity-syntax " missing return type"))
   (split-no-check arity-syntax))
 
-(+T parse-filter [Any -> Filter])
+#_(+T parse-filter [Any -> Filter])
 (defn- parse-filter [syn]
   (assert (vector? syn))
   (let [[nme-sym keyw type-syn] syn
@@ -1206,7 +1233,7 @@
 
 (defrecord DomTypes [fixed rest-type])
 
-(+T parse-dom [Any -> DomTypes])
+#_(+T parse-dom [Any -> DomTypes])
 (defn- parse-dom 
   "Given syntax to the left of an arrow, returns a map with keys
   :dom, :rest-type"
@@ -1261,14 +1288,14 @@
   (^{+T [IUnparseType -> Any]}
    unparse-type* [this]))
 
-(+T unparse-tvar-binding [TypeVariable -> Any])
+#_(+T unparse-tvar-binding [TypeVariable -> Any])
 (defn unparse-tvar-binding [tvar]
     (assert (TypeVariable? tvar))
   (if (= Any (:bnd tvar))
     (:nme tvar)
     (list (:nme tvar) '<! (unparse-type (:bnd tvar)))))
 
-(+T unparse-type [Type -> Any])
+#_(+T unparse-type [Type -> Any])
 (defn unparse-type
   [type-obj]
   (if-let [scope (tvar-binding type-obj)]
@@ -1296,6 +1323,14 @@
   [var :!-> (unparse-type type)])
 
 (extend-protocol IUnparseType
+  TypeAlias
+  (unparse-type* [this]
+    (:nme this))
+
+  NewType
+  (unparse-type* [this]
+    (:nme this))
+
   ClassType
   (unparse-type* [this]
     (:the-class this))
@@ -1741,33 +1776,33 @@
   [s t]
   false)
 
-(+T subtype-of-one [Type (Seq Type) -> boolean])
+#_(+T subtype-of-one [Type (Seq Type) -> boolean])
 (defn subtype-of-one
   "True if s is a subtype to at least one ts"
   [s ts]
   (boolean (some #(subtype? s %) ts)))
 
-(+T supertype-of-one [Type (Seq Type) -> boolean])
+#_(+T supertype-of-one [Type (Seq Type) -> boolean])
 (defn supertype-of-one
   "True if t is a supertype to at least one ss"
   [t ss]
   (boolean (some #(subtype? % t) ss)))
 
-(+T subtype-of-all [Type (Seq Type) -> boolean])
+#_(+T subtype-of-all [Type (Seq Type) -> boolean])
 (defn subtype-of-all 
   "True if s is subtype of all ts"
   [s ts]
   (every? true?
           (map #(subtype? s %) ts)))
 
-(+T supertype-of-all [Type (Seq Type) -> boolean])
+#_(+T supertype-of-all [Type (Seq Type) -> boolean])
 (defn supertype-of-all
   "True if t is a supertype of all ss"
   [t ss]
   (every? true?
           (map #(subtype? % t) ss)))
 
-(+T subtypes? [(SequentialSeq Type) (SequentialSeq Type) -> boolean])
+#_(+T subtypes? [(SequentialSeq Type) (SequentialSeq Type) -> boolean])
 (defn subtypes? [ss ts]
   (and (= (count ss)
           (count ts))
@@ -1780,7 +1815,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable Renaming
 
-(+T unique-variable (Fun [-> TypeVariable]
+#_(+T unique-variable (Fun [-> TypeVariable]
                          [TypeVariable -> TypeVariable]))
 (defn- unique-variable
   ([] (-tv (gensym)))
@@ -1797,7 +1832,7 @@
            Assumes no conflicting variables (no inner scopes introduce variables
            that conflict with rmap)"))
 
-(+T rename (All [(x <! Type)]
+#_(+T rename (All [(x <! Type)]
              [x (Map TypeVariable TypeVariable) -> x]))
 (defn rename 
   "Rename all occurrences of variables in rmap in t"
@@ -1818,7 +1853,7 @@
         (-rename resolved-conflicts rmap))
       (-rename t rmap))))
 
-(+T rename-all (All [(x <! (Seq Type))]
+#_(+T rename-all (All [(x <! (Seq Type))]
                  [x (Seq TypeVariable) -> x]))
 (defn rename-all [ts vs]
   (doall (map rename ts (repeat vs))))
@@ -1867,7 +1902,7 @@
           "Demote type until type variables vs do not occur in it.
            Assumes no conflicting variables are introduced by inner scopes."))
 
-(+T resolve-conflicts [Type (Set TypeVariable) -> Type])
+#_(+T resolve-conflicts [Type (Set TypeVariable) -> Type])
 (defn resolve-conflicts
   "Resolves conflicting type variables introduced by inner scopes
   by uniquely renaming them"
@@ -1881,7 +1916,7 @@
                                   conflicts))))
       t)))
 
-(+T promote [Type (Set TypeVariable) -> Type])
+#_(+T promote [Type (Set TypeVariable) -> Type])
 (defn promote 
   "Promote type until type variables vs do not occur in it. 
   Handles conflicting inner scopes"
@@ -1897,7 +1932,7 @@
       Any                            ; VU-Fun-2 - Give up if vs occur in bounds of variables inside t
       (-promote no-conflicts vs))))
 
-(+T demote [Type (Set TypeVariable) -> Type])
+#_(+T demote [Type (Set TypeVariable) -> Type])
 (defn demote 
   "Demotes type until type variables vs do not occur in it. 
   Handles conflicting inner scopes"
@@ -1913,11 +1948,11 @@
       Nothing                        ; VD-Fun-2 - Give up if vs occur in bounds of variables inside t
       (-demote no-conflicts vs))))
 
-(+T promote-all [(Seq Type) (Set TypeVariable) -> (Seq Type)])
+#_(+T promote-all [(Seq Type) (Set TypeVariable) -> (Seq Type)])
 (defn- promote-all [ts vs]
   (doall (map promote ts (repeat vs))))
 
-(+T demote-all [(Seq Type) (Set TypeVariable) -> (Seq Type)])
+#_(+T demote-all [(Seq Type) (Set TypeVariable) -> (Seq Type)])
 (defn- demote-all [ts vs]
   (doall (map demote ts (repeat vs))))
 
@@ -1979,12 +2014,12 @@
 ;; Local Type Inference, Pierce & Turner
 ;; Section 5.4
 
-(+T EqConstraint (Record Type))
+#_(+T EqConstraint (Record Type))
 (defconstrainedrecord EqConstraint [eqtype]
   "Type R satisfies an EqConstraint [S] if (= R S)"
   {:pre [(Type? eqtype)]})
 
-(+T SubConstraint (Record Type Type))
+#_(+T SubConstraint (Record Type Type))
 (defconstrainedrecord SubConstraint [lower upper]
   "Type R satisfies a SubConstraint [S T] if (subtype? R S) and (subtype? R T)"
   {:pre [(Type? lower)
@@ -1995,25 +2030,25 @@
   (assert (subtype? lower upper))
   (->SubConstraint lower upper))
 
-(+T constraints (Set Class))
+#_(+T constraints (Set Class))
 (def constraints #{EqConstraint SubConstraint})
 (def Constraint ::constraint)
 
 (doseq [c constraints]
   (derive c Constraint))
 
-(+T constraint? [Any -> boolean])
+#_(+T constraint? [Any -> boolean])
 (defn constraint? [a]
   (isa? (class a) Constraint))
 
-(+T ConstraintSet (Record (Map TypeVariable Constraint)))
+#_(+T ConstraintSet (Record (Map TypeVariable Constraint)))
 (defconstrainedrecord ConstraintSet [cs]
   "A map of type variables to constraints"
   {:pre [(map? cs)
          (every? TypeVariable? (keys cs))
          (every? constraint? (vals cs))]})
 
-(+T empty-constraint-set [(Set TypeVariable) -> ConstraintSet])
+#_(+T empty-constraint-set [(Set TypeVariable) -> ConstraintSet])
 (defn empty-constraint-set
   "The empty xs-without-vs constraint set 
   maps each variable x in xs to the constraint [Bot, Top]"
@@ -2029,7 +2064,7 @@
 
 (declare intersect-constraint-sets)
 
-(+T singleton-constraint-set [TypeVariable Constraint (Set TypeVariable) -> ConstraintSet])
+#_(+T singleton-constraint-set [TypeVariable Constraint (Set TypeVariable) -> ConstraintSet])
 (defn singleton-constraint-set
   "The singleton xs-without-vs constraint set
   map variable v to constraint c, and
@@ -2076,7 +2111,7 @@
     (assert (subtype? new-lower new-upper))
     (sub-constraint new-lower new-upper)))
 
-(+T intersect-constraint-sets [& ConstraintSet * -> ConstraintSet])
+#_(+T intersect-constraint-sets [& ConstraintSet * -> ConstraintSet])
 (defn- intersect-constraint-sets [& cs]
   (assert (every? ConstraintSet? cs))
   (->ConstraintSet 
@@ -2084,7 +2119,7 @@
 
 (declare constraint-gen*)
 
-(+T constraint-gen [(Set TypeVariable) (Set TypeVariable) Type Type -> ConstraintSet])
+#_(+T constraint-gen [(Set TypeVariable) (Set TypeVariable) Type Type -> ConstraintSet])
 (defn constraint-gen
   "Given a set of type variables vs, a set of unknowns xs, and two
   two types s and t, calculates the minimal xs-without-vs constraint set
@@ -2102,7 +2137,7 @@
 
 (declare constraint-gen-arity)
 
-(+T constraint-gen* [(Set TypeVariable) (Set TypeVariable) Type Type -> ConstraintSet])
+#_(+T constraint-gen* [(Set TypeVariable) (Set TypeVariable) Type Type -> ConstraintSet])
 (defn- constraint-gen*
   "Assumes types have unique variable names"
   [vs xs s t]
@@ -2163,7 +2198,7 @@
     
     :else (throw (Exception. "Cannot generate constraint"))))
 
-(+T align-doms [arity arity -> (Pair (Seq Type))])
+#_(+T align-doms [arity arity -> (Pair (Seq Type))])
 (defn- align-doms [a-sub a-sup]
   (cond
     (and (:rest-type a-sub)
@@ -2203,7 +2238,7 @@
     [(:dom a-sub)
      (:dom a-sup)]))
 
-(+T constraint-gen-arity [(Set TypeVariable) (Set TypeVariable) Type Type -> ConstraintSet])
+#_(+T constraint-gen-arity [(Set TypeVariable) (Set TypeVariable) Type Type -> ConstraintSet])
 (defn constraint-gen-arity 
   [vs xs a-sub a-sup]
   {:post [ConstraintSet?]}
@@ -2218,7 +2253,7 @@
 
 (declare match-constraint-arity)
 
-(+T match-constraint [(Set TypeVariable) (Set TypeVariable) Type Type -> (Pair Type ConstraintSet)])
+#_(+T match-constraint [(Set TypeVariable) (Set TypeVariable) Type Type -> (Pair Type ConstraintSet)])
 (defn match-constraint
   "Returns a vector [u c]. u is equal to whichever of s or t is concrete, and
   c is a constraint set whose solutions make s and t identical"
@@ -2278,7 +2313,7 @@
                      (:arities s))
                super-arity)))))
 
-(+T match-constraint-arity [(Set TypeVariable) (Set TypeVariable) arity arity -> ConstraintSet])
+#_(+T match-constraint-arity [(Set TypeVariable) (Set TypeVariable) arity arity -> ConstraintSet])
 (defn match-constraint-arity
   [vs xs a-sub a-sup]
     (assert (arity? a-sub))
@@ -2310,7 +2345,7 @@
 (doseq [v (disj variances rigid)]
   (derive v but-rigid))
 
-(+T *current-variance* any-variance)
+#_(+T *current-variance* any-variance)
 (def ^:dynamic *current-variance*)
 (set-validator! #'*current-variance* variances)
 
@@ -2464,7 +2499,7 @@
 
 ;(def-type-alias Substitution (Map Symbol Type))
 
-(+T gen-substitution [Type (Set TypeVariable) ConstraintSet -> Substitution])
+#_(+T gen-substitution [Type (Set TypeVariable) ConstraintSet -> Substitution])
 (defn gen-substitution
   "Given a type and a satisfiable constraint set, return the substitution map"
   [t xs cs]
@@ -2511,7 +2546,7 @@
 
 (declare tc-expr)
 
-(+T tc-expr-check [(Map Any Any) Type -> (Map Any Any)])
+#_(+T tc-expr-check [(Map Any Any) Type -> (Map Any Any)])
 (defn tc-expr-check [expr expected-type]
   (let [expr (tc-expr expr :expected-type expected-type)]
     (assert-subtype (type-key expr) expected-type)
@@ -2522,7 +2557,7 @@
   tc-expr 
   (fn [expr & opts] (:op expr)))
 
-(+T tc-exprs [(Seq (Map Any Any)) -> (Seq (Map Any Any))])
+#_(+T tc-exprs [(Seq (Map Any Any)) -> (Seq (Map Any Any))])
 (defn tc-exprs [exprs]
   (doall (map tc-expr exprs)))
 
@@ -2661,7 +2696,7 @@
     (assoc expr
            type-key (-fun (map type-key cmethods)))))
 
-(+T check-fn-method [(Map Any Any) Fun -> (Map Any Any)])
+#_(+T check-fn-method [(Map Any Any) Fun -> (Map Any Any)])
 (defn check-fn-method 
   [{:keys [required-params rest-param] :as expr} expected-fun-type]
   (let [[mtched-arity :as mtched-arities]
@@ -2704,7 +2739,7 @@
 (def annotate-param-syntax :-)
 (def annotate-dom-syntax :-params)
 
-(+T synthesize-fn-method [(Map Any Any) -> (Map Any Any)])
+#_(+T synthesize-fn-method [(Map Any Any) -> (Map Any Any)])
 (defn synthesize-fn-method
   [{:keys [required-params rest-param] :as expr}]
   (letfn [(meta-type-annot [expr]
@@ -2797,7 +2832,7 @@
         ]
     (rename (:rng arity-type) subst)))
 
-(+T subst-type-args [(SequentialSeq Type) Fun -> Fun])
+#_(+T subst-type-args [(SequentialSeq Type) Fun -> Fun])
 (defn- subst-type-args [type-args fun-type]
     (assert (= (count type-args)
                (tvar-binding fun-type)))
@@ -2806,7 +2841,7 @@
     (-> fun-type
       (update-in [:arities] #(set [(rename (first %) subst)])))))
 
-(+T invoke-type [(SequentialSeq Type) Fun -> Type])
+#_(+T invoke-type [(SequentialSeq Type) Fun -> Type])
 (defn- invoke-type [arg-types {:keys [arities] :as fun-type}]
   (let [type-args-syn @TYPE-ARGS
         type-args (seq (map parse type-args-syn))
@@ -2925,7 +2960,7 @@
 
 ;static-field
 
-(+T field->Type [java.lang.reflect.Field -> Type])
+#_(+T field->Type [java.lang.reflect.Field -> Type])
 (defn field->Type [field]
   (resolve-symbol (:type field)))
 
@@ -3040,7 +3075,7 @@
            type-key (type-key chandler))))
 
 
-(+T constructor->Fun [clojure.reflect.Constructor -> Fun])
+#_(+T constructor->Fun [clojure.reflect.Constructor -> Fun])
 (defn constructor->Fun [{:keys [parameter-types declaring-class] :as ctor}]
   (assert ctor "Unresolved constructor")
   (map->Fun
