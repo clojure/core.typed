@@ -7,8 +7,6 @@
                          IMeta IObj IFn Symbol)
            (typed.core ClassType)))
 
-(load-env)
-
 (defmacro type= [s t]
   `(binding [*ns* (find-ns 'typed.test.core)]
      (= (parse '~s)
@@ -409,13 +407,6 @@
           (tc
             (do (declare id)
               (id \c)))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Parameterised Types
-
-(deftest param-type-test
-  (= (map->ParameterisedType :class-sym 'clojure.lang.Atom :fields [(ClassType-fro Number)])
-     (parse '(Atom Number))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Equality

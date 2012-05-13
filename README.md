@@ -23,6 +23,7 @@ Leiningen:
 
 # Roadmap
 
+* Real polymorphic Types
 * Bounded polymorphism 
 ** (with future F-bounded extension)
 * Occurrence typing

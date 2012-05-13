@@ -27,7 +27,7 @@
   a symbol and a type. If the symbol is unqualified,
   it is implicitly qualified in the current namespace."
   [nme type-syn]
-  `(annotate-def* '~nme '~type-syn))
+  `(add-type-ann (qual-sym *ns* '~nme) (parse '~type-syn)))
 
 (defmacro with-type-args [type-syns form]
   `(do (next-form-targs '~type-syns)
@@ -43,16 +43,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Typed require
-
-(defonce namespaces (atom '{clojure.core {:name clojure.core}
-                            typed.base {:name typed.base}}))
-
-(declare parse)
-
-(defn add-type-ann [sym typ]
-  (assert (namespace sym))
-  (let [nsym (symbol (namespace sym))]
-    (swap! namespaces assoc-in [nsym :anns sym] (parse typ))))
 
 (defn parse-ns-typed [nsym args]
   (let [requires
@@ -148,6 +138,7 @@
 
 (defn- type-check-ns [nsym]
   (let [asts (analyze-path nsym)
+        _ (prn (count asts))
 
         _ (doseq [a asts]
             (try (tc-expr a)
@@ -157,8 +148,7 @@
 
 #_(+T check-namespace [symbol -> nil])
 (defn check-namespace [nsym]
-  (let [_ (type-check-ns 'typed.class)
-        _ (type-check-ns 'typed.base)
+  (let [_ (require 'typed.base)
         _ (type-check-ns nsym)]
     nil))
 
@@ -215,7 +205,7 @@
 (defn remove-tvar-binding
   "Return Type t without a binding position"
   [t]
-  (vary-meta t (constantly nil)))
+  (vary-meta t #(dissoc % tvar-scope)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
@@ -349,7 +339,7 @@
        (every? Type? (vals m))))
 
 #_(+T *type-db* (map Symbol Type))
-(def ^:dynamic *type-db* 
+(defonce ^:dynamic *type-db* 
   (constrained-atom {}
                     "Map from qualified symbols to types"
                     [type-db-atom-contract]))
@@ -416,9 +406,13 @@
   "Convert type parameter sugar (a b c) to (All [b c] ..)"
   [sym-or-list t]
   (if (list? sym-or-list)
-    `(~All-literal ~(vec (rest sym-or-list))
-        ~t)
+    (list All-literal (vec (rest sym-or-list)) t)
     t))
+
+(defn- type-param-nme [sym-or-list]
+  (if (symbol? sym-or-list)
+    sym-or-list
+    (first sym-or-list)))
 
 #_(+T add-type-alias [(U symbol (list Any)) Any -> nil])
 (defn add-type-alias [sym-or-list t]
@@ -435,8 +429,8 @@
 (defn def-type-alias* [nme t]
   nil)
 
-(defmacro def-type-alias [sym tsyn]
-  `(def-type-alias* '~sym '~tsyn))
+(defmacro def-type-alias [sym-or-list tsyn]
+  `(def ~(type-param-nme sym-or-list) (parse '~(type-param-syn sym-or-list tsyn))))
 
 #_(+T type-of [(U symbol var) -> Type])
 (defn type-of [sym-or-var]
@@ -454,30 +448,6 @@
         the-type
         (throw (Exception. (str "No type for " sym)))))))
 
-(declare ->ParameterisedType ParameterisedType?)
-
-#_(+T typed-classes-var-contract [(atom Any) -> boolean])
-(defn typed-classes-var-contract [a]
-  (and (map? @a)
-       (every? symbol? (keys @a))
-       (every? #(class? (resolve %)) (keys @a))
-       (every? ParameterisedType? (vals @a))))
-
-#_(+T typed-classes-atom-contract [Any -> boolean])
-(defn typed-classes-atom-contract [m]
-  (and (map? m)
-       (every? symbol? (keys m))
-       (every? #(class? (resolve %)) (keys m))
-       (every? ParameterisedType? (vals m))))
-
-(defconstrainedvar 
-  ^:dynamic *parameterised-classes*
-  (constrained-atom {}
-                    "A map of qualified symbols to ParameterisedType's"
-                    [typed-classes-atom-contract])
-  "Atom containing a map of qualified symbols to ParameterisedType's"
-  [typed-classes-var-contract])
-
 (declare parse-tvar-decl)
 
 (defmacro with-type-vars [var-map & body]
@@ -489,7 +459,7 @@
      ~@body))
 
 #_(+T add-type-ann [symbol Type -> Any])
-#_(defn add-type-ann [sym typ]
+(defn add-type-ann [sym typ]
   (when-let [oldtyp (@*type-db* sym)]
     (when (not= oldtyp typ)
       (warn "Overwriting type for" sym ":" typ "from" (unparse oldtyp))))
@@ -569,10 +539,13 @@
 (defn free-vars [t]
   (-free-vars t))
 
+;defonce
 (defmacro def-type [nme & body]
-  `(let [a# (defconstrainedrecord ~nme ~@body)]
-     (derive a# Type)
-     a#))
+  `(if-not (resolve '~nme)
+     (let [a# (defconstrainedrecord ~nme ~@body)]
+       (derive a# Type)
+       a#)
+     (resolve '~nme)))
 
 #_(+T NewType (record symbol))
 (def-type NewType [nme]
@@ -642,15 +615,6 @@
 (defn ClassType-from [cls]
   (assert (class? cls))
   (->ClassType (symbol (.getName cls))))
-
-#_(+T ParameterisedType (record symbol (SequentialSeq Type)))
-(def-type ParameterisedType [class-sym fields]
-  "A type for parameterised classes. Takes a symbol
-  representing the class it is parameterising, and a list
-  of fields, type variables"
-  {:pre [(symbol? class-sym)
-         (class? (resolve class-sym))
-         (every? Type? fields)]})
 
 #_(+T Any Union)
 ;TODO primitives?
@@ -729,8 +693,9 @@
   object"
   [sym]
   (->PrimitiveClass
-    (symbol (.getName (or (primitive-symbol sym)
-                          (resolve-symbol sym))))))
+    (symbol (str "p"
+                 (.getName (or (primitive-symbol sym)
+                               (resolve-symbol sym)))))))
 
 #_(+T ProtocolType (Record Symbol))
 (def-type ProtocolType [the-protocol-var]
@@ -1107,7 +1072,7 @@
 (def Sequentialof-literal 'Sequentialof)
 (def Sequential*-literal 'Sequential*)
 (def Seqof-literal 'Seqof)
-(def Mapof-literal 'Map)
+(def Mapof-literal 'Mapof)
 (def Map*-literal 'Map*)
 
 (defmethod parse-list-syntax Vector*-literal
@@ -1176,18 +1141,21 @@
   (map->Fun 
     {:arities (set (doall (map parse-syntax* arities)))})) ; parse-syntax* to avoid implicit arity sugar wrapping
 
-(defmethod parse-list-syntax :default
-  [[c & args-syn :as syn]]
-  (let [args (doall (map parse args-syn))
-        cls-type (resolve-symbol c)
-        _ (assert (ClassType? cls-type))
-        param-type-template (@*parameterised-classes* (:the-class cls-type))
-        _ (assert param-type-template (str "Not a parameterised type: " c))
+(declare rename)
+
+(defn inst-poly-type [ptype args]
+  (let [bnd (tvar-binding ptype)
         _ (assert (= (count args)
-                     (count (:fields param-type-template)))
-                  (str "Malformed syntax: " syn))]
-    (->ParameterisedType (:the-class cls-type)
-                         args)))
+                     (count bnd))
+                  (str "Wrong number of arguments: " (unparse-type ptype)))
+        sub (zipmap bnd args)]
+    (rename (remove-tvar-binding ptype) sub)))
+
+(defmethod parse-list-syntax :default
+  [[ptype-syn & args-syn :as syn]]
+  (let [ptype (parse ptype-syn)
+        args (map parse args-syn)]
+    (inst-poly-type ptype args)))
 
 (extend-protocol IParseType
   IPersistentList
@@ -1210,7 +1178,7 @@
   (let [[dom [_ rng & opts]] (split-with #(not= '-> %) arity-syntax)]
     (->AritySyntax dom rng (apply hash-map opts))))
 
-#_(+T split-no-check [(Vector Any) -> AritySyntax])
+#_(+T split-arity-syntax [(Vector Any) -> AritySyntax])
 (defn- split-arity-syntax
   "Splits arity syntax into [dom rng opts-map]"
   [arity-syntax]
@@ -1334,10 +1302,6 @@
   ClassType
   (unparse-type* [this]
     (:the-class this))
-
-  ParameterisedType
-  (unparse-type* [this]
-    (list* (:class-sym this) (map unparse (:fields this))))
 
   PrimitiveClass
   (unparse-type* [this]
@@ -1826,14 +1790,14 @@
 
 (defprotocol IVariableRename
   (^{+T (All [a]
-          [a (Map TypeVariable TypeVariable) -> a])}
+          [a (Map TypeVariable Type) -> a])}
    -rename [this rmap] 
            "Rename all occurrences of variables in rmap in this.
            Assumes no conflicting variables (no inner scopes introduce variables
            that conflict with rmap)"))
 
 #_(+T rename (All [(x <! Type)]
-             [x (Map TypeVariable TypeVariable) -> x]))
+             [x (Map TypeVariable Type) -> x]))
 (defn rename 
   "Rename all occurrences of variables in rmap in t"
   [t rmap]
@@ -1864,6 +1828,11 @@
     (-> this
      (update-in [:types] #(rename-all % rmap))))
 
+  Intersection
+  (-rename [this rmap]
+    (-> this
+     (update-in [:types] #(rename-all % rmap))))
+
   TypeVariable
   (-rename [this rmap]
     (if-let [r (rmap this)]
@@ -1871,6 +1840,8 @@
       this))
   
   ClassType
+  (-rename [this rmap] this)
+  NilType
   (-rename [this rmap] this)
 
   Fun
@@ -2544,6 +2515,8 @@
 
 ;; Bidirectional checking (Local Type Inference (2000) Pierce & Turner, Section 4)
 
+(require 'typed.types)
+
 (declare tc-expr)
 
 #_(+T tc-expr-check [(Map Any Any) Type -> (Map Any Any)])
@@ -2580,42 +2553,42 @@
 
 (defmethod constant-type IPersistentMap
   [m]
-  (->Map (union (doall (map constant-type (keys m))))
-         (union (doall (map constant-type (vals m))))))
+  (inst-poly-type
+    (parse 'typed.types/Map)
+    [(union (doall (map constant-type (keys m))))
+     (union (doall (map constant-type (vals m))))]))
 
 (defmethod constant-type IPersistentList
   [l]
-  (->ConstantSequential (doall (map constant-type l))))
+  (inst-poly-type
+    (parse 'typed.types/List)
+    [(doall (map constant-type l))]))
 
 (defmethod constant-type IPersistentVector
   [v]
-  (->ConstantVector (doall (map constant-type v))))
-
-#_(defmethod constant-type IPersistentMap
-  [r]
-  (->ConstantMap (doall (map constant-type (apply concat r)))))
+  (inst-poly-type
+    (parse 'typed.types/Vector)
+    [(doall (map constant-type v))]))
 
 (defmethod constant-type Ratio
   [r]
-  (->Value r))
+  (parse 'clojure.lang.Ratio))
 
 (defmethod constant-type Keyword
   [kw]
-  (if (namespace kw)
-    (->QualifiedKeyword kw)
-    (->Value kw)))
+  (parse 'typed.types/Keyword))
 
 (defmethod constant-type Long
   [s]
-  (->Value s))
+  (parse 'java.lang.Long))
 
 (defmethod constant-type Symbol
   [s]
-  (->Value s))
+  (parse 'typed.types/Symbol))
 
 (defmethod constant-type Character
   [c]
-  (->Value c))
+  (parse 'java.lang.Character))
 
 (defmethod tc-expr :constant
   [{:keys [val] :as expr} & opts]
@@ -3145,6 +3118,5 @@
   (tc-expr (+ 1 1))
 
   (check-namespace 'typed.example.typed)
-  (check-namespace 'typed.core)
 
 )
