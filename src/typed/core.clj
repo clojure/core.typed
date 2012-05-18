@@ -7,11 +7,82 @@
 (defmacro +T [sym type]
   `(ann (qualify-symbol '~sym) ~type))
 
-(defmacro def-type [nme type]
-  `(def ~nme ~type))
+(defmacro def-type [nme type & opts]
+  (let [hopts (apply hash-map opts)
+        rntime-class (:class opts)]
+    `(def ~nme 
+       (let [tc-name# (qualify-symbol '~nme)]
+         (reify
+           ITCType
+           ITypeName
+           (~'-type-name [this#]
+             tc-name#)
+           ISuperTypes
+           (~'-supertype-of [this#]
+             ~type)
+           ~@(when rntime-class
+               (list 'IRuntimeClass
+                     `(~'-runtime-class [this#]
+                          ~rntime-class))))))))
 
-(defmacro def-poly-type [nme tvars type]
-  `(def ~nme (All ~tvars ~type)))
+(declare parse-tvars tv-from-syntax)
+
+(defmacro All [tvars type]
+  (let [tvar-bndings (map first tvars)
+        tvar-objs (mapv tv-from-syntax tvars)]
+    `(reify
+       IPolyConstructor
+       (~'-tvars [this#]
+         ~tvar-objs)
+
+       (~'-poly-type [this#]
+         (let [~@(mapcat #(vector %1 %2) tvar-bndings tvar-objs)]
+           ~type))
+
+       (~'-inst [const# types#]
+         (reify 
+           ITCType
+           IPolyInst
+           (~'-constructed-from [this#]
+             const#)
+           ISuperTypes
+           (~'-supertype-of [this#]
+             (throw (Exception. ""))))))))
+
+(defmacro def-poly-type [nme tvars type & opts]
+  (let [tvar-bndings (map first tvars)
+        tvar-objs (mapv tv-from-syntax tvars)
+        hopts (apply hash-map opts)
+        rntime-class (:class opts)]
+    `(def ~nme 
+       (let [type-nme# (qualify-symbol '~nme)]
+         (reify
+           ITypeName
+           (~'-type-name [this#]
+             type-nme#)
+           IPolyConstructor
+           (~'-tvars [this#]
+             ~tvar-objs)
+
+           (~'-poly-type [this#]
+             (let [~@(mapcat #(vector %1 %2) tvar-bndings tvar-objs)]
+               ~type))
+
+           (~'-inst [const# types#]
+             (reify 
+               ITCType
+               ITypeName
+               (~'-type-name [this#]
+                 type-nme#)
+               IPolyInst
+               (~'-constructed-from [this#]
+                 const#)
+               ISuperTypes
+               (~'-supertype-of [this#]
+                 (throw (Exception. "")))
+               IRuntimeClass
+               (~'-runtime-class [this#]
+                 ~rntime-class))))))))
 
 (defn qualify-symbol [sym]
   (if (namespace sym)
@@ -27,6 +98,39 @@
   (swap! VAR-ANNOTATIONS assoc sym type)
   type)
 
+;; Type Protocols
+
+(defprotocol ITCType
+  "Marker protocol for all Typed Clojure types"
+  (-tctype-marker [this]))
+
+(defprotocol ITypeName
+  "Name of types"
+  (-type-name [this] "Returns the name of type"))
+
+(defprotocol IPolyInst
+  "Marker protocol for polymorphic instances"
+  (-constructed-from [this] "Returns the type used to construct this"))
+
+(defprotocol IPolyConstructor
+  "Marker protocol for polymorphic type constructors"
+  (-poly-type [this] "Returns the polymorphic type of this")
+  (-tvars [this] "Returns a sequential of type variables")
+  (-inst [this types] "Returns an instance of this type, and ITCType, 
+                      with type variables substituted with types"))
+
+(defprotocol IRuntimeClass
+  "Runtime class of ITCTypes"
+  (-runtime-class [this] "Returns the class representing this ITCType"))
+
+(defprotocol ISuperTypes
+  "Extract supertypes of an ITCType type"
+  (-supertype-of [this] "Returns the supertypes of an ITCType"))
+
+(defprotocol IInstanceOf
+  "Runtime predicates for ITCTypes"
+  (-instance-of [this v] "True if v is an instance of ITCType this"))
+
 ;; Type Rep
 
 (deftype FunctionType [dom rng has-uniform-rest uniform-rest]
@@ -36,12 +140,6 @@
                              (when has-uniform-rest
                                ['& uniform-rest '*])
                              ['-> rng]))))))
-(deftype PolyConstructorType [tvars scope]
-  Object
-  (toString [this]
-    (str (list 'All (mapv #(vector (.nme %) :< (.bound %) :variance (.variance %)) tvars)
-               scope))))
-(deftype PolyInstanceType [constructor insts])
 (deftype TV [nme bound variance]
   Object
   (toString [this]
@@ -62,12 +160,6 @@
 (defmacro Fn [& arities]
   `(apply I (map function-from-syntax ~(mapv massage-function-syntax arities))))
 
-(defmacro All [tvars type]
-  (let [normalised tvars
-        nmes (map first normalised)]
-    `(let [~@(mapcat vector nmes (map tv-from-syntax normalised))]
-       (->PolyConstructorType ~(mapv tv-from-syntax normalised) ~type))))
-
 (defn U [& types]
   (if (= 1 (count types))
     (first types)
@@ -79,8 +171,7 @@
     (->IntersectionType types)))
 
 (defn Inst [this & types]
-  {:pre [(instance? PolyConstructorType this)]}
-  (->PolyConstructorType this types))
+  (-inst this types))
 
 ;; Syntax helpers
 
@@ -104,45 +195,17 @@
         bound (if (contains? opts bound-syn)
                 (bound-syn opts)
                 `Any)]
-    `(->TV '~nme ~bound ~variance)))
-
-;; Type Protocols
-
-(defprotocol ITCType
-  "Marker protocol for all Typed Clojure types"
-  (-tctype-marker [this]))
-
-(defprotocol IPolyInst
-  "Marker protocol for polymorphic instances"
-  (-polyinst-marker [this]))
-
-(defprotocol IPolyConstructor
-  "Marker protocol for polymorphic type constructors"
-  (-polyconstructor-marker [this]))
-
-(defprotocol ISubtype
-  "Subtyping between ITCTypes"
-  (-subtype [this sup] "True if this is a subtype of sup"))
-
-(defprotocol IRuntimeClass
-  "Runtime class of ITCTypes"
-  (-runtime-class [this] "Returns the class representing this ITCType"))
-
-(defprotocol ISuperTypes
-  "Extract supertypes of an ITCType type"
-  (-supertype-of [this] "Returns the supertypes of an ITCType"))
-
-(defprotocol IInstanceOf
-  "Runtime predicates for ITCTypes"
-  (-instance-of [this v] "True if v is an instance of ITCType this"))
+    `(->TV '~(gensym nme) ~bound ~variance)))
 
 ;; Subtyping
 
+(declare subtype?)
+
 (defn tc-isa? [sub sup]
   (cond
-    (and (instance? ISubtype sub)
-         (instance? ISubtype sup))
-    (-subtype sub sup)
+    (and (instance? ITCType sub)
+         (instance? ITCType sup))
+    (subtype? sub sup)
 
     (and (instance? IRuntimeClass sub)
          (class? sup))
@@ -154,31 +217,37 @@
 
     :else (throw (Exception. "no case in tc-isa?"))))
 
+(declare Any)
+
+(def Any
+  (let [nme (qualify-symbol 'Any)]
+    (reify
+      ITCType
+      ITypeName
+      (-type-name [this]
+        nme)
+      ISuperTypes
+      (-supertype-of [this]
+        Any)
+      IInstanceOf
+      (-instance-of [this v]
+        true))))
+
+(def Nothing
+  (let [nme (qualify-symbol 'Nothing)]
+    (reify
+      ITCType
+      ITypeName
+      (-type-name [this]
+        nme)
+      ISuperTypes
+      (-supertype-of [this]
+        Nothing))))
+
 (defn subtype? [sub sup]
-  (cond
-    (= Any sup) true
-    (instance? ISubtype sub) (-subtype sub sup)))
-
-(deftype Any []
-  ITCType
-  ISubtypesOf
-  (-supertype-of [this]
-    Any)
-  ISubType
-  (-subtype [this sup]
-    (identical? Any sup))
-  IInstanceOf
-  (-instance-of [this v]
-    true))
-
-(deftype Nothing []
-  ITCType
-  ISubtypesOf
-  (-supertype-of [this]
-    Any)
-  ISubType
-  (-subtype [this _]
-    true))
+  #_(cond
+    (= Nothing sub) true
+    :else (-subtype sub sup)))
 
 (def-type EmptySeqable 
           Nothing)
@@ -187,7 +256,7 @@
                Nothing)
 
 (def-poly-type Seqable [[a :variance :covariant]]
-               (U (NonEmptySeqable a)
+               (U (Inst NonEmptySeqable a)
                   EmptySeqable))
 
 (def-poly-type Option [[a :variance :covariant]]
@@ -203,8 +272,8 @@
 
 (def-poly-type Coll [[a :variance :covariant]]
                (I (U EmptyColl
-                     (Inst NonEmpty a))
-                  (Inst AnySeqable a))
+                     (Inst NonEmptyColl a))
+                  (Inst Seqable a))
                :class clojure.lang.IPersistentCollection)
 
 (def-type EmptySeq 
@@ -268,7 +337,7 @@
   {:pre [(or (nil? expected)
              (instance? ExpectedType expected))]}
   (when expected
-    (subtype type (.t expected))))
+    (subtype? type (.t expected))))
 
 (defmulti check :op)
 
@@ -288,19 +357,13 @@
 
 (defmethod check :invoke
   [expr & [expected-type]]
+  (assert false)
   (let [{cfexpr :fexpr
          cargs :args
          :as expr}
         (-> expr
           (update-in [:fexpr] check)
-          (update-in [:args] #(map check %)))
-
-        fn-type (type-key cfexpr)
-        arg-types (map type-key cargs)
-        inst-fn-type (if (instance? PolyConstructorType fn-type)
-                       (synthesise-type-args fn-type arg-types)
-                       fn-type)
-        _ (assert (subtype inst-fn-type clojure.lang.IFn))]
+          (update-in [:args] #(map check %)))]
     expr))
 
 
