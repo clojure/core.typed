@@ -80,9 +80,9 @@
   "Runtime class of ITCTypes"
   (-runtime-class [this] "Returns the class representing this ITCType"))
 
-(defprotocol ISuperTypes
+(defprotocol ISuperType
   "Extract supertypes of an ITCType type"
-  (-supertype-of [this] "Returns the supertypes of an ITCType"))
+  (-get-supertype [this] "Returns the supertypes of an ITCType"))
 
 (defprotocol IInstanceOf
   "Runtime predicates for ITCTypes"
@@ -98,8 +98,8 @@
   IPolyInst
   (-constructed-from [this]
     constructor)
-  ISuperTypes
-  (-supertype-of [this]
+  ISuperType
+  (-get-supertype [this]
     (throw (Exception. "")))
   IRuntimeClass
   (-runtime-class [this]
@@ -117,16 +117,25 @@
     type)
 
   (-inst [this types]
-    (throw (Exception.))
-    (->PolyInstance nme this 'FIXME rntime-class))) ;TODO substitution
+    (->PolyInstance nme 
+                    this
+                    (-visit-tvar type (fn [old]
+                                        (if-let [[tv typ] (some #(and (= % old)
+                                                                      (vector %1 %2) )
+                                                                tvars
+                                                                types)]
+                                          (do (assert (subtype? typ (.bound tv)))
+                                            typ)
+                                          this)))
+                    rntime-class)))
 
 (deftype NewType [nme type rntime-class]
   ITCType
   ITypeName
   (-type-name [this]
     nme)
-  ISuperTypes
-  (-supertype-of [this]
+  ISuperType
+  (-get-supertype [this]
     type)
   IRuntimeClass
   (-runtime-class [this#]
@@ -523,6 +532,27 @@
               (gen-constraint rest-type rest-sub xs))]
       (apply intersect-cs (concat d (when e [e]) cs)))))
 
+(declare Any)
+
+(def Any
+  (let [nme (qualify-symbol 'Any)]
+    (reify
+      ITCType
+      ITypeName
+      (-type-name [this]
+        nme)
+      IInstanceOf
+      (-instance-of [this v]
+        true))))
+
+(def Nothing
+  (let [nme (qualify-symbol 'Nothing)]
+    (reify
+      ITCType
+      ITypeName
+      (-type-name [this]
+        nme))))
+
 ;; Subtyping
 
 (declare subtype?)
@@ -543,37 +573,19 @@
 
     :else (throw (Exception. "no case in tc-isa?"))))
 
-(declare Any)
+(defmulti subtype? (fn [sub sup] [(class sub) (class sup)]))
 
-(def Any
-  (let [nme (qualify-symbol 'Any)]
-    (reify
-      ITCType
-      ITypeName
-      (-type-name [this]
-        nme)
-      ISuperTypes
-      (-supertype-of [this]
-        Any)
-      IInstanceOf
-      (-instance-of [this v]
-        true))))
+(defmethod subtype? [Nothing Any] [_ _] true)
+(defmethod subtype? [Nothing Object] [_ _] true)
+(defmethod subtype? [Object Any] [_ _] true)
 
-(def Nothing
-  (let [nme (qualify-symbol 'Nothing)]
-    (reify
-      ITCType
-      ITypeName
-      (-type-name [this]
-        nme)
-      ISuperTypes
-      (-supertype-of [this]
-        Nothing))))
+(defmethod subtype? [UnionType UnionType]
 
-(defn subtype? [sub sup]
-  #_(cond
-    (= Nothing sub) true
-    :else (-subtype sub sup)))
+(defmethod subtype? [ISuperType ISuperType] 
+  [sub type]
+  
+
+;; Base Types
 
 (def-type EmptySeqable 
           Nothing)
