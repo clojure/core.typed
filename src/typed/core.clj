@@ -1,5 +1,9 @@
 (ns typed.core
   (:refer-clojure :exclude [type])
+  (:import (clojure.lang Seqable IPersistentCollection IPersistentVector IPersistentStack
+                         Associative IFn AFn ISeq ASeq ILookup APersistentVector
+                         PersistentVector)
+           (java.util Map))
   (:require [analyze.core :refer [analyze-path]]))
 
 ;; Front end
@@ -36,10 +40,24 @@
          (->PolyConstructor
            '~nme
            ~tvar-objs
-           (let [~@(mapcat #(vector %1 %2) tvar-bndings tvar-objs)]
+           (let [~@(mapcat vector tvar-bndings tvar-objs)]
              ~type)
            ~rntime-class)))))
 
+(defmacro restrict-poly-class [the-class tvars & opts]
+  (let [opts-m (apply hash-map opts)
+        tvar-bndings (map first tvars)
+        tvar-objs (mapv tv-from-syntax tvars)
+        restrictions (:restrict opts-m)]
+    `(do
+       (add-restricted-class-constructor
+         ~the-class
+         (->PolyRestrictedClassConstructor 
+           ~the-class 
+           ~tvar-objs
+           (let [~@(mapcat vector tvar-bndings tvar-objs)]
+             ~restrictions)))
+       ~the-class)))
 
 (defn qualify-symbol [sym]
   (if (namespace sym)
@@ -67,7 +85,8 @@
 
 (defprotocol IPolyInst
   "Marker protocol for polymorphic instances"
-  (-constructed-from [this] "Returns the type used to construct this"))
+  (-constructed-from [this] "Returns the type used to construct this")
+  (-inst-from [this] "Returns the types used to instantiate this type"))
 
 (defprotocol IPolyConstructor
   "Marker protocol for polymorphic type constructors"
@@ -75,6 +94,10 @@
   (-tvars [this] "Returns a sequential of type variables")
   (-inst [this types] "Returns an instance of this type, and ITCType, 
                       with type variables substituted with types"))
+
+(defprotocol IRestrictedClassConstructor
+  "Protocol for restricted class constructors"
+  (-inst-restricted-class [this types] "Returns an instances of this"))
 
 (defprotocol IRuntimeClass
   "Runtime class of ITCTypes"
@@ -88,9 +111,42 @@
   "Runtime predicates for ITCTypes"
   (-instance-of [this v] "True if v is an instance of ITCType this"))
 
+(defprotocol IVarVisit
+  (-visit-tvar [this f]))
+
 ;; Type Rep
 
-(deftype PolyInstance [nme constructor type rntime-class]
+(deftype RestrictedClass [class restrictions])
+(deftype PolyRestrictedClassInstance [class constructor restrictions])
+(deftype PolyRestrictedClassConstructor [class tvars restrictions]
+  IRestrictedClassConstructor
+  (-inst-restricted-class [this types]
+    (->PolyRestrictedClassInstance
+      class
+      this
+      (into {}
+            (map (fn [[cl type]]
+                   [cl (-visit-tvar type (fn [old]
+                                           (if-let [[tv typ] (some #(and (= % old)
+                                                                         (vector %1 %2) )
+                                                                   tvars
+                                                                   types)]
+                                             (do (assert (subtype? typ (.bound tv)))
+                                               typ)
+                                             this)))])
+                 restrictions)))))
+
+;class -> PolyRestrictedClassConstructor
+(def RESTRICTED-CLASS-CONSTRUCTORS (atom {}))
+;class -> RestrictedClass
+(def RESTRICTED-CLASSES (atom {}))
+
+(defn add-restricted-class-constructor [class constr]
+  (assert (class? class))
+  (assert (instance? PolyRestrictedClassConstructor constr))
+  (swap! RESTRICTED-CLASS-CONSTRUCTORS assoc class constr))
+
+(deftype PolyInstance [nme inst-from constructor type rntime-class]
   ITCType
   ITypeName
   (-type-name [this]
@@ -98,12 +154,16 @@
   IPolyInst
   (-constructed-from [this]
     constructor)
+  (-inst-from [this]
+    inst-from)
   ISuperType
   (-get-supertype [this]
     (throw (Exception. "")))
   IRuntimeClass
   (-runtime-class [this]
     rntime-class))
+
+(declare subtype?)
 
 (deftype PolyConstructor [nme tvars type rntime-class]
   ITypeName
@@ -119,6 +179,7 @@
   (-inst [this types]
     (->PolyInstance nme 
                     this
+                    types
                     (-visit-tvar type (fn [old]
                                         (if-let [[tv typ] (some #(and (= % old)
                                                                       (vector %1 %2) )
@@ -138,7 +199,7 @@
   (-get-supertype [this]
     type)
   IRuntimeClass
-  (-runtime-class [this#]
+  (-runtime-class [this]
     rntime-class))
 
 (deftype FunctionType [dom rng has-uniform-rest uniform-rest]
@@ -161,6 +222,12 @@
   (toString [this]
     (str (apply list 'I types))))
 
+(deftype Literal [value]
+  ITCType
+  IRuntimeClass
+  (-runtime-class [this]
+    (class value)))
+
 (defn poly? [a]
   (instance? PolyConstructor a))
 (defn function? [a]
@@ -172,6 +239,7 @@
 
 (declare massage-function-syntax)
 
+;TODO IFn constructor, for invocable things
 (defmacro Fn [& arities]
   `(apply I (map function-from-syntax ~(mapv massage-function-syntax arities))))
 
@@ -185,8 +253,15 @@
     (first types)
     (->IntersectionType types)))
 
+(defn inst-poly-class [pclass types]
+  (if-let [contr (@RESTRICTED-CLASS-CONSTRUCTORS pclass)]
+    (-inst-restricted-class contr types)
+    (throw (Exception. (str "Cannot instantiate " pclass)))))
+
 (defn Inst [this & types]
-  (-inst this types))
+  (if (class? this)
+    (inst-poly-class this types)
+    (-inst this types)))
 
 ;; Syntax helpers
 
@@ -214,10 +289,33 @@
 
 ;; Visit tvar
 
-(defprotocol IVarVisit
-  (-visit-tvar [this f]))
+(extend-protocol IVarVisit
+  PolyRestrictedClassConstructor
+  (-visit-tvar [this f]
+    (->PolyRestrictedClassConstructor
+      (.class this)
+      (map -visit-tvar (.tvars this) f)
+      (into {}
+            (map (fn [[cl type]]
+                   [cl (-visit-tvar type f)])
+                 (.restrictions this)))))
 
-(extend-protocol IVarElim
+  PolyRestrictedClassInstance
+  (-visit-tvar [this f]
+    (->PolyRestrictedClassInstance
+      (.class this)
+      (-visit-tvar (.constructor this) f)
+      (into {}
+            (map (fn [[cl type]]
+                   [cl (-visit-tvar type f)])
+                 (.restrictions this)))))
+
+  NewType
+  (-visit-tvar [this f]
+    (->NewType 
+      (.nme this)
+      (-visit-tvar (.type this) f)
+      (.rntime-class this)))
   NewType
   (-visit-tvar [this f]
     (->NewType 
@@ -229,6 +327,7 @@
   (-visit-tvar [this f]
     (->PolyInstance
       (.nme this)
+      (map -visit-tvar (.inst-from this) (repeat f))
       (-visit-tvar (.constructor this) f)
       (-visit-tvar (.type this) f)
       (.rntime-class this)))
@@ -250,14 +349,18 @@
     (->UnionType
       (map -visit-tvar (.types this) (repeat f))))
 
+  Class
+  (-visit-tvar [this f]
+    this)
+
   FunctionType
   (-visit-tvar [this f]
     (->FunctionType
-      (map -demote (.dom this) (repeat f))
+      (map -visit-tvar (.dom this) (repeat f))
       (-visit-tvar (.rng this) f)
       (.has-uniform-rest this)
       (if (.has-uniform-rest this)
-        (-demote (.uniform-rest this) f)
+        (-visit-tvar (.uniform-rest this) f)
         (.uniform-rest this)))))
 
 ;; Variable Elimination
@@ -265,6 +368,8 @@
 (defprotocol IVarElim
   (-promote [this vs])
   (-demote [this vs]))
+
+(declare Nothing Any)
 
 (extend-protocol IVarElim
   NewType
@@ -283,12 +388,14 @@
   (-promote [this vs]
     (->PolyInstance
       (.nme this)
+      (map -promote (.inst-from this) (repeat vs))
       (-promote (.constructor this) vs)
       (-promote (.type this) vs)
       (.rntime-class this)))
   (-demote [this vs]
     (->PolyInstance
       (.nme this)
+      (map -demote (.inst-from this) (repeat vs))
       (-demote (.constructor this) vs)
       (-demote (.type this) vs)
       (.rntime-class this)))
@@ -545,8 +652,20 @@
       (-instance-of [this v]
         true))))
 
+(def AnyType (class Any))
+
 (def Nothing
   (let [nme (qualify-symbol 'Nothing)]
+    (reify
+      ITCType
+      ITypeName
+      (-type-name [this]
+        nme))))
+
+(def NothingType (class Nothing))
+
+(def Nil
+  (let [nme (qualify-symbol 'Nil)]
     (reify
       ITCType
       ITypeName
@@ -575,86 +694,132 @@
 
 (defmulti subtype? (fn [sub sup] [(class sub) (class sup)]))
 
-(defmethod subtype? [Nothing Any] [_ _] true)
-(defmethod subtype? [Nothing Object] [_ _] true)
-(defmethod subtype? [Object Any] [_ _] true)
+(defmethod subtype? [NothingType AnyType] [_ _] true)
+(defmethod subtype? [NothingType Object] [_ _] true)
+(defmethod subtype? [Object AnyType] [_ _] true)
 
-(defmethod subtype? [UnionType UnionType]
+(defmethod subtype? [NewType NewType] 
+  [sup type]
+  (= sup type))
 
-(defmethod subtype? [ISuperType ISuperType] 
-  [sub type]
+;(defmethod subtype? [PolyInstance PolyInstance]
+;  [sup type]
+;  (cond
+;    (= (-type-name sup)
+;       (-type-name type))
+;    (let [tvars (-> sup -constructed-from -tvars)
+;          sup-insts (-inst-from sup)
+;          type-insts (-inst-from type)]
+;      (every? true?
+;              (map (fn [v s t]
+;                     (case (.variance v)
+;                       :covariant (subtype? s t)
+;                       :contravariant (subtype? t s)
+;                       :invariant false))
+;                   tvars
+;                   sup-insts
+;                   type-insts)))
+;    :else (subtype? (.type
+;    ))))
+
+;(defmethod subtype? [UnionType UnionType]
+;
+;(defmethod subtype? [ISuperType ISuperType] 
+;  [sub type]
   
 
-;; Base Types
+;#; Base Types
 
-(def-type EmptySeqable 
-          Nothing)
+(restrict-poly-class Seqable [[a :variance :covariant]])
 
-(def-poly-type NonEmptySeqable [[a :variance :covariant]]
-               Nothing)
+(restrict-poly-class IPersistentCollection [[a :variance :covariant]]
+                     :restrict {Seqable (Inst Seqable a)})
 
-;(def-poly-type Seqable [[a :variance :covariant]]
-;               (U (Inst NonEmptySeqable a)
-;                  EmptySeqable))
-;
-;(def-poly-type Option [[a :variance :covariant]]
-;               (U a nil))
-;
-;(def-type EmptyColl
-;          Nothing
-;          :class clojure.lang.IPersistentCollection)
-;
-;(def-poly-type NonEmptyColl [[a :variance :covariant]]
-;               Nothing
-;               :class clojure.lang.IPersistentCollection)
-;
-;(def-poly-type Coll [[a :variance :covariant]]
-;               (I (U EmptyColl
-;                     (Inst NonEmptyColl a))
-;                  (Inst Seqable a))
-;               :class clojure.lang.IPersistentCollection)
-;
-;(def-type EmptySeq 
-;          EmptySeqable
-;          :class clojure.lang.ISeq)
-;
-;(def-poly-type NonEmptySeq [[a :variance :covariant]]
-;               (Inst NonEmptySeqable a)
-;               :class clojure.lang.ASeq)
-;
-;(def-poly-type Seq [[a :variance :covariant]]
-;               (I (U EmptySeq
-;                     (Inst NonEmptySeq a))
-;                  (Inst Seqable a)
-;                  (Inst Coll a))
-;               :class clojure.lang.ISeq)
-;
-;(def-type EmptyVector
-;          EmptySeqable
-;          :class clojure.lang.IPersistentVector)
-;
-;(def-poly-type NonEmptyVector [[a :variance :covariant]]
-;               (Inst NonEmptySeqable a)
-;               :class clojure.lang.IPersistentVector)
-;
-;(def-poly-type Vector [[a :variance :covariant]]
-;               (I (U EmptyVector
-;                     (Inst NonEmptyVector a))
-;                  (Inst Seqable a)
-;                  (Inst Coll a))
-;               :class clojure.lang.IPersistentVector)
-;
-;(+T clojure.core/seq
-;    (All [[x :variance :covariant]]
-;         (Fn [(EmptySeqable x) -> nil]
-;             [(NonEmptySeqable x) -> (Seq x)]
-;             [(Seqable x) -> (U (Seq x) nil)])))
-;
-;(+T clojure.core/first
-;    (All [[x :variance :covariant]]
-;         (Fn [EmptySeqable -> nil]
-;             [(NonEmptySeqable x) -> x]
-;             [(Seqable x) -> (U x nil)])))
+(restrict-poly-class ISeq [[a :variance :covariant]]
+                     :restrict {Seqable (Inst Seqable a)
+                                IPersistentCollection (Inst IPersistentCollection a)})
+
+(restrict-poly-class ASeq [[a :variance :covariant]]
+                :restrict {Seqable (Inst Seqable a)
+                           IPersistentCollection (Inst IPersistentCollection a)
+                           ISeq (Inst ISeq a)})
+
+(restrict-poly-class ILookup [[a :variance :invariant] [b :variance :covariant]])
+
+(restrict-poly-class Associative [[a :variance :invariant] [b :variance :covariant]]
+                :restrict {IPersistentCollection (Inst IPersistentCollection a)
+                           Seqable (Inst Seqable Any)
+                           ILookup (Inst ILookup a b)})
+
+(restrict-poly-class IPersistentStack [[a :variance :covariant]]
+                :restrict
+                {IPersistentCollection (Inst IPersistentCollection a)
+                 Seqable (Inst Seqable a)})
+
+(restrict-poly-class IPersistentVector [[a :variance :covariant]]
+                :restrict 
+                {Seqable (Inst Seqable a)
+                 IPersistentCollection (Inst IPersistentCollection a)
+                 Associative (Inst Associative Long a) ;TODO Integer alias
+                 IPersistentStack (Inst IPersistentStack a)
+                 ILookup (Inst ILookup Long a)})
+
+(restrict-poly-class APersistentVector [[a :variance :covariant]]
+                :restrict
+                {Seqable (Inst Seqable a)
+                 IPersistentCollection (Inst IPersistentCollection a)
+                 Associative (Inst Associative Long a)
+                 IPersistentStack (Inst IPersistentStack a)
+                 IFn (Fn [Long -> a])
+                 AFn (Fn [Long -> a])})
+
+(restrict-poly-class PersistentVector [[a :variance :covariant]]
+                :restrict
+                {APersistentVector (Inst APersistentVector a)
+                 Seqable (Inst Seqable a)
+                 IPersistentCollection (Inst IPersistentCollection a)
+                 Associative (Inst Associative Long a)
+                 IPersistentStack (Inst IPersistentStack a)
+                 IFn (Fn [Long -> a])
+                 AFn (Fn [Long -> a])})
+
+(comment
+  (+T a [(Seqable Integer) -> Integer])
+  (defn a [s]
+    (if (vector? s)
+      (-> s   ; s = (I (Seqable Integer) (IPersistentVector Any))
+        first)
+      (first s)))
+  )
+
+
+(+T clojure.core/seq
+    (All [[x :variance :invariant]]
+         (Fn [(Inst Seqable Nothing) -> Nil]
+             [(Inst Seqable x) -> (U (Inst ASeq x) Nil)]
+             [String -> (U (Inst ASeq Character) Nil)]
+             [(U Map Iterable) -> (U (Inst ASeq Any) Nil)]
+             [Nil -> Nil])))
+
+(+T clojure.core/first
+    (All [[x :variance :invariant]]
+         (Fn [(Inst Seqable Nothing) -> Nil]
+             [(Inst Seqable x) -> (U x Nil)]
+             [String -> (U Character Nil)]
+             [Map -> (U Any Nil)]
+             [Iterable -> (U Any Nil)]
+             [Nil -> Nil])))
+
+(+T clojure.core/rest
+    (All [[x :variance :invariant]]
+      (Fn [(Inst Seqable Nothing) -> (Inst ISeq Nothing)]
+          [(Inst Seqable x) -> (U (Inst ISeq Nothing)
+                             (Inst ASeq x))]
+          [Nil -> (Inst ISeq Nothing)]
+          [String -> (U (Inst ISeq Nothing)
+                        (Inst ASeq Character))]
+          [(U Iterable Map) -> (U (Inst ISeq Nothing)
+                                  (Inst ASeq Any))])))
 
 ;; Checker
 
