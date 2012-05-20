@@ -729,9 +729,11 @@
 
 ;#; Base Types
 
-;Seqable cannot be made covariant, it accepts mutable data.
-;I can't see any reason to parameterise it in light of that.
-(alter-poly-class Seqable [[a :variance :covariant] [b :variance :covariant]])
+;Seqable covariant in both arguments
+;First argument is the type that is Seqable
+;Second argument is the type for the resulting Seq
+;If either are mutable, will not be covariant automatically
+(alter-poly-class Seqable [[a :variance :covariant] [b :< ISeq :variance :covariant]])
 
 (comment
 (Seqable (Array Integer) Integer) ;<!:
@@ -745,52 +747,52 @@
 
 ;TODO recursive types
 (alter-poly-class ISeq [[a :variance :covariant]]
-                  :replace {Seqable (Inst Seqable (Inst ISeq a) a)
+                  :replace {Seqable (Inst Seqable (Inst ISeq a) (Inst ISeq a))
                             IPersistentCollection (Inst IPersistentCollection a)})
 
 (alter-poly-class ASeq [[a :variance :covariant]]
-                :replace {Seqable (Inst Seqable (Inst ASeq a) a)
-                           IPersistentCollection (Inst IPersistentCollection a)
-                           ISeq (Inst ISeq a)})
+                  :replace {Seqable (Inst Seqable (Inst ASeq a) (Inst ASeq a))
+                            IPersistentCollection (Inst IPersistentCollection a)
+                            ISeq (Inst ISeq a)})
 
 (alter-poly-class ILookup [[a :variance :invariant] [b :variance :covariant]])
 
 (alter-poly-class Associative [[a :variance :invariant] [b :variance :covariant]]
-                :replace {Seqable (Inst Seqable (Inst Associative a b) Any)
-                           IPersistentCollection (Inst IPersistentCollection Any)
-                           ILookup (Inst ILookup a b)})
+                  :replace {Seqable (Inst Seqable (Inst Associative a b) (Inst ISeq Any))
+                            IPersistentCollection (Inst IPersistentCollection Any)
+                            ILookup (Inst ILookup a b)})
 
 (alter-poly-class IPersistentStack [[a :variance :covariant]]
-                :replace
-                {Seqable (Inst Seqable (Inst IPersistentStack a) a)
-                 IPersistentCollection (Inst IPersistentCollection a)})
+                  :replace
+                  {Seqable (Inst Seqable (Inst IPersistentStack a) (Inst ISeq a))
+                   IPersistentCollection (Inst IPersistentCollection a)})
 
 (alter-poly-class IPersistentVector [[a :variance :covariant]]
-                :replace 
-                {Seqable (Inst Seqable (IPersistentVector a) a)
-                 IPersistentCollection (Inst IPersistentCollection a)
-                 Associative (Inst Associative Long a) ;TODO Integer alias
-                 IPersistentStack (Inst IPersistentStack a)
-                 ILookup (Inst ILookup Long a)})
+                  :replace 
+                  {Seqable (Inst Seqable (Inst IPersistentVector a) (Inst ISeq a))
+                   IPersistentCollection (Inst IPersistentCollection a)
+                   Associative (Inst Associative Long a) ;TODO Integer alias
+                   IPersistentStack (Inst IPersistentStack a)
+                   ILookup (Inst ILookup Long a)})
 
 (alter-poly-class APersistentVector [[a :variance :covariant]]
-                :replace
-                {Seqable (Inst Seqable (Inst APersistentVector a) a)
-                 IPersistentCollection (Inst IPersistentCollection a)
-                 Associative (Inst Associative Long a)
-                 IPersistentStack (Inst IPersistentStack a)
-                 IFn (Fn [Long -> a])
-                 AFn (Fn [Long -> a])})
+                  :replace
+                  {Seqable (Inst Seqable (Inst APersistentVector a) (Inst APersistentVector$Seq a))
+                   IPersistentCollection (Inst IPersistentCollection a)
+                   Associative (Inst Associative Long a)
+                   IPersistentStack (Inst IPersistentStack a)
+                   IFn (Fn [Long -> a])
+                   AFn (Fn [Long -> a])})
 
 (alter-poly-class PersistentVector [[a :variance :covariant]]
-                :replace
-                {Seqable (Inst Seqable (Inst PersistentVector a) a)
-                 APersistentVector (Inst APersistentVector a)
-                 IPersistentCollection (Inst IPersistentCollection a)
-                 Associative (Inst Associative Long a)
-                 IPersistentStack (Inst IPersistentStack a)
-                 IFn (Fn [Long -> a])
-                 AFn (Fn [Long -> a])})
+                  :replace
+                  {Seqable (Inst Seqable (Inst PersistentVector a) (Inst PersistentVector$ChunkedSeq a))
+                   APersistentVector (Inst APersistentVector a)
+                   IPersistentCollection (Inst IPersistentCollection a)
+                   Associative (Inst Associative Long a)
+                   IPersistentStack (Inst IPersistentStack a)
+                   IFn (Fn [Long -> a])
+                   AFn (Fn [Long -> a])})
 
 (comment
   (+T a [(IPersistentCollection Integer) -> Integer])
@@ -825,32 +827,26 @@
 (+T clojure.core/seq
     (All [[a :variance :contravariant]
           [x :variance :invariant]]
-      (Fn [(Inst Seqable a Nothing) -> Nil]
-          [(Inst Seqable a x) -> (U (Inst ASeq x) Nil)]
+      (Fn [(Inst Seqable a x) -> (U x Nil)]
           [String -> (U (Inst ASeq Character) Nil)]
           [Nil -> Nil]
           [(U Map Iterable) -> (U (Inst ASeq Any) Nil)])))
 
 (+T clojure.core/first
     (All [[a :variance :contravariant]
+          [c :< ISeq :variance :covariant]
           [x :variance :invariant]]
-      (Fn [(Inst Seqable a Nothing) -> Nil]
-          [(Inst Seqable a x) -> (U x Nil)]
-          [String -> (U Character Nil)]
-          [Nil -> Nil]
-          [(U Map Iterable Seqable) -> (U Any Nil)])))
+      (Fn [(Inst Seqable a (Inst x) -> (U x Nil)]
+          [CharSequence -> (U StringSeq Nil)]
+          [Iterable -> (U IteratorSeq Nil)]
+          [Nil -> Nil])))
 
 (+T clojure.core/rest
     (All [[x :variance :invariant]]
-      (Fn [(Inst IPersistentCollection Nothing)
-           -> (Inst ISeq Nothing)]
-          [(Inst IPersistentCollection x)
-           -> (Inst ASeq x)]
-          [String -> (U (Inst ASeq x)
-                        (Inst ISeq Nothing))]
-          [Nil -> (Inst ASeq Nothing)]
-          [(U Map Iterable Seqable) -> (U (Inst ASeq Any) 
-                                          (Inst ISeq Nothing))]))))
+      (Fn [(Inst Seqable a x) -> (U x Nil)]
+          [String -> (U Character Nil)]
+          [Nil -> Nil]
+          [(U Map Iterable Seqable) -> (U Any Nil)])))
 
 ;; Checker
 
