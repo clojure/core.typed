@@ -44,11 +44,10 @@
              ~type)
            ~rntime-class)))))
 
-(defmacro restrict-poly-class [the-class tvars & opts]
+(defmacro alter-poly-class [the-class tvars & opts]
   (let [opts-m (apply hash-map opts)
         tvar-bndings (map first tvars)
-        tvar-objs (mapv tv-from-syntax tvars)
-        restrictions (:restrict opts-m)]
+        tvar-objs (mapv tv-from-syntax tvars)]
     `(do
        (add-restricted-class-constructor
          ~the-class
@@ -56,7 +55,7 @@
            ~the-class 
            ~tvar-objs
            (let [~@(mapcat vector tvar-bndings tvar-objs)]
-             ~restrictions)))
+             ~(:replace opts-m))))
        ~the-class)))
 
 (defn qualify-symbol [sym]
@@ -116,9 +115,9 @@
 
 ;; Type Rep
 
-(deftype RestrictedClass [class restrictions])
-(deftype PolyRestrictedClassInstance [class constructor restrictions])
-(deftype PolyRestrictedClassConstructor [class tvars restrictions]
+(deftype RestrictedClass [class replacements])
+(deftype PolyRestrictedClassInstance [class constructor replacements])
+(deftype PolyRestrictedClassConstructor [class tvars replacements]
   IRestrictedClassConstructor
   (-inst-restricted-class [this types]
     (->PolyRestrictedClassInstance
@@ -131,10 +130,10 @@
                                                                          (vector %1 %2) )
                                                                    tvars
                                                                    types)]
-                                             (do (assert (subtype? typ (.bound tv)))
+                                             (do (assert (subtype? typ (.upper-bound tv)))
                                                typ)
                                              this)))])
-                 restrictions)))))
+                 replacements)))))
 
 ;class -> PolyRestrictedClassConstructor
 (def RESTRICTED-CLASS-CONSTRUCTORS (atom {}))
@@ -185,7 +184,7 @@
                                                                       (vector %1 %2) )
                                                                 tvars
                                                                 types)]
-                                          (do (assert (subtype? typ (.bound tv)))
+                                          (do (assert (subtype? typ (.upper-bound tv)))
                                             typ)
                                           this)))
                     rntime-class)))
@@ -209,7 +208,7 @@
                              (when has-uniform-rest
                                ['& uniform-rest '*])
                              ['-> rng]))))))
-(deftype TV [nme bound variance]
+(deftype TV [nme upper-bound variance]
   Object
   (toString [this]
     (str nme)))
@@ -277,15 +276,15 @@
           [true (first rest-syn)])]
     (->FunctionType fixed-dom rng has-uniform-rest uniform-rest)))
 
-(def ^:private bound-syn :<)
+(def ^:private upper-bound-syn :<)
 
 (defn tv-from-syntax [[nme & opt-list]]
   (let [opts (apply hash-map opt-list)
         variance (:variance opts)
-        bound (if (contains? opts bound-syn)
-                (bound-syn opts)
+        upper-bound (if (contains? opts upper-bound-syn)
+                (upper-bound-syn opts)
                 `Any)]
-    `(->TV '~(gensym nme) ~bound ~variance)))
+    `(->TV '~(gensym nme) ~upper-bound ~variance)))
 
 ;; Visit tvar
 
@@ -298,7 +297,7 @@
       (into {}
             (map (fn [[cl type]]
                    [cl (-visit-tvar type f)])
-                 (.restrictions this)))))
+                 (.replacements this)))))
 
   PolyRestrictedClassInstance
   (-visit-tvar [this f]
@@ -308,7 +307,7 @@
       (into {}
             (map (fn [[cl type]]
                    [cl (-visit-tvar type f)])
-                 (.restrictions this)))))
+                 (.replacements this)))))
 
   NewType
   (-visit-tvar [this f]
@@ -417,7 +416,7 @@
   TV
   (-promote [this vs]
     (if (contains? vs this)
-      (.bound this)
+      (.upper-bound this)
       this))
   (-demote [this vs]
     (if (contains? vs this)
@@ -521,7 +520,7 @@
     (let [sub-tvars (-tvars sub)
           type-tvars (-tvars type)
           _ (assert (= sub-tvars type-tvars))
-          [new-tvars ds] (let [res (map #(matching-rel (.bound %1) (.bound %2) xs)
+          [new-tvars ds] (let [res (map #(matching-rel (.upper-bound %1) (.upper-bound %2) xs)
                                         sub-tvars
                                         type-tvars)
                                ks-bnds (map first res)
@@ -537,7 +536,7 @@
                     (if-let [ntvar (some #(.nme new-tvars) old)]
                       (->TV
                         (.nme old)
-                        (.bound ntvar)
+                        (.upper-bound ntvar)
                         (.variance old))
                       old))
           sub-rplced (-visit-tvar (-poly-type sub) rplc-fn)
@@ -597,13 +596,13 @@
       (singleton-cs xs type (->SubConstraint r Any)))
 
     (tv? sub)
-    (gen-constraint (.bound sub) type xs)
+    (gen-constraint (.upper-bound sub) type xs)
 
     (and (poly? sub)
          (poly? type)
          (= (map #(.nme %) (-tvars sub))
             (map #(.nme %) (-tvars type))))
-    (let [res (map #(matching-rel (.bound %1) (.bound %2) xs)
+    (let [res (map #(matching-rel (.upper-bound %1) (.upper-bound %2) xs)
                    (-tvars sub)
                    (-tvars type))
           ks (map first res)
@@ -613,7 +612,7 @@
                     (if-let [t (some #(.nme old) (-tvars sub))]
                       (->TV
                         (.nme old)
-                        (.bound t)
+                        (.upper-bound t)
                         (.variance old))
                       old))
           cs (gen-constraint (-visit-tvar (.type sub) rplc-fn)
@@ -730,53 +729,63 @@
 
 ;#; Base Types
 
-(restrict-poly-class Seqable [[a :variance :covariant]])
+;Seqable cannot be made covariant, it accepts mutable data.
+;I can't see any reason to parameterise it in light of that.
+(alter-poly-class Seqable [[a :variance :covariant] [b :variance :covariant]])
 
-(restrict-poly-class IPersistentCollection [[a :variance :covariant]]
-                     :restrict {Seqable (Inst Seqable a)})
+(comment
+(Seqable (Array Integer) Integer) ;<!:
+(Seqable (Array Object) Object)
 
-(restrict-poly-class ISeq [[a :variance :covariant]]
-                     :restrict {Seqable (Inst Seqable a)
-                                IPersistentCollection (Inst IPersistentCollection a)})
+(Seqable (IPersistentVector Integer) Integer) ;<: 
+(Seqable (IPersistentVector Object) Object)
+  )
 
-(restrict-poly-class ASeq [[a :variance :covariant]]
-                :restrict {Seqable (Inst Seqable a)
+(alter-poly-class IPersistentCollection [[a :variance :covariant]])
+
+;TODO recursive types
+(alter-poly-class ISeq [[a :variance :covariant]]
+                  :replace {Seqable (Inst Seqable (Inst ISeq a) a)
+                            IPersistentCollection (Inst IPersistentCollection a)})
+
+(alter-poly-class ASeq [[a :variance :covariant]]
+                :replace {Seqable (Inst Seqable (Inst ASeq a) a)
                            IPersistentCollection (Inst IPersistentCollection a)
                            ISeq (Inst ISeq a)})
 
-(restrict-poly-class ILookup [[a :variance :invariant] [b :variance :covariant]])
+(alter-poly-class ILookup [[a :variance :invariant] [b :variance :covariant]])
 
-(restrict-poly-class Associative [[a :variance :invariant] [b :variance :covariant]]
-                :restrict {IPersistentCollection (Inst IPersistentCollection a)
-                           Seqable (Inst Seqable Any)
+(alter-poly-class Associative [[a :variance :invariant] [b :variance :covariant]]
+                :replace {Seqable (Inst Seqable (Inst Associative a b) Any)
+                           IPersistentCollection (Inst IPersistentCollection Any)
                            ILookup (Inst ILookup a b)})
 
-(restrict-poly-class IPersistentStack [[a :variance :covariant]]
-                :restrict
-                {IPersistentCollection (Inst IPersistentCollection a)
-                 Seqable (Inst Seqable a)})
+(alter-poly-class IPersistentStack [[a :variance :covariant]]
+                :replace
+                {Seqable (Inst Seqable (Inst IPersistentStack a) a)
+                 IPersistentCollection (Inst IPersistentCollection a)})
 
-(restrict-poly-class IPersistentVector [[a :variance :covariant]]
-                :restrict 
-                {Seqable (Inst Seqable a)
+(alter-poly-class IPersistentVector [[a :variance :covariant]]
+                :replace 
+                {Seqable (Inst Seqable (IPersistentVector a) a)
                  IPersistentCollection (Inst IPersistentCollection a)
                  Associative (Inst Associative Long a) ;TODO Integer alias
                  IPersistentStack (Inst IPersistentStack a)
                  ILookup (Inst ILookup Long a)})
 
-(restrict-poly-class APersistentVector [[a :variance :covariant]]
-                :restrict
-                {Seqable (Inst Seqable a)
+(alter-poly-class APersistentVector [[a :variance :covariant]]
+                :replace
+                {Seqable (Inst Seqable (Inst APersistentVector a) a)
                  IPersistentCollection (Inst IPersistentCollection a)
                  Associative (Inst Associative Long a)
                  IPersistentStack (Inst IPersistentStack a)
                  IFn (Fn [Long -> a])
                  AFn (Fn [Long -> a])})
 
-(restrict-poly-class PersistentVector [[a :variance :covariant]]
-                :restrict
-                {APersistentVector (Inst APersistentVector a)
-                 Seqable (Inst Seqable a)
+(alter-poly-class PersistentVector [[a :variance :covariant]]
+                :replace
+                {Seqable (Inst Seqable (Inst PersistentVector a) a)
+                 APersistentVector (Inst APersistentVector a)
                  IPersistentCollection (Inst IPersistentCollection a)
                  Associative (Inst Associative Long a)
                  IPersistentStack (Inst IPersistentStack a)
@@ -784,42 +793,64 @@
                  AFn (Fn [Long -> a])})
 
 (comment
-  (+T a [(Seqable Integer) -> Integer])
+  (+T a [(IPersistentCollection Integer) -> Integer])
   (defn a [s]
     (if (vector? s)
-      (-> s   ; s = (I (Seqable Integer) (IPersistentVector Any))
+      (-> s   ; s = (I Seqable (IPersistentVector Any))
         first)
       (first s)))
+
+  ;(+T-pprotocol ProtocolName tvars & methods)
+  (+T-pprotocol ISeq [[a :variance :invariant]]
+    (+T first (Fn [(Inst IPersistentCollection Nothing)
+                   -> Nil]
+                  [(Inst IPersistentCollection a)
+                   -> (U (ASeq a) Nil)]
+                  [String -> (U Nil (ASeq Character))]
+                  [(U Iterable Map Seqable) -> (U Nil (ASeq Any))])))
+
+  ;(+T-ptype TypeName tvars fields & impls)
+
+  (+T-ptype VectorNode [[x :variance :invariant]] 
+    [[arr (Inst Array x)]])
+
+  (+T-ptype PersistentVector [[x :variance :covariant]] 
+    [[cnt :- Long]
+     [root :- (Inst VectorNode Any)]
+     [tail :- (Inst ListNode x)]]
+                )
   )
 
 
 (+T clojure.core/seq
-    (All [[x :variance :invariant]]
-         (Fn [(Inst Seqable Nothing) -> Nil]
-             [(Inst Seqable x) -> (U (Inst ASeq x) Nil)]
-             [String -> (U (Inst ASeq Character) Nil)]
-             [(U Map Iterable) -> (U (Inst ASeq Any) Nil)]
-             [Nil -> Nil])))
+    (All [[a :variance :contravariant]
+          [x :variance :invariant]]
+      (Fn [(Inst Seqable a Nothing) -> Nil]
+          [(Inst Seqable a x) -> (U (Inst ASeq x) Nil)]
+          [String -> (U (Inst ASeq Character) Nil)]
+          [Nil -> Nil]
+          [(U Map Iterable) -> (U (Inst ASeq Any) Nil)])))
 
 (+T clojure.core/first
-    (All [[x :variance :invariant]]
-         (Fn [(Inst Seqable Nothing) -> Nil]
-             [(Inst Seqable x) -> (U x Nil)]
-             [String -> (U Character Nil)]
-             [Map -> (U Any Nil)]
-             [Iterable -> (U Any Nil)]
-             [Nil -> Nil])))
+    (All [[a :variance :contravariant]
+          [x :variance :invariant]]
+      (Fn [(Inst Seqable a Nothing) -> Nil]
+          [(Inst Seqable a x) -> (U x Nil)]
+          [String -> (U Character Nil)]
+          [Nil -> Nil]
+          [(U Map Iterable Seqable) -> (U Any Nil)])))
 
 (+T clojure.core/rest
     (All [[x :variance :invariant]]
-      (Fn [(Inst Seqable Nothing) -> (Inst ISeq Nothing)]
-          [(Inst Seqable x) -> (U (Inst ISeq Nothing)
-                             (Inst ASeq x))]
-          [Nil -> (Inst ISeq Nothing)]
-          [String -> (U (Inst ISeq Nothing)
-                        (Inst ASeq Character))]
-          [(U Iterable Map) -> (U (Inst ISeq Nothing)
-                                  (Inst ASeq Any))])))
+      (Fn [(Inst IPersistentCollection Nothing)
+           -> (Inst ISeq Nothing)]
+          [(Inst IPersistentCollection x)
+           -> (Inst ASeq x)]
+          [String -> (U (Inst ASeq x)
+                        (Inst ISeq Nothing))]
+          [Nil -> (Inst ASeq Nothing)]
+          [(U Map Iterable Seqable) -> (U (Inst ASeq Any) 
+                                          (Inst ISeq Nothing))]))))
 
 ;; Checker
 
