@@ -115,6 +115,8 @@
 
 ;; Type Rep
 
+(declare subtype?)
+
 (deftype RestrictedClass [class replacements])
 (deftype PolyRestrictedClassInstance [class constructor replacements])
 (deftype PolyRestrictedClassConstructor [class tvars replacements]
@@ -763,13 +765,13 @@
                    ISeq (Inst ISeq a)})
 
 (comment
-  (empty (Cons a b)) -> PersistentList$EmptyList
-  (seq (Cons a b)) -> (Cons a b)
-  (first (Cons a Any)) -> a
-  (rest (Cons Any nil)) -> PersistentList$EmptyList
-  (rest (Cons Any (Seqable a b))) -> b
-  (next (Cons Any nil)) -> nil
-  (next (Cons Any a)) -> a
+  (empty (Cons a b)) :- PersistentList$EmptyList
+  (seq (Cons a b)) :- (Cons a b)
+  (first (Cons a Any)) :- a
+  (rest (Cons Any nil)) :- PersistentList$EmptyList
+  (rest (Cons Any (Seqable a b))) :- b
+  (next (Cons Any Nil)) :- Nil
+  (next (Cons Any a)) :- a
   )
 
 (alter-poly-class PersistentList [[a :variance :covariant]]
@@ -821,17 +823,43 @@
 (alter-poly-class Associative [[a :variance :invariant]  ;key
                                [b :variance :invariant]  ;value
                                [c :variance :invariant]] ;result of assoc
-                  :replace {Seqable (Inst Seqable (Inst ASeq Any))
-                            IPersistentCollection (Inst IPersistentCollection _ _ _ _ _) ;is this too specific?
-                            ILookup (Inst ILookup a b)})
+                  :replace 
+                  {Seqable (Inst Seqable (Inst ASeq Any))
+                   IPersistentCollection (Inst IPersistentCollection _ _ _ _ _) ;is this too specific?
+                   ILookup (Inst ILookup a b)})
 
-(comment
-  (+T assoc
-      (All [[a :variance :invariant] ;invariant
-            [b :variance :invariant]
-            [c :variance :invariant]]
-        (Fn [(Inst Assiociative a b) a b & [a b] * -> c]))) ;TODO "keyword" rest args
-  )
+(alter-poly-class IPersistentMap [[a :variance :invariant] ;key
+                                  [b :variance :invariant] ;value
+                                  [c :variance :invariant] ;dissoc key
+                                  [d :variance :invariant]];dissoc result
+                  :replace 
+                  {Seqable (Inst Seqable (Inst ASeq (Inst IMapEntry a b)))
+                   IPersistentCollection (Inst IPersistentCollection
+                                               (U Nil (Inst IMapEntry a b)) ;object to cons
+                                               (Inst IPersistentMap (Inst IMapEntry a b)) ;cons result
+                                               _ ;empty
+                                               (Inst IMapEntry a b) ;first
+                                               _ ;rest
+                                               _ ;next
+                                               )})
+
+(alter-poly-class APersistentMap [[a :variance :invariant] ;key
+                                  [b :variance :invariant] ;value
+                                  ]
+                  :replace
+                  {Seqable (Inst Seqable (Inst ASeq Any))
+                   })
+
+(alter-poly-class PersistentHashMap [[a :variance :invariant] ;key
+                                     [b :variance :invariant]]
+                  :replace
+                  {Seqable (Inst Seqable (Inst ASeq Any))
+                   APersistentMap (Inst APersistentMap 
+                                        a      ;key
+                                        b      ;val
+                                        Any    ;dissoc value TODO: What to put here? - Ambrose
+                                        (Inst IPersistentMap a b))  ;dissoc result
+                   })
 
 (alter-poly-class IPersistentStack [[a :variance :covariant]]
                   :replace
@@ -873,6 +901,8 @@
                    IFn (Fn [Long -> a])
                    AFn (Fn [Long -> a])})
 
+;; Some sigs
+
 (+T clojure.core/seq
     (All [[a :variance :contravariant]
           [x :variance :invariant]]
@@ -890,8 +920,8 @@
 
 (+T clojure.core/first
     (All [[f :variance :invariant]]
-      (Fn [(Inst IPersistentCollection _ _ _ f _) -> (U f Nil)]
-          [(Inst Seqable (Inst IPersistentCollection _ _ _ f _)) -> (U f Nil)]
+      (Fn [(Inst IPersistentCollection _ _ _ f _ _) -> (U f Nil)]
+          [(Inst Seqable (Inst IPersistentCollection _ _ _ f _ _)) -> (U f Nil)]
           [CharSequence -> (U StringSeq Nil)]
           ;array -> (U Any Nil)
           [Iterable -> (U IteratorSeq Nil)]
@@ -899,11 +929,36 @@
 
 (+T clojure.core/rest
     (All [[r :variance :invariant]]  ;rest
-      (Fn [(Inst IPersistentCollection _ _ _ _ r) -> r]
+      (Fn [(Inst IPersistentCollection _ _ _ _ r _) -> r]
+          [(Inst Seqable (Inst IPersistentCollection _ _ _ _ r _)) -> r]
           [CharSequence -> (U StringSeq PersistentList$EmptyList)]
           [Nil -> PersistentList$EmptyList]
           ;array -> (U ArraySeq PersistentList$EmptyList)
           [(U Map Iterable) -> (U IteratorSeq PersistentList$EmptyList)])))
+
+(+T clojure.core/next
+    (All [[n :variance :invariant]]  ;rest
+      (Fn [(Inst IPersistentCollection _ _ _ _ _ n) -> (U Nil n)]
+          [(Inst Seqable (Inst IPersistentCollection _ _ _ _ _ n)) -> (U Nil n)]
+          [CharSequence -> (U StringSeq Nil)]
+          [Nil -> Nil]
+          ;array -> (U ArraySeq Nil)
+          [(U Map Iterable) -> (U IteratorSeq Nil)])))
+
+(+T clojure.core/assoc
+    (All [[a :variance :invariant] ;invariant
+          [b :variance :invariant]
+          [c :variance :invariant]]
+         (Fn [(Inst Associative a b) a b & [a b] * -> c] ;TODO "keyword" rest args
+             [Nil a b & [a b] * -> (U (Inst PersistentArrayMap a b)
+                                      (Inst PersistentHashMap a b))] ;sufficient return type? seems hacky - Ambrose
+             )))
+
+(+T clojure.core/dissoc
+    (All [[a :variance :invariant]
+          [b :variance :invariant]]
+         (Fn [(Inst IPersistentMap _ _ a b) & a -> b]
+             [Nil & Any -> Nil])))
 
 ; just playing with syntax 
 (comment
