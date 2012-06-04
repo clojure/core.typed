@@ -1,10 +1,12 @@
 (ns typed.core
   (:refer-clojure :exclude [type])
   (:import (clojure.lang Seqable IPersistentCollection IPersistentVector IPersistentStack
-                         Associative IFn AFn ISeq ASeq ILookup APersistentVector
-                         PersistentVector)
+                         Associative IFn ISeq ILookup PersistentVector IPersistentMap
+                         Cons PersistentHashMap)
            (java.util Map))
-  (:require [analyze.core :refer [analyze-path]]))
+  (:use [clojure.set :as set])
+  (:require [analyze.core :refer [analyze-path ast]]
+            [clojure.reflect :refer [reflect]]))
 
 ;; Front end
 
@@ -49,6 +51,9 @@
         tvar-bndings (map first tvars)
         tvar-objs (mapv tv-from-syntax tvars)]
     `(do
+       (assert (empty? 
+                 (set/intersection (-> ~the-class reflect :flags)
+                                   #{:interface :abstract})))
        (add-restricted-class-constructor
          ~the-class
          (->PolyRestrictedClassConstructor 
@@ -58,6 +63,20 @@
              ~(:replace opts-m))))
        ~the-class)))
 
+(defmacro alter-poly-interface [the-interface tvars]
+  (let [tvar-bndings (map first tvars)
+        tvar-objs (mapv tv-from-syntax tvars)]
+    `(do
+       (assert (contains? (-> ~the-interface reflect :flags)
+                          :interface))
+       (add-restricted-class-constructor
+         ~the-interface
+         (->PolyRestrictedClassConstructor 
+           ~the-interface
+           ~tvar-objs
+           nil)
+       ~the-interface))))
+
 (defn qualify-symbol [sym]
   (if (namespace sym)
     sym
@@ -66,8 +85,12 @@
 ;; Type environments
 
 ;map from symbols to types
+;(+T VAR-ANNOTATIONS (Atom (Rec [x]
+;                               (Isa (Associative [Symbol ITCType -> x])
+;                                    (IPersistentMap [Symbol -> x])))))
 (def VAR-ANNOTATIONS (atom {}))
 
+;(+T ann (Fn [Symbol Type -> Type]))
 (defn ann [sym type]
   (swap! VAR-ANNOTATIONS assoc sym type)
   type)
@@ -115,6 +138,38 @@
 
 ;; Type Rep
 
+{:kind :restricted-class
+ :on-class class
+ :replacements ()}
+
+{:kind :poly-restricted-class-instance
+ :on-class class
+ :constructed-from rclass
+ :replacements ()}
+
+{:kind :poly-restricted-class
+ :slots tvars
+ :replacements ()}
+
+{:kind :union
+ :types ()}
+
+{:kind :intersection
+ :types ()}
+
+{:kind :type-variable
+ :lower-bound type
+ :upper-bound type
+
+{:kind :singleton
+ :value obj}
+
+{:kind :function
+ :domain (type)
+ :rest-type type
+ :range type}
+ 
+
 (declare subtype?)
 
 (deftype RestrictedClass [class replacements])
@@ -138,8 +193,15 @@
                  replacements)))))
 
 ;class -> PolyRestrictedClassConstructor
+;(+T RESTRICTED-CLASS-CONSTRUCTORS (Atom (Rec [x]
+;                                             (I (Associative [Class PolyRestrictedClassConstructor -> x])
+;                                                (IPersistentMap [Class -> x])))))
 (def RESTRICTED-CLASS-CONSTRUCTORS (atom {}))
+
 ;class -> RestrictedClass
+;(+T RESTRICTED-CLASSES (Atom (Rec [x]
+;                                  (I (Associative [Class RestrictedClass -> x])
+;                                     (IPersistentMap [Class -> x])))))
 (def RESTRICTED-CLASSES (atom {}))
 
 (defn add-restricted-class-constructor [class constr]
@@ -311,12 +373,6 @@
                    [cl (-visit-tvar type f)])
                  (.replacements this)))))
 
-  NewType
-  (-visit-tvar [this f]
-    (->NewType 
-      (.nme this)
-      (-visit-tvar (.type this) f)
-      (.rntime-class this)))
   NewType
   (-visit-tvar [this f]
     (->NewType 
@@ -729,260 +785,6 @@
 ;  [sub type]
   
 
-;#; Base Types
-
-(alter-poly-class Seqable [[a :< (Inst ISeq _) :variance :covariant]])
-
-(comment
-  ;Is this sound? ArraySeqs are immutable, but argument Arrays are mutable
-(Seqable (Inst ArraySeq Integer)) ;<:
-(Seqable (Inst ArraySeq Object))
-  )
-
-;cons, count, empty, equiv
-(alter-poly-class IPersistentCollection [[a :variance :covariant]  ;object to cons
-                                         [b :< (Inst IPersistentCollection _ _ _ _ _)
-                                            :variance :covariant]  ;cons result
-                                         [c :< (Inst IPersistentCollection _ _ _ _ _ )
-                                            :variance :covariant]  ;empty
-                                         [d :variance :covariant]  ;first
-                                         [e :< (Inst IPersistentCollection _ _ _ _ _ )
-                                            :variance :covariant] ;rest output
-                                         [f :variance :covariant] ;next output, minus nil
-                                         ])
-
-(alter-poly-class Cons [[a :variance :covariant]
-                        [b :< (U Nil (Inst ISeq a)) :variance :covariant]]
-                  :replace
-                  {Seqable (Inst Seqable (Inst Cons a b))
-                   IPersistentColection (Inst IPersistentColection 
-                                              a                             ;object to cons
-                                              (Inst Cons a (Inst Cons a b)) ;cons result
-                                              PersistentList$EmptyList      ;empty
-                                              a                             ;first
-                                              b)                            ;rest
-                   ASeq (Inst ASeq a)
-                   ISeq (Inst ISeq a)})
-
-(comment
-  (empty (Cons a b)) :- PersistentList$EmptyList
-  (seq (Cons a b)) :- (Cons a b)
-  (first (Cons a Any)) :- a
-  (rest (Cons Any nil)) :- PersistentList$EmptyList
-  (rest (Cons Any (Seqable a b))) :- b
-  (next (Cons Any Nil)) :- Nil
-  (next (Cons Any a)) :- a
-  )
-
-(alter-poly-class PersistentList [[a :variance :covariant]]
-                  :replace
-                  {Seqable (Inst Seqable (Inst PersistentList a))
-                   IPersistentColection (Inst IPersistentColection 
-                                              a                          ;cons obj
-                                              (Inst PersistentList a)    ;cons result
-                                              PersistentList$EmptyList   ;empty
-                                              a                          ;first
-                                              (U (Inst PersistentList a)
-                                                 (Inst PersistentList$EmptyList)) ;rest
-                                              (Inst PersistentList a)    ;next
-                                              )
-                   IPersistentList (Inst IPersistentList a)})
-
-(alter-class PersistentList$EmptyList [[a :variance :covariant]]
-             :replace
-             {Seqable (Inst Seqable Nothing)  ;hmm, is this a good way to represent "unseqable" things that are Seqable? - Ambrose
-              IPersistentCollection (Inst IPersistentCollection
-                                          a                     ;cons obj
-                                          (Inst Cons a PersistentList$EmptyList) ;cons result
-                                          PersistentList$EmptyList  ;empty
-                                          Nothing                   ;first
-                                          IPersistentCollection$EmptyList ;rest
-                                          Nothing) ;next
-              })
-
-
-(alter-poly-class ISeq [[a :variance :covariant]]
-                  :replace {Seqable (Inst Seqable (Inst ISeq a))
-                            IPersistentCollection (Inst IPersistentCollection Any _ _ Any _ _)})
-
-(alter-poly-class ASeq [[a :variance :covariant]]
-                  :replace {Seqable (Inst Seqable (Inst ASeq a))
-                            IPersistentCollection (Inst IPersistentCollection 
-                                                        a                ;obj to cons
-                                                        (Inst ASeq a)    ;cons result
-                                                        PersistentList$EmptyList  ;empty
-                                                        a                ;first
-                                                        (Inst ASeq a)    ;rest
-                                                        (Inst ISeq a))   ;next
-                            ISeq (Inst ISeq a)})
-
-(alter-poly-class ILookup [[a :variance :invariant]  ;key
-                           [b :variance :covariant]]);value
-
-;(assoc (Associative a b) a b) => c
-(alter-poly-class Associative [[a :variance :invariant]  ;key
-                               [b :variance :invariant]  ;value
-                               [c :variance :invariant]] ;result of assoc
-                  :replace 
-                  {Seqable (Inst Seqable (Inst ASeq Any))
-                   IPersistentCollection (Inst IPersistentCollection _ _ _ _ _) ;is this too specific?
-                   ILookup (Inst ILookup a b)})
-
-(alter-poly-class IPersistentMap [[a :variance :invariant] ;key
-                                  [b :variance :invariant] ;value
-                                  [c :variance :invariant] ;dissoc key
-                                  [d :variance :invariant]];dissoc result
-                  :replace 
-                  {Seqable (Inst Seqable (Inst ASeq (Inst IMapEntry a b)))
-                   IPersistentCollection (Inst IPersistentCollection
-                                               (U Nil (Inst IMapEntry a b)) ;object to cons
-                                               (Inst IPersistentMap (Inst IMapEntry a b)) ;cons result
-                                               _ ;empty
-                                               (Inst IMapEntry a b) ;first
-                                               _ ;rest
-                                               _ ;next
-                                               )})
-
-(alter-poly-class APersistentMap [[a :variance :invariant] ;key
-                                  [b :variance :invariant] ;value
-                                  ]
-                  :replace
-                  {Seqable (Inst Seqable (Inst ASeq Any))
-                   })
-
-(alter-poly-class PersistentHashMap [[a :variance :invariant] ;key
-                                     [b :variance :invariant]]
-                  :replace
-                  {Seqable (Inst Seqable (Inst ASeq Any))
-                   APersistentMap (Inst APersistentMap 
-                                        a      ;key
-                                        b      ;val
-                                        Any    ;dissoc value TODO: What to put here? - Ambrose
-                                        (Inst IPersistentMap a b))  ;dissoc result
-                   })
-
-(alter-poly-class IPersistentStack [[a :variance :covariant]]
-                  :replace
-                  {Seqable (Inst Seqable (Inst IPersistentStack a) (Inst ISeq a))
-                   IPersistentCollection (Inst IPersistentCollection _ _ _ _ _ _) ;too specific?
-                   })
-
-(alter-poly-class IPersistentVector [[a :variance :covariant]]
-                  :replace 
-                  {Seqable (Inst Seqable (Inst ASeq a))
-                   IPersistentCollection (Inst IPersistentCollection _ _ _ _ _) ;too specific?
-                   Associative (Inst Associative Long a) ;TODO Integer alias
-                   IPersistentStack (Inst IPersistentStack a)
-                   ILookup (Inst ILookup Long a)})
-
-(alter-poly-class APersistentVector [[a :variance :covariant]]
-                  :replace
-                  {Seqable (Inst Seqable (Inst APersistentVector$Seq a))
-                   IPersistentCollection (Inst IPersistentCollection _ _ _ _ _ _)
-                   Associative (Inst Associative Long a)
-                   IPersistentStack (Inst IPersistentStack a)
-                   IFn (Fn [Long -> a])
-                   AFn (Fn [Long -> a])})
-
-(alter-poly-class PersistentVector [[a :variance :covariant]]
-                  :replace
-                  {Seqable (Inst Seqable (Inst PersistentVector$ChunkedSeq a))
-                   APersistentVector (Inst APersistentVector a)
-                   IPersistentCollection (Inst IPersistentCollection 
-                                               a             ;type to cons
-                                               (Inst PersistentVector a) ;cons result
-                                               (Inst PersistentVector Nothing) ;empty
-                                               a             ;first
-                                               (Inst PersistentVector a) ;rest
-                                               (Inst PersistentVector a) ;next
-                                               )
-                   Associative (Inst Associative Long a) ;TODO clojure integer type
-                   IPersistentStack (Inst IPersistentStack a)
-                   IFn (Fn [Long -> a])
-                   AFn (Fn [Long -> a])})
-
-;; Some sigs
-
-(+T clojure.core/seq
-    (All [[a :variance :contravariant]
-          [x :variance :invariant]]
-      (Fn [(Inst Seqable x) -> (U x Nil)]
-          [CharSequence -> (U StringSeq Nil)]
-          ;array -> (U ArraySeq Nil)
-          [Nil -> Nil]
-          [(U Map Iterable) -> (U IteratorSeq Nil)])))
-
-(+T clojure.core/conj
-    (All [[x :variance :invariant]   ;object to cons
-          [c :variance :invariant]]  ;cons result
-      (Fn [(Inst IPersistentCollection x c _ _ _) x & x * -> c]
-          [Nil & x * -> (Inst PersistentList x)])))
-
-(+T clojure.core/first
-    (All [[f :variance :invariant]]
-      (Fn [(Inst IPersistentCollection _ _ _ f _ _) -> (U f Nil)]
-          [(Inst Seqable (Inst IPersistentCollection _ _ _ f _ _)) -> (U f Nil)]
-          [CharSequence -> (U StringSeq Nil)]
-          ;array -> (U Any Nil)
-          [Iterable -> (U IteratorSeq Nil)]
-          [Nil -> Nil])))
-
-(+T clojure.core/rest
-    (All [[r :variance :invariant]]  ;rest
-      (Fn [(Inst IPersistentCollection _ _ _ _ r _) -> r]
-          [(Inst Seqable (Inst IPersistentCollection _ _ _ _ r _)) -> r]
-          [CharSequence -> (U StringSeq PersistentList$EmptyList)]
-          [Nil -> PersistentList$EmptyList]
-          ;array -> (U ArraySeq PersistentList$EmptyList)
-          [(U Map Iterable) -> (U IteratorSeq PersistentList$EmptyList)])))
-
-(+T clojure.core/next
-    (All [[n :variance :invariant]]  ;rest
-      (Fn [(Inst IPersistentCollection _ _ _ _ _ n) -> (U Nil n)]
-          [(Inst Seqable (Inst IPersistentCollection _ _ _ _ _ n)) -> (U Nil n)]
-          [CharSequence -> (U StringSeq Nil)]
-          [Nil -> Nil]
-          ;array -> (U ArraySeq Nil)
-          [(U Map Iterable) -> (U IteratorSeq Nil)])))
-
-(+T clojure.core/assoc
-    (All [[a :variance :invariant] ;invariant
-          [b :variance :invariant]
-          [c :variance :invariant]]
-         (Fn [(Inst Associative a b) a b & [a b] * -> c] ;TODO "keyword" rest args
-             [Nil a b & [a b] * -> (U (Inst PersistentArrayMap a b)
-                                      (Inst PersistentHashMap a b))] ;sufficient return type? seems hacky - Ambrose
-             )))
-
-(+T clojure.core/dissoc
-    (All [[a :variance :invariant]
-          [b :variance :invariant]]
-         (Fn [(Inst IPersistentMap _ _ a b) & a -> b]
-             [Nil & Any -> Nil])))
-
-; just playing with syntax 
-(comment
-
-  ;(+T-pprotocol ProtocolName tvars & methods)
-  (+T-pprotocol ISeq [[a :variance :invariant]]
-    (+T first (Fn [(Inst IPersistentCollection Nothing)
-                   -> Nil]
-                  [(Inst IPersistentCollection a)
-                   -> (U (ASeq a) Nil)]
-                  [String -> (U Nil (ASeq Character))]
-                  [(U Iterable Map Seqable) -> (U Nil (ASeq Any))])))
-
-  ;(+T-ptype TypeName tvars fields & impls)
-
-  (+T-ptype VectorNode [[x :variance :invariant]] 
-    [[arr (Inst Array x)]])
-
-  (+T-ptype PersistentVector [[x :variance :covariant]] 
-    [[cnt :- Long]
-     [root :- (Inst VectorNode Any)]
-     [tail :- (Inst ListNode x)]]
-                )
-  )
 
 
 ;; Checker
@@ -998,13 +800,9 @@
     (doseq [a asts]
       (check a))))
 
-(deftype ExpectedType [t])
-
 (defn assert-expected-type [type expected]
-  {:pre [(or (nil? expected)
-             (instance? ExpectedType expected))]}
   (when expected
-    (subtype? type (.t expected))))
+    (subtype? type expected)))
 
 (defmulti check :op)
 
