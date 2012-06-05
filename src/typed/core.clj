@@ -168,7 +168,6 @@
  :domain (type)
  :rest-type type
  :range type}
- 
 
 (declare subtype?)
 
