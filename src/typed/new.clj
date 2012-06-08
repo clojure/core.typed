@@ -183,6 +183,29 @@
 
 (declare-type Mu)
 
+(defrecord Value [val]
+  "A Clojure value"
+  [])
+
+(declare-type Value)
+
+(defrecord HeterogeneousHashMap [types]
+  "A constant vector, clojure.lang.PersistentHashMap"
+  [(every? #(and (= 2 (count %))
+                 (let [[k v] %]
+                   (and (Type? k)
+                        (Type? v))))
+           types)])
+
+(declare-type HeterogeneousHashMap)
+
+(defrecord HeterogeneousVector [types]
+  "A constant vector, clojure.lang.PersistentVector"
+  [(sequential? types)
+   (every? Type? types)])
+
+(declare-type HeterogeneousVector)
+
 (defrecord Function [dom rng rest drest]
   "A function arity"
   [(sequential? dom)
@@ -738,8 +761,48 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
 
-(defmulti check :op)
+(def expr-type ::expr-type)
 
-(defn check-top-level [form nsym]
-  (let [ast (analyze/ast-in-ns nsym form)]
+(defmulti check (fn [expr & [expected]] (:op expr)))
+
+(defn check-top-level [nsym form]
+  (let [ast (analyze/analyze-form-in-ns nsym form)]
     (check ast)))
+
+(defmacro tc [form]
+  `(check-top-level (symbol (ns-name *ns*))
+                    '~form))
+
+(defmulti constant-type class)
+
+(defmethod constant-type Symbol [v] (->Value v))
+(defmethod constant-type Long [v] (->Value v))
+(defmethod constant-type Double [v] (->Value v))
+(defmethod constant-type java.math.BigDecimal [v] (->Value v))
+(defmethod constant-type clojure.lang.BigInt [v] (->Value v))
+(defmethod constant-type String [v] (->Value v))
+(defmethod constant-type Character [v] (->Value v))
+(defmethod constant-type clojure.lang.Keyword [v] (->Value v))
+
+(defmethod constant-type clojure.lang.PersistentVector 
+  [cvec]
+  (->HeterogeneousVector (doall (map constant-type cvec))))
+
+(defmethod constant-type clojure.lang.PersistentHashMap
+  [cvec]
+  (->HeterogeneousHashMap (doall (map #(vector (constant-type (first %))
+                                               (constant-type (second %)))
+                                      cvec))))
+
+(defn check-value
+  [{:keys [val] :as expr} & [expected]]
+  (let [actual-type (constant-type val)
+        _ (when expected
+            (subtype actual-type expected))]
+    (assoc expr
+           expr-type actual-type)))
+
+(defmethod check :constant [& args] (apply check-value args))
+(defmethod check :number [& args] (apply check-value args))
+(defmethod check :string [& args] (apply check-value args))
+(defmethod check :keyword [& args] (apply check-value args))
