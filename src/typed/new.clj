@@ -10,7 +10,7 @@
 (defmacro defrecord [name slots inv-description invariants & etc]
   `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc))
 
-(declare abstract-many)
+(declare abstract-many instantiate-many)
 
 (defn- comp-mm [mm disps]
   (set/difference disps (set (keys (.getMethodTable mm)))))
@@ -84,6 +84,10 @@
 
 (declare-type F)
 
+(defrecord Scope [body]
+  "A scope that contains bound variables. Not used directly"
+  [((some-fn Type? #(instance? Scope %)) body)])
+
 (defrecord RClass [variances the-class replacements]
   "A restricted class, where ancestors are
   (replace replacements (ancestors the-class))"
@@ -136,10 +140,6 @@
 
 (declare-type DataType)
 
-(defrecord Scope [body]
-  "A scope that contains bound variables. Not used directly"
-  [(Type? body)])
-
 (defrecord Poly [nbound scope]
   "A polymorphic type containing n bound variables"
   [(nat? nbound)
@@ -154,6 +154,13 @@
   (if (empty? names)
     body
     (->Poly (count names) (abstract-many names body))))
+
+;smart destructor
+(defn Poly-body* [names poly]
+  {:pre [(every? symbol? names)
+         (Poly? poly)]}
+  (assert (= (:nbound poly) (count names)) "Wrong number of names")
+  (instantiate-many (map #(->F % nil nil nil ) names) (:scope poly)))
 
 (defrecord PolyDots [n scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
@@ -301,6 +308,7 @@
 (defmethod parse-type-list :default
   [[cls-sym & params-syn]]
   (let [cls (resolve cls-sym)
+        _ (assert cls (str cls-sym " does not resolve to a class"))
         rclass (@RESTRICTED-CLASS cls)
         _ (assert rclass (str cls " not declared as polymorphic"))
         tparams (doall (map parse-type params-syn))]
@@ -360,6 +368,27 @@
 (defmethod parse-type IPersistentVector
   [f]
   (parse-function f))
+
+(defmulti unparse-type class)
+
+(defmethod unparse-type Union
+  [{types :types}]
+  (list* 'U (doall (map (unparse-type types)))))
+
+(defmethod unparse-type Intersection
+  [{types :types}]
+  (list* 'I (doall (map (unparse-type types)))))
+
+(defmethod unparse-type RClass
+  [{the-class :the-class}]
+  (symbol (.getName the-class)))
+
+(defmethod unparse-type RInstance
+  [{poly? :poly? constructor :constructor}]
+  (if (empty? poly?)
+    (unparse-type constructor)
+    (list* (unparse-type constructor)
+           (doall (map unparse-type poly?)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
@@ -508,7 +537,9 @@
 ;; Subtypes
 
 (defn type-error [s t]
-  (throw (Exception. (str s " is not a subtype of: " t))))
+  (throw (Exception. (str (unparse-type s) 
+                          " is not a subtype of: " 
+                          (unparse-type t)))))
 
 (def ^:dynamic *A*)
 (def ^:dynamic *A0*)
@@ -529,21 +560,37 @@
 (defn subtype [s t]
   (subtypeA* #{} s t))
 
+(defmethod subtype* [RClass RClass]
+  [{variancesl :variances classl :the-class replacementsl :replacements :as s}
+   {variancesr :variances classr :the-class replacementsr :replacements :as t}]
+  (cond
+    ;easy case
+    (and (empty? variancesl)
+         (empty? variancesr)
+         (empty? replacementsl)
+         (empty? replacementsr))
+    (if (isa? classl classr)
+      *A0*
+      (type-error s t))))
+
 (defmethod subtype* [RInstance RInstance]
   [{polyl? :poly? constl :constructor :as s}
    {polyr? :poly? constr :constructor :as t}]
   (cond 
-    (and (= constl constr)
-         (or (not (or polyl? polyr?)) ;no type args, 
-             (let [{variances :variances} constl]
-               (every? identity
-                       (map #(case %1
-                               :covariant (subtype* %2 %3)
-                               :contravariant (subtype* %3 %2)
-                               (= %2 %3))
-                            variances
-                            polyl?
-                            polyr?)))))
+    ;same base class
+    (or (and (= constl constr)
+             (or (not (or (seq polyl?) (seq polyr?))) ;no type args, 
+                 (let [{variances :variances} constl]
+                   (every? identity
+                           (map #(case %1
+                                   :covariant (subtype* %2 %3)
+                                   :contravariant (subtype* %3 %2)
+                                   (= %2 %3))
+                                variances
+                                polyl?
+                                polyr?)))))
+        ;try simple subtype between classes
+        (subtype constl constr))
     *A0*
 
     :else (type-error s t)))
@@ -556,6 +603,8 @@
 ;; Altered Classes
 
 (alter-class Seqable [[a :variance :covariant]])
+
+(comment
 
 (alter-class IPersistentCollection [[a :variance :covariant]]
              :replace
@@ -585,6 +634,7 @@
 (comment
   (alter-class IPersistentCollection [a])
   (IPersistentCollection Integer)
+  )
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
