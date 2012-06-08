@@ -1,6 +1,6 @@
 (ns typed.test.frees
   (:refer-clojure :exclude [defrecord])
-  (:import (clojure.lang Seqable))
+  (:import (clojure.lang Seqable ISeq ASeq))
   (:use [clojure.test]
         [typed.new]))
 
@@ -39,15 +39,19 @@
          (->F 'e nil nil nil))))
 
 (deftest subtype-test
-  (is (= (subtype (parse-type 'Integer)
-                  (parse-type 'Integer))))
-  (is (= (subtype (parse-type 'Integer)
-                  (parse-type 'Number))))
-  (is (= (subtype (parse-type '(clojure.lang.Seqable Integer))
-                  (parse-type '(clojure.lang.Seqable Integer)))))
-  (is (= (subtype (parse-type '(clojure.lang.Seqable Integer))
-                  (parse-type '(clojure.lang.Seqable Number)))))
+  (is (subtype (parse-type 'Integer)
+               (parse-type 'Integer)))
+  (is (subtype (parse-type 'Integer)
+               (parse-type 'Number)))
+  (is (subtype (parse-type '(clojure.lang.Seqable Integer))
+               (parse-type '(clojure.lang.Seqable Integer))))
+  (is (subtype (parse-type '(clojure.lang.Seqable Integer))
+               (parse-type '(clojure.lang.Seqable Number))))
   (is (thrown-with-msg? Exception
                         #"java.lang.Number is not a subtype of: java.lang.Integer"
                         (subtype (parse-type '(clojure.lang.Seqable Number))
-                                 (parse-type '(clojure.lang.Seqable Integer))))))
+                                 (parse-type '(clojure.lang.Seqable Integer)))))
+  (is (subtype (parse-type '(clojure.lang.Cons Integer))
+               (parse-type '(clojure.lang.Cons Number))))
+  (is (subtype (parse-type '(clojure.lang.Cons Integer))
+               (parse-type '(clojure.lang.Seqable Number)))))

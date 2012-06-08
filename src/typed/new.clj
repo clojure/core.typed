@@ -200,6 +200,23 @@
 (defn Mu* [name body]
   (->Mu (abstract name body)))
 
+(defrecord Nil []
+  "Type for nil"
+  [])
+
+(declare-type Nil)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Annotations
+
+(def VAR-ANNOTATIONS (atom {}))
+
+(defmacro ann [varsym typesyn]
+  `(let [t# (parse-type '~typesyn)
+         s# (symbol '~varsym)]
+     (do (swap! VAR-ANNOTATIONS #(assoc % s# t#))
+       [s# (unparse-type t#)])))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class
 
@@ -339,11 +356,15 @@
                            _ (assert (not (:variances rclass)) (str "RClass " res " must be instantiated"))]
                        (->RInstance nil (or rclass (->RClass nil res {}))))
 
-        :else (throw (Exception. (str "Cannot resolve type: " res)))))))
+        :else (throw (Exception. (str "Cannot resolve type: " sym)))))))
 
 (defmethod parse-type Symbol
   [l]
   (parse-type-symbol l))
+
+(defmethod parse-type nil
+  [_]
+  (->Nil))
 
 (defn parse-function [f]
   (let [[all-dom _ [rng]] (partition-by #(= '-> %) f)
@@ -371,13 +392,29 @@
 
 (defmulti unparse-type class)
 
+(defmethod unparse-type Nil [n] 'nil)
+(defmethod unparse-type Top [t] 'Any)
+
+(defmethod unparse-type F
+  [{:keys [name]}]
+  name)
+
 (defmethod unparse-type Union
   [{types :types}]
-  (list* 'U (doall (map (unparse-type types)))))
+  (list* 'U (doall (map unparse-type types))))
 
 (defmethod unparse-type Intersection
   [{types :types}]
-  (list* 'I (doall (map (unparse-type types)))))
+  (list* 'I (doall (map unparse-type types))))
+
+(defmethod unparse-type Function
+  [{:keys [dom rng rest drest]}]
+  (vec (concat (doall (map unparse-type dom))
+               (when rest
+                 ['& (unparse-type rest)])
+               (when drest
+                 ['... (unparse-type drest)])
+               ['-> (unparse-type rng)])))
 
 (defmethod unparse-type RClass
   [{the-class :the-class}]
@@ -389,6 +426,14 @@
     (unparse-type constructor)
     (list* (unparse-type constructor)
            (doall (map unparse-type poly?)))))
+
+(defmethod unparse-type Poly
+  [p]
+  (let [fs (vec 
+             (for [x (range (:nbound p))]
+               (gensym)))
+        body (Poly-body* fs p)]
+    (list 'All fs (unparse-type body))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
@@ -441,22 +486,34 @@
       (update-in [:drest] #(when %
                             (ufn %))))))
 
+(defmethod name-to Top
+  [t name res]
+  t)
+
+(defmethod name-to Nil
+  [n name res]
+  n)
+
+(defmethod name-to Intersection
+  [{:keys [types]} name res]
+  (->Intersection (doall (map #(name-to % name res) types))))
+
 (defmethod name-to Union
   [{:keys [types]} name res]
   (->Union (doall (map #(name-to % name res) types))))
 
-(defmethod name-to RClass
-  [{:keys [variances the-class replacements]} name res]
-  (->RClass variances
-            the-class 
-            (into {} (for [[k v] replacements]
-                       (let [v (remove-scopes (count variances) v)]
-                         [k (name-to v name (+ res (count variances)))])))))
+;(defmethod name-to RClass
+;  [{:keys [variances the-class replacements]} name res]
+;  (->RClass variances
+;            the-class 
+;            (into {} (for [[k v] replacements]
+;                       (let [v (remove-scopes (count variances) v)]
+;                         [k (name-to v name (+ res (count variances)))])))))
 
 (defmethod name-to RInstance
   [{:keys [poly? constructor]} name res]
   (->RInstance (doall (map #(name-to % name res) poly?))
-               (name-to constructor name res)))
+               constructor)) ;should this call name-to?
 
 (defmethod name-to Poly
   [{n :nbound scope :scope} name res]
@@ -502,6 +559,35 @@
            :lower-bound lower
            :variance variance)
     ty))
+
+(defmethod replace-image Union
+  [{types :types} image target]
+  (->Union (doall (map #(replace-image % image target) types))))
+
+(defmethod replace-image Nil [n image target] n)
+(defmethod replace-image Top [t image target] t)
+
+(defmethod replace-image RInstance
+  [r image target]
+  (let [ufn #(replace-image % image target)]
+    (-> r
+      (update-in [:poly?] #(when %
+                             (doall (map ufn %)))))))
+
+(defmethod replace-image Function
+  [f image target]
+  (let [ufn #(replace-image % image target)]
+    (-> f
+      (update-in [:dom] #(doall (map ufn %)))
+      (update-in [:rng] ufn)
+      (update-in [:rest] #(when %
+                            (ufn %)))
+      (update-in [:drest] #(when %
+                            (ufn %))))))
+
+(defmethod replace-image Intersection
+  [{types :types} image target]
+  (->Intersection (doall (map #(replace-image % image target) types))))
 
 (defmethod replace-image Poly
   [{scope :scope n :nbound :as ty} image target]
@@ -560,7 +646,7 @@
 (defn subtype [s t]
   (subtypeA* #{} s t))
 
-(defmethod subtype* [RClass RClass]
+(defn- subtype-rclass
   [{variancesl :variances classl :the-class replacementsl :replacements :as s}
    {variancesr :variances classr :the-class replacementsr :replacements :as t}]
   (cond
@@ -573,25 +659,31 @@
       *A0*
       (type-error s t))))
 
+; (Cons Integer) <: (Seqable Integer)
+; (ancestors (Seqable Integer)
+
 (defmethod subtype* [RInstance RInstance]
   [{polyl? :poly? constl :constructor :as s}
    {polyr? :poly? constr :constructor :as t}]
   (cond 
     ;same base class
     (or (and (= constl constr)
-             (or (not (or (seq polyl?) (seq polyr?))) ;no type args, 
-                 (let [{variances :variances} constl]
-                   (every? identity
-                           (map #(case %1
-                                   :covariant (subtype* %2 %3)
-                                   :contravariant (subtype* %3 %2)
-                                   (= %2 %3))
-                                variances
-                                polyl?
-                                polyr?)))))
+             (let [{variances :variances} constl]
+               (every? identity
+                       (doall (map #(case %1
+                                      :covariant (subtype* %2 %3)
+                                      :contravariant (subtype* %3 %2)
+                                      (= %2 %3))
+                                   variances
+                                   polyl?
+                                   polyr?)))))
         ;try simple subtype between classes
-        (subtype constl constr))
+        (and (empty? polyl?)
+             (empty? polyr?)
+             (subtype-rclass constl constr)))
     *A0*
+
+    ;try each ancestor
 
     :else (type-error s t)))
 
@@ -603,8 +695,6 @@
 ;; Altered Classes
 
 (alter-class Seqable [[a :variance :covariant]])
-
-(comment
 
 (alter-class IPersistentCollection [[a :variance :covariant]]
              :replace
@@ -618,13 +708,13 @@
 (alter-class ILookup [[a :variance :invariant]
                       [b :variance :covariant]])
 
-(alter-class ASeq [[a :variance :invariant]]
+(alter-class ASeq [[a :variance :covariant]]
              :replace
              {IPersistentCollection (IPersistentCollection a)
               Seqable (Seqable a)
               ISeq (ISeq a)})
 
-(alter-class Cons [[a :variance :invariant]]
+(alter-class Cons [[a :variance :covariant]]
              :replace
              {IPersistentCollection (IPersistentCollection a)
               ASeq (ASeq a)
@@ -635,7 +725,15 @@
   (alter-class IPersistentCollection [a])
   (IPersistentCollection Integer)
   )
-  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type annotations
+
+(ann clojure.core/seq 
+     (All [x]
+          (I [(Seqable x) -> (U nil (ISeq x))]
+             [String -> (U nil (ISeq Character))]
+             [Iterable -> (U nil (ISeq Any))])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
