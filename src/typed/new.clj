@@ -1081,7 +1081,7 @@
 
 (ann clojure.core/first
      (All [x]
-          (Fn [(Seqable x) -> (U nil (ASeq x))]
+          (Fn [(Seqable x) -> (U nil x)]
               [nil -> nil]
               [String -> (U nil Character)]
               [(U java.util.Map Iterable) -> (U nil Any)])))
