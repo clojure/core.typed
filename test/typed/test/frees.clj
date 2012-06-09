@@ -47,11 +47,27 @@
                (parse-type '(clojure.lang.Seqable Integer))))
   (is (subtype (parse-type '(clojure.lang.Seqable Integer))
                (parse-type '(clojure.lang.Seqable Number))))
-  (is (thrown-with-msg? Exception
-                        #"java.lang.Number is not a subtype of: java.lang.Integer"
-                        (subtype (parse-type '(clojure.lang.Seqable Number))
-                                 (parse-type '(clojure.lang.Seqable Integer)))))
+  (is (thrown? Exception
+               (subtype (parse-type '(clojure.lang.Seqable Number))
+                        (parse-type '(clojure.lang.Seqable Integer)))))
   (is (subtype (parse-type '(clojure.lang.Cons Integer))
                (parse-type '(clojure.lang.Cons Number))))
   (is (subtype (parse-type '(clojure.lang.Cons Integer))
                (parse-type '(clojure.lang.Seqable Number)))))
+
+(deftest tc-invoke-fn-test
+  (is (subtype? (-> (tc 
+                      ((typed.new/fn> [[a Number] [b Number]] b)
+                         1 2)) 
+                  expr-type)
+                (parse-type 'Number)))
+  (is (subtype? (-> (tc 
+                      ((typed.new/fn> [[a (clojure.lang.Seqable Number)] [b Number]] ((typed.new/inst seq Number) a))
+                         [1 2 1.2] 1))
+                  expr-type)
+                (parse-type '(U nil (clojure.lang.ASeq Number)))))
+  (is (subtype? (-> (tc 
+                      ((typed.new/fn> [[a (clojure.lang.IPersistentMap Any Number)] [b Number]] ((typed.new/inst get Number) a b))
+                         {:a 1} 1))
+                  expr-type)
+                (parse-type '(U nil Number)))))

@@ -2,8 +2,8 @@
   (:refer-clojure :exclude [defrecord type])
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
-                         IFn IPersistentStack Associative))
-  (:require [analyze.core :as analyze]
+                         IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry))
+  (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [trammel.core :as contracts]
             [clojure.tools.trace :refer [trace trace-ns]]))
@@ -14,13 +14,24 @@
 (defmacro inst [inst-of & types]
   `(inst-poly ~inst-of '~types))
 
+(defn fn>-ann [fn-of param-types-syn]
+  fn-of)
+
+(defmacro fn> [arg-anns & body]
+  (let [[required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)
+        ;(fn> [[a :- Number] & [n :- Number *]] a)
+        _ (assert (not rest-param) "fn> doesn't support rest parameters yet")
+        params (map first required-params)
+        param-types (map (comp second next) arg-anns)]
+    `(fn>-ann (fn ~(vec params) ~@body) '~param-types)))
+
 (defmacro defrecord [name slots inv-description invariants & etc]
   `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc))
 
 (declare abstract-many instantiate-many)
 
 ;(defn- comp-mm [mm disps]
-;  (set/difference disps (set (keys (.getMethodTable mm)))))
+;  (set/difference disps (set (keys (methods mm)))))
 ;
 ;(comp-mm replace-image (disj kinds :scope))
 ;(comp-mm replace-image (disj kinds :scope))
@@ -209,7 +220,7 @@
 
 (declare-type Value)
 
-(defrecord HeterogeneousHashMap [types]
+(defrecord HeterogeneousMap [types]
   "A constant map, clojure.lang.PersistentHashMap"
   [(every? #(and (= 2 (count %))
                  (let [[k v] %]
@@ -217,7 +228,7 @@
                         (Type? v))))
            types)])
 
-(declare-type HeterogeneousHashMap)
+(declare-type HeterogeneousMap)
 
 (defrecord HeterogeneousVector [types]
   "A constant vector, clojure.lang.PersistentVector"
@@ -258,6 +269,7 @@
 ;; Annotations
 
 (def VAR-ANNOTATIONS (atom {}))
+(def ^:dynamic *local-annotations* {})
 
 (defmacro ann [varsym typesyn]
   `(let [t# (parse-type '~typesyn)
@@ -265,11 +277,26 @@
      (do (swap! VAR-ANNOTATIONS #(assoc % s# t#))
        [s# (unparse-type t#)])))
 
+(defn lookup-local [sym]
+  (*local-annotations* sym))
+
 (defn lookup-var [var]
   (let [nsym (symbol (str (ns-name (.ns ^Var var)))
                      (str (.sym ^Var var)))]
     (assert (contains? @VAR-ANNOTATIONS nsym) (str "Untyped var reference: " var))
     (@VAR-ANNOTATIONS nsym)))
+
+(defmacro with-locals [locals & body]
+  `(binding [*local-annotations* (merge *local-annotations* ~locals)]
+     ~@body))
+
+(defn type-of [sym-or-var]
+  (cond
+    (symbol? sym-or-var) (if-let [t (lookup-local sym-or-var)]
+                           t
+                           (throw (Exception. (str "Cannot resolve type: " sym-or-var))))
+    (var? sym-or-var) (lookup-var sym-or-var)
+    :else (throw (Exception. (str "Cannot resolve type: " sym-or-var)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class
@@ -390,6 +417,12 @@
         tparams (doall (map parse-type params-syn))]
     (->RInstance tparams rclass)))
 
+(declare constant-type)
+
+(defmethod parse-type-list 'Value
+  [[Value syn]]
+  (constant-type syn))
+
 (defmethod parse-type-list :default
   [syn]
   (parse-rinstance-type syn))
@@ -501,6 +534,13 @@
 (defmethod unparse-type Value
   [v]
   (list 'Value (:val v)))
+
+(defmethod unparse-type HeterogeneousMap
+  [v]
+  (list* 'HetMap (doall (map (fn [[k v]]
+                               (vector (unparse-type k)
+                                       (unparse-type v)))
+                             (:types v)))))
 
 (defmethod unparse-type HeterogeneousVector
   [v]
@@ -768,9 +808,15 @@
     (catch Exception e
       false)))
 
-(defn subtypes* [s t]
-  (doall (map subtypeA* s t))
-  *A0*)
+(declare subtypeA*)
+
+(defn subtypeA*? [A s t]
+  (try (subtypeA* A s t)
+    true
+    (catch IllegalArgumentException e
+      (throw e))
+    (catch Exception e
+      false)))
 
 (defn subtypeA* [A s t]
   (cond
@@ -788,14 +834,14 @@
     (Union? t)
     (binding [*A* A
               *A0* (conj A [s t])]
-      (if (some #(subtypeA* *A0* s %) (:types t))
+      (if (some #(subtypeA*? *A0* s %) (:types t))
         *A0*
         (type-error s t)))
 
     (Intersection? s)
     (binding [*A* A
               *A0* (conj A [s t])]
-      (if (some #(subtypeA* *A0* % t) (:types s))
+      (if (some #(subtypeA*? *A0* % t) (:types s))
         *A0*
         (type-error s t)))
 
@@ -805,12 +851,6 @@
       (if (every? #(subtypeA* *A0* s %) (:types s))
         *A0*
         (type-error s t)))
-
-    (and (Intersection? s)
-         (Intersection? t))
-    (binding [*A* A
-              *A0* (conj A [s t])]
-      (subtypes* (:types s) (:types t)))
 
     :else
     (binding [*A* A
@@ -897,11 +937,21 @@
 
     :else (type-error s t)))
 
+(defmethod subtype* [HeterogeneousMap RInstance]
+  [s t]
+  (let [sk (Un (map first (:types s)))
+        sv (Un (map second (:types s)))]
+    (if-let [A1 (subtypeA* *A0* 
+                           (->RInstance [sk sv] (@RESTRICTED-CLASS IPersistentMap))
+                           t)]
+      A1
+      (type-error s t))))
+
 (defmethod subtype* [HeterogeneousVector RInstance]
   [s t]
   (let [ss (Un (:types s))]
     (if-let [A1 (subtypeA* *A0* 
-                           (->RInstance [ss] (@RESTRICTED-CLASS PersistentVector))
+                           (->RInstance [ss] (@RESTRICTED-CLASS IPersistentVector))
                            t)]
       A1
       (type-error s t))))
@@ -909,6 +959,14 @@
 (defmethod subtype* [Type Top]
   [s t]
   *A0*)
+
+(defmethod subtype* :default
+  [s t]
+  (type-error s t))
+
+(defmacro sub [s t]
+  `(subtype (parse-type '~s)
+            (parse-type '~t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Altered Classes
@@ -927,12 +985,28 @@
 (alter-class ILookup [[a :variance :invariant]
                       [b :variance :covariant]])
 
+(alter-class IPersistentSet [[a :variance :covariant]]
+             :replace
+             {IPersistentCollection (IPersistentCollection a)
+              Seqable (Seqable a)})
+
 (alter-class Associative [[a :variance :invariant]
                           [b :variance :covariant]]
              :replace
              {IPersistentCollection (IPersistentCollection Any)
               Seqable (Seqable Any)
               ILookup (ILookup a b)})
+
+(alter-class IMapEntry [[a :variance :covariant]
+                        [b :variance :covariant]])
+
+(alter-class IPersistentMap [[a :variance :covariant]
+                             [b :variance :covariant]]
+             :replace
+             {IPersistentCollection (IPersistentCollection (IMapEntry a b))
+              Seqable (Seqable (IMapEntry a b))
+              ILookup (ILookup a b)
+              Associative (Associative a b)})
 
 (alter-class ASeq [[a :variance :covariant]]
              :replace
@@ -990,8 +1064,9 @@
 ;; Type annotations
 
 (ann clojure.core/*ns* Namespace)
-
 (ann clojure.core/ns-name [Namespace -> Symbol])
+(ann clojure.core/in-ns [Symbol -> nil])
+(ann clojure.core/import [(IPersistentCollection Symbol) -> nil])
 
 (ann clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
@@ -1000,8 +1075,28 @@
 (ann clojure.core/seq
      (All [x]
           (Fn [(Seqable x) -> (U nil (ASeq x))]
+              [nil -> nil]
               [String -> (U nil (ASeq Character))]
               [(U java.util.Map Iterable) -> (U nil (ASeq Any))])))
+
+(ann clojure.core/first
+     (All [x]
+          (Fn [(Seqable x) -> (U nil (ASeq x))]
+              [nil -> nil]
+              [String -> (U nil Character)]
+              [(U java.util.Map Iterable) -> (U nil Any)])))
+
+(ann clojure.core/conj
+     (All [x]
+          (Fn [(U nil (IPersistentCollection x)) x -> (IPersistentCollection x)])))
+
+(ann clojure.core/get
+     (All [x]
+          (Fn [(ILookup Any x) Any -> (U nil x)]
+              [String Any -> (U nil Character)]
+              [nil Any -> nil]
+              [(IPersistentSet x) Any -> (U nil x)]
+              [java.util.Map -> (U nil Any)])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -1029,15 +1124,15 @@
 (defmethod constant-type Character [v] (->Value v))
 (defmethod constant-type clojure.lang.Keyword [v] (->Value v))
 
-(defmethod constant-type clojure.lang.PersistentVector 
+(defmethod constant-type IPersistentVector
   [cvec]
   (->HeterogeneousVector (doall (map constant-type cvec))))
 
-(defmethod constant-type clojure.lang.PersistentHashMap
-  [cvec]
-  (->HeterogeneousHashMap (doall (map #(vector (constant-type (first %))
-                                               (constant-type (second %)))
-                                      cvec))))
+(defmethod constant-type IPersistentMap
+  [cmap]
+  (->HeterogeneousMap (doall (map #(vector (constant-type (first %))
+                                           (constant-type (second %)))
+                                  cmap))))
 
 (defn check-value
   [{:keys [val] :as expr} & [expected]]
@@ -1123,6 +1218,10 @@
           targs (doall (map parse-type (:val targs-exprs)))]
       (assoc expr
              expr-type (manual-inst ptype targs)))
+    
+    ;fn literal
+    (identical? #'fn>-ann (:var fexpr))
+    (assert false "TODO fn> parameters")
 
     ;must be monomorphic for now
     :else
@@ -1133,3 +1232,39 @@
              :fexpr cfexpr
              :args cargs
              expr-type actual))))
+
+(defmethod check :fn-expr
+  [{:keys [methods] :as expr} & [expected]]
+  (let [cmethods (map check methods)]
+    (assoc expr
+           :methods cmethods
+           expr-type (->Intersection (map expr-type cmethods)))))
+
+(defmethod check :fn-method
+  [{:keys [required-params rest-param body] :as expr} & [expected]]
+  (let [poly-syn? (or (and (seq required-params)
+                           (-> required-params first :sym meta ::poly))
+                      (and rest-param
+                           (-> rest-param :sym meta ::poly)))
+        reqd-syms (map :sym required-params)
+        reqd-anns (map #(-> % meta ::ann parse-type) reqd-syms)
+        rest-ann (when rest-param
+                   (-> rest-param :sym meta ::ann parse-type))
+        _ (assert (not rest-param) "Rest parameter not supported")
+        cbody (with-locals (zipmap reqd-syms reqd-anns)
+                (check body))]
+    (assoc expr
+           :body cbody
+           expr-type (->Function reqd-anns (expr-type cbody) nil nil))))
+
+(defmethod check :do
+  [{:keys [exprs] :as expr} & [expected]]
+  (let [cexprs (doall (map check exprs))]
+    (assoc expr
+           :exprs cexprs
+           expr-type (-> cexprs last expr-type))))
+
+(defmethod check :local-binding-expr
+  [{:keys [local-binding] :as expr} & [expected]]
+  (assoc expr
+         expr-type (type-of (-> local-binding :sym))))
