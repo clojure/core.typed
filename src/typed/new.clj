@@ -1,20 +1,27 @@
 (ns typed.new
   (:refer-clojure :exclude [defrecord type])
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
-                         ISeq ASeq ILookup))
+                         ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
+                         IFn IPersistentStack Associative))
   (:require [analyze.core :as analyze]
             [clojure.set :as set]
             [trammel.core :as contracts]
             [clojure.tools.trace :refer [trace trace-ns]]))
+
+(defn inst-poly [inst-of types-syn]
+  inst-of)
+
+(defmacro inst [inst-of & types]
+  `(inst-poly ~inst-of '~types))
 
 (defmacro defrecord [name slots inv-description invariants & etc]
   `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc))
 
 (declare abstract-many instantiate-many)
 
-(defn- comp-mm [mm disps]
-  (set/difference disps (set (keys (.getMethodTable mm)))))
-
+;(defn- comp-mm [mm disps]
+;  (set/difference disps (set (keys (.getMethodTable mm)))))
+;
 ;(comp-mm replace-image (disj kinds :scope))
 ;(comp-mm replace-image (disj kinds :scope))
 
@@ -45,12 +52,20 @@
 
 (declare-type Union)
 
+(defn Un [types]
+  (if (= 1 (count types))
+    (first types)
+    (->Union (-> types set vec))))
+
+(def empty-union (->Union []))
+
 (defn Bottom []
-  (->Union []))
+  empty-union)
 
 (defrecord Intersection [types]
   "An ordered intersection of types"
   [(sequential? types)
+   (seq types)
    (every? Type? types)])
 
 (declare-type Intersection)
@@ -110,6 +125,11 @@
                          [k (abstract-many (map :name tparams) v)])))
     (->RClass nil the-class replacements)))
 
+;smart destructor
+(defn RClass-replacements* [names rclass]
+  (into {} (for [[k v] (:replacements rclass)]
+             [k (instantiate (map #(->F % nil nil nil) names) v)])))
+
 (declare-type RClass)
 
 (defrecord RInstance [poly? constructor]
@@ -160,7 +180,7 @@
   {:pre [(every? symbol? names)
          (Poly? poly)]}
   (assert (= (:nbound poly) (count names)) "Wrong number of names")
-  (instantiate-many (map #(->F % nil nil nil ) names) (:scope poly)))
+  (instantiate-many (map #(->F % nil nil nil) names) (:scope poly)))
 
 (defrecord PolyDots [n scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
@@ -185,12 +205,12 @@
 
 (defrecord Value [val]
   "A Clojure value"
-  [])
+  [(not (nil? val))])
 
 (declare-type Value)
 
 (defrecord HeterogeneousHashMap [types]
-  "A constant vector, clojure.lang.PersistentHashMap"
+  "A constant map, clojure.lang.PersistentHashMap"
   [(every? #(and (= 2 (count %))
                  (let [[k v] %]
                    (and (Type? k)
@@ -210,12 +230,17 @@
   "A function arity"
   [(sequential? dom)
    (every? Type? dom)
+   (Type? rng)
    (or (nil? rest)
        (Type? rest))
    (or (nil? drest)
        (Type? drest))])
 
 (declare-type Function)
+
+(defn Fn-Intersection [fns]
+  {:pre [(every? Function? fns)]}
+  (->Intersection fns))
 
 (declare abstract)
 
@@ -240,6 +265,12 @@
      (do (swap! VAR-ANNOTATIONS #(assoc % s# t#))
        [s# (unparse-type t#)])))
 
+(defn lookup-var [var]
+  (let [nsym (symbol (str (ns-name (.ns ^Var var)))
+                     (str (.sym ^Var var)))]
+    (assert (contains? @VAR-ANNOTATIONS nsym) (str "Untyped var reference: " var))
+    (@VAR-ANNOTATIONS nsym)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class
 
@@ -261,7 +292,6 @@
                #(assoc % ~the-class (RClass* frees# ~the-class (with-frees frees#
                                                                    ~replacements))))
         ~the-class)))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type syntax
@@ -332,7 +362,7 @@
   (parse-all-type syn))
 
 (defn parse-union-type [[u & types]]
-  (->Union (doall (map parse-type types))))
+  (Un (doall (map parse-type types))))
 
 (defmethod parse-type-list 'U
   [syn]
@@ -345,14 +375,24 @@
   [syn]
   (parse-intersection-type syn))
 
-(defmethod parse-type-list :default
-  [[cls-sym & params-syn]]
+(defn parse-fn-intersection-type [[Fn & types]]
+  (Fn-Intersection (doall (map parse-type types))))
+
+(defmethod parse-type-list 'Fn
+  [syn]
+  (parse-fn-intersection-type syn))
+
+(defn parse-rinstance-type [[cls-sym & params-syn]]
   (let [cls (resolve cls-sym)
         _ (assert cls (str cls-sym " does not resolve to a class"))
         rclass (@RESTRICTED-CLASS cls)
         _ (assert rclass (str cls " not declared as polymorphic"))
         tparams (doall (map parse-type params-syn))]
     (->RInstance tparams rclass)))
+
+(defmethod parse-type-list :default
+  [syn]
+  (parse-rinstance-type syn))
 
 (defmethod parse-type Cons
   [l]
@@ -376,7 +416,7 @@
       (cond 
         ;make instance, must provide type parameters if any
         (class? res) (let [rclass (@RESTRICTED-CLASS res)
-                           _ (assert (not (:variances rclass)) (str "RClass " res " must be instantiated"))]
+                           _ (assert (empty? (:variances rclass)) (str "RClass " res " must be instantiated"))]
                        (->RInstance nil (or rclass (->RClass nil res {}))))
 
         :else (throw (Exception. (str "Cannot resolve type: " sym)))))))
@@ -457,6 +497,14 @@
                (gensym)))
         body (Poly-body* fs p)]
     (list 'All fs (unparse-type body))))
+
+(defmethod unparse-type Value
+  [v]
+  (list 'Value (:val v)))
+
+(defmethod unparse-type HeterogeneousVector
+  [v]
+  (list* 'HetVector (doall (map unparse-type (:types v)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
@@ -643,6 +691,62 @@
   (instantiate-many [f] sc))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Variable substitution
+
+(declare subtype)
+
+(defmulti substitute (fn [target image name] (class target)))
+
+(defn substitute-many [target images names]
+  (reduce (fn [t [im nme]] (substitute t im nme))
+          target
+          (map vector images names)))
+
+(defmethod substitute F
+  [{name* :name :keys [upper-bound lower-bound] :as f} image name]
+  (if (= name* name)
+    (do 
+      (when upper-bound
+        (subtype image upper-bound))
+      (when lower-bound
+        (subtype lower-bound image))
+      image)
+    f))
+
+(defmethod substitute Nil [t image name] t)
+(defmethod substitute Top [t image name] t)
+
+(defmethod substitute RInstance
+  [rinst image name]
+  (let [sub #(substitute % image name)]
+    (-> rinst
+      (update-in [:poly?] #(when %
+                             (doall (map sub %)))))))
+
+(defmethod substitute Union
+  [u image name]
+  (let [sub #(substitute % image name)]
+    (-> u
+      (update-in [:types] #(doall (map sub %))))))
+
+(defmethod substitute Intersection
+  [i image name]
+  (let [sub #(substitute % image name)]
+    (-> i
+      (update-in [:types] #(doall (map sub %))))))
+
+(defmethod substitute Function
+  [f image name]
+  (let [sub #(substitute % image name)]
+    (-> f
+      (update-in [:dom] #(doall (map sub %)))
+      (update-in [:rng] #(sub %))
+      (update-in [:rest] #(when %
+                            (sub %)))
+      (update-in [:drest] #(when %
+                             (sub %))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtypes
 
 (defn type-error [s t]
@@ -655,11 +759,58 @@
 
 (defmulti subtype* (fn [s t] [(class s) (class t)]))
 
+(defn subtype? [s t]
+  (try 
+    (subtype s t)
+    true
+    (catch IllegalArgumentException e
+      (throw e))
+    (catch Exception e
+      false)))
+
+(defn subtypes* [s t]
+  (doall (map subtypeA* s t))
+  *A0*)
+
 (defn subtypeA* [A s t]
   (cond
     (or (contains? A [s t])
         (= s t))
     A
+
+    (Union? s)
+    (binding [*A* A
+              *A0* (conj A [s t])]
+      (if (every? #(subtypeA* *A0* % t) (:types s))
+        *A0*
+        (type-error s t)))
+
+    (Union? t)
+    (binding [*A* A
+              *A0* (conj A [s t])]
+      (if (some #(subtypeA* *A0* s %) (:types t))
+        *A0*
+        (type-error s t)))
+
+    (Intersection? s)
+    (binding [*A* A
+              *A0* (conj A [s t])]
+      (if (some #(subtypeA* *A0* % t) (:types s))
+        *A0*
+        (type-error s t)))
+
+    (Intersection? t)
+    (binding [*A* A
+              *A0* (conj A [s t])]
+      (if (every? #(subtypeA* *A0* s %) (:types s))
+        *A0*
+        (type-error s t)))
+
+    (and (Intersection? s)
+         (Intersection? t))
+    (binding [*A* A
+              *A0* (conj A [s t])]
+      (subtypes* (:types s) (:types t)))
 
     :else
     (binding [*A* A
@@ -684,6 +835,30 @@
 
 ; (Cons Integer) <: (Seqable Integer)
 ; (ancestors (Seqable Integer)
+
+(defmethod subtype* [Value RInstance]
+  [{val :val} t]
+  (let [cls (class val)]
+    (subtype* (->RInstance nil (or (@RESTRICTED-CLASS cls)
+                                   (->RClass nil cls {})))
+              t)))
+
+(defn- RInstance-supers* [{:keys [poly? constructor] :as rinst}]
+  (let [names (map gensym (range (count poly?)))
+        rplce (RClass-replacements* names constructor)
+        rplce-subbed (into {} (for [[k v] rplce]
+                                [k (substitute-many v poly? names)]))
+        ancest (supers (:the-class constructor))
+        not-replaced (set/difference ancest (keys rplce-subbed))
+        super-types (set/union (set (for [t not-replaced]
+                                      (->RInstance nil (or (when-let [r (@RESTRICTED-CLASS t)]
+                                                             (assert (empty? (:variances r))
+                                                                     (str "RClass " (unparse-type r) " must be instantiated"
+                                                                          " in " t))
+                                                             r)
+                                                           (->RClass nil t {})))))
+                               (vals rplce-subbed))]
+    (seq super-types)))
 
 (defmethod subtype* [RInstance RInstance]
   [{polyl? :poly? constl :constructor :as s}
@@ -710,6 +885,15 @@
 
     :else (type-error s t)))
 
+(defmethod subtype* [HeterogeneousVector RInstance]
+  [s t]
+  (let [ss (Un (:types s))]
+    (if-let [A1 (subtypeA* *A0* 
+                           (->RInstance [ss] (@RESTRICTED-CLASS PersistentVector))
+                           t)]
+      A1
+      (type-error s t))))
+
 (defmethod subtype* [Type Top]
   [s t]
   *A0*)
@@ -731,11 +915,52 @@
 (alter-class ILookup [[a :variance :invariant]
                       [b :variance :covariant]])
 
+(alter-class Associative [[a :variance :invariant]
+                          [b :variance :covariant]]
+             :replace
+             {IPersistentCollection (IPersistentCollection Any)
+              Seqable (Seqable Any)
+              ILookup (ILookup a b)})
+
 (alter-class ASeq [[a :variance :covariant]]
              :replace
              {IPersistentCollection (IPersistentCollection a)
               Seqable (Seqable a)
               ISeq (ISeq a)})
+
+(alter-class IPersistentStack [[a :variance :covariant]]
+             :replace
+             {IPersistentCollection (IPersistentCollection a)
+              Seqable (Seqable a)})
+
+(alter-class IPersistentVector [[a :variance :covariant]]
+             :replace
+             {IPersistentCollection (IPersistentCollection a)
+              Seqable (Seqable a)
+              IPersistentStack (IPersistentStack a)
+              ILookup (ILookup Number a)
+              Associative (Associative Number a)})
+
+(alter-class APersistentVector [[a :variance :covariant]]
+             :replace
+             {IPersistentCollection (IPersistentCollection a)
+              Seqable (Seqable a)
+              IPersistentVector (IPersistentVector a)
+              IFn [Number -> a]
+              IPersistentStack (IPersistentStack a)
+              ILookup (ILookup Number a)
+              Associative (Associative Number a)})
+
+(alter-class PersistentVector [[a :variance :covariant]]
+             :replace
+             {APersistentVector (APersistentVector a)
+              IPersistentCollection (IPersistentCollection a)
+              Seqable (Seqable a)
+              IPersistentVector (IPersistentVector a)
+              IFn [Number -> a]
+              IPersistentStack (IPersistentStack a)
+              ILookup (ILookup Number a)
+              Associative (Associative Number a)})
 
 (alter-class Cons [[a :variance :covariant]]
              :replace
@@ -752,11 +977,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
-(ann clojure.core/seq 
+(ann clojure.core/*ns* Namespace)
+
+(ann clojure.core/ns-name [Namespace -> Symbol])
+
+(ann clojure.core/symbol
+     (Fn [(U Symbol String) -> Symbol]
+         [String String -> Symbol]))
+
+(ann clojure.core/seq
      (All [x]
-          (I [(Seqable x) -> (U nil (ISeq x))]
-             [String -> (U nil (ISeq Character))]
-             [Iterable -> (U nil (ISeq Any))])))
+          (Fn [(Seqable x) -> (U nil (ASeq x))]
+              [String -> (U nil (ASeq Character))]
+              [(U java.util.Map Iterable) -> (U nil (ASeq Any))])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -806,3 +1039,85 @@
 (defmethod check :number [& args] (apply check-value args))
 (defmethod check :string [& args] (apply check-value args))
 (defmethod check :keyword [& args] (apply check-value args))
+
+;Expr Expr^n Type Type^n (U nil Type) -> Type
+(defn check-app [fexpr args fexpr-type arg-types expected]
+  (assert (not expected) "TODO incorporate expected type")
+  (cond
+    (Intersection? fexpr-type)
+    (let [{ftypes :types} fexpr-type
+          _ (assert (every? Function? ftypes) "Must be intersection type containing Functions")
+          ;find first 
+          success-type (some (fn [{:keys [dom rest drest rng]}]
+                               (assert (not (or drest rest)) "TODO rest arg checking")
+                               (and (= (count dom)
+                                       (count arg-types))
+                                    (every? true? (map subtype? arg-types dom))
+                                    rng))
+                             ftypes)
+          _ (when-not success-type
+              ;just report first function
+              (throw (Exception.
+                       (str "Cannot supply arguments " (with-out-str (pr (map unparse-type arg-types)))
+                            " to Function " (with-out-str (prn (unparse-type (first ftypes))))))))]
+      success-type)
+
+
+    (Function? fexpr-type)
+    (let [{rest-type :rest :keys [dom rng drest]} fexpr-type]
+      (cond
+        (and (not= (count dom)
+                   (count arg-types))
+             (not rest-type))
+        (throw (Exception. (str "Wrong number of arguments")))
+
+        (and (= (count dom)
+                (count arg-types))
+             (not rest-type))
+        (do (doall (map subtype
+                        arg-types
+                        dom))
+          rng)))
+
+    (Poly? fexpr-type)
+    (throw (Exception. "Cannot infer arguments to polymorphic functions"))
+
+    :else (throw (Exception. "Give up"))))
+
+(defmethod check :var
+  [{:keys [var] :as expr} & [expected]]
+  (assoc expr
+         expr-type (lookup-var var)))
+
+(defn- manual-inst 
+  "Poly Type^n -> Type
+  Substitute the type parameters of the polymorphic type
+  with given types"
+  [{n :nbound, :as ptype} argtys]
+  {:pre [(Poly? ptype)
+         (every? Type? argtys)]}
+  (assert (= (count argtys) n) "Instatiating polymorphic type with wrong number of arguments")
+  (let [names (map gensym (range n))
+        body (Poly-body* names ptype)]
+    (substitute-many body argtys names)))
+
+(defmethod check :invoke
+  [{:keys [fexpr args] :as expr} & [expected]]
+  (cond
+    ;manual instantiation
+    (identical? #'inst-poly (:var fexpr))
+    (let [[pexpr targs-exprs] args
+          ptype (-> (check pexpr) expr-type)
+          targs (doall (map parse-type (:val targs-exprs)))]
+      (assoc expr
+             expr-type (manual-inst ptype targs)))
+
+    ;must be monomorphic for now
+    :else
+    (let [cfexpr (check fexpr)
+          cargs (doall (map check args))
+          actual (check-app fexpr args (expr-type cfexpr) (map expr-type cargs) expected)]
+      (assoc expr
+             :fexpr cfexpr
+             :args cargs
+             expr-type actual))))
