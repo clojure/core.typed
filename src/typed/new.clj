@@ -128,7 +128,7 @@
 ;smart destructor
 (defn RClass-replacements* [names rclass]
   (into {} (for [[k v] (:replacements rclass)]
-             [k (instantiate (map #(->F % nil nil nil) names) v)])))
+             [k (instantiate-many (map #(->F % nil nil nil) names) v)])))
 
 (declare-type RClass)
 
@@ -843,7 +843,12 @@
                                    (->RClass nil cls {})))
               t)))
 
-(defn- RInstance-supers* [{:keys [poly? constructor] :as rinst}]
+(defn- RInstance-supers* 
+  "Return a set of Types that are the super-Types
+  of this RInstance"
+  [{:keys [poly? constructor] :as rinst}]
+  {:pre [(RInstance? rinst)]
+   :post [(every? Type? %)]}
   (let [names (map gensym (range (count poly?)))
         rplce (RClass-replacements* names constructor)
         rplce-subbed (into {} (for [[k v] rplce]
@@ -858,27 +863,34 @@
                                                              r)
                                                            (->RClass nil t {})))))
                                (vals rplce-subbed))]
-    (seq super-types)))
+    super-types))
+
+(defn- subtype-rinstance-common-base 
+  [{polyl? :poly? constl :constructor :as s}
+   {polyr? :poly? constr :constructor :as t}]
+  {:pre [(= constl constr)]}
+  (let [{variances :variances} constl]
+    (every? identity
+            (doall (map #(case %1
+                           :covariant (subtype? %2 %3)
+                           :contravariant (subtype? %3 %2)
+                           (= %2 %3))
+                        variances
+                        polyl?
+                        polyr?)))))
 
 (defmethod subtype* [RInstance RInstance]
   [{polyl? :poly? constl :constructor :as s}
    {polyr? :poly? constr :constructor :as t}]
   (cond 
-    ;same base class
-    (or (and (= constl constr)
-             (let [{variances :variances} constl]
-               (every? identity
-                       (doall (map #(case %1
-                                      :covariant (subtype* %2 %3)
-                                      :contravariant (subtype* %3 %2)
-                                      (= %2 %3))
-                                   variances
-                                   polyl?
-                                   polyr?)))))
-        ;try simple subtype between classes
-        (and (empty? polyl?)
-             (empty? polyr?)
-             (subtype-rclass constl constr)))
+    (or ;same base class
+        (and (= constl constr)
+             (subtype-rinstance-common-base s t))
+
+        ;find a supertype of s that is the same base as t, and subtype of it
+        (some #(and (= constr (:constructor %))
+                    (subtype-rinstance-common-base % t))
+              (RInstance-supers* s)))
     *A0*
 
     ;try each ancestor
