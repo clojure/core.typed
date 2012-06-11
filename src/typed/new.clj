@@ -230,7 +230,8 @@
 
 (defrecord Value [val]
   "A Clojure value"
-  [(not (nil? val))])
+  [(not (nil? val))
+   (not (false? val))])
 
 (declare-type Value)
 
@@ -255,14 +256,15 @@
 
 (defrecord HeterogeneousVector [types]
   "A constant vector, clojure.lang.PersistentVector"
-  [(sequential? types)
+  [(vector? types)
    (every? Type? types)])
 
 (declare-type HeterogeneousVector)
 
 (defrecord Function [dom rng rest drest]
   "A function arity"
-  [(sequential? dom)
+  [(or (empty? dom)
+       (sequential? dom))
    (every? Type? dom)
    (Type? rng)
    (or (nil? rest)
@@ -286,6 +288,16 @@
   "Type for nil"
   [])
 
+(defrecord True []
+  "Type for false"
+  [])
+
+(defrecord False []
+  "Type for false"
+  [])
+
+(declare-type True)
+(declare-type False)
 (declare-type Nil)
 
 (declare Filter? RObject?)
@@ -556,7 +568,7 @@
 
 (defmethod parse-type-list 'Vector*
   [syn]
-  (->HeterogeneousVector (doall (map parse-type (rest syn)))))
+  (->HeterogeneousVector (vec (map parse-type (rest syn)))))
 
 (declare constant-type)
 
@@ -617,6 +629,12 @@
   [l]
   (parse-type-symbol l))
 
+(defmethod parse-type Boolean
+  [v]
+  (if v
+    (->True)
+    (->False)))
+
 (defmethod parse-type nil
   [_]
   (->Nil))
@@ -647,8 +665,10 @@
 
 (defmulti unparse-type class)
 
-(defmethod unparse-type Nil [n] 'nil)
-(defmethod unparse-type Top [t] 'Any)
+(defmethod unparse-type Nil [_] nil)
+(defmethod unparse-type True [_] true)
+(defmethod unparse-type False [_] false)
+(defmethod unparse-type Top [_] 'Any)
 
 (defmethod unparse-type Return
   [{:keys [t]}]
@@ -768,7 +788,7 @@
   [t name res]
   (let [up #(name-to % name res)]
     (-> t
-      (update-in [:types] #(doall (map up %))))))
+      (update-in [:types] #(mapv up %)))))
 
 (defmethod name-to Intersection
   [{:keys [types]} name res]
@@ -847,7 +867,7 @@
   [t image target]
   (let [up #(replace-image % image target)]
     (-> t
-      (update-in [:types] #(doall (map up %))))))
+      (update-in [:types] #(mapv up %)))))
 
 (defmethod replace-image RInstance
   [r image target]
@@ -939,7 +959,7 @@
   [t image name]
   (let [sub #(substitute % image name)]
     (-> t
-      (update-in [:types] #(doall (map sub %))))))
+      (update-in [:types] #(mapv sub %)))))
 
 (defmethod substitute Union
   [u image name]
@@ -1255,6 +1275,9 @@
      (Fn [(U Symbol String) -> Symbol]
          [String String -> Symbol]))
 
+(ann clojure.core/seq?
+     (Fn [Any -> (U false true)]))
+
 (ann clojure.core/seq
      (All [x]
           (Fn [(Seqable x) -> (U nil (ASeq x))
@@ -1328,10 +1351,11 @@
 (defmethod constant-type String [v] (->Value v))
 (defmethod constant-type Character [v] (->Value v))
 (defmethod constant-type clojure.lang.Keyword [v] (->Value v))
+(defmethod constant-type Boolean [v] (if v (->True) (->False)))
 
 (defmethod constant-type IPersistentVector
   [cvec]
-  (->HeterogeneousVector (doall (map constant-type cvec))))
+  (->HeterogeneousVector (mapv constant-type cvec)))
 
 (defmethod constant-type IPersistentMap
   [cmap]
@@ -1356,6 +1380,12 @@
   [expr & [expected]]
   (assoc expr
          expr-type (->Nil)))
+
+(defmethod check :vector
+  [{:keys [args] :as expr} & [expected]]
+  (let [cargs (mapv check args)]
+    (assoc expr
+           expr-type (->HeterogeneousVector (mapv expr-type cargs)))))
 
 (defmethod check :empty-expr 
   [{coll :coll :as expr} & [expected]]
@@ -1428,41 +1458,154 @@
         body (Poly-body* names ptype)]
     (substitute-many body argtys names)))
 
+(defmulti invoke-special (fn [expr & args] (-> expr :fexpr :var)))
+(defmulti invoke-apply (fn [expr & args] (-> expr :args first :var)))
+(defmulti static-method-special (fn [{{:keys [declaring-class name]} :method} & args]
+                                  (symbol (str declaring-class) (str name))))
+
+;apply
+(defmethod invoke-special #'clojure.core/apply
+  [& args]
+  (apply invoke-apply args))
+
+;manual instantiation
+(defmethod invoke-special #'inst-poly
+  [{:keys [fexpr args] :as expr} & [expected]]
+  (let [[pexpr targs-exprs] args
+        ptype (-> (check pexpr) expr-type Return-type*)
+        targs (doall (map parse-type (:val targs-exprs)))]
+    (assoc expr
+           expr-type (manual-inst ptype targs))))
+
+;fn literal
+(defmethod invoke-special #'fn>-ann
+  [{:keys [fexpr args] :as expr} & [expected]]
+  (let [[fexpr param-syns] args
+        param-types (map parse-type (:val param-syns))
+        cfexpr (check fexpr (->Function param-types (->Top) nil nil))]
+    cfexpr))
+
+;don't type check
+(defmethod invoke-special #'tc-ignore-forms
+  [{:keys [fexpr args] :as expr} & [expected]]
+  (first args))
+
+;make vector
+(defmethod invoke-special #'clojure.core/vector
+  [{:keys [fexpr args] :as expr} & [expected]]
+  (let [cargs (doall (map check args))]
+    (assoc expr
+           expr-type (->HeterogeneousVector
+                       (mapv expr-type cargs)))))
+
+;make hash-map
+(defmethod invoke-special #'clojure.core/hash-map
+  [{:keys [fexpr args] :as expr} & [expected]]
+  (let [cargs (doall (map check args))]
+    (cond
+      (every? Value? (keys (apply hash-map (map expr-type cargs))))
+      (assoc expr
+             expr-type (->HeterogeneousMap
+                         (apply hash-map (map expr-type cargs))))
+      :else ::not-special)))
+
+;apply hash-map
+(defmethod invoke-apply #'clojure.core/hash-map
+  [{[_ & args] :args :keys [fexpr args] :as expr} & [expected]]
+  (let [cargs (doall (map check args))]
+    (cond
+      (and (HeterogeneousVector? (expr-type (last cargs)))
+           ;; every key must be a Value
+           (every? Value? (keys (apply hash-map (concat (map expr-type (butlast cargs))
+                                                        (mapcat vector (:types (expr-type (last cargs)))))))))
+      (assoc expr
+             expr-type (->HeterogeneousMap
+                         (apply hash-map (concat (map expr-type (butlast cargs))
+                                                 (mapcat vector (:types (expr-type (last cargs))))))))
+      :else ::not-special)))
+
+;for map destructuring
+(defmethod invoke-special #'clojure.core/seq?
+  [{:keys [args] :as expr} & [expected]]
+  (let [cargs (doall (map check args))]
+    (cond
+      (HeterogeneousMap? (expr-type (first cargs)))
+      (assoc expr
+             expr-type (->False))
+
+      :else ::not-special)))
+
+;get
+(defmethod static-method-special 'clojure.lang.RT/get
+  [{[t & args] :args :keys [fexpr] :as expr} & [expected]]
+  (let [t (expr-type (check t))
+        cargs (doall (map check args))]
+    (cond
+      (and (HeterogeneousMap? t)
+           (Value? (expr-type (first cargs))))
+      (assoc expr
+             expr-type (let [[k default] (map expr-type cargs)]
+                         (get (:types t) k (if default
+                                             default
+                                             (->Nil)))))
+      :else ::not-special)))
+
+;conj
+(defmethod invoke-special #'clojure.core/conj
+  [{[t & args] :args :keys [fexpr] :as expr} & [expected]]
+  (let [t (check t)
+        args (doall (map check args))]
+    (cond
+      ;(conj {...} [a b]) => (merge {...} {a b})
+      (and (HeterogeneousMap? (expr-type t))
+           (HeterogeneousVector? (expr-type (first args))))
+      (let [m (expr-type t)
+            arg1 (expr-type (first args))
+            _ (assert (= 2 (count (:types arg1)))
+                      "Need vector of length 2 to conj to map")
+            _ (assert (every? Value? (:types arg1))
+                      "Vector must be of Values for now")
+            res (->HeterogeneousMap
+                  (assoc (:types m)
+                         (-> arg1 :types first)
+                         (-> arg1 :types second)))]
+        (assoc expr
+               expr-type res))
+
+      ;(conj {...} nil) => {...}
+      (and (HeterogeneousMap? (expr-type t))
+           (Nil? (expr-type (first args))))
+      (assoc expr
+             expr-type (expr-type t))
+
+      (HeterogeneousVector? (expr-type t))
+      (assoc expr
+             expr-type (->HeterogeneousVector
+                         (conj (:types (expr-type t)) (expr-type (first args)))))
+
+      :else ::not-special)))
+
+(defmethod invoke-special :default [& args] ::not-special)
+
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
-  (cond
-    ;manual instantiation
-    (identical? #'inst-poly (:var fexpr))
-    (let [[pexpr targs-exprs] args
-          ptype (-> (check pexpr) expr-type Return-type*)
-          targs (doall (map parse-type (:val targs-exprs)))]
-      (assoc expr
-             expr-type (manual-inst ptype targs)))
-    
-    ;fn literal
-    (identical? #'fn>-ann (:var fexpr))
-    (let [[fexpr param-syns] args
-          param-types (map parse-type (:val param-syns))
-          cfexpr (check fexpr (->Function param-types (->Top) nil nil))]
-      cfexpr)
+  (let [e (invoke-special expr expected)]
+    (cond 
+      (not= ::not-special e) e
 
-    ;don't type check
-    (identical? #'tc-ignore-forms (:var fexpr))
-    (first args)
-
-    ;must be monomorphic for now
-    :else
-    (let [cfexpr (check fexpr)
-          cargs (doall (map check args))
-          ftype (let [ft (expr-type cfexpr)]
-                  (or (and (Return? ft)
-                           (Return-type* ft))
-                      ft))
-          actual (check-app fexpr args ftype (map expr-type cargs) expected)]
-      (assoc expr
-             :fexpr cfexpr
-             :args cargs
-             expr-type actual))))
+      ;must be monomorphic for now
+      :else
+      (let [cfexpr (check fexpr)
+            cargs (doall (map check args))
+            ftype (let [ft (expr-type cfexpr)]
+                    (or (and (Return? ft)
+                             (Return-type* ft))
+                        ft))
+            actual (check-app fexpr args ftype (map expr-type cargs) expected)]
+        (assoc expr
+               :fexpr cfexpr
+               :args cargs
+               expr-type actual)))))
 
 (defmethod check :fn-expr
   [{:keys [methods] :as expr} & [expected]]
@@ -1482,13 +1625,20 @@
 
 (defmethod check :fn-method
   [{:keys [required-params rest-param body] :as expr} expected]
-  (let [_ (assert (Function? expected))
+  (let [_ (assert (or (not expected)
+                      (Function? expected)))
         _ (assert (not rest-param))
-        cbody (with-locals (zipmap (map :sym required-params) (:dom expected))
-                (check body (:rng expected)))]
+        cbody (with-locals (zipmap (map :sym required-params) (if expected
+                                                                (:dom expected)
+                                                                (repeat (->Top))))
+                (check body (when expected
+                              (:rng expected))))]
     (assoc expr
            :body cbody
-           expr-type (->Function (:dom expected) (expr-type cbody) nil nil))))
+           expr-type (->Function (if expected
+                                   (:dom expected)
+                                   (repeatedly (count required-params) ->Top)) 
+                                 (expr-type cbody) nil nil))))
 
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
@@ -1501,6 +1651,49 @@
   [{:keys [local-binding] :as expr} & [expected]]
   (assoc expr
          expr-type (type-of (-> local-binding :sym))))
+
+(defmethod check :static-method
+  [expr & [expected]]
+  (let [spec (static-method-special expr expected)]
+    (cond
+      (not= ::not-special spec) spec
+      :else (throw (Exception. ":static-method not implemented")))))
+
+(defmethod check :let
+  [{:keys [binding-inits body is-loop] :as expr} & [expected]]
+  (assert (not is-loop))
+  (let [locals (reduce (fn [locals {{:keys [sym init]} :local-binding}]
+                         (let [cinit (with-locals locals
+                                       (check init))]
+                           (assoc locals sym (expr-type cinit))))
+                       {} binding-inits)
+        cbody (with-locals locals
+                (check body))]
+    (assoc expr
+           :body cbody
+           expr-type (expr-type cbody))))
+
+(defmethod check :if
+  [{:keys [test then else] :as expr} & [expected]]
+  (let [ctest (check test)]
+    (assoc expr
+           expr-type (let [then-reachable? ((every-pred 
+                                             (complement Union?)
+                                             (complement Intersection?)
+                                             (complement Nil?)
+                                             (complement False?))
+                                              (expr-type ctest))
+                           else-reachable? ((every-pred
+                                             (complement Union?)
+                                             (complement Intersection?)
+                                              (some-fn
+                                                Nil? False?))
+                                              (expr-type ctest))]
+                       (apply Un (concat (when then-reachable?
+                                           [(-> then check expr-type)])
+                                         (when else-reachable?
+                                           [(-> else check expr-type)])))))))
+
 
 (defn check-ns [nsym]
   (let [[_ns-decl_ & asts] (analyze/analyze-path nsym)]
