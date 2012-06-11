@@ -57,7 +57,7 @@
 
 (deftest tc-invoke-fn-test
   (is (subtype? (-> (tc 
-                      ((typed.new/fn> [[a Number] [b Number]] b)
+                      ((typed.new/fn> [[a :- Number] [b :- Number]] b)
                          1 2)) 
                   expr-type)
                 (parse-type 'Number)))
