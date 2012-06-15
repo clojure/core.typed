@@ -87,6 +87,9 @@
 (defn Bottom []
   empty-union)
 
+(defn Bottom? [a]
+  (= empty-union a))
+
 (defrecord Intersection [types]
   "An ordered intersection of types"
   [(sequential? types)
@@ -226,6 +229,18 @@
   "A recursive type containing one bound variable, itself"
   [(Scope? scope)])
 
+(defn Mu-body* [name t]
+  {:pre [(Mu? t)
+         (symbol? name)]}
+  (instantiate (->F name nil nil nil) (:scope t)))
+
+(defn unfold [t]
+  {:pre [(Mu? t)]
+   :post [(Type? t)]}
+  (let [sym (gensym)
+        body (Mu-body* sym t)]
+    (substitute body t sym)))
+
 (declare-type Mu)
 
 (defrecord Value [val]
@@ -255,11 +270,25 @@
 (declare-type HeterogeneousMap)
 
 (defrecord HeterogeneousVector [types]
-  "A constant vector, clojure.lang.PersistentVector"
+  "A constant vector, clojure.lang.IPersistentVector"
   [(vector? types)
    (every? Type? types)])
 
 (declare-type HeterogeneousVector)
+
+(defrecord HeterogeneousList [types]
+  "A constant list, clojure.lang.IPersistentList"
+  [(list? types)
+   (every? Type? types)])
+
+(declare-type HeterogeneousList)
+
+(defrecord HeterogeneousSeq [types]
+  "A constant seq, clojure.lang.ISeq"
+  [(seq? types)
+   (every? Type? types)])
+
+(declare-type HeterogeneousSeq)
 
 (defrecord Function [dom rng rest drest]
   "A function arity"
@@ -267,10 +296,13 @@
        (sequential? dom))
    (every? Type? dom)
    (Type? rng)
+   (<= (count (filter identity [rest drest])) 1)
    (or (nil? rest)
        (Type? rest))
    (or (nil? drest)
-       (Type? drest))])
+       (Type? drest))
+   #_(or (nil? kws)
+       (map? kws))])
 
 (declare-type Function)
 
@@ -594,6 +626,25 @@
   [[Value syn]]
   (constant-type syn))
 
+(defmethod parse-type-list 'KeywordArgs
+  [[_KeywordArgs_ & {:keys [optional mandatory]}]]
+  (assert (= #{}
+             (set/intersection (set (keys optional))
+                               (set (keys mandatory)))))
+  (let [optional (into {} (for [[k v] optional]
+                            (do (assert (keyword? k))
+                              [(->Value k) (parse-type v)])))
+        mandatory (into {} (for [[k v] mandatory]
+                             (do (assert (keyword? k))
+                               [(->Value k) (parse-type v)])))]
+    (apply Un (apply concat
+                     (for [opts (map #(into {} %) (comb/subsets optional))]
+                       (do 
+                         (let [m (merge mandatory opts)
+                               kss (comb/permutations (keys m))]
+                           (for [ks kss]
+                             (->HeterogeneousSeq (mapcat #(find m %) ks))))))))))
+
 (defmethod parse-type-list :default
   [syn]
   (parse-rinstance-type syn))
@@ -726,9 +777,296 @@
                                       (unparse-type v)))
                             (:types v)))))
 
+(defmethod unparse-type HeterogeneousSeq
+  [v]
+  (list* 'Seq* (doall (map unparse-type (:types v)))))
+
 (defmethod unparse-type HeterogeneousVector
   [v]
   (list* 'Vector* (doall (map unparse-type (:types v)))))
+
+(defmethod unparse-type HeterogeneousList
+  [v]
+  (list* 'List* (doall (map unparse-type (:types v)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Collecting frees
+
+(defmulti frees-in class)
+
+(defmethod frees-in B [t] nil)
+(defmethod frees-in F [t] [t]) ;FIXME bounds??
+(defmethod frees-in Nil [t] nil)
+(defmethod frees-in Value [t] nil)
+
+(defmethod frees-in Intersection [t] (mapcat frees-in t))
+(defmethod frees-in Union [t] (mapcat frees-in t))
+
+(defmethod frees-in Function 
+  [{:keys [dom rng rest drest]}]
+  (concat (mapcat frees-in dom)
+          (frees-in rng)
+          (when rest
+            (frees-in rest))
+          (when drest
+            (frees-in drest))))
+
+(defmethod frees-in Poly
+  [{:keys [nbound scope]}]
+  (let [bodysc (remove-scopes nbound scope)]
+    (frees-in bodysc)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Variable Elim
+
+(defmulti promote (fn [t vs] (class t)))
+(defmulti demote (fn [t vs] (class t)))
+
+(defmethod promote F
+  [t vs]
+  (if (contains? vs t)
+    (:upper-bound t)
+    t))
+(defmethod demote F
+  [t vs]
+  (if (contains? vs t)
+    (:lower-bound t)
+    t))
+
+(defmethod promote HeterogeneousMap
+  [t vs]
+  (-> t
+    (update-in [:types] #(into {}
+                               (for [[k v] %]
+                                 [k (promote v vs)])))))
+(defmethod demote HeterogeneousMap
+  [t vs]
+  (-> t
+    (update-in [:types] #(into {}
+                               (for [[k v] %]
+                                 [k (demote v vs)])))))
+
+(defmethod promote HeterogeneousVector
+  [t vs]
+  (-> t
+    (update-in [:types] #(apply list (map promote % (repeat vs))))))
+(defmethod demote HeterogeneousVector
+  [t vs]
+  (-> t
+    (update-in [:types] #(apply list (map demote % (repeat vs))))))
+
+(defmethod promote HeterogeneousList
+  [t vs]
+  (-> t
+    (update-in [:types] #(apply list (map promote % (repeat vs))))))
+(defmethod demote HeterogeneousList
+  [t vs]
+  (-> t
+    (update-in [:types] #(apply list (map demote % (repeat vs))))))
+
+(defmethod promote False [t vs] t)
+(defmethod promote Nil [t vs] t)
+(defmethod promote Value [t vs] t)
+
+(defmethod demote False [t vs] t)
+(defmethod demote Nil [t vs] t)
+(defmethod demote Value [t vs] t)
+
+(defmethod promote Union 
+  [t vs] 
+  (-> t
+    (update-in [:types] #(mapv promote % (repeat vs)))))
+(defmethod demote Union 
+  [t vs] 
+  (-> t
+    (update-in [:types] #(mapv demote % (repeat vs)))))
+
+(defmethod promote Intersection
+  [t vs] 
+  (-> t
+    (update-in [:types] #(mapv promote % (repeat vs)))))
+(defmethod demote Intersection
+  [t vs] 
+  (-> t
+    (update-in [:types] #(mapv demote % (repeat vs)))))
+
+;TODO see VU-Fun-2 rule. Check if bounds contain any vs, and if so punt
+(defmethod promote Poly
+  [{:keys [nbound] :as t} vs]
+  (let [body (Poly-body* (map gensym (range nbound)) t)
+        pbody (promote body vs)]
+    (Poly* body pbody)))
+
+(defmethod demote Poly
+  [{:keys [nbound] :as t} vs]
+  (let [body (Poly-body* (map gensym (range nbound)) t)
+        pbody (demote body vs)]
+    (Poly* body pbody)))
+
+(defmethod promote Function
+  [t vs]
+  (-> t
+    (update-in [:dom] #(mapv demote % (repeat vs)))
+    (update-in [:rng] #(mapv promote % (repeat vs)))
+    (update-in [:rest] #(when %
+                          (demote % vs)))
+    (update-in [:drest] #(when %
+                           (demote % vs)))))
+(defmethod demote Function
+  [t vs]
+  (-> t
+    (update-in [:dom] #(mapv promote % (repeat vs)))
+    (update-in [:rng] #(mapv demote % (repeat vs)))
+    (update-in [:rest] #(when %
+                          (promote % vs)))
+    (update-in [:drest] #(when %
+                           (promote % vs)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Constraint Generation
+
+(def Constraint ::constraint)
+
+(defn Constraint? [a]
+  (isa? a Constrant))
+
+(defn declare-constraint [a]
+  (derive a Constraint))
+
+(defrecord EqConstraint [type]
+  "A type constraint that must equal exact type"
+  [(Type? type)])
+(defrecord SubConstraint [lower upper]
+  "A type constraint within an upper and lower bound"
+  [(Type? lower)
+   (Type? upper)])
+
+(declare-constraint EqConstraint)
+(declare-constraint SubConstraint)
+
+(defmulti intersect-cs-fn (fn [a b] [(class a) (class b)]))
+
+(defmethod intersect-cs-fn [EqConstraint EqConstraint]
+  [a b]
+  (assert (= a b))
+  a)
+
+(defmethod intersect-cs-fn [EqConstraint SubConstraint]
+  [a b]
+  (assert (and (subtype? (:lower b) (:type a))
+               (subtype? (:type a) (:upper b))))
+  a)
+
+(defmethod intersect-cs-fn [SubConstraint EqConstraint]
+  [b a]
+  (assert (and (subtype? (:lower b) (:type a))
+               (subtype? (:type a) (:upper b))))
+  a)
+
+(defmethod intersect-cs-fn [SubConstraint SubConstraint]
+  [b a]
+  (let [j (Un (:lower a) (:lower b))
+        m (->Intersection [(:upper a) (:upper b)])]
+    (->SubConstraint j m)))
+
+(defn intersect-cs [& cs]
+  (merge-with intersect-cs-fn cs))
+
+(defn empty-cs [xs]
+  (zipmap xs (repeat (->SubConstraint Nothing Any))))
+(defn singleton-cs [xs x c]
+  (intersect-cs (empty-cs xs) {x c}))
+
+(defn matching-rel 
+  "Returns [r cs] where r is a type such that sub == type,
+  and cs are the constraints"
+  [sub type xs]
+  {:pre [(Type? sub)
+         (Type? type)
+         (every? F? xs)]
+   :post [(Type? (first %))
+          (Constraint? (second %))]}
+  (cond
+    (and (Top? sub)
+         (Top? type))
+    [(->Top) (empty-cs xs)]
+
+    (and (Bottom? sub)
+         (Bottom? type))
+    [(Bottom) (empty-cs xs)]
+
+    (and (F? sub)
+         (contains? xs sub))
+    [type (singleton-cs xs sub (->EqConstraint type))]
+
+    (and (F? type)
+         (contains? xs type))
+    [sub (singleton-cs xs type (->EqConstraint sub))]
+
+    (and (F? sub)
+         (F? type)
+         (= sub type))
+    [sub (empty-cs xs)]
+
+    (and (Poly? sub)
+         (Poly? type)
+         (= (:nbound sub) (:nbound type))
+    (let [sub-tvars (-tvars sub)
+          type-tvars (-tvars type)
+          _ (assert (= sub-tvars type-tvars))
+          [new-tvars ds] (let [res (map #(matching-rel (.upper-bound %1) (.upper-bound %2) xs)
+                                        sub-tvars
+                                        type-tvars)
+                               ks-bnds (map first res)
+                               new-tvars (map #(->TV
+                                                 (.nme %1)
+                                                 %2
+                                                 (.variance %2))
+                                              sub-tvars
+                                              ks-bnds)
+                               ds (intersect-cs (map second res))]
+                           [new-tvars ds])
+          rplc-fn (fn [old]
+                    (if-let [ntvar (some #(.nme new-tvars) old)]
+                      (->TV
+                        (.nme old)
+                        (.upper-bound ntvar)
+                        (.variance old))
+                      old))
+          sub-rplced (-visit-tvar (-poly-type sub) rplc-fn)
+          type-rplced (-visit-tvar (-poly-type type) rplc-fn)
+          [mtch-type cs] (matching-rel sub-rplced type-rplced xs)
+          all-cs (intersect-cs cs ds)]
+      [(->PolyConstructor
+         (.nme sub)
+         new-tvars
+         mtch-type
+         (.rntime-class sub))
+       all-cs])
+
+    (and (function? sub)
+         (function? type))
+    (let [rs (.dom sub)
+          s (.rng sub)
+          ts (.dom type)
+          u (.rng type)
+          rest-sub (.uniform-rest sub)
+          rest-type (.uniform-rest type)
+          [ls cs] (let [res (map #(matching-rel %1 %2 xs)
+                                 ts
+                                 rs)
+                        ls (map first res)
+                        cs (apply intersect-cs (map second res))]
+                    [ls cs])
+          [m d] (matching-rel s u xs)
+          [rest e] (when (.has-uniform-rest sub)
+                     (matching-rel rest-sub rest-type xs))]
+      [(->FunctionType
+         ls
+         m
+         (.has-uniform-rest sub)
+         rest)
+       (apply intersect-cs (concat [d] (when e [e]) cs))]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
@@ -1159,6 +1497,16 @@
       A1
       (type-error s t))))
 
+(defmethod subtype* [Mu Type]
+  [s t]
+  (let [s* (unfold s)]
+    (subtypeA* *A0* s* t)))
+
+(defmethod subtype* [Type Mu]
+  [s t]
+  (let [t* (unfold s)]
+    (subtypeA* *A0* s t*)))
+
 (defmethod subtype* [Type Top]
   [s t]
   *A0*)
@@ -1278,6 +1626,9 @@
 (ann clojure.core/seq?
      (Fn [Any -> (U false true)]))
 
+(ann clojure.core/string?
+     (Fn [Any -> (U false true)]))
+
 (ann clojure.core/seq
      (All [x]
           (Fn [(Seqable x) -> (U nil (ASeq x))
@@ -1343,6 +1694,7 @@
 
 (defmulti constant-type class)
 
+(defmethod constant-type nil [_] (->Nil))
 (defmethod constant-type Symbol [v] (->Value v))
 (defmethod constant-type Long [v] (->Value v))
 (defmethod constant-type Double [v] (->Value v))
@@ -1352,6 +1704,10 @@
 (defmethod constant-type Character [v] (->Value v))
 (defmethod constant-type clojure.lang.Keyword [v] (->Value v))
 (defmethod constant-type Boolean [v] (if v (->True) (->False)))
+
+(defmethod constant-type IPersistentList
+  [clist]
+  (->HeterogeneousList (apply list (map constant-type clist))))
 
 (defmethod constant-type IPersistentVector
   [cvec]
@@ -1380,6 +1736,13 @@
   [expr & [expected]]
   (assoc expr
          expr-type (->Nil)))
+
+(defmethod check :map
+  [{:keys [keyvals] :as expr} & [expected]]
+  (let [ckeyvals (mapv check keyvals)]
+    (assert (every? Value? (map expr-type (keys (apply hash-map ckeyvals)))))
+    (assoc expr
+           expr-type (->HeterogeneousMap (apply hash-map (map expr-type ckeyvals))))))
 
 (defmethod check :vector
   [{:keys [args] :as expr} & [expected]]
@@ -1440,9 +1803,9 @@
   [{:keys [var] :as expr} & [expected]]
   (assoc expr
          expr-type (->Return (lookup-var var)
-                             (->FilterSet (->AndFilter [(->NotTypeFilter (->Value false) nil var)
+                             (->FilterSet (->AndFilter [(->NotTypeFilter (->False) nil var)
                                                         (->NotTypeFilter (->Nil) nil var)])
-                                          (->OrFilter [(->TypeFilter (->Value false) nil var)
+                                          (->OrFilter [(->TypeFilter (->False) nil var)
                                                        (->TypeFilter (->Nil) nil var)]))
                              (->Path nil var))))
 
@@ -1490,6 +1853,20 @@
   [{:keys [fexpr args] :as expr} & [expected]]
   (first args))
 
+;seq
+(defmethod invoke-special #'clojure.core/seq
+  [{:keys [fexpr args] :as expr} & [expected]]
+  (let [[ccoll] (doall (map check args))]
+    (cond
+      ((some-fn HeterogeneousVector? 
+                HeterogeneousList? 
+                HeterogeneousSeq?)
+         (expr-type ccoll))
+      (assoc expr
+             expr-type (if-let [ts (seq (:types (expr-type ccoll)))]
+                         (->HeterogeneousSeq ts)
+                         (->Nil))))))
+
 ;make vector
 (defmethod invoke-special #'clojure.core/vector
   [{:keys [fexpr args] :as expr} & [expected]]
@@ -1514,7 +1891,8 @@
   [{[_ & args] :args :keys [fexpr args] :as expr} & [expected]]
   (let [cargs (doall (map check args))]
     (cond
-      (and (HeterogeneousVector? (expr-type (last cargs)))
+      (and ((some-fn HeterogeneousVector? HeterogeneousList? HeterogeneousSeq?) 
+              (expr-type (last cargs)))
            ;; every key must be a Value
            (every? Value? (keys (apply hash-map (concat (map expr-type (butlast cargs))
                                                         (mapcat vector (:types (expr-type (last cargs)))))))))
@@ -1533,6 +1911,27 @@
       (assoc expr
              expr-type (->False))
 
+      ((some-fn HeterogeneousList? HeterogeneousSeq?) 
+         (expr-type (first cargs)))
+      (assoc expr
+             expr-type (->True))
+
+      :else ::not-special)))
+;nth
+(defmethod static-method-special 'clojure.lang.RT/nth
+  [{[t & args] :args, :keys [fexpr] :as expr} & [expected]]
+  (let [t (expr-type (check t))
+        cargs (doall (map check args))]
+    (cond
+      (and ((some-fn HeterogeneousVector?
+                     HeterogeneousList?
+                     HeterogeneousSeq?)
+              t)
+           (Value? (expr-type (first cargs))))
+      (assoc expr
+             expr-type (let [[k default] (map expr-type cargs)]
+                         (apply nth (:types t) (:val k) (when default
+                                                          [default]))))
       :else ::not-special)))
 
 ;get
@@ -1693,7 +2092,6 @@
                                            [(-> then check expr-type)])
                                          (when else-reachable?
                                            [(-> else check expr-type)])))))))
-
 
 (defn check-ns [nsym]
   (let [[_ns-decl_ & asts] (analyze/analyze-path nsym)]
