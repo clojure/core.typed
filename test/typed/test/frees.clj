@@ -55,6 +55,14 @@
   (is (subtype (parse-type '(clojure.lang.Cons Integer))
                (parse-type '(clojure.lang.Seqable Number)))))
 
+(deftest subtype-rec
+  (is (subtype? (parse-type 'Integer)
+                (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
+  (is (subtype? (parse-type '(clojure.lang.Seqable (clojure.lang.Seqable Integer)))
+                (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
+  (is (not (subtype? (parse-type 'Number)
+                     (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))))
+
 (deftest tc-invoke-fn-test
   (is (subtype? (tc-t 
                   ((typed.new/fn> [[a :- Number] [b :- Number]] b)

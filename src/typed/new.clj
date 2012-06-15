@@ -230,6 +230,8 @@
   "A recursive type containing one bound variable, itself"
   [(Scope? scope)])
 
+(declare instantiate substitute remove-scopes subtype?)
+
 (defn Mu-body* [name t]
   {:pre [(Mu? t)
          (symbol? name)]}
@@ -301,9 +303,7 @@
    (or (nil? rest)
        (Type? rest))
    (or (nil? drest)
-       (Type? drest))
-   #_(or (nil? kws)
-       (map? kws))])
+       (Type? drest))])
 
 (declare-type Function)
 
@@ -763,6 +763,12 @@
     (unparse-type constructor)
     (list* (unparse-type constructor)
            (doall (map unparse-type poly?)))))
+
+(defmethod unparse-type Mu
+  [m]
+  (let [nme (gensym "Mu")
+        body (Mu-body* nme m)]
+    (list 'Rec [nme] (unparse-type body))))
 
 (defmethod unparse-type Poly
   [p]
@@ -1280,12 +1286,7 @@
 (defmethod substitute F
   [{name* :name :keys [upper-bound lower-bound] :as f} image name]
   (if (= name* name)
-    (do 
-      (when upper-bound
-        (subtype image upper-bound))
-      (when lower-bound
-        (subtype lower-bound image))
-      image)
+    image
     f))
 
 (defmethod substitute Nil [t image name] t)
@@ -1510,16 +1511,14 @@
 
 (defmethod subtype* [Type Mu]
   [s t]
-  (let [t* (unfold s)]
+  (let [t* (unfold t)]
     (subtypeA* *A0* s t*)))
-
-(defmethod subtype* [Type Top]
-  [s t]
-  *A0*)
 
 (defmethod subtype* :default
   [s t]
-  (type-error s t))
+  (if (Top? t)
+    *A0*
+    (type-error s t)))
 
 (defmacro sub [s t]
   `(subtype (parse-type '~s)
