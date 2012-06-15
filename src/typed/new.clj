@@ -103,27 +103,25 @@
 (defn variance? [v]
   (contains? variances v))
 
-(defrecord B [idx upper-bound lower-bound variance]
+(defrecord B [idx upper-bound lower-bound]
   "A bound variable. Should not appear outside this file"
   [(nat? idx)
-   (or (nil? upper-bound)
-       (Type? upper-bound))
-   (or (nil? lower-bound)
-       (Type? lower-bound))
-   (or (nil? variance)
-       (variance? variance))])
+   (Type? upper-bound)
+   (Type? lower-bound)])
 
 (declare-type B)
 
-(defrecord F [name upper-bound lower-bound variance]
+(defrecord F [name upper-bound lower-bound]
   "A named free variable"
   [(symbol? name)
-   (or (nil? upper-bound)
-       (Type? upper-bound))
-   (or (nil? lower-bound)
-       (Type? lower-bound))
-   (or (nil? variance)
-       (variance? variance))])
+   (Type? upper-bound)
+   (Type? lower-bound)])
+
+(defn make-F
+  ([name] (make-F name (->Top) (Bottom)))
+  ([name upper] (make-F name upper (Bottom)))
+  ([name upper lower]
+   (->F name upper lower)))
 
 (declare-type F)
 
@@ -145,18 +143,21 @@
    (every? (some-fn Type? Scope?) (vals replacements))])
 
 ;smart constructor
-(defn RClass* [tparams the-class replacements]
-  (if (seq tparams)
-    (->RClass (doall (map :variance tparams))
+(defn RClass* [names variances the-class replacements]
+  {:pre [(every? symbol? names)
+         (every? variance? variances)
+         (class? the-class)]}
+  (if (seq variances)
+    (->RClass variances
               the-class
               (into {} (for [[k v] replacements]
-                         [k (abstract-many (map :name tparams) v)])))
+                         [k (abstract-many names v)])))
     (->RClass nil the-class replacements)))
 
 ;smart destructor
 (defn RClass-replacements* [names rclass]
   (into {} (for [[k v] (:replacements rclass)]
-             [k (instantiate-many (map #(->F % nil nil nil) names) v)])))
+             [k (instantiate-many (map make-F names) v)])))
 
 (declare-type RClass)
 
@@ -208,7 +209,7 @@
   {:pre [(every? symbol? names)
          (Poly? poly)]}
   (assert (= (:nbound poly) (count names)) "Wrong number of names")
-  (instantiate-many (map #(->F % nil nil nil) names) (:scope poly)))
+  (instantiate-many (map make-F names) (:scope poly)))
 
 (defrecord PolyDots [n scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
@@ -232,7 +233,7 @@
 (defn Mu-body* [name t]
   {:pre [(Mu? t)
          (symbol? name)]}
-  (instantiate (->F name nil nil nil) (:scope t)))
+  (instantiate (make-F name) (:scope t)))
 
 (defn unfold [t]
   {:pre [(Mu? t)]
@@ -499,14 +500,20 @@
   (into {} (for [[k v] m]
              [k `(parse-type '~v)])))
 
+(defn parse-RClass-binder [bnds]
+  (for [[nme & {:keys [variance]}] bnds]
+    [variance (make-F nme)]))
+
 (defmacro alter-class [the-class frees-syn & opts]
   (let [{replacements-syn :replace} (apply hash-map opts)
         replacements (build-replacement-syntax replacements-syn)]
-     `(let [frees# (when-let [fs# (seq '~frees-syn)]
-                     (parse-binder fs#))]
+     `(let [[variances# frees#] (when-let [fs# (seq '~frees-syn)]
+                                  (let [b# (parse-RClass-binder fs#)]
+                                    [(map first b#) (map second b#)]))]
         (swap! RESTRICTED-CLASS 
-               #(assoc % ~the-class (RClass* frees# ~the-class (with-frees frees#
-                                                                   ~replacements))))
+               #(assoc % ~the-class (RClass* (map :name frees#) variances#
+                                             ~the-class (with-frees frees#
+                                                          ~replacements))))
         ~the-class)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -525,17 +532,17 @@
 
 (defn parse-free [f]
   (if (symbol? f)
-    (->F f nil nil nil)
+    (make-F f)
     (let [[n & opts] f
           {upp :<
-           low :>
-           variance :variance} (apply hash-map opts)]
+           low :>} (apply hash-map opts)]
       (->F n 
-           (when upp 
-             (parse-type upp)) 
-           (when low
-             (parse-type low))
-           variance))))
+           (if upp 
+             (parse-type upp)
+             (->Top)) 
+           (if low
+             (parse-type low)
+             (Bottom))))))
 
 (defn check-forbidden-rec [rec tbody]
   (when (or (= rec tbody) 
@@ -547,7 +554,7 @@
 
 (defn parse-rec-type [[rec [free-symbol :as bnder] type]]
   (let [_ (assert (= 1 (count bnder)) "Only one variable in allowed: Rec")
-        f (->F free-symbol nil nil nil)
+        f (make-F free-symbol)
         body (with-frees [f]
                (parse-type type))
         
@@ -928,7 +935,7 @@
 (def Constraint ::constraint)
 
 (defn Constraint? [a]
-  (isa? a Constrant))
+  (isa? a Constraint))
 
 (defn declare-constraint [a]
   (derive a Constraint))
@@ -973,11 +980,11 @@
   (merge-with intersect-cs-fn cs))
 
 (defn empty-cs [xs]
-  (zipmap xs (repeat (->SubConstraint Nothing Any))))
+  (zipmap xs (repeat (->SubConstraint (Bottom) (->Top)))))
 (defn singleton-cs [xs x c]
   (intersect-cs (empty-cs xs) {x c}))
 
-(defn matching-rel 
+#_(defn matching-rel 
   "Returns [r cs] where r is a type such that sub == type,
   and cs are the constraints"
   [sub type xs]
@@ -1103,9 +1110,9 @@
 (defmethod name-to B [ty name res] ty)
 
 (defmethod name-to F
-  [{name* :name upper :upper-bound lower :lower-bound variance :variance :as ty} name res] 
+  [{name* :name upper :upper-bound lower :lower-bound :as ty} name res]
   (if (= name name*)
-    (->B res upper lower variance)
+    (->B res upper lower)
     ty))
 
 (defmethod name-to Function
@@ -1186,12 +1193,11 @@
 (defmethod replace-image F [ty image target] ty)
 
 (defmethod replace-image B
-  [{idx :idx upper :upper-bound lower :lower-bound variance :variance :as ty} image target]
+  [{idx :idx upper :upper-bound lower :lower-bound :as ty} image target]
   (if (= idx target)
     (assoc image
            :upper-bound upper
-           :lower-bound lower
-           :variance variance)
+           :lower-bound lower)
     ty))
 
 (defmethod replace-image Union

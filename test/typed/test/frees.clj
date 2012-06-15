@@ -5,38 +5,38 @@
         [typed.new]))
 
 (deftest add-scopes-test
-  (is (let [body (->F 'a nil nil nil)]
+  (is (let [body (make-F 'a)]
         (= (add-scopes 0 body)
            body)))
-  (is (let [body (->F 'a nil nil nil)]
+  (is (let [body (make-F 'a)]
         (= (add-scopes 1 body)
            (->Scope body))))
-  (is (let [body (->F 'a nil nil nil)]
+  (is (let [body (make-F 'a)]
         (= (add-scopes 3 body)
            (-> body ->Scope ->Scope ->Scope)))))
 
 (deftest remove-scopes-test
-  (is (let [scope (->Scope (->F 'a nil nil nil))]
+  (is (let [scope (->Scope (make-F 'a))]
         (= (remove-scopes 0 scope)
            scope)))
-  (is (let [body (->F 'a nil nil nil)]
+  (is (let [body (make-F 'a)]
         (= (remove-scopes 1 (->Scope body))
            body))))
 
 (deftest name-to-test
-  (is (let [body (->F 'a nil nil nil)]
+  (is (let [body (make-F 'a)]
         (= (name-to body 'a 0)
-           (->B 0 nil nil nil)))))
+           (->B 0 (->Top) (Bottom))))))
 
 (deftest parse-type-test
   (is (= (Poly-body* '(x) (parse-type '(All [x] x)))
-         (->F 'x nil nil nil)))
+         (make-F 'x)))
   (is (= (Poly-body* '(x y) (parse-type '(All [x y] x)))
-         (->F 'x nil nil nil)))
+         (make-F 'x)))
   (is (= (Poly-body* '(x y) (parse-type '(All [x y] y)))
-         (->F 'y nil nil nil)))
+         (make-F 'y)))
   (is (= (Poly-body* '(a b c d e f g h i) (parse-type '(All [a b c d e f g h i] e)))
-         (->F 'e nil nil nil))))
+         (make-F 'e))))
 
 (deftest subtype-test
   (is (subtype (parse-type 'Integer)
