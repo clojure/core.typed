@@ -211,9 +211,9 @@
   (assert (= (:nbound poly) (count names)) "Wrong number of names")
   (instantiate-many (map make-F names) (:scope poly)))
 
-(defrecord PolyDots [n scope]
+(defrecord PolyDots [nbound scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
-  [(nat? n)
+  [(nat? nbound)
    (Scope? scope)])
 
 (declare-type PolyDots)
@@ -225,6 +225,13 @@
   (if (empty? names)
     body
     (->PolyDots (count names) (abstract-many names body))))
+
+;smart destructor
+(defn PolyDots-body* [names poly]
+  {:pre [(every? symbol? names)
+         (PolyDots? poly)]}
+  (assert (= (:nbound poly) (count names)) "Wrong number of names")
+  (instantiate-many (map make-F names) (:scope poly)))
 
 (defrecord Mu [scope]
   "A recursive type containing one bound variable, itself"
@@ -303,7 +310,9 @@
    (or (nil? rest)
        (Type? rest))
    (or (nil? drest)
-       (Type? drest))])
+       ;[Type (or B F)]
+       (Type? (first drest))
+       ((some-fn B? F?) (second drest)))])
 
 (declare-type Function)
 
@@ -335,17 +344,17 @@
 
 (declare Filter? RObject?)
 
-(defrecord Return [t f o]
-  "A return type with filter f and object o"
+(defrecord Result [t f o]
+  "A result type with filter f and object o"
   [(Type? t)
    (Filter? f)
    (RObject? o)])
 
-(defn Return-type* [r]
-  {:pre [(Return? r)]}
+(defn Result-type* [r]
+  {:pre [(Result? r)]}
   (:t r))
 
-(declare-type Return)
+(declare-type Result)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -489,12 +498,24 @@
     :else (throw (Exception. (str "Cannot resolve type: " sym-or-var)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Dotted Variable Environment
+
+;symbol -> F
+(def ^:dynamic *dotted-scope* {})
+(set-validator! #'*dotted-scope* #(and (every? symbol? (keys %))
+                                       (every? F? (vals %))))
+
+(defmacro with-dotted [dvar & body]
+  `(binding [*dotted-scope* (merge *dotted-scope* {(:name ~dvar) ~dvar})]
+     ~@body))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class
 
 ;Class -> RClass
 (def RESTRICTED-CLASS (atom {}))
 
-(declare parse-binder with-frees)
+(declare with-frees)
 
 (defn- build-replacement-syntax [m]
   (into {} (for [[k v] m]
@@ -521,6 +542,8 @@
 
 ;(Map Symbol F)
 (def ^:dynamic *free-scope* {})
+(set-validator! #'*free-scope* #(and (every? symbol? (keys %))
+                                     (every? F? (vals %))))
 
 (defmacro with-frees [frees & body]
   `(let [m# (zipmap (map :name ~frees) ~frees)]
@@ -565,24 +588,31 @@
   [syn]
   (parse-rec-type syn))
 
-(defn parse-binder [bnds]
-  (let [scope (atom [])]
-    (doall
-      (for [bnd bnds]
-        (let [f (with-frees @scope
-                  (parse-free bnd))
-              _ (swap! scope #(conj % f))]
-          f)))))
+;dispatch on last element of syntax in binder
+(defmulti parse-all-type (fn [bnds type] (last bnds)))
 
-(defn parse-all-type [[all bnds type]]
-  (let [frees (parse-binder bnds)]
+;(All [a b ...] type)
+(defmethod parse-all-type '...
+  [bnds type]
+  (let [frees (map parse-free (-> bnds butlast butlast))
+        dvar (parse-free (-> bnds butlast last))]
+    (PolyDots* (concat (map :name frees) [(:name dvar)])
+               (with-frees frees
+                 (with-dotted dvar 
+                   (parse-type type))))))
+
+;(All [a b] type)
+(defmethod parse-all-type :default
+  [bnds type]
+  (let [frees (map parse-free bnds)]
     (Poly* (map :name frees)
            (with-frees frees
              (parse-type type)))))
 
 (defmethod parse-type-list 'All
-  [syn]
-  (parse-all-type syn))
+  [[All bnds syn & more]]
+  (assert (not more) "Bad All syntax")
+  (parse-all-type bnds syn))
 
 (defn parse-union-type [[u & types]]
   (apply Un (doall (map parse-type types))))
@@ -704,18 +734,23 @@
                             (some #(= '... %) all-dom)))
                   "Cannot provide both rest type and dotted rest type")
 
-        fixed-dom (take-while #(not (or (= '& %)
-                                        (= '... %)))
-                              all-dom)
+        fixed-dom (cond 
+                    (some #(= '& %) all-dom) (take-while #(not= '& %) all-dom)
+                    (some #(= '... %) all-dom) (butlast (take-while #(not= '... %) all-dom))
+                    :else all-dom)
 
         [_ rest-type] (drop-while #(not= '& %) all-dom)
-        [_ drest-type] (drop-while #(not= '... %) all-dom)]
+        [drest-type _ drest-bnd] (let [[n _] (first (filter #(= '... (second %)) (map-indexed vector all-dom)))]
+                                   (when n
+                                     (drop (dec n) all-dom)))]
     (->Function (doall (map parse-type fixed-dom))
-                (parse-type rng) 
+                (parse-type rng)
                 (when rest-type
                   (parse-type rest-type))
                 (when drest-type
-                  (parse-type drest-type)))))
+                  [(with-frees [(*dotted-scope* drest-bnd)] ;with dotted bound in scope as free
+                     (parse-type drest-type))
+                   (*dotted-scope* drest-bnd)]))))
 
 (defmethod parse-type IPersistentVector
   [f]
@@ -728,7 +763,7 @@
 (defmethod unparse-type False [_] false)
 (defmethod unparse-type Top [_] 'Any)
 
-(defmethod unparse-type Return
+(defmethod unparse-type Result
   [{:keys [t]}]
   (unparse-type t))
 
@@ -742,7 +777,10 @@
 
 (defmethod unparse-type Intersection
   [{types :types}]
-  (list* 'I (doall (map unparse-type types))))
+  (list* (if (every? Function? types)
+           'Fn
+           'I)
+         (doall (map unparse-type types))))
 
 (defmethod unparse-type Function
   [{:keys [dom rng rest drest]}]
@@ -750,7 +788,7 @@
                (when rest
                  ['& (unparse-type rest)])
                (when drest
-                 ['... (unparse-type drest)])
+                 [(unparse-type (first drest)) '... (unparse-type (second drest))])
                ['-> (unparse-type rng)])))
 
 (defmethod unparse-type RClass
@@ -769,6 +807,14 @@
   (let [nme (gensym "Mu")
         body (Mu-body* nme m)]
     (list 'Rec [nme] (unparse-type body))))
+
+(defmethod unparse-type PolyDots
+  [p]
+  (let [fs (vec 
+             (for [x (range (:nbound p))]
+               (gensym)))
+        body (PolyDots-body* fs p)]
+    (list 'All (vec (concat (butlast fs) ['... (last fs)])) (unparse-type body))))
 
 (defmethod unparse-type Poly
   [p]
@@ -822,7 +868,7 @@
           (when rest
             (frees-in rest))
           (when drest
-            (frees-in drest))))
+            (frees-in (first drest)))))
 
 (defmethod frees-in Poly
   [{:keys [nbound scope]}]
@@ -923,8 +969,7 @@
     (update-in [:rng] #(mapv promote % (repeat vs)))
     (update-in [:rest] #(when %
                           (demote % vs)))
-    (update-in [:drest] #(when %
-                           (demote % vs)))))
+    (update-in [:drest] #(assert (not %)))))
 (defmethod demote Function
   [t vs]
   (-> t
@@ -932,8 +977,7 @@
     (update-in [:rng] #(mapv demote % (repeat vs)))
     (update-in [:rest] #(when %
                           (promote % vs)))
-    (update-in [:drest] #(when %
-                           (promote % vs)))))
+    (update-in [:drest] #(assert (not %)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint Generation
@@ -1130,7 +1174,7 @@
       (update-in [:rest] #(when %
                             (ufn %)))
       (update-in [:drest] #(when %
-                            (ufn %))))))
+                             (mapv ufn %))))))
 
 (defmethod name-to Top [t name res] t)
 (defmethod name-to Nil [n name res] n)
@@ -1235,7 +1279,7 @@
       (update-in [:rest] #(when %
                             (ufn %)))
       (update-in [:drest] #(when %
-                            (ufn %))))))
+                             (mapv ufn %))))))
 
 (defmethod replace-image Intersection
   [{types :types} image target]
@@ -1276,6 +1320,7 @@
 
 (declare subtype)
 
+;Substitute in target all free variables called name with image
 (defmulti substitute (fn [target image name] (class target)))
 
 (defn substitute-many [target images names]
@@ -1327,7 +1372,7 @@
       (update-in [:rest] #(when %
                             (sub %)))
       (update-in [:drest] #(when %
-                             (sub %))))))
+                             (update-in % [0] sub)))))) ;dont substitute bound
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtypes
@@ -1611,11 +1656,6 @@
               Seqable (Seqable a)
               ISeq (ISeq a)})
 
-(comment
-  (alter-class IPersistentCollection [a])
-  (IPersistentCollection Integer)
-  )
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
@@ -1639,11 +1679,17 @@
           (Fn [(Seqable x) -> (U nil (ASeq x))
                :- [x @ (first 0) | nil @ (first 0)]
                Empty]
-              [nil -> nil]
+              [nil -> nil
+               :- [ff | nil @ (first 0)]]
               [String -> (U nil (ASeq Character))
                :- [Character @ (first 0) | nil @ (first 0)]
                Empty]
               [(U java.util.Map Iterable) -> (U nil (ASeq Any))])))
+
+(ann clojure.core/map
+     (All [c a b ...]
+          (Fn [[a b ... b -> c] (Seqable a) (Seqable b) ... b -> (Seqable c)])))
+
 
 (comment
   (loop> [[x :- (Vector Number) [1 2 3]]]
@@ -1807,24 +1853,69 @@
 (defmethod check :var
   [{:keys [var] :as expr} & [expected]]
   (assoc expr
-         expr-type (->Return (lookup-var var)
+         expr-type (->Result (lookup-var var)
                              (->FilterSet (->AndFilter [(->NotTypeFilter (->False) nil var)
                                                         (->NotTypeFilter (->Nil) nil var)])
                                           (->OrFilter [(->TypeFilter (->False) nil var)
                                                        (->TypeFilter (->Nil) nil var)]))
                              (->Path nil var))))
 
+;tdr from Practical Variable-Arity Polymorphism paper
+(defmulti trans-dots (fn [t b bm]
+                       {:pre [(Type? t)
+                              (symbol? b)
+                              (every? Type? bm)]}
+                        (class t)))
+
+(defmethod trans-dots Function
+  [t b bm]
+  (let [tfn #(trans-dots % b bm)]
+    (cond
+      (:drest t)
+      (let [[pre-type bound] %]
+        (if (= b (:name bound)) ;identical bounds
+          (->Function (concat 
+                        ;keep fixed domain
+                        (doall (map tfn (:dom t)))
+                        ;expand dotted type to fixed domain
+                        (doall (map (fn [bk] 
+                                      ;replace free occurences of bound with bk
+                                      (-> (substitute pre-type bk (:name bound))
+                                        tfn)))))
+                      (tfn (:rng t))
+                      nil
+                      nil) ;expanded to fixed domain
+          (-> t
+            (update-in [:dom] #(doall (map tfn %)))
+            (update-in [:rng] tfn)
+            (update-in [:drest] #(update-in % [0] tfn))))) ;translate pre-type
+
+      :else
+      (-> t
+        (update-in [:dom] #(doall (map tfn %)))
+        (update-in [:rng] tfn)
+        (update-in [:rest] #(when %
+                              (tfn %)))))))
+
+
 (defn- manual-inst 
   "Poly Type^n -> Type
   Substitute the type parameters of the polymorphic type
   with given types"
-  [{n :nbound, :as ptype} argtys]
-  {:pre [(Poly? ptype)
+  [ptype argtys]
+  {:pre [((some-fn Poly? PolyDots?) ptype)
          (every? Type? argtys)]}
-  (assert (= (count argtys) n) "Instatiating polymorphic type with wrong number of arguments")
-  (let [names (map gensym (range n))
-        body (Poly-body* names ptype)]
-    (substitute-many body argtys names)))
+  (cond
+    (Poly? ptype)
+    (let [names (map gensym (range (:nbound ptype)))
+          body (Poly-body* names ptype)]
+      (substitute-many body argtys names))
+
+    (PolyDots? ptype)
+    (let [names (map gensym (range (:nbound ptype)))
+          body (PolyDots-body* names ptype)]
+      (trans-dots body (last names) argtys)
+      #_(substitute-many body argtys names)))))
 
 (defmulti invoke-special (fn [expr & args] (-> expr :fexpr :var)))
 (defmulti invoke-apply (fn [expr & args] (-> expr :args first :var)))
@@ -1840,7 +1931,7 @@
 (defmethod invoke-special #'inst-poly
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [[pexpr targs-exprs] args
-        ptype (-> (check pexpr) expr-type Return-type*)
+        ptype (-> (check pexpr) expr-type Result-type*)
         targs (doall (map parse-type (:val targs-exprs)))]
     (assoc expr
            expr-type (manual-inst ptype targs))))
@@ -1982,6 +2073,7 @@
       (assoc expr
              expr-type (expr-type t))
 
+      ;[...]
       (HeterogeneousVector? (expr-type t))
       (assoc expr
              expr-type (->HeterogeneousVector
@@ -2002,8 +2094,8 @@
       (let [cfexpr (check fexpr)
             cargs (doall (map check args))
             ftype (let [ft (expr-type cfexpr)]
-                    (or (and (Return? ft)
-                             (Return-type* ft))
+                    (or (and (Result? ft)
+                             (Result-type* ft))
                         ft))
             actual (check-app fexpr args ftype (map expr-type cargs) expected)]
         (assoc expr
