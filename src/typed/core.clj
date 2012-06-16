@@ -470,6 +470,11 @@
 (def VAR-ANNOTATIONS (atom {}))
 (def ^:dynamic *local-annotations* {})
 
+(set-validator! VAR-ANNOTATIONS #(and (every? (every-pred symbol? namespace) (keys %))
+                                      (every? Type? (vals %))))
+(set-validator! #'*local-annotations* #(and (every? (every-pred symbol? (complement namespace)) (keys %))
+                                            (every? Type? (vals %))))
+
 (defmacro ann [varsym typesyn]
   `(let [t# (parse-type '~typesyn)
          s# (symbol '~varsym)]
@@ -1861,30 +1866,44 @@
                              (->Path nil var))))
 
 ;tdr from Practical Variable-Arity Polymorphism paper
+; Expand out dotted pretypes to fixed domain, using types bm, if (:name bound) = b
 (defmulti trans-dots (fn [t b bm]
                        {:pre [(Type? t)
                               (symbol? b)
                               (every? Type? bm)]}
                         (class t)))
 
+(defmethod trans-dots F [t b bm] t)
+(defmethod trans-dots RInstance [t b bm] t)
+
+(defmethod trans-dots Intersection
+  [t b bm]
+  (let [tfn #(trans-dots % b bm)]
+    (-> t
+      (update-in [:types] #(doall (map tfn %))))))
+
 (defmethod trans-dots Function
   [t b bm]
   (let [tfn #(trans-dots % b bm)]
     (cond
       (:drest t)
-      (let [[pre-type bound] %]
+      (let [[pre-type bound] (:drest t)]
         (if (= b (:name bound)) ;identical bounds
-          (->Function (concat 
+          (let [dom (concat 
                         ;keep fixed domain
                         (doall (map tfn (:dom t)))
                         ;expand dotted type to fixed domain
-                        (doall (map (fn [bk] 
+                        (doall (map (fn [bk]
+                                      {:post [(Type? %)]}
                                       ;replace free occurences of bound with bk
-                                      (-> (substitute pre-type bk (:name bound))
-                                        tfn)))))
-                      (tfn (:rng t))
-                      nil
-                      nil) ;expanded to fixed domain
+                                      (-> (substitute pre-type bk b)
+                                        tfn))
+                                    ;only instantiate when exceeding fixed domain
+                                    (drop (inc (count (:dom t))) bm))))]
+            (->Function dom
+                        (tfn (:rng t))
+                        nil
+                        nil)) ;dotted pretype now expanded to fixed domain
           (-> t
             (update-in [:dom] #(doall (map tfn %)))
             (update-in [:rng] tfn)
@@ -1897,7 +1916,6 @@
         (update-in [:rest] #(when %
                               (tfn %)))))))
 
-
 (defn- manual-inst 
   "Poly Type^n -> Type
   Substitute the type parameters of the polymorphic type
@@ -1907,15 +1925,17 @@
          (every? Type? argtys)]}
   (cond
     (Poly? ptype)
-    (let [names (map gensym (range (:nbound ptype)))
+    (let [_ (assert (= (:nbound ptype) (count argtys)) "Wrong number of arguments to instantiate polymorphic type")
+          names (repeatedly (:nbound ptype) gensym)
           body (Poly-body* names ptype)]
       (substitute-many body argtys names))
 
     (PolyDots? ptype)
-    (let [names (map gensym (range (:nbound ptype)))
+    (let [_ (assert (<= (dec (:nbound ptype)) (count argtys)) "Insufficient arguments to instantiate dotted polymorphic type")
+          names (repeatedly (:nbound ptype) gensym)
           body (PolyDots-body* names ptype)]
-      (trans-dots body (last names) argtys)
-      #_(substitute-many body argtys names)))))
+      (-> (trans-dots body (last names) argtys)
+        (substitute-many argtys names)))))
 
 (defmulti invoke-special (fn [expr & args] (-> expr :fexpr :var)))
 (defmulti invoke-apply (fn [expr & args] (-> expr :args first :var)))
@@ -2173,17 +2193,15 @@
   [{:keys [test then else] :as expr} & [expected]]
   (let [ctest (check test)]
     (assoc expr
-           expr-type (let [then-reachable? ((every-pred 
-                                             (complement Union?)
-                                             (complement Intersection?)
-                                             (complement Nil?)
-                                             (complement False?))
+           expr-type (let [then-reachable? ((every-pred (complement Union?)
+                                                        (complement Intersection?)
+                                                        (complement Nil?)
+                                                        (complement False?))
                                               (expr-type ctest))
-                           else-reachable? ((every-pred
-                                             (complement Union?)
-                                             (complement Intersection?)
-                                              (some-fn
-                                                Nil? False?))
+                           else-reachable? ((every-pred (complement Union?)
+                                                        (complement Intersection?)
+                                                        (some-fn
+                                                          Nil? False?))
                                               (expr-type ctest))]
                        (apply Un (concat (when then-reachable?
                                            [(-> then check expr-type)])
