@@ -1380,7 +1380,90 @@
                              (update-in % [0] sub)))))) ;dont substitute bound
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Subtypes
+;; Dotted pre-type expansion
+
+;tdr from Practical Variable-Arity Polymorphism paper
+; Expand out dotted pretypes to fixed domain, using types bm, if (:name bound) = b
+(defmulti trans-dots (fn [t b bm]
+                       {:pre [(Type? t)
+                              (symbol? b)
+                              (every? Type? bm)]}
+                       (class t)))
+
+(defmethod trans-dots F [t b bm] t)
+(defmethod trans-dots RInstance [t b bm] t)
+
+(defmethod trans-dots Intersection
+  [t b bm]
+  (let [tfn #(trans-dots % b bm)]
+    (-> t
+      (update-in [:types] #(doall (map tfn %))))))
+
+(defmethod trans-dots Function
+  [t b bm]
+  (let [tfn #(trans-dots % b bm)]
+    (cond
+      (:drest t)
+      (let [[pre-type bound] (:drest t)]
+        (if (= b (:name bound)) ;identical bounds
+          (let [dom (concat 
+                        ;keep fixed domain
+                        (doall (map tfn (:dom t)))
+                        ;expand dotted type to fixed domain
+                        (doall (map (fn [bk]
+                                      {:post [(Type? %)]}
+                                      ;replace free occurences of bound with bk
+                                      (-> (substitute pre-type bk b)
+                                        tfn))
+                                    bm)))]
+            (->Function dom
+                        (tfn (:rng t))
+                        nil
+                        nil)) ;dotted pretype now expanded to fixed domain
+          (-> t
+            (update-in [:dom] #(doall (map tfn %)))
+            (update-in [:rng] tfn)
+            (update-in [:drest] #(update-in % [0] tfn))))) ;translate pre-type
+
+      :else
+      (-> t
+        (update-in [:dom] #(doall (map tfn %)))
+        (update-in [:rng] tfn)
+        (update-in [:rest] #(when %
+                              (tfn %)))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Polymorphic type instantiation
+
+(defn manual-inst 
+  "Poly Type^n -> Type
+  Substitute the type parameters of the polymorphic type
+  with given types"
+  [ptype argtys]
+  {:pre [((some-fn Poly? PolyDots?) ptype)
+         (every? Type? argtys)]}
+  (cond
+    (Poly? ptype)
+    (let [_ (assert (= (:nbound ptype) (count argtys)) "Wrong number of arguments to instantiate polymorphic type")
+          names (repeatedly (:nbound ptype) gensym)
+          body (Poly-body* names ptype)]
+      (substitute-many body argtys names))
+
+    (PolyDots? ptype)
+    (let [nrequired-types (dec (:nbound ptype))
+          _ (assert (<= nrequired-types (count argtys)) "Insufficient arguments to instantiate dotted polymorphic type")
+          names (repeatedly (:nbound ptype) gensym)
+          body (PolyDots-body* names ptype)]
+      (-> body
+        ; expand dotted pre-types in body
+        (trans-dots (last names) ;the bound
+                    (drop (dec (:nbound ptype)) argtys)) ;the types to expand pre-type with
+        ; substitute normal variables
+        (substitute-many (take nrequired-types argtys) (butlast names))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Subtype
 
 (defn type-error [s t]
   (throw (Exception. (str (unparse-type s) 
@@ -1695,7 +1778,6 @@
      (All [c a b ...]
           (Fn [[a b ... b -> c] (Seqable a) (Seqable b) ... b -> (Seqable c)])))
 
-
 (comment
   (loop> [[x :- (Vector Number) [1 2 3]]]
     (if (seq x)           ; Number :- first(x) @ nil :- NonEmpty(x)
@@ -1864,78 +1946,6 @@
                                           (->OrFilter [(->TypeFilter (->False) nil var)
                                                        (->TypeFilter (->Nil) nil var)]))
                              (->Path nil var))))
-
-;tdr from Practical Variable-Arity Polymorphism paper
-; Expand out dotted pretypes to fixed domain, using types bm, if (:name bound) = b
-(defmulti trans-dots (fn [t b bm]
-                       {:pre [(Type? t)
-                              (symbol? b)
-                              (every? Type? bm)]}
-                        (class t)))
-
-(defmethod trans-dots F [t b bm] t)
-(defmethod trans-dots RInstance [t b bm] t)
-
-(defmethod trans-dots Intersection
-  [t b bm]
-  (let [tfn #(trans-dots % b bm)]
-    (-> t
-      (update-in [:types] #(doall (map tfn %))))))
-
-(defmethod trans-dots Function
-  [t b bm]
-  (let [tfn #(trans-dots % b bm)]
-    (cond
-      (:drest t)
-      (let [[pre-type bound] (:drest t)]
-        (if (= b (:name bound)) ;identical bounds
-          (let [dom (concat 
-                        ;keep fixed domain
-                        (doall (map tfn (:dom t)))
-                        ;expand dotted type to fixed domain
-                        (doall (map (fn [bk]
-                                      {:post [(Type? %)]}
-                                      ;replace free occurences of bound with bk
-                                      (-> (substitute pre-type bk b)
-                                        tfn))
-                                    ;only instantiate when exceeding fixed domain
-                                    (drop (inc (count (:dom t))) bm))))]
-            (->Function dom
-                        (tfn (:rng t))
-                        nil
-                        nil)) ;dotted pretype now expanded to fixed domain
-          (-> t
-            (update-in [:dom] #(doall (map tfn %)))
-            (update-in [:rng] tfn)
-            (update-in [:drest] #(update-in % [0] tfn))))) ;translate pre-type
-
-      :else
-      (-> t
-        (update-in [:dom] #(doall (map tfn %)))
-        (update-in [:rng] tfn)
-        (update-in [:rest] #(when %
-                              (tfn %)))))))
-
-(defn- manual-inst 
-  "Poly Type^n -> Type
-  Substitute the type parameters of the polymorphic type
-  with given types"
-  [ptype argtys]
-  {:pre [((some-fn Poly? PolyDots?) ptype)
-         (every? Type? argtys)]}
-  (cond
-    (Poly? ptype)
-    (let [_ (assert (= (:nbound ptype) (count argtys)) "Wrong number of arguments to instantiate polymorphic type")
-          names (repeatedly (:nbound ptype) gensym)
-          body (Poly-body* names ptype)]
-      (substitute-many body argtys names))
-
-    (PolyDots? ptype)
-    (let [_ (assert (<= (dec (:nbound ptype)) (count argtys)) "Insufficient arguments to instantiate dotted polymorphic type")
-          names (repeatedly (:nbound ptype) gensym)
-          body (PolyDots-body* names ptype)]
-      (-> (trans-dots body (last names) argtys)
-        (substitute-many argtys names)))))
 
 (defmulti invoke-special (fn [expr & args] (-> expr :fexpr :var)))
 (defmulti invoke-apply (fn [expr & args] (-> expr :args first :var)))

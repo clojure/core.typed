@@ -1,8 +1,8 @@
 (ns typed.test.core
   (:refer-clojure :exclude [defrecord])
   (:import (clojure.lang Seqable ISeq ASeq))
-  (:use [clojure.test]
-        [typed.core]))
+  (:require [clojure.test :refer :all]
+            [typed.core :refer :all]))
 
 (deftest add-scopes-test
   (is (let [body (make-F 'a)]
@@ -62,6 +62,22 @@
                 (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
   (is (not (subtype? (parse-type 'Number)
                      (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))))
+
+; expanding dotted pretypes
+(deftest trans-dots-test
+  (is (= (manual-inst (parse-type '(All [x b ...]
+                                        [x ... b -> x]))
+                      (map parse-type '(Integer Double Float)))
+         (parse-type '[Integer Integer -> Integer])))
+  (is (= (manual-inst (parse-type '(All [x b ...]
+                                        [b ... b -> x]))
+                      (map parse-type '(Integer Double Float)))
+         (parse-type '[Double Float -> Integer])))
+  ;map type
+  (is (= (manual-inst (parse-type '(All [c a b ...]
+                                        [[a b ... b -> c] (clojure.lang.Seqable a) (clojure.lang.Seqable b) ... b -> (clojure.lang.Seqable c)]))
+                      (map parse-type '(Integer Double Float)))
+         (parse-type '[[Double Float -> Integer] (clojure.lang.Seqable Double) (clojure.lang.Seqable Float) -> (clojure.lang.Seqable Integer)]))))
 
 (deftest tc-invoke-fn-test
   (is (subtype? (tc-t 
