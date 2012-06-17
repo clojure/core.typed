@@ -39,21 +39,21 @@
          (make-F 'e))))
 
 (deftest subtype-test
-  (is (subtype (parse-type 'Integer)
-               (parse-type 'Integer)))
-  (is (subtype (parse-type 'Integer)
-               (parse-type 'Number)))
-  (is (subtype (parse-type '(clojure.lang.Seqable Integer))
-               (parse-type '(clojure.lang.Seqable Integer))))
-  (is (subtype (parse-type '(clojure.lang.Seqable Integer))
-               (parse-type '(clojure.lang.Seqable Number))))
-  (is (thrown? Exception
-               (subtype (parse-type '(clojure.lang.Seqable Number))
-                        (parse-type '(clojure.lang.Seqable Integer)))))
-  (is (subtype (parse-type '(clojure.lang.Cons Integer))
-               (parse-type '(clojure.lang.Cons Number))))
-  (is (subtype (parse-type '(clojure.lang.Cons Integer))
-               (parse-type '(clojure.lang.Seqable Number)))))
+  (is (subtype? (parse-type 'Integer)
+                (parse-type 'Integer)))
+  (is (subtype? (parse-type 'Integer)
+                (parse-type 'Number)))
+  (is (subtype? (parse-type '(clojure.lang.Seqable Integer))
+                (parse-type '(clojure.lang.Seqable Integer))))
+  (is (subtype? (parse-type '(clojure.lang.Seqable Integer))
+                (parse-type '(clojure.lang.Seqable Number))))
+  (is (not
+        (subtype? (parse-type '(clojure.lang.Seqable Number))
+                  (parse-type '(clojure.lang.Seqable Integer)))))
+  (is (subtype? (parse-type '(clojure.lang.Cons Integer))
+                (parse-type '(clojure.lang.Cons Number))))
+  (is (subtype? (parse-type '(clojure.lang.Cons Integer))
+                (parse-type '(clojure.lang.Seqable Number)))))
 
 (deftest subtype-rec
   (is (subtype? (parse-type 'Integer)

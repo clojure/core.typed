@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [defrecord type])
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
-                         IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry))
+                         IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
+                         Keyword Atom))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [trammel.core :as contracts]
@@ -476,10 +477,16 @@
                                             (every? Type? (vals %))))
 
 (defmacro ann [varsym typesyn]
-  `(let [t# (parse-type '~typesyn)
-         s# (symbol '~varsym)]
-     (do (swap! VAR-ANNOTATIONS #(assoc % s# t#))
-       [s# (unparse-type t#)])))
+  `(tc-ignore
+     (let [t# (parse-type '~typesyn)
+           s# (if (namespace '~varsym)
+                '~varsym
+                (symbol (-> *ns* ns-name str) (str '~varsym)))]
+       (do (add-var-type s# t#)
+         [s# (unparse-type t#)]))))
+
+(defn add-var-type [sym type]
+  (swap! VAR-ANNOTATIONS #(assoc % sym type)))
 
 (defn lookup-local [sym]
   (*local-annotations* sym))
@@ -733,7 +740,9 @@
   (->Nil))
 
 (defn parse-function [f]
-  (let [[all-dom _ [rng]] (partition-by #(= '-> %) f)
+  (let [all-dom (take-while #(not= '-> %) f)
+        [_ rng :as chk] (drop-while #(not= '-> %) f)
+        _ (assert (= (count chk) 2) "Missing range")
 
         _ (assert (not (and (some #(= '& %) all-dom)
                             (some #(= '... %) all-dom)))
@@ -1613,7 +1622,7 @@
 
     :else (type-error s t)))
 
-(defmethod subtype* [HeterogeneousMap RInstance]
+(defmethod subtype* [HeterogeneousMap Type]
   [s t]
   (let [sk (apply Un (map first (:types s)))
         sv (apply Un (map second (:types s)))]
@@ -1628,7 +1637,7 @@
    {rtypes :types :as t}]
   (doall (map #(subtypeA* *A0* %1 %2) ltypes rtypes)))
 
-(defmethod subtype* [HeterogeneousVector RInstance]
+(defmethod subtype* [HeterogeneousVector Type]
   [s t]
   (let [ss (apply Un (:types s))]
     (if-let [A1 (subtypeA* *A0* 
@@ -1748,9 +1757,13 @@
 ;; Type annotations
 
 (ann clojure.core/*ns* Namespace)
+(ann clojure.core/namespace [(U Symbol String Keyword) -> (U nil String)])
 (ann clojure.core/ns-name [Namespace -> Symbol])
 (ann clojure.core/in-ns [Symbol -> nil])
 (ann clojure.core/import [(IPersistentCollection Symbol) -> nil])
+
+;(ann clojure.core/swap! (All [x b ...] 
+;                             [(Atom x) [x b ... b -> x] b ... b -> x]))
 
 (ann clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
@@ -1764,19 +1777,29 @@
 
 (ann clojure.core/seq
      (All [x]
-          (Fn [(Seqable x) -> (U nil (ASeq x))
-               :- [x @ (first 0) | nil @ (first 0)]
-               Empty]
-              [nil -> nil
-               :- [ff | nil @ (first 0)]]
-              [String -> (U nil (ASeq Character))
-               :- [Character @ (first 0) | nil @ (first 0)]
-               Empty]
-              [(U java.util.Map Iterable) -> (U nil (ASeq Any))])))
+          [(Seqable x) -> (U nil (ASeq x))]))
+
+;(ann clojure.core/seq
+;     (All [x]
+;          (Fn [(Seqable x) -> (U nil (ASeq x))
+;               :- [x @ (first 0) | nil @ (first 0)]
+;               Empty]
+;              [nil -> nil
+;               :- [ff | nil @ (first 0)]]
+;              [String -> (U nil (ASeq Character))
+;               :- [Character @ (first 0) | nil @ (first 0)]
+;               Empty]
+;              [(U java.util.Map Iterable) -> (U nil (ASeq Any))])))
 
 (ann clojure.core/map
      (All [c a b ...]
           (Fn [[a b ... b -> c] (Seqable a) (Seqable b) ... b -> (Seqable c)])))
+
+(ann clojure.core/reduce
+     (All [a c]
+          (Fn 
+            [(Fn [c a -> c] [-> c]) (Seqable c) -> c]
+            [[c a -> c] c (Seqable c) -> c])))
 
 (comment
   (loop> [[x :- (Vector Number) [1 2 3]]]
@@ -1788,11 +1811,15 @@
 
 (ann clojure.core/first
      (All [x]
-          (Fn [String -> (U nil Character)]
-              [(U java.util.Map Iterable) -> (U nil Any)]
-              [(U nil (Seqable x)) -> (U nil x)
-               :- [x @ (first 0) | nil @ (first 0)]
-               (first 0)])))
+          [(Seqable x) -> (U nil x)]))
+
+;(ann clojure.core/first
+;     (All [x]
+;          (Fn [String -> (U nil Character)]
+;              [(U java.util.Map Iterable) -> (U nil Any)]
+;              [(U nil (Seqable x)) -> (U nil x)
+;               :- [x @ (first 0) | nil @ (first 0)]
+;               (first 0)])))
 
 (ann clojure.core/conj
      (All [x y]
@@ -1814,7 +1841,9 @@
 
 (def expr-type ::expr-type)
 
-(defmulti check (fn [expr & [expected]] (:op expr)))
+(defmulti check (fn [expr & [expected]]
+                  {:pre [((some-fn nil? Type?) expected)]}
+                  (:op expr)))
 
 (defn check-top-level [nsym form]
   (let [ast (analyze/analyze-form-in-ns nsym form)]
@@ -2218,7 +2247,20 @@
                                          (when else-reachable?
                                            [(-> else check expr-type)])))))))
 
+(defmethod check :def
+  [{:keys [var init init-provided] :as expr} & [expected]]
+  (assert (not expected) expected)
+  (cond
+    (not init-provided) expr
+    :else
+    (check init (type-of var))))
+
 (defn check-ns [nsym]
+  (require nsym)
   (let [[_ns-decl_ & asts] (analyze/analyze-path nsym)]
     (doseq [ast asts]
       (check ast))))
+
+(comment 
+(check-ns 'typed.test.example)
+)
