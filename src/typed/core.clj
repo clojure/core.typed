@@ -2262,20 +2262,17 @@
   [required-params rest-param fin]
   {:pre [(Fn-Intersection? fin)]
    :post [(every? Function? %)]}
-  (let [ftypes (:types fin)]
-    (assert (not rest-param))
-    (assert (not (some (some-fn :rest :drest) ftypes)))
-    (unp fin)
-    (filter #(= (count (:dom %))
-                (count required-params))
-            (:types fin))))
+  (assert (not rest-param))
+  (assert (not (some (some-fn :rest :drest) (:types fin))))
+  (filter #(= (count (:dom %))
+              (count required-params))
+          (:types fin)))
 
 (declare check-fn-expr check-fn-method)
 
 (defmethod check :fn-expr
   [{:keys [methods] :as expr} & [expected]]
-  {:pre [expected]
-   :post [(-> % expr-type Fn-Intersection?)]}
+  {:pre [expected]}
   (check-fn-expr expr expected))
 
 (declare check-anon-fn-method)
@@ -2306,10 +2303,12 @@
            expr-type actual-type)))
 
 (defn check-fn-expr [{:keys [methods] :as expr} expected]
-  (let [cmethods (doall
-                   (for [{:keys [required-params rest-param] :as method} methods]
-                     (check-fn-method method 
-                                      (relevant-Fns required-params rest-param expected))))]
+  (unp expected)
+  (let [fin (cond
+              (Poly? expected) (Poly-body* (repeatedly (:nbound expected) gensym) expected)
+              :else expected)
+        _ (doseq [{:keys [required-params rest-param] :as method} methods]
+            (check-fn-method method (relevant-Fns required-params rest-param fin)))]
     (assoc expr
            expr-type expected)))
 
@@ -2318,22 +2317,17 @@
   [{:keys [required-params rest-param body] :as expr} expected-fns]
   {:pre [(sequential? expected-fns)
          (seq expected-fns)
-         (every? Function? expected-fns)]
-   :post [(= (count %)
-             (count expected-fns))
-          (every? Function? %)]}
-  (let [_ (assert (not rest-param))
-        actual-type 
-        (Fn-Intersection
-          (for [ftype expected-fns]
-            (do
-              (assert (not (:rest ftype)))
-              (assert (not (:drest ftype)))
-              (let [res-expr (with-locals (zipmap (map :sym required-params) (:dom ftype))
-                               (check body (-> ftype :rng :t)))]
-                (subtype (expr-type res-expr) (-> ftype :rng :t))
-                (assoc-in ftype [:rng :t] (expr-type res-expr))))))]
-    actual-type))
+         (every? Function? expected-fns)]}
+  (assert (not rest-param))
+  (doseq [ftype expected-fns]
+    (assert (not (:rest ftype)))
+    (assert (not (:drest ftype)))
+    (let [res-expr (with-locals (zipmap (map :sym required-params) (:dom ftype))
+                     (check body (-> ftype :rng :t)))
+          res-type (if (Result? (expr-type res-expr))
+                     (-> res-expr expr-type :t)
+                     (expr-type res-expr))]
+      (subtype res-type (-> ftype :rng :t)))))
 
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
