@@ -22,13 +22,19 @@
 (defn fn>-ann [fn-of param-types-syn]
   fn-of)
 
-(defmacro fn> [arg-anns & body]
-  (let [[required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)
-        ;(fn> [[a :- Number] & [n :- Number *]] a)
-        _ (assert (not rest-param) "fn> doesn't support rest parameters yet")
-        params (map first required-params)
-        param-types (map (comp second next) arg-anns)]
-    `(fn>-ann (fn ~(vec params) ~@body) '~param-types)))
+(defmacro fn> [& forms]
+  (let [methods (if (vector? (first forms))
+                  (list forms)
+                  forms)
+        ;(fn> [[a :- Number] & [n :- Number *]] a) 
+        anns (for [[arg-anns] methods]
+               (let [[required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)]
+                 (assert (not rest-param) "fn> doesn't support rest parameters yet")
+                 {:dom (map (comp second next) required-params)
+                  :has-rest false}))]
+    `(fn>-ann (fn ~@(for [[params & body] methods]
+                      (apply list (vec (map first params)) body)))
+              '~anns)))
 
 (defn tc-ignore-forms [r]
   r)
@@ -74,7 +80,8 @@
 ;TODO flatten unions
 (defrecord Union [types]
   "An unordered union of types"
-  [(every? Type? types)])
+  [(every? Type? types)
+   (not (some Union? types))])
 
 (declare-type Union)
 
@@ -91,11 +98,22 @@
 (defn Bottom? [a]
   (= empty-union a))
 
+(declare Fn-Intersection? Function? Poly? PolyDots?)
+
 (defrecord Intersection [types]
-  "An ordered intersection of types"
+  "An ordered intersection of types. Either is an intersection
+  of Functions, or contains at most one Function/Poly/PolyDots type"
   [(sequential? types)
    (seq types)
-   (every? Type? types)])
+   (or (every? Function? types)
+       (<= (count (filter (some-fn Fn-Intersection? Poly? PolyDots?) types))
+           1)
+       (every? Type? types))])
+
+(defn In [types]
+  (if (empty? types)
+    (Bottom)
+    (->Intersection types)))
 
 (declare-type Intersection)
 
@@ -119,6 +137,7 @@
    (Type? lower-bound)])
 
 (defn make-F
+  "Make a free variable with optional bounds"
   ([name] (make-F name (->Top) (Bottom)))
   ([name upper] (make-F name upper (Bottom)))
   ([name upper lower]
@@ -301,25 +320,47 @@
 
 (declare-type HeterogeneousSeq)
 
+(declare Result?)
+
+(defrecord DottedPretype [pre-type bound]
+  "A dotted pre-type. Not a type"
+  [(Type? pre-type)
+   ((some-fn F? B?) bound)])
+
 (defrecord Function [dom rng rest drest]
-  "A function arity"
+  "A function arity, must be part of an intersection"
   [(or (empty? dom)
        (sequential? dom))
    (every? Type? dom)
-   (Type? rng)
+   (Result? rng)
    (<= (count (filter identity [rest drest])) 1)
    (or (nil? rest)
        (Type? rest))
    (or (nil? drest)
-       ;[Type (or B F)]
-       (Type? (first drest))
-       ((some-fn B? F?) (second drest)))])
+       (DottedPretype? drest))])
 
-(declare-type Function)
+(declare ->NoFilter ->NoObject ->Result)
+
+(defn make-Result
+  ([t] (make-Result t nil nil))
+  ([t f] (make-Result t f nil))
+  ([t f o] (->Result t (or f (->NoFilter)) (or o (->NoObject)))))
+
+(defn make-Function
+  "Make a function, wrap range type in a Result.
+  Accepts optional :filter and :object parameters that default to NoFilter
+  and NoObject"
+  ([dom rng] (make-Function dom rng nil nil))
+  ([dom rng rest drest & {:keys [filter object] :or {filter (->NoFilter), object (->NoObject)}}]
+   (->Function dom (->Result rng filter object) rest drest)))
 
 (defn Fn-Intersection [fns]
   {:pre [(every? Function? fns)]}
-  (->Intersection fns))
+  (In fns))
+
+(defn Fn-Intersection? [fin]
+  (and (Intersection? fin)
+       (every? Function? (:types fin))))
 
 (declare abstract)
 
@@ -345,17 +386,15 @@
 
 (declare Filter? RObject?)
 
-(defrecord Result [t f o]
-  "A result type with filter f and object o"
+(defrecord Result [t fl o]
+  "A result type with filter f and object o. NOT a type."
   [(Type? t)
-   (Filter? f)
+   (Filter? fl)
    (RObject? o)])
 
 (defn Result-type* [r]
   {:pre [(Result? r)]}
   (:t r))
-
-(declare-type Result)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -373,6 +412,10 @@
   [])
 (defrecord TopFilter []
   "?"
+  [])
+
+(defrecord NoFilter []
+  "Represents no info about filters, used for parsing types"
   [])
 
 (declare PathElem?)
@@ -409,6 +452,7 @@
 
 (declare-filter BotFilter)
 (declare-filter TopFilter)
+(declare-filter NoFilter)
 (declare-filter AndFilter)
 (declare-filter OrFilter)
 (declare-filter TypeFilter)
@@ -634,14 +678,16 @@
   (parse-union-type syn))
 
 (defn parse-intersection-type [[i & types]]
-  (->Intersection (doall (map parse-type types))))
+  (In (doall (map parse-type types))))
 
 (defmethod parse-type-list 'I
   [syn]
   (parse-intersection-type syn))
 
+(declare parse-function)
+
 (defn parse-fn-intersection-type [[Fn & types]]
-  (Fn-Intersection (doall (map parse-type types))))
+  (Fn-Intersection (doall (map parse-function types))))
 
 (defmethod parse-type-list 'Fn
   [syn]
@@ -757,20 +803,22 @@
         [drest-type _ drest-bnd] (let [[n _] (first (filter #(= '... (second %)) (map-indexed vector all-dom)))]
                                    (when n
                                      (drop (dec n) all-dom)))]
-    (->Function (doall (map parse-type fixed-dom))
-                (parse-type rng)
-                (when rest-type
-                  (parse-type rest-type))
-                (when drest-type
-                  [(with-frees [(*dotted-scope* drest-bnd)] ;with dotted bound in scope as free
-                     (parse-type drest-type))
-                   (*dotted-scope* drest-bnd)]))))
+    (make-Function (doall (map parse-type fixed-dom))
+                   (parse-type rng)
+                   (when rest-type
+                     (parse-type rest-type))
+                   (when drest-type
+                     (->DottedPretype
+                       (with-frees [(*dotted-scope* drest-bnd)] ;with dotted bound in scope as free
+                         (parse-type drest-type))
+                       (*dotted-scope* drest-bnd))))))
 
 (defmethod parse-type IPersistentVector
   [f]
-  (parse-function f))
+  (Fn-Intersection [(parse-function f)]))
 
 (defmulti unparse-type class)
+(defn unp [t] (prn (unparse-type t)))
 
 (defmethod unparse-type Nil [_] nil)
 (defmethod unparse-type True [_] true)
@@ -791,7 +839,8 @@
 
 (defmethod unparse-type Intersection
   [{types :types}]
-  (list* (if (every? Function? types)
+  (list* (if (and (seq types)
+                  (every? Function? types))
            'Fn
            'I)
          (doall (map unparse-type types))))
@@ -802,8 +851,10 @@
                (when rest
                  ['& (unparse-type rest)])
                (when drest
-                 [(unparse-type (first drest)) '... (unparse-type (second drest))])
-               ['-> (unparse-type rng)])))
+                 (let [{:keys [pre-type bound]} drest]
+                   [(unparse-type pre-type) '... (unparse-type bound)]))
+               (let [{:keys [t fl o]} rng]
+                 ['-> (unparse-type t)]))))
 
 (defmethod unparse-type RClass
   [{the-class :the-class}]
@@ -1037,7 +1088,7 @@
 (defmethod intersect-cs-fn [SubConstraint SubConstraint]
   [b a]
   (let [j (Un (:lower a) (:lower b))
-        m (->Intersection [(:upper a) (:upper b)])]
+        m (In [(:upper a) (:upper b)])]
     (->SubConstraint j m)))
 
 (defn intersect-cs [& cs]
@@ -1153,12 +1204,13 @@
 (defn remove-scopes [n sc]
   "Unwrap n Scopes"
   {:pre [(nat? n)
-         (Type? sc)]}
+         (Scope? sc)]
+   :post [Type?]}
   (doall
     (last
-      (take (inc n) (iterate (fn [{body :body :as t}]
+      (take (inc n) (iterate (fn [t]
                                (assert (Scope? t) "Tried to remove too many Scopes")
-                               body)
+                               (:body t))
                              sc)))))
 
 (defmulti name-to
@@ -1166,7 +1218,7 @@
   where n is the position in the current binder, and outer is the
   number of indices previously bound"
   (fn [ty name res]
-    {:pre [(Type? ty)
+    {:pre [((some-fn Type? Function?) ty)
            (symbol? name)
            (nat? res)]}
     (class ty)))
@@ -1181,17 +1233,26 @@
 
 (defmethod name-to Function
   [f name res]
+  (assert (NoFilter? (-> f :rng :fl)))
+  (assert (NoObject? (-> f :rng :o)))
   (let [ufn #(name-to % name res)]
     (-> f
       (update-in [:dom] #(doall (map ufn %)))
-      (update-in [:rng] ufn)
+      (update-in [:rng :t] ufn)
       (update-in [:rest] #(when %
                             (ufn %)))
-      (update-in [:drest] #(when %
-                             (mapv ufn %))))))
+      (update-in [:drest] (fn [drest]
+                            (when drest
+                              (-> drest
+                                (update-in [:pre-type] #(when %
+                                                      (ufn %)))
+                                (update-in [:bound] #(when %
+                                                       (ufn %))))))))))
 
 (defmethod name-to Top [t name res] t)
-(defmethod name-to Nil [n name res] n)
+(defmethod name-to Nil [t name res] t)
+(defmethod name-to True [t name res] t)
+(defmethod name-to False [t name res] t)
 
 (defmethod name-to HeterogeneousVector
   [t name res]
@@ -1201,7 +1262,7 @@
 
 (defmethod name-to Intersection
   [{:keys [types]} name res]
-  (->Intersection (doall (map #(name-to % name res) types))))
+  (In (doall (map #(name-to % name res) types))))
 
 (defmethod name-to Union
   [{:keys [types]} name res]
@@ -1249,7 +1310,7 @@
   "Replace all bound variables with index target, with
   the free variable image, keeping bound variable's upper/lower bounds"
   (fn [type image target]
-    {:pre [(Type? type)
+    {:pre [((some-fn Type? Function?) type)
            (F? image)
            (nat? target)]}
     (class type)))
@@ -1268,8 +1329,10 @@
   [{types :types} image target]
   (->Union (doall (map #(replace-image % image target) types))))
 
-(defmethod replace-image Nil [n image target] n)
+(defmethod replace-image Nil [t image target] t)
 (defmethod replace-image Top [t image target] t)
+(defmethod replace-image False [t image target] t)
+(defmethod replace-image True [t image target] t)
 
 (defmethod replace-image HeterogeneousVector
   [t image target]
@@ -1284,20 +1347,29 @@
       (update-in [:poly?] #(when %
                              (doall (map ufn %)))))))
 
+(defn Result-replace-image
+  "Result is not a type"
+  [r image target]
+  (-> r
+    (update-in [:t] #(replace-image % image target))))
+
 (defmethod replace-image Function
   [f image target]
   (let [ufn #(replace-image % image target)]
     (-> f
       (update-in [:dom] #(doall (map ufn %)))
-      (update-in [:rng] ufn)
+      (update-in [:rng] #(Result-replace-image % image target))
       (update-in [:rest] #(when %
                             (ufn %)))
-      (update-in [:drest] #(when %
-                             (mapv ufn %))))))
+      (update-in [:drest] (fn [drest]
+                            (when drest
+                              (-> drest
+                                (update-in [:pre-type] ufn)
+                                (update-in [:bound] ufn))))))))
 
 (defmethod replace-image Intersection
   [{types :types} image target]
-  (->Intersection (doall (map #(replace-image % image target) types))))
+  (In (doall (map #(replace-image % image target) types))))
 
 (defmethod replace-image Poly
   [{scope :scope n :nbound :as ty} image target]
@@ -1335,7 +1407,11 @@
 (declare subtype)
 
 ;Substitute in target all free variables called name with image
-(defmulti substitute (fn [target image name] (class target)))
+(defmulti substitute (fn [target image name] 
+                       {:pre [((some-fn Type? Function?) target)
+                              (Type? image)
+                              (symbol? name)]}
+                       (class target)))
 
 (defn substitute-many [target images names]
   (reduce (fn [t [im nme]] (substitute t im nme))
@@ -1351,6 +1427,8 @@
 (defmethod substitute Nil [t image name] t)
 (defmethod substitute Top [t image name] t)
 (defmethod substitute Value [t image name] t)
+(defmethod substitute False [t image name] t)
+(defmethod substitute True [t image name] t)
 
 (defmethod substitute RInstance
   [rinst image name]
@@ -1379,10 +1457,13 @@
 
 (defmethod substitute Function
   [f image name]
+  ;what to do otherwise?
+  (assert (NoFilter? (-> f :rng :fl)))
+  (assert (NoObject? (-> f :rng :o)))
   (let [sub #(substitute % image name)]
     (-> f
       (update-in [:dom] #(doall (map sub %)))
-      (update-in [:rng] #(sub %))
+      (update-in [:rng :t] sub)
       (update-in [:rest] #(when %
                             (sub %)))
       (update-in [:drest] #(when %
@@ -1394,7 +1475,7 @@
 ;tdr from Practical Variable-Arity Polymorphism paper
 ; Expand out dotted pretypes to fixed domain, using types bm, if (:name bound) = b
 (defmulti trans-dots (fn [t b bm]
-                       {:pre [(Type? t)
+                       {:pre [((some-fn Type? Function?) t)
                               (symbol? b)
                               (every? Type? bm)]}
                        (class t)))
@@ -1410,10 +1491,14 @@
 
 (defmethod trans-dots Function
   [t b bm]
+  ;how to handle filters?
+  (assert (NoFilter? (-> t :rng :fl)))
+  (assert (NoObject? (-> t :rng :o)))
   (let [tfn #(trans-dots % b bm)]
     (cond
       (:drest t)
-      (let [[pre-type bound] (:drest t)]
+      (let [{:keys [pre-type bound]} (:drest t)]
+        (assert (F? bound))
         (if (= b (:name bound)) ;identical bounds
           (let [dom (concat 
                         ;keep fixed domain
@@ -1426,14 +1511,16 @@
                                         tfn))
                                     bm)))]
             (->Function dom
-                        (tfn (:rng t))
+                        (update-in (:rng t) [:t] tfn)
                         nil
                         nil)) ;dotted pretype now expanded to fixed domain
           (-> t
             (update-in [:dom] #(doall (map tfn %)))
             (update-in [:rng] tfn)
-            (update-in [:drest] #(update-in % [0] tfn))))) ;translate pre-type
-
+            (update-in [:drest] (fn [drest]
+                                  (when drest
+                                    (-> drest
+                                      (update-in [:pre-type] tfn)))))))) ;translate pre-type
       :else
       (-> t
         (update-in [:dom] #(doall (map tfn %)))
@@ -1475,9 +1562,9 @@
 ;; Subtype
 
 (defn type-error [s t]
-  (throw (Exception. (str (unparse-type s) 
+  (throw (Exception. (str (with-out-str (pr (unparse-type s)))
                           " is not a subtype of: " 
-                          (unparse-type t)))))
+                          (with-out-str (pr (unparse-type t)))))))
 
 (def ^:dynamic *A*)
 (def ^:dynamic *A0*)
@@ -1573,7 +1660,9 @@
   of this RInstance"
   [{:keys [poly? constructor] :as rinst}]
   {:pre [(RInstance? rinst)]
-   :post [(every? Type? %)]}
+   :post [(every? Type? %)
+          (<= (count (filter (some-fn Fn-Intersection? Poly? PolyDots?) %))
+              1)]}
   (let [names (map gensym (range (count poly?)))
         rplce (RClass-replacements* names constructor)
         rplce-subbed (into {} (for [[k v] rplce]
@@ -1645,6 +1734,16 @@
                            t)]
       A1
       (type-error s t))))
+
+(defmethod subtype* [Function Function]
+  [s t]
+  (assert (not ((some-fn :rest :drest) s)))
+  (assert (not ((some-fn :rest :drest) t)))
+  (assert (= (count (:dom s))
+             (count (:dom t))))
+  (doall (map #(subtypeA* *A0* %1 %2) (:dom t) (:dom s)))
+  (subtypeA* *A0* (:rng s) (:rng t))
+  *A0*)
 
 (defmethod subtype* [Mu Type]
   [s t]
@@ -1769,8 +1868,8 @@
      (Fn [(U Symbol String) -> Symbol]
          [String String -> Symbol]))
 
-(ann clojure.core/seq?
-     (Fn [Any -> (U false true)]))
+(ann clojure.core/seq?  (Fn [Any -> (U false true)]))
+(ann clojure.core/number?  (Fn [Any -> (U false true)]))
 
 (ann clojure.core/string?
      (Fn [Any -> (U false true)]))
@@ -1922,12 +2021,14 @@
   (assoc expr
          expr-type (constant-type coll)))
 
-;Expr Expr^n Type Type^n (U nil Type) -> Type
-(defn check-app [fexpr args fexpr-type arg-types expected]
+; Type Type^n (U nil Type) -> Type
+(defn check-app [fexpr-type arg-types expected]
   (assert (not expected) "TODO incorporate expected type")
   (cond
-    (Intersection? fexpr-type)
-    (let [{ftypes :types} fexpr-type
+    ((some-fn Intersection? Function?) fexpr-type)
+    (let [ftypes (if (Intersection? fexpr-type)
+                   (:types fexpr-type)
+                   [fexpr-type])
           _ (assert (every? Function? ftypes) "Must be intersection type containing Functions")
           ;find first 
           success-type (some (fn [{:keys [dom rest drest rng] :as current}]
@@ -1935,31 +2036,19 @@
                                (and (= (count dom)
                                        (count arg-types))
                                     (every? true? (map subtype? arg-types dom))
+                                    (if expected
+                                      (subtype? rng expected)
+                                      true)
                                     rng))
                              ftypes)
           _ (when-not success-type
               ;just report first function
               (throw (Exception.
                        (str "Cannot supply arguments " (with-out-str (pr (map unparse-type arg-types)))
-                            " to Function " (with-out-str (prn (unparse-type (first ftypes))))))))]
+                            " to Function " (with-out-str (pr (unparse-type fexpr-type)))
+                            (when expected
+                              (str " with expected type " (with-out-str (prn (unparse-type expected)))))))))]
       success-type)
-
-
-    (Function? fexpr-type)
-    (let [{rest-type :rest :keys [dom rng drest]} fexpr-type]
-      (cond
-        (and (not= (count dom)
-                   (count arg-types))
-             (not rest-type))
-        (throw (Exception. (str "Wrong number of arguments")))
-
-        (and (= (count dom)
-                (count arg-types))
-             (not rest-type))
-        (do (doall (map subtype
-                        arg-types
-                        dom))
-          rng)))
 
     (Poly? fexpr-type)
     (throw (Exception. "Cannot infer arguments to polymorphic functions"))
@@ -1995,12 +2084,16 @@
     (assoc expr
            expr-type (manual-inst ptype targs))))
 
+(declare check-anon-fn)
+
 ;fn literal
 (defmethod invoke-special #'fn>-ann
   [{:keys [fexpr args] :as expr} & [expected]]
-  (let [[fexpr param-syns] args
-        param-types (map parse-type (:val param-syns))
-        cfexpr (check fexpr (->Function param-types (->Top) nil nil))]
+  (let [[fexpr methods-syns] args
+        method-param-types (doall (map (fn [{dom-syns :dom}]
+                                         {:dom (doall (map parse-type dom-syns))})
+                                       (:val methods-syns)))
+        cfexpr (check-anon-fn fexpr method-param-types)]
     cfexpr))
 
 ;don't type check
@@ -2154,46 +2247,93 @@
             cargs (doall (map check args))
             ftype (let [ft (expr-type cfexpr)]
                     (or (and (Result? ft)
-                             (Result-type* ft))
+                             (:t ft))
                         ft))
-            actual (check-app fexpr args ftype (map expr-type cargs) expected)]
+            actual (check-app ftype (map expr-type cargs) expected)]
         (assoc expr
                :fexpr cfexpr
                :args cargs
                expr-type actual)))))
 
+(defn relevant-Fns
+  "Given a set of required-param exprs, rest-param expr, and a Fn-Intersection,
+  returns a seq of Functions that contains function types
+  whos arities match the expr"
+  [required-params rest-param fin]
+  {:pre [(Fn-Intersection? fin)]
+   :post [(every? Function? %)]}
+  (let [ftypes (:types fin)]
+    (assert (not rest-param))
+    (assert (not (some (some-fn :rest :drest) ftypes)))
+    (unp fin)
+    (filter #(= (count (:dom %))
+                (count required-params))
+            (:types fin))))
+
+(declare check-fn-expr check-fn-method)
+
 (defmethod check :fn-expr
   [{:keys [methods] :as expr} & [expected]]
-  (let [cmethods (map #(check % expected) methods)]
+  {:pre [expected]
+   :post [(-> % expr-type Fn-Intersection?)]}
+  (check-fn-expr expr expected))
+
+(declare check-anon-fn-method)
+
+(defn check-anon-fn
+  "Check anonymous function, with annotated methods"
+  [{:keys [methods] :as expr} methods-param-types]
+  (let [cmethods (doall
+                   (map #(check-anon-fn-method %1 %2) methods methods-param-types))]
     (assoc expr
-           :methods cmethods
-           expr-type (->Intersection (map expr-type cmethods)))))
+           expr-type (Fn-Intersection (map expr-type cmethods)))))
 
-(defn expected-functions [type]
-  (cond
-    (Function? type) [type]
-    (Intersection? type)
-    (and (assert (every? Function? (:types type)))
-         (:types type))
-
-    :else (throw (Exception. (str "Cannot get functions from type")))))
-
-(defmethod check :fn-method
-  [{:keys [required-params rest-param body] :as expr} expected]
-  (let [_ (assert (or (not expected)
-                      (Function? expected)))
-        _ (assert (not rest-param))
-        cbody (with-locals (zipmap (map :sym required-params) (if expected
-                                                                (:dom expected)
-                                                                (repeat (->Top))))
-                (check body (when expected
-                              (:rng expected))))]
+(defn check-anon-fn-method
+  [{:keys [required-params rest-param body] :as expr} method-param-types]
+  {:post [(-> % expr-type Function?)]}
+  (assert (not rest-param))
+  (let [cbody (with-locals (zipmap (map :sym required-params) (:dom method-param-types))
+                (check body))
+        actual-type 
+        (->Function 
+          (:dom method-param-types)
+          (if (Result? (expr-type cbody))
+            (expr-type cbody)
+            (make-Result (expr-type cbody)))
+          nil nil)]
     (assoc expr
            :body cbody
-           expr-type (->Function (if expected
-                                   (:dom expected)
-                                   (repeatedly (count required-params) ->Top)) 
-                                 (expr-type cbody) nil nil))))
+           expr-type actual-type)))
+
+(defn check-fn-expr [{:keys [methods] :as expr} expected]
+  (let [cmethods (doall
+                   (for [{:keys [required-params rest-param] :as method} methods]
+                     (check-fn-method method 
+                                      (relevant-Fns required-params rest-param expected))))]
+    (assoc expr
+           expr-type expected)))
+
+(defn check-fn-method
+  "Checks type of the method"
+  [{:keys [required-params rest-param body] :as expr} expected-fns]
+  {:pre [(sequential? expected-fns)
+         (seq expected-fns)
+         (every? Function? expected-fns)]
+   :post [(= (count %)
+             (count expected-fns))
+          (every? Function? %)]}
+  (let [_ (assert (not rest-param))
+        actual-type 
+        (Fn-Intersection
+          (for [ftype expected-fns]
+            (do
+              (assert (not (:rest ftype)))
+              (assert (not (:drest ftype)))
+              (let [res-expr (with-locals (zipmap (map :sym required-params) (:dom ftype))
+                               (check body (-> ftype :rng :t)))]
+                (subtype (expr-type res-expr) (-> ftype :rng :t))
+                (assoc-in ftype [:rng :t] (expr-type res-expr))))))]
+    actual-type))
 
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]

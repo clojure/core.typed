@@ -80,17 +80,20 @@
          (parse-type '[[Double Float -> Integer] (clojure.lang.Seqable Double) (clojure.lang.Seqable Float) -> (clojure.lang.Seqable Integer)]))))
 
 (deftest tc-invoke-fn-test
-  (is (subtype? (tc-t 
-                  ((typed.core/fn> [[a :- Number] [b :- Number]] b)
-                     1 2))
+  (is (subtype? (-> (tc-t 
+                      ((typed.core/fn> [[a :- Number] [b :- Number]] b)
+                         1 2))
+                  :t)
                 (parse-type 'Number)))
-  (is (subtype? (tc-t 
-                  ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
-                                  ((typed.core/inst seq Number) a))
-                     [1 2 1.2] 1))
+  (is (subtype? (-> (tc-t 
+                      ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
+                                       ((typed.core/inst seq Number) a))
+                         [1 2 1.2] 1))
+                  :t)
                 (parse-type '(U nil (clojure.lang.ASeq Number)))))
-  (is (subtype? (tc-t 
-                  ((typed.core/fn> [[a :- (clojure.lang.IPersistentMap Any Number)] [b :- Number]] 
-                                  ((typed.core/inst get Number) a b))
-                     {:a 1} 1))
+  (is (subtype? (-> (tc-t 
+                      ((typed.core/fn> [[a :- (clojure.lang.IPersistentMap Any Number)] [b :- Number]] 
+                                       ((typed.core/inst get Number) a b))
+                         {:a 1} 1))
+                  :t)
                 (parse-type '(U nil Number)))))
