@@ -706,7 +706,7 @@
                        [(constant-type k)
                         (parse-type v)])))]
     (let [mandatory (mapt mandatory)
-          optional (mapt mandatory)]
+          optional (mapt optional)]
       (make-HMap mandatory optional))))
 
 (defn parse-rinstance-type [[cls-sym & params-syn]]
@@ -1253,6 +1253,14 @@
 (defmethod name-to Nil [t name res] t)
 (defmethod name-to True [t name res] t)
 (defmethod name-to False [t name res] t)
+(defmethod name-to Value [t name res] t)
+
+(defmethod name-to HeterogeneousMap
+  [t name res]
+  (let [up #(name-to % name res)]
+    (-> t
+      (update-in [:types] #(into {} (for [[k v] %]
+                                      [(up k) (up v)]))))))
 
 (defmethod name-to HeterogeneousVector
   [t name res]
@@ -1333,6 +1341,15 @@
 (defmethod replace-image Top [t image target] t)
 (defmethod replace-image False [t image target] t)
 (defmethod replace-image True [t image target] t)
+(defmethod replace-image Value [t image target] t)
+
+(defmethod replace-image HeterogeneousMap
+  [t image target]
+  (let [up #(replace-image % image target)]
+    (-> t
+      (update-in [:types] #(into {} (for [[k v] %]
+                                      [(up k) (up v)]))))))
+
 
 (defmethod replace-image HeterogeneousVector
   [t image target]
@@ -1436,6 +1453,13 @@
     (-> rinst
       (update-in [:poly?] #(when %
                              (doall (map sub %)))))))
+
+(defmethod substitute HeterogeneousMap
+  [t image name]
+  (let [sub #(substitute % image name)]
+    (-> t
+      (update-in [:types] #(into {} (for [[k v] %]
+                                      [(sub k) (sub v)]))))))
 
 (defmethod substitute HeterogeneousVector
   [t image name]
@@ -1711,6 +1735,10 @@
 
     :else (type-error s t)))
 
+(prefer-method subtype* 
+               [Type Mu]
+               [HeterogeneousMap Type])
+
 (defmethod subtype* [HeterogeneousMap Type]
   [s t]
   (let [sk (apply Un (map first (:types s)))
@@ -1721,10 +1749,22 @@
       A1
       (type-error s t))))
 
+
+;every rtype entry must be in ltypes
+;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
+(defmethod subtype* [HeterogeneousMap HeterogeneousMap]
+  [{ltypes :types :as s}
+   {rtypes :types :as t}]
+  (last (doall (map (fn [[k v]]
+                      (if-let [sv (ltypes k)]
+                        (subtypeA* *A0* sv v)
+                        (type-error s t)))
+                    rtypes))))
+
 (defmethod subtype* [HeterogeneousVector HeterogeneousVector]
   [{ltypes :types :as s} 
    {rtypes :types :as t}]
-  (doall (map #(subtypeA* *A0* %1 %2) ltypes rtypes)))
+  (last (doall (map #(subtypeA* *A0* %1 %2) ltypes rtypes))))
 
 (defmethod subtype* [HeterogeneousVector Type]
   [s t]

@@ -38,6 +38,10 @@
   (is (= (Poly-body* '(a b c d e f g h i) (parse-type '(All [a b c d e f g h i] e)))
          (make-F 'e))))
 
+(defmacro sub? [s t]
+  `(subtype? (parse-type '~s)
+             (parse-type '~t)))
+
 (deftest subtype-test
   (is (subtype? (parse-type 'Integer)
                 (parse-type 'Integer)))
@@ -55,13 +59,45 @@
   (is (subtype? (parse-type '(clojure.lang.Cons Integer))
                 (parse-type '(clojure.lang.Seqable Number)))))
 
+(deftest subtype-hmap
+  (is (not (subtype? (constant-type '{:a nil})
+                     (constant-type '{:a 1}))))
+  (is (subtype? (constant-type '{:a 1 :b 2 :c 3})
+                (constant-type '{:a 1 :b 2}))))
+
 (deftest subtype-rec
   (is (subtype? (parse-type 'Integer)
                 (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
   (is (subtype? (parse-type '(clojure.lang.Seqable (clojure.lang.Seqable Integer)))
                 (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
   (is (not (subtype? (parse-type 'Number)
-                     (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))))
+                     (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x)))))))
+  (is (sub (Map* :mandatory
+                  {:op (Value :if)
+                   :test (Map* :mandatory
+                               {:op (Value :var)
+                                :var clojure.lang.Var})
+                   :then (Map* :mandatory
+                               {:op (Value :nil)})
+                   :else (Map* :mandatory
+                               {:op (Value :false)})})
+            (Rec [x] 
+                 (U (Map* :mandatory
+                          {:op (Value :if)
+                           :test x
+                           :then x
+                           :else x})
+                    (Map* :mandatory
+                          {:op (Value :var)
+                           :var clojure.lang.Var})
+                    (Map* :mandatory
+                          {:op (Value :nil)})
+                    (Map* :mandatory
+                          {:op (Value :false)})))))
+
+ #_(is (sub? (Rec [x] (U Integer (clojure.lang.ILookup x x)))
+            (Rec [x] (U Number (clojure.lang.ILookup x x)))))
+  )
 
 ; expanding dotted pretypes
 (deftest trans-dots-test
