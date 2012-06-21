@@ -1099,96 +1099,60 @@
 (defn singleton-cs [xs x c]
   (intersect-cs (empty-cs xs) {x c}))
 
-#_(defn matching-rel 
+(defmulti matching-rel 
   "Returns [r cs] where r is a type such that sub == type,
   and cs are the constraints"
-  [sub type xs]
-  {:pre [(Type? sub)
-         (Type? type)
-         (every? F? xs)]
-   :post [(Type? (first %))
-          (Constraint? (second %))]}
-  (cond
-    (and (Top? sub)
-         (Top? type))
-    [(->Top) (empty-cs xs)]
+  (fn [s t xs]
+    {:pre [((some-fn Type? Function?) s)
+           ((some-fn Type? Function?) t)
+           (every? F? xs)]
+     :post [(Type? (first %))
+            (Constraint? (second %))]}
+    [(class s) (class t)]))
 
-    (and (Bottom? sub)
-         (Bottom? type))
-    [(Bottom) (empty-cs xs)]
+(defmethod matching-rel [Top Top]
+  [s t xs]
+  [s (empty-cs xs)])
 
-    (and (F? sub)
-         (contains? xs sub))
-    [type (singleton-cs xs sub (->EqConstraint type))]
+(defmethod matching-rel [F Type]
+  [s t xs]
+  (assert (and (= (:lower-bound s) (Bottom))
+               (= (:upper-bound s) (->Top))))
+  (if (xs s)
+    [t (singleton-cs xs s (->EqConstraint t))]
+    [t (empty-cs xs)]))
 
-    (and (F? type)
-         (contains? xs type))
-    [sub (singleton-cs xs type (->EqConstraint sub))]
+(defmethod matching-rel [Type F]
+  [s t xs]
+  (assert (and (= (:lower-bound t) (Bottom))
+               (= (:upper-bound t) (->Top))))
+  (if (xs t)
+    [s (singleton-cs xs t (->EqConstraint s))]
+    [s (empty-cs xs)]))
 
-    (and (F? sub)
-         (F? type)
-         (= sub type))
-    [sub (empty-cs xs)]
+(defmethod matching-rel [Function Function]
+  [s t xs]
+  (assert (= (count (:dom s))
+             (count (:dom t))))
+  (assert (= (boolean (:rest s))
+             (boolean (:rest t))))
+  (assert (not (or (:drest s)
+                   (:drest t))))
+  (let [domsc (doall (map matching-rel (:dom t) (:dom s) (repeat xs)))
+        rngc (matching-rel (:rng s) (:rng t) xs)
+        restc (when (:rest s)
+                (matching-rel (:rest t) (:rest s) xs))]
+    [(->Function (map first domsc) (first rngc) (first restc) nil)
+     (apply intersect-cs (map second (concat [rngc restc] domsc)))]))
 
-    (and (Poly? sub)
-         (Poly? type)
-         (= (:nbound sub) (:nbound type))
-    (let [sub-tvars (-tvars sub)
-          type-tvars (-tvars type)
-          _ (assert (= sub-tvars type-tvars))
-          [new-tvars ds] (let [res (map #(matching-rel (.upper-bound %1) (.upper-bound %2) xs)
-                                        sub-tvars
-                                        type-tvars)
-                               ks-bnds (map first res)
-                               new-tvars (map #(->TV
-                                                 (.nme %1)
-                                                 %2
-                                                 (.variance %2))
-                                              sub-tvars
-                                              ks-bnds)
-                               ds (intersect-cs (map second res))]
-                           [new-tvars ds])
-          rplc-fn (fn [old]
-                    (if-let [ntvar (some #(.nme new-tvars) old)]
-                      (->TV
-                        (.nme old)
-                        (.upper-bound ntvar)
-                        (.variance old))
-                      old))
-          sub-rplced (-visit-tvar (-poly-type sub) rplc-fn)
-          type-rplced (-visit-tvar (-poly-type type) rplc-fn)
-          [mtch-type cs] (matching-rel sub-rplced type-rplced xs)
-          all-cs (intersect-cs cs ds)]
-      [(->PolyConstructor
-         (.nme sub)
-         new-tvars
-         mtch-type
-         (.rntime-class sub))
-       all-cs])
-
-    (and (function? sub)
-         (function? type))
-    (let [rs (.dom sub)
-          s (.rng sub)
-          ts (.dom type)
-          u (.rng type)
-          rest-sub (.uniform-rest sub)
-          rest-type (.uniform-rest type)
-          [ls cs] (let [res (map #(matching-rel %1 %2 xs)
-                                 ts
-                                 rs)
-                        ls (map first res)
-                        cs (apply intersect-cs (map second res))]
-                    [ls cs])
-          [m d] (matching-rel s u xs)
-          [rest e] (when (.has-uniform-rest sub)
-                     (matching-rel rest-sub rest-type xs))]
-      [(->FunctionType
-         ls
-         m
-         (.has-uniform-rest sub)
-         rest)
-       (apply intersect-cs (concat [d] (when e [e]) cs))]))))
+(defmethod matching-rel [Poly Poly]
+  [s t xs]
+  (assert (= (:nbound s)
+             (:nbound t)))
+  (let [names (repeatedly (:nbound s) gensym)
+        sbody (Poly-body* names s)
+        tbody (Poly-body* names t)]
+    (matching-rel sbody tbody xs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
@@ -2275,11 +2239,31 @@
 
 (defmethod invoke-special :default [& args] ::not-special)
 
+(defn invoke-keyword [{:keys [fexpr args] :as expr} expected]
+  (let [cfexpr (check fexpr)
+        cargs (doall (map check args))]
+    (cond
+      (HeterogeneousMap? (expr-type (first cargs)))
+      (assoc expr
+             expr-type (let [[k default] (map expr-type cargs)]
+                         (get (-> cargs first expr-type :types)
+                              (expr-type cfexpr)
+                              (if default
+                                default
+                                (->Nil)))))
+
+      :else 
+      (assoc expr
+             expr-type (->Top)))))
+
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [e (invoke-special expr expected)]
     (cond 
       (not= ::not-special e) e
+
+      (= :keyword (:op fexpr))
+      (invoke-keyword expr expected)
 
       ;must be monomorphic for now
       :else
