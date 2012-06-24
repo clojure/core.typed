@@ -90,7 +90,7 @@
     (first types)
     (->Union (-> types set vec))))
 
-(def empty-union (->Union []))
+(def empty-union (Un))
 
 (defn Bottom []
   empty-union)
@@ -110,7 +110,7 @@
            1)
        (every? Type? types))])
 
-(defn In [types]
+(defn In [& types]
   (if (empty? types)
     (Bottom)
     (->Intersection types)))
@@ -154,9 +154,7 @@
   (replace replacements (ancestors the-class))"
   [(or (nil? variances)
        (and (sequential? variances)
-            (every? #(or (nil? %)
-                         (variance? %))
-                    variances)))
+            (every? variance?  variances)))
    (class? the-class)
    (map? replacements)
    (every? class? (keys replacements))
@@ -356,7 +354,7 @@
 
 (defn Fn-Intersection [fns]
   {:pre [(every? Function? fns)]}
-  (In fns))
+  (apply In fns))
 
 (defn Fn-Intersection? [fin]
   (and (Intersection? fin)
@@ -678,7 +676,7 @@
   (parse-union-type syn))
 
 (defn parse-intersection-type [[i & types]]
-  (In (doall (map parse-type types))))
+  (apply In (doall (map parse-type types))))
 
 (defmethod parse-type-list 'I
   [syn]
@@ -916,24 +914,43 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Collecting frees
 
-(defmulti frees-in class)
+(defmulti frees-in (fn [t] {:post [set?]} (class t)))
 
-(defmethod frees-in B [t] nil)
-(defmethod frees-in F [t] [t]) ;FIXME bounds??
-(defmethod frees-in Nil [t] nil)
-(defmethod frees-in Value [t] nil)
+(defmethod frees-in B [t] (set/union #{}
+                                     (frees-in (:upper-bound t))
+                                     (frees-in (:lower-bound t))))
 
-(defmethod frees-in Intersection [t] (mapcat frees-in t))
-(defmethod frees-in Union [t] (mapcat frees-in t))
+(defmethod frees-in F [t] (set/union #{t}
+                                     (frees-in (:upper-bound t))
+                                     (frees-in (:lower-bound t))))
+
+(defmethod frees-in Nil [t] #{})
+(defmethod frees-in True [t] #{})
+(defmethod frees-in False [t] #{})
+(defmethod frees-in Value [t] #{})
+(defmethod frees-in Top [t] #{})
+
+(defmethod frees-in Intersection 
+  [{:keys [types]}] 
+  (apply set/union (map frees-in types)))
+
+(defmethod frees-in Union 
+  [{:keys [types]}] 
+  (apply set/union (map frees-in types)))
 
 (defmethod frees-in Function 
   [{:keys [dom rng rest drest]}]
-  (concat (mapcat frees-in dom)
-          (frees-in rng)
-          (when rest
-            (frees-in rest))
-          (when drest
-            (frees-in (first drest)))))
+  (apply set/union (concat (map frees-in dom)
+                           [(frees-in rng)]
+                           (when rest
+                             [(frees-in rest)])
+                           (when drest
+                             [(frees-in (first drest))]))))
+
+(defmethod frees-in RInstance 
+  [t]
+  (apply set/union #{}
+         (map frees-in (:poly? t))))
 
 (defmethod frees-in Poly
   [{:keys [nbound scope]}]
@@ -943,105 +960,104 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable Elim
 
-(defmulti promote (fn [t vs] (class t)))
-(defmulti demote (fn [t vs] (class t)))
+(defmulti promote 
+  "Eliminate all variables in t by promotion"
+  class)
+(defmulti demote 
+  "Eliminate all variables in t by demotion"
+  class)
 
 (defmethod promote F
-  [t vs]
-  (if (contains? vs t)
-    (:upper-bound t)
-    t))
+  [t]
+  (:upper-bound t))
 (defmethod demote F
-  [t vs]
-  (if (contains? vs t)
-    (:lower-bound t)
-    t))
+  [t]
+  (:lower-bound t))
 
 (defmethod promote HeterogeneousMap
-  [t vs]
+  [t]
   (-> t
     (update-in [:types] #(into {}
                                (for [[k v] %]
-                                 [k (promote v vs)])))))
+                                 [k (promote v)])))))
 (defmethod demote HeterogeneousMap
-  [t vs]
+  [t]
   (-> t
     (update-in [:types] #(into {}
                                (for [[k v] %]
-                                 [k (demote v vs)])))))
+                                 [k (demote v)])))))
 
 (defmethod promote HeterogeneousVector
-  [t vs]
+  [t]
   (-> t
-    (update-in [:types] #(apply list (map promote % (repeat vs))))))
+    (update-in [:types] #(apply list (map promote %)))))
 (defmethod demote HeterogeneousVector
-  [t vs]
+  [t]
   (-> t
-    (update-in [:types] #(apply list (map demote % (repeat vs))))))
+    (update-in [:types] #(apply list (map demote %)))))
 
 (defmethod promote HeterogeneousList
-  [t vs]
+  [t]
   (-> t
-    (update-in [:types] #(apply list (map promote % (repeat vs))))))
+    (update-in [:types] #(apply list (map promote %)))))
 (defmethod demote HeterogeneousList
-  [t vs]
+  [t]
   (-> t
-    (update-in [:types] #(apply list (map demote % (repeat vs))))))
+    (update-in [:types] #(apply list (map demote %)))))
 
-(defmethod promote False [t vs] t)
-(defmethod promote Nil [t vs] t)
-(defmethod promote Value [t vs] t)
+(defmethod promote False [t] t)
+(defmethod promote Nil [t] t)
+(defmethod promote Value [t] t)
 
-(defmethod demote False [t vs] t)
-(defmethod demote Nil [t vs] t)
-(defmethod demote Value [t vs] t)
+(defmethod demote False [t] t)
+(defmethod demote Nil [t] t)
+(defmethod demote Value [t] t)
 
 (defmethod promote Union 
-  [t vs] 
+  [t] 
   (-> t
-    (update-in [:types] #(mapv promote % (repeat vs)))))
+    (update-in [:types] #(mapv promote %))))
 (defmethod demote Union 
-  [t vs] 
+  [t] 
   (-> t
-    (update-in [:types] #(mapv demote % (repeat vs)))))
+    (update-in [:types] #(mapv demote %))))
 
 (defmethod promote Intersection
-  [t vs] 
+  [t] 
   (-> t
-    (update-in [:types] #(mapv promote % (repeat vs)))))
+    (update-in [:types] #(mapv promote %))))
 (defmethod demote Intersection
-  [t vs] 
+  [t] 
   (-> t
-    (update-in [:types] #(mapv demote % (repeat vs)))))
+    (update-in [:types] #(mapv demote %))))
 
-;TODO see VU-Fun-2 rule. Check if bounds contain any vs, and if so punt
 (defmethod promote Poly
-  [{:keys [nbound] :as t} vs]
+  [{:keys [nbound] :as t}]
   (let [body (Poly-body* (map gensym (range nbound)) t)
-        pbody (promote body vs)]
+        pbody (promote body)]
     (Poly* body pbody)))
 
 (defmethod demote Poly
-  [{:keys [nbound] :as t} vs]
+  [{:keys [nbound] :as t}]
   (let [body (Poly-body* (map gensym (range nbound)) t)
-        pbody (demote body vs)]
+        pbody (demote body)]
     (Poly* body pbody)))
 
 (defmethod promote Function
-  [t vs]
+  [t]
   (-> t
-    (update-in [:dom] #(mapv demote % (repeat vs)))
-    (update-in [:rng] #(mapv promote % (repeat vs)))
+    (update-in [:dom] #(mapv demote %))
+    (update-in [:rng] #(mapv promote %))
     (update-in [:rest] #(when %
-                          (demote % vs)))
+                          (demote %)))
     (update-in [:drest] #(assert (not %)))))
 (defmethod demote Function
-  [t vs]
+  [t]
   (-> t
-    (update-in [:dom] #(mapv promote % (repeat vs)))
-    (update-in [:rng] #(mapv demote % (repeat vs)))
+    (update-in [:dom] #(mapv promote %))
+    (update-in [:rng] #(mapv demote %))
     (update-in [:rest] #(when %
-                          (promote % vs)))
+                          (promote %)))
     (update-in [:drest] #(assert (not %)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1066,7 +1082,9 @@
 (declare-constraint EqConstraint)
 (declare-constraint SubConstraint)
 
-(defmulti intersect-cs-fn (fn [a b] [(class a) (class b)]))
+(defmulti intersect-cs-fn 
+  "Intersects two constraints"
+  (fn [a b] [(class a) (class b)]))
 
 (defmethod intersect-cs-fn [EqConstraint EqConstraint]
   [a b]
@@ -1088,49 +1106,86 @@
 (defmethod intersect-cs-fn [SubConstraint SubConstraint]
   [b a]
   (let [j (Un (:lower a) (:lower b))
-        m (In [(:upper a) (:upper b)])]
+        m (In (:upper a) (:upper b))]
     (->SubConstraint j m)))
 
-(defn intersect-cs [& cs]
+(defn intersect-cs 
+  "Intersect a number of constraints"
+  [& cs]
   (merge-with intersect-cs-fn cs))
 
-(defn empty-cs [xs]
+(defn empty-cs 
+  "Returns a constraint set constraining variables xs to
+  Bot <: x <: Top"
+  [xs]
   (zipmap xs (repeat (->SubConstraint (Bottom) (->Top)))))
-(defn singleton-cs [xs x c]
-  (intersect-cs (empty-cs xs) {x c}))
 
-(defmulti matching-rel 
-  "Returns [r cs] where r is a type such that sub == type,
-  and cs are the constraints"
-  (fn [s t xs]
-    {:pre [((some-fn Type? Function?) s)
-           ((some-fn Type? Function?) t)
-           (every? F? xs)]
-     :post [(Type? (first %))
-            (Constraint? (second %))]}
-    [(class s) (class t)]))
+(defn singleton-cs 
+  "Returns a constraint set constraining variables xs to
+  Bot <: x <: Top and constraining variable v to constraint c"
+  [xs v c]
+  (intersect-cs (empty-cs xs) {v c}))
 
-(defmethod matching-rel [Top Top]
+(defmulti cs-gen 
+  "Returns the constraint set constraining variables xs
+  such that s <: t"
+  (fn [s t xs] [(class s) (class t)]))
+
+(defmethod cs-gen :default
   [s t xs]
-  [s (empty-cs xs)])
+  (assert (subtype? s t))
+  (empty-cs xs))
 
-(defmethod matching-rel [F Type]
+(defmethod cs-gen [Type Top] 
+  [s t xs] 
+  (empty-cs xs))
+
+(defmethod cs-gen [RInstance RInstance] 
   [s t xs]
-  (assert (and (= (:lower-bound s) (Bottom))
-               (= (:upper-bound s) (->Top))))
-  (if (xs s)
-    [t (singleton-cs xs s (->EqConstraint t))]
-    [t (empty-cs xs)]))
+  (assert (= (:constructor s) (:constructor t)))
+  (assert (= (count (:poly? s))
+             (count (:poly? t))))
+  (apply intersect-cs
+         (empty-cs xs)
+         (map #(case %1
+                 (:covariant :constant) (cs-gen %2 %3 %4)
+                 :contravariant (cs-gen %3 %2 %4)
+                 :invariant (intersect-cs (cs-gen %3 %2 %4)
+                                          (cs-gen %2 %3 %4)))
+              (-> s :constructor :variances)
+              (:poly? s) (:poly? t) (repeat xs))))
 
-(defmethod matching-rel [Type F]
+(defmethod cs-gen [F Type]
   [s t xs]
-  (assert (and (= (:lower-bound t) (Bottom))
-               (= (:upper-bound t) (->Top))))
-  (if (xs t)
-    [s (singleton-cs xs t (->EqConstraint s))]
-    [s (empty-cs xs)]))
+  (assert (xs s))
+  (assert (empty? (set/intersection xs)
+                  (frees-in t)))
+  (let [dt (demote t)]
+    (singleton-cs xs s (->SubConstraint (Bottom) dt))))
 
-(defmethod matching-rel [Function Function]
+(defmethod cs-gen [Type F]
+  [s t xs]
+  (assert (xs t))
+  (assert (empty? (set/intersection xs)
+                  (frees-in s)))
+  (let [pt (promote t)]
+    (singleton-cs xs s (->SubConstraint pt (->Top)))))
+
+(defmethod cs-gen [F F]
+  [s t xs]
+  (assert (= s t))
+  (empty-cs xs))
+
+(defmethod cs-gen [Union Type]
+  [s t xs]
+  (apply intersect-cs (for [st (:types s)]
+                        (cs-gen st t xs))))
+
+(defmethod cs-gen [Type Union]
+  [s t xs]
+  (if (empty? (set/intersection xs (frees-in t)))
+
+(defmethod cs-gen [Function Function]
   [s t xs]
   (assert (= (count (:dom s))
              (count (:dom t))))
@@ -1138,21 +1193,10 @@
              (boolean (:rest t))))
   (assert (not (or (:drest s)
                    (:drest t))))
-  (let [domsc (doall (map matching-rel (:dom t) (:dom s) (repeat xs)))
-        rngc (matching-rel (:rng s) (:rng t) xs)
-        restc (when (:rest s)
-                (matching-rel (:rest t) (:rest s) xs))]
-    [(->Function (map first domsc) (first rngc) (first restc) nil)
-     (apply intersect-cs (map second (concat [rngc restc] domsc)))]))
-
-(defmethod matching-rel [Poly Poly]
-  [s t xs]
-  (assert (= (:nbound s)
-             (:nbound t)))
-  (let [names (repeatedly (:nbound s) gensym)
-        sbody (Poly-body* names s)
-        tbody (Poly-body* names t)]
-    (matching-rel sbody tbody xs)))
+  (apply intersect-cs (concat (map cs-gen (:dom t) (:dom s) (repeat xs))
+                              [(cs-gen (:rng s) (:rng t) xs)]
+                              (when (:rest s)
+                                [(cs-gen (:rest t) (:rest s) xs)]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
@@ -1234,11 +1278,11 @@
 
 (defmethod name-to Intersection
   [{:keys [types]} name res]
-  (In (doall (map #(name-to % name res) types))))
+  (apply In (doall (map #(name-to % name res) types))))
 
 (defmethod name-to Union
   [{:keys [types]} name res]
-  (->Union (doall (map #(name-to % name res) types))))
+  (apply Un (doall (map #(name-to % name res) types))))
 
 ;(defmethod name-to RClass
 ;  [{:keys [variances the-class replacements]} name res]
@@ -1299,7 +1343,7 @@
 
 (defmethod replace-image Union
   [{types :types} image target]
-  (->Union (doall (map #(replace-image % image target) types))))
+  (apply Un (doall (map #(replace-image % image target) types))))
 
 (defmethod replace-image Nil [t image target] t)
 (defmethod replace-image Top [t image target] t)
@@ -1350,7 +1394,7 @@
 
 (defmethod replace-image Intersection
   [{types :types} image target]
-  (In (doall (map #(replace-image % image target) types))))
+  (apply In (doall (map #(replace-image % image target) types))))
 
 (defmethod replace-image Poly
   [{scope :scope n :nbound :as ty} image target]
