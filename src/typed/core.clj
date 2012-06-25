@@ -1280,7 +1280,7 @@
   a)
 
 (defmethod intersect-cs-fn [SubConstraint SubConstraint]
-  [b a]
+  [a b]
   (let [j (Un (:lower a) (:lower b))
         m (In (:upper a) (:upper b))]
     (->SubConstraint j m)))
@@ -1304,7 +1304,7 @@
 
 ;current seen subtype relations, for recursive types
 ;(Set [Type Type])
-(def ^:dynamic *cs-current-seen*)
+(def ^:dynamic *cs-current-seen* #{})
 
 ;; V : a set of variables not to mention in the constraints
 ;; X : the set of type variables to be constrained
@@ -1314,19 +1314,71 @@
 ;; produces a cset which determines a substitution that makes S a subtype of T
 ;; implements the V |-_X S <: T => C judgment from Pierce+Turner, extended with
 ;; the index variables from the TOPLAS paper
-(defmulti cs-gen
+(defmulti cs-gen*
   (fn [V X Y S T] [(class S) (class T)]))
 
-(defmethod cs-gen :default
+;cs-gen calls cs-gen*, remembering the current subtype for recursive types
+; Add methods to cs-gen*, but always call cs-gen
+
+(defn cs-gen [V X Y S T]
+  (cond 
+    ;already been around this loop, is a subtype
+    (*cs-current-seen* [S T]) 
+    (empty-cs X)
+
+    ;already a subtype
+    (subtype? S T)
+    (empty-cs X)
+
+    (Top? T)
+    (empty-cs X)
+
+    ;constrain *each* element of S to be below T, and then combine the constraints
+    (Union? S)
+    (apply intersect-cs 
+           (empty-cs X)
+           (mapv #(cs-gen V X Y % T) (:types S)))
+
+    ;; find *an* element of S which can be made to be a supertype of S
+    (Union? T)
+    (if-let [cs (some #(try (cs-gen V X Y S %)
+                         (catch IllegalArgumentException e
+                           (throw e))
+                         (catch Exception e)) ;TODO specialised data Exceptions
+                      (:types T))]
+      cs
+      (throw (Exception. "")))
+
+    ;; find *an* element of S which can be made to be a subtype of T
+    (Intersection? S)
+    (if-let [cs (some #(try (cs-gen V X Y % T)
+                         (catch IllegalArgumentException e
+                           (throw e))
+                         (catch Exception e)) ;TODO specialised data Exceptions
+                      (:types T))]
+      cs
+      (throw (Exception. "")))
+
+    ;constrain *each* element of T to be above S, and then combine the constraints
+    (Intersection? T)
+    (apply intersect-cs 
+           (empty-cs X)
+           (mapv #(cs-gen V X Y S %) (:types T)))
+
+    :else
+    (binding [*cs-current-seen* (conj *cs-current-seen* [S T])]
+      (cs-gen* V X Y S T))))
+
+(defmethod cs-gen* :default
   [V X Y S T]
   (assert (subtype? S T))
   (empty-cs X))
 
-(defmethod cs-gen [Type Top] 
+(defmethod cs-gen* [Type Top] 
   [V X Y S T] 
   (empty-cs X))
 
-(defmethod cs-gen [RInstance RInstance] 
+(defmethod cs-gen* [RInstance RInstance] 
   [V X Y S T]
   (assert (= (:constructor S) (:constructor T)))
   (assert (= (count (:poly? S))
@@ -1343,35 +1395,26 @@
              :invariant (intersect-cs (cs-gen V X Y si ti)
                                       (cs-gen V X Y ti si))))))
 
-(defmethod cs-gen [F Type]
+(defmethod cs-gen* [F Type]
   [V X Y S T]
   (assert (X S))
   (assert (empty? (set/intersection X (fv T))))
   (let [dt (demote T)]
     (singleton-cs X S (->SubConstraint (Bottom) dt))))
 
-(defmethod cs-gen [Type F]
+(defmethod cs-gen* [Type F]
   [V X Y S T]
   (assert (X T))
   (assert (empty? (set/intersection X (fv S))))
   (let [ps (promote S)]
     (singleton-cs X T (->SubConstraint ps (->Top)))))
 
-(defmethod cs-gen [F F]
+(defmethod cs-gen* [F F]
   [V X Y S T]
   (assert (= S T))
   (empty-cs X))
 
-(defmethod cs-gen [Union Type]
-  [V X Y S T]
-  (apply intersect-cs (for [st (:types S)]
-                        (cs-gen V X Y st T))))
-
-;(defmethod cs-gen [Type Union]
-;  [V X Y S T]
-;  (if (empty? (set/intersection xs (fv t)))
-
-(defmethod cs-gen [Function Function]
+(defmethod cs-gen* [Function Function]
   [V X Y S T]
   (assert (= (count (:dom S))
              (count (:dom T))))
@@ -1383,6 +1426,43 @@
                               [(cs-gen V X Y (:rng S) (:rng T))]
                               (when (:rest S)
                                 [(cs-gen V X Y (:rest T) (:rest S))]))))
+
+;; V : a set of variables not to mention in the constraints
+;; X : the set of type variables to be constrained
+;; Y : the set of index variables to be constrained
+;; S : a list of types to be the subtypes of T
+;; T : a list of types
+;; expected-cset : a cset representing the expected type, to meet early and
+;;  keep the number of constraints in check. (empty by default)
+;; produces a cset which determines a substitution that makes the Ss subtypes of the Ts
+(defn cs-gen-list [V X Y S T & {:keys [expected-cset] :or {expected-cset (empty-cs #{})}}]
+  {:pre [(every? F? [V X Y])
+         (every? Type? [S T])]}
+  (assert (= (count S) (count T)))
+  (apply intersect-cs 
+         ;; We meet (intersect) early to prune the csets to a reasonable size.
+         ;; This weakens the inference a bit, but sometimes avoids
+         ;; constraint explosion.
+         (map #(intersect-cs (cgen V X Y %1 %2)) expected-cset)))
+
+;; X : variables to infer
+;; Y : indices to infer
+;; S : actual argument types
+;; T : formal argument types
+;; R : result type
+;; expected : #f or the expected type
+;; returns a substitution
+;; if R is #f, we don't care about the substituion
+;; just return a boolean result
+(defn infer [X Y S T R & [expected]]
+  (let [expected-cset (if expected
+                        (cs-gen #{} X Y R expected)
+                        (empty-cs #{}))
+        cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
+        cs* (intersect-cs cs expected-cset)]
+    (if R
+      (subst-gen cs* Y R)
+      true)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
