@@ -65,6 +65,10 @@
   (is (subtype? (constant-type '{:a 1 :b 2 :c 3})
                 (constant-type '{:a 1 :b 2}))))
 
+(deftest subtype-top-Function
+  (is (not (subtype? (parse-type '[Integer -> Number])
+                     (In (->TopFunction))))))
+
 (deftest subtype-rec
   (is (subtype? (parse-type 'Integer)
                 (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))

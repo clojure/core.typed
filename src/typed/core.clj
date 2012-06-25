@@ -117,7 +117,7 @@
 
 (declare-type Intersection)
 
-(def variances #{:constant :covariant :contravariant :invariant})
+(def variances #{:constant :covariant :contravariant :invariant :dotted})
 
 (defn variance? [v]
   (contains? variances v))
@@ -299,21 +299,21 @@
 
 (defrecord HeterogeneousVector [types]
   "A constant vector, clojure.lang.IPersistentVector"
-  [(vector? types)
+  [(sequential? types)
    (every? Type? types)])
 
 (declare-type HeterogeneousVector)
 
 (defrecord HeterogeneousList [types]
   "A constant list, clojure.lang.IPersistentList"
-  [(list? types)
+  [(sequential? types)
    (every? Type? types)])
 
 (declare-type HeterogeneousList)
 
 (defrecord HeterogeneousSeq [types]
   "A constant seq, clojure.lang.ISeq"
-  [(seq? types)
+  [(sequential? types)
    (every? Type? types)])
 
 (declare-type HeterogeneousSeq)
@@ -325,17 +325,30 @@
   [(Type? pre-type)
    ((some-fn F? B?) bound)])
 
-(defrecord Function [dom rng rest drest]
+(defrecord KwArgs [mandatory optional]
+  "A set of mandatory and optional keywords"
+  [(map? mandatory)
+   (map? optional)
+   (every? Value? (map keys [mandatory optional]))
+   (every? Type? (map vals [mandatory optional]))])
+
+(defrecord Function [dom rng rest drest kws]
   "A function arity, must be part of an intersection"
   [(or (empty? dom)
        (sequential? dom))
    (every? Type? dom)
    (Result? rng)
-   (<= (count (filter identity [rest drest])) 1)
+   (<= (count (filter identity [rest drest kws])) 1)
    (or (nil? rest)
        (Type? rest))
    (or (nil? drest)
-       (DottedPretype? drest))])
+       (DottedPretype? drest))
+   (or (nil? kws)
+       (KwArgs? kws))])
+
+(defrecord TopFunction []
+  "Supertype to all functions"
+  [])
 
 (declare ->NoFilter ->NoObject ->Result)
 
@@ -350,7 +363,7 @@
   and NoObject"
   ([dom rng] (make-Function dom rng nil nil))
   ([dom rng rest drest & {:keys [filter object] :or {filter (->NoFilter), object (->NoObject)}}]
-   (->Function dom (->Result rng filter object) rest drest)))
+   (->Function dom (->Result rng filter object) rest drest nil)))
 
 (defn Fn-Intersection [fns]
   {:pre [(every? Function? fns)]}
@@ -914,151 +927,314 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Collecting frees
 
-(defmulti frees-in (fn [t] {:post [set?]} (class t)))
-
-(defmethod frees-in B [t] (set/union #{}
-                                     (frees-in (:upper-bound t))
-                                     (frees-in (:lower-bound t))))
-
-(defmethod frees-in F [t] (set/union #{t}
-                                     (frees-in (:upper-bound t))
-                                     (frees-in (:lower-bound t))))
-
-(defmethod frees-in Nil [t] #{})
-(defmethod frees-in True [t] #{})
-(defmethod frees-in False [t] #{})
-(defmethod frees-in Value [t] #{})
-(defmethod frees-in Top [t] #{})
-
-(defmethod frees-in Intersection 
-  [{:keys [types]}] 
-  (apply set/union (map frees-in types)))
-
-(defmethod frees-in Union 
-  [{:keys [types]}] 
-  (apply set/union (map frees-in types)))
-
-(defmethod frees-in Function 
-  [{:keys [dom rng rest drest]}]
-  (apply set/union (concat (map frees-in dom)
-                           [(frees-in rng)]
-                           (when rest
-                             [(frees-in rest)])
-                           (when drest
-                             [(frees-in (first drest))]))))
-
-(defmethod frees-in RInstance 
+(defn fv-variances 
+  "Map of frees to their variances"
   [t]
-  (apply set/union #{}
-         (map frees-in (:poly? t))))
+  (binding [*frees-mode* ::frees]
+    (frees t)))
 
-(defmethod frees-in Poly
+(defn fv 
+  "All frees in type"
+  [t]
+  (keys (fv-variances t)))
+
+(defn idxs 
+  "All index variables in type (dotted bounds, etc.)"
+  [t]
+  (binding [*frees-mode* ::idxs]
+    (keys (frees t))))
+
+(def variance-map?
+  #(and (every? (some-fn F? B?) (keys %))
+        (every? variance? (vals %))))
+
+(defn flip-variances [vs]
+  {:pre [(variance-map? vs)]}
+  (into {} (for [[k vari] vs]
+             [k (case vari
+                  :covariant :contravariant
+                  :contravariant :covariant
+                  vari)])))
+
+(defn combine-frees [& frees]
+  {:pre [(every? variance-map? frees)]
+   :post [variance-map?]}
+  (apply merge-with (fn [old-vari new-vari]
+                      (cond 
+                        (= old-vari new-vari) old-vari
+                        (= old-vari :dotted) new-vari
+                        (= new-vari :dotted) old-vari
+                        (= old-vari :constant) new-vari
+                        (= new-vari :constant) old-vari
+                        :else :invariant))
+         frees))
+
+(derive ::frees ::any-var)
+(derive ::idxs ::any-var)
+
+(def ^:dynamic *frees-mode*)
+(set-validator! #'*frees-mode* #(or (= ::frees %)
+                                    (= ::idxs %)))
+
+(defmulti frees (fn [t]
+                  {:post [variance-map?]}
+                  [*frees-mode* (class t)]))
+
+(defmethod frees [::any-var FilterSet]
+  [{:keys [then else]}]
+  (combine-frees (frees then)
+                 (frees else)))
+
+(defmethod frees [::any-var TypeFilter]
+  [{:keys [type]}] 
+  (frees type))
+
+(defmethod frees [::any-var NotTypeFilter]
+  [{:keys [type]}] 
+  (frees type))
+
+(defmethod frees [::any-var AndFilter]
+  [{:keys [a c]}] 
+  (combine-frees (frees a)
+                 (frees c)))
+
+(defmethod frees [::any-var F] 
+  [t] 
+  (combine-frees {t :covariant}
+                 (frees (:upper-bound t))
+                 (frees (:lower-bound t))))
+
+(defmethod frees [::any-var Nil] [t] {})
+(defmethod frees [::any-var True] [t] {})
+(defmethod frees [::any-var False] [t] {})
+(defmethod frees [::any-var Value] [t] {})
+(defmethod frees [::any-var Top] [t] {})
+
+(defmethod frees [::any-var Intersection]
+  [{:keys [types]}] 
+  (apply combine-frees (mapv frees types)))
+
+(defmethod frees [::any-var Union]
+  [{:keys [types]}]
+  (apply combine-frees (mapv frees types)))
+
+(defmethod frees [::frees Function]
+  [{:keys [dom rng rest drest kws]}]
+  (apply combine-frees (concat (mapv (comp flip-variances frees)
+                                     (concat dom
+                                             (when rest
+                                               [rest])
+                                             (when kws
+                                               [(vals kws)])))
+                               [(frees rng)]
+                               (when drest
+                                 [(dissoc (-> (:pre-type drest) frees flip-variances)
+                                          (:bound drest))]))))
+
+(defmethod frees [::idxs Function]
+  [{:keys [dom rng rest drest kws]}]
+  (apply combine-frees (concat (mapv (comp flip-variances frees)
+                                     (concat dom
+                                             (when rest
+                                               [rest])
+                                             (when kws
+                                               (vals kws))))
+                               [(frees rng)]
+                               (when drest
+                                 [{(:bound drest) :contravariant}
+                                  (-> (:pre-type drest)
+                                    frees flip-variances)]))))
+
+(defmethod frees [::any-var RInstance]
+  [t]
+  (apply combine-frees (mapv frees (:poly? t))))
+
+(defmethod frees [::any-var Poly]
   [{:keys [nbound scope]}]
-  (let [bodysc (remove-scopes nbound scope)]
-    (frees-in bodysc)))
+  (frees scope))
+
+(defmethod frees [::any-var PolyDots]
+  [{:keys [nbound scope]}]
+  (frees scope))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable Elim
 
 (defmulti promote 
-  "Eliminate all variables in t by promotion"
-  class)
+  "Eliminate all variables V in t by promotion"
+  (fn [T V] 
+    {:pre [(set? V)
+           (every? F? V)]
+     :post [set?
+            (every? F? %)]}
+    (class T)))
+
 (defmulti demote 
-  "Eliminate all variables in t by demotion"
-  class)
+  "Eliminate all variables V in T by demotion"
+  (fn [T V]
+    {:pre [(set? V)
+           (every? F? V)]
+     :post [set?
+            (every? F? %)]}
+    (class T)))
 
 (defmethod promote F
-  [t]
-  (:upper-bound t))
+  [T V]
+  (if (V T)
+    (:upper-bound T)
+    T))
+
 (defmethod demote F
-  [t]
-  (:lower-bound t))
+  [T V]
+  (if (V T)
+    (:lower-bound T)
+    T))
 
 (defmethod promote HeterogeneousMap
-  [t]
-  (-> t
+  [T V]
+  (-> T
     (update-in [:types] #(into {}
                                (for [[k v] %]
-                                 [k (promote v)])))))
+                                 [k (promote v V)])))))
+
 (defmethod demote HeterogeneousMap
-  [t]
-  (-> t
+  [T V]
+  (-> T
     (update-in [:types] #(into {}
                                (for [[k v] %]
-                                 [k (demote v)])))))
+                                 [k (demote v V)])))))
 
 (defmethod promote HeterogeneousVector
-  [t]
-  (-> t
-    (update-in [:types] #(apply list (map promote %)))))
+  [T V]
+  (-> T
+    (update-in [:types] #(apply list (map promote % (repeat V))))))
+
 (defmethod demote HeterogeneousVector
-  [t]
-  (-> t
-    (update-in [:types] #(apply list (map demote %)))))
+  [T V]
+  (-> T
+    (update-in [:types] #(apply list (map demote % (repeat V))))))
 
 (defmethod promote HeterogeneousList
-  [t]
-  (-> t
-    (update-in [:types] #(apply list (map promote %)))))
+  [T V]
+  (-> T
+    (update-in [:types] #(apply list (map promote % (repeat V))))))
+
 (defmethod demote HeterogeneousList
-  [t]
-  (-> t
-    (update-in [:types] #(apply list (map demote %)))))
+  [T V]
+  (-> T
+    (update-in [:types] #(apply list (map demote % (repeat V))))))
 
-(defmethod promote False [t] t)
-(defmethod promote Nil [t] t)
-(defmethod promote Value [t] t)
+(defmethod promote False [T V] T)
+(defmethod promote Nil [T V] T)
+(defmethod promote Value [T V] T)
 
-(defmethod demote False [t] t)
-(defmethod demote Nil [t] t)
-(defmethod demote Value [t] t)
+(defmethod demote False [T V] T)
+(defmethod demote Nil [T V] T)
+(defmethod demote Value [T V] T)
 
 (defmethod promote Union 
-  [t] 
-  (-> t
-    (update-in [:types] #(mapv promote %))))
+  [T V] 
+  (-> T
+    (update-in [:types] #(mapv promote % (repeat V)))))
+
 (defmethod demote Union 
-  [t] 
-  (-> t
-    (update-in [:types] #(mapv demote %))))
+  [T V] 
+  (-> T
+    (update-in [:types] #(mapv demote % (repeat V)))))
 
 (defmethod promote Intersection
-  [t] 
-  (-> t
-    (update-in [:types] #(mapv promote %))))
+  [T V] 
+  (-> T
+    (update-in [:types] #(mapv promote % (repeat V)))))
+
 (defmethod demote Intersection
-  [t] 
-  (-> t
-    (update-in [:types] #(mapv demote %))))
+  [T V] 
+  (-> T
+    (update-in [:types] #(mapv demote % (repeat V)))))
 
 (defmethod promote Poly
-  [{:keys [nbound] :as t}]
-  (let [body (Poly-body* (map gensym (range nbound)) t)
-        pbody (promote body)]
-    (Poly* body pbody)))
+  [{:keys [nbound] :as T} V]
+  (let [names (repeatedly nbound gensym)
+        pmt-body (promote (Poly-body* names T) V)]
+    (Poly* names pmt-body)))
 
 (defmethod demote Poly
-  [{:keys [nbound] :as t}]
-  (let [body (Poly-body* (map gensym (range nbound)) t)
-        pbody (demote body)]
-    (Poly* body pbody)))
+  [{:keys [nbound] :as T} V]
+  (let [names (repeatedly nbound gensym)
+        dem-body (demote (Poly-body* names T) V)]
+    (Poly* names dem-body)))
 
 (defmethod promote Function
-  [t]
-  (-> t
-    (update-in [:dom] #(mapv demote %))
-    (update-in [:rng] #(mapv promote %))
-    (update-in [:rest] #(when %
-                          (demote %)))
-    (update-in [:drest] #(assert (not %)))))
+  [{:keys [dom rng rest drest kws] :as T} V]
+  (let [pmt #(promote % V)
+        dmt #(demote % V)
+        dmt-kw #(into {} (for [[k v] %]
+                           [k (dmt v)]))]
+    (cond 
+      ;if filter contains V, give up
+      (seq (set/intersection V (:fl rng))) (->TopFunction)
+
+      ;if dotted bound is in V, transfer to rest args
+      (and drest (V (:bound drest)))
+      (-> T
+        (update-in [:dom] #(mapv dmt %))
+        (update-in [:rng] pmt)
+        (assoc :rest (dmt (:pre-type drest)))
+        (assoc :drest nil)
+        (assoc :kws (when kws
+                      (-> kws
+                        (update-in [:mandatory] dmt-kw)
+                        (update-in [:optional] dmt-kw)))))
+
+      :else
+      (-> T
+        (update-in [:dom] #(mapv dmt %))
+        (update-in [:rng] pmt)
+        (update-in [:rest] #(when %
+                              (dmt %)))
+        (update-in [:drest] #(when %
+                               (-> %
+                                 (update-in [:pre-type] dmt))))
+        (update-in [:kws] #(when %
+                             (-> %
+                               (update-in [:mandatory] dmt-kw)
+                               (update-in [:optional] dmt-kw))))))))
+
 (defmethod demote Function
-  [t]
-  (-> t
-    (update-in [:dom] #(mapv promote %))
-    (update-in [:rng] #(mapv demote %))
-    (update-in [:rest] #(when %
-                          (promote %)))
-    (update-in [:drest] #(assert (not %)))))
+  [{:keys [dom rng rest drest kws] :as T} V]
+  (let [pmt #(promote % V)
+        dmt #(demote % V)
+        pmt-kw #(into {} (for [[k v] %]
+                           [k (pmt v)]))]
+    (cond 
+      ;if filter contains V, give up
+      (seq (set/intersection V (:fl rng))) (->TopFunction)
+
+      ;if dotted bound is in V, transfer to rest args
+      (and drest (V (:bound drest)))
+      (-> T
+        (update-in [:dom] #(mapv pmt %))
+        (update-in [:rng] dmt)
+        (assoc :rest (pmt (:pre-type drest)))
+        (assoc :drest nil)
+        (assoc :kws (when kws
+                      (-> kws
+                        (update-in [:mandatory] pmt-kw)
+                        (update-in [:optional] pmt-kw)))))
+
+      :else
+      (-> T
+        (update-in [:dom] #(mapv pmt %))
+        (update-in [:rng] dmt)
+        (update-in [:rest] #(when %
+                              (pmt %)))
+        (update-in [:drest] #(when %
+                               (-> %
+                                 (update-in [:pre-type] pmt))))
+        (update-in [:kws] #(when %
+                             (-> %
+                               (update-in [:mandatory] pmt-kw)
+                               (update-in [:optional] pmt-kw))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint Generation
@@ -1126,77 +1302,87 @@
   [xs v c]
   (intersect-cs (empty-cs xs) {v c}))
 
-(defmulti cs-gen 
-  "Returns the constraint set constraining variables xs
-  such that s <: t"
-  (fn [s t xs] [(class s) (class t)]))
+;current seen subtype relations, for recursive types
+;(Set [Type Type])
+(def ^:dynamic *cs-current-seen*)
+
+;; V : a set of variables not to mention in the constraints
+;; X : the set of type variables to be constrained
+;; Y : the set of index variables to be constrained
+;; S : a type to be the subtype of T
+;; T : a type
+;; produces a cset which determines a substitution that makes S a subtype of T
+;; implements the V |-_X S <: T => C judgment from Pierce+Turner, extended with
+;; the index variables from the TOPLAS paper
+(defmulti cs-gen
+  (fn [V X Y S T] [(class S) (class T)]))
 
 (defmethod cs-gen :default
-  [s t xs]
-  (assert (subtype? s t))
-  (empty-cs xs))
+  [V X Y S T]
+  (assert (subtype? S T))
+  (empty-cs X))
 
 (defmethod cs-gen [Type Top] 
-  [s t xs] 
-  (empty-cs xs))
+  [V X Y S T] 
+  (empty-cs X))
 
 (defmethod cs-gen [RInstance RInstance] 
-  [s t xs]
-  (assert (= (:constructor s) (:constructor t)))
-  (assert (= (count (:poly? s))
-             (count (:poly? t))))
+  [V X Y S T]
+  (assert (= (:constructor S) (:constructor T)))
+  (assert (= (count (:poly? S))
+             (count (:poly? T))))
   (apply intersect-cs
-         (empty-cs xs)
-         (map #(case %1
-                 (:covariant :constant) (cs-gen %2 %3 %4)
-                 :contravariant (cs-gen %3 %2 %4)
-                 :invariant (intersect-cs (cs-gen %3 %2 %4)
-                                          (cs-gen %2 %3 %4)))
-              (-> s :constructor :variances)
-              (:poly? s) (:poly? t) (repeat xs))))
+         (empty-cs X)
+         (for [[vari si ti] (map vector
+                                 (-> T :constructor :variances)
+                                 (:poly? S)
+                                 (:poly? T))]
+           (case vari
+             (:covariant :constant) (cs-gen V X Y si ti)
+             :contravariant (cs-gen V X Y ti si)
+             :invariant (intersect-cs (cs-gen V X Y si ti)
+                                      (cs-gen V X Y ti si))))))
 
 (defmethod cs-gen [F Type]
-  [s t xs]
-  (assert (xs s))
-  (assert (empty? (set/intersection xs)
-                  (frees-in t)))
-  (let [dt (demote t)]
-    (singleton-cs xs s (->SubConstraint (Bottom) dt))))
+  [V X Y S T]
+  (assert (X S))
+  (assert (empty? (set/intersection X (fv T))))
+  (let [dt (demote T)]
+    (singleton-cs X S (->SubConstraint (Bottom) dt))))
 
 (defmethod cs-gen [Type F]
-  [s t xs]
-  (assert (xs t))
-  (assert (empty? (set/intersection xs)
-                  (frees-in s)))
-  (let [pt (promote t)]
-    (singleton-cs xs s (->SubConstraint pt (->Top)))))
+  [V X Y S T]
+  (assert (X T))
+  (assert (empty? (set/intersection X (fv S))))
+  (let [ps (promote S)]
+    (singleton-cs X T (->SubConstraint ps (->Top)))))
 
 (defmethod cs-gen [F F]
-  [s t xs]
-  (assert (= s t))
-  (empty-cs xs))
+  [V X Y S T]
+  (assert (= S T))
+  (empty-cs X))
 
 (defmethod cs-gen [Union Type]
-  [s t xs]
-  (apply intersect-cs (for [st (:types s)]
-                        (cs-gen st t xs))))
+  [V X Y S T]
+  (apply intersect-cs (for [st (:types S)]
+                        (cs-gen V X Y st T))))
 
-(defmethod cs-gen [Type Union]
-  [s t xs]
-  (if (empty? (set/intersection xs (frees-in t)))
+;(defmethod cs-gen [Type Union]
+;  [V X Y S T]
+;  (if (empty? (set/intersection xs (fv t)))
 
 (defmethod cs-gen [Function Function]
-  [s t xs]
-  (assert (= (count (:dom s))
-             (count (:dom t))))
-  (assert (= (boolean (:rest s))
-             (boolean (:rest t))))
-  (assert (not (or (:drest s)
-                   (:drest t))))
-  (apply intersect-cs (concat (map cs-gen (:dom t) (:dom s) (repeat xs))
-                              [(cs-gen (:rng s) (:rng t) xs)]
-                              (when (:rest s)
-                                [(cs-gen (:rest t) (:rest s) xs)]))))
+  [V X Y S T]
+  (assert (= (count (:dom S))
+             (count (:dom T))))
+  (assert (= (boolean (:rest S))
+             (boolean (:rest T))))
+  (assert (not (or (:drest S)
+                   (:drest T))))
+  (apply intersect-cs (concat (map #(cs-gen V X Y %1 %2) (:dom T) (:dom S))
+                              [(cs-gen V X Y (:rng S) (:rng T))]
+                              (when (:rest S)
+                                [(cs-gen V X Y (:rest T) (:rest S))]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
@@ -1598,8 +1784,15 @@
                           " is not a subtype of: " 
                           (with-out-str (pr (unparse-type t)))))))
 
-(def ^:dynamic *A*)
-(def ^:dynamic *A0*)
+;keeps track of currently seen subtype relations for recursive types.
+;(Set [Type Type])
+(def ^:dynamic *sub-current-seen* #{})
+
+;subtype and subtype? use *sub-current-seen* for remembering types (for Rec)
+;subtypeA* takes an extra argument, called by subtype
+;subtype* shouldn't be called directly, is called by subtypeA*
+;
+; In short, only call subtype (or subtype?)
 
 (defmulti subtype* (fn [s t] [(class s) (class t)]))
 
@@ -1629,40 +1822,35 @@
     A
 
     (Union? s)
-    (binding [*A* A
-              *A0* (conj A [s t])]
-      (if (every? #(subtypeA* *A0* % t) (:types s))
-        *A0*
+    (binding [*sub-current-seen* (conj A [s t])]
+      (if (every? #(subtype? % t) (:types s))
+        *sub-current-seen*
         (type-error s t)))
 
     (Union? t)
-    (binding [*A* A
-              *A0* (conj A [s t])]
-      (if (some #(subtypeA*? *A0* s %) (:types t))
-        *A0*
+    (binding [*sub-current-seen* (conj A [s t])]
+      (if (some #(subtype? s %) (:types t))
+        *sub-current-seen*
         (type-error s t)))
 
     (Intersection? s)
-    (binding [*A* A
-              *A0* (conj A [s t])]
-      (if (some #(subtypeA*? *A0* % t) (:types s))
-        *A0*
+    (binding [*sub-current-seen* (conj A [s t])]
+      (if (some #(subtype? % t) (:types s))
+        *sub-current-seen*
         (type-error s t)))
 
     (Intersection? t)
-    (binding [*A* A
-              *A0* (conj A [s t])]
-      (if (every? #(subtypeA* *A0* s %) (:types s))
-        *A0*
+    (binding [*sub-current-seen* (conj A [s t])]
+      (if (every? #(subtype? s %) (:types s))
+        *sub-current-seen*
         (type-error s t)))
 
     :else
-    (binding [*A* A
-              *A0* (conj A [s t])]
-      (subtype* s t))))
+    (binding [*sub-current-seen* (conj A [s t])]
+      (subtype? s t))))
 
 (defn subtype [s t]
-  (subtypeA* #{} s t))
+  (subtypeA* *sub-current-seen* s t))
 
 (defn- subtype-rclass
   [{variancesl :variances classl :the-class replacementsl :replacements :as s}
@@ -1674,7 +1862,7 @@
          (empty? replacementsl)
          (empty? replacementsr))
     (if (isa? classl classr)
-      *A0*
+      *sub-current-seen*
       (type-error s t))))
 
 ; (Cons Integer) <: (Seqable Integer)
@@ -1683,9 +1871,9 @@
 (defmethod subtype* [Value RInstance]
   [{val :val} t]
   (let [cls (class val)]
-    (subtype* (->RInstance nil (or (@RESTRICTED-CLASS cls)
-                                   (->RClass nil cls {})))
-              t)))
+    (subtype (->RInstance nil (or (@RESTRICTED-CLASS cls)
+                                  (->RClass nil cls {})))
+             t)))
 
 (defn- RInstance-supers* 
   "Return a set of Types that are the super-Types
@@ -1737,7 +1925,7 @@
         (some #(and (= constr (:constructor %))
                     (subtype-rinstance-common-base % t))
               (RInstance-supers* s)))
-    *A0*
+    *sub-current-seen*
 
     ;try each ancestor
 
@@ -1751,11 +1939,8 @@
   [s t]
   (let [sk (apply Un (map first (:types s)))
         sv (apply Un (map second (:types s)))]
-    (if-let [A1 (subtypeA* *A0* 
-                           (->RInstance [sk sv] (@RESTRICTED-CLASS IPersistentMap))
-                           t)]
-      A1
-      (type-error s t))))
+    (subtype (->RInstance [sk sv] (@RESTRICTED-CLASS IPersistentMap))
+             t)))
 
 
 ;every rtype entry must be in ltypes
@@ -1764,24 +1949,19 @@
   [{ltypes :types :as s}
    {rtypes :types :as t}]
   (last (doall (map (fn [[k v]]
-                      (if-let [sv (ltypes k)]
-                        (subtypeA* *A0* sv v)
-                        (type-error s t)))
+                      (subtype (ltypes k) v))
                     rtypes))))
 
 (defmethod subtype* [HeterogeneousVector HeterogeneousVector]
   [{ltypes :types :as s} 
    {rtypes :types :as t}]
-  (last (doall (map #(subtypeA* *A0* %1 %2) ltypes rtypes))))
+  (last (doall (map #(subtype %1 %2) ltypes rtypes))))
 
 (defmethod subtype* [HeterogeneousVector Type]
   [s t]
   (let [ss (apply Un (:types s))]
-    (if-let [A1 (subtypeA* *A0* 
-                           (->RInstance [ss] (@RESTRICTED-CLASS IPersistentVector))
-                           t)]
-      A1
-      (type-error s t))))
+    (subtype (->RInstance [ss] (@RESTRICTED-CLASS IPersistentVector))
+             t)))
 
 (defmethod subtype* [Function Function]
   [s t]
@@ -1789,24 +1969,24 @@
   (assert (not ((some-fn :rest :drest) t)))
   (assert (= (count (:dom s))
              (count (:dom t))))
-  (doall (map #(subtypeA* *A0* %1 %2) (:dom t) (:dom s)))
-  (subtypeA* *A0* (:rng s) (:rng t))
-  *A0*)
+  (doall (map #(subtype %1 %2) (:dom t) (:dom s)))
+  (subtype (:rng s) (:rng t))
+  *sub-current-seen*)
 
 (defmethod subtype* [Mu Type]
   [s t]
   (let [s* (unfold s)]
-    (subtypeA* *A0* s* t)))
+    (subtype s* t)))
 
 (defmethod subtype* [Type Mu]
   [s t]
   (let [t* (unfold t)]
-    (subtypeA* *A0* s t*)))
+    (subtype s t*)))
 
 (defmethod subtype* :default
   [s t]
   (if (Top? t)
-    *A0*
+    *sub-current-seen*
     (type-error s t)))
 
 (defmacro sub [s t]
@@ -2277,7 +2457,9 @@
       (HeterogeneousVector? (expr-type t))
       (assoc expr
              expr-type (->HeterogeneousVector
-                         (conj (:types (expr-type t)) (expr-type (first args)))))
+                         ;vectors conj onto end
+                         (concat (:types (expr-type t)) 
+                                 [(expr-type (first args))])))
 
       :else ::not-special)))
 
