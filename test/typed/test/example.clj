@@ -18,3 +18,7 @@
   (get a :a))
 
 (use-map {:a 1})
+
+(ann rest-arg1 [Number * -> Number])
+(defn rest-arg1 [& ns]
+  (apply + ns))

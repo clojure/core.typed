@@ -47,7 +47,9 @@
 ;; Utils
 
 (defmacro defrecord [name slots inv-description invariants & etc]
-  `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc))
+  ;only define record if symbol doesn't resolve, not completely sure if this substitutes for defonce
+  (when-not (resolve name)
+    `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc)))
 
 (declare abstract-many instantiate-many)
 
@@ -145,9 +147,11 @@
 
 (declare-type F)
 
+(declare Scope?)
+
 (defrecord Scope [body]
-  "A scope that contains bound variables. Not used directly"
-  [((some-fn Type? #(instance? Scope %)) body)])
+  "A scope that contains one bound variable, can be nested. Not used directly"
+  [((some-fn Type? Scope?) body)])
 
 (defrecord RClass [variances the-class replacements]
   "A restricted class, where ancestors are
@@ -523,7 +527,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Annotations
 
-(def VAR-ANNOTATIONS (atom {}))
+(defonce VAR-ANNOTATIONS (atom {}))
 (def ^:dynamic *local-annotations* {})
 
 (set-validator! VAR-ANNOTATIONS #(and (every? (every-pred symbol? namespace) (keys %))
@@ -580,7 +584,7 @@
 ;; Restricted Class
 
 ;Class -> RClass
-(def RESTRICTED-CLASS (atom {}))
+(defonce RESTRICTED-CLASS (atom {}))
 
 (declare with-frees)
 
@@ -798,22 +802,26 @@
 
 (defn parse-function [f]
   (let [all-dom (take-while #(not= '-> %) f)
-        [_ rng :as chk] (drop-while #(not= '-> %) f)
+        [_ rng & opts :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
         _ (assert (= (count chk) 2) "Missing range")
 
-        _ (assert (not (and (some #(= '& %) all-dom)
-                            (some #(= '... %) all-dom)))
+        {ellipsis-pos '...
+         asterix-pos '*} 
+        (into {} (map vector all-dom (range)))
+
+        _ (assert (not (and asterix-pos ellipsis-pos))
                   "Cannot provide both rest type and dotted rest type")
 
         fixed-dom (cond 
-                    (some #(= '& %) all-dom) (take-while #(not= '& %) all-dom)
-                    (some #(= '... %) all-dom) (butlast (take-while #(not= '... %) all-dom))
+                    asterix-pos (take (dec asterix-pos) all-dom)
+                    ellipsis-pos (take (dec ellipsis-pos) all-dom)
                     :else all-dom)
 
-        [_ rest-type] (drop-while #(not= '& %) all-dom)
-        [drest-type _ drest-bnd] (let [[n _] (first (filter #(= '... (second %)) (map-indexed vector all-dom)))]
-                                   (when n
-                                     (drop (dec n) all-dom)))]
+        rest-type (when asterix-pos
+                    (nth all-dom (dec asterix-pos) nil))
+        [drest-type _ drest-bnd] (when ellipsis-pos
+                                   (drop (dec ellipsis-pos) all-dom))
+        _ (prn rest-type)]
     (make-Function (doall (map parse-type fixed-dom))
                    (parse-type rng)
                    (when rest-type
@@ -827,6 +835,8 @@
 (defmethod parse-type IPersistentVector
   [f]
   (Fn-Intersection [(parse-function f)]))
+
+(def ^:dynamic *next-nme* 0) ;stupid readable variables
 
 (defmulti unparse-type class)
 (defn unp [t] (prn (unparse-type t)))
@@ -860,7 +870,7 @@
   [{:keys [dom rng rest drest]}]
   (vec (concat (doall (map unparse-type dom))
                (when rest
-                 ['& (unparse-type rest)])
+                 [(unparse-type rest) '*])
                (when drest
                  (let [{:keys [pre-type bound]} drest]
                    [(unparse-type pre-type) '... (unparse-type bound)]))
@@ -885,20 +895,24 @@
     (list 'Rec [nme] (unparse-type body))))
 
 (defmethod unparse-type PolyDots
-  [p]
-  (let [fs (vec 
-             (for [x (range (:nbound p))]
-               (gensym)))
+  [{:keys [nbound] :as p}]
+  (let [end-nme (+ nbound *next-nme*)
+        fs (vec 
+             (for [x (range *next-nme* end-nme)]
+               (symbol (str "v" x))))
         body (PolyDots-body* fs p)]
-    (list 'All (vec (concat (butlast fs) ['... (last fs)])) (unparse-type body))))
+    (binding [*next-nme* end-nme]
+      (list 'All (vec (concat (butlast fs) ['... (last fs)])) (unparse-type body)))))
 
 (defmethod unparse-type Poly
-  [p]
-  (let [fs (vec 
-             (for [x (range (:nbound p))]
-               (gensym)))
+  [{:keys [nbound] :as p}]
+  (let [end-nme (+ nbound *next-nme*)
+        fs (vec 
+             (for [x (range *next-nme* end-nme)]
+               (symbol (str "v" x))))
         body (Poly-body* fs p)]
-    (list 'All fs (unparse-type body))))
+    (binding [*next-nme* end-nme]
+      (list 'All fs (unparse-type body)))))
 
 (defmethod unparse-type Value
   [v]
@@ -926,6 +940,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Collecting frees
+
+(declare ^:dynamic *frees-mode* frees)
 
 (defn fv-variances 
   "Map of frees to their variances"
@@ -1426,7 +1442,7 @@
                               [(cs-gen V X Y (:rng S) (:rng T))]
                               (when (:rest S)
                                 [(cs-gen V X Y (:rest T) (:rest S))]))))
-
+(comment
 ;; V : a set of variables not to mention in the constraints
 ;; X : the set of type variables to be constrained
 ;; Y : the set of index variables to be constrained
@@ -1463,7 +1479,8 @@
     (if R
       (subst-gen cs* Y R)
       true)
-
+))
+)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
 
@@ -1811,7 +1828,8 @@
             (->Function dom
                         (update-in (:rng t) [:t] tfn)
                         nil
-                        nil)) ;dotted pretype now expanded to fixed domain
+                        nil ;dotted pretype now expanded to fixed domain
+                        nil))
           (-> t
             (update-in [:dom] #(doall (map tfn %)))
             (update-in [:rng] tfn)
@@ -2633,7 +2651,6 @@
            expr-type actual-type)))
 
 (defn check-fn-expr [{:keys [methods] :as expr} expected]
-  (unp expected)
   (let [fin (cond
               (Poly? expected) (Poly-body* (repeatedly (:nbound expected) gensym) expected)
               :else expected)
