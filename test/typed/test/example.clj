@@ -9,9 +9,9 @@
   a)
 
 (ann test2 (All [y] 
-                [(Seqable Number) -> (Seqable (U true false))]))
+                [(Seqable y) -> (Seqable (U true false))]))
 (defn test2 [a]
-  ((inst map (U true false) Any) number? a))
+  ((inst map (U true false) y) number? a))
 
 (ann use-map [(Map* :mandatory
                     {:a Number})
@@ -21,6 +21,6 @@
 
 (use-map {:a 1})
 
-(ann rest-arg1 [Number * -> Number])
-(defn rest-arg1 [& ns]
-  (+ (first ns)))
+;(ann rest-arg1 [Number * -> Number])
+;(defn rest-arg1 [& ns]
+;  (+ (first ns)))

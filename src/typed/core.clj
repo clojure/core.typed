@@ -588,7 +588,7 @@
                                        (every? F? (vals %))))
 
 (defmacro with-dotted [dvar & body]
-  `(binding [*dotted-scope* (merge *dotted-scope* {(:name ~dvar) ~dvar})]
+  `(binding [*dotted-scope* (conj *dotted-scope* [(:name ~dvar) ~dvar])]
      ~@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -683,18 +683,23 @@
   [bnds type]
   (let [frees (map parse-free (-> bnds butlast butlast))
         dvar (parse-free (-> bnds butlast last))]
-    (PolyDots* (concat (map :name frees) [(:name dvar)])
-               (with-frees frees
-                 (with-dotted dvar 
-                   (parse-type type))))))
+    (-> 
+      (PolyDots* (concat (map :name frees) [(:name dvar)])
+                 (with-frees frees
+                   (with-dotted dvar 
+                     (parse-type type))))
+      (with-meta {:free-names (map :name frees)
+                  :dvar-name (:name dvar)}))))
 
 ;(All [a b] type)
 (defmethod parse-all-type :default
   [bnds type]
   (let [frees (map parse-free bnds)]
-    (Poly* (map :name frees)
-           (with-frees frees
-             (parse-type type)))))
+    (-> 
+      (Poly* (map :name frees)
+             (with-frees frees
+               (parse-type type)))
+      (with-meta {:free-names (map :name frees)}))))
 
 (defmethod parse-type-list 'All
   [[All bnds syn & more]]
@@ -780,16 +785,10 @@
   [sym]
   (cond
     (sym *free-scope*) (sym *free-scope*)
-
-    :else
-    (let [res (resolve sym)]
-      (cond 
-        ;make instance, must provide type parameters if any
-        (class? res) (let [rclass (@RESTRICTED-CLASS res)
-                           _ (assert (empty? (:variances rclass)) (str "RClass " res " must be instantiated"))]
-                       (->RInstance nil (or rclass (->RClass nil res {}))))
-
-        :else (throw (Exception. (str "Cannot resolve type: " sym)))))))
+    :else (let [res (resolve sym)]
+            (cond 
+              (class? res) (RInstance-of res)
+              :else (throw (Exception. (str "Cannot resolve type: " sym)))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v (->True) (->False))) 
@@ -815,8 +814,7 @@
         rest-type (when asterix-pos
                     (nth all-dom (dec asterix-pos) nil))
         [drest-type _ drest-bnd] (when ellipsis-pos
-                                   (drop (dec ellipsis-pos) all-dom))
-        _ (prn rest-type)]
+                                   (drop (dec ellipsis-pos) all-dom))]
     (make-Function (doall (map parse-type fixed-dom))
                    (parse-type rng)
                    (when rest-type
@@ -891,20 +889,34 @@
 
 (defmethod unparse-type PolyDots
   [{:keys [nbound] :as p}]
-  (let [end-nme (+ nbound *next-nme*)
-        fs (vec 
-             (for [x (range *next-nme* end-nme)]
-               (symbol (str "v" x))))
+  (let [{:keys [free-names dvar-name]
+         :as given-names?}
+        (if ((every-pred :free-names :dvar-name) (meta p))
+          (meta p)
+          nil)
+        end-nme (if given-names?
+                  *next-nme*
+                  (+ nbound *next-nme*))
+        fs (if given-names?
+             (vec (concat free-names [dvar-name]))
+             (vec 
+               (for [x (range *next-nme* end-nme)]
+                 (symbol (str "v" x)))))
         body (PolyDots-body* fs p)]
     (binding [*next-nme* end-nme]
       (list 'All (vec (concat (butlast fs) ['... (last fs)])) (unparse-type body)))))
 
 (defmethod unparse-type Poly
   [{:keys [nbound] :as p}]
-  (let [end-nme (+ nbound *next-nme*)
-        fs (vec 
-             (for [x (range *next-nme* end-nme)]
-               (symbol (str "v" x))))
+  (let [free-names (vec (-> p meta :free-names))
+        end-nme (if free-names
+                  *next-nme*
+                  (+ nbound *next-nme*))
+        fs (if free-names
+             free-names
+             (vec
+               (for [x (range *next-nme* end-nme)]
+                 (symbol (str "v" x)))))
         body (Poly-body* fs p)]
     (binding [*next-nme* end-nme]
       (list 'All fs (unparse-type body)))))
@@ -2674,7 +2686,6 @@
   (let [fin (cond
               (Poly? expected) (Poly-body* (repeatedly (:nbound expected) gensym) expected)
               :else expected)
-        _ (unp fin)
         _ (doseq [{:keys [required-params rest-param] :as method} methods]
             (check-fn-method method (relevant-Fns required-params rest-param fin)))]
     (assoc expr
@@ -2696,7 +2707,6 @@
                          (conj dom-local rest-local))
           res-expr (with-locals param-locals
                      (check body (Result-type* rng)))
-          _ (unp (-> res-expr expr-type))
           res-type (-> res-expr expr-type Result-type*)]
       (subtype res-type (Result-type* rng)))))
 
