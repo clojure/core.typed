@@ -1,6 +1,8 @@
 (ns typed.test.example
   (:import (clojure.lang Seqable))
-  (:require [typed.core :refer [ann inst]]))
+  (:require [typed.core :refer [ann inst cf]]
+            [clojure.repl :refer [pst]]
+            [analyze.core :refer [ast]]))
 
 (ann test1 (All [x y] [x y -> x]))
 (defn test1 [a b]
@@ -21,4 +23,4 @@
 
 (ann rest-arg1 [Number * -> Number])
 (defn rest-arg1 [& ns]
-  (apply + ns))
+  (+ (first ns)))

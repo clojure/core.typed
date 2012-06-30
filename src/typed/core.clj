@@ -6,6 +6,7 @@
                          Keyword Atom))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
+            [clojure.repl :refer [pst]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
             [clojure.tools.trace :refer [trace trace-ns]]))
@@ -47,7 +48,7 @@
 ;; Utils
 
 (defmacro defrecord [name slots inv-description invariants & etc]
-  ;only define record if symbol doesn't resolve, not completely sure if this substitutes for defonce
+  ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
   (when-not (resolve name)
     `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc)))
 
@@ -164,6 +165,9 @@
    (every? class? (keys replacements))
    (every? (some-fn Type? Scope?) (vals replacements))])
 
+(defn monomorphic-RClass [class]
+  (->RClass nil class {}))
+
 ;smart constructor
 (defn RClass* [names variances the-class replacements]
   {:pre [(every? symbol? names)
@@ -189,6 +193,13 @@
        (and (sequential? poly?)
             (every? Type? poly?)))
    (RClass? constructor)])
+
+(declare poly-RClass-from)
+
+(defn RInstance-of 
+  "Return a RInstance type, optionally parameterised"
+  ([class] (->RInstance nil (monomorphic-RClass class)))
+  ([class params] (->RInstance params (poly-RClass-from class))))
 
 (declare-type RInstance)
 
@@ -586,6 +597,11 @@
 ;Class -> RClass
 (defonce RESTRICTED-CLASS (atom {}))
 
+(defn poly-RClass-from [class]
+  (let [rclass (@RESTRICTED-CLASS class)]
+    (assert rclass (str class " not declared as polymorphic"))
+    rclass))
+
 (declare with-frees)
 
 (defn- build-replacement-syntax [m]
@@ -726,11 +742,8 @@
 
 (defn parse-rinstance-type [[cls-sym & params-syn]]
   (let [cls (resolve cls-sym)
-        _ (assert cls (str cls-sym " does not resolve to a class"))
-        rclass (@RESTRICTED-CLASS cls)
-        _ (assert rclass (str cls " not declared as polymorphic"))
         tparams (doall (map parse-type params-syn))]
-    (->RInstance tparams rclass)))
+    (RInstance-of cls tparams)))
 
 (defmethod parse-type-list 'Value
   [[Value syn]]
@@ -749,23 +762,15 @@
                                [(->Value k) (parse-type v)])))]
     (apply Un (apply concat
                      (for [opts (map #(into {} %) (comb/subsets optional))]
-                       (do 
-                         (let [m (merge mandatory opts)
-                               kss (comb/permutations (keys m))]
-                           (for [ks kss]
-                             (->HeterogeneousSeq (mapcat #(find m %) ks))))))))))
+                       (let [m (merge mandatory opts)
+                             kss (comb/permutations (keys m))]
+                         (for [ks kss]
+                           (->HeterogeneousSeq (mapcat #(find m %) ks)))))))))
 
-(defmethod parse-type-list :default
-  [syn]
-  (parse-rinstance-type syn))
+(defmethod parse-type-list :default [syn] (parse-rinstance-type syn))
 
-(defmethod parse-type Cons
-  [l]
-  (parse-type-list l))
-
-(defmethod parse-type IPersistentList
-  [l]
-  (parse-type-list l))
+(defmethod parse-type Cons [l] (parse-type-list l))
+(defmethod parse-type IPersistentList [l] (parse-type-list l))
 
 (defmulti parse-type-symbol identity)
 (defmethod parse-type-symbol 'Any [_] (->Top))
@@ -786,19 +791,9 @@
 
         :else (throw (Exception. (str "Cannot resolve type: " sym)))))))
 
-(defmethod parse-type Symbol
-  [l]
-  (parse-type-symbol l))
-
-(defmethod parse-type Boolean
-  [v]
-  (if v
-    (->True)
-    (->False)))
-
-(defmethod parse-type nil
-  [_]
-  (->Nil))
+(defmethod parse-type Symbol [l] (parse-type-symbol l))
+(defmethod parse-type Boolean [v] (if v (->True) (->False))) 
+(defmethod parse-type nil [_] (->Nil))
 
 (defn parse-function [f]
   (let [all-dom (take-while #(not= '-> %) f)
@@ -2187,6 +2182,8 @@
 (ann clojure.core/in-ns [Symbol -> nil])
 (ann clojure.core/import [(IPersistentCollection Symbol) -> nil])
 
+(ann clojure.core/+ [Number * -> Number])
+
 ;(ann clojure.core/swap! (All [x b ...] 
 ;                             [(Atom x) [x b ... b -> x] b ... b -> x]))
 
@@ -2462,7 +2459,7 @@
 
 ;apply hash-map
 (defmethod invoke-apply #'clojure.core/hash-map
-  [{[_ & args] :args :keys [fexpr args] :as expr} & [expected]]
+  [{[_ & args] :args :as expr} & [expected]]
   (let [cargs (doall (map check args))]
     (cond
       (and ((some-fn HeterogeneousVector? HeterogeneousList? HeterogeneousSeq?) 
@@ -2563,6 +2560,12 @@
 
 (defmethod invoke-special :default [& args] ::not-special)
 
+;convert apply to normal function application
+(defmethod invoke-apply :default 
+  [{[fexpr & args] :args :as expr} & [expected]]
+  (throw (Exception. "apply not implemented")))
+
+
 (defn invoke-keyword [{:keys [fexpr args] :as expr} expected]
   (let [cfexpr (check fexpr)
         cargs (doall (map check args))]
@@ -2605,16 +2608,33 @@
 
 (defn relevant-Fns
   "Given a set of required-param exprs, rest-param expr, and a Fn-Intersection,
-  returns a seq of Functions that contains function types
-  whos arities match the expr"
+  returns an (ordered) seq of Functions that contains function types
+  whos arities match the fixed and rest parameters given"
   [required-params rest-param fin]
   {:pre [(Fn-Intersection? fin)]
-   :post [(every? Function? %)]}
-  (assert (not rest-param))
-  (assert (not (some (some-fn :rest :drest) (:types fin))))
-  (filter #(= (count (:dom %))
-              (count required-params))
-          (:types fin)))
+   :post [sequential?
+          (every? Function? %)]}
+  (assert (not (some :drest (:types fin))))
+  (let [nreq (count required-params)]
+    (letfn [(relevant-rest?
+              [{:keys [dom rest drest] :as ftype}]
+              "Returns a true value if ftype matches the
+              number of required and variable parameters"
+              (let [ndom (count dom)]
+                (and (= ndom nreq)
+                     rest)))
+            (relevant-fixed?
+              [{:keys [dom rest] :as ftype}]
+              "Returns a true value if the ftype matches
+              exactly the number of required parameters. 
+              ie. has no rest parameters"
+              (let [ndom (count dom)]
+                (and (= ndom nreq)
+                     (not rest))))]
+      (let [relevant? (if rest-param
+                        relevant-rest?
+                        relevant-fixed?)]
+        (filter relevant? (:types fin))))))
 
 (declare check-fn-expr check-fn-method)
 
@@ -2654,6 +2674,7 @@
   (let [fin (cond
               (Poly? expected) (Poly-body* (repeatedly (:nbound expected) gensym) expected)
               :else expected)
+        _ (unp fin)
         _ (doseq [{:keys [required-params rest-param] :as method} methods]
             (check-fn-method method (relevant-Fns required-params rest-param fin)))]
     (assoc expr
@@ -2665,16 +2686,19 @@
   {:pre [(sequential? expected-fns)
          (seq expected-fns)
          (every? Function? expected-fns)]}
-  (assert (not rest-param))
-  (doseq [ftype expected-fns]
-    (assert (not (:rest ftype)))
-    (assert (not (:drest ftype)))
-    (let [res-expr (with-locals (zipmap (map :sym required-params) (:dom ftype))
-                     (check body (-> ftype :rng :t)))
-          res-type (if (Result? (expr-type res-expr))
-                     (-> res-expr expr-type :t)
-                     (expr-type res-expr))]
-      (subtype res-type (-> ftype :rng :t)))))
+  (doseq [{:keys [dom rng rest drest] :as ftype} expected-fns]
+    (assert (not drest))
+    (let [param-locals (let [dom-local (zipmap (map :sym required-params) dom)
+                             rest-local (when (or rest-param rest)
+                                          (assert (and rest rest-param))
+                                          [(:sym rest-param) (Un (->Nil)
+                                                                 (RInstance-of ASeq [rest]))])]
+                         (conj dom-local rest-local))
+          res-expr (with-locals param-locals
+                     (check body (Result-type* rng)))
+          _ (unp (-> res-expr expr-type))
+          res-type (-> res-expr expr-type Result-type*)]
+      (subtype res-type (Result-type* rng)))))
 
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
@@ -2731,10 +2755,14 @@
 (defmethod check :def
   [{:keys [var init init-provided] :as expr} & [expected]]
   (assert (not expected) expected)
-  (cond
-    (not init-provided) expr
-    :else
-    (check init (type-of var))))
+  (let [cexpr (cond 
+                (not init-provided) expr ;handle (declare ..)
+                :else (check init (type-of var)))]
+    (assoc cexpr
+           expr-type (RInstance-of Var))))
+
+(defmacro cf [form]
+  `(check (ast ~form)))
 
 (defn check-ns [nsym]
   (require nsym)
