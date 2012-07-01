@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [defrecord])
   (:import (clojure.lang Seqable ISeq ASeq))
   (:require [clojure.test :refer :all]
+            [analyze.core :refer [ast]]
             [typed.core :refer :all]))
 
 (deftest add-scopes-test
@@ -46,6 +47,10 @@
   (is (subtype? (parse-type 'Integer)
                 (parse-type 'Integer)))
   (is (subtype? (parse-type 'Integer)
+                (parse-type 'Object)))
+  (is (not (sub? Object Integer)))
+  (is (not (sub? Object Object)))
+  (is (subtype? (parse-type 'Integer)
                 (parse-type 'Number)))
   (is (subtype? (parse-type '(clojure.lang.Seqable Integer))
                 (parse-type '(clojure.lang.Seqable Integer))))
@@ -66,8 +71,8 @@
                 (constant-type '{:a 1 :b 2}))))
 
 (deftest subtype-top-Function
-  (is (not (subtype? (parse-type '[Integer -> Number])
-                     (In (->TopFunction))))))
+  (is (subtype? (parse-type '[Integer -> Number])
+                (In (->TopFunction)))))
 
 (deftest subtype-rec
   (is (subtype? (parse-type 'Integer)
@@ -119,21 +124,26 @@
                       (map parse-type '(Integer Double Float)))
          (parse-type '[[Double Float -> Integer] (clojure.lang.Seqable Double) (clojure.lang.Seqable Float) -> (clojure.lang.Seqable Integer)]))))
 
+;return type for an expression f
+(defmacro ety [f]
+  `(-> (ast ~f) check expr-type ret-t))
+
 (deftest tc-invoke-fn-test
-  (is (subtype? (-> (tc-t 
-                      ((typed.core/fn> [[a :- Number] [b :- Number]] b)
-                         1 2))
-                  :t)
+  (is (subtype? (ety
+                  ((typed.core/fn> [[a :- Number] [b :- Number]] b)
+                     1 2))
                 (parse-type 'Number)))
-  (is (subtype? (-> (tc-t 
-                      ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
-                                       ((typed.core/inst seq Number) a))
-                         [1 2 1.2] 1))
-                  :t)
+  (is (subtype? (ety
+                  ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
+                                   ((typed.core/inst seq Number) a))
+                     [1 2 1.2] 1))
                 (parse-type '(U nil (clojure.lang.ASeq Number)))))
-  (is (subtype? (-> (tc-t 
-                      ((typed.core/fn> [[a :- (clojure.lang.IPersistentMap Any Number)] [b :- Number]] 
-                                       ((typed.core/inst get Number) a b))
-                         {:a 1} 1))
-                  :t)
+  (is (subtype? (ety
+                  ((typed.core/fn> [[a :- (clojure.lang.IPersistentMap Any Number)] [b :- Number]] 
+                                   ((typed.core/inst get Number) a b))
+                     {:a 1} 1))
                 (parse-type '(U nil Number)))))
+
+(deftest check-do
+  (is (= (ety (do 1 2))
+         (->Value 2))))

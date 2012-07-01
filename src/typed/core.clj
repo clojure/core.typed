@@ -1864,7 +1864,8 @@
   (cond
     (Poly? ptype)
     (let [_ (assert (= (:nbound ptype) (count argtys)) "Wrong number of arguments to instantiate polymorphic type")
-          names (repeatedly (:nbound ptype) gensym)
+          names (or (-> ptype meta :free-names)
+                    (repeatedly (:nbound ptype) gensym))
           body (Poly-body* names ptype)]
       (substitute-many body argtys names))
 
@@ -1982,6 +1983,7 @@
           (<= (count (filter (some-fn Fn-Intersection? Poly? PolyDots?) %))
               1)]}
   (let [names (map gensym (range (count poly?)))
+        ;the replacement map for this type
         rplce (RClass-replacements* names constructor)
         rplce-subbed (into {} (for [[k v] rplce]
                                 [k (substitute-many v poly? names)]))
@@ -2000,7 +2002,9 @@
 (defn- subtype-rinstance-common-base 
   [{polyl? :poly? constl :constructor :as s}
    {polyr? :poly? constr :constructor :as t}]
-  {:pre [(= constl constr)]}
+  {:pre [(= constl constr)
+         (seq polyl?)
+         (seq polyr?)]}
   (let [{variances :variances} constl]
     (every? identity
             (doall (map #(case %1
@@ -2014,9 +2018,11 @@
 (defmethod subtype* [RInstance RInstance]
   [{polyl? :poly? constl :constructor :as s}
    {polyr? :poly? constr :constructor :as t}]
-  (cond 
-    (or ;same base class
+  (cond
+    (or ;same base class, polymorphic
         (and (= constl constr)
+             (seq polyl?)
+             (seq polyr?)
              (subtype-rinstance-common-base s t))
 
         ;find a supertype of s that is the same base as t, and subtype of it
@@ -2037,7 +2043,7 @@
   [s t]
   (let [sk (apply Un (map first (:types s)))
         sv (apply Un (map second (:types s)))]
-    (subtype (->RInstance [sk sv] (@RESTRICTED-CLASS IPersistentMap))
+    (subtype (RInstance-of IPersistentMap [sk sv])
              t)))
 
 
@@ -2058,8 +2064,12 @@
 (defmethod subtype* [HeterogeneousVector Type]
   [s t]
   (let [ss (apply Un (:types s))]
-    (subtype (->RInstance [ss] (@RESTRICTED-CLASS IPersistentVector))
+    (subtype (RInstance-of IPersistentVector [ss])
              t)))
+
+(defmethod subtype* [Function TopFunction]
+  [s t]
+  *sub-current-seen*)
 
 (defmethod subtype* [Function Function]
   [s t]
@@ -2273,18 +2283,23 @@
   "This record represents the result of typechecking an expression"
   [(Type? t)
    (FilterSet? fl)
-   (RObject o)])
+   (RObject? o)])
+
+(defn unparse-TCResult [r]
+  (unparse-type (ret-t r)))
 
 (defn ret
   "Convenience function for returning the type of an expression"
   ([t] (->TCResult t (->FilterSet (->TopFilter) (->TopFilter)) (->EmptyObject))))
 
 (defn ret-t [r]
-  {:pre [(TCResult? r)]}
+  {:pre [(TCResult? r)]
+   :post [Type?]}
   (:t r))
 
 (defn ret-f [r]
-  {:pre [(TCResult? r)]}
+  {:pre [(TCResult? r)]
+   :post [FilterSet?]}
   (:fl r))
 
 (def expr-type ::expr-type)
@@ -2372,13 +2387,13 @@
 
 ; Type Type^n (U nil Type) -> Type
 (defn check-app [fexpr-type arg-types expected]
+  {:pre [(or (Fn-Intersection? fexpr-type)
+             (Poly? fexpr-type))]
+   :post [Type?]}
   (assert (not expected) "TODO incorporate expected type")
   (cond
-    ((some-fn Intersection? Function?) fexpr-type)
-    (let [ftypes (if (Intersection? fexpr-type)
-                   (:types fexpr-type)
-                   [fexpr-type])
-          _ (assert (every? Function? ftypes) "Must be intersection type containing Functions")
+    (Fn-Intersection? fexpr-type)
+    (let [ftypes (:types fexpr-type)
           ;find first 
           success-type (some (fn [{:keys [dom rest drest rng] :as current}]
                                (assert (not (or drest rest)) "TODO rest arg checking")
@@ -2407,7 +2422,7 @@
 (defmethod check :var
   [{:keys [var] :as expr} & [expected]]
   (assoc expr
-         expr-type (ret (lookup-var))))
+         expr-type (ret (lookup-var var))))
 
 (defmulti invoke-special (fn [expr & args] (-> expr :fexpr :var)))
 (defmulti invoke-apply (fn [expr & args] (-> expr :args first :var)))
@@ -2421,9 +2436,9 @@
 
 ;manual instantiation
 (defmethod invoke-special #'inst-poly
-  [{:keys [fexpr args] :as expr} & [expected]]
-  (let [[pexpr targs-exprs] args
-        ptype (-> (check pexpr) expr-type Result-type*)
+  [{[pexpr targs-exprs] :args :as expr} & [expected]]
+  (let [ptype (-> (check pexpr) expr-type ret-t)
+        _ (assert (Poly? ptype))
         targs (doall (map parse-type (:val targs-exprs)))]
     (assoc expr
            expr-type (ret (manual-inst ptype targs)))))
@@ -2617,15 +2632,12 @@
       :else
       (let [cfexpr (check fexpr)
             cargs (doall (map check args))
-            ftype (let [ft (expr-type cfexpr)]
-                    (or (and (Result? ft)
-                             (:t ft))
-                        ft))
+            ftype (ret-t (expr-type cfexpr))
             actual (check-app ftype (map expr-type cargs) expected)]
         (assoc expr
                :fexpr cfexpr
                :args cargs
-               expr-type (ret actual))))))
+               expr-type (ret (Result-type* actual)))))))
 
 (defn relevant-Fns
   "Given a set of required-param exprs, rest-param expr, and a Fn-Intersection,
@@ -2680,20 +2692,17 @@
   (assert (not rest-param))
   (let [cbody (with-locals (zipmap (map :sym required-params) (:dom method-param-types))
                 (check body))
-        actual-type 
-        (->Function 
-          (:dom method-param-types)
-          (if (Result? (expr-type cbody))
-            (expr-type cbody)
-            (make-Result (expr-type cbody)))
-          nil nil)]
+        actual-type (make-Function
+                      (:dom method-param-types)
+                      (ret-t (expr-type cbody)))]
     (assoc expr
            :body cbody
            expr-type actual-type)))
 
 (defn check-fn-expr [{:keys [methods] :as expr} expected]
   (let [fin (cond
-              (Poly? expected) (Poly-body* (repeatedly (:nbound expected) gensym) expected)
+              (Poly? expected) (Poly-body* (or (-> expected meta :free-names)
+                                               (repeatedly (:nbound expected) gensym)) expected)
               :else expected)
         _ (doseq [{:keys [required-params rest-param] :as method} methods]
             (check-fn-method method (relevant-Fns required-params rest-param fin)))]
@@ -2722,10 +2731,11 @@
 
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
-  (let [cexprs (doall (map check exprs))]
+  (let [cexprs (doall (concat (map check (butlast exprs))
+                              [(check (last exprs) expected)]))]
     (assoc expr
            :exprs cexprs
-           expr-type (ret (-> cexprs last expr-type)))))
+           expr-type (-> cexprs last expr-type)))) ;should be a ret already
 
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
@@ -2783,7 +2793,7 @@
            expr-type (ret (RInstance-of Var)))))
 
 (defmacro cf [form]
-  `(check (ast ~form)))
+  `(-> (ast ~form) check expr-type unparse-TCResult))
 
 (defn check-ns [nsym]
   (require nsym)
