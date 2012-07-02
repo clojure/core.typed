@@ -469,7 +469,7 @@
   (let [unique-qkeyword (keyword (name (gensym)) (name (gensym)))] 
     `(do
        (derive ~unique-qkeyword fold-rhs-default) ;prefer unique-qkeyword methods
-       ~@(for [[t f] cases]
+       ~@(for [[t f] (apply hash-map cases)]
            `(add-fold-case ~unique-qkeyword ~ty ~f))
        (fold-rhs ~ty
                  :mode ~unique-qkeyword 
@@ -2994,9 +2994,11 @@
   (assoc expr
          expr-type (ret (constant-type coll))))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ** START PORT **
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUNCTION INFERENCE START
-
-
 
 (defn check-below [tr1 expected]
   (letfn [(filter-better? [{f1+ :then f1- :else :as f1}
@@ -3072,7 +3074,8 @@
               (cond 
                 (= i k) (if polarity (->TopFilter) (->BotFilter)))
 
-              (index-free-in? k t) (if polarity (->TopFilter) (->BotFilter))
+              (assert false "TODO index-free-in?") "TODO"
+              ;(index-free-in? k t) (if polarity (->TopFilter) (->BotFilter))
 
               (Path? o) (let [{p* :path i* :id} o]
                           (cond
@@ -3082,7 +3085,7 @@
                                       (concat p p*))))
 
               ;FIXME Redundant case??
-              (index-free-in? k t) (if polarity (->TopFilter) (->BotFilter))
+              ;(index-free-in? k t) (if polarity (->TopFilter) (->BotFilter))
               :else f))]
     (cond
       (ImpFilter? f) (let [{ant :a consq :c} f]
@@ -3121,6 +3124,23 @@
                                      (subst-filter (add-extra-filter (:else fs) k o polarity)))
         :else (->FilterSet (->TopFilter) (->TopFilter))))))
 
+(defn subst-object [t k o polarity]
+  {:pre [(RObject? t)
+         (name-ref? k)
+         (RObject? o)
+         (boolean? polarity)]
+   :post [RObject?]}
+  (cond
+    ((some-fn NoObject? EmptyObject?) t) t
+    (Path? t) (let [{p :path i :id} t]
+                (if (= i k)
+                  (cond
+                    (EmptyObject? o) (->EmptyObject)
+                    ;; the result is not from an annotation, so it isn't a NoObject
+                    (NoObject? o) (->EmptyObject)
+                    (Path? o) (let [{p* :path i* :id} o]
+                                (->Path (concat p p*) i*)))
+                  t))))
 
 (defn subst-type [t k o polarity]
    {:pre [(Type? t)
@@ -3136,6 +3156,7 @@
     (type-case {:Type st
                 :Filter sf
                 :Object (fn [f] (subst-object f k o polarity))}
+      t
       Function
       (fn [{:keys [dom rng rest drest kws] :as ty}]
         ;; here we have to increment the count for the domain, where the new bindings are in scope
@@ -3163,7 +3184,17 @@
    :post [(Type? (first %))
           (FilterSet? (second %))
           (RObject? (-> % next next first))]}
-  (reduce (fn [[o k
+  (reduce (fn [[t fs old-obj] [[o k] arg-ty]]
+            [(subst-type t k o true)
+             (subst-filter-set fs k o true arg-ty)
+             (subst-object old-obj k o true)])
+          [t fs old-obj]
+          (map vector 
+               (map-indexed #(vector %2 %1) ;racket's is opposite..
+                            objs)
+               (if ts
+                 ts
+                 (repeat false)))))
 
 
 ;Function TCResult^n (or nil TCResult) -> TCResult
@@ -3189,14 +3220,13 @@
         [o-a t-a] (for [[nm oa ta] (map vector (range arg-count) (repeatedly ->EmptyObject) (repeatedly Un))]
                     [(if (>= nm dom-count) (->EmptyObject) oa)
                      ta])
-        [t-r f-r o-r] (open-Result r o-a t-a)]
+        [t-r f-r o-r] (open-Result rng o-a t-a)]
     (ret t-r f-r o-r))))
-
 
 ; TCResult TCResult^n (U nil TCResult) -> TCResult
 (defn check-funapp [fexpr-ret-type arg-ret-types expected]
-  {:pre [(TCResult? fexpr-type)
-         (every? TCResult? arg-types)
+  {:pre [(TCResult? fexpr-ret-type)
+         (every? TCResult? arg-ret-types)
          ((some-fn nil? TCResult?) expected)]
    :post [TCResult?]}
   (assert (not expected) "TODO incorporate expected type")
@@ -3557,6 +3587,9 @@
       (subtype res-type (Result-type* rng)))))
 
 ;; FUNCTION INFERENCE END
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ** END PORT **
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
