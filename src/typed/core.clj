@@ -584,12 +584,16 @@
 (def -top (->TopFilter))
 (def -bot (->BotFilter))
 
+(declare TypeFilter? NotTypeFilter?)
+
 (def atomic-filter? (some-fn TypeFilter? NotTypeFilter?
                              TopFilter? BotFilter?))
 
 ;FIXME
 (def is-var-mutated? (constantly false))
 (def overlap (constantly true))
+
+(declare infer subst-all)
 
 (defn restrict [t1 t2 & [f]]
   (let [f (if f f 'new)]
@@ -606,6 +610,9 @@
       (Union? t2) (apply Un (map (fn [e] (restrict t1 e f)) (:types t2)))
       ;TODO other cases
       :else (if (= f 'new) t2 t1)))) ;; t2 and t1 have a complex relationship, so we punt
+
+(declare PathElem? ->TypeFilter ->NotTypeFilter ->OrFilter ->AndFilter OrFilter?
+         implied-atomic?)
 
 (defn -filter [t i & [p]]
   {:pre [(Type? t)
@@ -3206,7 +3213,6 @@
    :post [TCResult?]}
   (assert (not drest) "funapp with drest args NYI")
   (assert (empty? (:mandatory kws)) "funapp with mandatory keyword args NYI")
-  (assert 
   ;checking
   (when check
     (when (or (and (not rest) (not (= (count dom) (count argtys))))
@@ -3221,7 +3227,7 @@
                     [(if (>= nm dom-count) (->EmptyObject) oa)
                      ta])
         [t-r f-r o-r] (open-Result rng o-a t-a)]
-    (ret t-r f-r o-r))))
+    (ret t-r f-r o-r)))
 
 ; TCResult TCResult^n (U nil TCResult) -> TCResult
 (defn check-funapp [fexpr-ret-type arg-ret-types expected]
@@ -3231,7 +3237,7 @@
    :post [TCResult?]}
   (assert (not expected) "TODO incorporate expected type")
   (let [fexpr-type (ret-t fexpr-ret-type)
-        arg-types (map ret-t arg-ret-types)]
+        arg-types (doall (map ret-t arg-ret-types))]
     (cond
       ;ordinary Function
       (Fn-Intersection? fexpr-type)
@@ -3490,7 +3496,7 @@
       (let [cfexpr (check fexpr)
             cargs (doall (map check args))
             ftype (ret-t (expr-type cfexpr))
-            actual (check-funapp ftype (map (comp ret-t expr-type) cargs) expected)]
+            actual (check-funapp ftype (doall (map (comp ret-t expr-type) cargs)) expected)]
         (assoc expr
                :fexpr cfexpr
                :args cargs
