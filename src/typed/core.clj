@@ -9,7 +9,7 @@
             [clojure.repl :refer [pst]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
-            [clojure.tools.trace :refer [trace trace-ns]]))
+            [clojure.tools.trace :refer [trace trace-ns trace-vars]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint shorthands
@@ -612,7 +612,7 @@
       :else (if (= f 'new) t2 t1)))) ;; t2 and t1 have a complex relationship, so we punt
 
 (declare PathElem? ->TypeFilter ->NotTypeFilter ->OrFilter ->AndFilter OrFilter?
-         implied-atomic?)
+         implied-atomic? subst-type)
 
 (defn -filter [t i & [p]]
   {:pre [(Type? t)
@@ -1389,9 +1389,10 @@
 (derive ::frees ::any-var)
 (derive ::idxs ::any-var)
 
-(def ^:dynamic *frees-mode*)
+(def ^:dynamic *frees-mode* nil)
 (set-validator! #'*frees-mode* #(or (= ::frees %)
-                                    (= ::idxs %)))
+                                    (= ::idxs %)
+                                    (nil? %)))
 
 (defmulti frees (fn [t]
                   {:post [variance-map?]}
@@ -2019,16 +2020,15 @@
                                        :contravariant (->i-subst-starred nil (->Top)))]))
                                 S))))))]
 
-      (let [[{cmap :fixed dm :dmap}] C
+      (let [{cmap :fixed dmap* :dmap} (-> C :maps first)
+            dm (:map dmap*)
             subst (merge 
-                    (for [[k dc] dm]
-                      (cond
-                        (and (dcon? dc) 
-                             (nil? (:rest dc)))
-                        [k
-                         ]))
-                    (for [[k v] cmap]
-                      [k (->t-subst (constraint->type v var-hash))]))]
+                    (into {}
+                      (for [[k dc] dm]
+                        (assert false "TODO")))
+                    (into {}
+                      (for [[k v] cmap]
+                        [k (->t-subst (constraint->type v var-hash))])))]
         ;; verify that we got all the important variables
         (and (every? identity
                      (for [v (fv R)]
@@ -3495,8 +3495,9 @@
       :else
       (let [cfexpr (check fexpr)
             cargs (doall (map check args))
-            ftype (ret-t (expr-type cfexpr))
-            actual (check-funapp ftype (doall (map (comp ret-t expr-type) cargs)) expected)]
+            ftype (expr-type cfexpr)
+            argtys (map expr-type cargs)
+            actual (check-funapp ftype argtys expected)]
         (assoc expr
                :fexpr cfexpr
                :args cargs
