@@ -301,7 +301,7 @@
 
 (defn unfold [t]
   {:pre [(Mu? t)]
-   :post [(Type? t)]}
+   :post [(Type? %)]}
   (let [sym (gensym)
         body (Mu-body* sym t)]
     (substitute body t sym)))
@@ -438,7 +438,7 @@
 
 (defn Result-type* [r]
   {:pre [(Result? r)]
-   :post [Type?]}
+   :post [(Type? %)]}
   (:t r))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -621,7 +621,7 @@
   {:pre [(Type? t)
          (name-ref? i)
          ((some-fn nil? #(every? PathElem? %)) p)]
-   :post [Filter?]}
+   :post [(Filter? %)]}
   (if (or (= (->Top) t) (and (symbol? i) (is-var-mutated? i)))
     -top
     (->TypeFilter t p i)))
@@ -630,7 +630,7 @@
   {:pre [(Type? t)
          (name-ref? i)
          ((some-fn nil? #(every? PathElem? %)) p)]
-   :post [Filter?]}
+   :post [(Filter? %)]}
   (if (or (= (Bottom) t) (and (symbol? i) (is-var-mutated? i)))
     -top
     (->NotTypeFilter t p i)))
@@ -661,7 +661,7 @@
 (defn opposite? [f1 f2]
   {:pre [(Filter? f1)
          (Filter? f2)]
-   :post [boolean?]}
+   :post [(boolean? %)]}
   (cond
     (and (TypeFilter? f1)
          (NotTypeFilter? f2))
@@ -748,10 +748,10 @@
 
 (defn -or [& args]
   {:pre [(every? Filter? args)]
-   :post [Filter?]}
+   :post [(Filter? %)]}
   (letfn [(mk [& fs]
             {:pre [(every? Filter? fs)]
-             :post [Filter?]}
+             :post [(Filter? %)]}
             (cond
               (empty? fs) -bot
               (= 1 (count fs)) (first fs)
@@ -789,10 +789,10 @@
 
 (defn -and [& args]
   {:pre [(every? Filter? args)]
-   :post [Filter?]}
+   :post [(Filter? %)]}
   (letfn [(mk [& fs]
             {:pre [(every? Filter? fs)]
-             :post [Filter?]}
+             :post [(Filter? %)]}
             (cond
               (empty? fs) -top
               (= 1 (count fs)) (first fs)
@@ -1378,7 +1378,7 @@
 
 (defn combine-frees [& frees]
   {:pre [(every? variance-map? frees)]
-   :post [variance-map?]}
+   :post [(variance-map? %)]}
   (apply merge-with (fn [old-vari new-vari]
                       (cond 
                         (= old-vari new-vari) old-vari
@@ -1398,7 +1398,7 @@
                                     (nil? %)))
 
 (defmulti frees (fn [t]
-                  {:post [variance-map?]}
+                  {:post [(variance-map? %)]}
                   [*frees-mode* (class t)]))
 
 (defmethod frees [::any-var FilterSet]
@@ -1489,7 +1489,7 @@
     {:pre [(Type? T)
            (set? V)
            (every? F? V)]
-     :post [Type?]}
+     :post [(Type? %)]}
     (class T)))
 
 (defmulti demote 
@@ -1498,7 +1498,7 @@
     {:pre [(Type? T)
            (set? V)
            (every? F? V)]
-     :post [Type?]}
+     :post [(Type? %)]}
     (class T)))
 
 (defmethod promote F
@@ -1797,7 +1797,7 @@
          (F? var)
          (Type? S)
          (Type? T)]
-   :post [cset?]}
+   :post [(cset? %)]}
   (->cset (doall
             (for [{fmap :fixed dmap :dmap} (:maps cs)]
               (->cset-entry (assoc fmap var (->c S var T))
@@ -1806,14 +1806,14 @@
 (defn dcon-meet [dc1 dc2]
   {:pre [(dcon-c? dc1)
          (dcon-c? dc2)]
-   :post [dcon-c?]}
+   :post [(dcon-c? %)]}
   (throw (Exception. "TODO"))
   )
 
 (defn dmap-meet [dm1 dm2]
   {:pre [(dmap? dm1)
          (dmap? dm2)]
-   :post [dmap?]}
+   :post [(dmap? %)]}
   (->dmap (merge-with dcon-meet (:map dm1) (:map dm2))))
 
 ;current seen subtype relations, for recursive types
@@ -1836,7 +1836,7 @@
            (every? F? Y)
            (Type? S)
            (Type? T)]
-     :post [cset?]}
+     :post [(cset? %)]}
     [(class S) (class T)]))
 
 ;cs-gen calls cs-gen*, remembering the current subtype for recursive types
@@ -1849,7 +1849,7 @@
          (every? F? Y)
          (Type? S)
          (Type? T)]
-   :post [cset?]}
+   :post [(cset? %)]}
   (if (or (*cs-current-seen* [S T]) 
           (subtype? S T))
     ;already been around this loop, is a subtype
@@ -1967,7 +1967,7 @@
   {:pre [(cset? C)
          (every? F? Y)
          (Type? R)]
-   :post [(some-fn nil? substitution-c?)]}
+   :post [((some-fn nil? substitution-c?) %)]}
   (let [var-hash (fv-variances R)
         idx-hash (idx-variances R)]
     (letfn [
@@ -1995,7 +1995,8 @@
             ;; equivalent of the constraint (dcon null (c Bot X Top)) is okay.
             (extend-idxs [S]
               (let [fi-R (fi R)] ;free indices in R
-                (prn fi-R)
+                (prn "fi-R:" fi-R)
+                (prn "S: " S)
                 ;; If the index variable v is not used in the type, then
                 ;; we allow it to be replaced with the empty list of types;
                 ;; otherwise we error, as we do not yet know what an appropriate
@@ -2004,6 +2005,8 @@
                           (if (fi-R v)
                             (throw (Exception. "attempted to demote dotted variable"))
                             (->i-subst nil)))]
+                  ;; absent-entries is false if there's an error in the substitution, otherwise
+                  ;; it's a list of variables that don't appear in the substitution
                   (let [absent-entries
                         (reduce (fn [no-entry v]
                                   (let [entry (S v)]
@@ -2016,8 +2019,9 @@
                                       (or (i-subst? entry) 
                                           (i-subst-starred? entry)
                                           (i-subst-dotted? entry)) no-entry
-                                      :else nil)))
-                                nil Y)]
+                                      :else false)))
+                                [] Y)]
+                    (prn "absent" absent-entries)
                     (and absent-entries
                          (merge (for [missing absent-entries]
                                   (let [var (idx-hash missing :constant)]
@@ -2062,7 +2066,7 @@
          (every? F? (concat V X Y))
          (every? Type? (concat S T))
          (cset? expected-cset)]
-   :post [cset?]}
+   :post [(cset? %)]}
   (assert (= (count S) (count T)))
   (cset-meet*
     ;; We meet early to prune the csets to a reasonable size.
@@ -2089,7 +2093,7 @@
          (every? Type? T)
          ((some-fn nil? Type?) R)
          ((some-fn nil? Type?) expected)]
-   :post [(or true? cset?)]}
+   :post [((some-fn true? cset?) %)]}
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset #{} #{}))
@@ -2110,11 +2114,11 @@
     (last 
       (take (inc n) (iterate ->Scope t)))))
 
-(defn remove-scopes [n sc]
-  "Unwrap n Scopes"
+(defn remove-scopes "Unwrap n Scopes"
+  [n sc]
   {:pre [(nat? n)
          (Scope? sc)]
-   :post [Type?]}
+   :post [(Type? %)]}
   (doall
     (last
       (take (inc n) (iterate (fn [t]
@@ -2405,7 +2409,7 @@
 (defn subst-all [s t]
   {:pre [(substitution-c? s)
          (Type? t)]
-   :post [Type?]}
+   :post [(Type? %)]}
   (reduce (fn [t [{:keys [name] :as v} r]]
             (cond
               (t-subst? r) (substitute t (:type r) name)
@@ -2918,17 +2922,17 @@
 
 (defn ret-t [r]
   {:pre [(TCResult? r)]
-   :post [Type?]}
+   :post [(Type? %)]}
   (:t r))
 
 (defn ret-f [r]
   {:pre [(TCResult? r)]
-   :post [FilterSet?]}
+   :post [(FilterSet? %)]}
   (:fl r))
 
 (defn ret-o [r]
   {:pre [(TCResult? r)]
-   :post [RObject?]}
+   :post [(RObject? %)]}
   (:o r))
 
 (def expr-type ::expr-type)
@@ -3085,7 +3089,7 @@
          (name-ref? k)
          (RObject? o)
          (boolean? polarity)]
-   :post [Filter?]}
+   :post [(Filter? %)]}
   (letfn [(ap [f] (subst-filter f k o polarity))
           (tf-matcher [t p i k o polarity maker]
             (cond
@@ -3130,11 +3134,11 @@
          (name-ref? k)
          (RObject? o)
          ((some-fn nil? Type?) t)]
-   :post [FilterSet?]}
+   :post [(FilterSet? %)]}
   (let [extra-filter (if t (->TypeFilter t nil k) (->TopFilter))]
     (letfn [(add-extra-filter [f]
               {:pre [(Filter? f)]
-               :post [Filter?]}
+               :post [(Filter? %)]}
               (let [f* (->AndFilter extra-filter f)]
                 (if (BotFilter? f*)
                   f*
@@ -3149,7 +3153,7 @@
          (name-ref? k)
          (RObject? o)
          (boolean? polarity)]
-   :post [RObject?]}
+   :post [(RObject? %)]}
   (cond
     ((some-fn NoObject? EmptyObject?) t) t
     (Path? t) (let [{p :path i :id} t]
@@ -3167,11 +3171,11 @@
           (name-ref? k)
           (RObject? o)
           ((some-fn true? false?) polarity)]
-    :post [Type?]}
+    :post [(Type? %)]}
   (letfn [(st [t] (subst-type t k o polarity))
           (sf [fs] 
             {:pre [(FilterSet? fs)] 
-             :post [FilterSet?]}
+             :post [(FilterSet? %)]}
             (subst-filter-set fs k o polarity))]
     (type-case {:Type st
                 :Filter sf
@@ -3223,7 +3227,7 @@
          (every? TCResult? argtys)
          ((some-fn nil? TCResult?) expected)
          ((some-fn true? false?) check)]
-   :post [TCResult?]}
+   :post [(TCResult? %)]}
   (assert (not drest) "funapp with drest args NYI")
   (assert (empty? (:mandatory kws)) "funapp with mandatory keyword args NYI")
   ;checking
@@ -3247,7 +3251,7 @@
   {:pre [(TCResult? fexpr-ret-type)
          (every? TCResult? arg-ret-types)
          ((some-fn nil? TCResult?) expected)]
-   :post [TCResult?]}
+   :post [(TCResult? %)]}
   (assert (not expected) "TODO incorporate expected type")
   (let [fexpr-type (ret-t fexpr-ret-type)
         arg-types (doall (map ret-t arg-ret-types))]
@@ -3522,7 +3526,7 @@
   whos arities match the fixed and rest parameters given"
   [required-params rest-param fin]
   {:pre [(Fn-Intersection? fin)]
-   :post [sequential?
+   :post [(sequential? %)
           (every? Function? %)]}
   (assert (not (some :drest (:types fin))))
   (let [nreq (count required-params)]

@@ -179,7 +179,8 @@
                    (->Value 1) ;S
                    (make-F 'x))]
     (is (= (subst-gen cs #{} (make-F 'x))
-           (->Value 1)))))
+           {(make-F 'x) (->t-subst (->Value 1))
+            (make-F 'y) (->t-subst (Un))}))))
 
 ;(deftest infer-test
 ;  (is (= (infer #{(make-F 'x) (make-F 'y)} ;tv env
