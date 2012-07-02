@@ -1419,11 +1419,13 @@
   (combine-frees (frees a)
                  (frees c)))
 
-(defmethod frees [::any-var F] 
-  [t] 
+(defmethod frees [::frees F]
+  [t]
   (combine-frees {t :covariant}
                  (frees (:upper-bound t))
                  (frees (:lower-bound t))))
+
+(defmethod frees [::idxs F] [t] {})
 
 (defmethod frees [::any-var Nil] [t] {})
 (defmethod frees [::any-var True] [t] {})
@@ -1993,6 +1995,7 @@
             ;; equivalent of the constraint (dcon null (c Bot X Top)) is okay.
             (extend-idxs [S]
               (let [fi-R (fi R)] ;free indices in R
+                (prn fi-R)
                 ;; If the index variable v is not used in the type, then
                 ;; we allow it to be replaced with the empty list of types;
                 ;; otherwise we error, as we do not yet know what an appropriate
@@ -2033,6 +2036,12 @@
                     (into {}
                       (for [[k v] cmap]
                         [k (->t-subst (constraint->type v var-hash))])))]
+        (prn subst)
+        (prn (every? identity
+                     (for [v (fv R)]
+                       (let [entry (subst v)]
+                         (and entry (t-subst? entry))))))
+        (prn (extend-idxs subst))
         ;; verify that we got all the important variables
         (and (every? identity
                      (for [v (fv R)]

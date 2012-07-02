@@ -159,6 +159,9 @@
                       " << "
                       (unparse-type (:T v)))]]))))
 
+(deftest fi-test
+  (is (empty? (fi (make-F 'x)))))
+
 (deftest cs-gen-test
   (is (= (cs-gen #{} ;V
                  #{(make-F 'x) (make-F 'y)} ;X
@@ -168,6 +171,15 @@
          (->cset [(->cset-entry {(make-F 'x) (->c (->Value 1) (make-F 'x) (->Top))
                                  (make-F 'y) (->c (Un) (make-F 'y) (->Top))}
                                 (->dmap {}))]))))
+
+(deftest subst-gen-test
+  (let [cs (cs-gen #{} ;V
+                   #{(make-F 'x) (make-F 'y)} ;X
+                   #{} ;Y
+                   (->Value 1) ;S
+                   (make-F 'x))]
+    (is (= (subst-gen cs #{} (make-F 'x))
+           (->Value 1)))))
 
 ;(deftest infer-test
 ;  (is (= (infer #{(make-F 'x) (make-F 'y)} ;tv env
