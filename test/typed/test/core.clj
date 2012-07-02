@@ -147,3 +147,31 @@
 (deftest check-do
   (is (= (ety (do 1 2))
          (->Value 2))))
+
+(defn print-cset [cs]
+  (into {} (doall
+             (for [ms (:maps cs)
+                   [k v] (:fixed ms)]
+               [(unparse-type k)
+                [(str (unparse-type (:S v))
+                      " << "
+                      (unparse-type (:X v))
+                      " << "
+                      (unparse-type (:T v)))]]))))
+
+(deftest cs-gen-test
+  (is (= (cs-gen #{} ;V
+                 #{(make-F 'x) (make-F 'y)} ;X
+                 #{} ;Y
+                 (->Value 1) ;S
+                 (make-F 'x)) ;T
+         (->cset [(->cset-entry {(make-F 'x) (->c (->Value 1) (make-F 'x) (->Top))
+                                 (make-F 'y) (->c (Un) (make-F 'y) (->Top))}
+                                (->dmap {}))]))))
+
+;(deftest infer-test
+;  (is (= (infer #{(make-F 'x) (make-F 'y)} ;tv env
+;                #{}
+;                [(->Value 1) (->Value 2)] ;actual
+;                [(make-F 'x) (make-F 'y)] ;expected
+;                (make-F 'x)) ;result

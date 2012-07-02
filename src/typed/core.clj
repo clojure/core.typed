@@ -90,24 +90,27 @@
 
 (declare-type Top)
 
+;FIXME proper union maker, with sorted types
 (defrecord Union [types]
   "An flattened, unordered union of types"
   [(set? types)
    (every? Type? types)
-   (not (some Union? types))])
+   #_(not (some Union? types))])
 
 (declare-type Union)
 
-(defn Un [& types]
-  (if (= 1 (count types))
-    (first types)
-    (->Union (set (apply concat
-                         (for [t (set types)]
-                           (if (Union? t)
-                             (:types t)
-                             [t])))))))
 
-(def empty-union (Un))
+(def empty-union (->Union #{}))
+
+(defn Un [& types]
+  (cond
+    (empty? types) empty-union
+    (= 1 (count types)) (first types)
+    :else (->Union (set (apply concat
+                               (for [t (set types)]
+                                 (if (Union? t)
+                                   (:types t)
+                                   [t])))))))
 
 (defn Bottom []
   empty-union)
@@ -487,7 +490,7 @@
 
 (add-default-fold-case Union 
                        (fn [ty]
-                         (update-in ty [:types] #(map type-rec %))))
+                         (update-in ty [:types] #(set (map type-rec %)))))
 
 (add-default-fold-case Function
                        (fn [ty]
@@ -1553,12 +1556,12 @@
 (defmethod promote Union 
   [T V] 
   (-> T
-    (update-in [:types] #(mapv promote % (repeat V)))))
+    (update-in [:types] #(set (map promote % (repeat V))))))
 
 (defmethod demote Union 
   [T V] 
   (-> T
-    (update-in [:types] #(mapv demote % (repeat V)))))
+    (update-in [:types] #(set (mapv demote % (repeat V))))))
 
 (defmethod promote Intersection
   [T V] 
@@ -1838,7 +1841,8 @@
 ; Add methods to cs-gen*, but always call cs-gen
 
 (defn cs-gen [V X Y S T]
-  {:pre [(every? F? V)
+  {:pre [(every? set? [V X Y])
+         (every? F? V)
          (every? F? X)
          (every? F? Y)
          (Type? S)
@@ -2170,7 +2174,7 @@
 
 (defmethod name-to Union
   [{:keys [types]} name res]
-  (apply Un (doall (map #(name-to % name res) types))))
+  (apply Un (set (map #(name-to % name res) types))))
 
 ;(defmethod name-to RClass
 ;  [{:keys [variances the-class replacements]} name res]
@@ -2367,7 +2371,7 @@
   [u image name]
   (let [sub #(substitute % image name)]
     (-> u
-      (update-in [:types] #(doall (map sub %))))))
+      (update-in [:types] #(set (map sub %))))))
 
 (defmethod substitute Intersection
   [i image name]
@@ -2387,7 +2391,7 @@
       (update-in [:rest] #(when %
                             (sub %)))
       (update-in [:drest] #(when %
-                             (update-in % [0] sub)))))) ;dont substitute bound
+                             (update-in % [:pre-type] sub)))))) ;dont substitute bound
 
 (defn subst-all [s t]
   {:pre [(substitution-c? s)
