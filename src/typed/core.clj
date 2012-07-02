@@ -12,6 +12,14 @@
             [clojure.tools.trace :refer [trace trace-ns]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Constraint shorthands
+
+(defn hash-c? [ks-c? vs-c?]
+  (every-pred map?
+              #(every? ks-c? (keys %))
+              #(every? vs-c? (vals %))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special functions
 
 (defn inst-poly [inst-of types-syn]
@@ -80,10 +88,10 @@
 
 (declare-type Top)
 
-;TODO flatten unions
 (defrecord Union [types]
-  "An unordered union of types"
-  [(every? Type? types)
+  "An flattened, unordered union of types"
+  [(set? types)
+   (every? Type? types)
    (not (some Union? types))])
 
 (declare-type Union)
@@ -91,7 +99,11 @@
 (defn Un [& types]
   (if (= 1 (count types))
     (first types)
-    (->Union (-> types set vec))))
+    (->Union (set (apply concat
+                         (for [t (set types)]
+                           (if (Union? t)
+                             (:types t)
+                             [t])))))))
 
 (def empty-union (Un))
 
@@ -270,8 +282,13 @@
   "A recursive type containing one bound variable, itself"
   [(Scope? scope)])
 
-(declare instantiate substitute remove-scopes subtype?)
+(declare instantiate substitute remove-scopes subtype? abstract)
 
+;smart constructor
+(defn Mu* [name body]
+  (->Mu (abstract name body)))
+
+;smart destructor
 (defn Mu-body* [name t]
   {:pre [(Mu? t)
          (symbol? name)]}
@@ -390,10 +407,6 @@
 
 (declare abstract)
 
-;smart constructor
-(defn Mu* [name body]
-  (->Mu (abstract name body)))
-
 (defrecord Nil []
   "Type for nil"
   [])
@@ -422,6 +435,129 @@
   {:pre [(Result? r)]
    :post [Type?]}
   (:t r))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type Folding
+
+(def fold-rhs-default ::fold-rhs)
+
+;1. fold-rhs calls sends
+; a. Type to type-rec
+; b. Filter to filter-rec
+; c. Object to object-rec
+
+;visit a type nested inside ty. Add methods with a mode deriving ::visit-type-default 
+(defmulti fold-rhs (fn [ty & {:keys [mode] :or {mode fold-rhs-default}}]
+                     {:pre [(Type? ty)]}
+                     [mode (class ty)]))
+
+; fld-fn has type-rec, filter-rec and object-rec in scope
+(defmacro add-fold-case [mode ty fld-fn]
+  `(defmethod fold-rhs [~mode ~ty]
+     [ty# & ~'{:keys [type-rec filter-rec object-rec] 
+               :or {type-rec fold-rhs
+                    filter-rec fold-rhs
+                    object-rec fold-rhs}}]
+     (~fld-fn ty#)))
+
+(defmacro add-default-fold-case [ty fld-fn]
+  `(add-fold-case fold-rhs-default ~ty ~fld-fn))
+
+(defmacro type-case [{type-rec :Type filter-rec :Filter object-rec :Object} ty & cases]
+  (let [unique-qkeyword (keyword (name (gensym)) (name (gensym)))] 
+    `(do
+       (derive ~unique-qkeyword fold-rhs-default) ;prefer unique-qkeyword methods
+       ~@(for [[t f] cases]
+           `(add-fold-case ~unique-qkeyword ~ty ~f))
+       (fold-rhs ~ty
+                 :mode ~unique-qkeyword 
+                 ~@(concat 
+                     (when type-rec 
+                       [:type-rec type-rec])
+                     (when filter-rec 
+                       [:filter-rec filter-rec])
+                     (when object-rec
+                       [:object-rec object-rec]))))))
+
+(add-default-fold-case Intersection
+                       (fn [ty]
+                         (update-in ty [:types] #(map type-rec %))))
+
+(add-default-fold-case Union 
+                       (fn [ty]
+                         (update-in ty [:types] #(map type-rec %))))
+
+(add-default-fold-case Function
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:dom] #(map type-rec %))
+                           (update-in [:rng] type-rec)
+                           (update-in [:rest] #(when %
+                                                 (type-rec %)))
+                           (update-in [:drest] #(when %
+                                                  (-> %
+                                                    (update-in [:pre-type] type-rec)
+                                                    (update-in [:bound] identity)))))))
+
+(add-default-fold-case RInstance
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:poly?] #(when %
+                                                  (map type-rec %)))
+                           (update-in [:constructor] (fn [rclass]
+                                                       (-> rclass
+                                                         (update-in [:replacements] #(into {} (for [[k v] %]
+                                                                                                [(type-rec k) (type-rec v)])))))))))
+
+(add-default-fold-case Poly
+                       (fn [ty]
+                         (let [names (repeatedly (:nbound ty) gensym)
+                               body (Poly-body* names ty)]
+                           (Poly* names (type-rec body)))))
+
+(add-default-fold-case PolyDots
+                       (fn [ty]
+                         (let [names (repeatedly (:nbound ty) gensym)
+                               body (PolyDots-body* names ty)]
+                           (PolyDots* names (type-rec body)))))
+
+(add-default-fold-case Mu
+                       (fn [ty]
+                         (let [name (gensym)
+                               body (Mu-body* name ty)]
+                           (Mu* name (type-rec body)))))
+
+(add-default-fold-case HeterogeneousVector
+                       (fn [ty]
+                         (-> ty (update-in [:types] #(map type-rec %)))))
+
+(add-default-fold-case HeterogeneousList 
+                       (fn [ty]
+                         (-> ty (update-in [:types] #(map type-rec %)))))
+
+(add-default-fold-case HeterogeneousSeq
+                       (fn [ty]
+                         (-> ty (update-in [:types] #(map type-rec %)))))
+
+(add-default-fold-case HeterogeneousMap
+                       (fn [ty]
+                         (-> ty 
+                           (update-in [:types] #(into {} (for [[k v] %]
+                                                           [(type-rec k) (type-rec v)]))))))
+
+(add-default-fold-case Value identity)
+(add-default-fold-case Top identity)
+(add-default-fold-case TopFunction identity)
+(add-default-fold-case Nil identity)
+(add-default-fold-case True identity)
+(add-default-fold-case False identity)
+
+(add-default-fold-case Result 
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:t] type-rec)
+                           (update-in [:fl] filter-rec)
+                           (update-in [:o] object-rec))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -486,6 +622,19 @@
 (declare-filter NotTypeFilter)
 (declare-filter ImpFilter)
 (declare-filter FilterSet)
+
+(defn implied-atomic? [f1 f2]
+  (if (= f1 f2)
+    true
+    (cond
+      (OrFilter? f1) (boolean (some #(= % f2) (:fs f1)))
+      (and (TypeFilter? f1)
+           (TypeFilter? f2)) (and (= (:id f1) (:id f2))
+                                  (subtype? (:type f2) (:type f1)))
+      (and (NotTypeFilter? f1)
+           (NotTypeFilter? f2)) (and (= (:id f1) (:id f2))
+                                     (subtype? (:type f2) (:type f1)))
+      :else false)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Paths
@@ -588,6 +737,9 @@
 (set-validator! #'*dotted-scope* #(and (every? symbol? (keys %))
                                        (every? F? (vals %))))
 
+(defn bound-index? [n]
+  (contains? *dotted-scope* n))
+
 (defmacro with-dotted [dvar & body]
   `(binding [*dotted-scope* (conj *dotted-scope* [(:name ~dvar) ~dvar])]
      ~@body))
@@ -632,6 +784,9 @@
 (def ^:dynamic *free-scope* {})
 (set-validator! #'*free-scope* #(and (every? symbol? (keys %))
                                      (every? F? (vals %))))
+
+(defn bound-tvar? [name]
+  (contains? *free-scope* name))
 
 (defmacro with-frees [frees & body]
   `(let [m# (zipmap (map :name ~frees) ~frees)]
@@ -955,16 +1110,21 @@
   (binding [*frees-mode* ::frees]
     (frees t)))
 
+(defn idx-variances 
+  "Map of indexes to their variances"
+  [t]
+  (binding [*frees-mode* ::idxs]
+    (frees t)))
+
 (defn fv 
   "All frees in type"
   [t]
   (keys (fv-variances t)))
 
-(defn idxs 
+(defn fi
   "All index variables in type (dotted bounds, etc.)"
   [t]
-  (binding [*frees-mode* ::idxs]
-    (keys (frees t))))
+  (keys (idx-variances t)))
 
 (def variance-map?
   #(and (every? (some-fn F? B?) (keys %))
@@ -1085,19 +1245,19 @@
 (defmulti promote 
   "Eliminate all variables V in t by promotion"
   (fn [T V] 
-    {:pre [(set? V)
+    {:pre [(Type? T)
+           (set? V)
            (every? F? V)]
-     :post [set?
-            (every? F? %)]}
+     :post [Type?]}
     (class T)))
 
 (defmulti demote 
   "Eliminate all variables V in T by demotion"
   (fn [T V]
-    {:pre [(set? V)
+    {:pre [(Type? T)
+           (set? V)
            (every? F? V)]
-     :post [set?
-            (every? F? %)]}
+     :post [Type?]}
     (class T)))
 
 (defmethod promote F
@@ -1261,68 +1421,159 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint Generation
 
-(def Constraint ::constraint)
-
-(defn Constraint? [a]
-  (isa? a Constraint))
-
-(defn declare-constraint [a]
-  (derive a Constraint))
-
-(defrecord EqConstraint [type]
-  "A type constraint that must equal exact type"
+(defrecord t-subst [type]
+  ""
   [(Type? type)])
-(defrecord SubConstraint [lower upper]
+
+(defrecord i-subst [types]
+  ""
+  [(every? Type? types)])
+
+(defrecord i-subst-starred [types starred]
+  ""
+  [(every? Type? types)
+   (Type? starred)])
+
+(defrecord i-subst-dotted [types dty dbound]
+  ""
+  [(every? Type? types)
+   (Type? dty)
+   (F? dbound)])
+
+(def subst-rhs? (some-fn t-subst? i-subst? i-subst-starred? i-subst-dotted?))
+
+(def substitution-c? (every-pred map? 
+                                 #(every? F? (keys %)) 
+                                 #(every? subst-rhs? (vals %))))
+
+(defrecord c [S X T]
   "A type constraint within an upper and lower bound"
-  [(Type? lower)
-   (Type? upper)])
+  [(Type? S)
+   (F? X)
+   (Type? T)])
 
-(declare-constraint EqConstraint)
-(declare-constraint SubConstraint)
+;; fixed : Listof[c]
+;; rest : option[c]
+;; a constraint on an index variable
+;; the index variable must be instantiated with |fixed| arguments, each meeting the appropriate constraint
+;; and further instantions of the index variable must respect the rest constraint, if it exists
+(defrecord dcon [fixed rest]
+  ""
+  [(every? c? fixed)
+   (or (nil? rest)
+       (c? rest))])
 
-(defmulti intersect-cs-fn 
-  "Intersects two constraints"
-  (fn [a b] [(class a) (class b)]))
+(defrecord dcon-exact [fixed rest]
+  ""
+  [(every? c? fixed)
+   (c? rest)])
 
-(defmethod intersect-cs-fn [EqConstraint EqConstraint]
-  [a b]
-  (assert (= a b))
-  a)
+(defrecord dcon-dotted [fixed type bound]
+  ""
+  [(every? c? fixed)
+   (c? Type)
+   (F? bound)])
 
-(defmethod intersect-cs-fn [EqConstraint SubConstraint]
-  [a b]
-  (assert (and (subtype? (:lower b) (:type a))
-               (subtype? (:type a) (:upper b))))
-  a)
+(def dcon-c? (some-fn dcon? dcon-exact? dcon-dotted?))
 
-(defmethod intersect-cs-fn [SubConstraint EqConstraint]
-  [b a]
-  (assert (and (subtype? (:lower b) (:type a))
-               (subtype? (:type a) (:upper b))))
-  a)
+;; map : hash mapping index variables to dcons
+(defrecord dmap [map]
+  ""
+  [(map? map)
+   (every? F? (keys map))
+   (every? dcon-c? (vals map))])
 
-(defmethod intersect-cs-fn [SubConstraint SubConstraint]
-  [a b]
-  (let [j (Un (:lower a) (:lower b))
-        m (In (:upper a) (:upper b))]
-    (->SubConstraint j m)))
+(defrecord cset-entry [fixed dmap]
+  ""
+  [(map? fixed)
+   (every? F? (keys fixed))
+   (every? c? (vals fixed))
+   (dmap? dmap)])
 
-(defn intersect-cs 
-  "Intersect a number of constraints"
-  [& cs]
-  (merge-with intersect-cs-fn cs))
+;; maps is a list of pairs of
+;;    - functional maps from vars to c's
+;;    - dmaps (see dmap.rkt)
+;; we need a bunch of mappings for each cset to handle case-lambda
+;; because case-lambda can generate multiple possible solutions, and we
+;; don't want to rule them out too early
+(defrecord cset [maps]
+  ""
+  [(every? cset-entry? maps)])
 
-(defn empty-cs 
-  "Returns a constraint set constraining variables xs to
-  Bot <: x <: Top"
-  [xs]
-  (zipmap xs (repeat (->SubConstraint (Bottom) (->Top)))))
 
-(defn singleton-cs 
-  "Returns a constraint set constraining variables xs to
-  Bot <: x <: Top and constraining variable v to constraint c"
-  [xs v c]
-  (intersect-cs (empty-cs xs) {v c}))
+;widest constraint possible
+(defn no-constraint [v]
+  (->c (Un) v (->Top)))
+
+;; Create an empty constraint map from a set of type variables X and
+;; index variables Y.  For now, we add the widest constraints for
+;; variables in X to the cmap and create an empty dmap.
+(defn empty-cset [X Y]
+  (->cset [(->cset-entry (into {} (for [x X] [x (no-constraint x)]))
+                         (->dmap {}))]))
+
+(defn meet [s t] (In s t))
+(defn join [s t] (Un s t))
+
+(declare subtype type-error)
+
+(defn c-meet [{S  :S X  :X T  :T :as c1}
+              {S* :S X* :X T* :T :as c2}
+              & {:keys [var]}]
+  (when-not (or var (= X X*))
+    (throw (Exception. (str "Non-matching vars in c-meet:" X X*))))
+  (let [S (join S S*)
+        T (meet T T*)]
+    (when-not (subtype S T)
+      (type-error S T))
+    (->c S (or var X) T)))
+
+(declare dmap-meet)
+
+(defn cset-meet [{maps1 :maps :as x} {maps2 :maps :as y}]
+  {:pre [(cset? x)
+         (cset? y)]}
+  (let [maps (doall (for [[{map1 :fixed dmap1 :dmap} {map2 :fixed dmap2 :dmap}] (map vector maps1 maps2)]
+                      (->cset-entry (merge-with c-meet map1 map2)
+                                    (dmap-meet dmap1 dmap2))))]
+    (when (empty? maps)
+      (throw (Exception. (str "No meet found for csets"))))
+    (->cset maps)))
+
+(defn cset-meet* [args]
+  (reduce (fn [a c] (cset-meet a c))
+          (->cset [(->cset-entry {} (->dmap {}))])
+          args))
+
+(defn cset-combine [l]
+  {:pre [(every? cset? l)]}
+  (let [mapss (map :maps l)]
+    (->cset (apply concat mapss))))
+
+;add new constraint to existing cset
+(defn insert-constraint [cs var S T]
+  {:pre [(cset? cs)
+         (F? var)
+         (Type? S)
+         (Type? T)]
+   :post [cset?]}
+  (->cset (doall
+            (for [{fmap :fixed dmap :dmap} (:maps cs)]
+              (->cset-entry (assoc fmap var (->c S var T))
+                            dmap)))))
+
+(defn dcon-meet [dc1 dc2]
+  {:pre [(dcon-c? dc1)
+         (dcon-c? dc2)]
+   :post [dcon-c?]}
+  (throw (Exception. "TODO"))
+  )
+
+(defn dmap-meet [dm1 dm2]
+  {:pre [(dmap? dm1)
+         (dmap? dm2)]
+   :post [dmap?]}
+  (->dmap (merge-with dcon-meet (:map dm1) (:map dm2))))
 
 ;current seen subtype relations, for recursive types
 ;(Set [Type Type])
@@ -1337,104 +1588,122 @@
 ;; implements the V |-_X S <: T => C judgment from Pierce+Turner, extended with
 ;; the index variables from the TOPLAS paper
 (defmulti cs-gen*
-  (fn [V X Y S T] [(class S) (class T)]))
+  (fn [V X Y S T] 
+    {:pre [(every? set? [V X Y])
+           (every? F? V)
+           (every? F? X)
+           (every? F? Y)
+           (Type? S)
+           (Type? T)]
+     :post [cset?]}
+    [(class S) (class T)]))
 
 ;cs-gen calls cs-gen*, remembering the current subtype for recursive types
 ; Add methods to cs-gen*, but always call cs-gen
 
 (defn cs-gen [V X Y S T]
-  (cond 
+  {:pre [(every? F? V)
+         (every? F? X)
+         (every? F? Y)
+         (Type? S)
+         (Type? T)]
+   :post [cset?]}
+  (if (or (*cs-current-seen* [S T]) 
+          (subtype? S T))
     ;already been around this loop, is a subtype
-    (*cs-current-seen* [S T]) 
-    (empty-cs X)
-
-    ;already a subtype
-    (subtype? S T)
-    (empty-cs X)
-
-    (Top? T)
-    (empty-cs X)
-
-    ;constrain *each* element of S to be below T, and then combine the constraints
-    (Union? S)
-    (apply intersect-cs 
-           (empty-cs X)
-           (mapv #(cs-gen V X Y % T) (:types S)))
-
-    ;; find *an* element of S which can be made to be a supertype of S
-    (Union? T)
-    (if-let [cs (some #(try (cs-gen V X Y S %)
-                         (catch IllegalArgumentException e
-                           (throw e))
-                         (catch Exception e)) ;TODO specialised data Exceptions
-                      (:types T))]
-      cs
-      (throw (Exception. "")))
-
-    ;; find *an* element of S which can be made to be a subtype of T
-    (Intersection? S)
-    (if-let [cs (some #(try (cs-gen V X Y % T)
-                         (catch IllegalArgumentException e
-                           (throw e))
-                         (catch Exception e)) ;TODO specialised data Exceptions
-                      (:types T))]
-      cs
-      (throw (Exception. "")))
-
-    ;constrain *each* element of T to be above S, and then combine the constraints
-    (Intersection? T)
-    (apply intersect-cs 
-           (empty-cs X)
-           (mapv #(cs-gen V X Y S %) (:types T)))
-
-    :else
+    (empty-cset X Y)
     (binding [*cs-current-seen* (conj *cs-current-seen* [S T])]
-      (cs-gen* V X Y S T))))
+      (cond
+        (Top? T)
+        (empty-cset X Y)
+
+        ;constrain *each* element of S to be below T, and then combine the constraints
+        (Union? S)
+        (cset-meet*
+          (cons (empty-cset X Y)
+                (mapv #(cs-gen V X Y % T) (:types S))))
+
+        ;; find *an* element of S which can be made to be a supertype of S
+        (Union? T)
+        (if-let [cs (some #(try (cs-gen V X Y S %)
+                             (catch IllegalArgumentException e
+                               (throw e))
+                             (catch Exception e)) ;TODO specialised data Exceptions
+                          (:types T))]
+          cs
+          (throw (Exception. "")))
+
+        ;; find *an* element of S which can be made to be a subtype of T
+        (Intersection? S)
+        (if-let [cs (some #(try (cs-gen V X Y % T)
+                             (catch IllegalArgumentException e
+                               (throw e))
+                             (catch Exception e)) ;TODO specialised data Exceptions
+                          (:types T))]
+          cs
+          (throw (Exception. "")))
+
+        ;constrain *each* element of T to be above S, and then combine the constraints
+        (Intersection? T)
+        (cset-meet*
+          (cons (empty-cset X Y)
+                (mapv #(cs-gen V X Y S %) (:types T))))
+
+        :else
+        (cs-gen* V X Y S T)))))
 
 (defmethod cs-gen* :default
   [V X Y S T]
   (assert (subtype? S T))
-  (empty-cs X))
+  (empty-cset X Y))
 
 (defmethod cs-gen* [Type Top] 
   [V X Y S T] 
-  (empty-cs X))
+  (empty-cset X Y))
 
 (defmethod cs-gen* [RInstance RInstance] 
   [V X Y S T]
   (assert (= (:constructor S) (:constructor T)))
   (assert (= (count (:poly? S))
              (count (:poly? T))))
-  (apply intersect-cs
-         (empty-cs X)
-         (for [[vari si ti] (map vector
-                                 (-> T :constructor :variances)
-                                 (:poly? S)
-                                 (:poly? T))]
-           (case vari
-             (:covariant :constant) (cs-gen V X Y si ti)
-             :contravariant (cs-gen V X Y ti si)
-             :invariant (intersect-cs (cs-gen V X Y si ti)
-                                      (cs-gen V X Y ti si))))))
+  (cset-meet*
+    (cons (empty-cset X Y)
+          (for [[vari si ti] (map vector
+                                  (-> T :constructor :variances)
+                                  (:poly? S)
+                                  (:poly? T))]
+            (case vari
+              (:covariant :constant) (cs-gen V X Y si ti)
+              :contravariant (cs-gen V X Y ti si)
+              :invariant (cset-meet (cs-gen V X Y si ti)
+                                    (cs-gen V X Y ti si)))))))
 
 (defmethod cs-gen* [F Type]
   [V X Y S T]
-  (assert (X S))
-  (assert (empty? (set/intersection X (fv T))))
-  (let [dt (demote T)]
-    (singleton-cs X S (->SubConstraint (Bottom) dt))))
+  (assert (X S) S)
+  (when (and (F? T)
+             (bound-index? (:name T))
+             (not (bound-tvar? (:name T))))
+    (type-error S T))
+  (let [dt (demote T V)]
+    (insert-constraint (empty-cset X Y)
+                       S (Bottom) dt)))
 
 (defmethod cs-gen* [Type F]
   [V X Y S T]
-  (assert (X T))
-  (assert (empty? (set/intersection X (fv S))))
-  (let [ps (promote S)]
-    (singleton-cs X T (->SubConstraint ps (->Top)))))
+  (assert (X T) T)
+  (when (and (F? S)
+             (bound-index? (:name S))
+             (not (bound-tvar? (:name S))))
+    (type-error S T))
+  (let [ps (promote S V)]
+    (insert-constraint (empty-cset X Y) 
+                       T ps (->Top))))
 
 (defmethod cs-gen* [F F]
   [V X Y S T]
   (assert (= S T))
-  (empty-cs X))
+  (empty-cset X Y))
 
 (defmethod cs-gen* [Function Function]
   [V X Y S T]
@@ -1444,11 +1713,94 @@
              (boolean (:rest T))))
   (assert (not (or (:drest S)
                    (:drest T))))
-  (apply intersect-cs (concat (map #(cs-gen V X Y %1 %2) (:dom T) (:dom S))
-                              [(cs-gen V X Y (:rng S) (:rng T))]
-                              (when (:rest S)
-                                [(cs-gen V X Y (:rest T) (:rest S))]))))
-(comment
+  (cset-meet* (concat (map #(cs-gen V X Y %1 %2) (:dom T) (:dom S))
+                      [(cs-gen V X Y (:rng S) (:rng T))]
+                      (when (:rest S)
+                        [(cs-gen V X Y (:rest T) (:rest S))]))))
+
+;; C : cset? - set of constraints found by the inference engine
+;; Y : (listof symbol?) - index variables that must have entries
+;; R : Type? - result type into which we will be substituting
+(defn subst-gen [C Y R]
+  {:pre [(cset? C)
+         (every? F? Y)
+         (Type? R)]
+   :post [(some-fn nil? substitution-c?)]}
+  (let [var-hash (fv-variances R)
+        idx-hash (idx-variances R)]
+    (letfn [
+            ;; v : Symbol - variable for which to check variance
+            ;; h : (Hash F Variance) - hash to check variance in (either var or idx hash)
+            ;; variable: Symbol - variable to use instead, if v was a temp var for idx extension
+            (constraint->type [{:keys [S X T] :as v} h & {:keys [variable]}]
+              {:pre [(c? v)
+                     (variance-map? h)
+                     ((some-fn nil? F?) variable)]}
+              (let [var (h (or variable X) :constant)]
+                (case var
+                  (:constant :covariant) S
+                  :contravariant T
+                  :invariant S)))
+            ;TODO implement generalize
+            ;                  (let [gS (generalize S)]
+            ;                    (if (subtype? gS T)
+            ;                      gS
+            ;                      S))
+
+            ;; Since we don't add entries to the empty cset for index variables (since there is no
+            ;; widest constraint, due to dcon-exacts), we must add substitutions here if no constraint
+            ;; was found.  If we're at this point and had no other constraints, then adding the
+            ;; equivalent of the constraint (dcon null (c Bot X Top)) is okay.
+            (extend-idxs [S]
+              (let [fi-R (fi R)] ;free indices in R
+                ;; If the index variable v is not used in the type, then
+                ;; we allow it to be replaced with the empty list of types;
+                ;; otherwise we error, as we do not yet know what an appropriate
+                ;; lower bound is.
+                (letfn [(demote-check-free [v]
+                          (if (fi-R v)
+                            (throw (Exception. "attempted to demote dotted variable"))
+                            (->i-subst nil)))]
+                  (let [absent-entries
+                        (reduce (fn [no-entry v]
+                                  (let [entry (S v)]
+                                    ;; Make sure we got a subst entry for an index var
+                                    ;; (i.e. a list of types for the fixed portion
+                                    ;;  and a type for the starred portion)
+                                    (cond
+                                      (not no-entry) no-entry
+                                      (not entry) (cons v no-entry)
+                                      (or (i-subst? entry) 
+                                          (i-subst-starred? entry)
+                                          (i-subst-dotted? entry)) no-entry
+                                      :else nil)))
+                                nil Y)]
+                    (and absent-entries
+                         (merge (for [missing absent-entries]
+                                  (let [var (idx-hash missing :constant)]
+                                    [missing
+                                     (case var
+                                       (:constant :covariant :invariant) (demote-check-free missing)
+                                       :contravariant (->i-subst-starred nil (->Top)))]))
+                                S))))))]
+
+      (let [[{cmap :fixed dm :dmap}] C
+            subst (merge 
+                    (for [[k dc] dm]
+                      (cond
+                        (and (dcon? dc) 
+                             (nil? (:rest dc)))
+                        [k
+                         ]))
+                    (for [[k v] cmap]
+                      [k (->t-subst (constraint->type v var-hash))]))]
+        ;; verify that we got all the important variables
+        (and (every? identity
+                     (for [v (fv R)]
+                       (let [entry (subst v)]
+                         (and entry (t-subst? entry)))))
+             (extend-idxs subst))))))
+
 ;; V : a set of variables not to mention in the constraints
 ;; X : the set of type variables to be constrained
 ;; Y : the set of index variables to be constrained
@@ -1457,15 +1809,20 @@
 ;; expected-cset : a cset representing the expected type, to meet early and
 ;;  keep the number of constraints in check. (empty by default)
 ;; produces a cset which determines a substitution that makes the Ss subtypes of the Ts
-(defn cs-gen-list [V X Y S T & {:keys [expected-cset] :or {expected-cset (empty-cs #{})}}]
-  {:pre [(every? F? [V X Y])
-         (every? Type? [S T])]}
+(defn cs-gen-list [V X Y S T & {:keys [expected-cset] :or {expected-cset (empty-cset #{} #{})}}]
+  {:pre [(every? set? [V X Y])
+         (every? F? (concat V X Y))
+         (every? Type? (concat S T))
+         (cset? expected-cset)]
+   :post [cset?]}
   (assert (= (count S) (count T)))
-  (apply intersect-cs 
-         ;; We meet (intersect) early to prune the csets to a reasonable size.
-         ;; This weakens the inference a bit, but sometimes avoids
-         ;; constraint explosion.
-         (map #(intersect-cs (cgen V X Y %1 %2)) expected-cset)))
+  (cset-meet*
+    ;; We meet early to prune the csets to a reasonable size.
+    ;; This weakens the inference a bit, but sometimes avoids
+    ;; constraint explosion.
+    (doall 
+      (for [[s t] (map vector S T)]
+        (cset-meet (cs-gen V X Y s t) expected-cset)))))
 
 ;; X : variables to infer
 ;; Y : indices to infer
@@ -1474,19 +1831,26 @@
 ;; R : result type
 ;; expected : #f or the expected type
 ;; returns a substitution
-;; if R is #f, we don't care about the substituion
+;; if R is nil, we don't care about the substituion
 ;; just return a boolean result
 (defn infer [X Y S T R & [expected]]
+  {:pre [(every? set? [X Y])
+         (every? F? X)
+         (every? F? Y)
+         (every? Type? S)
+         (every? Type? T)
+         ((some-fn nil? Type?) R)
+         ((some-fn nil? Type?) expected)]
+   :post [(or true? cset?)]}
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
-                        (empty-cs #{}))
+                        (empty-cset #{} #{}))
         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
-        cs* (intersect-cs cs expected-cset)]
+        cs* (cset-meet cs expected-cset)]
     (if R
       (subst-gen cs* Y R)
-      true)
-))
-)
+      true)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
 
@@ -1790,6 +2154,17 @@
       (update-in [:drest] #(when %
                              (update-in % [0] sub)))))) ;dont substitute bound
 
+(defn subst-all [s t]
+  {:pre [(substitution-c? s)
+         (Type? t)]
+   :post [Type?]}
+  (reduce (fn [t [{:keys [name] :as v} r]]
+            (cond
+              (t-subst? r) (substitute t (:type r) name)
+              :else (throw (Exception. "TODO,implement other substitutions"))))
+          t
+          s))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dotted pre-type expansion
 
@@ -1946,7 +2321,7 @@
           *sub-current-seen*
           (type-error s t))
 
-        :else (subtype? s t)))))
+        :else (subtype* s t)))))
 
 (defn subtype [s t]
   (subtypeA* *sub-current-seen* s t))
@@ -1970,9 +2345,7 @@
 (defmethod subtype* [Value RInstance]
   [{val :val} t]
   (let [cls (class val)]
-    (subtype (->RInstance nil (or (@RESTRICTED-CLASS cls)
-                                  (->RClass nil cls {})))
-             t)))
+    (subtype (RInstance-of cls) t)))
 
 (defn- RInstance-supers* 
   "Return a set of Types that are the super-Types
@@ -2002,33 +2375,34 @@
 (defn- subtype-rinstance-common-base 
   [{polyl? :poly? constl :constructor :as s}
    {polyr? :poly? constr :constructor :as t}]
-  {:pre [(= constl constr)
-         (seq polyl?)
-         (seq polyr?)]}
+  {:pre [(= constl constr)]}
   (let [{variances :variances} constl]
-    (every? identity
-            (doall (map #(case %1
-                           :covariant (subtype? %2 %3)
-                           :contravariant (subtype? %3 %2)
-                           (= %2 %3))
-                        variances
-                        polyl?
-                        polyr?)))))
+    (or (when (and (empty? polyl?) (empty? polyr?))
+          (= constl constr))
+
+        (and (seq polyl?)
+             (seq polyr?)
+             (every? identity
+                     (doall (map #(case %1
+                                    :covariant (subtype? %2 %3)
+                                    :contravariant (subtype? %3 %2)
+                                    (= %2 %3))
+                                 variances
+                                 polyl?
+                                 polyr?)))))))
 
 (defmethod subtype* [RInstance RInstance]
   [{polyl? :poly? constl :constructor :as s}
    {polyr? :poly? constr :constructor :as t}]
   (cond
-    (or ;same base class, polymorphic
+    (or ;same base class
         (and (= constl constr)
-             (seq polyl?)
-             (seq polyr?)
              (subtype-rinstance-common-base s t))
 
         ;find a supertype of s that is the same base as t, and subtype of it
         (some #(and (= constr (:constructor %))
                     (subtype-rinstance-common-base % t))
-              (RInstance-supers* s)))
+              (RInstance-supers* s))) ;FIXME should conj with Object as a special case to add as parent? Is it needed?
     *sub-current-seen*
 
     ;try each ancestor
@@ -2285,6 +2659,8 @@
    (FilterSet? fl)
    (RObject? o)])
 
+(declare ret-t)
+
 (defn unparse-TCResult [r]
   (unparse-type (ret-t r)))
 
@@ -2301,6 +2677,11 @@
   {:pre [(TCResult? r)]
    :post [FilterSet?]}
   (:fl r))
+
+(defn ret-o [r]
+  {:pre [(TCResult? r)]
+   :post [RObject?]}
+  (:o r))
 
 (def expr-type ::expr-type)
 
@@ -2385,39 +2766,188 @@
   (assoc expr
          expr-type (ret (constant-type coll))))
 
-; Type Type^n (U nil Type) -> Type
-(defn check-app [fexpr-type arg-types expected]
-  {:pre [(or (Fn-Intersection? fexpr-type)
-             (Poly? fexpr-type))]
-   :post [Type?]}
+;; FUNCTION INFERENCE START
+
+
+
+(defn check-below [tr1 expected]
+  (letfn [(filter-better? [{f1+ :then f1- :else :as f1}
+                           {f2+ :then f2- :else :as f2}]
+            {:pre [(Filter? f1)
+                   (Filter? f2)]}
+            (cond
+              (= f1 f2) true
+              (and (implied-atomic? f2+ f1+)
+                   (implied-atomic? f2- f1-)) true
+              :else false))
+          (object-better? [o1 o2]
+            (cond
+              (= o1 o2) true
+              ((some-fn NoObject? EmptyObject?) o2) true
+              :else false))]
+    (cond
+      ;Top filter and and objects expected
+      (and (TCResult? tr1)
+           (TCResult? expected)
+           (= (->FilterSet (->TopFilter) (->TopFilter))
+              (ret-f expected))
+           (= (->EmptyObject)
+              (ret-o expected)))
+      (do
+        (subtype (ret-t tr1) (ret-t expected))
+        expected)
+
+      ;Have to compare filters and objects
+      (and (TCResult? tr1)
+           (TCResult? expected))
+      (let [{t1 :t f1 :fl o1 :o} tr1
+            {t2 :t f2 :fl o2 :o} expected]
+        (subtype t1 t2)
+        (cond
+          (and (not (filter-better? f1 f2))
+               (object-better? o1 o2))
+          (throw (Exception. (str "Expected result with filter " f2 " but found" f1)))
+          (and (filter-better? f1 f2)
+               (not (object-better? o1 o2)))
+          (throw (Exception. (str "Expected result with object " o2 " but found" o1)))
+          (and (not (filter-better? f1 f2))
+               (not (object-better? o1 o2)))
+          (throw (Exception. (str "Expected result with filter " f2 " and object " o2 
+                                  " but found filter " f1 " and object " o1)))
+          :else expected))
+
+      (and (TCResult? tr1)
+           (Type? expected))
+      (do (subtype (ret-t tr1) expected)
+        (ret-t tr1))
+
+      (and (Type? tr1)
+           (TCResult? expected))
+      (throw (Exception. "Expected filters"))
+
+      (and (Type? tr1)
+           (Type? expected))
+      (do (subtype tr1 expected)
+        tr1))))
+
+(defn subst-type [t k o polarity]
+  (letfn [(st [t] (subst-type t k o polarity))
+          (sf [fs] 
+            {:pre [(FilterSet? fs)] 
+             :post [FilterSet?]}
+            (subst-filter-set fs k o polarity))]
+    (type-case {:Type st
+                :Filter sf
+                :Object (fn [f] (subst-object f k o polarity))}
+      Function
+      (fn [{:keys [dom rng rest drest kws] :as ty}]
+        ;; here we have to increment the count for the domain, where the new bindings are in scope
+        (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (:mandatory kws)) (count (:optional kws)))
+              st* (if (integer? k)
+                    (fn [t] (subst-type t (if (number? k) (+ arg-count k) k) o polarity))
+                    st)]
+          (->Function (map st dom)
+                      (st* rng)
+                      (and rest (st rest))
+                      (when drest
+                        (-> drest
+                          (update-in [:pre-type] st)))
+                      (when kws
+                        (-> kws
+                          (update-in [:mandatory] #(into {} (for [[k v] %]
+                                                              [(st k) (st v)])))
+                          (update-in [:optional] #(into {} (for [[k v] %]
+                                                             [(st k) (st v)])))))))))))
+
+(defn open-Result [{t :t fs :fl old-obj :o :as r} objs & {:keys [ts] :or {ts false}}]
+  {:pre [(TCResult? r)
+         (every? RObject? objs)
+         ((some-fn nil? #(every? Type? %)) ts)]
+   :post [(Type? (first %))
+          (FilterSet? (second %))
+          (RObject? (-> % next next first))]}
+  (reduce (fn [[o k
+
+
+;Function TCResult^n (or nil TCResult) -> TCResult
+(defn check-funapp1 [{:keys [dom rng rest drest kws] :as ftype0} argtys expected & {:keys [check] :or {check true}}]
+  {:pre [(Function? ftype0)
+         (every? TCResult? argtys)
+         ((some-fn nil? TCResult?) expected)
+         ((some-fn true? false?) check)]
+   :post [TCResult?]}
+  (assert (not drest) "funapp with drest args NYI")
+  (assert (empty? (:mandatory kws)) "funapp with mandatory keyword args NYI")
+  (assert 
+  ;checking
+  (when check
+    (when (or (and (not rest) (not (= (count dom) (count argtys))))
+              (and rest (< (count argtys) (count dom))))
+      (throw (Exception. (str "Wrong number of arguments, expected " (count dom) " and got "(count argtys)))))
+    (doall
+      (for [[arg-t dom-t] (map vector (map ret-t argtys) (concat dom (when rest (repeat rest))))]
+        (check-below arg-t dom-t))))
+  (let [dom-count (count dom)
+        arg-count (+ dom-count (if rest 1 0) (count (:optional kws)))
+        [o-a t-a] (for [[nm oa ta] (map vector (range arg-count) (repeatedly ->EmptyObject) (repeatedly Un))]
+                    [(if (>= nm dom-count) (->EmptyObject) oa)
+                     ta])
+        [t-r f-r o-r] (open-Result r o-a t-a)]
+    (ret t-r f-r o-r))))
+
+
+; TCResult TCResult^n (U nil TCResult) -> TCResult
+(defn check-funapp [fexpr-ret-type arg-ret-types expected]
+  {:pre [(TCResult? fexpr-type)
+         (every? TCResult? arg-types)
+         ((some-fn nil? TCResult?) expected)]
+   :post [TCResult?]}
   (assert (not expected) "TODO incorporate expected type")
-  (cond
-    (Fn-Intersection? fexpr-type)
-    (let [ftypes (:types fexpr-type)
-          ;find first 
-          success-type (some (fn [{:keys [dom rest drest rng] :as current}]
-                               (assert (not (or drest rest)) "TODO rest arg checking")
-                               (and (= (count dom)
-                                       (count arg-types))
-                                    (every? true? (map subtype? arg-types dom))
-                                    (if expected
-                                      (subtype? rng expected)
-                                      true)
-                                    rng))
-                             ftypes)
-          _ (when-not success-type
-              ;just report first function
-              (throw (Exception.
-                       (str "Cannot supply arguments " (with-out-str (pr (map unparse-type arg-types)))
-                            " to Function " (with-out-str (pr (unparse-type fexpr-type)))
-                            (when expected
-                              (str " with expected type " (with-out-str (prn (unparse-type expected)))))))))]
-      success-type)
+  (let [fexpr-type (ret-t fexpr-ret-type)
+        arg-types (map ret-t arg-ret-types)]
+    (cond
+      ;ordinary Function
+      (Fn-Intersection? fexpr-type)
+      (let [ftypes (:types fexpr-type)
+            ;find first 
+            success-type (some (fn [{:keys [dom rest drest rng] :as current}]
+                                 (assert (not (or drest rest)) "TODO rest arg checking")
+                                 (and (= (count dom)
+                                         (count arg-types))
+                                      (every? true? (map subtype? arg-types dom))
+                                      (if expected
+                                        (subtype? (Result-type* rng) expected)
+                                        true)
+                                      rng))
+                               ftypes)
+            _ (when-not success-type
+                ;just report first function
+                (throw (Exception.
+                         (str "Cannot supply arguments " (with-out-str (pr (map unparse-type arg-types)))
+                              " to Function " (with-out-str (pr (unparse-type fexpr-type)))
+                              (when expected
+                                (str " with expected type " (with-out-str (prn (unparse-type expected)))))))))]
+        success-type)
 
-    (Poly? fexpr-type)
-    (throw (Exception. "Cannot infer arguments to polymorphic functions"))
+      ;ordinary polymorphic function without dotted rest
+      (Poly? fexpr-type)
+      (let [fs (map make-F (or (-> (meta fexpr-type) :free-names)
+                               (repeatedly (:nbound fexpr-type) gensym)))
+            body (Poly-body* (map :name fs) fexpr-type)
+            _ (assert (Fn-Intersection? body))
+            ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
+                       (when ftype
+                         (if-let [substitution (and (not (or rest drest kws))
+                                                    (infer (set fs) #{} arg-types dom (Result-type* rng)))]
+                           (ret (subst-all substitution (Result-type* rng)))
+                           (if (or rest drest kws)
+                             (throw (Exception. "Cannot infer arguments to polymorphic functions with rest types"))
+                             (recur (next ftypes))))))]
+        (if ret-type
+          ret-type
+          (throw (Exception. "Could not infer result to polymorphic function"))))
 
-    :else (throw (Exception. "Give up"))))
+      :else (throw (Exception. "Give up, this isn't a Poly or a Fn-Intersection")))))
 
 (defmethod check :var
   [{:keys [var] :as expr} & [expected]]
@@ -2633,7 +3163,7 @@
       (let [cfexpr (check fexpr)
             cargs (doall (map check args))
             ftype (ret-t (expr-type cfexpr))
-            actual (check-app ftype (map expr-type cargs) expected)]
+            actual (check-funapp ftype (map (comp ret-t expr-type) cargs) expected)]
         (assoc expr
                :fexpr cfexpr
                :args cargs
@@ -2728,6 +3258,8 @@
           _ (unp (expr-type res-expr))
           res-type (-> res-expr expr-type Result-type*)]
       (subtype res-type (Result-type* rng)))))
+
+;; FUNCTION INFERENCE END
 
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
