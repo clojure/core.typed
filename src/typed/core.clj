@@ -3551,7 +3551,8 @@
         method-params-types (with-frees frees
                               (doall (map #(doall (map parse-type %)) methods-params-syns)))
         cexpr (-> (check-anon-fn fexpr method-params-types)
-                (update-in [expr-type :t] (fn [fin] (Poly* (map :name frees) fin))))]
+                (update-in [expr-type :t] (fn [fin] (with-meta (Poly* (map :name frees) fin)
+                                                               {:free-names (map :name frees)}))))]
     cexpr))
 
 ;don't type check
