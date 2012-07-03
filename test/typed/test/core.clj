@@ -165,6 +165,12 @@
                      {:a 1} 1))
                 (parse-type '(U nil Number)))))
 
+(deftest get-special-test
+  (is (subtype? (ety 
+                  (typed.core/fn> [[a :- (Map* :mandatory {:a Number})]]
+                       (get a :a)))
+                (parse-type '[(Map* :mandatory {:a Number}) -> Number]))))
+
 (deftest check-do
   (is (= (ety (do 1 2))
          (->Value 2))))

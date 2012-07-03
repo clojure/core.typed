@@ -3632,13 +3632,15 @@
 ;get
 (defmethod static-method-special 'clojure.lang.RT/get
   [{[t & args] :args :keys [fexpr] :as expr} & [expected]]
-  (let [t (expr-type (check t))
-        cargs (doall (map check args))]
+  (let [target-expr (check t)
+        cargs (doall (map check args))
+        t (ret-t (expr-type target-expr))
+        argtys (map (comp ret-t expr-type) cargs)]
     (cond
       (and (HeterogeneousMap? t)
-           (Value? (expr-type (first cargs))))
+           (Value? (first argtys)))
       (assoc expr
-             expr-type (ret (let [[k default] (map expr-type cargs)]
+             expr-type (ret (let [[k default] argtys]
                               (get (:types t) k (if default
                                                   default
                                                   (->Nil))))))
@@ -3844,6 +3846,7 @@
 (defmethod check :static-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
+  (prn expr)
   (let [spec (static-method-special expr expected)]
     (cond
       (not= ::not-special spec) spec
