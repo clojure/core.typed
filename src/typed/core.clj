@@ -453,16 +453,15 @@
 
 ;visit a type nested inside ty. Add methods with a mode deriving ::visit-type-default 
 (defmulti fold-rhs (fn [ty & {:keys [mode] :or {mode fold-rhs-default}}]
-                     {:pre [(Type? ty)]}
                      [mode (class ty)]))
 
 ; fld-fn has type-rec, filter-rec and object-rec in scope
 (defmacro add-fold-case [mode ty fld-fn]
   `(defmethod fold-rhs [~mode ~ty]
-     [ty# & ~'{:keys [type-rec filter-rec object-rec] 
-               :or {type-rec fold-rhs
-                    filter-rec fold-rhs
-                    object-rec fold-rhs}}]
+     [ty# & ~'{:keys [type-rec filter-rec object-rec mode] 
+               :or {type-rec #(fold-rhs % :mode mode)
+                    filter-rec #(fold-rhs % :mode mode)
+                    object-rec #(fold-rhs % :mode mode)}}]
      (~fld-fn ty#)))
 
 (defmacro add-default-fold-case [ty fld-fn]
@@ -473,7 +472,7 @@
     `(do
        (derive ~unique-qkeyword fold-rhs-default) ;prefer unique-qkeyword methods
        ~@(for [[t f] (apply hash-map cases)]
-           `(add-fold-case ~unique-qkeyword ~ty ~f))
+           `(add-fold-case ~unique-qkeyword ~t ~f))
        (fold-rhs ~ty
                  :mode ~unique-qkeyword 
                  ~@(concat 
@@ -510,9 +509,12 @@
                            (update-in [:poly?] #(when %
                                                   (map type-rec %)))
                            (update-in [:constructor] (fn [rclass]
-                                                       (-> rclass
-                                                         (update-in [:replacements] #(into {} (for [[k v] %]
-                                                                                                [(type-rec k) (type-rec v)])))))))))
+                                                       (let [names (repeatedly (count (:variances rclass)) gensym)
+                                                             rplc (RClass-replacements* names rclass)
+                                                             c-rplc (into {} (for [[k v] rplc]
+                                                                               [k (type-rec v)]))]
+                                                         (RClass* names (:variances rclass) (:the-class rclass)
+                                                                  c-rplc)))))))
 
 (add-default-fold-case Poly
                        (fn [ty]
@@ -557,12 +559,20 @@
 (add-default-fold-case True identity)
 (add-default-fold-case False identity)
 
+(add-default-fold-case F
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:upper-bound] type-rec)
+                           (update-in [:lower-bound] type-rec))))
+
 (add-default-fold-case Result 
                        (fn [ty]
                          (-> ty
                            (update-in [:t] type-rec)
                            (update-in [:fl] filter-rec)
                            (update-in [:o] object-rec))))
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -638,6 +648,10 @@
 (defrecord NoFilter []
   "Represents no info about filters, used for parsing types"
   [])
+
+;Filters
+
+(add-default-fold-case NoFilter identity)
 
 (declare PathElem?)
 
@@ -847,8 +861,23 @@
 
 (defrecord FilterSet [then else]
   "A filter claiming looking up id, down the given path, is NOT of given type"
-  [(Filter? then)
-   (Filter? else)])
+  [(and (or (BotFilter? then)
+            (and (BotFilter? else)
+               (TopFilter? then))
+            (Filter? then))
+        (or (BotFilter? else)
+            (and (BotFilter? then)
+                 (TopFilter? else))
+            (Filter? else)))])
+
+(defn -FS [+ -]
+  {:pre [(Filter? +)
+         (Filter? -)]
+   :post [(FilterSet? %)]}
+  (cond
+    (BotFilter? +) (->FilterSet -bot -top)
+    (BotFilter? -) (->FilterSet -top -bot)
+    :else (->FilterSet + -)))
 
 (declare-filter BotFilter)
 (declare-filter TopFilter)
@@ -918,6 +947,10 @@
   "Represents no info about the object of this expression
   should only be used for parsing type annotations and expected types"
   [])
+
+;Objects
+
+(add-default-fold-case NoObject identity)
 
 (declare-robject EmptyObject)
 (declare-robject Path)
@@ -1340,33 +1373,38 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Collecting frees
 
-(declare ^:dynamic *frees-mode* frees)
+(defn variance-map? [a]
+  (and (map? a)
+       (every? symbol? (keys a))
+       (every? variance? (vals a))))
+
+(declare ^:dynamic *frees-mode* frees-in)
 
 (defn fv-variances 
   "Map of frees to their variances"
   [t]
+  {:post [(variance-map? %)]}
   (binding [*frees-mode* ::frees]
-    (frees t)))
+    (frees-in t)))
 
 (defn idx-variances 
   "Map of indexes to their variances"
   [t]
+  {:post [(variance-map? %)]}
   (binding [*frees-mode* ::idxs]
-    (frees t)))
+    (frees-in t)))
 
 (defn fv 
   "All frees in type"
   [t]
+  {:post [(every? symbol? %)]}
   (keys (fv-variances t)))
 
 (defn fi
   "All index variables in type (dotted bounds, etc.)"
   [t]
+  {:post [(every? symbol? %)]}
   (keys (idx-variances t)))
-
-(def variance-map?
-  #(and (every? (some-fn F? B?) (keys %))
-        (every? variance? (vals %))))
 
 (defn flip-variances [vs]
   {:pre [(variance-map? vs)]}
@@ -1379,15 +1417,16 @@
 (defn combine-frees [& frees]
   {:pre [(every? variance-map? frees)]
    :post [(variance-map? %)]}
-  (apply merge-with (fn [old-vari new-vari]
-                      (cond 
-                        (= old-vari new-vari) old-vari
-                        (= old-vari :dotted) new-vari
-                        (= new-vari :dotted) old-vari
-                        (= old-vari :constant) new-vari
-                        (= new-vari :constant) old-vari
-                        :else :invariant))
-         frees))
+  (into {}
+        (apply merge-with (fn [old-vari new-vari]
+                            (cond 
+                              (= old-vari new-vari) old-vari
+                              (= old-vari :dotted) new-vari
+                              (= new-vari :dotted) old-vari
+                              (= old-vari :constant) new-vari
+                              (= new-vari :constant) old-vari
+                              :else :invariant))
+               frees)))
 
 (derive ::frees ::any-var)
 (derive ::idxs ::any-var)
@@ -1397,9 +1436,13 @@
                                     (= ::idxs %)
                                     (nil? %)))
 
-(defmulti frees (fn [t]
-                  {:post [(variance-map? %)]}
-                  [*frees-mode* (class t)]))
+(declare frees)
+
+(defn frees-in [t]
+  {:post [(variance-map? %)]}
+  (frees t))
+
+(defmulti frees (fn [t] [*frees-mode* (class t)]))
 
 (defmethod frees [::any-var FilterSet]
   [{:keys [then else]}]
@@ -1421,7 +1464,7 @@
 
 (defmethod frees [::frees F]
   [t]
-  (combine-frees {t :covariant}
+  (combine-frees {(:name t) :covariant}
                  (frees (:upper-bound t))
                  (frees (:lower-bound t))))
 
@@ -1452,7 +1495,7 @@
                                [(frees rng)]
                                (when drest
                                  [(dissoc (-> (:pre-type drest) frees flip-variances)
-                                          (:bound drest))]))))
+                                          (:name (:bound drest)))]))))
 
 (defmethod frees [::idxs Function]
   [{:keys [dom rng rest drest kws]}]
@@ -1464,7 +1507,7 @@
                                                (vals kws))))
                                [(frees rng)]
                                (when drest
-                                 [{(:bound drest) :contravariant}
+                                 [{(:name (:bound drest)) :contravariant}
                                   (-> (:pre-type drest)
                                     frees flip-variances)]))))
 
@@ -1483,13 +1526,28 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable Elim
 
+(declare promote demote)
+
+(defn promote-var [T V]
+  {:pre [(Type? T)
+         (set? V)
+         (every? symbol? V)]
+   :post [(Type? %)]}
+  (promote T V))
+
+(defn demote-var [T V]
+  {:pre [(Type? T)
+         (set? V)
+         (every? symbol? V)]
+   :post [(Type? %)]}
+  (demote T V))
+
 (defmulti promote 
   "Eliminate all variables V in t by promotion"
   (fn [T V] 
     {:pre [(Type? T)
            (set? V)
-           (every? F? V)]
-     :post [(Type? %)]}
+           (every? symbol? V)]}
     (class T)))
 
 (defmulti demote 
@@ -1497,19 +1555,18 @@
   (fn [T V]
     {:pre [(Type? T)
            (set? V)
-           (every? F? V)]
-     :post [(Type? %)]}
+           (every? symbol? V)]}
     (class T)))
 
 (defmethod promote F
   [T V]
-  (if (V T)
+  (if (V (:name T))
     (:upper-bound T)
     T))
 
 (defmethod demote F
   [T V]
-  (if (V T)
+  (if (V (:name T))
     (:lower-bound T)
     T))
 
@@ -1574,6 +1631,30 @@
   [T V] 
   (-> T
     (update-in [:types] #(mapv demote % (repeat V)))))
+
+(defmethod promote RInstance
+  [{:keys [poly? constructor] :as T} V]
+  (let [names (repeatedly (count poly?) gensym)
+        rplc (RClass-replacements* names constructor)
+        pmt-rplc (into {} (for [[k v] rplc]
+                            [k (promote v V)]))]
+  (->RInstance (doall (map promote poly? (repeat V)))
+               (RClass* names 
+                        (:variances constructor)
+                        (:the-class constructor)
+                        pmt-rplc))))
+
+(defmethod demote RInstance
+  [{:keys [poly? constructor] :as T} V]
+  (let [names (repeatedly (count poly?) gensym)
+        rplc (RClass-replacements* names constructor)
+        dmt-rplc (into {} (for [[k v] rplc]
+                            [k (demote v V)]))]
+  (->RInstance (doall (map demote poly? (repeat V)))
+               (RClass* names 
+                        (:variances constructor)
+                        (:the-class constructor)
+                        dmt-rplc))))
 
 (defmethod promote Poly
   [{:keys [nbound] :as T} V]
@@ -1684,13 +1765,13 @@
 (def subst-rhs? (some-fn t-subst? i-subst? i-subst-starred? i-subst-dotted?))
 
 (def substitution-c? (every-pred map? 
-                                 #(every? F? (keys %)) 
+                                 #(every? symbol? (keys %)) 
                                  #(every? subst-rhs? (vals %))))
 
 (defrecord c [S X T]
-  "A type constraint within an upper and lower bound"
+  "A type constraint on a variable within an upper and lower bound"
   [(Type? S)
-   (F? X)
+   (symbol? X)
    (Type? T)])
 
 ;; fixed : Listof[c]
@@ -1727,7 +1808,7 @@
 (defrecord cset-entry [fixed dmap]
   ""
   [(map? fixed)
-   (every? F? (keys fixed))
+   (every? symbol? (keys fixed))
    (every? c? (vals fixed))
    (dmap? dmap)])
 
@@ -1744,12 +1825,16 @@
 
 ;widest constraint possible
 (defn no-constraint [v]
+  {:pre [(symbol? v)]}
   (->c (Un) v (->Top)))
 
 ;; Create an empty constraint map from a set of type variables X and
 ;; index variables Y.  For now, we add the widest constraints for
 ;; variables in X to the cmap and create an empty dmap.
 (defn empty-cset [X Y]
+  {:pre [(every? set? [X Y])
+         (every? symbol? (concat X Y))]
+   :post [(cset? %)]}
   (->cset [(->cset-entry (into {} (for [x X] [x (no-constraint x)]))
                          (->dmap {}))]))
 
@@ -1782,6 +1867,8 @@
     (->cset maps)))
 
 (defn cset-meet* [args]
+  {:pre [(every? cset? args)]
+   :post [(cset? %)]}
   (reduce (fn [a c] (cset-meet a c))
           (->cset [(->cset-entry {} (->dmap {}))])
           args))
@@ -1794,7 +1881,7 @@
 ;add new constraint to existing cset
 (defn insert-constraint [cs var S T]
   {:pre [(cset? cs)
-         (F? var)
+         (symbol? var)
          (Type? S)
          (Type? T)]
    :post [(cset? %)]}
@@ -1831,12 +1918,9 @@
 (defmulti cs-gen*
   (fn [V X Y S T] 
     {:pre [(every? set? [V X Y])
-           (every? F? V)
-           (every? F? X)
-           (every? F? Y)
+           (every? symbol? (concat V X Y))
            (Type? S)
-           (Type? T)]
-     :post [(cset? %)]}
+           (Type? T)]}
     [(class S) (class T)]))
 
 ;cs-gen calls cs-gen*, remembering the current subtype for recursive types
@@ -1844,9 +1928,7 @@
 
 (defn cs-gen [V X Y S T]
   {:pre [(every? set? [V X Y])
-         (every? F? V)
-         (every? F? X)
-         (every? F? Y)
+         (every? symbol? (concat V X Y))
          (Type? S)
          (Type? T)]
    :post [(cset? %)]}
@@ -1922,30 +2004,34 @@
 
 (defmethod cs-gen* [F Type]
   [V X Y S T]
-  (assert (X S) S)
+  (assert (X (:name S)) S)
   (when (and (F? T)
              (bound-index? (:name T))
              (not (bound-tvar? (:name T))))
     (type-error S T))
-  (let [dt (demote T V)]
-    (insert-constraint (empty-cset X Y)
-                       S (Bottom) dt)))
+  (let [dt (demote-var T V)]
+    (-> (empty-cset X Y)
+      ;hmm do we need to check for subtyping between dt and upper-bound?
+      (insert-constraint (:name S) (:lower-bound S) (:upper-bound S))
+      (insert-constraint (:name S) (:lower-bound S) dt))))
 
 (defmethod cs-gen* [Type F]
   [V X Y S T]
-  (assert (X T) T)
+  (assert (X (:name T)) T)
   (when (and (F? S)
              (bound-index? (:name S))
              (not (bound-tvar? (:name S))))
     (type-error S T))
-  (let [ps (promote S V)]
-    (insert-constraint (empty-cset X Y) 
-                       T ps (->Top))))
+  (let [ps (promote-var S V)]
+    (-> (empty-cset X Y)
+      (insert-constraint (:name T) (:lower-bound T) (:upper-bound T))
+      (insert-constraint (:name T) ps (:upper-bound T)))))
 
 (defmethod cs-gen* [F F]
   [V X Y S T]
   (assert (= S T))
-  (empty-cset X Y))
+  (-> (empty-cset X Y)
+    (insert-constraint (:name S) (:lower-bound S) (:upper-bound S))))
 
 (defmethod cs-gen* [Function Function]
   [V X Y S T]
@@ -1965,7 +2051,8 @@
 ;; R : Type? - result type into which we will be substituting
 (defn subst-gen [C Y R]
   {:pre [(cset? C)
-         (every? F? Y)
+         (set? Y)
+         (every? symbol? Y)
          (Type? R)]
    :post [((some-fn nil? substitution-c?) %)]}
   (let [var-hash (fv-variances R)
@@ -1994,14 +2081,14 @@
             ;; was found.  If we're at this point and had no other constraints, then adding the
             ;; equivalent of the constraint (dcon null (c Bot X Top)) is okay.
             (extend-idxs [S]
+              {:pre [(substitution-c? S)]}
               (let [fi-R (fi R)] ;free indices in R
-                (prn "fi-R:" fi-R)
-                (prn "S: " S)
                 ;; If the index variable v is not used in the type, then
                 ;; we allow it to be replaced with the empty list of types;
                 ;; otherwise we error, as we do not yet know what an appropriate
                 ;; lower bound is.
                 (letfn [(demote-check-free [v]
+                          {:pre [(symbol? v)]}
                           (if (fi-R v)
                             (throw (Exception. "attempted to demote dotted variable"))
                             (->i-subst nil)))]
@@ -2009,26 +2096,27 @@
                   ;; it's a list of variables that don't appear in the substitution
                   (let [absent-entries
                         (reduce (fn [no-entry v]
+                                  {:pre [(symbol? v)]}
                                   (let [entry (S v)]
                                     ;; Make sure we got a subst entry for an index var
                                     ;; (i.e. a list of types for the fixed portion
                                     ;;  and a type for the starred portion)
                                     (cond
-                                      (not no-entry) no-entry
+                                      (false? no-entry) no-entry
                                       (not entry) (cons v no-entry)
                                       (or (i-subst? entry) 
                                           (i-subst-starred? entry)
                                           (i-subst-dotted? entry)) no-entry
                                       :else false)))
                                 [] Y)]
-                    (prn "absent" absent-entries)
                     (and absent-entries
-                         (merge (for [missing absent-entries]
-                                  (let [var (idx-hash missing :constant)]
-                                    [missing
-                                     (case var
-                                       (:constant :covariant :invariant) (demote-check-free missing)
-                                       :contravariant (->i-subst-starred nil (->Top)))]))
+                         (merge (into {}
+                                      (for [missing absent-entries]
+                                        (let [var (idx-hash missing :constant)]
+                                          [missing
+                                           (case var
+                                             (:constant :covariant :invariant) (demote-check-free missing)
+                                             :contravariant (->i-subst-starred nil (->Top)))])))
                                 S))))))]
 
       (let [{cmap :fixed dmap* :dmap} (-> C :maps first)
@@ -2040,12 +2128,6 @@
                     (into {}
                       (for [[k v] cmap]
                         [k (->t-subst (constraint->type v var-hash))])))]
-        (prn subst)
-        (prn (every? identity
-                     (for [v (fv R)]
-                       (let [entry (subst v)]
-                         (and entry (t-subst? entry))))))
-        (prn (extend-idxs subst))
         ;; verify that we got all the important variables
         (and (every? identity
                      (for [v (fv R)]
@@ -2114,11 +2196,12 @@
     (last 
       (take (inc n) (iterate ->Scope t)))))
 
-(defn remove-scopes "Unwrap n Scopes"
+(defn remove-scopes 
+  "Unwrap n Scopes"
   [n sc]
   {:pre [(nat? n)
          (Scope? sc)]
-   :post [(Type? %)]}
+   :post [(or (Scope? %) (Type? %))]}
   (doall
     (last
       (take (inc n) (iterate (fn [t]
@@ -2918,7 +3001,14 @@
 
 (defn ret
   "Convenience function for returning the type of an expression"
-  ([t] (->TCResult t (->FilterSet (->TopFilter) (->TopFilter)) (->EmptyObject))))
+  ([t] (ret t (->FilterSet (->TopFilter) (->TopFilter)) (->EmptyObject)))
+  ([t f] (ret t f (->EmptyObject)))
+  ([t f o]
+   {:pre [(Type? t)
+          (FilterSet? f)
+          (RObject? o)]
+    :post [(TCResult? %)]}
+   (->TCResult t f o)))
 
 (defn ret-t [r]
   {:pre [(TCResult? r)]
@@ -3024,65 +3114,119 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUNCTION INFERENCE START
 
+;; check-below : (/\ (Results Type -> Result)
+;;                   (Results Results -> Result)
+;;                   (Type Results -> Type)
+;;                   (Type Type -> Type))
+
+;check that arg type tr1 is under expected
 (defn check-below [tr1 expected]
+  {:pre [((some-fn TCResult? Type?) tr1)
+         ((some-fn TCResult? Type?) expected)]
+   :post [((some-fn TCResult? Type?) %)]}
   (letfn [(filter-better? [{f1+ :then f1- :else :as f1}
                            {f2+ :then f2- :else :as f2}]
             {:pre [(Filter? f1)
-                   (Filter? f2)]}
+                   (Filter? f2)]
+             :post [(boolean? %)]}
             (cond
               (= f1 f2) true
               (and (implied-atomic? f2+ f1+)
                    (implied-atomic? f2- f1-)) true
               :else false))
           (object-better? [o1 o2]
+            {:pre [(RObject? o1)
+                   (RObject? o2)]
+             :post [(boolean? %)]}
             (cond
               (= o1 o2) true
               ((some-fn NoObject? EmptyObject?) o2) true
               :else false))]
+    ;tr1 = arg
+    ;expected = dom
+    ; Omitted some cases dealing with multiple return values
     (cond
-      ;Top filter and and objects expected
       (and (TCResult? tr1)
            (TCResult? expected)
-           (= (->FilterSet (->TopFilter) (->TopFilter))
-              (ret-f expected))
-           (= (->EmptyObject)
-              (ret-o expected)))
-      (do
-        (subtype (ret-t tr1) (ret-t expected))
+           (= (Un) (:t tr1))
+           (NoFilter? (:fl expected))
+           (NoObject? (:o expected)))
+      (let [ts2 (:t tr1)]
+        (ret ts2))
+
+      (and (TCResult? tr1)
+           (= (Un) (:t tr1)))
+      expected
+
+      (and (TCResult? tr1)
+           (TCResult? expected)
+           (= (-FS -top -top)
+              (:fl expected))
+           (EmptyObject? (:o expected)))
+      (let [{t1 :t f1 :fl o1 :o} tr1
+            {t2 :t} expected]
+        (when-not (subtype? t1 t2)
+          (type-error t1 t2))
         expected)
 
-      ;Have to compare filters and objects
       (and (TCResult? tr1)
            (TCResult? expected))
       (let [{t1 :t f1 :fl o1 :o} tr1
             {t2 :t f2 :fl o2 :o} expected]
-        (subtype t1 t2)
         (cond
+          (not (subtype? t1 t2)) (type-error t1 t2)
+
           (and (not (filter-better? f1 f2))
                (object-better? o1 o2))
-          (throw (Exception. (str "Expected result with filter " f2 " but found" f1)))
+          (throw (Exception. (str "Expected result with filter " f2 ", got filter"  f1)))
+
           (and (filter-better? f1 f2)
                (not (object-better? o1 o2)))
-          (throw (Exception. (str "Expected result with object " o2 " but found" o1)))
+          (throw (Exception. (str "Expected result with object " o2 ", got object"  o1)))
+
           (and (not (filter-better? f1 f2))
                (not (object-better? o1 o2)))
-          (throw (Exception. (str "Expected result with filter " f2 " and object " o2 
-                                  " but found filter " f1 " and object " o1)))
-          :else expected))
+          (throw (Exception. (str "Expected result with object " o2 ", got object"  o1 " and filter "
+                                  f2 " got filter " f1))))
+        expected)
 
       (and (TCResult? tr1)
            (Type? expected))
-      (do (subtype (ret-t tr1) expected)
-        (ret-t tr1))
+      (let [{t1 :t f :fl o :o} tr1
+            t2 expected]
+        (when-not (subtype? t1 t2)
+          (type-error t1 t2))
+        (ret t2 f o))
+
+      ;; erm.. ? What is (FilterSet: (list) (list))
+      ;; TODO this case goes here, but not sure what it means 
+      ;
+      ;[((? Type? t1) (tc-result1: t2 (FilterSet: (list) (list)) (Empty:)))
+      ; (unless (subtype t1 t2)
+      ;   (tc-error/expr "Expected ~a, but got ~a" t2 t1))
+      ; t1]
 
       (and (Type? tr1)
            (TCResult? expected))
-      (throw (Exception. "Expected filters"))
+      (let [t1 tr1
+            {t2 :t f :fl o :o} expected]
+        (if (subtype? t1 t2)
+          (throw (Exception. (str "Expected result with filter " f " and " o ", got " t1)))
+          (type-error t1 t2))
+        t1)
 
       (and (Type? tr1)
            (Type? expected))
-      (do (subtype tr1 expected)
-        tr1))))
+      (let [t1 tr1
+            t2 expected]
+        (when-not (subtype? t1 t2)
+          (type-error t1 t2))
+        expected)
+
+      :else (let [a tr1
+                  b expected]
+              (throw (Exception. (str "Unexpected input for check-below " a b)))))))
+
 
 (defn subst-filter [f k o polarity]
   {:pre [(Filter? f)
@@ -3092,6 +3236,7 @@
    :post [(Filter? %)]}
   (letfn [(ap [f] (subst-filter f k o polarity))
           (tf-matcher [t p i k o polarity maker]
+            {:pre [(Type? t)]}
             (cond
               ((some-fn EmptyObject? NoObject?)
                  o)
@@ -3129,24 +3274,24 @@
       (let [{t :type p :path i :id} f]
         (tf-matcher t p i k o polarity -not-filter)))))
 
-(defn subst-filter-set [fs k o polarity & {:keys [t]}]
+(defn subst-filter-set [fs k o polarity & [t]]
   {:pre [((some-fn FilterSet? NoFilter?) fs)
          (name-ref? k)
          (RObject? o)
          ((some-fn nil? Type?) t)]
    :post [(FilterSet? %)]}
-  (let [extra-filter (if t (->TypeFilter t nil k) (->TopFilter))]
+  (let [extra-filter (if t (->TypeFilter t nil k) -top)]
     (letfn [(add-extra-filter [f]
               {:pre [(Filter? f)]
                :post [(Filter? %)]}
-              (let [f* (->AndFilter extra-filter f)]
+              (let [f* (-and extra-filter f)]
                 (if (BotFilter? f*)
                   f*
                   f)))]
       (cond
-        (FilterSet? fs) (->FilterSet (subst-filter (add-extra-filter (:then fs) k o polarity))
-                                     (subst-filter (add-extra-filter (:else fs) k o polarity)))
-        :else (->FilterSet (->TopFilter) (->TopFilter))))))
+        (FilterSet? fs) (-FS (subst-filter (add-extra-filter (:then fs)) k o polarity)
+                             (subst-filter (add-extra-filter (:else fs)) k o polarity))
+        :else (-FS -top -top)))))
 
 (defn subst-object [t k o polarity]
   {:pre [(RObject? t)
@@ -3167,12 +3312,12 @@
                   t))))
 
 (defn subst-type [t k o polarity]
-   {:pre [(Type? t)
-          (name-ref? k)
+   {:pre [(name-ref? k)
           (RObject? o)
           ((some-fn true? false?) polarity)]
     :post [(Type? %)]}
-  (letfn [(st [t] (subst-type t k o polarity))
+  (letfn [(st [t*]
+            (subst-type t* k o polarity))
           (sf [fs] 
             {:pre [(FilterSet? fs)] 
              :post [(FilterSet? %)]}
@@ -3186,7 +3331,9 @@
         ;; here we have to increment the count for the domain, where the new bindings are in scope
         (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (:mandatory kws)) (count (:optional kws)))
               st* (if (integer? k)
-                    (fn [t] (subst-type t (if (number? k) (+ arg-count k) k) o polarity))
+                    (fn [t] 
+                      {:pre [(Type? t)]}
+                      (subst-type t (if (number? k) (+ arg-count k) k) o polarity))
                     st)]
           (->Function (map st dom)
                       (st* rng)
@@ -3201,14 +3348,24 @@
                           (update-in [:optional] #(into {} (for [[k v] %]
                                                              [(st k) (st v)])))))))))))
 
-(defn open-Result [{t :t fs :fl old-obj :o :as r} objs & {:keys [ts] :or {ts false}}]
-  {:pre [(TCResult? r)
+(defn open-Result [{t :t fs :fl old-obj :o :as r} objs & [ts]]
+  {:pre [(Result? r)
          (every? RObject? objs)
+         ((some-fn FilterSet? NoFilter?) fs)
+         (RObject? old-obj)
          ((some-fn nil? #(every? Type? %)) ts)]
-   :post [(Type? (first %))
-          (FilterSet? (second %))
-          (RObject? (-> % next next first))]}
+   :post [(let [[t fs r] %]
+            (and (Type? t)
+                 (FilterSet? fs)
+                 (RObject? r)))]}
   (reduce (fn [[t fs old-obj] [[o k] arg-ty]]
+            {:pre [(Type? t)
+                   ((some-fn FilterSet? NoFilter?) fs)
+                   (RObject? old-obj)
+                   (integer? k)
+                   (RObject? o)
+                   (or (false? arg-ty)
+                       (Type? arg-ty))]}
             [(subst-type t k o true)
              (subst-filter-set fs k o true arg-ty)
              (subst-object old-obj k o true)])
@@ -3222,27 +3379,29 @@
 
 
 ;Function TCResult^n (or nil TCResult) -> TCResult
-(defn check-funapp1 [{:keys [dom rng rest drest kws] :as ftype0} argtys expected & {:keys [check] :or {check true}}]
+(defn check-funapp1 [{:keys [dom rng rest drest kws] :as ftype0} argtys expected & {:keys [check?] :or {check? true}}]
   {:pre [(Function? ftype0)
          (every? TCResult? argtys)
          ((some-fn nil? TCResult?) expected)
-         ((some-fn true? false?) check)]
+         (boolean? check?)]
    :post [(TCResult? %)]}
   (assert (not drest) "funapp with drest args NYI")
   (assert (empty? (:mandatory kws)) "funapp with mandatory keyword args NYI")
   ;checking
-  (when check
+  (when check?
     (when (or (and (not rest) (not (= (count dom) (count argtys))))
               (and rest (< (count argtys) (count dom))))
       (throw (Exception. (str "Wrong number of arguments, expected " (count dom) " and got "(count argtys)))))
     (doall
       (for [[arg-t dom-t] (map vector (map ret-t argtys) (concat dom (when rest (repeat rest))))]
-        (check-below arg-t dom-t))))
+        (do(prn "funapp1: check-below:" [arg-t dom-t])
+          (check-below arg-t dom-t)))))
   (let [dom-count (count dom)
         arg-count (+ dom-count (if rest 1 0) (count (:optional kws)))
-        [o-a t-a] (for [[nm oa ta] (map vector (range arg-count) (repeatedly ->EmptyObject) (repeatedly Un))]
-                    [(if (>= nm dom-count) (->EmptyObject) oa)
-                     ta])
+        [o-a t-a] (let [rs (for [[nm oa ta] (map vector (range arg-count) (repeatedly ->EmptyObject) (repeatedly Un))]
+                             [(if (>= nm dom-count) (->EmptyObject) oa)
+                              ta])]
+                    [(map first rs) (map second rs)])
         [t-r f-r o-r] (open-Result rng o-a t-a)]
     (ret t-r f-r o-r)))
 
@@ -3259,25 +3418,11 @@
       ;ordinary Function
       (Fn-Intersection? fexpr-type)
       (let [ftypes (:types fexpr-type)
-            ;find first 
-            success-type (some (fn [{:keys [dom rest drest rng] :as current}]
-                                 (assert (not (or drest rest)) "TODO rest arg checking")
-                                 (and (= (count dom)
-                                         (count arg-types))
-                                      (every? true? (map subtype? arg-types dom))
-                                      (if expected
-                                        (subtype? (Result-type* rng) expected)
-                                        true)
-                                      rng))
-                               ftypes)
-            _ (when-not success-type
-                ;just report first function
-                (throw (Exception.
-                         (str "Cannot supply arguments " (with-out-str (pr (map unparse-type arg-types)))
-                              " to Function " (with-out-str (pr (unparse-type fexpr-type)))
-                              (when expected
-                                (str " with expected type " (with-out-str (prn (unparse-type expected)))))))))]
-        success-type)
+            success-ret-type (some #(check-funapp1 % arg-ret-types expected)
+                                   ftypes)]
+        (if success-ret-type
+          success-ret-type
+          (throw (Exception. "Arguments did not match function"))))
 
       ;ordinary polymorphic function without dotted rest
       (Poly? fexpr-type)
@@ -3518,7 +3663,7 @@
         (assoc expr
                :fexpr cfexpr
                :args cargs
-               expr-type (ret (Result-type* actual)))))))
+               expr-type actual)))))
 
 (defn relevant-Fns
   "Given a set of required-param exprs, rest-param expr, and a Fn-Intersection,
