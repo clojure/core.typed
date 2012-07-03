@@ -2833,6 +2833,16 @@
   (let [t* (unfold t)]
     (subtype s t*)))
 
+(defmethod subtype* [Poly Poly]
+  [{n1 :nbound :as s}
+   {n2 :nbound :as t}]
+  (when-not (= n1 n2)
+    (type-error s t))
+  (let [names (repeatedly n1 gensym)
+        b1 (Poly-body* names s)
+        b2 (Poly-body* names t)]
+    (subtype b1 b2)))
+
 (defmethod subtype* :default
   [s t]
   (if (Top? t)
@@ -3472,9 +3482,6 @@
             _ (assert (Fn-Intersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
-                         (prn (map unparse-type arg-types) 
-                              (map unparse-type dom))
-                         (prn (unparse-type fexpr-type))
                          (if-let [substitution (and (not (or rest drest kws))
                                                     (infer (set fs-names) #{} arg-types dom (Result-type* rng)))]
                            (ret (subst-all substitution (Result-type* rng)))
@@ -3703,7 +3710,6 @@
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (prn expr)
   (let [e (invoke-special expr expected)]
     (cond 
       (not= ::not-special e) e
@@ -3838,7 +3844,6 @@
 (defmethod check :static-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (prn expr)
   (let [spec (static-method-special expr expected)]
     (cond
       (not= ::not-special spec) spec

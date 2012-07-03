@@ -74,6 +74,10 @@
   (is (subtype? (parse-type '[Integer -> Number])
                 (In (->TopFunction)))))
 
+(deftest subtype-poly
+  (is (subtype? (parse-type '(All [x] (clojure.lang.ASeq x)))
+                (parse-type '(All [y] (clojure.lang.Seqable y))))))
+
 (deftest subtype-rec
   (is (subtype? (parse-type 'Integer)
                 (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
@@ -148,7 +152,7 @@
   (is (subtype? (ety
                   (typed.core/pfn> (c) [[a :- (clojure.lang.Seqable c)] [b :- Number]] 
                                   (seq a)))
-                (parse-type '(All [x] [(clojure.lang.Seqable x) Number -> x]))))
+                (parse-type '(All [x] [(clojure.lang.Seqable x) Number -> (U nil (clojure.lang.ASeq x))]))))
   ;test invoke fn
   (is (subtype? (ety
                   ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
