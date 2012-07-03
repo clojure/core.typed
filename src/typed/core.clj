@@ -2636,6 +2636,16 @@
 ;(Set [Type Type])
 (def ^:dynamic *sub-current-seen* #{})
 
+(defn subtype-varargs?
+  "True if argtys are under dom"
+  [argtys dom rst]
+  (assert (not rst) "NYI")
+  (and (= (count argtys)
+          (count dom))
+       (every? identity
+               (map subtype? argtys dom))))
+
+
 ;subtype and subtype? use *sub-current-seen* for remembering types (for Rec)
 ;subtypeA* takes an extra argument (the current-seen subtypes), called by subtype
 ;subtype* shouldn't be called directly, is called by subtypeA*
@@ -3453,7 +3463,6 @@
          (every? TCResult? arg-ret-types)
          ((some-fn nil? TCResult?) expected)]
    :post [(TCResult? %)]}
-  (assert (not expected) "TODO incorporate expected type")
   (let [fexpr-type (ret-t fexpr-ret-type)
         arg-types (doall (map ret-t arg-ret-types))]
     (cond
@@ -3468,7 +3477,11 @@
       (Fn-Intersection? fexpr-type)
       (let [ftypes (:types fexpr-type)
             success-ret-type (some #(check-funapp1 % arg-ret-types expected :check? false)
-                                   ftypes)]
+                                   (filter (fn [{:keys [dom rest] :as f}]
+                                             {:pre [(Function? f)]}
+                                             (prn (unparse-type f))
+                                             (subtype-varargs? arg-types dom rest))
+                                           ftypes))]
         (if success-ret-type
           success-ret-type
           (throw (Exception. "Arguments did not match function"))))
@@ -3724,7 +3737,8 @@
             cargs (doall (map check args))
             ftype (expr-type cfexpr)
             argtys (map expr-type cargs)
-            actual (check-funapp ftype argtys expected)]
+            actual (check-funapp ftype argtys (when expected
+                                                (ret expected)))]
         (assoc expr
                :fexpr cfexpr
                :args cargs
@@ -3846,7 +3860,6 @@
 (defmethod check :static-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (prn expr)
   (let [spec (static-method-special expr expected)]
     (cond
       (not= ::not-special spec) spec

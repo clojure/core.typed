@@ -171,6 +171,10 @@
                        (get a :a)))
                 (parse-type '[(Map* :mandatory {:a Number}) -> Number]))))
 
+(deftest check-invoke
+  (is (thrown? Exception (ety (symbol "a" 'b))))
+  (is (ety (symbol "a" "a"))))
+
 (deftest check-do
   (is (= (ety (do 1 2))
          (->Value 2))))

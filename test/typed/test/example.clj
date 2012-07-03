@@ -10,10 +10,10 @@
 
 (test1 1 2)
 
-;(ann test2 (All [y] 
-;                [(Seqable y) -> (Seqable (U true false))]))
-;(defn test2 [a]
-;  ((inst map (U true false) y) number? a))
+(ann test2 (All [y] 
+                [(Seqable y) -> (Seqable (U true false))]))
+(defn test2 [a]
+  ((inst map (U true false) Any) number? a))
 
 (ann use-map [(Map* :mandatory
                     {:a Number})
