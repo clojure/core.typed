@@ -3394,8 +3394,7 @@
       (throw (Exception. (str "Wrong number of arguments, expected " (count dom) " and got "(count argtys)))))
     (doall
       (for [[arg-t dom-t] (map vector (map ret-t argtys) (concat dom (when rest (repeat rest))))]
-        (do(prn "funapp1: check-below:" [arg-t dom-t])
-          (check-below arg-t dom-t)))))
+        (check-below arg-t dom-t))))
   (let [dom-count (count dom)
         arg-count (+ dom-count (if rest 1 0) (count (:optional kws)))
         [o-a t-a] (let [rs (for [[nm oa ta] (map vector (range arg-count) (repeatedly ->EmptyObject) (repeatedly Un))]
@@ -3415,10 +3414,17 @@
   (let [fexpr-type (ret-t fexpr-ret-type)
         arg-types (doall (map ret-t arg-ret-types))]
     (cond
-      ;ordinary Function
+      ;ordinary Function, single case, special cased for improved error msgs
+      (and (Fn-Intersection? fexpr-type)
+           (= 1 (count (:types fexpr-type))))
+      (let [argtys arg-ret-types
+            {[t] :types} fexpr-type]
+        (check-funapp1 t argtys expected))
+
+      ;ordinary Function, multiple cases
       (Fn-Intersection? fexpr-type)
       (let [ftypes (:types fexpr-type)
-            success-ret-type (some #(check-funapp1 % arg-ret-types expected)
+            success-ret-type (some #(check-funapp1 % arg-ret-types expected :check? false)
                                    ftypes)]
         (if success-ret-type
           success-ret-type
@@ -3646,6 +3652,7 @@
 
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
+  (prn "invoke:" expr)
   (let [e (invoke-special expr expected)]
     (cond 
       (not= ::not-special e) e
@@ -3718,6 +3725,8 @@
   (assert (not rest-param))
   (let [cbody (with-locals (zipmap (map :sym required-params) (:dom method-param-types))
                 (check body))
+        _ (prn body)
+        _ (prn cbody)
         actual-type (make-Function
                       (:dom method-param-types)
                       (ret-t (expr-type cbody)))]
@@ -3762,6 +3771,8 @@
 
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
+  {:post [(TCResult? (expr-type %))]}
+  (prn "checking do" expr)
   (let [cexprs (doall (concat (map check (butlast exprs))
                               [(check (last exprs) expected)]))]
     (assoc expr

@@ -133,9 +133,16 @@
                   ((typed.core/fn> [[a :- Number] [b :- Number]] b)
                      1 2))
                 (parse-type 'Number)))
+  ; manual instantiation "seq"
   (is (subtype? (ety
                   ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
                                    ((typed.core/inst seq Number) a))
+                     [1 2 1.2] 1))
+                (parse-type '(U nil (clojure.lang.ASeq Number)))))
+  ; inferred "seq"
+  (is (subtype? (ety
+                  ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
+                                   (seq a))
                      [1 2 1.2] 1))
                 (parse-type '(U nil (clojure.lang.ASeq Number)))))
   (is (subtype? (ety
