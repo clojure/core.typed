@@ -141,6 +141,16 @@
                 (parse-type '(U nil (clojure.lang.ASeq Number)))))
   ; inferred "seq"
   (is (subtype? (ety
+                  (typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
+                                  (seq a)))
+                (parse-type '[(clojure.lang.Seqable Number) Number -> (U nil (clojure.lang.ASeq Number))])))
+  ; poly inferred "seq"
+  (is (subtype? (ety
+                  (typed.core/pfn> (c) [[a :- (clojure.lang.Seqable c)] [b :- Number]] 
+                                  (seq a)))
+                (parse-type '(All [x] [(clojure.lang.Seqable x) Number -> x]))))
+  ;test invoke fn
+  (is (subtype? (ety
                   ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
                                    (seq a))
                      [1 2 1.2] 1))

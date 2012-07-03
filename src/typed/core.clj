@@ -33,19 +33,35 @@
 (defn fn>-ann [fn-of param-types-syn]
   fn-of)
 
+(defn pfn>-ann [fn-of polys param-types-syn]
+  fn-of)
+
+(defmacro pfn> [poly & forms]
+  (let [methods (if (vector? (first forms))
+                  (list forms)
+                  forms)
+        ;(pfn> [[a :- Number] & [n :- Number *]] a) 
+        method-doms (for [[arg-anns] methods]
+                      (let [[required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)]
+                        (assert (not rest-param) "pfn> doesn't support rest parameters yet")
+                        (map (comp second next) required-params)))]
+    `(pfn>-ann (fn ~@(for [[params & body] methods]
+                       (apply list (vec (map first params)) body)))
+               '~poly
+               '~method-doms)))
+
 (defmacro fn> [& forms]
   (let [methods (if (vector? (first forms))
                   (list forms)
                   forms)
         ;(fn> [[a :- Number] & [n :- Number *]] a) 
-        anns (for [[arg-anns] methods]
-               (let [[required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)]
-                 (assert (not rest-param) "fn> doesn't support rest parameters yet")
-                 {:dom (map (comp second next) required-params)
-                  :has-rest false}))]
+        method-doms (for [[arg-anns] methods]
+                      (let [[required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)]
+                        (assert (not rest-param) "fn> doesn't support rest parameters yet")
+                        (map (comp second next) required-params)))]
     `(fn>-ann (fn ~@(for [[params & body] methods]
                       (apply list (vec (map first params)) body)))
-              '~anns)))
+              '~method-doms)))
 
 (defn tc-ignore-forms [r]
   r)
@@ -2002,9 +2018,10 @@
               :invariant (cset-meet (cs-gen V X Y si ti)
                                     (cs-gen V X Y ti si)))))))
 
-(defmethod cs-gen* [F Type]
-  [V X Y S T]
-  (assert (X (:name S)) S)
+(prefer-method cs-gen* [F Type] [Type F])
+
+(defn demote-F [V X Y S T]
+  (assert (X (:name S)) (str X (:name S)))
   (when (and (F? T)
              (bound-index? (:name T))
              (not (bound-tvar? (:name T))))
@@ -2015,9 +2032,8 @@
       (insert-constraint (:name S) (:lower-bound S) (:upper-bound S))
       (insert-constraint (:name S) (:lower-bound S) dt))))
 
-(defmethod cs-gen* [Type F]
-  [V X Y S T]
-  (assert (X (:name T)) T)
+(defn promote-F [V X Y S T]
+  (assert (X (:name T)) (str X T))
   (when (and (F? S)
              (bound-index? (:name S))
              (not (bound-tvar? (:name S))))
@@ -2027,11 +2043,29 @@
       (insert-constraint (:name T) (:lower-bound T) (:upper-bound T))
       (insert-constraint (:name T) ps (:upper-bound T)))))
 
-(defmethod cs-gen* [F F]
+(defmethod cs-gen* [F Type]
   [V X Y S T]
-  (assert (= S T))
-  (-> (empty-cset X Y)
-    (insert-constraint (:name S) (:lower-bound S) (:upper-bound S))))
+  (cond
+    (X (:name S))
+    (demote-F V X Y S T)
+
+    (and (F? T)
+         (X (:name T)))
+    (promote-F V X Y S T)
+
+    :else (type-error S T)))
+
+(defmethod cs-gen* [Type F]
+  [V X Y S T]
+  (cond
+    (X (:name T))
+    (promote-F V X Y S T)
+
+    (and (F? S)
+         (X (:name S)))
+    (demote-F V X Y S T)
+
+    :else (type-error S T)))
 
 (defmethod cs-gen* [Function Function]
   [V X Y S T]
@@ -2145,7 +2179,7 @@
 ;; produces a cset which determines a substitution that makes the Ss subtypes of the Ts
 (defn cs-gen-list [V X Y S T & {:keys [expected-cset] :or {expected-cset (empty-cset #{} #{})}}]
   {:pre [(every? set? [V X Y])
-         (every? F? (concat V X Y))
+         (every? symbol? (concat V X Y))
          (every? Type? (concat S T))
          (cset? expected-cset)]
    :post [(cset? %)]}
@@ -2169,13 +2203,12 @@
 ;; just return a boolean result
 (defn infer [X Y S T R & [expected]]
   {:pre [(every? set? [X Y])
-         (every? F? X)
-         (every? F? Y)
+         (every? symbol? (concat X Y))
          (every? Type? S)
          (every? Type? T)
          ((some-fn nil? Type?) R)
          ((some-fn nil? Type?) expected)]
-   :post [((some-fn true? cset?) %)]}
+   :post [((some-fn nil? true? substitution-c?) %)]}
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset #{} #{}))
@@ -2493,7 +2526,7 @@
   {:pre [(substitution-c? s)
          (Type? t)]
    :post [(Type? %)]}
-  (reduce (fn [t [{:keys [name] :as v} r]]
+  (reduce (fn [t [name r]]
             (cond
               (t-subst? r) (substitute t (:type r) name)
               :else (throw (Exception. "TODO,implement other substitutions"))))
@@ -3432,14 +3465,18 @@
 
       ;ordinary polymorphic function without dotted rest
       (Poly? fexpr-type)
-      (let [fs (map make-F (or (-> (meta fexpr-type) :free-names)
-                               (repeatedly (:nbound fexpr-type) gensym)))
-            body (Poly-body* (map :name fs) fexpr-type)
+      (let [fs-names (or (-> (meta fexpr-type) :free-names)
+                         (repeatedly (:nbound fexpr-type) gensym))
+            _ (assert (every? symbol? fs-names))
+            body (Poly-body* fs-names fexpr-type)
             _ (assert (Fn-Intersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
+                         (prn (map unparse-type arg-types) 
+                              (map unparse-type dom))
+                         (prn (unparse-type fexpr-type))
                          (if-let [substitution (and (not (or rest drest kws))
-                                                    (infer (set fs) #{} arg-types dom (Result-type* rng)))]
+                                                    (infer (set fs-names) #{} arg-types dom (Result-type* rng)))]
                            (ret (subst-all substitution (Result-type* rng)))
                            (if (or rest drest kws)
                              (throw (Exception. "Cannot infer arguments to polymorphic functions with rest types"))
@@ -3447,6 +3484,9 @@
         (if ret-type
           ret-type
           (throw (Exception. "Could not infer result to polymorphic function"))))
+
+      (PolyDots? fexpr-type)
+      (throw (Exception. "Inference for dotted functions NYI"))
 
       :else (throw (Exception. "Give up, this isn't a Poly or a Fn-Intersection")))))
 
@@ -3469,7 +3509,7 @@
 (defmethod invoke-special #'inst-poly
   [{[pexpr targs-exprs] :args :as expr} & [expected]]
   (let [ptype (-> (check pexpr) expr-type ret-t)
-        _ (assert (Poly? ptype))
+        _ (assert ((some-fn Poly? PolyDots?) ptype))
         targs (doall (map parse-type (:val targs-exprs)))]
     (assoc expr
            expr-type (ret (manual-inst ptype targs)))))
@@ -3479,17 +3519,26 @@
 ;fn literal
 (defmethod invoke-special #'fn>-ann
   [{:keys [fexpr args] :as expr} & [expected]]
-  (let [[fexpr methods-syns] args
-        method-param-types (doall (map (fn [{dom-syns :dom}]
-                                         {:dom (doall (map parse-type dom-syns))})
-                                       (:val methods-syns)))
-        cfexpr (check-anon-fn fexpr method-param-types)]
-    cfexpr))
+  (let [[fexpr {method-doms-syn :val}] args
+        method-param-types (doall (map #(doall (map parse-type %)) method-doms-syn))]
+    (check-anon-fn fexpr method-param-types)))
+
+;polymorphic fn literal
+(defmethod invoke-special #'pfn>-ann
+  [{:keys [fexpr args] :as expr} & [expected]]
+  (let [[fexpr {poly-decl :val} {methods-params-syns :val}] args
+        frees (map parse-free poly-decl)
+        method-params-types (with-frees frees
+                              (doall (map #(doall (map parse-type %)) methods-params-syns)))
+        cexpr (-> (check-anon-fn fexpr method-params-types)
+                (update-in [expr-type :t] (fn [fin] (Poly* (map :name frees) fin))))]
+    cexpr))
 
 ;don't type check
 (defmethod invoke-special #'tc-ignore-forms
   [{:keys [fexpr args] :as expr} & [expected]]
-  (first args))
+  (assoc (first args)
+         expr-type (ret (->Top))))
 
 ;seq
 (defmethod invoke-special #'clojure.core/seq
@@ -3503,7 +3552,8 @@
       (assoc expr
              expr-type (ret (if-let [ts (seq (:types (expr-type ccoll)))]
                               (->HeterogeneousSeq ts)
-                              (->Nil)))))))
+                              (->Nil))))
+      :else ::not-special)))
 
 ;make vector
 (defmethod invoke-special #'clojure.core/vector
@@ -3652,7 +3702,8 @@
 
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
-  (prn "invoke:" expr)
+  {:post [(TCResult? (expr-type %))]}
+  (prn expr)
   (let [e (invoke-special expr expected)]
     (cond 
       (not= ::not-special e) e
@@ -3660,7 +3711,6 @@
       (= :keyword (:op fexpr))
       (invoke-keyword expr expected)
 
-      ;must be monomorphic for now
       :else
       (let [cfexpr (check fexpr)
             cargs (doall (map check args))
@@ -3706,7 +3756,8 @@
 
 (defmethod check :fn-expr
   [{:keys [methods] :as expr} & [expected]]
-  {:pre [expected]}
+  {:pre [expected]
+   :post [(-> % expr-type TCResult?)]}
   (check-fn-expr expr expected))
 
 (declare check-anon-fn-method)
@@ -3714,6 +3765,8 @@
 (defn check-anon-fn
   "Check anonymous function, with annotated methods"
   [{:keys [methods] :as expr} methods-param-types]
+  {:pre [(every? #(every? Type? %) methods-param-types)]
+   :post [(TCResult? (expr-type %))]}
   (let [cmethods (doall
                    (map #(check-anon-fn-method %1 %2) methods methods-param-types))]
     (assoc expr
@@ -3721,14 +3774,13 @@
 
 (defn check-anon-fn-method
   [{:keys [required-params rest-param body] :as expr} method-param-types]
-  {:post [(-> % expr-type Function?)]}
+  {:pre [(every? Type? method-param-types)]
+   :post [(-> % expr-type Function?)]}
   (assert (not rest-param))
-  (let [cbody (with-locals (zipmap (map :sym required-params) (:dom method-param-types))
+  (let [cbody (with-locals (zipmap (map :sym required-params) method-param-types)
                 (check body))
-        _ (prn body)
-        _ (prn cbody)
         actual-type (make-Function
-                      (:dom method-param-types)
+                      method-param-types
                       (ret-t (expr-type cbody)))]
     (assoc expr
            :body cbody
@@ -3760,8 +3812,7 @@
                          (conj dom-local rest-local))
           res-expr (with-locals param-locals
                      (check body (Result-type* rng)))
-          _ (unp (expr-type res-expr))
-          res-type (-> res-expr expr-type Result-type*)]
+          res-type (-> res-expr expr-type ret-t)]
       (subtype res-type (Result-type* rng)))))
 
 ;; FUNCTION INFERENCE END
@@ -3772,9 +3823,9 @@
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (prn "checking do" expr)
-  (let [cexprs (doall (concat (map check (butlast exprs))
-                              [(check (last exprs) expected)]))]
+  (let [cexprs (concat (mapv check (butlast exprs))
+                       [(check (last exprs) expected)])]
+    (assert (seq cexprs))
     (assoc expr
            :exprs cexprs
            expr-type (-> cexprs last expr-type)))) ;should be a ret already
@@ -3786,6 +3837,8 @@
 
 (defmethod check :static-method
   [expr & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (prn expr)
   (let [spec (static-method-special expr expected)]
     (cond
       (not= ::not-special spec) spec
