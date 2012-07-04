@@ -171,6 +171,14 @@
                        (get a :a)))
                 (parse-type '[(Map* :mandatory {:a Number}) -> Number]))))
 
+(deftest truth-false-values-test
+  (is (= (ety (if nil 1 2))
+         (->Value 2)))
+  (is (= (ety (if false 1 2))
+         (->Value 2)))
+  (is (= (ety (if 1 1 2))
+         (->Value 1))))
+
 (deftest empty-fn-test
   (is (= (ety (fn []))
          (parse-type '[-> nil])))

@@ -350,6 +350,7 @@
 (defrecord Value [val]
   "A Clojure value"
   [(not (nil? val))
+   (not (true? val))
    (not (false? val))])
 
 (declare-type Value)
@@ -642,8 +643,13 @@
 (def atomic-filter? (some-fn TypeFilter? NotTypeFilter?
                              TopFilter? BotFilter?))
 
-;FIXME
-(def is-var-mutated? (fn [] (throw (Exception. "is-var-mutated NYI"))))
+(defn is-var-mutated? [id]
+  (let [ret? (type-of id)
+        t (if (TCResult? ret?)
+            (ret-t ret?)
+            ret?)]
+    (subtype? t (RInstance-of clojure.lang.IDeref))))
+
 (def overlap (fn [] (throw (Exception. "overlap NYI"))))
 
 (declare infer subst-all)
@@ -1045,25 +1051,27 @@
   (symbol (str (ns-name (.ns ^Var var)))
           (str (.sym ^Var var))))
 
-(defn lookup-var [var]
-  (let [nsym (var->symbol var)]
-    (assert (contains? @VAR-ANNOTATIONS nsym) (str "Untyped var reference: " var))
-    (@VAR-ANNOTATIONS nsym)))
+(defn lookup-Var [nsym]
+  (assert (contains? @VAR-ANNOTATIONS nsym) (str "Untyped var reference: " nsym))
+  (@VAR-ANNOTATIONS nsym))
 
-(defn- merge-locals [old new]
-  (merge old new))
+(defn- merge-locals [env new]
+  (-> env
+    (update-in [:l] #(merge % new))))
 
 (defmacro with-locals [locals & body]
-  `(binding [*local-annotations* (merge-locals *local-annotations* ~locals)]
+  `(binding [*lexical-env* (merge-locals *lexical-env* ~locals)]
      ~@body))
 
-(defn type-of [sym-or-var]
+(defn type-of [sym]
+  {:pre [(symbol? sym)]
+   :post [(or (Type? %)
+              (TCResult? %))]}
   (cond
-    (symbol? sym-or-var) (if-let [t (lookup-local sym-or-var)]
+    (not (namespace sym)) (if-let [t (lookup-local sym)]
                            t
-                           (throw (Exception. (str "Cannot resolve type: " sym-or-var))))
-    (var? sym-or-var) (lookup-var sym-or-var)
-    :else (throw (Exception. (str "Cannot resolve type: " sym-or-var)))))
+                           (throw (Exception. (str "Cannot resolve type: " sym))))
+    :else (lookup-Var sym)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dotted Variable Environment
@@ -3230,7 +3238,11 @@
         _ (when expected
             (subtype actual-type expected))]
     (assoc expr
-           expr-type (ret actual-type))))
+           expr-type (if val
+                       (ret actual-type
+                            (-FS -top -bot))
+                       (ret actual-type
+                            (-FS -bot -top))))))
 
 (defmethod check :constant [& args] (apply check-value args))
 (defmethod check :number [& args] (apply check-value args))
@@ -3630,9 +3642,9 @@
   (let [id (var->symbol var)]
     (assoc expr
            expr-type (ret (lookup-var var)
-                          (->FilterSet (-and (-not-filter (->Value false) id)
+                          (->FilterSet (-and (-not-filter (->False) id)
                                              (-not-filter (->Nil) id))
-                                       (-or (-filter (->Value false) id)
+                                       (-or (-filter (->False) id)
                                             (-filter (->Nil) id)))
                           (->Path nil id)))))
 
@@ -3986,7 +3998,10 @@
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
   (assoc expr
-         expr-type (ret (type-of (-> local-binding :sym)))))
+         expr-type (let [t (type-of (-> local-binding :sym))]
+                     (if (TCResult? t)
+                       t
+                       (ret t)))))
 
 ;Symbol -> Class
 (def prim-coersion
@@ -4205,7 +4220,7 @@
   (letfn [(tc [expr reachable?]
             {:post [(TCResult? %)]}
             (when-not reachable?
-              (prn "Unreachable code found.."))
+              #_(prn "Unreachable code found.."))
             (cond
               ;; if reachable? is #f, then we don't want to verify that this branch has the appropriate type
               ;; in particular, it might be (void)
@@ -4218,11 +4233,11 @@
               reachable? (-> (check expr) expr-type)
               ;; otherwise, this code is unreachable
               ;; and the resulting type should be the empty type
-              :else (do (prn "Not checking unreachable code")
+              :else (do #_(prn "Not checking unreachable code")
                       (ret (Un)))))]
     (let [{fs+ :then fs- :else :as f1} (:fl tst)
           flag+ (atom true)
-          flag- (atom false)
+          flag- (atom true)
 
           env-thn (env+ *lexical-env* [fs+] flag+)
           env-els (env+ *lexical-env* [fs-] flag-)
@@ -4234,13 +4249,6 @@
                                    (tc thn @flag+))
           {us :t fs3 :fl os3 :o} (binding [*lexical-env* env-els]
                                    (tc els @flag-))]
-         ;(printf "old props: ~a\n" (env-props (lexical-env)))
-         ;(printf "fs+: ~a\n" fs+)
-         ;(printf "fs-: ~a\n" fs-)
-         ;(printf "thn-props: ~a\n" (env-props env-thn))
-         ;(printf "els-props: ~a\n" (env-props env-els))
-         ;(printf "new-thn-props: ~a\n" new-thn-props)
-         ;(printf "new-els-props: ~a\n" new-els-props)
 
       ;some optimization code here, contraditions etc? omitted
 
@@ -4281,7 +4289,7 @@
   (prn "Checking" var)
   (let [cexpr (cond 
                 (not init-provided) expr ;handle (declare ..)
-                :else (check init (type-of var)))]
+                :else (check init (type-of (var->symbol var))))]
     (assoc cexpr
            expr-type (ret (RInstance-of Var)))))
 
