@@ -638,7 +638,7 @@
 (def -top (->TopFilter))
 (def -bot (->BotFilter))
 
-(declare TypeFilter? NotTypeFilter?)
+(declare TypeFilter? NotTypeFilter? type-of TCResult? ret-t)
 
 (def atomic-filter? (some-fn TypeFilter? NotTypeFilter?
                              TopFilter? BotFilter?))
@@ -3641,7 +3641,7 @@
   [{:keys [var] :as expr} & [expected]]
   (let [id (var->symbol var)]
     (assoc expr
-           expr-type (ret (lookup-var var)
+           expr-type (ret (lookup-Var (var->symbol var))
                           (->FilterSet (-and (-not-filter (->False) id)
                                              (-not-filter (->Nil) id))
                                        (-or (-filter (->False) id)
