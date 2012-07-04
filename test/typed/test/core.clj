@@ -171,6 +171,14 @@
                        (get a :a)))
                 (parse-type '[(Map* :mandatory {:a Number}) -> Number]))))
 
+(deftest empty-fn-test
+  (is (= (ety (fn []))
+         (parse-type '[-> nil])))
+  (is (= (ety (fn [] 1))
+         (parse-type '[-> (Value 1)])))
+  (is (= (ety (let []))
+         (->Nil))))
+
 (deftest dotted-infer-test
   (is (cf (map number? [1]))))
 

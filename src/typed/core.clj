@@ -9,7 +9,7 @@
             [clojure.repl :refer [pst]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
-            [clojure.tools.trace :refer [trace trace-ns trace-vars]]))
+            [clojure.tools.trace :refer [trace-vars]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint shorthands
@@ -438,6 +438,7 @@
   Accepts optional :filter and :object parameters that default to NoFilter
   and NoObject"
   ([dom rng] (make-Function dom rng nil nil))
+  ([dom rng rest] (make-Function dom rng rest nil))
   ([dom rng rest drest & {:keys [filter object] :or {filter (->NoFilter), object (->NoObject)}}]
    (->Function dom (->Result rng filter object) rest drest nil)))
 
@@ -642,8 +643,8 @@
                              TopFilter? BotFilter?))
 
 ;FIXME
-(def is-var-mutated? (constantly false))
-(def overlap (constantly true))
+(def is-var-mutated? (fn [] (throw (Exception. "is-var-mutated NYI"))))
+(def overlap (fn [] (throw (Exception. "overlap NYI"))))
 
 (declare infer subst-all)
 
@@ -998,46 +999,62 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Annotations
 
+(declare TCResult?)
+
+(defrecord PropEnv [l props]
+  "A lexical environment l, props is a list of known propositions"
+  [(every? (every-pred symbol? (complement namespace)) (keys l))
+   (every? TCResult? (vals l))
+   (every? Filter? props)])
+
 (defonce VAR-ANNOTATIONS (atom {}))
-(def ^:dynamic *local-annotations* {})
+(def ^:dynamic *lexical-env* (->PropEnv {} []))
 
 (set-validator! VAR-ANNOTATIONS #(and (every? (every-pred symbol? namespace) (keys %))
                                       (every? Type? (vals %))))
-(set-validator! #'*local-annotations* #(and (every? (every-pred symbol? (complement namespace)) (keys %))
-                                            (every? Type? (vals %))))
+(set-validator! #'*lexical-env* PropEnv?)
 
 (defmacro ann [varsym typesyn]
   `(tc-ignore
-     (let [t# (parse-type '~typesyn)
-           s# (if (namespace '~varsym)
-                '~varsym
-                (symbol (-> *ns* ns-name str) (str '~varsym)))]
-       (do (add-var-type s# t#)
-         [s# (unparse-type t#)]))))
+  (let [t# (parse-type '~typesyn)
+        s# (if (namespace '~varsym)
+             '~varsym
+             (symbol (-> *ns* ns-name str) (str '~varsym)))]
+    (do (add-var-type s# t#)
+      [s# (unparse-type t#)]))))
 
 (defmacro override-method [methodsym typesyn]
   `(tc-ignore
-     (let [t# (parse-type '~typesyn)
-           s# (if (namespace '~methodsym)
-                '~methodsym
-                (throw (Exception. "Method name must be a qualified symbol")))]
-       (do (add-method-override s# t#)
-         [s# (unparse-type t#)]))))
+  (let [t# (parse-type '~typesyn)
+        s# (if (namespace '~methodsym)
+             '~methodsym
+             (throw (Exception. "Method name must be a qualified symbol")))]
+    (do (add-method-override s# t#)
+      [s# (unparse-type t#)]))))
 
 (defn add-var-type [sym type]
   (swap! VAR-ANNOTATIONS #(assoc % sym type)))
 
 (defn lookup-local [sym]
-  (*local-annotations* sym))
+  (-> *lexical-env* :l sym))
+
+(defn var->symbol [var]
+  {:pre [(var? var)]
+   :post [(symbol? %)
+          (namespace %)]}
+  (symbol (str (ns-name (.ns ^Var var)))
+          (str (.sym ^Var var))))
 
 (defn lookup-var [var]
-  (let [nsym (symbol (str (ns-name (.ns ^Var var)))
-                     (str (.sym ^Var var)))]
+  (let [nsym (var->symbol var)]
     (assert (contains? @VAR-ANNOTATIONS nsym) (str "Untyped var reference: " var))
     (@VAR-ANNOTATIONS nsym)))
 
+(defn- merge-locals [old new]
+  (merge old new))
+
 (defmacro with-locals [locals & body]
-  `(binding [*local-annotations* (merge *local-annotations* ~locals)]
+  `(binding [*local-annotations* (merge-locals *local-annotations* ~locals)]
      ~@body))
 
 (defn type-of [sym-or-var]
@@ -3118,8 +3135,7 @@
 (ann clojure.core/=
      [Any Any * -> (U true false)])
 
-;(override-method clojure.lang.Util/equiv
-;                 [Any Any -> (U true false)])
+(override-method clojure.lang.Util/equiv [Any Any -> (U true false)])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -3137,7 +3153,7 @@
 
 (defn ret
   "Convenience function for returning the type of an expression"
-  ([t] (ret t (->FilterSet (->TopFilter) (->TopFilter)) (->EmptyObject)))
+  ([t] (ret t (-FS -top -top) (->EmptyObject)))
   ([t f] (ret t f (->EmptyObject)))
   ([t f o]
    {:pre [(Type? t)
@@ -3221,10 +3237,20 @@
 (defmethod check :string [& args] (apply check-value args))
 (defmethod check :keyword [& args] (apply check-value args))
 
+(defmethod check :boolean
+  [{:keys [val] :as expr} & [expected]]
+  (assoc expr
+         expr-type (if val
+                     (ret (->True)
+                          (-FS -top -bot))
+                     (ret (->False)
+                          (-FS -bot -top)))))
+
 (defmethod check :nil 
   [expr & [expected]]
   (assoc expr
-         expr-type (ret (->Nil))))
+         expr-type (ret (->Nil)
+                        (-FS -bot -top))))
 
 (defmethod check :map
   [{:keys [keyvals] :as expr} & [expected]]
@@ -3533,7 +3559,14 @@
         (check-below arg-t dom-t))))
   (let [dom-count (count dom)
         arg-count (+ dom-count (if rest 1 0) (count (:optional kws)))
-        [o-a t-a] (let [rs (for [[nm oa ta] (map vector (range arg-count) (repeatedly ->EmptyObject) (repeatedly Un))]
+        o-a (map :o argtys)
+        _ (assert (every? RObject? o-a))
+        t-a (map :t argtys)
+        _ (assert (every? Type? t-a))
+        [o-a t-a] (let [rs (for [[nm oa ta] (map vector 
+                                                 (range arg-count) 
+                                                 (concat o-a (repeatedly ->EmptyObject))
+                                                 (concat t-a (repeatedly Un)))]
                              [(if (>= nm dom-count) (->EmptyObject) oa)
                               ta])]
                     [(map first rs) (map second rs)])
@@ -3594,8 +3627,14 @@
 
 (defmethod check :var
   [{:keys [var] :as expr} & [expected]]
-  (assoc expr
-         expr-type (ret (lookup-var var))))
+  (let [id (var->symbol var)]
+    (assoc expr
+           expr-type (ret (lookup-var var)
+                          (->FilterSet (-and (-not-filter (->Value false) id)
+                                             (-not-filter (->Nil) id))
+                                       (-or (-filter (->Value false) id)
+                                            (-filter (->Nil) id)))
+                          (->Path nil id)))))
 
 (defmulti invoke-special (fn [expr & args] (-> expr :fexpr :var)))
 (defmulti invoke-apply (fn [expr & args] (-> expr :args first :var)))
@@ -3790,22 +3829,24 @@
   (throw (Exception. "apply not implemented")))
 
 
-(defn invoke-keyword [{:keys [fexpr args] :as expr} expected]
-  (let [cfexpr (check fexpr)
-        cargs (doall (map check args))]
+(defn invoke-keyword [{:keys [kw target] :as expr} expected]
+  {:post [(-> % expr-type TCResult?)]}
+  (let [kwt (->Value kw)
+        ctarget (check target)
+        ttype (-> ctarget expr-type ret-t)]
     (cond
-      (HeterogeneousMap? (expr-type (first cargs)))
+      (HeterogeneousMap? ttype)
       (assoc expr
-             expr-type (ret (let [[k default] (map expr-type cargs)]
-                              (get (-> cargs first expr-type :types)
-                                   (expr-type cfexpr)
-                                   (if default
-                                     default
-                                     (->Nil))))))
+             expr-type (ret (get (:types ttype) kwt (->Nil))))
 
       :else 
       (assoc expr
              expr-type (ret (->Top))))))
+
+(defmethod check :keyword-invoke
+  [{:keys [fexpr args] :as expr} & [expected]]
+  {:post [(TCResult? (expr-type %))]}
+  (invoke-keyword expr expected))
 
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
@@ -3815,7 +3856,7 @@
       (not= ::not-special e) e
 
       (= :keyword (:op fexpr))
-      (invoke-keyword expr expected)
+      (throw (Exception. ":keyword invoke TODO")) ; :keyword invoke doesn't take default
 
       :else
       (let [cfexpr (check fexpr)
@@ -3835,8 +3876,7 @@
   whos arities match the fixed and rest parameters given"
   [required-params rest-param fin]
   {:pre [(Fn-Intersection? fin)]
-   :post [(sequential? %)
-          (every? Function? %)]}
+   :post [(every? Function? %)]}
   (assert (not (some :drest (:types fin))))
   (let [nreq (count required-params)]
     (letfn [(relevant-rest?
@@ -3863,8 +3903,7 @@
 
 (defmethod check :fn-expr
   [{:keys [methods] :as expr} & [expected]]
-  {:pre [expected]
-   :post [(-> % expr-type TCResult?)]}
+  {:post [(-> % expr-type TCResult?)]}
   (check-fn-expr expr expected))
 
 (declare check-anon-fn-method)
@@ -3884,7 +3923,7 @@
   {:pre [(every? Type? method-param-types)]
    :post [(-> % expr-type Function?)]}
   (assert (not rest-param))
-  (let [cbody (with-locals (zipmap (map :sym required-params) method-param-types)
+  (let [cbody (with-locals (zipmap (map :sym required-params) (doall (map ret method-param-types)))
                 (check body))
         actual-type (make-Function
                       method-param-types
@@ -3894,14 +3933,21 @@
            expr-type actual-type)))
 
 (defn check-fn-expr [{:keys [methods] :as expr} expected]
-  (let [fin (cond
-              (Poly? expected) (Poly-body* (or (-> expected meta :free-names)
-                                               (repeatedly (:nbound expected) gensym)) expected)
-              :else expected)
-        _ (doseq [{:keys [required-params rest-param] :as method} methods]
-            (check-fn-method method (relevant-Fns required-params rest-param fin)))]
-    (assoc expr
-           expr-type (ret expected))))
+  (cond
+    expected
+    (let [fin (cond
+                (Poly? expected) (Poly-body* (or (-> expected meta :free-names)
+                                                 (repeatedly (:nbound expected) gensym)) expected)
+                :else expected)
+          _ (doseq [{:keys [required-params rest-param] :as method} methods]
+              (check-fn-method method (relevant-Fns required-params rest-param fin)))]
+      (assoc expr
+             expr-type (ret fin)))
+    
+    ;if no expected type, parse as anon fn with all parameters as Any
+    :else (check-anon-fn expr (for [{:keys [required-params rest-param]} methods]
+                                (do (assert (not rest-param))
+                                  (repeatedly (count required-params) ->Top))))))
 
 (defn check-fn-method
   "Checks type of the method"
@@ -3911,11 +3957,11 @@
          (every? Function? expected-fns)]}
   (doseq [{:keys [dom rng rest drest] :as ftype} expected-fns]
     (assert (not drest))
-    (let [param-locals (let [dom-local (zipmap (map :sym required-params) dom)
+    (let [param-locals (let [dom-local (zipmap (map :sym required-params) (doall (map ret dom)))
                              rest-local (when (or rest-param rest)
                                           (assert (and rest rest-param))
-                                          [(:sym rest-param) (Un (->Nil)
-                                                                 (RInstance-of ASeq [rest]))])]
+                                          [(:sym rest-param) (ret (Un (->Nil)
+                                                                      (RInstance-of ASeq [rest])))])]
                          (conj dom-local rest-local))
           res-expr (with-locals param-locals
                      (check body (Result-type* rng)))
@@ -3951,10 +3997,10 @@
 (defn Method-symbol->Type [sym]
   {:pre [(symbol? sym)]
    :post [(Type? %)]}
-  (prn sym)
   (if-let [cls (or (prim-coersion sym)
                    (resolve sym))]
-    (RInstance-of cls)
+    (apply Un (RInstance-of cls) (when (not (prim-coersion sym))
+                                   [(->Nil)])) ;union with nil if not a primitive
     (throw (Exception. (str "Method symbol " sym " does not resolve to a type")))))
 
 (defn- method->Function [{:keys [parameter-types return-type] :as method}]
@@ -3988,6 +4034,7 @@
 
 (defmethod check :let
   [{:keys [binding-inits body is-loop] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
   (assert (not is-loop))
   (let [locals (reduce (fn [locals {{:keys [sym init]} :local-binding}]
                          (let [cinit (with-locals locals
@@ -3998,26 +4045,235 @@
                 (check body))]
     (assoc expr
            :body cbody
-           expr-type (ret (expr-type cbody)))))
+           expr-type (expr-type cbody))))
+
+(defn resolve* [atoms prop]
+  {:pre [(every? Filter? atoms)
+         (Filter? prop)]
+   :post [(Filter? %)]}
+  (reduce (fn [prop a]
+            (cond
+              (AndFilter? a)
+              (loop [ps (:fs a)
+                     result []]
+                (if (empty? ps)
+                  (apply -and result)
+                  (let [p (first ps)]
+                    (cond
+                      (opposite? a p) -bot
+                      (implied-atomic? p a) (recur (next ps) result)
+                      :else (recur (next ps) (cons p result))))))
+              :else prop))
+          prop
+          atoms))
+
+(defn flatten-props [ps]
+  {:post [(every? Filter? %)]}
+  (cond
+    (empty? ps) []
+    (AndFilter? (first ps)) (flatten-props (concat (-> ps first :fs) (next ps)))
+    :else (cons (first ps) (flatten-props (next ps)))))
+
+(def type-equal? =)
+
+(defn combine-props [new-props old-props flag]
+  {:pre [(every? Filter? (concat new-props old-props))
+         (instance? clojure.lang.Atom flag)
+         (boolean? @flag)]
+   :post [(let [[derived-props derived-atoms] %]
+            (and (every? (some-fn ImpFilter? OrFilter? AndFilter?) derived-props)
+                 (every? (some-fn TypeFilter? NotTypeFilter?) derived-atoms)))]}
+  (let [atomic-prop? (some-fn TypeFilter? NotTypeFilter?)
+        {new-atoms true new-formulas false} (group-by atomic-prop? (flatten-props new-props))]
+    (loop [derived-props []
+           derived-atoms new-atoms
+           worklist (concat old-props new-formulas)]
+      (if (empty? worklist)
+        [derived-props derived-atoms]
+        (let [p (first worklist)
+              p (resolve* derived-atoms p)]
+          (cond
+            (AndFilter? p) (recur derived-props derived-atoms (concat (:fs p) (next worklist)))
+            (ImpFilter? p) 
+            (let [{:keys [a c]} p]
+              (if (some (fn [p] (implied-atomic? a p)) (concat derived-props derived-atoms))
+                (recur derived-props derived-atoms (cons c (rest worklist)))
+                (recur (cons p derived-props) derived-atoms (next worklist))))
+            (OrFilter? p)
+            (let [ps (:fs p)
+                  new-or (loop [ps ps
+                                result []]
+                           (cond
+                             (empty? ps) (apply -or result)
+                             (some (fn [other-p] (opposite? (first ps) other-p))
+                                   (concat derived-props derived-atoms))
+                             (recur (next ps) result)
+                             (some (fn [other-p] (implied-atomic? (first ps) other-p))
+                                   derived-atoms)
+                             -top
+                             :else (recur (next ps) (cons (first ps) result))))]
+              (if (OrFilter? new-or)
+                (recur (cons new-or derived-props) derived-atoms (next worklist))
+                (recur derived-props derived-atoms (cons new-or (next worklist)))))
+            (and (TypeFilter? p)
+                 (type-equal? (Un) (:type p)))
+            (do (reset! flag false)
+              [derived-props derived-atoms])
+            (TypeFilter? p) (recur derived-props (cons p derived-atoms) (next worklist))
+            (and (NotTypeFilter? p)
+                 (type-equal? (->Top) (:type p)))
+            (do (reset! flag false)
+              [derived-props derived-atoms])
+            (NotTypeFilter? p) (recur derived-props (cons p derived-atoms) (next worklist))
+            (TopFilter? p) (recur derived-props derived-atoms (next worklist))
+            (BotFilter? p) (do (reset! flag false)
+                             [derived-props derived-atoms])
+            :else (recur (cons p derived-props) derived-atoms (next worklist))))))))
+
+;; also not yet correct
+;; produces old without the contents of rem
+(defn remove* [old rem]
+  (let [initial (if (subtype? old rem)
+                  (Un) ;the empty type
+                  (cond
+                    ;FIXME TR also tests for App? here. ie (or (Name? old) (App? old))
+                    (Name? old) ;; must be different, since they're not subtypes 
+                                ;; and n must refer to a distinct struct type
+                    old
+                    (Union? old) (let [l (:types old)]
+                                   (apply Un (map (fn [e] (remove* e rem)) l)))
+                    (Mu? old) (remove* (unfold old) rem)
+                    (Poly? old) (let [vs (repeatedly (:nbound old) gensym)
+                                      b (Poly-body* vs old)]
+                                  (Poly* vs (remove* b rem)))
+                    :else old))]
+    (if (subtype? old initial) old initial)))
+
+
+(defn update [t lo]
+  (assert (empty? (:path lo)) "Path NYI")
+  (cond
+    ; TODO deal with paths here
+
+    (and (TypeFilter? lo)
+         (empty? (:path lo))) (let [u (:type lo)]
+                                (restrict t u))
+    (and (NotTypeFilter? lo)
+         (empty? (:path lo))) (let [u (:type lo)]
+                                (remove* t u))
+    (Union? t) (let [ts (:types t)]
+                 (apply Un (doall (map (fn [t] (update t lo)) ts))))
+    :else (throw (Exception. "update along ill-typed path"))))
+
+
+;; sets the flag box to #f if anything becomes (U)
+(defn env+ [env fs flag]
+  {:pre [(PropEnv? env)
+         (every? Filter? fs)
+         (boolean? @flag)]
+   :post [(PropEnv? env)]}
+  (let [[props atoms] (combine-props fs (:props env) flag)]
+    (reduce (fn [gam f] ;gam = gamma environment
+              (cond
+                (BotFilter? f) (do (reset! flag false)
+                                 ;make every variable bottom
+                                 (update-in gam [:l] #(into {} (for [[k _] %] [k (Un)]))))
+                (or (TypeFilter? f)
+                    (NotTypeFilter? f))
+                (let [x (:id f)]
+                  (update-in gam [:l x] (fn [t] 
+                                          ;check if var is ever a target of a set!
+                                          (if (is-var-mutated? x)
+                                            ; if it is, we do nothing
+                                            t
+                                            ;otherwise, refine the type
+                                            (let [t (or t (->Top))
+                                                  new-t (update t f)]
+                                              (when (type-equal? new-t (Un))
+                                                (reset! flag false))
+                                              new-t)))))
+                :else gam))
+            (assoc env [:props] (concat atoms props))
+            atoms)))
+
+(def object-equal? =)
+
+(defn check-if [tst thn els & [expected]]
+  {:pre [(TCResult? tst)
+         ((some-fn TCResult? nil?) expected)]
+   :post [(TCResult? %)]}
+  (letfn [(tc [expr reachable?]
+            {:post [(TCResult? %)]}
+            (when-not reachable?
+              (prn "Unreachable code found.."))
+            (cond
+              ;; if reachable? is #f, then we don't want to verify that this branch has the appropriate type
+              ;; in particular, it might be (void)
+              (and expected reachable?)
+              (-> (check expr (-> expected
+                                (update-in [:fl] #(map (constantly (->NoFilter)) %))
+                                (update-in [:o] #(map (constantly (->NoObject)) %))))
+                expr-type)
+              ;; this code is reachable, but we have no expected type
+              reachable? (-> (check expr) expr-type)
+              ;; otherwise, this code is unreachable
+              ;; and the resulting type should be the empty type
+              :else (do (prn "Not checking unreachable code")
+                      (ret (Un)))))]
+    (let [{fs+ :then fs- :else :as f1} (:fl tst)
+          flag+ (atom true)
+          flag- (atom false)
+
+          env-thn (env+ *lexical-env* [fs+] flag+)
+          env-els (env+ *lexical-env* [fs-] flag-)
+          new-thn-props (filter (fn [e] (and (atomic-filter? e) (not (some #(= % e) (:props *lexical-env*)))))
+                                (:props env-thn))
+          new-els-props (filter (fn [e] (and (atomic-filter? e) (not (some #(= % e) (:props *lexical-env*)))))
+                                (:props env-els))
+          {ts :t fs2 :fl os2 :o} (binding [*lexical-env* env-thn]
+                                   (tc thn @flag+))
+          {us :t fs3 :fl os3 :o} (binding [*lexical-env* env-els]
+                                   (tc els @flag-))]
+         ;(printf "old props: ~a\n" (env-props (lexical-env)))
+         ;(printf "fs+: ~a\n" fs+)
+         ;(printf "fs-: ~a\n" fs-)
+         ;(printf "thn-props: ~a\n" (env-props env-thn))
+         ;(printf "els-props: ~a\n" (env-props env-els))
+         ;(printf "new-thn-props: ~a\n" new-thn-props)
+         ;(printf "new-els-props: ~a\n" new-els-props)
+
+      ;some optimization code here, contraditions etc? omitted
+
+      (cond
+        ;both branches reachable
+        (and (not (type-equal? (Un) ts))
+             (not (type-equal? (Un) us)))
+        (let [r (let [filter (cond
+                               (or (NoFilter? fs2)
+                                   (NoFilter? fs3)) (-FS -top -top)
+                               (and (FilterSet? fs2)
+                                    (FilterSet? fs3))
+                               (let [{f2+ :then f2- :else} fs2
+                                     {f3+ :then f3- :else} fs3]
+                                 (-FS (-or (apply -and fs+ f2+ new-thn-props) (apply -and fs- f3+ new-els-props))
+                                      (-or (apply -and fs+ f2- new-thn-props) (apply -and fs- f3- new-els-props)))))
+                      type (Un ts us)
+                      object (if (object-equal? os2 os3) os2 (->EmptyObject))]
+                  (ret type filter object))]
+          (if expected (check-below r expected) r))
+        ;; special case if one of the branches is unreachable
+        (type-equal? us (Un))
+        (if expected (check-below (ret ts fs2 os2) expected) (ret ts fs2 os2))
+        (type-equal? ts (Un))
+        (if expected (check-below (ret us fs3 os3) expected) (ret us fs3 os3))
+        :else (throw (Exception. "Something happened"))))))
 
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
   (let [ctest (check test)]
     (assoc expr
-           expr-type (ret (let [then-reachable? ((every-pred (complement Union?)
-                                                             (complement Intersection?)
-                                                             (complement Nil?)
-                                                             (complement False?))
-                                                   (expr-type ctest))
-                                else-reachable? ((every-pred (complement Union?)
-                                                             (complement Intersection?)
-                                                             (some-fn
-                                                               Nil? False?))
-                                                   (expr-type ctest))]
-                            (apply Un (concat (when then-reachable?
-                                                [(-> then check expr-type)])
-                                              (when else-reachable?
-                                                [(-> else check expr-type)]))))))))
+           expr-type (check-if (expr-type ctest) then else))))
 
 (defmethod check :def
   [{:keys [var init init-provided] :as expr} & [expected]]
@@ -4029,8 +4285,11 @@
     (assoc cexpr
            expr-type (ret (RInstance-of Var)))))
 
-(defmacro cf [form]
+(defmacro cf 
+  ([form]
   `(-> (ast ~form) check expr-type unparse-TCResult))
+  ([form expected]
+  `(-> (ast ~form) #(check % (parse-type '~expected) expr-type unparse-TCResult))))
 
 (defn check-ns [nsym]
   (require nsym)
