@@ -64,17 +64,21 @@
               '~method-doms)))
 
 (defmacro declare-names [& syms]
-  `(doseq [sym# '~syms]
+  `(tc-ignore
+  (doseq [sym# '~syms]
      (let [qsym# (if (namespace sym#)
                    sym#
                    (symbol (name (ns-name *ns*)) (name sym#)))]
-       (declare-name* qsym#))))
+       (declare-name* qsym#)))))
 
 (defmacro def-alias [sym type]
-  `(let [sym# (if (namespace '~sym)
+  `(tc-ignore
+  (let [sym# (if (namespace '~sym)
                 '~sym
-                (symbol (name (ns-name *ns*)) (name '~sym)))]
-     (add-type-name sym# (parse-type '~type))))
+                (symbol (name (ns-name *ns*)) (name '~sym)))
+         ty# (parse-type '~type)]
+     (add-type-name sym# ty#)
+     [sym# (unparse-type ty#)])))
 
 (defn tc-ignore-forms [r]
   r)
@@ -1070,11 +1074,13 @@
 
 (defn add-type-name [sym ty]
   {:pre [(namespace sym)]}
-  (swap! TYPE-NAME-ENV assoc sym ty))
+  (swap! TYPE-NAME-ENV assoc sym ty)
+  nil)
 
 (defn declare-name* [sym]
   {:pre [(namespace sym)]}
-  (add-type-name sym declared-name-type))
+  (add-type-name sym declared-name-type)
+  nil)
 
 (defn- resolve-name [sym]
   (let [t (@TYPE-NAME-ENV sym)]
@@ -1283,7 +1289,6 @@
     (let [qsym (if (namespace sym)
                  sym
                  (symbol (-> *ns* ns-name name) (name sym)))]
-      (prn "qsym:" qsym)
       (cond
         (qsym @TYPE-NAME-ENV) (->Name qsym)
         :else (let [res (resolve sym)]
@@ -1339,6 +1344,9 @@
 (defmethod unparse-type True [_] true)
 (defmethod unparse-type False [_] false)
 (defmethod unparse-type Top [_] 'Any)
+
+(defmethod unparse-type Name [{:keys [id]}]
+  id)
 
 (defmethod unparse-type Result
   [{:keys [t]}]
@@ -3543,7 +3551,6 @@
             success-ret-type (some #(check-funapp1 % arg-ret-types expected :check? false)
                                    (filter (fn [{:keys [dom rest] :as f}]
                                              {:pre [(Function? f)]}
-                                             (prn (unparse-type f))
                                              (subtype-varargs? arg-types dom rest))
                                            ftypes))]
         (if success-ret-type
@@ -4011,4 +4018,6 @@
 
 (comment 
 (check-ns 'typed.test.example)
-)
+(check-ns 'typed.test.rbt)
+  )
+

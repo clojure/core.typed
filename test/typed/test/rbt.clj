@@ -129,8 +129,9 @@
 ;  and dict is re-balanced red/black tree (satisfying all inv's)
 ;  and the same black height n.
 
-; (Fn [badRight -> rbt])
-(defn restore-left [tmap]
+(ann restore-right 
+     (Fn [badRight -> rbt]))
+(defn restore-right [tmap]
   (cond
     (and (= :Black (-> tmap :tree))
          (= :Red (-> tmap :left :tree))
@@ -198,8 +199,9 @@
 
     :else tmap))
 
+; Okasaki's simplified rotations for red-black trees
 ;(Fn [badRight -> rbt])
-(defn restore-right [tmap]
+#_(defn restore-right [tmap]
   (cond
     (and (= :Black (-> tmap :tree))
          (= :Red (-> tmap :right :tree))
@@ -241,7 +243,7 @@
 
     :else tmap))
 
-; (Fn [rbt entry -> rbt])
+(ann insert (Fn [rbt EntryT -> rbt]))
 (defn insert [dict {:keys [key datum] :as entry}]
   (letfn [;; ins (Red _) may violate color invariant at root
           ;; ins (Black _) or ins (Empty) will be red/black tree
@@ -278,10 +280,10 @@
                                                 :entry entry
                                                 :left l
                                                 :right r}
-                                  (< key key1) (restore-left {:tree :Black
-                                                              :entry e1
-                                                              :left (ins l)
-                                                              :right r})
+;                                  (< key key1) (restore-left {:tree :Black
+;                                                              :entry e1
+;                                                              :left (ins l)
+;                                                              :right r})
                                   :else (restore-right {:tree :Black
                                                         :entry e1
                                                         :left l
