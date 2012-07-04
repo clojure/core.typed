@@ -1064,6 +1064,17 @@
      ~@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Method Override Env
+
+(defonce METHOD-OVERRIDE-ENV (atom {}))
+(set-validator! METHOD-OVERRIDE-ENV #(and (every? (every-pred namespace symbol?) (keys %))
+                                          (every? Fn-Intersection? (vals %))))
+
+(defn add-method-override [sym t]
+  (swap! METHOD-OVERRIDE-ENV assoc sym t)
+  nil)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Name Env
 
 (def declared-name-type ::declared-name)
@@ -3731,6 +3742,8 @@
                                                   (->Nil))))))
       :else ::not-special)))
 
+(defmethod static-method-special :default [& args] ::not-special)
+
 ;conj
 (defmethod invoke-special #'clojure.core/conj
   [{[t & args] :args :keys [fexpr] :as expr} & [expected]]
@@ -3931,13 +3944,14 @@
 
 ;Symbol -> Class
 (def prim-coersion
-  {long Long
-   int Integer
-   boolean Boolean})
+  {'long Long
+   'int Integer
+   'boolean Boolean})
 
 (defn Method-symbol->Type [sym]
   {:pre [(symbol? sym)]
    :post [(Type? %)]}
+  (prn sym)
   (if-let [cls (or (prim-coersion sym)
                    (resolve sym))]
     (RInstance-of cls)
@@ -3945,16 +3959,24 @@
 
 (defn- method->Function [{:keys [parameter-types return-type] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
-   :post [(Function? %)]}
-  (make-Function (map Method-symbol->Type parameter-types)
-                 (Method-symbol->Type return-type)))
+   :post [(Fn-Intersection? %)]}
+  (Fn-Intersection [(make-Function (doall (map Method-symbol->Type parameter-types))
+                                   (Method-symbol->Type return-type))]))
 
-(defn check-static-method [{:keys [args tag method] :as expr}
-                           expected]
+(defn Method->symbol [{name-sym :name :keys [declaring-class] :as method}]
+  {:pre [(instance? clojure.reflect.Method method)]
+   :post [((every-pred namespace symbol?) %)]}
+  (symbol (name declaring-class) (name name-sym)))
+
+(defn check-invoke-static-method [{:keys [args tag method] :as expr} expected]
   {:pre [((some-fn nil? Type?) expected)]
    :post [(-> % expr-type TCResult?)]}
-  (let [ftype (method->Function method)]
-    ))
+  (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
+                           (method->Function method)))
+        cargs (doall (map check args))
+        result-type (check-funapp rfin-type (map expr-type cargs) expected)]
+    (assoc expr
+           expr-type result-type)))
 
 (defmethod check :static-method
   [expr & [expected]]
@@ -3962,7 +3984,7 @@
   (let [spec (static-method-special expr expected)]
     (cond
       (not= ::not-special spec) spec
-      :else (check-static-method expr expected))))
+      :else (check-invoke-static-method expr expected))))
 
 (defmethod check :let
   [{:keys [binding-inits body is-loop] :as expr} & [expected]]
