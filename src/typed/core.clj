@@ -63,6 +63,19 @@
                       (apply list (vec (map first params)) body)))
               '~method-doms)))
 
+(defmacro declare-names [& syms]
+  `(doseq [sym# '~syms]
+     (let [qsym# (if (namespace sym#)
+                   sym#
+                   (symbol (name (ns-name *ns*)) (name sym#)))]
+       (declare-name* qsym#))))
+
+(defmacro def-alias [sym type]
+  `(let [sym# (if (namespace '~sym)
+                '~sym
+                (symbol (name (ns-name *ns*)) (name '~sym)))]
+     (add-type-name sym# (parse-type '~type))))
+
 (defn tc-ignore-forms [r]
   r)
 
@@ -298,6 +311,12 @@
          (PolyDots? poly)]}
   (assert (= (:nbound poly) (count names)) "Wrong number of names")
   (instantiate-many (map make-F names) (:scope poly)))
+
+(defrecord Name [id]
+  "A late bound name"
+  [((every-pred namespace symbol?) id)])
+
+(declare-type Name)
 
 (defrecord Mu [scope]
   "A recursive type containing one bound variable, itself"
@@ -992,6 +1011,15 @@
        (do (add-var-type s# t#)
          [s# (unparse-type t#)]))))
 
+(defmacro override-method [methodsym typesyn]
+  `(tc-ignore
+     (let [t# (parse-type '~typesyn)
+           s# (if (namespace '~methodsym)
+                '~methodsym
+                (throw (Exception. "Method name must be a qualified symbol")))]
+       (do (add-method-override s# t#)
+         [s# (unparse-type t#)]))))
+
 (defn add-var-type [sym type]
   (swap! VAR-ANNOTATIONS #(assoc % sym type)))
 
@@ -1030,6 +1058,30 @@
 (defmacro with-dotted [dvar & body]
   `(binding [*dotted-scope* (conj *dotted-scope* [(:name ~dvar) ~dvar])]
      ~@body))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Type Name Env
+
+(def declared-name-type ::declared-name)
+
+(defonce TYPE-NAME-ENV (atom {}))
+(set-validator! TYPE-NAME-ENV #(and (every? (every-pred namespace symbol?) (keys %))
+                                    (every? (some-fn Type? (fn [a] (= a declared-name-type))) (vals %))))
+
+(defn add-type-name [sym ty]
+  {:pre [(namespace sym)]}
+  (swap! TYPE-NAME-ENV assoc sym ty))
+
+(defn declare-name* [sym]
+  {:pre [(namespace sym)]}
+  (add-type-name sym declared-name-type))
+
+(defn- resolve-name [sym]
+  (let [t (@TYPE-NAME-ENV sym)]
+    (cond
+      (= declared-name-type t) (throw (Exception. (str "Reference to declared but undefined name " sym)))
+      (Type? t) t
+      :else (throw (Exception. (str "Cannot resolve name " sym))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class
@@ -1226,12 +1278,18 @@
 
 (defmethod parse-type-symbol :default
   [sym]
-  (cond
-    (sym *free-scope*) (sym *free-scope*)
-    :else (let [res (resolve sym)]
-            (cond 
-              (class? res) (RInstance-of res)
-              :else (throw (Exception. (str "Cannot resolve type: " sym)))))))
+  (if-let [f (sym *free-scope*)]
+    f
+    (let [qsym (if (namespace sym)
+                 sym
+                 (symbol (-> *ns* ns-name name) (name sym)))]
+      (prn "qsym:" qsym)
+      (cond
+        (qsym @TYPE-NAME-ENV) (->Name qsym)
+        :else (let [res (resolve sym)]
+                (cond 
+                  (class? res) (RInstance-of res)
+                  :else (throw (Exception. (str "Cannot resolve type: " sym)))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v (->True) (->False))) 
@@ -3038,6 +3096,12 @@
               [String Any -> (U nil Character)]
               [(U nil (ILookup Any x)) Any -> (U nil x)])))
 
+(ann clojure.core/=
+     [Any Any * -> (U true false)])
+
+;(override-method clojure.lang.Util/equiv
+;                 [Any Any -> (U true false)])
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
 
@@ -3858,13 +3922,40 @@
   (assoc expr
          expr-type (ret (type-of (-> local-binding :sym)))))
 
+;Symbol -> Class
+(def prim-coersion
+  {long Long
+   int Integer
+   boolean Boolean})
+
+(defn Method-symbol->Type [sym]
+  {:pre [(symbol? sym)]
+   :post [(Type? %)]}
+  (if-let [cls (or (prim-coersion sym)
+                   (resolve sym))]
+    (RInstance-of cls)
+    (throw (Exception. (str "Method symbol " sym " does not resolve to a type")))))
+
+(defn- method->Function [{:keys [parameter-types return-type] :as method}]
+  {:pre [(instance? clojure.reflect.Method method)]
+   :post [(Function? %)]}
+  (make-Function (map Method-symbol->Type parameter-types)
+                 (Method-symbol->Type return-type)))
+
+(defn check-static-method [{:keys [args tag method] :as expr}
+                           expected]
+  {:pre [((some-fn nil? Type?) expected)]
+   :post [(-> % expr-type TCResult?)]}
+  (let [ftype (method->Function method)]
+    ))
+
 (defmethod check :static-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (let [spec (static-method-special expr expected)]
     (cond
       (not= ::not-special spec) spec
-      :else (throw (Exception. ":static-method not implemented")))))
+      :else (check-static-method expr expected))))
 
 (defmethod check :let
   [{:keys [binding-inits body is-loop] :as expr} & [expected]]
