@@ -432,7 +432,7 @@
 (defn make-Result
   ([t] (make-Result t nil nil))
   ([t f] (make-Result t f nil))
-  ([t f o] (->Result t (or f (->NoFilter)) (or o (->NoObject)))))
+  ([t f o] (->Result t (or f (-FS -top -top)) (or o (->NoObject)))))
 
 (defn make-Function
   "Make a function, wrap range type in a Result.
@@ -440,7 +440,7 @@
   and NoObject"
   ([dom rng] (make-Function dom rng nil nil))
   ([dom rng rest] (make-Function dom rng rest nil))
-  ([dom rng rest drest & {:keys [filter object] :or {filter (->NoFilter), object (->NoObject)}}]
+  ([dom rng rest drest & {:keys [filter object] :or {filter (-FS -top -top), object (->NoObject)}}]
    (->Function dom (->Result rng filter object) rest drest nil)))
 
 (defn Fn-Intersection [fns]
@@ -690,6 +690,20 @@
   (if (or (= (Bottom) t) (and (symbol? i) (is-var-mutated? i)))
     -top
     (->NotTypeFilter t p i)))
+
+(declare Path?)
+
+(defn -filter-at [t o]
+  (if (Path? o)
+    (let [{p :path i :id} o]
+      (-filter t i p))
+    -top))
+(defn -not-filter-at [t o]
+  (if (Path? o)
+    (let [{p :path i :id} o]
+      (-not-filter t i p))
+    -top))
+
 
 (defrecord NoFilter []
   "Represents no info about filters, used for parsing types"
@@ -966,8 +980,13 @@
   "A path calling clojure.core/next"
   [])
 
+(defrecord KeyPE [val]
+  "A key in a hash-map"
+  [((some-fn keyword?) val)])
+
 (declare-path-elem FirstPE)
 (declare-path-elem NextPE)
+(declare-path-elem KeyPE)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Objects
@@ -3532,6 +3551,8 @@
             (and (Type? t)
                  (FilterSet? fs)
                  (RObject? r)))]}
+
+  (prn r)
   (reduce (fn [[t fs old-obj] [[o k] arg-ty]]
             {:pre [(Type? t)
                    ((some-fn FilterSet? NoFilter?) fs)
@@ -3539,7 +3560,11 @@
                    (integer? k)
                    (RObject? o)
                    (or (false? arg-ty)
-                       (Type? arg-ty))]}
+                       (Type? arg-ty))]
+             :post [(let [[t fs r] %]
+                      (and (Type? t)
+                           (FilterSet? fs)
+                           (RObject? r)))]}
             [(subst-type t k o true)
              (subst-filter-set fs k o true arg-ty)
              (subst-object old-obj k o true)])
@@ -3648,10 +3673,57 @@
                                             (-filter (->Nil) id)))
                           (->Path nil id)))))
 
+(defn tc-equiv [comparator & vs]
+  {:pre [(every? TCResult? vs)]
+   :post [(TCResult? %)]}
+  (let [{singletons true others false} (group-by (comp (some-fn Value? Nil? False? True?) ret-t) vs)]
+    (prn singletons)
+    (if (<= 1 (count singletons))
+      (cond
+        ; All singletons
+        (empty? others) (if (apply = (map ret-t singletons))
+                          (ret (->True) (-FS -top -bot))
+                          (ret (->False) (-FS -bot -top)))
+        ;Can be more specific with else filter with exactly 2 args
+        (= 2 (count vs)) (let [st (ret-t (first singletons))
+                               {:keys [o]} (first others)]
+                           (ret (Un (->False) (->True))
+                                (-FS (-filter-at st o)
+                                     (-not-filter-at st o))))
+
+        ; All singletons are identical, with other types.
+        ; can't derive anything if false eg. (= 1 1 a b c)
+        (apply = (map ret-t singletons)) (let [st (ret-t (first singletons))]
+                                           (ret (Un (->False) (->True))
+                                                (-FS (apply -and 
+                                                            (for [{:keys [o]} (map ret-t others)]
+                                                              (-filter-at st o)))
+                                                     -top)))
+        (apply not= (map ret-t singletons)) (ret (->False)
+                                                 (-FS -bot
+                                                      -top))
+        :else (ret (Un (->True) (->False))))
+      (ret (Un (->True) (->False))))))
+
+
 (defmulti invoke-special (fn [expr & args] (-> expr :fexpr :var)))
 (defmulti invoke-apply (fn [expr & args] (-> expr :args first :var)))
 (defmulti static-method-special (fn [{{:keys [declaring-class name]} :method} & args]
                                   (symbol (str declaring-class) (str name))))
+
+;=
+(defmethod invoke-special #'clojure.core/= 
+  [{:keys [args] :as expr} & [expected]]
+  (let [cargs (doall (map check args))]
+    (assoc expr
+           expr-type (apply tc-equiv := (map expr-type cargs)))))
+
+;equiv
+(defmethod static-method-special 'clojure.lang.Util/equiv
+  [{:keys [args] :as expr} & [expected]]
+  (let [cargs (doall (map check args))]
+    (assoc expr
+           expr-type (apply tc-equiv := (map expr-type cargs)))))
 
 ;apply
 (defmethod invoke-special #'clojure.core/apply
@@ -3776,6 +3848,7 @@
                                                                [default])))))
       :else ::not-special)))
 
+
 ;get
 (defmethod static-method-special 'clojure.lang.RT/get
   [{[t & args] :args :keys [fexpr] :as expr} & [expected]]
@@ -3841,24 +3914,41 @@
   (throw (Exception. "apply not implemented")))
 
 
-(defn invoke-keyword [{:keys [kw target] :as expr} expected]
-  {:post [(-> % expr-type TCResult?)]}
+(defn invoke-keyword [kw target default expected]
+  {:pre [(keyword? kw)]
+   :post [(TCResult? %)]}
   (let [kwt (->Value kw)
         ctarget (check target)
-        ttype (-> ctarget expr-type ret-t)]
+        default-t (if default
+                    (ret-t (expr-type (check default)))
+                    (->Nil))
+        ret-type (expr-type ctarget)
+        ttype (ret-t ret-type)]
     (cond
       (HeterogeneousMap? ttype)
-      (assoc expr
-             expr-type (ret (get (:types ttype) kwt (->Nil))))
+      (let [{{path-hm :path id-hm :id :as o} :o} ret-type
+            this-pelem (->KeyPE kw)]
+        (let [val-type (get (:types ttype) kwt)]
+          (if (and val-type (not default))
+            (ret val-type
+                 (-FS (if (Path? o)
+                        (-filter val-type id-hm (concat path-hm [this-pelem]))
+                        (-filter-at val-type (->EmptyObject)))
+                      (if (Path? o)
+                        (-filter val-type id-hm (concat path-hm [this-pelem]))
+                        (-filter-at val-type (->EmptyObject))))
+                 (if (Path? o)
+                   (update-in o [:path] #(concat % [this-pelem]))
+                   o))
+            (ret (->Top)))))
 
-      :else 
-      (assoc expr
-             expr-type (ret (->Top))))))
+      :else (ret (->Top)))))
 
 (defmethod check :keyword-invoke
-  [{:keys [fexpr args] :as expr} & [expected]]
+  [{:keys [kw target] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (invoke-keyword expr expected))
+  (assoc expr
+         expr-type (invoke-keyword (:val kw) target nil expected)))
 
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
@@ -3868,7 +3958,9 @@
       (not= ::not-special e) e
 
       (= :keyword (:op fexpr))
-      (throw (Exception. ":keyword invoke TODO")) ; :keyword invoke doesn't take default
+      (let [{{:keys [val]} :fexpr [target default] :args} expr]
+        (assoc expr
+               expr-type (invoke-keyword val target default expr-type)))
 
       :else
       (let [cfexpr (check fexpr)
@@ -4166,10 +4258,7 @@
 
 
 (defn update [t lo]
-  (assert (empty? (:path lo)) "Path NYI")
   (cond
-    ; TODO deal with paths here
-
     (and (TypeFilter? lo)
          (empty? (:path lo))) (let [u (:type lo)]
                                 (restrict t u))

@@ -187,6 +187,19 @@
   (is (= (ety (let []))
          (->Nil))))
 
+(deftest equiv-test
+  (is (= (tc-t (= 1))
+         (tc-t (= 1 1))
+         (tc-t (= 1 1 1 1 1 1 1 1 1 1))
+         (ret (->True) (-FS -top -bot))))
+  (is (= (tc-t (= 'a 'b))
+         (tc-t (= 1 2))
+         (tc-t (= :a :b))
+         (tc-t (= :a 1 'a))
+         (ret (->False) (-FS -bot -top))))
+  (is (= (tc-t (= :Val (-> {:a :Val} :a)))
+         (ret (->True) (-FS -bot -top)))))
+
 (deftest dotted-infer-test
   (is (cf (map number? [1]))))
 
@@ -194,9 +207,13 @@
   (is (thrown? Exception (ety (symbol "a" 'b))))
   (is (ety (symbol "a" "a"))))
 
-(deftest check-do
+(deftest check-do-test
   (is (= (ety (do 1 2))
          (->Value 2))))
+
+(deftest check-keyword-invoke-test
+  (is (= (ety (let [a {:a 1}] (:a a)))
+         (->Value 1))))
 
 (defn print-cset [cs]
   (into {} (doall
