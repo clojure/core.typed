@@ -3,7 +3,7 @@
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
-                         Keyword Atom))
+                         Keyword Atom PersistentList))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [clojure.repl :refer [pst]]
@@ -120,6 +120,8 @@
 (defrecord Top []
   "The top type"
   [])
+
+(def -any (->Top))
 
 (declare-type Top)
 
@@ -391,6 +393,7 @@
 (defrecord HeterogeneousSeq [types]
   "A constant seq, clojure.lang.ISeq"
   [(sequential? types)
+   (seq types)
    (every? Type? types)])
 
 (declare-type HeterogeneousSeq)
@@ -656,14 +659,14 @@
 (def atomic-filter? (some-fn TypeFilter? NotTypeFilter?
                              TopFilter? BotFilter?))
 
-(defn is-var-mutated? [id]
-  (let [ret? (type-of id)
-        t (if (TCResult? ret?)
-            (ret-t ret?)
-            ret?)]
-    (subtype? t (RInstance-of clojure.lang.IDeref))))
+(def ^:dynamic *mutated-bindings* #{})
 
-(def overlap (fn [] (throw (Exception. "overlap NYI"))))
+(defn is-var-mutated? [id]
+  (contains? *mutated-bindings* id))
+
+;true if types t1 and t2 overlap (NYI)
+(defn overlap [t1 t2]
+  true) ;FIXME conservative result
 
 (declare infer subst-all)
 
@@ -996,6 +999,13 @@
 (declare-filter ImpFilter)
 (declare-filter FilterSet)
 
+(def -true-filter (-FS -top -bot))
+(def -false-filter (-FS -bot -top))
+
+(def -false (->False))
+(def -true (->True))
+(def -nil (->Nil))
+
 (defn implied-atomic? [f1 f2]
   (if (= f1 f2)
     true
@@ -1050,6 +1060,8 @@
   "?"
   [])
 
+(def -empty (->EmptyObject))
+
 (defrecord Path [path id]
   "A path"
   [(every? PathElem? path)
@@ -1081,11 +1093,15 @@
 (defrecord PropEnv [l props]
   "A lexical environment l, props is a list of known propositions"
   [(every? (every-pred symbol? (complement namespace)) (keys l))
-   (every? TCResult? (vals l))
+   (every? Type? (vals l))
    (every? Filter? props)])
 
 (defonce VAR-ANNOTATIONS (atom {}))
 (def ^:dynamic *lexical-env* (->PropEnv {} []))
+
+(defmacro with-lexical-env [env & body]
+  `(binding [*lexical-env* ~env]
+     ~@body))
 
 (set-validator! VAR-ANNOTATIONS #(and (every? (every-pred symbol? namespace) (keys %))
                                       (every? Type? (vals %))))
@@ -1110,7 +1126,8 @@
       [s# (unparse-type t#)]))))
 
 (defn add-var-type [sym type]
-  (swap! VAR-ANNOTATIONS #(assoc % sym type)))
+  (swap! VAR-ANNOTATIONS #(assoc % sym type))
+  nil)
 
 (defn lookup-local [sym]
   (-> *lexical-env* :l sym))
@@ -1126,7 +1143,7 @@
   (assert (contains? @VAR-ANNOTATIONS nsym) (str "Untyped var reference: " nsym))
   (@VAR-ANNOTATIONS nsym))
 
-(defn- merge-locals [env new]
+(defn merge-locals [env new]
   (-> env
     (update-in [:l] #(merge % new))))
 
@@ -1337,9 +1354,9 @@
   [syn]
   (parse-fn-intersection-type syn))
 
-(defmethod parse-type-list 'Vector*
-  [syn]
-  (->HeterogeneousVector (vec (map parse-type (rest syn)))))
+(defmethod parse-type-list 'Seq* [syn] (->HeterogeneousSeq (mapv parse-type (rest syn))))
+(defmethod parse-type-list 'List* [syn] (->HeterogeneousList (mapv parse-type (rest syn))))
+(defmethod parse-type-list 'Vector* [syn] (->HeterogeneousVector (mapv parse-type (rest syn))))
 
 (declare constant-type)
 
@@ -2843,7 +2860,6 @@
     (subtype (RInstance-of IPersistentMap [sk sv])
              t)))
 
-
 ;every rtype entry must be in ltypes
 ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
 (defmethod subtype* [HeterogeneousMap HeterogeneousMap]
@@ -2862,6 +2878,28 @@
   [s t]
   (let [ss (apply Un (:types s))]
     (subtype (RInstance-of IPersistentVector [ss])
+             t)))
+
+(defmethod subtype* [HeterogeneousList HeterogeneousList]
+  [{ltypes :types :as s} 
+   {rtypes :types :as t}]
+  (last (doall (map #(subtype %1 %2) ltypes rtypes))))
+
+(defmethod subtype* [HeterogeneousList Type]
+  [s t]
+  (let [ss (apply Un (:types s))]
+    (subtype (RInstance-of PersistentList [ss])
+             t)))
+
+(defmethod subtype* [HeterogeneousSeq HeterogeneousSeq]
+  [{ltypes :types :as s} 
+   {rtypes :types :as t}]
+  (last (doall (map #(subtype %1 %2) ltypes rtypes))))
+
+(defmethod subtype* [HeterogeneousSeq Type]
+  [s t]
+  (let [ss (apply Un (:types s))]
+    (subtype (RInstance-of ASeq [ss])
              t)))
 
 (defmethod subtype* [Function TopFunction]
@@ -2995,6 +3033,21 @@
               Seqable (Seqable a)
               ISeq (ISeq a)})
 
+(alter-class IPersistentList [[a :variance :covariant]]
+             :replace
+             {IPersistentCollection (IPersistentCollection a)
+              Seqable (Seqable a)
+              IPersistentStack (IPersistentStack a)})
+
+(alter-class PersistentList [[a :variance :covariant]]
+             :replace
+             {IPersistentCollection (IPersistentCollection a)
+              ASeq (ASeq a)
+              Seqable (Seqable a)
+              IPersistentList (IPersistentList a)
+              ISeq (ISeq a)
+              IPersistentStack (IPersistentStack a)})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
@@ -3013,8 +3066,21 @@
      (Fn [(U Symbol String) -> Symbol]
          [String String -> Symbol]))
 
-(ann clojure.core/seq?  (Fn [Any -> (U false true)]))
-(ann clojure.core/number?  (Fn [Any -> (U false true)]))
+(add-var-type 'clojure.core/seq? 
+              (In (->Function [-any] 
+                              (make-Result (Un -false -true) 
+                                           (-FS (-filter (RInstance-of ISeq [-any]) 0)
+                                                (-not-filter (RInstance-of ISeq [-any]) 0))
+                                           -empty)
+                              nil nil nil)))
+
+(add-var-type 'clojure.core/number?
+              (In (->Function [-any] 
+                              (make-Result (Un -false -true) 
+                                           (-FS (-filter (RInstance-of Number) 0)
+                                                (-not-filter (RInstance-of Number) 0))
+                                           -empty)
+                              nil nil nil)))
 
 (ann clojure.core/string?
      (Fn [Any -> (U false true)]))
@@ -3230,7 +3296,9 @@
 (defmethod check :empty-expr 
   [{coll :coll :as expr} & [expected]]
   (assoc expr
-         expr-type (ret (constant-type coll))))
+         expr-type (ret (constant-type coll)
+                        (-FS -top -bot)
+                        (->EmptyObject))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -3351,6 +3419,53 @@
                   b expected]
               (throw (Exception. (str "Unexpected input for check-below " a b)))))))
 
+(defn index-free-in? [k type]
+  (let [free-in? (atom false)]
+    (letfn [(for-object [o]
+              (type-case {:Type for-type}
+                         o
+                         Path
+                         (fn [{p :path i :id}]
+                           (if (= i k)
+                             (reset! free-in? true)
+                             o))))
+            (for-filter [o]
+              (type-case {:Type for-type
+                          :Filter for-filter}
+                         o
+                         NotTypeFilter
+                         (fn [{t :type p :path i :id}]
+                           (if (= i k)
+                             (reset! free-in? true)
+                             o))
+                         TypeFilter
+                         (fn [{t :type p :path i :id}]
+                           (if (= i k)
+                             (reset! free-in? true)
+                             o))))
+            (for-type [t]
+              (type-case {:Type for-type
+                          :Filter for-filter
+                          :Object for-object}
+                         t
+                         Function
+                         (fn [{:keys [dom rng rest drest kws]}]
+                           ;; here we have to increment the count for the domain, where the new bindings are in scope
+                           (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (concat (:mandatory kws)
+                                                                                                      (:optional kws))))
+                                 st* (fn [t] (index-free-in? (if (number? k) (+ arg-count k) k) t))]
+                             (doseq [d dom]
+                               (for-type d))
+                             (st* rng)
+                             (and rest (for-type rest))
+                             (and rest (for-type (:pre-type drest)))
+                             (doseq [[_ v] (concat (:mandatory kws)
+                                                   (:optional kws))]
+                               (for-type v))
+                             ;dummy return value
+                             (make-Function [] -any)))))]
+      (for-type type)
+      @free-in?)))
 
 (defn subst-filter [f k o polarity]
   {:pre [(Filter? f)
@@ -3360,26 +3475,26 @@
    :post [(Filter? %)]}
   (letfn [(ap [f] (subst-filter f k o polarity))
           (tf-matcher [t p i k o polarity maker]
-            {:pre [(Type? t)]}
+            {:pre [(Type? t)
+                   ((some-fn EmptyObject? NoObject? Path?) o)]
+             :post [(Filter? %)]}
             (cond
               ((some-fn EmptyObject? NoObject?)
                  o)
               (cond 
-                (= i k) (if polarity (->TopFilter) (->BotFilter)))
-
-              (assert false "TODO index-free-in?") "TODO"
-              ;(index-free-in? k t) (if polarity (->TopFilter) (->BotFilter))
+                (= i k) (if polarity -top -bot)
+                (index-free-in? k t) (if polarity -top -bot)
+                :else f)
 
               (Path? o) (let [{p* :path i* :id} o]
                           (cond
                             (= i k) (maker 
                                       (subst-type t k o polarity)
                                       i*
-                                      (concat p p*))))
-
-              ;FIXME Redundant case??
-              ;(index-free-in? k t) (if polarity (->TopFilter) (->BotFilter))
-              :else f))]
+                                      (concat p p*))
+                            (index-free-in? k t) (if polarity -top -bot)
+                            :else f))
+              :else (throw (Exception. (str "what is this? " o)))))]
     (cond
       (ImpFilter? f) (let [{ant :a consq :c} f]
                        (->ImpFilter (subst-filter ant k o (not polarity)) (ap consq)))
@@ -3597,11 +3712,8 @@
   (let [id (var->symbol var)]
     (assoc expr
            expr-type (ret (lookup-Var (var->symbol var))
-                          (->FilterSet (-and (-not-filter (->False) id)
-                                             (-not-filter (->Nil) id))
-                                       (-or (-filter (->False) id)
-                                            (-filter (->Nil) id)))
-                          (->Path nil id)))))
+                          (-FS -top -top)
+                          -empty))))
 
 (defn tc-equiv [comparator & vs]
   {:pre [(every? TCResult? vs)]
@@ -3748,16 +3860,31 @@
 ;for map destructuring
 (defmethod invoke-special #'clojure.core/seq?
   [{:keys [args] :as expr} & [expected]]
-  (let [cargs (doall (map check args))]
+  (let [_ (assert (= 1 (count args)) "Wrong number of args to seq?")
+        cargs (doall (map check args))
+        targett (ret-t (expr-type (first cargs)))
+        special? (or ((some-fn HeterogeneousSeq?
+                               HeterogeneousList?
+                               HeterogeneousVector?
+                               HeterogeneousMap?)
+                        targett)
+                     (and (Union? ret-t)
+                          (every? (some-fn HeterogeneousSeq?
+                                           HeterogeneousList?
+                                           HeterogeneousVector?
+                                           HeterogeneousMap?)
+                                  (:types ret-t))))
+        sub? (when special?
+               (subtype? targett
+                         (RInstance-of ISeq [(->Top)])))]
     (cond
-      (HeterogeneousMap? (expr-type (first cargs)))
+      (and special? sub?)
       (assoc expr
-             expr-type (ret (->False)))
+             expr-type (ret (->True) (-FS -top -bot) (->EmptyObject)))
 
-      ((some-fn HeterogeneousList? HeterogeneousSeq?) 
-         (expr-type (first cargs)))
+      (and special? (not sub?))
       (assoc expr
-             expr-type (ret (->True)))
+             expr-type (ret (->False) (-FS -bot -top) (->EmptyObject)))
 
       :else ::not-special)))
 ;nth
@@ -3863,9 +3990,7 @@
                  (-FS (if (Path? o)
                         (-filter val-type id-hm (concat path-hm [this-pelem]))
                         (-filter-at val-type (->EmptyObject)))
-                      (if (Path? o)
-                        (-filter val-type id-hm (concat path-hm [this-pelem]))
-                        (-filter-at val-type (->EmptyObject))))
+                      -bot)
                  (if (Path? o)
                    (update-in o [:path] #(concat % [this-pelem]))
                    o))
@@ -3956,7 +4081,10 @@
   {:pre [(every? Type? method-param-types)]
    :post [(-> % expr-type Function?)]}
   (assert (not rest-param))
-  (let [cbody (with-locals (zipmap (map :sym required-params) (doall (map ret method-param-types)))
+  (let [cbody (with-lexical-env 
+                (-> *lexical-env*
+                  (update-in [:l] #(merge % (zipmap (map :sym required-params)
+                                                    method-param-types))))
                 (check body))
         actual-type (->Function method-param-types
                                 (->Result (ret-t (expr-type cbody))
@@ -4022,9 +4150,12 @@
   (let [sym (-> local-binding :sym)]
     (assoc expr
            expr-type (let [t (type-of sym)]
-                       (if (TCResult? t)
-                         (assoc t :o (->Path [] sym))
-                         (ret t (-FS -top -top) (->Path [] sym)))))))
+                       (ret t 
+                            (-FS (-and (-not-filter -false sym)
+                                       (-not-filter -nil sym))
+                                 (-or (-filter -false sym)
+                                      (-filter -nil sym)))
+                            (->Path [] sym))))))
 
 ;Symbol -> Class
 (def prim-coersion
@@ -4074,15 +4205,19 @@
   [{:keys [binding-inits body is-loop] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (assert (not is-loop))
-  (let [locals (reduce (fn [locals {{:keys [sym init]} :local-binding}]
-                         (let [cinit (with-locals locals
-                                       (check init))]
-                           (assoc locals sym (expr-type cinit))))
-                       {} binding-inits)
-        cbody (with-locals locals
+  (let [env (reduce (fn [env {{:keys [sym init]} :local-binding}]
+                      {:pre [(PropEnv? env)]
+                       :post [(PropEnv? env)]}
+                      (let [{:keys [t fl o]} (expr-type
+                                               (with-lexical-env env
+                                                 (check init)))]
+                        (-> env
+                          (assoc-in [:l sym] t)
+                          (update-in [:props] conj fl))))
+                    *lexical-env* binding-inits)
+        cbody (with-lexical-env env
                 (check body))]
     (assoc expr
-           :body cbody
            expr-type (expr-type cbody))))
 
 (defn resolve* [atoms prop]

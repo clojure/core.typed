@@ -113,8 +113,8 @@
             (Rec [x] (U Number (clojure.lang.ILookup x x)))))
   )
 
-; expanding dotted pretypes
-(deftest trans-dots-test
+;FIXME expanding dotted pretypes
+#_(deftest trans-dots-test
   (is (= (manual-inst (parse-type '(All [x b ...]
                                         [x ... b -> x]))
                       (map parse-type '(Integer Double Float)))
@@ -200,9 +200,9 @@
 
 (deftest path-test
   (is (= (tc-t (let [a nil] a))
-         (ret (->Nil)
-              (-FS -bot
-                   -top)
+         (ret -nil
+              (-FS (->NotTypeFilter (Un -nil -false) nil 'a)
+                   (->TypeFilter (Un -false -nil) nil 'a))
               (->Path [] 'a)))))
 
 (deftest equiv-test
@@ -218,16 +218,66 @@
   (is (= (tc-t (= :Val (-> {:a :Val} :a)))
          (ret (->True) (-FS -top -bot) (->EmptyObject)))))
 
-(deftest dotted-infer-test
+#_(deftest dotted-infer-test
   (is (cf (map number? [1]))))
 
 (deftest check-invoke
   (is (thrown? Exception (ety (symbol "a" 'b))))
-  (is (ety (symbol "a" "a"))))
+  (is (= (ety (symbol "a" "a"))
+         (RInstance-of clojure.lang.Symbol))))
 
 (deftest check-do-test
   (is (= (ety (do 1 2))
          (->Value 2))))
+
+(deftest tc-var-test
+  (is (= (tc-t seq?)
+         (ret (In (->Function [(->Top)]
+                              (make-Result (Un -true -false)
+                                           (-FS (-filter (RInstance-of ISeq [(->Top)]) 0)
+                                                (-not-filter (RInstance-of ISeq [(->Top)]) 0))
+                                           -empty)
+                              nil nil nil))
+              (-FS -top -top) -empty))))
+
+(deftest heterogeneous-ds-test
+  (is (not (subtype? (parse-type '(Map* :mandatory {:a (Value 1)}))
+                     (RInstance-of ISeq [(->Top)]))))
+  (is (not (subtype? (parse-type '(Vector* (Value 1) (Value 2)))
+                     (RInstance-of ISeq [(->Top)]))))
+  (is (subtype? (parse-type '(Seq* (Value 1) (Value 2)))
+                (RInstance-of ISeq [(->Top)])))
+  (is (subtype? (parse-type '(List* (Value 1) (Value 2)))
+                (RInstance-of ISeq [(->Top)])))
+  (is (= (tc-t [1 2])
+         (ret (->HeterogeneousVector [(->Value 1) (->Value 2)]) -true-filter -empty)))
+  (is (= (tc-t '(1 2))
+         (ret (->HeterogeneousList [(->Value 1) (->Value 2)]) -true-filter -empty)))
+  (is (= (tc-t {:a 1})
+         (ret (->HeterogeneousMap {(->Value :a) (->Value 1)}) -true-filter -empty)))
+  (is (= (tc-t {})
+         (ret (->HeterogeneousMap {}) -true-filter -empty)))
+  (is (= (tc-t [])
+         (ret (->HeterogeneousVector []) -true-filter -empty)))
+  (is (= (tc-t '())
+         (ret (->HeterogeneousList []) -true-filter -empty))))
+
+(deftest destructuring-special-ops
+  (is (= (tc-t (seq? [1 2]))
+         (ret -false -false-filter -empty)))
+  (is (= (tc-t (let [a {:a 1}]
+                 (seq? a)))
+         (ret -false -false-filter -empty)))
+  (is (= (tc-t (let [a '(a b)]
+                 (seq? a)))
+         (ret -true -true-filter -empty)))
+  (is (= (tc-t (typed.core/fn> [[a :- (Map* :mandatory {:a (Value 1)})]]
+                               (seq? a)))
+         (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
+                              (make-Result -false -false-filter -empty)
+                              nil nil nil))
+              (-FS -top -bot)
+              -empty))))
 
 (deftest check-keyword-invoke-test
   (is (= (tc-t (let [a {:a 1}] (:a a)))
