@@ -9,7 +9,7 @@
             [clojure.repl :refer [pst]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
-            [clojure.tools.trace :refer [trace-vars]]))
+            [clojure.tools.trace :refer [trace-vars untrace-vars]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint shorthands
@@ -3949,7 +3949,7 @@
   (let [cmethods (doall
                    (map #(check-anon-fn-method %1 %2) methods methods-param-types))]
     (assoc expr
-           expr-type (ret (Fn-Intersection (map expr-type cmethods))))))
+           expr-type (ret (Fn-Intersection (map expr-type cmethods)) (-FS -top -bot) (->EmptyObject)))))
 
 (defn check-anon-fn-method
   [{:keys [required-params rest-param body] :as expr} method-param-types]
@@ -3958,9 +3958,11 @@
   (assert (not rest-param))
   (let [cbody (with-locals (zipmap (map :sym required-params) (doall (map ret method-param-types)))
                 (check body))
-        actual-type (make-Function
-                      method-param-types
-                      (ret-t (expr-type cbody)))]
+        actual-type (->Function method-param-types
+                                (->Result (ret-t (expr-type cbody))
+                                          (ret-f (expr-type cbody))
+                                          (ret-o (expr-type cbody)))
+                                nil nil nil)]
     (assoc expr
            :body cbody
            expr-type actual-type)))
@@ -3975,7 +3977,7 @@
           _ (doseq [{:keys [required-params rest-param] :as method} methods]
               (check-fn-method method (relevant-Fns required-params rest-param fin)))]
       (assoc expr
-             expr-type (ret fin)))
+             expr-type (ret fin (-FS -top -bot) (->EmptyObject))))
     
     ;if no expected type, parse as anon fn with all parameters as Any
     :else (check-anon-fn expr (for [{:keys [required-params rest-param]} methods]
@@ -4011,18 +4013,18 @@
   {:post [(TCResult? (expr-type %))]}
   (let [cexprs (concat (mapv check (butlast exprs))
                        [(check (last exprs) expected)])]
-    (assert (seq cexprs))
     (assoc expr
            :exprs cexprs
            expr-type (-> cexprs last expr-type)))) ;should be a ret already
 
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
-  (assoc expr
-         expr-type (let [t (type-of (-> local-binding :sym))]
-                     (if (TCResult? t)
-                       t
-                       (ret t)))))
+  (let [sym (-> local-binding :sym)]
+    (assoc expr
+           expr-type (let [t (type-of sym)]
+                       (if (TCResult? t)
+                         (assoc t :o (->Path [] sym))
+                         (ret t (-FS -top -top) (->Path [] sym)))))))
 
 ;Symbol -> Class
 (def prim-coersion

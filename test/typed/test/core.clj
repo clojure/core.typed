@@ -173,33 +173,50 @@
                 (parse-type '[(Map* :mandatory {:a Number}) -> Number]))))
 
 (deftest truth-false-values-test
-  (is (= (ety (if nil 1 2))
-         (->Value 2)))
-  (is (= (ety (if false 1 2))
-         (->Value 2)))
-  (is (= (ety (if 1 1 2))
-         (->Value 1))))
+  (is (= (tc-t (if nil 1 2))
+         (ret (->Value 2) (-FS -top -bot) (->EmptyObject))))
+  (is (= (tc-t (if false 1 2))
+         (ret (->Value 2) (-FS -top -bot) (->EmptyObject))))
+  (is (= (tc-t (if 1 1 2))
+         (ret (->Value 1) (-FS -top -bot) (->EmptyObject)))))
 
 (deftest empty-fn-test
-  (is (= (ety (fn []))
-         (parse-type '[-> nil])))
-  (is (= (ety (fn [] 1))
-         (parse-type '[-> (Value 1)])))
-  (is (= (ety (let []))
-         (->Nil))))
+  (is (= (tc-t (fn []))
+         (ret (In (->Function [] (make-Result (->Nil)
+                                              (-FS -bot -top)
+                                              (->EmptyObject))
+                              nil nil nil))
+              (-FS -top -bot)
+              (->EmptyObject))))
+  (is (= (tc-t (fn [] 1))
+         (ret (In (->Function [] (make-Result (->Value 1)
+                                              (-FS -top -bot)
+                                              (->EmptyObject))
+                              nil nil nil))
+              (-FS -top -bot)
+              (->EmptyObject))))
+  (is (= (tc-t (let []))
+         (ret (->Nil) (-FS -bot -top) (->EmptyObject)))))
+
+(deftest path-test
+  (is (= (tc-t (let [a nil] a))
+         (ret (->Nil)
+              (-FS -bot
+                   -top)
+              (->Path [] 'a)))))
 
 (deftest equiv-test
   (is (= (tc-t (= 1))
          (tc-t (= 1 1))
          (tc-t (= 1 1 1 1 1 1 1 1 1 1))
-         (ret (->True) (-FS -top -bot))))
+         (ret (->True) (-FS -top -bot) (->EmptyObject))))
   (is (= (tc-t (= 'a 'b))
          (tc-t (= 1 2))
          (tc-t (= :a :b))
          (tc-t (= :a 1 'a))
-         (ret (->False) (-FS -bot -top))))
+         (ret (->False) (-FS -bot -top) (->EmptyObject))))
   (is (= (tc-t (= :Val (-> {:a :Val} :a)))
-         (ret (->True) (-FS -bot -top)))))
+         (ret (->True) (-FS -top -bot) (->EmptyObject)))))
 
 (deftest dotted-infer-test
   (is (cf (map number? [1]))))
@@ -215,8 +232,8 @@
 (deftest check-keyword-invoke-test
   (is (= (tc-t (let [a {:a 1}] (:a a)))
          (ret (->Value 1)
-              (-FS (->TypeFilter (->Value 1) 'a [(->KeyPE :a)])
-                   -top)
+              (-FS (->TypeFilter (->Value 1) [(->KeyPE :a)] 'a)
+                   -bot)
               (->Path [(->KeyPE :a)] 'a)))))
 
 (defn print-cset [cs]
