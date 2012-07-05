@@ -138,14 +138,15 @@
 (def empty-union (->Union #{}))
 
 (defn Un [& types]
-  (cond
-    (empty? types) empty-union
-    (= 1 (count types)) (first types)
-    :else (->Union (set (apply concat
-                               (for [t (set types)]
-                                 (if (Union? t)
-                                   (:types t)
-                                   [t])))))))
+  (let [types (filter #(not= empty-union %) (set types))]
+    (cond
+      (empty? types) empty-union
+      (= 1 (count types)) (first types)
+      :else (->Union (set (apply concat
+                                 (for [t (set types)]
+                                   (if (Union? t)
+                                     (:types t)
+                                     [t]))))))))
 
 (defn Bottom []
   empty-union)
@@ -4441,9 +4442,25 @@
                     :else old))]
     (if (subtype? old initial) old initial)))
 
+(defn -hmap-or-bot [types]
+  (if (some #(= (Bottom) %) (concat (keys types) (vals types)))
+    (Bottom)
+    (->HeterogeneousMap types)))
 
 (defn update [t lo]
   (cond
+    ;heterogeneous map ops
+    (and (TypeFilter? lo)
+         (KeyPE? (last (:path lo)))
+         (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
+                                      [rstpth {fpth-kw :val}] [(butlast path) (last path)]
+                                      fpth (->Value fpth-kw)]
+                                  (prn fpth)
+                                  (if-let [type* (get (:types t) fpth)]
+                                    (do (prn type*)
+                                      (-hmap-or-bot (assoc (:types t) fpth (update type* (-filter type id rstpth)))))
+                                    (Bottom)))
+
     (and (TypeFilter? lo)
          (empty? (:path lo))) (let [u (:type lo)]
                                 (restrict t u))

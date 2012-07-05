@@ -300,12 +300,22 @@
 
 (deftest env+-test
   ;update a from Any to (Value :a)
-  (is (let [props [(-filter (->Value :a) 'a)]]
-        (= (let [env {'a -any}
-                 flag (atom true)]
-             (binding [*lexical-env* (->PropEnv env props)]
-               (env+ *lexical-env* [] flag)))
-           (->PropEnv {'a (->Value :a)} props)))))
+  (is (let [props [(-filter (->Value :a) 'a)]
+            flag (atom true)]
+        (and (= (let [env {'a -any}
+                      lenv (->PropEnv env props)]
+                  (env+ lenv [] flag))
+                (->PropEnv {'a (->Value :a)} props))
+             @flag)))
+  ;update a from (U (Map* {:op :if}) (Map* {:op :var})) => (Map* {:op :if})
+  (is (let [props [(-filter (->Value :if) 'a [(->KeyPE :op)])]
+            flag (atom true)]
+        (and (= (let [env {'a (Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
+                                  (->HeterogeneousMap {(->Value :op) (->Value :var)}))}
+                      lenv (->PropEnv env props)]
+                  (env+ lenv [] flag))
+                (->PropEnv {'a (->HeterogeneousMap {(->Value :op) (->Value :if)})} props))
+             @flag))))
 
 (deftest destructuring-special-ops
   (is (= (tc-t (seq? [1 2]))
