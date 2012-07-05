@@ -3,6 +3,7 @@
   (:import (clojure.lang Seqable ISeq ASeq))
   (:require [clojure.test :refer :all]
             [analyze.core :refer [ast]]
+            [clojure.repl :refer [pst]]
             [typed.core :refer :all]))
 
 (deftest add-scopes-test
@@ -212,8 +213,11 @@
          (->Value 2))))
 
 (deftest check-keyword-invoke-test
-  (is (= (ety (let [a {:a 1}] (:a a)))
-         (->Value 1))))
+  (is (= (tc-t (let [a {:a 1}] (:a a)))
+         (ret (->Value 1)
+              (-FS (->TypeFilter (->Value 1) 'a [(->KeyPE :a)])
+                   -top)
+              (->Path [(->KeyPE :a)] 'a)))))
 
 (defn print-cset [cs]
   (into {} (doall
@@ -269,7 +273,22 @@
                             (->NoFilter))]
         (= (type-case {:Filter (constantly fl)}
                       (make-Result (->Top)))
-           (make-Result (->Top) fl)))))
+           (make-Result (->Top) fl))))
+  ;Replace all frees x -> y
+  (is (= (type-case {}
+                    (ret (make-F 'x)
+                         (->FilterSet (->OrFilter [(->TypeFilter (make-F 'x) [] 'a)
+                                                   (->ImpFilter (->TypeFilter (make-F 'x) [] 'a)
+                                                                (->NotTypeFilter (make-F 'x) [] 'a))])
+                                      (->AndFilter [-top -bot (->NoFilter)])))
+                    typed.core.F
+                    (fn [ty]
+                      (make-F 'y)))
+         (ret (make-F 'y)
+              (->FilterSet (->OrFilter [(->TypeFilter (make-F 'y) [] 'a)
+                                        (->ImpFilter (->TypeFilter (make-F 'y) [] 'a)
+                                                     (->NotTypeFilter (make-F 'y) [] 'a))])
+                           (->AndFilter [-top -bot (->NoFilter)]))))))
 
 
 (deftest fv-test

@@ -427,7 +427,7 @@
   "Supertype to all functions"
   [])
 
-(declare ->NoFilter ->NoObject ->Result)
+(declare ->NoFilter ->NoObject ->Result -FS -top)
 
 (defn make-Result
   ([t] (make-Result t nil nil))
@@ -524,6 +524,7 @@
                      (when object-rec
                        [:object-rec object-rec]))))))
 
+
 (add-default-fold-case Intersection
                        (fn [ty]
                          (update-in ty [:types] #(map type-rec %))))
@@ -544,18 +545,21 @@
                                                     (update-in [:pre-type] type-rec)
                                                     (update-in [:bound] identity)))))))
 
+(add-default-fold-case RClass
+                       (fn [rclass]
+                         (let [names (repeatedly (count (:variances rclass)) gensym)
+                               rplc (RClass-replacements* names rclass)
+                               c-rplc (into {} (for [[k v] rplc]
+                                                 [k (type-rec v)]))]
+                           (RClass* names (:variances rclass) (:the-class rclass)
+                                    c-rplc))))
+
 (add-default-fold-case RInstance
                        (fn [ty]
                          (-> ty
                            (update-in [:poly?] #(when %
                                                   (map type-rec %)))
-                           (update-in [:constructor] (fn [rclass]
-                                                       (let [names (repeatedly (count (:variances rclass)) gensym)
-                                                             rplc (RClass-replacements* names rclass)
-                                                             c-rplc (into {} (for [[k v] rplc]
-                                                                               [k (type-rec v)]))]
-                                                         (RClass* names (:variances rclass) (:the-class rclass)
-                                                                  c-rplc)))))))
+                           (update-in [:constructor] type-rec))))
 
 (add-default-fold-case Poly
                        (fn [ty]
@@ -600,6 +604,12 @@
 (add-default-fold-case True identity)
 (add-default-fold-case False identity)
 
+(add-default-fold-case B
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:upper-bound] type-rec)
+                           (update-in [:lower-bound] type-rec))))
+
 (add-default-fold-case F
                        (fn [ty]
                          (-> ty
@@ -634,6 +644,9 @@
 (defrecord TopFilter []
   "?"
   [])
+
+(add-default-fold-case TopFilter identity)
+(add-default-fold-case BotFilter identity)
 
 (def -top (->TopFilter))
 (def -bot (->BotFilter))
@@ -721,11 +734,23 @@
    (every? PathElem? path)
    (name-ref? id)])
 
+(add-default-fold-case TypeFilter
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:type] type-rec)
+                           (update-in [:path] #(map object-rec %)))))
+
 (defrecord NotTypeFilter [type path id]
   "A filter claiming looking up id, down the given path, is NOT of given type"
   [(Type? type)
    (every? PathElem? path)
    (name-ref? id)])
+
+(add-default-fold-case NotTypeFilter
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:type] type-rec)
+                           (update-in [:path] #(map object-rec %)))))
 
 (defrecord AndFilter [fs]
   "Logical conjunction of filters"
@@ -919,6 +944,22 @@
   [(Filter? a)
    (Filter? c)])
 
+(add-default-fold-case ImpFilter
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:a] filter-rec)
+                           (update-in [:c] filter-rec))))
+
+(add-default-fold-case AndFilter
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:fs] #(doall (map filter-rec %))))))
+
+(add-default-fold-case OrFilter
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:fs] #(doall (map filter-rec %))))))
+
 (defrecord FilterSet [then else]
   "A filter claiming looking up id, down the given path, is NOT of given type"
   [(and (or (BotFilter? then)
@@ -929,6 +970,12 @@
             (and (BotFilter? then)
                  (TopFilter? else))
             (Filter? else)))])
+
+(add-default-fold-case FilterSet
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:then] filter-rec)
+                           (update-in [:else] filter-rec))))
 
 (defn -FS [+ -]
   {:pre [(Filter? +)
@@ -1015,6 +1062,11 @@
 
 ;Objects
 
+(add-default-fold-case EmptyObject identity)
+(add-default-fold-case Path
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:path] #(doall (map object-rec %))))))
 (add-default-fold-case NoObject identity)
 
 (declare-robject EmptyObject)
@@ -2363,86 +2415,14 @@
                                (:body t))
                              sc)))))
 
-(defmulti name-to
-  "Convert a name in the type to de Bruijn index of res,
-  where n is the position in the current binder, and outer is the
-  number of indices previously bound"
-  (fn [ty name res]
-    {:pre [((some-fn Type? Function?) ty)
-           (symbol? name)
-           (nat? res)]}
-    (class ty)))
-
-(defmethod name-to B [ty name res] ty)
-
-(defmethod name-to F
-  [{name* :name upper :upper-bound lower :lower-bound :as ty} name res]
-  (if (= name name*)
-    (->B res upper lower)
-    ty))
-
-(defmethod name-to Function
-  [f name res]
-  (assert (NoFilter? (-> f :rng :fl)))
-  (assert (NoObject? (-> f :rng :o)))
-  (let [ufn #(name-to % name res)]
-    (-> f
-      (update-in [:dom] #(doall (map ufn %)))
-      (update-in [:rng :t] ufn)
-      (update-in [:rest] #(when %
-                            (ufn %)))
-      (update-in [:drest] (fn [drest]
-                            (when drest
-                              (-> drest
-                                (update-in [:pre-type] #(when %
-                                                      (ufn %)))
-                                (update-in [:bound] #(when %
-                                                       (ufn %))))))))))
-
-(defmethod name-to Top [t name res] t)
-(defmethod name-to Nil [t name res] t)
-(defmethod name-to True [t name res] t)
-(defmethod name-to False [t name res] t)
-(defmethod name-to Value [t name res] t)
-
-(defmethod name-to HeterogeneousMap
-  [t name res]
-  (let [up #(name-to % name res)]
-    (-> t
-      (update-in [:types] #(into {} (for [[k v] %]
-                                      [(up k) (up v)]))))))
-
-(defmethod name-to HeterogeneousVector
-  [t name res]
-  (let [up #(name-to % name res)]
-    (-> t
-      (update-in [:types] #(mapv up %)))))
-
-(defmethod name-to Intersection
-  [{:keys [types]} name res]
-  (apply In (doall (map #(name-to % name res) types))))
-
-(defmethod name-to Union
-  [{:keys [types]} name res]
-  (apply Un (set (map #(name-to % name res) types))))
-
-;(defmethod name-to RClass
-;  [{:keys [variances the-class replacements]} name res]
-;  (->RClass variances
-;            the-class 
-;            (into {} (for [[k v] replacements]
-;                       (let [v (remove-scopes (count variances) v)]
-;                         [k (name-to v name (+ res (count variances)))])))))
-
-(defmethod name-to RInstance
-  [{:keys [poly? constructor]} name res]
-  (->RInstance (doall (map #(name-to % name res) poly?))
-               constructor)) ;should this call name-to?
-
-(defmethod name-to Poly
-  [{n :nbound scope :scope} name res]
-  (let [body (remove-scopes n scope)]
-    (->Poly n (add-scopes n (name-to body name (+ n res))))))
+(defn name-to [ty name res]
+  (type-case {}
+             ty
+             F
+             (fn [{name* :name upper :upper-bound lower :lower-bound :as ty}]
+               (if (= name name*)
+                 (->B res upper lower)
+                 ty))))
 
 (defn- rev-indexed 
   "'(a b c) -> '([2 a] [1 b] [0 c])"
@@ -2573,75 +2553,19 @@
 
 (declare subtype)
 
-;Substitute in target all free variables called name with image
-(defmulti substitute (fn [target image name] 
-                       {:pre [((some-fn Type? Function?) target)
-                              (Type? image)
-                              (symbol? name)]}
-                       (class target)))
+(defn substitute [target image name]
+  (type-case {}
+             target
+             F
+             (fn [{name* :name :keys [upper-bound lower-bound] :as f}]
+               (if (= name* name)
+                 image
+                 f))))
 
 (defn substitute-many [target images names]
   (reduce (fn [t [im nme]] (substitute t im nme))
           target
           (map vector images names)))
-
-(defmethod substitute F
-  [{name* :name :keys [upper-bound lower-bound] :as f} image name]
-  (if (= name* name)
-    image
-    f))
-
-(defmethod substitute Nil [t image name] t)
-(defmethod substitute Top [t image name] t)
-(defmethod substitute Value [t image name] t)
-(defmethod substitute False [t image name] t)
-(defmethod substitute True [t image name] t)
-
-(defmethod substitute RInstance
-  [rinst image name]
-  (let [sub #(substitute % image name)]
-    (-> rinst
-      (update-in [:poly?] #(when %
-                             (doall (map sub %)))))))
-
-(defmethod substitute HeterogeneousMap
-  [t image name]
-  (let [sub #(substitute % image name)]
-    (-> t
-      (update-in [:types] #(into {} (for [[k v] %]
-                                      [(sub k) (sub v)]))))))
-
-(defmethod substitute HeterogeneousVector
-  [t image name]
-  (let [sub #(substitute % image name)]
-    (-> t
-      (update-in [:types] #(mapv sub %)))))
-
-(defmethod substitute Union
-  [u image name]
-  (let [sub #(substitute % image name)]
-    (-> u
-      (update-in [:types] #(set (map sub %))))))
-
-(defmethod substitute Intersection
-  [i image name]
-  (let [sub #(substitute % image name)]
-    (-> i
-      (update-in [:types] #(doall (map sub %))))))
-
-(defmethod substitute Function
-  [f image name]
-  ;what to do otherwise?
-  (assert (NoFilter? (-> f :rng :fl)))
-  (assert (NoObject? (-> f :rng :o)))
-  (let [sub #(substitute % image name)]
-    (-> f
-      (update-in [:dom] #(doall (map sub %)))
-      (update-in [:rng :t] sub)
-      (update-in [:rest] #(when %
-                            (sub %)))
-      (update-in [:drest] #(when %
-                             (update-in % [:pre-type] sub)))))) ;dont substitute bound
 
 (defn subst-all [s t]
   {:pre [(substitution-c? s)
@@ -3173,6 +3097,13 @@
    (FilterSet? fl)
    (RObject? o)])
 
+(add-default-fold-case TCResult
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:t] type-rec)
+                           (update-in [:fl] filter-rec)
+                           (update-in [:o] object-rec))))
+
 (declare ret-t)
 
 (defn unparse-TCResult [r]
@@ -3552,7 +3483,6 @@
                  (FilterSet? fs)
                  (RObject? r)))]}
 
-  (prn r)
   (reduce (fn [[t fs old-obj] [[o k] arg-ty]]
             {:pre [(Type? t)
                    ((some-fn FilterSet? NoFilter?) fs)
@@ -3677,7 +3607,6 @@
   {:pre [(every? TCResult? vs)]
    :post [(TCResult? %)]}
   (let [{singletons true others false} (group-by (comp (some-fn Value? Nil? False? True?) ret-t) vs)]
-    (prn singletons)
     (if (<= 1 (count singletons))
       (cond
         ; All singletons
