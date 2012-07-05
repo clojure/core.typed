@@ -741,7 +741,7 @@
                        (fn [ty]
                          (-> ty
                            (update-in [:type] type-rec)
-                           (update-in [:path] #(map object-rec %)))))
+                           (update-in [:path] #(seq (map object-rec %))))))
 
 (defrecord NotTypeFilter [type path id]
   "A filter claiming looking up id, down the given path, is NOT of given type"
@@ -753,7 +753,7 @@
                        (fn [ty]
                          (-> ty
                            (update-in [:type] type-rec)
-                           (update-in [:path] #(map object-rec %)))))
+                           (update-in [:path] #(seq (map object-rec %))))))
 
 (defrecord AndFilter [fs]
   "Logical conjunction of filters"
@@ -3204,7 +3204,7 @@
 (def expr-type ::expr-type)
 
 (defmulti check (fn [expr & [expected]]
-                  {:pre [((some-fn nil? Type?) expected)]}
+                  {:pre [((some-fn nil? TCResult?) expected)]}
                   (:op expr)))
 
 (defn check-top-level [nsym form]
@@ -3252,7 +3252,7 @@
   [{:keys [val] :as expr} & [expected]]
   (let [actual-type (constant-type val)
         _ (when expected
-            (subtype actual-type expected))]
+            (subtype actual-type (ret-t expected)))]
     (assoc expr
            expr-type (if val
                        (ret actual-type
@@ -3547,7 +3547,7 @@
                     ;; the result is not from an annotation, so it isn't a NoObject
                     (NoObject? o) (->EmptyObject)
                     (Path? o) (let [{p* :path i* :id} o]
-                                (->Path (concat p p*) i*)))
+                                (->Path (seq (concat p p*)) i*)))
                   t))))
 
 (defn subst-type [t k o polarity]
@@ -3751,6 +3751,21 @@
 (defmulti invoke-apply (fn [expr & args] (-> expr :args first :var)))
 (defmulti static-method-special (fn [{{:keys [declaring-class name]} :method} & args]
                                   (symbol (str declaring-class) (str name))))
+
+(declare invoke-keyword)
+
+;get
+(defmethod invoke-special #'clojure.core/get
+  [{:keys [args] :as expr} & [expected]]
+  (assert (or (= 1 (count args))
+              (= 2 (count args))) "Wrong number of args to clojure.core/get")
+  (let [[target default] args]
+    (cond
+      (= :keyword (:op target))
+      (assoc expr
+             expr-type (invoke-keyword val target default expr-type))
+      
+      :else ::not-special)))
 
 ;=
 (defmethod invoke-special #'clojure.core/= 
@@ -3981,18 +3996,22 @@
         ret-type (expr-type ctarget)
         ttype (ret-t ret-type)]
     (cond
-      (HeterogeneousMap? ttype)
+      (or (HeterogeneousMap? ttype)
+          (and (Union? ttype)
+               (every? HeterogeneousMap? (:types ttype))))
       (let [{{path-hm :path id-hm :id :as o} :o} ret-type
             this-pelem (->KeyPE kw)]
-        (let [val-type (get (:types ttype) kwt)]
+        (let [val-type (apply Un (map #(get (:types %) kwt) (if (Union? ttype)
+                                                              (:types ttype)
+                                                              [ttype])))]
           (if (and val-type (not default))
             (ret val-type
                  (-FS (if (Path? o)
                         (-filter val-type id-hm (concat path-hm [this-pelem]))
                         (-filter-at val-type (->EmptyObject)))
-                      -bot)
+                      -top)
                  (if (Path? o)
-                   (update-in o [:path] #(concat % [this-pelem]))
+                   (update-in o [:path] #(seq (concat % [this-pelem])))
                    o))
             (ret (->Top)))))
 
@@ -4007,6 +4026,7 @@
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
+  (prn "invoke:" ((some-fn :var :keyword :op) fexpr))
   (let [e (invoke-special expr expected)]
     (cond 
       (not= ::not-special e) e
@@ -4027,6 +4047,19 @@
                :fexpr cfexpr
                :args cargs
                expr-type actual)))))
+
+;args :- [symbol Type]
+;kws ?
+(defrecord FnResult [args kws rest drest body]
+  "Results of checking a fn method"
+  [(every? symbol? (map first args))
+   (every? Type? (map second args))
+   (nil? kws)
+   (or (nil? rest)
+       (and (symbol? (first rest))
+            (Type? (second rest))))
+   (nil? drest)
+   (TCResult? body)])
 
 (defn relevant-Fns
   "Given a set of required-param exprs, rest-param expr, and a Fn-Intersection,
@@ -4064,48 +4097,118 @@
   {:post [(-> % expr-type TCResult?)]}
   (check-fn-expr expr expected))
 
-(declare check-anon-fn-method)
+(declare check-anon-fn-method abstract-filter abo abstract-object)
+
+(defn abstract-result [result arg-names]
+  {:pre [(TCResult? result)
+         (every? symbol? arg-names)]
+   :post [(Result? %)]}
+  (let [keys (range (count arg-names))]
+    (make-Result
+      (ret-t result)
+      (abstract-filter arg-names keys (ret-f result))
+      (abstract-object arg-names keys (ret-o result)))))
+
+(defn abstract-object [ids keys o]
+  {:pre [(every? symbol? ids)
+         (every? integer? keys)
+         (RObject? o)]
+   :post [(RObject? %)]}
+  (letfn [(lookup [y]
+            {:pre [(symbol? y)]
+             :post [((some-fn nil? integer?) %)]}
+            (some (fn [[x i]] (and (= x y) i))
+                  (map vector ids keys)))]
+    (cond
+      (and (Path? o)
+           (lookup (:id o))) (update-in o [:id] lookup)
+      :else -empty)))
+
+(defn abstract-filter [ids keys fs]
+  {:pre [(every? symbol? ids)
+         (every? integer? keys)
+         ((some-fn NoFilter? FilterSet?) fs)]
+   :post [((some-fn NoFilter? FilterSet?) %)]}
+  (cond
+    (FilterSet? fs)
+    (let [{fs+ :then fs- :else} fs]
+      (-FS (abo ids keys fs+)
+           (abo ids keys fs-)))
+    (NoFilter? fs) (-FS -top -top)))
+
+(defn abo [xs idxs f]
+  {:pre [(every? symbol? xs)
+         (every? integer? idxs)
+         (Filter? f)]
+   :post [(Filter? %)]}
+  (letfn [(lookup [y]
+            {:pre [(symbol? y)]
+             :post [((some-fn nil? integer?) %)]}
+            (some (fn [[x i]] (and (= x y) i))
+                  (map vector xs idxs)))
+          (rec [f] (abo xs idxs f))
+          (sb-t [t] t)]
+    (type-case {:Type sb-t :Filter rec} f
+      TypeFilter
+      (fn [{:keys [type path id] :as fl}]
+        (-filter type (or (lookup id) id)  path))
+      NotTypeFilter
+      (fn [{:keys [type path id] :as fl}]
+        (-not-filter type (or (lookup id) id)  path)))))
+
+(defn FnResult->Function [{:keys [args kws rest drest body] :as fres}]
+  {:pre [(FnResult? fres)]
+   :post [(Function? %)]}
+  (assert (not (or kws rest drest)))
+  (let [arg-names (concat (map first args)
+                          (when rest
+                            (first rest))
+                          (when drest
+                            (first drest))) ;TODO kws
+                            ]
+    (->Function
+      (map second args)
+      (abstract-result body arg-names)
+      (when rest
+        (second rest))
+      (when drest
+        (second drest))
+      nil)))
 
 (defn check-anon-fn
   "Check anonymous function, with annotated methods"
   [{:keys [methods] :as expr} methods-param-types]
   {:pre [(every? #(every? Type? %) methods-param-types)]
    :post [(TCResult? (expr-type %))]}
-  (let [cmethods (doall
-                   (map #(check-anon-fn-method %1 %2) methods methods-param-types))]
+  (let [ftype (Fn-Intersection (map FnResult->Function (doall (map check-anon-fn-method methods methods-param-types))))]
     (assoc expr
-           expr-type (ret (Fn-Intersection (map expr-type cmethods)) (-FS -top -bot) (->EmptyObject)))))
+           expr-type (ret ftype (-FS -top -bot) -empty))))
 
 (defn check-anon-fn-method
   [{:keys [required-params rest-param body] :as expr} method-param-types]
   {:pre [(every? Type? method-param-types)]
-   :post [(-> % expr-type Function?)]}
+   :post [(FnResult? %)]}
   (assert (not rest-param))
-  (let [cbody (with-lexical-env 
-                (-> *lexical-env*
-                  (update-in [:l] #(merge % (zipmap (map :sym required-params)
-                                                    method-param-types))))
-                (check body))
-        actual-type (->Function method-param-types
-                                (->Result (ret-t (expr-type cbody))
-                                          (ret-f (expr-type cbody))
-                                          (ret-o (expr-type cbody)))
-                                nil nil nil)]
-    (assoc expr
-           :body cbody
-           expr-type actual-type)))
+  (let [cbody (with-locals (zipmap (map :sym required-params) method-param-types)
+                (check body))]
+    (->FnResult
+      (map vector (map :sym required-params) method-param-types)
+      nil ;kws
+      nil ;rest
+      nil ;drest
+      (expr-type cbody))))
 
 (defn check-fn-expr [{:keys [methods] :as expr} expected]
   (cond
     expected
     (let [fin (cond
-                (Poly? expected) (Poly-body* (or (-> expected meta :free-names)
-                                                 (repeatedly (:nbound expected) gensym)) expected)
-                :else expected)
+                (Poly? (ret-t expected)) (Poly-body* (or (-> expected ret-t meta :free-names)
+                                                         (repeatedly (:nbound (ret-t expected)) gensym)) (ret-t expected))
+                :else (ret-t expected))
           _ (doseq [{:keys [required-params rest-param] :as method} methods]
               (check-fn-method method (relevant-Fns required-params rest-param fin)))]
       (assoc expr
-             expr-type (ret fin (-FS -top -bot) (->EmptyObject))))
+             expr-type (ret fin (-FS -top -bot) -empty)))
     
     ;if no expected type, parse as anon fn with all parameters as Any
     :else (check-anon-fn expr (for [{:keys [required-params rest-param]} methods]
@@ -4118,16 +4221,16 @@
   {:pre [(sequential? expected-fns)
          (seq expected-fns)
          (every? Function? expected-fns)]}
+  #_(prn "check-fn-method:" body)
   (doseq [{:keys [dom rng rest drest] :as ftype} expected-fns]
     (assert (not drest))
-    (let [param-locals (let [dom-local (zipmap (map :sym required-params) (doall (map ret dom)))
+    (let [param-locals (let [dom-local (zipmap (map :sym required-params) dom)
                              rest-local (when (or rest-param rest)
                                           (assert (and rest rest-param))
-                                          [(:sym rest-param) (ret (Un (->Nil)
-                                                                      (RInstance-of ASeq [rest])))])]
+                                          [(:sym rest-param) (Un -nil (RInstance-of ASeq [rest]))])]
                          (conj dom-local rest-local))
           res-expr (with-locals param-locals
-                     (check body (Result-type* rng)))
+                     (check body (ret (Result-type* rng))))
           res-type (-> res-expr expr-type ret-t)]
       (subtype res-type (Result-type* rng)))))
 
@@ -4155,7 +4258,7 @@
                                        (-not-filter -nil sym))
                                  (-or (-filter -false sym)
                                       (-filter -nil sym)))
-                            (->Path [] sym))))))
+                            (->Path nil sym))))))
 
 ;Symbol -> Class
 (def prim-coersion
@@ -4201,6 +4304,8 @@
       (not= ::not-special spec) spec
       :else (check-invoke-static-method expr expected))))
 
+(declare combine-props)
+
 (defmethod check :let
   [{:keys [binding-inits body is-loop] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
@@ -4211,9 +4316,23 @@
                       (let [{:keys [t fl o]} (expr-type
                                                (with-lexical-env env
                                                  (check init)))]
-                        (-> env
-                          (assoc-in [:l sym] t)
-                          (update-in [:props] conj fl))))
+                        (cond
+                          (FilterSet? fl)
+                          (let [{:keys [then else]} fl
+                                p* [(->ImpFilter (-not-filter -false sym) then)
+                                    (->ImpFilter (-not-filter -nil sym) then)
+                                    (->ImpFilter (-filter -false sym) else)
+                                    (->ImpFilter (-filter -nil sym) else)]]
+                            (-> env
+                              ;update binding type
+                              (assoc-in [:l sym] t)
+                              ;update props
+                              (update-in [:props] #(apply concat 
+                                                          (combine-props p* % (atom true))))))
+
+                          (NoFilter? fl) (-> env
+                                           ;no propositions to add, just update binding type
+                                           (assoc-in [:l sym] t)))))
                     *lexical-env* binding-inits)
         cbody (with-lexical-env env
                 (check body))]
@@ -4363,7 +4482,7 @@
                                                 (reset! flag false))
                                               new-t)))))
                 :else gam))
-            (assoc env [:props] (concat atoms props))
+            (assoc env :props (concat atoms props))
             atoms)))
 
 (def object-equal? =)
@@ -4434,6 +4553,7 @@
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
+  (prn "check :if")
   (let [ctest (check test)]
     (assoc expr
            expr-type (check-if (expr-type ctest) then else))))
@@ -4444,7 +4564,9 @@
   (prn "Checking" var)
   (let [cexpr (cond 
                 (not init-provided) expr ;handle (declare ..)
-                :else (check init (type-of (var->symbol var))))]
+                :else (check init (ret (type-of (var->symbol var))
+                                       (-FS -top -top)
+                                       -empty)))]
     (assoc cexpr
            expr-type (ret (RInstance-of Var)))))
 

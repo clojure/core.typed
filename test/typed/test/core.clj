@@ -201,9 +201,9 @@
 (deftest path-test
   (is (= (tc-t (let [a nil] a))
          (ret -nil
-              (-FS (->NotTypeFilter (Un -nil -false) nil 'a)
-                   (->TypeFilter (Un -false -nil) nil 'a))
-              (->Path [] 'a)))))
+              (-FS (-not-filter (Un -nil -false) 'a)
+                   (-filter (Un -false -nil) 'a))
+              (->Path nil 'a)))))
 
 (deftest equiv-test
   (is (= (tc-t (= 1))
@@ -217,6 +217,42 @@
          (ret (->False) (-FS -bot -top) (->EmptyObject))))
   (is (= (tc-t (= :Val (-> {:a :Val} :a)))
          (ret (->True) (-FS -top -bot) (->EmptyObject)))))
+
+(deftest name-to-param-index-test
+  (is (= (tc-t 
+           (fn> [[a :- (U (Map* :mandatory {:op (Value :if)})
+                          (Map* :mandatory {:op (Value :var)}))]] 
+                (:op a)))
+         (ret (In (->Function
+                    [(Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
+                         (->HeterogeneousMap {(->Value :op) (->Value :var)}))]
+                    (let [t (Un (->Value :if) (->Value :var))
+                          i 0
+                          p [(->KeyPE :op)]]
+                      (make-Result t
+                                   (-FS (-filter t 0 p)
+                                        -top)
+                                   (->Path p 0)))
+                    nil nil nil))
+                  (-FS -top -bot)
+                  -empty))))
+
+(deftest refine-test
+  (is (= (tc-t 
+           (fn> [[a :- (U (Map* :mandatory {:op (Value :if)})
+                          (Map* :mandatory {:op (Value :var)}))]] 
+                (when (= (:op a) :if) 
+                  a)))
+         (ret (->Function
+                [(Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
+                     (->HeterogeneousMap {(->Value :op) (->Value :var)}))]
+                (make-Result (Un -nil (->HeterogeneousMap {(->Value :op) (->Value :if)}))
+                             (-FS -top -bot)
+                             (->Path nil 0))
+                nil nil nil)
+              (-FS -top -bot)
+              -empty))))
+
 
 #_(deftest dotted-infer-test
   (is (cf (map number? [1]))))
@@ -262,6 +298,15 @@
   (is (= (tc-t '())
          (ret (->HeterogeneousList []) -true-filter -empty))))
 
+(deftest env+-test
+  ;update a from Any to (Value :a)
+  (is (let [props [(-filter (->Value :a) 'a)]]
+        (= (let [env {'a -any}
+                 flag (atom true)]
+             (binding [*lexical-env* (->PropEnv env props)]
+               (env+ *lexical-env* [] flag)))
+           (->PropEnv {'a (->Value :a)} props)))))
+
 (deftest destructuring-special-ops
   (is (= (tc-t (seq? [1 2]))
          (ret -false -false-filter -empty)))
@@ -271,6 +316,20 @@
   (is (= (tc-t (let [a '(a b)]
                  (seq? a)))
          (ret -true -true-filter -empty)))
+  (is (= (tc-t (typed.core/fn> [[{a :a} :- (Map* :mandatory {:a (Value 1)})]]
+                    a))
+         (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
+                              (make-Result (->Value 1) -true-filter (->Path [(->KeyPE :a)] 0))
+                              nil nil nil)))))
+  (is (= (tc-t (let [{a :a} {:a 1}]
+                 a))
+         (ret (->Value 1) 
+              (-FS (-not-filter (Un -false -nil) 'a)
+                   (-filter (Un -false -nil) 'a))
+              (->Path nil 'a))))
+  (is (= (tc-t (let [a {:a 1}]
+                 (:a a)))
+         (ret (->Value 1) -true-filter (->Path [(->KeyPE :a)] 'a))))
   (is (= (tc-t (typed.core/fn> [[a :- (Map* :mandatory {:a (Value 1)})]]
                                (seq? a)))
          (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
@@ -344,17 +403,17 @@
   ;Replace all frees x -> y
   (is (= (type-case {}
                     (ret (make-F 'x)
-                         (->FilterSet (->OrFilter [(->TypeFilter (make-F 'x) [] 'a)
-                                                   (->ImpFilter (->TypeFilter (make-F 'x) [] 'a)
-                                                                (->NotTypeFilter (make-F 'x) [] 'a))])
+                         (->FilterSet (->OrFilter [(->TypeFilter (make-F 'x) nil 'a)
+                                                   (->ImpFilter (->TypeFilter (make-F 'x) nil 'a)
+                                                                (->NotTypeFilter (make-F 'x) nil 'a))])
                                       (->AndFilter [-top -bot (->NoFilter)])))
                     typed.core.F
                     (fn [ty]
                       (make-F 'y)))
          (ret (make-F 'y)
-              (->FilterSet (->OrFilter [(->TypeFilter (make-F 'y) [] 'a)
-                                        (->ImpFilter (->TypeFilter (make-F 'y) [] 'a)
-                                                     (->NotTypeFilter (make-F 'y) [] 'a))])
+              (->FilterSet (->OrFilter [(->TypeFilter (make-F 'y) nil 'a)
+                                        (->ImpFilter (->TypeFilter (make-F 'y) nil 'a)
+                                                     (->NotTypeFilter (make-F 'y) nil 'a))])
                            (->AndFilter [-top -bot (->NoFilter)]))))))
 
 
