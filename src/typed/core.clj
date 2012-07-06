@@ -4067,7 +4067,7 @@
         targett (-> ctarget expr-type ret-t)
         targett (if (Name? targett)
                   (resolve-Name targett)
-                  resolve-Name)
+                  targett)
         _ (assert (HeterogeneousMap? targett)
                   (str "Must assoc with a Heterogeneous Map for now, found type "
                        (with-out-str (pr (unparse-type targett)))))
