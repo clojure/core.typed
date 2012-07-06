@@ -200,10 +200,7 @@
 
 (deftest path-test
   (is (= (tc-t (let [a nil] a))
-         (ret -nil
-              (-FS (-not-filter (Un -nil -false) 'a)
-                   (-filter (Un -false -nil) 'a))
-              (->Path nil 'a)))))
+         (ret -nil (-FS -top -top) -empty))))
 
 (deftest equiv-test
   (is (= (tc-t (= 1))
@@ -219,10 +216,11 @@
          (ret (->True) (-FS -top -bot) (->EmptyObject)))))
 
 (deftest name-to-param-index-test
+  ;a => 0
   (is (= (tc-t 
-           (fn> [[a :- (U (Map* :mandatory {:op (Value :if)})
-                          (Map* :mandatory {:op (Value :var)}))]] 
-                (:op a)))
+           (typed.core/fn> [[a :- (U (Map* :mandatory {:op (Value :if)})
+                                     (Map* :mandatory {:op (Value :var)}))]] 
+                           (:op a)))
          (ret (In (->Function
                     [(Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
                          (->HeterogeneousMap {(->Value :op) (->Value :var)}))]
@@ -239,17 +237,20 @@
 
 (deftest refine-test
   (is (= (tc-t 
-           (fn> [[a :- (U (Map* :mandatory {:op (Value :if)})
-                          (Map* :mandatory {:op (Value :var)}))]] 
-                (when (= (:op a) :if) 
-                  a)))
-         (ret (->Function
-                [(Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
-                     (->HeterogeneousMap {(->Value :op) (->Value :var)}))]
-                (make-Result (Un -nil (->HeterogeneousMap {(->Value :op) (->Value :if)}))
-                             (-FS -top -bot)
-                             (->Path nil 0))
-                nil nil nil)
+           (typed.core/fn> [[a :- (U (Map* :mandatory {:op (Value :if)})
+                                     (Map* :mandatory {:op (Value :var)}))]] 
+                           (when (= (:op a) :if) 
+                             a)))
+         (ret (In (->Function
+                    [(Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
+                         (->HeterogeneousMap {(->Value :op) (->Value :var)}))]
+                    (make-Result (Un -nil (->HeterogeneousMap {(->Value :op) (->Value :if)}))
+                                 (-FS (->AndFilter [(-filter (->Value :if) 0 [(->KeyPE :op)])
+                                                    (-not-filter (Un -false -nil) 0)])
+                                      (->OrFilter [(-not-filter (->Value :if) 0 [(->KeyPE :op)])
+                                                   (-filter (Un -false -nil) 0)]))
+                                 -empty)
+                    nil nil nil))
               (-FS -top -bot)
               -empty))))
 
@@ -299,6 +300,7 @@
          (ret (->HeterogeneousList []) -true-filter -empty))))
 
 (deftest env+-test
+  ;test basic TypeFilter
   ;update a from Any to (Value :a)
   (is (let [props [(-filter (->Value :a) 'a)]
             flag (atom true)]
@@ -307,6 +309,7 @@
                   (env+ lenv [] flag))
                 (->PropEnv {'a (->Value :a)} props))
              @flag)))
+  ;test positive KeyPE
   ;update a from (U (Map* {:op :if}) (Map* {:op :var})) => (Map* {:op :if})
   (is (let [props [(-filter (->Value :if) 'a [(->KeyPE :op)])]
             flag (atom true)]
@@ -315,6 +318,15 @@
                       lenv (->PropEnv env props)]
                   (env+ lenv [] flag))
                 (->PropEnv {'a (->HeterogeneousMap {(->Value :op) (->Value :if)})} props))
+             @flag)))
+  ;test negative KeyPE
+  (is (let [props [(-not-filter (->Value :if) 'a [(->KeyPE :op)])]
+            flag (atom true)]
+        (and (= (let [env {'a (Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
+                                  (->HeterogeneousMap {(->Value :op) (->Value :var)}))}
+                      lenv (->PropEnv env props)]
+                  (env+ lenv [] flag))
+                (->PropEnv {'a (->HeterogeneousMap {(->Value :op) (->Value :var)})} props))
              @flag))))
 
 (deftest destructuring-special-ops
@@ -327,19 +339,25 @@
                  (seq? a)))
          (ret -true -true-filter -empty)))
   (is (= (tc-t (typed.core/fn> [[{a :a} :- (Map* :mandatory {:a (Value 1)})]]
-                    a))
+                               a))
          (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
-                              (make-Result (->Value 1) -true-filter (->Path [(->KeyPE :a)] 0))
-                              nil nil nil)))))
+                              (make-Result (->Value 1) 
+                                           (-FS -top -top)  ; have to throw out filters whos id's go out of scope
+                                           ;(->Path [(->KeyPE :a)] 0) ; TR not TC supports this inference. The destructuring
+                                                                      ; adds an extra binding, which is erased as it goes out of scope.
+                                                                      ; Can we recover this path?
+                                           -empty)
+                              nil nil nil))
+              (-FS -top -bot)
+              -empty)))
   (is (= (tc-t (let [{a :a} {:a 1}]
                  a))
          (ret (->Value 1) 
-              (-FS (-not-filter (Un -false -nil) 'a)
-                   (-filter (Un -false -nil) 'a))
-              (->Path nil 'a))))
+              (-FS -top -top) ; a goes out of scope, throw out filters
+              -empty)))
   (is (= (tc-t (let [a {:a 1}]
                  (:a a)))
-         (ret (->Value 1) -true-filter (->Path [(->KeyPE :a)] 'a))))
+         (ret (->Value 1) (-FS -top -top) -empty)))
   (is (= (tc-t (typed.core/fn> [[a :- (Map* :mandatory {:a (Value 1)})]]
                                (seq? a)))
          (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
@@ -351,9 +369,8 @@
 (deftest check-keyword-invoke-test
   (is (= (tc-t (let [a {:a 1}] (:a a)))
          (ret (->Value 1)
-              (-FS (->TypeFilter (->Value 1) [(->KeyPE :a)] 'a)
-                   -bot)
-              (->Path [(->KeyPE :a)] 'a)))))
+              (-FS -top -top)
+              -empty))))
 
 (defn print-cset [cs]
   (into {} (doall

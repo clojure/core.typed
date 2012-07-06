@@ -3719,7 +3719,10 @@
 (defn tc-equiv [comparator & vs]
   {:pre [(every? TCResult? vs)]
    :post [(TCResult? %)]}
-  (let [{singletons true others false} (group-by (comp (some-fn Value? Nil? False? True?) ret-t) vs)]
+  (let [{singletons true others false} (group-by (comp boolean (some-fn Value? Nil? False? True?) ret-t) vs)]
+    (prn "singletons" singletons)
+    (prn "others" others)
+    (prn "count vs" (count vs))
     (if (<= 1 (count singletons))
       (cond
         ; All singletons
@@ -4152,10 +4155,16 @@
     (type-case {:Type sb-t :Filter rec} f
       TypeFilter
       (fn [{:keys [type path id] :as fl}]
-        (-filter type (or (lookup id) id)  path))
+        ;if variable goes out of scope, replace filter with -top
+        (if (lookup id)
+          (-filter type (lookup id) path)
+          -top))
       NotTypeFilter
       (fn [{:keys [type path id] :as fl}]
-        (-not-filter type (or (lookup id) id)  path)))))
+        ;if variable goes out of scope, replace filter with -top
+        (if (lookup id)
+          (-not-filter type (lookup id)  path)
+          -top)))))
 
 (defn FnResult->Function [{:keys [args kws rest drest body] :as fres}]
   {:pre [(FnResult? fres)]
@@ -4455,10 +4464,17 @@
          (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
                                       [rstpth {fpth-kw :val}] [(butlast path) (last path)]
                                       fpth (->Value fpth-kw)]
-                                  (prn fpth)
                                   (if-let [type* (get (:types t) fpth)]
-                                    (do (prn type*)
-                                      (-hmap-or-bot (assoc (:types t) fpth (update type* (-filter type id rstpth)))))
+                                    (-hmap-or-bot (assoc (:types t) fpth (update type* (-filter type id rstpth))))
+                                    (Bottom)))
+
+    (and (NotTypeFilter? lo)
+         (KeyPE? (last (:path lo)))
+         (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
+                                      [rstpth {fpth-kw :val}] [(butlast path) (last path)]
+                                      fpth (->Value fpth-kw)]
+                                  (if-let [type* (get (:types t) fpth)]
+                                    (-hmap-or-bot (assoc (:types t) fpth (update type* (-not-filter type id rstpth))))
                                     (Bottom)))
 
     (and (TypeFilter? lo)
@@ -4469,7 +4485,7 @@
                                 (remove* t u))
     (Union? t) (let [ts (:types t)]
                  (apply Un (doall (map (fn [t] (update t lo)) ts))))
-    :else (throw (Exception. "update along ill-typed path"))))
+    :else (throw (Exception. (str "update along ill-typed path " (unparse-type t) " " (with-out-str (pr lo)))))))
 
 
 ;; sets the flag box to #f if anything becomes (U)
