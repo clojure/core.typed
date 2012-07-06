@@ -3849,6 +3849,9 @@
          ((some-fn nil? TCResult?) expected-ret)]
    :post [(TCResult? %)]}
   (let [targett (ret-t target-ret)
+        targett (if (Name? targett)
+                  (resolve-Name targett)
+                  targett)
         kwt (ret-t kw-ret)]
     (cond
       ;Keyword must be a singleton, and target either a
@@ -4048,6 +4051,41 @@
                               (apply nth (:types t) (:val k) (when default
                                                                [default])))))
       :else ::not-special)))
+
+;assoc
+(defmethod invoke-special #'clojure.core/assoc
+  [{:keys [args] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (print-env *lexical-env*)
+  (let [[target & keyvals] args
+        _ (assert (<= 3 (count args))
+                  (str "assoc accepts at least 3 arguments, found "
+                       (count args)))
+        _ (assert (even? (count keyvals))
+                  "assoc accepts an even number of keyvals")
+        ctarget (check target)
+        targett (-> ctarget expr-type ret-t)
+        targett (if (Name? targett)
+                  (resolve-Name targett)
+                  resolve-Name)
+        _ (assert (HeterogeneousMap? targett)
+                  (str "Must assoc with a Heterogeneous Map for now, found type "
+                       (with-out-str (pr (unparse-type targett)))))
+        ckeyvals (doall (map check keyvals))
+        keypair-types (partition 2 (map (comp ret-t expr-type) ckeyvals))
+        _ (assert (every? Value? (map first keypair-types))
+                  (str "assoc keys must be values, found "
+                       (map (comp unparse-type first) keypair-types)))
+        new-type (reduce (fn [hmap [kt vt]]
+                           {:pre [(HeterogeneousMap? hmap)]}
+                           (assoc-in hmap [:types kt] vt))
+                         targett 
+                         keypair-types)]
+    (assoc expr
+           expr-type (ret new-type
+                          (-FS -top -bot)
+                          -empty))))
+
 
 ;conj
 (defmethod invoke-special #'clojure.core/conj
@@ -4535,35 +4573,38 @@
     (->HeterogeneousMap types)))
 
 (defn update [t lo]
-  (cond
-    ;heterogeneous map ops
-    (and (TypeFilter? lo)
-         (KeyPE? (last (:path lo)))
-         (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
-                                      [rstpth {fpth-kw :val}] [(butlast path) (last path)]
-                                      fpth (->Value fpth-kw)]
-                                  (if-let [type* (get (:types t) fpth)]
-                                    (-hmap-or-bot (assoc (:types t) fpth (update type* (-filter type id rstpth))))
-                                    (Bottom)))
+  (let [t (if (Name? t)
+            (resolve-Name t)
+            t)]
+    (cond
+      ;heterogeneous map ops
+      (and (TypeFilter? lo)
+           (KeyPE? (last (:path lo)))
+           (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
+                                        [rstpth {fpth-kw :val}] [(butlast path) (last path)]
+                                        fpth (->Value fpth-kw)]
+                                    (if-let [type* (get (:types t) fpth)]
+                                      (-hmap-or-bot (assoc (:types t) fpth (update type* (-filter type id rstpth))))
+                                      (Bottom)))
 
-    (and (NotTypeFilter? lo)
-         (KeyPE? (last (:path lo)))
-         (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
-                                      [rstpth {fpth-kw :val}] [(butlast path) (last path)]
-                                      fpth (->Value fpth-kw)]
-                                  (if-let [type* (get (:types t) fpth)]
-                                    (-hmap-or-bot (assoc (:types t) fpth (update type* (-not-filter type id rstpth))))
-                                    (Bottom)))
+      (and (NotTypeFilter? lo)
+           (KeyPE? (last (:path lo)))
+           (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
+                                        [rstpth {fpth-kw :val}] [(butlast path) (last path)]
+                                        fpth (->Value fpth-kw)]
+                                    (if-let [type* (get (:types t) fpth)]
+                                      (-hmap-or-bot (assoc (:types t) fpth (update type* (-not-filter type id rstpth))))
+                                      (Bottom)))
 
-    (and (TypeFilter? lo)
-         (empty? (:path lo))) (let [u (:type lo)]
-                                (restrict t u))
-    (and (NotTypeFilter? lo)
-         (empty? (:path lo))) (let [u (:type lo)]
-                                (remove* t u))
-    (Union? t) (let [ts (:types t)]
-                 (apply Un (doall (map (fn [t] (update t lo)) ts))))
-    :else (throw (Exception. (str "update along ill-typed path " (unparse-type t) " " (with-out-str (pr lo)))))))
+      (and (TypeFilter? lo)
+           (empty? (:path lo))) (let [u (:type lo)]
+                                  (restrict t u))
+      (and (NotTypeFilter? lo)
+           (empty? (:path lo))) (let [u (:type lo)]
+                                  (remove* t u))
+      (Union? t) (let [ts (:types t)]
+                   (apply Un (doall (map (fn [t] (update t lo)) ts))))
+      :else (throw (Exception. (str "update along ill-typed path " (unparse-type t) " " (with-out-str (pr lo))))))))
 
 
 ;; sets the flag box to #f if anything becomes (U)

@@ -386,16 +386,33 @@
               -empty))))
 
 (def-alias MyName (Map* :mandatory {:a (Value 1)}))
+(def-alias MapName (Map* :mandatory {:a typed.test.core/MyName}))
 
 (deftest Name-resolve-test
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/MyName]]
                                ;call to (apply hash-map tmap) should be eliminated
-                               (let [{e :entry} tmap]
+                               (let [{e :a} tmap]
                                  e)))
          (ret (In (->Function [(->Name 'typed.test.core/MyName)]
-                              (make-Result -nil (-FS -top -top) -empty)
+                              (make-Result (->Value 1) (-FS -top -top) -empty)
+                              nil nil nil))
+              (-FS -top -bot) -empty)))
+  (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/MapName]]
+                               ;call to (apply hash-map tmap) should be eliminated
+                               (let [{e :a} tmap]
+                                 (assoc e :c :b))))
+         (ret (In (->Function [(->Name 'typed.test.core/MapName)]
+                              (make-Result (->HeterogeneousMap {(->Value :a) (->Value 1)
+                                                                (->Value :c) (->Value :b)})
+                                           (-FS -top -bot) -empty)
                               nil nil nil))
               (-FS -top -bot) -empty))))
+
+(deftest assoc-test
+  (is (= (tc-t (assoc {} :a :b))
+         (ret (->HeterogeneousMap {(->Value :a) (->Value :b)})
+              (-FS -top -bot)
+              -empty))))
 
 (deftest check-get-keyword-invoke-test
   ;truth valued key
