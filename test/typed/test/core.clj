@@ -202,6 +202,9 @@
          (ret (->Nil) (-FS -bot -top) (->EmptyObject)))))
 
 (deftest path-test
+  ;FIXME issue with badly scoped filters
+  #_(is (= (tc-t (fn [a] (let [a 1] a)))
+         (ret (->Value 1) (-FS -top -top) -empty)))
   (is (= (tc-t (let [a nil] a))
          (ret -nil (-FS -top -top) -empty))))
 
@@ -340,6 +343,13 @@
   (is (= (tc-t (let [a '(a b)]
                  (seq? a)))
          (ret -true -true-filter -empty)))
+  (is (= (tc-t (let [a {:a 1}]
+                 (if (seq? a)
+                   (apply hash-map a)
+                   a)))
+         (ret (->HeterogeneousMap {(->Value :a) (->Value 1)})
+              ;FIXME should true-filter ?
+              (-FS -top -top) -empty)))
   (is (= (tc-t (typed.core/fn> [[{a :a} :- (Map* :mandatory {:a (Value 1)})]]
                                a))
          (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
@@ -357,14 +367,6 @@
          (ret (->Value 1) 
               (-FS -top -top) ; a goes out of scope, throw out filters
               -empty)))
-  ;truth valued key
-  (is (= (tc-t (let [a {:a 1}]
-                 (:a a)))
-         (ret (->Value 1) (-FS -top -bot) -empty)))
-  ;false valued key, a bit conservative in filters for now
-  (is (= (tc-t (let [a {:a nil}]
-                 (:a a)))
-         (ret -nil (-FS -top -top) -empty)))
   (is (= (tc-t (typed.core/fn> [[a :- (Map* :mandatory {:a (Value 1)})]]
                                (seq? a)))
          (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
@@ -383,11 +385,27 @@
               (-FS -top -bot)
               -empty))))
 
+(def-alias MyName (Map* :mandatory {:a (Value 1)}))
+
+(deftest Name-resolve-test
+  (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/MyName]]
+                               ;call to (apply hash-map tmap) should be eliminated
+                               (let [{e :entry} tmap]
+                                 e)))
+         (ret (In (->Function [(->Name 'typed.test.core/MyName)]
+                              (make-Result -nil (-FS -top -top) -empty)
+                              nil nil nil))
+              (-FS -top -bot) -empty))))
+
 (deftest check-get-keyword-invoke-test
-  (is (= (tc-t (let [a {:a 1}] (:a a)))
-         (ret (->Value 1)
-              (-FS -top -bot)
-              -empty)))
+  ;truth valued key
+  (is (= (tc-t (let [a {:a 1}]
+                 (:a a)))
+         (ret (->Value 1) (-FS -top -bot) -empty)))
+  ;false valued key, a bit conservative in filters for now
+  (is (= (tc-t (let [a {:a nil}]
+                 (:a a)))
+         (ret -nil (-FS -top -top) -empty)))
   (is (= (tc-t (clojure.core/get {:a 1} :a))
          (tc-t (clojure.lang.RT/get {:a 1} :a))
          #_(tc-t ({:a 1} :a))

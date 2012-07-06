@@ -7,6 +7,7 @@
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [clojure.repl :refer [pst]]
+            [clojure.pprint :refer [pprint]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
             [clojure.tools.trace :refer [trace-vars untrace-vars]]))
@@ -322,6 +323,12 @@
 (defrecord Name [id]
   "A late bound name"
   [((every-pred namespace symbol?) id)])
+
+(declare resolve-name*)
+
+(defn resolve-Name [nme]
+  {:pre [(Name? nme)]}
+  (resolve-name* (:id nme)))
 
 (declare-type Name)
 
@@ -654,6 +661,30 @@
 
 (def -top (->TopFilter))
 (def -bot (->BotFilter))
+
+(defmulti unparse-filter* class)
+
+(defn unparse-filter [f]
+  (unparse-filter* f))
+
+(declare unparse-path-elem)
+
+(defmethod unparse-filter* TopFilter [f] ['top-filter])
+(defmethod unparse-filter* BotFilter [f] ['bot-filter])
+
+(defmethod unparse-filter* TypeFilter
+  [{:keys [type path id]}]
+  ['-filter (unparse-type type) (map unparse-path-elem path)
+   id])
+
+(defmethod unparse-filter* NotTypeFilter
+  [{:keys [type path id]}]
+  ['-not-filter (unparse-type type) (map unparse-path-elem path)
+   id])
+
+(defmethod unparse-filter* ImpFilter
+  [{:keys [a c]}]
+  ['-imp-filter (unparse-filter a) '-> (unparse-filter c)])
 
 (declare TypeFilter? NotTypeFilter? type-of TCResult? ret-t)
 
@@ -1046,6 +1077,9 @@
 (declare-path-elem NextPE)
 (declare-path-elem KeyPE)
 
+(defmulti unparse-path-elem class)
+(defmethod unparse-path-elem KeyPE [t] (:val t))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Objects
 
@@ -1096,6 +1130,12 @@
   [(every? (every-pred symbol? (complement namespace)) (keys l))
    (every? Type? (vals l))
    (every? Filter? props)])
+
+(defn print-env [e]
+  {:pre [(PropEnv? e)]}
+  (prn {:env (into {} (for [[k v] (:l e)]
+                        [k (unparse-type v)]))
+        :props (map unparse-filter (:props e))}))
 
 (defonce VAR-ANNOTATIONS (atom {}))
 (def ^:dynamic *lexical-env* (->PropEnv {} []))
@@ -1207,7 +1247,7 @@
   (add-type-name sym declared-name-type)
   nil)
 
-(defn- resolve-name [sym]
+(defn- resolve-name* [sym]
   (let [t (@TYPE-NAME-ENV sym)]
     (cond
       (= declared-name-type t) (throw (Exception. (str "Reference to declared but undefined name " sym)))
@@ -3862,8 +3902,13 @@
 
 ;apply
 (defmethod invoke-special #'clojure.core/apply
-  [& args]
-  (apply invoke-apply args))
+  [expr & [expected]]
+  (pr"special apply:")
+  (pprint expr)
+  (flush)
+  (pr "env:")
+  (print-env *lexical-env*)
+  (invoke-apply expr expected))
 
 ;manual instantiation
 (defmethod invoke-special #'inst-poly
@@ -3957,16 +4002,22 @@
   (let [_ (assert (= 1 (count args)) "Wrong number of args to seq?")
         cargs (doall (map check args))
         targett (ret-t (expr-type (first cargs)))
+        targett (if (Name? targett)
+                  (resolve-Name targett)
+                  targett)
         special? (or ((some-fn HeterogeneousSeq?
                                HeterogeneousList?
                                HeterogeneousVector?
                                HeterogeneousMap?)
                         targett)
                      (and (Union? targett)
-                          (every? (some-fn HeterogeneousSeq?
+                          (every? #((some-fn HeterogeneousSeq?
                                            HeterogeneousList?
                                            HeterogeneousVector?
                                            HeterogeneousMap?)
+                                      (if (Name? %)
+                                        (resolve-Name %)
+                                        %))
                                   (:types targett))))
         sub? (when special?
                (subtype? targett
@@ -4613,7 +4664,8 @@
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  #_(prn "check :if")
+  (prn "check :if")
+  (print-env *lexical-env*)
   (let [ctest (check test)]
     (assoc expr
            expr-type (check-if (expr-type ctest) then else))))
