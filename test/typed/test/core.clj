@@ -50,7 +50,7 @@
   (is (subtype? (parse-type 'Integer)
                 (parse-type 'Object)))
   (is (not (sub? Object Integer)))
-  (is (not (sub? Object Object)))
+  (is (sub? Object Object))
   (is (subtype? (parse-type 'Integer)
                 (parse-type 'Number)))
   (is (subtype? (parse-type '(clojure.lang.Seqable Integer))
@@ -64,6 +64,9 @@
                 (parse-type '(clojure.lang.Cons Number))))
   (is (subtype? (parse-type '(clojure.lang.Cons Integer))
                 (parse-type '(clojure.lang.Seqable Number)))))
+
+(deftest subtype-Object
+  (is (subtype? (RInstance-of clojure.lang.IPersistentList [-any]) (RInstance-of Object))))
 
 (deftest subtype-hmap
   (is (not (subtype? (constant-type '{:a nil})
@@ -228,8 +231,7 @@
                           i 0
                           p [(->KeyPE :op)]]
                       (make-Result t
-                                   (-FS (-filter t 0 p)
-                                        -top)
+                                   (-FS -top -bot)
                                    (->Path p 0)))
                     nil nil nil))
                   (-FS -top -bot)
@@ -355,21 +357,43 @@
          (ret (->Value 1) 
               (-FS -top -top) ; a goes out of scope, throw out filters
               -empty)))
+  ;truth valued key
   (is (= (tc-t (let [a {:a 1}]
                  (:a a)))
-         (ret (->Value 1) (-FS -top -top) -empty)))
+         (ret (->Value 1) (-FS -top -bot) -empty)))
+  ;false valued key, a bit conservative in filters for now
+  (is (= (tc-t (let [a {:a nil}]
+                 (:a a)))
+         (ret -nil (-FS -top -top) -empty)))
   (is (= (tc-t (typed.core/fn> [[a :- (Map* :mandatory {:a (Value 1)})]]
                                (seq? a)))
          (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
                               (make-Result -false -false-filter -empty)
                               nil nil nil))
               (-FS -top -bot)
+              -empty)))
+  ;destructuring a variable of union type
+  (is (= (tc-t (typed.core/fn> [[{a :a} :- (U (Map* :mandatory {:a (Value 1)})
+                                              (Map* :mandatory {:b (Value 2)}))]]
+                               a))
+         (ret (In (->Function [(Un (->HeterogeneousMap {(->Value :a) (->Value 1)})
+                                   (->HeterogeneousMap {(->Value :b) (->Value 2)}))]
+                              (make-Result (Un (->Value 1) -nil) (-FS -top -top) -empty)
+                              nil nil nil))
+              (-FS -top -bot)
               -empty))))
 
-(deftest check-keyword-invoke-test
+(deftest check-get-keyword-invoke-test
   (is (= (tc-t (let [a {:a 1}] (:a a)))
          (ret (->Value 1)
-              (-FS -top -top)
+              (-FS -top -bot)
+              -empty)))
+  (is (= (tc-t (clojure.core/get {:a 1} :a))
+         (tc-t (clojure.lang.RT/get {:a 1} :a))
+         #_(tc-t ({:a 1} :a))
+         (tc-t (:a {:a 1}))
+         (ret (->Value 1)
+              (-FS -top -bot)
               -empty))))
 
 (defn print-cset [cs]

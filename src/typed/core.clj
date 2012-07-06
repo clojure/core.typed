@@ -2810,7 +2810,9 @@
                                                                           " in " t))
                                                              r)
                                                            (->RClass nil t {})))))
-                               (vals rplce-subbed))]
+                               (vals rplce-subbed)
+                               ;common ancestor
+                               #{(RInstance-of Object)})]
     super-types))
 
 (defn- subtype-rinstance-common-base 
@@ -3637,9 +3639,8 @@
     (when (or (and (not rest) (not (= (count dom) (count argtys))))
               (and rest (< (count argtys) (count dom))))
       (throw (Exception. (str "Wrong number of arguments, expected " (count dom) " and got "(count argtys)))))
-    (doall
-      (for [[arg-t dom-t] (map vector (map ret-t argtys) (concat dom (when rest (repeat rest))))]
-        (check-below arg-t dom-t))))
+    (doseq [[arg-t dom-t] (map vector (map ret-t argtys) (concat dom (when rest (repeat rest))))]
+      (check-below arg-t dom-t)))
   (let [dom-count (count dom)
         arg-count (+ dom-count (if rest 1 0) (count (:optional kws)))
         o-a (map :o argtys)
@@ -3720,9 +3721,6 @@
   {:pre [(every? TCResult? vs)]
    :post [(TCResult? %)]}
   (let [{singletons true others false} (group-by (comp boolean (some-fn Value? Nil? False? True?) ret-t) vs)]
-    (prn "singletons" singletons)
-    (prn "others" others)
-    (prn "count vs" (count vs))
     (if (<= 1 (count singletons))
       (cond
         ; All singletons
@@ -3756,20 +3754,97 @@
 (defmulti static-method-special (fn [{{:keys [declaring-class name]} :method} & args]
                                   (symbol (str declaring-class) (str name))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Keyword lookups
+
 (declare invoke-keyword)
 
 ;get
 (defmethod invoke-special #'clojure.core/get
   [{:keys [args] :as expr} & [expected]]
-  (assert (or (= 1 (count args))
-              (= 2 (count args))) "Wrong number of args to clojure.core/get")
-  (let [[target default] args]
+  {:post [(-> % expr-type TCResult?)]}
+  (assert (<= 2 (count args) 3) "Wrong number of args to clojure.core/get")
+  (let [[target kw default] args
+        kwr (expr-type (check kw))]
     (cond
-      (= :keyword (:op target))
+      (Value? (ret-t kwr))
       (assoc expr
-             expr-type (invoke-keyword val target default expr-type))
+             expr-type (invoke-keyword kwr 
+                                       (expr-type (check target)) 
+                                       (when default
+                                         (expr-type (check target))) 
+                                       expected))
       
       :else ::not-special)))
+
+(defmethod static-method-special 'clojure.lang.RT/get
+  [{:keys [args] :as expr} & [expected]]
+  (assert (<= 2 (count args) 3) "Wrong number of args to clojure.core/get")
+  (let [[target kw default] args
+        kwr (expr-type (check kw))]
+    (cond
+      (Value? (ret-t kwr))
+      (assoc expr
+             expr-type (invoke-keyword kwr 
+                                       (expr-type (check target)) 
+                                       (when default
+                                         (expr-type (check target))) 
+                                       expected))
+      
+      :else ::not-special)))
+
+(defmethod check :keyword-invoke
+  [{:keys [kw target] :as expr} & [expected]]
+  {:post [(TCResult? (expr-type %))]}
+  (assoc expr
+         expr-type (invoke-keyword (expr-type (check kw))
+                                   (expr-type (check target))
+                                   nil 
+                                   expected)))
+
+(defn invoke-keyword [kw-ret target-ret default-ret expected-ret]
+  {:pre [(TCResult? kw-ret)
+         (TCResult? target-ret)
+         ((some-fn nil? TCResult?) default-ret)
+         ((some-fn nil? TCResult?) expected-ret)]
+   :post [(TCResult? %)]}
+  (let [targett (ret-t target-ret)
+        kwt (ret-t kw-ret)]
+    (cond
+      ;Keyword must be a singleton, and target either a
+      ;hmap or a union of hmaps, with no default
+      (or (and (Value? kwt)
+               (keyword? (:val kwt)))
+          (not default-ret)
+          (HeterogeneousMap? targett)
+          (and (Union? targett)
+               (every? HeterogeneousMap? (:types targett))))
+      (let [{{path-hm :path id-hm :id :as o} :o} target-ret
+            this-pelem (->KeyPE (:val kwt))]
+        (let [;; get all possible results of looking up the keyword 
+              ;; in the target/s, with Nil as default
+              val-type (apply Un (map #(get (:types %) kwt (->Nil))
+                                      (if (Union? targett)
+                                        (:types targett)
+                                        [targett])))]
+          (prn "pelem:" this-pelem)
+          (prn "val-type:" val-type)
+          (prn "target-ret" target-ret)
+          (if (and val-type)
+            (ret val-type
+                 (-FS (if (Path? o)
+                        (-filter val-type id-hm (concat path-hm [this-pelem]))
+                        (-filter-at val-type (->EmptyObject)))
+                      (if (and (not (subtype? -false val-type))
+                               (not (subtype? -nil val-type)))
+                        -bot
+                        -top))
+                 (if (Path? o)
+                   (update-in o [:path] #(seq (concat % [this-pelem])))
+                   o))
+            (ret (->Top) (-FS -top -top) -empty))))
+
+      :else (ret (->Top) (-FS -top -top) -empty))))
 
 ;=
 (defmethod invoke-special #'clojure.core/= 
@@ -3887,23 +3962,23 @@
                                HeterogeneousVector?
                                HeterogeneousMap?)
                         targett)
-                     (and (Union? ret-t)
+                     (and (Union? targett)
                           (every? (some-fn HeterogeneousSeq?
                                            HeterogeneousList?
                                            HeterogeneousVector?
                                            HeterogeneousMap?)
-                                  (:types ret-t))))
+                                  (:types targett))))
         sub? (when special?
                (subtype? targett
                          (RInstance-of ISeq [(->Top)])))]
     (cond
       (and special? sub?)
       (assoc expr
-             expr-type (ret (->True) (-FS -top -bot) (->EmptyObject)))
+             expr-type (ret -true (-FS -top -bot) -empty))
 
       (and special? (not sub?))
       (assoc expr
-             expr-type (ret (->False) (-FS -bot -top) (->EmptyObject)))
+             expr-type (ret -false (-FS -bot -top) -empty))
 
       :else ::not-special)))
 ;nth
@@ -3922,26 +3997,6 @@
                               (apply nth (:types t) (:val k) (when default
                                                                [default])))))
       :else ::not-special)))
-
-
-;get
-(defmethod static-method-special 'clojure.lang.RT/get
-  [{[t & args] :args :keys [fexpr] :as expr} & [expected]]
-  (let [target-expr (check t)
-        cargs (doall (map check args))
-        t (ret-t (expr-type target-expr))
-        argtys (map (comp ret-t expr-type) cargs)]
-    (cond
-      (and (HeterogeneousMap? t)
-           (Value? (first argtys)))
-      (assoc expr
-             expr-type (ret (let [[k default] argtys]
-                              (get (:types t) k (if default
-                                                  default
-                                                  (->Nil))))))
-      :else ::not-special)))
-
-(defmethod static-method-special :default [& args] ::not-special)
 
 ;conj
 (defmethod invoke-special #'clojure.core/conj
@@ -3989,43 +4044,7 @@
   (throw (Exception. "apply not implemented")))
 
 
-(defn invoke-keyword [kw target default expected]
-  {:pre [(keyword? kw)]
-   :post [(TCResult? %)]}
-  (let [kwt (->Value kw)
-        ctarget (check target)
-        default-t (if default
-                    (ret-t (expr-type (check default)))
-                    (->Nil))
-        ret-type (expr-type ctarget)
-        ttype (ret-t ret-type)]
-    (cond
-      (or (HeterogeneousMap? ttype)
-          (and (Union? ttype)
-               (every? HeterogeneousMap? (:types ttype))))
-      (let [{{path-hm :path id-hm :id :as o} :o} ret-type
-            this-pelem (->KeyPE kw)]
-        (let [val-type (apply Un (map #(get (:types %) kwt) (if (Union? ttype)
-                                                              (:types ttype)
-                                                              [ttype])))]
-          (if (and val-type (not default))
-            (ret val-type
-                 (-FS (if (Path? o)
-                        (-filter val-type id-hm (concat path-hm [this-pelem]))
-                        (-filter-at val-type (->EmptyObject)))
-                      -top)
-                 (if (Path? o)
-                   (update-in o [:path] #(seq (concat % [this-pelem])))
-                   o))
-            (ret (->Top)))))
 
-      :else (ret (->Top)))))
-
-(defmethod check :keyword-invoke
-  [{:keys [kw target] :as expr} & [expected]]
-  {:post [(TCResult? (expr-type %))]}
-  (assoc expr
-         expr-type (invoke-keyword (:val kw) target nil expected)))
 
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
@@ -4035,10 +4054,17 @@
     (cond 
       (not= ::not-special e) e
 
-      (= :keyword (:op fexpr))
-      (let [{{:keys [val]} :fexpr [target default] :args} expr]
+      (let [fexprt (ret-t (expr-type (check fexpr)))]
+        (and (Value? fexprt)
+             (keyword? (:val fexprt))))
+      (let [[target default] args]
+        (assert (<= 1 (count args) 2))
         (assoc expr
-               expr-type (invoke-keyword val target default expr-type)))
+               expr-type (invoke-keyword (expr-type (check fexpr))
+                                         (expr-type (check target))
+                                         (when default
+                                           (expr-type (check default))) 
+                                         expected)))
 
       :else
       (let [cfexpr (check fexpr)
@@ -4299,6 +4325,7 @@
 (defn check-invoke-static-method [{:keys [args tag method] :as expr} expected]
   {:pre [((some-fn nil? Type?) expected)]
    :post [(-> % expr-type TCResult?)]}
+  (prn "invoke static-method: " (Method->symbol method))
   (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
                            (method->Function method)))
         cargs (doall (map check args))
@@ -4586,7 +4613,7 @@
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (prn "check :if")
+  #_(prn "check :if")
   (let [ctest (check test)]
     (assoc expr
            expr-type (check-if (expr-type ctest) then else))))
