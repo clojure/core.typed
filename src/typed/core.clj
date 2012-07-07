@@ -324,7 +324,13 @@
   "A late bound name"
   [((every-pred namespace symbol?) id)])
 
-(declare resolve-name*)
+(declare resolve-name* resolve-Name)
+
+(defn -resolve [ty]
+  {:pre [(Type? ty)]}
+  (if (Name? ty)
+    (resolve-Name ty)
+    ty))
 
 (defn resolve-Name [nme]
   {:pre [(Name? nme)]}
@@ -662,29 +668,9 @@
 (def -top (->TopFilter))
 (def -bot (->BotFilter))
 
-(defmulti unparse-filter* class)
-
-(defn unparse-filter [f]
-  (unparse-filter* f))
-
 (declare unparse-path-elem)
 
-(defmethod unparse-filter* TopFilter [f] ['top-filter])
-(defmethod unparse-filter* BotFilter [f] ['bot-filter])
 
-(defmethod unparse-filter* TypeFilter
-  [{:keys [type path id]}]
-  ['-filter (unparse-type type) (map unparse-path-elem path)
-   id])
-
-(defmethod unparse-filter* NotTypeFilter
-  [{:keys [type path id]}]
-  ['-not-filter (unparse-type type) (map unparse-path-elem path)
-   id])
-
-(defmethod unparse-filter* ImpFilter
-  [{:keys [a c]}]
-  ['-imp-filter (unparse-filter a) '-> (unparse-filter c)])
 
 (declare TypeFilter? NotTypeFilter? type-of TCResult? ret-t)
 
@@ -978,6 +964,30 @@
   "Antecedent (filter a) implies consequent (filter c)"
   [(Filter? a)
    (Filter? c)])
+
+(defmulti unparse-filter* class)
+
+(defn unparse-filter [f]
+  (unparse-filter* f))
+
+(defmethod unparse-filter* TopFilter [f] ['top-filter])
+(defmethod unparse-filter* BotFilter [f] ['bot-filter])
+
+(declare unparse-type)
+
+(defmethod unparse-filter* TypeFilter
+  [{:keys [type path id]}]
+  ['-filter (unparse-type type) (map unparse-path-elem path)
+   id])
+
+(defmethod unparse-filter* NotTypeFilter
+  [{:keys [type path id]}]
+  ['-not-filter (unparse-type type) (map unparse-path-elem path)
+   id])
+
+(defmethod unparse-filter* ImpFilter
+  [{:keys [a c]}]
+  ['-imp-filter (unparse-filter a) '-> (unparse-filter c)])
 
 (add-default-fold-case ImpFilter
                        (fn [ty]
@@ -3760,33 +3770,57 @@
 (defn tc-equiv [comparator & vs]
   {:pre [(every? TCResult? vs)]
    :post [(TCResult? %)]}
-  (let [{singletons true others false} (group-by (comp boolean (some-fn Value? Nil? False? True?) ret-t) vs)]
+  (let [;; Resolve enough to see if things are Singletons
+        vs (map #(if (Name? (ret-t %)) 
+                   (update-in % [:t] resolve-Name) 
+                   %)
+                vs)
+        {singletons true others false} (group-by (comp boolean (some-fn Value? Nil? False? True?) ret-t) vs)]
+    (prn "singletons" singletons)
+    (prn "others" singletons)
     (if (<= 1 (count singletons))
       (cond
-        ; All singletons
-        (empty? others) (if (apply = (map ret-t singletons))
-                          (ret (->True) (-FS -top -bot))
-                          (ret (->False) (-FS -bot -top)))
+        ;just values
+        (empty? others) (if (apply not= (map ret-t singletons))
+                          (ret (->False) (-FS -bot -top) -empty)
+                          (ret (->True) (-FS -top -bot) -empty))
+
+        ;from here there are always non-singletons
+
         ;Can be more specific with else filter with exactly 2 args
         (= 2 (count vs)) (let [st (ret-t (first singletons))
                                {:keys [o]} (first others)]
+                           (prn "=: two case")
                            (ret (Un (->False) (->True))
                                 (-FS (-filter-at st o)
-                                     (-not-filter-at st o))))
+                                     (-not-filter-at st o))
+                                -empty))
+
+        ;Some singletons aren't equal, can't derive anything
+        ;from this expression except that it is always false
+        (apply not= (map ret-t singletons)) (ret (->False)
+                                                 (-FS -bot
+                                                      -top)
+                                                 -empty)
 
         ; All singletons are identical, with other types.
         ; can't derive anything if false eg. (= 1 1 a b c)
         (apply = (map ret-t singletons)) (let [st (ret-t (first singletons))]
                                            (ret (Un (->False) (->True))
-                                                (-FS (apply -and 
-                                                            (for [{:keys [o]} (map ret-t others)]
-                                                              (-filter-at st o)))
-                                                     -top)))
-        (apply not= (map ret-t singletons)) (ret (->False)
-                                                 (-FS -bot
-                                                      -top))
-        :else (ret (Un (->True) (->False))))
-      (ret (Un (->True) (->False))))))
+                                                (-FS 
+                                                  ;for every non-singleton, we can claim
+                                                  ;their object is equal to st if expression
+                                                  ;is true.
+                                                  (apply -and 
+                                                         (for [{:keys [o]} (map ret-t others)]
+                                                           (-filter-at st o)))
+                                                  -top)
+                                                -empty))
+
+        ;Nothing else interesting
+        :else (ret (Un (->True) (->False)) (-FS -top -top) -empty))
+      ;no singletons, just give most general type
+      (ret (Un (->True) (->False)) (-FS -top -top) -empty))))
 
 
 (defmulti invoke-special (fn [expr & args] (-> expr :fexpr :var)))
@@ -3848,44 +3882,50 @@
          ((some-fn nil? TCResult?) default-ret)
          ((some-fn nil? TCResult?) expected-ret)]
    :post [(TCResult? %)]}
-  (let [targett (ret-t target-ret)
-        targett (if (Name? targett)
-                  (resolve-Name targett)
+  (prn "invoke-keyword:")
+  (print-env *lexical-env*)
+  (let [
+        ;; Resolve enough to see what we've got
+        targett (-resolve (ret-t target-ret))
+        targett (if (Union? targett)
+                  (update-in targett [:types] #(set (map -resolve %)))
                   targett)
         kwt (ret-t kw-ret)]
+    (prn "kwt:" kwt)
+    (prn "default-ret:" default-ret)
+    (prn "targett:" targett)
     (cond
       ;Keyword must be a singleton, and target either a
       ;hmap or a union of hmaps, with no default
-      (or (and (Value? kwt)
-               (keyword? (:val kwt)))
-          (not default-ret)
-          (HeterogeneousMap? targett)
-          (and (Union? targett)
-               (every? HeterogeneousMap? (:types targett))))
+      (and (Value? kwt)
+           (keyword? (:val kwt))
+           (not default-ret)
+           (or (HeterogeneousMap? targett)
+               (and (Union? targett)
+                    (every? HeterogeneousMap? (:types targett)))))
       (let [{{path-hm :path id-hm :id :as o} :o} target-ret
-            this-pelem (->KeyPE (:val kwt))]
-        (let [;; get all possible results of looking up the keyword 
-              ;; in the target/s, with Nil as default
-              val-type (apply Un (map #(get (:types %) kwt (->Nil))
-                                      (if (Union? targett)
-                                        (:types targett)
-                                        [targett])))]
-          (prn "pelem:" this-pelem)
-          (prn "val-type:" val-type)
-          (prn "target-ret" target-ret)
-          (if (and val-type)
-            (ret val-type
-                 (-FS (if (Path? o)
-                        (-filter val-type id-hm (concat path-hm [this-pelem]))
-                        (-filter-at val-type (->EmptyObject)))
-                      (if (and (not (subtype? -false val-type))
-                               (not (subtype? -nil val-type)))
-                        -bot
-                        -top))
-                 (if (Path? o)
-                   (update-in o [:path] #(seq (concat % [this-pelem])))
-                   o))
-            (ret (->Top) (-FS -top -top) -empty))))
+            this-pelem (->KeyPE (:val kwt))
+            ;; get all possible results of looking up the keyword 
+            ;; in the target/s, with Nil as default
+            val-type (apply Un (map #(get (:types %) kwt (->Nil))
+                                    (if (Union? targett)
+                                      (:types targett)
+                                      [targett])))]
+        (prn "invoke-keyword: known hmap or (U hmap ...) target")
+        (prn "val-type:" val-type)
+        (if (not= (Un) val-type)
+          (ret val-type
+               (-FS (if (Path? o)
+                      (-filter val-type id-hm (concat path-hm [this-pelem]))
+                      (-filter-at val-type (->EmptyObject)))
+                    (if (and (not (subtype? -false val-type))
+                             (not (subtype? -nil val-type)))
+                      -bot
+                      -top))
+               (if (Path? o)
+                 (update-in o [:path] #(seq (concat % [this-pelem])))
+                 o))
+          (ret (->Top) (-FS -top -top) -empty)))
 
       :else (ret (->Top) (-FS -top -top) -empty))))
 
@@ -4063,6 +4103,7 @@
                        (count args)))
         _ (assert (even? (count keyvals))
                   "assoc accepts an even number of keyvals")
+        _ (prn "assoc target" target)
         ctarget (check target)
         targett (-> ctarget expr-type ret-t)
         targett (if (Name? targett)
@@ -4138,7 +4179,7 @@
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (prn "invoke:" ((some-fn :var :keyword :op) fexpr))
+  #_(prn "invoke:" ((some-fn :var :keyword :op) fexpr))
   (let [e (invoke-special expr expected)]
     (cond 
       (not= ::not-special e) e
@@ -4414,7 +4455,7 @@
 (defn check-invoke-static-method [{:keys [args tag method] :as expr} expected]
   {:pre [((some-fn nil? Type?) expected)]
    :post [(-> % expr-type TCResult?)]}
-  (prn "invoke static-method: " (Method->symbol method))
+  #_(prn "invoke static-method: " (Method->symbol method))
   (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
                            (method->Function method)))
         cargs (doall (map check args))
@@ -4705,7 +4746,7 @@
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (prn "check :if")
+  #_(prn "check :if")
   (print-env *lexical-env*)
   (let [ctest (check test)]
     (assoc expr

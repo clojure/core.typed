@@ -388,6 +388,12 @@
 (def-alias MyName (Map* :mandatory {:a (Value 1)}))
 (def-alias MapName (Map* :mandatory {:a typed.test.core/MyName}))
 
+(def-alias MapStruct1 (Map* :mandatory {:type (Value :MapStruct1)
+                                        :a typed.test.core/MyName}))
+(def-alias MapStruct2 (Map* :mandatory {:type (Value :MapStruct2)
+                                        :b typed.test.core/MyName}))
+(def-alias UnionName (U MapStruct1 MapStruct2))
+
 (deftest Name-resolve-test
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/MyName]]
                                ;call to (apply hash-map tmap) should be eliminated
@@ -398,13 +404,34 @@
                               nil nil nil))
               (-FS -top -bot) -empty)))
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/MapName]]
-                               ;call to (apply hash-map tmap) should be eliminated
                                (let [{e :a} tmap]
                                  (assoc e :c :b))))
          (ret (In (->Function [(->Name 'typed.test.core/MapName)]
                               (make-Result (->HeterogeneousMap {(->Value :a) (->Value 1)
                                                                 (->Value :c) (->Value :b)})
                                            (-FS -top -bot) -empty)
+                              nil nil nil))
+              (-FS -top -bot) -empty)))
+  ; Name representing union of two maps, both with :type key
+  ; TODO keyword-invoke should be much more careful about resolved types
+  (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
+                               (:type tmap)))
+         (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
+                              (make-Result (Un (->Value :MapStruct2)
+                                               (->Value :MapStruct1))
+                                           (-FS -top -bot) 
+                                           (->Path [(->KeyPE :type)] 0))
+                              nil nil nil))
+              (-FS -top -bot) -empty)))
+  (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
+                               (= :MapStruct1 (:type tmap))))
+         (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
+                              (let [t (->Value :MapStruct1)
+                                    path [(->KeyPE :type)]]
+                                (make-Result (Un -false -true)
+                                             (-FS (-filter t 0 path)
+                                                  (-not-filter t 0 path))
+                                             -empty))
                               nil nil nil))
               (-FS -top -bot) -empty))))
 
