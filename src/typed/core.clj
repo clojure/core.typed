@@ -25,6 +25,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special functions
 
+(defn tc-pr-env [debug-string] nil)
+
 (defn inst-poly [inst-of types-syn]
   inst-of)
 
@@ -368,6 +370,8 @@
   [(not (nil? val))
    (not (true? val))
    (not (false? val))])
+
+(def -val ->Value)
 
 (declare-type Value)
 
@@ -967,6 +971,11 @@
 
 (defmulti unparse-filter* class)
 
+(defn unparse-filter-set [{:keys [then else] :as fs}]
+  {:pre [(FilterSet? fs)]}
+  {:then (unparse-filter then)
+   :else (unparse-filter else)})
+
 (defn unparse-filter [f]
   (unparse-filter* f))
 
@@ -984,6 +993,9 @@
   [{:keys [type path id]}]
   ['-not-filter (unparse-type type) (map unparse-path-elem path)
    id])
+
+(defmethod unparse-filter* AndFilter [{:keys [fs]}] (apply vector '-and-filter (map unparse-filter fs)))
+(defmethod unparse-filter* OrFilter [{:keys [fs]}] (apply vector '-or-filter (map unparse-filter fs)))
 
 (defmethod unparse-filter* ImpFilter
   [{:keys [a c]}]
@@ -1119,6 +1131,13 @@
 
 ;Objects
 
+(declare unparse-path-elem)
+
+(defmulti unparse-object class)
+(defmethod unparse-object EmptyObject [_] 'empty-object)
+(defmethod unparse-object NoObject [_] 'no-object)
+(defmethod unparse-object Path [{:keys [path id]}] [(map unparse-path-elem path) id])
+
 (add-default-fold-case EmptyObject identity)
 (add-default-fold-case Path
                        (fn [ty]
@@ -1141,11 +1160,15 @@
    (every? Type? (vals l))
    (every? Filter? props)])
 
-(defn print-env [e]
-  {:pre [(PropEnv? e)]}
-  (prn {:env (into {} (for [[k v] (:l e)]
-                        [k (unparse-type v)]))
-        :props (map unparse-filter (:props e))}))
+(declare ^:dynamic *lexical-env*)
+
+(defn print-env 
+  ([] (print-env *lexical-env*))
+  ([e]
+   {:pre [(PropEnv? e)]}
+   (prn {:env (into {} (for [[k v] (:l e)]
+                         [k (unparse-type v)]))
+         :props (map unparse-filter (:props e))})))
 
 (defonce VAR-ANNOTATIONS (atom {}))
 (def ^:dynamic *lexical-env* (->PropEnv {} []))
@@ -1552,7 +1575,9 @@
                  (let [{:keys [pre-type bound]} drest]
                    [(unparse-type pre-type) '... (unparse-type bound)]))
                (let [{:keys [t fl o]} rng]
-                 ['-> (unparse-type t)]))))
+                 (concat ['-> (unparse-type t)]
+                         [(unparse-filter-set fl)]
+                         [(unparse-object o)])))))
 
 (defmethod unparse-type RClass
   [{the-class :the-class}]
@@ -3226,7 +3251,9 @@
 (declare ret-t)
 
 (defn unparse-TCResult [r]
-  (unparse-type (ret-t r)))
+  [(unparse-type (ret-t r))
+   (unparse-filter-set (ret-f r))
+   (unparse-object (ret-o r))])
 
 (defn ret
   "Convenience function for returning the type of an expression"
@@ -3776,8 +3803,6 @@
                    %)
                 vs)
         {singletons true others false} (group-by (comp boolean (some-fn Value? Nil? False? True?) ret-t) vs)]
-    (prn "singletons" singletons)
-    (prn "others" singletons)
     (if (<= 1 (count singletons))
       (cond
         ;just values
@@ -3790,7 +3815,6 @@
         ;Can be more specific with else filter with exactly 2 args
         (= 2 (count vs)) (let [st (ret-t (first singletons))
                                {:keys [o]} (first others)]
-                           (prn "=: two case")
                            (ret (Un (->False) (->True))
                                 (-FS (-filter-at st o)
                                      (-not-filter-at st o))
@@ -3882,8 +3906,6 @@
          ((some-fn nil? TCResult?) default-ret)
          ((some-fn nil? TCResult?) expected-ret)]
    :post [(TCResult? %)]}
-  (prn "invoke-keyword:")
-  (print-env *lexical-env*)
   (let [
         ;; Resolve enough to see what we've got
         targett (-resolve (ret-t target-ret))
@@ -3891,9 +3913,6 @@
                   (update-in targett [:types] #(set (map -resolve %)))
                   targett)
         kwt (ret-t kw-ret)]
-    (prn "kwt:" kwt)
-    (prn "default-ret:" default-ret)
-    (prn "targett:" targett)
     (cond
       ;Keyword must be a singleton, and target either a
       ;hmap or a union of hmaps, with no default
@@ -3911,8 +3930,6 @@
                                     (if (Union? targett)
                                       (:types targett)
                                       [targett])))]
-        (prn "invoke-keyword: known hmap or (U hmap ...) target")
-        (prn "val-type:" val-type)
         (if (not= (Un) val-type)
           (ret val-type
                (-FS (if (Path? o)
@@ -3963,6 +3980,15 @@
            expr-type (ret (manual-inst ptype targs)))))
 
 (declare check-anon-fn)
+
+;debug printing
+(defmethod invoke-special #'tc-pr-env
+  [{[debug-string] :args :as expr} & [expected]]
+  (assert (= :string (:op debug-string)))
+  (pr (:val debug-string))
+  (print-env)
+  (assoc expr
+         expr-type (ret -nil -false-filter -empty)))
 
 ;fn literal
 (defmethod invoke-special #'fn>-ann
@@ -4103,7 +4129,6 @@
                        (count args)))
         _ (assert (even? (count keyvals))
                   "assoc accepts an even number of keyvals")
-        _ (prn "assoc target" target)
         ctarget (check target)
         targett (-> ctarget expr-type ret-t)
         targett (if (Name? targett)
@@ -4614,27 +4639,29 @@
     (->HeterogeneousMap types)))
 
 (defn update [t lo]
-  (let [t (if (Name? t)
-            (resolve-Name t)
-            t)]
+  (let [t (-resolve t)]
     (cond
       ;heterogeneous map ops
       (and (TypeFilter? lo)
            (KeyPE? (last (:path lo)))
            (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
                                         [rstpth {fpth-kw :val}] [(butlast path) (last path)]
-                                        fpth (->Value fpth-kw)]
-                                    (if-let [type* (get (:types t) fpth)]
-                                      (-hmap-or-bot (assoc (:types t) fpth (update type* (-filter type id rstpth))))
+                                        fpth (->Value fpth-kw)
+                                        type-at-pth (get (:types t) fpth)]
+                                    (if (and type-at-pth 
+                                             (subtype? type type-at-pth))
+                                      (-hmap-or-bot (assoc (:types t) fpth (update type-at-pth (-filter type id rstpth))))
                                       (Bottom)))
 
       (and (NotTypeFilter? lo)
            (KeyPE? (last (:path lo)))
            (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
                                         [rstpth {fpth-kw :val}] [(butlast path) (last path)]
-                                        fpth (->Value fpth-kw)]
-                                    (if-let [type* (get (:types t) fpth)]
-                                      (-hmap-or-bot (assoc (:types t) fpth (update type* (-not-filter type id rstpth))))
+                                        fpth (->Value fpth-kw)
+                                        type-at-pth (get (:types t) fpth)]
+                                    (if (and type-at-pth 
+                                             (not (subtype? type type-at-pth)))
+                                      (-hmap-or-bot (assoc (:types t) fpth (update type-at-pth (-not-filter type id rstpth))))
                                       (Bottom)))
 
       (and (TypeFilter? lo)
@@ -4653,9 +4680,12 @@
   {:pre [(PropEnv? env)
          (every? Filter? fs)
          (boolean? @flag)]
-   :post [(PropEnv? env)]}
+   :post [(PropEnv? env)
+          (boolean? @flag)]}
   (let [[props atoms] (combine-props fs (:props env) flag)]
     (reduce (fn [gam f] ;gam = gamma environment
+              {:pre [(PropEnv? gam)
+                     (Filter? f)]}
               (cond
                 (BotFilter? f) (do (reset! flag false)
                                  ;make every variable bottom
@@ -4705,6 +4735,8 @@
     (let [{fs+ :then fs- :else :as f1} (:fl tst)
           flag+ (atom true)
           flag- (atom true)
+          _ (set-validator! flag+ boolean?)
+          _ (set-validator! flag- boolean?)
 
           env-thn (env+ *lexical-env* [fs+] flag+)
           env-els (env+ *lexical-env* [fs-] flag-)
@@ -4712,13 +4744,15 @@
                                 (:props env-thn))
           new-els-props (filter (fn [e] (and (atomic-filter? e) (not (some #(= % e) (:props *lexical-env*)))))
                                 (:props env-els))
-          {ts :t fs2 :fl os2 :o} (binding [*lexical-env* env-thn]
+          {ts :t fs2 :fl os2 :o :as then-ret} (binding [*lexical-env* env-thn]
                                    (tc thn @flag+))
-          {us :t fs3 :fl os3 :o} (binding [*lexical-env* env-els]
+          {us :t fs3 :fl os3 :o :as else-ret} (binding [*lexical-env* env-els]
                                    (tc els @flag-))]
 
       ;some optimization code here, contraditions etc? omitted
 
+      (prn "check-if: then branch:" (unparse-TCResult then-ret))
+      (prn "check-if: else branch:" (unparse-TCResult else-ret))
       (cond
         ;both branches reachable
         (and (not (type-equal? (Un) ts))
@@ -4731,10 +4765,12 @@
                                (let [{f2+ :then f2- :else} fs2
                                      {f3+ :then f3- :else} fs3]
                                  (-FS (-or (apply -and fs+ f2+ new-thn-props) (apply -and fs- f3+ new-els-props))
-                                      (-or (apply -and fs+ f2- new-thn-props) (apply -and fs- f3- new-els-props)))))
+                                      (-or (apply -and fs+ f2- new-thn-props) (apply -and fs- f3- new-els-props))))
+                               :else (throw (Exception. (str "What are these?" fs2 fs3))))
                       type (Un ts us)
                       object (if (object-equal? os2 os3) os2 (->EmptyObject))]
                   (ret type filter object))]
+          (prn "check if:" "both branches reachable, with combined result" (unparse-TCResult r))
           (if expected (check-below r expected) r))
         ;; special case if one of the branches is unreachable
         (type-equal? us (Un))
@@ -4747,7 +4783,6 @@
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   #_(prn "check :if")
-  (print-env *lexical-env*)
   (let [ctest (check test)]
     (assoc expr
            expr-type (check-if (expr-type ctest) then else))))

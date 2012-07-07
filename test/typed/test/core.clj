@@ -413,7 +413,6 @@
                               nil nil nil))
               (-FS -top -bot) -empty)))
   ; Name representing union of two maps, both with :type key
-  ; TODO keyword-invoke should be much more careful about resolved types
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
                                (:type tmap)))
          (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
@@ -423,6 +422,7 @@
                                            (->Path [(->KeyPE :type)] 0))
                               nil nil nil))
               (-FS -top -bot) -empty)))
+  ; using = to derive paths
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
                                (= :MapStruct1 (:type tmap))))
          (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
@@ -433,7 +433,37 @@
                                                   (-not-filter t 0 path))
                                              -empty))
                               nil nil nil))
+              (-FS -top -bot) -empty)))
+  ; using filters derived by =
+  (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
+                               (if (= :MapStruct1 (:type tmap))
+                                 (do (typed.core/tc-pr-env "follow then")
+                                   (:a tmap))
+                                 (:b tmap))))
+         (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
+                              (let [t (->Name 'typed.test.core/MyName)
+                                    path [(->KeyPE :a)]]
+                                ;object is empty because then and else branches objects differ
+                                (make-Result t (-FS -top -bot) -empty))
+                              nil nil nil))
               (-FS -top -bot) -empty))))
+
+(deftest update-test
+  (is (= (update (Un (->HeterogeneousMap {(-val :type) (-val :Map1)})
+                     (->HeterogeneousMap {(-val :type) (-val :Map2)}))
+                 (-filter (->Value :Map1) 'tmap [(->KeyPE :type)]))
+         (->HeterogeneousMap {(-val :type) (-val :Map1)})))
+  ;test that update resolves Names properly
+  (is (= (update (->Name 'typed.test.core/MapStruct2)
+                 (-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
+         (Un)))
+  ;test that update resolves Names properly
+  ; here we refine the type of tmap with the equivalent of following the then branch 
+  ; with test (= :MapStruct1 (:type tmap))
+  (is (= (update (->Name 'typed.test.core/UnionName)
+                 (-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
+         (->HeterogeneousMap {(-val :type) (-val :MapStruct1) 
+                              (-val :a) (->Name 'typed.test.core/MyName)}))))
 
 (deftest assoc-test
   (is (= (tc-t (assoc {} :a :b))
