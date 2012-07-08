@@ -337,7 +337,18 @@
                       lenv (->PropEnv env props)]
                   (env+ lenv [] flag))
                 (->PropEnv {'a (->HeterogeneousMap {(->Value :op) (->Value :var)})} props))
-             @flag))))
+             @flag)))
+  ;test impfilter
+  (is (let [{:keys [l props]}
+            (env+ (->PropEnv {'a (Un -false -true) 'b (Un -nil -true)}
+                             [(->ImpFilter (-not-filter -false 'a)
+                                           (-filter -true 'b))])
+                  [(-not-filter (Un -nil -false) 'a)]
+                  (atom true))]
+        (and (= l {'a -false, 'b -true})
+             (= (set props)
+                #{(-not-filter (Un -nil -false) 'a)
+                  (-filter -true 'b)})))))
 
 (deftest destructuring-special-ops
   (is (= (tc-t (seq? [1 2]))
@@ -444,8 +455,8 @@
                                (if (= :MapStruct1 (:type tmap))
                                  (do (typed.core/tc-pr-env "follow then")
                                    (:a tmap))
-                                 (:b tmap))))
-         (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
+                               (:b tmap))))
+       (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
                               (let [t (->Name 'typed.test.core/MyName)
                                     path [(->KeyPE :a)]]
                                 ;object is empty because then and else branches objects differ

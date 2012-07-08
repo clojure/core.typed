@@ -688,9 +688,6 @@
 
 (declare TypeFilter? NotTypeFilter? type-of TCResult? ret-t)
 
-(def atomic-filter? (some-fn TypeFilter? NotTypeFilter?
-                             TopFilter? BotFilter?))
-
 (def ^:dynamic *mutated-bindings* #{})
 
 (defn is-var-mutated? [id]
@@ -931,6 +928,7 @@
                     :else
                     (recur (next fs) (cons t result)))))))))
 
+(declare atomic-filter?)
 
 (defn -and [& args]
   {:pre [(every? Filter? args)]
@@ -1075,6 +1073,9 @@
 (declare-filter NotTypeFilter)
 (declare-filter ImpFilter)
 (declare-filter FilterSet)
+
+(def atomic-filter? (some-fn TypeFilter? NotTypeFilter?
+                             TopFilter? BotFilter?))
 
 (def -true-filter (-FS -top -bot))
 (def -false-filter (-FS -bot -top))
@@ -4767,17 +4768,17 @@
    :post [(PropEnv? env)
           (boolean? @flag)]}
   (let [[props atoms] (combine-props fs (:props env) flag)]
-    (reduce (fn [gam f] ;gam = gamma environment
-              {:pre [(PropEnv? gam)
+    (reduce (fn [env f]
+              {:pre [(PropEnv? env)
                      (Filter? f)]}
               (cond
                 (BotFilter? f) (do (reset! flag false)
                                  ;make every variable bottom
-                                 (update-in gam [:l] #(into {} (for [[k _] %] [k (Un)]))))
+                                 (update-in env [:l] #(into {} (for [[k _] %] [k (Un)]))))
                 (or (TypeFilter? f)
                     (NotTypeFilter? f))
                 (let [x (:id f)]
-                  (update-in gam [:l x] (fn [t] 
+                  (update-in env [:l x] (fn [t] 
                                           ;check if var is ever a target of a set!
                                           (if (is-var-mutated? x)
                                             ; if it is, we do nothing
@@ -4788,7 +4789,7 @@
                                               (when (type-equal? new-t (Un))
                                                 (reset! flag false))
                                               new-t)))))
-                :else gam))
+                :else env))
             (assoc env :props (concat atoms props))
             atoms)))
 
