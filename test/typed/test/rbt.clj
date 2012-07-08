@@ -135,15 +135,11 @@
 (defn restore-right [tmap]
   (cond
     (and (= :Black (-> tmap :tree))
-         (do (tc-pr-env "then branch of (= :Black (-> tmap :tree))")
-           true)
          (= :Red (-> tmap :left :tree))
-         (do (tc-pr-env "then branch of (= :Red (-> tmap :left :tree))")
-           true)
          (= :Red (-> tmap :right :tree))
          (= :Red (-> tmap :right :left :tree)))
     (let [{lt :left rt :right e :entry} tmap]
-      (tc-pr-env "restore-right: first branch")
+;      (tc-pr-env "restore-right: first branch")
       ;re-color
       {:tree :Red
        :entry e
@@ -157,7 +153,7 @@
          (= :Red (-> tmap :right :tree))
          (= :Red (-> tmap :right :left :tree)))
     (let [{lt :left rt :right e :entry} tmap]
-      (tc-pr-env "restore-right: second branch")
+;      (tc-pr-env "restore-right: second branch")
       ;re-color
       {:tree :Red
        :entry e
@@ -168,7 +164,7 @@
 
     (and (= :Black (-> tmap :tree))
          (= :Red (-> tmap :right :tree))
-         (= :Red (-> tmap :right :tree :tree)))
+         (= :Red (-> tmap :right :left :tree)))
     (let [{e :entry
            l :left
            {re :entry
@@ -176,6 +172,7 @@
              rll :left
              rlr :right} :left
             rr :right} :right} tmap]
+      (tc-pr-env "restore-right: third branch")
       ;l is black, deep rotate
       {:tree :Black
        :entry rle
@@ -204,7 +201,9 @@
               :right rl}
        :right rr})
 
-    :else tmap))
+    (do (tc-pr-env "final else:")
+      :else) 
+    tmap))
 
 ; Okasaki's simplified rotations for red-black trees
 ;(Fn [badRight -> rbt])

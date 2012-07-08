@@ -389,6 +389,15 @@
                               nil nil nil))
               (-FS -top -bot)
               -empty)))
+  (is (= (-> (tc-t (typed.core/fn> [[a :- typed.test.core/UnionName]]
+                                   (seq? a)))
+           ret-t)
+         (In (->Function [(->Name 'typed.test.core/UnionName)]
+                         (make-Result -false 
+                                      ;FIXME why isn't this (-FS -bot (-not-filter (RInstance-of ISeq [-any]) 0)) ?
+                                      (-FS -bot -top)
+                                      -empty)
+                         nil nil nil))))
   (is (= (tc-t (let [{a :a} {:a 1}]
                  a))
          (ret (->Value 1) 
@@ -401,16 +410,43 @@
                               nil nil nil))
               (-FS -top -bot)
               -empty)))
+  ;roughly the macroexpansion of map destructuring
+  (is (= (tc-t (typed.core/fn> 
+                 [[map-param :- typed.test.rbt/badRight]]
+                 (when (and (= :Black (-> map-param :tree))
+                            (= :Red (-> map-param :left :right :tree))
+                            (= :Red (-> map-param :right :tree)))
+                   (let [map1 map-param
+                         map1
+                         (if (clojure.core/seq? map1)
+                           (clojure.core/apply clojure.core/hash-map map1)
+                           map1)
+
+                         mapr (clojure.core/get map1 :right)
+                         mapr
+                         (if (clojure.core/seq? mapr)
+                           (clojure.core/apply clojure.core/hash-map mapr)
+                           mapr)
+
+                         maprl (clojure.core/get mapr :left)
+                         _ (tc-pr-env "maprl")
+                         maprl
+                         (if (clojure.core/seq? maprl)
+                           (clojure.core/apply clojure.core/hash-map maprl)
+                           maprl)]
+                     maprl))))))
   ;destructuring a variable of union type
-  (is (= (tc-t (typed.core/fn> [[{a :a} :- (U (Map* :mandatory {:a (Value 1)})
-                                              (Map* :mandatory {:b (Value 2)}))]]
-                               a))
-         (ret (In (->Function [(Un (->HeterogeneousMap {(->Value :a) (->Value 1)})
-                                   (->HeterogeneousMap {(->Value :b) (->Value 2)}))]
-                              (make-Result (Un (->Value 1) -nil) (-FS -top -top) -empty)
-                              nil nil nil))
-              (-FS -top -bot)
-              -empty))))
+  ; NOTE: commented out because, for now, it's an error to get a non-existant key
+;  (is (= (tc-t (typed.core/fn> [[{a :a} :- (U (Map* :mandatory {:a (Value 1)})
+;                                              (Map* :mandatory {:b (Value 2)}))]]
+;                               a))
+;         (ret (In (->Function [(Un (->HeterogeneousMap {(->Value :a) (->Value 1)})
+;                                   (->HeterogeneousMap {(->Value :b) (->Value 2)}))]
+;                              (make-Result (Un (->Value 1) -nil) (-FS -top -top) -empty)
+;                              nil nil nil))
+;              (-FS -top -bot)
+;              -empty)))
+              )
 
 (def-alias MyName (Map* :mandatory {:a (Value 1)}))
 (def-alias MapName (Map* :mandatory {:a typed.test.core/MyName}))
@@ -518,11 +554,56 @@
   (is (not (overlap -false -true)))
   (is (not (overlap (-val :a) (-val :b)))))
 
+(def-alias SomeMap (U (Map* :mandatory
+                            {:a (Value :b)})
+                      (Map* :mandatory
+                            {:b (Value :c)})))
+
 (deftest assoc-test
   (is (= (tc-t (assoc {} :a :b))
          (ret (->HeterogeneousMap {(->Value :a) (->Value :b)})
               (-FS -top -bot)
-              -empty))))
+              -empty)))
+  (is (= (-> (tc-t (typed.core/fn> [[m :- typed.test.core/SomeMap]]
+                                   (assoc m :c 1)))
+           ret-t :types first :rng)
+         (make-Result (Un (->HeterogeneousMap {(-val :a) (-val :b)
+                                               (-val :c) (-val 1)})
+                          (->HeterogeneousMap {(-val :b) (-val :c)
+                                               (-val :c) (-val 1)}))
+                      (-FS -top -bot)
+                      -empty))))
+         
+
+(deftest update-nested-hmap-test
+  (is (= (update (->HeterogeneousMap {(-val :left) (->Name 'typed.test.rbt/rbt)})
+                 (-filter (-val :Red) 'id [(->KeyPE :left) (->KeyPE :tree)]))
+         (->HeterogeneousMap {(-val :left) 
+                              (->HeterogeneousMap {(-val :tree) (-val :Red) 
+                                                   (-val :entry) (->Name 'typed.test.rbt/EntryT) 
+                                                   (-val :left) (->Name 'typed.test.rbt/bt) 
+                                                   (-val :right) (->Name 'typed.test.rbt/bt)})}))))
+         
+(deftest rbt-test
+
+  (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.rbt/badRight]]
+                               (let [and1 (= :Black (-> tmap :tree))]
+                                 (tc-pr-env "first clause")
+                                 (if and1
+                                   (let [and1 (= :Red (-> tmap :left :tree))]
+                                     (tc-pr-env "second then clause")
+                                     (if and1
+                                       (let [and1 (= :Red (-> tmap :right :tree))]
+                                         (tc-pr-env "third then clause")
+                                         (if and1
+                                           (= :Red (-> tmap :right :left :tree))
+                                           (do (tc-pr-env "last clause")
+                                             and1)))
+                                       (do (tc-pr-env "third else clause")
+                                         and1)))
+                                   (do (tc-pr-env "second else clause")
+                                     and1))))))))
+         
 
 (deftest check-get-keyword-invoke-test
   ;truth valued key
@@ -533,6 +614,10 @@
   (is (= (tc-t (let [a {:a nil}]
                  (:a a)))
          (ret -nil (-FS -top -top) -empty)))
+  ;multiple levels
+  (is (= (tc-t (let [a {:c {:a :b}}]
+                 (-> a :c :a)))
+         (ret (->Value :b) (-FS -top -bot) -empty)))
   (is (= (tc-t (clojure.core/get {:a 1} :a))
          (tc-t (clojure.lang.RT/get {:a 1} :a))
          #_(tc-t ({:a 1} :a))

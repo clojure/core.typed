@@ -907,6 +907,8 @@
                                 (apply -or a (concat (next ands) others))))))))]
     (loop [fs args
            result nil]
+      (assert (every? Filter? fs))
+      (assert (every? Filter? result))
       (if (empty? fs)
         (cond
           (empty? result) -bot
@@ -914,10 +916,11 @@
           :else (distribute (compact result true)))
         (cond
           (Top? (first fs)) (first fs)
-          (OrFilter? (first fs)) (let [fs* (first fs)]
+          (OrFilter? (first fs)) (let [fs* (:fs (first fs))]
                                    (recur (concat fs* (next fs)) result))
           (BotFilter? (first fs)) (recur (next fs) result)
           :else (let [t (first fs)]
+                  (assert (Filter? t))
                   (cond 
                     (some (fn [f] (opposite? f t)) (concat (rest fs) result))
                     -top
@@ -3387,9 +3390,9 @@
 (defmethod check :map
   [{:keys [keyvals] :as expr} & [expected]]
   (let [ckeyvals (mapv check keyvals)]
-    (assert (every? Value? (map expr-type (keys (apply hash-map ckeyvals)))))
+    (assert (every? Value? (map (comp ret-t expr-type) (keys (apply hash-map ckeyvals)))))
     (assoc expr
-           expr-type (ret (->HeterogeneousMap (apply hash-map (map expr-type ckeyvals)))))))
+           expr-type (ret (->HeterogeneousMap (apply hash-map (map (comp ret-t expr-type) ckeyvals)))))))
 
 (defmethod check :vector
   [{:keys [args] :as expr} & [expected]]
@@ -3899,7 +3902,8 @@
                                          (expr-type (check target))) 
                                        expected))
       
-      :else ::not-special)))
+      :else (do (prn "Non-special 'get'")
+              ::not-special))))
 
 (defmethod static-method-special 'clojure.lang.RT/get
   [{:keys [args] :as expr} & [expected]]
@@ -3933,29 +3937,38 @@
          ((some-fn nil? TCResult?) expected-ret)]
    :post [(TCResult? %)]}
   (let [
-        ;; Resolve enough to see what we've got
         targett (-resolve (ret-t target-ret))
-        targett (if (Union? targett)
-                  (update-in targett [:types] #(set (map -resolve %)))
-                  targett)
+        ;; Resolve enough to see what we've got
+        tys (cond
+              (Union? targett) (into #{}
+                                     (apply concat
+                                            (for [t (set (map -resolve (:types targett)))]
+                                              (if (Union? t)
+                                                (map -resolve (:types t))
+                                                [t]))))
+              :else #{targett})
         kwt (ret-t kw-ret)]
     (cond
       ;Keyword must be a singleton, and target either a
       ;hmap or a union of hmaps, with no default
       (and (Value? kwt)
            (keyword? (:val kwt))
-           (not default-ret)
-           (or (HeterogeneousMap? targett)
-               (and (Union? targett)
-                    (every? HeterogeneousMap? (:types targett)))))
+           (not default-ret))
       (let [{{path-hm :path id-hm :id :as o} :o} target-ret
             this-pelem (->KeyPE (:val kwt))
             ;; get all possible results of looking up the keyword 
             ;; in the target/s, with Nil as default
-            val-type (apply Un (map #(get (:types %) kwt (->Nil))
-                                    (if (Union? targett)
-                                      (:types targett)
-                                      [targett])))]
+            val-type (apply Un (map (fn [t]
+                                      {:pre [(Type? t)]}
+                                      (if (HeterogeneousMap? t)
+                                        (if-let [lu (get (:types t) kwt)]
+                                          lu
+                                          (throw (Exception. (str "Type " (unparse-type t)
+                                                                  " does not have entry "
+                                                                  (unparse-type kwt)))))
+                                        (throw (Exception. (str "Can't 'get' from type " (unparse-type t))))))
+                                    tys))]
+        ;(prn "invoke keyword: val-type" (map unparse-type tys))
         (if (not= (Un) val-type)
           (ret val-type
                (-FS (if (Path? o)
@@ -3968,9 +3981,11 @@
                (if (Path? o)
                  (update-in o [:path] #(seq (concat % [this-pelem])))
                  o))
-          (ret (->Top) (-FS -top -top) -empty)))
+          (do (prn "invoke-keyword: not special")
+            ::not-special)))
 
-      :else (ret (->Top) (-FS -top -top) -empty))))
+      :else (do (prn "invoke-keyword: not special")
+              ::not-special))))
 
 ;=
 (defmethod invoke-special #'clojure.core/= 
@@ -3990,11 +4005,10 @@
 (defmethod invoke-special #'clojure.core/apply
   [expr & [expected]]
   (pr"special apply:")
-  (pprint expr)
-  (flush)
-  (pr "env:")
-  (print-env *lexical-env*)
-  (invoke-apply expr expected))
+  (let [e (invoke-apply expr expected)]
+    (when (= e ::not-special)
+      (throw (Exception. "apply must be special")))
+    e))
 
 ;manual instantiation
 (defmethod invoke-special #'inst-poly
@@ -4011,8 +4025,10 @@
 (defmethod invoke-special #'tc-pr-env
   [{[debug-string] :args :as expr} & [expected]]
   (assert (= :string (:op debug-string)))
+  ;DO NOT REMOVE
   (pr (:val debug-string))
   (print-env)
+  ;DO NOT REMOVE
   (assoc expr
          expr-type (ret -nil -false-filter -empty)))
 
@@ -4096,37 +4112,44 @@
   [{:keys [args] :as expr} & [expected]]
   (let [_ (assert (= 1 (count args)) "Wrong number of args to seq?")
         cargs (doall (map check args))
-        targett (ret-t (expr-type (first cargs)))
-        targett (if (Name? targett)
-                  (resolve-Name targett)
-                  targett)
-        special? (or ((some-fn HeterogeneousSeq?
-                               HeterogeneousList?
-                               HeterogeneousVector?
-                               HeterogeneousMap?)
-                        targett)
-                     (and (Union? targett)
-                          (every? #((some-fn HeterogeneousSeq?
-                                           HeterogeneousList?
-                                           HeterogeneousVector?
-                                           HeterogeneousMap?)
-                                      (if (Name? %)
-                                        (resolve-Name %)
-                                        %))
-                                  (:types targett))))
+        obj (-> (expr-type (first cargs)) ret-o)
+        ;_ (prn "seq?: expr" (first args))
+        targett (-resolve (ret-t (expr-type (first cargs))))
+        tys (cond
+                (Union? targett) (into #{}
+                                       (apply concat
+                                              (for [t (set (map -resolve (:types targett)))]
+                                                (if (Union? t)
+                                                  (map -resolve (:types t))
+                                                  [t]))))
+                :else #{targett})
+        special? (every? (some-fn HeterogeneousSeq?
+                                  HeterogeneousList?
+                                  HeterogeneousVector?
+                                  HeterogeneousMap?)
+                         tys)
+        ;_ (prn "specials:" (map unparse-type tys))
         sub? (when special?
                (subtype? targett
                          (RInstance-of ISeq [(->Top)])))]
     (cond
       (and special? sub?)
       (assoc expr
-             expr-type (ret -true (-FS -top -bot) -empty))
+             expr-type (ret -true 
+                            (-FS (-filter-at (RInstance-of ISeq [-any]) obj)
+                                 -bot)
+                            -empty))
 
       (and special? (not sub?))
       (assoc expr
-             expr-type (ret -false (-FS -bot -top) -empty))
+             expr-type (ret -false 
+                            (-FS -bot
+                                 (-not-filter-at (RInstance-of ISeq [-any]) obj))
+                            -empty))
 
-      :else ::not-special)))
+      :else (do (prn "seq? not special")
+              (prn (unparse-type targett))
+              ::not-special))))
 ;nth
 (defmethod static-method-special 'clojure.lang.RT/nth
   [{[t & args] :args, :keys [fexpr] :as expr} & [expected]]
@@ -4148,33 +4171,47 @@
 (defmethod invoke-special #'clojure.core/assoc
   [{:keys [args] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (print-env *lexical-env*)
   (let [[target & keyvals] args
+
         _ (assert (<= 3 (count args))
                   (str "assoc accepts at least 3 arguments, found "
                        (count args)))
         _ (assert (even? (count keyvals))
                   "assoc accepts an even number of keyvals")
-        ctarget (check target)
-        targett (-> ctarget expr-type ret-t)
-        targett (if (Name? targett)
-                  (resolve-Name targett)
-                  targett)
-        _ (assert (HeterogeneousMap? targett)
-                  (str "Must assoc with a Heterogeneous Map for now, found type "
-                       (with-out-str (pr (unparse-type targett)))))
+
+        targett (-resolve (-> target check expr-type ret-t))
+        hmaps (cond
+                (HeterogeneousMap? targett) #{targett}
+                ;look for maps 2 unions
+                (Union? targett) (into #{}
+                                       (apply concat
+                                              (for [t (set (map -resolve (:types targett)))]
+                                                (if (Union? t)
+                                                  (map -resolve (:types t))
+                                                  [t]))))
+                :else #{})
+
+        _ (assert (and (seq hmaps)
+                       (every? HeterogeneousMap? hmaps))
+                  (str "Must assoc with a singular or union of Heterogeneous Maps "
+                       (with-out-str (pr (unparse-type targett))
+                         (pr (map unparse-type hmaps)))))
+
+        ; we must already have an even number of keyvals if we've got this far
         ckeyvals (doall (map check keyvals))
         keypair-types (partition 2 (map (comp ret-t expr-type) ckeyvals))
+
         _ (assert (every? Value? (map first keypair-types))
                   (str "assoc keys must be values, found "
                        (map (comp unparse-type first) keypair-types)))
-        new-type (reduce (fn [hmap [kt vt]]
-                           {:pre [(HeterogeneousMap? hmap)]}
-                           (assoc-in hmap [:types kt] vt))
-                         targett 
-                         keypair-types)]
+
+        new-hmaps (map #(reduce (fn [hmap [kt vt]]
+                                  {:pre [(HeterogeneousMap? hmap)]}
+                                  (assoc-in hmap [:types kt] vt))
+                                % keypair-types)
+                       hmaps)]
     (assoc expr
-           expr-type (ret new-type
+           expr-type (ret (apply Un new-hmaps)
                           (-FS -top -bot)
                           -empty))))
 
@@ -4730,22 +4767,20 @@
       (and (TypeFilter? lo)
            (KeyPE? (last (:path lo)))
            (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
-                                        [rstpth {fpth-kw :val}] [(butlast path) (last path)]
+                                        [{fpth-kw :val} & rstpth] path
                                         fpth (->Value fpth-kw)
                                         type-at-pth (get (:types t) fpth)]
-                                    (if (and type-at-pth 
-                                             (subtype? type type-at-pth))
+                                    (if type-at-pth 
                                       (-hmap-or-bot (assoc (:types t) fpth (update type-at-pth (-filter type id rstpth))))
                                       (Bottom)))
 
       (and (NotTypeFilter? lo)
            (KeyPE? (last (:path lo)))
            (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
-                                        [rstpth {fpth-kw :val}] [(butlast path) (last path)]
+                                        [{fpth-kw :val} & rstpth] path
                                         fpth (->Value fpth-kw)
                                         type-at-pth (get (:types t) fpth)]
-                                    (if (and type-at-pth 
-                                             (not (subtype? type type-at-pth)))
+                                    (if type-at-pth 
                                       (-hmap-or-bot (assoc (:types t) fpth (update type-at-pth (-not-filter type id rstpth))))
                                       (Bottom)))
 
@@ -4768,13 +4803,15 @@
    :post [(PropEnv? env)
           (boolean? @flag)]}
   (let [[props atoms] (combine-props fs (:props env) flag)]
-    (prn "props: " (map unparse-filter props))
-    (prn "atoms: " (map unparse-filter atoms))
+;    (prn "props: " (map unparse-filter props))
+;    (prn "atoms: " (map unparse-filter atoms))
     (reduce (fn [env f]
               {:pre [(PropEnv? env)
                      (Filter? f)]}
               (cond
-                (BotFilter? f) (do (reset! flag false)
+                (BotFilter? f) (do 
+                                 (prn "env+: BotFilter found, unreachable")
+                                 (reset! flag false)
                                  ;make every variable bottom
                                  (update-in env [:l] #(into {} (for [[k _] %] [k (Un)]))))
                 (or (TypeFilter? f)
@@ -4789,6 +4826,8 @@
                                             (let [t (or t (->Top))
                                                   new-t (update t f)]
                                               (when (type-equal? new-t (Un))
+                                                (prn "env+: updated type for" x
+                                                     "is Bottom, unreachable")
                                                 (reset! flag false))
                                               new-t)))))
                 :else env))
@@ -4804,7 +4843,7 @@
   (letfn [(tc [expr reachable?]
             {:post [(TCResult? %)]}
             (when-not reachable?
-              #_(prn "Unreachable code found.."))
+              #_(prn "Unreachable code found.. " expr))
             (cond
               ;; if reachable? is #f, then we don't want to verify that this branch has the appropriate type
               ;; in particular, it might be (void)
