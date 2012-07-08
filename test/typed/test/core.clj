@@ -309,6 +309,17 @@
   (is (= (tc-t '())
          (ret (->HeterogeneousList []) -true-filter -empty))))
 
+(deftest implied-atomic?-test
+  (is (implied-atomic? (-not-filter -false 'a)(-not-filter (Un -nil -false) 'a))))
+
+(deftest combine-props-test
+  (is (= (map set (combine-props [(->ImpFilter (-not-filter -false 'a)
+                                               (-filter -true 'b))]
+                                 [(-not-filter (Un -nil -false) 'a)]
+                                 (atom true)))
+         [#{} #{(-not-filter (Un -nil -false) 'a)
+                (-filter -true 'b)}])))
+
 (deftest env+-test
   ;test basic TypeFilter
   ;update a from Any to (Value :a)
@@ -345,7 +356,7 @@
                                            (-filter -true 'b))])
                   [(-not-filter (Un -nil -false) 'a)]
                   (atom true))]
-        (and (= l {'a -false, 'b -true})
+        (and (= l {'a -true, 'b -true})
              (= (set props)
                 #{(-not-filter (Un -nil -false) 'a)
                   (-filter -true 'b)})))))
@@ -456,7 +467,7 @@
                                  (do (typed.core/tc-pr-env "follow then")
                                    (:a tmap))
                                (:b tmap))))
-       (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
+         (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
                               (let [t (->Name 'typed.test.core/MyName)
                                     path [(->KeyPE :a)]]
                                 ;object is empty because then and else branches objects differ
@@ -478,9 +489,9 @@
          (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
                               (let [t (Un (-val 1)
                                           (->HeterogeneousMap {(-val :type) (-val :MapStruct1)
-                                                               (-val :c) (-val :d)}))]
-                                (make-Result t 
-                                             (-FS -or -top) -empty))
+                                                               (-val :c) (-val :d)
+                                                               (-val :a) (->Name 'typed.test.core/MyName)}))]
+                                (make-Result t (-FS -top -bot) -empty))
                               nil nil nil))
               (-FS -top -bot) -empty))))
 

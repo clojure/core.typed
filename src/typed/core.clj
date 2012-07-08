@@ -1094,7 +1094,7 @@
                                   (subtype? (:type f2) (:type f1)))
       (and (NotTypeFilter? f1)
            (NotTypeFilter? f2)) (and (= (:id f1) (:id f2))
-                                     (subtype? (:type f2) (:type f1)))
+                                     (subtype? (:type f1) (:type f2)))
       :else false)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -4768,6 +4768,8 @@
    :post [(PropEnv? env)
           (boolean? @flag)]}
   (let [[props atoms] (combine-props fs (:props env) flag)]
+    (prn "props: " (map unparse-filter props))
+    (prn "atoms: " (map unparse-filter atoms))
     (reduce (fn [env f]
               {:pre [(PropEnv? env)
                      (Filter? f)]}
