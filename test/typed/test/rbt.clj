@@ -1,5 +1,6 @@
 (ns typed.test.rbt
-  (:require [typed.core :refer [ann inst cf fn> pfn> def-alias declare-names]]
+  (:require [typed.core :refer [ann inst cf fn> pfn> def-alias declare-names
+                                tc-pr-env]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]]))
 
@@ -13,7 +14,7 @@
 (def-alias rbt (U 
                  ;Empty
                  (Map* :mandatory
-                        {:tree (Value :Empty)})
+                       {:tree (Value :Empty)})
                  ;Black
                  (Map* :mandatory
                        {:tree (Value :Black)
@@ -134,10 +135,15 @@
 (defn restore-right [tmap]
   (cond
     (and (= :Black (-> tmap :tree))
+         (do (tc-pr-env "then branch of (= :Black (-> tmap :tree))")
+           true)
          (= :Red (-> tmap :left :tree))
+         (do (tc-pr-env "then branch of (= :Red (-> tmap :left :tree))")
+           true)
          (= :Red (-> tmap :right :tree))
          (= :Red (-> tmap :right :left :tree)))
     (let [{lt :left rt :right e :entry} tmap]
+      (tc-pr-env "restore-right: first branch")
       ;re-color
       {:tree :Red
        :entry e
@@ -151,6 +157,7 @@
          (= :Red (-> tmap :right :tree))
          (= :Red (-> tmap :right :left :tree)))
     (let [{lt :left rt :right e :entry} tmap]
+      (tc-pr-env "restore-right: second branch")
       ;re-color
       {:tree :Red
        :entry e

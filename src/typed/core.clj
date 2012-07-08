@@ -503,6 +503,16 @@
    :post [(Type? %)]}
   (:t r))
 
+(defn Result-filter* [r]
+  {:pre [(Result? r)]
+   :post [(Filter? %)]}
+  (:fl r))
+
+(defn Result-object* [r]
+  {:pre [(Result? r)]
+   :post [(RObject? %)]}
+  (:o r))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Folding
 
@@ -544,7 +554,6 @@
                        [:filter-rec filter-rec])
                      (when object-rec
                        [:object-rec object-rec]))))))
-
 
 (add-default-fold-case Intersection
                        (fn [ty]
@@ -618,6 +627,7 @@
                            (update-in [:types] #(into {} (for [[k v] %]
                                                            [(type-rec k) (type-rec v)]))))))
 
+(add-default-fold-case Name identity)
 (add-default-fold-case Value identity)
 (add-default-fold-case Top identity)
 (add-default-fold-case TopFunction identity)
@@ -688,7 +698,17 @@
 
 ;true if types t1 and t2 overlap (NYI)
 (defn overlap [t1 t2]
-  true) ;FIXME conservative result
+  (cond 
+    (= t1 t2) true
+    (and (Value? t1)
+         (Value? t2)) (= t1 t2)
+    (and ((some-fn Nil? False? True?) t1)
+         ((some-fn Nil? False? True?) t2)) (= t1 t2)
+    (and (Name? t1)
+         (Name? t2)) (overlap (-resolve t1) (-resolve t2))
+    (Name? t1) (overlap (-resolve t1) t2)
+    (Name? t2) (overlap t1 (-resolve t2))
+    :else true)) ;FIXME conservative result
 
 (declare infer subst-all)
 
@@ -705,6 +725,7 @@
 
       (Union? t1) (apply Un (map (fn [e] (restrict e t2 f)) (:types t1)))
       (Union? t2) (apply Un (map (fn [e] (restrict t1 e f)) (:types t2)))
+      (not (overlap t1 t2)) (Un) ;there's no overlap, so the restriction is empty
       ;TODO other cases
       :else (if (= f 'new) t2 t1)))) ;; t2 and t1 have a complex relationship, so we punt
 
@@ -970,6 +991,8 @@
    (Filter? c)])
 
 (defmulti unparse-filter* class)
+
+(declare FilterSet? unparse-filter)
 
 (defn unparse-filter-set [{:keys [then else] :as fs}]
   {:pre [(FilterSet? fs)]}
@@ -3248,7 +3271,7 @@
                            (update-in [:fl] filter-rec)
                            (update-in [:o] object-rec))))
 
-(declare ret-t)
+(declare ret-t ret-f ret-o)
 
 (defn unparse-TCResult [r]
   [(unparse-type (ret-t r))
@@ -3631,10 +3654,10 @@
                   t))))
 
 (defn subst-type [t k o polarity]
-   {:pre [(name-ref? k)
-          (RObject? o)
-          ((some-fn true? false?) polarity)]
-    :post [(Type? %)]}
+  {:pre [(name-ref? k)
+         (RObject? o)
+         ((some-fn true? false?) polarity)]
+   :post [(Type? %)]}
   (letfn [(st [t*]
             (subst-type t* k o polarity))
           (sf [fs] 
@@ -3667,7 +3690,9 @@
                           (update-in [:optional] #(into {} (for [[k v] %]
                                                              [(st k) (st v)])))))))))))
 
-(defn open-Result [{t :t fs :fl old-obj :o :as r} objs & [ts]]
+(defn open-Result 
+  "Substitute ids for objs in Result t"
+  [{t :t fs :fl old-obj :o :as r} objs & [ts]]
   {:pre [(Result? r)
          (every? RObject? objs)
          ((some-fn FilterSet? NoFilter?) fs)
@@ -4380,7 +4405,21 @@
   {:pre [(every? Type? method-param-types)]
    :post [(FnResult? %)]}
   (assert (not rest-param))
-  (let [cbody (with-locals (zipmap (map :sym required-params) method-param-types)
+  (let [syms (map :sym required-params)
+        locals (zipmap syms method-param-types)
+        ; update filters that reference bindings that the params shadow
+        props (map (fn [oldp]
+                     (reduce (fn [p sym]
+                               {:pre [(Filter? p)
+                                      (symbol? sym)]}
+                               (subst-filter p sym -empty true))
+                             oldp (keys locals)))
+                   (:props *lexical-env*))
+        env (-> *lexical-env*
+              (assoc-in [:props] props)
+              (update-in [:l] merge locals))
+        ; erasing references to parameters is handled later
+        cbody (with-lexical-env env
                 (check body))]
     (->FnResult
       (map vector (map :sym required-params) method-param-types)
@@ -4420,8 +4459,20 @@
                                           (assert (and rest rest-param))
                                           [(:sym rest-param) (Un -nil (RInstance-of ASeq [rest]))])]
                          (conj dom-local rest-local))
-          res-expr (with-locals param-locals
-                     (check body (ret (Result-type* rng))))
+          props (map (fn [oldp]
+                       (reduce (fn [p sym]
+                                 {:pre [(Filter? p)
+                                        (symbol? sym)]}
+                                 (subst-filter p sym -empty true))
+                               oldp (keys param-locals)))
+                     (:props *lexical-env*))
+          env (-> *lexical-env*
+                (assoc-in [:props] props)
+                (update-in [:l] merge param-locals))
+          res-expr (with-lexical-env env
+                     (check body (ret (Result-type* rng)
+                                      (Result-filter* rng)
+                                      (Result-object* rng))))
           res-type (-> res-expr expr-type ret-t)]
       (subtype res-type (Result-type* rng)))))
 
@@ -4505,9 +4556,24 @@
   (let [env (reduce (fn [env {{:keys [sym init]} :local-binding}]
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
-                      (let [{:keys [t fl o]} (expr-type
-                                               (with-lexical-env env
-                                                 (check init)))]
+                      (let [{:keys [t fl o]} (->
+                                               (expr-type
+                                                 (with-lexical-env env
+                                                   (check init)))
+                                               ;substitute previous references to sym with an empty object
+                                               (update-in [:t] subst-type sym -empty true)
+                                               (update-in [:fl] subst-filter-set sym -empty true)
+                                               (update-in [:o] subst-object sym -empty true))
+                            ; update old env and new result with previous references of sym (which is now shadowed)
+                            ; replaced with an empty object
+                            ;_ (do (pr "let: env before") (print-env env))
+                            env (-> env
+                                  (update-in [:l] #(into {} (for [[oldsym ty] %]
+                                                              [oldsym (subst-type ty sym -empty true)])))
+                                  (update-in [:props] (fn [props]
+                                                        (doall (map #(subst-filter % sym -empty true) props)))))
+                            ;_ (do (pr "let: env after") (print-env env))
+                            ]
                         (cond
                           (FilterSet? fl)
                           (let [{:keys [then else]} fl
@@ -4527,9 +4593,22 @@
                                            (assoc-in [:l sym] t)))))
                     *lexical-env* binding-inits)
         cbody (with-lexical-env env
-                (check body))]
+                (check body))
+
+        ;now we return a result to the enclosing scope, so we
+        ;erase references to any bindings this scope introduces
+        unshadowed-type 
+        (reduce (fn [ty sym]
+                  {:pre [(TCResult? ty)
+                         (symbol? sym)]}
+                  (-> ty
+                    (update-in [:t] subst-type sym -empty true)
+                    (update-in [:fl] subst-filter-set sym -empty true)
+                    (update-in [:o] subst-object sym -empty true)))
+                (expr-type cbody)
+                (map (comp :sym :local-binding) binding-inits))]
     (assoc expr
-           expr-type (expr-type cbody))))
+           expr-type unshadowed-type)))
 
 (defn resolve* [atoms prop]
   {:pre [(every? Filter? atoms)
@@ -4567,6 +4646,9 @@
    :post [(let [[derived-props derived-atoms] %]
             (and (every? (some-fn ImpFilter? OrFilter? AndFilter?) derived-props)
                  (every? (some-fn TypeFilter? NotTypeFilter?) derived-atoms)))]}
+;  (prn "combine-props:")
+;  (prn "new-props:" (map unparse-filter new-props))
+;  (prn "old-props:" (map unparse-filter old-props))
   (let [atomic-prop? (some-fn TypeFilter? NotTypeFilter?)
         {new-atoms true new-formulas false} (group-by atomic-prop? (flatten-props new-props))]
     (loop [derived-props []
@@ -4580,6 +4662,8 @@
             (AndFilter? p) (recur derived-props derived-atoms (concat (:fs p) (next worklist)))
             (ImpFilter? p) 
             (let [{:keys [a c]} p]
+              #_(prn "combining " (unparse-filter p) " with " (map unparse-filter (concat derived-props
+                                                                                        derived-atoms)))
               (if (some (fn [p] (implied-atomic? a p)) (concat derived-props derived-atoms))
                 (recur derived-props derived-atoms (cons c (rest worklist)))
                 (recur (cons p derived-props) derived-atoms (next worklist))))
@@ -4738,7 +4822,9 @@
           _ (set-validator! flag+ boolean?)
           _ (set-validator! flag- boolean?)
 
+          ;_ (prn "env+: calculate then env")
           env-thn (env+ *lexical-env* [fs+] flag+)
+          ;_ (prn "env+: calculate else env")
           env-els (env+ *lexical-env* [fs-] flag-)
           new-thn-props (filter (fn [e] (and (atomic-filter? e) (not (some #(= % e) (:props *lexical-env*)))))
                                 (:props env-thn))
@@ -4751,8 +4837,8 @@
 
       ;some optimization code here, contraditions etc? omitted
 
-      (prn "check-if: then branch:" (unparse-TCResult then-ret))
-      (prn "check-if: else branch:" (unparse-TCResult else-ret))
+;      (prn "check-if: then branch:" (unparse-TCResult then-ret))
+;      (prn "check-if: else branch:" (unparse-TCResult else-ret))
       (cond
         ;both branches reachable
         (and (not (type-equal? (Un) ts))
@@ -4770,7 +4856,7 @@
                       type (Un ts us)
                       object (if (object-equal? os2 os3) os2 (->EmptyObject))]
                   (ret type filter object))]
-          (prn "check if:" "both branches reachable, with combined result" (unparse-TCResult r))
+          ;(prn "check if:" "both branches reachable, with combined result" (unparse-TCResult r))
           (if expected (check-below r expected) r))
         ;; special case if one of the branches is unreachable
         (type-equal? us (Un))

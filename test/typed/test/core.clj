@@ -4,6 +4,7 @@
   (:require [clojure.test :refer :all]
             [analyze.core :refer [ast]]
             [clojure.repl :refer [pst]]
+            [clojure.data :refer [diff]]
             [typed.core :refer :all]))
 
 (deftest add-scopes-test
@@ -202,9 +203,13 @@
          (ret (->Nil) (-FS -bot -top) (->EmptyObject)))))
 
 (deftest path-test
-  ;FIXME issue with badly scoped filters
-  #_(is (= (tc-t (fn [a] (let [a 1] a)))
-         (ret (->Value 1) (-FS -top -top) -empty)))
+  (is (= (tc-t (fn [a] (let [a 1] a)))
+         (ret (In (->Function [-any]
+                              (make-Result (-val 1)
+                                           (-FS -top -top)
+                                           -empty)
+                              nil nil nil))
+              (-FS -top -bot) -empty)))
   (is (= (tc-t (let [a nil] a))
          (ret -nil (-FS -top -top) -empty))))
 
@@ -446,6 +451,26 @@
                                 ;object is empty because then and else branches objects differ
                                 (make-Result t (-FS -top -bot) -empty))
                               nil nil nil))
+              (-FS -top -bot) -empty)))
+  ; following paths with test of conjuncts
+  (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
+                               (if (let [and1 (= :MapStruct1 (-> tmap :type))]
+                                     (typed.core/tc-pr-env "first conjunct")
+                                     (if and1
+                                       (do (typed.core/tc-pr-env "second conjunct")
+                                         (= 1 1))
+                                       (do (typed.core/tc-pr-env "fail conjunct")
+                                         and1)))
+                                 (do (typed.core/tc-pr-env "follow then")
+                                   (assoc tmap :c :d))
+                                 1)))
+         (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
+                              (let [t (Un (-val 1)
+                                          (->HeterogeneousMap {(-val :type) (-val :MapStruct1)
+                                                               (-val :c) (-val :d)}))]
+                                (make-Result t 
+                                             (-FS -or -top) -empty))
+                              nil nil nil))
               (-FS -top -bot) -empty))))
 
 (deftest update-test
@@ -463,7 +488,13 @@
   (is (= (update (->Name 'typed.test.core/UnionName)
                  (-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
          (->HeterogeneousMap {(-val :type) (-val :MapStruct1) 
-                              (-val :a) (->Name 'typed.test.core/MyName)}))))
+                              (-val :a) (->Name 'typed.test.core/MyName)})))
+  (is (= (update (Un -true -false) (-filter (Un -false -nil) 'a nil)) 
+         -false)))
+
+(deftest overlap-test
+  (is (not (overlap -false -true)))
+  (is (not (overlap (-val :a) (-val :b)))))
 
 (deftest assoc-test
   (is (= (tc-t (assoc {} :a :b))
