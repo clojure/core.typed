@@ -1,6 +1,6 @@
 (ns typed.test.rbt
   (:require [typed.core :refer [ann inst cf fn> pfn> def-alias declare-names
-                                tc-pr-env]]
+                                tc-pr-env tc-pr-filters]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]]))
 
@@ -134,33 +134,39 @@
      (Fn [badRight -> rbt]))
 (defn restore-right [tmap]
   (cond
-    (and (= :Black (-> tmap :tree))
-         (= :Red (-> tmap :left :tree))
-         (= :Red (-> tmap :right :tree))
-         (= :Red (-> tmap :right :left :tree)))
-    (let [{lt :left rt :right e :entry} tmap]
-;      (tc-pr-env "restore-right: first branch")
-      ;re-color
-      {:tree :Red
-       :entry e
-       :left (assoc lt
-                    :tree :Black)
-       :right (assoc rt
-                     :tree :Black)})
+    (tc-pr-filters "TEST1"
+      (and (= :Black (-> tmap :tree))
+           (= :Red (-> tmap :left :tree))
+           (= :Red (-> tmap :right :tree))
+           (= :Red (-> tmap :right :left :tree))))
+    (let [_ (tc-pr-env "down first then")
+          {lt :left rt :right e :entry} tmap
+          ;re-color
+          res {:tree :Red
+               :entry e
+               :left (assoc lt
+                            :tree :Black)
+               :right (assoc rt
+                             :tree :Black)}]
+      (tc-pr-env "restore-right: output first branch (res)")
+      res)
 
-    (and (= :Black (-> tmap :tree))
+    (and (do (tc-pr-env "SECOND CASE")
+           true)
+         (= :Black (-> tmap :tree))
          (= :Red (-> tmap :left :tree))
          (= :Red (-> tmap :right :tree))
          (= :Red (-> tmap :right :left :tree)))
-    (let [{lt :left rt :right e :entry} tmap]
-;      (tc-pr-env "restore-right: second branch")
-      ;re-color
-      {:tree :Red
-       :entry e
-       :left (assoc lt
-                    :tree :Black)
-       :right (assoc rt
-                     :tree :Black)})
+    (let [{lt :left rt :right e :entry} tmap
+          ;re-color
+          res {:tree :Red
+               :entry e
+               :left (assoc lt
+                            :tree :Black)
+               :right (assoc rt
+                             :tree :Black)}]
+      (tc-pr-env "restore-right: output second branch (res)")
+      res)
 
     (and (= :Black (-> tmap :tree))
          (= :Red (-> tmap :right :tree))
@@ -171,19 +177,19 @@
             {rle :entry
              rll :left
              rlr :right} :left
-            rr :right} :right} tmap]
-      (tc-pr-env "restore-right: third branch")
-      ;l is black, deep rotate
-      {:tree :Black
-       :entry rle
-       :left {:tree :Red
-              :entry e
-              :left l
-              :right rll}
-       :right {:tree :Red
-               :entry re
-               :left rlr
-               :right rr}})
+            rr :right} :right} tmap
+          ;l is black, deep rotate
+          res {:tree :Black
+               :entry rle
+               :left {:tree :Red
+                      :entry e
+                      :left l
+                      :right rll}
+               :right {:tree :Red
+                       :entry re
+                       :left rlr
+                       :right rr}}]
+      res)
 
     (and (= :Black (-> tmap :tree))
          (= :Red (-> tmap :right :tree))
@@ -203,7 +209,8 @@
 
     (do (tc-pr-env "final else:")
       :else) 
-    tmap))
+    (do (tc-pr-env "follow final else:")
+      tmap)))
 
 ; Okasaki's simplified rotations for red-black trees
 ;(Fn [badRight -> rbt])

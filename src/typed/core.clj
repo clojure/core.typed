@@ -3,14 +3,15 @@
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
-                         Keyword Atom PersistentList))
+                         Keyword Atom PersistentList IMeta))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
-            [clojure.tools.trace :refer [trace-vars untrace-vars]]))
+            [clojure.tools.trace :refer [trace-vars untrace-vars
+                                         trace-ns untrace-ns]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint shorthands
@@ -26,6 +27,7 @@
 ;; Special functions
 
 (defn tc-pr-env [debug-string] nil)
+(defn tc-pr-filters [debug-string frm] frm)
 
 (defn inst-poly [inst-of types-syn]
   inst-of)
@@ -137,14 +139,31 @@
 
 (declare-type Union)
 
+(declare HeterogeneousMap?)
 
 (def empty-union (->Union #{}))
 
+#_(defn simplify-HMap-Un [hmaps]
+  {:pre [(every? HeterogeneousMap? hmaps)]
+   :post [(Type? %)]}
+  (let [mss (vals
+              (group-by #(-> % :types keys set) (set hmaps)))
+        ;union the vals of maps with exactly the same keys
+        flat (set
+               (for [ms mss]
+                 (->HeterogeneousMap
+                   (apply merge-with Un
+                          (map :types ms)))))]
+    (if (= 1 (count flat))
+      (first flat)
+      (->Union flat))))
+
 (defn Un [& types]
-  (let [types (filter #(not= empty-union %) (set types))]
+  (let [types (disj (set types) empty-union)]
     (cond
       (empty? types) empty-union
       (= 1 (count types)) (first types)
+;      (every? HeterogeneousMap? types) (simplify-HMap-Un types)
       :else (->Union (set (apply concat
                                  (for [t (set types)]
                                    (if (Union? t)
@@ -162,17 +181,63 @@
 (defrecord Intersection [types]
   "An ordered intersection of types. Either is an intersection
   of Functions, or contains at most one Function/Poly/PolyDots type"
-  [(sequential? types)
-   (seq types)
+  [(seq types)
    (or (every? Function? types)
        (<= (count (filter (some-fn Fn-Intersection? Poly? PolyDots?) types))
            1)
        (every? Type? types))])
 
+(declare In HeterogeneousMap? ->HeterogeneousMap overlap)
+
+(defn simplify-HMap-In [hmaps]
+  {:pre [(every? HeterogeneousMap? hmaps)]
+   :post [(Type? %)]}
+  (let [mss (vals
+              (group-by #(-> % :types keys set) (set hmaps)))
+        ;intersect the vals of maps with exactly the same keys
+        flat (set
+               (for [ms mss]
+                 (->HeterogeneousMap
+                   (apply merge-with In
+                          (map :types ms)))))]
+    (if (= 1 (count flat))
+      (first flat)
+      (->Intersection flat))))
+
 (defn In [& types]
-  (if (empty? types)
-    (Bottom)
-    (->Intersection types)))
+  {:post [(Type? %)]}
+           ;flatten intersections
+  (let [ts (set (apply concat
+                       (for [t types]
+                         (if (Intersection? t)
+                           (:types t)
+                           [t]))))]
+    (cond
+      (or (empty? ts)
+          (ts (Un))) (Bottom)
+
+      ; should be near the top
+      (some Function? types) (do (assert (every? Function? types)
+                                         "Every type must be a Function in a Fn-Intersection")
+                               (->Intersection types))
+
+      (= 1 (count ts)) (first ts)
+
+      ; if there no overlap
+      (and (<= (count ts) 2)
+           (some (fn [[t1 t2]] (not (overlap t1 t2))) (comb/combinations ts 2))) (Bottom)
+
+      (some Union? ts) (let [flat (set (mapcat #(if (Union? %)
+                                                  (:types %)
+                                                  [%])
+                                               ts))]
+                         (apply Un
+                                (set
+                                  (for [[t1 t2] (comb/combinations flat 2)]
+                                    (In t1 t2)))))
+
+      (every? HeterogeneousMap? ts) (simplify-HMap-In ts)
+      :else (->Intersection ts))))
 
 (declare-type Intersection)
 
@@ -466,10 +531,11 @@
 
 (defn Fn-Intersection [fns]
   {:pre [(every? Function? fns)]}
-  (apply In fns))
+  (->Intersection fns))
 
 (defn Fn-Intersection? [fin]
   (and (Intersection? fin)
+       (sequential? (:types fin))
        (every? Function? (:types fin))))
 
 (declare abstract)
@@ -701,10 +767,17 @@
          (Value? t2)) (= t1 t2)
     (and ((some-fn Nil? False? True?) t1)
          ((some-fn Nil? False? True?) t2)) (= t1 t2)
-    (and (Name? t1)
-         (Name? t2)) (overlap (-resolve t1) (-resolve t2))
-    (Name? t1) (overlap (-resolve t1) t2)
-    (Name? t2) (overlap t1 (-resolve t2))
+;    (and (Name? t1)
+;         (Name? t2)) (overlap (-resolve t1) (-resolve t2))
+;    (Name? t1) (overlap (-resolve t1) t2)
+;    (Name? t2) (overlap t1 (-resolve t2))
+    (and (HeterogeneousMap? t1)
+         (HeterogeneousMap? t2)) (and (= (set (-> t1 :types keys))
+                                         (set (-> t2 :types keys)))
+                                      (every? true?
+                                              (for [[k1 v1] (:types t1)]
+                                                (let [v2 ((:types t2) k1)]
+                                                  (overlap v1 v2)))))
     :else true)) ;FIXME conservative result
 
 (declare infer subst-all)
@@ -797,7 +870,8 @@
 
 (defrecord AndFilter [fs]
   "Logical conjunction of filters"
-  [(seq fs)
+  [(set? fs)
+   (seq fs)
    (every? Filter? fs)])
 
 (defn opposite? [f1 f2]
@@ -889,101 +963,131 @@
 (declare -and)
 
 (defn -or [& args]
-  {:pre [(every? Filter? args)]
-   :post [(Filter? %)]}
-  (letfn [(mk [& fs]
-            {:pre [(every? Filter? fs)]
-             :post [(Filter? %)]}
-            (cond
-              (empty? fs) -bot
-              (= 1 (count fs)) (first fs)
-              :else (->OrFilter fs)))
-          (distribute [args]
-            (let [{ands true others false} (group-by AndFilter? args)]
-              (if (empty? ands)
-                (apply mk others)
-                (let [{elems :fs} (first ands)] ;an AndFilter
-                  (apply -and (for [a elems]
-                                (apply -or a (concat (next ands) others))))))))]
-    (loop [fs args
-           result nil]
-      (assert (every? Filter? fs))
-      (assert (every? Filter? result))
-      (if (empty? fs)
-        (cond
-          (empty? result) -bot
-          (= 1 (count result)) (first result)
-          :else (distribute (compact result true)))
-        (cond
-          (Top? (first fs)) (first fs)
-          (OrFilter? (first fs)) (let [fs* (:fs (first fs))]
-                                   (recur (concat fs* (next fs)) result))
-          (BotFilter? (first fs)) (recur (next fs) result)
-          :else (let [t (first fs)]
-                  (assert (Filter? t))
-                  (cond 
-                    (some (fn [f] (opposite? f t)) (concat (rest fs) result))
-                    -top
-                    (some (fn [f] (or (= f t)
-                                      (implied-atomic? f t)))
-                          result)
-                    (recur (next fs) result)
-                    :else
-                    (recur (next fs) (cons t result)))))))))
+  (let [fs (disj (set args) -bot)]
+    (cond
+      (empty? fs) -bot
+      (= 1 (count fs)) (first fs)
+      :else (->OrFilter fs))))
 
-(declare atomic-filter?)
+;(defn -or [& args]
+;  {:pre [(every? Filter? args)]
+;   :post [(Filter? %)]}
+;  (letfn [(mk [& fs]
+;            {:pre [(every? Filter? fs)]
+;             :post [(Filter? %)]}
+;            (cond
+;              (empty? fs) -bot
+;              (= 1 (count fs)) (first fs)
+;              :else (->OrFilter fs)))
+;          (distribute [args]
+;            (let [{ands true others false} (group-by AndFilter? args)]
+;              (if (empty? ands)
+;                (apply mk others)
+;                (let [{elems :fs} (first ands)] ;an AndFilter
+;                  (apply -and (for [a elems]
+;                                (apply -or a (concat (next ands) others))))))))]
+;    (loop [fs args
+;           result nil]
+;      (assert (every? Filter? fs))
+;      (assert (every? Filter? result))
+;      (if (empty? fs)
+;        (cond
+;          (empty? result) -bot
+;          (= 1 (count result)) (first result)
+;          :else (distribute (compact result true)))
+;        (cond
+;          (Top? (first fs)) (first fs)
+;          (OrFilter? (first fs)) (let [fs* (:fs (first fs))]
+;                                   (recur (concat fs* (next fs)) result))
+;          (BotFilter? (first fs)) (recur (next fs) result)
+;          :else (let [t (first fs)]
+;                  (assert (Filter? t))
+;                  (cond 
+;                    (some (fn [f] (opposite? f t)) (concat (rest fs) result))
+;                    -top
+;                    (some (fn [f] (or (= f t)
+;                                      (implied-atomic? f t)))
+;                          result)
+;                    (recur (next fs) result)
+;                    :else
+;                    (recur (next fs) (cons t result)))))))))
+
+(declare atomic-filter? combine-props ->ImpFilter)
+
+(defn -imp [a c]
+  {:pre [(Filter? a)
+         (Filter? c)]
+   :post [(Filter? %)]}
+  (cond
+    (BotFilter? a) -top
+    (TopFilter? a) c
+    :else (->ImpFilter a c)))
 
 (defn -and [& args]
-  {:pre [(every? Filter? args)]
-   :post [(Filter? %)]}
-  (letfn [(mk [& fs]
-            {:pre [(every? Filter? fs)]
-             :post [(Filter? %)]}
-            (cond
-              (empty? fs) -top
-              (= 1 (count fs)) (first fs)
-              :else (->AndFilter fs)))]
-    (loop [fs (set args)
-           result nil]
-      (if (empty? fs)
-        (cond
-          (empty? result) -top
-          (= 1 (count result)) (first result)
-          ;; don't think this is useful here
-          (= 2 (count result)) (let [[f1 f2] result]
-                                 (if (opposite? f1 f2)
-                                   -bot
-                                   (if (= f1 f2)
-                                     f1
-                                     (apply mk (compact [f1 f2] false)))))
-          :else
-           ;; first, remove anything implied by the atomic propositions
-           ;; We commonly see: (And (Or P Q) (Or P R) (Or P S) ... P), which this fixes
-          (let [{atomic true not-atomic false} (group-by atomic-filter? result)
-                not-atomic* (for [p not-atomic
-                                  :when (some (fn [a] (implied-atomic? p a)) atomic)]
-                              p)]
-             ;; `compact' takes care of implications between atomic props
-            (apply mk (compact (concat not-atomic* atomic) false))))
-        (let [ffs (first fs)]
-          (cond
-            (BotFilter? ffs) ffs
-            (AndFilter? ffs) (let [fs* (:fs ffs)]
-                               (recur (next fs) (concat fs* result)))
-            (TopFilter? ffs) (recur (next fs) result)
-            :else (let [t ffs]
-                    (cond
-                      (some (fn [f] (opposite? f ffs)) (concat (rest fs) result)) 
-                      -bot
-                      (some (fn [f] (or (= f t)
-                                        (implied-atomic? t f))) result) 
-                      (recur (rest fs) result)
-                      :else
-                      (recur (rest fs) (cons t result))))))))))
+  (let [flat (apply concat
+                    (for [fl args]
+                      (if (AndFilter? fl)
+                        (:fs fl)
+                        [fl])))
+        fs (disj (set flat) -top)]
+    (cond
+      (fs -bot) -bot
+      (empty? fs) -bot
+      (= 1 (count fs)) (first fs)
+      :else (->AndFilter fs))))
+
+;(defn -and [& args]
+;  {:pre [(every? Filter? args)]
+;   :post [(Filter? %)]}
+;  (letfn [(mk [& fs]
+;            {:pre [(every? Filter? fs)]
+;             :post [(Filter? %)]}
+;            (cond
+;              (empty? fs) -top
+;              (= 1 (count fs)) (first fs)
+;              :else (->AndFilter fs)))]
+;    (loop [fs (set args)
+;           result nil]
+;      (if (empty? fs)
+;        (cond
+;          (empty? result) -top
+;          (= 1 (count result)) (first result)
+;          ;; don't think this is useful here
+;          (= 2 (count result)) (let [[f1 f2] result]
+;                                 (if (opposite? f1 f2)
+;                                   -bot
+;                                   (if (= f1 f2)
+;                                     f1
+;                                     (apply mk (compact [f1 f2] false)))))
+;          :else
+;           ;; first, remove anything implied by the atomic propositions
+;           ;; We commonly see: (And (Or P Q) (Or P R) (Or P S) ... P), which this fixes
+;          (let [{atomic true not-atomic false} (group-by atomic-filter? result)
+;                not-atomic* (for [p not-atomic
+;                                  :when (some (fn [a] (implied-atomic? p a)) atomic)]
+;                              p)]
+;             ;; `compact' takes care of implications between atomic props
+;            (apply mk (compact (concat not-atomic* atomic) false))))
+;        (let [ffs (first fs)]
+;          (cond
+;            (BotFilter? ffs) ffs
+;            (AndFilter? ffs) (let [fs* (:fs ffs)]
+;                               (recur (next fs) (concat fs* result)))
+;            (TopFilter? ffs) (recur (next fs) result)
+;            :else (let [t ffs]
+;                    (cond
+;                      (some (fn [f] (opposite? f ffs)) (concat (rest fs) result)) 
+;                      -bot
+;                      (some (fn [f] (or (= f t)
+;                                        (implied-atomic? t f))) result) 
+;                      (recur (rest fs) result)
+;                      :else
+;                      (recur (rest fs) (cons t result))))))))))
 
 (defrecord OrFilter [fs]
   "Logical disjunction of filters"
   [(seq fs)
+   (set? fs)
    (every? Filter? fs)])
 
 (defrecord ImpFilter [a c]
@@ -1034,12 +1138,12 @@
 (add-default-fold-case AndFilter
                        (fn [ty]
                          (-> ty
-                           (update-in [:fs] #(doall (map filter-rec %))))))
+                           (update-in [:fs] #(set (map filter-rec %))))))
 
 (add-default-fold-case OrFilter
                        (fn [ty]
                          (-> ty
-                           (update-in [:fs] #(doall (map filter-rec %))))))
+                           (update-in [:fs] #(set (map filter-rec %))))))
 
 (defrecord FilterSet [then else]
   "A filter claiming looking up id, down the given path, is NOT of given type"
@@ -1267,8 +1371,10 @@
 
 ;symbol -> F
 (def ^:dynamic *dotted-scope* {})
-(set-validator! #'*dotted-scope* #(and (every? symbol? (keys %))
-                                       (every? F? (vals %))))
+(set-validator! #'*dotted-scope* #(or (fn? %)
+                                      (and 
+                                        (every? symbol? (keys %))
+                                        (every? F? (vals %)))))
 
 (defn bound-index? [n]
   (contains? *dotted-scope* n))
@@ -1352,8 +1458,9 @@
 
 ;(Map Symbol F)
 (def ^:dynamic *free-scope* {})
-(set-validator! #'*free-scope* #(and (every? symbol? (keys %))
-                                     (every? F? (vals %))))
+(set-validator! #'*free-scope* #(or (fn? %)
+                                    (and (every? symbol? (keys %))
+                                         (every? F? (vals %)))))
 
 (defn bound-tvar? [name]
   (contains? *free-scope* name))
@@ -3398,7 +3505,7 @@
   [{:keys [args] :as expr} & [expected]]
   (let [cargs (mapv check args)]
     (assoc expr
-           expr-type (ret (->HeterogeneousVector (mapv expr-type cargs))))))
+           expr-type (ret (->HeterogeneousVector (mapv (comp ret-t expr-type) cargs))))))
 
 (defmethod check :empty-expr 
   [{coll :coll :as expr} & [expected]]
@@ -3604,7 +3711,7 @@
               :else (throw (Exception. (str "what is this? " o)))))]
     (cond
       (ImpFilter? f) (let [{ant :a consq :c} f]
-                       (->ImpFilter (subst-filter ant k o (not polarity)) (ap consq)))
+                       (-imp (subst-filter ant k o (not polarity)) (ap consq)))
       (AndFilter? f) (let [fs (:fs f)] 
                        (apply -and (map ap fs)))
       (OrFilter? f) (let [fs (:fs f)]
@@ -3823,57 +3930,45 @@
                           (-FS -top -top)
                           -empty))))
 
+(defmethod check :the-var
+  [{:keys [var] :as expr} & [expected]]
+  (assoc expr
+         expr-type (ret (RInstance-of Var)
+                        (-FS -top -bot)
+                        -empty)))
+
 (defn tc-equiv [comparator & vs]
   {:pre [(every? TCResult? vs)]
    :post [(TCResult? %)]}
-  (let [;; Resolve enough to see if things are Singletons
-        vs (map #(if (Name? (ret-t %)) 
-                   (update-in % [:t] resolve-Name) 
-                   %)
-                vs)
-        {singletons true others false} (group-by (comp boolean (some-fn Value? Nil? False? True?) ret-t) vs)]
-    (if (<= 1 (count singletons))
-      (cond
-        ;just values
-        (empty? others) (if (apply not= (map ret-t singletons))
-                          (ret (->False) (-FS -bot -top) -empty)
-                          (ret (->True) (-FS -top -bot) -empty))
-
-        ;from here there are always non-singletons
-
-        ;Can be more specific with else filter with exactly 2 args
-        (= 2 (count vs)) (let [st (ret-t (first singletons))
-                               {:keys [o]} (first others)]
-                           (ret (Un (->False) (->True))
-                                (-FS (-filter-at st o)
-                                     (-not-filter-at st o))
-                                -empty))
-
-        ;Some singletons aren't equal, can't derive anything
-        ;from this expression except that it is always false
-        (apply not= (map ret-t singletons)) (ret (->False)
-                                                 (-FS -bot
-                                                      -top)
-                                                 -empty)
-
-        ; All singletons are identical, with other types.
-        ; can't derive anything if false eg. (= 1 1 a b c)
-        (apply = (map ret-t singletons)) (let [st (ret-t (first singletons))]
-                                           (ret (Un (->False) (->True))
-                                                (-FS 
-                                                  ;for every non-singleton, we can claim
-                                                  ;their object is equal to st if expression
-                                                  ;is true.
-                                                  (apply -and 
-                                                         (for [{:keys [o]} (map ret-t others)]
-                                                           (-filter-at st o)))
-                                                  -top)
-                                                -empty))
-
-        ;Nothing else interesting
-        :else (ret (Un (->True) (->False)) (-FS -top -top) -empty))
-      ;no singletons, just give most general type
-      (ret (Un (->True) (->False)) (-FS -top -top) -empty))))
+  (let [thn-fls (set (apply concat
+                            (for [[{t1 :t fl1 :fl o1 :o}
+                                   {t2 :t fl2 :fl o2 :o}]
+                                  (comb/combinations vs 2)]
+                              (concat
+                                (when (Path? o2)
+                                  [(-filter t1 (:id o2) (:path o2))])
+                                (when (Path? o1)
+                                  [(-filter t2 (:id o1) (:path o1))])))))
+        els-fls (set (apply concat 
+                            (for [[{t1 :t fl1 :fl o1 :o}
+                                   {t2 :t fl2 :fl o2 :o}]
+                                  (comb/combinations vs 2)]
+                              (concat
+                                (when (Path? o2)
+                                  [(-not-filter t1 (:id o2) (:path o2))])
+                                (when (Path? o1)
+                                  [(-not-filter t2 (:id o1) (:path o1))])))))]
+  (prn "tc-equiv:")
+  (prn "thn-fls" (map unparse-filter thn-fls))
+  (prn "els-fls" (map unparse-filter els-fls))
+  (ret (Un (->False) (->True))
+       (-FS (if (empty? thn-fls)
+              -top
+              (apply -and thn-fls))
+            (if (empty? els-fls)
+              -top
+              (apply -or els-fls)))
+       -empty)))
 
 
 (defmulti invoke-special (fn [expr & args] (-> expr :fexpr :var)))
@@ -3930,45 +4025,43 @@
                                    nil 
                                    expected)))
 
+(defn find-val-type [t k]
+  {:pre [(Type? t)
+         (Type? k)]
+   :post [(Type? %)]}
+  (let [t (-resolve t)]
+    (cond
+      (HeterogeneousMap? t) (if-let [v (get (:types t) k)]
+                              v
+                              (throw (Exception. (str "Map type " (unparse-type t)
+                                                      " does not have entry "
+                                                      (unparse-type k)))))
+
+      (Intersection? t) (apply In 
+                               (for [t* (:types t)]
+                                 (find-val-type t* k)))
+      (Union? t) (apply Un
+                        (for [t* (:types t)]
+                          (find-val-type t* k)))
+      :else (throw (Exception. (str "Can't get key " (unparse-type k) 
+                                    "  from type " (unparse-type t)))))))
+
 (defn invoke-keyword [kw-ret target-ret default-ret expected-ret]
   {:pre [(TCResult? kw-ret)
          (TCResult? target-ret)
          ((some-fn nil? TCResult?) default-ret)
          ((some-fn nil? TCResult?) expected-ret)]
    :post [(TCResult? %)]}
-  (let [
-        targett (-resolve (ret-t target-ret))
-        ;; Resolve enough to see what we've got
-        tys (cond
-              (Union? targett) (into #{}
-                                     (apply concat
-                                            (for [t (set (map -resolve (:types targett)))]
-                                              (if (Union? t)
-                                                (map -resolve (:types t))
-                                                [t]))))
-              :else #{targett})
+  (let [targett (-resolve (ret-t target-ret))
         kwt (ret-t kw-ret)]
     (cond
-      ;Keyword must be a singleton, and target either a
-      ;hmap or a union of hmaps, with no default
+      ;Keyword must be a singleton with no default
       (and (Value? kwt)
            (keyword? (:val kwt))
            (not default-ret))
       (let [{{path-hm :path id-hm :id :as o} :o} target-ret
             this-pelem (->KeyPE (:val kwt))
-            ;; get all possible results of looking up the keyword 
-            ;; in the target/s, with Nil as default
-            val-type (apply Un (map (fn [t]
-                                      {:pre [(Type? t)]}
-                                      (if (HeterogeneousMap? t)
-                                        (if-let [lu (get (:types t) kwt)]
-                                          lu
-                                          (throw (Exception. (str "Type " (unparse-type t)
-                                                                  " does not have entry "
-                                                                  (unparse-type kwt)))))
-                                        (throw (Exception. (str "Can't 'get' from type " (unparse-type t))))))
-                                    tys))]
-        ;(prn "invoke keyword: val-type" (map unparse-type tys))
+            val-type (find-val-type targett kwt)]
         (if (not= (Un) val-type)
           (ret val-type
                (-FS (if (Path? o)
@@ -3981,11 +4074,9 @@
                (if (Path? o)
                  (update-in o [:path] #(seq (concat % [this-pelem])))
                  o))
-          (do (prn "invoke-keyword: not special")
-            ::not-special)))
+          (throw (Exception. "Keyword lookup gave bottom type"))))
 
-      :else (do (prn "invoke-keyword: not special")
-              ::not-special))))
+      :else (throw (Exception. "keyword-invoke only supports keyword lookup, no default")))))
 
 ;=
 (defmethod invoke-special #'clojure.core/= 
@@ -4031,6 +4122,25 @@
   ;DO NOT REMOVE
   (assoc expr
          expr-type (ret -nil -false-filter -empty)))
+
+;filter printing
+(defmethod invoke-special #'tc-pr-filters
+  [{[debug-string form] :args :as expr} & [expected]]
+  (assert (and debug-string form) "Wrong arguments to tc-pr-filters")
+  (let [cform (check form expected)
+        t (expr-type cform)]
+    (assert (= :string (:op debug-string)))
+    ;DO NOT REMOVE
+    (prn (:val debug-string))
+    (prn (:fl t))
+    (if (FilterSet? (:fl t))
+      (do (pprint (unparse-filter-set (:fl t)))
+        (flush))
+      (prn (:fl t)))
+    (prn (unparse-object (:o t)))
+    ;DO NOT REMOVE
+    (assoc expr
+           expr-type t)))
 
 ;fn literal
 (defmethod invoke-special #'fn>-ann
@@ -4432,9 +4542,10 @@
 (defn check-anon-fn
   "Check anonymous function, with annotated methods"
   [{:keys [methods] :as expr} methods-param-types]
-  {:pre [(every? #(every? Type? %) methods-param-types)]
+  {:pre [(every? Type? (apply concat methods-param-types))]
    :post [(TCResult? (expr-type %))]}
-  (let [ftype (Fn-Intersection (map FnResult->Function (doall (map check-anon-fn-method methods methods-param-types))))]
+  (let [ftype (Fn-Intersection (doall (map FnResult->Function 
+                                           (doall (map check-anon-fn-method methods methods-param-types)))))]
     (assoc expr
            expr-type (ret ftype (-FS -top -bot) -empty))))
 
@@ -4534,25 +4645,29 @@
     (assoc expr
            expr-type (let [t (type-of sym)]
                        (ret t 
-                            (-FS (-and (-not-filter -false sym)
-                                       (-not-filter -nil sym))
-                                 (-or (-filter -false sym)
-                                      (-filter -nil sym)))
+                            (-FS (if (subtype? t (Un -false -nil))
+                                   -bot
+                                   (-not-filter (Un -nil -false) sym))
+                                 (-filter (Un -nil -false) sym))
                             (->Path nil sym))))))
 
 ;Symbol -> Class
 (def prim-coersion
   {'long Long
    'int Integer
-   'boolean Boolean})
+   'boolean Boolean
+   'void Void})
 
 (defn Method-symbol->Type [sym]
   {:pre [(symbol? sym)]
    :post [(Type? %)]}
   (if-let [cls (or (prim-coersion sym)
                    (resolve sym))]
-    (apply Un (RInstance-of cls) (when (not (prim-coersion sym))
-                                   [(->Nil)])) ;union with nil if not a primitive
+    (apply Un (if (= Void cls)
+                -nil
+                (RInstance-of cls)) 
+           (when (not (prim-coersion sym))
+             [-nil])) ;union with nil if not a primitive
     (throw (Exception. (str "Method symbol " sym " does not resolve to a type")))))
 
 (defn- method->Function [{:keys [parameter-types return-type] :as method}]
@@ -4585,6 +4700,10 @@
       (not= ::not-special spec) spec
       :else (check-invoke-static-method expr expected))))
 
+(defmethod check :instance-method
+  [expr & [expected]]
+  (check-invoke-static-method expr expected))
+
 (declare combine-props)
 
 (defmethod check :let
@@ -4605,6 +4724,8 @@
                             ; update old env and new result with previous references of sym (which is now shadowed)
                             ; replaced with an empty object
                             ;_ (do (pr "let: env before") (print-env env))
+                            _ (pr "ENV")
+                            _ (print-env)
                             env (-> env
                                   (update-in [:l] #(into {} (for [[oldsym ty] %]
                                                               [oldsym (subst-type ty sym -empty true)])))
@@ -4615,10 +4736,8 @@
                         (cond
                           (FilterSet? fl)
                           (let [{:keys [then else]} fl
-                                p* [(->ImpFilter (-not-filter -false sym) then)
-                                    (->ImpFilter (-not-filter -nil sym) then)
-                                    (->ImpFilter (-filter -false sym) else)
-                                    (->ImpFilter (-filter -nil sym) else)]]
+                                p* [(-imp (-not-filter (Un -nil -false) sym) then)
+                                    (-imp (-filter (Un -nil -false) sym) else)]]
                             (-> env
                               ;update binding type
                               (assoc-in [:l sym] t)
@@ -4699,10 +4818,12 @@
           (cond
             (AndFilter? p) (recur derived-props derived-atoms (concat (:fs p) (next worklist)))
             (ImpFilter? p) 
-            (let [{:keys [a c]} p]
+            (let [{:keys [a c]} p
+                  implied? (some (fn [p] (implied-atomic? a p)) (concat derived-props derived-atoms))]
               #_(prn "combining " (unparse-filter p) " with " (map unparse-filter (concat derived-props
-                                                                                        derived-atoms)))
-              (if (some (fn [p] (implied-atomic? a p)) (concat derived-props derived-atoms))
+                                                                                        derived-atoms))
+                   " and implied:" implied?)
+              (if implied?
                 (recur derived-props derived-atoms (cons c (rest worklist)))
                 (recur (cons p derived-props) derived-atoms (next worklist))))
             (OrFilter? p)
@@ -4765,7 +4886,7 @@
     (cond
       ;heterogeneous map ops
       (and (TypeFilter? lo)
-           (KeyPE? (last (:path lo)))
+           (KeyPE? (first (:path lo)))
            (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
                                         [{fpth-kw :val} & rstpth] path
                                         fpth (->Value fpth-kw)
@@ -4775,7 +4896,7 @@
                                       (Bottom)))
 
       (and (NotTypeFilter? lo)
-           (KeyPE? (last (:path lo)))
+           (KeyPE? (first (:path lo)))
            (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
                                         [{fpth-kw :val} & rstpth] path
                                         fpth (->Value fpth-kw)
@@ -4790,10 +4911,41 @@
       (and (NotTypeFilter? lo)
            (empty? (:path lo))) (let [u (:type lo)]
                                   (remove* t u))
+
       (Union? t) (let [ts (:types t)]
                    (apply Un (doall (map (fn [t] (update t lo)) ts))))
+      (Intersection? t) (let [ts (:types t)]
+                          (apply In (doall (map (fn [t] (update t lo)) ts))))
       :else (throw (Exception. (str "update along ill-typed path " (unparse-type t) " " (with-out-str (pr lo))))))))
 
+; f can be a composite filter. bnd-env is a the :l of a PropEnv
+; ie. a map of symbols to types
+(defn update-composite [bnd-env f]
+  {:pre [(Filter? f)]}
+  (cond
+    (AndFilter? f) (apply merge-with In
+                     (for [fl (:fs f)]
+                       (update-composite bnd-env fl)))
+    (OrFilter? f) (apply merge-with Un
+                    (for [fl (:fs f)]
+                      (update-composite bnd-env fl)))
+
+    (BotFilter? f)
+    (zipmap (:keys bnd-env) (Un))
+
+    (or (TypeFilter? f)
+        (NotTypeFilter? f))
+    (let [x (:id f)]
+      (update-in bnd-env [x] (fn [t]
+                               ;check if var is ever a target of a set!
+                               (if (is-var-mutated? x)
+                                 ; if it is, we do nothing
+                                 t
+                                 ;otherwise, refine the type
+                                 (let [t (or t (->Top))
+                                       new-t (update t f)]
+                                   new-t)))))
+    :else bnd-env))
 
 ;; sets the flag box to #f if anything becomes (U)
 (defn env+ [env fs flag]
@@ -4803,36 +4955,17 @@
    :post [(PropEnv? env)
           (boolean? @flag)]}
   (let [[props atoms] (combine-props fs (:props env) flag)]
-;    (prn "props: " (map unparse-filter props))
-;    (prn "atoms: " (map unparse-filter atoms))
     (reduce (fn [env f]
               {:pre [(PropEnv? env)
                      (Filter? f)]}
-              (cond
-                (BotFilter? f) (do 
-                                 (prn "env+: BotFilter found, unreachable")
-                                 (reset! flag false)
-                                 ;make every variable bottom
-                                 (update-in env [:l] #(into {} (for [[k _] %] [k (Un)]))))
-                (or (TypeFilter? f)
-                    (NotTypeFilter? f))
-                (let [x (:id f)]
-                  (update-in env [:l x] (fn [t] 
-                                          ;check if var is ever a target of a set!
-                                          (if (is-var-mutated? x)
-                                            ; if it is, we do nothing
-                                            t
-                                            ;otherwise, refine the type
-                                            (let [t (or t (->Top))
-                                                  new-t (update t f)]
-                                              (when (type-equal? new-t (Un))
-                                                (prn "env+: updated type for" x
-                                                     "is Bottom, unreachable")
-                                                (reset! flag false))
-                                              new-t)))))
-                :else env))
+              (let [env (update-in env [:l] update-composite f)]
+                ; update flag if a variable is now bottom
+                (when (seq (set/intersection (set (vals (:l env)))
+                                             #{(Un)}))
+                  (reset! flag false))
+                env))
             (assoc env :props (concat atoms props))
-            atoms)))
+            (concat atoms props))))
 
 (def object-equal? =)
 
@@ -4864,18 +4997,33 @@
           _ (set-validator! flag+ boolean?)
           _ (set-validator! flag- boolean?)
 
-          ;_ (prn "env+: calculate then env")
+          idsym (gensym)
+          _ (prn idsym "env+: calculate then env" fs+)
           env-thn (env+ *lexical-env* [fs+] flag+)
-          ;_ (prn "env+: calculate else env")
+          _ (prn idsym"env+: calculate else env" fs-)
           env-els (env+ *lexical-env* [fs-] flag-)
-          new-thn-props (filter (fn [e] (and (atomic-filter? e) (not (some #(= % e) (:props *lexical-env*)))))
-                                (:props env-thn))
-          new-els-props (filter (fn [e] (and (atomic-filter? e) (not (some #(= % e) (:props *lexical-env*)))))
-                                (:props env-els))
-          {ts :t fs2 :fl os2 :o :as then-ret} (binding [*lexical-env* env-thn]
-                                   (tc thn @flag+))
-          {us :t fs3 :fl os3 :o :as else-ret} (binding [*lexical-env* env-els]
-                                   (tc els @flag-))]
+;          new-thn-props (set
+;                          (filter atomic-filter?
+;                                  (set/difference
+;                                    (set (:props *lexical-env*))
+;                                    (set (:props env-thn)))))
+          ;_ (prn idsym"env+: new-thn-props" (map unparse-filter new-thn-props))
+;          new-els-props (set
+;                          (filter atomic-filter?
+;                                  (set/difference
+;                                    (set (:props *lexical-env*))
+;                                    (set (:props env-els)))))
+          ;_ (prn idsym"env+: new-els-props" (map unparse-filter new-els-props))
+          _ (prn idsym"env+: old props " (map unparse-filter (:props *lexical-env*)))
+          _ (prn idsym"BEGIN type check thn")
+          {ts :t fs2 :fl os2 :o :as then-ret} (with-lexical-env env-thn
+                                                (tc thn @flag+))
+          _ (prn idsym"END type check thn")
+          _ (prn idsym"BEGIN type check els")
+          {us :t fs3 :fl os3 :o :as else-ret} (with-lexical-env env-els
+                                                (tc els @flag-))
+          _ (prn idsym"END type check els")
+          ]
 
       ;some optimization code here, contraditions etc? omitted
 
@@ -4891,9 +5039,32 @@
                                (and (FilterSet? fs2)
                                     (FilterSet? fs3))
                                (let [{f2+ :then f2- :else} fs2
-                                     {f3+ :then f3- :else} fs3]
-                                 (-FS (-or (apply -and fs+ f2+ new-thn-props) (apply -and fs- f3+ new-els-props))
-                                      (-or (apply -and fs+ f2- new-thn-props) (apply -and fs- f3- new-els-props))))
+                                     {f3+ :then f3- :else} fs3
+                                     ; +ve test, +ve then
+                                     _ (prn "props-env-thn" (map unparse-filter (:props env-thn)))
+                                     _ (prn "props-env-els" (map unparse-filter (:props env-els)))
+                                     new-thn-props (:props env-thn)
+                                     new-els-props (:props env-els)
+                                     +t+t (apply -and fs+ f2+ new-thn-props)
+                                     _ (prn "+t+t" (unparse-filter +t+t))
+                                     ; -ve test, +ve else
+                                     -t+e (apply -and fs- f3+ new-els-props)
+                                     _ (prn "-t+e" (unparse-filter -t+e))
+                                     ; +ve test, -ve then
+                                     +t-t (apply -and fs+ f2- new-thn-props)
+                                     _ (prn "+t-t" (unparse-filter +t-t))
+                                     ; -ve test, -ve else
+                                     -t-e (apply -and fs- f3- new-els-props)
+                                     _ (prn "-t-e" (unparse-filter -t-e))
+
+                                     final-thn-prop (-or +t+t -t+e)
+                                     _ (prn "final-thn-prop" (unparse-filter final-thn-prop))
+                                     final-els-prop (-or +t-t -t-e)
+                                     _ (prn "final-els-prop" (unparse-filter final-els-prop))
+                                     fs (-FS final-thn-prop final-els-prop)
+                                     _ (prn "fs" (unparse-filter-set fs))
+                                     ]
+                                 fs)
                                :else (throw (Exception. (str "What are these?" fs2 fs3))))
                       type (Un ts us)
                       object (if (object-equal? os2 os3) os2 (->EmptyObject))]
@@ -4919,12 +5090,15 @@
   [{:keys [var init init-provided] :as expr} & [expected]]
   (assert (not expected) expected)
   (prn "Checking" var)
-  (let [cexpr (cond 
-                (not init-provided) expr ;handle (declare ..)
-                :else (check init (ret (type-of (var->symbol var))
-                                       (-FS -top -top)
-                                       -empty)))]
-    (assoc cexpr
+  (if (not (.isMacro var))
+    (let [cexpr (cond 
+                  (not init-provided) expr ;handle (declare ..)
+                  :else (check init (ret (type-of (var->symbol var))
+                                         (-FS -top -top)
+                                         -empty)))]
+      (assoc cexpr
+             expr-type (ret (RInstance-of Var))))
+    (assoc expr
            expr-type (ret (RInstance-of Var)))))
 
 (defmacro cf 
@@ -4942,5 +5116,5 @@
 (comment 
 (check-ns 'typed.test.example)
 (check-ns 'typed.test.rbt)
+(check-ns 'typed.test.macro)
   )
-

@@ -4,6 +4,7 @@
   (:require [clojure.test :refer :all]
             [analyze.core :refer [ast]]
             [clojure.repl :refer [pst]]
+            [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [typed.core :refer :all]))
 
@@ -255,10 +256,10 @@
                     [(Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
                          (->HeterogeneousMap {(->Value :op) (->Value :var)}))]
                     (make-Result (Un -nil (->HeterogeneousMap {(->Value :op) (->Value :if)}))
-                                 (-FS (->AndFilter [(-filter (->Value :if) 0 [(->KeyPE :op)])
-                                                    (-not-filter (Un -false -nil) 0)])
-                                      (->OrFilter [(-not-filter (->Value :if) 0 [(->KeyPE :op)])
-                                                   (-filter (Un -false -nil) 0)]))
+                                 (-FS (-and (-filter (->Value :if) 0 [(->KeyPE :op)])
+                                            (-not-filter (Un -false -nil) 0))
+                                      (-or (-not-filter (->Value :if) 0 [(->KeyPE :op)])
+                                           (-filter (Un -false -nil) 0)))
                                  -empty)
                     nil nil nil))
               (-FS -top -bot)
@@ -359,7 +360,20 @@
         (and (= l {'a -true, 'b -true})
              (= (set props)
                 #{(-not-filter (Un -nil -false) 'a)
-                  (-filter -true 'b)})))))
+                  (-filter -true 'b)}))))
+  ; more complex impfilter
+  (is (= (env+ (->PropEnv {'and1 (Un -false -true)
+                           'tmap (->Name 'typed.test.core/UnionName)}
+                          [(->ImpFilter (-filter (Un -nil -false) 'and1)
+                                        (-not-filter (-val :MapStruct1)
+                                                     'tmap
+                                                     [(->KeyPE :type)]))
+                           (->ImpFilter (-not-filter (Un -nil -false) 'and1)
+                                        (-filter (-val :MapStruct1)
+                                                 'tmap
+                                                 [(->KeyPE :type)]))])
+               [(-filter (Un -nil -false) 'and1)]
+               (atom true)))))
 
 (deftest destructuring-special-ops
   (is (= (tc-t (seq? [1 2]))
@@ -414,8 +428,8 @@
   (is (= (tc-t (typed.core/fn> 
                  [[map-param :- typed.test.rbt/badRight]]
                  (when (and (= :Black (-> map-param :tree))
-                            (= :Red (-> map-param :left :right :tree))
-                            (= :Red (-> map-param :right :tree)))
+                            (= :Red (-> map-param :left :tree))
+                            (= :Red (-> map-param :left :right :tree)))
                    (let [map1 map-param
                          map1
                          (if (clojure.core/seq? map1)
@@ -429,7 +443,7 @@
                            mapr)
 
                          maprl (clojure.core/get mapr :left)
-                         _ (tc-pr-env "maprl")
+                         ;_ (tc-pr-env "maprl")
                          maprl
                          (if (clojure.core/seq? maprl)
                            (clojure.core/apply clojure.core/hash-map maprl)
@@ -499,10 +513,12 @@
               (-FS -top -bot) -empty)))
   ; using filters derived by =
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
-                               (if (= :MapStruct1 (:type tmap))
+                               (if (typed.core/tc-pr-filters "the test"
+                                     (= :MapStruct1 (:type tmap)))
                                  (do (typed.core/tc-pr-env "follow then")
                                    (:a tmap))
-                               (:b tmap))))
+                                 (do (typed.core/tc-pr-env "follow else")
+                                   (:b tmap)))))
          (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
                               (let [t (->Name 'typed.test.core/MyName)
                                     path [(->KeyPE :a)]]
@@ -512,13 +528,19 @@
               (-FS -top -bot) -empty)))
   ; following paths with test of conjuncts
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
-                               (if (let [and1 (= :MapStruct1 (-> tmap :type))]
-                                     (typed.core/tc-pr-env "first conjunct")
-                                     (if and1
-                                       (do (typed.core/tc-pr-env "second conjunct")
-                                         (= 1 1))
-                                       (do (typed.core/tc-pr-env "fail conjunct")
-                                         and1)))
+                               (if (typed.core/tc-pr-filters "final filters"
+                                    (let [and1 (typed.core/tc-pr-filters "first and1"
+                                                 (= :MapStruct1 (-> tmap :type)))]
+                                      (typed.core/tc-pr-env "first conjunct")
+                                      (typed.core/tc-pr-filters "second and1"
+                                        (if (typed.core/tc-pr-filters "second test"
+                                              and1)
+                                          (do (typed.core/tc-pr-env "second conjunct")
+                                            (typed.core/tc-pr-filters "third and1"
+                                              (= 1 1)))
+                                          (do (typed.core/tc-pr-env "fail conjunct")
+                                            (typed.core/tc-pr-filters "fail and1"
+                                              and1))))))
                                  (do (typed.core/tc-pr-env "follow then")
                                    (assoc tmap :c :d))
                                  1)))
@@ -547,6 +569,10 @@
                  (-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
          (->HeterogeneousMap {(-val :type) (-val :MapStruct1) 
                               (-val :a) (->Name 'typed.test.core/MyName)})))
+  (is (= (update (->Name 'typed.test.core/UnionName)
+                 (-not-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
+         (->HeterogeneousMap {(-val :type) (-val :MapStruct2) 
+                              (-val :b) (->Name 'typed.test.core/MyName)})))
   (is (= (update (Un -true -false) (-filter (Un -false -nil) 'a nil)) 
          -false)))
 
@@ -574,6 +600,25 @@
                       (-FS -top -bot)
                       -empty))))
          
+#_(-> (tc-t (typed.core/fn> [[tmap :- typed.test.rbt/badRight]]
+                          (tc-pr-filters "first filter"
+                            (let [and1 (= :Black (-> tmap :tree))]
+                              (if and1
+                                (let [and1 (= :Red (-> tmap :left :tree))]
+                                  (if and1
+                                    (= :Red (-> tmap :right :tree))
+                                    and1))
+                                and1))
+                              #_(= :Red (-> tmap :right :left :tree)))))
+                          ;(and (tc-pr-filters "first filter"
+                          ;       (= :Black (-> tmap :tree)))
+                          ;     (tc-pr-filters "second filter"
+                          ;       (= :Red (-> tmap :left :tree)))
+                          ;     (tc-pr-filters "third filter"
+                          ;       (= :Red (-> tmap :right :tree)))
+                          ;     (tc-pr-filters "fourth filter"
+                          ;       (= :Red (-> tmap :right :left :tree))))
+  ret-t :types first :rng)
 
 (deftest update-nested-hmap-test
   (is (= (update (->HeterogeneousMap {(-val :left) (->Name 'typed.test.rbt/rbt)})
@@ -588,22 +633,21 @@
 
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.rbt/badRight]]
                                (let [and1 (= :Black (-> tmap :tree))]
-                                 (tc-pr-env "first clause")
+                                 #_(tc-pr-env "first clause")
                                  (if and1
                                    (let [and1 (= :Red (-> tmap :left :tree))]
-                                     (tc-pr-env "second then clause")
+                                     #_(tc-pr-env "second then clause")
                                      (if and1
                                        (let [and1 (= :Red (-> tmap :right :tree))]
-                                         (tc-pr-env "third then clause")
+                                         #_(tc-pr-env "third then clause")
                                          (if and1
                                            (= :Red (-> tmap :right :left :tree))
-                                           (do (tc-pr-env "last clause")
+                                           (do #_(tc-pr-env "last clause")
                                              and1)))
-                                       (do (tc-pr-env "third else clause")
+                                       (do #_(tc-pr-env "third else clause")
                                          and1)))
-                                   (do (tc-pr-env "second else clause")
+                                   (do #_(tc-pr-env "second else clause")
                                      and1))))))))
-         
 
 (deftest check-get-keyword-invoke-test
   ;truth valued key
@@ -684,18 +728,18 @@
   ;Replace all frees x -> y
   (is (= (type-case {}
                     (ret (make-F 'x)
-                         (->FilterSet (->OrFilter [(->TypeFilter (make-F 'x) nil 'a)
-                                                   (->ImpFilter (->TypeFilter (make-F 'x) nil 'a)
-                                                                (->NotTypeFilter (make-F 'x) nil 'a))])
-                                      (->AndFilter [-top -bot (->NoFilter)])))
+                         (-FS (-or (-filter (make-F 'x) 'a)
+                                   (->ImpFilter (-filter (make-F 'x) 'a)
+                                                (-not-filter (make-F 'x) 'a)))
+                              (-and -top -bot (->NoFilter))))
                     typed.core.F
                     (fn [ty]
                       (make-F 'y)))
          (ret (make-F 'y)
-              (->FilterSet (->OrFilter [(->TypeFilter (make-F 'y) nil 'a)
-                                        (->ImpFilter (->TypeFilter (make-F 'y) nil 'a)
-                                                     (->NotTypeFilter (make-F 'y) nil 'a))])
-                           (->AndFilter [-top -bot (->NoFilter)]))))))
+              (-FS (-or (-filter (make-F 'y) 'a)
+                        (->ImpFilter (-filter (make-F 'y) 'a)
+                                     (-not-filter (make-F 'y) 'a)))
+                   (-and -top -bot (->NoFilter)))))))
 
 
 (deftest fv-test
