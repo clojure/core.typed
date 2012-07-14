@@ -432,9 +432,7 @@
 
 (defrecord Value [val]
   "A Clojure value"
-  [(not (nil? val))
-   (not (true? val))
-   (not (false? val))])
+  [])
 
 (def -val ->Value)
 
@@ -539,22 +537,6 @@
        (every? Function? (:types fin))))
 
 (declare abstract)
-
-(defrecord Nil []
-  "Type for nil"
-  [])
-
-(defrecord True []
-  "Type for false"
-  [])
-
-(defrecord False []
-  "Type for false"
-  [])
-
-(declare-type True)
-(declare-type False)
-(declare-type Nil)
 
 (declare Filter? RObject?)
 
@@ -697,9 +679,6 @@
 (add-default-fold-case Value identity)
 (add-default-fold-case Top identity)
 (add-default-fold-case TopFunction identity)
-(add-default-fold-case Nil identity)
-(add-default-fold-case True identity)
-(add-default-fold-case False identity)
 
 (add-default-fold-case B
                        (fn [ty]
@@ -752,7 +731,7 @@
 
 
 
-(declare TypeFilter? NotTypeFilter? type-of TCResult? ret-t)
+(declare TypeFilter? NotTypeFilter? type-of TCResult? ret-t Nil? False? True?)
 
 (def ^:dynamic *mutated-bindings* #{})
 
@@ -1277,9 +1256,13 @@
 (def -true-filter (-FS -top -bot))
 (def -false-filter (-FS -bot -top))
 
-(def -false (->False))
-(def -true (->True))
-(def -nil (->Nil))
+(def -false (->Value false))
+(def -true (->Value true))
+(def -nil (->Value nil))
+
+(defn Nil? [a] (= -nil a))
+(defn False? [a] (= -false a))
+(defn True? [a] (= -true a))
 
 (defn implied-atomic? [f1 f2]
   (if (= f1 f2)
@@ -1719,8 +1702,8 @@
                   :else (throw (Exception. (str "Cannot resolve type: " sym)))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
-(defmethod parse-type Boolean [v] (if v (->True) (->False))) 
-(defmethod parse-type nil [_] (->Nil))
+(defmethod parse-type Boolean [v] (if v -true -false)) 
+(defmethod parse-type nil [_] -nil)
 
 (defn parse-function [f]
   (let [all-dom (take-while #(not= '-> %) f)
@@ -1762,9 +1745,6 @@
 (defmulti unparse-type class)
 (defn unp [t] (prn (unparse-type t)))
 
-(defmethod unparse-type Nil [_] nil)
-(defmethod unparse-type True [_] true)
-(defmethod unparse-type False [_] false)
 (defmethod unparse-type Top [_] 'Any)
 
 (defmethod unparse-type Name [{:keys [id]}]
@@ -1976,9 +1956,6 @@
 
 (defmethod frees [::idxs F] [t] {})
 
-(defmethod frees [::any-var Nil] [t] {})
-(defmethod frees [::any-var True] [t] {})
-(defmethod frees [::any-var False] [t] {})
 (defmethod frees [::any-var Value] [t] {})
 (defmethod frees [::any-var Top] [t] {})
 
@@ -2110,12 +2087,7 @@
   (-> T
     (update-in [:types] #(apply list (map demote % (repeat V))))))
 
-(defmethod promote False [T V] T)
-(defmethod promote Nil [T V] T)
 (defmethod promote Value [T V] T)
-
-(defmethod demote False [T V] T)
-(defmethod demote Nil [T V] T)
 (defmethod demote Value [T V] T)
 
 (defmethod promote Union 
@@ -2784,10 +2756,7 @@
   [{types :types} image target]
   (apply Un (doall (map #(replace-image % image target) types))))
 
-(defmethod replace-image Nil [t image target] t)
 (defmethod replace-image Top [t image target] t)
-(defmethod replace-image False [t image target] t)
-(defmethod replace-image True [t image target] t)
 (defmethod replace-image Value [t image target] t)
 
 (defmethod replace-image HeterogeneousMap
@@ -3083,9 +3052,11 @@
 ; (ancestors (Seqable Integer)
 
 (defmethod subtype* [Value RInstance]
-  [{val :val} t]
-  (let [cls (class val)]
-    (subtype (RInstance-of cls) t)))
+  [{val :val :as s} t]
+  (cond
+    (nil? val) (type-error s t)
+    :else (let [cls (class val)]
+            (subtype (RInstance-of cls) t))))
 
 (defn- RInstance-supers* 
   "Return a set of Types that are the super-Types
@@ -3527,7 +3498,7 @@
 
 (defmulti constant-type class)
 
-(defmethod constant-type nil [_] (->Nil))
+(defmethod constant-type nil [_] -nil)
 (defmethod constant-type Symbol [v] (->Value v))
 (defmethod constant-type Long [v] (->Value v))
 (defmethod constant-type Double [v] (->Value v))
@@ -3536,7 +3507,7 @@
 (defmethod constant-type String [v] (->Value v))
 (defmethod constant-type Character [v] (->Value v))
 (defmethod constant-type clojure.lang.Keyword [v] (->Value v))
-(defmethod constant-type Boolean [v] (if v (->True) (->False)))
+(defmethod constant-type Boolean [v] (if v -true -false))
 
 (defmethod constant-type IPersistentList
   [clist]
@@ -3575,16 +3546,15 @@
   [{:keys [val] :as expr} & [expected]]
   (assoc expr
          expr-type (if val
-                     (ret (->True)
+                     (ret -true
                           (-FS -top -bot))
-                     (ret (->False)
+                     (ret -false
                           (-FS -bot -top)))))
 
 (defmethod check :nil 
   [expr & [expected]]
   (assoc expr
-         expr-type (ret (->Nil)
-                        (-FS -bot -top))))
+         expr-type (ret -nil (-FS -bot -top) -empty)))
 
 (defmethod check :map
   [{:keys [keyvals] :as expr} & [expected]]
@@ -4053,7 +4023,7 @@
   (prn "tc-equiv:")
   (prn "thn-fls" (map unparse-filter thn-fls))
   (prn "els-fls" (map unparse-filter els-fls))
-  (ret (Un (->False) (->True))
+  (ret (Un -false -true)
        (-FS (if (empty? thn-fls)
               -top
               (apply -and thn-fls))
@@ -4271,7 +4241,7 @@
       (assoc expr
              expr-type (ret (if-let [ts (seq (:types (expr-type ccoll)))]
                               (->HeterogeneousSeq ts)
-                              (->Nil))))
+                              -nil)))
       :else ::not-special)))
 
 ;make vector

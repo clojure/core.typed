@@ -188,7 +188,7 @@
 
 (deftest empty-fn-test
   (is (= (tc-t (fn []))
-         (ret (In (->Function [] (make-Result (->Nil)
+         (ret (In (->Function [] (make-Result -nil
                                               (-FS -bot -top)
                                               (->EmptyObject))
                               nil nil nil))
@@ -202,7 +202,7 @@
               (-FS -top -bot)
               (->EmptyObject))))
   (is (= (tc-t (let []))
-         (ret (->Nil) (-FS -bot -top) (->EmptyObject)))))
+         (ret -nil (-FS -bot -top) (->EmptyObject)))))
 
 (deftest path-test
   (is (= (tc-t (fn [a] (let [a 1] a)))
