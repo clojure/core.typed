@@ -121,6 +121,48 @@
                              :left rbt
                              :right badRoot})))
 
+(comment 
+(update-composite {'tmap (->Name 'typed.test.rbt/badRight)}
+  (-or 
+   (-not-filter (-val :Black) 'tmap [(->KeyPE :tree)])
+   (-and  
+    (-filter (-val :Black) 'tmap [(->KeyPE :tree)])
+
+    (-or 
+     (-not-filter (-val :Red) 'tmap [(->KeyPE :left) (->KeyPE :tree)])         
+     (-and   
+      (-filter (-val :Red) 'tmap [(->KeyPE :left) (->KeyPE :tree)])
+      (-or 
+       (-not-filter (-val :Red) 'tmap [(->KeyPE :right) (->KeyPE :tree)])
+       (-and   
+        (-filter (-val :Red) 'tmap [(->KeyPE :right) (->KeyPE :tree)])
+        (-not-filter (-val :Red) 'tmap [(->KeyPE :right) (->KeyPE :left) (->KeyPE :tree)]))))))))
+
+  #_(-or 
+   (-not-filter (-val :Black) [(->KeyPE :tree)] tmap)
+   (-and  
+    (-filter (-val :Black) [(->KeyPE :tree)] tmap)
+
+    (-or 
+     (-not-filter (-val :Red) [(->KeyPE :left) (->KeyPE :tree)] tmap)         
+     (-and   
+      (-filter (-val :Red) [(->KeyPE :left) (->KeyPE :tree)] tmap)
+      (-or 
+       (-not-filter (-val :Red) [(->KeyPE :right) (->KeyPE :tree)] tmap)
+       (-and   
+        (-filter (-val :Red) [(->KeyPE :right) (->KeyPE :tree)] tmap)
+        (-not-filter (-val :Red) [(->KeyPE :right) (->KeyPE :left) (->KeyPE :tree)] tmap)))))))
+
+  ;output of the :else of first branch
+(let [fs (read-string "#typed.core.FilterSet{:then #typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id tmap} #typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id tmap} #typed.core.TypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id tmap} #typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :tree}), :id tmap}}}, :else #typed.core.OrFilter{:fs #{#typed.core.AndFilter{:fs #{#typed.core.OrFilter{:fs #{#typed.core.AndFilter{:fs #{#typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id tmap} #typed.core.TypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id tmap}}} #typed.core.AndFilter{:fs #{#typed.core.OrFilter{:fs #{#typed.core.AndFilter{:fs #{#typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id tmap} #typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id tmap} #typed.core.TypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id tmap} #typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :tree}), :id tmap}}} #typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id tmap} #typed.core.TypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id tmap} #typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :tree}), :id tmap}}}}} #typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id tmap} #typed.core.TypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id tmap}}}}} #typed.core.TypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id tmap}}} #typed.core.NotTypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id tmap}}}}")]
+
+  (->
+    (env+ (->PropEnv {'tmap (->Name 'typed.test.rbt/badRight)}
+                     [])
+          [(:else fs)]
+          (atom true))
+    :l (get 'tmap)))
+)
 
 ; restore-right (BLack (e,l,r)) >=> dict
 ; where (1) Black(e,l,r) is ordered,

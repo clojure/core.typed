@@ -208,7 +208,7 @@
   {:post [(Type? %)]}
            ;flatten intersections
   (let [ts (set (apply concat
-                       (for [t types]
+                       (for [t (set types)]
                          (if (Intersection? t)
                            (:types t)
                            [t]))))]
@@ -962,10 +962,94 @@
 
 (declare -and)
 
+(defn inverse-atom [a]
+  {:pre [((some-fn TypeFilter? NotTypeFilter?) a)]
+   :post [((some-fn TypeFilter? NotTypeFilter?) a)]}
+  (cond
+    (TypeFilter? a) (-not-filter (:type a) (:id a) (:path a))
+    (NotTypeFilter? a) (-filter (:type a) (:id a) (:path a))))
+
+(defn simplify-prop 
+  "Try and use atomic proposition a to simplify composite
+  proposition b. a must be correct polarity."
+  [a b]
+  {:pre [((some-fn TypeFilter? NotTypeFilter?) a)
+         ((some-fn AndFilter? OrFilter?) b)]
+   :post [(Filter? %)]}
+  (cond
+    ; assuming a wrapping OrFilter
+    (AndFilter? b)
+    (let [fs (set (:fs b))
+          fs (set
+               (for [f fs]
+                 (cond
+                   ; A ^ (B v A) => A
+                   (OrFilter? f) (simplify-prop a f)
+                   :else f)))]
+      (if (fs a)
+        ; A v (notB ^ A) => A v notB
+        (apply -and (disj fs a))
+        b))
+
+    ; assuming a wrapping AndFilter
+    (OrFilter? b)
+    (let [fs (set (:fs b))]
+      ; A ^ (B v A) => A
+      (if (fs a)
+        a
+        b))))
+
+
+(comment
+  (-or (-not-filter -nil 'a)
+       (-and (-filter -nil 'a)
+             (-filter -false 'b)))
+(simplify-prop (-filter -nil 'a) (-and (-filter -nil 'a)
+                                       (-filter -false 'b)))
+  ;=> (-filter -nil 'a)
+'[-or-filter
+  [-not-filter (Value :Black) (:tree) 0]
+  [-and-filter
+   ; or->and, elim -filter (:Black) (:tree 0)
+   [-filter (Value :Black) (:tree) 0]
+   [-or-filter
+    ;and->or,  elim -filter (:Black) (:tree 0)
+    [-and-filter
+     ;or->and,  elim -not-filter (:Black) (:tree 0)
+     [-filter (Value :Black) (:tree) 0]
+     [-not-filter (Value :Red) (:left :tree) 0]]
+
+    [-and-filter
+     ;or->and,  elim -not-filter (:Black) (:tree 0)
+     [-filter (Value :Red) (:left :tree) 0]
+     [-filter (Value :Black) (:tree) 0]
+     [-or-filter
+      [-and-filter
+       [-filter (Value :Red) (:left :tree) 0]
+       [-filter (Value :Black) (:tree) 0]
+       [-not-filter (Value :Red) (:right :tree) 0]]
+      [-and-filter
+       [-filter (Value :Red) (:left :tree) 0]
+       [-filter (Value :Black) (:tree) 0]
+       [-filter (Value :Red) (:right :tree) 0]
+       [-not-filter (Value :Red) (:right :left :tree) 0]]]]]
+   ]
+  ]
+)
+
+(declare atomic-filter?)
+
 (defn -or [& args]
-  (let [fs (disj (set args) -bot)]
+           ; flatten internal OrFilters
+  (let [fs (-> (apply concat
+                      (for [a (set args)]
+                        (if (OrFilter? a)
+                          (:fs a)
+                          [a])))
+             set (disj -bot))]
     (cond
       (empty? fs) -bot
+      (fs -top) -top
       (= 1 (count fs)) (first fs)
       :else (->OrFilter fs))))
 
@@ -1023,18 +1107,24 @@
     (TopFilter? a) c
     :else (->ImpFilter a c)))
 
+
+
+;  A ^ (B v ...) -> (simplify A (B v ...))
 (defn -and [& args]
+             ;flatten direct internal AndFilters
   (let [flat (apply concat
                     (for [fl args]
                       (if (AndFilter? fl)
                         (:fs fl)
                         [fl])))
-        fs (disj (set flat) -top)]
+        fs (set flat)]
     (cond
-      (fs -bot) -bot
       (empty? fs) -bot
-      (= 1 (count fs)) (first fs)
-      :else (->AndFilter fs))))
+      (fs -bot) -bot
+      (or (= 1 (count fs))
+          (= 1 (count (disj fs -top)))) (or (first (disj fs -top))
+                                            (first fs))
+      :else (->AndFilter (disj fs -top)))))
 
 ;(defn -and [& args]
 ;  {:pre [(every? Filter? args)]
@@ -3470,9 +3560,11 @@
     (assoc expr
            expr-type (if val
                        (ret actual-type
-                            (-FS -top -bot))
+                            (-FS -top -bot)
+                            -empty)
                        (ret actual-type
-                            (-FS -bot -top))))))
+                            (-FS -bot -top)
+                            -empty)))))
 
 (defmethod check :constant [& args] (apply check-value args))
 (defmethod check :number [& args] (apply check-value args))
@@ -4241,7 +4333,7 @@
         ;_ (prn "specials:" (map unparse-type tys))
         sub? (when special?
                (subtype? targett
-                         (RInstance-of ISeq [(->Top)])))]
+                         (RInstance-of ISeq [-any])))]
     (cond
       (and special? sub?)
       (assoc expr
@@ -4758,12 +4850,14 @@
         (reduce (fn [ty sym]
                   {:pre [(TCResult? ty)
                          (symbol? sym)]}
+                  (prn "unshadow" (unparse-TCResult ty))
                   (-> ty
                     (update-in [:t] subst-type sym -empty true)
                     (update-in [:fl] subst-filter-set sym -empty true)
                     (update-in [:o] subst-object sym -empty true)))
                 (expr-type cbody)
-                (map (comp :sym :local-binding) binding-inits))]
+                (map (comp :sym :local-binding) binding-inits))
+        _ (prn unshadowed-type)]
     (assoc expr
            expr-type unshadowed-type)))
 
