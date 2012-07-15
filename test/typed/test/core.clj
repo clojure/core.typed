@@ -1,6 +1,6 @@
 (ns typed.test.core
   (:refer-clojure :exclude [defrecord])
-  (:import (clojure.lang Seqable ISeq ASeq))
+  (:import (clojure.lang Seqable ISeq ASeq IPersistentVector))
   (:require [clojure.test :refer :all]
             [analyze.core :refer [ast]]
             [clojure.repl :refer [pst]]
@@ -67,6 +67,11 @@
                 (parse-type '(clojure.lang.Cons Number))))
   (is (subtype? (parse-type '(clojure.lang.Cons Integer))
                 (parse-type '(clojure.lang.Seqable Number)))))
+
+(deftest subtype-intersection
+  (is (not (subtype? (RInstance-of Seqable [-any])
+                     (In (RInstance-of Seqable [-any])
+                         (make-CountRange 1))))))
 
 (deftest subtype-Object
   (is (subtype? (RInstance-of clojure.lang.IPersistentList [-any]) (RInstance-of Object))))
@@ -151,15 +156,29 @@
                      [1 2 1.2] 1))
                 (parse-type '(U nil (clojure.lang.ASeq Number)))))
   ; inferred "seq"
-  (is (subtype? (ety
-                  (typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
-                                  (seq a)))
-                (parse-type '[(clojure.lang.Seqable Number) Number -> (U nil (clojure.lang.ASeq Number))])))
+  (is (= (ety
+           (typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
+                           1))
+         (Fn-Intersection
+           (make-Function
+             [(RInstance-of Seqable [(RInstance-of Number)]) (RInstance-of Number)] 
+             (-val 1)
+             nil nil
+             :filter (-FS -top -bot)
+             :object -empty))))
   ; poly inferred "seq"
-  (is (subtype? (ety
-                  (typed.core/pfn> (c) [[a :- (clojure.lang.Seqable c)] [b :- Number]] 
-                                  (seq a)))
-                (parse-type '(All [x] [(clojure.lang.Seqable x) Number -> (U nil (clojure.lang.ASeq x))]))))
+  (is (= (ety
+           (typed.core/pfn> (c) [[a :- (clojure.lang.Seqable c)] [b :- Number]] 
+                            1))
+         (let [x (make-F 'x)]
+           (Poly* [(:name x)]
+                  (Fn-Intersection
+                    (make-Function
+                      [(RInstance-of Seqable [x]) (RInstance-of Number)] 
+                      (-val 1)
+                      nil nil
+                      :filter (-FS -top -bot)
+                      :object -empty))))))
   ;test invoke fn
   (is (subtype? (ety
                   ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
@@ -173,10 +192,15 @@
                 (parse-type '(U nil Number)))))
 
 (deftest get-special-test
-  (is (subtype? (ety 
-                  (typed.core/fn> [[a :- (Map* :mandatory {:a Number})]]
-                       (get a :a)))
-                (parse-type '[(Map* :mandatory {:a Number}) -> Number]))))
+  (is (= (ety 
+           (typed.core/fn> [[a :- (Map* :mandatory {:a Number})]]
+                           (get a :a)))
+         (Fn-Intersection
+           (make-Function [(->HeterogeneousMap {(-val :a) (RInstance-of Number)})]
+                          (RInstance-of Number)
+                          nil nil
+                          :filter (-FS -top -bot)
+                          :object (->Path [(->KeyPE :a)] 0))))))
 
 (deftest truth-false-values-test
   (is (= (tc-t (if nil 1 2))
@@ -377,7 +401,12 @@
                                                  'tmap
                                                  [(->KeyPE :type)]))])
                [(-filter (Un -nil -false) 'and1)]
-               (atom true)))))
+               (atom true))))
+  ; refine a subtype
+  (is (= (:l (env+ (->PropEnv {'and1 (RInstance-of Seqable [-any])} [])
+                   [(-filter (RInstance-of IPersistentVector [-any]) 'and1)]
+                   (atom true)))
+         {'and1 (RInstance-of IPersistentVector [-any])})))
 
 (deftest destructuring-special-ops
   (is (= (tc-t (seq? [1 2]))
@@ -822,3 +851,17 @@
 ;                [(->Value 1) (->Value 2)] ;actual
 ;                [(make-F 'x) (make-F 'y)] ;expected
 ;                (make-F 'x)) ;result
+
+(deftest arith-test
+  (is (= (:t (tc-t (+)))
+         (RInstance-of Number)))
+  (is (= (:t (tc-t (+ 1 2)))
+         (RInstance-of Number)))
+  (is (thrown? Exception (tc-t (+ 1 2 "a"))))
+  (is (thrown? Exception (tc-t (-))))
+  (is (thrown? Exception (tc-t (/)))))
+
+(deftest first-seq-test
+  (is (= (:t (tc-t ((typed.core/inst first Number) 
+                      ((typed.core/inst list Number) 1 1 1))))
+         (Un -nil (RInstance-of Number)))))

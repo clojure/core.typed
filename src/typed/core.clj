@@ -511,6 +511,22 @@
   "Supertype to all functions"
   [])
 
+(defrecord CountRange [lower upper]
+  "A sequence of count between lower and upper.
+  If upper is nil, between lower and infinity."
+  [(integer? lower)
+   (or (nil? upper)
+       (integer? upper))])
+
+(declare-type CountRange)
+
+(defn make-CountRange
+  ([lower] (make-CountRange lower nil))
+  ([lower upper] (->CountRange lower upper)))
+
+(defn make-ExactCountRange [c]
+  (make-CountRange c c))
+
 (declare ->NoFilter ->NoObject ->Result -FS -top)
 
 (defn make-Result
@@ -527,7 +543,7 @@
   ([dom rng rest drest & {:keys [filter object] :or {filter (-FS -top -top), object (->NoObject)}}]
    (->Function dom (->Result rng filter object) rest drest nil)))
 
-(defn Fn-Intersection [fns]
+(defn Fn-Intersection [& fns]
   {:pre [(every? Function? fns)]}
   (->Intersection fns))
 
@@ -675,6 +691,7 @@
                            (update-in [:types] #(into {} (for [[k v] %]
                                                            [(type-rec k) (type-rec v)]))))))
 
+(add-default-fold-case CountRange identity)
 (add-default-fold-case Name identity)
 (add-default-fold-case Value identity)
 (add-default-fold-case Top identity)
@@ -761,22 +778,22 @@
 
 (declare infer subst-all)
 
-(defn restrict [t1 t2 & [f]]
-  (let [f (if f f 'new)]
-    (cond
-      (subtype? t1 t2) t1 ;; already a subtype
+; restrict t1 to be a subtype of t2
+(defn restrict [t1 t2]
+  (cond
+    (subtype? t1 t2) t1 ;; already a subtype
 
-      (Poly? t2)
-      (let [names (repeatedly (:nbound t2) gensym)
-            t (Poly-body* names t2)
-            subst (infer names nil (list t1) (list t) t1)]
-        (and subst (restrict t1 (subst-all subst t1) f)))
+    (Poly? t2)
+    (let [names (repeatedly (:nbound t2) gensym)
+          t (Poly-body* names t2)
+          subst (infer names nil (list t1) (list t) t1)]
+      (and subst (restrict t1 (subst-all subst t1))))
 
-      (Union? t1) (apply Un (map (fn [e] (restrict e t2 f)) (:types t1)))
-      (Union? t2) (apply Un (map (fn [e] (restrict t1 e f)) (:types t2)))
-      (not (overlap t1 t2)) (Un) ;there's no overlap, so the restriction is empty
-      ;TODO other cases
-      :else (if (= f 'new) t2 t1)))) ;; t2 and t1 have a complex relationship, so we punt
+    (Union? t1) (apply Un (map (fn [e] (restrict e t2)) (:types t1)))
+    (Union? t2) (apply Un (map (fn [e] (restrict t1 e)) (:types t2)))
+    (not (overlap t1 t2)) (Un) ;there's no overlap, so the restriction is empty
+    ;TODO other cases
+    :else (In t2 t1)))
 
 (declare PathElem? ->TypeFilter ->NotTypeFilter ->OrFilter ->AndFilter OrFilter?
          implied-atomic? subst-type)
@@ -1629,7 +1646,7 @@
 (declare parse-function)
 
 (defn parse-fn-intersection-type [[Fn & types]]
-  (Fn-Intersection (doall (map parse-function types))))
+  (apply Fn-Intersection (doall (map parse-function types))))
 
 (defmethod parse-type-list 'Fn
   [syn]
@@ -1738,7 +1755,7 @@
 
 (defmethod parse-type IPersistentVector
   [f]
-  (Fn-Intersection [(parse-function f)]))
+  (apply Fn-Intersection [(parse-function f)]))
 
 (def ^:dynamic *next-nme* 0) ;stupid readable variables
 
@@ -1746,9 +1763,12 @@
 (defn unp [t] (prn (unparse-type t)))
 
 (defmethod unparse-type Top [_] 'Any)
+(defmethod unparse-type Name [{:keys [id]}] id)
 
-(defmethod unparse-type Name [{:keys [id]}]
-  id)
+(defmethod unparse-type CountRange [{:keys [lower upper]}]
+  (cond
+    (= lower upper) (list 'ExactCount lower)
+    :else (list 'CountRange lower (or upper '+infinity))))
 
 (defmethod unparse-type Result
   [{:keys [t]}]
@@ -2456,7 +2476,7 @@
 
 (defmethod cs-gen* :default
   [V X Y S T]
-  (assert (subtype? S T))
+  (assert (subtype? S T) (type-error S T))
   (empty-cset X Y))
 
 (defmethod cs-gen* [Type Top] 
@@ -2758,6 +2778,7 @@
 
 (defmethod replace-image Top [t image target] t)
 (defmethod replace-image Value [t image target] t)
+(defmethod replace-image CountRange [t image target] t)
 
 (defmethod replace-image HeterogeneousMap
   [t image target]
@@ -3026,7 +3047,7 @@
           (type-error s t))
 
         (Intersection? t)
-        (if (every? #(subtype? s %) (:types s))
+        (if (every? #(subtype? s %) (:types t))
           *sub-current-seen*
           (type-error s t))
 
@@ -3330,7 +3351,7 @@
 (ann clojure.core/in-ns [Symbol -> nil])
 (ann clojure.core/import [(IPersistentCollection Symbol) -> nil])
 
-(ann clojure.core/+ [Number * -> Number])
+(ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
 
 ;(ann clojure.core/swap! (All [x b ...] 
 ;                             [(Atom x) [x b ... b -> x] b ... b -> x]))
@@ -3358,9 +3379,18 @@
 (ann clojure.core/string?
      (Fn [Any -> (U false true)]))
 
-(ann clojure.core/seq
-     (All [x]
-          [(Seqable x) -> (U nil (ASeq x))]))
+(add-var-type 'clojure.core/seq
+              (let [x (make-F 'x)]
+                (with-meta (Poly* [(:name x)]
+                                  (Fn-Intersection (make-Function [(Un (RInstance-of Seqable [x])
+                                                                       -nil)]
+                                                                  (Un -nil (RInstance-of ASeq [x]))
+                                                                  nil nil
+                                                                  :filter (-FS (-filter (make-CountRange 1) 0)
+                                                                               (-or (-filter -nil 0)
+                                                                                    (-filter (make-ExactCountRange 0) 0)))
+                                                                  :object -empty))) 
+                           {:free-names '[x]})))
 
 ;(ann clojure.core/seq
 ;     (All [x]
@@ -3393,17 +3423,17 @@
       'yes))   ;!NonEmpty(x)
   )
 
-(ann clojure.core/first
-     (All [x]
-          [(Seqable x) -> (U nil x)]))
-
-;(ann clojure.core/first
-;     (All [x]
-;          (Fn [String -> (U nil Character)]
-;              [(U java.util.Map Iterable) -> (U nil Any)]
-;              [(U nil (Seqable x)) -> (U nil x)
-;               :- [x @ (first 0) | nil @ (first 0)]
-;               (first 0)])))
+(add-var-type 'clojure.core/first
+              (let [x (make-F 'x)]
+                (with-meta (Poly* [(:name x)]
+                                  (Fn-Intersection
+                                    (make-Function [(In (RInstance-of Seqable [x])
+                                                        (make-CountRange 1))]
+                                                   x)
+                                    (make-Function [(Un (RInstance-of Seqable [x])
+                                                        -nil)]
+                                                   (Un -nil x))))
+                           {:free-names [(:name x)]})))
 
 (ann clojure.core/conj
      (All [x y]
@@ -3422,10 +3452,19 @@
               [String Any -> (U nil Character)]
               [(U nil (ILookup Any x)) Any -> (U nil x)])))
 
-(ann clojure.core/=
-     [Any Any * -> (U true false)])
+(ann clojure.core/= [Any Any * -> (U true false)])
 
 (override-method clojure.lang.Util/equiv [Any Any -> (U true false)])
+
+(ann clojure.core/+ [Number * -> Number])
+(ann clojure.core/- [Number Number * -> Number])
+(ann clojure.core/* [Number * -> Number])
+(ann clojure.core// [Number Number * -> Number])
+
+(override-method clojure.lang.Numbers/add [Number Number -> Number])
+(override-method clojure.lang.Numbers/minus [Number Number -> Number])
+(override-method clojure.lang.Numbers/multiply [Number Number -> Number])
+(override-method clojure.lang.Numbers/divide [Number Number -> Number])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -4020,9 +4059,6 @@
                                   [(-not-filter t1 (:id o2) (:path o2))])
                                 (when (Path? o1)
                                   [(-not-filter t2 (:id o1) (:path o1))])))))]
-  (prn "tc-equiv:")
-  (prn "thn-fls" (map unparse-filter thn-fls))
-  (prn "els-fls" (map unparse-filter els-fls))
   (ret (Un -false -true)
        (-FS (if (empty? thn-fls)
               -top
@@ -4427,6 +4463,7 @@
       :else ::not-special)))
 
 (defmethod invoke-special :default [& args] ::not-special)
+(defmethod static-method-special :default [& args] ::not-special)
 
 ;convert apply to normal function application
 (defmethod invoke-apply :default 
@@ -4606,8 +4643,8 @@
   [{:keys [methods] :as expr} methods-param-types]
   {:pre [(every? Type? (apply concat methods-param-types))]
    :post [(TCResult? (expr-type %))]}
-  (let [ftype (Fn-Intersection (doall (map FnResult->Function 
-                                           (doall (map check-anon-fn-method methods methods-param-types)))))]
+  (let [ftype (apply Fn-Intersection (doall (map FnResult->Function 
+                                                 (doall (map check-anon-fn-method methods methods-param-types)))))]
     (assoc expr
            expr-type (ret ftype (-FS -top -bot) -empty))))
 
@@ -4735,8 +4772,8 @@
 (defn- method->Function [{:keys [parameter-types return-type] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(Fn-Intersection? %)]}
-  (Fn-Intersection [(make-Function (doall (map Method-symbol->Type parameter-types))
-                                   (Method-symbol->Type return-type))]))
+  (Fn-Intersection (make-Function (doall (map Method-symbol->Type parameter-types))
+                                  (Method-symbol->Type return-type))))
 
 (defn Method->symbol [{name-sym :name :keys [declaring-class] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
@@ -4820,14 +4857,12 @@
         (reduce (fn [ty sym]
                   {:pre [(TCResult? ty)
                          (symbol? sym)]}
-                  (prn "unshadow" (unparse-TCResult ty))
                   (-> ty
                     (update-in [:t] subst-type sym -empty true)
                     (update-in [:fl] subst-filter-set sym -empty true)
                     (update-in [:o] subst-object sym -empty true)))
                 (expr-type cbody)
-                (map (comp :sym :local-binding) binding-inits))
-        _ (prn unshadowed-type)]
+                (map (comp :sym :local-binding) binding-inits))]
     (assoc expr
            expr-type unshadowed-type)))
 
@@ -4867,9 +4902,6 @@
    :post [(let [[derived-props derived-atoms] %]
             (and (every? (some-fn ImpFilter? OrFilter? AndFilter?) derived-props)
                  (every? (some-fn TypeFilter? NotTypeFilter?) derived-atoms)))]}
-;  (prn "combine-props:")
-;  (prn "new-props:" (map unparse-filter new-props))
-;  (prn "old-props:" (map unparse-filter old-props))
   (let [atomic-prop? (some-fn TypeFilter? NotTypeFilter?)
         {new-atoms true new-formulas false} (group-by atomic-prop? (flatten-props new-props))]
     (loop [derived-props []
@@ -4970,8 +5002,10 @@
                                       (Bottom)))
 
       (and (TypeFilter? lo)
-           (empty? (:path lo))) (let [u (:type lo)]
-                                  (restrict t u))
+           (empty? (:path lo))) 
+      (let [u (:type lo)]
+        (restrict u t))
+
       (and (NotTypeFilter? lo)
            (empty? (:path lo))) (let [u (:type lo)]
                                   (remove* t u))
@@ -5056,16 +5090,21 @@
               :else (do #_(prn "Not checking unreachable code")
                       (ret (Un)))))]
     (let [{fs+ :then fs- :else :as f1} (:fl tst)
+          _ (prn "check-if: fs+" (unparse-filter fs+))
+          _ (prn "check-if: fs-" (unparse-filter fs-))
           flag+ (atom true)
           flag- (atom true)
           _ (set-validator! flag+ boolean?)
           _ (set-validator! flag- boolean?)
 
+          _ (print-env)
           idsym (gensym)
-          _ (prn idsym "env+: calculate then env" fs+)
           env-thn (env+ *lexical-env* [fs+] flag+)
-          _ (prn idsym"env+: calculate else env" fs-)
+          _ (do (pr "check-if: env-thn")
+              (print-env env-thn))
           env-els (env+ *lexical-env* [fs-] flag-)
+          _ (do (pr "check-if: env-els")
+              (print-env env-els))
 ;          new-thn-props (set
 ;                          (filter atomic-filter?
 ;                                  (set/difference
@@ -5078,21 +5117,15 @@
 ;                                    (set (:props *lexical-env*))
 ;                                    (set (:props env-els)))))
           ;_ (prn idsym"env+: new-els-props" (map unparse-filter new-els-props))
-          _ (prn idsym"env+: old props " (map unparse-filter (:props *lexical-env*)))
-          _ (prn idsym"BEGIN type check thn")
           {ts :t fs2 :fl os2 :o :as then-ret} (with-lexical-env env-thn
                                                 (tc thn @flag+))
-          _ (prn idsym"END type check thn")
-          _ (prn idsym"BEGIN type check els")
           {us :t fs3 :fl os3 :o :as else-ret} (with-lexical-env env-els
-                                                (tc els @flag-))
-          _ (prn idsym"END type check els")
-          ]
+                                                (tc els @flag-))]
 
       ;some optimization code here, contraditions etc? omitted
 
-;      (prn "check-if: then branch:" (unparse-TCResult then-ret))
-;      (prn "check-if: else branch:" (unparse-TCResult else-ret))
+      (prn "check-if: then branch:" (unparse-TCResult then-ret))
+      (prn "check-if: else branch:" (unparse-TCResult else-ret))
       (cond
         ;both branches reachable
         (and (not (type-equal? (Un) ts))
@@ -5105,29 +5138,19 @@
                                (let [{f2+ :then f2- :else} fs2
                                      {f3+ :then f3- :else} fs3
                                      ; +ve test, +ve then
-                                     _ (prn "props-env-thn" (map unparse-filter (:props env-thn)))
-                                     _ (prn "props-env-els" (map unparse-filter (:props env-els)))
                                      new-thn-props (:props env-thn)
                                      new-els-props (:props env-els)
                                      +t+t (apply -and fs+ f2+ new-thn-props)
-                                     _ (prn "+t+t" (unparse-filter +t+t))
                                      ; -ve test, +ve else
                                      -t+e (apply -and fs- f3+ new-els-props)
-                                     _ (prn "-t+e" (unparse-filter -t+e))
                                      ; +ve test, -ve then
                                      +t-t (apply -and fs+ f2- new-thn-props)
-                                     _ (prn "+t-t" (unparse-filter +t-t))
                                      ; -ve test, -ve else
                                      -t-e (apply -and fs- f3- new-els-props)
-                                     _ (prn "-t-e" (unparse-filter -t-e))
 
                                      final-thn-prop (-or +t+t -t+e)
-                                     _ (prn "final-thn-prop" (unparse-filter final-thn-prop))
                                      final-els-prop (-or +t-t -t-e)
-                                     _ (prn "final-els-prop" (unparse-filter final-els-prop))
-                                     fs (-FS final-thn-prop final-els-prop)
-                                     _ (prn "fs" (unparse-filter-set fs))
-                                     ]
+                                     fs (-FS final-thn-prop final-els-prop)]
                                  fs)
                                :else (throw (Exception. (str "What are these?" fs2 fs3))))
                       type (Un ts us)
