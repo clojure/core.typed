@@ -4775,6 +4775,17 @@
   (Fn-Intersection (make-Function (doall (map Method-symbol->Type parameter-types))
                                   (Method-symbol->Type return-type))))
 
+(defn- Constructor->Function [{:keys [declaring-class parameter-types] :as ctor}]
+  {:pre [(instance? clojure.reflect.Constructor ctor)]
+   :post [(Fn-Intersection? %)]}
+  (let [cls (resolve declaring-class)
+        _ (when-not (class? cls)
+            (throw (Exception. (str "Constructor for unresolvable class " (:class ctor)))))]
+    (Fn-Intersection (make-Function (doall (map Method-symbol->Type parameter-types))
+                                    (RInstance-of cls)
+                                    nil nil
+                                    :filter (-FS -top -bot))))) ;always a true value
+
 (defn Method->symbol [{name-sym :name :keys [declaring-class] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [((every-pred namespace symbol?) %)]}
@@ -4802,6 +4813,25 @@
 (defmethod check :instance-method
   [expr & [expected]]
   (check-invoke-static-method expr expected))
+
+(defmethod check :new
+  [{:keys [ctor args] :as expr} & [expected]]
+  (let [ifn (ret (Constructor->Function ctor))
+        cargs (doall (map check args))
+        res-type (check-funapp ifn (map expr-type cargs) nil)]
+    (assoc expr
+           expr-type res-type)))
+
+(defmethod check :throw
+  [{:keys [exception] :as expr} & [expected]]
+  (let [cexception (check exception)
+        _ (assert (subtype? (ret-t (expr-type cexception))
+                            (Un (RInstance-of Error)
+                                (RInstance-of Exception)))
+                  (str "Can only throw Exception or Error, found "
+                       (unparse-type (ret-t (expr-type cexception)))))]
+    (assoc expr
+           expr-type (ret (Un)))))
 
 (declare combine-props)
 

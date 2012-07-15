@@ -861,7 +861,22 @@
   (is (thrown? Exception (tc-t (-))))
   (is (thrown? Exception (tc-t (/)))))
 
+(deftest tc-constructor-test
+  (is (= (tc-t (Exception. "a"))
+         (ret (RInstance-of Exception)
+              (-FS -top -bot)
+              (->NoObject)))))
+
+(deftest tc-throw-test
+  (is (= (:t (tc-t (throw (Exception. "a"))))
+         (Un))))
+
 (deftest first-seq-test
   (is (= (:t (tc-t ((typed.core/inst first Number) 
                       ((typed.core/inst list Number) 1 1 1))))
+         (Un -nil (RInstance-of Number))))
+  (is (= (:t (tc-t (let [l ((typed.core/inst list Number) 1 1 1)]
+                     (if ((typed.core/inst seq Number) l)
+                       ((typed.core/inst first Number) l)
+                       (throw (Exception. "Error"))))))
          (Un -nil (RInstance-of Number)))))
