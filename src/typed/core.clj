@@ -85,6 +85,14 @@
                       (apply list (vec (map first params)) body)))
               '~method-doms)))
 
+(defmacro declare-datatypes [& syms]
+  `(tc-ignore
+  (doseq [sym# '~syms]
+     (let [qsym# (if (namespace sym#)
+                   sym#
+                   (symbol (str (munge (name (ns-name *ns*))) \. (name sym#))))]
+       (declare-datatype* qsym#)))))
+
 (defmacro declare-names [& syms]
   `(tc-ignore
   (doseq [sym# '~syms]
@@ -102,11 +110,11 @@
      (add-type-name sym# ty#)
      [sym# (unparse-type ty#)])))
 
-(defn tc-ignore-forms [r]
+(defn tc-ignore-forms* [r]
   r)
 
 (defmacro tc-ignore [& body]
-  `(tc-ignore-forms (do
+  `(tc-ignore-forms* (do
                       ~@body)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -415,7 +423,9 @@
 
 (defrecord Name [id]
   "A late bound name"
-  [((every-pred namespace symbol?) id)])
+  [((every-pred (some-fn namespace (fn [a] (some (fn [c] (= \. c)) (str a))))
+                symbol?) 
+     id)])
 
 (declare resolve-name* resolve-Name)
 
@@ -1460,7 +1470,7 @@
         as# (set (doall (map parse-type '~ancests)))
         s# (if (some #(= \. %) (str c#))
              c#
-             (symbol (str (-> *ns* ns-name) \. c#)))
+             (symbol (str (munge (-> *ns* ns-name)) \. c#)))
         local-name# (apply str (last (partition-by #(= \. %) (str c#))))
         pos-ctor-name# (symbol (str (-> *ns* ns-name)) (str "->" local-name#))
         dt# (->DataType s# fs# as#)
@@ -1478,9 +1488,9 @@
         s# (if (namespace vsym#)
              vsym#
              (symbol (-> *ns* ns-name str) (str vsym#)))
-        on-class# (symbol (str (namespace s#) \. (name s#)))
+        on-class# (symbol (str (munge (namespace s#)) \. (munge (name s#))))
         ; add a Name so the methods can be parsed
-        _# (add-type-name s# protocol-name-type)
+        _# (declare-protocol* s#)
         ms# (into {} (for [[knq# v#] '~mths]
                        (do
                          (assert (not (namespace knq#))
@@ -1569,6 +1579,11 @@
   (swap! DATATYPE-ENV assoc sym t)
   nil)
 
+(defn resolve-datatype [sym]
+  (let [d (@DATATYPE-ENV sym)]
+    (assert d (str "Could not resolve DataType: " sym))
+    d))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Protocol Env
 
@@ -1578,6 +1593,11 @@
 (defn add-protocol [sym t]
   (swap! PROTOCOL-ENV assoc sym t)
   nil)
+
+(defn resolve-protocol [sym]
+  (let [p (@PROTOCOL-ENV sym)]
+    (assert p (str "Could not resolve Protocol: " sym))
+    p))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Override Env
@@ -1595,27 +1615,46 @@
 
 (def declared-name-type ::declared-name)
 (def protocol-name-type ::protocol-name)
+(def datatype-name-type ::datatype-name)
+
+(def temp-binding ::temp-binding)
+
+(doseq [k [declared-name-type protocol-name-type datatype-name-type]]
+  (derive k temp-binding))
 
 (defonce TYPE-NAME-ENV (atom {}))
-(set-validator! TYPE-NAME-ENV #(and (every? (every-pred namespace symbol?) (keys %))
-                                    (every? (some-fn Type? 
-                                                     (fn [a] (= a declared-name-type))
-                                                     (fn [a] (= a protocol-name-type))) (vals %))))
+(set-validator! TYPE-NAME-ENV #(and (every? (every-pred (some-fn namespace 
+                                                                 (fn [k] (some (fn [a] (= \. a)) (str k))))
+                                                        symbol?) 
+                                            (keys %))
+                                    (every? (some-fn Type? (fn [a] (isa? a temp-binding))) 
+                                            (vals %))))
 
 (defn add-type-name [sym ty]
-  {:pre [(namespace sym)]}
   (swap! TYPE-NAME-ENV assoc sym ty)
   nil)
 
 (defn declare-name* [sym]
-  {:pre [(namespace sym)]}
+  {:pre [(symbol? sym)
+         (namespace sym)]}
   (add-type-name sym declared-name-type)
+  nil)
+
+(defn declare-protocol* [sym]
+  {:pre [(symbol? sym)
+         (some #(= \. %) (str sym))]}
+  (add-type-name sym protocol-name-type)
+  nil)
+
+(defn declare-datatype* [sym]
+  (add-type-name sym datatype-name-type)
   nil)
 
 (defn- resolve-name* [sym]
   (let [t (@TYPE-NAME-ENV sym)]
     (cond
-      (= protocol-name-type t) (@PROTOCOL-ENV sym)
+      (= protocol-name-type t) (resolve-protocol sym)
+      (= datatype-name-type t) (resolve-datatype sym)
       (= declared-name-type t) (throw (Exception. (str "Reference to declared but undefined name " sym)))
       (Type? t) t
       :else (throw (Exception. (str "Cannot resolve name " sym))))))
@@ -1822,10 +1861,14 @@
     f
     (let [qsym (if (namespace sym)
                  sym
-                 (symbol (-> *ns* ns-name name) (name sym)))]
+                 (symbol (-> *ns* ns-name name) (name sym)))
+          clssym (if (some #(= \. %) (str sym))
+                   sym
+                   (symbol (str (-> *ns* ns-name name) \. (name sym))))]
       (cond
         (@TYPE-NAME-ENV qsym) (->Name qsym)
-        (@PROTOCOL-ENV qsym) (@PROTOCOL-ENV qsym)
+        (@TYPE-NAME-ENV clssym) (->Name clssym)
+        (@PROTOCOL-ENV qsym) (resolve-protocol qsym)
         :else (let [res (resolve sym)]
                 (prn "resolved" res)
                 (cond 
@@ -4436,7 +4479,7 @@
     cexpr))
 
 ;don't type check
-(defmethod invoke-special #'tc-ignore-forms
+(defmethod invoke-special #'tc-ignore-forms*
   [{:keys [fexpr args] :as expr} & [expected]]
   (assoc (first args)
          expr-type (ret (->Top))))
@@ -5422,6 +5465,7 @@
         dt (@DATATYPE-ENV nme)
         _ (assert dt (str "Untyped datatype definition: " nme))
         _ (doseq [inst-method methods]
+            (prn "Checking deftype* method: "(:name inst-method))
             (let [nme (:name inst-method)
                   _ (assert (symbol? nme)) ;can remove once new analyze is released
                   method-sig (cmmap nme)
@@ -5483,4 +5527,5 @@
 (check-ns 'typed.test.macro)
 (check-ns 'typed.test.conduit)
 (check-ns 'typed.test.deftype)
+(check-ns 'typed.test.core-logic)
   )
