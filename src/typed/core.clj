@@ -2445,7 +2445,7 @@
           (cons (empty-cset X Y)
                 (mapv #(cs-gen V X Y % T) (:types S))))
 
-        ;; find *an* element of S which can be made to be a supertype of S
+        ;; find *an* element of T which can be made to be a supertype of S
         (Union? T)
         (if-let [cs (some #(try (cs-gen V X Y S %)
                              (catch IllegalArgumentException e
@@ -2453,7 +2453,23 @@
                              (catch Exception e)) ;TODO specialised data Exceptions
                           (:types T))]
           cs
-          (throw (Exception. "")))
+          (throw (Exception. (str "Could not constrain "
+                                  (unparse-type S) " to be under "
+                                  (unparse-type T)))))
+
+        ;; each element of S fits under some element of T
+        (and (Intersection? S)
+             (Intersection? T))
+        (cset-meet*
+          (doall
+            (for [s* (:types S)]
+              (if-let [cs (some #(try (cs-gen V X Y s* %)
+                                   (catch IllegalArgumentException e
+                                     (throw e))
+                                   (catch Exception e))
+                                (:types T))]
+                cs
+                (type-error s* T)))))
 
         ;; find *an* element of S which can be made to be a subtype of T
         (Intersection? S)
@@ -2461,15 +2477,21 @@
                              (catch IllegalArgumentException e
                                (throw e))
                              (catch Exception e)) ;TODO specialised data Exceptions
+                          (:types S))]
+          cs
+          (throw (Exception. (str "Could not constrain "
+                                  (unparse-type S) " to be under "
+                                  (unparse-type T)))))
+
+        ;constrain *a* element of T to be above S, and then combine the constraints
+        (Intersection? T)
+        (if-let [cs (some #(try (cs-gen V X Y S %)
+                             (catch IllegalArgumentException e
+                               (throw e))
+                             (catch Exception e))
                           (:types T))]
           cs
-          (throw (Exception. "")))
-
-        ;constrain *each* element of T to be above S, and then combine the constraints
-        (Intersection? T)
-        (cset-meet*
-          (cons (empty-cset X Y)
-                (mapv #(cs-gen V X Y S %) (:types T))))
+          (type-error S T))
 
         :else
         (cs-gen* V X Y S T)))))
@@ -2483,22 +2505,32 @@
   [V X Y S T] 
   (empty-cset X Y))
 
+(defmethod cs-gen* [HeterogeneousVector RInstance] 
+  [V X Y S T]
+  (cs-gen V X Y (RInstance-of IPersistentVector [(apply Un (:types S))]) T))
+
 (defmethod cs-gen* [RInstance RInstance] 
   [V X Y S T]
-  (assert (= (:constructor S) (:constructor T)))
-  (assert (= (count (:poly? S))
-             (count (:poly? T))))
-  (cset-meet*
-    (cons (empty-cset X Y)
-          (for [[vari si ti] (map vector
-                                  (-> T :constructor :variances)
-                                  (:poly? S)
-                                  (:poly? T))]
-            (case vari
-              (:covariant :constant) (cs-gen V X Y si ti)
-              :contravariant (cs-gen V X Y ti si)
-              :invariant (cset-meet (cs-gen V X Y si ti)
-                                    (cs-gen V X Y ti si)))))))
+  (let [relevant-S (if (= (:constructor S) (:constructor T))
+                     S
+                     (some #(and (= (:constructor %) (:constructor T))
+                                 %)
+                           (RInstance-supers* S)))]
+    (prn relevant-S)
+    (cond
+      relevant-S
+      (cset-meet*
+        (cons (empty-cset X Y)
+              (for [[vari si ti] (map vector
+                                      (-> T :constructor :variances)
+                                      (:poly? relevant-S)
+                                      (:poly? T))]
+                (case vari
+                  (:covariant :constant) (cs-gen V X Y si ti)
+                  :contravariant (cs-gen V X Y ti si)
+                  :invariant (cset-meet (cs-gen V X Y si ti)
+                                        (cs-gen V X Y ti si))))))
+      :else (type-error S T))))
 
 (prefer-method cs-gen* [F Type] [Type F])
 
@@ -3044,7 +3076,7 @@
         (and (Intersection? s)
              (Intersection? t))
         (if (every? (fn [s*]
-                      (some #(subtype s* %) (:types t)))
+                      (some #(subtype? s* %) (:types t)))
                     (:types s))
           *sub-current-seen*
           (type-error s t))
@@ -3092,7 +3124,8 @@
   of this RInstance"
   [{:keys [poly? constructor] :as rinst}]
   {:pre [(RInstance? rinst)]
-   :post [(every? Type? %)
+   :post [(set? %)
+          (every? Type? %)
           (<= (count (filter (some-fn Fn-Intersection? Poly? PolyDots?) %))
               1)]}
   (let [names (map gensym (range (count poly?)))
@@ -3109,7 +3142,7 @@
                                                                           " in " t))
                                                              r)
                                                            (->RClass nil t {})))))
-                               (vals rplce-subbed)
+                               (set (vals rplce-subbed))
                                ;common ancestor
                                #{(RInstance-of Object)})]
     super-types))

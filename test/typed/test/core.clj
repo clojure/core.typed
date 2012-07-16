@@ -845,12 +845,22 @@
            {'x (->t-subst (->Value 1))
             'y (->t-subst (Un))}))))
 
-;(deftest infer-test
-;  (is (= (infer #{(make-F 'x) (make-F 'y)} ;tv env
-;                #{}
-;                [(->Value 1) (->Value 2)] ;actual
-;                [(make-F 'x) (make-F 'y)] ;expected
-;                (make-F 'x)) ;result
+(deftest infer-test
+  (is (= (infer '#{x y} ;tv env
+                #{}
+                [(->Value 1) (->Value 2)] ;actual
+                [(make-F 'x) (make-F 'y)] ;expected
+                (make-F 'x)))) ;result
+  (is (= (infer '#{x} ;tv env
+                '#{}
+                [(RInstance-of IPersistentVector [(Un (-val 1) (-val 2) (-val 3))])] ;actual
+                [(RInstance-of Seqable [(make-F 'x)])] ;expected
+                (RInstance-of ASeq [(make-F 'x)])))) ;result
+  (is (= (infer '#{x} ;tv env
+                '#{}
+                [(->HeterogeneousVector [(-val 1) (-val 2) (-val 3)])] ;actual
+                [(RInstance-of Seqable [(make-F 'x)])] ;expected
+                (RInstance-of ASeq [(make-F 'x)]))))) ;result
 
 (deftest arith-test
   (is (= (:t (tc-t (+)))
@@ -872,18 +882,17 @@
          (Un))))
 
 (deftest first-seq-test
-  (is (= (:t (tc-t ((typed.core/inst first Number) 
-                      ((typed.core/inst list Number) 1 1 1))))
-         (Un -nil (RInstance-of Number))))
+  (is (subtype? (:t (tc-t (first [1 1 1])))
+                (Un -nil (RInstance-of Number))))
   (is (subtype (In (RInstance-of clojure.lang.PersistentList [-any])
                    (make-CountRange 1))
                (In (RInstance-of Seqable [-any])
                    (make-CountRange 1))))
-  (is (= (:t (tc-t (let [l ((typed.core/inst list Number) 1 1 1)]
-                     (if ((typed.core/inst seq Number) l)
-                       ((typed.core/inst first Number) l)
-                       (throw (Exception. "Error"))))))
-         (RInstance-of Number))))
+  (is (subtype? (:t (tc-t (let [l [1 2 3]]
+                            (if (seq l)
+                              (first l)
+                              (throw (Exception. "Error"))))))
+                (RInstance-of Number))))
 
 (deftest intersection-maker-test
   (is (= (In -nil (-val 1))
