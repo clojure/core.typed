@@ -761,8 +761,8 @@
     (= t1 t2) true
     (and (Value? t1)
          (Value? t2)) (= t1 t2)
-    (and ((some-fn Nil? False? True?) t1)
-         ((some-fn Nil? False? True?) t2)) (= t1 t2)
+    (Value? t1) (subtype? t1 t2)
+    (Value? t2) (subtype? t2 t1)
 ;    (and (Name? t1)
 ;         (Name? t2)) (overlap (-resolve t1) (-resolve t2))
 ;    (Name? t1) (overlap (-resolve t1) t2)
@@ -3041,6 +3041,14 @@
           *sub-current-seen*
           (type-error s t))
 
+        (and (Intersection? s)
+             (Intersection? t))
+        (if (every? (fn [s*]
+                      (some #(subtype s* %) (:types t)))
+                    (:types s))
+          *sub-current-seen*
+          (type-error s t))
+
         (Intersection? s)
         (if (some #(subtype? % t) (:types s))
           *sub-current-seen*
@@ -3230,6 +3238,16 @@
         b2 (Poly-body* names t)]
     (subtype b1 b2)))
 
+(defmethod subtype* [CountRange CountRange]
+  [{supper :upper slower :lower :as s}
+   {tupper :upper tlower :lower :as t}]
+  (when-not (and (<= slower tlower)
+                 (if tupper
+                   (and supper (<= supper tupper))
+                   true))
+    (type-error s t))
+  *sub-current-seen*)
+
 (defmethod subtype* :default
   [s t]
   (if (Top? t)
@@ -3414,14 +3432,6 @@
             ;[[c a -> c] (I NonEmpty (Seqable c)) -> c]
             [(Fn [c a -> c] [-> c]) (Seqable c) -> c]
             [[c a -> c] c (Seqable c) -> c])))
-
-(comment
-  (loop> [[x :- (Vector Number) [1 2 3]]]
-    (if (seq x)           ; Number :- first(x) @ nil :- NonEmpty(x)
-      (do (+ 1 (first x))
-        (recur (rest x)))
-      'yes))   ;!NonEmpty(x)
-  )
 
 (add-var-type 'clojure.core/first
               (let [x (make-F 'x)]

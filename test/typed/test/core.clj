@@ -875,8 +875,27 @@
   (is (= (:t (tc-t ((typed.core/inst first Number) 
                       ((typed.core/inst list Number) 1 1 1))))
          (Un -nil (RInstance-of Number))))
+  (is (subtype (In (RInstance-of clojure.lang.PersistentList [-any])
+                   (make-CountRange 1))
+               (In (RInstance-of Seqable [-any])
+                   (make-CountRange 1))))
   (is (= (:t (tc-t (let [l ((typed.core/inst list Number) 1 1 1)]
                      (if ((typed.core/inst seq Number) l)
                        ((typed.core/inst first Number) l)
                        (throw (Exception. "Error"))))))
-         (Un -nil (RInstance-of Number)))))
+         (RInstance-of Number))))
+
+(deftest intersection-maker-test
+  (is (= (In -nil (-val 1))
+         (Un)))
+  (is (= (In (RInstance-of Seqable [-any])
+             -nil)
+         (Un))))
+
+(deftest count-subtype-test
+  (is (subtype? (make-CountRange 1)
+                (make-CountRange 1)))
+  (is (not (subtype? (make-CountRange 1)
+                     (make-ExactCountRange 1))))
+  (is (subtype? (make-ExactCountRange 1)
+                (make-CountRange 1))))
