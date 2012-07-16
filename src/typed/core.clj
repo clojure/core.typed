@@ -286,8 +286,13 @@
    (every? class? (keys replacements))
    (every? (some-fn Type? Scope?) (vals replacements))])
 
-(defn monomorphic-RClass [class]
-  (->RClass nil class {}))
+(declare RESTRICTED-CLASS)
+
+(defn monomorphic-RClass-from [class]
+  (let [rc (@RESTRICTED-CLASS class)]
+    (if rc
+      rc
+      (->RClass nil class {}))))
 
 ;smart constructor
 (defn RClass* [names variances the-class replacements]
@@ -319,7 +324,7 @@
 
 (defn RInstance-of 
   "Return a RInstance type, optionally parameterised"
-  ([class] (->RInstance nil (monomorphic-RClass class)))
+  ([class] (->RInstance nil (monomorphic-RClass-from class)))
   ([class params] (->RInstance params (poly-RClass-from class))))
 
 (declare-type RInstance)
@@ -1658,8 +1663,8 @@
 
 (declare constant-type)
 
-(defmethod parse-type-list 'Map*
-  [[_ & {:keys [mandatory optional]}]]
+(defmethod parse-type-list 'HMap
+  [[_ mandatory & {:keys [optional]}]]
   (letfn [(mapt [m]
             (into {} (for [[k v] m]
                        [(constant-type k)
@@ -1858,7 +1863,7 @@
 
 (defmethod unparse-type HeterogeneousMap
   [v]
-  (list 'Map* (into {} (map (fn [[k v]]
+  (list 'HMap (into {} (map (fn [[k v]]
                               (assert (Value? k))
                               (vector (:val k)
                                       (unparse-type v)))
@@ -2509,6 +2514,8 @@
   [V X Y S T]
   (cs-gen V X Y (RInstance-of IPersistentVector [(apply Un (:types S))]) T))
 
+(declare RInstance-supers*)
+
 (defmethod cs-gen* [RInstance RInstance] 
   [V X Y S T]
   (let [relevant-S (if (= (:constructor S) (:constructor T))
@@ -2747,7 +2754,8 @@
   "Unwrap n Scopes"
   [n sc]
   {:pre [(nat? n)
-         (Scope? sc)]
+         (or (zero? n)
+             (Scope? sc))]
    :post [(or (Scope? %) (Type? %))]}
   (doall
     (last
@@ -2868,7 +2876,9 @@
   all of the types MUST be Fs"
   [images sc]
   {:pre [(every? F? images)
-         (Scope? sc)]}
+         (or (Scope? sc)
+             (empty? images))]
+   :post [(Type? %)]}
   (let [n (count images)]
     (reduce (fn [ty [cnt image]]
               (replace-image ty image cnt))
@@ -3139,7 +3149,7 @@
                                       (->RInstance nil (or (when-let [r (@RESTRICTED-CLASS t)]
                                                              (assert (empty? (:variances r))
                                                                      (str "RClass " (unparse-type r) " must be instantiated"
-                                                                          " in " t))
+                                                                          " in " (unparse-type rinst)))
                                                              r)
                                                            (->RClass nil t {})))))
                                (set (vals rplce-subbed))
@@ -3296,6 +3306,8 @@
 
 (alter-class Seqable [[a :variance :covariant]])
 
+(alter-class IMeta [[a :variance :covariant]])
+
 (alter-class IPersistentCollection [[a :variance :covariant]]
              :replace
              {Seqable (Seqable a)})
@@ -3335,7 +3347,8 @@
              :replace
              {IPersistentCollection (IPersistentCollection a)
               Seqable (Seqable a)
-              ISeq (ISeq a)})
+              ISeq (ISeq a)
+              IMeta (IMeta nil)})
 
 (alter-class IPersistentStack [[a :variance :covariant]]
              :replace
@@ -3376,7 +3389,8 @@
              {IPersistentCollection (IPersistentCollection a)
               ASeq (ASeq a)
               Seqable (Seqable a)
-              ISeq (ISeq a)})
+              ISeq (ISeq a)
+              IMeta (IMeta nil)})
 
 (alter-class IPersistentList [[a :variance :covariant]]
              :replace
@@ -3391,7 +3405,12 @@
               Seqable (Seqable a)
               IPersistentList (IPersistentList a)
               ISeq (ISeq a)
-              IPersistentStack (IPersistentStack a)})
+              IPersistentStack (IPersistentStack a)
+              IMeta (IMeta nil)})
+
+(alter-class Symbol []
+             :replace
+             {IMeta (IMeta nil)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
@@ -3427,6 +3446,10 @@
                                            -empty)
                               nil nil nil)))
 
+(ann clojure.core/meta (All [x]
+                            (Fn [(IMeta x) -> x]
+                                [Any -> nil])))
+
 (ann clojure.core/string?
      (Fn [Any -> (U false true)]))
 
@@ -3443,21 +3466,13 @@
                                                                   :object -empty))) 
                            {:free-names '[x]})))
 
-;(ann clojure.core/seq
-;     (All [x]
-;          (Fn [(Seqable x) -> (U nil (ASeq x))
-;               :- [x @ (first 0) | nil @ (first 0)]
-;               Empty]
-;              [nil -> nil
-;               :- [ff | nil @ (first 0)]]
-;              [String -> (U nil (ASeq Character))
-;               :- [Character @ (first 0) | nil @ (first 0)]
-;               Empty]
-;              [(U java.util.Map Iterable) -> (U nil (ASeq Any))])))
-
 (ann clojure.core/map
      (All [c a b ...]
-          [[a b ... b -> c] (Seqable a) (Seqable b) ... b -> (Seqable c)]))
+          [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (Seqable c)]))
+
+(ann clojure.core/merge-with
+     (All [k a b ...]
+          [[a a -> a] (U nil (IPersistentMap k a)) ... b -> (IPersistentMap k a)]))
 
 (ann clojure.core/reduce
      (All [a c]
@@ -5277,4 +5292,5 @@
 (check-ns 'typed.test.example)
 (check-ns 'typed.test.rbt)
 (check-ns 'typed.test.macro)
+(check-ns 'typed.test.conduit)
   )

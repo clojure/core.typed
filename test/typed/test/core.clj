@@ -97,28 +97,20 @@
                 (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
   (is (not (subtype? (parse-type 'Number)
                      (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x)))))))
-  (is (sub (Map* :mandatory
-                  {:op (Value :if)
-                   :test (Map* :mandatory
-                               {:op (Value :var)
-                                :var clojure.lang.Var})
-                   :then (Map* :mandatory
-                               {:op (Value :nil)})
-                   :else (Map* :mandatory
-                               {:op (Value :false)})})
+  (is (sub (HMap {:op (Value :if)
+                  :test (HMap {:op (Value :var)
+                               :var clojure.lang.Var})
+                  :then (HMap {:op (Value :nil)})
+                  :else (HMap {:op (Value :false)})})
             (Rec [x] 
-                 (U (Map* :mandatory
-                          {:op (Value :if)
+                 (U (HMap {:op (Value :if)
                            :test x
                            :then x
                            :else x})
-                    (Map* :mandatory
-                          {:op (Value :var)
+                    (HMap {:op (Value :var)
                            :var clojure.lang.Var})
-                    (Map* :mandatory
-                          {:op (Value :nil)})
-                    (Map* :mandatory
-                          {:op (Value :false)})))))
+                    (HMap {:op (Value :nil)})
+                    (HMap {:op (Value :false)})))))
 
  #_(is (sub? (Rec [x] (U Integer (clojure.lang.ILookup x x)))
             (Rec [x] (U Number (clojure.lang.ILookup x x)))))
@@ -193,7 +185,7 @@
 
 (deftest get-special-test
   (is (= (ety 
-           (typed.core/fn> [[a :- (Map* :mandatory {:a Number})]]
+           (typed.core/fn> [[a :- (HMap {:a Number})]]
                            (get a :a)))
          (Fn-Intersection
            (make-Function [(->HeterogeneousMap {(-val :a) (RInstance-of Number)})]
@@ -255,8 +247,8 @@
 (deftest name-to-param-index-test
   ;a => 0
   (is (= (tc-t 
-           (typed.core/fn> [[a :- (U (Map* :mandatory {:op (Value :if)})
-                                     (Map* :mandatory {:op (Value :var)}))]] 
+           (typed.core/fn> [[a :- (U (HMap {:op (Value :if)})
+                                     (HMap {:op (Value :var)}))]] 
                            (:op a)))
          (ret (In (->Function
                     [(Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
@@ -274,8 +266,8 @@
 ;TODO
 (deftest refine-test
   (is (= (tc-t 
-           (typed.core/fn> [[a :- (U (Map* :mandatory {:op (Value :if)})
-                                     (Map* :mandatory {:op (Value :var)}))]] 
+           (typed.core/fn> [[a :- (U (HMap {:op (Value :if)})
+                                     (HMap {:op (Value :var)}))]] 
                            (when (= (:op a) :if) 
                              a)))
          (ret (In (->Function
@@ -317,7 +309,7 @@
               (-FS -top -top) -empty))))
 
 (deftest heterogeneous-ds-test
-  (is (not (subtype? (parse-type '(Map* :mandatory {:a (Value 1)}))
+  (is (not (subtype? (parse-type '(HMap {:a (Value 1)}))
                      (RInstance-of ISeq [(->Top)]))))
   (is (not (subtype? (parse-type '(Vector* (Value 1) (Value 2)))
                      (RInstance-of ISeq [(->Top)]))))
@@ -360,7 +352,7 @@
                 (->PropEnv {'a (->Value :a)} props))
              @flag)))
   ;test positive KeyPE
-  ;update a from (U (Map* {:op :if}) (Map* {:op :var})) => (Map* {:op :if})
+  ;update a from (U (HMap {:op :if}) (HMap {:op :var})) => (HMap {:op :if})
   (is (let [props [(-filter (->Value :if) 'a [(->KeyPE :op)])]
             flag (atom true)]
         (and (= (let [env {'a (Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
@@ -425,7 +417,7 @@
          (ret (->HeterogeneousMap {(->Value :a) (->Value 1)})
               ;FIXME should true-filter ?
               (-FS -top -top) -empty)))
-  (is (= (tc-t (typed.core/fn> [[{a :a} :- (Map* :mandatory {:a (Value 1)})]]
+  (is (= (tc-t (typed.core/fn> [[{a :a} :- (HMap {:a (Value 1)})]]
                                a))
          (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
                               (make-Result (->Value 1) 
@@ -451,7 +443,7 @@
          (ret (->Value 1) 
               (-FS -top -top) ; a goes out of scope, throw out filters
               -empty)))
-  (is (= (tc-t (typed.core/fn> [[a :- (Map* :mandatory {:a (Value 1)})]]
+  (is (= (tc-t (typed.core/fn> [[a :- (HMap {:a (Value 1)})]]
                                (seq? a)))
          (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
                               (make-Result -false -false-filter -empty)
@@ -485,8 +477,8 @@
                      maprl))))))
   ;destructuring a variable of union type
   ; NOTE: commented out because, for now, it's an error to get a non-existant key
-;  (is (= (tc-t (typed.core/fn> [[{a :a} :- (U (Map* :mandatory {:a (Value 1)})
-;                                              (Map* :mandatory {:b (Value 2)}))]]
+;  (is (= (tc-t (typed.core/fn> [[{a :a} :- (U (HMap {:a (Value 1)})
+;                                              (HMap {:b (Value 2)}))]]
 ;                               a))
 ;         (ret (In (->Function [(Un (->HeterogeneousMap {(->Value :a) (->Value 1)})
 ;                                   (->HeterogeneousMap {(->Value :b) (->Value 2)}))]
@@ -496,13 +488,13 @@
 ;              -empty)))
               )
 
-(def-alias MyName (Map* :mandatory {:a (Value 1)}))
-(def-alias MapName (Map* :mandatory {:a typed.test.core/MyName}))
+(def-alias MyName (HMap {:a (Value 1)}))
+(def-alias MapName (HMap {:a typed.test.core/MyName}))
 
-(def-alias MapStruct1 (Map* :mandatory {:type (Value :MapStruct1)
-                                        :a typed.test.core/MyName}))
-(def-alias MapStruct2 (Map* :mandatory {:type (Value :MapStruct2)
-                                        :b typed.test.core/MyName}))
+(def-alias MapStruct1 (HMap {:type (Value :MapStruct1)
+                             :a typed.test.core/MyName}))
+(def-alias MapStruct2 (HMap {:type (Value :MapStruct2)
+                             :b typed.test.core/MyName}))
 (def-alias UnionName (U MapStruct1 MapStruct2))
 
 (deftest Name-resolve-test
@@ -655,10 +647,8 @@
   (is (not (overlap -false -true)))
   (is (not (overlap (-val :a) (-val :b)))))
 
-(def-alias SomeMap (U (Map* :mandatory
-                            {:a (Value :b)})
-                      (Map* :mandatory
-                            {:b (Value :c)})))
+(def-alias SomeMap (U (HMap {:a (Value :b)})
+                      (HMap {:b (Value :c)})))
 
 (deftest assoc-test
   (is (= (tc-t (assoc {} :a :b))

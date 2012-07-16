@@ -4,8 +4,7 @@
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]]))
 
-(def-alias EntryT (Map* :mandatory
-                        {:key Number
+(def-alias EntryT (HMap {:key Number
                          :datum Number})) ;TODO is this EntryT type correct? No definition in thesis
 
 (declare-names rbt bt)
@@ -13,17 +12,14 @@
 ;Trees with only black children for red nodes
 (def-alias rbt (U 
                  ;Empty
-                 (Map* :mandatory
-                       {:tree (Value :Empty)})
+                 (HMap {:tree (Value :Empty)})
                  ;Black
-                 (Map* :mandatory
-                       {:tree (Value :Black)
+                 (HMap {:tree (Value :Black)
                         :entry EntryT
                         :left rbt
                         :right rbt})
                  ;Red
-                 (Map* :mandatory
-                       {:tree (Value :Red)
+                 (HMap {:tree (Value :Red)
                         :entry EntryT
                         :left bt
                         :right bt})))
@@ -31,11 +27,9 @@
 ;As above but additionally the root node is black
 (def-alias bt (U
                 ;Empty
-                (Map* :mandatory
-                      {:tree (Value :Empty)})
+                (HMap {:tree (Value :Empty)})
                 ;Black
-                (Map* :mandatory
-                      {:tree (Value :Black)
+                (HMap {:tree (Value :Black)
                        :entry EntryT
                        :left rbt
                        :right rbt})))
@@ -43,8 +37,7 @@
 ; Trees with a red root
 (def-alias red (U
                  ;Red
-                 (Map* :mandatory
-                       {:tree (Value :Red)
+                 (HMap {:tree (Value :Red)
                         :entry EntryT
                         :left bt
                         :right bt})))
@@ -52,23 +45,19 @@
 ;invariant possibly violated at the root
 (def-alias badRoot (U
                      ;Empty
-                     (Map* :mandatory
-                           {:tree (Value :Empty)})
+                     (HMap {:tree (Value :Empty)})
                      ;Black
-                     (Map* :mandatory
-                           {:tree (Value :Black)
+                     (HMap {:tree (Value :Black)
                             :entry EntryT
                             :left rbt
                             :right bt})
                      ;Red
-                     (Map* :mandatory
-                           {:tree (Value :Red)
+                     (HMap {:tree (Value :Red)
                             :entry EntryT
                             :left rbt
                             :right bt})
                      ;Red
-                     (Map* :mandatory
-                           {:tree (Value :Red)
+                     (HMap {:tree (Value :Red)
                             :entry EntryT
                             :left bt
                             :right rbt})))
@@ -76,23 +65,19 @@
 ;invariant possibly violated at the left child
 (def-alias badLeft (U
                      ;Empty
-                     (Map* :mandatory
-                           {:tree (Value :Empty)})
+                     (HMap {:tree (Value :Empty)})
                      ;Black
-                     (Map* :mandatory
-                           {:tree (Value :Black)
+                     (HMap {:tree (Value :Black)
                             :entry EntryT
                             :left rbt
                             :right rbt})
                      ;Red
-                     (Map* :mandatory
-                           {:tree (Value :Red)
+                     (HMap {:tree (Value :Red)
                             :entry EntryT
                             :left bt
                             :right bt})
                      ;Black
-                     (Map* :mandatory
-                           {:tree (Value :Black)
+                     (HMap {:tree (Value :Black)
                             :entry EntryT
                             :left badRoot
                             :right rbt})))
@@ -100,23 +85,19 @@
 ;invariant possibly violated at the right child
 (def-alias badRight (U
                       ;Empty
-                      (Map* :mandatory
-                            {:tree (Value :Empty)})
+                      (HMap {:tree (Value :Empty)})
                       ;Black
-                      (Map* :mandatory
-                            {:tree (Value :Black)
+                      (HMap {:tree (Value :Black)
                              :entry EntryT
                              :left rbt
                              :right rbt})
                       ;Red
-                      (Map* :mandatory
-                            {:tree (Value :Red)
+                      (HMap {:tree (Value :Red)
                              :entry EntryT
                              :left bt
                              :right bt})
                       ;Black
-                      (Map* :mandatory
-                            {:tree (Value :Black)
+                      (HMap {:tree (Value :Black)
                              :entry EntryT
                              :left rbt
                              :right badRoot})))
