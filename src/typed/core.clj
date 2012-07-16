@@ -3,7 +3,7 @@
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
-                         Keyword Atom PersistentList IMeta))
+                         Keyword Atom PersistentList IMeta PersistentArrayMap))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [clojure.repl :refer [pst]]
@@ -18,10 +18,23 @@
 
 (def boolean? (some-fn true? false?))
 
+(defn array-map-c? [ks-c? vs-c?]
+  (every-pred #(instance? PersistentArrayMap %)
+              #(every? ks-c? (keys %))
+              #(every? vs-c? (vals %))))
+
 (defn hash-c? [ks-c? vs-c?]
   (every-pred map?
               #(every? ks-c? (keys %))
               #(every? vs-c? (vals %))))
+
+(defn set-c? [c?]
+  (every-pred set?
+              #(every? c? %)))
+
+(defn sequential-c? [c?]
+  (every-pred sequential?
+              #(every? c? %)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special functions
@@ -135,7 +148,7 @@
   "An flattened, unordered union of types"
   [(set? types)
    (every? Type? types)
-   #_(not (some Union? types))])
+   (not (some Union? types))])
 
 (declare-type Union)
 
@@ -329,22 +342,18 @@
 
 (declare-type RInstance)
 
-(defrecord Field [name type]
-  "A datatype/record field"
-  [(symbol? name)
-   (Type? type)])
-
 (defrecord Record [the-class fields]
   "A record"
   [(class? the-class)
-   (every? Field? fields)])
+   ((array-map-c? symbol? Type?) fields)])
 
 (declare-type Record)
 
-(defrecord DataType [the-class fields]
+(defrecord DataType [the-class fields ancestors]
   "A Clojure datatype"
-  [(class? the-class)
-   (every? Field? fields)])
+  [(symbol? the-class)
+   ((array-map-c? symbol? Type?) fields)
+   ((set-c? ancestors) ancestors)])
 
 (declare-type DataType)
 
@@ -659,6 +668,16 @@
                            (update-in [:poly?] #(when %
                                                   (map type-rec %)))
                            (update-in [:constructor] type-rec))))
+
+(add-default-fold-case DataType
+                       (fn [ty]
+                         (-> ty
+                           (update-in [:fields] (fn [fs]
+                                                  (apply array-map
+                                                         (apply concat
+                                                                (for [[k v] fs]
+                                                                  [k (type-rec v)])))))
+                           (update-in [:ancestors] #(set (map type-rec %))))))
 
 (add-default-fold-case Poly
                        (fn [ty]
@@ -1416,6 +1435,30 @@
     (do (add-var-type s# t#)
       [s# (unparse-type t#)]))))
 
+(declare parse-type)
+
+(defn parse-field [[n _ t]]
+  [n (parse-type t)])
+
+(defmacro ann-datatype [clssym fields & ancests]
+  `(tc-ignore
+  (let [c# '~clssym
+        fs# (apply array-map (apply concat (doall (map parse-field '~fields))))
+        as# (set (doall (map parse-type '~ancests)))
+        s# (if (some #(= \. %) (str c#))
+             c#
+             (symbol (str (-> *ns* ns-name) \. c#)))
+        local-name# (apply str (last (partition-by #(= \. %) (str c#))))
+        pos-ctor-name# (symbol (str (-> *ns* ns-name)) (str "->" local-name#))
+        dt# (->DataType s# fs# as#)
+        pos-ctor# (Fn-Intersection
+                    (make-Function (vals fs#) dt#))]
+    (do 
+      (add-datatype s# dt#)
+      (add-var-type pos-ctor-name# pos-ctor#)
+      [[s# (unparse-type dt#)]
+       [pos-ctor-name# (unparse-type pos-ctor#)]]))))
+
 (defmacro override-method [methodsym typesyn]
   `(tc-ignore
   (let [t# (parse-type '~typesyn)
@@ -1477,6 +1520,18 @@
 (defmacro with-dotted [dvar & body]
   `(binding [*dotted-scope* (conj *dotted-scope* [(:name ~dvar) ~dvar])]
      ~@body))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Datatype Env
+
+(defonce DATATYPE-ENV (atom {}))
+(set-validator! DATATYPE-ENV (hash-c? (every-pred symbol? 
+                                                  (fn [k] (some #(= \. %) (str k)))) 
+                                      Type?))
+
+(defn add-datatype [sym t]
+  (swap! DATATYPE-ENV assoc sym t)
+  nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Override Env
@@ -1721,8 +1776,10 @@
       (cond
         (qsym @TYPE-NAME-ENV) (->Name qsym)
         :else (let [res (resolve sym)]
+                (prn "resolved" res)
                 (cond 
-                  (class? res) (RInstance-of res)
+                  (class? res) (or (@DATATYPE-ENV (symbol (.getName res)))
+                                   (RInstance-of res))
                   :else (throw (Exception. (str "Cannot resolve type: " sym)))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
@@ -1809,6 +1866,13 @@
                  (concat ['-> (unparse-type t)]
                          [(unparse-filter-set fl)]
                          [(unparse-object o)])))))
+
+(defmethod unparse-type DataType
+  [{:keys [the-class fields ancestors]}]
+  (list* 'DataType the-class
+         (into {} (for [[k v] fields]
+                    [k (unparse-type v)]))
+         (doall (map unparse-type ancestors))))
 
 (defmethod unparse-type RClass
   [{the-class :the-class}]
@@ -3598,6 +3662,7 @@
 (defmulti constant-type class)
 
 (defmethod constant-type nil [_] -nil)
+(defmethod constant-type Class [v] (->Value v))
 (defmethod constant-type Symbol [v] (->Value v))
 (defmethod constant-type Long [v] (->Value v))
 (defmethod constant-type Double [v] (->Value v))
@@ -4559,7 +4624,7 @@
             ftype (expr-type cfexpr)
             argtys (map expr-type cargs)
             actual (check-funapp ftype argtys (when expected
-                                                (ret expected)))]
+                                                expected))]
         (assoc expr
                :fexpr cfexpr
                :args cargs
@@ -4874,9 +4939,21 @@
   [expr & [expected]]
   (check-invoke-static-method expr expected))
 
+(defn DataType-ctor-type [sym]
+  (let [dt (@DATATYPE-ENV sym)
+        _ (assert (DataType? dt))]
+    (Fn-Intersection 
+      (make-Function (-> dt :fields vals) dt))))
+
 (defmethod check :new
-  [{:keys [ctor args] :as expr} & [expected]]
-  (let [ifn (ret (Constructor->Function ctor))
+  [{cls :class :keys [ctor args] :as expr} & [expected]]
+  (prn "check: :new")
+  (prn "DATATYPE-ENV:" (@DATATYPE-ENV class))
+  (let [clssym (symbol (.getName cls))
+        ifn (ret (or (and (@DATATYPE-ENV clssym)
+                          (DataType-ctor-type clssym))
+                     (Constructor->Function ctor)))
+        _ (prn ifn)
         cargs (doall (map check args))
         res-type (check-funapp ifn (map expr-type cargs) nil)]
     (assoc expr
@@ -5278,6 +5355,19 @@
     (assoc expr
            expr-type (ret (RInstance-of Var)))))
 
+(defmethod check :deftype*
+  [{:keys [name methods mmap covariants] :as expr} & [expected]]
+  (assert name) ;remove once analyze is released
+  (let [dt (@DATATYPE-ENV name)
+        _ (assert dt (str "Untyped datatype definition: " name))]
+    (assoc expr
+           expr-type (ret (RInstance-of Class)))))
+
+(defmethod check :import*
+  [{:keys [class-str] :as expr} & [expected]]
+  (assoc expr
+         expr-type (ret -nil)))
+
 (defmacro cf 
   ([form]
   `(-> (ast ~form) check expr-type unparse-TCResult))
@@ -5295,4 +5385,5 @@
 (check-ns 'typed.test.rbt)
 (check-ns 'typed.test.macro)
 (check-ns 'typed.test.conduit)
+(check-ns 'typed.test.deftype)
   )

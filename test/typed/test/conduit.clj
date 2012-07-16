@@ -8,22 +8,21 @@
 (def-alias ConduitMeta
   (U
     (HMap {:created-by (Value :disperse)
-          :args Args
-          :parts Parts})
+           :args Args
+           :parts Parts})
     (HMap {:created-by (Value :a-arr)
-          :args Args})
+           :args Args})
     (HMap {:created-by (Value :a-comp)
-          :args Args
-          :parts Parts})
+           :args Args
+           :parts Parts})
     (HMap {:created-by (Value :a-nth)
-          :args Args
-          :parts Parts})))
-
+           :args Args
+           :parts Parts})))
 
 (ann merge-parts [(IMeta (U (HMap {:parts Any}) nil))
                   -> (IPersistentMap Any Any)])
 (defn merge-parts [ps]
   (apply merge-with merge
          (map (fn> [[a :- (IMeta (U (HMap {:parts Any}) nil))]]
-                   (-> a meta :parts))
+                (-> a meta :parts))
               ps)))
