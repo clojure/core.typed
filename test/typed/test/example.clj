@@ -15,9 +15,7 @@
 (defn test2 [a]
   ((inst map (U true false) Any) number? a))
 
-(ann use-map [(Map* :mandatory
-                    {:a Number})
-              -> Number])
+(ann use-map [(HMap {:a Number}) -> Number])
 (defn use-map [a]
   (get a :a))
 

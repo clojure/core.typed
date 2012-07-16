@@ -1,5 +1,6 @@
 (ns typed.test.mm
-  (:require [typed.core :as [ann]]))
+  (:import (clojure.lang IPersistentMap))
+  (:require [typed.core :refer [ann]]))
 
 (ann MapToString [(IPersistentMap Any Any) -> String])
 

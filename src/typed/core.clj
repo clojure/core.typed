@@ -1522,6 +1522,7 @@
 (defonce RESTRICTED-CLASS (atom {}))
 
 (defn poly-RClass-from [class]
+  {:pre [(class? class)]}
   (let [rclass (@RESTRICTED-CLASS class)]
     (assert rclass (str class " not declared as polymorphic"))
     rclass))
@@ -1675,6 +1676,7 @@
 
 (defn parse-rinstance-type [[cls-sym & params-syn]]
   (let [cls (resolve cls-sym)
+        _ (assert (class? cls) (str cls-sym " cannot be resolved"))
         tparams (doall (map parse-type params-syn))]
     (RInstance-of cls tparams)))
 
