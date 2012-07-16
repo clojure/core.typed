@@ -18,6 +18,10 @@
 
 (def boolean? (some-fn true? false?))
 
+(defn hvector-c? [& ps]
+  (apply every-pred vector?
+         (map (fn [p i] #(p (nth % i false))) ps (range))))
+
 (defn array-map-c? [ks-c? vs-c?]
   (every-pred #(instance? PersistentArrayMap %)
               #(every? ks-c? (keys %))
@@ -356,6 +360,14 @@
    ((set-c? ancestors) ancestors)])
 
 (declare-type DataType)
+
+(defrecord Protocol [the-var on-class methods]
+  "A Clojure Protocol"
+  [(symbol? the-var)
+   (symbol? on-class)
+   ((hash-c? (every-pred symbol? (complement namespace)) Type?) methods)])
+
+(declare-type Protocol)
 
 (defrecord Poly [nbound scope]
   "A polymorphic type containing n bound variables"
@@ -1440,7 +1452,8 @@
 (defn parse-field [[n _ t]]
   [n (parse-type t)])
 
-(defmacro ann-datatype [clssym fields & ancests]
+(defmacro ann-datatype [clssym fields & {ancests :ancestors rplc :replace}]
+  (do (assert (not rplc) "Replace todo")
   `(tc-ignore
   (let [c# '~clssym
         fs# (apply array-map (apply concat (doall (map parse-field '~fields))))
@@ -1457,7 +1470,30 @@
       (add-datatype s# dt#)
       (add-var-type pos-ctor-name# pos-ctor#)
       [[s# (unparse-type dt#)]
-       [pos-ctor-name# (unparse-type pos-ctor#)]]))))
+       [pos-ctor-name# (unparse-type pos-ctor#)]])))))
+
+(defmacro ann-protocol [varsym & {mths :methods}]
+  `(tc-ignore
+  (let [vsym# '~varsym
+        s# (if (namespace vsym#)
+             vsym#
+             (symbol (-> *ns* ns-name str) (str vsym#)))
+        on-class# (symbol (str (namespace s#) \. (name s#)))
+        ; add a Name so the methods can be parsed
+        _# (add-type-name s# protocol-name-type)
+        ms# (into {} (for [[knq# v#] '~mths]
+                       (do
+                         (assert (not (namespace knq#))
+                                 "Protocol method should be unqualified")
+                         [knq# (parse-type v#)])))
+        t# (->Protocol s# on-class# ms#)]
+    (do
+      (doseq [[kuq# mt#] ms#]
+        ;qualify method names when adding methods as vars
+        (let [kq# (symbol (-> *ns* ns-name str) (str kuq#))]
+          (add-var-type kq# mt#)))
+      (add-protocol s# t#)
+      [s# t#]))))
 
 (defmacro override-method [methodsym typesyn]
   `(tc-ignore
@@ -1534,6 +1570,16 @@
   nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Protocol Env
+
+(defonce PROTOCOL-ENV (atom {}))
+(set-validator! PROTOCOL-ENV (hash-c? (every-pred symbol? namespace) Type?))
+
+(defn add-protocol [sym t]
+  (swap! PROTOCOL-ENV assoc sym t)
+  nil)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Override Env
 
 (defonce METHOD-OVERRIDE-ENV (atom {}))
@@ -1548,10 +1594,13 @@
 ;; Type Name Env
 
 (def declared-name-type ::declared-name)
+(def protocol-name-type ::protocol-name)
 
 (defonce TYPE-NAME-ENV (atom {}))
 (set-validator! TYPE-NAME-ENV #(and (every? (every-pred namespace symbol?) (keys %))
-                                    (every? (some-fn Type? (fn [a] (= a declared-name-type))) (vals %))))
+                                    (every? (some-fn Type? 
+                                                     (fn [a] (= a declared-name-type))
+                                                     (fn [a] (= a protocol-name-type))) (vals %))))
 
 (defn add-type-name [sym ty]
   {:pre [(namespace sym)]}
@@ -1566,6 +1615,7 @@
 (defn- resolve-name* [sym]
   (let [t (@TYPE-NAME-ENV sym)]
     (cond
+      (= protocol-name-type t) (@PROTOCOL-ENV sym)
       (= declared-name-type t) (throw (Exception. (str "Reference to declared but undefined name " sym)))
       (Type? t) t
       :else (throw (Exception. (str "Cannot resolve name " sym))))))
@@ -1774,7 +1824,8 @@
                  sym
                  (symbol (-> *ns* ns-name name) (name sym)))]
       (cond
-        (qsym @TYPE-NAME-ENV) (->Name qsym)
+        (@TYPE-NAME-ENV qsym) (->Name qsym)
+        (@PROTOCOL-ENV qsym) (@PROTOCOL-ENV qsym)
         :else (let [res (resolve sym)]
                 (prn "resolved" res)
                 (cond 
@@ -4917,7 +4968,7 @@
   (symbol (name declaring-class) (name name-sym)))
 
 (defn check-invoke-static-method [{:keys [args tag method] :as expr} expected]
-  {:pre [((some-fn nil? Type?) expected)]
+  {:pre [((some-fn nil? TCResult?) expected)]
    :post [(-> % expr-type TCResult?)]}
   #_(prn "invoke static-method: " (Method->symbol method))
   (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
@@ -4937,6 +4988,7 @@
 
 (defmethod check :instance-method
   [expr & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
   (check-invoke-static-method expr expected))
 
 (defn DataType-ctor-type [sym]
@@ -5355,13 +5407,58 @@
     (assoc expr
            expr-type (ret (RInstance-of Var)))))
 
+(declare check-new-instance-method)
+
 (defmethod check :deftype*
-  [{:keys [name methods mmap covariants] :as expr} & [expected]]
-  (assert name) ;remove once analyze is released
-  (let [dt (@DATATYPE-ENV name)
-        _ (assert dt (str "Untyped datatype definition: " name))]
+  [{nme :name :keys [methods] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (assert nme) ;remove once analyze is released
+  ;TODO check fields match
+  (let [cmmap (into {} (for [[k v] (:mmap expr)]
+                         [(symbol (first k)) (@#'clojure.reflect/method->map v)]))
+        _ (assert ((hash-c? (every-pred symbol? (complement namespace))
+                            #(instance? clojure.reflect.Method %))
+                     cmmap))
+        dt (@DATATYPE-ENV nme)
+        _ (assert dt (str "Untyped datatype definition: " nme))
+        _ (doseq [inst-method methods]
+            (let [nme (:name inst-method)
+                  _ (assert (symbol? nme)) ;can remove once new analyze is released
+                  method-sig (cmmap nme)
+                  _ (assert (instance? clojure.reflect.Method method-sig))
+                  _ (prn "method-sig" method-sig)
+                  expected-ifn (or (let [ptype (first
+                                                 (filter #(= (:on-class %) (:declaring-class method-sig))
+                                                         (vals @PROTOCOL-ENV)))]
+                                     (prn "ptype" ptype)
+                                     (when ptype
+                                       (let [munged-methods (into {} (for [[k v] (:methods ptype)]
+                                                                       [(symbol (munge k)) v]))]
+                                         (munged-methods (:name method-sig)))))
+                                   (method->Function method-sig))
+                  _ (prn "expected-ifn: " (unparse-type expected-ifn))]
+              (with-locals (:fields dt)
+                (check-new-instance-method
+                  inst-method 
+                  expected-ifn))))]
     (assoc expr
-           expr-type (ret (RInstance-of Class)))))
+           expr-type (ret (let [res (resolve nme)]
+                            (assert (class? res))
+                            (-val res))))))
+
+(defn check-new-instance-method
+  [{:keys [body required-params] :as expr} expected-fin]
+  {:pre [(Fn-Intersection? expected-fin)]}
+  (let [_ (assert (= 1 (count (:types expected-fin))))
+        {:keys [dom rng] :as expected-fn} (-> expected-fin :types first)
+        _ (assert (not (:rest expected-fn)))
+        cbody (with-locals (zipmap (map :sym required-params) dom)
+                (print-env)
+                (check body (ret (:t rng)
+                                 (:fl rng)
+                                 (:o rng))))]
+    (assoc expr
+           expr-type (expr-type cbody))))
 
 (defmethod check :import*
   [{:keys [class-str] :as expr} & [expected]]

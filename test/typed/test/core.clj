@@ -7,7 +7,10 @@
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [typed.core :refer :all]
-            [typed.test.rbt]))
+            [typed.test.rbt]
+            [typed.test.deftype]))
+
+(check-ns 'typed.test.deftype)
 
 (deftest add-scopes-test
   (is (let [body (make-F 'a)]
