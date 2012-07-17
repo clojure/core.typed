@@ -71,6 +71,10 @@
   (is (subtype? (parse-type '(clojure.lang.Cons Integer))
                 (parse-type '(clojure.lang.Seqable Number)))))
 
+(deftest subtype-java-exceptions-test
+  (is (subtype? (RInstance-of IndexOutOfBoundsException)
+                (RInstance-of Exception))))
+
 (deftest subtype-intersection
   (is (not (subtype? (RInstance-of Seqable [-any])
                      (In (RInstance-of Seqable [-any])

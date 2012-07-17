@@ -1870,7 +1870,6 @@
         (@TYPE-NAME-ENV clssym) (->Name clssym)
         (@PROTOCOL-ENV qsym) (resolve-protocol qsym)
         :else (let [res (resolve sym)]
-                (prn "resolved" res)
                 (cond 
                   (class? res) (or (@DATATYPE-ENV (symbol (.getName res)))
                                    (RInstance-of res))
@@ -3336,18 +3335,46 @@
                                  polyl?
                                  polyr?)))))))
 
+; Class -> Class
+(def primitive-coersions
+  {Integer/TYPE #{Short Integer Long}})
+
+(defn coerse-RInstance-primitive
+  [{constl :constructor :as s}
+   {constr :constructor :as t}]
+  (cond
+    (.isPrimitive (:the-class constl))
+    ((primitive-coersions (:the-class constl)) (:the-class constr))
+
+    (.isPrimitive (:the-class constr))
+    ((primitive-coersions (:the-class constr)) (:the-class constl))))
+
 (defmethod subtype* [RInstance RInstance]
   [{polyl? :poly? constl :constructor :as s}
    {polyr? :poly? constr :constructor :as t}]
   (cond
-    (or ;same base class
-        (and (= constl constr)
-             (subtype-rinstance-common-base s t))
+    (or
+      ; use java subclassing
+      (and (empty? polyl?)
+           (empty? polyr?)
+           (empty? (:replacements constl))
+           (empty? (:replacements constr))
+           (isa? (:the-class constl)
+                 (:the-class constr)))
 
-        ;find a supertype of s that is the same base as t, and subtype of it
-        (some #(and (= constr (:constructor %))
-                    (subtype-rinstance-common-base % t))
-              (RInstance-supers* s))) ;FIXME should conj with Object as a special case to add as parent? Is it needed?
+      ;same base class
+      (and (= constl constr)
+           (subtype-rinstance-common-base s t))
+
+      ;one is a primitive, coerse
+      (and (or (.isPrimitive (:the-class constl))
+               (.isPrimitive (:the-class constr)))
+           (coerse-RInstance-primitive s t))
+
+      ;find a supertype of s that is the same base as t, and subtype of it
+      (some #(and (= constr (:constructor %))
+                  (subtype-rinstance-common-base % t))
+            (RInstance-supers* s)))
     *sub-current-seen*
 
     ;try each ancestor
@@ -3583,6 +3610,8 @@
 
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
 
+(ann clojure.core/str [Any * -> String])
+
 ;(ann clojure.core/swap! (All [x b ...] 
 ;                             [(Atom x) [x b ... b -> x] b ... b -> x]))
 
@@ -3760,6 +3789,7 @@
 (defmethod constant-type Symbol [v] (->Value v))
 (defmethod constant-type Long [v] (->Value v))
 (defmethod constant-type Double [v] (->Value v))
+(defmethod constant-type Integer [v] (->Value v))
 (defmethod constant-type java.math.BigDecimal [v] (->Value v))
 (defmethod constant-type clojure.lang.BigInt [v] (->Value v))
 (defmethod constant-type String [v] (->Value v))
@@ -4970,23 +5000,30 @@
                             (->Path nil sym))))))
 
 ;Symbol -> Class
-(def prim-coersion
-  {'long Long
-   'int Integer
-   'boolean Boolean
-   'void Void})
+(def primitives
+  {'long Long/TYPE
+   'int Integer/TYPE
+   'boolean Boolean/TYPE
+   'void Void/TYPE})
 
 (defn Method-symbol->Type [sym]
   {:pre [(symbol? sym)]
    :post [(Type? %)]}
-  (if-let [cls (or (prim-coersion sym)
+  (if-let [cls (or (primitives sym)
                    (resolve sym))]
-    (apply Un (if (= Void cls)
+    (apply Un (if (= Void/TYPE cls) ;Clojure never interacts with Void
                 -nil
-                (RInstance-of cls)) 
-           (when (not (prim-coersion sym))
-             [-nil])) ;union with nil if not a primitive
+                (RInstance-of cls))
+           (when-not (primitives sym)
+             [-nil])) ;could be nil/null if cls is a reference type
     (throw (Exception. (str "Method symbol " sym " does not resolve to a type")))))
+
+(defn- instance-method->Function [{:keys [parameter-types declaring-class return-type] :as method}]
+  {:pre [(instance? clojure.reflect.Method method)]
+   :post [(Fn-Intersection? %)]}
+  (Fn-Intersection (make-Function (concat [(RInstance-of (resolve declaring-class))]
+                                          (doall (map Method-symbol->Type parameter-types)))
+                                  (Method-symbol->Type return-type))))
 
 (defn- method->Function [{:keys [parameter-types return-type] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
@@ -5058,9 +5095,8 @@
   [{:keys [exception] :as expr} & [expected]]
   (let [cexception (check exception)
         _ (assert (subtype? (ret-t (expr-type cexception))
-                            (Un (RInstance-of Error)
-                                (RInstance-of Exception)))
-                  (str "Can only throw Exception or Error, found "
+                            (RInstance-of Throwable))
+                  (str "Can only throw Throwable, found "
                        (unparse-type (ret-t (expr-type cexception)))))]
     (assoc expr
            expr-type (ret (Un)))))
@@ -5479,7 +5515,7 @@
                                        (let [munged-methods (into {} (for [[k v] (:methods ptype)]
                                                                        [(symbol (munge k)) v]))]
                                          (munged-methods (:name method-sig)))))
-                                   (method->Function method-sig))
+                                   (instance-method->Function method-sig))
                   _ (prn "expected-ifn: " (unparse-type expected-ifn))]
               (with-locals (:fields dt)
                 (check-new-instance-method
@@ -5508,6 +5544,33 @@
   [{:keys [class-str] :as expr} & [expected]]
   (assoc expr
          expr-type (ret -nil)))
+
+(defmethod check :case*
+  [{:keys [] :as expr} & [expected]]
+  ; tests have no duplicates
+  (let [cthe-expr (check (:the-expr expr))
+        etype (expr-type cthe-expr)
+        ctests (doall (map check (:tests expr)))
+        cdefault (check (:default expr))
+        cthens-and-envs (for [[tst-ret thn] (map vector (map expr-type ctests) (:thens expr))]
+                          (let [{{fs+ :then} :fl :as rslt} (tc-equiv := etype tst-ret)
+                                flag+ (atom true)
+                                env-thn (env+ *lexical-env* [fs+] flag+)
+                                then-ret (with-lexical-env env-thn
+                                           (check thn))]
+                            [(assoc thn
+                                    expr-type (expr-type then-ret))
+                             env-thn]))
+        ;TODO consider tests that failed to refine env
+        cdefault (check (:default expr))
+        case-result (let [type (apply Un (map (comp :t expr-type) (cons cdefault (map first cthens-and-envs))))
+                          ; TODO
+                          filter (-FS -top -top)
+                          ; TODO
+                          object -empty]
+                      (ret type filter object))]
+    (assoc expr
+           expr-type case-result)))
 
 (defmacro cf 
   ([form]

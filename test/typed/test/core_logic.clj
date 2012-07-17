@@ -23,7 +23,6 @@
               {unify-terms [IUnifyTerms IUnifyTerms ISubstitution -> (U ISubstitution Fail)]})
 
 (tc-ignore
-
 (defprotocol IUnifyTerms
   (unify-terms [u v s]))
 
@@ -68,7 +67,6 @@
 
 (defprotocol ITake
   (take* [a]))
-
 )
 
 ;; =============================================================================
