@@ -88,10 +88,18 @@
 (defmacro declare-datatypes [& syms]
   `(tc-ignore
   (doseq [sym# '~syms]
-     (let [qsym# (if (namespace sym#)
+     (let [qsym# (if (some #(= \. %) (str sym#))
                    sym#
                    (symbol (str (munge (name (ns-name *ns*))) \. (name sym#))))]
        (declare-datatype* qsym#)))))
+
+(defmacro declare-protocols [& syms]
+  `(tc-ignore
+  (doseq [sym# '~syms]
+     (let [qsym# (if (namespace sym#)
+                   sym#
+                   (symbol (str (name (ns-name *ns*))) (name sym#)))]
+       (declare-protocol* qsym#)))))
 
 (defmacro declare-names [& syms]
   `(tc-ignore
