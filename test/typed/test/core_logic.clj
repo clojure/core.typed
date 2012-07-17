@@ -65,7 +65,7 @@
 
 (ann-protocol IBuildTerm
               :methods
-              {build-term [IBuildTerm ISubstitution -> Any]})
+              {build-term [Term ISubstitution -> Any]})
 
 (tc-ignore
 (defprotocol IUnifyTerms
