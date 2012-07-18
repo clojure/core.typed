@@ -1,3 +1,5 @@
+(set! *warn-on-reflection* true)
+
 (ns typed.core
   (:refer-clojure :exclude [defrecord type])
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
@@ -1879,7 +1881,7 @@
         (@PROTOCOL-ENV qsym) (resolve-protocol qsym)
         :else (let [res (resolve sym)]
                 (cond 
-                  (class? res) (or (@DATATYPE-ENV (symbol (.getName res)))
+                  (class? res) (or (@DATATYPE-ENV (symbol (.getName ^Class res)))
                                    (RInstance-of res))
                   :else (throw (Exception. (str "Cannot resolve type: " sym)))))))))
 
@@ -1977,7 +1979,7 @@
 
 (defmethod unparse-type RClass
   [{the-class :the-class}]
-  (symbol (.getName the-class)))
+  (symbol (.getName ^Class the-class)))
 
 (defmethod unparse-type RInstance
   [{poly? :poly? constructor :constructor}]
@@ -3351,10 +3353,10 @@
   [{constl :constructor :as s}
    {constr :constructor :as t}]
   (cond
-    (.isPrimitive (:the-class constl))
+    (.isPrimitive ^Class (:the-class constl))
     ((primitive-coersions (:the-class constl)) (:the-class constr))
 
-    (.isPrimitive (:the-class constr))
+    (.isPrimitive ^Class (:the-class constr))
     ((primitive-coersions (:the-class constr)) (:the-class constl))))
 
 (defmethod subtype* [RInstance RInstance]
@@ -3375,8 +3377,8 @@
            (subtype-rinstance-common-base s t))
 
       ;one is a primitive, coerse
-      (and (or (.isPrimitive (:the-class constl))
-               (.isPrimitive (:the-class constr)))
+      (and (or (.isPrimitive ^Class (:the-class constl))
+               (.isPrimitive ^Class (:the-class constr)))
            (coerse-RInstance-primitive s t))
 
       ;find a supertype of s that is the same base as t, and subtype of it
@@ -3619,6 +3621,7 @@
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
 
 (ann clojure.core/str [Any * -> String])
+(ann clojure.core/prn-str [Any * -> String])
 
 ;(ann clojure.core/swap! (All [x b ...] 
 ;                             [(Atom x) [x b ... b -> x] b ... b -> x]))
@@ -5089,7 +5092,7 @@
   [{cls :class :keys [ctor args] :as expr} & [expected]]
   (prn "check: :new")
   (prn "DATATYPE-ENV:" (@DATATYPE-ENV class))
-  (let [clssym (symbol (.getName cls))
+  (let [clssym (symbol (.getName ^Class cls))
         ifn (ret (or (and (@DATATYPE-ENV clssym)
                           (DataType-ctor-type clssym))
                      (Constructor->Function ctor)))
@@ -5483,7 +5486,7 @@
   [{:keys [var init init-provided] :as expr} & [expected]]
   (assert (not expected) expected)
   (prn "Checking" var)
-  (if (not (.isMacro var))
+  (if (not (.isMacro ^Var var))
     (let [cexpr (cond 
                   (not init-provided) expr ;handle (declare ..)
                   :else (check init (ret (type-of (var->symbol var))
@@ -5588,9 +5591,10 @@
 
 (defn check-ns [nsym]
   (require nsym)
-  (let [[_ns-decl_ & asts] (analyze/analyze-path nsym)]
-    (doseq [ast asts]
-      (check ast))))
+  (with-open [pbr (analyze/pb-reader-for-ns nsym)]
+    (let [[_ns-decl_ & asts] (analyze/analyze-ns pbr nsym)]
+      (doseq [ast asts]
+        (check ast)))))
 
 (comment 
 (check-ns 'typed.test.example)

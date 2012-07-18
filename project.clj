@@ -1,6 +1,6 @@
 (defproject typed "0.1-alpha3-SNAPSHOT"
   :description "Optional static type system"
-  :dependencies [[org.clojure/clojure "1.4.0"]
+  :dependencies [[org.clojure/clojure "1.5.0-analyzenoreflect-SNAPSHOT"]
                  [analyze "0.1.7-SNAPSHOT"]
                  [trammel "0.7.0"]
                  [org.clojure/math.combinatorics "0.0.2"]]

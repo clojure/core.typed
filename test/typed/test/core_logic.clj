@@ -4,20 +4,23 @@
   (:require [clojure.set :as set])
   (:import [java.io Writer]
            [clojure.lang IPersistentSet Symbol IPersistentMap Seqable
-            IPersistentVector])
+            IPersistentVector IPersistentList])
   (:require [typed.core :refer [ann-protocol ann tc-ignore declare-datatypes def-alias
                                 declare-protocols ann-datatype]]))
 
 (ann *occurs-check* (U true false))
+(ann *reify-vars* (U true false))
 (ann *locals* (IPersistentSet Symbol))
 
 (def ^{:dynamic true} *occurs-check* true)
+(def ^{:dynamic true} *reify-vars* true)
 (def ^{:dynamic true} *locals*)
+
 
 (def-alias Fail false)
 
-(declare-datatypes ISubstitution)
-(declare-protocols IUnifyTerms 
+(declare-protocols ISubstitutions
+                   IUnifyTerms 
                    IUnifyWithNil
                    IUnifyWithObject
                    IUnifyWithLVar
@@ -27,10 +30,7 @@
                    IReifyTerm
                    IWalkTerm
                    IOccursCheckTerm
-                   IBuildTerm
-                   IBind
-                   IMPlus
-                   ITake)
+                   IBuildTerm)
 
 (def-alias Term (I IUnifyTerms 
                    IUnifyWithNil
@@ -42,18 +42,15 @@
                    IReifyTerm
                    IWalkTerm
                    IOccursCheckTerm
-                   IBuildTerm
-                   IBind
-                   IMPlus
-                   ITake))
+                   IBuildTerm))
 
 (ann-protocol IUnifyTerms
               :methods
-              {unify-terms [Term Term ISubstitution -> (U ISubstitution Fail)]})
+              {unify-terms [Term Term ISubstitutions -> (U ISubstitutions Fail)]})
 
 (ann-protocol IBind
               :methods
-              {bind [Term [ISubstitution -> Any] -> Any]})
+              {bind [Term [ISubstitutions -> Any] -> Any]})
 
 (ann-protocol IMPlus
               :methods
@@ -65,7 +62,7 @@
 
 (ann-protocol IBuildTerm
               :methods
-              {build-term [Term ISubstitution -> Any]})
+              {build-term [Term ISubstitutions -> Any]})
 
 (tc-ignore
 (defprotocol IUnifyTerms
@@ -114,6 +111,29 @@
   (take* [a]))
 )
 
+(ann-datatype Unbound [])
+(deftype Unbound [])
+
+(ann unbound Unbound)
+(def ^Unbound unbound (Unbound.))
+
+(ann-protocol ILVar
+              :methods
+              {constraints [ILVar -> Any]
+               add-constraint [ILVar Any -> Any]
+               add-constraints [ILVar Any -> Any]
+               remove-constraint [ILVar Any -> Any]
+               remove-constraints [ILVar -> Any]})
+
+(tc-ignore
+(defprotocol ILVar
+  (constraints [this])
+  (add-constraint [this c])
+  (add-constraints [this ds])
+  (remove-constraint [this c])
+  (remove-constraints [this]))
+)
+
 ;; =============================================================================
 ;; Pair
 
@@ -130,7 +150,6 @@
 
 (ann-datatype Pair [[lhs :- Term]
                     [rhs :- Term]])
-
 (deftype Pair [lhs rhs]
   clojure.lang.Counted
   (count [_] 2)
@@ -181,10 +200,14 @@
   (occurs-check [this u v])
   (ext [this u v])
   (ext-no-check [this u v])
+  (swap [this cu])
+  (constrain [this u c])
+  (get-var [this v])
+  (use-verify [this f])
   (walk [this v])
+  (walk-var [this v])
   (walk* [this v])
   (unify [this u v])
-  (update [this x v])
   (reify-lvar-name [_])
   (-reify* [this v])
   (-reify [this v])
@@ -197,20 +220,21 @@
 (declare lvar?)
 (declare pair)
 (declare lcons)
-(declare run-constraints)
 
-(ann-datatype Substitutions [[s :- (IPersistentMap Term Term)]
-                             [l :- (Seqable Any)]
-                             [c :- (IPersistentVector Any)]]
-              :ancestors
-              #{ISubstitutions IBind IMPlus ITake})
-
-(deftype Substitutions [s l c]
+(ann-datatype Substitutions [[s :- (IPersistentMap ILVar Term)]
+                             ;[l :- (IPersistentList (Pair LVar Term))]])
+                             [l :- (IPersistentList Pair)]
+                             [verify :- [ISubstitutions Term Term -> ISubstitutions]]
+                             [cs :- Any]] ;TODO constraint store
+              )
+(deftype Substitutions [s l verify cs]
   Object
   (equals [this o]
     (or (identical? this o)
         (and (.. this getClass (isInstance o))
              (= s ^clojure.lang.PersistentHashMap (.s ^Substitutions o)))))
+  (toString [_]
+    (prn-str [s l verify cs]))
 
   ISubstitutions
   (length [this] (count s))
@@ -225,15 +249,38 @@
       (ext-no-check this u v)))
 
   (ext-no-check [this u v]
-    (Substitutions. (assoc s u v)
-                    (cons (pair u v) l)
-                    c))
+    (verify this u v))
 
+  (swap [this cu]
+    (if (contains? s cu)
+      (let [v (s cu)]
+        (Substitutions. (-> s (dissoc cu) (assoc cu v)) l verify cs))
+      (Substitutions. (assoc s cu unbound) l verify cs)))
+
+  (constrain [this u c]
+    (let [u (walk this u)]
+      (swap this (add-constraint u c))))
+
+  (get-var [this v]
+    (first (find s v)))
+
+  (use-verify [this f]
+    (Substitutions. s l f cs))
+  
   (walk [this v]
     (loop [lv v [v vp] (find s v)]
       (cond
        (nil? v) lv
+       (identical? vp unbound) v
        (not (lvar? vp)) vp
+       :else (recur vp (find s vp)))))
+  
+  (walk-var [this v]
+    (loop [lv v [v vp] (find s v)]
+      (cond
+       (nil? v) lv
+       (identical? vp unbound) v
+       (not (lvar? vp)) v
        :else (recur vp (find s vp)))))
   
   (walk* [this v]
@@ -248,11 +295,6 @@
         (if (identical? u v)
           this
           (unify-terms u v this)))))
-
-  (update [this x v]
-    (let [sp (ext this x v)]
-      ((run-constraints (if (var? v) #{x v} #{x}))
-       (Substitutions. sp l c))))
 
   (reify-lvar-name [this]
     (symbol (str "_." (count s))))
@@ -277,28 +319,27 @@
   ITake
   (take* [this] this))
 
+(defn- ^Substitutions pass-verify [^Substitutions s u v]
+  (Substitutions. (assoc (.s s) u v)
+                  (cons (pair u v) (.l s))
+                  (.verify s)
+                  (.cs s)))
+
 (ann make-s (Fn [-> Substitutions]
                 [(IPersistentMap Term Term) -> Substitutions]
                 [(IPersistentMap Term Term) (Seqable Any) -> Substitutions]
                 [(IPersistentMap Term Term) (Seqable Any) (IPersistentVector Any) -> Substitutions]))
 (defn- ^Substitutions make-s
-  ([] (Substitutions. {} () []))
-  ([m] (Substitutions. m () []))
-  ([m l] (Substitutions. m l []))
-  ([m l c] (Substitutions. m l c)))
+  ([m l] (Substitutions. m l pass-verify nil))
+  ([m l f] (Substitutions. m l f nil))
+  ([m l f cs] (Substitutions. m l f cs)))
 
-(ann empty-s Substitutions)
-(def ^Substitutions empty-s (make-s))
+(def ^Substitutions empty-s (make-s {} '()))
 
-(ann empty-f [-> nil])
-(def empty-f (fn []))
-
-;TODO filters
-(ann subst? [Any -> (U true false)])
 (defn- subst? [x]
   (instance? Substitutions x))
 
 (defn ^Substitutions to-s [v]
   (let [s (reduce (fn [m [k v]] (assoc m k v)) {} v)
         l (reduce (fn [l [k v]] (cons (Pair. k v) l)) '() v)]
-    (make-s s l [])))
+    (make-s s l)))
