@@ -1888,6 +1888,7 @@
         (@TYPE-NAME-ENV clssym) (->Name clssym)
         (@PROTOCOL-ENV qsym) (resolve-protocol qsym)
         :else (let [res (resolve sym)]
+                (prn "res" sym "->" res)
                 (cond 
                   (class? res) (or (@DATATYPE-ENV (symbol (.getName ^Class res)))
                                    (RInstance-of res))

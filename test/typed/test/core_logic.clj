@@ -57,6 +57,8 @@
               :methods
               {unify-with-object [Term Object ISubstitutions -> (U ISubstitutions Fail)]})
 
+(declare-protocols LVar)
+
 (ann-protocol IUnifyWithLVar
               :methods
               {unify-with-lvar [Term LVar ISubstitutions -> (U ISubstitutions Fail)]})
@@ -257,12 +259,7 @@
   (build [this u]))
 )
 
-(ann-datatype Substitutions [[s :- (IPersistentMap ILVar Term)]
-                             ;[l :- (IPersistentList (Pair LVar Term))]])
-                             [l :- (IPersistentList Pair)]
-                             [verify :- [ISubstitutions Term Term -> ISubstitutions]]
-                             [cs :- Any]] ;TODO constraint store
-              :extends #{ISubstitutions IBind IMPlus ITake})
+(declare-datatypes Substitutions)
 
 (ann empty-s Substitutions)
 (declare empty-s)
@@ -286,6 +283,13 @@
 
 (declare pair)
 (declare lcons)
+
+(ann-datatype Substitutions [[s :- (IPersistentMap ILVar Term)]
+                             ;[l :- (IPersistentList (Pair LVar Term))]])
+                             [l :- (IPersistentList Pair)]
+                             [verify :- [ISubstitutions Term Term -> ISubstitutions]]
+                             [cs :- Any]] ;TODO constraint store
+              :extends #{ISubstitutions IBind IMPlus ITake})
 
 (deftype Substitutions [s l verify cs]
   Object
@@ -328,7 +332,8 @@
     (Substitutions. s l f cs))
   
   (walk [this v]
-    (loop [lv v [v vp] (find s v)]
+    (loop [lv v 
+           [v vp] (find s v)]
       (cond
        (nil? v) lv
        (identical? vp unbound) v
@@ -336,7 +341,8 @@
        :else (recur vp (find s vp)))))
   
   (walk-var [this v]
-    (loop [lv v [v vp] (find s v)]
+    (loop [lv v 
+           [v vp] (find s v)]
       (cond
        (nil? v) lv
        (identical? vp unbound) v
