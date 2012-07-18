@@ -3,7 +3,7 @@
   (:use [clojure.walk :only [postwalk]])
   (:import [java.io Writer]
            [clojure.lang IPersistentSet Symbol IPersistentMap Seqable
-            IPersistentVector IPersistentList])
+            IPersistentVector IPersistentList Sequential])
   (:require [clojure.set :as set]
             [typed.core :refer [ann-protocol ann tc-ignore def-alias
                                 declare-protocols declare-datatypes
@@ -49,6 +49,52 @@
               :methods
               {unify-terms [Term Term ISubstitutions -> (U ISubstitutions Fail)]})
 
+(ann-protocol IUnifyWithNil
+              :methods
+              {unify-with-nil [Term nil ISubstitutions -> (U ISubstitutions Fail)]})
+
+(ann-protocol IUnifyWithObject
+              :methods
+              {unify-with-object [Term Object ISubstitutions -> (U ISubstitutions Fail)]})
+
+(ann-protocol IUnifyWithLVar
+              :methods
+              {unify-with-lvar [Term LVar ISubstitutions -> (U ISubstitutions Fail)]})
+
+(declare-protocols LConsSeq)
+
+(ann-protocol IUnifyWithLSeq
+              :methods
+              {unify-with-lseq [Term LConsSeq ISubstitutions -> (U ISubstitutions Fail)]})
+
+(ann-protocol IUnifyWithSequential
+              :methods
+              {unify-with-seq [Term Sequential ISubstitutions -> (U ISubstitutions Fail)]})
+
+(ann-protocol IUnifyWithMap
+              :methods
+              {unify-with-map [Term IPersistentMap ISubstitutions -> (U ISubstitutions Fail)]})
+
+(ann-protocol IUnifyWithSet
+              :methods
+              {unify-with-Set [Term IPersistentSet ISubstitutions -> (U ISubstitutions Fail)]})
+
+(ann-protocol IReifyTerm
+              :methods
+              {reify-term [Term ISubstitutions -> ISubstitutions]})
+
+(ann-protocol IWalkTerm
+              :methods
+              {walk-term [Term ISubstitutions -> Term]}) ;TODO ?
+
+(ann-protocol IOccursCheckTerm
+              :methods
+              {occurs-check-term [Term Term Term -> ISubstitutions]}) ;TODO ?
+
+(ann-protocol IBuildTerm
+              :methods
+              {build-term [Term ISubstitutions -> Any]})
+
 (ann-protocol IBind
               :methods
               {bind [Term [ISubstitutions -> Any] -> Any]})
@@ -60,10 +106,6 @@
 (ann-protocol ITake
               :methods
               {take* [Term -> Any]})
-
-(ann-protocol IBuildTerm
-              :methods
-              {build-term [Term ISubstitutions -> Any]})
 
 (tc-ignore
 (defprotocol IUnifyTerms
@@ -191,9 +233,9 @@
                unify [ISubstitutions Term Term -> (U ISubstitutions Fail)]
                update [ISubstitutions Term Term -> Term] ;return?
                reify-lvar-name [ISubstitutions -> Symbol]
-               -reify* [ISubstitutions Term -> Symbol]
-               -reify [ISubstitutions Term -> Any]
-               build [ISubstitutions Term -> Any]})
+               -reify* [ISubstitutions Term -> ISubstitutions]
+               -reify [ISubstitutions Term -> ISubstitutions]
+               build [ISubstitutions Term -> ISubstitutions]})
 
 (tc-ignore
 (defprotocol ISubstitutions

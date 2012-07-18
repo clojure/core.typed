@@ -1978,6 +1978,10 @@
                          [(unparse-filter-set fl)]
                          [(unparse-object o)])))))
 
+(defmethod unparse-type Protocol
+  [{:keys [the-var]}]
+  (list 'DataType the-var))
+
 (defmethod unparse-type DataType
   [{:keys [the-class fields ancestors]}]
   (list* 'DataType the-class
@@ -3277,6 +3281,10 @@
         (if (every? #(subtype? s %) (:types t))
           *sub-current-seen*
           (type-error s t))
+
+        (or (Name? s)
+            (Name? t))
+        (subtype (-resolve s) (-resolve t))
 
         :else (subtype* s t)))))
 
