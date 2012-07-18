@@ -2165,6 +2165,22 @@
 (defmethod frees [::any-var Value] [t] {})
 (defmethod frees [::any-var Top] [t] {})
 
+(defmethod frees [::any-var HeterogeneousList]
+  [{:keys [types]}] 
+  (apply combine-frees (mapv frees types)))
+
+(defmethod frees [::any-var HeterogeneousSeq]
+  [{:keys [types]}] 
+  (apply combine-frees (mapv frees types)))
+
+(defmethod frees [::any-var HeterogeneousMap]
+  [{:keys [types]}] 
+  (apply combine-frees (mapv frees (concat (keys types) (vals types)))))
+
+(defmethod frees [::any-var HeterogeneousVector]
+  [{:keys [types]}] 
+  (apply combine-frees (mapv frees types)))
+
 (defmethod frees [::any-var Intersection]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
@@ -2295,6 +2311,9 @@
 
 (defmethod promote Value [T V] T)
 (defmethod demote Value [T V] T)
+
+(defmethod promote Name [T V] T)
+(defmethod demote Name [T V] T)
 
 (defmethod promote Union 
   [T V] 
@@ -3250,10 +3269,16 @@
 
 (defn subtypeA* [A s t]
   (if (or (contains? A [s t])
-          (= s t))
+          (= s t)
+          (Top? t)
+          (Bottom? s))
     A
     (binding [*sub-current-seen* (conj A [s t])]
       (cond
+        (or (Name? s)
+            (Name? t))
+        (subtype (-resolve s) (-resolve t))
+
         (Union? s)
         (if (every? #(subtype? % t) (:types s))
           *sub-current-seen*
@@ -3282,14 +3307,16 @@
           *sub-current-seen*
           (type-error s t))
 
-        (or (Name? s)
-            (Name? t))
-        (subtype (-resolve s) (-resolve t))
-
         :else (subtype* s t)))))
 
 (defn subtype [s t]
   (subtypeA* *sub-current-seen* s t))
+
+(defmethod subtype* [Protocol Type]
+  [{ancest1 :ancestors :as s} t]
+  (if (= (RInstance-of Object) t)
+    *sub-current-seen*
+    (type-error s t)))
 
 (defmethod subtype* [DataType Type]
   [{ancest1 :ancestors :as s} t]
@@ -3724,6 +3751,10 @@
               [(IPersistentSet x) x x * -> (IPersistentSet x)]
               [(ISeq x) x x * -> (ASeq x)]
               [(IPersistentCollection Any) Any Any * -> (IPersistentCollection Any)])))
+
+(ann clojure.core/find
+     (All [x y]
+          [(IPersistentMap x y) Any -> (U (Vector* x y) nil)]))
 
 (ann clojure.core/get
      (All [x]
@@ -4759,7 +4790,7 @@
 (defmethod check :invoke
   [{:keys [fexpr args] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  #_(prn "invoke:" ((some-fn :var :keyword :op) fexpr))
+  (prn "invoke:" ((some-fn :var :keyword :op) fexpr))
   (let [e (invoke-special expr expected)]
     (cond 
       (not= ::not-special e) e

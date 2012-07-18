@@ -269,6 +269,7 @@
 
 (declare-datatypes Choice)
 
+;TODO
 (ann choice [Any [Any -> Any] -> Choice])
 (declare choice)
 
@@ -279,6 +280,7 @@
               [Symbol Any -> LVar])) ;TODO second arg is a cs
 (declare lvar)
 
+;TODO filters
 (ann lvar? (Fn [Any -> (U false true)]))
 (declare lvar?)
 

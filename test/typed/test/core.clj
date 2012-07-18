@@ -905,3 +905,14 @@
                      (make-ExactCountRange 1))))
   (is (subtype? (make-ExactCountRange 1)
                 (make-CountRange 1))))
+
+(deftest core-logic-subtype-test
+  (is (subtype? (->Name 'typed.test.core-logic/Term) 
+                (Un -nil (RInstance-of Object)))))
+
+(deftest ccfind-test
+  (is (= (-> (tc-t (fn> [[a :- (clojure.lang.IPersistentMap Long String)]]
+                        (find a 1)))
+           :t :types first :rng :t)
+         (Un (->HeterogeneousVector [(RInstance-of Long) (RInstance-of String)])
+             -nil))))
