@@ -60,6 +60,9 @@
 (defn pfn>-ann [fn-of polys param-types-syn]
   fn-of)
 
+(defn loop>-ann [loop-of bnding-types]
+  loop-of)
+
 (defmacro pfn> [poly & forms]
   (let [methods (if (vector? (first forms))
                   (list forms)
@@ -86,6 +89,16 @@
     `(fn>-ann (fn ~@(for [[params & body] methods]
                       (apply list (vec (map first params)) body)))
               '~method-doms)))
+
+(defmacro loop> [bndings* & forms]
+  (let [bnds (partition 2 bndings*)
+        ; [[lhs :- bnd-ann] rhs]
+        lhs (map ffirst bnds)
+        rhs (map second bnds)
+        bnd-anns (map #(-> % first next second) bnds)]
+    `(loop>-ann (loop ~(vec (mapcat vector lhs rhs))
+                  ~@forms)
+                '~bnd-anns)))
 
 (defmacro declare-datatypes [& syms]
   `(tc-ignore
@@ -1565,7 +1578,7 @@
   (cond
     (not (namespace sym)) (if-let [t (lookup-local sym)]
                            t
-                           (throw (Exception. (str "Cannot resolve type: " sym))))
+                           (throw (Exception. (str "Reference to untyped binding: " sym))))
     :else (lookup-Var sym)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1888,7 +1901,7 @@
         (@TYPE-NAME-ENV clssym) (->Name clssym)
         (@PROTOCOL-ENV qsym) (resolve-protocol qsym)
         :else (let [res (resolve sym)]
-                (prn "res" sym "->" res)
+                (prn *ns* "res" sym "->" res)
                 (cond 
                   (class? res) (or (@DATATYPE-ENV (symbol (.getName ^Class res)))
                                    (RInstance-of res))
@@ -3321,7 +3334,7 @@
 
 (defmethod subtype* [DataType Type]
   [{ancest1 :ancestors :as s} t]
-  (if (some #(subtype? % t) ancest1)
+  (if (some #(subtype? % t) (concat [(RInstance-of Object)] ancest1))
     *sub-current-seen*
     (type-error s t)))
 
@@ -3669,6 +3682,8 @@
 (ann clojure.core/import [(IPersistentCollection Symbol) -> nil])
 
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
+
+(ann clojure.core/not [Any -> (U true false)])
 
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
@@ -4394,6 +4409,19 @@
 
 (declare invoke-keyword)
 
+;not
+(defmethod invoke-special #'clojure.core/not
+  [{:keys [args] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (assert (= 1 (count args)) "Wrong number of args to clojure.core/not")
+  (let [ctarget (check (first args))
+        {fs+ :then fs- :else} (-> ctarget expr-type ret-f)]
+    (assoc expr
+           expr-type (ret (Un -true -false)
+                          ;flip filters
+                          (-FS fs- fs+)
+                          -empty))))
+
 ;get
 (defmethod invoke-special #'clojure.core/get
   [{:keys [args] :as expr} & [expected]]
@@ -4573,6 +4601,23 @@
                 (update-in [expr-type :t] (fn [fin] (with-meta (Poly* (map :name frees) fin)
                                                                {:free-names (map :name frees)}))))]
     cexpr))
+
+(declare check-let)
+
+(def ^:dynamic *loop-bnd-anns* nil)
+(set-validator! #'*loop-bnd-anns* #(or (nil? %)
+                                       (every? Type? %)))
+
+;loop
+(defmethod invoke-special #'loop>-ann
+  [{:keys [args env] :as expr} & [expected]]
+  (let [[expr {expected-bnds-syn :val}] args
+        expected-bnds (binding [*ns* (or (-> env :ns :name find-ns)
+                                         *ns*)]
+                        (doall (map parse-type expected-bnds-syn)))]
+    ;loop may be nested, type the first loop found
+    (binding [*loop-bnd-anns* expected-bnds]
+      (check expr expected))))
 
 ;don't type check
 (defmethod invoke-special #'tc-ignore-forms*
@@ -4963,6 +5008,8 @@
     (assoc expr
            expr-type (ret ftype (-FS -top -bot) -empty))))
 
+(declare ^:dynamic *recur-target*)
+
 (defn check-anon-fn-method
   [{:keys [required-params rest-param body] :as expr} method-param-types]
   {:pre [(every? Type? method-param-types)]
@@ -4983,7 +5030,8 @@
               (update-in [:l] merge locals))
         ; erasing references to parameters is handled later
         cbody (with-lexical-env env
-                (check body))]
+                (binding [*recur-target* nil] ;NYI
+                  (check body)))]
     (->FnResult
       (map vector (map :sym required-params) method-param-types)
       nil ;kws
@@ -5033,9 +5081,10 @@
                 (assoc-in [:props] props)
                 (update-in [:l] merge param-locals))
           res-expr (with-lexical-env env
-                     (check body (ret (Result-type* rng)
-                                      (Result-filter* rng)
-                                      (Result-object* rng))))
+                     (binding [*recur-target* nil] ;NYI
+                       (check body (ret (Result-type* rng)
+                                        (Result-filter* rng)
+                                        (Result-object* rng)))))
           res-type (-> res-expr expr-type ret-t)]
       (subtype res-type (Result-type* rng)))))
 
@@ -5055,7 +5104,7 @@
 
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
-  (let [sym (-> local-binding :sym)]
+  (let [sym (:sym local-binding)]
     (assoc expr
            expr-type (let [t (type-of sym)]
                        (ret t 
@@ -5169,17 +5218,33 @@
 
 (declare combine-props)
 
-(defmethod check :let
-  [{:keys [binding-inits body is-loop] :as expr} & [expected]]
-  {:post [(-> % expr-type TCResult?)]}
-  (assert (not is-loop))
-  (let [env (reduce (fn [env {{:keys [sym init]} :local-binding}]
+(def ^:dynamic *recur-target* nil)
+(set-validator! #'*recur-target* #(or (nil? %)
+                                      (every? Type? %)))
+
+(defmethod check :recur
+  [{:keys [args] :as expr} & [expected]]
+  (assert *recur-target* "No recur target")
+  (let [cargs (doall (map check args))
+        _ (assert (= (count cargs) (count *recur-target*))
+                  "Wrong number of arguments to recur")
+        _ (doall (map subtype
+                      (map (comp ret-t expr-type) cargs)
+                      *recur-target*))]
+    (assoc expr
+           expr-type (ret (Un)))))
+
+(defn check-let [{:keys [binding-inits body is-loop] :as expr} expected & {:keys [expected-bnds]}]
+  (prn expected-bnds)
+  (assert (or (not is-loop) expected-bnds) "Loop requires more annotations")
+  (let [env (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
                       (let [{:keys [t fl o]} (->
                                                (expr-type
                                                  (with-lexical-env env
-                                                   (check init)))
+                                                   (check init (when is-loop
+                                                                 (ret expected-bnd)))))
                                                ;substitute previous references to sym with an empty object
                                                (update-in [:t] subst-type sym -empty true)
                                                (update-in [:fl] subst-filter-set sym -empty true)
@@ -5211,9 +5276,13 @@
                           (NoFilter? fl) (-> env
                                            ;no propositions to add, just update binding type
                                            (assoc-in [:l sym] t)))))
-                    *lexical-env* binding-inits)
+                    *lexical-env* (map vector binding-inits (or expected-bnds
+                                                                (repeat nil))))
         cbody (with-lexical-env env
-                (check body))
+                (if is-loop
+                  (binding [*recur-target* expected-bnds]
+                    (check body))
+                  (check body)))
 
         ;now we return a result to the enclosing scope, so we
         ;erase references to any bindings this scope introduces
@@ -5229,6 +5298,14 @@
                 (map (comp :sym :local-binding) binding-inits))]
     (assoc expr
            expr-type unshadowed-type)))
+
+(defmethod check :let
+  [expr & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (if-let [expected-bnds (and (:is-loop expr) *loop-bnd-anns*)]
+    (binding [*loop-bnd-anns* nil]
+      (check-let expr expected :expected-bnds expected-bnds))
+    (check-let expr expected)))
 
 (defn resolve* [atoms prop]
   {:pre [(every? Filter? atoms)
@@ -5454,8 +5531,8 @@
               :else (do #_(prn "Not checking unreachable code")
                       (ret (Un)))))]
     (let [{fs+ :then fs- :else :as f1} (:fl tst)
-          _ (prn "check-if: fs+" (unparse-filter fs+))
-          _ (prn "check-if: fs-" (unparse-filter fs-))
+         ; _ (prn "check-if: fs+" (unparse-filter fs+))
+         ; _ (prn "check-if: fs-" (unparse-filter fs-))
           flag+ (atom true)
           flag- (atom true)
           _ (set-validator! flag+ boolean?)
@@ -5464,11 +5541,11 @@
           _ (print-env)
           idsym (gensym)
           env-thn (env+ *lexical-env* [fs+] flag+)
-          _ (do (pr "check-if: env-thn")
-              (print-env env-thn))
+;          _ (do (pr "check-if: env-thn")
+;              (print-env env-thn))
           env-els (env+ *lexical-env* [fs-] flag-)
-          _ (do (pr "check-if: env-els")
-              (print-env env-els))
+;          _ (do (pr "check-if: env-els")
+;              (print-env env-els))
 ;          new-thn-props (set
 ;                          (filter atomic-filter?
 ;                                  (set/difference
@@ -5488,8 +5565,8 @@
 
       ;some optimization code here, contraditions etc? omitted
 
-      (prn "check-if: then branch:" (unparse-TCResult then-ret))
-      (prn "check-if: else branch:" (unparse-TCResult else-ret))
+;      (prn "check-if: then branch:" (unparse-TCResult then-ret))
+;      (prn "check-if: else branch:" (unparse-TCResult else-ret))
       (cond
         ;both branches reachable
         (and (not (type-equal? (Un) ts))
@@ -5614,7 +5691,8 @@
 (defmethod check :case*
   [{:keys [] :as expr} & [expected]]
   ; tests have no duplicates
-  (let [cthe-expr (check (:the-expr expr))
+  (let [_ (prn (:the-expr expr))
+        cthe-expr (check (:the-expr expr))
         etype (expr-type cthe-expr)
         ctests (doall (map check (:tests expr)))
         cdefault (check (:default expr))

@@ -7,7 +7,7 @@
   (:require [clojure.set :as set]
             [typed.core :refer [ann-protocol ann tc-ignore def-alias
                                 declare-protocols declare-datatypes
-                                ann-datatype]]
+                                ann-datatype loop>]]
             [analyze.core :refer [ast]]))
 
 (ann *occurs-check* (U true false))
@@ -332,8 +332,8 @@
     (Substitutions. s l f cs))
   
   (walk [this v]
-    (loop [lv v 
-           [v vp] (find s v)]
+    (loop> [[lv :- Term] v
+            [[v vp] :- (U nil (Vector* ILVar Term))] (find s v)]
       (cond
        (nil? v) lv
        (identical? vp unbound) v
@@ -341,8 +341,8 @@
        :else (recur vp (find s vp)))))
   
   (walk-var [this v]
-    (loop [lv v 
-           [v vp] (find s v)]
+    (loop> [[lv :- Term] v 
+            [[v vp] :- (U nil (Vector* ILVar Term))] (find s v)]
       (cond
        (nil? v) lv
        (identical? vp unbound) v
