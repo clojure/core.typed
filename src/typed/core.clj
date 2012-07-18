@@ -90,10 +90,11 @@
 (defmacro declare-datatypes [& syms]
   `(tc-ignore
   (doseq [sym# '~syms]
-     (let [qsym# (if (some #(= \. %) (str sym#))
-                   sym#
-                   (symbol (str (munge (name (ns-name *ns*))) \. (name sym#))))]
-       (declare-datatype* qsym#)))))
+    (assert (not (or (some #(= \. %) (str sym#))
+                     (namespace sym#)))
+            (str "Cannot declare qualified datatype: " sym#))
+    (let [qsym# (symbol (str (munge (name (ns-name *ns*))) \. (name sym#)))]
+      (declare-datatype* qsym#)))))
 
 (defmacro declare-protocols [& syms]
   `(tc-ignore
@@ -153,6 +154,12 @@
 
 (defn Type? [a]
   (isa? (class a) Type))
+
+(declare TCResult? Result? Function?)
+
+(defn AnyType? [a]
+  ((some-fn Type? TCResult? Result? Function?)
+     a))
 
 (defn declare-type [a]
   (derive a Type))
@@ -667,11 +674,11 @@
 
 (add-default-fold-case Intersection
                        (fn [ty]
-                         (update-in ty [:types] #(map type-rec %))))
+                         (apply In (mapv type-rec (:types ty)))))
 
 (add-default-fold-case Union 
                        (fn [ty]
-                         (update-in ty [:types] #(set (map type-rec %)))))
+                         (apply Un (mapv type-rec (:types ty)))))
 
 (add-default-fold-case Function
                        (fn [ty]
@@ -1472,16 +1479,16 @@
 (defn parse-field [[n _ t]]
   [n (parse-type t)])
 
-(defmacro ann-datatype [clssym fields & {ancests :ancestors rplc :replace}]
+(defmacro ann-datatype [local-name fields & {ancests :extends rplc :replace}]
   (do (assert (not rplc) "Replace todo")
+      (assert (not (or (namespace local-name)
+                       (some #(= \. %) (str local-name))))
+              (str "Must provide local name: " local-name))
   `(tc-ignore
-  (let [c# '~clssym
+  (let [local-name# '~local-name
         fs# (apply array-map (apply concat (doall (map parse-field '~fields))))
         as# (set (doall (map parse-type '~ancests)))
-        s# (if (some #(= \. %) (str c#))
-             c#
-             (symbol (str (munge (-> *ns* ns-name)) \. c#)))
-        local-name# (apply str (last (partition-by #(= \. %) (str c#))))
+        s# (symbol (str (munge (-> *ns* ns-name)) \. local-name#))
         pos-ctor-name# (symbol (str (-> *ns* ns-name)) (str "->" local-name#))
         dt# (->DataType s# fs# as#)
         pos-ctor# (Fn-Intersection
@@ -1492,13 +1499,14 @@
       [[s# (unparse-type dt#)]
        [pos-ctor-name# (unparse-type pos-ctor#)]])))))
 
-(defmacro ann-protocol [varsym & {mths :methods}]
+(defmacro ann-protocol [local-varsym & {mths :methods}]
+  (assert (not (or (namespace local-varsym)
+                   (some #{\.} (str local-varsym))))
+          (str "Must provide local var name for protocol: " local-varsym))
   `(tc-ignore
-  (let [vsym# '~varsym
-        s# (if (namespace vsym#)
-             vsym#
-             (symbol (-> *ns* ns-name str) (str vsym#)))
-        on-class# (symbol (str (munge (namespace s#)) \. (munge (name s#))))
+  (let [local-vsym# '~local-varsym
+        s# (symbol (-> *ns* ns-name str) (str local-vsym#))
+        on-class# (symbol (str (munge (namespace s#)) \. local-vsym#))
         ; add a Name so the methods can be parsed
         _# (declare-protocol* s#)
         ms# (into {} (for [[knq# v#] '~mths]
@@ -1874,7 +1882,7 @@
                  (symbol (-> *ns* ns-name name) (name sym)))
           clssym (if (some #(= \. %) (str sym))
                    sym
-                   (symbol (str (-> *ns* ns-name name) \. (name sym))))]
+                   (symbol (str (munge (-> *ns* ns-name name)) \. (name sym))))]
       (cond
         (@TYPE-NAME-ENV qsym) (->Name qsym)
         (@TYPE-NAME-ENV clssym) (->Name clssym)
@@ -3275,6 +3283,12 @@
 (defn subtype [s t]
   (subtypeA* *sub-current-seen* s t))
 
+(defmethod subtype* [DataType Type]
+  [{ancest1 :ancestors :as s} t]
+  (if (some #(subtype? % t) ancest1)
+    *sub-current-seen*
+    (type-error s t)))
+
 (defn- subtype-rclass
   [{variancesl :variances classl :the-class replacementsl :replacements :as s}
    {variancesr :variances classr :the-class replacementsr :replacements :as t}]
@@ -4126,10 +4140,11 @@
                   t))))
 
 (defn subst-type [t k o polarity]
-  {:pre [(name-ref? k)
+  {:pre [(AnyType? t)
+         (name-ref? k)
          (RObject? o)
          ((some-fn true? false?) polarity)]
-   :post [(Type? %)]}
+   :post [(AnyType? %)]}
   (letfn [(st [t*]
             (subst-type t* k o polarity))
           (sf [fs] 
@@ -5598,6 +5613,7 @@
 
 (comment 
 (check-ns 'typed.test.example)
+; very slow because of update-composite
 (check-ns 'typed.test.rbt)
 (check-ns 'typed.test.macro)
 (check-ns 'typed.test.conduit)

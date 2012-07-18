@@ -1,12 +1,14 @@
 (ns typed.test.core-logic
   (:refer-clojure :exclude [==])
   (:use [clojure.walk :only [postwalk]])
-  (:require [clojure.set :as set])
   (:import [java.io Writer]
            [clojure.lang IPersistentSet Symbol IPersistentMap Seqable
             IPersistentVector IPersistentList])
-  (:require [typed.core :refer [ann-protocol ann tc-ignore declare-datatypes def-alias
-                                declare-protocols ann-datatype]]))
+  (:require [clojure.set :as set]
+            [typed.core :refer [ann-protocol ann tc-ignore def-alias
+                                declare-protocols declare-datatypes
+                                ann-datatype]]
+            [analyze.core :refer [ast]]))
 
 (ann *occurs-check* (U true false))
 (ann *reify-vars* (U true false))
@@ -15,7 +17,6 @@
 (def ^{:dynamic true} *occurs-check* true)
 (def ^{:dynamic true} *reify-vars* true)
 (def ^{:dynamic true} *locals*)
-
 
 (def-alias Fail false)
 
@@ -214,19 +215,34 @@
   (build [this u]))
 )
 
-(declare empty-s)
-(declare choice)
-(declare lvar)
-(declare lvar?)
-(declare pair)
-(declare lcons)
-
 (ann-datatype Substitutions [[s :- (IPersistentMap ILVar Term)]
                              ;[l :- (IPersistentList (Pair LVar Term))]])
                              [l :- (IPersistentList Pair)]
                              [verify :- [ISubstitutions Term Term -> ISubstitutions]]
                              [cs :- Any]] ;TODO constraint store
-              )
+              :extends #{ISubstitutions IBind IMPlus ITake})
+
+(ann empty-s Substitutions)
+(declare empty-s)
+
+(declare-datatypes Choice)
+
+(ann choice [Any [Any -> Any] -> Choice])
+(declare choice)
+
+(declare-datatypes LVar)
+
+(ann lvar (Fn [-> LVar]
+              [Symbol -> LVar]
+              [Symbol Any -> LVar])) ;TODO second arg is a cs
+(declare lvar)
+
+(ann lvar? (Fn [Any -> (U false true)]))
+(declare lvar?)
+
+(declare pair)
+(declare lcons)
+
 (deftype Substitutions [s l verify cs]
   Object
   (equals [this o]
