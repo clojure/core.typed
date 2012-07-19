@@ -230,6 +230,7 @@
                occurs-check [ISubstitutions Term Term -> (U true false)]
                ext [ISubstitutions Term Term -> (U nil ISubstitutions)]
                ext-no-check [ISubstitutions Term Term -> ISubstitutions]
+               walk-var [ISubstitutions Term -> Term]
                walk [ISubstitutions Term -> Term]
                walk* [ISubstitutions Term -> Term]
                unify [ISubstitutions Term Term -> (U ISubstitutions Fail)]
@@ -347,6 +348,7 @@
        (nil? v) lv
        (identical? vp unbound) v
        (not (lvar? vp)) v
+       ; TODO propagate that vp is non-nil
        :else (recur vp (find s vp)))))
   
   (walk* [this v]

@@ -5,15 +5,18 @@
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
-                         Keyword Atom PersistentList IMeta PersistentArrayMap))
+                         Keyword Atom PersistentList IMeta PersistentArrayMap Compiler))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
+            [clojure.string :as string]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
             [clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]]))
+
+(def third (comp second next))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint shorthands
@@ -4526,6 +4529,13 @@
     (assoc expr
            expr-type (apply tc-equiv := (map expr-type cargs)))))
 
+;identical
+(defmethod static-method-special 'clojure.lang.Util/identical
+  [{:keys [args] :as expr} & [expected]]
+  (let [cargs (doall (map check args))]
+    (assoc expr
+           expr-type (apply tc-equiv := (map expr-type cargs)))))
+
 ;equiv
 (defmethod static-method-special 'clojure.lang.Util/equiv
   [{:keys [args] :as expr} & [expected]]
@@ -4720,20 +4730,30 @@
               ::not-special))))
 ;nth
 (defmethod static-method-special 'clojure.lang.RT/nth
-  [{[t & args] :args, :keys [fexpr] :as expr} & [expected]]
-  (let [t (expr-type (check t))
-        cargs (doall (map check args))]
+  [{:keys [args] :as expr} & [expected]]
+  (let [_ (assert (<= 2 (count args) 3))
+        [te ne de :as cargs] (doall (map check args))
+        types (let [ts (-resolve (ret-t (expr-type te)))]
+                (if (Union? ts)
+                  (:types ts)
+                  [ts]))
+        num-t (ret-t (expr-type ne))
+        default-t (when de
+                    (ret-t (expr-type de)))]
     (cond
-      (and ((some-fn HeterogeneousVector?
-                     HeterogeneousList?
-                     HeterogeneousSeq?)
-              t)
-           (Value? (expr-type (first cargs))))
+      (and (Value? num-t)
+           (integer? (:val num-t))
+           (every? (some-fn Nil?
+                            HeterogeneousVector?
+                            HeterogeneousList?
+                            HeterogeneousSeq?)
+                   types))
       (assoc expr
-             expr-type (ret (let [[k default] (map expr-type cargs)]
-                              (apply nth (:types t) (:val k) (when default
-                                                               [default])))))
-      :else ::not-special)))
+             expr-type (ret (apply Un
+                                   (for [t types]
+                                     (apply nth (:types t) (:val num-t) (when default-t
+                                                                          [default-t])))))
+      :else ::not-special))))
 
 ;assoc
 (defmethod invoke-special #'clojure.core/assoc
@@ -5185,6 +5205,28 @@
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (check-invoke-static-method expr expected))
+
+(def COMPILE-STUB-PREFIX "compile__stub")
+
+(defmethod check :instance-field
+  [expr & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (prn "instance-field:" expr)
+  (let [; may be prefixed by COMPILE-STUB-PREFIX
+        target-class (symbol
+                       (string/replace-first (.getName ^Class (:target-class expr))
+                                             (str COMPILE-STUB-PREFIX ".")
+                                             ""))
+        _ (prn (:target-class expr))
+        _ (prn "target class" (str target-class) target-class)
+        _ (prn (class target-class))
+        fsym (symbol (:field-name expr))]
+    (if (contains? @DATATYPE-ENV target-class)
+      (let [ft (or (-> @DATATYPE-ENV (get target-class) :fields (get fsym))
+                   (throw (Exception. (str "No field " fsym " in Datatype " target-class))))]
+        (assoc expr
+               expr-type (ret ft)))
+      (throw (Exception. ":instance-field NYI")))))
 
 (defn DataType-ctor-type [sym]
   (let [dt (@DATATYPE-ENV sym)
