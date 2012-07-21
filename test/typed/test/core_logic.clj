@@ -156,11 +156,18 @@
   (take* [a]))
 )
 
-(ann-datatype Unbound [])
+(ann-datatype Unbound []
+              :singleton unbound)
 (deftype Unbound [])
 
 (ann unbound Unbound)
 (def ^Unbound unbound (Unbound.))
+
+(ann Unbound? [Any -> (U true false)])
+(tc-ignore
+(defn Unbound? [a]
+  (identical? a unbound))
+)
 
 (ann-protocol ILVar
               :methods
@@ -168,7 +175,8 @@
                add-constraint [ILVar Any -> Any]
                add-constraints [ILVar Any -> Any]
                remove-constraint [ILVar Any -> Any]
-               remove-constraints [ILVar -> Any]})
+               remove-constraints [ILVar -> Any]}
+              :extends #{ISDF})
 
 (tc-ignore
 (defprotocol ILVar
@@ -285,7 +293,7 @@
 (declare pair)
 (declare lcons)
 
-(ann-datatype Substitutions [[s :- (IPersistentMap ILVar Term)]
+(ann-datatype Substitutions [[s :- (IPersistentMap ILVar (U Unbound Term))]
                              ;[l :- (IPersistentList (Pair LVar Term))]])
                              [l :- (IPersistentList Pair)]
                              [verify :- [ISubstitutions Term Term -> ISubstitutions]]
@@ -332,24 +340,39 @@
   (use-verify [this f]
     (Substitutions. s l f cs))
   
+  ;Need equality filters for this to type check.
+;  (walk [this v]
+;    (loop> [[lv :- Term] v
+;            [[v vp] :- (U nil (Vector* ILVar (U Unbound Term)))] (find s v)]
+;      (cond
+;       (nil? v) lv
+;       ;created predicate for singleton type
+;       (Unbound? vp) v
+;       (not (lvar? vp)) vp
+;       :else (recur vp (find s vp)))))
   (walk [this v]
     (loop> [[lv :- Term] v
-            [[v vp] :- (U nil (Vector* ILVar Term))] (find s v)]
-      (cond
-       (nil? v) lv
-       (identical? vp unbound) v
-       (not (lvar? vp)) vp
-       :else (recur vp (find s vp)))))
+            [fr :- (U nil (Vector* ILVar (U Unbound Term)))] (find s v)]
+      (let [v (nth fr 0)
+            vp (nth fr 1)]
+        (cond
+          (nil? v) lv
+          ;created predicate for singleton type
+          (Unbound? vp) v
+          (not (lvar? vp)) vp
+          :else (recur vp (find s vp))))))
   
+  ;walk-var same as walk above...
   (walk-var [this v]
     (loop> [[lv :- Term] v 
-            [[v vp] :- (U nil (Vector* ILVar Term))] (find s v)]
-      (cond
-       (nil? v) lv
-       (identical? vp unbound) v
-       (not (lvar? vp)) v
-       ; TODO propagate that vp is non-nil
-       :else (recur vp (find s vp)))))
+            [fr :- (U nil (Vector* ILVar (U Unbound Term)))] (find s v)]
+      (let [v (nth fr 0)
+            vp (nth fr 1)]
+        (cond
+          (nil? v) lv
+          (Unbound? vp) v
+          (not (lvar? vp)) v
+          :else (recur vp (find s vp))))))
   
   (walk* [this v]
     (let [v (walk this v)]

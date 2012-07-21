@@ -8,7 +8,8 @@
             [clojure.data :refer [diff]]
             [typed.core :refer :all]
             [typed.test.rbt]
-            [typed.test.deftype]))
+            [typed.test.deftype]
+            [typed.test.core-logic]))
 
 (check-ns 'typed.test.deftype)
 
@@ -911,8 +912,8 @@
                 (Un -nil (RInstance-of Object)))))
 
 (deftest ccfind-test
-  (is (= (-> (tc-t (fn> [[a :- (clojure.lang.IPersistentMap Long String)]]
-                        (find a 1)))
+  (is (= (-> (tc-t (typed.core/fn> [[a :- (clojure.lang.IPersistentMap Long String)]]
+                                   (find a 1)))
            :t :types first :rng :t)
-         (Un (->HeterogeneousVector [(RInstance-of Long) (RInstance-of String)])
+         (Un (->HeterogeneousVector (list (RInstance-of Long) (RInstance-of String)))
              -nil))))

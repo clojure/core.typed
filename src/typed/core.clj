@@ -375,6 +375,7 @@
   "An instance of a class"
   [(or (nil? poly?)
        (and (sequential? poly?)
+            (seq poly?)
             (every? Type? poly?)))
    (RClass? constructor)])
 
@@ -1690,7 +1691,7 @@
       (= protocol-name-type t) (resolve-protocol sym)
       (= datatype-name-type t) (resolve-datatype sym)
       (= declared-name-type t) (throw (Exception. (str "Reference to declared but undefined name " sym)))
-      (Type? t) t
+      (Type? t) (with-meta t {:source-Name sym})
       :else (throw (Exception. (str "Cannot resolve name " sym))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1904,7 +1905,7 @@
         (@TYPE-NAME-ENV clssym) (->Name clssym)
         (@PROTOCOL-ENV qsym) (resolve-protocol qsym)
         :else (let [res (resolve sym)]
-                (prn *ns* "res" sym "->" res)
+                ;(prn *ns* "res" sym "->" res)
                 (cond 
                   (class? res) (or (@DATATYPE-ENV (symbol (.getName ^Class res)))
                                    (RInstance-of res))
@@ -1997,14 +1998,11 @@
 
 (defmethod unparse-type Protocol
   [{:keys [the-var]}]
-  (list 'DataType the-var))
+  the-var)
 
 (defmethod unparse-type DataType
-  [{:keys [the-class fields ancestors]}]
-  (list* 'DataType the-class
-         (into {} (for [[k v] fields]
-                    [k (unparse-type v)]))
-         (doall (map unparse-type ancestors))))
+  [{:keys [the-class]}]
+  the-class)
 
 (defmethod unparse-type RClass
   [{the-class :the-class}]
@@ -2329,6 +2327,9 @@
 (defmethod promote Value [T V] T)
 (defmethod demote Value [T V] T)
 
+(defmethod promote DataType [T V] T)
+(defmethod demote DataType [T V] T)
+
 (defmethod promote Name [T V] T)
 (defmethod demote Name [T V] T)
 
@@ -2358,7 +2359,7 @@
         rplc (RClass-replacements* names constructor)
         pmt-rplc (into {} (for [[k v] rplc]
                             [k (promote v V)]))]
-  (->RInstance (doall (map promote poly? (repeat V)))
+  (->RInstance (seq (doall (map promote poly? (repeat V))))
                (RClass* names 
                         (:variances constructor)
                         (:the-class constructor)
@@ -2370,7 +2371,7 @@
         rplc (RClass-replacements* names constructor)
         dmt-rplc (into {} (for [[k v] rplc]
                             [k (demote v V)]))]
-  (->RInstance (doall (map demote poly? (repeat V)))
+  (->RInstance (seq (doall (map demote poly? (repeat V))))
                (RClass* names 
                         (:variances constructor)
                         (:the-class constructor)
@@ -2740,7 +2741,6 @@
                      (some #(and (= (:constructor %) (:constructor T))
                                  %)
                            (RInstance-supers* S)))]
-    (prn relevant-S)
     (cond
       relevant-S
       (cset-meet*
@@ -2805,18 +2805,142 @@
 
     :else (type-error S T)))
 
+(comment
+(defn mover [cset dbound vars f]
+  {:pre [(cset? cset)
+         (symbol? dbound)
+         (every? symbol? vars)]
+   :post [(cset? %)]}
+  (map
+    (fn [{cmap :fixed dmap :dmap}]
+      (->cset-entry (apply dissoc cmap dbound vars)
+                    (dmap-meet 
+                      (singleton-dmap 
+                        dbound
+                        (f cmap dmap))
+                      (->dmap (dissoc (:map dmap) dbound)))))
+    (:maps cset)))
+
+;; dbound : index variable
+;; vars : listof[type variable] - temporary variables
+;; cset : the constraints being manipulated
+;; takes the constraints on vars and creates a dmap entry contstraining dbound to be |vars|
+;; with the constraints that cset places on vars
+(defn move-vars-to-dmap [cset dbound vars]
+  {:pre [(cset? cset)
+         (symbol? dbound)
+         (every? symbol? vars)]
+   :post [(cset? %)]}
+  (mover cset dbound vars
+         (fn [cmap dmap]
+           (->dcon (doall (for [v vars]
+                            (if-let [c (cmap v)]
+                              c
+                              (throw (Exception. (str "No constraint for new var " v))))))
+                   nil))))
+
+;; Maps dotted vars (combined with dotted types, to ensure global uniqueness)
+;; to "fresh" symbols.
+;; That way, we can share the same "fresh" variables between the elements of a
+;; cset if they're talking about the same dotted variable.
+;; This makes it possible to reduce the size of the csets, since we can detect
+;; identical elements that would otherwise differ only by these fresh vars.
+;; The domain of this map is pairs (var . dotted-type).
+;; The range is this map is a list of symbols generated on demand, as we need
+;; more dots.
+(def ^:private DOTTED-VAR-STORE (atom {}))
+
+;; Take (generate as needed) n symbols that correspond to variable var used in
+;; the context of type t.
+(defn- var-store-take [var t n]
+  (let [key [t n]
+        res (@DOTTED-VAR-STORE key)]
+    (if (>= (count res) n)
+      ;; there are enough symbols already, take n
+      (take n res)
+      ;; we need to generate more
+      (let [new (take (- n (count res))
+                      (repeatedly (fn [a] (gensym var))))
+            all (concat res new)]
+        (swap! DOTTED-VAR-STORE key all)
+        all))))
+)
+
+(declare cs-gen-list)
+
+(defn cs-gen-Function
+  [V X Y S T]
+  {:pre [(every? symbol? (concat V X Y))
+         (every? set? [V X Y])
+         (Function? S)
+         (Function? T)]
+   :post [(cset? %)]}
+  (cond
+    ;easy case - no rests, drests, kws
+    (and (not (:rest S)
+              (:rest T))
+         (not (:drest S))
+         (not (:drest T))
+         (empty? (:kws S))
+         (empty? (:kws T)))
+                        ; contravariant
+    (cset-meet* (concat (cs-gen-list V X Y (:dom T) (:dom S))
+                        ; covariant
+                        [(cs-gen V X Y (:rng S) (:rng T))]))
+
+    ;just a rest arg, no drest, no keywords
+    (and (or (:rest S)
+             (:rest T))
+         (not (:drest S))
+         (not (:drest T))
+         (empty? (:kws S))
+         (empty? (:kws T)))
+    (let [arg-mapping (cond
+                        ;both rest args are present, so make them the same length
+                        (and (:rest S) (:rest T))
+                        (cs-gen-list V X Y 
+                                     (cons (:rest T) (concat (:dom T) (take (- (count (:dom T))
+                                                                               (count (:dom S))
+                                                                            (cycle (:rest T))))))
+                                     (cons (:rest S) (concat (:dom S) (take (- (count (:dom S))
+                                                                               (count (:dom T))
+                                                                            (cycle (:rest S)))))))
+                        ;no rest arg on the right, so just pad left and forget the rest arg
+                        (and (:rest S) (not (:rest T)))
+                        (cs-gen-list V X Y
+                                     (concat (:dom T) (take (- (count (:dom T))
+                                                               (count (:dom S)))
+                                                            (cycle (:rest T))))
+                                     (:dom S))
+                        ;no rest arg on left, or wrong number = fail
+                        :else (type-error S T))
+          ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
+      (cset-meet* [arg-mapping ret-mapping]))
+    :else (throw (Exception. "Dotted inference NYI"))))
+
+    ;; dotted on the left, nothing on the right
+    #_(and (not (:rest S))
+         (not (:rest T))
+         (:drest S)
+         (not (:drest T))
+         (not (:kws S))
+         (not (:kws T)))
+    #_(let [{dty :pre-type dbound :bound} (:drest S)]
+      (when-not (Y dbound)
+        (type-error S T))
+      (when-not (<= (count (:dom S)) (count (:dom T)))
+        (type-error S T))
+      (let [vars (var-store-take dbound dty (- (count (:dom S))
+                                               (count (:dom T))))
+            new-tys (doall (for [var vars]
+                             (substitute (make-F var) dbound dty)))
+            new-t-fun (make-Function (concat (:dom T) new-tys) (:rng T))
+            new-cset (cs-gen-Function V (set/union (set vars) X) Y S new-t-fun)]
+        (move-vars-to-dmap new-cset dbound vars)))
+
 (defmethod cs-gen* [Function Function]
   [V X Y S T]
-  (assert (= (count (:dom S))
-             (count (:dom T))))
-  (assert (= (boolean (:rest S))
-             (boolean (:rest T))))
-  (assert (not (or (:drest S)
-                   (:drest T))))
-  (cset-meet* (concat (map #(cs-gen V X Y %1 %2) (:dom T) (:dom S))
-                      [(cs-gen V X Y (:rng S) (:rng T))]
-                      (when (:rest S)
-                        [(cs-gen V X Y (:rest T) (:rest S))]))))
+  (cs-gen-Function V X Y S T))
 
 ;; C : cset? - set of constraints found by the inference engine
 ;; Y : (listof symbol?) - index variables that must have entries
@@ -3150,25 +3274,30 @@
 ;tdr from Practical Variable-Arity Polymorphism paper
 ; Expand out dotted pretypes to fixed domain, using types bm, if (:name bound) = b
 (defmulti trans-dots (fn [t b bm]
-                       {:pre [((some-fn Type? Function?) t)
+                       {:pre [(AnyType? t)
                               (symbol? b)
                               (every? Type? bm)]}
                        (class t)))
 
 (defmethod trans-dots F [t b bm] t)
+(defmethod trans-dots Value [t b bm] t)
 (defmethod trans-dots RInstance [t b bm] t)
+
+(defmethod trans-dots Union
+  [t b bm]
+  (let [tfn #(trans-dots % b bm)]
+    (apply Un (doall (map tfn (:types t))))))
 
 (defmethod trans-dots Intersection
   [t b bm]
   (let [tfn #(trans-dots % b bm)]
-    (-> t
-      (update-in [:types] #(doall (map tfn %))))))
+    (apply In (doall (map tfn (:types t))))))
 
 (defmethod trans-dots Function
   [t b bm]
-  ;how to handle filters?
-  (assert (NoFilter? (-> t :rng :fl)))
-  (assert (NoObject? (-> t :rng :o)))
+  ;TODO how to handle filters?
+;  (assert (NoFilter? (-> t :rng :fl)))
+;  (assert (NoObject? (-> t :rng :o)))
   (let [tfn #(trans-dots % b bm)]
     (cond
       (:drest t)
@@ -3185,6 +3314,7 @@
                                       (-> (substitute pre-type bk b)
                                         tfn))
                                     bm)))]
+            (prn (:rng t))
             (->Function dom
                         (update-in (:rng t) [:t] tfn)
                         nil
@@ -3192,7 +3322,7 @@
                         nil))
           (-> t
             (update-in [:dom] #(doall (map tfn %)))
-            (update-in [:rng] tfn)
+            (update-in [:rng :t] tfn)
             (update-in [:drest] (fn [drest]
                                   (when drest
                                     (-> drest
@@ -3238,10 +3368,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtype
 
+(def ^:dynamic *current-env* nil)
+
 (defn type-error [s t]
-  (throw (Exception. (str (with-out-str (pr (unparse-type s)))
+  (throw (Exception. (str "Type Error"
+                          (when ((every-pred identity :line :source) *current-env*)
+                            (str ", " (:source *current-env*) ":" (:line *current-env*)))
+                          " - "
+                          (or (-> s meta :source-Name)
+                              (with-out-str (pr (unparse-type s))))
                           " is not a subtype of: " 
-                          (with-out-str (pr (unparse-type t)))))))
+                          (or (-> t meta :source-Name)
+                              (with-out-str (pr (unparse-type t))))))))
 
 ;keeps track of currently seen subtype relations for recursive types.
 ;(Set [Type Type])
@@ -3780,7 +3918,8 @@
           (Fn [(IPersistentSet x) Any -> (U nil x)]
               [java.util.Map Any -> (U nil Any)]
               [String Any -> (U nil Character)]
-              [(U nil (ILookup Any x)) Any -> (U nil x)])))
+              [nil Any -> nil]
+              [(ILookup Any x) Any -> (U nil x)])))
 
 (ann clojure.core/= [Any Any * -> (U true false)])
 
@@ -4441,7 +4580,7 @@
                                          (expr-type (check target))) 
                                        expected))
       
-      :else (do (prn "Non-special 'get'")
+      :else (do ;(prn "Non-special 'get'")
               ::not-special))))
 
 (defmethod static-method-special 'clojure.lang.RT/get
@@ -4725,8 +4864,8 @@
                                  (-not-filter-at (RInstance-of ISeq [-any]) obj))
                             -empty))
 
-      :else (do (prn "seq? not special")
-              (prn (unparse-type targett))
+      :else (do ;(prn "seq? not special")
+              ;(prn (unparse-type targett))
               ::not-special))))
 ;nth
 (defmethod static-method-special 'clojure.lang.RT/nth
@@ -4750,10 +4889,22 @@
                    types))
       (assoc expr
              expr-type (ret (apply Un
-                                   (for [t types]
-                                     (apply nth (:types t) (:val num-t) (when default-t
-                                                                          [default-t])))))
-      :else ::not-special))))
+                                   (doall
+                                     (for [t types]
+                                       (let [res-t (cond
+                                                     (Nil? t) (or default-t -nil)
+                                                     :else (apply nth 
+                                                                  (:types t)
+                                                                  (:val num-t) 
+                                                                  (when default-t
+                                                                    [default-t])))]
+                                         (if res-t
+                                           res-t
+                                           (throw (Exception. (str "Cannot get index " (:val num-t)
+                                                                   " from type " (unparse-type t)))))))))
+                            (-FS (-not-filter-at -nil (ret-o (expr-type te)))
+                                 -top)))
+      :else ::not-special)))
 
 ;assoc
 (defmethod invoke-special #'clojure.core/assoc
@@ -4854,36 +5005,37 @@
 
 
 (defmethod check :invoke
-  [{:keys [fexpr args] :as expr} & [expected]]
+  [{:keys [fexpr args env] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
   (prn "invoke:" ((some-fn :var :keyword :op) fexpr))
-  (let [e (invoke-special expr expected)]
-    (cond 
-      (not= ::not-special e) e
+  (binding [*current-env* env]
+    (let [e (invoke-special expr expected)]
+      (cond 
+        (not= ::not-special e) e
 
-      (let [fexprt (ret-t (expr-type (check fexpr)))]
-        (and (Value? fexprt)
-             (keyword? (:val fexprt))))
-      (let [[target default] args]
-        (assert (<= 1 (count args) 2))
-        (assoc expr
-               expr-type (invoke-keyword (expr-type (check fexpr))
-                                         (expr-type (check target))
-                                         (when default
-                                           (expr-type (check default))) 
-                                         expected)))
+        (let [fexprt (ret-t (expr-type (check fexpr)))]
+          (and (Value? fexprt)
+               (keyword? (:val fexprt))))
+        (let [[target default] args]
+          (assert (<= 1 (count args) 2))
+          (assoc expr
+                 expr-type (invoke-keyword (expr-type (check fexpr))
+                                           (expr-type (check target))
+                                           (when default
+                                             (expr-type (check default))) 
+                                           expected)))
 
-      :else
-      (let [cfexpr (check fexpr)
-            cargs (doall (map check args))
-            ftype (expr-type cfexpr)
-            argtys (map expr-type cargs)
-            actual (check-funapp ftype argtys (when expected
-                                                expected))]
-        (assoc expr
-               :fexpr cfexpr
-               :args cargs
-               expr-type actual)))))
+        :else
+        (let [cfexpr (check fexpr)
+              cargs (doall (map check args))
+              ftype (expr-type cfexpr)
+              argtys (map expr-type cargs)
+              actual (check-funapp ftype argtys (when expected
+                                                  expected))]
+          (assoc expr
+                 :fexpr cfexpr
+                 :args cargs
+                 expr-type actual))))))
 
 ;args :- [symbol Type]
 ;kws ?
@@ -5185,7 +5337,7 @@
 (defn check-invoke-static-method [{:keys [args tag method] :as expr} expected]
   {:pre [((some-fn nil? TCResult?) expected)]
    :post [(-> % expr-type TCResult?)]}
-  #_(prn "invoke static-method: " (Method->symbol method))
+  (prn "invoke static-method: " (Method->symbol method))
   (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
                            (method->Function method)))
         cargs (doall (map check args))
@@ -5196,6 +5348,7 @@
 (defmethod check :static-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
+  (prn "static-method" (-> expr :method :name))
   (let [spec (static-method-special expr expected)]
     (cond
       (not= ::not-special spec) spec
@@ -5217,9 +5370,9 @@
                        (string/replace-first (.getName ^Class (:target-class expr))
                                              (str COMPILE-STUB-PREFIX ".")
                                              ""))
-        _ (prn (:target-class expr))
-        _ (prn "target class" (str target-class) target-class)
-        _ (prn (class target-class))
+        ;_ (prn (:target-class expr))
+        ;_ (prn "target class" (str target-class) target-class)
+        ;_ (prn (class target-class))
         fsym (symbol (:field-name expr))]
     (if (contains? @DATATYPE-ENV target-class)
       (let [ft (or (-> @DATATYPE-ENV (get target-class) :fields (get fsym))
@@ -5237,12 +5390,12 @@
 (defmethod check :new
   [{cls :class :keys [ctor args] :as expr} & [expected]]
   (prn "check: :new")
-  (prn "DATATYPE-ENV:" (@DATATYPE-ENV class))
+;  (prn "DATATYPE-ENV:" (@DATATYPE-ENV class))
   (let [clssym (symbol (.getName ^Class cls))
         ifn (ret (or (and (@DATATYPE-ENV clssym)
                           (DataType-ctor-type clssym))
                      (Constructor->Function ctor)))
-        _ (prn ifn)
+        ;_ (prn ifn)
         cargs (doall (map check args))
         res-type (check-funapp ifn (map expr-type cargs) nil)]
     (assoc expr
@@ -5277,7 +5430,7 @@
            expr-type (ret (Un)))))
 
 (defn check-let [{:keys [binding-inits body is-loop] :as expr} expected & {:keys [expected-bnds]}]
-  (prn expected-bnds)
+  ;(prn expected-bnds)
   (assert (or (not is-loop) expected-bnds) "Loop requires more annotations")
   (let [env (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
                       {:pre [(PropEnv? env)]
@@ -5651,7 +5804,7 @@
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  #_(prn "check :if")
+  (prn "check :if")
   (let [ctest (check test)]
     (assoc expr
            expr-type (check-if (expr-type ctest) then else))))
@@ -5678,6 +5831,7 @@
   {:post [(-> % expr-type TCResult?)]}
   (assert nme) ;remove once analyze is released
   ;TODO check fields match
+  (prn "Checking deftype definition:" nme)
   (let [cmmap (into {} (for [[k v] (:mmap expr)]
                          [(symbol (first k)) (@#'clojure.reflect/method->map v)]))
         _ (assert ((hash-c? (every-pred symbol? (complement namespace))
@@ -5691,17 +5845,18 @@
                   _ (assert (symbol? nme)) ;can remove once new analyze is released
                   method-sig (cmmap nme)
                   _ (assert (instance? clojure.reflect.Method method-sig))
-                  _ (prn "method-sig" method-sig)
+                  ;_ (prn "method-sig" method-sig)
                   expected-ifn (or (let [ptype (first
                                                  (filter #(= (:on-class %) (:declaring-class method-sig))
                                                          (vals @PROTOCOL-ENV)))]
-                                     (prn "ptype" ptype)
+                                     ;(prn "ptype" ptype)
                                      (when ptype
                                        (let [munged-methods (into {} (for [[k v] (:methods ptype)]
                                                                        [(symbol (munge k)) v]))]
                                          (munged-methods (:name method-sig)))))
                                    (instance-method->Function method-sig))
-                  _ (prn "expected-ifn: " (unparse-type expected-ifn))]
+                  ;_ (prn "expected-ifn: " (unparse-type expected-ifn))
+                  ]
               (with-locals (:fields dt)
                 (check-new-instance-method
                   inst-method 
@@ -5732,8 +5887,9 @@
 
 (defmethod check :case*
   [{:keys [] :as expr} & [expected]]
+  (prn "Checking case")
   ; tests have no duplicates
-  (let [_ (prn (:the-expr expr))
+  (let [;_ (prn (:the-expr expr))
         cthe-expr (check (:the-expr expr))
         etype (expr-type cthe-expr)
         ctests (doall (map check (:tests expr)))
