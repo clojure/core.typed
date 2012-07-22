@@ -30,15 +30,14 @@ Leiningen:
 * Rest type checking in fn definition
 * fn> syntax for expected return type
 * Type check defprotocol usages
-* 
 
 # Examples
 
 (These don't completely type check yet)
 
-* `typed.test.rbt` for examples of mutually recursive types and heterogenous maps
-* `typed.test.core-logic` for examples of typing (tightly coupled) datatypes and protocols
-* `typed.test.example` for a few little examples of simple usage
+* [typed.test.rbt](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/rbt.clj) for examples of mutually recursive types and heterogenous maps
+* [typed.test.core-logic](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/core_logic.clj) for examples of typing (tightly coupled) datatypes and protocols
+* [typed.test.example](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/example.clj) for a few little examples of simple usage
 
 # Limitations
 
