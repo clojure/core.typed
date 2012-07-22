@@ -1,4 +1,4 @@
-(defproject typed "0.1-alpha4"
+(defproject typed "0.1-alpha5-SNAPSHOT"
   :description "Optional static type system"
   :dependencies [[org.clojure.frenchy64/clojure "1.5.0-analyzenoreflect-SNAPSHOT"]
                  [analyze "0.1.7.1"]
