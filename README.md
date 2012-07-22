@@ -30,6 +30,8 @@ Leiningen:
 * Rest type checking in fn definition
 * fn> syntax for expected return type
 * Type check defprotocol usages
+* Patch Compiler to get rid of reflection
+* Namespace management
 
 # Examples
 
@@ -40,6 +42,15 @@ Leiningen:
 * [typed.test.example](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/example.clj) for a few little examples of simple usage
 
 # Limitations
+
+## Clojure version
+
+Currently TC (really 'analyze') is running a custom version of the Clojure Compiler to avoid unnecessary reflection.
+I'm not entirely sure what this implies.
+
+## Namespace management
+
+Typed dependencies NYI.
 
 ## Destructuring
 
