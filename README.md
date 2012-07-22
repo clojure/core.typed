@@ -285,7 +285,7 @@ to `declare` in that they allow you to use types before they are defined.
 ; Prints: "Env:" {:env {a (Value 1)},  ....}
 ```
 
-`typed.core/cf` can be used at the REPL to return the tye of a form.
+`typed.core/cf` can be used at the REPL to return the type of a form.
 
 ```clojure
 (cf 1)
