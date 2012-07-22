@@ -19,180 +19,268 @@ See `LICENSE`.
 
 Leiningen:
 
-`[typed "0.1-alpha2]`
+`[typed "0.1-alpha5]`
 
-# Roadmap
+# Immediate Roadmap
 
-* Real polymorphic Types
-* Bounded polymorphism 
-** (with future F-bounded extension)
-* Occurrence typing
-* Recursive types
+* Equality filters for occurrence typing
 * Type check multimethods
-* Design polymorphic class hierarchy
-** clojure.lang.*
-** Variance annotations
-* Typed Protocol, Type and Record definitions
+* Dotted inference
+* Filter syntax
+* Rest type checking in fn definition
+* fn> syntax for expected return type
+* Type check defprotocol usages
+* 
+
+# Examples
+
+(These don't completely type check yet)
+
+* `typed.test.rbt` for examples of mutually recursive types and heterogenous maps
+* `typed.test.core-logic` for examples of typing (tightly coupled) datatypes and protocols
+* `typed.test.example` for a few little examples of simple usage
+
+# Limitations
+
+## Destructuring
+
+Only map destructuring *without* options is supported.
+
+Other forms of destructuring require equality filters.
+
+## Dotted Functions
+
+A dotted function contains a dotted variable in its function type.
+
+eg. map's type: 
+     `(All [c a b ...]
+           [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (Seqable c)]))`
+
+Currently Typed Clojure does not support *any* checking of use or definition of
+dotted functions, only syntax to define its type.
+
+## Rest Arguments
+
+Currently cannot check the definition of functions with rest arguments,
+but usage checking should work.
+
+## c.c/apply NYI
+
+## Filter syntax
+
+Current type syntax doesn't support adding filters to function types.
 
 # Usage
 
-There are two main macros: `+T` and `require-typed`.
+## Type Syntax
 
-```clojure
-  ...
-  (:require [typed.core :refer [+T require-typed check-namespace]])
-  ...
-```
-
-`+T` is for top level annotation. 
-
-```clojure
-(+T double-num [Number -> Number])
-(defn double-num [n]
-  (add-twice n))
-
-(+T my-map (Mapof Number Number))
-(def my-map {1 2 3 4})
-```
-
-`require-typed` informs the type checker about typed dependencies.
-
-Here is an example of two typed modules, the first requiring the second.
-
-```clojure
-(ns typed.example.typed
-  (:require [typed.core :refer [+T require-typed]]
-            [typed.example.typed2 :refer [add-twice]]))
-
-(require-typed typed.example.typed2)
-
-(+T double-num [Number -> Number])
-(defn double-num [n]
-  (add-twice n))
-
-(+T my-map (Mapof Number Number))
-(def my-map {1 2 3 4})
-```
-
-```clojure
-(ns typed.example.typed2
-  (:require [typed.core :refer [+T]]))
-
-(+T add-twice [Number -> Number])
-(defn add-twice [n]
-  (+ n n))
-```
-
-`check-namespace` invokes the type checker. Use it at the REPL.
-
-```clojure
-(check-namespace 'typed.example.typed)
-```
-
-Turn on debug mode for some feedback.
-
-```clojure
-typed.core=> (reset! typed.core/debug-mode true)
-true
-typed.core=> 
-  (check-namespace 'typed.example.typed)
-Overwriting type for typed.core/add-ns-dep : #typed.core.Fun{:arities (#typed.core.arity{:dom (#typed.core.ClassType{:the-class clojure.lang.Symbol} #typed.core.ClassType{:the-class clojure.lang.Symbol}), :rng #typed.core.NilType{}, :rest-type nil, :flter nil, :type-params nil})} from (Fun [clojure.lang.Symbol clojure.lang.Symbol -> nil])
-....
-...
-invoke: #'clojure.core/in-ns
-invoke: ??
-invoke: #'clojure.core/refer
-invoke: #'clojure.core/require
-invoke: #'typed.core/add-ns-dep
-invoke: #'clojure.core/symbol
-invoke: #'clojure.core/name
-invoke: #'clojure.core/ns-name
-invoke: #'typed.core/*add-type-ann-fn*
-invoke: #'clojure.core/symbol
-invoke: #'clojure.core/name
-invoke: #'clojure.core/ns-name
-invoke: #'clojure.core/name
-def: #'typed.example.typed/double-num
-invoke: #'typed.example.typed2/add-twice
-invoke: #'typed.core/*add-type-ann-fn*
-invoke: #'clojure.core/symbol
-invoke: #'clojure.core/name
-invoke: #'clojure.core/ns-name
-invoke: #'clojure.core/name
-def: #'typed.example.typed/my-map
-nil
-```
-
-# Type Syntax
-
-## Protocols
-
-Simply refer to protocols as usual.
-
-```clojure
-
-(defprotocol A
- ...)
-
-; takes a type that is a subtype of protocol A and return a Long
-(+T p1 [A -> Long])
-(defn p1 [a]
-  2)
-```
-
-## Classes
-
-Same as protocols
-
-## Vectors
-
-```clojure
-; (Vectorof n) is a subtype of clojure.lang.IPersistentVector
-(+T v1 [(Vectorof Double) -> Boolean])
-(defn v1 [v]
-  true)
-```
-
-## Sequentials
-
-```clojure
-; (Sequentialof n) is a subtype of clojure.lang.Sequential
-(+T s1 [(Sequentialof Double) -> Boolean])
-(defn s1 [s]
-  true)
-```
-
-## Functions
-
-
-```clojure
-; A function that takes a Number and returns a Number.
-(+T a1 (Fun [Number -> Number]))
-(defn a1 [n]
-  n)
-
-; Shorthand for single arity functions: 
-(+T a2 [Number -> Number])
-(defn a2 [n]
-  n)
-
-; A function that has 1 fixed parameter (Number) and any number
-; of Number parameters, and returns a Number.
-(+T a3 [Number & Number * -> Number])
-(defn a3 [n & ns]
-  (+ n (count ns)))
-
-;Multiple arity:
-(+T a4
-    (Fun [Number Boolean -> Number]
-         [Boolean -> Double]))
-(defn a4
-  ([n b] (+ n (if b 1 2)))
-  ([b] (if b 1.1 2.2)))
+Rough grammar.
 
 ```
+Type :=  nil
+     |   true
+     |   false
+     |   (U Type*)
+     |   (I Type+)
+     |   FunctionIntersection
+     |   (Value CONSTANT-VALUE)
+     |   (Rec [Symbol] Type)
+     |   (All [Symbol+] Type)
+     |   (All [Symbol* Symbol ...] Type)
+     |   (HMap {Keyword Type*})        ;eg (HMap {:a (Value 1), :b nil})
+     |   (Vector* Type*)
+     |   (Seq* Type*)
+     |   (List* Type*)
+     |   Symbol  ;class/protocol/free resolvable in current form
 
-## Examples
+FunctionIntersection :=  ArityType
+                     |   (Fn ArityType+)
 
-See `typed.base` for some examples, and how to add your own annotations to clojure.core functions.
+ArityType :=  [FixedArgs -> Type]
+           |   [FixedArgs RestArgs * -> Type]
+           |   [FixedArgs DottedType ... Symbol -> Type]
 
+FixedArgs := Type*
+RestArgs := Type
+DottedType := Type
+```
+
+### Special constants
+
+`nil`, `true` and `false` resolve to the respective singleton types for those values
+
+### Intersections
+
+`(I Type+)` creates an intersection of types.
+
+### Unions
+
+`(U Type*)` creates a union of types.
+
+### Functions
+
+A function type is an ordered intersection of arity types.
+
+There is a vector sugar for functions of one arity.
+
+### Heterogeneous Maps
+
+`(HMap {:a (Value 1)})` is a IPersistentMap type that contains at least an `:a`
+key with value `(Value 1)`.
+
+### Heterogeneous Vectors
+
+`(Vector* (Value 1) (Value 2))` is a IPersistentVector of length 2, essentially 
+representing the value `[1 2]`.
+
+### Polymorphism
+
+The binding form `All` introduces a number of free variables inside a scope.
+
+Optionally scopes a dotted variable by adding `...` after the last symbol in the binder.
+
+eg. The identity function: `(All [x] [x -> x])`
+eg. Introducing dotted variables: `(All [x y ...] [x y ... y -> x])
+
+### Recursive Types
+
+`Rec` introduces a recursive type. It takes a vector of one symbol and a type.
+The symbol is scoped to represent the entire type in the type argument.
+
+```clojure
+; Type for {:op :if
+            :test {:op :var, :var #'A}
+            :then {:op :nil}
+            :else {:op :false}}
+(Rec [x] 
+     (U (HMap {:op (Value :if)
+               :test x
+               :then x
+               :else x})
+        (HMap {:op (Value :var)
+               :var clojure.lang.Var})
+        (HMap {:op (Value :nil)})
+        (HMap {:op (Value :false)})))))
+```
+
+## Anonymous Functions
+
+`typed.core/fn>` defines a typed anonymous function.
+
+eg. `(fn [a b] (+ a b))`
+=>
+`(fn> [[a :- Number]
+       [b :- Number]]
+   (+ a b))
+
+## Annotating vars
+
+`typed.core/ann` annotates vars. Var does not have to exist at usage.
+
+If definition isn't type checked, it is assumed correct anyway for checking usages.
+
+All used vars must be annotated when type checking.
+
+## Annotating datatypes
+
+`typed.core/ann-datatype` annotates datatypes. 
+
+Takes a name and a vector of fieldname/type type entries.
+
+```clojure
+(ann-datatype Pair [[lhs :- Term]
+                    [rhs :- Term]])
+
+(deftype Pair [lhs rhs]
+  ...)
+```
+
+## Annotating Protocols
+
+`typed.core/ann-protocol` annotates protocols.
+
+Takes a name and a optionally a :methods keyword argument mapping
+method names to expected types.
+
+
+```clojure
+(ann-protocol IUnifyWithLVar
+              :methods
+              {unify-with-lvar [Term LVar ISubstitutions -> (U ISubstitutions Fail)]})
+
+(tc-ignore
+(defprotocol IUnifyWithLVar
+  (unify-with-lvar [v u s]))
+)
+```
+
+## Type Aliases
+
+`typed.core/def-alias` defines a type alias.
+
+```clojure
+(def-alias Term (I IUnifyTerms 
+                   IUnifyWithNil
+                   IUnifyWithObject
+                   IUnifyWithLVar
+                   IUnifyWithSequential
+                   IUnifyWithMap
+                   IUnifyWithSet
+                   IReifyTerm
+                   IWalkTerm
+                   IOccursCheckTerm
+                   IBuildTerm))
+```
+
+## Ignoring code
+
+`typed.core/tc-ignore` tells the type checker to ignore any forms in the body.
+
+```clojure
+(tc-ignore
+(defprotocol IUnifyTerms
+  (unify-terms [u v s]))
+)
+```
+
+## Declarations
+
+`typed.core/declare-types`, `typed.core/declare-names` and `typed.core/declare-protocols` are similar
+to `declare` in that they allow you to use types before they are defined.
+
+```clojure
+(declare-datatypes Substitutions)
+(declare-protocols LVar)
+(declare-names MyAlias)
+```
+
+## Checking typed namespaces
+
+`typed.core/check-ns` checks the namespace that its symbol argument represents.
+
+```clojure
+(check-ns 'my.ns)
+```
+
+## Debugging
+
+`typed.core/tc-pr-env` prints the environment at a particular point.
+
+```clojure
+(let [a 1]
+  (tc-pr-env "Env:")
+  a)
+; Prints: "Env:" {:env {a (Value 1)},  ....}
+```
+
+`typed.core/cf` can be used at the REPL to return the tye of a form.
+
+```clojure
+(cf 1)
+;=> [(Value 1) {:then [top-filter], :else [bot-filter]} empty-object]
+```
+
+## Macros & Macro Definitions
+
+Macro definitions are ignored. The type checker operates on the macroexpanded form from
+the Compiler's analysis phase.

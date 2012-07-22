@@ -1,4 +1,4 @@
-(set! *warn-on-reflection* true)
+(set! *warn-on-reflection* false)
 
 (ns typed.core
   (:refer-clojure :exclude [defrecord type])
@@ -48,13 +48,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special functions
 
-(defn tc-pr-env [debug-string] nil)
+(defn tc-pr-env 
+  "Print the current type environment, and debug-string"
+  [debug-string] nil)
 (defn tc-pr-filters [debug-string frm] frm)
 
 (defn inst-poly [inst-of types-syn]
   inst-of)
 
-(defmacro inst [inst-of & types]
+(defmacro inst 
+  "Instantiate a polymorphic type with a number of types"
+  [inst-of & types]
   `(inst-poly ~inst-of '~types))
 
 (defn fn>-ann [fn-of param-types-syn]
@@ -66,7 +70,9 @@
 (defn loop>-ann [loop-of bnding-types]
   loop-of)
 
-(defmacro pfn> [poly & forms]
+(defmacro pfn> 
+  "Define a polymorphic anonymous function."
+  [poly & forms]
   (let [methods (if (vector? (first forms))
                   (list forms)
                   forms)
@@ -80,7 +86,9 @@
                '~poly
                '~method-doms)))
 
-(defmacro fn> [& forms]
+(defmacro fn> 
+  "Define a typed anonymous function."
+  [& forms]
   (let [methods (if (vector? (first forms))
                   (list forms)
                   forms)
@@ -93,7 +101,9 @@
                       (apply list (vec (map first params)) body)))
               '~method-doms)))
 
-(defmacro loop> [bndings* & forms]
+(defmacro loop>
+  "Define a typed loop"
+  [bndings* & forms]
   (let [bnds (partition 2 bndings*)
         ; [[lhs :- bnd-ann] rhs]
         lhs (map ffirst bnds)
@@ -103,7 +113,9 @@
                   ~@forms)
                 '~bnd-anns)))
 
-(defmacro declare-datatypes [& syms]
+(defmacro declare-datatypes 
+  "Declare datatypes, similar to declare but on the type level."
+  [& syms]
   `(tc-ignore
   (doseq [sym# '~syms]
     (assert (not (or (some #(= \. %) (str sym#))
@@ -112,7 +124,9 @@
     (let [qsym# (symbol (str (munge (name (ns-name *ns*))) \. (name sym#)))]
       (declare-datatype* qsym#)))))
 
-(defmacro declare-protocols [& syms]
+(defmacro declare-protocols 
+  "Declare protocols, similar to declare but on the type level."
+  [& syms]
   `(tc-ignore
   (doseq [sym# '~syms]
      (let [qsym# (if (namespace sym#)
@@ -120,7 +134,9 @@
                    (symbol (str (name (ns-name *ns*))) (name sym#)))]
        (declare-protocol* qsym#)))))
 
-(defmacro declare-names [& syms]
+(defmacro declare-names 
+  "Declare names, similar to declare but on the type level."
+  [& syms]
   `(tc-ignore
   (doseq [sym# '~syms]
      (let [qsym# (if (namespace sym#)
@@ -128,7 +144,9 @@
                    (symbol (name (ns-name *ns*)) (name sym#)))]
        (declare-name* qsym#)))))
 
-(defmacro def-alias [sym type]
+(defmacro def-alias 
+  "Define a type alias"
+  [sym type]
   `(tc-ignore
   (let [sym# (if (namespace '~sym)
                 '~sym
@@ -140,7 +158,9 @@
 (defn tc-ignore-forms* [r]
   r)
 
-(defmacro tc-ignore [& body]
+(defmacro tc-ignore 
+  "Ignore forms in body during type checking"
+  [& body]
   `(tc-ignore-forms* (do
                       ~@body)))
 
@@ -5915,6 +5935,7 @@
            expr-type case-result)))
 
 (defmacro cf 
+  "Type check a form and return its type"
   ([form]
   `(-> (ast ~form) check expr-type unparse-TCResult))
   ([form expected]
