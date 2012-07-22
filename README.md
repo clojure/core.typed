@@ -177,11 +177,13 @@ The symbol is scoped to represent the entire type in the type argument.
 
 `typed.core/fn>` defines a typed anonymous function.
 
-eg. `(fn [a b] (+ a b))`
+```clojure
+eg. (fn [a b] (+ a b))
 =>
-`(fn> [[a :- Number]
+(fn> [[a :- Number]
        [b :- Number]]
    (+ a b))
+```
 
 ## Annotating vars
 
