@@ -1,6 +1,6 @@
 (ns typed.test.example
   (:import (clojure.lang Seqable))
-  (:require [typed.core :refer [ann inst cf fn> pfn>]]
+  (:require [typed.core :refer [ann inst cf fn> pfn> check-ns]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]]))
 
@@ -10,11 +10,10 @@
 
 (test1 1 2)
 
-; c.c/map needs work
-;(ann test2 (All [y] 
-;                [(Seqable y) -> (Seqable (U true false))]))
-;(defn test2 [a]
-;  ((inst map (U true false) Any) number? a))
+(ann test2 (All [y] 
+                [(Seqable y) -> (Seqable Number)]))
+(defn test2 [a]
+  (map + [1 2]))
 
 (ann use-map [(HMap {:a Number}) -> Number])
 (defn use-map [a]
