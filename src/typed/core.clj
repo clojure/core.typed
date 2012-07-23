@@ -2645,8 +2645,89 @@
   {:pre [(dcon-c? dc1)
          (dcon-c? dc2)]
    :post [(dcon-c? %)]}
-  (throw (Exception. "TODO"))
-  )
+  (cond
+    (and (dcon-exact? dc1)
+         ((some-fn dcon? dcon-exact?) dc2))
+    (let [{fixed1 :fixed rest1 :rest} dc1
+          {fixed2 :fixed rest2 :rest} dc2]
+      (when-not (and rest2 (= (count fixed1) (count fixed2)))
+        (type-error fixed1 fixed2))
+      (->dcon-exact
+        (doall
+          (for [[c1 c2] (map vector fixed1 fixed2)]
+            (c-meet c1 c2 (:X c1))))
+        (c-meet rest1 rest2 (:X rest1))))
+    ;; redo in the other order to call the first case
+    (and (dcon? dc1)
+         (dcon-exact? dc2))
+    (dcon-meet dc2 dc1)
+
+    (and (dcon? dc1)
+         (not (:rest dc1))
+         (dcon? dc2)
+         (not (:rest dc2)))
+    (let [{fixed1 :fixed} dc1
+          {fixed2 :fixed} dc2]
+      (when-not (= (count fixed1) (count fixed2))
+        (throw (Exception. (prn-str "Don't match: " fixed1 fixed2))))
+      (->dcon
+        (doall
+          (for [[c1 c2] (map vector fixed1 fixed2)]
+            (c-meet c1 c2 (:X c1))))
+        nil))
+
+    (and (dcon? dc1)
+         (not (:rest dc1))
+         (dcon? dc2))
+    (let [{fixed1 :fixed} dc1
+          {fixed2 :fixed rest :rest} dc2]
+      (when-not (>= (count fixed1) (count fixed2))
+        (throw (Exception. (prn-str "Don't match: " fixed1 fixed2))))
+      (->dcon
+        (doall
+          (for [[c1 c2] (map vector fixed1 (concat fixed2 (repeat rest)))]
+            (c-meet c1 c2 (:X c1))))
+        nil))
+
+    (and (dcon? dc1)
+         (dcon? dc2)
+         (not (:rest dc2)))
+    (dcon-meet dc2 dc1)
+
+    (and (dcon? dc1)
+         (dcon? dc2))
+    (let [{fixed1 :fixed rest1 :rest} dc1
+          {fixed2 :fixed rest2 :rest} dc2
+          [shorter longer srest lrest]
+          (if (< (count fixed1) (count fixed2))
+            [fixed1 fixed2 rest1 rest2]
+            [fixed2 fixed1 rest2 rest1])]
+      (->dcon
+        (doall
+          (for [[c1 c2] (map vector longer (concat shorter (repeat srest)))]
+            (c-meet c1 c2 (:X c1))))
+        (c-meet lrest srest (:X lrest))))
+
+    (and (dcon-dotted? dc1)
+         (dcon-dotted? dc2))
+    (let [{fixed1 :fixed c1 :dc {bound1 :name} :dbound} dc1
+          {fixed2 :fixed c2 :dc {bound2 :name} :dbound} dc2]
+      (when-not (and (= (count fixed1) (count fixed2))
+                     (= bound1 bound2))
+        (throw (Exception. (prn-str "Don't match: " bound1 bound2))))
+      (->dcon-dotted (doall (for [[c1 c2] (map vector fixed1 fixed2)]
+                              (c-meet c1 c2 (:X c1))))
+                     (c-meet c1 c2 bound1) bound1))
+
+    (and (dcon? dc1)
+         (dcon-dotted? dc2))
+    (throw (Exception. (prn-str "Don't match: " dc1 dc2)))
+
+    (and (dcon-dotted? dc1)
+         (dcon? dc2))
+    (throw (Exception. (prn-str "Don't match: " dc1 dc2)))
+
+    :else (throw (Exception. (prn-str "Got non-dcons: " dc1 dc2)))))
 
 (defn dmap-meet [dm1 dm2]
   {:pre [(dmap? dm1)
