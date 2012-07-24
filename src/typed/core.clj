@@ -681,9 +681,6 @@
 
 ;visit a type nested inside ty. Add methods with a mode deriving ::visit-type-default 
 (defmulti fold-rhs (fn [mode options ty]
-                     (prn "fold-rhs" mode (if ((some-fn Type? Function? Result?) ty)
-                                            (unparse-type ty)
-                                            ty))
                      [mode (class ty)]))
 
 ; fld-fn has type-rec, filter-rec and object-rec in scope
@@ -3038,9 +3035,9 @@
       (take n res)
       ;; we need to generate more
       (let [new (take (- n (count res))
-                      (repeatedly (fn [a] (gensym var))))
+                      (repeatedly #(gensym var)))
             all (concat res new)]
-        (swap! DOTTED-VAR-STORE key all)
+        (swap! DOTTED-VAR-STORE assoc key all)
         all))))
 
 (declare cs-gen-list)
@@ -3403,7 +3400,7 @@
         new-Ts (doall
                  (for [v new-vars]
                    (substitute (make-F v) dotted-var
-                               (substitute-dots (map make-F new-vars) false dotted-var T-dotted))))
+                               (substitute-dots (map make-F new-vars) nil dotted-var T-dotted))))
         cs-dotted (cs-gen-list #{} (set/union (set new-vars) X) #{dotted-var} rest-S new-Ts
                                :expected-cset expected-cset)
         cs-dotted* (move-vars-to-dmap cs-dotted dotted-var new-vars)
@@ -3528,11 +3525,9 @@
   [names ty]
   {:pre [(every? symbol? names)
          (Type? ty)]}
-  (prn "abstract-many" names (unparse-type ty))
   (letfn [(name-to 
             ([name count type] (name-to name count type 0 type))
             ([name count type outer ty]
-             (prn "name-to" (unparse-type ty) name "->" (+ outer count))
              (letfn [(sb [t] (name-to name count type outer t))]
                (fold-rhs ::abstract-many
                  {:type-rec sb
@@ -3607,7 +3602,6 @@
          (or (Scope? sc)
              (empty? images))]
    :post [(Type? %)]}
-  (prn "instantiate-many:" (unparse-type (remove-scopes (count images) sc)) " with " (map unparse-type images))
   (letfn [(replace 
             ([image count type] (replace image count type 0 type))
             ([image count type outer ty]
@@ -3663,7 +3657,6 @@
                    f)))
 
 (defn substitute [target image name]
-  (prn "substitute:" (unparse-type target) (unparse-type image) name)
   (fold-rhs ::substitute
             {:locals {:name name
                       :image image}}
@@ -3735,7 +3728,6 @@
                                       (-> (substitute pre-type bk b)
                                         tfn))
                                     bm)))]
-            (prn (:rng t))
             (->Function dom
                         (update-in (:rng t) [:t] tfn)
                         nil
@@ -3809,7 +3801,6 @@
 (defn subtype-varargs?
   "True if argtys are under dom"
   [argtys dom rst]
-  (prn "subtype-varargs?" (map unparse-type argtys) (map unparse-type dom))
   (assert (not rst) "NYI")
   (and (= (count argtys)
           (count dom))
@@ -4831,7 +4822,6 @@
          (RObject? o)
          ((some-fn nil? Type?) t)]
    :post [(FilterSet? %)]}
-  (prn "subst-filter-set")
   (let [extra-filter (if t (->TypeFilter t nil k) -top)]
     (letfn [(add-extra-filter [f]
               {:pre [(Filter? f)]
@@ -4895,7 +4885,6 @@
          (RObject? o)
          ((some-fn true? false?) polarity)]
    :post [(AnyType? %)]}
-  (prn "subst-type")
   (letfn [(st [t*]
             (subst-type t* k o polarity))
           (sf [fs] 
@@ -4924,7 +4913,6 @@
             (and (Type? t)
                  (FilterSet? fs)
                  (RObject? r)))]}
-  (prn "open-Result")
   (reduce (fn [[t fs old-obj] [[o k] arg-ty]]
             {:pre [(Type? t)
                    ((some-fn FilterSet? NoFilter?) fs)
@@ -4956,8 +4944,6 @@
          ((some-fn nil? TCResult?) expected)
          (boolean? check?)]
    :post [(TCResult? %)]}
-  (prn "check-funapp1" (unparse-type ftype0) (map (comp unparse-type ret-t) argtys))
-  (prn "check?" check?)
   (assert (not drest) "funapp with drest args NYI")
   (assert (empty? (:mandatory kws)) "funapp with mandatory keyword args NYI")
   ;checking
@@ -4973,7 +4959,6 @@
         _ (assert (every? RObject? o-a))
         t-a (map :t argtys)
         _ (assert (every? Type? t-a))
-        _ (prn "t-a" (map unparse-type t-a))
         [o-a t-a] (let [rs (for [[nm oa ta] (map vector 
                                                  (range arg-count) 
                                                  (concat o-a (repeatedly ->EmptyObject))
@@ -4981,8 +4966,7 @@
                              [(if (>= nm dom-count) (->EmptyObject) oa)
                               ta])]
                     [(map first rs) (map second rs)])
-        [t-r f-r o-r] (open-Result rng o-a t-a)
-        _ (prn "result open-Result" (unparse-type t-r))]
+        [t-r f-r o-r] (open-Result rng o-a t-a)]
     (ret t-r f-r o-r)))
 
 ; TCResult TCResult^n (U nil TCResult) -> TCResult
@@ -4991,7 +4975,6 @@
          (every? TCResult? arg-ret-types)
          ((some-fn nil? TCResult?) expected)]
    :post [(TCResult? %)]}
-  (prn "check-funapp" (unparse-type (ret-t fexpr-ret-type)))
   (let [fexpr-type (ret-t fexpr-ret-type)
         arg-types (doall (map ret-t arg-ret-types))]
     (cond
@@ -5004,8 +4987,7 @@
 
       ;ordinary Function, multiple cases
       (Fn-Intersection? fexpr-type)
-      (let [_ (prn "check-funapp, ordinary Function multiple cases")
-            ftypes (:types fexpr-type)
+      (let [ftypes (:types fexpr-type)
             success-ret-type (some #(check-funapp1 % arg-ret-types expected :check? false)
                                    (filter (fn [{:keys [dom rest] :as f}]
                                              {:pre [(Function? f)]}
@@ -5044,9 +5026,7 @@
                            (seq (:types pbody))
                            (not (some :kws (:types pbody)))
                            [pbody fixed-vars dotted-var])))]
-        (let [_ (prn "inferring function:" (unparse-type pbody))
-              _ (prn "dotted-var" dotted-var)
-              inferred-rng (some identity
+        (let [inferred-rng (some identity
                                  (for [{:keys [dom rest drest rng] :as ftype} (:types pbody)
                                        ;only try inference if argument types match
                                        :when (cond

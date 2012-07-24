@@ -867,3 +867,7 @@
            :t :types first :rng :t)
          (Un (->HeterogeneousVector (list (RInstance-of Long) (RInstance-of String)))
              -nil))))
+
+(deftest map-infer-test
+  (is (subtype? (ret-t (tc-t (map + [1 2])))
+                (RInstance-of Seqable [(RInstance-of Number)]))))
