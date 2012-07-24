@@ -678,50 +678,54 @@
 ; c. Object to object-rec
 
 ;visit a type nested inside ty. Add methods with a mode deriving ::visit-type-default 
-(defmulti fold-rhs (fn [ty & {:keys [mode] :or {mode fold-rhs-default}}]
+(defmulti fold-rhs (fn [mode options ty]
                      [mode (class ty)]))
 
 ; fld-fn has type-rec, filter-rec and object-rec in scope
 (defmacro add-fold-case [mode ty fld-fn]
   `(defmethod fold-rhs [~mode ~ty]
-     [ty# & ~'{:keys [type-rec filter-rec object-rec pathelem-rec mode] 
-               :or {type-rec #(fold-rhs % :mode mode)
-                    filter-rec #(fold-rhs % :mode mode)
-                    object-rec #(fold-rhs % :mode mode)
-                    pathelem-rec #(fold-rhs % :mode mode)}}]
-     (~fld-fn ty#)))
+     [mode# options# ty#]
+     (let [~'[type-rec filter-rec object-rec pathelem-rec]
+           (map #(or (% options#)
+                     (partial fold-rhs mode# options#))
+                [:type-rec :filter-rec :object-rec :pathelem-rec])]
+       (~fld-fn ty# options#))))
 
 (defmacro add-default-fold-case [ty fld-fn]
   `(add-fold-case fold-rhs-default ~ty ~fld-fn))
 
-(defmacro type-case [{type-rec :Type filter-rec :Filter object-rec :Object pathelem-rec :PathElem} ty & cases]
-  (let [unique-qkeyword (keyword (name (gensym)) (name (gensym)))] 
-    `(do
-       (derive ~unique-qkeyword fold-rhs-default) ;prefer unique-qkeyword methods
-       ~@(for [[t f] (apply hash-map cases)]
-           `(add-fold-case ~unique-qkeyword ~t ~f))
-       (fold-rhs ~ty
-                 :mode ~unique-qkeyword 
-                 ~@(concat 
-                     (when type-rec 
-                       [:type-rec type-rec])
-                     (when filter-rec 
-                       [:filter-rec filter-rec])
-                     (when object-rec
-                       [:object-rec object-rec])
-                     (when pathelem-rec
-                       [:pathelem-rec pathelem-rec]))))))
+(declare sub-pe)
+
+(defn sub-f [st]
+  #(fold-rhs fold-rhs-default 
+             {:type-rec st
+              :filter-rec (sub-f st)
+              :pathelem-rec (sub-pe st)}
+             %))
+
+(defn sub-o [st]
+  #(fold-rhs fold-rhs-default
+             {:type-rec st
+              :object-rec (sub-o st)
+              :pathelem-rec (sub-pe st)}
+             %))
+
+(defn sub-pe [st]
+  #(fold-rhs fold-rhs-default
+             {:type-rec st
+              :pathelem-rec (sub-pe st)}
+             %))
 
 (add-default-fold-case Intersection
-                       (fn [ty]
+                       (fn [ty _]
                          (apply In (mapv type-rec (:types ty)))))
 
 (add-default-fold-case Union 
-                       (fn [ty]
+                       (fn [ty _]
                          (apply Un (mapv type-rec (:types ty)))))
 
 (add-default-fold-case Function
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:dom] #(map type-rec %))
                            (update-in [:rng] type-rec)
@@ -733,7 +737,7 @@
                                                     (update-in [:bound] identity)))))))
 
 (add-default-fold-case RClass
-                       (fn [rclass]
+                       (fn [rclass _]
                          (let [names (repeatedly (count (:variances rclass)) gensym)
                                rplc (RClass-replacements* names rclass)
                                c-rplc (into {} (for [[k v] rplc]
@@ -742,14 +746,14 @@
                                     c-rplc))))
 
 (add-default-fold-case RInstance
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:poly?] #(when %
                                                   (map type-rec %)))
                            (update-in [:constructor] type-rec))))
 
 (add-default-fold-case DataType
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:fields] (fn [fs]
                                                   (apply array-map
@@ -759,61 +763,63 @@
                            (update-in [:ancestors] #(set (map type-rec %))))))
 
 (add-default-fold-case Poly
-                       (fn [ty]
+                       (fn [ty _]
                          (let [names (repeatedly (:nbound ty) gensym)
                                body (Poly-body* names ty)]
                            (Poly* names (type-rec body)))))
 
 (add-default-fold-case PolyDots
-                       (fn [ty]
+                       (fn [ty _]
                          (let [names (repeatedly (:nbound ty) gensym)
                                body (PolyDots-body* names ty)]
                            (PolyDots* names (type-rec body)))))
 
 (add-default-fold-case Mu
-                       (fn [ty]
+                       (fn [ty _]
                          (let [name (gensym)
                                body (Mu-body* name ty)]
                            (Mu* name (type-rec body)))))
 
 (add-default-fold-case HeterogeneousVector
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty (update-in [:types] #(map type-rec %)))))
 
 (add-default-fold-case HeterogeneousList 
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty (update-in [:types] #(map type-rec %)))))
 
 (add-default-fold-case HeterogeneousSeq
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty (update-in [:types] #(map type-rec %)))))
 
 (add-default-fold-case HeterogeneousMap
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty 
                            (update-in [:types] #(into {} (for [[k v] %]
                                                            [(type-rec k) (type-rec v)]))))))
 
-(add-default-fold-case CountRange identity)
-(add-default-fold-case Name identity)
-(add-default-fold-case Value identity)
-(add-default-fold-case Top identity)
-(add-default-fold-case TopFunction identity)
+(def ret-first (fn [a & rest] a))
+
+(add-default-fold-case CountRange ret-first)
+(add-default-fold-case Name ret-first)
+(add-default-fold-case Value ret-first)
+(add-default-fold-case Top ret-first)
+(add-default-fold-case TopFunction ret-first)
 
 (add-default-fold-case B
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:upper-bound] type-rec)
                            (update-in [:lower-bound] type-rec))))
 
 (add-default-fold-case F
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:upper-bound] type-rec)
                            (update-in [:lower-bound] type-rec))))
 
 (add-default-fold-case Result 
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:t] type-rec)
                            (update-in [:fl] filter-rec)
@@ -841,8 +847,8 @@
   "?"
   [])
 
-(add-default-fold-case TopFilter identity)
-(add-default-fold-case BotFilter identity)
+(add-default-fold-case TopFilter ret-first)
+(add-default-fold-case BotFilter ret-first)
 
 (def -top (->TopFilter))
 (def -bot (->BotFilter))
@@ -939,7 +945,7 @@
 
 ;Filters
 
-(add-default-fold-case NoFilter identity)
+(add-default-fold-case NoFilter ret-first)
 
 (declare PathElem?)
 
@@ -950,7 +956,7 @@
    (name-ref? id)])
 
 (add-default-fold-case TypeFilter
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:type] type-rec)
                            (update-in [:path] #(seq (map pathelem-rec %))))))
@@ -962,7 +968,7 @@
    (name-ref? id)])
 
 (add-default-fold-case NotTypeFilter
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:type] type-rec)
                            (update-in [:path] #(seq (map pathelem-rec %))))))
@@ -1319,18 +1325,18 @@
   ['-imp-filter (unparse-filter a) '-> (unparse-filter c)])
 
 (add-default-fold-case ImpFilter
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:a] filter-rec)
                            (update-in [:c] filter-rec))))
 
 (add-default-fold-case AndFilter
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:fs] #(set (map filter-rec %))))))
 
 (add-default-fold-case OrFilter
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:fs] #(set (map filter-rec %))))))
 
@@ -1346,7 +1352,7 @@
             (Filter? else)))])
 
 (add-default-fold-case FilterSet
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:then] filter-rec)
                            (update-in [:else] filter-rec))))
@@ -1462,12 +1468,12 @@
 (defmethod unparse-object NoObject [_] 'no-object)
 (defmethod unparse-object Path [{:keys [path id]}] [(map unparse-path-elem path) id])
 
-(add-default-fold-case EmptyObject identity)
+(add-default-fold-case EmptyObject ret-first)
 (add-default-fold-case Path
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:path] #(doall (map pathelem-rec %))))))
-(add-default-fold-case NoObject identity)
+(add-default-fold-case NoObject ret-first)
 
 (declare-robject EmptyObject)
 (declare-robject Path)
@@ -3282,42 +3288,12 @@
 
 (declare sub-f sub-o sub-pe)
 
-(defn sub-f [st]
-  (fn [e]
-    (type-case {:Type st
-                :Filter (sub-f st)
-                :PathElem (sub-pe st)}
-               e)))
+(derive ::substitute-dots fold-rhs-default)
 
-(defn sub-o [st]
-  (fn [e]
-    (type-case {:Type st
-                :Object (sub-o st)
-                :PathElem (sub-pe st)}
-               e)))
-
-(defn sub-pe [st]
-  (fn [e]
-    (type-case {:Type st
-                :PathElem (sub-pe st)}
-               e)))
-
-;; implements angle bracket substitution from the formalism
-;; substitute-dots : Listof[Type] Option[type] Name Type -> Type
-(defn substitute-dots [images rimage name target]
-  {:pre [(every? AnyType? images)
-         ((some-fn nil? AnyType?) rimage)
-         (symbol? name)
-         (AnyType? target)]}
-  (letfn [(sb [t] (substitute-dots images rimage name t))]
-    (if (or ((fi target) name)
-            ((fv target) name))
-      (type-case {:Type sb
-                  :Filter (sub-f sb)}
-                 target
-
-                 Function
-                 (fn [{:keys [dom rng rest drest kws] :as ftype}]
+(add-fold-case ::substitute-dots
+               Function
+               (fn [{:keys [dom rng rest drest kws] :as ftype} options]
+                 (let [{:keys [name sb images rimage]} (:locals options)]
                    (assert (not kws) "TODO substitute keyword args")
                    (if (and drest
                             (= name (:name (:bound drest))))
@@ -3332,8 +3308,50 @@
                                  (and rest (sb rest))
                                  (and drest (->DottedPretype (sb (:pre-type drest))
                                                              (:bound drest)))
-                                 nil))))
+                                 nil)))))
+
+;; implements angle bracket substitution from the formalism
+;; substitute-dots : Listof[Type] Option[type] Name Type -> Type
+(defn substitute-dots [images rimage name target]
+  {:pre [(every? AnyType? images)
+         ((some-fn nil? AnyType?) rimage)
+         (symbol? name)
+         (AnyType? target)]}
+  (letfn [(sb [t] (substitute-dots images rimage name t))]
+    (if (or ((fi target) name)
+            ((fv target) name))
+      (fold-rhs ::substitute-dots 
+                {:type-rec sb
+                 :filter-rec (sub-f sb)
+                 :locals {:name name
+                          :sb sb
+                          :images images
+                          :rimage rimage}}
+                target)
       target)))
+
+(derive ::substitute-dotted fold-rhs-default)
+
+(add-fold-case ::substitute-dotted
+               F
+               (fn [{name* :name :as t} {{:keys [name image]} :locals}]
+                 (if (= name* name)
+                   image
+                   t)))
+
+(add-fold-case ::substitute-dotted
+               Function
+               (fn [{:keys [dom rng rest drest kws]} {{:keys [sb name image]} :locals}]
+                 (assert (not kws))
+                 (->Function (map sb dom)
+                             (sb rng)
+                             (and rest (sb rest))
+                             (and drest
+                                  (->DottedPretype (substitute image (:name (:bound drest)) (sb (:pretype drest)))
+                                                   (if (= name (:name (:bound drest)))
+                                                     (assoc (:bound drest) :name name)
+                                                     (:bound drest))))
+                             nil)))
 
 ;; implements curly brace substitution from the formalism
 ;; substitute-dotted : Type Name Name Type -> Type
@@ -3345,26 +3363,14 @@
    :post [(AnyType? %)]}
   (letfn [(sb [t] (substitute-dotted image image-bound name t))]
     (if ((fi target) name)
-      (type-case {:Type sb :Filter (sub-f sb)}
-                 target
-                 F
-                 (fn [{name* :name}]
-                   (if (= name* name)
-                     image
-                     target))
-                 Function
-                 (fn [{:keys [dom rng rest drest kws]}]
-                   (assert (not kws))
-                   (->Function (map sb dom)
-                               (sb rng)
-                               (and rest (sb rest))
-                               (and drest
-                                    (->DottedPretype (substitute image (:name (:bound drest)) (sb (:pretype drest)))
-                                                     (if (= name (:name (:bound drest)))
-                                                       (assoc (:bound drest) :name name)
-                                                       (:bound drest))))
-                               nil)))
-      target)))
+      (fold-rhs ::substitute-dotted
+                {:type-rec sb 
+                 :filter-rec (sub-f sb)
+                 :locals {:name name
+                          :sb sb
+                          :image image}}
+                target
+                target))))
 
 
 ;; like infer, but dotted-var is the bound on the ...
@@ -3466,6 +3472,48 @@
   [c]
   (map vector (iterate dec (dec (count c))) c))
 
+(derive ::abstract-many fold-rhs-default)
+
+(add-fold-case ::abstract-many
+               F
+               (fn [{name* :name :keys [upper-bound lower-bound] :as t} {{:keys [name count outer]} :locals}]
+                 (if (= name name*)
+                   (->B (+ count outer) upper-bound lower-bound)
+                   t)))
+
+(add-fold-case ::abstract-many
+               Function
+               (fn [{:keys [dom rng rest drest kws]} {{:keys [name count outer sb]} :locals}]
+                 (assert (not kws))
+                 (->Function (map sb dom)
+                             (sb rng)
+                             (when rest (sb rest))
+                             (when drest
+                               (->DottedPretype (sb (:pre-type drest))
+                                                (if (= (:name (:bound drest)) name)
+                                                  (let [{:keys [upper-bound lower-bound]} (:bound drest)]
+                                                    (->B (+ count outer) upper-bound lower-bound))
+                                                  (:bound drest))))
+                             nil)))
+
+(add-fold-case ::abstract-many
+               Mu
+               (fn [{:keys [scope]} {{:keys [name count type outer name-to]} :locals}]
+                 (let [body (remove-scopes 1 scope)]
+                   (->Mu (->Scope (name-to name count type (inc outer) body))))))
+
+(add-fold-case ::abstract-many
+               PolyDots
+               (fn [{n :nbound body* :scope} {{:keys [name count type outer name-to]} :locals}]
+                 (let [body (remove-scopes n body*)]
+                   (->PolyDots n (add-scopes n (name-to name count type (+ n outer) body))))))
+
+(add-fold-case ::abstract-many
+               Poly
+               (fn [{n :nbound body* :scope} {{:keys [name count type outer name-to]} :locals}]
+                 (let [body (remove-scopes n body*)]
+                   (->Poly n (add-scopes n (name-to name count type (+ n outer) body))))))
+
 (defn abstract-many 
   "Names Type -> Scope^n  where n is (count names)"
   [names ty]
@@ -3475,45 +3523,16 @@
             ([name count type] (name-to name count type 0 type))
             ([name count type outer ty]
              (letfn [(sb [t] (name-to name count type outer t))]
-               (type-case
-                 {:Type sb
-                  :Filter (sub-f sb)
-                  :Object (sub-o sb)}
-                 ty
-                 F
-                 (fn [{name* :name :keys [upper-bound lower-bound] :as f}]
-                   (if (= name name*)
-                     (->B (+ count outer) upper-bound lower-bound)
-                     ty))
-
-                 Function
-                 (fn [{:keys [dom rng rest drest kws]}]
-                   (assert (not kws))
-                   (->Function (map sb dom)
-                               (sb rng)
-                               (when rest (sb rest))
-                               (when drest
-                                 (->DottedPretype (sb (:pre-type drest))
-                                                  (if (= (:name (:bound drest)) name)
-                                                    (let [{:keys [upper-bound lower-bound]} (:bound drest)]
-                                                      (->B (+ count outer) upper-bound lower-bound))
-                                                    (:bound drest))))
-                               nil))
-
-                 Mu
-                 (fn [{:keys [scope]}]
-                   (let [body (remove-scopes 1 scope)]
-                     (->Mu (->Scope (name-to name count type (inc outer) body)))))
-
-                 PolyDots
-                 (fn [{n :nbound body* :scope}]
-                   (let [body (remove-scopes n body*)]
-                     (->PolyDots n (add-scopes n (name-to name count type (+ n outer) body)))))
-
-                 Poly
-                 (fn [{n :nbound body* :scope}]
-                   (let [body (remove-scopes n body*)]
-                     (->Poly n (add-scopes n (name-to name count type (+ n outer) body)))))))))]
+               (fold-rhs ::abstract-many
+                 {:type-rec sb
+                  :filter-rec (sub-f sb)
+                  :object-rec (sub-o sb)
+                  :locals {:name name
+                           :count count
+                           :outer outer
+                           :sb sb
+                           :name-to name-to}}
+                 ty))))]
     (let [n (count names)]
       (loop [ty ty
              names names
@@ -3523,6 +3542,48 @@
           (recur (name-to (first names) count ty)
                  (next names)
                  (dec count)))))))
+
+(derive ::instantiate-many fold-rhs-default)
+
+(add-fold-case ::instantiate-many
+               B
+               (fn [{:keys [idx] :as t} {{:keys [count outer image]} :locals}]
+                 (if (= (+ count outer) idx)
+                   image
+                   t)))
+
+(add-fold-case ::instantiate-many
+               Function
+               (fn [{:keys [dom rng rest drest kws]} {{:keys [count outer image sb]} :locals}]
+                 (assert (not kws))
+                 (->Function (map sb dom)
+                             (sb rng)
+                             (when rest
+                               (sb rest))
+                             (when drest
+                               (->DottedPretype (sb (:pre-type drest))
+                                                (if (= (+ count outer) (-> drest :bound :idx))
+                                                  image
+                                                  (:bound drest))))
+                             nil)))
+
+(add-fold-case ::instantiate-many
+               Mu
+               (fn [{:keys [scope]} {{:keys [replace count outer image sb type]} :locals}]
+                 (let [body (remove-scopes 1 scope)]
+                   (->Mu (->Scope (replace image count type (inc outer) body))))))
+
+(add-fold-case ::instantiate-many
+               PolyDots
+               (fn [{n :nbound body* :scope} {{:keys [replace count outer image sb type]} :locals}]
+                 (let [body (remove-scopes n body*)]
+                   (->PolyDots n (add-scopes n (replace image count type (+ n outer) body))))))
+
+(add-fold-case ::instantiate-many
+               Poly
+               (fn [{n :nbound body* :scope} {{:keys [replace count outer image sb type]} :locals}]
+                 (let [body (remove-scopes n body*)]
+                   (->Poly n (add-scopes n (replace image count type (+ n outer) body))))))
 
 (defn instantiate-many 
   "instantiate-many : List[Type] Scope^n -> Type
@@ -3538,39 +3599,17 @@
             ([image count type outer ty]
              (letfn [(sb [t] (replace image count type outer t))]
                (let [sf (sub-f sb)]
-                 (type-case
-                   {:Type sb :Filter sf :Object (sub-o sb)}
-                   ty
-                   B
-                   (fn [{:keys [idx]}]
-                     (if (= (+ count outer) idx)
-                       image
-                       ty))
-                   Function
-                   (fn [{:keys [dom rng rest drest kws]}]
-                     (assert (not kws))
-                     (->Function (map sb dom)
-                                 (sb rng)
-                                 (when rest
-                                   (sb rest))
-                                 (when drest
-                                   (->DottedPretype (sb (:pre-type drest))
-                                                    (if (= (+ count outer) (-> drest :bound :idx))
-                                                      image
-                                                      (:bound drest))))
-                                 nil))
-                   Mu
-                   (fn [{:keys [scope]}]
-                     (let [body (remove-scopes 1 scope)]
-                       (->Mu (->Scope (replace image count type (inc outer) body)))))
-                   PolyDots
-                   (fn [{n :nbound body* :scope}]
-                     (let [body (remove-scopes n body*)]
-                       (->PolyDots n (add-scopes n (replace image count type (+ n outer) body)))))
-                   Poly
-                   (fn [{n :nbound body* :scope}]
-                     (let [body (remove-scopes n body*)]
-                       (->Poly n (add-scopes n (replace image count type (+ n outer) body))))))))))]
+                 (fold-rhs ::instantiate-many
+                   {:type-rec sb 
+                    :filter-rec sf 
+                    :object-rec (sub-o sb)
+                    :locals {:count count
+                             :outer outer
+                             :image image
+                             :sb sb
+                             :type type
+                             :replace replace}}
+                   ty)))))]
     (let [n (count images)]
       (loop [ty (remove-scopes n sc)
              images images
@@ -3598,14 +3637,20 @@
 
 (declare subtype)
 
+(derive ::substitute fold-rhs-default)
+
+(add-fold-case ::substitute
+               F
+               (fn [{name* :name :keys [upper-bound lower-bound] :as f} {{:keys [name image]} :locals}]
+                 (if (= name* name)
+                   image
+                   f)))
+
 (defn substitute [target image name]
-  (type-case {}
-             target
-             F
-             (fn [{name* :name :keys [upper-bound lower-bound] :as f}]
-               (if (= name* name)
-                 image
-                 f))))
+  (fold-rhs ::substitute
+            {:locals {:name name
+                      :image image}}
+            target))
 
 (defn substitute-many [target images names]
   (reduce (fn [t [im nme]] (substitute t im nme))
@@ -4382,7 +4427,7 @@
    (RObject? o)])
 
 (add-default-fold-case TCResult
-                       (fn [ty]
+                       (fn [ty _]
                          (-> ty
                            (update-in [:t] type-rec)
                            (update-in [:fl] filter-rec)
@@ -4642,51 +4687,77 @@
                   b expected]
               (throw (Exception. (str "Unexpected input for check-below " a b)))))))
 
+(derive ::free-in-for-object fold-rhs-default)
+
+(add-fold-case ::free-in-for-object
+               Path
+               (fn [{p :path i :id :as o} {{:keys [free-in? k]} :locals}]
+                 (if (= i k)
+                   (reset! free-in? true)
+                   o)))
+
+(derive ::free-in-for-filter fold-rhs-default)
+
+(add-fold-case ::free-in-for-filter
+               NotTypeFilter
+               (fn [{t :type p :path i :id :as t} {{:keys [k free-in?]} :locals}]
+                 (if (= i k)
+                   (reset! free-in? true)
+                   t)))
+
+(add-fold-case ::free-in-for-filter
+               TypeFilter
+               (fn [{t :type p :path i :id :as t} {{:keys [k free-in?]} :locals}]
+                 (if (= i k)
+                   (reset! free-in? true)
+                   t)))
+
+(derive ::free-in-for-type fold-rhs-default)
+
+(declare index-free-in?)
+
+(add-fold-case ::free-in-for-type
+               Function
+               (fn [{:keys [dom rng rest drest kws]} {{:keys [k free-in? for-type]} :locals}]
+                 ;; here we have to increment the count for the domain, where the new bindings are in scope
+                 (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (concat (:mandatory kws)
+                                                                                            (:optional kws))))
+                       st* (fn [t] (index-free-in? (if (number? k) (+ arg-count k) k) t))]
+                   (doseq [d dom]
+                     (for-type d))
+                   (st* rng)
+                   (and rest (for-type rest))
+                   (and rest (for-type (:pre-type drest)))
+                   (doseq [[_ v] (concat (:mandatory kws)
+                                         (:optional kws))]
+                     (for-type v))
+                   ;dummy return value
+                   (make-Function [] -any))))
+
 (defn index-free-in? [k type]
   (let [free-in? (atom false)]
     (letfn [(for-object [o]
-              (type-case {:Type for-type}
-                         o
-                         Path
-                         (fn [{p :path i :id}]
-                           (if (= i k)
-                             (reset! free-in? true)
-                             o))))
+              (fold-rhs ::free-in-for-object
+                        {:type-rec for-type
+                         :locals {:free-in? free-in?
+                                  :k k}}
+                        o))
             (for-filter [o]
-              (type-case {:Type for-type
-                          :Filter for-filter}
-                         o
-                         NotTypeFilter
-                         (fn [{t :type p :path i :id}]
-                           (if (= i k)
-                             (reset! free-in? true)
-                             o))
-                         TypeFilter
-                         (fn [{t :type p :path i :id}]
-                           (if (= i k)
-                             (reset! free-in? true)
-                             o))))
+              (fold-rhs ::free-in-for-filter
+                        {:type-rec for-type
+                         :filter-rec for-filter
+                         :locals {:free-in? free-in?
+                                  :k k}}
+                         o))
             (for-type [t]
-              (type-case {:Type for-type
-                          :Filter for-filter
-                          :Object for-object}
-                         t
-                         Function
-                         (fn [{:keys [dom rng rest drest kws]}]
-                           ;; here we have to increment the count for the domain, where the new bindings are in scope
-                           (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (concat (:mandatory kws)
-                                                                                                      (:optional kws))))
-                                 st* (fn [t] (index-free-in? (if (number? k) (+ arg-count k) k) t))]
-                             (doseq [d dom]
-                               (for-type d))
-                             (st* rng)
-                             (and rest (for-type rest))
-                             (and rest (for-type (:pre-type drest)))
-                             (doseq [[_ v] (concat (:mandatory kws)
-                                                   (:optional kws))]
-                               (for-type v))
-                             ;dummy return value
-                             (make-Function [] -any)))))]
+              (fold-rhs ::free-in-for-type
+                        {:type-rec for-type
+                         :filter-rec for-filter
+                         :object-rec for-object
+                         :locals {:free-in? free-in?
+                                  :k k
+                                  :for-type for-type}}
+                        t))]
       (for-type type)
       @free-in?)))
 
@@ -4773,6 +4844,32 @@
                                 (->Path (seq (concat p p*)) i*)))
                   t))))
 
+(derive ::subst-type fold-rhs-default)
+
+(add-fold-case ::subst-type
+               Function
+               (fn [{:keys [dom rng rest drest kws] :as ty} {{:keys [st k o polarity]} :locals}]
+                 ;; here we have to increment the count for the domain, where the new bindings are in scope
+                 (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (:mandatory kws)) (count (:optional kws)))
+                       st* (if (integer? k)
+                             (fn [t] 
+                               {:pre [(Type? t)]}
+                               (subst-type t (if (number? k) (+ arg-count k) k) o polarity))
+                             st)]
+                   (->Function (map st dom)
+                               (st* rng)
+                               (and rest (st rest))
+                               (when drest
+                                 (-> drest
+                                   (update-in [:pre-type] st)))
+                               (when kws
+                                 (-> kws
+                                   (update-in [:mandatory] #(into {} (for [[k v] %]
+                                                                       [(st k) (st v)])))
+                                   (update-in [:optional] #(into {} (for [[k v] %]
+                                                                      [(st k) (st v)])))))))))
+
+
 (defn subst-type [t k o polarity]
   {:pre [(AnyType? t)
          (name-ref? k)
@@ -4785,31 +4882,15 @@
             {:pre [(FilterSet? fs)] 
              :post [(FilterSet? %)]}
             (subst-filter-set fs k o polarity))]
-    (type-case {:Type st
-                :Filter sf
-                :Object (fn [f] (subst-object f k o polarity))}
-      t
-      Function
-      (fn [{:keys [dom rng rest drest kws] :as ty}]
-        ;; here we have to increment the count for the domain, where the new bindings are in scope
-        (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (:mandatory kws)) (count (:optional kws)))
-              st* (if (integer? k)
-                    (fn [t] 
-                      {:pre [(Type? t)]}
-                      (subst-type t (if (number? k) (+ arg-count k) k) o polarity))
-                    st)]
-          (->Function (map st dom)
-                      (st* rng)
-                      (and rest (st rest))
-                      (when drest
-                        (-> drest
-                          (update-in [:pre-type] st)))
-                      (when kws
-                        (-> kws
-                          (update-in [:mandatory] #(into {} (for [[k v] %]
-                                                              [(st k) (st v)])))
-                          (update-in [:optional] #(into {} (for [[k v] %]
-                                                             [(st k) (st v)])))))))))))
+    (fold-rhs ::subst-type
+      {:type-rec st
+       :filter-rec sf
+       :object-rec (fn [f] (subst-object f k o polarity))
+       :locals {:st st
+                :k k
+                :o o
+                :polarity polarity}}
+      t)))
 
 (defn open-Result 
   "Substitute ids for objs in Result t"
@@ -5604,6 +5685,24 @@
            (abo ids keys fs-)))
     (NoFilter? fs) (-FS -top -top)))
 
+(derive ::abo fold-rhs-default)
+
+(add-fold-case ::abo
+               TypeFilter
+               (fn [{:keys [type path id] :as fl} {{:keys [lookup]} :locals}]
+                 ;if variable goes out of scope, replace filter with -top
+                 (if (lookup id)
+                   (-filter type (lookup id) path)
+                   -top)))
+
+(add-fold-case ::abo
+               NotTypeFilter
+               (fn [{:keys [type path id] :as fl} {{:keys [lookup]} :locals}]
+                 ;if variable goes out of scope, replace filter with -top
+                 (if (lookup id)
+                   (-not-filter type (lookup id)  path)
+                   -top)))
+
 (defn abo [xs idxs f]
   {:pre [(every? symbol? xs)
          (every? integer? idxs)
@@ -5616,19 +5715,11 @@
                   (map vector xs idxs)))
           (rec [f] (abo xs idxs f))
           (sb-t [t] t)]
-    (type-case {:Type sb-t :Filter rec} f
-      TypeFilter
-      (fn [{:keys [type path id] :as fl}]
-        ;if variable goes out of scope, replace filter with -top
-        (if (lookup id)
-          (-filter type (lookup id) path)
-          -top))
-      NotTypeFilter
-      (fn [{:keys [type path id] :as fl}]
-        ;if variable goes out of scope, replace filter with -top
-        (if (lookup id)
-          (-not-filter type (lookup id)  path)
-          -top)))))
+    (fold-rhs ::abo
+      {:type-rec sb-t 
+       :filter-rec rec
+       :locals {:lookup lookup}}
+      f)))
 
 (defn FnResult->Function [{:keys [args kws rest drest body] :as fres}]
   {:pre [(FnResult? fres)]

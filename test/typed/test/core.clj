@@ -32,11 +32,6 @@
         (= (remove-scopes 1 (->Scope body))
            body))))
 
-(deftest name-to-test
-  (is (let [body (make-F 'a)]
-        (= (name-to body 'a 0)
-           (->B 0 (->Top) (Bottom))))))
-
 (deftest parse-type-test
   (is (= (Poly-body* '(x) (parse-type '(All [x] x)))
          (make-F 'x)))
