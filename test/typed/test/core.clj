@@ -763,54 +763,9 @@
   (is (= (fv-variances (->Top))
          '{})))
 
-(deftest type-case-test
-  (is (= (type-case {}
-                    (->Top)
-                    typed.core.Top
-                    (fn [ty] ::result))
-         ::result))
-  ; Replace Functions with a map and RInstances with keywords
-  (is (= (type-case {}
-                    (make-Function (map RInstance-of [Integer String]) (RInstance-of String))
-                    typed.core.Function
-                    (fn [{:keys [dom rng] :as ty}]
-                      {:dom (doall (map type-rec dom))
-                       :rng (type-rec rng)})
-
-                    typed.core.Result
-                    (fn [{:keys [t fl o] :as ty}]
-                      (type-rec t))
-
-                    typed.core.RInstance
-                    (constantly ::rinst))
-         {:dom [::rinst ::rinst]
-          :rng ::rinst}))
-  ; :Filter option
-  (is (let [fl (->FilterSet (->TypeFilter (->Top) [] 0)
-                            (->NoFilter))]
-        (= (type-case {:Filter (constantly fl)}
-                      (make-Result (->Top)))
-           (make-Result (->Top) fl))))
-  ;Replace all frees x -> y
-  (is (= (type-case {}
-                    (ret (make-F 'x)
-                         (-FS (-or (-filter (make-F 'x) 'a)
-                                   (->ImpFilter (-filter (make-F 'x) 'a)
-                                                (-not-filter (make-F 'x) 'a)))
-                              (-and -top -bot (->NoFilter))))
-                    typed.core.F
-                    (fn [ty]
-                      (make-F 'y)))
-         (ret (make-F 'y)
-              (-FS (-or (-filter (make-F 'y) 'a)
-                        (->ImpFilter (-filter (make-F 'y) 'a)
-                                     (-not-filter (make-F 'y) 'a)))
-                   (-and -top -bot (->NoFilter)))))))
-
-
 (deftest fv-test
   (is (= (fv (make-F 'x))
-         '[x])))
+         '#{x})))
 
 (deftest fi-test
   (is (empty? (fi (make-F 'x)))))

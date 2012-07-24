@@ -677,8 +677,13 @@
 ; b. Filter to filter-rec
 ; c. Object to object-rec
 
+(declare unparse-type)
+
 ;visit a type nested inside ty. Add methods with a mode deriving ::visit-type-default 
 (defmulti fold-rhs (fn [mode options ty]
+                     (prn "fold-rhs" mode (if ((some-fn Type? Function? Result?) ty)
+                                            (unparse-type ty)
+                                            ty))
                      [mode (class ty)]))
 
 ; fld-fn has type-rec, filter-rec and object-rec in scope
@@ -696,24 +701,24 @@
 
 (declare sub-pe)
 
-(defn sub-f [st]
-  #(fold-rhs fold-rhs-default 
+(defn sub-f [st mode]
+  #(fold-rhs mode
              {:type-rec st
-              :filter-rec (sub-f st)
-              :pathelem-rec (sub-pe st)}
+              :filter-rec (sub-f st mode)
+              :pathelem-rec (sub-pe st mode)}
              %))
 
-(defn sub-o [st]
-  #(fold-rhs fold-rhs-default
+(defn sub-o [st mode]
+  #(fold-rhs mode
              {:type-rec st
-              :object-rec (sub-o st)
-              :pathelem-rec (sub-pe st)}
+              :object-rec (sub-o st mode)
+              :pathelem-rec (sub-pe st mode)}
              %))
 
-(defn sub-pe [st]
+(defn sub-pe [st mode]
   #(fold-rhs fold-rhs-default
              {:type-rec st
-              :pathelem-rec (sub-pe st)}
+              :pathelem-rec (sub-pe st mode)}
              %))
 
 (add-default-fold-case Intersection
@@ -736,14 +741,14 @@
                                                     (update-in [:pre-type] type-rec)
                                                     (update-in [:bound] identity)))))))
 
-(add-default-fold-case RClass
-                       (fn [rclass _]
-                         (let [names (repeatedly (count (:variances rclass)) gensym)
-                               rplc (RClass-replacements* names rclass)
-                               c-rplc (into {} (for [[k v] rplc]
-                                                 [k (type-rec v)]))]
-                           (RClass* names (:variances rclass) (:the-class rclass)
-                                    c-rplc))))
+(add-default-fold-case RClass (fn [a _] a))
+;                       (fn [rclass _]
+;                         (let [names (repeatedly (count (:variances rclass)) gensym)
+;                               rplc (RClass-replacements* names rclass)
+;                               c-rplc (into {} (for [[k v] rplc]
+;                                                 [k (type-rec v)]))]
+;                           (RClass* names (:variances rclass) (:the-class rclass)
+;                                    c-rplc))))
 
 (add-default-fold-case RInstance
                        (fn [ty _]
@@ -1999,6 +2004,10 @@
 (defmethod unparse-type F
   [{:keys [name]}]
   name)
+
+(defmethod unparse-type B
+  [{:keys [idx]}]
+  (list 'B idx))
 
 (defmethod unparse-type Union
   [{types :types}]
@@ -3322,7 +3331,7 @@
             ((fv target) name))
       (fold-rhs ::substitute-dots 
                 {:type-rec sb
-                 :filter-rec (sub-f sb)
+                 :filter-rec (sub-f sb ::substitute-dots)
                  :locals {:name name
                           :sb sb
                           :images images
@@ -3365,7 +3374,7 @@
     (if ((fi target) name)
       (fold-rhs ::substitute-dotted
                 {:type-rec sb 
-                 :filter-rec (sub-f sb)
+                 :filter-rec (sub-f sb ::substitute-dotted)
                  :locals {:name name
                           :sb sb
                           :image image}}
@@ -3519,29 +3528,33 @@
   [names ty]
   {:pre [(every? symbol? names)
          (Type? ty)]}
+  (prn "abstract-many" names (unparse-type ty))
   (letfn [(name-to 
             ([name count type] (name-to name count type 0 type))
             ([name count type outer ty]
+             (prn "name-to" (unparse-type ty) name "->" (+ outer count))
              (letfn [(sb [t] (name-to name count type outer t))]
                (fold-rhs ::abstract-many
                  {:type-rec sb
-                  :filter-rec (sub-f sb)
-                  :object-rec (sub-o sb)
+                  :filter-rec (sub-f sb ::abstract-many)
+                  :object-rec (sub-o sb ::abstract-many)
                   :locals {:name name
                            :count count
                            :outer outer
                            :sb sb
                            :name-to name-to}}
                  ty))))]
-    (let [n (count names)]
-      (loop [ty ty
-             names names
-             count (dec n)]
-        (if (zero? count)
-          (add-scopes n (name-to (first names) 0 ty))
-          (recur (name-to (first names) count ty)
-                 (next names)
-                 (dec count)))))))
+    (if (empty? names)
+      ty
+      (let [n (count names)]
+        (loop [ty ty
+               names names
+               count (dec n)]
+          (if (zero? count)
+            (add-scopes n (name-to (first names) 0 ty))
+            (recur (name-to (first names) count ty)
+                   (next names)
+                   (dec count))))))))
 
 (derive ::instantiate-many fold-rhs-default)
 
@@ -3594,15 +3607,16 @@
          (or (Scope? sc)
              (empty? images))]
    :post [(Type? %)]}
+  (prn "instantiate-many:" (unparse-type (remove-scopes (count images) sc)) " with " (map unparse-type images))
   (letfn [(replace 
             ([image count type] (replace image count type 0 type))
             ([image count type outer ty]
              (letfn [(sb [t] (replace image count type outer t))]
-               (let [sf (sub-f sb)]
+               (let [sf (sub-f sb ::instantiate-many)]
                  (fold-rhs ::instantiate-many
                    {:type-rec sb 
                     :filter-rec sf 
-                    :object-rec (sub-o sb)
+                    :object-rec (sub-o sb ::instantiate-many)
                     :locals {:count count
                              :outer outer
                              :image image
@@ -3610,15 +3624,17 @@
                              :type type
                              :replace replace}}
                    ty)))))]
-    (let [n (count images)]
-      (loop [ty (remove-scopes n sc)
-             images images
-             count (dec n)]
-        (if (zero? count)
-          (replace (first images) 0 ty)
-          (recur (replace (first images) count ty)
-                 (next images)
-                 (dec count)))))))
+    (if (empty? images)
+      sc
+      (let [n (count images)]
+        (loop [ty (remove-scopes n sc)
+               images images
+               count (dec n)]
+          (if (zero? count)
+            (replace (first images) 0 ty)
+            (recur (replace (first images) count ty)
+                   (next images)
+                   (dec count))))))))
 
 (defn abstract [name ty]
   "Make free name bound"
@@ -3647,6 +3663,7 @@
                    f)))
 
 (defn substitute [target image name]
+  (prn "substitute:" (unparse-type target) (unparse-type image) name)
   (fold-rhs ::substitute
             {:locals {:name name
                       :image image}}
@@ -3792,6 +3809,7 @@
 (defn subtype-varargs?
   "True if argtys are under dom"
   [argtys dom rst]
+  (prn "subtype-varargs?" (map unparse-type argtys) (map unparse-type dom))
   (assert (not rst) "NYI")
   (and (= (count argtys)
           (count dom))
@@ -4231,7 +4249,7 @@
              {IPersistentCollection (IPersistentCollection a)
               Seqable (Seqable a)
               ISeq (ISeq a)
-              IMeta (IMeta nil)})
+              IMeta (IMeta Any)})
 
 (alter-class IPersistentStack [[a :variance :covariant]]
              :replace
@@ -4273,7 +4291,7 @@
               ASeq (ASeq a)
               Seqable (Seqable a)
               ISeq (ISeq a)
-              IMeta (IMeta nil)})
+              IMeta (IMeta Any)})
 
 (alter-class IPersistentList [[a :variance :covariant]]
              :replace
@@ -4289,11 +4307,11 @@
               IPersistentList (IPersistentList a)
               ISeq (ISeq a)
               IPersistentStack (IPersistentStack a)
-              IMeta (IMeta nil)})
+              IMeta (IMeta Any)})
 
 (alter-class Symbol []
              :replace
-             {IMeta (IMeta nil)})
+             {IMeta (IMeta Any)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
@@ -4813,6 +4831,7 @@
          (RObject? o)
          ((some-fn nil? Type?) t)]
    :post [(FilterSet? %)]}
+  (prn "subst-filter-set")
   (let [extra-filter (if t (->TypeFilter t nil k) -top)]
     (letfn [(add-extra-filter [f]
               {:pre [(Filter? f)]
@@ -4876,6 +4895,7 @@
          (RObject? o)
          ((some-fn true? false?) polarity)]
    :post [(AnyType? %)]}
+  (prn "subst-type")
   (letfn [(st [t*]
             (subst-type t* k o polarity))
           (sf [fs] 
@@ -4904,7 +4924,7 @@
             (and (Type? t)
                  (FilterSet? fs)
                  (RObject? r)))]}
-
+  (prn "open-Result")
   (reduce (fn [[t fs old-obj] [[o k] arg-ty]]
             {:pre [(Type? t)
                    ((some-fn FilterSet? NoFilter?) fs)
@@ -4936,6 +4956,8 @@
          ((some-fn nil? TCResult?) expected)
          (boolean? check?)]
    :post [(TCResult? %)]}
+  (prn "check-funapp1" (unparse-type ftype0) (map (comp unparse-type ret-t) argtys))
+  (prn "check?" check?)
   (assert (not drest) "funapp with drest args NYI")
   (assert (empty? (:mandatory kws)) "funapp with mandatory keyword args NYI")
   ;checking
@@ -4951,6 +4973,7 @@
         _ (assert (every? RObject? o-a))
         t-a (map :t argtys)
         _ (assert (every? Type? t-a))
+        _ (prn "t-a" (map unparse-type t-a))
         [o-a t-a] (let [rs (for [[nm oa ta] (map vector 
                                                  (range arg-count) 
                                                  (concat o-a (repeatedly ->EmptyObject))
@@ -4958,7 +4981,8 @@
                              [(if (>= nm dom-count) (->EmptyObject) oa)
                               ta])]
                     [(map first rs) (map second rs)])
-        [t-r f-r o-r] (open-Result rng o-a t-a)]
+        [t-r f-r o-r] (open-Result rng o-a t-a)
+        _ (prn "result open-Result" (unparse-type t-r))]
     (ret t-r f-r o-r)))
 
 ; TCResult TCResult^n (U nil TCResult) -> TCResult
@@ -4967,6 +4991,7 @@
          (every? TCResult? arg-ret-types)
          ((some-fn nil? TCResult?) expected)]
    :post [(TCResult? %)]}
+  (prn "check-funapp" (unparse-type (ret-t fexpr-ret-type)))
   (let [fexpr-type (ret-t fexpr-ret-type)
         arg-types (doall (map ret-t arg-ret-types))]
     (cond
@@ -4979,7 +5004,8 @@
 
       ;ordinary Function, multiple cases
       (Fn-Intersection? fexpr-type)
-      (let [ftypes (:types fexpr-type)
+      (let [_ (prn "check-funapp, ordinary Function multiple cases")
+            ftypes (:types fexpr-type)
             success-ret-type (some #(check-funapp1 % arg-ret-types expected :check? false)
                                    (filter (fn [{:keys [dom rest] :as f}]
                                              {:pre [(Function? f)]}
