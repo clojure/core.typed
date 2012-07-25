@@ -7,7 +7,7 @@
   (:require [clojure.set :as set]
             [typed.core :refer [ann-protocol ann tc-ignore def-alias
                                 declare-protocols declare-datatypes
-                                ann-datatype loop>]]
+                                ann-datatype loop> check-ns]]
             [analyze.core :refer [ast]]))
 
 (ann *occurs-check* (U true false))

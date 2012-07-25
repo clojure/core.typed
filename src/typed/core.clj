@@ -1950,7 +1950,7 @@
 (defn parse-function [f]
   (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
-        _ (assert (= (count chk) 2) "Missing range")
+        _ (assert (= (count chk) 2) (str "Missing range in " f))
 
         {ellipsis-pos '...
          asterix-pos '*} 
@@ -2378,6 +2378,9 @@
 
 (defmethod promote Name [T V] T)
 (defmethod demote Name [T V] T)
+
+(defmethod promote Top [T V] T)
+(defmethod demote Top [T V] T)
 
 (defmethod promote Union 
   [T V] 
@@ -2861,6 +2864,12 @@
 (defmethod cs-gen* [HeterogeneousVector RInstance] 
   [V X Y S T]
   (cs-gen V X Y (RInstance-of IPersistentVector [(apply Un (:types S))]) T))
+
+(defmethod cs-gen* [HeterogeneousMap RInstance] 
+  [V X Y S T]
+  (let [[ks vs] [(apply Un (keys (:types S)))
+                 (apply Un (vals (:types S)))]]
+    (cs-gen V X Y (RInstance-of IPersistentMap [ks vs]) T)))
 
 (declare RInstance-supers*)
 
@@ -4378,6 +4387,18 @@
                                                                   :object -empty))) 
                            {:free-names '[x]})))
 
+(add-var-type 'clojure.core/empty?
+              (let [x (make-F 'x)]
+                (with-meta (Poly* [(:name x)]
+                                  (Fn-Intersection (make-Function [(Un (RInstance-of Seqable [x]) -nil)]
+                                                                  (Un -true -false)
+                                                                  nil nil
+                                                                  :filter (-FS (-or (-filter (make-ExactCountRange 0) 0)
+                                                                                    (-filter -nil 0))
+                                                                               (-filter (make-CountRange 1) 0))
+                                                                  :object -empty)))
+                           {:free-names '[x]})))
+
 (ann clojure.core/map
      (All [c a b ...]
           [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (Seqable c)]))
@@ -4403,6 +4424,15 @@
                                     (make-Function [(Un (RInstance-of Seqable [x])
                                                         -nil)]
                                                    (Un -nil x))))
+                           {:free-names [(:name x)]})))
+
+(add-var-type 'clojure.core/rest
+              (let [x (make-F 'x)]
+                (with-meta (Poly* [(:name x)]
+                                  (Fn-Intersection
+                                    (make-Function [(Un (RInstance-of Seqable [x])
+                                                        -nil)]
+                                                   (RInstance-of ISeq [x]))))
                            {:free-names [(:name x)]})))
 
 (ann clojure.core/conj
@@ -4878,7 +4908,7 @@
                  (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (:mandatory kws)) (count (:optional kws)))
                        st* (if (integer? k)
                              (fn [t] 
-                               {:pre [(Type? t)]}
+                               {:pre [(AnyType? t)]}
                                (subst-type t (if (number? k) (+ arg-count k) k) o polarity))
                              st)]
                    (->Function (map st dom)
@@ -5075,7 +5105,7 @@
             (throw (Exception. (pr-str "Could not apply dotted function " (unparse-type fexpr-type)
                                        " to arguments " (map unparse-type arg-types))))))
 
-        (throw (Exception. "Give up, this isn't a Poly or PolyDots containing a Fn-Intersection, or a Fn-Intersection"))))))
+        (throw (Exception. (str "Cannot invoke type: " (unparse-type fexpr-type))))))))
 
 (defmethod check :var
   [{:keys [var] :as expr} & [expected]]
@@ -6248,6 +6278,7 @@
 ; ie. a map of symbols to types
 (defn update-composite [bnd-env f]
   {:pre [(Filter? f)]}
+  ;(prn "update-composite")
   (cond
     (AndFilter? f) (apply merge-with In
                      (for [fl (:fs f)]
