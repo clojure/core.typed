@@ -315,6 +315,7 @@
                                     (In t1 t2)))))
 
       (every? HeterogeneousMap? ts) (simplify-HMap-In ts)
+      (ts -any) (apply In (disj ts -any))
       :else (->Intersection ts))))
 
 (declare-type Intersection)
@@ -516,7 +517,7 @@
    :post [(Type? %)]}
   (let [sym (gensym)
         body (Mu-body* sym t)]
-    (substitute body t sym)))
+    (substitute t sym body)))
 
 (declare-type Mu)
 
@@ -2608,7 +2609,7 @@
 
 (defn c-meet [{S  :S X  :X T  :T :as c1}
               {S* :S X* :X T* :T :as c2}
-              & {:keys [var]}]
+              & [var]]
   (when-not (or var (= X X*))
     (throw (Exception. (str "Non-matching vars in c-meet:" X X*))))
   (let [S (join S S*)
@@ -3176,7 +3177,7 @@
             (constraint->type [{:keys [S X T] :as v} h & {:keys [variable]}]
               {:pre [(c? v)
                      (variance-map? h)
-                     ((some-fn nil? F?) variable)]}
+                     ((some-fn nil? symbol?) variable)]}
               (let [var (h (or variable X) :constant)]
                 (case var
                   (:constant :covariant) S
@@ -3298,23 +3299,23 @@
 
 (add-fold-case ::substitute-dots
                Function
-               (fn [{:keys [dom rng rest drest kws] :as ftype} options]
-                 (let [{:keys [name sb images rimage]} (:locals options)]
-                   (assert (not kws) "TODO substitute keyword args")
-                   (if (and drest
-                            (= name (:name (:bound drest))))
-                     (->Function (concat (map sb dom)
-                                         ;; We need to recur first, just to expand out any dotted usages of this.
-                                         (let [expanded (sb (:pre-type drest))]
-                                           (map (fn [img] (substitute img name expanded)) images)))
-                                 (sb rng)
-                                 rimage nil nil)
-                     (->Function (map sb dom)
-                                 (sb rng)
-                                 (and rest (sb rest))
-                                 (and drest (->DottedPretype (sb (:pre-type drest))
-                                                             (:bound drest)))
-                                 nil)))))
+               (fn [{:keys [dom rng rest drest kws] :as ftype} {{:keys [name sb images rimage]} :locals}]
+                 (assert (not kws) "TODO substitute keyword args")
+                 (if (and drest
+                          (= name (:name (:bound drest))))
+                   (->Function (concat (map sb dom)
+                                       ;; We need to recur first, just to expand out any dotted usages of this.
+                                       (let [expanded (sb (:pre-type drest))]
+                                         (prn "expanded" (unparse-type expanded))
+                                         (map (fn [img] (substitute img name expanded)) images)))
+                               (sb rng)
+                               rimage nil nil)
+                   (->Function (map sb dom)
+                               (sb rng)
+                               (and rest (sb rest))
+                               (and drest (->DottedPretype (sb (:pre-type drest))
+                                                           (:bound drest)))
+                               nil))))
 
 ;; implements angle bracket substitution from the formalism
 ;; substitute-dots : Listof[Type] Option[type] Name Type -> Type
@@ -3323,6 +3324,7 @@
          ((some-fn nil? AnyType?) rimage)
          (symbol? name)
          (AnyType? target)]}
+  (prn "substitute-dots" (unparse-type target) name "->" (map unparse-type images))
   (letfn [(sb [t] (substitute-dots images rimage name t))]
     (if (or ((fi target) name)
             ((fv target) name))
@@ -3389,22 +3391,33 @@
          ((set-c? symbol?) must-vars)
          ((some-fn nil? Type?) expected)]
    :post [(substitution-c? %)]}
-  (let [short-S (take (count T) S)
-        rest-S (drop (count T) S)
+  (let [[short-S rest-S] (split-at (count T) S)
+        _ (prn "short-S" short-S)
+        _ (prn "rest-S" rest-S)
         expected-cset (if expected
                         (cs-gen #{} X #{dotted-var} R expected)
                         (empty-cset #{} #{}))
+        _ (prn "expected-cset" expected-cset)
         cs-short (cs-gen-list #{} X #{dotted-var} short-S T
                               :expected-cset expected-cset)
+        _ (prn "cs-short" cs-short)
         new-vars (var-store-take dotted-var T-dotted (count rest-S))
+        _ (prn "new-vars" new-vars)
+        _ (prn "dotted-var" dotted-var)
+        _ (prn "T-dotted" T-dotted)
         new-Ts (doall
                  (for [v new-vars]
-                   (substitute (make-F v) dotted-var
-                               (substitute-dots (map make-F new-vars) nil dotted-var T-dotted))))
+                   (let [target (substitute-dots (map make-F new-vars) nil dotted-var T-dotted)]
+                     (prn "replace" v "with" dotted-var "in" (unparse-type target))
+                     (substitute (make-F v) dotted-var target))))
+        _ (prn "new-Ts" new-Ts)
         cs-dotted (cs-gen-list #{} (set/union (set new-vars) X) #{dotted-var} rest-S new-Ts
                                :expected-cset expected-cset)
-        cs-dotted* (move-vars-to-dmap cs-dotted dotted-var new-vars)
-        cs (cset-meet cs-short cs-dotted*)]
+        _ (prn "cs-dotted" cs-dotted)
+        cs-dotted (move-vars-to-dmap cs-dotted dotted-var new-vars)
+        _ (prn "cs-dotted" cs-dotted)
+        cs (cset-meet cs-short cs-dotted)
+        _ (prn "cs" cs)]
     (subst-gen (cset-meet cs expected-cset) #{dotted-var} R)))
 
 ;; like infer, but T-var is the vararg type:
@@ -3656,14 +3669,18 @@
                    image
                    f)))
 
-(defn substitute [target image name]
+(defn substitute [image name target]
+  {:pre [(AnyType? image)
+         (symbol? name)
+         (AnyType? target)]
+   :post [(AnyType? %)]}
   (fold-rhs ::substitute
             {:locals {:name name
                       :image image}}
             target))
 
 (defn substitute-many [target images names]
-  (reduce (fn [t [im nme]] (substitute t im nme))
+  (reduce (fn [t [im nme]] (substitute im nme t))
           target
           (map vector images names)))
 
@@ -3673,7 +3690,7 @@
    :post [(AnyType? %)]}
   (reduce (fn [t [v r]]
             (cond
-              (t-subst? r) (substitute t (:type r) v)
+              (t-subst? r) (substitute (:type r) v t)
               (i-subst? r) (substitute-dots (:types r) nil v t)
               (i-subst-starred? r) (substitute-dots (:types r) (:starred r) v t)
               (and (i-subst-dotted? r)
@@ -3725,7 +3742,7 @@
                         (doall (map (fn [bk]
                                       {:post [(Type? %)]}
                                       ;replace free occurences of bound with bk
-                                      (-> (substitute pre-type bk b)
+                                      (-> (substitute bk b pre-type)
                                         tfn))
                                     bm)))]
             (->Function dom
