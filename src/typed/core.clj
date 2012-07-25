@@ -3306,7 +3306,7 @@
                    (->Function (concat (map sb dom)
                                        ;; We need to recur first, just to expand out any dotted usages of this.
                                        (let [expanded (sb (:pre-type drest))]
-                                         (prn "expanded" (unparse-type expanded))
+                                         ;(prn "expanded" (unparse-type expanded))
                                          (map (fn [img] (substitute img name expanded)) images)))
                                (sb rng)
                                rimage nil nil)
@@ -3324,7 +3324,7 @@
          ((some-fn nil? AnyType?) rimage)
          (symbol? name)
          (AnyType? target)]}
-  (prn "substitute-dots" (unparse-type target) name "->" (map unparse-type images))
+  ;(prn "substitute-dots" (unparse-type target) name "->" (map unparse-type images))
   (letfn [(sb [t] (substitute-dots images rimage name t))]
     (if (or ((fi target) name)
             ((fv target) name))
@@ -3392,32 +3392,30 @@
          ((some-fn nil? Type?) expected)]
    :post [(substitution-c? %)]}
   (let [[short-S rest-S] (split-at (count T) S)
-        _ (prn "short-S" short-S)
-        _ (prn "rest-S" rest-S)
+        ;_ (prn "short-S" short-S)
+        ;_ (prn "rest-S" rest-S)
         expected-cset (if expected
                         (cs-gen #{} X #{dotted-var} R expected)
                         (empty-cset #{} #{}))
-        _ (prn "expected-cset" expected-cset)
+        ;_ (prn "expected-cset" expected-cset)
         cs-short (cs-gen-list #{} X #{dotted-var} short-S T
                               :expected-cset expected-cset)
-        _ (prn "cs-short" cs-short)
+        ;_ (prn "cs-short" cs-short)
         new-vars (var-store-take dotted-var T-dotted (count rest-S))
-        _ (prn "new-vars" new-vars)
-        _ (prn "dotted-var" dotted-var)
-        _ (prn "T-dotted" T-dotted)
         new-Ts (doall
                  (for [v new-vars]
                    (let [target (substitute-dots (map make-F new-vars) nil dotted-var T-dotted)]
-                     (prn "replace" v "with" dotted-var "in" (unparse-type target))
+                     ;(prn "replace" v "with" dotted-var "in" (unparse-type target))
                      (substitute (make-F v) dotted-var target))))
-        _ (prn "new-Ts" new-Ts)
+;        _ (prn "new-Ts" new-Ts)
         cs-dotted (cs-gen-list #{} (set/union (set new-vars) X) #{dotted-var} rest-S new-Ts
                                :expected-cset expected-cset)
-        _ (prn "cs-dotted" cs-dotted)
+        ;_ (prn "cs-dotted" cs-dotted)
         cs-dotted (move-vars-to-dmap cs-dotted dotted-var new-vars)
-        _ (prn "cs-dotted" cs-dotted)
+        ;_ (prn "cs-dotted" cs-dotted)
         cs (cset-meet cs-short cs-dotted)
-        _ (prn "cs" cs)]
+        ;_ (prn "cs" cs)
+        ]
     (subst-gen (cset-meet cs expected-cset) #{dotted-var} R)))
 
 ;; like infer, but T-var is the vararg type:
@@ -4526,6 +4524,7 @@
 (defmethod constant-type Character [v] (->Value v))
 (defmethod constant-type clojure.lang.Keyword [v] (->Value v))
 (defmethod constant-type Boolean [v] (if v -true -false))
+(defmethod constant-type IPersistentSet [v] (RInstance-of IPersistentSet [(apply Un (map constant-type v))]))
 
 (defmethod constant-type IPersistentList
   [clist]
