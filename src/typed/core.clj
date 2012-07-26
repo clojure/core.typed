@@ -166,14 +166,12 @@
 
 (defmacro non-nil-return 
   "Override the return type of method msym to be non-nil.
-  Takes keyword argument :arities which is a set of relevant arities,
+  Takes a set of relevant arities,
   represented by the number of parameters it takes (rest parameter counts as one),
   or :all which overrides all arities.
   
-  eg.  (non-nil-return java.lang.Class/getDeclaredMethod
-                       :arities :all)"
-  [msym & {:keys [arities]}]
-  (assert arities "Must provide arities")
+  eg.  (non-nil-return java.lang.Class/getDeclaredMethod :all)"
+  [msym arities]
   `(tc-ignore
   (add-nonnilable-method-return '~msym '~arities)))
 
@@ -441,11 +439,10 @@
 
 (declare-type Record)
 
-(defrecord DataType [the-class fields ancestors]
+(defrecord DataType [the-class fields]
   "A Clojure datatype"
   [(symbol? the-class)
-   ((array-map-c? symbol? Type?) fields)
-   ((set-c? ancestors) ancestors)])
+   ((array-map-c? symbol? Type?) fields)])
 
 (declare-type DataType)
 
@@ -617,7 +614,8 @@
 
 (defrecord Function [dom rng rest drest kws]
   "A function arity, must be part of an intersection"
-  [(sequential? dom)
+  [(or (nil? dom)
+       (sequential? dom))
    (every? Type? dom)
    (Result? rng)
    (<= (count (filter identity [rest drest kws])) 1)
@@ -797,8 +795,7 @@
                                                   (apply array-map
                                                          (apply concat
                                                                 (for [[k v] fs]
-                                                                  [k (type-rec v)])))))
-                           (update-in [:ancestors] #(set (map type-rec %))))))
+                                                                  [k (type-rec v)]))))))))
 
 (add-default-fold-case Poly
                        (fn [ty _]
@@ -1563,18 +1560,19 @@
 (defn parse-field [[n _ t]]
   [n (parse-type t)])
 
-(defmacro ann-datatype [local-name fields & {ancests :extends rplc :replace}]
-  (do (assert (not rplc) "Replace todo")
+(defmacro ann-datatype [local-name fields & {ancests :unchecked-extends rplc :replace}]
+  (do (assert (not rplc) "Replace NYI")
+      (assert (not ancests) "Unchecked extends NYI")
       (assert (not (or (namespace local-name)
                        (some #(= \. %) (str local-name))))
               (str "Must provide local name: " local-name))
   `(tc-ignore
   (let [local-name# '~local-name
         fs# (apply array-map (apply concat (doall (map parse-field '~fields))))
-        as# (set (doall (map parse-type '~ancests)))
+        ;as# (set (doall (map parse-type '~ancests)))
         s# (symbol (str (munge (-> *ns* ns-name)) \. local-name#))
         pos-ctor-name# (symbol (str (-> *ns* ns-name)) (str "->" local-name#))
-        dt# (->DataType s# fs# as#)
+        dt# (->DataType s# fs#)
         pos-ctor# (Fn-Intersection
                     (make-Function (vals fs#) dt#))]
     (do 
@@ -1687,6 +1685,18 @@
     d))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DataType Ancestor Env
+
+(defonce DATATYPE-ANCESTOR-ENV (atom {}))
+(set-validator! DATATYPE-ANCESTOR-ENV (hash-c? (every-pred symbol? 
+                                                           (fn [k] (some #(= \. %) (str k)))) 
+                                               (set-c? Type?)))
+
+(defn add-datatype-ancestor [sym tset]
+  (swap! DATATYPE-ANCESTOR-ENV update-in [sym] set/union tset)
+  nil)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Protocol Env
 
 (defonce PROTOCOL-ENV (atom {}))
@@ -1726,10 +1736,8 @@
 
 (defn nonnilable-return? [sym arity]
   (let [as (@METHOD-RETURN-NONNILABLE-ENV sym)]
-    (prn "as" as)
     (boolean (when as
-               (or (= :all as)
-                   (as sym))))))
+               (as arity)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Param nilables
@@ -3180,19 +3188,19 @@
                           ;both rest args are present, so make them the same length
                           (and (:rest S) (:rest T))
                           (cs-gen-list V X Y 
-                                       (cons (:rest T) (concat (:dom T) (take (- (count (:dom T))
-                                                                                 (count (:dom S))
-                                                                                 (cycle (:rest T))))))
-                                       (cons (:rest S) (concat (:dom S) (take (- (count (:dom S))
-                                                                                 (count (:dom T))
-                                                                                 (cycle (:rest S)))))))
+                                       (cons (:rest T) (concat (:dom T) (repeat (- (count (:dom S))
+                                                                                   (count (:dom T)))
+                                                                                (:rest T))))
+                                       (cons (:rest S) (concat (:dom S) (repeat (- (count (:dom T))
+                                                                                   (count (:dom S)))
+                                                                                (:rest S)))))
                           ;no rest arg on the right, so just pad left and forget the rest arg
                           (and (:rest S) (not (:rest T)))
                           (cs-gen-list V X Y
-                                       (concat (:dom T) (take (- (count (:dom T))
-                                                                 (count (:dom S)))
-                                                              (cycle (:rest T))))
-                                       (:dom S))
+                                       (:dom T)
+                                       (concat (:dom S) (repeat (- (count (:dom T))
+                                                                   (count (:dom S)))
+                                                                (:rest S))))
                           ;no rest arg on left, or wrong number = fail
                           :else (type-error S T))
             ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
@@ -3390,7 +3398,9 @@
          (every? Type? (concat S T))
          (cset? expected-cset)]
    :post [(cset? %)]}
-  (assert (= (count S) (count T)))
+  (assert (= (count S) (count T))
+          (pr-str "S:" (map unparse-type S)
+                  "T:" (map unparse-type T)))
   (cset-meet*
     ;; We meet early to prune the csets to a reasonable size.
     ;; This weakens the inference a bit, but sometimes avoids
@@ -4104,8 +4114,8 @@
   (subtype (RInstance-of (class (into-array []))) t))
 
 (defmethod subtype* [DataType Type]
-  [{ancest1 :ancestors :as s} t]
-  (if (some #(subtype? % t) (concat [(RInstance-of Object)] ancest1))
+  [{:keys [the-class] :as s} t]
+  (if (some #(subtype? % t) (set/union #{(RInstance-of Object)} (@DATATYPE-ANCESTOR-ENV the-class)))
     *sub-current-seen*
     (type-error s t)))
 
@@ -4447,6 +4457,7 @@
                                       [Class (U nil (Seqable x)) -> (Arrayof x)])))
 
 (ann clojure.core/not [Any -> (U true false)])
+(ann clojure.core/constantly (All [x y] [x -> [y * -> x]]))
 
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
@@ -4566,17 +4577,17 @@
 
 (ann clojure.core/= [Any Any * -> (U true false)])
 
-(override-method clojure.lang.Util/equiv [Any Any -> (U true false)])
-
 (ann clojure.core/+ [Number * -> Number])
 (ann clojure.core/- [Number Number * -> Number])
 (ann clojure.core/* [Number * -> Number])
 (ann clojure.core// [Number Number * -> Number])
 
-(override-method clojure.lang.Numbers/add [Number Number -> Number])
-(override-method clojure.lang.Numbers/minus [Number Number -> Number])
-(override-method clojure.lang.Numbers/multiply [Number Number -> Number])
-(override-method clojure.lang.Numbers/divide [Number Number -> Number])
+(non-nil-return clojure.lang.Numbers/add #{2})
+(non-nil-return clojure.lang.Numbers/minus #{2})
+(non-nil-return clojure.lang.Numbers/multiply #{2})
+(non-nil-return clojure.lang.Numbers/divide #{2})
+
+(non-nil-return java.lang.Object/getClass #{0})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -4712,10 +4723,40 @@
 
 (defmethod check :map
   [{:keys [keyvals] :as expr} & [expected]]
-  (let [ckeyvals (mapv check keyvals)]
-    (assert (every? Value? (map (comp ret-t expr-type) (keys (apply hash-map ckeyvals)))))
+  (let [expected (ret-t expected)
+        _ (when expected
+            (assert (or (HeterogeneousMap? expected)
+                        (and (Union? expected)
+                             (every? HeterogeneousMap? (:types expected))))
+                    (str "Expected HeterogeneousMap, found " (unparse-type expected))))
+        actual (if (not expected)
+                 (->HeterogeneousMap (apply hash-map (map (comp ret-t expr-type) (mapv check keyvals))))
+                 (let [keyvals-map (apply hash-map keyvals)
+                       ckeys-to-uvals (into {} (for [[k v] keyvals-map]
+                                                 [(check k) v]))
+                       actual-keys (set (map (comp ret-t expr-type) (keys ckeys-to-uvals)))
+                       relevant-type (first
+                                       (filter #(empty? (set/difference actual-keys (set (keys (:types %)))))
+                                               (or (and (HeterogeneousMap? expected)
+                                                        [expected])
+                                                   (and (Union? expected)
+                                                        (:types expected)))))
+                       _ (assert (HeterogeneousMap? relevant-type)
+                                 (str "Expected " (unparse-type expected)
+                                      ", found HMap with keys: " 
+                                      (map (comp unparse-type ret-t expr-type (keys ckeys-to-uvals)))))
+                       _ (doseq [[ck uv] ckeys-to-uvals]
+                           (let [kt (ret-t (expr-type ck))
+                                 _ (assert (and (Value? kt)
+                                                (keyword? (:val kt)))
+                                           "Can only check keyword keys to maps")
+                                 expected-val ((:types relevant-type) kt)
+                                 _ (assert expected-val (str "Undeclared key " (unparse-type kt)))
+                                 cval (check uv (ret expected-val))]
+                             (assert (subtype (ret-t (expr-type cval)) expected-val))))]
+                   expected))]
     (assoc expr
-           expr-type (ret (->HeterogeneousMap (apply hash-map (map (comp ret-t expr-type) ckeyvals)))))))
+           expr-type (ret actual))))
 
 (defmethod check :vector
   [{:keys [args] :as expr} & [expected]]
@@ -5168,7 +5209,8 @@
                          ;; only try inference if argument types are appropriate and no kws
                          (if-let [substitution (and (not (or drest kws))
                                                     ((if rest <= =) (count dom) (count arg-types))
-                                                    (infer-vararg (set fs-names) #{} arg-types dom rest (Result-type* rng)))]
+                                                    (infer-vararg (set fs-names) #{} arg-types dom rest (Result-type* rng)
+                                                                  (and expected (ret-t expected))))]
                            (ret (subst-all substitution (Result-type* rng)))
                            (if (or rest drest kws)
                              (throw (Exception. "Cannot infer arguments to polymorphic functions with rest types"))
@@ -5314,24 +5356,22 @@
         target-type (ret-t (expr-type catype))
         _ (assert (and (Value? target-type)
                        (class? (:val target-type)))
-                  (str "Must provide Clas as first argument to extend, "
+                  (str "Must provide Class as first argument to extend, "
                        "got" (unparse-type target-type)))
+        ; build expected types for each method map
         extends (into {}
                       (for [[prcl-expr mmap-expr] (apply hash-map protos)]
                         (let [protocol (do (assert (= :var (:op prcl-expr)) "Must reference protocol directly with var in extend")
                                          (resolve-protocol (var->symbol (:var prcl-expr))))
-                              mmap (do (assert (= :map (:op mmap-expr)) "Must provide literal map as mmap to extend")
-                                     (for [[mkeyword mfn] (apply hash-map (:keyvals mmap-expr))]
-                                       (let [_ (assert (= :keyword (:op mkeyword)) "Expected literal keyword as key for mmap")
-                                             msym (symbol (name (:val mkeyword)))
-                                             mtype ((:methods protocol) msym)
-                                             _ (assert mtype (str "No declared method " msym " in protocol " (:the-var protocol)))
-                                             expected-m (extend-method-expected target-type mtype)]
-                                         [expected-m mfn])))]
-                          [protocol mmap])))
-        _ (doseq [[protocol mmap] extends
-                  [expected-ftype mexpr] mmap]
-            (check mexpr (ret expected-ftype)))]
+                              expected-mmap (make-HMap {}
+                                                       ;get all combinations
+                                                       (into {}
+                                                             (for [[msym mtype] (:methods protocol)]
+                                                               [(-val (keyword (name msym))) 
+                                                                (extend-method-expected target-type mtype)])))]
+                          [protocol [mmap-expr expected-mmap]])))
+        _ (doseq [[protocol [mmap-expr expected-hmap]] extends]
+            (check mmap-expr (ret expected-hmap)))]
     (assoc expr
            expr-type (ret -nil))))
 
@@ -6661,28 +6701,43 @@
                      cmmap))
         dt (@DATATYPE-ENV nme)
         _ (assert dt (str "Untyped datatype definition: " nme))
-        _ (doseq [inst-method methods]
-            (prn "Checking deftype* method: "(:name inst-method))
-            (let [nme (:name inst-method)
-                  _ (assert (symbol? nme)) ;can remove once new analyze is released
-                  method-sig (cmmap nme)
-                  _ (assert (instance? clojure.reflect.Method method-sig))
-                  ;_ (prn "method-sig" method-sig)
-                  expected-ifn (or (let [ptype (first
-                                                 (filter #(= (:on-class %) (:declaring-class method-sig))
-                                                         (vals @PROTOCOL-ENV)))]
-                                     ;(prn "ptype" ptype)
-                                     (when ptype
-                                       (let [munged-methods (into {} (for [[k v] (:methods ptype)]
-                                                                       [(symbol (munge k)) v]))]
-                                         (munged-methods (:name method-sig)))))
-                                   (instance-method->Function method-sig))
-                  ;_ (prn "expected-ifn: " (unparse-type expected-ifn))
-                  ]
-              (with-locals (:fields dt)
-                (check-new-instance-method
-                  inst-method 
-                  expected-ifn))))]
+        ; update this deftype's ancestors to include each protocol/interface in this deftype
+        new-ancestors (set
+                        (for [[_ method] cmmap]
+                          (let [tsym (:declaring-class method)]
+                            (if-let [cls (resolve tsym)]
+                              (RInstance-of cls)
+                              (resolve-protocol tsym)))))
+        old-ancestors (or (@DATATYPE-ANCESTOR-ENV nme) #{})
+        _ (swap! DATATYPE-ANCESTOR-ENV update-in [nme] set/union new-ancestors)
+        _ (try
+            (doseq [inst-method methods]
+              (prn "Checking deftype* method: "(:name inst-method))
+              (let [nme (:name inst-method)
+                    _ (assert (symbol? nme)) ;can remove once new analyze is released
+                    method-sig (cmmap nme)
+                    _ (assert (instance? clojure.reflect.Method method-sig))
+                    ;_ (prn "method-sig" method-sig)
+                    expected-ifn (or (let [ptype (first
+                                                   (filter #(= (:on-class %) (:declaring-class method-sig))
+                                                           (vals @PROTOCOL-ENV)))]
+                                       ;(prn "ptype" ptype)
+                                       (when ptype
+                                         (let [munged-methods (into {} (for [[k v] (:methods ptype)]
+                                                                         [(symbol (munge k)) v]))]
+                                           (munged-methods (:name method-sig)))))
+                                     (instance-method->Function method-sig))
+                    ;_ (prn "expected-ifn: " (unparse-type expected-ifn))
+                    ]
+                (with-locals (:fields dt)
+                  (check-new-instance-method
+                    inst-method 
+                    expected-ifn))))
+            (catch Throwable e
+              ; reset old ancestors
+              (prn nme old-ancestors)
+              (swap! DATATYPE-ANCESTOR-ENV assoc nme old-ancestors)
+              (throw e)))]
     (assoc expr
            expr-type (ret (let [res (resolve nme)]
                             (assert (class? res))

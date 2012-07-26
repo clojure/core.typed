@@ -5,9 +5,10 @@
            [clojure.lang IPersistentSet Symbol IPersistentMap Seqable
             IPersistentVector IPersistentList Sequential])
   (:require [clojure.set :as set]
+            [clojure.repl :refer [pst]]
             [typed.core :refer [ann-protocol ann tc-ignore def-alias
                                 declare-protocols declare-datatypes
-                                ann-datatype loop> check-ns]]
+                                ann-datatype loop> check-ns non-nil-return]]
             [analyze.core :refer [ast]]))
 
 (ann *occurs-check* (U true false))
@@ -156,8 +157,7 @@
   (take* [a]))
 )
 
-(ann-datatype Unbound []
-              :singleton unbound)
+(ann-datatype Unbound [])
 (deftype Unbound [])
 
 (ann unbound Unbound)
@@ -175,8 +175,7 @@
                add-constraint [ILVar Any -> Any]
                add-constraints [ILVar Any -> Any]
                remove-constraint [ILVar Any -> Any]
-               remove-constraints [ILVar -> Any]}
-              :extends #{ISDF})
+               remove-constraints [ILVar -> Any]})
 
 (tc-ignore
 (defprotocol ILVar
@@ -294,11 +293,10 @@
 (declare lcons)
 
 (ann-datatype Substitutions [[s :- (IPersistentMap ILVar (U Unbound Term))]
-                             ;[l :- (IPersistentList (Pair LVar Term))]])
-                             [l :- (IPersistentList Pair)]
+                             [l :- (IPersistentList Pair)] ;[l :- (IPersistentList (Pair LVar Term))]])
                              [verify :- [ISubstitutions Term Term -> ISubstitutions]]
                              [cs :- Any]] ;TODO constraint store
-              :extends #{ISubstitutions IBind IMPlus ITake})
+              )
 
 (deftype Substitutions [s l verify cs]
   Object

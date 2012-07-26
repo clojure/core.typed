@@ -36,7 +36,7 @@
 (ann-protocol URLClasspath
               :methods
               {can-modify? [URLClasspath -> (U true false)]
-               add-url [URLClasspath java.net.URL -> Any]})
+               add-url [URLClasspath URL -> Any]})
 
 (tc-ignore
 (defprotocol URLClasspath
@@ -54,6 +54,8 @@ unless you are extending a type to this protocol."
   (can-modify? [this] true)
   (add-url [this url] (.addURL this url)))
 
+(ann url-classloader-base (HMap {:can-modify? (Fn [URLClassLoader -> true])
+                                 :add-url (Fn [URLClassLoader URL -> Any])}))
 (def ^:private url-classloader-base
   {:can-modify? (constantly true)
    :add-url (fn [this url]
