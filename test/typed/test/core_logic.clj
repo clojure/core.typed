@@ -8,7 +8,8 @@
             [clojure.repl :refer [pst]]
             [typed.core :refer [ann-protocol ann tc-ignore def-alias
                                 declare-protocols declare-datatypes
-                                ann-datatype loop> check-ns non-nil-return]]
+                                ann-datatype loop> check-ns non-nil-return
+                                tc-pr-env]]
             [analyze.core :refer [ast]]))
 
 (ann *occurs-check* (U true false))
@@ -163,7 +164,7 @@
 (ann unbound Unbound)
 (def ^Unbound unbound (Unbound.))
 
-(ann Unbound? [Any -> (U true false)])
+(ann Unbound? (predicate Unbound))
 (tc-ignore
 (defn Unbound? [a]
   (identical? a unbound))
@@ -362,13 +363,17 @@
   
   ;walk-var same as walk above...
   (walk-var [this v]
+    (tc-pr-env "before loop")
     (loop> [[lv :- Term] v 
             [fr :- (U nil (Vector* ILVar (U Unbound Term)))] (find s v)]
+      (tc-pr-env "before nths")
       (let [v (nth fr 0)
             vp (nth fr 1)]
+        (tc-pr-env "after nths")
         (cond
           (nil? v) lv
-          (Unbound? vp) v
+          (Unbound? vp) (do (tc-pr-env "unbound branch")
+                          v)
           (not (lvar? vp)) v
           :else (recur vp (find s vp))))))
   

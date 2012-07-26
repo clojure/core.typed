@@ -1893,6 +1893,14 @@
         _ (check-forbidden-rec f body)]
     (Mu* (:name f) body)))
 
+(defmethod parse-type-list 'predicate
+  [[_ t-syn]]
+  (let [on-type (parse-type t-syn)]
+    (Fn-Intersection
+      (make-Function [-any] (Un -false -true) nil nil
+                     :filter (-FS (-filter on-type 0)
+                                  (-not-filter on-type 0))))))
+
 (defmethod parse-type-list 'Rec
   [syn]
   (parse-rec-type syn))
@@ -2037,10 +2045,10 @@
 (defn parse-function [f]
   (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
-        _ (assert (= (count chk) 2) (str "Missing range in " f))
+        _ (assert (<= (count chk) 2) (str "Missing range in " f))
 
         {ellipsis-pos '...
-         asterix-pos '*} 
+         asterix-pos '*}
         (into {} (map vector all-dom (range)))
 
         _ (assert (not (and asterix-pos ellipsis-pos))
@@ -6750,15 +6758,17 @@
                     method-sig (cmmap nme)
                     _ (assert (instance? clojure.reflect.Method method-sig))
                     ;_ (prn "method-sig" method-sig)
-                    expected-ifn (or (let [ptype (first
-                                                   (filter #(= (:on-class %) (:declaring-class method-sig))
-                                                           (vals @PROTOCOL-ENV)))]
-                                       ;(prn "ptype" ptype)
-                                       (when ptype
-                                         (let [munged-methods (into {} (for [[k v] (:methods ptype)]
-                                                                         [(symbol (munge k)) v]))]
-                                           (munged-methods (:name method-sig)))))
-                                     (instance-method->Function method-sig))
+                    expected-ifn 
+                    (extend-method-expected dt
+                                            (or (let [ptype (first
+                                                              (filter #(= (:on-class %) (:declaring-class method-sig))
+                                                                      (vals @PROTOCOL-ENV)))]
+                                                  ;(prn "ptype" ptype)
+                                                  (when ptype
+                                                    (let [munged-methods (into {} (for [[k v] (:methods ptype)]
+                                                                                    [(symbol (munge k)) v]))]
+                                                      (munged-methods (:name method-sig)))))
+                                                (instance-method->Function method-sig)))
                     ;_ (prn "expected-ifn: " (unparse-type expected-ifn))
                     ]
                 (with-locals (:fields dt)
