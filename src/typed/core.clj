@@ -5,10 +5,10 @@
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
-                         Keyword Atom PersistentList IMeta PersistentArrayMap Compiler))
+                         Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
-            [clojure.string :as string]
+            [clojure.string :as str]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
             [trammel.core :as contracts]
@@ -163,6 +163,31 @@
   [& body]
   `(tc-ignore-forms* (do
                       ~@body)))
+
+(defmacro non-nil-return 
+  "Override the return type of method msym to be non-nil.
+  Takes keyword argument :arities which is a set of relevant arities,
+  represented by the number of parameters it takes (rest parameter counts as one),
+  or :all which overrides all arities.
+  
+  eg.  (non-nil-return java.lang.Class/getDeclaredMethod
+                       :arities :all)"
+  [msym & {:keys [arities]}]
+  (assert arities "Must provide arities")
+  `(tc-ignore
+  (add-nonnilable-method-return '~msym '~arities)))
+
+(defmacro nilable-param 
+  "Overrides which parameters in a method may accept
+  nilable values. If the parameter is a parameterised type or
+  an Array, this also declares the parameterised types and the Array type as nilable.
+
+  mmap is a map mapping arity parameter number to a set of parameter
+  positions (integers). If the map contains the key :all then this overrides
+  other entries. The key can also be :all, which declares all parameters nilable."
+  [msym mmap]
+  `(tc-ignore
+  (add-method-nilable-param '~msym '~mmap)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
@@ -570,6 +595,12 @@
 
 (declare-type HeterogeneousSeq)
 
+(defrecord PrimitiveArray [type]
+  "A Java Primitive array"
+  [(Type? type)])
+
+(declare-type PrimitiveArray)
+
 (declare Result?)
 
 (defrecord DottedPretype [pre-type bound]
@@ -754,6 +785,11 @@
                            (update-in [:poly?] #(when %
                                                   (map type-rec %)))
                            (update-in [:constructor] type-rec))))
+
+(add-default-fold-case PrimitiveArray
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:type] type-rec))))
 
 (add-default-fold-case DataType
                        (fn [ty _]
@@ -1678,6 +1714,46 @@
   nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Method Return non-nilables
+
+(defonce METHOD-RETURN-NONNILABLE-ENV (atom {}))
+(set-validator! METHOD-RETURN-NONNILABLE-ENV (hash-c? (every-pred namespace symbol?)
+                                                      (some-fn #(= :all %)
+                                                               (set-c? nat?))))
+
+(defn add-nonnilable-method-return [sym m]
+  (swap! METHOD-RETURN-NONNILABLE-ENV assoc sym m)
+  nil)
+
+(defn nonnilable-return? [sym arity]
+  (let [as (@METHOD-RETURN-NONNILABLE-ENV sym)]
+    (prn "as" as)
+    (boolean (when as
+               (or (= :all as)
+                   (as sym))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Method Param nilables
+
+(defonce METHOD-PARAM-NILABLE-ENV (atom {}))
+(set-validator! METHOD-PARAM-NILABLE-ENV (hash-c? (every-pred namespace symbol?)
+                                                  (hash-c? (some-fn #(= :all %) nat?)
+                                                           (some-fn #(= :all %) (set-c? nat?)))))
+
+(defn add-method-nilable-param [sym a]
+  (swap! METHOD-PARAM-NILABLE-ENV assoc sym a)
+  nil)
+
+(defn nilable-param? [sym arity param]
+  (boolean 
+    (when-let [nilables (@METHOD-PARAM-NILABLE-ENV sym)]
+      (when-let [params (or (nilables :all)
+                            (nilables arity))]
+        (or (= :all params)
+            (params param))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Name Env
 
 (def declared-name-type ::declared-name)
@@ -1860,6 +1936,11 @@
   [syn]
   (parse-intersection-type syn))
 
+(defmethod parse-type-list 'Arrayof
+  [[_ tsyn & none]]
+  (assert (empty? none) "Only one argument to Arrayof")
+  (->PrimitiveArray (parse-type tsyn)))
+
 (declare parse-function)
 
 (defn parse-fn-intersection-type [[Fn & types]]
@@ -2002,6 +2083,10 @@
 (defmethod unparse-type F
   [{:keys [name]}]
   name)
+
+(defmethod unparse-type PrimitiveArray
+  [{:keys [type]}]
+  (list 'Arrayof (unparse-type type)))
 
 (defmethod unparse-type B
   [{:keys [idx]}]
@@ -2230,6 +2315,10 @@
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
 
+(defmethod frees [::any-var PrimitiveArray]
+  [{:keys [type]}] 
+  (frees type))
+
 (defmethod frees [::any-var HeterogeneousSeq]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
@@ -2323,6 +2412,16 @@
            (set? V)
            (every? symbol? V)]}
     (class T)))
+
+(defmethod promote PrimitiveArray
+  [T V]
+  (-> T
+    (update-in [:type] #(promote % V))))
+
+(defmethod demote PrimitiveArray
+  [T V]
+  (-> T
+    (update-in [:type] #(demote % V))))
 
 (defmethod promote F
   [T V]
@@ -4002,6 +4101,10 @@
     *sub-current-seen*
     (type-error s t)))
 
+(defmethod subtype* [PrimitiveArray Type]
+  [_ t]
+  (subtype (RInstance-of (class (into-array []))) t))
+
 (defmethod subtype* [DataType Type]
   [{ancest1 :ancestors :as s} t]
   (if (some #(subtype? % t) (concat [(RInstance-of Object)] ancest1))
@@ -4080,7 +4183,8 @@
 
 ; Class -> Class
 (def primitive-coersions
-  {Integer/TYPE #{Short Integer Long}})
+  {Integer/TYPE #{Short Integer Long}
+   Boolean/TYPE #{Boolean}})
 
 (defn coerse-RInstance-primitive
   [{constl :constructor :as s}
@@ -4233,7 +4337,7 @@
              {Seqable (Seqable a)
               IPersistentCollection (IPersistentCollection a)})
 
-(alter-class ILookup [[a :variance :invariant]
+(alter-class ILookup [[a :variance :covariant]
                       [b :variance :covariant]])
 
 (alter-class IPersistentSet [[a :variance :covariant]]
@@ -4334,10 +4438,15 @@
 (ann clojure.core/*ns* Namespace)
 (ann clojure.core/namespace [(U Symbol String Keyword) -> (U nil String)])
 (ann clojure.core/ns-name [Namespace -> Symbol])
+(ann clojure.core/name [Named -> String])
 (ann clojure.core/in-ns [Symbol -> nil])
 (ann clojure.core/import [(IPersistentCollection Symbol) -> nil])
 
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
+
+(ann clojure.core/into-array (All [x] 
+                                  (Fn [(U nil (Seqable x)) -> (Arrayof x)]
+                                      [Class (U nil (Seqable x)) -> (Arrayof x)])))
 
 (ann clojure.core/not [Any -> (U true false)])
 
@@ -5023,6 +5132,7 @@
    :post [(TCResult? %)]}
   (let [fexpr-type (ret-t fexpr-ret-type)
         arg-types (doall (map ret-t arg-ret-types))]
+    (prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
     (cond
       ;ordinary Function, single case, special cased for improved error msgs
       (and (Fn-Intersection? fexpr-type)
@@ -5044,20 +5154,27 @@
           (throw (Exception. "Arguments did not match function"))))
 
       ;ordinary polymorphic function without dotted rest
-      (Poly? fexpr-type)
+      (and (Poly? fexpr-type)
+           (let [body (Poly-body* (repeatedly (:nbound fexpr-type) gensym) fexpr-type)]
+             (and (Fn-Intersection? body)
+                  (every? (complement :drest) (:types body)))))
       (let [fs-names (or (-> (meta fexpr-type) :free-names)
                          (repeatedly (:nbound fexpr-type) gensym))
             _ (assert (every? symbol? fs-names))
+            _ (prn "ordinary poly:" (unparse-type fexpr-type))
             body (Poly-body* fs-names fexpr-type)
             _ (assert (Fn-Intersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
-                         (if-let [substitution (and (not (or rest drest kws))
-                                                    (infer (set fs-names) #{} arg-types dom (Result-type* rng)))]
+                         (prn (unparse-type ftype))
+                         ;; only try inference if argument types are appropriate and no kws
+                         (if-let [substitution (and (not (or drest kws))
+                                                    ((if rest <= =) (count dom) (count arg-types))
+                                                    (infer-vararg (set fs-names) #{} arg-types dom rest (Result-type* rng)))]
                            (ret (subst-all substitution (Result-type* rng)))
                            (if (or rest drest kws)
                              (throw (Exception. "Cannot infer arguments to polymorphic functions with rest types"))
-                             (recur (next ftypes))))))]
+                             (recur ftypes)))))]
         (if ret-type
           ret-type
           (throw (Exception. "Could not infer result to polymorphic function"))))
@@ -5915,30 +6032,57 @@
    'boolean Boolean/TYPE
    'void Void/TYPE})
 
-(defn Method-symbol->Type [sym]
+(declare Method-symbol->Type)
+
+(defn Method->symbol [{name-sym :name :keys [declaring-class] :as method}]
+  {:pre [(instance? clojure.reflect.Method method)]
+   :post [((every-pred namespace symbol?) %)]}
+  (symbol (name declaring-class) (name name-sym)))
+
+(defn symbol->PArray [sym nilable?]
+  (let [s (str sym)]
+    (when (.endsWith s "<>")
+      (let [s-nosuffix (apply str (drop-last 2 s))]
+        (assert (not (.contains s-nosuffix "<>")))
+        ;Nullable elements
+        (->PrimitiveArray (Method-symbol->Type (symbol s-nosuffix) nilable?))))))
+
+(defn Method-symbol->Type [sym nilable?]
   {:pre [(symbol? sym)]
    :post [(Type? %)]}
-  (if-let [cls (or (primitives sym)
-                   (resolve sym))]
-    (apply Un (if (= Void/TYPE cls) ;Clojure never interacts with Void
-                -nil
-                (RInstance-of cls))
-           (when-not (primitives sym)
-             [-nil])) ;could be nil/null if cls is a reference type
+  (if-let [typ (or (when-let [p (primitives sym)]
+                     (if (= Void/TYPE p) ;Clojure never interacts with Void
+                       -nil
+                       (RInstance-of p)))
+                   (symbol->PArray sym nilable?)
+                   (when-let [cls (resolve sym)]
+                     (apply Un (RInstance-of cls)
+                            (when nilable?
+                              [-nil]))))]
+    typ
     (throw (Exception. (str "Method symbol " sym " does not resolve to a type")))))
 
 (defn- instance-method->Function [{:keys [parameter-types declaring-class return-type] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(Fn-Intersection? %)]}
   (Fn-Intersection (make-Function (concat [(RInstance-of (resolve declaring-class))]
-                                          (doall (map Method-symbol->Type parameter-types)))
-                                  (Method-symbol->Type return-type))))
+                                          (doall (map #(Method-symbol->Type % false) parameter-types)))
+                                  (Method-symbol->Type return-type true))))
 
-(defn- method->Function [{:keys [parameter-types return-type] :as method}]
+(defn- method->Function [{:keys [parameter-types return-type flags] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(Fn-Intersection? %)]}
-  (Fn-Intersection (make-Function (doall (map Method-symbol->Type parameter-types))
-                                  (Method-symbol->Type return-type))))
+  (let [msym (Method->symbol method)
+        nparams (count parameter-types)]
+    (Fn-Intersection (make-Function (doall (map (fn [[n tsym]] (Method-symbol->Type 
+                                                                 tsym (nilable-param? msym nparams n)))
+                                                (map-indexed vector
+                                                             (if (:varargs flags)
+                                                               (butlast parameter-types)
+                                                               parameter-types))))
+                                    (Method-symbol->Type return-type (not (nonnilable-return? msym nparams)))
+                                    (when (:varargs flags)
+                                      (Method-symbol->Type (last parameter-types) (nilable-param? msym nparams (dec nparams))))))))
 
 (defn- Constructor->Function [{:keys [declaring-class parameter-types] :as ctor}]
   {:pre [(instance? clojure.reflect.Constructor ctor)]
@@ -5946,26 +6090,28 @@
   (let [cls (resolve declaring-class)
         _ (when-not (class? cls)
             (throw (Exception. (str "Constructor for unresolvable class " (:class ctor)))))]
-    (Fn-Intersection (make-Function (doall (map Method-symbol->Type parameter-types))
+    (Fn-Intersection (make-Function (doall (map #(Method-symbol->Type % false) parameter-types))
                                     (RInstance-of cls)
                                     nil nil
                                     :filter (-FS -top -bot))))) ;always a true value
 
-(defn Method->symbol [{name-sym :name :keys [declaring-class] :as method}]
-  {:pre [(instance? clojure.reflect.Method method)]
-   :post [((every-pred namespace symbol?) %)]}
-  (symbol (name declaring-class) (name name-sym)))
-
-(defn check-invoke-static-method [{:keys [args tag method] :as expr} expected]
+(defn check-invoke-method [{:keys [args tag method env] :as expr} expected inst?]
   {:pre [((some-fn nil? TCResult?) expected)]
    :post [(-> % expr-type TCResult?)]}
-  (prn "invoke static-method: " (Method->symbol method))
-  (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
-                           (method->Function method)))
-        cargs (doall (map check args))
-        result-type (check-funapp rfin-type (map expr-type cargs) expected)]
-    (assoc expr
-           expr-type result-type)))
+  (assert method (str "Unresolved method invocation " (:method-name expr) ", insufficient type hints."))
+  (prn "invoke method: " (Method->symbol method) inst?)
+  (binding [*current-env* env]
+    (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
+                             (method->Function method)))
+          _ (when inst?
+              (let [ctarget (check (:target expr))]
+                (prn "check target" (unparse-type (ret-t (expr-type ctarget)))
+                     (unparse-type (RInstance-of (resolve (:declaring-class method)))))
+                (assert (subtype (ret-t (expr-type ctarget)) (RInstance-of (resolve (:declaring-class method)))))))
+          cargs (doall (map check args))
+          result-type (check-funapp rfin-type (map expr-type cargs) expected)]
+      (assoc expr
+             expr-type result-type))))
 
 (defmethod check :static-method
   [expr & [expected]]
@@ -5974,12 +6120,12 @@
   (let [spec (static-method-special expr expected)]
     (cond
       (not= ::not-special spec) spec
-      :else (check-invoke-static-method expr expected))))
+      :else (check-invoke-method expr expected false))))
 
 (defmethod check :instance-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (check-invoke-static-method expr expected))
+  (check-invoke-method expr expected true))
 
 (def COMPILE-STUB-PREFIX "compile__stub")
 
@@ -5989,9 +6135,9 @@
   (prn "instance-field:" expr)
   (let [; may be prefixed by COMPILE-STUB-PREFIX
         target-class (symbol
-                       (string/replace-first (.getName ^Class (:target-class expr))
-                                             (str COMPILE-STUB-PREFIX ".")
-                                             ""))
+                       (str/replace-first (.getName ^Class (:target-class expr))
+                                          (str COMPILE-STUB-PREFIX ".")
+                                          ""))
         ;_ (prn (:target-class expr))
         ;_ (prn "target class" (str target-class) target-class)
         ;_ (prn (class target-class))
