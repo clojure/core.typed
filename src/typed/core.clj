@@ -617,8 +617,7 @@
 
 (defrecord Function [dom rng rest drest kws]
   "A function arity, must be part of an intersection"
-  [(or (empty? dom)
-       (sequential? dom))
+  [(sequential? dom)
    (every? Type? dom)
    (Result? rng)
    (<= (count (filter identity [rest drest kws])) 1)
@@ -1751,7 +1750,6 @@
                             (nilables arity))]
         (or (= :all params)
             (params param))))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Name Env
@@ -5280,6 +5278,63 @@
 
 (declare invoke-keyword)
 
+(defn- extend-method-expected 
+  "Returns the expected type with target-type intersected with the first argument"
+  [target-type expected]
+  {:pre [(Type? target-type)
+         (Type? expected)]
+   :post [(Type? %)]}
+  (cond
+    (Fn-Intersection? expected)
+    (-> expected
+      (update-in [:types] #(for [ftype %]
+                             (do
+                               (assert (<= 1 (count (:dom ftype))))
+                               (-> ftype
+                                 (update-in [:dom] (fn [dom] 
+                                                     (update-in (vec dom) [0] (partial In target-type)))))))))
+
+    (Poly? expected)
+    (let [names (repeat (:nbound expected) gensym)
+          body (Poly-body* names expected)
+          body (extend-method-expected target-type body)]
+      (Poly* names body))
+
+    (PolyDots? expected)
+    (let [names (repeat (:nbound expected) gensym)
+          body (PolyDots-body* names expected)
+          body (extend-method-expected target-type body)]
+      (PolyDots* names body))
+    :else (throw (Exception. (str "Expected Function type, found " (unparse-type expected))))))
+
+(defmethod invoke-special #'clojure.core/extend
+  [{[atype & protos] :args :as expr} & [expected]]
+  (assert (and atype (even? (count protos))) "Wrong arguments to extend")
+  (let [catype (check atype)
+        target-type (ret-t (expr-type catype))
+        _ (assert (and (Value? target-type)
+                       (class? (:val target-type)))
+                  (str "Must provide Clas as first argument to extend, "
+                       "got" (unparse-type target-type)))
+        extends (into {}
+                      (for [[prcl-expr mmap-expr] (apply hash-map protos)]
+                        (let [protocol (do (assert (= :var (:op prcl-expr)) "Must reference protocol directly with var in extend")
+                                         (resolve-protocol (var->symbol (:var prcl-expr))))
+                              mmap (do (assert (= :map (:op mmap-expr)) "Must provide literal map as mmap to extend")
+                                     (for [[mkeyword mfn] (apply hash-map (:keyvals mmap-expr))]
+                                       (let [_ (assert (= :keyword (:op mkeyword)) "Expected literal keyword as key for mmap")
+                                             msym (symbol (name (:val mkeyword)))
+                                             mtype ((:methods protocol) msym)
+                                             _ (assert mtype (str "No declared method " msym " in protocol " (:the-var protocol)))
+                                             expected-m (extend-method-expected target-type mtype)]
+                                         [expected-m mfn])))]
+                          [protocol mmap])))
+        _ (doseq [[protocol mmap] extends
+                  [expected-ftype mexpr] mmap]
+            (check mexpr (ret expected-ftype)))]
+    (assoc expr
+           expr-type (ret -nil))))
+
 ;not
 (defmethod invoke-special #'clojure.core/not
   [{:keys [args] :as expr} & [expected]]
@@ -5729,8 +5784,6 @@
 (defmethod invoke-apply :default 
   [{[fexpr & args] :args :as expr} & [expected]]
   (throw (Exception. "apply not implemented")))
-
-
 
 
 (defmethod check :invoke

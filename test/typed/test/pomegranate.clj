@@ -49,9 +49,15 @@ unless you are extending a type to this protocol."
   (^{:private true} add-url [this url] "add the url to the classpath"))
 )
 
-
 (extend-type DynamicClassLoader
   URLClasspath
   (can-modify? [this] true)
   (add-url [this url] (.addURL this url)))
+
+(def ^:private url-classloader-base
+  {:can-modify? (constantly true)
+   :add-url (fn [this url]
+              (call-method URLClassLoader 'addURL [URL] this url))})
+
+(extend URLClassLoader URLClasspath url-classloader-base)
 
