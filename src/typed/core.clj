@@ -2726,11 +2726,12 @@
 (defn c-meet [{S  :S X  :X T  :T :as c1}
               {S* :S X* :X T* :T :as c2}
               & [var]]
+  (prn "c-meet" c1 c2)
   (when-not (or var (= X X*))
     (throw (Exception. (str "Non-matching vars in c-meet:" X X*))))
   (let [S (join S S*)
         T (meet T T*)]
-    (when-not (subtype S T)
+    (when-not (subtype? S T)
       (type-error S T))
     (->c S (or var X) T)))
 
@@ -2739,9 +2740,11 @@
 (defn cset-meet [{maps1 :maps :as x} {maps2 :maps :as y}]
   {:pre [(cset? x)
          (cset? y)]}
+  (prn "cset-meet" x y)
   (let [maps (doall (for [[{map1 :fixed dmap1 :dmap} {map2 :fixed dmap2 :dmap}] (map vector maps1 maps2)]
                       (->cset-entry (merge-with c-meet map1 map2)
                                     (dmap-meet dmap1 dmap2))))]
+    (prn "cset-meet result:" maps)
     (when (empty? maps)
       (throw (Exception. (str "No meet found for csets"))))
     (->cset maps)))
@@ -2749,6 +2752,7 @@
 (defn cset-meet* [args]
   {:pre [(every? cset? args)]
    :post [(cset? %)]}
+  (prn "cset-meet*")
   (reduce (fn [a c] (cset-meet a c))
           (->cset [(->cset-entry {} (->dmap {}))])
           args))
@@ -2893,6 +2897,7 @@
          (AnyType? S)
          (AnyType? T)]
    :post [(cset? %)]}
+  (prn "cs-gen" (unparse-type S) (unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (subtype? S T))
     ;already been around this loop, is a subtype
@@ -2908,21 +2913,16 @@
           (cons (empty-cset X Y)
                 (mapv #(cs-gen V X Y % T) (:types S))))
 
-        ;; find *an* element of T which can be made to be a supertype of S
+        ;; find *all* elements of T which can be made to be a supertype of S
+        ;; and combine the results
         (Union? T)
-        (if-let [cs (do
-                      (prn "before cs-gen" (unparse-type S) (unparse-type T))
-                      (some #(try (cs-gen V X Y S %)
-                               (catch IllegalArgumentException e
-                                 (throw e))
-                               (catch Exception e)) ;TODO specialised data Exceptions
-                            (:types T)))]
-          cs
-          (throw (Exception. (str (when *current-env*
-                                    (str (:source *current-env*) ":" (:line *current-env*) " "))
-                                  "Could not constrain "
-                                  (unparse-type S) " to be under "
-                                  (unparse-type T)))))
+        (cset-combine
+          (cons (empty-cset X Y)
+                (filter identity (mapv #(try (cs-gen V X Y S %)
+                                          (catch IllegalArgumentException e
+                                            (throw e))
+                                          (catch Exception e)) 
+                                       (:types T)))))
 
         (and (Intersection? S)
              (Intersection? T))
@@ -2952,15 +2952,12 @@
                                   (unparse-type S) " to be under "
                                   (unparse-type T)))))
 
-        ;constrain *a* element of T to be above S, and then combine the constraints
+        ;constrain *every* element of T to be above S, and then meet the constraints
+        ;FIXME Should this combine csets instead?
         (Intersection? T)
-        (if-let [cs (some #(try (cs-gen V X Y S %)
-                             (catch IllegalArgumentException e
-                               (throw e))
-                             (catch Exception e))
-                          (:types T))]
-          cs
-          (type-error S T))
+        (cset-meet*
+          (cons (empty-cset X Y)
+                (mapv #(cs-gen V X Y % T) (:types S))))
 
         :else
         (cs-gen* V X Y S T)))))
@@ -3195,6 +3192,7 @@
          (Function? S)
          (Function? T)]
    :post [(cset? %)]}
+  (prn "cs-gen-Function")
   (letfn [(cg [S T] (cs-gen V X Y S T))]
     (cond
       ;easy case - no rests, drests, kws
@@ -3433,6 +3431,8 @@
   (assert (= (count S) (count T))
           (pr-str "S:" (map unparse-type S)
                   "T:" (map unparse-type T)))
+  (prn "cs-gen-list S:" (map unparse-type S)
+       "T:" (map unparse-type T))
   (cset-meet*
     ;; We meet early to prune the csets to a reasonable size.
     ;; This weakens the inference a bit, but sometimes avoids
@@ -3574,6 +3574,7 @@
          (Type? R)
          ((some-fn nil? Type?) expected)]
    :post [((some-fn nil? substitution-c?) %)]}
+  (prn "infer vararg" (map unparse-type S) (map unparse-type T) :rest (when T-var (unparse-type T-var)))
   (let [new-T (if T-var
                 ;Pad out T
                 (concat T (repeat (- (count S) (count T)) T-var))
@@ -3598,9 +3599,13 @@
          ((some-fn nil? Type?) R)
          ((some-fn nil? Type?) expected)]
    :post [((some-fn nil? true? substitution-c?) %)]}
+  (prn "infer" (map unparse-type S) (map unparse-type T)
+       "R" (when R (unparse-type R))
+       "expected" (when expected (unparse-type expected)))
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset #{} #{}))
+        _ (prn "expected-cset" expected-cset)
         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
         cs* (cset-meet cs expected-cset)]
     (if R
@@ -4147,8 +4152,7 @@
 
 (defmethod subtype* [DataType Type]
   [{:keys [the-class] :as s} t]
-  (assert (@DATATYPE-ANCESTOR-ENV the-class))
-  (prn "Ancestors of" the-class (map unparse-type (@DATATYPE-ANCESTOR-ENV the-class)))
+  (assert (@DATATYPE-ANCESTOR-ENV the-class) (str "DataType undeclared: " the-class))
   (if (some #(subtype? % t) (set/union #{(RInstance-of Object)} (@DATATYPE-ANCESTOR-ENV the-class)))
     *sub-current-seen*
     (type-error s t)))
@@ -5886,8 +5890,7 @@
               cargs (doall (map check args))
               ftype (expr-type cfexpr)
               argtys (map expr-type cargs)
-              actual (check-funapp ftype argtys (when expected
-                                                  expected))]
+              actual (check-funapp ftype argtys expected)]
           (assoc expr
                  :fexpr cfexpr
                  :args cargs
@@ -6327,21 +6330,24 @@
 (defn check-let [{:keys [binding-inits body is-loop] :as expr} expected & {:keys [expected-bnds]}]
   ;(prn expected-bnds)
   (assert (or (not is-loop) expected-bnds) "Loop requires more annotations")
+  (prn "checking let" "is-loop" is-loop)
   (let [env (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
+                      (prn "let: checking definitions of" sym "expected:" (and expected-bnd (unparse-type expected-bnd))
+                           "init:" init)
                       (let [{:keys [t fl o]} (->
                                                (expr-type
                                                  (with-lexical-env env
                                                    (check init (when is-loop
                                                                  (ret expected-bnd)))))
-                                               ;substitute previous references to sym with an empty object
+                                               ;substitute previous references to sym with an empty object,
+                                               ;as old binding is shadowed
                                                (update-in [:t] subst-type sym -empty true)
                                                (update-in [:fl] subst-filter-set sym -empty true)
                                                (update-in [:o] subst-object sym -empty true))
                             ; update old env and new result with previous references of sym (which is now shadowed)
                             ; replaced with an empty object
-                            ;_ (do (pr "let: env before") (print-env env))
                             _ (pr "ENV")
                             _ (print-env)
                             env (-> env
@@ -6368,11 +6374,12 @@
                                            (assoc-in [:l sym] t)))))
                     *lexical-env* (map vector binding-inits (or expected-bnds
                                                                 (repeat nil))))
+        _ (prn "let: checking body")
         cbody (with-lexical-env env
                 (if is-loop
                   (binding [*recur-target* expected-bnds]
-                    (check body))
-                  (check body)))
+                    (check body expected))
+                  (check body expected)))
 
         ;now we return a result to the enclosing scope, so we
         ;erase references to any bindings this scope introduces

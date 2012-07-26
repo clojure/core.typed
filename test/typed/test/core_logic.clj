@@ -364,8 +364,10 @@
   ;walk-var same as walk above...
   (walk-var [this v]
     (tc-pr-env "before loop")
-    (loop> [[lv :- Term] v 
-            [fr :- (U nil (Vector* ILVar (U Unbound Term)))] (find s v)]
+    (loop> [[lv :- Term] (do (tc-pr-env "RHS first")
+                           v)
+            [fr :- (U nil (Vector* ILVar (U Unbound Term)))] (do (tc-pr-env "RHS second")
+                                                               (find s v))]
       (tc-pr-env "before nths")
       (let [v (nth fr 0)
             vp (nth fr 1)]
