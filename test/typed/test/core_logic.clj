@@ -293,7 +293,7 @@
 (declare lcons)
 
 (ann-datatype Substitutions [[s :- (IPersistentMap ILVar (U Unbound Term))]
-                             [l :- (IPersistentList Pair)] ;[l :- (IPersistentList (Pair LVar Term))]])
+                             [l :- (IPersistentList Pair)] ;[l :- (IPersistentList (Pair LVar Term))]
                              [verify :- [ISubstitutions Term Term -> ISubstitutions]]
                              [cs :- Any]] ;TODO constraint store
               )

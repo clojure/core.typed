@@ -2902,13 +2902,17 @@
 
         ;; find *an* element of T which can be made to be a supertype of S
         (Union? T)
-        (if-let [cs (some #(try (cs-gen V X Y S %)
-                             (catch IllegalArgumentException e
-                               (throw e))
-                             (catch Exception e)) ;TODO specialised data Exceptions
-                          (:types T))]
+        (if-let [cs (do
+                      (prn "before cs-gen" (unparse-type S) (unparse-type T))
+                      (some #(try (cs-gen V X Y S %)
+                               (catch IllegalArgumentException e
+                                 (throw e))
+                               (catch Exception e)) ;TODO specialised data Exceptions
+                            (:types T)))]
           cs
-          (throw (Exception. (str "Could not constrain "
+          (throw (Exception. (str (when *current-env*
+                                    (str (:source *current-env*) ":" (:line *current-env*) " "))
+                                  "Could not constrain "
                                   (unparse-type S) " to be under "
                                   (unparse-type T)))))
 
@@ -2969,6 +2973,26 @@
 (defmethod cs-gen* [HeterogeneousVector RInstance] 
   [V X Y S T]
   (cs-gen V X Y (RInstance-of IPersistentVector [(apply Un (:types S))]) T))
+
+(defmethod cs-gen* [HeterogeneousVector HeterogeneousVector] 
+  [V X Y S T]
+  (cs-gen-list V X Y (:types S) (:types T)))
+
+(defmethod cs-gen* [HeterogeneousMap HeterogeneousMap]
+  [V X Y S T]
+  (let [Skeys (set (keys (:types S)))
+        Tkeys (set (keys (:types T)))]
+    ; All keys must be values
+    (when-not (every? Value? (set/union Skeys Tkeys))
+      (type-error S T))
+    ; All keys on the left must appear on the right
+    (when-not (empty? (set/difference Skeys Tkeys))
+      (type-error S T))
+    (let [nocheck-keys (set/difference Tkeys Skeys)
+          STvals (vals (merge-with vector (:types S) (apply dissoc (:types T) nocheck-keys)))
+          Svals (map first STvals)
+          Tvals (map second STvals)]
+      (cs-gen-list V X Y Svals Tvals))))
 
 (defmethod cs-gen* [HeterogeneousMap RInstance] 
   [V X Y S T]
@@ -4115,6 +4139,8 @@
 
 (defmethod subtype* [DataType Type]
   [{:keys [the-class] :as s} t]
+  (assert (@DATATYPE-ANCESTOR-ENV the-class))
+  (prn "Ancestors of" the-class (map unparse-type (@DATATYPE-ANCESTOR-ENV the-class)))
   (if (some #(subtype? % t) (set/union #{(RInstance-of Object)} (@DATATYPE-ANCESTOR-ENV the-class)))
     *sub-current-seen*
     (type-error s t)))
@@ -6702,14 +6728,20 @@
         dt (@DATATYPE-ENV nme)
         _ (assert dt (str "Untyped datatype definition: " nme))
         ; update this deftype's ancestors to include each protocol/interface in this deftype
-        new-ancestors (set
-                        (for [[_ method] cmmap]
-                          (let [tsym (:declaring-class method)]
-                            (if-let [cls (resolve tsym)]
-                              (RInstance-of cls)
-                              (resolve-protocol tsym)))))
         old-ancestors (or (@DATATYPE-ANCESTOR-ENV nme) #{})
-        _ (swap! DATATYPE-ANCESTOR-ENV update-in [nme] set/union new-ancestors)
+        ancestor-diff (set/difference
+                        (set
+                          (for [[_ method] cmmap]
+                            (let [tsym (:declaring-class method)]
+                              (if-let [cls (when-let [cls (resolve tsym)]
+                                             (and (class? cls) 
+                                                  cls))]
+                                (or (first (filter #(= (:on-class %) tsym) (vals @PROTOCOL-ENV)))
+                                    (RInstance-of cls))
+                                (resolve-protocol tsym)))))
+                        old-ancestors)
+        _ (prn "ancestor diff" ancestor-diff)
+        _ (swap! DATATYPE-ANCESTOR-ENV update-in [nme] set/union ancestor-diff)
         _ (try
             (doseq [inst-method methods]
               (prn "Checking deftype* method: "(:name inst-method))
@@ -6735,8 +6767,7 @@
                     expected-ifn))))
             (catch Throwable e
               ; reset old ancestors
-              (prn nme old-ancestors)
-              (swap! DATATYPE-ANCESTOR-ENV assoc nme old-ancestors)
+              (swap! DATATYPE-ANCESTOR-ENV update-in [nme] set/difference ancestor-diff)
               (throw e)))]
     (assoc expr
            expr-type (ret (let [res (resolve nme)]
