@@ -439,9 +439,10 @@
 
 (declare-type Record)
 
-(defrecord DataType [the-class fields]
+(defrecord DataType [poly? the-class fields]
   "A Clojure datatype"
-  [(symbol? the-class)
+  [((some-fn nil? nat?) poly?)
+   (symbol? the-class)
    ((array-map-c? symbol? Type?) fields)])
 
 (declare-type DataType)
@@ -796,6 +797,14 @@
                                                          (apply concat
                                                                 (for [[k v] fs]
                                                                   [k (type-rec v)]))))))))
+
+(add-default-fold-case Protocol
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:methods] (fn [ms]
+                                                   (into {}
+                                                         (for [[k v] ms]
+                                                           [k (type-rec v)])))))))
 
 (add-default-fold-case Poly
                        (fn [ty _]
@@ -1560,21 +1569,22 @@
 (defn parse-field [[n _ t]]
   [n (parse-type t)])
 
-(defmacro ann-datatype [local-name fields & {ancests :unchecked-extends rplc :replace}]
+(defmacro ann-datatype [local-name fields & {ancests :unchecked-ancestors rplc :replace}]
   (do (assert (not rplc) "Replace NYI")
-      (assert (not ancests) "Unchecked extends NYI")
       (assert (not (or (namespace local-name)
                        (some #(= \. %) (str local-name))))
               (str "Must provide local name: " local-name))
   `(tc-ignore
   (let [local-name# '~local-name
         fs# (apply array-map (apply concat (doall (map parse-field '~fields))))
-        ;as# (set (doall (map parse-type '~ancests)))
+        _# (prn '~ancests)
+        as# (set (doall (map parse-type '~ancests)))
         s# (symbol (str (munge (-> *ns* ns-name)) \. local-name#))
+        _# (add-datatype-ancestors s# as#)
         pos-ctor-name# (symbol (str (-> *ns* ns-name)) (str "->" local-name#))
-        dt# (->DataType s# fs#)
+        dt# (->DataType nil s# fs#)
         pos-ctor# (Fn-Intersection
-                    (make-Function (vals fs#) dt#))]
+                    (make-Function (vec (vals fs#)) dt#))]
     (do 
       (add-datatype s# dt#)
       (add-var-type pos-ctor-name# pos-ctor#)
@@ -1603,7 +1613,7 @@
         (let [kq# (symbol (-> *ns* ns-name str) (str kuq#))]
           (add-var-type kq# mt#)))
       (add-protocol s# t#)
-      [s# t#]))))
+      [s# (unparse-type t#)]))))
 
 (defmacro override-method [methodsym typesyn]
   `(tc-ignore
@@ -1688,12 +1698,11 @@
 ;; DataType Ancestor Env
 
 (defonce DATATYPE-ANCESTOR-ENV (atom {}))
-(set-validator! DATATYPE-ANCESTOR-ENV (hash-c? (every-pred symbol? 
-                                                           (fn [k] (some #(= \. %) (str k)))) 
+(set-validator! DATATYPE-ANCESTOR-ENV (hash-c? (every-pred symbol? #(some #{\.} (str %)))
                                                (set-c? Type?)))
 
-(defn add-datatype-ancestor [sym tset]
-  (swap! DATATYPE-ANCESTOR-ENV update-in [sym] set/union tset)
+(defn add-datatype-ancestors [sym tset]
+  (swap! DATATYPE-ANCESTOR-ENV update-in [sym] #(set/union (or % #{}) tset))
   nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2028,8 +2037,11 @@
                    sym
                    (symbol (str (munge (-> *ns* ns-name name)) \. (name sym))))]
       (cond
+        (primitives sym) (primitives sym)
         (@TYPE-NAME-ENV qsym) (->Name qsym)
         (@TYPE-NAME-ENV clssym) (->Name clssym)
+        ;Datatypes that are annotated in this namespace, but not yet defined
+        (@DATATYPE-ENV clssym) (@DATATYPE-ENV clssym)
         (@PROTOCOL-ENV qsym) (resolve-protocol qsym)
         :else (let [res (resolve sym)]
                 ;(prn *ns* "res" sym "->" res)
@@ -2726,7 +2738,6 @@
 (defn c-meet [{S  :S X  :X T  :T :as c1}
               {S* :S X* :X T* :T :as c2}
               & [var]]
-  (prn "c-meet" c1 c2)
   (when-not (or var (= X X*))
     (throw (Exception. (str "Non-matching vars in c-meet:" X X*))))
   (let [S (join S S*)
@@ -2740,11 +2751,9 @@
 (defn cset-meet [{maps1 :maps :as x} {maps2 :maps :as y}]
   {:pre [(cset? x)
          (cset? y)]}
-  (prn "cset-meet" x y)
   (let [maps (doall (for [[{map1 :fixed dmap1 :dmap} {map2 :fixed dmap2 :dmap}] (map vector maps1 maps2)]
                       (->cset-entry (merge-with c-meet map1 map2)
                                     (dmap-meet dmap1 dmap2))))]
-    (prn "cset-meet result:" maps)
     (when (empty? maps)
       (throw (Exception. (str "No meet found for csets"))))
     (->cset maps)))
@@ -2752,7 +2761,6 @@
 (defn cset-meet* [args]
   {:pre [(every? cset? args)]
    :post [(cset? %)]}
-  (prn "cset-meet*")
   (reduce (fn [a c] (cset-meet a c))
           (->cset [(->cset-entry {} (->dmap {}))])
           args))
@@ -2897,7 +2905,6 @@
          (AnyType? S)
          (AnyType? T)]
    :post [(cset? %)]}
-  (prn "cs-gen" (unparse-type S) (unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (subtype? S T))
     ;already been around this loop, is a subtype
@@ -2978,6 +2985,8 @@
 (defmethod cs-gen* [HeterogeneousVector RInstance] 
   [V X Y S T]
   (cs-gen V X Y (RInstance-of IPersistentVector [(apply Un (:types S))]) T))
+
+(declare cs-gen-list)
 
 (defmethod cs-gen* [HeterogeneousVector HeterogeneousVector] 
   [V X Y S T]
@@ -3192,7 +3201,6 @@
          (Function? S)
          (Function? T)]
    :post [(cset? %)]}
-  (prn "cs-gen-Function")
   (letfn [(cg [S T] (cs-gen V X Y S T))]
     (cond
       ;easy case - no rests, drests, kws
@@ -3271,7 +3279,6 @@
                         (for [var vars]
                           (substitute (make-F var) dbound dty)))
               new-t-arr (->Function (concat (:dom T) new-tys) (:rng T) nil nil nil)
-              _ (prn "new-t-arr" new-t-arr)
               new-cset (cs-gen-Function V (set/union (set vars) X) Y S new-t-arr)]
           (move-vars-to-dmap new-cset dbound vars)))
 
@@ -3431,8 +3438,6 @@
   (assert (= (count S) (count T))
           (pr-str "S:" (map unparse-type S)
                   "T:" (map unparse-type T)))
-  (prn "cs-gen-list S:" (map unparse-type S)
-       "T:" (map unparse-type T))
   (cset-meet*
     ;; We meet early to prune the csets to a reasonable size.
     ;; This weakens the inference a bit, but sometimes avoids
@@ -3574,7 +3579,6 @@
          (Type? R)
          ((some-fn nil? Type?) expected)]
    :post [((some-fn nil? substitution-c?) %)]}
-  (prn "infer vararg" (map unparse-type S) (map unparse-type T) :rest (when T-var (unparse-type T-var)))
   (let [new-T (if T-var
                 ;Pad out T
                 (concat T (repeat (- (count S) (count T)) T-var))
@@ -3599,13 +3603,9 @@
          ((some-fn nil? Type?) R)
          ((some-fn nil? Type?) expected)]
    :post [((some-fn nil? true? substitution-c?) %)]}
-  (prn "infer" (map unparse-type S) (map unparse-type T)
-       "R" (when R (unparse-type R))
-       "expected" (when expected (unparse-type expected)))
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset #{} #{}))
-        _ (prn "expected-cset" expected-cset)
         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
         cs* (cset-meet cs expected-cset)]
     (if R
@@ -4152,8 +4152,8 @@
 
 (defmethod subtype* [DataType Type]
   [{:keys [the-class] :as s} t]
-  (assert (@DATATYPE-ANCESTOR-ENV the-class) (str "DataType undeclared: " the-class))
-  (if (some #(subtype? % t) (set/union #{(RInstance-of Object)} (@DATATYPE-ANCESTOR-ENV the-class)))
+  (if (some #(subtype? % t) (set/union #{(RInstance-of Object)} (or (@DATATYPE-ANCESTOR-ENV the-class)
+                                                                    #{})))
     *sub-current-seen*
     (type-error s t)))
 
@@ -4620,10 +4620,13 @@
 (ann clojure.core/* [Number * -> Number])
 (ann clojure.core// [Number Number * -> Number])
 
-(non-nil-return clojure.lang.Numbers/add #{2})
-(non-nil-return clojure.lang.Numbers/minus #{2})
-(non-nil-return clojure.lang.Numbers/multiply #{2})
-(non-nil-return clojure.lang.Numbers/divide #{2})
+(defn override-numbers* [msym]
+  `(override-method ~(symbol "clojure.lang.Numbers" (str msym)) ~'[Number Number -> boolean]))
+
+(defmacro override-numbers [& msyms]
+  `(do ~@(map override-numbers* msyms)))
+
+(override-numbers add minus multiply divide lt gt)
 
 (non-nil-return java.lang.Object/getClass #{0})
 
@@ -5764,8 +5767,37 @@
                                            res-t
                                            (throw (Exception. (str "Cannot get index " (:val num-t)
                                                                    " from type " (unparse-type t)))))))))
-                            (-FS (-not-filter-at -nil (ret-o (expr-type te)))
-                                 -top)))
+                            (let [nnth (:val num-t)
+                                  target-o (ret-o (expr-type te))
+                                  default-o (when de
+                                              (ret-o (expr-type de)))
+                                  ;; We handle filters for both arities of nth here, with and without default
+                                  ;;
+                                  ;;With default:
+                                  ;; if this is a true value either:
+                                  ;;  * target is nil or seq and default is true
+                                  ;;  * target is seqable, default is false
+                                  ;;    and target is at least (inc nnth) count
+                                  default-fs+ (-or (-and (-filter-at (Un -nil (RInstance-of ISeq [-any])) 
+                                                                     target-o)
+                                                         (-not-filter-at (Un -false -nil) 
+                                                                         default-o))
+                                                   (-and (-filter-at (In (RInstance-of Seqable [-any])
+                                                                         (make-CountRange (inc nnth)))
+                                                                     target-o)
+                                                         (-filter-at (Un -false -nil) 
+                                                                     default-o)))
+                                  ;;Without default:
+                                  ;; if this is a true value: 
+                                  ;;  * target is seqable of at least nnth count
+                                  nodefault-fs+ (-filter-at (In (RInstance-of Seqable [-any])
+                                                                (make-CountRange (inc nnth)))
+                                                            target-o)]
+                              (-FS (if default-t
+                                     default-fs+
+                                     nodefault-fs+)
+                                   ; not sure if there's anything worth encoding here
+                                   -top))))
       :else ::not-special)))
 
 ;assoc
@@ -6157,10 +6189,10 @@
 
 ;Symbol -> Class
 (def primitives
-  {'long Long/TYPE
-   'int Integer/TYPE
-   'boolean Boolean/TYPE
-   'void Void/TYPE})
+  {'long (RInstance-of Long/TYPE)
+   'int (RInstance-of Integer/TYPE)
+   'boolean (RInstance-of Boolean/TYPE)
+   'void -nil})
 
 (declare Method-symbol->Type)
 
@@ -6180,10 +6212,7 @@
 (defn Method-symbol->Type [sym nilable?]
   {:pre [(symbol? sym)]
    :post [(Type? %)]}
-  (if-let [typ (or (when-let [p (primitives sym)]
-                     (if (= Void/TYPE p) ;Clojure never interacts with Void
-                       -nil
-                       (RInstance-of p)))
+  (if-let [typ (or (primitives sym)
                    (symbol->PArray sym nilable?)
                    (when-let [cls (resolve sym)]
                      (apply Un (RInstance-of cls)
@@ -6285,19 +6314,34 @@
     (Fn-Intersection 
       (make-Function (-> dt :fields vals) dt))))
 
-(defmethod check :new
-  [{cls :class :keys [ctor args] :as expr} & [expected]]
-  (prn "check: :new")
-;  (prn "DATATYPE-ENV:" (@DATATYPE-ENV class))
-  (let [clssym (symbol (.getName ^Class cls))
-        ifn (ret (or (and (@DATATYPE-ENV clssym)
-                          (DataType-ctor-type clssym))
-                     (Constructor->Function ctor)))
-        ;_ (prn ifn)
-        cargs (doall (map check args))
-        res-type (check-funapp ifn (map expr-type cargs) nil)]
+(defmethod check :instance-of
+  [{cls :class :keys [the-expr] :as expr} & [expected]]
+  (let [cls-stub (symbol (.getName ^Class cls))
+        clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
+        inst-of (or (@DATATYPE-ENV clssym)
+                    (RInstance-of (Class/forName (str clssym))))
+        cexpr (check the-expr)
+        expr-tr (expr-type cexpr)]
     (assoc expr
-           expr-type res-type)))
+           expr-type (ret (Un -true -false)
+                          (-FS (-filter-at inst-of (ret-o expr-tr))
+                               (-not-filter-at inst-of (ret-o expr-tr)))
+                          -empty))))
+
+(defmethod check :new
+  [{cls :class :keys [ctor args env] :as expr} & [expected]]
+  (prn "check: :new" "env" env)
+  (binding [*current-env* env]
+    (let [cls-stub (symbol (.getName ^Class cls))
+          clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
+          ifn (ret (or (and (@DATATYPE-ENV clssym)
+                            (DataType-ctor-type clssym))
+                       (Constructor->Function ctor)))
+          _ (prn "Expected constructor" (unparse-type (ret-t ifn)))
+          cargs (doall (map check args))
+          res-type (check-funapp ifn (map expr-type cargs) nil)]
+      (assoc expr
+             expr-type res-type))))
 
 (defmethod check :throw
   [{:keys [exception] :as expr} & [expected]]
@@ -6328,14 +6372,10 @@
            expr-type (ret (Un)))))
 
 (defn check-let [{:keys [binding-inits body is-loop] :as expr} expected & {:keys [expected-bnds]}]
-  ;(prn expected-bnds)
   (assert (or (not is-loop) expected-bnds) "Loop requires more annotations")
-  (prn "checking let" "is-loop" is-loop)
   (let [env (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
-                      (prn "let: checking definitions of" sym "expected:" (and expected-bnd (unparse-type expected-bnd))
-                           "init:" init)
                       (let [{:keys [t fl o]} (->
                                                (expr-type
                                                  (with-lexical-env env
@@ -6374,7 +6414,6 @@
                                            (assoc-in [:l sym] t)))))
                     *lexical-env* (map vector binding-inits (or expected-bnds
                                                                 (repeat nil))))
-        _ (prn "let: checking body")
         cbody (with-lexical-env env
                 (if is-loop
                   (binding [*recur-target* expected-bnds]

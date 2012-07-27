@@ -9,7 +9,7 @@
             [typed.core :refer [ann-protocol ann tc-ignore def-alias
                                 declare-protocols declare-datatypes
                                 ann-datatype loop> check-ns non-nil-return
-                                tc-pr-env]]
+                                tc-pr-env cf]]
             [analyze.core :refer [ast]]))
 
 (ann *occurs-check* (U true false))
@@ -59,11 +59,11 @@
               :methods
               {unify-with-object [Term Object ISubstitutions -> (U ISubstitutions Fail)]})
 
-(declare-protocols LVar)
+(declare-protocols ILVar)
 
 (ann-protocol IUnifyWithLVar
               :methods
-              {unify-with-lvar [Term LVar ISubstitutions -> (U ISubstitutions Fail)]})
+              {unify-with-lvar [Term ILVar ISubstitutions -> (U ISubstitutions Fail)]})
 
 (declare-protocols LConsSeq)
 
@@ -172,11 +172,11 @@
 
 (ann-protocol ILVar
               :methods
-              {constraints [ILVar -> Any]
-               add-constraint [ILVar Any -> Any]
-               add-constraints [ILVar Any -> Any]
-               remove-constraint [ILVar Any -> Any]
-               remove-constraints [ILVar -> Any]})
+              {constraints [ILVar -> (U nil (IPersistentSet Term))]
+               add-constraint [ILVar Term -> ILVar]
+               add-constraints [ILVar (Seqable Term) -> ILVar]
+               remove-constraint [ILVar Term -> ILVar]
+               remove-constraints [ILVar -> ILVar]})
 
 (tc-ignore
 (defprotocol ILVar
@@ -238,6 +238,9 @@
                occurs-check [ISubstitutions Term Term -> (U true false)]
                ext [ISubstitutions Term Term -> (U nil ISubstitutions)]
                ext-no-check [ISubstitutions Term Term -> ISubstitutions]
+               swap [ISubstitutions Any -> Any] ;TODO
+               constrain [ISubstitutions ILVar Term -> ISubstitutions] ;TODO 3rd arg?
+               use-verify [ISubstitutions [ISubstitutions Term Term -> ISubstitutions] -> ISubstitutions]
                walk-var [ISubstitutions Term -> Term]
                walk [ISubstitutions Term -> Term]
                walk* [ISubstitutions Term -> Term]
@@ -279,7 +282,11 @@
 (ann choice [Any [Any -> Any] -> Choice])
 (declare choice)
 
-(declare-datatypes LVar)
+(ann-datatype LVar [[name :- Symbol]
+                    [hash :- Number]
+                    [cs :- Any]
+                    [meta :- Any]]
+              :unchecked-ancestors #{Term})
 
 (ann lvar (Fn [-> LVar]
               [Symbol -> LVar]
@@ -287,7 +294,7 @@
 (declare lvar)
 
 ;TODO filters
-(ann lvar? (Fn [Any -> (U false true)]))
+(ann lvar? (predicate LVar))
 (declare lvar?)
 
 (declare pair)
@@ -363,19 +370,13 @@
   
   ;walk-var same as walk above...
   (walk-var [this v]
-    (tc-pr-env "before loop")
-    (loop> [[lv :- Term] (do (tc-pr-env "RHS first")
-                           v)
-            [fr :- (U nil (Vector* ILVar (U Unbound Term)))] (do (tc-pr-env "RHS second")
-                                                               (find s v))]
-      (tc-pr-env "before nths")
-      (let [v (nth fr 0)
-            vp (nth fr 1)]
-        (tc-pr-env "after nths")
+    (loop> [[lv :- Term] v
+            [fr :- (U nil (Vector* ILVar (U Unbound Term)))] (find s v)]
+      (let [v (nth fr 0 nil)
+            vp (nth fr 1 nil)]
         (cond
           (nil? v) lv
-          (Unbound? vp) (do (tc-pr-env "unbound branch")
-                          v)
+          (Unbound? vp) v
           (not (lvar? vp)) v
           :else (recur vp (find s vp))))))
   
