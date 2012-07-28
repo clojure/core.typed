@@ -9,10 +9,15 @@
   (:import [java.io Writer]
            [clojure.lang IPersistentSet Symbol Sequential IPersistentMap]))
 
-(ann *occurs-check* (U true false))
-(ann *reify-vars* (U true false))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; TODO
+;;
+;; * Polymorphic Datatypes and Protocols for Pair and IPair
+
+(ann *occurs-check* boolean)
+(ann *reify-vars* boolean)
 (ann *locals* (IPersistentSet Symbol))
-(ann *expand-doms* (U true false))
+(ann *expand-doms* boolean)
 
 (def ^{:dynamic true} *occurs-check* true)
 (def ^{:dynamic true} *reify-vars* true)
@@ -180,7 +185,7 @@
 
 (ann-protocol IRefinable
               :methods
-              {refinable? [IRefinable -> (U true false)]})
+              {refinable? [IRefinable -> boolean]})
 
 (tc-ignore
 (defprotocol IUnifyWithRefinable
@@ -263,7 +268,7 @@
 
 (ann-protocol IReifiableConstraint
               :methods 
-              {reifiable? [IReifiableConstraint -> (U true false)]})
+              {reifiable? [IReifiableConstraint -> boolean]})
 
 (tc-ignore
 (defprotocol IReifiableConstraint
@@ -277,7 +282,7 @@
 
 (ann-protocol IEnforceableConstraint
               :methods
-              {enforceable? [IEnforceableConstraint -> (U true false)]})
+              {enforceable? [IEnforceableConstraint -> boolean]})
 
 (tc-ignore
 (defprotocol IEnforceableConstraint
@@ -290,7 +295,7 @@
 
 (ann-protocol INeedsStore
               :methods
-              {needs-store? [INeedsStore -> (U true false)]})
+              {needs-store? [INeedsStore -> boolean]})
 
 (tc-ignore
 (defprotocol INeedsStore
@@ -302,6 +307,8 @@
   (needs-store? [_] false))
 
 ;; TODO: ICLPSet, half the below could be moved into this
+
+(declare-protocols IPair)
 
 (ann-protocol IInterval
               :methods
@@ -326,11 +333,11 @@
 
 (ann-protocol IFiniteDomain
               :methods
-              {domain? [IFiniteDomain -> (U true false)]
-               member? [IFiniteDomain Any -> (U true false)]
-               disjoint? [IFiniteDomain Any -> (U true false)]
-               intersects? [IFiniteDomain Any -> (U true false)]
-               subsumes [IFiniteDomain Any -> (U true false)]})
+              {domain? [IFiniteDomain -> boolean]
+               member? [IFiniteDomain Any -> boolean]
+               disjoint? [IFiniteDomain Any -> boolean]
+               intersects? [IFiniteDomain Any -> boolean]
+               subsumes [IFiniteDomain Any -> boolean]})
 
 (tc-ignore
 (defprotocol IFiniteDomain
@@ -360,9 +367,9 @@
 ;; Pair
 
 (ann-protocol IPair
-              :methods
-              {lhs [IPair -> Term]
-               rhs [IPair -> Term]})
+               :methods
+               {lhs [IPair -> Term]
+                rhs [IPair -> Term]})
 
 (tc-ignore
 (defprotocol IPair
@@ -372,7 +379,7 @@
 
 (ann-datatype Pair [[lhs :- Term]
                     [rhs :- Term]]
-              :unchecked-ancestors #{IPair})
+               :unchecked-ancestors #{IPair})
 (deftype Pair [lhs rhs]
   clojure.lang.Counted
   (count [_] 2)

@@ -5,7 +5,8 @@
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
-                         Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named))
+                         Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
+                         IRef AReference ARef IDeref IReference))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -430,6 +431,36 @@
   ([class] (->RInstance nil (monomorphic-RClass-from class)))
   ([class params] (->RInstance params (poly-RClass-from class))))
 
+(declare substitute-many unparse-type)
+
+(defn RInstance-supers* 
+  "Return a set of Types that are the super-Types
+  of this RInstance"
+  [{:keys [poly? constructor] :as rinst}]
+  {:pre [(RInstance? rinst)]
+   :post [(set? %)
+          (every? Type? %)
+          (<= (count (filter (some-fn Fn-Intersection? Poly? PolyDots?) %))
+              1)]}
+  (let [names (map gensym (range (count poly?)))
+        ;the replacement map for this type
+        rplce (RClass-replacements* names constructor)
+        rplce-subbed (into {} (for [[k v] rplce]
+                                [k (substitute-many v poly? names)]))
+        ancest (supers (:the-class constructor))
+        not-replaced (set/difference ancest (keys rplce-subbed))
+        super-types (set/union (set (for [t not-replaced]
+                                      (->RInstance nil (or (when-let [r (@RESTRICTED-CLASS t)]
+                                                             (assert (empty? (:variances r))
+                                                                     (str "RClass " (unparse-type r) " must be instantiated"
+                                                                          " in " (unparse-type rinst)))
+                                                             r)
+                                                           (->RClass nil t {})))))
+                               (set (vals rplce-subbed))
+                               ;common ancestor
+                               #{(RInstance-of Object)})]
+    super-types))
+
 (declare-type RInstance)
 
 (defrecord Record [the-class fields]
@@ -443,7 +474,7 @@
   "A Clojure datatype"
   [((some-fn nil? nat?) poly?)
    (symbol? the-class)
-   ((array-map-c? symbol? Type?) fields)])
+   ((array-map-c? symbol? (some-fn Scope? Type?)) fields)])
 
 (declare-type DataType)
 
@@ -2026,6 +2057,13 @@
 (defmethod parse-type-symbol 'Any [_] (->Top))
 (defmethod parse-type-symbol 'Nothing [_] (Bottom))
 
+;Symbol -> Class
+(def primitives
+  {'long (RInstance-of Long/TYPE)
+   'int (RInstance-of Integer/TYPE)
+   'boolean (RInstance-of Boolean/TYPE)
+   'void -nil})
+
 (defmethod parse-type-symbol :default
   [sym]
   (if-let [f (sym *free-scope*)]
@@ -3013,8 +3051,6 @@
   (let [[ks vs] [(apply Un (keys (:types S)))
                  (apply Un (vals (:types S)))]]
     (cs-gen V X Y (RInstance-of IPersistentMap [ks vs]) T)))
-
-(declare RInstance-supers*)
 
 (defmethod cs-gen* [RInstance RInstance] 
   [V X Y S T]
@@ -4180,33 +4216,6 @@
     :else (let [cls (class val)]
             (subtype (RInstance-of cls) t))))
 
-(defn- RInstance-supers* 
-  "Return a set of Types that are the super-Types
-  of this RInstance"
-  [{:keys [poly? constructor] :as rinst}]
-  {:pre [(RInstance? rinst)]
-   :post [(set? %)
-          (every? Type? %)
-          (<= (count (filter (some-fn Fn-Intersection? Poly? PolyDots?) %))
-              1)]}
-  (let [names (map gensym (range (count poly?)))
-        ;the replacement map for this type
-        rplce (RClass-replacements* names constructor)
-        rplce-subbed (into {} (for [[k v] rplce]
-                                [k (substitute-many v poly? names)]))
-        ancest (supers (:the-class constructor))
-        not-replaced (set/difference ancest (keys rplce-subbed))
-        super-types (set/union (set (for [t not-replaced]
-                                      (->RInstance nil (or (when-let [r (@RESTRICTED-CLASS t)]
-                                                             (assert (empty? (:variances r))
-                                                                     (str "RClass " (unparse-type r) " must be instantiated"
-                                                                          " in " (unparse-type rinst)))
-                                                             r)
-                                                           (->RClass nil t {})))))
-                               (set (vals rplce-subbed))
-                               ;common ancestor
-                               #{(RInstance-of Object)})]
-    super-types))
 
 (defn- subtype-rinstance-common-base 
   [{polyl? :poly? constl :constructor :as s}
@@ -4478,6 +4487,39 @@
              :replace
              {IMeta (IMeta Any)})
 
+(alter-class IDeref [[a :variance :invariant]])
+
+
+(alter-class IRef [[a :variance :invariant]]
+             :replace
+             {IDeref (IDeref a)})
+
+(alter-class IReference [[a :variance :invariant]]
+       :replace
+       {IMeta (IMeta Any)})
+
+(alter-class AReference [[a :variance :invariant]]
+             :replace
+             {IMeta (IMeta Any)
+              IReference (IReference a)})
+
+(alter-class ARef [[a :variance :invariant]]
+             :replace
+             {IRef (IRef a)
+              IMeta (IMeta Any)
+              AReference (AReference a)
+              IDeref (IDeref a)
+              IReference (IReference a)})
+
+(alter-class Atom [[a :variance :invariant]]
+             :replace
+             {IRef (IRef a)
+              IMeta (IMeta Any)
+              AReference (AReference a)
+              ARef (ARef a)
+              IDeref (IDeref a)
+              IReference (IReference a)})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
@@ -4615,9 +4657,17 @@
 
 (ann clojure.core/= [Any Any * -> (U true false)])
 
-(ann clojure.core/+ [Number * -> Number])
-(ann clojure.core/- [Number Number * -> Number])
-(ann clojure.core/* [Number * -> Number])
+(def-alias AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte))
+
+(ann clojure.core/integer? (predicate AnyInteger))
+(ann clojure.core/number? (predicate Number))
+
+(ann clojure.core/+ (Fn [AnyInteger * -> AnyInteger]
+                        [Number * -> Number]))
+(ann clojure.core/- (Fn [AnyInteger AnyInteger * -> AnyInteger]
+                        [Number Number * -> Number]))
+(ann clojure.core/* (Fn [AnyInteger * -> AnyInteger]
+                        [Number * -> Number]))
 (ann clojure.core// [Number Number * -> Number])
 
 (defn override-numbers* [msym]
@@ -6187,12 +6237,6 @@
                                  (-filter (Un -nil -false) sym))
                             (->Path nil sym))))))
 
-;Symbol -> Class
-(def primitives
-  {'long (RInstance-of Long/TYPE)
-   'int (RInstance-of Integer/TYPE)
-   'boolean (RInstance-of Boolean/TYPE)
-   'void -nil})
 
 (declare Method-symbol->Type)
 

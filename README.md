@@ -25,13 +25,16 @@ Leiningen:
 
 * Equality filters for occurrence typing
 * Type check multimethods
-* Dotted inference
 * Filter syntax
 * Rest type checking in fn definition
 * fn> syntax for expected return type
-* Type check defprotocol usages
-* Patch Compiler to get rid of reflection
-* Namespace management
+* Type check defprotocol definitions
+* Unify AST with ClojureScript
+* Namespace dependency management
+* Polymorphic Names?
+* Names as Vars
+* Polymorphic Datatypes and Protocols
+* Difference Type
 
 # Examples
 
