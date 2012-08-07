@@ -10,7 +10,7 @@
   (:refer-clojure :exclude (add-classpath)))
 
 (non-nil-return java.lang.Class/getDeclaredMethod
-                :arities :all)
+                :all)
 (nilable-param java.lang.reflect.Method/invoke
                {2 :all})
 

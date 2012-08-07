@@ -579,9 +579,14 @@
   "A Clojure value"
   [])
 
+(defrecord AnyValue []
+  "Any Value"
+  [])
+
 (def -val ->Value)
 
 (declare-type Value)
+(declare-type AnyValue)
 
 (defrecord HeterogeneousMap [types]
   "A constant map, clojure.lang.IPersistentMap"
@@ -624,9 +629,10 @@
 
 (declare-type HeterogeneousSeq)
 
-(defrecord PrimitiveArray [type]
+(defrecord PrimitiveArray [input-type output-type]
   "A Java Primitive array"
-  [(Type? type)])
+  [(Type? input-type)
+   (Type? output-type)])
 
 (declare-type PrimitiveArray)
 
@@ -702,6 +708,19 @@
   (and (Intersection? fin)
        (sequential? (:types fin))
        (every? Function? (:types fin))))
+
+(defrecord NotType [type]
+  "A type that does not include type"
+  [(Type? type)])
+
+(declare-type NotType)
+
+(defrecord ListDots [pre-type bound]
+  "A dotted list"
+  [(Type? pre-type)
+   ((some-fn F? B?) bound)])
+
+(declare-type ListDots)
 
 (declare abstract)
 
@@ -779,6 +798,11 @@
               :pathelem-rec (sub-pe st mode)}
              %))
 
+(add-default-fold-case NotType
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:type] type-rec))))
+
 (add-default-fold-case Intersection
                        (fn [ty _]
                          (apply In (mapv type-rec (:types ty)))))
@@ -818,7 +842,8 @@
 (add-default-fold-case PrimitiveArray
                        (fn [ty _]
                          (-> ty
-                           (update-in [:type] type-rec))))
+                           (update-in [:input-type] type-rec)
+                           (update-in [:output-type] type-rec))))
 
 (add-default-fold-case DataType
                        (fn [ty _]
@@ -857,15 +882,15 @@
 
 (add-default-fold-case HeterogeneousVector
                        (fn [ty _]
-                         (-> ty (update-in [:types] #(map type-rec %)))))
+                         (-> ty (update-in [:types] #(mapv type-rec %)))))
 
 (add-default-fold-case HeterogeneousList 
                        (fn [ty _]
-                         (-> ty (update-in [:types] #(map type-rec %)))))
+                         (-> ty (update-in [:types] #(mapv type-rec %)))))
 
 (add-default-fold-case HeterogeneousSeq
                        (fn [ty _]
-                         (-> ty (update-in [:types] #(map type-rec %)))))
+                         (-> ty (update-in [:types] #(mapv type-rec %)))))
 
 (add-default-fold-case HeterogeneousMap
                        (fn [ty _]
@@ -1933,11 +1958,19 @@
         _ (check-forbidden-rec f body)]
     (Mu* (:name f) body)))
 
+(defmethod parse-type-list 'ClassLiteral
+  [[_ t-syn]]
+  (In (->AnyValue) (RInstance-of Class)))
+
+(defmethod parse-type-list 'not
+  [[_ t-syn]]
+  (->NotType (parse-type t-syn)))
+
 (defmethod parse-type-list 'predicate
   [[_ t-syn]]
   (let [on-type (parse-type t-syn)]
     (Fn-Intersection
-      (make-Function [-any] (Un -false -true) nil nil
+      (make-Function [-any] (RInstance-of Boolean/TYPE) nil nil
                      :filter (-FS (-filter on-type 0)
                                   (-not-filter on-type 0))))))
 
@@ -1951,25 +1984,41 @@
 ;(All [a b ...] type)
 (defmethod parse-all-type '...
   [bnds type]
-  (let [frees (map parse-free (-> bnds butlast butlast))
+  (let [frees (reduce (fn [fs fsyn]
+                        {:pre [(every? F? fs)]
+                         :post [(vector? %)
+                                (every? F? %)]}
+                        (conj fs
+                              (with-frees fs
+                                (parse-free fsyn))))
+                      [] (-> bnds butlast butlast))
+        _ (assert (every? F? frees))
         dvar (parse-free (-> bnds butlast last))]
     (-> 
       (PolyDots* (concat (map :name frees) [(:name dvar)])
                  (with-frees frees
                    (with-dotted dvar 
                      (parse-type type))))
-      (with-meta {:free-names (map :name frees)
+      (with-meta {:actual-frees frees
                   :dvar-name (:name dvar)}))))
 
 ;(All [a b] type)
 (defmethod parse-all-type :default
   [bnds type]
-  (let [frees (map parse-free bnds)]
+  (let [frees (reduce (fn [fs fsyn]
+                        {:pre [(every? F? fs)]
+                         :post [(vector? %)
+                                (every? F? %)]}
+                        (conj fs
+                              (with-frees fs
+                                (parse-free fsyn))))
+                      [] bnds)
+        _ (assert (every? F? frees) (prn-str frees))]
     (-> 
       (Poly* (map :name frees)
              (with-frees frees
                (parse-type type)))
-      (with-meta {:free-names (map :name frees)}))))
+      (with-meta {:actual-frees frees}))))
 
 (defmethod parse-type-list 'All
   [[All bnds syn & more]]
@@ -1990,10 +2039,10 @@
   [syn]
   (parse-intersection-type syn))
 
-(defmethod parse-type-list 'Arrayof
-  [[_ tsyn & none]]
+(defmethod parse-type-list 'Array
+  [[_ isyn osyn & none]]
   (assert (empty? none) "Only one argument to Arrayof")
-  (->PrimitiveArray (parse-type tsyn)))
+  (->PrimitiveArray (parse-type isyn) (parse-type osyn)))
 
 (declare parse-function)
 
@@ -2134,6 +2183,7 @@
 
 (defmethod unparse-type Top [_] 'Any)
 (defmethod unparse-type Name [{:keys [id]}] id)
+(defmethod unparse-type AnyValue [_] 'AnyValue)
 
 (defmethod unparse-type CountRange [{:keys [lower upper]}]
   (cond
@@ -2149,8 +2199,8 @@
   name)
 
 (defmethod unparse-type PrimitiveArray
-  [{:keys [type]}]
-  (list 'Arrayof (unparse-type type)))
+  [{:keys [input-type output-type]}]
+  (list 'Array (unparse-type input-type) (unparse-type output-type)))
 
 (defmethod unparse-type B
   [{:keys [idx]}]
@@ -2158,7 +2208,9 @@
 
 (defmethod unparse-type Union
   [{types :types}]
-  (list* 'U (doall (map unparse-type types))))
+  (if (seq types)
+    (list* 'U (doall (map unparse-type types)))
+    'Nothing))
 
 (defmethod unparse-type Intersection
   [{types :types}]
@@ -2211,7 +2263,8 @@
 
 (defmethod unparse-type PolyDots
   [{:keys [nbound] :as p}]
-  (let [{:keys [free-names dvar-name]} (meta p)
+  (let [{:keys [actual-frees dvar-name]} (meta p)
+        free-names (map :name actual-frees)
         given-names? (and free-names dvar-name)
         end-nme (if given-names?
                   *next-nme*
@@ -2223,21 +2276,32 @@
                  (symbol (str "v" x)))))
         body (PolyDots-body* fs p)]
     (binding [*next-nme* end-nme]
-      (list 'All (vec (concat (butlast fs) ['... (last fs)])) (unparse-type body)))))
+      (list 'All (vec (concat (butlast fs) [(last fs) '...])) (unparse-type body)))))
 
 (defmethod unparse-type Poly
   [{:keys [nbound] :as p}]
-  (let [free-names (vec (-> p meta :free-names))
-        given-names? (-> p meta :free-names)
+  (let [free-names (mapv :name (-> p meta :actual-frees))
+        given-names? (-> p meta :actual-frees)
         end-nme (if given-names?
                   *next-nme*
                   (+ nbound *next-nme*))
+        fs-names (or (and given-names? free-names)
+                     (vec
+                       (for [x (range *next-nme* end-nme)]
+                         (symbol (str "v" x)))))
         fs (if given-names?
-             free-names
              (vec
-               (for [x (range *next-nme* end-nme)]
-                 (symbol (str "v" x)))))
-        body (Poly-body* fs p)]
+               (for [{:keys [name upper-bound lower-bound] :as f} (-> p meta :actual-frees)]
+                 (let [u (when-not (Top? upper-bound)
+                           (unparse-type upper-bound))
+                       l (when-not (Bottom? lower-bound)
+                           (unparse-type lower-bound))]
+                   (or (and u l [name :< u :> l])
+                       (and u [name :< u])
+                       (and l [name :> l])
+                       name))))
+             free-names)
+        body (Poly-body* fs-names p)]
     (binding [*next-nme* end-nme]
       (list 'All fs (unparse-type body)))))
 
@@ -2369,6 +2433,7 @@
 (defmethod frees [::idxs F] [t] {})
 
 (defmethod frees [::any-var Value] [t] {})
+(defmethod frees [::any-var AnyValue] [t] {})
 (defmethod frees [::any-var Top] [t] {})
 (defmethod frees [::any-var TopFilter] [t] {})
 (defmethod frees [::any-var BotFilter] [t] {})
@@ -2380,8 +2445,9 @@
   (apply combine-frees (mapv frees types)))
 
 (defmethod frees [::any-var PrimitiveArray]
-  [{:keys [type]}] 
-  (frees type))
+  [{:keys [input-type output-type]}] 
+  (combine-frees (frees input-type)
+                 (frees output-type)))
 
 (defmethod frees [::any-var HeterogeneousSeq]
   [{:keys [types]}] 
@@ -2432,7 +2498,18 @@
 
 (defmethod frees [::any-var RInstance]
   [t]
-  (apply combine-frees (mapv frees (:poly? t))))
+  (let [varis (-> t :constructor :variances)
+        args (:poly? t)]
+    (assert (= (count args) (count varis)))
+    (apply combine-frees (for [[arg va] (map vector args varis)]
+                           (case va
+                             :covariant (frees arg)
+                             :contravariant (flip-variances (frees arg))
+                             :invariant (let [fvs (frees arg)]
+                                          (into {}
+                                                (for [[k _] fvs]
+                                                  [k :invariant]))))))))
+
 
 (defmethod frees [::any-var Poly]
   [{:keys [nbound scope]}]
@@ -2480,12 +2557,14 @@
 (defmethod promote PrimitiveArray
   [T V]
   (-> T
-    (update-in [:type] #(promote % V))))
+    (update-in [:input-type] #(promote % V))
+    (update-in [:output-type] #(promote % V))))
 
 (defmethod demote PrimitiveArray
   [T V]
   (-> T
-    (update-in [:type] #(demote % V))))
+    (update-in [:input-type] #(demote % V))
+    (update-in [:output-type] #(demote % V))))
 
 (defmethod promote F
   [T V]
@@ -3016,6 +3095,10 @@
   [V X Y S T] 
   (cs-gen V X Y (:t S) (:t T)))
 
+(defmethod cs-gen* [Value AnyValue] 
+  [V X Y S T] 
+  (empty-cset X Y))
+
 (defmethod cs-gen* [Type Top] 
   [V X Y S T] 
   (empty-cset X Y))
@@ -3084,8 +3167,9 @@
     (type-error S T))
   (let [dt (demote-var T V)]
     (-> (empty-cset X Y)
-      ;hmm do we need to check for subtyping between dt and upper-bound?
       (insert-constraint (:name S) (:lower-bound S) (:upper-bound S))
+      ;; FIXME erm why does this screw things up?
+      #_(insert-constraint (:name S) dt (:upper-bound S))
       (insert-constraint (:name S) (:lower-bound S) dt))))
 
 (defn promote-F [V X Y S T]
@@ -3097,7 +3181,9 @@
   (let [ps (promote-var S V)]
     (-> (empty-cset X Y)
       (insert-constraint (:name T) (:lower-bound T) (:upper-bound T))
-      (insert-constraint (:name T) ps (:upper-bound T)))))
+      (insert-constraint (:name T) ps (:upper-bound T))
+      ;; FIXME erm why does this screw things up?
+      #_(insert-constraint (:name T) (:lower-bound T) ps))))
 
 (defmethod cs-gen* [F Type]
   [V X Y S T]
@@ -3365,6 +3451,7 @@
               {:pre [(c? v)
                      (variance-map? h)
                      ((some-fn nil? symbol?) variable)]}
+              (prn "constraint->type" (unparse-type S) (unparse-type T) X h)
               (let [var (h (or variable X) :constant)]
                 (case var
                   (:constant :covariant) S
@@ -3639,11 +3726,15 @@
          ((some-fn nil? Type?) R)
          ((some-fn nil? Type?) expected)]
    :post [((some-fn nil? true? substitution-c?) %)]}
+  (prn "infer:" (map unparse-type S) (map unparse-type T) (and R (unparse-type R)))
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset #{} #{}))
+        _ (prn "expected cset" expected-cset)
         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
-        cs* (cset-meet cs expected-cset)]
+        _ (prn "cs" cs)
+        cs* (cset-meet cs expected-cset)
+        _ (prn "cset:" cs*)]
     (if R
       (subst-gen cs* Y R)
       true)))
@@ -3965,8 +4056,7 @@
   (cond
     (Poly? ptype)
     (let [_ (assert (= (:nbound ptype) (count argtys)) "Wrong number of arguments to instantiate polymorphic type")
-          names (or (-> ptype meta :free-names)
-                    (repeatedly (:nbound ptype) gensym))
+          names (repeatedly (:nbound ptype) gensym)
           body (Poly-body* names ptype)]
       (substitute-many body argtys names))
 
@@ -4002,14 +4092,16 @@
 ;(Set [Type Type])
 (def ^:dynamic *sub-current-seen* #{})
 
-(defn subtype-varargs?
+(declare subtypes*-varargs)
+
+(defn subtypes-varargs?
   "True if argtys are under dom"
   [argtys dom rst]
-  (assert (not rst) "NYI")
-  (and (= (count argtys)
-          (count dom))
-       (every? identity
-               (map subtype? argtys dom))))
+  (try 
+    (subtypes*-varargs #{} argtys dom rst)
+    true
+    (catch Exception e
+      false)))
 
 
 ;subtype and subtype? use *sub-current-seen* for remembering types (for Rec)
@@ -4113,7 +4205,7 @@
       (empty? dom) (throw (Exception. (prn-str "Expected arguments: " (map unparse-type dom)
                                                " Actual: "(map unparse-type argtys))))
       :else
-      (if-let [A (subtypeA* (first argtys) (first dom))]
+      (if-let [A (subtypeA* A0 (first argtys) (first dom))]
         (recur (next dom) (next argtys) A)
         (type-error (first argtys) (first dom))))))
 
@@ -4181,6 +4273,10 @@
   (if (= (RInstance-of Object) t)
     *sub-current-seen*
     (type-error s t)))
+
+(defmethod subtype* [Value AnyValue]
+  [_ _]
+  *sub-current-seen*)
 
 (defmethod subtype* [PrimitiveArray Type]
   [_ t]
@@ -4487,38 +4583,44 @@
              :replace
              {IMeta (IMeta Any)})
 
-(alter-class IDeref [[a :variance :invariant]])
+(alter-class IDeref [[w :variance :contravariant]
+                     [r :variance :covariant]])
 
 
-(alter-class IRef [[a :variance :invariant]]
+(alter-class IRef [[w :variance :contravariant]
+                   [r :variance :covariant]]
              :replace
-             {IDeref (IDeref a)})
+             {IDeref (IDeref w r)})
 
-(alter-class IReference [[a :variance :invariant]]
+(alter-class IReference [[w :variance :contravariant]
+                         [r :variance :covariant]]
        :replace
        {IMeta (IMeta Any)})
 
-(alter-class AReference [[a :variance :invariant]]
+(alter-class AReference [[w :variance :contravariant]
+                         [r :variance :covariant]]
              :replace
              {IMeta (IMeta Any)
-              IReference (IReference a)})
+              IReference (IReference w r)})
 
-(alter-class ARef [[a :variance :invariant]]
+(alter-class ARef [[w :variance :contravariant]
+                   [r :variance :covariant]]
              :replace
-             {IRef (IRef a)
+             {IRef (IRef w r)
               IMeta (IMeta Any)
-              AReference (AReference a)
-              IDeref (IDeref a)
-              IReference (IReference a)})
+              AReference (AReference w r)
+              IDeref (IDeref w r)
+              IReference (IReference w r)})
 
-(alter-class Atom [[a :variance :invariant]]
+(alter-class Atom [[w :variance :contravariant]
+                   [r :variance :covariant]]
              :replace
-             {IRef (IRef a)
+             {IRef (IRef w r)
               IMeta (IMeta Any)
-              AReference (AReference a)
-              ARef (ARef a)
-              IDeref (IDeref a)
-              IReference (IReference a)})
+              AReference (AReference w r)
+              ARef (ARef w r)
+              IDeref (IDeref w r)
+              IReference (IReference w r)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
@@ -4529,21 +4631,27 @@
 (ann clojure.core/name [Named -> String])
 (ann clojure.core/in-ns [Symbol -> nil])
 (ann clojure.core/import [(IPersistentCollection Symbol) -> nil])
+(ann clojure.core/identity (All [x] [x -> x]))
 
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
+(ann clojure.core/vector (All [x] [x * -> (IPersistentVector x)]))
 
-(ann clojure.core/into-array (All [x] 
-                                  (Fn [(U nil (Seqable x)) -> (Arrayof x)]
-                                      [Class (U nil (Seqable x)) -> (Arrayof x)])))
+(ann clojure.core/into-array (All [x [y :< Class]]
+                                  (Fn [(U nil (Seqable x)) -> (Array Nothing x)]
+                                      [y (U nil (Seqable x)) -> (Array y x)])))
 
-(ann clojure.core/not [Any -> (U true false)])
+(ann clojure.core/not [Any -> boolean])
 (ann clojure.core/constantly (All [x y] [x -> [y * -> x]]))
 
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
 
-;(ann clojure.core/swap! (All [x b ...] 
-;                             [(Atom x) [x b ... b -> x] b ... b -> x]))
+(ann clojure.core/atom (All [x] [x -> (Atom x x)]))
+(ann clojure.core/reset! (All [x]
+                              [(Atom x x) x -> x]))
+
+;(ann clojure.core/swap! (All [x [y :< x] b ...] 
+;                             [(Atom x) [y b ... b -> y] b ... b -> y]))
 
 (ann clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
@@ -4583,7 +4691,7 @@
                                                                                (-or (-filter -nil 0)
                                                                                     (-filter (make-ExactCountRange 0) 0)))
                                                                   :object -empty))) 
-                           {:free-names '[x]})))
+                           {:actual-frees [x]})))
 
 (add-var-type 'clojure.core/empty?
               (let [x (make-F 'x)]
@@ -4595,7 +4703,7 @@
                                                                                     (-filter -nil 0))
                                                                                (-filter (make-CountRange 1) 0))
                                                                   :object -empty)))
-                           {:free-names '[x]})))
+                           {:actual-frees [x]})))
 
 (ann clojure.core/map
      (All [c a b ...]
@@ -4622,7 +4730,7 @@
                                     (make-Function [(Un (RInstance-of Seqable [x])
                                                         -nil)]
                                                    (Un -nil x))))
-                           {:free-names [(:name x)]})))
+                           {:actual-frees [x]})))
 
 (add-var-type 'clojure.core/rest
               (let [x (make-F 'x)]
@@ -4631,7 +4739,7 @@
                                     (make-Function [(Un (RInstance-of Seqable [x])
                                                         -nil)]
                                                    (RInstance-of ISeq [x]))))
-                           {:free-names [(:name x)]})))
+                           {:actual-frees [x]})))
 
 (ann clojure.core/conj
      (All [x y]
@@ -4670,13 +4778,26 @@
                         [Number * -> Number]))
 (ann clojure.core// [Number Number * -> Number])
 
-(defn override-numbers* [msym]
-  `(override-method ~(symbol "clojure.lang.Numbers" (str msym)) ~'[Number Number -> boolean]))
+(comment
+(ann clojure.core/assoc (All [a b c d ...]
+                             (Fn [nil b c d ... d -> (HMap {b c} :dotted d)]
+                                 [(HMap a) b c d  ... d -> (HMap a :dotted d)])))
 
-(defmacro override-numbers [& msyms]
-  `(do ~@(map override-numbers* msyms)))
+(ann clojure.core/dissoc (All [k v a b c ...]
+                              (Fn [(U nil (HMap a)) b c ... c -> (HMap a :without [a] :without-dotted c)]
+                                  [(U nil (IPersistentMap k v)) Any Any * -> (IPersistentMap k v)])))
+  )
 
-(override-numbers add minus multiply divide lt gt)
+(override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
+                                              [Number Number -> Number]))
+(override-method clojure.lang.Numbers/minus (Fn [AnyInteger AnyInteger -> AnyInteger]
+                                                [Number Number -> Number]))
+(override-method clojure.lang.Numbers/multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
+                                                   [Number Number -> Number]))
+(override-method clojure.lang.Numbers/divide [Number Number -> Number])
+
+(override-method clojure.lang.Numbers/lt [Number Number -> boolean])
+(override-method clojure.lang.Numbers/gt [Number Number -> boolean])
 
 (non-nil-return java.lang.Object/getClass #{0})
 
@@ -5277,7 +5398,7 @@
             success-ret-type (some #(check-funapp1 % arg-ret-types expected :check? false)
                                    (filter (fn [{:keys [dom rest] :as f}]
                                              {:pre [(Function? f)]}
-                                             (subtype-varargs? arg-types dom rest))
+                                             (subtypes-varargs? arg-types dom rest))
                                            ftypes))]
         (if success-ret-type
           success-ret-type
@@ -5288,21 +5409,21 @@
            (let [body (Poly-body* (repeatedly (:nbound fexpr-type) gensym) fexpr-type)]
              (and (Fn-Intersection? body)
                   (every? (complement :drest) (:types body)))))
-      (let [fs-names (or (-> (meta fexpr-type) :free-names)
-                         (repeatedly (:nbound fexpr-type) gensym))
+      (let [fs-names (repeatedly (:nbound fexpr-type) gensym)
             _ (assert (every? symbol? fs-names))
             _ (prn "ordinary poly:" (unparse-type fexpr-type))
             body (Poly-body* fs-names fexpr-type)
             _ (assert (Fn-Intersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
-                         (prn (unparse-type ftype))
+                         (prn "ftype:" (unparse-type ftype))
                          ;; only try inference if argument types are appropriate and no kws
                          (if-let [substitution (and (not (or drest kws))
                                                     ((if rest <= =) (count dom) (count arg-types))
                                                     (infer-vararg (set fs-names) #{} arg-types dom rest (Result-type* rng)
                                                                   (and expected (ret-t expected))))]
-                           (ret (subst-all substitution (Result-type* rng)))
+                           (do (prn "subst:" substitution)
+                             (ret (subst-all substitution (Result-type* rng))))
                            (if (or rest drest kws)
                              (throw (Exception. "Cannot infer arguments to polymorphic functions with rest types"))
                              (recur ftypes)))))]
@@ -5663,7 +5784,7 @@
                               (doall (map #(doall (map parse-type %)) methods-params-syns)))
         cexpr (-> (check-anon-fn fexpr method-params-types)
                 (update-in [expr-type :t] (fn [fin] (with-meta (Poly* (map :name frees) fin)
-                                                               {:free-names (map :name frees)}))))]
+                                                               {:actual-frees frees}))))]
     cexpr))
 
 (declare check-let)
@@ -5940,11 +6061,27 @@
 (defmethod invoke-special :default [& args] ::not-special)
 (defmethod static-method-special :default [& args] ::not-special)
 
-;convert apply to normal function application
-(defmethod invoke-apply :default 
-  [{[fexpr & args] :args :as expr} & [expected]]
-  (throw (Exception. "apply not implemented")))
+;(defn check-apply
+;  [{[fexpr & args] :args :as expr} expected]
+;  (let [[fixed-args rest-arg] [(butlast args) (last args)]]
+;  (cond
+;    (Fn-Intersection? fexpr)
+;    (do 
+;      (when (empty? (:types fexpr))
+;        (throw (Exception. "Error in apply")))
+;      (loop [[{:keys [dom rng rest drest] :as f} & fs] (:types fexpr)]
+;        (cond
+;          (not f) (throw (Exception. (str "Domain mismatch in apply.")))
+;          ;; the case of the function type has a rest argument
+;          (and rest
+;               (subtype? 
+;
+;  )
 
+;convert apply to normal function application
+;(defmethod invoke-apply :default 
+;  [expr & [expected]]
+;  (check-apply expr expected))
 
 (defmethod check :invoke
   [{:keys [fexpr args env] :as expr} & [expected]]
@@ -6166,8 +6303,7 @@
   (cond
     expected
     (let [fin (cond
-                (Poly? (ret-t expected)) (Poly-body* (or (-> expected ret-t meta :free-names)
-                                                         (repeatedly (:nbound (ret-t expected)) gensym)) (ret-t expected))
+                (Poly? (ret-t expected)) (Poly-body* (repeatedly (:nbound (ret-t expected)) gensym) (ret-t expected))
                 :else (ret-t expected))
           _ (doseq [{:keys [required-params rest-param] :as method} methods]
               (check-fn-method method (relevant-Fns required-params rest-param fin)))]

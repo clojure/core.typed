@@ -445,8 +445,8 @@
   (Rec [x]
        (Seqable (U nil
                    Expr
-                   (I clojure.lang.Fn [-> Any])
-                   (ISeq Emitable)
+                   (I clojure.lang.Fn (Fn [-> Any]))
+                   (ISeq x)
                    (I Any
                       (not nil)
                       (not (IPersistentMap Any Any))

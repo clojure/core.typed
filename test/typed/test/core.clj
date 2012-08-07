@@ -1,6 +1,6 @@
 (ns typed.test.core
   (:refer-clojure :exclude [defrecord])
-  (:import (clojure.lang Seqable ISeq ASeq IPersistentVector))
+  (:import (clojure.lang Seqable ISeq ASeq IPersistentVector Atom))
   (:require [clojure.test :refer :all]
             [analyze.core :refer [ast]]
             [clojure.repl :refer [pst]]
@@ -11,7 +11,7 @@
             [typed.test.deftype]
             [typed.test.core-logic]))
 
-(check-ns 'typed.test.deftype)
+;(check-ns 'typed.test.deftype)
 
 (deftest add-scopes-test
   (is (let [body (make-F 'a)]
@@ -761,7 +761,17 @@
   (is (= (fv-variances (make-F 'x))
          '{x :covariant}))
   (is (= (fv-variances (->Top))
-         '{})))
+         '{}))
+  (is (= (fv-variances 
+           (make-Function [] (RInstance-of Atom [(make-F 'a) (make-F 'a)])))
+         '{a :invariant}))
+  (is (= (fv-variances 
+           (make-Function [] (RInstance-of Atom [-any (make-F 'a)])))
+         '{a :covariant}))
+  (is (= (fv-variances 
+           (make-Function [] (RInstance-of Atom [(make-F 'a) -any])))
+         '{a :contravariant})))
+
 
 (deftest fv-test
   (is (= (fv (make-F 'x))
@@ -811,10 +821,10 @@
                 (RInstance-of ASeq [(make-F 'x)]))))) ;result
 
 (deftest arith-test
-  (is (= (:t (tc-t (+)))
-         (RInstance-of Number)))
-  (is (= (:t (tc-t (+ 1 2)))
-         (RInstance-of Number)))
+  (is (subtype? (:t (tc-t (+)))
+                (RInstance-of Number)))
+  (is (subtype? (:t (tc-t (+ 1 2)))
+                (RInstance-of Number)))
   (is (thrown? Exception (tc-t (+ 1 2 "a"))))
   (is (thrown? Exception (tc-t (-))))
   (is (thrown? Exception (tc-t (/)))))
