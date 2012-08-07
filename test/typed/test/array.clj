@@ -4,6 +4,4 @@
                                 tc-ignore non-nil-return nilable-param]]
             [clojure.repl :refer [pst]]))
 
-(
-
-(defn readable-array [a]
+(def my-array (into-array Object [1 2]))

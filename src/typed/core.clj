@@ -157,6 +157,13 @@
      (declare ~sym)
      [sym# (unparse-type ty#)])))
 
+(defn ann-form* [form ty]
+  form)
+
+(defmacro ann-form [form ty]
+  `(ann-form* ~form '~ty))
+
+
 (defn tc-ignore-forms* [r]
   r)
 
@@ -688,6 +695,7 @@
 (declare ->NoFilter ->NoObject ->Result -FS -top)
 
 (defn make-Result
+  "Make a result. ie. the range of a Function"
   ([t] (make-Result t nil nil))
   ([t f] (make-Result t f nil))
   ([t f o] (->Result t (or f (-FS -top -top)) (or o (->NoObject)))))
@@ -5764,6 +5772,19 @@
     ;DO NOT REMOVE
     (assoc expr
            expr-type t)))
+
+;form annotation
+(defmethod invoke-special #'ann-form*
+  [{[frm {tsyn :val}] :args :as expr} & [expected]]
+  (let [ty (parse-type tsyn)
+        _ (prn (unparse-type ty))
+        _ (prn frm)
+        cty (check frm (ret ty))
+        checked-type (expr-type cty)
+        _ (when expected
+            (assert (subtype checked-type (ret-t expected))))]
+    (assoc expr
+           expr-type (expr-type cty))))
 
 ;fn literal
 (defmethod invoke-special #'fn>-ann
