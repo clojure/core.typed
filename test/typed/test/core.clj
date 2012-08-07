@@ -887,7 +887,7 @@
   (is (thrown? Exception (tc-t (map + [1 2] [1 2] [4 5] [6 7] [4 4] #{'a 4})))))
 
 (deftest ann-form-test
-  (is (subtype? (ret-t (tc-t 
-                         (typed.core/ann-form (atom 1) 
-                                              (clojure.lang.Atom Number Number))))
-                (parse-type '(clojure.lang.Atom Number Number)))))
+  (is (= (ret-t (tc-t 
+                  (typed.core/ann-form (atom 1) 
+                                       (clojure.lang.Atom Number Number))))
+         (parse-type '(clojure.lang.Atom Number Number)))))

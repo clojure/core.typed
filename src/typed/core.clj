@@ -5777,14 +5777,13 @@
 (defmethod invoke-special #'ann-form*
   [{[frm {tsyn :val}] :args :as expr} & [expected]]
   (let [ty (parse-type tsyn)
-        _ (prn (unparse-type ty))
-        _ (prn frm)
         cty (check frm (ret ty))
         checked-type (expr-type cty)
+        _ (assert (subtype (ret-t checked-type) ty))
         _ (when expected
-            (assert (subtype checked-type (ret-t expected))))]
+            (assert (subtype (ret-t checked-type) (ret-t expected))))]
     (assoc expr
-           expr-type (expr-type cty))))
+           expr-type (ret ty))))
 
 ;fn literal
 (defmethod invoke-special #'fn>-ann
@@ -6405,7 +6404,8 @@
       (let [s-nosuffix (apply str (drop-last 2 s))]
         (assert (not (.contains s-nosuffix "<>")))
         ;Nullable elements
-        (->PrimitiveArray (Method-symbol->Type (symbol s-nosuffix) nilable?))))))
+        (let [t (Method-symbol->Type (symbol s-nosuffix) nilable?)]
+          (->PrimitiveArray t t))))))
 
 (defn Method-symbol->Type [sym nilable?]
   {:pre [(symbol? sym)]
