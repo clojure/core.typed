@@ -154,6 +154,7 @@
                 (symbol (name (ns-name *ns*)) (name '~sym)))
          ty# (parse-type '~type)]
      (add-type-name sym# ty#)
+     (declare ~sym)
      [sym# (unparse-type ty#)])))
 
 (defn tc-ignore-forms* [r]
@@ -3726,15 +3727,11 @@
          ((some-fn nil? Type?) R)
          ((some-fn nil? Type?) expected)]
    :post [((some-fn nil? true? substitution-c?) %)]}
-  (prn "infer:" (map unparse-type S) (map unparse-type T) (and R (unparse-type R)))
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset #{} #{}))
-        _ (prn "expected cset" expected-cset)
         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
-        _ (prn "cs" cs)
-        cs* (cset-meet cs expected-cset)
-        _ (prn "cset:" cs*)]
+        cs* (cset-meet cs expected-cset)]
     (if R
       (subst-gen cs* Y R)
       true)))
@@ -4583,14 +4580,13 @@
              :replace
              {IMeta (IMeta Any)})
 
-(alter-class IDeref [[w :variance :contravariant]
-                     [r :variance :covariant]])
+(alter-class IDeref [[r :variance :covariant]])
 
 
 (alter-class IRef [[w :variance :contravariant]
                    [r :variance :covariant]]
              :replace
-             {IDeref (IDeref w r)})
+             {IDeref (IDeref r)})
 
 (alter-class IReference [[w :variance :contravariant]
                          [r :variance :covariant]]
@@ -4609,7 +4605,7 @@
              {IRef (IRef w r)
               IMeta (IMeta Any)
               AReference (AReference w r)
-              IDeref (IDeref w r)
+              IDeref (IDeref r)
               IReference (IReference w r)})
 
 (alter-class Atom [[w :variance :contravariant]
@@ -4619,7 +4615,7 @@
               IMeta (IMeta Any)
               AReference (AReference w r)
               ARef (ARef w r)
-              IDeref (IDeref w r)
+              IDeref (IDeref r)
               IReference (IReference w r)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -4647,6 +4643,7 @@
 (ann clojure.core/prn-str [Any * -> String])
 
 (ann clojure.core/atom (All [x] [x -> (Atom x x)]))
+(ann clojure.core/deref (All [x] [(IDeref x) -> x]))
 (ann clojure.core/reset! (All [x]
                               [(Atom x x) x -> x]))
 
