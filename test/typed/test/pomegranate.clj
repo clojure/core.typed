@@ -38,7 +38,7 @@
               {can-modify? [URLClasspath -> (U true false)]
                add-url [URLClasspath URL -> Any]})
 
-(tc-ignore
+;(tc-ignore
 (defprotocol URLClasspath
   "Ability to dynamically add urls to classloaders.
 
@@ -47,7 +47,7 @@ This protocol is an implementation detail.  Use
 unless you are extending a type to this protocol."
   (^{:private true} can-modify? [this] "Returns true if the given classloader can be modified.")
   (^{:private true} add-url [this url] "add the url to the classpath"))
-)
+;)
 
 (extend-type DynamicClassLoader
   URLClasspath

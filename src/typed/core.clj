@@ -420,7 +420,7 @@
 ;smart destructor
 (defn RClass-replacements* [names rclass]
   (into {} (for [[k v] (:replacements rclass)]
-             [k (instantiate-many (map make-F names) v)])))
+             [k (instantiate-many names v)])))
 
 (declare-type RClass)
 
@@ -514,7 +514,7 @@
   {:pre [(every? symbol? names)
          (Poly? poly)]}
   (assert (= (:nbound poly) (count names)) "Wrong number of names")
-  (instantiate-many (map make-F names) (:scope poly)))
+  (instantiate-many names (:scope poly)))
 
 (defrecord PolyDots [nbound scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
@@ -536,7 +536,7 @@
   {:pre [(every? symbol? names)
          (PolyDots? poly)]}
   (assert (= (:nbound poly) (count names)) "Wrong number of names")
-  (instantiate-many (map make-F names) (:scope poly)))
+  (instantiate-many names (:scope poly)))
 
 (defrecord Name [id]
   "A late bound name"
@@ -1530,12 +1530,17 @@
   "A path calling clojure.core/next"
   [])
 
+(defrecord ClassPE []
+  "A path calling clojure.core/class"
+  [])
+
 (defrecord KeyPE [val]
   "A key in a hash-map"
   [((some-fn keyword?) val)])
 
 (declare-path-elem FirstPE)
 (declare-path-elem NextPE)
+(declare-path-elem ClassPE)
 (declare-path-elem KeyPE)
 
 (defmulti unparse-path-elem class)
@@ -1967,10 +1972,6 @@
         _ (check-forbidden-rec f body)]
     (Mu* (:name f) body)))
 
-(defmethod parse-type-list 'ClassLiteral
-  [[_ t-syn]]
-  (In (->AnyValue) (RInstance-of Class)))
-
 (defmethod parse-type-list 'CountRange
   [[_ n]]
   (make-CountRange n))
@@ -2054,7 +2055,7 @@
 
 (defmethod parse-type-list 'Array
   [[_ isyn osyn & none]]
-  (assert (empty? none) "Only one argument to Arrayof")
+  (assert (empty? none) "Expected 2 arguments to Array")
   (->PrimitiveArray (parse-type isyn) (parse-type osyn)))
 
 (declare parse-function)
@@ -3186,12 +3187,13 @@
     (type-error S T))
   (let [dt (demote-var T V)]
     (-> (empty-cset X Y)
-      (insert-constraint (:name S) (:lower-bound S) (:upper-bound S))
-      ;; FIXME erm why does this screw things up?
-      #_(insert-constraint (:name S) dt (:upper-bound S))
+      (insert-constraint (:name S) dt (:upper-bound S))
       (insert-constraint (:name S) (:lower-bound S) dt))))
 
 (defn promote-F [V X Y S T]
+  ;T is an F
+  ;S is any Type
+  ;constrain T to be above S (but don't mention V)
   (assert (X (:name T)) (str X T))
   (when (and (F? S)
              (bound-index? (:name S))
@@ -3199,13 +3201,12 @@
     (type-error S T))
   (let [ps (promote-var S V)]
     (-> (empty-cset X Y)
-      (insert-constraint (:name T) (:lower-bound T) (:upper-bound T))
       (insert-constraint (:name T) ps (:upper-bound T))
-      ;; FIXME erm why does this screw things up?
-      #_(insert-constraint (:name T) (:lower-bound T) ps))))
+      (insert-constraint (:name T) (:lower-bound T) ps))))
 
 (defmethod cs-gen* [F Type]
   [V X Y S T]
+  (prn "cs-gen* [F Type]" S T)
   (cond
     (X (:name S))
     (demote-F V X Y S T)
@@ -3218,6 +3219,7 @@
 
 (defmethod cs-gen* [Type F]
   [V X Y S T]
+  (prn "cs-gen* [Type F]" S T)
   (cond
     (X (:name T))
     (promote-F V X Y S T)
@@ -3471,6 +3473,7 @@
                      (variance-map? h)
                      ((some-fn nil? symbol?) variable)]}
               (prn "constraint->type" (unparse-type S) (unparse-type T) X h)
+              (assert (subtype? S T) (type-error S T))
               (let [var (h (or variable X) :constant)]
                 (case var
                   (:constant :covariant) S
@@ -3867,9 +3870,9 @@
 
 (add-fold-case ::instantiate-many
                B
-               (fn [{:keys [idx] :as t} {{:keys [count outer image]} :locals}]
+               (fn [{:keys [idx upper-bound lower-bound] :as t} {{:keys [count outer image]} :locals}]
                  (if (= (+ count outer) idx)
-                   image
+                   (make-F image upper-bound lower-bound)
                    t)))
 
 (add-fold-case ::instantiate-many
@@ -3883,7 +3886,9 @@
                              (when drest
                                (->DottedPretype (sb (:pre-type drest))
                                                 (if (= (+ count outer) (-> drest :bound :idx))
-                                                  image
+                                                  (make-F image
+                                                          (-> drest :bound :upper-bound)
+                                                          (-> drest :bound :lower-bound))
                                                   (:bound drest))))
                              nil)))
 
@@ -3906,11 +3911,11 @@
                    (->Poly n (add-scopes n (replace image count type (+ n outer) body))))))
 
 (defn instantiate-many 
-  "instantiate-many : List[Type] Scope^n -> Type
-  where n is the length of types
-  all of the types MUST be Fs"
+  "instantiate-many : List[Symbols] Scope^n -> Type
+  Instantiate de Bruijn indices in sc to frees named by
+  images, preserving upper/lower bounds"
   [images sc]
-  {:pre [(every? F? images)
+  {:pre [(every? symbol? images)
          (or (Scope? sc)
              (empty? images))]
    :post [(Type? %)]}
@@ -3950,7 +3955,7 @@
 
 (defn instantiate [f sc]
   "Instantiate bound name to free"
-  {:pre [(F? f)
+  {:pre [(symbol? f)
          (Scope? sc)]}
   (instantiate-many [f] sc))
 
@@ -4301,7 +4306,7 @@
 
 (defmethod subtype* [PrimitiveArray Type]
   [_ t]
-  (subtype (RInstance-of (class (into-array []))) t))
+  (subtype (RInstance-of (class (into-array Object []))) t))
 
 (defmethod subtype* [DataType Type]
   [{:keys [the-class] :as s} t]
@@ -4658,7 +4663,7 @@
 
 (ann clojure.core/into-array (All [x [y :< Class]]
                                   (Fn [(U nil (Seqable x)) -> (Array Nothing x)]
-                                      [y (U nil (Seqable x)) -> (Array y x)])))
+                                      [y (U nil (Seqable x)) -> (Array x x)])))
 
 (ann clojure.core/not [Any -> boolean])
 (ann clojure.core/constantly (All [x y] [x -> [y * -> x]]))
@@ -4698,6 +4703,13 @@
 
 (ann clojure.core/string? (predicate String))
 
+(add-var-type 'clojure.core/class
+              (Fn-Intersection
+                (make-Function [-any]
+                               (Un (RInstance-of Class) -nil)
+                               nil nil
+                               :object (->Path (->ClassPE) 0))))
+
 (add-var-type 'clojure.core/seq
               (let [x (make-F 'x)]
                 (with-meta (Poly* [(:name x)]
@@ -4736,17 +4748,23 @@
           (Fn 
             ;Without accumulator
             ; empty coll, f takes no args
+            ; (reduce + []) => 0, (reduce + nil) => 0
             [[-> c] (U nil (I (ExactCount 0) (Seqable c))) -> c]
             ; coll count = 1, f is not called
+            ; (reduce + [1]) => 1
             [Any (I (ExactCount 1) (Seqable c)) -> c]
             ; coll count >= 2
+            ; (reduce + [1 2]) => 3
             [[c c -> c] (I (CountRange 2) (Seqable c)) -> c]
             ; default
+            ; (reduce + my-coll)
             [(Fn [c c -> c] [-> c]) (U nil (Seqable c)) -> c]
             ;With accumulator
             ; empty coll, f not called, returns accumulator
+            ; (reduce + 3 []) => 3
             [Any a (U nil (I (ExactCount 0) (Seqable Any))) -> a]
             ; default
+            ; (reduce + 3 my-coll)
             [[a c -> a] a (U nil (Seqable c)) -> a])))
 
 (ann clojure.core/first
@@ -5403,7 +5421,7 @@
    :post [(TCResult? %)]}
   (let [fexpr-type (ret-t fexpr-ret-type)
         arg-types (doall (map ret-t arg-ret-types))]
-    (prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
+    (prn "check-funapp" (unparse-type fexpr-type) fexpr-type (map unparse-type arg-types))
     (cond
       ;ordinary Function, single case, special cased for improved error msgs
       (and (Fn-Intersection? fexpr-type)
@@ -5436,7 +5454,7 @@
             _ (assert (Fn-Intersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
-                         (prn "ftype:" (unparse-type ftype))
+                         (prn "ftype:" (unparse-type ftype) ftype)
                          ;; only try inference if argument types are appropriate and no kws
                          (if-let [substitution (and (not (or drest kws))
                                                     ((if rest <= =) (count dom) (count arg-types))
