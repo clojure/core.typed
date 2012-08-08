@@ -1971,9 +1971,13 @@
   [[_ t-syn]]
   (In (->AnyValue) (RInstance-of Class)))
 
-(defmethod parse-type-list 'not
-  [[_ t-syn]]
-  (->NotType (parse-type t-syn)))
+(defmethod parse-type-list 'CountRange
+  [[_ n]]
+  (make-CountRange n))
+
+(defmethod parse-type-list 'ExactCount
+  [[_ n]]
+  (make-ExactCountRange n))
 
 (defmethod parse-type-list 'predicate
   [[_ t-syn]]
@@ -2864,6 +2868,7 @@
 (defn c-meet [{S  :S X  :X T  :T :as c1}
               {S* :S X* :X T* :T :as c2}
               & [var]]
+  (prn "c-meet" c1 c2)
   (when-not (or var (= X X*))
     (throw (Exception. (str "Non-matching vars in c-meet:" X X*))))
   (let [S (join S S*)
@@ -3022,6 +3027,7 @@
            (AnyType? T)]}
     [(class S) (class T)]))
 
+; (see cs-gen*)
 ;cs-gen calls cs-gen*, remembering the current subtype for recursive types
 ; Add methods to cs-gen*, but always call cs-gen
 
@@ -3031,6 +3037,10 @@
          (AnyType? S)
          (AnyType? T)]
    :post [(cset? %)]}
+  (prn "cs-gen" 
+       V X Y
+       (unparse-type S)
+       (unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (subtype? S T))
     ;already been around this loop, is a subtype
@@ -3567,6 +3577,10 @@
          (every? Type? (concat S T))
          (cset? expected-cset)]
    :post [(cset? %)]}
+  (prn "cs-gen-list" 
+       V X Y
+       (map unparse-type S)
+       (map unparse-type T))
   (assert (= (count S) (count T))
           (pr-str "S:" (map unparse-type S)
                   "T:" (map unparse-type T)))
@@ -3576,7 +3590,9 @@
     ;; constraint explosion.
     (doall 
       (for [[s t] (map vector S T)]
-        (cset-meet (cs-gen V X Y s t) expected-cset)))))
+        (let [c (cs-gen V X Y s t)]
+          (prn "c" c)
+          (cset-meet c expected-cset))))))
 
 (declare sub-f sub-o sub-pe)
 
@@ -3677,29 +3693,29 @@
          ((some-fn nil? Type?) expected)]
    :post [(substitution-c? %)]}
   (let [[short-S rest-S] (split-at (count T) S)
-        ;_ (prn "short-S" short-S)
-        ;_ (prn "rest-S" rest-S)
+        _ (prn "short-S" (map unparse-type short-S))
+        _ (prn "rest-S" (map unparse-type rest-S))
         expected-cset (if expected
                         (cs-gen #{} X #{dotted-var} R expected)
                         (empty-cset #{} #{}))
-        ;_ (prn "expected-cset" expected-cset)
+        _ (prn "expected-cset" expected-cset)
         cs-short (cs-gen-list #{} X #{dotted-var} short-S T
                               :expected-cset expected-cset)
-        ;_ (prn "cs-short" cs-short)
+        _ (prn "cs-short" cs-short)
         new-vars (var-store-take dotted-var T-dotted (count rest-S))
         new-Ts (doall
                  (for [v new-vars]
                    (let [target (substitute-dots (map make-F new-vars) nil dotted-var T-dotted)]
-                     ;(prn "replace" v "with" dotted-var "in" (unparse-type target))
+                     (prn "replace" v "with" dotted-var "in" (unparse-type target))
                      (substitute (make-F v) dotted-var target))))
-;        _ (prn "new-Ts" new-Ts)
+        _ (prn "new-Ts" new-Ts)
         cs-dotted (cs-gen-list #{} (set/union (set new-vars) X) #{dotted-var} rest-S new-Ts
                                :expected-cset expected-cset)
-        ;_ (prn "cs-dotted" cs-dotted)
+        _ (prn "cs-dotted" cs-dotted)
         cs-dotted (move-vars-to-dmap cs-dotted dotted-var new-vars)
-        ;_ (prn "cs-dotted" cs-dotted)
+        _ (prn "cs-dotted" cs-dotted)
         cs (cset-meet cs-short cs-dotted)
-        ;_ (prn "cs" cs)
+        _ (prn "cs" cs)
         ]
     (subst-gen (cset-meet cs expected-cset) #{dotted-var} R)))
 
@@ -4652,38 +4668,35 @@
 
 (ann clojure.core/atom (All [x] [x -> (Atom x x)]))
 (ann clojure.core/deref (All [x] [(IDeref x) -> x]))
-(ann clojure.core/reset! (All [x]
-                              [(Atom x x) x -> x]))
+(ann clojure.core/reset! (All [w r]
+                              [(Atom w r) w -> r]))
 
-;(ann clojure.core/swap! (All [x [y :< x] b ...] 
-;                             [(Atom x) [y b ... b -> y] b ... b -> y]))
+(ann clojure.core/swap! (All [w r b ...] 
+                             [(Atom w r) [r b ... b -> w] b ... b -> r]))
+
+;(ann clojure.core/partial (All [x b ... c ...]
+;                               [[b ... b c ... c -> x] b ... b -> [c ... c -> x]]))
+
+(ann clojure.core/comp (All [x y z k l m b ...]
+                            (Fn [-> [x -> x]]
+                                [[b ... b -> x] -> [b ... b -> x]]
+                                [[y -> x] [b ... b -> y] -> [b ... b -> x]]
+                                [[y -> x] [z -> y] [b ... b -> z] -> [b ... b -> x]]
+                                [[y -> x] [z -> y] [k -> z] [b ... b -> k] -> [b ... b -> x]]
+                                [[y -> x] [z -> y] [k -> z] [l -> k] [b ... b -> l] -> [b ... b -> x]]
+                                [[y -> x] [z -> y] [k -> z] [l -> k] [m -> l] [b ... b -> m] -> [b ... b -> x]])))
 
 (ann clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
          [String String -> Symbol]))
 
-(add-var-type 'clojure.core/seq? 
-              (In (->Function [-any] 
-                              (make-Result (Un -false -true) 
-                                           (-FS (-filter (RInstance-of ISeq [-any]) 0)
-                                                (-not-filter (RInstance-of ISeq [-any]) 0))
-                                           -empty)
-                              nil nil nil)))
-
-(add-var-type 'clojure.core/number?
-              (In (->Function [-any] 
-                              (make-Result (Un -false -true) 
-                                           (-FS (-filter (RInstance-of Number) 0)
-                                                (-not-filter (RInstance-of Number) 0))
-                                           -empty)
-                              nil nil nil)))
+(ann clojure.core/seq? (predicate (ISeq Any)))
 
 (ann clojure.core/meta (All [x]
                             (Fn [(IMeta x) -> x]
                                 [Any -> nil])))
 
-(ann clojure.core/string?
-     (Fn [Any -> (U false true)]))
+(ann clojure.core/string? (predicate String))
 
 (add-var-type 'clojure.core/seq
               (let [x (make-F 'x)]
@@ -4719,32 +4732,31 @@
           [[a a -> a] (U nil (IPersistentMap k a)) ... b -> (IPersistentMap k a)]))
 
 (ann clojure.core/reduce
-     (All [a c]
+     (All [a c d]
           (Fn 
-            ;[[c a -> c] (I NonEmpty (Seqable c)) -> c]
-            [(Fn [c a -> c] [-> c]) (Seqable c) -> c]
-            [[c a -> c] c (Seqable c) -> c])))
+            ;Without accumulator
+            ; empty coll, f takes no args
+            [[-> c] (U nil (I (ExactCount 0) (Seqable c))) -> c]
+            ; coll count = 1, f is not called
+            [Any (I (ExactCount 1) (Seqable c)) -> c]
+            ; coll count >= 2
+            [[c c -> c] (I (CountRange 2) (Seqable c)) -> c]
+            ; default
+            [(Fn [c c -> c] [-> c]) (U nil (Seqable c)) -> c]
+            ;With accumulator
+            ; empty coll, f not called, returns accumulator
+            [Any a (U nil (I (ExactCount 0) (Seqable Any))) -> a]
+            ; default
+            [[a c -> a] a (U nil (Seqable c)) -> a])))
 
-(add-var-type 'clojure.core/first
-              (let [x (make-F 'x)]
-                (with-meta (Poly* [(:name x)]
-                                  (Fn-Intersection
-                                    (make-Function [(In (RInstance-of Seqable [x])
-                                                        (make-CountRange 1))]
-                                                   x)
-                                    (make-Function [(Un (RInstance-of Seqable [x])
-                                                        -nil)]
-                                                   (Un -nil x))))
-                           {:actual-frees [x]})))
+(ann clojure.core/first
+     (All [x]
+          (Fn [(I (Seqable x) (CountRange 1)) -> x]
+              [(U (Seqable x) nil) -> (U nil x)])))
 
-(add-var-type 'clojure.core/rest
-              (let [x (make-F 'x)]
-                (with-meta (Poly* [(:name x)]
-                                  (Fn-Intersection
-                                    (make-Function [(Un (RInstance-of Seqable [x])
-                                                        -nil)]
-                                                   (RInstance-of ISeq [x]))))
-                           {:actual-frees [x]})))
+(ann clojure.core/rest
+     (All [x]
+          [(U (Seqable x) nil) -> (ISeq x)]))
 
 (ann clojure.core/conj
      (All [x y]
@@ -4766,7 +4778,7 @@
               [java.util.Map Any -> (U nil Any)]
               [String Any -> (U nil Character)]
               [nil Any -> nil]
-              [(ILookup Any x) Any -> (U nil x)])))
+              [(U nil (ILookup Any x)) Any -> (U nil x)])))
 
 (ann clojure.core/= [Any Any * -> (U true false)])
 
@@ -4783,10 +4795,13 @@
                         [Number * -> Number]))
 (ann clojure.core// [Number Number * -> Number])
 
+(ann clojure.core/inc (Fn [AnyInteger * -> AnyInteger]
+                          [Number * -> Number]))
+
 (comment
 (ann clojure.core/assoc (All [a b c d ...]
                              (Fn [nil b c d ... d -> (HMap {b c} :dotted d)]
-                                 [(HMap a) b c d  ... d -> (HMap a :dotted d)])))
+                                 [(HMap a) b c d ... d -> (HMap a :dotted d)])))
 
 (ann clojure.core/dissoc (All [k v a b c ...]
                               (Fn [(U nil (HMap a)) b c ... c -> (HMap a :without [a] :without-dotted c)]

@@ -7,3 +7,4 @@
 (def my-atom (atom 2))
 
 (reset! my-atom 1)
+(swap! my-atom + 1 2)

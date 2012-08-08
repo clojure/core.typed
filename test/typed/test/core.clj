@@ -891,3 +891,11 @@
                   (typed.core/ann-form (atom 1) 
                                        (clojure.lang.Atom Number Number))))
          (parse-type '(clojure.lang.Atom Number Number)))))
+
+(deftest atom-ops-test
+  (is (subtype? (ret-t (tc-t
+                         (reset!
+                           (typed.core/ann-form (atom 1) 
+                                                (clojure.lang.Atom Number Number))
+                           10.1)))
+                (RInstance-of Number))))
