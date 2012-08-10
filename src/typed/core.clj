@@ -3524,17 +3524,26 @@
             ;; v : Symbol - variable for which to check variance
             ;; h : (Hash F Variance) - hash to check variance in (either var or idx hash)
             ;; variable: Symbol - variable to use instead, if v was a temp var for idx extension
-            (constraint->type [{:keys [S X T] :as v} h & {:keys [variable]}]
+            (constraint->type [{{:keys [upper-bound lower-bound]} :bnds :keys [S X T] :as v} h & {:keys [variable]}]
               {:pre [(c? v)
                      (variance-map? h)
                      ((some-fn nil? symbol?) variable)]}
               (prn "constraint->type" (unparse-type S) (unparse-type T) X h)
               (assert (subtype? S T) (type-error S T))
-              (let [var (h (or variable X) :constant)]
-                (case var
-                  (:constant :covariant) S
-                  :contravariant T
-                  :invariant S)))
+              (let [var (h (or variable X) :constant)
+                    inferred (case var
+                               (:constant :covariant) S
+                               :contravariant T
+                               :invariant S)]
+                (assert (subtype? lower-bound upper-bound)
+                        (str "Lower-bound " (unparse-type lower-bound)
+                             " is not below upper-bound " (unparse-type upper-bound)))
+                (assert (and (subtype? inferred upper-bound)
+                             (subtype? lower-bound inferred))
+                        (str "Inferred type " (unparse-type inferred)
+                             " is not between bounds " (unparse-type lower-bound)
+                             " and " (unparse-type upper-bound)))
+                inferred))
             ;TODO implement generalize
             ;                  (let [gS (generalize S)]
             ;                    (if (subtype? gS T)
