@@ -2818,9 +2818,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint Generation
 
-(defrecord t-subst [type]
+(defrecord t-subst [type bnds]
   ""
-  [(Type? type)])
+  [(Type? type)
+   (Bounds? bnds)])
 
 (defrecord i-subst [types]
   ""
@@ -3091,10 +3092,10 @@
          (AnyType? S)
          (AnyType? T)]
    :post [(cset? %)]}
-  (prn "cs-gen" 
-       V X Y
-       (unparse-type S)
-       (unparse-type T))
+;  (prn "cs-gen" 
+;       V X Y
+;       (unparse-type S)
+;       (unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (subtype? S T))
     ;already been around this loop, is a subtype
@@ -3273,7 +3274,7 @@
 
 (defmethod cs-gen* [Type F]
   [V X Y S T]
-  (prn "cs-gen* [Type F]" S T X)
+  ;(prn "cs-gen* [Type F]" S T X)
   (cond
     (contains? X (:name T))
     (promote-F V X Y S T)
@@ -3528,21 +3529,12 @@
               {:pre [(c? v)
                      (variance-map? h)
                      ((some-fn nil? symbol?) variable)]}
-              (prn "constraint->type" (unparse-type S) (unparse-type T) X h)
               (assert (subtype? S T) (type-error S T))
               (let [var (h (or variable X) :constant)
                     inferred (case var
                                (:constant :covariant) S
                                :contravariant T
                                :invariant S)]
-                (assert (subtype? lower-bound upper-bound)
-                        (str "Lower-bound " (unparse-type lower-bound)
-                             " is not below upper-bound " (unparse-type upper-bound)))
-                (assert (and (subtype? inferred upper-bound)
-                             (subtype? lower-bound inferred))
-                        (str "Inferred type " (unparse-type inferred)
-                             " is not between bounds " (unparse-type lower-bound)
-                             " and " (unparse-type upper-bound)))
                 inferred))
             ;TODO implement generalize
             ;                  (let [gS (generalize S)]
@@ -3623,7 +3615,25 @@
 
                     (into {}
                       (for [[k v] cmap]
-                        [k (->t-subst (constraint->type v var-hash))])))]
+                        [k (->t-subst (constraint->type v var-hash)
+                                      (:bnds v))])))
+            ;check bounds
+            _ (let [t-substs (into {} (filter (fn [[_ v]] (t-subst? v)) subst))
+                    [names images] (let [s (seq t-substs)]
+                                     [(map first s)
+                                      (map (comp :type second) s)])]
+                (prn "check bounds:" (zipmap names images))
+                (doseq [[nme {inferred :type :keys [bnds]}] t-substs]
+                  (let [lower-bound (substitute-many (:lower-bound bnds) images names)
+                        upper-bound (substitute-many (:upper-bound bnds) images names)]
+                    (assert (subtype? lower-bound upper-bound)
+                            (str "Lower-bound " (unparse-type lower-bound)
+                                 " is not below upper-bound " (unparse-type upper-bound)))
+                    (assert (and (subtype? inferred upper-bound)
+                                 (subtype? lower-bound inferred))
+                            (str "Inferred type " (unparse-type inferred)
+                                 " is not between bounds " (unparse-type lower-bound)
+                                 " and " (unparse-type upper-bound))))))]
         ;; verify that we got all the important variables
         (and (every? identity
                      (for [v (fv R)]
@@ -3645,10 +3655,10 @@
          (every? Type? (concat S T))
          (cset? expected-cset)]
    :post [(cset? %)]}
-  (prn "cs-gen-list" 
-       V X Y
-       (map unparse-type S)
-       (map unparse-type T))
+;  (prn "cs-gen-list" 
+;       V X Y
+;       (map unparse-type S)
+;       (map unparse-type T))
   (assert (= (count S) (count T))
           (pr-str "S:" (map unparse-type S)
                   "T:" (map unparse-type T)))
@@ -3659,7 +3669,7 @@
     (doall 
       (for [[s t] (map vector S T)]
         (let [c (cs-gen V X Y s t)]
-          (prn "c" c)
+          ;(prn "c" c)
           (cset-meet c expected-cset))))))
 
 (declare sub-f sub-o sub-pe)
@@ -3762,29 +3772,29 @@
          ((some-fn nil? Type?) expected)]
    :post [(substitution-c? %)]}
   (let [[short-S rest-S] (split-at (count T) S)
-        _ (prn "short-S" (map unparse-type short-S))
-        _ (prn "rest-S" (map unparse-type rest-S))
+;        _ (prn "short-S" (map unparse-type short-S))
+;        _ (prn "rest-S" (map unparse-type rest-S))
         expected-cset (if expected
                         (cs-gen #{} X {dotted-var dotted-bnd} R expected)
                         (empty-cset {} {}))
-        _ (prn "expected-cset" expected-cset)
+;        _ (prn "expected-cset" expected-cset)
         cs-short (cs-gen-list #{} X {dotted-var dotted-bnd} short-S T
                               :expected-cset expected-cset)
-        _ (prn "cs-short" cs-short)
+        ;_ (prn "cs-short" cs-short)
         new-vars (var-store-take dotted-var T-dotted (count rest-S))
         new-Ts (doall
                  (for [v new-vars]
                    (let [target (substitute-dots (map make-F new-vars) nil dotted-var T-dotted)]
                      (prn "replace" v "with" dotted-var "in" (unparse-type target))
                      (substitute (make-F v) dotted-var target))))
-        _ (prn "new-Ts" new-Ts)
+        ;_ (prn "new-Ts" new-Ts)
         cs-dotted (cs-gen-list #{} (merge X (zipmap new-vars (repeat dotted-bnd))) {dotted-var dotted-bnd} rest-S new-Ts
                                :expected-cset expected-cset)
-        _ (prn "cs-dotted" cs-dotted)
+        ;_ (prn "cs-dotted" cs-dotted)
         cs-dotted (move-vars-to-dmap cs-dotted dotted-var new-vars)
-        _ (prn "cs-dotted" cs-dotted)
+        ;_ (prn "cs-dotted" cs-dotted)
         cs (cset-meet cs-short cs-dotted)
-        _ (prn "cs" cs)
+        ;_ (prn "cs" cs)
         ]
     (subst-gen (cset-meet cs expected-cset) #{dotted-var} R)))
 
@@ -3796,7 +3806,7 @@
          (Type? R)
          ((some-fn nil? Type?) expected)]
    :post [((some-fn nil? substitution-c?) %)]}
-  (prn "infer-vararg" "X:" X)
+  ;(prn "infer-vararg" "X:" X)
   (let [new-T (if T-var
                 ;Pad out T
                 (concat T (repeat (- (count S) (count T)) T-var))
@@ -3825,7 +3835,7 @@
                         (empty-cset {} {}))
         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
         cs* (cset-meet cs expected-cset)]
-    (prn "final cs" cs*)
+    ;(prn "final cs" cs*)
     (if R
       (subst-gen cs* (set (keys Y)) R)
       true)))
@@ -5489,7 +5499,7 @@
    :post [(TCResult? %)]}
   (let [fexpr-type (ret-t fexpr-ret-type)
         arg-types (doall (map ret-t arg-ret-types))]
-    (prn "check-funapp" (unparse-type fexpr-type) fexpr-type (map unparse-type arg-types))
+    ;(prn "check-funapp" (unparse-type fexpr-type) fexpr-type (map unparse-type arg-types))
     (cond
       ;ordinary Function, single case, special cased for improved error msgs
       (and (Fn-Intersection? fexpr-type)
@@ -5516,22 +5526,18 @@
              (and (Fn-Intersection? body)
                   (every? (complement :drest) (:types body)))))
       (let [fs-names (repeatedly (:nbound fexpr-type) gensym)
-            _ (prn "fs-names" fs-names)
             _ (assert (every? symbol? fs-names))
-            _ (prn "ordinary poly:" (unparse-type fexpr-type))
             body (Poly-body* fs-names fexpr-type)
             bbnds (Poly-bbnds* fs-names fexpr-type)
-            _ (prn "bbnds" bbnds)
             _ (assert (Fn-Intersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
-                         (prn "ftype:" (unparse-type ftype) ftype)
                          ;; only try inference if argument types are appropriate and no kws
                          (if-let [substitution (and (not (or drest kws))
                                                     ((if rest <= =) (count dom) (count arg-types))
                                                     (infer-vararg (zipmap fs-names bbnds) {} arg-types dom rest (Result-type* rng)
                                                                   (and expected (ret-t expected))))]
-                           (do (prn "subst:" substitution)
+                           (do ;(prn "subst:" substitution)
                              (ret (subst-all substitution (Result-type* rng))))
                            (if (or rest drest kws)
                              (throw (Exception. "Cannot infer arguments to polymorphic functions with rest types"))
