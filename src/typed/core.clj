@@ -216,7 +216,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types
 
-(def nat? (every-pred (complement neg?) integer?))
+(def nat? (every-pred integer? (complement neg?)))
 
 (def Type ::Type)
 
@@ -357,26 +357,26 @@
 (defn variance? [v]
   (contains? variances v))
 
-(defrecord B [idx upper-bound lower-bound]
+(declare Scope?)
+
+(defrecord Bounds [upper-bound lower-bound]
+  "A bound on a type"
+  [((some-fn Type? Scope?) upper-bound)
+   ((some-fn Type? Scope?) lower-bound)])
+
+(defrecord B [idx]
   "A bound variable. Should not appear outside this file"
-  [(nat? idx)
-   (Type? upper-bound)
-   (Type? lower-bound)])
+  [(nat? idx)])
 
 (declare-type B)
 
-(defrecord F [name upper-bound lower-bound]
+(defrecord F [name]
   "A named free variable"
-  [(symbol? name)
-   (Type? upper-bound)
-   (Type? lower-bound)])
+  [(symbol? name)])
 
 (defn make-F
-  "Make a free variable with optional bounds"
-  ([name] (make-F name (->Top) (Bottom)))
-  ([name upper] (make-F name upper (Bottom)))
-  ([name upper lower]
-   (->F name upper lower)))
+  "Make a free variable "
+  [name] (->F name))
 
 (declare-type F)
 
@@ -494,20 +494,28 @@
 
 (declare-type Protocol)
 
-(defrecord Poly [nbound scope]
+(defrecord Poly [nbound bbnds scope]
   "A polymorphic type containing n bound variables"
   [(nat? nbound)
+   (every? Bounds? bbnds)
    (Scope? scope)])
 
 (declare-type Poly)
 
 ;smart constructor
-(defn Poly* [names body]
+(defn Poly* [names bbnds body]
   {:pre [(every? symbol names)
+         (every? Bounds? bbnds)
          (Type? body)]}
   (if (empty? names)
     body
-    (->Poly (count names) (abstract-many names body))))
+    (->Poly (count names) 
+            (vec
+              (for [bnd bbnds]
+                (-> bnd
+                  (update-in [:upper-bound] #(abstract-many names %))
+                  (update-in [:lower-bound] #(abstract-many names %)))))
+            (abstract-many names body))))
 
 ;smart destructor
 (defn Poly-body* [names poly]
@@ -516,20 +524,39 @@
   (assert (= (:nbound poly) (count names)) "Wrong number of names")
   (instantiate-many names (:scope poly)))
 
-(defrecord PolyDots [nbound scope]
+(defn Poly-bbnds* [names poly]
+  {:pre [(every? symbol? names)
+         (Poly? poly)]}
+  (assert (= (:nbound poly) (count names)) "Wrong number of names")
+  (mapv (fn [b]
+          (-> b
+            (update-in [:upper-bound] #(instantiate-many names %))
+            (update-in [:lower-bound] #(instantiate-many names %))))
+        (:bbnds poly)))
+
+(defrecord PolyDots [nbound bbnds scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
   [(nat? nbound)
+   (every? Bounds? bbnds)
    (Scope? scope)])
 
 (declare-type PolyDots)
 
 ;smart constructor
-(defn PolyDots* [names body]
+(defn PolyDots* [names bbnds body]
   {:pre [(every? symbol names)
+         (every? Bounds? bbnds)
          (Type? body)]}
+  (assert (= (count names) (count bbnds)) "Wrong number of names")
   (if (empty? names)
     body
-    (->PolyDots (count names) (abstract-many names body))))
+    (->PolyDots (count names) 
+                (vec
+                  (for [bnd bbnds]
+                    (-> bnd
+                      (update-in [:upper-bound] #(abstract-many names %))
+                      (update-in [:lower-bound] #(abstract-many names %)))))
+                (abstract-many names body))))
 
 ;smart destructor
 (defn PolyDots-body* [names poly]
@@ -537,6 +564,16 @@
          (PolyDots? poly)]}
   (assert (= (:nbound poly) (count names)) "Wrong number of names")
   (instantiate-many names (:scope poly)))
+
+(defn PolyDots-bbnds* [names poly]
+  {:pre [(every? symbol? names)
+         (PolyDots? poly)]}
+  (assert (= (:nbound poly) (count names)) "Wrong number of names")
+  (mapv (fn [b]
+          (-> b
+            (update-in [:upper-bound] #(instantiate-many names %))
+            (update-in [:lower-bound] #(instantiate-many names %))))
+        (:bbnds poly)))
 
 (defrecord Name [id]
   "A late bound name"
@@ -572,7 +609,7 @@
 (defn Mu-body* [name t]
   {:pre [(Mu? t)
          (symbol? name)]}
-  (instantiate (make-F name) (:scope t)))
+  (instantiate name (:scope t)))
 
 (defn unfold [t]
   {:pre [(Mu? t)]
@@ -646,10 +683,10 @@
 
 (declare Result?)
 
-(defrecord DottedPretype [pre-type bound]
+(defrecord DottedPretype [pre-type name]
   "A dotted pre-type. Not a type"
   [(Type? pre-type)
-   ((some-fn F? B?) bound)])
+   ((some-fn symbol? nat?) name)])
 
 (defrecord KwArgs [mandatory optional]
   "A set of mandatory and optional keywords"
@@ -756,6 +793,8 @@
    :post [(RObject? %)]}
   (:o r))
 
+(def no-bounds (->Bounds (->Top) (Un)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Folding
 
@@ -829,8 +868,7 @@
                                                  (type-rec %)))
                            (update-in [:drest] #(when %
                                                   (-> %
-                                                    (update-in [:pre-type] type-rec)
-                                                    (update-in [:bound] identity)))))))
+                                                    (update-in [:pre-type] type-rec)))))))
 
 (add-default-fold-case RClass (fn [a _] a))
 ;                       (fn [rclass _]
@@ -874,14 +912,28 @@
 (add-default-fold-case Poly
                        (fn [ty _]
                          (let [names (repeatedly (:nbound ty) gensym)
-                               body (Poly-body* names ty)]
-                           (Poly* names (type-rec body)))))
+                               body (Poly-body* names ty)
+                               bbnds (Poly-bbnds* names ty)]
+                           (Poly* names 
+                                  (doall 
+                                    (for [bnd bbnds]
+                                      (-> bnd
+                                        (update-in [:upper-bound] type-rec)
+                                        (update-in [:lower-bound] type-rec))))
+                                  (type-rec body)))))
 
 (add-default-fold-case PolyDots
                        (fn [ty _]
                          (let [names (repeatedly (:nbound ty) gensym)
-                               body (PolyDots-body* names ty)]
-                           (PolyDots* names (type-rec body)))))
+                               body (PolyDots-body* names ty)
+                               bbnds (PolyDots-bbnds* names ty)]
+                           (PolyDots* names 
+                                      (doall
+                                        (for [bnd bbnds]
+                                          (-> bnd
+                                            (update-in [:upper-bound] type-rec)
+                                            (update-in [:lower-bound] type-rec))))
+                                      (type-rec body)))))
 
 (add-default-fold-case Mu
                        (fn [ty _]
@@ -914,18 +966,8 @@
 (add-default-fold-case Value ret-first)
 (add-default-fold-case Top ret-first)
 (add-default-fold-case TopFunction ret-first)
-
-(add-default-fold-case B
-                       (fn [ty _]
-                         (-> ty
-                           (update-in [:upper-bound] type-rec)
-                           (update-in [:lower-bound] type-rec))))
-
-(add-default-fold-case F
-                       (fn [ty _]
-                         (-> ty
-                           (update-in [:upper-bound] type-rec)
-                           (update-in [:lower-bound] type-rec))))
+(add-default-fold-case B ret-first)
+(add-default-fold-case F ret-first)
 
 (add-default-fold-case Result 
                        (fn [ty _]
@@ -1941,19 +1983,21 @@
 (defmulti parse-type class)
 (defmulti parse-type-list first)
 
+;return a vector of [name bnds]
 (defn parse-free [f]
+  {:post [(hvector-c? symbol? Bounds?)]}
   (if (symbol? f)
-    (make-F f)
+    [f no-bounds]
     (let [[n & opts] f
           {upp :<
            low :>} (apply hash-map opts)]
-      (->F n 
+      [n (->Bounds
            (if upp 
              (parse-type upp)
              (->Top)) 
            (if low
              (parse-type low)
-             (Bottom))))))
+             (Bottom)))])))
 
 (defn check-forbidden-rec [rec tbody]
   (when (or (= rec tbody) 
@@ -1998,41 +2042,40 @@
 ;(All [a b ...] type)
 (defmethod parse-all-type '...
   [bnds type]
-  (let [frees (reduce (fn [fs fsyn]
-                        {:pre [(every? F? fs)]
-                         :post [(vector? %)
-                                (every? F? %)]}
-                        (conj fs
-                              (with-frees fs
-                                (parse-free fsyn))))
-                      [] (-> bnds butlast butlast))
-        _ (assert (every? F? frees))
+  (let [frees-with-bnds (reduce (fn [fs fsyn]
+                                  {:pre [(vector? fs)]
+                                   :post [(every? (hvector-c? symbol? Bounds?) %)]}
+                                  (conj fs
+                                        (with-frees (map (comp make-F first) fs)
+                                          (parse-free fsyn))))
+                                [] (-> bnds butlast butlast))
         dvar (parse-free (-> bnds butlast last))]
     (-> 
-      (PolyDots* (concat (map :name frees) [(:name dvar)])
-                 (with-frees frees
-                   (with-dotted dvar 
+      (PolyDots* (map first (concat frees-with-bnds [dvar]))
+                 (map second (concat frees-with-bnds [dvar]))
+                 (with-frees (map (comp make-F first) frees-with-bnds)
+                   (with-dotted (make-F (first dvar))
                      (parse-type type))))
-      (with-meta {:actual-frees frees
-                  :dvar-name (:name dvar)}))))
+      (with-meta {:actual-frees (map first frees-with-bnds)
+                  :dvar-name (first dvar)}))))
 
 ;(All [a b] type)
 (defmethod parse-all-type :default
   [bnds type]
-  (let [frees (reduce (fn [fs fsyn]
-                        {:pre [(every? F? fs)]
-                         :post [(vector? %)
-                                (every? F? %)]}
-                        (conj fs
-                              (with-frees fs
-                                (parse-free fsyn))))
-                      [] bnds)
-        _ (assert (every? F? frees) (prn-str frees))]
+  (let [frees-with-bnds
+        (reduce (fn [fs fsyn]
+                  {:pre [(vector? fs)]
+                   :post [(every? (hvector-c? symbol? Bounds?) %)]}
+                  (conj fs
+                        (with-frees (map (comp make-F first) fs)
+                          (parse-free fsyn))))
+                [] bnds)]
     (-> 
-      (Poly* (map :name frees)
-             (with-frees frees
+      (Poly* (map first frees-with-bnds)
+             (map second frees-with-bnds)
+             (with-frees (map (comp make-F first) frees-with-bnds)
                (parse-type type)))
-      (with-meta {:actual-frees frees}))))
+      (with-meta {:actual-frees (map first frees-with-bnds)}))))
 
 (defmethod parse-type-list 'All
   [[All bnds syn & more]]
@@ -2184,7 +2227,7 @@
                      (->DottedPretype
                        (with-frees [(*dotted-scope* drest-bnd)] ;with dotted bound in scope as free
                          (parse-type drest-type))
-                       (*dotted-scope* drest-bnd))))))
+                       (:name (*dotted-scope* drest-bnd)))))))
 
 (defmethod parse-type IPersistentVector
   [f]
@@ -2240,8 +2283,8 @@
                (when rest
                  [(unparse-type rest) '*])
                (when drest
-                 (let [{:keys [pre-type bound]} drest]
-                   [(unparse-type pre-type) '... (unparse-type bound)]))
+                 (let [{:keys [pre-type name]} drest]
+                   [(unparse-type pre-type) '... name]))
                (let [{:keys [t fl o]} rng]
                  (concat ['-> (unparse-type t)]
                          (when (not (and ((some-fn TopFilter? BotFilter?) (:then fl))
@@ -2278,7 +2321,7 @@
 (defmethod unparse-type PolyDots
   [{:keys [nbound] :as p}]
   (let [{:keys [actual-frees dvar-name]} (meta p)
-        free-names (map :name actual-frees)
+        free-names actual-frees
         given-names? (and free-names dvar-name)
         end-nme (if given-names?
                   *next-nme*
@@ -2294,8 +2337,8 @@
 
 (defmethod unparse-type Poly
   [{:keys [nbound] :as p}]
-  (let [free-names (mapv :name (-> p meta :actual-frees))
-        given-names? (-> p meta :actual-frees)
+  (let [free-names (-> p meta :actual-frees)
+        given-names? free-names
         end-nme (if given-names?
                   *next-nme*
                   (+ nbound *next-nme*))
@@ -2303,9 +2346,12 @@
                      (vec
                        (for [x (range *next-nme* end-nme)]
                          (symbol (str "v" x)))))
+        bbnds (Poly-bbnds* fs-names p)
         fs (if given-names?
              (vec
-               (for [{:keys [name upper-bound lower-bound] :as f} (-> p meta :actual-frees)]
+               (for [[name {:keys [upper-bound lower-bound]}] (map vector 
+                                                                   (-> p meta :actual-frees)
+                                                                   bbnds)]
                  (let [u (when-not (Top? upper-bound)
                            (unparse-type upper-bound))
                        l (when-not (Bottom? lower-bound)
@@ -2439,10 +2485,8 @@
                  (frees c)))
 
 (defmethod frees [::frees F]
-  [t]
-  (combine-frees {(:name t) :covariant}
-                 (frees (:upper-bound t))
-                 (frees (:lower-bound t))))
+  [{:keys [name] :as t}]
+  {name :covariant})
 
 (defmethod frees [::idxs F] [t] {})
 
@@ -2494,7 +2538,7 @@
                                [(frees rng)]
                                (when drest
                                  [(dissoc (-> (:pre-type drest) frees flip-variances)
-                                          (:name (:bound drest)))]))))
+                                          (:name drest))]))))
 
 (defmethod frees [::idxs Function]
   [{:keys [dom rng rest drest kws]}]
@@ -2506,9 +2550,10 @@
                                                (vals kws))))
                                [(frees rng)]
                                (when drest
-                                 [{(:name (:bound drest)) :contravariant}
-                                  (-> (:pre-type drest)
-                                    frees flip-variances)]))))
+                                 (let [{:keys [name pre-type]} drest]
+                                   [{name :contravariant}
+                                    (-> pre-type
+                                      frees flip-variances)])))))
 
 (defmethod frees [::any-var RInstance]
   [t]
@@ -2581,15 +2626,15 @@
     (update-in [:output-type] #(demote % V))))
 
 (defmethod promote F
-  [T V]
-  (if (V (:name T))
-    (:upper-bound T)
+  [{:keys [name] :as T} V]
+  (if (V name)
+    -any
     T))
 
 (defmethod demote F
-  [T V]
-  (if (V (:name T))
-    (:lower-bound T)
+  [{:keys [name] :as T} V]
+  (if (V name)
+    (Bottom)
     T))
 
 (defmethod promote HeterogeneousMap
@@ -2686,13 +2731,17 @@
   [{:keys [nbound] :as T} V]
   (let [names (repeatedly nbound gensym)
         pmt-body (promote (Poly-body* names T) V)]
-    (Poly* names pmt-body)))
+    (Poly* names 
+           (Poly-bbnds* names T)
+           pmt-body)))
 
 (defmethod demote Poly
   [{:keys [nbound] :as T} V]
   (let [names (repeatedly nbound gensym)
         dem-body (demote (Poly-body* names T) V)]
-    (Poly* names dem-body)))
+    (Poly* names 
+           (Poly-bbnds* names T)
+           dem-body)))
 
 (defmethod promote Function
   [{:keys [dom rng rest drest kws] :as T} V]
@@ -2705,7 +2754,7 @@
       (seq (set/intersection V (:fl rng))) (->TopFunction)
 
       ;if dotted bound is in V, transfer to rest args
-      (and drest (V (:bound drest)))
+      (and drest (V (:name drest)))
       (-> T
         (update-in [:dom] #(mapv dmt %))
         (update-in [:rng] pmt)
@@ -2741,7 +2790,7 @@
       (seq (set/intersection V (:fl rng))) (->TopFunction)
 
       ;if dotted bound is in V, transfer to rest args
-      (and drest (V (:bound drest)))
+      (and drest (V (:name drest)))
       (-> T
         (update-in [:dom] #(mapv pmt %))
         (update-in [:rng] dmt)
@@ -2795,11 +2844,12 @@
                                  #(every? symbol? (keys %)) 
                                  #(every? subst-rhs? (vals %))))
 
-(defrecord c [S X T]
+(defrecord c [S X T bnds]
   "A type constraint on a variable within an upper and lower bound"
   [(Type? S)
    (symbol? X)
-   (Type? T)])
+   (Type? T)
+   (Bounds? bnds)])
 
 ;; fixed : Listof[c]
 ;; rest : option[c]
@@ -2847,18 +2897,18 @@
 
 
 ;widest constraint possible
-(defn no-constraint [v]
-  {:pre [(symbol? v)]}
-  (->c (Un) v (->Top)))
+(defn no-constraint [v bnds]
+  {:pre [(symbol? v)
+         (Bounds? bnds)]}
+  (->c (Un) v (->Top) bnds))
 
 ;; Create an empty constraint map from a set of type variables X and
 ;; index variables Y.  For now, we add the widest constraints for
 ;; variables in X to the cmap and create an empty dmap.
 (defn empty-cset [X Y]
-  {:pre [(every? set? [X Y])
-         (every? symbol? (concat X Y))]
+  {:pre [(every? (hash-c? symbol? Bounds?) [X Y])]
    :post [(cset? %)]}
-  (->cset [(->cset-entry (into {} (for [x X] [x (no-constraint x)]))
+  (->cset [(->cset-entry (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
                          (->dmap {}))]))
 
 (defn meet [s t] (In s t))
@@ -2866,17 +2916,19 @@
 
 (declare subtype type-error)
 
-(defn c-meet [{S  :S X  :X T  :T :as c1}
-              {S* :S X* :X T* :T :as c2}
+(defn c-meet [{S  :S X  :X T  :T bnds  :bnds :as c1}
+              {S* :S X* :X T* :T bnds* :bnds :as c2}
               & [var]]
   (prn "c-meet" c1 c2)
   (when-not (or var (= X X*))
     (throw (Exception. (str "Non-matching vars in c-meet:" X X*))))
+  (when-not (= bnds bnds*)
+    (throw (Exception. (str "Non-matching bounds in c-meet:" bnds bnds*))))
   (let [S (join S S*)
         T (meet T T*)]
     (when-not (subtype? S T)
       (type-error S T))
-    (->c S (or var X) T)))
+    (->c S (or var X) T bnds)))
 
 (declare dmap-meet)
 
@@ -2903,15 +2955,16 @@
     (->cset (apply concat mapss))))
 
 ;add new constraint to existing cset
-(defn insert-constraint [cs var S T]
+(defn insert-constraint [cs var S T bnds]
   {:pre [(cset? cs)
          (symbol? var)
          (Type? S)
-         (Type? T)]
+         (Type? T)
+         (Bounds? bnds)]
    :post [(cset? %)]}
   (->cset (doall
             (for [{fmap :fixed dmap :dmap} (:maps cs)]
-              (->cset-entry (assoc fmap var (->c S var T))
+              (->cset-entry (assoc fmap var (->c S var T bnds))
                             dmap)))))
 
 (defn dcon-meet [dc1 dc2]
@@ -3022,8 +3075,8 @@
 ;; the index variables from the TOPLAS paper
 (defmulti cs-gen*
   (fn [V X Y S T] 
-    {:pre [(every? set? [V X Y])
-           (every? symbol? (concat V X Y))
+    {:pre [((set-c? symbol?) V)
+           (every? (hash-c? symbol Bounds?) [X Y])
            (AnyType? S)
            (AnyType? T)]}
     [(class S) (class T)]))
@@ -3033,8 +3086,8 @@
 ; Add methods to cs-gen*, but always call cs-gen
 
 (defn cs-gen [V X Y S T]
-  {:pre [(every? set? [V X Y])
-         (every? symbol? (concat V X Y))
+  {:pre [((set-c? symbol?) V)
+         (every? (hash-c? symbol? Bounds?) [X Y])
          (AnyType? S)
          (AnyType? T)]
    :post [(cset? %)]}
@@ -3179,53 +3232,54 @@
 
 (prefer-method cs-gen* [F Type] [Type F])
 
-(defn demote-F [V X Y S T]
-  (assert (X (:name S)) (str X (:name S)))
+(defn demote-F [V X Y {:keys [name bnds] :as S} T]
+  {:pre [(F? S)]}
+  ;constrain T to be below S (but don't mention V)
+  (assert (contains? X name) (str X name))
   (when (and (F? T)
              (bound-index? (:name T))
              (not (bound-tvar? (:name T))))
     (type-error S T))
   (let [dt (demote-var T V)]
     (-> (empty-cset X Y)
-      (insert-constraint (:name S) dt (:upper-bound S))
-      (insert-constraint (:name S) (:lower-bound S) dt))))
+      (insert-constraint name (Bottom) dt (X name)))))
 
-(defn promote-F [V X Y S T]
+(defn promote-F [V X Y S {:keys [name] :as T}]
+  {:pre [(F? T)]}
   ;T is an F
   ;S is any Type
   ;constrain T to be above S (but don't mention V)
-  (assert (X (:name T)) (str X T))
+  (assert (contains? X name) (str X T))
   (when (and (F? S)
              (bound-index? (:name S))
              (not (bound-tvar? (:name S))))
     (type-error S T))
   (let [ps (promote-var S V)]
     (-> (empty-cset X Y)
-      (insert-constraint (:name T) ps (:upper-bound T))
-      (insert-constraint (:name T) (:lower-bound T) ps))))
+      (insert-constraint name ps -any (X name)))))
 
 (defmethod cs-gen* [F Type]
   [V X Y S T]
   (prn "cs-gen* [F Type]" S T)
   (cond
-    (X (:name S))
+    (contains? X (:name S))
     (demote-F V X Y S T)
 
     (and (F? T)
-         (X (:name T)))
+         (contains? X (:name T)))
     (promote-F V X Y S T)
 
     :else (type-error S T)))
 
 (defmethod cs-gen* [Type F]
   [V X Y S T]
-  (prn "cs-gen* [Type F]" S T)
+  (prn "cs-gen* [Type F]" S T X)
   (cond
-    (X (:name T))
+    (contains? X (:name T))
     (promote-F V X Y S T)
 
     (and (F? S)
-         (X (:name S)))
+         (contains? X (:name S)))
     (demote-F V X Y S T)
 
     :else (type-error S T)))
@@ -3340,7 +3394,8 @@
 
 (defn cs-gen-Function
   [V X Y S T]
-  {:pre [(every? (set-c? symbol?) [V X Y])
+  {:pre [((set-c? symbol?) V)
+         (every? (hash-c? symbol? Bounds?) [X Y])
          (Function? S)
          (Function? T)]
    :post [(cset? %)]}
@@ -3394,8 +3449,7 @@
            (not (:drest T))
            (not (:kws S))
            (not (:kws T)))
-      (let [{dty :pre-type} (:drest S)
-            dbound (-> S :drest :bound :name)]
+      (let [{dty :pre-type dbound :name} (:drest S)]
         (when-not (Y dbound)
           (type-error S T))
         (when-not (<= (count (:dom S)) (count (:dom T)))
@@ -3405,14 +3459,15 @@
               new-tys (doall (for [var vars]
                                (substitute (make-F var) dbound dty)))
               new-t-fun (make-Function (concat (:dom T) new-tys) (:rng T))
-              new-cset (cs-gen-Function V (set/union (set vars) X) Y S new-t-fun)]
+              new-cset (cs-gen-Function V 
+                                        ;move dotted lower/upper bounds to vars
+                                        (merge X (zipmap vars (repeat (Y dbound)))) Y S new-t-fun)]
           (move-vars-to-dmap new-cset dbound vars)))
 
       ;; dotted on the right, nothing on the left
       (and (not ((some-fn :rest :drest) S))
            (:drest T))
-      (let [{dty :pre-type} (:drest T)
-            dbound (-> T :drest :bound :name)]
+      (let [{dty :pre-type dbound :name} (:drest T)]
         (when-not (Y dbound)
           (type-error S T))
         (when-not (<= (count (:dom T)) (count (:dom S)))
@@ -3422,20 +3477,21 @@
                         (for [var vars]
                           (substitute (make-F var) dbound dty)))
               new-t-arr (->Function (concat (:dom T) new-tys) (:rng T) nil nil nil)
-              new-cset (cs-gen-Function V (set/union (set vars) X) Y S new-t-arr)]
+              new-cset (cs-gen-Function V 
+                                        ;move dotted lower/upper bounds to vars
+                                        (merge X (zipmap vars (repeat (Y dbound)))) Y S new-t-arr)]
           (move-vars-to-dmap new-cset dbound vars)))
 
       ;; * <: ...
       (and (:rest S)
            (:drest T))
-      (let [dbound (-> T :drest :bound :name)
-            t-dty (-> T :drest :pre-type)]
+      (let [{t-dty :pre-type dbound :name} (-> T :drest)]
         (when-not (Y dbound)
           (type-error S T))
         (if (<= (count (:dom S)) (count (:dom T)))
           ;; the simple case
           (let [arg-mapping (cs-gen-list V X Y (:dom T) (concat (:dom S) (repeat (- (count (:dom T)) (count (:dom S))) (:rest S))))
-                darg-mapping (move-rest-to-dmap (cs-gen V (conj X dbound) Y t-dty (:rest S)) dbound)
+                darg-mapping (move-rest-to-dmap (cs-gen V (merge X {dbound (Y dbound)}) Y t-dty (:rest S)) dbound)
                 ret-mapping (cg (:rng S) (:rng T))]
             (cset-meet* [arg-mapping darg-mapping ret-mapping]))
           ;; the hard case
@@ -3443,7 +3499,7 @@
                 new-tys (doall (for [var vars]
                                  (substitute (make-F var) dbound t-dty)))
                 new-t-arr (->Function (concat (:dom T) new-tys) (:rng T) nil (->DottedPretype t-dty dbound) nil)
-                new-cset (cs-gen-Function V (set/union (set vars) X) Y S new-t-arr)]
+                new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y S new-t-arr)]
             (move-vars+rest-to-dmap new-cset dbound vars))))
 
 :else 
@@ -3454,12 +3510,12 @@
   (cs-gen-Function V X Y S T))
 
 ;; C : cset? - set of constraints found by the inference engine
-;; Y : (listof symbol?) - index variables that must have entries
+;; Y : (setof symbol?) - index variables that must have entries
 ;; R : Type? - result type into which we will be substituting
 (defn subst-gen [C Y R]
   {:pre [(cset? C)
-         (set? Y)
-         (every? symbol? Y)
+         ;TODO Y should be (hash-c? symbol? Bounds?)
+         ((set-c? symbol?) Y)
          (Type? R)]
    :post [((some-fn nil? substitution-c?) %)]}
   (let [var-hash (fv-variances R)
@@ -3574,9 +3630,9 @@
 ;; expected-cset : a cset representing the expected type, to meet early and
 ;;  keep the number of constraints in check. (empty by default)
 ;; produces a cset which determines a substitution that makes the Ss subtypes of the Ts
-(defn cs-gen-list [V X Y S T & {:keys [expected-cset] :or {expected-cset (empty-cset #{} #{})}}]
-  {:pre [(every? set? [V X Y])
-         (every? symbol? (concat V X Y))
+(defn cs-gen-list [V X Y S T & {:keys [expected-cset] :or {expected-cset (empty-cset {} {})}}]
+  {:pre [((set-c? symbol?) V)
+         (every? (hash-c? symbol? Bounds?) [X Y])
          (every? Type? (concat S T))
          (cset? expected-cset)]
    :post [(cset? %)]}
@@ -3606,7 +3662,7 @@
                (fn [{:keys [dom rng rest drest kws] :as ftype} {{:keys [name sb images rimage]} :locals}]
                  (assert (not kws) "TODO substitute keyword args")
                  (if (and drest
-                          (= name (:name (:bound drest))))
+                          (= name (:name drest)))
                    (->Function (concat (map sb dom)
                                        ;; We need to recur first, just to expand out any dotted usages of this.
                                        (let [expanded (sb (:pre-type drest))]
@@ -3618,7 +3674,7 @@
                                (sb rng)
                                (and rest (sb rest))
                                (and drest (->DottedPretype (sb (:pre-type drest))
-                                                           (:bound drest)))
+                                                           (:name drest)))
                                nil))))
 
 ;; implements angle bracket substitution from the formalism
@@ -3659,10 +3715,10 @@
                              (sb rng)
                              (and rest (sb rest))
                              (and drest
-                                  (->DottedPretype (substitute image (:name (:bound drest)) (sb (:pretype drest)))
-                                                   (if (= name (:name (:bound drest)))
-                                                     (assoc (:bound drest) :name name)
-                                                     (:bound drest))))
+                                  (->DottedPretype (substitute image (:name drest) (sb (:pretype drest)))
+                                                   (if (= name (:name drest))
+                                                     name
+                                                     (:name drest))))
                              nil)))
 
 ;; implements curly brace substitution from the formalism
@@ -3687,9 +3743,10 @@
 
 ;; like infer, but dotted-var is the bound on the ...
 ;; and T-dotted is the repeated type
-(defn infer-dots [X dotted-var S T T-dotted R must-vars & {:keys [expected]}]
-  {:pre [((set-c? symbol?) X)
+(defn infer-dots [X dotted-var dotted-bnd S T T-dotted R must-vars & {:keys [expected]}]
+  {:pre [((hash-c? symbol? Bounds?) X)
          (symbol? dotted-var)
+         (Bounds? dotted-bnd)
          (every? #(every? Type? %) [S T])
          (every? Type? [T-dotted R])
          ((set-c? symbol?) must-vars)
@@ -3699,10 +3756,10 @@
         _ (prn "short-S" (map unparse-type short-S))
         _ (prn "rest-S" (map unparse-type rest-S))
         expected-cset (if expected
-                        (cs-gen #{} X #{dotted-var} R expected)
-                        (empty-cset #{} #{}))
+                        (cs-gen #{} X {dotted-var dotted-bnd} R expected)
+                        (empty-cset {} {}))
         _ (prn "expected-cset" expected-cset)
-        cs-short (cs-gen-list #{} X #{dotted-var} short-S T
+        cs-short (cs-gen-list #{} X {dotted-var dotted-bnd} short-S T
                               :expected-cset expected-cset)
         _ (prn "cs-short" cs-short)
         new-vars (var-store-take dotted-var T-dotted (count rest-S))
@@ -3712,7 +3769,7 @@
                      (prn "replace" v "with" dotted-var "in" (unparse-type target))
                      (substitute (make-F v) dotted-var target))))
         _ (prn "new-Ts" new-Ts)
-        cs-dotted (cs-gen-list #{} (set/union (set new-vars) X) #{dotted-var} rest-S new-Ts
+        cs-dotted (cs-gen-list #{} (merge X (zipmap new-vars (repeat dotted-bnd))) {dotted-var dotted-bnd} rest-S new-Ts
                                :expected-cset expected-cset)
         _ (prn "cs-dotted" cs-dotted)
         cs-dotted (move-vars-to-dmap cs-dotted dotted-var new-vars)
@@ -3724,12 +3781,13 @@
 
 ;; like infer, but T-var is the vararg type:
 (defn infer-vararg [X Y S T T-var R & [expected]]
-  {:pre [(every? (set-c? symbol?) [X Y])
+  {:pre [(every? (hash-c? symbol? Bounds?) [X Y])
          (every? #(every? Type? %) [S T])
          ((some-fn nil? Type?) T-var)
          (Type? R)
          ((some-fn nil? Type?) expected)]
    :post [((some-fn nil? substitution-c?) %)]}
+  (prn "infer-vararg" "X:" X)
   (let [new-T (if T-var
                 ;Pad out T
                 (concat T (repeat (- (count S) (count T)) T-var))
@@ -3747,8 +3805,7 @@
 ;; if R is nil, we don't care about the substituion
 ;; just return a boolean result
 (defn infer [X Y S T R & [expected]]
-  {:pre [(every? set? [X Y])
-         (every? symbol? (concat X Y))
+  {:pre [(every? (hash-c? symbol? Bounds?) [X Y])
          (every? Type? S)
          (every? Type? T)
          ((some-fn nil? Type?) R)
@@ -3756,11 +3813,12 @@
    :post [((some-fn nil? true? substitution-c?) %)]}
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
-                        (empty-cset #{} #{}))
+                        (empty-cset {} {}))
         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
         cs* (cset-meet cs expected-cset)]
+    (prn "final cs" cs*)
     (if R
-      (subst-gen cs* Y R)
+      (subst-gen cs* (set (keys Y)) R)
       true)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -3797,9 +3855,9 @@
 
 (add-fold-case ::abstract-many
                F
-               (fn [{name* :name :keys [upper-bound lower-bound] :as t} {{:keys [name count outer]} :locals}]
+               (fn [{name* :name :as t} {{:keys [name count outer sb]} :locals}]
                  (if (= name name*)
-                   (->B (+ count outer) upper-bound lower-bound)
+                   (->B (+ count outer))
                    t)))
 
 (add-fold-case ::abstract-many
@@ -3811,10 +3869,9 @@
                              (when rest (sb rest))
                              (when drest
                                (->DottedPretype (sb (:pre-type drest))
-                                                (if (= (:name (:bound drest)) name)
-                                                  (let [{:keys [upper-bound lower-bound]} (:bound drest)]
-                                                    (->B (+ count outer) upper-bound lower-bound))
-                                                  (:bound drest))))
+                                                (if (= (:name drest) name)
+                                                  (+ count outer)
+                                                  (:name drest))))
                              nil)))
 
 (add-fold-case ::abstract-many
@@ -3870,9 +3927,9 @@
 
 (add-fold-case ::instantiate-many
                B
-               (fn [{:keys [idx upper-bound lower-bound] :as t} {{:keys [count outer image]} :locals}]
+               (fn [{:keys [idx] :as t} {{:keys [count outer image sb]} :locals}]
                  (if (= (+ count outer) idx)
-                   (make-F image upper-bound lower-bound)
+                   (->F image)
                    t)))
 
 (add-fold-case ::instantiate-many
@@ -3885,11 +3942,11 @@
                                (sb rest))
                              (when drest
                                (->DottedPretype (sb (:pre-type drest))
-                                                (if (= (+ count outer) (-> drest :bound :idx))
-                                                  (make-F image
-                                                          (-> drest :bound :upper-bound)
-                                                          (-> drest :bound :lower-bound))
-                                                  (:bound drest))))
+                                                (let [{:keys [name]} drest]
+                                                  (assert (nat? name))
+                                                  (if (= (+ count outer) name)
+                                                    image
+                                                    name))))
                              nil)))
 
 (add-fold-case ::instantiate-many
@@ -3968,7 +4025,7 @@
 
 (add-fold-case ::substitute
                F
-               (fn [{name* :name :keys [upper-bound lower-bound] :as f} {{:keys [name image]} :locals}]
+               (fn [{name* :name :as f} {{:keys [name image]} :locals}]
                  (if (= name* name)
                    image
                    f)))
@@ -4036,9 +4093,9 @@
   (let [tfn #(trans-dots % b bm)]
     (cond
       (:drest t)
-      (let [{:keys [pre-type bound]} (:drest t)]
-        (assert (F? bound))
-        (if (= b (:name bound)) ;identical bounds
+      (let [{:keys [pre-type name]} (:drest t)]
+        (assert (symbol? name))
+        (if (= b name) ;identical bounds
           (let [dom (concat 
                         ;keep fixed domain
                         (doall (map tfn (:dom t)))
@@ -4280,8 +4337,8 @@
       ;; handle ... varargs when the bounds are the same
       (and (:drest s)
            (:drest t)
-           (= (-> s :drest :bound)
-              (-> t :drest :bound)))
+           (= (-> s :drest :name)
+              (-> t :drest :name)))
       (-> *sub-current-seen*
         (subtypeA* (-> t :drest :pre-type) (-> s :drest :pre-type))
         ((fn [A0] 
@@ -4713,6 +4770,7 @@
 (add-var-type 'clojure.core/seq
               (let [x (make-F 'x)]
                 (with-meta (Poly* [(:name x)]
+                                  [no-bounds]
                                   (Fn-Intersection (make-Function [(Un (RInstance-of Seqable [x])
                                                                        -nil)]
                                                                   (Un -nil (RInstance-of ASeq [x]))
@@ -4721,11 +4779,12 @@
                                                                                (-or (-filter -nil 0)
                                                                                     (-filter (make-ExactCountRange 0) 0)))
                                                                   :object -empty))) 
-                           {:actual-frees [x]})))
+                           {:actual-frees '[x]})))
 
 (add-var-type 'clojure.core/empty?
               (let [x (make-F 'x)]
                 (with-meta (Poly* [(:name x)]
+                                  [no-bounds]
                                   (Fn-Intersection (make-Function [(Un (RInstance-of Seqable [x]) -nil)]
                                                                   (Un -true -false)
                                                                   nil nil
@@ -4733,7 +4792,7 @@
                                                                                     (-filter -nil 0))
                                                                                (-filter (make-CountRange 1) 0))
                                                                   :object -empty)))
-                           {:actual-frees [x]})))
+                           {:actual-frees '[x]})))
 
 (ann clojure.core/map
      (All [c a b ...]
@@ -5448,9 +5507,12 @@
              (and (Fn-Intersection? body)
                   (every? (complement :drest) (:types body)))))
       (let [fs-names (repeatedly (:nbound fexpr-type) gensym)
+            _ (prn "fs-names" fs-names)
             _ (assert (every? symbol? fs-names))
             _ (prn "ordinary poly:" (unparse-type fexpr-type))
             body (Poly-body* fs-names fexpr-type)
+            bbnds (Poly-bbnds* fs-names fexpr-type)
+            _ (prn "bbnds" bbnds)
             _ (assert (Fn-Intersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
@@ -5458,7 +5520,7 @@
                          ;; only try inference if argument types are appropriate and no kws
                          (if-let [substitution (and (not (or drest kws))
                                                     ((if rest <= =) (count dom) (count arg-types))
-                                                    (infer-vararg (set fs-names) #{} arg-types dom rest (Result-type* rng)
+                                                    (infer-vararg (zipmap fs-names bbnds) {} arg-types dom rest (Result-type* rng)
                                                                   (and expected (ret-t expected))))]
                            (do (prn "subst:" substitution)
                              (ret (subst-all substitution (Result-type* rng))))
@@ -5470,34 +5532,38 @@
           (throw (Exception. "Could not infer result to polymorphic function"))))
 
       :else ;; any kind of dotted polymorphic function without mandatory keyword args
-      (if-let [[pbody fixed-vars dotted-var]
+      (if-let [[pbody fixed-vars fixed-bnds dotted-var dotted-bnd]
                (and (PolyDots? fexpr-type)
                     (let [vars (vec (repeatedly (:nbound fexpr-type) gensym))
+                          bbnds (PolyDots-bbnds* vars fexpr-type)
+                          [fixed-bnds dotted-bnd] [(butlast bbnds) (last bbnds)]
                           [fixed-vars dotted-var] [(butlast vars) (last vars)]
                           pbody (PolyDots-body* vars fexpr-type)]
                       (and (Fn-Intersection? pbody)
                            (seq (:types pbody))
                            (not (some :kws (:types pbody)))
-                           [pbody fixed-vars dotted-var])))]
+                           [pbody fixed-vars fixed-bnds dotted-var dotted-bnd])))]
         (let [inferred-rng (some identity
                                  (for [{:keys [dom rest drest rng] :as ftype} (:types pbody)
                                        ;only try inference if argument types match
                                        :when (cond
                                                rest (<= (count dom) (count arg-types))
                                                drest (and (<= (count dom) (count arg-types))
-                                                          (= dotted-var (-> drest :bound :name)))
+                                                          (= dotted-var (-> drest :name)))
                                                :else (= (count dom) (count arg-types)))]
                                    (do
                                      (prn "Inferring dotted fn" (unparse-type ftype))
                                      ;; Only try to infer the free vars of the rng (which includes the vars
                                      ;; in filters/objects).
                                      (let [substitution (cond
-                                                          drest (infer-dots (set fixed-vars) dotted-var arg-types dom 
-                                                                            (:pre-type drest) (Result-type* rng) (fv rng)
+                                                          drest (infer-dots (zipmap fixed-vars fixed-bnds) dotted-var dotted-bnd
+                                                                            arg-types dom (:pre-type drest) (Result-type* rng) (fv rng)
                                                                             :expected (and expected (ret-t expected)))
-                                                          rest (infer-vararg fixed-vars [dotted-var] arg-types dom rest rng
+                                                          rest (infer-vararg (zipmap fixed-vars fixed-bnds) {dotted-var dotted-bnd}
+                                                                             arg-types dom rest rng
                                                                              (and expected (ret-t expected)))
-                                                          :else (infer (set fixed-vars) #{dotted-var} arg-types dom (Result-type* rng)
+                                                          :else (infer (zipmap fixed-vars fixed-bnds) {dotted-var dotted-bnd} 
+                                                                       arg-types dom (Result-type* rng)
                                                                        (and expected (ret-t expected))))
                                            _ (prn "substitution:" substitution)
                                            substituted-type (subst-all substitution ftype)
@@ -5590,13 +5656,17 @@
     (let [names (repeat (:nbound expected) gensym)
           body (Poly-body* names expected)
           body (extend-method-expected target-type body)]
-      (Poly* names body))
+      (Poly* names 
+             (Poly-bbnds* names expected)
+             body))
 
     (PolyDots? expected)
     (let [names (repeat (:nbound expected) gensym)
           body (PolyDots-body* names expected)
           body (extend-method-expected target-type body)]
-      (PolyDots* names body))
+      (PolyDots* names 
+                 (PolyDots-bbnds* names expected)
+                 body))
     :else (throw (Exception. (str "Expected Function type, found " (unparse-type expected))))))
 
 (defmethod invoke-special #'clojure.core/extend
@@ -5829,12 +5899,14 @@
 (defmethod invoke-special #'pfn>-ann
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [[fexpr {poly-decl :val} {methods-params-syns :val}] args
-        frees (map parse-free poly-decl)
-        method-params-types (with-frees frees
+        frees-with-bounds (map parse-free poly-decl)
+        method-params-types (with-frees (map (comp make-F first) frees-with-bounds)
                               (doall (map #(doall (map parse-type %)) methods-params-syns)))
         cexpr (-> (check-anon-fn fexpr method-params-types)
-                (update-in [expr-type :t] (fn [fin] (with-meta (Poly* (map :name frees) fin)
-                                                               {:actual-frees frees}))))]
+                (update-in [expr-type :t] (fn [fin] (with-meta (Poly* (map first frees-with-bounds) 
+                                                                      (map second frees-with-bounds)
+                                                                      fin)
+                                                               {:actual-frees (map first frees-with-bounds)}))))]
     cexpr))
 
 (declare check-let)
@@ -6776,7 +6848,9 @@
                     (Mu? old) (remove* (unfold old) rem)
                     (Poly? old) (let [vs (repeatedly (:nbound old) gensym)
                                       b (Poly-body* vs old)]
-                                  (Poly* vs (remove* b rem)))
+                                  (Poly* vs 
+                                         (Poly-bbnds* vs old)
+                                         (remove* b rem)))
                     :else old))]
     (if (subtype? old initial) old initial)))
 

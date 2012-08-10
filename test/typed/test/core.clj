@@ -42,6 +42,33 @@
   (is (= (Poly-body* '(a b c d e f g h i) (parse-type '(All [a b c d e f g h i] e)))
          (make-F 'e))))
 
+(deftest poly-constructor-test
+  (is (= (Poly-body*
+           '(x)
+           (Poly* '(x) [no-bounds]
+                  (make-F 'x)))
+         (make-F 'x)))
+  (is (= (Poly-body*
+           '(x)
+           (Poly* '(x)
+                  [(->Bounds -nil -false)]
+                  (make-F 'x)))
+         (make-F 'x)))
+  (is (= (parse-type '(All [x x1 [y :< x] z] [x -> y]))
+         (let [no-bounds-scoped (->Bounds
+                                  (add-scopes 4 -any)
+                                  (add-scopes 4 (Un)))]
+           (->Poly 4
+                   [no-bounds-scoped
+                    no-bounds-scoped
+                    (->Bounds 
+                      (add-scopes 4 (->B 3))
+                      (add-scopes 4 (Un)))
+                    no-bounds-scoped]
+                   (add-scopes 4
+                               (Fn-Intersection
+                                 (make-Function [(->B 3)] (->B 1)
+                                                nil nil))))))))
 (defmacro sub? [s t]
   `(subtype? (parse-type '~s)
              (parse-type '~t)))
@@ -167,6 +194,7 @@
                             1))
          (let [x (make-F 'x)]
            (Poly* [(:name x)]
+                  [no-bounds]
                   (Fn-Intersection
                     (make-Function
                       [(RInstance-of Seqable [x]) (RInstance-of Number)] 
@@ -303,11 +331,11 @@
 
 (deftest tc-var-test
   (is (= (tc-t seq?)
-         (ret (In (->Function [(->Top)]
-                              (make-Result (Un -true -false)
-                                           (-FS (-filter (RInstance-of ISeq [(->Top)]) 0)
-                                                (-not-filter (RInstance-of ISeq [(->Top)]) 0))
-                                           -empty)
+         (ret (In (->Function [-any]
+                              (make-Result (RInstance-of Boolean/TYPE) 
+                                           (-FS (-filter (RInstance-of ISeq [-any]) 0)
+                                                (-not-filter (RInstance-of ISeq [-any]) 0))
+                                           (->NoObject))
                               nil nil nil))
               (-FS -top -top) -empty))))
 
@@ -780,23 +808,20 @@
 (deftest fi-test
   (is (empty? (fi (make-F 'x)))))
 
-(deftest bounds-constraints
-  (is (cs-gen #{} '#{x} #{} (->Value 1) (make-F 'x (RInstance-of Number)))))
-
 (deftest cs-gen-test
   (is (= (cs-gen #{} ;V
-                 '#{x y} ;X
-                 #{} ;Y
+                 (zipmap '[x y] (repeat no-bounds)) ;X
+                 {} ;Y
                  (->Value 1) ;S
                  (make-F 'x)) ;T
-         (->cset [(->cset-entry {'x (->c (->Value 1) 'x (->Top))
-                                 'y (->c (Un) 'y (->Top))}
+         (->cset [(->cset-entry {'x (->c (->Value 1) 'x (->Top) no-bounds)
+                                 'y (->c (Un) 'y (->Top) no-bounds)}
                                 (->dmap {}))]))))
 
 (deftest subst-gen-test
   (let [cs (cs-gen #{} ;V
-                   '#{x y} ;X
-                   #{} ;Y
+                   (zipmap '[x y] (repeat no-bounds)) ;X
+                   {} ;Y
                    (->Value 1) ;S
                    (make-F 'x))]
     (is (= (subst-gen cs #{} (make-F 'x))
@@ -804,18 +829,18 @@
             'y (->t-subst (Un))}))))
 
 (deftest infer-test
-  (is (= (infer '#{x y} ;tv env
-                #{}
+  (is (= (infer (zipmap '[x y] (repeat no-bounds)) ;tv env
+                {}
                 [(->Value 1) (->Value 2)] ;actual
                 [(make-F 'x) (make-F 'y)] ;expected
                 (make-F 'x)))) ;result
-  (is (= (infer '#{x} ;tv env
-                '#{}
+  (is (= (infer {'x no-bounds} ;tv env
+                {}
                 [(RInstance-of IPersistentVector [(Un (-val 1) (-val 2) (-val 3))])] ;actual
                 [(RInstance-of Seqable [(make-F 'x)])] ;expected
                 (RInstance-of ASeq [(make-F 'x)])))) ;result
-  (is (= (infer '#{x} ;tv env
-                '#{}
+  (is (= (infer {'x no-bounds} ;tv env
+                {}
                 [(->HeterogeneousVector [(-val 1) (-val 2) (-val 3)])] ;actual
                 [(RInstance-of Seqable [(make-F 'x)])] ;expected
                 (RInstance-of ASeq [(make-F 'x)]))))) ;result
