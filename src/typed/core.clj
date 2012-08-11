@@ -585,9 +585,9 @@
 
 (defn -resolve [ty]
   {:pre [(Type? ty)]}
-  (if (Name? ty)
-    (resolve-Name ty)
-    ty))
+  (cond 
+    (Name? ty) (resolve-Name ty)
+    :else ty))
 
 (defn resolve-Name [nme]
   {:pre [(Name? nme)]}
@@ -674,9 +674,10 @@
 
 (declare-type HeterogeneousSeq)
 
-(defrecord PrimitiveArray [input-type output-type]
+(defrecord PrimitiveArray [jtype input-type output-type]
   "A Java Primitive array"
-  [(Type? input-type)
+  [(class? jtype)
+   (Type? input-type)
    (Type? output-type)])
 
 (declare-type PrimitiveArray)
@@ -2097,9 +2098,15 @@
   (parse-intersection-type syn))
 
 (defmethod parse-type-list 'Array
-  [[_ isyn osyn & none]]
-  (assert (empty? none) "Expected 2 arguments to Array")
-  (->PrimitiveArray (parse-type isyn) (parse-type osyn)))
+  [[_ syn & none]]
+  (assert (empty? none) "Expected 1 argument to Array")
+  (let [t (parse-type syn)]
+    (->PrimitiveArray (Un) t t)))
+
+(defmethod parse-type-list 'Array3
+  [[_ jsyn isyn osyn & none]]
+  (assert (empty? none) "Expected 3 arguments to Array3")
+  (->PrimitiveArray (parse-type jsyn) (parse-type isyn) (parse-type osyn)))
 
 (declare parse-function)
 
@@ -2886,7 +2893,7 @@
   [((hash-c? symbol? c?) fixed)
    (dmap? dmap)])
 
-;; maps is a list of pairs of
+;; maps is a list of cset-entries, consisting of
 ;;    - functional maps from vars to c's
 ;;    - dmaps (see dmap.rkt)
 ;; we need a bunch of mappings for each cset to handle case-lambda
@@ -3515,7 +3522,6 @@
 ;; R : Type? - result type into which we will be substituting
 (defn subst-gen [C Y R]
   {:pre [(cset? C)
-         ;TODO Y should be (hash-c? symbol? Bounds?)
          ((set-c? symbol?) Y)
          (Type? R)]
    :post [((some-fn nil? substitution-c?) %)]}
@@ -4598,7 +4604,7 @@
              {IPersistentCollection (IPersistentCollection a)
               Seqable (Seqable a)})
 
-(alter-class Associative [[a :variance :invariant]
+(alter-class Associative [[a :variance :covariant]
                           [b :variance :covariant]]
              :replace
              {IPersistentCollection (IPersistentCollection Any)
@@ -4737,12 +4743,100 @@
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
 (ann clojure.core/vector (All [x] [x * -> (IPersistentVector x)]))
 
-(ann clojure.core/into-array (All [x [y :< Class]]
-                                  (Fn [(U nil (Seqable x)) -> (Array Nothing x)]
-                                      [y (U nil (Seqable x)) -> (Array x x)])))
-
 (ann clojure.core/not [Any -> boolean])
 (ann clojure.core/constantly (All [x y] [x -> [y * -> x]]))
+
+(comment
+(aget my-array 0 1 2)
+(aget (aget my-array 0) 1 2)
+(aget (aget (aget my-array 0) 1) 2)
+
+  (App [(Associative a b) c d -> (Associative (U a c) (U b d))]
+       (App [(Associative a b) c d -> (Associative (U a c) (U b d))]
+            (App [(Associative a b) c d -> (Associative (U a c) (U b d))]
+                 (Associative Keyword Number)
+                 :a 1)
+            :b 2)
+       :c 3)
+       
+(assoc my-map :a 1 :b 2 :c 3)
+(assoc (assoc my-map :a 1) :b 2 :c 3)
+(assoc (assoc (assoc my-map :a 1) :b 2) :c 3)
+
+(ann clojure.core/aset
+     (Label [rec]
+            (All [w [v :< w] :dotted [b]]
+                 [(Array w _) AnyInteger v -> v]
+                 [(Array _ r) AnyInteger b ... b
+                  :recur (rec r b ... b)])))
+
+(ann clojure.core/aget 
+     (Label [rec]
+       (All [x :dotted [b]] 
+            (Fn [(Array _ x) AnyInteger -> x]
+                [(Array _ x) AnyInteger b ... b
+                 :recur 
+                 (rec x b ... b)]))))
+
+(ann clojure.core/assoc 
+     (Label [rec]
+       (All [[h :< (HMap {})] x y [k :< (I AnyValue Keyword)] [e :< k] :dotted [b]]
+            [h k v -> (I h (HMap k v))]
+            [(Associative y x) y x -> (Associative y x)]
+            [h k v b ... b
+             :recur (rec (I h (HMap {k v})) b ... b)]
+            [(Associative y x) y x b ... b
+             :recur (rec (Associative y x) b ... b)]
+            )))
+
+(ann clojure.core/dissoc
+     (Label [rec]
+            (All [[m :< (Associative _ _)] :dotted [b]]
+                 [nil Any * -> nil]
+                 [m -> m]
+                 [m k b ... b
+                  :recur
+                  (rec (I m (HMap {} :without [k])) b ... b)])))
+
+  (update-in {:a {:b 1}} [:a :b] inc)
+  (update-in 
+    (update-in {:a {:b 1}} [:a] inc) 
+    [:b] 
+    inc)
+
+(ann clojure.core/update-in
+     (FixedPoint
+       (All [[x :< (U nil (Associative Any Any))] k [l :< k] v r e
+             :dotted [a b]]
+            (Fn [(HMap {l v}) (Vector* k) [v a ... a -> r] a ... a -> (I x (HMap {l r}))]
+                [(HMap {l r}) (Vector* k b ... b) [v a ... a -> e] a ... a
+                 :recur
+                 [r (Vector* b ... b) [v a ... a -> e] a ... a]]))))
+
+;(ann clojure.core/get-in 
+;     (Label [rec]
+;       (All [[x :< (U nil (Associative Any Any))] k :dotted [b]]
+;            (Fn [x (Vector*) -> x]
+;                [x (Vector*) _ -> x]
+;                [(U nil (Associative _ y) (Vector* k b ... b) a -> x
+;                ;TODO
+;                [(U nil (Associative Any y)) (Vector* k) -> (U nil x)]
+;                    )))))
+
+(ann clojure.core/partial 
+     (Label [rec]
+       (All [x [a :< x] r :dotted [b c]]
+            (Fn [[x c ... c -> r] a -> [c ... c -> r]]
+                [[x c ... c -> r] a b ... b
+                 :recur
+                 (rec [c ... c -> r] b ... b)]))))
+
+;                                [[y -> x] [b ... b -> y] -> [b ... b -> x]]
+;                                [[y -> x] [z -> y] [b ... b -> z] -> [b ... b -> x]]
+;                                [[y -> x] [z -> y] [k -> z] [b ... b -> k] -> [b ... b -> x]]
+;                                [[y -> x] [z -> y] [k -> z] [l -> k] [b ... b -> l] -> [b ... b -> x]]
+;                                [[y -> x] [z -> y] [k -> z] [l -> k] [m -> l] [b ... b -> m] -> [b ... b -> x]]
+  )
 
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
@@ -4754,18 +4848,6 @@
 
 (ann clojure.core/swap! (All [w r b ...] 
                              [(Atom w r) [r b ... b -> w] b ... b -> r]))
-
-;(ann clojure.core/partial (All [x b ... c ...]
-;                               [[b ... b c ... c -> x] b ... b -> [c ... c -> x]]))
-
-(ann clojure.core/comp (All [x y z k l m b ...]
-                            (Fn [-> [x -> x]]
-                                [[b ... b -> x] -> [b ... b -> x]]
-                                [[y -> x] [b ... b -> y] -> [b ... b -> x]]
-                                [[y -> x] [z -> y] [b ... b -> z] -> [b ... b -> x]]
-                                [[y -> x] [z -> y] [k -> z] [b ... b -> k] -> [b ... b -> x]]
-                                [[y -> x] [z -> y] [k -> z] [l -> k] [b ... b -> l] -> [b ... b -> x]]
-                                [[y -> x] [z -> y] [k -> z] [l -> k] [m -> l] [b ... b -> m] -> [b ... b -> x]])))
 
 (ann clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
@@ -4893,16 +4975,6 @@
 
 (ann clojure.core/inc (Fn [AnyInteger * -> AnyInteger]
                           [Number * -> Number]))
-
-(comment
-(ann clojure.core/assoc (All [a b c d ...]
-                             (Fn [nil b c d ... d -> (HMap {b c} :dotted d)]
-                                 [(HMap a) b c d ... d -> (HMap a :dotted d)])))
-
-(ann clojure.core/dissoc (All [k v a b c ...]
-                              (Fn [(U nil (HMap a)) b c ... c -> (HMap a :without [a] :without-dotted c)]
-                                  [(U nil (IPersistentMap k v)) Any Any * -> (IPersistentMap k v)])))
-  )
 
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
                                               [Number Number -> Number]))
@@ -5709,6 +5781,28 @@
             (check mmap-expr (ret expected-hmap)))]
     (assoc expr
            expr-type (ret -nil))))
+
+;into-array
+(defmethod invoke-special #'clojure.core/into-array
+  [{:keys [args] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (assert (= 2 (count args))
+          "Only 2 arg arity supported for into-array")
+  (let [ccls-expr (check (first args))
+        array-cls-type (-> ccls-expr expr-type ret-t)
+        _ (assert (and (Value? array-cls-type)
+                       (class? (:val array-cls-type)))
+                  "Must provide literal Class as first argument to into-array")
+        array-cls (:val array-cls-type)
+        ccoll-expr (check (second args)
+                          (ret (RInstance-of Seqable [(Un -nil (RInstance-of array-cls))])))
+        coll-type (-> ccoll-expr expr-type ret-t)
+        _ (assert (subtype? coll-type (RInstance-of Seqable [(Un -nil (RInstance-of array-cls))]))
+                  (str "Cannot populate " array-cls " array with " (unparse-type coll-type)))]
+    (assoc expr 
+           expr-type (ret (->PrimitiveArray array-cls
+                                            (Un -nil (RInstance-of array-cls))
+                                            (Un -nil (RInstance-of array-cls)))))))
 
 ;not
 (defmethod invoke-special #'clojure.core/not

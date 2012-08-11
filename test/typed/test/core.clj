@@ -924,3 +924,6 @@
                                                 (clojure.lang.Atom Number Number))
                            10.1)))
                 (RInstance-of Number))))
+
+;(deftest f-bound-test
+;  )
