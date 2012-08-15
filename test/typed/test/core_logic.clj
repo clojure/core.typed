@@ -347,26 +347,27 @@
     (Substitutions. s l f cs))
   
   ;Need equality filters for this to type check.
-;  (walk [this v]
-;    (loop> [[lv :- Term] v
-;            [[v vp] :- (U nil (Vector* ILVar (U Unbound Term)))] (find s v)]
-;      (cond
-;       (nil? v) lv
-;       ;created predicate for singleton type
-;       (Unbound? vp) v
-;       (not (lvar? vp)) vp
-;       :else (recur vp (find s vp)))))
   (walk [this v]
     (loop> [[lv :- Term] v
-            [fr :- (U nil (Vector* ILVar (U Unbound Term)))] (find s v)]
-      (let [v (nth fr 0)
-            vp (nth fr 1)]
-        (cond
-          (nil? v) lv
-          ;created predicate for singleton type
-          (Unbound? vp) v
-          (not (lvar? vp)) vp
-          :else (recur vp (find s vp))))))
+            [[v vp] :- (U nil (Vector* ILVar (U Unbound Term)))] (find s v)]
+      (cond
+       (nil? v) lv
+       ;created predicate for singleton type
+       (Unbound? vp) v
+       (not (lvar? vp)) vp
+       :else (recur vp (find s vp)))))
+
+;  (walk [this v]
+;    (loop> [[lv :- Term] v
+;            [fr :- (U nil (Vector* ILVar (U Unbound Term)))] (find s v)]
+;      (let [v (nth fr 0)
+;            vp (nth fr 1)]
+;        (cond
+;          (nil? v) lv
+;          ;created predicate for singleton type
+;          (Unbound? vp) v
+;          (not (lvar? vp)) vp
+;          :else (recur vp (find s vp))))))
   
   ;walk-var same as walk above...
   (walk-var [this v]

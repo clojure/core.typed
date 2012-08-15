@@ -478,17 +478,29 @@
 
 (declare-type Record)
 
-(defrecord DataType [poly? the-class fields]
+(defrecord DataType [the-class variances poly? fields]
   "A Clojure datatype"
-  [((some-fn nil? nat?) poly?)
+  [(or (nil? variances)
+       (and (seq variances)
+            (every? variance? variances)))
+   (or (nil? poly?)
+       (and (seq poly?)
+            (every? Type? poly?)))
    (symbol? the-class)
    ((array-map-c? symbol? (some-fn Scope? Type?)) fields)])
 
 (declare-type DataType)
 
-(defrecord Protocol [the-var on-class methods]
+(defrecord Protocol [the-var variances poly? on-class methods]
   "A Clojure Protocol"
   [(symbol? the-var)
+   (or (nil? variances)
+       (and (seq variances)
+            (every? variance? variances)))
+   (or (nil? poly?)
+       (and (seq poly?)
+            (every? Type? poly?)))
+   (= (count poly?) (count variances))
    (symbol? on-class)
    ((hash-c? (every-pred symbol? (complement namespace)) Type?) methods)])
 
@@ -581,12 +593,52 @@
                 symbol?) 
      id)])
 
+(defrecord App [rator rands]
+  "An application of a polymorphic type to type arguments"
+  [(Type? rator)
+   (every? Type? rands)])
+
+(declare -resolve)
+
+(declare ->t-subst subst-all Mu? unfold)
+
+(defn make-simple-substitution [vs ts]
+  {:pre [(every? symbol? vs)
+         (every? Type? ts)
+         (= (count vs)
+            (count ts))]}
+  (into {} (for [[v t] (map vector vs ts)]
+             [v (->t-subst t)])))
+
+(defn instantiate-poly [t types]
+  (cond
+    (Poly? t) (do (assert (= (:nbound t) types) "Wrong number of arguments passed to polymorphic type")
+                (let [nms (repeatedly (:nbound t) gensym)
+                      body (Poly-body* nms t)]
+                  (subst-all (make-simple-substitution nms types) body)))
+    ;PolyDots NYI
+    :else (throw (Exception. "instantiate-poly: requires Poly, and PolyDots NYI"))))
+
+(defn resolve-app [rator rands]
+  (let [r (-resolve rator)]
+    (cond
+      (Poly? rator) (do (assert (= (count rands) (:nbound rator))
+                                (str "Wrong number of arguments provided to polymorphic type"
+                                     (unparse-type rator)))
+                      (instantiate-poly rator rands))
+      ;PolyDots NYI
+      :else (throw (Exception. (str "Cannot apply non-polymorphic type " (unparse-type rator)))))))
+
+(declare-type App)
+
 (declare resolve-name* resolve-Name)
 
 (defn -resolve [ty]
   {:pre [(Type? ty)]}
   (cond 
     (Name? ty) (resolve-Name ty)
+    (Mu? ty) (unfold ty)
+    (App? ty) (resolve-app (:rator ty) (:rands ty))
     :else ty))
 
 (defn resolve-Name [nme]
@@ -887,6 +939,12 @@
                                                   (map type-rec %)))
                            (update-in [:constructor] type-rec))))
 
+(add-default-fold-case App
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:rator] type-rec)
+                           (update-in [:rands] #(mapv type-rec %)))))
+
 (add-default-fold-case PrimitiveArray
                        (fn [ty _]
                          (-> ty
@@ -896,6 +954,8 @@
 (add-default-fold-case DataType
                        (fn [ty _]
                          (-> ty
+                           (update-in [:poly?] #(when %
+                                                  (mapv type-rec %)))
                            (update-in [:fields] (fn [fs]
                                                   (apply array-map
                                                          (apply concat
@@ -905,6 +965,8 @@
 (add-default-fold-case Protocol
                        (fn [ty _]
                          (-> ty
+                           (update-in [:poly?] #(when %
+                                                  (mapv type-rec %)))
                            (update-in [:methods] (fn [ms]
                                                    (into {}
                                                          (for [[k v] ms]
@@ -1682,51 +1744,103 @@
 (defn parse-field [[n _ t]]
   [n (parse-type t)])
 
+(defn gen-datatype* [local-name fields variances args ancests]
+  (let [clsym (symbol (str (munge (-> *ns* ns-name)) \. local-name))]
+    `(let [local-name# '~local-name
+           fs# (apply array-map (apply concat (with-frees (mapv make-F '~args)
+                                                (mapv parse-field '~fields))))
+           _# (prn '~ancests)
+           as# (set (with-frees (mapv make-F '~args)
+                      (mapv parse-type '~ancests)))
+           s# (symbol (str (munge (-> *ns* ns-name)) \. local-name#))
+           _# (add-datatype-ancestors s# as#)
+           pos-ctor-name# (symbol (str (-> *ns* ns-name)) (str "->" local-name#))
+           args# '~args
+           vs# '~variances
+           dt# (if args#
+                 (with-meta (Poly* args# (repeat (count args#) no-bounds)
+                                   (->DataType s# vs# (map make-F args#) fs#))
+                            {:actual-frees args#})
+                 (->DataType s# nil nil fs#))
+           pos-ctor# (if args#
+                       (with-meta (Poly* args# (repeat (count args#) no-bounds)
+                                         (Fn-Intersection
+                                           (make-Function (vec (vals fs#)) (->DataType s# vs# (map make-F args#) fs#))))
+                                  {:actual-frees args#})
+                       (Fn-Intersection
+                         (make-Function (vec (vals fs#)) dt#)))]
+       (do 
+         ~(when variances
+            `(alter-class ~clsym ~(mapv #(vector (gensym) :variance %) variances)))
+         (add-datatype s# dt#)
+         (add-var-type pos-ctor-name# pos-ctor#)
+         [[s# (unparse-type dt#)]
+          [pos-ctor-name# (unparse-type pos-ctor#)]]))))
+
 (defmacro ann-datatype [local-name fields & {ancests :unchecked-ancestors rplc :replace}]
-  (do (assert (not rplc) "Replace NYI")
-      (assert (not (or (namespace local-name)
-                       (some #(= \. %) (str local-name))))
-              (str "Must provide local name: " local-name))
+  (assert (not rplc) "Replace NYI")
+  (assert (not (or (namespace local-name)
+                   (some #(= \. %) (str local-name))))
+          (str "Must provide local name: " local-name))
   `(tc-ignore
-  (let [local-name# '~local-name
-        fs# (apply array-map (apply concat (doall (map parse-field '~fields))))
-        _# (prn '~ancests)
-        as# (set (doall (map parse-type '~ancests)))
-        s# (symbol (str (munge (-> *ns* ns-name)) \. local-name#))
-        _# (add-datatype-ancestors s# as#)
-        pos-ctor-name# (symbol (str (-> *ns* ns-name)) (str "->" local-name#))
-        dt# (->DataType nil s# fs#)
-        pos-ctor# (Fn-Intersection
-                    (make-Function (vec (vals fs#)) dt#))]
-    (do 
-      (add-datatype s# dt#)
-      (add-var-type pos-ctor-name# pos-ctor#)
-      [[s# (unparse-type dt#)]
-       [pos-ctor-name# (unparse-type pos-ctor#)]])))))
+     ~(gen-datatype* local-name fields nil nil ancests)))
+
+(defmacro ann-pdatatype [local-name vbnd fields & {ancests :unchecked-ancestors rplc :replace}]
+  (assert (not rplc) "Replace NYI")
+  (assert (not (or (namespace local-name)
+                   (some #(= \. %) (str local-name))))
+          (str "Must provide local name: " local-name))
+  `(tc-ignore
+     ~(gen-datatype* local-name fields (map second vbnd) (map first vbnd) ancests)))
+
+(defn gen-protocol* [local-varsym variances args mths]
+  `(let [local-vsym# '~local-varsym
+         s# (symbol (-> *ns* ns-name str) (str local-vsym#))
+         on-class# (symbol (str (munge (namespace s#)) \. local-vsym#))
+         ; add a Name so the methods can be parsed
+         _# (declare-protocol* s#)
+         args# '~args
+         fs# (when args# 
+               (map make-F args#))
+         ms# (into {} (for [[knq# v#] '~mths]
+                        (do
+                          (assert (not (namespace knq#))
+                                  "Protocol method should be unqualified")
+                          [knq# (with-frees fs# (parse-type v#))])))
+         _# (prn "here")
+         t# (if fs#
+              (do
+                (prn (map :name fs#))
+                (prn (repeat (count fs#) no-bounds))
+                (prn (->Protocol s# '~variances fs# on-class# ms#))
+                (prn "poly" (Poly* (map :name fs#) (repeat (count fs#) no-bounds) 
+                                   (->Protocol s# '~variances fs# on-class# ms#)))
+                (Poly* (map :name fs#) (repeat (count fs#) no-bounds) 
+                     (->Protocol s# '~variances fs# on-class# ms#))
+                )
+              (->Protocol s# nil nil on-class# ms#))]
+     (do
+       (prn "after")
+       (add-protocol s# t#)
+       (doseq [[kuq# mt#] ms#]
+         ;qualify method names when adding methods as vars
+         (let [kq# (symbol (-> *ns* ns-name str) (str kuq#))]
+           (add-var-type kq# mt#)))
+       [s# (unparse-type t#)])))
 
 (defmacro ann-protocol [local-varsym & {mths :methods}]
   (assert (not (or (namespace local-varsym)
                    (some #{\.} (str local-varsym))))
           (str "Must provide local var name for protocol: " local-varsym))
   `(tc-ignore
-  (let [local-vsym# '~local-varsym
-        s# (symbol (-> *ns* ns-name str) (str local-vsym#))
-        on-class# (symbol (str (munge (namespace s#)) \. local-vsym#))
-        ; add a Name so the methods can be parsed
-        _# (declare-protocol* s#)
-        ms# (into {} (for [[knq# v#] '~mths]
-                       (do
-                         (assert (not (namespace knq#))
-                                 "Protocol method should be unqualified")
-                         [knq# (parse-type v#)])))
-        t# (->Protocol s# on-class# ms#)]
-    (do
-      (doseq [[kuq# mt#] ms#]
-        ;qualify method names when adding methods as vars
-        (let [kq# (symbol (-> *ns* ns-name str) (str kuq#))]
-          (add-var-type kq# mt#)))
-      (add-protocol s# t#)
-      [s# (unparse-type t#)]))))
+     ~(gen-protocol* local-varsym nil nil mths)))
+
+(defmacro ann-pprotocol [local-varsym vbnd & {mths :methods}]
+  (assert (not (or (namespace local-varsym)
+                   (some #{\.} (str local-varsym))))
+          (str "Must provide local var name for protocol: " local-varsym))
+  `(tc-ignore
+     ~(gen-protocol* local-varsym (mapv second vbnd) (mapv first vbnd) mths)))
 
 (defmacro override-method [methodsym typesyn]
   `(tc-ignore
@@ -1763,14 +1877,18 @@
   `(binding [*lexical-env* (merge-locals *lexical-env* ~locals)]
      ~@body))
 
+(declare ^:dynamic *current-env*)
+
 (defn type-of [sym]
   {:pre [(symbol? sym)]
    :post [(or (Type? %)
               (TCResult? %))]}
   (cond
     (not (namespace sym)) (if-let [t (lookup-local sym)]
-                           t
-                           (throw (Exception. (str "Reference to untyped binding: " sym))))
+                            t
+                            (throw (Exception. (str (when *current-env*
+                                                      (str (:line *current-env*) ": "))
+                                                    "Reference to untyped binding: " sym))))
     :else (lookup-Var sym)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1831,6 +1949,7 @@
 (defn resolve-protocol [sym]
   (let [p (@PROTOCOL-ENV sym)]
     (assert p (str "Could not resolve Protocol: " sym))
+    (assert (not (Poly? p)) (str "Protocol " sym " takes mandatory arguments, none provided"))
     p))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1935,6 +2054,7 @@
 
 ;Class -> RClass
 (defonce RESTRICTED-CLASS (atom {}))
+(set-validator! RESTRICTED-CLASS (hash-c? #(instance? Class %) RClass?))
 
 (defn poly-RClass-from [class]
   {:pre [(class? class)]}
@@ -2161,7 +2281,28 @@
                          (for [ks kss]
                            (->HeterogeneousSeq (mapcat #(find m %) ks)))))))))
 
-(defmethod parse-type-list :default [syn] (parse-rinstance-type syn))
+(defmethod parse-type-list :default 
+  [[n & args :as syn]]
+  (let [res (resolve n)
+        rsym (cond 
+               (class? res) (symbol (.getName res))
+               (var? res) (var->symbol res))]
+    (cond
+      (@DATATYPE-ENV rsym) (parse-rinstance-type syn)
+      (@PROTOCOL-ENV rsym) (let [t (@PROTOCOL-ENV rsym)]
+                            (assert (and (Poly? t) 
+                                         (= (count args) (:nbound t)))
+                                    (str "Wrong arguments to instantiate Protocol" res))
+                            (->App t (mapv parse-type args)))
+      (@TYPE-NAME-ENV rsym) (->App (@TYPE-NAME-ENV rsym) (mapv parse-type args))
+      (class? res) (RInstance-of res (mapv parse-type args))
+      :else
+      ;unqualified declared protocols
+      (if-let [s (let [s (symbol (name (ns-name *ns*)) (name n))] 
+                   (and (@TYPE-NAME-ENV s)
+                        s))]
+        (->App (->Name s) (mapv parse-type args))
+        (throw (Exception. (str "Cannot parse list: " syn)))))))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] (parse-type-list l))
@@ -2254,6 +2395,10 @@
     (= lower upper) (list 'ExactCount lower)
     :else (list 'CountRange lower (or upper '+infinity))))
 
+(defmethod unparse-type App 
+  [{:keys [rator rands]}]
+  (list* 'App (unparse-type rator) (mapv unparse-type rands)))
+
 (defmethod unparse-type Result
   [{:keys [t]}]
   (unparse-type t))
@@ -2301,12 +2446,16 @@
                            [(unparse-object o)]))))))
 
 (defmethod unparse-type Protocol
-  [{:keys [the-var]}]
-  the-var)
+  [{:keys [the-var poly?]}]
+  (if poly?
+    (list* the-var (mapv unparse-type poly?))
+    the-var))
 
 (defmethod unparse-type DataType
-  [{:keys [the-class]}]
-  the-class)
+  [{:keys [the-class poly?]}]
+  (if poly?
+    (list* the-class (mapv unparse-type poly?))
+    the-class))
 
 (defmethod unparse-type RClass
   [{the-class :the-class}]
@@ -2367,7 +2516,7 @@
                        (and u [name :< u])
                        (and l [name :> l])
                        name))))
-             free-names)
+             fs-names)
         body (Poly-body* fs-names p)]
     (binding [*next-nme* end-nme]
       (list 'All fs (unparse-type body)))))
@@ -2504,6 +2653,11 @@
 (defmethod frees [::any-var BotFilter] [t] {})
 (defmethod frees [::any-var NoObject] [t] {})
 (defmethod frees [::any-var RClass] [t] {})
+
+(defmethod frees [::any-var DataType]
+  [{:keys [fields poly?]}]
+  (apply combine-frees 
+         (mapv frees (concat (vals fields) poly?))))
 
 (defmethod frees [::any-var HeterogeneousList]
   [{:keys [types]}] 
@@ -2681,8 +2835,22 @@
 (defmethod promote Value [T V] T)
 (defmethod demote Value [T V] T)
 
-(defmethod promote DataType [T V] T)
-(defmethod demote DataType [T V] T)
+(defmethod promote DataType [T V]
+  (-> T
+    (update-in [:poly?] #(when %
+                           (mapv promote %)))
+    (update-in [:fields] #(apply array-map
+                                 (apply concat
+                                        (for [[k v] %]
+                                          [k (promote v)]))))))
+(defmethod demote DataType [T V]
+  (-> T
+    (update-in [:poly?] #(when %
+                           (mapv demote %)))
+    (update-in [:fields] #(apply array-map
+                                 (apply concat
+                                        (for [[k v] %]
+                                          [k (demote v)]))))))
 
 (defmethod promote Name [T V] T)
 (defmethod demote Name [T V] T)
@@ -3907,15 +4075,37 @@
 
 (add-fold-case ::abstract-many
                PolyDots
-               (fn [{n :nbound body* :scope} {{:keys [name count type outer name-to]} :locals}]
-                 (let [body (remove-scopes n body*)]
-                   (->PolyDots n (add-scopes n (name-to name count type (+ n outer) body))))))
+               (fn [{bbnds* :bbnds n :nbound body* :scope} {{:keys [name count type outer name-to]} :locals}]
+                 (let [rs #(remove-scopes n %)
+                       body (rs body*)
+                       bbnds (mapv #(-> %
+                                      (update-in [:upper-bound] rs)
+                                      (update-in [:lower-bound] rs))
+                                   bbnds*)
+                       as #(add-scopes n (name-to name count type (+ n outer) %))]
+                   (->PolyDots n 
+                               (mapv #(-> %
+                                        (update-in [:upper-bound] as)
+                                        (update-in [:lower-bound] as))
+                                     bbnds)
+                               (as body)))))
 
 (add-fold-case ::abstract-many
                Poly
-               (fn [{n :nbound body* :scope} {{:keys [name count type outer name-to]} :locals}]
-                 (let [body (remove-scopes n body*)]
-                   (->Poly n (add-scopes n (name-to name count type (+ n outer) body))))))
+               (fn [{bbnds* :bbnds n :nbound body* :scope} {{:keys [name count type outer name-to]} :locals}]
+                 (let [rs #(remove-scopes n %)
+                       body (rs body*)
+                       bbnds (mapv #(-> %
+                                      (update-in [:upper-bound] rs)
+                                      (update-in [:lower-bound] rs))
+                                   bbnds*)
+                       as #(add-scopes n (name-to name count type (+ n outer) %))]
+                   (->Poly n 
+                           (mapv #(-> %
+                                    (update-in [:upper-bound] as)
+                                    (update-in [:lower-bound] as))
+                                 bbnds)
+                           (as body)))))
 
 (defn abstract-many 
   "Names Type -> Scope^n  where n is (count names)"
@@ -3982,15 +4172,37 @@
 
 (add-fold-case ::instantiate-many
                PolyDots
-               (fn [{n :nbound body* :scope} {{:keys [replace count outer image sb type]} :locals}]
-                 (let [body (remove-scopes n body*)]
-                   (->PolyDots n (add-scopes n (replace image count type (+ n outer) body))))))
+               (fn [{bbnds* :bbnds n :nbound body* :scope} {{:keys [replace count outer image sb type]} :locals}]
+                 (let [rs #(remove-scopes n %)
+                       body (rs body*)
+                       bbnds (mapv #(-> %
+                                      (update-in [:upper-bound] rs)
+                                      (update-in [:lower-bound] rs))
+                                   bbnds*)
+                       as #(add-scopes n (replace image count type (+ n outer) %))]
+                   (->PolyDots n 
+                               (mapv #(-> %
+                                        (update-in [:upper-bound] as)
+                                        (update-in [:lower-bound] as))
+                                     bbnds)
+                               (as body)))))
 
 (add-fold-case ::instantiate-many
                Poly
-               (fn [{n :nbound body* :scope} {{:keys [replace count outer image sb type]} :locals}]
-                 (let [body (remove-scopes n body*)]
-                   (->Poly n (add-scopes n (replace image count type (+ n outer) body))))))
+               (fn [{bbnds* :bbnds n :nbound body* :scope} {{:keys [replace count outer image sb type]} :locals}]
+                 (let [rs #(remove-scopes n %)
+                       body (rs body*)
+                       bbnds (mapv #(-> %
+                                      (update-in [:upper-bound] rs)
+                                      (update-in [:lower-bound] rs))
+                                   bbnds*)
+                       as #(add-scopes n (replace image count type (+ n outer) %))]
+                   (->Poly n 
+                           (mapv #(-> %
+                                    (update-in [:upper-bound] as)
+                                    (update-in [:lower-bound] as))
+                                 bbnds)
+                           (as body)))))
 
 (defn instantiate-many 
   "instantiate-many : List[Symbols] Scope^n -> Type
@@ -4377,8 +4589,22 @@
   (some #(arr-subtype-nofail A % s) ts))
 
 (defmethod subtype* [Protocol Type]
-  [{ancest1 :ancestors :as s} t]
+  [s t]
   (if (= (RInstance-of Object) t)
+    *sub-current-seen*
+    (type-error s t)))
+
+(defmethod subtype* [Protocol Protocol]
+  [{var1 :the-var variances* :variances poly1 :poly? :as s}
+   {var2 :the-var poly2 :poly? :as t}]
+  (if (and (= var1 var2)
+           (every? (fn [[v l r]]
+                     (case v
+                       :covariant (subtypeA* *sub-current-seen* l r)
+                       :contravariant (subtypeA* *sub-current-seen* r l)
+                       :invariant (and (subtypeA* *sub-current-seen* l r)
+                                       (subtypeA* *sub-current-seen* r l))))
+                   (map vector variances* poly1 poly2)))
     *sub-current-seen*
     (type-error s t)))
 
@@ -4394,6 +4620,20 @@
   [{:keys [the-class] :as s} t]
   (if (some #(subtype? % t) (set/union #{(RInstance-of Object)} (or (@DATATYPE-ANCESTOR-ENV the-class)
                                                                     #{})))
+    *sub-current-seen*
+    (type-error s t)))
+
+(defmethod subtype* [DataType DataType]
+  [{cls1 :the-class poly1 :poly? :as s} 
+   {cls2 :the-class poly2 :poly? :as t}]
+  (if (and (= cls1 cls2)
+           (every? (fn [[v l r]]
+                     (case v
+                       :covariant (subtypeA* *sub-current-seen* l r)
+                       :contravariant (subtypeA* *sub-current-seen* r l)
+                       :invariant (and (subtypeA* *sub-current-seen* l r)
+                                       (subtypeA* *sub-current-seen* r l))))
+                   (map vector (:variances s) poly1 poly2)))
     *sub-current-seen*
     (type-error s t)))
 
@@ -6700,6 +6940,8 @@
 
 (def COMPILE-STUB-PREFIX "compile__stub")
 
+(declare unwrap-datatype)
+
 (defmethod check :instance-field
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
@@ -6713,18 +6955,32 @@
         ;_ (prn "target class" (str target-class) target-class)
         ;_ (prn (class target-class))
         fsym (symbol (:field-name expr))]
-    (if (contains? @DATATYPE-ENV target-class)
-      (let [ft (or (-> @DATATYPE-ENV (get target-class) :fields (get fsym))
+    (if-let [dtp (@DATATYPE-ENV target-class)]
+      (let [dt (if (Poly? dtp)
+                 ;generate new names
+                 (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
+                 dtp)
+            _ (assert (DataType? dt))
+            ft (or (-> dt :fields (get fsym))
                    (throw (Exception. (str "No field " fsym " in Datatype " target-class))))]
         (assoc expr
                expr-type (ret ft)))
       (throw (Exception. ":instance-field NYI")))))
 
 (defn DataType-ctor-type [sym]
-  (let [dt (@DATATYPE-ENV sym)
-        _ (assert (DataType? dt))]
-    (Fn-Intersection 
-      (make-Function (-> dt :fields vals) dt))))
+  (let [dtp (@DATATYPE-ENV sym)]
+    (cond
+      (DataType? dtp) (let [dt dtp]
+                        (Fn-Intersection 
+                          (make-Function (-> dt :fields vals) dt)))
+      (Poly? dtp) (let [nms (repeatedly (:nbound dtp) gensym)
+                        bbnds (Poly-bbnds* nms dtp)
+                        dt (unwrap-datatype dtp nms)]
+                    (Poly* nms
+                           bbnds
+                           (Fn-Intersection 
+                             (make-Function (-> dt :fields vals) dt))))
+      :else (throw (Exception. (str "Cannot get DataType constructor of " sym))))))
 
 (defmethod check :instance-of
   [{cls :class :keys [the-expr] :as expr} & [expected]]
@@ -7182,6 +7438,20 @@
 
 (declare check-new-instance-method)
 
+(defn unwrap-datatype 
+  "Takes a possibly polymorphic DataType and returns the 
+  DataType after instantiating it"
+  ([dt nms]
+   {:pre [((some-fn DataType? Poly?) dt)
+          (every? symbol? nms)]
+    :post [(DataType? %)]}
+   (if (Poly? dt)
+     (Poly-body* nms dt)
+     dt))
+  ([dt] (let [nms (when (Poly? dt)
+                    (repeatedly (:nbound dt) gensym))]
+          (unwrap-datatype dt nms))))
+
 (defmethod check :deftype*
   [{nme :name :keys [methods] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
@@ -7193,7 +7463,13 @@
         _ (assert ((hash-c? (every-pred symbol? (complement namespace))
                             #(instance? clojure.reflect.Method %))
                      cmmap))
-        dt (@DATATYPE-ENV nme)
+        dtp (@DATATYPE-ENV nme)
+        dt (if (Poly? dtp)
+             (do (assert (-> dtp meta :actual-frees))
+               (unwrap-datatype dtp (-> dtp meta :actual-frees)))
+             dtp)
+
+        _ (assert (DataType? dt))
         _ (assert dt (str "Untyped datatype definition: " nme))
         ; update this deftype's ancestors to include each protocol/interface in this deftype
         old-ancestors (or (@DATATYPE-ANCESTOR-ENV nme) #{})
@@ -7232,6 +7508,8 @@
                     ;_ (prn "expected-ifn: " (unparse-type expected-ifn))
                     ]
                 (with-locals (:fields dt)
+                  (prn "lexical env when checking method" nme *lexical-env*)
+                  (prn (:fields dt))
                   (check-new-instance-method
                     inst-method 
                     expected-ifn))))

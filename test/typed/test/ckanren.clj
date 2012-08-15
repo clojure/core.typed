@@ -3,7 +3,9 @@
   (:use [clojure.walk :only [postwalk]])
   (:require [clojure.set :as set]
             [typed.core :refer [ann def-alias declare-protocols ann-protocol
-                                tc-ignore check-ns ann-datatype tc-pr-env cf]]
+                                ann-pprotocol
+                                tc-ignore check-ns ann-datatype tc-pr-env cf
+                                parse-type ann-pdatatype]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]])
   (:import [java.io Writer]
@@ -314,7 +316,7 @@
               :methods
               {lb [IInterval -> Number]
                ub [IInterval -> Number]
-               bounds [IInterval -> IPair]})
+               bounds [IInterval -> (IPair Number Number)]})
 
 (tc-ignore
 (defprotocol IInterval
@@ -366,10 +368,11 @@
 ;; =============================================================================
 ;; Pair
 
-(ann-protocol IPair
+(ann-pprotocol IPair [[a :covariant] 
+                      [b :covariant]]
                :methods
-               {lhs [IPair -> Term]
-                rhs [IPair -> Term]})
+               {lhs [(IPair a b) -> a]
+                rhs [(IPair a b) -> b]})
 
 (tc-ignore
 (defprotocol IPair
@@ -377,9 +380,11 @@
   (rhs [this]))
   )
 
-(ann-datatype Pair [[lhs :- Term]
-                    [rhs :- Term]]
-               :unchecked-ancestors #{IPair})
+(ann-pdatatype Pair [[a :covariant]
+                     [b :covariant]]
+               [[lhs :- a]
+                [rhs :- b]]
+               :unchecked-ancestors #{(IPair a b)})
 (deftype Pair [lhs rhs]
   clojure.lang.Counted
   (count [_] 2)
@@ -408,7 +413,7 @@
              (= rhs (.-rhs o))))
       false)))
 
-(ann pair [Term Term -> Pair])
+(ann pair [Term Term -> (Pair Term Term)])
 (defn- ^Pair pair [lhs rhs]
   (Pair. lhs rhs))
 
