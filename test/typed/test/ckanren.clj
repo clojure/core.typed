@@ -3,9 +3,9 @@
   (:use [clojure.walk :only [postwalk]])
   (:require [clojure.set :as set]
             [typed.core :refer [ann def-alias declare-protocols ann-protocol
-                                ann-pprotocol
+                                ann-pprotocol declare-datatypes
                                 tc-ignore check-ns ann-datatype tc-pr-env cf
-                                parse-type ann-pdatatype]]
+                                parse-type ann-pdatatype fn>]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]])
   (:import [java.io Writer]
@@ -89,11 +89,11 @@
 
 (ann-protocol IUnifyWithMap
               :methods
-              {unify-with-map [Term IPersistentMap ISubstitutions -> (U ISubstitutions Fail)]})
+              {unify-with-map [Term (IPersistentMap Any Any) ISubstitutions -> (U ISubstitutions Fail)]})
 
 (ann-protocol IUnifyWithSet
               :methods
-              {unify-with-Set [Term IPersistentSet ISubstitutions -> (U ISubstitutions Fail)]})
+              {unify-with-Set [Term (IPersistentSet Any) ISubstitutions -> (U ISubstitutions Fail)]})
 
 (ann-protocol IReifyTerm
               :methods
@@ -311,12 +311,21 @@
 ;; TODO: ICLPSet, half the below could be moved into this
 
 (declare-protocols IPair)
+(declare-datatypes Pair)
 
 (ann-protocol IInterval
               :methods
               {lb [IInterval -> Number]
                ub [IInterval -> Number]
-               bounds [IInterval -> (IPair Number Number)]})
+               bounds [IInterval -> (Pair Number Number)]})
+
+(declare-protocols FiniteDomain)
+
+(ann-protocol ISortedDomain
+              :methods
+              {drop-one [ISortedDomain -> (U nil Number FiniteDomain)]
+               drop-before [ISortedDomain Number -> FiniteDomain]
+               keep-before [ISortedDomain Number -> FiniteDomain]})
 
 (tc-ignore
 (defprotocol IInterval
@@ -413,7 +422,7 @@
              (= rhs (.-rhs o))))
       false)))
 
-(ann pair [Term Term -> (Pair Term Term)])
+(ann pair (All [a b] [a b -> (Pair a b)]))
 (defn- ^Pair pair [lhs rhs]
   (Pair. lhs rhs))
 
@@ -446,6 +455,8 @@
 
 (declare domain)
 
+(ann domain [Number * -> (U nil Number FiniteDomain)])
+
 (ann-datatype FiniteDomain [[s :- (IPersistentSet Number)]
                             [min :- Number]
                             [max :- Number]])
@@ -464,9 +475,13 @@
        (> c 1) (FiniteDomain. s (first s) max)
        :else nil)))
   (drop-before [_ n]
-    (apply domain (drop-while #(< % n) s)))
+    (apply domain (drop-while (fn> [[s* :- Number]]
+                                 (< s* n)) 
+                              s)))
   (keep-before [this n]
-    (apply domain (take-while #(< % n) s)))
+    (apply domain (take-while (fn> [[s* :- Number]]
+                                 (< s* n) )
+                              s)))
   IRefinable
   (refinable? [_] true)
   IRefine

@@ -386,90 +386,68 @@
   "A scope that contains one bound variable, can be nested. Not used directly"
   [((some-fn Type? Scope?) body)])
 
-(defrecord RClass [variances the-class replacements]
+(defrecord RClass [variances poly? the-class replacements]
   "A restricted class, where ancestors are
   (replace replacements (ancestors the-class))"
   [(or (nil? variances)
-       (and (sequential? variances)
-            (every? variance?  variances)))
-   (class? the-class)
-   (map? replacements)
-   (every? class? (keys replacements))
-   (every? (some-fn Type? Scope?) (vals replacements))])
-
-(declare RESTRICTED-CLASS)
-
-(defn monomorphic-RClass-from [class]
-  (let [rc (@RESTRICTED-CLASS class)]
-    (if rc
-      rc
-      (->RClass nil class {}))))
-
-;smart constructor
-(defn RClass* [names variances the-class replacements]
-  {:pre [(every? symbol? names)
-         (every? variance? variances)
-         (class? the-class)]}
-  (if (seq variances)
-    (->RClass variances
-              the-class
-              (into {} (for [[k v] replacements]
-                         [k (abstract-many names v)])))
-    (->RClass nil the-class replacements)))
-
-;smart destructor
-(defn RClass-replacements* [names rclass]
-  (into {} (for [[k v] (:replacements rclass)]
-             [k (instantiate-many names v)])))
+       (and (seq variances)
+            (sequential? variances)
+            (every? variance? variances)))
+   (or (nil? poly?)
+       (and (seq poly?)
+            (sequential? poly?)
+            (every? Type? poly?)))
+   (symbol? the-class)
+   ((hash-c? symbol? (some-fn Type? Scope?)) replacements)])
 
 (declare-type RClass)
 
-(defrecord RInstance [poly? constructor]
-  "An instance of a class"
-  [(or (nil? poly?)
-       (and (sequential? poly?)
-            (seq poly?)
-            (every? Type? poly?)))
-   (RClass? constructor)])
+(declare RESTRICTED-CLASS instantiate-poly)
+
+(defn RClass-of [sym args]
+  {:pre [(symbol? sym)
+         (every? Type? args)]
+   :post [(RClass? %)]}
+  (let [rc (@RESTRICTED-CLASS sym)]
+    (assert ((some-fn Poly? RClass? nil?) rc))
+    (assert (or (Poly? rc) (not args)) "Cannot instantiate non-polymorphic RClass")
+    (cond 
+      (Poly? rc) (instantiate-poly rc args)
+      (RClass? rc) rc
+      :else (->RClass nil nil sym {}))))
+
+(declare Poly* no-bounds)
+
+;smart constructor
+(defn RClass* [names variances poly? the-class replacements]
+  {:pre [(every? symbol? names)
+         (every? variance? variances)
+         (= (count variances) (count poly?))
+         (every? Type? poly?)
+         (symbol? the-class)]}
+  (prn ((hash-c? symbol? Type?) replacements))
+  (if (seq variances)
+    (Poly* names (repeat (count names) no-bounds) (->RClass variances poly? the-class replacements))
+    (->RClass nil nil the-class replacements)))
 
 (declare poly-RClass-from)
 
-(defn RInstance-of 
-  "Return a RInstance type, optionally parameterised"
-  ([class] (->RInstance nil (monomorphic-RClass-from class)))
-  ([class params] (->RInstance params (poly-RClass-from class))))
+(declare substitute-many unparse-type Class->symbol symbol->Class)
 
-(declare substitute-many unparse-type)
-
-(defn RInstance-supers* 
-  "Return a set of Types that are the super-Types
-  of this RInstance"
-  [{:keys [poly? constructor] :as rinst}]
-  {:pre [(RInstance? rinst)]
+(defn RClass-supers* 
+  "Return a set of ancestors to the RClass"
+  [{:keys [poly? replacements the-class] :as rcls}]
+  {:pre [(RClass? rcls)]
    :post [(set? %)
           (every? Type? %)
           (<= (count (filter (some-fn Fn-Intersection? Poly? PolyDots?) %))
               1)]}
-  (let [names (map gensym (range (count poly?)))
-        ;the replacement map for this type
-        rplce (RClass-replacements* names constructor)
-        rplce-subbed (into {} (for [[k v] rplce]
-                                [k (substitute-many v poly? names)]))
-        ancest (supers (:the-class constructor))
-        not-replaced (set/difference ancest (keys rplce-subbed))
-        super-types (set/union (set (for [t not-replaced]
-                                      (->RInstance nil (or (when-let [r (@RESTRICTED-CLASS t)]
-                                                             (assert (empty? (:variances r))
-                                                                     (str "RClass " (unparse-type r) " must be instantiated"
-                                                                          " in " (unparse-type rinst)))
-                                                             r)
-                                                           (->RClass nil t {})))))
-                               (set (vals rplce-subbed))
-                               ;common ancestor
-                               #{(RInstance-of Object)})]
-    super-types))
-
-(declare-type RInstance)
+  (let [;set of symbols of Classes we haven't explicitly replaced
+        not-replaced (set/difference (set (map Class->symbol (-> the-class symbol->Class supers)))
+                                     (set (keys replacements)))]
+    (set/union (set (for [csym not-replaced]
+                      (RClass-of csym nil)))
+               (set (vals replacements)))))
 
 (defrecord Record [the-class fields]
   "A record"
@@ -608,11 +586,12 @@
          (= (count vs)
             (count ts))]}
   (into {} (for [[v t] (map vector vs ts)]
-             [v (->t-subst t)])))
+             [v (->t-subst t no-bounds)])))
 
 (defn instantiate-poly [t types]
   (cond
-    (Poly? t) (do (assert (= (:nbound t) types) "Wrong number of arguments passed to polymorphic type")
+    (Poly? t) (do (assert (= (:nbound t) (count types)) (str "Wrong number of arguments passed to polymorphic type: "
+                                                             (unparse-type t) (mapv unparse-type types)))
                 (let [nms (repeatedly (:nbound t) gensym)
                       body (Poly-body* nms t)]
                   (subst-all (make-simple-substitution nms types) body)))
@@ -923,21 +902,13 @@
                                                   (-> %
                                                     (update-in [:pre-type] type-rec)))))))
 
-(add-default-fold-case RClass (fn [a _] a))
-;                       (fn [rclass _]
-;                         (let [names (repeatedly (count (:variances rclass)) gensym)
-;                               rplc (RClass-replacements* names rclass)
-;                               c-rplc (into {} (for [[k v] rplc]
-;                                                 [k (type-rec v)]))]
-;                           (RClass* names (:variances rclass) (:the-class rclass)
-;                                    c-rplc))))
-
-(add-default-fold-case RInstance
+(add-default-fold-case RClass 
                        (fn [ty _]
                          (-> ty
                            (update-in [:poly?] #(when %
-                                                  (map type-rec %)))
-                           (update-in [:constructor] type-rec))))
+                                                  (mapv type-rec %)))
+                           (update-in [:replacements] #(into {} (for [[k v] %]
+                                                                  [k (type-rec v)]))))))
 
 (add-default-fold-case App
                        (fn [ty _]
@@ -1739,13 +1710,12 @@
     (do (add-var-type s# t#)
       [s# (unparse-type t#)]))))
 
-(declare parse-type)
+(declare parse-type alter-class*)
 
 (defn parse-field [[n _ t]]
   [n (parse-type t)])
 
 (defn gen-datatype* [local-name fields variances args ancests]
-  (let [clsym (symbol (str (munge (-> *ns* ns-name)) \. local-name))]
     `(let [local-name# '~local-name
            fs# (apply array-map (apply concat (with-frees (mapv make-F '~args)
                                                 (mapv parse-field '~fields))))
@@ -1770,12 +1740,13 @@
                        (Fn-Intersection
                          (make-Function (vec (vals fs#)) dt#)))]
        (do 
-         ~(when variances
-            `(alter-class ~clsym ~(mapv #(vector (gensym) :variance %) variances)))
+         (when vs#
+           (let [f# (mapv make-F (repeatedly (count vs#) gensym))]
+             (alter-class* s# (RClass* (map :name f#) vs# f# s# {}))))
          (add-datatype s# dt#)
          (add-var-type pos-ctor-name# pos-ctor#)
          [[s# (unparse-type dt#)]
-          [pos-ctor-name# (unparse-type pos-ctor#)]]))))
+          [pos-ctor-name# (unparse-type pos-ctor#)]])))
 
 (defmacro ann-datatype [local-name fields & {ancests :unchecked-ancestors rplc :replace}]
   (assert (not rplc) "Replace NYI")
@@ -1864,6 +1835,20 @@
           (namespace %)]}
   (symbol (str (ns-name (.ns ^Var var)))
           (str (.sym ^Var var))))
+
+(defn symbol->Class [sym]
+  {:pre [(symbol? sym)]
+   :post [(class? %)]}
+  (case sym
+    long Long/TYPE
+    int Integer/TYPE
+    boolean Boolean/TYPE
+    (Class/forName (str sym))))
+
+(defn Class->symbol [cls]
+  {:pre [(class? cls)]
+   :post [(symbol? %)]}
+  (symbol (.getName cls)))
 
 (defn lookup-Var [nsym]
   (assert (contains? @VAR-ANNOTATIONS nsym) (str "Untyped var reference: " nsym))
@@ -2054,34 +2039,37 @@
 
 ;Class -> RClass
 (defonce RESTRICTED-CLASS (atom {}))
-(set-validator! RESTRICTED-CLASS (hash-c? #(instance? Class %) RClass?))
-
-(defn poly-RClass-from [class]
-  {:pre [(class? class)]}
-  (let [rclass (@RESTRICTED-CLASS class)]
-    (assert rclass (str class " not declared as polymorphic"))
-    rclass))
+(set-validator! RESTRICTED-CLASS (hash-c? symbol? Type?))
 
 (declare with-frees)
 
 (defn- build-replacement-syntax [m]
-  (into {} (for [[k v] m]
-             [k `(parse-type '~v)])))
+  `(into {} (for [[k# v#] '~m]
+              [(if-let [c# (resolve k#)] 
+                 (and (class? c#) (Class->symbol c#))
+                 k#)
+               (parse-type v#)])))
 
 (defn parse-RClass-binder [bnds]
   (for [[nme & {:keys [variance]}] bnds]
     [variance (make-F nme)]))
 
+(defn alter-class* [csym type]
+  (swap! RESTRICTED-CLASS assoc csym type))
+
 (defmacro alter-class [the-class frees-syn & opts]
-  (let [{replacements-syn :replace} (apply hash-map opts)
-        replacements (build-replacement-syntax replacements-syn)]
+  (let [{replacements-syn :replace} (apply hash-map opts)]
      `(let [[variances# frees#] (when-let [fs# (seq '~frees-syn)]
                                   (let [b# (parse-RClass-binder fs#)]
-                                    [(map first b#) (map second b#)]))]
-        (swap! RESTRICTED-CLASS 
-               #(assoc % ~the-class (RClass* (map :name frees#) variances#
-                                             ~the-class (with-frees frees#
-                                                          ~replacements))))
+                                    [(map first b#) (map second b#)]))
+            csym# (let [cls# (when-let [c# (resolve '~the-class)]
+                               (when (class? c#)
+                                 c#))]
+                    (or (and cls# (Class->symbol cls#))
+                        '~the-class))]
+        (alter-class* csym# (RClass* (map :name frees#) variances# frees# csym#
+                                     (with-frees frees#
+                                       ~(build-replacement-syntax replacements-syn))))
         ~the-class)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2149,7 +2137,7 @@
   [[_ t-syn]]
   (let [on-type (parse-type t-syn)]
     (Fn-Intersection
-      (make-Function [-any] (RInstance-of Boolean/TYPE) nil nil
+      (make-Function [-any] (RClass-of 'boolean nil) nil nil
                      :filter (-FS (-filter on-type 0)
                                   (-not-filter on-type 0))))))
 
@@ -2253,11 +2241,11 @@
           optional (mapt optional)]
       (make-HMap mandatory optional))))
 
-(defn parse-rinstance-type [[cls-sym & params-syn]]
+(defn parse-RClass [cls-sym params-syn]
   (let [cls (resolve cls-sym)
         _ (assert (class? cls) (str cls-sym " cannot be resolved"))
         tparams (doall (map parse-type params-syn))]
-    (RInstance-of cls tparams)))
+    (RClass-of (Class->symbol cls) tparams)))
 
 (defmethod parse-type-list 'Value
   [[Value syn]]
@@ -2288,19 +2276,21 @@
                (class? res) (symbol (.getName res))
                (var? res) (var->symbol res))]
     (cond
-      (@DATATYPE-ENV rsym) (parse-rinstance-type syn)
+      (@DATATYPE-ENV rsym) (parse-RClass (first syn) (rest syn))
       (@PROTOCOL-ENV rsym) (let [t (@PROTOCOL-ENV rsym)]
                             (assert (and (Poly? t) 
                                          (= (count args) (:nbound t)))
                                     (str "Wrong arguments to instantiate Protocol" res))
                             (->App t (mapv parse-type args)))
       (@TYPE-NAME-ENV rsym) (->App (@TYPE-NAME-ENV rsym) (mapv parse-type args))
-      (class? res) (RInstance-of res (mapv parse-type args))
+      (class? res) (RClass-of (Class->symbol res) (mapv parse-type args))
       :else
-      ;unqualified declared protocols
-      (if-let [s (let [s (symbol (name (ns-name *ns*)) (name n))] 
-                   (and (@TYPE-NAME-ENV s)
-                        s))]
+      ;unqualified declared protocols and datatypes
+      (if-let [s (let [svar (symbol (name (ns-name *ns*)) (name n))
+                       scls (symbol (munge (str (ns-name *ns*) \. (name n))))]
+                   (some #(and (@TYPE-NAME-ENV %)
+                               %)
+                         [svar scls]))]
         (->App (->Name s) (mapv parse-type args))
         (throw (Exception. (str "Cannot parse list: " syn)))))))
 
@@ -2313,9 +2303,9 @@
 
 ;Symbol -> Class
 (def primitives
-  {'long (RInstance-of Long/TYPE)
-   'int (RInstance-of Integer/TYPE)
-   'boolean (RInstance-of Boolean/TYPE)
+  {'long (RClass-of 'long nil)
+   'int (RClass-of 'int nil)
+   'boolean (RClass-of 'boolean nil)
    'void -nil})
 
 (defmethod parse-type-symbol :default
@@ -2339,7 +2329,7 @@
                 ;(prn *ns* "res" sym "->" res)
                 (cond 
                   (class? res) (or (@DATATYPE-ENV (symbol (.getName ^Class res)))
-                                   (RInstance-of res))
+                                   (RClass-of (Class->symbol res) nil))
                   :else (throw (Exception. (str "Cannot resolve type: " sym)))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
@@ -2458,14 +2448,10 @@
     the-class))
 
 (defmethod unparse-type RClass
-  [{the-class :the-class}]
-  (symbol (.getName ^Class the-class)))
-
-(defmethod unparse-type RInstance
-  [{poly? :poly? constructor :constructor}]
+  [{:keys [the-class poly?]}]
   (if (empty? poly?)
-    (unparse-type constructor)
-    (list* (unparse-type constructor)
+    the-class
+    (list* the-class
            (doall (map unparse-type poly?)))))
 
 (defmethod unparse-type Mu
@@ -2652,7 +2638,6 @@
 (defmethod frees [::any-var TopFilter] [t] {})
 (defmethod frees [::any-var BotFilter] [t] {})
 (defmethod frees [::any-var NoObject] [t] {})
-(defmethod frees [::any-var RClass] [t] {})
 
 (defmethod frees [::any-var DataType]
   [{:keys [fields poly?]}]
@@ -2716,9 +2701,9 @@
                                     (-> pre-type
                                       frees flip-variances)])))))
 
-(defmethod frees [::any-var RInstance]
+(defmethod frees [::any-var RClass]
   [t]
-  (let [varis (-> t :constructor :variances)
+  (let [varis (:variances t)
         args (:poly? t)]
     (assert (= (count args) (count varis)))
     (apply combine-frees (for [[arg va] (map vector args varis)]
@@ -2729,7 +2714,6 @@
                                           (into {}
                                                 (for [[k _] fvs]
                                                   [k :invariant]))))))))
-
 
 (defmethod frees [::any-var Poly]
   [{:keys [nbound scope]}]
@@ -2878,29 +2862,23 @@
   (-> T
     (update-in [:types] #(mapv demote % (repeat V)))))
 
-(defmethod promote RInstance
-  [{:keys [poly? constructor] :as T} V]
-  (let [names (repeatedly (count poly?) gensym)
-        rplc (RClass-replacements* names constructor)
-        pmt-rplc (into {} (for [[k v] rplc]
-                            [k (promote v V)]))]
-  (->RInstance (seq (doall (map promote poly? (repeat V))))
-               (RClass* names 
-                        (:variances constructor)
-                        (:the-class constructor)
-                        pmt-rplc))))
+(defmethod promote RClass
+  [T V]
+  (let [pmt #(promote % V)]
+    (-> T
+      (update-in [:poly?] #(when %
+                             (mapv pmt %)))
+      (update-in [:replacements] #(into {} (for [[k v] %]
+                                             [k (pmt v)]))))))
 
-(defmethod demote RInstance
-  [{:keys [poly? constructor] :as T} V]
-  (let [names (repeatedly (count poly?) gensym)
-        rplc (RClass-replacements* names constructor)
-        dmt-rplc (into {} (for [[k v] rplc]
-                            [k (demote v V)]))]
-  (->RInstance (seq (doall (map demote poly? (repeat V))))
-               (RClass* names 
-                        (:variances constructor)
-                        (:the-class constructor)
-                        dmt-rplc))))
+(defmethod demote RClass
+  [T V]
+  (let [dmt #(demote % V)]
+    (-> T
+      (update-in [:poly?] #(when %
+                             (mapv dmt %)))
+      (update-in [:replacements] #(into {} (for [[k v] %]
+                                             [k (dmt v)]))))))
 
 (defmethod promote Poly
   [{:keys [nbound] :as T} V]
@@ -3352,9 +3330,9 @@
   [V X Y S T] 
   (empty-cset X Y))
 
-(defmethod cs-gen* [HeterogeneousVector RInstance] 
+(defmethod cs-gen* [HeterogeneousVector RClass] 
   [V X Y S T]
-  (cs-gen V X Y (RInstance-of IPersistentVector [(apply Un (:types S))]) T))
+  (cs-gen V X Y (RClass-of (Class->symbol IPersistentVector) [(apply Un (:types S))]) T))
 
 (declare cs-gen-list)
 
@@ -3378,32 +3356,33 @@
           Tvals (map second STvals)]
       (cs-gen-list V X Y Svals Tvals))))
 
-(defmethod cs-gen* [HeterogeneousMap RInstance] 
+(defmethod cs-gen* [HeterogeneousMap RClass] 
   [V X Y S T]
   (let [[ks vs] [(apply Un (keys (:types S)))
                  (apply Un (vals (:types S)))]]
-    (cs-gen V X Y (RInstance-of IPersistentMap [ks vs]) T)))
+    (cs-gen V X Y (RClass-of (Class->symbol IPersistentMap) [ks vs]) T)))
 
-(defmethod cs-gen* [RInstance RInstance] 
+(defmethod cs-gen* [RClass RClass] 
   [V X Y S T]
-  (let [relevant-S (if (= (:constructor S) (:constructor T))
+  (let [relevant-S (if (= (:the-class S) (:the-class T))
                      S
                      (some #(and (= (:constructor %) (:constructor T))
                                  %)
-                           (RInstance-supers* S)))]
+                           (RClass-supers* S)))]
     (cond
       relevant-S
       (cset-meet*
         (cons (empty-cset X Y)
-              (for [[vari si ti] (map vector
-                                      (-> T :constructor :variances)
-                                      (:poly? relevant-S)
-                                      (:poly? T))]
-                (case vari
-                  (:covariant :constant) (cs-gen V X Y si ti)
-                  :contravariant (cs-gen V X Y ti si)
-                  :invariant (cset-meet (cs-gen V X Y si ti)
-                                        (cs-gen V X Y ti si))))))
+              (doall
+                (for [[vari si ti] (map vector
+                                        (:variances T)
+                                        (:poly? relevant-S)
+                                        (:poly? T))]
+                  (case vari
+                    (:covariant :constant) (cs-gen V X Y si ti)
+                    :contravariant (cs-gen V X Y ti si)
+                    :invariant (cset-meet (cs-gen V X Y si ti)
+                                          (cs-gen V X Y ti si)))))))
       :else (type-error S T))))
 
 (prefer-method cs-gen* [F Type] [Type F])
@@ -4310,7 +4289,7 @@
 
 (defmethod trans-dots F [t b bm] t)
 (defmethod trans-dots Value [t b bm] t)
-(defmethod trans-dots RInstance [t b bm] t)
+(defmethod trans-dots RClass [t b bm] t)
 
 (defmethod trans-dots Union
   [t b bm]
@@ -4590,7 +4569,7 @@
 
 (defmethod subtype* [Protocol Type]
   [s t]
-  (if (= (RInstance-of Object) t)
+  (if (= (RClass-of (Class->symbol Object) nil) t)
     *sub-current-seen*
     (type-error s t)))
 
@@ -4614,14 +4593,23 @@
 
 (defmethod subtype* [PrimitiveArray Type]
   [_ t]
-  (subtype (RInstance-of (class (into-array Object []))) t))
+  (subtype (->PrimitiveArray Object -any -any) t))
 
 (defmethod subtype* [DataType Type]
   [{:keys [the-class] :as s} t]
-  (if (some #(subtype? % t) (set/union #{(RInstance-of Object)} (or (@DATATYPE-ANCESTOR-ENV the-class)
-                                                                    #{})))
+  (if (some #(subtype? % t) (set/union #{(RClass-of (Class->symbol Object) nil)} 
+                                       (or (@DATATYPE-ANCESTOR-ENV the-class)
+                                           #{})))
     *sub-current-seen*
     (type-error s t)))
+
+(defmethod subtype* [DataType Type]
+  [{cls1 :the-class poly1 :poly? :as s} t]
+  (subtype* (RClass-of cls1 poly1) t))
+
+(defmethod subtype* [Type DataType]
+  [s {cls2 :the-class poly2 :poly? :as t}]
+  (subtype* s (RClass-of cls2 poly2)))
 
 (defmethod subtype* [DataType DataType]
   [{cls1 :the-class poly1 :poly? :as s} 
@@ -4653,79 +4641,79 @@
 ; (Cons Integer) <: (Seqable Integer)
 ; (ancestors (Seqable Integer)
 
-(defmethod subtype* [Value RInstance]
+(defmethod subtype* [Value RClass]
   [{val :val :as s} t]
   (cond
     (nil? val) (type-error s t)
     :else (let [cls (class val)]
-            (subtype (RInstance-of cls) t))))
+            (subtype (RClass-of (Class->symbol cls) nil) t))))
 
 
-(defn- subtype-rinstance-common-base 
-  [{polyl? :poly? constl :constructor :as s}
-   {polyr? :poly? constr :constructor :as t}]
-  {:pre [(= constl constr)]}
-  (let [{variances :variances} constl]
-    (or (when (and (empty? polyl?) (empty? polyr?))
-          (= constl constr))
-
-        (and (seq polyl?)
-             (seq polyr?)
-             (every? identity
-                     (doall (map #(case %1
-                                    :covariant (subtype? %2 %3)
-                                    :contravariant (subtype? %3 %2)
-                                    (= %2 %3))
-                                 variances
-                                 polyl?
-                                 polyr?)))))))
+(defn- subtype-RClass-common-base 
+  [{polyl? :poly? lcls-sym :the-class :as s}
+   {polyr? :poly? rcls-sym :the-class :as t}]
+  (let [{variances :variances} s]
+    (and (= lcls-sym rcls-sym)
+         (or (and (empty? polyl?) (empty? polyr?))
+             (and (seq polyl?)
+                  (seq polyr?)
+                  (every? identity
+                          (doall (map #(case %1
+                                         :covariant (subtype? %2 %3)
+                                         :contravariant (subtype? %3 %2)
+                                         (= %2 %3))
+                                      variances
+                                      polyl?
+                                      polyr?))))))))
 
 ; Class -> Class
 (def primitive-coersions
   {Integer/TYPE #{Short Integer Long}
    Boolean/TYPE #{Boolean}})
 
-(defn coerse-RInstance-primitive
-  [{constl :constructor :as s}
-   {constr :constructor :as t}]
-  (cond
-    (.isPrimitive ^Class (:the-class constl))
-    ((primitive-coersions (:the-class constl)) (:the-class constr))
+(defn coerse-RClass-primitive
+  [s t]
+  (let [scls (symbol->Class (:the-class s))
+        tcls (symbol->Class (:the-class t))]
+    (cond
+      (.isPrimitive ^Class scls)
+      ((primitive-coersions scls) tcls)
 
-    (.isPrimitive ^Class (:the-class constr))
-    ((primitive-coersions (:the-class constr)) (:the-class constl))))
+      (.isPrimitive ^Class tcls)
+      ((primitive-coersions tcls) scls))))
 
-(defmethod subtype* [RInstance RInstance]
-  [{polyl? :poly? constl :constructor :as s}
-   {polyr? :poly? constr :constructor :as t}]
-  (cond
-    (or
-      ; use java subclassing
-      (and (empty? polyl?)
-           (empty? polyr?)
-           (empty? (:replacements constl))
-           (empty? (:replacements constr))
-           (isa? (:the-class constl)
-                 (:the-class constr)))
+(defmethod subtype* [RClass RClass]
+  [{polyl? :poly? :as s}
+   {polyr? :poly? :as t}]
+  (let [scls (symbol->Class (:the-class s))
+        tcls (symbol->Class (:the-class t))]
+    (cond
+      (or
+        ; use java subclassing
+        (and (empty? polyl?)
+             (empty? polyr?)
+             (empty? (:replacements s))
+             (empty? (:replacements t))
+             (isa? scls tcls))
 
-      ;same base class
-      (and (= constl constr)
-           (subtype-rinstance-common-base s t))
+        ;same base class
+        (and (= scls tcls)
+             (subtype-RClass-common-base s t))
 
-      ;one is a primitive, coerse
-      (and (or (.isPrimitive ^Class (:the-class constl))
-               (.isPrimitive ^Class (:the-class constr)))
-           (coerse-RInstance-primitive s t))
+        ;one is a primitive, coerse
+        (and (or (.isPrimitive ^Class scls)
+                 (.isPrimitive ^Class tcls))
+             (coerse-RClass-primitive s t))
 
-      ;find a supertype of s that is the same base as t, and subtype of it
-      (some #(and (= constr (:constructor %))
-                  (subtype-rinstance-common-base % t))
-            (RInstance-supers* s)))
-    *sub-current-seen*
+        ;find a supertype of s that is the same base as t, and subtype of it
+        (some #(and (= (:the-class t) (:the-class %))
+                    (subtype-RClass-common-base % t))
+              (RClass-supers* s)))
+      *sub-current-seen*
 
-    ;try each ancestor
+      ;try each ancestor
 
-    :else (type-error s t)))
+      :else (type-error s t))))
 
 (prefer-method subtype* 
                [Type Mu]
@@ -4735,7 +4723,7 @@
   [s t]
   (let [sk (apply Un (map first (:types s)))
         sv (apply Un (map second (:types s)))]
-    (subtype (RInstance-of IPersistentMap [sk sv])
+    (subtype (RClass-of (Class->symbol IPersistentMap) [sk sv])
              t)))
 
 ;every rtype entry must be in ltypes
@@ -4755,7 +4743,7 @@
 (defmethod subtype* [HeterogeneousVector Type]
   [s t]
   (let [ss (apply Un (:types s))]
-    (subtype (RInstance-of IPersistentVector [ss])
+    (subtype (RClass-of (Class->symbol IPersistentVector) [ss])
              t)))
 
 (defmethod subtype* [HeterogeneousList HeterogeneousList]
@@ -4766,7 +4754,7 @@
 (defmethod subtype* [HeterogeneousList Type]
   [s t]
   (let [ss (apply Un (:types s))]
-    (subtype (RInstance-of PersistentList [ss])
+    (subtype (RClass-of (Class->symbol PersistentList) [ss])
              t)))
 
 (defmethod subtype* [HeterogeneousSeq HeterogeneousSeq]
@@ -4777,7 +4765,7 @@
 (defmethod subtype* [HeterogeneousSeq Type]
   [s t]
   (let [ss (apply Un (:types s))]
-    (subtype (RInstance-of ASeq [ss])
+    (subtype (RClass-of (Class->symbol ASeq) [ss])
              t)))
 
 (defmethod subtype* [Mu Type]
@@ -4986,6 +4974,10 @@
 (ann clojure.core/not [Any -> boolean])
 (ann clojure.core/constantly (All [x y] [x -> [y * -> x]]))
 
+(ann clojure.core/take-while 
+     (All [x] 
+          [[x -> Any] (U nil (Seqable x)) -> (Seqable x)]))
+
 (comment
 (aget my-array 0 1 2)
 (aget (aget my-array 0) 1 2)
@@ -5104,7 +5096,7 @@
 (add-var-type 'clojure.core/class
               (Fn-Intersection
                 (make-Function [-any]
-                               (Un (RInstance-of Class) -nil)
+                               (Un (RClass-of (Class->symbol Class) nil) -nil)
                                nil nil
                                :object (->Path (->ClassPE) 0))))
 
@@ -5112,9 +5104,9 @@
               (let [x (make-F 'x)]
                 (with-meta (Poly* [(:name x)]
                                   [no-bounds]
-                                  (Fn-Intersection (make-Function [(Un (RInstance-of Seqable [x])
+                                  (Fn-Intersection (make-Function [(Un (RClass-of (Class->symbol Seqable) [x])
                                                                        -nil)]
-                                                                  (Un -nil (RInstance-of ASeq [x]))
+                                                                  (Un -nil (RClass-of (Class->symbol ASeq) [x]))
                                                                   nil nil
                                                                   :filter (-FS (-filter (make-CountRange 1) 0)
                                                                                (-or (-filter -nil 0)
@@ -5126,7 +5118,7 @@
               (let [x (make-F 'x)]
                 (with-meta (Poly* [(:name x)]
                                   [no-bounds]
-                                  (Fn-Intersection (make-Function [(Un (RInstance-of Seqable [x]) -nil)]
+                                  (Fn-Intersection (make-Function [(Un (RClass-of (Class->symbol Seqable) [x]) -nil)]
                                                                   (Un -true -false)
                                                                   nil nil
                                                                   :filter (-FS (-or (-filter (make-ExactCountRange 0) 0)
@@ -5312,7 +5304,7 @@
 (defmethod constant-type Character [v] (->Value v))
 (defmethod constant-type clojure.lang.Keyword [v] (->Value v))
 (defmethod constant-type Boolean [v] (if v -true -false))
-(defmethod constant-type IPersistentSet [v] (RInstance-of IPersistentSet [(apply Un (map constant-type v))]))
+(defmethod constant-type IPersistentSet [v] (RClass-of (Class->symbol IPersistentSet) [(apply Un (map constant-type v))]))
 
 (defmethod constant-type IPersistentList
   [clist]
@@ -5918,7 +5910,7 @@
 (defmethod check :the-var
   [{:keys [var] :as expr} & [expected]]
   (assoc expr
-         expr-type (ret (RInstance-of Var)
+         expr-type (ret (RClass-of (Class->symbol Var) nil)
                         (-FS -top -bot)
                         -empty)))
 
@@ -6035,14 +6027,14 @@
                   "Must provide literal Class as first argument to into-array")
         array-cls (:val array-cls-type)
         ccoll-expr (check (second args)
-                          (ret (RInstance-of Seqable [(Un -nil (RInstance-of array-cls))])))
+                          (ret (RClass-of (Class->symbol Seqable) [(Un -nil (RClass-of (Class->symbol array-cls) nil))])))
         coll-type (-> ccoll-expr expr-type ret-t)
-        _ (assert (subtype? coll-type (RInstance-of Seqable [(Un -nil (RInstance-of array-cls))]))
+        _ (assert (subtype? coll-type (RClass-of (Class->symbol Seqable) [(Un -nil (RClass-of (Class->symbol array-cls) nil))]))
                   (str "Cannot populate " array-cls " array with " (unparse-type coll-type)))]
     (assoc expr 
            expr-type (ret (->PrimitiveArray array-cls
-                                            (Un -nil (RInstance-of array-cls))
-                                            (Un -nil (RInstance-of array-cls)))))))
+                                            (Un -nil (RClass-of (Class->symbol array-cls) nil))
+                                            (Un -nil (RClass-of (Class->symbol array-cls) nil)))))))
 
 ;not
 (defmethod invoke-special #'clojure.core/not
@@ -6181,7 +6173,7 @@
   (pr"special apply:")
   (let [e (invoke-apply expr expected)]
     (when (= e ::not-special)
-      (throw (Exception. "apply must be special")))
+      (throw (Exception. (str "apply must be special:" (-> expr :args first :var)))))
     e))
 
 ;manual instantiation
@@ -6355,12 +6347,12 @@
         ;_ (prn "specials:" (map unparse-type tys))
         sub? (when special?
                (subtype? targett
-                         (RInstance-of ISeq [-any])))]
+                         (RClass-of (Class->symbol ISeq) [-any])))]
     (cond
       (and special? sub?)
       (assoc expr
              expr-type (ret -true 
-                            (-FS (-filter-at (RInstance-of ISeq [-any]) obj)
+                            (-FS (-filter-at (RClass-of (Class->symbol ISeq) [-any]) obj)
                                  -bot)
                             -empty))
 
@@ -6368,7 +6360,7 @@
       (assoc expr
              expr-type (ret -false 
                             (-FS -bot
-                                 (-not-filter-at (RInstance-of ISeq [-any]) obj))
+                                 (-not-filter-at (RClass-of (Class->symbol ISeq) [-any]) obj))
                             -empty))
 
       :else (do ;(prn "seq? not special")
@@ -6420,11 +6412,11 @@
                                   ;;  * target is nil or seq and default is true
                                   ;;  * target is seqable, default is false
                                   ;;    and target is at least (inc nnth) count
-                                  default-fs+ (-or (-and (-filter-at (Un -nil (RInstance-of ISeq [-any])) 
+                                  default-fs+ (-or (-and (-filter-at (Un -nil (RClass-of (Class->symbol ISeq) [-any])) 
                                                                      target-o)
                                                          (-not-filter-at (Un -false -nil) 
                                                                          default-o))
-                                                   (-and (-filter-at (In (RInstance-of Seqable [-any])
+                                                   (-and (-filter-at (In (RClass-of (Class->symbol Seqable) [-any])
                                                                          (make-CountRange (inc nnth)))
                                                                      target-o)
                                                          (-filter-at (Un -false -nil) 
@@ -6432,7 +6424,7 @@
                                   ;;Without default:
                                   ;; if this is a true value: 
                                   ;;  * target is seqable of at least nnth count
-                                  nodefault-fs+ (-filter-at (In (RInstance-of Seqable [-any])
+                                  nodefault-fs+ (-filter-at (In (RClass-of (Class->symbol Seqable) [-any])
                                                                 (make-CountRange (inc nnth)))
                                                             target-o)]
                               (-FS (if default-t
@@ -6532,27 +6524,71 @@
 (defmethod invoke-special :default [& args] ::not-special)
 (defmethod static-method-special :default [& args] ::not-special)
 
-;(defn check-apply
-;  [{[fexpr & args] :args :as expr} expected]
-;  (let [[fixed-args rest-arg] [(butlast args) (last args)]]
-;  (cond
-;    (Fn-Intersection? fexpr)
-;    (do 
-;      (when (empty? (:types fexpr))
-;        (throw (Exception. "Error in apply")))
-;      (loop [[{:keys [dom rng rest drest] :as f} & fs] (:types fexpr)]
-;        (cond
-;          (not f) (throw (Exception. (str "Domain mismatch in apply.")))
-;          ;; the case of the function type has a rest argument
-;          (and rest
-;               (subtype? 
-;
-;  )
+(defn check-apply
+  [{[fexpr & args] :args :as expr} expected]
+  (let [ftype (ret-t (expr-type (check fexpr)))
+        [fixed-args tail] [(butlast args) (last args)]]
+    (cond
+      ;apply of a simple function
+      (Fn-Intersection? ftype)
+      (do 
+        (when (empty? (:types ftype))
+          (throw (Exception. "Empty function intersection given as argument to apply")))
+        (let [arg-tres (mapv check fixed-args)
+              arg-tys (mapv (comp ret-t expr-type) arg-tres)
+              tail-ty (ret-t (expr-type (check tail)))]
+          (loop [[{:keys [dom rng rest drest]} :as fs] (:types ftype)]
+            (cond
+              ;we've run out of cases to try, so error out
+              (empty? fs)
+              (throw (Exception. (str "Bad arguments to function in apply: " 
+                                      (unparse-type ftype) (mapv unparse-type (concat arg-tys [tail-ty])))))
+
+              ;this case of the function type has a rest argument
+              (and rest
+                   ;; check that the tail expression is a subtype of the rest argument
+                   (subtype? tail-ty rest)
+                   (subtypes-varargs? arg-tys dom rest))
+              (ret rng)
+
+              ;other cases go here
+
+              ;next case
+              :else (recur (next fs))))))
+
+      ;; apply of a simple polymorphic function
+      (Poly? ftype)
+      (let [vars (repeatedly (:nbound ftype) gensym)
+            bbnds (Poly-bbnds* vars ftype)
+            body (Poly-body* vars ftype)
+            _ (assert (Fn-Intersection? body))
+            arg-tres (mapv check fixed-args)
+            arg-tys (mapv (comp ret-t expr-type) arg-tres)
+            tail-bound nil
+            tail-ty (ret-t (expr-type (check tail)))]
+        (loop [[{:keys [dom rng rest drest]} :as fs] (:types body)]
+          (cond
+            (empty? fs) (throw (Exception. "Bad arguments to polymorphic function in apply"))
+            ;the actual work, when we have a * function and a list final argument
+            :else 
+            (if-let [substitution (and rest (not tail-bound) 
+                                       (<= (count dom)
+                                           (count arg-tys))
+                                       (infer-vararg (zipmap vars bbnds) #{}
+                                                     (cons tail-ty arg-tys)
+                                                     (cons (RClass-of (Class->symbol Seqable) [rest])
+                                                           dom)
+                                                     rest
+                                                     rng))]
+              (ret (subst-all substitution rng))
+              (recur (next fs))))))
+
+      :else ::not-special)))
 
 ;convert apply to normal function application
-;(defmethod invoke-apply :default 
-;  [expr & [expected]]
-;  (check-apply expr expected))
+(defmethod invoke-apply :default 
+  [expr & [expected]]
+  (check-apply expr expected))
 
 (defmethod check :invoke
   [{:keys [fexpr args env] :as expr} & [expected]]
@@ -6798,7 +6834,7 @@
     (let [param-locals (let [dom-local (zipmap (map :sym required-params) dom)
                              rest-local (when (or rest-param rest)
                                           (assert (and rest rest-param))
-                                          [(:sym rest-param) (Un -nil (RInstance-of ASeq [rest]))])]
+                                          [(:sym rest-param) (Un -nil (RClass-of (Class->symbol ASeq) [rest]))])]
                          (conj dom-local rest-local))
           props (map (fn [oldp]
                        (reduce (fn [p sym]
@@ -6867,7 +6903,7 @@
   (if-let [typ (or (primitives sym)
                    (symbol->PArray sym nilable?)
                    (when-let [cls (resolve sym)]
-                     (apply Un (RInstance-of cls)
+                     (apply Un (RClass-of (Class->symbol cls) nil)
                             (when nilable?
                               [-nil]))))]
     typ
@@ -6876,7 +6912,8 @@
 (defn- instance-method->Function [{:keys [parameter-types declaring-class return-type] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(Fn-Intersection? %)]}
-  (Fn-Intersection (make-Function (concat [(RInstance-of (resolve declaring-class))]
+  (assert (resolve declaring-class))
+  (Fn-Intersection (make-Function (concat [(RClass-of declaring-class nil)]
                                           (doall (map #(Method-symbol->Type % false) parameter-types)))
                                   (Method-symbol->Type return-type true))))
 
@@ -6902,7 +6939,7 @@
         _ (when-not (class? cls)
             (throw (Exception. (str "Constructor for unresolvable class " (:class ctor)))))]
     (Fn-Intersection (make-Function (doall (map #(Method-symbol->Type % false) parameter-types))
-                                    (RInstance-of cls)
+                                    (RClass-of (Class->symbol cls) nil)
                                     nil nil
                                     :filter (-FS -top -bot))))) ;always a true value
 
@@ -6917,8 +6954,9 @@
           _ (when inst?
               (let [ctarget (check (:target expr))]
                 (prn "check target" (unparse-type (ret-t (expr-type ctarget)))
-                     (unparse-type (RInstance-of (resolve (:declaring-class method)))))
-                (assert (subtype (ret-t (expr-type ctarget)) (RInstance-of (resolve (:declaring-class method)))))))
+                     (unparse-type (RClass-of (Class->symbol (resolve (:declaring-class method))) nil)))
+                (assert (subtype (ret-t (expr-type ctarget)) (RClass-of (Class->symbol (resolve (:declaring-class method)))
+                                                                        nil)))))
           cargs (doall (map check args))
           result-type (check-funapp rfin-type (map expr-type cargs) expected)]
       (assoc expr
@@ -6987,7 +7025,7 @@
   (let [cls-stub (symbol (.getName ^Class cls))
         clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
         inst-of (or (@DATATYPE-ENV clssym)
-                    (RInstance-of (Class/forName (str clssym))))
+                    (RClass-of (Class->symbol (Class/forName (str clssym)) nil)))
         cexpr (check the-expr)
         expr-tr (expr-type cexpr)]
     (assoc expr
@@ -7015,7 +7053,7 @@
   [{:keys [exception] :as expr} & [expected]]
   (let [cexception (check exception)
         _ (assert (subtype? (ret-t (expr-type cexception))
-                            (RInstance-of Throwable))
+                            (RClass-of (Class->symbol Throwable) nil))
                   (str "Can only throw Throwable, found "
                        (unparse-type (ret-t (expr-type cexception)))))]
     (assoc expr
@@ -7432,9 +7470,9 @@
                                          (-FS -top -top)
                                          -empty)))]
       (assoc cexpr
-             expr-type (ret (RInstance-of Var))))
+             expr-type (ret (RClass-of (Class->symbol Var) nil))))
     (assoc expr
-           expr-type (ret (RInstance-of Var)))))
+           expr-type (ret (RClass-of (Class->symbol Var) nil)))))
 
 (declare check-new-instance-method)
 
@@ -7481,7 +7519,7 @@
                                              (and (class? cls) 
                                                   cls))]
                                 (or (first (filter #(= (:on-class %) tsym) (vals @PROTOCOL-ENV)))
-                                    (RInstance-of cls))
+                                    (RClass-of (Class->symbol cls) nil))
                                 (resolve-protocol tsym)))))
                         old-ancestors)
         _ (prn "ancestor diff" ancestor-diff)
