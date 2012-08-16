@@ -1294,38 +1294,38 @@
   (-or (-not-filter -nil 'a)
        (-and (-filter -nil 'a)
              (-filter -false 'b)))
-(simplify-prop (-filter -nil 'a) (-and (-filter -nil 'a)
-                                       (-filter -false 'b)))
+  (simplify-prop (-filter -nil 'a) (-and (-filter -nil 'a)
+                                         (-filter -false 'b)))
   ;=> (-filter -nil 'a)
-'[-or-filter
-  [-not-filter (Value :Black) (:tree) 0]
-  [-and-filter
-   ; or->and, elim -filter (:Black) (:tree 0)
-   [-filter (Value :Black) (:tree) 0]
-   [-or-filter
-    ;and->or,  elim -filter (:Black) (:tree 0)
+  '[-or-filter
+    [-not-filter (Value :Black) (:tree) 0]
     [-and-filter
-     ;or->and,  elim -not-filter (:Black) (:tree 0)
-     [-filter (Value :Black) (:tree) 0]
-     [-not-filter (Value :Red) (:left :tree) 0]]
-
-    [-and-filter
-     ;or->and,  elim -not-filter (:Black) (:tree 0)
-     [-filter (Value :Red) (:left :tree) 0]
+     ; or->and, elim -filter (:Black) (:tree 0)
      [-filter (Value :Black) (:tree) 0]
      [-or-filter
+      ;and->or,  elim -filter (:Black) (:tree 0)
       [-and-filter
+       ;or->and,  elim -not-filter (:Black) (:tree 0)
+       [-filter (Value :Black) (:tree) 0]
+       [-not-filter (Value :Red) (:left :tree) 0]]
+
+      [-and-filter
+       ;or->and,  elim -not-filter (:Black) (:tree 0)
        [-filter (Value :Red) (:left :tree) 0]
        [-filter (Value :Black) (:tree) 0]
-       [-not-filter (Value :Red) (:right :tree) 0]]
-      [-and-filter
-       [-filter (Value :Red) (:left :tree) 0]
-       [-filter (Value :Black) (:tree) 0]
-       [-filter (Value :Red) (:right :tree) 0]
-       [-not-filter (Value :Red) (:right :left :tree) 0]]]]]
-   ]
-  ]
-)
+       [-or-filter
+        [-and-filter
+         [-filter (Value :Red) (:left :tree) 0]
+         [-filter (Value :Black) (:tree) 0]
+         [-not-filter (Value :Red) (:right :tree) 0]]
+        [-and-filter
+         [-filter (Value :Red) (:left :tree) 0]
+         [-filter (Value :Black) (:tree) 0]
+         [-filter (Value :Red) (:right :tree) 0]
+         [-not-filter (Value :Red) (:right :left :tree) 0]]]]]
+     ]
+    ]
+  )
 
 (declare atomic-filter?)
 
@@ -4979,9 +4979,9 @@
           [[x -> Any] (U nil (Seqable x)) -> (Seqable x)]))
 
 (comment
-(aget my-array 0 1 2)
-(aget (aget my-array 0) 1 2)
-(aget (aget (aget my-array 0) 1) 2)
+  (aget my-array 0 1 2)
+  (aget (aget my-array 0) 1 2)
+  (aget (aget (aget my-array 0) 1) 2)
 
   (App [(Associative a b) c d -> (Associative (U a c) (U b d))]
        (App [(Associative a b) c d -> (Associative (U a c) (U b d))]
@@ -4990,45 +4990,45 @@
                  :a 1)
             :b 2)
        :c 3)
-       
-(assoc my-map :a 1 :b 2 :c 3)
-(assoc (assoc my-map :a 1) :b 2 :c 3)
-(assoc (assoc (assoc my-map :a 1) :b 2) :c 3)
 
-(ann clojure.core/aset
-     (Label [rec]
-            (All [w [v :< w] :dotted [b]]
-                 [(Array w _) AnyInteger v -> v]
-                 [(Array _ r) AnyInteger b ... b
-                  :recur (rec r b ... b)])))
+  (assoc my-map :a 1 :b 2 :c 3)
+  (assoc (assoc my-map :a 1) :b 2 :c 3)
+  (assoc (assoc (assoc my-map :a 1) :b 2) :c 3)
 
-(ann clojure.core/aget 
-     (Label [rec]
-       (All [x :dotted [b]] 
-            (Fn [(Array _ x) AnyInteger -> x]
-                [(Array _ x) AnyInteger b ... b
-                 :recur 
-                 (rec x b ... b)]))))
+  (ann clojure.core/aset
+       (Label [rec]
+              (All [w [v :< w] :dotted [b]]
+                   [(Array w _) AnyInteger v -> v]
+                   [(Array _ r) AnyInteger b ... b
+                    :recur (rec r b ... b)])))
 
-(ann clojure.core/assoc 
-     (Label [rec]
-       (All [[h :< (HMap {})] x y [k :< (I AnyValue Keyword)] [e :< k] :dotted [b]]
-            [h k v -> (I h (HMap k v))]
-            [(Associative y x) y x -> (Associative y x)]
-            [h k v b ... b
-             :recur (rec (I h (HMap {k v})) b ... b)]
-            [(Associative y x) y x b ... b
-             :recur (rec (Associative y x) b ... b)]
-            )))
+  (ann clojure.core/aget 
+       (Label [rec]
+              (All [x :dotted [b]] 
+                   (Fn [(Array _ x) AnyInteger -> x]
+                       [(Array _ x) AnyInteger b ... b
+                        :recur 
+                        (rec x b ... b)]))))
 
-(ann clojure.core/dissoc
-     (Label [rec]
-            (All [[m :< (Associative _ _)] :dotted [b]]
-                 [nil Any * -> nil]
-                 [m -> m]
-                 [m k b ... b
-                  :recur
-                  (rec (I m (HMap {} :without [k])) b ... b)])))
+  (ann clojure.core/assoc 
+       (Label [rec]
+              (All [[h :< (HMap {})] x y [k :< (I AnyValue Keyword)] [e :< k] :dotted [b]]
+                   [h k v -> (I h (HMap k v))]
+                   [(Associative y x) y x -> (Associative y x)]
+                   [h k v b ... b
+                    :recur (rec (I h (HMap {k v})) b ... b)]
+                   [(Associative y x) y x b ... b
+                    :recur (rec (Associative y x) b ... b)]
+                   )))
+
+  (ann clojure.core/dissoc
+       (Label [rec]
+              (All [[m :< (Associative _ _)] :dotted [b]]
+                   [nil Any * -> nil]
+                   [m -> m]
+                   [m k b ... b
+                    :recur
+                    (rec (I m (HMap {} :without [k])) b ... b)])))
 
   (update-in {:a {:b 1}} [:a :b] inc)
   (update-in 
@@ -5036,38 +5036,38 @@
     [:b] 
     inc)
 
-(ann clojure.core/update-in
-     (FixedPoint
-       (All [[x :< (U nil (Associative Any Any))] k [l :< k] v r e
-             :dotted [a b]]
-            (Fn [(HMap {l v}) (Vector* k) [v a ... a -> r] a ... a -> (I x (HMap {l r}))]
-                [(HMap {l r}) (Vector* k b ... b) [v a ... a -> e] a ... a
-                 :recur
-                 [r (Vector* b ... b) [v a ... a -> e] a ... a]]))))
+  (ann clojure.core/update-in
+       (FixedPoint
+         (All [[x :< (U nil (Associative Any Any))] k [l :< k] v r e
+               :dotted [a b]]
+              (Fn [(HMap {l v}) (Vector* k) [v a ... a -> r] a ... a -> (I x (HMap {l r}))]
+                  [(HMap {l r}) (Vector* k b ... b) [v a ... a -> e] a ... a
+                   :recur
+                   [r (Vector* b ... b) [v a ... a -> e] a ... a]]))))
 
-;(ann clojure.core/get-in 
-;     (Label [rec]
-;       (All [[x :< (U nil (Associative Any Any))] k :dotted [b]]
-;            (Fn [x (Vector*) -> x]
-;                [x (Vector*) _ -> x]
-;                [(U nil (Associative _ y) (Vector* k b ... b) a -> x
-;                ;TODO
-;                [(U nil (Associative Any y)) (Vector* k) -> (U nil x)]
-;                    )))))
+  ;(ann clojure.core/get-in 
+  ;     (Label [rec]
+  ;       (All [[x :< (U nil (Associative Any Any))] k :dotted [b]]
+  ;            (Fn [x (Vector*) -> x]
+  ;                [x (Vector*) _ -> x]
+  ;                [(U nil (Associative _ y) (Vector* k b ... b) a -> x
+  ;                ;TODO
+  ;                [(U nil (Associative Any y)) (Vector* k) -> (U nil x)]
+  ;                    )))))
 
-(ann clojure.core/partial 
-     (Label [rec]
-       (All [x [a :< x] r :dotted [b c]]
-            (Fn [[x c ... c -> r] a -> [c ... c -> r]]
-                [[x c ... c -> r] a b ... b
-                 :recur
-                 (rec [c ... c -> r] b ... b)]))))
+  (ann clojure.core/partial 
+       (Label [rec]
+              (All [x [a :< x] r :dotted [b c]]
+                   (Fn [[x c ... c -> r] a -> [c ... c -> r]]
+                       [[x c ... c -> r] a b ... b
+                        :recur
+                        (rec [c ... c -> r] b ... b)]))))
 
-;                                [[y -> x] [b ... b -> y] -> [b ... b -> x]]
-;                                [[y -> x] [z -> y] [b ... b -> z] -> [b ... b -> x]]
-;                                [[y -> x] [z -> y] [k -> z] [b ... b -> k] -> [b ... b -> x]]
-;                                [[y -> x] [z -> y] [k -> z] [l -> k] [b ... b -> l] -> [b ... b -> x]]
-;                                [[y -> x] [z -> y] [k -> z] [l -> k] [m -> l] [b ... b -> m] -> [b ... b -> x]]
+  ;                                [[y -> x] [b ... b -> y] -> [b ... b -> x]]
+  ;                                [[y -> x] [z -> y] [b ... b -> z] -> [b ... b -> x]]
+  ;                                [[y -> x] [z -> y] [k -> z] [b ... b -> k] -> [b ... b -> x]]
+  ;                                [[y -> x] [z -> y] [k -> z] [l -> k] [b ... b -> l] -> [b ... b -> x]]
+  ;                                [[y -> x] [z -> y] [k -> z] [l -> k] [m -> l] [b ... b -> m] -> [b ... b -> x]]
   )
 
 (ann clojure.core/str [Any * -> String])
@@ -7625,11 +7625,11 @@
          (check ast))))))
 
 (comment 
-(check-ns 'typed.test.example)
-; very slow because of update-composite
-(check-ns 'typed.test.rbt)
-(check-ns 'typed.test.macro)
-(check-ns 'typed.test.conduit)
-(check-ns 'typed.test.deftype)
-(check-ns 'typed.test.core-logic)
+  (check-ns 'typed.test.example)
+  ; very slow because of update-composite
+  (check-ns 'typed.test.rbt)
+  (check-ns 'typed.test.macro)
+  (check-ns 'typed.test.conduit)
+  (check-ns 'typed.test.deftype)
+  (check-ns 'typed.test.core-logic)
   )
