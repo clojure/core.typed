@@ -6,7 +6,7 @@
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
                          Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
-                         IRef AReference ARef IDeref IReference))
+                         IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -402,19 +402,24 @@
 
 (declare-type RClass)
 
-(declare RESTRICTED-CLASS instantiate-poly)
+(declare RESTRICTED-CLASS instantiate-poly Class->symbol)
 
-(defn RClass-of [sym args]
-  {:pre [(symbol? sym)
-         (every? Type? args)]
-   :post [(RClass? %)]}
-  (let [rc (@RESTRICTED-CLASS sym)]
-    (assert ((some-fn Poly? RClass? nil?) rc))
-    (assert (or (Poly? rc) (not args)) "Cannot instantiate non-polymorphic RClass")
-    (cond 
-      (Poly? rc) (instantiate-poly rc args)
-      (RClass? rc) rc
-      :else (->RClass nil nil sym {}))))
+(defn RClass-of 
+  ([sym-or-cls] (RClass-of sym-or-cls nil))
+  ([sym-or-cls args]
+   {:pre [((some-fn class? symbol?) sym-or-cls)
+          (every? Type? args)]
+    :post [(RClass? %)]}
+   (let [sym (if (class? sym-or-cls)
+               (Class->symbol sym-or-cls)
+               sym-or-cls)
+         rc (@RESTRICTED-CLASS sym)]
+     (assert ((some-fn Poly? RClass? nil?) rc))
+     (assert (or (Poly? rc) (not args)) (str "Cannot instantiate non-polymorphic RClass " sym))
+     (cond 
+       (Poly? rc) (instantiate-poly rc args)
+       (RClass? rc) rc
+       :else (->RClass nil nil sym {})))))
 
 (declare Poly* no-bounds)
 
@@ -447,7 +452,8 @@
                                      (set (keys replacements)))]
     (set/union (set (for [csym not-replaced]
                       (RClass-of csym nil)))
-               (set (vals replacements)))))
+               (set (vals replacements))
+               #{(RClass-of Object)})))
 
 (defrecord Record [the-class fields]
   "A record"
@@ -598,7 +604,13 @@
     ;PolyDots NYI
     :else (throw (Exception. "instantiate-poly: requires Poly, and PolyDots NYI"))))
 
-(defn resolve-app [rator rands]
+(declare ^:dynamic *current-env* resolve-app*)
+
+(defn resolve-App [app]
+  {:pre [(App? app)]}
+  (resolve-app* (:rator app) (:rands app)))
+
+(defn resolve-app* [rator rands]
   (let [r (-resolve rator)]
     (cond
       (Poly? rator) (do (assert (= (count rands) (:nbound rator))
@@ -606,18 +618,20 @@
                                      (unparse-type rator)))
                       (instantiate-poly rator rands))
       ;PolyDots NYI
-      :else (throw (Exception. (str "Cannot apply non-polymorphic type " (unparse-type rator)))))))
+      :else (throw (Exception. (str (when *current-env*
+                                      (str (:line *current-env*) ": "))
+                                 "Cannot apply non-polymorphic type " (unparse-type rator)))))))
 
 (declare-type App)
 
 (declare resolve-name* resolve-Name)
 
 (defn -resolve [ty]
-  {:pre [(Type? ty)]}
+  {:pre [(AnyType? ty)]}
   (cond 
     (Name? ty) (resolve-Name ty)
     (Mu? ty) (unfold ty)
-    (App? ty) (resolve-app (:rator ty) (:rands ty))
+    (App? ty) (resolve-App ty)
     :else ty))
 
 (defn resolve-Name [nme]
@@ -1851,7 +1865,10 @@
   (symbol (.getName cls)))
 
 (defn lookup-Var [nsym]
-  (assert (contains? @VAR-ANNOTATIONS nsym) (str "Untyped var reference: " nsym))
+  (assert (contains? @VAR-ANNOTATIONS nsym) 
+          (str (when *current-env*
+                 (str (:line *current-env*) ": "))
+            "Untyped var reference: " nsym))
   (@VAR-ANNOTATIONS nsym))
 
 (defn merge-locals [env new]
@@ -2273,26 +2290,22 @@
   [[n & args :as syn]]
   (let [res (resolve n)
         rsym (cond 
-               (class? res) (symbol (.getName res))
+               (class? res) (Class->symbol res)
                (var? res) (var->symbol res))]
-    (cond
-      (@DATATYPE-ENV rsym) (parse-RClass (first syn) (rest syn))
-      (@PROTOCOL-ENV rsym) (let [t (@PROTOCOL-ENV rsym)]
-                            (assert (and (Poly? t) 
-                                         (= (count args) (:nbound t)))
-                                    (str "Wrong arguments to instantiate Protocol" res))
-                            (->App t (mapv parse-type args)))
-      (@TYPE-NAME-ENV rsym) (->App (@TYPE-NAME-ENV rsym) (mapv parse-type args))
-      (class? res) (RClass-of (Class->symbol res) (mapv parse-type args))
-      :else
-      ;unqualified declared protocols and datatypes
-      (if-let [s (let [svar (symbol (name (ns-name *ns*)) (name n))
-                       scls (symbol (munge (str (ns-name *ns*) \. (name n))))]
-                   (some #(and (@TYPE-NAME-ENV %)
-                               %)
-                         [svar scls]))]
-        (->App (->Name s) (mapv parse-type args))
-        (throw (Exception. (str "Cannot parse list: " syn)))))))
+    (if-let [t ((some-fn @DATATYPE-ENV @PROTOCOL-ENV @TYPE-NAME-ENV) rsym)]
+      (resolve-app* t (mapv parse-type args))
+      (cond
+        ;a Class that's not a DataType
+        (class? res) (RClass-of (Class->symbol res) (mapv parse-type args))
+        :else
+        ;unqualified declared protocols and datatypes
+        (if-let [s (let [svar (symbol (name (ns-name *ns*)) (name n))
+                         scls (symbol (munge (str (ns-name *ns*) \. (name n))))]
+                     (some #(and (@TYPE-NAME-ENV %)
+                                 %)
+                           [svar scls]))]
+          (->App (->Name s) (mapv parse-type args))
+          (throw (Exception. (str "Cannot parse list: " syn))))))))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] (parse-type-list l))
@@ -2383,7 +2396,7 @@
 (defmethod unparse-type CountRange [{:keys [lower upper]}]
   (cond
     (= lower upper) (list 'ExactCount lower)
-    :else (list 'CountRange lower (or upper '+infinity))))
+    :else (list* 'CountRange lower (when upper [upper]))))
 
 (defmethod unparse-type App 
   [{:keys [rator rands]}]
@@ -3245,10 +3258,6 @@
          (AnyType? S)
          (AnyType? T)]
    :post [(cset? %)]}
-;  (prn "cs-gen" 
-;       V X Y
-;       (unparse-type S)
-;       (unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (subtype? S T))
     ;already been around this loop, is a subtype
@@ -3264,16 +3273,15 @@
           (cons (empty-cset X Y)
                 (mapv #(cs-gen V X Y % T) (:types S))))
 
-        ;; find *all* elements of T which can be made to be a supertype of S
-        ;; and combine the results
+        ;; find *an* element of T which can be made a supertype of S
         (Union? T)
-        (cset-combine
-          (cons (empty-cset X Y)
-                (filter identity (mapv #(try (cs-gen V X Y S %)
-                                          (catch IllegalArgumentException e
-                                            (throw e))
-                                          (catch Exception e)) 
-                                       (:types T)))))
+        (if-let [cs (seq (filter identity (mapv #(try (cs-gen V X Y S %)
+                                                   (catch IllegalArgumentException e
+                                                     (throw e))
+                                                   (catch Exception e)) 
+                                                (:types T))))]
+          (cset-combine cs)
+          (type-error S T))
 
         (and (Intersection? S)
              (Intersection? T))
@@ -3308,7 +3316,13 @@
         (Intersection? T)
         (cset-meet*
           (cons (empty-cset X Y)
-                (mapv #(cs-gen V X Y % T) (:types S))))
+                (mapv #(cs-gen V X Y S %) (:types T))))
+
+        (App? S)
+        (cs-gen V X Y (resolve-App S) T)
+
+        (App? T)
+        (cs-gen V X Y S (resolve-App T))
 
         :else
         (cs-gen* V X Y S T)))))
@@ -3332,9 +3346,19 @@
 
 (defmethod cs-gen* [HeterogeneousVector RClass] 
   [V X Y S T]
-  (cs-gen V X Y (RClass-of (Class->symbol IPersistentVector) [(apply Un (:types S))]) T))
+  (cs-gen V X Y 
+          (In (RClass-of IPersistentVector [(apply Un (:types S))]) 
+              (make-ExactCountRange (count (:types S))))
+          T))
 
 (declare cs-gen-list)
+
+(defmethod cs-gen* [DataType DataType] 
+  [V X Y S T]
+  (assert (= (:the-class S) (:the-class T)) (type-error S T))
+  (if (seq (:poly? S))
+    (cs-gen-list V X Y (:poly? S) (:poly? T))
+    (empty-cset X Y)))
 
 (defmethod cs-gen* [HeterogeneousVector HeterogeneousVector] 
   [V X Y S T]
@@ -3364,11 +3388,9 @@
 
 (defmethod cs-gen* [RClass RClass] 
   [V X Y S T]
-  (let [relevant-S (if (= (:the-class S) (:the-class T))
-                     S
-                     (some #(and (= (:constructor %) (:constructor T))
-                                 %)
-                           (RClass-supers* S)))]
+  (let [relevant-S (some #(and (= (:the-class %) (:the-class T))
+                               %)
+                         (conj (RClass-supers* S) S))]
     (cond
       relevant-S
       (cset-meet*
@@ -3739,6 +3761,7 @@
                                 S))))))]
 
       (let [{cmap :fixed dmap* :dmap} (-> C :maps first)
+            _ (assert (= 1 (count (:maps C))) "More than one constraint set found")
             dm (:map dmap*)
             subst (merge 
                     (into {}
@@ -3775,7 +3798,6 @@
                     [names images] (let [s (seq t-substs)]
                                      [(map first s)
                                       (map (comp :type second) s)])]
-                (prn "check bounds:" (zipmap names images))
                 (doseq [[nme {inferred :type :keys [bnds]}] t-substs]
                   (let [lower-bound (substitute-many (:lower-bound bnds) images names)
                         upper-bound (substitute-many (:upper-bound bnds) images names)]
@@ -3806,6 +3828,8 @@
   {:pre [((set-c? symbol?) V)
          (every? (hash-c? symbol? Bounds?) [X Y])
          (every? Type? (concat S T))
+         (seq S)
+         (seq T)
          (cset? expected-cset)]
    :post [(cset? %)]}
 ;  (prn "cs-gen-list" 
@@ -4440,9 +4464,17 @@
     A
     (binding [*sub-current-seen* (conj A [s t])]
       (cond
-        (or (Name? s)
-            (Name? t))
-        (subtype (-resolve s) (-resolve t))
+        (Name? s)
+        (subtypeA* *sub-current-seen* (resolve-Name s) t)
+
+        (Name? t)
+        (subtypeA* *sub-current-seen* s (resolve-Name t))
+
+        (App? s)
+        (subtypeA* *sub-current-seen* (resolve-App s) t)
+
+        (App? t)
+        (subtypeA* *sub-current-seen* s (resolve-App t))
 
         (Union? s)
         (if (every? #(subtype? % t) (:types s))
@@ -4595,6 +4627,7 @@
   [_ t]
   (subtype (->PrimitiveArray Object -any -any) t))
 
+;Not quite correct, datatypes have other implicit ancestors (?)
 (defmethod subtype* [DataType Type]
   [{:keys [the-class] :as s} t]
   (if (some #(subtype? % t) (set/union #{(RClass-of (Class->symbol Object) nil)} 
@@ -4603,13 +4636,13 @@
     *sub-current-seen*
     (type-error s t)))
 
-(defmethod subtype* [DataType Type]
-  [{cls1 :the-class poly1 :poly? :as s} t]
-  (subtype* (RClass-of cls1 poly1) t))
-
 (defmethod subtype* [Type DataType]
-  [s {cls2 :the-class poly2 :poly? :as t}]
-  (subtype* s (RClass-of cls2 poly2)))
+  [s {:keys [the-class] :as t}]
+  (if (some #(subtype? s %) (set/union #{(RClass-of (Class->symbol Object) nil)} 
+                                       (or (@DATATYPE-ANCESTOR-ENV the-class)
+                                           #{})))
+    *sub-current-seen*
+    (type-error s t)))
 
 (defmethod subtype* [DataType DataType]
   [{cls1 :the-class poly1 :poly? :as s} 
@@ -4743,7 +4776,8 @@
 (defmethod subtype* [HeterogeneousVector Type]
   [s t]
   (let [ss (apply Un (:types s))]
-    (subtype (RClass-of (Class->symbol IPersistentVector) [ss])
+    (subtype (In (RClass-of (Class->symbol IPersistentVector) [ss])
+                 (make-ExactCountRange (count (:types s))))
              t)))
 
 (defmethod subtype* [HeterogeneousList HeterogeneousList]
@@ -4831,6 +4865,24 @@
              :replace
              {IPersistentCollection (IPersistentCollection a)
               Seqable (Seqable a)})
+
+(alter-class APersistentSet [[a :variance :covariant]]
+             :replace
+             {Seqable (Seqable a)
+              IFn [Any -> (U a nil)]
+              AFn [Any -> (U a nil)]
+              IPersistentCollection (IPersistentCollection a)
+              IPersistentSet (IPersistentSet a)})
+
+(alter-class PersistentHashSet [[a :variance :covariant]]
+             :replace
+             {Seqable (Seqable a)
+              APersistentSet (APersistentSet a)
+              IFn [Any -> (U a nil)]
+              AFn [Any -> (U a nil)]
+              IPersistentSet (IPersistentSet a)
+              IPersistentCollection (IPersistentCollection a)
+              IMeta (IMeta Any)})
 
 (alter-class Associative [[a :variance :covariant]
                           [b :variance :covariant]]
@@ -4977,6 +5029,17 @@
 (ann clojure.core/take-while 
      (All [x] 
           [[x -> Any] (U nil (Seqable x)) -> (Seqable x)]))
+
+(ann clojure.core/drop-while
+     (All [x] 
+          [[x -> Any] (U nil (Seqable x)) -> (Seqable x)]))
+
+(ann clojure.core/disj
+     (All [x]
+          (Fn [(I (APersistentSet x) Sorted) Any Any * -> (I (APersistentSet x) Sorted)]
+              [(APersistentSet x) Any Any * -> (APersistentSet x)]
+              [(I (APersistentSet x) Sorted) Any Any * -> (I (IPersistentSet x) Sorted)]
+              [(IPersistentSet x) Any Any * -> (IPersistentSet x)])))
 
 (comment
   (aget my-array 0 1 2)
@@ -5161,7 +5224,8 @@
 
 (ann clojure.core/first
      (All [x]
-          (Fn [(I (Seqable x) (CountRange 1)) -> x]
+          (Fn [(U (I (Seqable x) (ExactCount 0)) nil) -> nil]
+              [(I (Seqable x) (CountRange 1)) -> x]
               [(U (Seqable x) nil) -> (U nil x)])))
 
 (ann clojure.core/rest
@@ -5218,6 +5282,13 @@
 
 (override-method clojure.lang.Numbers/lt [Number Number -> boolean])
 (override-method clojure.lang.Numbers/gt [Number Number -> boolean])
+
+(let [t (Fn-Intersection
+          (make-Function 
+            [(Un -nil (RClass-of Seqable [-any]))]
+            (parse-type 'AnyInteger)))]
+  (add-var-type 'clojure.core/count t)
+  (add-method-override 'clojure.lang.RT/count t))
 
 (non-nil-return java.lang.Object/getClass #{0})
 
@@ -5304,7 +5375,7 @@
 (defmethod constant-type Character [v] (->Value v))
 (defmethod constant-type clojure.lang.Keyword [v] (->Value v))
 (defmethod constant-type Boolean [v] (if v -true -false))
-(defmethod constant-type IPersistentSet [v] (RClass-of (Class->symbol IPersistentSet) [(apply Un (map constant-type v))]))
+(defmethod constant-type PersistentHashSet [v] (RClass-of (Class->symbol PersistentHashSet) [(apply Un (map constant-type v))]))
 
 (defmethod constant-type IPersistentList
   [clist]
@@ -5837,10 +5908,14 @@
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
                          ;; only try inference if argument types are appropriate and no kws
-                         (if-let [substitution (and (not (or drest kws))
-                                                    ((if rest <= =) (count dom) (count arg-types))
-                                                    (infer-vararg (zipmap fs-names bbnds) {} arg-types dom rest (Result-type* rng)
-                                                                  (and expected (ret-t expected))))]
+                         (if-let [substitution (try
+                                                 (and (not (or drest kws))
+                                                      ((if rest <= =) (count dom) (count arg-types))
+                                                      (infer-vararg (zipmap fs-names bbnds) {} arg-types dom rest (Result-type* rng)
+                                                                    (and expected (ret-t expected))))
+                                                 (catch IllegalArgumentException e
+                                                   (throw e))
+                                                 (catch Exception e))]
                            (do ;(prn "subst:" substitution)
                              (ret (subst-all substitution (Result-type* rng))))
                            (if (or rest drest kws)
@@ -5897,7 +5972,9 @@
             (throw (Exception. (pr-str "Could not apply dotted function " (unparse-type fexpr-type)
                                        " to arguments " (map unparse-type arg-types))))))
 
-        (throw (Exception. (str "Cannot invoke type: " (unparse-type fexpr-type))))))))
+        (throw (Exception. (str (when *current-env*
+                                  (str (:line *current-env*) ": "))
+                             "Cannot invoke type: " (unparse-type fexpr-type))))))))
 
 (defmethod check :var
   [{:keys [var] :as expr} & [expected]]
@@ -6170,7 +6247,7 @@
 ;apply
 (defmethod invoke-special #'clojure.core/apply
   [expr & [expected]]
-  (pr"special apply:")
+  (prn "special apply:")
   (let [e (invoke-apply expr expected)]
     (when (= e ::not-special)
       (throw (Exception. (str "apply must be special:" (-> expr :args first :var)))))
@@ -6526,6 +6603,7 @@
 
 (defn check-apply
   [{[fexpr & args] :args :as expr} expected]
+  {:post [(TCResult? %)]}
   (let [ftype (ret-t (expr-type (check fexpr)))
         [fixed-args tail] [(butlast args) (last args)]]
     (cond
@@ -6547,9 +6625,11 @@
               ;this case of the function type has a rest argument
               (and rest
                    ;; check that the tail expression is a subtype of the rest argument
-                   (subtype? tail-ty rest)
+                   (subtype? tail-ty (Un -nil (RClass-of Seqable [rest])))
                    (subtypes-varargs? arg-tys dom rest))
-              (ret rng)
+              (ret (Result-type* rng)
+                   (Result-filter* rng)
+                   (Result-object* rng))
 
               ;other cases go here
 
@@ -6588,7 +6668,11 @@
 ;convert apply to normal function application
 (defmethod invoke-apply :default 
   [expr & [expected]]
-  (check-apply expr expected))
+  (let [t (check-apply expr expected)]
+    (if (= t ::not-special)
+      t
+      (assoc expr
+             expr-type t))))
 
 (defmethod check :invoke
   [{:keys [fexpr args env] :as expr} & [expected]]

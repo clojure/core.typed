@@ -8,8 +8,7 @@
             [clojure.data :refer [diff]]
             [typed.core :refer :all]
             [typed.test.rbt]
-            [typed.test.deftype]
-            [typed.test.core-logic]))
+            [typed.test.deftype]))
 
 ;(check-ns 'typed.test.deftype)
 
@@ -95,16 +94,16 @@
                 (parse-type '(clojure.lang.Seqable Number)))))
 
 (deftest subtype-java-exceptions-test
-  (is (subtype? (RInstance-of IndexOutOfBoundsException)
-                (RInstance-of Exception))))
+  (is (subtype? (RClass-of IndexOutOfBoundsException nil)
+                (RClass-of Exception nil))))
 
 (deftest subtype-intersection
-  (is (not (subtype? (RInstance-of Seqable [-any])
-                     (In (RInstance-of Seqable [-any])
+  (is (not (subtype? (RClass-of Seqable [-any])
+                     (In (RClass-of Seqable [-any])
                          (make-CountRange 1))))))
 
 (deftest subtype-Object
-  (is (subtype? (RInstance-of clojure.lang.IPersistentList [-any]) (RInstance-of Object))))
+  (is (subtype? (RClass-of clojure.lang.IPersistentList [-any]) (RClass-of Object nil))))
 
 (deftest subtype-hmap
   (is (not (subtype? (constant-type '{:a nil})
@@ -183,7 +182,7 @@
                            1))
          (Fn-Intersection
            (make-Function
-             [(RInstance-of Seqable [(RInstance-of Number)]) (RInstance-of Number)] 
+             [(RClass-of Seqable [(RClass-of Number nil)]) (RClass-of Number nil)] 
              (-val 1)
              nil nil
              :filter (-FS -top -bot)
@@ -197,7 +196,7 @@
                   [no-bounds]
                   (Fn-Intersection
                     (make-Function
-                      [(RInstance-of Seqable [x]) (RInstance-of Number)] 
+                      [(RClass-of Seqable [x]) (RClass-of Number)] 
                       (-val 1)
                       nil nil
                       :filter (-FS -top -bot)
@@ -219,8 +218,8 @@
            (typed.core/fn> [[a :- (HMap {:a Number})]]
                            (get a :a)))
          (Fn-Intersection
-           (make-Function [(->HeterogeneousMap {(-val :a) (RInstance-of Number)})]
-                          (RInstance-of Number)
+           (make-Function [(->HeterogeneousMap {(-val :a) (RClass-of Number)})]
+                          (RClass-of Number)
                           nil nil
                           :filter (-FS -top -bot)
                           :object (->Path [(->KeyPE :a)] 0))))))
@@ -323,7 +322,7 @@
 (deftest check-invoke
   (is (thrown? Exception (ety (symbol "a" 'b))))
   (is (= (ety (symbol "a" "a"))
-         (RInstance-of clojure.lang.Symbol))))
+         (RClass-of clojure.lang.Symbol))))
 
 (deftest check-do-test
   (is (= (ety (do 1 2))
@@ -332,22 +331,22 @@
 (deftest tc-var-test
   (is (= (tc-t seq?)
          (ret (In (->Function [-any]
-                              (make-Result (RInstance-of Boolean/TYPE) 
-                                           (-FS (-filter (RInstance-of ISeq [-any]) 0)
-                                                (-not-filter (RInstance-of ISeq [-any]) 0))
+                              (make-Result (RClass-of 'boolean) 
+                                           (-FS (-filter (RClass-of ISeq [-any]) 0)
+                                                (-not-filter (RClass-of ISeq [-any]) 0))
                                            (->NoObject))
                               nil nil nil))
               (-FS -top -top) -empty))))
 
 (deftest heterogeneous-ds-test
   (is (not (subtype? (parse-type '(HMap {:a (Value 1)}))
-                     (RInstance-of ISeq [(->Top)]))))
+                     (RClass-of ISeq [(->Top)]))))
   (is (not (subtype? (parse-type '(Vector* (Value 1) (Value 2)))
-                     (RInstance-of ISeq [(->Top)]))))
+                     (RClass-of ISeq [(->Top)]))))
   (is (subtype? (parse-type '(Seq* (Value 1) (Value 2)))
-                (RInstance-of ISeq [(->Top)])))
+                (RClass-of ISeq [(->Top)])))
   (is (subtype? (parse-type '(List* (Value 1) (Value 2)))
-                (RInstance-of ISeq [(->Top)])))
+                (RClass-of ISeq [(->Top)])))
   (is (= (tc-t [1 2])
          (ret (->HeterogeneousVector [(->Value 1) (->Value 2)]) -true-filter -empty)))
   (is (= (tc-t '(1 2))
@@ -426,10 +425,10 @@
                [(-filter (Un -nil -false) 'and1)]
                (atom true))))
   ; refine a subtype
-  (is (= (:l (env+ (->PropEnv {'and1 (RInstance-of Seqable [-any])} [])
-                   [(-filter (RInstance-of IPersistentVector [-any]) 'and1)]
+  (is (= (:l (env+ (->PropEnv {'and1 (RClass-of Seqable [-any])} [])
+                   [(-filter (RClass-of IPersistentVector [-any]) 'and1)]
                    (atom true)))
-         {'and1 (RInstance-of IPersistentVector [-any])})))
+         {'and1 (RClass-of IPersistentVector [-any])})))
 
 (deftest destructuring-special-ops
   (is (= (tc-t (seq? [1 2]))
@@ -465,7 +464,7 @@
            ret-t)
          (In (->Function [(->Name 'typed.test.core/UnionName)]
                          (make-Result -false 
-                                      ;FIXME why isn't this (-FS -bot (-not-filter (RInstance-of ISeq [-any]) 0)) ?
+                                      ;FIXME why isn't this (-FS -bot (-not-filter (RClass-of ISeq [-any]) 0)) ?
                                       (-FS -bot -top)
                                       -empty)
                          nil nil nil))))
@@ -780,10 +779,10 @@
          (->Top)))
   (is (= (demote-var (make-F 'x) '#{x})
          (Bottom)))
-  (is (= (promote-var (RInstance-of clojure.lang.ISeq [(make-F 'x)]) '#{x})
-         (RInstance-of clojure.lang.ISeq [(->Top)])))
-  (is (= (demote-var (RInstance-of clojure.lang.ISeq [(make-F 'x)]) '#{x})
-         (RInstance-of clojure.lang.ISeq [(Bottom)]))))
+  (is (= (promote-var (RClass-of clojure.lang.ISeq [(make-F 'x)]) '#{x})
+         (RClass-of clojure.lang.ISeq [(->Top)])))
+  (is (= (demote-var (RClass-of clojure.lang.ISeq [(make-F 'x)]) '#{x})
+         (RClass-of clojure.lang.ISeq [(Bottom)]))))
 
 (deftest variances-test
   (is (= (fv-variances (make-F 'x))
@@ -791,13 +790,13 @@
   (is (= (fv-variances (->Top))
          '{}))
   (is (= (fv-variances 
-           (make-Function [] (RInstance-of Atom [(make-F 'a) (make-F 'a)])))
+           (make-Function [] (RClass-of Atom [(make-F 'a) (make-F 'a)])))
          '{a :invariant}))
   (is (= (fv-variances 
-           (make-Function [] (RInstance-of Atom [-any (make-F 'a)])))
+           (make-Function [] (RClass-of Atom [-any (make-F 'a)])))
          '{a :covariant}))
   (is (= (fv-variances 
-           (make-Function [] (RInstance-of Atom [(make-F 'a) -any])))
+           (make-Function [] (RClass-of Atom [(make-F 'a) -any])))
          '{a :contravariant})))
 
 
@@ -816,6 +815,18 @@
                  (make-F 'x)) ;T
          (->cset [(->cset-entry {'x (->c (->Value 1) 'x (->Top) no-bounds)
                                  'y (->c (Un) 'y (->Top) no-bounds)}
+                                (->dmap {}))])))
+  ;intersections correctly inferred
+  (is (= (typed.core/cs-gen '#{} {'x no-bounds} '{} 
+                            (->HeterogeneousVector [(-val 1)])
+                            (In (RClass-of Seqable [(make-F 'x)]) (make-CountRange 1)))
+         (->cset [(->cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)}
+                                (->dmap {}))])))
+;correct RClass ancestor inference
+  (is (= (cs-gen #{} {'x no-bounds} {} 
+                 (RClass-of IPersistentVector [(RClass-of Number)])
+                 (RClass-of Seqable [(make-F 'x)]))
+         (->cset [(->cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)}
                                 (->dmap {}))]))))
 
 (deftest subst-gen-test
@@ -836,27 +847,27 @@
                 (make-F 'x)))) ;result
   (is (= (infer {'x no-bounds} ;tv env
                 {}
-                [(RInstance-of IPersistentVector [(Un (-val 1) (-val 2) (-val 3))])] ;actual
-                [(RInstance-of Seqable [(make-F 'x)])] ;expected
-                (RInstance-of ASeq [(make-F 'x)])))) ;result
+                [(RClass-of IPersistentVector [(Un (-val 1) (-val 2) (-val 3))])] ;actual
+                [(RClass-of Seqable [(make-F 'x)])] ;expected
+                (RClass-of ASeq [(make-F 'x)])))) ;result
   (is (= (infer {'x no-bounds} ;tv env
                 {}
                 [(->HeterogeneousVector [(-val 1) (-val 2) (-val 3)])] ;actual
-                [(RInstance-of Seqable [(make-F 'x)])] ;expected
-                (RInstance-of ASeq [(make-F 'x)]))))) ;result
+                [(RClass-of Seqable [(make-F 'x)])] ;expected
+                (RClass-of ASeq [(make-F 'x)]))))) ;result
 
 (deftest arith-test
   (is (subtype? (:t (tc-t (+)))
-                (RInstance-of Number)))
+                (RClass-of Number)))
   (is (subtype? (:t (tc-t (+ 1 2)))
-                (RInstance-of Number)))
+                (RClass-of Number)))
   (is (thrown? Exception (tc-t (+ 1 2 "a"))))
   (is (thrown? Exception (tc-t (-))))
   (is (thrown? Exception (tc-t (/)))))
 
 (deftest tc-constructor-test
   (is (= (tc-t (Exception. "a"))
-         (ret (RInstance-of Exception)
+         (ret (RClass-of Exception)
               (-FS -top -bot)
               (->NoObject)))))
 
@@ -866,21 +877,28 @@
 
 (deftest first-seq-test
   (is (subtype? (:t (tc-t (first [1 1 1])))
-                (Un -nil (RInstance-of Number))))
-  (is (subtype (In (RInstance-of clojure.lang.PersistentList [-any])
+                (Un -nil (RClass-of Number))))
+  (is (subtype (In (RClass-of clojure.lang.PersistentList [-any])
                    (make-CountRange 1))
-               (In (RInstance-of Seqable [-any])
+               (In (RClass-of Seqable [-any])
                    (make-CountRange 1))))
   (is (subtype? (:t (tc-t (let [l [1 2 3]]
                             (if (seq l)
                               (first l)
                               (throw (Exception. "Error"))))))
-                (RInstance-of Number))))
+                (RClass-of Number)))
+  (is (= (tc-t (first [1]))
+         (ret (RClass-of Number))))
+  (is (= (tc-t (first []))
+         (ret -nil)))
+  (is (= (tc-t (first [1 2 3]))
+         (ret (RClass-of Number))))
+  )
 
 (deftest intersection-maker-test
   (is (= (In -nil (-val 1))
          (Un)))
-  (is (= (In (RInstance-of Seqable [-any])
+  (is (= (In (RClass-of Seqable [-any])
              -nil)
          (Un))))
 
@@ -894,20 +912,20 @@
 
 (deftest core-logic-subtype-test
   (is (subtype? (->Name 'typed.test.core-logic/Term) 
-                (Un -nil (RInstance-of Object)))))
+                (Un -nil (RClass-of Object)))))
 
 (deftest ccfind-test
   (is (= (-> (tc-t (typed.core/fn> [[a :- (clojure.lang.IPersistentMap Long String)]]
                                    (find a 1)))
            :t :types first :rng :t)
-         (Un (->HeterogeneousVector (list (RInstance-of Long) (RInstance-of String)))
+         (Un (->HeterogeneousVector (list (RClass-of Long) (RClass-of String)))
              -nil))))
 
 (deftest map-infer-test
   (is (subtype? (ret-t (tc-t (map + [1 2])))
-                (RInstance-of Seqable [(RInstance-of Number)])))
+                (RClass-of Seqable [(RClass-of Number)])))
   (is (subtype? (ret-t (tc-t (map + [1 2] [1 2] [4 5] [6 7] [4 4] [3 4])))
-                (RInstance-of Seqable [(RInstance-of Number)])))
+                (RClass-of Seqable [(RClass-of Number)])))
   (is (thrown? Exception (tc-t (map + [1 2] [1 2] [4 5] [6 7] [4 4] {3 4}))))
   (is (thrown? Exception (tc-t (map + [1 2] [1 2] [4 5] [6 7] [4 4] #{'a 4})))))
 
@@ -923,7 +941,7 @@
                            (typed.core/ann-form (atom 1) 
                                                 (clojure.lang.Atom Number Number))
                            10.1)))
-                (RInstance-of Number))))
+                (RClass-of Number))))
 
 ;(deftest f-bound-test
 ;  )

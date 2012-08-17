@@ -4,21 +4,17 @@
   (:require [clojure.set :as set]
             [typed.core :refer [ann def-alias declare-protocols ann-protocol
                                 ann-pprotocol declare-datatypes
+                                ann-form
                                 tc-ignore check-ns ann-datatype tc-pr-env cf
                                 parse-type ann-pdatatype fn>]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]])
   (:import [java.io Writer]
-           [clojure.lang IPersistentSet Symbol Sequential IPersistentMap]))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; TODO
-;;
-;; * Polymorphic Datatypes and Protocols for Pair and IPair
+           [clojure.lang Symbol Sequential IPersistentMap APersistentSet Sorted]))
 
 (ann *occurs-check* boolean)
 (ann *reify-vars* boolean)
-(ann *locals* (IPersistentSet Symbol))
+(ann *locals* (APersistentSet Symbol))
 (ann *expand-doms* boolean)
 
 (def ^{:dynamic true} *occurs-check* true)
@@ -93,7 +89,7 @@
 
 (ann-protocol IUnifyWithSet
               :methods
-              {unify-with-Set [Term (IPersistentSet Any) ISubstitutions -> (U ISubstitutions Fail)]})
+              {unify-with-Set [Term (APersistentSet Any) ISubstitutions -> (U ISubstitutions Fail)]})
 
 (ann-protocol IReifyTerm
               :methods
@@ -188,6 +184,12 @@
 (ann-protocol IRefinable
               :methods
               {refinable? [IRefinable -> boolean]})
+
+(declare-datatypes FiniteDomain)
+
+(ann-protocol IRefine
+              :methods
+              {refine [IRefine (U nil FiniteDomain Number) -> (U nil FiniteDomain Number)]})
 
 (tc-ignore
 (defprotocol IUnifyWithRefinable
@@ -319,8 +321,6 @@
                ub [IInterval -> Number]
                bounds [IInterval -> (Pair Number Number)]})
 
-(declare-protocols FiniteDomain)
-
 (ann-protocol ISortedDomain
               :methods
               {drop-one [ISortedDomain -> (U nil Number FiniteDomain)]
@@ -349,6 +349,10 @@
                disjoint? [IFiniteDomain Any -> boolean]
                intersects? [IFiniteDomain Any -> boolean]
                subsumes [IFiniteDomain Any -> boolean]})
+
+(ann-protocol IIntersection
+              :methods
+              {intersection [IIntersection (U Number nil FiniteDomain) -> (U Number nil FiniteDomain)]})
 
 (tc-ignore
 (defprotocol IFiniteDomain
@@ -393,7 +397,7 @@
                      [b :covariant]]
                [[lhs :- a]
                 [rhs :- b]]
-               :unchecked-ancestors #{(IPair a b)})
+               :unchecked-ancestors #{(IPair a b) (ExactCount 2)})
 (deftype Pair [lhs rhs]
   clojure.lang.Counted
   (count [_] 2)
@@ -457,7 +461,7 @@
 
 (ann domain [Number * -> (U nil Number FiniteDomain)])
 
-(ann-datatype FiniteDomain [[s :- (IPersistentSet Number)]
+(ann-datatype FiniteDomain [[s :- (I Sorted (APersistentSet Number))]
                             [min :- Number]
                             [max :- Number]])
 
@@ -475,17 +479,19 @@
        (> c 1) (FiniteDomain. s (first s) max)
        :else nil)))
   (drop-before [_ n]
-    (apply domain (drop-while (fn> [[s* :- Number]]
-                                 (< s* n)) 
+    (apply domain (drop-while (fn> [(s* :- Number)]
+                                 (< s* n))
                               s)))
   (keep-before [this n]
-    (apply domain (take-while (fn> [[s* :- Number]]
-                                 (< s* n) )
+    (apply domain (take-while (fn> [(s* :- Number)]
+                                 (< s* n))
                               s)))
   IRefinable
   (refinable? [_] true)
   IRefine
-  (refine [this other] (intersection this other))
+  (refine [this other] 
+    (tc-pr-env "refine:")
+    (intersection this other))
   IFiniteDomain
   (domain? [_] true)
   (member? [this that]
@@ -994,3 +1000,22 @@
    clojure.lang.PersistentHashMap/EMPTY 0
    #{}))
 
+
+
+
+
+
+
+
+
+
+
+
+(comment
+  (cf (ann-form (pair 1 2) (Pair Number Number)))
+
+  (cf (first [1]))
+  (typed.core/cs-gen '#{} {'G__65606 no-bounds} '{} 
+                     (->HeterogeneousVector [(-val 1)])
+                     (In (RClass-of Seqable [(make-F 'G__65606)]) (make-CountRange 1)))
+  )
