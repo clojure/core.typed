@@ -762,17 +762,28 @@
 (defrecord CountRange [lower upper]
   "A sequence of count between lower and upper.
   If upper is nil, between lower and infinity."
-  [(integer? lower)
+  [(nat? lower)
    (or (nil? upper)
-       (integer? upper))])
+       (nat? upper))])
+
+(defrecord GTRange [n]
+  "The type of all numbers greater than n"
+  [(number? n)])
+
+(defrecord LTRange [n]
+  "The type of all numbers less than n"
+  [(number? n)])
 
 (declare-type CountRange)
+(declare-type GTRange)
+(declare-type LTRange)
 
 (defn make-CountRange
   ([lower] (make-CountRange lower nil))
   ([lower upper] (->CountRange lower upper)))
 
 (defn make-ExactCountRange [c]
+  {:pre [(nat? c)]}
   (make-CountRange c c))
 
 (declare ->NoFilter ->NoObject ->Result -FS -top)
@@ -1624,6 +1635,10 @@
   "A path calling clojure.core/class"
   [])
 
+(defrecord CountPE []
+  "A path calling clojure.core/count"
+  [])
+
 (defrecord KeyPE [val]
   "A key in a hash-map"
   [((some-fn keyword?) val)])
@@ -1631,10 +1646,12 @@
 (declare-path-elem FirstPE)
 (declare-path-elem NextPE)
 (declare-path-elem ClassPE)
+(declare-path-elem CountPE)
 (declare-path-elem KeyPE)
 
 (defmulti unparse-path-elem class)
 (defmethod unparse-path-elem KeyPE [t] (:val t))
+(defmethod unparse-path-elem CountPE [t] 'CountPE)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Objects
@@ -1654,8 +1671,12 @@
 (def -empty (->EmptyObject))
 
 (defrecord Path [path id]
-  "A path"
-  [(every? PathElem? path)
+  "A path to a variable. Paths grow to the right, with leftmost
+  pathelem being applied first."
+  [(or (and (seq path)
+            (sequential? path))
+       (nil? path))
+   (every? PathElem? path)
    (name-ref? id)])
 
 (defrecord NoObject []
@@ -4402,7 +4423,7 @@
 
 (defn type-error [s t]
   (throw (Exception. (str "Type Error"
-                          (when ((every-pred identity :line :source) *current-env*)
+                          (when *current-env*
                             (str ", " (:source *current-env*) ":" (:line *current-env*)))
                           " - "
                           (or (-> s meta :source-Name)
@@ -4822,15 +4843,17 @@
         b2 (Poly-body* names t)]
     (subtype b1 b2)))
 
+;subtype if t includes all of s. 
+;tl <= sl, su <= tu
 (defmethod subtype* [CountRange CountRange]
   [{supper :upper slower :lower :as s}
    {tupper :upper tlower :lower :as t}]
-  (when-not (and (<= slower tlower)
-                 (if tupper
-                   (and supper (<= supper tupper))
-                   true))
-    (type-error s t))
-  *sub-current-seen*)
+  (if (and (<= tlower slower)
+           (if tupper
+             (and supper (<= supper tupper))
+             true))
+    *sub-current-seen*
+    (type-error s t)))
 
 (defmethod subtype* :default
   [s t]
@@ -5161,7 +5184,7 @@
                 (make-Function [-any]
                                (Un (RClass-of (Class->symbol Class) nil) -nil)
                                nil nil
-                               :object (->Path (->ClassPE) 0))))
+                               :object (->Path [(->ClassPE)] 0))))
 
 (add-var-type 'clojure.core/seq
               (let [x (make-F 'x)]
@@ -5286,7 +5309,9 @@
 (let [t (Fn-Intersection
           (make-Function 
             [(Un -nil (RClass-of Seqable [-any]))]
-            (parse-type 'AnyInteger)))]
+            (parse-type 'AnyInteger)
+            nil nil
+            :object (->Path [(->CountPE)] 0)))]
   (add-var-type 'clojure.core/count t)
   (add-method-override 'clojure.lang.RT/count t))
 
@@ -5874,7 +5899,7 @@
    :post [(TCResult? %)]}
   (let [fexpr-type (ret-t fexpr-ret-type)
         arg-types (doall (map ret-t arg-ret-types))]
-    ;(prn "check-funapp" (unparse-type fexpr-type) fexpr-type (map unparse-type arg-types))
+    (prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
     (cond
       ;ordinary Function, single case, special cased for improved error msgs
       (and (Fn-Intersection? fexpr-type)
@@ -5998,20 +6023,18 @@
                             (for [[{t1 :t fl1 :fl o1 :o}
                                    {t2 :t fl2 :fl o2 :o}]
                                   (comb/combinations vs 2)]
-                              (concat
-                                (when (Path? o2)
-                                  [(-filter t1 (:id o2) (:path o2))])
-                                (when (Path? o1)
-                                  [(-filter t2 (:id o1) (:path o1))])))))
-        els-fls (set (apply concat 
+                              (concat (when (Path? o2)
+                                        [(-filter t1 (:id o2) (:path o2))])
+                                      (when (Path? o1)
+                                        [(-filter t2 (:id o1) (:path o1))])))))
+        els-fls (set (apply concat
                             (for [[{t1 :t fl1 :fl o1 :o}
                                    {t2 :t fl2 :fl o2 :o}]
                                   (comb/combinations vs 2)]
-                              (concat
-                                (when (Path? o2)
-                                  [(-not-filter t1 (:id o2) (:path o2))])
-                                (when (Path? o1)
-                                  [(-not-filter t2 (:id o1) (:path o1))])))))]
+                              (concat (when (Path? o2)
+                                        [(-not-filter t1 (:id o2) (:path o2))])
+                                      (when (Path? o1)
+                                        [(-not-filter t2 (:id o1) (:path o1))])))))]
   (ret (Un -false -true)
        (-FS (if (empty? thn-fls)
               -top
@@ -6020,7 +6043,6 @@
               -top
               (apply -or els-fls)))
        -empty)))
-
 
 (defmulti invoke-special (fn [expr & args] (-> expr :fexpr :var)))
 (defmulti invoke-apply (fn [expr & args] (-> expr :args first :var)))
@@ -7122,7 +7144,7 @@
   [{cls :class :keys [ctor args env] :as expr} & [expected]]
   (prn "check: :new" "env" env)
   (binding [*current-env* env]
-    (let [cls-stub (symbol (.getName ^Class cls))
+    (let [cls-stub (Class->symbol cls)
           clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
           ifn (ret (or (and (@DATATYPE-ENV clssym)
                             (DataType-ctor-type clssym))
@@ -7369,6 +7391,20 @@
                                     (if type-at-pth 
                                       (-hmap-or-bot (assoc (:types t) fpth (update type-at-pth (-not-filter type id rstpth))))
                                       (Bottom)))
+
+      (and (TypeFilter? lo)
+           (CountPE? (first (:path lo))))
+      (let [u (:type lo)]
+        (if-let [cnt (when (and (Value? u) (integer? (:val u)))
+                       (make-ExactCountRange (:val u)))]
+          (restrict cnt t)
+          (do (prn "WARNING:" (str "Cannot infer Count from type " (unparse-type u)))
+            t)))
+
+      ;can't do much without a NotCountRange type or difference type
+      (and (NotTypeFilter? lo)
+           (CountPE? (first (:path lo))))
+      t
 
       (and (TypeFilter? lo)
            (empty? (:path lo))) 

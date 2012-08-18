@@ -836,8 +836,8 @@
                    (->Value 1) ;S
                    (make-F 'x))]
     (is (= (subst-gen cs #{} (make-F 'x))
-           {'x (->t-subst (->Value 1))
-            'y (->t-subst (Un))}))))
+           {'x (->t-subst (->Value 1) no-bounds)
+            'y (->t-subst (Un) no-bounds)}))))
 
 (deftest infer-test
   (is (= (infer (zipmap '[x y] (repeat no-bounds)) ;tv env
@@ -908,7 +908,14 @@
   (is (not (subtype? (make-CountRange 1)
                      (make-ExactCountRange 1))))
   (is (subtype? (make-ExactCountRange 1)
-                (make-CountRange 1))))
+                (make-CountRange 1)))
+  (is (subtype? (make-ExactCountRange 4)
+                (make-CountRange 1)))
+  (is (subtype? (make-ExactCountRange 4)
+                (make-CountRange 0)))
+  (is (subtype? (make-CountRange 2)
+                (make-CountRange 1)))
+  )
 
 (deftest core-logic-subtype-test
   (is (subtype? (->Name 'typed.test.core-logic/Term) 
