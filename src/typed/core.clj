@@ -2364,7 +2364,10 @@
                 (cond 
                   (class? res) (or (@DATATYPE-ENV (symbol (.getName ^Class res)))
                                    (RClass-of (Class->symbol res) nil))
-                  :else (throw (Exception. (str "Cannot resolve type: " sym)))))))))
+                  :else (if-let [t (and (var? res) 
+                                        (@TYPE-NAME-ENV (var->symbol res)))]
+                          t
+                          (throw (Exception. (str "Cannot resolve type: " sym))))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v -true -false)) 
@@ -5159,6 +5162,12 @@
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
 
+(ann clojure.core/print [Any * -> Any])
+(ann clojure.core/println [Any * -> Any])
+(ann clojure.core/pr [Any * -> Any])
+(ann clojure.core/prn [Any * -> Any])
+
+
 (ann clojure.core/atom (All [x] [x -> (Atom x x)]))
 (ann clojure.core/deref (All [x] [(IDeref x) -> x]))
 (ann clojure.core/reset! (All [w r]
@@ -5294,9 +5303,18 @@
 
 (ann clojure.core/inc (Fn [AnyInteger * -> AnyInteger]
                           [Number * -> Number]))
+(ann clojure.core/dec (Fn [AnyInteger * -> AnyInteger]
+                          [Number * -> Number]))
+
+(ann clojure.core/even? [AnyInteger -> boolean])
+(ann clojure.core/odd? [AnyInteger -> boolean])
 
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
                                               [Number Number -> Number]))
+(override-method clojure.lang.Numbers/inc (Fn [AnyInteger -> AnyInteger]
+                                              [Number -> Number]))
+(override-method clojure.lang.Numbers/dec (Fn [AnyInteger -> AnyInteger]
+                                              [Number -> Number]))
 (override-method clojure.lang.Numbers/minus (Fn [AnyInteger AnyInteger -> AnyInteger]
                                                 [Number Number -> Number]))
 (override-method clojure.lang.Numbers/multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
@@ -5948,7 +5966,9 @@
                              (recur ftypes)))))]
         (if ret-type
           ret-type
-          (throw (Exception. "Could not infer result to polymorphic function"))))
+          (throw (Exception. (str (when *current-env*
+                                    (str (:line *current-env*) ":"))
+                                  "Could not infer result to polymorphic function")))))
 
       :else ;; any kind of dotted polymorphic function without mandatory keyword args
       (if-let [[pbody fixed-vars fixed-bnds dotted-var dotted-bnd]
