@@ -1,0 +1,38 @@
+(assoc {} :a 2 :b 3)
+
+(reduce assoc1 [a b])
+
+;assoc
+[t c d [a b] ...2 [a b] -> (FReduceDots2 (fn [t [k v]]
+                                           (clojure.core/conj t [k v]))
+                                         (FApp assoc1 t c d)
+                                         (map vector [a b]))]
+
+;dissoc
+[t b ...1 b -> (FReduceDots1 dissoc1
+                             t
+                             b)]
+
+;get-in
+[t (HSeqable b ...1 b) -> (FReduceDots1 clojure.core/get
+                                        t
+                                        b)]
+
+;comp
+
+[b ... b -> (FReduceDots1 (fn [l r]
+                            ;check args match
+                            )
+                          clojure.core/identity
+                          (reverse b)
+
+(swap! a assoc :a 1)
+
+(All [w r b ...*]
+     [(Atom w r) [r b ...* -> w] b ...* -> nil])
+
+...2 <: ...*
+...1 <: ...*
+* <: ...*
+* <: ...1
+* <: ...2
