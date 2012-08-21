@@ -7764,6 +7764,14 @@
        (doseq [ast asts]
          (check ast))))))
 
+(defn trepl []
+  (clojure.main/repl 
+    :eval (fn [f] 
+            (let [t (-> (analyze/analyze-form f) 
+                      check expr-type unparse-TCResult)] 
+              (prn t) 
+              (eval f)))))
+
 (comment 
   (check-ns 'typed.test.example)
   ; very slow because of update-composite

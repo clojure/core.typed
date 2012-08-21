@@ -1,4 +1,5 @@
 pom.xml
+target
 *jar
 /lib/
 /classes/
