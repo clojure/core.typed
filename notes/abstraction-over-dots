@@ -2,11 +2,23 @@
 
 (reduce assoc1 [a b])
 
+...2 <: ...1
+
+;swap
+(All [w r]
+     [(Atom w r) [r b ... b -> w] b ... b -> w])
+
 ;assoc
-[t c d [a b] ...2 [a b] -> (FReduceDots2 (fn [t [k v]]
-                                           (clojure.core/conj t [k v]))
-                                         (FApp assoc1 t c d)
-                                         (map vector [a b]))]
+(All [t c d a ...]
+     [t c d a ... a -> (Project 
+                         (fn [t c d as]
+                           (assert (even? (count as))
+                                   "assoc accepts even number of arguments")
+                           (let [as (apply array-map as)
+                                 assoc1 (parse-type )]
+                             (reduce (fn [t [k v]]
+                                       ))))
+                         [t c d a ... a])
 
 ;dissoc
 [t b ...1 b -> (FReduceDots1 dissoc1
@@ -16,23 +28,52 @@
 ;get-in
 [t (HSeqable b ...1 b) -> (FReduceDots1 clojure.core/get
                                         t
-                                        b)]
+                                        identity
+                                        b ...1 b)]
 
 ;comp
 
-[b ... b -> (FReduceDots1 (fn [l r]
-                            ;check args match
-                            )
-                          clojure.core/identity
-                          (reverse b)
+;[[Integer -> Double] 
+; [String -> Integer]
+; [Float -> String]
+; [Double Double -> Float]
+; -> [Double Double -> Double]]
+
+[b ...1 b -> (Project
+               (fn [bs]
+                 (let [[single-args multi-arg] [(butlast bs) (last bs)]
+                       chk-single-arg (parse-type '(All [x y z]
+                                                        [[x -> y] [z -> x] -> [z -> y]]))
+                       chk-multi-arg (parse-type '(All [x y z]
+                                                       [[x -> y] [z ...* -> x] -> [z ...* -> y]]))
+                       but-multi (reduce (fn [l r]
+                                           (check-funapp (ret chk-single-arg)
+                                                         (ret l)
+                                                         (ret r)
+                                                         nil))
+                                         (parse-type '(All [x] [x -> x]))
+                                         single-args)
+                       multi (check-funapp (ret chk-multi-arg)
+                                           (ret but-multi)
+                                           (ret multi-arg)
+                                           nil)]
+                   (ret-t multi)))
+               [b ...1 b])]
 
 (swap! a assoc :a 1)
 
 (All [w r b ...*]
      [(Atom w r) [r b ...* -> w] b ...* -> nil])
 
+
+
 ...2 <: ...*
 ...1 <: ...*
 * <: ...*
 * <: ...1
 * <: ...2
+
+
+Higher-order Variable-arity Polymorphism
+
+

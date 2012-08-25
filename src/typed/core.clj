@@ -6,7 +6,8 @@
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
                          Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
-                         IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted))
+                         IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
+                         LazySeq))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -223,10 +224,10 @@
 (defn Type? [a]
   (isa? (class a) Type))
 
-(declare TCResult? Result? Function?)
+(declare TCResult? Result? Function? DottedPretype?)
 
 (defn AnyType? [a]
-  ((some-fn Type? TCResult? Result? Function?)
+  ((some-fn Type? TCResult? Result? Function? DottedPretype?)
      a))
 
 (defn declare-type [a]
@@ -385,6 +386,13 @@
 (defrecord Scope [body]
   "A scope that contains one bound variable, can be nested. Not used directly"
   [((some-fn Type? Scope?) body)])
+
+(defrecord Projection [afn ts]
+  "Projects type variables as arguments to afn"
+  [(fn? afn)
+   (every? AnyType? ts)])
+
+(declare-type Projection)
 
 (defrecord RClass [variances poly? the-class replacements]
   "A restricted class, where ancestors are
@@ -680,12 +688,8 @@
 
 (defrecord HeterogeneousMap [types]
   "A constant map, clojure.lang.IPersistentMap"
-  [(map? types)
-   (every? #(and (= 2 (count %))
-                 (let [[k v] %]
-                   (and (Value? k)
-                        (Type? v))))
-           types)])
+  [((hash-c? Value? (some-fn Type? Result?))
+     types)])
 
 (defn make-HMap [mandatory optional]
   (assert (= #{}
@@ -700,7 +704,7 @@
 (defrecord HeterogeneousVector [types]
   "A constant vector, clojure.lang.IPersistentVector"
   [(sequential? types)
-   (every? Type? types)])
+   (every? (some-fn Type? Result?) types)])
 
 (declare-type HeterogeneousVector)
 
@@ -793,6 +797,16 @@
   ([t] (make-Result t nil nil))
   ([t f] (make-Result t f nil))
   ([t f o] (->Result t (or f (-FS -top -top)) (or o (->NoObject)))))
+
+(declare ret-t ret-f ret-o)
+
+(defn Result-from-TCResult
+  [tc]
+  {:pre [(TCResult? tc)]
+   :post [(Result? %)]}
+  (make-Result (ret-t tc)
+               (ret-f tc)
+               (ret-o tc)))
 
 (defn make-Function
   "Make a function, wrap range type in a Result.
@@ -916,10 +930,20 @@
                        (fn [ty _]
                          (apply Un (mapv type-rec (:types ty)))))
 
+(add-default-fold-case Projection
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:ts] #(mapv type-rec %)))))
+
+(add-default-fold-case DottedPretype
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:pre-type] type-rec))))
+
 (add-default-fold-case Function
                        (fn [ty _]
                          (-> ty
-                           (update-in [:dom] #(map type-rec %))
+                           (update-in [:dom] #(mapv type-rec %))
                            (update-in [:rng] type-rec)
                            (update-in [:rest] #(when %
                                                  (type-rec %)))
@@ -1613,6 +1637,12 @@
                                      (subtype? (:type f1) (:type f2)))
       :else false)))
 
+(defrecord TCResult [t fl o]
+  "This record represents the result of typechecking an expression"
+  [(Type? t)
+   (FilterSet? fl)
+   (RObject? o)])
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Paths
 
@@ -1848,6 +1878,13 @@
   `(tc-ignore
      ~(gen-protocol* local-varsym (mapv second vbnd) (mapv first vbnd) mths)))
 
+(defmacro override-constructor [ctorsym typesyn]
+  `(tc-ignore
+  (let [t# (parse-type '~typesyn)
+        s# '~ctorsym]
+    (do (add-constructor-override s# t#)
+      [s# (unparse-type t#)]))))
+
 (defmacro override-method [methodsym typesyn]
   `(tc-ignore
   (let [t# (parse-type '~typesyn)
@@ -1919,10 +1956,7 @@
 
 ;symbol -> F
 (def ^:dynamic *dotted-scope* {})
-(set-validator! #'*dotted-scope* #(or (fn? %)
-                                      (and 
-                                        (every? symbol? (keys %))
-                                        (every? F? (vals %)))))
+(set-validator! #'*dotted-scope* (hash-c? symbol? F?))
 
 (defn bound-index? [n]
   (contains? *dotted-scope* n))
@@ -1987,6 +2021,17 @@
   nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Constructor Override Env
+
+(defonce CONSTRUCTOR-OVERRIDE-ENV 
+  (atom {}
+        :validator (hash-c? symbol? Type?)))
+
+(defn add-constructor-override [sym t]
+  (swap! CONSTRUCTOR-OVERRIDE-ENV assoc sym t)
+  nil)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Return non-nilables
 
 (defonce METHOD-RETURN-NONNILABLE-ENV (atom {}))
@@ -2044,7 +2089,8 @@
                                             (vals %))))
 
 (defn add-type-name [sym ty]
-  (swap! TYPE-NAME-ENV assoc sym ty)
+  (swap! TYPE-NAME-ENV assoc sym (with-meta ty
+                                            {:from-name sym}))
   nil)
 
 (defn declare-name* [sym]
@@ -2163,6 +2209,26 @@
         _ (check-forbidden-rec f body)]
     (Mu* (:name f) body)))
 
+(def ^:dynamic *parse-pretype* nil)
+
+(defmethod parse-type-list 'DottedPretype
+  [[_ psyn bsyn]]
+  (assert *parse-pretype* "DottedPretype only allowed in Project")
+  (let [df (*dotted-scope* bsyn)]
+    (assert df bsyn)
+    (->DottedPretype (with-frees [df]
+                       (parse-type psyn))
+                     (:name (*dotted-scope* bsyn)))))
+
+(defmethod parse-type-list 'Project
+  [[_ fsyn ttsyn]]
+  (let [fread (read-string (str fsyn))
+        afn (eval fread)
+        ts (binding [*parse-pretype* true]
+             (mapv parse-type ttsyn))]
+    (with-meta (->Projection afn ts)
+               {:fsyn fread})))
+
 (defmethod parse-type-list 'CountRange
   [[_ n]]
   (make-CountRange n))
@@ -2220,7 +2286,7 @@
     (-> 
       (Poly* (map first frees-with-bnds)
              (map second frees-with-bnds)
-             (with-frees (map (comp make-F first) frees-with-bnds)
+             (with-frees (mapv (comp make-F first) frees-with-bnds)
                (parse-type type)))
       (with-meta {:actual-frees (map first frees-with-bnds)}))))
 
@@ -2417,6 +2483,15 @@
 (defmethod unparse-type Name [{:keys [id]}] id)
 (defmethod unparse-type AnyValue [_] 'AnyValue)
 
+(defmethod unparse-type Projection 
+  [{:keys [ts] :as t}]
+  (let [{:keys [fsyn]} (meta t)]
+    (list 'Project fsyn (mapv unparse-type ts))))
+
+(defmethod unparse-type DottedPretype
+  [{:keys [pre-type name]}]
+  (list 'DottedPretype (unparse-type pre-type) name))
+
 (defmethod unparse-type CountRange [{:keys [lower upper]}]
   (cond
     (= lower upper) (list 'ExactCount lower)
@@ -2443,10 +2518,12 @@
   (list 'B idx))
 
 (defmethod unparse-type Union
-  [{types :types}]
-  (if (seq types)
-    (list* 'U (doall (map unparse-type types)))
-    'Nothing))
+  [{types :types :as u}]
+  (cond
+    ; Prefer the user provided Name for this type. Needs more thinking?
+    ;(-> u meta :from-name) (-> u meta :from-name)
+    (seq types) (list* 'U (doall (map unparse-type types)))
+    :else 'Nothing))
 
 (defmethod unparse-type Intersection
   [{types :types}]
@@ -3071,10 +3148,13 @@
   ""
   [((hash-c? symbol? dcon-c?) map)])
 
-(defrecord cset-entry [fixed dmap]
+(defrecord cset-entry [fixed dmap projections]
   ""
   [((hash-c? symbol? c?) fixed)
-   (dmap? dmap)])
+   (dmap? dmap)
+   ((set-c? (hvector-c? (some-fn Type? Projection?)
+                        (some-fn Type? Projection?)))
+     projections)])
 
 ;; maps is a list of cset-entries, consisting of
 ;;    - functional maps from vars to c's
@@ -3100,7 +3180,15 @@
   {:pre [(every? (hash-c? symbol? Bounds?) [X Y])]
    :post [(cset? %)]}
   (->cset [(->cset-entry (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
-                         (->dmap {}))]))
+                         (->dmap {})
+                         #{})]))
+
+(defn empty-cset-projection [X Y proj]
+  {:pre [(every? (hash-c? symbol? Bounds?) [X Y])]
+   :post [(cset? %)]}
+  (->cset [(->cset-entry (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
+                         (->dmap {})
+                         #{proj})]))
 
 (defn meet [s t] (In s t))
 (defn join [s t] (Un s t))
@@ -3126,9 +3214,11 @@
 (defn cset-meet [{maps1 :maps :as x} {maps2 :maps :as y}]
   {:pre [(cset? x)
          (cset? y)]}
-  (let [maps (doall (for [[{map1 :fixed dmap1 :dmap} {map2 :fixed dmap2 :dmap}] (map vector maps1 maps2)]
+  (let [maps (doall (for [[{map1 :fixed dmap1 :dmap prj1 :projections} 
+                           {map2 :fixed dmap2 :dmap prj2 :projections}] (map vector maps1 maps2)]
                       (->cset-entry (merge-with c-meet map1 map2)
-                                    (dmap-meet dmap1 dmap2))))]
+                                    (dmap-meet dmap1 dmap2)
+                                    (set/union prj1 prj2))))]
     (when (empty? maps)
       (throw (Exception. (str "No meet found for csets"))))
     (->cset maps)))
@@ -3137,7 +3227,7 @@
   {:pre [(every? cset? args)]
    :post [(cset? %)]}
   (reduce (fn [a c] (cset-meet a c))
-          (->cset [(->cset-entry {} (->dmap {}))])
+          (->cset [(->cset-entry {} (->dmap {}) #{})])
           args))
 
 (defn cset-combine [l]
@@ -3156,7 +3246,8 @@
   (->cset (doall
             (for [{fmap :fixed dmap :dmap} (:maps cs)]
               (->cset-entry (assoc fmap var (->c S var T bnds))
-                            dmap)))))
+                            dmap
+                            #{})))))
 
 (defn dcon-meet [dc1 dc2]
   {:pre [(dcon-c? dc1)
@@ -3348,6 +3439,10 @@
         (App? T)
         (cs-gen V X Y S (resolve-App T))
 
+        (or (Projection? S)
+            (Projection? T))
+        (empty-cset-projection X Y [S T])
+
         :else
         (cs-gen* V X Y S T)))))
 
@@ -3500,7 +3595,8 @@
                               (singleton-dmap 
                                 dbound
                                 (f cmap dmap))
-                              (->dmap (dissoc (:map dmap) dbound)))))
+                              (->dmap (dissoc (:map dmap) dbound)))
+                            #{}))
             (:maps cset))))
 
 ;; dbound : index variable
@@ -3852,8 +3948,6 @@
   {:pre [((set-c? symbol?) V)
          (every? (hash-c? symbol? Bounds?) [X Y])
          (every? Type? (concat S T))
-         (seq S)
-         (seq T)
          (cset? expected-cset)]
    :post [(cset? %)]}
 ;  (prn "cs-gen-list" 
@@ -3867,11 +3961,13 @@
     ;; We meet early to prune the csets to a reasonable size.
     ;; This weakens the inference a bit, but sometimes avoids
     ;; constraint explosion.
-    (doall 
-      (for [[s t] (map vector S T)]
-        (let [c (cs-gen V X Y s t)]
-          ;(prn "c" c)
-          (cset-meet c expected-cset))))))
+    (cons
+      (empty-cset X Y)
+      (doall 
+        (for [[s t] (map vector S T)]
+          (let [c (cs-gen V X Y s t)]
+            ;(prn "c" c)
+            (cset-meet c expected-cset)))))))
 
 (declare sub-f sub-o sub-pe)
 
@@ -5035,6 +5131,13 @@
               IDeref (IDeref r)
               IReference (IReference w r)})
 
+(alter-class LazySeq [[a :variance :covariant]]
+             :replace
+             {Seqable (Seqable a)
+              ISeq (ISeq a)
+              IMeta (IMeta Any)
+              IPersistentCollection (IPersistentCollection a)})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
@@ -5159,6 +5262,12 @@
   ;                                [[y -> x] [z -> y] [k -> z] [l -> k] [m -> l] [b ... b -> m] -> [b ... b -> x]]
   )
 
+(ann clojure.core/assoc (All [t c d a ...]
+                             [t c d a ... a -> (Project
+                                                 (fn [t c d as]
+                                                   (assert false))
+                                                 [t c d (DottedPretype a a)])]))
+
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
 
@@ -5174,7 +5283,7 @@
                               [(Atom w r) w -> r]))
 
 (ann clojure.core/swap! (All [w r b ...] 
-                             [(Atom w r) [r b ... b -> w] b ... b -> r]))
+                             [(Atom w r) [r b ... b -> w] b ... b -> w]))
 
 (ann clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
@@ -5309,6 +5418,14 @@
 (ann clojure.core/even? [AnyInteger -> boolean])
 (ann clojure.core/odd? [AnyInteger -> boolean])
 
+(ann clojure.core/take
+     (All [x]
+       [AnyInteger (Seqable x) -> (LazySeq x)]))
+
+(ann clojure.core/cons
+     (All [x]
+       [x (U nil (Seqable x)) -> (ASeq x)]))
+
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
                                               [Number Number -> Number]))
 (override-method clojure.lang.Numbers/inc (Fn [AnyInteger -> AnyInteger]
@@ -5324,6 +5441,10 @@
 (override-method clojure.lang.Numbers/lt [Number Number -> boolean])
 (override-method clojure.lang.Numbers/gt [Number Number -> boolean])
 
+(override-constructor clojure.lang.LazySeq 
+                      (All [x]
+                        [[-> (U nil (ISeq x))] -> (Seqable x)]))
+
 (let [t (Fn-Intersection
           (make-Function 
             [(Un -nil (RClass-of Seqable [-any]))]
@@ -5337,12 +5458,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
-
-(defrecord TCResult [t fl o]
-  "This record represents the result of typechecking an expression"
-  [(Type? t)
-   (FilterSet? fl)
-   (RObject? o)])
 
 (add-default-fold-case TCResult
                        (fn [ty _]
@@ -6413,17 +6528,17 @@
   (let [cargs (doall (map check args))]
     (assoc expr
            expr-type (ret (->HeterogeneousVector
-                            (mapv expr-type cargs))))))
+                            (mapv (comp Result-from-TCResult expr-type) cargs))))))
 
 ;make hash-map
 (defmethod invoke-special #'clojure.core/hash-map
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [cargs (doall (map check args))]
     (cond
-      (every? Value? (keys (apply hash-map (map expr-type cargs))))
+      (every? Value? (keys (apply hash-map (map (comp ret-t expr-type) cargs))))
       (assoc expr
              expr-type (ret (->HeterogeneousMap
-                              (apply hash-map (map expr-type cargs)))))
+                              (apply hash-map (map Result-from-TCResult cargs)))))
       :else ::not-special)))
 
 ;apply hash-map
@@ -6937,6 +7052,7 @@
     expected
     (let [fin (cond
                 (Poly? (ret-t expected)) (Poly-body* (repeatedly (:nbound (ret-t expected)) gensym) (ret-t expected))
+                (PolyDots? (ret-t expected)) (PolyDots-body* (repeatedly (:nbound (ret-t expected)) gensym) (ret-t expected))
                 :else (ret-t expected))
           _ (doseq [{:keys [required-params rest-param] :as method} methods]
               (check-fn-method method (relevant-Fns required-params rest-param fin)))]
@@ -7166,7 +7282,8 @@
   (binding [*current-env* env]
     (let [cls-stub (Class->symbol cls)
           clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
-          ifn (ret (or (and (@DATATYPE-ENV clssym)
+          ifn (ret (or (@CONSTRUCTOR-OVERRIDE-ENV clssym)
+                       (and (@DATATYPE-ENV clssym)
                             (DataType-ctor-type clssym))
                        (Constructor->Function ctor)))
           _ (prn "Expected constructor" (unparse-type (ret-t ifn)))
