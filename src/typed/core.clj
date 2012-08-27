@@ -25,6 +25,9 @@
 
 (def boolean? (some-fn true? false?))
 
+(defn every-c? [c]
+  #(every? c %))
+
 (defn hvector-c? [& ps]
   (apply every-pred vector?
          (map (fn [p i] #(p (nth % i false))) ps (range))))
@@ -33,6 +36,12 @@
   (every-pred #(instance? PersistentArrayMap %)
               #(every? ks-c? (keys %))
               #(every? vs-c? (vals %))))
+
+(defn hmap-c? [& key-vals]
+  (every-pred map?
+              #(every? identity 
+                       (for [[k vc] (partition 2 key-vals)]
+                         (vc (get % k))))))
 
 (defn hash-c? [ks-c? vs-c?]
   (every-pred map?
@@ -72,36 +81,66 @@
 (defn loop>-ann [loop-of bnding-types]
   loop-of)
 
-(defmacro pfn> 
-  "Define a polymorphic anonymous function."
-  [poly & forms]
-  (let [methods (if (vector? (first forms))
+(defn- parse-fn>
+  "(fn> name? :- type? [[param :- type]* & [param :- type *]?] exprs*)
+  (fn> name? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
+  [is-poly & forms]
+  (let [name (when (symbol? (first forms))
+               (first forms))
+        forms (if name (rest forms) forms)
+        poly (when is-poly
+               (first forms))
+        forms (if poly (rest forms) forms)
+        methods (if ((some-fn vector? keyword?) (first forms))
                   (list forms)
                   forms)
-        ;(pfn> [[a :- Number] & [n :- Number *]] a) 
-        method-doms (for [[arg-anns] methods]
-                      (let [[required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)]
-                        (assert (not rest-param) "pfn> doesn't support rest parameters yet")
-                        (map (comp second next) required-params)))]
-    `(pfn>-ann (fn ~@(for [[params & body] methods]
-                       (apply list (vec (map first params)) body)))
-               '~poly
-               '~method-doms)))
+        ;(fn> name? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
+        ; (HMap {:dom (Seqable TypeSyntax)
+        ;        :rng (U nil TypeSyntax)
+        ;        :body Any})
+        parsed-methods (doall 
+                         (for [method methods]
+                           (let [[ret has-ret?] (when (not (vector? (first method)))
+                                                  (assert (= :- (first method))
+                                                          "Return type for fn> must be prefixed by :-")
+                                                  [(second method) true])
+                                 method (if ret 
+                                          (nnext method)
+                                          method)
+                                 body (rest method)
+                                 arg-anns (first method)
+                                 [required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)]
+                             (assert (sequential? required-params)
+                                     "Must provide a sequence of typed parameters to fn>")
+                             (assert (not rest-param) "fn> doesn't support rest parameters yet")
+                             {:dom-syntax (doall (map (comp second next) required-params))
+                              :dom-lhs (doall (map first required-params))
+                              :rng-syntax ret
+                              :has-rng? has-ret?
+                              :body body})))]
+    {:poly poly
+     :fn `(fn ~@(concat
+                  (when name
+                    [name])
+                  (for [{:keys [body dom-lhs]} parsed-methods]
+                    (apply list (vec dom-lhs) body))))
+     :parsed-methods parsed-methods}))
+
+(defmacro pfn> 
+  "Define a polymorphic typed anonymous function.
+  (pfn> name? [binder+] :- type? [[param :- type]* & [param :- type *]?] exprs*)
+  (pfn> name? [binder+] (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
+  [& forms]
+  (let [{:keys [poly fn parsed-methods]} (parse-fn> true forms)]
+    `(pfn>-ann ~fn '~poly '~parsed-methods)))
 
 (defmacro fn> 
-  "Define a typed anonymous function."
+  "Define a typed anonymous function.
+  (fn> name? :- type? [[param :- type]* & [param :- type *]?] exprs*)
+  (fn> name? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
   [& forms]
-  (let [methods (if (vector? (first forms))
-                  (list forms)
-                  forms)
-        ;(fn> [[a :- Number] & [n :- Number *]] a) 
-        method-doms (for [[arg-anns] methods]
-                      (let [[required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)]
-                        (assert (not rest-param) "fn> doesn't support rest parameters yet")
-                        (map (comp second next) required-params)))]
-    `(fn>-ann (fn ~@(for [[params & body] methods]
-                      (apply list (vec (map first params)) body)))
-              '~method-doms)))
+  (let [{:keys [fn parsed-methods]} (parse-fn> false forms)]
+    `(fn>-ann ~fn '~parsed-methods)))
 
 (defmacro loop>
   "Define a typed loop"
@@ -2089,8 +2128,10 @@
                                             (vals %))))
 
 (defn add-type-name [sym ty]
-  (swap! TYPE-NAME-ENV assoc sym (with-meta ty
-                                            {:from-name sym}))
+  (swap! TYPE-NAME-ENV assoc sym (if (Type? ty)
+                                   (with-meta ty
+                                              {:from-name sym})
+                                   ty))
   nil)
 
 (defn declare-name* [sym]
@@ -3198,7 +3239,7 @@
 (defn c-meet [{S  :S X  :X T  :T bnds  :bnds :as c1}
               {S* :S X* :X T* :T bnds* :bnds :as c2}
               & [var]]
-  (prn "c-meet" c1 c2)
+  #_(prn "c-meet" c1 c2)
   (when-not (or var (= X X*))
     (throw (Exception. (str "Non-matching vars in c-meet:" X X*))))
   (when-not (= bnds bnds*)
@@ -5149,6 +5190,7 @@
 (ann clojure.core/import [(IPersistentCollection Symbol) -> nil])
 (ann clojure.core/identity (All [x] [x -> x]))
 
+(ann clojure.core/set (All [x] [(U nil (Seqable x)) -> (PersistentHashSet x)]))
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
 (ann clojure.core/vector (All [x] [x * -> (IPersistentVector x)]))
 
@@ -5340,6 +5382,18 @@
           [[a a -> a] (U nil (IPersistentMap k a)) ... b -> (IPersistentMap k a)]))
 
 (ann clojure.core/reduce
+     (All [a c]
+          (Fn 
+            ;Without accumulator
+            ; default
+            ; (reduce + my-coll)
+            [(Fn [c c -> c] [-> c]) (U nil (Seqable c)) -> c]
+            ; default
+            ; (reduce + 3 my-coll)
+            [[a c -> a] a (U nil (Seqable c)) -> a])))
+
+(comment
+(ann clojure.core/reduce
      (All [a c d]
           (Fn 
             ;Without accumulator
@@ -5362,6 +5416,7 @@
             ; default
             ; (reduce + 3 my-coll)
             [[a c -> a] a (U nil (Seqable c)) -> a])))
+  )
 
 (ann clojure.core/first
      (All [x]
@@ -6074,7 +6129,7 @@
                                                  (catch IllegalArgumentException e
                                                    (throw e))
                                                  (catch Exception e))]
-                           (do ;(prn "subst:" substitution)
+                           (do (prn "subst:" substitution)
                              (ret (subst-all substitution (Result-type* rng))))
                            (if (or rest drest kws)
                              (throw (Exception. "Cannot infer arguments to polymorphic functions with rest types"))
@@ -6466,18 +6521,26 @@
 ;fn literal
 (defmethod invoke-special #'fn>-ann
   [{:keys [fexpr args] :as expr} & [expected]]
-  (let [[fexpr {method-doms-syn :val}] args
-        method-param-types (doall (map #(doall (map parse-type %)) method-doms-syn))]
-    (check-anon-fn fexpr method-param-types)))
+  (let [[fexpr {type-syns :val}] args
+        method-types (doall
+                       (for [{:keys [dom-syntax has-rng? rng-syntax]} type-syns]
+                         {:dom (doall (map parse-type dom-syntax))
+                          :rng (when has-rng?
+                                 (parse-type rng-syntax))}))]
+    (check-anon-fn fexpr method-types)))
 
 ;polymorphic fn literal
 (defmethod invoke-special #'pfn>-ann
   [{:keys [fexpr args] :as expr} & [expected]]
-  (let [[fexpr {poly-decl :val} {methods-params-syns :val}] args
+  (let [[fexpr {poly-decl :val} {method-types-syn :val}] args
         frees-with-bounds (map parse-free poly-decl)
-        method-params-types (with-frees (map (comp make-F first) frees-with-bounds)
-                              (doall (map #(doall (map parse-type %)) methods-params-syns)))
-        cexpr (-> (check-anon-fn fexpr method-params-types)
+        fs (map (comp make-F first) frees-with-bounds)
+        method-types (with-frees fs
+                       (for [{:keys [dom-syntax has-rng? rng-syntax]} method-types-syn]
+                         {:dom (doall (map parse-type dom-syntax))
+                          :rng (when has-rng?
+                                 (parse-type rng-syntax))}))
+        cexpr (-> (check-anon-fn fexpr method-types :poly frees-with-bounds)
                 (update-in [expr-type :t] (fn [fin] (with-meta (Poly* (map first frees-with-bounds) 
                                                                       (map second frees-with-bounds)
                                                                       fin)
@@ -6910,6 +6973,7 @@
 (defmethod check :fn-expr
   [{:keys [methods] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
+  (prn "checking fn-expr" expr)
   (check-fn-expr expr expected))
 
 (declare check-anon-fn-method abstract-filter abo abstract-object)
@@ -7007,24 +7071,47 @@
       nil)))
 
 (defn check-anon-fn
-  "Check anonymous function, with annotated methods"
-  [{:keys [methods] :as expr} methods-param-types]
-  {:pre [(every? Type? (apply concat methods-param-types))]
+  "Check anonymous function, with annotated methods. methods-types
+  is a (Seqable (HMap {:dom (Seqable Type) :rng (U nil Type)}))"
+  [{:keys [methods] :as expr} methods-types & {:keys [poly]}]
+  {:pre [(hmap-c? :dom (every-c? Type?)
+                  :rng (some-fn nil? Type?))
+         ((some-fn nil? (every-c? (hvector-c? (every-c? symbol?) (every-c? Bounds?)))) poly)]
    :post [(TCResult? (expr-type %))]}
-  (let [ftype (apply Fn-Intersection (doall (map FnResult->Function 
-                                                 (doall (map check-anon-fn-method methods methods-param-types)))))]
-    (assoc expr
-           expr-type (ret ftype (-FS -top -bot) -empty))))
+  (cond
+    ; named fns must be fully annotated, and are checked with normal check
+    (:name expr) (let [ftype (apply Fn-Intersection (doall (for [{:keys [dom rng]} methods-types]
+                                                             (if rng
+                                                               (make-Function dom rng)
+                                                               (throw (Exception. "Named anonymous functions require return type annotation"))
+                                                               ))))
+                       ftype (if poly
+                               (Poly* (map first poly)
+                                      (map second poly)
+                                      ftype)
+                               ftype)]
+
+                   (check expr (ret ftype)))
+    :else
+    (let [_ (prn methods methods-types expr)
+          ftype (apply Fn-Intersection (doall (map FnResult->Function 
+                                                   (doall 
+                                                     (map (fn [m {:keys [dom rng]}]
+                                                            (check-anon-fn-method m dom rng))
+                                                          methods methods-types)))))]
+      (assoc expr
+             expr-type (ret ftype (-FS -top -bot) -empty)))))
 
 (declare ^:dynamic *recur-target*)
 
 (defn check-anon-fn-method
-  [{:keys [required-params rest-param body] :as expr} method-param-types]
-  {:pre [(every? Type? method-param-types)]
+  [{:keys [required-params rest-param body] :as expr} dom rng]
+  {:pre [(every? Type? dom)
+         ((some-fn nil? Type?) rng)]
    :post [(FnResult? %)]}
   (assert (not rest-param))
   (let [syms (map :sym required-params)
-        locals (zipmap syms method-param-types)
+        locals (zipmap syms dom)
         ; update filters that reference bindings that the params shadow
         props (map (fn [oldp]
                      (reduce (fn [p sym]
@@ -7039,15 +7126,18 @@
         ; erasing references to parameters is handled later
         cbody (with-lexical-env env
                 (binding [*recur-target* nil] ;NYI
-                  (check body)))]
+                  (check body (when rng
+                                (ret rng)))))]
     (->FnResult
-      (map vector (map :sym required-params) method-param-types)
+      (map vector (map :sym required-params) dom)
       nil ;kws
       nil ;rest
       nil ;drest
-      (expr-type cbody))))
+      (if rng
+        (ret rng)
+        (expr-type cbody)))))
 
-(defn check-fn-expr [{:keys [methods] :as expr} expected]
+(defn check-fn-expr [{:keys [methods name] :as expr} expected]
   (cond
     expected
     (let [fin (cond
@@ -7055,14 +7145,21 @@
                 (PolyDots? (ret-t expected)) (PolyDots-body* (repeatedly (:nbound (ret-t expected)) gensym) (ret-t expected))
                 :else (ret-t expected))
           _ (doseq [{:keys [required-params rest-param] :as method} methods]
-              (check-fn-method method (relevant-Fns required-params rest-param fin)))]
+              (with-locals (when name
+                             {name (ret-t expected)})
+                (check-fn-method method (relevant-Fns required-params rest-param fin))))]
       (assoc expr
              expr-type (ret fin (-FS -top -bot) -empty)))
+
+    name (throw (Exception. (str (when *current-env*
+                                   (:line *current-env*))
+                                 " Named anonymous functions should be fully annotated")))
     
     ;if no expected type, parse as anon fn with all parameters as Any
-    :else (check-anon-fn expr (for [{:keys [required-params rest-param]} methods]
-                                (do (assert (not rest-param))
-                                  (repeatedly (count required-params) ->Top))))))
+    :else (check-anon-fn expr (doall
+                                (for [{:keys [required-params rest-param]} methods]
+                                  (do (assert (not rest-param))
+                                    (repeatedly (count required-params) ->Top)))))))
 
 (defn check-fn-method
   "Checks type of the method"
@@ -7226,6 +7323,7 @@
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (prn "instance-field:" expr)
+  (assert (:target-class expr) "Instance fields require type hints")
   (let [; may be prefixed by COMPILE-STUB-PREFIX
         target-class (symbol
                        (str/replace-first (.getName ^Class (:target-class expr))

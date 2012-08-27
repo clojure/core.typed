@@ -1,6 +1,7 @@
 (ns typed.test.example
-  (:import (clojure.lang Seqable PersistentHashSet))
-  (:require [typed.core :refer [ann inst cf fn> pfn> check-ns]]
+  (:import (clojure.lang Seqable PersistentHashSet Symbol)
+           (java.io File))
+  (:require [typed.core :refer [ann inst cf fn> pfn> check-ns ann-form]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]]))
 
@@ -46,6 +47,31 @@
   )
 
 (ann to-set (All [x]
-                 [(Seqable x) -> (PersistentHashSet x)]))
+                 [(U nil (Seqable x)) -> (PersistentHashSet x)]))
 (defn to-set [a]
   (set a))
+
+(ann config
+     (HMap {:file String
+            :ns Symbol}))
+(def config
+  {:file "clojure/core.clj"
+   :ns 'clojure.core})
+
+(comment
+(ann add-or-zero [(U nil Number) * -> Number])
+(defn add-or-zero [& nzs]
+  (reduce (fn> [[acc :- Number]
+                [n :- (U nil Number)]]
+            (+ acc (if n
+                     n
+                     0)))
+          0 nzs))
+
+(add-or-zero 1 2 3 nil)
+)
+
+(ann num-vec2 [(U nil Number) (U nil Number) -> (Vector* Number Number)])
+(defn num-vec2 [a b]
+  [(if a a 0) (if b b 0)])
+

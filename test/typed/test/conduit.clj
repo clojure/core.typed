@@ -20,7 +20,7 @@
            :args Args
            :parts Parts})))
 
-(ann merge-parts [(IMeta (U (HMap {:parts Any}) nil))
+(ann merge-parts [(IMeta (U (HMap {:parts Parts}) nil))
                   -> (IPersistentMap Any Any)])
 (tc-ignore
 (defn merge-parts [ps]
@@ -47,4 +47,20 @@
         [new-f
          (fn [c]
            (c [(first l)]))]))))
+
+(defn conduit-seq [l]
+  "create a stream processor that emits the contents of a list
+  regardless of what is fed to it"
+  (conduit-seq-fn l))
+
+(defn a-run [f]
+  "execute a stream processor function"
+  (let [[new-f c] (f nil)
+        y (c identity)]
+    (cond
+      (nil? new-f) (list)
+      (empty? y) (recur new-f)
+      :else (lazy-seq
+              (cons (first y)
+                    (a-run new-f))))))
 
