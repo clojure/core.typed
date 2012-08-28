@@ -6127,7 +6127,7 @@
                                                  (catch IllegalArgumentException e
                                                    (throw e))
                                                  (catch Exception e))]
-                           (do (prn "subst:" substitution)
+                           (do #_(prn "subst:" substitution)
                              (ret (subst-all substitution (Result-type* rng))))
                            (if (or rest drest kws)
                              (throw (Exception. "Cannot infer arguments to polymorphic functions with rest types"))
@@ -6973,7 +6973,6 @@
 (defmethod check :fn-expr
   [{:keys [methods] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (prn "checking fn-expr" expr)
   (check-fn-expr expr expected))
 
 (declare check-anon-fn-method abstract-filter abo abstract-object)
@@ -7814,7 +7813,6 @@
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (prn "check :if")
   (let [ctest (check test)]
     (assoc expr
            expr-type (check-if (expr-type ctest) then else))))
@@ -7857,8 +7855,10 @@
   ;TODO check fields match
   (prn "Checking deftype definition:" nme)
   (let [cmmap (into {} (for [[k v] (:mmap expr)]
-                         [(symbol (first k)) (@#'clojure.reflect/method->map v)]))
-        _ (assert ((hash-c? (every-pred symbol? (complement namespace))
+                         [[(symbol (first k)) (count (second k))]
+                          (@#'clojure.reflect/method->map v)]))
+        _ (assert ((hash-c? (hvector-c? (every-pred symbol? (complement namespace))
+                                        nat?)
                             #(instance? clojure.reflect.Method %))
                      cmmap))
         dtp (@DATATYPE-ENV nme)
@@ -7883,15 +7883,18 @@
                                 (resolve-protocol tsym)))))
                         old-ancestors)
         _ (prn "ancestor diff" ancestor-diff)
+        _ (prn "cmmap" cmmap)
         _ (swap! DATATYPE-ANCESTOR-ENV update-in [nme] set/union ancestor-diff)
         _ (try
             (doseq [inst-method methods]
               (prn "Checking deftype* method: "(:name inst-method))
+              (prn "inst-method" inst-method)
               (let [nme (:name inst-method)
                     _ (assert (symbol? nme)) ;can remove once new analyze is released
-                    method-sig (cmmap nme)
+                    ; minus the target arg
+                    method-sig (cmmap [nme (dec (count (:required-params inst-method)))])
                     _ (assert (instance? clojure.reflect.Method method-sig))
-                    ;_ (prn "method-sig" method-sig)
+                    _ (prn "method-sig" method-sig)
                     expected-ifn 
                     (extend-method-expected dt
                                             (or (let [ptype (first
@@ -7903,7 +7906,7 @@
                                                                                     [(symbol (munge k)) v]))]
                                                       (munged-methods (:name method-sig)))))
                                                 (instance-method->Function method-sig)))
-                    ;_ (prn "expected-ifn: " (unparse-type expected-ifn))
+                    _ (prn "expected-ifn: " (unparse-type expected-ifn))
                     ]
                 (with-locals (:fields dt)
                   (prn "lexical env when checking method" nme *lexical-env*)
@@ -8000,4 +8003,5 @@
   (check-ns 'typed.test.conduit)
   (check-ns 'typed.test.deftype)
   (check-ns 'typed.test.core-logic)
+  (check-ns 'typed.test.ckanren)
   )

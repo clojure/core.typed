@@ -440,7 +440,7 @@
 ;; Constraint Store
 
 (ann-datatype LVar [[name :- Symbol]
-                    [hash :- Number]
+                    [hash :- AnyInteger]
                     [cs :- Any]
                     [meta :- Any]]
               :unchecked-ancestors #{Term})
