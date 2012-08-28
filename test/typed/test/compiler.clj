@@ -6,6 +6,7 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
+(comment
 (set! *warn-on-reflection* true)
 
 (ns typed.test.compiler
@@ -227,7 +228,8 @@
 (ann cljs-reserved-file-names (IPersistentSet String))
 (def cljs-reserved-file-names #{"deps.cljs"})
 
-(ann namespaces (Atom (IPersistentMap Symbol NsEntry)))
+(ann namespaces (Atom (IPersistentMap Symbol NsEntry)
+                      (IPersistentMap Symbol NsEntry)))
 (defonce namespaces (atom '{cljs.core {:name cljs.core}
                             cljs.user {:name cljs.user}}))
 
@@ -251,11 +253,12 @@
 (def ^:dynamic *cljs-warn-on-fn-var* true)
 (ann *cljs-warn-fn-arity* boolean)
 (def ^:dynamic *cljs-warn-fn-arity* true)
-(ann *unchecked-if* (Atom boolean))
+(ann *unchecked-if* (Atom boolean boolean))
 (def ^:dynamic *unchecked-if* (atom false))
 (ann *cljs-static-fns* boolean)
 (def ^:dynamic *cljs-static-fns* false)
-(ann *position* (U nil (Atom (Vector* typed.core/AnyInteger typed.core/AnyInteger))))
+(ann *position* (U nil (Atom (Vector* typed.core/AnyInteger typed.core/AnyInteger)
+                             (Vector* typed.core/AnyInteger typed.core/AnyInteger))))
 (def ^:dynamic *position* nil)
 
 (defmacro ^:private debug-prn
@@ -1075,7 +1078,8 @@
 (def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns deftype* defrecord* . js* & quote})
 
 (def-alias RecurFrame (HMap {:names (Seqable Symbol)
-                             :flag (Atom (U nil true))}))
+                             :flag (Atom (U nil true)
+                                         (U nil true))}))
 (ann *recur-frames* (U nil (Seqable RecurFrame)))
 (def ^:dynamic *recur-frames* nil)
 
@@ -2210,3 +2214,4 @@
   (->> e (analyze envx) emit)
   (newline)))
 
+)

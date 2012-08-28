@@ -77,11 +77,11 @@
 
 (ann-protocol IUnifyWithMap
               :methods
-              {unify-with-map [Term IPersistentMap ISubstitutions -> (U ISubstitutions Fail)]})
+              {unify-with-map [Term (IPersistentMap Any Any) ISubstitutions -> (U ISubstitutions Fail)]})
 
 (ann-protocol IUnifyWithSet
               :methods
-              {unify-with-Set [Term IPersistentSet ISubstitutions -> (U ISubstitutions Fail)]})
+              {unify-with-Set [Term (IPersistentSet Any) ISubstitutions -> (U ISubstitutions Fail)]})
 
 (ann-protocol IReifyTerm
               :methods

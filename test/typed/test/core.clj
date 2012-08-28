@@ -178,7 +178,8 @@
                 (parse-type '(U nil (clojure.lang.ASeq Number)))))
   ; inferred "seq"
   (is (= (ety
-           (typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
+           (typed.core/fn> [[a :- (clojure.lang.Seqable Number)] 
+                            [b :- Number]] 
                            1))
          (Fn-Intersection
            (make-Function
@@ -189,7 +190,9 @@
              :object -empty))))
   ; poly inferred "seq"
   (is (= (ety
-           (typed.core/pfn> (c) [[a :- (clojure.lang.Seqable c)] [b :- Number]] 
+           (typed.core/pfn> [c] 
+                            [[a :- (clojure.lang.Seqable c)] 
+                             [b :- Number]] 
                             1))
          (let [x (make-F 'x)]
            (Poly* [(:name x)]
@@ -695,6 +698,7 @@
                       (-FS -top -bot)
                       -empty))))
          
+(comment
 (-> (tc-t (typed.core/fn> [[tmap :- typed.test.rbt/badRight]]
                           (and (= :Black (-> tmap :tree))
                                (= :Red (-> tmap :left :tree))
@@ -709,6 +713,7 @@
                           ;     (tc-pr-filters "fourth filter"
                           ;       (= :Red (-> tmap :right :left :tree))))
   ret-t :types first :rng :fl :else unparse-filter pprint)
+)
 
 ;(deftest filter-simplification
 ;  (is (= (read-string "#typed.core.OrFilter{:fs #{#typed.core.NotTypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id 0} #typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id 0} #typed.core.OrFilter{:fs #{#typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id 0} #typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id 0} #typed.core.OrFilter{:fs #{#typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :tree}), :id 0} #typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id 0}}} #typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :tree}), :id 0}}}}}}}}}}}"
@@ -813,21 +818,18 @@
                  {} ;Y
                  (->Value 1) ;S
                  (make-F 'x)) ;T
-         (->cset [(->cset-entry {'x (->c (->Value 1) 'x (->Top) no-bounds)
-                                 'y (->c (Un) 'y (->Top) no-bounds)}
-                                (->dmap {}))])))
+         (->cset [(make-cset-entry {'x (->c (->Value 1) 'x (->Top) no-bounds)
+                                    'y (->c (Un) 'y (->Top) no-bounds)})])))
   ;intersections correctly inferred
-  (is (= (typed.core/cs-gen '#{} {'x no-bounds} '{} 
-                            (->HeterogeneousVector [(-val 1)])
-                            (In (RClass-of Seqable [(make-F 'x)]) (make-CountRange 1)))
-         (->cset [(->cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)}
-                                (->dmap {}))])))
+  (is (= (cs-gen '#{} {'x no-bounds} '{} 
+                 (->HeterogeneousVector [(RClass-of Number)])
+                 (In (RClass-of Seqable [(make-F 'x)]) (make-CountRange 1)))
+         (->cset [(make-cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)})])))
 ;correct RClass ancestor inference
   (is (= (cs-gen #{} {'x no-bounds} {} 
                  (RClass-of IPersistentVector [(RClass-of Number)])
                  (RClass-of Seqable [(make-F 'x)]))
-         (->cset [(->cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)}
-                                (->dmap {}))]))))
+         (->cset [(make-cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)})]))))
 
 (deftest subst-gen-test
   (let [cs (cs-gen #{} ;V
@@ -876,24 +878,23 @@
          (Un))))
 
 (deftest first-seq-test
-  (is (subtype? (:t (tc-t (first [1 1 1])))
+  (is (subtype? (ret-t (tc-t (first [1 1 1])))
                 (Un -nil (RClass-of Number))))
   (is (subtype (In (RClass-of clojure.lang.PersistentList [-any])
                    (make-CountRange 1))
                (In (RClass-of Seqable [-any])
                    (make-CountRange 1))))
-  (is (subtype? (:t (tc-t (let [l [1 2 3]]
-                            (if (seq l)
-                              (first l)
-                              (throw (Exception. "Error"))))))
+  (is (subtype? (ret-t (tc-t (let [l [1 2 3]]
+                               (if (seq l)
+                                 (first l)
+                                 (throw (Exception. "Error"))))))
                 (RClass-of Number)))
   (is (= (tc-t (first [1]))
-         (ret (RClass-of Number))))
+         (ret (-val 1))))
   (is (= (tc-t (first []))
          (ret -nil)))
-  (is (= (tc-t (first [1 2 3]))
-         (ret (RClass-of Number))))
-  )
+  (is (subtype? (ret-t (tc-t (first [1 2 3])))
+                (RClass-of Number))))
 
 (deftest intersection-maker-test
   (is (= (In -nil (-val 1))
@@ -917,8 +918,11 @@
                 (make-CountRange 1)))
   )
 
-(deftest core-logic-subtype-test
-  (is (subtype? (->Name 'typed.test.core-logic/Term) 
+(def-alias MyAlias
+  (U nil (HMap {:a Number})))
+
+(deftest names-expansion-test
+  (is (subtype? (->Name 'typed.test.core/MyAlias) 
                 (Un -nil (RClass-of Object)))))
 
 (deftest ccfind-test

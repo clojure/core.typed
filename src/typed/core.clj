@@ -84,7 +84,7 @@
 (defn- parse-fn>
   "(fn> name? :- type? [[param :- type]* & [param :- type *]?] exprs*)
   (fn> name? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
-  [is-poly & forms]
+  [is-poly forms]
   (let [name (when (symbol? (first forms))
                (first forms))
         forms (if name (rest forms) forms)
@@ -1882,20 +1882,11 @@
                           (assert (not (namespace knq#))
                                   "Protocol method should be unqualified")
                           [knq# (with-frees fs# (parse-type v#))])))
-         _# (prn "here")
          t# (if fs#
-              (do
-                (prn (map :name fs#))
-                (prn (repeat (count fs#) no-bounds))
-                (prn (->Protocol s# '~variances fs# on-class# ms#))
-                (prn "poly" (Poly* (map :name fs#) (repeat (count fs#) no-bounds) 
-                                   (->Protocol s# '~variances fs# on-class# ms#)))
-                (Poly* (map :name fs#) (repeat (count fs#) no-bounds) 
+              (Poly* (map :name fs#) (repeat (count fs#) no-bounds) 
                      (->Protocol s# '~variances fs# on-class# ms#))
-                )
               (->Protocol s# nil nil on-class# ms#))]
      (do
-       (prn "after")
        (add-protocol s# t#)
        (doseq [[kuq# mt#] ms#]
          ;qualify method names when adding methods as vars
@@ -2155,9 +2146,9 @@
     (cond
       (= protocol-name-type t) (resolve-protocol sym)
       (= datatype-name-type t) (resolve-datatype sym)
-      (= declared-name-type t) (throw (Exception. (str "Reference to declared but undefined name " sym)))
+      (= declared-name-type t) (throw (IllegalArgumentException. (str "Reference to declared but undefined name " sym)))
       (Type? t) (with-meta t {:source-Name sym})
-      :else (throw (Exception. (str "Cannot resolve name " sym))))))
+      :else (throw (IllegalArgumentException. (str "Cannot resolve name " sym))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class
@@ -3196,6 +3187,13 @@
    ((set-c? (hvector-c? (some-fn Type? Projection?)
                         (some-fn Type? Projection?)))
      projections)])
+
+(defn make-cset-entry
+  ([fixed] (make-cset-entry fixed nil nil))
+  ([fixed dmap] (make-cset-entry fixed dmap nil))
+  ([fixed dmap projections] (->cset-entry fixed 
+                                          (or dmap (->dmap {}))
+                                          (or projections #{}))))
 
 ;; maps is a list of cset-entries, consisting of
 ;;    - functional maps from vars to c's
@@ -6533,13 +6531,15 @@
 (defmethod invoke-special #'pfn>-ann
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [[fexpr {poly-decl :val} {method-types-syn :val}] args
+        _ (prn "poly-decl" poly-decl)
         frees-with-bounds (map parse-free poly-decl)
         fs (map (comp make-F first) frees-with-bounds)
         method-types (with-frees fs
-                       (for [{:keys [dom-syntax has-rng? rng-syntax]} method-types-syn]
-                         {:dom (doall (map parse-type dom-syntax))
-                          :rng (when has-rng?
-                                 (parse-type rng-syntax))}))
+                       (doall 
+                         (for [{:keys [dom-syntax has-rng? rng-syntax]} method-types-syn]
+                           {:dom (doall (map parse-type dom-syntax))
+                            :rng (when has-rng?
+                                   (parse-type rng-syntax))})))
         cexpr (-> (check-anon-fn fexpr method-types :poly frees-with-bounds)
                 (update-in [expr-type :t] (fn [fin] (with-meta (Poly* (map first frees-with-bounds) 
                                                                       (map second frees-with-bounds)
@@ -7074,17 +7074,22 @@
   "Check anonymous function, with annotated methods. methods-types
   is a (Seqable (HMap {:dom (Seqable Type) :rng (U nil Type)}))"
   [{:keys [methods] :as expr} methods-types & {:keys [poly]}]
-  {:pre [(hmap-c? :dom (every-c? Type?)
-                  :rng (some-fn nil? Type?))
-         ((some-fn nil? (every-c? (hvector-c? (every-c? symbol?) (every-c? Bounds?)))) poly)]
+  {:pre [(every? (hmap-c? :dom (every-c? Type?)
+                          :rng (some-fn nil? Type?)
+                          :rest nil? ;TODO
+                          :drest nil?) ;TODO
+                 methods-types)
+         ((some-fn nil? 
+                   (every-c? (hvector-c? symbol? Bounds?)))
+            poly)]
    :post [(TCResult? (expr-type %))]}
   (cond
     ; named fns must be fully annotated, and are checked with normal check
-    (:name expr) (let [ftype (apply Fn-Intersection (doall (for [{:keys [dom rng]} methods-types]
-                                                             (if rng
-                                                               (make-Function dom rng)
-                                                               (throw (Exception. "Named anonymous functions require return type annotation"))
-                                                               ))))
+    (:name expr) (let [ftype (apply Fn-Intersection 
+                                    (doall (for [{:keys [dom rng]} methods-types]
+                                             (if rng
+                                               (make-Function dom rng)
+                                               (throw (Exception. "Named anonymous functions require return type annotation"))))))
                        ftype (if poly
                                (Poly* (map first poly)
                                       (map second poly)
@@ -7159,7 +7164,7 @@
     :else (check-anon-fn expr (doall
                                 (for [{:keys [required-params rest-param]} methods]
                                   (do (assert (not rest-param))
-                                    (repeatedly (count required-params) ->Top)))))))
+                                    {:dom (repeatedly (count required-params) ->Top)}))))))
 
 (defn check-fn-method
   "Checks type of the method"
