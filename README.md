@@ -27,13 +27,9 @@ Leiningen:
 * Type check multimethods
 * Filter syntax
 * Rest type checking in fn definition
-* fn> syntax for expected return type
 * Type check defprotocol definitions
 * Unify AST with ClojureScript
 * Namespace dependency management
-* Polymorphic Names?
-* Names as Vars
-* Polymorphic Datatypes and Protocols
 * Difference Type
 * Check [Asteriods](https://github.com/ztellman/penumbra/blob/master/test/example/game/asteroids.clj)
 

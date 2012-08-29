@@ -6132,7 +6132,9 @@
                                                                     (and expected (ret-t expected))))
                                                  (catch IllegalArgumentException e
                                                    (throw e))
-                                                 (catch Exception e))]
+                                                 (catch Exception e
+                                                   (pst e 40)
+                                                   (prn "caught fail"e)))]
                            (do #_(prn "subst:" substitution)
                              (ret (subst-all substitution (Result-type* rng))))
                            (if (or drest kws)
@@ -6749,35 +6751,39 @@
         _ (assert (even? (count keyvals))
                   "assoc accepts an even number of keyvals")
 
-        targett (-resolve (-> target check expr-type ret-t))
+        targetun (-> target check expr-type ret-t)
+        targett (-resolve targetun)
         hmaps (cond
+                (and (Value? targett) (nil? (.val targett))) #{(->HeterogeneousMap {})}
                 (HeterogeneousMap? targett) #{targett}
-                ;look for maps 2 unions
-                (Union? targett) (into #{}
-                                       (apply concat
-                                              (for [t (set (map -resolve (:types targett)))]
-                                                (if (Union? t)
-                                                  (map -resolve (:types t))
-                                                  [t]))))
-                :else #{})
+                (subtype? targett (RClass-of IPersistentMap [-any -any])) #{targett}
+                :else (throw (Exception. (str "Must supply map or nil to first argument of assoc, given "
+                                              (unparse-type targetun)))))
 
-        _ (assert (and (seq hmaps)
-                       (every? HeterogeneousMap? hmaps))
-                  (str "Must assoc with a singular or union of Heterogeneous Maps "
-                       (with-out-str (pr (unparse-type targett))
-                         (pr (map unparse-type hmaps)))))
+        _ (assert (every? #(subtype? % (RClass-of IPersistentMap [-any -any])) hmaps))
 
         ; we must already have an even number of keyvals if we've got this far
         ckeyvals (doall (map check keyvals))
         keypair-types (partition 2 (map (comp ret-t expr-type) ckeyvals))
 
-        _ (assert (every? Value? (map first keypair-types))
-                  (str "assoc keys must be values, found "
-                       (map (comp unparse-type first) keypair-types)))
-
         new-hmaps (map #(reduce (fn [hmap [kt vt]]
-                                  {:pre [(HeterogeneousMap? hmap)]}
-                                  (assoc-in hmap [:types kt] vt))
+                                  {:pre [((some-fn HeterogeneousMap?
+                                                   (fn [t] (subtype? t (RClass-of IPersistentMap [-any -any]))))
+                                            hmap)]}
+                                  (cond
+                                    ;keep hmap if keyword key and already hmap
+                                    (and (HeterogeneousMap? hmap)
+                                         (Value? kt)
+                                         (keyword? (.val kt)))
+                                    (assoc-in hmap [:types kt] vt)
+                                    ;otherwise just make normal map
+                                    :else (ret-t 
+                                            (check-funapp (ret 
+                                                            (parse-type '(All [a b c] 
+                                                                              [(IPersistentMap b c) b c -> (IPersistentMap b c)])))
+                                                          (doall 
+                                                            (map ret [hmap kt vt]))
+                                                          nil))))
                                 % keypair-types)
                        hmaps)]
     (assoc expr

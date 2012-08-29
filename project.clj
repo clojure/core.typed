@@ -1,4 +1,4 @@
-(defproject typed "0.1-alpha5"
+(defproject typed "0.1-alpha5-SNAPSHOT"
   :description "Optional static type system"
   :dependencies [[analyze "0.1.7.2-SNAPSHOT"]
                  [vimclojure/server "2.3.3"
