@@ -1,6 +1,7 @@
 (ns typed.test.core
   (:refer-clojure :exclude [defrecord])
-  (:import (clojure.lang Seqable ISeq ASeq IPersistentVector Atom))
+  (:import (clojure.lang Seqable ISeq ASeq IPersistentVector Atom IPersistentMap
+                         Keyword))
   (:require [clojure.test :refer :all]
             [analyze.core :refer [ast]]
             [clojure.repl :refer [pst]]
@@ -961,5 +962,9 @@
                            10.1)))
                 (RClass-of Number))))
 
+(deftest apply-test
+  (is (subtype? (ret-t (tc-t (apply merge [{:a 1}])))
+                (RClass-of IPersistentMap [(RClass-of Keyword)
+                                           (RClass-of Number)]))))
 ;(deftest f-bound-test
 ;  )

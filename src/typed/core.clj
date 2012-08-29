@@ -6877,16 +6877,20 @@
             (empty? fs) (throw (Exception. "Bad arguments to polymorphic function in apply"))
             ;the actual work, when we have a * function and a list final argument
             :else 
-            (if-let [substitution (and rest (not tail-bound) 
-                                       (<= (count dom)
-                                           (count arg-tys))
-                                       (infer-vararg (zipmap vars bbnds) #{}
-                                                     (cons tail-ty arg-tys)
-                                                     (cons (RClass-of (Class->symbol Seqable) [rest])
-                                                           dom)
-                                                     rest
-                                                     rng))]
-              (ret (subst-all substitution rng))
+            (if-let [substitution (try
+                                    (and rest (not tail-bound) 
+                                         (<= (count dom)
+                                             (count arg-tys))
+                                         (infer-vararg (zipmap vars bbnds) {}
+                                                       (cons tail-ty arg-tys)
+                                                       (cons (RClass-of (Class->symbol Seqable) [rest])
+                                                             dom)
+                                                       rest
+                                                       (Result-type* rng)))
+                                    (catch IllegalArgumentException e
+                                      (throw e))
+                                    (catch Exception e))]
+              (ret (subst-all substitution (Result-type* rng)))
               (recur (next fs))))))
 
       :else ::not-special)))
