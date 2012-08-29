@@ -41,6 +41,13 @@
   (is (= (Poly-body* '(a b c d e f g h i) (parse-type '(All [a b c d e f g h i] e)))
          (make-F 'e))))
 
+(deftest parse-type-fn-test
+  (is (= (parse-type '[nil * -> nil])
+         (Fn-Intersection (make-Function () -nil -nil))))
+  (is (= (parse-type '(All [x ...] [nil ... x -> nil]))
+         (PolyDots* '(x) [no-bounds]
+                    (Fn-Intersection (make-Function () -nil nil (->DottedPretype -nil 'x)))))))
+
 (deftest poly-constructor-test
   (is (= (Poly-body*
            '(x)

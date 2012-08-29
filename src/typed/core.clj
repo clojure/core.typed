@@ -2489,14 +2489,14 @@
                     :else all-dom)
 
         rest-type (when asterix-pos
-                    (nth all-dom (dec asterix-pos) nil))
+                    (nth all-dom (dec asterix-pos)))
         [drest-type _ drest-bnd] (when ellipsis-pos
                                    (drop (dec ellipsis-pos) all-dom))]
     (make-Function (doall (map parse-type fixed-dom))
                    (parse-type rng)
-                   (when rest-type
+                   (when asterix-pos
                      (parse-type rest-type))
-                   (when drest-type
+                   (when ellipsis-pos
                      (->DottedPretype
                        (with-frees [(*dotted-scope* drest-bnd)] ;with dotted bound in scope as free
                          (parse-type drest-type))
@@ -4137,7 +4137,7 @@
 ;; like infer, but T-var is the vararg type:
 (defn infer-vararg [X Y S T T-var R & [expected]]
   {:pre [(every? (hash-c? symbol? Bounds?) [X Y])
-         (every? #(every? Type? %) [S T])
+         (every? (every-c? Type?) [S T])
          ((some-fn nil? Type?) T-var)
          (Type? R)
          ((some-fn nil? Type?) expected)]
@@ -5183,9 +5183,9 @@
 (ann clojure.core/*ns* Namespace)
 (ann clojure.core/namespace [(U Symbol String Keyword) -> (U nil String)])
 (ann clojure.core/ns-name [Namespace -> Symbol])
-(ann clojure.core/name [Named -> String])
+(ann clojure.core/name [(U String Named) -> String])
 (ann clojure.core/in-ns [Symbol -> nil])
-(ann clojure.core/import [(IPersistentCollection Symbol) -> nil])
+(ann clojure.core/import [Any * -> nil])
 (ann clojure.core/identity (All [x] [x -> x]))
 
 (ann clojure.core/set (All [x] [(U nil (Seqable x)) -> (PersistentHashSet x)]))
@@ -5302,12 +5302,6 @@
   ;                                [[y -> x] [z -> y] [k -> z] [l -> k] [m -> l] [b ... b -> m] -> [b ... b -> x]]
   )
 
-(ann clojure.core/assoc (All [t c d a ...]
-                             [t c d a ... a -> (Project
-                                                 (fn [t c d as]
-                                                   (assert false))
-                                                 [t c d (DottedPretype a a)])]))
-
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
 
@@ -5322,8 +5316,8 @@
 (ann clojure.core/reset! (All [w r]
                               [(Atom w r) w -> r]))
 
-(ann clojure.core/swap! (All [w r b ...] 
-                             [(Atom w r) [r b ... b -> w] b ... b -> w]))
+(ann clojure.core/swap! (All [w r] 
+                             [(Atom w r) [r -> w] -> w]))
 
 (ann clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
@@ -5373,11 +5367,17 @@
 
 (ann clojure.core/map
      (All [c a b ...]
-          [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (Seqable c)]))
+          [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (LazySeq c)]))
+
+(ann clojure.core/mapcat
+     (All [c b ...]
+          [[b ... b -> (U nil (Seqable c))] (U nil (Seqable b)) ... b -> (LazySeq c)]))
 
 (ann clojure.core/merge-with
-     (All [k a b ...]
-          [[a a -> a] (U nil (IPersistentMap k a)) ... b -> (IPersistentMap k a)]))
+     (All [a b c]
+          (Fn [[a a -> a] nil * -> nil]
+              [[a a -> a] (IPersistentMap c a) * -> (IPersistentMap c a)]
+              [[a a -> a] (U nil (IPersistentMap c a)) * -> (U nil (IPersistentMap c a))])))
 
 (ann clojure.core/reduce
      (All [a c]
@@ -5447,6 +5447,12 @@
               [String Any -> (U nil Character)]
               [nil Any -> nil]
               [(U nil (ILookup Any x)) Any -> (U nil x)])))
+
+(ann clojure.core/merge 
+     (All [a b c]
+          (Fn [nil * -> nil]
+              [(IPersistentMap c a) * -> (IPersistentMap c a)]
+              [(U nil (IPersistentMap c a)) * -> (U nil (IPersistentMap c a))])))
 
 (ann clojure.core/= [Any Any * -> (U true false)])
 
@@ -6129,8 +6135,8 @@
                                                  (catch Exception e))]
                            (do #_(prn "subst:" substitution)
                              (ret (subst-all substitution (Result-type* rng))))
-                           (if (or rest drest kws)
-                             (throw (Exception. "Cannot infer arguments to polymorphic functions with rest types"))
+                           (if (or drest kws)
+                             (throw (Exception. "Cannot infer arguments to polymorphic functions with dotted rest or kw types"))
                              (recur ftypes)))))]
         (if ret-type
           ret-type
@@ -7882,19 +7888,16 @@
                                     (RClass-of (Class->symbol cls) nil))
                                 (resolve-protocol tsym)))))
                         old-ancestors)
-        _ (prn "ancestor diff" ancestor-diff)
-        _ (prn "cmmap" cmmap)
+        ;_ (prn "ancestor diff" ancestor-diff)
         _ (swap! DATATYPE-ANCESTOR-ENV update-in [nme] set/union ancestor-diff)
         _ (try
             (doseq [inst-method methods]
               (prn "Checking deftype* method: "(:name inst-method))
-              (prn "inst-method" inst-method)
               (let [nme (:name inst-method)
                     _ (assert (symbol? nme)) ;can remove once new analyze is released
                     ; minus the target arg
                     method-sig (cmmap [nme (dec (count (:required-params inst-method)))])
                     _ (assert (instance? clojure.reflect.Method method-sig))
-                    _ (prn "method-sig" method-sig)
                     expected-ifn 
                     (extend-method-expected dt
                                             (or (let [ptype (first
@@ -7905,9 +7908,7 @@
                                                     (let [munged-methods (into {} (for [[k v] (:methods ptype)]
                                                                                     [(symbol (munge k)) v]))]
                                                       (munged-methods (:name method-sig)))))
-                                                (instance-method->Function method-sig)))
-                    _ (prn "expected-ifn: " (unparse-type expected-ifn))
-                    ]
+                                                (instance-method->Function method-sig)))]
                 (with-locals (:fields dt)
                   (prn "lexical env when checking method" nme *lexical-env*)
                   (prn (:fields dt))

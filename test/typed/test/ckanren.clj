@@ -475,9 +475,8 @@
     (let [s (disj s min)
           c (count s)]
       (cond
-       (seq s) (if (= c 1)
-                 (first s)
-                 (FiniteDomain. s (first s) max))
+       (= c 1) (first s)
+       (> c 1) (FiniteDomain. s (first s) max))
        :else nil)))
   (drop-before [_ n]
     (apply domain (drop-while (fn> [(s* :- Number)]
