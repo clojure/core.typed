@@ -6,7 +6,7 @@
                                 ann-pprotocol declare-datatypes
                                 ann-form
                                 tc-ignore check-ns ann-datatype tc-pr-env cf
-                                parse-type ann-pdatatype fn>]]
+                                parse-type ann-pdatatype fn> AnyInteger]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]])
   (:import [java.io Writer]
@@ -477,7 +477,7 @@
       (cond
        (= c 1) (first s)
        (> c 1) (FiniteDomain. s (first s) max))
-       :else nil)))
+       :else nil))
   (drop-before [_ n]
     (apply domain (drop-while (fn> [(s* :- Number)]
                                  (< s* n))

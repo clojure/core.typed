@@ -4,7 +4,7 @@
                  [vimclojure/server "2.3.3"
                   :exclusions [org.clojure/clojure]]
                  ;testing conduit
-                 #_[net.intensivesystems/arrows "1.3.0"
+                 [net.intensivesystems/arrows "1.3.0"
                   :exclusions [org.clojure/clojure]]
                  [trammel "0.7.0" 
                   :exclusions [org.clojure/clojure]]

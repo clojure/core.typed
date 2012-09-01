@@ -966,5 +966,37 @@
   (is (subtype? (ret-t (tc-t (apply merge [{:a 1}])))
                 (RClass-of IPersistentMap [(RClass-of Keyword)
                                            (RClass-of Number)]))))
+
+(deftest destructuring-test
+  ;Vector destructuring with :as
+  (is (= (ret-t (tc-t (let [[a b :as c] (typed.core/ann-form [1 2] (clojure.lang.Seqable Number))] 
+                        [a b c])))
+         (->HeterogeneousVector [(Un -nil (RClass-of Number))
+                                 (Un -nil (RClass-of Number))
+                                 (RClass-of Seqable [(RClass-of Number)])])))
+  ;Map destructuring of vector
+  (is (= (ret-t (tc-t (let [{a 0 b 1 :as c} (typed.core/ann-form [1 2] (clojure.lang.Seqable Number))] 
+                        [a b c])))
+         (->HeterogeneousVector [(Un -nil (RClass-of Number))
+                                 (Un -nil (RClass-of Number))
+                                 (RClass-of Seqable [(RClass-of Number)])]))))
+
+(deftest vararg-subtyping-test
+  (is (subtype? (parse-type '[nil -> nil])
+                (parse-type '[nil * -> nil])))
+  (is (cf (typed.core/ann-form (typed.core/inst merge Any Any) [nil -> nil]))))
+
+(deftest poly-filter-test
+  (is (= (ret-t (tc-t (let [a (ann-form [1] (Seqable AnyInteger))]
+                        (if (seq a)
+                          (first a)
+                          'a))))
+         (parse-type '(U typed.core/AnyInteger (Value a))))))
+
+;(deftest f-bound-test
+;  )
+
+;(deftest f-bound-test
+;  )
 ;(deftest f-bound-test
 ;  )

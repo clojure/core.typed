@@ -1,57 +1,73 @@
 (ns typed.test.conduit
   (:import (clojure.lang Seqable IMeta IPersistentMap))
-  (:require [typed.core :refer [check-ns ann fn> def-alias tc-ignore]]
+  (:require [typed.core :refer [check-ns ann fn> def-alias tc-ignore ann-form declare-names inst
+                                tc-pr-env]]
             [clojure.repl :refer [pst]]
             [arrows.core :refer [defarrow]]))
 
-(def-alias Parts (IPersistentMap Any Any))
-(def-alias Args (Seqable Any))
+(def-alias Part (IPersistentMap Any Any))
 
-(def-alias ConduitMeta
-  (U
-    (HMap {:created-by (Value :disperse)
-           :args Args
-           :parts Parts})
-    (HMap {:created-by (Value :a-arr)
-           :args Args})
-    (HMap {:created-by (Value :a-comp)
-           :args Args
-           :parts Parts})
-    (HMap {:created-by (Value :a-nth)
-           :args Args
-           :parts Parts})))
+(def-alias ContRes 
+  (All [x]
+    (U nil ;error/end?
+       '[] ;abort/skip
+       '[x];consume/continue
+       )))
 
-(ann merge-parts [(Seqable (IMeta (U (HMap {:parts Parts}) nil)))
-                  -> Parts])
+(def-alias Cont
+  (All [x]
+    [(U nil [(ContRes x) -> (ContRes x)]) -> (ContRes x)]))
+
+(declare-names ==>)
+
+(def-alias ==>
+  (All [in out]
+    [in -> '[(U nil (==> in out))
+             (Cont out)]]))
+
+(ann merge-parts [(Seqable (IMeta (U '{:parts Part} nil)))
+                  -> Part])
+(tc-ignore
 (defn merge-parts [ps]
-  (apply merge-with merge
-         (map (fn> [[a :- (IMeta (U (HMap {:parts Any}) nil))]]
-                (-> a meta :parts))
-              ps)))
+  (let [parts (map (fn> [[p :- (IMeta (U '{:parts Part} nil))]] 
+                     (-> p meta :parts))
+                   ps)]
+    (apply (inst merge-with Any Part)
+           (inst merge Any Any)
+           parts)))
+)
 
-(ann abort-c [(U nil [(Vector*) -> Any]) -> (U nil Any)])
+(ann abort-c (All [x] (Cont x)))
 (defn abort-c [c]
   (when c
     (c [])))
 
-(ann conduit-seq-fn [(Seqable Any)
-                     -> [Any -> (Vector* (U nil [Any -> Any])
-                                         [Any -> Any])]])
-
+(ann conduit-seq-fn 
+     (All [x]
+       [(Seqable x) -> (==> Any x)]))
 (defn conduit-seq-fn [l]
-  (fn> curr-fn [[x :- Any]] ;TODO
+  (fn curr-fn [_]
     (let [new-f (conduit-seq-fn (rest l))]
       (if (empty? l)
         [nil abort-c]
         [new-f
-         (fn> [[c :- Any]] ;TODO
-           (c [(first l)]))]))))
+         (ann-form
+           (fn [c]
+             (when c ;`when` added to conform to Cont type
+               (c [(first l)])))
+           (Cont x))]))))
 
+(ann conduit-seq
+     (All [x]
+       [(Seqable x) -> (==> Any x)]))
 (defn conduit-seq [l]
   "create a stream processor that emits the contents of a list
   regardless of what is fed to it"
   (conduit-seq-fn l))
 
+(ann a-run
+     (All [x y]
+       [(==> x y) -> (Seqable y)]))
 (defn a-run [f]
   "execute a stream processor function"
   (let [[new-f c] (f nil)
@@ -79,6 +95,10 @@
          (comp-fn new-fs))
        new-c])))
 
+(ann nth-fn
+     (All [x y z]
+       (Fn ['0 (==> x y) -> (==> '[x z] '[y z])]
+           ['1 (==> x y) -> (==> '[z x] '[z y])])))
 (defn nth-fn [n f]
   (fn curr-fn [xs]
     (if (<= (count xs) n)
@@ -113,6 +133,9 @@
                      (c [])
                      (c [(apply concat ys)])))))]))))
 
+(ann select-fn
+     (All [x y z]
+       [(IPersistentMap x (==> y z)) -> (==> '[x y] z)]))
 (defn select-fn [selection-map]
   (fn curr-fn [[v x]]
     (if-let [f (or (get selection-map v)
@@ -147,68 +170,117 @@
                   (c y)))])))))))
 
 (defarrow conduit
-  [a-arr (fn [f]
-           (with-meta
-             (fn a-arr [x]
-               (let [y (f x)]
-                 [a-arr (fn [c]
-                          (when c
-                            (c [y])))]))
-             {:created-by :a-arr
-              :args f}))
+  [a-arr (ann-form 
+           (fn [f]
+             (with-meta
+               (fn a-arr [x]
+                 (let [y (f x)]
+                   [a-arr (fn [c]
+                            (when c
+                              (c [y])))]))
+               {:created-by :a-arr
+                :args f}))
+           (All [x y]
+             [[x -> y] -> (I (==> x y)
+                             (IMeta '{:created-by ':a-arr
+                                      :args [x -> x]}))]))
 
-   a-comp (fn [& ps]
-            (with-meta
-              (if (< (count ps) 2)
-                (first ps)
-                (comp-fn ps))
-              {:parts (merge-parts ps)
-               :created-by :a-comp
-               :args ps}))
+   a-comp (ann-form
+            (fn [p1 p2]
+              (with-meta
+                (comp-fn [p1 p2])
+                {:parts (merge-parts [p1 p2])
+                 :created-by :a-comp
+                 :args [p1 p2]}))
+            (All [x y z]
+              [(==> x y) (==> y z) -> (I (==> x z)
+                                         (IMeta '{:created-by ':a-comp
+                                                  :parts Any
+                                                  :args '[[x -> y] [y -> z]]}))]))
 
-   a-nth (fn [n p]
-           (with-meta
-             (nth-fn n p)
-             {:parts (:parts p)
-              :created-by :a-nth
-              :args [n p]}))
+   ;apply p to position n in passed pair
+   ;eg. increment second element of each list
+   ; (conduit-map (a-nth 1 (a-arr inc)) [[3 5] [3 4]])
+   ;([3 6] [3 5])
+   a-nth (ann-form
+           (fn [n p]
+             (with-meta
+               (nth-fn n p)
+               {:parts (:parts p)
+                :created-by :a-nth
+                :args [n p]}))
+           (All [x y z]
+             (Fn ['0 (==> x y) -> (I (==> '[x z] '[y z])
+                                     (IMeta '{:created-by ':a-nth
+                                              :parts Any
+                                              :args '['0 (==> x y)]}))]
+                 ['1 (==> x y) -> (I (==> '[z x] '[z y])
+                                     (IMeta '{:created-by ':a-nth
+                                              :parts Any
+                                              :args '['1 (==> x y)]}))])))
 
-   a-par (fn [& ps]
-           (with-meta
-             (par-fn ps)
-             {:created-by :a-par
-              :args ps
-              :parts (merge-parts ps)}))
+   ;like juxt
+   ;modified to accept 2 arrows rather than n arrows
+   a-par (ann-form 
+           (fn [p1 p2]
+             (with-meta
+               (par-fn [p1 p2])
+               {:created-by :a-par
+                :args [p1 p2]
+                :parts (merge-parts [p1 p2])}))
+           (All [x y z]
+             [(==> x y) (==> x z) -> (I (==> x '[y z])
+                                        (IMeta '{:created-by ':a-par
+                                                 :args [(==> x y) (==> x z)]
+                                                 :parts Any}))]))
 
-   a-all (fn [& ps]
-           (with-meta
-             (a-comp (a-arr (partial repeat (count ps)))
-                          (apply a-par ps))
-             {:created-by :a-all
-              :args ps
-              :parts (merge-parts ps)}))
+   ;apply functions to lhs and rhs of pairs
+   ; modified to accept 2 arrows instead of n arrows
+   a-all (ann-form 
+           (fn [p1 p2]
+             (with-meta
+               (a-comp (a-arr (ann-form #(vector % %)
+                                        (All [x] 
+                                          [x -> '[x x]])))
+                       (a-par p1 p2))
+               {:created-by :a-all
+                :args [p1 p2]
+                :parts (merge-parts [p1 p2])}))
+           (All [x y]
+             [(==> x y) (==> z a) -> (I (==> '[x z] '[y a])
+                                        (IMeta '{:created-by ':a-all
+                                                 :args '[(==> x y) (==> z a)]
+                                                 :parts Any}))]))
 
-   a-select (fn [& vp-pairs]
-              (let [pair-map (apply hash-map vp-pairs)]
+   ;select a value
+   a-select (ann-form
+              (fn [pair-map]
                 (with-meta
                   (select-fn pair-map)
                   {:created-by :a-select
                    :args pair-map
-                   :parts (merge-parts (vals pair-map))})))
+                   :parts (merge-parts (vals pair-map))}))
+              (All [x y z]
+                [(IPersistentMap x (==> y z)) -> (==> x (==> y z))]))
 
-   a-loop (fn
-            ([p initial-value]
-             (with-meta
-               (loop-fn p initial-value)
-               {:created-by :a-loop
-                :args [p initial-value]
-                :parts (:parts p)}))
-            ([p initial-value fb-p]
-             (with-meta
-               (loop-fn p fb-p initial-value)
-               {:created-by :a-loop
-                :args [p initial-value fb-p]
-                :parts (:parts p)})))
+   a-loop (ann-form 
+            (fn
+              ([p initial-value]
+               (with-meta
+                 (loop-fn p initial-value)
+                 {:created-by :a-loop
+                  :args [p initial-value]
+                  :parts (:parts p)}))
+              ([p initial-value fb-p]
+               (with-meta
+                 (loop-fn p fb-p initial-value)
+                 {:created-by :a-loop
+                  :args [p initial-value fb-p]
+                  :parts (:parts p)})))
+            (All [state in]
+                 [(==> '[state in] state) state -> (I (==> in state)
+                                                      (IMeta '{:created-by ':a-loop
+                                                               :args '[(==> '[state in] state) state]}))]))
    ])
 
 (def a-arr (conduit :a-arr))
@@ -219,47 +291,62 @@
 (def a-select (conduit :a-select))
 (def a-loop (conduit :a-loop))
 
+(ann conduit-map
+     (All [x y]
+       [(==> x y) (Seqable x) -> (Seqable y)]))
 (defn conduit-map [p l]
   (if (empty? l)
     l
     (a-run (comp-fn [(conduit-seq l) p]))))
 
+(ann pass-through 
+     (All [x]
+       (==> x x)))
 (def pass-through
   (a-arr identity))
 
-(defn a-selectp [pred & vp-pairs]
+(ann a-selectp
+     (All [x y z a]
+          [[x -> y] (IPersistentMap y (==> z a)) -> (==> '[x z] a)]))
+(defn a-selectp [pred pair-map]
   (a-comp
-   (a-all (a-arr pred)
-          pass-through)
-   (apply a-select vp-pairs)))
+    (a-all (a-arr pred)
+           pass-through)
+    (a-select pair-map)))
 
-(defn a-if [a b & [c]]
-  (let [c (or c (a-arr (constantly nil)))]
-    (a-comp (a-all (a-arr (comp boolean a))
-                   pass-through)
-            (a-select
-             true b
-             false c))))
+(ann a-if
+     (All [x y z]
+       (Fn [[x -> y] [y -> z] -> (==> x (U z nil))]
+           [[x -> y] [y -> z] [y -> z] -> (==> x z)])))
+(defn a-if
+  ([a b] (a-if a b nil))
+  ([a b c]
+   (let [c (or c (a-arr (constantly nil)))]
+     (a-comp (a-all (a-arr (comp boolean a))
+                    pass-through)
+             (a-select
+               {true b
+                false c})))))
 
 (defn a-catch
   ([p catch-p]
-     (a-catch Exception p catch-p))
+   (a-catch Exception p catch-p))
   ([class p catch-p]
-     (letfn [(a-catch [f catch-f]
-               (fn [x]
-                 (try
-                   (let [[new-f c] (f x)]
-                     [(a-catch f catch-f) c])
-                   (catch Throwable e
-                     (if (instance? class e)
-                       (let [[new-catch c] (catch-f [e x])]
-                         [(a-catch f new-catch) c])
-                       (throw e))))))]
-       (with-meta
-         (a-catch p catch-p)
-         {:parts (:parts p)
-          :created-by :a-catch
-          :args [class p catch-p]}))))
+   (letfn [(a-catch [f catch-f]
+             (fn [x]
+               (try
+                 (let [[new-f c] (f x)]
+                   [(a-catch f catch-f) c])
+                 (catch Throwable e
+                   (if (instance? class e)
+                     (let [[new-catch c] (catch-f [e x])]
+                       [(a-catch f new-catch) c])
+                     (throw e))))))]
+     (with-meta
+       (a-catch p catch-p)
+       {:parts (:parts p)
+        :created-by :a-catch
+        :args [class p catch-p]}))))
 
 (defn a-finally [p final-p]
   (letfn [(a-finally [f final-f]

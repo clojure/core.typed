@@ -477,7 +477,6 @@
          (= (count variances) (count poly?))
          (every? Type? poly?)
          (symbol? the-class)]}
-  (prn ((hash-c? symbol? Type?) replacements))
   (if (seq variances)
     (Poly* names (repeat (count names) no-bounds) (->RClass variances poly? the-class replacements))
     (->RClass nil nil the-class replacements)))
@@ -757,7 +756,6 @@
 (defrecord HeterogeneousSeq [types]
   "A constant seq, clojure.lang.ISeq"
   [(sequential? types)
-   (seq types)
    (every? Type? types)])
 
 (declare-type HeterogeneousSeq)
@@ -1823,7 +1821,6 @@
     `(let [local-name# '~local-name
            fs# (apply array-map (apply concat (with-frees (mapv make-F '~args)
                                                 (mapv parse-field '~fields))))
-           _# (prn '~ancests)
            as# (set (with-frees (mapv make-F '~args)
                       (mapv parse-type '~ancests)))
            s# (symbol (str (munge (-> *ns* ns-name)) \. local-name#))
@@ -2043,8 +2040,8 @@
 ;; Method Override Env
 
 (defonce METHOD-OVERRIDE-ENV (atom {}))
-(set-validator! METHOD-OVERRIDE-ENV #(and (every? (every-pred namespace symbol?) (keys %))
-                                          (every? Fn-Intersection? (vals %))))
+(set-validator! METHOD-OVERRIDE-ENV (hash-c? (every-pred namespace symbol?)
+                                             (some-fn Poly? Fn-Intersection?)))
 
 (defn add-method-override [sym t]
   (swap! METHOD-OVERRIDE-ENV assoc sym t)
@@ -2367,8 +2364,7 @@
 
 (declare constant-type)
 
-(defmethod parse-type-list 'HMap
-  [[_ mandatory & {:keys [optional]}]]
+(defn- syn-to-hmap [mandatory optional]
   (letfn [(mapt [m]
             (into {} (for [[k v] m]
                        [(constant-type k)
@@ -2376,6 +2372,18 @@
     (let [mandatory (mapt mandatory)
           optional (mapt optional)]
       (make-HMap mandatory optional))))
+
+(defmethod parse-type-list 'quote 
+  [[_ syn]]
+  (cond
+    ((some-fn number? keyword?) syn) (-val syn)
+    (vector? syn) (->HeterogeneousVector (mapv parse-type syn))
+    (map? syn) (syn-to-hmap syn nil)
+    :else (throw (Exception. (str "Invalid use of quote:" syn)))))
+
+(defmethod parse-type-list 'HMap
+  [[_ mandatory & {:keys [optional]}]]
+  (syn-to-hmap mandatory optional))
 
 (defn parse-RClass [cls-sym params-syn]
   (let [cls (resolve cls-sym)
@@ -2412,7 +2420,10 @@
                (class? res) (Class->symbol res)
                (var? res) (var->symbol res))]
     (if-let [t ((some-fn @DATATYPE-ENV @PROTOCOL-ENV @TYPE-NAME-ENV) rsym)]
-      (resolve-app* t (mapv parse-type args))
+      ;don't resolve if operator is declared
+      (if (keyword? t)
+        (->App (->Name rsym) (mapv parse-type args))
+        (resolve-app* t (mapv parse-type args)))
       (cond
         ;a Class that's not a DataType
         (class? res) (RClass-of (Class->symbol res) (mapv parse-type args))
@@ -2593,12 +2604,24 @@
     (list* the-class (mapv unparse-type poly?))
     the-class))
 
-(defmethod unparse-type RClass
+(defmulti unparse-RClass :the-class)
+
+(defmethod unparse-RClass 'clojure.lang.Atom
   [{:keys [the-class poly?]}]
+  (let [[w r] poly?]
+    (list* the-class (map unparse-type (concat [w]
+                                               (when (not= w r)
+                                                 [r]))))))
+
+(defmethod unparse-RClass :default
+  [{:keys [the-class poly?]}]
+  (list* the-class (doall (map unparse-type poly?))))
+
+(defmethod unparse-type RClass
+  [{:keys [the-class poly?] :as r}]
   (if (empty? poly?)
     the-class
-    (list* the-class
-           (doall (map unparse-type poly?)))))
+    (unparse-RClass r)))
 
 (defmethod unparse-type Mu
   [m]
@@ -2760,17 +2783,25 @@
                  (frees else)))
 
 (defmethod frees [::any-var TypeFilter]
-  [{:keys [type]}] 
+  [{:keys [type]}]
   (frees type))
 
 (defmethod frees [::any-var NotTypeFilter]
   [{:keys [type]}] 
   (frees type))
 
-(defmethod frees [::any-var AndFilter]
+(defmethod frees [::any-var ImpFilter]
   [{:keys [a c]}] 
   (combine-frees (frees a)
                  (frees c)))
+
+(defmethod frees [::any-var AndFilter]
+  [{:keys [fs]}] 
+  (apply combine-frees (mapv frees fs)))
+
+(defmethod frees [::any-var OrFilter]
+  [{:keys [fs]}]
+  (apply combine-frees (mapv frees fs)))
 
 (defmethod frees [::frees F]
   [{:keys [name] :as t}]
@@ -2778,12 +2809,15 @@
 
 (defmethod frees [::idxs F] [t] {})
 
+(defmethod frees [::any-var EmptyObject] [t] {})
+(defmethod frees [::any-var CountRange] [t] {})
 (defmethod frees [::any-var Value] [t] {})
 (defmethod frees [::any-var AnyValue] [t] {})
 (defmethod frees [::any-var Top] [t] {})
 (defmethod frees [::any-var TopFilter] [t] {})
 (defmethod frees [::any-var BotFilter] [t] {})
 (defmethod frees [::any-var NoObject] [t] {})
+(defmethod frees [::any-var Name] [t] {})
 
 (defmethod frees [::any-var DataType]
   [{:keys [fields poly?]}]
@@ -2793,6 +2827,10 @@
 (defmethod frees [::any-var HeterogeneousList]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
+
+(defmethod frees [::any-var App]
+  [{:keys [rator rands]}] 
+  (apply combine-frees (mapv frees (cons rator rands))))
 
 (defmethod frees [::any-var PrimitiveArray]
   [{:keys [input-type output-type]}] 
@@ -3050,7 +3088,7 @@
                            [k (dmt v)]))]
     (cond 
       ;if filter contains V, give up
-      (seq (set/intersection V (:fl rng))) (->TopFunction)
+      (seq (set/intersection V (Result-filter* rng))) (->TopFunction)
 
       ;if dotted bound is in V, transfer to rest args
       (and drest (V (:name drest)))
@@ -3086,7 +3124,7 @@
                            [k (pmt v)]))]
     (cond 
       ;if filter contains V, give up
-      (seq (set/intersection V (:fl rng))) (->TopFunction)
+      (seq (set/intersection V (Result-filter* rng))) (->TopFunction)
 
       ;if dotted bound is in V, transfer to rest args
       (and drest (V (:name drest)))
@@ -3412,6 +3450,7 @@
          (AnyType? S)
          (AnyType? T)]
    :post [(cset? %)]}
+  (prn "cs-gen" (unparse-type S) (unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (subtype? S T))
     ;already been around this loop, is a subtype
@@ -3420,6 +3459,12 @@
       (cond
         (Top? T)
         (empty-cset X Y)
+
+        ;; constrain body to be below T, but don't mention the new vars
+        (Poly? S)
+        (let [nms (repeatedly (:nbound S) gensym)
+              body (Poly-body* nms S)]
+          (cs-gen (set/union (set nms) V) X Y body T))
 
         ;constrain *each* element of S to be below T, and then combine the constraints
         (Union? S)
@@ -3485,6 +3530,55 @@
         :else
         (cs-gen* V X Y S T)))))
 
+(defn cs-gen-filter [V X Y s t]
+  {:pre [((set-c? symbol?) V)
+         (every? (hash-c? symbol? Bounds?) [X Y])
+         (Filter? s)
+         (Filter? t)]
+   :post [(cset? %)]}
+  (cond
+    (= s t) (empty-cset X Y)
+    (TopFilter? t) (empty-cset X Y)
+    ;; FIXME - is there something to be said about the logical ones?
+    (and (TypeFilter? s)
+         (TypeFilter? t))
+    (cset-meet (cs-gen V X Y (:type s) (:type t))
+               (cs-gen V X Y (:type t) (:type s)))
+    (and (NotTypeFilter? s)
+         (NotTypeFilter? t))
+    (cset-meet (cs-gen V X Y (:type s) (:type t))
+               (cs-gen V X Y (:type t) (:type s)))
+    :else (throw (IllegalArgumentException. "Need two filters of same type"))))
+
+;must be *latent* filter sets
+(defn cs-gen-filter-set [V X Y s t]
+  {:pre [((set-c? symbol?) V)
+         (every? (hash-c? symbol? Bounds?) [X Y])
+         (FilterSet? s)
+         (FilterSet? t)]
+   :post [(cset? %)]}
+  (cond
+    (= s t) (empty-cset X Y)
+    (and (FilterSet? s)
+         (FilterSet? t))
+    (let [{s+ :then s- :else} s
+          {t+ :then t- :else} t]
+      (cset-meet (cs-gen-filter V X Y s+ t+)
+                 (cs-gen-filter V X Y s- t-)))
+    :else (throw (IllegalArgumentException. "Need two filtersets"))))
+
+(defn cs-gen-object [V X Y s t]
+  {:pre [((set-c? symbol?) V)
+         (every? (hash-c? symbol? Bounds?) [X Y])
+         (RObject? s)
+         (RObject? t)]
+   :post [(cset? %)]}
+  (cond
+    (= s t) (empty-cset X Y)
+    (EmptyObject? t) (empty-cset X Y)
+    ;;FIXME do something here
+    :else (throw (IllegalArgumentException. "Objects don't match"))))
+
 (defmethod cs-gen* :default
   [V X Y S T]
   (assert (subtype? S T) (type-error S T))
@@ -3492,7 +3586,9 @@
 
 (defmethod cs-gen* [Result Result] 
   [V X Y S T] 
-  (cs-gen V X Y (:t S) (:t T)))
+  (cset-meet* [(cs-gen V X Y (Result-type* S) (Result-type* T))
+               (cs-gen-filter-set V X Y (Result-filter* S) (Result-filter* T))
+               (cs-gen-object V X Y (Result-object* S) (Result-object* T))]))
 
 (defmethod cs-gen* [Value AnyValue] 
   [V X Y S T] 
@@ -3595,7 +3691,7 @@
 
 (defmethod cs-gen* [F Type]
   [V X Y S T]
-  (prn "cs-gen* [F Type]" S T)
+  #_(prn "cs-gen* [F Type]" S T)
   (cond
     (contains? X (:name S))
     (demote-F V X Y S T)
@@ -3735,6 +3831,7 @@
          (Function? S)
          (Function? T)]
    :post [(cset? %)]}
+  (prn "cs-gen-Function")
   (letfn [(cg [S T] (cs-gen V X Y S T))]
     (cond
       ;easy case - no rests, drests, kws
@@ -3768,11 +3865,14 @@
                                                                                 (:rest S)))))
                           ;no rest arg on the right, so just pad left and forget the rest arg
                           (and (:rest S) (not (:rest T)))
-                          (cs-gen-list V X Y
-                                       (:dom T)
-                                       (concat (:dom S) (repeat (- (count (:dom T))
-                                                                   (count (:dom S)))
-                                                                (:rest S))))
+                          (let [new-S (concat (:dom S) (repeat (- (count (:dom T))
+                                                                  (count (:dom S)))
+                                                               (:rest S)))]
+                            (prn "infer rest arg on left")
+                            (prn "left dom" (map unparse-type (:dom S)))
+                            (prn "right dom" (map unparse-type (:dom T)))
+                            (prn "new left dom" (map unparse-type new-S))
+                            (cs-gen-list V X Y (:dom T) new-S))
                           ;no rest arg on left, or wrong number = fail
                           :else (type-error S T))
             ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
@@ -3843,6 +3943,7 @@
 
 (defmethod cs-gen* [Function Function]
   [V X Y S T]
+  (prn "cs-gen* [Function Function]")
   (cs-gen-Function V X Y S T))
 
 ;; C : cset? - set of constraints found by the inference engine
@@ -3851,7 +3952,7 @@
 (defn subst-gen [C Y R]
   {:pre [(cset? C)
          ((set-c? symbol?) Y)
-         (Type? R)]
+         (AnyType? R)]
    :post [((some-fn nil? substitution-c?) %)]}
   (let [var-hash (fv-variances R)
         idx-hash (idx-variances R)]
@@ -4139,14 +4240,16 @@
   {:pre [(every? (hash-c? symbol? Bounds?) [X Y])
          (every? (every-c? Type?) [S T])
          ((some-fn nil? Type?) T-var)
-         (Type? R)
+         (AnyType? R)
          ((some-fn nil? Type?) expected)]
    :post [((some-fn nil? substitution-c?) %)]}
-  ;(prn "infer-vararg" "X:" X)
+  (prn "infer-vararg" "X:" X)
   (let [new-T (if T-var
                 ;Pad out T
                 (concat T (repeat (- (count S) (count T)) T-var))
                 T)]
+    (prn "S" (map unparse-type S))
+    (prn "new-T" (map unparse-type new-T))
     (and (>= (count S) (count T))
          (infer X Y S new-T R expected))))
 
@@ -4163,9 +4266,10 @@
   {:pre [(every? (hash-c? symbol? Bounds?) [X Y])
          (every? Type? S)
          (every? Type? T)
-         ((some-fn nil? Type?) R)
+         ((some-fn nil? AnyType?) R)
          ((some-fn nil? Type?) expected)]
    :post [((some-fn nil? true? substitution-c?) %)]}
+  (prn "infer")
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset {} {}))
@@ -4635,6 +4739,12 @@
         (App? t)
         (subtypeA* *sub-current-seen* s (resolve-App t))
 
+        (and (Poly? s)
+             (not (Poly? t)))
+
+        (and (not (Poly? s))
+             (Poly? t))
+
         (Union? s)
         (if (every? #(subtype? % t) (:types s))
           *sub-current-seen*
@@ -4711,48 +4821,47 @@
     ;; the really simple case
     (and (not ((some-fn :rest :drest :kws) s))
          (not ((some-fn :rest :drest :kws) t)))
-    (let [{s1 :dom s2 :rng} s
-          {t1 :dom t2 :rng} t]
-      (when-not (= (count s1)
-                   (count t1))
+    (do
+      (when-not (= (count (:dom s))
+                   (count (:dom t)))
         (type-error s t))
       (-> *sub-current-seen*
         ((fn [A0]
            (reduce (fn [A* [s t]]
                      (subtypeA* A* s t))
                    A0
-                   (map vector t1 s1))))
-        (subtypeA* (:rng s) (:rng t)))
-
-      (and (:rest s1)
-           (not ((some-fn :rest :drest) t1)))
-      (-> *sub-current-seen*
-        (subtypes*-varargs (:dom t) (:dom s) (:rest s))
-        (subtypeA* (:rng s) (:rng t)))
-
-      (and (not ((some-fn :rest :drest) s))
-           (:rest t))
-      (type-error s t)
-
-      (and (:rest s)
-           (:rest t))
-      (-> *sub-current-seen*
-        (subtypes*-varargs (:dom t) (:dom s) (:rest s))
-        (subtypeA* (:rest t) (:rest s))
-        (subtypeA* (:rng s) (:rng t)))
-
-      ;; handle ... varargs when the bounds are the same
-      (and (:drest s)
-           (:drest t)
-           (= (-> s :drest :name)
-              (-> t :drest :name)))
-      (-> *sub-current-seen*
-        (subtypeA* (-> t :drest :pre-type) (-> s :drest :pre-type))
-        ((fn [A0] 
-           (reduce (fn [A* [s t]]
-                     (subtypeA* A* s t))
-                   A0 (map vector (:dom t) (:dom s)))))
+                   (map vector (:dom t) (:dom s)))))
         (subtypeA* (:rng s) (:rng t))))
+
+    (and (:rest s)
+         (not ((some-fn :rest :drest) t)))
+    (-> *sub-current-seen*
+      (subtypes*-varargs (:dom t) (:dom s) (:rest s))
+      (subtypeA* (:rng s) (:rng t)))
+
+    (and (not ((some-fn :rest :drest) s))
+         (:rest t))
+    (type-error s t)
+
+    (and (:rest s)
+         (:rest t))
+    (-> *sub-current-seen*
+      (subtypes*-varargs (:dom t) (:dom s) (:rest s))
+      (subtypeA* (:rest t) (:rest s))
+      (subtypeA* (:rng s) (:rng t)))
+
+    ;; handle ... varargs when the bounds are the same
+    (and (:drest s)
+         (:drest t)
+         (= (-> s :drest :name)
+            (-> t :drest :name)))
+    (-> *sub-current-seen*
+      (subtypeA* (-> t :drest :pre-type) (-> s :drest :pre-type))
+      ((fn [A0] 
+         (reduce (fn [A* [s t]]
+                   (subtypeA* A* s t))
+                 A0 (map vector (:dom t) (:dom s)))))
+      (subtypeA* (:rng s) (:rng t)))
     :else (type-error s t)))
 
 (defn supertype-of-one-arr [A s ts]
@@ -4924,7 +5033,9 @@
   [{ltypes :types :as s}
    {rtypes :types :as t}]
   (last (doall (map (fn [[k v]]
-                      (subtype (ltypes k) v))
+                      (if-let [t (ltypes k)]
+                        (subtype t v)
+                        (type-error s t)))
                     rtypes))))
 
 (defmethod subtype* [HeterogeneousVector HeterogeneousVector]
@@ -5180,6 +5291,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
+(def-alias AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte))
+(def-alias Atom1 (All [x] (Atom x x)))
+
 (ann clojure.core/*ns* Namespace)
 (ann clojure.core/namespace [(U Symbol String Keyword) -> (U nil String)])
 (ann clojure.core/ns-name [Namespace -> Symbol])
@@ -5300,7 +5414,16 @@
   ;                                [[y -> x] [z -> y] [k -> z] [b ... b -> k] -> [b ... b -> x]]
   ;                                [[y -> x] [z -> y] [k -> z] [l -> k] [b ... b -> l] -> [b ... b -> x]]
   ;                                [[y -> x] [z -> y] [k -> z] [l -> k] [m -> l] [b ... b -> m] -> [b ... b -> x]]
+
+  (ann clojure.core/juxt
+                  (All [y b ... c ...]
+                       [[b ... b -> y] [b ... b -> c] ... c -> [b ... b -> (DottedVec y c ... c)]]))
   )
+
+;most useful case
+(ann clojure.core/comp
+     (All [x y b ...]
+          [[x -> y] [b ... b -> x] -> [b ... b -> y]]))
 
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
@@ -5312,12 +5435,14 @@
 
 
 (ann clojure.core/atom (All [x] [x -> (Atom x x)]))
-(ann clojure.core/deref (All [x] [(IDeref x) -> x]))
+(ann clojure.core/deref (All [x y]
+                             (Fn [(IDeref x) -> x]
+                                 [(IDeref x) AnyInteger y -> (U x y)])))
 (ann clojure.core/reset! (All [w r]
                               [(Atom w r) w -> r]))
 
-(ann clojure.core/swap! (All [w r] 
-                             [(Atom w r) [r -> w] -> w]))
+(ann clojure.core/swap! (All [w r b ...] 
+                             [(Atom w r) [r b ... b -> w] b ... b -> w]))
 
 (ann clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
@@ -5353,17 +5478,13 @@
                            {:actual-frees '[x]})))
 
 (add-var-type 'clojure.core/empty?
-              (let [x (make-F 'x)]
-                (with-meta (Poly* [(:name x)]
-                                  [no-bounds]
-                                  (Fn-Intersection (make-Function [(Un (RClass-of (Class->symbol Seqable) [x]) -nil)]
-                                                                  (Un -true -false)
-                                                                  nil nil
-                                                                  :filter (-FS (-or (-filter (make-ExactCountRange 0) 0)
-                                                                                    (-filter -nil 0))
-                                                                               (-filter (make-CountRange 1) 0))
-                                                                  :object -empty)))
-                           {:actual-frees '[x]})))
+              (Fn-Intersection (make-Function [(Un (RClass-of (Class->symbol Seqable) [-any]) -nil)]
+                                              (Un -true -false)
+                                              nil nil
+                                              :filter (-FS (-or (-filter (make-ExactCountRange 0) 0)
+                                                                (-filter -nil 0))
+                                                           (-filter (make-CountRange 1) 0))
+                                              :object -empty)))
 
 (ann clojure.core/map
      (All [c a b ...]
@@ -5374,10 +5495,10 @@
           [[b ... b -> (U nil (Seqable c))] (U nil (Seqable b)) ... b -> (LazySeq c)]))
 
 (ann clojure.core/merge-with
-     (All [a b c]
-          (Fn [[a a -> a] nil * -> nil]
-              [[a a -> a] (IPersistentMap c a) * -> (IPersistentMap c a)]
-              [[a a -> a] (U nil (IPersistentMap c a)) * -> (U nil (IPersistentMap c a))])))
+     (All [k v]
+          (Fn [[v v -> v] nil * -> nil]
+              [[v v -> v] (IPersistentMap k v) * -> (IPersistentMap k v)]
+              [[v v -> v] (U nil (IPersistentMap k v)) * -> (U nil (IPersistentMap k v))])))
 
 (ann clojure.core/reduce
      (All [a c]
@@ -5449,14 +5570,13 @@
               [(U nil (ILookup Any x)) Any -> (U nil x)])))
 
 (ann clojure.core/merge 
-     (All [a b c]
+     (All [k v]
           (Fn [nil * -> nil]
-              [(IPersistentMap c a) * -> (IPersistentMap c a)]
-              [(U nil (IPersistentMap c a)) * -> (U nil (IPersistentMap c a))])))
+              [(IPersistentMap k v) * -> (IPersistentMap k v)]
+              [(U nil (IPersistentMap k v)) * -> (U nil (IPersistentMap k v))])))
 
 (ann clojure.core/= [Any Any * -> (U true false)])
 
-(def-alias AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte))
 
 (ann clojure.core/integer? (predicate AnyInteger))
 (ann clojure.core/number? (predicate Number))
@@ -5514,6 +5634,10 @@
   (add-method-override 'clojure.lang.RT/count t))
 
 (non-nil-return java.lang.Object/getClass #{0})
+(override-method clojure.lang.RT/nth
+                 (All [x y]
+                   (Fn [(Seqable x) AnyInteger -> x]
+                       [(Seqable x) AnyInteger y -> (U x y)])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -5643,7 +5767,8 @@
 
 (defmethod check :map
   [{:keys [keyvals] :as expr} & [expected]]
-  (let [expected (ret-t expected)
+  (let [expected (when expected 
+                   (ret-t expected))
         _ (when expected
             (assert (or (HeterogeneousMap? expected)
                         (and (Union? expected)
@@ -5680,7 +5805,15 @@
 
 (defmethod check :vector
   [{:keys [args] :as expr} & [expected]]
-  (let [cargs (mapv check args)]
+  (let [ex-t (when expected
+               (ret-t expected))
+        _ (when ex-t
+            ;Handles only very specific case
+            (assert (HeterogeneousVector? ret-t) "Expected hvector")
+            (assert (= (count (:types ret-t)) (count args)) "Mismatched expected vector length"))
+        cargs (if ex-t
+                (mapv check args (map ret (:types ret-t)))
+                (mapv check args))]
     (assoc expr
            expr-type (ret (->HeterogeneousVector (mapv (comp ret-t expr-type) cargs))))))
 
@@ -5731,21 +5864,21 @@
     (cond
       (and (TCResult? tr1)
            (TCResult? expected)
-           (= (Un) (:t tr1))
-           (NoFilter? (:fl expected))
-           (NoObject? (:o expected)))
+           (= (Un) (ret-t tr1))
+           (NoFilter? (ret-f expected))
+           (NoObject? (ret-o expected)))
       (let [ts2 (:t tr1)]
         (ret ts2))
 
       (and (TCResult? tr1)
-           (= (Un) (:t tr1)))
+           (= (Un) (ret-t tr1)))
       expected
 
       (and (TCResult? tr1)
            (TCResult? expected)
            (= (-FS -top -top)
-              (:fl expected))
-           (EmptyObject? (:o expected)))
+              (ret-f expected))
+           (EmptyObject? (ret-o expected)))
       (let [{t1 :t f1 :fl o1 :o} tr1
             {t2 :t} expected]
         (when-not (subtype? t1 t2)
@@ -6022,23 +6155,18 @@
          (every? RObject? objs)
          ((some-fn FilterSet? NoFilter?) fs)
          (RObject? old-obj)
-         ((some-fn nil? #(every? Type? %)) ts)]
-   :post [(let [[t fs r] %]
-            (and (Type? t)
-                 (FilterSet? fs)
-                 (RObject? r)))]}
+         ((some-fn nil? (every-c? Type?)) ts)]
+   :post [((hvector-c? Type? FilterSet? RObject?) %)]}
+  (prn "open-result")
+  (prn "latent filter set" (unparse-filter-set fs))
   (reduce (fn [[t fs old-obj] [[o k] arg-ty]]
             {:pre [(Type? t)
                    ((some-fn FilterSet? NoFilter?) fs)
                    (RObject? old-obj)
                    (integer? k)
                    (RObject? o)
-                   (or (false? arg-ty)
-                       (Type? arg-ty))]
-             :post [(let [[t fs r] %]
-                      (and (Type? t)
-                           (FilterSet? fs)
-                           (RObject? r)))]}
+                   ((some-fn false? Type?) arg-ty)]
+             :post [((hvector-c? Type? FilterSet? RObject?) %)]}
             [(subst-type t k o true)
              (subst-filter-set fs k o true arg-ty)
              (subst-object old-obj k o true)])
@@ -6124,19 +6252,21 @@
             _ (assert (Fn-Intersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
+                         (prn "infer poly fn" (unparse-type ftype) (map unparse-type arg-types)
+                              (count dom) (count arg-types))
+                         (when rest (prn "rest" (unparse-type rest)))
                          ;; only try inference if argument types are appropriate and no kws
                          (if-let [substitution (try
                                                  (and (not (or drest kws))
                                                       ((if rest <= =) (count dom) (count arg-types))
-                                                      (infer-vararg (zipmap fs-names bbnds) {} arg-types dom rest (Result-type* rng)
+                                                      (infer-vararg (zipmap fs-names bbnds) {} arg-types dom rest rng
                                                                     (and expected (ret-t expected))))
                                                  (catch IllegalArgumentException e
                                                    (throw e))
-                                                 (catch Exception e
-                                                   (pst e 40)
-                                                   (prn "caught fail"e)))]
+                                                 (catch Exception e))]
                            (do #_(prn "subst:" substitution)
-                             (ret (subst-all substitution (Result-type* rng))))
+                             (check-funapp1 (subst-all substitution ftype)
+                                            (map ret arg-types) expected :check? false))
                            (if (or drest kws)
                              (throw (Exception. "Cannot infer arguments to polymorphic functions with dotted rest or kw types"))
                              (recur ftypes)))))]
@@ -6363,6 +6493,19 @@
       :else (do ;(prn "Non-special 'get'")
               ::not-special))))
 
+(defmethod static-method-special 'clojure.lang.PersistentHashMap/create
+  [{:keys [args] :as expr} & [expected]]
+  (let [_ (assert (= 1 (count args)) "Incorrect number of arguments to clojure.lang.PersistentHashMap/create")
+        targett (-> (first args) check expr-type ret-t)
+        _ (assert (HeterogeneousSeq? targett) (str "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
+                                                   (unparse-type targett)))
+        res (reduce (fn [t [kt vt]]
+                      {:pre [(HeterogeneousMap? t)]}
+                      (assoc-in [:types kt] vt))
+                    (->HeterogeneousMap {}) (.types ^HeterogeneousSeq targett))]
+    (assoc expr
+           expr-type (ret res))))
+
 (defmethod static-method-special 'clojure.lang.RT/get
   [{:keys [args] :as expr} & [expected]]
   (assert (<= 2 (count args) 3) "Wrong number of args to clojure.core/get")
@@ -6394,6 +6537,7 @@
    :post [(Type? %)]}
   (let [t (-resolve t)]
     (cond
+      (Nil? t) -nil
       (HeterogeneousMap? t) (if-let [v (get (:types t) k)]
                               v
                               (throw (Exception. (str "Map type " (unparse-type t)
@@ -6539,7 +6683,6 @@
 (defmethod invoke-special #'pfn>-ann
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [[fexpr {poly-decl :val} {method-types-syn :val}] args
-        _ (prn "poly-decl" poly-decl)
         frees-with-bounds (map parse-free poly-decl)
         fs (map (comp make-F first) frees-with-bounds)
         method-types (with-frees fs
@@ -6851,7 +6994,9 @@
             (cond
               ;we've run out of cases to try, so error out
               (empty? fs)
-              (throw (Exception. (str "Bad arguments to function in apply: " 
+              (throw (Exception. (str (when *current-env*
+                                        (str (:line *current-env*) ": "))
+                                      "Bad arguments to function in apply: " 
                                       (unparse-type ftype) (mapv unparse-type (concat arg-tys [tail-ty])))))
 
               ;this case of the function type has a rest argument
@@ -6878,7 +7023,10 @@
             arg-tys (mapv (comp ret-t expr-type) arg-tres)
             tail-bound nil
             tail-ty (ret-t (expr-type (check tail)))]
-        (loop [[{:keys [dom rng rest drest]} :as fs] (:types body)]
+        (loop [[{:keys [dom rng rest drest] :as ftype0} :as fs] (:types body)]
+          (when (seq fs)
+            (prn "checking fn" (unparse-type (first fs))
+                 (mapv unparse-type arg-tys)))
           (cond
             (empty? fs) (throw (Exception. "Bad arguments to polymorphic function in apply"))
             ;the actual work, when we have a * function and a list final argument
@@ -6889,14 +7037,17 @@
                                              (count arg-tys))
                                          (infer-vararg (zipmap vars bbnds) {}
                                                        (cons tail-ty arg-tys)
-                                                       (cons (RClass-of (Class->symbol Seqable) [rest])
+                                                       (cons (Un -nil (RClass-of (Class->symbol Seqable) [rest]))
                                                              dom)
                                                        rest
-                                                       (Result-type* rng)))
+                                                       rng))
                                     (catch IllegalArgumentException e
                                       (throw e))
-                                    (catch Exception e))]
-              (ret (subst-all substitution (Result-type* rng)))
+                                    (catch Exception e
+                                      (prn "caught failed polymorphic case")
+                                      (prn e)))]
+              (check-funapp1 (subst-all substitution ftype0)
+                             (map ret arg-tys) expected :check? false)
               (recur (next fs))))))
 
       :else ::not-special)))
@@ -7160,14 +7311,32 @@
 (defn check-fn-expr [{:keys [methods name] :as expr} expected]
   (cond
     expected
-    (let [fin (cond
-                (Poly? (ret-t expected)) (Poly-body* (repeatedly (:nbound (ret-t expected)) gensym) (ret-t expected))
-                (PolyDots? (ret-t expected)) (PolyDots-body* (repeatedly (:nbound (ret-t expected)) gensym) (ret-t expected))
-                :else (ret-t expected))
-          _ (doseq [{:keys [required-params rest-param] :as method} methods]
-              (with-locals (when name
-                             {name (ret-t expected)})
-                (check-fn-method method (relevant-Fns required-params rest-param fin))))]
+    (let [[fin free-scope]
+          (cond
+            (Poly? (ret-t expected)) (let [p (ret-t expected) 
+                                           _ (assert (-> p meta :actual-frees))
+                                           old-nmes (-> p meta :actual-frees)
+                                           _ (assert ((every-pred seq (every-c? symbol?)) old-nmes))
+                                           new-nmes (repeatedly (:nbound (ret-t expected)) gensym)
+                                           new-frees (map make-F new-nmes)]
+                                       [(Poly-body* new-nmes p) (zipmap old-nmes new-frees)])
+            (PolyDots? (ret-t expected)) (let [p (ret-t expected)
+                                               _ (assert (-> p meta :actual-frees))
+                                               old-nmes (-> p meta :actual-frees)
+                                               _ (assert ((every-pred seq (every-c? symbol?)) old-nmes))
+                                               new-nmes (repeatedly (:nbound (ret-t expected)) gensym)
+                                               new-frees (map make-F new-nmes)]
+                                           [(PolyDots-body* new-nmes p) (zipmap old-nmes new-frees)])
+            :else [(ret-t expected) {}])
+          _ (assert (Fn-Intersection? fin))
+          _ (prn "new free scope" free-scope)
+          _ (assert ((hash-c? symbol? F?) free-scope))
+          _ (with-locals (when name
+                           {name (ret-t expected)})
+              ;scope type variables from polymorphic type in body
+              (binding [*free-scope* (merge *free-scope* free-scope)]
+                (doseq [{:keys [required-params rest-param] :as method} methods]
+                  (check-fn-method method (relevant-Fns required-params rest-param fin)))))]
       (assoc expr
              expr-type (ret fin (-FS -top -bot) -empty)))
 
