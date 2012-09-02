@@ -657,7 +657,7 @@
   (resolve-app* (:rator app) (:rands app)))
 
 (defn resolve-app* [rator rands]
-  (let [r (-resolve rator)]
+  (let [rator (-resolve rator)]
     (cond
       (Poly? rator) (do (assert (= (count rands) (:nbound rator))
                                 (str "Wrong number of arguments provided to polymorphic type"
@@ -666,7 +666,7 @@
       ;PolyDots NYI
       :else (throw (Exception. (str (when *current-env*
                                       (str (:line *current-env*) ": "))
-                                 "Cannot apply non-polymorphic type " (unparse-type rator)))))))
+                                    "Cannot apply non-polymorphic type " (unparse-type rator)))))))
 
 (declare-type App)
 
@@ -2144,7 +2144,7 @@
       (= protocol-name-type t) (resolve-protocol sym)
       (= datatype-name-type t) (resolve-datatype sym)
       (= declared-name-type t) (throw (IllegalArgumentException. (str "Reference to declared but undefined name " sym)))
-      (Type? t) (with-meta t {:source-Name sym})
+      (Type? t) (vary-meta t assoc :source-Name sym)
       :else (throw (IllegalArgumentException. (str "Cannot resolve name " sym))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2298,8 +2298,9 @@
                  (with-frees (map (comp make-F first) frees-with-bnds)
                    (with-dotted (make-F (first dvar))
                      (parse-type type))))
-      (with-meta {:actual-frees (map first frees-with-bnds)
-                  :dvar-name (first dvar)}))))
+      (vary-meta assoc 
+                 :actual-frees (map first frees-with-bnds)
+                 :dvar-name (first dvar)))))
 
 ;(All [a b] type)
 (defmethod parse-all-type :default
@@ -2317,7 +2318,7 @@
              (map second frees-with-bnds)
              (with-frees (mapv (comp make-F first) frees-with-bnds)
                (parse-type type)))
-      (with-meta {:actual-frees (map first frees-with-bnds)}))))
+      (vary-meta assoc :actual-frees (map first frees-with-bnds)))))
 
 (defmethod parse-type-list 'All
   [[All bnds syn & more]]
@@ -2519,48 +2520,55 @@
 
 (def ^:dynamic *next-nme* 0) ;stupid readable variables
 
-(defmulti unparse-type class)
+(declare unparse-type*)
+
+(defn unparse-type [t]
+  (if-let [nsym (-> t meta :source-Name)]
+    nsym
+    (unparse-type* t)))
+
+(defmulti unparse-type* class)
 (defn unp [t] (prn (unparse-type t)))
 
-(defmethod unparse-type Top [_] 'Any)
-(defmethod unparse-type Name [{:keys [id]}] id)
-(defmethod unparse-type AnyValue [_] 'AnyValue)
+(defmethod unparse-type* Top [_] 'Any)
+(defmethod unparse-type* Name [{:keys [id]}] id)
+(defmethod unparse-type* AnyValue [_] 'AnyValue)
 
-(defmethod unparse-type Projection 
+(defmethod unparse-type* Projection 
   [{:keys [ts] :as t}]
   (let [{:keys [fsyn]} (meta t)]
     (list 'Project fsyn (mapv unparse-type ts))))
 
-(defmethod unparse-type DottedPretype
+(defmethod unparse-type* DottedPretype
   [{:keys [pre-type name]}]
   (list 'DottedPretype (unparse-type pre-type) name))
 
-(defmethod unparse-type CountRange [{:keys [lower upper]}]
+(defmethod unparse-type* CountRange [{:keys [lower upper]}]
   (cond
     (= lower upper) (list 'ExactCount lower)
     :else (list* 'CountRange lower (when upper [upper]))))
 
-(defmethod unparse-type App 
+(defmethod unparse-type* App 
   [{:keys [rator rands]}]
-  (list* 'App (unparse-type rator) (mapv unparse-type rands)))
+  (list* (unparse-type rator) (mapv unparse-type rands)))
 
-(defmethod unparse-type Result
+(defmethod unparse-type* Result
   [{:keys [t]}]
   (unparse-type t))
 
-(defmethod unparse-type F
+(defmethod unparse-type* F
   [{:keys [name]}]
   name)
 
-(defmethod unparse-type PrimitiveArray
+(defmethod unparse-type* PrimitiveArray
   [{:keys [input-type output-type]}]
   (list 'Array (unparse-type input-type) (unparse-type output-type)))
 
-(defmethod unparse-type B
+(defmethod unparse-type* B
   [{:keys [idx]}]
   (list 'B idx))
 
-(defmethod unparse-type Union
+(defmethod unparse-type* Union
   [{types :types :as u}]
   (cond
     ; Prefer the user provided Name for this type. Needs more thinking?
@@ -2568,7 +2576,7 @@
     (seq types) (list* 'U (doall (map unparse-type types)))
     :else 'Nothing))
 
-(defmethod unparse-type Intersection
+(defmethod unparse-type* Intersection
   [{types :types}]
   (list* (if (and (seq types)
                   (every? Function? types))
@@ -2576,7 +2584,7 @@
            'I)
          (doall (map unparse-type types))))
 
-(defmethod unparse-type Function
+(defmethod unparse-type* Function
   [{:keys [dom rng rest drest]}]
   (vec (concat (doall (map unparse-type dom))
                (when rest
@@ -2592,13 +2600,13 @@
                          (when (not ((some-fn NoObject? EmptyObject?) o))
                            [(unparse-object o)]))))))
 
-(defmethod unparse-type Protocol
+(defmethod unparse-type* Protocol
   [{:keys [the-var poly?]}]
   (if poly?
     (list* the-var (mapv unparse-type poly?))
     the-var))
 
-(defmethod unparse-type DataType
+(defmethod unparse-type* DataType
   [{:keys [the-class poly?]}]
   (if poly?
     (list* the-class (mapv unparse-type poly?))
@@ -2617,19 +2625,19 @@
   [{:keys [the-class poly?]}]
   (list* the-class (doall (map unparse-type poly?))))
 
-(defmethod unparse-type RClass
+(defmethod unparse-type* RClass
   [{:keys [the-class poly?] :as r}]
   (if (empty? poly?)
     the-class
     (unparse-RClass r)))
 
-(defmethod unparse-type Mu
+(defmethod unparse-type* Mu
   [m]
   (let [nme (gensym "Mu")
         body (Mu-body* nme m)]
     (list 'Rec [nme] (unparse-type body))))
 
-(defmethod unparse-type PolyDots
+(defmethod unparse-type* PolyDots
   [{:keys [nbound] :as p}]
   (let [{:keys [actual-frees dvar-name]} (meta p)
         free-names actual-frees
@@ -2646,7 +2654,7 @@
     (binding [*next-nme* end-nme]
       (list 'All (vec (concat (butlast fs) [(last fs) '...])) (unparse-type body)))))
 
-(defmethod unparse-type Poly
+(defmethod unparse-type* Poly
   [{:keys [nbound] :as p}]
   (let [free-names (-> p meta :actual-frees)
         given-names? free-names
@@ -2676,11 +2684,13 @@
     (binding [*next-nme* end-nme]
       (list 'All fs (unparse-type body)))))
 
-(defmethod unparse-type Value
+(defmethod unparse-type* Value
   [v]
-  (list 'Value (:val v)))
+  (if ((some-fn Nil? True? False?) v)
+    (:val v)
+    `(quote ~(:val v))))
 
-(defmethod unparse-type HeterogeneousMap
+(defmethod unparse-type* HeterogeneousMap
   [v]
   (list 'HMap (into {} (map (fn [[k v]]
                               (assert (Value? k))
@@ -2688,15 +2698,15 @@
                                       (unparse-type v)))
                             (:types v)))))
 
-(defmethod unparse-type HeterogeneousSeq
+(defmethod unparse-type* HeterogeneousSeq
   [v]
   (list* 'Seq* (doall (map unparse-type (:types v)))))
 
-(defmethod unparse-type HeterogeneousVector
+(defmethod unparse-type* HeterogeneousVector
   [v]
-  (list* 'Vector* (doall (map unparse-type (:types v)))))
+  (mapv unparse-type (:types v)))
 
-(defmethod unparse-type HeterogeneousList
+(defmethod unparse-type* HeterogeneousList
   [v]
   (list* 'List* (doall (map unparse-type (:types v)))))
 
@@ -7138,9 +7148,11 @@
 (declare check-fn-expr check-fn-method)
 
 (defmethod check :fn-expr
-  [{:keys [methods] :as expr} & [expected]]
+  [{:keys [methods env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (check-fn-expr expr expected))
+  (assert (:line env))
+  (binding [*current-env* env]
+    (check-fn-expr expr expected)))
 
 (declare check-anon-fn-method abstract-filter abo abstract-object)
 

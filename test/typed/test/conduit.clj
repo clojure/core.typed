@@ -25,15 +25,16 @@
     [in -> '[(U nil (==> in out))
              (Cont out)]]))
 
-(ann merge-parts [(Seqable (IMeta (U '{:parts Part} nil)))
-                  -> Part])
+(ann merge-parts [(Seqable (IMeta (U '{:parts Part} nil))) -> Part])
 (tc-ignore
 (defn merge-parts [ps]
   (let [parts (map (fn> [[p :- (IMeta (U '{:parts Part} nil))]] 
                      (-> p meta :parts))
                    ps)]
-    (apply (inst merge-with Any Part)
-           (inst merge Any Any)
+    (apply (-> merge-with 
+             (inst Any Part))
+           (-> merge 
+             (inst Any Any))
            parts)))
 )
 
@@ -49,27 +50,30 @@
   (fn curr-fn [_]
     (let [new-f (conduit-seq-fn (rest l))]
       (if (empty? l)
-        [nil abort-c]
+        [nil (-> abort-c 
+               (inst x))]
         [new-f
-         (ann-form
+         (-> 
            (fn [c]
              (when c ;`when` added to conform to Cont type
                (c [(first l)])))
-           (Cont x))]))))
+           (ann-form (Cont x)))]))))
 
 (ann conduit-seq
      (All [x]
        [(Seqable x) -> (==> Any x)]))
-(defn conduit-seq [l]
+(defn conduit-seq 
   "create a stream processor that emits the contents of a list
   regardless of what is fed to it"
-  (conduit-seq-fn l))
+  [l]
+  ((inst conduit-seq-fn x) l))
 
 (ann a-run
      (All [x y]
        [(==> x y) -> (Seqable y)]))
-(defn a-run [f]
+(defn a-run 
   "execute a stream processor function"
+  [f]
   (let [[new-f c] (f nil)
         y (c identity)]
     (cond
