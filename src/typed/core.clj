@@ -67,10 +67,19 @@
 (defn inst-poly [inst-of types-syn]
   inst-of)
 
+(defn inst-poly-ctor [inst-of types-syn]
+  inst-of)
+
 (defmacro inst 
   "Instantiate a polymorphic type with a number of types"
   [inst-of & types]
   `(inst-poly ~inst-of '~types))
+
+(defmacro inst-ctor
+  "Instantiate a call to a constructor with a number of types.
+  First argument must be an immediate call to a constructor."
+  [inst-of & types]
+  `(inst-poly-ctor ~inst-of '~types))
 
 (defn fn>-ann [fn-of param-types-syn]
   fn-of)
@@ -741,7 +750,7 @@
 
 (defrecord HeterogeneousVector [types]
   "A constant vector, clojure.lang.IPersistentVector"
-  [(sequential? types)
+  [(vector? types)
    (every? (some-fn Type? Result?) types)])
 
 (declare-type HeterogeneousVector)
@@ -827,13 +836,13 @@
   {:pre [(nat? c)]}
   (make-CountRange c c))
 
-(declare ->NoFilter ->NoObject ->Result -FS -top)
+(declare ->EmptyObject ->Result -FS -top)
 
 (defn make-Result
   "Make a result. ie. the range of a Function"
   ([t] (make-Result t nil nil))
   ([t f] (make-Result t f nil))
-  ([t f o] (->Result t (or f (-FS -top -top)) (or o (->NoObject)))))
+  ([t f o] (->Result t (or f (-FS -top -top)) (or o (->EmptyObject)))))
 
 (declare ret-t ret-f ret-o)
 
@@ -847,11 +856,11 @@
 
 (defn make-Function
   "Make a function, wrap range type in a Result.
-  Accepts optional :filter and :object parameters that default to NoFilter
-  and NoObject"
+  Accepts optional :filter and :object parameters that default to the most general filter
+  and EmptyObject"
   ([dom rng] (make-Function dom rng nil nil))
   ([dom rng rest] (make-Function dom rng rest nil))
-  ([dom rng rest drest & {:keys [filter object kws] :or {filter (-FS -top -top), object (->NoObject)}}]
+  ([dom rng rest drest & {:keys [filter object kws] :or {filter (-FS -top -top), object (->EmptyObject)}}]
    (->Function dom (->Result rng filter object) rest drest kws)))
 
 (defn Fn-Intersection [& fns]
@@ -3587,7 +3596,9 @@
     (= s t) (empty-cset X Y)
     (EmptyObject? t) (empty-cset X Y)
     ;;FIXME do something here
-    :else (throw (IllegalArgumentException. "Objects don't match"))))
+    :else (throw (IllegalArgumentException. (when *current-env*
+                                              (str (:line *current-env*) ":"))
+                                            "Objects don't match"))))
 
 (defmethod cs-gen* :default
   [V X Y S T]
@@ -4648,7 +4659,9 @@
   with given types"
   [ptype argtys]
   {:pre [((some-fn Poly? PolyDots?) ptype)
-         (every? Type? argtys)]}
+         (seq argtys)
+         (every? Type? argtys)]
+   :post [(Type? %)]}
   (cond
     (Poly? ptype)
     (let [_ (assert (= (:nbound ptype) (count argtys)) "Wrong number of arguments to instantiate polymorphic type")
@@ -4876,6 +4889,23 @@
 
 (defn supertype-of-one-arr [A s ts]
   (some #(arr-subtype-nofail A % s) ts))
+
+(defmethod subtype* [Result Result]
+  [{t1 :t f1 :fl o1 :o :as s}
+   {t2 :t f2 :fl o2 :o :as t}]
+  (prn "Result subtyping" s t)
+  (cond
+    ;trivial case
+    (and (= f1 f2)
+         (= o1 o2))
+    (subtype t1 t2)
+
+    ;we can ignore some interesting results
+    (and (EmptyObject? o2)
+         (= f2 (-FS -top -top)))
+    (subtype t1 t2)
+
+    :else (type-error s t)))
 
 (defmethod subtype* [Protocol Type]
   [s t]
@@ -5628,11 +5658,13 @@
 (override-method clojure.lang.Numbers/divide [Number Number -> Number])
 
 (override-method clojure.lang.Numbers/lt [Number Number -> boolean])
+(override-method clojure.lang.Numbers/lte [Number Number -> boolean])
 (override-method clojure.lang.Numbers/gt [Number Number -> boolean])
+(override-method clojure.lang.Numbers/gte [Number Number -> boolean])
 
 (override-constructor clojure.lang.LazySeq 
                       (All [x]
-                        [[-> (U nil (ISeq x))] -> (Seqable x)]))
+                        [[-> (U nil (Seqable x))] -> (LazySeq x)]))
 
 (let [t (Fn-Intersection
           (make-Function 
@@ -6248,7 +6280,10 @@
                                            ftypes))]
         (if success-ret-type
           success-ret-type
-          (throw (Exception. "Arguments did not match function"))))
+          (throw (Exception. (str (when *current-env*
+                                    (str (:line *current-env*) ":"))
+                                  "funapp: Arguments did not match function: "
+                                  (mapv unparse-type arg-types))))))
 
       ;ordinary polymorphic function without dotted rest
       (and (Poly? fexpr-type)
@@ -6284,7 +6319,8 @@
           ret-type
           (throw (Exception. (str (when *current-env*
                                     (str (:line *current-env*) ":"))
-                                  "Could not infer result to polymorphic function")))))
+                                  (str "Could not infer result to polymorphic function:"
+                                       (unparse-type fexpr-type) " Requires more type annotations."))))))
 
       :else ;; any kind of dotted polymorphic function without mandatory keyword args
       (if-let [[pbody fixed-vars fixed-bnds dotted-var dotted-bnd]
@@ -6634,6 +6670,19 @@
     (assoc expr
            expr-type (ret (manual-inst ptype targs)))))
 
+(def ^:dynamic *inst-ctor-types* nil)
+(set-validator! #'*inst-ctor-types* (some-fn nil? (every-c? Type?)))
+
+;manual instantiation for calls to polymorphic constructors
+(defmethod invoke-special #'inst-poly-ctor
+  [{[ctor-expr targs-exprs] :args :as expr} & [expected]]
+  (let [targs (mapv parse-type (:val targs-exprs))
+        cexpr (binding [*inst-ctor-types* targs]
+                (check ctor-expr))]
+    (assoc expr
+           expr-type (expr-type cexpr))))
+
+
 (declare check-anon-fn)
 
 ;debug printing
@@ -6908,37 +6957,55 @@
         targett (-resolve targetun)
         hmaps (cond
                 (and (Value? targett) (nil? (.val targett))) #{(->HeterogeneousMap {})}
-                (HeterogeneousMap? targett) #{targett}
+                ((some-fn HeterogeneousVector? HeterogeneousMap?) targett) #{targett}
                 (subtype? targett (RClass-of IPersistentMap [-any -any])) #{targett}
-                :else (throw (Exception. (str "Must supply map or nil to first argument of assoc, given "
+                (subtype? targett (RClass-of IPersistentVector [-any])) #{targett}
+                :else (throw (Exception. (str "Must supply map, vector or nil to first argument of assoc, given "
                                               (unparse-type targetun)))))
 
-        _ (assert (every? #(subtype? % (RClass-of IPersistentMap [-any -any])) hmaps))
+        _ (assert (every? #(subtype? % (Un (RClass-of IPersistentVector [-any])
+                                           (RClass-of IPersistentMap [-any -any]))) 
+                          hmaps))
 
         ; we must already have an even number of keyvals if we've got this far
         ckeyvals (doall (map check keyvals))
         keypair-types (partition 2 (map (comp ret-t expr-type) ckeyvals))
 
-        new-hmaps (map #(reduce (fn [hmap [kt vt]]
-                                  {:pre [((some-fn HeterogeneousMap?
-                                                   (fn [t] (subtype? t (RClass-of IPersistentMap [-any -any]))))
-                                            hmap)]}
-                                  (cond
-                                    ;keep hmap if keyword key and already hmap
-                                    (and (HeterogeneousMap? hmap)
-                                         (Value? kt)
-                                         (keyword? (.val kt)))
-                                    (assoc-in hmap [:types kt] vt)
-                                    ;otherwise just make normal map
-                                    :else (ret-t 
-                                            (check-funapp (ret 
-                                                            (parse-type '(All [a b c] 
-                                                                              [(IPersistentMap b c) b c -> (IPersistentMap b c)])))
-                                                          (doall 
-                                                            (map ret [hmap kt vt]))
-                                                          nil))))
-                                % keypair-types)
-                       hmaps)]
+        new-hmaps (mapv #(reduce (fn [hmap [kt vt]]
+                                   (let [is-vec (subtype? hmap (RClass-of IPersistentVector [-any]))
+                                         is-map (subtype? hmap (RClass-of IPersistentMap [-any -any]))]
+                                     ;check that hmap is either a vector or map
+                                     (assert (and (not= is-vec is-map)
+                                                  (or is-vec is-map)))
+                                     (cond
+                                       ;keep hmap if keyword key and already hmap
+                                       (and (HeterogeneousMap? hmap)
+                                            (Value? kt)
+                                            (keyword? (.val kt)))
+                                       (assoc-in hmap [:types kt] vt)
+
+                                       ;keep hvector if number Value key and already hvector
+                                       (and (HeterogeneousVector? hmap)
+                                            (Value? kt)
+                                            (number? (.val kt)))
+                                       (do (assert (integer? (.val kt)))
+                                         (assoc-in hmap [:types (.val kt)] vt))
+
+                                       ;otherwise just make normal map if already a map, or normal vec if already a vec
+                                       is-map (ret-t 
+                                                (check-funapp (ret 
+                                                                (parse-type '(All [b c] 
+                                                                                  [(IPersistentMap b c) b c -> (IPersistentMap b c)])))
+                                                              (mapv ret [hmap kt vt])
+                                                              nil))
+                                       :else (ret-t 
+                                               (check-funapp (ret 
+                                                               (parse-type '(All [c] 
+                                                                                 [(IPersistentVector c) c -> (IPersistentVector c)])))
+                                                             (mapv ret [hmap vt])
+                                                             nil)))))
+                                 % keypair-types)
+                        hmaps)]
     (assoc expr
            expr-type (ret (apply Un new-hmaps)
                           (-FS -top -bot)
@@ -6978,8 +7045,8 @@
       (assoc expr
              expr-type (ret (->HeterogeneousVector
                               ;vectors conj onto end
-                              (concat (:types (expr-type t)) 
-                                      [(expr-type (first args))]))))
+                              (vec (concat (:types (expr-type t)) 
+                                           [(expr-type (first args))])))))
 
       :else ::not-special)))
 
@@ -7285,7 +7352,7 @@
       (assoc expr
              expr-type (ret ftype (-FS -top -bot) -empty)))))
 
-(declare ^:dynamic *recur-target*)
+(declare ^:dynamic *recur-target* ->RecurTarget)
 
 (defn check-anon-fn-method
   [{:keys [required-params rest-param body] :as expr} dom rng]
@@ -7308,7 +7375,7 @@
               (update-in [:l] merge locals))
         ; erasing references to parameters is handled later
         cbody (with-lexical-env env
-                (binding [*recur-target* nil] ;NYI
+                (binding [*recur-target* (->RecurTarget dom nil nil nil)]
                   (check body (when rng
                                 (ret rng)))))]
     (->FnResult
@@ -7387,7 +7454,7 @@
                 (assoc-in [:props] props)
                 (update-in [:l] merge param-locals))
           res-expr (with-lexical-env env
-                     (binding [*recur-target* nil] ;NYI
+                     (binding [*recur-target* (->RecurTarget dom nil nil nil)]
                        (check body (ret (Result-type* rng)
                                         (Result-filter* rng)
                                         (Result-object* rng)))))
@@ -7579,14 +7646,20 @@
   [{cls :class :keys [ctor args env] :as expr} & [expected]]
   (prn "check: :new" "env" env)
   (binding [*current-env* env]
-    (let [cls-stub (Class->symbol cls)
+    (let [inst-types *inst-ctor-types*
+          cls-stub (Class->symbol cls)
           clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
-          ifn (ret (or (@CONSTRUCTOR-OVERRIDE-ENV clssym)
-                       (and (@DATATYPE-ENV clssym)
-                            (DataType-ctor-type clssym))
-                       (Constructor->Function ctor)))
+          ifn (let [ctor-fn (or (@CONSTRUCTOR-OVERRIDE-ENV clssym)
+                                (and (@DATATYPE-ENV clssym)
+                                     (DataType-ctor-type clssym))
+                                (Constructor->Function ctor))
+                    _ (assert ctor-fn)
+                    ctor-fn (if inst-types
+                              (manual-inst ctor-fn inst-types)
+                              ctor-fn)]
+                    (ret ctor-fn))
           _ (prn "Expected constructor" (unparse-type (ret-t ifn)))
-          cargs (doall (map check args))
+          cargs (mapv check args)
           res-type (check-funapp ifn (map expr-type cargs) nil)]
       (assoc expr
              expr-type res-type))))
@@ -7603,19 +7676,26 @@
 
 (declare combine-props)
 
+(defrecord RecurTarget [dom rest drest kws]
+  "A target for recur"
+  [(every? Type? dom)
+   (nil? rest) ;TODO
+   (nil? drest) ;TODO
+   (nil? kws)]) ;TODO
+
 (def ^:dynamic *recur-target* nil)
-(set-validator! #'*recur-target* #(or (nil? %)
-                                      (every? Type? %)))
+(set-validator! #'*recur-target* (some-fn nil? RecurTarget?))
 
 (defmethod check :recur
   [{:keys [args] :as expr} & [expected]]
   (assert *recur-target* "No recur target")
   (let [cargs (doall (map check args))
-        _ (assert (= (count cargs) (count *recur-target*))
+        {:keys [dom]} *recur-target*
+        _ (assert (= (count cargs) (count dom))
                   "Wrong number of arguments to recur")
-        _ (doall (map subtype
-                      (map (comp ret-t expr-type) cargs)
-                      *recur-target*))]
+        _ (mapv subtype
+                (map (comp ret-t expr-type) cargs)
+                dom)]
     (assoc expr
            expr-type (ret (Un)))))
 
@@ -7664,7 +7744,7 @@
                                                                 (repeat nil))))
         cbody (with-lexical-env env
                 (if is-loop
-                  (binding [*recur-target* expected-bnds]
+                  (binding [*recur-target* (->RecurTarget expected-bnds nil nil nil)]
                     (check body expected))
                   (check body expected)))
 

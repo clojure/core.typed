@@ -1,7 +1,7 @@
 (ns typed.test.conduit
-  (:import (clojure.lang Seqable IMeta IPersistentMap))
+  (:import (clojure.lang Seqable IMeta IPersistentMap LazySeq ISeq))
   (:require [typed.core :refer [check-ns ann fn> def-alias tc-ignore ann-form declare-names inst
-                                tc-pr-env]]
+                                tc-pr-env inst-ctor]]
             [clojure.repl :refer [pst]]
             [arrows.core :refer [defarrow]]))
 
@@ -9,14 +9,18 @@
 
 (def-alias ContRes 
   (All [x]
-    (U nil ;error/end?
+    (U nil ;stream is closed
        '[] ;abort/skip
        '[x];consume/continue
        )))
 
-(def-alias Cont
+(def-alias ContGen
   (All [x]
-    [(U nil [(ContRes x) -> (ContRes x)]) -> (ContRes x)]))
+    [(ContRes x) -> (ContRes y)]))
+
+(def-alias Cont
+  (All [x y]
+    [(U nil (ContGen x y)) -> (ContRes y)]))
 
 (declare-names ==>)
 
@@ -55,7 +59,7 @@
         [new-f
          (-> 
            (fn [c]
-             (when c ;`when` added to conform to Cont type
+             (when c ;`when` added to conform to Cont type - Ambrose
                (c [(first l)])))
            (ann-form (Cont x)))]))))
 
@@ -69,8 +73,8 @@
   ((inst conduit-seq-fn x) l))
 
 (ann a-run
-     (All [x y]
-       [(==> x y) -> (Seqable y)]))
+     (All [x]
+       [(==> Any x) -> (Seqable x)]))
 (defn a-run 
   "execute a stream processor function"
   [f]
@@ -84,6 +88,7 @@
                     (a-run new-f))))))
 
 
+(tc-ignore
 (defn comp-fn [[f & fs]]
   (fn curr-fn [x]
     (let [[new-f first-c] (f x)
@@ -98,24 +103,36 @@
       [(when-not (some nil? new-fs)
          (comp-fn new-fs))
        new-c])))
+  )
 
+;Type only works for vectors of length 2
 (ann nth-fn
      (All [x y z]
-       (Fn ['0 (==> x y) -> (==> '[x z] '[y z])]
-           ['1 (==> x y) -> (==> '[z x] '[z y])])))
+       (Fn ['0 (U nil (==> x z)) -> (==> '[x y] '[z y])]
+           ['1 (U nil (==> x z)) -> (==> '[x y] '[x z])])))
 (defn nth-fn [n f]
   (fn curr-fn [xs]
-    (if (<= (count xs) n)
-      [curr-fn abort-c]
-      (let [[new-f new-c] (f (nth xs n))]
-        [(nth-fn n new-f)
-         (fn [c]
-             (if (nil? c)
-               (new-c nil)
-               (let [y (new-c identity)]
-                 (if (empty? y)
-                   (c [])
-                   (c [(assoc xs n (first y))])))))]))))
+    (let [abort-c (ann-form abort-c
+                            (Fn [(U nil (ContGen '[x y])) -> (ContRes '[z y])]
+                                [(U nil (ContGen '[x y])) -> (ContRes '[x z])]))]
+      (cond 
+        (<= (count xs) n) [curr-fn abort-c]
+        ;added - Ambrose
+        (nil? f) [nil abort-c]
+        :else
+        (let [[new-f new-c] (f (nth xs n))
+              next-c (->
+                       (fn [c]
+                         (if (nil? c)
+                           (new-c nil)
+                           (let [y (new-c identity)]
+                             (if (empty? y)
+                               (c [])
+                               (c [(assoc xs n (first y))])))))
+                       (ann-form (Fn [(U nil (ContGen '[x y])) -> (ContRes '[z y])]
+                                     [(U nil (ContGen '[x y])) -> (ContRes '[x z])])))]
+          [(nth-fn n new-f) next-c])))))
+
 
 (defn gather-fn [[fs ys] [f y]]
   [(conj fs f) (conj ys y)])
