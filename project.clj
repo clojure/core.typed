@@ -11,4 +11,6 @@
                  [org.clojure/math.combinatorics "0.0.2"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.trace "0.7.3"
-                  :exclusions [org.clojure/clojure]]])
+                  :exclusions [org.clojure/clojure]]]
+  :dev-dependencies [[org.clojure/tools.macro "0.1.0" ;for algo.monads
+                      :exclusions [org.clojure/clojure]]])

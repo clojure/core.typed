@@ -121,6 +121,7 @@
         (nil? f) [nil abort-c]
         :else
         (let [[new-f new-c] (f (nth xs n))
+              _ (tc-pr-env "last new-f")
               next-c (->
                        (fn [c]
                          (if (nil? c)

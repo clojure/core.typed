@@ -2386,7 +2386,7 @@
 (defmethod parse-type-list 'quote 
   [[_ syn]]
   (cond
-    ((some-fn number? keyword?) syn) (-val syn)
+    ((some-fn number? keyword? symbol?) syn) (-val syn)
     (vector? syn) (->HeterogeneousVector (mapv parse-type syn))
     (map? syn) (syn-to-hmap syn nil)
     :else (throw (Exception. (str "Invalid use of quote:" syn)))))
@@ -2567,7 +2567,11 @@
 
 (defmethod unparse-type* F
   [{:keys [name]}]
-  name)
+  (or (some (fn [[sym {fname :name}]]
+              (when (= name fname)
+                sym))
+            *free-scope*)
+      name))
 
 (defmethod unparse-type* PrimitiveArray
   [{:keys [input-type output-type]}]
@@ -5489,6 +5493,7 @@
          [String String -> Symbol]))
 
 (ann clojure.core/seq? (predicate (ISeq Any)))
+(ann clojure.core/nil? (predicate nil))
 
 (ann clojure.core/meta (All [x]
                             (Fn [(IMeta x) -> x]
@@ -5645,6 +5650,8 @@
      (All [x]
        [x (U nil (Seqable x)) -> (ASeq x)]))
 
+(override-method clojure.lang.RT/get (All [y] (Fn [Any (IPersistentMap Any y) -> (U nil y)])))
+
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
                                               [Number Number -> Number]))
 (override-method clojure.lang.Numbers/inc (Fn [AnyInteger -> AnyInteger]
@@ -5758,7 +5765,10 @@
 (defmethod constant-type Character [v] (->Value v))
 (defmethod constant-type clojure.lang.Keyword [v] (->Value v))
 (defmethod constant-type Boolean [v] (if v -true -false))
-(defmethod constant-type PersistentHashSet [v] (RClass-of (Class->symbol PersistentHashSet) [(apply Un (map constant-type v))]))
+(defmethod constant-type PersistentHashSet [v] (RClass-of PersistentHashSet [(apply Un (map constant-type v))]))
+
+;nothing specific, Cons seems like an implementation detail
+(defmethod constant-type Cons [v] (RClass-of Seqable [(apply Un (map constant-type v))]))
 
 (defmethod constant-type IPersistentList
   [clist]
@@ -5845,19 +5855,25 @@
     (assoc expr
            expr-type (ret actual))))
 
+(defmethod check :set
+  [{:keys [args] :as expr} & [expected]]
+  (let [cargs (mapv check args)
+        res-type (RClass-of IPersistentSet [(apply Un (mapv (comp ret-t expr-type) cargs))])
+        _ (when expected
+            (assert (subtype? res-type (ret-t expected))
+                    (type-error res-type (ret-t expected))))]
+    (assoc expr
+           expr-type (ret res-type))))
+
 (defmethod check :vector
   [{:keys [args] :as expr} & [expected]]
-  (let [ex-t (when expected
-               (ret-t expected))
-        _ (when ex-t
-            ;Handles only very specific case
-            (assert (HeterogeneousVector? ret-t) "Expected hvector")
-            (assert (= (count (:types ret-t)) (count args)) "Mismatched expected vector length"))
-        cargs (if ex-t
-                (mapv check args (map ret (:types ret-t)))
-                (mapv check args))]
+  (let [cargs (mapv check args)
+        res-type (->HeterogeneousVector (mapv (comp ret-t expr-type) cargs))
+        _ (when expected
+            (assert (subtype? res-type (ret-t expected))
+                    (type-error res-type (ret-t expected))))]
     (assoc expr
-           expr-type (ret (->HeterogeneousVector (mapv (comp ret-t expr-type) cargs))))))
+           expr-type (ret res-type))))
 
 (defmethod check :empty-expr 
   [{coll :coll :as expr} & [expected]]
@@ -6596,7 +6612,9 @@
       (Union? t) (apply Un
                         (for [t* (:types t)]
                           (find-val-type t* k)))
-      :else (throw (Exception. (str "Can't get key " (unparse-type k) 
+      :else (throw (Exception. (str (when *current-env*
+                                      (str (:line *current-env*) ":"))
+                                    "Can't get key " (unparse-type k) 
                                     "  from type " (unparse-type t)))))))
 
 (defn invoke-keyword [kw-ret target-ret default-ret expected-ret]
@@ -6721,9 +6739,11 @@
   (let [ty (parse-type tsyn)
         cty (check frm (ret ty))
         checked-type (expr-type cty)
-        _ (assert (subtype (ret-t checked-type) ty))
+        _ (assert (subtype? (ret-t checked-type) ty)
+                  (type-error (ret-t checked-type) ty))
         _ (when expected
-            (assert (subtype (ret-t checked-type) (ret-t expected))))]
+            (assert (subtype? (ret-t checked-type) (ret-t expected))
+                    (type-error (ret-t checked-type) (ret-t expected))))]
     (assoc expr
            expr-type (ret ty))))
 
@@ -7387,26 +7407,31 @@
         (ret rng)
         (expr-type cbody)))))
 
+(defn unwrap-poly
+  "Return a pair vector of the instantiated body of the possibly polymorphic
+  type and the names used"
+  [t]
+  {:pre [(Type? t)]
+   :post [((hvector-c? Type? (hash-c? symbol? F?)) %)]}
+  (cond
+    (Poly? t) (let [_ (assert (-> t meta :actual-frees))
+                    old-nmes (-> t meta :actual-frees)
+                    _ (assert ((every-pred seq (every-c? symbol?)) old-nmes))
+                    new-nmes (repeatedly (:nbound t) gensym)
+                    new-frees (map make-F new-nmes)]
+                [(Poly-body* new-nmes t) (zipmap old-nmes new-frees)])
+    (PolyDots? t) (let [_ (assert (-> t meta :actual-frees))
+                        old-nmes (-> t meta :actual-frees)
+                        _ (assert ((every-pred seq (every-c? symbol?)) old-nmes))
+                        new-nmes (repeatedly (:nbound t) gensym)
+                        new-frees (map make-F new-nmes)]
+                    [(PolyDots-body* new-nmes t) (zipmap old-nmes new-frees)])
+    :else [t {}]))
+
 (defn check-fn-expr [{:keys [methods name] :as expr} expected]
   (cond
     expected
-    (let [[fin free-scope]
-          (cond
-            (Poly? (ret-t expected)) (let [p (ret-t expected) 
-                                           _ (assert (-> p meta :actual-frees))
-                                           old-nmes (-> p meta :actual-frees)
-                                           _ (assert ((every-pred seq (every-c? symbol?)) old-nmes))
-                                           new-nmes (repeatedly (:nbound (ret-t expected)) gensym)
-                                           new-frees (map make-F new-nmes)]
-                                       [(Poly-body* new-nmes p) (zipmap old-nmes new-frees)])
-            (PolyDots? (ret-t expected)) (let [p (ret-t expected)
-                                               _ (assert (-> p meta :actual-frees))
-                                               old-nmes (-> p meta :actual-frees)
-                                               _ (assert ((every-pred seq (every-c? symbol?)) old-nmes))
-                                               new-nmes (repeatedly (:nbound (ret-t expected)) gensym)
-                                               new-frees (map make-F new-nmes)]
-                                           [(PolyDots-body* new-nmes p) (zipmap old-nmes new-frees)])
-            :else [(ret-t expected) {}])
+    (let [[fin free-scope] (unwrap-poly (ret-t expected))
           _ (assert (Fn-Intersection? fin))
           _ (prn "new free scope" free-scope)
           _ (assert ((hash-c? symbol? F?) free-scope))
@@ -8095,19 +8120,27 @@
            expr-type (check-if (expr-type ctest) then else))))
 
 (defmethod check :def
-  [{:keys [var init init-provided] :as expr} & [expected]]
+  [{:keys [var init init-provided env] :as expr} & [expected]]
   (assert (not expected) expected)
+  (assert (:line env))
   (prn "Checking" var)
-  (if (not (.isMacro ^Var var))
-    (let [cexpr (cond 
-                  (not init-provided) expr ;handle (declare ..)
-                  :else (check init (ret (type-of (var->symbol var))
-                                         (-FS -top -top)
-                                         -empty)))]
-      (assoc cexpr
-             expr-type (ret (RClass-of (Class->symbol Var) nil))))
-    (assoc expr
-           expr-type (ret (RClass-of (Class->symbol Var) nil)))))
+  (binding [*current-env* env]
+    (cond 
+      (not (.isMacro ^Var var))
+      (let [[new-t new-scope] (let [t (type-of (var->symbol var))]
+                                (unwrap-poly t))
+            cexpr (cond 
+                    (not init-provided) expr ;handle `declare`
+                    :else (binding [*free-scope* (merge *free-scope* new-scope)]
+                            (check init (ret new-t
+                                             (-FS -top -top)
+                                             -empty))))]
+        (assoc cexpr
+               expr-type (ret (RClass-of (Class->symbol Var) nil))))
+
+      :else
+      (assoc expr
+             expr-type (ret (RClass-of (Class->symbol Var) nil))))))
 
 (declare check-new-instance-method)
 
