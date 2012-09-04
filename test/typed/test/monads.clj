@@ -358,13 +358,11 @@
 (def-alias Undefined '::undefined)
 
 ; Identity monad
-(ann identity-m 
-     '{:m-bind (All [x y] 
-                 [x [x -> y] -> y])
+(ann identity-m
+     '{:m-bind (All [x y]
+                    [x [x -> y] -> y])
        :m-result (All [x]
-                   [x -> x])
-       :m-plus Undefined
-       :m-zero Undefined})
+                      [x -> x])})
 (defmonad identity-m
    "Monad describing plain computations. This monad does in fact nothing
     at all. It is useful for testing, for combination with monad
@@ -378,46 +376,41 @@
   ])
 
 ; Maybe monad
-(ann maybe-m 
-     '{:m-zero nil
-       :m-result (All [x y]
-                   [x [x -> (Maybe x)] -> (Maybe x)])
-       :m-bind (All [x y]
-                 [(Maybe x) [x -> (Maybe y)] -> (Maybe y)])
-       :m-plus (All [x y]
-                 [(Maybe x) * -> (Maybe x)])})
+(ann maybe-m
+    '{:m-bind (All [x y]
+                   [(U nil x) [x -> (U nil y)] -> (U nil y)])
+      :m-result (All [x]
+                     [x -> (U nil x)])})
 (defmonad maybe-m
-   "Monad describing computations with possible failures. Failure is
-    represented by nil, any other value is considered valid. As soon as
-    a step returns nil, the whole computation will yield nil as well."
-   [m-zero   nil
-    m-result (->
-               (fn m-result-maybe [v] v)
-               (ann-form (All [x] [x -> x])))
-    m-bind   (-> 
-               (fn m-bind-maybe [mv f]
-                 (if (nil? mv) nil (f mv)))
-               (ann-form (All [x y]
-                           [(U nil x) [x -> x] -> (U nil x)])))
-    m-plus   (-> 
-               (fn m-plus-maybe [& mvs]
-                 ((inst first (U nil x)) (drop-while nil? mvs)))
-               (ann-form (All [x]
-                           [(U nil x) * -> (U nil x)])))
-    ])
+  "Monad describing computations with possible failures. Failure is
+  represented by nil, any other value is considered valid. As soon as
+  a step returns nil, the whole computation will yield nil as well."
+  [m-zero   nil
+   m-result (->
+              (fn m-result-maybe [v] v)
+              (ann-form (All [x] [x -> x])))
+   m-bind   (-> 
+              (fn m-bind-maybe [mv f]
+                (if (nil? mv) nil (f mv)))
+              (ann-form (All [x y]
+                          [(U nil x) [x -> x] -> (U nil x)])))
+   m-plus   (-> 
+              (fn m-plus-maybe [& mvs]
+                ((inst first (U nil x)) (drop-while nil? mvs)))
+              (ann-form (All [x]
+                          [(U nil x) * -> (U nil x)])))
+   ])
 
 (ann flatten* 
      (All [x]
        [(U nil (Seqable (Seqable x))) -> (Seqable x)]))
+
 ; Sequence monad (called "list monad" in Haskell)
-(ann sequence-m
-     '{:m-result (All [x]
-                   [x -> (Seqable x)])
-       :m-bind (All [x y]
-                 [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])
-       :m-zero (Seqable Nothing)
-       :m-plus (All [x]
-                 [(Seqable x) * -> (Seqable x)])})
+(ann sequence-m 
+    '{:m-bind (All [x y]
+                   [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])
+      :m-result (All [x]
+                     [x -> (Seqable x)])})
 (defmonad sequence-m
    "Monad describing multi-valued computations, i.e. computations
     that can yield multiple values. Any object implementing the seq
@@ -445,13 +438,10 @@
 
 ; Set monad
 (ann set-m
-       '{:m-result (All [x]
-                     [x -> (IPersistentSet x)])
-         :m-bind (All [x y]
-                   [(Seqable (IPersistentSet x)) [(IPersistentSet x) -> (IPersistentSet y)] -> (IPersistentSet y)])
-         :m-zero (IPersistentSet Nothing)
-         :m-plus (All [x]
-                   [(IPersistentSet x) * -> (IPersistentSet x)])})
+    '{:m-bind (All [x y]
+                   [(IPersistentSet x) [x -> (IPersistentSet y)] -> (IPersistentSet y)])
+      :m-result (All [x]
+                     [x -> (IPersistentSet x)])})
 (defmonad set-m
    "Monad describing multi-valued computations, like sequence-m,
     but returning sets of results instead of sequences of results."
