@@ -7406,17 +7406,6 @@
         (ret rng)
         (expr-type cbody)))))
 
-;(defn wrap-poly
-;  "Rewrap body instantiated by unwrap-poly with original
-;  polymorphic type eg. Poly or PolyDots"
-;  [body new-scope old-poly]
-;  {:pre [(Type? body)
-;         (Type? old-poly)
-;         ((hmap-c? symbol? F?) new-scope)]
-;   :post [(Type? %)]}
-;  (cond
-;    (Poly? old-poly) (Poly*
-
 (defn unwrap-poly
   "Return a pair vector of the instantiated body of the possibly polymorphic
   type and the names used"
@@ -7452,7 +7441,7 @@
                 (doseq [{:keys [required-params rest-param] :as method} methods]
                   (check-fn-method method (relevant-Fns required-params rest-param fin)))))]
       (assoc expr
-             expr-type (ret fin (-FS -top -bot) -empty)))
+             expr-type (ret (ret-t expected) (-FS -top -bot) -empty)))
 
     name (throw (Exception. (str (when *current-env*
                                    (:line *current-env*))
