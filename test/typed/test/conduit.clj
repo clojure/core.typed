@@ -15,12 +15,12 @@
        )))
 
 (def-alias ContGen
-  (All [x]
+  (All [x y]
     [(ContRes x) -> (ContRes y)]))
 
 (def-alias Cont
-  (All [x y]
-    [(U nil (ContGen x y)) -> (ContRes y)]))
+  (All [x]
+    [(U nil (ContGen x)) -> (ContRes x)]))
 
 (declare-names ==>)
 

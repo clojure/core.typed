@@ -2486,7 +2486,9 @@
                   :else (if-let [t (and (var? res) 
                                         (@TYPE-NAME-ENV (var->symbol res)))]
                           t
-                          (throw (Exception. (str "Cannot resolve type: " sym))))))))))
+                          (throw (Exception. (str (when *current-env*
+                                                    (str (:line *current-env*) ":"))
+                                                  "Cannot resolve type: " sym))))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v -true -false)) 
@@ -4766,12 +4768,6 @@
         (App? t)
         (subtypeA* *sub-current-seen* s (resolve-App t))
 
-        (and (Poly? s)
-             (not (Poly? t)))
-
-        (and (not (Poly? s))
-             (Poly? t))
-
         (Union? s)
         (if (every? #(subtype? % t) (:types s))
           *sub-current-seen*
@@ -5337,6 +5333,7 @@
 
 (def-alias AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte))
 (def-alias Atom1 (All [x] (Atom x x)))
+(def-alias Maybe (All [x] (U nil x)))
 
 (ann clojure.core/*ns* Namespace)
 (ann clojure.core/namespace [(U Symbol String Keyword) -> (U nil String)])
@@ -6739,6 +6736,8 @@
   (let [ty (parse-type tsyn)
         cty (check frm (ret ty))
         checked-type (expr-type cty)
+        _ (prn "ann-form checked type" (unparse-type (ret-t checked-type)))
+        _ (prn "ann-form expected type" (unparse-type ty))
         _ (assert (subtype? (ret-t checked-type) ty)
                   (type-error (ret-t checked-type) ty))
         _ (when expected
@@ -7406,6 +7405,17 @@
       (if rng
         (ret rng)
         (expr-type cbody)))))
+
+;(defn wrap-poly
+;  "Rewrap body instantiated by unwrap-poly with original
+;  polymorphic type eg. Poly or PolyDots"
+;  [body new-scope old-poly]
+;  {:pre [(Type? body)
+;         (Type? old-poly)
+;         ((hmap-c? symbol? F?) new-scope)]
+;   :post [(Type? %)]}
+;  (cond
+;    (Poly? old-poly) (Poly*
 
 (defn unwrap-poly
   "Return a pair vector of the instantiated body of the possibly polymorphic

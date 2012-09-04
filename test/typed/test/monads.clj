@@ -24,7 +24,7 @@
             [clojure.tools.macro
              :refer (with-symbol-macros defsymbolmacro name-with-attributes)]
             [typed.core 
-             :refer (tc-ignore check-ns ann def-alias ann-form inst)]))
+             :refer (tc-ignore check-ns ann def-alias ann-form inst Maybe)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -136,7 +136,7 @@
       (identical? bform :else)
         (if-then-else-statement steps mexpr add-monad-step)
       :else
-        (list 'm-bind expr (list 'typed.core/fn> [[bform :- (-> bform meta :t)]] mexpr)))))
+        (list 'm-bind expr (list 'typed.core/fn> [[bform :- (-> bform meta :T)]] mexpr)))))
 
 (defn- monad-expr
   "Transforms a monad comprehension, consisting of a list of steps
@@ -359,11 +359,12 @@
 
 ; Identity monad
 (ann identity-m 
-     (All [x]
-       '{:m-bind [x [x -> x] -> x]
-         :m-result [x -> x]
-         :m-plus Undefined
-         :m-zero Undefined}))
+     '{:m-bind (All [x y] 
+                 [x [x -> y] -> y])
+       :m-result (All [x]
+                   [x -> x])
+       :m-plus Undefined
+       :m-zero Undefined})
 (defmonad identity-m
    "Monad describing plain computations. This monad does in fact nothing
     at all. It is useful for testing, for combination with monad
@@ -372,16 +373,19 @@
    m-bind   (->
               (fn m-result-id [mv f]
                 (f mv))
-              (ann-form [x [x -> x] -> x]))
+              (ann-form (All [x y]
+                          [x [x -> y] -> y])))
   ])
 
 ; Maybe monad
 (ann maybe-m 
-     (All [x]
-       '{:m-zero nil
-         :m-result [x [x -> x] -> (U nil x)]
-         :m-bind [(U nil x) [x -> x] -> (U nil x)]
-         :m-plus [(U nil x) * -> (U nil x)]}))
+     '{:m-zero nil
+       :m-result (All [x y]
+                   [x [x -> (Maybe x)] -> (Maybe x)])
+       :m-bind (All [x y]
+                 [(Maybe x) [x -> (Maybe y)] -> (Maybe y)])
+       :m-plus (All [x y]
+                 [(Maybe x) * -> (Maybe x)])})
 (defmonad maybe-m
    "Monad describing computations with possible failures. Failure is
     represented by nil, any other value is considered valid. As soon as
@@ -389,15 +393,17 @@
    [m-zero   nil
     m-result (->
                (fn m-result-maybe [v] v)
-               (ann-form [x -> x]))
+               (ann-form (All [x] [x -> x])))
     m-bind   (-> 
                (fn m-bind-maybe [mv f]
                  (if (nil? mv) nil (f mv)))
-               (ann-form [(U nil x) [x -> x] -> (U nil x)]))
+               (ann-form (All [x y]
+                           [(U nil x) [x -> x] -> (U nil x)])))
     m-plus   (-> 
                (fn m-plus-maybe [& mvs]
                  ((inst first (U nil x)) (drop-while nil? mvs)))
-               (ann-form [(U nil x) * -> (U nil x)]))
+               (ann-form (All [x]
+                           [(U nil x) * -> (U nil x)])))
     ])
 
 (ann flatten* 
@@ -405,11 +411,13 @@
        [(U nil (Seqable (Seqable x))) -> (Seqable x)]))
 ; Sequence monad (called "list monad" in Haskell)
 (ann sequence-m
-     (All [x]
-       '{:m-result [x -> (Seqable x)]
-         :m-bind [(Seqable (Seqable x)) [(Seqable x) -> (Seqable x)] -> (Seqable x)]
-         :m-zero (Seqable Nothing)
-         :m-plus [(Seqable x) * -> (Seqable x)]}))
+     '{:m-result (All [x]
+                   [x -> (Seqable x)])
+       :m-bind (All [x y]
+                 [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])
+       :m-zero (Seqable Nothing)
+       :m-plus (All [x]
+                 [(Seqable x) * -> (Seqable x)])})
 (defmonad sequence-m
    "Monad describing multi-valued computations, i.e. computations
     that can yield multiple values. Any object implementing the seq
@@ -417,16 +425,18 @@
    [m-result (->
                (fn m-result-sequence [v]
                  ((inst list x) v))
-               (ann-form [x -> (Seqable x)]))
+               (ann-form (All [x] [x -> (Seqable x)])))
     m-bind   (->
                (fn m-bind-sequence [mv f]
-                 ((inst flatten* x) (map f mv)))
-               (ann-form [(Seqable (Seqable x)) [(Seqable x) -> (Seqable x)] -> (Seqable x)]))
+                 ((inst flatten* y) (map f mv)))
+               (ann-form (All [x y]
+                           [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])))
     m-zero   (list)
     m-plus   (-> 
                (fn m-plus-sequence [& mvs]
                  ((inst flatten* x) mvs))
-               (ann-form [(Seqable x) * -> (Seqable x)]))
+               (ann-form (All [x]
+                           [(Seqable x) * -> (Seqable x)])))
     ])
 
 (ann clojure.set/union
@@ -435,27 +445,31 @@
 
 ; Set monad
 (ann set-m
-     (All [x]
-       '{:m-result [x -> (IPersistentSet x)]
-         :m-bind [(Seqable (IPersistentSet x)) [(IPersistentSet x) -> (IPersistentSet x)] -> (IPersistentSet x)]
+       '{:m-result (All [x]
+                     [x -> (IPersistentSet x)])
+         :m-bind (All [x y]
+                   [(Seqable (IPersistentSet x)) [(IPersistentSet x) -> (IPersistentSet y)] -> (IPersistentSet y)])
          :m-zero (IPersistentSet Nothing)
-         :m-plus [(IPersistentSet x) * -> (IPersistentSet x)]}))
+         :m-plus (All [x]
+                   [(IPersistentSet x) * -> (IPersistentSet x)])})
 (defmonad set-m
    "Monad describing multi-valued computations, like sequence-m,
     but returning sets of results instead of sequences of results."
    [m-result (->
                (fn m-result-set [v]
                  #{v})
-               (ann-form [x -> (IPersistentSet x)]))
+               (ann-form (All [x] [x -> (IPersistentSet x)])))
     m-bind   (->
                (fn m-bind-set [mv f]
                  (apply clojure.set/union (map f mv)))
-               (ann-form [(Seqable (IPersistentSet x)) [(IPersistentSet x) -> (IPersistentSet x)] -> (IPersistentSet x)]))
+               (ann-form (All [x y]
+                           [(Seqable (IPersistentSet x)) [(IPersistentSet x) -> (IPersistentSet y)] -> (IPersistentSet y)])))
     m-zero   #{}
     m-plus   (->
                (fn m-plus-set [& mvs]
                  (apply clojure.set/union mvs))
-               (ann-form [(IPersistentSet x) * -> (IPersistentSet x)]))
+               (ann-form (All [x]
+                           [(IPersistentSet x) * -> (IPersistentSet x)])))
     ])
 
 ; State monad
@@ -463,25 +477,30 @@
   (All [s a]
     [s -> '[a s]]))
 (ann state-m
-     (All [s a b]
-       '{:m-result [a -> (State s a)]
-         :m-bind [(State s a) [a -> (State s b)] -> (State s b)]
-         :m-plus Undefined
-         :m-zero Undefined}))
+     '{:m-result (All [s a]
+                   [a -> (State s a)])
+       :m-bind (All [s a b]
+                 [(State s a) [a -> (State s b)] -> (State s b)])
+       :m-plus Undefined
+       :m-zero Undefined})
 (defmonad state-m
    "Monad describing stateful computations. The monadic values have the
     structure (fn [old-state] [result new-state])."
    [m-result  (->
                 (fn m-result-state [v]
                   (fn [s] [v s]))
-                (ann-form [a -> (State s a)]))
+                (ann-form (All [s a]
+                            [a -> (State s a)])))
     m-bind    (->
                 (fn m-bind-state [mv f]
                   (fn [s]
                     (let [[v ss] (mv s)]
                       ((f v) ss))))
-                (ann-form [(State s a) [a -> (State s b)] -> (State s b)]))
+                (ann-form (All [s a b]
+                            [(State s a) [a -> (State s b)] -> (State s b)])))
    ])
+
+(tc-ignore
 
 (ann update-state 
      (All [s]
@@ -519,7 +538,7 @@
    returns the value corresponding to the given key. The state is not modified."
   [key]
   (domonad (inst state-m y (IPersistentMap x y) (IPersistentMap x y))
-    [^{:t (IPersistentMap x y)} s (fetch-state)]
+    [^{:T (IPersistentMap x y)} s (fetch-state)]
     (get key s)))
 
 (defn update-val
@@ -560,6 +579,7 @@
               (let [[x s] ((f x) s)]
                 (recur p f x s))))]
     (fn [s] (until p f x s))))
+
 
 ; Writer monad
 (defprotocol writer-monad-protocol
@@ -612,32 +632,56 @@
 (defn censor [f mv]
   (let [[v a] mv] [v (f a)]))
 
-; Continuation monad
+  )
 
+; Continuation monad
+(def-alias ContM
+  (All [x]
+    [[x -> x] -> x]))
+(ann cont-m
+     '{:m-result (All [x]
+                   [x -> (ContM x)])
+       :m-bind (All [x y]
+                 [(ContM x) [x -> (ContM y)] -> (ContM y)])
+       :m-zero Undefined
+       :m-plus Undefined})
 (defmonad cont-m
   "Monad describing computations in continuation-passing style. The monadic
    values are functions that are called with a single argument representing
    the continuation of the computation, to which they pass their result."
-  [m-result   (fn m-result-cont [v]
-                (fn [c] (c v)))
-   m-bind     (fn m-bind-cont [mv f]
-                (fn [c]
-                  (mv (fn [v] ((f v) c)))))
+  [m-result   (->
+                (fn m-result-cont [v]
+                  (fn [c] (c v)))
+                (ann-form (All [x] [x -> (ContM x)])))
+   m-bind     (->
+                (fn m-bind-cont [mv f]
+                  (fn [c]
+                    (mv (fn> [[v :- x]] ((f v) c)))))
+                (ann-form (All [x y]
+                            [(ContM x) [x -> (ContM y)] -> (ContM y)])))
    ])
 
+(ann run-cont
+     (All [x]
+       [(ContM x) -> x]))
 (defn run-cont
   "Execute the computation c in the cont monad and return its result."
   [c]
   (c identity))
 
+(ann call-cc
+     (All [x]
+       [[(ContM x) -> (ContM x)] -> (ContM x)]))
 (defn call-cc
   "A computation in the cont monad that calls function f with a single
    argument representing the current continuation. The function f should
    return a continuation (which becomes the return value of call-cc),
    or call the passed-in current continuation to terminate."
   [f]
-  (fn [c]
-    (let [cc (fn cc [a] (fn [_] (c a)))
+  (fn> [[c :- (ContM x)]]
+    (let [cc (-> 
+               (fn cc [a] (fn [_] (c a)))
+               (ann-form [x -> (ContM x)]))
           rc (f cc)]
       (rc c))))
 
