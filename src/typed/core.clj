@@ -3475,7 +3475,7 @@
          (AnyType? S)
          (AnyType? T)]
    :post [(cset? %)]}
-  (prn "cs-gen" (unparse-type S) (unparse-type T))
+  #_(prn "cs-gen" (unparse-type S) (unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (subtype? S T))
     ;already been around this loop, is a subtype
@@ -4117,10 +4117,10 @@
          (every? Type? (concat S T))
          (cset? expected-cset)]
    :post [(cset? %)]}
-;  (prn "cs-gen-list" 
-;       V X Y
-;       (map unparse-type S)
-;       (map unparse-type T))
+  (prn "cs-gen-list" 
+       V X Y
+       (map unparse-type S)
+       (map unparse-type T))
   (assert (= (count S) (count T))
           (pr-str "S:" (map unparse-type S)
                   "T:" (map unparse-type T)))
@@ -4133,7 +4133,10 @@
       (doall 
         (for [[s t] (map vector S T)]
           (let [c (cs-gen V X Y s t)]
-            ;(prn "c" c)
+            (prn "s" s)
+            (prn "t" t)
+            (prn "c" c)
+            (prn "expected cset" expected-cset)
             (cset-meet c expected-cset)))))))
 
 (declare sub-f sub-o sub-pe)
@@ -4893,7 +4896,6 @@
 (defmethod subtype* [Result Result]
   [{t1 :t f1 :fl o1 :o :as s}
    {t2 :t f2 :fl o2 :o :as t}]
-  (prn "Result subtyping" s t)
   (cond
     ;trivial case
     (and (= f1 f2)
@@ -6321,8 +6323,9 @@
                                                                     (and expected (ret-t expected))))
                                                  (catch IllegalArgumentException e
                                                    (throw e))
-                                                 (catch Exception e))]
-                           (do #_(prn "subst:" substitution)
+                                                 (catch Exception e
+                                                   (pst e 40)))]
+                           (do (prn "subst:" substitution)
                              (check-funapp1 (subst-all substitution ftype)
                                             (map ret arg-types) expected :check? false))
                            (if (or drest kws)
@@ -7431,7 +7434,11 @@
   (cond
     expected
     (let [[fin free-scope] (unwrap-poly (ret-t expected))
-          _ (assert (Fn-Intersection? fin))
+          _ (prn "Current line" (:line *current-env*))
+          _ (assert (Fn-Intersection? fin) 
+                    (str (when *current-env*
+                           (str (:line *current-env*) ": "))
+                         (unparse-type fin) " is not a function type"))
           _ (prn "new free scope" free-scope)
           _ (assert ((hash-c? symbol? F?) free-scope))
           _ (with-locals (when name

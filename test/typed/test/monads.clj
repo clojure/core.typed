@@ -19,12 +19,14 @@
            as macros for defining and using monads and useful monadic
            functions."}
   typed.test.monads
-  (:import (clojure.lang Seqable IPersistentSet))
+  (:import (clojure.lang Seqable IPersistentSet IPersistentMap))
   (:require [clojure.set]
+            [clojure.repl :refer [pst]]
             [clojure.tools.macro
              :refer (with-symbol-macros defsymbolmacro name-with-attributes)]
             [typed.core 
-             :refer (tc-ignore check-ns ann def-alias ann-form inst Maybe)]))
+             :refer (tc-ignore check-ns ann def-alias ann-form inst fn> pfn>
+                               AnyInteger tc-pr-env)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -360,9 +362,9 @@
 ; Identity monad
 (ann identity-m
      '{:m-bind (All [x y]
-                    [x [x -> y] -> y])
+                 [x [x -> y] -> y])
        :m-result (All [x]
-                      [x -> x])})
+                   [x -> x])})
 (defmonad identity-m
    "Monad describing plain computations. This monad does in fact nothing
     at all. It is useful for testing, for combination with monad
@@ -378,7 +380,7 @@
 ; Maybe monad
 (ann maybe-m
     '{:m-bind (All [x y]
-                   [(U nil x) [x -> (U nil y)] -> (U nil y)])
+                [(U nil x) [x -> (U nil y)] -> (U nil y)])
       :m-result (All [x]
                      [x -> (U nil x)])})
 (defmonad maybe-m
@@ -407,10 +409,13 @@
 
 ; Sequence monad (called "list monad" in Haskell)
 (ann sequence-m 
-    '{:m-bind (All [x y]
-                   [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])
-      :m-result (All [x]
-                     [x -> (Seqable x)])})
+     '{:m-bind (All [x y]
+                 [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])
+       :m-result (All [x]
+                   [x -> (Seqable x)])
+      :m-zero (Seqable Nothing)
+      :m-plus (All [x]
+                [(Seqable x) * -> (Seqable x)])})
 (defmonad sequence-m
    "Monad describing multi-valued computations, i.e. computations
     that can yield multiple values. Any object implementing the seq
@@ -596,6 +601,9 @@
   java.lang.String
   (writer-m-add [c v] (str c v))
   (writer-m-combine [c1 c2] (str c1 c2)))
+)
+
+(tc-ignore
 
 (defn writer-m
   "Monad describing computations that accumulate data on the side, e.g. for
@@ -624,17 +632,22 @@
 
   )
 
+(def-alias Cont1
+  (All [a r]
+    [a -> r]))
+
 ; Continuation monad
 (def-alias ContM
-  (All [x]
-    [[x -> x] -> x]))
+  (All [a r]
+    (Cont1 (Cont1 a r) r)))
 (ann cont-m
-     '{:m-result (All [x]
-                   [x -> (ContM x)])
-       :m-bind (All [x y]
-                 [(ContM x) [x -> (ContM y)] -> (ContM y)])
-       :m-zero Undefined
-       :m-plus Undefined})
+     (All [r]
+       '{:m-result (All [x]
+                     [x -> (ContM x r)])
+         :m-bind (All [x y]
+                   [(ContM x r) [x -> (ContM y r)] -> (ContM y r)])
+         :m-zero Undefined
+         :m-plus Undefined}))
 (defmonad cont-m
   "Monad describing computations in continuation-passing style. The monadic
    values are functions that are called with a single argument representing
@@ -642,39 +655,44 @@
   [m-result   (->
                 (fn m-result-cont [v]
                   (fn [c] (c v)))
-                (ann-form (All [x] [x -> (ContM x)])))
+                (ann-form (All [x]
+                            [x -> (ContM x r)])))
    m-bind     (->
                 (fn m-bind-cont [mv f]
                   (fn [c]
-                    (mv (fn> [[v :- x]] ((f v) c)))))
+                    (mv (->
+                          (fn [v] ((f v) c))
+                          (ann-form [x -> r])))))
                 (ann-form (All [x y]
-                            [(ContM x) [x -> (ContM y)] -> (ContM y)])))
+                            [(ContM x r) [x -> (ContM y r)] -> (ContM y r)])))
    ])
 
 (ann run-cont
      (All [x]
-       [(ContM x) -> x]))
+       [(ContM x x) -> x]))
 (defn run-cont
   "Execute the computation c in the cont monad and return its result."
   [c]
-  (c identity))
+  (c (inst identity x)))
 
 (ann call-cc
-     (All [x]
-       [[(ContM x) -> (ContM x)] -> (ContM x)]))
+     (All [x r]
+       [[[x -> (ContM x r)] -> (ContM x r)] -> (ContM x r)]))
 (defn call-cc
   "A computation in the cont monad that calls function f with a single
-   argument representing the current continuation. The function f should
+   argument representing the current continuation (as a direct function). 
+   The function f should
    return a continuation (which becomes the return value of call-cc),
    or call the passed-in current continuation to terminate."
   [f]
-  (fn> [[c :- (ContM x)]]
-    (let [cc (-> 
-               (fn cc [a] (fn [_] (c a)))
-               (ann-form [x -> (ContM x)]))
+  (fn [c]
+    (let [cc (->
+               (fn [a]
+                 (fn [_]
+                   (c a)))
+               (ann-form [x -> (ContM x r)]))
           rc (f cc)]
       (rc c))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -704,6 +722,7 @@
         :m-plus (with-monad ~base ~'m-plus))
       combined-monad#)))
 
+(tc-ignore
 (defn maybe-t
   "Monad transformer that transforms a monad m into a monad in which
    the base values can be invalid (represented by nothing, which defaults
@@ -789,4 +808,87 @@
                          (fn [s]
                            (apply m-plus (map #(% s) stms))))))
           ]))
+
+  )
+
+(ann clojure.core/range
+     (Fn [-> (Seqable AnyInteger)]
+         [AnyInteger -> (Seqable AnyInteger)]
+         [AnyInteger AnyInteger -> (Seqable AnyInteger)]
+         [AnyInteger AnyInteger AnyInteger -> (Seqable AnyInteger)]
+         [Number -> (Seqable Number)]
+         [Number Number -> (Seqable Number)]
+         [Number Number Number -> (Seqable Number)]))
+
+(tc-ignore
+
+;;; Examples
+(domonad sequence-m
+  [^{:T AnyInteger} x  (range 5)
+   ^{:T AnyInteger} y  (range (+ 1 x))
+   :when (= (+ x y) 2)]
+  (list x y))
+
+(let [name__14484__auto__ sequence-m
+      m-bind (:m-bind name__14484__auto__)
+      m-result (:m-result name__14484__auto__)
+      m-zero (:m-zero name__14484__auto__)
+      m-plus (:m-plus name__14484__auto__)]
+  (m-bind
+    (range 5)
+    (typed.core/fn>
+      [[x :- AnyInteger]]
+      (if (= x 2) 
+        (m-result (list x)) 
+        m-zero))))
+
+(let [name__14484__auto__ sequence-m
+                          m-bind (:m-bind name__14484__auto__)
+                          m-result (:m-result name__14484__auto__)
+                          m-zero (:m-zero name__14484__auto__)
+                          m-plus (:m-plus name__14484__auto__)]
+    (m-bind
+      (range 5)
+      (typed.core/fn>
+        [[x :- AnyInteger]]
+        (m-bind
+          (range (+ 1 x))
+          (typed.core/fn>
+            [[y :- AnyInteger]]
+            (if (= (+ x y) 2) (m-result (list x y)) m-zero))))))
+  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+; Next, a function that illustrates how a captured continuation can be
+; used as an "emergency exit" out of a computation:
+(ann sqrt-as-str [Number -> String])
+(tc-ignore
+(defn sqrt-as-str [x]
+  (call-cc
+    (fn> [[k :- [String -> (ContM String String)]]]
+      (domonad (inst cont-m String)
+        [_ (m-when (< x 0) 
+             (k (str "negative argument " x)))]
+        (str (. Math sqrt x))))))
+  )
+
+(run-cont ((inst sqrt-as-str String) 2))
+(run-cont (sqrt-as-str -2))
 
