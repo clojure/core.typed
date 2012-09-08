@@ -410,25 +410,25 @@
 ; Sequence monad (called "list monad" in Haskell)
 (ann sequence-m 
      '{:m-bind (All [x y]
-                 [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])
+                 [(Seqable x) [x -> (Seqable (Seqable y))] -> (Seqable (Seqable y))])
        :m-result (All [x]
-                   [x -> (Seqable x)])
-      :m-zero (Seqable Nothing)
-      :m-plus (All [x]
-                [(Seqable x) * -> (Seqable x)])})
+                   [(Seqable x) -> (Seqable (Seqable x))])
+       :m-zero (Seqable Nothing)
+       :m-plus (All [x]
+                    [(Seqable x) * -> (Seqable x)])})
 (defmonad sequence-m
    "Monad describing multi-valued computations, i.e. computations
     that can yield multiple values. Any object implementing the seq
     protocol can be used as a monadic value."
    [m-result (->
                (fn m-result-sequence [v]
-                 ((inst list x) v))
-               (ann-form (All [x] [x -> (Seqable x)])))
+                 (list v))
+               (ann-form (All [x] [(Seqable x) -> (Seqable (Seqable x))])))
     m-bind   (->
                (fn m-bind-sequence [mv f]
-                 ((inst flatten* y) (map f mv)))
+                 ((inst flatten* (Seqable y)) (map f mv)))
                (ann-form (All [x y]
-                           [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])))
+                           [(Seqable x) [x -> (Seqable (Seqable y))] -> (Seqable (Seqable y))])))
     m-zero   (list)
     m-plus   (-> 
                (fn m-plus-sequence [& mvs]
@@ -819,6 +819,19 @@
          [Number -> (Seqable Number)]
          [Number Number -> (Seqable Number)]
          [Number Number Number -> (Seqable Number)]))
+
+(let [name__14484__auto__ sequence-m
+      m-bind (:m-bind name__14484__auto__)
+      m-result (:m-result name__14484__auto__)
+      m-zero (:m-zero name__14484__auto__)
+      m-plus (:m-plus name__14484__auto__)]
+  (m-bind
+    (range 5)
+    (typed.core/fn>
+      [[x :- AnyInteger]]
+      (if (= x 2) 
+        (m-result (list x)) 
+        m-zero))))
 
 (tc-ignore
 

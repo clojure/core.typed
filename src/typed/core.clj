@@ -846,14 +846,6 @@
 
 (declare ret-t ret-f ret-o)
 
-(defn Result-from-TCResult
-  [tc]
-  {:pre [(TCResult? tc)]
-   :post [(Result? %)]}
-  (make-Result (ret-t tc)
-               (ret-f tc)
-               (ret-o tc)))
-
 (defn make-Function
   "Make a function, wrap range type in a Result.
   Accepts optional :filter and :object parameters that default to the most general filter
@@ -1685,7 +1677,7 @@
 
 (defrecord TCResult [t fl o]
   "This record represents the result of typechecking an expression"
-  [(Type? t)
+  [(AnyType? t)
    (FilterSet? fl)
    (RObject? o)])
 
@@ -2147,6 +2139,8 @@
   (add-type-name sym datatype-name-type)
   nil)
 
+(declare error-msg)
+
 (defn- resolve-name* [sym]
   (let [t (@TYPE-NAME-ENV sym)]
     (cond
@@ -2154,7 +2148,7 @@
       (= datatype-name-type t) (resolve-datatype sym)
       (= declared-name-type t) (throw (IllegalArgumentException. (str "Reference to declared but undefined name " sym)))
       (Type? t) (vary-meta t assoc :source-Name sym)
-      :else (throw (IllegalArgumentException. (str "Cannot resolve name " sym))))))
+      :else (throw (IllegalArgumentException. (error-msg "Cannot resolve name " sym))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class
@@ -2486,9 +2480,7 @@
                   :else (if-let [t (and (var? res) 
                                         (@TYPE-NAME-ENV (var->symbol res)))]
                           t
-                          (throw (Exception. (str (when *current-env*
-                                                    (str (:line *current-env*) ":"))
-                                                  "Cannot resolve type: " sym))))))))))
+                          (throw (Exception. (error-msg "Cannot resolve type: " sym))))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v -true -false)) 
@@ -3608,6 +3600,8 @@
 
 (defmethod cs-gen* :default
   [V X Y S T]
+  (when (some Result? [S T])
+    (throw (IllegalArgumentException. "Result on left or right")))
   (assert (subtype? S T) (type-error S T))
   (empty-cset X Y))
 
@@ -3973,6 +3967,8 @@
   (prn "cs-gen* [Function Function]")
   (cs-gen-Function V X Y S T))
 
+(declare error-msg)
+
 ;; C : cset? - set of constraints found by the inference engine
 ;; Y : (setof symbol?) - index variables that must have entries
 ;; R : Type? - result type into which we will be substituting
@@ -4089,13 +4085,13 @@
                   (let [lower-bound (substitute-many (:lower-bound bnds) images names)
                         upper-bound (substitute-many (:upper-bound bnds) images names)]
                     (assert (subtype? lower-bound upper-bound)
-                            (str "Lower-bound " (unparse-type lower-bound)
-                                 " is not below upper-bound " (unparse-type upper-bound)))
+                            (error-msg "Lower-bound " (unparse-type lower-bound)
+                                       " is not below upper-bound " (unparse-type upper-bound)))
                     (assert (and (subtype? inferred upper-bound)
                                  (subtype? lower-bound inferred))
-                            (str "Inferred type " (unparse-type inferred)
-                                 " is not between bounds " (unparse-type lower-bound)
-                                 " and " (unparse-type upper-bound))))))]
+                            (error-msg "Inferred type " (unparse-type inferred)
+                                       " is not between bounds " (unparse-type lower-bound)
+                                       " and " (unparse-type upper-bound))))))]
         ;; verify that we got all the important variables
         (and (every? identity
                      (for [v (fv R)]
@@ -4234,7 +4230,8 @@
          (symbol? dotted-var)
          (Bounds? dotted-bnd)
          (every? #(every? Type? %) [S T])
-         (every? Type? [T-dotted R])
+         (Type? T-dotted) 
+         (AnyType? R)
          ((set-c? symbol?) must-vars)
          ((some-fn nil? Type?) expected)]
    :post [(substitution-c? %)]}
@@ -4271,7 +4268,7 @@
          (every? (every-c? Type?) [S T])
          ((some-fn nil? Type?) T-var)
          (AnyType? R)
-         ((some-fn nil? Type?) expected)]
+         ((some-fn nil? AnyType?) expected)]
    :post [((some-fn nil? substitution-c?) %)]}
   (prn "infer-vararg" "X:" X)
   (let [new-T (if T-var
@@ -4280,6 +4277,8 @@
                 T)]
     (prn "S" (map unparse-type S))
     (prn "new-T" (map unparse-type new-T))
+    (prn "R" (unparse-type R))
+    (prn "expected" (class expected) (when expected (unparse-type expected)))
     (and (>= (count S) (count T))
          (infer X Y S new-T R expected))))
 
@@ -4296,10 +4295,14 @@
   {:pre [(every? (hash-c? symbol? Bounds?) [X Y])
          (every? Type? S)
          (every? Type? T)
-         ((some-fn nil? AnyType?) R)
-         ((some-fn nil? Type?) expected)]
+         (AnyType? R)
+         ((some-fn nil? AnyType?) expected)]
    :post [((some-fn nil? true? substitution-c?) %)]}
-  (prn "infer")
+  (prn "infer" )
+  (when R
+    (prn "R:" (class R) (unparse-type R)))
+  (when expected
+    (prn "expected:" (class expected) (unparse-type expected)))
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset {} {}))
@@ -4694,6 +4697,11 @@
 ;; Subtype
 
 (def ^:dynamic *current-env* nil)
+
+(defn error-msg [& msg]
+  (apply str (when *current-env*
+               (str (:line *current-env*) ": "))
+         msg))
 
 (defn type-error [s t]
   (throw (Exception. (str "Type Error"
@@ -5150,7 +5158,8 @@
   [s t]
   (if (Top? t)
     *sub-current-seen*
-    (type-error s t)))
+    (do (prn (class s) (class t))
+      (type-error s t))))
 
 (defmacro sub [s t]
   `(subtype (parse-type '~s)
@@ -5344,6 +5353,8 @@
 (ann clojure.core/in-ns [Symbol -> nil])
 (ann clojure.core/import [Any * -> nil])
 (ann clojure.core/identity (All [x] [x -> x]))
+(ann clojure.core/gensym (Fn [-> Symbol]
+                             [String -> Symbol]))
 
 (ann clojure.core/set (All [x] [(U nil (Seqable x)) -> (PersistentHashSet x)]))
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
@@ -5492,11 +5503,15 @@
          [String String -> Symbol]))
 
 (ann clojure.core/seq? (predicate (ISeq Any)))
+(ann clojure.core/set? (predicate (IPersistentSet Any)))
+(ann clojure.core/vector? (predicate (IPersistentVector Any)))
 (ann clojure.core/nil? (predicate nil))
 
 (ann clojure.core/meta (All [x]
                             (Fn [(IMeta x) -> x]
                                 [Any -> nil])))
+(ann clojure.core/with-meta (All [[x :< clojure.lang.IObj] y]
+                              [x y -> (I x (IMeta y))]))
 
 (ann clojure.core/string? (predicate String))
 
@@ -5585,6 +5600,11 @@
      (All [x]
           (Fn [(U (I (Seqable x) (ExactCount 0)) nil) -> nil]
               [(I (Seqable x) (CountRange 1)) -> x]
+              [(U (Seqable x) nil) -> (U nil x)])))
+(ann clojure.core/second
+     (All [x]
+          (Fn [(U (I (Seqable x) (CountRange 0 1)) nil) -> nil]
+              [(I (Seqable x) (CountRange 2)) -> x]
               [(U (Seqable x) nil) -> (U nil x)])))
 
 (ann clojure.core/rest
@@ -5709,7 +5729,7 @@
   ([t] (ret t (-FS -top -top) (->EmptyObject)))
   ([t f] (ret t f (->EmptyObject)))
   ([t f o]
-   {:pre [(Type? t)
+   {:pre [(AnyType? t)
           (FilterSet? f)
           (RObject? o)]
     :post [(TCResult? %)]}
@@ -5717,7 +5737,7 @@
 
 (defn ret-t [r]
   {:pre [(TCResult? r)]
-   :post [(Type? %)]}
+   :post [(AnyType? %)]}
   (:t r))
 
 (defn ret-f [r]
@@ -6333,10 +6353,12 @@
                              (recur ftypes)))))]
         (if ret-type
           ret-type
-          (throw (Exception. (str (when *current-env*
-                                    (str (:line *current-env*) ":"))
-                                  (str "Could not infer result to polymorphic function:"
-                                       (unparse-type fexpr-type) " Requires more type annotations."))))))
+          (throw (Exception. (error-msg "Could not infer result to polymorphic function:"
+                                        (unparse-type fexpr-type) " with arguments "
+                                        (mapv unparse-type arg-types) 
+                                        (when expected
+                                          (str " with expected type " (unparse-type (ret-t expected))))
+                                        " Requires more type annotations.")))))
 
       :else ;; any kind of dotted polymorphic function without mandatory keyword args
       (if-let [[pbody fixed-vars fixed-bnds dotted-var dotted-bnd]
@@ -6364,13 +6386,13 @@
                                      ;; in filters/objects).
                                      (let [substitution (cond
                                                           drest (infer-dots (zipmap fixed-vars fixed-bnds) dotted-var dotted-bnd
-                                                                            arg-types dom (:pre-type drest) (Result-type* rng) (fv rng)
+                                                                            arg-types dom (:pre-type drest) rng (fv rng)
                                                                             :expected (and expected (ret-t expected)))
                                                           rest (infer-vararg (zipmap fixed-vars fixed-bnds) {dotted-var dotted-bnd}
                                                                              arg-types dom rest rng
                                                                              (and expected (ret-t expected)))
                                                           :else (infer (zipmap fixed-vars fixed-bnds) {dotted-var dotted-bnd} 
-                                                                       arg-types dom (Result-type* rng)
+                                                                       arg-types dom rng
                                                                        (and expected (ret-t expected))))
                                            _ (prn "substitution:" substitution)
                                            substituted-type (subst-all substitution ftype)
@@ -6823,17 +6845,17 @@
   (let [cargs (doall (map check args))]
     (assoc expr
            expr-type (ret (->HeterogeneousVector
-                            (mapv (comp Result-from-TCResult expr-type) cargs))))))
+                            (mapv (comp ret-t expr-type) cargs))))))
 
 ;make hash-map
 (defmethod invoke-special #'clojure.core/hash-map
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [cargs (doall (map check args))]
     (cond
-      (every? Value? (keys (apply hash-map (map (comp ret-t expr-type) cargs))))
+      (every? Value? (keys (apply hash-map (mapv (comp ret-t expr-type) cargs))))
       (assoc expr
              expr-type (ret (->HeterogeneousMap
-                              (apply hash-map (map Result-from-TCResult cargs)))))
+                              (apply hash-map (mapv (comp ret-t expr-type) cargs)))))
       :else ::not-special)))
 
 ;apply hash-map
@@ -7192,8 +7214,7 @@
                  :args cargs
                  expr-type actual))))))
 
-;args :- [symbol Type]
-;kws ?
+;lam-result in TR
 (defrecord FnResult [args kws rest drest body]
   "Results of checking a fn method"
   [(every? symbol? (map first args))
@@ -7245,6 +7266,18 @@
 
 (declare check-anon-fn-method abstract-filter abo abstract-object)
 
+;If an argument is shadowed and the shadowed binding is referenced
+;in filters or object then the shadow is indistinguishable from the parameter
+;and parameter will be incorrectly abstracted.
+;Simulating hygenic macroexpansion by renaming bindings to unique symbols is one
+;solution.
+;
+;eg.
+;(fn [a]
+;  (if (= a 1)
+;    (let [a 'foo] ; here this shadows the argument, impossible to recover filters
+;      a)          ; in fact any new filters about a will be incorrectly assumed to be the argument
+;      false)) 
 (defn abstract-result [result arg-names]
   {:pre [(TCResult? result)
          (every? symbol? arg-names)]
@@ -7385,17 +7418,18 @@
   (let [syms (map :sym required-params)
         locals (zipmap syms dom)
         ; update filters that reference bindings that the params shadow
-        props (map (fn [oldp]
-                     (reduce (fn [p sym]
-                               {:pre [(Filter? p)
-                                      (symbol? sym)]}
-                               (subst-filter p sym -empty true))
-                             oldp (keys locals)))
-                   (:props *lexical-env*))
+        props (mapv (fn [oldp]
+                      (reduce (fn [p sym]
+                                {:pre [(Filter? p)
+                                       (symbol? sym)]}
+                                (subst-filter p sym -empty true))
+                              oldp (keys locals)))
+                    (:props *lexical-env*))
         env (-> *lexical-env*
               (assoc-in [:props] props)
               (update-in [:l] merge locals))
-        ; erasing references to parameters is handled later
+        ; abstracting references to parameters is handled later in abstract-result, but
+        ; suffers from bugs due to un-hygienic macroexpansion (see `abstract-result`)
         cbody (with-lexical-env env
                 (binding [*recur-target* (->RecurTarget dom nil nil nil)]
                   (check body (when rng
@@ -7486,10 +7520,9 @@
                 (update-in [:l] merge param-locals))
           res-expr (with-lexical-env env
                      (binding [*recur-target* (->RecurTarget dom nil nil nil)]
-                       (check body (ret (Result-type* rng)
-                                        (Result-filter* rng)
-                                        (Result-object* rng)))))
+                       (check body (ret rng))))
           res-type (-> res-expr expr-type ret-t)]
+      ; Is this sufficient? Are there filters that need to be checked?
       (subtype res-type (Result-type* rng)))))
 
 ;; FUNCTION INFERENCE END
@@ -7915,6 +7948,7 @@
     (Bottom)
     (->HeterogeneousMap types)))
 
+; This is where filters are applied to existing types to generate more specific ones
 (defn update [t lo]
   (let [t (-resolve t)]
     (cond
@@ -8138,9 +8172,7 @@
             cexpr (cond 
                     (not init-provided) expr ;handle `declare`
                     :else (binding [*free-scope* (merge *free-scope* new-scope)]
-                            (check init (ret new-t
-                                             (-FS -top -top)
-                                             -empty))))]
+                            (check init (ret new-t))))]
         (assoc cexpr
                expr-type (ret (RClass-of (Class->symbol Var) nil))))
 
