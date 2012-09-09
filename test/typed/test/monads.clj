@@ -398,7 +398,7 @@
                           [(U nil x) [x -> x] -> (U nil x)])))
    m-plus   (-> 
               (fn m-plus-maybe [& mvs]
-                ((inst first (U nil x)) (drop-while nil? mvs)))
+                (first (filter #(not (nil? %)) mvs)))
               (ann-form (All [x]
                           [(U nil x) * -> (U nil x)])))
    ])
