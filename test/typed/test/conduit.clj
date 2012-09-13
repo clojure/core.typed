@@ -7,20 +7,16 @@
 
 (def-alias Part (IPersistentMap Any Any))
 
-(def-alias ContRes 
+(def-alias Result
   (All [x]
     (U nil ;stream is closed
        '[] ;abort/skip
        '[x];consume/continue
        )))
 
-(def-alias ContGen
-  (All [x y]
-    [(ContRes x) -> (ContRes y)]))
-
 (def-alias Cont
   (All [x]
-    [(U nil (ContGen x)) -> (ContRes x)]))
+    [(U nil [(Result x) -> (Result x)]) -> (Result x)]))
 
 (declare-names ==>)
 
@@ -79,7 +75,7 @@
   "execute a stream processor function"
   [f]
   (let [[new-f c] (f nil)
-        y (c identity)]
+        y (c (inst identity (Result x)))]
     (cond
       (nil? new-f) (list)
       (empty? y) (recur new-f)
@@ -109,32 +105,31 @@
 (ann nth-fn
      (All [x y z]
        (Fn ['0 (U nil (==> x z)) -> (==> '[x y] '[z y])]
-           ['1 (U nil (==> x z)) -> (==> '[x y] '[x z])])))
+           ['1 (U nil (==> y z)) -> (==> '[x y] '[x z])])))
 (defn nth-fn [n f]
   (fn curr-fn [xs]
-    (let [abort-c (ann-form abort-c
-                            (Fn [(U nil (ContGen '[x y])) -> (ContRes '[z y])]
-                                [(U nil (ContGen '[x y])) -> (ContRes '[x z])]))]
+    (let [abort-c (ann-form (inst abort-c Any)
+                            (Fn [(U nil [(Result '[x y]) -> (Result '[z y])]) -> (Result '[z y])]
+                                [(U nil [(Result '[x y]) -> (Result '[x z])]) -> (Result '[x z])]))]
       (cond 
         (<= (count xs) n) [curr-fn abort-c]
-        ;added - Ambrose
-        (nil? f) [nil abort-c]
+        (nil? f) [nil abort-c] ;added - Ambrose
         :else
         (let [[new-f new-c] (f (nth xs n))
-              _ (tc-pr-env "last new-f")
               next-c (->
                        (fn [c]
                          (if (nil? c)
                            (new-c nil)
-                           (let [y (new-c identity)]
+                           (let [y (new-c (inst identity (Result z)))]
                              (if (empty? y)
                                (c [])
                                (c [(assoc xs n (first y))])))))
-                       (ann-form (Fn [(U nil (ContGen '[x y])) -> (ContRes '[z y])]
-                                     [(U nil (ContGen '[x y])) -> (ContRes '[x z])])))]
+                       (ann-form (Fn [(U nil [(Result '[x y]) -> (Result '[z y])]) -> (Result '[z y])]
+                                     [(U nil [(Result '[x y]) -> (Result '[x z])]) -> (Result '[x z])])))]
           [(nth-fn n new-f) next-c])))))
 
 
+(tc-ignore
 (defn gather-fn [[fs ys] [f y]]
   [(conj fs f) (conj ys y)])
 
@@ -154,18 +149,23 @@
                    (if (some empty? ys)
                      (c [])
                      (c [(apply concat ys)])))))]))))
+  )
 
 (ann select-fn
      (All [x y z]
-       [(IPersistentMap x (==> y z)) -> (==> '[x y] z)]))
+       [(IPersistentMap x (U nil (==> y z))) -> (==> '[x y] z)]))
 (defn select-fn [selection-map]
   (fn curr-fn [[v x]]
-    (if-let [f (or (get selection-map v)
-                   (get selection-map '_))]
+    (if-let [f (ann-form (or ((inst get (U nil (==> y z))) selection-map v)
+                             ((inst get (U nil (==> y z))) selection-map '_))
+                         (U nil (==> y z)))]
       (let [[new-f c] (f x)]
-        [(select-fn (assoc selection-map v new-f)) c])
+        [((inst select-fn x y z)
+           ((inst assoc x (U nil (==> y z)) Any) 
+              selection-map v new-f)) c])
       [curr-fn abort-c])))
 
+(tc-ignore
 (defn loop-fn
   ([f prev-x]
    (fn curr-fn [x]
@@ -190,7 +190,13 @@
               (fn [c]
                 (when c
                   (c y)))])))))))
+  )
 
+(ann conduit
+     '{:a-arr (All [x y]
+                [[x -> y] -> (I (==> x y)
+                                (IMeta '{:created-by ':a-arr
+                                         :args [x -> x]}))])})
 (defarrow conduit
   [a-arr (ann-form 
            (fn [f]

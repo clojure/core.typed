@@ -215,6 +215,11 @@
 (defmacro ann-form [form ty]
   `(ann-form* ~form '~ty))
 
+(defn unsafe-ann-form* [form ty]
+  form)
+
+(defmacro unsafe-ann-form [form ty]
+  `(unsafe-ann-form* ~form '~ty))
 
 (defn tc-ignore-forms* [r]
   r)
@@ -2455,7 +2460,7 @@
                                  %)
                            [svar scls]))]
           (->App (->Name s) (mapv parse-type args))
-          (throw (Exception. (str "Cannot parse list: " syn))))))))
+          (throw (Exception. (error-msg "Cannot parse list: " syn))))))))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] (parse-type-list l))
@@ -3581,7 +3586,8 @@
          (NotTypeFilter? t))
     (cset-meet (cs-gen V X Y (:type s) (:type t))
                (cs-gen V X Y (:type t) (:type s)))
-    :else (throw (IllegalArgumentException. "Need two filters of same type"))))
+    :else (throw (IllegalArgumentException. (error-msg "Need two filters of same type "
+                                                       (unparse-filter s) " " (unparse-filter t))))))
 
 ;must be *latent* filter sets
 (defn cs-gen-filter-set [V X Y s t]
@@ -5413,6 +5419,11 @@
               [(I (APersistentSet x) Sorted) Any Any * -> (I (IPersistentSet x) Sorted)]
               [(IPersistentSet x) Any Any * -> (IPersistentSet x)])))
 
+(ann clojure.core/assoc
+     (All [b c d]
+       (Fn [(IPersistentMap b c) b c -> (IPersistentMap b c)]
+           [(IPersistentVector d) AnyInteger d -> (IPersistentVector d)])))
+
 (comment
   (aget my-array 0 1 2)
   (aget (aget my-array 0) 1 2)
@@ -6321,10 +6332,9 @@
                                            ftypes))]
         (if success-ret-type
           success-ret-type
-          (throw (Exception. (str (when *current-env*
-                                    (str (:line *current-env*) ":"))
-                                  "funapp: Arguments did not match function: "
-                                  (mapv unparse-type arg-types))))))
+          (throw (Exception. (error-msg "funapp: Arguments did not match function: "
+                                        (unparse-type fexpr-type)
+                                        (mapv unparse-type arg-types))))))
 
       ;ordinary polymorphic function without dotted rest
       (and (Poly? fexpr-type)
@@ -6762,6 +6772,13 @@
            expr-type t)))
 
 (declare unwrap-poly rewrap-poly)
+
+;unsafe form annotation
+(defmethod invoke-special #'unsafe-ann-form*
+  [{[frm {tsyn :val}] :args :as expr} & [expected]]
+  (let [parsed-ty (parse-type tsyn)]
+    (assoc expr
+           expr-type (ret parsed-ty))))
 
 ;form annotation
 (defmethod invoke-special #'ann-form*
@@ -7365,12 +7382,13 @@
 (defn FnResult->Function [{:keys [args kws rest drest body] :as fres}]
   {:pre [(FnResult? fres)]
    :post [(Function? %)]}
-  (assert (not (or kws rest drest)))
-  (let [arg-names (concat (map first args)
-                          (when rest
-                            (first rest))
-                          (when drest
-                            (first drest))) ;TODO kws
+  (assert (not kws))
+  (let [arg-names (doall
+                    (concat (map first args)
+                            (when rest
+                              [(first rest)])
+                            (when drest
+                              [(first drest)]))) ;TODO kws
                             ]
     (->Function
       (map second args)
@@ -7915,8 +7933,8 @@
                      args)
         rest-arg (when rest
                    (last args))
-        cargs (mapv check args (concat dom (when rest-arg
-                                             [(RClass-of Seqable [rest])])))
+        cargs (mapv check args (map ret (concat dom (when rest-arg
+                                                      [(RClass-of Seqable [rest])]))))
         _ (assert (and (= (count fixed-args) (count dom))
                        (= (boolean rest) (boolean rest-arg)))
                   (error-msg "Wrong number of arguments to recur"))]

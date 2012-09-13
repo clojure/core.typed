@@ -25,7 +25,7 @@
             [clojure.tools.macro
              :refer (with-symbol-macros defsymbolmacro name-with-attributes)]
             [typed.core 
-             :refer (tc-ignore check-ns ann def-alias ann-form inst fn> pfn>
+             :refer (tc-ignore check-ns ann def-alias unsafe-ann-form ann-form inst fn> pfn>
                                AnyInteger tc-pr-env)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -398,9 +398,12 @@
                           [(U nil x) [x -> x] -> (U nil x)])))
    m-plus   (-> 
               (fn m-plus-maybe [& mvs]
-                (first (filter #(not (nil? %)) mvs)))
+                (first ((inst filter (U x nil) x) 
+                          (ann-form #(not (nil? %))
+                                    [(U x nil) -> Any]) 
+                          mvs)))
               (ann-form (All [x]
-                          [(U nil x) * -> (U nil x)])))
+                             [(U nil x) * -> (U nil x)])))
    ])
 
 (ann flatten* 
@@ -426,13 +429,13 @@
                (ann-form (All [x] [(Seqable x) -> (Seqable (Seqable x))])))
     m-bind   (->
                (fn m-bind-sequence [mv f]
-                 ((inst flatten* (Seqable y)) (map f mv)))
+                 (flatten* (map f mv)))
                (ann-form (All [x y]
                            [(Seqable x) [x -> (Seqable (Seqable y))] -> (Seqable (Seqable y))])))
     m-zero   (list)
     m-plus   (-> 
                (fn m-plus-sequence [& mvs]
-                 ((inst flatten* x) mvs))
+                 (flatten* mvs))
                (ann-form (All [x]
                            [(Seqable x) * -> (Seqable x)])))
     ])
@@ -495,8 +498,6 @@
                             [(State s a) [a -> (State s b)] -> (State s b)])))
    ])
 
-(tc-ignore
-
 (ann update-state 
      (All [s]
        [[s -> s] -> (State s s)]))
@@ -513,8 +514,8 @@
   "Return a state-monad function that replaces the current state by s and
    returns the previous state."
   [s]
-  ((inst update-state s) (-> (fn [_] s)
-                           (ann-form [s -> s]))))
+  (update-state (-> (fn [_] s)
+                  (ann-form [s -> s]))))
 
 (ann fetch-state
      (All [s]
@@ -523,7 +524,7 @@
   "Return a state-monad function that returns the current state and does not
    modify it."
   []
-  ((inst update-state s) (inst identity s)))
+  (update-state (inst identity s)))
 
 (ann fetch-val 
      (All [x y]
@@ -532,9 +533,11 @@
   "Return a state-monad function that assumes the state to be a map and
    returns the value corresponding to the given key. The state is not modified."
   [key]
-  (domonad (inst state-m y (IPersistentMap x y) (IPersistentMap x y))
+  (domonad state-m
     [^{:T (IPersistentMap x y)} s (fetch-state)]
     (get key s)))
+
+(tc-ignore
 
 (defn update-val
   "Return a state-monad function that assumes the state to be a map and
