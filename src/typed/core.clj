@@ -343,16 +343,21 @@
 (defn Bottom? [a]
   (= empty-union a))
 
-(declare Fn-Intersection? Function? Poly? PolyDots?)
+(declare Function? Poly? PolyDots?)
 
+;should probably be ordered
 (defrecord Intersection [types]
-  "An ordered intersection of types. Either is an intersection
-  of Functions, or contains at most one Function/Poly/PolyDots type"
+  "An unordered intersection of types."
   [(seq types)
-   (or (every? Function? types)
-       (<= (count (filter (some-fn Fn-Intersection? Poly? PolyDots?) types))
-           1)
-       (every? Type? types))])
+   (every? Type? types)])
+
+(defrecord FnIntersection [types]
+  "An ordered intersection of Functions."
+  [(seq types)
+   (sequential? types)
+   (every? Function? types)])
+
+(declare-type FnIntersection)
 
 (declare In HeterogeneousMap? ->HeterogeneousMap overlap)
 
@@ -372,7 +377,8 @@
       (->Intersection flat))))
 
 (defn In [& types]
-  {:post [(Type? %)]}
+  {:pre [(every? Type? types)]
+   :post [(Type? %)]}
            ;flatten intersections
   (let [ts (set (apply concat
                        (for [t (set types)]
@@ -382,11 +388,6 @@
     (cond
       (or (empty? ts)
           (ts (Un))) (Bottom)
-
-      ; should be near the top
-      (some Function? types) (do (assert (every? Function? types)
-                                         "Every type must be a Function in a Fn-Intersection")
-                               (->Intersection types))
 
       (= 1 (count ts)) (first ts)
 
@@ -508,7 +509,7 @@
   {:pre [(RClass? rcls)]
    :post [(set? %)
           (every? Type? %)
-          (<= (count (filter (some-fn Fn-Intersection? Poly? PolyDots?) %))
+          (<= (count (filter (some-fn FnIntersection? Poly? PolyDots?) %))
               1)]}
   (let [;set of symbols of Classes we haven't explicitly replaced
         not-replaced (set/difference (set (map Class->symbol (-> the-class symbol->Class supers)))
@@ -863,14 +864,9 @@
   ([dom rng rest drest & {:keys [filter object kws] :or {filter (-FS -top -top), object (->EmptyObject)}}]
    (->Function dom (->Result rng filter object) rest drest kws)))
 
-(defn Fn-Intersection [& fns]
+(defn make-FnIntersection [& fns]
   {:pre [(every? Function? fns)]}
-  (->Intersection fns))
-
-(defn Fn-Intersection? [fin]
-  (and (Intersection? fin)
-       (sequential? (:types fin))
-       (every? Function? (:types fin))))
+  (->FnIntersection fns))
 
 (defrecord NotType [type]
   "A type that does not include type"
@@ -980,6 +976,11 @@
 (add-default-fold-case Union 
                        (fn [ty _]
                          (apply Un (mapv type-rec (:types ty)))))
+
+(add-default-fold-case FnIntersection
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:types] #(mapv type-rec %)))))
 
 (add-default-fold-case Projection
                        (fn [ty _]
@@ -1850,10 +1851,10 @@
                  (->DataType s# nil nil fs#))
            pos-ctor# (if args#
                        (with-meta (Poly* args# (repeat (count args#) no-bounds)
-                                         (Fn-Intersection
+                                         (make-FnIntersection
                                            (make-Function (vec (vals fs#)) (->DataType s# vs# (map make-F args#) fs#))))
                                   {:actual-frees args#})
-                       (Fn-Intersection
+                       (make-FnIntersection
                          (make-Function (vec (vals fs#)) dt#)))]
        (do 
          (when vs#
@@ -2061,7 +2062,7 @@
 
 (defonce METHOD-OVERRIDE-ENV (atom {}))
 (set-validator! METHOD-OVERRIDE-ENV (hash-c? (every-pred namespace symbol?)
-                                             (some-fn Poly? Fn-Intersection?)))
+                                             (some-fn Poly? FnIntersection?)))
 
 (defn add-method-override [sym t]
   (swap! METHOD-OVERRIDE-ENV assoc sym t)
@@ -2137,8 +2138,7 @@
 
 (defn add-type-name [sym ty]
   (swap! TYPE-NAME-ENV assoc sym (if (Type? ty)
-                                   (with-meta ty
-                                              {:from-name sym})
+                                   (vary-meta ty assoc :from-name sym)
                                    ty))
   nil)
 
@@ -2295,7 +2295,7 @@
 (defmethod parse-type-list 'predicate
   [[_ t-syn]]
   (let [on-type (parse-type t-syn)]
-    (Fn-Intersection
+    (make-FnIntersection
       (make-Function [-any] (RClass-of 'boolean nil) nil nil
                      :filter (-FS (-filter on-type 0)
                                   (-not-filter on-type 0))))))
@@ -2377,7 +2377,7 @@
 (declare parse-function)
 
 (defn parse-fn-intersection-type [[Fn & types]]
-  (apply Fn-Intersection (doall (map parse-function types))))
+  (apply make-FnIntersection (doall (map parse-function types))))
 
 (defmethod parse-type-list 'Fn
   [syn]
@@ -2540,7 +2540,7 @@
 
 (defmethod parse-type IPersistentVector
   [f]
-  (apply Fn-Intersection [(parse-function f)]))
+  (apply make-FnIntersection [(parse-function f)]))
 
 (def ^:dynamic *next-nme* 0) ;stupid readable variables
 
@@ -2604,13 +2604,13 @@
     (seq types) (list* 'U (doall (map unparse-type types)))
     :else 'Nothing))
 
+(defmethod unparse-type* FnIntersection
+  [{types :types}]
+  (list* 'Fn (doall (map unparse-type types))))
+
 (defmethod unparse-type* Intersection
   [{types :types}]
-  (list* (if (and (seq types)
-                  (every? Function? types))
-           'Fn
-           'I)
-         (doall (map unparse-type types))))
+  (list* 'I (doall (map unparse-type types))))
 
 (defmethod unparse-type* Function
   [{:keys [dom rng rest drest]}]
@@ -2895,6 +2895,10 @@
   [{:keys [types]}]
   (apply combine-frees (mapv frees types)))
 
+(defmethod frees [::any-var FnIntersection]
+  [{:keys [types]}] 
+  (apply combine-frees (mapv frees types)))
+
 (defmethod frees [::frees Function]
   [{:keys [dom rng rest drest kws]}]
   (apply combine-frees (concat (mapv (comp flip-variances frees)
@@ -2958,7 +2962,7 @@
   (promote T V))
 
 (defn demote-var [T V]
-  {:pre [(Type? T)
+  {:pre [(AnyType? T)
          (set? V)
          (every? symbol? V)]
    :post [(Type? %)]}
@@ -2967,7 +2971,7 @@
 (defmulti promote 
   "Eliminate all variables V in t by promotion"
   (fn [T V] 
-    {:pre [(Type? T)
+    {:pre [(AnyType? T)
            (set? V)
            (every? symbol? V)]}
     (class T)))
@@ -2975,7 +2979,7 @@
 (defmulti demote 
   "Eliminate all variables V in T by demotion"
   (fn [T V]
-    {:pre [(Type? T)
+    {:pre [(AnyType? T)
            (set? V)
            (every? symbol? V)]}
     (class T)))
@@ -3021,22 +3025,22 @@
 (defmethod promote HeterogeneousVector
   [T V]
   (-> T
-    (update-in [:types] #(apply list (map promote % (repeat V))))))
+    (update-in [:types] #(mapv promote % (repeat V)))))
 
 (defmethod demote HeterogeneousVector
   [T V]
   (-> T
-    (update-in [:types] #(apply list (map demote % (repeat V))))))
+    (update-in [:types] #(mapv demote % (repeat V)))))
 
 (defmethod promote HeterogeneousList
   [T V]
   (-> T
-    (update-in [:types] #(apply list (map promote % (repeat V))))))
+    (update-in [:types] #(apply list (mapv promote % (repeat V))))))
 
 (defmethod demote HeterogeneousList
   [T V]
   (-> T
-    (update-in [:types] #(apply list (map demote % (repeat V))))))
+    (update-in [:types] #(apply list (mapv demote % (repeat V))))))
 
 (defmethod promote Value [T V] T)
 (defmethod demote Value [T V] T)
@@ -3064,10 +3068,22 @@
 (defmethod promote Top [T V] T)
 (defmethod demote Top [T V] T)
 
-(defmethod promote Union 
-  [T V] 
+(defmethod promote App
+  [T V]
   (-> T
-    (update-in [:types] #(set (map promote % (repeat V))))))
+    (update-in [:rator] #(promote % V))
+    (update-in [:rands] (fn [rands] (mapv #(promote % V) rands)))))
+
+(defmethod demote App
+  [T V]
+  (-> T
+    (update-in [:rator] #(demote % V))
+    (update-in [:rands] (fn [rands] (mapv #(demote % V) rands)))))
+
+(defmethod promote Union 
+  [T V]
+  (-> T
+    (update-in [:types] #(set (mapv promote % (repeat V))))))
 
 (defmethod demote Union 
   [T V] 
@@ -3080,6 +3096,16 @@
     (update-in [:types] #(mapv promote % (repeat V)))))
 
 (defmethod demote Intersection
+  [T V] 
+  (-> T
+    (update-in [:types] #(mapv demote % (repeat V)))))
+
+(defmethod promote FnIntersection
+  [T V] 
+  (-> T
+    (update-in [:types] #(mapv promote % (repeat V)))))
+
+(defmethod demote FnIntersection
   [T V] 
   (-> T
     (update-in [:types] #(mapv demote % (repeat V)))))
@@ -3143,7 +3169,9 @@
       :else
       (-> T
         (update-in [:dom] #(mapv dmt %))
-        (update-in [:rng] pmt)
+        ;we know no filters contain V
+        (update-in [:rng] #(-> %
+                             (update-in [:t] pmt)))
         (update-in [:rest] #(when %
                               (dmt %)))
         (update-in [:drest] #(when %
@@ -3179,7 +3207,9 @@
       :else
       (-> T
         (update-in [:dom] #(mapv pmt %))
-        (update-in [:rng] dmt)
+        ;we know no filters contain V
+        (update-in [:rng] #(-> %
+                             (update-in [:t] pmt)))
         (update-in [:rest] #(when %
                               (pmt %)))
         (update-in [:drest] #(when %
@@ -4812,8 +4842,8 @@
           *sub-current-seen*
           (type-error s t))
 
-        (and (Fn-Intersection? s)
-             (Fn-Intersection? t))
+        (and (FnIntersection? s)
+             (FnIntersection? t))
         (loop [A* *sub-current-seen*
                arr2 (:types t)]
           (let [arr1 (:types s)]
@@ -5386,9 +5416,9 @@
                     y (make-F 'y)]
                 (with-meta
                   (Poly* '[x y] [no-bounds no-bounds]
-                         (Fn-Intersection
+                         (make-FnIntersection
                            (make-Function
-                             [(Fn-Intersection
+                             [(make-FnIntersection
                                 (make-Function [x] -any nil nil 
                                                :filter (-FS (-filter y 0) -top)))
                               (Un -nil (RClass-of Seqable [x]))]
@@ -5562,7 +5592,7 @@
 (ann clojure.core/string? (predicate String))
 
 (add-var-type 'clojure.core/class
-              (Fn-Intersection
+              (make-FnIntersection
                 (make-Function [-any]
                                (Un (RClass-of (Class->symbol Class) nil) -nil)
                                nil nil
@@ -5572,7 +5602,7 @@
               (let [x (make-F 'x)]
                 (with-meta (Poly* [(:name x)]
                                   [no-bounds]
-                                  (Fn-Intersection (make-Function [(Un (RClass-of (Class->symbol Seqable) [x])
+                                  (make-FnIntersection (make-Function [(Un (RClass-of (Class->symbol Seqable) [x])
                                                                        -nil)]
                                                                   (Un -nil (RClass-of (Class->symbol ASeq) [x]))
                                                                   nil nil
@@ -5583,7 +5613,7 @@
                            {:actual-frees '[x]})))
 
 (add-var-type 'clojure.core/empty?
-              (Fn-Intersection (make-Function [(Un (RClass-of (Class->symbol Seqable) [-any]) -nil)]
+              (make-FnIntersection (make-Function [(Un (RClass-of (Class->symbol Seqable) [-any]) -nil)]
                                               (Un -true -false)
                                               nil nil
                                               :filter (-FS (-or (-filter (make-ExactCountRange 0) 0)
@@ -5738,7 +5768,7 @@
                       (All [x]
                         [[-> (U nil (Seqable x))] -> (LazySeq x)]))
 
-(let [t (Fn-Intersection
+(let [t (make-FnIntersection
           (make-Function 
             [(Un -nil (RClass-of Seqable [-any]))]
             (parse-type 'AnyInteger)
@@ -5887,7 +5917,7 @@
   (let [expected (when expected 
                    (ret-t expected))
         actual (->HeterogeneousMap (apply hash-map (map (comp ret-t expr-type) (mapv check keyvals))))
-        _ (assert (subtype? actual expected) (type-error actual expected))]
+        _ (assert (or (not expected) (subtype? actual expected)) (type-error actual expected))]
     (assoc expr
            expr-type (ret actual))))
 
@@ -6316,14 +6346,14 @@
     (prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
     (cond
       ;ordinary Function, single case, special cased for improved error msgs
-      (and (Fn-Intersection? fexpr-type)
+      (and (FnIntersection? fexpr-type)
            (= 1 (count (:types fexpr-type))))
       (let [argtys arg-ret-types
             {[t] :types} fexpr-type]
         (check-funapp1 t argtys expected))
 
       ;ordinary Function, multiple cases
-      (Fn-Intersection? fexpr-type)
+      (FnIntersection? fexpr-type)
       (let [ftypes (:types fexpr-type)
             success-ret-type (some #(check-funapp1 % arg-ret-types expected :check? false)
                                    (filter (fn [{:keys [dom rest] :as f}]
@@ -6339,13 +6369,13 @@
       ;ordinary polymorphic function without dotted rest
       (and (Poly? fexpr-type)
            (let [body (Poly-body* (repeatedly (:nbound fexpr-type) gensym) fexpr-type)]
-             (and (Fn-Intersection? body)
+             (and (FnIntersection? body)
                   (every? (complement :drest) (:types body)))))
       (let [fs-names (repeatedly (:nbound fexpr-type) gensym)
             _ (assert (every? symbol? fs-names))
             body (Poly-body* fs-names fexpr-type)
             bbnds (Poly-bbnds* fs-names fexpr-type)
-            _ (assert (Fn-Intersection? body))
+            _ (assert (FnIntersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
                          (prn "infer poly fn" (unparse-type ftype) (map unparse-type arg-types)
@@ -6384,7 +6414,7 @@
                           [fixed-bnds dotted-bnd] [(butlast bbnds) (last bbnds)]
                           [fixed-vars dotted-var] [(butlast vars) (last vars)]
                           pbody (PolyDots-body* vars fexpr-type)]
-                      (and (Fn-Intersection? pbody)
+                      (and (FnIntersection? pbody)
                            (seq (:types pbody))
                            (not (some :kws (:types pbody)))
                            [pbody fixed-vars fixed-bnds dotted-var dotted-bnd])))]
@@ -6487,7 +6517,7 @@
          (Type? expected)]
    :post [(Type? %)]}
   (cond
-    (Fn-Intersection? expected)
+    (FnIntersection? expected)
     (-> expected
       (update-in [:types] #(for [ftype %]
                              (do
@@ -6811,7 +6841,7 @@
   (let [[fexpr {type-syns :val}] args
         expected
         (apply
-          Fn-Intersection
+          make-FnIntersection
           (doall
             (for [{:keys [dom-syntax has-rng? rng-syntax]} type-syns]
               (make-Function (mapv parse-type dom-syntax)
@@ -7143,7 +7173,7 @@
         [fixed-args tail] [(butlast args) (last args)]]
     (cond
       ;apply of a simple function
-      (Fn-Intersection? ftype)
+      (FnIntersection? ftype)
       (do 
         (when (empty? (:types ftype))
           (throw (Exception. "Empty function intersection given as argument to apply")))
@@ -7178,7 +7208,7 @@
       (let [vars (repeatedly (:nbound ftype) gensym)
             bbnds (Poly-bbnds* vars ftype)
             body (Poly-body* vars ftype)
-            _ (assert (Fn-Intersection? body))
+            _ (assert (FnIntersection? body))
             arg-tres (mapv check fixed-args)
             arg-tys (mapv (comp ret-t expr-type) arg-tres)
             tail-bound nil
@@ -7264,11 +7294,11 @@
    (TCResult? body)])
 
 (defn relevant-Fns
-  "Given a set of required-param exprs, rest-param expr, and a Fn-Intersection,
+  "Given a set of required-param exprs, rest-param expr, and a FnIntersection,
   returns a seq of Functions containing Function types
   whos arities could be a subtype to the method with the fixed and rest parameters given"
   [required-params rest-param fin]
-  {:pre [(Fn-Intersection? fin)]
+  {:pre [(FnIntersection? fin)]
    :post [(every? Function? %)]}
   (assert (not (some :drest (:types fin))))
   (let [nreq (count required-params)]
@@ -7286,7 +7316,7 @@
   (assert (:line env))
   (binding [*current-env* env]
     (check-fn expr (or expected
-                       (ret (Fn-Intersection
+                       (ret (make-FnIntersection
                               (make-Function [] -any -any)))))))
 
 (declare check-anon-fn-method abstract-filter abo abstract-object)
@@ -7414,7 +7444,7 @@
    :post [(TCResult? (expr-type %))]}
   (cond
     ; named fns must be fully annotated, and are checked with normal check
-    (:name expr) (let [ftype (apply Fn-Intersection 
+    (:name expr) (let [ftype (apply make-FnIntersection 
                                     (doall (for [{:keys [dom rng]} methods-types]
                                              (if rng
                                                (make-Function dom rng)
@@ -7428,7 +7458,7 @@
                    (check expr (ret ftype)))
     :else
     (let [_ (prn methods methods-types expr)
-          ftype (apply Fn-Intersection (doall (map FnResult->Function 
+          ftype (apply make-FnIntersection (doall (map FnResult->Function 
                                                    (doall 
                                                      (map (fn [m {:keys [dom rng]}]
                                                             (check-anon-fn-method m dom rng))
@@ -7508,9 +7538,9 @@
   [{:keys [methods variadic-method] :as fexpr} expected]
   {:pre [(TCResult? expected)]}
   (let [; unwrap polymorphic expected types
-        [fin orig-names inst-frees bnds poly?] (unwrap-poly (ret-t expected))
+        [fin orig-names inst-frees bnds poly?] (unwrap-poly (-resolve (ret-t expected))) ;is one resolve enough? probably not..
         ;ensure a function type
-        _ (assert (Fn-Intersection? fin)
+        _ (assert (FnIntersection? fin)
                   (str (when *current-env*
                          (str (:line *current-env*) ": "))
                        (unparse-type fin) " is not a function type"))
@@ -7526,7 +7556,7 @@
                          (with-dotted-mappings (case poly?
                                                  :PolyDots {(last orig-names) (last inst-frees)}
                                                  nil)
-                           (apply Fn-Intersection
+                           (apply make-FnIntersection
                                   (mapcat (fn [method]
                                             (check-fn-method method fin))
                                           (concat methods (when variadic-method
@@ -7537,7 +7567,7 @@
            expr-type (ret pfni (-FS -top -bot) -empty))))
 
 (defn check-fn-method [{:keys [required-params rest-param] :as method} fin]
-  {:pre [(Fn-Intersection? fin)]
+  {:pre [(FnIntersection? fin)]
    :post [(seq %)
           (every? Function? %)]}
   (let [mfns (relevant-Fns required-params rest-param fin)]
@@ -7754,18 +7784,18 @@
 
 (defn- instance-method->Function [{:keys [parameter-types declaring-class return-type] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
-   :post [(Fn-Intersection? %)]}
+   :post [(FnIntersection? %)]}
   (assert (resolve declaring-class))
-  (Fn-Intersection (make-Function (concat [(RClass-of declaring-class nil)]
+  (make-FnIntersection (make-Function (concat [(RClass-of declaring-class nil)]
                                           (doall (map #(Method-symbol->Type % false) parameter-types)))
                                   (Method-symbol->Type return-type true))))
 
 (defn- method->Function [{:keys [parameter-types return-type flags] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
-   :post [(Fn-Intersection? %)]}
+   :post [(FnIntersection? %)]}
   (let [msym (Method->symbol method)
         nparams (count parameter-types)]
-    (Fn-Intersection (make-Function (doall (map (fn [[n tsym]] (Method-symbol->Type 
+    (make-FnIntersection (make-Function (doall (map (fn [[n tsym]] (Method-symbol->Type 
                                                                  tsym (nilable-param? msym nparams n)))
                                                 (map-indexed vector
                                                              (if (:varargs flags)
@@ -7777,11 +7807,11 @@
 
 (defn- Constructor->Function [{:keys [declaring-class parameter-types] :as ctor}]
   {:pre [(instance? clojure.reflect.Constructor ctor)]
-   :post [(Fn-Intersection? %)]}
+   :post [(FnIntersection? %)]}
   (let [cls (resolve declaring-class)
         _ (when-not (class? cls)
             (throw (Exception. (str "Constructor for unresolvable class " (:class ctor)))))]
-    (Fn-Intersection (make-Function (doall (map #(Method-symbol->Type % false) parameter-types))
+    (make-FnIntersection (make-Function (doall (map #(Method-symbol->Type % false) parameter-types))
                                     (RClass-of (Class->symbol cls) nil)
                                     nil nil
                                     :filter (-FS -top -bot))))) ;always a true value
@@ -7853,14 +7883,14 @@
   (let [dtp (@DATATYPE-ENV sym)]
     (cond
       (DataType? dtp) (let [dt dtp]
-                        (Fn-Intersection 
+                        (make-FnIntersection 
                           (make-Function (-> dt :fields vals) dt)))
       (Poly? dtp) (let [nms (repeatedly (:nbound dtp) gensym)
                         bbnds (Poly-bbnds* nms dtp)
                         dt (unwrap-datatype dtp nms)]
                     (Poly* nms
                            bbnds
-                           (Fn-Intersection 
+                           (make-FnIntersection 
                              (make-Function (-> dt :fields vals) dt))))
       :else (throw (Exception. (str "Cannot get DataType constructor of " sym))))))
 
@@ -8454,7 +8484,7 @@
 
 (defn check-new-instance-method
   [{:keys [body required-params] :as expr} expected-fin]
-  {:pre [(Fn-Intersection? expected-fin)]}
+  {:pre [(FnIntersection? expected-fin)]}
   (let [_ (assert (= 1 (count (:types expected-fin))))
         {:keys [dom rng] :as expected-fn} (-> expected-fin :types first)
         _ (assert (not (:rest expected-fn)))

@@ -22,21 +22,23 @@
 
 (def-alias ==>
   (All [in out]
-    [in -> '[(U nil (==> in out))
-             (Cont out)]]))
+       [in -> '[(U nil (==> in out))
+                (Cont out)]]))
 
-(ann merge-parts [(Seqable (IMeta (U '{:parts Part} nil))) -> Part])
+(def-alias MaybePartMeta (IMeta (U nil (HMap {} :optional {:parts (U nil Part)}))))
+
+(ann merge-parts [(Seqable MaybePartMeta) -> Part])
 (tc-ignore
 (defn merge-parts [ps]
-  (let [parts (map (fn> [[p :- (IMeta (U '{:parts Part} nil))]] 
-                     (-> p meta :parts))
+  (let [parts (map (-> #(-> % meta :parts)
+                     (ann-form [MaybePartMeta -> (U nil Part)]))
                    ps)]
     (apply (-> merge-with 
              (inst Any Part))
            (-> merge 
              (inst Any Any))
            parts)))
-)
+  )
 
 (ann abort-c (All [x] (Cont x)))
 (defn abort-c [c]
@@ -83,23 +85,35 @@
               (cons (first y)
                     (a-run new-f))))))
 
-
-(tc-ignore
-(defn comp-fn [[f & fs]]
+(ann comp-fn2
+     (All [x y z]
+          [(==> x y) (==> y z) -> (==> x z)]))
+(defn comp-fn2 [f1 f2]
   (fn curr-fn [x]
-    (let [[new-f first-c] (f x)
-          [new-fs new-c] (reduce (fn [[new-fs c] f]
-                                   (let [y (c identity)
-                                         [new-f new-c] (if (empty? y)
-                                                         [f abort-c]
-                                                         (f (first y)))]
-                                     [(conj new-fs new-f) new-c]))
-                                 [[new-f] first-c]
-                                 fs)]
-      [(when-not (some nil? new-fs)
-         (comp-fn new-fs))
+    (let [[new-f1 first-c] (f1 x)
+          y (first-c (inst identity (Result y)))
+          [new-f2 new-c] (if (empty? y)
+                           [f2 (inst abort-c z)]
+                           (f2 (first y)))]
+      [(when (and new-f1 new-f2)
+         ((inst comp-fn2 x y z) new-f1 new-f2)) 
        new-c])))
-  )
+
+;(defn comp-fn [[f & fs]]
+;  (fn curr-fn [x]
+;    (let [[new-f first-c] (f x)
+;          [new-fs new-c] (reduce (fn [[new-fs c] f]
+;                                   (let [y (c identity)
+;                                         [new-f new-c] (if (empty? y)
+;                                                         [f abort-c]
+;                                                         (f (first y)))]
+;                                     [(conj new-fs new-f) new-c]))
+;                                 [[new-f] first-c]
+;                                 fs)]
+;      [(when-not (some nil? new-fs)
+;         (comp-fn new-fs))
+;       new-c])))
+ 
 
 ;Type only works for vectors of length 2
 (ann nth-fn
@@ -126,7 +140,7 @@
                                (c [(assoc xs n (first y))])))))
                        (ann-form (Fn [(U nil [(Result '[x y]) -> (Result '[z y])]) -> (Result '[z y])]
                                      [(U nil [(Result '[x y]) -> (Result '[x z])]) -> (Result '[x z])])))]
-          [(nth-fn n new-f) next-c])))))
+          [((inst nth-fn x y z) n new-f) next-c])))))
 
 
 (tc-ignore
@@ -192,39 +206,62 @@
                   (c y)))])))))))
   )
 
-(ann conduit
-     '{:a-arr (All [x y]
-                [[x -> y] -> (I (==> x y)
-                                (IMeta '{:created-by ':a-arr
-                                         :args [x -> x]}))])})
-(defarrow conduit
-  [a-arr (ann-form 
-           (fn [f]
-             (with-meta
-               (fn a-arr [x]
-                 (let [y (f x)]
-                   [a-arr (fn [c]
-                            (when c
-                              (c [y])))]))
-               {:created-by :a-arr
-                :args f}))
-           (All [x y]
-             [[x -> y] -> (I (==> x y)
-                             (IMeta '{:created-by ':a-arr
-                                      :args [x -> x]}))]))
+(def-alias AArr
+  (All [x y]
+       (I (==> x y)
+          (IMeta '{:created-by ':a-arr
+                   :args [x -> y]}))))
 
-   a-comp (ann-form
+(def-alias AArrCtor 
+  (All [x y]
+       [[x -> y] -> (AArr x y)]))
+
+(def-alias ACompMeta
+  (All [x y z]
+       '{:created-by ':a-comp
+         :parts Part
+         :args '[(==> x y) (==> y z)]}))
+
+(def-alias AComp
+  (All [x y z]
+       (I (==> x z) (IMeta (ACompMeta x y z)))))
+
+(def-alias ACompCtor
+  (All [x y z]
+       [(I (==> x y) MaybePartMeta) (I (==> y z) MaybePartMeta) -> (AComp x y z)]))
+
+(ann a-arr AArrCtor)
+(ann a-comp ACompCtor)
+
+(ann conduit '{:a-arr AArrCtor :a-comp ACompCtor})
+(defarrow conduit
+  [a-arr (->
+           (fn [f]
+             (->
+               (fn a-arr [x]
+                 (let [y (f x)
+                       c (->
+                           (fn [c]
+                             (when c
+                               (c [y])))
+                           (ann-form (Cont y)))]
+                   [a-arr c]))
+               (ann-form (==> x y))
+               ((inst with-meta (==> x y) '{:created-by ':a-arr
+                                            :args [x -> y]})
+                 {:created-by :a-arr
+                  :args f})))
+           (ann-form AArrCtor))
+
+   a-comp (->
             (fn [p1 p2]
-              (with-meta
-                (comp-fn [p1 p2])
-                {:parts (merge-parts [p1 p2])
-                 :created-by :a-comp
-                 :args [p1 p2]}))
-            (All [x y z]
-              [(==> x y) (==> y z) -> (I (==> x z)
-                                         (IMeta '{:created-by ':a-comp
-                                                  :parts Any
-                                                  :args '[[x -> y] [y -> z]]}))]))
+              ((inst with-meta (==> x z) (ACompMeta x y z))
+                (-> ((inst comp-fn2 x y z) p1 p2)
+                  (ann-form (==> x z)))
+                {:created-by :a-comp
+                 :parts (ann-form (merge-parts [p1 p2]) Part)
+                 :args (ann-form [p1 p2] '[(==> x y) (==> y z)])}))
+            (ann-form ACompCtor))
 
    ;apply p to position n in passed pair
    ;eg. increment second element of each list
@@ -232,20 +269,23 @@
    ;([3 6] [3 5])
    a-nth (ann-form
            (fn [n p]
+             (ann-form [n p] '[(U '0 '1) (==> x y)])
+             (ann-form ((inst nth-fn x y z) n p) (U (==> '[x y] '[z y])
+                                                    (==> '[x y] '[x z])))
              (with-meta
-               (nth-fn n p)
-               {:parts (:parts p)
-                :created-by :a-nth
+               ((inst nth-fn x y z) n p)
+               {:created-by :a-nth
+                :parts (:parts (meta p))
                 :args [n p]}))
            (All [x y z]
-             (Fn ['0 (==> x y) -> (I (==> '[x z] '[y z])
-                                     (IMeta '{:created-by ':a-nth
-                                              :parts Any
-                                              :args '['0 (==> x y)]}))]
-                 ['1 (==> x y) -> (I (==> '[z x] '[z y])
-                                     (IMeta '{:created-by ':a-nth
-                                              :parts Any
-                                              :args '['1 (==> x y)]}))])))
+             (Fn ['0 (I (==> x z) MaybePartMeta) -> (I (==> '[x y] '[z y])
+                                                       (IMeta '{:created-by ':a-nth
+                                                                :parts (U nil Part)
+                                                                :args '['0 (==> x z)]}))]
+                 ['1 (I (==> y z) MaybePartMeta) -> (I (==> '[x y] '[x z])
+                                                       (IMeta '{:created-by ':a-nth
+                                                                :parts (U nil Part)
+                                                                :args '['1 (==> y z)]}))])))
 
    ;like juxt
    ;modified to accept 2 arrows rather than n arrows
@@ -325,7 +365,7 @@
 (defn conduit-map [p l]
   (if (empty? l)
     l
-    (a-run (comp-fn [(conduit-seq l) p]))))
+    (a-run (comp-fn2 (conduit-seq l) p))))
 
 (ann pass-through 
      (All [x]
