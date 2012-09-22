@@ -1,7 +1,7 @@
 (ns typed.test.conduit
   (:import (clojure.lang Seqable IMeta IPersistentMap LazySeq ISeq))
   (:require [typed.core :refer [check-ns ann fn> def-alias tc-ignore ann-form declare-names inst
-                                tc-pr-env inst-ctor]]
+                                tc-pr-env inst-ctor cf]]
             [clojure.repl :refer [pst]]
             [arrows.core :refer [defarrow]]))
 
@@ -68,7 +68,7 @@
   "create a stream processor that emits the contents of a list
   regardless of what is fed to it"
   [l]
-  ((inst conduit-seq-fn x) l))
+  (conduit-seq-fn l))
 
 (ann a-run
      (All [x]
@@ -82,8 +82,8 @@
       (nil? new-f) (list)
       (empty? y) (recur new-f)
       :else (lazy-seq
-              (cons (first y)
-                    (a-run new-f))))))
+                (cons (first y)
+                      (a-run new-f))))))
 
 (ann comp-fn2
      (All [x y z]
@@ -142,41 +142,44 @@
                                      [(U nil [(Result '[x y]) -> (Result '[x z])]) -> (Result '[x z])])))]
           [((inst nth-fn x y z) n new-f) next-c])))))
 
-
-(tc-ignore
-(defn gather-fn [[fs ys] [f y]]
-  [(conj fs f) (conj ys y)])
-
-(defn par-fn [fs]
-  (fn curr-fn [xs]
-      (if (not= (count xs) (count fs))
+(ann par-fn2
+     (All [x y z a]
+          [(==> x y) (==> z a) -> (==> '[x z] '[y a])]))
+(defn par-fn2 [f1 f2]
+  (fn curr-fn [[x1 x2]]
+    (let [[fs1 c1] (f1 x1)
+          [fs2 c2] (f2 x2)]
+      (if-not (and fs1 fs2) ;added conditional - Ambrose
         [curr-fn abort-c]
-        (let [[new-fs cs] (reduce gather-fn
-                                  [[] []]
-                                  (map #(%1 %2) fs xs))]
-          [(par-fn new-fs)
+        [((inst par-fn2 x y z a) fs1 fs2)
+         (->
            (fn [c]
-               (if (nil? c)
-                 (doseq [c cs]
-                   (c nil))
-                 (let [ys (map #(% identity) cs)]
-                   (if (some empty? ys)
-                     (c [])
-                     (c [(apply concat ys)])))))]))))
-  )
+             (if (nil? c)
+               (do
+                 (c1 nil) 
+                 (c2 nil)
+                 nil)
+               (let [ys [(c1 (inst identity (Result z)))
+                         (c2 (inst identity (Result a)))]]
+                 (if (some empty? ys)
+                   (c [])
+                   (c [(apply concat ys)])))))
+           (ann-form (Cont '[y a])))]))))
 
 (ann select-fn
      (All [x y z]
-       [(IPersistentMap x (U nil (==> y z))) -> (==> '[x y] z)]))
+       [(IPersistentMap x (==> y z)) -> (==> '[x y] z)]))
 (defn select-fn [selection-map]
   (fn curr-fn [[v x]]
-    (if-let [f (ann-form (or ((inst get (U nil (==> y z))) selection-map v)
-                             ((inst get (U nil (==> y z))) selection-map '_))
+    (if-let [f (ann-form (or ((inst get (==> y z)) selection-map v)
+                             ((inst get (==> y z)) selection-map '_))
                          (U nil (==> y z)))]
       (let [[new-f c] (f x)]
-        [((inst select-fn x y z)
-           ((inst assoc x (U nil (==> y z)) Any) 
-              selection-map v new-f)) c])
+        (if new-f
+          [((inst select-fn x y z)
+              ((inst assoc x (==> y z) Any)
+                 selection-map v new-f)) c]
+          [curr-fn abort-c]))
       [curr-fn abort-c])))
 
 (tc-ignore
@@ -212,7 +215,7 @@
           (IMeta '{:created-by ':a-arr
                    :args [x -> y]}))))
 
-(def-alias AArrCtor 
+(def-alias AArrCtor
   (All [x y]
        [[x -> y] -> (AArr x y)]))
 
@@ -267,69 +270,78 @@
    ;eg. increment second element of each list
    ; (conduit-map (a-nth 1 (a-arr inc)) [[3 5] [3 4]])
    ;([3 6] [3 5])
-   a-nth (ann-form
-           (fn [n p]
-             (ann-form [n p] '[(U '0 '1) (==> x y)])
-             (ann-form ((inst nth-fn x y z) n p) (U (==> '[x y] '[z y])
-                                                    (==> '[x y] '[x z])))
-             (with-meta
-               ((inst nth-fn x y z) n p)
-               {:created-by :a-nth
-                :parts (:parts (meta p))
-                :args [n p]}))
-           (All [x y z]
-             (Fn ['0 (I (==> x z) MaybePartMeta) -> (I (==> '[x y] '[z y])
-                                                       (IMeta '{:created-by ':a-nth
-                                                                :parts (U nil Part)
-                                                                :args '['0 (==> x z)]}))]
-                 ['1 (I (==> y z) MaybePartMeta) -> (I (==> '[x y] '[x z])
-                                                       (IMeta '{:created-by ':a-nth
-                                                                :parts (U nil Part)
-                                                                :args '['1 (==> y z)]}))])))
+   a-nth ::undefined
+;   a-nth (ann-form
+;           (fn [n p]
+;             (ann-form [n p] '[(U '0 '1) (==> x y)])
+;             (ann-form ((inst nth-fn x y z) n p) (U (==> '[x y] '[z y])
+;                                                    (==> '[x y] '[x z])))
+;             (with-meta
+;               ((inst nth-fn x y z) n p)
+;               {:created-by :a-nth
+;                :parts (:parts (meta p))
+;                :args [n p]}))
+;           (All [x y z]
+;             (Fn ['0 (I (==> x z) MaybePartMeta) -> (I (==> '[x y] '[z y])
+;                                                       (IMeta '{:created-by ':a-nth
+;                                                                :parts (U nil Part)
+;                                                                :args '['0 (==> x z)]}))]
+;                 ['1 (I (==> y z) MaybePartMeta) -> (I (==> '[x y] '[x z])
+;                                                       (IMeta '{:created-by ':a-nth
+;                                                                :parts (U nil Part)
+;                                                                :args '['1 (==> y z)]}))])))
 
    ;like juxt
    ;modified to accept 2 arrows rather than n arrows
    a-par (ann-form 
            (fn [p1 p2]
-             (with-meta
-               (par-fn [p1 p2])
+             ((inst with-meta (==> '[x z] '[y a]) '{:created-by ':a-par
+                                                    :args '[(==> x y) (==> z a)]
+                                                    :parts Part})
+               ((inst par-fn2 x y z a) p1 p2)
                {:created-by :a-par
                 :args [p1 p2]
                 :parts (merge-parts [p1 p2])}))
-           (All [x y z]
-             [(==> x y) (==> x z) -> (I (==> x '[y z])
-                                        (IMeta '{:created-by ':a-par
-                                                 :args [(==> x y) (==> x z)]
-                                                 :parts Any}))]))
+           (All [x y z a]
+                [(I (==> x y) MaybePartMeta) 
+                 (I (==> z a) MaybePartMeta) -> (I (==> '[x z] '[y a])
+                                                           (IMeta '{:created-by ':a-par
+                                                                    :args '[(==> x y) (==> z a)]
+                                                                    :parts Part}))]))
 
-   ;apply functions to lhs and rhs of pairs
+   ;apply several functions to a value
    ; modified to accept 2 arrows instead of n arrows
    a-all (ann-form 
            (fn [p1 p2]
-             (with-meta
-               (a-comp (a-arr (ann-form #(vector % %)
-                                        (All [x] 
-                                          [x -> '[x x]])))
-                       (a-par p1 p2))
-               {:created-by :a-all
-                :args [p1 p2]
-                :parts (merge-parts [p1 p2])}))
-           (All [x y]
-             [(==> x y) (==> z a) -> (I (==> '[x z] '[y a])
-                                        (IMeta '{:created-by ':a-all
-                                                 :args '[(==> x y) (==> z a)]
-                                                 :parts Any}))]))
+             ((inst with-meta (==> x '[y z]) '{:created-by ':a-all
+                                               :args '[(==> x y) (==> x z)]
+                                               :parts Part})
+                ((inst a-comp x '[x x] '[y z])
+                   ((inst a-arr x '[x x])
+                      (ann-form #(vector % %)
+                                [x -> '[x x]]))
+                   ((inst a-par x y x z) p1 p2))
+                {:created-by :a-all
+                 :args [p1 p2]
+                 :parts (merge-parts [p1 p2])}))
+           (All [x y z]
+             [(I (==> x y) MaybePartMeta) 
+              (I (==> x z) MaybePartMeta) -> (I (==> x '[y z])
+                                                (IMeta '{:created-by ':a-all
+                                                         :args '[(==> x y) (==> x z)]
+                                                         :parts Part}))]))
 
    ;select a value
    a-select (ann-form
               (fn [pair-map]
                 (with-meta
-                  (select-fn pair-map)
+                  ((inst select-fn x y z)
+                     pair-map)
                   {:created-by :a-select
                    :args pair-map
                    :parts (merge-parts (vals pair-map))}))
               (All [x y z]
-                [(IPersistentMap x (==> y z)) -> (==> x (==> y z))]))
+                [(IPersistentMap x (I MaybePartMeta (==> y z))) -> (==> '[x y] z)]))
 
    a-loop (ann-form 
             (fn
@@ -353,7 +365,7 @@
 
 (def a-arr (conduit :a-arr))
 (def a-comp (conduit :a-comp))
-(def a-nth (conduit :a-nth))
+;(def a-nth (conduit :a-nth))
 (def a-par (conduit :a-par))
 (def a-all (conduit :a-all))
 (def a-select (conduit :a-select))
@@ -489,7 +501,7 @@
       nil p
       :a-arr (a-arr args)
       :a-comp (apply a-comp (map test-conduit args))
-      :a-nth (apply a-nth (map test-conduit args))
+      ;:a-nth (apply a-nth (map test-conduit args))
       :a-par (apply a-par (map test-conduit args))
       :a-all (apply a-all (map test-conduit args))
       :a-select (apply a-select (mapcat (fn [[k v]]
