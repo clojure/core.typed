@@ -5,9 +5,9 @@
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
-                         Keyword Atom PersistentList IMeta PersistentArrayMap Named
+                         Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
                          IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
-                         LazySeq PersistentHashMap APersistentMap AFn AFunction))
+                         LazySeq))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -65,7 +65,6 @@
 (defn tc-pr-env 
   "Print the current type environment, and debug-string"
   [debug-string] nil)
-
 (defn tc-pr-filters [debug-string frm] frm)
 
 (defn inst-poly [inst-of types-syn]
@@ -512,7 +511,6 @@
           (every? Type? %)
           (<= (count (filter (some-fn FnIntersection? Poly? PolyDots?) %))
               1)]}
-  (prn "RClass-supers*" the-class)
   (let [;set of symbols of Classes we haven't explicitly replaced
         not-replaced (set/difference (set (map Class->symbol (-> the-class symbol->Class supers)))
                                      (set (keys replacements)))]
@@ -745,7 +743,7 @@
 (declare-type AnyValue)
 
 (defrecord HeterogeneousMap [types]
-  "A constant map, clojure.lang.PersistentHashMap"
+  "A constant map, clojure.lang.IPersistentMap"
   [((hash-c? Value? (some-fn Type? Result?))
      types)])
 
@@ -1158,6 +1156,8 @@
     (= t1 t2) true
     (and (Value? t1)
          (Value? t2)) (= t1 t2)
+    (Value? t1) (subtype? t1 t2)
+    (Value? t2) (subtype? t2 t1)
 ;    (and (Name? t1)
 ;         (Name? t2)) (overlap (-resolve t1) (-resolve t2))
 ;    (Name? t1) (overlap (-resolve t1) t2)
@@ -2061,7 +2061,8 @@
 ;; Method Override Env
 
 (defonce METHOD-OVERRIDE-ENV (atom {}))
-(set-validator! METHOD-OVERRIDE-ENV (hash-c? (every-pred namespace symbol?) Type?))
+(set-validator! METHOD-OVERRIDE-ENV (hash-c? (every-pred namespace symbol?)
+                                             (some-fn Poly? FnIntersection?)))
 
 (defn add-method-override [sym t]
   (swap! METHOD-OVERRIDE-ENV assoc sym t)
@@ -2316,9 +2317,7 @@
                                         (with-frees (map (comp make-F first) fs)
                                           (parse-free fsyn))))
                                 [] (-> bnds butlast butlast))
-        dvar-syn (-> bnds butlast last)
-        _ (assert (symbol? dvar-syn) "Dotted var must be a symbol")
-        dvar (parse-free dvar-syn)]
+        dvar (parse-free (-> bnds butlast last))]
     (-> 
       (PolyDots* (map first (concat frees-with-bnds [dvar]))
                  (map second (concat frees-with-bnds [dvar]))
@@ -2382,13 +2381,7 @@
 
 (defmethod parse-type-list 'Fn
   [syn]
-  (In (parse-fn-intersection-type syn)
-      (RClass-of AFunction)))
-
-(defmethod parse-type-list 'AFn
-  [syn]
-  (In (parse-fn-intersection-type syn)
-      (RClass-of AFn)))
+  (parse-fn-intersection-type syn))
 
 (defmethod parse-type-list 'Seq* [syn] (->HeterogeneousSeq (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'List* [syn] (->HeterogeneousList (mapv parse-type (rest syn))))
@@ -2515,8 +2508,7 @@
 (defmethod parse-type nil [_] -nil)
 
 (defn parse-function [f]
-  (let [_ (assert (some #{'->} f) (str "Missing arrow in function type " f))
-        all-dom (take-while #(not= '-> %) f)
+  (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
         _ (assert (<= (count chk) 2) (str "Missing range in " f))
 
@@ -2548,8 +2540,7 @@
 
 (defmethod parse-type IPersistentVector
   [f]
-  (In (apply make-FnIntersection [(parse-function f)])
-      (RClass-of AFunction)))
+  (apply make-FnIntersection [(parse-function f)]))
 
 (def ^:dynamic *next-nme* 0) ;stupid readable variables
 
@@ -3255,7 +3246,9 @@
 
 (def subst-rhs? (some-fn t-subst? i-subst? i-subst-starred? i-subst-dotted?))
 
-(def substitution-c? (hash-c? symbol? subst-rhs?))
+(def substitution-c? (every-pred map? 
+                                 #(every? symbol? (keys %)) 
+                                 #(every? subst-rhs? (vals %))))
 
 (defrecord c [S X T bnds]
   "A type constraint on a variable within an upper and lower bound"
@@ -3557,10 +3550,8 @@
           (cset-combine cs)
           (type-error S T))
 
-        (or (and (FnIntersection? S)
-                 (FnIntersection? T))
-            (and (Intersection? S)
-                 (Intersection? T)))
+        (and (Intersection? S)
+             (Intersection? T))
         (cset-meet*
           (doall
             ; for each element of T, we need at least one element of S that works
@@ -3664,9 +3655,7 @@
   (when (some Result? [S T])
     (throw (IllegalArgumentException. (error-msg "Result on left or right "
                                                  (pr-str S) " " (pr-str T)))))
-  (assert (subtype? S T) (do (prn "cs-gen :default"
-                                  (class S) (class T))
-                           (type-error S T)))
+  (assert (subtype? S T) (type-error S T))
   (empty-cset X Y))
 
 (defmethod cs-gen* [Result Result] 
@@ -3723,7 +3712,7 @@
   [V X Y S T]
   (let [[ks vs] [(apply Un (keys (:types S)))
                  (apply Un (vals (:types S)))]]
-    (cs-gen V X Y (RClass-of APersistentMap [ks vs]) T)))
+    (cs-gen V X Y (RClass-of (Class->symbol IPersistentMap) [ks vs]) T)))
 
 (defmethod cs-gen* [RClass RClass] 
   [V X Y S T]
@@ -4033,22 +4022,6 @@
 
 (declare error-msg)
 
-(defn check-bounds [names images bbnds]
-  {:pre [(every? symbol? names)
-         (every? Type? images)
-         (every? Bounds? bbnds)]}
-  (doseq [[inst bnds] (map vector images bbnds)]
-    (let [lower-bound (substitute-many (:lower-bound bnds) images names)
-          upper-bound (substitute-many (:upper-bound bnds) images names)]
-      (assert (subtype? lower-bound upper-bound)
-              (error-msg "Lower-bound " (unparse-type lower-bound)
-                         " is not below upper-bound " (unparse-type upper-bound)))
-      (assert (and (subtype? inst upper-bound)
-                   (subtype? lower-bound inst))
-              (error-msg "Inferred type " (unparse-type inst)
-                         " is not between bounds " (unparse-type lower-bound)
-                         " and " (unparse-type upper-bound))))))
-
 ;; C : cset? - set of constraints found by the inference engine
 ;; Y : (setof symbol?) - index variables that must have entries
 ;; R : Type? - result type into which we will be substituting
@@ -4158,11 +4131,20 @@
                                       (:bnds v))])))
             ;check bounds
             _ (let [t-substs (into {} (filter (fn [[_ v]] (t-subst? v)) subst))
-                    [names images bndss] (let [s (seq t-substs)]
-                                           [(map first s)
-                                            (map (comp :type second) s)
-                                            (map (comp :bnds second) s)])]
-                (check-bounds names images bndss))]
+                    [names images] (let [s (seq t-substs)]
+                                     [(map first s)
+                                      (map (comp :type second) s)])]
+                (doseq [[nme {inferred :type :keys [bnds]}] t-substs]
+                  (let [lower-bound (substitute-many (:lower-bound bnds) images names)
+                        upper-bound (substitute-many (:upper-bound bnds) images names)]
+                    (assert (subtype? lower-bound upper-bound)
+                            (error-msg "Lower-bound " (unparse-type lower-bound)
+                                       " is not below upper-bound " (unparse-type upper-bound)))
+                    (assert (and (subtype? inferred upper-bound)
+                                 (subtype? lower-bound inferred))
+                            (error-msg "Inferred type " (unparse-type inferred)
+                                       " is not between bounds " (unparse-type lower-bound)
+                                       " and " (unparse-type upper-bound))))))]
         ;; verify that we got all the important variables
         (and (every? identity
                      (for [v (fv R)]
@@ -4749,18 +4731,14 @@
     (Poly? ptype)
     (let [_ (assert (= (:nbound ptype) (count argtys)) "Wrong number of arguments to instantiate polymorphic type")
           names (repeatedly (:nbound ptype) gensym)
-          body (Poly-body* names ptype)
-          bbnds (Poly-bbnds* names ptype)
-          _ (check-bounds names argtys bbnds)]
+          body (Poly-body* names ptype)]
       (substitute-many body argtys names))
 
     (PolyDots? ptype)
     (let [nrequired-types (dec (:nbound ptype))
           _ (assert (<= nrequired-types (count argtys)) "Insufficient arguments to instantiate dotted polymorphic type")
-          names (vec (repeatedly (:nbound ptype) gensym))
-          body (PolyDots-body* names ptype)
-          bbnds (PolyDots-bbnds* names ptype)
-          _ (check-bounds (butlast names) (butlast argtys) (butlast bbnds))]
+          names (repeatedly (:nbound ptype) gensym)
+          body (PolyDots-body* names ptype)]
       (-> body
         ; expand dotted pre-types in body
         (trans-dots (last names) ;the bound
@@ -5149,7 +5127,7 @@
   [s t]
   (let [sk (apply Un (map first (:types s)))
         sv (apply Un (map second (:types s)))]
-    (subtype (RClass-of APersistentMap [sk sv])
+    (subtype (RClass-of (Class->symbol IPersistentMap) [sk sv])
              t)))
 
 ;every rtype entry must be in ltypes
@@ -5171,29 +5149,31 @@
 (defmethod subtype* [HeterogeneousVector Type]
   [s t]
   (let [ss (apply Un (:types s))]
-    (subtype (In (RClass-of IPersistentVector [ss])
+    (subtype (In (RClass-of (Class->symbol IPersistentVector) [ss])
                  (make-ExactCountRange (count (:types s))))
              t)))
 
 (defmethod subtype* [HeterogeneousList HeterogeneousList]
   [{ltypes :types :as s} 
    {rtypes :types :as t}]
-  (last (mapv #(subtype %1 %2) ltypes rtypes)))
+  (last (doall (map #(subtype %1 %2) ltypes rtypes))))
 
 (defmethod subtype* [HeterogeneousList Type]
   [s t]
   (let [ss (apply Un (:types s))]
-    (subtype (RClass-of PersistentList [ss]) t)))
+    (subtype (RClass-of (Class->symbol PersistentList) [ss])
+             t)))
 
 (defmethod subtype* [HeterogeneousSeq HeterogeneousSeq]
   [{ltypes :types :as s} 
    {rtypes :types :as t}]
-  (last (mapv #(subtype %1 %2) ltypes rtypes)))
+  (last (doall (map #(subtype %1 %2) ltypes rtypes))))
 
 (defmethod subtype* [HeterogeneousSeq Type]
   [s t]
   (let [ss (apply Un (:types s))]
-    (subtype (RClass-of ASeq [ss]) t)))
+    (subtype (RClass-of (Class->symbol ASeq) [ss])
+             t)))
 
 (defmethod subtype* [Mu Type]
   [s t]
@@ -5240,18 +5220,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Altered Classes
-;;
-;; TODO instead of calculating supers uses from clojure.core/bases and only "alter" bases
-;; Does this introduce any nasty triangular relationships? It seems similar to GJ, so maybe not...
-
-(def-alias AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte))
 
 (alter-class Seqable [[a :variance :covariant]])
 
 (alter-class IMeta [[a :variance :covariant]])
-
-(alter-class ILookup [[a :variance :covariant]
-                      [b :variance :covariant]])
 
 (alter-class IPersistentCollection [[a :variance :covariant]]
              :replace
@@ -5262,17 +5234,19 @@
              {Seqable (Seqable a)
               IPersistentCollection (IPersistentCollection a)})
 
+(alter-class ILookup [[a :variance :covariant]
+                      [b :variance :covariant]])
+
 (alter-class IPersistentSet [[a :variance :covariant]]
              :replace
              {IPersistentCollection (IPersistentCollection a)
               Seqable (Seqable a)})
 
-(alter-class IFn [[a :variance :covariant]])
-
 (alter-class APersistentSet [[a :variance :covariant]]
              :replace
              {Seqable (Seqable a)
               IFn [Any -> (U a nil)]
+              AFn [Any -> (U a nil)]
               IPersistentCollection (IPersistentCollection a)
               IPersistentSet (IPersistentSet a)})
 
@@ -5281,9 +5255,10 @@
              {Seqable (Seqable a)
               APersistentSet (APersistentSet a)
               IFn [Any -> (U a nil)]
+              AFn [Any -> (U a nil)]
               IPersistentSet (IPersistentSet a)
               IPersistentCollection (IPersistentCollection a)
-              IMeta (IMeta Nothing)})
+              IMeta (IMeta Any)})
 
 (alter-class Associative [[a :variance :covariant]
                           [b :variance :covariant]]
@@ -5303,53 +5278,12 @@
               ILookup (ILookup a b)
               Associative (Associative a b)})
 
-(alter-class APersistentMap [[a :variance :covariant]
-                             [b :variance :covariant]]
-             :replace
-             {IPersistentCollection (IPersistentCollection (I (IMapEntry a b) '[a b]))
-              IPersistentMap (IPersistentMap a b)
-              Seqable (Seqable (I (IMapEntry a b) '[a b]))
-              IFn (All [c]
-                    (Fn [Any -> (U b nil)]
-                        [Any c -> (U b c)]))
-              IMeta (IMeta Nothing)
-              ILookup (ILookup a b)
-              Associative (Associative a b)})
-
-(alter-class PersistentArrayMap [[a :variance :covariant]
-                                 [b :variance :covariant]]
-             :replace
-             {IPersistentCollection (IPersistentCollection (IMapEntry a b))
-              IPersistentMap (IPersistentMap a b)
-              APersistentMap (APersistentMap a b)
-              Seqable (Seqable (IMapEntry a b))
-              IFn (All [c]
-                    (Fn [Any -> (U b nil)]
-                        [Any c -> (U b c)]))
-              IMeta (IMeta Nothing)
-              ILookup (ILookup a b)
-              Associative (Associative a b)})
-
-(alter-class PersistentHashMap [[a :variance :covariant]
-                                [b :variance :covariant]]
-             :replace
-             {IPersistentCollection (IPersistentCollection (IMapEntry a b))
-              IPersistentMap (IPersistentMap a b)
-              APersistentMap (APersistentMap a b)
-              Seqable (Seqable (IMapEntry a b))
-              IFn (All [c]
-                    (Fn [Any -> (U b nil)]
-                        [Any c -> (U b c)]))
-              IMeta (IMeta Nothing)
-              ILookup (ILookup a b)
-              Associative (Associative a b)})
-
 (alter-class ASeq [[a :variance :covariant]]
              :replace
              {IPersistentCollection (IPersistentCollection a)
               Seqable (Seqable a)
               ISeq (ISeq a)
-              IMeta (IMeta Nothing)})
+              IMeta (IMeta Any)})
 
 (alter-class IPersistentStack [[a :variance :covariant]]
              :replace
@@ -5369,7 +5303,7 @@
              {IPersistentCollection (IPersistentCollection a)
               Seqable (Seqable a)
               IPersistentVector (IPersistentVector a)
-              IFn [AnyInteger -> a]
+              IFn [Number -> a]
               IPersistentStack (IPersistentStack a)
               ILookup (ILookup Number a)
               Associative (Associative Number a)})
@@ -5380,7 +5314,7 @@
               IPersistentCollection (IPersistentCollection a)
               Seqable (Seqable a)
               IPersistentVector (IPersistentVector a)
-              IFn [AnyInteger -> a]
+              IFn [Number -> a]
               IPersistentStack (IPersistentStack a)
               ILookup (ILookup Number a)
               Associative (Associative Number a)})
@@ -5391,7 +5325,7 @@
               ASeq (ASeq a)
               Seqable (Seqable a)
               ISeq (ISeq a)
-              IMeta (IMeta Nothing)})
+              IMeta (IMeta Any)})
 
 (alter-class IPersistentList [[a :variance :covariant]]
              :replace
@@ -5407,16 +5341,14 @@
               IPersistentList (IPersistentList a)
               ISeq (ISeq a)
               IPersistentStack (IPersistentStack a)
-              IMeta (IMeta Nothing)})
+              IMeta (IMeta Any)})
 
 (alter-class Symbol []
              :replace
-             {IMeta (IMeta Nothing)
-              IFn (All [a b]
-                       (Fn [(IPersistentMap Any b) -> (U nil b)]
-                           [(IPersistentMap Any b) c -> (U b c)]))})
+             {IMeta (IMeta Any)})
 
 (alter-class IDeref [[r :variance :covariant]])
+
 
 (alter-class IRef [[w :variance :contravariant]
                    [r :variance :covariant]]
@@ -5426,19 +5358,19 @@
 (alter-class IReference [[w :variance :contravariant]
                          [r :variance :covariant]]
        :replace
-       {IMeta (IMeta Nothing)})
+       {IMeta (IMeta Any)})
 
 (alter-class AReference [[w :variance :contravariant]
                          [r :variance :covariant]]
              :replace
-             {IMeta (IMeta Nothing)
+             {IMeta (IMeta Any)
               IReference (IReference w r)})
 
 (alter-class ARef [[w :variance :contravariant]
                    [r :variance :covariant]]
              :replace
              {IRef (IRef w r)
-              IMeta (IMeta Nothing)
+              IMeta (IMeta Any)
               AReference (AReference w r)
               IDeref (IDeref r)
               IReference (IReference w r)})
@@ -5447,7 +5379,7 @@
                    [r :variance :covariant]]
              :replace
              {IRef (IRef w r)
-              IMeta (IMeta Nothing)
+              IMeta (IMeta Any)
               AReference (AReference w r)
               ARef (ARef w r)
               IDeref (IDeref r)
@@ -5457,16 +5389,13 @@
              :replace
              {Seqable (Seqable a)
               ISeq (ISeq a)
-              IMeta (IMeta Nothing)
+              IMeta (IMeta Any)
               IPersistentCollection (IPersistentCollection a)})
-
-(alter-class AFunction []
-             :replace
-             {IMeta (IMeta Nothing)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
+(def-alias AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte))
 (def-alias Atom1 (All [x] (Atom x x)))
 (def-alias Maybe (All [x] (U nil x)))
 
@@ -5487,21 +5416,16 @@
                     y (make-F 'y)]
                 (with-meta
                   (Poly* '[x y] [no-bounds no-bounds]
-                         (In (RClass-of AFunction)
-                             (make-FnIntersection
-                               (make-Function
-                                 [(make-FnIntersection
-                                    (make-Function [x] -any nil nil 
-                                                   :filter (-FS (-filter y 0) -top)))
-                                  (Un -nil (RClass-of Seqable [x]))]
-                                 (RClass-of Seqable [y])))))
+                         (make-FnIntersection
+                           (make-Function
+                             [(make-FnIntersection
+                                (make-Function [x] -any nil nil 
+                                               :filter (-FS (-filter y 0) -top)))
+                              (Un -nil (RClass-of Seqable [x]))]
+                             (RClass-of Seqable [y]))))
                   {:actual-frees '[x y]})))
 
-(ann clojure.core/some (All [x y] [(AFn [x -> y]) (U nil (Seqable x)) -> (U y nil)]))
-
-(ann clojure.core/concat (All [x] [(U nil (Seqable x)) * -> (Seqable x)]))
-
-(ann clojure.core/vals (All [x] [(IPersistentMap Any x) -> (Seqable x)]))
+(ann clojure.core/some (All [x] [[Any -> x] (U nil (Seqable x)) -> (U x nil)]))
 
 (ann clojure.core/set (All [x] [(U nil (Seqable x)) -> (PersistentHashSet x)]))
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
@@ -5682,8 +5606,7 @@
                                                                        -nil)]
                                                                   (Un -nil (RClass-of (Class->symbol ASeq) [x]))
                                                                   nil nil
-                                                                  :filter (-FS (-and (-filter (make-CountRange 1) 0)
-                                                                                     (-not-filter -nil 0))
+                                                                  :filter (-FS (-filter (make-CountRange 1) 0)
                                                                                (-or (-filter -nil 0)
                                                                                     (-filter (make-ExactCountRange 0) 0)))
                                                                   :object -empty))) 
@@ -5695,8 +5618,7 @@
                                               nil nil
                                               :filter (-FS (-or (-filter (make-ExactCountRange 0) 0)
                                                                 (-filter -nil 0))
-                                                           (-and (-filter (make-CountRange 1) 0)
-                                                                 (-not-filter -nil 0)))
+                                                           (-filter (make-CountRange 1) 0))
                                               :object -empty)))
 
 (ann clojure.core/map
@@ -5793,7 +5715,7 @@
               [(IPersistentMap k v) * -> (IPersistentMap k v)]
               [(U nil (IPersistentMap k v)) * -> (U nil (IPersistentMap k v))])))
 
-(ann clojure.core/= [Any Any * -> boolean])
+(ann clojure.core/= [Any Any * -> (U true false)])
 
 
 (ann clojure.core/integer? (predicate AnyInteger))
@@ -5947,17 +5869,11 @@
   [clist]
   (->HeterogeneousList (apply list (map constant-type clist))))
 
-(defmethod constant-type PersistentVector
+(defmethod constant-type IPersistentVector
   [cvec]
   (->HeterogeneousVector (mapv constant-type cvec)))
 
-(defmethod constant-type PersistentArrayMap
-  [cmap]
-  (->HeterogeneousMap (into {} (map #(vector (constant-type (first %))
-                                             (constant-type (second %)))
-                                    cmap))))
-
-(defmethod constant-type PersistentHashMap
+(defmethod constant-type IPersistentMap
   [cmap]
   (->HeterogeneousMap (into {} (map #(vector (constant-type (first %))
                                              (constant-type (second %)))
@@ -6394,7 +6310,6 @@
          ((some-fn nil? TCResult?) expected)
          (boolean? check?)]
    :post [(TCResult? %)]}
-  (prn "check-funapp1" (unparse-type ftype0))
   (assert (not drest) "funapp with drest args NYI")
   (assert (empty? (:mandatory kws)) "funapp with mandatory keyword args NYI")
   ;checking
@@ -6420,30 +6335,26 @@
         [t-r f-r o-r] (open-Result rng o-a t-a)]
     (ret t-r f-r o-r)))
 
-(declare extract-fn-type)
-
 ; TCResult TCResult^n (U nil TCResult) -> TCResult
 (defn check-funapp [fexpr-ret-type arg-ret-types expected]
   {:pre [(TCResult? fexpr-ret-type)
          (every? TCResult? arg-ret-types)
          ((some-fn nil? TCResult?) expected)]
    :post [(TCResult? %)]}
-  (let [fexpr-type (-> fexpr-ret-type ret-t -resolve)
-        arg-types (mapv ret-t arg-ret-types)]
+  (let [fexpr-type (ret-t fexpr-ret-type)
+        arg-types (doall (map ret-t arg-ret-types))]
     (prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
     (cond
       ;ordinary Function, single case, special cased for improved error msgs
-      (when-let [fin (extract-fn-type fexpr-type)]
-        (= 1 (count (:types fin))))
-      (let [fin (extract-fn-type fexpr-type)
-            argtys arg-ret-types
-            {[t] :types} fin]
+      (and (FnIntersection? fexpr-type)
+           (= 1 (count (:types fexpr-type))))
+      (let [argtys arg-ret-types
+            {[t] :types} fexpr-type]
         (check-funapp1 t argtys expected))
 
       ;ordinary Function, multiple cases
-      (extract-fn-type fexpr-type)
-      (let [fin (extract-fn-type fexpr-type)
-            ftypes (:types fin)
+      (FnIntersection? fexpr-type)
+      (let [ftypes (:types fexpr-type)
             success-ret-type (some #(check-funapp1 % arg-ret-types expected :check? false)
                                    (filter (fn [{:keys [dom rest] :as f}]
                                              {:pre [(Function? f)]}
@@ -6452,21 +6363,20 @@
         (if success-ret-type
           success-ret-type
           (throw (Exception. (error-msg "funapp: Arguments did not match function: "
-                                        (unparse-type fin)
+                                        (unparse-type fexpr-type)
                                         (mapv unparse-type arg-types))))))
 
       ;ordinary polymorphic function without dotted rest
       (and (Poly? fexpr-type)
            (let [body (Poly-body* (repeatedly (:nbound fexpr-type) gensym) fexpr-type)]
-             (when-let [fin (extract-fn-type body)]
-               (every? (complement :drest) (:types fin)))))
+             (and (FnIntersection? body)
+                  (every? (complement :drest) (:types body)))))
       (let [fs-names (repeatedly (:nbound fexpr-type) gensym)
             _ (assert (every? symbol? fs-names))
             body (Poly-body* fs-names fexpr-type)
             bbnds (Poly-bbnds* fs-names fexpr-type)
-            fin (extract-fn-type body)
-            _ (assert (FnIntersection? fin))
-            ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types fin)]
+            _ (assert (FnIntersection? body))
+            ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
                          (prn "infer poly fn" (unparse-type ftype) (map unparse-type arg-types)
                               (count dom) (count arg-types))
@@ -6481,8 +6391,7 @@
                                                    (throw e))
                                                  (catch Exception e
                                                    (pst e 40)))]
-                           (do (prn "subst:" substitution (unparse-type ftype)
-                                    (unparse-type (subst-all substitution ftype)))
+                           (do (prn "subst:" substitution)
                              (check-funapp1 (subst-all substitution ftype)
                                             (map ret arg-types) expected :check? false))
                            (if (or drest kws)
@@ -6498,19 +6407,19 @@
                                         " Requires more type annotations.")))))
 
       :else ;; any kind of dotted polymorphic function without mandatory keyword args
-      (if-let [[fin fixed-vars fixed-bnds dotted-var dotted-bnd]
+      (if-let [[pbody fixed-vars fixed-bnds dotted-var dotted-bnd]
                (and (PolyDots? fexpr-type)
                     (let [vars (vec (repeatedly (:nbound fexpr-type) gensym))
                           bbnds (PolyDots-bbnds* vars fexpr-type)
                           [fixed-bnds dotted-bnd] [(butlast bbnds) (last bbnds)]
                           [fixed-vars dotted-var] [(butlast vars) (last vars)]
                           pbody (PolyDots-body* vars fexpr-type)]
-                      (when-let [fin (extract-fn-type pbody)]
-                        (and (seq (:types fin))
-                             (not (some :kws (:types fin)))
-                             [fin fixed-vars fixed-bnds dotted-var dotted-bnd]))))]
+                      (and (FnIntersection? pbody)
+                           (seq (:types pbody))
+                           (not (some :kws (:types pbody)))
+                           [pbody fixed-vars fixed-bnds dotted-var dotted-bnd])))]
         (let [inferred-rng (some identity
-                                 (for [{:keys [dom rest drest rng] :as ftype} (:types fin)
+                                 (for [{:keys [dom rest drest rng] :as ftype} (:types pbody)
                                        ;only try inference if argument types match
                                        :when (cond
                                                rest (<= (count dom) (count arg-types))
@@ -6841,9 +6750,9 @@
 ;manual instantiation
 (defmethod invoke-special #'inst-poly
   [{[pexpr targs-exprs] :args :as expr} & [expected]]
-  (let [ptype (-> (check pexpr) expr-type ret-t -resolve)
+  (let [ptype (-> (check pexpr) expr-type ret-t)
         _ (assert ((some-fn Poly? PolyDots?) ptype))
-        targs (mapv parse-type (:val targs-exprs))]
+        targs (doall (map parse-type (:val targs-exprs)))]
     (assoc expr
            expr-type (ret (manual-inst ptype targs)))))
 
@@ -7080,9 +6989,8 @@
 ;nth
 (defmethod static-method-special 'clojure.lang.RT/nth
   [{:keys [args] :as expr} & [expected]]
-  (prn "static nth")
   (let [_ (assert (<= 2 (count args) 3))
-        [te ne de :as cargs] (mapv check args)
+        [te ne de :as cargs] (doall (map check args))
         types (let [ts (-resolve (ret-t (expr-type te)))]
                 (if (Union? ts)
                   (:types ts)
@@ -7400,30 +7308,16 @@
                 (<= nreq (count dom))))
             (:types fin))))
 
-(declare check-fn check-fn-method1)
-
-(defn synthesise-fn-expr [{:keys [methods variadic-method] :as fexpr}]
-  {:post [(-> % expr-type TCResult?)]}
-  (assoc fexpr
-         expr-type (ret
-                     (In (RClass-of AFunction)
-                         (apply make-FnIntersection
-                                (mapv (fn [{:keys [required-params rest-param] :as method}]
-                                        (check-fn-method1 method (make-Function (repeat (count required-params) -any)
-                                                                                -any (when rest-param -any))))
-                                      (concat methods (when variadic-method
-                                                        [variadic-method])))))
-                     (-FS -top -bot)
-                     -empty)))
+(declare check-fn)
 
 (defmethod check :fn-expr
   [{:keys [env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (assert (:line env))
   (binding [*current-env* env]
-    (if expected 
-      (check-fn expr expected)
-      (synthesise-fn-expr expr))))
+    (check-fn expr (or expected
+                       (ret (make-FnIntersection
+                              (make-Function [] -any -any)))))))
 
 (declare check-anon-fn-method abstract-filter abo abstract-object)
 
@@ -7637,70 +7531,54 @@
                          {:actual-frees orig-names})
     body))
 
-(declare check-fn-method check-fn-method1 extract-fn-type)
-
-;; expected type must be be a FnIntersection or an Intersection containing
-;; a FnIntersection
-;; returns nil if not found
-(defn extract-fn-type [rt]
-  {:pre [(Type? rt)]}
-  (cond 
-    (FnIntersection? rt) rt
-    (Intersection? rt) (let [_ (assert (empty? (filter (some-fn Poly? PolyDots? Union?) (:types rt)))
-                                       (error-msg "Found possibly illegal types in function type"
-                                                  (unparse-type rt)))
-                             [fin & fins] (filter FnIntersection? (:types rt))
-                             _ (assert (empty? fins) (error-msg "Type can only contain one function type"
-                                                                (unparse-type rt)))]
-                         fin)))
+(declare check-fn-method check-fn-method1)
 
 (defn check-fn 
   "Check a fn to be under expected and annotate the inferred type"
   [{:keys [methods variadic-method] :as fexpr} expected]
   {:pre [(TCResult? expected)]}
   (let [; unwrap polymorphic expected types
-        rt (-resolve (ret-t expected))
-        [pbody orig-names inst-frees bnds poly?] (unwrap-poly rt)
-        fin (extract-fn-type pbody)
+        [fin orig-names inst-frees bnds poly?] (unwrap-poly (-resolve (ret-t expected))) ;is one resolve enough? probably not..
         ;ensure a function type
         _ (assert (FnIntersection? fin)
                   (str (when *current-env*
                          (str (:line *current-env*) ": "))
-                       (unparse-type rt) " is not a function type"))
+                       (unparse-type fin) " is not a function type"))
         ;collect all inferred Functions
-        ; Throw them away for now, probably isn't a good idea to synthesise a new FnIntersection
-        _ (with-locals (when-let [name (:name fexpr)] ;self calls
-                         (assert expected "Recursive methods require full annotation")
-                         {name (ret-t expected)})
-            ;scope type variables from polymorphic type in body
-            (with-free-mappings (case poly?
-                                  :Poly (zipmap orig-names inst-frees)
-                                  :PolyDots (zipmap (next orig-names) (next inst-frees))
-                                  nil)
-              (with-dotted-mappings (case poly?
-                                      :PolyDots {(last orig-names) (last inst-frees)}
-                                      nil)
-                (apply make-FnIntersection
-                       (doall
-                         (mapcat (fn [method]
-                                   (check-fn-method method fin))
-                                 (concat methods (when variadic-method
-                                                   [variadic-method]))))))))
+        inferred-fni (with-locals (when-let [name (:name fexpr)] ;self calls
+                                    (assert expected "Recursive methods require full annotation")
+                                    {name (ret-t expected)})
+                       ;scope type variables from polymorphic type in body
+                       (with-free-mappings (case poly?
+                                             :Poly (zipmap orig-names inst-frees)
+                                             :PolyDots (zipmap (next orig-names) (next inst-frees))
+                                             nil)
+                         (with-dotted-mappings (case poly?
+                                                 :PolyDots {(last orig-names) (last inst-frees)}
+                                                 nil)
+                           (apply make-FnIntersection
+                                  (mapcat (fn [method]
+                                            (check-fn-method method fin))
+                                          (concat methods (when variadic-method
+                                                            [variadic-method])))))))
         ;rewrap in Poly or PolyDots if needed
-        res-ty (rewrap-poly (In (RClass-of AFunction) fin) orig-names inst-frees bnds poly?)
-        _ (subtype res-ty (ret-t expected))]
+        pfni (rewrap-poly inferred-fni orig-names inst-frees bnds poly?)]
     (assoc fexpr
-           expr-type (ret res-ty (-FS -top -bot) -empty))))
+           expr-type (ret pfni (-FS -top -bot) -empty))))
 
 (defn check-fn-method [{:keys [required-params rest-param] :as method} fin]
   {:pre [(FnIntersection? fin)]
    :post [(seq %)
           (every? Function? %)]}
-  (let [mfns (relevant-Fns required-params rest-param fin)
-        _ (assert (seq mfns) "No matching type for method")]
-    (doall
-      (for [f mfns]
-        (check-fn-method1 method f)))))
+  (let [mfns (relevant-Fns required-params rest-param fin)]
+    (cond
+      ;If no matching cases, assign parameters to Any
+      (empty? mfns) [(check-fn-method1 method (make-Function (repeat (count required-params) -any)
+                                                             -any (when rest-param
+                                                                    -any) nil))]
+      :else (doall
+              (for [f mfns]
+                (check-fn-method1 method f))))))
 
 (defmacro with-recur-target [tgt & body]
   `(binding [*recur-target* ~tgt]
