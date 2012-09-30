@@ -1,6 +1,6 @@
 (ns typed.test.rbt
   (:require [typed.core :refer [ann inst cf fn> pfn> def-alias declare-names
-                                tc-pr-env tc-pr-filters]]
+                                tc-pr-env tc-pr-filters check-ns]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]]))
 
@@ -145,7 +145,7 @@
     :l (get 'tmap)))
 )
 
-; restore-right (BLack (e,l,r)) >=> dict
+; restore-right (Black (e,l,r)) >=> dict
 ; where (1) Black(e,l,r) is ordered,
 ; (2) Black (e,l,r) hash black height n,
 ; (3) color invariant may be violated at the root of r:
@@ -162,7 +162,7 @@
            (= :Red (-> tmap :left :tree))
            (= :Red (-> tmap :right :tree))
            (= :Red (-> tmap :right :left :tree))))
-    (let [_ (tc-pr-env "down first then")
+    (let [;_ (tc-pr-env "down first then")
           {lt :left rt :right e :entry} tmap
           ;re-color
           res {:tree :Red
@@ -171,15 +171,14 @@
                             :tree :Black)
                :right (assoc rt
                              :tree :Black)}]
-      (tc-pr-env "restore-right: output first branch (res)")
+      ;(tc-pr-env "restore-right: output first branch (res)")
       res)
 
-    (and (do (tc-pr-env "SECOND CASE")
-           true)
-         (= :Black (-> tmap :tree))
-         (= :Red (-> tmap :left :tree))
-         (= :Red (-> tmap :right :tree))
-         (= :Red (-> tmap :right :left :tree)))
+    (tc-pr-filters "TEST2"
+       (and (= :Black (-> tmap :tree))
+            (= :Red (-> tmap :left :tree))
+            (= :Red (-> tmap :right :tree))
+            (= :Red (-> tmap :right :left :tree))))
     (let [{lt :left rt :right e :entry} tmap
           ;re-color
           res {:tree :Red
@@ -191,9 +190,10 @@
       (tc-pr-env "restore-right: output second branch (res)")
       res)
 
-    (and (= :Black (-> tmap :tree))
-         (= :Red (-> tmap :right :tree))
-         (= :Red (-> tmap :right :left :tree)))
+    (tc-pr-filters "TEST3"
+      (and (= :Black (-> tmap :tree))
+           (= :Red (-> tmap :right :tree))
+           (= :Red (-> tmap :right :left :tree))))
     (let [{e :entry
            l :left
            {re :entry

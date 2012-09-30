@@ -306,9 +306,14 @@
 
 (declare-type Union)
 
-(declare HeterogeneousMap?)
+(declare ->HeterogeneousMap HeterogeneousMap? Bottom)
 
 (def empty-union (->Union #{}))
+
+(defn -hmap [types]
+  (if (some #(= (Bottom) %) (concat (keys types) (vals types)))
+    (Bottom)
+    (->HeterogeneousMap types)))
 
 #_(defn simplify-HMap-Un [hmaps]
   {:pre [(every? HeterogeneousMap? hmaps)]
@@ -318,7 +323,7 @@
         ;union the vals of maps with exactly the same keys
         flat (set
                (for [ms mss]
-                 (->HeterogeneousMap
+                 (-hmap
                    (apply merge-with Un
                           (map :types ms)))))]
     (if (= 1 (count flat))
@@ -330,7 +335,6 @@
     (cond
       (empty? types) empty-union
       (= 1 (count types)) (first types)
-;      (every? HeterogeneousMap? types) (simplify-HMap-Un types)
       :else (->Union (set (apply concat
                                  (for [t (set types)]
                                    (if (Union? t)
@@ -361,21 +365,6 @@
 
 (declare In HeterogeneousMap? ->HeterogeneousMap overlap)
 
-(defn simplify-HMap-In [hmaps]
-  {:pre [(every? HeterogeneousMap? hmaps)]
-   :post [(Type? %)]}
-  (let [mss (vals
-              (group-by #(-> % :types keys set) (set hmaps)))
-        ;intersect the vals of maps with exactly the same keys
-        flat (set
-               (for [ms mss]
-                 (->HeterogeneousMap
-                   (apply merge-with In
-                          (map :types ms)))))]
-    (if (= 1 (count flat))
-      (first flat)
-      (->Intersection flat))))
-
 (defn In [& types]
   {:pre [(every? Type? types)]
    :post [(Type? %)]}
@@ -404,7 +393,6 @@
                                   (for [[t1 t2] (comb/combinations flat 2)]
                                     (In t1 t2)))))
 
-      (every? HeterogeneousMap? ts) (simplify-HMap-In ts)
       (ts -any) (apply In (disj ts -any))
       :else (->Intersection ts))))
 
@@ -753,7 +741,7 @@
                                (-> optional keys set))))
   (apply Un
          (for [ss (map #(into {} %) (comb/subsets optional))]
-           (->HeterogeneousMap (merge mandatory ss)))))
+           (-hmap (merge mandatory ss)))))
 
 (declare-type HeterogeneousMap)
 
@@ -1430,19 +1418,56 @@
 
 (declare atomic-filter?)
 
+;remove opposites in and filter
+(defn remove-opposite [and-f atom-f]
+  {:pre [(Filter? and-f)
+         (Filter? atom-f)]
+   :post [(Filter? %)]}
+  (if (AndFilter? and-f)
+    (apply -and (remove #(opposite? % atom-f) (:fs and-f)))
+    and-f))
+
 (defn -or [& args]
-           ; flatten internal OrFilters
-  (let [fs (-> (apply concat
-                      (for [a (set args)]
-                        (if (OrFilter? a)
-                          (:fs a)
-                          [a])))
-             set (disj -bot))]
+  (loop [new-props (set args)
+         atoms #{}
+         last-props #{} ;stop iteration when (= (set/union new-props atoms) last-props)
+         ]
+    (assert ((set-c? atomic-filter?) atoms))
+    (assert (every? (set-c? Filter?) [new-props last-props]))
     (cond
-      (empty? fs) -bot
-      (fs -top) -top
-      (= 1 (count fs)) (first fs)
-      :else (->OrFilter fs))))
+      ;reached fixed point
+      (= (set/union new-props atoms) last-props)
+      (case (count last-props)
+        0 -bot
+        1 (first last-props)
+        (->OrFilter last-props))
+
+      :else
+      (let [;flatten OrFilters
+            original-props (set/union new-props atoms)
+            original-atoms atoms
+            fs (-> (apply concat
+                          (for [a (set/union new-props atoms)]
+                            (if (OrFilter? a)
+                              (:fs a)
+                              [a])))
+                 set (disj -bot))
+            {:keys [atoms] old-props :props} (group-by #(cond
+                                                          ((some-fn TypeFilter? NotTypeFilter?) %) :atoms
+                                                          :else :props)
+                                                       fs)
+            ;simplify AndFilters by removing atomic props directly inside the AndFilter
+            ;if they are opposite of any atomic props we already have
+            next-props (doall
+                         (for [p old-props]
+                           (reduce (fn [p a] (remove-opposite p a))
+                                   p atoms)))
+            {:keys [atoms] new-props :props} (group-by #(cond
+                                                          ((some-fn TypeFilter? NotTypeFilter?) %) :atoms
+                                                          :else :props)
+                                                       (set/union (set next-props) (set atoms)))]
+        (assert (<= (count original-atoms) (count atoms)))
+        (recur (set new-props) (set atoms) (set original-props))))))
 
 ;(defn -or [& args]
 ;  {:pre [(every? Filter? args)]
@@ -1724,6 +1749,8 @@
 (defrecord KeyPE [val]
   "A key in a hash-map"
   [((some-fn keyword?) val)])
+
+(def -kpe ->KeyPE)
 
 (declare-path-elem FirstPE)
 (declare-path-elem NextPE)
@@ -5211,8 +5238,7 @@
   [s t]
   (if (Top? t)
     *sub-current-seen*
-    (do (prn (class s) (class t))
-      (type-error s t))))
+    (type-error s t)))
 
 (defmacro sub [s t]
   `(subtype (parse-type '~s)
@@ -5875,9 +5901,9 @@
 
 (defmethod constant-type IPersistentMap
   [cmap]
-  (->HeterogeneousMap (into {} (map #(vector (constant-type (first %))
-                                             (constant-type (second %)))
-                                    cmap))))
+  (-hmap (into {} (map #(vector (constant-type (first %))
+                                (constant-type (second %)))
+                       cmap))))
 
 (defn check-value
   [{:keys [val] :as expr} & [expected]]
@@ -5916,7 +5942,7 @@
   [{:keys [keyvals] :as expr} & [expected]]
   (let [expected (when expected 
                    (ret-t expected))
-        actual (->HeterogeneousMap (apply hash-map (map (comp ret-t expr-type) (mapv check keyvals))))
+        actual (-hmap (apply hash-map (map (comp ret-t expr-type) (mapv check keyvals))))
         _ (assert (or (not expected) (subtype? actual expected)) (type-error actual expected))]
     (assoc expr
            expr-type (ret actual))))
@@ -6390,7 +6416,7 @@
                                                  (catch IllegalArgumentException e
                                                    (throw e))
                                                  (catch Exception e
-                                                   (pst e 40)))]
+                                                   #_(pst e 40)))]
                            (do (prn "subst:" substitution)
                              (check-funapp1 (subst-all substitution ftype)
                                             (map ret arg-types) expected :check? false))
@@ -6632,7 +6658,7 @@
         res (reduce (fn [t [kt vt]]
                       {:pre [(HeterogeneousMap? t)]}
                       (assoc-in [:types kt] vt))
-                    (->HeterogeneousMap {}) (.types ^HeterogeneousSeq targett))]
+                    (-hmap {}) (.types ^HeterogeneousSeq targett))]
     (assoc expr
            expr-type (ret res))))
 
@@ -6827,11 +6853,9 @@
                 (check frm (ret uty))))
         ;rewrap poly
         checked-type (rewrap-poly (ret-t (expr-type cty)) orig-names inst-frees bnds poly?)
-        _ (assert (subtype? checked-type parsed-ty)
-                  (type-error checked-type parsed-ty))
+        _ (subtype checked-type parsed-ty)
         _ (when expected
-            (assert (subtype? checked-type (ret-t expected))
-                    (type-error checked-type (ret-t expected))))]
+            (subtype checked-type (ret-t expected)))]
     (assoc expr
            expr-type (ret parsed-ty))))
 
@@ -6923,7 +6947,7 @@
     (cond
       (every? Value? (keys (apply hash-map (mapv (comp ret-t expr-type) cargs))))
       (assoc expr
-             expr-type (ret (->HeterogeneousMap
+             expr-type (ret (-hmap
                               (apply hash-map (mapv (comp ret-t expr-type) cargs)))))
       :else ::not-special)))
 
@@ -6938,7 +6962,7 @@
            (every? Value? (keys (apply hash-map (concat (map expr-type (butlast cargs))
                                                         (mapcat vector (:types (expr-type (last cargs)))))))))
       (assoc expr
-             expr-type (ret (->HeterogeneousMap
+             expr-type (ret (-hmap
                               (apply hash-map (concat (map expr-type (butlast cargs))
                                                       (mapcat vector (:types (expr-type (last cargs)))))))))
       :else ::not-special)))
@@ -7069,7 +7093,7 @@
         targetun (-> target check expr-type ret-t)
         targett (-resolve targetun)
         hmaps (cond
-                (and (Value? targett) (nil? (.val targett))) #{(->HeterogeneousMap {})}
+                (and (Value? targett) (nil? (.val targett))) #{(-hmap {})}
                 ((some-fn HeterogeneousVector? HeterogeneousMap?) targett) #{targett}
                 (subtype? targett (RClass-of IPersistentMap [-any -any])) #{targett}
                 (subtype? targett (RClass-of IPersistentVector [-any])) #{targett}
@@ -7140,7 +7164,7 @@
                       "Need vector of length 2 to conj to map")
             _ (assert (every? Value? (:types arg1))
                       "Vector must be of Values for now")
-            res (->HeterogeneousMap
+            res (-hmap
                   (assoc (:types m)
                          (-> arg1 :types first)
                          (-> arg1 :types second)))]
@@ -8151,11 +8175,6 @@
                     :else old))]
     (if (subtype? old initial) old initial)))
 
-(defn -hmap-or-bot [types]
-  (if (some #(= (Bottom) %) (concat (keys types) (vals types)))
-    (Bottom)
-    (->HeterogeneousMap types)))
-
 ; This is where filters are applied to existing types to generate more specific ones
 (defn update [t lo]
   (let [t (-resolve t)]
@@ -8168,7 +8187,7 @@
                                         fpth (->Value fpth-kw)
                                         type-at-pth (get (:types t) fpth)]
                                     (if type-at-pth 
-                                      (-hmap-or-bot (assoc (:types t) fpth (update type-at-pth (-filter type id rstpth))))
+                                      (-hmap (assoc (:types t) fpth (update type-at-pth (-filter type id rstpth))))
                                       (Bottom)))
 
       (and (NotTypeFilter? lo)
@@ -8178,7 +8197,7 @@
                                         fpth (->Value fpth-kw)
                                         type-at-pth (get (:types t) fpth)]
                                     (if type-at-pth 
-                                      (-hmap-or-bot (assoc (:types t) fpth (update type-at-pth (-not-filter type id rstpth))))
+                                      (-hmap (assoc (:types t) fpth (update type-at-pth (-not-filter type id rstpth))))
                                       (Bottom)))
 
       (and (TypeFilter? lo)
@@ -8214,15 +8233,14 @@
 ; ie. a map of symbols to types
 (defn update-composite [bnd-env f]
   {:pre [(Filter? f)]}
-  ;(prn "update-composite")
+  (prn "update-composite" bnd-env f)
   (cond
-    (AndFilter? f) (apply merge-with In
-                     (for [fl (:fs f)]
-                       (update-composite bnd-env fl)))
-    (OrFilter? f) (apply merge-with Un
-                    (for [fl (:fs f)]
-                      (update-composite bnd-env fl)))
-
+;    (and (AndFilter? f) 
+;         (every? atomic-filter? (.fs f)))
+;    (reduce (fn [env a] (update-composite env a))
+;            bnd-env (.fs f))
+;    (and (OrFilter? f) 
+;         (every? atomic-filter? (.fs f)))
     (BotFilter? f)
     (zipmap (:keys bnd-env) (Un))
 

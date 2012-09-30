@@ -44,10 +44,10 @@
 
 (deftest parse-type-fn-test
   (is (= (parse-type '[nil * -> nil])
-         (Fn-Intersection (make-Function () -nil -nil))))
+         (make-FnIntersection (make-Function () -nil -nil))))
   (is (= (parse-type '(All [x ...] [nil ... x -> nil]))
          (PolyDots* '(x) [no-bounds]
-                    (Fn-Intersection (make-Function () -nil nil (->DottedPretype -nil 'x)))))))
+                    (make-FnIntersection (make-Function () -nil nil (->DottedPretype -nil 'x)))))))
 
 (deftest poly-constructor-test
   (is (= (Poly-body*
@@ -73,7 +73,7 @@
                       (add-scopes 4 (Un)))
                     no-bounds-scoped]
                    (add-scopes 4
-                               (Fn-Intersection
+                               (make-FnIntersection
                                  (make-Function [(->B 3)] (->B 1)
                                                 nil nil))))))))
 (defmacro sub? [s t]
@@ -189,7 +189,7 @@
            (typed.core/fn> [[a :- (clojure.lang.Seqable Number)] 
                             [b :- Number]] 
                            1))
-         (Fn-Intersection
+         (make-FnIntersection
            (make-Function
              [(RClass-of Seqable [(RClass-of Number nil)]) (RClass-of Number nil)] 
              (-val 1)
@@ -205,7 +205,7 @@
          (let [x (make-F 'x)]
            (Poly* [(:name x)]
                   [no-bounds]
-                  (Fn-Intersection
+                  (make-FnIntersection
                     (make-Function
                       [(RClass-of Seqable [x]) (RClass-of Number)] 
                       (-val 1)
@@ -228,8 +228,8 @@
   (is (= (ety 
            (typed.core/fn> [[a :- (HMap {:a Number})]]
                            (get a :a)))
-         (Fn-Intersection
-           (make-Function [(->HeterogeneousMap {(-val :a) (RClass-of Number)})]
+         (make-FnIntersection
+           (make-Function [(-hmap {(-val :a) (RClass-of Number)})]
                           (RClass-of Number)
                           nil nil
                           :filter (-FS -top -bot)
@@ -245,14 +245,16 @@
 
 (deftest empty-fn-test
   (is (= (tc-t (fn []))
-         (ret (In (->Function [] (make-Result -nil
+         (ret (make-FnIntersection
+                (->Function [] (make-Result -nil
                                               (-FS -bot -top)
                                               (->EmptyObject))
                               nil nil nil))
               (-FS -top -bot)
               (->EmptyObject))))
   (is (= (tc-t (fn [] 1))
-         (ret (In (->Function [] (make-Result (->Value 1)
+         (ret (make-FnIntersection
+                (->Function [] (make-Result (->Value 1)
                                               (-FS -top -bot)
                                               (->EmptyObject))
                               nil nil nil))
@@ -263,7 +265,8 @@
 
 (deftest path-test
   (is (= (tc-t (fn [a] (let [a 1] a)))
-         (ret (In (->Function [-any]
+         (ret (make-FnIntersection
+                (->Function [-any]
                               (make-Result (-val 1)
                                            (-FS -top -top)
                                            -empty)
@@ -291,9 +294,10 @@
            (typed.core/fn> [[a :- (U (HMap {:op (Value :if)})
                                      (HMap {:op (Value :var)}))]] 
                            (:op a)))
-         (ret (In (->Function
-                    [(Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
-                         (->HeterogeneousMap {(->Value :op) (->Value :var)}))]
+         (ret (make-FnIntersection
+                (->Function
+                    [(Un (-hmap {(->Value :op) (->Value :if)})
+                         (-hmap {(->Value :op) (->Value :var)}))]
                     (let [t (Un (->Value :if) (->Value :var))
                           i 0
                           p [(->KeyPE :op)]]
@@ -311,10 +315,11 @@
                                      (HMap {:op (Value :var)}))]] 
                            (when (= (:op a) :if) 
                              a)))
-         (ret (In (->Function
-                    [(Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
-                         (->HeterogeneousMap {(->Value :op) (->Value :var)}))]
-                    (make-Result (Un -nil (->HeterogeneousMap {(->Value :op) (->Value :if)}))
+         (ret (make-FnIntersection
+                (->Function
+                    [(Un (-hmap {(->Value :op) (->Value :if)})
+                         (-hmap {(->Value :op) (->Value :var)}))]
+                    (make-Result (Un -nil (-hmap {(->Value :op) (->Value :if)}))
                                  (-FS (-and (-filter (->Value :if) 0 [(->KeyPE :op)])
                                             (-not-filter (Un -false -nil) 0))
                                            ; what are these filters doing here?
@@ -341,7 +346,8 @@
 
 (deftest tc-var-test
   (is (= (tc-t seq?)
-         (ret (In (->Function [-any]
+         (ret (make-FnIntersection
+                (->Function [-any]
                               (make-Result (RClass-of 'boolean) 
                                            (-FS (-filter (RClass-of ISeq [-any]) 0)
                                                 (-not-filter (RClass-of ISeq [-any]) 0))
@@ -363,9 +369,9 @@
   (is (= (tc-t '(1 2))
          (ret (->HeterogeneousList [(->Value 1) (->Value 2)]) -true-filter -empty)))
   (is (= (tc-t {:a 1})
-         (ret (->HeterogeneousMap {(->Value :a) (->Value 1)}) -true-filter -empty)))
+         (ret (-hmap {(->Value :a) (->Value 1)}) -true-filter -empty)))
   (is (= (tc-t {})
-         (ret (->HeterogeneousMap {}) -true-filter -empty)))
+         (ret (-hmap {}) -true-filter -empty)))
   (is (= (tc-t [])
          (ret (->HeterogeneousVector []) -true-filter -empty)))
   (is (= (tc-t '())
@@ -396,20 +402,20 @@
   ;update a from (U (HMap {:op :if}) (HMap {:op :var})) => (HMap {:op :if})
   (is (let [props [(-filter (->Value :if) 'a [(->KeyPE :op)])]
             flag (atom true)]
-        (and (= (let [env {'a (Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
-                                  (->HeterogeneousMap {(->Value :op) (->Value :var)}))}
+        (and (= (let [env {'a (Un (-hmap {(->Value :op) (->Value :if)})
+                                  (-hmap {(->Value :op) (->Value :var)}))}
                       lenv (->PropEnv env props)]
                   (env+ lenv [] flag))
-                (->PropEnv {'a (->HeterogeneousMap {(->Value :op) (->Value :if)})} props))
+                (->PropEnv {'a (-hmap {(->Value :op) (->Value :if)})} props))
              @flag)))
   ;test negative KeyPE
   (is (let [props [(-not-filter (->Value :if) 'a [(->KeyPE :op)])]
             flag (atom true)]
-        (and (= (let [env {'a (Un (->HeterogeneousMap {(->Value :op) (->Value :if)})
-                                  (->HeterogeneousMap {(->Value :op) (->Value :var)}))}
+        (and (= (let [env {'a (Un (-hmap {(->Value :op) (->Value :if)})
+                                  (-hmap {(->Value :op) (->Value :var)}))}
                       lenv (->PropEnv env props)]
                   (env+ lenv [] flag))
-                (->PropEnv {'a (->HeterogeneousMap {(->Value :op) (->Value :var)})} props))
+                (->PropEnv {'a (-hmap {(->Value :op) (->Value :var)})} props))
              @flag)))
   ;test impfilter
   (is (let [{:keys [l props]}
@@ -455,12 +461,13 @@
                  (if (seq? a)
                    (apply hash-map a)
                    a)))
-         (ret (->HeterogeneousMap {(->Value :a) (->Value 1)})
+         (ret (-hmap {(->Value :a) (->Value 1)})
               ;FIXME should true-filter ?
               (-FS -top -top) -empty)))
   (is (= (tc-t (typed.core/fn> [[{a :a} :- (HMap {:a (Value 1)})]]
                                a))
-         (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
+         (ret (make-FnIntersection 
+                (->Function [(-hmap {(->Value :a) (->Value 1)})]
                               (make-Result (->Value 1) 
                                            (-FS -top -top)  ; have to throw out filters whos id's go out of scope
                                            ;(->Path [(->KeyPE :a)] 0) ; TR not TC supports this inference. The destructuring
@@ -473,7 +480,8 @@
   (is (= (-> (tc-t (typed.core/fn> [[a :- typed.test.core/UnionName]]
                                    (seq? a)))
            ret-t)
-         (In (->Function [(->Name 'typed.test.core/UnionName)]
+         (make-FnIntersection
+           (->Function [(->Name 'typed.test.core/UnionName)]
                          (make-Result -false 
                                       ;FIXME why isn't this (-FS -bot (-not-filter (RClass-of ISeq [-any]) 0)) ?
                                       (-FS -bot -top)
@@ -486,7 +494,8 @@
               -empty)))
   (is (= (tc-t (typed.core/fn> [[a :- (HMap {:a (Value 1)})]]
                                (seq? a)))
-         (ret (In (->Function [(->HeterogeneousMap {(->Value :a) (->Value 1)})]
+         (ret (make-FnIntersection
+                (->Function [(-hmap {(->Value :a) (->Value 1)})]
                               (make-Result -false -false-filter -empty)
                               nil nil nil))
               (-FS -top -bot)
@@ -521,8 +530,8 @@
 ;  (is (= (tc-t (typed.core/fn> [[{a :a} :- (U (HMap {:a (Value 1)})
 ;                                              (HMap {:b (Value 2)}))]]
 ;                               a))
-;         (ret (In (->Function [(Un (->HeterogeneousMap {(->Value :a) (->Value 1)})
-;                                   (->HeterogeneousMap {(->Value :b) (->Value 2)}))]
+;         (ret (make-FnIntersection (->Function [(Un (-hmap {(->Value :a) (->Value 1)})
+;                                   (-hmap {(->Value :b) (->Value 2)}))]
 ;                              (make-Result (Un (->Value 1) -nil) (-FS -top -top) -empty)
 ;                              nil nil nil))
 ;              (-FS -top -bot)
@@ -543,15 +552,16 @@
                                ;call to (apply hash-map tmap) should be eliminated
                                (let [{e :a} tmap]
                                  e)))
-         (ret (In (->Function [(->Name 'typed.test.core/MyName)]
+         (ret (make-FnIntersection 
+                (->Function [(->Name 'typed.test.core/MyName)]
                               (make-Result (->Value 1) (-FS -top -top) -empty)
                               nil nil nil))
               (-FS -top -bot) -empty)))
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/MapName]]
                                (let [{e :a} tmap]
                                  (assoc e :c :b))))
-         (ret (In (->Function [(->Name 'typed.test.core/MapName)]
-                              (make-Result (->HeterogeneousMap {(->Value :a) (->Value 1)
+         (ret (make-FnIntersection (->Function [(->Name 'typed.test.core/MapName)]
+                              (make-Result (-hmap {(->Value :a) (->Value 1)
                                                                 (->Value :c) (->Value :b)})
                                            (-FS -top -bot) -empty)
                               nil nil nil))
@@ -559,7 +569,8 @@
   ; Name representing union of two maps, both with :type key
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
                                (:type tmap)))
-         (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
+         (ret (make-FnIntersection
+                (->Function [(->Name 'typed.test.core/UnionName)]
                               (make-Result (Un (->Value :MapStruct2)
                                                (->Value :MapStruct1))
                                            (-FS -top -bot) 
@@ -569,7 +580,7 @@
   ; using = to derive paths
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
                                (= :MapStruct1 (:type tmap))))
-         (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
+         (ret (make-FnIntersection (->Function [(->Name 'typed.test.core/UnionName)]
                               (let [t (->Value :MapStruct1)
                                     path [(->KeyPE :type)]]
                                 (make-Result (Un -false -true)
@@ -586,7 +597,7 @@
                                    (:a tmap))
                                  (do (typed.core/tc-pr-env "follow else")
                                    (:b tmap)))))
-         (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
+         (ret (make-FnIntersection (->Function [(->Name 'typed.test.core/UnionName)]
                               (let [t (->Name 'typed.test.core/MyName)
                                     path [(->KeyPE :a)]]
                                 ;object is empty because then and else branches objects differ
@@ -613,9 +624,9 @@
                                  (do (typed.core/tc-pr-env "follow then")
                                    (assoc tmap :c :d))
                                  1)))
-         (ret (In (->Function [(->Name 'typed.test.core/UnionName)]
+         (ret (make-FnIntersection (->Function [(->Name 'typed.test.core/UnionName)]
                               (let [t (Un (-val 1)
-                                          (->HeterogeneousMap {(-val :type) (-val :MapStruct1)
+                                          (-hmap {(-val :type) (-val :MapStruct1)
                                                                (-val :c) (-val :d)
                                                                (-val :a) (->Name 'typed.test.core/MyName)}))]
                                 (make-Result t (-FS -top -bot) -empty))
@@ -662,10 +673,10 @@
 ;  :t :types first :rng :fl unparse-filter-set pprint)
 
 (deftest update-test
-  (is (= (update (Un (->HeterogeneousMap {(-val :type) (-val :Map1)})
-                     (->HeterogeneousMap {(-val :type) (-val :Map2)}))
+  (is (= (update (Un (-hmap {(-val :type) (-val :Map1)})
+                     (-hmap {(-val :type) (-val :Map2)}))
                  (-filter (->Value :Map1) 'tmap [(->KeyPE :type)]))
-         (->HeterogeneousMap {(-val :type) (-val :Map1)})))
+         (-hmap {(-val :type) (-val :Map1)})))
   ;test that update resolves Names properly
   (is (= (update (->Name 'typed.test.core/MapStruct2)
                  (-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
@@ -675,11 +686,11 @@
   ; with test (= :MapStruct1 (:type tmap))
   (is (= (update (->Name 'typed.test.core/UnionName)
                  (-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
-         (->HeterogeneousMap {(-val :type) (-val :MapStruct1) 
+         (-hmap {(-val :type) (-val :MapStruct1) 
                               (-val :a) (->Name 'typed.test.core/MyName)})))
   (is (= (update (->Name 'typed.test.core/UnionName)
                  (-not-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
-         (->HeterogeneousMap {(-val :type) (-val :MapStruct2) 
+         (-hmap {(-val :type) (-val :MapStruct2) 
                               (-val :b) (->Name 'typed.test.core/MyName)})))
   (is (= (update (Un -true -false) (-filter (Un -false -nil) 'a nil)) 
          -false)))
@@ -693,16 +704,18 @@
 
 (deftest assoc-test
   (is (= (tc-t (assoc {} :a :b))
-         (ret (->HeterogeneousMap {(->Value :a) (->Value :b)})
+         (ret (-hmap {(->Value :a) (->Value :b)})
               (-FS -top -bot)
               -empty)))
-  (is (= (-> (tc-t (typed.core/fn> [[m :- typed.test.core/SomeMap]]
-                                   (assoc m :c 1)))
+  (is (= (-> (tc-t (-> (fn [m]
+                         (assoc m :c 1))
+                     (ann-form [typed.test.core/SomeMap -> (U '{:a ':b :c '1}
+                                                              '{:b ':c :c '1})])))
            ret-t :types first :rng)
-         (make-Result (Un (->HeterogeneousMap {(-val :a) (-val :b)
-                                               (-val :c) (-val 1)})
-                          (->HeterogeneousMap {(-val :b) (-val :c)
-                                               (-val :c) (-val 1)}))
+         (make-Result (Un (-hmap {(-val :a) (-val :b)
+                                  (-val :c) (-val 1)})
+                          (-hmap {(-val :b) (-val :c)
+                                  (-val :c) (-val 1)}))
                       (-FS -top -bot)
                       -empty))))
          
@@ -723,14 +736,28 @@
   ret-t :types first :rng :fl :else unparse-filter pprint)
 )
 
-;(deftest filter-simplification
-;  (is (= (read-string "#typed.core.OrFilter{:fs #{#typed.core.NotTypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id 0} #typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id 0} #typed.core.OrFilter{:fs #{#typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id 0} #typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id 0} #typed.core.OrFilter{:fs #{#typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :tree}), :id 0} #typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id 0}}} #typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :tree}), :id 0}}}}}}}}}}}"
+(deftest filter-simplification
+  (is (= (read-string "#typed.core.OrFilter{:fs #{#typed.core.NotTypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id 0} #typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Black}, :path (#typed.core.KeyPE{:val :tree}), :id 0} #typed.core.OrFilter{:fs #{#typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id 0} #typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id 0} #typed.core.OrFilter{:fs #{#typed.core.AndFilter{:fs #{#typed.core.TypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :tree}), :id 0} #typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :left} #typed.core.KeyPE{:val :tree}), :id 0}}} #typed.core.NotTypeFilter{:type #typed.core.Value{:val :Red}, :path (#typed.core.KeyPE{:val :right} #typed.core.KeyPE{:val :tree}), :id 0}}}}}}}}}}}")
+         (-or 
+          (-not-filter (-val :Black) 0 [(-kpe :tree)]) 
+           (-and 
+             (-filter (-val :Black) 0 [(-kpe :tree)]) 
+             (-or 
+               (-and (-filter (-val :Red) 0 (map -kpe [:left :tree]))
+                     (-or (-not-filter (-val  :Red) 0 (map -kpe [:right :tree]))
+                          (-and (-not-filter (-val :Red) 0 (map -kpe [:right :left :tree]))
+                                (-filter (-val :Red) 0 (map -kpe [:right :tree]))))) 
+               (-not-filter (-val :Red) 0 (:left :tree)))))
+         (-or (-not-filter (-val :Black) 0 [(->KeyPE :tree)])
+              (-not-filter (-val :Red) 0 [(->KeyPE :right) (->KeyPE :tree)])
+              (-not-filter (-val :Red) 0 (map ->KeyPE [:right :left :tree]))
+              (-not-filter (-val :Red) 0 (map ->KeyPE [:left :tree]))))))
 
 (deftest update-nested-hmap-test
-  (is (= (update (->HeterogeneousMap {(-val :left) (->Name 'typed.test.rbt/rbt)})
+  (is (= (update (-hmap {(-val :left) (->Name 'typed.test.rbt/rbt)})
                  (-filter (-val :Red) 'id [(->KeyPE :left) (->KeyPE :tree)]))
-         (->HeterogeneousMap {(-val :left) 
-                              (->HeterogeneousMap {(-val :tree) (-val :Red) 
+         (-hmap {(-val :left) 
+                              (-hmap {(-val :tree) (-val :Red) 
                                                    (-val :entry) (->Name 'typed.test.rbt/EntryT) 
                                                    (-val :left) (->Name 'typed.test.rbt/bt) 
                                                    (-val :right) (->Name 'typed.test.rbt/bt)})}))))
