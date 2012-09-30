@@ -1,6 +1,14 @@
 (ns typed.test.protocol-monads
   (:refer-clojure :exclude [do seq map])
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [typed.core :as t]))
+
+(t/ann-pprotocol Monad [m]
+                 :methods
+                 {bind (All [a b]
+                         [(m a) [a -> (m b)] -> (m b)])
+                  do-result (All [a]
+                              [(m a) a -> (m a)])})
 
 (defprotocol Monad
   (do-result [_ v])

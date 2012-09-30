@@ -1,7 +1,7 @@
 (ns typed.test.conduit
   (:import (clojure.lang Seqable IMeta IPersistentMap LazySeq ISeq))
   (:require [typed.core :refer [check-ns ann fn> def-alias tc-ignore ann-form declare-names inst
-                                tc-pr-env inst-ctor]]
+                                tc-pr-env inst-ctor cf]]
             [clojure.repl :refer [pst]]
             [arrows.core :refer [defarrow]]))
 
@@ -52,8 +52,7 @@
   (fn curr-fn [_]
     (let [new-f (conduit-seq-fn (rest l))]
       (if (empty? l)
-        [nil (-> abort-c 
-               (inst x))]
+        [nil (inst abort-c x)]
         [new-f
          (-> 
            (fn [c]
@@ -68,7 +67,7 @@
   "create a stream processor that emits the contents of a list
   regardless of what is fed to it"
   [l]
-  ((inst conduit-seq-fn x) l))
+  (conduit-seq-fn l))
 
 (ann a-run
      (All [x]
@@ -170,13 +169,12 @@
        [(IPersistentMap x (U nil (==> y z))) -> (==> '[x y] z)]))
 (defn select-fn [selection-map]
   (fn curr-fn [[v x]]
-    (if-let [f (ann-form (or ((inst get (U nil (==> y z))) selection-map v)
-                             ((inst get (U nil (==> y z))) selection-map '_))
+    (if-let [f (ann-form (or (get selection-map v)
+                             (get selection-map '_))
                          (U nil (==> y z)))]
       (let [[new-f c] (f x)]
         [((inst select-fn x y z)
-           ((inst assoc x (U nil (==> y z)) Any) 
-              selection-map v new-f)) c])
+           (assoc selection-map v new-f)) c])
       [curr-fn abort-c])))
 
 (tc-ignore
@@ -247,8 +245,7 @@
                            (ann-form (Cont y)))]
                    [a-arr c]))
                (ann-form (==> x y))
-               ((inst with-meta (==> x y) '{:created-by ':a-arr
-                                            :args [x -> y]})
+               (with-meta
                  {:created-by :a-arr
                   :args f})))
            (ann-form AArrCtor))

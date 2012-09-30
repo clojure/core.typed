@@ -4758,14 +4758,38 @@
     (Poly? ptype)
     (let [_ (assert (= (:nbound ptype) (count argtys)) "Wrong number of arguments to instantiate polymorphic type")
           names (repeatedly (:nbound ptype) gensym)
-          body (Poly-body* names ptype)]
+          body (Poly-body* names ptype)
+          bbnds (Poly-bbnds* names ptype)]
+      (doseq [[nme ty bnds] (map vector names argtys bbnds)]
+        (let [lower-bound (substitute-many (:lower-bound bnds) argtys names)
+              upper-bound (substitute-many (:upper-bound bnds) argtys names)]
+          (assert (subtype? lower-bound upper-bound)
+                  (error-msg "Lower-bound " (unparse-type lower-bound)
+                             " is not below upper-bound " (unparse-type upper-bound)))
+          (assert (and (subtype? ty upper-bound)
+                       (subtype? lower-bound ty))
+                  (error-msg "Manually instantiated type " (unparse-type ty)
+                             " is not between bounds " (unparse-type lower-bound)
+                             " and " (unparse-type upper-bound)))))
       (substitute-many body argtys names))
 
     (PolyDots? ptype)
     (let [nrequired-types (dec (:nbound ptype))
           _ (assert (<= nrequired-types (count argtys)) "Insufficient arguments to instantiate dotted polymorphic type")
           names (repeatedly (:nbound ptype) gensym)
-          body (PolyDots-body* names ptype)]
+          body (PolyDots-body* names ptype)
+          bbnds (PolyDots-bbnds* names ptype)]
+      (doseq [[nme ty bnds] (map vector names argtys bbnds)]
+        (let [lower-bound (substitute-many (:lower-bound bnds) argtys names)
+              upper-bound (substitute-many (:upper-bound bnds) argtys names)]
+          (assert (subtype? lower-bound upper-bound)
+                  (error-msg "Lower-bound " (unparse-type lower-bound)
+                             " is not below upper-bound " (unparse-type upper-bound)))
+          (assert (and (subtype? ty upper-bound)
+                       (subtype? lower-bound ty))
+                  (error-msg "Manually instantiated type " (unparse-type ty)
+                             " is not between bounds " (unparse-type lower-bound)
+                             " and " (unparse-type upper-bound)))))
       (-> body
         ; expand dotted pre-types in body
         (trans-dots (last names) ;the bound
@@ -5771,7 +5795,7 @@
      (All [x]
        [x (U nil (Seqable x)) -> (ASeq x)]))
 
-(override-method clojure.lang.RT/get (All [y] (Fn [Any (IPersistentMap Any y) -> (U nil y)])))
+(override-method clojure.lang.RT/get (All [y] (Fn [(IPersistentMap Any y) Any -> (U nil y)])))
 
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
                                               [Number Number -> Number]))
@@ -6638,7 +6662,7 @@
   (let [[target kw default] args
         kwr (expr-type (check kw))]
     (cond
-      (Value? (ret-t kwr))
+      ((every-pred Value? (comp keyword? :val)) (ret-t kwr))
       (assoc expr
              expr-type (invoke-keyword kwr 
                                        (expr-type (check target)) 
@@ -6668,7 +6692,7 @@
   (let [[target kw default] args
         kwr (expr-type (check kw))]
     (cond
-      (Value? (ret-t kwr))
+      ((every-pred Value? (comp keyword? :val)) (ret-t kwr))
       (assoc expr
              expr-type (invoke-keyword kwr 
                                        (expr-type (check target)) 
@@ -6741,7 +6765,8 @@
                  o))
           (throw (Exception. "Keyword lookup gave bottom type"))))
 
-      :else (throw (Exception. "keyword-invoke only supports keyword lookup, no default")))))
+      :else (throw (Exception. (error-msg "keyword-invoke only supports keyword lookup, no default. Found " 
+                                          (unparse-type kwt)))))))
 
 ;=
 (defmethod invoke-special #'clojure.core/= 
@@ -8233,7 +8258,7 @@
 ; ie. a map of symbols to types
 (defn update-composite [bnd-env f]
   {:pre [(Filter? f)]}
-  (prn "update-composite" bnd-env f)
+  ;(prn "update-composite" bnd-env f)
   (cond
 ;    (and (AndFilter? f) 
 ;         (every? atomic-filter? (.fs f)))
