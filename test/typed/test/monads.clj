@@ -364,7 +364,9 @@
      '{:m-bind (All [x y]
                  [x [x -> y] -> y])
        :m-result (All [x]
-                   [x -> x])})
+                   [x -> x])
+       :m-zero '::undefined
+       :m-plus '::undefined})
 (defmonad identity-m
    "Monad describing plain computations. This monad does in fact nothing
     at all. It is useful for testing, for combination with monad
@@ -382,7 +384,10 @@
     '{:m-bind (All [x y]
                 [(U nil x) [x -> (U nil y)] -> (U nil y)])
       :m-result (All [x]
-                     [x -> (U nil x)])})
+                     [x -> (U nil x)])
+      :m-zero nil
+      :m-plus (All [x]
+                [(U nil x) * -> (U nil x)])})
 (defmonad maybe-m
   "Monad describing computations with possible failures. Failure is
   represented by nil, any other value is considered valid. As soon as
@@ -398,10 +403,10 @@
                           [(U nil x) [x -> x] -> (U nil x)])))
    m-plus   (-> 
               (fn m-plus-maybe [& mvs]
-                (first ((inst filter (U x nil) x) 
-                          (ann-form #(not (nil? %))
-                                    [(U x nil) -> Any]) 
-                          mvs)))
+                (first ((inst filter (U x nil) x)
+                              (fn> [[a :- (U x nil)]]
+                                 (not (nil? a)))
+                               mvs)))
               (ann-form (All [x]
                              [(U nil x) * -> (U nil x)])))
    ])

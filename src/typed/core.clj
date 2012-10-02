@@ -209,6 +209,19 @@
      (declare ~sym)
      [sym# (unparse-type ty#)])))
 
+(defn into-array>* [javat cljt coll]
+  (into-array (resolve javat) coll))
+
+(defmacro into-array> 
+  "Make a Java array with Java class javat and Typed Clojure type
+  cljt. Resulting array will be of type javat, but elements of coll must be under
+  cljt. cljt should be a subtype of javat (the same or more specific)."
+  [javat cljt coll]
+  `(into-array>* '~javat '~cljt ~coll))
+
+(defn ann-form* [form ty]
+  form)
+
 (defn ann-form* [form ty]
   form)
 
@@ -849,8 +862,8 @@
   and EmptyObject"
   ([dom rng] (make-Function dom rng nil nil))
   ([dom rng rest] (make-Function dom rng rest nil))
-  ([dom rng rest drest & {:keys [filter object kws] :or {filter (-FS -top -top), object (->EmptyObject)}}]
-   (->Function dom (->Result rng filter object) rest drest kws)))
+  ([dom rng rest drest & {:keys [filter object kws]}]
+   (->Function dom (->Result rng (or filter (-FS -top -top)) (or object (->EmptyObject))) rest drest kws)))
 
 (defn make-FnIntersection [& fns]
   {:pre [(every? Function? fns)]}
@@ -1613,27 +1626,29 @@
 (defn unparse-filter [f]
   (unparse-filter* f))
 
-(defmethod unparse-filter* TopFilter [f] ['top-filter])
-(defmethod unparse-filter* BotFilter [f] ['bot-filter])
+(defmethod unparse-filter* TopFilter [f] 'tt)
+(defmethod unparse-filter* BotFilter [f] 'ff)
 
 (declare unparse-type)
 
 (defmethod unparse-filter* TypeFilter
   [{:keys [type path id]}]
-  ['-filter (unparse-type type) (map unparse-path-elem path)
-   id])
+  (concat (list 'is (unparse-type type) id)
+          (when path
+            [(map unparse-path-elem path)])))
 
 (defmethod unparse-filter* NotTypeFilter
   [{:keys [type path id]}]
-  ['-not-filter (unparse-type type) (map unparse-path-elem path)
-   id])
+  (concat (list '! (unparse-type type) id)
+          (when path
+            [(map unparse-path-elem path)])))
 
-(defmethod unparse-filter* AndFilter [{:keys [fs]}] (apply vector '-and-filter (map unparse-filter fs)))
-(defmethod unparse-filter* OrFilter [{:keys [fs]}] (apply vector '-or-filter (map unparse-filter fs)))
+(defmethod unparse-filter* AndFilter [{:keys [fs]}] (apply list '& (map unparse-filter fs)))
+(defmethod unparse-filter* OrFilter [{:keys [fs]}] (apply list '| (map unparse-filter fs)))
 
 (defmethod unparse-filter* ImpFilter
   [{:keys [a c]}]
-  ['-imp-filter (unparse-filter a) '-> (unparse-filter c)])
+  (list 'when (unparse-filter a) (unparse-filter c)))
 
 (add-default-fold-case ImpFilter
                        (fn [ty _]
@@ -1759,8 +1774,9 @@
 (declare-path-elem KeyPE)
 
 (defmulti unparse-path-elem class)
-(defmethod unparse-path-elem KeyPE [t] (:val t))
-(defmethod unparse-path-elem CountPE [t] 'CountPE)
+(defmethod unparse-path-elem KeyPE [t] (list 'Key (:val t)))
+(defmethod unparse-path-elem CountPE [t] 'Count)
+(defmethod unparse-path-elem ClassPE [t] 'Class)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Objects
@@ -1781,7 +1797,7 @@
 
 (defrecord Path [path id]
   "A path to a variable. Paths grow to the right, with leftmost
-  pathelem being applied first."
+  pathelem being applied first (think of -> threading operator)."
   [(or (and (seq path)
             (sequential? path))
        (nil? path))
@@ -1800,7 +1816,7 @@
 (defmulti unparse-object class)
 (defmethod unparse-object EmptyObject [_] 'empty-object)
 (defmethod unparse-object NoObject [_] 'no-object)
-(defmethod unparse-object Path [{:keys [path id]}] [(mapv unparse-path-elem path) id])
+(defmethod unparse-object Path [{:keys [path id]}] (conj {:id id} (when (seq path) [:path (mapv unparse-path-elem path)])))
 
 (add-default-fold-case EmptyObject ret-first)
 (add-default-fold-case Path
@@ -2120,8 +2136,11 @@
 
 (defn nonnilable-return? [sym arity]
   (let [as (@METHOD-RETURN-NONNILABLE-ENV sym)]
-    (boolean (when as
-               (as arity)))))
+    (prn "nonnilable-return?" sym arity)
+    (prn "as" as)
+    (boolean (or (= :all as)
+                 (when as
+                   (as arity))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Param nilables
@@ -2394,12 +2413,12 @@
   [[_ syn & none]]
   (assert (empty? none) "Expected 1 argument to Array")
   (let [t (parse-type syn)]
-    (->PrimitiveArray (Un) t t)))
+    (->PrimitiveArray Object t t)))
 
 (defmethod parse-type-list 'Array3
   [[_ jsyn isyn osyn & none]]
   (assert (empty? none) "Expected 3 arguments to Array3")
-  (->PrimitiveArray (parse-type jsyn) (parse-type isyn) (parse-type osyn)))
+  (->PrimitiveArray (resolve jsyn) (parse-type isyn) (parse-type osyn)))
 
 (declare parse-function)
 
@@ -2534,10 +2553,68 @@
 (defmethod parse-type Boolean [v] (if v -true -false)) 
 (defmethod parse-type nil [_] -nil)
 
+(declare parse-path parse-path-elem parse-filter)
+
+(defn parse-object [{:keys [id path]}]
+  (->Path (when path (mapv parse-path-elem path)) id))
+
+(defn parse-filter-set [{:keys [then else] :as fsyn}]
+  (-FS (if then
+         (parse-filter then)
+         -top)
+       (if else
+         (parse-filter else)
+         -top)))
+
+(declare parse-path)
+
+(defmulti parse-filter first)
+
+(defmethod parse-filter 'is
+  [[_ & [tsyn nme psyn :as all]]]
+  (assert ((some-fn #(= 2 %) #(= 3 %)) (count all)))
+  (let [t (parse-type tsyn)
+        p (when (= 3 (count all))
+            (parse-path psyn))]
+    (-filter t nme p)))
+
+(defmethod parse-filter '!
+  [[_ & [tsyn nme psyn :as all]]]
+  (assert ((some-fn #(= 2 %) #(= 3 %)) (count all)))
+  (let [t (parse-type tsyn)
+        p (when (= 3 (count all))
+            (parse-path psyn))]
+    (-not-filter t nme p)))
+
+(defmethod parse-filter '|
+  [[_ & fsyns]]
+  (apply -or (mapv parse-filter fsyns)))
+
+(defmethod parse-filter '&
+  [[_ & fsyns]]
+  (apply -and (mapv parse-filter fsyns)))
+
+(defmulti parse-path-elem #(cond
+                             (symbol? %) %
+                             :else (first %)))
+
+(defmethod parse-path-elem 'Class [_] (->ClassPE))
+
+(defmethod parse-path-elem 'Key
+  [[_ & [ksyn :as all]]]
+  (assert (= 1 (count all)))
+  (->KeyPE ksyn))
+
+(defn parse-path [[psyn id :as all]]
+  (assert (= 2 (count all)))
+  (->Path (parse-path-elem psyn) id))
+
 (defn parse-function [f]
   (let [all-dom (take-while #(not= '-> %) f)
-        [_ rng & opts :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
-        _ (assert (<= (count chk) 2) (str "Missing range in " f))
+        [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
+        _ (assert (<= 2 (count chk)) (str "Missing range in " f))
+
+        opts (apply hash-map opts-flat)
 
         {ellipsis-pos '...
          asterix-pos '*}
@@ -2545,6 +2622,12 @@
 
         _ (assert (not (and asterix-pos ellipsis-pos))
                   "Cannot provide both rest type and dotted rest type")
+
+        filters (when-let [[_ fsyn] (find opts :filters)]
+                  (parse-filter-set fsyn))
+
+        object (when-let [[_ obj] (find opts :object)]
+                 (parse-object obj))
 
         fixed-dom (cond 
                     asterix-pos (take (dec asterix-pos) all-dom)
@@ -2555,7 +2638,7 @@
                     (nth all-dom (dec asterix-pos)))
         [drest-type _ drest-bnd] (when ellipsis-pos
                                    (drop (dec ellipsis-pos) all-dom))]
-    (make-Function (doall (map parse-type fixed-dom))
+    (make-Function (doall (mapv parse-type fixed-dom))
                    (parse-type rng)
                    (when asterix-pos
                      (parse-type rest-type))
@@ -2563,7 +2646,9 @@
                      (->DottedPretype
                        (with-frees [(*dotted-scope* drest-bnd)] ;with dotted bound in scope as free
                          (parse-type drest-type))
-                       (:name (*dotted-scope* drest-bnd)))))))
+                       (:name (*dotted-scope* drest-bnd))))
+                   :filter filters
+                   :object object)))
 
 (defmethod parse-type IPersistentVector
   [f]
@@ -5447,37 +5532,30 @@
 
 (def-alias AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte))
 (def-alias Atom1 (All [x] (Atom x x)))
-(def-alias Maybe (All [x] (U nil x)))
+(def-alias Option (All [x] (U nil x)))
 
 (ann clojure.core/*ns* Namespace)
-(ann clojure.core/namespace [(U Symbol String Keyword) -> (U nil String)])
+(ann clojure.core/namespace [(U Symbol String Keyword) -> (Option String)])
 (ann clojure.core/ns-name [Namespace -> Symbol])
 (ann clojure.core/name [(U String Named) -> String])
 (ann clojure.core/in-ns [Symbol -> nil])
 (ann clojure.core/import [Any * -> nil])
-(ann clojure.core/identity (All [x] [x -> x]))
+(ann clojure.core/identity (All [x] [x -> x
+                                     :filters {:then (! (U nil false) 0)
+                                               :else (is (U nil false) 0)}
+                                     :object {:id 0}]))
 (ann clojure.core/gensym (Fn [-> Symbol]
                              [String -> Symbol]))
 
 (ann clojure.core/complement [Any -> boolean])
 
-(add-var-type 'clojure.core/filter 
-              (let [x (make-F 'x)
-                    y (make-F 'y)]
-                (with-meta
-                  (Poly* '[x y] [no-bounds no-bounds]
-                         (make-FnIntersection
-                           (make-Function
-                             [(make-FnIntersection
-                                (make-Function [x] -any nil nil 
-                                               :filter (-FS (-filter y 0) -top)))
-                              (Un -nil (RClass-of Seqable [x]))]
-                             (RClass-of Seqable [y]))))
-                  {:actual-frees '[x y]})))
+(ann clojure.core/filter (All [x y]
+                           [[x -> Any :filters {:then (is y 0)}] (Seqable x) -> (Seqable y)]))
 
-(ann clojure.core/some (All [x] [[Any -> x] (U nil (Seqable x)) -> (U x nil)]))
 
-(ann clojure.core/set (All [x] [(U nil (Seqable x)) -> (PersistentHashSet x)]))
+(ann clojure.core/some (All [x] [[Any -> x] (Option (Seqable x)) -> (Option x)]))
+
+(ann clojure.core/set (All [x] [(Option (Seqable x)) -> (PersistentHashSet x)]))
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
 (ann clojure.core/vector (All [x] [x * -> (IPersistentVector x)]))
 
@@ -5486,11 +5564,11 @@
 
 (ann clojure.core/take-while 
      (All [x] 
-          [[x -> Any] (U nil (Seqable x)) -> (Seqable x)]))
+          [[x -> Any] (Option (Seqable x)) -> (Seqable x)]))
 
 (ann clojure.core/drop-while
      (All [x] 
-          [[x -> Any] (U nil (Seqable x)) -> (Seqable x)]))
+          [[x -> Any] (Option (Seqable x)) -> (Seqable x)]))
 
 (ann clojure.core/disj
      (All [x]
@@ -5641,49 +5719,32 @@
 
 (ann clojure.core/string? (predicate String))
 
-(add-var-type 'clojure.core/class
-              (make-FnIntersection
-                (make-Function [-any]
-                               (Un (RClass-of (Class->symbol Class) nil) -nil)
-                               nil nil
-                               :object (->Path [(->ClassPE)] 0))))
+(ann clojure.core/class [Any -> (Option Class) :object {:id 0 :path [Class]}])
 
-(add-var-type 'clojure.core/seq
-              (let [x (make-F 'x)]
-                (with-meta (Poly* [(:name x)]
-                                  [no-bounds]
-                                  (make-FnIntersection (make-Function [(Un (RClass-of (Class->symbol Seqable) [x])
-                                                                       -nil)]
-                                                                  (Un -nil (RClass-of (Class->symbol ASeq) [x]))
-                                                                  nil nil
-                                                                  :filter (-FS (-filter (make-CountRange 1) 0)
-                                                                               (-or (-filter -nil 0)
-                                                                                    (-filter (make-ExactCountRange 0) 0)))
-                                                                  :object -empty))) 
-                           {:actual-frees '[x]})))
+(ann clojure.core/seq (All [x]
+                        [(Option (Seqable x)) -> (Option (Seqable x))
+                         :filters {:then (is (CountRange 1) 0)
+                                   :else (| (is nil 0)
+                                            (is (ExactCount 0) 0))}]))
 
-(add-var-type 'clojure.core/empty?
-              (make-FnIntersection (make-Function [(Un (RClass-of (Class->symbol Seqable) [-any]) -nil)]
-                                              (Un -true -false)
-                                              nil nil
-                                              :filter (-FS (-or (-filter (make-ExactCountRange 0) 0)
-                                                                (-filter -nil 0))
-                                                           (-filter (make-CountRange 1) 0))
-                                              :object -empty)))
+(ann clojure.core/empty? [(Option (Seqable Any)) -> boolean
+                          :filter {:then (| (is (ExactCount 0) 0)
+                                            (is nil 0))
+                                   :else (is (CountRange 1) 0)}])
 
 (ann clojure.core/map
      (All [c a b ...]
-          [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (LazySeq c)]))
+          [[a b ... b -> c] (Option (Seqable a)) (Option (Seqable b)) ... b -> (LazySeq c)]))
 
 (ann clojure.core/mapcat
      (All [c b ...]
-          [[b ... b -> (U nil (Seqable c))] (U nil (Seqable b)) ... b -> (LazySeq c)]))
+          [[b ... b -> (Option (Seqable c))] (Option (Seqable b)) ... b -> (LazySeq c)]))
 
 (ann clojure.core/merge-with
      (All [k v]
           (Fn [[v v -> v] nil * -> nil]
               [[v v -> v] (IPersistentMap k v) * -> (IPersistentMap k v)]
-              [[v v -> v] (U nil (IPersistentMap k v)) * -> (U nil (IPersistentMap k v))])))
+              [[v v -> v] (Option (IPersistentMap k v)) * -> (Option (IPersistentMap k v))])))
 
 (ann clojure.core/reduce
      (All [a c]
@@ -5691,10 +5752,10 @@
             ;Without accumulator
             ; default
             ; (reduce + my-coll)
-            [(Fn [c c -> c] [-> c]) (U nil (Seqable c)) -> c]
+            [(Fn [c c -> c] [-> c]) (Option (Seqable c)) -> c]
             ; default
             ; (reduce + 3 my-coll)
-            [[a c -> a] a (U nil (Seqable c)) -> a])))
+            [[a c -> a] a (Option (Seqable c)) -> a])))
 
 (comment
 (ann clojure.core/reduce
@@ -5724,18 +5785,18 @@
 
 (ann clojure.core/first
      (All [x]
-          (Fn [(U (I (Seqable x) (ExactCount 0)) nil) -> nil]
+          (Fn [(Option (I (Seqable x) (ExactCount 0))) -> nil]
               [(I (Seqable x) (CountRange 1)) -> x]
-              [(U (Seqable x) nil) -> (U nil x)])))
+              [(Option (Seqable x)) -> (Option x)])))
 (ann clojure.core/second
      (All [x]
-          (Fn [(U (I (Seqable x) (CountRange 0 1)) nil) -> nil]
+          (Fn [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
               [(I (Seqable x) (CountRange 2)) -> x]
-              [(U (Seqable x) nil) -> (U nil x)])))
+              [(Option (Seqable x)) -> (Option x)])))
 
 (ann clojure.core/rest
      (All [x]
-          [(U (Seqable x) nil) -> (ISeq x)]))
+          [(Option (Seqable x)) -> (ISeq x)]))
 
 (ann clojure.core/conj
      (All [x y]
@@ -5749,21 +5810,21 @@
 
 (ann clojure.core/find
      (All [x y]
-          [(IPersistentMap x y) Any -> (U (Vector* x y) nil)]))
+          [(IPersistentMap x y) Any -> (Option (Vector* x y))]))
 
 (ann clojure.core/get
      (All [x]
-          (Fn [(IPersistentSet x) Any -> (U nil x)]
-              [java.util.Map Any -> (U nil Any)]
-              [String Any -> (U nil Character)]
+          (Fn [(IPersistentSet x) Any -> (Option x)]
+              [java.util.Map Any -> (Option Any)]
+              [String Any -> (Option Character)]
               [nil Any -> nil]
-              [(U nil (ILookup Any x)) Any -> (U nil x)])))
+              [(Option (ILookup Any x)) Any -> (Option x)])))
 
 (ann clojure.core/merge 
      (All [k v]
           (Fn [nil * -> nil]
               [(IPersistentMap k v) * -> (IPersistentMap k v)]
-              [(U nil (IPersistentMap k v)) * -> (U nil (IPersistentMap k v))])))
+              [(Option (IPersistentMap k v)) * -> (Option (IPersistentMap k v))])))
 
 (ann clojure.core/= [Any Any * -> (U true false)])
 
@@ -5793,9 +5854,9 @@
 
 (ann clojure.core/cons
      (All [x]
-       [x (U nil (Seqable x)) -> (ASeq x)]))
+       [x (Option (Seqable x)) -> (ASeq x)]))
 
-(override-method clojure.lang.RT/get (All [y] (Fn [(IPersistentMap Any y) Any -> (U nil y)])))
+(override-method clojure.lang.RT/get (All [y] (Fn [(IPersistentMap Any y) Any -> (Option y)])))
 
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
                                               [Number Number -> Number]))
@@ -5816,7 +5877,7 @@
 
 (override-constructor clojure.lang.LazySeq 
                       (All [x]
-                        [[-> (U nil (Seqable x))] -> (LazySeq x)]))
+                        [[-> (Option (Seqable x))] -> (LazySeq x)]))
 
 (let [t (make-FnIntersection
           (make-Function 
@@ -6619,27 +6680,18 @@
     (assoc expr
            expr-type (ret -nil))))
 
-;into-array
-(defmethod invoke-special #'clojure.core/into-array
+;into-array>
+(defmethod invoke-special #'typed.core/into-array>*
   [{:keys [args] :as expr} & [expected]]
-  {:post [(-> % expr-type TCResult?)]}
-  (assert (= 2 (count args))
-          "Only 2 arg arity supported for into-array")
-  (let [ccls-expr (check (first args))
-        array-cls-type (-> ccls-expr expr-type ret-t)
-        _ (assert (and (Value? array-cls-type)
-                       (class? (:val array-cls-type)))
-                  "Must provide literal Class as first argument to into-array")
-        array-cls (:val array-cls-type)
-        ccoll-expr (check (second args)
-                          (ret (RClass-of (Class->symbol Seqable) [(Un -nil (RClass-of (Class->symbol array-cls) nil))])))
-        coll-type (-> ccoll-expr expr-type ret-t)
-        _ (assert (subtype? coll-type (RClass-of (Class->symbol Seqable) [(Un -nil (RClass-of (Class->symbol array-cls) nil))]))
-                  (str "Cannot populate " array-cls " array with " (unparse-type coll-type)))]
-    (assoc expr 
-           expr-type (ret (->PrimitiveArray array-cls
-                                            (Un -nil (RClass-of (Class->symbol array-cls) nil))
-                                            (Un -nil (RClass-of (Class->symbol array-cls) nil)))))))
+  (assert (= 3 (count args)) (error-msg "Wrong number of args to typed.core/into-array>*"))
+  (let [[javat-syn cljt-syn coll-expr] args
+        javat (let [c (resolve (:val javat-syn))]
+                (assert (class? c) (error-msg "First argument of into-array> must be a Java class, given " (:val javat-syn)))
+                c)
+        cljt (parse-type (:val javat-syn))
+        ccoll (check coll-expr (ret (Un -nil (RClass-of Seqable [cljt]))))]
+    (assoc expr
+           expr-type (ret (->PrimitiveArray javat cljt cljt)))))
 
 ;not
 (defmethod invoke-special #'clojure.core/not
@@ -7671,7 +7723,12 @@
               (update-in [:l] merge (into {} fixed-entry) (into {} rest-entry)))
         crng (with-lexical-env env
                (with-recur-target (->RecurTarget dom rest drest nil)
-                 (check body expected-rng)))]
+                 (check body expected-rng)))
+        ; Support subtractive information in propositions. To support (filter identity coll)
+        ; when coll is (All [x] (Seqable (U nil x))), and identity is (All [x] [(U nil x) -> (U nil x) : (! nil)])
+        ; Instead we want (All [x] [(U nil x) -> (U nil x) : (& x (! nil))])
+        
+        ]
     (FnResult->Function 
       (->FnResult fixed-entry nil 
                   (when (and rest rest-param)
@@ -7811,16 +7868,23 @@
   (symbol (name declaring-class) (name name-sym)))
 
 (defn symbol->PArray [sym nilable?]
+  {:pre [(symbol? sym)
+         (boolean? nilable?)]
+   :post [((some-fn nil? PrimitiveArray?) %)]}
   (let [s (str sym)]
     (when (.endsWith s "<>")
       (let [s-nosuffix (apply str (drop-last 2 s))]
         (assert (not (.contains s-nosuffix "<>")))
         ;Nullable elements
-        (let [t (Method-symbol->Type (symbol s-nosuffix) nilable?)]
-          (->PrimitiveArray t t))))))
+        (let [t (Method-symbol->Type (symbol s-nosuffix) nilable?)
+              c (let [c (resolve (symbol s-nosuffix))
+                      _ (assert (class? c))]
+                  c)]
+          (->PrimitiveArray c t t))))))
 
 (defn Method-symbol->Type [sym nilable?]
-  {:pre [(symbol? sym)]
+  {:pre [(symbol? sym)
+         (boolean? nilable?)]
    :post [(Type? %)]}
   (if-let [typ (or (primitives sym)
                    (symbol->PArray sym nilable?)
@@ -7834,10 +7898,10 @@
 (defn- instance-method->Function [{:keys [parameter-types declaring-class return-type] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(FnIntersection? %)]}
-  (assert (resolve declaring-class))
+  (assert (class? (resolve declaring-class)))
   (make-FnIntersection (make-Function (concat [(RClass-of declaring-class nil)]
-                                          (doall (map #(Method-symbol->Type % false) parameter-types)))
-                                  (Method-symbol->Type return-type true))))
+                                              (doall (map #(Method-symbol->Type % false) parameter-types)))
+                                      (Method-symbol->Type return-type true))))
 
 (defn- method->Function [{:keys [parameter-types return-type flags] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
@@ -7845,14 +7909,14 @@
   (let [msym (Method->symbol method)
         nparams (count parameter-types)]
     (make-FnIntersection (make-Function (doall (map (fn [[n tsym]] (Method-symbol->Type 
-                                                                 tsym (nilable-param? msym nparams n)))
-                                                (map-indexed vector
-                                                             (if (:varargs flags)
-                                                               (butlast parameter-types)
-                                                               parameter-types))))
-                                    (Method-symbol->Type return-type (not (nonnilable-return? msym nparams)))
-                                    (when (:varargs flags)
-                                      (Method-symbol->Type (last parameter-types) (nilable-param? msym nparams (dec nparams))))))))
+                                                                     tsym (nilable-param? msym nparams n)))
+                                                    (map-indexed vector
+                                                                 (if (:varargs flags)
+                                                                   (butlast parameter-types)
+                                                                   parameter-types))))
+                                        (Method-symbol->Type return-type (not (nonnilable-return? msym nparams)))
+                                        (when (:varargs flags)
+                                          (Method-symbol->Type (last parameter-types) (nilable-param? msym nparams (dec nparams))))))))
 
 (defn- Constructor->Function [{:keys [declaring-class parameter-types] :as ctor}]
   {:pre [(instance? clojure.reflect.Constructor ctor)]
@@ -7877,8 +7941,10 @@
               (let [ctarget (check (:target expr))]
                 (prn "check target" (unparse-type (ret-t (expr-type ctarget)))
                      (unparse-type (RClass-of (Class->symbol (resolve (:declaring-class method))) nil)))
-                (assert (subtype (ret-t (expr-type ctarget)) (RClass-of (Class->symbol (resolve (:declaring-class method)))
-                                                                        nil)))))
+                (when-not (subtype? (ret-t (expr-type ctarget)) (RClass-of (Class->symbol (resolve (:declaring-class method)))
+                                                                           nil))
+                  (throw (Exception. (error-msg "Cannot call instance method " (Method->symbol method)
+                                                " on type " (unparse-type (ret-t (expr-type ctarget)))))))))
           cargs (doall (map check args))
           result-type (check-funapp rfin-type (map expr-type cargs) expected)]
       (assoc expr

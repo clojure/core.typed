@@ -252,7 +252,7 @@
 
    a-comp (->
             (fn [p1 p2]
-              ((inst with-meta (==> x z) (ACompMeta x y z))
+              (with-meta
                 (-> ((inst comp-fn2 x y z) p1 p2)
                   (ann-form (==> x z)))
                 {:created-by :a-comp
