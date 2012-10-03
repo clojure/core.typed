@@ -19,14 +19,14 @@
            as macros for defining and using monads and useful monadic
            functions."}
   typed.test.monads
-  (:import (clojure.lang Seqable IPersistentSet IPersistentMap))
+  (:import (clojure.lang Seqable IPersistentSet IPersistentMap Symbol))
   (:require [clojure.set]
             [clojure.repl :refer [pst]]
             [clojure.tools.macro
              :refer (with-symbol-macros defsymbolmacro name-with-attributes)]
             [typed.core 
              :refer (tc-ignore check-ns ann def-alias unsafe-ann-form ann-form inst fn> pfn>
-                               AnyInteger tc-pr-env)]))
+                               AnyInteger tc-pr-env cf Option)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -138,7 +138,10 @@
       (identical? bform :else)
         (if-then-else-statement steps mexpr add-monad-step)
       :else
-        (list 'm-bind expr (list 'typed.core/fn> [[bform :- (-> bform meta :T)]] mexpr)))))
+        (list 'm-bind expr (list 'typed.core/fn> 
+                                 [[bform :- (do #_(assert (contains? :T (meta bform)))
+                                              (-> bform meta :T))]] 
+                                 mexpr)))))
 
 (defn- monad-expr
   "Transforms a monad comprehension, consisting of a list of steps
@@ -382,7 +385,7 @@
 ; Maybe monad
 (ann maybe-m
     '{:m-bind (All [x y]
-                [(U nil x) [x -> (U nil y)] -> (U nil y)])
+                [(Option x) [x -> (Option y)] -> (Option y)])
       :m-result (All [x]
                      [x -> (U nil x)])
       :m-zero nil
@@ -395,7 +398,7 @@
   [m-zero   nil
    m-result (->
               (fn m-result-maybe [v] v)
-              (ann-form (All [x] [x -> x])))
+              (ann-form (All [x] [x -> (U nil x)])))
    m-bind   (-> 
               (fn m-bind-maybe [mv f]
                 (if (nil? mv) nil (f mv)))
@@ -403,12 +406,12 @@
                           [(U nil x) [x -> x] -> (U nil x)])))
    m-plus   (-> 
               (fn m-plus-maybe [& mvs]
-                (first ((inst filter (U x nil) x)
-                              (fn> [[a :- (U x nil)]]
-                                 (not (nil? a)))
-                               mvs)))
+                ((inst first x)
+                  (unsafe-ann-form
+                    (filter #(not (nil? %)) mvs)
+                    (Seqable x))))
               (ann-form (All [x]
-                             [(U nil x) * -> (U nil x)])))
+                          [(U nil x) * -> (U nil x)])))
    ])
 
 (ann flatten* 
@@ -841,6 +844,14 @@
         (m-result (list x)) 
         m-zero))))
 
+(domonad maybe-m
+         [^{:T AnyInteger} a 5
+          :let [c 7]
+          :if (and (= a 5) (= c 7))
+          :then [^{:T AnyInteger} b 6]
+          :else [^{:T nil} b nil]]
+         [a b])
+
 (tc-ignore
 
 ;;; Examples
@@ -913,3 +924,36 @@
 (run-cont ((inst sqrt-as-str String) 2))
 (run-cont (sqrt-as-str -2))
 
+
+
+(cf (domonad maybe-m
+             [^{:T AnyInteger} a 5]
+             ; :let [c 7]]
+             [a]))
+
+(cf
+(let [{:keys [m-bind m-result]} maybe-m
+      f (typed.core/fn> [[a :- AnyInteger]] 
+                        (m-result [a]))
+      _ (tc-pr-env "end let")]
+  (m-bind 5 f))
+)
+
+(ann afun (All [x y] [(U x nil) [x -> (U nil y)] -> (U nil y)]))
+(ann bfun [Symbol -> (U nil Symbol)])
+(declare afun bfun)
+(cf (afun 'a bfun))
+
+;TODO these are test cases
+;
+;(infer {'x no-bounds 'y no-bounds} {} 
+;       [(make-FnIntersection (make-Function [(RClass-of Symbol)] (Un -nil (RClass-of Symbol))))]
+;       [(make-FnIntersection (make-Function [(make-F 'x)] (Un -nil (make-F 'y))))]
+;       (Un -nil (make-F 'y)))
+;
+;(infer {'x no-bounds 'y no-bounds} {} 
+;       [(parse-type ''5) 
+;        (parse-type '[(U Long java.math.BigInteger) -> (U nil (U Long java.math.BigInteger))])]
+;       [(Un -nil (make-F 'x))
+;        (make-FnIntersection (make-Function [(make-F 'x)] (Un -nil (make-F 'y))))]
+;       (Un -nil (make-F 'y)))

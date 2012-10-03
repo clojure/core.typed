@@ -659,9 +659,11 @@
   (into {} (for [[v t] (map vector vs ts)]
              [v (->t-subst t no-bounds)])))
 
+(declare error-msg)
+
 (defn instantiate-poly [t types]
   (cond
-    (Poly? t) (do (assert (= (:nbound t) (count types)) (str "Wrong number of arguments passed to polymorphic type: "
+    (Poly? t) (do (assert (= (:nbound t) (count types)) (error-msg "Wrong number of arguments passed to polymorphic type: "
                                                              (unparse-type t) (mapv unparse-type types)))
                 (let [nms (repeatedly (:nbound t) gensym)
                       body (Poly-body* nms t)]
@@ -679,7 +681,7 @@
   (let [rator (-resolve rator)]
     (cond
       (Poly? rator) (do (assert (= (count rands) (:nbound rator))
-                                (str "Wrong number of arguments provided to polymorphic type"
+                                (error-msg "Wrong number of arguments provided to polymorphic type"
                                      (unparse-type rator)))
                       (instantiate-poly rator rands))
       ;PolyDots NYI
@@ -3624,6 +3626,8 @@
 ;cs-gen calls cs-gen*, remembering the current subtype for recursive types
 ; Add methods to cs-gen*, but always call cs-gen
 
+(declare cs-gen-right-F cs-gen-left-F)
+
 (defn cs-gen [V X Y S T]
   {:pre [((set-c? symbol?) V)
          (every? (hash-c? symbol? Bounds?) [X Y])
@@ -3642,9 +3646,17 @@
 
         ;; constrain body to be below T, but don't mention the new vars
         (Poly? S)
-        (let [nms (repeatedly (:nbound S) gensym)
+        (let [nms (repeatedly (.nbound S) gensym)
               body (Poly-body* nms S)]
           (cs-gen (set/union (set nms) V) X Y body T))
+
+        (and (F? S)
+             (contains? X (.name S)))
+        (cs-gen-left-F V X Y S T)
+
+        (and (F? T)
+             (contains? X (.name T)))
+        (cs-gen-right-F V X Y S T)
 
         ;constrain *each* element of S to be below T, and then combine the constraints
         (Union? S)
@@ -3659,7 +3671,15 @@
                                                      (throw e))
                                                    (catch Exception e)) 
                                                 (:types T))))]
-          (cset-combine cs)
+          (do 
+            (prn "cs-gen Union on right")
+            (prn "S:" (unparse-type S))
+            (prn "T:" (unparse-type T))
+            (prn "cs:" cs)
+            (let [comb (cset-combine cs)]
+              (prn "comb" comb)
+              comb))
+
           (type-error S T))
 
         (and (Intersection? S)
@@ -3764,11 +3784,36 @@
 
 (defmethod cs-gen* :default
   [V X Y S T]
+  (prn "cs-gen* default" (class S) (class T))
   (when (some Result? [S T])
     (throw (IllegalArgumentException. (error-msg "Result on left or right "
                                                  (pr-str S) " " (pr-str T)))))
   (assert (subtype? S T) (type-error S T))
   (empty-cset X Y))
+
+(declare cs-gen-Function)
+
+(defmethod cs-gen* [FnIntersection FnIntersection] 
+  [V X Y S T] 
+  (cset-meet*
+    (doall
+      (for [t-arr (:types T)]
+        ;; for each t-arr, we need to get at least s-arr that works
+        (let [results (filter identity
+                              (doall
+                                (for [s-arr (:types S)]
+                                  (try
+                                    (cs-gen-Function V X Y s-arr t-arr)
+                                    (catch IllegalArgumentException e
+                                      (throw e))
+                                    (catch IllegalStateException e
+                                      (throw e))
+                                    (catch Exception e
+                                      #_(pst e))))))]
+          ;; ensure that something produces a constraint set
+          (when (empty? results) 
+            (type-error S T))
+          (cset-combine results))))))
 
 (defmethod cs-gen* [Result Result] 
   [V X Y S T] 
@@ -3847,8 +3892,6 @@
                                           (cs-gen V X Y ti si)))))))
       :else (type-error S T))))
 
-(prefer-method cs-gen* [F Type] [Type F])
-
 (defn demote-F [V X Y {:keys [name bnds] :as S} T]
   {:pre [(F? S)]}
   ;constrain T to be below S (but don't mention V)
@@ -3875,8 +3918,7 @@
     (-> (empty-cset X Y)
       (insert-constraint name ps -any (X name)))))
 
-(defmethod cs-gen* [F Type]
-  [V X Y S T]
+(defn cs-gen-left-F [V X Y S T]
   #_(prn "cs-gen* [F Type]" S T)
   (cond
     (contains? X (:name S))
@@ -3888,8 +3930,7 @@
 
     :else (type-error S T)))
 
-(defmethod cs-gen* [Type F]
-  [V X Y S T]
+(defn cs-gen-right-F [V X Y S T]
   ;(prn "cs-gen* [Type F]" S T X)
   (cond
     (contains? X (:name T))
@@ -4464,6 +4505,10 @@
          ((some-fn nil? AnyType?) expected)]
    :post [((some-fn nil? true? substitution-c?) %)]}
   (prn "infer" )
+  (prn "X:" X) 
+  (prn "Y:" Y) 
+  (prn "S:" (map unparse-type S))
+  (prn "T:" (map unparse-type T))
   (when R
     (prn "R:" (class R) (unparse-type R)))
   (when expected
@@ -4841,7 +4886,7 @@
    :post [(Type? %)]}
   (cond
     (Poly? ptype)
-    (let [_ (assert (= (:nbound ptype) (count argtys)) "Wrong number of arguments to instantiate polymorphic type")
+    (let [_ (assert (= (:nbound ptype) (count argtys)) (error-msg "Wrong number of arguments to instantiate polymorphic type"))
           names (repeatedly (:nbound ptype) gensym)
           body (Poly-body* names ptype)
           bbnds (Poly-bbnds* names ptype)]
@@ -6427,7 +6472,7 @@
   (when check?
     (when (or (and (not rest) (not (= (count dom) (count argtys))))
               (and rest (< (count argtys) (count dom))))
-      (throw (Exception. (str "Wrong number of arguments, expected " (count dom) " and got "(count argtys)))))
+      (throw (Exception. (error-msg "Wrong number of arguments, expected " (count dom) " and got "(count argtys)))))
     (doseq [[arg-t dom-t] (map vector (map ret-t argtys) (concat dom (when rest (repeat rest))))]
       (check-below arg-t dom-t)))
   (let [dom-count (count dom)
@@ -6697,7 +6742,7 @@
 (defmethod invoke-special #'clojure.core/not
   [{:keys [args] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (assert (= 1 (count args)) "Wrong number of args to clojure.core/not")
+  (assert (= 1 (count args)) (error-msg "Wrong number of args to clojure.core/not"))
   (let [ctarget (check (first args))
         {fs+ :then fs- :else} (-> ctarget expr-type ret-f)]
     (assoc expr
