@@ -387,7 +387,7 @@
     '{:m-bind (All [x y]
                 [(Option x) [x -> (Option y)] -> (Option y)])
       :m-result (All [x]
-                     [x -> (U nil x)])
+                  [x -> (U nil x)])
       :m-zero nil
       :m-plus (All [x]
                 [(U nil x) * -> (U nil x)])})
@@ -924,11 +924,29 @@
 (run-cont ((inst sqrt-as-str String) 2))
 (run-cont (sqrt-as-str -2))
 
+(domonad maybe-m
+  [a 5
+   :let [c 7]
+   :if (and (= a 5) (= c 7))
+   :then [b 6]
+   :else [b nil]]
+  [a b])
+
+(cf
+(domonad maybe-m
+  [^{:T Long} a 5
+   ^{:T Long} d 5
+   :let [c 7]
+   :if (and (= a 5) (= c 7))
+   :then [^{:T Long} b 6]
+   :else [^{:T Nothing} b nil]]
+  [(+ a b) b d])
+  )
 
 
 (cf (domonad maybe-m
              [^{:T AnyInteger} a 5]
-             ; :let [c 7]]
+              ;:let [c 7]]
              [a]))
 
 (cf

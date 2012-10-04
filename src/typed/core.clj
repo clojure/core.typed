@@ -765,6 +765,11 @@
   [(vector? types)
    (every? (some-fn Type? Result?) types)])
 
+(defn -hvec [types]
+  (if (some Bottom? types)
+    (Bottom)
+    (->HeterogeneousVector types)))
+
 (declare-type HeterogeneousVector)
 
 (defrecord HeterogeneousList [types]
@@ -2433,7 +2438,7 @@
 
 (defmethod parse-type-list 'Seq* [syn] (->HeterogeneousSeq (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'List* [syn] (->HeterogeneousList (mapv parse-type (rest syn))))
-(defmethod parse-type-list 'Vector* [syn] (->HeterogeneousVector (mapv parse-type (rest syn))))
+(defmethod parse-type-list 'Vector* [syn] (-hvec (mapv parse-type (rest syn))))
 
 (declare constant-type)
 
@@ -2450,7 +2455,7 @@
   [[_ syn]]
   (cond
     ((some-fn number? keyword? symbol?) syn) (-val syn)
-    (vector? syn) (->HeterogeneousVector (mapv parse-type syn))
+    (vector? syn) (-hvec (mapv parse-type syn))
     (map? syn) (syn-to-hmap syn nil)
     :else (throw (Exception. (str "Invalid use of quote:" syn)))))
 
@@ -2624,6 +2629,9 @@
 
         _ (assert (not (and asterix-pos ellipsis-pos))
                   "Cannot provide both rest type and dotted rest type")
+
+        _ (when-let [ks (seq (filter #(not (#{:filters :object} %)) (keys opts)))]
+            (throw (Exception. (str "Invalid option/s: " ks))))
 
         filters (when-let [[_ fsyn] (find opts :filters)]
                   (parse-filter-set fsyn))
@@ -5592,13 +5600,16 @@
 (ann clojure.core/gensym (Fn [-> Symbol]
                              [String -> Symbol]))
 
-(ann clojure.core/complement [Any -> boolean])
+(ann clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]]))
+(ann clojure.core/boolean [Any -> boolean])
 
 (ann clojure.core/filter (All [x y]
                            [[x -> Any :filters {:then (is y 0)}] (Seqable x) -> (Seqable y)]))
 
 
-(ann clojure.core/some (All [x] [[Any -> x] (Option (Seqable x)) -> (Option x)]))
+(ann clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)]))
+
+(ann clojure.core/concat (All [x] [(Option (Seqable x)) * -> (Seqable x)]))
 
 (ann clojure.core/set (All [x] [(Option (Seqable x)) -> (PersistentHashSet x)]))
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
@@ -5730,6 +5741,7 @@
 
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
+(ann clojure.core/pr-str [Any * -> String])
 
 (ann clojure.core/print [Any * -> Any])
 (ann clojure.core/println [Any * -> Any])
@@ -5773,9 +5785,9 @@
                                             (is (ExactCount 0) 0))}]))
 
 (ann clojure.core/empty? [(Option (Seqable Any)) -> boolean
-                          :filter {:then (| (is (ExactCount 0) 0)
-                                            (is nil 0))
-                                   :else (is (CountRange 1) 0)}])
+                          :filters {:then (| (is (ExactCount 0) 0)
+                                             (is nil 0))
+                                    :else (is (CountRange 1) 0)}])
 
 (ann clojure.core/map
      (All [c a b ...]
@@ -6027,7 +6039,7 @@
 
 (defmethod constant-type IPersistentVector
   [cvec]
-  (->HeterogeneousVector (mapv constant-type cvec)))
+  (-hvec (mapv constant-type cvec)))
 
 (defmethod constant-type IPersistentMap
   [cmap]
@@ -6090,7 +6102,7 @@
 (defmethod check :vector
   [{:keys [args] :as expr} & [expected]]
   (let [cargs (mapv check args)
-        res-type (->HeterogeneousVector (mapv (comp ret-t expr-type) cargs))
+        res-type (-hvec (mapv (comp ret-t expr-type) cargs))
         _ (when expected
             (assert (subtype? res-type (ret-t expected))
                     (type-error res-type (ret-t expected))))]
@@ -6497,7 +6509,10 @@
          (every? TCResult? arg-ret-types)
          ((some-fn nil? TCResult?) expected)]
    :post [(TCResult? %)]}
-  (let [fexpr-type (ret-t fexpr-ret-type)
+  (let [fexpr-type (let [t (ret-t fexpr-ret-type)]
+                     (if (Name? t)
+                       (resolve-Name t)
+                       t))
         arg-types (doall (map ret-t arg-ret-types))]
     (prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
     (cond
@@ -6609,8 +6624,7 @@
             (throw (Exception. (pr-str "Could not apply dotted function " (unparse-type fexpr-type)
                                        " to arguments " (map unparse-type arg-types))))))
 
-        (throw (Exception. (str (when *current-env*
-                                  (str (:line *current-env*) ": "))
+        (throw (Exception. (error-msg
                              "Cannot invoke type: " (unparse-type fexpr-type))))))))
 
 (defmethod check :var
@@ -6898,7 +6912,10 @@
 ;manual instantiation
 (defmethod invoke-special #'inst-poly
   [{[pexpr targs-exprs] :args :as expr} & [expected]]
-  (let [ptype (-> (check pexpr) expr-type ret-t)
+  (let [ptype (let [t (-> (check pexpr) expr-type ret-t)]
+                (if (Name? t)
+                  (resolve-Name t)
+                  t))
         _ (assert ((some-fn Poly? PolyDots?) ptype))
         targs (doall (map parse-type (:val targs-exprs)))]
     (assoc expr
@@ -7059,7 +7076,7 @@
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [cargs (doall (map check args))]
     (assoc expr
-           expr-type (ret (->HeterogeneousVector
+           expr-type (ret (-hvec
                             (mapv (comp ret-t expr-type) cargs))))))
 
 ;make hash-map
@@ -7302,7 +7319,7 @@
       ;[...]
       (HeterogeneousVector? (expr-type t))
       (assoc expr
-             expr-type (ret (->HeterogeneousVector
+             expr-type (ret (-hvec
                               ;vectors conj onto end
                               (vec (concat (:types (expr-type t)) 
                                            [(expr-type (first args))])))))

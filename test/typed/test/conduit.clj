@@ -1,11 +1,9 @@
 (ns typed.test.conduit
   (:import (clojure.lang Seqable IMeta IPersistentMap LazySeq ISeq))
   (:require [typed.core :refer [check-ns ann fn> def-alias tc-ignore ann-form declare-names inst
-                                tc-pr-env inst-ctor cf]]
+                                tc-pr-env inst-ctor cf Option]]
             [clojure.repl :refer [pst]]
             [arrows.core :refer [defarrow]]))
-
-(def-alias Part (IPersistentMap Any Any))
 
 (def-alias Result
   (All [x]
@@ -24,21 +22,6 @@
   (All [in out]
        [in -> '[(U nil (==> in out))
                 (Cont out)]]))
-
-(def-alias MaybePartMeta (IMeta (U nil (HMap {} :optional {:parts (U nil Part)}))))
-
-(ann merge-parts [(Seqable MaybePartMeta) -> Part])
-(tc-ignore
-(defn merge-parts [ps]
-  (let [parts (map (-> #(-> % meta :parts)
-                     (ann-form [MaybePartMeta -> (U nil Part)]))
-                   ps)]
-    (apply (-> merge-with 
-             (inst Any Part))
-           (-> merge 
-             (inst Any Any))
-           parts)))
-  )
 
 (ann abort-c (All [x] (Cont x)))
 (defn abort-c [c]
@@ -98,22 +81,6 @@
          ((inst comp-fn2 x y z) new-f1 new-f2)) 
        new-c])))
 
-;(defn comp-fn [[f & fs]]
-;  (fn curr-fn [x]
-;    (let [[new-f first-c] (f x)
-;          [new-fs new-c] (reduce (fn [[new-fs c] f]
-;                                   (let [y (c identity)
-;                                         [new-f new-c] (if (empty? y)
-;                                                         [f abort-c]
-;                                                         (f (first y)))]
-;                                     [(conj new-fs new-f) new-c]))
-;                                 [[new-f] first-c]
-;                                 fs)]
-;      [(when-not (some nil? new-fs)
-;         (comp-fn new-fs))
-;       new-c])))
- 
-
 ;Type only works for vectors of length 2
 (ann nth-fn
      (All [x y z]
@@ -141,41 +108,44 @@
                                      [(U nil [(Result '[x y]) -> (Result '[x z])]) -> (Result '[x z])])))]
           [((inst nth-fn x y z) n new-f) next-c])))))
 
+(declare-names AParCtor)
 
-(tc-ignore
-(defn gather-fn [[fs ys] [f y]]
-  [(conj fs f) (conj ys y)])
-
-(defn par-fn [fs]
-  (fn curr-fn [xs]
-      (if (not= (count xs) (count fs))
-        [curr-fn abort-c]
-        (let [[new-fs cs] (reduce gather-fn
-                                  [[] []]
-                                  (map #(%1 %2) fs xs))]
-          [(par-fn new-fs)
-           (fn [c]
+(ann par-fn AParCtor)
+(defn par-fn [f1 f2]
+  (fn curr-fn [[x1 x2 :as xs]]
+    (if (= (count xs) 2)
+      (let [[new-f1 c1] (f1 x1)
+            [new-f2 c2] (f2 x2)]
+        (if (and new-f1 new-f2)
+          [(par-fn new-f1 new-f2)
+           (->
+             (fn [c]
                (if (nil? c)
-                 (doseq [c cs]
-                   (c nil))
-                 (let [ys (map #(% identity) cs)]
-                   (if (some empty? ys)
+                 (do
+                   (c1 nil)
+                   (c2 nil))
+                 (let [y1 (c1 (inst identity (Result z)))
+                       y2 (c2 (inst identity (Result a)))]
+                   (if (some empty? [y1 y2])
                      (c [])
-                     (c [(apply concat ys)])))))]))))
-  )
+                     (c [(concat y1 y2)])))))
+             (ann-form (Cont '[z a])))])
+        [curr-fn abort-c])
+      [curr-fn abort-c])))
 
-(ann select-fn
-     (All [x y z]
-       [(IPersistentMap x (U nil (==> y z))) -> (==> '[x y] z)]))
+(declare-names ASelectCtor)
+
+(ann select-fn ASelectCtor)
 (defn select-fn [selection-map]
   (fn curr-fn [[v x]]
     (if-let [f (ann-form (or (get selection-map v)
                              (get selection-map '_))
                          (U nil (==> y z)))]
       (let [[new-f c] (f x)]
-        [((inst select-fn x y z)
-           (assoc selection-map v new-f)) c])
-      [curr-fn abort-c])))
+        (if new-f
+          [(select-fn (assoc selection-map v new-f)) c]
+          [curr-fn abort-c])
+      [curr-fn abort-c]))))
 
 (tc-ignore
 (defn loop-fn
@@ -204,60 +174,56 @@
                   (c y)))])))))))
   )
 
-(def-alias AArr
-  (All [x y]
-       (I (==> x y)
-          (IMeta '{:created-by ':a-arr
-                   :args [x -> y]}))))
-
 (def-alias AArrCtor 
   (All [x y]
-       [[x -> y] -> (AArr x y)]))
-
-(def-alias ACompMeta
-  (All [x y z]
-       '{:created-by ':a-comp
-         :parts Part
-         :args '[(==> x y) (==> y z)]}))
-
-(def-alias AComp
-  (All [x y z]
-       (I (==> x z) (IMeta (ACompMeta x y z)))))
+       [[x -> y] -> (==> x y)]))
 
 (def-alias ACompCtor
   (All [x y z]
-       [(I (==> x y) MaybePartMeta) (I (==> y z) MaybePartMeta) -> (AComp x y z)]))
+    [(==> x y) (==> y z) -> (==> x z)]))
 
-(ann a-arr AArrCtor)
-(ann a-comp ACompCtor)
+; second arg is an arrow updating the entry named by the first argument
+(def-alias ANthCtor
+  (All [x y z]
+    (Fn ['0 (==> x z) -> (==> '[x y] '[z y])]
+        ['1 (==> y z) -> (==> '[x y] '[x z])])))
 
-(ann conduit '{:a-arr AArrCtor :a-comp ACompCtor})
+(def-alias AParCtor
+  (All [x y z a]
+    [(==> x z) (==> y a) -> (==> '[x y] '[z a])]))
+
+(def-alias AAllCtor
+  (All [x y z]
+       [(==> x y) (==> x z) -> (==> x '[y z])]))
+
+(def-alias ASelectCtor
+  (All [x y z]
+       [(IPersistentMap x (==> y z)) -> (==> '[x y] (==> y z))]))
+
+(def-alias ALoopCtor
+  (All [state in]
+       [(==> '[state in] state) state -> (==> in state)]))
+
+(ann conduit '{:a-arr AArrCtor :a-comp ACompCtor :a-nth ANthCtor :a-par AParCtor
+               :a-all AAllCtor :a-select ASelectCtor 
+               ;:a-loop ALoopCtor
+               })
 (defarrow conduit
   [a-arr (->
            (fn [f]
-             (->
-               (fn a-arr [x]
-                 (let [y (f x)
-                       c (->
-                           (fn [c]
-                             (when c
-                               (c [y])))
-                           (ann-form (Cont y)))]
-                   [a-arr c]))
-               (ann-form (==> x y))
-               (with-meta
-                 {:created-by :a-arr
-                  :args f})))
+             (fn a-arr [x]
+               (let [y (f x)
+                     c (->
+                         (fn [c]
+                           (when c
+                             (c [y])))
+                         (ann-form (Cont y)))]
+                 [a-arr c])))
            (ann-form AArrCtor))
 
    a-comp (->
             (fn [p1 p2]
-              (with-meta
-                (-> ((inst comp-fn2 x y z) p1 p2)
-                  (ann-form (==> x z)))
-                {:created-by :a-comp
-                 :parts (ann-form (merge-parts [p1 p2]) Part)
-                 :args (ann-form [p1 p2] '[(==> x y) (==> y z)])}))
+              (comp-fn2 p1 p2))
             (ann-form ACompCtor))
 
    ;apply p to position n in passed pair
@@ -266,95 +232,58 @@
    ;([3 6] [3 5])
    a-nth (ann-form
            (fn [n p]
-             (ann-form [n p] '[(U '0 '1) (==> x y)])
-             (ann-form ((inst nth-fn x y z) n p) (U (==> '[x y] '[z y])
-                                                    (==> '[x y] '[x z])))
-             (with-meta
-               ((inst nth-fn x y z) n p)
-               {:created-by :a-nth
-                :parts (:parts (meta p))
-                :args [n p]}))
-           (All [x y z]
-             (Fn ['0 (I (==> x z) MaybePartMeta) -> (I (==> '[x y] '[z y])
-                                                       (IMeta '{:created-by ':a-nth
-                                                                :parts (U nil Part)
-                                                                :args '['0 (==> x z)]}))]
-                 ['1 (I (==> y z) MaybePartMeta) -> (I (==> '[x y] '[x z])
-                                                       (IMeta '{:created-by ':a-nth
-                                                                :parts (U nil Part)
-                                                                :args '['1 (==> y z)]}))])))
+             ((inst nth-fn x y z) n p))
+           ANthCtor)
 
    ;like juxt
    ;modified to accept 2 arrows rather than n arrows
-   a-par (ann-form 
-           (fn [p1 p2]
-             (with-meta
-               (par-fn [p1 p2])
-               {:created-by :a-par
-                :args [p1 p2]
-                :parts (merge-parts [p1 p2])}))
-           (All [x y z]
-             [(==> x y) (==> x z) -> (I (==> x '[y z])
-                                        (IMeta '{:created-by ':a-par
-                                                 :args [(==> x y) (==> x z)]
-                                                 :parts Any}))]))
+   a-par (ann-form par-fn AParCtor)
 
    ;apply functions to lhs and rhs of pairs
    ; modified to accept 2 arrows instead of n arrows
    a-all (ann-form 
            (fn [p1 p2]
-             (with-meta
-               (a-comp (a-arr (ann-form #(vector % %)
-                                        (All [x] 
-                                          [x -> '[x x]])))
-                       (a-par p1 p2))
-               {:created-by :a-all
-                :args [p1 p2]
-                :parts (merge-parts [p1 p2])}))
-           (All [x y]
-             [(==> x y) (==> z a) -> (I (==> '[x z] '[y a])
-                                        (IMeta '{:created-by ':a-all
-                                                 :args '[(==> x y) (==> z a)]
-                                                 :parts Any}))]))
+             (ann-form
+               (a-comp (ann-form
+                         (a-arr (ann-form #(vector % %)
+                                          [x -> '[x x]]))
+                         (==> x '[x x]))
+                       (ann-form 
+                         (a-par p1 p2)
+                         (==> '[x x] '[y z])))
+               (==> x '[y z])))
+           AAllCtor)
 
    ;select a value
    a-select (ann-form
               (fn [pair-map]
-                (with-meta
-                  (select-fn pair-map)
-                  {:created-by :a-select
-                   :args pair-map
-                   :parts (merge-parts (vals pair-map))}))
-              (All [x y z]
-                [(IPersistentMap x (==> y z)) -> (==> x (==> y z))]))
+                (select-fn pair-map))
+              ASelectCtor)
 
-   a-loop (ann-form 
-            (fn
-              ([p initial-value]
-               (with-meta
-                 (loop-fn p initial-value)
-                 {:created-by :a-loop
-                  :args [p initial-value]
-                  :parts (:parts p)}))
-              ([p initial-value fb-p]
-               (with-meta
-                 (loop-fn p fb-p initial-value)
-                 {:created-by :a-loop
-                  :args [p initial-value fb-p]
-                  :parts (:parts p)})))
-            (All [state in]
-                 [(==> '[state in] state) state -> (I (==> in state)
-                                                      (IMeta '{:created-by ':a-loop
-                                                               :args '[(==> '[state in] state) state]}))]))
+;   a-loop (ann-form 
+;            (fn
+;              ([p initial-value]
+;               (loop-fn p initial-value))
+;              ([p initial-value fb-p]
+;               (loop-fn p fb-p initial-value)))
+;            ALoopCtor)
    ])
 
-(def a-arr (conduit :a-arr))
-(def a-comp (conduit :a-comp))
-(def a-nth (conduit :a-nth))
-(def a-par (conduit :a-par))
-(def a-all (conduit :a-all))
-(def a-select (conduit :a-select))
-(def a-loop (conduit :a-loop))
+
+(ann a-arr AArrCtor)
+(def a-arr (:a-arr conduit))
+(ann a-comp ACompCtor)
+(def a-comp (:a-comp conduit))
+(ann a-nth ANthCtor)
+(def a-nth (:a-nth conduit))
+(ann a-par AParCtor)
+(def a-par (:a-par conduit))
+(ann a-all AAllCtor)
+(def a-all (:a-all conduit))
+(ann a-select ASelectCtor)
+(def a-select (:a-select conduit))
+;(ann a-loop ALoopCtor)
+;(def a-loop (conduit :a-loop))
 
 (ann conduit-map
      (All [x y]
@@ -362,149 +291,144 @@
 (defn conduit-map [p l]
   (if (empty? l)
     l
-    (a-run (comp-fn2 (conduit-seq l) p))))
+    (a-run (ann-form
+             (comp-fn2 
+               (ann-form (conduit-seq l) (==> Any x))
+               (ann-form p (==> x y)))
+             (==> Any y)))))
 
 (ann pass-through 
      (All [x]
        (==> x x)))
 (def pass-through
-  (a-arr identity))
+  (a-arr (inst identity x)))
 
-(ann a-selectp
-     (All [x y z a]
-          [[x -> y] (IPersistentMap y (==> z a)) -> (==> '[x z] a)]))
-(defn a-selectp [pred pair-map]
-  (a-comp
-    (a-all (a-arr pred)
-           pass-through)
-    (a-select pair-map)))
+;(ann a-selectp
+;     (All [x y z a]
+;          [[x -> y] (IPersistentMap y (==> z a)) -> (==> '[x z] a)]))
+;(defn a-selectp [pred pair-map]
+;  (a-comp
+;    (ann-form
+;      (a-all (ann-form (a-arr pred)
+;                       (==> x y))
+;             pass-through)
+;      (==> x '[y x]))
+;    (a-select pair-map)))
 
-(ann a-if
-     (All [x y z]
-       (Fn [[x -> y] [y -> z] -> (==> x (U z nil))]
-           [[x -> y] [y -> z] [y -> z] -> (==> x z)])))
-(defn a-if
-  ([a b] (a-if a b nil))
-  ([a b c]
-   (let [c (or c (a-arr (constantly nil)))]
-     (a-comp (a-all (a-arr (comp boolean a))
-                    pass-through)
-             (a-select
-               {true b
-                false c})))))
+;TODO this should type correctly
+;(cf (a-arr (constantly nil)))
 
-(defn a-catch
-  ([p catch-p]
-   (a-catch Exception p catch-p))
-  ([class p catch-p]
-   (letfn [(a-catch [f catch-f]
-             (fn [x]
-               (try
-                 (let [[new-f c] (f x)]
-                   [(a-catch f catch-f) c])
-                 (catch Throwable e
-                   (if (instance? class e)
-                     (let [[new-catch c] (catch-f [e x])]
-                       [(a-catch f new-catch) c])
-                     (throw e))))))]
-     (with-meta
-       (a-catch p catch-p)
-       {:parts (:parts p)
-        :created-by :a-catch
-        :args [class p catch-p]}))))
+;(cf (a-arr (ann-form (fn [_] nil)
+;                     ['x -> nil])))
+;
+;(ann t1 (All [x] [[Any -> x] -> [x -> Any]]))
+;(declare t1)
+;(cf (t1 (ann-form (fn [_] nil)
+;                  ['x -> nil])))
 
-(defn a-finally [p final-p]
-  (letfn [(a-finally [f final-f]
-            (fn [x]
-              (try
-                (let [[new-f c] (f x)]
-                  [(a-finally new-f final-f) c])
-                (finally
-                  (final-f x)))))]
-    (with-meta
-      (a-finally p final-p)
-      {:parts (:parts p)
-       :created-by :a-finally
-       :args [p final-p]})))
-
-(defmacro def-arr [name args & body]
-  `(def ~name (a-arr (fn ~name ~args ~@body))))
-
-(defn a-filter [f]
-  (with-meta
-    (fn curr-fn [x]
-      (if (f x)
-        [curr-fn (fn [c]
-                   (when c
-                     (c [x])))]
-        [curr-fn abort-c]))
-    {:created-by :a-filter
-     :args f}))
-
-(defn tap [p]
-  (fn [x]
-    (let [[new-f new-c] (p x)]
-      (new-c nil)
-      [new-f (fn [c]
-               (when c
-                 (c [x])))])))
-
-(defn disperse [p]
-  (with-meta
-    (fn curr-fn [xs]
-      (if (empty? xs)
-        [curr-fn (fn [c]
-                   (when c
-                     (c [xs])))]
-        (let [[new-f cs] (reduce (fn [[new-f cs] x]
-                                   (let [[new-f c] (new-f x)]
-                                     [new-f (conj cs c)]))
-                                 [p []]
-                                 xs)]
-          [(disperse new-f) (fn [c]
-                              (if (nil? c)
-                                (doseq [c cs]
-                                  (c nil))
-                                (let [ys (map #(% identity) cs)]
-                                  (if (some empty? ys)
-                                    (c [])
-                                    (c [(apply concat ys)])))))])))
-    {:created-by :disperse
-     :args p
-     :parts (:parts p)}))
-
-(defn enqueue [f x]
-  ((second (f x)) nil)
-  nil)
-
-(defn wait-for-reply [f x]
-  ((second (f x)) identity))
-
-(defn test-conduit [p]
-  (let [args (:args (meta p))]
-    (condp = (:created-by (meta p))
-      nil p
-      :a-arr (a-arr args)
-      :a-comp (apply a-comp (map test-conduit args))
-      :a-nth (apply a-nth (map test-conduit args))
-      :a-par (apply a-par (map test-conduit args))
-      :a-all (apply a-all (map test-conduit args))
-      :a-select (apply a-select (mapcat (fn [[k v]]
-                                          [k (test-conduit v)])
-                                        args))
-      :a-loop (let [[bp iv fb] args]
-                (if fb
-                  (a-loop (test-conduit bp)
-                          iv
-                          (test-conduit fb))
-                  (a-loop (test-conduit bp)
-                          iv)))
-      :a-catch (apply a-catch (first args)
-                      (map test-conduit (rest args)))
-      :a-finally (apply a-finally (map test-conduit args))
-      :a-filter p
-      :disperse (disperse (test-conduit args)))))
-
-(defn test-conduit-fn [p]
-  (partial wait-for-reply (test-conduit p)))
-
+;(ann a-if
+;     (All [x y]
+;       (Fn [[x -> Any] (==> x y) -> (==> x (U y nil))]
+;           [[x -> Any] (==> x y) (Option (==> x y)) -> (==> x (U y nil))])))
+;(defn a-if
+;  ([a b] (a-if a b nil))
+;  ([a b c]
+;   (let [c (ann-form (or c (a-arr (ann-form (fn [_] nil)
+;                                            [x -> nil])))
+;                     (==> x (U nil y)))]
+;     (a-comp (->
+;               (a-all (a-arr (comp boolean a))
+;                      pass-through)
+;               (ann-form (==> x '[boolean x])))
+;             (->
+;               (a-select
+;                 {true b
+;                  false c})
+;               (ann-form (==> '[boolean x] (U y nil))))))))
+;
+;(defn a-catch
+;  ([p catch-p]
+;   (a-catch Exception p catch-p))
+;  ([class p catch-p]
+;   (letfn [(a-catch [f catch-f]
+;             (fn [x]
+;               (try
+;                 (let [[new-f c] (f x)]
+;                   [(a-catch f catch-f) c])
+;                 (catch Throwable e
+;                   (if (instance? class e)
+;                     (let [[new-catch c] (catch-f [e x])]
+;                       [(a-catch f new-catch) c])
+;                     (throw e))))))]
+;     (with-meta
+;       (a-catch p catch-p)
+;       {:parts (:parts p)
+;        :created-by :a-catch
+;        :args [class p catch-p]}))))
+;
+;(defn a-finally [p final-p]
+;  (letfn [(a-finally [f final-f]
+;            (fn [x]
+;              (try
+;                (let [[new-f c] (f x)]
+;                  [(a-finally new-f final-f) c])
+;                (finally
+;                  (final-f x)))))]
+;    (with-meta
+;      (a-finally p final-p)
+;      {:parts (:parts p)
+;       :created-by :a-finally
+;       :args [p final-p]})))
+;
+;(defmacro def-arr [name args & body]
+;  `(def ~name (a-arr (fn ~name ~args ~@body))))
+;
+;(defn a-filter [f]
+;  (with-meta
+;    (fn curr-fn [x]
+;      (if (f x)
+;        [curr-fn (fn [c]
+;                   (when c
+;                     (c [x])))]
+;        [curr-fn abort-c]))
+;    {:created-by :a-filter
+;     :args f}))
+;
+;(defn tap [p]
+;  (fn [x]
+;    (let [[new-f new-c] (p x)]
+;      (new-c nil)
+;      [new-f (fn [c]
+;               (when c
+;                 (c [x])))])))
+;
+;(defn disperse [p]
+;  (with-meta
+;    (fn curr-fn [xs]
+;      (if (empty? xs)
+;        [curr-fn (fn [c]
+;                   (when c
+;                     (c [xs])))]
+;        (let [[new-f cs] (reduce (fn [[new-f cs] x]
+;                                   (let [[new-f c] (new-f x)]
+;                                     [new-f (conj cs c)]))
+;                                 [p []]
+;                                 xs)]
+;          [(disperse new-f) (fn [c]
+;                              (if (nil? c)
+;                                (doseq [c cs]
+;                                  (c nil))
+;                                (let [ys (map #(% identity) cs)]
+;                                  (if (some empty? ys)
+;                                    (c [])
+;                                    (c [(apply concat ys)])))))])))
+;    {:created-by :disperse
+;     :args p
+;     :parts (:parts p)}))
+;
+;(defn enqueue [f x]
+;  ((second (f x)) nil)
+;  nil)
+;
+;(defn wait-for-reply [f x]
+;  ((second (f x)) identity))
