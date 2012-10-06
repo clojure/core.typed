@@ -94,8 +94,8 @@ positive propositions.
 ```
 
 Positive information infers just fine, like `(filter number? coll)`.
-The above idiom is useful when you have a type like `(U nil x)` and there is no
-predicate to test for `x`.
+The above idiom is useful when you are filtering something like a `(Seqable (U nil x))` and there is no
+predicate to test for `x`, so you can only test if something isn't `nil`.
 
 # Usage
 
