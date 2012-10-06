@@ -79,7 +79,7 @@ but usage checking should work.
 Not everything can be inferred from a `filter`. A common example is
 `(filter identity coll)` does not work. The reason is `identity` only
 gives negative information when its result is true: that the argument is *not*
-`(U nil false).
+`(U nil false)`.
 
 This idiom must be converted to this syntax `(fn [a] a)` and then annotated with
 positive propositions.
