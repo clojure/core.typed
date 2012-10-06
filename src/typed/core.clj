@@ -2143,8 +2143,6 @@
 
 (defn nonnilable-return? [sym arity]
   (let [as (@METHOD-RETURN-NONNILABLE-ENV sym)]
-    (prn "nonnilable-return?" sym arity)
-    (prn "as" as)
     (boolean (or (= :all as)
                  (when as
                    (as arity))))))
@@ -3652,12 +3650,7 @@
         (Top? T)
         (empty-cset X Y)
 
-        ;; constrain body to be below T, but don't mention the new vars
-        (Poly? S)
-        (let [nms (repeatedly (.nbound S) gensym)
-              body (Poly-body* nms S)]
-          (cs-gen (set/union (set nms) V) X Y body T))
-
+        ; handle frees first
         (and (F? S)
              (contains? X (.name S)))
         (cs-gen-left-F V X Y S T)
@@ -3665,6 +3658,12 @@
         (and (F? T)
              (contains? X (.name T)))
         (cs-gen-right-F V X Y S T)
+
+        ;; constrain body to be below T, but don't mention the new vars
+        (Poly? S)
+        (let [nms (repeatedly (.nbound S) gensym)
+              body (Poly-body* nms S)]
+          (cs-gen (set/union (set nms) V) X Y body T))
 
         ;constrain *each* element of S to be below T, and then combine the constraints
         (Union? S)
@@ -3679,15 +3678,7 @@
                                                      (throw e))
                                                    (catch Exception e)) 
                                                 (:types T))))]
-          (do 
-            (prn "cs-gen Union on right")
-            (prn "S:" (unparse-type S))
-            (prn "T:" (unparse-type T))
-            (prn "cs:" cs)
-            (let [comb (cset-combine cs)]
-              (prn "comb" comb)
-              comb))
-
+          (cset-combine cs)
           (type-error S T))
 
         (and (Intersection? S)
@@ -3738,6 +3729,7 @@
         :else
         (cs-gen* V X Y S T)))))
 
+;; FIXME - anything else to say about And and OrFilters?
 (defn cs-gen-filter [V X Y s t]
   {:pre [((set-c? symbol?) V)
          (every? (hash-c? symbol? Bounds?) [X Y])
@@ -3747,7 +3739,7 @@
   (cond
     (= s t) (empty-cset X Y)
     (TopFilter? t) (empty-cset X Y)
-    ;; FIXME - is there something to be said about the logical ones?
+
     (and (TypeFilter? s)
          (TypeFilter? t))
     (cset-meet (cs-gen V X Y (:type s) (:type t))
@@ -3756,8 +3748,16 @@
          (NotTypeFilter? t))
     (cset-meet (cs-gen V X Y (:type s) (:type t))
                (cs-gen V X Y (:type t) (:type s)))
+
+    ; simple case for unifying x and y in (& (is x sym) ...) (is y sym)
+    (and (AndFilter? s)
+         (TypeFilter? t)
+         (every? atomic-filter? (:fs s))
+         (= 1 (count TypeFilter?) (:fs s)))
+    (let [tf (first (filter TypeFilter? (:fs s)))]
+      (cs-gen-filter V X Y tf t))
     :else (throw (IllegalArgumentException. (error-msg "Need two filters of same type "
-                                                       (unparse-filter s) " " (unparse-filter t))))))
+                                                       (pr-str (unparse-filter s)) " " (pr-str (unparse-filter t)))))))
 
 ;must be *latent* filter sets
 (defn cs-gen-filter-set [V X Y s t]
@@ -3792,7 +3792,7 @@
 
 (defmethod cs-gen* :default
   [V X Y S T]
-  (prn "cs-gen* default" (class S) (class T))
+  ;(prn "cs-gen* default" (class S) (class T))
   (when (some Result? [S T])
     (throw (IllegalArgumentException. (error-msg "Result on left or right "
                                                  (pr-str S) " " (pr-str T)))))
@@ -4066,7 +4066,7 @@
          (Function? S)
          (Function? T)]
    :post [(cset? %)]}
-  (prn "cs-gen-Function")
+  ;(prn "cs-gen-Function")
   (letfn [(cg [S T] (cs-gen V X Y S T))]
     (cond
       ;easy case - no rests, drests, kws
@@ -4103,10 +4103,10 @@
                           (let [new-S (concat (:dom S) (repeat (- (count (:dom T))
                                                                   (count (:dom S)))
                                                                (:rest S)))]
-                            (prn "infer rest arg on left")
-                            (prn "left dom" (map unparse-type (:dom S)))
-                            (prn "right dom" (map unparse-type (:dom T)))
-                            (prn "new left dom" (map unparse-type new-S))
+;                            (prn "infer rest arg on left")
+;                            (prn "left dom" (map unparse-type (:dom S)))
+;                            (prn "right dom" (map unparse-type (:dom T)))
+;                            (prn "new left dom" (map unparse-type new-S))
                             (cs-gen-list V X Y (:dom T) new-S))
                           ;no rest arg on left, or wrong number = fail
                           :else (type-error S T))
@@ -4327,10 +4327,10 @@
          (every? Type? (concat S T))
          (cset? expected-cset)]
    :post [(cset? %)]}
-  (prn "cs-gen-list" 
-       V X Y
-       (map unparse-type S)
-       (map unparse-type T))
+;  (prn "cs-gen-list" 
+;       V X Y
+;       (map unparse-type S)
+;       (map unparse-type T))
   (assert (= (count S) (count T))
           (pr-str "S:" (map unparse-type S)
                   "T:" (map unparse-type T)))
@@ -4343,10 +4343,10 @@
       (doall 
         (for [[s t] (map vector S T)]
           (let [c (cs-gen V X Y s t)]
-            (prn "s" s)
-            (prn "t" t)
-            (prn "c" c)
-            (prn "expected cset" expected-cset)
+;            (prn "s" s)
+;            (prn "t" t)
+;            (prn "c" c)
+;            (prn "expected cset" expected-cset)
             (cset-meet c expected-cset)))))))
 
 (declare sub-f sub-o sub-pe)
@@ -4484,15 +4484,15 @@
          (AnyType? R)
          ((some-fn nil? AnyType?) expected)]
    :post [((some-fn nil? substitution-c?) %)]}
-  (prn "infer-vararg" "X:" X)
+  ;(prn "infer-vararg" "X:" X)
   (let [new-T (if T-var
                 ;Pad out T
                 (concat T (repeat (- (count S) (count T)) T-var))
                 T)]
-    (prn "S" (map unparse-type S))
-    (prn "new-T" (map unparse-type new-T))
-    (prn "R" (unparse-type R))
-    (prn "expected" (class expected) (when expected (unparse-type expected)))
+;    (prn "S" (map unparse-type S))
+;    (prn "new-T" (map unparse-type new-T))
+;    (prn "R" (unparse-type R))
+;    (prn "expected" (class expected) (when expected (unparse-type expected)))
     (and (>= (count S) (count T))
          (infer X Y S new-T R expected))))
 
@@ -4512,15 +4512,15 @@
          (AnyType? R)
          ((some-fn nil? AnyType?) expected)]
    :post [((some-fn nil? true? substitution-c?) %)]}
-  (prn "infer" )
-  (prn "X:" X) 
-  (prn "Y:" Y) 
-  (prn "S:" (map unparse-type S))
-  (prn "T:" (map unparse-type T))
-  (when R
-    (prn "R:" (class R) (unparse-type R)))
-  (when expected
-    (prn "expected:" (class expected) (unparse-type expected)))
+;  (prn "infer" )
+;  (prn "X:" X) 
+;  (prn "Y:" Y) 
+;  (prn "S:" (map unparse-type S))
+;  (prn "T:" (map unparse-type T))
+;  (when R
+;    (prn "R:" (class R) (unparse-type R)))
+;  (when expected
+;    (prn "expected:" (class expected) (unparse-type expected)))
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset {} {}))
@@ -5157,11 +5157,24 @@
          (= f2 (-FS -top -top)))
     (subtype t1 t2)
 
-    :else (type-error s t)))
+    ;special case for (& (is y sym) ...) <: (is y sym)
+    (and (AndFilter? (:then f1))
+         (TypeFilter? (:then f2))
+         (every? atomic-filter? (:fs (:then f1)))
+         (= 1 (count (filter TypeFilter? (:fs (:then f1)))))
+         (= -top (:else f2)))
+    (let [f1-tf (first (filter TypeFilter? (:fs (:then f1))))]
+      (if (= f1-tf (:then f2))
+        (subtype t1 t2)
+        (throw (Exception. (error-msg "Filters do not match: \n" (unparse-filter-set f1) "\n" (unparse-filter-set f2))))))
+
+    :else (if (= o1 o2)
+            (throw (Exception. (error-msg "Filters do not match: \n" (unparse-filter-set f1) "\n" (unparse-filter-set f2))))
+            (throw (Exception. (error-msg "Objects do not match " (unparse-object o1) (unparse-filter o2)))))))
 
 (defmethod subtype* [Protocol Type]
   [s t]
-  (if (= (RClass-of (Class->symbol Object) nil) t)
+  (if (= (RClass-of Object) t)
     *sub-current-seen*
     (type-error s t)))
 
@@ -5373,6 +5386,18 @@
   [s t]
   (let [t* (unfold t)]
     (subtype s t*)))
+
+(defn unify [X S T]
+  (infer X {} S T -any))
+
+(defmethod subtype* [Poly Type]
+  [s t]
+  (let [names (repeatedly (.nbound s) gensym)
+        bnds (Poly-bbnds* names s)
+        b1 (Poly-body* names s)]
+    (if (unify (zipmap names bnds) [b1] [t])
+      *sub-current-seen*
+      (type-error s t))))
 
 (defmethod subtype* [Poly Poly]
   [{n1 :nbound :as s}
@@ -5600,11 +5625,15 @@
 (ann clojure.core/gensym (Fn [-> Symbol]
                              [String -> Symbol]))
 
+;TODO flip filters
 (ann clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]]))
+; should preserve filters
 (ann clojure.core/boolean [Any -> boolean])
 
 (ann clojure.core/filter (All [x y]
-                           [[x -> Any :filters {:then (is y 0)}] (Seqable x) -> (Seqable y)]))
+                           [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seqable y)]))
+(ann clojure.core/remove (All [x y]
+                           [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seqable y)]))
 
 
 (ann clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)]))
@@ -5871,11 +5900,11 @@
 
 (ann clojure.core/get
      (All [x]
-          (Fn [(IPersistentSet x) Any -> (Option x)]
-              [java.util.Map Any -> (Option Any)]
-              [String Any -> (Option Character)]
-              [nil Any -> nil]
-              [(Option (ILookup Any x)) Any -> (Option x)])))
+          (Fn [Any (IPersistentSet x) -> (Option x)]
+              [Any java.util.Map -> (Option Any)]
+              [Any String -> (Option Character)]
+              [Any nil -> nil]
+              [Any (Option (ILookup Any x)) -> (Option x)])))
 
 (ann clojure.core/merge 
      (All [k v]
@@ -5913,7 +5942,7 @@
      (All [x]
        [x (Option (Seqable x)) -> (ASeq x)]))
 
-(override-method clojure.lang.RT/get (All [y] (Fn [(IPersistentMap Any y) Any -> (Option y)])))
+(override-method clojure.lang.RT/get (All [y] (Fn [Any (IPersistentMap Any y) -> (Option y)])))
 
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
                                               [Number Number -> Number]))
@@ -6115,12 +6144,6 @@
          expr-type (ret (constant-type coll)
                         (-FS -top -bot)
                         (->EmptyObject))))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ** START PORT **
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; FUNCTION INFERENCE START
 
 ;; check-below : (/\ (Results Type -> Result)
 ;;                   (Results Results -> Result)
@@ -6449,8 +6472,8 @@
          (RObject? old-obj)
          ((some-fn nil? (every-c? Type?)) ts)]
    :post [((hvector-c? Type? FilterSet? RObject?) %)]}
-  (prn "open-result")
-  (prn "latent filter set" (unparse-filter-set fs))
+;  (prn "open-result")
+;  (prn "latent filter set" (unparse-filter-set fs))
   (reduce (fn [[t fs old-obj] [[o k] arg-ty]]
             {:pre [(Type? t)
                    ((some-fn FilterSet? NoFilter?) fs)
@@ -6549,9 +6572,9 @@
             _ (assert (FnIntersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types body)]
                        (when ftype
-                         (prn "infer poly fn" (unparse-type ftype) (map unparse-type arg-types)
-                              (count dom) (count arg-types))
-                         (when rest (prn "rest" (unparse-type rest)))
+;                         (prn "infer poly fn" (unparse-type ftype) (map unparse-type arg-types)
+;                              (count dom) (count arg-types))
+;                         (when rest (prn "rest" (unparse-type rest)))
                          ;; only try inference if argument types are appropriate and no kws
                          (if-let [substitution (try
                                                  (and (not (or drest kws))
@@ -6562,7 +6585,7 @@
                                                    (throw e))
                                                  (catch Exception e
                                                    #_(pst e 40)))]
-                           (do (prn "subst:" substitution)
+                           (do ;(prn "subst:" substitution)
                              (check-funapp1 (subst-all substitution ftype)
                                             (map ret arg-types) expected :check? false))
                            (if (or drest kws)
@@ -6598,7 +6621,7 @@
                                                           (= dotted-var (-> drest :name)))
                                                :else (= (count dom) (count arg-types)))]
                                    (do
-                                     (prn "Inferring dotted fn" (unparse-type ftype))
+                                     ;(prn "Inferring dotted fn" (unparse-type ftype))
                                      ;; Only try to infer the free vars of the rng (which includes the vars
                                      ;; in filters/objects).
                                      (let [substitution (cond
@@ -6611,14 +6634,15 @@
                                                           :else (infer (zipmap fixed-vars fixed-bnds) {dotted-var dotted-bnd} 
                                                                        arg-types dom (Result-type* rng)
                                                                        (and expected (ret-t expected))))
-                                           _ (prn "substitution:" substitution)
+                                           ;_ (prn "substitution:" substitution)
                                            substituted-type (subst-all substitution ftype)
-                                           _ (prn "substituted-type" (unparse-type substituted-type))
-                                           _ (prn "args" (map unparse-type arg-types))]
+                                           ;_ (prn "substituted-type" (unparse-type substituted-type))
+                                           ;_ (prn "args" (map unparse-type arg-types))
+                                           ]
                                        (or (and substitution
                                                 (check-funapp1 substituted-type (map ret arg-types) expected :check? false))
                                            (throw (Exception. "Error applying dotted type")))))))]
-          (prn "inferred-rng"inferred-rng)
+          ;(prn "inferred-rng"inferred-rng)
           (if inferred-rng
             inferred-rng
             (throw (Exception. (pr-str "Could not apply dotted function " (unparse-type fexpr-type)
@@ -6760,7 +6784,7 @@
   (let [ctarget (check (first args))
         {fs+ :then fs- :else} (-> ctarget expr-type ret-f)]
     (assoc expr
-           expr-type (ret (Un -true -false)
+           expr-type (ret (parse-type 'boolean) 
                           ;flip filters
                           (-FS fs- fs+)
                           -empty))))
@@ -6903,7 +6927,7 @@
 ;apply
 (defmethod invoke-special #'clojure.core/apply
   [expr & [expected]]
-  (prn "special apply:")
+  ;(prn "special apply:")
   (let [e (invoke-apply expr expected)]
     (when (= e ::not-special)
       (throw (Exception. (str "apply must be special:" (-> expr :args first :var)))))
@@ -6981,7 +7005,7 @@
   (let [parsed-ty (parse-type tsyn)
         ;unwrap poly
         [uty orig-names inst-frees bnds poly?] (unwrap-poly parsed-ty)
-        _ (prn "ann-form expected" (unparse-type uty))
+        ;_ (prn "ann-form expected" (unparse-type uty))
         cty (with-free-mappings (case poly?
                                   :Poly (zipmap orig-names inst-frees)
                                   :PolyDots (zipmap (next orig-names) (next inst-frees))
@@ -7016,6 +7040,7 @@
 ;polymorphic fn literal
 (defmethod invoke-special #'pfn>-ann
   [{:keys [fexpr args] :as expr} & [expected]]
+  (assert false "pfn> NYI")
   (let [[fexpr {poly-decl :val} {method-types-syn :val}] args
         frees-with-bounds (map parse-free poly-decl)
         fs (map (comp make-F first) frees-with-bounds)
@@ -7377,9 +7402,9 @@
             tail-bound nil
             tail-ty (ret-t (expr-type (check tail)))]
         (loop [[{:keys [dom rng rest drest] :as ftype0} :as fs] (:types body)]
-          (when (seq fs)
-            (prn "checking fn" (unparse-type (first fs))
-                 (mapv unparse-type arg-tys)))
+;          (when (seq fs)
+;            (prn "checking fn" (unparse-type (first fs))
+;                 (mapv unparse-type arg-tys)))
           (cond
             (empty? fs) (throw (Exception. "Bad arguments to polymorphic function in apply"))
             ;the actual work, when we have a * function and a list final argument
@@ -7397,8 +7422,8 @@
                                     (catch IllegalArgumentException e
                                       (throw e))
                                     (catch Exception e
-                                      (prn "caught failed polymorphic case")
-                                      (prn e)))]
+                                      ;(prn "caught failed polymorphic case")
+                                      ))]
               (check-funapp1 (subst-all substitution ftype0)
                              (map ret arg-tys) expected :check? false)
               (recur (next fs))))))
@@ -7620,39 +7645,15 @@
 
                    (check expr (ret ftype)))
     :else
-    (let [_ (prn methods methods-types expr)
-          ftype (apply make-FnIntersection (doall (map FnResult->Function 
-                                                   (doall 
-                                                     (map (fn [m {:keys [dom rng]}]
-                                                            (check-anon-fn-method m dom rng))
-                                                          methods methods-types)))))]
+    (let [;_ (prn methods methods-types expr)
+          ftype (apply make-FnIntersection (mapv FnResult->Function 
+                                                 (mapv (fn [m {:keys [dom rng]}]
+                                                         (check-anon-fn-method m dom rng))
+                                                       methods methods-types)))]
       (assoc expr
              expr-type (ret ftype (-FS -top -bot) -empty)))))
 
 (declare ^:dynamic *recur-target* ->RecurTarget)
-
-;(defn check-anon-fn-method
-;  [{:keys [required-params rest-param body] :as expr} dom rng]
-;  {:pre [(every? Type? dom)
-;         ((some-fn nil? Type?) rng)]
-;   :post [(FnResult? %)]}
-;  (assert (not rest-param))
-;  (let [syms (map :sym required-params)
-;        locals (zipmap syms dom)
-;        ; abstracting references to parameters is handled later in abstract-result, but
-;        ; suffers from bugs due to un-hygienic macroexpansion (see `abstract-result`)
-;        cbody (with-lexical-env env
-;                (binding [*recur-target* ]
-;                  (check body (when rng
-;                                (ret rng)))))]
-;    (->FnResult
-;      (map vector (map :sym required-params) dom)
-;      nil ;kws
-;      nil ;rest
-;      nil ;drest
-;      (if rng
-;        (ret rng)
-;        (expr-type cbody)))))
 
 (defn unwrap-poly
   "Return a pair vector of the instantiated body of the possibly polymorphic
@@ -7763,6 +7764,7 @@
         ; Update filters that reference bindings that the params shadow.
         ; Abstracting references to parameters is handled later in abstract-result, but
         ; suffers from bugs due to un-hygienic macroexpansion (see `abstract-result`).
+        ; In short, don't shadow parameters if you want meaningful filters.
         props (mapv (fn [oldp]
                       (reduce (fn [p sym]
                                 {:pre [(Filter? p)
@@ -7783,13 +7785,30 @@
               (assoc-in [:props] props)
               ;order important, (fn [a a & a]) prefers rightmost name
               (update-in [:l] merge (into {} fixed-entry) (into {} rest-entry)))
-        crng (with-lexical-env env
-               (with-recur-target (->RecurTarget dom rest drest nil)
-                 (check body expected-rng)))
-        ; Support subtractive information in propositions. To support (filter identity coll)
-        ; when coll is (All [x] (Seqable (U nil x))), and identity is (All [x] [(U nil x) -> (U nil x) : (! nil)])
-        ; Instead we want (All [x] [(U nil x) -> (U nil x) : (& x (! nil))])
-        
+        crng-nopass
+        (with-lexical-env env
+          (with-recur-target (->RecurTarget dom rest drest nil)
+            (check body expected-rng)))
+
+        ; Apply the filters of computed rng to the environment and express
+        ; changes to the lexical env as new filters, and conjoin with existing filters.
+
+        _ (prn "crng-nopass" crng-nopass)
+        {:keys [then else]} (-> crng-nopass expr-type ret-f)
+        then-env (env+ env [then] (atom true))
+        new-then-props (reduce (fn [fs [sym t]]
+                                 {:pre [((set-c? Filter?) fs)]}
+                                 (if (= t (get-in env [:l sym]))
+                                   ;type hasn't changed, no new propositions
+                                   fs
+                                   ;new type, add positive proposition
+                                   (conj fs (-filter t sym))))
+                               #{}
+                               (:l then-env))
+
+        crng (update-in crng-nopass [expr-type :fl :then] 
+                        (fn [f]
+                          (apply -and f new-then-props)))
         ]
     (FnResult->Function 
       (->FnResult fixed-entry nil 
@@ -7799,106 +7818,6 @@
                     [(:sym rest-param) drest])
                   (expr-type crng)))))
 
-;(defn check-anon-fn
-;  "Check anonymous function, with annotated methods. methods-types
-;  is a (Seqable (HMap {:dom (Seqable Type) :rng (U nil Type)}))"
-;  [{:keys [methods] :as expr} methods-types & {:keys [poly]}]
-;  {:pre [(every? (hmap-c? :dom (every-c? Type?)
-;                          :rng (some-fn nil? Type?)
-;                          :rest nil? ;TODO
-;                          :drest nil?) ;TODO
-;                 methods-types)
-;         ((some-fn nil? 
-;                   (every-c? (hvector-c? symbol? Bounds?)))
-;            poly)]
-;   :post [(TCResult? (expr-type %))]}
-;  (cond
-;    ; named fns must be fully annotated, and are checked with normal check
-;    (:name expr) (let [ftype (apply Fn-Intersection 
-;                                    (doall (for [{:keys [dom rng]} methods-types]
-;                                             (if rng
-;                                               (make-Function dom rng)
-;                                               (throw (Exception. "Named anonymous functions require return type annotation"))))))
-;                       ftype (if poly
-;                               (Poly* (map first poly)
-;                                      (map second poly)
-;                                      ftype)
-;                               ftype)]
-;
-;                   (check expr (ret ftype)))
-;    :else
-;    (let [_ (prn methods methods-types expr)
-;          ftype (apply Fn-Intersection (doall (map FnResult->Function 
-;                                                   (doall 
-;                                                     (map (fn [m {:keys [dom rng]}]
-;                                                            (check-anon-fn-method m dom rng))
-;                                                          methods methods-types)))))]
-;      (assoc expr
-;             expr-type (ret ftype (-FS -top -bot) -empty)))))
-;
-;(defn check-fn-expr [{:keys [methods name] :as expr} expected]
-;  (cond
-;    expected
-;    (let [[fin free-scope] (unwrap-poly (ret-t expected))
-;          _ (assert (Fn-Intersection? fin) 
-;                    (str (when *current-env*
-;                           (str (:line *current-env*) ": "))
-;                         (unparse-type fin) " is not a function type"))
-;          _ (assert ((hash-c? symbol? F?) free-scope))
-;          _ (with-locals (when name
-;                           {name (ret-t expected)})
-;              ;scope type variables from polymorphic type in body
-;              (binding [*free-scope* (merge *free-scope* free-scope)]
-;                (doseq [{:keys [required-params rest-param] :as method} methods]
-;                  (check-fn-method method (relevant-Fns required-params rest-param fin)))))]
-;      (assoc expr
-;             expr-type (ret (ret-t expected) (-FS -top -bot) -empty)))
-;
-;    name (throw (Exception. (str (when *current-env*
-;                                   (:line *current-env*))
-;                                 " Named anonymous functions should be fully annotated")))
-;    
-;    ;if no expected type, parse as anon fn with all parameters as Any
-;    :else (check-anon-fn expr (doall
-;                                (for [{:keys [required-params rest-param]} methods]
-;                                  (do (assert (not rest-param))
-;                                    {:dom (repeatedly (count required-params) ->Top)}))))))
-
-;(defn check-fn-method
-;  "Checks type of the method"
-;  [{:keys [required-params rest-param body] :as expr} expected-fns]
-;  {:pre [(sequential? expected-fns)
-;         (seq expected-fns)
-;         (every? Function? expected-fns)]}
-;  #_(prn "check-fn-method:" body)
-;  (doseq [{:keys [dom rng rest drest] :as ftype} expected-fns]
-;    (assert (not drest))
-;    (let [param-locals (let [dom-local (zipmap (map :sym required-params) dom)
-;                             rest-local (when (or rest-param rest)
-;                                          (assert (and rest rest-param))
-;                                          [(:sym rest-param) (Un -nil (RClass-of (Class->symbol ASeq) [rest]))])]
-;                         (conj dom-local rest-local))
-;          props (map (fn [oldp]
-;                       (reduce (fn [p sym]
-;                                 {:pre [(Filter? p)
-;                                        (symbol? sym)]}
-;                                 (subst-filter p sym -empty true))
-;                               oldp (keys param-locals)))
-;                     (:props *lexical-env*))
-;          env (-> *lexical-env*
-;                (assoc-in [:props] props)
-;                (update-in [:l] merge param-locals))
-;          res-expr (with-lexical-env env
-;                     (binding [*recur-target* (->RecurTarget dom nil nil nil)]
-;                       (check body (ret rng))))
-;          res-type (-> res-expr expr-type ret-t)]
-;      ; Is this sufficient? Are there filters that need to be checked?
-;      (subtype res-type (Result-type* rng)))))
-
-;; FUNCTION INFERENCE END
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ** END PORT **
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
@@ -8001,8 +7920,8 @@
                              (method->Function method)))
           _ (when inst?
               (let [ctarget (check (:target expr))]
-                (prn "check target" (unparse-type (ret-t (expr-type ctarget)))
-                     (unparse-type (RClass-of (Class->symbol (resolve (:declaring-class method))) nil)))
+;                (prn "check target" (unparse-type (ret-t (expr-type ctarget)))
+;                     (unparse-type (RClass-of (Class->symbol (resolve (:declaring-class method))) nil)))
                 (when-not (subtype? (ret-t (expr-type ctarget)) (RClass-of (Class->symbol (resolve (:declaring-class method)))
                                                                            nil))
                   (throw (Exception. (error-msg "Cannot call instance method " (Method->symbol method)
@@ -8101,7 +8020,7 @@
                               (manual-inst ctor-fn inst-types)
                               ctor-fn)]
                     (ret ctor-fn))
-          _ (prn "Expected constructor" (unparse-type (ret-t ifn)))
+          ;_ (prn "Expected constructor" (unparse-type (ret-t ifn)))
           cargs (mapv check args)
           res-type (check-funapp ifn (map expr-type cargs) nil)]
       (assoc expr
@@ -8706,7 +8625,7 @@
   ([form]
   `(-> (ast ~form) check expr-type unparse-TCResult))
   ([form expected]
-  `(-> (ast ~form) #(check % (parse-type '~expected) expr-type unparse-TCResult))))
+  `(-> (ast ~form) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))
 
 (defn check-ns 
   ([] (check-ns (ns-name *ns*)))

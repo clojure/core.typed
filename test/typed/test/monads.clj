@@ -375,11 +375,11 @@
     at all. It is useful for testing, for combination with monad
     transformers, and for code that is parameterized with a monad."
   [m-result identity
-   m-bind   (->
+   m-bind   (ann-form
               (fn m-result-id [mv f]
                 (f mv))
-              (ann-form (All [x y]
-                          [x [x -> y] -> y])))
+              (All [x y]
+                [x [x -> y] -> y]))
   ])
 
 ; Maybe monad
@@ -396,22 +396,25 @@
   represented by nil, any other value is considered valid. As soon as
   a step returns nil, the whole computation will yield nil as well."
   [m-zero   nil
-   m-result (->
+   m-result (ann-form 
               (fn m-result-maybe [v] v)
-              (ann-form (All [x] [x -> (U nil x)])))
-   m-bind   (-> 
+              (All [x] 
+                [x -> (U nil x)]))
+   m-bind   (ann-form 
               (fn m-bind-maybe [mv f]
                 (if (nil? mv) nil (f mv)))
-              (ann-form (All [x y]
-                          [(U nil x) [x -> x] -> (U nil x)])))
-   m-plus   (-> 
+              (All [x y]
+                [(U nil x) [x -> x] -> (U nil x)]))
+   m-plus   (ann-form 
               (fn m-plus-maybe [& mvs]
-                ((inst first x)
-                  (unsafe-ann-form
-                    (filter #(not (nil? %)) mvs)
-                    (Seqable x))))
-              (ann-form (All [x]
-                          [(U nil x) * -> (U nil x)])))
+                (first 
+                  (filter
+                    (ann-form 
+                      #(not (nil? %))
+                      [(U nil x) -> boolean :filters {:then (is x 0)}])
+                    mvs)))
+              (All [x]
+                [(U nil x) * -> (U nil x)]))
    ])
 
 (ann flatten* 
@@ -534,6 +537,8 @@
   []
   (update-state (inst identity s)))
 
+(tc-ignore
+
 (ann fetch-val 
      (All [x y]
        [x -> (State y (IPersistentMap x y))]))
@@ -544,8 +549,6 @@
   (domonad state-m
     [^{:T (IPersistentMap x y)} s (fetch-state)]
     (get key s)))
-
-(tc-ignore
 
 (defn update-val
   "Return a state-monad function that assumes the state to be a map and
@@ -921,17 +924,18 @@
         (str (. Math sqrt x))))))
   )
 
-(run-cont ((inst sqrt-as-str String) 2))
-(run-cont (sqrt-as-str -2))
+;(run-cont ((inst sqrt-as-str String) 2))
+;(run-cont (sqrt-as-str -2))
 
-(domonad maybe-m
-  [a 5
-   :let [c 7]
-   :if (and (= a 5) (= c 7))
-   :then [b 6]
-   :else [b nil]]
-  [a b])
+;(domonad maybe-m
+;  [a 5
+;   :let [c 7]
+;   :if (and (= a 5) (= c 7))
+;   :then [b 6]
+;   :else [b nil]]
+;  [a b])
 
+(tc-ignore
 (cf
 (domonad maybe-m
   [^{:T Long} a 5
@@ -939,15 +943,15 @@
    :let [c 7]
    :if (and (= a 5) (= c 7))
    :then [^{:T Long} b 6]
-   :else [^{:T Nothing} b nil]]
+   :else [^{:T Long} b nil]]
   [(+ a b) b d])
   )
 
 
 (cf (domonad maybe-m
-             [^{:T AnyInteger} a 5]
-              ;:let [c 7]]
-             [a]))
+      [^{:T AnyInteger} a 5]
+      ;:let [c 7]]
+      [a]))
 
 (cf
 (let [{:keys [m-bind m-result]} maybe-m
@@ -957,10 +961,12 @@
   (m-bind 5 f))
 )
 
+  )
+
 (ann afun (All [x y] [(U x nil) [x -> (U nil y)] -> (U nil y)]))
 (ann bfun [Symbol -> (U nil Symbol)])
 (declare afun bfun)
-(cf (afun 'a bfun))
+(tc-ignore (cf (afun 'a bfun)))
 
 ;TODO these are test cases
 ;

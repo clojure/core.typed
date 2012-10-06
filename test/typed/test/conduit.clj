@@ -35,7 +35,7 @@
   (fn curr-fn [_]
     (let [new-f (conduit-seq-fn (rest l))]
       (if (empty? l)
-        [nil (inst abort-c x)]
+        [nil abort-c]
         [new-f
          (-> 
            (fn [c]
@@ -59,7 +59,7 @@
   "execute a stream processor function"
   [f]
   (let [[new-f c] (f nil)
-        y (c (inst identity (Result x)))]
+        y (c identity)]
     (cond
       (nil? new-f) (list)
       (empty? y) (recur new-f)
@@ -73,9 +73,9 @@
 (defn comp-fn2 [f1 f2]
   (fn curr-fn [x]
     (let [[new-f1 first-c] (f1 x)
-          y (first-c (inst identity (Result y)))
+          y (first-c identity)
           [new-f2 new-c] (if (empty? y)
-                           [f2 (inst abort-c z)]
+                           [f2 abort-c]
                            (f2 (first y)))]
       [(when (and new-f1 new-f2)
          ((inst comp-fn2 x y z) new-f1 new-f2)) 
@@ -88,25 +88,22 @@
            ['1 (U nil (==> y z)) -> (==> '[x y] '[x z])])))
 (defn nth-fn [n f]
   (fn curr-fn [xs]
-    (let [abort-c (ann-form (inst abort-c Any)
-                            (Fn [(U nil [(Result '[x y]) -> (Result '[z y])]) -> (Result '[z y])]
-                                [(U nil [(Result '[x y]) -> (Result '[x z])]) -> (Result '[x z])]))]
-      (cond 
-        (<= (count xs) n) [curr-fn abort-c]
-        (nil? f) [nil abort-c] ;added - Ambrose
-        :else
-        (let [[new-f new-c] (f (nth xs n))
-              next-c (->
-                       (fn [c]
-                         (if (nil? c)
-                           (new-c nil)
-                           (let [y (new-c (inst identity (Result z)))]
-                             (if (empty? y)
-                               (c [])
-                               (c [(assoc xs n (first y))])))))
-                       (ann-form (Fn [(U nil [(Result '[x y]) -> (Result '[z y])]) -> (Result '[z y])]
-                                     [(U nil [(Result '[x y]) -> (Result '[x z])]) -> (Result '[x z])])))]
-          [((inst nth-fn x y z) n new-f) next-c])))))
+    (cond 
+      (<= (count xs) n) [curr-fn abort-c]
+      (nil? f) [nil abort-c] ;added - Ambrose
+      :else
+      (let [[new-f new-c] (f (nth xs n))
+            next-c (->
+                     (fn [c]
+                       (if (nil? c)
+                         (new-c nil)
+                         (let [y (new-c identity)]
+                           (if (empty? y)
+                             (c [])
+                             (c [(assoc xs n (first y))])))))
+                     (ann-form (Fn [(U nil [(Result '[x y]) -> (Result '[z y])]) -> (Result '[z y])]
+                                   [(U nil [(Result '[x y]) -> (Result '[x z])]) -> (Result '[x z])])))]
+        [((inst nth-fn x y z) n new-f) next-c]))))
 
 (declare-names AParCtor)
 
@@ -124,8 +121,8 @@
                  (do
                    (c1 nil)
                    (c2 nil))
-                 (let [y1 (c1 (inst identity (Result z)))
-                       y2 (c2 (inst identity (Result a)))]
+                 (let [y1 (c1 identity)
+                       y2 (c2 identity)]
                    (if (some empty? [y1 y2])
                      (c [])
                      (c [(concat y1 y2)])))))
@@ -287,21 +284,51 @@
 
 (ann conduit-map
      (All [x y]
-       [(==> x y) (Seqable x) -> (Seqable y)]))
+       [(==> x y) (Option (Seqable x)) -> (Option (Seqable y))]))
 (defn conduit-map [p l]
   (if (empty? l)
     l
-    (a-run (ann-form
-             (comp-fn2 
-               (ann-form (conduit-seq l) (==> Any x))
-               (ann-form p (==> x y)))
-             (==> Any y)))))
+    (a-run (a-comp (conduit-seq l) p))))
 
 (ann pass-through 
      (All [x]
        (==> x x)))
 (def pass-through
   (a-arr (inst identity x)))
+
+
+
+
+; TEST
+
+
+(tc-ignore
+(cf ((inst a-run clojure.lang.Keyword) 
+   (conduit-seq-fn [:a :b :c]))
+  )
+  )
+
+(ann pl (==> Number Number))
+(def pl ((inst a-arr Number Number) inc))
+
+(ann t2 (==> Number Number))
+(def t2 (a-arr (ann-form #(* 2 %) [Number -> Number])))
+
+(ann flt (==> Number Number))
+(def flt (fn this-fn [x]
+           (if (odd? x)
+             [this-fn abort-c]
+             [this-fn (fn [c] (c [x]))])))
+
+
+
+
+
+
+
+
+
+
 
 ;(ann a-selectp
 ;     (All [x y z a]
