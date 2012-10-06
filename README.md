@@ -25,12 +25,10 @@ Leiningen:
 
 * Equality filters for occurrence typing
 * Type check multimethods
-* Filter syntax
 * Rest type checking in fn definition
 * Type check defprotocol definitions
 * Unify AST with ClojureScript
 * Namespace dependency management
-* Difference Type
 * Check [Asteriods](https://github.com/ztellman/penumbra/blob/master/test/example/game/asteroids.clj)
 
 # Examples
@@ -76,9 +74,28 @@ but usage checking should work.
 
 ## c.c/apply NYI
 
-## Filter syntax
+## Using `filter`
 
-Current type syntax doesn't support adding filters to function types.
+Not everything can be inferred from a `filter`. A common example is
+`(filter identity coll)` does not work. The reason is `identity` only
+gives negative information when its result is true: that the argument is *not*
+`(U nil false).
+
+This idiom must be converted to this syntax `(fn [a] a)` and then annotated with
+positive propositions.
+
+```clojure
+;eg. 
+
+(filter (ann-form (fn [a] a)
+                  [(U nil Number) -> (U nil Number) :filters {:then (is Number 0)}])
+        [1 nil 2])
+; :- (Seqable Number)
+```
+
+Positive information infers just fine, like `(filter number? coll).
+The above idiom is useful when you have a type like `(U nil x)` and there is no
+predicate to test for `x`.
 
 # Usage
 

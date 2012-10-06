@@ -385,7 +385,7 @@
 ; Maybe monad
 (ann maybe-m
     '{:m-bind (All [x y]
-                [(Option x) [x -> (Option y)] -> (Option y)])
+                [(U nil x) [x -> (U nil y)] -> (U nil y)])
       :m-result (All [x]
                   [x -> (U nil x)])
       :m-zero nil
