@@ -93,7 +93,7 @@ positive propositions.
 ; :- (Seqable Number)
 ```
 
-Positive information infers just fine, like `(filter number? coll).
+Positive information infers just fine, like `(filter number? coll)`.
 The above idiom is useful when you have a type like `(U nil x)` and there is no
 predicate to test for `x`.
 
