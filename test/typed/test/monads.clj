@@ -754,7 +754,7 @@
         -> (Monad (TFn [[y :variance :covariant]]
                     (m (U nil y))))]))
 
-((inst maybe-t (TFn [x] (Seqable x)))
+#_((inst maybe-t (TFn [[x :variance :covariant]] (Seqable x)))
    identity-m nil :m-plus-from-base)
 
 (defn maybe-t
@@ -800,6 +800,18 @@
                                  [(U x nil) -> (m (U x nil))]))))
                    (All [x] [(m (U x nil)) * -> (m (U x nil))])))
       ])))
+
+(ann seq-maybe-m (Monad 
+                   (TFn [[x :variance :covariant]]
+                     (Seqable (U nil x)))))
+(def seq-maybe-m ((inst maybe-t 
+                        (TFn [[x :variance :covariant]] 
+                          (Seqable x)))
+                    sequence-m nil :m-plus-default))
+
+(domonad seq-maybe-m
+  [^{:T AnyInteger} x  (map (fn> [[n :- AnyInteger]] (when (odd? n) n)) (range 10))]
+  (inc x))
 
 (defn sequence-t
   "Monad transformer that transforms a monad m into a monad in which

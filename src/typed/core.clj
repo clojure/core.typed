@@ -751,21 +751,30 @@
 
 (declare ^:dynamic *current-env* resolve-app*)
 
+(declare resolve-tapp*)
+
+(defn resolve-TApp [app]
+  {:pre [(TApp? app)]}
+  (resolve-tapp* (.rator app) (.rands app)))
+
+(defn resolve-tapp* [rator rands]
+  (let [_ (assert (TypeFn? rator))]
+    (assert (= (count rands) (.nbound rator))
+            (error-msg "Wrong number of arguments provided to type function"
+                       (unparse-type rator)))
+    (instantiate-typefn rator rands)))
+
 (defn resolve-App [app]
   {:pre [(App? app)]}
-  (resolve-app* (:rator app) (:rands app)))
+  (resolve-app* (.rator app) (.rands app)))
 
 (defn resolve-app* [rator rands]
   (let [rator (-resolve rator)]
     (cond
-      (Poly? rator) (do (assert (= (count rands) (:nbound rator))
+      (Poly? rator) (do (assert (= (count rands) (.nbound rator))
                                 (error-msg "Wrong number of arguments provided to polymorphic type"
                                      (unparse-type rator)))
                       (instantiate-poly rator rands))
-      (TypeFn? rator) (do (assert (= (count rands) (:nbound rator))
-                                  (error-msg "Wrong number of arguments provided to type function"
-                                             (unparse-type rator)))
-                        (instantiate-typefn rator rands))
       ;PolyDots NYI
       :else (throw (Exception. (str (when *current-env*
                                       (str (:line *current-env*) ": "))
@@ -781,6 +790,7 @@
     (Name? ty) (resolve-Name ty)
     (Mu? ty) (unfold ty)
     (App? ty) (resolve-App ty)
+    (TApp? ty) (resolve-TApp ty)
     :else ty))
 
 (defn resolve-Name [nme]
@@ -3186,6 +3196,7 @@
 
 (defmethod frees [::idxs F] [t] {})
 
+(defmethod frees [::any-var B] [t] {})
 (defmethod frees [::any-var EmptyObject] [t] {})
 (defmethod frees [::any-var CountRange] [t] {})
 (defmethod frees [::any-var Value] [t] {})
@@ -3286,6 +3297,10 @@
                                           (into {}
                                                 (for [[k _] fvs]
                                                   [k :invariant]))))))))
+
+(defmethod frees [::any-var Scope]
+  [{:keys [body]}]
+  (frees body))
 
 ;FIXME Type variable bounds should probably be checked for frees
 (defmethod frees [::any-var TypeFn]
@@ -3958,6 +3973,14 @@
         (cset-meet*
           (cons (empty-cset X Y)
                 (mapv #(cs-gen V X Y S %) (:types T))))
+
+        (and (TApp? S)
+             (TypeFn? (.rator S)))
+        (cs-gen V X Y (resolve-TApp S) T)
+
+        (and (TApp? T)
+             (TypeFn? (.rator T)))
+        (cs-gen V X Y S (resolve-TApp T))
 
         (App? S)
         (cs-gen V X Y (resolve-App S) T)
@@ -5146,34 +5169,39 @@
    :post [(Type? %)]}
   (cond
     (Poly? ptype)
-    (let [_ (assert (= (:nbound ptype) (count argtys)) (error-msg "Wrong number of arguments to instantiate polymorphic type"))
-          names (repeatedly (:nbound ptype) gensym)
+    (let [_ (assert (= (.nbound ptype) (count argtys)) (error-msg "Wrong number of arguments to instantiate polymorphic type"))
+          names (repeatedly (.nbound ptype) gensym)
           body (Poly-body* names ptype)
           bbnds (Poly-bbnds* names ptype)]
       (doseq [[nme ty bnds] (map vector names argtys bbnds)]
-        (assert (not (:higher-kind bnds)) "NYI")
-        (let [lower-bound (substitute-many (:lower-bound bnds) argtys names)
-              upper-bound (substitute-many (:upper-bound bnds) argtys names)]
-          (assert (subtype? lower-bound upper-bound)
-                  (error-msg "Lower-bound " (unparse-type lower-bound)
-                             " is not below upper-bound " (unparse-type upper-bound)))
-          (assert (and (subtype? ty upper-bound)
-                       (subtype? lower-bound ty))
-                  (error-msg "Manually instantiated type " (unparse-type ty)
-                             " is not between bounds " (unparse-type lower-bound)
-                             " and " (unparse-type upper-bound)))))
+        (if (.higher-kind bnds)
+          (do (assert (TypeFn? ty) (error-msg "Must instantiate higher-order type variable with type function, given:"
+                                              (unparse-type ty)))
+            (assert (subtype? ty (.higher-kind bnds))
+                    (error-msg "Higher-order type variable " (unparse-type ty)
+                               " does not match bound " (unparse-type (.higher-kind bnds)))))
+          (let [lower-bound (substitute-many (.lower-bound bnds) argtys names)
+                upper-bound (substitute-many (.upper-bound bnds) argtys names)]
+            (assert (subtype? lower-bound upper-bound)
+                    (error-msg "Lower-bound " (unparse-type lower-bound)
+                               " is not below upper-bound " (unparse-type upper-bound)))
+            (assert (and (subtype? ty upper-bound)
+                         (subtype? lower-bound ty))
+                    (error-msg "Manually instantiated type " (unparse-type ty)
+                               " is not between bounds " (unparse-type lower-bound)
+                               " and " (unparse-type upper-bound))))))
       (substitute-many body argtys names))
 
     (PolyDots? ptype)
-    (let [nrequired-types (dec (:nbound ptype))
+    (let [nrequired-types (dec (.nbound ptype))
           _ (assert (<= nrequired-types (count argtys)) "Insufficient arguments to instantiate dotted polymorphic type")
-          names (repeatedly (:nbound ptype) gensym)
+          names (repeatedly (.nbound ptype) gensym)
           body (PolyDots-body* names ptype)
           bbnds (PolyDots-bbnds* names ptype)]
       (doseq [[nme ty bnds] (map vector names argtys bbnds)]
-        (assert (not (:higher-kind bnds)) "NYI")
-        (let [lower-bound (substitute-many (:lower-bound bnds) argtys names)
-              upper-bound (substitute-many (:upper-bound bnds) argtys names)]
+        (assert (not (.higher-kind bnds)) "NYI")
+        (let [lower-bound (substitute-many (.lower-bound bnds) argtys names)
+              upper-bound (substitute-many (.upper-bound bnds) argtys names)]
           (assert (subtype? lower-bound upper-bound)
                   (error-msg "Lower-bound " (unparse-type lower-bound)
                              " is not below upper-bound " (unparse-type upper-bound)))
@@ -5268,6 +5296,14 @@
 
         (Name? t)
         (subtypeA* *sub-current-seen* s (resolve-Name t))
+
+        (and (TApp? s)
+             (TypeFn? (.rator s)))
+        (subtypeA* *sub-current-seen* (resolve-TApp s) t)
+
+        (and (TApp? t)
+             (TypeFn? (.rator t)))
+        (subtypeA* *sub-current-seen* s (resolve-TApp t))
 
         (App? s)
         (subtypeA* *sub-current-seen* (resolve-App s) t)
@@ -5466,6 +5502,17 @@
     *sub-current-seen*
     (type-error S T)))
 
+(defmethod subtype* [TypeFn TypeFn]
+  [S T]
+  (if (and (= (.nbound S) (.nbound T))
+           (= (.variances S) (.variances T))
+           (= (.bbnds S) (.bbnds T))
+           (let [names (repeatedly (.nbound S) gensym)
+                 sbody (TypeFn-body* names S)
+                 tbody (TypeFn-body* names T)]
+             (subtype? sbody tbody)))
+    *sub-current-seen*
+    (type-error S T)))
 
 (defmethod subtype* [Value AnyValue]
   [_ _]
@@ -6859,7 +6906,7 @@
                                                  (catch IllegalArgumentException e
                                                    (throw e))
                                                  (catch Exception e
-                                                   #_(pst e 40)))]
+                                                   (pst e 40)))]
                            (do ;(prn "subst:" substitution)
                              (check-funapp1 (subst-all substitution ftype)
                                             (map ret arg-types) expected :check? false))
@@ -8344,7 +8391,7 @@
            expr-type (ret (Un)))))
 
 (defn check-let [{:keys [binding-inits body is-loop] :as expr} expected & {:keys [expected-bnds]}]
-  (assert (or (not is-loop) expected-bnds) "Loop requires more annotations")
+  (assert (or (not is-loop) expected-bnds) (error-msg "Loop requires more annotations"))
   (let [env (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
