@@ -28,6 +28,8 @@
              :refer (tc-ignore check-ns ann def-alias unsafe-ann-form ann-form inst fn> pfn>
                                AnyInteger tc-pr-env cf Option)]))
 
+;; Monad Protocols
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Defining monads
@@ -362,8 +364,18 @@
 
 (def-alias Undefined '::undefined)
 
+(def-alias Monad 
+  (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
+    '{:m-bind (All [x y]
+                [(m x) [x -> (m y)] -> (m y)])
+      :m-result (All [x]
+                  [x -> (m x)])
+      :m-zero Undefined
+      :m-plus Undefined}))
+
 ; Identity monad
-(ann identity-m
+(ann identity-m (Monad (TFn [[x :variance :covariant]] x)))
+#_(ann identity-m
      '{:m-bind (All [x y]
                  [x [x -> y] -> y])
        :m-result (All [x]
@@ -383,14 +395,9 @@
   ])
 
 ; Maybe monad
-(ann maybe-m
-    '{:m-bind (All [x y]
-                [(U nil x) [x -> (U nil y)] -> (U nil y)])
-      :m-result (All [x]
-                  [x -> (U nil x)])
-      :m-zero nil
-      :m-plus (All [x]
-                [(U nil x) * -> (U nil x)])})
+(ann maybe-m (Monad 
+               (TFn [[x :variance :covariant]] 
+                 (U nil x))))
 (defmonad maybe-m
   "Monad describing computations with possible failures. Failure is
   represented by nil, any other value is considered valid. As soon as
@@ -404,7 +411,7 @@
               (fn m-bind-maybe [mv f]
                 (if (nil? mv) nil (f mv)))
               (All [x y]
-                [(U nil x) [x -> x] -> (U nil x)]))
+                [(U nil x) [x -> (U nil x)] -> (U nil x)]))
    m-plus   (ann-form 
               (fn m-plus-maybe [& mvs]
                 (first 
@@ -422,11 +429,12 @@
        [(U nil (Seqable (Seqable x))) -> (Seqable x)]))
 
 ; Sequence monad (called "list monad" in Haskell)
-(ann sequence-m 
+(ann sequence-m (Monad (TFn [[x :variance :covariant]] (Seqable x))))
+#_(ann sequence-m 
      '{:m-bind (All [x y]
-                 [(Seqable x) [x -> (Seqable (Seqable y))] -> (Seqable (Seqable y))])
+                 [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])
        :m-result (All [x]
-                   [(Seqable x) -> (Seqable (Seqable x))])
+                   [x -> (Seqable x)])
        :m-zero (Seqable Nothing)
        :m-plus (All [x]
                     [(Seqable x) * -> (Seqable x)])})
@@ -437,12 +445,12 @@
    [m-result (->
                (fn m-result-sequence [v]
                  (list v))
-               (ann-form (All [x] [(Seqable x) -> (Seqable (Seqable x))])))
+               (ann-form (All [x] [x -> (Seqable x)])))
     m-bind   (->
                (fn m-bind-sequence [mv f]
                  (flatten* (map f mv)))
                (ann-form (All [x y]
-                           [(Seqable x) [x -> (Seqable (Seqable y))] -> (Seqable (Seqable y))])))
+                           [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])))
     m-zero   (list)
     m-plus   (-> 
                (fn m-plus-sequence [& mvs]
@@ -456,7 +464,8 @@
        [(IPersistentSet x) * -> (IPersistentSet x)]))
 
 ; Set monad
-(ann set-m
+(ann set-m (Monad (TFn [[x :variance :covariant]] (IPersistentSet x))))
+#_(ann set-m
     '{:m-bind (All [x y]
                    [(IPersistentSet x) [x -> (IPersistentSet y)] -> (IPersistentSet y)])
       :m-result (All [x]
@@ -472,7 +481,7 @@
                (fn m-bind-set [mv f]
                  (apply clojure.set/union (map f mv)))
                (ann-form (All [x y]
-                           [(Seqable (IPersistentSet x)) [(IPersistentSet x) -> (IPersistentSet y)] -> (IPersistentSet y)])))
+                           [(IPersistentSet x) [x -> (IPersistentSet y)] -> (IPersistentSet y)])))
     m-zero   #{}
     m-plus   (->
                (fn m-plus-set [& mvs]
@@ -485,7 +494,10 @@
 (def-alias State
   (All [s a]
     [s -> '[a s]]))
-(ann state-m
+(ann state-m (All [s]
+               (Monad (TFn [[x :variance :covariant]]
+                        (State s x)))))
+#_(ann state-m
      '{:m-result (All [s a]
                    [a -> (State s a)])
        :m-bind (All [s a b]
@@ -736,7 +748,15 @@
         :m-plus (with-monad ~base ~'m-plus))
       combined-monad#)))
 
-(tc-ignore
+(ann maybe-t
+     (All [[m :kind (TFn [[x :variance :covariant]] Any)]]
+       [(Monad m) nil (U ':m-plus-default ':m-plus-from-base)
+        -> (Monad (TFn [[y :variance :covariant]]
+                    (m (U nil y))))]))
+
+((inst maybe-t (TFn [x] (Seqable x)))
+   identity-m nil :m-plus-from-base)
+
 (defn maybe-t
   "Monad transformer that transforms a monad m into a monad in which
    the base values can be invalid (represented by nothing, which defaults
@@ -745,28 +765,40 @@
    behaviour (use :m-plus-from-transformer). The default is :m-plus-from-base
    if the base monad m has a definition for m-plus, and
    :m-plus-from-transformer otherwise."
-  ([m] (maybe-t m nil :m-plus-default))
-  ([m nothing] (maybe-t m nothing :m-plus-default))
+;  ([m] (maybe-t m nil :m-plus-default))
+;  ([m nothing] (maybe-t m nothing :m-plus-default))
   ([m nothing which-m-plus]
    (monad-transformer m which-m-plus
      [m-result (with-monad m m-result)
       m-bind   (with-monad m
-                 (fn m-bind-maybe-t [mv f]
-                   (m-bind mv
-                           (fn [x]
-                             (if (identical? x nothing)
-                               (m-result nothing)
-                               (f x))))))
+                 (ann-form
+                   (fn m-bind-maybe-t [mv f]
+                     (m-bind
+                        (ann-form mv (m (U a nil)))
+                        (ann-form
+                          (fn [x]
+                            (if (nil? x)
+                              (ann-form (m-result nothing) 
+                                        (m nil))
+                              (ann-form (f x)
+                                        (m (U nil b)))))
+                          [(U nil a) -> (m (U nil b))])))
+                   (All [a b]
+                        [(m (U nil a)) [a -> (m (U nil b))] -> (m (U nil b))])))
       m-zero   (with-monad m (m-result nothing))
       m-plus   (with-monad m
-                 (fn m-plus-maybe-t [& mvs]
-                   (if (empty? mvs)
-                     (m-result nothing)
-                     (m-bind (first mvs)
-                             (fn [v]
-                               (if (= v nothing)
-                                 (apply m-plus-maybe-t (rest mvs))
-                                 (m-result v)))))))
+                 (ann-form
+                   (fn m-plus-maybe-t [& mvs]
+                     (if (empty? mvs)
+                       (m-result nothing)
+                       (m-bind (first mvs)
+                               (ann-form
+                                 (fn [v]
+                                   (if (= v nothing)
+                                     (apply m-plus-maybe-t (rest mvs))
+                                     (m-result v)))
+                                 [(U x nil) -> (m (U x nil))]))))
+                   (All [x] [(m (U x nil)) * -> (m (U x nil))])))
       ])))
 
 (defn sequence-t
@@ -822,8 +854,6 @@
                          (fn [s]
                            (apply m-plus (map #(% s) stms))))))
           ]))
-
-  )
 
 (ann clojure.core/range
      (Fn [-> (Seqable AnyInteger)]
@@ -935,7 +965,7 @@
 ;   :else [b nil]]
 ;  [a b])
 
-(tc-ignore
+#_(tc-ignore
 (cf
 (domonad maybe-m
   [^{:T Long} a 5

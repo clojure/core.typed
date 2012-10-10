@@ -1020,10 +1020,18 @@
                           'a))))
          (parse-type '(U typed.core/AnyInteger (Value a))))))
 
-;(deftest f-bound-test
-;  )
-
-;(deftest f-bound-test
-;  )
-;(deftest f-bound-test
-;  )
+(deftest type-fn-test 
+  (is (= (with-bounded-frees [[(make-F 'm) (tfn-bound (parse-type '(TFn [[x :variance :covariant]] Any)))]]
+           (check-funapp
+             (ret (parse-type '(All [x]
+                                    [x -> (m x)])))
+           [(ret -nil)]
+           nil))
+         (->TApp (make-F 'm) [-nil])))
+  (is (with-bounded-frees [[(make-F 'm) (tfn-bound (parse-type '(TFn [[x :variance :covariant]] Any)))]]
+        (check-funapp
+          (ret (parse-type '(All [x]
+                                 [x -> (m x)])))
+          [(ret -nil)]
+          (ret
+            (parse-type '(m nil))))))
