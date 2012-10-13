@@ -188,6 +188,25 @@
                    (symbol (str (name (ns-name *ns*))) (name sym#)))]
        (declare-protocol* qsym#)))))
 
+(defmacro declare-alias-kind
+  "Declare a kind for an alias, similar to declare but on the kind level."
+  [sym ty]
+  `(tc-ignore
+   (let [sym# '~sym
+         qsym# (if (namespace sym#)
+                 sym#
+                 (symbol (name (ns-name *ns*)) (name sym#)))
+         ty# (parse-type '~ty)]
+     (assert (not (namespace sym#)) (str "Cannot declare qualified name " sym#))
+     (declare ~sym)
+     (declare-names ~sym)
+     (declare-alias-kind* qsym# ty#))))
+
+(declare add-declared-kind)
+
+(defn declare-alias-kind* [sym ty]
+  (add-declared-kind sym ty))
+
 (defmacro declare-names 
   "Declare names, similar to declare but on the type level."
   [& syms]
@@ -206,9 +225,12 @@
                 '~sym
                 (symbol (name (ns-name *ns*)) (name '~sym)))
          ty# (parse-type '~type)]
-     (add-type-name sym# ty#)
-     (declare ~sym)
-     [sym# (unparse-type ty#)])))
+    (add-type-name sym# ty#)
+    (declare ~sym)
+    (when-let [tfn# (@DECLARED-KIND-ENV sym#)]
+      (assert (subtype? ty# tfn#) (error-msg "Declared kind " (unparse-type tfn#)
+                                             " does not match actual kind " (unparse-type ty#))))
+    [sym# (unparse-type ty#)])))
 
 (defn into-array>* [javat cljt coll]
   (into-array (resolve javat) coll))
@@ -296,12 +318,18 @@
 
 (declare TCResult? Result? Function? DottedPretype? TypeFn?)
 
+(def AnyType ::AnyType)
+
 (defn AnyType? [a]
-  ((some-fn Type? TCResult? Result? Function? DottedPretype? TypeFn?)
-     a))
+  (isa? (class a) AnyType))
+
+(derive Type AnyType)
 
 (defn declare-type [a]
   (derive a Type))
+
+(defn declare-AnyType [a]
+  (derive a AnyType))
 
 (defrecord Top []
   "The top type"
@@ -707,7 +735,7 @@
 
 (defrecord TApp [rator rands]
   "An application of a type function to arguments."
-  [((some-fn TypeFn? F? B?) rator)
+  [((some-fn Name? TypeFn? F? B?) rator)
    (every? (some-fn TypeFn? Type?) rands)])
 
 (declare-type TApp) ;not always a type
@@ -732,7 +760,7 @@
 (declare error-msg)
 
 (defn instantiate-typefn [t types]
-  (assert (TypeFn? t))
+  (assert (TypeFn? t) (unparse-type t))
   (do (assert (= (.nbound t) (count types)) (error-msg "Wrong number of arguments passed to type function: "
                                                        (unparse-type t) (mapv unparse-type types)))
     (let [nms (repeatedly (.nbound t) gensym)
@@ -758,7 +786,10 @@
   (resolve-tapp* (.rator app) (.rands app)))
 
 (defn resolve-tapp* [rator rands]
-  (let [_ (assert (TypeFn? rator))]
+  (prn 'resolve-tapp*)
+  (prn rator)
+  (let [rator (-resolve rator)
+        _ (assert (TypeFn? rator) (unparse-type rator))]
     (assert (= (count rands) (.nbound rator))
             (error-msg "Wrong number of arguments provided to type function"
                        (unparse-type rator)))
@@ -893,6 +924,8 @@
   [(Type? pre-type)
    ((some-fn symbol? nat?) name)])
 
+(declare-AnyType DottedPretype)
+
 (defrecord KwArgs [mandatory optional]
   "A set of mandatory and optional keywords"
   [(map? mandatory)
@@ -913,6 +946,8 @@
        (DottedPretype? drest))
    (or (nil? kws)
        (KwArgs? kws))])
+
+(declare-AnyType Function)
 
 (defrecord TopFunction []
   "Supertype to all functions"
@@ -990,6 +1025,8 @@
   [(Type? t)
    (Filter? fl)
    (RObject? o)])
+
+(declare-AnyType Result)
 
 (defn Result->TCResult [{:keys [t fl o] :as r}]
   {:pre [(Result? r)]
@@ -1872,6 +1909,8 @@
    (FilterSet? fl)
    (RObject? o)])
 
+(declare-AnyType TCResult)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Paths
 
@@ -2298,6 +2337,20 @@
             (params param))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Declared kind Env
+
+(defonce DECLARED-KIND-ENV (atom {}))
+(set-validator! DECLARED-KIND-ENV (hash-c? (every-pred symbol? namespace) TypeFn?))
+
+(defn add-declared-kind [sym tfn]
+  (swap! DECLARED-KIND-ENV assoc sym tfn))
+
+(defn get-declared-kind [sym]
+  (if-let [tfn (@DECLARED-KIND-ENV sym)]
+    tfn
+    (throw (Exception. (error-msg "No declared kind for Name " sym)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Name Env
 
 (def declared-name-type ::declared-name)
@@ -2314,7 +2367,7 @@
                                                                  (fn [k] (some (fn [a] (= \. a)) (str k))))
                                                         symbol?) 
                                             (keys %))
-                                    (every? (some-fn Type? (fn [a] (isa? a temp-binding))) 
+                                    (every? (some-fn Type? (fn [a] (isa? a temp-binding)))
                                             (vals %))))
 
 (defn add-type-name [sym ty]
@@ -2395,12 +2448,38 @@
 (def ^:dynamic *free-scope* {})
 (set-validator! #'*free-scope* #((hash-c? symbol? (hmap-c? :F F? :bnds Bounds?)) %))
 
-(defn free-in-scope [name]
+(defn free-with-name 
+  "Find the free with the actual name name, as opposed to
+  the alias used for scoping"
+  [name]
+  {:pre [(symbol? name)]
+   :post [((some-fn nil? F?) %)]}
+  (some (fn [[_ {{fname :name :as f} :F}]]
+          (when (= name fname)
+            f))
+        *free-scope*))
+
+(defn free-with-name-bnds 
+  "Find the bounds for the free with the actual name name, as opposed to
+  the alias used for scoping"
+  [name]
+  {:pre [(symbol? name)]
+   :post [((some-fn nil? Bounds?) %)]}
+  (some (fn [[_ {{fname :name} :F :keys [bnds]}]]
+          (when (= name fname)
+            bnds))
+        *free-scope*))
+
+(defn free-in-scope 
+  "Find the free scoped as name"
+  [name]
   {:pre [(symbol? name)]
    :post [((some-fn nil? F?) %)]}
   (:F (*free-scope* name)))
 
-(defn free-in-scope-bnds [name]
+(defn free-in-scope-bnds 
+  "Find the bounds for the free scoped as name"
+  [name]
   {:pre [(symbol? name)]
    :post [((some-fn nil? Bounds?) %)]}
   (:bnds (*free-scope* name)))
@@ -2579,6 +2658,8 @@
   [syn]
   (parse-fn-intersection-type syn))
 
+(declare fv-variances)
+
 (defn parse-type-fn 
   [[_ binder bodysyn :as tfn]]
   (assert (= 3 (count tfn)))
@@ -2600,7 +2681,15 @@
                                                 (parse-type kind))})}))
         bodyt (with-bounded-frees (map (fn [{:keys [nme bound]}] [(make-F nme) bound])
                                        free-maps)
-                (parse-type bodysyn))]
+                (parse-type bodysyn))
+        vs (with-bounded-frees (map (fn [{:keys [nme bound]}] [(make-F nme) bound])
+                                    free-maps)
+             (fv-variances bodyt))
+        _ (doseq [{:keys [nme variance]} free-maps]
+            (when-let [actual-v (vs nme)]
+              (assert (= (vs nme) variance)
+                      (error-msg "Type variable " nme " appears in " (name actual-v) " position "
+                                 "when declared " (name variance)))))]
     (with-meta (TypeFn* (map :nme free-maps) (map :variance free-maps)
                         (map :bound free-maps) bodyt)
                {:actual-frees (map :nme free-maps)})))
@@ -2679,8 +2768,12 @@
       (if-let [t ((some-fn @DATATYPE-ENV @PROTOCOL-ENV @TYPE-NAME-ENV) rsym)]
         ;don't resolve if operator is declared
         (if (keyword? t)
-          (->App (->Name rsym) (mapv parse-type args))
-          (resolve-app* t (mapv parse-type args)))
+          (cond
+            ; declared names can be TFns
+            (isa? t declared-name-type) (->TApp (->Name rsym) (mapv parse-type args))
+            ; for now use Apps for declared Classes and protocols
+            :else (->App (->Name rsym) (mapv parse-type args)))
+          (->TApp (->Name rsym) (mapv parse-type args)))
         (cond
           ;a Class that's not a DataType
           (class? res) (RClass-of (Class->symbol res) (mapv parse-type args))
@@ -3222,10 +3315,26 @@
 
 (defmethod frees [::any-var TApp]
   [{:keys [rator rands]}]
-  (apply combine-frees 
-         (mapv frees (concat (when-not (F? rator) ;collect frees if rator is not a variable representing a higher kind
-                               (frees rator))
-                             rands))))
+  (apply combine-frees
+         (let [tfn (loop [rator rator]
+                     (prn rator)
+                     (prn *free-scope*)
+                     (cond
+                       (F? rator) (when-let [bnds (free-with-name-bnds (.name rator))]
+                                    (.higher-kind bnds))
+                       (Name? rator) (if (= declared-name-type (@TYPE-NAME-ENV (.id rator)))
+                                       (recur (get-declared-kind (.id rator)))
+                                       (recur (resolve-Name rator)))
+                       (TypeFn? rator) rator
+                       :else (throw (Exception. (error-msg "NYI case " (class rator) (unparse-type rator))))))
+               _ (assert (TypeFn? tfn))]
+           (mapv (fn [[v arg-vs]]
+                   (case v
+                     :covariant arg-vs
+                     :contravariant (flip-variances arg-vs)
+                     :invariant (into {} (for [[k _] arg-vs]
+                                           [k :invariant]))))
+                 (map vector (.variances tfn) (map frees rands))))))
 
 (defmethod frees [::any-var PrimitiveArray]
   [{:keys [input-type output-type]}] 
@@ -3898,7 +4007,7 @@
          (AnyType? S)
          (AnyType? T)]
    :post [(cset? %)]}
-  #_(prn "cs-gen" (unparse-type S) (unparse-type T))
+  (prn "cs-gen" (unparse-type S) (unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (subtype? S T))
     ;already been around this loop, is a subtype
@@ -3923,11 +4032,19 @@
               body (Poly-body* nms S)]
           (cs-gen (set/union (set nms) V) X Y body T))
 
+        (and (TApp? S)
+             (not (F? (.rator S))))
+        (cs-gen V X Y (resolve-TApp S) T)
+
+        (and (TApp? T)
+             (not (F? (.rator T))))
+        (cs-gen V X Y S (resolve-TApp T))
+
         ;constrain *each* element of S to be below T, and then combine the constraints
         (Union? S)
         (cset-meet*
           (cons (empty-cset X Y)
-                (mapv #(cs-gen V X Y % T) (:types S))))
+                (mapv #(cs-gen V X Y % T) (.types S))))
 
         ;; find *an* element of T which can be made a supertype of S
         (Union? T)
@@ -3935,7 +4052,7 @@
                                                    (catch IllegalArgumentException e
                                                      (throw e))
                                                    (catch Exception e)) 
-                                                (:types T))))]
+                                                (.types T))))]
           (cset-combine cs)
           (type-error S T))
 
@@ -3973,14 +4090,6 @@
         (cset-meet*
           (cons (empty-cset X Y)
                 (mapv #(cs-gen V X Y S %) (:types T))))
-
-        (and (TApp? S)
-             (TypeFn? (.rator S)))
-        (cs-gen V X Y (resolve-TApp S) T)
-
-        (and (TApp? T)
-             (TypeFn? (.rator T)))
-        (cs-gen V X Y S (resolve-TApp T))
 
         (App? S)
         (cs-gen V X Y (resolve-App S) T)
@@ -4058,7 +4167,7 @@
 
 (defmethod cs-gen* :default
   [V X Y S T]
-  ;(prn "cs-gen* default" (class S) (class T))
+(prn "cs-gen* default" (class S) (class T))
   (when (some Result? [S T])
     (throw (IllegalArgumentException. (error-msg "Result on left or right "
                                                  (pr-str S) " " (pr-str T)))))
@@ -4199,13 +4308,13 @@
       (insert-constraint name ps -any (X name)))))
 
 (defn cs-gen-left-F [V X Y S T]
-  #_(prn "cs-gen* [F Type]" S T)
+  (prn "cs-gen* [F Type]" S T)
   (cond
-    (contains? X (:name S))
+    (contains? X (.name S))
     (demote-F V X Y S T)
 
     (and (F? T)
-         (contains? X (:name T)))
+         (contains? X (.name T)))
     (promote-F V X Y S T)
 
     :else (type-error S T)))
@@ -4787,21 +4896,22 @@
          (AnyType? R)
          ((some-fn nil? AnyType?) expected)]
    :post [((some-fn nil? true? substitution-c?) %)]}
-;  (prn "infer" )
-;  (prn "X:" X) 
-;  (prn "Y:" Y) 
-;  (prn "S:" (map unparse-type S))
-;  (prn "T:" (map unparse-type T))
-;  (when R
-;    (prn "R:" (class R) (unparse-type R)))
-;  (when expected
-;    (prn "expected:" (class expected) (unparse-type expected)))
+  (prn "infer" )
+  (prn "X:" X) 
+  (prn "Y:" Y) 
+  (prn "S:" (map unparse-type S))
+  (prn "T:" (map unparse-type T))
+  (when R
+    (prn "R:" (class R) (unparse-type R)))
+  (when expected
+    (prn "expected:" (class expected) (unparse-type expected)))
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset {} {}))
+        _ (prn "expected cset" expected-cset)
         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
         cs* (cset-meet cs expected-cset)]
-    ;(prn "final cs" cs*)
+    (prn "final cs" cs*)
     (if R
       (subst-gen cs* (set (keys Y)) R)
       true)))
@@ -5175,11 +5285,21 @@
           bbnds (Poly-bbnds* names ptype)]
       (doseq [[nme ty bnds] (map vector names argtys bbnds)]
         (if (.higher-kind bnds)
-          (do (assert (TypeFn? ty) (error-msg "Must instantiate higher-order type variable with type function, given:"
-                                              (unparse-type ty)))
-            (assert (subtype? ty (.higher-kind bnds))
-                    (error-msg "Higher-order type variable " (unparse-type ty)
-                               " does not match bound " (unparse-type (.higher-kind bnds)))))
+          (do 
+            (if (F? ty)
+              (assert (and (TypeFn? (.higher-kind bnds))
+                           (let [given-bnds (free-with-name-bnds (.name ty))
+                                 _ (assert given-bnds *free-scope*)]
+                             (and (.higher-kind given-bnds)
+                                  (subtype? (.higher-kind given-bnds) (.higher-kind bnds)))))
+                      (error-msg "Must instantitate higher-order type variable with another higher-order type variable, given: "
+                                 (unparse-type ty)))
+              (do 
+                (assert (TypeFn? ty) (error-msg "Must instantiate higher-order type variable with type function, given:"
+                                                (unparse-type ty)))
+                (assert (subtype? ty (.higher-kind bnds))
+                        (error-msg "Higher-order type variable " (unparse-type ty)
+                                   " does not match bound " (unparse-type (.higher-kind bnds)))))))
           (let [lower-bound (substitute-many (.lower-bound bnds) argtys names)
                 upper-bound (substitute-many (.upper-bound bnds) argtys names)]
             (assert (subtype? lower-bound upper-bound)
@@ -5298,11 +5418,13 @@
         (subtypeA* *sub-current-seen* s (resolve-Name t))
 
         (and (TApp? s)
-             (TypeFn? (.rator s)))
+             (not (F? (.rator s)))
+             (not (TApp? t)))
         (subtypeA* *sub-current-seen* (resolve-TApp s) t)
 
         (and (TApp? t)
-             (TypeFn? (.rator t)))
+             (not (F? (.rator t)))
+             (not (TApp? s)))
         (subtypeA* *sub-current-seen* s (resolve-TApp t))
 
         (App? s)
@@ -5317,7 +5439,7 @@
           (type-error s t))
 
         (Union? t)
-        (if (some #(subtypeA*? *sub-current-seen* s %) (:types t))
+        (if (some #(subtypeA*? *sub-current-seen* s %) (.types t))
           *sub-current-seen*
           (type-error s t))
 
@@ -5335,18 +5457,18 @@
         (and (Intersection? s)
              (Intersection? t))
         (if (every? (fn [s*]
-                      (some #(subtype? s* %) (:types t)))
-                    (:types s))
+                      (some #(subtype? s* %) (.types t)))
+                    (.types s))
           *sub-current-seen*
           (type-error s t))
 
         (Intersection? s)
-        (if (some #(subtype? % t) (:types s))
+        (if (some #(subtype? % t) (.types s))
           *sub-current-seen*
           (type-error s t))
 
         (Intersection? t)
-        (if (every? #(subtype? s %) (:types t))
+        (if (every? #(subtype? s %) (.types t))
           *sub-current-seen*
           (type-error s t))
 
@@ -5376,7 +5498,7 @@
         (type-error (first argtys) (first dom))))))
 
 ;; simple co/contra-variance for ->
-(defn arr-subtype-nofail [A0 s t]
+(defn arr-subtype [A0 s t]
   {:pre [(Function? s)
          (Function? t)]}
   (assert (not (some :kws [s t])))
@@ -5388,29 +5510,29 @@
     (and (not ((some-fn :rest :drest :kws) s))
          (not ((some-fn :rest :drest :kws) t)))
     (do
-      (when-not (= (count (:dom s))
-                   (count (:dom t)))
+      (when-not (= (count (.dom s))
+                   (count (.dom t)))
         (type-error s t))
       (-> *sub-current-seen*
         ((fn [A0]
            (reduce (fn [A* [s t]]
                      (subtypeA* A* s t))
                    A0
-                   (map vector (:dom t) (:dom s)))))
-        (subtypeA* (:rng s) (:rng t))))
+                   (map vector (.dom t) (.dom s)))))
+        (subtypeA* (.rng s) (.rng t))))
 
     (and (:rest s)
          (not ((some-fn :rest :drest) t)))
     (-> *sub-current-seen*
-      (subtypes*-varargs (:dom t) (:dom s) (:rest s))
-      (subtypeA* (:rng s) (:rng t)))
+      (subtypes*-varargs (.dom t) (.dom s) (.rest s))
+      (subtypeA* (.rng s) (.rng t)))
 
     (and (not ((some-fn :rest :drest) s))
          (:rest t))
     (type-error s t)
 
-    (and (:rest s)
-         (:rest t))
+    (and (.rest s)
+         (.rest t))
     (-> *sub-current-seen*
       (subtypes*-varargs (:dom t) (:dom s) (:rest s))
       (subtypeA* (:rest t) (:rest s))
@@ -5431,7 +5553,11 @@
     :else (type-error s t)))
 
 (defn supertype-of-one-arr [A s ts]
-  (some #(arr-subtype-nofail A % s) ts))
+  (some #(try (arr-subtype A % s)
+           (catch IllegalArgumentException e
+             (throw e))
+           (catch Exception e))
+        ts))
 
 (defmethod subtype* [Result Result]
   [{t1 :t f1 :fl o1 :o :as s}
@@ -5482,23 +5608,91 @@
     *sub-current-seen*
     (type-error s t)))
 
+(defn subtype-TypeFn-app?
+  [tfn ltapp rtapp]
+  {:pre [(TypeFn? tfn)
+         (TApp? ltapp)
+         (TApp? rtapp)]}
+  (every? (fn [[v l r]]
+            (case v
+              :covariant (subtypeA*? *sub-current-seen* l r)
+              :contravariant (subtypeA*? *sub-current-seen* r l)
+              :invariant (and (subtypeA*? *sub-current-seen* l r)
+                              (subtypeA*? *sub-current-seen* r l))))
+          (map vector (.variances tfn) (.rands ltapp) (.rands rtapp))))
+
+(defmulti subtype-TApp? (fn [S T] 
+                          {:pre [(TApp? S)
+                                 (TApp? T)]}
+                          [(class (.rator S)) (class (.rator T))
+                           (= (.rator S) (.rator T))]))
+
+(defmethod subtype-TApp? [TypeFn TypeFn false]
+  [S T]
+  (subtypeA*? (conj *sub-current-seen* [S T]) (resolve-TApp S) (resolve-TApp T)))
+
+(defmethod subtype-TApp? [TypeFn TypeFn true]
+  [S T]
+  (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
+    (subtype-TypeFn-app? (.rator S) S T)))
+
+(defmethod subtype-TApp? [AnyType Name false]
+  [S T]
+  (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
+    (subtype-TApp? S (update-in T [:rator] resolve-Name))))
+
+(defmethod subtype-TApp? [Name AnyType false]
+  [S T]
+  (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
+    (subtype-TApp? (update-in S [:rator] resolve-Name) T)))
+
+; for [Name Name false]
+(prefer-method subtype-TApp? 
+               [Name AnyType false]
+               [AnyType Name false])
+
+;same operator
+(defmethod subtype-TApp? [Name Name true]
+  [S T]
+  (let [r (resolve-Name (.rator S))]
+    (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
+      (subtype-TApp? (assoc-in S [:rator] r)
+                     (assoc-in T [:rator] r)))))
+
+; only subtypes if applied to the same F
+(defmethod subtype-TApp? [F F false] [S T] false)
+(defmethod subtype-TApp? [F F true]
+  [S T]
+  (let [tfn (some (fn [[_ {{:keys [name]} :F :keys [bnds]}]] 
+                    (when (= name (.name (.rator S)))
+                      (.higher-kind bnds)))
+                  *free-scope*)]
+    (subtype-TypeFn-app? tfn S T)))
+
+(defmethod subtype-TApp? :default [S T] false)
+
 (defmethod subtype* [TApp TApp]
   [S T]
-  (if (and (= (.rator S) (.rator T))
-           ;other cases NYI
-           (every? F? [(.rator S) (.rator T)])
-           (let [tfn (some (fn [[_ {{:keys [name]} :F :keys [bnds]}]] 
-                             (when (= name (.name (.rator S)))
-                               (.higher-kind bnds)))
-                           *free-scope*)
-                 _ (assert tfn)]
-             (every? (fn [[v l r]]
-                       (case v
-                         :covariant (subtypeA* *sub-current-seen* l r)
-                         :contravariant (subtypeA* *sub-current-seen* r l)
-                         :invariant (and (subtypeA* *sub-current-seen* l r)
-                                         (subtypeA* *sub-current-seen* r l))))
-                     (map vector (.variances tfn) (.rands S) (.rands T)))))
+  (if (subtype-TApp? S T)
+    *sub-current-seen*
+    (type-error S T)))
+
+(prefer-method subtype* [Type TApp] [HeterogeneousVector Type])
+(prefer-method subtype* [Type TApp] [Poly Type])
+
+(defmethod subtype* [TApp Type]
+  [S T]
+  (if (and (not (F? (.rator S)))
+           (subtypeA*? (conj *sub-current-seen* [S T])
+                       (resolve-TApp S) T))
+    *sub-current-seen*
+    (type-error S T)))
+
+(defmethod subtype* [Type TApp]
+  [S T]
+  (if (and (not (F? (.rator T)))
+           (subtypeA*? (conj *sub-current-seen* [S T])
+                       S (resolve-TApp T)))
     *sub-current-seen*
     (type-error S T)))
 
@@ -5931,8 +6125,8 @@
 ;; Type annotations
 
 (def-alias AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte))
-(def-alias Atom1 (All [x] (Atom x x)))
-(def-alias Option (All [x] (U nil x)))
+(def-alias Atom1 (TFn [[x :variance :invariant]] (Atom x x)))
+(def-alias Option (TFn [[x :variance :covariant]] (U nil x)))
 
 (ann clojure.core/*ns* Namespace)
 (ann clojure.core/namespace [(U Symbol String Keyword) -> (Option String)])
@@ -6248,10 +6442,10 @@
                         [Number * -> Number]))
 (ann clojure.core// [Number Number * -> Number])
 
-(ann clojure.core/inc (Fn [AnyInteger * -> AnyInteger]
-                          [Number * -> Number]))
-(ann clojure.core/dec (Fn [AnyInteger * -> AnyInteger]
-                          [Number * -> Number]))
+(ann clojure.core/inc (Fn [AnyInteger -> AnyInteger]
+                          [Number -> Number]))
+(ann clojure.core/dec (Fn [AnyInteger -> AnyInteger]
+                          [Number -> Number]))
 
 (ann clojure.core/even? [AnyInteger -> boolean])
 (ann clojure.core/odd? [AnyInteger -> boolean])
@@ -6848,16 +7042,25 @@
         [t-r f-r o-r] (open-Result rng o-a t-a)]
     (ret t-r f-r o-r)))
 
+(defn resolve-to-ftype [expected]
+  (loop [etype expected 
+         seen #{}]
+    (if (seen etype)
+      (throw (Exception. (error-msg "Stuck in loop, cannot resolve function type "
+                                    (unparse-type (ret-t expected)))))
+      (let [seen (conj seen etype)]
+        (cond
+          (Name? etype) (recur (resolve-Name etype) seen)
+          (TApp? etype) (recur (resolve-TApp etype) seen)
+          :else etype)))))
+
 ; TCResult TCResult^n (U nil TCResult) -> TCResult
 (defn check-funapp [fexpr-ret-type arg-ret-types expected]
   {:pre [(TCResult? fexpr-ret-type)
          (every? TCResult? arg-ret-types)
          ((some-fn nil? TCResult?) expected)]
    :post [(TCResult? %)]}
-  (let [fexpr-type (let [t (ret-t fexpr-ret-type)]
-                     (if (Name? t)
-                       (resolve-Name t)
-                       t))
+  (let [fexpr-type (resolve-to-ftype (ret-t fexpr-ret-type))
         arg-types (doall (map ret-t arg-ret-types))]
     (prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
     (cond
@@ -6894,9 +7097,9 @@
             _ (assert (FnIntersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (.types body)]
                        (when ftype
-;                         (prn "infer poly fn" (unparse-type ftype) (map unparse-type arg-types)
-;                              (count dom) (count arg-types))
-;                         (when rest (prn "rest" (unparse-type rest)))
+                         (prn "infer poly fn" (unparse-type ftype) (map unparse-type arg-types)
+                              (count dom) (count arg-types))
+                         (when rest (prn "rest" (unparse-type rest)))
                          ;; only try inference if argument types are appropriate and no kws
                          (if-let [substitution (try
                                                  (and (not (or drest kws))
@@ -6906,8 +7109,8 @@
                                                  (catch IllegalArgumentException e
                                                    (throw e))
                                                  (catch Exception e
-                                                   (pst e 40)))]
-                           (do ;(prn "subst:" substitution)
+                                                   (prn e)))]
+                           (do (prn "subst:" substitution)
                              (check-funapp1 (subst-all substitution ftype)
                                             (map ret arg-types) expected :check? false))
                            (if (or drest kws)
@@ -7813,8 +8016,8 @@
   (let [nreq (count required-params)]
     (filter (fn [{:keys [dom rest]}]
               (if rest-param 
-                (= nreq (count dom))
-                (<= nreq (count dom))))
+                (<= nreq (count dom))
+                (= nreq (count dom))))
             (:types fin))))
 
 (declare check-fn)
@@ -8022,8 +8225,10 @@
   "Check a fn to be under expected and annotate the inferred type"
   [{:keys [methods variadic-method] :as fexpr} expected]
   {:pre [(TCResult? expected)]}
-  (let [; unwrap polymorphic expected types
-        [fin orig-names inst-frees bnds poly?] (unwrap-poly (-resolve (ret-t expected))) ;is one resolve enough? probably not..
+  (let [; try and unwrap type enough to find function types
+        exp (resolve-to-ftype (ret-t expected))
+        ; unwrap polymorphic expected types
+        [fin orig-names inst-frees bnds poly?] (unwrap-poly exp)
         ;ensure a function type
         _ (assert (FnIntersection? fin)
                   (str (when *current-env*
@@ -8035,8 +8240,9 @@
                                     {name (ret-t expected)})
                        ;scope type variables from polymorphic type in body
                        (with-free-mappings (case poly?
-                                             :Poly (zipmap orig-names inst-frees)
-                                             :PolyDots (zipmap (next orig-names) (next inst-frees))
+                                             :Poly (zipmap orig-names (map #(hash-map :F %1 :bnds %2) inst-frees bnds))
+                                             :PolyDots (zipmap (next orig-names) 
+                                                               (map #(hash-map :F %1 :bnds %2) (next inst-frees) (next bnds)))
                                              nil)
                          (with-dotted-mappings (case poly?
                                                  :PolyDots {(last orig-names) (last inst-frees)}
@@ -8078,7 +8284,11 @@
   (let [expected-rng (Result->TCResult (:rng expected))
         ;ensure Function fits method
         _ (assert ((if rest <= =) (count required-params) (count dom))
-                  (error-msg "Checking method with incorrect number of expected parameters"))
+                  (error-msg "Checking method with incorrect number of expected parameters"
+                             ", expected " (count dom) " required parameter(s) with"
+                             (if rest " a " " no ") "rest parameter, found " (count required-params)
+                             " required parameter(s) and" (if rest-param " a " " no ")
+                             "rest parameter."))
 
         _ (assert (or (not rest-param)
                       (some identity [drest rest]))

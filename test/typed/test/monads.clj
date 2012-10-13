@@ -224,14 +224,14 @@
             exprs           (map second options)
             ]
         `(do
-           (defsymbolmacro ~name #(~fn-name ~'m-bind ~'m-result 
-                                     ~'m-zero ~'m-plus %))
+           (defsymbolmacro ~name (partial ~fn-name ~'m-bind ~'m-result 
+                                          ~'m-zero ~'m-plus))
            (defn ~fn-name ~@(map make-fn-body arglists exprs))))
       ; single arity
       (let [[args expr] options]
         `(do
-           (defsymbolmacro ~name #(~fn-name ~'m-bind ~'m-result 
-                                     ~'m-zero ~'m-plus %))
+           (defsymbolmacro ~name (partial ~fn-name ~'m-bind ~'m-result 
+                                          ~'m-zero ~'m-plus))
            (defn ~fn-name ~@(make-fn-body args expr)))))))
 
 
@@ -268,6 +268,17 @@
   [m]
   (m-bind m identity))
 
+(ann m+m-fmap+m (All [[m :kind (TFn [[x :variance :covariant]] Any)] x y]
+                    [(All [x y]
+                       [(m x) [x -> (m y)] -> (m y)])
+                     (All [x]
+                       [x -> (m x)])
+                     (m Nothing)
+                     (All [x]
+                       [(m x) * -> (m x)])
+                     [x -> y]
+                     (m x)
+                     -> (m y)]))
 (defmonadfn m-fmap
   "Bind the monadic value m to the function returning (f x) for argument x"
   [f m]
@@ -346,7 +357,9 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(tc-ignore
+(ann flatten* 
+     (All [x]
+       [(Option (Seqable (Option (Seqable x)))) -> (Seqable x)]))
 (defn- flatten*
   "Like #(apply concat %), but fully lazy: it evaluates each sublist
    only when it is needed."
@@ -354,7 +367,6 @@
   (lazy-seq
    (when-let [s (seq ss)]
      (concat (first s) (flatten* (rest s))))))
-  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -363,6 +375,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def-alias Undefined '::undefined)
+
+(def-alias AnyMonad 
+  (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
+    '{:m-bind (All [x y]
+                [(m x) [x -> (m y)] -> (m y)])
+      :m-result (All [x]
+                  [x -> (m x)])
+      :m-zero (U (m Nothing) Undefined)
+      :m-plus (U (All [x]
+                   [(m x) * -> (m x)])
+                 Undefined)}))
 
 (def-alias Monad 
   (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
@@ -373,15 +396,37 @@
       :m-zero Undefined
       :m-plus Undefined}))
 
+(def-alias MonadZero
+  (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
+    '{:m-bind (All [x y]
+                [(m x) [x -> (m y)] -> (m y)])
+      :m-result (All [x]
+                  [x -> (m x)])
+      :m-zero (m Nothing)
+      :m-plus Undefined}))
+
+(def-alias MonadPlus
+  (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
+    '{:m-bind (All [x y]
+                [(m x) [x -> (m y)] -> (m y)])
+      :m-result (All [x]
+                  [x -> (m x)])
+      :m-zero Undefined
+      :m-plus (All [x]
+                [(m x) * -> (m x)])}))
+
+(def-alias MonadPlusZero
+  (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
+    '{:m-bind (All [x y]
+                [(m x) [x -> (m y)] -> (m y)])
+      :m-result (All [x]
+                  [x -> (m x)])
+      :m-zero (m Nothing)
+      :m-plus (All [x]
+                [(m x) * -> (m x)])}))
+
 ; Identity monad
 (ann identity-m (Monad (TFn [[x :variance :covariant]] x)))
-#_(ann identity-m
-     '{:m-bind (All [x y]
-                 [x [x -> y] -> y])
-       :m-result (All [x]
-                   [x -> x])
-       :m-zero '::undefined
-       :m-plus '::undefined})
 (defmonad identity-m
    "Monad describing plain computations. This monad does in fact nothing
     at all. It is useful for testing, for combination with monad
@@ -395,7 +440,7 @@
   ])
 
 ; Maybe monad
-(ann maybe-m (Monad 
+(ann maybe-m (MonadPlusZero
                (TFn [[x :variance :covariant]] 
                  (U nil x))))
 (defmonad maybe-m
@@ -411,7 +456,7 @@
               (fn m-bind-maybe [mv f]
                 (if (nil? mv) nil (f mv)))
               (All [x y]
-                [(U nil x) [x -> (U nil x)] -> (U nil x)]))
+                [(U nil x) [x -> (U nil y)] -> (U nil y)]))
    m-plus   (ann-form 
               (fn m-plus-maybe [& mvs]
                 (first 
@@ -424,20 +469,8 @@
                 [(U nil x) * -> (U nil x)]))
    ])
 
-(ann flatten* 
-     (All [x]
-       [(U nil (Seqable (Seqable x))) -> (Seqable x)]))
-
 ; Sequence monad (called "list monad" in Haskell)
-(ann sequence-m (Monad (TFn [[x :variance :covariant]] (Seqable x))))
-#_(ann sequence-m 
-     '{:m-bind (All [x y]
-                 [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])
-       :m-result (All [x]
-                   [x -> (Seqable x)])
-       :m-zero (Seqable Nothing)
-       :m-plus (All [x]
-                    [(Seqable x) * -> (Seqable x)])})
+(ann sequence-m (MonadPlusZero (TFn [[x :variance :covariant]] (Seqable x))))
 (defmonad sequence-m
    "Monad describing multi-valued computations, i.e. computations
     that can yield multiple values. Any object implementing the seq
@@ -464,12 +497,8 @@
        [(IPersistentSet x) * -> (IPersistentSet x)]))
 
 ; Set monad
-(ann set-m (Monad (TFn [[x :variance :covariant]] (IPersistentSet x))))
-#_(ann set-m
-    '{:m-bind (All [x y]
-                   [(IPersistentSet x) [x -> (IPersistentSet y)] -> (IPersistentSet y)])
-      :m-result (All [x]
-                     [x -> (IPersistentSet x)])})
+(ann set-m (MonadPlusZero (TFn [[x :variance :covariant]] 
+                            (IPersistentSet x))))
 (defmonad set-m
    "Monad describing multi-valued computations, like sequence-m,
     but returning sets of results instead of sequences of results."
@@ -492,18 +521,12 @@
 
 ; State monad
 (def-alias State
-  (All [s a]
+  (TFn [[s :variance :invariant]
+        [a :variance :covariant]]
     [s -> '[a s]]))
 (ann state-m (All [s]
                (Monad (TFn [[x :variance :covariant]]
                         (State s x)))))
-#_(ann state-m
-     '{:m-result (All [s a]
-                   [a -> (State s a)])
-       :m-bind (All [s a b]
-                 [(State s a) [a -> (State s b)] -> (State s b)])
-       :m-plus Undefined
-       :m-zero Undefined})
 (defmonad state-m
    "Monad describing stateful computations. The monadic values have the
     structure (fn [old-state] [result new-state])."
@@ -547,7 +570,7 @@
   "Return a state-monad function that returns the current state and does not
    modify it."
   []
-  (update-state (inst identity s)))
+  (update-state identity))
 
 (tc-ignore
 
@@ -659,14 +682,20 @@
   )
 
 (def-alias Cont1
-  (All [a r]
+  (TFn [[a :variance :contravariant]
+        [r :variance :covariant]]
     [a -> r]))
 
 ; Continuation monad
 (def-alias ContM
-  (All [a r]
+  (TFn [[a :variance :covariant]
+        [r :variance :invariant]]
     (Cont1 (Cont1 a r) r)))
-(ann cont-m
+(ann cont-m (All [r]
+              (Monad (TFn [[x :variance :covariant]]
+                       (ContM x r)))))
+
+#_(ann cont-m
      (All [r]
        '{:m-result (All [x]
                      [x -> (ContM x r)])
@@ -699,7 +728,7 @@
 (defn run-cont
   "Execute the computation c in the cont monad and return its result."
   [c]
-  (c (inst identity x)))
+  (c identity))
 
 (ann call-cc
      (All [x r]
@@ -750,13 +779,14 @@
 
 (ann maybe-t
      (All [[m :kind (TFn [[x :variance :covariant]] Any)]]
-       [(Monad m) nil (U ':m-plus-default ':m-plus-from-base)
-        -> (Monad (TFn [[y :variance :covariant]]
-                    (m (U nil y))))]))
-
-#_((inst maybe-t (TFn [[x :variance :covariant]] (Seqable x)))
-   identity-m nil :m-plus-from-base)
-
+       (Fn 
+         [(AnyMonad m) -> (MonadPlusZero (TFn [[y :variance :covariant]]
+                                              (m (U nil y))))]
+         [(AnyMonad m) nil -> (MonadPlusZero (TFn [[y :variance :covariant]]
+                                                  (m (U nil y))))]
+         [(AnyMonad m) nil (U ':m-plus-default ':m-plus-from-base)
+          -> (MonadPlusZero (TFn [[y :variance :covariant]]
+                                 (m (U nil y))))])))
 (defn maybe-t
   "Monad transformer that transforms a monad m into a monad in which
    the base values can be invalid (represented by nothing, which defaults
@@ -765,8 +795,8 @@
    behaviour (use :m-plus-from-transformer). The default is :m-plus-from-base
    if the base monad m has a definition for m-plus, and
    :m-plus-from-transformer otherwise."
-;  ([m] (maybe-t m nil :m-plus-default))
-;  ([m nothing] (maybe-t m nothing :m-plus-default))
+  ([m] ((inst maybe-t m) m nil :m-plus-default))
+  ([m nothing] ((inst maybe-t m) m nothing :m-plus-default))
   ([m nothing which-m-plus]
    (monad-transformer m which-m-plus
      [m-result (with-monad m m-result)
@@ -774,17 +804,15 @@
                  (ann-form
                    (fn m-bind-maybe-t [mv f]
                      (m-bind
-                        (ann-form mv (m (U a nil)))
-                        (ann-form
-                          (fn [x]
-                            (if (nil? x)
-                              (ann-form (m-result nothing) 
-                                        (m nil))
-                              (ann-form (f x)
-                                        (m (U nil b)))))
-                          [(U nil a) -> (m (U nil b))])))
+                       mv
+                       (ann-form
+                         (fn [x]
+                           (if (nil? x)
+                             (m-result nothing) 
+                             (f x)))
+                         [(U nil a) -> (m (U nil b))])))
                    (All [a b]
-                        [(m (U nil a)) [a -> (m (U nil b))] -> (m (U nil b))])))
+                     [(m (U nil a)) [a -> (m (U nil b))] -> (m (U nil b))])))
       m-zero   (with-monad m (m-result nothing))
       m-plus   (with-monad m
                  (ann-form
@@ -801,6 +829,7 @@
                    (All [x] [(m (U x nil)) * -> (m (U x nil))])))
       ])))
 
+(comment
 (ann seq-maybe-m (Monad 
                    (TFn [[x :variance :covariant]]
                      (Seqable (U nil x)))))
@@ -812,7 +841,16 @@
 (domonad seq-maybe-m
   [^{:T AnyInteger} x  (map (fn> [[n :- AnyInteger]] (when (odd? n) n)) (range 10))]
   (inc x))
+  )
 
+(ann sequence-t
+     (All [[m :kind (TFn [[x :variance :covariant]] Any)]]
+       (Fn 
+         [(AnyMonad m) -> (AnyMonad (TFn [[x :variance :covariant]]
+                                      (m (Seqable x))))]
+         [(AnyMonad m) (U ':m-plus-default ':m-plus-from-base)
+          -> (AnyMonad (TFn [[x :variance :covariant]]
+                         (Seqable (m x))))])))
 (defn sequence-t
   "Monad transformer that transforms a monad m into a monad in which
    the base values are sequences. The argument which-m-plus chooses
@@ -821,7 +859,7 @@
    behaviour (use :m-plus-from-transformer). The default is :m-plus-from-base
    if the base monad m has a definition for m-plus, and
    :m-plus-from-transformer otherwise."
-  ([m] (sequence-t m :m-plus-default))
+  ([m] ((inst sequence-t m) m :m-plus-default))
   ([m which-m-plus]
    (monad-transformer m which-m-plus
      [m-result (with-monad m

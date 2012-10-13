@@ -1,29 +1,31 @@
 (ns typed.test.conduit
   (:import (clojure.lang Seqable IMeta IPersistentMap LazySeq ISeq))
   (:require [typed.core :refer [check-ns ann fn> def-alias tc-ignore ann-form declare-names inst
-                                tc-pr-env inst-ctor cf Option]]
+                                tc-pr-env inst-ctor cf Option declare-alias-kind AnyInteger]]
             [clojure.repl :refer [pst]]
             [arrows.core :refer [defarrow]]))
 
 (def-alias Result
-  (All [x]
+  (TFn [[x :variance :covariant]]
     (U nil ;stream is closed
        '[] ;abort/skip
        '[x];consume/continue
        )))
 
 (def-alias Cont
-  (All [x]
-    [(U nil [(Result x) -> (Result x)]) -> (Result x)]))
+  (TFn [[in :variance :covariant]
+        [out :variance :invariant]]
+    [(Option [(Result in) -> (Result out)]) -> (Result out)]))
 
-(declare-names ==>)
+(declare-alias-kind ==> (TFn [[in :variance :contravariant]
+                              [out :variance :invariant]] Any))
 
 (def-alias ==>
-  (All [in out]
-       [in -> '[(U nil (==> in out))
-                (Cont out)]]))
+  (TFn [[in :variance :contravariant] 
+        [out :variance :invariant]]
+    [in -> '[(U nil (==> in out)) (Cont out out)]]))
 
-(ann abort-c (All [x] (Cont x)))
+(ann abort-c (All [x] (Cont x x)))
 (defn abort-c [c]
   (when c
     (c [])))
@@ -41,7 +43,7 @@
            (fn [c]
              (when c ;`when` added to conform to Cont type - Ambrose
                (c [(first l)])))
-           (ann-form (Cont x)))]))))
+           (ann-form (Cont x x)))]))))
 
 (ann conduit-seq
      (All [x]
@@ -50,7 +52,7 @@
   "create a stream processor that emits the contents of a list
   regardless of what is fed to it"
   [l]
-  (conduit-seq-fn l))
+  ((inst conduit-seq-fn x) l))
 
 (ann a-run
      (All [x]
@@ -69,7 +71,7 @@
 
 (ann comp-fn2
      (All [x y z]
-          [(==> x y) (==> y z) -> (==> x z)]))
+       [(==> x y) (==> y z) -> (==> x z)]))
 (defn comp-fn2 [f1 f2]
   (fn curr-fn [x]
     (let [[new-f1 first-c] (f1 x)
@@ -86,6 +88,7 @@
      (All [x y z]
        (Fn ['0 (U nil (==> x z)) -> (==> '[x y] '[z y])]
            ['1 (U nil (==> y z)) -> (==> '[x y] '[x z])])))
+(tc-ignore
 (defn nth-fn [n f]
   (fn curr-fn [xs]
     (cond 
@@ -93,17 +96,20 @@
       (nil? f) [nil abort-c] ;added - Ambrose
       :else
       (let [[new-f new-c] (f (nth xs n))
-            next-c (->
+            _ (tc-pr-env "after new-f")
+            next-c (ann-form
                      (fn [c]
                        (if (nil? c)
-                         (new-c nil)
+                         (do (new-c nil)
+                           nil)
                          (let [y (new-c identity)]
                            (if (empty? y)
                              (c [])
                              (c [(assoc xs n (first y))])))))
-                     (ann-form (Fn [(U nil [(Result '[x y]) -> (Result '[z y])]) -> (Result '[z y])]
-                                   [(U nil [(Result '[x y]) -> (Result '[x z])]) -> (Result '[x z])])))]
+                     (Fn [(U nil [(Result '[x y]) -> (Result '[z y])]) -> (Result '[z y])]
+                         [(U nil [(Result '[x y]) -> (Result '[x z])]) -> (Result '[x z])]))]
         [((inst nth-fn x y z) n new-f) next-c]))))
+  )
 
 (declare-names AParCtor)
 
@@ -126,7 +132,7 @@
                    (if (some empty? [y1 y2])
                      (c [])
                      (c [(concat y1 y2)])))))
-             (ann-form (Cont '[z a])))])
+             (ann-form (Cont '[z a] '[z a])))])
         [curr-fn abort-c])
       [curr-fn abort-c])))
 
@@ -173,7 +179,7 @@
 
 (def-alias AArrCtor 
   (All [x y]
-       [[x -> y] -> (==> x y)]))
+    [[x -> y] -> (==> x y)]))
 
 (def-alias ACompCtor
   (All [x y z]
@@ -214,13 +220,13 @@
                          (fn [c]
                            (when c
                              (c [y])))
-                         (ann-form (Cont y)))]
+                         (ann-form (Cont y y)))]
                  [a-arr c])))
            (ann-form AArrCtor))
 
    a-comp (->
             (fn [p1 p2]
-              (comp-fn2 p1 p2))
+              ((inst comp-fn2 x y z) p1 p2))
             (ann-form ACompCtor))
 
    ;apply p to position n in passed pair
@@ -241,20 +247,21 @@
    a-all (ann-form 
            (fn [p1 p2]
              (ann-form
-               (a-comp (ann-form
-                         (a-arr (ann-form #(vector % %)
-                                          [x -> '[x x]]))
-                         (==> x '[x x]))
-                       (ann-form 
-                         (a-par p1 p2)
-                         (==> '[x x] '[y z])))
+               ((inst a-comp x '[x x] '[y z])
+                  (ann-form
+                    (a-arr (ann-form #(vector % %)
+                                     [x -> '[x x]]))
+                    (==> x '[x x]))
+                  (ann-form 
+                    ((inst a-par x x y z) p1 p2)
+                    (==> '[x x] '[y z])))
                (==> x '[y z])))
            AAllCtor)
 
    ;select a value
    a-select (ann-form
               (fn [pair-map]
-                (select-fn pair-map))
+                ((inst select-fn x y z) pair-map))
               ASelectCtor)
 
 ;   a-loop (ann-form 
@@ -288,7 +295,8 @@
 (defn conduit-map [p l]
   (if (empty? l)
     l
-    (a-run (a-comp (conduit-seq l) p))))
+    (a-run ((inst a-comp Any x y)
+              (conduit-seq l) p))))
 
 (ann pass-through 
      (All [x]
@@ -302,7 +310,7 @@
 ; TEST
 
 
-(tc-ignore
+#_(tc-ignore
 (cf ((inst a-run clojure.lang.Keyword) 
    (conduit-seq-fn [:a :b :c]))
   )
@@ -314,11 +322,13 @@
 (ann t2 (==> Number Number))
 (def t2 (a-arr (ann-form #(* 2 %) [Number -> Number])))
 
-(ann flt (==> Number Number))
+(ann flt (==> AnyInteger AnyInteger))
 (def flt (fn this-fn [x]
            (if (odd? x)
              [this-fn abort-c]
-             [this-fn (fn [c] (c [x]))])))
+             [this-fn (ann-form (fn [c] (when c 
+                                          (c [x])))
+                                (Cont AnyInteger AnyInteger))])))
 
 
 
