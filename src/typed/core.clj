@@ -539,7 +539,7 @@
          (every? Type? poly?)
          (symbol? the-class)]}
   (if (seq variances)
-    (Poly* names (repeat (count names) no-bounds) (->RClass variances poly? the-class replacements))
+    (Poly* names (repeat (count names) no-bounds) (->RClass variances poly? the-class replacements) names)
     (->RClass nil nil the-class replacements)))
 
 (declare poly-RClass-from)
@@ -646,28 +646,37 @@
           (visit-bounds b #(instantiate-many names %)))
         (.bbnds typefn)))
 
-(defrecord Poly [nbound bbnds scope]
-  "A polymorphic type containing n bound variables"
+(defrecord Poly [nbound bbnds scope actual-frees]
+  "A polymorphic type containing n bound variables, with display names actual-frees"
   [(nat? nbound)
    (every? Bounds? bbnds)
-   (apply = nbound (map count [bbnds]))
+   (every? symbol? actual-frees)
+   (apply = nbound (map count [bbnds actual-frees]))
    (scope-depth? scope nbound)
    (Scope? scope)])
 
 (declare-type Poly)
 
 ;smart constructor
-(defn Poly* [names bbnds body]
+(defn Poly* [names bbnds body free-names]
   {:pre [(every? symbol names)
          (every? Bounds? bbnds)
-         (Type? body)]}
+         (Type? body)
+         (every? symbol? free-names)
+         (apply = (map count [names bbnds free-names]))]}
   (if (empty? names)
     body
     (->Poly (count names) 
             (vec
               (for [bnd bbnds]
                 (visit-bounds bnd #(abstract-many names %))))
-            (abstract-many names body))))
+            (abstract-many names body)
+            free-names)))
+
+(defn Poly-free-names* [poly]
+  {:pre [(Poly? poly)]
+   :post [((every-pred seq (every-c? symbol?)) %)]}
+  (.actual-frees poly))
 
 ;smart destructor
 (defn Poly-body* [names poly]
@@ -958,7 +967,8 @@
   If upper is nil, between lower and infinity."
   [(nat? lower)
    (or (nil? upper)
-       (nat? upper))])
+       (and (nat? upper)
+            (<= lower upper)))])
 
 (defrecord GTRange [n]
   "The type of all numbers greater than n"
@@ -1230,7 +1240,8 @@
                                       (-> bnd
                                         (update-in [:upper-bound] type-rec)
                                         (update-in [:lower-bound] type-rec))))
-                                  (type-rec body)))))
+                                  (type-rec body)
+                                  (Poly-free-names* ty)))))
 
 (add-default-fold-case PolyDots
                        (fn [ty _]
@@ -1325,14 +1336,84 @@
 (defn is-var-mutated? [id]
   (contains? *mutated-bindings* id))
 
+;; FIXME much better algorithms around I'm sure
+(defn countrange-overlap? 
+  [{lowerl :lower upperl :upper :as l}
+   {lowerr :lower upperr :upper :as r}]
+  {:pre [(CountRange? l)
+         (CountRange? r)]}
+  (prn 'countrange-overlap?)
+  (prn l r)
+  (cond 
+    (and upperl upperr)
+        (or 
+          ;; -----
+          ;;   -------
+          ;; and
+          ;;   ---
+          ;;   -------
+          (<= lowerl lowerr upperl upperr)
+
+          ;;    --
+          ;;   -------
+          (<= lowerr lowerl upperl upperr)
+
+          ;;     ------
+          ;; -------
+          ;; and
+          ;;     ---
+          ;; -------
+          (<= lowerr lowerl upperr upperl)
+
+          ;; otherwise no overlap
+          false)
+
+    upperl ;; and (not upperr)
+      (or 
+        ;; ----
+        ;;  ----->>
+        ;; and
+        ;;  ---
+        ;;  ----->>
+        (<= lowerl lowerr upperl)
+        ;;   ---
+        ;;  ----->>
+        (<= lowerr lowerl)
+        ;; otherwise no overlap
+        false)
+    upperr
+      (or
+        ;; ------>>
+        ;;  ----
+        ;; and
+        ;;  ----->>
+        ;;  ---
+        (<= lowerl lowerr)
+        
+        ;;   --->>
+        ;; ----
+        (<= lowerr lowerl upperr)
+
+        ;; else no overlap
+        false)
+    :else ;; (and (not upperl) (not upperr))
+    ;; ---->>
+    ;;   -->>
+    ;; and
+    ;;   -->>
+    ;; ---->>
+    true))
+
+
 ;true if types t1 and t2 overlap (NYI)
 (defn overlap [t1 t2]
   (cond 
     (= t1 t2) true
-    (and (Value? t1)
-         (Value? t2)) (= t1 t2)
-    (Value? t1) (subtype? t1 t2)
-    (Value? t2) (subtype? t2 t1)
+    (or (Value? t1)
+        (Value? t2)) (or (subtype? t1 t2)
+                         (subtype? t2 t1))
+    (and (CountRange? t1)
+         (CountRange? t2)) (countrange-overlap? t1 t2)
 ;    (and (Name? t1)
 ;         (Name? t2)) (overlap (-resolve t1) (-resolve t2))
 ;    (Name? t1) (overlap (-resolve t1) t2)
@@ -2064,15 +2145,15 @@
            args# '~args
            vs# '~variances
            dt# (if args#
-                 (with-meta (Poly* args# (repeat (count args#) no-bounds)
-                                   (->DataType s# vs# (map make-F args#) fs#))
-                            {:actual-frees args#})
+                 (Poly* args# (repeat (count args#) no-bounds)
+                        (->DataType s# vs# (map make-F args#) fs#)
+                        args#)
                  (->DataType s# nil nil fs#))
            pos-ctor# (if args#
-                       (with-meta (Poly* args# (repeat (count args#) no-bounds)
-                                         (make-FnIntersection
-                                           (make-Function (vec (vals fs#)) (->DataType s# vs# (map make-F args#) fs#))))
-                                  {:actual-frees args#})
+                       (Poly* args# (repeat (count args#) no-bounds)
+                              (make-FnIntersection
+                                (make-Function (vec (vals fs#)) (->DataType s# vs# (map make-F args#) fs#)))
+                              args#)
                        (make-FnIntersection
                          (make-Function (vec (vals fs#)) dt#)))]
        (do 
@@ -2116,7 +2197,8 @@
                           [knq# (with-frees fs# (parse-type v#))])))
          t# (if fs#
               (Poly* (map :name fs#) (repeat (count fs#) no-bounds) 
-                     (->Protocol s# '~variances fs# on-class# ms#))
+                     (->Protocol s# '~variances fs# on-class# ms#)
+                     (map :name fs#))
               (->Protocol s# nil nil on-class# ms#))]
      (do
        (add-protocol s# t#)
@@ -2560,8 +2642,8 @@
                {:fsyn fread})))
 
 (defmethod parse-type-list 'CountRange
-  [[_ n]]
-  (make-CountRange n))
+  [[_ n u]]
+  (make-CountRange n u))
 
 (defmethod parse-type-list 'ExactCount
   [[_ n]]
@@ -2612,12 +2694,11 @@
                         (with-bounded-frees (map (fn [[n bnd]] [(make-F n) bnd]) fs)
                           (parse-free fsyn))))
                 [] bnds)]
-    (-> 
-      (Poly* (map first frees-with-bnds)
-             (map second frees-with-bnds)
-             (with-bounded-frees (map (fn [[n bnd]] [(make-F n) bnd]) frees-with-bnds)
-               (parse-type type)))
-      (vary-meta assoc :actual-frees (map first frees-with-bnds)))))
+    (Poly* (map first frees-with-bnds)
+           (map second frees-with-bnds)
+           (with-bounded-frees (map (fn [[n bnd]] [(make-F n) bnd]) frees-with-bnds)
+             (parse-type type))
+           (map first frees-with-bnds))))
 
 (defmethod parse-type-list 'All
   [[All bnds syn & more]]
@@ -3082,7 +3163,7 @@
 
 (defmethod unparse-type* Poly
   [{:keys [nbound] :as p}]
-  (let [free-names (-> p meta :actual-frees)
+  (let [free-names (Poly-free-names* p)
         given-names? free-names
         end-nme (if given-names?
                   *next-nme*
@@ -3094,9 +3175,7 @@
         bbnds (Poly-bbnds* fs-names p)
         fs (if given-names?
              (vec
-               (for [[name {:keys [upper-bound lower-bound higher-kind]}] (map vector 
-                                                                               (-> p meta :actual-frees)
-                                                                               bbnds)]
+               (for [[name {:keys [upper-bound lower-bound higher-kind]}] (map vector free-names bbnds)]
                  (let [u (when upper-bound 
                            (unparse-type upper-bound))
                        l (when lower-bound 
@@ -3617,19 +3696,23 @@
 
 (defmethod promote Poly
   [{:keys [nbound] :as T} V]
-  (let [names (repeatedly nbound gensym)
+  (let [free-names (Poly-free-names* T)
+        names (repeatedly nbound gensym)
         pmt-body (promote (Poly-body* names T) V)]
     (Poly* names 
            (Poly-bbnds* names T)
-           pmt-body)))
+           pmt-body
+           free-names)))
 
 (defmethod demote Poly
   [{:keys [nbound] :as T} V]
-  (let [names (repeatedly nbound gensym)
+  (let [free-names (Poly-free-names* T)
+        names (repeatedly nbound gensym)
         dem-body (demote (Poly-body* names T) V)]
     (Poly* names 
            (Poly-bbnds* names T)
-           dem-body)))
+           dem-body
+           free-names)))
 
 (defmethod promote Function
   [{:keys [dom rng rest drest kws] :as T} V]
@@ -4988,14 +5071,15 @@
 
 (add-fold-case ::abstract-many
                Poly
-               (fn [{bbnds* :bbnds n :nbound body* :scope} {{:keys [name count type outer name-to]} :locals}]
+               (fn [{bbnds* :bbnds n :nbound body* :scope :as poly} {{:keys [name count type outer name-to]} :locals}]
                  (let [rs #(remove-scopes n %)
                        body (rs body*)
                        bbnds (mapv #(visit-bounds % rs) bbnds*)
                        as #(add-scopes n (name-to name count type (+ n outer) %))]
                    (->Poly n 
                            (mapv #(visit-bounds % as) bbnds)
-                           (as body)))))
+                           (as body)
+                           (Poly-free-names* poly)))))
 
 (add-fold-case ::abstract-many
                TypeFn
@@ -5085,14 +5169,15 @@
 
 (add-fold-case ::instantiate-many
                Poly
-               (fn [{bbnds* :bbnds n :nbound body* :scope} {{:keys [replace count outer image sb type]} :locals}]
+               (fn [{bbnds* :bbnds n :nbound body* :scope :as poly} {{:keys [replace count outer image sb type]} :locals}]
                  (let [rs #(remove-scopes n %)
                        body (rs body*)
                        bbnds (mapv #(visit-bounds % rs) bbnds*)
                        as #(add-scopes n (replace image count type (+ n outer) %))]
                    (->Poly n 
                            (mapv #(visit-bounds % as) bbnds)
-                           (as body)))))
+                           (as body)
+                           (Poly-free-names* poly)))))
 
 (add-fold-case ::instantiate-many
                TypeFn
@@ -6284,6 +6369,25 @@
      (All [x y b ...]
           [[x -> y] [b ... b -> x] -> [b ... b -> y]]))
 
+(ann clojure.core/partial 
+     (All [x y a b c d e f g h i j k l m n o p z ...]
+          (Fn [[x a z ... z -> y] a -> [z ... z -> y]]
+              [[x a b z ... z -> y] a b -> [z ... z -> y]]
+              [[x a b c z ... z -> y] a b c -> [z ... z -> y]]
+              [[x a b c d z ... z -> y] a b c d -> [z ... z -> y]]
+              [[x a b c d e z ... z -> y] a b c d e -> [z ... z -> y]]
+              [[x a b c d e f z ... z -> y] a b c d e f -> [z ... z -> y]]
+              [[x a b c d e f g z ... z -> y] a b c d e f g -> [z ... z -> y]]
+              [[x a b c d e f g h z ... z -> y] a b c d e f g h -> [z ... z -> y]]
+              [[x a b c d e f g h i z ... z -> y] a b c d e f g h i -> [z ... z -> y]]
+              [[x a b c d e f g h i j z ... z -> y] a b c d e f g h i j -> [z ... z -> y]]
+              [[x a b c d e f g h i j k z ... z -> y] a b c d e f g h i j k -> [z ... z -> y]]
+              [[x a b c d e f g h i j k l z ... z -> y] a b c d e f g h i j k l -> [z ... z -> y]]
+              [[x a b c d e f g h i j k l m z ... z -> y] a b c d e f g h i j k l m -> [z ... z -> y]]
+              [[x a b c d e f g h i j k l m n z ... z -> y] a b c d e f g h i j k l m n -> [z ... z -> y]]
+              [[x a b c d e f g h i j k l m n o z ... z -> y] a b c d e f g h i j k l m n o -> [z ... z -> y]]
+              [[x a b c d e f g h i j k l m n o p z ... z -> y] a b c d e f g h i j k l m n o p -> [z ... z -> y]])))
+
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
 (ann clojure.core/pr-str [Any * -> String])
@@ -6354,7 +6458,8 @@
             ;Without accumulator
             ; default
             ; (reduce + my-coll)
-            [(Fn [c c -> c] [-> c]) (Option (Seqable c)) -> c]
+            [[a c -> a] (I (Seqable c) (CountRange 1)) -> a]
+            [(Fn [a c -> a] [-> a]) (Option (Seqable c)) -> a]
             ; default
             ; (reduce + 3 my-coll)
             [[a c -> a] a (Option (Seqable c)) -> a])))
@@ -6457,6 +6562,10 @@
 (ann clojure.core/cons
      (All [x]
        [x (Option (Seqable x)) -> (ASeq x)]))
+
+(ann clojure.core/reverse
+     (All [x]
+       [(Option (Seqable x)) -> (Seqable x)]))
 
 (override-method clojure.lang.RT/get (All [y] (Fn [(IPersistentMap Any y) Any -> (Option y)])))
 
@@ -7023,7 +7132,8 @@
   (when check?
     (when (or (and (not rest) (not (= (count dom) (count argtys))))
               (and rest (< (count argtys) (count dom))))
-      (throw (Exception. (error-msg "Wrong number of arguments, expected " (count dom) " and got "(count argtys)))))
+      (throw (Exception. (error-msg "Wrong number of arguments, expected " (count dom) " and got "(count argtys)
+                                    " for function " (unparse-type ftype0) " and arguments " (mapv (comp unparse-type ret-t) argtys)))))
     (doseq [[arg-t dom-t] (map vector (map ret-t argtys) (concat dom (when rest (repeat rest))))]
       (check-below arg-t dom-t)))
   (let [dom-count (count dom)
@@ -7251,7 +7361,8 @@
           body (extend-method-expected target-type body)]
       (Poly* names 
              (Poly-bbnds* names expected)
-             body))
+             body
+             (Poly-free-names* expected)))
 
     (PolyDots? expected)
     (let [names (repeat (:nbound expected) gensym)
@@ -7576,10 +7687,10 @@
                                    (parse-type rng-syntax)
                                    -any)})))
         cexpr (-> (check-anon-fn fexpr method-types :poly frees-with-bounds)
-                (update-in [expr-type :t] (fn [fin] (with-meta (Poly* (map first frees-with-bounds) 
-                                                                      (map second frees-with-bounds)
-                                                                      fin)
-                                                               {:actual-frees (map first frees-with-bounds)}))))]
+                (update-in [expr-type :t] (fn [fin] (Poly* (map first frees-with-bounds) 
+                                                           (map second frees-with-bounds)
+                                                           fin
+                                                           (map first frees-with-bounds)))))]
     cexpr))
 
 (declare check-let)
@@ -8164,7 +8275,8 @@
                        ftype (if poly
                                (Poly* (map first poly)
                                       (map second poly)
-                                      ftype)
+                                      ftype
+                                      (map first poly))
                                ftype)]
 
                    (check expr (ret ftype)))
@@ -8192,8 +8304,10 @@
                                 (=-c? :PolyDots) 
                                 nil?)) %)]}
   (cond
-    (Poly? t) (let [_ (assert (-> t meta :actual-frees))
-                    old-nmes (-> t meta :actual-frees)
+    (Poly? t) (let [_ (prn t)
+                    _ (prn (meta t))
+                    _ (assert (Poly-free-names* t) (unparse-type t))
+                    old-nmes (Poly-free-names* t)
                     _ (assert ((every-pred seq (every-c? symbol?)) old-nmes))
                     new-nmes (repeatedly (:nbound t) gensym)
                     new-frees (map make-F new-nmes)]
@@ -8213,8 +8327,7 @@
          ((some-fn (=-c? :Poly) (=-c? :PolyDots) nil?) poly?)]
    :post [(Type? %)]}
   (case poly?
-    :Poly (with-meta (Poly* (map :name inst-frees) bnds body)
-                     {:actual-frees orig-names})
+    :Poly (Poly* (map :name inst-frees) bnds body orig-names)
     :PolyDots (with-meta (PolyDots* (map :name inst-frees) bnds body)
                          {:actual-frees orig-names})
     body))
@@ -8520,7 +8633,8 @@
                     (Poly* nms
                            bbnds
                            (make-FnIntersection 
-                             (make-Function (-> dt :fields vals) dt))))
+                             (make-Function (-> dt :fields vals) dt))
+                           (Poly-free-names* dtp)))
       :else (throw (Exception. (str "Cannot get DataType constructor of " sym))))))
 
 (defmethod check :instance-of
@@ -8777,7 +8891,8 @@
                                       b (Poly-body* vs old)]
                                   (Poly* vs 
                                          (Poly-bbnds* vs old)
-                                         (remove* b rem)))
+                                         (remove* b rem)
+                                         (Poly-free-names* old)))
                     :else old))]
     (if (subtype? old initial) old initial)))
 
@@ -8871,6 +8986,7 @@
          (boolean? @flag)]
    :post [(PropEnv? env)
           (boolean? @flag)]}
+  (prn 'env+ fs)
   (let [[props atoms] (combine-props fs (:props env) flag)]
     (reduce (fn [env f]
               {:pre [(PropEnv? env)

@@ -69,6 +69,7 @@
 ;; Using monads
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (tc-ignore
 
 (defn- ensure-items [n steps]
@@ -140,10 +141,11 @@
       (identical? bform :else)
         (if-then-else-statement steps mexpr add-monad-step)
       :else
-        (list 'm-bind expr (list 'typed.core/fn> 
-                                 [[bform :- (do #_(assert (contains? :T (meta bform)))
-                                              (-> bform meta :T))]] 
-                                 mexpr)))))
+        (list 'm-bind expr 
+              (list 'typed.core/fn> 
+                    [[bform :- (do #_(assert (contains? :T (meta bform)))
+                                 (-> bform meta :T))]] 
+                    mexpr)))))
 
 (defn- monad-expr
   "Transforms a monad comprehension, consisting of a list of steps
@@ -213,26 +215,15 @@
                [name docstring? attr-map? (args expr) ...])}
   [name & options]
   (let [[name options]  (name-with-attributes name options)
-        fn-name (symbol (str *ns*) (format "m+%s+m" (str name)))
-        make-fn-body    (fn [args expr]
-                          (list (vec (concat ['m-bind 'm-result
-                                              'm-zero 'm-plus] args))
-                                (list `with-symbol-macros expr)))]
-    (if (list? (first options))
-      ; multiple arities
-      (let [arglists        (map first options)
-            exprs           (map second options)
-            ]
+        fn-name (symbol (str *ns*) (format "m+%s+m" (str name)))]
+      (let [body options]
         `(do
-           (defsymbolmacro ~name (partial ~fn-name ~'m-bind ~'m-result 
-                                          ~'m-zero ~'m-plus))
-           (defn ~fn-name ~@(map make-fn-body arglists exprs))))
-      ; single arity
-      (let [[args expr] options]
-        `(do
-           (defsymbolmacro ~name (partial ~fn-name ~'m-bind ~'m-result 
-                                          ~'m-zero ~'m-plus))
-           (defn ~fn-name ~@(make-fn-body args expr)))))))
+           (defsymbolmacro ~name ((inst ~fn-name ~'m) ~'m-bind ~'m-result ~'m-zero ~'m-plus))
+           (def ~fn-name 
+             (fn [~'m-bind ~'m-result
+                  ~'m-zero ~'m-plus]
+               (with-symbol-macros 
+                 (fn ~@body))))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -253,78 +244,122 @@
 
 (defmacro m-lift
   "Converts a function f of n arguments into a function of n
-  monadic arguments returning a monadic value."
-  [n f]
-  (let [expr (take n (repeatedly #(gensym "x_")))
-        vars (vec (take n (repeatedly #(gensym "mv_"))))
-        steps (vec (interleave expr vars))]
-    (list `fn vars (monad-expr steps (cons f expr)))))
+  monadic arguments returning a monadic value.
+  Takes an optional second parameter arg-tys which is a vector of
+  static types to assign to each parameter."
+  ([n arg-tys f]
+   (let [expr (map #(with-meta %1 {:T %2})
+                   (take n (repeatedly #(gensym "x_")))
+                   arg-tys)
+         arg-names (take n (repeatedly #(gensym "mv_")))
+         vars (vec (map #(vector %1 :- (list 'm %2)) arg-names arg-tys))
+         steps (vec (interleave expr arg-names))]
+     (list `fn> vars (monad-expr steps (cons f expr)))))
+  ([n f]
+   (let [expr (take n (repeatedly #(gensym "x_")))
+         vars (vec (take n (repeatedly #(gensym "mv_"))))
+         steps (vec (interleave expr vars))]
+     (list `fn vars (monad-expr steps (cons f expr))))))
 
-(tc-ignore
+(defmacro ann-monadfn [name ty]
+  (let [fn-name (symbol (format "m+%s+m" (str name)))]
+    `(do
+       (ann ~name ~'Any)
+       (ann ~fn-name ~`(~'All ~'[[m :kind (TFn [[x :variance :covariant]] Any)]]
+                           [~'(All [x y]
+                                   [(m x) [x -> (m y)] -> (m y)])
+                            ~'(All [x]
+                                   [x -> (m x)])
+                            ~'(m Nothing)
+                            ~'(All [x]
+                                   [(m x) * -> (m x)])
+                            ~'-> ~ty])))))
 
+(ann-monadfn m-join
+             (All [x]
+               [(m (m x)) -> (m x)]))
 (defmonadfn m-join
   "Converts a monadic value containing a monadic value into a 'simple'
    monadic value."
   [m]
-  (m-bind m identity))
+  (m-bind m (inst identity (m x))))
 
-(ann m+m-fmap+m (All [[m :kind (TFn [[x :variance :covariant]] Any)] x y]
-                    [(All [x y]
-                       [(m x) [x -> (m y)] -> (m y)])
-                     (All [x]
-                       [x -> (m x)])
-                     (m Nothing)
-                     (All [x]
-                       [(m x) * -> (m x)])
-                     [x -> y]
-                     (m x)
-                     -> (m y)]))
+(ann-monadfn m-fmap
+             (All [x y]
+               [[x -> y] (m x) -> (m y)]))
 (defmonadfn m-fmap
   "Bind the monadic value m to the function returning (f x) for argument x"
   [f m]
-  (m-bind m (fn [x] (m-result (f x)))))
+  (m-bind m (ann-form (fn [x] (m-result (f x)))
+                      [x -> (m y)])))
 
+(ann-monadfn m-seq 
+             (All [x]
+               [(Seqable (m x)) -> (Seqable x)]))
 (defmonadfn m-seq
   "'Executes' the monadic values in ms and returns a sequence of the
-   basic values contained in them."
+  basic values contained in them."
   [ms]
-  (reduce (fn [q p]
-            (m-bind p (fn [x]
-                        (m-bind q (fn [y]
-                                    (m-result (cons x y)))) )))
-          (m-result '())
-          (reverse ms)))
+  ((inst reduce (m (Seqable x)) (m x))
+     (ann-form
+       (fn [q p]
+         (m-bind p (ann-form
+                     (fn [x]
+                       (m-bind q (ann-form 
+                                   (fn [y]
+                                     (m-result (cons x y)))
+                                   [(Seqable x) -> (m (Seqable x))])))
+                     [x -> (m (Seqable x))])))
+       [(m (Seqable x)) (m x) -> (m (Seqable x))])
+     (m-result '())
+     (reverse ms)))
 
+(ann-monadfn m-map (All [x y]
+                     [[(m x) -> (m y)] (Seqable (m x)) -> (Seqable y)]))
 (defmonadfn m-map
   "'Executes' the sequence of monadic values resulting from mapping
    f onto the values xs. f must return a monadic value."
   [f xs]
   (m-seq (map f xs)))
 
+(ann-monadfn m-chain (All [x]
+                       [(Seqable [x -> (m x)]) -> (m x)]))
 (defmonadfn m-chain
   "Chains together monadic computation steps that are each functions
    of one parameter. Each step is called with the result of the previous
    step as its argument. (m-chain (step1 step2)) is equivalent to
    (fn [x] (domonad [r1 (step1 x) r2 (step2 r1)] r2))."
   [steps]
-  (reduce (fn m-chain-link [chain-expr step]
-            (fn [v] (m-bind (chain-expr v) step)))
-          m-result
-          steps))
+  ((inst reduce [x -> (m x)] [x -> (m x)])
+    (ann-form
+      (fn m-chain-link [chain-expr step]
+        (fn [v] (m-bind (chain-expr v) step)))
+      [[x -> (m x)] [x -> (m x)] -> [x -> (m x)]])
+    m-result
+    steps))
 
+(ann-monadfn m-reduce
+             (All [x y]
+               (Fn 
+                 #_[[x y -> x] (I (Seqable (m y)) (CountRange 1)) -> (m x)]
+                 [(Fn [x y -> x] [-> x]) (Seqable (m y)) -> (m x)]
+                 [[x y -> x] x (Seqable (m y)) -> (m x)])))
 (defmonadfn m-reduce
   "Return the reduction of (m-lift 2 f) over the list of monadic values mvs
    with initial value (m-result val)."
   ([f mvs]
    (if (empty? mvs)
      (m-result (f))
-     (let [m-f (m-lift 2 f)]
-       (reduce m-f mvs))))
+     (let [m-f (m-lift 2 [x y] f)]
+       ((inst reduce (m x) (m y)) m-f mvs))))
   ([f val mvs]
-   (let [m-f    (m-lift 2 f)
+   (let [m-f    (m-lift 2 [x y] f)
          m-val  (m-result val)]
-     (reduce m-f m-val mvs))))
+     ((inst reduce (m x) (m y)) m-f m-val mvs))))
 
+(ann-monadfn m-until
+             (All [x]
+               [[x -> Any] [x -> (m x)] x -> (m x)]))
 (defmonadfn m-until
   "While (p x) is false, replace x by the value returned by the
    monadic computation (f x). Return (m-result x) for the first
@@ -333,11 +368,9 @@
   (if (p x)
     (m-result x)
     (domonad
-      [y (f x)
+      [^{:T x} y (f x)
        z (m-until p f y)]
       z)))
-
-  )
 
 (defmacro m-when
   "If test is logical true, return monadic value m-expr, else return
@@ -846,11 +879,11 @@
 (ann sequence-t
      (All [[m :kind (TFn [[x :variance :covariant]] Any)]]
        (Fn 
-         [(AnyMonad m) -> (AnyMonad (TFn [[x :variance :covariant]]
-                                      (m (Seqable x))))]
-         [(AnyMonad m) (U ':m-plus-default ':m-plus-from-base)
-          -> (AnyMonad (TFn [[x :variance :covariant]]
-                         (Seqable (m x))))])))
+         [(MonadPlusZero m) -> (MonadPlusZero (TFn [[x :variance :covariant]]
+                                                (Seqable (m x))))]
+         [(MonadPlusZero m) (U ':m-plus-default ':m-plus-from-base)
+          -> (MonadPlusZero (TFn [[x :variance :covariant]]
+                              (Seqable (m x))))])))
 (defn sequence-t
   "Monad transformer that transforms a monad m into a monad in which
    the base values are sequences. The argument which-m-plus chooses
@@ -863,14 +896,22 @@
   ([m which-m-plus]
    (monad-transformer m which-m-plus
      [m-result (with-monad m
-                 (fn m-result-sequence-t [v]
-                   (m-result (list v))))
+                 (ann-form
+                   (fn m-result-sequence-t [v]
+                     (m-result (list v)))
+                   (All [x]
+                     [x -> (Seqable (m x))])))
       m-bind   (with-monad m
-                 (fn m-bind-sequence-t [mv f]
-                   (m-bind mv
-                           (fn [xs]
-                             (m-fmap flatten*
-                                     (m-map f xs))))))
+                 (ann-form
+                   (fn m-bind-sequence-t [mv f]
+                     (m-bind mv
+                             (ann-form 
+                               (fn [xs]
+                                 (m-fmap flatten*
+                                         (m-map f xs)))
+                               [(Seqable x) -> (m (Seqable y))])))
+                   (All [x y]
+                     [(Seqable (m x)) [x -> (Seqable (m y))] -> (Seqable (m y))])))
       m-zero   (with-monad m (m-result (list)))
       m-plus   (with-monad m
                  (fn m-plus-sequence-t [& mvs]
