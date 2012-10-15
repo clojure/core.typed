@@ -295,7 +295,7 @@
 
 (ann-monadfn m-seq 
              (All [x]
-               [(Seqable (m x)) -> (Seqable x)]))
+               [(Seqable (m x)) -> (m (Seqable x))]))
 (defmonadfn m-seq
   "'Executes' the monadic values in ms and returns a sequence of the
   basic values contained in them."
@@ -315,7 +315,7 @@
      (reverse ms)))
 
 (ann-monadfn m-map (All [x y]
-                     [[(m x) -> (m y)] (Seqable (m x)) -> (Seqable y)]))
+                     [[x -> (m y)] (Seqable x) -> (m (Seqable y))]))
 (defmonadfn m-map
   "'Executes' the sequence of monadic values resulting from mapping
    f onto the values xs. f must return a monadic value."
@@ -342,8 +342,8 @@
              (All [x y]
                (Fn 
                  #_[[x y -> x] (I (Seqable (m y)) (CountRange 1)) -> (m x)]
-                 [(Fn [x y -> x] [-> x]) (Seqable (m y)) -> (m x)]
-                 [[x y -> x] x (Seqable (m y)) -> (m x)])))
+                 [(Fn [x y -> x] [-> x]) (Option (Seqable (m y))) -> (m x)]
+                 [[x y -> x] x (Option (Seqable (m y))) -> (m x)])))
 (defmonadfn m-reduce
   "Return the reduction of (m-lift 2 f) over the list of monadic values mvs
    with initial value (m-result val)."
@@ -392,7 +392,7 @@
 
 (ann flatten* 
      (All [x]
-       [(Option (Seqable (Option (Seqable x)))) -> (Seqable x)]))
+       [(Option (Seqable (Seqable x))) -> (Seqable x)]))
 (defn- flatten*
   "Like #(apply concat %), but fully lazy: it evaluates each sublist
    only when it is needed."
@@ -554,27 +554,27 @@
 
 ; State monad
 (def-alias State
-  (TFn [[s :variance :invariant]
-        [a :variance :covariant]]
-    [s -> '[a s]]))
+  (TFn [[r :variance :covariant]
+        [s :variance :invariant]]
+    [s -> '[r s]]))
 (ann state-m (All [s]
                (Monad (TFn [[x :variance :covariant]]
-                        (State s x)))))
+                        (State x s)))))
 (defmonad state-m
    "Monad describing stateful computations. The monadic values have the
     structure (fn [old-state] [result new-state])."
-   [m-result  (->
+   [m-result  (ann-form
                 (fn m-result-state [v]
                   (fn [s] [v s]))
-                (ann-form (All [s a]
-                            [a -> (State s a)])))
-    m-bind    (->
+                (All [r s]
+                  [r -> (State r s)]))
+    m-bind    (ann-form
                 (fn m-bind-state [mv f]
                   (fn [s]
                     (let [[v ss] (mv s)]
                       ((f v) ss))))
-                (ann-form (All [s a b]
-                            [(State s a) [a -> (State s b)] -> (State s b)])))
+                (All [s ra rb]
+                  [(State ra s) [ra -> (State rb s)] -> (State rb s)]))
    ])
 
 (ann update-state 
@@ -880,10 +880,10 @@
      (All [[m :kind (TFn [[x :variance :covariant]] Any)]]
        (Fn 
          [(MonadPlusZero m) -> (MonadPlusZero (TFn [[x :variance :covariant]]
-                                                (Seqable (m x))))]
+                                                (m (Seqable x))))]
          [(MonadPlusZero m) (U ':m-plus-default ':m-plus-from-base)
           -> (MonadPlusZero (TFn [[x :variance :covariant]]
-                              (Seqable (m x))))])))
+                              (m (Seqable x))))])))
 (defn sequence-t
   "Monad transformer that transforms a monad m into a monad in which
    the base values are sequences. The argument which-m-plus chooses
@@ -900,73 +900,80 @@
                    (fn m-result-sequence-t [v]
                      (m-result (list v)))
                    (All [x]
-                     [x -> (Seqable (m x))])))
+                     [x -> (m (Seqable x))])))
       m-bind   (with-monad m
                  (ann-form
                    (fn m-bind-sequence-t [mv f]
                      (m-bind mv
                              (ann-form 
                                (fn [xs]
-                                 (m-fmap flatten*
+                                 (m-fmap (inst flatten* y)
                                          (m-map f xs)))
                                [(Seqable x) -> (m (Seqable y))])))
                    (All [x y]
-                     [(Seqable (m x)) [x -> (Seqable (m y))] -> (Seqable (m y))])))
+                     [(m (Seqable x)) [x -> (m (Seqable y))] -> (m (Seqable y))])))
       m-zero   (with-monad m (m-result (list)))
       m-plus   (with-monad m
-                 (fn m-plus-sequence-t [& mvs]
-                   (m-reduce concat (list) mvs)))
+                 (ann-form
+                   (fn m-plus-sequence-t [& mvs]
+                     ((inst m-reduce (Seqable x) (Seqable x)) 
+                        concat (list) mvs))
+                   (All [x]
+                     [(m (Seqable x)) * -> (m (Seqable x))])))
       ])))
 
+(ann state-t
+     (All [[m :kind (TFn [[x :variance :covariant]] Any)]]
+       (Fn 
+         [(MonadPlusZero m) -> (All [s]
+                                 (MonadPlusZero (TFn [[x :variance :covariant]]
+                                                  [s -> (m '[x s])])))])))
 ;; Contributed by Jim Duey
 (defn state-t
   "Monad transformer that transforms a monad m into a monad of stateful
   computations that have the base monad type as their result."
   [m]
-  (monad [m-result (with-monad m
-                     (fn m-result-state-t [v]
-                       (fn [s]
-                         (m-result [v s]))))
-          m-bind   (with-monad m
-                     (fn m-bind-state-t [stm f]
-                       (fn [s]
-                         (m-bind (stm s)
-                                 (fn [[v ss]]
-                                   ((f v) ss))))))
-          m-zero   (with-monad m
-                     (if (= ::undefined m-zero)
-                       ::undefined
-                       (fn [s]
-                         m-zero)))
-          m-plus   (with-monad m
-                     (if (= ::undefined m-plus)
-                       ::undefined
-                       (fn [& stms]
-                         (fn [s]
-                           (apply m-plus (map #(% s) stms))))))
-          ]))
-
-(ann clojure.core/range
-     (Fn [-> (Seqable AnyInteger)]
-         [AnyInteger -> (Seqable AnyInteger)]
-         [AnyInteger AnyInteger -> (Seqable AnyInteger)]
-         [AnyInteger AnyInteger AnyInteger -> (Seqable AnyInteger)]
-         [Number -> (Seqable Number)]
-         [Number Number -> (Seqable Number)]
-         [Number Number Number -> (Seqable Number)]))
-
-(let [name__14484__auto__ sequence-m
-      m-bind (:m-bind name__14484__auto__)
-      m-result (:m-result name__14484__auto__)
-      m-zero (:m-zero name__14484__auto__)
-      m-plus (:m-plus name__14484__auto__)]
-  (m-bind
-    (range 5)
-    (typed.core/fn>
-      [[x :- AnyInteger]]
-      (if (= x 2) 
-        (m-result (list x)) 
-        m-zero))))
+  (ann-form
+    (monad [m-result (with-monad m
+                       (ann-form
+                         (fn m-result-state-t [v]
+                           (ann-form
+                             (fn [s]
+                               (m-result [v s]))
+                             [s -> (m '[x s])]))
+                         (All [x]
+                           [x -> [s -> (m '[x s])]])))
+            m-bind   (with-monad m
+                       (ann-form
+                         (fn m-bind-state-t [stm f]
+                           (fn [s]
+                             (m-bind (stm s)
+                                     (ann-form
+                                       (fn [[v ss]]
+                                         ((f v) ss))
+                                       ['[x s] -> (m '[y s])]))))
+                         (All [x y]
+                           [[s -> (m '[x s])] [x -> [s -> (m '[y s])]] -> [s -> (m '[y s])]])))
+            m-zero   (with-monad m
+                       (if (= ::undefined m-zero)
+                         ::undefined
+                         (ann-form
+                           (fn [s]
+                             m-zero)
+                           [s -> (m Nothing)])))
+            m-plus   (with-monad m
+                       (if (= ::undefined m-plus)
+                         ::undefined
+                         (ann-form
+                           (fn [& stms]
+                             (fn [s]
+                               (apply m-plus (map #(% s) stms))))
+                           (All [x]
+                             [[s -> '[x s]] * -> [s -> '[x s]]]))))
+            ])
+    (All [s]
+      (MonadPlusZero (TFn [[x :variance :covariant]]
+                          [s -> (m '[x s])])))))
 
 (domonad maybe-m
          [^{:T AnyInteger} a 5
@@ -984,39 +991,7 @@
    ^{:T AnyInteger} y  (range (+ 1 x))
    :when (= (+ x y) 2)]
   (list x y))
-
-(let [name__14484__auto__ sequence-m
-      m-bind (:m-bind name__14484__auto__)
-      m-result (:m-result name__14484__auto__)
-      m-zero (:m-zero name__14484__auto__)
-      m-plus (:m-plus name__14484__auto__)]
-  (m-bind
-    (range 5)
-    (typed.core/fn>
-      [[x :- AnyInteger]]
-      (if (= x 2) 
-        (m-result (list x)) 
-        m-zero))))
-
-(let [name__14484__auto__ sequence-m
-                          m-bind (:m-bind name__14484__auto__)
-                          m-result (:m-result name__14484__auto__)
-                          m-zero (:m-zero name__14484__auto__)
-                          m-plus (:m-plus name__14484__auto__)]
-    (m-bind
-      (range 5)
-      (typed.core/fn>
-        [[x :- AnyInteger]]
-        (m-bind
-          (range (+ 1 x))
-          (typed.core/fn>
-            [[y :- AnyInteger]]
-            (if (= (+ x y) 2) (m-result (list x y)) m-zero))))))
   )
-
-
-
-
 
 
 
@@ -1073,14 +1048,6 @@
       [^{:T AnyInteger} a 5]
       ;:let [c 7]]
       [a]))
-
-(cf
-(let [{:keys [m-bind m-result]} maybe-m
-      f (typed.core/fn> [[a :- AnyInteger]] 
-                        (m-result [a]))
-      _ (tc-pr-env "end let")]
-  (m-bind 5 f))
-)
 
   )
 

@@ -833,6 +833,13 @@
     (TApp? ty) (resolve-TApp ty)
     :else ty))
 
+(defn requires-resolving? [ty]
+  (or (Name? ty)
+      (App? ty)
+      (and (TApp? ty)
+           (not (F? (.rator ty))))
+      (Mu? ty)))
+
 (defn resolve-Name [nme]
   {:pre [(Name? nme)]}
   (resolve-name* (:id nme)))
@@ -1437,7 +1444,8 @@
     (Poly? t2)
     (let [names (repeatedly (:nbound t2) gensym)
           t (Poly-body* names t2)
-          subst (infer names nil (list t1) (list t) t1)]
+          bbnds (Poly-bbnds* names t2)
+          subst (infer (zipmap names bbnds) {} (list t1) (list t) t1)]
       (and subst (restrict t1 (subst-all subst t1))))
 
     (Union? t1) (apply Un (map (fn [e] (restrict e t2)) (:types t1)))
@@ -8898,7 +8906,9 @@
 
 ; This is where filters are applied to existing types to generate more specific ones
 (defn update [t lo]
-  (let [t (-resolve t)]
+  (let [t (if (requires-resolving? t)
+            (-resolve t)
+            t)]
     (cond
       ;heterogeneous map ops
       (and (TypeFilter? lo)
