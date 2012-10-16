@@ -1441,16 +1441,22 @@
   (cond
     (subtype? t1 t2) t1 ;; already a subtype
 
+    (not (overlap t1 t2)) (Un) ;there's no overlap, so the restriction is empty
+
+    (Union? t1) (apply Un (map (fn [e] (restrict e t2)) (:types t1)))
+    (Union? t2) (apply Un (map (fn [e] (restrict t1 e)) (:types t2)))
+
     (Poly? t2)
     (let [names (repeatedly (:nbound t2) gensym)
           t (Poly-body* names t2)
           bbnds (Poly-bbnds* names t2)
-          subst (infer (zipmap names bbnds) {} (list t1) (list t) t1)]
+          subst (try 
+                  (infer (zipmap names bbnds) {} (list t1) (list t) t1)
+                  (catch IllegalArgumentException e
+                    (throw e))
+                  (catch Exception e))]
       (and subst (restrict t1 (subst-all subst t1))))
 
-    (Union? t1) (apply Un (map (fn [e] (restrict e t2)) (:types t1)))
-    (Union? t2) (apply Un (map (fn [e] (restrict t1 e)) (:types t2)))
-    (not (overlap t1 t2)) (Un) ;there's no overlap, so the restriction is empty
     ;TODO other cases
     :else (In t2 t1)))
 
@@ -6529,11 +6535,12 @@
 
 (ann clojure.core/get
      (All [x]
-          (Fn [(IPersistentSet x) Any -> (Option x)]
-              [java.util.Map Any -> (Option Any)]
-              [String Any -> (Option Character)]
-              [nil Any -> nil]
-              [(Option (ILookup Any x)) Any -> (Option x)])))
+          (Fn 
+            [(IPersistentSet x) Any -> (Option x)]
+            [java.util.Map Any -> (Option Any)]
+            [String Any -> (Option Character)]
+            [nil Any -> nil]
+            [(Option (ILookup Any x)) Any -> (Option x)])))
 
 (ann clojure.core/merge 
      (All [k v]
@@ -9032,7 +9039,7 @@
               reachable? (-> (check expr) expr-type)
               ;; otherwise, this code is unreachable
               ;; and the resulting type should be the empty type
-              :else (do #_(prn "Not checking unreachable code")
+              :else (do (prn "Not checking unreachable code")
                       (ret (Un)))))]
     (let [{fs+ :then fs- :else :as f1} (:fl tst)
          ; _ (prn "check-if: fs+" (unparse-filter fs+))
@@ -9045,11 +9052,11 @@
           _ (print-env)
           idsym (gensym)
           env-thn (env+ *lexical-env* [fs+] flag+)
-;          _ (do (pr "check-if: env-thn")
-;              (print-env env-thn))
+          _ (do (pr "check-if: env-thn")
+              (print-env env-thn))
           env-els (env+ *lexical-env* [fs-] flag-)
-;          _ (do (pr "check-if: env-els")
-;              (print-env env-els))
+          _ (do (pr "check-if: env-els")
+              (print-env env-els))
 ;          new-thn-props (set
 ;                          (filter atomic-filter?
 ;                                  (set/difference
@@ -9259,7 +9266,7 @@
   (let [;_ (prn (:the-expr expr))
         cthe-expr (check (:the-expr expr))
         etype (expr-type cthe-expr)
-        ctests (doall (map check (:tests expr)))
+        ctests (mapv check (:tests expr))
         cdefault (check (:default expr))
         cthens-and-envs (for [[tst-ret thn] (map vector (map expr-type ctests) (:thens expr))]
                           (let [{{fs+ :then} :fl :as rslt} (tc-equiv := etype tst-ret)

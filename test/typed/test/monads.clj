@@ -25,8 +25,8 @@
             [clojure.tools.macro
              :refer (with-symbol-macros defsymbolmacro name-with-attributes)]
             [typed.core 
-             :refer (tc-ignore check-ns ann def-alias unsafe-ann-form ann-form inst fn> pfn>
-                               AnyInteger tc-pr-env cf Option)]))
+             :refer (tc-ignore check-ns ann ann-protocol def-alias unsafe-ann-form ann-form inst fn> pfn>
+                               AnyInteger tc-pr-env cf Option tc-pr-filters)]))
 
 ;; Monad Protocols
 
@@ -409,6 +409,7 @@
 
 (def-alias Undefined '::undefined)
 
+;possibly missing zero and plus
 (def-alias AnyMonad 
   (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
     '{:m-bind (All [x y]
@@ -420,6 +421,7 @@
                    [(m x) * -> (m x)])
                  Undefined)}))
 
+;always missing zero and plus
 (def-alias Monad 
   (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
     '{:m-bind (All [x y]
@@ -429,6 +431,7 @@
       :m-zero Undefined
       :m-plus Undefined}))
 
+;missing plus
 (def-alias MonadZero
   (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
     '{:m-bind (All [x y]
@@ -438,6 +441,7 @@
       :m-zero (m Nothing)
       :m-plus Undefined}))
 
+;missing zero
 (def-alias MonadPlus
   (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
     '{:m-bind (All [x y]
@@ -448,6 +452,7 @@
       :m-plus (All [x]
                 [(m x) * -> (m x)])}))
 
+;all four operations
 (def-alias MonadPlusZero
   (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
     '{:m-bind (All [x y]
@@ -503,26 +508,28 @@
    ])
 
 ; Sequence monad (called "list monad" in Haskell)
-(ann sequence-m (MonadPlusZero (TFn [[x :variance :covariant]] (Seqable x))))
+(ann sequence-m (MonadPlusZero 
+                  (TFn [[x :variance :covariant]]
+                    (Seqable x))))
 (defmonad sequence-m
    "Monad describing multi-valued computations, i.e. computations
     that can yield multiple values. Any object implementing the seq
     protocol can be used as a monadic value."
-   [m-result (->
+   [m-result (ann-form
                (fn m-result-sequence [v]
                  (list v))
-               (ann-form (All [x] [x -> (Seqable x)])))
-    m-bind   (->
+               (All [x] [x -> (Seqable x)]))
+    m-bind   (ann-form
                (fn m-bind-sequence [mv f]
                  (flatten* (map f mv)))
-               (ann-form (All [x y]
-                           [(Seqable x) [x -> (Seqable y)] -> (Seqable y)])))
+               (All [x y]
+                 [(Seqable x) [x -> (Seqable y)] -> (Seqable y)]))
     m-zero   (list)
-    m-plus   (-> 
+    m-plus   (ann-form
                (fn m-plus-sequence [& mvs]
                  (flatten* mvs))
-               (ann-form (All [x]
-                           [(Seqable x) * -> (Seqable x)])))
+               (All [x]
+                 [(Seqable x) * -> (Seqable x)]))
     ])
 
 (ann clojure.set/union
@@ -535,21 +542,21 @@
 (defmonad set-m
    "Monad describing multi-valued computations, like sequence-m,
     but returning sets of results instead of sequences of results."
-   [m-result (->
+   [m-result (ann-form
                (fn m-result-set [v]
                  #{v})
-               (ann-form (All [x] [x -> (IPersistentSet x)])))
-    m-bind   (->
+               (All [x] [x -> (IPersistentSet x)]))
+    m-bind   (ann-form
                (fn m-bind-set [mv f]
                  (apply clojure.set/union (map f mv)))
-               (ann-form (All [x y]
-                           [(IPersistentSet x) [x -> (IPersistentSet y)] -> (IPersistentSet y)])))
+               (All [x y]
+                 [(IPersistentSet x) [x -> (IPersistentSet y)] -> (IPersistentSet y)]))
     m-zero   #{}
-    m-plus   (->
+    m-plus   (ann-form
                (fn m-plus-set [& mvs]
                  (apply clojure.set/union mvs))
-               (ann-form (All [x]
-                           [(IPersistentSet x) * -> (IPersistentSet x)])))
+               (All [x]
+                 [(IPersistentSet x) * -> (IPersistentSet x)]))
     ])
 
 ; State monad
@@ -593,8 +600,9 @@
   "Return a state-monad function that replaces the current state by s and
    returns the previous state."
   [s]
-  (update-state (-> (fn [_] s)
-                  (ann-form [s -> s]))))
+  (update-state (ann-form 
+                  (fn [_] s)
+                  [s -> s])))
 
 (ann fetch-state
      (All [s]
@@ -605,19 +613,20 @@
   []
   (update-state identity))
 
-(tc-ignore
-
 (ann fetch-val 
      (All [x y]
-       [x -> (State y (IPersistentMap x y))]))
+       [Any -> (State (U y nil) (IPersistentMap x y))]))
 (defn fetch-val
   "Return a state-monad function that assumes the state to be a map and
    returns the value corresponding to the given key. The state is not modified."
   [key]
-  (domonad state-m
-    [^{:T (IPersistentMap x y)} s (fetch-state)]
-    (get key s)))
+  (domonad (inst state-m (IPersistentMap x y))
+    [^{:T (IPersistentMap x y)} s ((inst fetch-state (IPersistentMap x y)))]
+    (get s key)))
 
+(ann update-val
+     (All [x y]
+       [x [Any -> y] -> (State (U nil y) (IPersistentMap x y))]))
 (defn update-val
   "Return a state-monad function that assumes the state to be a map and
    replaces the value associated with the given key by the return value
@@ -628,12 +637,18 @@
           new-s   (assoc s key (f old-val))]
       [old-val new-s])))
 
+(ann set-val
+     (All [x y]
+       [x y -> (State (U nil y) (IPersistentMap x y))]))
 (defn set-val
   "Return a state-monad function that assumes the state to be a map and
    replaces the value associated with key by val. The old value is returned."
   [key val]
-  (update-val key (fn [_] val)))
+  ((inst update-val x y) key (fn [_] val)))
 
+(ann with-state-field
+     (All [x y r]
+       [x [Any -> '[r y]] -> (State r (IPersistentMap x y))]))
 (defn with-state-field
   "Returns a state-monad function that expects a map as its state and
    runs statement (another state-monad function) on the state defined by
@@ -641,11 +656,13 @@
    new state returned by statement."
   [key statement]
   (fn [s]
-    (let [substate (get s key nil)
+    (let [substate (get s key)
           [result new-substate] (statement substate)
           new-state (assoc s key new-substate)]
       [result new-state])))
 
+;TODO letfn NYI
+(tc-ignore
 (defn state-m-until
   "An optimized implementation of m-until for the state monad that
    replaces recursion by a loop."
@@ -656,8 +673,10 @@
               (let [[x s] ((f x) s)]
                 (recur p f x s))))]
     (fn [s] (until p f x s))))
-
-
+  )
+               
+;TODO protocol
+(tc-ignore
 ; Writer monad
 (defprotocol writer-monad-protocol
   "Accumulation of values into containers"
@@ -685,8 +704,10 @@
   (writer-m-combine [c1 c2] (str c1 c2)))
 )
 
-(tc-ignore
-
+;TODO types for accumulators
+(ann writer-m
+     (Monad (TFn [[x :variance :covariant]]
+              '[x Any])))
 (defn writer-m
   "Monad describing computations that accumulate data on the side, e.g. for
    logging. The monadic values have the structure [value log]. Any of the
@@ -702,16 +723,17 @@
                   [v2 (writer-m-combine a1 a2)]))
     ]))
 
-(defmonadfn write [v]
-  (let [[_ a] (m-result nil)]
-    [nil (writer-m-add a v)]))
+;TODO
+(tc-ignore
+  (defmonadfn write [v]
+    (let [[_ a] (m-result nil)]
+      [nil (writer-m-add a v)]))
 
-(defn listen [mv]
-  (let [[v a] mv] [[v a] a]))
+  (defn listen [mv]
+    (let [[v a] mv] [[v a] a]))
 
-(defn censor [f mv]
-  (let [[v a] mv] [v (f a)]))
-
+  (defn censor [f mv]
+    (let [[v a] mv] [v (f a)]))
   )
 
 (def-alias Cont1
@@ -728,14 +750,6 @@
               (Monad (TFn [[x :variance :covariant]]
                        (ContM x r)))))
 
-#_(ann cont-m
-     (All [r]
-       '{:m-result (All [x]
-                     [x -> (ContM x r)])
-         :m-bind (All [x y]
-                   [(ContM x r) [x -> (ContM y r)] -> (ContM y r)])
-         :m-zero Undefined
-         :m-plus Undefined}))
 (defmonad cont-m
   "Monad describing computations in continuation-passing style. The monadic
    values are functions that are called with a single argument representing
@@ -933,7 +947,7 @@
   "Monad transformer that transforms a monad m into a monad of stateful
   computations that have the base monad type as their result."
   [m]
-  (ann-form
+  (ann-form ;scopes s in body
     (monad [m-result (with-monad m
                        (ann-form
                          (fn m-result-state-t [v]
@@ -942,7 +956,7 @@
                                (m-result [v s]))
                              [s -> (m '[x s])]))
                          (All [x]
-                           [x -> [s -> (m '[x s])]])))
+                              [x -> [s -> (m '[x s])]])))
             m-bind   (with-monad m
                        (ann-form
                          (fn m-bind-state-t [stm f]
@@ -953,7 +967,7 @@
                                          ((f v) ss))
                                        ['[x s] -> (m '[y s])]))))
                          (All [x y]
-                           [[s -> (m '[x s])] [x -> [s -> (m '[y s])]] -> [s -> (m '[y s])]])))
+                              [[s -> (m '[x s])] [x -> [s -> (m '[y s])]] -> [s -> (m '[y s])]])))
             m-zero   (with-monad m
                        (if (= ::undefined m-zero)
                          ::undefined
@@ -962,18 +976,23 @@
                              m-zero)
                            [s -> (m Nothing)])))
             m-plus   (with-monad m
-                       (if (= ::undefined m-plus)
-                         ::undefined
-                         (ann-form
-                           (fn [& stms]
-                             (fn [s]
-                               (apply m-plus (map #(% s) stms))))
-                           (All [x]
-                             [[s -> '[x s]] * -> [s -> '[x s]]]))))
+                       (ann-form
+                         (if (= ::undefined m-plus)
+                           ::undefined
+                           (ann-form
+                             (fn [& stms]
+                               (fn [s]
+                                 (apply m-plus (map (ann-form #(% s)
+                                                      [[s -> (m '[x s])] -> (m '[x s])])
+                                                    stms))))
+                             (All [x]
+                                  [[s -> (m '[x s])] * -> [s -> (m '[x s])]])))
+                         (All [x]
+                              [[s -> (m '[x s])] * -> [s -> (m '[x s])]]))) 
             ])
     (All [s]
       (MonadPlusZero (TFn [[x :variance :covariant]]
-                          [s -> (m '[x s])])))))
+                       [s -> (m '[x s])])))))
 
 (domonad maybe-m
          [^{:T AnyInteger} a 5
