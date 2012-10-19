@@ -749,7 +749,6 @@
 (ann cont-m (All [r]
               (Monad (TFn [[x :variance :covariant]]
                        (ContM x r)))))
-
 (defmonad cont-m
   "Monad describing computations in continuation-passing style. The monadic
    values are functions that are called with a single argument representing

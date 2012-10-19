@@ -1,4 +1,5 @@
 (ns typed.test.example
+  (:refer-clojure :exclude [< not=])
   (:import (clojure.lang Seqable PersistentHashSet Symbol)
            (java.io File))
   (:require [typed.core :refer [ann inst cf fn> pfn> check-ns ann-form]]
@@ -13,8 +14,8 @@
 
 (ann test2 (All [y] 
                 [(Seqable y) -> (Seqable Number)]))
-(defn test2 [a]
-  (map + [1 2]))
+;(defn test2 [a]
+;  (map + [1 2]))
 
 (ann use-map [(HMap {:a Number}) -> Number])
 (defn use-map [a]
@@ -75,3 +76,26 @@
 (defn num-vec2 [a b]
   [(if a a 0) (if b b 0)])
 
+(ann < (Fn [Number -> boolean]
+           [Number Number -> boolean]
+           [Number Number Number * -> boolean]))
+#_(defn <
+  "Returns non-nil if nums are in monotonically increasing order,
+  otherwise false."
+  ([x] true)
+  ([x y] (. clojure.lang.Numbers (lt x y)))
+  ([x y & more]
+   (if (< x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (< y (first more)))
+     false)))
+
+(ann not= (Fn [Any -> boolean]
+              [Any Any -> boolean]
+              [Any Any Any * -> boolean]))
+(defn not=
+  ([x] false)
+  ([x y] (not (= x y)))
+  ([x y & more]
+   (not (apply = x y more))))

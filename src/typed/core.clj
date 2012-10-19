@@ -5309,14 +5309,25 @@
                               (every? Type? bm)]}
                        (class t)))
 
+(defmethod trans-dots Name [t b bm] t)
 (defmethod trans-dots F [t b bm] t)
 (defmethod trans-dots Value [t b bm] t)
 (defmethod trans-dots RClass [t b bm] t)
+
+(defmethod trans-dots TApp
+  [t b bm]
+  (let [tfn #(trans-dots % b bm)]
+    (->TApp (tfn (.rator t)) (mapv tfn (.rands t)))))
 
 (defmethod trans-dots Union
   [t b bm]
   (let [tfn #(trans-dots % b bm)]
     (apply Un (doall (map tfn (:types t))))))
+
+(defmethod trans-dots FnIntersection
+  [t b bm]
+  (let [tfn #(trans-dots % b bm)]
+    (->FnIntersection (doall (map tfn (:types t))))))
 
 (defmethod trans-dots Intersection
   [t b bm]
@@ -6384,23 +6395,23 @@
           [[x -> y] [b ... b -> x] -> [b ... b -> y]]))
 
 (ann clojure.core/partial 
-     (All [x y a b c d e f g h i j k l m n o p z ...]
-          (Fn [[x a z ... z -> y] a -> [z ... z -> y]]
-              [[x a b z ... z -> y] a b -> [z ... z -> y]]
-              [[x a b c z ... z -> y] a b c -> [z ... z -> y]]
-              [[x a b c d z ... z -> y] a b c d -> [z ... z -> y]]
-              [[x a b c d e z ... z -> y] a b c d e -> [z ... z -> y]]
-              [[x a b c d e f z ... z -> y] a b c d e f -> [z ... z -> y]]
-              [[x a b c d e f g z ... z -> y] a b c d e f g -> [z ... z -> y]]
-              [[x a b c d e f g h z ... z -> y] a b c d e f g h -> [z ... z -> y]]
-              [[x a b c d e f g h i z ... z -> y] a b c d e f g h i -> [z ... z -> y]]
-              [[x a b c d e f g h i j z ... z -> y] a b c d e f g h i j -> [z ... z -> y]]
-              [[x a b c d e f g h i j k z ... z -> y] a b c d e f g h i j k -> [z ... z -> y]]
-              [[x a b c d e f g h i j k l z ... z -> y] a b c d e f g h i j k l -> [z ... z -> y]]
-              [[x a b c d e f g h i j k l m z ... z -> y] a b c d e f g h i j k l m -> [z ... z -> y]]
-              [[x a b c d e f g h i j k l m n z ... z -> y] a b c d e f g h i j k l m n -> [z ... z -> y]]
-              [[x a b c d e f g h i j k l m n o z ... z -> y] a b c d e f g h i j k l m n o -> [z ... z -> y]]
-              [[x a b c d e f g h i j k l m n o p z ... z -> y] a b c d e f g h i j k l m n o p -> [z ... z -> y]])))
+     (All [y a b c d e f g h i j k l m n o p z ...]
+          (Fn [[a z ... z -> y] a -> [z ... z -> y]]
+              [[a b z ... z -> y] a b -> [z ... z -> y]]
+              [[a b c z ... z -> y] a b c -> [z ... z -> y]]
+              [[a b c d z ... z -> y] a b c d -> [z ... z -> y]]
+              [[a b c d e z ... z -> y] a b c d e -> [z ... z -> y]]
+              [[a b c d e f z ... z -> y] a b c d e f -> [z ... z -> y]]
+              [[a b c d e f g z ... z -> y] a b c d e f g -> [z ... z -> y]]
+              [[a b c d e f g h z ... z -> y] a b c d e f g h -> [z ... z -> y]]
+              [[a b c d e f g h i z ... z -> y] a b c d e f g h i -> [z ... z -> y]]
+              [[a b c d e f g h i j z ... z -> y] a b c d e f g h i j -> [z ... z -> y]]
+              [[a b c d e f g h i j k z ... z -> y] a b c d e f g h i j k -> [z ... z -> y]]
+              [[a b c d e f g h i j k l z ... z -> y] a b c d e f g h i j k l -> [z ... z -> y]]
+              [[a b c d e f g h i j k l m z ... z -> y] a b c d e f g h i j k l m -> [z ... z -> y]]
+              [[a b c d e f g h i j k l m n z ... z -> y] a b c d e f g h i j k l m n -> [z ... z -> y]]
+              [[a b c d e f g h i j k l m n o z ... z -> y] a b c d e f g h i j k l m n o -> [z ... z -> y]]
+              [[a b c d e f g h i j k l m n o p z ... z -> y] a b c d e f g h i j k l m n o p -> [z ... z -> y]])))
 
 (ann clojure.core/str [Any * -> String])
 (ann clojure.core/prn-str [Any * -> String])
@@ -6454,7 +6465,7 @@
 
 (ann clojure.core/map
      (All [c a b ...]
-          [[a b ... b -> c] (Option (Seqable a)) (Option (Seqable b)) ... b -> (LazySeq c)]))
+          [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (LazySeq c)]))
 
 (ann clojure.core/mapcat
      (All [c b ...]
@@ -6518,6 +6529,14 @@
 (ann clojure.core/rest
      (All [x]
           [(Option (Seqable x)) -> (ISeq x)]))
+
+(ann clojure.core/next
+     (All [x]
+          [(Option (Seqable x)) -> (U nil (ISeq x))
+           :filters {:then (& (is (CountRange 2) 0)
+                              (! nil 0))
+                     :else (| (is (CountRange 0 1) 0)
+                              (is nil 0))}]))
 
 (ann clojure.core/conj
      (All [x y]
@@ -8140,10 +8159,12 @@
    :post [(every? Function? %)]}
   (assert (not (some :drest (:types fin))))
   (let [nreq (count required-params)]
+    (prn "nreq" nreq)
+    (prn "rest-param" rest-param)
     (filter (fn [{:keys [dom rest]}]
               (if rest-param 
-                (<= nreq (count dom))
-                (= nreq (count dom))))
+                (and rest (<= nreq (count dom)))
+                (and (not rest) (= nreq (count dom)))))
             (:types fin))))
 
 (declare check-fn)
@@ -8390,6 +8411,7 @@
    :post [(seq %)
           (every? Function? %)]}
   (let [mfns (relevant-Fns required-params rest-param fin)]
+    (prn "relevant-Fns" (map unparse-type mfns))
     (cond
       ;If no matching cases, assign parameters to Any
       (empty? mfns) [(check-fn-method1 method (make-Function (repeat (count required-params) -any)
