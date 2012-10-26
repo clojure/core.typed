@@ -53,29 +53,34 @@
   (is (= (Poly-body*
            '(x)
            (Poly* '(x) [no-bounds]
-                  (make-F 'x)))
+                  (make-F 'x)
+                  '(x)))
          (make-F 'x)))
   (is (= (Poly-body*
            '(x)
            (Poly* '(x)
-                  [(->Bounds -nil -false)]
-                  (make-F 'x)))
+                  [(->Bounds -nil -false nil)]
+                  (make-F 'x)
+                  '(x)))
          (make-F 'x)))
   (is (= (parse-type '(All [x x1 [y :< x] z] [x -> y]))
          (let [no-bounds-scoped (->Bounds
                                   (add-scopes 4 -any)
-                                  (add-scopes 4 (Un)))]
+                                  (add-scopes 4 (Un))
+                                  nil)]
            (->Poly 4
                    [no-bounds-scoped
                     no-bounds-scoped
                     (->Bounds 
                       (add-scopes 4 (->B 3))
-                      (add-scopes 4 (Un)))
+                      (add-scopes 4 (Un))
+                      nil)
                     no-bounds-scoped]
                    (add-scopes 4
                                (make-FnIntersection
                                  (make-Function [(->B 3)] (->B 1)
-                                                nil nil))))))))
+                                                nil nil)))
+                   '(x x1 y z))))))
 (defmacro sub? [s t]
   `(subtype? (parse-type '~s)
              (parse-type '~t)))
@@ -211,7 +216,8 @@
                       (-val 1)
                       nil nil
                       :filter (-FS -top -bot)
-                      :object -empty))))))
+                      :object -empty))
+                  '(x)))))
   ;test invoke fn
   (is (subtype? (ety
                   ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
@@ -709,8 +715,8 @@
               -empty)))
   (is (= (-> (tc-t (-> (fn [m]
                          (assoc m :c 1))
-                     (ann-form [typed.test.core/SomeMap -> (U '{:a ':b :c '1}
-                                                              '{:b ':c :c '1})])))
+                     (typed.core/ann-form [typed.test.core/SomeMap -> (U '{:a ':b :c '1}
+                                                                         '{:b ':c :c '1})])))
            ret-t :types first :rng)
          (make-Result (Un (-hmap {(-val :a) (-val :b)
                                   (-val :c) (-val 1)})
@@ -964,7 +970,7 @@
   (is (= (-> (tc-t (typed.core/fn> [[a :- (clojure.lang.IPersistentMap Long String)]]
                                    (find a 1)))
            :t :types first :rng :t)
-         (Un (->HeterogeneousVector (list (RClass-of Long) (RClass-of String)))
+         (Un (->HeterogeneousVector [(RClass-of Long) (RClass-of String)])
              -nil))))
 
 (deftest map-infer-test
@@ -1014,7 +1020,7 @@
   (is (cf (typed.core/ann-form (typed.core/inst merge Any Any) [nil -> nil]))))
 
 (deftest poly-filter-test
-  (is (= (ret-t (tc-t (let [a (ann-form [1] (Seqable AnyInteger))]
+  (is (= (ret-t (tc-t (let [a (typed.core/ann-form [1] (clojure.lang.Seqable typed.core/AnyInteger))]
                         (if (seq a)
                           (first a)
                           'a))))
@@ -1034,4 +1040,4 @@
                                  [x -> (m x)])))
           [(ret -nil)]
           (ret
-            (parse-type '(m nil))))))
+            (parse-type '(m nil)))))))

@@ -1,13 +1,8 @@
 # Typed Clojure
 
-Clojure with a type system, as a library.
+Gradual typing in Clojure, as a library.
 
-# Research Proposal
-
-Typed Clojure will be the subject of my dissertation.
-
-[Final Draft Project Proposal](https://github.com/downloads/frenchy64/papers/research-proposal-final-draft.pdf)
-[Early Draft Literary Review](https://github.com/downloads/frenchy64/papers/lit-review-draft.pdf)
+[A Practical Optional Type System for Clojure](http://cloud.github.com/downloads/frenchy64/papers/paper.pdf)
 
 # License
 
@@ -19,7 +14,7 @@ See `LICENSE`.
 
 Leiningen:
 
-`[typed "0.1-alpha5]`
+`[typed "0.1]`
 
 # Immediate Roadmap
 

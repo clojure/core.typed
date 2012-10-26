@@ -351,7 +351,6 @@
 
 ; The two foundational goals.  A goal takes a stream of
 ; substitutions and returns a stream of substitutions.
-(
 (defn fail [s]
   (list))
 

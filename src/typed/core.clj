@@ -15,7 +15,7 @@
             [clojure.pprint :refer [pprint]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
-            [clojure.tools.trace :refer [trace-vars untrace-vars
+            #_[clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]]))
 
 (def third (comp second next))
@@ -795,8 +795,6 @@
   (resolve-tapp* (.rator app) (.rands app)))
 
 (defn resolve-tapp* [rator rands]
-  (prn 'resolve-tapp*)
-  (prn rator)
   (let [rator (-resolve rator)
         _ (assert (TypeFn? rator) (unparse-type rator))]
     (assert (= (count rands) (.nbound rator))
@@ -1349,8 +1347,6 @@
    {lowerr :lower upperr :upper :as r}]
   {:pre [(CountRange? l)
          (CountRange? r)]}
-  (prn 'countrange-overlap?)
-  (prn l r)
   (cond 
     (and upperl upperr)
         (or 
@@ -2118,6 +2114,7 @@
   ([] (print-env *lexical-env*))
   ([e]
    {:pre [(PropEnv? e)]}
+   ;; DO NOT REMOVE
    (prn {:env (into {} (for [[k v] (:l e)]
                          [k (unparse-type v)]))
          :props (map unparse-filter (:props e))})))
@@ -3410,8 +3407,6 @@
   [{:keys [rator rands]}]
   (apply combine-frees
          (let [tfn (loop [rator rator]
-                     (prn rator)
-                     (prn *free-scope*)
                      (cond
                        (F? rator) (when-let [bnds (free-with-name-bnds (.name rator))]
                                     (.higher-kind bnds))
@@ -4104,7 +4099,7 @@
          (AnyType? S)
          (AnyType? T)]
    :post [(cset? %)]}
-  (prn "cs-gen" (unparse-type S) (unparse-type T))
+  #_(prn "cs-gen" (unparse-type S) (unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (subtype? S T))
     ;already been around this loop, is a subtype
@@ -4264,7 +4259,7 @@
 
 (defmethod cs-gen* :default
   [V X Y S T]
-(prn "cs-gen* default" (class S) (class T))
+#_(prn "cs-gen* default" (class S) (class T))
   (when (some Result? [S T])
     (throw (IllegalArgumentException. (error-msg "Result on left or right "
                                                  (pr-str S) " " (pr-str T)))))
@@ -4405,7 +4400,7 @@
       (insert-constraint name ps -any (X name)))))
 
 (defn cs-gen-left-F [V X Y S T]
-  (prn "cs-gen* [F Type]" S T)
+  #_(prn "cs-gen* [F Type]" S T)
   (cond
     (contains? X (.name S))
     (demote-F V X Y S T)
@@ -4656,7 +4651,7 @@
 
 (defmethod cs-gen* [Function Function]
   [V X Y S T]
-  (prn "cs-gen* [Function Function]")
+  #_(prn "cs-gen* [Function Function]")
   (cs-gen-Function V X Y S T))
 
 (declare error-msg)
@@ -4944,7 +4939,7 @@
         new-Ts (doall
                  (for [v new-vars]
                    (let [target (substitute-dots (map make-F new-vars) nil dotted-var T-dotted)]
-                     (prn "replace" v "with" dotted-var "in" (unparse-type target))
+                     #_(prn "replace" v "with" dotted-var "in" (unparse-type target))
                      (substitute (make-F v) dotted-var target))))
         ;_ (prn "new-Ts" new-Ts)
         cs-dotted (cs-gen-list #{} (merge X (zipmap new-vars (repeat dotted-bnd))) {dotted-var dotted-bnd} rest-S new-Ts
@@ -4993,22 +4988,22 @@
          (AnyType? R)
          ((some-fn nil? AnyType?) expected)]
    :post [((some-fn nil? true? substitution-c?) %)]}
-  (prn "infer" )
-  (prn "X:" X) 
-  (prn "Y:" Y) 
-  (prn "S:" (map unparse-type S))
-  (prn "T:" (map unparse-type T))
-  (when R
-    (prn "R:" (class R) (unparse-type R)))
-  (when expected
-    (prn "expected:" (class expected) (unparse-type expected)))
+;  (prn "infer" )
+;  (prn "X:" X) 
+;  (prn "Y:" Y) 
+;  (prn "S:" (map unparse-type S))
+;  (prn "T:" (map unparse-type T))
+;  (when R
+;    (prn "R:" (class R) (unparse-type R)))
+;  (when expected
+;    (prn "expected:" (class expected) (unparse-type expected)))
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (empty-cset {} {}))
-        _ (prn "expected cset" expected-cset)
+        ;_ (prn "expected cset" expected-cset)
         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
         cs* (cset-meet cs expected-cset)]
-    (prn "final cs" cs*)
+    ;(prn "final cs" cs*)
     (if R
       (subst-gen cs* (set (keys Y)) R)
       true)))
@@ -7206,7 +7201,7 @@
    :post [(TCResult? %)]}
   (let [fexpr-type (resolve-to-ftype (ret-t fexpr-ret-type))
         arg-types (doall (map ret-t arg-ret-types))]
-    (prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
+    #_(prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
     (cond
       ;ordinary Function, single case, special cased for improved error msgs
       (and (FnIntersection? fexpr-type)
@@ -7241,9 +7236,9 @@
             _ (assert (FnIntersection? body))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (.types body)]
                        (when ftype
-                         (prn "infer poly fn" (unparse-type ftype) (map unparse-type arg-types)
+                         #_(prn "infer poly fn" (unparse-type ftype) (map unparse-type arg-types)
                               (count dom) (count arg-types))
-                         (when rest (prn "rest" (unparse-type rest)))
+                         #_(when rest (prn "rest" (unparse-type rest)))
                          ;; only try inference if argument types are appropriate and no kws
                          (if-let [substitution (try
                                                  (and (not (or drest kws))
@@ -7253,8 +7248,8 @@
                                                  (catch IllegalArgumentException e
                                                    (throw e))
                                                  (catch Exception e
-                                                   (prn e)))]
-                           (do (prn "subst:" substitution)
+                                                   #_(prn e)))]
+                           (do #_(prn "subst:" substitution)
                              (check-funapp1 (subst-all substitution ftype)
                                             (map ret arg-types) expected :check? false))
                            (if (or drest kws)
@@ -8111,7 +8106,7 @@
 (defmethod check :invoke
   [{:keys [fexpr args env] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (prn "invoke:" ((some-fn :var :keyword :op) fexpr))
+  #_(prn "invoke:" ((some-fn :var :keyword :op) fexpr))
   (binding [*current-env* env]
     (let [e (invoke-special expr expected)]
       (cond 
@@ -8159,8 +8154,8 @@
    :post [(every? Function? %)]}
   (assert (not (some :drest (:types fin))))
   (let [nreq (count required-params)]
-    (prn "nreq" nreq)
-    (prn "rest-param" rest-param)
+    ;(prn "nreq" nreq)
+    ;(prn "rest-param" rest-param)
     (filter (fn [{:keys [dom rest]}]
               (if rest-param 
                 (and rest (<= nreq (count dom)))
@@ -8340,9 +8335,7 @@
                                 (=-c? :PolyDots) 
                                 nil?)) %)]}
   (cond
-    (Poly? t) (let [_ (prn t)
-                    _ (prn (meta t))
-                    _ (assert (Poly-free-names* t) (unparse-type t))
+    (Poly? t) (let [_ (assert (Poly-free-names* t) (unparse-type t))
                     old-nmes (Poly-free-names* t)
                     _ (assert ((every-pred seq (every-c? symbol?)) old-nmes))
                     new-nmes (repeatedly (:nbound t) gensym)
@@ -8411,7 +8404,7 @@
    :post [(seq %)
           (every? Function? %)]}
   (let [mfns (relevant-Fns required-params rest-param fin)]
-    (prn "relevant-Fns" (map unparse-type mfns))
+    #_(prn "relevant-Fns" (map unparse-type mfns))
     (cond
       ;If no matching cases, assign parameters to Any
       (empty? mfns) [(check-fn-method1 method (make-Function (repeat (count required-params) -any)
@@ -8597,7 +8590,7 @@
   {:pre [((some-fn nil? TCResult?) expected)]
    :post [(-> % expr-type TCResult?)]}
   (assert method (str "Unresolved method invocation " (:method-name expr) ", insufficient type hints."))
-  (prn "invoke method: " (Method->symbol method) inst?)
+  #_(prn "invoke method: " (Method->symbol method) inst?)
   (binding [*current-env* env]
     (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
                              (method->Function method)))
@@ -8617,7 +8610,7 @@
 (defmethod check :static-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (prn "static-method" (-> expr :method :name))
+  #_(prn "static-method" (-> expr :method :name))
   (let [spec (static-method-special expr expected)]
     (cond
       (not= ::not-special spec) spec
@@ -8635,7 +8628,7 @@
 (defmethod check :instance-field
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (prn "instance-field:" expr)
+  #_(prn "instance-field:" expr)
   (assert (:target-class expr) "Instance fields require type hints")
   (let [; may be prefixed by COMPILE-STUB-PREFIX
         target-class (symbol
@@ -8690,7 +8683,7 @@
 
 (defmethod check :new
   [{cls :class :keys [ctor args env] :as expr} & [expected]]
-  (prn "check: :new" "env" env)
+  #_(prn "check: :new" "env" env)
   (binding [*current-env* env]
     (let [inst-types *inst-ctor-types*
           cls-stub (Class->symbol cls)
@@ -9025,7 +9018,7 @@
          (boolean? @flag)]
    :post [(PropEnv? env)
           (boolean? @flag)]}
-  (prn 'env+ fs)
+  #_(prn 'env+ fs)
   (let [[props atoms] (combine-props fs (:props env) flag)]
     (reduce (fn [env f]
               {:pre [(PropEnv? env)
@@ -9061,7 +9054,7 @@
               reachable? (-> (check expr) expr-type)
               ;; otherwise, this code is unreachable
               ;; and the resulting type should be the empty type
-              :else (do (prn "Not checking unreachable code")
+              :else (do (prn (error-msg "Not checking unreachable code"))
                       (ret (Un)))))]
     (let [{fs+ :then fs- :else :as f1} (:fl tst)
          ; _ (prn "check-if: fs+" (unparse-filter fs+))
@@ -9071,14 +9064,14 @@
           _ (set-validator! flag+ boolean?)
           _ (set-validator! flag- boolean?)
 
-          _ (print-env)
+          ;_ (print-env)
           idsym (gensym)
           env-thn (env+ *lexical-env* [fs+] flag+)
-          _ (do (pr "check-if: env-thn")
-              (print-env env-thn))
+;          _ (do (pr "check-if: env-thn")
+;              (print-env env-thn))
           env-els (env+ *lexical-env* [fs-] flag-)
-          _ (do (pr "check-if: env-els")
-              (print-env env-els))
+;          _ (do (pr "check-if: env-els")
+;              (print-env env-els))
 ;          new-thn-props (set
 ;                          (filter atomic-filter?
 ;                                  (set/difference
@@ -9150,7 +9143,7 @@
   [{:keys [var init init-provided env] :as expr} & [expected]]
   (assert (not expected) expected)
   (assert (:line env))
-  (prn "Checking" var)
+  #_(prn "Checking" var)
   (binding [*current-env* env]
     (cond 
       ;ignore macro definitions
@@ -9197,7 +9190,7 @@
   {:post [(-> % expr-type TCResult?)]}
   (assert nme) ;remove once analyze is released
   ;TODO check fields match
-  (prn "Checking deftype definition:" nme)
+  #_(prn "Checking deftype definition:" nme)
   (let [cmmap (into {} (for [[k v] (:mmap expr)]
                          [[(symbol (first k)) (count (second k))]
                           (@#'clojure.reflect/method->map v)]))
@@ -9230,7 +9223,7 @@
         _ (swap! DATATYPE-ANCESTOR-ENV update-in [nme] set/union ancestor-diff)
         _ (try
             (doseq [inst-method methods]
-              (prn "Checking deftype* method: "(:name inst-method))
+              #_(prn "Checking deftype* method: "(:name inst-method))
               (let [nme (:name inst-method)
                     _ (assert (symbol? nme)) ;can remove once new analyze is released
                     ; minus the target arg
@@ -9248,8 +9241,8 @@
                                                       (munged-methods (:name method-sig)))))
                                                 (instance-method->Function method-sig)))]
                 (with-locals (:fields dt)
-                  (prn "lexical env when checking method" nme *lexical-env*)
-                  (prn (:fields dt))
+                  ;(prn "lexical env when checking method" nme *lexical-env*)
+                  ;(prn (:fields dt))
                   (check-new-instance-method
                     inst-method 
                     expected-ifn))))
@@ -9269,7 +9262,7 @@
         {:keys [dom rng] :as expected-fn} (-> expected-fin :types first)
         _ (assert (not (:rest expected-fn)))
         cbody (with-locals (zipmap (map :sym required-params) dom)
-                (print-env)
+                #_(print-env)
                 (check body (ret (:t rng)
                                  (:fl rng)
                                  (:o rng))))]
@@ -9283,7 +9276,7 @@
 
 (defmethod check :case*
   [{:keys [] :as expr} & [expected]]
-  (prn "Checking case")
+  #_(prn "Checking case")
   ; tests have no duplicates
   (let [;_ (prn (:the-expr expr))
         cthe-expr (check (:the-expr expr))
@@ -9322,7 +9315,7 @@
   ([nsym]
    (require nsym)
    (with-open [pbr (analyze/pb-reader-for-ns nsym)]
-     (let [[_ns-decl_ & asts] (analyze/analyze-ns pbr nsym)]
+     (let [[_ns-decl_ & asts] (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)]
        (doseq [ast asts]
          (check ast))))))
 
