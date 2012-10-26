@@ -14,7 +14,17 @@ See `LICENSE`.
 
 Leiningen:
 
-`[typed "0.1]`
+`[typed "0.1"]`
+
+# Quickstart
+
+`(typed.core/ann v t)` gives var `v` the static type `t`.
+
+`(typed.core/ann-form f t)` ensures form `f` is of the static type `t`.
+
+`(typed.core/check-ns)` type checks the current namespace.
+
+`(typed.core/cf t)` type checks the form `t`.
 
 # Immediate Roadmap
 
@@ -38,8 +48,7 @@ Leiningen:
 
 ## Clojure version
 
-Currently TC (really 'analyze') is running a custom version of the Clojure Compiler to avoid unnecessary reflection.
-I'm not entirely sure what this implies.
+Only Clojure 1.5.0-beta1 is supported.
 
 ## Namespace management
 
