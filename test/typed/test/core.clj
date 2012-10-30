@@ -1041,3 +1041,8 @@
           [(ret -nil)]
           (ret
             (parse-type '(m nil)))))))
+
+(deftest prims-test
+  (is (= (ret-t (tc-t (Math/sqrt 1)))
+         (parse-type 'double))))
+

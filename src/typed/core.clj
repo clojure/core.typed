@@ -1,4 +1,4 @@
-(set! *warn-on-reflection* false)
+#_(set! *warn-on-reflection* false)
 
 (ns typed.core
   (:refer-clojure :exclude [defrecord type])
@@ -2267,9 +2267,14 @@
   {:pre [(symbol? sym)]
    :post [(class? %)]}
   (case sym
-    long Long/TYPE
+    byte Byte/TYPE
+    short Short/TYPE
     int Integer/TYPE
+    long Long/TYPE
+    float Float/TYPE
+    double Double/TYPE
     boolean Boolean/TYPE
+    char Character/TYPE
     (Class/forName (str sym))))
 
 (defn Class->symbol [cls]
@@ -2888,9 +2893,14 @@
 
 ;Symbol -> Class
 (def primitives
-  {'long (RClass-of 'long nil)
-   'int (RClass-of 'int nil)
-   'boolean (RClass-of 'boolean nil)
+  {'byte (RClass-of 'byte)
+   'short (RClass-of 'short)
+   'int (RClass-of 'int)
+   'long (RClass-of 'long)
+   'float (RClass-of 'float)
+   'double (RClass-of 'double)
+   'boolean (RClass-of 'boolean)
+   'char (RClass-of 'char)
    'void -nil})
 
 (defmethod parse-type-symbol :default
@@ -5508,6 +5518,9 @@
 
 (declare supertype-of-one-arr)
 
+(defn unify [X S T]
+  (infer X {} S T -any))
+
 (defn subtypeA* [A s t]
   (if (or (contains? A [s t])
           (= s t)
@@ -5521,6 +5534,26 @@
 
         (Name? t)
         (subtypeA* *sub-current-seen* s (resolve-Name t))
+
+        (and (Poly? s)
+             (Poly? t))
+        (do
+          (when-not (= (.nbound s) (.nbound t))
+            (type-error s t))
+          (let [names (repeatedly (.nbound s) gensym)
+                b1 (Poly-body* names s)
+                b2 (Poly-body* names t)]
+            (subtype b1 b2)))
+
+        (Poly? s)
+        (let [names (repeatedly (.nbound s) gensym)
+              bnds (Poly-bbnds* names s)
+              b1 (Poly-body* names s)]
+          (if (unify (zipmap names bnds) [b1] [t])
+            *sub-current-seen*
+            (type-error s t)))
+
+        ;TODO Poly? t
 
         (and (TApp? s)
              (not (F? (.rator s)))
@@ -5576,6 +5609,12 @@
         (if (every? #(subtype? s %) (.types t))
           *sub-current-seen*
           (type-error s t))
+
+        ;values are subtypes of their classes
+        (Value? s)
+        (if (nil? (.val s))
+          (type-error s t)
+          (subtype (RClass-of (class (.val s))) t))
 
         :else (subtype* s t)))))
 
@@ -5783,7 +5822,7 @@
     (type-error S T)))
 
 (prefer-method subtype* [Type TApp] [HeterogeneousVector Type])
-(prefer-method subtype* [Type TApp] [Poly Type])
+(prefer-method subtype* [Type TApp] [HeterogeneousVector Type])
 
 (defmethod subtype* [TApp Type]
   [S T]
@@ -5812,10 +5851,6 @@
              (subtype? sbody tbody)))
     *sub-current-seen*
     (type-error S T)))
-
-(defmethod subtype* [Value AnyValue]
-  [_ _]
-  *sub-current-seen*)
 
 (defmethod subtype* [PrimitiveArray Type]
   [_ t]
@@ -5868,14 +5903,6 @@
 ; (Cons Integer) <: (Seqable Integer)
 ; (ancestors (Seqable Integer)
 
-(defmethod subtype* [Value RClass]
-  [{val :val :as s} t]
-  (cond
-    (nil? val) (type-error s t)
-    :else (let [cls (class val)]
-            (subtype (RClass-of (Class->symbol cls) nil) t))))
-
-
 (defn- subtype-RClass-common-base 
   [{polyl? :poly? lcls-sym :the-class :as s}
    {polyr? :poly? rcls-sym :the-class :as t}]
@@ -5893,10 +5920,26 @@
                                       polyl?
                                       polyr?))))))))
 
-; Class -> Class
+; Class -> {:up Class :down Class}
+; up : is it safe to use this primitive type in place of up
+; down : whereever down is, we can replace it with primitive
 (def primitive-coersions
-  {Integer/TYPE #{Short Integer Long}
-   Boolean/TYPE #{Boolean}})
+  {Byte/TYPE {:up #{Byte}
+              :down #{Byte}}
+   Short/TYPE {:up #{Short Integer Long Float Double}
+               :down #{Short Integer Long}}
+   Integer/TYPE {:up #{Short Integer Long Float Double}
+                 :down #{Short Integer Long}}
+   Long/TYPE {:up #{Short Integer Long Float Double Double/TYPE}
+              :down #{Short Integer Long}}
+   Float/TYPE {:up #{Float Double}
+               :down #{Float Double}}
+   Double/TYPE {:up #{Float Double}
+                :down #{Float Double}}
+   Character/TYPE {:up #{Character}
+                   :down #{Character}}
+   Boolean/TYPE {:up #{Boolean}
+                 :down #{Boolean}}})
 
 (defn coerse-RClass-primitive
   [s t]
@@ -5904,10 +5947,10 @@
         tcls (symbol->Class (:the-class t))]
     (cond
       (.isPrimitive ^Class scls)
-      ((primitive-coersions scls) tcls)
+      (-> (primitive-coersions scls) :up tcls)
 
       (.isPrimitive ^Class tcls)
-      ((primitive-coersions tcls) scls))))
+      (-> (primitive-coersions tcls) :down scls))))
 
 (defmethod subtype* [RClass RClass]
   [{polyl? :poly? :as s}
@@ -6007,28 +6050,6 @@
   [s t]
   (let [t* (unfold t)]
     (subtype s t*)))
-
-(defn unify [X S T]
-  (infer X {} S T -any))
-
-(defmethod subtype* [Poly Type]
-  [s t]
-  (let [names (repeatedly (.nbound s) gensym)
-        bnds (Poly-bbnds* names s)
-        b1 (Poly-body* names s)]
-    (if (unify (zipmap names bnds) [b1] [t])
-      *sub-current-seen*
-      (type-error s t))))
-
-(defmethod subtype* [Poly Poly]
-  [{n1 :nbound :as s}
-   {n2 :nbound :as t}]
-  (when-not (= n1 n2)
-    (type-error s t))
-  (let [names (repeatedly n1 gensym)
-        b1 (Poly-body* names s)
-        b2 (Poly-body* names t)]
-    (subtype b1 b2)))
 
 ;subtype if t includes all of s. 
 ;tl <= sl, su <= tu
@@ -7655,8 +7676,6 @@
     (assoc expr
            expr-type t)))
 
-(declare unwrap-poly rewrap-poly)
-
 ;unsafe form annotation
 (defmethod invoke-special #'unsafe-ann-form*
   [{[frm {tsyn :val}] :args :as expr} & [expected]]
@@ -7668,19 +7687,8 @@
 (defmethod invoke-special #'ann-form*
   [{[frm {tsyn :val}] :args :as expr} & [expected]]
   (let [parsed-ty (parse-type tsyn)
-        ;unwrap poly
-        [uty orig-names inst-frees bnds poly?] (unwrap-poly parsed-ty)
-        ;_ (prn "ann-form expected" (unparse-type uty))
-        cty (with-free-mappings (case poly?
-                                  :Poly (zipmap orig-names (map #(hash-map :F %1 :bnds %2) inst-frees bnds))
-                                  :PolyDots (zipmap (next orig-names) (map #(hash-map :F %1 :bnds %2) (next inst-frees) (next bnds)))
-                                  nil)
-              (with-dotted-mappings (case poly?
-                                      :PolyDots {(last orig-names) (last inst-frees)}
-                                      nil)
-                (check frm (ret uty))))
-        ;rewrap poly
-        checked-type (rewrap-poly (ret-t (expr-type cty)) orig-names inst-frees bnds poly?)
+        cty (check frm (ret parsed-ty))
+        checked-type (ret-t (expr-type cty))
         _ (subtype checked-type parsed-ty)
         _ (when expected
             (subtype checked-type (ret-t expected)))]
@@ -8546,6 +8554,7 @@
   (if-let [typ (or (primitives sym)
                    (symbol->PArray sym nilable?)
                    (when-let [cls (resolve sym)]
+                     (prn (class cls) cls)
                      (apply Un (RClass-of (Class->symbol cls) nil)
                             (when nilable?
                               [-nil]))))]
@@ -9148,26 +9157,18 @@
     (cond 
       ;ignore macro definitions
       (not (.isMacro ^Var var))
-      (let [[new-t orig-names inst-frees bnds poly?] (let [t (type-of (var->symbol var))]
-                                                       (unwrap-poly t))
+      (let [t (type-of (var->symbol var))
             cexpr (cond 
                     (not init-provided) expr ;handle `declare`
-                    :else (with-free-mappings (case poly?
-                                                :Poly (zipmap orig-names (map #(hash-map :F %1 :bnds %2) inst-frees bnds))
-                                                :PolyDots (zipmap (next orig-names) (map #(hash-map :F %1 :bnds %2)
-                                                                                         (next inst-frees) (next bnds)))
-                                                nil)
-                            (with-dotted-mappings (case poly?
-                                                    :PolyDots {(last orig-names) (last inst-frees)}
-                                                    nil)
-                              (check init (ret new-t)))))]
-        ;don't need any further checks, def returns a Var
+                    :else (check init (ret t)))
+            _ (subtype (ret-t (expr-type cexpr)) t)]
+        ;def returns a Var
         (assoc cexpr
                expr-type (ret (RClass-of Var))))
 
       :else
       (assoc expr
-             expr-type (ret (RClass-of (Class->symbol Var) nil))))))
+             expr-type (ret (RClass-of Var))))))
 
 (declare check-new-instance-method)
 
@@ -9308,7 +9309,7 @@
   ([form]
   `(-> (ast ~form) check expr-type unparse-TCResult))
   ([form expected]
-  `(-> (ast ~form) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))
+  `(-> (ast (ann-form ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))
 
 (defn check-ns 
   ([] (check-ns (ns-name *ns*)))

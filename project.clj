@@ -1,4 +1,4 @@
-(defproject typed "0.1"
+(defproject typed "0.1.1-SNAPSHOT"
   :description "Gradual typing for Clojure"
   :dependencies [[analyze "0.2"]
                  [net.intensivesystems/arrows "1.3.0"] ;for testing conduit, lein test wants it here?

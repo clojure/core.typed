@@ -2,7 +2,7 @@
   (:import (java.io File))
   (:require [typed.core :refer [ann non-nil-return check-ns]]))
 
-(ann f File)
+(ann f nil)
 (def f (File. "a"))
 
 (ann prt (U nil String))
