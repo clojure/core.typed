@@ -12,9 +12,9 @@ See `LICENSE`.
 
 # Download
 
-Leiningen:
+Leiningen (Clojars):
 
-`[typed "0.1"]`
+`[typed "0.1.1"]`
 
 # Changelog
 
