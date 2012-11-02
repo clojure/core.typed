@@ -703,7 +703,13 @@
 
 (deftest overlap-test
   (is (not (overlap -false -true)))
-  (is (not (overlap (-val :a) (-val :b)))))
+  (is (not (overlap (-val :a) (-val :b))))
+  (is (overlap (RClass-of Number) (RClass-of Integer)))
+  (is (not (overlap (RClass-of Number) (RClass-of clojure.lang.Symbol))))
+  (is (not (overlap (RClass-of Number) (RClass-of String))))
+  (is (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.IMeta [-any])))
+  (is (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.PersistentVector [-any])))
+  )
 
 (def-alias SomeMap (U (HMap {:a (Value :b)})
                       (HMap {:b (Value :c)})))
@@ -1045,4 +1051,3 @@
 (deftest prims-test
   (is (= (ret-t (tc-t (Math/sqrt 1)))
          (parse-type 'double))))
-

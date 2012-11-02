@@ -10,6 +10,7 @@
                          LazySeq))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
+            [clojure.reflect :as reflect]
             [clojure.string :as str]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
@@ -509,6 +510,9 @@
    ((hash-c? symbol? (some-fn Type? Scope?)) replacements)])
 
 (declare-type RClass)
+
+(defn RClass->Class [rcls]
+  (Class/forName (str (.the-class rcls))))
 
 (declare RESTRICTED-CLASS instantiate-poly Class->symbol)
 
@@ -1412,6 +1416,14 @@
 (defn overlap [t1 t2]
   (cond 
     (= t1 t2) true
+    ;if both are Classes, and at least one isn't an interface, then they must be subtypes to have overlap
+    (and (RClass? t1)
+         (RClass? t2)
+         (let [{t1-flags :flags} (reflect/type-reflect (RClass->Class t1))
+               {t2-flags :flags} (reflect/type-reflect (RClass->Class t2))]
+           (some (complement :interface) [t1-flags t2-flags])))
+    (or (subtype? t1 t2)
+        (subtype? t2 t1))
     (or (Value? t1)
         (Value? t2)) (or (subtype? t1 t2)
                          (subtype? t2 t1))
@@ -6172,6 +6184,7 @@
               IFn [Number -> a]
               IPersistentStack (IPersistentStack a)
               ILookup (ILookup Number a)
+              IMeta (IMeta Any)
               Associative (Associative Number a)})
 
 (alter-class Cons [[a :variance :covariant]]
@@ -6457,6 +6470,8 @@
 (ann clojure.core/set? (predicate (IPersistentSet Any)))
 (ann clojure.core/vector? (predicate (IPersistentVector Any)))
 (ann clojure.core/nil? (predicate nil))
+(ann clojure.core/nil? [Any -> boolean :filters {:then (is nil 0)
+                                                 :else (! nil 0)}])
 
 (ann clojure.core/meta (All [x]
                             (Fn [(IMeta x) -> x]
@@ -6668,9 +6683,13 @@
 (declare ret-t ret-f ret-o)
 
 (defn unparse-TCResult [r]
-  [(unparse-type (ret-t r))
-   (unparse-filter-set (ret-f r))
-   (unparse-object (ret-o r))])
+  (let [t (unparse-type (ret-t r))
+        fs (unparse-filter-set (ret-f r))
+        o (unparse-object (ret-o r))]
+    (if (and (= (-FS -top -top) fs)
+             (= o -empty))
+      t
+      [t fs o])))
 
 (defn ret
   "Convenience function for returning the type of an expression"
@@ -9307,9 +9326,11 @@
 (defmacro cf 
   "Type check a form and return its type"
   ([form]
-  `(-> (ast ~form) check expr-type unparse-TCResult))
+  `(tc-ignore
+     (-> (ast ~form) check expr-type unparse-TCResult)))
   ([form expected]
-  `(-> (ast (ann-form ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))
+  `(tc-ignore
+     (-> (ast (ann-form ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult))))
 
 (defn check-ns 
   ([] (check-ns (ns-name *ns*)))
