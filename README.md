@@ -16,6 +16,13 @@ Leiningen:
 
 `[typed "0.1"]`
 
+# Changelog
+
+0.1.1
+
+- Ensure `ann-form` finally checks its expression is of the expected type
+- Improve simplifying of intersections involving Java classes
+
 # Quickstart
 
 `(typed.core/ann v t)` gives var `v` the static type `t`.
