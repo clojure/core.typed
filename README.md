@@ -18,6 +18,10 @@ Leiningen (Clojars):
 
 # Changelog
 
+0.1.2-SNAPSHOT
+
+- Can annotate datatypes outside current namespace
+
 0.1.1
 
 - Ensure `ann-form` finally checks its expression is of the expected type

@@ -2156,53 +2156,56 @@
 (defn parse-field [[n _ t]]
   [n (parse-type t)])
 
-(defn gen-datatype* [local-name fields variances args ancests]
-    `(let [local-name# '~local-name
-           fs# (apply array-map (apply concat (with-frees (mapv make-F '~args)
-                                                (mapv parse-field '~fields))))
-           as# (set (with-frees (mapv make-F '~args)
-                      (mapv parse-type '~ancests)))
-           s# (symbol (str (munge (-> *ns* ns-name)) \. local-name#))
-           _# (add-datatype-ancestors s# as#)
-           pos-ctor-name# (symbol (str (-> *ns* ns-name)) (str "->" local-name#))
-           args# '~args
-           vs# '~variances
-           dt# (if args#
-                 (Poly* args# (repeat (count args#) no-bounds)
-                        (->DataType s# vs# (map make-F args#) fs#)
-                        args#)
-                 (->DataType s# nil nil fs#))
-           pos-ctor# (if args#
-                       (Poly* args# (repeat (count args#) no-bounds)
-                              (make-FnIntersection
-                                (make-Function (vec (vals fs#)) (->DataType s# vs# (map make-F args#) fs#)))
-                              args#)
-                       (make-FnIntersection
-                         (make-Function (vec (vals fs#)) dt#)))]
-       (do 
-         (when vs#
-           (let [f# (mapv make-F (repeatedly (count vs#) gensym))]
-             (alter-class* s# (RClass* (map :name f#) vs# f# s# {}))))
-         (add-datatype s# dt#)
-         (add-var-type pos-ctor-name# pos-ctor#)
-         [[s# (unparse-type dt#)]
-          [pos-ctor-name# (unparse-type pos-ctor#)]])))
+(defn gen-datatype* [provided-name fields variances args ancests]
+  `(let [provided-name# '~provided-name
+         local-name# (if (namespace provided-name#)
+                       (symbol (apply str (last (partition-by #(= \. %) (str provided-name#)))))
+                       provided-name#)
+         s# (if (namespace provided-name#)
+              provided-name#
+              (symbol (str (munge (-> *ns* ns-name)) \. local-name#)))
+         fs# (apply array-map (apply concat (with-frees (mapv make-F '~args)
+                                              (mapv parse-field '~fields))))
+         as# (set (with-frees (mapv make-F '~args)
+                    (mapv parse-type '~ancests)))
+         _# (add-datatype-ancestors s# as#)
+         pos-ctor-name# (symbol (str (-> *ns* ns-name)) (str "->" local-name#))
+         args# '~args
+         vs# '~variances
+         dt# (if args#
+               (Poly* args# (repeat (count args#) no-bounds)
+                      (->DataType s# vs# (map make-F args#) fs#)
+                      args#)
+               (->DataType s# nil nil fs#))
+         pos-ctor# (if args#
+                     (Poly* args# (repeat (count args#) no-bounds)
+                            (make-FnIntersection
+                              (make-Function (vec (vals fs#)) (->DataType s# vs# (map make-F args#) fs#)))
+                            args#)
+                     (make-FnIntersection
+                       (make-Function (vec (vals fs#)) dt#)))]
+     (do 
+       (when vs#
+         (let [f# (mapv make-F (repeatedly (count vs#) gensym))]
+           (alter-class* s# (RClass* (map :name f#) vs# f# s# {}))))
+       (add-datatype s# dt#)
+       (add-var-type pos-ctor-name# pos-ctor#)
+       [[s# (unparse-type dt#)]
+        [pos-ctor-name# (unparse-type pos-ctor#)]])))
 
-(defmacro ann-datatype [local-name fields & {ancests :unchecked-ancestors rplc :replace}]
+(defmacro ann-datatype [dname fields & {ancests :unchecked-ancestors rplc :replace}]
   (assert (not rplc) "Replace NYI")
-  (assert (not (or (namespace local-name)
-                   (some #(= \. %) (str local-name))))
-          (str "Must provide local name: " local-name))
+  (assert (symbol? dname)
+          (str "Must provide name symbol: " dname))
   `(tc-ignore
-     ~(gen-datatype* local-name fields nil nil ancests)))
+     ~(gen-datatype* dname fields nil nil ancests)))
 
-(defmacro ann-pdatatype [local-name vbnd fields & {ancests :unchecked-ancestors rplc :replace}]
+(defmacro ann-pdatatype [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace}]
   (assert (not rplc) "Replace NYI")
-  (assert (not (or (namespace local-name)
-                   (some #(= \. %) (str local-name))))
-          (str "Must provide local name: " local-name))
+  (assert (symbol? dname)
+          (str "Must provide local symbol: " dname))
   `(tc-ignore
-     ~(gen-datatype* local-name fields (map second vbnd) (map first vbnd) ancests)))
+     ~(gen-datatype* dname fields (map second vbnd) (map first vbnd) ancests)))
 
 (defn gen-protocol* [local-varsym variances args mths]
   `(let [local-vsym# '~local-varsym
@@ -8700,7 +8703,7 @@
   (let [cls-stub (symbol (.getName ^Class cls))
         clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
         inst-of (or (@DATATYPE-ENV clssym)
-                    (RClass-of (Class->symbol (Class/forName (str clssym)) nil)))
+                    (RClass-of clssym))
         cexpr (check the-expr)
         expr-tr (expr-type cexpr)]
     (assoc expr
