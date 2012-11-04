@@ -7,7 +7,7 @@
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
                          Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
                          IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
-                         LazySeq))
+                         LazySeq APersistentMap))
   (:require [analyze.core :refer [ast] :as analyze]
             [clojure.set :as set]
             [clojure.reflect :as reflect]
@@ -3273,7 +3273,7 @@
   [v]
   (if ((some-fn Nil? True? False?) v)
     (:val v)
-    `(quote ~(:val v))))
+    (list 'Value (:val v))))
 
 (defmethod unparse-type* HeterogeneousMap
   [v]
@@ -6091,6 +6091,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Altered Classes
 
+;; TODO fix metadata representation
+;; TODO remove redundant ancestors, add tests to ensure they are preserved.
+
 (alter-class Seqable [[a :variance :covariant]])
 
 (alter-class IMeta [[a :variance :covariant]])
@@ -6166,6 +6169,16 @@
               Seqable (Seqable a)
               IPersistentStack (IPersistentStack a)
               ILookup (ILookup Number a)
+              Associative (Associative Number a)})
+
+(alter-class APersistentMap [[a :variance :covariant] [b :variance :covariant]]
+             :replace
+             {IPersistentCollection (IPersistentCollection (IMapEntry a b))
+              Seqable (Seqable (IMapEntry a b))
+              IFn (All [d]
+                    (Fn [Any -> (U nil b)]
+                        [Any d -> (U b d)]))
+              ILookup (ILookup a b)
               Associative (Associative Number a)})
 
 (alter-class APersistentVector [[a :variance :covariant]]
@@ -6487,7 +6500,7 @@
 (ann clojure.core/class [Any -> (Option Class) :object {:id 0 :path [Class]}])
 
 (ann clojure.core/seq (All [x]
-                        [(Option (Seqable x)) -> (Option (Seqable x))
+                        [(Option (Seqable x)) -> (Option (ISeq x))
                          :filters {:then (is (CountRange 1) 0)
                                    :else (| (is nil 0)
                                             (is (ExactCount 0) 0))}]))
@@ -6554,6 +6567,7 @@
           (Fn [(Option (I (Seqable x) (ExactCount 0))) -> nil]
               [(I (Seqable x) (CountRange 1)) -> x]
               [(Option (Seqable x)) -> (Option x)])))
+
 (ann clojure.core/second
      (All [x]
           (Fn [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
