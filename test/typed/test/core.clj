@@ -124,9 +124,11 @@
   (is (subtype? (constant-type '{:a 1 :b 2 :c 3})
                 (constant-type '{:a 1 :b 2}))))
 
-;(deftest subtype-top-Function
-;  (is (subtype? (parse-type '[Integer -> Number])
-;                (In (->TopFunction)))))
+(deftest subtype-top-Function
+  (is (subtype? (parse-type '[Integer -> Number])
+                (parse-type 'AnyFunction)))
+  (is (subtype? (parse-type '[Integer -> Number])
+                (parse-type 'AnyFunction))))
 
 (deftest subtype-poly
   (is (subtype? (parse-type '(All [x] (clojure.lang.ASeq x)))

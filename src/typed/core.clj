@@ -67,9 +67,14 @@
 (defn tc-pr-env 
   "Print the current type environment, and debug-string"
   [debug-string] nil)
-(defn tc-pr-filters [debug-string frm] frm)
 
-(defn inst-poly [inst-of types-syn]
+(defn tc-pr-filters 
+  "Print the filter set attached to form, and debug-string"
+  [debug-string frm] 
+  frm)
+
+(defn inst-poly 
+  [inst-of types-syn]
   inst-of)
 
 (defn inst-poly-ctor [inst-of types-syn]
@@ -5962,10 +5967,10 @@
         tcls (symbol->Class (:the-class t))]
     (cond
       (.isPrimitive ^Class scls)
-      (-> (primitive-coersions scls) :up tcls)
+      (-> (primitive-coersions scls) :up (get tcls))
 
       (.isPrimitive ^Class tcls)
-      (-> (primitive-coersions tcls) :down scls))))
+      (-> (primitive-coersions tcls) :down (get scls)))))
 
 (defmethod subtype* [RClass RClass]
   [{polyl? :poly? :as s}
@@ -7095,6 +7100,12 @@
          (RObject? o)
          ((some-fn nil? Type?) t)]
    :post [(FilterSet? %)]}
+;  (prn "subst-filter-set")
+;  (prn "fs" (unparse-filter-set fs))
+;  (prn "k" k) 
+;  (prn "o" o)
+;  (prn "polarity" polarity) 
+;  (prn "t" (when t (unparse-type t)))
   (let [extra-filter (if t (->TypeFilter t nil k) -top)]
     (letfn [(add-extra-filter [f]
               {:pre [(Filter? f)]
@@ -7104,8 +7115,8 @@
                   f*
                   f)))]
       (cond
-        (FilterSet? fs) (-FS (subst-filter (add-extra-filter (:then fs)) k o polarity)
-                             (subst-filter (add-extra-filter (:else fs)) k o polarity))
+        (FilterSet? fs) (-FS (subst-filter (add-extra-filter (.then fs)) k o polarity)
+                             (subst-filter (add-extra-filter (.else fs)) k o polarity))
         :else (-FS -top -top)))))
 
 (defn subst-object [t k o polarity]
@@ -7174,6 +7185,27 @@
                 :polarity polarity}}
       t)))
 
+;; Used to "instantiate" a Result from a function call.
+;; eg. (let [a (ann-form [1] (U nil (Seqable Number)))]
+;;       (if (seq a)
+;;         ...
+;;
+;; Here we want to instantiate the result of (seq a).
+;; objs is each of the arguments' objects, ie. [-empty]
+;; ts is each of the arugments' types, ie. [(U nil (Seqable Number))]
+;;
+;; The latent result:
+; (Option (ISeq x))
+; :filters {:then (is (CountRange 1) 0)
+;           :else (| (is nil 0)
+;                    (is (ExactCount 0) 0))}]))
+;; instantiates to 
+; (Option (ISeq x))
+; :filters {:then (is (CountRange 1) a)
+;           :else (| (is nil a)
+;                    (is (ExactCount 0) a))}]))
+;;
+;; Notice the objects are instantiated from 0 -> a
 (defn open-Result 
   "Substitute ids for objs in Result t"
   [{t :t fs :fl old-obj :o :as r} objs & [ts]]
@@ -7184,7 +7216,11 @@
          ((some-fn nil? (every-c? Type?)) ts)]
    :post [((hvector-c? Type? FilterSet? RObject?) %)]}
 ;  (prn "open-result")
-;  (prn "latent filter set" (unparse-filter-set fs))
+;  (prn "result type" (unparse-type t))
+;  (prn "result filterset" (unparse-filter-set fs))
+;  (prn "result (old) object" old-obj)
+;  (prn "objs" objs)
+;  (prn "ts" (mapv unparse-type ts))
   (reduce (fn [[t fs old-obj] [[o k] arg-ty]]
             {:pre [(Type? t)
                    ((some-fn FilterSet? NoFilter?) fs)
@@ -7193,10 +7229,15 @@
                    (RObject? o)
                    ((some-fn false? Type?) arg-ty)]
              :post [((hvector-c? Type? FilterSet? RObject?) %)]}
-            [(subst-type t k o true)
-             (subst-filter-set fs k o true arg-ty)
-             (subst-object old-obj k o true)])
+            (let [r [(subst-type t k o true)
+                     (subst-filter-set fs k o true arg-ty)
+                     (subst-object old-obj k o true)]]
+;              (prn [(unparse-type t) (unparse-filter-set fs) old-obj])
+;              (prn "r" r)
+              r))
           [t fs old-obj]
+          ; this is just a sequence of pairs of [nat? RObject] and Type?
+          ; Represents the object and type of each argument, and its position
           (map vector 
                (map-indexed #(vector %2 %1) ;racket's is opposite..
                             objs)
@@ -7214,6 +7255,8 @@
    :post [(TCResult? %)]}
   (assert (not drest) "funapp with drest args NYI")
   (assert (empty? (:mandatory kws)) "funapp with mandatory keyword args NYI")
+;  (prn "check-funapp1")
+;  (prn "argtys objects" (map ret-o argtys))
   ;checking
   (when check?
     (when (or (and (not rest) (not (= (count dom) (count argtys))))
@@ -7224,9 +7267,9 @@
       (check-below arg-t dom-t)))
   (let [dom-count (count dom)
         arg-count (+ dom-count (if rest 1 0) (count (:optional kws)))
-        o-a (map :o argtys)
+        o-a (map ret-o argtys)
         _ (assert (every? RObject? o-a))
-        t-a (map :t argtys)
+        t-a (map ret-t argtys)
         _ (assert (every? Type? t-a))
         [o-a t-a] (let [rs (for [[nm oa ta] (map vector 
                                                  (range arg-count) 
@@ -7257,7 +7300,7 @@
          ((some-fn nil? TCResult?) expected)]
    :post [(TCResult? %)]}
   (let [fexpr-type (resolve-to-ftype (ret-t fexpr-ret-type))
-        arg-types (doall (map ret-t arg-ret-types))]
+        arg-types (mapv ret-t arg-ret-types)]
     #_(prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
     (cond
       ;ordinary Function, single case, special cased for improved error msgs
@@ -7308,7 +7351,7 @@
                                                    #_(prn e)))]
                            (do #_(prn "subst:" substitution)
                              (check-funapp1 (subst-all substitution ftype)
-                                            (map ret arg-types) expected :check? false))
+                                            arg-ret-types expected :check? false))
                            (if (or drest kws)
                              (throw (Exception. "Cannot infer arguments to polymorphic functions with dotted rest or kw types"))
                              (recur ftypes)))))]
@@ -7361,7 +7404,7 @@
                                            ;_ (prn "args" (map unparse-type arg-types))
                                            ]
                                        (or (and substitution
-                                                (check-funapp1 substituted-type (map ret arg-types) expected :check? false))
+                                                (check-funapp1 substituted-type arg-ret-types expected :check? false))
                                            (throw (Exception. "Error applying dotted type")))))))]
           ;(prn "inferred-rng"inferred-rng)
           (if inferred-rng
@@ -8264,6 +8307,8 @@
          (every? integer? keys)
          ((some-fn NoFilter? FilterSet?) fs)]
    :post [((some-fn NoFilter? FilterSet?) %)]}
+;  (prn "abstract filter")
+;  (prn ids keys fs)
   (cond
     (FilterSet? fs)
     (let [{fs+ :then fs- :else} fs]
@@ -8294,6 +8339,8 @@
          (every? integer? idxs)
          (Filter? f)]
    :post [(Filter? %)]}
+;  (prn "abo")
+;  (prn xs idxs f)
   (letfn [(lookup [y]
             {:pre [(symbol? y)]
              :post [((some-fn nil? integer?) %)]}

@@ -19,8 +19,12 @@ Leiningen (Clojars):
 # Changelog
 
 0.1.2-SNAPSHOT
+- TODO
+  - Add tests for (if (seq a) (first a) 0) filter example.
 
-- Can annotate datatypes outside current namespace
+- DONE
+  - Fix objects and filters being lost during polymorphic and dotted function applications
+  - Can annotate datatypes outside current namespace
 
 0.1.1
 
@@ -37,7 +41,7 @@ Leiningen (Clojars):
 
 `(typed.core/cf t)` type checks the form `t`.
 
-# Immediate Roadmap
+# Future work
 
 * Equality filters for occurrence typing
 * Type check multimethods
