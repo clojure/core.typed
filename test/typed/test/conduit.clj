@@ -1,7 +1,7 @@
 (ns typed.test.conduit
   (:import (clojure.lang Seqable IMeta IPersistentMap LazySeq ISeq))
   (:require [typed.core :refer [check-ns ann fn> def-alias tc-ignore ann-form declare-names inst
-                                tc-pr-env inst-ctor cf Option declare-alias-kind AnyInteger]]
+                                print-env inst-ctor cf Option declare-alias-kind AnyInteger]]
             [clojure.repl :refer [pst]]
             [arrows.core :refer [defarrow]]))
 
@@ -96,7 +96,7 @@
       (nil? f) [nil abort-c] ;added - Ambrose
       :else
       (let [[new-f new-c] (f (nth xs n))
-            _ (tc-pr-env "after new-f")
+            _ (print-env "after new-f")
             next-c (ann-form
                      (fn [c]
                        (if (nil? c)

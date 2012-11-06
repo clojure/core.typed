@@ -20,8 +20,13 @@ Leiningen (Clojars):
 
 0.1.2-SNAPSHOT
   - Fix objects and filters being lost during polymorphic and dotted function applications
-  - Add tests for (if (seq a) (first a) 0) filter example.
+    - Add tests for (if (seq a) (first a) 0) filter example.
   - Can annotate datatypes outside current namespace
+  - Improve type of `seq`, `next`, `conj`
+  - tc-pr-env -> print-env
+  - tc-pr-filters -> print-filterset
+  - Alter APersistentMap
+  - Check that local binding occurrences match with expected types
 
 0.1.1
 

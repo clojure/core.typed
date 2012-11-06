@@ -26,7 +26,7 @@
              :refer (with-symbol-macros defsymbolmacro name-with-attributes)]
             [typed.core 
              :refer (tc-ignore check-ns ann ann-protocol def-alias unsafe-ann-form ann-form inst fn> pfn>
-                               AnyInteger tc-pr-env cf Option tc-pr-filters)]))
+                               AnyInteger print-env cf Option print-filterset)]))
 
 ;; Monad Protocols
 

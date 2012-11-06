@@ -1,6 +1,6 @@
 (ns typed.test.rbt
   (:require [typed.core :refer [ann inst cf fn> pfn> def-alias declare-names
-                                tc-pr-env tc-pr-filters check-ns]]
+                                print-env print-filterset check-ns]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]]))
 
@@ -157,12 +157,12 @@
      (Fn [badRight -> rbt]))
 (defn restore-right [tmap]
   (cond
-    (tc-pr-filters "TEST1"
+    (print-filterset "TEST1"
       (and (= :Black (-> tmap :tree))
            (= :Red (-> tmap :left :tree))
            (= :Red (-> tmap :right :tree))
            (= :Red (-> tmap :right :left :tree))))
-    (let [;_ (tc-pr-env "down first then")
+    (let [;_ (print-env "down first then")
           {lt :left rt :right e :entry} tmap
           ;re-color
           res {:tree :Red
@@ -171,10 +171,10 @@
                             :tree :Black)
                :right (assoc rt
                              :tree :Black)}]
-      ;(tc-pr-env "restore-right: output first branch (res)")
+      ;(print-env "restore-right: output first branch (res)")
       res)
 
-    (tc-pr-filters "TEST2"
+    (print-filterset "TEST2"
        (and (= :Black (-> tmap :tree))
             (= :Red (-> tmap :left :tree))
             (= :Red (-> tmap :right :tree))
@@ -187,10 +187,10 @@
                             :tree :Black)
                :right (assoc rt
                              :tree :Black)}]
-      (tc-pr-env "restore-right: output second branch (res)")
+      (print-env "restore-right: output second branch (res)")
       res)
 
-    (tc-pr-filters "TEST3"
+    (print-filterset "TEST3"
       (and (= :Black (-> tmap :tree))
            (= :Red (-> tmap :right :tree))
            (= :Red (-> tmap :right :left :tree))))
@@ -230,9 +230,9 @@
               :right rl}
        :right rr})
 
-    (do (tc-pr-env "final else:")
+    (do (print-env "final else:")
       :else) 
-    (do (tc-pr-env "follow final else:")
+    (do (print-env "follow final else:")
       tmap)))
 
 ; Okasaki's simplified rotations for red-black trees

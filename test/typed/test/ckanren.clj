@@ -5,8 +5,9 @@
             [typed.core :refer [ann def-alias declare-protocols ann-protocol
                                 ann-pprotocol declare-datatypes
                                 ann-form
-                                tc-ignore check-ns ann-datatype tc-pr-env cf
-                                parse-type ann-pdatatype fn> AnyInteger]]
+                                tc-ignore check-ns ann-datatype cf
+                                parse-type ann-pdatatype fn> AnyInteger
+                                print-env]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]])
   (:import [java.io Writer]
@@ -490,7 +491,7 @@
   (refinable? [_] true)
   IRefine
   (refine [this other] 
-    (tc-pr-env "refine:")
+    (print-env "refine:")
     (intersection this other))
   IFiniteDomain
   (domain? [_] true)

@@ -64,11 +64,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special functions
 
-(defn tc-pr-env 
+(defn print-env
   "Print the current type environment, and debug-string"
   [debug-string] nil)
 
-(defn tc-pr-filters 
+(defn print-filterset
   "Print the filter set attached to form, and debug-string"
   [debug-string frm] 
   frm)
@@ -1916,7 +1916,7 @@
 (defmethod unparse-filter* TypeFilter
   [{:keys [type path id]}]
   (concat (list 'is (unparse-type type) id)
-          (when path
+          (when (seq path)
             [(map unparse-path-elem path)])))
 
 (defmethod unparse-filter* NotTypeFilter
@@ -2162,19 +2162,25 @@
   [n (parse-type t)])
 
 (defn gen-datatype* [provided-name fields variances args ancests]
-  `(let [provided-name# '~provided-name
-         local-name# (if (namespace provided-name#)
-                       (symbol (apply str (last (partition-by #(= \. %) (str provided-name#)))))
-                       provided-name#)
-         s# (if (namespace provided-name#)
-              provided-name#
-              (symbol (str (munge (-> *ns* ns-name)) \. local-name#)))
+  `(let [provided-name-str# (str '~provided-name)
+         _# (prn "provided-name-str" provided-name-str#)
+         munged-ns-str# (if (some #(= \. %) provided-name-str#)
+                          (apply str (butlast (apply concat (butlast (partition-by #(= \. %) provided-name-str#)))))
+                          (str (munge (-> *ns* ns-name))))
+         _# (prn "munged-ns-str" munged-ns-str#)
+         demunged-ns-str# (str (clojure.repl/demunge munged-ns-str#))
+         _# (prn "demunged-ns-str" demunged-ns-str#)
+         local-name# (if (some #(= \. %) provided-name-str#)
+                       (symbol (apply str (last (partition-by #(= \. %) (str provided-name-str#)))))
+                       provided-name-str#)
+         _# (prn "local-name" local-name#)
+         s# (symbol (str munged-ns-str# \. local-name#))
          fs# (apply array-map (apply concat (with-frees (mapv make-F '~args)
                                               (mapv parse-field '~fields))))
          as# (set (with-frees (mapv make-F '~args)
                     (mapv parse-type '~ancests)))
          _# (add-datatype-ancestors s# as#)
-         pos-ctor-name# (symbol (str (-> *ns* ns-name)) (str "->" local-name#))
+         pos-ctor-name# (symbol demunged-ns-str# (str "->" local-name#))
          args# '~args
          vs# '~variances
          dt# (if args#
@@ -6179,6 +6185,7 @@
 (alter-class APersistentMap [[a :variance :covariant] [b :variance :covariant]]
              :replace
              {IPersistentCollection (IPersistentCollection (IMapEntry a b))
+              IPersistentMap (IPersistentMap a b)
               Seqable (Seqable (IMapEntry a b))
               IFn (All [d]
                     (Fn [Any -> (U nil b)]
@@ -6505,7 +6512,7 @@
 (ann clojure.core/class [Any -> (Option Class) :object {:id 0 :path [Class]}])
 
 (ann clojure.core/seq (All [x]
-                        [(Option (Seqable x)) -> (Option (ISeq x))
+                        [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))
                          :filters {:then (is (CountRange 1) 0)
                                    :else (| (is nil 0)
                                             (is (ExactCount 0) 0))}]))
@@ -6585,7 +6592,7 @@
 
 (ann clojure.core/next
      (All [x]
-          [(Option (Seqable x)) -> (U nil (ISeq x))
+          [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))
            :filters {:then (& (is (CountRange 2) 0)
                               (! nil 0))
                      :else (| (is (CountRange 0 1) 0)
@@ -6594,6 +6601,9 @@
 (ann clojure.core/conj
      (All [x y]
           (Fn [(IPersistentVector x) x x * -> (IPersistentVector x)]
+              [(APersistentMap x y)
+               (U nil (IMapEntry x y) (Vector* x y))
+               (U nil (IMapEntry x y) (Vector* x y)) * -> (APersistentMap x y)]
               [(IPersistentMap x y)
                (U nil (IMapEntry x y) (Vector* x y))
                (U nil (IMapEntry x y) (Vector* x y)) * -> (IPersistentMap x y)]
@@ -6708,10 +6718,12 @@
   (let [t (unparse-type (ret-t r))
         fs (unparse-filter-set (ret-f r))
         o (unparse-object (ret-o r))]
-    (if (and (= (-FS -top -top) fs)
-             (= o -empty))
+    (if (and (= (-FS -top -top) (ret-f r))
+             (= (ret-o r) -empty))
       t
-      [t fs o])))
+      (if (= (ret-o r) -empty)
+        [t fs]
+        [t fs o]))))
 
 (defn ret
   "Convenience function for returning the type of an expression"
@@ -7726,7 +7738,7 @@
 (declare check-anon-fn)
 
 ;debug printing
-(defmethod invoke-special #'tc-pr-env
+(defmethod invoke-special #'print-env
   [{[debug-string] :args :as expr} & [expected]]
   (assert (= :string (:op debug-string)))
   ;DO NOT REMOVE
@@ -7737,15 +7749,15 @@
          expr-type (ret -nil -false-filter -empty)))
 
 ;filter printing
-(defmethod invoke-special #'tc-pr-filters
+(defmethod invoke-special #'print-filterset
   [{[debug-string form] :args :as expr} & [expected]]
-  (assert (and debug-string form) "Wrong arguments to tc-pr-filters")
+  (assert (and debug-string form) "Wrong arguments to print-filterset")
   (let [cform (check form expected)
         t (expr-type cform)]
     (assert (= :string (:op debug-string)))
     ;DO NOT REMOVE
     (prn (:val debug-string))
-    (prn (:fl t))
+    ;(prn (:fl t))
     (if (FilterSet? (:fl t))
       (do (pprint (unparse-filter-set (:fl t)))
         (flush))
@@ -8597,15 +8609,19 @@
 
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
-  (let [sym (:sym local-binding)]
+  (let [sym (:sym local-binding)
+        t (type-of sym)
+        _ (assert (or (not expected)
+                      (subtype? t (ret-t expected)))
+                  (error-msg "Local binding " sym " expected type " (unparse-type (ret-t expected))
+                             ", but actual type " (unparse-type t)))]
     (assoc expr
-           expr-type (let [t (type-of sym)]
-                       (ret t 
-                            (-FS (if (subtype? t (Un -false -nil))
-                                   -bot
-                                   (-not-filter (Un -nil -false) sym))
-                                 (-filter (Un -nil -false) sym))
-                            (->Path nil sym))))))
+           expr-type (ret t 
+                          (-FS (if (subtype? t (Un -false -nil))
+                                 -bot
+                                 (-not-filter (Un -nil -false) sym))
+                               (-filter (Un -nil -false) sym))
+                          (->Path nil sym)))))
 
 
 (declare Method-symbol->Type)
@@ -9148,7 +9164,7 @@
               ;; and the resulting type should be the empty type
               :else (do (prn (error-msg "Not checking unreachable code"))
                       (ret (Un)))))]
-    (let [{fs+ :then fs- :else :as f1} (:fl tst)
+    (let [{fs+ :then fs- :else :as f1} (ret-f tst)
          ; _ (prn "check-if: fs+" (unparse-filter fs+))
          ; _ (prn "check-if: fs-" (unparse-filter fs-))
           flag+ (atom true)
@@ -9346,10 +9362,9 @@
         {:keys [dom rng] :as expected-fn} (-> expected-fin :types first)
         _ (assert (not (:rest expected-fn)))
         cbody (with-locals (zipmap (map :sym required-params) dom)
-                #_(print-env)
-                (check body (ret (:t rng)
-                                 (:fl rng)
-                                 (:o rng))))]
+                (check body (ret (Result-type* rng)
+                                 (Result-filter* rng)
+                                 (Result-object* rng))))]
     (assoc expr
            expr-type (expr-type cbody))))
 
@@ -9367,15 +9382,16 @@
         etype (expr-type cthe-expr)
         ctests (mapv check (:tests expr))
         cdefault (check (:default expr))
-        cthens-and-envs (for [[tst-ret thn] (map vector (map expr-type ctests) (:thens expr))]
-                          (let [{{fs+ :then} :fl :as rslt} (tc-equiv := etype tst-ret)
-                                flag+ (atom true)
-                                env-thn (env+ *lexical-env* [fs+] flag+)
-                                then-ret (with-lexical-env env-thn
-                                           (check thn))]
-                            [(assoc thn
-                                    expr-type (expr-type then-ret))
-                             env-thn]))
+        cthens-and-envs (doall
+                          (for [[tst-ret thn] (map vector (map expr-type ctests) (:thens expr))]
+                            (let [{{fs+ :then} :fl :as rslt} (tc-equiv := etype tst-ret)
+                                  flag+ (atom true)
+                                  env-thn (env+ *lexical-env* [fs+] flag+)
+                                  then-ret (with-lexical-env env-thn
+                                             (check thn))]
+                              [(assoc thn
+                                      expr-type (expr-type then-ret))
+                               env-thn])))
         ;TODO consider tests that failed to refine env
         cdefault (check (:default expr))
         case-result (let [type (apply Un (map (comp :t expr-type) (cons cdefault (map first cthens-and-envs))))

@@ -527,7 +527,7 @@
                            mapr)
 
                          maprl (clojure.core/get mapr :left)
-                         ;_ (tc-pr-env "maprl")
+                         ;_ (print-env "maprl")
                          maprl
                          (if (clojure.core/seq? maprl)
                            (clojure.core/apply clojure.core/hash-map maprl)
@@ -599,11 +599,11 @@
               (-FS -top -bot) -empty)))
   ; using filters derived by =
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
-                               (if (typed.core/tc-pr-filters "the test"
+                               (if (typed.core/print-env "the test"
                                      (= :MapStruct1 (:type tmap)))
-                                 (do (typed.core/tc-pr-env "follow then")
+                                 (do (typed.core/print-filterset "follow then")
                                    (:a tmap))
-                                 (do (typed.core/tc-pr-env "follow else")
+                                 (do (typed.core/print-env "follow else")
                                    (:b tmap)))))
          (ret (make-FnIntersection (->Function [(->Name 'typed.test.core/UnionName)]
                               (let [t (->Name 'typed.test.core/MyName)
@@ -616,20 +616,20 @@
   (is (= (tc-t (typed.core/fn> [[tmap :- typed.test.core/UnionName]]
                                ; (and (= :MapStruct1 (-> tmap :type))
                                ;      (= 1 1))
-                               (if (typed.core/tc-pr-filters "final filters"
-                                    (let [and1 (typed.core/tc-pr-filters "first and1"
+                               (if (typed.core/print-filterset "final filters"
+                                    (let [and1 (typed.core/print-filterset "first and1"
                                                  (= :MapStruct1 (-> tmap :type)))]
-                                      (typed.core/tc-pr-env "first conjunct")
-                                      (typed.core/tc-pr-filters "second and1"
-                                        (if (typed.core/tc-pr-filters "second test"
+                                      (typed.core/print-env "first conjunct")
+                                      (typed.core/print-filterset "second and1"
+                                        (if (typed.core/print-filterset "second test"
                                               and1)
-                                          (do (typed.core/tc-pr-env "second conjunct")
-                                            (typed.core/tc-pr-filters "third and1"
+                                          (do (typed.core/print-env "second conjunct")
+                                            (typed.core/print-filterset "third and1"
                                               (= 1 1)))
-                                          (do (typed.core/tc-pr-env "fail conjunct")
-                                            (typed.core/tc-pr-filters "fail and1"
+                                          (do (typed.core/print-env "fail conjunct")
+                                            (typed.core/print-filterset "fail and1"
                                               and1))))))
-                                 (do (typed.core/tc-pr-env "follow then")
+                                 (do (typed.core/print-env "follow then")
                                    (assoc tmap :c :d))
                                  1)))
          (ret (make-FnIntersection (->Function [(->Name 'typed.test.core/UnionName)]
