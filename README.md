@@ -27,6 +27,8 @@ Leiningen (Clojars):
   - tc-pr-filters -> print-filterset
   - Alter APersistentMap
   - Check that local binding occurrences match with expected types
+  - Heterogeneous maps are APersistentMap's instead of IPersistentMap's
+  - Heterogeneous vectors are APersistentVector's instead of IPersistentVector's
 
 0.1.1
 

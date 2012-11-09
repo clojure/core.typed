@@ -1053,3 +1053,6 @@
 (deftest prims-test
   (is (= (ret-t (tc-t (Math/sqrt 1)))
          (parse-type 'double))))
+
+(deftest hmap-subtype
+  (is (cf {} (clojure.lang.APersistentMap Any Any))))

@@ -1816,6 +1816,8 @@
   (cond
     (BotFilter? a) -top
     (TopFilter? a) c
+    ;; P -> tt = tt for any P
+    (TopFilter? c) -top
     :else (->ImpFilter a c)))
 
 
@@ -3647,19 +3649,19 @@
 (defmethod promote DataType [T V]
   (-> T
     (update-in [:poly?] #(when %
-                           (mapv promote %)))
+                           (mapv promote % (repeat V))))
     (update-in [:fields] #(apply array-map
                                  (apply concat
                                         (for [[k v] %]
-                                          [k (promote v)]))))))
+                                          [k (promote v V)]))))))
 (defmethod demote DataType [T V]
   (-> T
     (update-in [:poly?] #(when %
-                           (mapv demote %)))
+                           (mapv demote % (repeat V))))
     (update-in [:fields] #(apply array-map
                                  (apply concat
                                         (for [[k v] %]
-                                          [k (demote v)]))))))
+                                          [k (demote v V)]))))))
 
 (defmethod promote Name [T V] T)
 (defmethod demote Name [T V] T)
@@ -4349,7 +4351,7 @@
 (defmethod cs-gen* [HeterogeneousVector RClass] 
   [V X Y S T]
   (cs-gen V X Y 
-          (In (RClass-of IPersistentVector [(apply Un (:types S))]) 
+          (In (RClass-of APersistentVector [(apply Un (:types S))]) 
               (make-ExactCountRange (count (:types S))))
           T))
 
@@ -4386,7 +4388,7 @@
   [V X Y S T]
   (let [[ks vs] [(apply Un (keys (:types S)))
                  (apply Un (vals (:types S)))]]
-    (cs-gen V X Y (RClass-of (Class->symbol IPersistentMap) [ks vs]) T)))
+    (cs-gen V X Y (RClass-of (Class->symbol APersistentMap) [ks vs]) T)))
 
 (defmethod cs-gen* [RClass RClass] 
   [V X Y S T]
@@ -6019,7 +6021,7 @@
   [s t]
   (let [sk (apply Un (map first (:types s)))
         sv (apply Un (map second (:types s)))]
-    (subtype (RClass-of (Class->symbol IPersistentMap) [sk sv])
+    (subtype (RClass-of (Class->symbol APersistentMap) [sk sv])
              t)))
 
 ;every rtype entry must be in ltypes
@@ -6041,7 +6043,7 @@
 (defmethod subtype* [HeterogeneousVector Type]
   [s t]
   (let [ss (apply Un (:types s))]
-    (subtype (In (RClass-of (Class->symbol IPersistentVector) [ss])
+    (subtype (In (RClass-of APersistentVector [ss])
                  (make-ExactCountRange (count (:types s))))
              t)))
 
@@ -6325,7 +6327,7 @@
 
 (ann clojure.core/set (All [x] [(Option (Seqable x)) -> (PersistentHashSet x)]))
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
-(ann clojure.core/vector (All [x] [x * -> (IPersistentVector x)]))
+(ann clojure.core/vector (All [x] [x * -> (APersistentVector x)]))
 
 (ann clojure.core/not [Any -> boolean])
 (ann clojure.core/constantly (All [x y] [x -> [y * -> x]]))
@@ -6498,8 +6500,6 @@
 (ann clojure.core/set? (predicate (IPersistentSet Any)))
 (ann clojure.core/vector? (predicate (IPersistentVector Any)))
 (ann clojure.core/nil? (predicate nil))
-(ann clojure.core/nil? [Any -> boolean :filters {:then (is nil 0)
-                                                 :else (! nil 0)}])
 
 (ann clojure.core/meta (All [x]
                             (Fn [(IMeta x) -> x]
@@ -7833,7 +7833,7 @@
   (let [[expr {expected-bnds-syn :val}] args
         expected-bnds (binding [*ns* (or (-> env :ns :name find-ns)
                                          *ns*)]
-                        (doall (map parse-type expected-bnds-syn)))]
+                        (mapv parse-type expected-bnds-syn))]
     ;loop may be nested, type the first loop found
     (binding [*loop-bnd-anns* expected-bnds]
       (check expr expected))))
@@ -8876,7 +8876,7 @@
                                   (update-in [:l] #(into {} (for [[oldsym ty] %]
                                                               [oldsym (subst-type ty sym -empty true)])))
                                   (update-in [:props] (fn [props]
-                                                        (doall (map #(subst-filter % sym -empty true) props)))))
+                                                        (mapv #(subst-filter % sym -empty true) props))))
                             ;_ (do (pr "let: env after") (print-env env))
                             ]
                         (cond
