@@ -14,11 +14,11 @@ See `LICENSE`.
 
 Leiningen (Clojars):
 
-`[typed "0.1.1"]`
+`[typed "0.1.2"]`
 
 # Changelog
 
-0.1.2-SNAPSHOT
+0.1.2
   - Fix objects and filters being lost during polymorphic and dotted function applications
     - Add tests for (if (seq a) (first a) 0) filter example.
   - Can annotate datatypes outside current namespace
