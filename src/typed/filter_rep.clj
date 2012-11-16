@@ -1,5 +1,25 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Filters
 
-; Filters
+(def name-ref? (some-fn symbol? integer?))
+
+(def Filter ::filter)
+
+(defn Filter? [a]
+  (isa? (class a) Filter))
+
+(defn declare-filter [c]
+  (derive c Filter))
+
+(defrecord BotFilter []
+  "?"
+  [])
+(defrecord TopFilter []
+  "?"
+  [])
+
+(def -top (->TopFilter))
+(def -bot (->BotFilter))
 
 (defrecord NoFilter []
   "Represents no info about filters, used for parsing types"

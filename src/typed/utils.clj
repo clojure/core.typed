@@ -48,3 +48,9 @@
 (defn sequential-c? [c?]
   (every-pred sequential?
               (every-c? c?)))
+
+;(defn- comp-mm [mm disps]
+;  (set/difference disps (set (keys (methods mm)))))
+;
+;(comp-mm replace-image (disj kinds :scope))
+;(comp-mm replace-image (disj kinds :scope))

@@ -268,13 +268,6 @@
 
 (declare abstract-many instantiate-many)
 
-;(defn- comp-mm [mm disps]
-;  (set/difference disps (set (keys (methods mm)))))
-;
-;(comp-mm replace-image (disj kinds :scope))
-;(comp-mm replace-image (disj kinds :scope))
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types
 
@@ -1037,32 +1030,8 @@
 
 (def no-bounds (->Bounds (->Top) (Un) nil))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Filters
-
-(def name-ref? (some-fn symbol? integer?))
-
-(def Filter ::filter)
-
-(defn Filter? [a]
-  (isa? (class a) Filter))
-
-(defn declare-filter [c]
-  (derive c Filter))
-
-(defrecord BotFilter []
-  "?"
-  [])
-(defrecord TopFilter []
-  "?"
-  [])
-
-(def -top (->TopFilter))
-(def -bot (->BotFilter))
 
 (declare unparse-path-elem)
-
-
 
 (declare TypeFilter? NotTypeFilter? type-of TCResult? ret-t Nil? False? True? unparse-type)
 
