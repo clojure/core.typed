@@ -73,6 +73,21 @@
   [debug-string frm] 
   frm)
 
+(declare Method->Function)
+
+(defn method-type 
+  "Given a method symbol, print the Typed Clojure types assigned to it"
+  [mname]
+  (let [ms (->> (reflect/type-reflect (Class/forName (namespace mname)))
+             :members
+             (filter #(and (instance? clojure.reflect.Method %)
+                           (= (str (:name %)) (name mname))))
+             set)
+        _ (assert (seq ms) (str "Method " mname " not found"))]
+    (prn "Method name:" mname)
+    (doseq [m ms]
+      (prn (unparse-type (Method->Function m))))))
+
 (defn inst-poly 
   [inst-of types-syn]
   inst-of)
@@ -6664,6 +6679,19 @@
      (All [x]
        [(Option (Seqable x)) -> (Seqable x)]))
 
+;casts
+(ann clojure.core/bigdec [Any -> BigDecimal])
+(ann clojure.core/bigint [Any -> clojure.lang.BigInt])
+(ann clojure.core/boolean [Any -> boolean])
+(ann clojure.core/byte [Any -> byte])
+(ann clojure.core/char [Any -> char])
+(ann clojure.core/double [Any -> double])
+(ann clojure.core/float [Any -> float])
+(ann clojure.core/int [Any -> int])
+(ann clojure.core/long [Any -> long])
+(ann clojure.core/num [Any -> Number])
+(ann clojure.core/short [Any -> short])
+
 (override-method clojure.lang.RT/get (All [y] (Fn [(IPersistentMap Any y) Any -> (Option y)])))
 
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
@@ -8668,7 +8696,7 @@
                                               (doall (map #(Method-symbol->Type % false) parameter-types)))
                                       (Method-symbol->Type return-type true))))
 
-(defn- method->Function [{:keys [parameter-types return-type flags] :as method}]
+(defn- Method->Function [{:keys [parameter-types return-type flags] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(FnIntersection? %)]}
   (let [msym (Method->symbol method)
@@ -8701,7 +8729,7 @@
   #_(prn "invoke method: " (Method->symbol method) inst?)
   (binding [*current-env* env]
     (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
-                             (method->Function method)))
+                             (Method->Function method)))
           _ (when inst?
               (let [ctarget (check (:target expr))]
 ;                (prn "check target" (unparse-type (ret-t (expr-type ctarget)))
