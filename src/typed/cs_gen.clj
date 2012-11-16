@@ -1,3 +1,270 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Constraint Generation
+
+(defrecord t-subst [type bnds]
+  ""
+  [(Type? type)
+   (Bounds? bnds)])
+
+(defrecord i-subst [types]
+  ""
+  [(every? Type? types)])
+
+(defrecord i-subst-starred [types starred]
+  ""
+  [(every? Type? types)
+   (Type? starred)])
+
+(defrecord i-subst-dotted [types dty dbound]
+  ""
+  [(or (nil? types)
+       (every? Type? types))
+   (Type? dty)
+   (F? dbound)])
+
+(def subst-rhs? (some-fn t-subst? i-subst? i-subst-starred? i-subst-dotted?))
+
+(def substitution-c? (every-pred map? 
+                                 #(every? symbol? (keys %)) 
+                                 #(every? subst-rhs? (vals %))))
+
+(defrecord c [S X T bnds]
+  "A type constraint on a variable within an upper and lower bound"
+  [(Type? S)
+   (symbol? X)
+   (Type? T)
+   (Bounds? bnds)])
+
+;; fixed : Listof[c]
+;; rest : option[c]
+;; a constraint on an index variable
+;; the index variable must be instantiated with |fixed| arguments, each meeting the appropriate constraint
+;; and further instantions of the index variable must respect the rest constraint, if it exists
+(defrecord dcon [fixed rest]
+  ""
+  [(every? c? fixed)
+   (or (nil? rest)
+       (c? rest))])
+
+(defrecord dcon-exact [fixed rest]
+  ""
+  [(every? c? fixed)
+   (c? rest)])
+
+(defrecord dcon-dotted [fixed dc dbound]
+  ""
+  [(every? c? fixed)
+   (c? dc)
+   (F? dbound)])
+
+(def dcon-c? (some-fn dcon? dcon-exact? dcon-dotted?))
+
+;; map : hash mapping index variables to dcons
+(defrecord dmap [map]
+  ""
+  [((hash-c? symbol? dcon-c?) map)])
+
+(defrecord cset-entry [fixed dmap projections]
+  ""
+  [((hash-c? symbol? c?) fixed)
+   (dmap? dmap)
+   ((set-c? (hvector-c? (some-fn Type? Projection?)
+                        (some-fn Type? Projection?)))
+     projections)])
+
+(defn make-cset-entry
+  ([fixed] (make-cset-entry fixed nil nil))
+  ([fixed dmap] (make-cset-entry fixed dmap nil))
+  ([fixed dmap projections] (->cset-entry fixed 
+                                          (or dmap (->dmap {}))
+                                          (or projections #{}))))
+
+;; maps is a list of cset-entries, consisting of
+;;    - functional maps from vars to c's
+;;    - dmaps (see dmap.rkt)
+;; we need a bunch of mappings for each cset to handle case-lambda
+;; because case-lambda can generate multiple possible solutions, and we
+;; don't want to rule them out too early
+(defrecord cset [maps]
+  ""
+  [(every? cset-entry? maps)])
+
+
+;widest constraint possible
+(defn no-constraint [v bnds]
+  {:pre [(symbol? v)
+         (Bounds? bnds)]}
+  (->c (Un) v (->Top) bnds))
+
+;; Create an empty constraint map from a set of type variables X and
+;; index variables Y.  For now, we add the widest constraints for
+;; variables in X to the cmap and create an empty dmap.
+(defn empty-cset [X Y]
+  {:pre [(every? (hash-c? symbol? Bounds?) [X Y])]
+   :post [(cset? %)]}
+  (->cset [(->cset-entry (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
+                         (->dmap {})
+                         #{})]))
+
+(defn empty-cset-projection [X Y proj]
+  {:pre [(every? (hash-c? symbol? Bounds?) [X Y])]
+   :post [(cset? %)]}
+  (->cset [(->cset-entry (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
+                         (->dmap {})
+                         #{proj})]))
+
+(defn meet [s t] (In s t))
+(defn join [s t] (Un s t))
+
+(declare subtype type-error)
+
+(defn c-meet [{S  :S X  :X T  :T bnds  :bnds :as c1}
+              {S* :S X* :X T* :T bnds* :bnds :as c2}
+              & [var]]
+  #_(prn "c-meet" c1 c2)
+  (when-not (or var (= X X*))
+    (throw (Exception. (str "Non-matching vars in c-meet:" X X*))))
+  (when-not (= bnds bnds*)
+    (throw (Exception. (str "Non-matching bounds in c-meet:" bnds bnds*))))
+  (let [S (join S S*)
+        T (meet T T*)]
+    (when-not (subtype? S T)
+      (type-error S T))
+    (->c S (or var X) T bnds)))
+
+(declare dmap-meet)
+
+(defn cset-meet [{maps1 :maps :as x} {maps2 :maps :as y}]
+  {:pre [(cset? x)
+         (cset? y)]}
+  (let [maps (doall (for [[{map1 :fixed dmap1 :dmap prj1 :projections} 
+                           {map2 :fixed dmap2 :dmap prj2 :projections}] (map vector maps1 maps2)]
+                      (->cset-entry (merge-with c-meet map1 map2)
+                                    (dmap-meet dmap1 dmap2)
+                                    (set/union prj1 prj2))))]
+    (when (empty? maps)
+      (throw (Exception. (str "No meet found for csets"))))
+    (->cset maps)))
+
+(defn cset-meet* [args]
+  {:pre [(every? cset? args)]
+   :post [(cset? %)]}
+  (reduce (fn [a c] (cset-meet a c))
+          (->cset [(->cset-entry {} (->dmap {}) #{})])
+          args))
+
+(defn cset-combine [l]
+  {:pre [(every? cset? l)]}
+  (let [mapss (map :maps l)]
+    (->cset (apply concat mapss))))
+
+;add new constraint to existing cset
+(defn insert-constraint [cs var S T bnds]
+  {:pre [(cset? cs)
+         (symbol? var)
+         (Type? S)
+         (Type? T)
+         (Bounds? bnds)]
+   :post [(cset? %)]}
+  (->cset (doall
+            (for [{fmap :fixed dmap :dmap} (:maps cs)]
+              (->cset-entry (assoc fmap var (->c S var T bnds))
+                            dmap
+                            #{})))))
+
+(defn dcon-meet [dc1 dc2]
+  {:pre [(dcon-c? dc1)
+         (dcon-c? dc2)]
+   :post [(dcon-c? %)]}
+  (cond
+    (and (dcon-exact? dc1)
+         ((some-fn dcon? dcon-exact?) dc2))
+    (let [{fixed1 :fixed rest1 :rest} dc1
+          {fixed2 :fixed rest2 :rest} dc2]
+      (when-not (and rest2 (= (count fixed1) (count fixed2)))
+        (type-error fixed1 fixed2))
+      (->dcon-exact
+        (doall
+          (for [[c1 c2] (map vector fixed1 fixed2)]
+            (c-meet c1 c2 (:X c1))))
+        (c-meet rest1 rest2 (:X rest1))))
+    ;; redo in the other order to call the first case
+    (and (dcon? dc1)
+         (dcon-exact? dc2))
+    (dcon-meet dc2 dc1)
+
+    (and (dcon? dc1)
+         (not (:rest dc1))
+         (dcon? dc2)
+         (not (:rest dc2)))
+    (let [{fixed1 :fixed} dc1
+          {fixed2 :fixed} dc2]
+      (when-not (= (count fixed1) (count fixed2))
+        (throw (Exception. (prn-str "Don't match: " fixed1 fixed2))))
+      (->dcon
+        (doall
+          (for [[c1 c2] (map vector fixed1 fixed2)]
+            (c-meet c1 c2 (:X c1))))
+        nil))
+
+    (and (dcon? dc1)
+         (not (:rest dc1))
+         (dcon? dc2))
+    (let [{fixed1 :fixed} dc1
+          {fixed2 :fixed rest :rest} dc2]
+      (when-not (>= (count fixed1) (count fixed2))
+        (throw (Exception. (prn-str "Don't match: " fixed1 fixed2))))
+      (->dcon
+        (doall
+          (for [[c1 c2] (map vector fixed1 (concat fixed2 (repeat rest)))]
+            (c-meet c1 c2 (:X c1))))
+        nil))
+
+    (and (dcon? dc1)
+         (dcon? dc2)
+         (not (:rest dc2)))
+    (dcon-meet dc2 dc1)
+
+    (and (dcon? dc1)
+         (dcon? dc2))
+    (let [{fixed1 :fixed rest1 :rest} dc1
+          {fixed2 :fixed rest2 :rest} dc2
+          [shorter longer srest lrest]
+          (if (< (count fixed1) (count fixed2))
+            [fixed1 fixed2 rest1 rest2]
+            [fixed2 fixed1 rest2 rest1])]
+      (->dcon
+        (doall
+          (for [[c1 c2] (map vector longer (concat shorter (repeat srest)))]
+            (c-meet c1 c2 (:X c1))))
+        (c-meet lrest srest (:X lrest))))
+
+    (and (dcon-dotted? dc1)
+         (dcon-dotted? dc2))
+    (let [{fixed1 :fixed c1 :dc {bound1 :name} :dbound} dc1
+          {fixed2 :fixed c2 :dc {bound2 :name} :dbound} dc2]
+      (when-not (and (= (count fixed1) (count fixed2))
+                     (= bound1 bound2))
+        (throw (Exception. (prn-str "Don't match: " bound1 bound2))))
+      (->dcon-dotted (doall (for [[c1 c2] (map vector fixed1 fixed2)]
+                              (c-meet c1 c2 (:X c1))))
+                     (c-meet c1 c2 bound1) bound1))
+
+    (and (dcon? dc1)
+         (dcon-dotted? dc2))
+    (throw (Exception. (prn-str "Don't match: " dc1 dc2)))
+
+    (and (dcon-dotted? dc1)
+         (dcon? dc2))
+    (throw (Exception. (prn-str "Don't match: " dc1 dc2)))
+
+    :else (throw (Exception. (prn-str "Got non-dcons: " dc1 dc2)))))
+
+(defn dmap-meet [dm1 dm2]
+  {:pre [(dmap? dm1)
+         (dmap? dm2)]
+   :post [(dmap? %)]}
+  (->dmap (merge-with dcon-meet (:map dm1) (:map dm2))))
 
 
 ;current seen subtype relations, for recursive types

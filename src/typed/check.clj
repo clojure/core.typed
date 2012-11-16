@@ -2,13 +2,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
 
-(add-default-fold-case TCResult
-                       (fn [ty _]
-                         (-> ty
-                           (update-in [:t] type-rec)
-                           (update-in [:fl] filter-rec)
-                           (update-in [:o] object-rec))))
-
 (declare ret-t ret-f ret-o)
 
 (defn unparse-TCResult [r]
@@ -356,6 +349,8 @@
                         t))]
       (for-type type)
       @free-in?)))
+
+(declare subst-type)
 
 (defn subst-filter [f k o polarity]
   {:pre [(Filter? f)

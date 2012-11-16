@@ -1,7 +1,7 @@
 
 (def ^:dynamic *next-nme* 0) ;stupid readable variables
 
-(declare unparse-type*)
+(declare unparse-type* unparse-object unparse-filter-set unparse-filter)
 
 (defn unparse-type [t]
   (if-let [nsym (-> t meta :source-Name)]
@@ -240,4 +240,56 @@
 (defmethod unparse-type* HeterogeneousList
   [v]
   (list* 'List* (doall (map unparse-type (:types v)))))
+
+; Objects
+
+(defmulti unparse-object class)
+(defmethod unparse-object EmptyObject [_] 'empty-object)
+(defmethod unparse-object NoObject [_] 'no-object)
+(defmethod unparse-object Path [{:keys [path id]}] (conj {:id id} (when (seq path) [:path (mapv unparse-path-elem path)])))
+
+; Path elems
+
+(defmulti unparse-path-elem class)
+(defmethod unparse-path-elem KeyPE [t] (list 'Key (:val t)))
+(defmethod unparse-path-elem CountPE [t] 'Count)
+(defmethod unparse-path-elem ClassPE [t] 'Class)
+
+; Filters
+
+(defmulti unparse-filter* class)
+
+(declare FilterSet? unparse-filter)
+
+(defn unparse-filter-set [{:keys [then else] :as fs}]
+  {:pre [(FilterSet? fs)]}
+  {:then (unparse-filter then)
+   :else (unparse-filter else)})
+
+(defn unparse-filter [f]
+  (unparse-filter* f))
+
+(defmethod unparse-filter* TopFilter [f] 'tt)
+(defmethod unparse-filter* BotFilter [f] 'ff)
+
+(declare unparse-type)
+
+(defmethod unparse-filter* TypeFilter
+  [{:keys [type path id]}]
+  (concat (list 'is (unparse-type type) id)
+          (when (seq path)
+            [(map unparse-path-elem path)])))
+
+(defmethod unparse-filter* NotTypeFilter
+  [{:keys [type path id]}]
+  (concat (list '! (unparse-type type) id)
+          (when path
+            [(map unparse-path-elem path)])))
+
+(defmethod unparse-filter* AndFilter [{:keys [fs]}] (apply list '& (map unparse-filter fs)))
+(defmethod unparse-filter* OrFilter [{:keys [fs]}] (apply list '| (map unparse-filter fs)))
+
+(defmethod unparse-filter* ImpFilter
+  [{:keys [a c]}]
+  (list 'when (unparse-filter a) (unparse-filter c)))
 
