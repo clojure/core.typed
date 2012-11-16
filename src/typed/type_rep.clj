@@ -771,6 +771,8 @@
 (defn is-var-mutated? [id]
   (contains? *mutated-bindings* id))
 
+(declare FilterSet?)
+
 (defrecord TCResult [t fl o]
   "This record represents the result of typechecking an expression"
   [(AnyType? t)

@@ -540,6 +540,7 @@
      (-> (ast (ann-form ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult))))
 
 (defn check-ns 
+  "Type check a namespace. If not provided default to current namespace"
   ([] (check-ns (ns-name *ns*)))
   ([nsym]
    (require nsym)
