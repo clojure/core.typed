@@ -728,7 +728,8 @@
   [{:keys [var] :as expr} & [expected]]
   (let [id (var->symbol var)]
     (assoc expr
-           expr-type (ret (lookup-Var (var->symbol var))
+           expr-type (ret (binding [*var-annotations* VAR-ANNOTATIONS]
+                            (lookup-Var (var->symbol var)))
                           (-FS -top -top)
                           -empty))))
 
@@ -1924,7 +1925,8 @@
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
   (let [sym (:sym local-binding)
-        t (type-of sym)
+        t (binding [*var-annotations* VAR-ANNOTATIONS]
+            (type-of sym))
         _ (assert (or (not expected)
                       (subtype? t (ret-t expected)))
                   (error-msg "Local binding " sym " expected type " (unparse-type (ret-t expected))
@@ -2166,7 +2168,9 @@
     (assoc expr
            expr-type (ret (Un)))))
 
-(defn check-let [{:keys [binding-inits body is-loop] :as expr} expected & {:keys [expected-bnds]}]
+(def ^:dynamic *check-let-checkfn*)
+
+(defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
   (assert (or (not is-loop) expected-bnds) (error-msg "Loop requires more annotations"))
   (let [env (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
                       {:pre [(PropEnv? env)]
@@ -2174,8 +2178,8 @@
                       (let [{:keys [t fl o]} (->
                                                (expr-type
                                                  (with-lexical-env env
-                                                   (check init (when is-loop
-                                                                 (ret expected-bnd)))))
+                                                   (*check-let-checkfn* init (when is-loop
+                                                                               (ret expected-bnd)))))
                                                ;substitute previous references to sym with an empty object,
                                                ;as old binding is shadowed
                                                (update-in [:t] subst-type sym -empty true)
@@ -2213,8 +2217,8 @@
         cbody (with-lexical-env env
                 (if is-loop
                   (binding [*recur-target* (->RecurTarget expected-bnds nil nil nil)]
-                    (check body expected))
-                  (check body expected)))
+                    (*check-let-checkfn* body expected))
+                  (*check-let-checkfn* body expected)))
 
         ;now we return a result to the enclosing scope, so we
         ;erase references to any bindings this scope introduces
@@ -2234,10 +2238,14 @@
 (defmethod check :let
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (if-let [expected-bnds (and (:is-loop expr) *loop-bnd-anns*)]
-    (binding [*loop-bnd-anns* nil]
-      (check-let expr expected :expected-bnds expected-bnds))
-    (check-let expr expected)))
+  (binding [*check-let-checkfn* check]
+    (let [is-loop (:is-loop expr)
+          binding-inits (:binding-inits expr)
+          body (:body expr)]
+      (if-let [expected-bnds (and is-loop *loop-bnd-anns*)]
+        (binding [*loop-bnd-anns* nil]
+          (check-let binding-inits body expr true expected :expected-bnds expected-bnds))
+        (check-let binding-inits body expr false expected)))))
 
 (defn resolve* [atoms prop]
   {:pre [(every? Filter? atoms)
@@ -2456,6 +2464,8 @@
 
 (def object-equal? =)
 
+(def ^:dynamic *check-if-checkfn*)
+
 (defn check-if [tst thn els & [expected]]
   {:pre [(TCResult? tst)
          ((some-fn TCResult? nil?) expected)]
@@ -2468,12 +2478,12 @@
               ;; if reachable? is #f, then we don't want to verify that this branch has the appropriate type
               ;; in particular, it might be (void)
               (and expected reachable?)
-              (-> (check expr (-> expected
-                                (update-in [:fl] #(map (constantly (->NoFilter)) %))
-                                (update-in [:o] #(map (constantly (->NoObject)) %))))
+              (-> (*check-if-checkfn* expr (-> expected
+                                             (update-in [:fl] #(map (constantly (->NoFilter)) %))
+                                             (update-in [:o] #(map (constantly (->NoObject)) %))))
                 expr-type)
               ;; this code is reachable, but we have no expected type
-              reachable? (-> (check expr) expr-type)
+              reachable? (-> (*check-if-checkfn* expr) expr-type)
               ;; otherwise, this code is unreachable
               ;; and the resulting type should be the empty type
               :else (do (prn (error-msg "Not checking unreachable code"))
@@ -2559,7 +2569,8 @@
   {:post [(-> % expr-type TCResult?)]}
   (let [ctest (check test)]
     (assoc expr
-           expr-type (check-if (expr-type ctest) then else))))
+           expr-type (binding [*check-if-checkfn* check]
+                       (check-if (expr-type ctest) then else)))))
 
 (defmethod check :def
   [{:keys [var init init-provided env] :as expr} & [expected]]
@@ -2570,7 +2581,8 @@
     (cond 
       ;ignore macro definitions
       (not (.isMacro ^Var var))
-      (let [t (type-of (var->symbol var))
+      (let [t (binding [*var-annotations* VAR-ANNOTATIONS]
+                (type-of (var->symbol var)))
             cexpr (cond 
                     (not init-provided) expr ;handle `declare`
                     :else (check init (ret t)))

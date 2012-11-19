@@ -482,12 +482,14 @@
    :post [(symbol? %)]}
   (symbol (.getName cls)))
 
+(def ^:dynamic *var-annotations*)
+
 (defn lookup-Var [nsym]
-  (assert (contains? @VAR-ANNOTATIONS nsym) 
+  (assert (contains? @*var-annotations* nsym) 
           (str (when *current-env*
                  (str (:line *current-env*) ": "))
             "Untyped var reference: " nsym))
-  (@VAR-ANNOTATIONS nsym))
+  (@*var-annotations* nsym))
 
 (defn merge-locals [env new]
   (-> env
