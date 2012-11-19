@@ -287,7 +287,7 @@
            (every? (hash-c? symbol Bounds?) [X Y])
            (AnyType? S)
            (AnyType? T)]}
-    [(class S) (class T) *typed-impl*]))
+    [(class S) (class T) @TYPED-IMPL]))
 
 ; (see cs-gen*)
 ;cs-gen calls cs-gen*, remembering the current subtype for recursive types

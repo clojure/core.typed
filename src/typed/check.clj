@@ -50,18 +50,21 @@
                   (:op expr)))
 
 (defn check-top-level [nsym form]
+  (ensure-clojure)
   (let [ast (analyze/analyze-form-in-ns nsym form)]
     (check ast)))
 
 (defmacro tc-t [form]
-  `(-> (check-top-level (symbol (ns-name *ns*))
-                        '~form)
-     expr-type))
+  `(do (ensure-clojure)
+     (-> (check-top-level (symbol (ns-name *ns*))
+                          '~form)
+       expr-type)))
 
 (defmacro tc [form]
-  `(-> (check-top-level (symbol (ns-name *ns*))
-                        '~form)
-     expr-type unparse-type))
+  `(do (ensure-clojure)
+     (-> (check-top-level (symbol (ns-name *ns*))
+                          '~form)
+       expr-type unparse-type)))
 
 (defmulti constant-type class)
 

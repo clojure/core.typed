@@ -43,7 +43,7 @@
 ;
 ; In short, only call subtype (or subtype?)
 
-(defmulti subtype* (fn [s t] [(class s) (class t) *typed-impl*]))
+(defmulti subtype* (fn [s t] [(class s) (class t) @TYPED-IMPL]))
 
 (defn subtype? [s t]
   (try 
@@ -613,6 +613,7 @@
 
 (defmethod subtype* :default
   [s t]
+  #_(prn "subtype :default" @TYPED-IMPL (unparse-type s) (unparse-type t))
   (if (Top? t)
     *sub-current-seen*
     (type-error s t)))

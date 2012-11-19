@@ -7,9 +7,19 @@
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
-            [typed.core :refer :all]
+            [typed.core :as tc, :refer :all, :exclude [subtype? check]]
             [typed.test.rbt]
-            [typed.test.deftype]))
+            [typed.test.deftype]
+            [clojure.tools.trace :refer [trace-vars untrace-vars
+                                         trace-ns untrace-ns]]))
+
+(defn subtype? [& rs]
+  (ensure-clojure)
+  (apply tc/subtype? rs))
+
+(defn check [& as]
+  (ensure-clojure)
+  (apply tc/check as))
 
 ;(check-ns 'typed.test.deftype)
 
@@ -178,7 +188,8 @@
 
 ;return type for an expression f
 (defmacro ety [f]
-  `(-> (ast ~f) check expr-type ret-t))
+  `(do (ensure-clojure)
+     (-> (ast ~f) check expr-type ret-t)))
 
 (deftest tc-invoke-fn-test
   (is (subtype? (ety
@@ -225,7 +236,7 @@
                   ((typed.core/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
                                    (seq a))
                      [1 2 1.2] 1))
-                (parse-type '(U nil (clojure.lang.ASeq Number)))))
+                (parse-type '(U nil (I (CountRange 1) (clojure.lang.ISeq Number))))))
   (is (subtype? (ety
                   ((typed.core/fn> [[a :- (clojure.lang.IPersistentMap Any Number)] [b :- Number]] 
                                    ((typed.core/inst get Number) a b))
@@ -252,14 +263,15 @@
          (ret (->Value 1) (-FS -top -bot) (->EmptyObject)))))
 
 (deftest empty-fn-test
-  (is (= (tc-t (fn []))
-         (ret (make-FnIntersection
-                (->Function [] (make-Result -nil
+  (is (do (prn "empty-fn-test" @typed.core/TYPED-IMPL)
+        (= (tc-t (fn []))
+           (ret (make-FnIntersection
+                  (->Function [] (make-Result -nil
                                               (-FS -bot -top)
                                               (->EmptyObject))
                               nil nil nil))
-              (-FS -top -bot)
-              (->EmptyObject))))
+                (-FS -top -bot)
+                (->EmptyObject)))))
   (is (= (tc-t (fn [] 1))
          (ret (make-FnIntersection
                 (->Function [] (make-Result (->Value 1)
@@ -929,10 +941,10 @@
 (deftest first-seq-test
   (is (subtype? (ret-t (tc-t (first [1 1 1])))
                 (Un -nil (RClass-of Number))))
-  (is (subtype (In (RClass-of clojure.lang.PersistentList [-any])
-                   (make-CountRange 1))
-               (In (RClass-of Seqable [-any])
-                   (make-CountRange 1))))
+  (is (subtype? (In (RClass-of clojure.lang.PersistentList [-any])
+                    (make-CountRange 1))
+                (In (RClass-of Seqable [-any])
+                    (make-CountRange 1))))
   (is (subtype? (ret-t (tc-t (let [l [1 2 3]]
                                (if (seq l)
                                  (first l)

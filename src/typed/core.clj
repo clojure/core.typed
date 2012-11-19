@@ -14,8 +14,10 @@
             [clojure.pprint :refer [pprint]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
-            [cljs.analyzer :as cljs]
-            #_[clojure.tools.trace :refer [trace-vars untrace-vars
+            [cljs
+             [compiler]
+             [analyzer :as cljs]]
+            [clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]]))
 
 ; constraint shorthands, other handy functions
@@ -175,7 +177,7 @@
   "Declare a kind for an alias, similar to declare but on the kind level."
   [sym ty]
   `(tc-ignore
-   (binding [*typed-impl* ::clojure]
+   (do (ensure-clojure)
      (let [sym# '~sym
            qsym# (if (namespace sym#)
                    sym#
@@ -200,7 +202,7 @@
   "Define a type alias"
   [sym type]
   `(tc-ignore
-  (binding [*typed-impl* ::clojure]
+  (do (ensure-clojure)
     (let [sym# (if (namespace '~sym)
                  '~sym
                  (symbol (name (ns-name *ns*)) (name '~sym)))
@@ -316,7 +318,7 @@
 
 (defmacro ann [varsym typesyn]
   `(tc-ignore
- (binding [*typed-impl* ::clojure]
+ (do (ensure-clojure)
    (let [t# (parse-type '~typesyn)
          s# (if (namespace '~varsym)
               '~varsym
@@ -330,7 +332,7 @@
   [n (parse-type t)])
 
 (defn gen-datatype* [provided-name fields variances args ancests]
-  `(binding [*typed-impl* ::clojure]
+  `(do (ensure-clojure)
   (let [provided-name-str# (str '~provided-name)
          ;_# (prn "provided-name-str" provided-name-str#)
          munged-ns-str# (if (some #(= \. %) provided-name-str#)
@@ -388,7 +390,7 @@
      ~(gen-datatype* dname fields (map second vbnd) (map first vbnd) ancests)))
 
 (defn gen-protocol* [local-varsym variances args mths]
-  `(binding [*typed-impl* ::clojure]
+  `(do (ensure-clojure)
   (let [local-vsym# '~local-varsym
          s# (symbol (-> *ns* ns-name str) (str local-vsym#))
          on-class# (symbol (str (munge (namespace s#)) \. local-vsym#))
@@ -431,7 +433,7 @@
 
 (defmacro override-constructor [ctorsym typesyn]
   `(tc-ignore
-   (binding [*typed-impl* ::clojure]
+   (do (ensure-clojure)
      (let [t# (parse-type '~typesyn)
            s# '~ctorsym]
        (do (add-constructor-override s# t#)
@@ -439,7 +441,7 @@
 
 (defmacro override-method [methodsym typesyn]
   `(tc-ignore
-   (binding [*typed-impl* ::clojure]
+   (do (ensure-clojure)
      (let [t# (parse-type '~typesyn)
            s# (if (namespace '~methodsym)
                 '~methodsym
@@ -513,8 +515,14 @@
 (derive ::clojurescript ::default)
 (derive ::clojure ::default)
 
-(def ^:dynamic *typed-impl*)
-(set-validator! #'*typed-impl* #(isa? % ::default))
+(def TYPED-IMPL (atom ::clojure))
+(set-validator! TYPED-IMPL #(isa? % ::default))
+
+(defn ensure-clojure []
+  (reset! TYPED-IMPL ::clojure))
+
+(defn ensure-clojurescript []
+  (reset! TYPED-IMPL ::clojurescript))
 
 (load "dvar_env")
 (load "datatype_ancestor_env")
@@ -543,15 +551,23 @@
 (load "alter")
 (load "ann")
 (load "check")
+(load "check_cljs")
+
+(defmacro cf-cljs
+  "Type check a Clojurescript form and return its type"
+  ([form]
+  `(do (ensure-clojurescript)
+     (tc-ignore
+       (-> (cljs/analyze {:locals {} :context :expr :ns {:name '~'user}} '~form) check-cljs expr-type unparse-TCResult)))))
 
 (defmacro cf 
-  "Type check a form and return its type"
+  "Type check a Clojure form and return its type"
   ([form]
-  `(binding [*typed-impl* ::clojure]
+  `(do (ensure-clojure)
      (tc-ignore
        (-> (ast ~form) check expr-type unparse-TCResult))))
   ([form expected]
-  `(binding [*typed-impl* ::clojure]
+  `(do (ensure-clojure)
      (tc-ignore
        (-> (ast (ann-form ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
 
@@ -560,18 +576,18 @@
   ([] (check-ns (ns-name *ns*)))
   ([nsym]
    (require nsym)
+   (ensure-clojure)
    (with-open [pbr (analyze/pb-reader-for-ns nsym)]
      (let [[_ns-decl_ & asts] (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)]
-       (binding [*typed-impl* ::clojure]
        (doseq [ast asts]
-         (check ast)))))))
+         (check ast))))))
 
 (defn trepl []
   (clojure.main/repl 
     :eval (fn [f] 
-            (let [t (binding [*typed-impl* ::clojure]
+            (let [t (do (ensure-clojure)
                       (-> (analyze/analyze-form f) 
-                        check expr-type unparse-TCResult))] 
+                        check expr-type unparse-TCResult))]
               (prn t) 
               (eval f)))))
 
