@@ -1,3 +1,4 @@
+(in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Return non-nilables

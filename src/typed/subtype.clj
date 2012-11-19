@@ -1,3 +1,4 @@
+(in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtype
@@ -42,7 +43,7 @@
 ;
 ; In short, only call subtype (or subtype?)
 
-(defmulti subtype* (fn [s t] [(class s) (class t)]))
+(defmulti subtype* (fn [s t] [(class s) (class t) *typed-impl*]))
 
 (defn subtype? [s t]
   (try 
@@ -250,7 +251,7 @@
            (catch Exception e))
         ts))
 
-(defmethod subtype* [Result Result]
+(defmethod subtype* [Result Result ::default]
   [{t1 :t f1 :fl o1 :o :as s}
    {t2 :t f2 :fl o2 :o :as t}]
   (cond
@@ -279,13 +280,13 @@
             (throw (Exception. (error-msg "Filters do not match: \n" (unparse-filter-set f1) "\n" (unparse-filter-set f2))))
             (throw (Exception. (error-msg "Objects do not match " (unparse-object o1) (unparse-filter o2)))))))
 
-(defmethod subtype* [Protocol Type]
+(defmethod subtype* [Protocol Type ::clojure]
   [s t]
   (if (= (RClass-of Object) t)
     *sub-current-seen*
     (type-error s t)))
 
-(defmethod subtype* [Protocol Protocol]
+(defmethod subtype* [Protocol Protocol ::default]
   [{var1 :the-var variances* :variances poly1 :poly? :as s}
    {var2 :the-var poly2 :poly? :as t}]
   (if (and (= var1 var2)
@@ -362,16 +363,16 @@
 
 (defmethod subtype-TApp? :default [S T] false)
 
-(defmethod subtype* [TApp TApp]
+(defmethod subtype* [TApp TApp ::default]
   [S T]
   (if (subtype-TApp? S T)
     *sub-current-seen*
     (type-error S T)))
 
-(prefer-method subtype* [Type TApp] [HeterogeneousVector Type])
-(prefer-method subtype* [Type TApp] [HeterogeneousVector Type])
+(prefer-method subtype* [Type TApp ::default] [HeterogeneousVector Type ::default])
+(prefer-method subtype* [Type TApp ::default] [HeterogeneousVector Type ::default])
 
-(defmethod subtype* [TApp Type]
+(defmethod subtype* [TApp Type ::default]
   [S T]
   (if (and (not (F? (.rator S)))
            (subtypeA*? (conj *sub-current-seen* [S T])
@@ -379,7 +380,7 @@
     *sub-current-seen*
     (type-error S T)))
 
-(defmethod subtype* [Type TApp]
+(defmethod subtype* [Type TApp ::default]
   [S T]
   (if (and (not (F? (.rator T)))
            (subtypeA*? (conj *sub-current-seen* [S T])
@@ -387,7 +388,7 @@
     *sub-current-seen*
     (type-error S T)))
 
-(defmethod subtype* [TypeFn TypeFn]
+(defmethod subtype* [TypeFn TypeFn ::default]
   [S T]
   (if (and (= (.nbound S) (.nbound T))
            (= (.variances S) (.variances T))
@@ -399,12 +400,12 @@
     *sub-current-seen*
     (type-error S T)))
 
-(defmethod subtype* [PrimitiveArray Type]
+(defmethod subtype* [PrimitiveArray Type ::clojure]
   [_ t]
   (subtype (->PrimitiveArray Object -any -any) t))
 
 ;Not quite correct, datatypes have other implicit ancestors (?)
-(defmethod subtype* [DataType Type]
+(defmethod subtype* [DataType Type ::clojure]
   [{:keys [the-class] :as s} t]
   (if (some #(subtype? % t) (set/union #{(RClass-of (Class->symbol Object) nil)} 
                                        (or (@DATATYPE-ANCESTOR-ENV the-class)
@@ -412,7 +413,7 @@
     *sub-current-seen*
     (type-error s t)))
 
-(defmethod subtype* [Type DataType]
+(defmethod subtype* [Type DataType ::clojure]
   [s {:keys [the-class] :as t}]
   (if (some #(subtype? s %) (set/union #{(RClass-of (Class->symbol Object) nil)} 
                                        (or (@DATATYPE-ANCESTOR-ENV the-class)
@@ -420,7 +421,7 @@
     *sub-current-seen*
     (type-error s t)))
 
-(defmethod subtype* [DataType DataType]
+(defmethod subtype* [DataType DataType ::default]
   [{cls1 :the-class poly1 :poly? :as s} 
    {cls2 :the-class poly2 :poly? :as t}]
   (if (and (= cls1 cls2)
@@ -499,7 +500,7 @@
       (.isPrimitive ^Class tcls)
       (-> (primitive-coersions tcls) :down (get scls)))))
 
-(defmethod subtype* [RClass RClass]
+(defmethod subtype* [RClass RClass ::clojure]
   [{polyl? :poly? :as s}
    {polyr? :poly? :as t}]
   (let [scls (symbol->Class (:the-class s))
@@ -533,10 +534,10 @@
       :else (type-error s t))))
 
 (prefer-method subtype* 
-               [Type Mu]
-               [HeterogeneousMap Type])
+               [Type Mu ::default]
+               [HeterogeneousMap Type ::clojure])
 
-(defmethod subtype* [HeterogeneousMap Type]
+(defmethod subtype* [HeterogeneousMap Type ::clojure]
   [s t]
   (let [sk (apply Un (map first (:types s)))
         sv (apply Un (map second (:types s)))]
@@ -545,7 +546,7 @@
 
 ;every rtype entry must be in ltypes
 ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
-(defmethod subtype* [HeterogeneousMap HeterogeneousMap]
+(defmethod subtype* [HeterogeneousMap HeterogeneousMap ::default]
   [{ltypes :types :as s}
    {rtypes :types :as t}]
   (last (doall (map (fn [[k v]]
@@ -554,53 +555,53 @@
                         (type-error s t)))
                     rtypes))))
 
-(defmethod subtype* [HeterogeneousVector HeterogeneousVector]
+(defmethod subtype* [HeterogeneousVector HeterogeneousVector ::default]
   [{ltypes :types :as s} 
    {rtypes :types :as t}]
   (last (doall (map #(subtype %1 %2) ltypes rtypes))))
 
-(defmethod subtype* [HeterogeneousVector Type]
+(defmethod subtype* [HeterogeneousVector Type ::clojure]
   [s t]
   (let [ss (apply Un (:types s))]
     (subtype (In (RClass-of APersistentVector [ss])
                  (make-ExactCountRange (count (:types s))))
              t)))
 
-(defmethod subtype* [HeterogeneousList HeterogeneousList]
+(defmethod subtype* [HeterogeneousList HeterogeneousList ::default]
   [{ltypes :types :as s} 
    {rtypes :types :as t}]
   (last (doall (map #(subtype %1 %2) ltypes rtypes))))
 
-(defmethod subtype* [HeterogeneousList Type]
+(defmethod subtype* [HeterogeneousList Type ::clojure]
   [s t]
   (let [ss (apply Un (:types s))]
     (subtype (RClass-of (Class->symbol PersistentList) [ss])
              t)))
 
-(defmethod subtype* [HeterogeneousSeq HeterogeneousSeq]
+(defmethod subtype* [HeterogeneousSeq HeterogeneousSeq ::default]
   [{ltypes :types :as s} 
    {rtypes :types :as t}]
   (last (doall (map #(subtype %1 %2) ltypes rtypes))))
 
-(defmethod subtype* [HeterogeneousSeq Type]
+(defmethod subtype* [HeterogeneousSeq Type ::clojure]
   [s t]
   (let [ss (apply Un (:types s))]
     (subtype (RClass-of (Class->symbol ASeq) [ss])
              t)))
 
-(defmethod subtype* [Mu Type]
+(defmethod subtype* [Mu Type ::default]
   [s t]
   (let [s* (unfold s)]
     (subtype s* t)))
 
-(defmethod subtype* [Type Mu]
+(defmethod subtype* [Type Mu ::default]
   [s t]
   (let [t* (unfold t)]
     (subtype s t*)))
 
 ;subtype if t includes all of s. 
 ;tl <= sl, su <= tu
-(defmethod subtype* [CountRange CountRange]
+(defmethod subtype* [CountRange CountRange ::default]
   [{supper :upper slower :lower :as s}
    {tupper :upper tlower :lower :as t}]
   (if (and (<= tlower slower)

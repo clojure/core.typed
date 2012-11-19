@@ -1,3 +1,4 @@
+(in-ns 'typed.core)
 
 
 ;; like infer, but dotted-var is the bound on the ...

@@ -1,3 +1,4 @@
+(in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Declared kind Env

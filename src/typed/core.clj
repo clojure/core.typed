@@ -14,10 +14,11 @@
             [clojure.pprint :refer [pprint]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
+            [cljs.analyzer :as cljs]
             #_[clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]]))
 
-;load constraint shorthands, other handy functions
+; constraint shorthands, other handy functions
 (load "utils")
 
 ;Note: defrecord is now trammel's defconstrainedrecord
@@ -174,15 +175,16 @@
   "Declare a kind for an alias, similar to declare but on the kind level."
   [sym ty]
   `(tc-ignore
-   (let [sym# '~sym
-         qsym# (if (namespace sym#)
-                 sym#
-                 (symbol (name (ns-name *ns*)) (name sym#)))
-         ty# (parse-type '~ty)]
-     (assert (not (namespace sym#)) (str "Cannot declare qualified name " sym#))
-     (declare ~sym)
-     (declare-names ~sym)
-     (declare-alias-kind* qsym# ty#))))
+   (binding [*typed-impl* ::clojure]
+     (let [sym# '~sym
+           qsym# (if (namespace sym#)
+                   sym#
+                   (symbol (name (ns-name *ns*)) (name sym#)))
+           ty# (parse-type '~ty)]
+       (assert (not (namespace sym#)) (str "Cannot declare qualified name " sym#))
+       (declare ~sym)
+       (declare-names ~sym)
+       (declare-alias-kind* qsym# ty#)))))
 
 (defmacro declare-names 
   "Declare names, similar to declare but on the type level."
@@ -198,16 +200,17 @@
   "Define a type alias"
   [sym type]
   `(tc-ignore
-  (let [sym# (if (namespace '~sym)
-                '~sym
-                (symbol (name (ns-name *ns*)) (name '~sym)))
-         ty# (parse-type '~type)]
-    (add-type-name sym# ty#)
-    (declare ~sym)
-    (when-let [tfn# (@DECLARED-KIND-ENV sym#)]
-      (assert (subtype? ty# tfn#) (error-msg "Declared kind " (unparse-type tfn#)
-                                             " does not match actual kind " (unparse-type ty#))))
-    [sym# (unparse-type ty#)])))
+  (binding [*typed-impl* ::clojure]
+    (let [sym# (if (namespace '~sym)
+                 '~sym
+                 (symbol (name (ns-name *ns*)) (name '~sym)))
+          ty# (parse-type '~type)]
+      (add-type-name sym# ty#)
+      (declare ~sym)
+      (when-let [tfn# (@DECLARED-KIND-ENV sym#)]
+        (assert (subtype? ty# tfn#) (error-msg "Declared kind " (unparse-type tfn#)
+                                               " does not match actual kind " (unparse-type ty#))))
+      [sym# (unparse-type ty#)]))))
 
 (defn into-array>* [javat cljt coll]
   (into-array (resolve javat) coll))
@@ -313,12 +316,13 @@
 
 (defmacro ann [varsym typesyn]
   `(tc-ignore
-  (let [t# (parse-type '~typesyn)
-        s# (if (namespace '~varsym)
-             '~varsym
-             (symbol (-> *ns* ns-name str) (str '~varsym)))]
-    (do (add-var-type s# t#)
-      [s# (unparse-type t#)]))))
+ (binding [*typed-impl* ::clojure]
+   (let [t# (parse-type '~typesyn)
+         s# (if (namespace '~varsym)
+              '~varsym
+              (symbol (-> *ns* ns-name str) (str '~varsym)))]
+     (do (add-var-type s# t#)
+       [s# (unparse-type t#)])))))
 
 (declare parse-type alter-class*)
 
@@ -326,18 +330,19 @@
   [n (parse-type t)])
 
 (defn gen-datatype* [provided-name fields variances args ancests]
-  `(let [provided-name-str# (str '~provided-name)
-         _# (prn "provided-name-str" provided-name-str#)
+  `(binding [*typed-impl* ::clojure]
+  (let [provided-name-str# (str '~provided-name)
+         ;_# (prn "provided-name-str" provided-name-str#)
          munged-ns-str# (if (some #(= \. %) provided-name-str#)
                           (apply str (butlast (apply concat (butlast (partition-by #(= \. %) provided-name-str#)))))
                           (str (munge (-> *ns* ns-name))))
-         _# (prn "munged-ns-str" munged-ns-str#)
+         ;_# (prn "munged-ns-str" munged-ns-str#)
          demunged-ns-str# (str (clojure.repl/demunge munged-ns-str#))
-         _# (prn "demunged-ns-str" demunged-ns-str#)
+         ;_# (prn "demunged-ns-str" demunged-ns-str#)
          local-name# (if (some #(= \. %) provided-name-str#)
                        (symbol (apply str (last (partition-by #(= \. %) (str provided-name-str#)))))
                        provided-name-str#)
-         _# (prn "local-name" local-name#)
+         ;_# (prn "local-name" local-name#)
          s# (symbol (str munged-ns-str# \. local-name#))
          fs# (apply array-map (apply concat (with-frees (mapv make-F '~args)
                                               (mapv parse-field '~fields))))
@@ -366,7 +371,7 @@
        (add-datatype s# dt#)
        (add-var-type pos-ctor-name# pos-ctor#)
        [[s# (unparse-type dt#)]
-        [pos-ctor-name# (unparse-type pos-ctor#)]])))
+        [pos-ctor-name# (unparse-type pos-ctor#)]]))))
 
 (defmacro ann-datatype [dname fields & {ancests :unchecked-ancestors rplc :replace}]
   (assert (not rplc) "Replace NYI")
@@ -383,7 +388,8 @@
      ~(gen-datatype* dname fields (map second vbnd) (map first vbnd) ancests)))
 
 (defn gen-protocol* [local-varsym variances args mths]
-  `(let [local-vsym# '~local-varsym
+  `(binding [*typed-impl* ::clojure]
+  (let [local-vsym# '~local-varsym
          s# (symbol (-> *ns* ns-name str) (str local-vsym#))
          on-class# (symbol (str (munge (namespace s#)) \. local-vsym#))
          ; add a Name so the methods can be parsed
@@ -407,7 +413,7 @@
          ;qualify method names when adding methods as vars
          (let [kq# (symbol (-> *ns* ns-name str) (str kuq#))]
            (add-var-type kq# mt#)))
-       [s# (unparse-type t#)])))
+       [s# (unparse-type t#)]))))
 
 (defmacro ann-protocol [local-varsym & {mths :methods}]
   (assert (not (or (namespace local-varsym)
@@ -425,19 +431,21 @@
 
 (defmacro override-constructor [ctorsym typesyn]
   `(tc-ignore
-  (let [t# (parse-type '~typesyn)
-        s# '~ctorsym]
-    (do (add-constructor-override s# t#)
-      [s# (unparse-type t#)]))))
+   (binding [*typed-impl* ::clojure]
+     (let [t# (parse-type '~typesyn)
+           s# '~ctorsym]
+       (do (add-constructor-override s# t#)
+         [s# (unparse-type t#)])))))
 
 (defmacro override-method [methodsym typesyn]
   `(tc-ignore
-  (let [t# (parse-type '~typesyn)
-        s# (if (namespace '~methodsym)
-             '~methodsym
-             (throw (Exception. "Method name must be a qualified symbol")))]
-    (do (add-method-override s# t#)
-      [s# (unparse-type t#)]))))
+   (binding [*typed-impl* ::clojure]
+     (let [t# (parse-type '~typesyn)
+           s# (if (namespace '~methodsym)
+                '~methodsym
+                (throw (Exception. "Method name must be a qualified symbol")))]
+       (do (add-method-override s# t#)
+         [s# (unparse-type t#)])))))
 
 (defn add-var-type [sym type]
   (swap! VAR-ANNOTATIONS #(assoc % sym type))
@@ -502,6 +510,12 @@
     :else (lookup-Var sym)))
 
 
+(derive ::clojurescript ::default)
+(derive ::clojure ::default)
+
+(def ^:dynamic *typed-impl*)
+(set-validator! #'*typed-impl* #(isa? % ::default))
+
 (load "dvar_env")
 (load "datatype_ancestor_env")
 (load "datatype_env")
@@ -533,11 +547,13 @@
 (defmacro cf 
   "Type check a form and return its type"
   ([form]
-  `(tc-ignore
-     (-> (ast ~form) check expr-type unparse-TCResult)))
+  `(binding [*typed-impl* ::clojure]
+     (tc-ignore
+       (-> (ast ~form) check expr-type unparse-TCResult))))
   ([form expected]
-  `(tc-ignore
-     (-> (ast (ann-form ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult))))
+  `(binding [*typed-impl* ::clojure]
+     (tc-ignore
+       (-> (ast (ann-form ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
 
 (defn check-ns 
   "Type check a namespace. If not provided default to current namespace"
@@ -546,14 +562,16 @@
    (require nsym)
    (with-open [pbr (analyze/pb-reader-for-ns nsym)]
      (let [[_ns-decl_ & asts] (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)]
+       (binding [*typed-impl* ::clojure]
        (doseq [ast asts]
-         (check ast))))))
+         (check ast)))))))
 
 (defn trepl []
   (clojure.main/repl 
     :eval (fn [f] 
-            (let [t (-> (analyze/analyze-form f) 
-                      check expr-type unparse-TCResult)] 
+            (let [t (binding [*typed-impl* ::clojure]
+                      (-> (analyze/analyze-form f) 
+                        check expr-type unparse-TCResult))] 
               (prn t) 
               (eval f)))))
 

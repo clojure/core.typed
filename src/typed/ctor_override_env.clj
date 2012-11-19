@@ -1,3 +1,4 @@
+(in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constructor Override Env

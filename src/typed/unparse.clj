@@ -1,3 +1,4 @@
+(in-ns 'typed.core)
 
 (def ^:dynamic *next-nme* 0) ;stupid readable variables
 

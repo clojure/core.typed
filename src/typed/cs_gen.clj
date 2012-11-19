@@ -1,3 +1,5 @@
+(in-ns 'typed.core)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint Generation
 
@@ -285,7 +287,7 @@
            (every? (hash-c? symbol Bounds?) [X Y])
            (AnyType? S)
            (AnyType? T)]}
-    [(class S) (class T)]))
+    [(class S) (class T) *typed-impl*]))
 
 ; (see cs-gen*)
 ;cs-gen calls cs-gen*, remembering the current subtype for recursive types
@@ -468,13 +470,13 @@
 
 (declare cs-gen-Function)
 
-(defmethod cs-gen* [TApp TApp]
+(defmethod cs-gen* [TApp TApp ::default]
   [V X Y S T]
   (assert (= (.rator S) (.rator T)) (type-error S T))
   (cset-meet*
     (mapv #(cs-gen V X Y %1 %2) (.rands S) (.rands T))))
 
-(defmethod cs-gen* [FnIntersection FnIntersection] 
+(defmethod cs-gen* [FnIntersection FnIntersection ::default]
   [V X Y S T] 
   (cset-meet*
     (doall
@@ -496,21 +498,21 @@
             (type-error S T))
           (cset-combine results))))))
 
-(defmethod cs-gen* [Result Result] 
+(defmethod cs-gen* [Result Result ::default]
   [V X Y S T] 
   (cset-meet* [(cs-gen V X Y (Result-type* S) (Result-type* T))
                (cs-gen-filter-set V X Y (Result-filter* S) (Result-filter* T))
                (cs-gen-object V X Y (Result-object* S) (Result-object* T))]))
 
-(defmethod cs-gen* [Value AnyValue] 
+(defmethod cs-gen* [Value AnyValue ::default] 
   [V X Y S T] 
   (empty-cset X Y))
 
-(defmethod cs-gen* [Type Top] 
+(defmethod cs-gen* [Type Top ::default]
   [V X Y S T] 
   (empty-cset X Y))
 
-(defmethod cs-gen* [HeterogeneousVector RClass] 
+(defmethod cs-gen* [HeterogeneousVector RClass ::clojure]
   [V X Y S T]
   (cs-gen V X Y 
           (In (RClass-of APersistentVector [(apply Un (:types S))]) 
@@ -519,18 +521,18 @@
 
 (declare cs-gen-list)
 
-(defmethod cs-gen* [DataType DataType] 
+(defmethod cs-gen* [DataType DataType ::default]
   [V X Y S T]
   (assert (= (:the-class S) (:the-class T)) (type-error S T))
   (if (seq (:poly? S))
     (cs-gen-list V X Y (:poly? S) (:poly? T))
     (empty-cset X Y)))
 
-(defmethod cs-gen* [HeterogeneousVector HeterogeneousVector] 
+(defmethod cs-gen* [HeterogeneousVector HeterogeneousVector ::default] 
   [V X Y S T]
   (cs-gen-list V X Y (:types S) (:types T)))
 
-(defmethod cs-gen* [HeterogeneousMap HeterogeneousMap]
+(defmethod cs-gen* [HeterogeneousMap HeterogeneousMap ::default]
   [V X Y S T]
   (let [Skeys (set (keys (:types S)))
         Tkeys (set (keys (:types T)))]
@@ -546,13 +548,13 @@
           Tvals (map second STvals)]
       (cs-gen-list V X Y Svals Tvals))))
 
-(defmethod cs-gen* [HeterogeneousMap RClass] 
+(defmethod cs-gen* [HeterogeneousMap RClass ::clojure]
   [V X Y S T]
   (let [[ks vs] [(apply Un (keys (:types S)))
                  (apply Un (vals (:types S)))]]
     (cs-gen V X Y (RClass-of (Class->symbol APersistentMap) [ks vs]) T)))
 
-(defmethod cs-gen* [RClass RClass] 
+(defmethod cs-gen* [RClass RClass ::clojure]
   [V X Y S T]
   (let [relevant-S (some #(and (= (:the-class %) (:the-class T))
                                %)
@@ -849,7 +851,7 @@
 :else 
 (throw (IllegalArgumentException. (pr-str "NYI Function inference " (unparse-type S) (unparse-type T)))))))
 
-(defmethod cs-gen* [Function Function]
+(defmethod cs-gen* [Function Function ::default]
   [V X Y S T]
   #_(prn "cs-gen* [Function Function]")
   (cs-gen-Function V X Y S T))

@@ -1,3 +1,5 @@
+(in-ns 'typed.core)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -1945,7 +1947,7 @@
   (if-let [typ (or (primitives sym)
                    (symbol->PArray sym nilable?)
                    (when-let [cls (resolve sym)]
-                     (prn (class cls) cls)
+                     #_(prn (class cls) cls)
                      (apply Un (RClass-of (Class->symbol cls) nil)
                             (when nilable?
                               [-nil]))))]

@@ -1,3 +1,7 @@
+(in-ns 'typed.core)
+
+; Should only override a method with a more specific type
+; eg. 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Override Env

@@ -324,6 +324,8 @@
 
 (ann-monadfn m-chain (All [x]
                        [(Seqable [x -> (m x)]) -> (m x)]))
+;TODO
+(tc-ignore
 (defmonadfn m-chain
   "Chains together monadic computation steps that are each functions
    of one parameter. Each step is called with the result of the previous
@@ -337,6 +339,7 @@
       [[x -> (m x)] [x -> (m x)] -> [x -> (m x)]])
     m-result
     steps))
+  )
 
 (ann-monadfn m-reduce
              (All [x y]

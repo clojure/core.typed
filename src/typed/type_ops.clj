@@ -1,3 +1,4 @@
+(in-ns 'typed.core)
 
 
 ;; FIXME much better algorithms around I'm sure

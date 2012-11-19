@@ -1,3 +1,6 @@
+(in-ns 'typed.core)
+
+
 
 (declare sub-f sub-o sub-pe)
 
