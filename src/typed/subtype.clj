@@ -159,7 +159,8 @@
           (type-error s t))
 
         ;values are subtypes of their classes
-        (Value? s)
+        (and (Value? s)
+             (checking-clojure?))
         (if (nil? (.val s))
           (type-error s t)
           (subtype (RClass-of (class (.val s))) t))

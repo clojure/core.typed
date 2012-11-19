@@ -524,6 +524,12 @@
 (defn ensure-clojurescript []
   (reset! TYPED-IMPL ::clojurescript))
 
+(defn checking-clojure? []
+  (= ::clojure @TYPED-IMPL))
+
+(defn checking-clojurescript? []
+  (= ::clojurescript @TYPED-IMPL))
+
 (load "dvar_env")
 (load "datatype_ancestor_env")
 (load "datatype_env")
@@ -558,7 +564,13 @@
   ([form]
   `(do (ensure-clojurescript)
      (tc-ignore
-       (-> (cljs/analyze {:locals {} :context :expr :ns {:name '~'user}} '~form) check-cljs expr-type unparse-TCResult)))))
+       (-> (ana-cljs {:locals {} :context :expr :ns {:name '~'cljs.user}} '~form) check-cljs expr-type unparse-TCResult))))
+  ([form expected]
+  `(do (ensure-clojure)
+     (tc-ignore
+       (-> (ana-cljs {:locals {} :context :expr :ns {:name '~'cljs.user}}
+                     '(typed.core/ann-form-cljs ~form ~expected))
+         (#(check-cljs % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
 
 (defmacro cf 
   "Type check a Clojure form and return its type"
@@ -569,7 +581,7 @@
   ([form expected]
   `(do (ensure-clojure)
      (tc-ignore
-       (-> (ast (ann-form ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
+       (-> (ast (ann-form-cljs ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
 
 (defn check-ns 
   "Type check a namespace. If not provided default to current namespace"

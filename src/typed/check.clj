@@ -1560,14 +1560,31 @@
 
 (declare check-fn)
 
+(def ^:dynamic *check-fn-method1-checkfn*)
+; [(U nil Type) (U nil DottedPretype) -> Type]
+; takes the current rest or drest argument (only one is non-nil) and returns
+; the type to assign the rest parameter
+(def ^:dynamic *check-fn-method1-rest-type*)
+
 (defmethod check :fn-expr
   [{:keys [env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (assert (:line env))
-  (binding [*current-env* env]
-    (check-fn expr (or expected
-                       (ret (make-FnIntersection
-                              (make-Function [] -any -any)))))))
+  (binding [*current-env* env
+            *check-fn-method1-checkfn* check
+            *check-fn-method1-checkfn* (fn [rest drest]
+                                         {:pre [(some-fn #(when rest
+                                                            (Type? rest))
+                                                         #(when drest
+                                                            (DottedPretype? drest)))
+                                                (not (and rest drest))]
+                                          :post [(Type? %)]}
+                                         (Un -nil (In (RClass-of Seqable [(or rest (.pre-type drest))])
+                                                      (make-CountRange 1))))]
+    (assoc expr
+           expr-type (check-fn expr (or expected
+                                        (ret (make-FnIntersection
+                                               (make-Function [] -any -any))))))))
 
 (declare check-anon-fn-method abstract-filter abo abstract-object)
 
@@ -1766,7 +1783,8 @@
 (defn check-fn 
   "Check a fn to be under expected and annotate the inferred type"
   [{:keys [methods variadic-method] :as fexpr} expected]
-  {:pre [(TCResult? expected)]}
+  {:pre [(TCResult? expected)]
+   :post [(TCResult? %)]}
   (let [; try and unwrap type enough to find function types
         exp (resolve-to-ftype (ret-t expected))
         ; unwrap polymorphic expected types
@@ -1796,8 +1814,7 @@
                                                             [variadic-method])))))))
         ;rewrap in Poly or PolyDots if needed
         pfni (rewrap-poly inferred-fni orig-names inst-frees bnds poly?)]
-    (assoc fexpr
-           expr-type (ret pfni (-FS -top -bot) -empty))))
+    (ret pfni (-FS -top -bot) -empty)))
 
 (defn check-fn-method [{:keys [required-params rest-param] :as method} fin]
   {:pre [(FnIntersection? fin)]
@@ -1851,8 +1868,8 @@
         fixed-entry (map vector (map :sym required-params) (concat dom (repeat (or rest 
                                                                                    (:pre-type drest)))))
         rest-entry (when rest-param
-                     [[(:sym rest-param) (Un -nil (In (RClass-of Seqable [(or rest (:pre-type drest))])
-                                                      (make-CountRange 1)))]])
+                     [[(:sym rest-param) 
+                       (*check-fn-method1-rest-type* rest drest)]])
         _ (assert ((hash-c? symbol? Type?) (into {} fixed-entry)))
         _ (assert ((some-fn nil? (hash-c? symbol? Type?)) (when rest-entry
                                                             (into {} rest-entry))))
@@ -1864,7 +1881,7 @@
         crng-nopass
         (with-lexical-env env
           (with-recur-target (->RecurTarget dom rest drest nil)
-            (check body expected-rng)))
+            (*check-fn-method1-checkfn* body expected-rng)))
 
         ; Apply the filters of computed rng to the environment and express
         ; changes to the lexical env as new filters, and conjoin with existing filters.
