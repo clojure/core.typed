@@ -3,10 +3,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Modify CLJS specials
 
-(def new-specials '#{defprotocol #_deftype typed.core/ann-form-cljs
-                     cljs.core/extend-type})
+(assert cljs/specials)
+(def orig-specials cljs/specials)
 
-(.doReset #'cljs.analyzer/specials (set/union cljs/specials new-specials))
+(def new-specials (set/union 
+                    orig-specials
+                    '#{cljs.core/defprotocol deftype typed.core/ann-form-cljs
+                       defprotocol
+                       cljs.core/extend-type}))
+
+(defmacro with-altered-specials
+  [& body]
+  `(try
+     (alter-var-root #'cljs.analyzer/specials (constantly new-specials))
+     ~@body
+     (finally
+       (alter-var-root #'cljs.analyzer/specials (constantly orig-specials)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special forms
@@ -14,8 +26,10 @@
 (defmacro ann-form-cljs [form tsyn]
   `form)
 
+(declare cljs-ann*)
+
 (defmacro cljs-ann [vname tsyn]
-  `(cljs-ann* '~vname '~tsyn))
+  `'~(cljs-ann* vname tsyn))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Envs
@@ -24,9 +38,14 @@
 (set-validator! CLJS-VAR-ENV (hash-c? symbol? Type?))
 
 (defn cljs-ann* [vname tsyn]
-  (let [vtype (parse-type tsyn)]
-    (swap! CLJS-VAR-ENV assoc vname vtype)
-    [vname (unparse-type vtype)]))
+  (let [vtype (parse-type tsyn)
+        var (if (namespace vname)
+              (symbol vname)
+              (symbol (str cljs/*cljs-ns*) (str vname)))]
+    (swap! CLJS-VAR-ENV assoc var vtype)
+    [var (unparse-type vtype)]))
+
+(defonce CLJS-PROTOCOL-ENV (atom {}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types
@@ -80,6 +99,12 @@
     *current-env*
     (type-error s t)))
 
+(defmethod subtype* [Value BooleanCLJS ::clojurescript]
+  [{:keys [val] :as s} t]
+  (if ((some-fn true? false?) val)
+    *current-env*
+    (type-error s t)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parsing new special forms
 
@@ -122,6 +147,11 @@
 
 (defmulti check-cljs (fn [expr & [expected]] (:op expr)))
 
+(defmethod check-cljs :no-op
+  [expr & [expected]]
+  (assoc expr
+         expr-type (ret -any)))
+
 (defmethod check-cljs :constant
   [{:keys [form] :as expr} & [expected]]
   (let [t (->Value form)
@@ -150,17 +180,18 @@
                                                       (map (comp ret-t expr-type) cvals)))))))
 
 (defmethod check-cljs :def
-  [{:keys [init] vname :name :as expr} & [expected]]
+  [{:keys [init env] vname :name :as expr} & [expected]]
   (assert init "declare NYI")
   (assert (not expected))
-  (let [ann-type (binding [*var-annotations* CLJS-VAR-ENV]
+  (let [ann-type (binding [*var-annotations* CLJS-VAR-ENV
+                           *current-env* env]
                    (type-of vname))
         cinit (check-cljs init expected)
         _ (assert (subtype? (-> cinit expr-type ret-t)
                             ann-type)
-                  (str "Var definition did not match annotation." \n
-                       " Expected: " (unparse-type ann-type) \n
-                       " Actual" (unparse-type ann-type)))]
+                  (str "Var definition did not match annotation."
+                       " Expected: " (unparse-type ann-type)
+                       ", Actual: " (unparse-type (-> cinit expr-type ret-t))))]
     (assoc expr
            ;FIXME should really be Var, change when protocols are implemented
            expr-type (ret -any))))
@@ -194,14 +225,14 @@
            expr-type actual)))
 
 (defmethod check-cljs :var
-  [{{vname :name} :info :as expr} & [expected]]
+  [{{vname :name} :info :keys [env] :as expr} & [expected]]
   (assoc expr
-         expr-type (ret (binding [*var-annotations* CLJS-VAR-ENV]
+         expr-type (ret (binding [*var-annotations* CLJS-VAR-ENV
+                                  *current-env* env]
                           (type-of vname)))))
 
 (defmethod check-cljs :do
   [{:keys [ret statements] :as expr} & [expected]]
-  (prn ret)
   (let [cstatements (mapv check-cljs statements)
         cret (check-cljs ret expected)]
     (assoc expr
@@ -272,12 +303,17 @@
       (assert false) #_(check-let bindings body expr true expected)
       (check-let bindings body expr false expected)))))
 
+(defmethod check-cljs :ns
+  [expr & [expected]]
+  (assoc expr
+         expr-type (ret -any)))
 
 ;; Debug
 
 (defn ana-cljs [env form]
-  (binding [cljs/*cljs-ns* (-> env :ns :name)]
-    (cljs/analyze env form)))
+  (with-altered-specials
+    (binding [cljs/*cljs-ns* cljs/*cljs-ns*]
+      (cljs/analyze env form))))
 
 (comment
   ;; TODO there's a bug in the docstring for cljs.analyzer/analyze: it says :ns is a symbol, when instead it's {:name nsym}
@@ -292,15 +328,17 @@
 (cljs/analyze denv {:a 1})
 (cf-cljs {:a 1})
 
-(cljs-ann cljs.user/a Any)
+(cljs/analyze denv (cljs-ann cljs.user/a Any))
   (@CLJS-VAR-ENV 'cljs.user/a)
 
 (cljs/analyze denv '(def a 1))
 (cf-cljs (def a 1))
 
 ; defprotocol doesn't macroexpand because we've added 'defprotocol as a special
-(cljs/macroexpand-1 {} '(defprotocol A))
-(cljs/analyze denv '(defprotocol A))
+  (with-altered-specials
+    (prn cljs/specials)
+    (cljs/macroexpand-1 {} '(defprotocol A)))
+(cljs/analyze (cljs/empty-env) '(defprotocol A))
 (cf-cljs (defprotocol A))
 
 
@@ -328,11 +366,18 @@
 
 ; deftype
 (ana-cljs denv '(deftype A [b] cljs.core/ASeq))
-(cljs/macroexpand-1 denv '(deftype A [b] 
-                            cljs.core/ASeq 
-                            cljs.core/IFn
-                            (invoke [this a b] a)))
-(ana-cljs denv '(deftype A [b] 
+  (cljs/macroexpand-1 (cljs/empty-env)
+                      '(deftype A [b] 
+                         cljs.core/ASeq 
+                         cljs.core/IFn
+                         (invoke [this a b] a)))
+  (cljs/macroexpand-1 (cljs/empty-env)
+                      '(cljs.core/extend-type A 
+                                              cljs.core/ASeq 
+                                              cljs.core/ISeq 
+                                              (first [this] this)
+                                              #_cljs.core/IFn #_(invoke ([this a b] a))))
+(cljs/analyze (cljs/empty-env) '(deftype A [b] 
                   cljs.core/ASeq 
                   cljs.core/IFn
                   (invoke [this a b] a)))
@@ -354,4 +399,10 @@
 
   (ana-cljs denv '(let [a 2] a))
   (cf-cljs (let [a 2] a))
+
+
+  ;ns
+  (cf-cljs (ns my-ns (:require [cljs.core :as s])))
+
+  (check-cljs-ns typed.test.logic)
   )

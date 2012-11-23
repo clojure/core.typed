@@ -14,6 +14,7 @@
             [clojure.pprint :refer [pprint]]
             [trammel.core :as contracts]
             [clojure.math.combinatorics :as comb]
+            [clojure.java.io :as io]
             [cljs
              [compiler]
              [analyzer :as cljs]]
@@ -566,11 +567,11 @@
   ([form]
   `(do (ensure-clojurescript)
      (tc-ignore
-       (-> (ana-cljs {:locals {} :context :expr :ns {:name '~'cljs.user}} '~form) check-cljs expr-type unparse-TCResult))))
+       (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}} '~form) check-cljs expr-type unparse-TCResult))))
   ([form expected]
-  `(do (ensure-clojure)
+  `(do (ensure-clojurescript)
      (tc-ignore
-       (-> (ana-cljs {:locals {} :context :expr :ns {:name '~'cljs.user}}
+       (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}}
                      '(typed.core/ann-form-cljs ~form ~expected))
          (#(check-cljs % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
 
@@ -585,11 +586,43 @@
      (tc-ignore
        (-> (ast (ann-form-cljs ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
 
+(defn analyze-file-asts
+  [^String f]
+  (let [res (if (re-find #"^file://" f) (java.net.URL. f) (io/resource f))]
+    (assert res (str "Can't find " f " in classpath"))
+    (with-altered-specials
+      (binding [cljs/*cljs-ns* 'cljs.user
+                cljs/*cljs-file* (.getPath ^java.net.URL res)
+                *ns* cljs/*reader-ns*]
+        (with-open [r (io/reader res)]
+          (let [env (cljs/empty-env)
+                pbr (clojure.lang.LineNumberingPushbackReader. r)
+                eof (Object.)]
+            (loop [r (read pbr false eof false)
+                   asts []]
+              (let [env (assoc env :ns (cljs/get-namespace cljs/*cljs-ns*))]
+                (if-not (identical? eof r)
+                  (let [ast1 (cljs/analyze env r)]
+                    (recur (read pbr false eof false) (conj asts ast1)))
+                  asts)))))))))
+
+(defn check-cljs-ns*
+  "Type check a CLJS namespace. If not provided default to current namespace"
+  ([] (check-cljs-ns* cljs/*cljs-ns*))
+  ([nsym]
+   (ensure-clojurescript)
+   (let [asts (analyze-file-asts (cljs/ns->relpath nsym))]
+     (doseq [ast asts]
+       (check-cljs ast)))))
+
+(defmacro check-cljs-ns
+  ([] (check-cljs-ns*))
+  ([nsym] (check-cljs-ns* nsym)))
+
 (defn check-ns 
   "Type check a namespace. If not provided default to current namespace"
   ([] (check-ns (ns-name *ns*)))
   ([nsym]
-   (require nsym)
    (ensure-clojure)
    (with-open [pbr (analyze/pb-reader-for-ns nsym)]
      (let [[_ns-decl_ & asts] (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)]
@@ -607,11 +640,15 @@
 
 (comment 
   (check-ns 'typed.test.example)
+
   ; very slow because of update-composite
   (check-ns 'typed.test.rbt)
+
   (check-ns 'typed.test.macro)
   (check-ns 'typed.test.conduit)
   (check-ns 'typed.test.deftype)
   (check-ns 'typed.test.core-logic)
   (check-ns 'typed.test.ckanren)
+
+  (check-cljs-ns 'typed.test.logic)
   )

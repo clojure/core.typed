@@ -1573,15 +1573,13 @@
   (assert (:line env))
   (binding [*current-env* env
             *check-fn-method1-checkfn* check
-            *check-fn-method1-checkfn* (fn [rest drest]
-                                         {:pre [(some-fn #(when rest
-                                                            (Type? rest))
-                                                         #(when drest
-                                                            (DottedPretype? drest)))
-                                                (not (and rest drest))]
-                                          :post [(Type? %)]}
-                                         (Un -nil (In (RClass-of Seqable [(or rest (.pre-type drest))])
-                                                      (make-CountRange 1))))]
+            *check-fn-method1-rest-type* (fn [rest drest]
+                                           {:pre [(or (Type? rest)
+                                                      (DottedPretype? drest))
+                                                  (not (and rest drest))]
+                                            :post [(Type? %)]}
+                                           (Un -nil (In (RClass-of Seqable [(or rest (.pre-type drest))])
+                                                        (make-CountRange 1))))]
     (assoc expr
            expr-type (check-fn expr (or expected
                                         (ret (make-FnIntersection

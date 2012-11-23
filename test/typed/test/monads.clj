@@ -1075,7 +1075,7 @@
 (ann afun (All [x y] [(U x nil) [x -> (U nil y)] -> (U nil y)]))
 (ann bfun [Symbol -> (U nil Symbol)])
 (declare afun bfun)
-(tc-ignore (cf (afun 'a bfun)))
+#_(tc-ignore (cf (afun 'a bfun)))
 
 ;TODO these are test cases
 ;
