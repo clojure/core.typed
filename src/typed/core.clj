@@ -565,15 +565,15 @@
 (defmacro cf-cljs
   "Type check a Clojurescript form and return its type"
   ([form]
-  `(do (ensure-clojurescript)
-     (tc-ignore
-       (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}} '~form) check-cljs expr-type unparse-TCResult))))
+   (do (ensure-clojurescript)
+     (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}} form) check-cljs expr-type unparse-TCResult)))
   ([form expected]
-  `(do (ensure-clojurescript)
-     (tc-ignore
-       (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}}
-                     '(typed.core/ann-form-cljs ~form ~expected))
-         (#(check-cljs % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
+   (prn 'expected expected)
+   (prn 'prse (parse-type expected))
+   (do (ensure-clojurescript)
+     (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}}
+                   (list 'typed.core/ann-form-cljs form expected))
+       (#(check-cljs % (ret (parse-type expected)))) expr-type unparse-TCResult))))
 
 (defmacro cf 
   "Type check a Clojure form and return its type"

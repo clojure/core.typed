@@ -8,9 +8,7 @@
 
 (def new-specials (set/union 
                     orig-specials
-                    '#{cljs.core/defprotocol deftype typed.core/ann-form-cljs
-                       defprotocol
-                       cljs.core/extend-type}))
+                    '#{cljs.core/defprotocol deftype defprotocol cljs.core/extend-type}))
 
 (defmacro with-altered-specials
   [& body]
@@ -24,7 +22,7 @@
 ;; Special forms
 
 (defmacro ann-form-cljs [form tsyn]
-  `form)
+  `(typed.internal/ann-form-cljs* ~form '~tsyn))
 
 (declare cljs-ann*)
 
@@ -55,11 +53,36 @@
   [])
 
 (defrecord BooleanCLJS []
-  "A type for Clojurescript boolean values"
+  "Primitive boolean in CLJS"
+  [])
+
+(defrecord ObjectCLJS []
+  "Primitive object in CLJS"
+  [])
+
+(defrecord StringCLJS []
+  "Primitive string in CLJS"
+  [])
+
+(defrecord NumberCLJS []
+  "Primitive number in CLJS"
+  [])
+
+(defrecord ArrayCLJS []
+  "Primitive array in CLJS"
+  [])
+
+(defrecord FunctionCLJS []
+  "Primitive function in CLJS"
   [])
 
 (declare-type SymbolCLJS)
 (declare-type BooleanCLJS)
+(declare-type ObjectCLJS)
+(declare-type StringCLJS)
+(declare-type NumberCLJS)
+(declare-type ArrayCLJS)
+(declare-type FunctionCLJS)
 
 
 ;; Parse type
@@ -133,15 +156,6 @@
       :form form
       :env env}))
 
-(defmethod cljs/parse 'typed.core/ann-form-cljs
-  [op env [_ form tsyn :as as] name]
-  (assert (= 3 (count as)))
-  {:op :ann-form-cljs
-   :env env
-   :form form
-   :the-expr (cljs/analyze env form)
-   :expected (parse-type tsyn)})
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Check CLJS AST
 
@@ -202,27 +216,44 @@
   (assoc expr
          expr-type (ret (->SymbolCLJS))))
 
-(defmethod check-cljs :ann-form-cljs
-  [{:keys [the-expr] given-type :expected :as expr} & [expected]]
-  (let [cform (check-cljs the-expr (ret given-type))
+(defmulti invoke-cljs-special (fn [{{:keys [op] :as fexpr} :f :as expr} & expected]
+                                (when (= :var op)
+                                  (-> fexpr :info :name))))
+
+(defmethod invoke-cljs-special :default [& _] ::not-special)
+
+(defmethod invoke-cljs-special 'typed.internal/ann-form-cljs*
+  [{[the-expr {typ-syn :form :as texpr} :as args] :args :as expr} & [expected]]
+  (assert (= (count args) 2))
+  (assert (= (:op texpr) :constant))
+  (let [_ (prn 'type-syn typ-syn)
+        given-type (parse-type typ-syn)
+        _ (prn 'given-type (unparse-type given-type))
+        cform (check-cljs the-expr (ret given-type))
+        _ (prn 'cform cform)
         _ (assert (subtype? (-> cform expr-type ret-t) given-type)
-                  (str "Annotation does not match actual type:"\n
-                       "Expected: " (unparse-type given-type)\n
+                  (str "Annotation does not match actual type:\n"
+                       "Expected: " (unparse-type given-type)"\n"
                        "Actual: " (unparse-type (-> cform expr-type ret-t))))
-        _ (when expr-type
+        _ (when expected
             (assert (subtype? given-type (ret-t expected))))]
     (assoc expr
            expr-type (ret given-type))))
 
 (defmethod check-cljs :invoke
   [{fexpr :f :keys [args] :as expr} & [expected]]
-  (let [cfexpr (check-cljs fexpr)
-        cargs (mapv check-cljs args)
-        ftype (expr-type cfexpr)
-        argtys (map expr-type cargs)
-        actual (check-funapp ftype argtys expected)]
-    (assoc expr
-           expr-type actual)))
+  (prn "invoke" expr)
+  (let [e (invoke-cljs-special expr)]
+    (cond
+      (not= e ::not-special) e
+      :else
+      (let [cfexpr (check-cljs fexpr)
+            cargs (mapv check-cljs args)
+            ftype (expr-type cfexpr)
+            argtys (map expr-type cargs)
+            actual (check-funapp ftype argtys expected)]
+        (assoc expr
+               expr-type actual)))))
 
 (defmethod check-cljs :var
   [{{vname :name} :info :keys [env] :as expr} & [expected]]
@@ -344,7 +375,7 @@
 
 (ana-cljs denv '(ns cljs.user (:require-macros [typed.core :as typ])))
 (cljs/macroexpand-1 {} '(ann-form-cljs 'a SymbolCLJS))
-(cf-cljs (ann-form-cljs 'a SymbolCLJS))
+(cf-cljs (typed.core/ann-form-cljs 'a SymbolCLJS))
 
   ;occurrence typing
 (cljs-ann cljs.core/symbol? (predicate-cljs SymbolCLJS))
@@ -360,6 +391,8 @@
 (cf-cljs (fn [a]))
 (cf-cljs (fn [a b c]))
 (cf-cljs (fn [a b c]) [BooleanCLJS BooleanCLJS Any -> nil])
+
+(cf-cljs (fn [a] (if a (a) true)) [(U nil [-> BooleanCLJS]) -> BooleanCLJS])
 
 (ana-cljs denv '(fn [a] a))
 (cf-cljs (fn [a b c] a) [BooleanCLJS BooleanCLJS Any -> BooleanCLJS])
@@ -379,12 +412,12 @@
                                               #_cljs.core/IFn #_(invoke ([this a b] a))))
 (cljs/analyze (cljs/empty-env) '(deftype A [b] 
                   cljs.core/ASeq 
-                  cljs.core/IFn
+                  cljs.core/ISeq
                   (invoke [this a b] a)))
-  (cf-cljs (deftype A [b] 
-             cljs.core/ASeq 
-             cljs.core/IFn
-             (invoke [this a b] a)))
+  (ana-cljs '(deftype A [b] 
+               cljs.core/ASeq 
+               cljs.core/IFn
+               (invoke [this a b] a)))
 (ana-cljs denv '(set! o -a 1))
 (ana-cljs denv '(set! o 1))
 (cf-cljs (set! o -a 1))
