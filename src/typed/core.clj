@@ -562,18 +562,21 @@
 (load "check")
 (load "check_cljs")
 
+;emit something that CLJS can display ie. a quoted unparsed typed
 (defmacro cf-cljs
   "Type check a Clojurescript form and return its type"
   ([form]
-   (do (ensure-clojurescript)
-     (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}} form) check-cljs expr-type unparse-TCResult)))
+   (let [t
+         (do (ensure-clojurescript)
+           (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}} form) check-cljs expr-type unparse-TCResult))]
+     `'~t))
   ([form expected]
-   (prn 'expected expected)
-   (prn 'prse (parse-type expected))
-   (do (ensure-clojurescript)
-     (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}}
-                   (list 'typed.core/ann-form-cljs form expected))
-       (#(check-cljs % (ret (parse-type expected)))) expr-type unparse-TCResult))))
+   (let [t
+         (do (ensure-clojurescript)
+           (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}}
+                         (list `ann-form-cljs form expected))
+             (#(check-cljs % (ret (parse-type expected)))) expr-type unparse-TCResult))]
+     `'~t)))
 
 (defmacro cf 
   "Type check a Clojure form and return its type"
@@ -584,7 +587,7 @@
   ([form expected]
   `(do (ensure-clojure)
      (tc-ignore
-       (-> (ast (ann-form-cljs ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
+       (-> (ast (ann-form ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
 
 (defn analyze-file-asts
   [^String f]
@@ -616,8 +619,8 @@
        (check-cljs ast)))))
 
 (defmacro check-cljs-ns
-  ([] (check-cljs-ns*))
-  ([nsym] (check-cljs-ns* nsym)))
+  ([] (check-cljs-ns*) `'~'success)
+  ([nsym] (check-cljs-ns* nsym) `'~'success))
 
 (defn check-ns 
   "Type check a namespace. If not provided default to current namespace"

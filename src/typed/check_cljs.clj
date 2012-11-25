@@ -27,7 +27,8 @@
 (declare cljs-ann*)
 
 (defmacro cljs-ann [vname tsyn]
-  `'~(cljs-ann* vname tsyn))
+  (let [r (cljs-ann* vname tsyn)]
+  `'~r))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Envs
@@ -119,13 +120,13 @@
 (defmethod subtype* [Value SymbolCLJS ::clojurescript]
   [{:keys [val] :as s} t]
   (if (symbol? val)
-    *current-env*
+    *sub-current-seen*
     (type-error s t)))
 
 (defmethod subtype* [Value BooleanCLJS ::clojurescript]
   [{:keys [val] :as s} t]
   (if ((some-fn true? false?) val)
-    *current-env*
+    *sub-current-seen*
     (type-error s t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -200,7 +201,7 @@
   (let [ann-type (binding [*var-annotations* CLJS-VAR-ENV
                            *current-env* env]
                    (type-of vname))
-        cinit (check-cljs init expected)
+        cinit (check-cljs init (ret ann-type))
         _ (assert (subtype? (-> cinit expr-type ret-t)
                             ann-type)
                   (str "Var definition did not match annotation."
@@ -222,15 +223,24 @@
 
 (defmethod invoke-cljs-special :default [& _] ::not-special)
 
+; copied from Clojure impl
+(defmethod invoke-cljs-special 'typed.internal/print-env
+  [{[{debug-string :form :as texpr} :as args] :args :as expr} & [expected]]
+  (assert (= 1 (count args)))
+  (assert (string? debug-string))
+  ;DO NOT REMOVE
+  (pr debug-string)
+  (print-env)
+  ;DO NOT REMOVE
+  (assoc expr
+         expr-type (ret -any)))
+
 (defmethod invoke-cljs-special 'typed.internal/ann-form-cljs*
   [{[the-expr {typ-syn :form :as texpr} :as args] :args :as expr} & [expected]]
   (assert (= (count args) 2))
   (assert (= (:op texpr) :constant))
-  (let [_ (prn 'type-syn typ-syn)
-        given-type (parse-type typ-syn)
-        _ (prn 'given-type (unparse-type given-type))
+  (let [given-type (parse-type typ-syn)
         cform (check-cljs the-expr (ret given-type))
-        _ (prn 'cform cform)
         _ (assert (subtype? (-> cform expr-type ret-t) given-type)
                   (str "Annotation does not match actual type:\n"
                        "Expected: " (unparse-type given-type)"\n"
@@ -242,7 +252,6 @@
 
 (defmethod check-cljs :invoke
   [{fexpr :f :keys [args] :as expr} & [expected]]
-  (prn "invoke" expr)
   (let [e (invoke-cljs-special expr)]
     (cond
       (not= e ::not-special) e
@@ -260,7 +269,15 @@
   (assoc expr
          expr-type (ret (binding [*var-annotations* CLJS-VAR-ENV
                                   *current-env* env]
-                          (type-of vname)))))
+                          (type-of vname))
+                        ;only local bindings are immutable, vars do not partipate in occurrence typing
+                        (if-not (namespace vname)
+                          (-FS (-not-filter (Un -nil -false) vname)
+                               (-filter (Un -nil -false) vname))
+                          (-FS -top -top))
+                        (if-not (namespace vname)
+                          (->Path nil vname)
+                          -empty))))
 
 (defmethod check-cljs :do
   [{:keys [ret statements] :as expr} & [expected]]
@@ -272,6 +289,7 @@
 
 (defmethod check-cljs :fn
   [{:keys [name max-fixed-arity methods variadic] :as expr} & [expected]]
+  (when expected (prn 'fn-expected (unparse-type (ret-t expected))))
   (binding [*check-fn-method1-checkfn* check-cljs]
     (assoc expr
            expr-type
@@ -318,9 +336,10 @@
 (defmethod check-cljs :if
   [{:keys [test then else] :as expr} & [expected]]
   (let [ctest (check-cljs test)]
+    (prn "check-cljs :if" (expr-type ctest))
     (assoc expr
            expr-type (binding [*check-if-checkfn* check-cljs]
-                       (check-if (expr-type ctest) then else)))))
+                       (check-if (expr-type ctest) then else expected)))))
 
 (defmethod check-cljs :let
   [{:keys [loop bindings statements ret env] :as expr} & [expected]]
@@ -394,6 +413,9 @@
 
 (cf-cljs (fn [a] (if a (a) true)) [(U nil [-> BooleanCLJS]) -> BooleanCLJS])
 
+  (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}}
+            (list `ann-form-cljs 1 'Any))
+
 (ana-cljs denv '(fn [a] a))
 (cf-cljs (fn [a b c] a) [BooleanCLJS BooleanCLJS Any -> BooleanCLJS])
 
@@ -438,4 +460,18 @@
   (cf-cljs (ns my-ns (:require [cljs.core :as s])))
 
   (check-cljs-ns typed.test.logic)
+
+  (cljs/analyze (cljs/empty-env) '(typed.internal/print-env "start"))
+  (cf-cljs (typed.internal/print-env "start"))
+
+  (cljs-ann foo [(U nil [-> BooleanCLJS]) -> BooleanCLJS])
+  (cf-cljs
+    (defn foo [x]
+      (typed.internal/print-env "top-of-foo")
+      (if x
+        (x)
+        false)))
+
+
+
   )

@@ -2477,8 +2477,8 @@
               ;; in particular, it might be (void)
               (and expected reachable?)
               (-> (*check-if-checkfn* expr (-> expected
-                                             (update-in [:fl] #(map (constantly (->NoFilter)) %))
-                                             (update-in [:o] #(map (constantly (->NoObject)) %))))
+                                             (update-in [:fl] (constantly (-FS -top -top)))
+                                             (update-in [:o] (constantly -empty))))
                 expr-type)
               ;; this code is reachable, but we have no expected type
               reachable? (-> (*check-if-checkfn* expr) expr-type)
@@ -2487,12 +2487,10 @@
               :else (do (prn (error-msg "Not checking unreachable code"))
                       (ret (Un)))))]
     (let [{fs+ :then fs- :else :as f1} (ret-f tst)
-         ; _ (prn "check-if: fs+" (unparse-filter fs+))
-         ; _ (prn "check-if: fs-" (unparse-filter fs-))
-          flag+ (atom true)
-          flag- (atom true)
-          _ (set-validator! flag+ boolean?)
-          _ (set-validator! flag- boolean?)
+;          _ (prn "check-if: fs+" (unparse-filter fs+))
+;          _ (prn "check-if: fs-" (unparse-filter fs-))
+          flag+ (atom true :validator boolean?)
+          flag- (atom true :validator boolean?)
 
           ;_ (print-env)
           idsym (gensym)

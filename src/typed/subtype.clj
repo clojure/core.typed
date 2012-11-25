@@ -70,6 +70,7 @@
   (infer X {} S T -any))
 
 (defn subtypeA* [A s t]
+  {:post [(set? %)]}
   (if (or (contains? A [s t])
           (= s t)
           (Top? t)
@@ -120,7 +121,7 @@
         (subtypeA* *sub-current-seen* s (resolve-App t))
 
         (Union? s)
-        (if (every? #(subtypeA* *sub-current-seen* % t) (:types s))
+        (if (every? #(subtypeA*? *sub-current-seen* % t) (:types s))
           *sub-current-seen*
           (type-error s t))
 
@@ -168,6 +169,7 @@
         :else (subtype* s t)))))
 
 (defn subtype [s t]
+  {:post [(set? %)]}
   (subtypeA* *sub-current-seen* s t))
 
 (defn subtypes*-varargs [A0 argtys dom rst]
