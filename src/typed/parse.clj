@@ -210,7 +210,7 @@
 (declare parse-function)
 
 (defn parse-fn-intersection-type [[Fn & types]]
-  (apply make-FnIntersection (doall (map parse-function types))))
+  (apply make-FnIntersection (mapv parse-function types)))
 
 (defmethod parse-type-list 'Fn
   [syn]

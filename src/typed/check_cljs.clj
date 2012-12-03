@@ -289,7 +289,7 @@
 
 (defmethod check-cljs :fn
   [{:keys [name max-fixed-arity methods variadic] :as expr} & [expected]]
-  (when expected (prn 'fn-expected (unparse-type (ret-t expected))))
+  #_(when expected (prn 'fn-expected (unparse-type (ret-t expected))))
   (binding [*check-fn-method1-checkfn* check-cljs]
     (assoc expr
            expr-type
@@ -336,7 +336,7 @@
 (defmethod check-cljs :if
   [{:keys [test then else] :as expr} & [expected]]
   (let [ctest (check-cljs test)]
-    (prn "check-cljs :if" (expr-type ctest))
+    #_(prn "check-cljs :if" (expr-type ctest))
     (assoc expr
            expr-type (binding [*check-if-checkfn* check-cljs]
                        (check-if (expr-type ctest) then else expected)))))

@@ -639,10 +639,7 @@
 
 (defrecord KwArgs [mandatory optional]
   "A set of mandatory and optional keywords"
-  [(map? mandatory)
-   (map? optional)
-   (every? Value? (map keys [mandatory optional]))
-   (every? Type? (map vals [mandatory optional]))])
+  [(every? (hash-c? Value? Type?) [mandatory optional])])
 
 (defrecord Function [dom rng rest drest kws]
   "A function arity, must be part of an intersection"
@@ -650,7 +647,7 @@
        (sequential? dom))
    (every? Type? dom)
    (Result? rng)
-   (<= (count (filter identity [rest drest kws])) 1)
+   (<= (count (remove nil? [rest drest kws])) 1)
    (or (nil? rest)
        (Type? rest))
    (or (nil? drest)

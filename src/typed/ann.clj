@@ -193,6 +193,13 @@
 
 
 (ann clojure.core/atom (All [x] [x -> (Atom x x)]))
+
+(comment
+  (ann clojure.core/atom (All [x] [x & {(U nil (IPersistentMap Any Any)) :meta 
+                                        (U nil [x -> Any]) :validator}
+                                   -> (Atom x x)]))
+  )
+
 (ann clojure.core/deref (All [x y]
                              (Fn [(IDeref x) -> x]
                                  [(IDeref x) AnyInteger y -> (U x y)])))

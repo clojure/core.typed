@@ -14,15 +14,16 @@ See `LICENSE`.
 
 Leiningen (Clojars):
 
-`[typed "0.1.2"]`
+`[typed "0.1.3"]`
 
 # Changelog
 
-0.1.3-SNAPSHOT
+0.1.3
   - Refactor typed.core into individual files
   - Add `method-type`
     - `(method-type 'java.io.File/getName)` prints the current Typed Clojure type for the getName method of File
   - Add types for some clojure.core coersion functions
+  - Preliminary support for ClojureScript
 
 0.1.2
   - Fix objects and filters being lost during polymorphic and dotted function applications
