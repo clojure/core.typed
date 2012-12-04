@@ -1,6 +1,6 @@
 (ns typed.test.person
   (:require [typed.core 
-             :refer [check-ns ann-datatype
+             :refer [check-ns cf ann-datatype ann
                      tc-ignore ann-protocol AnyInteger]]))
 
 (ann-protocol Age 
@@ -20,3 +20,9 @@
 
 
 (age (Person. "Lucy" 34))
+
+(ann my-apply (All [x y] [[x -> y] x -> y]))
+(defn my-apply [f a]
+  (f a))
+
+#_(my-apply age nil)

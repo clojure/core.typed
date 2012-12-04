@@ -567,6 +567,7 @@
   (TFn [[r :variance :covariant]
         [s :variance :invariant]]
     [s -> '[r s]]))
+;TODO scope  `s` in state-m body.
 (ann state-m (All [s]
                (Monad (TFn [[x :variance :covariant]]
                         (State x s)))))
@@ -576,14 +577,14 @@
    [m-result  (ann-form
                 (fn m-result-state [v]
                   (fn [s] [v s]))
-                (All [r s]
+                (All [r]
                   [r -> (State r s)]))
     m-bind    (ann-form
                 (fn m-bind-state [mv f]
                   (fn [s]
                     (let [[v ss] (mv s)]
                       ((f v) ss))))
-                (All [s ra rb]
+                (All [ra rb]
                   [(State ra s) [ra -> (State rb s)] -> (State rb s)]))
    ])
 

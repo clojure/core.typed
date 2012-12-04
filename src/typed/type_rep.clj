@@ -773,7 +773,7 @@
 
 (defrecord TCResult [t fl o]
   "This record represents the result of typechecking an expression"
-  [(AnyType? t)
+  [(Type? t)
    (FilterSet? fl)
    (RObject? o)])
 

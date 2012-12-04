@@ -4,22 +4,25 @@
 ;; Subtype
 
 (def ^:dynamic *current-env* nil)
+(def ^:dynamic *current-expr* nil)
 
 (defn error-msg [& msg]
   (apply str (when *current-env*
                   (str (:line *current-env*) ": "))
-         msg))
+         (concat msg)))
 
 (defn type-error [s t]
   (throw (Exception. (str "Type Error"
                           (when *current-env*
                             (str ", " (:source *current-env*) ":" (:line *current-env*)))
-                          " - "
+                          "\n\nActual type\n\t"
                           (or (-> s meta :source-Name)
                               (with-out-str (pr (unparse-type s))))
-                          " is not a subtype of: " 
+                          "\nis not a subtype of Expected type\n\t" 
                           (or (-> t meta :source-Name)
-                              (with-out-str (pr (unparse-type t))))))))
+                              (with-out-str (pr (unparse-type t))))
+                          (when *current-expr*
+                            (str "\n\nForm: " (ana-frm/map->form *current-expr*)))))))
 
 ;keeps track of currently seen subtype relations for recursive types.
 ;(Set [Type Type])
@@ -85,16 +88,19 @@
         (subtypeA* *sub-current-seen* s (resolve-Name t))
 
         (and (Poly? s)
-             (Poly? t))
-        (do
-          (when-not (= (.nbound s) (.nbound t))
-            (type-error s t))
-          (let [names (repeatedly (.nbound s) gensym)
-                b1 (Poly-body* names s)
-                b2 (Poly-body* names t)]
-            (subtype b1 b2)))
+             (Poly? t)
+             (= (.nbound s) (.nbound t)))
+        (let [names (repeatedly (.nbound s) gensym)
+              b1 (Poly-body* names s)
+              b2 (Poly-body* names t)]
+          (subtype b1 b2))
 
-        (Poly? s)
+        ;use unification to see if we can use the Poly type here
+        (and (Poly? s)
+             (let [names (repeatedly (.nbound s) gensym)
+                   bnds (Poly-bbnds* names s)
+                   b1 (Poly-body* names s)]
+               (unify (zipmap names bnds) [b1] [t])))
         (let [names (repeatedly (.nbound s) gensym)
               bnds (Poly-bbnds* names s)
               b1 (Poly-body* names s)]
@@ -102,7 +108,13 @@
             *sub-current-seen*
             (type-error s t)))
 
-        ;TODO Poly? t
+        (and (Poly? t)
+             (let [names (repeatedly (.nbound t) gensym)
+                   b (Poly-body* names t)]
+               (empty? (fv t))))
+        (let [names (repeatedly (.nbound t) gensym)
+              b (Poly-body* names t)]
+          (subtype s b))
 
         (and (TApp? s)
              (not (F? (.rator s)))
@@ -542,26 +554,33 @@
 
 (defmethod subtype* [HeterogeneousMap Type ::clojure]
   [s t]
-  (let [sk (apply Un (map first (:types s)))
-        sv (apply Un (map second (:types s)))]
-    (subtype (RClass-of (Class->symbol APersistentMap) [sk sv])
-             t)))
+  ; HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
+  (subtype (RClass-of APersistentMap [-any -any]) t))
 
 ;every rtype entry must be in ltypes
 ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
 (defmethod subtype* [HeterogeneousMap HeterogeneousMap ::default]
   [{ltypes :types :as s}
    {rtypes :types :as t}]
-  (last (doall (map (fn [[k v]]
-                      (if-let [t (ltypes k)]
-                        (subtype t v)
-                        (type-error s t)))
-                    rtypes))))
+  (or (last (doall (map (fn [[k v]]
+                          (if-let [t (ltypes k)]
+                            (subtype t v)
+                            (type-error s t)))
+                        rtypes)))
+      #{}))
+
+(prefer-method subtype* 
+               [HeterogeneousVector HeterogeneousVector ::default]
+               [HeterogeneousVector Type ::clojure])
+(prefer-method subtype* 
+               [HeterogeneousMap HeterogeneousMap ::default],
+               [HeterogeneousMap Type ::clojure] )
 
 (defmethod subtype* [HeterogeneousVector HeterogeneousVector ::default]
   [{ltypes :types :as s} 
    {rtypes :types :as t}]
-  (last (doall (map #(subtype %1 %2) ltypes rtypes))))
+  (or (last (doall (map #(subtype %1 %2) ltypes rtypes)))
+      #{}))
 
 (defmethod subtype* [HeterogeneousVector Type ::clojure]
   [s t]
@@ -573,7 +592,8 @@
 (defmethod subtype* [HeterogeneousList HeterogeneousList ::default]
   [{ltypes :types :as s} 
    {rtypes :types :as t}]
-  (last (doall (map #(subtype %1 %2) ltypes rtypes))))
+  (or (last (doall (map #(subtype %1 %2) ltypes rtypes)))
+      #{}))
 
 (defmethod subtype* [HeterogeneousList Type ::clojure]
   [s t]
@@ -584,7 +604,8 @@
 (defmethod subtype* [HeterogeneousSeq HeterogeneousSeq ::default]
   [{ltypes :types :as s} 
    {rtypes :types :as t}]
-  (last (doall (map #(subtype %1 %2) ltypes rtypes))))
+  (or (last (doall (map #(subtype %1 %2) ltypes rtypes)))
+      #{}))
 
 (defmethod subtype* [HeterogeneousSeq Type ::clojure]
   [s t]

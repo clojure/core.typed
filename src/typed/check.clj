@@ -103,7 +103,8 @@
   [{:keys [val] :as expr} & [expected]]
   (let [actual-type (constant-type val)
         _ (when expected
-            (subtype actual-type (ret-t expected)))]
+            (binding [*current-expr* expr]
+              (subtype actual-type (ret-t expected))))]
     (assoc expr
            expr-type (if val
                        (ret actual-type
@@ -556,7 +557,7 @@
 
 
 ;Function TCResult^n (or nil TCResult) -> TCResult
-(defn check-funapp1 [{:keys [dom rng rest drest kws] :as ftype0} argtys expected & {:keys [check?] :or {check? true}}]
+(defn check-funapp1 [fexpr arg-exprs {:keys [dom rng rest drest kws] :as ftype0} argtys expected & {:keys [check?] :or {check? true}}]
   {:pre [(Function? ftype0)
          (every? TCResult? argtys)
          ((some-fn nil? TCResult?) expected)
@@ -603,7 +604,7 @@
           :else etype)))))
 
 ; TCResult TCResult^n (U nil TCResult) -> TCResult
-(defn check-funapp [fexpr-ret-type arg-ret-types expected]
+(defn check-funapp [fexpr args fexpr-ret-type arg-ret-types expected]
   {:pre [(TCResult? fexpr-ret-type)
          (every? TCResult? arg-ret-types)
          ((some-fn nil? TCResult?) expected)]
@@ -617,12 +618,12 @@
            (= 1 (count (:types fexpr-type))))
       (let [argtys arg-ret-types
             {[t] :types} fexpr-type]
-        (check-funapp1 t argtys expected))
+        (check-funapp1 fexpr args t argtys expected))
 
       ;ordinary Function, multiple cases
       (FnIntersection? fexpr-type)
       (let [ftypes (:types fexpr-type)
-            success-ret-type (some #(check-funapp1 % arg-ret-types expected :check? false)
+            success-ret-type (some #(check-funapp1 fexpr args % arg-ret-types expected :check? false)
                                    (filter (fn [{:keys [dom rest] :as f}]
                                              {:pre [(Function? f)]}
                                              (subtypes-varargs? arg-types dom rest))
@@ -659,7 +660,7 @@
                                                  (catch Exception e
                                                    #_(prn e)))]
                            (do #_(prn "subst:" substitution)
-                             (check-funapp1 (subst-all substitution ftype)
+                             (check-funapp1 fexpr args (subst-all substitution ftype)
                                             arg-ret-types expected :check? false))
                            (if (or drest kws)
                              (throw (Exception. "Cannot infer arguments to polymorphic functions with dotted rest or kw types"))
@@ -713,7 +714,8 @@
                                            ;_ (prn "args" (map unparse-type arg-types))
                                            ]
                                        (or (and substitution
-                                                (check-funapp1 substituted-type arg-ret-types expected :check? false))
+                                                (check-funapp1 fexpr args 
+                                                               substituted-type arg-ret-types expected :check? false))
                                            (throw (Exception. "Error applying dotted type")))))))]
           ;(prn "inferred-rng"inferred-rng)
           (if inferred-rng
@@ -1078,9 +1080,11 @@
   (let [parsed-ty (parse-type tsyn)
         cty (check frm (ret parsed-ty))
         checked-type (ret-t (expr-type cty))
-        _ (subtype checked-type parsed-ty)
+        _ (binding [*current-expr* frm]
+            (subtype checked-type parsed-ty))
         _ (when expected
-            (subtype checked-type (ret-t expected)))]
+            (binding [*current-expr* frm]
+              (subtype checked-type (ret-t expected))))]
     (assoc expr
            expr-type (ret parsed-ty))))
 
@@ -1355,13 +1359,15 @@
 
                                        ;otherwise just make normal map if already a map, or normal vec if already a vec
                                        is-map (ret-t 
-                                                (check-funapp (ret 
+                                                (check-funapp target keyvals
+                                                              (ret 
                                                                 (parse-type '(All [b c] 
                                                                                   [(IPersistentMap b c) b c -> (IPersistentMap b c)])))
                                                               (mapv ret [hmap kt vt])
                                                               nil))
                                        :else (ret-t 
-                                               (check-funapp (ret 
+                                               (check-funapp target keyvals
+                                                             (ret 
                                                                (parse-type '(All [c] 
                                                                                  [(IPersistentVector c) c -> (IPersistentVector c)])))
                                                              (mapv ret [hmap vt])
@@ -1417,7 +1423,7 @@
 
 (defn check-apply
   [{[fexpr & args] :args :as expr} expected]
-  {:post [(TCResult? %)]}
+  {:post [((some-fn TCResult? #(= ::not-special %)) %)]}
   (let [ftype (ret-t (expr-type (check fexpr)))
         [fixed-args tail] [(butlast args) (last args)]]
     (cond
@@ -1476,8 +1482,7 @@
                                              (count arg-tys))
                                          (infer-vararg (zipmap vars bbnds) {}
                                                        (cons tail-ty arg-tys)
-                                                       (cons (Un -nil (RClass-of (Class->symbol Seqable) [rest]))
-                                                             dom)
+                                                       (cons (Un -nil (RClass-of Seqable [rest])) dom)
                                                        rest
                                                        (Result-type* rng)))
                                     (catch IllegalArgumentException e
@@ -1485,8 +1490,7 @@
                                     (catch Exception e
                                       ;(prn "caught failed polymorphic case")
                                       ))]
-              (check-funapp1 (subst-all substitution ftype0)
-                             (map ret arg-tys) expected :check? false)
+              (ret (subst-all substitution (Result-type* rng)))
               (recur (next fs))))))
 
       :else ::not-special)))
@@ -1526,7 +1530,7 @@
               cargs (doall (map check args))
               ftype (expr-type cfexpr)
               argtys (map expr-type cargs)
-              actual (check-funapp ftype argtys expected)]
+              actual (check-funapp fexpr args ftype argtys expected)]
           (assoc expr
                  :fexpr cfexpr
                  :args cargs
@@ -1572,6 +1576,7 @@
   {:post [(-> % expr-type TCResult?)]}
   (assert (:line env))
   (binding [*current-env* env
+            *current-expr* expr
             *check-fn-method1-checkfn* check
             *check-fn-method1-rest-type* (fn [rest drest]
                                            {:pre [(or (Type? rest)
@@ -1788,6 +1793,8 @@
         exp (resolve-to-ftype (ret-t expected))
         ; unwrap polymorphic expected types
         [fin orig-names inst-frees bnds poly?] (unwrap-poly exp)
+        ; once more to make sure
+        fin (resolve-to-ftype fin)
         ;ensure a function type
         _ (assert (FnIntersection? fin)
                   (str (when *current-env*
@@ -2025,7 +2032,7 @@
                   (throw (Exception. (error-msg "Cannot call instance method " (Method->symbol method)
                                                 " on type " (unparse-type (ret-t (expr-type ctarget)))))))))
           cargs (doall (map check args))
-          result-type (check-funapp rfin-type (map expr-type cargs) expected)]
+          result-type (check-funapp expr args rfin-type (map expr-type cargs) expected)]
       (assoc expr
              expr-type result-type))))
 
@@ -2121,7 +2128,7 @@
                     (ret ctor-fn))
           ;_ (prn "Expected constructor" (unparse-type (ret-t ifn)))
           cargs (mapv check args)
-          res-type (check-funapp ifn (map expr-type cargs) nil)]
+          res-type (check-funapp expr args ifn (map expr-type cargs) nil)]
       (assoc expr
              expr-type res-type))))
 
@@ -2512,10 +2519,12 @@
 ;                                    (set (:props *lexical-env*))
 ;                                    (set (:props env-els)))))
           ;_ (prn idsym"env+: new-els-props" (map unparse-filter new-els-props))
-          {ts :t fs2 :fl os2 :o :as then-ret} (with-lexical-env env-thn
-                                                (tc thn @flag+))
-          {us :t fs3 :fl os3 :o :as else-ret} (with-lexical-env env-els
-                                                (tc els @flag-))]
+          {ts :t fs2 :fl os2 :o :as then-ret} (binding [*current-expr* thn]
+                                                (with-lexical-env env-thn
+                                                  (tc thn @flag+)))
+          {us :t fs3 :fl os3 :o :as else-ret} (binding [*current-expr* els]
+                                                (with-lexical-env env-els
+                                                  (tc els @flag-)))]
 
       ;some optimization code here, contraditions etc? omitted
 
@@ -2563,7 +2572,8 @@
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (let [ctest (check test)]
+  (let [ctest (binding [*current-expr* expr]
+                (check test))]
     (assoc expr
            expr-type (binding [*check-if-checkfn* check]
                        (check-if (expr-type ctest) then else)))))
@@ -2573,7 +2583,8 @@
   (assert (not expected) expected)
   (assert (:line env))
   #_(prn "Checking" var)
-  (binding [*current-env* env]
+  (binding [*current-env* env
+            *current-expr* expr]
     (cond 
       ;ignore macro definitions
       (not (.isMacro ^Var var))
@@ -2724,3 +2735,8 @@
                       (ret type filter object))]
     (assoc expr
            expr-type case-result)))
+
+(comment
+  ;; error checking
+  (cf (if 1 'a 'b) Number)
+  )

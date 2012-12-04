@@ -550,9 +550,8 @@
 
 (defmethod cs-gen* [HeterogeneousMap RClass ::clojure]
   [V X Y S T]
-  (let [[ks vs] [(apply Un (keys (:types S)))
-                 (apply Un (vals (:types S)))]]
-    (cs-gen V X Y (RClass-of (Class->symbol APersistentMap) [ks vs]) T)))
+  ; HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
+  (cs-gen V X Y (RClass-of APersistentMap [-any -any]) T))
 
 (defmethod cs-gen* [RClass RClass ::clojure]
   [V X Y S T]

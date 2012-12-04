@@ -7,6 +7,7 @@
                          IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
                          LazySeq APersistentMap))
   (:require [analyze.core :refer [ast] :as analyze]
+            [analyze.emit-form :as ana-frm]
             [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.string :as str]
