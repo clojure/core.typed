@@ -1,4 +1,4 @@
-(defproject typed "0.1.4-SNAPSHOT"
+(defproject typed "0.1.4"
   :description "Gradual typing for Clojure"
   :dependencies [[analyze "0.2.4-SNAPSHOT"]
                  [net.intensivesystems/arrows "1.3.0"

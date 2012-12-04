@@ -14,9 +14,13 @@ See `LICENSE`.
 
 Leiningen (Clojars):
 
-`[typed "0.1.3"]`
+`[typed "0.1.4"]`
 
 # Changelog
+
+0.1.4
+- Support Clojure 1.4.0+
+- Better errors, print macro-expanded form from AST
 
 0.1.3
   - Refactor typed.core into individual files
@@ -74,7 +78,7 @@ Leiningen (Clojars):
 
 ## Clojure version
 
-Only Clojure 1.5.0-beta1 is supported.
+Typed Clojure supports Clojure 1.4.0 or later.
 
 ## Namespace management
 
