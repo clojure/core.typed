@@ -1,3 +1,7 @@
+Leiningen dependency (Clojars):
+
+`[typed "0.1.5"]`
+
 # Typed Clojure
 
 Gradual typing in Clojure, as a library.
@@ -10,15 +14,9 @@ Typed Clojure is released under the same license as Clojure: Eclipse Public Lice
 
 See `LICENSE`.
 
-# Download
-
-Leiningen (Clojars):
-
-`[typed "0.1.4"]`
-
 # Changelog
 
-0.1.5-SNAPSHOT
+0.1.5
 - Better errors for Java methods and polymorphic function applications, borrow error messages from Typed Racket
 - Change `ann-datatype`, `ann-protocol`, `ann-pprotocol` syntax to be flatter
   (ann-protocol pname
