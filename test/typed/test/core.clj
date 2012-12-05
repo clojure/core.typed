@@ -9,7 +9,7 @@
             [clojure.data :refer [diff]]
             [typed.core :as tc, :refer :all, :exclude [subtype? check]]
             [typed.test.rbt]
-            [typed.test.deftype]
+            [typed.test.person]
             [clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]]))
 
@@ -1049,18 +1049,13 @@
 (deftest type-fn-test 
   (is (= (with-bounded-frees [[(make-F 'm) (tfn-bound (parse-type '(TFn [[x :variance :covariant]] Any)))]]
            (check-funapp
+             (ast 'a) ;dummy
+             [(ast 1)];dummy
              (ret (parse-type '(All [x]
                                     [x -> (m x)])))
            [(ret -nil)]
            nil))
-         (->TApp (make-F 'm) [-nil])))
-  (is (with-bounded-frees [[(make-F 'm) (tfn-bound (parse-type '(TFn [[x :variance :covariant]] Any)))]]
-        (check-funapp
-          (ret (parse-type '(All [x]
-                                 [x -> (m x)])))
-          [(ret -nil)]
-          (ret
-            (parse-type '(m nil)))))))
+         (ret (->TApp (make-F 'm) [-nil])))))
 
 (deftest prims-test
   (is (= (ret-t (tc-t (Math/sqrt 1)))

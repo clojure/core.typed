@@ -7,7 +7,7 @@
                                 ann-form
                                 tc-ignore check-ns ann-datatype cf
                                 parse-type ann-pdatatype fn> AnyInteger
-                                print-env]]
+                                print-env defprotocol>]]
             [clojure.repl :refer [pst]]
             [analyze.core :refer [ast]])
   (:import [java.io Writer]
@@ -57,163 +57,141 @@
                    IBuildTerm))
 
 (ann-protocol IUnifyTerms
-              :methods
-              {unify-terms [Term Term ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-terms [Term Term ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IUnifyWithNil
-              :methods
-              {unify-with-nil [Term nil ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-nil [Term nil ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IUnifyWithObject
-              :methods
-              {unify-with-object [Term Object ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-object [Term Object ISubstitutions -> (U ISubstitutions Fail)])
 
 (declare-protocols ILVar)
 
 (ann-protocol IUnifyWithLVar
-              :methods
-              {unify-with-lvar [Term ILVar ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-lvar [Term ILVar ISubstitutions -> (U ISubstitutions Fail)])
 
 (declare-protocols LConsSeq)
 
 (ann-protocol IUnifyWithLSeq
-              :methods
-              {unify-with-lseq [Term LConsSeq ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-lseq [Term LConsSeq ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IUnifyWithSequential
-              :methods
-              {unify-with-seq [Term Sequential ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-seq [Term Sequential ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IUnifyWithMap
-              :methods
-              {unify-with-map [Term (IPersistentMap Any Any) ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-map [Term (IPersistentMap Any Any) ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IUnifyWithSet
-              :methods
-              {unify-with-Set [Term (APersistentSet Any) ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-Set [Term (APersistentSet Any) ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IReifyTerm
-              :methods
-              {reify-term [Term ISubstitutions -> ISubstitutions]})
+              reify-term [Term ISubstitutions -> ISubstitutions])
 
 (ann-protocol IWalkTerm
-              :methods
-              {walk-term [Term ISubstitutions -> Term]}) ;TODO ?
+              walk-term [Term ISubstitutions -> Term]) ;TODO ?
 
 (ann-protocol IOccursCheckTerm
-              :methods
-              {occurs-check-term [Term Term Term -> ISubstitutions]}) ;TODO ?
+              occurs-check-term [Term Term Term -> ISubstitutions]) ;TODO ?
 
 (ann-protocol IBuildTerm
-              :methods
-              {build-term [Term ISubstitutions -> Any]})
+              build-term [Term ISubstitutions -> Any])
 
 (ann-protocol IBind
-              :methods
-              {bind [Term [ISubstitutions -> Any] -> Any]})
+              bind [Term [ISubstitutions -> Any] -> Any])
 
 (ann-protocol IMPlus
-              :methods
-              {mplus [Term Term -> Any]})
+              mplus [Term Term -> Any])
 
 (ann-protocol ITake
-              :methods
-              {take* [Term -> Any]})
+              take* [Term -> Any])
 
 ;TODO ext-check
 (ann-protocol ISubstitutions
-              :methods
-              {walk [ISubstitutions Term -> Term]})
+              walk [ISubstitutions Term -> Term])
 
-(tc-ignore
-(defprotocol IUnifyTerms
+(defprotocol> IUnifyTerms
   (unify-terms [u v s]))
 
-(defprotocol IUnifyWithNil
+(defprotocol> IUnifyWithNil
   (unify-with-nil [v u s]))
 
-(defprotocol IUnifyWithObject
+(defprotocol> IUnifyWithObject
   (unify-with-object [v u s]))
 
-(defprotocol IUnifyWithLVar
+(defprotocol> IUnifyWithLVar
   (unify-with-lvar [v u s]))
 
-(defprotocol IUnifyWithLSeq
+(defprotocol> IUnifyWithLSeq
   (unify-with-lseq [v u s]))
 
-(defprotocol IUnifyWithSequential
+(defprotocol> IUnifyWithSequential
   (unify-with-seq [v u s]))
 
-(defprotocol IUnifyWithMap
+(defprotocol> IUnifyWithMap
   (unify-with-map [v u s]))
 
-(defprotocol IUnifyWithSet
+(defprotocol> IUnifyWithSet
   (unify-with-set [v u s]))
 
-(defprotocol IReifyTerm
+(defprotocol> IReifyTerm
   (reify-term [v s]))
 
-(defprotocol IWalkTerm
+(defprotocol> IWalkTerm
   (walk-term [v s]))
 
-(defprotocol IOccursCheckTerm
+(defprotocol> IOccursCheckTerm
   (occurs-check-term [v x s]))
 
-(defprotocol IBuildTerm
+(defprotocol> IBuildTerm
   (build-term [u s]))
 
-(defprotocol IBind
+(defprotocol> IBind
   (bind [this g]))
 
-(defprotocol IMPlus
+(defprotocol> IMPlus
   (mplus [a f]))
 
-(defprotocol ITake
+(defprotocol> ITake
   (take* [a]))
 
-(defprotocol ISubstitutions
+(defprotocol> ISubstitutions
   (ext-no-check [this x v])
   (walk [this x] [this x wrap?]))
 
-(defprotocol ISubstitutionsCLP
+(defprotocol> ISubstitutionsCLP
   (update [this x v]))
-)
 
 ;; -----------------------------------------------------------------------------
 ;; cKanren protocols
 
 (ann-protocol IRefinable
-              :methods
-              {refinable? [IRefinable -> boolean]})
+              refinable? [IRefinable -> boolean])
 
 (declare-datatypes FiniteDomain)
 
 (ann-protocol IRefine
-              :methods
-              {refine [IRefine (U nil FiniteDomain Number) -> (U nil FiniteDomain Number)]})
+              refine [IRefine (U nil FiniteDomain Number) -> (U nil FiniteDomain Number)])
 
-(tc-ignore
-(defprotocol IUnifyWithRefinable
+(defprotocol> IUnifyWithRefinable
   (unify-with-refinable [v u s]))
 
-(defprotocol IUnifyWithInteger
+(defprotocol> IUnifyWithInteger
   (unify-with-integer [v u s]))
 
-(defprotocol IUnifyWithIntervalFD
+(defprotocol> IUnifyWithIntervalFD
   (unify-with-interval [v u s]))
 
-(defprotocol IUnifyWithMultiIntervalFD
+(defprotocol> IUnifyWithMultiIntervalFD
   (unify-with-multi-interval [v u s]))
 
-(defprotocol IRunnable
+(defprotocol> IRunnable
   (runnable? [c s]))
 
-(defprotocol IRefinable
+(defprotocol> IRefinable
   (refinable? [x]))
 
-(defprotocol IRefine
+(defprotocol> IRefine
   (refine [x v]))
-  )
 
 (extend-type Object
   IRefinable
@@ -222,11 +200,9 @@
 ;; TODO: think more about update-proc, works for now
 
 (ann-protocol IWithConstraintId
-              :methods
-              {with-id [IWithConstraintId Any -> Any]}) ;FIXME Fn Type?
+              with-id [IWithConstraintId Any -> Any]) ;FIXME Fn Type?
 
-(tc-ignore
-(defprotocol IConstraintStore
+(defprotocol> IConstraintStore
   (addc [this c])
   (updatec [this c])
   (checkc [this c s])
@@ -235,77 +211,62 @@
   (constraints [this x])
   (update-proc [this id proc]))
 
-(defprotocol IWithConstraintId
+(defprotocol> IWithConstraintId
   (with-id [this id]))
-  )
 
 (extend-type Object
   IWithConstraintId
   (with-id [this id] this))
 
 (ann-protocol IConstraintId
-              :methods
-              {id [IConstraintId -> Any]})
+              id [IConstraintId -> Any])
 
-(tc-ignore
-(defprotocol IConstraintId
+(defprotocol> IConstraintId
   (id [this]))
-  )
 
 (extend-type Object
   IConstraintId
   (id [this] nil))
 
-(tc-ignore
-(defprotocol IStorableConstraint
+(defprotocol> IStorableConstraint
   (with-proc [this proc])
   (proc [this]))
 
-(defprotocol IConstraintOp
+(defprotocol> IConstraintOp
   (rator [this])
   (rands [this]))
 
-(defprotocol IRelevant
+(defprotocol> IRelevant
   (relevant? [this s] [this x s]))
-  )
 
 ;; TODO: add IRelevantVar ?
 
 (ann-protocol IReifiableConstraint
-              :methods 
-              {reifiable? [IReifiableConstraint -> boolean]})
+              reifiable? [IReifiableConstraint -> boolean])
 
-(tc-ignore
-(defprotocol IReifiableConstraint
+(defprotocol> IReifiableConstraint
   (reifiable? [this])
   (reifyc [this v r]))
-  )
 
 (extend-type Object
   IReifiableConstraint
   (reifiable? [this] false))
 
 (ann-protocol IEnforceableConstraint
-              :methods
-              {enforceable? [IEnforceableConstraint -> boolean]})
+              enforceable? [IEnforceableConstraint -> boolean])
 
-(tc-ignore
-(defprotocol IEnforceableConstraint
+(defprotocol> IEnforceableConstraint
   (enforceable? [c]))
-  )
 
 (extend-type Object
   IEnforceableConstraint
   (enforceable? [x] false))
 
 (ann-protocol INeedsStore
-              :methods
-              {needs-store? [INeedsStore -> boolean]})
+              needs-store? [INeedsStore -> boolean])
 
-(tc-ignore
-(defprotocol INeedsStore
+(defprotocol> INeedsStore
   (needs-store? [this]))
-  )
 
 (extend-type Object
   INeedsStore
@@ -317,82 +278,69 @@
 (declare-datatypes Pair)
 
 (ann-protocol IInterval
-              :methods
-              {lb [IInterval -> Number]
-               ub [IInterval -> Number]
-               bounds [IInterval -> (Pair Number Number)]})
+              lb [IInterval -> Number]
+              ub [IInterval -> Number]
+              bounds [IInterval -> (Pair Number Number)])
 
 (ann-protocol ISortedDomain
-              :methods
-              {drop-one [ISortedDomain -> (U nil Number FiniteDomain)]
-               drop-before [ISortedDomain Number -> FiniteDomain]
-               keep-before [ISortedDomain Number -> FiniteDomain]})
+              drop-one [ISortedDomain -> (U nil Number FiniteDomain)]
+              drop-before [ISortedDomain Number -> FiniteDomain]
+              keep-before [ISortedDomain Number -> FiniteDomain])
 
-(tc-ignore
-(defprotocol IInterval
+(defprotocol> IInterval
   (lb [this])
   (ub [this])
   (bounds [this]))
 
-(defprotocol IIntervals
+(defprotocol> IIntervals
   (intervals [this]))
 
-(defprotocol ISortedDomain
+(defprotocol> ISortedDomain
   (drop-one [this])
   (drop-before [this n])
   (keep-before [this n]))
-  )
 
 (ann-protocol IFiniteDomain
-              :methods
-              {domain? [IFiniteDomain -> boolean]
-               member? [IFiniteDomain Any -> boolean]
-               disjoint? [IFiniteDomain Any -> boolean]
-               intersects? [IFiniteDomain Any -> boolean]
-               subsumes [IFiniteDomain Any -> boolean]})
+              domain? [IFiniteDomain -> boolean]
+              member? [IFiniteDomain Any -> boolean]
+              disjoint? [IFiniteDomain Any -> boolean]
+              intersects? [IFiniteDomain Any -> boolean]
+              subsumes [IFiniteDomain Any -> boolean])
 
 (ann-protocol IIntersection
-              :methods
-              {intersection [IIntersection (U Number nil FiniteDomain) -> (U Number nil FiniteDomain)]})
+              intersection [IIntersection (U Number nil FiniteDomain) -> (U Number nil FiniteDomain)])
 
-(tc-ignore
-(defprotocol IFiniteDomain
+(defprotocol> IFiniteDomain
   (domain? [this])
   (member? [this that])
   (disjoint? [this that])
   (intersects? [this that])
   (subsumes? [this that]))
 
-(defprotocol IIntersection
+(defprotocol> IIntersection
   (intersection [this that]))
 
-(defprotocol IDifference
+(defprotocol> IDifference
   (difference [this that]))
-  )
 
 (extend-type Object
   IFiniteDomain
   (domain? [x] false))
 
-(tc-ignore
-(defprotocol IForceAnswerTerm
+(defprotocol> IForceAnswerTerm
   (-force-ans [v x]))
-  )
 
 ;; =============================================================================
 ;; Pair
 
 (ann-pprotocol IPair [[a :covariant] 
                       [b :covariant]]
-               :methods
-               {lhs [(IPair a b) -> a]
-                rhs [(IPair a b) -> b]})
+               lhs [(IPair a b) -> a]
+               rhs [(IPair a b) -> b])
 
-(tc-ignore
-(defprotocol IPair
+(defprotocol> IPair
   (lhs [this])
   (rhs [this]))
-  )
 
 (ann-pdatatype Pair [[a :covariant]
                      [b :covariant]]
@@ -440,10 +388,10 @@
 ;; =============================================================================
 ;; Constraint Store
 
-(ann-datatype LVar [[name :- Symbol]
-                    [hash :- AnyInteger]
-                    [cs :- Any]
-                    [meta :- Any]]
+(ann-datatype LVar [name :- Symbol
+                    hash :- AnyInteger
+                    cs :- Any
+                    meta :- Any]
               :unchecked-ancestors #{Term})
 
 (ann lvar? (predicate LVar))
@@ -462,9 +410,9 @@
 
 (ann domain [Number * -> (U nil Number FiniteDomain)])
 
-(ann-datatype FiniteDomain [[s :- (I Sorted (APersistentSet Number))]
-                            [min :- Number]
-                            [max :- Number]])
+(ann-datatype FiniteDomain [s :- (I Sorted (APersistentSet Number))
+                            min :- Number
+                            max :- Number])
 
 (deftype FiniteDomain [s min max]
   IInterval

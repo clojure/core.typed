@@ -18,6 +18,15 @@ Leiningen (Clojars):
 
 # Changelog
 
+0.1.5-SNAPSHOT
+- Better errors for Java methods and polymorphic function applications, borrow error messages from Typed Racket
+- Change `ann-datatype`, `ann-protocol`, `ann-pprotocol` syntax to be flatter
+  (ann-protocol pname
+                method-name method-type ...)
+  (ann-dataype dname
+               [field-name :- field-type ...])
+- Add `defprotocol>`
+
 0.1.4
 - Support Clojure 1.4.0+
 - Better errors, print macro-expanded form from AST

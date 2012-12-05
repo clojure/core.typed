@@ -9,7 +9,7 @@
             [typed.core :refer [ann-protocol ann tc-ignore def-alias
                                 declare-protocols declare-datatypes
                                 ann-datatype loop> check-ns non-nil-return
-                                cf]]
+                                cf defprotocol>]]
             [analyze.core :refer [ast]]))
 
 (ann *occurs-check* (U true false))
@@ -48,115 +48,98 @@
                    IBuildTerm))
 
 (ann-protocol IUnifyTerms
-              :methods
-              {unify-terms [Term Term ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-terms [Term Term ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IUnifyWithNil
-              :methods
-              {unify-with-nil [Term nil ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-nil [Term nil ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IUnifyWithObject
-              :methods
-              {unify-with-object [Term Object ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-object [Term Object ISubstitutions -> (U ISubstitutions Fail)])
 
 (declare-protocols ILVar)
 
 (ann-protocol IUnifyWithLVar
-              :methods
-              {unify-with-lvar [Term ILVar ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-lvar [Term ILVar ISubstitutions -> (U ISubstitutions Fail)])
 
 (declare-protocols LConsSeq)
 
 (ann-protocol IUnifyWithLSeq
-              :methods
-              {unify-with-lseq [Term LConsSeq ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-lseq [Term LConsSeq ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IUnifyWithSequential
-              :methods
-              {unify-with-seq [Term Sequential ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-seq [Term Sequential ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IUnifyWithMap
-              :methods
-              {unify-with-map [Term (IPersistentMap Any Any) ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-map [Term (IPersistentMap Any Any) ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IUnifyWithSet
-              :methods
-              {unify-with-Set [Term (IPersistentSet Any) ISubstitutions -> (U ISubstitutions Fail)]})
+              unify-with-Set [Term (IPersistentSet Any) ISubstitutions -> (U ISubstitutions Fail)])
 
 (ann-protocol IReifyTerm
-              :methods
-              {reify-term [Term ISubstitutions -> ISubstitutions]})
+              reify-term [Term ISubstitutions -> ISubstitutions])
 
 (ann-protocol IWalkTerm
-              :methods
-              {walk-term [Term ISubstitutions -> Term]}) ;TODO ?
+              walk-term [Term ISubstitutions -> Term]) ;TODO ?
 
 (ann-protocol IOccursCheckTerm
-              :methods
-              {occurs-check-term [Term Term Term -> ISubstitutions]}) ;TODO ?
+              occurs-check-term [Term Term Term -> ISubstitutions]) ;TODO ?
 
 (ann-protocol IBuildTerm
-              :methods
-              {build-term [Term ISubstitutions -> Any]})
+              build-term [Term ISubstitutions -> Any])
 
 (ann-protocol IBind
-              :methods
-              {bind [Term [ISubstitutions -> Any] -> Any]})
+              bind [Term [ISubstitutions -> Any] -> Any])
 
 (ann-protocol IMPlus
-              :methods
-              {mplus [Term Term -> Any]})
+              mplus [Term Term -> Any])
 
 (ann-protocol ITake
-              :methods
-              {take* [Term -> Any]})
+              take* [Term -> Any])
 
-(tc-ignore
-(defprotocol IUnifyTerms
+(defprotocol> IUnifyTerms
   (unify-terms [u v s]))
 
-(defprotocol IUnifyWithNil
+(defprotocol> IUnifyWithNil
   (unify-with-nil [v u s]))
 
-(defprotocol IUnifyWithObject
+(defprotocol> IUnifyWithObject
   (unify-with-object [v u s]))
 
-(defprotocol IUnifyWithLVar
+(defprotocol> IUnifyWithLVar
   (unify-with-lvar [v u s]))
 
-(defprotocol IUnifyWithLSeq
+(defprotocol> IUnifyWithLSeq
   (unify-with-lseq [v u s]))
 
-(defprotocol IUnifyWithSequential
+(defprotocol> IUnifyWithSequential
   (unify-with-seq [v u s]))
 
-(defprotocol IUnifyWithMap
+(defprotocol> IUnifyWithMap
   (unify-with-map [v u s]))
 
-(defprotocol IUnifyWithSet
+(defprotocol> IUnifyWithSet
   (unify-with-set [v u s]))
 
-(defprotocol IReifyTerm
+(defprotocol> IReifyTerm
   (reify-term [v s]))
 
-(defprotocol IWalkTerm
+(defprotocol> IWalkTerm
   (walk-term [v s]))
 
-(defprotocol IOccursCheckTerm
+(defprotocol> IOccursCheckTerm
   (occurs-check-term [v x s]))
 
-(defprotocol IBuildTerm
+(defprotocol> IBuildTerm
   (build-term [u s]))
 
-(defprotocol IBind
+(defprotocol> IBind
   (bind [this g]))
 
-(defprotocol IMPlus
+(defprotocol> IMPlus
   (mplus [a f]))
 
-(defprotocol ITake
+(defprotocol> ITake
   (take* [a]))
-)
 
 (ann-datatype Unbound [])
 (deftype Unbound [])
@@ -171,38 +154,32 @@
 )
 
 (ann-protocol ILVar
-              :methods
-              {constraints [ILVar -> (U nil (IPersistentSet Term))]
-               add-constraint [ILVar Term -> ILVar]
-               add-constraints [ILVar (Seqable Term) -> ILVar]
-               remove-constraint [ILVar Term -> ILVar]
-               remove-constraints [ILVar -> ILVar]})
+              constraints [ILVar -> (U nil (IPersistentSet Term))]
+              add-constraint [ILVar Term -> ILVar]
+              add-constraints [ILVar (Seqable Term) -> ILVar]
+              remove-constraint [ILVar Term -> ILVar]
+              remove-constraints [ILVar -> ILVar])
 
-(tc-ignore
-(defprotocol ILVar
+(defprotocol> ILVar
   (constraints [this])
   (add-constraint [this c])
   (add-constraints [this ds])
   (remove-constraint [this c])
   (remove-constraints [this]))
-)
 
 ;; =============================================================================
 ;; Pair
 
 (ann-protocol IPair
-              :methods
-              {lhs [IPair -> Any]
-               rhs [IPair -> Any]})
+              lhs [IPair -> Any]
+              rhs [IPair -> Any])
 
-(tc-ignore
-(defprotocol IPair
+(defprotocol> IPair
   (lhs [this])
   (rhs [this]))
-)
 
-(ann-datatype Pair [[lhs :- Term]
-                    [rhs :- Term]])
+(ann-datatype Pair [lhs :- Term
+                    rhs :- Term])
 (deftype Pair [lhs rhs]
   clojure.lang.Counted
   (count [_] 2)
@@ -233,26 +210,24 @@
 ;; Substitutions
 
 (ann-protocol ISubstitutions
-              :methods
-              {length [ISubstitutions -> Number]
-               occurs-check [ISubstitutions Term Term -> (U true false)]
-               ext [ISubstitutions Term Term -> (U nil ISubstitutions)]
-               ext-no-check [ISubstitutions Term Term -> ISubstitutions]
-               swap [ISubstitutions Any -> Any] ;TODO
-               constrain [ISubstitutions ILVar Term -> ISubstitutions] ;TODO 3rd arg?
-               use-verify [ISubstitutions [ISubstitutions Term Term -> ISubstitutions] -> ISubstitutions]
-               walk-var [ISubstitutions Term -> Term]
-               walk [ISubstitutions Term -> Term]
-               walk* [ISubstitutions Term -> Term]
-               unify [ISubstitutions Term Term -> (U ISubstitutions Fail)]
-               update [ISubstitutions Term Term -> Term] ;return?
-               reify-lvar-name [ISubstitutions -> Symbol]
-               -reify* [ISubstitutions Term -> ISubstitutions]
-               -reify [ISubstitutions Term -> ISubstitutions]
-               build [ISubstitutions Term -> ISubstitutions]})
+              length [ISubstitutions -> Number]
+              occurs-check [ISubstitutions Term Term -> (U true false)]
+              ext [ISubstitutions Term Term -> (U nil ISubstitutions)]
+              ext-no-check [ISubstitutions Term Term -> ISubstitutions]
+              swap [ISubstitutions Any -> Any] ;TODO
+              constrain [ISubstitutions ILVar Term -> ISubstitutions] ;TODO 3rd arg?
+              use-verify [ISubstitutions [ISubstitutions Term Term -> ISubstitutions] -> ISubstitutions]
+              walk-var [ISubstitutions Term -> Term]
+              walk [ISubstitutions Term -> Term]
+              walk* [ISubstitutions Term -> Term]
+              unify [ISubstitutions Term Term -> (U ISubstitutions Fail)]
+              update [ISubstitutions Term Term -> Term] ;return?
+              reify-lvar-name [ISubstitutions -> Symbol]
+              -reify* [ISubstitutions Term -> ISubstitutions]
+              -reify [ISubstitutions Term -> ISubstitutions]
+              build [ISubstitutions Term -> ISubstitutions])
 
-(tc-ignore
-(defprotocol ISubstitutions
+(defprotocol> ISubstitutions
   (length [this])
   (occurs-check [this u v])
   (ext [this u v])
@@ -269,7 +244,6 @@
   (-reify* [this v])
   (-reify [this v])
   (build [this u]))
-)
 
 (declare-datatypes Substitutions)
 
@@ -282,10 +256,10 @@
 (ann choice [Any [Any -> Any] -> Choice])
 (declare choice)
 
-(ann-datatype LVar [[name :- Symbol]
-                    [hash :- Number]
-                    [cs :- Any]
-                    [meta :- Any]]
+(ann-datatype LVar [name :- Symbol
+                    hash :- Number
+                    cs :- Any
+                    meta :- Any]
               :unchecked-ancestors #{Term})
 
 (ann lvar (Fn [-> LVar]
@@ -300,10 +274,10 @@
 (declare pair)
 (declare lcons)
 
-(ann-datatype Substitutions [[s :- (IPersistentMap ILVar (U Unbound Term))]
-                             [l :- (IPersistentList Pair)] ;[l :- (IPersistentList (Pair LVar Term))]
-                             [verify :- [ISubstitutions Term Term -> ISubstitutions]]
-                             [cs :- Any]] ;TODO constraint store
+(ann-datatype Substitutions [s :- (IPersistentMap ILVar (U Unbound Term))
+                             l :- (IPersistentList Pair) ;[l :- (IPersistentList (Pair LVar Term))]
+                             verify :- [ISubstitutions Term Term -> ISubstitutions]
+                             cs :- Any] ;TODO constraint store
               )
 
 (deftype Substitutions [s l verify cs]

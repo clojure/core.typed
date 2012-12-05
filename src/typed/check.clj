@@ -603,6 +603,46 @@
           (TApp? etype) (recur (resolve-TApp etype) seen)
           :else etype)))))
 
+(declare Method->symbol)
+
+(defn app-type-error [fexpr args fin arg-ret-types expected poly?]
+  {:pre [(FnIntersection? fin)]}
+  (let [static-method? (= :static-method (:op fexpr))
+        instance-method? (= :instance-method (:op fexpr))
+        method-sym (when (or static-method? instance-method?)
+                     (Method->symbol (:method fexpr)))]
+    (error-msg 
+      (if poly? 
+        (str "Polymorphic " 
+             (cond static-method? "static method "
+                   instance-method? "instance method "
+                   :else "function "))
+        (cond static-method? "Static method "
+              instance-method? "Instance method "
+              :else "Function "))
+      (if (or static-method?
+              instance-method?)  
+        method-sym
+        (ana-frm/map->form fexpr)) 
+      " could not be applied to arguments:\n"
+      "Domains: \n\t" 
+      (clojure.string/join "\n\t" (map (partial apply pr-str) (map (comp #(map unparse-type %) :dom) (.types fin)))) 
+      "\n\n"
+      "Arguments:\n\t" (apply prn-str (mapv (comp unparse-type ret-t) arg-ret-types)) "\n"
+      "in: " (if (or static-method? instance-method?)
+               (ana-frm/map->form fexpr)
+               (list* (ana-frm/map->form fexpr)
+                      (map ana-frm/map->form args))))))
+
+(defn polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]
+  {:pre [(Poly? fexpr-type)]}
+  (let [fin (Poly-body* (Poly-free-names* fexpr-type) fexpr-type)]
+    (app-type-error fexpr args fin arg-ret-types expected true)))
+
+(defn plainapp-type-error [fexpr args fexpr-type arg-ret-types expected]
+  {:pre [(FnIntersection? fexpr-type)]}
+  (app-type-error fexpr args fexpr-type arg-ret-types expected false))
+
 ; TCResult TCResult^n (U nil TCResult) -> TCResult
 (defn check-funapp [fexpr args fexpr-ret-type arg-ret-types expected]
   {:pre [(TCResult? fexpr-ret-type)
@@ -630,9 +670,7 @@
                                            ftypes))]
         (if success-ret-type
           success-ret-type
-          (throw (Exception. (error-msg "funapp: Arguments did not match function: "
-                                        (unparse-type fexpr-type)
-                                        (mapv unparse-type arg-types))))))
+          (throw (Exception. (plainapp-type-error fexpr args fexpr-type arg-ret-types expected)))))
 
       ;ordinary polymorphic function without dotted rest
       (and (Poly? fexpr-type)
@@ -641,10 +679,10 @@
                   (every? (complement :drest) (.types body)))))
       (let [fs-names (repeatedly (.nbound fexpr-type) gensym)
             _ (assert (every? symbol? fs-names))
-            body (Poly-body* fs-names fexpr-type)
+            fin (Poly-body* fs-names fexpr-type)
             bbnds (Poly-bbnds* fs-names fexpr-type)
-            _ (assert (FnIntersection? body))
-            ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (.types body)]
+            _ (assert (FnIntersection? fin))
+            ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (.types fin)]
                        (when ftype
                          #_(prn "infer poly fn" (unparse-type ftype) (map unparse-type arg-types)
                               (count dom) (count arg-types))
@@ -667,12 +705,7 @@
                              (recur ftypes)))))]
         (if ret-type
           ret-type
-          (throw (Exception. (error-msg "Could not infer result to polymorphic function: "
-                                        (unparse-type fexpr-type) " with arguments "
-                                        (mapv unparse-type arg-types) 
-                                        (when expected
-                                          (str " with expected type " (unparse-type (ret-t expected))))
-                                        " Requires more type annotations.")))))
+          (throw (Exception. (polyapp-type-error fexpr args fexpr-type arg-ret-types expected)))))
 
       :else ;; any kind of dotted polymorphic function without mandatory keyword args
       (if-let [[pbody fixed-vars fixed-bnds dotted-var dotted-bnd]

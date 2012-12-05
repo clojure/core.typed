@@ -142,6 +142,11 @@
   (let [{:keys [fn parsed-methods]} (parse-fn> false forms)]
     `(fn>-ann ~fn '~parsed-methods)))
 
+(defmacro defprotocol> [& body]
+  "Define a typed protocol"
+  `(tc-ignore
+     (defprotocol ~@body)))
+
 (defmacro loop>
   "Define a typed loop"
   [bndings* & forms]
@@ -349,7 +354,7 @@
          ;_# (prn "local-name" local-name#)
          s# (symbol (str munged-ns-str# \. local-name#))
          fs# (apply array-map (apply concat (with-frees (mapv make-F '~args)
-                                              (mapv parse-field '~fields))))
+                                              (mapv parse-field (partition 3 '~fields)))))
          as# (set (with-frees (mapv make-F '~args)
                     (mapv parse-type '~ancests)))
          _# (add-datatype-ancestors s# as#)
@@ -419,19 +424,19 @@
            (add-var-type kq# mt#)))
        [s# (unparse-type t#)]))))
 
-(defmacro ann-protocol [local-varsym & {mths :methods}]
+(defmacro ann-protocol [local-varsym & {:as mth}]
   (assert (not (or (namespace local-varsym)
                    (some #{\.} (str local-varsym))))
           (str "Must provide local var name for protocol: " local-varsym))
   `(tc-ignore
-     ~(gen-protocol* local-varsym nil nil mths)))
+     ~(gen-protocol* local-varsym nil nil mth)))
 
-(defmacro ann-pprotocol [local-varsym vbnd & {mths :methods}]
+(defmacro ann-pprotocol [local-varsym vbnd & {:as mth}]
   (assert (not (or (namespace local-varsym)
                    (some #{\.} (str local-varsym))))
           (str "Must provide local var name for protocol: " local-varsym))
   `(tc-ignore
-     ~(gen-protocol* local-varsym (mapv second vbnd) (mapv first vbnd) mths)))
+     ~(gen-protocol* local-varsym (mapv second vbnd) (mapv first vbnd) mth)))
 
 (defmacro override-constructor [ctorsym typesyn]
   `(tc-ignore
@@ -650,7 +655,7 @@
 
   (check-ns 'typed.test.macro)
   (check-ns 'typed.test.conduit)
-  (check-ns 'typed.test.deftype)
+  (check-ns 'typed.test.person)
   (check-ns 'typed.test.core-logic)
   (check-ns 'typed.test.ckanren)
 
