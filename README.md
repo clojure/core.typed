@@ -6,7 +6,7 @@ Leiningen dependency (Clojars):
 
 Gradual typing in Clojure, as a library.
 
-[A Practical Optional Type System for Clojure](http://cloud.github.com/downloads/frenchy64/papers/paper.pdf)
+[A Practical Optional Type System for Clojure](https://github.com/downloads/frenchy64/papers/ambrose-honours.pdf)
 
 # License
 
