@@ -16,6 +16,9 @@ See `LICENSE`.
 
 # Changelog
 
+0.1.6-SNAPSHOT
+- Ensure `Result` is not introduced when performing type inference on drest fn apps
+
 0.1.5
 - Better errors for Java methods and polymorphic function applications, borrow error messages from Typed Racket
 - Change `ann-datatype`, `ann-protocol`, `ann-pprotocol` syntax to be flatter

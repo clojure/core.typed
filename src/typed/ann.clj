@@ -31,6 +31,22 @@
                            [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seqable y)]))
 
 
+(ann clojure.core/take-while (All [x y]
+                               [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seqable y)]))
+(ann clojure.core/drop-while (All [x]
+                               [[x -> Any] (Option (Seqable x)) -> (Seqable x)]))
+
+(ann clojure.core/split-with 
+     (All [x y z] [[x -> Any :filters {:then (is y 0), :else (is z 0)}] (tc/Option (Seqable x)) 
+                   -> '[(Seqable y) (Seqable z)]]))
+
+
+(ann clojure.core/repeatedly 
+     (All [x]
+          (Fn [[-> x] -> (LazySeq x)]
+              [[-> x] tc/AnyInteger -> (LazySeq x)])))
+
+
 (ann clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)]))
 
 (ann clojure.core/concat (All [x] [(Option (Seqable x)) * -> (Seqable x)]))
@@ -41,14 +57,6 @@
 
 (ann clojure.core/not [Any -> boolean])
 (ann clojure.core/constantly (All [x y] [x -> [y * -> x]]))
-
-(ann clojure.core/take-while 
-     (All [x] 
-          [[x -> Any] (Option (Seqable x)) -> (Seqable x)]))
-
-(ann clojure.core/drop-while
-     (All [x] 
-          [[x -> Any] (Option (Seqable x)) -> (Seqable x)]))
 
 (ann clojure.core/disj
      (All [x]
@@ -61,6 +69,10 @@
      (All [b c d]
        (Fn [(IPersistentMap b c) b c -> (IPersistentMap b c)]
            [(IPersistentVector d) AnyInteger d -> (IPersistentVector d)])))
+
+(ann clojure.core/zipmap
+     (All [k v]
+       [(U nil (Seqable k)) (U nil (Seqable v)) -> (APersistentMap k v)]))
 
 (comment
   (aget my-array 0 1 2)

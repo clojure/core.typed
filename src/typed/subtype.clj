@@ -483,37 +483,25 @@
                                       polyl?
                                       polyr?))))))))
 
-; Class -> {:up Class :down Class}
-; up : is it safe to use this primitive type in place of up
-; down : whereever down is, we can replace it with primitive
-(def primitive-coersions
-  {Byte/TYPE {:up #{Byte}
-              :down #{Byte}}
-   Short/TYPE {:up #{Short Integer Long Float Double}
-               :down #{Short Integer Long}}
-   Integer/TYPE {:up #{Short Integer Long Float Double}
-                 :down #{Short Integer Long}}
-   Long/TYPE {:up #{Short Integer Long Float Double Double/TYPE}
-              :down #{Short Integer Long}}
-   Float/TYPE {:up #{Float Double}
-               :down #{Float Double}}
-   Double/TYPE {:up #{Float Double}
-                :down #{Float Double}}
-   Character/TYPE {:up #{Character}
-                   :down #{Character}}
-   Boolean/TYPE {:up #{Boolean}
-                 :down #{Boolean}}})
+(def boxed-primitives
+  {Byte/TYPE Byte
+   Short/TYPE Short
+   Integer/TYPE Integer
+   Long/TYPE Long
+   Float/TYPE Float
+   Double/TYPE Double
+   Character/TYPE Character
+   Boolean/TYPE Boolean})
 
 (defn coerse-RClass-primitive
   [s t]
-  (let [scls (symbol->Class (:the-class s))
-        tcls (symbol->Class (:the-class t))]
-    (cond
-      (.isPrimitive ^Class scls)
-      (-> (primitive-coersions scls) :up (get tcls))
-
-      (.isPrimitive ^Class tcls)
-      (-> (primitive-coersions tcls) :down (get scls)))))
+  (let [spcls (symbol->Class (:the-class s))
+        tpcls (symbol->Class (:the-class t))
+        scls (or (boxed-primitives spcls)
+                 spcls)
+        tcls (or (boxed-primitives tpcls)
+                  tpcls)]
+    (isa? scls tcls)))
 
 (defmethod subtype* [RClass RClass ::clojure]
   [{polyl? :poly? :as s}

@@ -240,7 +240,7 @@
   (is (subtype? (ety
                   ((typed.core/fn> [[a :- (clojure.lang.IPersistentMap Any Number)] [b :- Number]] 
                                    ((typed.core/inst get Number) a b))
-                     {:a 1} 1))
+                     (zipmap [1] [2]) 1))
                 (parse-type '(U nil Number)))))
 
 (deftest get-special-test
@@ -263,8 +263,8 @@
          (ret (->Value 1) (-FS -top -bot) (->EmptyObject)))))
 
 (deftest empty-fn-test
-  (is (do (prn "empty-fn-test" @typed.core/TYPED-IMPL)
-        (= (tc-t (fn []))
+  (is (do (prn *ns*)
+        (= (tc-t (clojure.core/fn []))
            (ret (make-FnIntersection
                   (->Function [] (make-Result -nil
                                               (-FS -bot -top)
@@ -733,6 +733,7 @@
          (ret (-hmap {(->Value :a) (->Value :b)})
               (-FS -top -bot)
               -empty)))
+  ;see `invoke-special` for assoc for TODO
   (is (= (-> (tc-t (-> (fn [m]
                          (assoc m :c 1))
                      (typed.core/ann-form [typed.test.core/SomeMap -> (U '{:a ':b :c '1}
@@ -932,7 +933,7 @@
   (is (= (tc-t (Exception. "a"))
          (ret (RClass-of Exception)
               (-FS -top -bot)
-              (->NoObject)))))
+              (->EmptyObject)))))
 
 (deftest tc-throw-test
   (is (= (:t (tc-t (throw (Exception. "a"))))
@@ -1063,3 +1064,7 @@
 
 (deftest hmap-subtype
   (is (cf {} (clojure.lang.APersistentMap Any Any))))
+
+(comment
+(run-tests)
+  )

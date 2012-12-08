@@ -733,7 +733,7 @@
                                      ;; in filters/objects).
                                      (let [substitution (cond
                                                           drest (infer-dots (zipmap fixed-vars fixed-bnds) dotted-var dotted-bnd
-                                                                            arg-types dom (:pre-type drest) rng (fv rng)
+                                                                            arg-types dom (.pre-type drest) (Result-type* rng) (fv rng)
                                                                             :expected (and expected (ret-t expected)))
                                                           rest (infer-vararg (zipmap fixed-vars fixed-bnds) {dotted-var dotted-bnd}
                                                                              arg-types dom rest (Result-type* rng)
@@ -1341,6 +1341,7 @@
       :else ::not-special)))
 
 ;assoc
+; TODO handle unions of hmaps as the target
 (defmethod invoke-special #'clojure.core/assoc
   [{:keys [args] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
@@ -1370,6 +1371,7 @@
         ckeyvals (doall (map check keyvals))
         keypair-types (partition 2 (map (comp ret-t expr-type) ckeyvals))
 
+        ; TODO handle unions of hmaps without promoting to IPersistentMap
         new-hmaps (mapv #(reduce (fn [hmap [kt vt]]
                                    (let [is-vec (subtype? hmap (RClass-of IPersistentVector [-any]))
                                          is-map (subtype? hmap (RClass-of IPersistentMap [-any -any]))]
@@ -1409,7 +1411,7 @@
                         hmaps)]
     (assoc expr
            expr-type (ret (apply Un new-hmaps)
-                          (-FS -top -bot)
+                          (-FS -top -bot) ;assoc never returns nil
                           -empty))))
 
 
@@ -1954,8 +1956,13 @@
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (let [cexprs (concat (mapv check (butlast exprs))
-                       [(check (last exprs) expected)])]
+  (let [cexprs (concat (doall
+                         (for [stmtexpr (butlast exprs)]
+                           (binding [*current-expr* stmtexpr]
+                             (check stmtexpr))))
+                       (let [lexpr (last exprs)]
+                         (binding [*current-expr* lexpr]
+                           [(check lexpr  expected)])))]
     (assoc expr
            :exprs cexprs
            expr-type (-> cexprs last expr-type)))) ;should be a ret already
@@ -2215,9 +2222,10 @@
                        :post [(PropEnv? env)]}
                       (let [{:keys [t fl o]} (->
                                                (expr-type
-                                                 (with-lexical-env env
-                                                   (*check-let-checkfn* init (when is-loop
-                                                                               (ret expected-bnd)))))
+                                                 (binding [*current-expr* init]
+                                                   (with-lexical-env env
+                                                     (*check-let-checkfn* init (when is-loop
+                                                                                 (ret expected-bnd))))))
                                                ;substitute previous references to sym with an empty object,
                                                ;as old binding is shadowed
                                                (update-in [:t] subst-type sym -empty true)
@@ -2256,7 +2264,8 @@
                 (if is-loop
                   (binding [*recur-target* (->RecurTarget expected-bnds nil nil nil)]
                     (*check-let-checkfn* body expected))
-                  (*check-let-checkfn* body expected)))
+                  (binding [*current-expr* body]
+                    (*check-let-checkfn* body expected))))
 
         ;now we return a result to the enclosing scope, so we
         ;erase references to any bindings this scope introduces
@@ -2605,7 +2614,7 @@
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (let [ctest (binding [*current-expr* expr]
+  (let [ctest (binding [*current-expr* test]
                 (check test))]
     (assoc expr
            expr-type (binding [*check-if-checkfn* check]
