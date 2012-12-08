@@ -44,7 +44,7 @@
 (ann clojure.core/repeatedly 
      (All [x]
           (Fn [[-> x] -> (LazySeq x)]
-              [[-> x] tc/AnyInteger -> (LazySeq x)])))
+              [[-> x] AnyInteger -> (LazySeq x)])))
 
 
 (ann clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)]))
