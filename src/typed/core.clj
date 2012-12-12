@@ -249,11 +249,11 @@
 (defn tc-ignore-forms* [r]
   r)
 
+;; `do` is special at the top level
 (defmacro tc-ignore 
   "Ignore forms in body during type checking"
   [& body]
-  `(tc-ignore-forms* (do
-                      ~@body)))
+  `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
 
 (defmacro non-nil-return 
   "Override the return type of method msym to be non-nil.

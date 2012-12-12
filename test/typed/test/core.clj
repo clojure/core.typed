@@ -1065,6 +1065,7 @@
 (deftest hmap-subtype
   (is (cf {} (clojure.lang.APersistentMap Any Any))))
 
-(comment
-(run-tests)
-  )
+;; `do` is special at the top level, so tc-ignore must be flattened.
+(tc-ignore
+ (defprotocol some-proto (some-proto-method [_]))
+ some-proto-method)
