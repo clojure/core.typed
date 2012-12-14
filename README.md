@@ -8,6 +8,22 @@ Gradual typing in Clojure, as a library.
 
 [A Practical Optional Type System for Clojure](https://github.com/downloads/frenchy64/papers/ambrose-honours.pdf)
 
+# Rationale
+
+Static typing has well known benefits. For example, statically typed languages catch many common 
+programming errors at the earliest time possible: compile time.
+Types also serve as an excellent form of (machine checkable) documentation that
+almost always augment existing hand-written documentation.
+
+Of course, languages without static typing bring other benefits (otherwise they wouldn't be used).
+Without the strict rigidity of mandatory static typing, they can provide more flexible and forgiving
+idioms that can help in rapid prototyping.
+
+This work adds static type checking (and some of its benefits) to Clojure, a dynamically typed language, 
+while still preserving idioms that characterise the language.
+It allows static and dynamically typed code to be mixed so the programmer can use whichever
+is more appropriate.
+
 # License
 
 Typed Clojure is released under the same license as Clojure: Eclipse Public License v 1.0.
