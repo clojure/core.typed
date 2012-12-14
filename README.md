@@ -6,8 +6,6 @@ Leiningen dependency (Clojars):
 
 Gradual typing in Clojure, as a library.
 
-[A Practical Optional Type System for Clojure](https://github.com/downloads/frenchy64/papers/ambrose-honours.pdf)
-
 # Rationale
 
 Static typing has well known benefits. For example, statically typed languages catch many common 
@@ -23,6 +21,10 @@ This work adds static type checking (and some of its benefits) to Clojure, a dyn
 while still preserving idioms that characterise the language.
 It allows static and dynamically typed code to be mixed so the programmer can use whichever
 is more appropriate.
+
+(For a detailed treatment, see my Honours Dissertation,  
+[A Practical Optional Type System for Clojure](https://github.com/downloads/frenchy64/papers/ambrose-honours.pdf)
+)
 
 # License
 
