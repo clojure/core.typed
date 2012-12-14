@@ -22,9 +22,7 @@ while still preserving idioms that characterise the language.
 It allows static and dynamically typed code to be mixed so the programmer can use whichever
 is more appropriate.
 
-(For a detailed treatment, see my Honours Dissertation,  
-[A Practical Optional Type System for Clojure](https://github.com/downloads/frenchy64/papers/ambrose-honours.pdf)
-)
+(For a detailed treatment, see my Honours Dissertation, [A Practical Optional Type System for Clojure](https://github.com/downloads/frenchy64/papers/ambrose-honours.pdf))
 
 # License
 
