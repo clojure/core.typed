@@ -1,4 +1,4 @@
-
+(in-ns 'typed.core)
 
 (defn -filter [t i & [p]]
   {:pre [(Type? t)

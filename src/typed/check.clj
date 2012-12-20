@@ -629,6 +629,7 @@
       (clojure.string/join "\n\t" (map (partial apply pr-str) (map (comp #(map unparse-type %) :dom) (.types fin)))) 
       "\n\n"
       "Arguments:\n\t" (apply prn-str (mapv (comp unparse-type ret-t) arg-ret-types)) "\n"
+      (when expected (str "with expected type:\n\t" (unparse-type (ret-t expected)) "\n\n"))
       "in: " (if (or static-method? instance-method?)
                (ana-frm/map->form fexpr)
                (list* (ana-frm/map->form fexpr)
@@ -807,6 +808,8 @@
 (defmulti invoke-apply (fn [expr & args] (-> expr :args first :var)))
 (defmulti static-method-special (fn [{{:keys [declaring-class name]} :method} & args]
                                   (symbol (str declaring-class) (str name))))
+(defmulti instance-method-special (fn [{{:keys [declaring-class name]} :method} & args]
+                                    (symbol (str declaring-class) (str name))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Keyword lookups
@@ -1453,8 +1456,18 @@
 
       :else ::not-special)))
 
+;nth
+(defmethod instance-method-special 'clojure.lang.MultiFn/addMethod
+  [{[dispatch-val-expr method-expr :as args] :args :keys [target] :as expr} & [expected]]
+  (assert false "NYI clojure.lang.MultiFn/addmethod"))
+;  (assert (= 2 (count args)))
+;  (let [_ (assert (#{:var} (:op target)))
+;        mmsym (var->symbol (:var target))
+;        dtype (get-multimethod-dispatch-type mmsym)
+
 (defmethod invoke-special :default [& args] ::not-special)
 (defmethod static-method-special :default [& args] ::not-special)
+(defmethod instance-method-special :default [& args] ::not-special)
 
 (defn check-apply
   [{[fexpr & args] :args :as expr} expected]
@@ -1878,11 +1891,16 @@
 
 (declare env+)
 
+(def ^:dynamic *expected-rng* nil)
+(set-validator! #'*expected-rng* (some-fn nil? TCResult?))
+
 ;check method is under a particular Function, and return inferred Function
 (defn check-fn-method1 [{:keys [body required-params rest-param] :as method} {:keys [dom rest drest] :as expected}]
   {:pre [(Function? expected)]
    :post [(Function? %)]}
-  (let [expected-rng (Result->TCResult (:rng expected))
+        ;when inferring multimethod dispatch fn, ignore rng
+  (let [expected-rng (or *expected-rng*
+                         (Result->TCResult (:rng expected)))
         ;ensure Function fits method
         _ (assert ((if rest <= =) (count required-params) (count dom))
                   (error-msg "Checking method with incorrect number of expected parameters"
@@ -2088,7 +2106,10 @@
 (defmethod check :instance-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (check-invoke-method expr expected true))
+  (let [spec (instance-method-special expr expected)]
+    (cond
+      (not= ::not-special spec) spec
+      :else (check-invoke-method expr expected true))))
 
 (def COMPILE-STUB-PREFIX "compile__stub")
 
@@ -2150,27 +2171,60 @@
                                (-not-filter-at inst-of (ret-o expr-tr)))
                           -empty))))
 
+(defn ctor-Class->symbol 
+  "Returns a symbol representing this constructor's Class, removing any compiler stubs."
+  [cls]
+  (let [cls-stub (Class->symbol cls)]
+    (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))))
+
+(declare ^:dynamic *multimethod-expected*)
+
+(defmulti new-special (fn [{:keys [class] :as expr} & [expected]] (ctor-Class->symbol class)))
+
+(defmethod new-special 'clojure.lang.MultiFn
+  [{[nme-expr dispatch-expr default-expr hierarchy-expr :as args] :args :as expr} & [expected]]
+  (assert (not expected))
+  (assert (= 4 (count args) ))
+  (let [{:keys [mm-fn mm-sym]} *multimethod-expected*
+        cdisp (binding [*expected-rng* (ret -any)]
+                (check dispatch-expr (ret mm-fn)))
+        _ (add-multimethod-dispatch-type mm-sym mm-fn)]
+    (assoc expr
+           expr-type (ret (In (RClass-of clojure.lang.MultiFn) mm-fn)))))
+
+(defmethod new-special :default [expr & [expected]] ::not-special)
+
+;(defn check-isa? [hrchy-expr chld-expr prnt-expr]
+;  (assert (nil? hrchy-expr) (str "isa? with custom hierarchy NYI"))
+;  (let [cchild-expr (check chld-expr)
+;        cprnt-expr (check prnt-expr)
+
+;In progress: multimethod support
+
 (defmethod check :new
   [{cls :class :keys [ctor args env] :as expr} & [expected]]
   #_(prn "check: :new" "env" env)
   (binding [*current-env* env]
-    (let [inst-types *inst-ctor-types*
-          cls-stub (Class->symbol cls)
-          clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
-          ifn (let [ctor-fn (or (@CONSTRUCTOR-OVERRIDE-ENV clssym)
-                                (and (@DATATYPE-ENV clssym)
-                                     (DataType-ctor-type clssym))
-                                (Constructor->Function ctor))
-                    _ (assert ctor-fn)
-                    ctor-fn (if inst-types
-                              (manual-inst ctor-fn inst-types)
-                              ctor-fn)]
+    (let [spec (new-special expr expected)]
+      (cond
+        (not= ::not-special spec) spec
+        :else
+        (let [inst-types *inst-ctor-types*
+              clssym (ctor-Class->symbol cls)
+              ifn (let [ctor-fn (or (@CONSTRUCTOR-OVERRIDE-ENV clssym)
+                                    (and (@DATATYPE-ENV clssym)
+                                         (DataType-ctor-type clssym))
+                                    (Constructor->Function ctor))
+                        _ (assert ctor-fn)
+                        ctor-fn (if inst-types
+                                  (manual-inst ctor-fn inst-types)
+                                  ctor-fn)]
                     (ret ctor-fn))
-          ;_ (prn "Expected constructor" (unparse-type (ret-t ifn)))
-          cargs (mapv check args)
-          res-type (check-funapp expr args ifn (map expr-type cargs) nil)]
-      (assoc expr
-             expr-type res-type))))
+              ;_ (prn "Expected constructor" (unparse-type (ret-t ifn)))
+              cargs (mapv check args)
+              res-type (check-funapp expr args ifn (map expr-type cargs) nil)]
+          (assoc expr
+                 expr-type res-type))))))
 
 (defmethod check :throw
   [{:keys [exception] :as expr} & [expected]]
@@ -2620,6 +2674,34 @@
            expr-type (binding [*check-if-checkfn* check]
                        (check-if (expr-type ctest) then else)))))
 
+(declare check-multi-def)
+
+;should probably just be an expected type, but this seems easier for now
+; '{:mm-sym Symbol, :mm-fn Type}
+(def ^:dynamic *multimethod-expected*)
+
+(defn check-multi-def [{:keys [var init init-provided env] :as expr} & [expected]]
+  (assert (not expected))
+  (assert init-provided)
+  (let [t (get-multimethod-fn-type (var->symbol var))
+        cinit (binding [*multimethod-expected* {:mm-sym (var->symbol var) :mm-fn t}]
+                (check init))]
+    (assoc expr
+           expr-type (ret (RClass-of Var)))))
+
+(defn check-normal-def [{:keys [var init init-provided env] :as expr} & [expected]]
+  (assert (not expected))
+  (assert init-provided)
+  (let [t (binding [*var-annotations* VAR-ANNOTATIONS]
+            (type-of (var->symbol var)))
+        cinit (cond 
+                (not init-provided) expr ;handle `declare`
+                :else (check init (ret t)))
+        _ (subtype (ret-t (expr-type cinit)) t)]
+    ;def returns a Var
+    (assoc expr
+           expr-type (ret (RClass-of Var)))))
+
 (defmethod check :def
   [{:keys [var init init-provided env] :as expr} & [expected]]
   (assert (not expected) expected)
@@ -2628,21 +2710,17 @@
   (binding [*current-env* env
             *current-expr* expr]
     (cond 
-      ;ignore macro definitions
-      (not (.isMacro ^Var var))
-      (let [t (binding [*var-annotations* VAR-ANNOTATIONS]
-                (type-of (var->symbol var)))
-            cexpr (cond 
-                    (not init-provided) expr ;handle `declare`
-                    :else (check init (ret t)))
-            _ (subtype (ret-t (expr-type cexpr)) t)]
-        ;def returns a Var
-        (assoc cexpr
-               expr-type (ret (RClass-of Var))))
-
-      :else
+      ;ignore macro definitions and declare
+      (or (.isMacro ^Var var)
+          (not init-provided))
       (assoc expr
-             expr-type (ret (RClass-of Var))))))
+             expr-type (ret (RClass-of Var)))
+
+      (@MULTIMETHOD-ENV (var->symbol var))
+      (check-multi-def expr expected)
+
+      :else (check-normal-def expr expected))))
+
 
 (declare check-new-instance-method)
 

@@ -172,6 +172,15 @@
               IDeref (IDeref r)
               IReference (IReference w r)})
 
+(alter-class Var []
+             :replace
+             {AReference (AReference Any Any)
+              IReference (IReference Any Any)
+              IRef (IRef Any Any)
+              ARef (ARef Any Any)
+              IDeref (IDeref Any)
+              IMeta (IMeta Any)})
+
 (alter-class Atom [[w :variance :contravariant]
                    [r :variance :covariant]]
              :replace

@@ -117,13 +117,11 @@
           (subtype s b))
 
         (and (TApp? s)
-             (not (F? (.rator s)))
-             (not (TApp? t)))
+             (not (F? (.rator s))))
         (subtypeA* *sub-current-seen* (resolve-TApp s) t)
 
         (and (TApp? t)
-             (not (F? (.rator t)))
-             (not (TApp? s)))
+             (not (F? (.rator t))))
         (subtypeA* *sub-current-seen* s (resolve-TApp t))
 
         (App? s)
@@ -132,11 +130,16 @@
         (App? t)
         (subtypeA* *sub-current-seen* s (resolve-App t))
 
+        (Bottom? t)
+        (type-error s t)
+
         (Union? s)
-        (if (every? #(subtypeA*? *sub-current-seen* % t) (:types s))
+        ;use subtypeA*, throws error
+        (if (every? #(subtypeA* *sub-current-seen* % t) (.types s))
           *sub-current-seen*
           (type-error s t))
 
+        ;use subtypeA*?, boolean result
         (Union? t)
         (if (some #(subtypeA*? *sub-current-seen* s %) (.types t))
           *sub-current-seen*
@@ -176,7 +179,14 @@
              (checking-clojure?))
         (if (nil? (.val s))
           (type-error s t)
-          (subtype (RClass-of (class (.val s))) t))
+          (subtype (apply In (RClass-of (class (.val s)))
+                          ;keyword values are functions
+                          (when (keyword? (.val s))
+                            [(parse-type '(All [x]
+                                               [(U Any '{:a x}) -> x 
+                                                :filters {:then (is x 0 [(Key :a)])}
+                                                :object {:id 0 :path [(Key :a)]}]))]))
+                   t))
 
         :else (subtype* s t)))))
 

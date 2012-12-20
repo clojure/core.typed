@@ -1,11 +1,19 @@
 (ns typed.test.mm
   (:import (clojure.lang IPersistentMap))
-  (:require [typed.core :refer [ann]]))
+  (:require [typed.core :refer [def-alias ann-multi check-ns print-env cf]]
+            [clojure.repl :refer [pst]]))
 
-(ann MapToString [(IPersistentMap Any Any) -> String])
+(def-alias Expr
+  (U '{:op ':test1
+       :a Number
+       :b Number}
+     '{:op ':test2}))
 
-(defmulti MapToString :op)
+(ann-multi MapToString [Expr -> String])
+
+(defmulti MapToString #(:op %))
 
 (defmethod MapToString :test1
-  [{:keys [a b]}]
-  (str a b))
+  [a]
+  (print-env "mm")
+  (str a))

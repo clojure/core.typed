@@ -539,6 +539,19 @@
 (defn checking-clojurescript? []
   (= ::clojurescript @TYPED-IMPL))
 
+(defmacro ann-multi 
+  "Annotate a multimethod with a function type."
+  [mmsym ftype]
+  `(tc-ignore
+   (let [mmname# (if (namespace '~mmsym)
+                   '~mmsym
+                   (symbol (-> *ns* ns-name name) (name '~mmsym)))
+         ft# (parse-type '~ftype)
+         vt# (In (RClass-of clojure.lang.MultiFn) ft#)]
+     (add-multimethod-fn-type mmname# ft#)
+     (add-var-type mmname# vt#)
+     [mmname# (unparse-type vt#)])))
+
 (load "dvar_env")
 (load "datatype_ancestor_env")
 (load "datatype_env")
@@ -550,6 +563,7 @@
 (load "declared_kind_env")
 (load "name_env")
 (load "rclass_env")
+(load "mm_env")
 
 (load "parse")
 (load "unparse")

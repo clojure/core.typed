@@ -28,7 +28,7 @@
 
 (defrecord KeyPE [val]
   "A key in a hash-map"
-  [((some-fn keyword?) val)])
+  [(keyword? val)])
 
 (def -kpe ->KeyPE)
 

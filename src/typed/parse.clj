@@ -395,7 +395,7 @@
 (defmethod parse-type Boolean [v] (if v -true -false)) 
 (defmethod parse-type nil [_] -nil)
 
-(declare parse-path parse-path-elem parse-filter)
+(declare parse-path-elem parse-filter)
 
 (defn parse-object [{:keys [id path]}]
   (->Path (when path (mapv parse-path-elem path)) id))
@@ -408,24 +408,22 @@
          (parse-filter else)
          -top)))
 
-(declare parse-path)
-
 (defmulti parse-filter first)
 
 (defmethod parse-filter 'is
-  [[_ & [tsyn nme psyn :as all]]]
-  (assert ((some-fn #(= 2 %) #(= 3 %)) (count all)))
+  [[_ & [tsyn nme psyns :as all]]]
+  (assert (#{2 3} (count all)))
   (let [t (parse-type tsyn)
         p (when (= 3 (count all))
-            (parse-path psyn))]
+            (mapv parse-path-elem psyns))]
     (-filter t nme p)))
 
 (defmethod parse-filter '!
-  [[_ & [tsyn nme psyn :as all]]]
-  (assert ((some-fn #(= 2 %) #(= 3 %)) (count all)))
+  [[_ & [tsyn nme psyns :as all]]]
+  (assert (#{2 3} (count all)))
   (let [t (parse-type tsyn)
         p (when (= 3 (count all))
-            (parse-path psyn))]
+            (mapv parse-path-elem psyns))]
     (-not-filter t nme p)))
 
 (defmethod parse-filter '|
@@ -446,10 +444,6 @@
   [[_ & [ksyn :as all]]]
   (assert (= 1 (count all)))
   (->KeyPE ksyn))
-
-(defn parse-path [[psyn id :as all]]
-  (assert (= 2 (count all)))
-  (->Path (parse-path-elem psyn) id))
 
 (defn parse-function [f]
   (let [all-dom (take-while #(not= '-> %) f)

@@ -338,7 +338,9 @@
                (U nil (IMapEntry x y) (Vector* x y)) * -> (IPersistentMap x y)]
               [(IPersistentSet x) x x * -> (IPersistentSet x)]
               [(ISeq x) x x * -> (ASeq x)]
-              [(IPersistentCollection Any) Any Any * -> (IPersistentCollection Any)])))
+              [nil x x * -> (clojure.lang.PersistentList x)]
+              [(IPersistentCollection Any) Any Any * -> (IPersistentCollection Any)]
+              )))
 
 (ann clojure.core/find
      (All [x y]

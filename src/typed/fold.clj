@@ -161,11 +161,7 @@
                                bbnds (TypeFn-bbnds* names ty)]
                            (TypeFn* names 
                                     (.variances ty)
-                                    (doall 
-                                      (for [bnd bbnds]
-                                        (-> bnd
-                                          (update-in [:upper-bound] type-rec)
-                                          (update-in [:lower-bound] type-rec))))
+                                    (mapv #(visit-bounds % type-rec) bbnds)
                                     (type-rec body)))))
 
 
@@ -175,11 +171,7 @@
                                body (Poly-body* names ty)
                                bbnds (Poly-bbnds* names ty)]
                            (Poly* names 
-                                  (doall 
-                                    (for [bnd bbnds]
-                                      (-> bnd
-                                        (update-in [:upper-bound] type-rec)
-                                        (update-in [:lower-bound] type-rec))))
+                                  (mapv #(visit-bounds % type-rec) bbnds)
                                   (type-rec body)
                                   (Poly-free-names* ty)))))
 
@@ -189,11 +181,7 @@
                                body (PolyDots-body* names ty)
                                bbnds (PolyDots-bbnds* names ty)]
                            (PolyDots* names 
-                                      (doall
-                                        (for [bnd bbnds]
-                                          (-> bnd
-                                            (update-in [:upper-bound] type-rec)
-                                            (update-in [:lower-bound] type-rec))))
+                                      (mapv #(visit-bounds % type-rec) bbnds)
                                       (type-rec body)))))
 
 (add-default-fold-case Mu
@@ -287,6 +275,9 @@
                                                  (mapv pathelem-rec %))))))
 (add-default-fold-case NoObject ret-first)
 
+;path-elems
+
+(add-default-fold-case KeyPE ret-first)
 
 ;TCResult
 

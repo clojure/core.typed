@@ -24,7 +24,7 @@
             [clojure.repl :refer [pst]]
             [clojure.tools.macro
              :refer (with-symbol-macros defsymbolmacro name-with-attributes)]
-            [typed.core 
+            [typed.core :as tc
              :refer (tc-ignore check-ns ann ann-protocol def-alias unsafe-ann-form ann-form inst fn> pfn>
                                AnyInteger print-env cf Option print-filterset)]))
 
@@ -270,19 +270,19 @@
                                    [(m x) [x -> (m y)] -> (m y)])
                             ~'(All [x]
                                    [x -> (m x)])
-                            ~'(m Nothing)
+                            ~'(All [x] (m x))
                             ~'(All [x]
                                    [(m x) * -> (m x)])
                             ~'-> ~ty])))))
 
 (ann-monadfn m-join
-             (All [x]
-               [(m (m x)) -> (m x)]))
+             (All [a]
+               [(m (m a)) -> (m a)]))
 (defmonadfn m-join
   "Converts a monadic value containing a monadic value into a 'simple'
    monadic value."
   [m]
-  (m-bind m (inst identity (m x))))
+  (m-bind m (inst identity (m a))))
 
 (ann-monadfn m-fmap
              (All [x y]
@@ -419,7 +419,7 @@
                 [(m x) [x -> (m y)] -> (m y)])
       :m-result (All [x]
                   [x -> (m x)])
-      :m-zero (U (m Nothing) Undefined)
+      :m-zero (U (All [x] (m x)) Undefined)
       :m-plus (U (All [x]
                    [(m x) * -> (m x)])
                  Undefined)}))
@@ -441,7 +441,7 @@
                 [(m x) [x -> (m y)] -> (m y)])
       :m-result (All [x]
                   [x -> (m x)])
-      :m-zero (m Nothing)
+      :m-zero (All [x] (m x))
       :m-plus Undefined}))
 
 ;missing zero
@@ -462,7 +462,7 @@
                 [(m x) [x -> (m y)] -> (m y)])
       :m-result (All [x]
                   [x -> (m x)])
-      :m-zero (m Nothing)
+      :m-zero (All [x] (m x))
       :m-plus (All [x]
                 [(m x) * -> (m x)])}))
 
@@ -567,10 +567,11 @@
   (TFn [[r :variance :covariant]
         [s :variance :invariant]]
     [s -> '[r s]]))
-;TODO scope  `s` in state-m body.
+;FIXME scope  `s` in state-m body.
 (ann state-m (All [s]
                (Monad (TFn [[x :variance :covariant]]
                         (State x s)))))
+(tc-ignore
 (defmonad state-m
    "Monad describing stateful computations. The monadic values have the
     structure (fn [old-state] [result new-state])."
@@ -587,6 +588,7 @@
                 (All [ra rb]
                   [(State ra s) [ra -> (State rb s)] -> (State rb s)]))
    ])
+  )
 
 (ann update-state 
      (All [s]
@@ -712,6 +714,7 @@
 (ann writer-m
      (Monad (TFn [[x :variance :covariant]]
               '[x Any])))
+(tc-ignore
 (defn writer-m
   "Monad describing computations that accumulate data on the side, e.g. for
    logging. The monadic values have the structure [value log]. Any of the
@@ -726,6 +729,7 @@
                       [v2 a2] (f v1)]
                   [v2 (writer-m-combine a1 a2)]))
     ]))
+  )
 
 ;TODO
 (tc-ignore
@@ -750,9 +754,11 @@
   (TFn [[a :variance :covariant]
         [r :variance :invariant]]
     (Cont1 (Cont1 a r) r)))
+;FIXME scope r
 (ann cont-m (All [r]
               (Monad (TFn [[x :variance :covariant]]
                        (ContM x r)))))
+(tc-ignore
 (defmonad cont-m
   "Monad describing computations in continuation-passing style. The monadic
    values are functions that are called with a single argument representing
@@ -771,6 +777,7 @@
                 (ann-form (All [x y]
                             [(ContM x r) [x -> (ContM y r)] -> (ContM y r)])))
    ])
+  )
 
 (ann run-cont
      (All [x]
@@ -830,13 +837,13 @@
 (ann maybe-t
      (All [[m :kind (TFn [[x :variance :covariant]] Any)]]
        (Fn 
-         [(AnyMonad m) -> (MonadPlusZero (TFn [[y :variance :covariant]]
-                                              (m (U nil y))))]
-         [(AnyMonad m) nil -> (MonadPlusZero (TFn [[y :variance :covariant]]
-                                                  (m (U nil y))))]
+         [(AnyMonad m) -> (AnyMonad (TFn [[y :variance :covariant]]
+                                         (m (U nil y))))]
+         [(AnyMonad m) nil -> (AnyMonad (TFn [[y :variance :covariant]]
+                                             (m (U nil y))))]
          [(AnyMonad m) nil (U ':m-plus-default ':m-plus-from-base)
-          -> (MonadPlusZero (TFn [[y :variance :covariant]]
-                                 (m (U nil y))))])))
+          -> (AnyMonad (TFn [[y :variance :covariant]]
+                            (m (U nil y))))])))
 (defn maybe-t
   "Monad transformer that transforms a monad m into a monad in which
    the base values can be invalid (represented by nothing, which defaults
@@ -848,36 +855,49 @@
   ([m] ((inst maybe-t m) m nil :m-plus-default))
   ([m nothing] ((inst maybe-t m) m nothing :m-plus-default))
   ([m nothing which-m-plus]
-   (monad-transformer m which-m-plus
-     [m-result (with-monad m m-result)
-      m-bind   (with-monad m
-                 (ann-form
-                   (fn m-bind-maybe-t [mv f]
-                     (m-bind
-                       mv
-                       (ann-form
-                         (fn [x]
-                           (if (nil? x)
-                             (m-result nothing) 
-                             (f x)))
-                         [(U nil a) -> (m (U nil b))])))
-                   (All [a b]
-                     [(m (U nil a)) [a -> (m (U nil b))] -> (m (U nil b))])))
-      m-zero   (with-monad m (m-result nothing))
-      m-plus   (with-monad m
-                 (ann-form
-                   (fn m-plus-maybe-t [& mvs]
-                     (if (empty? mvs)
-                       (m-result nothing)
-                       (m-bind (first mvs)
-                               (ann-form
-                                 (fn [v]
-                                   (if (= v nothing)
-                                     (apply m-plus-maybe-t (rest mvs))
-                                     (m-result v)))
-                                 [(U x nil) -> (m (U x nil))]))))
-                   (All [x] [(m (U x nil)) * -> (m (U x nil))])))
-      ])))
+   (ann-form
+     (let [mt
+           (monad-transformer m which-m-plus
+                        [m-result (with-monad m 
+                                    (ann-form m-result
+                                              (All [x] [x -> (m x)])))
+                         m-bind   (with-monad m
+                                    (ann-form
+                                      (fn m-bind-maybe-t [mv f]
+                                        (m-bind
+                                          mv
+                                          (ann-form
+                                            (fn [x]
+                                              (if (nil? x)
+                                                (m-result nothing) 
+                                                (f x)))
+                                            [a -> (m b)])))
+                                      (All [a b]
+                                           [(m a) [a -> (m b)] -> (m b)])))
+                         m-zero   (with-monad m 
+                                    (print-env "before m-zero")
+                                    (ann-form (m-result nothing)
+                                              (All [x] (m x))))
+                         _ (print-env "after m-zero")
+                         m-plus   (with-monad m
+                                    (ann-form
+                                      (fn m-plus-maybe-t [& mvs]
+                                        (if (empty? mvs)
+                                          (m-result nothing)
+                                          (m-bind (first mvs)
+                                                  (ann-form
+                                                    (fn [v]
+                                                      (if (= v nothing)
+                                                        (apply m-plus-maybe-t (rest mvs))
+                                                        (m-result v)))
+                                                    [x -> (m x)]))))
+                                      (All [x] [(m x) * -> (m x)])))
+                         ])
+           ]
+       (print-env "monad transformer")
+       mt)
+     (AnyMonad (TFn [[y :variance :covariant]]
+                    (m (U nil y)))))))
 
 (comment
 (ann seq-maybe-m (Monad 
@@ -977,7 +997,7 @@
                          (ann-form
                            (fn [s]
                              m-zero)
-                           [s -> (m Nothing)])))
+                           (All [x] [s -> (m x)]))))
             m-plus   (with-monad m
                        (ann-form
                          (if (= ::undefined m-plus)
@@ -996,6 +1016,10 @@
     (All [s]
       (MonadPlusZero (TFn [[x :variance :covariant]]
                        [s -> (m '[x s])])))))
+
+(comment
+  (check-ns)
+  )
 
 (domonad maybe-m
          [^{:T AnyInteger} a 5

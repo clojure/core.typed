@@ -409,29 +409,25 @@
   (if (empty? names)
     body
     (->PolyDots (count names) 
-                (vec
-                  (for [bnd bbnds]
-                    (-> bnd
-                      (update-in [:upper-bound] #(abstract-many names %))
-                      (update-in [:lower-bound] #(abstract-many names %)))))
+                (mapv (fn [bnd] 
+                        (visit-bounds bnd #(abstract-many names %)))
+                      bbnds)
                 (abstract-many names body))))
 
 ;smart destructor
 (defn PolyDots-body* [names poly]
   {:pre [(every? symbol? names)
          (PolyDots? poly)]}
-  (assert (= (:nbound poly) (count names)) "Wrong number of names")
-  (instantiate-many names (:scope poly)))
+  (assert (= (.nbound poly) (count names)) "Wrong number of names")
+  (instantiate-many names (.scope poly)))
 
 (defn PolyDots-bbnds* [names poly]
   {:pre [(every? symbol? names)
          (PolyDots? poly)]}
-  (assert (= (:nbound poly) (count names)) "Wrong number of names")
+  (assert (= (.nbound poly) (count names)) "Wrong number of names")
   (mapv (fn [b]
-          (-> b
-            (update-in [:upper-bound] #(instantiate-many names %))
-            (update-in [:lower-bound] #(instantiate-many names %))))
-        (:bbnds poly)))
+          (visit-bounds b #(instantiate-many names %)))
+        (.bbnds poly)))
 
 (defrecord Name [id]
   "A late bound name"
@@ -466,7 +462,7 @@
 (declare error-msg)
 
 (defn instantiate-typefn [t types]
-  (assert (TypeFn? t) (unparse-type t))
+  (assert (TypeFn? t) (str "instantiate-typefn requires a TypeFn: " (unparse-type t)))
   (do (assert (= (.nbound t) (count types)) (error-msg "Wrong number of arguments passed to type function: "
                                                        (unparse-type t) (mapv unparse-type types)))
     (let [nms (repeatedly (.nbound t) gensym)
@@ -476,7 +472,7 @@
 (defn instantiate-poly [t types]
   (cond
     (Poly? t) (do (assert (= (:nbound t) (count types)) (error-msg "Wrong number of arguments passed to polymorphic type: "
-                                                             (unparse-type t) (mapv unparse-type types)))
+                                                                   (unparse-type t) (mapv unparse-type types)))
                 (let [nms (repeatedly (:nbound t) gensym)
                       body (Poly-body* nms t)]
                   (subst-all (make-simple-substitution nms types) body)))

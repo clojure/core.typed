@@ -35,8 +35,12 @@
   (list* (unparse-type rator) (mapv unparse-type rands)))
 
 (defmethod unparse-type* TApp 
-  [{:keys [rator rands]}]
-  (list* (unparse-type rator) (mapv unparse-type rands)))
+  [{:keys [rator rands] :as tapp}]
+  (cond 
+    ;perform substitution if obvious
+    ;(TypeFn? rator) (unparse-type (resolve-tapp tapp))
+    :else
+    (list* (unparse-type rator) (mapv unparse-type rands))))
 
 (defmethod unparse-type* Result
   [{:keys [t]}]
