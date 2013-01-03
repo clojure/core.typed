@@ -26,10 +26,10 @@ is more appropriate.
 
 # Screencasts
 
-[ep 1. Porting clojure.set](https://vimeo.com/55196903)
-[ep. 2 - Why conj is weird, annotating fns, polymorphic type variable scope](https://vimeo.com/55215849)
-[ep 3 - More wrestling](https://vimeo.com/55251041)
-[Java interop (treatment of nil/null)](https://vimeo.com/55280915)
+* [ep 1. Porting clojure.set](https://vimeo.com/55196903)
+* [ep. 2 - Why conj is weird, annotating fns, polymorphic type variable scope](https://vimeo.com/55215849)
+* [ep 3 - More wrestling](https://vimeo.com/55251041)
+* [Java interop (treatment of nil/null)](https://vimeo.com/55280915)
 
 # License
 
