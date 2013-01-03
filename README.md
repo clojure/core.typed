@@ -24,6 +24,13 @@ is more appropriate.
 
 (For a detailed treatment, see my Honours Dissertation, [A Practical Optional Type System for Clojure](https://github.com/downloads/frenchy64/papers/ambrose-honours.pdf))
 
+# Screencasts
+
+[ep 1. Porting clojure.set](https://vimeo.com/55196903)
+[ep. 2 - Why conj is weird, annotating fns, polymorphic type variable scope](https://vimeo.com/55215849)
+[ep 3 - More wrestling](https://vimeo.com/55251041)
+[Java interop (treatment of nil/null)](https://vimeo.com/55280915)
+
 # License
 
 Typed Clojure is released under the same license as Clojure: Eclipse Public License v 1.0.
