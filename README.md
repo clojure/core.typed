@@ -13,9 +13,10 @@ programming errors at the earliest time possible: compile time.
 Types also serve as an excellent form of (machine checkable) documentation that
 almost always augment existing hand-written documentation.
 
-Of course, languages without static typing bring other benefits (otherwise they wouldn't be used).
+Languages without static type checking (dynamically typed) bring other benefits.
 Without the strict rigidity of mandatory static typing, they can provide more flexible and forgiving
 idioms that can help in rapid prototyping.
+Often the benefits of static type checking are desired as the program grows.
 
 This work adds static type checking (and some of its benefits) to Clojure, a dynamically typed language, 
 while still preserving idioms that characterise the language.
@@ -89,16 +90,6 @@ See `LICENSE`.
 
 `(typed.core/cf t)` type checks the form `t`.
 
-# Future work
-
-* Equality filters for occurrence typing
-* Type check multimethods
-* Rest type checking in fn definition
-* Type check defprotocol definitions
-* Unify AST with ClojureScript
-* Namespace dependency management
-* Check [Asteriods](https://github.com/ztellman/penumbra/blob/master/test/example/game/asteroids.clj)
-
 # Examples
 
 (These don't completely type check yet)
@@ -107,11 +98,69 @@ See `LICENSE`.
 * [typed.test.core-logic](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/core_logic.clj) for examples of typing (tightly coupled) datatypes and protocols
 * [typed.test.example](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/example.clj) for a few little examples of simple usage
 
+# Contribution Guide
+
+Contributors must complete a Clojure CA.
+
+Those interested in hacking with Typed Clojure should watch the first three screencasts.
+They encounter some common problems when hacking Typed Clojure and demonstrate some solutions.
+
+Currently, the main namespace `typed.core` is split over many files, all
+loaded by `typed/core.clj`.
+
+The most interesting files include
+
+- `typed/core.clj` 
+  - loads most other files
+  - definitions of the main user-facing macros and functions
+- `typed/check.clj` 
+  - the main checking algorithm (`check`)
+  - (`typed/check_cljs.clj` for ClojureScript)
+- `typed/infer.clj`
+  - type variable inference algorithm (`infer`)
+- `typed/subtype.clj`
+  - subtyping (`subtype`)
+- `typed/ann.clj`
+  - base annotations on vars and methods
+  - base type aliases
+- `typed/alter.clj`
+  - definitions of parameterised Java classes (like `clojure.lang.Seqable)
+
+# Low hanging fruit (Contributions needed)
+
+The two main activities crucial in these early versions of Typed Clojure are
+porting existing untyped code to typed and typing core Clojure functions.
+This process will reveal bugs in type checker and expressiveness limitations of Typed Clojure types.
+For example, currently keyword parameters are not supported.
+
+The screencasts porting `clojure.set` demonstrate some of the techniques involved, these are recommended watching.
+Often if a core function is untyped, the type can be temporarily added via your own namespace
+with `ann`,
+and added to a future version of Typed Clojure.
+This also applies to Clojure's `clojure.lang` Java classes (`alter-class`) and methods
+(`override-method`, `non-nil-return`, `nilable-param`) (raw method calls
+often result from inlining core functions).
+
+Porting a namespace involves 
+
+- annotating var `def`s from the current namespace with `ann`, conventionally above the `def`
+- checking the namespace with `check-ns` (calling with zero arguments checks the current namespace)
+- adding missing core Clojure annotations with `ann` temporarily in the current namespace
+- wrapping troublesome top-level forms with `tc-ignore` so they skip type-checking
+
+Core Clojure function annotations belong in the `typed/ann.clj` file.
+They should be fully namespace qualified, like `(ann clojure.core/*ns* clojure.lang.Namespace)`.
+
+# Future work
+
+* Equality filters for occurrence typing
+* Type check multimethods
+* Rest type checking in fn definition
+* Type check defprotocol definitions
+* Unify AST with ClojureScript
+* Namespace dependency management
+
 # Limitations
-
-## Clojure version
-
-Typed Clojure supports Clojure 1.4.0 or later.
 
 ## Namespace management
 
@@ -138,8 +187,6 @@ dotted functions, only syntax to define its type.
 
 Currently cannot check the definition of functions with rest arguments,
 but usage checking should work.
-
-## c.c/apply NYI
 
 ## Using `filter`
 
@@ -182,15 +229,17 @@ Type :=  nil
      |   (All [Symbol+] Type)
      |   (All [Symbol* Symbol ...] Type)
      |   (HMap {Keyword Type*})        ;eg (HMap {:a (Value 1), :b nil})
+     |   '{Keyword Type*}              ;eg '{:a (Value 1), :b nil}
      |   (Vector* Type*)
+     |   '[Type*]
      |   (Seq* Type*)
      |   (List* Type*)
-     |   Symbol  ;class/protocol/free resolvable in current form
+     |   Symbol  ;class/protocol/free resolvable in context
 
 FunctionIntersection :=  ArityType
                      |   (Fn ArityType+)
 
-ArityType :=  [FixedArgs -> Type]
+ArityType :=   [FixedArgs -> Type]
            |   [FixedArgs RestArgs * -> Type]
            |   [FixedArgs DottedType ... Symbol -> Type]
 
@@ -298,16 +347,15 @@ Takes a name and a vector of fieldname/type type entries.
 Takes a name and a optionally a :methods keyword argument mapping
 method names to expected types.
 
+Protocol definitions should use `typed.core/defprotocol>` (identical syntax to `defprotocol`).
 
 ```clojure
 (ann-protocol IUnifyWithLVar
               :methods
               {unify-with-lvar [Term LVar ISubstitutions -> (U ISubstitutions Fail)]})
 
-(tc-ignore
-(defprotocol IUnifyWithLVar
+(defprotocol> IUnifyWithLVar
   (unify-with-lvar [v u s]))
-)
 ```
 
 ## Type Aliases
@@ -360,16 +408,16 @@ to `declare` in that they allow you to use types before they are defined.
 
 ## Debugging
 
-`typed.core/tc-pr-env` prints the environment at a particular point.
+`typed.core/print-env` prints the current environment.
 
 ```clojure
 (let [a 1]
-  (tc-pr-env "Env:")
+  (print-env "Env:")
   a)
 ; Prints: "Env:" {:env {a (Value 1)},  ....}
 ```
 
-`typed.core/cf` can be used at the REPL to return the type of a form.
+`typed.core/cf` (pronounced "check form") can be used at the REPL to return the type of a form.
 
 ```clojure
 (cf 1)
