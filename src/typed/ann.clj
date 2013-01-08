@@ -238,7 +238,9 @@
 
 (ann clojure.core/string? (predicate String))
 
-(ann clojure.core/class [Any -> (Option Class) :object {:id 0 :path [Class]}])
+(ann clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
+                            [Object -> Class :object {:id 0 :path [Class]}]
+                            [Any -> (Option Class) :object {:id 0 :path [Class]}]))
 
 (ann clojure.core/seq (All [x]
                         [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))
