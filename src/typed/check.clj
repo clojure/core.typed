@@ -884,7 +884,7 @@
         javat (let [c (resolve (:val javat-syn))]
                 (assert (class? c) (error-msg "First argument of into-array> must be a Java class, given " (:val javat-syn)))
                 c)
-        cljt (parse-type (:val javat-syn))
+        cljt (parse-type (:val cljt-syn))
         ccoll (check coll-expr (ret (Un -nil (RClass-of Seqable [cljt]))))]
     (assoc expr
            expr-type (ret (->PrimitiveArray javat cljt cljt)))))
@@ -2181,6 +2181,8 @@
 
 (defmulti new-special (fn [{:keys [class] :as expr} & [expected]] (ctor-Class->symbol class)))
 
+;; Multimethod definition
+
 (defmethod new-special 'clojure.lang.MultiFn
   [{[nme-expr dispatch-expr default-expr hierarchy-expr :as args] :args :as expr} & [expected]]
   (assert (not expected))
@@ -2675,6 +2677,9 @@
                        (check-if (expr-type ctest) then else)))))
 
 (declare check-multi-def)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Multimethods
 
 ;should probably just be an expected type, but this seems easier for now
 ; '{:mm-sym Symbol, :mm-fn Type}
