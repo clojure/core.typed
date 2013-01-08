@@ -1,6 +1,6 @@
 Leiningen dependency (Clojars):
 
-`[typed "0.1.5"]`
+`[typed "0.1.6"]`
 
 # Typed Clojure
 
@@ -18,8 +18,29 @@ See `LICENSE`.
 
 # Changelog
 
-0.1.6-SNAPSHOT
+0.1.6
 - Ensure `Result` is not introduced when performing type inference on drest fn apps
+- `tc-ignore` is more do-like. 
+  
+  Workaround for a quirk in the Clojure compiler where protocols only get generated in
+  a top-level `do`.
+
+```clojure
+  (identity (do (def-protocol foo (bar [this]))
+              bar)) ;; <-- bar cannot be resolved
+  vs.
+  (do (def-protocol foo (bar [this]))
+    bar)  ;; <-- bar is resolvable
+```
+
+  (patch by Stephen Compall, issue #3)
+- Fix typo in `into-array` logic
+  (patch by Stephen Compall, issue #4)
+- `into-array>` generalises Java types, does not need redundant type annotations. See User Documentation in wiki.
+- Improve type of `clojure.core/class`.
+  (class <non-nil>) is always a Class
+  (class nil) is always a nil
+- Move documentation to [wiki](https://github.com/frenchy64/typed-clojure/wiki).
 
 0.1.5
 - Better errors for Java methods and polymorphic function applications, borrow error messages from Typed Racket
@@ -84,3 +105,7 @@ See `LICENSE`.
 * Type check defprotocol definitions
 * Unify AST with ClojureScript
 * Namespace dependency management
+
+# Contributors
+
+Stephen Compall (S11001001)
