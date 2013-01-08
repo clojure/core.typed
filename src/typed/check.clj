@@ -877,12 +877,20 @@
            expr-type (ret -nil))))
 
 ;into-array>
+;
+; Usage: (into-array> javat cljt coll)
+;        (into-array> cljt coll)
 (defmethod invoke-special #'typed.core/into-array>*
   [{:keys [args] :as expr} & [expected]]
-  (assert (= 3 (count args)) (error-msg "Wrong number of args to typed.core/into-array>*"))
-  (let [[javat-syn cljt-syn coll-expr] args
-        javat (let [c (resolve (:val javat-syn))]
-                (assert (class? c) (error-msg "First argument of into-array> must be a Java class, given " (:val javat-syn)))
+  (assert (#{2 3} (count args)) (error-msg "Wrong number of args to typed.core/into-array>*"))
+  (let [has-java-syn? (= 3 (count args))
+        [javat-syn cljt-syn coll-expr] (if has-java-syn?
+                                         args
+                                         (cons nil args))
+        javat (let [c (-> (or (when has-java-syn? (:val javat-syn))  ; generalise javat-syn if provided, otherwise cljt-syn
+                              (:val cljt-syn))
+                        parse-type Type->array-member-Class)]
+                (assert (class? c))
                 c)
         cljt (parse-type (:val cljt-syn))
         ccoll (check coll-expr (ret (Un -nil (RClass-of Seqable [cljt]))))]

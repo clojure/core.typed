@@ -221,15 +221,53 @@
                                                " does not match actual kind " (unparse-type ty#))))
       [sym# (unparse-type ty#)]))))
 
-(defn into-array>* [javat cljt coll]
-  (into-array (resolve javat) coll))
+(declare Type? RClass? PrimitiveArray? RClass->Class parse-type symbol->Class
+         requires-resolving? -resolve Nil? Value? Value->Class Union? Intersection?)
+
+;Return a Class that generalises what this Clojure type will look like from Java,
+;suitable  for use as a Java primitive array member type.
+; 
+; (Type->array-member-Class (parse-type 'nil)) => Object
+; (Type->array-member-Class (parse-type '(U nil Number))) => Number
+; (Type->array-member-Class (parse-type '(Array (U nil Number)))) =~> (Array Number)
+(defn Type->array-member-Class 
+  ([ty] (Type->array-member-Class ty false))
+  ([ty nilok?]
+   {:pre [(Type? ty)]}
+   (cond
+     (requires-resolving? ty) (Type->array-member-Class (-resolve ty) nilok?)
+     (Nil? ty) (if nilok?
+                 nil
+                 Object)
+     (Value? ty) (Value->Class ty)
+     ;; handles most common case of (U nil Type)
+     (Union? ty) (let [clss (map #(Type->array-member-Class % true) (.types ty))
+                       prim-and-nil? (and (some nil? clss)
+                                          (some #(when % (.isPrimitive %)) clss))
+                       nonil-clss (remove nil? clss)]
+                   (if (and (= 1 (count nonil-clss))
+                            (not prim-and-nil?))
+                     (first nonil-clss)
+                     Object))
+     (Intersection? ty) Object
+     (RClass? ty) (RClass->Class ty)
+     (PrimitiveArray? ty) (class (make-array (Type->array-member-Class (.jtype ty) false) 0))
+     :else Object)))
+
+(defn into-array>* 
+  ([cljt coll]
+   (into-array (-> cljt parse-type Type->array-member-Class) coll))
+  ([javat cljt coll]
+   (into-array (-> javat parse-type Type->array-member-Class) coll)))
 
 (defmacro into-array> 
   "Make a Java array with Java class javat and Typed Clojure type
   cljt. Resulting array will be of type javat, but elements of coll must be under
   cljt. cljt should be a subtype of javat (the same or more specific)."
-  [javat cljt coll]
-  `(into-array>* '~javat '~cljt ~coll))
+  ([cljt coll]
+   `(into-array>* '~cljt ~coll))
+  ([javat cljt coll]
+   `(into-array>* '~javat '~cljt ~coll)))
 
 (defn ann-form* [form ty]
   form)

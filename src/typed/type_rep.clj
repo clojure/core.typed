@@ -204,8 +204,10 @@
 
 (declare-type RClass)
 
+(declare symbol->Class)
+
 (defn RClass->Class [rcls]
-  (Class/forName (str (.the-class rcls))))
+  (symbol->Class (.the-class rcls)))
 
 (declare RESTRICTED-CLASS instantiate-poly Class->symbol)
 
@@ -565,6 +567,9 @@
 (defrecord Value [val]
   "A Clojure value"
   [])
+
+(defn Value->Class [tval]
+  (class (.val tval)))
 
 (defrecord AnyValue []
   "Any Value"

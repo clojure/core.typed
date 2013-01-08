@@ -26,6 +26,6 @@
   [^Class klass method-name params obj & args]
   (let [method (doto (.getDeclaredMethod klass 
                                          (name method-name)
-                                         (into-array> Class Class params))
+                                         (into-array> Class params))
                  (.setAccessible true))]
-    (.invoke method obj (into-array> Object (U nil Object) args))))
+    (.invoke method obj (into-array> (U nil Object) args))))

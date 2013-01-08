@@ -1069,3 +1069,16 @@
 (tc-ignore
  (defprotocol some-proto (some-proto-method [_]))
  some-proto-method)
+
+(deftest array-test
+  (is (= (Class/forName "[I") 
+         (class (into-array> int [1]))))
+  (is (= (Class/forName "[Ljava.lang.Object;") 
+         (class (into-array> (U nil int) [1]))))
+  (is (= (Class/forName "[Ljava.lang.Number;") 
+         (class (into-array> (U nil Number) [1]))))
+  (is (= (Class/forName "[Ljava.lang.Object;") 
+         (class (into-array> (U clojure.lang.Symbol Number) [1]))))
+  (is (= (Class/forName "[Ljava.lang.Object;") 
+         (class (into-array> Object (U clojure.lang.Symbol Number) [1]))))
+  )
