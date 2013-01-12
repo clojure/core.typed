@@ -1373,6 +1373,7 @@
 
 ;assoc
 ; TODO handle unions of hmaps as the target
+; FIXME needs more tests
 (defmethod invoke-special #'clojure.core/assoc
   [{:keys [args] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
@@ -2905,6 +2906,26 @@
                       (ret type filter object))]
     (assoc expr
            expr-type case-result)))
+
+(defmethod check :catch
+  [{ecls :class, :keys [handler local-binding] :as expr} & [expected]]
+  (let [local-sym (:sym local-binding)
+        local-type (RClass-of ecls)
+        chandler (with-locals {local-sym local-type}
+                   (check handler expected))]
+    (assoc expr
+           expr-type (expr-type chandler))))
+
+; filters don't propagate between components of a `try`, nor outside of it.
+(defmethod check :try
+  [{:keys [try-expr catch-exprs finally-expr] :as expr} & [expected]]
+  (let [ctry-expr (check try-expr expected)
+        ccatch-exprs (mapv #(check % expected) catch-exprs)
+        _cfinally-expr_ (when finally-expr
+                          (check finally-expr expected))]
+    (assoc expr
+           expr-type (ret (apply Un (-> ctry-expr expr-type ret-t) 
+                                 (map (comp ret-t expr-type) ccatch-exprs))))))
 
 (comment
   ;; error checking
