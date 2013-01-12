@@ -1,6 +1,6 @@
 (ns typed.test.mm
   (:import (clojure.lang IPersistentMap))
-  (:require [typed.core :refer [def-alias ann-multi check-ns print-env cf]]
+  (:require [typed.core :refer [def-alias ann check-ns print-env cf]]
             [clojure.repl :refer [pst]]))
 
 (def-alias Expr
@@ -9,10 +9,14 @@
        :b Number}
      '{:op ':test2}))
 
-(ann-multi MapToString [Expr -> String])
+(ann MapToString [Expr -> String])
 
-(defmulti MapToString #(:op %))
+; Expected type for :op
+; -> (All [x] [Any -> x :object {:id 0 :path [(Key :op)]}
+; Dispatch 
+(defmulti MapToString :op)
 
+;(isa? :test1 (:op 0th))
 (defmethod MapToString :test1
   [a]
   (print-env "mm")

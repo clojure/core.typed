@@ -265,7 +265,7 @@
 (defn- syn-to-hmap [mandatory optional]
   (letfn [(mapt [m]
             (into {} (for [[k v] m]
-                       [(constant-type k)
+                       [(-val k)
                         (parse-type v)])))]
     (let [mandatory (mapt mandatory)
           optional (mapt optional)]

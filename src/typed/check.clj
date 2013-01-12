@@ -69,16 +69,36 @@
 (defmulti constant-type class)
 
 (defmethod constant-type nil [_] -nil)
-(defmethod constant-type Class [v] (->Value v))
-(defmethod constant-type Symbol [v] (->Value v))
-(defmethod constant-type Long [v] (->Value v))
-(defmethod constant-type Double [v] (->Value v))
-(defmethod constant-type Integer [v] (->Value v))
-(defmethod constant-type java.math.BigDecimal [v] (->Value v))
-(defmethod constant-type clojure.lang.BigInt [v] (->Value v))
-(defmethod constant-type String [v] (->Value v))
-(defmethod constant-type Character [v] (->Value v))
-(defmethod constant-type clojure.lang.Keyword [v] (->Value v))
+(defmethod constant-type Class [v] (-val v))
+(defmethod constant-type Symbol [v] (-val v))
+(defmethod constant-type Long [v] (-val v))
+(defmethod constant-type Double [v] (-val v))
+(defmethod constant-type Integer [v] (-val v))
+(defmethod constant-type java.math.BigDecimal [v] (-val v))
+(defmethod constant-type clojure.lang.BigInt [v] (-val v))
+(defmethod constant-type String [v] (-val v))
+(defmethod constant-type Character [v] (-val v))
+
+;(I ~v (All [x] (Fn [Any -> x :filters {:then (is 0 {~v x}), :else (is 0 {~v (U false nil)})}])))
+(defmethod constant-type clojure.lang.Keyword [v] 
+  (->Intersection 
+    [(-val v)
+     (Poly* '(x) [no-bounds]
+            (->FnIntersection
+              [(make-Function
+                 [-any] ;dom
+                 (make-F 'x) ;rng
+                 nil ;rest
+                 nil ;drest
+                 :filter (-FS
+                           (-filter (-hmap {(-val v) (make-F 'x)})
+                                    0)
+                           ;FIXME what should this filter be? Do we need negative key types?
+                           -top)
+                 ; FIXME not entirely correct if keyword is not present
+                 :object (->Path [(->KeyPE v)] 0))])
+            '(x))]))
+
 (defmethod constant-type Boolean [v] (if v -true -false))
 (defmethod constant-type PersistentHashSet [v] (RClass-of PersistentHashSet [(apply Un (map constant-type v))]))
 
@@ -772,7 +792,7 @@
 (defmethod check :the-var
   [{:keys [var] :as expr} & [expected]]
   (assoc expr
-         expr-type (ret (RClass-of (Class->symbol Var) nil)
+         expr-type (ret (RClass-of Var)
                         (-FS -top -bot)
                         -empty)))
 
@@ -1464,14 +1484,35 @@
 
       :else ::not-special)))
 
-;nth
+; Return the expected type of the method dispatch
+; (isa? dispatch-val-type (dispatch-type ...)
+(defn method-expected-type [mm-type dispatch-type dispatch-val-type]
+  {:pre [(AnyType? mm-type)
+         (AnyType? dispatch-type)
+         (AnyType? dispatch-val-type)]}
+  (prn "mm-type" (unparse-type mm-type))
+  (prn "dispatch-type" (unparse-type dispatch-type))
+  (prn "dispatch-val-type" (unparse-type dispatch-val-type))
+  (assert false "NYI calculate method expected type")
+;  (let [dispatch-fn (if (Intersection? dispatch-type)
+;                      (first (filter (some-fn Poly? FnIntersection?) (.types dispatch-type)))
+;                      dispatch-type)
+;        _ (assert ((some-fn Poly? FnIntersection?) dispatch-fn))
+;        disp-app (check-funapp 
+  )
+
 (defmethod instance-method-special 'clojure.lang.MultiFn/addMethod
   [{[dispatch-val-expr method-expr :as args] :args :keys [target] :as expr} & [expected]]
-  (assert false "NYI clojure.lang.MultiFn/addmethod"))
-;  (assert (= 2 (count args)))
-;  (let [_ (assert (#{:var} (:op target)))
-;        mmsym (var->symbol (:var target))
-;        dtype (get-multimethod-dispatch-type mmsym)
+  (assert (= 2 (count args)))
+  (let [_ (assert (#{:var} (:op target)))
+        mmsym (var->symbol (:var target))
+        mm-type (-> (check target) expr-type ret-t)
+        dispatch-val-type (-> (check dispatch-val-expr) expr-type ret-t)
+        dispatch-type (get-multimethod-dispatch-type mmsym)
+        method-body-expected (ret (method-expected-type mm-type dispatch-type dispatch-val-type))
+        actual-type (-> (check method-expr method-body-expected) expr-type)]
+    (assoc expr
+           expr-type (RClass-of clojure.lang.MultiFn))))
 
 (defmethod invoke-special :default [& args] ::not-special)
 (defmethod static-method-special :default [& args] ::not-special)
@@ -1899,16 +1940,11 @@
 
 (declare env+)
 
-(def ^:dynamic *expected-rng* nil)
-(set-validator! #'*expected-rng* (some-fn nil? TCResult?))
-
 ;check method is under a particular Function, and return inferred Function
 (defn check-fn-method1 [{:keys [body required-params rest-param] :as method} {:keys [dom rest drest] :as expected}]
   {:pre [(Function? expected)]
    :post [(Function? %)]}
-        ;when inferring multimethod dispatch fn, ignore rng
-  (let [expected-rng (or *expected-rng*
-                         (Result->TCResult (:rng expected)))
+  (let [expected-rng (Result->TCResult (:rng expected))
         ;ensure Function fits method
         _ (assert ((if rest <= =) (count required-params) (count dom))
                   (error-msg "Checking method with incorrect number of expected parameters"
@@ -2191,25 +2227,42 @@
 
 ;; Multimethod definition
 
+(derive ::expected-dispatch-type fold-rhs-default)
+
+(add-fold-case ::expected-dispatch-type
+               Function
+               (fn [ty _]
+                 (assoc ty :rng (make-Result -any))))
+
+;return the expected type for the dispatch fn of the given multimethod's expected type
+(defn expected-dispatch-type [mm-type]
+  {:pre [(AnyType? mm-type)]
+   :post [(AnyType? %)]}
+  (fold-rhs ::expected-dispatch-type
+            {:type-rec expected-dispatch-type}
+            mm-type))
+
 (defmethod new-special 'clojure.lang.MultiFn
   [{[nme-expr dispatch-expr default-expr hierarchy-expr :as args] :args :as expr} & [expected]]
-  (assert (not expected))
-  (assert (= 4 (count args) ))
-  (let [{:keys [mm-fn mm-sym]} *multimethod-expected*
-        cdisp (binding [*expected-rng* (ret -any)]
-                (check dispatch-expr (ret mm-fn)))
-        _ (add-multimethod-dispatch-type mm-sym mm-fn)]
+  (assert expected)
+  (assert (= 4 (count args)))
+  (assert (= (:val hierarchy-expr) #'clojure.core/global-hierarchy)
+          "Multimethod hierarchy cannot be customised")
+  (assert (= (:val default-expr) :default)
+          "Non :default default dispatch value NYI")
+  (let [mm-name (:val nme-expr)
+        _ (assert (string? (:val nme-expr)))
+        mm-qual (symbol (str (ns-name *ns*)) mm-name)
+        _ (prn "mm-qual" mm-qual)
+        _ (prn "expected ret-t" (unparse-type (ret-t expected)))
+        _ (prn "expected ret-t class" (class (ret-t expected)))
+        expected-mm-disp (expected-dispatch-type (ret-t expected))
+        cdisp (check dispatch-expr (ret expected-mm-disp))
+        _ (add-multimethod-dispatch-type mm-qual (ret-t (expr-type cdisp)))]
     (assoc expr
-           expr-type (ret (In (RClass-of clojure.lang.MultiFn) mm-fn)))))
+           expr-type (ret (In (RClass-of clojure.lang.MultiFn) (ret-t expected))))))
 
 (defmethod new-special :default [expr & [expected]] ::not-special)
-
-;(defn check-isa? [hrchy-expr chld-expr prnt-expr]
-;  (assert (nil? hrchy-expr) (str "isa? with custom hierarchy NYI"))
-;  (let [cchild-expr (check chld-expr)
-;        cprnt-expr (check prnt-expr)
-
-;In progress: multimethod support
 
 (defmethod check :new
   [{cls :class :keys [ctor args env] :as expr} & [expected]]
@@ -2689,19 +2742,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Multimethods
 
-;should probably just be an expected type, but this seems easier for now
-; '{:mm-sym Symbol, :mm-fn Type}
-(def ^:dynamic *multimethod-expected*)
-
-(defn check-multi-def [{:keys [var init init-provided env] :as expr} & [expected]]
-  (assert (not expected))
-  (assert init-provided)
-  (let [t (get-multimethod-fn-type (var->symbol var))
-        cinit (binding [*multimethod-expected* {:mm-sym (var->symbol var) :mm-fn t}]
-                (check init))]
-    (assoc expr
-           expr-type (ret (RClass-of Var)))))
-
 (defn check-normal-def [{:keys [var init init-provided env] :as expr} & [expected]]
   (assert (not expected))
   (assert init-provided)
@@ -2728,9 +2768,6 @@
           (not init-provided))
       (assoc expr
              expr-type (ret (RClass-of Var)))
-
-      (@MULTIMETHOD-ENV (var->symbol var))
-      (check-multi-def expr expected)
 
       :else (check-normal-def expr expected))))
 
