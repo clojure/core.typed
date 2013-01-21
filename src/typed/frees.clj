@@ -77,6 +77,8 @@
                  (frees fl)
                  (frees o)))
 
+;; Filters
+
 (defmethod frees [::any-var FilterSet]
   [{:keys [then else]}]
   (combine-frees (frees then)
@@ -103,6 +105,20 @@
   [{:keys [fs]}]
   (apply combine-frees (mapv frees fs)))
 
+(defmethod frees [::any-var TopFilter] [t] {})
+(defmethod frees [::any-var BotFilter] [t] {})
+
+;; Objects
+
+(defmethod frees [::any-var Path]
+  [{:keys [path]}]
+  (apply combine-frees (mapv frees path)))
+
+(defmethod frees [::any-var EmptyObject] [t] {})
+(defmethod frees [::any-var NoObject] [t] {})
+(defmethod frees [::any-var KeyPE] [t] {})
+
+
 (defmethod frees [::frees F]
   [{:keys [name] :as t}]
   {name :covariant})
@@ -110,14 +126,10 @@
 (defmethod frees [::idxs F] [t] {})
 
 (defmethod frees [::any-var B] [t] {})
-(defmethod frees [::any-var EmptyObject] [t] {})
 (defmethod frees [::any-var CountRange] [t] {})
 (defmethod frees [::any-var Value] [t] {})
 (defmethod frees [::any-var AnyValue] [t] {})
 (defmethod frees [::any-var Top] [t] {})
-(defmethod frees [::any-var TopFilter] [t] {})
-(defmethod frees [::any-var BotFilter] [t] {})
-(defmethod frees [::any-var NoObject] [t] {})
 (defmethod frees [::any-var Name] [t] {})
 
 (defmethod frees [::any-var DataType]

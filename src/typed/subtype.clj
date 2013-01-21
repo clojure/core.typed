@@ -6,11 +6,13 @@
 (def ^:dynamic *current-env* nil)
 (def ^:dynamic *current-expr* nil)
 
+;[Any * -> String]
 (defn error-msg [& msg]
   (apply str (when *current-env*
                   (str (:line *current-env*) ": "))
          (concat msg)))
 
+;[Type Type -> Nothing]
 (defn type-error [s t]
   (throw (Exception. (str "Type Error"
                           (when *current-env*
@@ -30,6 +32,7 @@
 
 (declare subtypes*-varargs)
 
+;[(Seqable Type) (Seqable Type) Type -> Boolean]
 (defn subtypes-varargs?
   "True if argtys are under dom"
   [argtys dom rst]
@@ -46,8 +49,10 @@
 ;
 ; In short, only call subtype (or subtype?)
 
+;[Type Type -> (IPersistentSet '[Type Type])]
 (defmulti subtype* (fn [s t] [(class s) (class t) @TYPED-IMPL]))
 
+;[Type Type -> Boolean]
 (defn subtype? [s t]
   (try 
     (subtype s t)
@@ -59,6 +64,7 @@
 
 (declare subtypeA*)
 
+;[(IPersistentSet '[Type Type]) Type Type -> Boolean]
 (defn subtypeA*? [A s t]
   (try (subtypeA* A s t)
     true
@@ -69,9 +75,13 @@
 
 (declare supertype-of-one-arr)
 
-(defn unify [X S T]
-  (infer X {} S T -any))
 
+;[(IPersistentMap Symbol Bounds) (Seqable Type) (Seqable Type)
+;  -> Boolean]
+(defn unify [X S T]
+  (boolean (infer X {} S T -any)))
+
+;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
 (defn subtypeA* [A s t]
   {:post [(set? %)]}
   (if (or (contains? A [s t])
@@ -190,10 +200,13 @@
 
         :else (subtype* s t)))))
 
+;[Type Type -> (IPersistentSet '[Type Type])]
 (defn subtype [s t]
   {:post [(set? %)]}
   (subtypeA* *sub-current-seen* s t))
 
+;[(IPersistentSet '[Type Type]) (Seqable Type) (Seqable Type) (Option Type)
+;  -> (IPersistentSet '[Type Type])]
 (defn subtypes*-varargs [A0 argtys dom rst]
   (loop [dom dom
          argtys argtys
@@ -215,6 +228,7 @@
         (type-error (first argtys) (first dom))))))
 
 ;; simple co/contra-variance for ->
+;[(IPersistentSet '[Type Type]) Function Function -> (IPersistentSet '[Type Type])]
 (defn arr-subtype [A0 s t]
   {:pre [(Function? s)
          (Function? t)]}
@@ -269,6 +283,7 @@
       (subtypeA* (:rng s) (:rng t)))
     :else (type-error s t)))
 
+;[(IPersistentSet '[Type Type]) Function (Seqable Function) -> (IPersistentSet '[Type Type])]
 (defn supertype-of-one-arr [A s ts]
   (some #(try (arr-subtype A % s)
            (catch IllegalArgumentException e
@@ -303,7 +318,7 @@
 
     :else (if (= o1 o2)
             (throw (Exception. (error-msg "Filters do not match: \n" (unparse-filter-set f1) "\n" (unparse-filter-set f2))))
-            (throw (Exception. (error-msg "Objects do not match " (unparse-object o1) (unparse-filter o2)))))))
+            (throw (Exception. (error-msg "Objects do not match " (unparse-object o1) (unparse-object o2)))))))
 
 (defmethod subtype* [Protocol Type ::clojure]
   [s t]
@@ -493,6 +508,7 @@
                                       polyl?
                                       polyr?))))))))
 
+;(IPersistentMap Class Class)
 (def boxed-primitives
   {Byte/TYPE Byte
    Short/TYPE Short
@@ -503,6 +519,7 @@
    Character/TYPE Character
    Boolean/TYPE Boolean})
 
+;[RClass RClass -> Boolean]
 (defn coerse-RClass-primitive
   [s t]
   (let [spcls (symbol->Class (:the-class s))

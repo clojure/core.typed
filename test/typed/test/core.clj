@@ -1082,3 +1082,10 @@
   (is (= (Class/forName "[Ljava.lang.Object;") 
          (class (into-array> Object (U clojure.lang.Symbol Number) [1]))))
   )
+
+(deftest map-literal-test
+  (is (cf {:bar :b}
+          '{:bar ':b}))
+  ;correctly generalise
+  (is (cf {(ann-form :bar clojure.lang.Keyword) :b}
+          (IPersistentMap clojure.lang.Keyword ':b))))

@@ -6,6 +6,7 @@
 
 (declare ret-t ret-f ret-o)
 
+;[TCResult -> Any]
 (defn unparse-TCResult [r]
   (let [t (unparse-type (ret-t r))
         fs (unparse-filter-set (ret-f r))
@@ -17,6 +18,9 @@
         [t fs]
         [t fs o]))))
 
+;[Type -> TCResult]
+;[Type FilterSet -> TCResult]
+;[Type FilterSet RObject -> TCResult]
 (defn ret
   "Convenience function for returning the type of an expression"
   ([t] (ret t (-FS -top -top) (->EmptyObject)))
@@ -28,16 +32,19 @@
     :post [(TCResult? %)]}
    (->TCResult t f o)))
 
+;[TCResult -> Type]
 (defn ret-t [r]
   {:pre [(TCResult? r)]
    :post [(AnyType? %)]}
   (:t r))
 
+;[TCResult -> FilterSet]
 (defn ret-f [r]
   {:pre [(TCResult? r)]
    :post [(FilterSet? %)]}
   (:fl r))
 
+;[TCResult -> RObject]
 (defn ret-o [r]
   {:pre [(TCResult? r)]
    :post [(RObject? %)]}
@@ -49,6 +56,7 @@
                   {:pre [((some-fn nil? TCResult?) expected)]}
                   (:op expr)))
 
+;[Symbol Any -> Expr]
 (defn check-top-level [nsym form]
   (ensure-clojure)
   (let [ast (analyze/analyze-form-in-ns nsym form)]
@@ -66,6 +74,7 @@
                           '~form)
        expr-type unparse-type)))
 
+;[Any -> Type]
 (defmulti constant-type class)
 
 (defmethod constant-type nil [_] -nil)
@@ -115,9 +124,13 @@
 
 (defmethod constant-type IPersistentMap
   [cmap]
-  (-hmap (into {} (map #(vector (constant-type (first %))
-                                (constant-type (second %)))
-                       cmap))))
+  (let [kts (map constant-type (keys cmap))
+        vts (map constant-type (vals cmap))]
+    (if (every? Value? kts)
+      (-hmap (zipmap kts vts))
+      (RClass-of IPersistentMap 
+                 [(apply Un kts)
+                  (apply Un vts)]))))
 
 (defn check-value
   [{:keys [val] :as expr} & [expected]]
@@ -349,8 +362,9 @@
                    ;dummy return value
                    (make-Function [] -any))))
 
+;[AnyInteger Type -> Boolean]
 (defn index-free-in? [k type]
-  (let [free-in? (atom false)]
+  (let [free-in? (atom false :validator #{true false})]
     (letfn [(for-object [o]
               (fold-rhs ::free-in-for-object
                         {:type-rec for-type
@@ -378,6 +392,7 @@
 
 (declare subst-type)
 
+;[Filter (U Number Symbol) RObject Boolean -> Filter]
 (defn subst-filter [f k o polarity]
   {:pre [(Filter? f)
          (name-ref? k)
@@ -424,6 +439,7 @@
       (let [{t :type p :path i :id} f]
         (tf-matcher t p i k o polarity -not-filter)))))
 
+;[FilterSet Number RObject Boolean (Option Type) -> FilterSet]
 (defn subst-filter-set [fs k o polarity & [t]]
   {:pre [((some-fn FilterSet? NoFilter?) fs)
          (name-ref? k)
@@ -449,6 +465,7 @@
                              (subst-filter (add-extra-filter (.else fs)) k o polarity))
         :else (-FS -top -top)))))
 
+;[Type Number RObject Boolean -> RObject]
 (defn subst-object [t k o polarity]
   {:pre [(RObject? t)
          (name-ref? k)
@@ -493,11 +510,12 @@
                                                                       [(st k) (st v)])))))))))
 
 
+;[Type (U Symbol Number) RObject Boolean -> Type]
 (defn subst-type [t k o polarity]
   {:pre [(AnyType? t)
          (name-ref? k)
          (RObject? o)
-         ((some-fn true? false?) polarity)]
+         (#{true false} polarity)]
    :post [(AnyType? %)]}
   (letfn [(st [t*]
             (subst-type t* k o polarity))
@@ -536,6 +554,9 @@
 ;                    (is (ExactCount 0) a))}]))
 ;;
 ;; Notice the objects are instantiated from 0 -> a
+;
+;[Result (Seqable RObject) (Option (Seqable Type)) 
+;  -> '[Type FilterSet RObject]]
 (defn open-Result 
   "Substitute ids for objs in Result t"
   [{t :t fs :fl old-obj :o :as r} objs & [ts]]
@@ -611,6 +632,7 @@
         [t-r f-r o-r] (open-Result rng o-a t-a)]
     (ret t-r f-r o-r)))
 
+;[TCResult -> Type]
 (defn resolve-to-ftype [expected]
   (loop [etype expected 
          seen #{}]
@@ -625,6 +647,8 @@
 
 (declare Method->symbol)
 
+;[Expr (Seqable Expr) (Seqable TCResult) (Option TCResult) Boolean
+; -> Any]
 (defn app-type-error [fexpr args fin arg-ret-types expected poly?]
   {:pre [(FnIntersection? fin)]}
   (let [static-method? (= :static-method (:op fexpr))
@@ -796,6 +820,7 @@
                         (-FS -top -bot)
                         -empty)))
 
+;[Any TCResult * -> TCResult]
 (defn tc-equiv [comparator & vs]
   {:pre [(every? TCResult? vs)]
    :post [(TCResult? %)]}
@@ -836,6 +861,7 @@
 
 (declare invoke-keyword)
 
+;[Type TCResult -> Type]
 (defn- extend-method-expected 
   "Returns the expected type with target-type intersected with the first argument"
   [target-type expected]
@@ -987,6 +1013,7 @@
                                    nil 
                                    expected)))
 
+;[Type Type -> Type]
 (defn find-val-type [t k]
   {:pre [(Type? t)
          (Type? k)]
@@ -1011,6 +1038,7 @@
                                     "Can't get key " (unparse-type k) 
                                     "  from type " (unparse-type t)))))))
 
+;[TCResult TCResult (Option TCResult) (Option TCResult) -> TCResult]
 (defn invoke-keyword [kw-ret target-ret default-ret expected-ret]
   {:pre [(TCResult? kw-ret)
          (TCResult? target-ret)
@@ -1487,6 +1515,7 @@
 
 ; Return the expected type of the method dispatch
 ; (isa? dispatch-val-type (dispatch-type ...)
+;[Type Type Type -> Type]
 (defn method-expected-type [mm-type dispatch-type dispatch-val-type]
   {:pre [(AnyType? mm-type)
          (AnyType? dispatch-type)
@@ -1644,6 +1673,7 @@
    (nil? drest)
    (TCResult? body)])
 
+;[(Seqable Expr) (Option Expr) FnIntersection -> (Seqable Function)]
 (defn relevant-Fns
   "Given a set of required-param exprs, rest-param expr, and a FnIntersection,
   returns a seq of Functions containing Function types
@@ -1704,7 +1734,8 @@
 ;    (let [a 'foo] ; here this shadows the argument, impossible to recover filters
 ;      a)          ; in fact any new filters about a will be incorrectly assumed to be the argument
 ;      false)) 
-;
+
+;[TCResult (Seqable Symbol) -> Result]
 (defn abstract-result [result arg-names]
   {:pre [(TCResult? result)
          (every? symbol? arg-names)]
@@ -1715,6 +1746,7 @@
       (abstract-filter arg-names keys (ret-f result))
       (abstract-object arg-names keys (ret-o result)))))
 
+;[(Seqable Symbol) (Seqable AnyInteger) RObject -> RObject]
 (defn abstract-object [ids keys o]
   {:pre [(every? symbol? ids)
          (every? integer? keys)
@@ -1730,6 +1762,8 @@
            (lookup (:id o))) (update-in o [:id] lookup)
       :else -empty)))
 
+;[(Seqable Symbol) (Seqable AnyInteger) (U NoFilter FilterSet) 
+;  -> (U NoFilter FilterSet)]
 (defn abstract-filter [ids keys fs]
   {:pre [(every? symbol? ids)
          (every? integer? keys)
@@ -1762,6 +1796,7 @@
                    (-not-filter type (lookup id)  path)
                    -top)))
 
+;[(Seqable Symbol) (Seqable AnyInteger) Filter -> Filter]
 (defn abo [xs idxs f]
   {:pre [(every? symbol? xs)
          (every? integer? idxs)
@@ -1782,6 +1817,7 @@
        :locals {:lookup lookup}}
       f)))
 
+;[FnResult -> Function]
 (defn FnResult->Function [{:keys [args kws rest drest body] :as fres}]
   {:pre [(FnResult? fres)]
    :post [(Function? %)]}
@@ -1802,6 +1838,7 @@
         (second drest))
       nil)))
 
+;TODO eliminate, only used in pfn>, not needed.
 (defn check-anon-fn
   "Check anonymous function, with annotated methods. methods-types
   is a (Seqable (HMap {:dom (Seqable Type) :rng (U nil Type)}))"
@@ -1841,6 +1878,8 @@
 
 (declare ^:dynamic *recur-target* ->RecurTarget)
 
+;[Type -> '[Type (Option (Seqable Symbol)) (Option (Seqable F)) (Option (Seqable Bounds)) (Option (U :Poly :PolyDots))]
+; -> Type]
 (defn unwrap-poly
   "Return a pair vector of the instantiated body of the possibly polymorphic
   type and the names used"
@@ -1850,9 +1889,7 @@
                        (some-fn nil? (every-c? symbol?))
                        (some-fn nil? (every-c? F?))
                        (some-fn nil? (every-c? Bounds?))
-                       (some-fn (=-c? :Poly) 
-                                (=-c? :PolyDots) 
-                                nil?)) %)]}
+                       #{:Poly :PolyDots nil}) %)]}
   (cond
     (Poly? t) (let [_ (assert (Poly-free-names* t) (unparse-type t))
                     old-nmes (Poly-free-names* t)
@@ -1868,11 +1905,12 @@
                     [(PolyDots-body* new-nmes t) old-nmes new-frees (PolyDots-bbnds* new-nmes t) :PolyDots])
     :else [t nil nil nil nil]))
 
+;[Type (Seqable Symbol) (Seqable F) (U :Poly :Polydots nil) -> Type]
 (defn rewrap-poly [body orig-names inst-frees bnds poly?]
   {:pre [(Type? body)
          (every? symbol? orig-names)
          (every? F? inst-frees)
-         ((some-fn (=-c? :Poly) (=-c? :PolyDots) nil?) poly?)]
+         (#{:Poly :PolyDots nil} poly?)]
    :post [(Type? %)]}
   (case poly?
     :Poly (Poly* (map :name inst-frees) bnds body orig-names)
@@ -1882,6 +1920,7 @@
 
 (declare check-fn-method check-fn-method1)
 
+;[FnExpr (Option Type) -> Expr]
 (defn check-fn 
   "Check a fn to be under expected and annotate the inferred type"
   [{:keys [methods variadic-method] :as fexpr} expected]
@@ -1920,6 +1959,7 @@
         pfni (rewrap-poly inferred-fni orig-names inst-frees bnds poly?)]
     (ret pfni (-FS -top -bot) -empty)))
 
+;[MethodExpr FnIntersection -> (I (Seqable Function) Sequential)]
 (defn check-fn-method [{:keys [required-params rest-param] :as method} fin]
   {:pre [(FnIntersection? fin)]
    :post [(seq %)
@@ -1942,6 +1982,7 @@
 (declare env+)
 
 ;check method is under a particular Function, and return inferred Function
+;[MethodExpr Function -> Function]
 (defn check-fn-method1 [{:keys [body required-params rest-param] :as method} {:keys [dom rest drest] :as expected}]
   {:pre [(Function? expected)]
    :post [(Function? %)]}
@@ -2050,11 +2091,13 @@
 
 (declare Method-symbol->Type)
 
+;[Method -> Symbol]
 (defn Method->symbol [{name-sym :name :keys [declaring-class] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [((every-pred namespace symbol?) %)]}
   (symbol (name declaring-class) (name name-sym)))
 
+;[Symbol Boolean -> (Option Type)]
 (defn symbol->PArray [sym nilable?]
   {:pre [(symbol? sym)
          (boolean? nilable?)]
@@ -2070,6 +2113,7 @@
                   c)]
           (->PrimitiveArray c t t))))))
 
+;[Symbol Boolean -> Type]
 (defn Method-symbol->Type [sym nilable?]
   {:pre [(symbol? sym)
          (boolean? nilable?)]
@@ -2084,6 +2128,7 @@
     typ
     (throw (Exception. (str "Method symbol " sym " does not resolve to a type")))))
 
+;[clojure.reflect.Method -> Type]
 (defn- instance-method->Function [{:keys [parameter-types declaring-class return-type] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(FnIntersection? %)]}
@@ -2092,6 +2137,7 @@
                                               (doall (map #(Method-symbol->Type % false) parameter-types)))
                                       (Method-symbol->Type return-type true))))
 
+;[clojure.reflect.Method -> Type]
 (defn- Method->Function [{:keys [parameter-types return-type flags] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(FnIntersection? %)]}
@@ -2107,6 +2153,7 @@
                                         (when (:varargs flags)
                                           (Method-symbol->Type (last parameter-types) (nilable-param? msym nparams (dec nparams))))))))
 
+;[clojure.reflect.Constructor -> Type]
 (defn- Constructor->Function [{:keys [declaring-class parameter-types] :as ctor}]
   {:pre [(instance? clojure.reflect.Constructor ctor)]
    :post [(FnIntersection? %)]}
@@ -2118,6 +2165,7 @@
                                     nil nil
                                     :filter (-FS -top -bot))))) ;always a true value
 
+;[MethodExpr Type Any -> Expr]
 (defn check-invoke-method [{:keys [args tag method env] :as expr} expected inst?]
   {:pre [((some-fn nil? TCResult?) expected)]
    :post [(-> % expr-type TCResult?)]}
@@ -2186,6 +2234,7 @@
                expr-type (ret ft)))
       (throw (Exception. ":instance-field NYI")))))
 
+;[Symbol -> Type]
 (defn DataType-ctor-type [sym]
   (let [dtp (@DATATYPE-ENV sym)]
     (cond
@@ -2236,6 +2285,7 @@
                  (assoc ty :rng (make-Result -any))))
 
 ;return the expected type for the dispatch fn of the given multimethod's expected type
+;[Type -> Type]
 (defn expected-dispatch-type [mm-type]
   {:pre [(AnyType? mm-type)]
    :post [(AnyType? %)]}
@@ -2412,6 +2462,7 @@
           (check-let binding-inits body expr true expected :expected-bnds expected-bnds))
         (check-let binding-inits body expr false expected)))))
 
+;[(Seqable Filter) Filter -> Filter]
 (defn resolve* [atoms prop]
   {:pre [(every? Filter? atoms)
          (Filter? prop)]
@@ -2432,6 +2483,7 @@
           prop
           atoms))
 
+;[(Seqable Filter) -> (Seqable Filter)]
 (defn flatten-props [ps]
   {:post [(every? Filter? %)]}
   (cond
@@ -2441,6 +2493,9 @@
 
 (def type-equal? =)
 
+;[(Seqable Filter) (Seqable Filter) (Atom Boolean) 
+;  -> '[(Seqable (U ImpFilter OrFilter AndFilter))
+;       (Seqable (U TypeFilter NotTypeFilter))]]
 (defn combine-props [new-props old-props flag]
   {:pre [(every? Filter? (concat new-props old-props))
          (instance? clojure.lang.Atom flag)
@@ -2501,6 +2556,7 @@
 
 ;; also not yet correct
 ;; produces old without the contents of rem
+;[Type Type -> Type]
 (defn remove* [old rem]
   (let [initial (if (subtype? old rem)
                   (Un) ;the empty type
@@ -2522,6 +2578,7 @@
     (if (subtype? old initial) old initial)))
 
 ; This is where filters are applied to existing types to generate more specific ones
+;[Type Filter -> Type]
 (defn update [t lo]
   (let [t (if (requires-resolving? t)
             (-resolve t)
@@ -2579,8 +2636,11 @@
 
 ; f can be a composite filter. bnd-env is a the :l of a PropEnv
 ; ie. a map of symbols to types
+;[PropEnv Filter -> PropEnv]
 (defn update-composite [bnd-env f]
-  {:pre [(Filter? f)]}
+  {:pre [(PropEnv? bnd-env)
+         (Filter? f)]
+   :post [(PropEnv? %)]}
   ;(prn "update-composite" bnd-env f)
   (cond
 ;    (and (AndFilter? f) 
@@ -2607,11 +2667,12 @@
     :else bnd-env))
 
 ;; sets the flag box to #f if anything becomes (U)
+;[PropEnv (Seqable Filter) (Atom Boolean) -> PropEnv]
 (defn env+ [env fs flag]
   {:pre [(PropEnv? env)
          (every? Filter? fs)
          (boolean? @flag)]
-   :post [(PropEnv? env)
+   :post [(PropEnv? %)
           (boolean? @flag)]}
   #_(prn 'env+ fs)
   (let [[props atoms] (combine-props fs (:props env) flag)]
@@ -2631,6 +2692,7 @@
 
 (def ^:dynamic *check-if-checkfn*)
 
+;[TCResult Expr Expr (Option Type) -> TCResult]
 (defn check-if [tst thn els & [expected]]
   {:pre [(TCResult? tst)
          ((some-fn TCResult? nil?) expected)]
@@ -2743,6 +2805,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Multimethods
 
+;[Expr (Option TCResult) -> Expr]
 (defn check-normal-def [{:keys [var init init-provided env] :as expr} & [expected]]
   (assert (not expected))
   (assert init-provided)
@@ -2775,6 +2838,8 @@
 
 (declare check-new-instance-method)
 
+;[Type (Seqable Symbol) -> Type]
+;[Type -> Type]
 (defn unwrap-datatype 
   "Takes a possibly polymorphic DataType and returns the 
   DataType after instantiating it"
@@ -2859,6 +2924,7 @@
                             (assert (class? res))
                             (-val res))))))
 
+;[Expr FnIntersection -> Expr]
 (defn check-new-instance-method
   [{:keys [body required-params] :as expr} expected-fin]
   {:pre [(FnIntersection? expected-fin)]}
