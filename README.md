@@ -6,6 +6,10 @@ Leiningen dependency (Clojars):
 
 Gradual typing in Clojure, as a library.
 
+# [Talk] Clojure Conj 2012
+
+[Video](http://www.youtube.com/watch?v=wNhK8t3uLJU)
+
 # Documentation
 
 See [wiki](https://github.com/frenchy64/typed-clojure/wiki).
