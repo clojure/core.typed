@@ -1,5 +1,7 @@
 (in-ns 'typed.core)
 
+;FIXME use fold!
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable Elim
 
@@ -210,6 +212,18 @@
            (Poly-bbnds* names T)
            dem-body
            free-names)))
+
+(defmethod promote Mu
+  [T V]
+  (let [name (gensym)
+        body (Mu-body* name T)]
+    (Mu* name (promote body V))))
+
+(defmethod demote Mu
+  [T V]
+  (let [name (gensym)
+        body (Mu-body* name T)]
+    (Mu* name (demote body V))))
 
 (defmethod promote Function
   [{:keys [dom rng rest drest kws] :as T} V]

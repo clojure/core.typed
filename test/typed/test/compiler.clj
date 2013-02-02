@@ -13,9 +13,10 @@
   (:require [clojure.java.io :as io]
             [clojure.repl :refer [pst]]
             [clojure.string :as string]
-            [typed.core :refer [def-alias ann declare-names check-ns ann-form
+            [typed.core :refer [def-alias ann declare-names check-ns ann-form tc-ignore
+                                fn>
                                 ;types
-                                Atom1]])
+                                Atom1 AnyInteger Option]])
   (:import (java.lang StringBuilder)
            (java.io PushbackReader File)
            (clojure.lang Symbol IPersistentMap IPersistentSet Seqable IPersistentVector
@@ -28,7 +29,8 @@
         :optional
         {:defs (IPersistentMap Symbol Symbol)
          :uses (IPersistentMap Symbol Symbol)
-         :excludes (IPersistentSet Symbol)}))
+         :excludes (IPersistentSet Symbol)
+         :requires (IPersistentMap Symbol Symbol)}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -45,7 +47,8 @@
          :ns NsEntry}))
 
 (declare-names Expr)
-(declare-names Form)
+;syntax
+(def-alias Form Any)
 
 (def-alias FnMethod (HMap {:env Env
                            :variadic (U nil Expr)
@@ -92,7 +95,7 @@
                  :doc (U nil String)
                  :init x}
                 :optional
-                {:tag Symbol
+                {:tag (Option Symbol)
                  :dynamic boolean
                  :export Any
                  :children (Seqable x)})
@@ -183,17 +186,50 @@
                  :form Form
                  :target x
                  :children (Seqable x)
-                 :tag Any})
+                 :tag (Option Symbol)})
           ;; js
           (HMap {:env Env
                  :op (Value :js) 
-                 :tag Any
+                 :tag (Option Symbol)
                  :form Form
                  :children (Seqable x)}
                 :optional
                 {:segs Any
                  :args (Seqable x)
-                 :code String}))))
+                 :code String})
+
+          ;; var
+          (HMap {:env Env
+                 :op (Value :var) 
+                 :info '{:name Symbol}
+                 :children (Seqable x)})
+
+          ;; meta
+          (HMap {:env Env
+                 :op (Value :meta) 
+                 :expr x
+                 :meta Any
+                 :children (Seqable x)})
+
+          ;; map
+          (HMap {:env Env
+                 :op (Value :map) 
+                 :simple-keys? Any
+                 :keys (Seqable x)
+                 :vals (Seqable x)
+                 :children (Seqable x)})
+
+          ;; vector
+          (HMap {:env Env
+                 :op (Value :vector) 
+                 :items (Seqable x)
+                 :children (Seqable x)})
+
+          ;; set
+          (HMap {:env Env
+                 :op (Value :set) 
+                 :items (Seqable x)
+                 :children (Seqable x)}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -271,8 +307,7 @@
 (ann *cljs-static-fns* boolean)
 (def ^:dynamic *cljs-static-fns* false)
 
-(ann *position* (U nil (Atom (Vector* typed.core/AnyInteger typed.core/AnyInteger)
-                             (Vector* typed.core/AnyInteger typed.core/AnyInteger))))
+(ann *position* (U nil (Atom1 '[AnyInteger AnyInteger])))
 (def ^:dynamic *position* nil)
 
 (defmacro ^:private debug-prn
@@ -309,7 +344,7 @@
           (warning env
             (str "WARNING: Use of undeclared Var " prefix "/" suffix)))))))
 
-(ann resolve-ns-alias [Env (U String Symbol) -> (U nil Symbol)])
+(ann resolve-ns-alias [Env (U String Symbol) -> Symbol])
 (defn resolve-ns-alias [env name]
   (let [sym (symbol name)]
     (get (:requires (:ns env)) sym sym)))
@@ -329,58 +364,61 @@
     (apply str first (map step (rest parts)))))
 
 (ann resolve-existing-var [Env Symbol -> LocalBinding])
+(tc-ignore
 (defn resolve-existing-var [env sym]
   (if (= (namespace sym) "js")
     {:name (js-var sym) :ns 'js}
     (let [s (str sym)
           lb (-> env :locals sym)]
       (cond
-       lb lb
+        lb lb
 
-       (namespace sym)
-       (let [ns (namespace sym)
-             ns (if (= "clojure.core" ns) "cljs.core" ns)
-             full-ns (resolve-ns-alias env ns)]
-         (confirm-var-exists env full-ns (symbol (name sym)))
-         (merge (get-in @namespaces [full-ns :defs (symbol (name sym))])
-           {:name (symbol (str full-ns "." (munge (name sym))))
-            :name-sym (symbol (str full-ns) (str (name sym)))
-            :ns full-ns}))
+        :else
+        (if-let [ns (namespace sym)]
+          (let [ns (if (= "clojure.core" ns) "cljs.core" ns)
+                full-ns (resolve-ns-alias env ns)]
+            (confirm-var-exists env full-ns (symbol (name sym)))
+            (merge (get-in @namespaces [full-ns :defs (symbol (name sym))])
+                   {:name (symbol (str full-ns "." (munge (name sym))))
+                    :name-sym (symbol (str full-ns) (str (name sym)))
+                    :ns full-ns}))
 
-       (.contains s ".")
-       (let [idx (.indexOf s ".")
-             prefix (symbol (subs s 0 idx))
-             suffix (subs s idx)
-             lb (-> env :locals prefix)]
-         (if lb
-           {:name (munge (symbol (str (:name lb) suffix)))
-            :name-sym (symbol (str (:name lb) suffix))}
-           (do
-             (confirm-var-exists env prefix (symbol suffix))
-             (merge (get-in @namespaces [prefix :defs (symbol suffix)])
-              {:name (munge sym)
-               :name-sym (symbol (str prefix) suffix)
-               :ns prefix}))))
+          (cond
+            (.contains s ".")
+            (let [idx (.indexOf s ".")
+                  prefix (symbol (subs s 0 idx))
+                  suffix (subs s idx)
+                  lb (-> env :locals prefix)]
+              (if lb
+                {:name (munge (symbol (str (:name lb) suffix)))
+                 :name-sym (symbol (str (:name lb) suffix))}
+                (do
+                  (confirm-var-exists env prefix (symbol suffix))
+                  (merge (get-in @namespaces [prefix :defs (symbol suffix)])
+                         {:name (munge sym)
+                          :name-sym (symbol (str prefix) suffix)
+                          :ns prefix}))))
 
-       (get-in @namespaces [(-> env :ns :name) :uses sym])
-       (let [full-ns (get-in @namespaces [(-> env :ns :name) :uses sym])]
-         (merge
-          (get-in @namespaces [full-ns :defs sym])
-          {:name (symbol (str full-ns "." (munge (name sym))))
-           :name-sym (symbol (str full-ns) (str sym))
-           :ns (-> env :ns :name)}))
-
-       :else
-       (let [full-ns (if (core-name? env sym)
-                       'cljs.core
-                       (-> env :ns :name))]
-         (confirm-var-exists env full-ns sym)
-         (merge (get-in @namespaces [full-ns :defs sym])
-           {:name (munge (symbol (str full-ns "." (munge (name sym)))))
-            :name-sym (symbol (str full-ns) (str sym))
-            :ns full-ns}))))))
+            :else
+            (if-let [full-ns (get-in @namespaces [(-> env :ns :name) :uses sym])]
+              (merge
+                (get-in @namespaces [full-ns :defs sym])
+                {:name (symbol (str full-ns "." (munge (name sym))))
+                 :name-sym (symbol (str full-ns) (str sym))
+                 :ns (-> env :ns :name)})
+              (let [full-ns (if (core-name? env sym)
+                              'cljs.core
+                              (-> env :ns :name))]
+                (confirm-var-exists env full-ns sym)
+                (merge (get-in @namespaces [full-ns :defs sym])
+                       {:name (munge (symbol (str full-ns "." (munge (name sym)))))
+                        :name-sym (symbol (str full-ns) (str sym))
+                        :ns full-ns})))))))))
+  )
 
 (ann resolve-var [Env Symbol -> (HMap {:name Symbol})])
+;hard invariants across conditionals
+(tc-ignore
 (defn resolve-var [env sym]
   (if (= (namespace sym) "js")
     {:name (js-var sym)}
@@ -409,8 +447,11 @@
                       (-> env :ns :name))
                     "." (munge (name sym)))]
          {:name (munge (symbol s))})))))
+  )
 
 (ann confirm-bindings [Env (Seqable Symbol) -> Any])
+;doseq
+(tc-ignore
 (defn confirm-bindings [env names]
   (doseq [name names]
     (let [env (merge env {:ns (@namespaces *cljs-ns*)})
@@ -422,8 +463,9 @@
                  ev (not (-> ev :dynamic)))
         (warning env
           (str "WARNING: " (:name-sym ev) " not declared ^:dynamic"))))))
+  )
 
-(ann comma-sep (All [x] [(Seqable x) -> (Seqable (U String x))]))
+(ann comma-sep [(Seqable Any) -> (Seqable Any)])
 (defn- comma-sep [xs]
   (interpose "," xs))
 
@@ -445,32 +487,25 @@
         (format "\\u%04X" cp))))) ; Any other character is Unicode
 
 (ann escape-string [CharSequence -> String])
+;doseq
+(tc-ignore
 (defn- escape-string [^CharSequence s]
   (let [sb (StringBuilder. (count s))]
     (doseq [c s]
       (.append sb (escape-char c)))
     (.toString sb)))
+  )
 
 (ann wrap-in-double-quotes [Any -> String])
 (defn- wrap-in-double-quotes [x]
   (str \" x \"))
 
-(ann emit [Expr -> Any])
+(ann emit [Expr -> nil])
 (defmulti emit :op)
 
-#_(def-alias Emitable 
-  (Rec [x]
-       (Seqable (U nil
-                   Expr
-                   (I clojure.lang.Fn (Fn [-> Any]))
-                   (ISeq x)
-                   (I Any
-                      (not nil)
-                      (not (IPersistentMap Any Any))
-                      (not (ISeq Any))
-                      (not clojure.lang.Fn))))))
-
-#_(ann emits [Emitable * -> Any])
+(ann emits [Any * -> nil])
+;doseq
+(tc-ignore
 (defn emits [& xs]
   (doseq [x xs]
     (cond
@@ -485,13 +520,15 @@
                                       [line (+ column (count s))])))
                 (print s)))))
   nil)
+  )
 
 (ann emit-str [Expr -> String])
-
 (defn ^String emit-str [expr]
   (with-out-str (emit expr)))
 
-#_(ann emitln [Emitable * -> Any])
+(ann emitln [Any * -> Any])
+;*position* is technically mutable! Cannot infer non-nil in test
+(tc-ignore
 (defn emitln [& xs]
   (apply emits xs)
   ;; Prints column-aligned line number comments; good test of *position*.
@@ -500,22 +537,12 @@
   ;    (print (apply str (concat (repeat (- 120 column) \space) ["// " (inc line)])))))
   (println)
   (when *position*
-    (swap! *position* (fn [[line column]]
+    (swap! *position* (fn> [[[line column] :- '[AnyInteger AnyInteger]]]
                         [(inc line) 0])))
   nil)
+  )
 
-#_(def-alias EmitConstant
-  (Rec [x]
-       (U nil Long Integer Double String Boolean Character java.util.regex.Pattern
-          Keyword Symbol 
-          (PersistentList$EmptyList x)
-          (PersistentList x)
-          (Cons x (U nil (Seqable x)))
-          (IPersistentVector x)
-          (IPersistentMap x x)
-          (IPersistentHashSet x))))
-
-#_(ann emit-constant [EmitConstant -> Any])
+(ann emit-constant [Any -> String])
 (defmulti emit-constant class)
 (defmethod emit-constant nil [x] (emits "null"))
 (defmethod emit-constant Long [x] (emits x))
@@ -527,9 +554,12 @@
 (defmethod emit-constant Character [x]
   (emits (wrap-in-double-quotes (escape-char x))))
 
+;String as Seqable
+(tc-ignore
 (defmethod emit-constant java.util.regex.Pattern [x]
   (let [[_ flags pattern] (re-find #"^(?:\(\?([idmsux]*)\))?(.*)" (str x))]
     (emits \/ (.replaceAll (re-matcher #"/" pattern) "\\\\/") \/ flags)))
+  )
 
 (defmethod emit-constant clojure.lang.Keyword [x]
            (emits \" "\\uFDD0" \'
@@ -544,9 +574,8 @@
                     (str (namespace x) "/") "")
                   (name x)
                   \"))
-#_(ann emit-meta-constant [(U EmitConstant 
-                            (I EmitConstant (IMeta (U nil EmitConstant))))
-                         EmitConstant * -> Any])
+
+(ann emit-meta-constant [Any Any * -> nil])
 (defn- emit-meta-constant [x & body]
   (if (meta x)
     (do
@@ -555,6 +584,9 @@
       (emits ")"))
     (emits body)))
 
+;no defaults for parameters of (RClass PersistentList) etc, should be (PersistentList Any)
+;variances?
+(tc-ignore
 (defmethod emit-constant clojure.lang.PersistentList$EmptyList [x]
   (emit-meta-constant x "cljs.core.List.EMPTY"))
 
@@ -588,8 +620,9 @@
     (concat ["cljs.core.set(["]
             (comma-sep (map #(fn [] (emit-constant %)) x))
             ["])"])))
+  )
 
-(ann emit-block [Context (U nil (Seqable Expr)) Expr -> Any])
+(ann emit-block [Context (Option (Seqable Any)) Expr -> nil])
 (defn emit-block 
   [context statements ret]
   (when statements
@@ -627,7 +660,7 @@
       (emits "cljs.core.ObjMap.fromObject(["
              (comma-sep keys) ; keys
              "],{"
-             (comma-sep (map (fn [k v]
+             (comma-sep (map (fn> [[k :- Expr] [v :- Expr]]
                                (with-out-str (emit k) (print ":") (emit v)))
                              keys vals)) ; js obj
              "})")
@@ -663,12 +696,14 @@
   (when-not (= :statement (:context env))
     (emit-wrap env (emit-constant form))))
 
-(ann get-tag [Expr -> (U nil Symbol)])
+(ann get-tag [Expr -> (Option Symbol)])
 (defn get-tag [e]
   (or (-> e :tag)
       (-> e :info :tag)))
 
-(ann infer-tag [Expr -> Symbol])
+(ann infer-tag [Expr -> (Option Symbol)])
+;case needs improvements
+(tc-ignore
 (defn infer-tag [e]
   (if-let [tag (get-tag e)]
     tag
@@ -683,6 +718,7 @@
                   false 'boolean
                   nil)
       nil)))
+  )
 
 (ann safe-test? [Expr -> Any])
 (defn safe-test? [e]
@@ -712,6 +748,9 @@
     (emits "(function(){throw " throw "})()")
     (emitln "throw " throw ";")))
 
+(ann emit-comment [Any Any -> nil])
+;doseq
+(tc-ignore
 (defn emit-comment
   "Emit a nicely formatted comment string."
   [doc jsdoc]
@@ -726,6 +765,7 @@
           (when e
             (print-comment-lines e)))
         (emitln "*/")))))
+  )
 
 (defmethod emit :def
   [{:keys [name init env doc export]}]
@@ -739,7 +779,9 @@
         (emitln "goog.exportSymbol('" export "', " name ");")))
     (emitln "void 0;")))
 
-(ann emit-apply-to [Expr -> Any]) ;FIXME ?
+(ann emit-apply-to ['{:name Symbol, :params (Seqable Any), :env Env} -> Any]) ;FIXME ?
+;doseq
+(tc-ignore
 (defn emit-apply-to
   [{:keys [name params env]}]
   (let [arglist (gensym "arglist__")
@@ -765,6 +807,7 @@
         (emitln ";")
         (emitln "return " delegate-name "(" (string/join ", " params) ");")))
     (emits "})")))
+  )
 
 (ann emit-fn-method [FnMethod -> Any])
 (defn emit-fn-method
@@ -817,6 +860,8 @@
                (emitln "return " name ";")
                (emitln "})()"))))
 
+;weirdness with `filter`
+(tc-ignore
 (defmethod emit :fn
   [{:keys [name env methods max-fixed-arity variadic recur-frames loop-lets]}]
   ;;fn statements get erased, serve no purpose and can pollute scope if named
@@ -886,6 +931,7 @@
           (emitln "})()")))
       (when loop-locals
         (emitln ";})(" (comma-sep loop-locals) "))")))))
+  )
 
 (defmethod emit :do
   [{:keys [statements ret env]}]
@@ -1092,8 +1138,7 @@
 (def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns deftype* defrecord* . js* & quote})
 
 (def-alias RecurFrame (HMap {:names (Seqable Symbol)
-                             :flag (Atom (U nil true)
-                                         (U nil true))}))
+                             :flag (Atom1 Any)}))
 (ann *recur-frames* (U nil (Seqable RecurFrame)))
 (def ^:dynamic *recur-frames* nil)
 
@@ -1117,7 +1162,6 @@
               (analyze (assoc env :context (if (= :statement (:context env)) :statement :return)) (last exprs)))]
     {:statements statements :ret ret}))
 
-(declare-names Form)
 (declare-names SpecialForm)
 
 #_(def-alias IfForm

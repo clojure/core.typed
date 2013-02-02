@@ -206,6 +206,12 @@
 (ann clojure.core/pr [Any * -> nil])
 (ann clojure.core/prn [Any * -> nil])
 
+(ann clojure.core/format [String Any * -> String])
+
+(ann clojure.core/re-matcher [java.util.regex.Pattern String -> java.util.regex.Matcher])
+(ann clojure.core/re-find (Fn [java.util.regex.Matcher -> (Option String)]
+                              [java.util.regex.Pattern String -> (Option String)]))
+
 (ann clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String]))
 
@@ -244,6 +250,17 @@
 
 (ann clojure.core/string? (predicate String))
 
+(ann clojure.string/split
+     (Fn [String java.util.regex.Pattern -> (Seqable String)]
+         [String java.util.regex.Pattern AnyInteger -> (Seqable String)]))
+
+(ann clojure.string/join
+     (Fn [(Option (Seqable Any)) -> String]
+         [Any (Option (Seqable Any)) -> String]))
+
+;usually for string manipulation, accurate enough?
+(ann clojure.core/interpose (Fn [Any (Option (Seqable Any)) -> (Seqable Any)]))
+
 (ann clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
                             [Object -> Class :object {:id 0 :path [Class]}]
                             [Any -> (Option Class) :object {:id 0 :path [Class]}]))
@@ -266,6 +283,9 @@
 (ann clojure.core/mapcat
      (All [c b ...]
           [[b ... b -> (Option (Seqable c))] (Option (Seqable b)) ... b -> (LazySeq c)]))
+
+(ann clojure.core/map-indexed
+     (All [x y] [[x -> y] (Option (Seqable x)) -> (Seqable '[AnyInteger (Seqable y)])]))
 
 (ann clojure.core/merge-with
      (All [k v]
@@ -327,6 +347,14 @@
      (All [x]
           [(Option (Seqable x)) -> (ISeq x)]))
 
+(ann clojure.core/last
+     (All [x]
+          [(Option (Seqable x)) -> (U nil x)]))
+
+(ann clojure.core/butlast
+     (All [x]
+          [(Option (Seqable x)) -> (ISeq x)]))
+
 (ann clojure.core/next
      (All [x]
           [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))
@@ -368,6 +396,9 @@
           (Fn [nil * -> nil]
               [(IPersistentMap k v) * -> (IPersistentMap k v)]
               [(Option (IPersistentMap k v)) * -> (Option (IPersistentMap k v))])))
+
+;more to be said here?
+(ann clojure.core/contains? [(Option (Seqable Any)) Any -> boolean])
 
 (ann clojure.core/= [Any Any * -> (U true false)])
 
@@ -416,7 +447,10 @@
 (ann clojure.core/num [Any -> Number])
 (ann clojure.core/short [Any -> short])
 
-(override-method clojure.lang.RT/get (All [y] (Fn [(IPersistentMap Any y) Any -> (Option y)])))
+(override-method clojure.lang.RT/get 
+                 (All [y d] 
+                      (Fn [(Option (IPersistentMap Any y)) Any -> (Option y)]
+                          [(Option (IPersistentMap Any y)) Any d -> (U d y)])))
 
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
                                               [Number Number -> Number]))
@@ -431,9 +465,16 @@
 (override-method clojure.lang.Numbers/divide [Number Number -> Number])
 
 (override-method clojure.lang.Numbers/lt [Number Number -> boolean])
+(ann clojure.core/< [Number Number * -> boolean])
+
 (override-method clojure.lang.Numbers/lte [Number Number -> boolean])
+(ann clojure.core/<= [Number Number * -> boolean])
+
 (override-method clojure.lang.Numbers/gt [Number Number -> boolean])
+(ann clojure.core/> [Number Number * -> boolean])
+
 (override-method clojure.lang.Numbers/gte [Number Number -> boolean])
+(ann clojure.core/>= [Number Number * -> boolean])
 
 (override-constructor clojure.lang.LazySeq 
                       (All [x]

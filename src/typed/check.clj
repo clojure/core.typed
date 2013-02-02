@@ -88,6 +88,7 @@
 (defmethod constant-type String [v] (-val v))
 (defmethod constant-type Character [v] (-val v))
 (defmethod constant-type clojure.lang.Keyword [v] (-val v))
+(defmethod constant-type java.util.regex.Pattern [v] (RClass-of java.util.regex.Pattern))
 
 (defmethod constant-type Boolean [v] (if v -true -false))
 (defmethod constant-type PersistentHashSet [v] (RClass-of PersistentHashSet [(apply Un (map constant-type v))]))
@@ -695,14 +696,14 @@
    :post [(TCResult? %)]}
   (let [fexpr-type (resolve-to-ftype (ret-t fexpr-ret-type))
         arg-types (mapv ret-t arg-ret-types)]
-    (prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types) fexpr-type)
+    ;(prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types) fexpr-type)
     (cond
       ;keyword function
       (and (Value? fexpr-type)
            (keyword? (:val fexpr-type)))
-      (let [[default-ret & more-args] arg-ret-types]
+      (let [[target-ret default-ret & more-args] arg-ret-types]
         (assert (empty? more-args))
-        (invoke-keyword fexpr-ret-type default-ret nil expected))
+        (invoke-keyword fexpr-ret-type target-ret default-ret expected))
 
       ;set function
       ;FIXME yuck
@@ -711,6 +712,18 @@
       (do
         (assert (#{1} (count args)))
         (ret -any))
+
+      (and (RClass? fexpr-type)
+           (isa? (symbol->Class (.the-class fexpr-type)) IPersistentMap))
+      ;rewrite ({..} x) as (f {..} x), where f is some dummy fn
+      (let [mapfn (parse-type '(All [x] [(IPersistentMap Any x) Any -> (U nil x)]))]
+        (check-funapp fexpr args (ret mapfn) (concat [fexpr-ret-type] arg-ret-types) expected))
+
+      ;Symbol function
+      (and (RClass? fexpr-type)
+           ('#{clojure.lang.Symbol} (.the-class fexpr-type)))
+      (let [symfn (parse-type '(All [x] [(U (IPersistentMap Any x) Any) -> (U x nil)]))]
+        (check-funapp fexpr args (ret symfn) arg-ret-types expected))
 
       ;ordinary Function, single case, special cased for improved error msgs
       (and (FnIntersection? fexpr-type)
@@ -981,10 +994,10 @@
     (cond
       ((every-pred Value? (comp keyword? :val)) (ret-t kwr))
       (assoc expr
-             expr-type (invoke-keyword kwr 
-                                       (expr-type (check target)) 
+             expr-type (invoke-keyword kwr
+                                       (expr-type (check target))
                                        (when default
-                                         (expr-type (check target))) 
+                                         (expr-type (check default)))
                                        expected))
       
       :else (do ;(prn "Non-special 'get'")
@@ -994,8 +1007,8 @@
   [{:keys [args] :as expr} & [expected]]
   (let [_ (assert (= 1 (count args)) "Incorrect number of arguments to clojure.lang.PersistentHashMap/create")
         targett (-> (first args) check expr-type ret-t)
-        _ (assert (HeterogeneousSeq? targett) (str "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
-                                                   (unparse-type targett)))
+        _ (assert (HeterogeneousSeq? targett) (error-msg "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
+                                                         (unparse-type targett)))
         res (reduce (fn [t [kt vt]]
                       {:pre [(HeterogeneousMap? t)]}
                       (assoc-in [:types kt] vt))
@@ -1012,9 +1025,9 @@
       ((every-pred Value? (comp keyword? :val)) (ret-t kwr))
       (assoc expr
              expr-type (invoke-keyword kwr 
-                                       (expr-type (check target)) 
+                                       (expr-type (check target))
                                        (when default
-                                         (expr-type (check target))) 
+                                         (expr-type (check default))) 
                                        expected))
       
       :else ::not-special)))
@@ -1028,26 +1041,28 @@
                                    nil 
                                    expected)))
 
-;[Type Type -> Type]
-(defn find-val-type [t k]
+;[Type Type (Option Type) -> Type]
+(defn find-val-type [t k default]
   {:pre [(Type? t)
-         (Type? k)]
+         (Type? k)
+         ((some-fn nil? Type?) default)]
    :post [(Type? %)]}
   (let [t (-resolve t)]
     (cond
-      (Nil? t) -nil
+      (Nil? t) (or default -nil)
       (HeterogeneousMap? t) (if-let [v (get (:types t) k)]
                               v
-                              (throw (Exception. (str "Map type " (unparse-type t)
-                                                      " does not have entry "
-                                                      (unparse-type k)))))
+                              (do #_(prn (error-msg "WARNING: Map type " (unparse-type t)
+                                                  " does not have entry "
+                                                  (unparse-type k)))
+                                (or default -nil)))
 
       (Intersection? t) (apply In 
                                (for [t* (:types t)]
-                                 (find-val-type t* k)))
+                                 (find-val-type t* k default)))
       (Union? t) (apply Un
                         (for [t* (:types t)]
-                          (find-val-type t* k)))
+                          (find-val-type t* k default)))
       :else (throw (Exception. (str (when *current-env*
                                       (str (:line *current-env*) ":"))
                                     "Can't get key " (unparse-type k) 
@@ -1061,15 +1076,16 @@
          ((some-fn nil? TCResult?) expected-ret)]
    :post [(TCResult? %)]}
   (let [targett (-resolve (ret-t target-ret))
-        kwt (ret-t kw-ret)]
+        kwt (ret-t kw-ret)
+        defaultt (when default-ret
+                   (ret-t default-ret))]
     (cond
       ;Keyword must be a singleton with no default
       (and (Value? kwt)
-           (keyword? (:val kwt))
-           (not default-ret))
+           (keyword? (:val kwt)))
       (let [{{path-hm :path id-hm :id :as o} :o} target-ret
             this-pelem (->KeyPE (:val kwt))
-            val-type (find-val-type targett kwt)]
+            val-type (find-val-type targett kwt defaultt)]
         (if (not= (Un) val-type)
           (ret val-type
                (-FS (if (Path? o)
@@ -1082,7 +1098,8 @@
                (if (Path? o)
                  (update-in o [:path] #(seq (concat % [this-pelem])))
                  o))
-          (throw (Exception. "Keyword lookup gave bottom type"))))
+          (throw (Exception. (error-msg "Keyword lookup gave bottom type: "
+                                        (:val kwt) " " (unparse-type targett))))))
 
       :else (throw (Exception. (error-msg "keyword-invoke only supports keyword lookup, no default. Found " 
                                           (unparse-type kwt)))))))
@@ -1133,9 +1150,9 @@
   {:pre [(TCResult? child-ret)
          (TCResult? parent-ret)]
    :post [(TCResult? %)]}
-  (prn "tc-isa?")
-  (prn "child-ret" child-ret)
-  (prn "parent-ret" parent-ret)
+;  (prn "tc-isa?")
+;  (prn "child-ret" child-ret)
+;  (prn "parent-ret" parent-ret)
   (let [parent-t (ret-t parent-ret)
         fs (-FS (-filter-at parent-t (ret-o child-ret))
                 (-not-filter-at parent-t (ret-o child-ret)))]
@@ -1349,6 +1366,11 @@
                                                       (mapcat vector (:types (expr-type (last cargs)))))))))
       :else ::not-special)))
 
+(defn fully-resolve-type [t]
+  (if (requires-resolving? t)
+    (recur (-resolve t))
+    t))
+
 ;for map destructuring
 (defmethod invoke-special #'clojure.core/seq?
   [{:keys [args] :as expr} & [expected]]
@@ -1356,13 +1378,13 @@
         cargs (doall (map check args))
         obj (-> (expr-type (first cargs)) ret-o)
         ;_ (prn "seq?: expr" (first args))
-        targett (-resolve (ret-t (expr-type (first cargs))))
+        targett (fully-resolve-type (ret-t (expr-type (first cargs))))
         tys (cond
                 (Union? targett) (into #{}
                                        (apply concat
-                                              (for [t (set (map -resolve (:types targett)))]
+                                              (for [t (set (map fully-resolve-type (:types targett)))]
                                                 (if (Union? t)
-                                                  (map -resolve (:types t))
+                                                  (map fully-resolve-type (:types t))
                                                   [t]))))
                 :else #{targett})
         special? (every? (some-fn HeterogeneousSeq?
@@ -2091,15 +2113,15 @@
                                                      (map ret dom (repeat (-FS -top -top)) 
                                                           (map (comp #(->Path nil %) :sym) required-params))
                                                      nil)
-                          _ (prn "disp-app-ret" disp-app-ret)
-                          _ (prn "disp-fn-type" (unparse-type dispatch-fn-type))
-                          _ (prn "dom" dom)
+                          ;_ (prn "disp-app-ret" disp-app-ret)
+                          ;_ (prn "disp-fn-type" (unparse-type dispatch-fn-type))
+                          ;_ (prn "dom" dom)
                           isa-ret (tc-isa? disp-app-ret dispatch-val-ret)
                           then-filter (-> isa-ret ret-f :then)
                           _ (assert then-filter)]
                       then-filter))
 
-        _ (prn "funapp1: inferred mm-filter" mm-filter)
+        ;_ (prn "funapp1: inferred mm-filter" mm-filter)
 
         env (let [env (-> *lexical-env*
                         ;add mm-filter
@@ -2398,9 +2420,9 @@
   (let [mm-name (:val nme-expr)
         _ (assert (string? (:val nme-expr)))
         mm-qual (symbol (str (ns-name *ns*)) mm-name)
-        _ (prn "mm-qual" mm-qual)
-        _ (prn "expected ret-t" (unparse-type (ret-t expected)))
-        _ (prn "expected ret-t class" (class (ret-t expected)))
+        ;_ (prn "mm-qual" mm-qual)
+        ;_ (prn "expected ret-t" (unparse-type (ret-t expected)))
+        ;_ (prn "expected ret-t class" (class (ret-t expected)))
         expected-mm-disp (expected-dispatch-type (ret-t expected))
         cdisp (check dispatch-expr (ret expected-mm-disp))
         _ (add-multimethod-dispatch-type mm-qual (ret-t (expr-type cdisp)))]
@@ -2674,9 +2696,10 @@
 ; This is where filters are applied to existing types to generate more specific ones
 ;[Type Filter -> Type]
 (defn update [t lo]
-  (let [t (if (requires-resolving? t)
-            (-resolve t)
-            t)]
+  (let [t (loop [t t] 
+            (if (requires-resolving? t)
+              (recur (-resolve t))
+              t))]
     (cond
       ;heterogeneous map ops
       (and (TypeFilter? lo)
@@ -2755,7 +2778,7 @@
                    (apply Un (doall (map (fn [t] (update t lo)) ts))))
       (Intersection? t) (let [ts (:types t)]
                           (apply In (doall (map (fn [t] (update t lo)) ts))))
-      :else (throw (Exception. (str "update along ill-typed path " (unparse-type t) " " (with-out-str (pr lo))))))))
+      :else (throw (Exception. (error-msg "update along ill-typed path " (unparse-type t) " " (with-out-str (pr lo))))))))
 
 ; f can be a composite filter. bnd-env is a the :l of a PropEnv
 ; ie. a map of symbols to types
