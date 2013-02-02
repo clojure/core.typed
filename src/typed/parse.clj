@@ -290,7 +290,7 @@
     (RClass-of (Class->symbol cls) tparams)))
 
 (defmethod parse-type-list 'Value
-  [[Value syn]]
+  [[_Value_ syn]]
   (constant-type syn))
 
 (defmethod parse-type-list 'KeywordArgs

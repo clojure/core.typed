@@ -8,6 +8,9 @@
 (def-alias Option (TFn [[x :variance :covariant]] (U nil x)))
 
 (ann clojure.core/*ns* Namespace)
+(ann clojure.core/*out* java.io.Writer)
+(ann clojure.core/*err* java.io.Writer)
+(ann clojure.core/pop-thread-bindings [-> Any])
 (ann clojure.core/namespace [(U Symbol String Keyword) -> (Option String)])
 (ann clojure.core/ns-name [Namespace -> Symbol])
 (ann clojure.core/name [(U String Named) -> String])
@@ -198,11 +201,13 @@
 (ann clojure.core/prn-str [Any * -> String])
 (ann clojure.core/pr-str [Any * -> String])
 
-(ann clojure.core/print [Any * -> Any])
-(ann clojure.core/println [Any * -> Any])
-(ann clojure.core/pr [Any * -> Any])
-(ann clojure.core/prn [Any * -> Any])
+(ann clojure.core/print [Any * -> nil])
+(ann clojure.core/println [Any * -> nil])
+(ann clojure.core/pr [Any * -> nil])
+(ann clojure.core/prn [Any * -> nil])
 
+(ann clojure.core/subs (Fn [String AnyInteger -> String]
+                           [String AnyInteger AnyInteger -> String]))
 
 (ann clojure.core/atom (All [x] [x -> (Atom x x)]))
 
@@ -229,6 +234,7 @@
 (ann clojure.core/set? (predicate (IPersistentSet Any)))
 (ann clojure.core/vector? (predicate (IPersistentVector Any)))
 (ann clojure.core/nil? (predicate nil))
+(ann clojure.core/symbol? (predicate Symbol))
 
 (ann clojure.core/meta (All [x]
                             (Fn [(IMeta x) -> x]
@@ -447,3 +453,5 @@
                  (All [x y]
                    (Fn [(Seqable x) AnyInteger -> x]
                        [(Seqable x) AnyInteger y -> (U x y)])))
+
+(non-nil-return clojure.lang.Compiler/munge :all)

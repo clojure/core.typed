@@ -6,15 +6,18 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(comment
-(set! *warn-on-reflection* true)
+#_(set! *warn-on-reflection* false)
 
 (ns typed.test.compiler
   (:refer-clojure :exclude [munge macroexpand-1])
   (:require [clojure.java.io :as io]
+            [clojure.repl :refer [pst]]
             [clojure.string :as string]
-            [typed.core :refer [def-alias ann declare-names]])
-  (:import java.lang.StringBuilder
+            [typed.core :refer [def-alias ann declare-names check-ns ann-form
+                                ;types
+                                Atom1]])
+  (:import (java.lang StringBuilder)
+           (java.io PushbackReader File)
            (clojure.lang Symbol IPersistentMap IPersistentSet Seqable IPersistentVector
                          Atom ISeq)))
 
@@ -38,7 +41,8 @@
 (def-alias Env
   (HMap {:locals (IPersistentMap Symbol LocalBinding)
          :context Context
-         :ns Symbol}))
+         :line (U nil Number)
+         :ns NsEntry}))
 
 (declare-names Expr)
 (declare-names Form)
@@ -228,10 +232,11 @@
 (ann cljs-reserved-file-names (IPersistentSet String))
 (def cljs-reserved-file-names #{"deps.cljs"})
 
-(ann namespaces (Atom (IPersistentMap Symbol NsEntry)
-                      (IPersistentMap Symbol NsEntry)))
-(defonce namespaces (atom '{cljs.core {:name cljs.core}
-                            cljs.user {:name cljs.user}}))
+(ann namespaces (Atom1 (IPersistentMap Symbol NsEntry)))
+(defonce namespaces (atom (ann-form
+                            '{cljs.core {:name cljs.core}
+                              cljs.user {:name cljs.user}}
+                            (IPersistentMap Symbol NsEntry))))
 
 (ann reset-namespaces! [-> Any])
 (defn reset-namespaces! []
@@ -241,22 +246,31 @@
 
 (ann *cljs-ns* Symbol)
 (def ^:dynamic *cljs-ns* 'cljs.user)
+
 (ann *cljs-file* (U nil Symbol))
 (def ^:dynamic *cljs-file* nil)
+
 (ann *cljs-warn-on-undeclared* boolean)
 (def ^:dynamic *cljs-warn-on-undeclared* false)
+
 (ann *cljs-warn-on-redef* boolean)
 (def ^:dynamic *cljs-warn-on-redef* true)
+
 (ann *cljs-warn-on-dynamic* boolean)
 (def ^:dynamic *cljs-warn-on-dynamic* true)
+
 (ann *cljs-warn-on-fn-var* boolean)
 (def ^:dynamic *cljs-warn-on-fn-var* true)
+
 (ann *cljs-warn-fn-arity* boolean)
 (def ^:dynamic *cljs-warn-fn-arity* true)
-(ann *unchecked-if* (Atom boolean boolean))
+
+(ann *unchecked-if* (Atom1 boolean))
 (def ^:dynamic *unchecked-if* (atom false))
+
 (ann *cljs-static-fns* boolean)
 (def ^:dynamic *cljs-static-fns* false)
+
 (ann *position* (U nil (Atom (Vector* typed.core/AnyInteger typed.core/AnyInteger)
                              (Vector* typed.core/AnyInteger typed.core/AnyInteger))))
 (def ^:dynamic *position* nil)
@@ -273,7 +287,7 @@
        (str " at line " (:line env) " " *cljs-file*))))))
 
 (ann munge (Fn [Symbol -> Symbol]
-               [Any -> String]))
+               [Any -> (U Symbol String)]))
 (defn munge [s]
   (let [ss (str s)
         ms (if (.contains ss "]")
@@ -286,7 +300,7 @@
       (symbol ms)
       ms)))
 
-(ann confirm-var-exists [Env Any Any -> Any])
+(ann confirm-var-exists [Env Symbol Symbol -> Any])
 (defn confirm-var-exists [env prefix suffix]
   (when *cljs-warn-on-undeclared*
     (let [crnt-ns (-> env :ns :name)]
@@ -444,7 +458,7 @@
 (ann emit [Expr -> Any])
 (defmulti emit :op)
 
-(def-alias Emitable 
+#_(def-alias Emitable 
   (Rec [x]
        (Seqable (U nil
                    Expr
@@ -456,7 +470,7 @@
                       (not (ISeq Any))
                       (not clojure.lang.Fn))))))
 
-(ann emits [Emitable * -> Any])
+#_(ann emits [Emitable * -> Any])
 (defn emits [& xs]
   (doseq [x xs]
     (cond
@@ -477,7 +491,7 @@
 (defn ^String emit-str [expr]
   (with-out-str (emit expr)))
 
-(ann emitln [Emitable * -> Any])
+#_(ann emitln [Emitable * -> Any])
 (defn emitln [& xs]
   (apply emits xs)
   ;; Prints column-aligned line number comments; good test of *position*.
@@ -490,7 +504,7 @@
                         [(inc line) 0])))
   nil)
 
-(def-alias EmitConstant
+#_(def-alias EmitConstant
   (Rec [x]
        (U nil Long Integer Double String Boolean Character java.util.regex.Pattern
           Keyword Symbol 
@@ -501,7 +515,7 @@
           (IPersistentMap x x)
           (IPersistentHashSet x))))
 
-(ann emit-constant [EmitConstant -> Any])
+#_(ann emit-constant [EmitConstant -> Any])
 (defmulti emit-constant class)
 (defmethod emit-constant nil [x] (emits "null"))
 (defmethod emit-constant Long [x] (emits x))
@@ -530,7 +544,7 @@
                     (str (namespace x) "/") "")
                   (name x)
                   \"))
-(ann emit-meta-constant [(U EmitConstant 
+#_(ann emit-meta-constant [(U EmitConstant 
                             (I EmitConstant (IMeta (U nil EmitConstant))))
                          EmitConstant * -> Any])
 (defn- emit-meta-constant [x & body]
@@ -600,9 +614,9 @@
   (emit-wrap env
     (emits "cljs.core.with_meta(" expr "," meta ")")))
 
-(ann array-map-threshold AnyInteger)
+(ann array-map-threshold typed.core/AnyInteger)
 (def ^:private array-map-threshold 16)
-(ann obj-map-threshold AnyInteger)
+(ann obj-map-threshold typed.core/AnyInteger)
 (def ^:private obj-map-threshold 32)
 
 (defmethod emit :map
@@ -1074,7 +1088,7 @@
 
 (declare analyze analyze-symbol analyze-seq)
 
-(ann specials (Set* (Value 'if) ...)) ;FIXME
+#_(ann specials (Set* (Value 'if) ...)) ;FIXME
 (def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns deftype* defrecord* . js* & quote})
 
 (def-alias RecurFrame (HMap {:names (Seqable Symbol)
@@ -1106,22 +1120,22 @@
 (declare-names Form)
 (declare-names SpecialForm)
 
-(def-alias IfForm
+#_(def-alias IfForm
   (U (Seq* (Value 'if) Form)
      (Seq* (Value 'if) Form Form)))
 
-(def-alias ThrowForm
+#_(def-alias ThrowForm
   (Seq* (Value 'throw) Form))
 
-(def-alias Try*Form
+#_(def-alias Try*Form
   (Seq* (Value 'try*) Form *)) ;TODO "rest" Seqs
 
-(def-alias Def*Form
+#_(def-alias Def*Form
   (U (Seq* (Value 'def) Symbol)
      (Seq* (Value 'def) Symbol x)
      (Seq* (Value 'def) Symbol String x)))
 
-(def-alias Fn*Form
+#_(def-alias Fn*Form
   (U
     (Seq* (Value 'fn*) (IPersistentVector Symbol) Form *)
     (Seq* (Value 'fn*) (IPersistentVector Symbol) (IPersistentMap Form Form) Form Form *)
@@ -1132,55 +1146,55 @@
     (Seq* (Value 'fn*) Symbol (Seq* (IPersistentVector Symbol) Form *) *)
     (Seq* (Value 'fn*) Symbol (Seq* (IPersistentVector Symbol) (IPersistentMap Form Form) Form Form *) *)))
 
-(def-alias LetFn*Form
+#_(def-alias LetFn*Form
   (Seq* (Value 'letfn*) (Vector* Symbol Form *2) Form *))
 
-(def-alias DoForm
+#_(def-alias DoForm
   (Seq* (Value 'do) Form *))
 
-(def-alias Let*Form
+#_(def-alias Let*Form
   (Seq* (Value 'let*) (Vector* Symbol Form *2) Form *))
 
-(def-alias Loop*Form
+#_(def-alias Loop*Form
   (Seq* (Value 'loop*) (Vector* Symbol Form *2) Form *))
 
-(def-alias RecurForm
+#_(def-alias RecurForm
   (Seq* (Value 'recur) Form *))
 
-(def-alias QuoteForm
+#_(def-alias QuoteForm
   (Seq* (Value 'quote) Form))
 
-(def-alias NewForm
+#_(def-alias NewForm
   (Seq* (Value 'new) Form Form *))
 
-(def-alias Set!Form
+#_(def-alias Set!Form
   (Set* (Value 'set!) Form Form))
 
-(def-alias NsForm
+#_(def-alias NsForm
   Any) ; TODO
 
-(def-alias Deftype*Form
+#_(def-alias Deftype*Form
   (Seq* (Value 'deftype*) (IPersistentVector Symbol) Any)) ;TODO
 
-(def-alias Defrecord*Form
+#_(def-alias Defrecord*Form
   (Seq* (Value 'defrecord*) (IPersistentVector Symbol) Any)) ;TODO
 
-(def-alias DotForm
+#_(def-alias DotForm
   (Seq* (Value '.) Form Form *)) ;Rest args correct?
 
-(def-alias Js*Form
+#_(def-alias Js*Form
   (Seq* (Value 'js*) String Form *))
 
-(def-alias SpecialForm
+#_(def-alias SpecialForm
   (U IfForm ThrowForm Try*Form Def*Form Fn*Form LetFn*Form DoForm Let*Form Loop*Form
      RecurForm QuoteForm NewForm Set!Form NsForm Deftype*Form Defrecord*Form DotForm
      Js*Form ))
 
-(def-alias InvokeForm
+#_(def-alias InvokeForm
   (I (Seq* Form Form *)
      (not SpecialForm)))
 
-(def-alias Form
+#_(def-alias Form
   (U SpecialForm
      InvokeForm
      ; Other literals
@@ -1188,7 +1202,7 @@
      ; Hmm other unspecified constants go here...
      ))
 
-(ann parse 
+#_(ann parse 
      (Fn [(Value 'if) Env IfForm (U nil Symbol) -> Expr]
          [(Value 'throw) Env ThrowForm (U nil Symbol) -> Expr]
          [(Value 'try*) Env Try*Form (U nil Symbol) -> Expr]
@@ -1831,7 +1845,7 @@
          :meta meta-expr :expr expr :children [meta-expr expr]})
       expr)))
 
-(: analyze [Env Any -> Expr])
+(ann analyze [Env Any -> Expr])
 (defn analyze
   "Given an environment, a map containing {:locals (mapping of names to bindings), :context
   (one of :statement, :expr, :return), :ns (a symbol naming the
@@ -1852,7 +1866,7 @@
         (set? form) (analyze-set env form name)
         :else {:op :constant :env env :form form}))))
 
-(: analyze-file [String -> (Seqable Expr)])
+(ann analyze-file [String -> (Seqable Expr)])
 (defn analyze-file
   [f]
   (let [res (if (= \/ (first f)) f (io/resource f))]
@@ -1899,6 +1913,7 @@
   `(do (when-not (:defs (get @namespaces 'cljs.core))
          (analyze-file "cljs/core.cljs"))
        ~@body))
+
 (ann compile-file* [File File -> NsAnalysis])
 (defn compile-file* [src dest]
   (with-core-cljs
@@ -2213,5 +2228,3 @@
             ]]
   (->> e (analyze envx) emit)
   (newline)))
-
-)

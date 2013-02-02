@@ -192,7 +192,8 @@
                           (map (comp ret-t expr-type) ckeys)))]
     (assoc expr
            expr-type (ret (->HeterogeneousMap (zipmap (map (comp ret-t expr-type) ckeys)
-                                                      (map (comp ret-t expr-type) cvals)))))))
+                                                      (map (comp ret-t expr-type) cvals))
+                                              nil)))))
 
 (defmethod check-cljs :def
   [{:keys [init env] vname :name :as expr} & [expected]]

@@ -333,10 +333,11 @@
 
 (declare TCResult?)
 
+(def lex-env? (hash-c? (every-pred symbol? (complement namespace)) Type?))
+
 (defrecord PropEnv [l props]
   "A lexical environment l, props is a list of known propositions"
-  [(every? (every-pred symbol? (complement namespace)) (keys l))
-   (every? Type? (vals l))
+  [(lex-env? l)
    (every? Filter? props)])
 
 (declare ^:dynamic *lexical-env*)

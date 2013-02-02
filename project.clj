@@ -1,6 +1,6 @@
-(defproject typed "0.1.6"
+(defproject typed "0.1.6-SNAPSHOT"
   :description "Gradual typing for Clojure"
-  :dependencies [[analyze "0.2.5"]
+  :dependencies [[analyze "0.2.6-SNAPSHOT"]
                  [net.intensivesystems/arrows "1.3.0"
                   :exclusions [org.clojure/clojure]] ;for testing conduit, lein test wants it here?
                  [trammel "0.7.0"

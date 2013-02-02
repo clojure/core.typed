@@ -1,6 +1,7 @@
 (ns typed.test.mm
   (:import (clojure.lang IPersistentMap))
   (:require [typed.core :refer [def-alias ann check-ns print-env cf]]
+            [analyze.core :refer [ast]]
             [clojure.repl :refer [pst]]))
 
 (def-alias Expr
@@ -16,8 +17,8 @@
 ; Dispatch 
 (defmulti MapToString :op)
 
-;(isa? :test1 (:op 0th))
+;(isa? (:op 0th) :test1)
 (defmethod MapToString :test1
   [a]
   (print-env "mm")
-  (str a))
+  )

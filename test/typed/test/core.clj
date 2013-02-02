@@ -1083,9 +1083,37 @@
          (class (into-array> Object (U clojure.lang.Symbol Number) [1]))))
   )
 
+(deftest class-pathelem-test
+  (is (= (-> (tc-t #(class %))
+           ret-t :types first :rng Result-object*)
+         (->Path [(->ClassPE)] 0)))
+  (is (subtype? (-> (tc-t 
+                      #(= Number (class %)))
+                  ret-t)
+                (->FnIntersection 
+                  [(make-Function
+                     [-any]
+                     (RClass-of 'boolean)
+                     nil nil
+                     :filter (-FS (-and (-filter (-val Number) 0 [(->ClassPE)])
+                                        ;the important filter, updates first argument to be Number if predicate is true
+                                        (-filter (RClass-of Number) 0))
+                                  (-not-filter (-val Number) 0 [(->ClassPE)])))]))))
+
+;TODO ^--
+;(-> (tc-t #(let [a (class %)]
+;             (if a
+;               true
+;               false)))
+;  ret-t unparse-type)
+
 (deftest map-literal-test
   (is (cf {:bar :b}
           '{:bar ':b}))
   ;correctly generalise
   (is (cf {(ann-form :bar clojure.lang.Keyword) :b}
           (IPersistentMap clojure.lang.Keyword ':b))))
+
+(deftest isa-test
+  (is (tc-t (isa? 1 1)))
+  (is (tc-t #(isa? (class %) Number))))

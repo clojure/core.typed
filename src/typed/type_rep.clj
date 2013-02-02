@@ -49,7 +49,7 @@
 (defn -hmap [types]
   (if (some #(= (Bottom) %) (concat (keys types) (vals types)))
     (Bottom)
-    (->HeterogeneousMap types)))
+    (->HeterogeneousMap types nil)))
 
 #_(defn simplify-HMap-Un [hmaps]
   {:pre [(every? HeterogeneousMap? hmaps)]
@@ -580,10 +580,11 @@
 (declare-type Value)
 (declare-type AnyValue)
 
-(defrecord HeterogeneousMap [types]
+(defrecord HeterogeneousMap [types other-entries]
   "A constant map, clojure.lang.IPersistentMap"
   [((hash-c? Value? (some-fn Type? Result?))
-     types)])
+     types)
+   (nil? other-entries)])
 
 (defn make-HMap [mandatory optional]
   (assert (= #{}

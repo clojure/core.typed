@@ -87,26 +87,7 @@
 (defmethod constant-type clojure.lang.BigInt [v] (-val v))
 (defmethod constant-type String [v] (-val v))
 (defmethod constant-type Character [v] (-val v))
-
-;(I ~v (All [x] (Fn [Any -> x :filters {:then (is 0 {~v x}), :else (is 0 {~v (U false nil)})}])))
-(defmethod constant-type clojure.lang.Keyword [v] 
-  (->Intersection 
-    [(-val v)
-     (Poly* '(x) [no-bounds]
-            (->FnIntersection
-              [(make-Function
-                 [-any] ;dom
-                 (make-F 'x) ;rng
-                 nil ;rest
-                 nil ;drest
-                 :filter (-FS
-                           (-filter (-hmap {(-val v) (make-F 'x)})
-                                    0)
-                           ;FIXME what should this filter be? Do we need negative key types?
-                           -top)
-                 ; FIXME not entirely correct if keyword is not present
-                 :object (->Path [(->KeyPE v)] 0))])
-            '(x))]))
+(defmethod constant-type clojure.lang.Keyword [v] (-val v))
 
 (defmethod constant-type Boolean [v] (if v -true -false))
 (defmethod constant-type PersistentHashSet [v] (RClass-of PersistentHashSet [(apply Un (map constant-type v))]))
@@ -364,7 +345,7 @@
 
 ;[AnyInteger Type -> Boolean]
 (defn index-free-in? [k type]
-  (let [free-in? (atom false :validator #{true false})]
+  (let [free-in? (atom false :validator boolean?)]
     (letfn [(for-object [o]
               (fold-rhs ::free-in-for-object
                         {:type-rec for-type
@@ -515,7 +496,7 @@
   {:pre [(AnyType? t)
          (name-ref? k)
          (RObject? o)
-         (#{true false} polarity)]
+         (boolean? polarity)]
    :post [(AnyType? %)]}
   (letfn [(st [t*]
             (subst-type t* k o polarity))
@@ -632,6 +613,22 @@
         [t-r f-r o-r] (open-Result rng o-a t-a)]
     (ret t-r f-r o-r)))
 
+;[(U Any {kw x}) -> (U nil x) :filters {:then (is {kw Any} 0)}]
+(defn keyword->Fn [kw]
+  {:pre [(keyword? kw)]
+   :post [(Type? %)]}
+  (Poly* ['x]
+         [no-bounds]
+         (make-FnIntersection
+           (make-Function
+             [(Un -any
+                  (-hmap {(-val kw) (make-F 'x)}))]
+             (Un -nil (make-F 'x))
+             nil nil
+             :filter (-FS (-filter (-hmap {(-val kw) -any}) 0) -top)))
+         ['x]))
+
+
 ;[TCResult -> Type]
 (defn resolve-to-ftype [expected]
   (loop [etype expected 
@@ -688,7 +685,9 @@
   {:pre [(FnIntersection? fexpr-type)]}
   (app-type-error fexpr args fexpr-type arg-ret-types expected false))
 
-; TCResult TCResult^n (U nil TCResult) -> TCResult
+(declare invoke-keyword)
+
+; Expr Expr^n TCResult TCResult^n (U nil TCResult) -> TCResult
 (defn check-funapp [fexpr args fexpr-ret-type arg-ret-types expected]
   {:pre [(TCResult? fexpr-ret-type)
          (every? TCResult? arg-ret-types)
@@ -696,8 +695,23 @@
    :post [(TCResult? %)]}
   (let [fexpr-type (resolve-to-ftype (ret-t fexpr-ret-type))
         arg-types (mapv ret-t arg-ret-types)]
-    #_(prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types))
+    (prn "check-funapp" (unparse-type fexpr-type) (map unparse-type arg-types) fexpr-type)
     (cond
+      ;keyword function
+      (and (Value? fexpr-type)
+           (keyword? (:val fexpr-type)))
+      (let [[default-ret & more-args] arg-ret-types]
+        (assert (empty? more-args))
+        (invoke-keyword fexpr-ret-type default-ret nil expected))
+
+      ;set function
+      ;FIXME yuck
+      (and (RClass? fexpr-type)
+           (isa? (symbol->Class (.the-class fexpr-type)) IPersistentSet))
+      (do
+        (assert (#{1} (count args)))
+        (ret -any))
+
       ;ordinary Function, single case, special cased for improved error msgs
       (and (FnIntersection? fexpr-type)
            (= 1 (count (:types fexpr-type))))
@@ -824,6 +838,7 @@
 (defn tc-equiv [comparator & vs]
   {:pre [(every? TCResult? vs)]
    :post [(TCResult? %)]}
+  (assert (#{:=} comparator))
   (let [thn-fls (set (apply concat
                             (for [[{t1 :t fl1 :fl o1 :o}
                                    {t2 :t fl2 :fl o2 :o}]
@@ -1072,6 +1087,26 @@
       :else (throw (Exception. (error-msg "keyword-invoke only supports keyword lookup, no default. Found " 
                                           (unparse-type kwt)))))))
 
+;binding
+;FIXME use `check-normal-def`
+(defmethod invoke-special #'push-thread-bindings
+  [{[bindings-expr & other-args] :args :as expr} & [expected]]
+  (assert (empty? other-args))
+  ; only support (push-thread-bindings (hash-map @~[var bnd ...]))
+  ; like `binding`s expansion
+  (assert (#{:invoke} (-> bindings-expr :op)))
+  (assert (#{#'hash-map} (-> bindings-expr :fexpr :var)))
+  (assert (even? (count (-> bindings-expr :args))))
+  (let [new-bindings-exprs (apply hash-map (-> bindings-expr :args))
+        _ (binding [*var-annotations* VAR-ANNOTATIONS]
+            (doseq [[{:keys [op var] :as var-expr} bnd-expr] new-bindings-exprs]
+              (assert (#{:the-var} op))
+              (let [expected (type-of (var->symbol var))
+                    cexpr (check bnd-expr (ret expected))]
+                (subtype (-> cexpr expr-type ret-t) expected))))]
+    (assoc expr
+           expr-type (ret -any))))
+
 ;=
 (defmethod invoke-special #'clojure.core/= 
   [{:keys [args] :as expr} & [expected]]
@@ -1092,6 +1127,32 @@
   (let [cargs (doall (map check args))]
     (assoc expr
            expr-type (apply tc-equiv := (map expr-type cargs)))))
+
+;[TCResult TCResult -> TCResult]
+(defn tc-isa? [child-ret parent-ret]
+  {:pre [(TCResult? child-ret)
+         (TCResult? parent-ret)]
+   :post [(TCResult? %)]}
+  (prn "tc-isa?")
+  (prn "child-ret" child-ret)
+  (prn "parent-ret" parent-ret)
+  (let [parent-t (ret-t parent-ret)
+        fs (-FS (-filter-at parent-t (ret-o child-ret))
+                (-not-filter-at parent-t (ret-o child-ret)))]
+    (prn "fs" fs)
+    (prn "child object" (ret-o child-ret))
+    (ret (Un -true -false) fs -empty)))
+
+
+;isa? (2 arity only)
+(defmethod invoke-special #'clojure.core/isa?
+  [{:keys [args] :as expr} & [expected]]
+  (assert (= 2 (count args))
+          "Only supports 2 argument invocations of isa?")
+  (let [[cchild-expr cparent-expr :as cargs] (mapv check args)]
+    (assoc expr
+           expr-type (tc-isa? (expr-type cchild-expr)
+                              (expr-type cparent-expr)))))
 
 ;apply
 (defmethod invoke-special #'clojure.core/apply
@@ -1489,7 +1550,7 @@
             _ (assert (= 2 (count (:types arg1)))
                       "Need vector of length 2 to conj to map")
             _ (assert (every? Value? (:types arg1))
-                      "Vector must be of Values for now")
+                      "NYI Vector must be of Values for now")
             res (-hmap
                   (assoc (:types m)
                          (-> arg1 :types first)
@@ -1513,36 +1574,35 @@
 
       :else ::not-special)))
 
-; Return the expected type of the method dispatch
-; (isa? dispatch-val-type (dispatch-type ...)
-;[Type Type Type -> Type]
-(defn method-expected-type [mm-type dispatch-type dispatch-val-type]
-  {:pre [(AnyType? mm-type)
-         (AnyType? dispatch-type)
-         (AnyType? dispatch-val-type)]}
-  (prn "mm-type" (unparse-type mm-type))
-  (prn "dispatch-type" (unparse-type dispatch-type))
-  (prn "dispatch-val-type" (unparse-type dispatch-val-type))
-  (assert false "NYI calculate method expected type")
-;  (let [dispatch-fn (if (Intersection? dispatch-type)
-;                      (first (filter (some-fn Poly? FnIntersection?) (.types dispatch-type)))
-;                      dispatch-type)
-;        _ (assert ((some-fn Poly? FnIntersection?) dispatch-fn))
-;        disp-app (check-funapp 
+(comment
+  (method-expected-type (parse-type '[Any -> Any])
+                        (parse-type '(Value :op))
+                        (parse-type '(Value :if)))
+  ;=> ['{:if Any} -> Any]
   )
+
+(def ^:dynamic *current-mm* nil)
+(set-validator! #'*current-mm* (some-fn nil? 
+                                        (hmap-c? :dispatch-fn-type Type?
+                                                 :dispatch-val-ret TCResult?)))
 
 (defmethod instance-method-special 'clojure.lang.MultiFn/addMethod
   [{[dispatch-val-expr method-expr :as args] :args :keys [target] :as expr} & [expected]]
   (assert (= 2 (count args)))
   (let [_ (assert (#{:var} (:op target)))
+        _ (assert (#{:fn-expr} (:op method-expr))
+                  "Method must be a fn")
         mmsym (var->symbol (:var target))
-        mm-type (-> (check target) expr-type ret-t)
-        dispatch-val-type (-> (check dispatch-val-expr) expr-type ret-t)
+        ctarget (check target)
+        cdispatch-val-expr (check dispatch-val-expr)
         dispatch-type (get-multimethod-dispatch-type mmsym)
-        method-body-expected (ret (method-expected-type mm-type dispatch-type dispatch-val-type))
-        actual-type (-> (check method-expr method-body-expected) expr-type)]
+        method-expected (binding [*var-annotations* VAR-ANNOTATIONS]
+                          (type-of mmsym))
+        cmethod-expr (binding [*current-mm* {:dispatch-fn-type dispatch-type
+                                             :dispatch-val-ret (expr-type cdispatch-val-expr)}]
+                       (check method-expr (ret method-expected)))]
     (assoc expr
-           expr-type (RClass-of clojure.lang.MultiFn))))
+           expr-type (ret (RClass-of clojure.lang.MultiFn)))))
 
 (defmethod invoke-special :default [& args] ::not-special)
 (defmethod static-method-special :default [& args] ::not-special)
@@ -1550,7 +1610,7 @@
 
 (defn check-apply
   [{[fexpr & args] :args :as expr} expected]
-  {:post [((some-fn TCResult? #(= ::not-special %)) %)]}
+  {:post [((some-fn TCResult? #{::not-special}) %)]}
   (let [ftype (ret-t (expr-type (check fexpr)))
         [fixed-args tail] [(butlast args) (last args)]]
     (cond
@@ -1889,19 +1949,21 @@
                        (some-fn nil? (every-c? symbol?))
                        (some-fn nil? (every-c? F?))
                        (some-fn nil? (every-c? Bounds?))
-                       #{:Poly :PolyDots nil}) %)]}
+                       (some-fn nil? #{:Poly :PolyDots})) %)]}
   (cond
     (Poly? t) (let [_ (assert (Poly-free-names* t) (unparse-type t))
                     old-nmes (Poly-free-names* t)
                     _ (assert ((every-pred seq (every-c? symbol?)) old-nmes))
                     new-nmes (repeatedly (:nbound t) gensym)
                     new-frees (map make-F new-nmes)]
+                (prn "there")
                 [(Poly-body* new-nmes t) old-nmes new-frees (Poly-bbnds* new-nmes t) :Poly])
     (PolyDots? t) (let [_ (assert (-> t meta :actual-frees))
                         old-nmes (-> t meta :actual-frees)
                         _ (assert ((every-pred seq (every-c? symbol?)) old-nmes))
                         new-nmes (repeatedly (:nbound t) gensym)
                         new-frees (map make-F new-nmes)]
+                    (prn "here")
                     [(PolyDots-body* new-nmes t) old-nmes new-frees (PolyDots-bbnds* new-nmes t) :PolyDots])
     :else [t nil nil nil nil]))
 
@@ -1910,7 +1972,7 @@
   {:pre [(Type? body)
          (every? symbol? orig-names)
          (every? F? inst-frees)
-         (#{:Poly :PolyDots nil} poly?)]
+         ((some-fn nil? #{:Poly :PolyDots}) poly?)]
    :post [(Type? %)]}
   (case poly?
     :Poly (Poly* (map :name inst-frees) bnds body orig-names)
@@ -1930,7 +1992,7 @@
         exp (resolve-to-ftype (ret-t expected))
         ; unwrap polymorphic expected types
         [fin orig-names inst-frees bnds poly?] (unwrap-poly exp)
-        ; once more to make sure
+        ; once more to make sure (FIXME is this needed?)
         fin (resolve-to-ftype fin)
         ;ensure a function type
         _ (assert (FnIntersection? fin)
@@ -2019,14 +2081,46 @@
         _ (assert ((some-fn nil? (hash-c? symbol? Type?)) (when rest-entry
                                                             (into {} rest-entry))))
 
-        env (-> *lexical-env*
-              (assoc-in [:props] props)
-              ;order important, (fn [a a & a]) prefers rightmost name
-              (update-in [:l] merge (into {} fixed-entry) (into {} rest-entry)))
+        ; if this fn method is a multimethod dispatch method, then infer
+        ; a new filter that results from being dispatched "here"
+        mm-filter (when-let [{:keys [dispatch-fn-type dispatch-val-ret]} *current-mm*]
+                    (assert (and dispatch-fn-type dispatch-val-ret))
+                    (assert (not (or drest rest rest-param)))
+                    (let [disp-app-ret (check-funapp nil nil 
+                                                     (ret dispatch-fn-type)
+                                                     (map ret dom (repeat (-FS -top -top)) 
+                                                          (map (comp #(->Path nil %) :sym) required-params))
+                                                     nil)
+                          _ (prn "disp-app-ret" disp-app-ret)
+                          _ (prn "disp-fn-type" (unparse-type dispatch-fn-type))
+                          _ (prn "dom" dom)
+                          isa-ret (tc-isa? disp-app-ret dispatch-val-ret)
+                          then-filter (-> isa-ret ret-f :then)
+                          _ (assert then-filter)]
+                      then-filter))
+
+        _ (prn "funapp1: inferred mm-filter" mm-filter)
+
+        env (let [env (-> *lexical-env*
+                        ;add mm-filter
+                        (assoc-in [:props] (concat props (when mm-filter [mm-filter])))
+                        ;add parameters to scope
+                        ;order important, (fn [a a & a]) prefers rightmost name
+                        (update-in [:l] merge (into {} fixed-entry) (into {} rest-entry)))
+                  flag (atom false :validator boolean?)
+                  env (if mm-filter
+                        (env+ env [mm-filter] flag)
+                        env)]
+              (assert (not @flag) "Local inferred to be bottom when applying multimethod filter")
+              env)
+                
+
+        ; rng before adding new filters
         crng-nopass
-        (with-lexical-env env
-          (with-recur-target (->RecurTarget dom rest drest nil)
-            (*check-fn-method1-checkfn* body expected-rng)))
+        (binding [*current-mm* nil]
+          (with-lexical-env env
+            (with-recur-target (->RecurTarget dom rest drest nil)
+              (*check-fn-method1-checkfn* body expected-rng))))
 
         ; Apply the filters of computed rng to the environment and express
         ; changes to the lexical env as new filters, and conjoin with existing filters.
@@ -2587,23 +2681,25 @@
       ;heterogeneous map ops
       (and (TypeFilter? lo)
            (KeyPE? (first (:path lo)))
-           (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
-                                        [{fpth-kw :val} & rstpth] path
-                                        fpth (->Value fpth-kw)
-                                        type-at-pth (get (:types t) fpth)]
-                                    (if type-at-pth 
-                                      (-hmap (assoc (:types t) fpth (update type-at-pth (-filter type id rstpth))))
-                                      (Bottom)))
+           (HeterogeneousMap? t)) 
+      (let [{:keys [type path id]} lo
+            [{fpth-kw :val} & rstpth] path
+            fpth (->Value fpth-kw)
+            type-at-pth (get (:types t) fpth)]
+        (if type-at-pth 
+          (-hmap (assoc (:types t) fpth (update type-at-pth (-filter type id rstpth))))
+          (Bottom)))
 
       (and (NotTypeFilter? lo)
            (KeyPE? (first (:path lo)))
-           (HeterogeneousMap? t)) (let [{:keys [type path id]} lo
-                                        [{fpth-kw :val} & rstpth] path
-                                        fpth (->Value fpth-kw)
-                                        type-at-pth (get (:types t) fpth)]
-                                    (if type-at-pth 
-                                      (-hmap (assoc (:types t) fpth (update type-at-pth (-not-filter type id rstpth))))
-                                      (Bottom)))
+           (HeterogeneousMap? t)) 
+      (let [{:keys [type path id]} lo
+            [{fpth-kw :val} & rstpth] path
+            fpth (->Value fpth-kw)
+            type-at-pth (get (:types t) fpth)]
+        (if type-at-pth 
+          (-hmap (assoc (:types t) fpth (update type-at-pth (-not-filter type id rstpth))))
+          (Bottom)))
 
       (and (TypeFilter? lo)
            (CountPE? (first (:path lo))))
@@ -2617,6 +2713,33 @@
       ;can't do much without a NotCountRange type or difference type
       (and (NotTypeFilter? lo)
            (CountPE? (first (:path lo))))
+      t
+
+      ;ClassPE
+      (and (TypeFilter? lo)
+           (ClassPE? (-> lo :path first)))
+      (let [_ (assert (empty? (rest (:path lo))))
+            u (:type lo)]
+        (cond 
+          ;restrict the obvious case where the path is the same as a Class Value
+          ; eg. #(= (class %) Number)
+          (and (Value? u)
+               (class? (:val u)))
+          (restrict (RClass-of (:val u)) t)
+
+          ; handle (class nil) => nil
+          (Nil? u)
+          (restrict -nil t)
+
+          :else
+          (do (prn "WARNING:" (str "Cannot infer type via ClassPE from type " (unparse-type u)))
+            t)))
+
+      ; Does not tell us anything.
+      ; eg. (= Number (class x)) ;=> false
+      ;     does not reveal whether x is a subtype of Number, eg. (= Integer (class %))
+      (and (NotTypeFilter? lo)
+           (ClassPE? (-> lo :path first)))
       t
 
       (and (TypeFilter? lo)
@@ -2636,11 +2759,11 @@
 
 ; f can be a composite filter. bnd-env is a the :l of a PropEnv
 ; ie. a map of symbols to types
-;[PropEnv Filter -> PropEnv]
+;[(IPersistentMap Symbol Type) Filter -> PropEnv]
 (defn update-composite [bnd-env f]
-  {:pre [(PropEnv? bnd-env)
+  {:pre [(lex-env? bnd-env)
          (Filter? f)]
-   :post [(PropEnv? %)]}
+   :post [(lex-env? %)]}
   ;(prn "update-composite" bnd-env f)
   (cond
 ;    (and (AndFilter? f) 
