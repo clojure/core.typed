@@ -1,3 +1,5 @@
+(set! *warn-on-reflection* true)
+
 (in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -155,7 +157,7 @@
                                                            [k (type-rec v)])))))))
 
 (add-default-fold-case TypeFn
-                       (fn [ty _]
+                       (fn [^TypeFn ty _]
                          (let [names (repeatedly (.nbound ty) gensym)
                                body (TypeFn-body* names ty)
                                bbnds (TypeFn-bbnds* names ty)]
@@ -166,7 +168,7 @@
 
 
 (add-default-fold-case Poly
-                       (fn [ty _]
+                       (fn [^Poly ty _]
                          (let [names (repeatedly (.nbound ty) gensym)
                                body (Poly-body* names ty)
                                bbnds (Poly-bbnds* names ty)]
@@ -176,8 +178,8 @@
                                   (Poly-free-names* ty)))))
 
 (add-default-fold-case PolyDots
-                       (fn [ty _]
-                         (let [names (repeatedly (:nbound ty) gensym)
+                       (fn [^PolyDots ty _]
+                         (let [names (repeatedly (.nbound ty) gensym)
                                body (PolyDots-body* names ty)
                                bbnds (PolyDots-bbnds* names ty)]
                            (PolyDots* names 

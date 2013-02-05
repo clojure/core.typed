@@ -1,3 +1,5 @@
+(set! *warn-on-reflection* true)
+
 (in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -148,12 +150,13 @@
 (defmethod frees [::any-var TApp]
   [{:keys [rator rands]}]
   (apply combine-frees
-         (let [tfn (loop [rator rator]
+         (let [^TypeFn
+               tfn (loop [rator rator]
                      (cond
-                       (F? rator) (when-let [bnds (free-with-name-bnds (.name rator))]
+                       (F? rator) (when-let [bnds (free-with-name-bnds (.name ^F rator))]
                                     (.higher-kind bnds))
-                       (Name? rator) (if (= declared-name-type (@TYPE-NAME-ENV (.id rator)))
-                                       (recur (get-declared-kind (.id rator)))
+                       (Name? rator) (if (= declared-name-type (@TYPE-NAME-ENV (.id ^Name rator)))
+                                       (recur (get-declared-kind (.id ^Name rator)))
                                        (recur (resolve-Name rator)))
                        (TypeFn? rator) rator
                        :else (throw (Exception. (error-msg "NYI case " (class rator) (unparse-type rator))))))

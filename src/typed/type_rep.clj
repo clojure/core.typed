@@ -1,3 +1,5 @@
+(set! *warn-on-reflection* true)
+
 (in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -206,7 +208,7 @@
 
 (declare symbol->Class)
 
-(defn RClass->Class [rcls]
+(defn ^Class RClass->Class [^RClass rcls]
   (symbol->Class (.the-class rcls)))
 
 (declare RESTRICTED-CLASS instantiate-poly Class->symbol)
@@ -330,13 +332,13 @@
               (abstract-many names body))))
 
 ;smart destructor
-(defn TypeFn-body* [names typefn]
+(defn TypeFn-body* [names ^TypeFn typefn]
   {:pre [(every? symbol? names)
          (TypeFn? typefn)]}
   (assert (= (.nbound typefn) (count names)) "Wrong number of names")
   (instantiate-many names (.scope typefn)))
 
-(defn TypeFn-bbnds* [names typefn]
+(defn TypeFn-bbnds* [names ^TypeFn typefn]
   {:pre [(every? symbol? names)
          (TypeFn? typefn)]
    :post [(every? Bounds? %)]}
@@ -372,19 +374,19 @@
             (abstract-many names body)
             free-names)))
 
-(defn Poly-free-names* [poly]
+(defn Poly-free-names* [^Poly poly]
   {:pre [(Poly? poly)]
    :post [((every-pred seq (every-c? symbol?)) %)]}
   (.actual-frees poly))
 
 ;smart destructor
-(defn Poly-body* [names poly]
+(defn Poly-body* [names ^Poly poly]
   {:pre [(every? symbol? names)
          (Poly? poly)]}
   (assert (= (.nbound poly) (count names)) "Wrong number of names")
   (instantiate-many names (.scope poly)))
 
-(defn Poly-bbnds* [names poly]
+(defn Poly-bbnds* [names ^Poly poly]
   {:pre [(every? symbol? names)
          (Poly? poly)]}
   (assert (= (.nbound poly) (count names)) "Wrong number of names")
@@ -392,7 +394,7 @@
           (visit-bounds b #(instantiate-many names %)))
         (.bbnds poly)))
 
-(defrecord PolyDots [nbound bbnds scope]
+(defrecord PolyDots [nbound bbnds ^Scope scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
   [(nat? nbound)
    (every? Bounds? bbnds)
@@ -417,13 +419,13 @@
                 (abstract-many names body))))
 
 ;smart destructor
-(defn PolyDots-body* [names poly]
+(defn PolyDots-body* [names ^PolyDots poly]
   {:pre [(every? symbol? names)
          (PolyDots? poly)]}
   (assert (= (.nbound poly) (count names)) "Wrong number of names")
   (instantiate-many names (.scope poly)))
 
-(defn PolyDots-bbnds* [names poly]
+(defn PolyDots-bbnds* [names ^PolyDots poly]
   {:pre [(every? symbol? names)
          (PolyDots? poly)]}
   (assert (= (.nbound poly) (count names)) "Wrong number of names")
@@ -461,9 +463,7 @@
   (into {} (for [[v t] (map vector vs ts)]
              [v (->t-subst t no-bounds)])))
 
-(declare error-msg)
-
-(defn instantiate-typefn [t types]
+(defn instantiate-typefn [^TypeFn t types]
   (assert (TypeFn? t) (str "instantiate-typefn requires a TypeFn: " (unparse-type t)))
   (do (assert (= (.nbound t) (count types)) (error-msg "Wrong number of arguments passed to type function: "
                                                        (unparse-type t) (mapv unparse-type types)))
@@ -485,26 +485,26 @@
 
 (declare resolve-tapp*)
 
-(defn resolve-TApp [app]
+(defn resolve-TApp [^TApp app]
   {:pre [(TApp? app)]}
   (resolve-tapp* (.rator app) (.rands app)))
 
 (defn resolve-tapp* [rator rands]
-  (let [rator (-resolve rator)
+  (let [^TypeFn rator (-resolve rator)
         _ (assert (TypeFn? rator) (unparse-type rator))]
     (assert (= (count rands) (.nbound rator))
             (error-msg "Wrong number of arguments provided to type function"
                        (unparse-type rator)))
     (instantiate-typefn rator rands)))
 
-(defn resolve-App [app]
+(defn resolve-App [^App app]
   {:pre [(App? app)]}
   (resolve-app* (.rator app) (.rands app)))
 
 (defn resolve-app* [rator rands]
   (let [rator (-resolve rator)]
     (cond
-      (Poly? rator) (do (assert (= (count rands) (.nbound rator))
+      (Poly? rator) (do (assert (= (count rands) (.nbound ^Poly rator))
                                 (error-msg "Wrong number of arguments provided to polymorphic type"
                                      (unparse-type rator)))
                       (instantiate-poly rator rands))
@@ -530,7 +530,7 @@
   (or (Name? ty)
       (App? ty)
       (and (TApp? ty)
-           (not (F? (.rator ty))))
+           (not (F? (.rator ^TApp ty))))
       (Mu? ty)))
 
 (defn resolve-Name [nme]
@@ -568,7 +568,7 @@
   "A Clojure value"
   [])
 
-(defn Value->Class [tval]
+(defn ^Class Value->Class [^Value tval]
   (class (.val tval)))
 
 (defrecord AnyValue []

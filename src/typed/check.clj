@@ -1,5 +1,6 @@
-(in-ns 'typed.core)
+(set! *warn-on-reflection* true)
 
+(in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -55,6 +56,9 @@
 (defmulti check (fn [expr & [expected]]
                   {:pre [((some-fn nil? TCResult?) expected)]}
                   (:op expr)))
+
+(defn check-expr [expr & [expected]]
+  (check expr expected))
 
 ;[Symbol Any -> Expr]
 (defn check-top-level [nsym form]
@@ -443,8 +447,9 @@
                   f*
                   f)))]
       (cond
-        (FilterSet? fs) (-FS (subst-filter (add-extra-filter (.then fs)) k o polarity)
-                             (subst-filter (add-extra-filter (.else fs)) k o polarity))
+        (FilterSet? fs) (let [^FilterSet fs fs]
+                          (-FS (subst-filter (add-extra-filter (.then fs)) k o polarity)
+                               (subst-filter (add-extra-filter (.else fs)) k o polarity)))
         :else (-FS -top -top)))))
 
 ;[Type Number RObject Boolean -> RObject]
@@ -647,7 +652,7 @@
 
 ;[Expr (Seqable Expr) (Seqable TCResult) (Option TCResult) Boolean
 ; -> Any]
-(defn app-type-error [fexpr args fin arg-ret-types expected poly?]
+(defn ^String app-type-error [fexpr args ^FnIntersection fin arg-ret-types expected poly?]
   {:pre [(FnIntersection? fin)]}
   (let [static-method? (= :static-method (:op fexpr))
         instance-method? (= :instance-method (:op fexpr))
@@ -677,12 +682,12 @@
                (list* (ana-frm/map->form fexpr)
                       (map ana-frm/map->form args))))))
 
-(defn polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]
+(defn ^String polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]
   {:pre [(Poly? fexpr-type)]}
   (let [fin (Poly-body* (Poly-free-names* fexpr-type) fexpr-type)]
     (app-type-error fexpr args fin arg-ret-types expected true)))
 
-(defn plainapp-type-error [fexpr args fexpr-type arg-ret-types expected]
+(defn ^String plainapp-type-error [fexpr args fexpr-type arg-ret-types expected]
   {:pre [(FnIntersection? fexpr-type)]}
   (app-type-error fexpr args fexpr-type arg-ret-types expected false))
 
@@ -708,20 +713,20 @@
       ;set function
       ;FIXME yuck
       (and (RClass? fexpr-type)
-           (isa? (symbol->Class (.the-class fexpr-type)) IPersistentSet))
+           (isa? (symbol->Class (.the-class ^RClass fexpr-type)) IPersistentSet))
       (do
         (assert (#{1} (count args)))
         (ret -any))
 
       (and (RClass? fexpr-type)
-           (isa? (symbol->Class (.the-class fexpr-type)) IPersistentMap))
+           (isa? (symbol->Class (.the-class ^RClass fexpr-type)) IPersistentMap))
       ;rewrite ({..} x) as (f {..} x), where f is some dummy fn
       (let [mapfn (parse-type '(All [x] [(IPersistentMap Any x) Any -> (U nil x)]))]
         (check-funapp fexpr args (ret mapfn) (concat [fexpr-ret-type] arg-ret-types) expected))
 
       ;Symbol function
       (and (RClass? fexpr-type)
-           ('#{clojure.lang.Symbol} (.the-class fexpr-type)))
+           ('#{clojure.lang.Symbol} (.the-class ^RClass fexpr-type)))
       (let [symfn (parse-type '(All [x] [(U (IPersistentMap Any x) Any) -> (U x nil)]))]
         (check-funapp fexpr args (ret symfn) arg-ret-types expected))
 
@@ -746,12 +751,12 @@
 
       ;ordinary polymorphic function without dotted rest
       (and (Poly? fexpr-type)
-           (let [body (Poly-body* (repeatedly (.nbound fexpr-type) gensym) fexpr-type)]
+           (let [body (Poly-body* (repeatedly (.nbound ^Poly fexpr-type) gensym) fexpr-type)]
              (and (FnIntersection? body)
-                  (every? (complement :drest) (.types body)))))
-      (let [fs-names (repeatedly (.nbound fexpr-type) gensym)
+                  (every? (complement :drest) (.types ^FnIntersection body)))))
+      (let [fs-names (repeatedly (.nbound ^Poly fexpr-type) gensym)
             _ (assert (every? symbol? fs-names))
-            fin (Poly-body* fs-names fexpr-type)
+            ^FnIntersection fin (Poly-body* fs-names fexpr-type)
             bbnds (Poly-bbnds* fs-names fexpr-type)
             _ (assert (FnIntersection? fin))
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (.types fin)]
@@ -792,7 +797,7 @@
                            (not (some :kws (:types pbody)))
                            [pbody fixed-vars fixed-bnds dotted-var dotted-bnd])))]
         (let [inferred-rng (some identity
-                                 (for [{:keys [dom rest drest rng] :as ftype} (:types pbody)
+                                 (for [{:keys [dom rest ^DottedPretype drest rng] :as ftype} (:types pbody)
                                        ;only try inference if argument types match
                                        :when (cond
                                                rest (<= (count dom) (count arg-types))
@@ -1010,8 +1015,12 @@
         _ (assert (HeterogeneousSeq? targett) (error-msg "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
                                                          (unparse-type targett)))
         res (reduce (fn [t [kt vt]]
-                      {:pre [(HeterogeneousMap? t)]}
-                      (assoc-in [:types kt] vt))
+                      {:pre [(Type? t)]}
+                      ;preserve bottom
+                      (if (= (Un) vt)
+                        vt
+                        (do (assert (HeterogeneousMap? t))
+                          (assoc-in [:types kt] vt))))
                     (-hmap {}) (.types ^HeterogeneousSeq targett))]
     (assoc expr
            expr-type (ret res))))
@@ -1024,11 +1033,11 @@
     (cond
       ((every-pred Value? (comp keyword? :val)) (ret-t kwr))
       (assoc expr
-             expr-type (invoke-keyword kwr 
-                                       (expr-type (check target))
-                                       (when default
-                                         (expr-type (check default))) 
-                                       expected))
+             expr-type (let [target-ret (expr-type (check target))
+                             default-ret (when default
+                                           (expr-type (check default))) 
+                             ret (invoke-keyword kwr target-ret default-ret expected)]
+                         ret))
       
       :else ::not-special)))
 
@@ -1091,10 +1100,7 @@
                (-FS (if (Path? o)
                       (-filter val-type id-hm (concat path-hm [this-pelem]))
                       (-filter-at val-type (->EmptyObject)))
-                    (if (and (not (subtype? -false val-type))
-                             (not (subtype? -nil val-type)))
-                      -bot
-                      -top))
+                    -top)
                (if (Path? o)
                  (update-in o [:path] #(seq (concat % [this-pelem])))
                  o))
@@ -1156,8 +1162,8 @@
   (let [parent-t (ret-t parent-ret)
         fs (-FS (-filter-at parent-t (ret-o child-ret))
                 (-not-filter-at parent-t (ret-o child-ret)))]
-    (prn "fs" fs)
-    (prn "child object" (ret-o child-ret))
+;    (prn "fs" fs)
+;    (prn "child object" (ret-o child-ret))
     (ret (Un -true -false) fs -empty)))
 
 
@@ -1371,49 +1377,6 @@
     (recur (-resolve t))
     t))
 
-;for map destructuring
-(defmethod invoke-special #'clojure.core/seq?
-  [{:keys [args] :as expr} & [expected]]
-  (let [_ (assert (= 1 (count args)) "Wrong number of args to seq?")
-        cargs (doall (map check args))
-        obj (-> (expr-type (first cargs)) ret-o)
-        ;_ (prn "seq?: expr" (first args))
-        targett (fully-resolve-type (ret-t (expr-type (first cargs))))
-        tys (cond
-                (Union? targett) (into #{}
-                                       (apply concat
-                                              (for [t (set (map fully-resolve-type (:types targett)))]
-                                                (if (Union? t)
-                                                  (map fully-resolve-type (:types t))
-                                                  [t]))))
-                :else #{targett})
-        special? (every? (some-fn HeterogeneousSeq?
-                                  HeterogeneousList?
-                                  HeterogeneousVector?
-                                  HeterogeneousMap?)
-                         tys)
-        ;_ (prn "specials:" (map unparse-type tys))
-        sub? (when special?
-               (subtype? targett
-                         (RClass-of (Class->symbol ISeq) [-any])))]
-    (cond
-      (and special? sub?)
-      (assoc expr
-             expr-type (ret -true 
-                            (-FS (-filter-at (RClass-of (Class->symbol ISeq) [-any]) obj)
-                                 -bot)
-                            -empty))
-
-      (and special? (not sub?))
-      (assoc expr
-             expr-type (ret -false 
-                            (-FS -bot
-                                 (-not-filter-at (RClass-of (Class->symbol ISeq) [-any]) obj))
-                            -empty))
-
-      :else (do ;(prn "seq? not special")
-              ;(prn (unparse-type targett))
-              ::not-special))))
 ;nth
 (defmethod static-method-special 'clojure.lang.RT/nth
   [{:keys [args] :as expr} & [expected]]
@@ -1499,7 +1462,7 @@
         targetun (-> target check expr-type ret-t)
         targett (-resolve targetun)
         hmaps (cond
-                (and (Value? targett) (nil? (.val targett))) #{(-hmap {})}
+                (and (Value? targett) (nil? (.val ^Value targett))) #{(-hmap {})}
                 ((some-fn HeterogeneousVector? HeterogeneousMap?) targett) #{targett}
                 (subtype? targett (RClass-of IPersistentMap [-any -any])) #{targett}
                 (subtype? targett (RClass-of IPersistentVector [-any])) #{targett}
@@ -1525,14 +1488,15 @@
                                        ;keep hmap if keyword key and already hmap
                                        (and (HeterogeneousMap? hmap)
                                             (Value? kt)
-                                            (keyword? (.val kt)))
+                                            (keyword? (.val ^Value kt)))
                                        (assoc-in hmap [:types kt] vt)
 
                                        ;keep hvector if number Value key and already hvector
                                        (and (HeterogeneousVector? hmap)
                                             (Value? kt)
-                                            (number? (.val kt)))
-                                       (do (assert (integer? (.val kt)))
+                                            (number? (.val ^Value kt)))
+                                       (let [^Value kt kt] 
+                                         (assert (integer? (.val kt)))
                                          (assoc-in hmap [:types (.val kt)] vt))
 
                                        ;otherwise just make normal map if already a map, or normal vec if already a vec
@@ -1793,12 +1757,13 @@
                                                       (DottedPretype? drest))
                                                   (not (and rest drest))]
                                             :post [(Type? %)]}
-                                           (Un -nil (In (RClass-of Seqable [(or rest (.pre-type drest))])
+                                           (Un -nil (In (RClass-of Seqable [(or rest (.pre-type ^DottedPretype drest))])
                                                         (make-CountRange 1))))]
-    (assoc expr
-           expr-type (check-fn expr (or expected
-                                        (ret (make-FnIntersection
-                                               (make-Function [] -any -any))))))))
+    (let [type (check-fn expr (or expected
+                                  (ret (make-FnIntersection
+                                         (make-Function [] -any -any)))))]
+      (assoc expr
+             expr-type type))))
 
 (declare check-anon-fn-method abstract-filter abo abstract-object)
 
@@ -2036,7 +2001,8 @@
                                                  nil)
                            (apply make-FnIntersection
                                   (mapcat (fn [method]
-                                            (check-fn-method method fin))
+                                            (let [fnt (check-fn-method method fin)]
+                                              fnt))
                                           (concat methods (when variadic-method
                                                             [variadic-method])))))))
         ;rewrap in Poly or PolyDots if needed
@@ -2106,20 +2072,20 @@
         ; if this fn method is a multimethod dispatch method, then infer
         ; a new filter that results from being dispatched "here"
         mm-filter (when-let [{:keys [dispatch-fn-type dispatch-val-ret]} *current-mm*]
-                    (assert (and dispatch-fn-type dispatch-val-ret))
-                    (assert (not (or drest rest rest-param)))
-                    (let [disp-app-ret (check-funapp nil nil 
-                                                     (ret dispatch-fn-type)
-                                                     (map ret dom (repeat (-FS -top -top)) 
-                                                          (map (comp #(->Path nil %) :sym) required-params))
-                                                     nil)
-                          ;_ (prn "disp-app-ret" disp-app-ret)
-                          ;_ (prn "disp-fn-type" (unparse-type dispatch-fn-type))
-                          ;_ (prn "dom" dom)
-                          isa-ret (tc-isa? disp-app-ret dispatch-val-ret)
-                          then-filter (-> isa-ret ret-f :then)
-                          _ (assert then-filter)]
-                      then-filter))
+                      (assert (and dispatch-fn-type dispatch-val-ret))
+                      (assert (not (or drest rest rest-param)))
+                      (let [disp-app-ret (check-funapp nil nil 
+                                                       (ret dispatch-fn-type)
+                                                       (map ret dom (repeat (-FS -top -top)) 
+                                                            (map (comp #(->Path nil %) :sym) required-params))
+                                                       nil)
+                            ;_ (prn "disp-app-ret" disp-app-ret)
+                            ;_ (prn "disp-fn-type" (unparse-type dispatch-fn-type))
+                            ;_ (prn "dom" dom)
+                            isa-ret (tc-isa? disp-app-ret dispatch-val-ret)
+                            then-filter (-> isa-ret ret-f :then)
+                            _ (assert then-filter)]
+                        then-filter))
 
         ;_ (prn "funapp1: inferred mm-filter" mm-filter)
 
@@ -2131,7 +2097,8 @@
                         (update-in [:l] merge (into {} fixed-entry) (into {} rest-entry)))
                   flag (atom false :validator boolean?)
                   env (if mm-filter
-                        (env+ env [mm-filter] flag)
+                        (let [t (env+ env [mm-filter] flag)]
+                          t)
                         env)]
               (assert (not @flag) "Local inferred to be bottom when applying multimethod filter")
               env)
@@ -2197,12 +2164,7 @@
                   (error-msg "Local binding " sym " expected type " (unparse-type (ret-t expected))
                              ", but actual type " (unparse-type t)))]
     (assoc expr
-           expr-type (ret t 
-                          (-FS (if (subtype? t (Un -false -nil))
-                                 -bot
-                                 (-not-filter (Un -nil -false) sym))
-                               (-filter (Un -nil -false) sym))
-                          (->Path nil sym)))))
+           expr-type (ret t (-FS -top -top) (->Path nil sym)))))
 
 
 (declare Method-symbol->Type)
@@ -2220,7 +2182,7 @@
    :post [((some-fn nil? PrimitiveArray?) %)]}
   (let [s (str sym)]
     (when (.endsWith s "<>")
-      (let [s-nosuffix (apply str (drop-last 2 s))]
+      (let [^String s-nosuffix (apply str (drop-last 2 s))]
         (assert (not (.contains s-nosuffix "<>")))
         ;Nullable elements
         (let [t (Method-symbol->Type (symbol s-nosuffix) nilable?)
@@ -2501,55 +2463,70 @@
 
 (defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
   (assert (or (not is-loop) expected-bnds) (error-msg "Loop requires more annotations"))
-  (let [env (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
+  (let [check-let-checkfn *check-let-checkfn*
+        env (time
+              (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
-                      (let [{:keys [t fl o]} (->
-                                               (expr-type
-                                                 (binding [*current-expr* init]
-                                                   (with-lexical-env env
-                                                     (*check-let-checkfn* init (when is-loop
-                                                                                 (ret expected-bnd))))))
-                                               ;substitute previous references to sym with an empty object,
-                                               ;as old binding is shadowed
-                                               (update-in [:t] subst-type sym -empty true)
-                                               (update-in [:fl] subst-filter-set sym -empty true)
-                                               (update-in [:o] subst-object sym -empty true))
+                        (let [; check rhs
+                              {:keys [t fl o]} (let [noshadow-ret (->
+                                                                      (expr-type
+                                                                        (binding [*current-expr* init]
+                                                                          (with-lexical-env env
+                                                                            (check-let-checkfn init (when is-loop
+                                                                                                      (ret expected-bnd)))))))]
+                                                   ;substitute previous references to sym with an empty object,
+                                                   ;as old binding is shadowed
+                                                   ; Rather expensive, only perform when necessary (if shadowing actually occurs).
+                                                   (if (-> env :l (find sym))
+                                                     (-> noshadow-ret
+                                                       (update-in [:t] subst-type sym -empty true)
+                                                       (update-in [:fl] subst-filter-set sym -empty true)
+                                                       (update-in [:o] subst-object sym -empty true))
+                                                     noshadow-ret))
+
                             ; update old env and new result with previous references of sym (which is now shadowed)
                             ; replaced with an empty object
+                            ;
+                            ; This is rather expensive with large types, so only perform when another local binding
+                            ; is actually shadowed.
                             
-                           ; _ (pr "ENV")
-                           ; _ (print-env)
-                            env (-> env
-                                  (update-in [:l] #(into {} (for [[oldsym ty] %]
-                                                              [oldsym (subst-type ty sym -empty true)])))
-                                  (update-in [:props] (fn [props]
-                                                        (mapv #(subst-filter % sym -empty true) props))))
-                            ;_ (do (pr "let: env after") (print-env env))
-                            ]
+                            env (if (-> env :l (find sym))
+                                  (-> env
+                                    (update-in [:l] #(let [sc (into {} (for [[oldsym ty] %]
+                                                                         [oldsym (subst-type ty sym -empty true)]))]
+                                                       sc))
+                                    (update-in [:props] (fn [props]
+                                                          (mapv #(subst-filter % sym -empty true) props))))
+                                  env)]
                         (cond
                           (FilterSet? fl)
                           (let [{:keys [then else]} fl
                                 p* [(-imp (-not-filter (Un -nil -false) sym) then)
-                                    (-imp (-filter (Un -nil -false) sym) else)]]
-                            (-> env
-                              ;update binding type
-                              (assoc-in [:l sym] t)
-                              ;update props
-                              (update-in [:props] #(apply concat 
-                                                          (combine-props p* % (atom true))))))
+                                    (-imp (-filter (Un -nil -false) sym) else)]
+                                new-env (-> env
+                                          ;update binding type
+                                          (assoc-in [:l sym] t)
+                                          ;update props
+                                          (update-in [:props] #(apply concat 
+                                                                      (combine-props p* % (atom true)))))]
+                            new-env)
 
                           (NoFilter? fl) (-> env
                                            ;no propositions to add, just update binding type
                                            (assoc-in [:l sym] t)))))
                     *lexical-env* (map vector binding-inits (or expected-bnds
                                                                 (repeat nil))))
+              )
+        
+        _ (prn "^^^ env update in let")
+
         cbody (with-lexical-env env
                 (if is-loop
                   (binding [*recur-target* (->RecurTarget expected-bnds nil nil nil)]
-                    (*check-let-checkfn* body expected))
+                    (check-let-checkfn body expected))
                   (binding [*current-expr* body]
-                    (*check-let-checkfn* body expected))))
+                    (check-let-checkfn body expected))))
 
         ;now we return a result to the enclosing scope, so we
         ;erase references to any bindings this scope introduces
@@ -2701,6 +2678,16 @@
               (recur (-resolve t))
               t))]
     (cond
+      (and (TypeFilter? lo)
+           (empty? (:path lo))) 
+      (let [u (:type lo)
+            r (restrict u t)]
+        r)
+
+      (and (NotTypeFilter? lo)
+           (empty? (:path lo))) (let [u (:type lo)]
+                                  (remove* t u))
+
       ;heterogeneous map ops
       (and (TypeFilter? lo)
            (KeyPE? (first (:path lo)))
@@ -2708,9 +2695,12 @@
       (let [{:keys [type path id]} lo
             [{fpth-kw :val} & rstpth] path
             fpth (->Value fpth-kw)
-            type-at-pth (get (:types t) fpth)]
+            type-at-pth (when-let [type-at-pth (get (:types t) fpth)]
+                          (let [new-entry-type (update type-at-pth (-filter type id rstpth))]
+                            (when-not (= (Un) new-entry-type)
+                              new-entry-type)))]
         (if type-at-pth 
-          (-hmap (assoc (:types t) fpth (update type-at-pth (-filter type id rstpth))))
+          (assoc-in t [:types fpth] type-at-pth)
           (Bottom)))
 
       (and (NotTypeFilter? lo)
@@ -2765,17 +2755,12 @@
            (ClassPE? (-> lo :path first)))
       t
 
-      (and (TypeFilter? lo)
-           (empty? (:path lo))) 
-      (let [u (:type lo)]
-        (restrict u t))
-
-      (and (NotTypeFilter? lo)
-           (empty? (:path lo))) (let [u (:type lo)]
-                                  (remove* t u))
-
-      (Union? t) (let [ts (:types t)]
-                   (apply Un (doall (map (fn [t] (update t lo)) ts))))
+      (Union? t) (let [ts (:types t)
+                       new-ts (mapv (fn [t] 
+                                      (let [n (update t lo)]
+                                        n))
+                                    ts)]
+                   (apply Un new-ts))
       (Intersection? t) (let [ts (:types t)]
                           (apply In (doall (map (fn [t] (update t lo)) ts))))
       :else (throw (Exception. (error-msg "update along ill-typed path " (unparse-type t) " " (with-out-str (pr lo))))))))
@@ -2825,12 +2810,12 @@
     (reduce (fn [env f]
               {:pre [(PropEnv? env)
                      (Filter? f)]}
-              (let [env (update-in env [:l] update-composite f)]
+              (let [new-env (update-in env [:l] update-composite f)]
                 ; update flag if a variable is now bottom
-                (when (seq (set/intersection (set (vals (:l env)))
-                                             #{(Un)}))
+                (when ((set (vals (:l new-env))) 
+                         (Un))
                   (reset! flag false))
-                env))
+                new-env))
             (assoc env :props (concat atoms props))
             (concat atoms props))))
 

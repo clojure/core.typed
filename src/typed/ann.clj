@@ -331,6 +331,9 @@
             [[a c -> a] a (U nil (Seqable c)) -> a])))
   )
 
+;should be special cased
+(ann clojure.core/not= [Any Any * -> boolean])
+
 (ann clojure.core/first
      (All [x]
           (Fn [(Option (I (Seqable x) (ExactCount 0))) -> nil]
@@ -479,6 +482,9 @@
 (override-constructor clojure.lang.LazySeq 
                       (All [x]
                         [[-> (Option (Seqable x))] -> (LazySeq x)]))
+
+(override-method clojure.lang.Numbers/isZero [Number -> boolean :filters {:then (is (Value 0) 0)
+                                                                          :else (! (Value 0) 0)}])
 
 (let [t (make-FnIntersection
           (make-Function 

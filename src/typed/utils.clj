@@ -55,3 +55,14 @@
 ;
 ;(comp-mm replace-image (disj kinds :scope))
 ;(comp-mm replace-image (disj kinds :scope))
+
+(declare ^:dynamic *current-env*)
+
+;[Any * -> String]
+(defn ^String
+  error-msg 
+  [& msg]
+  (apply str (when *current-env*
+                  (str (:line *current-env*) ": "))
+         (concat msg)))
+

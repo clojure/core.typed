@@ -188,7 +188,7 @@
   (let [ckeys (mapv check-cljs mkeys)
         cvals (mapv check-cljs mvals)
         ;only handle keyword keys for now
-        _ (assert (every? (every-pred Value? #(keyword? (.val %)))
+        _ (assert (every? (every-pred Value? #(keyword? (.val ^Value %)))
                           (map (comp ret-t expr-type) ckeys)))]
     (assoc expr
            expr-type (ret (->HeterogeneousMap (zipmap (map (comp ret-t expr-type) ckeys)

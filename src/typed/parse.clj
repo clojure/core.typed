@@ -1,3 +1,5 @@
+(set! *warn-on-reflection* true)
+
 (in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -18,7 +20,8 @@
             f))
         *free-scope*))
 
-(defn free-with-name-bnds 
+(defn ^Bounds
+  free-with-name-bnds 
   "Find the bounds for the free with the actual name name, as opposed to
   the alias used for scoping"
   [name]
@@ -38,6 +41,7 @@
 
 (defn free-in-scope-bnds 
   "Find the bounds for the free scoped as name"
+  ^Bounds
   [name]
   {:pre [(symbol? name)]
    :post [((some-fn nil? Bounds?) %)]}
@@ -318,7 +322,7 @@
                (class? res) (Class->symbol res)
                (var? res) (var->symbol res))]
     (if (free-in-scope n)
-      (let [k (.higher-kind (free-in-scope-bnds n))
+      (let [^TypeFn k (.higher-kind (free-in-scope-bnds n))
             _ (assert (TypeFn? k) (error-msg "Cannot invoke type variable " n))
             _ (assert (= (.nbound k) (count args)) (error-msg "Wrong number of arguments (" (count args)
                                                               ") to type function " (unparse-type k)))]

@@ -22,6 +22,9 @@
             [clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]]))
 
+(set! *warn-on-reflection* true)
+
+
 ; constraint shorthands, other handy functions
 (load "utils")
 
@@ -241,9 +244,9 @@
                  Object)
      (Value? ty) (Value->Class ty)
      ;; handles most common case of (U nil Type)
-     (Union? ty) (let [clss (map #(Type->array-member-Class % true) (.types ty))
+     (Union? ty) (let [clss (map #(Type->array-member-Class % true) (:types ty))
                        prim-and-nil? (and (some nil? clss)
-                                          (some #(when % (.isPrimitive %)) clss))
+                                          (some #(when % (.isPrimitive ^Class %)) clss))
                        nonil-clss (remove nil? clss)]
                    (if (and (= 1 (count nonil-clss))
                             (not prim-and-nil?))
@@ -251,7 +254,7 @@
                      Object))
      (Intersection? ty) Object
      (RClass? ty) (RClass->Class ty)
-     (PrimitiveArray? ty) (class (make-array (Type->array-member-Class (.jtype ty) false) 0))
+     (PrimitiveArray? ty) (class (make-array (Type->array-member-Class (:jtype ty) false) 0))
      :else Object)))
 
 (defn into-array>* 
@@ -523,7 +526,7 @@
     char Character/TYPE
     (Class/forName (str sym))))
 
-(defn Class->symbol [cls]
+(defn Class->symbol [^Class cls]
   {:pre [(class? cls)]
    :post [(symbol? %)]}
   (symbol (.getName cls)))
@@ -673,10 +676,10 @@
   ([] (check-ns (ns-name *ns*)))
   ([nsym]
    (ensure-clojure)
-   (with-open [pbr (analyze/pb-reader-for-ns nsym)]
+   (with-open [^clojure.lang.LineNumberingPushbackReader pbr (analyze/pb-reader-for-ns nsym)]
      (let [[_ns-decl_ & asts] (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)]
        (doseq [ast asts]
-         (check ast))))))
+         (check-expr ast))))))
 
 (defn trepl []
   (clojure.main/repl 

@@ -6,15 +6,13 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-#_(set! *warn-on-reflection* false)
-
 (ns typed.test.compiler
   (:refer-clojure :exclude [munge macroexpand-1])
   (:require [clojure.java.io :as io]
             [clojure.repl :refer [pst]]
             [clojure.string :as string]
             [typed.core :refer [def-alias ann declare-names check-ns ann-form tc-ignore
-                                fn>
+                                fn> cf print-env
                                 ;types
                                 Atom1 AnyInteger Option]])
   (:import (java.lang StringBuilder)
@@ -82,10 +80,12 @@
           (HMap {:env Env
                  :op (Value :try*)
                  :form Form
-                 :try x
-                 :finally x
-                 :name String
-                 :catch x
+                 :try '{:statements (Option (Seqable x))
+                        :ret x}
+                 :catch (Option '{:statements (Option (Seqable x))
+                                  :ret x})
+                 :finally (Option x)
+                 :name (Option String)
                  :children (Seqable x)})
           ;; def
           (HMap {:env Env
@@ -322,7 +322,7 @@
        (str " at line " (:line env) " " *cljs-file*))))))
 
 (ann munge (Fn [Symbol -> Symbol]
-               [Any -> (U Symbol String)]))
+               [String -> String]))
 (defn munge [s]
   (let [ss (str s)
         ms (if (.contains ss "]")
@@ -526,7 +526,7 @@
 (defn ^String emit-str [expr]
   (with-out-str (emit expr)))
 
-(ann emitln [Any * -> Any])
+(ann emitln [Any * -> nil])
 ;*position* is technically mutable! Cannot infer non-nil in test
 (tc-ignore
 (defn emitln [& xs]
@@ -622,7 +622,7 @@
             ["])"])))
   )
 
-(ann emit-block [Context (Option (Seqable Any)) Expr -> nil])
+(ann emit-block [Context (Option (Seqable Expr)) Expr -> nil])
 (defn emit-block 
   [context statements ret]
   (when statements

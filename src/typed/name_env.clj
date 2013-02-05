@@ -42,8 +42,6 @@
   (add-type-name sym datatype-name-type)
   nil)
 
-(declare error-msg)
-
 (defn- resolve-name* [sym]
   (let [t (@TYPE-NAME-ENV sym)]
     (cond

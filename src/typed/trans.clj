@@ -17,7 +17,7 @@
 (defmethod trans-dots RClass [t b bm] t)
 
 (defmethod trans-dots TApp
-  [t b bm]
+  [^TApp t b bm]
   (let [tfn #(trans-dots % b bm)]
     (->TApp (tfn (.rator t)) (mapv tfn (.rands t)))))
 

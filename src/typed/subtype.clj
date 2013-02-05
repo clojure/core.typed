@@ -1,3 +1,5 @@
+(set! *warn-on-reflection* true)
+
 (in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -6,11 +8,6 @@
 (def ^:dynamic *current-env* nil)
 (def ^:dynamic *current-expr* nil)
 
-;[Any * -> String]
-(defn error-msg [& msg]
-  (apply str (when *current-env*
-                  (str (:line *current-env*) ": "))
-         (concat msg)))
 
 ;[Type Type -> Nothing]
 (defn type-error [s t]
@@ -81,6 +78,8 @@
 (defn unify [X S T]
   (boolean (infer X {} S T -any)))
 
+(declare keyword->Fn)
+
 ;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
 (defn subtypeA* [A s t]
   {:post [(set? %)]}
@@ -91,6 +90,11 @@
     A
     (binding [*sub-current-seen* (conj A [s t])]
       (cond
+        (and (Value? s)
+             (Value? t))
+        ;already (not= s t)
+        (type-error s t)
+
         (Name? s)
         (subtypeA* *sub-current-seen* (resolve-Name s) t)
 
@@ -99,19 +103,19 @@
 
         (and (Poly? s)
              (Poly? t)
-             (= (.nbound s) (.nbound t)))
-        (let [names (repeatedly (.nbound s) gensym)
+             (= (.nbound ^Poly s) (.nbound ^Poly t)))
+        (let [names (repeatedly (.nbound ^Poly s) gensym)
               b1 (Poly-body* names s)
               b2 (Poly-body* names t)]
           (subtype b1 b2))
 
         ;use unification to see if we can use the Poly type here
         (and (Poly? s)
-             (let [names (repeatedly (.nbound s) gensym)
+             (let [names (repeatedly (.nbound ^Poly s) gensym)
                    bnds (Poly-bbnds* names s)
                    b1 (Poly-body* names s)]
                (unify (zipmap names bnds) [b1] [t])))
-        (let [names (repeatedly (.nbound s) gensym)
+        (let [names (repeatedly (.nbound ^Poly s) gensym)
               bnds (Poly-bbnds* names s)
               b1 (Poly-body* names s)]
           (if (unify (zipmap names bnds) [b1] [t])
@@ -119,19 +123,19 @@
             (type-error s t)))
 
         (and (Poly? t)
-             (let [names (repeatedly (.nbound t) gensym)
+             (let [names (repeatedly (.nbound ^Poly t) gensym)
                    b (Poly-body* names t)]
                (empty? (fv t))))
-        (let [names (repeatedly (.nbound t) gensym)
+        (let [names (repeatedly (.nbound ^Poly t) gensym)
               b (Poly-body* names t)]
           (subtype s b))
 
         (and (TApp? s)
-             (not (F? (.rator s))))
+             (not (F? (.rator ^TApp s))))
         (subtypeA* *sub-current-seen* (resolve-TApp s) t)
 
         (and (TApp? t)
-             (not (F? (.rator t))))
+             (not (F? (.rator ^TApp t))))
         (subtypeA* *sub-current-seen* s (resolve-TApp t))
 
         (App? s)
@@ -145,13 +149,13 @@
 
         (Union? s)
         ;use subtypeA*, throws error
-        (if (every? #(subtypeA* *sub-current-seen* % t) (.types s))
+        (if (every? #(subtypeA* *sub-current-seen* % t) (.types ^Union s))
           *sub-current-seen*
           (type-error s t))
 
         ;use subtypeA*?, boolean result
         (Union? t)
-        (if (some #(subtypeA*? *sub-current-seen* s %) (.types t))
+        (if (some #(subtypeA*? *sub-current-seen* s %) (.types ^Union t))
           *sub-current-seen*
           (type-error s t))
 
@@ -169,34 +173,32 @@
         (and (Intersection? s)
              (Intersection? t))
         (if (every? (fn [s*]
-                      (some #(subtype? s* %) (.types t)))
-                    (.types s))
+                      (some #(subtype? s* %) (.types ^Intersection t)))
+                    (.types ^Intersection s))
           *sub-current-seen*
           (type-error s t))
 
         (Intersection? s)
-        (if (some #(subtype? % t) (.types s))
+        (if (some #(subtype? % t) (.types ^Intersection s))
           *sub-current-seen*
           (type-error s t))
 
         (Intersection? t)
-        (if (every? #(subtype? s %) (.types t))
+        (if (every? #(subtype? s %) (.types ^Intersection t))
           *sub-current-seen*
           (type-error s t))
 
         ;values are subtypes of their classes
         (and (Value? s)
              (checking-clojure?))
-        (if (nil? (.val s))
-          (type-error s t)
-          (subtype (apply In (RClass-of (class (.val s)))
-                          ;keyword values are functions
-                          (when (keyword? (.val s))
-                            [(parse-type '(All [x]
-                                               [(U Any '{:a x}) -> x 
-                                                :filters {:then (is x 0 [(Key :a)])}
-                                                :object {:id 0 :path [(Key :a)]}]))]))
-                   t))
+        (let [^Value s s]
+          (if (nil? (.val s))
+            (type-error s t)
+            (subtype (apply In (RClass-of (class (.val s)))
+                            ;keyword values are functions
+                            (when (keyword? (.val s))
+                              [(keyword->Fn (.val s))]))
+                     t)))
 
         :else (subtype* s t)))))
 
@@ -229,7 +231,7 @@
 
 ;; simple co/contra-variance for ->
 ;[(IPersistentSet '[Type Type]) Function Function -> (IPersistentSet '[Type Type])]
-(defn arr-subtype [A0 s t]
+(defn arr-subtype [A0 ^Function s ^Function t]
   {:pre [(Function? s)
          (Function? t)]}
   (assert (not (some :kws [s t])))
@@ -341,7 +343,7 @@
     (type-error s t)))
 
 (defn subtype-TypeFn-app?
-  [tfn ltapp rtapp]
+  [^TypeFn tfn ^TApp ltapp ^TApp rtapp]
   {:pre [(TypeFn? tfn)
          (TApp? ltapp)
          (TApp? rtapp)]}
@@ -353,7 +355,7 @@
                               (subtypeA*? *sub-current-seen* r l))))
           (map vector (.variances tfn) (.rands ltapp) (.rands rtapp))))
 
-(defmulti subtype-TApp? (fn [S T] 
+(defmulti subtype-TApp? (fn [^TApp S ^TApp T] 
                           {:pre [(TApp? S)
                                  (TApp? T)]}
                           [(class (.rator S)) (class (.rator T))
@@ -364,7 +366,7 @@
   (subtypeA*? (conj *sub-current-seen* [S T]) (resolve-TApp S) (resolve-TApp T)))
 
 (defmethod subtype-TApp? [TypeFn TypeFn true]
-  [S T]
+  [^TApp S T]
   (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
     (subtype-TypeFn-app? (.rator S) S T)))
 
@@ -385,7 +387,7 @@
 
 ;same operator
 (defmethod subtype-TApp? [Name Name true]
-  [S T]
+  [^TApp S T]
   (let [r (resolve-Name (.rator S))]
     (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
       (subtype-TApp? (assoc-in S [:rator] r)
@@ -394,9 +396,9 @@
 ; only subtypes if applied to the same F
 (defmethod subtype-TApp? [F F false] [S T] false)
 (defmethod subtype-TApp? [F F true]
-  [S T]
-  (let [tfn (some (fn [[_ {{:keys [name]} :F :keys [bnds]}]] 
-                    (when (= name (.name (.rator S)))
+  [^TApp S T]
+  (let [tfn (some (fn [[_ {{:keys [name]} :F :keys [^Bounds bnds]}]] 
+                    (when (= name (.name ^F (.rator S)))
                       (.higher-kind bnds)))
                   *free-scope*)]
     (subtype-TypeFn-app? tfn S T)))
@@ -413,7 +415,7 @@
 (prefer-method subtype* [Type TApp ::default] [HeterogeneousVector Type ::default])
 
 (defmethod subtype* [TApp Type ::default]
-  [S T]
+  [^TApp S T]
   (if (and (not (F? (.rator S)))
            (subtypeA*? (conj *sub-current-seen* [S T])
                        (resolve-TApp S) T))
@@ -421,7 +423,7 @@
     (type-error S T)))
 
 (defmethod subtype* [Type TApp ::default]
-  [S T]
+  [S ^TApp T]
   (if (and (not (F? (.rator T)))
            (subtypeA*? (conj *sub-current-seen* [S T])
                        S (resolve-TApp T)))
@@ -429,7 +431,7 @@
     (type-error S T)))
 
 (defmethod subtype* [TypeFn TypeFn ::default]
-  [S T]
+  [^TypeFn S ^TypeFn T]
   (if (and (= (.nbound S) (.nbound T))
            (= (.variances S) (.variances T))
            (= (.bbnds S) (.bbnds T))
@@ -568,7 +570,7 @@
                [HeterogeneousMap Type ::clojure])
 
 (defmethod subtype* [HeterogeneousMap Type ::clojure]
-  [s t]
+  [^HeterogeneousMap s t]
   (assert (not (.other-entries s)))
   ; HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
   (subtype (RClass-of APersistentMap [(apply Un (-> s :types keys))

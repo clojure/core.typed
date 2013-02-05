@@ -1,3 +1,5 @@
+(set! *warn-on-reflection* true)
+
 (in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -313,32 +315,32 @@
 
         ; handle frees first
         (and (F? S)
-             (contains? X (.name S)))
+             (contains? X (.name ^F S)))
         (cs-gen-left-F V X Y S T)
 
         (and (F? T)
-             (contains? X (.name T)))
+             (contains? X (.name ^F T)))
         (cs-gen-right-F V X Y S T)
 
         ;; constrain body to be below T, but don't mention the new vars
         (Poly? S)
-        (let [nms (repeatedly (.nbound S) gensym)
+        (let [nms (repeatedly (.nbound ^Poly S) gensym)
               body (Poly-body* nms S)]
           (cs-gen (set/union (set nms) V) X Y body T))
 
         (and (TApp? S)
-             (not (F? (.rator S))))
+             (not (F? (.rator ^TApp S))))
         (cs-gen V X Y (resolve-TApp S) T)
 
         (and (TApp? T)
-             (not (F? (.rator T))))
+             (not (F? (.rator ^TApp T))))
         (cs-gen V X Y S (resolve-TApp T))
 
         ;constrain *each* element of S to be below T, and then combine the constraints
         (Union? S)
         (cset-meet*
           (cons (empty-cset X Y)
-                (mapv #(cs-gen V X Y % T) (.types S))))
+                (mapv #(cs-gen V X Y % T) (.types ^Union S))))
 
         ;; find *an* element of T which can be made a supertype of S
         (Union? T)
@@ -346,7 +348,7 @@
                                                    (catch IllegalArgumentException e
                                                      (throw e))
                                                    (catch Exception e)) 
-                                                (.types T))))]
+                                                (.types ^Union T))))]
           (cset-combine cs)
           (type-error S T))
 
@@ -471,13 +473,13 @@
 (declare cs-gen-Function)
 
 (defmethod cs-gen* [TApp TApp ::default]
-  [V X Y S T]
+  [V X Y ^TApp S ^TApp T]
   (assert (= (.rator S) (.rator T)) (type-error S T))
   (cset-meet*
     (mapv #(cs-gen V X Y %1 %2) (.rands S) (.rands T))))
 
 (defmethod cs-gen* [FnIntersection FnIntersection ::default]
-  [V X Y S T] 
+  [V X Y ^FnIntersection S ^FnIntersection T] 
   (cset-meet*
     (doall
       (for [t-arr (.types T)]
@@ -600,14 +602,14 @@
     (-> (empty-cset X Y)
       (insert-constraint name ps -any (X name)))))
 
-(defn cs-gen-left-F [V X Y S T]
+(defn cs-gen-left-F [V X Y ^F S T]
   #_(prn "cs-gen* [F Type]" S T)
   (cond
     (contains? X (.name S))
     (demote-F V X Y S T)
 
     (and (F? T)
-         (contains? X (.name T)))
+         (contains? X (.name ^F T)))
     (promote-F V X Y S T)
 
     :else (type-error S T)))
@@ -854,8 +856,6 @@
   [V X Y S T]
   #_(prn "cs-gen* [Function Function]")
   (cs-gen-Function V X Y S T))
-
-(declare error-msg)
 
 ;; C : cset? - set of constraints found by the inference engine
 ;; Y : (setof symbol?) - index variables that must have entries

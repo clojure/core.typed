@@ -1,3 +1,5 @@
+(set! *warn-on-reflection* true)
+
 (in-ns 'typed.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -14,16 +16,17 @@
    :post [(Type? %)]}
   (cond
     (Poly? ptype)
-    (let [_ (assert (= (.nbound ptype) (count argtys)) (error-msg "Wrong number of arguments to instantiate polymorphic type"))
+    (let [^Poly ptype ptype
+          _ (assert (= (.nbound ptype) (count argtys)) (error-msg "Wrong number of arguments to instantiate polymorphic type"))
           names (repeatedly (.nbound ptype) gensym)
           body (Poly-body* names ptype)
           bbnds (Poly-bbnds* names ptype)]
-      (doseq [[nme ty bnds] (map vector names argtys bbnds)]
+      (doseq [[nme ty ^Bounds bnds] (map vector names argtys bbnds)]
         (if (.higher-kind bnds)
           (do 
             (if (F? ty)
               (assert (and (TypeFn? (.higher-kind bnds))
-                           (let [given-bnds (free-with-name-bnds (.name ty))
+                           (let [given-bnds (free-with-name-bnds (.name ^F ty))
                                  _ (assert given-bnds *free-scope*)]
                              (and (.higher-kind given-bnds)
                                   (subtype? (.higher-kind given-bnds) (.higher-kind bnds)))))
@@ -48,12 +51,13 @@
       (substitute-many body argtys names))
 
     (PolyDots? ptype)
-    (let [nrequired-types (dec (.nbound ptype))
+    (let [^PolyDots ptype ptype
+          nrequired-types (dec (.nbound ptype))
           _ (assert (<= nrequired-types (count argtys)) "Insufficient arguments to instantiate dotted polymorphic type")
           names (repeatedly (.nbound ptype) gensym)
           body (PolyDots-body* names ptype)
           bbnds (PolyDots-bbnds* names ptype)]
-      (doseq [[nme ty bnds] (map vector names argtys bbnds)]
+      (doseq [[nme ty ^Bounds bnds] (map vector names argtys bbnds)]
         (assert (not (.higher-kind bnds)) "NYI")
         (let [lower-bound (substitute-many (.lower-bound bnds) argtys names)
               upper-bound (substitute-many (.upper-bound bnds) argtys names)]
