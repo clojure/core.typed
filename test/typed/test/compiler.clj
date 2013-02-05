@@ -779,7 +779,7 @@
         (emitln "goog.exportSymbol('" export "', " name ");")))
     (emitln "void 0;")))
 
-(ann emit-apply-to ['{:name Symbol, :params (Seqable Any), :env Env} -> Any]) ;FIXME ?
+(ann emit-apply-to ['{:name Symbol, :params (Seqable Any), :env Env} -> nil]) ;FIXME ?
 ;doseq
 (tc-ignore
 (defn emit-apply-to
@@ -824,6 +824,8 @@
              (emits "})")))
 
 (ann emit-variadic-fn-method [FnMethod -> Any])
+;assoc not working
+(tc-ignore
 (defn emit-variadic-fn-method
   [{:keys [gthis name variadic params statements ret env recurs max-fixed-arity] :as f}]
   (emit-wrap env
@@ -859,6 +861,7 @@
                (emitln name ".cljs$lang$arity$variadic = " delegate-name ";")
                (emitln "return " name ";")
                (emitln "})()"))))
+  )
 
 ;weirdness with `filter`
 (tc-ignore
@@ -956,6 +959,7 @@
         (when name
           (emits "catch (" name "){")
           (when catch
+            (print-env "catch")
             (let [{:keys [statements ret]} catch]
               (emit-block subcontext statements ret)))
           (emits "}"))
@@ -2076,199 +2080,3 @@
                  ns-info (compile-file cljs-file output-file)]
              (recur (rest cljs-files) (conj output-files (assoc ns-info :file-name (.getPath output-file)))))
            output-files)))))
-
-(comment
-  ;; compile-root
-  ;; If you have a standard project layout with all file in src
-  (compile-root "src")
-  ;; will produce a mirrored directory structure under "out" but all
-  ;; files will be compiled to js.
-  )
-
-(comment
-
-;;the new way - use the REPL!!
-(require '[cljs.compiler :as comp])
-(def repl-env (comp/repl-env))
-(comp/repl repl-env)
-;having problems?, try verbose mode
-(comp/repl repl-env :verbose true)
-;don't forget to check for uses of undeclared vars
-(comp/repl repl-env :warn-on-undeclared true)
-
-(test-stuff)
-(+ 1 2 3)
-([ 1 2 3 4] 2)
-({:a 1 :b 2} :a)
-({1 1 2 2} 1)
-(#{1 2 3} 2)
-(:b {:a 1 :b 2})
-('b '{:a 1 b 2})
-
-(extend-type number ISeq (-seq [x] x))
-(seq 42)
-;(aset cljs.core.ISeq "number" true)
-;(aget cljs.core.ISeq "number")
-(satisfies? ISeq 42)
-(extend-type nil ISeq (-seq [x] x))
-(satisfies? ISeq nil)
-(seq nil)
-
-(extend-type default ISeq (-seq [x] x))
-(satisfies? ISeq true)
-(seq true)
-
-(test-stuff)
-
-(array-seq [])
-(defn f [& etc] etc)
-(f)
-
-(in-ns 'cljs.core)
-;;hack on core
-
-
-(deftype Foo [a] IMeta (-meta [_] (fn [] a)))
-((-meta (Foo. 42)))
-
-;;OLD way, don't you want to use the REPL?
-(in-ns 'cljs.compiler)
-(import '[javax.script ScriptEngineManager])
-(def jse (-> (ScriptEngineManager.) (.getEngineByName "JavaScript")))
-(.eval jse cljs.compiler/bootjs)
-(def envx {:ns (@namespaces 'cljs.user) :context :expr :locals '{ethel {:name ethel__123 :init nil}}})
-(analyze envx nil)
-(analyze envx 42)
-(analyze envx "foo")
-(analyze envx 'fred)
-(analyze envx 'fred.x)
-(analyze envx 'ethel)
-(analyze envx 'ethel.x)
-(analyze envx 'my.ns/fred)
-(analyze envx 'your.ns.fred)
-(analyze envx '(if test then else))
-(analyze envx '(if test then))
-(analyze envx '(and fred ethel))
-(analyze (assoc envx :context :statement) '(def test "fortytwo" 42))
-(analyze (assoc envx :context :expr) '(fn* ^{::fields [a b c]} [x y] a y x))
-(analyze (assoc envx :context :statement) '(let* [a 1 b 2] a))
-(analyze (assoc envx :context :statement) '(defprotocol P (bar [a]) (baz [b c])))
-(analyze (assoc envx :context :statement) '(. x y))
-(analyze envx '(fn foo [x] (let [x 42] (js* "~{x}['foobar']"))))
-
-(analyze envx '(ns fred (:require [your.ns :as yn]) (:require-macros [clojure.core :as core])))
-(defmacro js [form]
-  `(emit (analyze {:ns (@namespaces 'cljs.user) :context :statement :locals {}} '~form)))
-
-(defn jscapture [form]
-  "just grabs the js, doesn't print it"
-  (with-out-str
-    (emit (analyze {:ns (@namespaces 'cljs.user) :context :expr :locals {}} form))))
-
-(defn jseval [form]
-  (let [js (jscapture form)]
-    ;;(prn js)
-    (.eval jse (str "print(" js ")"))))
-
-;; from closure.clj
-(optimize (jscapture '(defn foo [x y] (if true 46 (recur 1 x)))))
-
-(js (if a b c))
-(js (def x 42))
-(js (defn foo [a b] a))
-(js (do 1 2 3))
-(js (let [a 1 b 2 a b] a))
-
-(js (ns fred (:require [your.ns :as yn]) (:require-macros [cljs.core :as core])))
-
-(js (def foo? (fn* ^{::fields [a? b c]} [x y] (if true a? (recur 1 x)))))
-(js (def foo (fn* ^{::fields [a b c]} [x y] (if true a (recur 1 x)))))
-(js (defn foo [x y] (if true x y)))
-(jseval '(defn foo [x y] (if true x y)))
-(js (defn foo [x y] (if true 46 (recur 1 x))))
-(jseval '(defn foo [x y] (if true 46 (recur 1 x))))
-(jseval '(foo 1 2))
-(js (and fred ethel))
-(jseval '(ns fred (:require [your.ns :as yn]) (:require-macros [cljs.core :as core])))
-(js (def x 42))
-(jseval '(def x 42))
-(jseval 'x)
-(jseval '(if 42 1 2))
-(jseval '(or 1 2))
-(jseval '(fn* [x y] (if true 46 (recur 1 x))))
-(.eval jse "print(test)")
-(.eval jse "print(cljs.user.Foo)")
-(.eval jse  "print(cljs.user.Foo = function (){\n}\n)")
-(js (def fred 42))
-(js (deftype* Foo [a b-foo c]))
-(jseval '(deftype* Foo [a b-foo c]))
-(jseval '(. (new Foo 1 2 3) b-foo))
-(js (. (new Foo 1 2 3) b))
-(.eval jse "print(new cljs.user.Foo(1, 42, 3).b)")
-(.eval jse "(function (x, ys){return Array.prototype.slice.call(arguments, 1);})(1,2)[0]")
-
-(macroexpand-1 '(cljs.core/deftype Foo [a b c] Fred (fred [x] a) (fred [x y] b) (ethel [x] c) Ethel (foo [] d)))
-(-> (macroexpand-1 '(cljs.core/deftype Foo [a b c] Fred (fred [x] a) (fred [x y] b) (ethel [x] c) Ethel (foo [] d)))
-    last last last first meta)
-
-(macroexpand-1 '(cljs.core/extend-type Foo Fred (fred ([x] a) ([x y] b)) (ethel ([x] c)) Ethel (foo ([] d))))
-(js (new foo.Bar 65))
-(js (defprotocol P (bar [a]) (baz [b c])))
-(js (. x y))
-(js (. "fred" (y)))
-(js (. x y 42 43))
-(js (.. a b c d))
-(js (. x (y 42 43)))
-(js (fn [x] x))
-(js (fn ([t] t) ([x y] y) ([ a b & zs] b)))
-
-(js (. (fn foo ([t] t) ([x y] y) ([a b & zs] b)) call nil 1 2))
-(js (fn foo
-      ([t] t)
-      ([x y] y)
-      ([ a b & zs] b)))
-
-(js ((fn foo
-       ([t] (foo t nil))
-       ([x y] y)
-       ([ a b & zs] b)) 1 2 3))
-
-
-(jseval '((fn foo ([t] t) ([x y] y) ([ a b & zs] zs)) 12 13 14 15))
-
-(js (defn foo [this] this))
-
-(js (defn foo [a b c & ys] ys))
-(js ((fn [x & ys] ys) 1 2 3 4))
-(jseval '((fn [x & ys] ys) 1 2 3 4))
-(js (cljs.core/deftype Foo [a b c] Fred (fred [x] a) (fred [x y] a)  (ethel [x] c) Ethel (foo [] d)))
-(jseval '(cljs.core/deftype Foo [a b c] Fred (fred [x] a) (fred [x y] a)  (ethel [x] c) Ethel (foo [] d)))
-
-(js (do
-           (defprotocol Proto (foo [this]))
-           (deftype Type [a] Proto (foo [this] a))
-           (foo (new Type 42))))
-
-(jseval '(do
-           (defprotocol P-roto (foo? [this]))
-           (deftype T-ype [a] P-roto (foo? [this] a))
-           (foo? (new T-ype 42))))
-
-(js (def x (fn foo [x] (let [x 42] (js* "~{x}['foobar']")))))
-(js (let [a 1 b 2 a b] a))
-
-(doseq [e '[nil true false 42 "fred" fred ethel my.ns/fred your.ns.fred
-            (if test then "fooelse")
-            (def x 45)
-            (do x y y)
-            (fn* [x y] x y x)
-            (fn* [x y] (if true 46 (recur 1 x)))
-            (let* [a 1 b 2 a a] a b)
-            (do "do1")
-            (loop* [x 1 y 2] (if true 42 (do (recur 43 44))))
-            (my.foo 1 2 3)
-            (let* [a 1 b 2 c 3] (set! y.s.d b) (new fred.Ethel a b c))
-            (let [x (do 1 2 3)] x)
-            ]]
-  (->> e (analyze envx) emit)
-  (newline)))

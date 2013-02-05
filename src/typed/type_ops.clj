@@ -70,7 +70,10 @@
 
 ;true if types t1 and t2 overlap (NYI)
 (defn overlap [t1 t2]
-  (let [eq (= t1 t2)]
+  (let [eq (= t1 t2)
+        hmap-and-seq? (fn [h s] (and (HeterogeneousMap? h)
+                                    (RClass? s)
+                                    (= (Class->symbol clojure.lang.ISeq) (:the-class s))))]
     (cond 
       eq eq
 
@@ -103,6 +106,12 @@
                                                 (for [[k1 v1] (:types t1)]
                                                   (let [v2 ((:types t2) k1)]
                                                     (overlap v1 v2)))))
+
+      ;for destructuring mexpansion
+      (or (hmap-and-seq? t1 t2)
+          (hmap-and-seq? t2 t1))
+      false
+
       :else true))) ;FIXME conservative result
 
 (declare infer subst-all)

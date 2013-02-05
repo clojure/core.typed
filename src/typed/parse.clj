@@ -264,8 +264,6 @@
 (defmethod parse-type-list 'List* [syn] (->HeterogeneousList (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'Vector* [syn] (-hvec (mapv parse-type (rest syn))))
 
-(declare constant-type)
-
 (defn- syn-to-hmap [mandatory optional]
   (letfn [(mapt [m]
             (into {} (for [[k v] m]

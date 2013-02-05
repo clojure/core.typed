@@ -594,6 +594,7 @@
 (load "rclass_env")
 (load "mm_env")
 
+(load "constant_type")
 (load "parse")
 (load "unparse")
 (load "frees")

@@ -78,46 +78,6 @@
                           '~form)
        expr-type unparse-type)))
 
-;[Any -> Type]
-(defmulti constant-type class)
-
-(defmethod constant-type nil [_] -nil)
-(defmethod constant-type Class [v] (-val v))
-(defmethod constant-type Symbol [v] (-val v))
-(defmethod constant-type Long [v] (-val v))
-(defmethod constant-type Double [v] (-val v))
-(defmethod constant-type Integer [v] (-val v))
-(defmethod constant-type java.math.BigDecimal [v] (-val v))
-(defmethod constant-type clojure.lang.BigInt [v] (-val v))
-(defmethod constant-type String [v] (-val v))
-(defmethod constant-type Character [v] (-val v))
-(defmethod constant-type clojure.lang.Keyword [v] (-val v))
-(defmethod constant-type java.util.regex.Pattern [v] (RClass-of java.util.regex.Pattern))
-
-(defmethod constant-type Boolean [v] (if v -true -false))
-(defmethod constant-type PersistentHashSet [v] (RClass-of PersistentHashSet [(apply Un (map constant-type v))]))
-
-;nothing specific, Cons seems like an implementation detail
-(defmethod constant-type Cons [v] (RClass-of Seqable [(apply Un (map constant-type v))]))
-
-(defmethod constant-type IPersistentList
-  [clist]
-  (->HeterogeneousList (apply list (map constant-type clist))))
-
-(defmethod constant-type IPersistentVector
-  [cvec]
-  (-hvec (mapv constant-type cvec)))
-
-(defmethod constant-type IPersistentMap
-  [cmap]
-  (let [kts (map constant-type (keys cmap))
-        vts (map constant-type (vals cmap))]
-    (if (every? Value? kts)
-      (-hmap (zipmap kts vts))
-      (RClass-of IPersistentMap 
-                 [(apply Un kts)
-                  (apply Un vts)]))))
-
 (defn check-value
   [{:keys [val] :as expr} & [expected]]
   (let [actual-type (constant-type val)
@@ -2164,7 +2124,10 @@
                   (error-msg "Local binding " sym " expected type " (unparse-type (ret-t expected))
                              ", but actual type " (unparse-type t)))]
     (assoc expr
-           expr-type (ret t (-FS -top -top) (->Path nil sym)))))
+           expr-type (ret t 
+                          (-FS (-not-filter (Un -nil -false) sym)
+                               (-filter (Un -nil -false) sym))
+                          (->Path nil sym)))))
 
 
 (declare Method-symbol->Type)
@@ -2464,8 +2427,7 @@
 (defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
   (assert (or (not is-loop) expected-bnds) (error-msg "Loop requires more annotations"))
   (let [check-let-checkfn *check-let-checkfn*
-        env (time
-              (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
+        env (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
                         (let [; check rhs
@@ -2517,9 +2479,6 @@
                                            (assoc-in [:l sym] t)))))
                     *lexical-env* (map vector binding-inits (or expected-bnds
                                                                 (repeat nil))))
-              )
-        
-        _ (prn "^^^ env update in let")
 
         cbody (with-lexical-env env
                 (if is-loop
@@ -2847,16 +2806,16 @@
               :else (do (prn (error-msg "Not checking unreachable code"))
                       (ret (Un)))))]
     (let [{fs+ :then fs- :else :as f1} (ret-f tst)
-;          _ (prn "check-if: fs+" (unparse-filter fs+))
-;          _ (prn "check-if: fs-" (unparse-filter fs-))
+          _ (prn "check-if: fs+" (unparse-filter fs+))
+          _ (prn "check-if: fs-" (unparse-filter fs-))
           flag+ (atom true :validator boolean?)
           flag- (atom true :validator boolean?)
 
           ;_ (print-env)
           idsym (gensym)
           env-thn (env+ *lexical-env* [fs+] flag+)
-;          _ (do (pr "check-if: env-thn")
-;              (print-env env-thn))
+          _ (do (pr "check-if: env-thn")
+              (print-env env-thn))
           env-els (env+ *lexical-env* [fs-] flag-)
 ;          _ (do (pr "check-if: env-els")
 ;              (print-env env-els))

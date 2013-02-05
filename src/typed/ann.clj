@@ -306,29 +306,29 @@
             [[a c -> a] a (Option (Seqable c)) -> a])))
 
 (comment
-(ann clojure.core/reduce
-     (All [a c d]
-          (Fn 
-            ;Without accumulator
-            ; empty coll, f takes no args
-            ; (reduce + []) => 0, (reduce + nil) => 0
-            [[-> c] (U nil (I (ExactCount 0) (Seqable c))) -> c]
-            ; coll count = 1, f is not called
-            ; (reduce + [1]) => 1
-            [Any (I (ExactCount 1) (Seqable c)) -> c]
-            ; coll count >= 2
-            ; (reduce + [1 2]) => 3
-            [[c c -> c] (I (CountRange 2) (Seqable c)) -> c]
-            ; default
-            ; (reduce + my-coll)
-            [(Fn [c c -> c] [-> c]) (U nil (Seqable c)) -> c]
-            ;With accumulator
-            ; empty coll, f not called, returns accumulator
-            ; (reduce + 3 []) => 3
-            [Any a (U nil (I (ExactCount 0) (Seqable Any))) -> a]
-            ; default
-            ; (reduce + 3 my-coll)
-            [[a c -> a] a (U nil (Seqable c)) -> a])))
+  (ann clojure.core/reduce
+       (All [a c d]
+            (Fn 
+              ;Without accumulator
+              ; empty coll, f takes no args
+              ; (reduce + []) => 0, (reduce + nil) => 0
+              [[-> c] (U nil (I (ExactCount 0) (Seqable c))) -> c]
+              ; coll count = 1, f is not called
+              ; (reduce + [1]) => 1
+              [Any (I (ExactCount 1) (Seqable c)) -> c]
+              ; coll count >= 2
+              ; (reduce + [1 2]) => 3
+              [[c c -> c] (I (CountRange 2) (Seqable c)) -> c]
+              ; default
+              ; (reduce + my-coll)
+              [(Fn [c c -> c] [-> c]) (U nil (Seqable c)) -> c]
+              ;With accumulator
+              ; empty coll, f not called, returns accumulator
+              ; (reduce + 3 []) => 3
+              [Any a (U nil (I (ExactCount 0) (Seqable Any))) -> a]
+              ; default
+              ; (reduce + 3 my-coll)
+              [[a c -> a] a (U nil (Seqable c)) -> a])))
   )
 
 ;should be special cased
