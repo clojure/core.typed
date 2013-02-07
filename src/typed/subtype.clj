@@ -21,7 +21,7 @@
                           (or (-> t meta :source-Name)
                               (with-out-str (pr (unparse-type t))))
                           (when *current-expr*
-                            (str "\n\nForm: " (ana-frm/map->form *current-expr*)))))))
+                            (str "\n\nForm: " (emit-form-fn *current-expr*)))))))
 
 ;keeps track of currently seen subtype relations for recursive types.
 ;(Set [Type Type])

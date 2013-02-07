@@ -7,7 +7,7 @@
                          IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
                          LazySeq APersistentMap))
   (:require [analyze.core :refer [ast] :as analyze]
-            [analyze.emit-form :as ana-frm]
+            [analyze.hygienic :as hygienic]
             [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.string :as str]
@@ -29,6 +29,8 @@
 (load "utils")
 
 ;Note: defrecord is now trammel's defconstrainedrecord
+
+(def emit-form-fn hygienic/emit-hy)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special functions
@@ -512,7 +514,10 @@
   (symbol (str (ns-name (.ns ^Var var)))
           (str (.sym ^Var var))))
 
-(defn symbol->Class [sym]
+(defn symbol->Class 
+  "Returns the Class represented by the symbol. Works for
+  primitives (eg. byte, int). Does not further resolve the symbol."
+  [sym]
   {:pre [(symbol? sym)]
    :post [(class? %)]}
   (case sym
@@ -633,11 +638,11 @@
   ([form]
   `(do (ensure-clojure)
      (tc-ignore
-       (-> (ast ~form) check expr-type unparse-TCResult))))
+       (-> (ast ~form) hygienic/ast-hy check expr-type unparse-TCResult))))
   ([form expected]
   `(do (ensure-clojure)
      (tc-ignore
-       (-> (ast (ann-form ~form ~expected)) (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
+       (-> (ast (ann-form ~form ~expected)) hygienic/ast-hy (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
 
 (defn analyze-file-asts
   [^String f]
@@ -678,7 +683,8 @@
   ([nsym]
    (ensure-clojure)
    (with-open [^clojure.lang.LineNumberingPushbackReader pbr (analyze/pb-reader-for-ns nsym)]
-     (let [[_ns-decl_ & asts] (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)]
+     (let [[_ns-decl_ & asts] (->> (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)
+                                (map hygienic/ast-hy))]
        (doseq [ast asts]
          (check-expr ast))))))
 
@@ -686,7 +692,7 @@
   (clojure.main/repl 
     :eval (fn [f] 
             (let [t (do (ensure-clojure)
-                      (-> (analyze/analyze-form f) 
+                      (-> (analyze/analyze-form f) hygienic/ast-hy
                         check expr-type unparse-TCResult))]
               (prn t) 
               (eval f)))))

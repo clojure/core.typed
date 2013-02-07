@@ -93,7 +93,7 @@
                  :form Form
                  :name Symbol
                  :doc (U nil String)
-                 :init x}
+                 :init (Option x)}
                 :optional
                 {:tag (Option Symbol)
                  :dynamic boolean
@@ -640,6 +640,7 @@
 
 (defmethod emit :var
   [{:keys [info env] :as arg}]
+  (print-env "info")
   (emit-wrap env (emits (munge (:name info)))))
 
 (defmethod emit :meta
@@ -768,8 +769,9 @@
   )
 
 (defmethod emit :def
-  [{:keys [name init env doc export]}]
-  (if init
+  [{:keys [name #_init #_env #_doc #_export] :as expr}]
+  (print-env "def")
+  #_(if init
     (do
       (emit-comment doc (:jsdoc init))
       (emits name)

@@ -58,6 +58,7 @@
                   (:op expr)))
 
 (defn check-expr [expr & [expected]]
+  (prn "Checking line:" (-> expr :env :line))
   (check expr expected))
 
 ;[Symbol Any -> Expr]
@@ -119,7 +120,7 @@
         actual (-hmap (apply hash-map (map (comp ret-t expr-type) (mapv check keyvals))))
         _ (assert (or (not expected) (subtype? actual expected)) (type-error actual expected))]
     (assoc expr
-           expr-type (ret actual))))
+           expr-type (ret actual (-FS -top -bot)))))
 
 (defmethod check :set
   [{:keys [args] :as expr} & [expected]]
@@ -129,7 +130,7 @@
             (assert (subtype? res-type (ret-t expected))
                     (type-error res-type (ret-t expected))))]
     (assoc expr
-           expr-type (ret res-type))))
+           expr-type (ret res-type (-FS -top -bot)))))
 
 (defmethod check :vector
   [{:keys [args] :as expr} & [expected]]
@@ -139,14 +140,12 @@
             (assert (subtype? res-type (ret-t expected))
                     (type-error res-type (ret-t expected))))]
     (assoc expr
-           expr-type (ret res-type))))
+           expr-type (ret res-type (-FS -top -bot)))))
 
 (defmethod check :empty-expr 
   [{coll :coll :as expr} & [expected]]
   (assoc expr
-         expr-type (ret (constant-type coll)
-                        (-FS -top -bot)
-                        (->EmptyObject))))
+         expr-type (ret (constant-type coll) (-FS -top -bot))))
 
 ;; check-below : (/\ (Results Type -> Result)
 ;;                   (Results Results -> Result)
@@ -232,6 +231,7 @@
           (type-error t1 t2))
         (ret t2 f o))
 
+      ;FIXME
       ;; erm.. ? What is (FilterSet: (list) (list))
       ;; TODO this case goes here, but not sure what it means 
       ;
@@ -630,7 +630,7 @@
       (if (or static-method?
               instance-method?)  
         method-sym
-        (ana-frm/map->form fexpr)) 
+        (emit-form-fn fexpr)) 
       " could not be applied to arguments:\n"
       "Domains: \n\t" 
       (clojure.string/join "\n\t" (map (partial apply pr-str) (map (comp #(map unparse-type %) :dom) (.types fin)))) 
@@ -638,9 +638,9 @@
       "Arguments:\n\t" (apply prn-str (mapv (comp unparse-type ret-t) arg-ret-types)) "\n"
       (when expected (str "with expected type:\n\t" (unparse-type (ret-t expected)) "\n\n"))
       "in: " (if (or static-method? instance-method?)
-               (ana-frm/map->form fexpr)
-               (list* (ana-frm/map->form fexpr)
-                      (map ana-frm/map->form args))))))
+               (emit-form-fn fexpr)
+               (list* (emit-form-fn fexpr)
+                      (map emit-form-fn args))))))
 
 (defn ^String polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]
   {:pre [(Poly? fexpr-type)]}
@@ -996,7 +996,8 @@
              expr-type (let [target-ret (expr-type (check target))
                              default-ret (when default
                                            (expr-type (check default))) 
-                             ret (invoke-keyword kwr target-ret default-ret expected)]
+                             ret (time (invoke-keyword kwr target-ret default-ret expected))]
+                         (prn "^^ invoke-keyword in get")
                          ret))
       
       :else ::not-special)))
@@ -1640,7 +1641,7 @@
 (defmethod check :invoke
   [{:keys [fexpr args env] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  #_(prn "invoke:" ((some-fn :var :keyword :op) fexpr))
+  (prn "invoke:" ((some-fn :var :keyword :op) fexpr))
   (binding [*current-env* env]
     (let [e (invoke-special expr expected)]
       (cond 
@@ -1659,11 +1660,14 @@
                                            expected)))
 
         :else
-        (let [cfexpr (check fexpr)
-              cargs (doall (map check args))
+        (let [cfexpr (time (check fexpr))
+              _ (prn "^^^ check-fexpr")
+              cargs (time (doall (map check args)))
+              _ (prn "^^^ check args")
               ftype (expr-type cfexpr)
               argtys (map expr-type cargs)
-              actual (check-funapp fexpr args ftype argtys expected)]
+              actual (time (check-funapp fexpr args ftype argtys expected))
+              _ (prn "^^^ funapp")]
           (assoc expr
                  :fexpr cfexpr
                  :args cargs
@@ -1726,21 +1730,6 @@
              expr-type type))))
 
 (declare check-anon-fn-method abstract-filter abo abstract-object)
-
-;If an argument is shadowed and the shadowed binding is referenced
-;in filters or object then the shadow is indistinguishable from the parameter
-;and parameter will be incorrectly abstracted.
-;Solution: 
-;1. Simulating hygenic macroexpansion by renaming bindings to unique symbols,
-;   should only be necessary for parameter names.
-;2. Using equality filters
-;
-;eg.
-;(fn [a]
-;  (if (= a 1)
-;    (let [a 'foo] ; here this shadows the argument, impossible to recover filters
-;      a)          ; in fact any new filters about a will be incorrectly assumed to be the argument
-;      false)) 
 
 ;[TCResult (Seqable Symbol) -> Result]
 (defn abstract-result [result arg-names]
@@ -2009,21 +1998,23 @@
                       (some identity [drest rest]))
                   (error-msg "No type for rest parameter"))
 
-        ; Update filters that reference bindings that the params shadow.
-        ; Abstracting references to parameters is handled later in abstract-result, but
-        ; suffers from bugs due to un-hygienic macroexpansion (see `abstract-result`).
-        ; In short, don't shadow parameters if you want meaningful filters.
-        props (mapv (fn [oldp]
-                      (reduce (fn [p sym]
-                                {:pre [(Filter? p)
-                                       (symbol? sym)]}
-                                (subst-filter p sym -empty true))
-                              oldp (map :sym required-params)))
-                    (:props *lexical-env*))
-        fixed-entry (map vector (map :sym required-params) (concat dom (repeat (or rest 
-                                                                                   (:pre-type drest)))))
+;;unhygienic version
+;        ; Update filters that reference bindings that the params shadow.
+;        ; Abstracting references to parameters is handled later in abstract-result, but
+;        ; suffers from bugs due to un-hygienic macroexpansion (see `abstract-result`).
+;        ; In short, don't shadow parameters if you want meaningful filters.
+;        props (mapv (fn [oldp]
+;                      (reduce (fn [p sym]
+;                                {:pre [(Filter? p)
+;                                       (symbol? sym)]}
+;                                (subst-filter p sym -empty true))
+;                              oldp (map :sym required-params)))
+;                    (:props *lexical-env*))
+        props (:props *lexical-env*)
+        fixed-entry (map vector (map hygienic/hsym-key required-params) (concat dom (repeat (or rest 
+                                                                                                (:pre-type drest)))))
         rest-entry (when rest-param
-                     [[(:sym rest-param) 
+                     [[(hygienic/hsym-key rest-param) 
                        (*check-fn-method1-rest-type* rest drest)]])
         _ (assert ((hash-c? symbol? Type?) (into {} fixed-entry)))
         _ (assert ((some-fn nil? (hash-c? symbol? Type?)) (when rest-entry
@@ -2032,20 +2023,21 @@
         ; if this fn method is a multimethod dispatch method, then infer
         ; a new filter that results from being dispatched "here"
         mm-filter (when-let [{:keys [dispatch-fn-type dispatch-val-ret]} *current-mm*]
-                      (assert (and dispatch-fn-type dispatch-val-ret))
-                      (assert (not (or drest rest rest-param)))
-                      (let [disp-app-ret (check-funapp nil nil 
-                                                       (ret dispatch-fn-type)
-                                                       (map ret dom (repeat (-FS -top -top)) 
-                                                            (map (comp #(->Path nil %) :sym) required-params))
-                                                       nil)
-                            ;_ (prn "disp-app-ret" disp-app-ret)
-                            ;_ (prn "disp-fn-type" (unparse-type dispatch-fn-type))
-                            ;_ (prn "dom" dom)
-                            isa-ret (tc-isa? disp-app-ret dispatch-val-ret)
-                            then-filter (-> isa-ret ret-f :then)
-                            _ (assert then-filter)]
-                        then-filter))
+                    (assert (and dispatch-fn-type dispatch-val-ret))
+                    (assert (not (or drest rest rest-param)))
+                    (let [disp-app-ret (check-funapp nil nil 
+                                                     (ret dispatch-fn-type)
+                                                     (map ret dom (repeat (-FS -top -top)) 
+                                                          (map (comp #(->Path nil %) hygienic/hsym-key) required-params))
+                                                     nil)
+                          ;_ (prn "disp-app-ret" disp-app-ret)
+                          ;_ (prn "disp-fn-type" (unparse-type dispatch-fn-type))
+                          ;_ (prn "dom" dom)
+                          isa-ret (tc-isa? disp-app-ret dispatch-val-ret)
+                          then-filter (-> isa-ret ret-f :then)
+                          _ (assert then-filter)]
+                      then-filter))
+        _ (prn "^^^ mm-filter")
 
         ;_ (prn "funapp1: inferred mm-filter" mm-filter)
 
@@ -2053,14 +2045,14 @@
                         ;add mm-filter
                         (assoc-in [:props] (concat props (when mm-filter [mm-filter])))
                         ;add parameters to scope
-                        ;order important, (fn [a a & a]) prefers rightmost name
+                        ;IF UNHYGIENIC order important, (fn [a a & a]) prefers rightmost name
                         (update-in [:l] merge (into {} fixed-entry) (into {} rest-entry)))
                   flag (atom false :validator boolean?)
                   env (if mm-filter
                         (let [t (env+ env [mm-filter] flag)]
                           t)
                         env)]
-              (assert (not @flag) "Local inferred to be bottom when applying multimethod filter")
+              (assert (not @flag) "Unreachable method: Local inferred to be bottom when applying multimethod filter")
               env)
                 
 
@@ -2094,9 +2086,9 @@
     (FnResult->Function 
       (->FnResult fixed-entry nil 
                   (when (and rest rest-param)
-                    [(:sym rest-param) rest])
+                    [(hygienic/hsym-key rest-param) rest])
                   (when (and drest rest-param) 
-                    [(:sym rest-param) drest])
+                    [(hygienic/hsym-key rest-param) drest])
                   (expr-type crng)))))
 
 
@@ -2116,7 +2108,7 @@
 
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
-  (let [sym (:sym local-binding)
+  (let [sym (hygienic/hsym-key local-binding)
         t (binding [*var-annotations* VAR-ANNOTATIONS]
             (type-of sym))
         _ (assert (or (not expected)
@@ -2427,40 +2419,21 @@
 (defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
   (assert (or (not is-loop) expected-bnds) (error-msg "Loop requires more annotations"))
   (let [check-let-checkfn *check-let-checkfn*
-        env (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
+        env (reduce (fn [env [{{:keys [init] :as expr} :local-binding} expected-bnd]]
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
-                        (let [; check rhs
-                              {:keys [t fl o]} (let [noshadow-ret (->
-                                                                      (expr-type
-                                                                        (binding [*current-expr* init]
-                                                                          (with-lexical-env env
-                                                                            (check-let-checkfn init (when is-loop
-                                                                                                      (ret expected-bnd)))))))]
-                                                   ;substitute previous references to sym with an empty object,
-                                                   ;as old binding is shadowed
-                                                   ; Rather expensive, only perform when necessary (if shadowing actually occurs).
-                                                   (if (-> env :l (find sym))
-                                                     (-> noshadow-ret
-                                                       (update-in [:t] subst-type sym -empty true)
-                                                       (update-in [:fl] subst-filter-set sym -empty true)
-                                                       (update-in [:o] subst-object sym -empty true))
-                                                     noshadow-ret))
-
-                            ; update old env and new result with previous references of sym (which is now shadowed)
-                            ; replaced with an empty object
-                            ;
-                            ; This is rather expensive with large types, so only perform when another local binding
-                            ; is actually shadowed.
-                            
-                            env (if (-> env :l (find sym))
-                                  (-> env
-                                    (update-in [:l] #(let [sc (into {} (for [[oldsym ty] %]
-                                                                         [oldsym (subst-type ty sym -empty true)]))]
-                                                       sc))
-                                    (update-in [:props] (fn [props]
-                                                          (mapv #(subst-filter % sym -empty true) props))))
-                                  env)]
+                      (let [sym (hygienic/hsym-key expr)
+                            _ (assert sym expr)
+                            ; check rhs
+                            {:keys [t fl]} (time
+                                               (->
+                                                 (expr-type
+                                                   (binding [*current-expr* init]
+                                                     (with-lexical-env env
+                                                       (check-let-checkfn init (when is-loop
+                                                                                 (ret expected-bnd)))))))
+                                               )
+                            _ (prn "^^ noshadow-ret")]
                         (cond
                           (FilterSet? fl)
                           (let [{:keys [then else]} fl
@@ -2485,22 +2458,101 @@
                   (binding [*recur-target* (->RecurTarget expected-bnds nil nil nil)]
                     (check-let-checkfn body expected))
                   (binding [*current-expr* body]
-                    (check-let-checkfn body expected))))
-
-        ;now we return a result to the enclosing scope, so we
-        ;erase references to any bindings this scope introduces
-        unshadowed-type 
-        (reduce (fn [ty sym]
-                  {:pre [(TCResult? ty)
-                         (symbol? sym)]}
-                  (-> ty
-                    (update-in [:t] subst-type sym -empty true)
-                    (update-in [:fl] subst-filter-set sym -empty true)
-                    (update-in [:o] subst-object sym -empty true)))
-                (expr-type cbody)
-                (map (comp :sym :local-binding) binding-inits))]
+                    (check-let-checkfn body expected))))]
     (assoc expr
-           expr-type unshadowed-type)))
+           expr-type (expr-type cbody))))
+
+;unhygienic version
+;(defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
+;  (assert (or (not is-loop) expected-bnds) (error-msg "Loop requires more annotations"))
+;  (let [check-let-checkfn *check-let-checkfn*
+;        env (reduce (fn [env [{{:keys [sym init]} :local-binding} expected-bnd]]
+;                      {:pre [(PropEnv? env)]
+;                       :post [(PropEnv? env)]}
+;                        (let [;TODO optimisation: this should be false when aliasing like (let [a a] ...)
+;                              shadows-local? (-> env :l (find sym))
+;                              ; check rhs
+;                              {:keys [t fl o]} (let [noshadow-ret 
+;                                                     (time
+;                                                     (->
+;                                                       (expr-type
+;                                                         (binding [*current-expr* init]
+;                                                           (with-lexical-env env
+;                                                             (check-let-checkfn init (when is-loop
+;                                                                                       (ret expected-bnd)))))))
+;                                                       )
+;                                                     _ (prn "^^ noshadow-ret")
+;                                                     
+;                                                     ;substitute previous references to sym with an empty object,
+;                                                     ;as old binding is shadowed
+;                                                     ; Rather expensive, only perform when necessary (if shadowing actually occurs).
+;                                                     shadow-ret
+;                                                     (time 
+;                                                       (if shadows-local?
+;                                                         (-> noshadow-ret
+;                                                           (update-in [:t] subst-type sym -empty true)
+;                                                           (update-in [:fl] subst-filter-set sym -empty true)
+;                                                           (update-in [:o] subst-object sym -empty true))
+;                                                         noshadow-ret))
+;                                                     _ (prn "^^ shadow-ret")]
+;                                                 shadow-ret)
+;
+;                            ; update old env and new result with previous references of sym (which is now shadowed)
+;                            ; replaced with an empty object
+;                            ;
+;                            ; This is rather expensive with large types, so only perform when another local binding
+;                            ; is actually shadowed.
+;                            
+;                            env (time
+;                                  (if shadows-local?
+;                                  (-> env
+;                                    (update-in [:l] #(let [sc (into {} (for [[oldsym ty] %]
+;                                                                         [oldsym (subst-type ty sym -empty true)]))]
+;                                                       sc))
+;                                    (update-in [:props] (fn [props]
+;                                                          (mapv #(subst-filter % sym -empty true) props))))
+;                                  env))
+;                              _ (prn "^^ calc shadow")]
+;                        (cond
+;                          (FilterSet? fl)
+;                          (let [{:keys [then else]} fl
+;                                p* [(-imp (-not-filter (Un -nil -false) sym) then)
+;                                    (-imp (-filter (Un -nil -false) sym) else)]
+;                                new-env (-> env
+;                                          ;update binding type
+;                                          (assoc-in [:l sym] t)
+;                                          ;update props
+;                                          (update-in [:props] #(apply concat 
+;                                                                      (combine-props p* % (atom true)))))]
+;                            new-env)
+;
+;                          (NoFilter? fl) (-> env
+;                                           ;no propositions to add, just update binding type
+;                                           (assoc-in [:l sym] t)))))
+;                    *lexical-env* (map vector binding-inits (or expected-bnds
+;                                                                (repeat nil))))
+;
+;        cbody (with-lexical-env env
+;                (if is-loop
+;                  (binding [*recur-target* (->RecurTarget expected-bnds nil nil nil)]
+;                    (check-let-checkfn body expected))
+;                  (binding [*current-expr* body]
+;                    (check-let-checkfn body expected))))
+;
+;        ;now we return a result to the enclosing scope, so we
+;        ;erase references to any bindings this scope introduces
+;        unshadowed-type 
+;        (reduce (fn [ty sym]
+;                  {:pre [(TCResult? ty)
+;                         (symbol? sym)]}
+;                  (-> ty
+;                    (update-in [:t] subst-type sym -empty true)
+;                    (update-in [:fl] subst-filter-set sym -empty true)
+;                    (update-in [:o] subst-object sym -empty true)))
+;                (expr-type cbody)
+;                (map (comp :sym :local-binding) binding-inits))]
+;    (assoc expr
+;           expr-type unshadowed-type)))
 
 (defmethod check :let
   [expr & [expected]]
@@ -2673,6 +2725,13 @@
           (-hmap (assoc (:types t) fpth (update type-at-pth (-not-filter type id rstpth))))
           (Bottom)))
 
+      ;keyword invoke of non-hmaps
+      ;FIXME TypeFilter case can refine type further
+      (and (or (TypeFilter? lo)
+               (NotTypeFilter? lo))
+           (KeyPE? (first (:path lo))))
+      t
+
       (and (TypeFilter? lo)
            (CountPE? (first (:path lo))))
       (let [u (:type lo)]
@@ -2803,19 +2862,19 @@
               reachable? (-> (*check-if-checkfn* expr) expr-type)
               ;; otherwise, this code is unreachable
               ;; and the resulting type should be the empty type
-              :else (do (prn (error-msg "Not checking unreachable code"))
+              :else (do #_(prn (error-msg "Not checking unreachable code"))
                       (ret (Un)))))]
     (let [{fs+ :then fs- :else :as f1} (ret-f tst)
-          _ (prn "check-if: fs+" (unparse-filter fs+))
-          _ (prn "check-if: fs-" (unparse-filter fs-))
+;          _ (prn "check-if: fs+" (unparse-filter fs+))
+;          _ (prn "check-if: fs-" (unparse-filter fs-))
           flag+ (atom true :validator boolean?)
           flag- (atom true :validator boolean?)
 
           ;_ (print-env)
           idsym (gensym)
           env-thn (env+ *lexical-env* [fs+] flag+)
-          _ (do (pr "check-if: env-thn")
-              (print-env env-thn))
+;          _ (do (pr "check-if: env-thn")
+;              (print-env env-thn))
           env-els (env+ *lexical-env* [fs-] flag-)
 ;          _ (do (pr "check-if: env-els")
 ;              (print-env env-els))
@@ -3021,7 +3080,7 @@
   (let [_ (assert (= 1 (count (:types expected-fin))))
         {:keys [dom rng] :as expected-fn} (-> expected-fin :types first)
         _ (assert (not (:rest expected-fn)))
-        cbody (with-locals (zipmap (map :sym required-params) dom)
+        cbody (with-locals (zipmap (map hygienic/hsym-key required-params) dom)
                 (check body (ret (Result-type* rng)
                                  (Result-filter* rng)
                                  (Result-object* rng))))]
@@ -3065,7 +3124,7 @@
 
 (defmethod check :catch
   [{ecls :class, :keys [handler local-binding] :as expr} & [expected]]
-  (let [local-sym (:sym local-binding)
+  (let [local-sym (hygienic/hsym-key local-binding)
         local-type (RClass-of ecls)
         chandler (with-locals {local-sym local-type}
                    (check handler expected))]
