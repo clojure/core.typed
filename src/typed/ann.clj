@@ -260,6 +260,11 @@
 
 ;usually for string manipulation, accurate enough?
 (ann clojure.core/interpose (Fn [Any (Option (Seqable Any)) -> (Seqable Any)]))
+(ann clojure.core/interleave (All [x] [(Option (Seqable x)) -> (Seqable x)]))
+
+(ann clojure.core/repeat (All [x] 
+                              (Fn [x -> (Seqable x)]
+                                  [x AnyInteger -> (Seqable x)])))
 
 (ann clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
                             [Object -> Class :object {:id 0 :path [Class]}]

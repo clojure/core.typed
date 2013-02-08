@@ -561,7 +561,9 @@
               (and rest (< (count argtys) (count dom))))
       (throw (Exception. (error-msg "Wrong number of arguments, expected " (count dom) " and got "(count argtys)
                                     " for function " (unparse-type ftype0) " and arguments " (mapv (comp unparse-type ret-t) argtys)))))
-    (doseq [[arg-t dom-t] (map vector (map ret-t argtys) (concat dom (when rest (repeat rest))))]
+    (doseq [[arg-t dom-t] (map vector 
+                               (map ret-t argtys) 
+                               (concat dom (when rest (repeat rest))))]
       (check-below arg-t dom-t)))
   (let [dom-count (count dom)
         arg-count (+ dom-count (if rest 1 0) (count (:optional kws)))
@@ -2692,12 +2694,15 @@
       (and (TypeFilter? lo)
            (empty? (:path lo))) 
       (let [u (:type lo)
+            _ (assert (Type? u))
             r (restrict u t)]
         r)
 
       (and (NotTypeFilter? lo)
-           (empty? (:path lo))) (let [u (:type lo)]
-                                  (remove* t u))
+           (empty? (:path lo))) 
+      (let [u (:type lo)]
+        (assert (Type? u))
+        (remove* t u))
 
       ;heterogeneous map ops
       (and (TypeFilter? lo)
@@ -2706,10 +2711,9 @@
       (let [{:keys [type path id]} lo
             [{fpth-kw :val} & rstpth] path
             fpth (->Value fpth-kw)
-            type-at-pth (get (:types t) fpth)
-            new-entry-type (update type-at-pth (-filter type id rstpth))]
+            type-at-pth (get (:types t) fpth)]
         (if type-at-pth 
-          (-hmap (assoc (:types t) fpth new-entry-type))
+          (-hmap (assoc (:types t) fpth (update type-at-pth (-filter type id rstpth))))
           (Bottom)))
 
       (and (NotTypeFilter? lo)
@@ -2770,7 +2774,6 @@
                                       (let [n (update t lo)]
                                         n))
                                     ts)]
-                   (prn "new-ts" (map unparse-type new-ts))
                    (apply Un new-ts))
       (Intersection? t) (let [ts (:types t)]
                           (apply In (doall (map (fn [t] (update t lo)) ts))))
@@ -2780,7 +2783,8 @@
       (and (or (TypeFilter? lo)
                (NotTypeFilter? lo))
            (KeyPE? (first (:path lo))))
-      t
+      (do (assert (= (count (:path lo)) 1) "Further path NYI")
+        t)
 
       :else (throw (Exception. (error-msg "update along ill-typed path " (unparse-type t) " " (with-out-str (pr lo))))))))
 

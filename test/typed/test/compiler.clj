@@ -84,7 +84,8 @@
                         :ret x}
                  :catch (Option '{:statements (Option (Seqable x))
                                   :ret x})
-                 :finally (Option x)
+                 :finally (Option '{:statements (Option (Seqable x))
+                                    :ret x})
                  :name (Option String)
                  :children (Seqable x)})
           ;; def
@@ -194,7 +195,7 @@
                  :form Form
                  :children (Seqable x)}
                 :optional
-                {:segs Any
+                {:segs (Seqable Any)
                  :args (Seqable x)
                  :code String})
 
@@ -465,7 +466,7 @@
           (str "WARNING: " (:name-sym ev) " not declared ^:dynamic"))))))
   )
 
-(ann comma-sep [(Seqable Any) -> (Seqable Any)])
+(ann comma-sep [(Option (Seqable Any)) -> (Seqable Any)])
 (defn- comma-sep [xs]
   (interpose "," xs))
 
@@ -961,7 +962,6 @@
         (when name
           (emits "catch (" name "){")
           (when catch
-            (print-env "catch")
             (let [{:keys [statements ret]} catch]
               (emit-block subcontext statements ret)))
           (emits "}"))
@@ -977,6 +977,8 @@
         (emit-block subcontext statements ret)
         (when (and statements (= :expr context)) (emits "})()"))))))
 
+;doseq
+(tc-ignore
 (defmethod emit :let
   [{:keys [bindings statements ret env loop]}]
   (let [context (:context env)]
@@ -990,7 +992,10 @@
       (emitln "}"))
     ;(emits "}")
     (when (= :expr context) (emits "})()"))))
+  )
 
+;dotimes
+(tc-ignore
 (defmethod emit :recur
   [{:keys [frame exprs env]}]
   (let [temps (vec (take (count exprs) (repeatedly gensym)))
@@ -1002,7 +1007,10 @@
       (emitln (names i) " = " (temps i) ";"))
     (emitln "continue;")
     (emitln "}")))
+  )
 
+;doseq
+(tc-ignore
 (defmethod emit :letfn
   [{:keys [bindings statements ret env]}]
   (let [context (:context env)]
@@ -1011,7 +1019,10 @@
       (emitln "var " name " = " init ";"))
     (emit-block (if (= :expr context) :return context) statements ret)
     (when (= :expr context) (emits "})()"))))
+  )
 
+;update-in
+(tc-ignore
 (defmethod emit :invoke
   [{:keys [f args env]}]
   (let [fn? (and *cljs-static-fns*
@@ -1058,6 +1069,7 @@
        
        :else
        (emits f ".call(" (comma-sep (cons "null" args)) ")")))))
+  )
 
 (defmethod emit :new
   [{:keys [ctor args env]}]
@@ -1070,6 +1082,8 @@
   [{:keys [target val env]}]
   (emit-wrap env (emits target " = " val)))
 
+;doseq
+(tc-ignore
 (defmethod emit :ns
   [{:keys [name requires uses requires-macros env]}]
   (emitln "goog.provide('" (munge name) "');")
@@ -1077,7 +1091,10 @@
     (emitln "goog.require('cljs.core');"))
   (doseq [lib (into (vals requires) (distinct (vals uses)))]
     (emitln "goog.require('" (munge lib) "');")))
+  )
 
+;doseq
+(tc-ignore
 (defmethod emit :deftype*
   [{:keys [t fields pmasks]}]
   (let [fields (map munge fields)]
@@ -1091,7 +1108,10 @@
     (doseq [[pno pmask] pmasks]
       (emitln "this.cljs$lang$protocol_mask$partition" pno "$ = " pmask ";"))
     (emitln "})")))
+  )
 
+;doseq
+(tc-ignore
 (defmethod emit :defrecord*
   [{:keys [t fields pmasks]}]
   (let [fields (concat (map munge fields) '[__meta __extmap])]
@@ -1120,6 +1140,7 @@
     (emitln ";")
     (emitln "}")
     (emitln "})")))
+  )
 
 (defmethod emit :dot
   [{:keys [target field method args env]}]
@@ -1140,7 +1161,7 @@
 
 (declare analyze analyze-symbol analyze-seq)
 
-#_(ann specials (Set* (Value 'if) ...)) ;FIXME
+(ann specials (IPersistentSet Symbol))
 (def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns deftype* defrecord* . js* & quote})
 
 (def-alias RecurFrame (HMap {:names (Seqable Symbol)
