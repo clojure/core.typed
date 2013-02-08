@@ -12,7 +12,7 @@ Gradual typing in Clojure, as a library.
 
 # Documentation
 
-See [wiki](https://github.com/frenchy64/typed-clojure/wiki).
+See [wiki](https://github.com/clojure/core.typed/wiki).
 
 # License
 
