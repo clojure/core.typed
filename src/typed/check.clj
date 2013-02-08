@@ -1333,10 +1333,14 @@
                                                       (mapcat vector (:types (expr-type (last cargs)))))))))
       :else ::not-special)))
 
-(defn fully-resolve-type [t]
-  (if (requires-resolving? t)
-    (recur (-resolve t))
-    t))
+(defn fully-resolve-type 
+  ([t seen]
+   (let [_ (assert (not (seen t)) "Infinite non-Rec type detected")
+         seen (conj seen t)]
+     (if (requires-resolving? t)
+       (fully-resolve-type (-resolve t) seen)
+       t)))
+  ([t] (fully-resolve-type t #{})))
 
 ;nth
 (defmethod static-method-special 'clojure.lang.RT/nth
@@ -1921,7 +1925,7 @@
 ;[FnExpr (Option Type) -> Expr]
 (defn check-fn 
   "Check a fn to be under expected and annotate the inferred type"
-  [{:keys [methods variadic-method] :as fexpr} expected]
+  [{:keys [methods] :as fexpr} expected]
   {:pre [(TCResult? expected)]
    :post [(TCResult? %)]}
   (let [; try and unwrap type enough to find function types
@@ -1936,7 +1940,7 @@
                          (str (:line *current-env*) ": "))
                        (unparse-type fin) " is not a function type"))
         ;collect all inferred Functions
-        inferred-fni (with-locals (when-let [name (:name fexpr)] ;self calls
+        inferred-fni (with-locals (when-let [name (hygienic/hname-key fexpr)] ;self calls
                                     (assert expected "Recursive methods require full annotation")
                                     {name (ret-t expected)})
                        ;scope type variables from polymorphic type in body
@@ -1952,8 +1956,7 @@
                                   (mapcat (fn [method]
                                             (let [fnt (check-fn-method method fin)]
                                               fnt))
-                                          (concat methods (when variadic-method
-                                                            [variadic-method])))))))
+                                          methods)))))
         ;rewrap in Poly or PolyDots if needed
         pfni (rewrap-poly inferred-fni orig-names inst-frees bnds poly?)]
     (ret pfni (-FS -top -bot) -empty)))
@@ -2039,7 +2042,7 @@
                       then-filter))
         _ (prn "^^^ mm-filter")
 
-        ;_ (prn "funapp1: inferred mm-filter" mm-filter)
+        _ (prn "funapp1: inferred mm-filter" mm-filter)
 
         env (let [env (-> *lexical-env*
                         ;add mm-filter
@@ -2684,10 +2687,7 @@
 ; This is where filters are applied to existing types to generate more specific ones
 ;[Type Filter -> Type]
 (defn update [t lo]
-  (let [t (loop [t t] 
-            (if (requires-resolving? t)
-              (recur (-resolve t))
-              t))]
+  (let [t (fully-resolve-type t)]
     (cond
       (and (TypeFilter? lo)
            (empty? (:path lo))) 
@@ -2706,12 +2706,10 @@
       (let [{:keys [type path id]} lo
             [{fpth-kw :val} & rstpth] path
             fpth (->Value fpth-kw)
-            type-at-pth (when-let [type-at-pth (get (:types t) fpth)]
-                          (let [new-entry-type (update type-at-pth (-filter type id rstpth))]
-                            (when-not (= (Un) new-entry-type)
-                              new-entry-type)))]
+            type-at-pth (get (:types t) fpth)
+            new-entry-type (update type-at-pth (-filter type id rstpth))]
         (if type-at-pth 
-          (assoc-in t [:types fpth] type-at-pth)
+          (-hmap (assoc (:types t) fpth new-entry-type))
           (Bottom)))
 
       (and (NotTypeFilter? lo)
@@ -2725,12 +2723,6 @@
           (-hmap (assoc (:types t) fpth (update type-at-pth (-not-filter type id rstpth))))
           (Bottom)))
 
-      ;keyword invoke of non-hmaps
-      ;FIXME TypeFilter case can refine type further
-      (and (or (TypeFilter? lo)
-               (NotTypeFilter? lo))
-           (KeyPE? (first (:path lo))))
-      t
 
       (and (TypeFilter? lo)
            (CountPE? (first (:path lo))))
@@ -2778,9 +2770,18 @@
                                       (let [n (update t lo)]
                                         n))
                                     ts)]
+                   (prn "new-ts" (map unparse-type new-ts))
                    (apply Un new-ts))
       (Intersection? t) (let [ts (:types t)]
                           (apply In (doall (map (fn [t] (update t lo)) ts))))
+      
+      ;keyword invoke of non-hmaps
+      ;FIXME TypeFilter case can refine type further
+      (and (or (TypeFilter? lo)
+               (NotTypeFilter? lo))
+           (KeyPE? (first (:path lo))))
+      t
+
       :else (throw (Exception. (error-msg "update along ill-typed path " (unparse-type t) " " (with-out-str (pr lo))))))))
 
 ; f can be a composite filter. bnd-env is a the :l of a PropEnv
