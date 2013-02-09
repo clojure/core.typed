@@ -1,4 +1,3 @@
-pom.xml
 target
 *jar
 /lib/
@@ -11,5 +10,4 @@ target
 *.dvi
 *.pdf
 *.log
-papers
 *~
