@@ -67,13 +67,26 @@
     ;; ---->>
     true))
 
+(defn fully-resolve-type 
+  ([t seen]
+   (let [_ (assert (not (seen t)) "Infinite non-Rec type detected")
+         seen (conj seen t)]
+     (if (requires-resolving? t)
+       (fully-resolve-type (-resolve t) seen)
+       t)))
+  ([t] (fully-resolve-type t #{})))
 
 ;true if types t1 and t2 overlap (NYI)
 (defn overlap [t1 t2]
-  (let [eq (= t1 t2)
+  (let [t1 (fully-resolve-type t1)
+        t2 (fully-resolve-type t2)
+        eq (= t1 t2)
         hmap-and-seq? (fn [h s] (and (HeterogeneousMap? h)
-                                    (RClass? s)
-                                    (= (Class->symbol clojure.lang.ISeq) (:the-class s))))]
+                                     (RClass? s)
+                                     (= (Class->symbol clojure.lang.ISeq) (:the-class s))))
+        hvec-and-seq? (fn [h s] (and (HeterogeneousVector? h)
+                                     (RClass? s)
+                                     (= (Class->symbol clojure.lang.ISeq) (:the-class s))))]
     (cond 
       eq eq
 
@@ -91,25 +104,45 @@
           (subtype? t2 t1))
 
       (or (Value? t1)
-          (Value? t2)) (or (subtype? t1 t2)
-                           (subtype? t2 t1))
-      (and (CountRange? t1)
-           (CountRange? t2)) (countrange-overlap? t1 t2)
-      ;    (and (Name? t1)
-      ;         (Name? t2)) (overlap (-resolve t1) (-resolve t2))
-      ;    (Name? t1) (overlap (-resolve t1) t2)
-      ;    (Name? t2) (overlap t1 (-resolve t2))
-      (and (HeterogeneousMap? t1)
-           (HeterogeneousMap? t2)) (and (= (set (-> t1 :types keys))
-                                           (set (-> t2 :types keys)))
-                                        (every? true?
-                                                (for [[k1 v1] (:types t1)]
-                                                  (let [v2 ((:types t2) k1)]
-                                                    (overlap v1 v2)))))
+          (Value? t2)) 
+      (or (subtype? t1 t2)
+          (subtype? t2 t1))
 
-      ;for destructuring mexpansion
+      (and (CountRange? t1)
+           (CountRange? t2)) 
+      (countrange-overlap? t1 t2)
+
+      (Union? t1)
+      (boolean 
+        (some #(overlap % t2) (.types ^Union t1)))
+
+      (Union? t2)
+      (boolean 
+        (some #(overlap t1 %) (.types ^Union t2)))
+
+      (Intersection? t1)
+      (every? #(overlap % t2) (.types ^Intersection t1))
+
+      (Intersection? t2)
+      (every? #(overlap t1 %) (.types ^Intersection t2))
+
+      (and (HeterogeneousMap? t1)
+           (HeterogeneousMap? t2)) 
+      (and (= (set (-> t1 :types keys))
+              (set (-> t2 :types keys)))
+           (every? true?
+                   (for [[k1 v1] (:types t1)]
+                     (let [v2 ((:types t2) k1)]
+                       (overlap v1 v2)))))
+
+      ;for map destructuring mexpansion
       (or (hmap-and-seq? t1 t2)
           (hmap-and-seq? t2 t1))
+      false
+
+      ;for vector destructuring mexpansion
+      (or (hvec-and-seq? t1 t2)
+          (hvec-and-seq? t2 t1))
       false
 
       :else true))) ;FIXME conservative result

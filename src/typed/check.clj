@@ -64,7 +64,8 @@
 ;[Symbol Any -> Expr]
 (defn check-top-level [nsym form]
   (ensure-clojure)
-  (let [ast (analyze/analyze-form-in-ns nsym form)]
+  (let [ast (-> (analyze/analyze-form-in-ns nsym form)
+              hygienic/ast-hy)]
     (check ast)))
 
 (defmacro tc-t [form]
@@ -117,7 +118,15 @@
   [{:keys [keyvals] :as expr} & [expected]]
   (let [expected (when expected 
                    (ret-t expected))
-        actual (-hmap (apply hash-map (map (comp ret-t expr-type) (mapv check keyvals))))
+        ts (apply hash-map (map (comp ret-t expr-type) (mapv check keyvals)))
+
+        actual (if (every? (fn [t] 
+                             (when (Value? t)
+                               (-> t :val keyword?)))
+                           (keys ts))
+                 (-hmap ts)
+                 (RClass-of APersistentMap [(apply Un (keys ts))
+                                            (apply Un (vals ts))]))
         _ (assert (or (not expected) (subtype? actual expected)) (type-error actual expected))]
     (assoc expr
            expr-type (ret actual (-FS -top -bot)))))
@@ -951,11 +960,9 @@
                           (-FS fs- fs+)
                           -empty))))
 
-;get
-(defmethod invoke-special #'clojure.core/get
-  [{:keys [args] :as expr} & [expected]]
+(defn invoke-get [{:keys [args] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (assert (<= 2 (count args) 3) "Wrong number of args to clojure.core/get")
+  (assert (#{2 3} (count args)) "Wrong number of args to clojure.core/get")
   (let [[target kw default] args
         kwr (expr-type (check kw))]
     (cond
@@ -966,10 +973,23 @@
                                        (when default
                                          (expr-type (check default)))
                                        expected))
+
+      ((every-pred Value? (comp integer? :val)) (ret-t kwr))
+      (throw (Exception. "get lookup of vector (like nth) NYI"))
       
       :else (do ;(prn "Non-special 'get'")
               ::not-special))))
 
+;get
+(defmethod invoke-special #'clojure.core/get
+  [expr & [expected]]
+  (invoke-get expr expected))
+
+(defmethod static-method-special 'clojure.lang.RT/get
+  [expr & [expected]]
+  (invoke-get expr expected))
+
+;FIXME should be the same as (apply hash-map ..) in invoke-apply
 (defmethod static-method-special 'clojure.lang.PersistentHashMap/create
   [{:keys [args] :as expr} & [expected]]
   (let [_ (assert (= 1 (count args)) "Incorrect number of arguments to clojure.lang.PersistentHashMap/create")
@@ -986,23 +1006,6 @@
                     (-hmap {}) (.types ^HeterogeneousSeq targett))]
     (assoc expr
            expr-type (ret res))))
-
-(defmethod static-method-special 'clojure.lang.RT/get
-  [{:keys [args] :as expr} & [expected]]
-  (assert (<= 2 (count args) 3) "Wrong number of args to clojure.core/get")
-  (let [[target kw default] args
-        kwr (expr-type (check kw))]
-    (cond
-      ((every-pred Value? (comp keyword? :val)) (ret-t kwr))
-      (assoc expr
-             expr-type (let [target-ret (expr-type (check target))
-                             default-ret (when default
-                                           (expr-type (check default))) 
-                             ret (time (invoke-keyword kwr target-ret default-ret expected))]
-                         (prn "^^ invoke-keyword in get")
-                         ret))
-      
-      :else ::not-special)))
 
 (defmethod check :keyword-invoke
   [{:keys [kw target] :as expr} & [expected]]
@@ -1146,7 +1149,7 @@
   ;(prn "special apply:")
   (let [e (invoke-apply expr expected)]
     (when (= e ::not-special)
-      (throw (Exception. (str "apply must be special:" (-> expr :args first :var)))))
+      (throw (Exception. (error-msg "apply must be special: " (-> expr :args first :var)))))
     e))
 
 ;manual instantiation
@@ -1323,6 +1326,8 @@
 (defmethod invoke-apply #'clojure.core/hash-map
   [{[_ & args] :args :as expr} & [expected]]
   (let [cargs (doall (map check args))]
+    (prn "apply special (hash-map): "
+         (map (comp unparse-type ret-t expr-type) cargs))
     (cond
       (and ((some-fn HeterogeneousVector? HeterogeneousList? HeterogeneousSeq?) 
               (expr-type (last cargs)))
@@ -1335,19 +1340,8 @@
                                                       (mapcat vector (:types (expr-type (last cargs)))))))))
       :else ::not-special)))
 
-(defn fully-resolve-type 
-  ([t seen]
-   (let [_ (assert (not (seen t)) "Infinite non-Rec type detected")
-         seen (conj seen t)]
-     (if (requires-resolving? t)
-       (fully-resolve-type (-resolve t) seen)
-       t)))
-  ([t] (fully-resolve-type t #{})))
-
-;nth
-(defmethod static-method-special 'clojure.lang.RT/nth
-  [{:keys [args] :as expr} & [expected]]
-  (let [_ (assert (<= 2 (count args) 3))
+(defn invoke-nth [{:keys [args] :as expr} & [expected]]
+  (let [_ (assert (#{2 3} (count args)))
         [te ne de :as cargs] (doall (map check args))
         types (let [ts (-resolve (ret-t (expr-type te)))]
                 (if (Union? ts)
@@ -1412,6 +1406,11 @@
                                    -top))))
       :else ::not-special)))
 
+;nth
+(defmethod static-method-special 'clojure.lang.RT/nth
+  [expr & [expected]]
+  (invoke-nth expr expected))
+
 ;assoc
 ; TODO handle unions of hmaps as the target
 ; FIXME needs more tests
@@ -1471,14 +1470,16 @@
                                                 (check-funapp target keyvals
                                                               (ret 
                                                                 (parse-type '(All [b c] 
-                                                                                  [(IPersistentMap b c) b c -> (IPersistentMap b c)])))
+                                                                                  [(clojure.lang.IPersistentMap b c) b c -> 
+                                                                                   (clojure.lang.IPersistentMap b c)])))
                                                               (mapv ret [hmap kt vt])
                                                               nil))
                                        :else (ret-t 
                                                (check-funapp target keyvals
                                                              (ret 
                                                                (parse-type '(All [c] 
-                                                                                 [(IPersistentVector c) c -> (IPersistentVector c)])))
+                                                                                 [(clojure.lang.IPersistentVector c) c -> 
+                                                                                  (clojure.lang.IPersistentVector c)])))
                                                              (mapv ret [hmap vt])
                                                              nil)))))
                                  % keypair-types)
@@ -2015,13 +2016,18 @@
 ;                                (subst-filter p sym -empty true))
 ;                              oldp (map :sym required-params)))
 ;                    (:props *lexical-env*))
+
+        _ (assert (every? identity (map hygienic/hsym-key required-params))
+                  "Unhygienic AST detected")
         props (:props *lexical-env*)
-        fixed-entry (map vector (map hygienic/hsym-key required-params) (concat dom (repeat (or rest 
-                                                                                                (:pre-type drest)))))
+        fixed-entry (map vector (map hygienic/hsym-key required-params) 
+                         (concat dom (repeat (or rest 
+                                                 (:pre-type drest)))))
         rest-entry (when rest-param
                      [[(hygienic/hsym-key rest-param) 
                        (*check-fn-method1-rest-type* rest drest)]])
-        _ (assert ((hash-c? symbol? Type?) (into {} fixed-entry)))
+        _ (assert ((hash-c? symbol? Type?) (into {} fixed-entry))
+                  (into {} fixed-entry))
         _ (assert ((some-fn nil? (hash-c? symbol? Type?)) (when rest-entry
                                                             (into {} rest-entry))))
 
@@ -2428,7 +2434,7 @@
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
                       (let [sym (hygienic/hsym-key expr)
-                            _ (assert sym expr)
+                            _ (assert sym "Unhygienic expression detected")
                             ; check rhs
                             {:keys [t fl]} (time
                                                (->
@@ -2463,9 +2469,21 @@
                   (binding [*recur-target* (->RecurTarget expected-bnds nil nil nil)]
                     (check-let-checkfn body expected))
                   (binding [*current-expr* body]
-                    (check-let-checkfn body expected))))]
+                    (check-let-checkfn body expected))))
+        ;now we return a result to the enclosing scope, so we
+        ;erase references to any bindings this scope introduces
+        unshadowed-ret
+        (reduce (fn [ty sym]
+                  {:pre [(TCResult? ty)
+                         (symbol? sym)]}
+                  (-> ty
+                    (update-in [:t] subst-type sym -empty true)
+                    (update-in [:fl] subst-filter-set sym -empty true)
+                    (update-in [:o] subst-object sym -empty true)))
+                (expr-type cbody)
+                (map (comp hygienic/hsym-key :local-binding) binding-inits))]
     (assoc expr
-           expr-type (expr-type cbody))))
+           expr-type unshadowed-ret)))
 
 ;unhygienic version
 ;(defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
@@ -2783,7 +2801,9 @@
       (and (or (TypeFilter? lo)
                (NotTypeFilter? lo))
            (KeyPE? (first (:path lo))))
-      (do (assert (= (count (:path lo)) 1) "Further path NYI")
+      (do (assert (= (count (:path lo)) 1) 
+                  (str "Further path NYI " (pr-str (:path lo))
+                       (unparse-type t)))
         t)
 
       :else (throw (Exception. (error-msg "update along ill-typed path " (unparse-type t) " " (with-out-str (pr lo))))))))
