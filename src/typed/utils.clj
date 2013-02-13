@@ -59,10 +59,9 @@
 (declare ^:dynamic *current-env*)
 
 ;[Any * -> String]
-(defn ^String
-  error-msg 
+(defn ^String error-msg 
   [& msg]
   (apply str (when *current-env*
-                  (str (:line *current-env*) ": "))
+               (str (:line *current-env*) ": "))
          (concat msg)))
 

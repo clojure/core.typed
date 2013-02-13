@@ -347,6 +347,7 @@
           (visit-bounds b #(instantiate-many names %)))
         (.bbnds typefn)))
 
+;FIXME actual-frees should be metadata. ie. it should not affect equality
 (defrecord Poly [nbound bbnds scope actual-frees]
   "A polymorphic type containing n bound variables, with display names actual-frees"
   [(nat? nbound)

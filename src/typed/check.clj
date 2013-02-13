@@ -961,7 +961,10 @@
                           -empty))))
 
 (defn invoke-get [{:keys [args] :as expr} & [expected]]
-  {:post [(-> % expr-type TCResult?)]}
+  {:post [((some-fn 
+             #(-> % expr-type TCResult?)
+             #{::not-special})
+             %)]}
   (assert (#{2 3} (count args)) "Wrong number of args to clojure.core/get")
   (let [[target kw default] args
         kwr (expr-type (check kw))]
@@ -1264,6 +1267,7 @@
                                                            fin
                                                            (map first frees-with-bounds)))))]
     cexpr))
+
 
 (declare check-let)
 
@@ -2225,7 +2229,10 @@
                 (when-not (subtype? (ret-t (expr-type ctarget)) (RClass-of (Class->symbol (resolve (:declaring-class method)))
                                                                            nil))
                   (throw (Exception. (error-msg "Cannot call instance method " (Method->symbol method)
-                                                " on type " (unparse-type (ret-t (expr-type ctarget)))))))))
+                                                " on type " (pr-str (unparse-type (ret-t (expr-type ctarget))))
+                                                "\n\n"
+                                                "Form:"
+                                                "\n\t" (emit-form-fn expr)))))))
           cargs (doall (map check args))
           result-type (check-funapp expr args rfin-type (map expr-type cargs) expected)]
       (assoc expr

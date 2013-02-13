@@ -451,8 +451,6 @@
   )
 
 (ann confirm-bindings [Env (Seqable Symbol) -> Any])
-;doseq
-(tc-ignore
 (defn confirm-bindings [env names]
   (doseq [name names]
     (let [env (merge env {:ns (@namespaces *cljs-ns*)})
@@ -464,7 +462,6 @@
                  ev (not (-> ev :dynamic)))
         (warning env
           (str "WARNING: " (:name-sym ev) " not declared ^:dynamic"))))))
-  )
 
 (ann comma-sep [(Option (Seqable Any)) -> (Seqable Any)])
 (defn- comma-sep [xs]
@@ -770,9 +767,8 @@
   )
 
 (defmethod emit :def
-  [{:keys [name #_init #_env #_doc #_export] :as expr}]
-  (print-env "def")
-  #_(if init
+  [{:keys [name init env doc export] :as expr}]
+  (if init
     (do
       (emit-comment doc (:jsdoc init))
       (emits name)
@@ -995,7 +991,6 @@
   )
 
 ;dotimes
-(tc-ignore
 (defmethod emit :recur
   [{:keys [frame exprs env]}]
   (let [temps (vec (take (count exprs) (repeatedly gensym)))
@@ -1007,7 +1002,6 @@
       (emitln (names i) " = " (temps i) ";"))
     (emitln "continue;")
     (emitln "}")))
-  )
 
 ;doseq
 (tc-ignore

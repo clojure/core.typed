@@ -86,6 +86,9 @@
 (defn loop>-ann [loop-of bnding-types]
   loop-of)
 
+(defn doseq>-ann [the-doseq bnding-types body]
+  the-doseq)
+
 (defn- parse-fn>
   "(fn> name? :- type? [[param :- type]* & [param :- type *]?] exprs*)
   (fn> name? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"

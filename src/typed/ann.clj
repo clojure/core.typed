@@ -57,6 +57,7 @@
 (ann clojure.core/set (All [x] [(Option (Seqable x)) -> (PersistentHashSet x)]))
 (ann clojure.core/list (All [x] [x * -> (PersistentList x)]))
 (ann clojure.core/vector (All [x] [x * -> (APersistentVector x)]))
+(ann clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)]))
 
 (ann clojure.core/not [Any -> boolean])
 (ann clojure.core/constantly (All [x y] [x -> [y * -> x]]))
@@ -375,11 +376,11 @@
      (All [x y]
           (Fn [(IPersistentVector x) x x * -> (IPersistentVector x)]
               [(APersistentMap x y)
-               (U nil (IMapEntry x y) (Vector* x y))
-               (U nil (IMapEntry x y) (Vector* x y)) * -> (APersistentMap x y)]
+               (Option (IMapEntry x y) (Vector* x y))
+               (Option (IMapEntry x y) (Vector* x y)) * -> (APersistentMap x y)]
               [(IPersistentMap x y)
-               (U nil (IMapEntry x y) (Vector* x y))
-               (U nil (IMapEntry x y) (Vector* x y)) * -> (IPersistentMap x y)]
+               (Option (IMapEntry x y) (Vector* x y))
+               (Option (IMapEntry x y) (Vector* x y)) * -> (IPersistentMap x y)]
               [(IPersistentSet x) x x * -> (IPersistentSet x)]
               [(ISeq x) x x * -> (ASeq x)]
               [nil x x * -> (clojure.lang.PersistentList x)]
@@ -442,7 +443,7 @@
      (All [x]
        [(Option (Seqable x)) -> (Seqable x)]))
 
-;casts
+;coercions
 (ann clojure.core/bigdec [Any -> BigDecimal])
 (ann clojure.core/bigint [Any -> clojure.lang.BigInt])
 (ann clojure.core/boolean [Any -> boolean])
@@ -502,6 +503,11 @@
 
 (non-nil-return java.lang.Object/getClass #{0})
 (override-method clojure.lang.RT/nth
+                 (All [x y]
+                   (Fn [(Seqable x) AnyInteger -> x]
+                       [(Seqable x) AnyInteger y -> (U x y)])))
+
+(override-method clojure.lang.Indexed/nth
                  (All [x y]
                    (Fn [(Seqable x) AnyInteger -> x]
                        [(Seqable x) AnyInteger y -> (U x y)])))
