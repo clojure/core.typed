@@ -550,6 +550,15 @@
           Tvals (map second STvals)]
       (cs-gen-list V X Y Svals Tvals))))
 
+(defmethod cs-gen* [PrimitiveArray PrimitiveArray ::clojure]
+  [V X Y ^PrimitiveArray S ^PrimitiveArray T]
+  (cs-gen-list 
+    V X Y
+    ;input contravariant
+    ;output covariant
+    [(.input-type T) (.output-type S)]
+    [(.input-type S) (.output-type T)]))
+
 (defmethod cs-gen* [HeterogeneousMap RClass ::clojure]
   [V X Y S T]
   ; HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)

@@ -30,15 +30,16 @@
 
 ;Note: defrecord is now trammel's defconstrainedrecord
 
+;(ann analyze.hygienic/emit-hy [Any -> Any])
+
+;AnalysisExpr -> Form
+;(ann emit-form-fn [Any -> Any])
 (def emit-form-fn hygienic/emit-hy)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special functions
 
-(defn print-env
-  "Print the current type environment, and debug-string"
-  [debug-string] nil)
-
+;(ann print-filterset [String Any -> Any])
 (defn print-filterset
   "Print the filter set attached to form, and debug-string"
   [debug-string frm] 
@@ -46,8 +47,9 @@
 
 (declare Method->Function unparse-type unparse-filter)
 
+;(ann method-type [Symbol -> nil])
 (defn method-type 
-  "Given a method symbol, print the Typed Clojure types assigned to it"
+  "Given a method symbol, print the core.typed types assigned to it"
   [mname]
   (let [ms (->> (reflect/type-reflect (Class/forName (namespace mname)))
              :members
@@ -59,10 +61,12 @@
     (doseq [m ms]
       (prn (unparse-type (Method->Function m))))))
 
+;(ann inst-poly [Any Any -> Any])
 (defn inst-poly 
   [inst-of types-syn]
   inst-of)
 
+;(ann inst-poly-ctor [Any Any -> Any])
 (defn inst-poly-ctor [inst-of types-syn]
   inst-of)
 
@@ -77,18 +81,31 @@
   [inst-of & types]
   `(inst-poly-ctor ~inst-of '~types))
 
+;(ann fn>-ann [Any Any -> Any])
 (defn fn>-ann [fn-of param-types-syn]
   fn-of)
 
+;(ann pfn>-ann [Any Any -> Any])
 (defn pfn>-ann [fn-of polys param-types-syn]
   fn-of)
 
+;(ann loop>-ann [Any Any -> Any])
 (defn loop>-ann [loop-of bnding-types]
   loop-of)
 
+;(ann doseq>-ann [Any Any -> Any])
 (defn doseq>-ann [the-doseq bnding-types body]
   the-doseq)
 
+;(ann parse-fn> [Any (Seqable Any) ->
+;                '{:poly Any
+;                  :fn Any ;Form
+;                  :parsed-methods (Seqable '{:dom-syntax (Seqable Any)
+;                                             :dom-lhs (Seqable Any)
+;                                             :rng-syntax Any
+;                                             :has-rng? Any
+;                                             :body Any})}])
+;for
 (defn- parse-fn>
   "(fn> name? :- type? [[param :- type]* & [param :- type *]?] exprs*)
   (fn> name? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
@@ -238,6 +255,9 @@
 ; (Type->array-member-Class (parse-type 'nil)) => Object
 ; (Type->array-member-Class (parse-type '(U nil Number))) => Number
 ; (Type->array-member-Class (parse-type '(Array (U nil Number)))) =~> (Array Number)
+
+;(ann Type->array-member-Class (Fn [Type -> (Option Class)]
+;                                  [Type Any -> (Option Class)]))
 (defn Type->array-member-Class 
   ([ty] (Type->array-member-Class ty false))
   ([ty nilok?]
@@ -262,6 +282,7 @@
      (PrimitiveArray? ty) (class (make-array (Type->array-member-Class (:jtype ty) false) 0))
      :else Object)))
 
+;(ann into-array>* [Any Any -> Any])
 (defn into-array>* 
   ([cljt coll]
    (into-array (-> cljt parse-type Type->array-member-Class) coll))
@@ -280,18 +301,17 @@
 (defn ann-form* [form ty]
   form)
 
-(defn ann-form* [form ty]
-  form)
-
 (defmacro ann-form [form ty]
   `(ann-form* ~form '~ty))
 
+;(ann unsafe-ann-form* [Any Any -> Any])
 (defn unsafe-ann-form* [form ty]
   form)
 
 (defmacro unsafe-ann-form [form ty]
   `(unsafe-ann-form* ~form '~ty))
 
+;(ann tc-ignore-forms* [Any -> Any])
 (defn tc-ignore-forms* [r]
   r)
 
@@ -326,12 +346,12 @@
 
 (declare abstract-many instantiate-many)
 
-(load "type_rep")
-(load "type_ops")
-(load "filter_rep")
-(load "filter_ops")
-(load "path_rep")
-(load "object_rep")
+(load "type_rep"
+      "type_ops"
+      "filter_rep"
+      "filter_ops"
+      "path_rep"
+      "object_rep")
 
 ; must be after type/object/filter definitions
 (load "fold")
@@ -341,6 +361,7 @@
 
 (declare TCResult?)
 
+;(ann (predicate (APersistentMap Symbol Any)))
 (def lex-env? (hash-c? (every-pred symbol? (complement namespace)) Type?))
 
 (defrecord PropEnv [l props]
@@ -350,8 +371,11 @@
 
 (declare ^:dynamic *lexical-env*)
 
-(defn print-env 
-  ([] (print-env *lexical-env*))
+(defn print-env [debug-str]
+  nil)
+
+(defn print-env*
+  ([] (print-env* *lexical-env*))
   ([e]
    {:pre [(PropEnv? e)]}
    ;; DO NOT REMOVE
@@ -589,36 +613,36 @@
 (defn checking-clojurescript? []
   (= ::clojurescript @TYPED-IMPL))
 
-(load "dvar_env")
-(load "datatype_ancestor_env")
-(load "datatype_env")
-(load "protocol_env")
-(load "method_override_env")
-(load "ctor_override_env")
-(load "method_return_nilables")
-(load "method_param_nilables")
-(load "declared_kind_env")
-(load "name_env")
-(load "rclass_env")
-(load "mm_env")
+(load "dvar_env"
+      "datatype_ancestor_env"
+      "datatype_env"
+      "protocol_env"
+      "method_override_env"
+      "ctor_override_env"
+      "method_return_nilables"
+      "method_param_nilables"
+      "declared_kind_env"
+      "name_env"
+      "rclass_env"
+      "mm_env")
 
-(load "constant_type")
-(load "parse")
-(load "unparse")
-(load "frees")
-(load "promote_demote")
-(load "cs_gen")
-(load "subst_dots")
-(load "infer")
-(load "tvar_rep")
-(load "subst")
-(load "trans")
-(load "inst")
-(load "subtype")
-(load "alter")
-(load "ann")
-(load "check")
-(load "check_cljs")
+(load "constant_type"
+      "parse"
+      "unparse"
+      "frees"
+      "promote_demote"
+      "cs_gen"
+      "subst_dots"
+      "infer"
+      "tvar_rep"
+      "subst"
+      "trans"
+      "inst"
+      "subtype"
+      "alter"
+      "ann"
+      "check"
+      "check_cljs")
 
 ;emit something that CLJS can display ie. a quoted unparsed typed
 (defmacro cf-cljs

@@ -203,13 +203,28 @@
 (defmethod parse-type-list 'Array
   [[_ syn & none]]
   (assert (empty? none) "Expected 1 argument to Array")
-  (let [t (parse-type syn)]
-    (->PrimitiveArray Object t t)))
+  (let [t (parse-type syn)
+        jtype (if (RClass? t)
+                (RClass->Class t)
+                Object)]
+    (->PrimitiveArray jtype t t)))
+
+(defmethod parse-type-list 'ReadOnlyArray
+  [[_ osyn & none]]
+  (assert (empty? none) "Expected 1 argument to ReadOnlyArray")
+  (->PrimitiveArray Object (Bottom) (parse-type osyn)))
+
+(defmethod parse-type-list 'Array2
+  [[_ isyn osyn & none]]
+  (assert (empty? none) "Expected 2 arguments to Array2")
+  (->PrimitiveArray Object (parse-type isyn) (parse-type osyn)))
 
 (defmethod parse-type-list 'Array3
   [[_ jsyn isyn osyn & none]]
   (assert (empty? none) "Expected 3 arguments to Array3")
-  (->PrimitiveArray (resolve jsyn) (parse-type isyn) (parse-type osyn)))
+  (let [jrclass (parse-type jsyn)
+        _ (assert (RClass? jrclass) "First argument to Array3 must be a Class")]
+    (->PrimitiveArray (RClass->Class jrclass) (parse-type isyn) (parse-type osyn))))
 
 (declare parse-function)
 

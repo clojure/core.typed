@@ -418,7 +418,7 @@
   )
 
 (ann resolve-var [Env Symbol -> (HMap {:name Symbol})])
-;hard invariants across conditionals
+;need a NamespacedSymbol refinement, of which `namespace` is a predicate.
 (tc-ignore
 (defn resolve-var [env sym]
   (if (= (namespace sym) "js")
@@ -808,7 +808,7 @@
     (emits "})")))
   )
 
-(ann emit-fn-method [FnMethod -> Any])
+(ann emit-fn-method [FnMethod -> nil])
 (defn emit-fn-method
   [{:keys [gthis name variadic params statements ret env recurs max-fixed-arity]}]
   (emit-wrap env
@@ -822,7 +822,7 @@
                (emitln "}"))
              (emits "})")))
 
-(ann emit-variadic-fn-method [FnMethod -> Any])
+(ann emit-variadic-fn-method [FnMethod -> nil])
 ;assoc not working
 (tc-ignore
 (defn emit-variadic-fn-method

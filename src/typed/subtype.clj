@@ -446,10 +446,23 @@
   [_ t]
   (subtype (->PrimitiveArray Object -any -any) t))
 
+(defmethod subtype* [PrimitiveArray PrimitiveArray ::clojure]
+  [^PrimitiveArray s 
+   ^PrimitiveArray t]
+  (if (and ;(= (.jtype s) (.jtype t))
+           ;contravariant
+           (subtype? (.input-type t)
+                     (.input-type s))
+           ;covariant
+           (subtype? (.output-type s)
+                     (.output-type t)))
+    *sub-current-seen*
+    (type-error s t)))
+
 ;Not quite correct, datatypes have other implicit ancestors (?)
 (defmethod subtype* [DataType Type ::clojure]
   [{:keys [the-class] :as s} t]
-  (if (some #(subtype? % t) (set/union #{(RClass-of (Class->symbol Object) nil)} 
+  (if (some #(subtype? % t) (set/union #{(RClass-of Object)} 
                                        (or (@DATATYPE-ANCESTOR-ENV the-class)
                                            #{})))
     *sub-current-seen*

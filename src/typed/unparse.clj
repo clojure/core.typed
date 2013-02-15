@@ -55,8 +55,9 @@
       name))
 
 (defmethod unparse-type* PrimitiveArray
-  [{:keys [input-type output-type]}]
-  (list 'Array (unparse-type input-type) (unparse-type output-type)))
+  [{:keys [jtype input-type output-type]}]
+  (list 'Array3 (Class->symbol jtype)
+        (unparse-type input-type) (unparse-type output-type)))
 
 (defmethod unparse-type* B
   [{:keys [idx]}]

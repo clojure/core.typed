@@ -1115,3 +1115,10 @@
 (deftest isa-test
   (is (tc-t (isa? 1 1)))
   (is (tc-t #(isa? (class %) Number))))
+
+(deftest array-primitive-hint-test
+  (is (cf (let [^ints a (typed.core/into-array> int [(int 1)])]
+            (alength a)))))
+
+(deftest array-subtype-test
+  (is (sub? (ReadOnlyArray int) (Array int))))

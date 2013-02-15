@@ -10,7 +10,10 @@
 (ann clojure.core/*ns* Namespace)
 (ann clojure.core/*out* java.io.Writer)
 (ann clojure.core/*err* java.io.Writer)
+(ann clojure.core/*warn-on-reflection* Any)
 (ann clojure.core/pop-thread-bindings [-> Any])
+(ann clojure.core/load [String * -> Any])
+
 (ann clojure.core/namespace [(U Symbol String Keyword) -> (Option String)])
 (ann clojure.core/ns-name [Namespace -> Symbol])
 (ann clojure.core/name [(U String Named) -> String])
@@ -456,11 +459,33 @@
 (ann clojure.core/num [Any -> Number])
 (ann clojure.core/short [Any -> short])
 
+;array ctors
+(ann clojure.core/int-array (Fn [(U nil Number (Seqable Number)) -> (Array int)]
+                                [Number (U Number (Seqable Number)) -> (Array int)]))
+(ann clojure.core/double-array (Fn [(U nil Number (Seqable Number)) -> (Array double)]
+                                   [Number (U Number (Seqable Number)) -> (Array double)]))
+(ann clojure.core/short-array (Fn [(U nil Number (Seqable Short)) -> (Array short)]
+                                  [Number (U Short (Seqable Short)) -> (Array short)]))
+
+;array ops
+(override-method clojure.lang.RT/alength
+                 [(ReadOnlyArray Any) -> int])
+
+(override-method clojure.lang.RT/aget
+                 (All [o]
+                      [(ReadOnlyArray o) int -> o]))
+
+(override-method clojure.lang.RT/aset
+                 (All [i o]
+                      [(Array2 i o) i -> o]))
+
+;get
 (override-method clojure.lang.RT/get 
                  (All [y d] 
                       (Fn [(Option (IPersistentMap Any y)) Any -> (Option y)]
                           [(Option (IPersistentMap Any y)) Any d -> (U d y)])))
 
+;numbers
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
                                               [Number Number -> Number]))
 (override-method clojure.lang.Numbers/inc (Fn [AnyInteger -> AnyInteger]

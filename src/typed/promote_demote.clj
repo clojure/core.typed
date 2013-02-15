@@ -40,13 +40,13 @@
 (defmethod promote PrimitiveArray
   [T V]
   (-> T
-    (update-in [:input-type] #(promote % V))
+    (update-in [:input-type] #(demote % V))
     (update-in [:output-type] #(promote % V))))
 
 (defmethod demote PrimitiveArray
   [T V]
   (-> T
-    (update-in [:input-type] #(demote % V))
+    (update-in [:input-type] #(promote % V))
     (update-in [:output-type] #(demote % V))))
 
 (defmethod promote F

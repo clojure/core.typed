@@ -1188,7 +1188,7 @@
   (assert (= :string (:op debug-string)))
   ;DO NOT REMOVE
   (pr (:val debug-string))
-  (print-env)
+  (print-env*)
   ;DO NOT REMOVE
   (assoc expr
          expr-type (ret -nil -false-filter -empty)))
@@ -2156,8 +2156,10 @@
         (assert (not (.contains s-nosuffix "<>")))
         ;Nullable elements
         (let [t (Method-symbol->Type (symbol s-nosuffix) nilable?)
-              c (let [c (resolve (symbol s-nosuffix))
-                      _ (assert (class? c))]
+              c (let [c (or (when-let [rclass (primitives (symbol s-nosuffix))]
+                              (RClass->Class rclass))
+                            (resolve (symbol s-nosuffix)))
+                      _ (assert (class? c) s-nosuffix)]
                   c)]
           (->PrimitiveArray c t t))))))
 
@@ -2217,7 +2219,12 @@
 (defn check-invoke-method [{:keys [args tag method env] :as expr} expected inst?]
   {:pre [((some-fn nil? TCResult?) expected)]
    :post [(-> % expr-type TCResult?)]}
-  (assert method (str "Unresolved method invocation " (:method-name expr) ", insufficient type hints."))
+  (assert method (error-msg "Unresolved " (if inst? "instance" "static") 
+                            " method invocation " 
+                            (when-let [c (:class expr)]
+                              (str (Class->symbol c) "/"))
+                            (:method-name expr) ", insufficient type hints."
+                            "\n\nForm:\n\t" (emit-form-fn expr)))
   #_(prn "invoke method: " (Method->symbol method) inst?)
   (binding [*current-env* env]
     (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
@@ -2416,21 +2423,27 @@
 ;Arguments passed to recur must match recur target exactly. Rest parameter
 ;equals 1 extra argument, either a Seqable or nil.
 (defmethod check :recur
-  [{:keys [args] :as expr} & [expected]]
-  (assert *recur-target* (error-msg "No recur target"))
-  (let [{:keys [dom rest]} *recur-target*
-        fixed-args (if rest
-                     (butlast args)
-                     args)
-        rest-arg (when rest
-                   (last args))
-        cargs (mapv check args (map ret (concat dom (when rest-arg
-                                                      [(RClass-of Seqable [rest])]))))
-        _ (assert (and (= (count fixed-args) (count dom))
-                       (= (boolean rest) (boolean rest-arg)))
-                  (error-msg "Wrong number of arguments to recur"))]
-    (assoc expr
-           expr-type (ret (Un)))))
+  [{:keys [args env] :as expr} & [expected]]
+  (binding [*current-env* env]
+    (assert *recur-target* (error-msg "No recur target"))
+    (let [{:keys [dom rest] :as recur-target} *recur-target*
+          _ (assert (not ((some-fn :drest :kw) recur-target)) "NYI")
+          fixed-args (if rest
+                       (butlast args)
+                       args)
+          rest-arg (when rest
+                     (last args))
+          cargs (mapv check args (map ret (concat dom (when rest-arg
+                                                        [(RClass-of Seqable [rest])]))))
+          _ (assert (and (= (count fixed-args) (count dom))
+                         (= (boolean rest) (boolean rest-arg)))
+                    (error-msg "Wrong number of arguments to recur:"
+                               " Expected: " ((if rest inc identity) 
+                                                (count dom))
+                               " Given: " ((if rest-arg inc identity)
+                                             (count fixed-args))))]
+      (assoc expr
+             expr-type (ret (Un))))))
 
 (def ^:dynamic *check-let-checkfn*)
 
@@ -2585,16 +2598,14 @@
 ;           expr-type unshadowed-type)))
 
 (defmethod check :let
-  [expr & [expected]]
+  [{:keys [is-loop binding-inits body] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (binding [*check-let-checkfn* check]
-    (let [is-loop (:is-loop expr)
-          binding-inits (:binding-inits expr)
-          body (:body expr)]
-      (if-let [expected-bnds (and is-loop *loop-bnd-anns*)]
+    (if is-loop
+      (let [loop-bnd-anns *loop-bnd-anns*]
         (binding [*loop-bnd-anns* nil]
-          (check-let binding-inits body expr true expected :expected-bnds expected-bnds))
-        (check-let binding-inits body expr false expected)))))
+          (check-let binding-inits body expr true expected :expected-bnds loop-bnd-anns)))
+      (check-let binding-inits body expr false expected))))
 
 ;[(Seqable Filter) Filter -> Filter]
 (defn resolve* [atoms prop]
@@ -3173,6 +3184,21 @@
     (assoc expr
            expr-type (ret (apply Un (-> ctry-expr expr-type ret-t) 
                                  (map (comp ret-t expr-type) ccatch-exprs))))))
+
+(defmethod check :set!
+  [{:keys [target val] :as expr} & [expected]]
+  (let [ctarget (check target)
+        cval (check val (expr-type ctarget))
+        _ (assert (subtype? 
+                    (-> cval expr-type ret-t)
+                    (-> ctarget expr-type ret-t))
+                  (error-msg "Cannot set! " (-> ctarget expr-type ret-t unparse-type pr-str)
+                             " to " (-> cval expr-type ret-t unparse-type pr-str)
+                             "\n\nForm:\n\t" (emit-form-fn expr)))]
+    (assoc expr
+           expr-type -any
+           :target ctarget
+           :val cval)))
 
 (comment
   ;; error checking
