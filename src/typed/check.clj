@@ -1652,7 +1652,7 @@
 (defmethod check :invoke
   [{:keys [fexpr args env] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (prn "invoke:" ((some-fn :var :keyword :op) fexpr))
+  #_(prn "invoke:" ((some-fn :var :keyword :op) fexpr))
   (binding [*current-env* env]
     (let [e (invoke-special expr expected)]
       (cond 
@@ -1671,14 +1671,11 @@
                                            expected)))
 
         :else
-        (let [cfexpr (time (check fexpr))
-              _ (prn "^^^ check-fexpr")
-              cargs (time (doall (map check args)))
-              _ (prn "^^^ check args")
+        (let [cfexpr (check fexpr)
+              cargs (doall (map check args))
               ftype (expr-type cfexpr)
               argtys (map expr-type cargs)
-              actual (time (check-funapp fexpr args ftype argtys expected))
-              _ (prn "^^^ funapp")]
+              actual (check-funapp fexpr args ftype argtys expected)]
           (assoc expr
                  :fexpr cfexpr
                  :args cargs
@@ -2052,9 +2049,9 @@
                           then-filter (-> isa-ret ret-f :then)
                           _ (assert then-filter)]
                       then-filter))
-        _ (prn "^^^ mm-filter")
+        ;_ (prn "^^^ mm-filter")
 
-        _ (prn "funapp1: inferred mm-filter" mm-filter)
+        ;_ (prn "funapp1: inferred mm-filter" mm-filter)
 
         env (let [env (-> *lexical-env*
                         ;add mm-filter
@@ -2456,15 +2453,19 @@
                       (let [sym (hygienic/hsym-key expr)
                             _ (assert sym "Unhygienic expression detected")
                             ; check rhs
-                            {:keys [t fl]} (time
-                                               (->
-                                                 (expr-type
-                                                   (binding [*current-expr* init]
-                                                     (with-lexical-env env
-                                                       (check-let-checkfn init (when is-loop
-                                                                                 (ret expected-bnd)))))))
-                                               )
-                            _ (prn "^^ noshadow-ret")]
+                            {:keys [t fl]} (->
+                                             (expr-type
+                                               (binding [*current-expr* init]
+                                                 (with-lexical-env env
+                                                   (check-let-checkfn init (when is-loop
+                                                                             (ret expected-bnd)))))))
+                            _ (assert (or (not expected-bnd)
+                                          (subtype? t expected-bnd))
+                                      (error-msg "Loop variable " sym " initialised to "
+                                                 (pr-str (unparse-type t))
+                                                 ", expected " (pr-str (unparse-type expected-bnd))
+                                                 "\n\nForm:\n\t" (emit-form-fn init)))
+                            t (or expected-bnd t)]
                         (cond
                           (FilterSet? fl)
                           (let [{:keys [then else]} fl

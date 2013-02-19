@@ -4,6 +4,8 @@
 ;; Type annotations
 
 (def-alias AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte))
+(def-alias AnyPrimitive (U char int short boolean byte short long float double))
+
 (def-alias Atom1 (TFn [[x :variance :invariant]] (Atom x x)))
 (def-alias Option (TFn [[x :variance :covariant]] (U nil x)))
 
@@ -538,3 +540,20 @@
                        [(Seqable x) AnyInteger y -> (U x y)])))
 
 (non-nil-return clojure.lang.Compiler/munge :all)
+
+;what about combinations of references and primitives?
+(override-method clojure.lang.RT/box
+                 (All [[x :< (U nil Object)]]
+                   (Fn [char -> Character]
+                       [int -> Integer]
+                       [short -> Short]
+                       [boolean -> Boolean]
+                       [byte -> Byte]
+                       [short -> Short]
+                       [long -> Long]
+                       [float -> Float]
+                       [double -> Double]
+                       [(U byte short int long) -> AnyInteger]
+                       [(U float double) -> Number]
+                       [nil -> nil]
+                       [x -> x])))

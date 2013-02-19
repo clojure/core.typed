@@ -1121,4 +1121,6 @@
             (alength a)))))
 
 (deftest array-subtype-test
-  (is (sub? (ReadOnlyArray int) (Array int))))
+  (is (sub? (Array int) (Array int)))
+  (is (sub? (Array int) (ReadOnlyArray int)))
+  (is (not (sub? (ReadOnlyArray int) (Array int)))))

@@ -134,7 +134,7 @@
   [[_ t-syn]]
   (let [on-type (parse-type t-syn)]
     (make-FnIntersection
-      (make-Function [-any] (RClass-of 'boolean nil) nil nil
+      (make-Function [-any] (RClass-of Boolean) nil nil
                      :filter (-FS (-filter on-type 0)
                                   (-not-filter on-type 0))))))
 
@@ -402,7 +402,7 @@
                 ;(prn *ns* "res" sym "->" res)
                 (cond 
                   (class? res) (or (@DATATYPE-ENV (symbol (.getName ^Class res)))
-                                   (RClass-of (Class->symbol res) nil))
+                                   (RClass-of res))
                   :else (if-let [t (and (var? res) 
                                         (@TYPE-NAME-ENV (var->symbol res)))]
                           t
@@ -476,7 +476,7 @@
         _ (assert (not (and asterix-pos ellipsis-pos))
                   "Cannot provide both rest type and dotted rest type")
 
-        _ (when-let [ks (seq (filter #(not (#{:filters :object} %)) (keys opts)))]
+        _ (when-let [ks (seq (filter (complement #{:filters :object}) (keys opts)))]
             (throw (Exception. (str "Invalid option/s: " ks))))
 
         filters (when-let [[_ fsyn] (find opts :filters)]

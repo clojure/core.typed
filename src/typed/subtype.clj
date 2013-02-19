@@ -189,16 +189,16 @@
           (type-error s t))
 
         ;values are subtypes of their classes
-        (and (Value? s)
-             (checking-clojure?))
-        (let [^Value s s]
-          (if (nil? (.val s))
-            (type-error s t)
-            (subtype (apply In (RClass-of (class (.val s)))
-                            ;keyword values are functions
-                            (when (keyword? (.val s))
-                              [(keyword->Fn (.val s))]))
-                     t)))
+;        (and (Value? s)
+;             (checking-clojure?))
+;        (let [^Value s s]
+;          (if (nil? (.val s))
+;            (type-error s t)
+;            (subtype (apply In (RClass-of (class (.val s)))
+;                            ;keyword values are functions
+;                            (when (keyword? (.val s))
+;                              [(keyword->Fn (.val s))]))
+;                     t)))
 
         :else (subtype* s t)))))
 
@@ -548,8 +548,8 @@
 (defmethod subtype* [RClass RClass ::clojure]
   [{polyl? :poly? :as s}
    {polyr? :poly? :as t}]
-  (let [scls (symbol->Class (:the-class s))
-        tcls (symbol->Class (:the-class t))]
+  (let [scls (RClass->Class s)
+        tcls (RClass->Class t)]
     (cond
       (or
         ; use java subclassing
@@ -564,8 +564,8 @@
              (subtype-RClass-common-base s t))
 
         ;one is a primitive, coerse
-        (and (or (.isPrimitive ^Class scls)
-                 (.isPrimitive ^Class tcls))
+        (and (or (.isPrimitive scls)
+                 (.isPrimitive tcls))
              (coerse-RClass-primitive s t))
 
         ;find a supertype of s that is the same base as t, and subtype of it
