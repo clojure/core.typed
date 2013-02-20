@@ -534,35 +534,6 @@
 (defn lookup-local [sym]
   (-> *lexical-env* :l sym))
 
-(defn var->symbol [var]
-  {:pre [(var? var)]
-   :post [(symbol? %)
-          (namespace %)]}
-  (symbol (str (ns-name (.ns ^Var var)))
-          (str (.sym ^Var var))))
-
-(defn symbol->Class 
-  "Returns the Class represented by the symbol. Works for
-  primitives (eg. byte, int). Does not further resolve the symbol."
-  [sym]
-  {:pre [(symbol? sym)]
-   :post [(class? %)]}
-  (case sym
-    byte Byte/TYPE
-    short Short/TYPE
-    int Integer/TYPE
-    long Long/TYPE
-    float Float/TYPE
-    double Double/TYPE
-    boolean Boolean/TYPE
-    char Character/TYPE
-    (Class/forName (str sym))))
-
-(defn Class->symbol [^Class cls]
-  {:pre [(class? cls)]
-   :post [(symbol? %)]}
-  (symbol (.getName cls)))
-
 (def ^:dynamic *var-annotations*)
 
 (defn lookup-Var [nsym]

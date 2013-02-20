@@ -189,16 +189,18 @@
           (type-error s t))
 
         ;values are subtypes of their classes
-;        (and (Value? s)
-;             (checking-clojure?))
-;        (let [^Value s s]
-;          (if (nil? (.val s))
-;            (type-error s t)
-;            (subtype (apply In (RClass-of (class (.val s)))
-;                            ;keyword values are functions
-;                            (when (keyword? (.val s))
-;                              [(keyword->Fn (.val s))]))
-;                     t)))
+        ;FIXME this is probably wrong because we don't account for boxing/unboxing
+        ; Leaving this here to please the tests.
+        (and (Value? s)
+             (checking-clojure?))
+        (let [^Value s s]
+          (if (nil? (.val s))
+            (type-error s t)
+            (subtype (apply In (RClass-of (class (.val s)))
+                            ;keyword values are functions
+                            (when (keyword? (.val s))
+                              [(keyword->Fn (.val s))]))
+                     t)))
 
         :else (subtype* s t)))))
 

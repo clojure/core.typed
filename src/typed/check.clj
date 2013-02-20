@@ -19,38 +19,6 @@
         [t fs]
         [t fs o]))))
 
-;[Type -> TCResult]
-;[Type FilterSet -> TCResult]
-;[Type FilterSet RObject -> TCResult]
-(defn ret
-  "Convenience function for returning the type of an expression"
-  ([t] (ret t (-FS -top -top) (->EmptyObject)))
-  ([t f] (ret t f (->EmptyObject)))
-  ([t f o]
-   {:pre [(AnyType? t)
-          (FilterSet? f)
-          (RObject? o)]
-    :post [(TCResult? %)]}
-   (->TCResult t f o)))
-
-;[TCResult -> Type]
-(defn ret-t [r]
-  {:pre [(TCResult? r)]
-   :post [(AnyType? %)]}
-  (:t r))
-
-;[TCResult -> FilterSet]
-(defn ret-f [r]
-  {:pre [(TCResult? r)]
-   :post [(FilterSet? %)]}
-  (:fl r))
-
-;[TCResult -> RObject]
-(defn ret-o [r]
-  {:pre [(TCResult? r)]
-   :post [(RObject? %)]}
-  (:o r))
-
 (def expr-type ::expr-type)
 
 (defmulti check (fn [expr & [expected]]
@@ -2403,7 +2371,11 @@
                   (str "Can only throw Throwable, found "
                        (unparse-type (ret-t (expr-type cexception)))))]
     (assoc expr
-           expr-type (ret (Un)))))
+           expr-type (ret (Un) 
+                          (-FS -top -top) 
+                          -empty
+                          ;never returns normally
+                          (-flow -bot -top)))))
 
 (declare combine-props)
 
@@ -2899,8 +2871,8 @@
               ;; in particular, it might be (void)
               (and expected reachable?)
               (-> (*check-if-checkfn* expr (-> expected
-                                             (update-in [:fl] (constantly (-FS -top -top)))
-                                             (update-in [:o] (constantly -empty))))
+                                             (assoc :fl (-FS -top -top))
+                                             (assoc :o -empty)))
                 expr-type)
               ;; this code is reachable, but we have no expected type
               reachable? (-> (*check-if-checkfn* expr) expr-type)
@@ -2934,12 +2906,15 @@
 ;                                    (set (:props *lexical-env*))
 ;                                    (set (:props env-els)))))
           ;_ (prn idsym"env+: new-els-props" (map unparse-filter new-els-props))
-          {ts :t fs2 :fl os2 :o :as then-ret} (binding [*current-expr* thn]
-                                                (with-lexical-env env-thn
-                                                  (tc thn @flag+)))
-          {us :t fs3 :fl os3 :o :as else-ret} (binding [*current-expr* els]
-                                                (with-lexical-env env-els
-                                                  (tc els @flag-)))]
+          {ts :t fs2 :fl os2 :o flow2 :flow :as then-ret} 
+          (binding [*current-expr* thn]
+            (with-lexical-env env-thn
+              (tc thn @flag+)))
+
+          {us :t fs3 :fl os3 :o flow3 :flow :as else-ret} 
+          (binding [*current-expr* els]
+            (with-lexical-env env-els
+              (tc els @flag-)))]
 
       ;some optimization code here, contraditions etc? omitted
 

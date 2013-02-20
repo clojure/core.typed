@@ -260,15 +260,14 @@
          (ret (->Value 1) (-FS -top -bot) (->EmptyObject)))))
 
 (deftest empty-fn-test
-  (is (do (prn *ns*)
-        (= (tc-t (clojure.core/fn []))
-           (ret (make-FnIntersection
-                  (->Function [] (make-Result -nil
-                                              (-FS -bot -top)
-                                              (->EmptyObject))
-                              nil nil nil))
-                (-FS -top -bot)
-                (->EmptyObject)))))
+  (is (= (tc-t (clojure.core/fn []))
+         (ret (make-FnIntersection
+                (->Function [] (make-Result -nil
+                                            (-FS -bot -top)
+                                            (->EmptyObject))
+                            nil nil nil))
+              (-FS -top -bot)
+              (->EmptyObject))))
   (is (= (tc-t (fn [] 1))
          (ret (make-FnIntersection
                 (->Function [] (make-Result (->Value 1)
@@ -1124,3 +1123,11 @@
   (is (sub? (Array int) (Array int)))
   (is (sub? (Array int) (ReadOnlyArray int)))
   (is (not (sub? (ReadOnlyArray int) (Array int)))))
+
+(deftest flow-assert-test
+  (is (subtype?
+        (-> (tc-t (fn [a]
+                    {:pre [(integer? a)]}
+                    a))
+          ret-t)
+        (parse-type '[Any -> Integer]))))

@@ -774,10 +774,63 @@
 
 (declare FilterSet?)
 
-(defrecord TCResult [t fl o]
+(defrecord FlowSet [normal exception]
+  "The environment that is true when an expression returns normally."
+  [(Filter? normal)
+   (Filter? exception)])
+
+(defrecord TCResult [t fl o flow]
   "This record represents the result of typechecking an expression"
   [(Type? t)
    (FilterSet? fl)
-   (RObject? o)])
+   (RObject? o)
+   (FlowSet? flow)])
 
 (declare-AnyType TCResult)
+
+(defn -flow
+  ([normal] (-flow normal -top))
+  ([normal exception] 
+   {:pre [(Filter? normal)
+          (Filter? exception)]}
+   (->FlowSet normal exception)))
+
+;[Type -> TCResult]
+;[Type FilterSet -> TCResult]
+;[Type FilterSet RObject -> TCResult]
+(defn ret
+  "Convenience function for returning the type of an expression"
+  ([t] (ret t (-FS -top -top) (->EmptyObject) (-flow -top)))
+  ([t f] (ret t f (->EmptyObject) (-flow -top)))
+  ([t f o] (ret t f o (-flow -top)))
+  ([t f o flow]
+   {:pre [(AnyType? t)
+          (FilterSet? f)
+          (RObject? o)
+          (FlowSet? flow)]
+    :post [(TCResult? %)]}
+   (->TCResult t f o flow)))
+
+;[TCResult -> Type]
+(defn ret-t [r]
+  {:pre [(TCResult? r)]
+   :post [(AnyType? %)]}
+  (:t r))
+
+;[TCResult -> FilterSet]
+(defn ret-f [r]
+  {:pre [(TCResult? r)]
+   :post [(FilterSet? %)]}
+  (:fl r))
+
+;[TCResult -> RObject]
+(defn ret-o [r]
+  {:pre [(TCResult? r)]
+   :post [(RObject? %)]}
+  (:o r))
+
+;[TCResult -> RObject]
+(defn ret-flow [r]
+  {:pre [(TCResult? r)]
+   :post [(FlowSet? %)]}
+  (:flow r))

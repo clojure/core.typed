@@ -134,7 +134,7 @@
   [[_ t-syn]]
   (let [on-type (parse-type t-syn)]
     (make-FnIntersection
-      (make-Function [-any] (RClass-of Boolean) nil nil
+      (make-Function [-any] (RClass-of 'boolean) nil nil
                      :filter (-FS (-filter on-type 0)
                                   (-not-filter on-type 0))))))
 
