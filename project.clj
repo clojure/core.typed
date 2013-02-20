@@ -12,5 +12,9 @@
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/clojure "1.5.0-RC1"]
                  ]
+
+  :source-paths ["src/main/clojure"]
+  :test-paths ["src/test/clojure"]
+
   :dev-dependencies [[org.clojure/tools.macro "0.1.0"] ;for algo.monads
                      ])
