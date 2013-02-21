@@ -1,3 +1,15 @@
+0.1.7-SNAPSHOT
+- Support simple multimethods 
+  - no multi-dispatch
+- Support simple flow analysis
+  - most sequential asserts recognised eg.
+    ```clojure 
+    (let [a (read-string "1")
+          _ (assert (integer? a))]
+      (+ 10 a))
+    ```
+
+
 0.1.6
 - Ensure `Result` is not introduced when performing type inference on drest fn apps
 - `tc-ignore` is more do-like. 

@@ -41,7 +41,6 @@ See `LICENSE`.
 # Future work
 
 * Equality filters for occurrence typing
-* Type check multimethods
 * Rest type checking in fn definition
 * Type check defprotocol definitions
 * Unify AST with ClojureScript
