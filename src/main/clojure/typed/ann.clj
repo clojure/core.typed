@@ -15,6 +15,7 @@
 (ann clojure.core/*warn-on-reflection* Any)
 (ann clojure.core/pop-thread-bindings [-> Any])
 (ann clojure.core/load [String * -> Any])
+(ann clojure.core/read-string [String -> Any])
 
 (ann clojure.core/namespace [(U Symbol String Keyword) -> (Option String)])
 (ann clojure.core/ns-name [Namespace -> Symbol])

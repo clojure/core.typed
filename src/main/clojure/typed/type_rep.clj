@@ -774,10 +774,9 @@
 
 (declare FilterSet?)
 
-(defrecord FlowSet [normal exception]
-  "The environment that is true when an expression returns normally."
-  [(Filter? normal)
-   (Filter? exception)])
+(defrecord FlowSet [normal]
+  "The filter that is true when an expression returns normally ie. not an exception."
+  [(Filter? normal)])
 
 (defrecord TCResult [t fl o flow]
   "This record represents the result of typechecking an expression"
@@ -788,12 +787,8 @@
 
 (declare-AnyType TCResult)
 
-(defn -flow
-  ([normal] (-flow normal -top))
-  ([normal exception] 
-   {:pre [(Filter? normal)
-          (Filter? exception)]}
-   (->FlowSet normal exception)))
+(defn -flow [normal]
+  (->FlowSet normal))
 
 ;[Type -> TCResult]
 ;[Type FilterSet -> TCResult]
@@ -829,8 +824,14 @@
    :post [(RObject? %)]}
   (:o r))
 
-;[TCResult -> RObject]
+;[TCResult -> FlowSet]
 (defn ret-flow [r]
   {:pre [(TCResult? r)]
    :post [(FlowSet? %)]}
   (:flow r))
+
+;[Flow -> Fitler]
+(defn flow-normal [f]
+  {:pre [(FlowSet? f)]
+   :post [(Filter? %)]}
+  (:normal f))

@@ -288,4 +288,5 @@
                          (-> ty
                            (update-in [:t] type-rec)
                            (update-in [:fl] filter-rec)
-                           (update-in [:o] object-rec))))
+                           (update-in [:o] object-rec)
+                           (update-in [:flow :normal] filter-rec))))

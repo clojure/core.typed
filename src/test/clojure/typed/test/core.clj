@@ -1130,4 +1130,10 @@
                     {:pre [(integer? a)]}
                     a))
           ret-t)
-        (parse-type '[Any -> Integer]))))
+        (parse-type '[Any -> typed.core/AnyInteger])))
+  (is (subtype? 
+        (-> (tc-t (let [a (read-string "1")
+                        _ (assert (integer? a))]
+                    (+ 10 a)))
+          ret-t)
+        (parse-type 'typed.core/AnyInteger))))

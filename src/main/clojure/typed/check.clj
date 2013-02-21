@@ -48,20 +48,28 @@
                           '~form)
        expr-type unparse-type)))
 
+(defn flow-for-value []
+  (let [props (.props ^PropEnv *lexical-env*)
+        flow (-flow (apply -and -top props))]
+    flow))
+
 (defn check-value
   [{:keys [val] :as expr} & [expected]]
   (let [actual-type (constant-type val)
         _ (when expected
             (binding [*current-expr* expr]
-              (subtype actual-type (ret-t expected))))]
+              (subtype actual-type (ret-t expected))))
+        flow (flow-for-value)]
     (assoc expr
            expr-type (if val
                        (ret actual-type
                             (-FS -top -bot)
-                            -empty)
+                            -empty
+                            flow)
                        (ret actual-type
                             (-FS -bot -top)
-                            -empty)))))
+                            -empty
+                            flow)))))
 
 (defmethod check :constant [& args] (apply check-value args))
 (defmethod check :number [& args] (apply check-value args))
@@ -73,14 +81,18 @@
   (assoc expr
          expr-type (if val
                      (ret -true
-                          (-FS -top -bot))
+                          (-FS -top -bot)
+                          -empty
+                          (flow-for-value))
                      (ret -false
-                          (-FS -bot -top)))))
+                          (-FS -bot -top)
+                          -empty
+                          (flow-for-value)))))
 
 (defmethod check :nil 
   [expr & [expected]]
   (assoc expr
-         expr-type (ret -nil (-FS -bot -top) -empty)))
+         expr-type (ret -nil (-FS -bot -top) -empty (flow-for-value))))
 
 (defmethod check :map
   [{:keys [keyvals] :as expr} & [expected]]
@@ -1176,6 +1188,7 @@
         (flush))
       (prn (:fl t)))
     (prn (unparse-object (:o t)))
+    (prn 'Flow (unparse-filter (-> t :flow flow-normal)))
     ;DO NOT REMOVE
     (assoc expr
            expr-type t)))
@@ -1986,7 +1999,7 @@
 ;                              oldp (map :sym required-params)))
 ;                    (:props *lexical-env*))
 
-        _ (assert (every? identity (map hygienic/hsym-key required-params))
+        _ (assert (every? symbol? (map hygienic/hsym-key required-params))
                   "Unhygienic AST detected")
         props (:props *lexical-env*)
         fixed-entry (map vector (map hygienic/hsym-key required-params) 
@@ -2075,13 +2088,28 @@
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (let [cexprs (concat (doall
-                         (for [stmtexpr (butlast exprs)]
-                           (binding [*current-expr* stmtexpr]
-                             (check stmtexpr))))
-                       (let [lexpr (last exprs)]
-                         (binding [*current-expr* lexpr]
-                           [(check lexpr  expected)])))]
+  (let [[env cexprs]
+        (reduce (fn [[env exprs] expr]
+                  {:pre [(PropEnv? env)]
+                   :post [(hvector-c? PropEnv? vector?)]}
+                  (let [cexpr (binding [*current-expr* expr]
+                                (with-lexical-env env
+                                  (check expr)))
+                        flow (-> cexpr expr-type ret-flow flow-normal)
+                        flow-atom (atom true)
+                        ;add normal flow filter
+                        ;Ignore if bottom (exceptional return)
+                        nenv (if (= -bot flow)
+                               env
+                               (-> env
+                                 (env+ [flow] flow-atom)))
+                        _ (assert @flow-atom (str "Applying flow filter resulted in local being bottom"
+                                                  "\n"
+                                                  (with-out-str (print-env* nenv))
+                                                  "\nOld: "
+                                                  (with-out-str (print-env* env))))]
+                    [nenv (conj exprs cexpr)]))
+                [*lexical-env* []] exprs)]
     (assoc expr
            :exprs cexprs
            expr-type (-> cexprs last expr-type)))) ;should be a ret already
@@ -2375,7 +2403,7 @@
                           (-FS -top -top) 
                           -empty
                           ;never returns normally
-                          (-flow -bot -top)))))
+                          (-flow -bot)))))
 
 (declare combine-props)
 
@@ -2423,14 +2451,13 @@
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
                       (let [sym (hygienic/hsym-key expr)
-                            _ (assert sym "Unhygienic expression detected")
+                            _ (assert (symbol? sym) "Unhygienic expression detected")
                             ; check rhs
-                            {:keys [t fl]} (->
-                                             (expr-type
-                                               (binding [*current-expr* init]
-                                                 (with-lexical-env env
-                                                   (check-let-checkfn init (when is-loop
-                                                                             (ret expected-bnd)))))))
+                            {:keys [t fl flow]} (expr-type
+                                                  (binding [*current-expr* init]
+                                                    (with-lexical-env env
+                                                      (check-let-checkfn init (when is-loop
+                                                                                (ret expected-bnd))))))
                             _ (assert (or (not expected-bnd)
                                           (subtype? t expected-bnd))
                                       (error-msg "Loop variable " sym " initialised to "
@@ -2443,17 +2470,23 @@
                           (let [{:keys [then else]} fl
                                 p* [(-imp (-not-filter (Un -nil -false) sym) then)
                                     (-imp (-filter (Un -nil -false) sym) else)]
+                                flow-f (flow-normal flow)
+                                flow-atom (atom true)
                                 new-env (-> env
                                           ;update binding type
                                           (assoc-in [:l sym] t)
                                           ;update props
                                           (update-in [:props] #(apply concat 
-                                                                      (combine-props p* % (atom true)))))]
+                                                                      (combine-props p* % (atom true))))
+                                          (env+ [(if (= -bot flow-f) -top flow-f)] flow-atom))
+                                _ (assert @flow-atom "Applying flow filter resulted in local being bottom")]
                             new-env)
 
-                          (NoFilter? fl) (-> env
-                                           ;no propositions to add, just update binding type
-                                           (assoc-in [:l sym] t)))))
+                          (NoFilter? fl) (do
+                                           (assert (= (-flow -top) flow))
+                                           (-> env
+                                             ;no propositions to add, just update binding type
+                                             (assoc-in [:l sym] t))))))
                     *lexical-env* (map vector binding-inits (or expected-bnds
                                                                 (repeat nil))))
 
@@ -2472,7 +2505,8 @@
                   (-> ty
                     (update-in [:t] subst-type sym -empty true)
                     (update-in [:fl] subst-filter-set sym -empty true)
-                    (update-in [:o] subst-object sym -empty true)))
+                    (update-in [:o] subst-object sym -empty true)
+                    (update-in [:flow :normal] subst-filter sym -empty true)))
                 (expr-type cbody)
                 (map (comp hygienic/hsym-key :local-binding) binding-inits))]
     (assoc expr
@@ -2659,16 +2693,22 @@
                 (recur derived-props derived-atoms (cons new-or (next worklist)))))
             (and (TypeFilter? p)
                  (type-equal? (Un) (:type p)))
-            (do (reset! flag false)
+            (do 
+              (prn "Variable set to bottom:" (unparse-filter p))
+              (reset! flag false)
               [derived-props derived-atoms])
             (TypeFilter? p) (recur derived-props (cons p derived-atoms) (next worklist))
             (and (NotTypeFilter? p)
                  (type-equal? (->Top) (:type p)))
-            (do (reset! flag false)
+            (do 
+              (prn "Variable set to bottom:" (unparse-filter p))
+              (reset! flag false)
               [derived-props derived-atoms])
             (NotTypeFilter? p) (recur derived-props (cons p derived-atoms) (next worklist))
             (TopFilter? p) (recur derived-props derived-atoms (next worklist))
-            (BotFilter? p) (do (reset! flag false)
+            (BotFilter? p) (do 
+                             (prn "Bot filter found")
+                             (reset! flag false)
                              [derived-props derived-atoms])
             :else (recur (cons p derived-props) derived-atoms (next worklist))))))))
 
@@ -2846,8 +2886,8 @@
                      (Filter? f)]}
               (let [new-env (update-in env [:l] update-composite f)]
                 ; update flag if a variable is now bottom
-                (when ((set (vals (:l new-env))) 
-                         (Un))
+                (when-let [bs (seq (filter (comp #{(Un)} val) (:l new-env)))]
+                  (prn "variables are now bottom: " (map key bs))
                   (reset! flag false))
                 new-env))
             (assoc env :props (concat atoms props))
@@ -2872,7 +2912,8 @@
               (and expected reachable?)
               (-> (*check-if-checkfn* expr (-> expected
                                              (assoc :fl (-FS -top -top))
-                                             (assoc :o -empty)))
+                                             (assoc :o -empty)
+                                             (assoc :flow (-flow -top))))
                 expr-type)
               ;; this code is reachable, but we have no expected type
               reachable? (-> (*check-if-checkfn* expr) expr-type)
@@ -2948,15 +2989,21 @@
                                  fs)
                                :else (throw (Exception. (str "What are these?" fs2 fs3))))
                       type (Un ts us)
-                      object (if (object-equal? os2 os3) os2 (->EmptyObject))]
-                  (ret type filter object))]
+                      object (if (object-equal? os2 os3) os2 (->EmptyObject))
+
+                      ;only bother with something interesting if a branch is unreachable (the next two cond cases)
+                      ;Should be enough for `assert`
+                      ;flow (-flow (-or flow2 flow3))
+                      flow (-flow -top)
+                      ]
+                  (ret type filter object flow))]
           ;(prn "check if:" "both branches reachable, with combined result" (unparse-TCResult r))
           (if expected (check-below r expected) r))
         ;; special case if one of the branches is unreachable
         (type-equal? us (Un))
-        (if expected (check-below (ret ts fs2 os2) expected) (ret ts fs2 os2))
+        (if expected (check-below (ret ts fs2 os2 flow2) expected) (ret ts fs2 os2 flow2))
         (type-equal? ts (Un))
-        (if expected (check-below (ret us fs3 os3) expected) (ret us fs3 os3))
+        (if expected (check-below (ret us fs3 os3 flow3) expected) (ret us fs3 os3 flow3))
         :else (throw (Exception. "Something happened"))))))
 
 (defmethod check :if
