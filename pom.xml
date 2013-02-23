@@ -24,7 +24,7 @@
     <dependency>
       <groupId>analyze</groupId>
       <artifactId>analyze</artifactId>
-      <version>0.3.1-SNAPSHOT</version>
+      <version>0.3.0</version>
     </dependency>
     <dependency>
       <groupId>net.intensivesystems</groupId>
