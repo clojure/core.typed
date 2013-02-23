@@ -1,4 +1,4 @@
-(in-ns 'clojure.core.logic)
+(in-ns 'clojure.core.typed)
 
 ;FIXME use fold!
 

@@ -1,6 +1,6 @@
 (set! *warn-on-reflection* true)
 
-(in-ns 'clojure.core.logic)
+(in-ns 'clojure.core.typed)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Polymorphic type instantiation

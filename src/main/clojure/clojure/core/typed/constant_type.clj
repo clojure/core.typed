@@ -1,4 +1,4 @@
-(in-ns 'clojure.core.logic)
+(in-ns 'clojure.core.typed)
 
 ;[Any -> Type]
 (defmulti constant-type class)

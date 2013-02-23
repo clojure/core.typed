@@ -696,16 +696,16 @@
               (eval f)))))
 
 (comment 
-  (check-ns 'typed.test.example)
+  (check-ns 'clojure.core.typed.test.example)
 
   ; very slow because of update-composite
-  (check-ns 'typed.test.rbt)
+  (check-ns 'clojure.core.typed.test.rbt)
 
-  (check-ns 'typed.test.macro)
-  (check-ns 'typed.test.conduit)
-  (check-ns 'typed.test.person)
-  (check-ns 'typed.test.core-logic)
-  (check-ns 'typed.test.ckanren)
+  (check-ns 'clojure.core.typed.test.macro)
+  (check-ns 'clojure.core.typed.test.conduit)
+  (check-ns 'clojure.core.typed.test.person)
+  (check-ns 'clojure.core.typed.test.core-logic)
+  (check-ns 'clojure.core.typed.test.ckanren)
 
-  (check-cljs-ns 'typed.test.logic)
+  (check-cljs-ns 'clojure.core.typed.test.logic)
   )

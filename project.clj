@@ -10,7 +10,7 @@
                  [org.clojure/clojurescript "0.0-1450"]
                  [org.clojure/tools.trace "0.7.3"
                   :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojure "1.5.0-RC1"]
+                 [org.clojure/clojure "1.5.0-RC16"]
                  ]
 
   :source-paths ["src/main/clojure"]

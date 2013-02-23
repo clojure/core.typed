@@ -1,12 +1,14 @@
-(in-ns 'clojure.core.logic)
+(in-ns 'clojure.core.typed)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
 (defmacro defrecord [name slots inv-description invariants & etc]
   ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
+  (prn "defrecord namespace" (ns-name *ns*) name (resolve name))
   (when-not (resolve name)
-    `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc)))
+    `(do (prn "defrecord" '~name)
+       (contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc))))
 
 (def third (comp second next))
 

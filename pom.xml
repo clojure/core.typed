@@ -17,7 +17,7 @@
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>pom.contrib</artifactId>
-    <version>0.0.25</version>
+    <version>0.0.26</version>
   </parent>
 
   <dependencies>
@@ -78,7 +78,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>1.5.0-RC1</version>
+      <version>1.5.0-RC16</version>
     </dependency>
   </dependencies>
 

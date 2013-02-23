@@ -1,4 +1,4 @@
-(in-ns 'clojure.core.logic)
+(in-ns 'clojure.core.typed)
 
 ; Should only override a method with a more specific type
 ; eg. 

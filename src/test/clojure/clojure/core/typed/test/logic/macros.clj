@@ -1,4 +1,4 @@
-(ns typed.test.logic.macros
+(ns clojure.core.typed.test.logic.macros
   (:refer-clojure :exclude [==])
   (:require [clojure.set :as set]))
 

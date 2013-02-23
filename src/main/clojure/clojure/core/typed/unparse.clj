@@ -1,4 +1,4 @@
-(in-ns 'clojure.core.logic)
+(in-ns 'clojure.core.typed)
 
 (def ^:dynamic *next-nme* 0) ;stupid readable variables
 

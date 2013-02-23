@@ -1,4 +1,4 @@
-(in-ns 'clojure.core.logic)
+(in-ns 'clojure.core.typed)
 
 (defn -filter [t i & [p]]
   {:pre [(Type? t)

@@ -1,6 +1,6 @@
 (set! *warn-on-reflection* true)
 
-(in-ns 'clojure.core.logic)
+(in-ns 'clojure.core.typed)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -2694,20 +2694,20 @@
             (and (TypeFilter? p)
                  (type-equal? (Un) (:type p)))
             (do 
-              (prn "Variable set to bottom:" (unparse-filter p))
+              ;(prn "Variable set to bottom:" (unparse-filter p))
               (reset! flag false)
               [derived-props derived-atoms])
             (TypeFilter? p) (recur derived-props (cons p derived-atoms) (next worklist))
             (and (NotTypeFilter? p)
                  (type-equal? (->Top) (:type p)))
             (do 
-              (prn "Variable set to bottom:" (unparse-filter p))
+              ;(prn "Variable set to bottom:" (unparse-filter p))
               (reset! flag false)
               [derived-props derived-atoms])
             (NotTypeFilter? p) (recur derived-props (cons p derived-atoms) (next worklist))
             (TopFilter? p) (recur derived-props derived-atoms (next worklist))
             (BotFilter? p) (do 
-                             (prn "Bot filter found")
+                             ;(prn "Bot filter found")
                              (reset! flag false)
                              [derived-props derived-atoms])
             :else (recur (cons p derived-props) derived-atoms (next worklist))))))))
@@ -2887,7 +2887,7 @@
               (let [new-env (update-in env [:l] update-composite f)]
                 ; update flag if a variable is now bottom
                 (when-let [bs (seq (filter (comp #{(Un)} val) (:l new-env)))]
-                  (prn "variables are now bottom: " (map key bs))
+                  ;(prn "variables are now bottom: " (map key bs))
                   (reset! flag false))
                 new-env))
             (assoc env :props (concat atoms props))

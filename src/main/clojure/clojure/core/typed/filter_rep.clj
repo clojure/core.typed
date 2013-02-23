@@ -1,4 +1,4 @@
-(in-ns 'clojure.core.logic)
+(in-ns 'clojure.core.typed)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -14,10 +14,10 @@
   (derive c Filter))
 
 (defrecord BotFilter []
-  "?"
+  "Always false proposition"
   [])
 (defrecord TopFilter []
-  "?"
+  "Trivially true proposition"
   [])
 
 (def -top (->TopFilter))
@@ -59,7 +59,8 @@
    (Filter? c)])
 
 (defrecord FilterSet [then else]
-  "A filter claiming looking up id, down the given path, is NOT of given type"
+  "A set of filters: those true when the expression is a true value, and 
+  those when it is a false value."
   [(and (or (BotFilter? then)
             (and (BotFilter? else)
                (TopFilter? then))

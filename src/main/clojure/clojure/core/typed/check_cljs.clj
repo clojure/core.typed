@@ -1,4 +1,4 @@
-(in-ns 'clojure.core.logic)
+(in-ns 'clojure.core.typed)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Modify CLJS specials
@@ -460,7 +460,7 @@
   ;ns
   (cf-cljs (ns my-ns (:require [cljs.core :as s])))
 
-  (check-cljs-ns typed.test.logic)
+  (check-cljs-ns clojure.core.typed.test.logic)
 
   (cljs/analyze (cljs/empty-env) '(typed.internal/print-env "start"))
   (cf-cljs (typed.internal/print-env "start"))
