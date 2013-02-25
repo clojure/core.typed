@@ -480,7 +480,7 @@
 
 (override-method clojure.lang.RT/aset
                  (All [i o]
-                      [(Array2 i o) i -> o]))
+                      [(Array2 i o) AnyInteger i -> o]))
 
 ;get
 (override-method clojure.lang.RT/get 

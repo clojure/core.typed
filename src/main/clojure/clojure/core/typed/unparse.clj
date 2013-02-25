@@ -56,8 +56,17 @@
 
 (defmethod unparse-type* PrimitiveArray
   [{:keys [jtype input-type output-type]}]
-  (list 'Array3 (Class->symbol jtype)
-        (unparse-type input-type) (unparse-type output-type)))
+  (cond 
+    (and (= input-type output-type)
+         (= Object jtype))
+    (list 'Array (unparse-type input-type))
+
+    (= Object jtype)
+    (list 'Array2 (unparse-type input-type) (unparse-type output-type))
+
+    :else
+    (list 'Array3 (Class->symbol jtype)
+          (unparse-type input-type) (unparse-type output-type))))
 
 (defmethod unparse-type* B
   [{:keys [idx]}]

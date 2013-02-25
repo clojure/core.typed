@@ -599,7 +599,7 @@
           (TApp? etype) (recur (resolve-TApp etype) seen)
           :else etype)))))
 
-(declare Method->symbol)
+(declare Method->symbol MethodExpr->qualsym)
 
 ;[Expr (Seqable Expr) (Seqable TCResult) (Option TCResult) Boolean
 ; -> Any]
@@ -608,7 +608,7 @@
   (let [static-method? (= :static-method (:op fexpr))
         instance-method? (= :instance-method (:op fexpr))
         method-sym (when (or static-method? instance-method?)
-                     (Method->symbol (:method fexpr)))]
+                     (MethodExpr->qualsym fexpr))]
     (error-msg 
       (if poly? 
         (str "Polymorphic " 
@@ -620,7 +620,8 @@
               :else "Function "))
       (if (or static-method?
               instance-method?)  
-        method-sym
+        (or method-sym
+            (:method-name fexpr))
         (emit-form-fn fexpr)) 
       " could not be applied to arguments:\n"
       "Domains: \n\t" 
@@ -2208,20 +2209,34 @@
                                     nil nil
                                     :filter (-FS -top -bot))))) ;always a true value
 
+;[MethodExpr -> (U nil NamespacedSymbol)]
+(defn MethodExpr->qualsym [{c :class :keys [op method method-name] :as expr}]
+  {:pre [(#{:static-method :instance-method} op)]
+   :post [((some-fn nil? symbol?) %)]}
+  (cond
+    method (Method->symbol method)
+    (and c method-name) (symbol (str (Class->symbol c))
+                                (str method-name))))
+
 ;[MethodExpr Type Any -> Expr]
-(defn check-invoke-method [{:keys [args tag method env] :as expr} expected inst?]
+(defn check-invoke-method [{c :class :keys [args tag method env method-name] :as expr} expected inst?]
   {:pre [((some-fn nil? TCResult?) expected)]
    :post [(-> % expr-type TCResult?)]}
-  (assert method (error-msg "Unresolved " (if inst? "instance" "static") 
-                            " method invocation " 
-                            (when-let [c (:class expr)]
-                              (str (Class->symbol c) "/"))
-                            (:method-name expr) ", insufficient type hints."
-                            "\n\nForm:\n\t" (emit-form-fn expr)))
-  #_(prn "invoke method: " (Method->symbol method) inst?)
+  #_(prn "invoke method: " (when method (Method->symbol method)) inst?)
   (binding [*current-env* env]
-    (let [rfin-type (ret (or (@METHOD-OVERRIDE-ENV (Method->symbol method))
-                             (Method->Function method)))
+    (let [msym (MethodExpr->qualsym expr)
+          rfin-type (ret (or (when msym
+                               (@METHOD-OVERRIDE-ENV msym))
+                             (when method
+                               (Method->Function method))))
+          _ (assert rfin-type (error-msg "Unresolved " (if inst? "instance" "static") 
+                                         " method invocation " 
+                                         (when c
+                                           (str (Class->symbol c) "/"))
+                                         method-name 
+                                         ;", insufficient type hints."
+                                         ;"\n\nForm:\n\t" (emit-form-fn expr))
+                                         ))
           _ (when inst?
               (let [ctarget (check (:target expr))]
 ;                (prn "check target" (unparse-type (ret-t (expr-type ctarget)))
