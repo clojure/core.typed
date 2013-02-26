@@ -1,4 +1,4 @@
-0.1.7-SNAPSHOT
+0.1.7 - Released 26 February 2013
 - Support simple multimethods 
   - no multi-dispatch
 - Support simple flow analysis
@@ -8,7 +8,6 @@
           _ (assert (integer? a))]
       (+ 10 a))
     ```
-
 
 0.1.6
 - Ensure `Result` is not introduced when performing type inference on drest fn apps
