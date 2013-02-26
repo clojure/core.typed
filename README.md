@@ -14,16 +14,16 @@ Leiningen dependency information:
 
 Maven dependency information:
 
-``clojure
-  <repository>
-    <id>clojars.org</id>
-    <url>http://clojars.org/repo</url>
-  </repository>
-  <dependency>
-    <groupId>typed</groupId>
-    <artifactId>typed</artifactId>
-    <version>0.1.6</version>
-  </dependency>
+```XML
+<repository>
+  <id>clojars.org</id>
+  <url>http://clojars.org/repo</url>
+</repository>
+<dependency>
+  <groupId>typed</groupId>
+  <artifactId>typed</artifactId>
+  <version>0.1.6</version>
+</dependency>
 ```
 
 # [Talk] Clojure Conj 2012
