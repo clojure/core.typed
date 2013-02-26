@@ -26,15 +26,15 @@ Maven dependency information:
 </dependency>
 ```
 
-# [Talk] Clojure Conj 2012
+## [Talk] Clojure Conj 2012
 
 [Video](http://www.youtube.com/watch?v=wNhK8t3uLJU)
 
-# Documentation
+## Documentation
 
 See [wiki](https://github.com/clojure/core.typed/wiki).
 
-# Quickstart
+## Quickstart
 
 `(clojure.core.typed/ann v t)` gives var `v` the static type `t`.
 
@@ -45,7 +45,7 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 `(clojure.core.typed/cf t)` type checks the form `t`.
 
 <!---
-# Examples
+## Examples
 
 (These don't completely type check yet)
 
@@ -54,14 +54,14 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 * [typed.test.example](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/example.clj) for a few little examples of simple usage
 -->
 
-# Developer Information
+## Developer Information
 
 - [GitHub Project](https://github.com/clojure/core.typed)
 - [Bug Tracker](http://dev.clojure.org/jira/browse/CTYP)
 - Continuous Integration (TBD)
 - Compatibility Test Matrix (TBD)
 
-# Future work
+## Future work
 
 * Equality filters for occurrence typing
 * Rest type checking in fn definition
@@ -69,11 +69,11 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 * Unify AST with ClojureScript
 * Namespace dependency management
 
-# Contributors
+## Contributors
 
 Stephen Compall (S11001001)
 
-# License
+## License
 
 Copyright © Ambrose Bonnaire-Sergeant, Rich Hickey & contributors.
 
