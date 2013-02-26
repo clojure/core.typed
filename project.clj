@@ -1,5 +1,8 @@
-(defproject core.typed "0.1.7-SNAPSHOT"
+(defproject core.typed "0.1.8-SNAPSHOT"
   :description "Gradual typing for Clojure"
+  :license {:name "Eclipse Public License"
+            :url "http://www.eclipse.org/legal/epl-v10.html"}
+
   :dependencies [[analyze "0.3.0"]
                  [net.intensivesystems/arrows "1.3.0"
                   :exclusions [org.clojure/clojure]] ;for testing conduit, lein test wants it here?
