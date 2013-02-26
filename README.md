@@ -1,10 +1,30 @@
-Leiningen dependency (Clojars):
-
-`[typed "0.1.6"]`
-
 # core.typed
 
 Gradual typing in Clojure, as a library.
+
+# Releases and Dependency Information
+
+Latest stable release is [0.1.6](https://clojars.org/typed)
+
+Leiningen dependency information:
+
+```clojure
+[typed "0.1.6"]
+```
+
+Maven dependency information:
+
+``clojure
+  <repository>
+    <id>clojars.org</id>
+    <url>http://clojars.org/repo</url>
+  </repository>
+  <dependency>
+    <groupId>typed</groupId>
+    <artifactId>typed</artifactId>
+    <version>0.1.6</version>
+  </dependency>
+```
 
 # [Talk] Clojure Conj 2012
 
@@ -34,6 +54,13 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 * [typed.test.example](https://github.com/frenchy64/typed-clojure/blob/master/test/typed/test/example.clj) for a few little examples of simple usage
 -->
 
+# Developer Information
+
+- [GitHub Project](https://github.com/clojure/core.typed)
+- [Bug Tracker](http://dev.clojure.org/jira/browse/CTYP)
+- Continuous Integration (TBD)
+- Compatibility Test Matrix (TBD)
+
 # Future work
 
 * Equality filters for occurrence typing
@@ -48,6 +75,6 @@ Stephen Compall (S11001001)
 
 # License
 
-core.typed is released under the same license as Clojure: Eclipse Public License v 1.0.
+Copyright © Ambrose Bonnaire-Sergeant, Rich Hickey & contributors.
 
-See `LICENSE`.
+Licensed under the EPL (see the file epl.html).
