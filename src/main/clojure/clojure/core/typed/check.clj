@@ -1014,7 +1014,9 @@
                               (do #_(prn (error-msg "WARNING: Map type " (unparse-type t)
                                                   " does not have entry "
                                                   (unparse-type k)))
-                                (or default -nil)))
+                                ; hmaps don't record absense of keys, so we don't actually know anything here.
+                                #_(or default -nil)
+                                -any))
 
       (Intersection? t) (apply In 
                                (for [t* (:types t)]
@@ -1133,7 +1135,7 @@
   ;(prn "special apply:")
   (let [e (invoke-apply expr expected)]
     (when (= e ::not-special)
-      (throw (Exception. (error-msg "apply must be special: " (-> expr :args first :var)))))
+      (throw (Exception. (error-msg "apply must be special: " (emit-form-fn expr)))))
     e))
 
 ;manual instantiation

@@ -298,7 +298,7 @@
 (defmethod unparse-filter* NotTypeFilter
   [{:keys [type path id]}]
   (concat (list '! (unparse-type type) id)
-          (when path
+          (when (seq path)
             [(map unparse-path-elem path)])))
 
 (defmethod unparse-filter* AndFilter [{:keys [fs]}] (apply list '& (map unparse-filter fs)))
