@@ -1,0 +1,3802 @@
+<html>
+  <head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+    <title>clojure.core.typed - Gradual Typing 0.1.8 API documentation</title>
+    <link href="static/favicon.png" rel="icon" />
+    <link href="static/favicon.png" rel="shortcut icon" />
+    <link media="all" type="text/css" href="static/clojure.css" rel="stylesheet" />
+    <link media="all" type="text/css" href="static/wiki.css" rel="stylesheet" />
+    <link media="all" type="text/css" href="static/internal.css" rel="stylesheet" />
+    <style>.menuWrapper{height: 36px;}</style>
+  </head>
+<!--
+This document was auto-generated from the source by the clojure autodoc system.
+To report errors or ask questions about the overall documentation structure, formatting,
+etc., contact Tom Faulhaber (google mail name: tomfaulhaber).
+For errors in the documentation of a particular namespace, contact the author of that
+namespace.
+-->
+  <body>
+    <div id="AllContentContainer">
+      <div id="Header">
+	<a id="Logo" href="index.html"><img alt="Clojure" height="100" width="100" src="static/clojure-icon.gif" /></a>
+	<h1><a title="page header title" id="page-header" href="index.html">core.typed API Reference</a></h1>
+      </div>
+      <div id="leftcolumn"><div style="text-align: center;"></div>
+<div class="menu">
+  <div class="WikiCustomNav WikiElement wiki">
+    <span class="toc-header"><span id="project-name">Gradual Typing</span> <span id="version">0.1.8</span> API</span><br />
+    <ul>
+      <li><a class="wiki_link" href="index.html">Overview</a></li>
+      <li><a class="wiki_link" href="api-index.html">API Index</a></li>
+    </ul>
+    
+    
+    <a href="http://clojure.org" class="wiki_link">Clojure Home</a>
+  </div>
+</div>
+</div>
+      <div id="rightcolumn">
+	<div id="Content">
+	  <div class="contentBox"><div class="innerContentBox">
+              <div id="content_view" class="wiki wikiPage">
+                <div id="right-sidebar"><div id="toc">
+  <h1 class="nopad">Table of Contents</h1>
+  <div style="margin-left: 1em;" class="toc-section">
+    <a href="#toc0" style="margin-top: 3px;">Overview</a>
+    
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#" style="margin-top: 3px;"></a>
+    
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#type-section" style="margin-top: 3px;">Types</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/AndFilter">AndFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/AnyValue">AnyValue</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/App">App</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/ArrayCLJS">ArrayCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/B">B</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/BooleanCLJS">BooleanCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/BotFilter">BotFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Bounds">Bounds</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/ClassPE">ClassPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/CountPE">CountPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/CountRange">CountRange</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/DataType">DataType</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/DottedPretype">DottedPretype</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/EmptyObject">EmptyObject</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/F">F</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/FilterSet">FilterSet</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/FirstPE">FirstPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/FlowSet">FlowSet</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/FnIntersection">FnIntersection</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/FnResult">FnResult</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Function">Function</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/FunctionCLJS">FunctionCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/GTRange">GTRange</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/HeterogeneousList">HeterogeneousList</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/HeterogeneousMap">HeterogeneousMap</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/HeterogeneousSeq">HeterogeneousSeq</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/HeterogeneousVector">HeterogeneousVector</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/ImpFilter">ImpFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Intersection">Intersection</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/KeyPE">KeyPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/KwArgs">KwArgs</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/LTRange">LTRange</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/ListDots">ListDots</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Mu">Mu</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Name">Name</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/NextPE">NextPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/NoFilter">NoFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/NoObject">NoObject</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/NotType">NotType</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/NotTypeFilter">NotTypeFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/NumberCLJS">NumberCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/ObjectCLJS">ObjectCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/OrFilter">OrFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Path">Path</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Poly">Poly</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/PolyDots">PolyDots</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/PrimitiveArray">PrimitiveArray</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Projection">Projection</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/PropEnv">PropEnv</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Protocol">Protocol</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/RClass">RClass</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Record">Record</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/RecurTarget">RecurTarget</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Result">Result</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Scope">Scope</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/StringCLJS">StringCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/SymbolCLJS">SymbolCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/TApp">TApp</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/TCResult">TCResult</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Top">Top</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/TopFilter">TopFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/TopFunction">TopFunction</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/TypeFilter">TypeFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/TypeFn">TypeFn</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Union">Union</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Value">Value</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/c">c</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/cset">cset</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/cset-entry">cset-entry</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/dcon">dcon</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/dcon-dotted">dcon-dotted</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/dcon-exact">dcon-exact</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/dmap">dmap</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/i-subst">i-subst</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/i-subst-dotted">i-subst-dotted</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/i-subst-starred">i-subst-starred</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/t-subst">t-subst</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#var-section" style="margin-top: 3px;">Vars and Functions</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;AndFilter">-&gt;AndFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;AnyValue">-&gt;AnyValue</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;App">-&gt;App</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;ArrayCLJS">-&gt;ArrayCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;B">-&gt;B</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;BooleanCLJS">-&gt;BooleanCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;BotFilter">-&gt;BotFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Bounds">-&gt;Bounds</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;ClassPE">-&gt;ClassPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;CountPE">-&gt;CountPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;CountRange">-&gt;CountRange</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;DataType">-&gt;DataType</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;DottedPretype">-&gt;DottedPretype</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;F">-&gt;F</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;FilterSet">-&gt;FilterSet</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;FirstPE">-&gt;FirstPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;FlowSet">-&gt;FlowSet</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;FnIntersection">-&gt;FnIntersection</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;FnResult">-&gt;FnResult</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Function">-&gt;Function</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;FunctionCLJS">-&gt;FunctionCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;GTRange">-&gt;GTRange</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;HeterogeneousList">-&gt;HeterogeneousList</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;HeterogeneousSeq">-&gt;HeterogeneousSeq</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;HeterogeneousVector">-&gt;HeterogeneousVector</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Intersection">-&gt;Intersection</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;KeyPE">-&gt;KeyPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;KwArgs">-&gt;KwArgs</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;LTRange">-&gt;LTRange</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;ListDots">-&gt;ListDots</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Mu">-&gt;Mu</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Name">-&gt;Name</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;NextPE">-&gt;NextPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;NoFilter">-&gt;NoFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;NoObject">-&gt;NoObject</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;NotType">-&gt;NotType</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;NotTypeFilter">-&gt;NotTypeFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;NumberCLJS">-&gt;NumberCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;ObjectCLJS">-&gt;ObjectCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;OrFilter">-&gt;OrFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Path">-&gt;Path</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Poly">-&gt;Poly</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;PolyDots">-&gt;PolyDots</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;PrimitiveArray">-&gt;PrimitiveArray</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Projection">-&gt;Projection</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;PropEnv">-&gt;PropEnv</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Protocol">-&gt;Protocol</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;RClass">-&gt;RClass</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Record">-&gt;Record</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Scope">-&gt;Scope</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;StringCLJS">-&gt;StringCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;SymbolCLJS">-&gt;SymbolCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;TApp">-&gt;TApp</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;TCResult">-&gt;TCResult</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Top">-&gt;Top</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;TopFilter">-&gt;TopFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;TopFunction">-&gt;TopFunction</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;TypeFilter">-&gt;TypeFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;TypeFn">-&gt;TypeFn</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Union">-&gt;Union</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;Value">-&gt;Value</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;c">-&gt;c</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;cset">-&gt;cset</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;cset-entry">-&gt;cset-entry</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;dcon">-&gt;dcon</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;dcon-dotted">-&gt;dcon-dotted</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;dcon-exact">-&gt;dcon-exact</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;dmap">-&gt;dmap</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;i-subst">-&gt;i-subst</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;i-subst-dotted">-&gt;i-subst-dotted</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/-&gt;i-subst-starred">-&gt;i-subst-starred</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/RClass-supers*">RClass-supers*</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/abstract-many">abstract-many</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/add-multimethod-dispatch-type">add-multimethod-dispatch-type</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/cf">cf</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/cf-cljs">cf-cljs</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/check-anon-fn">check-anon-fn</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/check-cljs-ns*">check-cljs-ns*</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/check-fn">check-fn</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/check-ns">check-ns</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/ctor-Class-&gt;symbol">ctor-Class-&gt;symbol</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/declare-alias-kind">declare-alias-kind</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/declare-datatypes">declare-datatypes</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/declare-names">declare-names</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/declare-protocols">declare-protocols</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/def-alias">def-alias</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/fi">fi</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/fn&gt;">fn&gt;</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/free-in-scope">free-in-scope</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/free-in-scope-bnds">free-in-scope-bnds</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/free-with-name">free-with-name</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/free-with-name-bnds">free-with-name-bnds</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/fv">fv</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/idx-variances">idx-variances</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/inst">inst</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/inst-ctor">inst-ctor</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/instantiate-many">instantiate-many</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/into-array&gt;">into-array&gt;</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/loop&gt;">loop&gt;</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/make-F">make-F</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/make-Function">make-Function</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/make-Result">make-Result</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/manual-inst">manual-inst</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;AndFilter">map-&gt;AndFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;AnyValue">map-&gt;AnyValue</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;App">map-&gt;App</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;ArrayCLJS">map-&gt;ArrayCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;B">map-&gt;B</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;BooleanCLJS">map-&gt;BooleanCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;BotFilter">map-&gt;BotFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Bounds">map-&gt;Bounds</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;ClassPE">map-&gt;ClassPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;CountPE">map-&gt;CountPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;CountRange">map-&gt;CountRange</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;DataType">map-&gt;DataType</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;DottedPretype">map-&gt;DottedPretype</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;EmptyObject">map-&gt;EmptyObject</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;F">map-&gt;F</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;FilterSet">map-&gt;FilterSet</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;FirstPE">map-&gt;FirstPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;FlowSet">map-&gt;FlowSet</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;FnIntersection">map-&gt;FnIntersection</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;FnResult">map-&gt;FnResult</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Function">map-&gt;Function</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;FunctionCLJS">map-&gt;FunctionCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;GTRange">map-&gt;GTRange</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;HeterogeneousList">map-&gt;HeterogeneousList</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;HeterogeneousMap">map-&gt;HeterogeneousMap</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;HeterogeneousSeq">map-&gt;HeterogeneousSeq</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;HeterogeneousVector">map-&gt;HeterogeneousVector</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;ImpFilter">map-&gt;ImpFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Intersection">map-&gt;Intersection</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;KeyPE">map-&gt;KeyPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;KwArgs">map-&gt;KwArgs</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;LTRange">map-&gt;LTRange</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;ListDots">map-&gt;ListDots</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Mu">map-&gt;Mu</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Name">map-&gt;Name</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;NextPE">map-&gt;NextPE</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;NoFilter">map-&gt;NoFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;NoObject">map-&gt;NoObject</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;NotType">map-&gt;NotType</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;NotTypeFilter">map-&gt;NotTypeFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;NumberCLJS">map-&gt;NumberCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;ObjectCLJS">map-&gt;ObjectCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;OrFilter">map-&gt;OrFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Path">map-&gt;Path</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Poly">map-&gt;Poly</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;PolyDots">map-&gt;PolyDots</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;PrimitiveArray">map-&gt;PrimitiveArray</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Projection">map-&gt;Projection</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;PropEnv">map-&gt;PropEnv</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Protocol">map-&gt;Protocol</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;RClass">map-&gt;RClass</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Record">map-&gt;Record</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;RecurTarget">map-&gt;RecurTarget</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Result">map-&gt;Result</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Scope">map-&gt;Scope</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;StringCLJS">map-&gt;StringCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;SymbolCLJS">map-&gt;SymbolCLJS</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;TApp">map-&gt;TApp</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;TCResult">map-&gt;TCResult</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Top">map-&gt;Top</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;TopFilter">map-&gt;TopFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;TopFunction">map-&gt;TopFunction</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;TypeFilter">map-&gt;TypeFilter</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;TypeFn">map-&gt;TypeFn</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Union">map-&gt;Union</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;Value">map-&gt;Value</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;c">map-&gt;c</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;cset">map-&gt;cset</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;cset-entry">map-&gt;cset-entry</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;dcon">map-&gt;dcon</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;dcon-dotted">map-&gt;dcon-dotted</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;dcon-exact">map-&gt;dcon-exact</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;dmap">map-&gt;dmap</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;i-subst">map-&gt;i-subst</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;i-subst-dotted">map-&gt;i-subst-dotted</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;i-subst-starred">map-&gt;i-subst-starred</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/map-&gt;t-subst">map-&gt;t-subst</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/method-type">method-type</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/nilable-param">nilable-param</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/non-nil-return">non-nil-return</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/open-Result">open-Result</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/pfn&gt;">pfn&gt;</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/print-filterset">print-filterset</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/relevant-Fns">relevant-Fns</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/ret">ret</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/scope-depth?">scope-depth?</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/simplify-prop">simplify-prop</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/subtypes-varargs?">subtypes-varargs?</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/symbol-&gt;Class">symbol-&gt;Class</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/tc-ignore">tc-ignore</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/unwrap-datatype">unwrap-datatype</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/unwrap-poly">unwrap-poly</a>
+      
+    </div>
+  </div>
+</div>
+</div>
+                <div id="content-tag"><h1 id="overview">API for <span id="clojure.core.typed">clojure.core.typed</span>
+  - <span id="header-project">Gradual Typing</span> <span id="header-version">0.1.8</span><span id="header-status-block"> (<span id="header-status">in development</span>)</span>
+  </h1>
+
+<br />Full namespace name: <span id="long-name">clojure.core.typed</span>
+<p></p>
+<h2>Overview</h2>
+<div id="home-page">Project home page is <a href="http://github.com/clojure/core.typed/">http://github.com/clojure/core.typed/</a></div>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+
+<div id="type-section">
+  <p></p>
+  <h2>Types</h2>
+  <div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/AndFilter">AndFilter</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[fs]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/AnyValue">AnyValue</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/App">App</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[rator rands]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/ArrayCLJS">ArrayCLJS</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/B">B</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[idx]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/BooleanCLJS">BooleanCLJS</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/BotFilter">BotFilter</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Bounds">Bounds</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[upper-bound lower-bound higher-kind]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/ClassPE">ClassPE</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/CountPE">CountPE</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/CountRange">CountRange</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[lower upper]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/DataType">DataType</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[the-class variances poly? fields]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/DottedPretype">DottedPretype</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[pre-type name]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/EmptyObject">EmptyObject</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/F">F</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[name]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/FilterSet">FilterSet</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[then else]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/FirstPE">FirstPE</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/FlowSet">FlowSet</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[normal]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/FnIntersection">FnIntersection</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[types]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/FnResult">FnResult</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[args kws rest drest body]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Function">Function</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[dom rng rest drest kws]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/FunctionCLJS">FunctionCLJS</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/GTRange">GTRange</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[n]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/HeterogeneousList">HeterogeneousList</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[types]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/HeterogeneousMap">HeterogeneousMap</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/HeterogeneousSeq">HeterogeneousSeq</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[types]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/HeterogeneousVector">HeterogeneousVector</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[types]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/ImpFilter">ImpFilter</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Intersection">Intersection</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[types]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/KeyPE">KeyPE</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[val]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/KwArgs">KwArgs</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[mandatory optional]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/LTRange">LTRange</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[n]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/ListDots">ListDots</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[pre-type bound]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Mu">Mu</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[scope]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Name">Name</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[id]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/NextPE">NextPE</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/NoFilter">NoFilter</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/NoObject">NoObject</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/NotType">NotType</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[type]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/NotTypeFilter">NotTypeFilter</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[type path id]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/NumberCLJS">NumberCLJS</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/ObjectCLJS">ObjectCLJS</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/OrFilter">OrFilter</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[fs]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Path">Path</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[path id]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Poly">Poly</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[nbound bbnds scope actual-frees]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/PolyDots">PolyDots</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[nbound bbnds scope]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/PrimitiveArray">PrimitiveArray</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[jtype input-type output-type]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Projection">Projection</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[afn ts]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/PropEnv">PropEnv</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[l props]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Protocol">Protocol</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[the-var variances poly? on-class methods]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/RClass">RClass</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[variances poly? the-class replacements]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Record">Record</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[the-class fields]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/RecurTarget">RecurTarget</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Result">Result</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Scope">Scope</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[body]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/StringCLJS">StringCLJS</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/SymbolCLJS">SymbolCLJS</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/TApp">TApp</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[rator rands]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/TCResult">TCResult</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[t fl o flow]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Top">Top</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/TopFilter">TopFilter</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/TopFunction">TopFunction</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/TypeFilter">TypeFilter</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[type path id]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/TypeFn">TypeFn</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[nbound variances bbnds scope]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Union">Union</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[types]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Value">Value</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[val]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/c">c</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[S X T bnds]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/cset">cset</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[maps]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/cset-entry">cset-entry</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[fixed dmap projections]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/dcon">dcon</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[fixed rest]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/dcon-dotted">dcon-dotted</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[fixed dc dbound]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/dcon-exact">dcon-exact</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[fixed rest]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/dmap">dmap</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[map]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/i-subst">i-subst</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[types]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/i-subst-dotted">i-subst-dotted</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[types dty dbound]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/i-subst-starred">i-subst-starred</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[types starred]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div><div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/t-subst">t-subst</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div>
+</div>
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;AndFilter">-&gt;AndFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;AndFilter fs)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L44" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;AnyValue">-&gt;AnyValue</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;AnyValue)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L575" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;App">-&gt;App</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;App rator rands)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L450" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;ArrayCLJS">-&gt;ArrayCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;ArrayCLJS)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L72" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;B">-&gt;B</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;B idx)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L155" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;BooleanCLJS">-&gt;BooleanCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;BooleanCLJS)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L56" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;BotFilter">-&gt;BotFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;BotFilter)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L16" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Bounds">-&gt;Bounds</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Bounds upper-bound lower-bound higher-kind)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L148" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;ClassPE">-&gt;ClassPE</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;ClassPE)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/path_rep.clj#L21" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;CountPE">-&gt;CountPE</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;CountPE)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/path_rep.clj#L25" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;CountRange">-&gt;CountRange</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;CountRange lower upper)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L667" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;DataType">-&gt;DataType</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;DataType the-class variances poly? fields)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L273" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;DottedPretype">-&gt;DottedPretype</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;DottedPretype pre-type name)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L636" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;F">-&gt;F</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;F name)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L161" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;FilterSet">-&gt;FilterSet</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;FilterSet then else)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L61" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;FirstPE">-&gt;FirstPE</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;FirstPE)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/path_rep.clj#L14" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;FlowSet">-&gt;FlowSet</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;FlowSet normal)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L777" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;FnIntersection">-&gt;FnIntersection</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;FnIntersection types)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L98" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;FnResult">-&gt;FnResult</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;FnResult args kws rest drest body)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/b3f7ce634c9426f10bb32b3467be1476b2fd47d9/src/main/clojure/clojure/core/typed/check.clj#L1667" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Function">-&gt;Function</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Function dom rng rest drest kws)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L647" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;FunctionCLJS">-&gt;FunctionCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;FunctionCLJS)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L76" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;GTRange">-&gt;GTRange</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;GTRange n)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L675" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;HeterogeneousList">-&gt;HeterogeneousList</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;HeterogeneousList types)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L612" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;HeterogeneousSeq">-&gt;HeterogeneousSeq</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;HeterogeneousSeq types)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L619" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;HeterogeneousVector">-&gt;HeterogeneousVector</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;HeterogeneousVector types)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L600" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Intersection">-&gt;Intersection</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Intersection types)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L93" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;KeyPE">-&gt;KeyPE</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;KeyPE val)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/path_rep.clj#L29" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;KwArgs">-&gt;KwArgs</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;KwArgs mandatory optional)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L643" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;LTRange">-&gt;LTRange</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;LTRange n)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L679" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;ListDots">-&gt;ListDots</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;ListDots pre-type bound)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L724" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Mu">-&gt;Mu</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Mu scope)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L543" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Name">-&gt;Name</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Name id)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L437" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;NextPE">-&gt;NextPE</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;NextPE)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/path_rep.clj#L17" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;NoFilter">-&gt;NoFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;NoFilter)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L26" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;NoObject">-&gt;NoObject</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;NoObject)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/object_rep.clj#L29" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;NotType">-&gt;NotType</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;NotType type)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L718" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;NotTypeFilter">-&gt;NotTypeFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;NotTypeFilter type path id)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L38" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;NumberCLJS">-&gt;NumberCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;NumberCLJS)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L68" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;ObjectCLJS">-&gt;ObjectCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;ObjectCLJS)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L60" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;OrFilter">-&gt;OrFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;OrFilter fs)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L50" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Path">-&gt;Path</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Path path id)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/object_rep.clj#L20" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Poly">-&gt;Poly</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Poly nbound bbnds scope actual-frees)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L351" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;PolyDots">-&gt;PolyDots</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;PolyDots nbound bbnds scope)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L398" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;PrimitiveArray">-&gt;PrimitiveArray</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;PrimitiveArray jtype input-type output-type)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L626" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Projection">-&gt;Projection</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Projection afn ts)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L186" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;PropEnv">-&gt;PropEnv</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;PropEnv l props)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L367" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Protocol">-&gt;Protocol</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Protocol the-var variances poly? on-class methods)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L286" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;RClass">-&gt;RClass</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;RClass variances poly? the-class replacements)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L193" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Record">-&gt;Record</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Record the-class fields)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L266" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Scope">-&gt;Scope</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Scope body)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L173" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;StringCLJS">-&gt;StringCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;StringCLJS)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L64" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;SymbolCLJS">-&gt;SymbolCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;SymbolCLJS)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L52" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;TApp">-&gt;TApp</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;TApp rator rands)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L443" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;TCResult">-&gt;TCResult</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;TCResult t fl o flow)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L781" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Top">-&gt;Top</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Top)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L30" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;TopFilter">-&gt;TopFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;TopFilter)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L19" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;TopFunction">-&gt;TopFunction</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;TopFunction)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L663" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;TypeFilter">-&gt;TypeFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;TypeFilter type path id)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L32" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;TypeFn">-&gt;TypeFn</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;TypeFn nbound variances bbnds scope)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L301" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Union">-&gt;Union</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Union types)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L39" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;Value">-&gt;Value</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;Value val)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L568" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;c">-&gt;c</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;c S X T bnds)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L35" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;cset">-&gt;cset</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;cset maps)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L92" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;cset-entry">-&gt;cset-entry</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;cset-entry fixed dmap projections)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L71" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;dcon">-&gt;dcon</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;dcon fixed rest)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L47" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;dcon-dotted">-&gt;dcon-dotted</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;dcon-dotted fixed dc dbound)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L58" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;dcon-exact">-&gt;dcon-exact</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;dcon-exact fixed rest)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L53" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;dmap">-&gt;dmap</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;dmap map)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L67" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;i-subst">-&gt;i-subst</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;i-subst types)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L13" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;i-subst-dotted">-&gt;i-subst-dotted</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;i-subst-dotted types dty dbound)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L22" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/-&gt;i-subst-starred">-&gt;i-subst-starred</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;i-subst-starred types starred)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L17" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/RClass-supers*">RClass-supers*</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (RClass-supers* {:keys [poly? replacements the-class], :as rcls})
+</pre>
+    <pre id="var-docstr">Return a set of ancestors to the RClass</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L250" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/abstract-many">abstract-many</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (abstract-many names ty)
+</pre>
+    <pre id="var-docstr">Names Type -&gt; Scope^n  where n is (count names)</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/tvar_rep.clj#L97" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/add-multimethod-dispatch-type">add-multimethod-dispatch-type</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (add-multimethod-dispatch-type mmsym dtype)
+</pre>
+    <pre id="var-docstr">Add the type of the dispatch function of the multimethod named by mmsym
+to the environment. If already exists, must be identical.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/mm_env.clj#L12" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/cf">cf</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (cf form)
+       (cf form expected)
+</pre>
+    <pre id="var-docstr">Type check a Clojure form and return its type</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L634" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/cf-cljs">cf-cljs</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (cf-cljs form)
+       (cf-cljs form expected)
+</pre>
+    <pre id="var-docstr">Type check a Clojurescript form and return its type</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L619" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/check-anon-fn">check-anon-fn</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (check-anon-fn {:keys [methods], :as expr} methods-types &amp; {:keys [poly]})
+</pre>
+    <pre id="var-docstr">Check anonymous function, with annotated methods. methods-types
+is a (Seqable (HMap {:dom (Seqable Type) :rng (U nil Type)}))</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/b3f7ce634c9426f10bb32b3467be1476b2fd47d9/src/main/clojure/clojure/core/typed/check.clj#L1828" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/check-cljs-ns*">check-cljs-ns*</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (check-cljs-ns*)
+       (check-cljs-ns* nsym)
+</pre>
+    <pre id="var-docstr">Type check a CLJS namespace. If not provided default to current namespace</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L665" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/check-fn">check-fn</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (check-fn {:keys [methods], :as fexpr} expected)
+</pre>
+    <pre id="var-docstr">Check a fn to be under expected and annotate the inferred type</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/b3f7ce634c9426f10bb32b3467be1476b2fd47d9/src/main/clojure/clojure/core/typed/check.clj#L1912" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/check-ns">check-ns</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (check-ns)
+       (check-ns nsym)
+</pre>
+    <pre id="var-docstr">Type check a namespace. If not provided default to current namespace</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L678" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/ctor-Class-&gt;symbol">ctor-Class-&gt;symbol</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (ctor-Class-&gt;symbol cls)
+</pre>
+    <pre id="var-docstr">Returns a symbol representing this constructor's Class, removing any compiler stubs.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/b3f7ce634c9426f10bb32b3467be1476b2fd47d9/src/main/clojure/clojure/core/typed/check.clj#L2334" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/declare-alias-kind">declare-alias-kind</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (declare-alias-kind sym ty)
+</pre>
+    <pre id="var-docstr">Declare a kind for an alias, similar to declare but on the kind level.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L208" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/declare-datatypes">declare-datatypes</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (declare-datatypes &amp; syms)
+</pre>
+    <pre id="var-docstr">Declare datatypes, similar to declare but on the type level.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L187" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/declare-names">declare-names</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (declare-names &amp; syms)
+</pre>
+    <pre id="var-docstr">Declare names, similar to declare but on the type level.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L223" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/declare-protocols">declare-protocols</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (declare-protocols &amp; syms)
+</pre>
+    <pre id="var-docstr">Declare protocols, similar to declare but on the type level.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L198" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/def-alias">def-alias</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (def-alias sym type)
+</pre>
+    <pre id="var-docstr">Define a type alias</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L233" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/fi">fi</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (fi t)
+</pre>
+    <pre id="var-docstr">All index variables in type (dotted bounds, etc.)</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/frees.clj#L32" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/fn&gt;">fn&gt;</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (fn&gt; &amp; forms)
+</pre>
+    <pre id="var-docstr">Define a typed anonymous function.
+(fn&gt; name? :- type? [[param :- type]* &amp; [param :- type *]?] exprs*)
+(fn&gt; name? (:- type? [[param :- type]* &amp; [param :- type *]?] exprs*)+)</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L162" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/free-in-scope">free-in-scope</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (free-in-scope name)
+</pre>
+    <pre id="var-docstr">Find the free scoped as name</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/parse.clj#L35" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/free-in-scope-bnds">free-in-scope-bnds</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (free-in-scope-bnds name)
+</pre>
+    <pre id="var-docstr">Find the bounds for the free scoped as name</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/parse.clj#L42" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/free-with-name">free-with-name</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (free-with-name name)
+</pre>
+    <pre id="var-docstr">Find the free with the actual name name, as opposed to
+the alias used for scoping</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/parse.clj#L12" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/free-with-name-bnds">free-with-name-bnds</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (free-with-name-bnds name)
+</pre>
+    <pre id="var-docstr">Find the bounds for the free with the actual name name, as opposed to
+the alias used for scoping</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/parse.clj#L23" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/fv">fv</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (fv t)
+</pre>
+    <pre id="var-docstr">All frees in type</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/frees.clj#L26" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/idx-variances">idx-variances</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (idx-variances t)
+</pre>
+    <pre id="var-docstr">Map of indexes to their variances</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/frees.clj#L19" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/inst">inst</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (inst inst-of &amp; types)
+</pre>
+    <pre id="var-docstr">Instantiate a polymorphic type with a number of types</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L73" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/inst-ctor">inst-ctor</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (inst-ctor inst-of &amp; types)
+</pre>
+    <pre id="var-docstr">Instantiate a call to a constructor with a number of types.
+First argument must be an immediate call to a constructor.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L78" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/instantiate-many">instantiate-many</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (instantiate-many images sc)
+</pre>
+    <pre id="var-docstr">instantiate-many : List[Symbols] Scope^n -&gt; Type
+Instantiate de Bruijn indices in sc to frees named by
+images, preserving upper/lower bounds</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/tvar_rep.clj#L195" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/into-array&gt;">into-array&gt;</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (into-array&gt; cljt coll)
+       (into-array&gt; javat cljt coll)
+</pre>
+    <pre id="var-docstr">Make a Java array with Java class javat and Typed Clojure type
+cljt. Resulting array will be of type javat, but elements of coll must be under
+cljt. cljt should be a subtype of javat (the same or more specific).</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L292" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/loop&gt;">loop&gt;</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (loop&gt; bndings* &amp; forms)
+</pre>
+    <pre id="var-docstr">Define a typed loop</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L175" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/make-F">make-F</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (make-F name)
+</pre>
+    <pre id="var-docstr">Make a free variable </pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L165" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/make-Function">make-Function</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (make-Function dom rng)
+       (make-Function dom rng rest)
+       (make-Function dom rng rest drest &amp; {:keys [filter object kws]})
+</pre>
+    <pre id="var-docstr">Make a function, wrap range type in a Result.
+Accepts optional :filter and :object parameters that default to the most general filter
+and EmptyObject</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L705" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/make-Result">make-Result</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (make-Result t)
+       (make-Result t f)
+       (make-Result t f o)
+</pre>
+    <pre id="var-docstr">Make a result. ie. the range of a Function</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L697" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/manual-inst">manual-inst</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (manual-inst ptype argtys)
+</pre>
+    <pre id="var-docstr">Poly Type^n -&gt; Type
+Substitute the type parameters of the polymorphic type
+with given types</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/inst.clj#L8" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;AndFilter">map-&gt;AndFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;AndFilter {:as kwargs__2627__auto__, :keys [fs]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L44" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;AnyValue">map-&gt;AnyValue</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;AnyValue {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L575" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;App">map-&gt;App</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;App {:as kwargs__2627__auto__, :keys [rator rands]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L450" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;ArrayCLJS">map-&gt;ArrayCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;ArrayCLJS {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L72" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;B">map-&gt;B</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;B {:as kwargs__2627__auto__, :keys [idx]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L155" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;BooleanCLJS">map-&gt;BooleanCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;BooleanCLJS {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L56" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;BotFilter">map-&gt;BotFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;BotFilter {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L16" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Bounds">map-&gt;Bounds</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Bounds {:as kwargs__2627__auto__, :keys [upper-bound lower-bound higher-kind]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L148" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;ClassPE">map-&gt;ClassPE</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;ClassPE {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/path_rep.clj#L21" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;CountPE">map-&gt;CountPE</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;CountPE {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/path_rep.clj#L25" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;CountRange">map-&gt;CountRange</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;CountRange {:as kwargs__2627__auto__, :keys [lower upper]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L667" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;DataType">map-&gt;DataType</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;DataType {:as kwargs__2627__auto__, :keys [the-class variances poly? fields]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L273" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;DottedPretype">map-&gt;DottedPretype</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;DottedPretype {:as kwargs__2627__auto__, :keys [pre-type name]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L636" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;EmptyObject">map-&gt;EmptyObject</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;EmptyObject {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/object_rep.clj#L14" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;F">map-&gt;F</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;F {:as kwargs__2627__auto__, :keys [name]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L161" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;FilterSet">map-&gt;FilterSet</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;FilterSet {:as kwargs__2627__auto__, :keys [then else]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L61" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;FirstPE">map-&gt;FirstPE</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;FirstPE {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/path_rep.clj#L14" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;FlowSet">map-&gt;FlowSet</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;FlowSet {:as kwargs__2627__auto__, :keys [normal]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L777" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;FnIntersection">map-&gt;FnIntersection</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;FnIntersection {:as kwargs__2627__auto__, :keys [types]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L98" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;FnResult">map-&gt;FnResult</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;FnResult {:as kwargs__2627__auto__, :keys [args kws rest drest body]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/b3f7ce634c9426f10bb32b3467be1476b2fd47d9/src/main/clojure/clojure/core/typed/check.clj#L1667" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Function">map-&gt;Function</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Function {:as kwargs__2627__auto__, :keys [dom rng rest drest kws]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L647" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;FunctionCLJS">map-&gt;FunctionCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;FunctionCLJS {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L76" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;GTRange">map-&gt;GTRange</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;GTRange {:as kwargs__2627__auto__, :keys [n]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L675" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;HeterogeneousList">map-&gt;HeterogeneousList</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;HeterogeneousList {:as kwargs__2627__auto__, :keys [types]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L612" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;HeterogeneousMap">map-&gt;HeterogeneousMap</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;HeterogeneousMap {:as kwargs__2627__auto__, :keys [types other-entries]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L584" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;HeterogeneousSeq">map-&gt;HeterogeneousSeq</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;HeterogeneousSeq {:as kwargs__2627__auto__, :keys [types]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L619" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;HeterogeneousVector">map-&gt;HeterogeneousVector</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;HeterogeneousVector {:as kwargs__2627__auto__, :keys [types]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L600" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;ImpFilter">map-&gt;ImpFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;ImpFilter {:as kwargs__2627__auto__, :keys [a c]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L56" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Intersection">map-&gt;Intersection</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Intersection {:as kwargs__2627__auto__, :keys [types]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L93" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;KeyPE">map-&gt;KeyPE</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;KeyPE {:as kwargs__2627__auto__, :keys [val]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/path_rep.clj#L29" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;KwArgs">map-&gt;KwArgs</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;KwArgs {:as kwargs__2627__auto__, :keys [mandatory optional]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L643" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;LTRange">map-&gt;LTRange</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;LTRange {:as kwargs__2627__auto__, :keys [n]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L679" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;ListDots">map-&gt;ListDots</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;ListDots {:as kwargs__2627__auto__, :keys [pre-type bound]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L724" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Mu">map-&gt;Mu</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Mu {:as kwargs__2627__auto__, :keys [scope]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L543" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Name">map-&gt;Name</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Name {:as kwargs__2627__auto__, :keys [id]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L437" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;NextPE">map-&gt;NextPE</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;NextPE {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/path_rep.clj#L17" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;NoFilter">map-&gt;NoFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;NoFilter {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L26" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;NoObject">map-&gt;NoObject</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;NoObject {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/object_rep.clj#L29" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;NotType">map-&gt;NotType</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;NotType {:as kwargs__2627__auto__, :keys [type]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L718" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;NotTypeFilter">map-&gt;NotTypeFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;NotTypeFilter {:as kwargs__2627__auto__, :keys [type path id]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L38" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;NumberCLJS">map-&gt;NumberCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;NumberCLJS {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L68" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;ObjectCLJS">map-&gt;ObjectCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;ObjectCLJS {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L60" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;OrFilter">map-&gt;OrFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;OrFilter {:as kwargs__2627__auto__, :keys [fs]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L50" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Path">map-&gt;Path</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Path {:as kwargs__2627__auto__, :keys [path id]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/object_rep.clj#L20" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Poly">map-&gt;Poly</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Poly {:as kwargs__2627__auto__, :keys [nbound bbnds scope actual-frees]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L351" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;PolyDots">map-&gt;PolyDots</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;PolyDots {:as kwargs__2627__auto__, :keys [nbound bbnds scope]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L398" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;PrimitiveArray">map-&gt;PrimitiveArray</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;PrimitiveArray {:as kwargs__2627__auto__, :keys [jtype input-type output-type]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L626" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Projection">map-&gt;Projection</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Projection {:as kwargs__2627__auto__, :keys [afn ts]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L186" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;PropEnv">map-&gt;PropEnv</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;PropEnv {:as kwargs__2627__auto__, :keys [l props]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L367" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Protocol">map-&gt;Protocol</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Protocol {:as kwargs__2627__auto__, :keys [the-var variances poly? on-class methods]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L286" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;RClass">map-&gt;RClass</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;RClass {:as kwargs__2627__auto__, :keys [variances poly? the-class replacements]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L193" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Record">map-&gt;Record</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Record {:as kwargs__2627__auto__, :keys [the-class fields]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L266" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;RecurTarget">map-&gt;RecurTarget</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;RecurTarget {:as kwargs__2627__auto__, :keys [dom rest drest kws]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/b3f7ce634c9426f10bb32b3467be1476b2fd47d9/src/main/clojure/clojure/core/typed/check.clj#L2425" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Result">map-&gt;Result</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Result {:as kwargs__2627__auto__, :keys [t fl o]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L735" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Scope">map-&gt;Scope</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Scope {:as kwargs__2627__auto__, :keys [body]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L173" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;StringCLJS">map-&gt;StringCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;StringCLJS {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L64" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;SymbolCLJS">map-&gt;SymbolCLJS</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;SymbolCLJS {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/check_cljs.clj#L52" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;TApp">map-&gt;TApp</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;TApp {:as kwargs__2627__auto__, :keys [rator rands]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L443" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;TCResult">map-&gt;TCResult</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;TCResult {:as kwargs__2627__auto__, :keys [t fl o flow]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L781" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Top">map-&gt;Top</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Top {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L30" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;TopFilter">map-&gt;TopFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;TopFilter {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L19" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;TopFunction">map-&gt;TopFunction</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;TopFunction {:as kwargs__2627__auto__, :keys []})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L663" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;TypeFilter">map-&gt;TypeFilter</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;TypeFilter {:as kwargs__2627__auto__, :keys [type path id]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_rep.clj#L32" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;TypeFn">map-&gt;TypeFn</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;TypeFn {:as kwargs__2627__auto__, :keys [nbound variances bbnds scope]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L301" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Union">map-&gt;Union</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Union {:as kwargs__2627__auto__, :keys [types]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L39" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;Value">map-&gt;Value</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;Value {:as kwargs__2627__auto__, :keys [val]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L568" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;c">map-&gt;c</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;c {:as kwargs__2627__auto__, :keys [S X T bnds]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L35" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;cset">map-&gt;cset</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;cset {:as kwargs__2627__auto__, :keys [maps]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L92" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;cset-entry">map-&gt;cset-entry</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;cset-entry {:as kwargs__2627__auto__, :keys [fixed dmap projections]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L71" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;dcon">map-&gt;dcon</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;dcon {:as kwargs__2627__auto__, :keys [fixed rest]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L47" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;dcon-dotted">map-&gt;dcon-dotted</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;dcon-dotted {:as kwargs__2627__auto__, :keys [fixed dc dbound]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L58" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;dcon-exact">map-&gt;dcon-exact</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;dcon-exact {:as kwargs__2627__auto__, :keys [fixed rest]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L53" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;dmap">map-&gt;dmap</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;dmap {:as kwargs__2627__auto__, :keys [map]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L67" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;i-subst">map-&gt;i-subst</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;i-subst {:as kwargs__2627__auto__, :keys [types]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L13" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;i-subst-dotted">map-&gt;i-subst-dotted</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;i-subst-dotted {:as kwargs__2627__auto__, :keys [types dty dbound]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L22" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;i-subst-starred">map-&gt;i-subst-starred</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;i-subst-starred {:as kwargs__2627__auto__, :keys [types starred]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L17" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/map-&gt;t-subst">map-&gt;t-subst</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;t-subst {:as kwargs__2627__auto__, :keys [type bnds]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/cs_gen.clj#L8" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/method-type">method-type</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (method-type mname)
+</pre>
+    <pre id="var-docstr">Given a method symbol, print the core.typed types assigned to it</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L51" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/nilable-param">nilable-param</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (nilable-param msym mmap)
+</pre>
+    <pre id="var-docstr">Overrides which parameters in a method may accept
+nilable values. If the parameter is a parameterised type or
+an Array, this also declares the parameterised types and the Array type as nilable.
+
+mmap is a map mapping arity parameter number to a set of parameter
+positions (integers). If the map contains the key :all then this overrides
+other entries. The key can also be :all, which declares all parameters nilable.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L335" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/non-nil-return">non-nil-return</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (non-nil-return msym arities)
+</pre>
+    <pre id="var-docstr">Override the return type of method msym to be non-nil.
+Takes a set of relevant arities,
+represented by the number of parameters it takes (rest parameter counts as one),
+or :all which overrides all arities.
+
+eg.  (non-nil-return java.lang.Class/getDeclaredMethod :all)</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L324" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/open-Result">open-Result</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (open-Result {t :t, fs :fl, old-obj :o, :as r} objs &amp; [ts])
+</pre>
+    <pre id="var-docstr">Substitute ids for objs in Result t</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/b3f7ce634c9426f10bb32b3467be1476b2fd47d9/src/main/clojure/clojure/core/typed/check.clj#L496" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/pfn&gt;">pfn&gt;</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (pfn&gt; &amp; forms)
+</pre>
+    <pre id="var-docstr">Define a polymorphic typed anonymous function.
+(pfn&gt; name? [binder+] :- type? [[param :- type]* &amp; [param :- type *]?] exprs*)
+(pfn&gt; name? [binder+] (:- type? [[param :- type]* &amp; [param :- type *]?] exprs*)+)</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L154" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/print-filterset">print-filterset</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (print-filterset debug-string frm)
+</pre>
+    <pre id="var-docstr">Print the filter set attached to form, and debug-string</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L43" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/relevant-Fns">relevant-Fns</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (relevant-Fns required-params rest-param fin)
+</pre>
+    <pre id="var-docstr">Given a set of required-param exprs, rest-param expr, and a FnIntersection,
+returns a seq of Functions containing Function types
+whos arities could be a subtype to the method with the fixed and rest parameters given</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/b3f7ce634c9426f10bb32b3467be1476b2fd47d9/src/main/clojure/clojure/core/typed/check.clj#L1677" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/ret">ret</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (ret t)
+       (ret t f)
+       (ret t f o)
+       (ret t f o flow)
+</pre>
+    <pre id="var-docstr">Convenience function for returning the type of an expression</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L796" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/scope-depth?">scope-depth?</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (scope-depth? scope depth)
+</pre>
+    <pre id="var-docstr">True if scope is has depth number of scopes nested</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/type_rep.clj#L177" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/simplify-prop">simplify-prop</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (simplify-prop a b)
+</pre>
+    <pre id="var-docstr">Try and use atomic proposition a to simplify composite
+proposition b. a must be correct polarity.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/filter_ops.clj#L129" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/subtypes-varargs?">subtypes-varargs?</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (subtypes-varargs? argtys dom rst)
+</pre>
+    <pre id="var-docstr">True if argtys are under dom</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed/subtype.clj#L33" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/symbol-&gt;Class">symbol-&gt;Class</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (symbol-&gt;Class sym)
+</pre>
+    <pre id="var-docstr">Returns the Class represented by the symbol. Works for
+primitives (eg. byte, int). Does not further resolve the symbol.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/4da62ed2604cb6cc338e9d69476915599a2e222f/src/main/clojure/clojure/core/typed/utils.clj#L75" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/tc-ignore">tc-ignore</h2>
+    <span id="var-type">macro</span><br />
+    <pre id="var-usage">Usage: (tc-ignore &amp; body)
+</pre>
+    <pre id="var-docstr">Ignore forms in body during type checking</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/78d09859cee78967e9dd0ee7d74e0f52bd3be6f1/src/main/clojure/clojure/core/typed.clj#L319" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/unwrap-datatype">unwrap-datatype</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (unwrap-datatype dt nms)
+       (unwrap-datatype dt)
+</pre>
+    <pre id="var-docstr">Takes a possibly polymorphic DataType and returns the 
+DataType after instantiating it</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/b3f7ce634c9426f10bb32b3467be1476b2fd47d9/src/main/clojure/clojure/core/typed/check.clj#L3073" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/unwrap-poly">unwrap-poly</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (unwrap-poly t)
+</pre>
+    <pre id="var-docstr">Return a pair vector of the instantiated body of the possibly polymorphic
+type and the names used</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/b3f7ce634c9426f10bb32b3467be1476b2fd47d9/src/main/clojure/clojure/core/typed/check.clj#L1869" id="var-source">Source</a>
+  </div>
+</div>
+
+
+</div>
+              </div>
+            </div>
+          </div>
+	</div>
+	<div id="foot">
+	  <div style="text-align: center;" id="copyright">Copyright 2007-2013 by Rich Hickey and the various contributors</div>
+	</div>
+      </div>
+      <div id="DesignedBy">Logo &amp; site design by <a title="Visit Tom Hickey's website." href="http://www.tomhickey.com">Tom Hickey</a>.<br />
+      Clojure auto-documentation system by Tom Faulhaber.</div>
+    </div>
+    <!-- /AllContentContainer -->
+  </body>
+
+</html>
