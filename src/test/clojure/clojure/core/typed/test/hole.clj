@@ -17,7 +17,7 @@
 ;
 ; See: http://matthew.brecknell.net/posts/2013/02/26/hole-driven-haskell/
 ;
-; This file roughly follows the video cast with the equivalent core.typed code.
+; This file roughly follows the video cast with the equivalent core.typed code. Note: master branch has better error msgs for these cases, as of 0.1.7
 
 ;; ## Compose
 
@@ -31,7 +31,7 @@
 ; 1. give x wrong type (b).
 
 ;clojure.core.typed.test.hole=> (check-ns)
-;#<AssertionError java.lang.AssertionError: Assert failed: 17: Local binding x expected type b, but actual type a
+;#<AssertionError java.lang.AssertionError: Assert failed: 28: Local binding x expected type b, but actual type a
 ;(or (not expected) (subtype? t (ret-t expected)))>
 
 #_(defn compose [f g x]
@@ -53,7 +53,7 @@
 
 ; 3. Noisy hole complains.
 
-;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:41
+;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:53
 ;
 ;Actual type
 ;	clojure.core.typed.test.hole.Hole
@@ -70,7 +70,7 @@
 
 ; 4. Fill in hole with an expression that returns `c`
 
-;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:58
+;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:69
 ;
 ;Actual type
 ;	clojure.core.typed.test.hole.Hole
@@ -87,7 +87,7 @@
 
 ; 5. Fill in hole with an expression that returns `b`
 
-;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:75
+;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:86
 ;
 ;Actual type
 ;	clojure.core.typed.test.hole.Hole
@@ -169,7 +169,7 @@
 
 ; 3. (8:15) Introduce k (noisy hole)
 
-(defmonadfn mapply [mf ma]
+#_(defmonadfn mapply [mf ma]
   (let [_ (ann-form mf (m [a -> b]))
         _ (ann-form ma (m a))
         _ (ann-form #(m-bind mf %) [[[a -> b] -> (m b)] -> (m b)])
