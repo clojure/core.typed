@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.hole
   (:require [clojure.repl :refer [pst]]
-            [clojure.core.typed :refer [ann ann-form ann-datatype check-ns]]
+            [clojure.core.typed :refer [ann ann-form ann-datatype check-ns fn>]]
             [clojure.core.typed.test.monads :refer [;types 
                                                     AnyMonad 
                                                     ;vars
@@ -10,7 +10,6 @@
 (deftype Hole [])
 
 (ann hole [-> Nothing])
-
 (defn hole [] 
   (throw (Exception. "hole")))
 
@@ -124,26 +123,71 @@
              (All [a b]
                   [(m [a -> b]) (m a) -> (m b)]))
 
-(defmonadfn mapply [mf ma]
+#_(defmonadfn mapply [mf ma]
   (let [_ (ann-form mf (m [a -> b]))
         _ (ann-form ma (m a))]
     (->Hole)))
 
 ; 1. Noisy hole
 
-;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:125
+;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:127
 ;
 ;Actual type
 ;	clojure.core.typed.test.hole.Hole
 ;is not a subtype of Expected type
 ;	(m b)
 ;
-;Form: (let* [_ (clojure.core.typed/ann-form* mf (quote (m [a -> b]))) _19529 (clojure.core.typed/ann-form* ma (quote (m a)))] (clojure.core.typed.test.hole/->Hole))>
+;Form: (let* [_ (clojure.core.typed/ann-form* mf (quote (m [a -> b]))) _21382 (clojure.core.typed/ann-form* ma (quote (m a)))] (clojure.core.typed.test.hole/->Hole))>
 
-; 2. 
+; 2. Some m-bind sanity checks
 
 #_(defmonadfn mapply [mf ma]
   (let [_ (ann-form mf (m [a -> b]))
         _ (ann-form ma (m a))
-        _ (ann-form m-bind (All [h] [(m h) [h -> (m b)] -> (m b)]))]
+
+        ; core.typed isn't smart enough to figure out the next statement is valid.
+        ; This particular All isn't hard to support because `h` and `a` are both in the 0th
+        ; position, but there are too many combinations.
+        ;
+        ;_ (ann-form m-bind (All [h] [(m h) [h -> (m b)] -> (m b)]))
+
+        _ (ann-form #(m-bind mf %) [[[a -> b] -> (m b)] -> (m b)])
+        _ (ann-form #(m-bind ma %) [[a -> (m b)] -> (m b)])
+        ]
     (->Hole)))
+
+; Note: line number sucks :/
+;
+;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:145
+;
+;Actual type
+;	clojure.core.typed.test.hole.Hole
+;is not a subtype of Expected type
+;	(m b)
+;
+;Form: (let* [_ (clojure.core.typed/ann-form* mf (quote (m [a -> b]))) _21976 (clojure.core.typed/ann-form* ma (quote (m a))) _21977 (clojure.core.typed/ann-form* (fn* ([p1__21960#] (m-bind mf p1__21960#))) (quote [[[a -> b] -> (m b)] -> (m b)]))] (clojure.core.typed.test.hole/->Hole))>
+
+; 3. (8:15) Introduce k (noisy hole)
+
+(defmonadfn mapply [mf ma]
+  (let [_ (ann-form mf (m [a -> b]))
+        _ (ann-form ma (m a))
+        _ (ann-form #(m-bind mf %) [[[a -> b] -> (m b)] -> (m b)])
+        _ (ann-form #(m-bind ma %) [[a -> (m b)] -> (m b)])
+        k (ann-form
+            (fn [f]
+              (->Hole))
+            [[a -> b] -> (m b)])]
+    (m-bind mf k)))
+
+;clojure.core.typed.test.hole=> (check-ns)
+;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:172
+;
+;Actual type
+;	clojure.core.typed.test.hole.Hole
+;is not a subtype of Expected type
+;	(m b)
+;
+;Form: (clojure.core.typed.test.hole/->Hole)>
+
+; TODO the rest of mapply

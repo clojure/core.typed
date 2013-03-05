@@ -415,7 +415,8 @@
                     (when (= name (.name ^F (.rator S)))
                       (.higher-kind bnds)))
                   *free-scope*)]
-    (subtype-TypeFn-app? tfn S T)))
+    (when tfn
+      (subtype-TypeFn-app? tfn S T))))
 
 (defmethod subtype-TApp? :default [S T] false)
 
