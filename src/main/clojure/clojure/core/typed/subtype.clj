@@ -78,7 +78,7 @@
 (defn unify [X S T]
   (boolean (infer X {} S T -any)))
 
-(declare keyword->Fn)
+(declare keyword->Fn subtype-TApp?)
 
 ;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
 (defn subtypeA* [A s t]
@@ -131,12 +131,24 @@
           (subtype s b))
 
         (and (TApp? s)
-             (not (F? (.rator ^TApp s))))
-        (subtypeA* *sub-current-seen* (resolve-TApp s) t)
+             (TApp? t))
+        (if (subtype-TApp? s t)
+          *sub-current-seen*
+          (type-error s t))
 
-        (and (TApp? t)
-             (not (F? (.rator ^TApp t))))
-        (subtypeA* *sub-current-seen* s (resolve-TApp t))
+        (TApp? s)
+        (if (and (not (F? (.rator s)))
+                 (subtypeA*? (conj *sub-current-seen* [s t])
+                             (resolve-TApp s) t))
+          *sub-current-seen*
+          (type-error s t))
+
+        (TApp? t)
+        (if (and (not (F? (.rator t)))
+                 (subtypeA*? (conj *sub-current-seen* [s t])
+                             s (resolve-TApp t)))
+          *sub-current-seen*
+          (type-error s t))
 
         (App? s)
         (subtypeA* *sub-current-seen* (resolve-App s) t)
@@ -407,30 +419,8 @@
 
 (defmethod subtype-TApp? :default [S T] false)
 
-(defmethod subtype* [TApp TApp ::default]
-  [S T]
-  (if (subtype-TApp? S T)
-    *sub-current-seen*
-    (type-error S T)))
-
 (prefer-method subtype* [Type TApp ::default] [HeterogeneousVector Type ::default])
 (prefer-method subtype* [Type TApp ::default] [HeterogeneousVector Type ::default])
-
-(defmethod subtype* [TApp Type ::default]
-  [^TApp S T]
-  (if (and (not (F? (.rator S)))
-           (subtypeA*? (conj *sub-current-seen* [S T])
-                       (resolve-TApp S) T))
-    *sub-current-seen*
-    (type-error S T)))
-
-(defmethod subtype* [Type TApp ::default]
-  [S ^TApp T]
-  (if (and (not (F? (.rator T)))
-           (subtypeA*? (conj *sub-current-seen* [S T])
-                       S (resolve-TApp T)))
-    *sub-current-seen*
-    (type-error S T)))
 
 (defmethod subtype* [TypeFn TypeFn ::default]
   [^TypeFn S ^TypeFn T]
@@ -472,7 +462,7 @@
 
 (defmethod subtype* [Type DataType ::clojure]
   [s {:keys [the-class] :as t}]
-  (if (some #(subtype? s %) (set/union #{(RClass-of (Class->symbol Object) nil)} 
+  (if (some #(subtype? s %) (set/union #{(RClass-of Object)} 
                                        (or (@DATATYPE-ANCESTOR-ENV the-class)
                                            #{})))
     *sub-current-seen*

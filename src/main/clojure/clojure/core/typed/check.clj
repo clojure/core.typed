@@ -2104,13 +2104,19 @@
 (defmethod check :do
   [{:keys [exprs] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (let [[env cexprs]
-        (reduce (fn [[env exprs] expr]
-                  {:pre [(PropEnv? env)]
+  (let [nexprs (count exprs)
+        [env cexprs]
+        (reduce (fn [[env exprs] [n expr]]
+                  {:pre [(PropEnv? env)
+                         (integer? n)
+                         (< n nexprs)]
                    :post [(hvector-c? PropEnv? vector?)]}
                   (let [cexpr (binding [*current-expr* expr]
                                 (with-lexical-env env
-                                  (check expr)))
+                                  (check expr 
+                                         ;propagate expected type only to final expression
+                                         (when (= (inc n) nexprs)
+                                           expected))))
                         flow (-> cexpr expr-type ret-flow flow-normal)
                         flow-atom (atom true)
                         ;add normal flow filter
@@ -2125,7 +2131,7 @@
                                                   "\nOld: "
                                                   (with-out-str (print-env* env))))]
                     [nenv (conj exprs cexpr)]))
-                [*lexical-env* []] exprs)]
+                [*lexical-env* []] (map-indexed vector exprs))]
     (assoc expr
            :exprs cexprs
            expr-type (-> cexprs last expr-type)))) ;should be a ret already

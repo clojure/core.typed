@@ -261,19 +261,28 @@
          steps (vec (interleave expr vars))]
      (list `fn vars (monad-expr steps (cons f expr))))))
 
-(defmacro ann-monadfn [name ty]
-  (let [fn-name (symbol (format "m+%s+m" (str name)))]
-    `(do
-       (ann ~name ~'Any)
-       (ann ~fn-name ~`(~'All ~'[[m :kind (TFn [[x :variance :covariant]] Any)]]
-                           [~'(All [x y]
-                                   [(m x) [x -> (m y)] -> (m y)])
-                            ~'(All [x]
-                                   [x -> (m x)])
-                            ~'(All [x] (m x))
-                            ~'(All [x]
-                                   [(m x) * -> (m x)])
-                            ~'-> ~ty])))))
+(defmacro ann-monadfn 
+  ([name ty] `(ann-monadfn ~name ~'m ~ty))
+  ([name m ty]
+   (let [fn-name (symbol (format "m+%s+m" (str name)))
+         x 'x
+         y 'y
+         TFn 'TFn
+         All 'All
+         Any 'Any
+         -> '->
+         * '*]
+     `(do
+        (ann ~name ~'Any)
+        (ann ~fn-name ~`(~All [[~m :kind (~TFn [[~x :variance :covariant]] ~Any)]]
+                            [(~All ~[x y]
+                                 [(~m ~x) [~x ~-> (~m ~y)] ~-> (~m ~y)])
+                             (~All [~x]
+                                [~x ~-> (~m ~x)])
+                             (~All [~x] (~m ~x))
+                             (~All [~x]
+                                [(~m ~x) ~* ~-> (~m ~x)])
+                             ~-> ~ty]))))))
 
 (ann-monadfn m-join
              (All [a]

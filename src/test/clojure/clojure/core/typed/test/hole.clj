@@ -1,6 +1,10 @@
 (ns clojure.core.typed.test.hole
   (:require [clojure.repl :refer [pst]]
-            [clojure.core.typed :refer [ann ann-form ann-datatype check-ns]]))
+            [clojure.core.typed :refer [ann ann-form ann-datatype check-ns]]
+            [clojure.core.typed.test.monads :refer [;types 
+                                                    AnyMonad 
+                                                    ;vars
+                                                    domonad defmonadfn ann-monadfn]]))
 
 (ann-datatype Hole [])
 (deftype Hole [])
@@ -9,6 +13,14 @@
 
 (defn hole [] 
   (throw (Exception. "hole")))
+
+; # Holes
+;
+; See: http://matthew.brecknell.net/posts/2013/02/26/hole-driven-haskell/
+;
+; This file roughly follows the video cast with the equivalent core.typed code.
+
+;; ## Compose
 
 (ann compose (All [a b c] [[b -> c] [a -> b] a -> c]))
 #_(defn compose [f g x]
@@ -96,10 +108,42 @@
 ;clojure.core.typed.test.hole=> (check-ns)
 ;nil
 
-(defn compose [f g x]
+#_(defn compose [f g x]
   (f (g x)))
 
 ; 8. Delete type annotations
 
 ;clojure.core.typed.test.hole=> (check-ns)
 ;nil
+
+
+;; ## monadic apply
+
+(ann-monadfn mapply 
+             m
+             (All [a b]
+                  [(m [a -> b]) (m a) -> (m b)]))
+
+(defmonadfn mapply [mf ma]
+  (let [_ (ann-form mf (m [a -> b]))
+        _ (ann-form ma (m a))]
+    (->Hole)))
+
+; 1. Noisy hole
+
+;#<Exception java.lang.Exception: Type Error, clojure.core.typed.test.hole:125
+;
+;Actual type
+;	clojure.core.typed.test.hole.Hole
+;is not a subtype of Expected type
+;	(m b)
+;
+;Form: (let* [_ (clojure.core.typed/ann-form* mf (quote (m [a -> b]))) _19529 (clojure.core.typed/ann-form* ma (quote (m a)))] (clojure.core.typed.test.hole/->Hole))>
+
+; 2. 
+
+#_(defmonadfn mapply [mf ma]
+  (let [_ (ann-form mf (m [a -> b]))
+        _ (ann-form ma (m a))
+        _ (ann-form m-bind (All [h] [(m h) [h -> (m b)] -> (m b)]))]
+    (->Hole)))
