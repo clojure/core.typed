@@ -3,6 +3,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
+(ann check-ns (Fn [Symbol -> Any]
+                  [-> Any]))
+
 (def-alias AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte))
 (def-alias AnyPrimitive (U char int short boolean byte short long float double))
 
