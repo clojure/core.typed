@@ -1252,6 +1252,17 @@
                                                            (map first frees-with-bounds)))))]
     cexpr))
 
+(declare binding-init-sym)
+
+;doseq>
+;(defmethod invoke-special #'doseq>*
+;  [{[_the-doseq_ special-doseq :as args] :args :as expr} & [expected]]
+;  {:pre [(= 2 (count args))]}
+;  (assert (= :fn-expr (:op special-doseq)))
+;  (let [{:keys [binding-inits body] :as special-let} (-> special-doseq :methods first)
+;        _ (assert (= :let (:op special-let)))
+;        gsyms (map binding-init-sym binding-inits)
+;        cinits (map #(-> % :init check) binding-inits)
 
 (declare check-let)
 
@@ -2078,7 +2089,9 @@
         crng (update-in crng-nopass [expr-type :fl :then] 
                         (fn [f]
                           (apply -and f new-then-props)))
-        ]
+        _ (binding [*current-expr* body
+                    *current-env* (:env body)]
+            (subtype (-> crng expr-type ret-t) (ret-t expected-rng)))]
     (FnResult->Function 
       (->FnResult fixed-entry nil 
                   (when (and rest rest-param)
@@ -2461,14 +2474,20 @@
 
 (def ^:dynamic *check-let-checkfn*)
 
+(defn binding-init-sym [binding-init]
+  {:pre [(= :binding-init (:op binding-init))]
+   :post [(symbol? %)]}
+  (-> binding-init
+    :local-binding
+    hygienic/hsym-key))
+
 (defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
   (assert (or (not is-loop) expected-bnds) (error-msg "Loop requires more annotations"))
   (let [check-let-checkfn *check-let-checkfn*
-        env (reduce (fn [env [{{:keys [init] :as expr} :local-binding} expected-bnd]]
+        env (reduce (fn [env [{{:keys [init]} :local-binding :as expr} expected-bnd]]
                       {:pre [(PropEnv? env)]
                        :post [(PropEnv? env)]}
-                      (let [sym (hygienic/hsym-key expr)
-                            _ (assert (symbol? sym) "Unhygienic expression detected")
+                      (let [sym (binding-init-sym expr)
                             ; check rhs
                             {:keys [t fl flow]} (expr-type
                                                   (binding [*current-expr* init]
@@ -3046,7 +3065,8 @@
         cinit (cond 
                 (not init-provided) expr ;handle `declare`
                 :else (check init (ret t)))
-        _ (subtype (ret-t (expr-type cinit)) t)]
+        _ (when init-provided
+            (subtype (ret-t (expr-type cinit)) t))]
     ;def returns a Var
     (assoc expr
            expr-type (ret (RClass-of Var)))))

@@ -93,9 +93,30 @@
 (defn loop>-ann [loop-of bnding-types]
   loop-of)
 
-;(ann doseq>-ann [Any Any -> Any])
-(defn doseq>-ann [the-doseq bnding-types body]
+(defn doseq>* [the-doseq _]
   the-doseq)
+
+;(ann doseq>-ann [Any Any -> Any])
+(defmacro doseq> [bnd-vec & body]
+  (let [bndings (->> bnd-vec
+                  (partition 2)
+                  (map first))
+        inits (->> bnd-vec
+                (partition 2)
+                (map second))
+        gsyms (repeatedly (count inits) gensym)]
+    `(doseq>* (doseq ~bnd-vec ~@body)
+       ;in a thunk to macroexpand, but not evaluation
+       (fn []
+         ;the collection arguments to doseq
+         (let ~(vec (interleave gsyms inits))
+           (print-env "doseq gsyms")
+           (if (and ~@(map (fn [sym] `(seq ~sym)) gsyms))
+             (do
+               (let ~(vec (interleave bndings (map (fn [sym] `(first ~sym)) gsyms)))
+                 ~@body)
+               nil)
+             nil))))))
 
 ;(ann parse-fn> [Any (Seqable Any) ->
 ;                '{:poly Any

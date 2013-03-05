@@ -588,9 +588,7 @@
   [^HeterogeneousMap s t]
   (assert (not (.other-entries s)))
   ; HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
-  (subtype (RClass-of APersistentMap [(apply Un (-> s :types keys))
-                                      (apply Un (-> s :types vals))])
-           t))
+  (subtype (RClass-of APersistentMap [-any -any]) t))
 
 ;every rtype entry must be in ltypes
 ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
