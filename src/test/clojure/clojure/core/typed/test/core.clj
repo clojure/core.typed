@@ -1136,4 +1136,18 @@
                         _ (assert (integer? a))]
                     (+ 10 a)))
           ret-t)
-        (parse-type 'clojure.core.typed/AnyInteger))))
+        (parse-type 'clojure.core.typed/AnyInteger)))
+  ;postconditions
+  (is (subtype?
+        (-> (tc-t (fn [a]
+                    {:post [(vector? a)]}
+                    a))
+          ret-t)
+        (parse-type '[Any -> (clojure.lang.IPersistentVector Any)]))))
+
+(deftest hmap-subtype
+  (is (subtype? (parse-type ''{})
+                (parse-type '(clojure.lang.IPersistentMap Nothing Nothing)))))
+
+(deftest dotted-on-left-test
+  (is (cf (memoize (fn [])))))

@@ -2415,8 +2415,9 @@
               ifn (let [ctor-fn (or (@CONSTRUCTOR-OVERRIDE-ENV clssym)
                                     (and (@DATATYPE-ENV clssym)
                                          (DataType-ctor-type clssym))
-                                    (Constructor->Function ctor))
-                        _ (assert ctor-fn)
+                                    (when ctor
+                                      (Constructor->Function ctor)))
+                        _ (assert ctor-fn ctor-fn)
                         ctor-fn (if inst-types
                                   (manual-inst ctor-fn inst-types)
                                   ctor-fn)]

@@ -32,6 +32,9 @@
 (ann clojure.core/gensym (Fn [-> Symbol]
                              [String -> Symbol]))
 
+(ann clojure.core/memoize (All [x y ...]
+                            [[y ... y -> x] -> [y ... y -> x]]))
+
 ;TODO flip filters
 (ann clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]]))
 ; should preserve filters
@@ -261,8 +264,8 @@
 (ann clojure.core/string? (predicate String))
 
 (ann clojure.string/split
-     (Fn [String java.util.regex.Pattern -> (Seqable String)]
-         [String java.util.regex.Pattern AnyInteger -> (Seqable String)]))
+     (Fn [String java.util.regex.Pattern -> (APersistentVector String)]
+         [String java.util.regex.Pattern AnyInteger -> (APersistentVector String)]))
 
 (ann clojure.string/join
      (Fn [(Option (Seqable Any)) -> String]
@@ -400,6 +403,7 @@
      (All [x y]
           [(IPersistentMap x y) Any -> (Option (Vector* x y))]))
 
+; same as clojure.lang.RT/get
 (ann clojure.core/get
      (All [x]
           (Fn 
@@ -486,10 +490,15 @@
                       [(Array2 i o) AnyInteger i -> o]))
 
 ;get
+;same as clojure.core/get
 (override-method clojure.lang.RT/get 
-                 (All [y d] 
-                      (Fn [(Option (IPersistentMap Any y)) Any -> (Option y)]
-                          [(Option (IPersistentMap Any y)) Any d -> (U d y)])))
+                 (All [x]
+                      (Fn 
+                        [(IPersistentSet x) Any -> (Option x)]
+                        [java.util.Map Any -> (Option Any)]
+                        [String Any -> (Option Character)]
+                        [nil Any -> nil]
+                        [(Option (ILookup Any x)) Any -> (Option x)])))
 
 ;numbers
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]

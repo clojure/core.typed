@@ -13,7 +13,8 @@
             [clojure.string :as str]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
-            [trammel.core :as contracts]
+            [clojure.core.contracts]
+            [clojure.core.contracts.constraints :as contracts]
             [clojure.math.combinatorics :as comb]
             [clojure.java.io :as io]
             [cljs

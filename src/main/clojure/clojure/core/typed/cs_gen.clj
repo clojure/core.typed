@@ -810,14 +810,14 @@
           (type-error S T))
         (when-not (<= (count (:dom S)) (count (:dom T)))
           (type-error S T))
-        (let [vars (var-store-take dbound dty (- (count (:dom S))
-                                                 (count (:dom T))))
+        (let [vars (var-store-take dbound dty (- (count (:dom T))
+                                                 (count (:dom S))))
               new-tys (doall (for [var vars]
                                (substitute (make-F var) dbound dty)))
-              new-t-fun (make-Function (concat (:dom T) new-tys) (:rng T))
+              new-s-arr (->Function (concat (:dom S) new-tys) (:rng S) nil nil nil)
               new-cset (cs-gen-Function V 
                                         ;move dotted lower/upper bounds to vars
-                                        (merge X (zipmap vars (repeat (Y dbound)))) Y S new-t-fun)]
+                                        (merge X (zipmap vars (repeat (Y dbound)))) Y new-s-arr T)]
           (move-vars-to-dmap new-cset dbound vars)))
 
       ;; dotted on the right, nothing on the left

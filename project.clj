@@ -6,7 +6,7 @@
   :dependencies [[analyze "0.3.0"]
                  [net.intensivesystems/arrows "1.3.0"
                   :exclusions [org.clojure/clojure]] ;for testing conduit, lein test wants it here?
-                 [trammel "0.7.0"
+                 [org.clojure/core.contracts "0.0.3"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.0.2"
                   :exclusions [org.clojure/clojure]]
