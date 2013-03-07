@@ -137,18 +137,20 @@
           (type-error s t))
 
         (TApp? s)
-        (if (and (not (F? (.rator s)))
-                 (subtypeA*? (conj *sub-current-seen* [s t])
-                             (resolve-TApp s) t))
-          *sub-current-seen*
-          (type-error s t))
+        (let [^TApp s s]
+          (if (and (not (F? (.rator s)))
+                   (subtypeA*? (conj *sub-current-seen* [s t])
+                               (resolve-TApp s) t))
+            *sub-current-seen*
+            (type-error s t)))
 
         (TApp? t)
-        (if (and (not (F? (.rator t)))
-                 (subtypeA*? (conj *sub-current-seen* [s t])
-                             s (resolve-TApp t)))
-          *sub-current-seen*
-          (type-error s t))
+        (let [^TApp t t]
+          (if (and (not (F? (.rator t)))
+                   (subtypeA*? (conj *sub-current-seen* [s t])
+                               s (resolve-TApp t)))
+            *sub-current-seen*
+            (type-error s t)))
 
         (App? s)
         (subtypeA* *sub-current-seen* (resolve-App s) t)
@@ -577,9 +579,12 @@
 
 (defmethod subtype* [HeterogeneousMap Type ::clojure]
   [^HeterogeneousMap s t]
-  (assert (not (.other-entries s)))
   ; HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
-  (subtype (RClass-of APersistentMap [-any -any]) t))
+  (if (complete-hmap? s)
+    (subtype (RClass-of APersistentMap [(apply Un (keys (.types s)))
+                                        (apply Un (vals (.types s)))]) 
+             t)
+    (subtype (RClass-of APersistentMap [-any -any]) t)))
 
 ;every rtype entry must be in ltypes
 ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}

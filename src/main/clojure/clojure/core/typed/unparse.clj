@@ -238,11 +238,14 @@
 
 (defmethod unparse-type* HeterogeneousMap
   [v]
-  (list 'HMap (into {} (map (fn [[k v]]
-                              (assert (Value? k))
-                              (vector (:val k)
-                                      (unparse-type v)))
-                            (:types v)))))
+  (list (if (complete-hmap? v)
+          'CompleteHMap 
+          'PartialHMap)
+        (into {} (map (fn [[k v]]
+                        (assert (Value? k))
+                        (vector (:val k)
+                                (unparse-type v)))
+                      (:types v)))))
 
 (defmethod unparse-type* HeterogeneousSeq
   [v]

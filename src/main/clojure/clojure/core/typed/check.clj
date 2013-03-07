@@ -100,14 +100,12 @@
                    (ret-t expected))
         ts (apply hash-map (map (comp ret-t expr-type) (mapv check keyvals)))
 
-        actual (if (every? (fn [t] 
-                             (when (Value? t)
-                               (-> t :val keyword?)))
-                           (keys ts))
-                 (-hmap ts)
+        actual (if (every? keyword-value? (keys ts))
+                 (-complete-hmap ts)
                  (RClass-of APersistentMap [(apply Un (keys ts))
                                             (apply Un (vals ts))]))
-        _ (assert (or (not expected) (subtype? actual expected)) (type-error actual expected))]
+        _ (assert (when expected
+                    (subtype? actual expected)) (type-error actual expected))]
     (assoc expr
            expr-type (ret actual (-FS -top -bot)))))
 

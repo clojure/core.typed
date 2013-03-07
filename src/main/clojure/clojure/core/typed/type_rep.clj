@@ -48,10 +48,15 @@
 
 (def empty-union (->Union #{}))
 
-(defn -hmap [types]
-  (if (some #(= (Bottom) %) (concat (keys types) (vals types)))
-    (Bottom)
-    (->HeterogeneousMap types nil)))
+(defn -hmap 
+  ([types] (-hmap types true))
+  ([types other-keys?]
+   (if (some #(= (Bottom) %) (concat (keys types) (vals types)))
+     (Bottom)
+     (->HeterogeneousMap types other-keys?))))
+
+(defn -complete-hmap [types]
+  (-hmap types false))
 
 #_(defn simplify-HMap-Un [hmaps]
   {:pre [(every? HeterogeneousMap? hmaps)]
@@ -572,6 +577,11 @@
 (defn ^Class Value->Class [^Value tval]
   (class (.val tval)))
 
+(defn keyword-value? [^Value val]
+  (boolean
+    (when (Value? val)
+      (keyword? (.val val)))))
+
 (defrecord AnyValue []
   "Any Value"
   [])
@@ -581,11 +591,11 @@
 (declare-type Value)
 (declare-type AnyValue)
 
-(defrecord HeterogeneousMap [types other-entries]
+(defrecord HeterogeneousMap [types other-keys?]
   "A constant map, clojure.lang.IPersistentMap"
   [((hash-c? Value? (some-fn Type? Result?))
      types)
-   (nil? other-entries)])
+   (boolean? other-keys?)])
 
 (defn make-HMap [mandatory optional]
   (assert (= #{}
@@ -594,6 +604,10 @@
   (apply Un
          (for [ss (map #(into {} %) (comb/subsets optional))]
            (-hmap (merge mandatory ss)))))
+
+(defn complete-hmap? [^HeterogeneousMap hmap]
+  {:pre [(HeterogeneousMap? hmap)]}
+  (not (.other-keys? hmap)))
 
 (declare-type HeterogeneousMap)
 

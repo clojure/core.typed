@@ -35,7 +35,7 @@
   (let [kts (map constant-type (keys cmap))
         vts (map constant-type (vals cmap))]
     (if (every? Value? kts)
-      (-hmap (zipmap kts vts))
+      (-complete-hmap (zipmap kts vts))
       (RClass-of IPersistentMap 
                  [(apply Un kts)
                   (apply Un vts)]))))

@@ -35,6 +35,9 @@
 (ann clojure.core/memoize (All [x y ...]
                             [[y ... y -> x] -> [y ... y -> x]]))
 
+(ann clojure.core/key (All [x]
+                           [(U '[x Any] (IMapEntry x Any)) -> x]))
+
 ;TODO flip filters
 (ann clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]]))
 ; should preserve filters

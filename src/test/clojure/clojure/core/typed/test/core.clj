@@ -385,9 +385,9 @@
   (is (= (tc-t '(1 2))
          (ret (->HeterogeneousList [(->Value 1) (->Value 2)]) -true-filter -empty)))
   (is (= (tc-t {:a 1})
-         (ret (-hmap {(->Value :a) (->Value 1)}) -true-filter -empty)))
+         (ret (-complete-hmap {(->Value :a) (->Value 1)}) -true-filter -empty)))
   (is (= (tc-t {})
-         (ret (-hmap {}) -true-filter -empty)))
+         (ret (-complete-hmap {}) -true-filter -empty)))
   (is (= (tc-t [])
          (ret (->HeterogeneousVector []) -true-filter -empty)))
   (is (= (tc-t '())
@@ -717,7 +717,7 @@
 
 (deftest assoc-test
   (is (= (tc-t (assoc {} :a :b))
-         (ret (-hmap {(->Value :a) (->Value :b)})
+         (ret (-complete-hmap {(->Value :a) (->Value :b)})
               (-FS -top -bot)
               -empty)))
   ;see `invoke-special` for assoc for TODO
@@ -1145,9 +1145,14 @@
           ret-t)
         (parse-type '[Any -> (clojure.lang.IPersistentVector Any)]))))
 
-(deftest hmap-subtype
-  (is (subtype? (parse-type ''{})
-                (parse-type '(clojure.lang.IPersistentMap Nothing Nothing)))))
+(deftest complete-hmap-test
+  (is (subtype? (-complete-hmap {})
+                (parse-type '(clojure.lang.APersistentMap Nothing Nothing))))
+  (is (not
+        (subtype? (-hmap {})
+                  (parse-type '(clojure.lang.APersistentMap Nothing Nothing)))))
+  (is (subtype? (-> (tc-t {}) ret-t)
+                (parse-type '(clojure.lang.APersistentMap Nothing Nothing)))))
 
 (deftest dotted-on-left-test
   (is (cf (memoize (fn [])))))
