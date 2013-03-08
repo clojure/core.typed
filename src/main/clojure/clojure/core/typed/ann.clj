@@ -224,9 +224,11 @@
 
 (ann clojure.core/format [String Any * -> String])
 
+
 (ann clojure.core/re-matcher [java.util.regex.Pattern String -> java.util.regex.Matcher])
-(ann clojure.core/re-find (Fn [java.util.regex.Matcher -> (Option String)]
-                              [java.util.regex.Pattern String -> (Option String)]))
+(ann clojure.core/re-groups [java.util.regex.Matcher -> (U nil String (APersistentVector String))])
+(ann clojure.core/re-find (Fn [java.util.regex.Matcher -> (U nil String (APersistentVector String))]
+                              [java.util.regex.Pattern String -> (U nil String (APersistentVector String))]))
 
 (ann clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String]))
