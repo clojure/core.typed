@@ -1156,3 +1156,7 @@
 
 (deftest dotted-on-left-test
   (is (cf (memoize (fn [])))))
+
+(reify
+  Object
+  (toString [this] this))

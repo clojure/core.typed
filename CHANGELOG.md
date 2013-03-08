@@ -1,3 +1,10 @@
+0.1.8 - Released 8 March 2013
+- Distinguish between complete and partial hmap types
+- Move to core.contracts from Trammel
+- Fix bug when comparing a dotted function to a normal one
+- Better line numbers for checking `do`
+- Add hole tutorial
+
 0.1.7 - Released 26 February 2013
 - Support simple multimethods 
   - no multi-dispatch
