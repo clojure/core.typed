@@ -203,7 +203,7 @@
           (type-error s t))
 
         (and (TopFunction? t)
-             (Function? s))
+             (FnIntersection? s))
         *sub-current-seen*
 
         ;values are subtypes of their classes

@@ -1323,7 +1323,7 @@
 (defmethod invoke-apply #'clojure.core/hash-map
   [{[_ & args] :args :as expr} & [expected]]
   (let [cargs (doall (map check args))]
-    (prn "apply special (hash-map): "
+    #_(prn "apply special (hash-map): "
          (map (comp unparse-type ret-t expr-type) cargs))
     (cond
       (and ((some-fn HeterogeneousVector? HeterogeneousList? HeterogeneousSeq?) 
@@ -2194,8 +2194,8 @@
                                        (count (.poly? body)))
                                      (let [_ (assert (RClass? rcls-or-poly))]
                                        (count (.poly? ^RClass rcls-or-poly)))))]
-                       (prn "class" cls)
-                       (prn "nargs" nargs)
+;                       (prn "class" cls)
+;                       (prn "nargs" nargs)
                        (apply Un (apply RClass-of cls (when nargs
                                                         ; fill in arguments with Any
                                                         [(repeat nargs -any)]))

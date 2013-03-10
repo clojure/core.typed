@@ -707,7 +707,9 @@
      (binding [*currently-checking-clj* (conj *currently-checking-clj* nsym)]
        (ensure-clojure)
        (with-open [^clojure.lang.LineNumberingPushbackReader pbr (analyze/pb-reader-for-ns nsym)]
-         (let [[#__ns-decl_ & asts] (->> (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)
+         ;FIXME Ignore the first form, assumed to be a call to ns. Functions need to be proper RClasses before this
+         ;checks properly. http://dev.clojure.org/jira/browse/CTYP-16
+         (let [[_ns-decl_ & asts] (->> (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)
                                       (map hygienic/ast-hy))]
            (doseq [ast asts]
              (check-expr ast))))))))

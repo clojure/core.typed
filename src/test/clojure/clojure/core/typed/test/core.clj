@@ -1140,7 +1140,7 @@
   ;postconditions
   (is (subtype?
         (-> (tc-t (fn [a]
-                    {:post [(vector? a)]}
+                    {:post [(vector? %)]}
                     a))
           ret-t)
         (parse-type '[Any -> (clojure.lang.IPersistentVector Any)]))))
@@ -1169,7 +1169,7 @@
   (is (cf (first (clojure.core.typed/ann-form "a" String)) (clojure.core.typed/Option Character))))
 
 (deftest recursive-cf-test
-  (is (cf (cf 1 Number)
+  (is (cf (clojure.core.typed/cf 1 Number)
           Any)))
 
 (deftest top-function-subtype-test

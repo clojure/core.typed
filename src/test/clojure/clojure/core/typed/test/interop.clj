@@ -2,7 +2,7 @@
   (:import (java.io File))
   (:require [clojure.core.typed :refer [ann non-nil-return check-ns cf]]))
 
-(ann f nil)
+(ann f File)
 (def f (File. "a"))
 
 (ann prt (U nil String))
