@@ -12,6 +12,12 @@
 (def-alias Atom1 (TFn [[x :variance :invariant]] (Atom x x)))
 (def-alias Option (TFn [[x :variance :covariant]] (U nil x)))
 
+;; Internal annotations
+
+(ann ensure-clojure [-> Any])
+
+;; core annotations
+
 (ann clojure.core/*ns* Namespace)
 (ann clojure.core/*out* java.io.Writer)
 (ann clojure.core/*err* java.io.Writer)

@@ -1167,3 +1167,7 @@
   (is (cf (seq "a")))
   (is (cf (first "a") Character))
   (is (cf (first (clojure.core.typed/ann-form "a" String)) (clojure.core.typed/Option Character))))
+
+(deftest recursive-cf-test
+  (is (cf (cf 1 Number)
+          Any)))
