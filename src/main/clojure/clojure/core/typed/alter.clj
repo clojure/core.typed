@@ -10,12 +10,25 @@
 
 (alter-class IMeta [[a :variance :covariant]])
 
-(alter-class IFn [[a :variance :covariant
+(alter-class IPersistentCollection [[a :variance :covariant]])
+
+#_(alter-class IFn [[a :variance :covariant
                    :< AnyFunction]])
 
-(alter-class IPersistentCollection [[a :variance :covariant]]
+#_(alter-class clojure.lang.Fn [[a :variance :covariant
+                               :< AnyFunction]])
+
+#_(alter-class AFn [[a :variance :covariant
+                   :< AnyFunction]]
              :replace
-             {Seqable (Seqable a)})
+             {IFn (IFn a)})
+
+#_(alter-class AFunction [[a :variance :covariant
+                         :< AnyFunction]]
+             :replace
+             {AFn (AFn a)
+              IFn (IFn a)
+              clojure.lang.Fn (clojure.lang.Fn a)})
 
 (alter-class ISeq [[a :variance :covariant]]
              :replace
@@ -92,8 +105,8 @@
               IPersistentMap (IPersistentMap a b)
               Seqable (Seqable (IMapEntry a b))
               IFn (All [d]
-                    (Fn [Any -> (U nil b)]
-                        [Any d -> (U b d)]))
+                       (Fn [Any -> (U nil b)]
+                           [Any d -> (U b d)]))
               ILookup (ILookup a b)
               Associative (Associative Number a)})
 
