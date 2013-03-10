@@ -1166,4 +1166,4 @@
         (RClass-of Seqable [-any])))
   (is (cf (seq "a")))
   (is (cf (first "a") Character))
-  (is (cf (first (ann-form "a" String)) (clojure.core.typed/Option Character))))
+  (is (cf (first (clojure.core.typed/ann-form "a" String)) (clojure.core.typed/Option Character))))

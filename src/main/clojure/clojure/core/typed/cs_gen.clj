@@ -315,6 +315,15 @@
         (Top? T)
         (empty-cset X Y)
 
+        ;IMPORTANT: handle frees first
+        (and (F? S)
+             (contains? X (.name ^F S)))
+        (cs-gen-left-F V X Y S T)
+
+        (and (F? T)
+             (contains? X (.name ^F T)))
+        (cs-gen-right-F V X Y S T)
+        
         ;values are subtypes of their classes
         (and (Value? S)
              (checking-clojure?))
@@ -329,15 +338,6 @@
                              ;strings have a known length as a seqable
                              (string? (.val S)) [(make-ExactCountRange (count (.val S)))]))
                     T)))
-
-        ; handle frees first
-        (and (F? S)
-             (contains? X (.name ^F S)))
-        (cs-gen-left-F V X Y S T)
-
-        (and (F? T)
-             (contains? X (.name ^F T)))
-        (cs-gen-right-F V X Y S T)
 
         ;; constrain body to be below T, but don't mention the new vars
         (Poly? S)
@@ -784,9 +784,11 @@
            (not (:kws S))
            (not (:kws T)))
       ; contravariant
-      (cset-meet* [(cs-gen-list V X Y (:dom T) (:dom S))
-                   ; covariant
-                   (cg (:rng S) (:rng T))])
+      (let [;_ (prn "easy case")
+            ]
+        (cset-meet* [(cs-gen-list V X Y (:dom T) (:dom S))
+                     ; covariant
+                     (cg (:rng S) (:rng T))]))
 
       ;just a rest arg, no drest, no keywords
       (and (or (:rest S)
@@ -854,7 +856,11 @@
               new-tys (doall
                         (for [var vars]
                           (substitute (make-F var) dbound dty)))
+              ;_ (prn "dotted on the right, nothing on the left")
+              ;_ (prn "vars" vars)
               new-t-arr (->Function (concat (:dom T) new-tys) (:rng T) nil nil nil)
+              ;_ (prn "S" (unparse-type S))
+              ;_ (prn "new-t-arr" (unparse-type new-t-arr))
               new-cset (cs-gen-Function V 
                                         ;move dotted lower/upper bounds to vars
                                         (merge X (zipmap vars (repeat (Y dbound)))) Y S new-t-arr)]
