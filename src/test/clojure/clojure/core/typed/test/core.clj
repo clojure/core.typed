@@ -1157,6 +1157,13 @@
 (deftest dotted-on-left-test
   (is (cf (memoize (fn [])))))
 
-(reify
-  Object
-  (toString [this] this))
+(deftest string-as-seqable-test
+  (is (subtype? 
+        (RClass-of String)
+        (RClass-of Seqable [-any])))
+  (is (subtype? 
+        (-val "a")
+        (RClass-of Seqable [-any])))
+  (is (cf (seq "a")))
+  (is (cf (first "a") Character))
+  (is (cf (first (ann-form "a" String)) (clojure.core.typed/Option Character))))

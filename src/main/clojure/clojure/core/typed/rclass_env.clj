@@ -24,7 +24,8 @@
   (swap! RESTRICTED-CLASS assoc csym type))
 
 (defmacro alter-class [the-class frees-syn & opts]
-  (let [{replacements-syn :replace} (apply hash-map opts)]
+  (let [{replacements-syn :replace
+         unchecked-ancestors-syn :unchecked-ancestors} (apply hash-map opts)]
      `(let [[variances# frees#] (when-let [fs# (seq '~frees-syn)]
                                   (let [b# (parse-RClass-binder fs#)]
                                     [(map first b#) (map second b#)]))
@@ -33,7 +34,10 @@
                                  c#))]
                     (or (and cls# (Class->symbol cls#))
                         '~the-class))]
-        (alter-class* csym# (RClass* (map :name frees#) variances# frees# csym#
-                                     (with-frees frees#
-                                       ~(build-replacement-syntax replacements-syn))))
+        (alter-class* csym# 
+                      (RClass* (map :name frees#) variances# frees# csym#
+                               (with-frees frees#
+                                 ~(build-replacement-syntax replacements-syn))
+                               (with-frees frees#
+                                 (set (map parse-type '~unchecked-ancestors-syn)))))
         ~the-class)))

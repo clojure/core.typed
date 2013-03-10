@@ -195,7 +195,7 @@
 
 (declare-type Projection)
 
-(defrecord RClass [variances poly? the-class replacements]
+(defrecord RClass [variances poly? the-class replacements unchecked-ancestors]
   "A restricted class, where ancestors are
   (replace replacements (ancestors the-class))"
   [(or (nil? variances)
@@ -207,7 +207,8 @@
             (sequential? poly?)
             (every? Type? poly?)))
    (symbol? the-class)
-   ((hash-c? symbol? (some-fn Type? Scope?)) replacements)])
+   ((hash-c? symbol? (some-fn Type? Scope?)) replacements)
+   ((set-c? (some-fn Type? Scope?)) unchecked-ancestors)])
 
 (declare-type RClass)
 
@@ -233,20 +234,23 @@
      (cond 
        (Poly? rc) (instantiate-poly rc args)
        (RClass? rc) rc
-       :else (->RClass nil nil sym {})))))
+       :else (->RClass nil nil sym {} #{})))))
 
 (declare Poly* no-bounds)
 
 ;smart constructor
-(defn RClass* [names variances poly? the-class replacements]
+(defn RClass* 
+  ([names variances poly? the-class replacements]
+   (RClass* names variances poly? the-class replacements #{}))
+  ([names variances poly? the-class replacements unchecked-ancestors]
   {:pre [(every? symbol? names)
          (every? variance? variances)
          (= (count variances) (count poly?))
          (every? Type? poly?)
          (symbol? the-class)]}
   (if (seq variances)
-    (Poly* names (repeat (count names) no-bounds) (->RClass variances poly? the-class replacements) names)
-    (->RClass nil nil the-class replacements)))
+    (Poly* names (repeat (count names) no-bounds) (->RClass variances poly? the-class replacements unchecked-ancestors) names)
+    (->RClass nil nil the-class replacements unchecked-ancestors))))
 
 (declare poly-RClass-from)
 
@@ -254,7 +258,7 @@
 
 (defn RClass-supers* 
   "Return a set of ancestors to the RClass"
-  [{:keys [poly? replacements the-class] :as rcls}]
+  [{:keys [poly? replacements the-class unchecked-ancestors] :as rcls}]
   {:pre [(RClass? rcls)]
    :post [(set? %)
           (every? Type? %)
@@ -264,9 +268,10 @@
         not-replaced (set/difference (set (map Class->symbol (-> the-class symbol->Class supers)))
                                      (set (keys replacements)))]
     (set/union (set (for [csym not-replaced]
-                      (RClass-of csym nil)))
+                      (RClass-of csym)))
                (set (vals replacements))
-               #{(RClass-of Object)})))
+               #{(RClass-of Object)}
+               unchecked-ancestors)))
 
 (defrecord Record [the-class fields]
   "A record"

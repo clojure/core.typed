@@ -115,7 +115,10 @@
                            (update-in [:poly?] #(when %
                                                   (mapv type-rec %)))
                            (update-in [:replacements] #(into {} (for [[k v] %]
-                                                                  [k (type-rec v)]))))))
+                                                                  [k (type-rec v)])))
+                           (update-in [:unchecked-ancestors] #(->> %
+                                                                (map type-rec)
+                                                                set)))))
 
 (add-default-fold-case App
                        (fn [ty _]

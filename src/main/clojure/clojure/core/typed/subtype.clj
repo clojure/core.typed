@@ -203,17 +203,17 @@
           (type-error s t))
 
         ;values are subtypes of their classes
-        ;FIXME this is probably wrong because we don't account for boxing/unboxing
-        ; Leaving this here to please the tests.
         (and (Value? s)
              (checking-clojure?))
         (let [^Value s s]
           (if (nil? (.val s))
             (type-error s t)
             (subtype (apply In (RClass-of (class (.val s)))
-                            ;keyword values are functions
-                            (when (keyword? (.val s))
-                              [(keyword->Fn (.val s))]))
+                            (cond
+                              ;keyword values are functions
+                              (keyword? (.val s)) [(keyword->Fn (.val s))]
+                              ;strings have a known length as a seqable
+                              (string? (.val s)) [(make-ExactCountRange (count (.val s)))]))
                      t)))
 
         :else (subtype* s t)))))
@@ -579,7 +579,7 @@
 
 (defmethod subtype* [HeterogeneousMap Type ::clojure]
   [^HeterogeneousMap s t]
-  ; HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
+  ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
   (if (complete-hmap? s)
     (subtype (RClass-of APersistentMap [(apply Un (keys (.types s)))
                                         (apply Un (vals (.types s)))]) 

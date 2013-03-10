@@ -291,6 +291,8 @@
            (AnyType? T)]}
     [(class S) (class T) @TYPED-IMPL]))
 
+(declare keyword->Fn)
+
 ; (see cs-gen*)
 ;cs-gen calls cs-gen*, remembering the current subtype for recursive types
 ; Add methods to cs-gen*, but always call cs-gen
@@ -312,6 +314,21 @@
       (cond
         (Top? T)
         (empty-cset X Y)
+
+        ;values are subtypes of their classes
+        (and (Value? S)
+             (checking-clojure?))
+        (let [^Value S S]
+          (if (nil? (.val S))
+            (type-error S T)
+            (cs-gen V X Y
+                    (apply In (RClass-of (class (.val S)))
+                           (cond 
+                             ;keyword values are functions
+                             (keyword? (.val S)) [(keyword->Fn (.val S))]
+                             ;strings have a known length as a seqable
+                             (string? (.val S)) [(make-ExactCountRange (count (.val S)))]))
+                    T)))
 
         ; handle frees first
         (and (F? S)
@@ -560,9 +577,14 @@
     [(.input-type S) (.output-type T)]))
 
 (defmethod cs-gen* [HeterogeneousMap RClass ::clojure]
-  [V X Y S T]
-  ; HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
-  (cs-gen V X Y (RClass-of APersistentMap [-any -any]) T))
+  [V X Y ^HeterogeneousMap S T]
+  ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
+  (let [new-S (if (complete-hmap? S)
+                (RClass-of APersistentMap [(apply Un (keys (.types S)))
+                                           (apply Un (vals (.types S)))]) 
+
+                (RClass-of APersistentMap [-any -any]))]
+    (cs-gen V X Y new-S T)))
 
 (defmethod cs-gen* [RClass RClass ::clojure]
   [V X Y S T]

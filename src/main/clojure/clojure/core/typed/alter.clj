@@ -198,3 +198,14 @@
               IMeta (IMeta Any)
               IPersistentCollection (IPersistentCollection a)})
 
+; Hack for Seqable things. Please CinC, help me. -ambrose
+
+(alter-class java.lang.CharSequence []
+             :unchecked-ancestors
+             #{(Seqable Character)})
+
+;FIXME Need to correctly check ancestors, this shouldn't be necessary because String is a CharSequence
+; CTYP-15
+(alter-class java.lang.String []
+             :unchecked-ancestors
+             #{(Seqable Character)})

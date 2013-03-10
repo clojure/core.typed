@@ -3,8 +3,9 @@
   (:require [clojure.core.typed :refer [check-ns ann fn> def-alias tc-ignore ann-form declare-names inst
                                         print-env inst-ctor cf Option declare-alias-kind AnyInteger]]
             [clojure.repl :refer [pst]]
-            [arrows.core :refer [defarrow]]))
+            #_[arrows.core :refer [defarrow]]))
 
+(comment
 (def-alias Result
   (TFn [[x :variance :covariant]]
     (U nil ;stream is closed
@@ -469,3 +470,4 @@
 ;
 ;(defn wait-for-reply [f x]
 ;  ((second (f x)) identity))
+)
