@@ -202,6 +202,10 @@
           *sub-current-seen*
           (type-error s t))
 
+        (and (TopFunction? t)
+             (Function? s))
+        *sub-current-seen*
+
         ;values are subtypes of their classes
         (and (Value? s)
              (checking-clojure?))

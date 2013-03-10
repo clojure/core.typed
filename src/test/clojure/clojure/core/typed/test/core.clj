@@ -1171,3 +1171,7 @@
 (deftest recursive-cf-test
   (is (cf (cf 1 Number)
           Any)))
+
+(deftest top-function-subtype-test
+  (is (subtype? (parse-type '[Any -> Any])
+                (parse-type 'AnyFunction))))

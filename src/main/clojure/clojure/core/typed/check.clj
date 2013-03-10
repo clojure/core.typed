@@ -2150,7 +2150,7 @@
                           (->Path nil sym)))))
 
 
-(declare Method-symbol->Type)
+(declare Java-symbol->Type)
 
 ;[Method -> Symbol]
 (defn Method->symbol [{name-sym :name :keys [declaring-class] :as method}]
@@ -2168,7 +2168,7 @@
       (let [^String s-nosuffix (apply str (drop-last 2 s))]
         (assert (not (.contains s-nosuffix "<>")))
         ;Nullable elements
-        (let [t (Method-symbol->Type (symbol s-nosuffix) nilable?)
+        (let [t (Java-symbol->Type (symbol s-nosuffix) nilable?)
               c (let [c (or (when-let [rclass (primitives (symbol s-nosuffix))]
                               (RClass->Class rclass))
                             (resolve (symbol s-nosuffix)))
@@ -2177,17 +2177,30 @@
           (->PrimitiveArray c t t))))))
 
 ;[Symbol Boolean -> Type]
-(defn Method-symbol->Type [sym nilable?]
+(defn Java-symbol->Type [sym nilable?]
   {:pre [(symbol? sym)
          (boolean? nilable?)]
    :post [(Type? %)]}
   (if-let [typ (or (primitives sym)
                    (symbol->PArray sym nilable?)
                    (when-let [cls (resolve sym)]
-                     #_(prn (class cls) cls)
-                     (apply Un (RClass-of (Class->symbol cls) nil)
-                            (when nilable?
-                              [-nil]))))]
+                     (let [rcls-or-poly (@RESTRICTED-CLASS (Class->symbol cls))
+                           ; use correct number of arguments. Could be more general by recognising variance.
+                           nargs (when rcls-or-poly
+                                   (if (Poly? rcls-or-poly)
+                                     (let [^RClass body (Poly-body* (repeatedly (:nbound rcls-or-poly) gensym)
+                                                                    rcls-or-poly)
+                                           _ (assert (RClass? body))]
+                                       (count (.poly? body)))
+                                     (let [_ (assert (RClass? rcls-or-poly))]
+                                       (count (.poly? ^RClass rcls-or-poly)))))]
+                       (prn "class" cls)
+                       (prn "nargs" nargs)
+                       (apply Un (apply RClass-of cls (when nargs
+                                                        ; fill in arguments with Any
+                                                        [(repeat nargs -any)]))
+                              (when nilable?
+                                [-nil])))))]
     typ
     (throw (Exception. (str "Method symbol " sym " does not resolve to a type")))))
 
@@ -2197,24 +2210,30 @@
    :post [(FnIntersection? %)]}
   (assert (class? (resolve declaring-class)))
   (make-FnIntersection (make-Function (concat [(RClass-of declaring-class nil)]
-                                              (doall (map #(Method-symbol->Type % false) parameter-types)))
-                                      (Method-symbol->Type return-type true))))
+                                              (doall (map #(Java-symbol->Type % false) parameter-types)))
+                                      (Java-symbol->Type return-type true))))
+
+;[clojure.reflect.Field - Type]
+(defn- Field->Type [{:keys [type] :as field}]
+  {:pre [(instance? clojure.reflect.Field field)]
+   :post [(Type? %)]}
+  (Java-symbol->Type type true))
 
 ;[clojure.reflect.Method -> Type]
-(defn- Method->Function [{:keys [parameter-types return-type flags] :as method}]
+(defn- Method->Type [{:keys [parameter-types return-type flags] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(FnIntersection? %)]}
   (let [msym (Method->symbol method)
         nparams (count parameter-types)]
-    (make-FnIntersection (make-Function (doall (map (fn [[n tsym]] (Method-symbol->Type 
+    (make-FnIntersection (make-Function (doall (map (fn [[n tsym]] (Java-symbol->Type 
                                                                      tsym (nilable-param? msym nparams n)))
                                                     (map-indexed vector
                                                                  (if (:varargs flags)
                                                                    (butlast parameter-types)
                                                                    parameter-types))))
-                                        (Method-symbol->Type return-type (not (nonnilable-return? msym nparams)))
+                                        (Java-symbol->Type return-type (not (nonnilable-return? msym nparams)))
                                         (when (:varargs flags)
-                                          (Method-symbol->Type (last parameter-types) (nilable-param? msym nparams (dec nparams))))))))
+                                          (Java-symbol->Type (last parameter-types) (nilable-param? msym nparams (dec nparams))))))))
 
 ;[clojure.reflect.Constructor -> Type]
 (defn- Constructor->Function [{:keys [declaring-class parameter-types] :as ctor}]
@@ -2223,8 +2242,8 @@
   (let [cls (resolve declaring-class)
         _ (when-not (class? cls)
             (throw (Exception. (str "Constructor for unresolvable class " (:class ctor)))))]
-    (make-FnIntersection (make-Function (doall (map #(Method-symbol->Type % false) parameter-types))
-                                    (RClass-of (Class->symbol cls) nil)
+    (make-FnIntersection (make-Function (doall (map #(Java-symbol->Type % false) parameter-types))
+                                    (RClass-of cls nil)
                                     nil nil
                                     :filter (-FS -top -bot))))) ;always a true value
 
@@ -2247,7 +2266,7 @@
           rfin-type (ret (or (when msym
                                (@METHOD-OVERRIDE-ENV msym))
                              (when method
-                               (Method->Function method))))
+                               (Method->Type method))))
           _ (assert rfin-type (error-msg "Unresolved " (if inst? "instance" "static") 
                                          " method invocation " 
                                          (when c
@@ -2292,6 +2311,14 @@
 (def COMPILE-STUB-PREFIX "compile__stub")
 
 (declare unwrap-datatype)
+
+(defmethod check :static-field
+  [{:keys [field] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (assert field "Static field requires type hints")
+  (let []
+    (assoc expr
+           expr-type (ret (Field->Type field)))))
 
 (defmethod check :instance-field
   [expr & [expected]]

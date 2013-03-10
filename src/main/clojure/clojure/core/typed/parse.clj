@@ -368,6 +368,7 @@
 (defmulti parse-type-symbol identity)
 (defmethod parse-type-symbol 'Any [_] (->Top))
 (defmethod parse-type-symbol 'Nothing [_] (Bottom))
+(defmethod parse-type-symbol 'AnyFunction [_] (->TopFunction))
 
 ;Symbol -> Class
 (def primitives

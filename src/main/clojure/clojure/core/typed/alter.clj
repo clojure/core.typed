@@ -10,6 +10,9 @@
 
 (alter-class IMeta [[a :variance :covariant]])
 
+(alter-class IFn [[a :variance :covariant
+                   :< AnyFunction]])
+
 (alter-class IPersistentCollection [[a :variance :covariant]]
              :replace
              {Seqable (Seqable a)})

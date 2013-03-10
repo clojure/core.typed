@@ -230,7 +230,7 @@
                sym-or-cls)
          rc (@RESTRICTED-CLASS sym)]
      (assert ((some-fn Poly? RClass? nil?) rc))
-     (assert (or (Poly? rc) (not args)) (str "Cannot instantiate non-polymorphic RClass " sym))
+     (assert (or (Poly? rc) (empty? args)) (str "Cannot instantiate non-polymorphic RClass " sym))
      (cond 
        (Poly? rc) (instantiate-poly rc args)
        (RClass? rc) rc

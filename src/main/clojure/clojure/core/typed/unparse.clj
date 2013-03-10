@@ -88,6 +88,8 @@
   [{types :types}]
   (list* 'I (doall (map unparse-type types))))
 
+(defmethod unparse-type* TopFunction [_] 'AnyFunction)
+
 (defmethod unparse-type* Function
   [{:keys [dom rng rest drest]}]
   (vec (concat (doall (map unparse-type dom))

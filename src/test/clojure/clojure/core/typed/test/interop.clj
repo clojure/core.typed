@@ -11,3 +11,5 @@
 (non-nil-return java.io.File/getName :all)
 (ann nme String)
 (def nme (.getName ^File f))
+
+(check-ns)

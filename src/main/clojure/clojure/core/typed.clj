@@ -707,8 +707,8 @@
      (binding [*currently-checking-clj* (conj *currently-checking-clj* nsym)]
        (ensure-clojure)
        (with-open [^clojure.lang.LineNumberingPushbackReader pbr (analyze/pb-reader-for-ns nsym)]
-         (let [[_ns-decl_ & asts] (->> (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)
-                                    (map hygienic/ast-hy))]
+         (let [[#__ns-decl_ & asts] (->> (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)
+                                      (map hygienic/ast-hy))]
            (doseq [ast asts]
              (check-expr ast))))))))
 
