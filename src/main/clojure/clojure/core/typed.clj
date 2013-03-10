@@ -697,16 +697,20 @@
   ([] (check-cljs-ns*) `'~'success)
   ([nsym] (check-cljs-ns* nsym) `'~'success))
 
+(def ^:dynamic *currently-checking-clj* #{})
+
 (defn check-ns 
   "Type check a namespace. If not provided default to current namespace"
   ([] (check-ns (ns-name *ns*)))
   ([nsym]
-   (ensure-clojure)
-   (with-open [^clojure.lang.LineNumberingPushbackReader pbr (analyze/pb-reader-for-ns nsym)]
-     (let [[_ns-decl_ & asts] (->> (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)
-                                (map hygienic/ast-hy))]
-       (doseq [ast asts]
-         (check-expr ast))))))
+   (when-not (*currently-checking-clj* nsym)
+     (binding [*currently-checking-clj* (conj *currently-checking-clj* nsym)]
+       (ensure-clojure)
+       (with-open [^clojure.lang.LineNumberingPushbackReader pbr (analyze/pb-reader-for-ns nsym)]
+         (let [[_ns-decl_ & asts] (->> (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)
+                                    (map hygienic/ast-hy))]
+           (doseq [ast asts]
+             (check-expr ast))))))))
 
 (defn trepl []
   (clojure.main/repl 
