@@ -22,7 +22,7 @@
 
   <dependencies>
     <dependency>
-      <groupId>jvm.tools.analyzer</groupId>
+      <groupId>org.clojure</groupId>
       <artifactId>jvm.tools.analyzer</artifactId>
       <version>0.3.0</version>
     </dependency>
