@@ -50,7 +50,9 @@
 (ann clojure.core/boolean [Any -> boolean])
 
 (ann clojure.core/filter (All [x y]
-                           [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seqable y)]))
+                           (Fn
+                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seqable y)]
+                             [[x -> Any] (Option (Seqable x)) -> (Seqable x)])))
 (ann clojure.core/remove (All [x y]
                            [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seqable y)]))
 
@@ -581,3 +583,9 @@
                        [(U float double) -> Number]
                        [nil -> nil]
                        [x -> x])))
+
+(override-method clojure.lang.LockingTransaction/runInTransaction
+                 (All [x]
+                   [[-> x] -> x]))
+
+(ann clojure.core/ref (All [x] [x -> (clojure.lang.ARef x x)]))

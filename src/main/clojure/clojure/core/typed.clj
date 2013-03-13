@@ -6,8 +6,8 @@
                          Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
                          IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
                          LazySeq APersistentMap))
-  (:require [analyze.core :refer [ast] :as analyze]
-            [analyze.hygienic :as hygienic]
+  (:require [clojure.jvm.tools.analyzer :refer [ast] :as analyze]
+            [clojure.jvm.tools.analyzer.hygienic :as hygienic]
             [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.string :as str]

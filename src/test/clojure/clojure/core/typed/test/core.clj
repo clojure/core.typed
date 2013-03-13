@@ -1175,3 +1175,9 @@
 (deftest top-function-subtype-test
   (is (subtype? (parse-type '[Any -> Any])
                 (parse-type 'AnyFunction))))
+
+(deftest intersection-simplify-test
+  (is (cf (let [a (clojure.core.typed/ann-form [] (U Number (clojure.lang.IPersistentVector Number)))]
+            (when (vector? a)
+              a))
+          (U nil (clojure.lang.IPersistentVector Number)))))

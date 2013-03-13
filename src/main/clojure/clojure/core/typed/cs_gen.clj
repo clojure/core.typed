@@ -444,8 +444,8 @@
          (= 1 (count TypeFilter?) (:fs s)))
     (let [tf (first (filter TypeFilter? (:fs s)))]
       (cs-gen-filter V X Y tf t))
-    :else (throw (IllegalArgumentException. (error-msg "Need two filters of same type "
-                                                       (pr-str (unparse-filter s)) " " (pr-str (unparse-filter t)))))))
+    :else (throw (Exception. (error-msg "Need two filters of same type "
+                                        (pr-str (unparse-filter s)) " " (pr-str (unparse-filter t)))))))
 
 ;must be *latent* filter sets
 (defn cs-gen-filter-set [V X Y s t]

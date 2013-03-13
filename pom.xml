@@ -22,8 +22,8 @@
 
   <dependencies>
     <dependency>
-      <groupId>analyze</groupId>
-      <artifactId>analyze</artifactId>
+      <groupId>jvm.tools.analyzer</groupId>
+      <artifactId>jvm.tools.analyzer</artifactId>
       <version>0.3.0</version>
     </dependency>
     <dependency>
