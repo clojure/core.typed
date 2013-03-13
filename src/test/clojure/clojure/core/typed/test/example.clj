@@ -4,7 +4,7 @@
            (java.io File))
   (:require [clojure.core.typed :refer [ann inst cf fn> pfn> check-ns ann-form]]
             [clojure.repl :refer [pst]]
-            [analyze.core :refer [ast]]))
+            [clojure.jvm.tools.analyzer :refer [ast]]))
 
 (ann test1 (All [x y] [x y -> x]))
 (defn test1 [a b]
