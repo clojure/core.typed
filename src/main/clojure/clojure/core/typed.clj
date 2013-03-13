@@ -489,6 +489,12 @@
   `(tc-ignore
      ~(gen-datatype* dname fields (map second vbnd) (map first vbnd) ancests)))
 
+(defmacro ann-record [& args]
+  `(ann-datatype ~@args))
+
+(defmacro ann-precord [& args]
+  `(ann-pdatatype ~@args))
+
 (defn gen-protocol* [local-varsym variances args mths]
   `(do (ensure-clojure)
   (let [local-vsym# '~local-varsym

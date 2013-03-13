@@ -391,7 +391,8 @@
   (is (= (tc-t [])
          (ret (->HeterogeneousVector []) -true-filter -empty)))
   (is (= (tc-t '())
-         (ret (->HeterogeneousList []) -true-filter -empty))))
+         (ret (->HeterogeneousList []) -true-filter -empty)))
+  (is (cf '(a b) (List* clojure.lang.Symbol clojure.lang.Symbol))))
 
 (deftest implied-atomic?-test
   (is (implied-atomic? (-not-filter -false 'a)(-not-filter (Un -nil -false) 'a))))

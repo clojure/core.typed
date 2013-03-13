@@ -206,6 +206,22 @@
              (FnIntersection? s))
         *sub-current-seen*
 
+        (and (HeterogeneousList? s)
+             (HeterogeneousList? t))
+        (if (= (count (:types s))
+               (count (:types t)))
+          (or (last (doall (map #(subtype %1 %2) (:types s) (:types t))))
+              #{})
+          (type-error s t))
+
+        (and (HeterogeneousSeq? s)
+             (HeterogeneousSeq? t))
+        (if (= (count (:types s))
+               (count (:types t)))
+          (or (last (doall (map #(subtype %1 %2) (:types s) (:types t))))
+              #{})
+          (type-error s t))
+
         ;values are subtypes of their classes
         (and (Value? s)
              (checking-clojure?))
@@ -622,23 +638,11 @@
                  (make-ExactCountRange (count (:types s))))
              t)))
 
-(defmethod subtype* [HeterogeneousList HeterogeneousList ::default]
-  [{ltypes :types :as s} 
-   {rtypes :types :as t}]
-  (or (last (doall (map #(subtype %1 %2) ltypes rtypes)))
-      #{}))
-
 (defmethod subtype* [HeterogeneousList Type ::clojure]
   [s t]
   (let [ss (apply Un (:types s))]
     (subtype (RClass-of (Class->symbol PersistentList) [ss])
              t)))
-
-(defmethod subtype* [HeterogeneousSeq HeterogeneousSeq ::default]
-  [{ltypes :types :as s} 
-   {rtypes :types :as t}]
-  (or (last (doall (map #(subtype %1 %2) ltypes rtypes)))
-      #{}))
 
 (defmethod subtype* [HeterogeneousSeq Type ::clojure]
   [s t]
