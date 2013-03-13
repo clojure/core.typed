@@ -54,17 +54,24 @@
                              [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seqable y)]
                              [[x -> Any] (Option (Seqable x)) -> (Seqable x)])))
 (ann clojure.core/remove (All [x y]
-                           [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seqable y)]))
+                           (Fn 
+                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seqable y)]
+                             [[x -> Any] (Option (Seqable x)) -> (Seqable x)]
+                             )))
 
 
 (ann clojure.core/take-while (All [x y]
-                               [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seqable y)]))
+                               (Fn 
+                                 [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seqable y)]
+                                 [[x -> Any] (Option (Seqable x)) -> (Seqable x)])))
 (ann clojure.core/drop-while (All [x]
                                [[x -> Any] (Option (Seqable x)) -> (Seqable x)]))
 
 (ann clojure.core/split-with 
-     (All [x y z] [[x -> Any :filters {:then (is y 0), :else (is z 0)}] (tc/Option (Seqable x)) 
-                   -> '[(Seqable y) (Seqable z)]]))
+     (All [x y z] 
+       (Fn
+         [[x -> Any :filters {:then (is y 0), :else (is z 0)}] (Option (Seqable x)) -> '[(Seqable y) (Seqable z)]]
+         [[x -> Any] (Option (Seqable x)) -> '[(Seqable x) (Seqable x)]])))
 
 
 (ann clojure.core/repeatedly 
