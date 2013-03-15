@@ -641,8 +641,7 @@
 (defmethod subtype* [HeterogeneousList Type ::clojure]
   [s t]
   (let [ss (apply Un (:types s))]
-    (subtype (RClass-of (Class->symbol PersistentList) [ss])
-             t)))
+    (subtype (RClass-of PersistentList [ss]) t)))
 
 (defmethod subtype* [HeterogeneousSeq Type ::clojure]
   [s t]

@@ -68,6 +68,8 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 * Type check defprotocol definitions
 * Unify AST with ClojureScript
 * Namespace dependency management
+* Track changes to Typed Racket
+  * https://github.com/plt/racket/compare/6105ce8b2087...71d6189132ce
 
 ## Contributors
 

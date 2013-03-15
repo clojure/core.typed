@@ -2,5 +2,5 @@
   (:require [clojure.core.typed :refer [check-ns]]
             [clojure.repl :refer [pst]]))
 
-(ann-record MyRecord [])
+#_(ann-record MyRecord [])
 (defrecord MyRecord [])

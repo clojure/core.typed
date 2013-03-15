@@ -531,6 +531,20 @@
   [V X Y S T] 
   (empty-cset X Y))
 
+(defmethod cs-gen* [HeterogeneousSeq RClass ::clojure]
+  [V X Y S T]
+  (cs-gen V X Y 
+          (In (RClass-of ISeq [(apply Un (:types S))]) 
+              (make-ExactCountRange (count (:types S))))
+          T))
+
+(defmethod cs-gen* [HeterogeneousList RClass ::clojure]
+  [V X Y S T]
+  (cs-gen V X Y 
+          (In (RClass-of IPersistentList [(apply Un (:types S))]) 
+              (make-ExactCountRange (count (:types S))))
+          T))
+
 (defmethod cs-gen* [HeterogeneousVector RClass ::clojure]
   [V X Y S T]
   (cs-gen V X Y 
