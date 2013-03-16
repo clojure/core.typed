@@ -90,14 +90,25 @@
 
 (defmethod unparse-type* TopFunction [_] 'AnyFunction)
 
+(defn- unparse-kw-map [m]
+  {:pre [((hash-c? Value? Type?) m)]}
+  (into {} (for [[^Value k v] m] 
+             [(.val k) (unparse-type v)])))
+
 (defmethod unparse-type* Function
-  [{:keys [dom rng rest drest]}]
+  [{:keys [dom rng kws rest drest]}]
   (vec (concat (doall (map unparse-type dom))
                (when rest
                  [(unparse-type rest) '*])
                (when drest
                  (let [{:keys [pre-type name]} drest]
                    [(unparse-type pre-type) '... name]))
+               (when kws
+                 (let [{:keys [optional mandatory]} kws]
+                   (list* '& 
+                          (unparse-kw-map optional)
+                          (when (seq mandatory) 
+                            [:mandatory (unparse-kw-map mandatory)]))))
                (let [{:keys [t fl o]} rng]
                  (concat ['-> (unparse-type t)]
                          (when (not (and ((some-fn TopFilter? BotFilter?) (:then fl))

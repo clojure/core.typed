@@ -248,13 +248,12 @@
 (ann clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String]))
 
-(ann clojure.core/atom (All [x] [x -> (Atom x x)]))
-
-(comment
-  (ann clojure.core/atom (All [x] [x & {(U nil (IPersistentMap Any Any)) :meta 
-                                        (U nil [x -> Any]) :validator}
-                                   -> (Atom x x)]))
-  )
+(ann clojure.core/atom (All [x [y :< (U )]]
+                         (Fn 
+;                           [x & {:validator (Option [Any -> Any])} :mandatory {:meta (Option y)}
+;                            -> (I (Atom x x)
+;                                  (IMeta y))]
+                           [x & {:validator (Option [Any -> Any])} -> (Atom x x)])))
 
 (ann clojure.core/deref (All [x y]
                              (Fn [(IDeref x) -> x]

@@ -42,16 +42,23 @@
 (add-fold-case ::abstract-many
                Function
                (fn [{:keys [dom rng rest drest kws]} {{:keys [name count outer sb]} :locals}]
-                 (assert (not kws))
-                 (->Function (map sb dom)
+                 (->Function (doall (map sb dom))
                              (sb rng)
                              (when rest (sb rest))
                              (when drest
-                               (->DottedPretype (sb (:pre-type drest))
-                                                (if (= (:name drest) name)
-                                                  (+ count outer)
-                                                  (:name drest))))
-                             nil)))
+                               (-> drest
+                                 (update-in [:pre-type] sb)
+                                 (update-in [:name] #(if (= % name)
+                                                       (+ count outer)
+                                                       %))))
+                             (when kws
+                               (letfn [(abstract-kw-map [m]
+                                         {:pre [(map? m)]}
+                                         (into {} (for [[k v] m]
+                                                    [k (sb v)])))]
+                                 (-> kws
+                                   (update-in [:mandatory] abstract-kw-map)
+                                   (update-in [:optional] abstract-kw-map)))))))
 
 (add-fold-case ::abstract-many
                Mu
@@ -137,19 +144,26 @@
 (add-fold-case ::instantiate-many
                Function
                (fn [{:keys [dom rng rest drest kws]} {{:keys [count outer image sb]} :locals}]
-                 (assert (not kws))
                  (->Function (map sb dom)
                              (sb rng)
                              (when rest
                                (sb rest))
                              (when drest
-                               (->DottedPretype (sb (:pre-type drest))
-                                                (let [{:keys [name]} drest]
-                                                  (assert (nat? name))
-                                                  (if (= (+ count outer) name)
-                                                    image
-                                                    name))))
-                             nil)))
+                               (-> drest
+                                 (update-in [:pre-type] sb)
+                                 (update-in [:name] #(do
+                                                       (assert (nat? %))
+                                                       (if (= (+ count outer) %)
+                                                         image
+                                                         %)))))
+                             (when kws
+                               (letfn [(instantiate-kw-map [m]
+                                         {:pre [(map? m)]}
+                                         (into {} (for [[k v] m]
+                                                    [k (sb v)])))]
+                                 (-> kws
+                                   (update-in [:mandatory] instantiate-kw-map)
+                                   (update-in [:optional] instantiate-kw-map)))))))
 
 (add-fold-case ::instantiate-many
                Mu

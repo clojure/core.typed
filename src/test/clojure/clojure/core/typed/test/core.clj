@@ -1182,3 +1182,10 @@
             (when (vector? a)
               a))
           (U nil (clojure.lang.IPersistentVector Number)))))
+
+;dummy fn
+(defn kw-arg-test [& args])
+(ann kw-arg-test [& {:a Number} -> Number])
+
+(deftest kw-args-test
+  (is (cf (kw-arg-test :a 1))))

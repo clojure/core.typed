@@ -463,7 +463,13 @@
   (assert (= 1 (count all)))
   (->KeyPE ksyn))
 
+(defn- parse-kw-map [m]
+  {:post [((hash-c? Value? Type?) %)]}
+  (into {} (for [[k v] m]
+             [(-val k) (parse-type v)])))
+
 (defn parse-function [f]
+  {:post [(Function? %)]}
   (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
         _ (assert (<= 2 (count chk)) (str "Missing range in " f))
@@ -471,13 +477,14 @@
         opts (apply hash-map opts-flat)
 
         {ellipsis-pos '...
-         asterix-pos '*}
-        (into {} (map vector all-dom (range)))
+         asterix-pos '*
+         ampersand-pos '&}
+        (zipmap all-dom (range))
 
-        _ (assert (not (and asterix-pos ellipsis-pos))
-                  "Cannot provide both rest type and dotted rest type")
+        _ (assert (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos])))
+                  "Can only provide one rest argument option: &, ... or *")
 
-        _ (when-let [ks (seq (filter (complement #{:filters :object}) (keys opts)))]
+        _ (when-let [ks (seq (remove #{:filters :object} (keys opts)))]
             (throw (Exception. (str "Invalid option/s: " ks))))
 
         filters (when-let [[_ fsyn] (find opts :filters)]
@@ -489,13 +496,16 @@
         fixed-dom (cond 
                     asterix-pos (take (dec asterix-pos) all-dom)
                     ellipsis-pos (take (dec ellipsis-pos) all-dom)
+                    ampersand-pos (take ampersand-pos all-dom)
                     :else all-dom)
 
         rest-type (when asterix-pos
                     (nth all-dom (dec asterix-pos)))
         [drest-type _ drest-bnd] (when ellipsis-pos
-                                   (drop (dec ellipsis-pos) all-dom))]
-    (make-Function (doall (mapv parse-type fixed-dom))
+                                   (drop (dec ellipsis-pos) all-dom))
+        [optional-kws & {mandatory-kws :mandatory}] (when ampersand-pos
+                                                      (drop (inc ampersand-pos) all-dom))]
+    (make-Function (mapv parse-type fixed-dom)
                    (parse-type rng)
                    (when asterix-pos
                      (parse-type rest-type))
@@ -505,7 +515,11 @@
                          (parse-type drest-type))
                        (:name (*dotted-scope* drest-bnd))))
                    :filter filters
-                   :object object)))
+                   :object object
+                   :optional-kws (when optional-kws
+                                   (parse-kw-map optional-kws))
+                   :mandatory-kws (when mandatory-kws
+                                    (parse-kw-map mandatory-kws)))))
 
 (defmethod parse-type IPersistentVector
   [f]

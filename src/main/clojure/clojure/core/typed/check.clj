@@ -532,28 +532,54 @@
 
 
 ;Function TCResult^n (or nil TCResult) -> TCResult
-(defn check-funapp1 [fexpr arg-exprs {:keys [dom rng rest drest kws] :as ftype0} argtys expected & {:keys [check?] :or {check? true}}]
+(defn check-funapp1 [fexpr arg-exprs {{optional-kw :optional mandatory-kw :mandatory :as kws} :kws
+                                      :keys [dom rng rest drest] :as ftype0}
+                     argtys expected & {:keys [check?] :or {check? true}}]
   {:pre [(Function? ftype0)
          (every? TCResult? argtys)
          ((some-fn nil? TCResult?) expected)
          (boolean? check?)]
    :post [(TCResult? %)]}
   (assert (not drest) "funapp with drest args NYI")
-  (assert (empty? (:mandatory kws)) "funapp with mandatory keyword args NYI")
+  (assert (empty? mandatory-kw) "funapp with mandatory keyword args NYI")
+  (assert (empty? optional-kw) "funapp with optional keyword args NYI")
 ;  (prn "check-funapp1")
 ;  (prn "argtys objects" (map ret-o argtys))
   ;checking
   (when check?
-    (when (or (and (not rest) (not (= (count dom) (count argtys))))
-              (and rest (< (count argtys) (count dom))))
-      (throw (Exception. (error-msg "Wrong number of arguments, expected " (count dom) " and got "(count argtys)
-                                    " for function " (unparse-type ftype0) " and arguments " (mapv (comp unparse-type ret-t) argtys)))))
-    (doseq [[arg-t dom-t] (map vector 
-                               (map ret-t argtys) 
-                               (concat dom (when rest (repeat rest))))]
-      (check-below arg-t dom-t)))
+    (let [nactual (count argtys)]
+      (when-not (or (when (and (not rest)
+                               (empty? optional-kw)
+                               (empty? mandatory-kw))
+                      (= (count dom) (count argtys)))
+                    (when rest
+                      (<= (count dom) nactual))
+                    (when kws
+                      (let [nexpected (+ (count dom)
+                                         (* 2 (count mandatory-kw)))]
+                        (and (even? (- nactual (count dom)))
+                             ((if (seq optional-kw) <= =)
+                                nexpected
+                                nactual)))))
+        (throw (Exception. (error-msg "Wrong number of arguments, expected " (count dom) " fixed parameters"
+                                      (cond
+                                        rest " and a rest parameter "
+                                        drest " and a dotted rest parameter "
+                                        kws (cond
+                                              (and (seq mandatory-kw) (seq optional-kw))
+                                              (str ", some optional keyword arguments and " (count mandatory-kw) 
+                                                   " mandatory keyword arguments")
+
+                                              (seq mandatory-kw) (str "and " (count mandatory-kw) "  mandatory keyword arguments")
+                                              (seq optional-kw) " and some optional keyword arguments"))
+                                      ", and got " nactual
+                                      " for function " (unparse-type ftype0) " and arguments " (mapv (comp unparse-type ret-t) argtys)))))
+        (doseq [[arg-t dom-t] (map vector 
+                                   (map ret-t argtys) 
+                                   (concat dom (when rest (repeat rest))))]
+          (check-below arg-t dom-t))))
   (let [dom-count (count dom)
-        arg-count (+ dom-count (if rest 1 0) (count (:optional kws)))
+        arg-count (+ dom-count (if rest 1 0) (count optional-kw))
         o-a (map ret-o argtys)
         _ (assert (every? RObject? o-a))
         t-a (map ret-t argtys)
@@ -582,7 +608,6 @@
              nil nil
              :filter (-FS (-filter (-hmap {(-val kw) -any}) 0) -top)))
          ['x]))
-
 
 ;[TCResult -> Type]
 (defn resolve-to-ftype [expected]

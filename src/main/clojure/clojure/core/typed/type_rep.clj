@@ -669,7 +669,8 @@
        (sequential? dom))
    (every? Type? dom)
    (Result? rng)
-   (<= (count (remove nil? [rest drest kws])) 1)
+   ;at most one of rest drest or kws can be provided
+   (#{0 1} (count (filter identity [rest drest kws])))
    (or (nil? rest)
        (Type? rest))
    (or (nil? drest)
@@ -727,8 +728,11 @@
   and EmptyObject"
   ([dom rng] (make-Function dom rng nil nil))
   ([dom rng rest] (make-Function dom rng rest nil))
-  ([dom rng rest drest & {:keys [filter object kws]}]
-   (->Function dom (->Result rng (or filter (-FS -top -top)) (or object (->EmptyObject))) rest drest kws)))
+  ([dom rng rest drest & {:keys [filter object mandatory-kws optional-kws]}]
+   (->Function dom (->Result rng (or filter (-FS -top -top)) (or object (->EmptyObject))) 
+               rest drest (when (or mandatory-kws optional-kws)
+                            (->KwArgs (or mandatory-kws {})
+                                      (or optional-kws {}))))))
 
 (defn make-FnIntersection [& fns]
   {:pre [(every? Function? fns)]}
