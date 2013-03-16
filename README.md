@@ -64,8 +64,6 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 ## Future work
 
 * Equality filters for occurrence typing
-* Rest type checking in fn definition
-* Type check defprotocol definitions
 * Unify AST with ClojureScript
 * Namespace dependency management
 * Track changes to Typed Racket
