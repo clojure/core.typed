@@ -345,6 +345,12 @@
               body (Poly-body* nms S)]
           (cs-gen (set/union (set nms) V) X Y body T))
 
+        (Name? S)
+        (cs-gen V X Y (resolve-Name S) T)
+
+        (Name? T)
+        (cs-gen V X Y S (resolve-Name T))
+
         (and (TApp? S)
              (not (F? (.rator ^TApp S))))
         (cs-gen V X Y (resolve-TApp S) T)
