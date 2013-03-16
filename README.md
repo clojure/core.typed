@@ -58,8 +58,8 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 - [GitHub Project](https://github.com/clojure/core.typed)
 - [Bug Tracker](http://dev.clojure.org/jira/browse/CTYP)
-- Continuous Integration (TBD)
-- Compatibility Test Matrix (TBD)
+- [Continuous Integration](http://build.clojure.org/job/core.typed/)
+- [Compatibility Test Matrix](http://build.clojure.org/job/core.typed-test-matrix/)
 
 ## Future work
 
