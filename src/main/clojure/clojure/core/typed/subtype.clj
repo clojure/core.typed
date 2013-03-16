@@ -206,6 +206,14 @@
              (FnIntersection? s))
         *sub-current-seen*
 
+        (and (HeterogeneousVector? s)
+             (HeterogeneousVector? t))
+        (if (= (count (:types s))
+               (count (:types t)))
+          (or (last (doall (map #(subtype %1 %2) (:types s) (:types t))))
+              #{})
+          (type-error s t))
+
         (and (HeterogeneousList? s)
              (HeterogeneousList? t))
         (if (= (count (:types s))
@@ -624,12 +632,6 @@
 (prefer-method subtype* 
                [HeterogeneousMap HeterogeneousMap ::default],
                [HeterogeneousMap Type ::clojure] )
-
-(defmethod subtype* [HeterogeneousVector HeterogeneousVector ::default]
-  [{ltypes :types :as s} 
-   {rtypes :types :as t}]
-  (or (last (doall (map #(subtype %1 %2) ltypes rtypes)))
-      #{}))
 
 (defmethod subtype* [HeterogeneousVector Type ::clojure]
   [s t]
