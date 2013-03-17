@@ -248,12 +248,15 @@
 (ann clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String]))
 
-(ann clojure.core/atom (All [x [y :< (U )]]
+#_(ann clojure.core/atom (All [x [y :< (U )]]
                          (Fn 
-;                           [x & {:validator (Option [Any -> Any])} :mandatory {:meta (Option y)}
-;                            -> (I (Atom x x)
-;                                  (IMeta y))]
+                           [x & {:validator (Option [Any -> Any])} :mandatory {:meta (Option y)}
+                            -> (I (Atom x x)
+                                  (IMeta y))]
                            [x & {:validator (Option [Any -> Any])} -> (Atom x x)])))
+
+(ann clojure.core/atom (All [x]
+                         [x Any * -> (Atom x x)]))
 
 (ann clojure.core/deref (All [x y]
                              (Fn [(IDeref x) -> x]
@@ -303,10 +306,13 @@
                             [Any -> (Option Class) :object {:id 0 :path [Class]}]))
 
 (ann clojure.core/seq (All [x]
-                        [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))
-                         :filters {:then (is (CountRange 1) 0)
-                                   :else (| (is nil 0)
-                                            (is (ExactCount 0) 0))}]))
+                        (Fn 
+                          #_[(I (Seqable x) (CountRange 1)) -> (I (ISeq x) (CountRange 1))]
+                          [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))
+                           :filters {:then (& (is (CountRange 1) 0)
+                                              (! nil 0))
+                                     :else (| (is nil 0)
+                                              (is (ExactCount 0) 0))}])))
 
 (ann clojure.core/empty? [(Option (Seqable Any)) -> boolean
                           :filters {:then (| (is (ExactCount 0) 0)

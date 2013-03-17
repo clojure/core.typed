@@ -707,7 +707,9 @@
 
       ;ordinary Function, single case, special cased for improved error msgs
       (and (FnIntersection? fexpr-type)
-           (= 1 (count (:types fexpr-type))))
+           (let [[{:keys [drest] :as ft} :as ts] (:types fexpr-type)]
+             (and (= 1 (count ts))
+                  (not drest))))
       (let [argtys arg-ret-types
             {[t] :types} fexpr-type]
         (check-funapp1 fexpr args t argtys expected))
@@ -2239,10 +2241,12 @@
                                       (Java-symbol->Type return-type true))))
 
 ;[clojure.reflect.Field - Type]
-(defn- Field->Type [{:keys [type] :as field}]
+(defn- Field->Type [{:keys [type flags] :as field}]
   {:pre [(instance? clojure.reflect.Field field)]
    :post [(Type? %)]}
-  (Java-symbol->Type type true))
+  (cond
+    (flags :enum) (Java-symbol->Type type false)
+    :else (Java-symbol->Type type true)))
 
 ;[clojure.reflect.Method -> Type]
 (defn- Method->Type [{:keys [parameter-types return-type flags] :as method}]

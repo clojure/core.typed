@@ -995,8 +995,8 @@
 
 (deftest ann-form-test
   (is (= (ret-t (tc-t 
-                  (clojure.core.typed/ann-form (atom 1) 
-                                       (clojure.lang.Atom Number Number))))
+                  (clojure.core.typed/ann-form (atom 1)
+                                               (clojure.lang.Atom Number Number))))
          (parse-type '(clojure.lang.Atom Number Number)))))
 
 (deftest atom-ops-test
@@ -1188,4 +1188,11 @@
 (ann kw-arg-test [& {:a Number} -> Number])
 
 (deftest kw-args-test
-  (is (cf (kw-arg-test :a 1))))
+  (is (cf (clojure.core.typed.test.core/kw-arg-test :a 1))))
+
+(deftest get-APersistentMap-test
+  (is (cf (get (clojure.core.typed/ann-form {} (clojure.lang.APersistentMap Number Number)) :a))))
+
+(deftest enum-field-non-nilable-test
+  (is (cf (java.util.concurrent.TimeUnit/NANOSECONDS)
+          java.util.concurrent.TimeUnit)))
