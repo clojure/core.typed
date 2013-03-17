@@ -1,9 +1,24 @@
-0.1.8 - Released 8 March 2013
-- Distinguish between complete and partial hmap types
-- Move to core.contracts from Trammel
-- Fix bug when comparing a dotted function to a normal one
+0.1.8 - Released 17 March 2013
+ENHANCEMENTS
 - Better line numbers for checking `do`
-- Add hole tutorial
+- Distinguish between complete and partial hmap types
+- Support static fields
+- Java enums are non-nil
+- Strings and CharSequences are (Seqable Character)
+- `cf` can be inserted as a top level expression in a typed namespace
+
+FIXES
+- Fix bug when comparing a dotted function to a normal one
+- Fix constraint generation/subtyping between heterogeneous sequence-like types
+- Resolve Names in constraint generation
+- check-ns cannot loop infinitely when placed in a typed namespace
+- re-* functions too specific
+
+MISC
+- Move to core.contracts from Trammel
+- Move to jvm.tools.analyzer from analyze
+- Add hole-driven core.typed tutorial
+- Java enums are non-nil
 
 0.1.7 - Released 26 February 2013
 - Support simple multimethods 
