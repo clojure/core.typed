@@ -1,3 +1,5 @@
+(set! *warn-on-reflection* true)
+
 (ns clojure.core.typed
   (:refer-clojure :exclude [defrecord type])
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
@@ -6,36 +8,35 @@
                          Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
                          IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
                          LazySeq APersistentMap))
-  (:require [clojure.jvm.tools.analyzer :refer [ast] :as analyze]
-            [clojure.jvm.tools.analyzer.hygienic :as hygienic]
-            [clojure.set :as set]
+  (:require [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.string :as str]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
-            [clojure.core.contracts]
-            [clojure.core.contracts.constraints :as contracts]
             [clojure.math.combinatorics :as comb]
             [clojure.java.io :as io]
             [cljs
              [compiler]
              [analyzer :as cljs]]
             [clojure.tools.trace :refer [trace-vars untrace-vars
-                                         trace-ns untrace-ns]]))
+                                         trace-ns untrace-ns]]
+            [clojure.jvm.tools.analyzer :as analyze]
+            [clojure.jvm.tools.analyzer.hygienic :as hygienic]
 
-(set! *warn-on-reflection* true)
+            ;Note: defrecord is now trammel's defconstrainedrecord
+            [clojure.core.typed.utils :refer :all]))
 
+(declare ^:dynamic *current-env*)
 
-; constraint shorthands, other handy functions
-(load "typed/utils")
-
-;Note: defrecord is now trammel's defconstrainedrecord
+;[Any * -> String]
+(defn ^String error-msg 
+  [& msg]
+  (apply str (when *current-env*
+               (str (:line *current-env*) ": "))
+         (concat msg)))
 
 ;(ann analyze.hygienic/emit-hy [Any -> Any])
 
-;AnalysisExpr -> Form
-;(ann emit-form-fn [Any -> Any])
-(def emit-form-fn hygienic/emit-hy)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special functions
@@ -268,7 +269,7 @@
                                                " does not match actual kind " (unparse-type ty#))))
       [sym# (unparse-type ty#)]))))
 
-(declare Type? RClass? PrimitiveArray? RClass->Class parse-type symbol->Class
+(declare Type? RClass? PrimitiveArray? RClass->Class parse-type
          requires-resolving? -resolve Nil? Value? Value->Class Union? Intersection?)
 
 ;Return a Class that generalises what this Clojure type will look like from Java,

@@ -1,4 +1,10 @@
-(in-ns 'clojure.core.typed)
+(ns clojure.core.typed.utils
+  (:refer-clojure :exclude [defrecord])
+  (:import (clojure.lang PersistentArrayMap Var))
+  (:require [clojure.core.contracts.constraints :as contracts]
+            [clojure.core.contracts]
+            [clojure.jvm.tools.analyzer :as analyze]
+            [clojure.jvm.tools.analyzer.hygienic :as hygienic]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
@@ -9,6 +15,14 @@
     `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc)))
 
 (def third (comp second next))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; AST ops
+
+
+;AnalysisExpr -> Form
+;(ann emit-form-fn [Any -> Any])
+(def emit-form-fn hygienic/emit-hy)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint shorthands
@@ -56,14 +70,6 @@
 ;(comp-mm replace-image (disj kinds :scope))
 ;(comp-mm replace-image (disj kinds :scope))
 
-(declare ^:dynamic *current-env*)
-
-;[Any * -> String]
-(defn ^String error-msg 
-  [& msg]
-  (apply str (when *current-env*
-               (str (:line *current-env*) ": "))
-         (concat msg)))
 
 (defn var->symbol [var]
   {:pre [(var? var)]

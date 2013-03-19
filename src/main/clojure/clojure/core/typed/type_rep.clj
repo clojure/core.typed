@@ -212,12 +212,10 @@
 
 (declare-type RClass)
 
-(declare symbol->Class)
-
 (defn ^Class RClass->Class [^RClass rcls]
   (symbol->Class (.the-class rcls)))
 
-(declare RESTRICTED-CLASS instantiate-poly Class->symbol)
+(declare RESTRICTED-CLASS instantiate-poly)
 
 (defn RClass-of 
   ([sym-or-cls] (RClass-of sym-or-cls nil))
@@ -254,7 +252,7 @@
 
 (declare poly-RClass-from)
 
-(declare substitute-many unparse-type Class->symbol symbol->Class)
+(declare substitute-many unparse-type)
 
 (defn RClass-supers* 
   "Return a set of ancestors to the RClass"
