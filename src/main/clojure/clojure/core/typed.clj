@@ -339,23 +339,23 @@
   r)
 
 ;; `do` is special at the top level
-(defmacro tc-ignore 
+(defmacro tc-ignore
   "Ignore forms in body during type checking"
   [& body]
   `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
 
-(defmacro non-nil-return 
+(defmacro non-nil-return
   "Override the return type of method msym to be non-nil.
   Takes a set of relevant arities,
   represented by the number of parameters it takes (rest parameter counts as one),
-  or :all which overrides all arities.
-  
+  or :all which overrides all arities. msym must always have a fully qualified ns.
+
   eg.  (non-nil-return java.lang.Class/getDeclaredMethod :all)"
   [msym arities]
   `(tc-ignore
   (add-nonnilable-method-return '~msym '~arities)))
 
-(defmacro nilable-param 
+(defmacro nilable-param
   "Overrides which parameters in a method may accept
   nilable values. If the parameter is a parameterised type or
   an Array, this also declares the parameterised types and the Array type as nilable.
