@@ -2478,7 +2478,9 @@
                     (ret ctor-fn))
               ;_ (prn "Expected constructor" (unparse-type (ret-t ifn)))
               cargs (mapv check args)
-              res-type (check-funapp expr args ifn (map expr-type cargs) nil)]
+              res-type (check-funapp expr args ifn (map expr-type cargs) nil)
+              _ (when expected
+                  (subtype (ret-t res-type) (ret-t expected)))]
           (assoc expr
                  expr-type res-type))))))
 
