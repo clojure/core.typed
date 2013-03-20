@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.core
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.test :refer :all]
-            [clojure.jvm.tools.analyzer :refer [ast]]
+            [clojure.tools.analyzer :refer [ast]]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]

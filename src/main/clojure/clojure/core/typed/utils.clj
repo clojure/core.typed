@@ -3,8 +3,8 @@
   (:import (clojure.lang PersistentArrayMap Var))
   (:require [clojure.core.contracts.constraints :as contracts]
             [clojure.core.contracts]
-            [clojure.jvm.tools.analyzer :as analyze]
-            [clojure.jvm.tools.analyzer.hygienic :as hygienic]))
+            [clojure.tools.analyzer :as analyze]
+            [clojure.tools.analyzer.hygienic :as hygienic]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils

@@ -20,8 +20,8 @@
              [analyzer :as cljs]]
             [clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]]
-            [clojure.jvm.tools.analyzer :as analyze]
-            [clojure.jvm.tools.analyzer.hygienic :as hygienic]
+            [clojure.tools.analyzer :as analyze]
+            [clojure.tools.analyzer.hygienic :as hygienic]
 
             ;Note: defrecord is now trammel's defconstrainedrecord
             [clojure.core.typed.utils :refer :all]))
@@ -665,11 +665,11 @@
   ([form]
   `(do (ensure-clojure)
      (tc-ignore
-       (-> (ast ~form) hygienic/ast-hy check expr-type unparse-TCResult))))
+       (-> (analyze/ast ~form) hygienic/ast-hy check expr-type unparse-TCResult))))
   ([form expected]
   `(do (ensure-clojure)
      (tc-ignore
-       (-> (ast (ann-form ~form ~expected)) hygienic/ast-hy (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
+       (-> (analyze/ast (ann-form ~form ~expected)) hygienic/ast-hy (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
 
 (defn analyze-file-asts
   [^String f]

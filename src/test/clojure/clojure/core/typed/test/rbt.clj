@@ -2,7 +2,7 @@
   (:require [clojure.core.typed :refer [ann inst cf fn> pfn> def-alias declare-names
                                         print-env print-filterset check-ns]]
             [clojure.repl :refer [pst]]
-            [clojure.jvm.tools.analyzer :refer [ast]]))
+            [clojure.tools.analyzer :refer [ast]]))
 
 (def-alias EntryT (HMap {:key Number
                          :datum Number})) ;TODO is this EntryT type correct? No definition in thesis

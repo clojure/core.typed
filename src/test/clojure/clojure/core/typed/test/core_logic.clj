@@ -10,7 +10,7 @@
                                         declare-protocols declare-datatypes
                                         ann-datatype loop> check-ns non-nil-return
                                         cf defprotocol>]]
-            [clojure.jvm.tools.analyzer :refer [ast]]))
+            [clojure.tools.analyzer :refer [ast]]))
 
 (ann *occurs-check* (U true false))
 (ann *reify-vars* (U true false))

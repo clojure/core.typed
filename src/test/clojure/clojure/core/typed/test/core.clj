@@ -3,8 +3,8 @@
   (:import (clojure.lang Seqable ISeq ASeq IPersistentVector Atom IPersistentMap
                          Keyword))
   (:require [clojure.test :refer :all]
-            [clojure.jvm.tools.analyzer :refer [ast]]
-            [clojure.jvm.tools.analyzer.hygienic :refer [ast-hy]]
+            [clojure.tools.analyzer :refer [ast]]
+            [clojure.tools.analyzer.hygienic :refer [ast-hy]]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]

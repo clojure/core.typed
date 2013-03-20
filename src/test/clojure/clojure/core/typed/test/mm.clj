@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.mm
   (:import (clojure.lang IPersistentMap))
   (:require [clojure.core.typed :refer [def-alias ann check-ns print-env cf]]
-            [clojure.jvm.tools.analyzer :refer [ast]]
+            [clojure.tools.analyzer :refer [ast]]
             [clojure.repl :refer [pst]]))
 
 (def-alias Expr
