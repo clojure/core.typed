@@ -11,3 +11,7 @@ target
 *.pdf
 *.log
 *~
+/.classpath
+/.project
+/.settings
+/bin
