@@ -345,7 +345,7 @@
   `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
 
 (defmacro non-nil-return 
-  "Override the return type of method msym to be non-nil.
+  "Override the return type of qualified method msym to be non-nil.
   Takes a set of relevant arities,
   represented by the number of parameters it takes (rest parameter counts as one),
   or :all which overrides all arities.
@@ -356,7 +356,7 @@
   (add-nonnilable-method-return '~msym '~arities)))
 
 (defmacro nilable-param 
-  "Overrides which parameters in a method may accept
+  "Override which parameters in qualified method msym may accept
   nilable values. If the parameter is a parameterised type or
   an Array, this also declares the parameterised types and the Array type as nilable.
 
