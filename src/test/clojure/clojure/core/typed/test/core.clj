@@ -1197,8 +1197,10 @@
   (is (cf (java.util.concurrent.TimeUnit/NANOSECONDS)
           java.util.concurrent.TimeUnit)))
 
+;;;; Checking deftype implementation of protocol methods
+
 (ann-protocol AddProtoc
-              adder [AddProtoc Number -> AddProtoc])
+              adder [AddProtoc Number -> Number])
 
 (defprotocol> AddProtoc
   (adder [this amount]))
@@ -1210,3 +1212,4 @@
                (cf (deftype Accumulator [t]
                      AddProtoc
                      (adder [_ i] (Accumulator. (+ t i))))))))
+;;;;
