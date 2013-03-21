@@ -3209,7 +3209,7 @@
             (doseq [inst-method methods]
               #_(prn "Checking deftype* method: "(:name inst-method))
               (let [nme (:name inst-method)
-                    _ (assert (symbol? nme)) ;can remove once new analyze is released
+                    _ (assert (symbol? nme))
                     ; minus the target arg
                     method-sig (cmmap [nme (dec (count (:required-params inst-method)))])
                     _ (assert (instance? clojure.reflect.Method method-sig))
@@ -3224,6 +3224,7 @@
                                                                                     [(symbol (munge k)) v]))]
                                                       (munged-methods (:name method-sig)))))
                                                 (instance-method->Function method-sig)))]
+                (prn "ifn" (unparse-type expected-ifn))
                 (with-locals (:fields dt)
                   ;(prn "lexical env when checking method" nme *lexical-env*)
                   ;(prn (:fields dt))
@@ -3249,7 +3250,9 @@
         cbody (with-locals (zipmap (map hygienic/hsym-key required-params) dom)
                 (check body (ret (Result-type* rng)
                                  (Result-filter* rng)
-                                 (Result-object* rng))))]
+                                 (Result-object* rng))))
+        _ (subtype (-> cbody expr-type ret-t)
+                   (Result-type* rng))]
     (assoc expr
            expr-type (expr-type cbody))))
 

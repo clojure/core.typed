@@ -1196,3 +1196,17 @@
 (deftest enum-field-non-nilable-test
   (is (cf (java.util.concurrent.TimeUnit/NANOSECONDS)
           java.util.concurrent.TimeUnit)))
+
+(ann-protocol AddProtoc
+              adder [AddProtoc Number -> AddProtoc])
+
+(defprotocol> AddProtoc
+  (adder [this amount]))
+
+(ann-datatype Accumulator [t :- Number])
+
+(deftest new-instance-method-return-test
+  (is (thrown? Exception
+               (cf (deftype Accumulator [t]
+                     AddProtoc
+                     (adder [_ i] (Accumulator. (+ t i))))))))
