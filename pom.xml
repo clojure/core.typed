@@ -24,7 +24,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>jvm.tools.analyzer</artifactId>
-      <version>0.3.2-20130320.151939-4</version>
+      <version>0.3.2-20130321.151954-5</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -56,7 +56,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.trace</artifactId>
-      <version>0.7.3</version>
+      <version>0.7.5</version>
       <exclusions>
         <exclusion>
           <groupId>org.clojure</groupId>
