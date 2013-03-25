@@ -40,7 +40,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>jvm.tools.analyzer</artifactId>
-      <version>0.3.2-20130321.151954-5</version>
+      <version>0.3.2</version>
     </dependency>
     <!-- for algo.monads -->
     <dependency>
