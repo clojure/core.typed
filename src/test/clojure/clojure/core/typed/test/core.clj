@@ -1220,3 +1220,6 @@
   (is (cf (fn [a]
             (and (< 1 2) a))
           [(U nil Number) -> Any :filters {:then (is Number 0)}])))
+
+(deftest map-literal-test
+  (is (cf {:bar (identity 1)})))
