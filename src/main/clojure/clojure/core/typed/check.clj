@@ -1049,10 +1049,16 @@
       (Union? t) (apply Un
                         (for [t* (:types t)]
                           (find-val-type t* k default)))
-      :else (throw (Exception. (str (when *current-env*
-                                      (str (:line *current-env*) ":"))
-                                    "Can't get key " (unparse-type k) 
-                                    "  from type " (unparse-type t)))))))
+      (RClass? t)
+      (->
+        (check-funapp nil nil (ret (parse-type '(All [x y] [(clojure.lang.IPersistentMap Any x) y -> (U x y)])))
+                      [(ret t) (ret (or default -nil))] nil)
+        ret-t)
+      :else -any)))
+;      :else (throw (Exception. (str (when *current-env*
+;                                      (str (:line *current-env*) ":"))
+;                                    "Can't get key " (unparse-type k) 
+;                                    "  from type " (unparse-type t))))
 
 ;[TCResult TCResult (Option TCResult) (Option TCResult) -> TCResult]
 (defn invoke-keyword [kw-ret target-ret default-ret expected-ret]

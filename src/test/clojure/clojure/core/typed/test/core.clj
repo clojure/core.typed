@@ -1187,11 +1187,13 @@
 (defn kw-arg-test [& args])
 (ann kw-arg-test [& {:a Number} -> Number])
 
-(deftest kw-args-test
+;TODO keyword args
+#_(deftest kw-args-test
   (is (cf (clojure.core.typed.test.core/kw-arg-test :a 1))))
 
 (deftest get-APersistentMap-test
-  (is (cf (get (clojure.core.typed/ann-form {} (clojure.lang.APersistentMap Number Number)) :a))))
+  (is (cf (get (clojure.core.typed/ann-form {} (clojure.lang.APersistentMap Number Number)) :a)
+          (U nil Number))))
 
 (deftest enum-field-non-nilable-test
   (is (cf (java.util.concurrent.TimeUnit/NANOSECONDS)
