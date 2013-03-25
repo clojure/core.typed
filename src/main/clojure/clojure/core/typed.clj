@@ -8,7 +8,8 @@
                          Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
                          IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
                          LazySeq APersistentMap Indexed))
-  (:require [clojure.set :as set]
+  (:require [clojure.main]
+            [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.string :as str]
             [clojure.repl :refer [pst]]
