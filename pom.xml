@@ -20,11 +20,33 @@
     <version>0.0.26</version>
   </parent>
 
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.theoryinpractise</groupId>
+        <artifactId>clojure-maven-plugin</artifactId>
+        <version>1.3.10</version>
+        <configuration>
+          <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
+          <namespaces>
+            <namespace>!.*</namespace>
+          </namespaces>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>jvm.tools.analyzer</artifactId>
       <version>0.3.2-20130321.151954-5</version>
+    </dependency>
+    <!-- for algo.monads -->
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>tools.macro</artifactId>
+      <version>0.1.0</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

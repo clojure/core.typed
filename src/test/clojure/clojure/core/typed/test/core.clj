@@ -411,9 +411,9 @@
   (is (let [props [(-filter (->Value :a) 'a)]
             flag (atom true)]
         (and (= (let [env {'a -any}
-                      lenv (->PropEnv env props)]
+                      lenv (-PropEnv env props)]
                   (env+ lenv [] flag))
-                (->PropEnv {'a (->Value :a)} props))
+                (-PropEnv {'a (->Value :a)} props))
              @flag)))
   ;test positive KeyPE
   ;update a from (U (HMap {:op :if}) (HMap {:op :var})) => (HMap {:op :if})
@@ -421,22 +421,22 @@
             flag (atom true)]
         (and (= (let [env {'a (Un (-hmap {(->Value :op) (->Value :if)})
                                   (-hmap {(->Value :op) (->Value :var)}))}
-                      lenv (->PropEnv env props)]
+                      lenv (-PropEnv env props)]
                   (env+ lenv [] flag))
-                (->PropEnv {'a (-hmap {(->Value :op) (->Value :if)})} props))
+                (-PropEnv {'a (-hmap {(->Value :op) (->Value :if)})} props))
              @flag)))
   ;test negative KeyPE
   (is (let [props [(-not-filter (->Value :if) 'a [(->KeyPE :op)])]
             flag (atom true)]
         (and (= (let [env {'a (Un (-hmap {(->Value :op) (->Value :if)})
                                   (-hmap {(->Value :op) (->Value :var)}))}
-                      lenv (->PropEnv env props)]
+                      lenv (-PropEnv env props)]
                   (env+ lenv [] flag))
-                (->PropEnv {'a (-hmap {(->Value :op) (->Value :var)})} props))
+                (-PropEnv {'a (-hmap {(->Value :op) (->Value :var)})} props))
              @flag)))
   ;test impfilter
   (is (let [{:keys [l props]}
-            (env+ (->PropEnv {'a (Un -false -true) 'b (Un -nil -true)}
+            (env+ (-PropEnv {'a (Un -false -true) 'b (Un -nil -true)}
                              [(->ImpFilter (-not-filter -false 'a)
                                            (-filter -true 'b))])
                   [(-not-filter (Un -nil -false) 'a)]
@@ -446,7 +446,7 @@
                 #{(-not-filter (Un -nil -false) 'a)
                   (-filter -true 'b)}))))
   ; more complex impfilter
-  (is (= (env+ (->PropEnv {'and1 (Un -false -true)
+  (is (= (env+ (-PropEnv {'and1 (Un -false -true)
                            'tmap (->Name 'clojure.core.typed.test.core/UnionName)}
                           [(->ImpFilter (-filter (Un -nil -false) 'and1)
                                         (-not-filter (-val :MapStruct1)
@@ -459,7 +459,7 @@
                [(-filter (Un -nil -false) 'and1)]
                (atom true))))
   ; refine a subtype
-  (is (= (:l (env+ (->PropEnv {'and1 (RClass-of Seqable [-any])} [])
+  (is (= (:l (env+ (-PropEnv {'and1 (RClass-of Seqable [-any])} [])
                    [(-filter (RClass-of IPersistentVector [-any]) 'and1)]
                    (atom true)))
          {'and1 (RClass-of IPersistentVector [-any])})))
@@ -1213,3 +1213,8 @@
                      AddProtoc
                      (adder [_ i] (Accumulator. (+ t i))))))))
 ;;;;
+
+(deftest let-filter-unscoping-test
+  (is (cf (fn [a]
+            (and (< 1 2) a))
+          [(U nil Number) -> Any :filters {:then (is Number 0)}])))

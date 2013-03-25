@@ -574,8 +574,8 @@
 
 (override-method clojure.lang.Indexed/nth
                  (All [x y]
-                   (Fn [(Seqable x) AnyInteger -> x]
-                       [(Seqable x) AnyInteger y -> (U x y)])))
+                   (Fn [(Indexed x) AnyInteger -> x]
+                       [(Indexed x) AnyInteger y -> (U x y)])))
 
 (non-nil-return clojure.lang.Compiler/munge :all)
 

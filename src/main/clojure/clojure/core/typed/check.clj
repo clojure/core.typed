@@ -2075,7 +2075,7 @@
 
         env (let [env (-> *lexical-env*
                         ;add mm-filter
-                        (assoc-in [:props] (concat props (when mm-filter [mm-filter])))
+                        (assoc-in [:props] (set (concat props (when mm-filter [mm-filter]))))
                         ;add parameters to scope
                         ;IF UNHYGIENIC order important, (fn [a a & a]) prefers rightmost name
                         (update-in [:l] merge (into {} fixed-entry) (into {} rest-entry)))
@@ -2292,10 +2292,10 @@
   #_(prn "invoke method: " (when method (Method->symbol method)) inst?)
   (binding [*current-env* env]
     (let [msym (MethodExpr->qualsym expr)
-          rfin-type (ret (or (when msym
-                               (@METHOD-OVERRIDE-ENV msym))
-                             (when method
-                               (Method->Type method))))
+          rfin-type (or (when msym
+                          (@METHOD-OVERRIDE-ENV msym))
+                        (when method
+                          (Method->Type method)))
           _ (assert rfin-type (error-msg "Unresolved " (if inst? "instance" "static") 
                                          " method invocation " 
                                          (when c
@@ -2305,18 +2305,19 @@
                                          ;"\n\nForm:\n\t" (emit-form-fn expr))
                                          ))
           _ (when inst?
-              (let [ctarget (check (:target expr))]
+              (let [ctarget (check (:target expr))
+                    target-class (resolve (:declaring-class method))
+                    _ (assert target-class)]
 ;                (prn "check target" (unparse-type (ret-t (expr-type ctarget)))
 ;                     (unparse-type (RClass-of (Class->symbol (resolve (:declaring-class method))) nil)))
-                (when-not (subtype? (ret-t (expr-type ctarget)) (RClass-of (Class->symbol (resolve (:declaring-class method)))
-                                                                           nil))
+                (when-not (subtype? (ret-t (expr-type ctarget)) (RClass-of-with-unknown-params target-class))
                   (throw (Exception. (error-msg "Cannot call instance method " (Method->symbol method)
                                                 " on type " (pr-str (unparse-type (ret-t (expr-type ctarget))))
                                                 "\n\n"
                                                 "Form:"
                                                 "\n\t" (emit-form-fn expr)))))))
           cargs (doall (map check args))
-          result-type (check-funapp expr args rfin-type (map expr-type cargs) expected)]
+          result-type (check-funapp expr args (ret rfin-type) (map expr-type cargs) expected)]
       (assoc expr
              expr-type result-type))))
 
@@ -2575,8 +2576,9 @@
                                           ;update binding type
                                           (assoc-in [:l sym] t)
                                           ;update props
-                                          (update-in [:props] #(apply concat 
-                                                                      (combine-props p* % (atom true))))
+                                          (update-in [:props] #(set 
+                                                                 (apply concat 
+                                                                        (combine-props p* % (atom true)))))
                                           (env+ [(if (= -bot flow-f) -top flow-f)] flow-atom))
                                 _ (assert @flow-atom "Applying flow filter resulted in local being bottom")]
                             new-env)
@@ -2989,7 +2991,7 @@
                   ;(prn "variables are now bottom: " (map key bs))
                   (reset! flag false))
                 new-env))
-            (assoc env :props (concat atoms props))
+            (assoc env :props (set (concat atoms props)))
             (concat atoms props))))
 
 (def object-equal? =)

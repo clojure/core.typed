@@ -35,8 +35,21 @@
              {Seqable (Seqable a)
               IPersistentCollection (IPersistentCollection a)})
 
+(alter-class clojure.lang.IChunkedSeq [[a :variance :covariant]]
+             :replace
+             {Seqable (Seqable a)
+              IPersistentCollection (IPersistentCollection a)
+              ISeq (ISeq a)})
+
+(alter-class clojure.lang.Indexed [[a :variance :covariant]])
+
+(alter-class clojure.lang.IChunk [[a :variance :covariant]]
+             :replace
+             {clojure.lang.Indexed (clojure.lang.Indexed a)})
+
 (alter-class ILookup [[a :variance :covariant]
                       [b :variance :covariant]])
+
 
 (alter-class IPersistentSet [[a :variance :covariant]]
              :replace
@@ -97,7 +110,8 @@
               Seqable (Seqable a)
               IPersistentStack (IPersistentStack a)
               ILookup (ILookup Number a)
-              Associative (Associative Number a)})
+              Associative (Associative Number a)
+              Indexed (Indexed a)})
 
 (alter-class APersistentMap [[a :variance :covariant] [b :variance :covariant]]
              :replace
@@ -118,7 +132,8 @@
               IFn [Number -> a]
               IPersistentStack (IPersistentStack a)
               ILookup (ILookup Number a)
-              Associative (Associative Number a)})
+              Associative (Associative Number a)
+              Indexed (Indexed a)})
 
 (alter-class PersistentVector [[a :variance :covariant]]
              :replace
@@ -130,7 +145,8 @@
               IPersistentStack (IPersistentStack a)
               ILookup (ILookup Number a)
               IMeta (IMeta Any)
-              Associative (Associative Number a)})
+              Associative (Associative Number a)
+              Indexed (Indexed a)})
 
 (alter-class Cons [[a :variance :covariant]]
              :replace

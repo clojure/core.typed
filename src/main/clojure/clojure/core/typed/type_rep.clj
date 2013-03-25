@@ -233,6 +233,7 @@
        (Poly? rc) (instantiate-poly rc args)
        (RClass? rc) rc
        :else (->RClass nil nil sym {} #{})))))
+                
 
 (declare Poly* no-bounds)
 
@@ -402,6 +403,19 @@
   (mapv (fn [b]
           (visit-bounds b #(instantiate-many names %)))
         (.bbnds poly)))
+
+(defn RClass-of-with-unknown-params
+  ([sym-or-cls]
+   {:pre [((some-fn class? symbol?) sym-or-cls)]
+    :post [(RClass? %)]}
+   (let [sym (if (class? sym-or-cls)
+               (Class->symbol sym-or-cls)
+               sym-or-cls)
+         rc (@RESTRICTED-CLASS sym)
+         args (when (Poly? rc)
+                ;instantiate with Any, could be more general if respecting variance
+                (repeat (.nbound ^Poly rc) -any))]
+     (RClass-of sym args))))
 
 (defrecord PolyDots [nbound bbnds ^Scope scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"

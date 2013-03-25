@@ -7,7 +7,7 @@
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
                          Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
                          IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
-                         LazySeq APersistentMap))
+                         LazySeq APersistentMap Indexed))
   (:require [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.string :as str]
@@ -95,30 +95,85 @@
 (defn loop>-ann [loop-of bnding-types]
   loop-of)
 
-(defn doseq>* [the-doseq _]
-  the-doseq)
+(comment
+  (cf
+  (doseq> [[a :- (U nil AnyInteger)] [1 nil 2 3]
+          :when a]
+          (inc a))
+    )
+  )
 
-;(ann doseq>-ann [Any Any -> Any])
-(defmacro doseq> [bnd-vec & body]
-  (let [bndings (->> bnd-vec
-                  (partition 2)
-                  (map first))
-        inits (->> bnd-vec
-                (partition 2)
-                (map second))
-        gsyms (repeatedly (count inits) gensym)]
-    `(doseq>* (doseq ~bnd-vec ~@body)
-       ;in a thunk to macroexpand, but not evaluation
-       (fn []
-         ;the collection arguments to doseq
-         (let ~(vec (interleave gsyms inits))
-           (print-env "doseq gsyms")
-           (if (and ~@(map (fn [sym] `(seq ~sym)) gsyms))
-             (do
-               (let ~(vec (interleave bndings (map (fn [sym] `(first ~sym)) gsyms)))
-                 ~@body)
-               nil)
-             nil))))))
+(defmacro doseq>
+  "Repeatedly executes body (presumably for side-effects) with
+  bindings and filtering as provided by \"for\".  Does not retain
+  the head of the sequence. Returns nil."
+  {:added "1.0"}
+  [seq-exprs & body]
+  (@#'clojure.core/assert-args
+     (vector? seq-exprs) "a vector for its binding"
+     (even? (count seq-exprs)) "an even number of forms in binding vector")
+  (let [step (fn step [recform exprs]
+               (if-not exprs
+                 [true `(do ~@body)]
+                 (let [k (first exprs)
+                       v (second exprs)]
+                   (if (keyword? k)
+                     (let [steppair (step recform (nnext exprs))
+                           needrec (steppair 0)
+                           subform (steppair 1)]
+                       (cond
+                         (= k :let) [needrec `(let ~v ~subform)]
+                         (= k :while) [false `(when ~v
+                                                ~subform
+                                                ~@(when needrec [recform]))]
+                         (= k :when) [false `(if ~v
+                                               (do
+                                                 ~subform
+                                                 ~@(when needrec [recform]))
+                                               ~recform)]))
+                     ;; k is [k :- k-ann]
+                     (let [_ (assert (and (vector? k)
+                                          (#{3} (count k))
+                                          (#{:-} (second k))) 
+                                     "Binder must be of the form [lhs :- type]")
+                           k-ann (nth k 2)
+                           k (nth k 0)
+                           ; k is the lhs binding
+                           seq- (gensym "seq_")
+                           chunk- (with-meta (gensym "chunk_")
+                                             {:tag 'clojure.lang.IChunk})
+                           count- (gensym "count_")
+                           i- (gensym "i_")
+                           recform `(recur (next ~seq-) nil 0 0)
+                           steppair (step recform (nnext exprs))
+                           needrec (steppair 0)
+                           subform (steppair 1)
+                           recform-chunk 
+                             `(recur ~seq- ~chunk- ~count- (unchecked-inc ~i-))
+                           steppair-chunk (step recform-chunk (nnext exprs))
+                           subform-chunk (steppair-chunk 1)]
+                       [true
+                        `(loop> [[~seq- :- (~'U nil (~'clojure.lang.Seqable ~k-ann))] (seq ~v), 
+                                 [~chunk- :- (~'U nil (~'clojure.lang.IChunk ~k-ann))] nil
+                                 [~count- :- ~'clojure.core.typed/AnyInteger] 0,
+                                 [~i- :- ~'clojure.core.typed/AnyInteger] 0]
+                                (print-env "start-loop")
+                           (if (and (< ~i- ~count-)
+                                    ;; core.typed thinks chunk- could be nil here
+                                    ~chunk-)
+                             (let [~'_ (print-env "after if")
+                                   ~k (.nth ~chunk- ~i-)]
+                               ~subform-chunk
+                               ~@(when needrec [recform-chunk]))
+                             (when-let [~seq- (seq ~seq-)]
+                               (if (chunked-seq? ~seq-)
+                                 (let [c# (chunk-first ~seq-)]
+                                   (recur (chunk-rest ~seq-) c#
+                                          (int (count c#)) (int 0)))
+                                 (let [~k (first ~seq-)]
+                                   ~subform
+                                   ~@(when needrec [recform]))))))])))))]
+    (nth (step nil (seq seq-exprs)) 1)))
 
 ;(ann parse-fn> [Any (Seqable Any) ->
 ;                '{:poly Any
@@ -390,9 +445,16 @@
 (defrecord PropEnv [l props]
   "A lexical environment l, props is a list of known propositions"
   [(lex-env? l)
+   (set? props)
    (every? Filter? props)])
 
-(declare ^:dynamic *lexical-env*)
+(defn -PropEnv [l props]
+  (->PropEnv l (if (set? props)
+                 props
+                 (into #{} props))))
+
+(def ^:dynamic *lexical-env* (-PropEnv {} #{}))
+(set-validator! #'*lexical-env* PropEnv?)
 
 (defn print-env [debug-str]
   nil)
@@ -407,7 +469,6 @@
          :props (map unparse-filter (:props e))})))
 
 (defonce VAR-ANNOTATIONS (atom {}))
-(def ^:dynamic *lexical-env* (->PropEnv {} []))
 
 (defmacro with-lexical-env [env & body]
   `(binding [*lexical-env* ~env]
@@ -415,7 +476,6 @@
 
 (set-validator! VAR-ANNOTATIONS #(and (every? (every-pred symbol? namespace) (keys %))
                                       (every? Type? (vals %))))
-(set-validator! #'*lexical-env* PropEnv?)
 
 (defmacro ann [varsym typesyn]
   `(tc-ignore
