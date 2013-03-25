@@ -4,25 +4,21 @@ Gradual typing in Clojure, as a library.
 
 ## Releases and Dependency Information
 
-Latest stable release is [0.1.8](https://clojars.org/core.typed)
+Latest stable release is 0.1.9.
 
 Leiningen dependency information:
 
 ```clojure
-[core.typed "0.1.8"]
+[org.clojure/core.typed "0.1.9"]
 ```
 
 Maven dependency information:
 
 ```XML
-<repository>
-  <id>clojars.org</id>
-  <url>http://clojars.org/repo</url>
-</repository>
 <dependency>
-  <groupId>core.typed</groupId>
+  <groupId>org.clojure</groupId>
   <artifactId>core.typed</artifactId>
-  <version>0.1.8</version>
+  <version>0.1.9</version>
 </dependency>
 ```
 
