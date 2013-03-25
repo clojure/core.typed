@@ -464,6 +464,7 @@
                    (atom true)))
          {'and1 (RClass-of IPersistentVector [-any])})))
 
+;FIXME all these tests relate to CTYP-24
 (deftest destructuring-special-ops
   ;FIXME for destructuring rest args
 ;  (is (= (tc-t (let [a '(a b)]
@@ -513,7 +514,8 @@
               (-FS -top -bot)
               -empty)))
   ;roughly the macroexpansion of map destructuring
-  (is (= (tc-t (clojure.core.typed/fn> 
+  ;FIXME
+  #_(is (= (tc-t (clojure.core.typed/fn> 
                  [[map-param :- clojure.core.typed.test.rbt/badRight]]
                  (when (and (= :Black (-> map-param :tree))
                             (= :Red (-> map-param :left :tree))
