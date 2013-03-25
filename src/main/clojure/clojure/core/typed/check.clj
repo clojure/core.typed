@@ -104,7 +104,7 @@
                  (-complete-hmap ts)
                  (RClass-of APersistentMap [(apply Un (keys ts))
                                             (apply Un (vals ts))]))
-        _ (when (and expected (subtype? actual expected)) 
+        _ (when (and expected (not (subtype? actual expected)))
             (type-error actual expected))]
     (assoc expr
            expr-type (ret actual (-FS -top -bot)))))
