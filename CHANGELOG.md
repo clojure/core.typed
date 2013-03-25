@@ -1,3 +1,9 @@
+0.1.9 - Released 25 March 2013
+- Move to contrib infrastructure
+- Misc minor bugfixes
+- Getting keyword value keys from map-like things is more flexible
+- Eliminate reflection warnings in deps
+
 0.1.8 - Released 17 March 2013
 ENHANCEMENTS
 - Better line numbers for checking `do`
