@@ -469,13 +469,13 @@
 ;  (is (= (tc-t (let [a '(a b)]
 ;                 (seq? a)))
 ;         (ret -true -true-filter -empty)))
-  (is (= (tc-t (let [a {:a 1}]
-                 (if (seq? a)
-                   (apply hash-map a)
-                   a)))
-         (ret (-hmap {(->Value :a) (->Value 1)})
-              ;FIXME should true-filter ?
-              (-FS -top -top) -empty)))
+  (is (= (-> 
+           (tc-t (let [a {:a 1}]
+                   (if (seq? a)
+                     (apply hash-map a)
+                     a)))
+           ret-t)
+         (-complete-hmap {(->Value :a) (->Value 1)})))
   (is (= (tc-t (clojure.core.typed/fn> [[{a :a} :- (HMap {:a (Value 1)})]]
                                a))
          (ret (make-FnIntersection 
@@ -538,17 +538,15 @@
                            maprl)]
                      maprl))))))
   ;destructuring a variable of union type
-  ; NOTE: commented out because, for now, it's an error to get a non-existant key
-;  (is (= (tc-t (clojure.core.typed/fn> [[{a :a} :- (U (HMap {:a (Value 1)})
-;                                              (HMap {:b (Value 2)}))]]
-;                               a))
-;         (ret (make-FnIntersection (->Function [(Un (-hmap {(->Value :a) (->Value 1)})
-;                                   (-hmap {(->Value :b) (->Value 2)}))]
-;                              (make-Result (Un (->Value 1) -nil) (-FS -top -top) -empty)
-;                              nil nil nil))
-;              (-FS -top -bot)
-;              -empty)))
-              )
+  (is (= (->
+           (tc-t (clojure.core.typed/fn> [[{a :a} :- (U (HMap {:a (Value 1)})
+                                                        (HMap {:b (Value 2)}))]]
+                                         a))
+           ret-t)
+         (make-FnIntersection 
+           (make-Function [(Un (-hmap {(-val :a) (-val 1)})
+                               (-hmap {(-val :b) (-val 2)}))]
+                          (Un (-val 1) -any))))))
 
 (def-alias MyName (HMap {:a (Value 1)}))
 (def-alias MapName (HMap {:a clojure.core.typed.test.core/MyName}))
@@ -1055,7 +1053,7 @@
            nil))
          (ret (->TApp (make-F 'm) [-nil])))))
 
-;TODO how to handle casts
+;TODO how to handle casts. CTYP-12
 #_(deftest prims-test
   (is (= (ret-t (tc-t (Math/sqrt 1)))
          (parse-type 'double))))
@@ -1187,7 +1185,7 @@
 (defn kw-arg-test [& args])
 (ann kw-arg-test [& {:a Number} -> Number])
 
-;TODO keyword args
+;TODO keyword args. CTYP-5
 #_(deftest kw-args-test
   (is (cf (clojure.core.typed.test.core/kw-arg-test :a 1))))
 
@@ -1216,10 +1214,11 @@
                      (adder [_ i] (Accumulator. (+ t i))))))))
 ;;;;
 
-(deftest let-filter-unscoping-test
+;TODO CTYP-23
+#_(deftest let-filter-unscoping-test
   (is (cf (fn [a]
             (and (< 1 2) a))
           [(U nil Number) -> Any :filters {:then (is Number 0)}])))
 
-(deftest map-literal-test
+(deftest map-literal-containing-funapp-test
   (is (cf {:bar (identity 1)})))
