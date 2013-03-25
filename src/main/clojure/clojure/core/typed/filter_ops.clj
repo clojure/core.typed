@@ -306,69 +306,71 @@
 
 
 ;  A ^ (B v ...) -> (simplify A (B v ...))
-(defn -and [& args]
-             ;flatten direct internal AndFilters
-  (let [flat (apply concat
-                    (for [fl args]
-                      (if (AndFilter? fl)
-                        (:fs fl)
-                        [fl])))
-        fs (set flat)]
-    (cond
-      (empty? fs) -bot
-      (fs -bot) -bot
-      (or (= 1 (count fs))
-          (= 1 (count (disj fs -top)))) (or (first (disj fs -top))
-                                            (first fs))
-      :else (->AndFilter (disj fs -top)))))
-
 ;(defn -and [& args]
-;  {:pre [(every? Filter? args)]
-;   :post [(Filter? %)]}
-;  (letfn [(mk [& fs]
-;            {:pre [(every? Filter? fs)]
-;             :post [(Filter? %)]}
-;            (cond
-;              (empty? fs) -top
-;              (= 1 (count fs)) (first fs)
-;              :else (->AndFilter fs)))]
-;    (loop [fs (set args)
-;           result nil]
-;      (if (empty? fs)
-;        (cond
-;          (empty? result) -top
-;          (= 1 (count result)) (first result)
-;          ;; don't think this is useful here
-;          (= 2 (count result)) (let [[f1 f2] result]
-;                                 (if (opposite? f1 f2)
-;                                   -bot
-;                                   (if (= f1 f2)
-;                                     f1
-;                                     (apply mk (compact [f1 f2] false)))))
-;          :else
-;           ;; first, remove anything implied by the atomic propositions
-;           ;; We commonly see: (And (Or P Q) (Or P R) (Or P S) ... P), which this fixes
-;          (let [{atomic true not-atomic false} (group-by atomic-filter? result)
-;                not-atomic* (for [p not-atomic
-;                                  :when (some (fn [a] (implied-atomic? p a)) atomic)]
-;                              p)]
-;             ;; `compact' takes care of implications between atomic props
-;            (apply mk (compact (concat not-atomic* atomic) false))))
-;        (let [ffs (first fs)]
-;          (cond
-;            (BotFilter? ffs) ffs
-;            (AndFilter? ffs) (let [fs* (:fs ffs)]
-;                               (recur (next fs) (concat fs* result)))
-;            (TopFilter? ffs) (recur (next fs) result)
-;            :else (let [t ffs]
-;                    (cond
-;                      (some (fn [f] (opposite? f ffs)) (concat (rest fs) result)) 
-;                      -bot
-;                      (some (fn [f] (or (= f t)
-;                                        (implied-atomic? t f))) result) 
-;                      (recur (rest fs) result)
-;                      :else
-;                      (recur (rest fs) (cons t result))))))))))
+;             ;flatten direct internal AndFilters
+;  (let [flat (apply concat
+;                    (for [fl args]
+;                      (if (AndFilter? fl)
+;                        (:fs fl)
+;                        [fl])))
+;        fs (set flat)]
+;    (cond
+;      (empty? fs) -bot
+;      (fs -bot) -bot
+;      (or (= 1 (count fs))
+;          (= 1 (count (disj fs -top)))) (or (first (disj fs -top))
+;                                            (first fs))
+;      :else (->AndFilter (disj fs -top)))))
+
+(declare implied-atomic?)
+
+(defn -and [& args]
+  {:pre [(every? Filter? args)]
+   :post [(Filter? %)]}
+  (letfn [(mk [& fs]
+            {:pre [(every? Filter? fs)]
+             :post [(Filter? %)]}
+            (cond
+              (empty? fs) -top
+              (= 1 (count fs)) (first fs)
+              :else (->AndFilter (set fs))))]
+    (loop [fs (set args)
+           result nil]
+      (if (empty? fs)
+        (cond
+          (empty? result) -top
+          (= 1 (count result)) (first result)
+          ;; don't think this is useful here
+          (= 2 (count result)) (let [[f1 f2] result]
+                                 (if (opposite? f1 f2)
+                                   -bot
+                                   (if (= f1 f2)
+                                     f1
+                                     (apply mk (compact [f1 f2] false)))))
+          :else
+           ;; first, remove anything implied by the atomic propositions
+           ;; We commonly see: (And (Or P Q) (Or P R) (Or P S) ... P), which this fixes
+          (let [{atomic true not-atomic false} (group-by atomic-filter? result)
+                not-atomic* (for [p not-atomic
+                                  :when (some (fn [a] (implied-atomic? p a)) atomic)]
+                              p)]
+             ;; `compact' takes care of implications between atomic props
+            (apply mk (compact (concat not-atomic* atomic) false))))
+        (let [ffs (first fs)]
+          (cond
+            (BotFilter? ffs) ffs
+            (AndFilter? ffs) (let [fs* (:fs ffs)]
+                               (recur (next fs) (concat fs* result)))
+            (TopFilter? ffs) (recur (next fs) result)
+            :else (let [t ffs]
+                    (cond
+                      (some (fn [f] (opposite? f ffs)) (concat (rest fs) result)) 
+                      -bot
+                      (some (fn [f] (or (= f t)
+                                        (implied-atomic? t f))) result) 
+                      (recur (rest fs) result)
+                      :else
+                      (recur (rest fs) (cons t result))))))))))
 
 (defn -FS [+ -]
   {:pre [(Filter? +)

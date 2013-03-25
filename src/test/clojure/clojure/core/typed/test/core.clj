@@ -1216,8 +1216,7 @@
                      (adder [_ i] (Accumulator. (+ t i))))))))
 ;;;;
 
-;TODO CTYP-23
-#_(deftest let-filter-unscoping-test
+(deftest let-filter-unscoping-test
   (is (cf (fn [a]
             (and (< 1 2) a))
           [(U nil Number) -> Any :filters {:then (is Number 0)}])))
