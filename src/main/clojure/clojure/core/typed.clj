@@ -48,7 +48,7 @@
   [debug-string frm] 
   frm)
 
-(declare Method->Function unparse-type unparse-filter)
+(declare Method->Type unparse-type unparse-filter)
 
 ;(ann method-type [Symbol -> nil])
 (defn method-type 
@@ -62,7 +62,7 @@
         _ (assert (seq ms) (str "Method " mname " not found"))]
     (prn "Method name:" mname)
     (doseq [m ms]
-      (prn (unparse-type (Method->Function m))))))
+      (prn (unparse-type (Method->Type m))))))
 
 ;(ann inst-poly [Any Any -> Any])
 (defn inst-poly 
@@ -96,19 +96,14 @@
 (defn loop>-ann [loop-of bnding-types]
   loop-of)
 
-(comment
-  (cf
+(defmacro doseq>
+  "Like doseq but requires annotation for each loop variable: 
+  [a [1 2]] becomes [[a :- Long] [1 2]]
+  
+  eg.
   (doseq> [[a :- (U nil AnyInteger)] [1 nil 2 3]
           :when a]
-          (inc a))
-    )
-  )
-
-(defmacro doseq>
-  "Repeatedly executes body (presumably for side-effects) with
-  bindings and filtering as provided by \"for\".  Does not retain
-  the head of the sequence. Returns nil."
-  {:added "1.0"}
+          (inc a))"
   [seq-exprs & body]
   (@#'clojure.core/assert-args
      (vector? seq-exprs) "a vector for its binding"
@@ -156,14 +151,13 @@
                        [true
                         `(loop> [[~seq- :- (~'U nil (~'clojure.lang.Seqable ~k-ann))] (seq ~v), 
                                  [~chunk- :- (~'U nil (~'clojure.lang.IChunk ~k-ann))] nil
-                                 [~count- :- ~'clojure.core.typed/AnyInteger] 0,
-                                 [~i- :- ~'clojure.core.typed/AnyInteger] 0]
-                                (print-env "start-loop")
+                                 [~count- :- ~'(U Integer Long)] 0,
+                                 [~i- :- ~'(U Integer Long)] 0]
                            (if (and (< ~i- ~count-)
                                     ;; core.typed thinks chunk- could be nil here
                                     ~chunk-)
-                             (let [~'_ (print-env "after if")
-                                   ~k (.nth ~chunk- ~i-)]
+                             (let [;~k (.nth ~chunk- ~i-)
+                                   ~k (nth ~chunk- ~i-)]
                                ~subform-chunk
                                ~@(when needrec [recform-chunk]))
                              (when-let [~seq- (seq ~seq-)]

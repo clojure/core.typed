@@ -560,13 +560,21 @@
 ;[RClass RClass -> Boolean]
 (defn coerse-RClass-primitive
   [s t]
-  (let [spcls (symbol->Class (:the-class s))
-        tpcls (symbol->Class (:the-class t))
-        scls (or (boxed-primitives spcls)
-                 spcls)
-        tcls (or (boxed-primitives tpcls)
-                  tpcls)]
-    (isa? scls tcls)))
+  (cond
+    ; (U Integer Long) <: int
+    (and 
+      (#{(RClass-of Integer) (RClass-of Long)} s)
+      (#{(RClass-of 'int)} t))
+    true
+
+    :else
+    (let [spcls (symbol->Class (:the-class s))
+          tpcls (symbol->Class (:the-class t))
+          scls (or (boxed-primitives spcls)
+                   spcls)
+          tcls (or (boxed-primitives tpcls)
+                   tpcls)]
+      (isa? scls tcls))))
 
 (defmethod subtype* [RClass RClass ::clojure]
   [{polyl? :poly? :as s}

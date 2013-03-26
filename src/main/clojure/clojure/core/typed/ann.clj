@@ -559,8 +559,8 @@
 
 (let [t (make-FnIntersection
           (make-Function 
-            [(Un -nil (RClass-of Seqable [-any]))]
-            (parse-type 'AnyInteger)
+            [(Un -nil (RClass-of Seqable [-any]) (RClass-of clojure.lang.Counted))]
+            (parse-type '(U Integer Long))
             nil nil
             :object (->Path [(->CountPE)] 0)))]
   (add-var-type 'clojure.core/count t)
@@ -569,8 +569,8 @@
 (non-nil-return java.lang.Object/getClass #{0})
 (override-method clojure.lang.RT/nth
                  (All [x y]
-                   (Fn [(Seqable x) AnyInteger -> x]
-                       [(Seqable x) AnyInteger y -> (U x y)])))
+                   (Fn [(U (Indexed x) (Seqable x)) AnyInteger -> x]
+                       [(U (Indexed x) (Seqable x)) AnyInteger y -> (U x y)])))
 
 (override-method clojure.lang.Indexed/nth
                  (All [x y]
@@ -601,3 +601,16 @@
                    [[-> x] -> x]))
 
 (ann clojure.core/ref (All [x] [x -> (clojure.lang.ARef x x)]))
+
+;; START CHUNK HACKS
+;; These are hacks to get around the expansion of doseq>
+;; Basically, inference isn't good enough to narrow a (Seqable x) to 
+;; an (IChunk x), because chunked-seq? needs to be (predicate (IChunk Any)).
+(ann clojure.core/chunked-seq? [Any -> Any])
+(ann clojure.core/chunk-first 
+     (All [x]
+          [(Seqable x) -> (clojure.lang.IChunk x)]))
+(ann clojure.core/chunk-rest
+     (All [x]
+          [(Seqable x) -> (ISeq x)]))
+;;END CHUNK HACKS

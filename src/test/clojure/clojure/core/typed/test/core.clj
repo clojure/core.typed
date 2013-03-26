@@ -1223,3 +1223,11 @@
 
 (deftest map-literal-containing-funapp-test
   (is (cf {:bar (identity 1)})))
+
+(deftest doseq>-test
+  (is (cf (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]
+                   :when a]
+            (inc a))))
+  (is (thrown? Exception
+               (cf (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]]
+                     (inc a))))))
