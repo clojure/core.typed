@@ -12,7 +12,7 @@
             [clojure.repl :refer [pst]]
             [clojure.string :as string]
             [clojure.core.typed :refer [def-alias ann declare-names check-ns ann-form tc-ignore
-                                        fn> cf print-env
+                                        fn> cf print-env doseq> dotimes>
                                         ;types
                                         Atom1 AnyInteger Option]])
   (:import (java.lang StringBuilder)
@@ -23,18 +23,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def-alias NsEntry
-  (HMap {:name Symbol}
-        :optional
-        {:defs (IPersistentMap Symbol Symbol)
-         :uses (IPersistentMap Symbol Symbol)
+  (HMap {:name Symbol
+         ;these should really be optional
+         :requires (IPersistentMap Symbol Symbol)
+         :defs (IPersistentMap Symbol Symbol)
          :excludes (IPersistentSet Symbol)
-         :requires (IPersistentMap Symbol Symbol)}))
+         :uses (IPersistentMap Symbol Symbol)}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def-alias Context (U (Value :statement)
-                      (Value :expr)
-                      (Value :return)))
+(def-alias Context (U ':statement
+                      ':expr
+                      ':return))
 
 (def-alias LocalBinding (HMap {:name Symbol}))
 
@@ -269,17 +269,23 @@
 (ann cljs-reserved-file-names (IPersistentSet String))
 (def cljs-reserved-file-names #{"deps.cljs"})
 
+(ann create-nsentry [Symbol -> NsEntry])
+(defn create-nsentry [name]
+  {:name name
+   :requires {}
+   :defs {}
+   :excludes #{}
+   :uses {}})
+
 (ann namespaces (Atom1 (IPersistentMap Symbol NsEntry)))
-(defonce namespaces (atom (ann-form
-                            '{cljs.core {:name cljs.core}
-                              cljs.user {:name cljs.user}}
-                            (IPersistentMap Symbol NsEntry))))
+(defonce namespaces (atom {'cljs.core (create-nsentry 'cljs.core)
+                           'cljs.user (create-nsentry 'cljs.user)}))
 
 (ann reset-namespaces! [-> Any])
 (defn reset-namespaces! []
   (reset! namespaces
-    '{cljs.core {:name cljs.core}
-      cljs.user {:name cljs.user}}))
+          {'cljs.core (create-nsentry 'cljs.core)
+           'cljs.user (create-nsentry 'cljs.user)}))
 
 (ann *cljs-ns* Symbol)
 (def ^:dynamic *cljs-ns* 'cljs.user)
@@ -451,8 +457,10 @@
   )
 
 (ann confirm-bindings [Env (Seqable Symbol) -> Any])
+;merge hmaps
+(tc-ignore
 (defn confirm-bindings [env names]
-  (doseq [name names]
+  (doseq> [[name :- Symbol] names]
     (let [env (merge env {:ns (@namespaces *cljs-ns*)})
           ev (resolve-existing-var env name)]
       (when (and *cljs-warn-on-dynamic*
@@ -462,6 +470,7 @@
                  ev (not (-> ev :dynamic)))
         (warning env
           (str "WARNING: " (:name-sym ev) " not declared ^:dynamic"))))))
+  )
 
 (ann comma-sep [(Option (Seqable Any)) -> (Seqable Any)])
 (defn- comma-sep [xs]
@@ -485,14 +494,11 @@
         (format "\\u%04X" cp))))) ; Any other character is Unicode
 
 (ann escape-string [CharSequence -> String])
-;doseq
-(tc-ignore
 (defn- escape-string [^CharSequence s]
   (let [sb (StringBuilder. (count s))]
-    (doseq [c s]
+    (doseq> [[c :- Character] s]
       (.append sb (escape-char c)))
-    (.toString sb)))
-  )
+    (.toString ^Object sb)))
 
 (ann wrap-in-double-quotes [Any -> String])
 (defn- wrap-in-double-quotes [x]
@@ -502,7 +508,7 @@
 (defmulti emit :op)
 
 (ann emits [Any * -> nil])
-;doseq
+;weird invariants
 (tc-ignore
 (defn emits [& xs]
   (doseq [x xs]
@@ -525,8 +531,6 @@
   (with-out-str (emit expr)))
 
 (ann emitln [Any * -> nil])
-;*position* is technically mutable! Cannot infer non-nil in test
-(tc-ignore
 (defn emitln [& xs]
   (apply emits xs)
   ;; Prints column-aligned line number comments; good test of *position*.
@@ -534,13 +538,13 @@
   ;  (let [[line column] @*position*]
   ;    (print (apply str (concat (repeat (- 120 column) \space) ["// " (inc line)])))))
   (println)
-  (when *position*
-    (swap! *position* (fn> [[[line column] :- '[AnyInteger AnyInteger]]]
-                        [(inc line) 0])))
+  ;; when-let added for core.typed. *position* is mutable so can't infer better type here.
+  (when-let [p *position*]
+    (swap! p (fn> [[[line column] :- '[AnyInteger AnyInteger]]]
+                  [(inc line) 0])))
   nil)
-  )
 
-(ann emit-constant [Any -> String])
+(ann emit-constant [Any -> nil])
 (defmulti emit-constant class)
 (defmethod emit-constant nil [x] (emits "null"))
 (defmethod emit-constant Long [x] (emits x))
@@ -552,7 +556,7 @@
 (defmethod emit-constant Character [x]
   (emits (wrap-in-double-quotes (escape-char x))))
 
-;String as Seqable
+;TODO re-find type
 (tc-ignore
 (defmethod emit-constant java.util.regex.Pattern [x]
   (let [[_ flags pattern] (re-find #"^(?:\(\?([idmsux]*)\))?(.*)" (str x))]
@@ -748,23 +752,25 @@
     (emitln "throw " throw ";")))
 
 (ann emit-comment [Any Any -> nil])
-;doseq
-(tc-ignore
 (defn emit-comment
   "Emit a nicely formatted comment string."
   [doc jsdoc]
   (let [docs (when doc [doc])
         docs (if jsdoc (concat docs jsdoc) docs)
         docs (remove nil? docs)]
-    (letfn [(print-comment-lines [e] (doseq [next-line (string/split-lines e)]
-                                       (emitln "* " (string/trim next-line))))]
+    (let [print-comment-lines 
+          (ann-form
+            (fn print-comment-lines 
+              [e] 
+              (doseq> [[next-line :- String] (string/split-lines e)]
+                (emitln "* " (string/trim next-line))))
+            [String -> nil])]
       (when (seq docs)
         (emitln "/**")
-        (doseq [e docs]
+        (doseq> [[e :- (U nil String)] docs]
           (when e
             (print-comment-lines e)))
         (emitln "*/")))))
-  )
 
 (defmethod emit :def
   [{:keys [name init env doc export] :as expr}]
@@ -779,25 +785,23 @@
     (emitln "void 0;")))
 
 (ann emit-apply-to ['{:name Symbol, :params (Seqable Any), :env Env} -> nil]) ;FIXME ?
-;doseq
-(tc-ignore
 (defn emit-apply-to
   [{:keys [name params env]}]
   (let [arglist (gensym "arglist__")
         delegate-name (str name "__delegate")]
     (emitln "(function (" arglist "){")
-    (doseq [[i param] (map-indexed vector (butlast params))]
+    (doseq> [[[i param] :- '[AnyInteger Expr]] (map-indexed vector (butlast params))]
       (emits "var " param " = cljs.core.first(")
-      (dotimes [_ i] (emits "cljs.core.next("))
+      (dotimes> [_ i] (emits "cljs.core.next("))
       (emits arglist ")")
-      (dotimes [_ i] (emits ")"))
+      (dotimes> [_ i] (emits ")"))
       (emitln ";"))
     (if (< 1 (count params))
       (do
         (emits "var " (last params) " = cljs.core.rest(")
-        (dotimes [_ (- (count params) 2)] (emits "cljs.core.next("))
+        (dotimes> [_ (- (count params) 2)] (emits "cljs.core.next("))
         (emits arglist)
-        (dotimes [_ (- (count params) 2)] (emits ")"))
+        (dotimes> [_ (- (count params) 2)] (emits ")"))
         (emitln ");")
         (emitln "return " delegate-name "(" (string/join ", " params) ");"))
       (do
@@ -806,7 +810,6 @@
         (emitln ";")
         (emitln "return " delegate-name "(" (string/join ", " params) ");")))
     (emits "})")))
-  )
 
 (ann emit-fn-method [FnMethod -> nil])
 (defn emit-fn-method

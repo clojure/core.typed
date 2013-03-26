@@ -96,6 +96,20 @@
 (defn loop>-ann [loop-of bnding-types]
   loop-of)
 
+(defmacro dotimes>
+  "Like dotimes."
+  [bindings & body]
+  (@#'clojure.core/assert-args
+     (vector? bindings) "a vector for its binding"
+     (= 2 (count bindings)) "exactly 2 forms in binding vector")
+  (let [i (first bindings)
+        n (second bindings)]
+    `(let [n# (long ~n)]
+       (loop> [[~i :- (~'U Long Integer)] 0]
+         (when (< ~i n#)
+           ~@body
+           (recur (unchecked-inc ~i)))))))
+
 (defmacro for>
   "Like for but requires annotation for each loop variable: 
   [a [1 2]] becomes [[a :- Long] [1 2]]

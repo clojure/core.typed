@@ -1246,3 +1246,8 @@
                        [[a :- (U clojure.lang.Symbol nil Number)] [1 nil 2 3]
                         [b :- Number] [1 2 3]]
                        (+ a b))))))
+
+(deftest dotimes>-test
+  (is (do
+        (cf (dotimes> [i 100] (inc i)) nil)
+        true)))

@@ -430,13 +430,20 @@
 
 ; same as clojure.lang.RT/get
 (ann clojure.core/get
-     (All [x]
+     (All [x y]
           (Fn 
+            ;no default
             [(IPersistentSet x) Any -> (Option x)]
             [java.util.Map Any -> (Option Any)]
             [String Any -> (Option Character)]
             [nil Any -> nil]
-            [(Option (ILookup Any x)) Any -> (Option x)])))
+            [(Option (ILookup Any x)) Any -> (Option x)]
+            ;default
+            [(IPersistentSet x) Any y -> (U y x)]
+            [java.util.Map Any y -> (U y Any)]
+            [String Any y -> (U y Character)]
+            [nil Any y -> y]
+            [(Option (ILookup Any x)) Any y -> (U y x)])))
 
 (ann clojure.core/merge 
      (All [k v]
@@ -517,13 +524,20 @@
 ;get
 ;same as clojure.core/get
 (override-method clojure.lang.RT/get 
-                 (All [x]
+                 (All [x y]
                       (Fn 
+                        ;no default
                         [(IPersistentSet x) Any -> (Option x)]
                         [java.util.Map Any -> (Option Any)]
                         [String Any -> (Option Character)]
                         [nil Any -> nil]
-                        [(Option (ILookup Any x)) Any -> (Option x)])))
+                        [(Option (ILookup Any x)) Any -> (Option x)]
+                        ;default
+                        [(IPersistentSet x) Any y -> (U y x)]
+                        [java.util.Map Any y -> (U y Any)]
+                        [String Any y -> (U y Character)]
+                        [nil Any y -> y]
+                        [(Option (ILookup Any x)) Any y -> (U y x)])))
 
 ;numbers
 (override-method clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
@@ -626,3 +640,5 @@
      (All [x]
           [(clojure.lang.ChunkBuffer x) x -> Any]))
 ;;END CHUNK HACKS
+
+(non-nil-return java.lang.Object/toString :all)
