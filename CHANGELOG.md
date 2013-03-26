@@ -1,3 +1,7 @@
+0.1.10
+- Added: doseq>, for>, dotimes>
+- Recognise filters from macroexpansion of `and`
+
 0.1.9 - Released 25 March 2013
 - Move to contrib infrastructure
 - Misc minor bugfixes
