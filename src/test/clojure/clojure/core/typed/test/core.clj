@@ -235,7 +235,7 @@
                 (parse-type '(U nil (I (CountRange 1) (clojure.lang.ISeq Number))))))
   (is (subtype? (ety
                   ((clojure.core.typed/fn> [[a :- (clojure.lang.IPersistentMap Any Number)] [b :- Number]] 
-                                   ((clojure.core.typed/inst get Number) a b))
+                                   ((clojure.core.typed/inst get Number Nothing) a b))
                      (zipmap [1] [2]) 1))
                 (parse-type '(U nil Number)))))
 
@@ -1249,5 +1249,5 @@
 
 (deftest dotimes>-test
   (is (do
-        (cf (dotimes> [i 100] (inc i)) nil)
+        (cf (clojure.core.typed/dotimes> [i 100] (inc i)) nil)
         true)))
