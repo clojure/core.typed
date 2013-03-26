@@ -35,6 +35,8 @@
              {Seqable (Seqable a)
               IPersistentCollection (IPersistentCollection a)})
 
+(alter-class clojure.lang.ChunkBuffer [[a :variance :invariant]])
+
 (alter-class clojure.lang.IChunkedSeq [[a :variance :covariant]]
              :replace
              {Seqable (Seqable a)

@@ -561,10 +561,10 @@
 (defn coerse-RClass-primitive
   [s t]
   (cond
-    ; (U Integer Long) <: int
+    ; (U Integer Long) <: (U int long)
     (and 
       (#{(RClass-of Integer) (RClass-of Long)} s)
-      (#{(RClass-of 'int)} t))
+      (#{(RClass-of 'int) (RClass-of 'long)} t))
     true
 
     :else

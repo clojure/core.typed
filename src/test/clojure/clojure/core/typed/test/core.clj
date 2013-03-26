@@ -1231,3 +1231,18 @@
   (is (thrown? Exception
                (cf (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]]
                      (inc a))))))
+
+(deftest for>-test
+  (is (cf
+        (clojure.core.typed/for> :- Number
+              [[a :- (U nil Number)] [1 nil 2 3]
+               [b :- Number] [1 2 3]
+               :when a]
+              (+ a b))
+        (clojure.lang.LazySeq Number)))
+  (is (thrown? Exception
+               (cf
+                 (clojure.core.typed/for> :- Number
+                       [[a :- (U clojure.lang.Symbol nil Number)] [1 nil 2 3]
+                        [b :- Number] [1 2 3]]
+                       (+ a b))))))

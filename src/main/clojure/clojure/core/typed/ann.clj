@@ -612,5 +612,17 @@
           [(Seqable x) -> (clojure.lang.IChunk x)]))
 (ann clojure.core/chunk-rest
      (All [x]
-          [(Seqable x) -> (ISeq x)]))
+          [(Seqable x) -> (Seqable x)]))
+(ann clojure.core/chunk-buffer
+     (All [x]
+          [(U Integer Long) -> (clojure.lang.ChunkBuffer x)]))
+(ann clojure.core/chunk
+     (All [x]
+          [(clojure.lang.ChunkBuffer x) -> (clojure.lang.IChunk x)]))
+(ann clojure.core/chunk-cons
+     (All [x]
+          [(clojure.lang.IChunk x) (Option (Seqable x)) -> (Option (Seqable x))]))
+(ann clojure.core/chunk-append
+     (All [x]
+          [(clojure.lang.ChunkBuffer x) x -> Any]))
 ;;END CHUNK HACKS
