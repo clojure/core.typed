@@ -42,7 +42,7 @@
                             [[y ... y -> x] -> [y ... y -> x]]))
 
 (ann clojure.core/key (All [x]
-                           [(U '[x Any] (IMapEntry x Any)) -> x]))
+                           [(IMapEntry x Any) -> x]))
 
 ;TODO flip filters
 (ann clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]]))
@@ -276,6 +276,7 @@
 (ann clojure.core/vector? (predicate (IPersistentVector Any)))
 (ann clojure.core/nil? (predicate nil))
 (ann clojure.core/symbol? (predicate Symbol))
+(ann clojure.core/map? (predicate (IPersistentMap Any Any)))
 
 (ann clojure.core/meta (All [x]
                             (Fn [(IMeta x) -> x]
@@ -307,7 +308,7 @@
 
 (ann clojure.core/seq (All [x]
                         (Fn 
-                          #_[(I (Seqable x) (CountRange 1)) -> (I (ISeq x) (CountRange 1))]
+                          [(I (Seqable x) (CountRange 1)) -> (I (ISeq x) (CountRange 1))]
                           [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))
                            :filters {:then (& (is (CountRange 1) 0)
                                               (! nil 0))
