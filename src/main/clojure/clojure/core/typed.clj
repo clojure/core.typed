@@ -360,7 +360,11 @@
      (defprotocol ~@body)))
 
 (defmacro loop>
-  "Define a typed loop"
+  "Like loop, except loop variables require annotation.
+
+  eg. (loop> [[a :- Number] 1
+              [b :- (U nil Number)] nil]
+        ...)"
   [bndings* & forms]
   (let [bnds (partition 2 bndings*)
         ; [[lhs :- bnd-ann] rhs]
