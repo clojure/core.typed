@@ -507,11 +507,10 @@
 (ann emit [Expr -> nil])
 (defmulti emit :op)
 
-(ann emits [Any * -> nil])
+(ann emits [(U Expr nil (ISeq Expr) [-> Any] Any) * -> nil])
 ;weird invariants
-(tc-ignore
 (defn emits [& xs]
-  (doseq [x xs]
+  (doseq> [[x :- (U Expr nil (ISeq Expr) [-> Any] Any)] xs]
     (cond
       (nil? x) nil
       (map? x) (emit x)
@@ -524,7 +523,6 @@
                                       [line (+ column (count s))])))
                 (print s)))))
   nil)
-  )
 
 (ann emit-str [Expr -> String])
 (defn ^String emit-str [expr]
