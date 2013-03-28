@@ -1,5 +1,4 @@
 (ns clojure.core.typed.test.core
-  (:refer-clojure :exclude [defrecord])
   (:import (clojure.lang Seqable ISeq ASeq IPersistentVector Atom IPersistentMap
                          Keyword))
   (:require [clojure.test :refer :all]
@@ -8,7 +7,7 @@
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
-            [clojure.core.typed :as tc, :refer :all, :exclude [subtype? check]]
+            [clojure.core.typed :as tc, :refer :all, :exclude [subtype? check defrecord]]
             [clojure.core.typed.test.rbt]
             [clojure.core.typed.test.person]
             [clojure.tools.trace :refer [trace-vars untrace-vars
@@ -21,6 +20,11 @@
 (defn check [& as]
   (ensure-clojure)
   (apply tc/check as))
+
+(defmacro is-cf [& args]
+  `(is (do
+         (cf ~@args)
+         true)))
 
 ;(check-ns 'clojure.core.typed.test.deftype)
 
@@ -349,7 +353,7 @@
 
 
 #_(deftest dotted-infer-test
-  (is (cf (map number? [1]))))
+  (is-cf (map number? [1])))
 
 (deftest check-invoke
   (is (thrown? Exception (ety (symbol "a" 'b))))
@@ -392,7 +396,7 @@
          (ret (->HeterogeneousVector []) -true-filter -empty)))
   (is (= (tc-t '())
          (ret (->HeterogeneousList []) -true-filter -empty)))
-  (is (cf '(a b) (List* clojure.lang.Symbol clojure.lang.Symbol))))
+  (is-cf '(a b) (List* clojure.lang.Symbol clojure.lang.Symbol)))
 
 (deftest implied-atomic?-test
   (is (implied-atomic? (-not-filter -false 'a)(-not-filter (Un -nil -false) 'a))))
@@ -1035,7 +1039,7 @@
 (deftest vararg-subtyping-test
   (is (subtype? (parse-type '[nil * -> nil])
                 (parse-type '[nil -> nil])))
-  (is (cf (clojure.core.typed/ann-form (clojure.core.typed/inst merge Any Any) [nil -> nil]))))
+  (is-cf (clojure.core.typed/ann-form (clojure.core.typed/inst merge Any Any) [nil -> nil])))
 
 (deftest poly-filter-test
   (is (= (ret-t (tc-t (let [a (clojure.core.typed/ann-form [1] (clojure.lang.Seqable clojure.core.typed/AnyInteger))]
@@ -1061,7 +1065,7 @@
          (parse-type 'double))))
 
 (deftest hmap-subtype
-  (is (cf {} (clojure.lang.APersistentMap Any Any))))
+  (is-cf {} (clojure.lang.APersistentMap Any Any)))
 
 ;; `do` is special at the top level, tc-ignore should expand out to `do`
 (tc-ignore
@@ -1106,19 +1110,19 @@
 ;  ret-t unparse-type)
 
 (deftest map-literal-test
-  (is (cf {:bar :b}
-          '{:bar ':b}))
+  (is-cf {:bar :b}
+         '{:bar ':b})
   ;correctly generalise
-  (is (cf {(clojure.core.typed/ann-form :bar clojure.lang.Keyword) :b}
-          (clojure.lang.IPersistentMap clojure.lang.Keyword ':b))))
+  (is-cf {(clojure.core.typed/ann-form :bar clojure.lang.Keyword) :b}
+         (clojure.lang.IPersistentMap clojure.lang.Keyword ':b)))
 
 (deftest isa-test
   (is (tc-t (isa? 1 1)))
   (is (tc-t #(isa? (class %) Number))))
 
 (deftest array-primitive-hint-test
-  (is (cf (let [^ints a (clojure.core.typed/into-array> int [(int 1)])]
-            (alength a)))))
+  (is-cf (let [^ints a (clojure.core.typed/into-array> int [(int 1)])]
+           (alength a))))
 
 (deftest array-subtype-test
   (is (sub? (Array int) (Array int)))
@@ -1156,7 +1160,7 @@
                 (parse-type '(clojure.lang.APersistentMap Nothing Nothing)))))
 
 (deftest dotted-on-left-test
-  (is (cf (memoize (fn [])))))
+  (is-cf (memoize (fn []))))
 
 (deftest string-as-seqable-test
   (is (subtype? 
@@ -1165,23 +1169,23 @@
   (is (subtype? 
         (-val "a")
         (RClass-of Seqable [-any])))
-  (is (cf (seq "a")))
-  (is (cf (first "a") Character))
-  (is (cf (first (clojure.core.typed/ann-form "a" String)) (clojure.core.typed/Option Character))))
+  (is-cf (seq "a"))
+  (is-cf (first "a") Character)
+  (is-cf (first (clojure.core.typed/ann-form "a" String)) (clojure.core.typed/Option Character)))
 
 (deftest recursive-cf-test
-  (is (cf (clojure.core.typed/cf 1 Number)
-          Any)))
+  (is-cf (clojure.core.typed/cf 1 Number)
+         Any))
 
 (deftest top-function-subtype-test
   (is (subtype? (parse-type '[Any -> Any])
                 (parse-type 'AnyFunction))))
 
 (deftest intersection-simplify-test
-  (is (cf (let [a (clojure.core.typed/ann-form [] (U Number (clojure.lang.IPersistentVector Number)))]
-            (when (vector? a)
-              a))
-          (U nil (clojure.lang.IPersistentVector Number)))))
+  (is-cf (let [a (clojure.core.typed/ann-form [] (U Number (clojure.lang.IPersistentVector Number)))]
+           (when (vector? a)
+             a))
+         (U nil (clojure.lang.IPersistentVector Number))))
 
 ;dummy fn
 (defn kw-arg-test [& args])
@@ -1189,27 +1193,32 @@
 
 ;TODO keyword args. CTYP-5
 #_(deftest kw-args-test
-  (is (cf (clojure.core.typed.test.core/kw-arg-test :a 1))))
+  (is-cf (clojure.core.typed.test.core/kw-arg-test :a 1)))
 
 (deftest get-APersistentMap-test
-  (is (cf (get (clojure.core.typed/ann-form {} (clojure.lang.APersistentMap Number Number)) :a)
-          (U nil Number))))
+  (is-cf (get (clojure.core.typed/ann-form {} (clojure.lang.APersistentMap Number Number)) :a)
+         (U nil Number)))
 
 (deftest enum-field-non-nilable-test
-  (is (cf (java.util.concurrent.TimeUnit/NANOSECONDS)
-          java.util.concurrent.TimeUnit)))
+  (is-cf (java.util.concurrent.TimeUnit/NANOSECONDS)
+         java.util.concurrent.TimeUnit))
 
 ;;;; Checking deftype implementation of protocol methods
 
-(ann-protocol AddProtoc
-              adder [AddProtoc Number -> Number])
-
-(defprotocol> AddProtoc
-  (adder [this amount]))
-
-(ann-datatype Accumulator [t :- Number])
-
 (deftest new-instance-method-return-test
+  (is 
+    (do 
+      ;ensure annotating in current namespace
+      (ann-protocol AddProtoc
+                    adder [AddProtoc Number -> Number])
+      (defprotocol> AddProtoc
+        (adder [this amount]))
+
+      (ann-datatype Accumulator [t :- Number])
+      (cf (deftype Accumulator [t]
+            AddProtoc
+            (adder [_ i] 1)))
+      true))
   (is (thrown? Exception
                (cf (deftype Accumulator [t]
                      AddProtoc
@@ -1217,29 +1226,29 @@
 ;;;;
 
 (deftest let-filter-unscoping-test
-  (is (cf (fn [a]
+  (is-cf (fn [a]
             (and (< 1 2) a))
-          [(U nil Number) -> Any :filters {:then (is Number 0)}])))
+          [(U nil Number) -> Any :filters {:then (is Number 0)}]))
 
 (deftest map-literal-containing-funapp-test
-  (is (cf {:bar (identity 1)})))
+  (is-cf {:bar (identity 1)}))
 
 (deftest doseq>-test
-  (is (cf (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]
+  (is-cf (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]
                    :when a]
-            (inc a))))
+            (inc a)))
   (is (thrown? Exception
                (cf (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]]
                      (inc a))))))
 
 (deftest for>-test
-  (is (cf
-        (clojure.core.typed/for> :- Number
-              [[a :- (U nil Number)] [1 nil 2 3]
-               [b :- Number] [1 2 3]
-               :when a]
-              (+ a b))
-        (clojure.lang.LazySeq Number)))
+  (is-cf
+    (clojure.core.typed/for> :- Number
+                             [[a :- (U nil Number)] [1 nil 2 3]
+                              [b :- Number] [1 2 3]
+                              :when a]
+                             (+ a b))
+    (clojure.lang.LazySeq Number))
   (is (thrown? Exception
                (cf
                  (clojure.core.typed/for> :- Number
@@ -1248,6 +1257,22 @@
                        (+ a b))))))
 
 (deftest dotimes>-test
-  (is (do
-        (cf (clojure.core.typed/dotimes> [i 100] (inc i)) nil)
-        true)))
+  (is-cf (clojure.core.typed/dotimes> [i 100] (inc i)) nil))
+
+;; Records
+
+(deftest typed-record-test
+  (is
+    (do 
+      ;ensure annotating in current namespace
+      (ann-record MyRecord [a :- Number])
+      (cf (clojure.core/defrecord MyRecord [a]
+           Object
+           (toString [this] nil)))))
+  (is (thrown? Exception 
+               (clojure.core/defrecord MyRecord [a]
+                 Object
+                 (toString [this] nil))))
+  (is-cf (.a ^MyRecord (->MyRecord 1)) Number)
+  (is-cf (:a (->MyRecord 1)) Number)
+  (is-cf (map->MyRecord {:a 2}) MyRecord))

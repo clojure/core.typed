@@ -482,8 +482,7 @@
     *sub-current-seen*
     (type-error s t)))
 
-;Not quite correct, datatypes have other implicit ancestors (?)
-(defmethod subtype* [DataType Type ::clojure]
+(defn- subtype-datatype-record-on-left
   [{:keys [the-class] :as s} t]
   (if (some #(subtype? % t) (set/union #{(RClass-of Object)} 
                                        (or (@DATATYPE-ANCESTOR-ENV the-class)
@@ -491,7 +490,11 @@
     *sub-current-seen*
     (type-error s t)))
 
-(defmethod subtype* [Type DataType ::clojure]
+;Not quite correct, datatypes have other implicit ancestors (?)
+(defmethod subtype* [DataType Type ::clojure] [s t] (subtype-datatype-record-on-left s t))
+(defmethod subtype* [Record Type ::clojure] [s t] (subtype-datatype-record-on-left s t))
+
+(defn- subtype-datatype-record-on-right
   [s {:keys [the-class] :as t}]
   (if (some #(subtype? s %) (set/union #{(RClass-of Object)} 
                                        (or (@DATATYPE-ANCESTOR-ENV the-class)
@@ -499,9 +502,14 @@
     *sub-current-seen*
     (type-error s t)))
 
-(defmethod subtype* [DataType DataType ::default]
+(defmethod subtype* [Type DataType ::clojure] [s t] (subtype-datatype-record-on-right s t))
+(defmethod subtype* [Type Record ::clojure] [s t] (subtype-datatype-record-on-right s t))
+
+(defn- subtype-datatypes-or-records
   [{cls1 :the-class poly1 :poly? :as s} 
    {cls2 :the-class poly2 :poly? :as t}]
+  {:pre [(or (every? Record? [s t])
+             (every? DataType? [s t]))]}
   (if (and (= cls1 cls2)
            (every? (fn [[v l r]]
                      (case v
@@ -512,6 +520,9 @@
                    (map vector (:variances s) poly1 poly2)))
     *sub-current-seen*
     (type-error s t)))
+
+(defmethod subtype* [Record Record ::default] [s t] (subtype-datatypes-or-records s t))
+(defmethod subtype* [DataType DataType ::default] [s t] (subtype-datatypes-or-records s t))
 
 (defn- subtype-rclass
   [{variancesl :variances classl :the-class replacementsl :replacements :as s}

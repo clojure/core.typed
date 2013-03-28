@@ -605,7 +605,10 @@
 (defn parse-field [[n _ t]]
   [n (parse-type t)])
 
-(defn gen-datatype* [provided-name fields variances args ancests]
+(defn gen-datatype* [provided-name fields variances args ancests record?]
+  (let [ctor (if record?
+               `->Record
+               `->DataType)]
   `(do (ensure-clojure)
   (let [provided-name-str# (str '~provided-name)
          ;_# (prn "provided-name-str" provided-name-str#)
@@ -626,48 +629,73 @@
                     (mapv parse-type '~ancests)))
          _# (add-datatype-ancestors s# as#)
          pos-ctor-name# (symbol demunged-ns-str# (str "->" local-name#))
+         map-ctor-name# (symbol demunged-ns-str# (str "map->" local-name#))
          args# '~args
          vs# '~variances
          dt# (if args#
                (Poly* args# (repeat (count args#) no-bounds)
-                      (->DataType s# vs# (map make-F args#) fs#)
+                      (~ctor s# vs# (map make-F args#) fs#)
                       args#)
-               (->DataType s# nil nil fs#))
+               (~ctor s# nil nil fs#))
          pos-ctor# (if args#
                      (Poly* args# (repeat (count args#) no-bounds)
                             (make-FnIntersection
-                              (make-Function (vec (vals fs#)) (->DataType s# vs# (map make-F args#) fs#)))
+                              (make-Function (vec (vals fs#)) (~ctor s# vs# (map make-F args#) fs#)))
                             args#)
                      (make-FnIntersection
-                       (make-Function (vec (vals fs#)) dt#)))]
+                       (make-Function (vec (vals fs#)) dt#)))
+        map-ctor# (when ~record?
+                    (let [hmap-arg# (-hmap (zipmap (map (comp -val keyword) (keys fs#))
+                                                   (vals fs#)))]
+                      (if args#
+                        (Poly* args# (repeat (count args#) no-bounds)
+                               (make-FnIntersection
+                                 (make-Function [hmap-arg#] (~ctor s# vs# (map make-F args#) fs#)))
+                               args#)
+                        (make-FnIntersection
+                          (make-Function [hmap-arg#] dt#)))))]
      (do 
        (when vs#
          (let [f# (mapv make-F (repeatedly (count vs#) gensym))]
            (alter-class* s# (RClass* (map :name f#) vs# f# s# {}))))
        (add-datatype s# dt#)
        (add-var-type pos-ctor-name# pos-ctor#)
-       [[s# (unparse-type dt#)]
-        [pos-ctor-name# (unparse-type pos-ctor#)]]))))
+       (when ~record?
+         (add-method-override (symbol (str s#) "create") map-ctor#)
+         (add-var-type map-ctor-name# map-ctor#))
+       (vec
+         (concat [[s# (unparse-type dt#)]
+                  [pos-ctor-name# (unparse-type pos-ctor#)]]
+                 (when ~record?
+                   [map-ctor-name# (unparse-type map-ctor#)]))))))))
 
 (defmacro ann-datatype [dname fields & {ancests :unchecked-ancestors rplc :replace}]
   (assert (not rplc) "Replace NYI")
   (assert (symbol? dname)
           (str "Must provide name symbol: " dname))
   `(tc-ignore
-     ~(gen-datatype* dname fields nil nil ancests)))
+     ~(gen-datatype* dname fields nil nil ancests false)))
 
 (defmacro ann-pdatatype [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace}]
   (assert (not rplc) "Replace NYI")
   (assert (symbol? dname)
           (str "Must provide local symbol: " dname))
   `(tc-ignore
-     ~(gen-datatype* dname fields (map second vbnd) (map first vbnd) ancests)))
+     ~(gen-datatype* dname fields (map second vbnd) (map first vbnd) ancests false)))
 
-(defmacro ann-record [& args]
-  `(ann-datatype ~@args))
+(defmacro ann-record [dname fields & {ancests :unchecked-ancestors rplc :replace}]
+  (assert (not rplc) "Replace NYI")
+  (assert (symbol? dname)
+          (str "Must provide name symbol: " dname))
+  `(tc-ignore
+     ~(gen-datatype* dname fields nil nil ancests true)))
 
-(defmacro ann-precord [& args]
-  `(ann-pdatatype ~@args))
+(defmacro ann-precord [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace}]
+  (assert (not rplc) "Replace NYI")
+  (assert (symbol? dname)
+          (str "Must provide local symbol: " dname))
+  `(tc-ignore
+     ~(gen-datatype* dname fields (map second vbnd) (map first vbnd) ancests true)))
 
 (defn gen-protocol* [local-varsym variances args mths]
   `(do (ensure-clojure)

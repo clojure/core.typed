@@ -1025,6 +1025,13 @@
                                    nil 
                                    expected)))
 
+(defn Record->HMap [^Record r]
+  {:pre [(Record? r)]
+   :post [(Type? %)]}
+  (let [kf (zipmap (map (comp -val keyword) (keys (.fields r)))
+                   (vals (.fields r)))]
+    (-hmap kf)))
+
 ;[Type Type (Option Type) -> Type]
 (defn find-val-type [t k default]
   {:pre [(Type? t)
@@ -1042,6 +1049,8 @@
                                 ; hmaps don't record absense of keys, so we don't actually know anything here.
                                 #_(or default -nil)
                                 -any))
+
+      (Record? t) (find-val-type (Record->HMap t) k default)
 
       (Intersection? t) (apply In 
                                (for [t* (:types t)]
@@ -2375,7 +2384,7 @@
                  ;generate new names
                  (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
                  dtp)
-            _ (assert (DataType? dt))
+            _ (assert ((some-fn DataType? Record?) dt))
             ft (or (-> dt :fields (get fsym))
                    (throw (Exception. (str "No field " fsym " in Datatype " target-class))))]
         (assoc expr
@@ -2386,9 +2395,11 @@
 (defn DataType-ctor-type [sym]
   (let [dtp (@DATATYPE-ENV sym)]
     (cond
-      (DataType? dtp) (let [dt dtp]
-                        (make-FnIntersection 
-                          (make-Function (-> dt :fields vals) dt)))
+      ((some-fn DataType? Record?) dtp) 
+      (let [dt dtp]
+        (make-FnIntersection 
+          (make-Function (-> dt :fields vals) dt)))
+
       (Poly? dtp) (let [nms (repeatedly (:nbound dtp) gensym)
                         bbnds (Poly-bbnds* nms dtp)
                         dt (unwrap-datatype dtp nms)]
@@ -3177,11 +3188,17 @@
                     (repeatedly (:nbound dt) gensym))]
           (unwrap-datatype dt nms))))
 
+; don't check these implicit methods in a record
+(def record-implicits
+  '#{entrySet values keySet clear putAll remove put get containsValue isEmpty size without
+     assoc iterator seq entryAt containsKey equiv cons empty count getLookupThunk valAt
+     withMeta meta equals hashCode hasheq})
+
 (defmethod check :deftype*
   [{nme :name :keys [methods] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (assert nme) ;remove once analyze is released
-  ;TODO check fields match
+  ;TODO check fields match, handle extra fields in records
   #_(prn "Checking deftype definition:" nme)
   (let [cmmap (into {} (for [[k v] (:mmap expr)]
                          [[(symbol (first k)) (count (second k))]
@@ -3196,7 +3213,7 @@
                (unwrap-datatype dtp (-> dtp meta :actual-frees)))
              dtp)
 
-        _ (assert (DataType? dt))
+        _ (assert ((some-fn DataType? Record?) dt))
         _ (assert dt (str "Untyped datatype definition: " nme))
         ; update this deftype's ancestors to include each protocol/interface in this deftype
         old-ancestors (or (@DATATYPE-ANCESTOR-ENV nme) #{})
@@ -3208,13 +3225,17 @@
                                              (and (class? cls) 
                                                   cls))]
                                 (or (first (filter #(= (:on-class %) tsym) (vals @PROTOCOL-ENV)))
-                                    (RClass-of (Class->symbol cls) nil))
+                                    (RClass-of-with-unknown-params cls))
                                 (resolve-protocol tsym)))))
                         old-ancestors)
         ;_ (prn "ancestor diff" ancestor-diff)
         _ (swap! DATATYPE-ANCESTOR-ENV update-in [nme] set/union ancestor-diff)
+        check-method? (fn [inst-method]
+                        (not (and (Record? dt)
+                                  (record-implicits (symbol (:name inst-method))))))
         _ (try
-            (doseq [inst-method methods]
+            (doseq [inst-method methods
+                    :when (check-method? inst-method)]
               #_(prn "Checking deftype* method: "(:name inst-method))
               (let [nme (:name inst-method)
                     _ (assert (symbol? nme))
@@ -3232,7 +3253,7 @@
                                                                                     [(symbol (munge k)) v]))]
                                                       (munged-methods (:name method-sig)))))
                                                 (instance-method->Function method-sig)))]
-                (prn "ifn" (unparse-type expected-ifn))
+                #_(prn "method expected type" (unparse-type expected-ifn))
                 (with-locals (:fields dt)
                   ;(prn "lexical env when checking method" nme *lexical-env*)
                   ;(prn (:fields dt))

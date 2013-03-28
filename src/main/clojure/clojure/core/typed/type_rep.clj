@@ -215,7 +215,7 @@
 (defn ^Class RClass->Class [^RClass rcls]
   (symbol->Class (.the-class rcls)))
 
-(declare RESTRICTED-CLASS instantiate-poly)
+(declare RESTRICTED-CLASS instantiate-poly ^:dynamic *current-RClass-super*)
 
 (defn RClass-of 
   ([sym-or-cls] (RClass-of sym-or-cls nil))
@@ -228,7 +228,10 @@
                sym-or-cls)
          rc (@RESTRICTED-CLASS sym)]
      (assert ((some-fn Poly? RClass? nil?) rc))
-     (assert (or (Poly? rc) (empty? args)) (str "Cannot instantiate non-polymorphic RClass " sym))
+     (assert (or (Poly? rc) (empty? args)) 
+             (str "Cannot instantiate non-polymorphic RClass " sym
+                  (when *current-RClass-super*
+                    (str " when checking supertypes of RClass " *current-RClass-super*))))
      (cond 
        (Poly? rc) (instantiate-poly rc args)
        (RClass? rc) rc
@@ -253,7 +256,9 @@
 
 (declare poly-RClass-from)
 
-(declare substitute-many unparse-type)
+(declare substitute-many unparse-type RClass-of-with-unknown-params)
+
+(def ^:dynamic *current-RClass-super*)
 
 (defn RClass-supers* 
   "Return a set of ancestors to the RClass"
@@ -266,16 +271,24 @@
   (let [;set of symbols of Classes we haven't explicitly replaced
         not-replaced (set/difference (set (map Class->symbol (-> the-class symbol->Class supers)))
                                      (set (keys replacements)))]
-    (set/union (set (for [csym not-replaced]
-                      (RClass-of csym)))
+    (set/union (binding [*current-RClass-super* the-class]
+                 (set (doall 
+                        (for [csym not-replaced]
+                          (RClass-of-with-unknown-params csym)))))
                (set (vals replacements))
                #{(RClass-of Object)}
                unchecked-ancestors)))
 
-(defrecord Record [the-class fields]
-  "A record"
-  [(class? the-class)
-   ((array-map-c? symbol? Type?) fields)])
+(defrecord Record [the-class variances poly? fields]
+  "A Clojure record"
+  [(or (nil? variances)
+       (and (seq variances)
+            (every? variance? variances)))
+   (or (nil? poly?)
+       (and (seq poly?)
+            (every? Type? poly?)))
+   (symbol? the-class)
+   ((array-map-c? symbol? (some-fn Scope? Type?)) fields)])
 
 (declare-type Record)
 
@@ -496,8 +509,11 @@
 
 (defn instantiate-poly [t types]
   (cond
-    (Poly? t) (do (assert (= (:nbound t) (count types)) (error-msg "Wrong number of arguments passed to polymorphic type: "
-                                                                   (unparse-type t) (mapv unparse-type types)))
+    (Poly? t) (do (assert (= (:nbound t) (count types)) (error-msg "Wrong number of arguments (" (count types) 
+                                                                   ") passed to polymorphic type: "
+                                                                   (unparse-type t)
+                                                                   (when *current-RClass-super*
+                                                                     (str " when checking ancestors of " *current-RClass-super*))))
                 (let [nms (repeatedly (:nbound t) gensym)
                       body (Poly-body* nms t)]
                   (subst-all (make-simple-substitution nms types) body)))

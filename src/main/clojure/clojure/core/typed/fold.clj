@@ -149,6 +149,17 @@
                                                                 (for [[k v] fs]
                                                                   [k (type-rec v)]))))))))
 
+(add-default-fold-case Record
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:poly?] #(when %
+                                                  (mapv type-rec %)))
+                           (update-in [:fields] (fn [fs]
+                                                  (apply array-map
+                                                         (apply concat
+                                                                (for [[k v] fs]
+                                                                  [k (type-rec v)]))))))))
+
 (add-default-fold-case Protocol
                        (fn [ty _]
                          (-> ty

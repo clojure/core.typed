@@ -560,12 +560,17 @@
 
 (declare cs-gen-list)
 
-(defmethod cs-gen* [DataType DataType ::default]
+(defn cs-gen-datatypes-or-records 
   [V X Y S T]
+  {:pre [(or (every? Record? [S T])
+             (every? DataType? [S T]))]}
   (assert (= (:the-class S) (:the-class T)) (type-error S T))
   (if (seq (:poly? S))
     (cs-gen-list V X Y (:poly? S) (:poly? T))
     (empty-cset X Y)))
+
+(defmethod cs-gen* [DataType DataType ::default] [V X Y S T] (cs-gen-datatypes-or-records V X Y S T))
+(defmethod cs-gen* [Record Record ::default] [V X Y S T] (cs-gen-datatypes-or-records V X Y S T))
 
 (defmethod cs-gen* [HeterogeneousVector HeterogeneousVector ::default] 
   [V X Y S T]

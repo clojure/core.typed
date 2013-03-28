@@ -129,6 +129,12 @@
     (list* the-class (mapv unparse-type poly?))
     the-class))
 
+(defmethod unparse-type* Record
+  [{:keys [the-class poly?]}]
+  (if poly?
+    (list* the-class (mapv unparse-type poly?))
+    the-class))
+
 (defmulti unparse-RClass :the-class)
 
 (defmethod unparse-RClass 'clojure.lang.Atom
