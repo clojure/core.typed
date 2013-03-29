@@ -931,8 +931,9 @@
               (->EmptyObject)))))
 
 (deftest tc-throw-test
-  (is (= (:t (tc-t (throw (Exception. "a"))))
-         (Un))))
+  (is (subtype? (:t (tc-t (fn [] (throw (Exception. "a")))))
+                (make-FnIntersection
+                  (make-Function [] (Un))))))
 
 (deftest first-seq-test
   (is (subtype? (ret-t (tc-t (first [1 1 1])))
@@ -1205,7 +1206,8 @@
 
 ;;;; Checking deftype implementation of protocol methods
 
-(deftest new-instance-method-return-test
+;FIXME refactor into files
+#_(deftest new-instance-method-return-test
   (is 
     (do 
       ;ensure annotating in current namespace
