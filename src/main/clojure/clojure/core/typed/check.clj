@@ -5,7 +5,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
 
-(declare ret-t ret-f ret-o)
+(declare ret-t ret-f ret-o expr-ns)
 
 ;[TCResult -> Any]
 (defn unparse-TCResult [r]
@@ -943,12 +943,16 @@
         [javat-syn cljt-syn coll-expr] (if has-java-syn?
                                          args
                                          (cons nil args))
-        javat (let [c (-> (or (when has-java-syn? (:val javat-syn))  ; generalise javat-syn if provided, otherwise cljt-syn
-                              (:val cljt-syn))
-                        parse-type Type->array-member-Class)]
+        javat (let [syn (or (when has-java-syn? (:val javat-syn))  ; generalise javat-syn if provided, otherwise cljt-syn
+                            (:val cljt-syn))
+                    c (-> 
+                        (binding [*parse-type-in-ns* (expr-ns expr)]
+                          (parse-type syn))
+                        Type->array-member-Class)]
                 (assert (class? c))
                 c)
-        cljt (parse-type (:val cljt-syn))
+        cljt (binding [*parse-type-in-ns* (expr-ns expr)]
+               (parse-type (:val cljt-syn)))
         ccoll (check coll-expr (ret (Un -nil (RClass-of Seqable [cljt]))))]
     (assoc expr
            expr-type (ret (->PrimitiveArray javat cljt cljt)))))
@@ -1186,7 +1190,8 @@
                   (resolve-Name t)
                   t))
         _ (assert ((some-fn Poly? PolyDots?) ptype))
-        targs (doall (map parse-type (:val targs-exprs)))]
+        targs (binding [*parse-type-in-ns* (expr-ns expr)]
+                (doall (map parse-type (:val targs-exprs))))]
     (assoc expr
            expr-type (ret (manual-inst ptype targs)))))
 
@@ -1196,7 +1201,8 @@
 ;manual instantiation for calls to polymorphic constructors
 (defmethod invoke-special #'inst-poly-ctor
   [{[ctor-expr targs-exprs] :args :as expr} & [expected]]
-  (let [targs (mapv parse-type (:val targs-exprs))
+  (let [targs (binding [*parse-type-in-ns* (expr-ns expr)]
+                (mapv parse-type (:val targs-exprs)))
         cexpr (binding [*inst-ctor-types* targs]
                 (check ctor-expr))]
     (assoc expr
@@ -1239,14 +1245,23 @@
 ;unsafe form annotation
 (defmethod invoke-special #'unsafe-ann-form*
   [{[frm {tsyn :val}] :args :as expr} & [expected]]
-  (let [parsed-ty (parse-type tsyn)]
+  (let [parsed-ty (binding [*parse-type-in-ns* (expr-ns expr)]
+                    (parse-type tsyn))]
     (assoc expr
            expr-type (ret parsed-ty))))
+
+(defn- expr-ns [expr]
+  (let [nsym (-> expr :env :ns :name symbol)
+        _ (assert nsym (str "Bug! " (:op expr) " expr has no associated namespace"))
+        ns (find-ns nsym)
+        _ (assert ns)]
+    ns))
 
 ;form annotation
 (defmethod invoke-special #'ann-form*
   [{[frm {tsyn :val}] :args :as expr} & [expected]]
-  (let [parsed-ty (parse-type tsyn)
+  (let [parsed-ty (binding [*parse-type-in-ns* (expr-ns expr)]
+                    (parse-type tsyn))
         cty (check frm (ret parsed-ty))
         checked-type (ret-t (expr-type cty))
         _ (binding [*current-expr* frm]
@@ -1262,14 +1277,15 @@
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [[fexpr {type-syns :val}] args
         expected
-        (apply
-          make-FnIntersection
-          (doall
-            (for [{:keys [dom-syntax has-rng? rng-syntax]} type-syns]
-              (make-Function (mapv parse-type dom-syntax)
-                             (if has-rng?
-                               (parse-type rng-syntax)
-                               -any)))))]
+        (binding [*parse-type-in-ns* (expr-ns expr)]
+          (apply
+            make-FnIntersection
+            (doall
+              (for [{:keys [dom-syntax has-rng? rng-syntax]} type-syns]
+                (make-Function (mapv parse-type dom-syntax)
+                               (if has-rng?
+                                 (parse-type rng-syntax)
+                                 -any))))))]
     (check fexpr (ret expected))))
 
 ;polymorphic fn literal
@@ -1279,12 +1295,13 @@
   (let [[fexpr {poly-decl :val} {method-types-syn :val}] args
         frees-with-bounds (map parse-free poly-decl)
         method-types (with-bounded-frees frees-with-bounds
-                       (doall 
-                         (for [{:keys [dom-syntax has-rng? rng-syntax]} method-types-syn]
-                           {:dom (doall (map parse-type dom-syntax))
-                            :rng (if has-rng?
-                                   (parse-type rng-syntax)
-                                   -any)})))
+                       (binding [*parse-type-in-ns* (expr-ns expr)]
+                         (doall 
+                           (for [{:keys [dom-syntax has-rng? rng-syntax]} method-types-syn]
+                             {:dom (doall (map parse-type dom-syntax))
+                              :rng (if has-rng?
+                                     (parse-type rng-syntax)
+                                     -any)}))))
         cexpr (-> (check-anon-fn fexpr method-types :poly frees-with-bounds)
                 (update-in [expr-type :t] (fn [fin] (Poly* (map first frees-with-bounds) 
                                                            (map second frees-with-bounds)
@@ -1312,10 +1329,9 @@
 
 ;loop
 (defmethod invoke-special #'loop>-ann
-  [{:keys [args env] :as expr} & [expected]]
+  [{:keys [args] :as expr} & [expected]]
   (let [[expr {expected-bnds-syn :val}] args
-        expected-bnds (binding [*ns* (or (-> env :ns :name find-ns)
-                                         *ns*)]
+        expected-bnds (binding [*parse-type-in-ns* (expr-ns expr)]
                         (mapv parse-type expected-bnds-syn))]
     ;loop may be nested, type the first loop found
     (binding [*loop-bnd-anns* expected-bnds]
@@ -1324,8 +1340,8 @@
 ;don't type check
 (defmethod invoke-special #'tc-ignore-forms*
   [{:keys [fexpr args] :as expr} & [expected]]
-  (assoc (first args)
-         expr-type (ret (->Top))))
+  (assoc expr
+         expr-type (ret -any)))
 
 ;seq
 (defmethod invoke-special #'clojure.core/seq

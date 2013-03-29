@@ -1,3 +1,7 @@
+0.1.11
+- Type resolution works correctly when checking namespaces other than
+  the current one
+
 0.1.10
 - Added: doseq>, for>, dotimes>
 - Recognise filters from macroexpansion of `and`

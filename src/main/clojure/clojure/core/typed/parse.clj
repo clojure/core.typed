@@ -2,6 +2,8 @@
 
 (in-ns 'clojure.core.typed)
 
+(def ^:dynamic *parse-type-in-ns* nil)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type syntax
 
@@ -300,11 +302,17 @@
   [[_ mandatory & {:keys [optional]}]]
   (syn-to-hmap mandatory optional))
 
+(defn- parse-in-ns []
+  (or *parse-type-in-ns* *ns*))
+
+(defn- resolve-type [sym]
+  (ns-resolve (parse-in-ns) sym))
+
 (defn parse-RClass [cls-sym params-syn]
-  (let [cls (resolve cls-sym)
+  (let [cls (resolve-type cls-sym)
         _ (assert (class? cls) (str cls-sym " cannot be resolved"))
         tparams (doall (map parse-type params-syn))]
-    (RClass-of (Class->symbol cls) tparams)))
+    (RClass-of cls tparams)))
 
 (defmethod parse-type-list 'Value
   [[_Value_ syn]]
@@ -330,7 +338,8 @@
 
 (defmethod parse-type-list :default 
   [[n & args :as syn]]
-  (let [res (resolve n)
+  (let [current-nstr (-> (parse-in-ns) ns-name name)
+        res (resolve-type n)
         rsym (cond 
                (class? res) (Class->symbol res)
                (var? res) (var->symbol res))]
@@ -354,8 +363,8 @@
           (class? res) (RClass-of (Class->symbol res) (mapv parse-type args))
           :else
           ;unqualified declared protocols and datatypes
-          (if-let [s (let [svar (symbol (name (ns-name *ns*)) (name n))
-                           scls (symbol (munge (str (ns-name *ns*) \. (name n))))]
+          (if-let [s (let [svar (symbol current-nstr (name n))
+                           scls (symbol (munge (str current-nstr \. (name n))))]
                        (some #(and (@TYPE-NAME-ENV %)
                                    %)
                              [svar scls]))]
@@ -386,12 +395,13 @@
   [sym]
   (if-let [f (free-in-scope sym)]
     f
-    (let [qsym (if (namespace sym)
+    (let [current-nstr (-> (parse-in-ns) ns-name name)
+          qsym (if (namespace sym)
                  sym
-                 (symbol (-> *ns* ns-name name) (name sym)))
+                 (symbol current-nstr (name sym)))
           clssym (if (some #(= \. %) (str sym))
                    sym
-                   (symbol (str (munge (-> *ns* ns-name name)) \. (name sym))))]
+                   (symbol (str (munge current-nstr) \. (name sym))))]
       (cond
         (primitives sym) (primitives sym)
         (@TYPE-NAME-ENV qsym) (->Name qsym)

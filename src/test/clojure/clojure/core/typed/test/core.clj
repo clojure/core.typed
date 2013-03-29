@@ -1259,20 +1259,9 @@
 (deftest dotimes>-test
   (is-cf (clojure.core.typed/dotimes> [i 100] (inc i)) nil))
 
-;; Records
+(defmacro is-check-ns [& args]
+  `(is (do (check-ns ~@args)
+         true)))
 
-(deftest typed-record-test
-  (is
-    (do 
-      ;ensure annotating in current namespace
-      (ann-record MyRecord [a :- Number])
-      (cf (clojure.core/defrecord MyRecord [a]
-           Object
-           (toString [this] nil)))))
-  (is (thrown? Exception 
-               (clojure.core/defrecord MyRecord [a]
-                 Object
-                 (toString [this] nil))))
-  (is-cf (.a ^MyRecord (->MyRecord 1)) Number)
-  (is-cf (:a (->MyRecord 1)) Number)
-  (is-cf (map->MyRecord {:a 2}) MyRecord))
+(deftest records-test
+  (is-check-ns 'clojure.core.typed.test.records))
