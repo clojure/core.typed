@@ -1484,7 +1484,7 @@
         targett (-resolve targetun)
         hmaps (cond
                 (and (Value? targett) (nil? (.val ^Value targett))) #{(-hmap {})}
-                ((some-fn HeterogeneousVector? HeterogeneousMap?) targett) #{targett}
+                ((some-fn HeterogeneousVector? HeterogeneousMap? Record?) targett) #{targett}
                 (subtype? targett (RClass-of IPersistentMap [-any -any])) #{targett}
                 (subtype? targett (RClass-of IPersistentVector [-any])) #{targett}
                 :else (throw (Exception. (str "Must supply map, vector or nil to first argument of assoc, given "
@@ -1511,6 +1511,22 @@
                                             (Value? kt)
                                             (keyword? (.val ^Value kt)))
                                        (assoc-in hmap [:types kt] vt)
+                                       
+                                       ;updating a base record key must be a subtype of the record's
+                                       ;corresponding field, otherwise just ignore any interesting results.
+                                       (Record? hmap)
+                                       (let [^Record hmap hmap
+                                             ^Value kt kt
+                                             field-type (when (keyword-value? kt)
+                                                          (get (.fields hmap) (symbol (name (.val kt)))))]
+                                         (when-not (and field-type
+                                                        (subtype? vt field-type))
+                                           (throw (Exception. 
+                                                    (error-msg "Cannot associate key " (unparse-type kt)
+                                                               " with value type " (unparse-type vt)
+                                                               " to record " (unparse-type hmap)
+                                                               "\n\n" "in: " (emit-form-fn expr)))))
+                                         hmap)
 
                                        ;keep hvector if number Value key and already hvector
                                        (and (HeterogeneousVector? hmap)
