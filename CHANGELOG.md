@@ -1,6 +1,7 @@
 0.1.11
 - Type resolution works correctly when checking namespaces other than
   the current one
+- Support records. Can associate known keys with assoc.
 
 0.1.10
 - Added: doseq>, for>, dotimes>
