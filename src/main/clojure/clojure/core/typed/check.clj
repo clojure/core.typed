@@ -2367,7 +2367,8 @@
           result-type (check-funapp expr args (ret rfin-type) (map expr-type cargs) expected)
           _ (when expected
               (when-not (subtype? (ret-t result-type) (ret-t expected))
-                (throw (Exception. (error-msg "Return type of instance method " (Method->symbol method)
+                (throw (Exception. (error-msg "Return type of " (if inst? "instance" "static")
+                                              " method " (Method->symbol method)
                                               " is " (unparse-type (ret-t result-type))
                                               ", expected " (unparse-type (ret-t expected)) "."
                                               (when (subtype? -nil (ret-t result-type))
