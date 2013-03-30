@@ -2364,7 +2364,20 @@
                                                 "Form:"
                                                 "\n\t" (emit-form-fn expr)))))))
           cargs (doall (map check args))
-          result-type (check-funapp expr args (ret rfin-type) (map expr-type cargs) expected)]
+          result-type (check-funapp expr args (ret rfin-type) (map expr-type cargs) expected)
+          _ (when expected
+              (when-not (subtype? (ret-t result-type) (ret-t expected))
+                (throw (Exception. (error-msg "Return type of instance method " (Method->symbol method)
+                                              " is " (unparse-type (ret-t result-type))
+                                              ", expected " (unparse-type (ret-t expected)) "."
+                                              (when (subtype? -nil (ret-t result-type))
+                                                (str "\n\nHint: Use `non-nil-return` and `nilable-param` to configure "
+                                                     "where `nil` is allowed in a Java method call. `method-type` "
+                                                     "prints the current type of a method."))
+
+                                              "\n\n"
+                                              "Form:"
+                                              "\n\t" (emit-form-fn expr))))))]
       (assoc expr
              expr-type result-type))))
 

@@ -643,3 +643,4 @@
 ;;END CHUNK HACKS
 
 (non-nil-return java.lang.Object/toString :all)
+(non-nil-return java.lang.String/toUpperCase :all)

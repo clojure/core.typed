@@ -1267,3 +1267,6 @@
 
 (deftest records-test
   (is-check-ns 'clojure.core.typed.test.records))
+
+(deftest string-methods-test
+  (is-cf (.toUpperCase "a") String))
