@@ -8,8 +8,8 @@
             [clojure.repl :refer [pst]])
   (:refer-clojure :exclude (add-classpath)))
 
-(non-nil-return java.lang.Class/getDeclaredMethod :all)
-(nilable-param java.lang.reflect.Method/invoke {2 #{0}})
+#_(non-nil-return java.lang.Class/getDeclaredMethod :all)
+#_(nilable-param java.lang.reflect.Method/invoke {2 #{0}})
 
 (ann call-method [Class Named (IPersistentVector Class) (U nil Object) (U nil Object) * -> (U nil Object)])
 

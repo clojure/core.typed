@@ -7,24 +7,59 @@
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
-            [clojure.core.typed :as tc, :refer :all, :exclude [subtype? check defrecord]]
+            [clojure.core.typed :as tc, :refer :all]
+            [clojure.core.typed.init]
+            [clojure.core.typed
+             [current-impl :as impl]
+             [check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp]]
+             [subtype :as sub]
+             [type-rep :refer :all]
+             [type-ctors :refer :all]
+             [filter-rep :refer :all]
+             [filter-ops :refer :all]
+             [object-rep :refer :all]
+             [path-rep :refer :all]
+             [parse-unparse :refer :all]
+             [constant-type :refer [constant-type]]
+             [lex-env :refer :all]
+             [promote-demote :refer :all]
+             [frees :refer :all]
+             [free-ops :refer :all]
+             [cs-gen :refer :all]
+             [cs-rep :refer :all]]
             [clojure.core.typed.test.rbt]
             [clojure.core.typed.test.person]
             [clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]]))
 
 (defn subtype? [& rs]
-  (ensure-clojure)
-  (apply tc/subtype? rs))
+  (impl/ensure-clojure)
+  (apply sub/subtype? rs))
 
 (defn check [& as]
-  (ensure-clojure)
-  (apply tc/check as))
+  (impl/ensure-clojure)
+  (apply chk/check as))
 
 (defmacro is-cf [& args]
   `(is (do
          (cf ~@args)
          true)))
+
+;Aliases used in unit tests
+(defmacro declare-map-aliases []
+  `(do
+     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MyName ~'(HMap {:a (Value 1)})))
+     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapName ~'(HMap {:a clojure.core.typed.test.core/MyName})))
+     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapStruct1 ~'(HMap {:type (Value :MapStruct1) 
+                                                                                        :a clojure.core.typed.test.core/MyName})))
+     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapStruct2 ~'(HMap {:type (Value :MapStruct2) 
+                                                                                        :b clojure.core.typed.test.core/MyName})))
+     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/UnionName ~'(U clojure.core.typed.test.core/MapStruct1 
+                                                                                   clojure.core.typed.test.core/MapStruct2)))))
+
+(defmacro is-with-aliases [& body]
+  `(is (do (declare-map-aliases)
+           ~@body)))
 
 ;(check-ns 'clojure.core.typed.test.deftype)
 
@@ -150,7 +185,7 @@
                 (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
   (is (not (subtype? (parse-type 'Number)
                      (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x)))))))
-  (is (sub (HMap {:op (Value :if)
+  (is (sub? (HMap {:op (Value :if)
                   :test (HMap {:op (Value :var)
                                :var clojure.lang.Var})
                   :then (HMap {:op (Value :nil)})
@@ -187,7 +222,7 @@
 
 ;return type for an expression f
 (defmacro ety [f]
-  `(do (ensure-clojure)
+  `(do (impl/ensure-clojure)
      (-> (ast ~f) ast-hy check expr-type ret-t)))
 
 (deftest tc-invoke-fn-test
@@ -450,18 +485,18 @@
                 #{(-not-filter (Un -nil -false) 'a)
                   (-filter -true 'b)}))))
   ; more complex impfilter
-  (is (= (env+ (-PropEnv {'and1 (Un -false -true)
-                           'tmap (->Name 'clojure.core.typed.test.core/UnionName)}
-                          [(->ImpFilter (-filter (Un -nil -false) 'and1)
-                                        (-not-filter (-val :MapStruct1)
-                                                     'tmap
-                                                     [(->KeyPE :type)]))
-                           (->ImpFilter (-not-filter (Un -nil -false) 'and1)
-                                        (-filter (-val :MapStruct1)
-                                                 'tmap
-                                                 [(->KeyPE :type)]))])
-               [(-filter (Un -nil -false) 'and1)]
-               (atom true))))
+  (is-with-aliases (= (env+ (-PropEnv {'and1 (Un -false -true)
+                                       'tmap (->Name 'clojure.core.typed.test.core/UnionName)}
+                                      [(->ImpFilter (-filter (Un -nil -false) 'and1)
+                                                    (-not-filter (-val :MapStruct1)
+                                                                 'tmap
+                                                                 [(->KeyPE :type)]))
+                                       (->ImpFilter (-not-filter (Un -nil -false) 'and1)
+                                                    (-filter (-val :MapStruct1)
+                                                             'tmap
+                                                             [(->KeyPE :type)]))])
+                            [(-filter (Un -nil -false) 'and1)]
+                            (atom true))))
   ; refine a subtype
   (is (= (:l (env+ (-PropEnv {'and1 (RClass-of Seqable [-any])} [])
                    [(-filter (RClass-of IPersistentVector [-any]) 'and1)]
@@ -493,7 +528,7 @@
               (-FS -top -bot)
               -empty)))
   ;FIXME inferred filters are bit messy, but should be (-FS -bot (! Seq 0))
-  #_(is (= (-> (tc-t (clojure.core.typed/fn> [[a :- clojure.core.typed.test.core/UnionName]]
+  #_(is-with-aliases (= (-> (tc-t (clojure.core.typed/fn> [[a :- clojure.core.typed.test.core/UnionName]]
                                    (seq? a)))
            ret-t)
          (make-FnIntersection
@@ -520,7 +555,7 @@
   ;roughly the macroexpansion of map destructuring
   ;FIXME
   #_(is (= (tc-t (clojure.core.typed/fn> 
-                 [[map-param :- clojure.core.typed.test.rbt/badRight]]
+                 [[map-param :- clojure.core.typed.test.rbt-types/badRight]]
                  (when (and (= :Black (-> map-param :tree))
                             (= :Red (-> map-param :left :tree))
                             (= :Red (-> map-param :left :right :tree)))
@@ -554,71 +589,62 @@
                                (-hmap {(-val :b) (-val 2)}))]
                           (Un (-val 1) -any))))))
 
-(def-alias MyName (HMap {:a (Value 1)}))
-(def-alias MapName (HMap {:a clojure.core.typed.test.core/MyName}))
-
-(def-alias MapStruct1 (HMap {:type (Value :MapStruct1)
-                             :a clojure.core.typed.test.core/MyName}))
-(def-alias MapStruct2 (HMap {:type (Value :MapStruct2)
-                             :b clojure.core.typed.test.core/MyName}))
-(def-alias UnionName (U MapStruct1 MapStruct2))
-
 (deftest Name-resolve-test
-  (is (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/MyName]]
-                               ;call to (apply hash-map tmap) should be eliminated
-                               (let [{e :a} tmap]
-                                 e)))
-         (ret (make-FnIntersection 
-                (->Function [(->Name 'clojure.core.typed.test.core/MyName)]
-                              (make-Result (->Value 1) (-FS -top -top) -empty)
-                              nil nil nil))
-              (-FS -top -bot) -empty)))
-  (is (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/MapName]]
-                               (let [{e :a} tmap]
-                                 (assoc e :c :b))))
-         (ret (make-FnIntersection (->Function [(->Name 'clojure.core.typed.test.core/MapName)]
-                                               (make-Result (-hmap {(->Value :a) (->Value 1)
-                                                                    (->Value :c) (->Value :b)})
-                                                            (-FS -top -bot) -empty)
-                              nil nil nil))
-              (-FS -top -bot) -empty)))
+  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/MyName]]
+                                                    ;call to (apply hash-map tmap) should be eliminated
+                                                    (let [{e :a} tmap]
+                                                      e)))
+                      (ret (make-FnIntersection 
+                             (->Function [(->Name 'clojure.core.typed.test.core/MyName)]
+                                         (make-Result (->Value 1) (-FS -top -top) -empty)
+                                         nil nil nil))
+                           (-FS -top -bot) -empty)))
+  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/MapName]]
+                                                    (let [{e :a} tmap]
+                                                      (assoc e :c :b))))
+                      (ret (make-FnIntersection (->Function [(->Name 'clojure.core.typed.test.core/MapName)]
+                                                            (make-Result (-hmap {(->Value :a) (->Value 1)
+                                                                                 (->Value :c) (->Value :b)})
+                                                                         (-FS -top -bot) -empty)
+                                                            nil nil nil))
+                           (-FS -top -bot) -empty)))
   ; Name representing union of two maps, both with :type key
-  (is (subtype? 
-        (-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
-                                  (:type tmap)))
-          ret-t)
-        (parse-type '[clojure.core.typed.test.core/UnionName -> (U (Value :MapStruct2)
-                                                      (Value :MapStruct1))])))
+  (is-with-aliases (subtype? 
+                     (-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
+                                                       (:type tmap)))
+                         ret-t)
+                     (parse-type '[clojure.core.typed.test.core/UnionName -> (U (Value :MapStruct2)
+                                                                                (Value :MapStruct1))])))
   ; using = to derive paths
-  (is (subtype? 
-        (-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
-                                  (= :MapStruct1 (:type tmap))))
-          ret-t)
-        (make-FnIntersection 
-          (make-Function 
-            [(->Name 'clojure.core.typed.test.core/UnionName)]
-            (Un -false -true)
-            nil nil
-            :filter (let [t (-val :MapStruct1)
-                          path [(->KeyPE :type)]]
-                      (-FS (-and 
-                             (-filter (-hmap {(-val :type) (-val :MapStruct1)
-                                              (-val :a) (->Name 'clojure.core.typed.test.core/MyName)})
-                                      0)
-                             (-filter (-val :MapStruct1) 0 path)
-                             (-filter t 0 path))
-                           (-not-filter t 0 path)))))))
+  (is-with-aliases (subtype? 
+                     (-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
+                                                       (= :MapStruct1 (:type tmap))))
+                         ret-t)
+                     (make-FnIntersection 
+                       (make-Function 
+                         [(->Name 'clojure.core.typed.test.core/UnionName)]
+                         (Un -false -true)
+                         nil nil
+                         :filter (let [t (-val :MapStruct1)
+                                       path [(->KeyPE :type)]]
+                                   (-FS (-and 
+                                          (-filter (-hmap {(-val :type) (-val :MapStruct1)
+                                                           (-val :a) (->Name 'clojure.core.typed.test.core/MyName)})
+                                                   0)
+                                          (-filter (-val :MapStruct1) 0 path)
+                                          (-filter t 0 path))
+                                        (-not-filter t 0 path)))))))
   ; using filters derived by =
-  (is (subtype? (-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
-                                          (if (= :MapStruct1 (:type tmap))
-                                            (:a tmap)
-                                            (:b tmap))))
-                  ret-t)
-                (parse-type '[clojure.core.typed.test.core/UnionName -> clojure.core.typed.test.core/MyName])))
+  (is-with-aliases (subtype? (-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
+                                                               (if (= :MapStruct1 (:type tmap))
+                                                                 (:a tmap)
+                                                                 (:b tmap))))
+                                 ret-t)
+                             (parse-type '[clojure.core.typed.test.core/UnionName -> clojure.core.typed.test.core/MyName])))
   ; following paths with test of conjuncts
   ;FIXME
   #_(is (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
-                               ; (and (= :MapStruct1 (-> tmap :type))
+                                         ; (and (= :MapStruct1 (-> tmap :type))
                                ;      (= 1 1))
                                (if (clojure.core.typed/print-filterset "final filters"
                                     (let [and1 (clojure.core.typed/print-filterset "first and1"
@@ -696,13 +722,13 @@
   ;test that update resolves Names properly
   ; here we refine the type of tmap with the equivalent of following the then branch 
   ; with test (= :MapStruct1 (:type tmap))
-  (is (= (update (->Name 'clojure.core.typed.test.core/UnionName)
-                 (-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
-         (-hmap {(-val :type) (-val :MapStruct1) 
+  (is-with-aliases (= (update (->Name 'clojure.core.typed.test.core/UnionName)
+                              (-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
+                      (-hmap {(-val :type) (-val :MapStruct1) 
                               (-val :a) (->Name 'clojure.core.typed.test.core/MyName)})))
-  (is (= (update (->Name 'clojure.core.typed.test.core/UnionName)
-                 (-not-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
-         (-hmap {(-val :type) (-val :MapStruct2) 
+  (is-with-aliases (= (update (->Name 'clojure.core.typed.test.core/UnionName)
+                              (-not-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
+                      (-hmap {(-val :type) (-val :MapStruct2) 
                               (-val :b) (->Name 'clojure.core.typed.test.core/MyName)})))
   (is (= (update (Un -true -false) (-filter (Un -false -nil) 'a nil)) 
          -false)))
@@ -717,7 +743,7 @@
   (is (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.PersistentVector [-any])))
   )
 
-(def-alias SomeMap (U (HMap {:a (Value :b)})
+#_(def-alias SomeMap (U (HMap {:a (Value :b)})
                       (HMap {:b (Value :c)})))
 
 (deftest assoc-test
@@ -740,7 +766,7 @@
                       -empty))))
          
 (comment
-(-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.rbt/badRight]]
+(-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.rbt-types/badRight]]
                           (and (= :Black (-> tmap :tree))
                                (= :Red (-> tmap :left :tree))
                                (= :Red (-> tmap :right :tree))
@@ -774,34 +800,37 @@
               (-not-filter (-val :Red) 0 (map ->KeyPE [:right :left :tree]))
               (-not-filter (-val :Red) 0 (map ->KeyPE [:left :tree]))))))
 
+(defmacro is-check-rbt [& body]
+  `(is (do (check-ns '~'clojure.core.typed.test.rbt-types)
+           ~@body)))
+
 (deftest update-nested-hmap-test
-  (is (= (update (-hmap {(-val :left) (->Name 'clojure.core.typed.test.rbt/rbt)})
-                 (-filter (-val :Red) 'id [(->KeyPE :left) (->KeyPE :tree)]))
-         (-hmap {(-val :left) 
-                              (-hmap {(-val :tree) (-val :Red) 
-                                                   (-val :entry) (->Name 'clojure.core.typed.test.rbt/EntryT) 
-                                                   (-val :left) (->Name 'clojure.core.typed.test.rbt/bt) 
-                                                   (-val :right) (->Name 'clojure.core.typed.test.rbt/bt)})}))))
+  (is-check-rbt (= (update (-hmap {(-val :left) (->Name 'clojure.core.typed.test.rbt-types/rbt)})
+                           (-filter (-val :Red) 'id [(->KeyPE :left) (->KeyPE :tree)]))
+                   (-hmap {(-val :left) 
+                           (-hmap {(-val :tree) (-val :Red) 
+                                   (-val :entry) (->Name 'clojure.core.typed.test.rbt-types/EntryT) 
+                                   (-val :left) (->Name 'clojure.core.typed.test.rbt-types/bt) 
+                                   (-val :right) (->Name 'clojure.core.typed.test.rbt-types/bt)})}))))
          
 (deftest rbt-test
-
-  (is (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.rbt/badRight]]
-                               (let [and1 (= :Black (-> tmap :tree))]
-                                 #_(tc-pr-env "first clause")
-                                 (if and1
-                                   (let [and1 (= :Red (-> tmap :left :tree))]
-                                     #_(tc-pr-env "second then clause")
-                                     (if and1
-                                       (let [and1 (= :Red (-> tmap :right :tree))]
-                                         #_(tc-pr-env "third then clause")
-                                         (if and1
-                                           (= :Red (-> tmap :right :left :tree))
-                                           (do #_(tc-pr-env "last clause")
-                                             and1)))
-                                       (do #_(tc-pr-env "third else clause")
-                                         and1)))
-                                   (do #_(tc-pr-env "second else clause")
-                                     and1))))))))
+  (is-check-rbt (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.rbt-types/badRight]]
+                                                 (let [and1 (= :Black (-> tmap :tree))]
+                                                   #_(tc-pr-env "first clause")
+                                                   (if and1
+                                                     (let [and1 (= :Red (-> tmap :left :tree))]
+                                                       #_(tc-pr-env "second then clause")
+                                                       (if and1
+                                                         (let [and1 (= :Red (-> tmap :right :tree))]
+                                                           #_(tc-pr-env "third then clause")
+                                                           (if and1
+                                                             (= :Red (-> tmap :right :left :tree))
+                                                             (do #_(tc-pr-env "last clause")
+                                                                 and1)))
+                                                         (do #_(tc-pr-env "third else clause")
+                                                             and1)))
+                                                     (do #_(tc-pr-env "second else clause")
+                                                         and1))))))))
 
 (deftest check-get-keyword-invoke-test
   ;truth valued key
@@ -976,12 +1005,13 @@
                 (make-CountRange 1)))
   )
 
-(def-alias MyAlias
-  (U nil (HMap {:a Number})))
 
 (deftest names-expansion-test
-  (is (subtype? (->Name 'clojure.core.typed.test.core/MyAlias) 
-                (Un -nil (RClass-of Object)))))
+  (is (do
+        (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MyAlias
+              (U nil (HMap {:a Number}))))
+        (subtype? (->Name 'clojure.core.typed.test.core/MyAlias) 
+                  -any))))
 
 (deftest ccfind-test
   (is (subtype? (-> (tc-t (clojure.core.typed/fn> [[a :- (clojure.lang.IPersistentMap Long String)]]
@@ -1175,8 +1205,9 @@
   (is-cf (first (clojure.core.typed/ann-form "a" String)) (clojure.core.typed/Option Character)))
 
 (deftest recursive-cf-test
-  (is-cf (clojure.core.typed/cf 1 Number)
-         Any))
+  (is (thrown? Exception
+               (cf (clojure.core.typed/cf 1 Number)
+                   Any))))
 
 (deftest top-function-subtype-test
   (is (subtype? (parse-type '[Any -> Any])
@@ -1261,12 +1292,8 @@
 (deftest dotimes>-test
   (is-cf (clojure.core.typed/dotimes> [i 100] (inc i)) nil))
 
-(defmacro is-check-ns [& args]
-  `(is (do (check-ns ~@args)
-         true)))
-
 (deftest records-test
-  (is-check-ns 'clojure.core.typed.test.records))
+  (is (check-ns 'clojure.core.typed.test.records)))
 
 (deftest string-methods-test
   (is-cf (.toUpperCase "a") String))

@@ -1,40 +1,25 @@
-(set! *warn-on-reflection* true)
-
 (ns clojure.core.typed
   (:refer-clojure :exclude [defrecord type])
-  (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
-                         ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
-                         IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
-                         Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
-                         IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
-                         LazySeq APersistentMap Indexed))
-  (:require [clojure.main]
-            [clojure.set :as set]
-            [clojure.reflect :as reflect]
-            [clojure.string :as str]
+  (:require [clojure.reflect :as reflect]
             [clojure.repl :refer [pst]]
-            [clojure.pprint :refer [pprint]]
-            [clojure.math.combinatorics :as comb]
             [clojure.java.io :as io]
-            [cljs
-             [compiler]
-             [analyzer :as cljs]]
             [clojure.tools.trace :refer [trace-vars untrace-vars
-                                         trace-ns untrace-ns]]
-            [clojure.tools.analyzer :as analyze]
-            [clojure.tools.analyzer.hygienic :as hygienic]
+                                         trace-ns untrace-ns]]))
 
-            ;Note: defrecord is now trammel's defconstrainedrecord
-            [clojure.core.typed.utils :refer :all]))
+(set! *warn-on-reflection* true)
 
-(declare ^:dynamic *current-env*)
+(require '[clojure.core.typed.init :as init])
 
-;[Any * -> String]
-(defn ^String error-msg 
-  [& msg]
-  (apply str (when *current-env*
-               (str (:line *current-env*) ": "))
-         (concat msg)))
+(init/reset-envs!)
+
+(require '[clojure.core.typed
+           [type-rep :as r]
+           [current-impl :as impl]
+           [parse-unparse :as prs]
+           [check :as chk]
+           [collect-phase :as coll]
+           [analyze-clj :as ana-clj]
+           [array-ops :as arr]])
 
 ;(ann analyze.hygienic/emit-hy [Any -> Any])
 
@@ -48,10 +33,9 @@
   [debug-string frm] 
   frm)
 
-(declare Method->Type unparse-type unparse-filter)
-
+;FIXME uncomment
 ;(ann method-type [Symbol -> nil])
-(defn method-type 
+#_(defn method-type
   "Given a method symbol, print the core.typed types assigned to it"
   [mname]
   (let [ms (->> (reflect/type-reflect (Class/forName (namespace mname)))
@@ -62,7 +46,7 @@
         _ (assert (seq ms) (str "Method " mname " not found"))]
     (prn "Method name:" mname)
     (doseq [m ms]
-      (prn (unparse-type (Method->Type m))))))
+      (prn (prs/unparse-type (chk/Method->Type m))))))
 
 ;(ann inst-poly [Any Any -> Any])
 (defn inst-poly 
@@ -375,110 +359,60 @@
                   ~@forms)
                 '~bnd-anns)))
 
+(defn declare-datatypes* [nms]
+  nil)
+
 (defmacro declare-datatypes 
   "Declare datatypes, similar to declare but on the type level."
   [& syms]
-  `(tc-ignore
-  (doseq [sym# '~syms]
-    (assert (not (or (some #(= \. %) (str sym#))
-                     (namespace sym#)))
-            (str "Cannot declare qualified datatype: " sym#))
-    (let [qsym# (symbol (str (munge (name (ns-name *ns*))) \. (name sym#)))]
-      (declare-datatype* qsym#)))))
+  `(declare-datatypes* '~syms))
+
+(defn declare-protocols* [syms]
+  nil)
 
 (defmacro declare-protocols 
   "Declare protocols, similar to declare but on the type level."
   [& syms]
-  `(tc-ignore
-  (doseq [sym# '~syms]
-     (let [qsym# (if (namespace sym#)
-                   sym#
-                   (symbol (str (name (ns-name *ns*))) (name sym#)))]
-       (declare-protocol* qsym#)))))
+  `(declare-protocols* '~syms))
+
+(defn declare-alias-kind* [sym ty]
+  nil)
 
 (defmacro declare-alias-kind
   "Declare a kind for an alias, similar to declare but on the kind level."
   [sym ty]
-  `(tc-ignore
-   (do (ensure-clojure)
-     (let [sym# '~sym
-           qsym# (if (namespace sym#)
-                   sym#
-                   (symbol (name (ns-name *ns*)) (name sym#)))
-           ty# (parse-type '~ty)]
-       (assert (not (namespace sym#)) (str "Cannot declare qualified name " sym#))
-       (declare ~sym)
-       (declare-names ~sym)
-       (declare-alias-kind* qsym# ty#)))))
+  `(do
+     (declare ~sym)
+     (declare-alias-kind* '~sym '~ty)))
+
+(defn declare-names* [syms]
+  nil)
 
 (defmacro declare-names 
   "Declare names, similar to declare but on the type level."
   [& syms]
-  `(tc-ignore
-  (doseq [sym# '~syms]
-     (let [qsym# (if (namespace sym#)
-                   sym#
-                   (symbol (name (ns-name *ns*)) (name sym#)))]
-       (declare-name* qsym#)))))
+  `(declare-names* '~syms))
+
+(defn def-alias* [sym type]
+  nil)
 
 (defmacro def-alias 
   "Define a type alias"
   [sym type]
-  `(tc-ignore
-  (do (ensure-clojure)
-    (let [sym# (if (namespace '~sym)
-                 '~sym
-                 (symbol (name (ns-name *ns*)) (name '~sym)))
-          ty# (parse-type '~type)]
-      (add-type-name sym# ty#)
-      (declare ~sym)
-      (when-let [tfn# (@DECLARED-KIND-ENV sym#)]
-        (assert (subtype? ty# tfn#) (error-msg "Declared kind " (unparse-type tfn#)
-                                               " does not match actual kind " (unparse-type ty#))))
-      [sym# (unparse-type ty#)]))))
-
-(declare Type? RClass? PrimitiveArray? RClass->Class parse-type
-         requires-resolving? -resolve Nil? Value? Value->Class Union? Intersection?)
-
-;Return a Class that generalises what this Clojure type will look like from Java,
-;suitable  for use as a Java primitive array member type.
-; 
-; (Type->array-member-Class (parse-type 'nil)) => Object
-; (Type->array-member-Class (parse-type '(U nil Number))) => Number
-; (Type->array-member-Class (parse-type '(Array (U nil Number)))) =~> (Array Number)
-
-;(ann Type->array-member-Class (Fn [Type -> (Option Class)]
-;                                  [Type Any -> (Option Class)]))
-(defn Type->array-member-Class 
-  ([ty] (Type->array-member-Class ty false))
-  ([ty nilok?]
-   {:pre [(Type? ty)]}
-   (cond
-     (requires-resolving? ty) (Type->array-member-Class (-resolve ty) nilok?)
-     (Nil? ty) (if nilok?
-                 nil
-                 Object)
-     (Value? ty) (Value->Class ty)
-     ;; handles most common case of (U nil Type)
-     (Union? ty) (let [clss (map #(Type->array-member-Class % true) (:types ty))
-                       prim-and-nil? (and (some nil? clss)
-                                          (some #(when % (.isPrimitive ^Class %)) clss))
-                       nonil-clss (remove nil? clss)]
-                   (if (and (= 1 (count nonil-clss))
-                            (not prim-and-nil?))
-                     (first nonil-clss)
-                     Object))
-     (Intersection? ty) Object
-     (RClass? ty) (RClass->Class ty)
-     (PrimitiveArray? ty) (class (make-array (Type->array-member-Class (:jtype ty) false) 0))
-     :else Object)))
+  (assert (symbol? sym))
+  (let [qsym (if (namespace sym)
+               sym
+               (symbol (-> *ns* ns-name str) (str sym)))]
+    `(do
+       (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))
+       (def-alias* '~qsym '~type))))
 
 ;(ann into-array>* [Any Any -> Any])
-(defn into-array>* 
+(defn into-array>*
   ([cljt coll]
-   (into-array (-> cljt parse-type Type->array-member-Class) coll))
+   (into-array (-> cljt prs/parse-type arr/Type->array-member-Class) coll))
   ([javat cljt coll]
-   (into-array (-> javat parse-type Type->array-member-Class) coll)))
+   (into-array (-> javat prs/parse-type arr/Type->array-member-Class) coll)))
 
 (defmacro into-array> 
   "Make a Java array with Java class javat and Typed Clojure type
@@ -512,6 +446,9 @@
   [& body]
   `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
 
+(defn non-nil-return* [msym arities]
+  nil)
+
 (defmacro non-nil-return 
   "Override the return type of qualified method msym to be non-nil.
   Takes a set of relevant arities,
@@ -520,8 +457,10 @@
   
   eg.  (non-nil-return java.lang.Class/getDeclaredMethod :all)"
   [msym arities]
-  `(tc-ignore
-  (add-nonnilable-method-return '~msym '~arities)))
+  `(non-nil-return* '~msym '~arities))
+
+(defn nilable-param* [msym mmap]
+  nil)
 
 (defmacro nilable-param 
   "Override which parameters in qualified method msym may accept
@@ -532,404 +471,127 @@
   positions (integers). If the map contains the key :all then this overrides
   other entries. The key can also be :all, which declares all parameters nilable."
   [msym mmap]
-  `(tc-ignore
-  (add-method-nilable-param '~msym '~mmap)))
-
-(declare abstract-many instantiate-many)
-
-(load "typed/type_rep"
-      "typed/type_ops"
-      "typed/filter_rep"
-      "typed/filter_ops"
-      "typed/path_rep"
-      "typed/object_rep")
-
-; must be after type/object/filter definitions
-(load "typed/fold")
+  `(nilable-param* '~msym '~mmap))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Annotations
 
-(declare TCResult?)
-
-;(ann (predicate (APersistentMap Symbol Any)))
-(def lex-env? (hash-c? (every-pred symbol? (complement namespace)) Type?))
-
-(defrecord PropEnv [l props]
-  "A lexical environment l, props is a list of known propositions"
-  [(lex-env? l)
-   (set? props)
-   (every? Filter? props)])
-
-(defn -PropEnv [l props]
-  (->PropEnv l (if (set? props)
-                 props
-                 (into #{} props))))
-
-(def ^:dynamic *lexical-env* (-PropEnv {} #{}))
-(set-validator! #'*lexical-env* PropEnv?)
-
 (defn print-env [debug-str]
   nil)
 
-(defn print-env*
-  ([] (print-env* *lexical-env*))
-  ([e]
-   {:pre [(PropEnv? e)]}
-   ;; DO NOT REMOVE
-   (prn {:env (into {} (for [[k v] (:l e)]
-                         [k (unparse-type v)]))
-         :props (map unparse-filter (:props e))})))
-
-(defonce VAR-ANNOTATIONS (atom {}))
-
-(defmacro with-lexical-env [env & body]
-  `(binding [*lexical-env* ~env]
-     ~@body))
-
-(set-validator! VAR-ANNOTATIONS #(and (every? (every-pred symbol? namespace) (keys %))
-                                      (every? Type? (vals %))))
+(defn ann* [varsym typesyn]
+  nil)
 
 (defmacro ann [varsym typesyn]
-  `(tc-ignore
- (do (ensure-clojure)
-   (let [t# (parse-type '~typesyn)
-         s# (if (namespace '~varsym)
-              '~varsym
-              (symbol (-> *ns* ns-name str) (str '~varsym)))]
-     (do (add-var-type s# t#)
-       [s# (unparse-type t#)])))))
+  (let [qsym (if (namespace varsym)
+               varsym
+               (symbol (-> *ns* ns-name str) (str varsym)))]
+    `(ann* '~qsym '~typesyn)))
 
-(declare parse-type alter-class*)
+(defn ann-datatype* [dname fields opts]
+  nil)
 
-(defn parse-field [[n _ t]]
-  [n (parse-type t)])
-
-(defn gen-datatype* [provided-name fields variances args ancests record?]
-  (let [ctor (if record?
-               `->Record
-               `->DataType)]
-  `(do (ensure-clojure)
-  (let [provided-name-str# (str '~provided-name)
-         ;_# (prn "provided-name-str" provided-name-str#)
-         munged-ns-str# (if (some #(= \. %) provided-name-str#)
-                          (apply str (butlast (apply concat (butlast (partition-by #(= \. %) provided-name-str#)))))
-                          (str (munge (-> *ns* ns-name))))
-         ;_# (prn "munged-ns-str" munged-ns-str#)
-         demunged-ns-str# (str (clojure.repl/demunge munged-ns-str#))
-         ;_# (prn "demunged-ns-str" demunged-ns-str#)
-         local-name# (if (some #(= \. %) provided-name-str#)
-                       (symbol (apply str (last (partition-by #(= \. %) (str provided-name-str#)))))
-                       provided-name-str#)
-         ;_# (prn "local-name" local-name#)
-         s# (symbol (str munged-ns-str# \. local-name#))
-         fs# (apply array-map (apply concat (with-frees (mapv make-F '~args)
-                                              (mapv parse-field (partition 3 '~fields)))))
-         as# (set (with-frees (mapv make-F '~args)
-                    (mapv parse-type '~ancests)))
-         _# (add-datatype-ancestors s# as#)
-         pos-ctor-name# (symbol demunged-ns-str# (str "->" local-name#))
-         map-ctor-name# (symbol demunged-ns-str# (str "map->" local-name#))
-         args# '~args
-         vs# '~variances
-         dt# (if args#
-               (Poly* args# (repeat (count args#) no-bounds)
-                      (~ctor s# vs# (map make-F args#) fs#)
-                      args#)
-               (~ctor s# nil nil fs#))
-         pos-ctor# (if args#
-                     (Poly* args# (repeat (count args#) no-bounds)
-                            (make-FnIntersection
-                              (make-Function (vec (vals fs#)) (~ctor s# vs# (map make-F args#) fs#)))
-                            args#)
-                     (make-FnIntersection
-                       (make-Function (vec (vals fs#)) dt#)))
-        map-ctor# (when ~record?
-                    (let [hmap-arg# (-hmap (zipmap (map (comp -val keyword) (keys fs#))
-                                                   (vals fs#)))]
-                      (if args#
-                        (Poly* args# (repeat (count args#) no-bounds)
-                               (make-FnIntersection
-                                 (make-Function [hmap-arg#] (~ctor s# vs# (map make-F args#) fs#)))
-                               args#)
-                        (make-FnIntersection
-                          (make-Function [hmap-arg#] dt#)))))]
-     (do 
-       (when vs#
-         (let [f# (mapv make-F (repeatedly (count vs#) gensym))]
-           (alter-class* s# (RClass* (map :name f#) vs# f# s# {}))))
-       (add-datatype s# dt#)
-       (add-var-type pos-ctor-name# pos-ctor#)
-       (when ~record?
-         (add-method-override (symbol (str s#) "create") map-ctor#)
-         (add-var-type map-ctor-name# map-ctor#))
-       (vec
-         (concat [[s# (unparse-type dt#)]
-                  [pos-ctor-name# (unparse-type pos-ctor#)]]
-                 (when ~record?
-                   [map-ctor-name# (unparse-type map-ctor#)]))))))))
-
-(defmacro ann-datatype [dname fields & {ancests :unchecked-ancestors rplc :replace}]
+(defmacro ann-datatype [dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
   (assert (not rplc) "Replace NYI")
   (assert (symbol? dname)
           (str "Must provide name symbol: " dname))
-  `(tc-ignore
-     ~(gen-datatype* dname fields nil nil ancests false)))
+  `(ann-datatype* '~dname '~fields '~opts))
 
-(defmacro ann-pdatatype [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace}]
+(defn ann-pdatatype* [dname vbnd fields opt]
+  nil)
+
+(defmacro ann-pdatatype [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   (assert (not rplc) "Replace NYI")
   (assert (symbol? dname)
           (str "Must provide local symbol: " dname))
-  `(tc-ignore
-     ~(gen-datatype* dname fields (map second vbnd) (map first vbnd) ancests false)))
+  `(ann-pdatatype* '~dname '~vbnd '~fields '~opt))
 
-(defmacro ann-record [dname fields & {ancests :unchecked-ancestors rplc :replace}]
-  (assert (not rplc) "Replace NYI")
-  (assert (symbol? dname)
-          (str "Must provide name symbol: " dname))
-  `(tc-ignore
-     ~(gen-datatype* dname fields nil nil ancests true)))
+(defn ann-record* [dname fields opt]
+  nil)
 
-(defmacro ann-precord [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace}]
-  (assert (not rplc) "Replace NYI")
-  (assert (symbol? dname)
-          (str "Must provide local symbol: " dname))
-  `(tc-ignore
-     ~(gen-datatype* dname fields (map second vbnd) (map first vbnd) ancests true)))
+(defmacro ann-record [dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
+  `(ann-record* '~dname '~fields '~opt))
 
-(defn gen-protocol* [local-varsym variances args mths]
-  `(do (ensure-clojure)
-  (let [local-vsym# '~local-varsym
-         s# (symbol (-> *ns* ns-name str) (str local-vsym#))
-         on-class# (symbol (str (munge (namespace s#)) \. local-vsym#))
-         ; add a Name so the methods can be parsed
-         _# (declare-protocol* s#)
-         args# '~args
-         fs# (when args# 
-               (map make-F args#))
-         ms# (into {} (for [[knq# v#] '~mths]
-                        (do
-                          (assert (not (namespace knq#))
-                                  "Protocol method should be unqualified")
-                          [knq# (with-frees fs# (parse-type v#))])))
-         t# (if fs#
-              (Poly* (map :name fs#) (repeat (count fs#) no-bounds) 
-                     (->Protocol s# '~variances fs# on-class# ms#)
-                     (map :name fs#))
-              (->Protocol s# nil nil on-class# ms#))]
-     (do
-       (add-protocol s# t#)
-       (doseq [[kuq# mt#] ms#]
-         ;qualify method names when adding methods as vars
-         (let [kq# (symbol (-> *ns* ns-name str) (str kuq#))]
-           (add-var-type kq# mt#)))
-       [s# (unparse-type t#)]))))
+(defn ann-precord* [dname vbnd fields opt]
+  nil)
+
+(defmacro ann-precord [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
+  `(ann-precord* '~dname '~vbnd '~fields '~opt))
+
+(defn ann-protocol* [local-varsym mth]
+  nil)
 
 (defmacro ann-protocol [local-varsym & {:as mth}]
   (assert (not (or (namespace local-varsym)
                    (some #{\.} (str local-varsym))))
           (str "Must provide local var name for protocol: " local-varsym))
-  `(tc-ignore
-     ~(gen-protocol* local-varsym nil nil mth)))
+  `(ann-protocol* '~local-varsym '~mth))
+
+(defn ann-pprotocol* [local-varsym vbnd mth]
+  nil)
 
 (defmacro ann-pprotocol [local-varsym vbnd & {:as mth}]
   (assert (not (or (namespace local-varsym)
                    (some #{\.} (str local-varsym))))
           (str "Must provide local var name for protocol: " local-varsym))
-  `(tc-ignore
-     ~(gen-protocol* local-varsym (mapv second vbnd) (mapv first vbnd) mth)))
+  `(ann-pprotocol* '~local-varsym '~vbnd '~mth))
 
-(defmacro override-constructor [ctorsym typesyn]
-  `(tc-ignore
-   (do (ensure-clojure)
-     (let [t# (parse-type '~typesyn)
-           s# '~ctorsym]
-       (do (add-constructor-override s# t#)
-         [s# (unparse-type t#)])))))
-
-(defmacro override-method [methodsym typesyn]
-  `(tc-ignore
-   (do (ensure-clojure)
-     (let [t# (parse-type '~typesyn)
-           s# (if (namespace '~methodsym)
-                '~methodsym
-                (throw (Exception. "Method name must be a qualified symbol")))]
-       (do (add-method-override s# t#)
-         [s# (unparse-type t#)])))))
-
-(defn add-var-type [sym type]
-  (swap! VAR-ANNOTATIONS #(assoc % sym type))
+(defn override-constructor* [ctorsym typesyn]
   nil)
 
-(defn lookup-local [sym]
-  (-> *lexical-env* :l sym))
+(defmacro override-constructor [ctorsym typesyn]
+  `(override-constructor* '~ctorsym '~typesyn))
 
-(def ^:dynamic *var-annotations*)
+(defn override-method* [methodsym typesyn]
+  nil)
 
-(defn lookup-Var [nsym]
-  (assert (contains? @*var-annotations* nsym) 
-          (str (when *current-env*
-                 (str (:line *current-env*) ": "))
-            "Untyped var reference: " nsym))
-  (@*var-annotations* nsym))
+(defmacro override-method [methodsym typesyn]
+  `(override-method* '~methodsym '~typesyn))
 
-(defn merge-locals [env new]
-  (-> env
-    (update-in [:l] #(merge % new))))
+(defn typed-deps* [args]
+  nil)
 
-(defmacro with-locals [locals & body]
-  `(binding [*lexical-env* (merge-locals *lexical-env* ~locals)]
-     ~@body))
-
-(declare ^:dynamic *current-env*)
-
-(defn type-of [sym]
-  {:pre [(symbol? sym)]
-   :post [(or (Type? %)
-              (TCResult? %))]}
-  (cond
-    (not (namespace sym)) (if-let [t (lookup-local sym)]
-                            t
-                            (throw (Exception. (str (when *current-env*
-                                                      (str (:line *current-env*) ": "))
-                                                    "Reference to untyped binding: " sym))))
-    :else (lookup-Var sym)))
+(defmacro typed-deps [& args]
+  `(typed-deps* '~args))
 
 
-(derive ::clojurescript ::default)
-(derive ::clojure ::default)
-
-(def TYPED-IMPL (atom ::clojure))
-(set-validator! TYPED-IMPL #(isa? % ::default))
-
-(defn ensure-clojure []
-  (reset! TYPED-IMPL ::clojure))
-
-(defn ensure-clojurescript []
-  (reset! TYPED-IMPL ::clojurescript))
-
-(defn checking-clojure? []
-  (= ::clojure @TYPED-IMPL))
-
-(defn checking-clojurescript? []
-  (= ::clojurescript @TYPED-IMPL))
-
-(load "typed/dvar_env"
-      "typed/datatype_ancestor_env"
-      "typed/datatype_env"
-      "typed/protocol_env"
-      "typed/method_override_env"
-      "typed/ctor_override_env"
-      "typed/method_return_nilables"
-      "typed/method_param_nilables"
-      "typed/declared_kind_env"
-      "typed/name_env"
-      "typed/rclass_env"
-      "typed/mm_env")
-
-(load "typed/constant_type"
-      "typed/parse"
-      "typed/unparse"
-      "typed/frees"
-      "typed/promote_demote"
-      "typed/cs_gen"
-      "typed/subst_dots"
-      "typed/infer"
-      "typed/tvar_rep"
-      "typed/subst"
-      "typed/trans"
-      "typed/inst"
-      "typed/subtype"
-      "typed/alter"
-      "typed/ann"
-      "typed/check"
-      "typed/check_cljs")
-
-;emit something that CLJS can display ie. a quoted unparsed typed
-(defmacro cf-cljs
-  "Type check a Clojurescript form and return its type"
-  ([form]
-   (let [t
-         (do (ensure-clojurescript)
-           (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}} form) check-cljs expr-type unparse-TCResult))]
-     `'~t))
-  ([form expected]
-   (let [t
-         (do (ensure-clojurescript)
-           (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}}
-                         (list `ann-form-cljs form expected))
-             (#(check-cljs % (ret (parse-type expected)))) expr-type unparse-TCResult))]
-     `'~t)))
-
-(defmacro cf 
+; cf can pollute current type environment to allow REPL experimentation, 
+; which is ok because check-ns resets it when called.
+(defmacro cf
   "Type check a Clojure form and return its type"
   ([form]
-  `(do (ensure-clojure)
-     (tc-ignore
-       (-> (analyze/ast ~form) hygienic/ast-hy check expr-type unparse-TCResult))))
+  `(if *currently-checking-clj*
+     (throw (Exception. "cf not allowed while checking"))
+     (do (impl/ensure-clojure)
+         (binding [*currently-checking-clj* true]
+           (let [ast# (ana-clj/ast-for-form '~form)
+                 _# (coll/collect ast#)]
+             (-> ast# chk/check chk/expr-type chk/unparse-TCResult))))))
   ([form expected]
-  `(do (ensure-clojure)
-     (tc-ignore
-       (-> (analyze/ast (ann-form ~form ~expected)) hygienic/ast-hy (#(check % (ret (parse-type '~expected)))) expr-type unparse-TCResult)))))
+  `(if *currently-checking-clj*
+     (throw (Exception. "cf not allowed while checking"))
+     (do (impl/ensure-clojure)
+         (binding [*currently-checking-clj* true]
+           (let [ast# (ana-clj/ast-for-form '~form)
+                 _# (coll/collect ast#)
+                 c-ast# (chk/check ast# (r/ret (prs/parse-type '~expected)))]
+             (-> c-ast# chk/expr-type chk/unparse-TCResult)))))))
 
-(defn analyze-file-asts
-  [^String f]
-  (let [res (if (re-find #"^file://" f) (java.net.URL. f) (io/resource f))]
-    (assert res (str "Can't find " f " in classpath"))
-    (with-altered-specials
-      (binding [cljs/*cljs-ns* 'cljs.user
-                cljs/*cljs-file* (.getPath ^java.net.URL res)
-                *ns* cljs/*reader-ns*]
-        (with-open [r (io/reader res)]
-          (let [env (cljs/empty-env)
-                pbr (clojure.lang.LineNumberingPushbackReader. r)
-                eof (Object.)]
-            (loop [r (read pbr false eof false)
-                   asts []]
-              (let [env (assoc env :ns (cljs/get-namespace cljs/*cljs-ns*))]
-                (if-not (identical? eof r)
-                  (let [ast1 (cljs/analyze env r)]
-                    (recur (read pbr false eof false) (conj asts ast1)))
-                  asts)))))))))
 
-(defn check-cljs-ns*
-  "Type check a CLJS namespace. If not provided default to current namespace"
-  ([] (check-cljs-ns* cljs/*cljs-ns*))
-  ([nsym]
-   (ensure-clojurescript)
-   (let [asts (analyze-file-asts (cljs/ns->relpath nsym))]
-     (doseq [ast asts]
-       (check-cljs ast)))))
+(def ^:dynamic *currently-checking-clj* nil)
 
-(defmacro check-cljs-ns
-  ([] (check-cljs-ns*) `'~'success)
-  ([nsym] (check-cljs-ns* nsym) `'~'success))
-
-(def ^:dynamic *currently-checking-clj* #{})
-
-(defn check-ns 
+(defn check-ns
   "Type check a namespace. If not provided default to current namespace"
   ([] (check-ns (ns-name *ns*)))
   ([nsym]
-   (when-not (*currently-checking-clj* nsym)
-     (binding [*currently-checking-clj* (conj *currently-checking-clj* nsym)]
-       (ensure-clojure)
-       (with-open [^clojure.lang.LineNumberingPushbackReader pbr (analyze/pb-reader-for-ns nsym)]
-         ;FIXME Ignore the first form, assumed to be a call to ns. Functions need to be proper RClasses before this
-         ;checks properly. http://dev.clojure.org/jira/browse/CTYP-16
-         (let [[_ns-decl_ & asts] (->> (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)
-                                      (map hygienic/ast-hy))]
-           (doseq [ast asts]
-             (check-expr ast))))))))
-
-(defn trepl []
-  (clojure.main/repl 
-    :eval (fn [f] 
-            (let [t (do (ensure-clojure)
-                      (-> (analyze/analyze-form f) hygienic/ast-hy
-                        check expr-type unparse-TCResult))]
-              (prn t) 
-              (eval f)))))
+   (init/reset-envs!)
+   (if *currently-checking-clj*
+     (throw (Exception. "Found recursive call to check-ns"))
+     (binding [*currently-checking-clj* true]
+       (impl/ensure-clojure)
+       (coll/collect-ns nsym)
+       (chk/check-ns-and-deps nsym)
+       :ok))))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)
@@ -942,6 +604,4 @@
   (check-ns 'clojure.core.typed.test.person)
   (check-ns 'clojure.core.typed.test.core-logic)
   (check-ns 'clojure.core.typed.test.ckanren)
-
-  (check-cljs-ns 'clojure.core.typed.test.logic)
   )

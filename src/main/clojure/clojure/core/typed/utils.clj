@@ -6,6 +6,15 @@
             [clojure.tools.analyzer :as analyze]
             [clojure.tools.analyzer.hygienic :as hygienic]))
 
+(declare ^:dynamic *current-env*)
+
+;[Any * -> String]
+(defn ^String error-msg 
+  [& msg]
+  (apply str (when *current-env*
+               (str (:line *current-env*) ": "))
+         (concat msg)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
@@ -26,6 +35,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint shorthands
+
+(def nat? (every-pred integer? (complement neg?)))
 
 (def boolean? (some-fn true? false?))
 

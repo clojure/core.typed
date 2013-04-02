@@ -1,18 +1,17 @@
-(set! *warn-on-reflection* true)
+(ns clojure.core.typed.type-rep
+  (:refer-clojure :exclude [defrecord])
+  (:require [clojure.core.typed
+             [utils :as u]]
+            [clojure.set :as set]))
 
-(in-ns 'clojure.core.typed)
+;(set! *warn-on-reflection* true)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Types
-
-(def nat? (every-pred integer? (complement neg?)))
+;;; Type rep predicates
 
 (def Type ::Type)
 
 (defn Type? [a]
   (isa? (class a) Type))
-
-(declare TCResult? Result? Function? DottedPretype? TypeFn?)
 
 (def AnyType ::AnyType)
 
@@ -27,7 +26,10 @@
 (defn declare-AnyType [a]
   (derive a AnyType))
 
-(defrecord Top []
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Types
+
+(u/defrecord Top []
   "The top type"
   [])
 
@@ -36,53 +38,19 @@
 (declare-type Top)
 
 ;FIXME proper union maker, with sorted types
-(defrecord Union [types]
+(u/defrecord Union [types]
   "An flattened, unordered union of types"
   [(set? types)
    (every? Type? types)
    (not (some Union? types))])
 
+;temporary union maker
+(defn- Un [& types]
+  (->Union (set types)))
+
 (declare-type Union)
 
-(declare ->HeterogeneousMap HeterogeneousMap? Bottom)
-
-(def empty-union (->Union #{}))
-
-(defn -hmap 
-  ([types] (-hmap types true))
-  ([types other-keys?]
-   (if (some #(= (Bottom) %) (concat (keys types) (vals types)))
-     (Bottom)
-     (->HeterogeneousMap types other-keys?))))
-
-(defn -complete-hmap [types]
-  (-hmap types false))
-
-#_(defn simplify-HMap-Un [hmaps]
-  {:pre [(every? HeterogeneousMap? hmaps)]
-   :post [(Type? %)]}
-  (let [mss (vals
-              (group-by #(-> % :types keys set) (set hmaps)))
-        ;union the vals of maps with exactly the same keys
-        flat (set
-               (for [ms mss]
-                 (-hmap
-                   (apply merge-with Un
-                          (map :types ms)))))]
-    (if (= 1 (count flat))
-      (first flat)
-      (->Union flat))))
-
-(defn Un [& types]
-  (let [types (disj (set types) empty-union)]
-    (cond
-      (empty? types) empty-union
-      (= 1 (count types)) (first types)
-      :else (->Union (set (apply concat
-                                 (for [t (set types)]
-                                   (if (Union? t)
-                                     (:types t)
-                                     [t]))))))))
+(def empty-union (Un))
 
 (defn Bottom []
   empty-union)
@@ -92,54 +60,21 @@
 (defn Bottom? [a]
   (= empty-union a))
 
-(declare Function? Poly? PolyDots?)
-
 ;should probably be ordered
-(defrecord Intersection [types]
+(u/defrecord Intersection [types]
   "An unordered intersection of types."
   [(seq types)
    (every? Type? types)])
 
-(defrecord FnIntersection [types]
+(declare Function?)
+
+(u/defrecord FnIntersection [types]
   "An ordered intersection of Functions."
   [(seq types)
    (sequential? types)
    (every? Function? types)])
 
 (declare-type FnIntersection)
-
-(declare In HeterogeneousMap? ->HeterogeneousMap overlap)
-
-(defn In [& types]
-  {:pre [(every? Type? types)]
-   :post [(Type? %)]}
-           ;flatten intersections
-  (let [ts (set (apply concat
-                       (for [t (set types)]
-                         (if (Intersection? t)
-                           (:types t)
-                           [t]))))]
-    (cond
-      (or (empty? ts)
-          (ts (Un))) (Bottom)
-
-      (= 1 (count ts)) (first ts)
-
-      ; if there no overlap
-      (and (<= (count ts) 2)
-           (some (fn [[t1 t2]] (not (overlap t1 t2))) (comb/combinations ts 2))) (Bottom)
-
-      (some Union? ts) (let [flat (set (mapcat #(if (Union? %)
-                                                  (:types %)
-                                                  [%])
-                                               ts))]
-                         (apply Un
-                                (set
-                                  (for [[t1 t2] (comb/combinations flat 2)]
-                                    (In t1 t2)))))
-
-      (ts -any) (apply In (disj ts -any))
-      :else (->Intersection ts))))
 
 (declare-type Intersection)
 
@@ -150,20 +85,20 @@
 
 (declare Scope? TypeFn?)
 
-(defrecord Bounds [upper-bound lower-bound higher-kind]
+(u/defrecord Bounds [upper-bound lower-bound higher-kind]
   "A type bound or higher-kind bound on a variable"
   [(some-fn (and (every? (some-fn Type? Scope?) [upper-bound lower-bound])
                  (nil? higher-kind))
             (and (every? nil? [upper-bound lower-bound])
                  (TypeFn? higher-kind)))])
 
-(defrecord B [idx]
+(u/defrecord B [idx]
   "A bound variable. Should not appear outside this file"
-  [(nat? idx)])
+  [(u/nat? idx)])
 
 (declare-type B)
 
-(defrecord F [name]
+(u/defrecord F [name]
   "A named free variable"
   [(symbol? name)])
 
@@ -173,9 +108,7 @@
 
 (declare-type F)
 
-(declare Scope?)
-
-(defrecord Scope [body]
+(u/defrecord Scope [body]
   "A scope that contains one bound variable, can be nested. Not used directly"
   [((some-fn Type? Scope?) body)])
 
@@ -183,19 +116,19 @@
   "True if scope is has depth number of scopes nested"
   [scope depth]
   {:pre [(Scope? scope)
-         (nat? depth)]}
+         (u/nat? depth)]}
   (Type? (last (take (inc depth) (iterate #(and (Scope? %)
                                                 (:body %))
                                           scope)))))
 
-(defrecord Projection [afn ts]
+(u/defrecord Projection [afn ts]
   "Projects type variables as arguments to afn"
   [(fn? afn)
    (every? AnyType? ts)])
 
 (declare-type Projection)
 
-(defrecord RClass [variances poly? the-class replacements unchecked-ancestors]
+(u/defrecord RClass [variances poly? the-class replacements unchecked-ancestors]
   "A restricted class, where ancestors are
   (replace replacements (ancestors the-class))"
   [(or (nil? variances)
@@ -207,79 +140,15 @@
             (sequential? poly?)
             (every? Type? poly?)))
    (symbol? the-class)
-   ((hash-c? symbol? (some-fn Type? Scope?)) replacements)
-   ((set-c? (some-fn Type? Scope?)) unchecked-ancestors)])
+   ((u/hash-c? symbol? (some-fn Type? Scope?)) replacements)
+   ((u/set-c? (some-fn Type? Scope?)) unchecked-ancestors)])
 
 (declare-type RClass)
 
 (defn ^Class RClass->Class [^RClass rcls]
-  (symbol->Class (.the-class rcls)))
+  (u/symbol->Class (.the-class rcls)))
 
-(declare RESTRICTED-CLASS instantiate-poly ^:dynamic *current-RClass-super*)
-
-(defn RClass-of 
-  ([sym-or-cls] (RClass-of sym-or-cls nil))
-  ([sym-or-cls args]
-   {:pre [((some-fn class? symbol?) sym-or-cls)
-          (every? Type? args)]
-    :post [(RClass? %)]}
-   (let [sym (if (class? sym-or-cls)
-               (Class->symbol sym-or-cls)
-               sym-or-cls)
-         rc (@RESTRICTED-CLASS sym)]
-     (assert ((some-fn Poly? RClass? nil?) rc))
-     (assert (or (Poly? rc) (empty? args)) 
-             (str "Cannot instantiate non-polymorphic RClass " sym
-                  (when *current-RClass-super*
-                    (str " when checking supertypes of RClass " *current-RClass-super*))))
-     (cond 
-       (Poly? rc) (instantiate-poly rc args)
-       (RClass? rc) rc
-       :else (->RClass nil nil sym {} #{})))))
-                
-
-(declare Poly* no-bounds)
-
-;smart constructor
-(defn RClass* 
-  ([names variances poly? the-class replacements]
-   (RClass* names variances poly? the-class replacements #{}))
-  ([names variances poly? the-class replacements unchecked-ancestors]
-  {:pre [(every? symbol? names)
-         (every? variance? variances)
-         (= (count variances) (count poly?))
-         (every? Type? poly?)
-         (symbol? the-class)]}
-  (if (seq variances)
-    (Poly* names (repeat (count names) no-bounds) (->RClass variances poly? the-class replacements unchecked-ancestors) names)
-    (->RClass nil nil the-class replacements unchecked-ancestors))))
-
-(declare poly-RClass-from)
-
-(declare substitute-many unparse-type RClass-of-with-unknown-params)
-
-(def ^:dynamic *current-RClass-super*)
-
-(defn RClass-supers* 
-  "Return a set of ancestors to the RClass"
-  [{:keys [poly? replacements the-class unchecked-ancestors] :as rcls}]
-  {:pre [(RClass? rcls)]
-   :post [(set? %)
-          (every? Type? %)
-          (<= (count (filter (some-fn FnIntersection? Poly? PolyDots?) %))
-              1)]}
-  (let [;set of symbols of Classes we haven't explicitly replaced
-        not-replaced (set/difference (set (map Class->symbol (-> the-class symbol->Class supers)))
-                                     (set (keys replacements)))]
-    (set/union (binding [*current-RClass-super* the-class]
-                 (set (doall 
-                        (for [csym not-replaced]
-                          (RClass-of-with-unknown-params csym)))))
-               (set (vals replacements))
-               #{(RClass-of Object)}
-               unchecked-ancestors)))
-
-(defrecord Record [the-class variances poly? fields]
+(u/defrecord Record [the-class variances poly? fields]
   "A Clojure record"
   [(or (nil? variances)
        (and (seq variances)
@@ -288,11 +157,11 @@
        (and (seq poly?)
             (every? Type? poly?)))
    (symbol? the-class)
-   ((array-map-c? symbol? (some-fn Scope? Type?)) fields)])
+   ((u/array-map-c? symbol? (some-fn Scope? Type?)) fields)])
 
 (declare-type Record)
 
-(defrecord DataType [the-class variances poly? fields]
+(u/defrecord DataType [the-class variances poly? fields]
   "A Clojure datatype"
   [(or (nil? variances)
        (and (seq variances)
@@ -301,11 +170,11 @@
        (and (seq poly?)
             (every? Type? poly?)))
    (symbol? the-class)
-   ((array-map-c? symbol? (some-fn Scope? Type?)) fields)])
+   ((u/array-map-c? symbol? (some-fn Scope? Type?)) fields)])
 
 (declare-type DataType)
 
-(defrecord Protocol [the-var variances poly? on-class methods]
+(u/defrecord Protocol [the-var variances poly? on-class methods]
   "A Clojure Protocol"
   [(symbol? the-var)
    (or (nil? variances)
@@ -316,14 +185,14 @@
             (every? Type? poly?)))
    (= (count poly?) (count variances))
    (symbol? on-class)
-   ((hash-c? (every-pred symbol? (complement namespace)) Type?) methods)])
+   ((u/hash-c? (every-pred symbol? (complement namespace)) Type?) methods)])
 
 (declare-type Protocol)
 
-(defrecord TypeFn [nbound variances bbnds scope]
+(u/defrecord TypeFn [nbound variances bbnds scope]
   "A type function containing n bound variables with variances.
   It is of a higher kind"
-  [(nat? nbound)
+  [(u/nat? nbound)
    (every? variance? variances)
    (every? Bounds? bbnds)
    (apply = nbound (map count [variances bbnds]))
@@ -335,44 +204,10 @@
 (defn tfn-bound [tfn]
   (->Bounds nil nil tfn))
 
-(declare visit-bounds)
-
-;smart constructor
-(defn TypeFn* [names variances bbnds body]
-  {:pre [(every? symbol names)
-         (every? variance? variances)
-         (every? Bounds? bbnds)
-         (apply = (map count [names variances bbnds]))
-         ((some-fn TypeFn? Type?) body)]}
-  (if (empty? names)
-    body
-    (->TypeFn (count names) 
-              variances
-              (vec
-                (for [bnd bbnds]
-                  (visit-bounds bnd #(abstract-many names %))))
-              (abstract-many names body))))
-
-;smart destructor
-(defn TypeFn-body* [names ^TypeFn typefn]
-  {:pre [(every? symbol? names)
-         (TypeFn? typefn)]}
-  (assert (= (.nbound typefn) (count names)) "Wrong number of names")
-  (instantiate-many names (.scope typefn)))
-
-(defn TypeFn-bbnds* [names ^TypeFn typefn]
-  {:pre [(every? symbol? names)
-         (TypeFn? typefn)]
-   :post [(every? Bounds? %)]}
-  (assert (= (.nbound typefn) (count names)) "Wrong number of names")
-  (mapv (fn [b]
-          (visit-bounds b #(instantiate-many names %)))
-        (.bbnds typefn)))
-
 ;FIXME actual-frees should be metadata. ie. it should not affect equality
-(defrecord Poly [nbound bbnds scope actual-frees]
+(u/defrecord Poly [nbound bbnds scope actual-frees]
   "A polymorphic type containing n bound variables, with display names actual-frees"
-  [(nat? nbound)
+  [(u/nat? nbound)
    (every? Bounds? bbnds)
    (every? symbol? actual-frees)
    (apply = nbound (map count [bbnds actual-frees]))
@@ -381,58 +216,9 @@
 
 (declare-type Poly)
 
-;smart constructor
-(defn Poly* [names bbnds body free-names]
-  {:pre [(every? symbol names)
-         (every? Bounds? bbnds)
-         (Type? body)
-         (every? symbol? free-names)
-         (apply = (map count [names bbnds free-names]))]}
-  (if (empty? names)
-    body
-    (->Poly (count names) 
-            (vec
-              (for [bnd bbnds]
-                (visit-bounds bnd #(abstract-many names %))))
-            (abstract-many names body)
-            free-names)))
-
-(defn Poly-free-names* [^Poly poly]
-  {:pre [(Poly? poly)]
-   :post [((every-pred seq (every-c? symbol?)) %)]}
-  (.actual-frees poly))
-
-;smart destructor
-(defn Poly-body* [names ^Poly poly]
-  {:pre [(every? symbol? names)
-         (Poly? poly)]}
-  (assert (= (.nbound poly) (count names)) "Wrong number of names")
-  (instantiate-many names (.scope poly)))
-
-(defn Poly-bbnds* [names ^Poly poly]
-  {:pre [(every? symbol? names)
-         (Poly? poly)]}
-  (assert (= (.nbound poly) (count names)) "Wrong number of names")
-  (mapv (fn [b]
-          (visit-bounds b #(instantiate-many names %)))
-        (.bbnds poly)))
-
-(defn RClass-of-with-unknown-params
-  ([sym-or-cls]
-   {:pre [((some-fn class? symbol?) sym-or-cls)]
-    :post [(RClass? %)]}
-   (let [sym (if (class? sym-or-cls)
-               (Class->symbol sym-or-cls)
-               sym-or-cls)
-         rc (@RESTRICTED-CLASS sym)
-         args (when (Poly? rc)
-                ;instantiate with Any, could be more general if respecting variance
-                (repeat (.nbound ^Poly rc) -any))]
-     (RClass-of sym args))))
-
-(defrecord PolyDots [nbound bbnds ^Scope scope]
+(u/defrecord PolyDots [nbound bbnds ^Scope scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
-  [(nat? nbound)
+  [(u/nat? nbound)
    (every? Bounds? bbnds)
    (= nbound (count bbnds))
    (scope-depth? scope nbound)
@@ -440,211 +226,66 @@
 
 (declare-type PolyDots)
 
-;smart constructor
-(defn PolyDots* [names bbnds body]
-  {:pre [(every? symbol names)
-         (every? Bounds? bbnds)
-         (Type? body)]}
-  (assert (= (count names) (count bbnds)) "Wrong number of names")
-  (if (empty? names)
-    body
-    (->PolyDots (count names) 
-                (mapv (fn [bnd] 
-                        (visit-bounds bnd #(abstract-many names %)))
-                      bbnds)
-                (abstract-many names body))))
-
-;smart destructor
-(defn PolyDots-body* [names ^PolyDots poly]
-  {:pre [(every? symbol? names)
-         (PolyDots? poly)]}
-  (assert (= (.nbound poly) (count names)) "Wrong number of names")
-  (instantiate-many names (.scope poly)))
-
-(defn PolyDots-bbnds* [names ^PolyDots poly]
-  {:pre [(every? symbol? names)
-         (PolyDots? poly)]}
-  (assert (= (.nbound poly) (count names)) "Wrong number of names")
-  (mapv (fn [b]
-          (visit-bounds b #(instantiate-many names %)))
-        (.bbnds poly)))
-
-(defrecord Name [id]
+(u/defrecord Name [id]
   "A late bound name"
   [((every-pred (some-fn namespace (fn [a] (some (fn [c] (= \. c)) (str a))))
                 symbol?) 
      id)])
 
-(defrecord TApp [rator rands]
+(u/defrecord TApp [rator rands]
   "An application of a type function to arguments."
   [((some-fn Name? TypeFn? F? B?) rator)
    (every? (some-fn TypeFn? Type?) rands)])
 
 (declare-type TApp) ;not always a type
 
-(defrecord App [rator rands]
+(u/defrecord App [rator rands]
   "An application of a polymorphic type to type arguments"
   [(Type? rator)
    (every? Type? rands)])
 
-(declare -resolve)
-
-(declare ->t-subst subst-all Mu? unfold)
-
-(defn make-simple-substitution [vs ts]
-  {:pre [(every? symbol? vs)
-         (every? Type? ts)
-         (= (count vs)
-            (count ts))]}
-  (into {} (for [[v t] (map vector vs ts)]
-             [v (->t-subst t no-bounds)])))
-
-(defn instantiate-typefn [^TypeFn t types]
-  (assert (TypeFn? t) (str "instantiate-typefn requires a TypeFn: " (unparse-type t)))
-  (do (assert (= (.nbound t) (count types)) (error-msg "Wrong number of arguments passed to type function: "
-                                                       (unparse-type t) (mapv unparse-type types)))
-    (let [nms (repeatedly (.nbound t) gensym)
-          body (TypeFn-body* nms t)]
-      (subst-all (make-simple-substitution nms types) body))))
-
-(defn instantiate-poly [t types]
-  (cond
-    (Poly? t) (do (assert (= (:nbound t) (count types)) (error-msg "Wrong number of arguments (" (count types) 
-                                                                   ") passed to polymorphic type: "
-                                                                   (unparse-type t)
-                                                                   (when *current-RClass-super*
-                                                                     (str " when checking ancestors of " *current-RClass-super*))))
-                (let [nms (repeatedly (:nbound t) gensym)
-                      body (Poly-body* nms t)]
-                  (subst-all (make-simple-substitution nms types) body)))
-    ;PolyDots NYI
-    :else (throw (Exception. "instantiate-poly: requires Poly, and PolyDots NYI"))))
-
-(declare ^:dynamic *current-env* resolve-app*)
-
-(declare resolve-tapp*)
-
-(defn resolve-TApp [^TApp app]
-  {:pre [(TApp? app)]}
-  (resolve-tapp* (.rator app) (.rands app)))
-
-(defn resolve-tapp* [rator rands]
-  (let [^TypeFn rator (-resolve rator)
-        _ (assert (TypeFn? rator) (unparse-type rator))]
-    (assert (= (count rands) (.nbound rator))
-            (error-msg "Wrong number of arguments provided to type function"
-                       (unparse-type rator)))
-    (instantiate-typefn rator rands)))
-
-(defn resolve-App [^App app]
-  {:pre [(App? app)]}
-  (resolve-app* (.rator app) (.rands app)))
-
-(defn resolve-app* [rator rands]
-  (let [rator (-resolve rator)]
-    (cond
-      (Poly? rator) (do (assert (= (count rands) (.nbound ^Poly rator))
-                                (error-msg "Wrong number of arguments provided to polymorphic type"
-                                     (unparse-type rator)))
-                      (instantiate-poly rator rands))
-      ;PolyDots NYI
-      :else (throw (Exception. (str (when *current-env*
-                                      (str (:line *current-env*) ": "))
-                                    "Cannot apply non-polymorphic type " (unparse-type rator)))))))
-
 (declare-type App)
-
-(declare resolve-name* resolve-Name)
-
-(defn -resolve [ty]
-  {:pre [(AnyType? ty)]}
-  (cond 
-    (Name? ty) (resolve-Name ty)
-    (Mu? ty) (unfold ty)
-    (App? ty) (resolve-App ty)
-    (TApp? ty) (resolve-TApp ty)
-    :else ty))
-
-(defn requires-resolving? [ty]
-  (or (Name? ty)
-      (App? ty)
-      (and (TApp? ty)
-           (not (F? (.rator ^TApp ty))))
-      (Mu? ty)))
-
-(defn resolve-Name [nme]
-  {:pre [(Name? nme)]}
-  (resolve-name* (:id nme)))
 
 (declare-type Name)
 
-(defrecord Mu [scope]
+(u/defrecord Mu [scope]
   "A recursive type containing one bound variable, itself"
   [(Scope? scope)])
 
-(declare instantiate substitute remove-scopes subtype? abstract)
-
-;smart constructor
-(defn Mu* [name body]
-  (->Mu (abstract name body)))
-
-;smart destructor
-(defn Mu-body* [name t]
-  {:pre [(Mu? t)
-         (symbol? name)]}
-  (instantiate name (:scope t)))
-
-(defn unfold [t]
-  {:pre [(Mu? t)]
-   :post [(Type? %)]}
-  (let [sym (gensym)
-        body (Mu-body* sym t)]
-    (substitute t sym body)))
-
 (declare-type Mu)
 
-(defrecord Value [val]
+(u/defrecord Value [val]
   "A Clojure value"
   [])
 
-(defn ^Class Value->Class [^Value tval]
-  (class (.val tval)))
-
-(defn keyword-value? [^Value val]
-  (boolean
-    (when (Value? val)
-      (keyword? (.val val)))))
-
-(defrecord AnyValue []
+(u/defrecord AnyValue []
   "Any Value"
   [])
 
 (def -val ->Value)
 
+(def -false (-val false))
+(def -true (-val true))
+(def -nil (-val nil))
+
+(defn Nil? [a] (= -nil a))
+(defn False? [a] (= -false a))
+(defn True? [a] (= -true a))
+
 (declare-type Value)
 (declare-type AnyValue)
 
-(defrecord HeterogeneousMap [types other-keys?]
+(declare Result?)
+
+(u/defrecord HeterogeneousMap [types other-keys?]
   "A constant map, clojure.lang.IPersistentMap"
-  [((hash-c? Value? (some-fn Type? Result?))
+  [((u/hash-c? Value? (some-fn Type? Result?))
      types)
-   (boolean? other-keys?)])
-
-(defn make-HMap [mandatory optional]
-  (assert (= #{}
-             (set/intersection (-> mandatory keys set)
-                               (-> optional keys set))))
-  (apply Un
-         (for [ss (map #(into {} %) (comb/subsets optional))]
-           (-hmap (merge mandatory ss)))))
-
-(defn complete-hmap? [^HeterogeneousMap hmap]
-  {:pre [(HeterogeneousMap? hmap)]}
-  (not (.other-keys? hmap)))
+   (u/boolean? other-keys?)])
 
 (declare-type HeterogeneousMap)
 
-(defrecord HeterogeneousVector [types]
+(u/defrecord HeterogeneousVector [types]
   "A constant vector, clojure.lang.IPersistentVector"
   [(vector? types)
    (every? (some-fn Type? Result?) types)])
@@ -656,21 +297,21 @@
 
 (declare-type HeterogeneousVector)
 
-(defrecord HeterogeneousList [types]
+(u/defrecord HeterogeneousList [types]
   "A constant list, clojure.lang.IPersistentList"
   [(sequential? types)
    (every? Type? types)])
 
 (declare-type HeterogeneousList)
 
-(defrecord HeterogeneousSeq [types]
+(u/defrecord HeterogeneousSeq [types]
   "A constant seq, clojure.lang.ISeq"
   [(sequential? types)
    (every? Type? types)])
 
 (declare-type HeterogeneousSeq)
 
-(defrecord PrimitiveArray [jtype input-type output-type]
+(u/defrecord PrimitiveArray [jtype input-type output-type]
   "A Java Primitive array"
   [(class? jtype)
    (Type? input-type)
@@ -678,20 +319,18 @@
 
 (declare-type PrimitiveArray)
 
-(declare Result?)
-
-(defrecord DottedPretype [pre-type name]
+(u/defrecord DottedPretype [pre-type name]
   "A dotted pre-type. Not a type"
   [(Type? pre-type)
-   ((some-fn symbol? nat?) name)])
+   ((some-fn symbol? u/nat?) name)])
 
 (declare-AnyType DottedPretype)
 
-(defrecord KwArgs [mandatory optional]
+(u/defrecord KwArgs [mandatory optional]
   "A set of mandatory and optional keywords"
-  [(every? (hash-c? Value? Type?) [mandatory optional])])
+  [(every? (u/hash-c? Value? Type?) [mandatory optional])])
 
-(defrecord Function [dom rng rest drest kws]
+(u/defrecord Function [dom rng rest drest kws]
   "A function arity, must be part of an intersection"
   [(or (nil? dom)
        (sequential? dom))
@@ -708,23 +347,23 @@
 
 (declare-AnyType Function)
 
-(defrecord TopFunction []
+(u/defrecord TopFunction []
   "Supertype to all functions"
   [])
 
-(defrecord CountRange [lower upper]
+(u/defrecord CountRange [lower upper]
   "A sequence of count between lower and upper.
   If upper is nil, between lower and infinity."
-  [(nat? lower)
+  [(u/nat? lower)
    (or (nil? upper)
-       (and (nat? upper)
+       (and (u/nat? upper)
             (<= lower upper)))])
 
-(defrecord GTRange [n]
+(u/defrecord GTRange [n]
   "The type of all numbers greater than n"
   [(number? n)])
 
-(defrecord LTRange [n]
+(u/defrecord LTRange [n]
   "The type of all numbers less than n"
   [(number? n)])
 
@@ -737,59 +376,52 @@
   ([lower upper] (->CountRange lower upper)))
 
 (defn make-ExactCountRange [c]
-  {:pre [(nat? c)]}
+  {:pre [(u/nat? c)]}
   (make-CountRange c c))
 
-(declare ->EmptyObject ->Result -FS -top)
-
-(defn make-Result
-  "Make a result. ie. the range of a Function"
-  ([t] (make-Result t nil nil))
-  ([t f] (make-Result t f nil))
-  ([t f o] (->Result t (or f (-FS -top -top)) (or o (->EmptyObject)))))
-
-(declare ret-t ret-f ret-o)
-
-(defn make-Function
-  "Make a function, wrap range type in a Result.
-  Accepts optional :filter and :object parameters that default to the most general filter
-  and EmptyObject"
-  ([dom rng] (make-Function dom rng nil nil))
-  ([dom rng rest] (make-Function dom rng rest nil))
-  ([dom rng rest drest & {:keys [filter object mandatory-kws optional-kws]}]
-   (->Function dom (->Result rng (or filter (-FS -top -top)) (or object (->EmptyObject))) 
-               rest drest (when (or mandatory-kws optional-kws)
-                            (->KwArgs (or mandatory-kws {})
-                                      (or optional-kws {}))))))
+(declare ->Result)
 
 (defn make-FnIntersection [& fns]
   {:pre [(every? Function? fns)]}
   (->FnIntersection fns))
 
-(defrecord NotType [type]
+(u/defrecord NotType [type]
   "A type that does not include type"
   [(Type? type)])
 
 (declare-type NotType)
 
-(defrecord ListDots [pre-type bound]
+(u/defrecord ListDots [pre-type bound]
   "A dotted list"
   [(Type? pre-type)
    ((some-fn F? B?) bound)])
 
 (declare-type ListDots)
 
-(declare abstract)
+(defn- Filter?-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) 'Filter?)]
+    (assert (var? v) "Filter? unbound")
+    v))
 
-(declare Filter? RObject? ret)
+(defn- FilterSet?-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) 'FilterSet?)]
+    (assert (var? v) "FilterSet? unbound")
+    v))
 
-(defrecord Result [t fl o]
+(defn RObject?-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.object-rep) 'RObject?)]
+    (assert (var? v) "RObject? unbound")
+    v))
+
+(u/defrecord Result [t fl o]
   "A result type with filter f and object o. NOT a type."
   [(Type? t)
-   (Filter? fl)
-   (RObject? o)])
+   (@(Filter?-var) fl)
+   (@(RObject?-var) o)])
 
 (declare-AnyType Result)
+
+(declare ret TCResult?)
 
 (defn Result->TCResult [{:keys [t fl o] :as r}]
   {:pre [(Result? r)]
@@ -803,37 +435,30 @@
 
 (defn Result-filter* [r]
   {:pre [(Result? r)]
-   :post [(Filter? %)]}
+   :post [(@(Filter?-var) %)]}
   (:fl r))
 
 (defn Result-object* [r]
   {:pre [(Result? r)]
-   :post [(RObject? %)]}
+   :post [(@(RObject?-var) %)]}
   (:o r))
 
 (def no-bounds (->Bounds (->Top) (Un) nil))
-
-
-(declare unparse-path-elem)
-
-(declare TypeFilter? NotTypeFilter? type-of TCResult? ret-t Nil? False? True? unparse-type)
 
 (def ^:dynamic *mutated-bindings* #{})
 
 (defn is-var-mutated? [id]
   (contains? *mutated-bindings* id))
 
-(declare FilterSet?)
-
-(defrecord FlowSet [normal]
+(u/defrecord FlowSet [normal]
   "The filter that is true when an expression returns normally ie. not an exception."
-  [(Filter? normal)])
+  [(@(Filter?-var) normal)])
 
-(defrecord TCResult [t fl o flow]
+(u/defrecord TCResult [t fl o flow]
   "This record represents the result of typechecking an expression"
   [(Type? t)
-   (FilterSet? fl)
-   (RObject? o)
+   (@(FilterSet?-var) fl)
+   (@(RObject?-var) o)
    (FlowSet? flow)])
 
 (declare-AnyType TCResult)
@@ -841,18 +466,41 @@
 (defn -flow [normal]
   (->FlowSet normal))
 
+(defn- -FS-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-ops) '-FS)]
+    (assert (var? v) "-FS unbound")
+    v))
+
+(defn- -top-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) '-top)]
+    (assert (var? v) "-top unbound")
+    v))
+
+(defn- ->EmptyObject-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.object-rep) '->EmptyObject)]
+    (assert (var? v) "->EmptyObject unbound")
+    v))
+
 ;[Type -> TCResult]
 ;[Type FilterSet -> TCResult]
 ;[Type FilterSet RObject -> TCResult]
 (defn ret
   "Convenience function for returning the type of an expression"
-  ([t] (ret t (-FS -top -top) (->EmptyObject) (-flow -top)))
-  ([t f] (ret t f (->EmptyObject) (-flow -top)))
-  ([t f o] (ret t f o (-flow -top)))
+  ([t] (let [-FS @(-FS-var)
+             -top @(-top-var)
+             ->EmptyObject @(->EmptyObject-var)]
+         (ret t (-FS -top -top) (->EmptyObject) (-flow -top))))
+  ([t f] 
+   (let [-top @(-top-var)
+         ->EmptyObject @(->EmptyObject-var)]
+     (ret t f (->EmptyObject) (-flow -top))))
+  ([t f o] 
+   (let [-top @(-top-var)]
+     (ret t f o (-flow -top))))
   ([t f o flow]
    {:pre [(AnyType? t)
-          (FilterSet? f)
-          (RObject? o)
+          (@(FilterSet?-var) f)
+          (@(RObject?-var) o)
           (FlowSet? flow)]
     :post [(TCResult? %)]}
    (->TCResult t f o flow)))
@@ -866,13 +514,13 @@
 ;[TCResult -> FilterSet]
 (defn ret-f [r]
   {:pre [(TCResult? r)]
-   :post [(FilterSet? %)]}
+   :post [(@(FilterSet?-var) %)]}
   (:fl r))
 
 ;[TCResult -> RObject]
 (defn ret-o [r]
   {:pre [(TCResult? r)]
-   :post [(RObject? %)]}
+   :post [(@(RObject?-var) %)]}
   (:o r))
 
 ;[TCResult -> FlowSet]
@@ -881,8 +529,50 @@
    :post [(FlowSet? %)]}
   (:flow r))
 
-;[Flow -> Fitler]
+;[Flow -> Filter]
 (defn flow-normal [f]
   {:pre [(FlowSet? f)]
-   :post [(Filter? %)]}
+   :post [(@(Filter?-var) %)]}
   (:normal f))
+
+;; Utils
+;; It seems easier to put these here because of dependencies
+
+(defn visit-bounds 
+  "Apply f to each element of bounds"
+  [ty f]
+  {:pre [(Bounds? ty)]
+   :post [(Bounds? ty)]}
+  (-> ty
+    (update-in [:upper-bound] #(when %
+                                 (f %)))
+    (update-in [:lower-bound] #(when %
+                                 (f %)))
+    (update-in [:higher-kind] #(when %
+                                 (f %)))))
+
+(defn make-Result
+  "Make a result. ie. the range of a Function"
+  ([t] (make-Result t nil nil))
+  ([t f] (make-Result t f nil))
+  ([t f o] 
+   (let [-FS @(-FS-var)
+         -top @(-top-var)
+         ->EmptyObject @(->EmptyObject-var)]
+     (->Result t (or f (-FS -top -top)) (or o (->EmptyObject))))))
+
+(defn make-Function
+  "Make a function, wrap range type in a Result.
+  Accepts optional :filter and :object parameters that default to the most general filter
+  and EmptyObject"
+  ([dom rng] (make-Function dom rng nil nil))
+  ([dom rng rest] (make-Function dom rng rest nil))
+  ([dom rng rest drest & {:keys [filter object mandatory-kws optional-kws]}]
+   (let [-FS @(-FS-var)
+         -top @(-top-var)
+         ->EmptyObject @(->EmptyObject-var)]
+     (->Function dom (->Result rng (or filter (-FS -top -top)) (or object (->EmptyObject))) 
+                 rest drest (when (or mandatory-kws optional-kws)
+                              (->KwArgs (or mandatory-kws {})
+                                        (or optional-kws {})))))))
+

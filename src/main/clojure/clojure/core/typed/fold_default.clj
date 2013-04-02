@@ -1,57 +1,23 @@
+(ns clojure.core.typed.fold-default
+  (:require [clojure.core.typed
+             [fold-rep :refer [add-default-fold-case]]
+             [type-rep :as r]
+             [type-ctors :as c]
+             [filter-rep]
+             [object-rep]
+             [path-rep]])
+  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+                                        Projection DottedPretype Function RClass App TApp
+                                        PrimitiveArray DataType Protocol TypeFn Poly PolyDots
+                                        Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
+                                        CountRange Name Value Top TopFunction B F Result
+                                        Record HeterogeneousSeq TCResult)
+           (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
+                                          ImpFilter AndFilter OrFilter FilterSet)
+           (clojure.core.typed.object_rep NoObject EmptyObject Path)
+           (clojure.core.typed.path_rep KeyPE)))
+
 (set! *warn-on-reflection* true)
-
-(in-ns 'clojure.core.typed)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Type Folding
-
-(def fold-rhs-default ::fold-rhs)
-
-;1. fold-rhs calls sends
-; a. Type to type-rec
-; b. Filter to filter-rec
-; c. Object to object-rec
-
-(declare unparse-type)
-
-;visit a type nested inside ty. Add methods with a mode deriving ::visit-type-default 
-(defmulti fold-rhs (fn [mode options ty]
-                     [mode (class ty)]))
-
-; fld-fn has type-rec, filter-rec and object-rec in scope
-(defmacro add-fold-case [mode ty fld-fn]
-  `(defmethod fold-rhs [~mode ~ty]
-     [mode# options# ty#]
-     (let [~'[type-rec filter-rec object-rec pathelem-rec]
-           (map #(or (% options#)
-                     (partial fold-rhs mode# options#))
-                [:type-rec :filter-rec :object-rec :pathelem-rec])]
-       (~fld-fn ty# options#))))
-
-(defmacro add-default-fold-case [ty fld-fn]
-  `(add-fold-case fold-rhs-default ~ty ~fld-fn))
-
-(declare sub-pe)
-
-(defn sub-f [st mode]
-  #(fold-rhs mode
-             {:type-rec st
-              :filter-rec (sub-f st mode)
-              :pathelem-rec (sub-pe st mode)}
-             %))
-
-(defn sub-o [st mode]
-  #(fold-rhs mode
-             {:type-rec st
-              :object-rec (sub-o st mode)
-              :pathelem-rec (sub-pe st mode)}
-             %))
-
-(defn sub-pe [st mode]
-  #(fold-rhs fold-rhs-default
-             {:type-rec st
-              :pathelem-rec (sub-pe st mode)}
-             %))
 
 (add-default-fold-case NotType
                        (fn [ty _]
@@ -60,33 +26,20 @@
 
 (add-default-fold-case Intersection
                        (fn [ty _]
-                         (apply In (mapv type-rec (:types ty)))))
+                         (apply c/In (mapv type-rec (:types ty)))))
 
 (add-default-fold-case Union 
                        (fn [ty _]
-                         (apply Un (mapv type-rec (:types ty)))))
+                         (apply c/Un (mapv type-rec (:types ty)))))
 
 (add-default-fold-case FnIntersection
                        (fn [ty _]
                          (-> ty
                            (update-in [:types] #(mapv type-rec %)))))
 
-(defn visit-bounds 
-  "Apply f to each element of bounds"
-  [ty f]
-  {:pre [(Bounds? ty)]
-   :post [(Bounds? ty)]}
-  (-> ty
-    (update-in [:upper-bound] #(when %
-                                 (f %)))
-    (update-in [:lower-bound] #(when %
-                                 (f %)))
-    (update-in [:higher-kind] #(when %
-                                 (f %)))))
-
 (add-default-fold-case Bounds
                        (fn [ty _]
-                         (visit-bounds ty type-rec)))
+                         (r/visit-bounds ty type-rec)))
 
 (add-default-fold-case Projection
                        (fn [ty _]
@@ -173,38 +126,38 @@
 (add-default-fold-case TypeFn
                        (fn [^TypeFn ty _]
                          (let [names (repeatedly (.nbound ty) gensym)
-                               body (TypeFn-body* names ty)
-                               bbnds (TypeFn-bbnds* names ty)]
-                           (TypeFn* names 
+                               body (c/TypeFn-body* names ty)
+                               bbnds (c/TypeFn-bbnds* names ty)]
+                           (c/TypeFn* names 
                                     (.variances ty)
-                                    (mapv #(visit-bounds % type-rec) bbnds)
+                                    (mapv #(r/visit-bounds % type-rec) bbnds)
                                     (type-rec body)))))
 
 
 (add-default-fold-case Poly
                        (fn [^Poly ty _]
                          (let [names (repeatedly (.nbound ty) gensym)
-                               body (Poly-body* names ty)
-                               bbnds (Poly-bbnds* names ty)]
-                           (Poly* names 
-                                  (mapv #(visit-bounds % type-rec) bbnds)
+                               body (c/Poly-body* names ty)
+                               bbnds (c/Poly-bbnds* names ty)]
+                           (c/Poly* names 
+                                  (mapv #(r/visit-bounds % type-rec) bbnds)
                                   (type-rec body)
-                                  (Poly-free-names* ty)))))
+                                  (c/Poly-free-names* ty)))))
 
 (add-default-fold-case PolyDots
                        (fn [^PolyDots ty _]
                          (let [names (repeatedly (.nbound ty) gensym)
-                               body (PolyDots-body* names ty)
-                               bbnds (PolyDots-bbnds* names ty)]
-                           (PolyDots* names 
-                                      (mapv #(visit-bounds % type-rec) bbnds)
+                               body (c/PolyDots-body* names ty)
+                               bbnds (c/PolyDots-bbnds* names ty)]
+                           (c/PolyDots* names 
+                                      (mapv #(r/visit-bounds % type-rec) bbnds)
                                       (type-rec body)))))
 
 (add-default-fold-case Mu
                        (fn [ty _]
                          (let [name (gensym)
-                               body (Mu-body* name ty)]
-                           (Mu* name (type-rec body)))))
+                               body (c/Mu-body* name ty)]
+                           (c/Mu* name (type-rec body)))))
 
 (add-default-fold-case HeterogeneousVector
                        (fn [ty _]

@@ -1,43 +1,29 @@
-(in-ns 'clojure.core.typed)
+(ns clojure.core.typed.rclass-env
+  (:require [clojure.core.typed
+             [utils :as u]
+             [free-ops :as free-ops]
+             [type-rep :as r]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class
 
+;public because used in alter-class macro
+(defn RClass*-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'RClass*)]
+    (assert (var? v) "RClass* unbound")
+    v))
+(defn parse-type-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.parse-unparse) 'parse-type)]
+    (assert (var? v) "parse unbound")
+    v))
+
 ;Class -> RClass
 (defonce RESTRICTED-CLASS (atom {}))
-(set-validator! RESTRICTED-CLASS (hash-c? symbol? Type?))
-
-(declare with-frees)
-
-(defn- build-replacement-syntax [m]
-  `(into {} (for [[k# v#] '~m]
-              [(if-let [c# (resolve k#)] 
-                 (and (class? c#) (Class->symbol c#))
-                 k#)
-               (parse-type v#)])))
-
-(defn parse-RClass-binder [bnds]
-  (for [[nme & {:keys [variance]}] bnds]
-    [variance (make-F nme)]))
+(set-validator! RESTRICTED-CLASS (u/hash-c? symbol? r/Type?))
 
 (defn alter-class* [csym type]
   (swap! RESTRICTED-CLASS assoc csym type))
 
-(defmacro alter-class [the-class frees-syn & opts]
-  (let [{replacements-syn :replace
-         unchecked-ancestors-syn :unchecked-ancestors} (apply hash-map opts)]
-     `(let [[variances# frees#] (when-let [fs# (seq '~frees-syn)]
-                                  (let [b# (parse-RClass-binder fs#)]
-                                    [(map first b#) (map second b#)]))
-            csym# (let [cls# (when-let [c# (resolve '~the-class)]
-                               (when (class? c#)
-                                 c#))]
-                    (or (and cls# (Class->symbol cls#))
-                        '~the-class))]
-        (alter-class* csym# 
-                      (RClass* (map :name frees#) variances# frees# csym#
-                               (with-frees frees#
-                                 ~(build-replacement-syntax replacements-syn))
-                               (with-frees frees#
-                                 (set (map parse-type '~unchecked-ancestors-syn)))))
-        ~the-class)))
+(defn reset-rclass-env! [m]
+  (reset! RESTRICTED-CLASS m)
+  nil)

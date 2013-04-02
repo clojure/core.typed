@@ -1,4 +1,23 @@
-(in-ns 'clojure.core.typed)
+(ns clojure.core.typed.promote-demote
+  (:require [clojure.core.typed
+             [utils :as u]
+             [type-rep :as r]
+             [type-ctors :as c]
+             [filter-rep]
+             [object-rep]
+             [path-rep]]
+            [clojure.set :as set])
+  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+                                        Projection DottedPretype Function RClass App TApp
+                                        PrimitiveArray DataType Protocol TypeFn Poly PolyDots
+                                        Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
+                                        CountRange Name Value Top TopFunction B F Result AnyValue
+                                        Record HeterogeneousSeq)
+           (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
+                                          ImpFilter)
+           (clojure.core.typed.object_rep NoObject EmptyObject Path)
+           (clojure.core.typed.path_rep KeyPE CountPE ClassPE)
+           (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 
 ;FIXME use fold!
 
@@ -8,23 +27,23 @@
 (declare promote demote)
 
 (defn promote-var [T V]
-  {:pre [(Type? T)
+  {:pre [(r/Type? T)
          (set? V)
          (every? symbol? V)]
-   :post [(Type? %)]}
+   :post [(r/Type? %)]}
   (promote T V))
 
 (defn demote-var [T V]
-  {:pre [(AnyType? T)
+  {:pre [(r/AnyType? T)
          (set? V)
          (every? symbol? V)]
-   :post [(Type? %)]}
+   :post [(r/Type? %)]}
   (demote T V))
 
 (defmulti promote 
   "Eliminate all variables V in t by promotion"
   (fn [T V] 
-    {:pre [(AnyType? T)
+    {:pre [(r/AnyType? T)
            (set? V)
            (every? symbol? V)]}
     (class T)))
@@ -32,7 +51,7 @@
 (defmulti demote 
   "Eliminate all variables V in T by demotion"
   (fn [T V]
-    {:pre [(AnyType? T)
+    {:pre [(r/AnyType? T)
            (set? V)
            (every? symbol? V)]}
     (class T)))
@@ -52,13 +71,13 @@
 (defmethod promote F
   [{:keys [name] :as T} V]
   (if (V name)
-    -any
+    r/-any
     T))
 
 (defmethod demote F
   [{:keys [name] :as T} V]
   (if (V name)
-    (Bottom)
+    (r/Bottom)
     T))
 
 (defmethod promote HeterogeneousMap
@@ -195,35 +214,35 @@
 
 (defmethod promote Poly
   [{:keys [nbound] :as T} V]
-  (let [free-names (Poly-free-names* T)
+  (let [free-names (c/Poly-free-names* T)
         names (repeatedly nbound gensym)
-        pmt-body (promote (Poly-body* names T) V)]
-    (Poly* names 
-           (Poly-bbnds* names T)
+        pmt-body (promote (c/Poly-body* names T) V)]
+    (c/Poly* names 
+           (c/Poly-bbnds* names T)
            pmt-body
            free-names)))
 
 (defmethod demote Poly
   [{:keys [nbound] :as T} V]
-  (let [free-names (Poly-free-names* T)
+  (let [free-names (c/Poly-free-names* T)
         names (repeatedly nbound gensym)
-        dem-body (demote (Poly-body* names T) V)]
-    (Poly* names 
-           (Poly-bbnds* names T)
+        dem-body (demote (c/Poly-body* names T) V)]
+    (c/Poly* names 
+           (c/Poly-bbnds* names T)
            dem-body
            free-names)))
 
 (defmethod promote Mu
   [T V]
   (let [name (gensym)
-        body (Mu-body* name T)]
-    (Mu* name (promote body V))))
+        body (c/Mu-body* name T)]
+    (c/Mu* name (promote body V))))
 
 (defmethod demote Mu
   [T V]
   (let [name (gensym)
-        body (Mu-body* name T)]
-    (Mu* name (demote body V))))
+        body (c/Mu-body* name T)]
+    (c/Mu* name (demote body V))))
 
 (defmethod promote Function
   [{:keys [dom rng rest drest kws] :as T} V]
@@ -233,7 +252,7 @@
                            [k (dmt v)]))]
     (cond 
       ;if filter contains V, give up
-      (seq (set/intersection V (Result-filter* rng))) (->TopFunction)
+      (seq (set/intersection V (r/Result-filter* rng))) (r/->TopFunction)
 
       ;if dotted bound is in V, transfer to rest args
       (and drest (V (:name drest)))
@@ -271,7 +290,7 @@
                            [k (pmt v)]))]
     (cond 
       ;if filter contains V, give up
-      (seq (set/intersection V (Result-filter* rng))) (->TopFunction)
+      (seq (set/intersection V (r/Result-filter* rng))) (r/->TopFunction)
 
       ;if dotted bound is in V, transfer to rest args
       (and drest (V (:name drest)))

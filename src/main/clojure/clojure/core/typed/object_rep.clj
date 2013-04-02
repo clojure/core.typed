@@ -1,4 +1,10 @@
-(in-ns 'clojure.core.typed)
+(ns clojure.core.typed.object-rep
+  (:refer-clojure :exclude [defrecord])
+  (:require [clojure.core.typed
+             [type-rep :as r]
+             [path-rep :as pr]
+             [filter-rep :as fr]
+             [utils :as u]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Objects
@@ -11,29 +17,27 @@
 (defn declare-robject [c]
   (derive c RObject))
 
-(defrecord EmptyObject []
+(u/defrecord EmptyObject []
   "?"
   [])
 
 (def -empty (->EmptyObject))
 
-(defrecord Path [path id]
+(u/defrecord Path [path id]
   "A path to a variable. Paths grow to the right, with leftmost
   pathelem being applied first (think of -> threading operator)."
   [(or (and (seq path)
             (sequential? path))
        (nil? path))
-   (every? PathElem? path)
-   (name-ref? id)])
+   (every? pr/PathElem? path)
+   (fr/name-ref? id)])
 
-(defrecord NoObject []
+(u/defrecord NoObject []
   "Represents no info about the object of this expression
   should only be used for parsing type annotations and expected types"
   [])
 
 ;Objects
-
-(declare unparse-path-elem)
 
 (declare-robject EmptyObject)
 (declare-robject Path)

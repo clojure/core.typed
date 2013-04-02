@@ -1,13 +1,35 @@
-(set! *warn-on-reflection* true)
+(ns clojure.core.typed.frees
+  (:require [clojure.core.typed
+             [type-rep :as r]
+             [type-ctors :as c]
+             [object-rep]
+             [utils :as u]
+             [filter-rep :as fr]
+             [free-ops :as free-ops]
+             [name-env :as nmenv]
+             [declared-kind-env :as kinds]])
+  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+                                        Projection DottedPretype Function RClass App TApp
+                                        PrimitiveArray DataType Protocol TypeFn Poly PolyDots
+                                        Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
+                                        CountRange Name Value Top TopFunction B F Result AnyValue
+                                        HeterogeneousSeq Scope)
+           (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
+                                          AndFilter OrFilter TopFilter BotFilter)
+           (clojure.core.typed.object_rep Path EmptyObject NoObject)
+           (clojure.core.typed.path_rep KeyPE)))
 
-(in-ns 'clojure.core.typed)
+(def ^:dynamic *frees-mode* nil)
+(set-validator! #'*frees-mode* #(or (= ::frees %)
+                                    (= ::idxs %)
+                                    (nil? %)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Collecting frees
 
-(def variance-map? (hash-c? symbol? variance?))
+(def variance-map? (u/hash-c? symbol? r/variance?))
 
-(declare ^:dynamic *frees-mode* frees-in)
+(declare frees-in)
 
 (defn fv-variances 
   "Map of frees to their variances"
@@ -26,13 +48,13 @@
 (defn fv 
   "All frees in type"
   [t]
-  {:post [((set-c? symbol?) %)]}
+  {:post [((u/set-c? symbol?) %)]}
   (set (keys (fv-variances t))))
 
 (defn fi
   "All index variables in type (dotted bounds, etc.)"
   [t]
-  {:post [((set-c? symbol?) %)]}
+  {:post [((u/set-c? symbol?) %)]}
   (set (keys (idx-variances t))))
 
 (defn flip-variances [vs]
@@ -59,11 +81,6 @@
 
 (derive ::frees ::any-var)
 (derive ::idxs ::any-var)
-
-(def ^:dynamic *frees-mode* nil)
-(set-validator! #'*frees-mode* #(or (= ::frees %)
-                                    (= ::idxs %)
-                                    (nil? %)))
 
 (declare frees)
 
@@ -153,14 +170,14 @@
          (let [^TypeFn
                tfn (loop [rator rator]
                      (cond
-                       (F? rator) (when-let [bnds (free-with-name-bnds (.name ^F rator))]
-                                    (.higher-kind bnds))
-                       (Name? rator) (if (= declared-name-type (@TYPE-NAME-ENV (.id ^Name rator)))
-                                       (recur (get-declared-kind (.id ^Name rator)))
-                                       (recur (resolve-Name rator)))
-                       (TypeFn? rator) rator
-                       :else (throw (Exception. (error-msg "NYI case " (class rator) (unparse-type rator))))))
-               _ (assert (TypeFn? tfn))]
+                       (r/F? rator) (when-let [bnds (free-ops/free-with-name-bnds (.name ^F rator))]
+                                      (.higher-kind bnds))
+                       (r/Name? rator) (if (= nmenv/declared-name-type (@nmenv/TYPE-NAME-ENV (.id ^Name rator)))
+                                         (recur (kinds/get-declared-kind (.id ^Name rator)))
+                                         (recur (c/resolve-Name rator)))
+                       (r/TypeFn? rator) rator
+                       :else (throw (Exception. (u/error-msg "NYI case " (class rator))))))
+               _ (assert (r/TypeFn? tfn))]
            (mapv (fn [[v arg-vs]]
                    (case v
                      :covariant arg-vs

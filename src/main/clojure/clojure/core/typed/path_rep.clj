@@ -1,4 +1,7 @@
-(in-ns 'clojure.core.typed)
+(ns clojure.core.typed.path-rep
+  (:refer-clojure :exclude [defrecord])
+  (:require [clojure.core.typed
+             [utils :as u]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Paths
@@ -11,22 +14,22 @@
 (defn declare-path-elem [c]
   (derive c PathElem))
 
-(defrecord FirstPE []
+(u/defrecord FirstPE []
   "A path calling clojure.core/first"
   [])
-(defrecord NextPE []
+(u/defrecord NextPE []
   "A path calling clojure.core/next"
   [])
 
-(defrecord ClassPE []
+(u/defrecord ClassPE []
   "A path calling clojure.core/class"
   [])
 
-(defrecord CountPE []
+(u/defrecord CountPE []
   "A path calling clojure.core/count"
   [])
 
-(defrecord KeyPE [val]
+(u/defrecord KeyPE [val]
   "A key in a hash-map"
   [(keyword? val)])
 

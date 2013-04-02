@@ -7,7 +7,7 @@
 
 (ann-record MyRecord [a :- Number])
 
-(clojure.core/defrecord MyRecord [a]
+(defrecord MyRecord [a]
   Object
   (toString [this] nil))
 

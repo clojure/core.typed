@@ -1,5 +1,58 @@
 (in-ns 'clojure.core.typed)
 
+;; All CLJS related stuff are dumped here. Need to revisit.
+
+;emit something that CLJS can display ie. a quoted unparsed typed
+#_(defmacro cf-cljs
+  "Type check a Clojurescript form and return its type"
+  ([form]
+   (let [t
+         (do (ensure-clojurescript)
+           (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}} form) check-cljs expr-type unparse-TCResult))]
+     `'~t))
+  ([form expected]
+   (let [t
+         (do (ensure-clojurescript)
+           (-> (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}}
+                         (list `ann-form-cljs form expected))
+             (#(check-cljs % (ret (parse-type expected)))) expr-type unparse-TCResult))]
+     `'~t)))
+
+#_(defn analyze-file-asts
+  [^String f]
+  (let [res (if (re-find #"^file://" f) (java.net.URL. f) (io/resource f))]
+    (assert res (str "Can't find " f " in classpath"))
+    (with-altered-specials
+      (binding [cljs/*cljs-ns* 'cljs.user
+                cljs/*cljs-file* (.getPath ^java.net.URL res)
+                *ns* cljs/*reader-ns*]
+        (with-open [r (io/reader res)]
+          (let [env (cljs/empty-env)
+                pbr (clojure.lang.LineNumberingPushbackReader. r)
+                eof (Object.)]
+            (loop [r (read pbr false eof false)
+                   asts []]
+              (let [env (assoc env :ns (cljs/get-namespace cljs/*cljs-ns*))]
+                (if-not (identical? eof r)
+                  (let [ast1 (cljs/analyze env r)]
+                    (recur (read pbr false eof false) (conj asts ast1)))
+                  asts)))))))))
+
+;FIXME uncomment
+#_(defn check-cljs-ns*
+  "Type check a CLJS namespace. If not provided default to current namespace"
+  ([] (check-cljs-ns* cljs/*cljs-ns*))
+  ([nsym]
+   (ensure-clojurescript)
+   (let [asts (analyze-file-asts (cljs/ns->relpath nsym))]
+     (doseq [ast asts]
+       (check-cljs ast)))))
+
+#_(defmacro check-cljs-ns
+  ([] (check-cljs-ns*) `'~'success)
+  ([nsym] (check-cljs-ns* nsym) `'~'success))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Modify CLJS specials
 
@@ -117,13 +170,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtyping
 
-(defmethod subtype* [Value SymbolCLJS ::clojurescript]
+(defmethod subtype* [Value SymbolCLJS impl/clojurescript]
   [{:keys [val] :as s} t]
   (if (symbol? val)
     *sub-current-seen*
     (type-error s t)))
 
-(defmethod subtype* [Value BooleanCLJS ::clojurescript]
+(defmethod subtype* [Value BooleanCLJS impl/clojurescript]
   [{:keys [val] :as s} t]
   (if ((some-fn true? false?) val)
     *sub-current-seen*

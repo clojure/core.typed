@@ -1,4 +1,9 @@
-(in-ns 'clojure.core.typed)
+(ns clojure.core.typed.name-env
+  (:require [clojure.core.typed
+             [type-rep :as r]
+             [utils :as u]
+             [datatype-env :as dtenv]
+             [protocol-env :as prenv]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Name Env
@@ -12,16 +17,24 @@
 (doseq [k [declared-name-type protocol-name-type datatype-name-type]]
   (derive k temp-binding))
 
-(defonce TYPE-NAME-ENV (atom {}))
+(def TYPE-NAME-ENV (atom {}))
 (set-validator! TYPE-NAME-ENV #(and (every? (every-pred (some-fn namespace 
                                                                  (fn [k] (some (fn [a] (= \. a)) (str k))))
                                                         symbol?) 
                                             (keys %))
-                                    (every? (some-fn Type? (fn [a] (isa? a temp-binding)))
+                                    (every? (some-fn r/Type? (fn [a] (isa? a temp-binding)))
                                             (vals %))))
 
+(defn update-name-env! [nme-env]
+  (swap! TYPE-NAME-ENV merge nme-env)
+  nil)
+
+(defn reset-name-env! [nme-env]
+  (reset! TYPE-NAME-ENV nme-env)
+  nil)
+
 (defn add-type-name [sym ty]
-  (swap! TYPE-NAME-ENV assoc sym (if (Type? ty)
+  (swap! TYPE-NAME-ENV assoc sym (if (r/Type? ty)
                                    (vary-meta ty assoc :from-name sym)
                                    ty))
   nil)
@@ -42,11 +55,13 @@
   (add-type-name sym datatype-name-type)
   nil)
 
-(defn- resolve-name* [sym]
+(defn resolve-name* [sym]
   (let [t (@TYPE-NAME-ENV sym)]
     (cond
-      (= protocol-name-type t) (resolve-protocol sym)
-      (= datatype-name-type t) (resolve-datatype sym)
+      (= protocol-name-type t) (prenv/resolve-protocol sym)
+      (= datatype-name-type t) (dtenv/resolve-datatype sym)
       (= declared-name-type t) (throw (IllegalArgumentException. (str "Reference to declared but undefined name " sym)))
-      (Type? t) (vary-meta t assoc :source-Name sym)
-      :else (throw (IllegalArgumentException. (error-msg "Cannot resolve name " sym))))))
+      (r/Type? t) (vary-meta t assoc :source-Name sym)
+      :else (throw (IllegalArgumentException. (u/error-msg "Cannot resolve name " sym
+                                                           (when t
+                                                             (str " (Resolved to instance of)" (class t)))))))))

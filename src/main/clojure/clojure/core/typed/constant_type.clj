@@ -1,42 +1,90 @@
-(in-ns 'clojure.core.typed)
+(ns clojure.core.typed.constant-type
+  (:require [clojure.core.typed
+             [type-rep :as r]
+             [type-ctors :as c]])
+  (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
+                         ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
+                         IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
+                         Keyword Atom PersistentList IMeta PersistentArrayMap Compiler Named
+                         IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
+                         LazySeq APersistentMap Indexed)))
 
 ;[Any -> Type]
-(defmulti constant-type class)
+(defprotocol ConstantType 
+  (constant-type [this]))
 
-(defmethod constant-type nil [_] -nil)
-(defmethod constant-type Class [v] (-val v))
-(defmethod constant-type Symbol [v] (-val v))
-(defmethod constant-type Long [v] (-val v))
-(defmethod constant-type Double [v] (-val v))
-(defmethod constant-type Integer [v] (-val v))
-(defmethod constant-type java.math.BigDecimal [v] (-val v))
-(defmethod constant-type clojure.lang.BigInt [v] (-val v))
-(defmethod constant-type String [v] (-val v))
-(defmethod constant-type Character [v] (-val v))
-(defmethod constant-type clojure.lang.Keyword [v] (-val v))
-(defmethod constant-type java.util.regex.Pattern [v] (RClass-of java.util.regex.Pattern))
+(extend-protocol ConstantType
+  nil
+  (constant-type [_] r/-nil)
 
-(defmethod constant-type Boolean [v] (if v -true -false))
-(defmethod constant-type PersistentHashSet [v] (RClass-of PersistentHashSet [(apply Un (map constant-type v))]))
+  Class
+  (constant-type [v] (r/-val v))
 
-;nothing specific, Cons seems like an implementation detail
-(defmethod constant-type Cons [v] (RClass-of Seqable [(apply Un (map constant-type v))]))
+  Symbol
+  (constant-type [v] (r/-val v))
 
-(defmethod constant-type IPersistentList
-  [clist]
-  (->HeterogeneousList (apply list (map constant-type clist))))
+  Long
+  (constant-type [v] (r/-val v))
 
-(defmethod constant-type IPersistentVector
-  [cvec]
-  (-hvec (mapv constant-type cvec)))
+  Double
+  (constant-type [v] (r/-val v))
 
-(defmethod constant-type IPersistentMap
-  [cmap]
-  (let [kts (map constant-type (keys cmap))
-        vts (map constant-type (vals cmap))]
-    (if (every? Value? kts)
-      (-complete-hmap (zipmap kts vts))
-      (RClass-of IPersistentMap 
-                 [(apply Un kts)
-                  (apply Un vts)]))))
+  Integer
+  (constant-type [v] (r/-val v))
 
+  java.math.BigDecimal
+  (constant-type [v] (r/-val v))
+
+  clojure.lang.BigInt
+  (constant-type [v] (r/-val v))
+
+  String
+  (constant-type [v] (r/-val v))
+
+  Character
+  (constant-type [v] (r/-val v))
+
+  clojure.lang.Keyword
+  (constant-type  [v] (r/-val v))
+
+  java.util.regex.Pattern
+  (constant-type [v] (c/RClass-of java.util.regex.Pattern))
+
+  Boolean
+  (constant-type [v] (if v r/-true r/-false))
+  PersistentHashSet
+  (constant-type [v] (c/RClass-of PersistentHashSet [(apply c/Un (map constant-type v))]))
+
+  ;nothing specific, Cons seems like an implementation detail
+  Cons
+  (constant-type [v] (c/RClass-of Seqable [(apply c/Un (map constant-type v))]))
+
+  IPersistentList
+  (constant-type [clist] (r/->HeterogeneousList (apply list (map constant-type clist))))
+
+  ;Make sure lists hit these cases instead of ISeq
+  PersistentList
+  (constant-type [clist] (r/->HeterogeneousList (apply list (map constant-type clist))))
+;  PersistentList$EmptyList
+;  (constant-type [clist] (r/->HeterogeneousList (apply list (map constant-type clist))))
+
+  ;default for ISeqs
+  ISeq
+  (constant-type [iseq] 
+    (cond
+      ;handle empty list?
+      (list? iseq) (r/->HeterogeneousList (apply list (map constant-type iseq)))
+      :else (c/RClass-of ISeq [(apply c/Un (map constant-type iseq))])))
+
+  IPersistentVector
+  (constant-type  [cvec] (r/-hvec (mapv constant-type cvec)))
+
+  IPersistentMap
+  (constant-type [cmap]
+    (let [kts (map constant-type (keys cmap))
+          vts (map constant-type (vals cmap))]
+      (if (every? r/Value? kts)
+        (c/-complete-hmap (zipmap kts vts))
+        (c/RClass-of IPersistentMap 
+                     [(apply c/Un kts)
+                      (apply c/Un vts)])))))

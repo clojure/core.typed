@@ -1,4 +1,11 @@
-(in-ns 'clojure.core.typed)
+(ns clojure.core.typed.trans
+  (:require [clojure.core.typed
+             [utils :as u]
+             [type-rep :as r]
+             [type-ctors :as c]
+             [subst :as subst]])
+  (:import (clojure.core.typed.type_rep Name F Value RClass Union FnIntersection
+                                        Intersection Union Function TApp)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dotted pre-type expansion
@@ -6,9 +13,9 @@
 ;tdr from Practical Variable-Arity Polymorphism paper
 ; Expand out dotted pretypes to fixed domain, using types bm, if (:name bound) = b
 (defmulti trans-dots (fn [t b bm]
-                       {:pre [(AnyType? t)
+                       {:pre [(r/AnyType? t)
                               (symbol? b)
-                              (every? Type? bm)]}
+                              (every? r/Type? bm)]}
                        (class t)))
 
 (defmethod trans-dots Name [t b bm] t)
@@ -19,22 +26,22 @@
 (defmethod trans-dots TApp
   [^TApp t b bm]
   (let [tfn #(trans-dots % b bm)]
-    (->TApp (tfn (.rator t)) (mapv tfn (.rands t)))))
+    (r/->TApp (tfn (.rator t)) (mapv tfn (.rands t)))))
 
 (defmethod trans-dots Union
   [t b bm]
   (let [tfn #(trans-dots % b bm)]
-    (apply Un (doall (map tfn (:types t))))))
+    (apply c/Un (doall (map tfn (:types t))))))
 
 (defmethod trans-dots FnIntersection
   [t b bm]
   (let [tfn #(trans-dots % b bm)]
-    (->FnIntersection (doall (map tfn (:types t))))))
+    (r/->FnIntersection (doall (map tfn (:types t))))))
 
 (defmethod trans-dots Intersection
   [t b bm]
   (let [tfn #(trans-dots % b bm)]
-    (apply In (doall (map tfn (:types t))))))
+    (apply c/In (doall (map tfn (:types t))))))
 
 (defmethod trans-dots Function
   [t b bm]
@@ -52,12 +59,12 @@
                         (doall (map tfn (:dom t)))
                         ;expand dotted type to fixed domain
                         (doall (map (fn [bk]
-                                      {:post [(Type? %)]}
+                                      {:post [(r/Type? %)]}
                                       ;replace free occurences of bound with bk
-                                      (-> (substitute bk b pre-type)
+                                      (-> (subst/substitute bk b pre-type)
                                         tfn))
                                     bm)))]
-            (->Function dom
+            (r/->Function dom
                         (update-in (:rng t) [:t] tfn)
                         nil
                         nil ;dotted pretype now expanded to fixed domain

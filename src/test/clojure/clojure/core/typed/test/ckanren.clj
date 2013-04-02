@@ -6,7 +6,7 @@
                                         ann-pprotocol declare-datatypes
                                         ann-form
                                         tc-ignore check-ns ann-datatype cf
-                                        parse-type ann-pdatatype fn> AnyInteger
+                                        ann-pdatatype fn> AnyInteger
                                         print-env defprotocol>]]
             [clojure.repl :refer [pst]]
             [clojure.tools.analyzer :refer [ast]])
