@@ -1,10 +1,28 @@
-0.1.11
-- Type resolution works correctly when checking namespaces other than
-  the current one
-- Support records. Can associate known keys with assoc.
+0.1.11 - Released 8 April 2013
+BREAKING CHANGES
+- Evaluting forms like `ann` and `ann-record` no longer rely on side effects
+  while evaluting. Instead the side effects are performed during the first phase
+  of type checking. In practice, this means REPL interactions with `ann` should
+  be wrapped in `cf`, and all typed namespaces should declare their typed 
+  dependencies with `typed-deps`.
+- `check-ns` resets global type state before checking a namespace.
+
+ENHANCEMENTS
+- Add `clojure.core.typed/typed-deps` for declaring typed dependencies. (CTYP-7)
+- Basic support for records. See `ann-record` and `ann-precord`. Can associate known keys with assoc. (Progress on CTYP-10)
+
+FIXES
+- Type resolution works correctly when checking namespaces other than the current one. (CTYP-19)
+
+MISC
+- Refactored files into separate namespaces (previously everything was in `clojure.core.typed`)
+- Maintain the base type environment in vars for easy refreshing of global state. (See `c.c.t.base-env` and `c.c.t.init`)
+- Type checking is split into two phases:
+    1. Collect type annotations (`c.c.t.collect-phase`)
+    2. Type Checking (`c.c.t.check`)
 
 0.1.10
-- Added: doseq>, for>, dotimes>
+- Added: doseq>, for>, dotimes>. (CTYP-2)
 - Recognise filters from macroexpansion of `and`
 
 0.1.9 - Released 25 March 2013

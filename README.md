@@ -4,12 +4,12 @@ Gradual typing in Clojure, as a library.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.1.10.
+Latest stable release is 0.1.12.
 
 Leiningen dependency information:
 
 ```clojure
-[org.clojure/core.typed "0.1.10"]
+[org.clojure/core.typed "0.1.12"]
 ```
 
 Maven dependency information:
@@ -18,7 +18,7 @@ Maven dependency information:
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed</artifactId>
-  <version>0.1.10</version>
+  <version>0.1.12</version>
 </dependency>
 ```
 
