@@ -2,8 +2,7 @@ target
 *jar
 /lib/
 /classes/
-.lein-failures
-.lein-deps-sum
+.lein*
 *.swp
 *.swo
 *.aux
