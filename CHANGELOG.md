@@ -1,4 +1,4 @@
-0.1.11 - Released 8 April 2013
+0.1.12 - Released 8 April 2013
 BREAKING CHANGES
 - Evaluting forms like `ann` and `ann-record` no longer rely on side effects
   while evaluting. Instead the side effects are performed during the first phase
