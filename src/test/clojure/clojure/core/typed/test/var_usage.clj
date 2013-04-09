@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.var-usage
-  (:require [clojure.core.typed :refer [ann-nocheck ann check-ns]]))
+  (:require [clojure.core.typed :refer [ann check-ns]]))
 
 (ann foo [Number -> Number])
 (declare foo)
