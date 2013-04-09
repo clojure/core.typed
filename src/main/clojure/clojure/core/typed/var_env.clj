@@ -6,16 +6,14 @@
              [util-vars :as vs]]
             [clojure.set :as set]))
 
-(defonce VAR-ANNOTATIONS (atom {}))
-(defonce NOCHECK-VAR? (atom #{}))
-(defonce USED-VARS (atom #{}))
-(defonce CHECKED-VAR-DEFS (atom #{}))
+(defonce VAR-ANNOTATIONS (atom {} :validator (u/hash-c? (every-pred symbol? namespace) r/Type?)))
+(defonce NOCHECK-VAR? (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
+(defonce USED-VARS (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
+(defonce CHECKED-VAR-DEFS (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
 
 (defmacro with-lexical-env [env & body]
   `(binding [lex/*lexical-env* ~env]
      ~@body))
-
-(set-validator! VAR-ANNOTATIONS (u/hash-c? (every-pred symbol? namespace) r/Type?))
 
 (defn add-var-type [sym type]
   (swap! VAR-ANNOTATIONS #(assoc % sym type))
