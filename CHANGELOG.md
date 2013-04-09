@@ -1,3 +1,7 @@
+0.1.13 - Released 9 April 2013
+- Add `ann-nocheck`. (CTYP-25)
+- Warn on missing defs
+
 0.1.12 - Released 8 April 2013
 BREAKING CHANGES
 - Evaluting forms like `ann` and `ann-record` no longer rely on side effects

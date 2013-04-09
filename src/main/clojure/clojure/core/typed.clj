@@ -428,14 +428,16 @@
 (defn ann-form* [form ty]
   form)
 
-(defmacro ann-form [form ty]
+(defmacro ann-form 
+  "Annotate a form with an expected type."
+  [form ty]
   `(ann-form* ~form '~ty))
 
 ;(ann unsafe-ann-form* [Any Any -> Any])
 (defn unsafe-ann-form* [form ty]
   form)
 
-(defmacro unsafe-ann-form [form ty]
+(defmacro ^:private unsafe-ann-form [form ty]
   `(unsafe-ann-form* ~form '~ty))
 
 ;(ann tc-ignore-forms* [Any -> Any])
@@ -484,13 +486,18 @@
 (defn ann* [varsym typesyn check?]
   nil)
 
-(defmacro ann-nocheck [varsym typesyn]
+(defmacro ann-nocheck 
+  "Like ann, but ignore definitions of varsym while checking."
+  [varsym typesyn]
   (let [qsym (if (namespace varsym)
                varsym
                (symbol (-> *ns* ns-name str) (str varsym)))]
     `(ann* '~qsym '~typesyn false)))
 
-(defmacro ann [varsym typesyn]
+(defmacro ann 
+  "Annotate varsym with type.
+  If unqualified, qualify in the current namespace."
+  [varsym typesyn]
   (let [qsym (if (namespace varsym)
                varsym
                (symbol (-> *ns* ns-name str) (str varsym)))]
@@ -499,16 +506,23 @@
 (defn ann-datatype* [dname fields opts]
   nil)
 
-(defmacro ann-datatype [dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
+(defmacro ann-datatype 
+  "Annotate datatype Class name dname with expected fields.
+  If unqualified, qualify in the current namespace."
+  [dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
   (assert (not rplc) "Replace NYI")
   (assert (symbol? dname)
           (str "Must provide name symbol: " dname))
   `(ann-datatype* '~dname '~fields '~opts))
 
-(defn ann-pdatatype* [dname vbnd fields opt]
+(defn ann-pdatatype* 
+  [dname vbnd fields opt]
   nil)
 
-(defmacro ann-pdatatype [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
+(defmacro ann-pdatatype 
+  "Annotate datatype Class name dname with a polymorphic binder and expected fields.
+  If unqualified, qualify in the current namespace."
+  [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   (assert (not rplc) "Replace NYI")
   (assert (symbol? dname)
           (str "Must provide local symbol: " dname))
@@ -517,19 +531,27 @@
 (defn ann-record* [dname fields opt]
   nil)
 
-(defmacro ann-record [dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
+(defmacro ann-record 
+  "Annotate record Class name dname with expected fields.
+  If unqualified, qualify in the current namespace."
+  [dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   `(ann-record* '~dname '~fields '~opt))
 
 (defn ann-precord* [dname vbnd fields opt]
   nil)
 
-(defmacro ann-precord [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
+(defmacro ann-precord 
+  "Annotate record Class name dname with a polymorphic binder and expected fields.
+  If unqualified, qualify in the current namespace."
+  [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   `(ann-precord* '~dname '~vbnd '~fields '~opt))
 
 (defn ann-protocol* [local-varsym mth]
   nil)
 
-(defmacro ann-protocol [local-varsym & {:as mth}]
+(defmacro ann-protocol 
+  "Annotate protocol unqualified var name local-varsym with method types"
+  [local-varsym & {:as mth}]
   (assert (not (or (namespace local-varsym)
                    (some #{\.} (str local-varsym))))
           (str "Must provide local var name for protocol: " local-varsym))
@@ -538,7 +560,9 @@
 (defn ann-pprotocol* [local-varsym vbnd mth]
   nil)
 
-(defmacro ann-pprotocol [local-varsym vbnd & {:as mth}]
+(defmacro ann-pprotocol 
+  "Annotate protocol unqualified var name local-varsym with a polymorphic binder and method types"
+  [local-varsym vbnd & {:as mth}]
   (assert (not (or (namespace local-varsym)
                    (some #{\.} (str local-varsym))))
           (str "Must provide local var name for protocol: " local-varsym))
@@ -547,19 +571,26 @@
 (defn override-constructor* [ctorsym typesyn]
   nil)
 
-(defmacro override-constructor [ctorsym typesyn]
+(defmacro override-constructor 
+  "Override all constructors for Class ctorsym with type."
+  [ctorsym typesyn]
   `(override-constructor* '~ctorsym '~typesyn))
 
 (defn override-method* [methodsym typesyn]
   nil)
 
-(defmacro override-method [methodsym typesyn]
+(defmacro override-method 
+  "Override type for qualified method methodsym."
+  [methodsym typesyn]
   `(override-method* '~methodsym '~typesyn))
 
 (defn typed-deps* [args]
   nil)
 
-(defmacro typed-deps [& args]
+(defmacro typed-deps 
+  "Declare namespaces which should be checked before the current namespace.
+  Accepts any number of symbols."
+  [& args]
   `(typed-deps* '~args))
 
 
@@ -601,7 +632,7 @@
        (chk/check-ns-and-deps nsym)
        (let [vs (var-env/vars-with-unchecked-defs)]
          (doseq [v vs]
-           (println "WARNING: Var" v "used without checking definition")
+           (println "WARNING: Definition missing:" v)
            (flush)))
        :ok))))
 
