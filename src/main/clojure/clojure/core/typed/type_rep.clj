@@ -328,7 +328,9 @@
 
 (u/defrecord KwArgs [mandatory optional]
   "A set of mandatory and optional keywords"
-  [(every? (u/hash-c? Value? Type?) [mandatory optional])])
+  [(every? (u/hash-c? Value? Type?) [mandatory optional])
+   (= #{} (set/intersection (set (keys mandatory)) 
+                            (set (keys optional))))])
 
 (u/defrecord Function [dom rng rest drest kws]
   "A function arity, must be part of an intersection"

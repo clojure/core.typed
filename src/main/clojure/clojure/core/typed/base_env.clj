@@ -4,7 +4,7 @@
                          APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
                          APersistentMap IDeref ISeq IMeta ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
-                         IPersistentList IRef IReference AReference ARef Var))
+                         IPersistentList IRef IReference AReference ARef Var Delay))
   (:require [clojure.core.typed
              [base-env-helper :as h]
              [parse-unparse :as prs]
@@ -227,6 +227,10 @@ ARef [[[w :variance :contravariant]
        IDeref (IDeref r)
        IReference (IReference w r)}]
 
+Delay [[[r :variance :covariant]]
+       :replace
+       {IDeref (IDeref r)}]
+
 Var [[]
      :replace
      {AReference (AReference Any Any)
@@ -309,7 +313,7 @@ clojure.core.typed/check-ns (Fn [Symbol -> Any]
 ;; Internal annotations
 
 clojure.core.typed/ensure-clojure [-> Any]
-clojure.core.typed/ann* [Any Any -> Any]
+clojure.core.typed/ann* [Any Any Any -> Any]
 clojure.core.typed/def-alias* [Any Any -> Any]
 clojure.core.typed/declare-names* [Any -> Any]
 clojure.core.typed/typed-deps* [Any -> Any]
@@ -473,6 +477,13 @@ clojure.core/atom (All [x]
 clojure.core/deref (All [x y]
                              (Fn [(IDeref x) -> x]
                                  [(IDeref x) AnyInteger y -> (U x y)]))
+
+clojure.core/delay? (predicate (Delay Any))
+
+clojure.core/force (All [x]
+                        (Fn [(Delay x) -> x]
+                            [x -> x]))
+
 clojure.core/reset! (All [w r]
                               [(Atom w r) w -> r])
 
@@ -483,11 +494,26 @@ clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
          [String String -> Symbol])
 
+clojure.core/keyword
+     (Fn [(U Keyword Symbol String) -> Keyword]
+         [String String -> Keyword])
+
+clojure.core/find-keyword
+     (Fn [(U Keyword Symbol String) -> (Option Keyword)]
+         [String String -> (Option Keyword)])
+
+clojure.core/compare (All []
+                          [Comparable Any -> Number])
+
 clojure.core/seq? (predicate (ISeq Any))
 clojure.core/set? (predicate (IPersistentSet Any))
 clojure.core/vector? (predicate (IPersistentVector Any))
 clojure.core/nil? (predicate nil)
+clojure.core/false? (predicate false)
+clojure.core/true? (predicate true)
+clojure.core/zero? (predicate (Value 0))
 clojure.core/symbol? (predicate Symbol)
+clojure.core/keyword? (predicate Keyword)
 clojure.core/map? (predicate (IPersistentMap Any Any))
 
 clojure.core/meta (All [x]
@@ -497,6 +523,7 @@ clojure.core/with-meta (All [[x :< clojure.lang.IObj] y]
                               [x y -> (I x (IMeta y))])
 
 clojure.core/string? (predicate String)
+clojure.core/char? (predicate Character)
 
 clojure.string/split
      (Fn [String java.util.regex.Pattern -> (APersistentVector String)]
@@ -602,6 +629,22 @@ clojure.core/second
               [(I (Seqable x) (CountRange 2)) -> x]
               [(Option (Seqable x)) -> (Option x)]))
 
+clojure.core/ffirst
+     (All [x]
+          [(Option (Seqable (Option (Seqable x)))) -> (Option x)])
+
+clojure.core/nfirst
+(All [x]
+     [(Option (Seqable (Option (Seqable x)))) -> (Option (Seqable x))])
+
+clojure.core/fnext
+(All [x]
+     [(Option (Seqable (Option (Seqable x)))) -> (Option (Seqable x))])
+
+clojure.core/nnext
+(All [x]
+     [(Option (Seqable x)) -> (Option (Seqable x))])
+
 clojure.core/rest
      (All [x]
           [(Option (Seqable x)) -> (ISeq x)])
@@ -684,6 +727,9 @@ clojure.core// [Number Number * -> Number]
 clojure.core/inc (Fn [AnyInteger -> AnyInteger]
                           [Number -> Number])
 clojure.core/dec (Fn [AnyInteger -> AnyInteger]
+                          [Number -> Number])
+
+clojure.core/inc' (Fn [AnyInteger -> AnyInteger]
                           [Number -> Number])
 
 clojure.core/even? [AnyInteger -> boolean]
@@ -858,6 +904,12 @@ clojure.core/chunk-append
 ;                       [[b ... b -> y] [b ... b -> c] ... c -> [b ... b -> (DottedVec y c ... c)]])
 ;  )
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Nocheck env
+
+(def init-var-nochecks
+  (set (keys init-var-env)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method param annotations
@@ -970,4 +1022,6 @@ clojure.lang.Numbers/isZero [Number -> boolean :filters {:then (is (Value 0) 0)
 
 clojure.lang.LazySeq (All [x]
                           [[-> (Option (Seqable x))] -> (LazySeq x)])
+clojure.lang.Delay (All [x]
+                        [[-> x] -> (Delay x)])
     ))

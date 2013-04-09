@@ -1,24 +1,57 @@
 (ns clojure.core.typed.var-env
   (:require [clojure.core.typed
+             [utils :as u]
              [type-rep :as r]
              [lex-env :as lex]
-             [util-vars :as vs]]))
+             [util-vars :as vs]]
+            [clojure.set :as set]))
 
 (defonce VAR-ANNOTATIONS (atom {}))
+(defonce NOCHECK-VAR? (atom #{}))
+(defonce USED-VARS (atom #{}))
+(defonce CHECKED-VAR-DEFS (atom #{}))
 
 (defmacro with-lexical-env [env & body]
   `(binding [lex/*lexical-env* ~env]
      ~@body))
 
-(set-validator! VAR-ANNOTATIONS #(and (every? (every-pred symbol? namespace) (keys %))
-                                      (every? r/Type? (vals %))))
+(set-validator! VAR-ANNOTATIONS (u/hash-c? (every-pred symbol? namespace) r/Type?))
 
 (defn add-var-type [sym type]
   (swap! VAR-ANNOTATIONS #(assoc % sym type))
   nil)
 
-(defn reset-var-type-env! [m]
+(defn check-var? [sym]
+  (not (contains? @NOCHECK-VAR? sym)))
+
+(defn checked-var-def? [sym]
+  (contains? @CHECKED-VAR-DEFS sym))
+
+(defn used-var? [sym]
+  (contains? @USED-VARS sym))
+
+(defn add-nocheck-var [sym]
+  (swap! NOCHECK-VAR? conj sym)
+  nil)
+
+(defn add-used-var [sym]
+  (swap! USED-VARS conj sym)
+  nil)
+
+(defn add-checked-var-def [sym]
+  (swap! CHECKED-VAR-DEFS conj sym)
+  nil)
+
+(defn vars-with-unchecked-defs []
+  (set/difference @USED-VARS
+                  @CHECKED-VAR-DEFS
+                  @NOCHECK-VAR?))
+
+(defn reset-var-type-env! [m nocheck]
   (reset! VAR-ANNOTATIONS m)
+  (reset! NOCHECK-VAR? nocheck)
+  (reset! USED-VARS #{})
+  (reset! CHECKED-VAR-DEFS #{})
   nil)
 
 (def ^:dynamic *var-annotations*)

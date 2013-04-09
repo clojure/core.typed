@@ -19,7 +19,8 @@
            [check :as chk]
            [collect-phase :as coll]
            [analyze-clj :as ana-clj]
-           [array-ops :as arr]])
+           [array-ops :as arr]
+           [var-env :as var-env]])
 
 ;(ann analyze.hygienic/emit-hy [Any -> Any])
 
@@ -33,9 +34,8 @@
   [debug-string frm] 
   frm)
 
-;FIXME uncomment
 ;(ann method-type [Symbol -> nil])
-#_(defn method-type
+(defn method-type
   "Given a method symbol, print the core.typed types assigned to it"
   [mname]
   (let [ms (->> (reflect/type-reflect (Class/forName (namespace mname)))
@@ -44,9 +44,11 @@
                            (= (str (:name %)) (name mname))))
              set)
         _ (assert (seq ms) (str "Method " mname " not found"))]
-    (prn "Method name:" mname)
+    (println "Method name:" mname)
+    (flush)
     (doseq [m ms]
-      (prn (prs/unparse-type (chk/Method->Type m))))))
+      (println (prs/unparse-type (chk/Method->Type m)))
+      (flush))))
 
 ;(ann inst-poly [Any Any -> Any])
 (defn inst-poly 
@@ -479,14 +481,20 @@
 (defn print-env [debug-str]
   nil)
 
-(defn ann* [varsym typesyn]
+(defn ann* [varsym typesyn check?]
   nil)
+
+(defmacro ann-nocheck [varsym typesyn]
+  (let [qsym (if (namespace varsym)
+               varsym
+               (symbol (-> *ns* ns-name str) (str varsym)))]
+    `(ann* '~qsym '~typesyn false)))
 
 (defmacro ann [varsym typesyn]
   (let [qsym (if (namespace varsym)
                varsym
                (symbol (-> *ns* ns-name str) (str varsym)))]
-    `(ann* '~qsym '~typesyn)))
+    `(ann* '~qsym '~typesyn true)))
 
 (defn ann-datatype* [dname fields opts]
   nil)
@@ -591,6 +599,10 @@
        (impl/ensure-clojure)
        (coll/collect-ns nsym)
        (chk/check-ns-and-deps nsym)
+       (let [vs (var-env/vars-with-unchecked-defs)]
+         (doseq [v vs]
+           (println "WARNING: Var" v "used without checking definition")
+           (flush)))
        :ok))))
 
 (comment 

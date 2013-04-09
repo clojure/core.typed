@@ -218,13 +218,15 @@
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann*
   [{:keys [args] :as expr}]
-  (assert-expr-args expr #{2})
+  (assert-expr-args expr #{3})
   (let [prs-ns (chk/expr-ns expr)
-        [{qsym :val} {typesyn :val}] args
+        [{qsym :val} {typesyn :val} {check? :val}] args
         ;macroexpansion provides qualified symbols
         _ (assert ((every-pred symbol? namespace) qsym))
         expected-type (binding [prs/*parse-type-in-ns* prs-ns]
                         (prs/parse-type typesyn))]
+    (when-not check?
+      (var-env/add-nocheck-var qsym))
     (var-env/add-var-type qsym expected-type)
     nil))
 

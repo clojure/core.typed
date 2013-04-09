@@ -93,7 +93,8 @@
                   (:op expr)))
 
 (defn check-expr [expr & [expected]]
-  (prn "Checking line:" (-> expr :env :line))
+  (println "Checking line:" (-> expr :env :line))
+  (flush)
   (check expr expected))
 
 ; Just for unit testing
@@ -869,7 +870,9 @@
 
 (defmethod check :var
   [{:keys [var] :as expr} & [expected]]
-  (let [id (u/var->symbol var)]
+  (let [id (u/var->symbol var)
+        _ (when-not (var-env/used-var? id)
+            (var-env/add-used-var id))]
     (assoc expr
            expr-type (ret (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
                             (var-env/lookup-Var (u/var->symbol var)))
@@ -1164,6 +1167,7 @@
 
 ;binding
 ;FIXME use `check-normal-def`
+;FIXME record checked-var-def info
 (defmethod invoke-special 'clojure.core/push-thread-bindings
   [{[bindings-expr & other-args] :args :as expr} & [expected]]
   (assert (empty? other-args))
@@ -3228,13 +3232,20 @@ _ (binding [vs/*current-expr* body
 (defn check-normal-def [{:keys [var init init-provided env] :as expr} & [expected]]
   (assert (not expected))
   (assert init-provided)
-  (let [t (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
-            (var-env/type-of (u/var->symbol var)))
+  (let [vsym (u/var->symbol var)
+        t (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
+            (var-env/type-of vsym))
+        check? (var-env/check-var? vsym)
+        _ (when-not check?
+            (println (when-let [line (-> expr :env :line)] (str line ": ")) "Not checking" vsym "definition")
+            (flush))
         cinit (cond 
                 (not init-provided) expr ;handle `declare`
-                :else (check init (ret t)))
-        _ (when init-provided
-            (sub/subtype (ret-t (expr-type cinit)) t))]
+                check? (check init (ret t)))
+        _ (when (and init-provided check?)
+            (sub/subtype (ret-t (expr-type cinit)) t)
+            ;record checked definition
+            (var-env/add-checked-var-def vsym))]
     ;def returns a Var
     (assoc expr
            expr-type (ret (c/RClass-of Var)))))

@@ -1221,11 +1221,12 @@
 
 ;dummy fn
 (defn kw-arg-test [& args])
-(ann kw-arg-test [& {:a Number} -> Number])
 
 ;TODO keyword args. CTYP-5
 #_(deftest kw-args-test
-  (is-cf (clojure.core.typed.test.core/kw-arg-test :a 1)))
+  (is
+    (cf (ann clojure.core.typed.test.core/kw-arg-test [& {:a Number} -> Number]))
+    (cf (clojure.core.typed.test.core/kw-arg-test :a 1))))
 
 (deftest get-APersistentMap-test
   (is-cf (get (clojure.core.typed/ann-form {} (clojure.lang.APersistentMap Number Number)) :a)
