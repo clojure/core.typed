@@ -486,22 +486,14 @@
 (defn ann* [varsym typesyn check?]
   nil)
 
-(defmacro ann-nocheck 
-  "Like ann, but ignore definitions of varsym while checking."
-  [varsym typesyn]
-  (let [qsym (if (namespace varsym)
-               varsym
-               (symbol (-> *ns* ns-name str) (str varsym)))]
-    `(ann* '~qsym '~typesyn false)))
-
 (defmacro ann 
-  "Annotate varsym with type.
-  If unqualified, qualify in the current namespace."
+  "Annotate varsym with type. If unqualified, qualify in the current namespace.
+  If varsym has metadata {:nocheck true}, ignore definitions of varsym while type checking."
   [varsym typesyn]
   (let [qsym (if (namespace varsym)
                varsym
                (symbol (-> *ns* ns-name str) (str varsym)))]
-    `(ann* '~qsym '~typesyn true)))
+    `(ann* '~qsym '~typesyn '~(-> varsym meta :nocheck not))))
 
 (defn ann-datatype* [dname fields opts]
   nil)
