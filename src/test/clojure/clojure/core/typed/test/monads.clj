@@ -25,7 +25,7 @@
             [clojure.tools.macro
              :refer (with-symbol-macros defsymbolmacro name-with-attributes)]
             [clojure.core.typed :as tc
-             :refer (tc-ignore check-ns ann ann-protocol def-alias unsafe-ann-form ann-form inst fn> pfn>
+             :refer (tc-ignore check-ns ann ann-protocol def-alias ann-form inst fn> pfn>
                                AnyInteger print-env cf Option print-filterset)]))
 
 ;; Monad Protocols
