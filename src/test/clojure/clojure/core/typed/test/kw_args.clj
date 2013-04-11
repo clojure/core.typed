@@ -8,10 +8,8 @@
   (when a
     (inc a)))
 
-;(fn [] (foo-kw :a 'a))
 (fn [] (foo-kw :a 1))
-(foo-kw)
-(foo-kw :b 2)
+;(fn [] (foo-kw :a 'a))
 
 (ann foo-arg-kw [Number & {:a Number} -> (U nil Number)])
 (defn foo-arg-kw [c & {:keys [a]}]
