@@ -1520,7 +1520,7 @@
                   "Wrong number of arguments to seq")
         [coll-expr] args
         ccoll (check coll-expr)]
-    (prn "special seq: ccoll type" (prs/unparse-type (ret-t (expr-type ccoll))))
+    ;(prn "special seq: ccoll type" (prs/unparse-type (ret-t (expr-type ccoll))))
     (cond
       ; for (apply hash-map (seq kws)) macroexpansion of keyword args
       (r/KwArgsSeq? (ret-t (expr-type ccoll)))
@@ -1997,9 +1997,9 @@
                                                       (r/KwArgs? kws))
                                                   (#{1} (count (filter identity [rest drest kws])))]
                                             :post [(Type? %)]}
-                                           (prn "rest" rest)
-                                           (prn "drest" drest)
-                                           (prn "kws" kws)
+                                           ;(prn "rest" rest)
+                                           ;(prn "drest" drest)
+                                           ;(prn "kws" kws)
                                            (cond
                                              (or rest drest)
                                              (c/Un r/-nil 
@@ -2173,7 +2173,6 @@
                     _ (assert ((every-pred seq (u/every-c? symbol?)) old-nmes))
                     new-nmes (repeatedly (:nbound t) gensym)
                     new-frees (map r/make-F new-nmes)]
-                (prn "there")
                 [(c/Poly-body* new-nmes t) old-nmes new-frees (c/Poly-bbnds* new-nmes t) :Poly])
     (r/PolyDots? t) (let [_ (assert (-> t meta :actual-frees))
                         old-nmes (-> t meta :actual-frees)
@@ -2300,7 +2299,7 @@
         fixed-entry (map vector (map hygienic/hsym-key required-params) 
                          (concat dom 
                                  (repeat (or rest (:pre-type drest)))))
-        _ (prn "checking function:" (prs/unparse-type expected))
+        ;_ (prn "checking function:" (prs/unparse-type expected))
         rest-entry (when rest-param
                      [[(hygienic/hsym-key rest-param) 
                        (*check-fn-method1-rest-type* rest drest kws)]])
