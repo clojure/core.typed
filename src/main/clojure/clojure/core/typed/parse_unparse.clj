@@ -21,7 +21,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
-                                        Record HeterogeneousSeq)
+                                        Record HeterogeneousSeq KwArgsSeq)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -776,20 +776,34 @@
     (:val v)
     (list 'Value (:val v))))
 
+(defn- unparse-map-of-types [m]
+  (into {} (map (fn [[k v]]
+                  (assert (r/Value? k) k)
+                  (vector (:val k) (unparse-type v)))
+                m)))
+
 (defmethod unparse-type* HeterogeneousMap
-  [v]
-  (list (if (c/complete-hmap? v)
-          'CompleteHMap 
-          'PartialHMap)
-        (into {} (map (fn [[k v]]
-                        (assert (r/Value? k) k)
-                        (vector (:val k)
-                                (unparse-type v)))
-                      (:types v)))))
+  [^HeterogeneousMap v]
+  (list* (if (c/complete-hmap? v)
+           'CompleteHMap 
+           'PartialHMap)
+         (unparse-map-of-types (:types v))
+         (when-let [ks (and (not (c/complete-hmap? v))
+                            (seq (.absent-keys v)))]
+           [:absent-keys (set (map unparse-type ks))])))
 
 (defmethod unparse-type* HeterogeneousSeq
   [v]
   (list* 'Seq* (doall (map unparse-type (:types v)))))
+
+(defmethod unparse-type* KwArgsSeq
+  [^KwArgsSeq v]
+  (list* 'KwArgsSeq 
+         (concat
+           (when (seq (.optional v))
+             [:optional (unparse-map-of-types (.optional v))])
+           (when (seq (.mandatory v))
+             [:mandatory (unparse-map-of-types (.mandatory v))]))))
 
 (defmethod unparse-type* HeterogeneousVector
   [v]

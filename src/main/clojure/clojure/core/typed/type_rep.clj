@@ -277,10 +277,11 @@
 
 (declare Result?)
 
-(u/defrecord HeterogeneousMap [types other-keys?]
+(u/defrecord HeterogeneousMap [types absent-keys other-keys?]
   "A constant map, clojure.lang.IPersistentMap"
   [((u/hash-c? Value? (some-fn Type? Result?))
      types)
+   ((u/set-c? Value?) absent-keys)
    (u/boolean? other-keys?)])
 
 (declare-type HeterogeneousMap)
@@ -326,11 +327,20 @@
 
 (declare-AnyType DottedPretype)
 
+;not a type, see KwArgsSeq
 (u/defrecord KwArgs [mandatory optional]
   "A set of mandatory and optional keywords"
   [(every? (u/hash-c? Value? Type?) [mandatory optional])
    (= #{} (set/intersection (set (keys mandatory)) 
                             (set (keys optional))))])
+
+(u/defrecord KwArgsSeq [mandatory optional]
+  "A sequential seq representing a flattened map (for keyword arguments)."
+  [(every? (u/hash-c? Value? Type?) [mandatory optional])
+   (= #{} (set/intersection (set (keys mandatory)) 
+                            (set (keys optional))))])
+
+(declare-type KwArgsSeq)
 
 (u/defrecord Function [dom rng rest drest kws]
   "A function arity, must be part of an intersection"

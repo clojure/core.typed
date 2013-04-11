@@ -17,7 +17,7 @@
                                         Result Protocol TypeFn Name F Bounds HeterogeneousVector
                                         PrimitiveArray DataType Record RClass Mu HeterogeneousMap
                                         HeterogeneousList HeterogeneousSeq CountRange)
-           (clojure.lang APersistentMap APersistentVector PersistentList ASeq)))
+           (clojure.lang APersistentMap APersistentVector PersistentList ASeq Seqable)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtype
@@ -250,6 +250,9 @@
           (or (last (doall (map #(subtype %1 %2) (:types s) (:types t))))
               #{})
           (type-error s t))
+
+        (r/KwArgsSeq? s)
+        (subtype (c/Un r/-nil (c/RClass-of Seqable [r/-any])) t)
 
         ;values are subtypes of their classes
         (and (r/Value? s)

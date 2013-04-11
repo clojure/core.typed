@@ -3,7 +3,6 @@
              [type-rep :as r]
              [type-ctors :as c]
              [filter-rep :as fr]
-             [filter-ops :as fo]
              [path-rep :as pr]
              [object-rep :as or]
              [utils :as u]]
@@ -395,8 +394,8 @@
 (def atomic-filter? (some-fn fr/TypeFilter? fr/NotTypeFilter?
                              fr/TopFilter? fr/BotFilter?))
 
-(def -true-filter (fo/-FS fr/-top fr/-bot))
-(def -false-filter (fo/-FS fr/-bot fr/-top))
+(def -true-filter (-FS fr/-top fr/-bot))
+(def -false-filter (-FS fr/-bot fr/-top))
 
 (defn implied-atomic? [f1 f2]
   (let [subtype? @(subtype?-var)]

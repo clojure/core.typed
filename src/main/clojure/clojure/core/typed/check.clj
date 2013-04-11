@@ -43,7 +43,7 @@
             [clojure.set :as set])
   (:import (clojure.core.typed.lex_env PropEnv)
            (clojure.core.typed.type_rep Function FnIntersection RClass Poly DottedPretype HeterogeneousSeq
-                                        Record Value)
+                                        Record Value KwArgs HeterogeneousMap)
            (clojure.core.typed.object_rep Path)
            (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet)
            (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector)))
@@ -609,8 +609,6 @@
          (u/boolean? check?)]
    :post [(TCResult? %)]}
   (assert (not drest) "funapp with drest args NYI")
-  (assert (empty? mandatory-kw) "funapp with mandatory keyword args NYI")
-  (assert (empty? optional-kw) "funapp with optional keyword args NYI")
   ;  (prn "check-funapp1")
   ;  (prn "argtys objects" (map ret-o argtys))
   ;checking
@@ -630,22 +628,54 @@
                               nexpected
                               nactual)))))
         (throw (Exception. (u/error-msg "Wrong number of arguments, expected " (count dom) " fixed parameters"
-                                      (cond
-                                        rest " and a rest parameter "
-                                        drest " and a dotted rest parameter "
-                                        kws (cond
-                                              (and (seq mandatory-kw) (seq optional-kw))
-                                              (str ", some optional keyword arguments and " (count mandatory-kw) 
-                                                   " mandatory keyword arguments")
+                                        (cond
+                                          rest " and a rest parameter "
+                                          drest " and a dotted rest parameter "
+                                          kws (cond
+                                                (and (seq mandatory-kw) (seq optional-kw))
+                                                (str ", some optional keyword arguments and " (count mandatory-kw) 
+                                                     " mandatory keyword arguments")
 
-                                              (seq mandatory-kw) (str "and " (count mandatory-kw) "  mandatory keyword arguments")
-                                              (seq optional-kw) " and some optional keyword arguments"))
-                                      ", and got " nactual
-                                      " for function " (prs/unparse-type ftype0) " and arguments " (mapv (comp prs/unparse-type ret-t) argtys)))))
-      (doseq [[arg-t dom-t] (map vector 
-                                 (map ret-t argtys) 
-                                 (concat dom (when rest (repeat rest))))]
-        (check-below arg-t dom-t))))
+                                                (seq mandatory-kw) (str "and " (count mandatory-kw) "  mandatory keyword arguments")
+                                                (seq optional-kw) " and some optional keyword arguments"))
+                                        ", and got " nactual
+                                        " for function " (prs/unparse-type ftype0) 
+                                        " and arguments " (mapv (comp prs/unparse-type ret-t) argtys)))))
+      (cond
+        ; case for regular rest argument, or no rest parameter
+        (or rest (empty? (remove nil? [rest drest kws])))
+        (doseq [[arg-t dom-t] (map vector 
+                                   (map ret-t argtys) 
+                                   (concat dom (when rest (repeat rest))))]
+          (check-below arg-t dom-t))
+        
+        ; case for mandatory or optional keyword arguments
+        kws
+        (do
+          ;check regular args
+          (doseq [[arg-t dom-t] (map vector (map ret-t (take (count dom) argtys)) dom)]
+            (check-below arg-t dom-t))
+          ;check keyword args
+          (let [flat-kw-argtys (drop (count dom) argtys)]
+            (assert (even? (count flat-kw-argtys)) 
+                    (u/error-msg "Uneven number of arguments to function expecting keyword arguments"))
+            (let [kw-args-paired-t (apply hash-map (map ret-t flat-kw-argtys))]
+              ;make sure all mandatory keys are present
+              (when-let [missing-ks (seq 
+                                      (set/difference (set (keys mandatory-kw))
+                                                      (set (keys kw-args-paired-t))))]
+                (throw (Exception. (u/error-msg "Missing mandatory keyword keys: "
+                                                (interpose ", " (map prs/unparse-type missing-ks))))))
+              ;check each keyword argument is correctly typed
+              (doseq [[kw-key-t kw-val-t] kw-args-paired-t]
+                (assert (r/Value? kw-val-t)
+                        (u/error-msg "Can only check keyword arguments with Value keys, found"
+                                     (prs/unparse-type kw-key-t)))
+                (let [expected-val-t ((some-fn optional-kw mandatory-kw) kw-key-t)]
+                  (if expected-val-t
+                    (check-below kw-val-t expected-val-t)
+                    (do (println "WARNING: Undeclared keyword parameter " (prs/unparse-type kw-key-t))
+                        (flush)))))))))))
   (let [dom-count (count dom)
         arg-count (+ dom-count (if rest 1 0) (count optional-kw))
         o-a (map ret-o argtys)
@@ -780,42 +810,105 @@
           (throw (Exception. (plainapp-type-error fexpr args fexpr-type arg-ret-types expected)))))
 
       ;ordinary polymorphic function without dotted rest
-      (and (r/Poly? fexpr-type)
-           (let [body (c/Poly-body* (repeatedly (.nbound ^Poly fexpr-type) gensym) fexpr-type)]
-             (and (r/FnIntersection? body)
-                  (every? (complement :drest) (.types ^FnIntersection body)))))
+      (when (r/Poly? fexpr-type)
+        (let [^FnIntersection body (c/Poly-body* (repeatedly (.nbound ^Poly fexpr-type) gensym) fexpr-type)]
+          (when (r/FnIntersection? body)
+            (every? (complement :drest) (.types body)))))
       (let [fs-names (repeatedly (.nbound ^Poly fexpr-type) gensym)
             _ (assert (every? symbol? fs-names))
             ^FnIntersection fin (c/Poly-body* fs-names fexpr-type)
             bbnds (c/Poly-bbnds* fs-names fexpr-type)
             _ (assert (r/FnIntersection? fin))
+            ;; Only infer free variables in the return type
             ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (.types fin)]
                        (when ftype
                          #_(prn "infer poly fn" (prs/unparse-type ftype) (map prs/unparse-type arg-types)
                                 (count dom) (count arg-types))
                          #_(when rest (prn "rest" (prs/unparse-type rest)))
-                         ;; only try inference if argument types are appropriate and no kws
-                         (if-let [substitution (try
-                                                 (and (not (or drest kws))
-                                                      ((if rest <= =) (count dom) (count arg-types))
-                                                      (cgen/infer-vararg (zipmap fs-names bbnds) {} 
-                                                                         arg-types dom rest (r/Result-type* rng)
-                                                                         (and expected (ret-t expected))))
-                                                 (catch IllegalArgumentException e
-                                                   (throw e))
-                                                 (catch Exception e
-                                                   #_(prn e)))]
+                         ;; only try inference if argument types are appropriate
+                         (if-let 
+                           [substitution 
+                            (try
+                              (cond
+                                ;possibly present rest argument, or no rest parameter
+                                (and (not (or drest kws))
+                                     ((if rest <= =) (count dom) (count arg-types)))
+                                (cgen/infer-vararg (zipmap fs-names bbnds) {} 
+                                                   arg-types dom rest (r/Result-type* rng)
+                                                   (and expected (ret-t expected)))
+
+                                ;keyword parameters
+                                kws
+                                (let [{:keys [mandatory optional]} kws
+                                      [normal-argtys flat-kw-argtys] (split-at (count dom) arg-types)
+                                      _ (assert (even? (count flat-kw-argtys))
+                                                (u/error-msg "Uneven number of keyword arguments "
+                                                           "provided to polymorphic function "
+                                                           "with keyword parameters."))
+                                      paired-kw-argtys (apply hash-map flat-kw-argtys)
+
+                                      ;generate two vectors identical in length with actual kw val types
+                                      ;on the left, and expected kw val types on the right.
+                                      ; Undeclared keyword value types are given expected type Any
+                                      [kw-val-actual-tys kw-val-expected-tys]
+                                      (reduce (fn [[kw-val-actual-tys kw-val-expected-tys]
+                                                   [kw-key-t kw-val-t]]
+                                                {:pre [(vector? kw-val-actual-tys)
+                                                       (vector? kw-val-expected-tys)
+                                                       (Type? kw-key-t)
+                                                       (Type? kw-val-t)]
+                                                 :post [((u/hvector-c? (every-pred vector? (u/every-c? Type?)) 
+                                                                       (every-pred vector? (u/every-c? Type?)))
+                                                         %)]}
+                                                (assert (r/Value? kw-val-t)
+                                                        (u/error-msg "Can only check keyword arguments with Value keys, found"
+                                                                     (prs/unparse-type kw-key-t)))
+                                                (let [expected-val-t ((some-fn optional mandatory) kw-key-t)]
+                                                  (if expected-val-t
+                                                    [(conj kw-val-actual-tys kw-val-t)
+                                                     (conj kw-val-expected-tys expected-val-t)]
+                                                    (do (println "WARNING: Undeclared keyword parameter " (prs/unparse-type kw-key-t))
+                                                        (flush)
+                                                        [(conj kw-val-actual-tys kw-val-t)
+                                                         (conj kw-val-expected-tys r/-any)]))))
+                                              [[] []]
+                                              paired-kw-argtys)]
+                                  ;make sure all mandatory keys are present
+                                  (when-let [missing-ks (seq 
+                                                          (set/difference (set (keys mandatory))
+                                                                          (set (keys paired-kw-argtys))))]
+                                    (throw (Exception. (u/error-msg "Missing mandatory keyword keys: "
+                                                                    (interpose ", "
+                                                                               (map prs/unparse-type missing-ks))))))
+                                  ; it's probably a bug to not infer for unused optional args, revisit this
+                                  (when-let [missing-optional-ks (seq
+                                                                   (set/difference (set (keys optional))
+                                                                                   (set (keys paired-kw-argtys))))]
+                                    (println (u/error-msg "NYI POSSIBLE BUG?! Unused optional parameters"
+                                                          (interpose ", " (map prs/unparse-type missing-optional-ks))))
+                                    (flush))
+                                  ; infer keyword and fixed parameters all at once
+                                  (cgen/infer (zipmap fs-names bbnds) {}
+                                              (concat normal-argtys kw-val-actual-tys)
+                                              (concat dom kw-val-expected-tys) 
+                                              (r/Result-type* rng)
+                                              (and expected (ret-t expected)))))
+
+                              (catch IllegalArgumentException e
+                                (throw e))
+                              (catch Exception e
+                                #_(prn e)))]
                            (do #_(prn "subst:" substitution)
                                (check-funapp1 fexpr args (subst/subst-all substitution ftype)
                                               arg-ret-types expected :check? false))
-                           (if (or drest kws)
-                             (throw (Exception. "Cannot infer arguments to polymorphic functions with dotted rest or kw types"))
+                           (if drest
+                             (throw (Exception. "Cannot infer arguments to polymorphic functions with dotted rest"))
                              (recur ftypes)))))]
         (if ret-type
           ret-type
           (throw (Exception. (polyapp-type-error fexpr args fexpr-type arg-ret-types expected)))))
 
-      :else ;; any kind of dotted polymorphic function without mandatory keyword args
+      :else ;; any kind of dotted polymorphic function without mandatory or optional keyword args
       (if-let [[pbody fixed-vars fixed-bnds dotted-var dotted-bnd]
                (and (r/PolyDots? fexpr-type)
                     (let [vars (vec (repeatedly (:nbound fexpr-type) gensym))
@@ -965,6 +1058,18 @@
                  body))
     :else (throw (Exception. (str "Expected Function type, found " (prs/unparse-type expected))))))
 
+; ignore some keyword argument related intersections
+(defmethod invoke-special 'clojure.core/seq?
+  [{:keys [args] :as expr} & [expected]]
+  (assert (#{1} (count args)))
+  (let [ctarget (check (first args))]
+    (cond 
+      ; handle keyword args macroexpansion
+      (r/KwArgsSeq? (-> ctarget expr-type ret-t))
+      (assoc expr
+             expr-type (ret r/-true fo/-true-filter))
+      :else ::not-special)))
+
 (defmethod invoke-special 'clojure.core/extend
   [{[atype & protos] :args :as expr} & [expected]]
   (assert (and atype (even? (count protos))) "Wrong arguments to extend")
@@ -1064,20 +1169,30 @@
 ;FIXME should be the same as (apply hash-map ..) in invoke-apply
 (defmethod static-method-special 'clojure.lang.PersistentHashMap/create
   [{:keys [args] :as expr} & [expected]]
-  (let [_ (assert (= 1 (count args)) "Incorrect number of arguments to clojure.lang.PersistentHashMap/create")
-        targett (-> (first args) check expr-type ret-t)
-        _ (assert (r/HeterogeneousSeq? targett) (u/error-msg "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
-                                                         (prs/unparse-type targett)))
-        res (reduce (fn [t [kt vt]]
-                      {:pre [(Type? t)]}
-                      ;preserve bottom
-                      (if (= (c/Un) vt)
-                        vt
-                        (do (assert (r/HeterogeneousMap? t))
-                            (assoc-in [:types kt] vt))))
-                    (c/-hmap {}) (.types ^HeterogeneousSeq targett))]
-    (assoc expr
-           expr-type (ret res))))
+  (binding [vs/*current-expr* expr]
+    (let [_ (assert (#{1} (count args)) (u/error-msg "Incorrect number of arguments to clojure.lang.PersistentHashMap/create"))
+          targett (-> (first args) check expr-type ret-t)]
+      (cond
+        (r/KwArgsSeq? targett)
+        (assoc expr
+               expr-type (ret (c/KwArgsSeq->HMap targett)))
+
+        :else
+        (let [_ (assert (r/HeterogeneousSeq? targett) 
+                        (u/error-msg "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
+                                     (prs/unparse-type targett)
+                                     "\n\nForm:\n\t"
+                                     (u/emit-form-fn expr)))
+              res (reduce (fn [t [kt vt]]
+                            {:pre [(Type? t)]}
+                            ;preserve bottom
+                            (if (= (c/Un) vt)
+                              vt
+                              (do (assert (r/HeterogeneousMap? t))
+                                  (assoc-in [:types kt] vt))))
+                          (c/-hmap {}) (.types ^HeterogeneousSeq targett))]
+          (assoc expr
+                 expr-type (ret res)))))))
 
 (defmethod check :keyword-invoke
   [{:keys [kw target] :as expr} & [expected]]
@@ -1101,17 +1216,29 @@
          (Type? k)
          ((some-fn nil? Type?) default)]
    :post [(Type? %)]}
-  (let [t (c/-resolve t)]
+  (let [t (c/fully-resolve-type t)]
     (cond
       (r/Nil? t) (or default r/-nil)
-      (r/HeterogeneousMap? t) (if-let [v (get (:types t) k)]
-                              v
-                              (do #_(prn (u/error-msg "WARNING: Map type " (prs/unparse-type t)
-                                                    " does not have entry "
-                                                    (prs/unparse-type k)))
-                                  ; hmaps don't record absense of keys, so we don't actually know anything here.
-                                  #_(or default r/-nil)
-                                  r/-any))
+      (r/HeterogeneousMap? t) (let [^HeterogeneousMap t t]
+                                ; normal case, we have the key declared present
+                                (if-let [v (get (.types t) k)]
+                                  v
+                                  ; if key is known absent, or we have a complete map, we know precisely the result.
+                                  (if (or (contains? (.absent-keys t) k)
+                                          (c/complete-hmap? t))
+                                    (do
+                                      (println
+                                        (u/error-msg "WARNING: Looking up key " (prs/unparse-type k) 
+                                                     " in heterogeneous map type " (prs/unparse-type t)
+                                                     " that declares the key always absent."))
+                                      (flush)
+                                      (or default r/-nil))
+                                    ; otherwise result is Any
+                                    (do (println (u/error-msg "WARNING: Looking up key " (prs/unparse-type k)
+                                                              " in heterogeneous map type " (prs/unparse-type t)
+                                                              " which does not declare the key absent "))
+                                        (flush)
+                                        r/-any))))
 
       (r/Record? t) (find-val-type (Record->HMap t) k default)
 
@@ -1127,10 +1254,6 @@
                       [(ret t) (ret (or default r/-nil))] nil)
         ret-t)
       :else r/-any)))
-;      :else (throw (Exception. (str (when vs/*current-env*
-;                                      (str (:line vs/*current-env*) ":"))
-;                                    "Can't get key " (prs/unparse-type k) 
-;                                    "  from type " (prs/unparse-type t))))
 
 ;[TCResult TCResult (Option TCResult) (Option TCResult) -> TCResult]
 (defn invoke-keyword [kw-ret target-ret default-ret expected-ret]
@@ -1393,8 +1516,17 @@
 ;seq
 (defmethod invoke-special 'clojure.core/seq
   [{:keys [fexpr args] :as expr} & [expected]]
-  (let [[ccoll] (doall (map check args))]
+  (let [_ (assert (#{1} (count args))
+                  "Wrong number of arguments to seq")
+        [coll-expr] args
+        ccoll (check coll-expr)]
+    (prn "special seq: ccoll type" (prs/unparse-type (ret-t (expr-type ccoll))))
     (cond
+      ; for (apply hash-map (seq kws)) macroexpansion of keyword args
+      (r/KwArgsSeq? (ret-t (expr-type ccoll)))
+      (assoc expr
+             expr-type (expr-type ccoll))
+
       ((some-fn r/HeterogeneousVector? 
                 r/HeterogeneousList? 
                 r/HeterogeneousSeq?)
@@ -1427,10 +1559,15 @@
 ;apply hash-map
 (defmethod invoke-apply 'clojure.core/hash-map
   [{[_ & args] :args :as expr} & [expected]]
-  (let [cargs (doall (map check args))]
+  (let [cargs (mapv check args)]
     #_(prn "apply special (hash-map): "
            (map (comp prs/unparse-type ret-t expr-type) cargs))
     (cond
+      (and (#{1} (count cargs))
+           (r/KwArgsSeq? (expr-type (last cargs))))
+      (assoc expr
+             expr-type (ret (c/KwArgsSeq->HMap (-> (expr-type (last cargs)) ret-t))))
+
       (and ((some-fn r/HeterogeneousVector? r/HeterogeneousList? r/HeterogeneousSeq?) 
             (expr-type (last cargs)))
            ;; every key must be a Value
@@ -1800,10 +1937,20 @@
   "Results of checking a fn method"
   [(every? symbol? (map first args))
    (every? Type? (map second args))
-   (nil? kws)
+   ((some-fn nil? (u/hvector-c? symbol? r/KwArgs?)) kws)
    ((some-fn nil? (u/hvector-c? symbol? Type?)) rest)
    (nil? drest)
    (TCResult? body)])
+
+(defn- KwArgs-minimum-args [^KwArgs kws]
+  {:pre [(r/KwArgs? kws)]
+   :post [((u/hmap-c? :minimum (complement neg?)
+                      :maximum (some-fn nil? (complement neg?)))
+           %)]}
+  {:minimum (count (.mandatory kws))
+   ; if no optional parameters, must supply exactly the number of mandatory arguments
+   :maximum (when (empty? (.optional kws))
+              (count (.mandatory kws)))})
 
 ;[(Seqable Expr) (Option Expr) FnIntersection -> (Seqable Function)]
 (defn relevant-Fns
@@ -1817,10 +1964,16 @@
   (let [nreq (count required-params)]
     ;(prn "nreq" nreq)
     ;(prn "rest-param" rest-param)
-    (filter (fn [{:keys [dom rest]}]
-              (if rest-param 
-                (and rest (<= nreq (count dom)))
-                (and (not rest) (= nreq (count dom)))))
+    (filter (fn [{:keys [dom rest kws]}]
+              (let [ndom (count dom)]
+                (if rest-param 
+                  (or ; required parameters can flow into the rest type
+                      (when rest
+                        (<= nreq ndom))
+                      ; kw functions must have exact fixed domain match
+                      (when kws
+                        (= nreq ndom)))
+                  (and (not rest) (= nreq ndom)))))
             (:types fin))))
 
 (def ^:dynamic *check-fn-method1-checkfn*)
@@ -1838,13 +1991,21 @@
   (binding [vs/*current-env* env
             vs/*current-expr* expr
             *check-fn-method1-checkfn* check
-            *check-fn-method1-rest-type* (fn [rest drest]
+            *check-fn-method1-rest-type* (fn [rest drest kws]
                                            {:pre [(or (Type? rest)
-                                                      (r/DottedPretype? drest))
-                                                  (not (and rest drest))]
+                                                      (r/DottedPretype? drest)
+                                                      (r/KwArgs? kws))
+                                                  (#{1} (count (filter identity [rest drest kws])))]
                                             :post [(Type? %)]}
-                                           (c/Un r/-nil (c/In (c/RClass-of Seqable [(or rest (.pre-type ^DottedPretype drest))])
-                                                            (r/make-CountRange 1))))]
+                                           (prn "rest" rest)
+                                           (prn "drest" drest)
+                                           (prn "kws" kws)
+                                           (cond
+                                             (or rest drest)
+                                             (c/Un r/-nil 
+                                                   (c/In (c/RClass-of Seqable [(or rest (.pre-type ^DottedPretype drest))])
+                                                         (r/make-CountRange 1)))
+                                             :else (c/KwArgs->Type kws)))]
     (let [type (check-fn expr (or expected
                                   (ret (r/make-FnIntersection
                                          (r/make-Function [] r/-any r/-any)))))]
@@ -1939,14 +2100,13 @@
 (defn FnResult->Function [{:keys [args kws rest drest body] :as fres}]
   {:pre [(FnResult? fres)]
    :post [(r/Function? %)]}
-  (assert (not kws))
-  (let [arg-names (doall
-                    (concat (map first args)
-                            (when rest
-                              [(first rest)])
-                            (when drest
-                              [(first drest)]))) ;TODO kws
-        ]
+  (let [; names of formal parameters to abstract from result type
+        rest-param-name (or (first rest)
+                            (first drest)
+                            (first kws))
+        arg-names (concat (map first args)
+                          (when rest-param-name
+                            [rest-param-name]))]
     (r/->Function
       (map second args)
       (abstract-result body arg-names)
@@ -1954,7 +2114,8 @@
         (second rest))
       (when drest
         (second drest))
-      nil)))
+      (when kws
+        (second kws)))))
 
 ;TODO eliminate, only used in pfn>, not needed.
 #_(defn check-anon-fn
@@ -1988,9 +2149,9 @@
     :else
     (let [;_ (prn methods methods-types expr)
           ftype (apply r/make-FnIntersection (mapv FnResult->Function 
-                                                 (mapv (fn [m {:keys [dom rng]}]
-                                                         (check-anon-fn-method m dom rng))
-                                                       methods methods-types)))]
+                                                   (mapv (fn [m {:keys [dom rng]}]
+                                                           (check-anon-fn-method m dom rng))
+                                                         methods methods-types)))]
       (assoc expr
              expr-type (ret ftype (fo/-FS fl/-top fl/-bot) obj/-empty)))))
 
@@ -2103,20 +2264,21 @@
 
 ;check method is under a particular Function, and return inferred Function
 ;[MethodExpr Function -> Function]
-(defn check-fn-method1 [{:keys [body required-params rest-param] :as method} {:keys [dom rest drest] :as expected}]
+(defn check-fn-method1 [{:keys [body required-params rest-param] :as method} {:keys [dom rest drest kws] :as expected}]
   {:pre [(r/Function? expected)]
    :post [(r/Function? %)]}
+  #_(prn "checking syntax:" (u/emit-form-fn method))
   (let [expected-rng (r/Result->TCResult (:rng expected))
         ;ensure Function fits method
-        _ (assert ((if rest <= =) (count required-params) (count dom))
+        _ (assert ((if (or rest drest kws) <= =) (count required-params) (count dom))
                   (u/error-msg "Checking method with incorrect number of expected parameters"
-                             ", expected " (count dom) " required parameter(s) with"
-                             (if rest " a " " no ") "rest parameter, found " (count required-params)
-                             " required parameter(s) and" (if rest-param " a " " no ")
-                             "rest parameter."))
+                               ", expected " (count dom) " required parameter(s) with"
+                               (if rest " a " " no ") "rest parameter, found " (count required-params)
+                               " required parameter(s) and" (if rest-param " a " " no ")
+                               "rest parameter."))
 
         _ (assert (or (not rest-param)
-                      (some identity [drest rest]))
+                      (some identity [drest rest kws]))
                   (u/error-msg "No type for rest parameter"))
 
         ;;unhygienic version
@@ -2136,15 +2298,17 @@
                   "Unhygienic AST detected")
         props (:props lex/*lexical-env*)
         fixed-entry (map vector (map hygienic/hsym-key required-params) 
-                         (concat dom (repeat (or rest 
-                                                 (:pre-type drest)))))
+                         (concat dom 
+                                 (repeat (or rest (:pre-type drest)))))
+        _ (prn "checking function:" (prs/unparse-type expected))
         rest-entry (when rest-param
                      [[(hygienic/hsym-key rest-param) 
-                       (*check-fn-method1-rest-type* rest drest)]])
+                       (*check-fn-method1-rest-type* rest drest kws)]])
+        ;_ (prn "rest entry" rest-entry)
         _ (assert ((u/hash-c? symbol? Type?) (into {} fixed-entry))
                   (into {} fixed-entry))
         _ (assert ((some-fn nil? (u/hash-c? symbol? Type?)) (when rest-entry
-                                                            (into {} rest-entry))))
+                                                              (into {} rest-entry))))
 
         ; if this fn method is a multimethod dispatch method, then infer
         ; a new filter that results from being dispatched "here"
@@ -2210,13 +2374,17 @@
                           (apply fo/-and f new-then-props)))
 _ (binding [vs/*current-expr* body
             vs/*current-env* (:env body)]
-    (sub/subtype (-> crng expr-type ret-t) (ret-t expected-rng)))]
+    (sub/subtype (-> crng expr-type ret-t) (ret-t expected-rng)))
+rest-param-name (when rest-param
+                  (hygienic/hsym-key rest-param))]
 (FnResult->Function 
-  (->FnResult fixed-entry nil 
+  (->FnResult fixed-entry 
+              (when (and kws rest-param)
+                [rest-param-name kws])
               (when (and rest rest-param)
-                [(hygienic/hsym-key rest-param) rest])
+                [rest-param-name rest])
               (when (and drest rest-param) 
-                [(hygienic/hsym-key rest-param) drest])
+                [rest-param-name drest])
               (expr-type crng)))))
 
 

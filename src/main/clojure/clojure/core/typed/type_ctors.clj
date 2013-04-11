@@ -13,18 +13,19 @@
             [clojure.set :as set]
             [clojure.reflect :as reflect])
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
-                                        Union Intersection F Function Mu B)))
+                                        Union Intersection F Function Mu B KwArgs KwArgsSeq)))
 
 (declare Un)
 
 ;; Heterogeneous maps
 
 (defn -hmap 
-  ([types] (-hmap types true))
-  ([types other-keys?]
+  ([types] (-hmap types #{} true))
+  ([types other-keys?] (-hmap types #{} other-keys?))
+  ([types abstent-keys other-keys?]
    (if (some #(= (Un) %) (concat (keys types) (vals types)))
      (Un)
-     (r/->HeterogeneousMap types other-keys?))))
+     (r/->HeterogeneousMap types abstent-keys other-keys?))))
 
 (defn -complete-hmap [types]
   (-hmap types false))
@@ -35,7 +36,12 @@
                                (-> optional keys set))))
   (apply Un
          (for [ss (map #(into {} %) (comb/subsets optional))]
-           (-hmap (merge mandatory ss)))))
+           (-hmap (merge mandatory ss) 
+                  ;other optional keys cannot appear...
+                  (set/difference (set (keys optional))
+                                  (set (keys ss)))
+                  ;...but we don't know about other keys
+                  true))))
 
 (defn complete-hmap? [^HeterogeneousMap hmap]
   {:pre [(r/HeterogeneousMap? hmap)]}
@@ -877,3 +883,16 @@
                        (fr/->TypeFilter (-hmap {(r/-val kw) r/-any}) nil 0) 
                        fr/-top)))
          ['x]))
+
+;;; KwArgs
+
+(defn KwArgs->Type [^KwArgs kws]
+  {:pre [(r/KwArgs? kws)]
+   :post [(r/Type? %)]}
+  (r/->KwArgsSeq (.mandatory kws)
+                 (.optional kws)))
+
+(defn KwArgsSeq->HMap [^KwArgsSeq kws]
+  {:pre [(r/KwArgsSeq? kws)]
+   :post [(r/Type? %)]}
+  (make-HMap (.mandatory kws) (.optional kws)))
