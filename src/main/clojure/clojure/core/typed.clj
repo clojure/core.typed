@@ -1,29 +1,23 @@
 (ns clojure.core.typed
-  (:refer-clojure :exclude [defrecord type])
-  (:require [clojure.reflect :as reflect]
-            [clojure.repl :refer [pst]]
-            [clojure.java.io :as io]
-            [clojure.tools.trace :refer [trace-vars untrace-vars
-                                         trace-ns untrace-ns]]))
+  (:refer-clojure :exclude [defrecord type]))
 
-(set! *warn-on-reflection* true)
+(defn load-if-needed 
+  "Load and initialise all of core.typed if not already"
+  []
+  (when-not (find-ns 'clojure.core.typed.init)
+    (println "Initialising core.typed ...")
+    (flush)
+    (require 'clojure.core.typed.init)
+    (println "core.typed initialised.")
+    (flush)))
 
-(require '[clojure.core.typed.init :as init])
+; make sure aliases are declared
 
-(init/reset-envs!)
+(def -base-aliases
+  '#{Option AnyInteger AnyPrimitive Atom1})
 
-(require '[clojure.core.typed
-           [type-rep :as r]
-           [current-impl :as impl]
-           [parse-unparse :as prs]
-           [check :as chk]
-           [collect-phase :as coll]
-           [analyze-clj :as ana-clj]
-           [array-ops :as arr]
-           [var-env :as var-env]])
-
-;(ann analyze.hygienic/emit-hy [Any -> Any])
-
+(doseq [v -base-aliases]
+  (intern 'clojure.core.typed v))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special functions
@@ -38,7 +32,14 @@
 (defn method-type
   "Given a method symbol, print the core.typed types assigned to it"
   [mname]
-  (let [ms (->> (reflect/type-reflect (Class/forName (namespace mname)))
+  (load-if-needed)
+  (let [type-reflect @(ns-resolve (find-ns 'clojure.reflect) 
+                                  'type-reflect)
+        unparse-type @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
+                                  'unparse-type)
+        Method->Type @(ns-resolve (find-ns 'clojure.core.typed.check)
+                                  'Method->Type)
+        ms (->> (type-reflect (Class/forName (namespace mname)))
              :members
              (filter #(and (instance? clojure.reflect.Method %)
                            (= (str (:name %)) (name mname))))
@@ -47,7 +48,8 @@
     (println "Method name:" mname)
     (flush)
     (doseq [m ms]
-      (println (prs/unparse-type (chk/Method->Type m)))
+      (println (unparse-type
+                 (Method->Type m)))
       (flush))))
 
 ;(ann inst-poly [Any Any -> Any])
@@ -412,17 +414,37 @@
 ;(ann into-array>* [Any Any -> Any])
 (defn into-array>*
   ([cljt coll]
-   (into-array (-> cljt prs/parse-type arr/Type->array-member-Class) coll))
+   (load-if-needed)
+   (let [pt @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
+                         'parse-type)
+         amc @(ns-resolve (find-ns 'clojure.core.typed.array-ops)
+                          'Type->array-member-Class)]
+     (into-array (-> cljt pt amc) coll)))
   ([javat cljt coll]
-   (into-array (-> javat prs/parse-type arr/Type->array-member-Class) coll)))
+   (load-if-needed)
+   (let [pt @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
+                         'parse-type)
+         amc @(ns-resolve (find-ns 'clojure.core.typed.array-ops)
+                          'Type->array-member-Class)]
+     (into-array (-> javat pt amc) coll)))
+  ;this is the hacky case to prevent full core.typed from loading
+  ([into-array-syn javat cljt coll]
+   (into-array (resolve into-array-syn) coll)))
 
+;FIXME hacky 4-arity version to prevent full type system from loading
 (defmacro into-array> 
   "Make a Java array with Java class javat and Typed Clojure type
   cljt. Resulting array will be of type javat, but elements of coll must be under
-  cljt. cljt should be a subtype of javat (the same or more specific)."
+  cljt. cljt should be a subtype of javat (the same or more specific).
+
+  *Temporary hack*
+  into-array-syn is exactly the syntax to put as the first argument to into-array.
+  Calling resolve on this syntax should give the correct class."
   ([cljt coll]
    `(into-array>* '~cljt ~coll))
   ([javat cljt coll]
+   `(into-array>* '~javat '~cljt ~coll))
+  ([into-array-syn javat cljt coll]
    `(into-array>* '~javat '~cljt ~coll)))
 
 (defn ann-form* [form ty]
@@ -591,22 +613,33 @@
 (defmacro cf
   "Type check a Clojure form and return its type"
   ([form]
-  `(if *currently-checking-clj*
-     (throw (Exception. "cf not allowed while checking"))
-     (do (impl/ensure-clojure)
-         (binding [*currently-checking-clj* true]
-           (let [ast# (ana-clj/ast-for-form '~form)
-                 _# (coll/collect ast#)]
-             (-> ast# chk/check chk/expr-type chk/unparse-TCResult))))))
+   `(do
+      (load-if-needed)
+      (if *currently-checking-clj*
+        (throw (Exception. "cf not allowed while checking"))
+        (do (clojure.core.typed.current-impl/ensure-clojure)
+            (binding [*currently-checking-clj* true]
+              (let [ast# (clojure.core.typed.analyze-clj/ast-for-form '~form)
+                    _# (clojure.core.typed.collect-phase/collect ast#)]
+                (-> ast# 
+                    clojure.core.typed.check/check 
+                    clojure.core.typed.check/expr-type 
+                    clojure.core.typed.check/unparse-TCResult)))))))
   ([form expected]
-  `(if *currently-checking-clj*
-     (throw (Exception. "cf not allowed while checking"))
-     (do (impl/ensure-clojure)
-         (binding [*currently-checking-clj* true]
-           (let [ast# (ana-clj/ast-for-form '~form)
-                 _# (coll/collect ast#)
-                 c-ast# (chk/check ast# (r/ret (prs/parse-type '~expected)))]
-             (-> c-ast# chk/expr-type chk/unparse-TCResult)))))))
+   `(do
+      (load-if-needed)
+      (if *currently-checking-clj*
+        (throw (Exception. "cf not allowed while checking"))
+        (do (clojure.core.typed.current-impl/ensure-clojure)
+            (binding [*currently-checking-clj* true]
+              (let [ast# (clojure.core.typed.analyze-clj/ast-for-form '~form)
+                    _# (clojure.core.typed.collect-phase/collect ast#)
+                    c-ast# (clojure.core.typed.check/check ast# 
+                                                           (clojure.core.typed.type-rep/ret 
+                                                             (clojure.core.typed.parse-unparse/parse-type '~expected)))]
+                (-> c-ast# 
+                    clojure.core.typed.check/expr-type 
+                    clojure.core.typed.check/unparse-TCResult))))))))
 
 
 (def ^:dynamic *currently-checking-clj* nil)
@@ -615,18 +648,29 @@
   "Type check a namespace. If not provided default to current namespace"
   ([] (check-ns (ns-name *ns*)))
   ([nsym]
-   (init/reset-envs!)
+   (load-if-needed)
+   (let [reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.init)
+                                  'reset-envs!)
+         ensure-clojure @(ns-resolve (find-ns 'clojure.core.typed.current-impl)
+                                     'ensure-clojure)
+         collect-ns @(ns-resolve (find-ns 'clojure.core.typed.collect-phase)
+                                 'collect-ns)
+         check-ns-and-deps @(ns-resolve (find-ns 'clojure.core.typed.check)
+                                        'check-ns-and-deps)
+         vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
+                                               'vars-with-unchecked-defs)]
+   (reset-envs!)
    (if *currently-checking-clj*
      (throw (Exception. "Found recursive call to check-ns"))
      (binding [*currently-checking-clj* true]
-       (impl/ensure-clojure)
-       (coll/collect-ns nsym)
-       (chk/check-ns-and-deps nsym)
-       (let [vs (var-env/vars-with-unchecked-defs)]
+       (ensure-clojure)
+       (collect-ns nsym)
+       (check-ns-and-deps nsym)
+       (let [vs (vars-with-unchecked-defs)]
          (doseq [v vs]
            (println "WARNING: Definition missing:" v)
            (flush)))
-       :ok))))
+       :ok)))))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)

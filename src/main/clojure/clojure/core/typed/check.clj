@@ -1102,11 +1102,14 @@
 ;        (into-array> cljt coll)
 (defmethod invoke-special 'clojure.core.typed/into-array>*
   [{:keys [args] :as expr} & [expected]]
-  (assert (#{2 3} (count args)) (u/error-msg "Wrong number of args to into-array>*"))
-  (let [has-java-syn? (= 3 (count args))
-        [javat-syn cljt-syn coll-expr] (if has-java-syn?
-                                         args
-                                         (cons nil args))
+  (assert (#{2 3 4} (count args)) (u/error-msg "Wrong number of args to into-array>*"))
+  (let [has-java-syn? (#{3 4} (count args))
+        [javat-syn cljt-syn coll-expr]
+        (cond 
+          (= 3 (count args)) args
+          (= 4 (count args)) (next args) ;handle temporary hacky case
+          :else (cons nil args))
+
         javat (let [syn (or (when has-java-syn? (:val javat-syn))  ; generalise javat-syn if provided, otherwise cljt-syn
                             (:val cljt-syn))
                     c (-> 

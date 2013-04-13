@@ -1,5 +1,10 @@
+0.1.14 - SNAPSHOT
+- Add support for mandatory and optional function keyword parameters
+- HMaps can track known absent keys
+- HMaps warn if looking up missing/known absent keys
+
 0.1.13 - Released 9 April 2013
-- Add `ann-nocheck`. (CTYP-25)
+- Add :nocheck metadata for `ann` to avoid checking `def`s. (CTYP-25)
 - Warn on missing defs
 
 0.1.12 - Released 8 April 2013

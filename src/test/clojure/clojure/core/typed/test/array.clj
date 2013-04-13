@@ -1,9 +1,6 @@
 (ns clojure.core.typed.test.array
-  #_(:import (clojure.lang ))
   (:require [clojure.core.typed :refer [ann check-ns into-array> cf loop> print-env ann-form]]
             [clojure.repl :refer [pst]]))
-
-#_(set! *warn-on-reflection* true)
 
 (ann my-integer-array (Array Integer))
 (def my-integer-array (into-array> Integer (map int [1 2])))

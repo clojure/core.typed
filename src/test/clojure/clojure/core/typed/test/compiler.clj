@@ -370,8 +370,7 @@
         step (fn [part] (str "['" part "']"))]
     (apply str first (map step (rest parts)))))
 
-(ann resolve-existing-var [Env Symbol -> LocalBinding])
-(tc-ignore
+(ann ^:nocheck resolve-existing-var [Env Symbol -> LocalBinding])
 (defn resolve-existing-var [env sym]
   (if (= (namespace sym) "js")
     {:name (js-var sym) :ns 'js}
@@ -421,11 +420,9 @@
                        {:name (munge (symbol (str full-ns "." (munge (name sym)))))
                         :name-sym (symbol (str full-ns) (str sym))
                         :ns full-ns})))))))))
-  )
 
-(ann resolve-var [Env Symbol -> (HMap {:name Symbol})])
+(ann ^:nocheck resolve-var [Env Symbol -> (HMap {:name Symbol})])
 ;need a NamespacedSymbol refinement, of which `namespace` is a predicate.
-(tc-ignore
 (defn resolve-var [env sym]
   (if (= (namespace sym) "js")
     {:name (js-var sym)}
@@ -454,11 +451,9 @@
                       (-> env :ns :name))
                     "." (munge (name sym)))]
          {:name (munge (symbol s))})))))
-  )
 
-(ann confirm-bindings [Env (Seqable Symbol) -> Any])
+(ann ^:nocheck confirm-bindings [Env (Seqable Symbol) -> Any])
 ;merge hmaps
-(tc-ignore
 (defn confirm-bindings [env names]
   (doseq> [[name :- Symbol] names]
     (let [env (merge env {:ns (@namespaces *cljs-ns*)})
@@ -470,7 +465,6 @@
                  ev (not (-> ev :dynamic)))
         (warning env
           (str "WARNING: " (:name-sym ev) " not declared ^:dynamic"))))))
-  )
 
 (ann comma-sep [(Option (Seqable Any)) -> (Seqable Any)])
 (defn- comma-sep [xs]
@@ -702,9 +696,8 @@
   (or (-> e :tag)
       (-> e :info :tag)))
 
-(ann infer-tag [Expr -> (Option Symbol)])
+(ann ^:nocheck infer-tag [Expr -> (Option Symbol)])
 ;case needs improvements
-(tc-ignore
 (defn infer-tag [e]
   (if-let [tag (get-tag e)]
     tag
@@ -719,7 +712,6 @@
                   false 'boolean
                   nil)
       nil)))
-  )
 
 (ann safe-test? [Expr -> Any])
 (defn safe-test? [e]
@@ -823,9 +815,8 @@
                (emitln "}"))
              (emits "})")))
 
-(ann emit-variadic-fn-method [FnMethod -> nil])
+(ann ^:nocheck emit-variadic-fn-method [FnMethod -> nil])
 ;assoc not working
-(tc-ignore
 (defn emit-variadic-fn-method
   [{:keys [gthis name variadic params statements ret env recurs max-fixed-arity] :as f}]
   (emit-wrap env
@@ -861,7 +852,6 @@
                (emitln name ".cljs$lang$arity$variadic = " delegate-name ";")
                (emitln "return " name ";")
                (emitln "})()"))))
-  )
 
 ;weirdness with `filter`
 (tc-ignore

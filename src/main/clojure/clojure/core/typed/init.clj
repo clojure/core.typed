@@ -40,7 +40,8 @@
            [check]
            [collect-phase]
            [base-env :as bse]
-           [ns-deps :as deps]])
+           [ns-deps :as deps]]
+         '[clojure.reflect])
 
 (defn reset-envs! []
   (nme-env/reset-name-env! bse/init-alias-env)
@@ -52,3 +53,6 @@
   (rcls-env/reset-rclass-env! bse/init-altered-env)
   (deps/reset-deps!)
   nil)
+
+;reset envs on first load
+(reset-envs!)

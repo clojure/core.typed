@@ -275,6 +275,8 @@ java.lang.String [[]
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Initial type aliases
 
+; Note: All mappings here *must* be in set c.c.t/-core-aliases
+
 (def init-alias-env
   (h/alias-mappings
 
@@ -287,6 +289,14 @@ clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
+
+; Ensure init-alias-env agrees with the -base-aliases
+
+(assert (= (set (keys init-alias-env))
+           (set (map #(symbol "clojure.core.typed" (str %))
+                     clojure.core.typed/-base-aliases)))
+        "core.typed Bug! Base aliases do not agree with base environment")
+
 
 ;;for parsing init-var-env
 ; must be after init-alias-env def as vars are interned there
