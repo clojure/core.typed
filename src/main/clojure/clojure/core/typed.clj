@@ -2,13 +2,13 @@
   (:refer-clojure :exclude [defrecord type]))
 
 (defn load-if-needed 
-  "Load and initialise all of core.typed if not already"
+  "Load and initialize all of core.typed if not already"
   []
   (when-not (find-ns 'clojure.core.typed.init)
-    (println "Initialising core.typed ...")
+    (println "Initializing core.typed ...")
     (flush)
     (require 'clojure.core.typed.init)
-    (println "core.typed initialised.")
+    (println "core.typed initialized.")
     (flush)))
 
 ; make sure aliases are declared
