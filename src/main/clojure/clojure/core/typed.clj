@@ -655,7 +655,7 @@
             ret# @(ns-resolve (find-ns '~'clojure.core.typed.type-rep)
                               '~'ret)
             parse-type# @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
-                                     'parse-type)]
+                                     '~'parse-type)]
       (if *currently-checking-clj*
         (throw (Exception. "cf not allowed while checking"))
         (do (ensure-clojure#)
