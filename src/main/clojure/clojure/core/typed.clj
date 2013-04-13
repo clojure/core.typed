@@ -613,8 +613,8 @@
 (defmacro cf
   "Type check a Clojure form and return its type"
   ([form]
+   (load-if-needed)
    `(do
-      (load-if-needed)
       (if *currently-checking-clj*
         (throw (Exception. "cf not allowed while checking"))
         (do (clojure.core.typed.current-impl/ensure-clojure)
@@ -626,8 +626,8 @@
                     clojure.core.typed.check/expr-type 
                     clojure.core.typed.check/unparse-TCResult)))))))
   ([form expected]
+   (load-if-needed)
    `(do
-      (load-if-needed)
       (if *currently-checking-clj*
         (throw (Exception. "cf not allowed while checking"))
         (do (clojure.core.typed.current-impl/ensure-clojure)
