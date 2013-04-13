@@ -613,33 +613,61 @@
 (defmacro cf
   "Type check a Clojure form and return its type"
   ([form]
-   (load-if-needed)
    `(do
+      (load-if-needed)
+      (let [check# @(ns-resolve (find-ns '~'clojure.core.typed.check)
+                                '~'check)
+            expr-type# @(ns-resolve (find-ns '~'clojure.core.typed.check)
+                                    '~'expr-type )
+            unparse-TCResult# @(ns-resolve (find-ns clojure.core.typed.check)
+                                           '~'unparse-TCResult)
+            ensure-clojure# @(ns-resolve (find-ns '~'clojure.core.typed.current-impl)
+                                         '~'ensure-clojure)
+            ast-for-form# @(ns-resolve (find-ns '~'clojure.core.typed.analyze-clj)
+                                       '~'ast-for-form)
+            collect# @(ns-resolve (find-ns '~'clojure.core.typed.collect-phase)
+                                  '~'collect)]
+        (if *currently-checking-clj*
+          (throw (Exception. "cf not allowed while checking"))
+          (do (ensure-clojure#)
+              (binding [*currently-checking-clj* true]
+                (let [ast# (ast-for-form# '~form)
+                      _# (collect# ast#)]
+                  (-> ast# 
+                      check#
+                      expr-type#
+                      unparse-TCResult#))))))))
+   ([form expected]
+   `(do
+      (load-if-needed)
+      (let [check# @(ns-resolve (find-ns '~'clojure.core.typed.check)
+                                '~'check)
+            expr-type# @(ns-resolve (find-ns '~'clojure.core.typed.check)
+                                    '~'expr-type )
+            unparse-TCResult# @(ns-resolve (find-ns clojure.core.typed.check)
+                                           '~'unparse-TCResult)
+            ensure-clojure# @(ns-resolve (find-ns '~'clojure.core.typed.current-impl)
+                                         '~'ensure-clojure)
+            ast-for-form# @(ns-resolve (find-ns '~'clojure.core.typed.analyze-clj)
+                                       '~'ast-for-form)
+            collect# @(ns-resolve (find-ns '~'clojure.core.typed.collect-phase)
+                                  '~'collect)
+            ret# @(ns-resolve (find-ns '~'clojure.core.typed.type-rep)
+                              '~'ret)
+            parse-type# @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
+                                     'parse-type)]
       (if *currently-checking-clj*
         (throw (Exception. "cf not allowed while checking"))
-        (do (clojure.core.typed.current-impl/ensure-clojure)
+        (do (ensure-clojure#)
             (binding [*currently-checking-clj* true]
-              (let [ast# (clojure.core.typed.analyze-clj/ast-for-form '~form)
-                    _# (clojure.core.typed.collect-phase/collect ast#)]
-                (-> ast# 
-                    clojure.core.typed.check/check 
-                    clojure.core.typed.check/expr-type 
-                    clojure.core.typed.check/unparse-TCResult)))))))
-  ([form expected]
-   (load-if-needed)
-   `(do
-      (if *currently-checking-clj*
-        (throw (Exception. "cf not allowed while checking"))
-        (do (clojure.core.typed.current-impl/ensure-clojure)
-            (binding [*currently-checking-clj* true]
-              (let [ast# (clojure.core.typed.analyze-clj/ast-for-form '~form)
-                    _# (clojure.core.typed.collect-phase/collect ast#)
-                    c-ast# (clojure.core.typed.check/check ast# 
-                                                           (clojure.core.typed.type-rep/ret 
-                                                             (clojure.core.typed.parse-unparse/parse-type '~expected)))]
+              (let [ast# (ast-for-form# '~form)
+                    _# (collect# ast#)
+                    c-ast# (check# ast# 
+                                   (ret#
+                                     (parse-type# '~expected)))]
                 (-> c-ast# 
-                    clojure.core.typed.check/expr-type 
-                    clojure.core.typed.check/unparse-TCResult))))))))
+                    expr-type# 
+                    unparse-TCResult#)))))))))
 
 
 (def ^:dynamic *currently-checking-clj* nil)
