@@ -645,15 +645,19 @@ clojure.core/ffirst
 
 clojure.core/nfirst
 (All [x]
-     [(Option (Seqable (Option (Seqable x)))) -> (Option (Seqable x))])
+     [(Option (Seqable (Option (Seqable x)))) -> (Option (I (CountRange 1) (Seqable x)))])
 
 clojure.core/fnext
 (All [x]
-     [(Option (Seqable (Option (Seqable x)))) -> (Option (Seqable x))])
+     [(Option (Seqable (Option (Seqable x)))) -> (Option x)])
 
 clojure.core/nnext
 (All [x]
-     [(Option (Seqable x)) -> (Option (Seqable x))])
+     [(Option (Seqable x)) -> (Option (I (CountRange 1) (Seqable x)))])
+
+clojure.core/nthnext
+(All [x]
+     [(Option (Seqable x)) AnyInteger -> (Option (I (CountRange 1) (Seqable x)))])
 
 clojure.core/rest
      (All [x]
@@ -700,16 +704,17 @@ clojure.core/get
           (Fn 
             ;no default
             [(IPersistentSet x) Any -> (Option x)]
-            [java.util.Map Any -> (Option Any)]
-            [String Any -> (Option Character)]
             [nil Any -> nil]
             [(Option (ILookup Any x)) Any -> (Option x)]
+            [java.util.Map Any -> (Option Any)]
+            [String Any -> (Option Character)]
             ;default
             [(IPersistentSet x) Any y -> (U y x)]
+            [nil Any y -> y]
+            [(Option (ILookup Any x)) Any y -> (U y x)]
             [java.util.Map Any y -> (U y Any)]
             [String Any y -> (U y Character)]
-            [nil Any y -> y]
-            [(Option (ILookup Any x)) Any y -> (U y x)]))
+            ))
 
 clojure.core/merge 
      (All [k v]
@@ -992,16 +997,16 @@ clojure.lang.RT/get (All [x y]
                          (Fn 
                            ;no default
                            [(IPersistentSet x) Any -> (Option x)]
-                           [java.util.Map Any -> (Option Any)]
-                           [String Any -> (Option Character)]
                            [nil Any -> nil]
                            [(Option (ILookup Any x)) Any -> (Option x)]
+                           [java.util.Map Any -> (Option Any)]
+                           [String Any -> (Option Character)]
                            ;default
                            [(IPersistentSet x) Any y -> (U y x)]
-                           [java.util.Map Any y -> (U y Any)]
-                           [String Any y -> (U y Character)]
                            [nil Any y -> y]
-                           [(Option (ILookup Any x)) Any y -> (U y x)]))
+                           [(Option (ILookup Any x)) Any y -> (U y x)]
+                           [java.util.Map Any y -> (U y Any)]
+                           [String Any y -> (U y Character)]))
 
 ;numbers
 clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]

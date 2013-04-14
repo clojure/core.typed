@@ -2427,18 +2427,19 @@ rest-param-name (when rest-param
 
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
-  (let [sym (hygienic/hsym-key local-binding)
-        t (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
-            (var-env/type-of sym))
-        _ (assert (or (not expected)
-                      (sub/subtype? t (ret-t expected)))
-                  (u/error-msg "Local binding " sym " expected type " (prs/unparse-type (ret-t expected))
-                             ", but actual type " (prs/unparse-type t)))]
-    (assoc expr
-           expr-type (ret t 
-                          (fo/-FS (fo/-not-filter (c/Un r/-nil r/-false) sym)
-                                  (fo/-filter (c/Un r/-nil r/-false) sym))
-                          (obj/->Path nil sym)))))
+  (binding [u/*current-env* (:env expr)]
+    (let [sym (hygienic/hsym-key local-binding)
+          t (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
+              (var-env/type-of sym))
+          _ (assert (or (not expected)
+                        (sub/subtype? t (ret-t expected)))
+                    (u/error-msg "Local binding " sym " expected type " (prs/unparse-type (ret-t expected))
+                                 ", but actual type " (prs/unparse-type t)))]
+      (assoc expr
+             expr-type (ret t 
+                            (fo/-FS (fo/-not-filter (c/Un r/-nil r/-false) sym)
+                                    (fo/-filter (c/Un r/-nil r/-false) sym))
+                            (obj/->Path nil sym))))))
 
 
 ;[Method -> Symbol]

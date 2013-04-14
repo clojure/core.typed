@@ -12,7 +12,9 @@
 (defn ^String error-msg 
   [& msg]
   (apply str (when *current-env*
-               (str (:line *current-env*) ": "))
+               (str (:line *current-env*) ":"
+                    (:col *current-env*)
+                    " "))
          (concat msg)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -716,9 +716,9 @@
                  (-filter (->Value :Map1) 'tmap [(->KeyPE :type)]))
          (-hmap {(-val :type) (-val :Map1)})))
   ;test that update resolves Names properly
-  (is (= (update (->Name 'clojure.core.typed.test.core/MapStruct2)
-                 (-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
-         (Un)))
+  (is-with-aliases (= (update (->Name 'clojure.core.typed.test.core/MapStruct2)
+                              (-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
+                      (Un)))
   ;test that update resolves Names properly
   ; here we refine the type of tmap with the equivalent of following the then branch 
   ; with test (= :MapStruct1 (:type tmap))
@@ -1292,3 +1292,6 @@
 
 (deftest string-methods-test
   (is-cf (.toUpperCase "a") String))
+
+(deftest common-destructuring-test
+  (is (check-ns 'clojure.core.typed.test.destructure)))
