@@ -962,7 +962,7 @@
           (if inferred-rng
             inferred-rng
             (u/tc-delayed-error (str "Could not apply dotted function " (prs/unparse-type fexpr-type)
-                                     " to arguments " (map prs/unparse-type arg-types))
+                                     " to arguments " (mapv prs/unparse-type arg-types))
                                 :return (or expected (ret (c/Un))))))
 
         (u/tc-delayed-error (str
