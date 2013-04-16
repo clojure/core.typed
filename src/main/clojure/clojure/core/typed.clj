@@ -628,15 +628,18 @@
             collect# @(ns-resolve (find-ns '~'clojure.core.typed.collect-phase)
                                   '~'collect)]
         (if *currently-checking-clj*
-          (throw (Exception. "cf not allowed while checking"))
+          (throw (Exception. "Found inner call to check-ns or cf"))
           (do (ensure-clojure#)
-              (binding [*currently-checking-clj* true]
+              (binding [*currently-checking-clj* true
+                        *delayed-errors* (-init-delayed-errors)]
                 (let [ast# (ast-for-form# '~form)
-                      _# (collect# ast#)]
-                  (-> ast# 
-                      check#
-                      expr-type#
-                      unparse-TCResult#))))))))
+                      _# (collect# ast#)
+                      cexpr# (check# ast#)]
+                  (if-let [errors# (seq @*delayed-errors*)]
+                    (print-errors! errors#)
+                    (-> cexpr#
+                        expr-type#
+                        unparse-TCResult#)))))))))
    ([form expected]
    `(do
       (load-if-needed)
@@ -657,21 +660,53 @@
             parse-type# @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
                                      '~'parse-type)]
       (if *currently-checking-clj*
-        (throw (Exception. "cf not allowed while checking"))
+        (throw (Exception. "Found inner call to check-ns or cf"))
         (do (ensure-clojure#)
-            (binding [*currently-checking-clj* true]
+            (binding [*currently-checking-clj* true
+                      *delayed-errors* (-init-delayed-errors)]
               (let [ast# (ast-for-form# '~form)
                     _# (collect# ast#)
                     c-ast# (check# ast# 
                                    (ret#
                                      (parse-type# '~expected)))]
-                (-> c-ast# 
-                    expr-type# 
-                    unparse-TCResult#)))))))))
+                (if-let [errors# (seq @*delayed-errors*)]
+                  (print-errors! errors#)
+                  (-> c-ast# 
+                      expr-type# 
+                      unparse-TCResult#))))))))))
 
+(defn print-errors! [errors]
+  {:pre [(seq errors)
+         (every? #(instance? clojure.lang.ExceptionInfo %) errors)]}
+  (binding [*out* *err*]
+    (doseq [^Exception e errors]
+      (let [{:keys [env] :as data} (ex-data e)]
+        (print "Type Error ")
+        (print (str "(" (-> env :ns :name) ":" (:line env) 
+                    (when-let [col (:column env)]
+                      (str ":"col))
+                    ") "))
+        (print (.getMessage e))
+        (println)
+        (flush)
+        (let [[_ form :as has-form?] (find data :form)]
+          (when has-form?
+            (binding [*print-length* 30]
+              (println "in: " form)
+              (println)
+              (println))))
+        (flush))))
+  (throw (ex-info (str "Type Checker: Found " (count errors) " errors")
+                  {:type-error :top-level-error})))
 
 (def ^:dynamic *currently-checking-clj* nil)
+(def ^:dynamic *delayed-errors*)
 
+(defn -init-delayed-errors []
+  (atom [] :validator #(and (vector? %)
+                            (every? (fn [a] 
+                                      (instance? clojure.lang.ExceptionInfo a))
+                                    %))))
 (defn check-ns
   "Type check a namespace. If not provided default to current namespace"
   ([] (check-ns (ns-name *ns*)))
@@ -689,15 +724,19 @@
                                                'vars-with-unchecked-defs)]
    (reset-envs!)
    (if *currently-checking-clj*
-     (throw (Exception. "Found recursive call to check-ns"))
-     (binding [*currently-checking-clj* true]
+     (throw (Exception. "Found inner call to check-ns or cf"))
+     (binding [*currently-checking-clj* true
+               *delayed-errors* (-init-delayed-errors)]
        (ensure-clojure)
        (collect-ns nsym)
        (check-ns-and-deps nsym)
        (let [vs (vars-with-unchecked-defs)]
-         (doseq [v vs]
-           (println "WARNING: Definition missing:" v)
-           (flush)))
+         (binding [*out* *err*]
+           (doseq [v vs]
+             (println "WARNING: Type Checker: Definition missing:" v)
+             (flush))))
+       (when-let [errors (seq @*delayed-errors*)]
+         (print-errors! errors))
        :ok)))))
 
 (comment 

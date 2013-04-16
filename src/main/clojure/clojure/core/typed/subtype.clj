@@ -22,10 +22,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtype
 
+(def subtype-error ::subtype-error)
+
+(u/derive-error subtype-error)
+
+(defn subtype-error? [exdata]
+  (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
+  (isa? (:type-error exdata) subtype-error))
 
 ;[Type Type -> Nothing]
-(defn type-error [s t]
-  (throw (Exception. (str "Type Error"
+(defn fail! [s t]
+  (throw (ex-info 
+           "Subtyping failed"
+           #_(str "Type Error"
                           (when vs/*current-env*
                             (str ", " (:source vs/*current-env*) ":" (:line vs/*current-env*)))
                           "\n\nActual type\n\t"
@@ -35,7 +44,13 @@
                           (or (-> t meta :source-Name)
                               (with-out-str (pr (prs/unparse-type t))))
                           (when vs/*current-expr*
-                            (str "\n\nForm: " (u/emit-form-fn vs/*current-expr*)))))))
+                            (str "\n\nForm: " (u/emit-form-fn vs/*current-expr*))))
+                  {:type-error subtype-error})))
+
+(defmacro handle-failure [& body]
+  `(u/with-ex-info-handlers
+     [subtype-error? (constantly false)]
+     ~@body))
 
 ;keeps track of currently seen subtype relations for recursive types.
 ;(Set [Type Type])
@@ -47,11 +62,9 @@
 (defn subtypes-varargs?
   "True if argtys are under dom"
   [argtys dom rst]
-  (try 
+  (handle-failure
     (subtypes*-varargs #{} argtys dom rst)
-    true
-    (catch Exception e
-      false)))
+    true))
 
 
 ;subtype and subtype? use *sub-current-seen* for remembering types (for Rec)
@@ -67,37 +80,37 @@
 
 ;[Type Type -> Boolean]
 (defn subtype? [s t]
-  (try 
-    (subtype s t)
-    true
-    (catch IllegalArgumentException e
-      (throw e))
-    (catch Exception e
-      false)))
+  {:post [(u/boolean? %)]}
+  (boolean
+    (handle-failure
+      (subtype s t))))
 
 (declare subtypeA*)
 
 ;[(IPersistentSet '[Type Type]) Type Type -> Boolean]
 (defn subtypeA*? [A s t]
-  (try (subtypeA* A s t)
-    true
-    (catch IllegalArgumentException e
-      (throw e))
-    (catch Exception e
-      false)))
+  (handle-failure
+    (subtypeA* A s t)))
 
 (declare supertype-of-one-arr)
 
 (defn infer-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.infer) 'infer)]
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.cs-gen) 'infer)]
     (assert (var? v) "infer unbound")
     v))
+
+(defmacro handle-cgen-failure [& body]
+  `(u/with-ex-info-handlers
+     [@(ns-resolve (find-ns '~'clojure.core.typed.cs-gen) '~'cs-error?) (constantly false)]
+     ~@body))
 
 ;[(IPersistentMap Symbol Bounds) (Seqable Type) (Seqable Type)
 ;  -> Boolean]
 (defn unify [X S T]
   (let [infer @(infer-var)]
-    (boolean (infer X {} S T r/-any))))
+    (boolean 
+      (handle-cgen-failure
+        (infer X {} S T r/-any)))))
 
 (declare subtype-TApp?)
 
@@ -107,14 +120,16 @@
   (if (or (contains? A [s t])
           (= s t)
           (r/Top? t)
-          (r/Bottom? s))
+          (r/Bottom? s)
+          ;TCError is top and bottom
+          (some r/TCError? [s t]))
     A
     (binding [*sub-current-seen* (conj A [s t])]
       (cond
         (and (r/Value? s)
              (r/Value? t))
         ;already (not= s t)
-        (type-error s t)
+        (fail! s t)
 
         (r/Name? s)
         (subtypeA* *sub-current-seen* (c/resolve-Name s) t)
@@ -141,7 +156,7 @@
               b1 (c/Poly-body* names s)]
           (if (unify (zipmap names bnds) [b1] [t])
             *sub-current-seen*
-            (type-error s t)))
+            (fail! s t)))
 
         (and (r/Poly? t)
              (let [names (repeatedly (.nbound ^Poly t) gensym)
@@ -155,7 +170,7 @@
              (r/TApp? t))
         (if (subtype-TApp? s t)
           *sub-current-seen*
-          (type-error s t))
+          (fail! s t))
 
         (r/TApp? s)
         (let [^TApp s s]
@@ -163,7 +178,7 @@
                    (subtypeA*? (conj *sub-current-seen* [s t])
                                (c/resolve-TApp s) t))
             *sub-current-seen*
-            (type-error s t)))
+            (fail! s t)))
 
         (r/TApp? t)
         (let [^TApp t t]
@@ -171,7 +186,7 @@
                    (subtypeA*? (conj *sub-current-seen* [s t])
                                s (c/resolve-TApp t)))
             *sub-current-seen*
-            (type-error s t)))
+            (fail! s t)))
 
         (r/App? s)
         (subtypeA* *sub-current-seen* (c/resolve-App s) t)
@@ -180,19 +195,19 @@
         (subtypeA* *sub-current-seen* s (c/resolve-App t))
 
         (r/Bottom? t)
-        (type-error s t)
+        (fail! s t)
 
         (r/Union? s)
         ;use subtypeA*, throws error
         (if (every? #(subtypeA* *sub-current-seen* % t) (.types ^Union s))
           *sub-current-seen*
-          (type-error s t))
+          (fail! s t))
 
         ;use subtypeA*?, boolean result
         (r/Union? t)
         (if (some #(subtypeA*? *sub-current-seen* s %) (.types ^Union t))
           *sub-current-seen*
-          (type-error s t))
+          (fail! s t))
 
         (and (r/FnIntersection? s)
              (r/FnIntersection? t))
@@ -203,7 +218,7 @@
               A*
               (if-let [A (supertype-of-one-arr A* (first arr2) arr1)]
                 (recur A (next arr2))
-                (type-error s t)))))
+                (fail! s t)))))
 
         (and (r/Intersection? s)
              (r/Intersection? t))
@@ -211,17 +226,17 @@
                       (some #(subtype? s* %) (.types ^Intersection t)))
                     (.types ^Intersection s))
           *sub-current-seen*
-          (type-error s t))
+          (fail! s t))
 
         (r/Intersection? s)
         (if (some #(subtype? % t) (.types ^Intersection s))
           *sub-current-seen*
-          (type-error s t))
+          (fail! s t))
 
         (r/Intersection? t)
         (if (every? #(subtype? s %) (.types ^Intersection t))
           *sub-current-seen*
-          (type-error s t))
+          (fail! s t))
 
         (and (r/TopFunction? t)
              (r/FnIntersection? s))
@@ -233,7 +248,7 @@
                (count (:types t)))
           (or (last (doall (map #(subtype %1 %2) (:types s) (:types t))))
               #{})
-          (type-error s t))
+          (fail! s t))
 
         (and (r/HeterogeneousList? s)
              (r/HeterogeneousList? t))
@@ -241,7 +256,7 @@
                (count (:types t)))
           (or (last (doall (map #(subtype %1 %2) (:types s) (:types t))))
               #{})
-          (type-error s t))
+          (fail! s t))
 
         (and (r/HeterogeneousSeq? s)
              (r/HeterogeneousSeq? t))
@@ -249,7 +264,7 @@
                (count (:types t)))
           (or (last (doall (map #(subtype %1 %2) (:types s) (:types t))))
               #{})
-          (type-error s t))
+          (fail! s t))
 
         (r/KwArgsSeq? s)
         (subtype (c/Un r/-nil (c/RClass-of Seqable [r/-any])) t)
@@ -259,7 +274,7 @@
              (impl/checking-clojure?))
         (let [^Value s s]
           (if (nil? (.val s))
-            (type-error s t)
+            (fail! s t)
             (subtype (apply c/In (c/RClass-of (class (.val s)))
                             (cond
                               ;keyword values are functions
@@ -283,19 +298,17 @@
          A A0]
     (cond
       (and (empty? dom) (empty? argtys)) A
-      (empty? argtys) (throw (Exception. (prn-str "Expected arguments: " (map prs/unparse-type dom)
-                                                  " Actual: "(map prs/unparse-type argtys))))
+      (empty? argtys) (fail! argtys dom)
       (and (empty? dom) rst)
       (if-let [A (subtypeA* A (first argtys) rst)]
         (recur dom (next argtys) A)
-        (type-error (first argtys) rst))
+        (fail! (first argtys) rst))
 
-      (empty? dom) (throw (Exception. (prn-str "Expected arguments: " (map prs/unparse-type dom)
-                                               " Actual: "(map prs/unparse-type argtys))))
+      (empty? dom) (fail! argtys dom)
       :else
       (if-let [A (subtypeA* A0 (first argtys) (first dom))]
         (recur (next dom) (next argtys) A)
-        (type-error (first argtys) (first dom))))))
+        (fail! (first argtys) (first dom))))))
 
 ;; simple co/contra-variance for ->
 ;[(IPersistentSet '[Type Type]) Function Function -> (IPersistentSet '[Type Type])]
@@ -313,7 +326,7 @@
     (do
       (when-not (= (count (.dom s))
                    (count (.dom t)))
-        (type-error s t))
+        (fail! s t))
       (-> *sub-current-seen*
         ((fn [A0]
            (reduce (fn [A* [s t]]
@@ -330,7 +343,7 @@
 
     (and (not ((some-fn :rest :drest) s))
          (:rest t))
-    (type-error s t)
+    (fail! s t)
 
     (and (.rest s)
          (.rest t))
@@ -351,14 +364,12 @@
                    (subtypeA* A* s t))
                  A0 (map vector (:dom t) (:dom s)))))
       (subtypeA* (:rng s) (:rng t)))
-    :else (type-error s t)))
+    :else (fail! s t)))
 
-;[(IPersistentSet '[Type Type]) Function (Seqable Function) -> (IPersistentSet '[Type Type])]
+;[(IPersistentSet '[Type Type]) Function (Seqable Function) -> (Option (IPersistentSet '[Type Type]))]
 (defn supertype-of-one-arr [A s ts]
-  (some #(try (arr-subtype A % s)
-           (catch IllegalArgumentException e
-             (throw e))
-           (catch Exception e))
+  (some #(handle-failure 
+           (arr-subtype A % s))
         ts))
 
 (defmethod subtype* [Result Result impl/default]
@@ -394,7 +405,7 @@
   [s t]
   (if (= (c/RClass-of Object) t)
     *sub-current-seen*
-    (type-error s t)))
+    (fail! s t)))
 
 (defmethod subtype* [Protocol Protocol impl/default]
   [{var1 :the-var variances* :variances poly1 :poly? :as s}
@@ -408,7 +419,7 @@
                                        (subtypeA* *sub-current-seen* r l))))
                    (map vector variances* poly1 poly2)))
     *sub-current-seen*
-    (type-error s t)))
+    (fail! s t)))
 
 (defn subtype-TypeFn-app?
   [^TypeFn tfn ^TApp ltapp ^TApp rtapp]
@@ -487,7 +498,7 @@
                  tbody (c/TypeFn-body* names T)]
              (subtype? sbody tbody)))
     *sub-current-seen*
-    (type-error S T)))
+    (fail! S T)))
 
 (defmethod subtype* [PrimitiveArray r/Type impl/clojure]
   [_ t]
@@ -504,7 +515,7 @@
            (subtype? (.output-type s)
                      (.output-type t)))
     *sub-current-seen*
-    (type-error s t)))
+    (fail! s t)))
 
 (defn- subtype-datatype-record-on-left
   [{:keys [the-class] :as s} t]
@@ -512,7 +523,7 @@
                                        (or (@dtenv/DATATYPE-ANCESTOR-ENV the-class)
                                            #{})))
     *sub-current-seen*
-    (type-error s t)))
+    (fail! s t)))
 
 ;Not quite correct, datatypes have other implicit ancestors (?)
 (defmethod subtype* [DataType r/Type impl/clojure] [s t] (subtype-datatype-record-on-left s t))
@@ -524,7 +535,7 @@
                                        (or (@dtenv/DATATYPE-ANCESTOR-ENV the-class)
                                            #{})))
     *sub-current-seen*
-    (type-error s t)))
+    (fail! s t)))
 
 (defmethod subtype* [r/Type DataType impl/clojure] [s t] (subtype-datatype-record-on-right s t))
 (defmethod subtype* [r/Type Record impl/clojure] [s t] (subtype-datatype-record-on-right s t))
@@ -543,7 +554,7 @@
                                        (subtypeA* *sub-current-seen* r l))))
                    (map vector (:variances s) poly1 poly2)))
     *sub-current-seen*
-    (type-error s t)))
+    (fail! s t)))
 
 (defmethod subtype* [Record Record impl/default] [s t] (subtype-datatypes-or-records s t))
 (defmethod subtype* [DataType DataType impl/default] [s t] (subtype-datatypes-or-records s t))
@@ -559,7 +570,7 @@
          (empty? replacementsr))
     (if (isa? classl classr)
       *sub-current-seen*
-      (type-error s t))))
+      (fail! s t))))
 
 ; (Cons Integer) <: (Seqable Integer)
 ; (ancestors (Seqable Integer)
@@ -642,7 +653,7 @@
 
       ;try each ancestor
 
-      :else (type-error s t))))
+      :else (fail! s t))))
 
 (prefer-method subtype* 
                [r/Type Mu impl/default]
@@ -665,7 +676,7 @@
   (or (last (doall (map (fn [[k v]]
                           (if-let [t (ltypes k)]
                             (subtype t v)
-                            (type-error s t)))
+                            (fail! s t)))
                         rtypes)))
       #{}))
 
@@ -714,14 +725,14 @@
              (and supper (<= supper tupper))
              true))
     *sub-current-seen*
-    (type-error s t)))
+    (fail! s t)))
 
 (defmethod subtype* :default
   [s t]
   #_(prn "subtype :default" @impl/TYPED-IMPL (prs/unparse-type s) (prs/unparse-type t))
   (if (r/Top? t)
     *sub-current-seen*
-    (type-error s t)))
+    (fail! s t)))
 
 (defmacro sub [s t]
   `(subtype (parse-type '~s)

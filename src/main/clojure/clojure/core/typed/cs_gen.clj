@@ -23,6 +23,24 @@
                                         Function)
            (clojure.lang ISeq IPersistentList APersistentVector APersistentMap)))
 
+(def cs-error ::cs-error)
+
+(u/derive-error cs-error)
+
+(defn cs-error? [exdata]
+  (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
+  (isa? (:type-error exdata) cs-error))
+
+(defn fail! [s t]
+  (throw (ex-info 
+           "Constraint gen failed"
+           {:type-error cs-error})))
+
+(defmacro handle-failure [& body]
+  `(u/with-ex-info-handlers
+     [cs-error? (constantly false)]
+     ~@body))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint Generation
 
@@ -34,13 +52,13 @@
               & [var]]
   #_(prn "c-meet" c1 c2)
   (when-not (or var (= X X*))
-    (throw (Exception. (str "Non-matching vars in c-meet:" X X*))))
+    (u/int-error (str "Non-matching vars in c-meet:" X X*)))
   (when-not (= bnds bnds*)
-    (throw (Exception. (str "Non-matching bounds in c-meet:" bnds bnds*))))
+    (u/int-error (str "Non-matching bounds in c-meet:" bnds bnds*)))
   (let [S (join S S*)
         T (meet T T*)]
     (when-not (sub/subtype? S T)
-      (sub/type-error S T))
+      (fail! S T))
     (cr/->c S (or var X) T bnds)))
 
 (declare dmap-meet)
@@ -54,7 +72,7 @@
                                        (dmap-meet dmap1 dmap2)
                                        (set/union prj1 prj2))))]
     (when (empty? maps)
-      (throw (Exception. (str "No meet found for csets"))))
+      (fail! maps1 maps2))
     (cr/->cset maps)))
 
 (defn cset-meet* [args]
@@ -93,7 +111,7 @@
     (let [{fixed1 :fixed rest1 :rest} dc1
           {fixed2 :fixed rest2 :rest} dc2]
       (when-not (and rest2 (= (count fixed1) (count fixed2)))
-        (sub/type-error fixed1 fixed2))
+        (fail! fixed1 fixed2))
       (cr/->dcon-exact
         (doall
           (for [[c1 c2] (map vector fixed1 fixed2)]
@@ -111,7 +129,7 @@
     (let [{fixed1 :fixed} dc1
           {fixed2 :fixed} dc2]
       (when-not (= (count fixed1) (count fixed2))
-        (throw (Exception. (prn-str "Don't match: " fixed1 fixed2))))
+        (fail! fixed1 fixed2))
       (cr/->dcon
         (doall
           (for [[c1 c2] (map vector fixed1 fixed2)]
@@ -124,7 +142,7 @@
     (let [{fixed1 :fixed} dc1
           {fixed2 :fixed rest :rest} dc2]
       (when-not (>= (count fixed1) (count fixed2))
-        (throw (Exception. (prn-str "Don't match: " fixed1 fixed2))))
+        (fail! fixed1 fixed2))
       (cr/->dcon
         (doall
           (for [[c1 c2] (map vector fixed1 (concat fixed2 (repeat rest)))]
@@ -156,20 +174,20 @@
           {fixed2 :fixed c2 :dc {bound2 :name} :dbound} dc2]
       (when-not (and (= (count fixed1) (count fixed2))
                      (= bound1 bound2))
-        (throw (Exception. (prn-str "Don't match: " bound1 bound2))))
+        (fail! bound1 bound2))
       (cr/->dcon-dotted (doall (for [[c1 c2] (map vector fixed1 fixed2)]
                                  (c-meet c1 c2 (:X c1))))
                         (c-meet c1 c2 bound1) bound1))
 
     (and (cr/dcon? dc1)
          (cr/dcon-dotted? dc2))
-    (throw (Exception. (prn-str "Don't match: " dc1 dc2)))
+    (fail! dc1 dc2)
 
     (and (cr/dcon-dotted? dc1)
          (cr/dcon? dc2))
-    (throw (Exception. (prn-str "Don't match: " dc1 dc2)))
+    (fail! dc1 dc2)
 
-    :else (throw (Exception. (prn-str "Got non-dcons: " dc1 dc2)))))
+    :else (u/int-error (str "Got non-dcons" dc1 dc2))))
 
 (defn dmap-meet [dm1 dm2]
   {:pre [(cr/dmap? dm1)
@@ -234,7 +252,7 @@
              (impl/checking-clojure?))
         (let [^Value S S]
           (if (nil? (.val S))
-            (sub/type-error S T)
+            (fail! S T)
             (cs-gen V X Y
                     (apply c/In (c/RClass-of (class (.val S)))
                            (cond 
@@ -272,13 +290,10 @@
 
         ;; find *an* element of T which can be made a supertype of S
         (r/Union? T)
-        (if-let [cs (seq (filter identity (mapv #(try (cs-gen V X Y S %)
-                                                   (catch IllegalArgumentException e
-                                                     (throw e))
-                                                   (catch Exception e)) 
+        (if-let [cs (seq (filter identity (mapv #(handle-failure (cs-gen V X Y S %))
                                                 (.types ^Union T))))]
           (cset-combine cs)
-          (sub/type-error S T))
+          (fail! S T))
 
         (and (r/Intersection? S)
              (r/Intersection? T))
@@ -287,26 +302,18 @@
             ; for each element of T, we need at least one element of S that works
             (for [t* (:types T)]
               (if-let [results (seq (filter identity
-                                            (map #(try 
-                                                    (cs-gen V X Y % t*)
-                                                    (catch IllegalArgumentException e
-                                                      (throw e))
-                                                    (catch Exception e))
+                                            (map #(handle-failure
+                                                    (cs-gen V X Y % t*))
                                                  (:types S))))]
                 (cset-combine results)
-                (sub/type-error S T)))))
+                (fail! S T)))))
 
         ;; find *an* element of S which can be made a subtype of T
         (r/Intersection? S)
-        (if-let [cs (some #(try (cs-gen V X Y % T)
-                             (catch IllegalArgumentException e
-                               (throw e))
-                             (catch Exception e)) ;TODO specialised data Exceptions
+        (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
                           (:types S))]
           cs
-          (throw (Exception. (str "Could not constrain "
-                                  (prs/unparse-type S) " to be under "
-                                  (prs/unparse-type T)))))
+          (fail! S T))
 
         ;constrain *every* element of T to be above S, and then meet the constraints
         ;FIXME Should this combine csets instead?
@@ -355,8 +362,7 @@
          (= 1 (count fr/TypeFilter?) (:fs s)))
     (let [tf (first (filter fr/TypeFilter? (:fs s)))]
       (cs-gen-filter V X Y tf t))
-    :else (throw (Exception. (u/error-msg "Need two filters of same type "
-                                        (pr-str (prs/unparse-filter s)) " " (pr-str (prs/unparse-filter t)))))))
+    :else (fail! s t)))
 
 ;must be *latent* filter sets
 (defn cs-gen-filter-set [V X Y s t]
@@ -367,13 +373,11 @@
    :post [(cr/cset? %)]}
   (cond
     (= s t) (cr/empty-cset X Y)
-    (and (fr/FilterSet? s)
-         (fr/FilterSet? t))
+    :else
     (let [{s+ :then s- :else} s
           {t+ :then t- :else} t]
       (cset-meet (cs-gen-filter V X Y s+ t+)
-                 (cs-gen-filter V X Y s- t-)))
-    :else (throw (IllegalArgumentException. "Need two filtersets"))))
+                 (cs-gen-filter V X Y s- t-)))))
 
 (defn cs-gen-object [V X Y s t]
   {:pre [((u/set-c? symbol?) V)
@@ -385,24 +389,24 @@
     (= s t) (cr/empty-cset X Y)
     (or/EmptyObject? t) (cr/empty-cset X Y)
     ;;FIXME do something here
-    :else (throw (IllegalArgumentException. (when vs/*current-env*
-                                              (str (:line vs/*current-env*) ":"))
-                                            "Objects don't match"))))
+    :else (fail! s t)))
 
 (defmethod cs-gen* :default
   [V X Y S T]
 #_(prn "cs-gen* default" (class S) (class T))
-  (when (some r/Result? [S T])
+  #_(when (some r/Result? [S T])
     (throw (IllegalArgumentException. (u/error-msg "Result on left or right "
                                                    (pr-str S) " " (pr-str T)))))
-  (assert (sub/subtype? S T) (sub/type-error S T))
+  (when-not (sub/subtype? S T) 
+    (fail! S T))
   (cr/empty-cset X Y))
 
 (declare cs-gen-Function)
 
 (defmethod cs-gen* [TApp TApp impl/default]
   [V X Y ^TApp S ^TApp T]
-  (assert (= (.rator S) (.rator T)) (sub/type-error S T))
+  (when-not (= (.rator S) (.rator T)) 
+    (fail! S T))
   (cset-meet*
     (mapv #(cs-gen V X Y %1 %2) (.rands S) (.rands T))))
 
@@ -415,17 +419,11 @@
         (let [results (filter identity
                               (doall
                                 (for [s-arr (.types S)]
-                                  (try
-                                    (cs-gen-Function V X Y s-arr t-arr)
-                                    (catch IllegalArgumentException e
-                                      (throw e))
-                                    (catch IllegalStateException e
-                                      (throw e))
-                                    (catch Exception e
-                                      #_(pst e))))))]
+                                  (handle-failure
+                                    (cs-gen-Function V X Y s-arr t-arr)))))]
           ;; ensure that something produces a constraint set
           (when (empty? results) 
-            (sub/type-error S T))
+            (fail! S T))
           (cset-combine results))))))
 
 (defmethod cs-gen* [Result Result impl/default]
@@ -469,7 +467,8 @@
   [V X Y S T]
   {:pre [(or (every? r/Record? [S T])
              (every? r/DataType? [S T]))]}
-  (assert (= (:the-class S) (:the-class T)) (sub/type-error S T))
+  (when-not (= (:the-class S) (:the-class T)) 
+    (fail! S T))
   (if (seq (:poly? S))
     (cs-gen-list V X Y (:poly? S) (:poly? T))
     (cr/empty-cset X Y)))
@@ -487,10 +486,10 @@
         Tkeys (set (keys (:types T)))]
     ; All keys must be values
     (when-not (every? r/Value? (set/union Skeys Tkeys))
-      (sub/type-error S T))
+      (fail! S T))
     ; All keys on the left must appear on the right
     (when-not (empty? (set/difference Skeys Tkeys))
-      (sub/type-error S T))
+      (fail! S T))
     (let [nocheck-keys (set/difference Tkeys Skeys)
           STvals (vals (merge-with vector (:types S) (apply dissoc (:types T) nocheck-keys)))
           Svals (map first STvals)
@@ -535,7 +534,7 @@
                     :contravariant (cs-gen V X Y ti si)
                     :invariant (cset-meet (cs-gen V X Y si ti)
                                           (cs-gen V X Y ti si)))))))
-      :else (sub/type-error S T))))
+      :else (fail! S T))))
 
 (defn demote-F [V X Y {:keys [name bnds] :as S} T]
   {:pre [(r/F? S)]}
@@ -544,7 +543,7 @@
   (when (and (r/F? T)
              (denv/bound-index? (:name T))
              (not (free-ops/free-in-scope (:name T))))
-    (sub/type-error S T))
+    (fail! S T))
   (let [dt (prmt/demote-var T V)]
     (-> (cr/empty-cset X Y)
       (insert-constraint name (r/Bottom) dt (X name)))))
@@ -558,7 +557,7 @@
   (when (and (r/F? S)
              (denv/bound-index? (:name S))
              (not (free-ops/free-in-scope (:name S))))
-    (sub/type-error S T))
+    (fail! S T))
   (let [ps (prmt/promote-var S V)]
     (-> (cr/empty-cset X Y)
       (insert-constraint name ps r/-any (X name)))))
@@ -573,7 +572,7 @@
          (contains? X (.name ^F T)))
     (promote-F V X Y S T)
 
-    :else (sub/type-error S T)))
+    :else (fail! S T)))
 
 (defn cs-gen-right-F [V X Y S T]
   ;(prn "cs-gen* [Type F]" S T X)
@@ -585,7 +584,7 @@
          (contains? X (:name S)))
     (demote-F V X Y S T)
 
-    :else (sub/type-error S T)))
+    :else (fail! S T)))
 
 (defn singleton-dmap [dbound dcon]
   (cr/->dmap {dbound dcon}))
@@ -619,7 +618,7 @@
               nil
               (if-let [c (cmap dbound)]
                 c
-                (throw (Exception. (str "No constraint for bound " dbound))))))))
+                (u/int-error (str "No constraint for bound " dbound)))))))
 
 
 ;; dbound : index variable
@@ -637,7 +636,7 @@
            (cr/->dcon (doall (for [v vars]
                             (if-let [c (cmap v)]
                               c
-                              (throw (Exception. (str "No constraint for new var " v))))))
+                              (u/int-error (str "No constraint for new var " v)))))
                    nil))))
 
 ;; This one's weird, because the way we set it up, the rest is already in the dmap.
@@ -658,15 +657,15 @@
                 (for [v vars]
                   (if-let [c (cmap v)]
                     c
-                    (throw (Exception. (str "No constraint for new var " v))))))
+                    (u/int-error (str "No constraint for new var " v)))))
               (if-let [c ((:map dmap) dbound)]
                 (cond
                   (and (cr/dcon? c)
                        (not (:fixed c))) (:rest c)
                   (and (cr/dcon-exact? c)
                        (not (:fixed c))) (:rest c)
-                  :else (throw (Exception. (str "did not a get a rest-only dcon when moving to the dmap"))))
-                (throw (Exception. (str "No constraint for bound " dbound))))))))
+                  :else (u/int-error (str "did not a get a rest-only dcon when moving to the dmap")))
+                (u/int-error (str "No constraint for bound " dbound)))))))
 
 ;; Maps dotted vars (combined with dotted types, to ensure global uniqueness)
 ;; to "fresh" symbols.
@@ -748,7 +747,7 @@
                             ;                            (prn "new left dom" (map prs/unparse-type new-S))
                             (cs-gen-list V X Y (:dom T) new-S))
                           ;no rest arg on left, or wrong number = fail
-                          :else (sub/type-error S T))
+                          :else (fail! S T))
             ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
         (cset-meet* [arg-mapping ret-mapping]))
 
@@ -761,9 +760,9 @@
            (not (:kws T)))
       (let [{dty :pre-type dbound :name} (:drest S)]
         (when-not (Y dbound)
-          (sub/type-error S T))
+          (fail! S T))
         (when-not (<= (count (:dom S)) (count (:dom T)))
-          (sub/type-error S T))
+          (fail! S T))
         (let [vars (var-store-take dbound dty (- (count (:dom T))
                                                  (count (:dom S))))
               new-tys (doall (for [var vars]
@@ -779,9 +778,9 @@
            (:drest T))
       (let [{dty :pre-type dbound :name} (:drest T)]
         (when-not (Y dbound)
-          (sub/type-error S T))
+          (fail! S T))
         (when-not (<= (count (:dom T)) (count (:dom S)))
-          (sub/type-error S T))
+          (fail! S T))
         (let [vars (var-store-take dbound dty (- (count (:dom S)) (count (:dom T))))
               new-tys (doall
                         (for [var vars]
@@ -801,7 +800,7 @@
            (:drest T))
       (let [{t-dty :pre-type dbound :name} (-> T :drest)]
         (when-not (Y dbound)
-          (sub/type-error S T))
+          (fail! S T))
         (if (<= (count (:dom S)) (count (:dom T)))
           ;; the simple case
           (let [arg-mapping (cs-gen-list V X Y (:dom T) (concat (:dom S) (repeat (- (count (:dom T)) (count (:dom S))) (:rest S))))
@@ -817,7 +816,7 @@
             (move-vars+rest-to-dmap new-cset dbound vars))))
 
 :else 
-(throw (IllegalArgumentException. (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T)))))))
+(u/nyi-error (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T))))))
 
 (defmethod cs-gen* [Function Function impl/default]
   [V X Y S T]
@@ -842,7 +841,7 @@
               {:pre [(cr/c? v)
                      (frees/variance-map? h)
                      ((some-fn nil? symbol?) variable)]}
-              (assert (sub/subtype? S T) (sub/type-error S T))
+              (assert (sub/subtype? S T) (fail! S T))
               (assert (not higher-kind) "NYI")
               (let [var (h (or variable X) :constant)
                     inferred (case var
@@ -870,7 +869,7 @@
                 (letfn [(demote-check-free [v]
                           {:pre [(symbol? v)]}
                           (if (fi-R v)
-                            (throw (Exception. "attempted to demote dotted variable"))
+                            (u/int-error "attempted to demote dotted variable")
                             (cr/->i-subst nil)))]
                   ;; absent-entries is false if there's an error in the substitution, otherwise
                   ;; it's a list of variables that don't appear in the substitution
@@ -900,7 +899,8 @@
                                 S))))))]
 
       (let [{cmap :fixed dmap* :dmap} (-> C :maps first)
-            _ (assert (= 1 (count (:maps C))) "More than one constraint set found")
+            _ (when-not (= 1 (count (:maps C))) 
+                (u/int-error "More than one constraint set found"))
             dm (:map dmap*)
             subst (merge 
                     (into {}
@@ -926,7 +926,7 @@
                                                    (constraint->type f idx-hash :variable k)))
                                                (constraint->type (:dc dc) idx-hash :variable k)
                                                (:dbound dc))]
-                          :else (throw (Exception. (prn-str "What is this? " dc))))))
+                          :else (u/int-error (prn-str "What is this? " dc)))))
 
                     (into {}
                       (for [[k v] cmap]

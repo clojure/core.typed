@@ -1,6 +1,6 @@
 (ns clojure.core.typed.base-env
   (:import (clojure.lang Atom Symbol Namespace Keyword Named IMapEntry Seqable
-                         LazySeq PersistentHashSet PersistentList APersistentVector
+                         LazySeq PersistentHashSet PersistentTreeSet PersistentList APersistentVector
                          APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
                          APersistentMap IDeref ISeq IMeta ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
@@ -95,6 +95,17 @@ PersistentHashSet [[[a :variance :covariant]]
                     IPersistentSet (IPersistentSet a)
                     IPersistentCollection (IPersistentCollection a)
                     IMeta (IMeta Any)}]
+
+PersistentTreeSet [[[a :variance :covariant]]
+                   :replace
+                   {Seqable (Seqable a)
+                    APersistentSet (APersistentSet a)
+                    IFn [Any -> (U a nil)]
+                    AFn [Any -> (U a nil)]
+                    IPersistentSet (IPersistentSet a)
+                    IPersistentCollection (IPersistentCollection a)
+                    IMeta (IMeta Any)}]
+
 
 Associative [[[a :variance :covariant]
               [b :variance :covariant]]
@@ -354,7 +365,7 @@ clojure.core/identity (All [x] [x -> x
                                                :else (is (U nil false) 0)}
                                      :object {:id 0}])
 clojure.core/gensym (Fn [-> Symbol]
-                             [String -> Symbol])
+                        [String -> Symbol])
 clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> Var]
                         [(U Symbol Namespace) Symbol Any -> Var])
 
@@ -374,6 +385,10 @@ clojure.core/filter (All [x y]
                            (Fn
                              [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seqable y)]
                              [[x -> Any] (Option (Seqable x)) -> (Seqable x)]))
+clojure.core/filterv (All [x y]
+                          (Fn
+                            [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (APersistentVector y)]
+                            [[x -> Any] (Option (Seqable x)) -> (APersistentVector x)]))
 clojure.core/remove (All [x y]
                            (Fn 
                              [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seqable y)]
@@ -406,6 +421,9 @@ clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)])
 clojure.core/concat (All [x] [(Option (Seqable x)) * -> (Seqable x)])
 
 clojure.core/set (All [x] [(Option (Seqable x)) -> (PersistentHashSet x)])
+clojure.core/hash-set (All [x] [x * -> (PersistentHashSet x)])
+clojure.core/sorted-set (All [x] [x * -> (PersistentTreeSet x)])
+clojure.core/sorted-set-by (All [x] [[x x -> AnyInteger] x * -> (PersistentTreeSet x)])
 clojure.core/list (All [x] [x * -> (PersistentList x)])
 clojure.core/vector (All [x] [x * -> (APersistentVector x)])
 clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
@@ -572,6 +590,10 @@ clojure.core/empty? [(Option (Seqable Any)) -> boolean
 clojure.core/map
      (All [c a b ...]
           [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (LazySeq c)])
+
+clojure.core/mapv
+     (All [c a b ...]
+          [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (APersistentVector c)])
 
 clojure.core/mapcat
      (All [c b ...]
@@ -790,6 +812,11 @@ clojure.core/<= [Number Number * -> boolean]
 clojure.core/> [Number Number * -> boolean]
 
 clojure.core/>= [Number Number * -> boolean]
+
+clojure.core/== [Number Number * -> boolean]
+
+clojure.core/max [Number Number * -> Number]
+clojure.core/min [Number Number * -> Number]
 
 clojure.core/ref (All [x] [x -> (clojure.lang.ARef x x)])
 

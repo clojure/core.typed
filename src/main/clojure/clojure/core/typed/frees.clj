@@ -13,7 +13,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
-                                        HeterogeneousSeq Scope)
+                                        HeterogeneousSeq Scope TCError)
            (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
@@ -144,6 +144,7 @@
 
 (defmethod frees [::idxs F] [t] {})
 
+(defmethod frees [::any-var TCError] [t] {})
 (defmethod frees [::any-var B] [t] {})
 (defmethod frees [::any-var CountRange] [t] {})
 (defmethod frees [::any-var Value] [t] {})

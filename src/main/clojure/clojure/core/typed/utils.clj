@@ -1,12 +1,14 @@
 (ns clojure.core.typed.utils
   (:refer-clojure :exclude [defrecord])
   (:import (clojure.lang PersistentArrayMap Var))
-  (:require [clojure.core.contracts.constraints :as contracts]
+  (:require [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]
+            [clojure.core.contracts.constraints :as contracts]
             [clojure.core.contracts]
             [clojure.tools.analyzer :as analyze]
             [clojure.tools.analyzer.hygienic :as hygienic]))
 
-(declare ^:dynamic *current-env*)
+(defn every-c? [c]
+  #(every? c %))
 
 ;[Any * -> String]
 (defn ^String error-msg 
@@ -16,6 +18,70 @@
                     (:col *current-env*)
                     " "))
          (concat msg)))
+
+;errors from check-ns or cf
+(defn top-level-error? [{:keys [type-error] :as exdata}]
+  (boolean (#{:top-level-error} type-error)))
+
+(defmacro top-level-error-thrown? [& body]
+  `(with-ex-info-handlers
+     [top-level-error? (constantly true)]
+     ~@body
+     false))
+
+(def tc-error-parent ::tc-error-parent)
+
+(defn tc-error? [exdata]
+  (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
+  (isa? (:type-error exdata) tc-error-parent))
+
+(defn tc-delayed-error [msg & {:keys [return form] :as opt}]
+  (swap! clojure.core.typed/*delayed-errors*
+         conj (ex-info msg (merge {:type-error tc-error-parent}
+                                  (when (contains? opt :form)
+                                    {:form form})
+                                  (when-let [env *current-env*]
+                                    {:env env}))))
+  (or return @(ns-resolve (find-ns 'clojure.core.typed.type-rep) '-nothing)))
+
+(defn derive-error [kw]
+  (derive kw tc-error-parent))
+
+(def int-error-kw ::internal-error)
+(def nyi-error-kw ::nyi-error)
+
+(derive-error int-error-kw)
+(derive-error nyi-error-kw)
+
+(defn type-error
+  [estr]
+  (throw (ex-info estr 
+                  {:type-error tc-error-parent})))
+
+(defn int-error
+  [estr]
+  (throw (ex-info estr 
+                  {:type-error int-error-kw})))
+
+(defn nyi-error
+  [estr]
+  (throw (ex-info estr 
+                  {:type-error nyi-error-kw})))
+
+(defmacro with-ex-info-handlers [handlers & body]
+  `(try
+     ~@body
+     (catch clojure.lang.ExceptionInfo e#
+       (let [found?# (atom false)
+             result# (reduce (fn [_# [h?# hfn#]]
+                               (when (h?# (ex-data e#))
+                                 (reset! found?# true)
+                                 (reduced (hfn# (ex-data e#) e#))))
+                             nil
+                             ~(mapv vec (partition 2 handlers)))]
+         (if @found?#
+           result#
+           (throw e#))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
@@ -44,9 +110,6 @@
 
 (defn =-c? [& as]
   #(apply = (concat as %&)))
-
-(defn every-c? [c]
-  #(every? c %))
 
 (defn hvector-c? [& ps]
   (apply every-pred vector?

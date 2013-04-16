@@ -48,6 +48,22 @@
            (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet)
            (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector)))
 
+(defn tc-warning [& ss]
+  (let [env vs/*current-env*]
+    (binding [*out* *err*]
+      (apply println "WARNING: Type Checker: "
+             (str "(" (-> env :ns :name) ":" (:line env) 
+                  (when-let [col (:column env)]
+                    (str ":"col))
+                  ") ")
+             ss)
+      (flush))))
+
+(defn expected-error [actual expected]
+  (u/tc-delayed-error (str "Expected type: "
+                           (prs/unparse-type expected)
+                           ", Actual: " (prs/unparse-type actual))))
+
 (declare check-expr)
 
 (defn check-ns-and-deps 
@@ -124,9 +140,9 @@
 (defn check-value
   [{:keys [val] :as expr} & [expected]]
   (let [actual-type (const/constant-type val)
-        _ (when expected
+        _ (when (and expected (not (sub/subtype? actual-type (ret-t expected))))
             (binding [vs/*current-expr* expr]
-              (sub/subtype actual-type (ret-t expected))))
+              (expected-error actual-type (ret-t expected))))
         flow (flow-for-value)]
     (assoc expr
            expr-type (if val
@@ -143,24 +159,8 @@
 (defmethod check :number [& args] (apply check-value args))
 (defmethod check :string [& args] (apply check-value args))
 (defmethod check :keyword [& args] (apply check-value args))
-
-(defmethod check :boolean
-  [{:keys [val] :as expr} & [expected]]
-  (assoc expr
-         expr-type (if val
-                     (ret r/-true
-                          (fo/-FS fl/-top fl/-bot)
-                          obj/-empty
-                          (flow-for-value))
-                     (ret r/-false
-                          (fo/-FS fl/-bot fl/-top)
-                          obj/-empty
-                          (flow-for-value)))))
-
-(defmethod check :nil 
-  [expr & [expected]]
-  (assoc expr
-         expr-type (ret r/-nil (fo/-FS fl/-bot fl/-top) obj/-empty (flow-for-value))))
+(defmethod check :boolean [& args] (apply check-value args))
+(defmethod check :nil [& args] (apply check-value args))
 
 (defmethod check :map
   [{:keys [keyvals] :as expr} & [expected]]
@@ -173,7 +173,7 @@
                  (c/RClass-of APersistentMap [(apply c/Un (keys ts))
                                               (apply c/Un (vals ts))]))
         _ (when (and expected (not (sub/subtype? actual expected)))
-            (sub/type-error actual expected))]
+            (expected-error actual expected))]
     (assoc expr
            expr-type (ret actual (fo/-FS fl/-top fl/-bot)))))
 
@@ -181,9 +181,8 @@
   [{:keys [args] :as expr} & [expected]]
   (let [cargs (mapv check args)
         res-type (c/RClass-of IPersistentSet [(apply c/Un (mapv (comp ret-t expr-type) cargs))])
-        _ (when expected
-            (assert (sub/subtype? res-type (ret-t expected))
-                    (sub/type-error res-type (ret-t expected))))]
+        _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
+            (expected-error res-type (ret-t expected)))]
     (assoc expr
            expr-type (ret res-type (fo/-FS fl/-top fl/-bot)))))
 
@@ -191,16 +190,18 @@
   [{:keys [args] :as expr} & [expected]]
   (let [cargs (mapv check args)
         res-type (r/-hvec (mapv (comp ret-t expr-type) cargs))
-        _ (when expected
-            (assert (sub/subtype? res-type (ret-t expected))
-                    (sub/type-error res-type (ret-t expected))))]
+        _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
+            (expected-error res-type (ret-t expected-error)))]
     (assoc expr
            expr-type (ret res-type (fo/-FS fl/-top fl/-bot)))))
 
 (defmethod check :empty-expr 
   [{coll :coll :as expr} & [expected]]
-  (assoc expr
-         expr-type (ret (const/constant-type coll) (fo/-FS fl/-top fl/-bot))))
+  (let [actual (const/constant-type coll)
+        _ (when (and expected (not (sub/subtype? actual (ret-t expected))))
+            (expected-error actual (ret-t expected-error)))]
+    (assoc expr
+           expr-type (ret actual (fo/-FS fl/-top fl/-bot)))))
 
 ;; check-below : (/\ (Results Type -> Result)
 ;;                   (Results Results -> Result)
@@ -254,7 +255,7 @@
       (let [{t1 :t f1 :fl o1 :o} tr1
             {t2 :t} expected]
         (when-not (sub/subtype? t1 t2)
-          (sub/type-error t1 t2))
+          (expected-error t1 t2))
         expected)
 
       (and (TCResult? tr1)
@@ -262,20 +263,20 @@
       (let [{t1 :t f1 :fl o1 :o} tr1
             {t2 :t f2 :fl o2 :o} expected]
         (cond
-          (not (sub/subtype? t1 t2)) (sub/type-error t1 t2)
+          (not (sub/subtype? t1 t2)) (expected-error t1 t2)
 
           (and (not (filter-better? f1 f2))
                (object-better? o1 o2))
-          (throw (Exception. (str "Expected result with filter " f2 ", got filter"  f1)))
+          (u/tc-delayed-error (str "Expected result with filter " f2 ", got filter"  f1))
 
           (and (filter-better? f1 f2)
                (not (object-better? o1 o2)))
-          (throw (Exception. (str "Expected result with object " o2 ", got object"  o1)))
+          (u/tc-delayed-error (str "Expected result with object " o2 ", got object"  o1))
 
           (and (not (filter-better? f1 f2))
                (not (object-better? o1 o2)))
-          (throw (Exception. (str "Expected result with object " o2 ", got object"  o1 " and filter "
-                                  f2 " got filter " f1))))
+          (u/tc-delayed-error (str "Expected result with object " o2 ", got object"  o1 " and filter "
+                                   f2 " got filter " f1)))
         expected)
 
       (and (TCResult? tr1)
@@ -283,7 +284,7 @@
       (let [{t1 :t f :fl o :o} tr1
             t2 expected]
         (when-not (sub/subtype? t1 t2)
-          (sub/type-error t1 t2))
+          (expected-error t1 t2))
         (ret t2 f o))
 
       ;FIXME
@@ -300,8 +301,8 @@
       (let [t1 tr1
             {t2 :t f :fl o :o} expected]
         (if (sub/subtype? t1 t2)
-          (throw (Exception. (str "Expected result with filter " f " and " o ", got " t1)))
-          (sub/type-error t1 t2))
+          (u/tc-delayed-error (str "Expected result with filter " f " and " o ", got " t1))
+          (expected-error t1 t2))
         t1)
 
       (and (Type? tr1)
@@ -309,12 +310,12 @@
       (let [t1 tr1
             t2 expected]
         (when-not (sub/subtype? t1 t2)
-          (sub/type-error t1 t2))
+          (expected-error t1 t2))
         expected)
 
       :else (let [a tr1
                   b expected]
-              (throw (Exception. (str "Unexpected input for check-below " a b)))))))
+              (u/int-error (str "Unexpected input for check-below " a b))))))
 
 (derive ::free-in-for-object fold/fold-rhs-default)
 
@@ -421,7 +422,7 @@
                                           (concat p p*))
                                 (index-free-in? k t) (if polarity fl/-top fl/-bot)
                                 :else f))
-              :else (throw (Exception. (str "what is this? " o)))))]
+              :else (u/int-error (str "what is this? " o))))]
     (cond
       (fl/ImpFilter? f) (let [{ant :a consq :c} f]
                           (fo/-imp (subst-filter ant k o (not polarity)) (ap consq)))
@@ -608,7 +609,8 @@
          ((some-fn nil? TCResult?) expected)
          (u/boolean? check?)]
    :post [(TCResult? %)]}
-  (assert (not drest) "funapp with drest args NYI")
+  (when drest 
+    (u/nyi-error "funapp with drest args NYI"))
   ;  (prn "check-funapp1")
   ;  (prn "argtys objects" (map ret-o argtys))
   ;checking
@@ -627,20 +629,20 @@
                              ((if (seq optional-kw) <= =)
                               nexpected
                               nactual)))))
-        (throw (Exception. (u/error-msg "Wrong number of arguments, expected " (count dom) " fixed parameters"
-                                        (cond
-                                          rest " and a rest parameter "
-                                          drest " and a dotted rest parameter "
-                                          kws (cond
-                                                (and (seq mandatory-kw) (seq optional-kw))
-                                                (str ", some optional keyword arguments and " (count mandatory-kw) 
-                                                     " mandatory keyword arguments")
+        (u/tc-delayed-error (str "Wrong number of arguments, expected " (count dom) " fixed parameters"
+                                 (cond
+                                   rest " and a rest parameter "
+                                   drest " and a dotted rest parameter "
+                                   kws (cond
+                                         (and (seq mandatory-kw) (seq optional-kw))
+                                         (str ", some optional keyword arguments and " (count mandatory-kw) 
+                                              " mandatory keyword arguments")
 
-                                                (seq mandatory-kw) (str "and " (count mandatory-kw) "  mandatory keyword arguments")
-                                                (seq optional-kw) " and some optional keyword arguments"))
-                                        ", and got " nactual
-                                        " for function " (prs/unparse-type ftype0) 
-                                        " and arguments " (mapv (comp prs/unparse-type ret-t) argtys)))))
+                                         (seq mandatory-kw) (str "and " (count mandatory-kw) "  mandatory keyword arguments")
+                                         (seq optional-kw) " and some optional keyword arguments"))
+                                 ", and got " nactual
+                                 " for function " (prs/unparse-type ftype0) 
+                                 " and arguments " (mapv (comp prs/unparse-type ret-t) argtys))))
       (cond
         ; case for regular rest argument, or no rest parameter
         (or rest (empty? (remove nil? [rest drest kws])))
@@ -657,25 +659,25 @@
             (check-below arg-t dom-t))
           ;check keyword args
           (let [flat-kw-argtys (drop (count dom) argtys)]
-            (assert (even? (count flat-kw-argtys)) 
-                    (u/error-msg "Uneven number of arguments to function expecting keyword arguments"))
+            (when-not (even? (count flat-kw-argtys))
+              (u/tc-delayed-error  
+                (str "Uneven number of arguments to function expecting keyword arguments")))
             (let [kw-args-paired-t (apply hash-map (map ret-t flat-kw-argtys))]
               ;make sure all mandatory keys are present
               (when-let [missing-ks (seq 
                                       (set/difference (set (keys mandatory-kw))
                                                       (set (keys kw-args-paired-t))))]
-                (throw (Exception. (u/error-msg "Missing mandatory keyword keys: "
-                                                (interpose ", " (map prs/unparse-type missing-ks))))))
+                (u/tc-delayed-error (str "Missing mandatory keyword keys: "
+                                         (interpose ", " (map prs/unparse-type missing-ks)))))
               ;check each keyword argument is correctly typed
               (doseq [[kw-key-t kw-val-t] kw-args-paired-t]
-                (assert (r/Value? kw-val-t)
-                        (u/error-msg "Can only check keyword arguments with Value keys, found"
-                                     (prs/unparse-type kw-key-t)))
+                (when-not (r/Value? kw-val-t)
+                  (u/tc-delayed-error (str "Can only check keyword arguments with Value keys, found"
+                                           (prs/unparse-type kw-key-t))))
                 (let [expected-val-t ((some-fn optional-kw mandatory-kw) kw-key-t)]
                   (if expected-val-t
                     (check-below kw-val-t expected-val-t)
-                    (do (println "WARNING: Undeclared keyword parameter " (prs/unparse-type kw-key-t))
-                        (flush)))))))))))
+                    (tc-warning "Undeclared keyword parameter " (prs/unparse-type kw-key-t)))))))))))
   (let [dom-count (count dom)
         arg-count (+ dom-count (if rest 1 0) (count optional-kw))
         o-a (map ret-o argtys)
@@ -697,8 +699,8 @@
   (loop [etype expected 
          seen #{}]
     (if (seen etype)
-      (throw (Exception. (u/error-msg "Stuck in loop, cannot resolve function type "
-                                    (prs/unparse-type (ret-t expected)))))
+      (u/int-error (str "Stuck in loop, cannot resolve function type "
+                        (prs/unparse-type (ret-t expected))))
       (let [seen (conj seen etype)]
         (cond
           (r/Name? etype) (recur (c/resolve-Name etype) seen)
@@ -715,30 +717,32 @@
         instance-method? (= :instance-method (:op fexpr))
         method-sym (when (or static-method? instance-method?)
                      (MethodExpr->qualsym fexpr))]
-    (u/error-msg 
-      (if poly? 
-        (str "Polymorphic " 
-             (cond static-method? "static method "
-                   instance-method? "instance method "
-                   :else "function "))
-        (cond static-method? "Static method "
-              instance-method? "Instance method "
-              :else "Function "))
-      (if (or static-method?
-              instance-method?)  
-        (or method-sym
-            (:method-name fexpr))
-        (u/emit-form-fn fexpr)) 
-      " could not be applied to arguments:\n"
-      "Domains: \n\t" 
-      (clojure.string/join "\n\t" (map (partial apply pr-str) (map (comp #(map prs/unparse-type %) :dom) (.types fin)))) 
-      "\n\n"
-      "Arguments:\n\t" (apply prn-str (mapv (comp prs/unparse-type ret-t) arg-ret-types)) "\n"
-      (when expected (str "with expected type:\n\t" (prs/unparse-type (ret-t expected)) "\n\n"))
-      "in: " (if (or static-method? instance-method?)
-               (u/emit-form-fn fexpr)
-               (list* (u/emit-form-fn fexpr)
-                      (map u/emit-form-fn args))))))
+    (u/tc-delayed-error
+      (str
+        (if poly? 
+          (str "Polymorphic " 
+               (cond static-method? "static method "
+                     instance-method? "instance method "
+                     :else "function "))
+          (cond static-method? "Static method "
+                instance-method? "Instance method "
+                :else "Function "))
+        (if (or static-method?
+                instance-method?)  
+          (or method-sym
+              (:method-name fexpr))
+          (u/emit-form-fn fexpr)) 
+        " could not be applied to arguments:\n"
+        "Domains: \n\t" 
+        (clojure.string/join "\n\t" (map (partial apply pr-str) (map (comp #(map prs/unparse-type %) :dom) (.types fin)))) 
+        "\n\n"
+        "Arguments:\n\t" (apply prn-str (mapv (comp prs/unparse-type ret-t) arg-ret-types)) "\n"
+        (when expected (str "with expected type:\n\t" (prs/unparse-type (ret-t expected)) "\n\n"))
+        "in: " (if (or static-method? instance-method?)
+                 (u/emit-form-fn fexpr)
+                 (list* (u/emit-form-fn fexpr)
+                        (map u/emit-form-fn args))))
+      :return (or expected (ret r/Err)))))
 
 (defn ^String polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]
   {:pre [(r/Poly? fexpr-type)]}
@@ -773,7 +777,8 @@
       (and (r/RClass? fexpr-type)
            (isa? (u/symbol->Class (.the-class ^RClass fexpr-type)) IPersistentSet))
       (do
-        (assert (#{1} (count args)))
+        (when-not (#{1} (count args))
+          (u/tc-delayed-error "Wrong number of arguments to set function (" (count args)")"))
         (ret r/-any))
 
       (and (r/RClass? fexpr-type)
@@ -788,6 +793,10 @@
       (let [symfn (prs/parse-type '(All [x] [(U (IPersistentMap Any x) Any) -> (U x nil)]))]
         (check-funapp fexpr args (ret symfn) arg-ret-types expected))
 
+      ;Error is perfectly good fn type
+      (r/TCError? fexpr-type)
+      (ret r/Err)
+
       ;ordinary Function, single case, special cased for improved error msgs
       (and (r/FnIntersection? fexpr-type)
            (let [[{:keys [drest] :as ft} :as ts] (:types fexpr-type)]
@@ -800,14 +809,15 @@
       ;ordinary Function, multiple cases
       (r/FnIntersection? fexpr-type)
       (let [ftypes (:types fexpr-type)
-            success-ret-type (some #(check-funapp1 fexpr args % arg-ret-types expected :check? false)
-                                   (filter (fn [{:keys [dom rest] :as f}]
-                                             {:pre [(r/Function? f)]}
-                                             (sub/subtypes-varargs? arg-types dom rest))
-                                           ftypes))]
+            matching-fns (filter (fn [{:keys [dom rest] :as f}]
+                                   {:pre [(r/Function? f)]}
+                                   (sub/subtypes-varargs? arg-types dom rest))
+                                 ftypes)
+            success-ret-type (when-let [f (first matching-fns)]
+                               (check-funapp1 fexpr args f arg-ret-types expected :check? false))]
         (if success-ret-type
           success-ret-type
-          (throw (Exception. (plainapp-type-error fexpr args fexpr-type arg-ret-types expected)))))
+          (plainapp-type-error fexpr args fexpr-type arg-ret-types expected)))
 
       ;ordinary polymorphic function without dotted rest
       (when (r/Poly? fexpr-type)
@@ -828,7 +838,7 @@
                          ;; only try inference if argument types are appropriate
                          (if-let 
                            [substitution 
-                            (try
+                            (cgen/handle-failure
                               (cond
                                 ;possibly present rest argument, or no rest parameter
                                 (and (not (or drest kws))
@@ -841,10 +851,10 @@
                                 kws
                                 (let [{:keys [mandatory optional]} kws
                                       [normal-argtys flat-kw-argtys] (split-at (count dom) arg-types)
-                                      _ (assert (even? (count flat-kw-argtys))
-                                                (u/error-msg "Uneven number of keyword arguments "
-                                                           "provided to polymorphic function "
-                                                           "with keyword parameters."))
+                                      _ (when-not (even? (count flat-kw-argtys))
+                                          (str "Uneven number of keyword arguments "
+                                               "provided to polymorphic function "
+                                               "with keyword parameters."))
                                       paired-kw-argtys (apply hash-map flat-kw-argtys)
 
                                       ;generate two vectors identical in length with actual kw val types
@@ -860,15 +870,15 @@
                                                  :post [((u/hvector-c? (every-pred vector? (u/every-c? Type?)) 
                                                                        (every-pred vector? (u/every-c? Type?)))
                                                          %)]}
-                                                (assert (r/Value? kw-val-t)
-                                                        (u/error-msg "Can only check keyword arguments with Value keys, found"
-                                                                     (prs/unparse-type kw-key-t)))
+                                                (when-not (r/Value? kw-val-t)
+                                                  (u/int-error 
+                                                    (str "Can only check keyword arguments with Value keys, found"
+                                                         (prs/unparse-type kw-key-t))))
                                                 (let [expected-val-t ((some-fn optional mandatory) kw-key-t)]
                                                   (if expected-val-t
                                                     [(conj kw-val-actual-tys kw-val-t)
                                                      (conj kw-val-expected-tys expected-val-t)]
-                                                    (do (println "WARNING: Undeclared keyword parameter " (prs/unparse-type kw-key-t))
-                                                        (flush)
+                                                    (do (tc-warning "Undeclared keyword parameter " (prs/unparse-type kw-key-t))
                                                         [(conj kw-val-actual-tys kw-val-t)
                                                          (conj kw-val-expected-tys r/-any)]))))
                                               [[] []]
@@ -877,36 +887,31 @@
                                   (when-let [missing-ks (seq 
                                                           (set/difference (set (keys mandatory))
                                                                           (set (keys paired-kw-argtys))))]
-                                    (throw (Exception. (u/error-msg "Missing mandatory keyword keys: "
-                                                                    (interpose ", "
-                                                                               (map prs/unparse-type missing-ks))))))
+                                    (u/tc-delayed-error (str "Missing mandatory keyword keys: "
+                                                             (interpose ", "
+                                                                        (map prs/unparse-type missing-ks)))))
                                   ; it's probably a bug to not infer for unused optional args, revisit this
                                   (when-let [missing-optional-ks (seq
                                                                    (set/difference (set (keys optional))
                                                                                    (set (keys paired-kw-argtys))))]
-                                    (println (u/error-msg "NYI POSSIBLE BUG?! Unused optional parameters"
-                                                          (interpose ", " (map prs/unparse-type missing-optional-ks))))
-                                    (flush))
+                                    (u/nyi-error (str "NYI POSSIBLE BUG?! Unused optional parameters"
+                                                      (interpose ", " (map prs/unparse-type missing-optional-ks)))))
                                   ; infer keyword and fixed parameters all at once
                                   (cgen/infer (zipmap fs-names bbnds) {}
                                               (concat normal-argtys kw-val-actual-tys)
                                               (concat dom kw-val-expected-tys) 
                                               (r/Result-type* rng)
-                                              (and expected (ret-t expected)))))
-
-                              (catch IllegalArgumentException e
-                                (throw e))
-                              (catch Exception e
-                                #_(prn e)))]
+                                              (and expected (ret-t expected))))))]
                            (do #_(prn "subst:" substitution)
                                (check-funapp1 fexpr args (subst/subst-all substitution ftype)
                                               arg-ret-types expected :check? false))
                            (if drest
-                             (throw (Exception. "Cannot infer arguments to polymorphic functions with dotted rest"))
+                             (do (u/tc-delayed-error (str "Cannot infer arguments to polymorphic functions with dotted rest"))
+                                 nil)
                              (recur ftypes)))))]
         (if ret-type
           ret-type
-          (throw (Exception. (polyapp-type-error fexpr args fexpr-type arg-ret-types expected)))))
+          (polyapp-type-error fexpr args fexpr-type arg-ret-types expected)))
 
       :else ;; any kind of dotted polymorphic function without mandatory or optional keyword args
       (if-let [[pbody fixed-vars fixed-bnds dotted-var dotted-bnd]
@@ -928,7 +933,7 @@
                                                drest (and (<= (count dom) (count arg-types))
                                                           (= dotted-var (-> drest :name)))
                                                :else (= (count dom) (count arg-types)))]
-                                   (do
+                                   (cgen/handle-failure
                                      ;(prn "Inferring dotted fn" (prs/unparse-type ftype))
                                      ;; Only try to infer the free vars of the rng (which includes the vars
                                      ;; in filters/objects).
@@ -951,15 +956,18 @@
                                        (or (and substitution
                                                 (check-funapp1 fexpr args 
                                                                substituted-type arg-ret-types expected :check? false))
-                                           (throw (Exception. "Error applying dotted type")))))))]
+                                           (u/tc-delayed-error "Error applying dotted type")
+                                           nil)))))]
           ;(prn "inferred-rng"inferred-rng)
           (if inferred-rng
             inferred-rng
-            (throw (Exception. (pr-str "Could not apply dotted function " (prs/unparse-type fexpr-type)
-                                       " to arguments " (map prs/unparse-type arg-types))))))
+            (u/tc-delayed-error (str "Could not apply dotted function " (prs/unparse-type fexpr-type)
+                                     " to arguments " (map prs/unparse-type arg-types))
+                                :return (or expected (ret (c/Un))))))
 
-        (throw (Exception. (u/error-msg
-                             "Cannot invoke type: " (prs/unparse-type fexpr-type))))))))
+        (u/tc-delayed-error (str
+                              "Cannot invoke type: " (prs/unparse-type fexpr-type))
+                            :return (or expected (ret (c/Un))))))))
 
 (defmethod check :var
   [{:keys [var] :as expr} & [expected]]
@@ -1056,19 +1064,22 @@
       (c/PolyDots* names 
                  (c/PolyDots-bbnds* names expected)
                  body))
-    :else (throw (Exception. (str "Expected Function type, found " (prs/unparse-type expected))))))
+    :else (u/int-error (str "Expected Function type, found " (prs/unparse-type expected)))))
+
+(declare normal-invoke)
 
 ; ignore some keyword argument related intersections
 (defmethod invoke-special 'clojure.core/seq?
-  [{:keys [args] :as expr} & [expected]]
+  [{:keys [args fexpr] :as expr} & [expected]]
   (assert (#{1} (count args)))
-  (let [ctarget (check (first args))]
+  (let [[ctarget :as cargs] (map check args)]
     (cond 
       ; handle keyword args macroexpansion
       (r/KwArgsSeq? (-> ctarget expr-type ret-t))
       (assoc expr
              expr-type (ret r/-true fo/-true-filter))
-      :else ::not-special)))
+      :else (normal-invoke expr fexpr args expected
+                           :cargs cargs))))
 
 (defmethod invoke-special 'clojure.core/extend
   [{[atype & protos] :args :as expr} & [expected]]
@@ -1082,7 +1093,8 @@
         ; build expected types for each method map
         extends (into {}
                       (for [[prcl-expr mmap-expr] (apply hash-map protos)]
-                        (let [protocol (do (assert (= :var (:op prcl-expr)) "Must reference protocol directly with var in extend")
+                        (let [protocol (do (when-not (= :var (:op prcl-expr))
+                                             (u/int-error  "Must reference protocol directly with var in extend"))
                                            (ptl-env/resolve-protocol (u/var->symbol (:var prcl-expr))))
                               expected-mmap (c/make-HMap {}
                                                        ;get all combinations
@@ -1102,7 +1114,8 @@
 ;        (into-array> cljt coll)
 (defmethod invoke-special 'clojure.core.typed/into-array>*
   [{:keys [args] :as expr} & [expected]]
-  (assert (#{2 3 4} (count args)) (u/error-msg "Wrong number of args to into-array>*"))
+  (when-not (#{2 3 4} (count args)) 
+    (u/int-error "Wrong number of args to into-array>*"))
   (let [has-java-syn? (#{3 4} (count args))
         [javat-syn cljt-syn coll-expr]
         (cond 
@@ -1137,37 +1150,51 @@
                           (fo/-FS fs- fs+)
                           obj/-empty))))
 
-(defn invoke-get [{:keys [args] :as expr} & [expected]]
+(defn invoke-get [{:keys [args] :as expr} expected & {:keys [cargs]}]
   {:post [((some-fn 
              #(-> % expr-type TCResult?)
              #{::not-special})
            %)]}
+  (assert cargs)
   (assert (#{2 3} (count args)) "Wrong number of args to clojure.core/get")
-  (let [[target kw default] args
-        kwr (expr-type (check kw))]
+  (let [[ctarget ckw cdefault] cargs
+        kwr (expr-type ckw)]
     (cond
       ((every-pred r/Value? (comp keyword? :val)) (ret-t kwr))
       (assoc expr
              expr-type (invoke-keyword kwr
-                                       (expr-type (check target))
-                                       (when default
-                                         (expr-type (check default)))
+                                       (expr-type ctarget)
+                                       (when cdefault
+                                         (expr-type cdefault))
                                        expected))
 
       ((every-pred r/Value? (comp integer? :val)) (ret-t kwr))
-      (throw (Exception. "get lookup of vector (like nth) NYI"))
+      (u/nyi-error (str "get lookup of vector (like nth) NYI"))
 
-      :else (do ;(prn "Non-special 'get'")
-                ::not-special))))
+      :else ::not-special)))
 
 ;get
 (defmethod invoke-special 'clojure.core/get
-  [expr & [expected]]
-  (invoke-get expr expected))
+  [{:keys [args fexpr] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (let [cargs (mapv check args)
+        r (invoke-get expr expected :cargs cargs)]
+    (if-not (#{::not-special} r)
+      r
+      (normal-invoke expr fexpr args expected
+                     :cargs cargs))))
+
+(declare check-invoke-method)
 
 (defmethod static-method-special 'clojure.lang.RT/get
-  [expr & [expected]]
-  (invoke-get expr expected))
+  [{:keys [args target] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (let [cargs (mapv check args)
+        r (invoke-get expr expected :cargs cargs)]
+    (if-not (#{::not-special} r)
+      r
+      (check-invoke-method expr expected false
+                           :cargs cargs))))
 
 ;FIXME should be the same as (apply hash-map ..) in invoke-apply
 (defmethod static-method-special 'clojure.lang.PersistentHashMap/create
@@ -1230,17 +1257,15 @@
                                   (if (or (contains? (.absent-keys t) k)
                                           (c/complete-hmap? t))
                                     (do
-                                      (println
-                                        (u/error-msg "WARNING: Looking up key " (prs/unparse-type k) 
-                                                     " in heterogeneous map type " (prs/unparse-type t)
-                                                     " that declares the key always absent."))
-                                      (flush)
+                                      (tc-warning
+                                        "Looking up key " (prs/unparse-type k) 
+                                        " in heterogeneous map type " (prs/unparse-type t)
+                                        " that declares the key always absent.")
                                       (or default r/-nil))
                                     ; otherwise result is Any
-                                    (do (println (u/error-msg "WARNING: Looking up key " (prs/unparse-type k)
-                                                              " in heterogeneous map type " (prs/unparse-type t)
-                                                              " which does not declare the key absent "))
-                                        (flush)
+                                    (do (tc-warning "Looking up key " (prs/unparse-type k)
+                                                    " in heterogeneous map type " (prs/unparse-type t)
+                                                    " which does not declare the key absent ")
                                         r/-any))))
 
       (r/Record? t) (find-val-type (Record->HMap t) k default)
@@ -1285,11 +1310,11 @@
                (if (obj/Path? o)
                  (update-in o [:path] #(seq (concat % [this-pelem])))
                  o))
-          (throw (Exception. (u/error-msg "Keyword lookup gave bottom type: "
-                                        (:val kwt) " " (prs/unparse-type targett))))))
+          (u/tc-delayed-error (str (u/error-msg "Keyword lookup gave bottom type: "
+                                                (:val kwt) " " (prs/unparse-type targett))))))
 
-      :else (throw (Exception. (u/error-msg "keyword-invoke only supports keyword lookup, no default. Found " 
-                                          (prs/unparse-type kwt)))))))
+      :else (u/int-error (str "keyword-invoke only supports keyword lookup, no default. Found " 
+                              (prs/unparse-type kwt))))))
 
 ;binding
 ;FIXME use `check-normal-def`
@@ -1307,8 +1332,13 @@
             (doseq [[{:keys [op var] :as var-expr} bnd-expr] new-bindings-exprs]
               (assert (#{:the-var} op))
               (let [expected (var-env/type-of (u/var->symbol var))
-                    cexpr (check bnd-expr (ret expected))]
-                (sub/subtype (-> cexpr expr-type ret-t) expected))))]
+                    cexpr (check bnd-expr (ret expected))
+                    actual (-> cexpr expr-type ret-t)]
+                (when (not (sub/subtype? actual expected))
+                  (u/tc-delayed-error (str "Expected binding for "
+                                           (u/var->symbol var)
+                                           " to be: " (prs/unparse-type expected)
+                                           ", Actual: " (prs/unparse-type actual)))))))]
     (assoc expr
            expr-type (ret r/-any))))
 
@@ -1352,20 +1382,21 @@
 ;isa? (2 arity only)
 (defmethod invoke-special 'clojure.core/isa?
   [{:keys [args] :as expr} & [expected]]
-  (assert (= 2 (count args))
-          "Only supports 2 argument invocations of isa?")
+  (when-not (= 2 (count args))
+    (u/nyi-error "Only supports 2 argument invocations of isa?"))
   (let [[cchild-expr cparent-expr :as cargs] (mapv check args)]
     (assoc expr
            expr-type (tc-isa? (expr-type cchild-expr)
                               (expr-type cparent-expr)))))
 
+;FIXME need to review if any repeated "check"s happen between invoke-apply and specials
 ;apply
 (defmethod invoke-special 'clojure.core/apply
   [expr & [expected]]
   ;(prn "special apply:")
   (let [e (invoke-apply expr expected)]
     (when (= e ::not-special)
-      (throw (Exception. (u/error-msg "apply must be special: " (u/emit-form-fn expr)))))
+      (u/int-error (str "apply must be special: " (u/emit-form-fn expr))))
     e))
 
 ;manual instantiation
@@ -1450,10 +1481,12 @@
         cty (check frm (ret parsed-ty))
         checked-type (ret-t (expr-type cty))
         _ (binding [vs/*current-expr* frm]
-            (sub/subtype checked-type parsed-ty))
-        _ (when expected
-            (binding [vs/*current-expr* frm]
-              (sub/subtype checked-type (ret-t expected))))]
+            (when (not (sub/subtype? checked-type parsed-ty))
+              (expected-error checked-type parsed-ty)))
+        _ (when (and expected (not (sub/subtype? checked-type (ret-t expected))))
+            (binding [vs/*current-expr* frm
+                      vs/*current-env* (:env expr)]
+              (expected-error checked-type (ret-t expected))))]
     (assoc expr
            expr-type (ret parsed-ty))))
 
@@ -1521,8 +1554,7 @@
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [_ (assert (#{1} (count args))
                   "Wrong number of arguments to seq")
-        [coll-expr] args
-        ccoll (check coll-expr)]
+        [ccoll :as cargs] (mapv check args)]
     ;(prn "special seq: ccoll type" (prs/unparse-type (ret-t (expr-type ccoll))))
     (cond
       ; for (apply hash-map (seq kws)) macroexpansion of keyword args
@@ -1538,7 +1570,7 @@
              expr-type (ret (if-let [ts (seq (:types (expr-type ccoll)))]
                               (r/->HeterogeneousSeq ts)
                               r/-nil)))
-      :else ::not-special)))
+      :else (normal-invoke expr fexpr args expected :cargs cargs))))
 
 ;make vector
 (defmethod invoke-special 'clojure.core/vector
@@ -1557,7 +1589,7 @@
       (assoc expr
              expr-type (ret (c/-hmap
                               (apply hash-map (mapv (comp ret-t expr-type) cargs)))))
-      :else ::not-special)))
+      :else (normal-invoke expr fexpr args expected :cargs cargs))))
 
 ;apply hash-map
 (defmethod invoke-apply 'clojure.core/hash-map
@@ -1582,9 +1614,9 @@
                                                       (mapcat vector (:types (expr-type (last cargs)))))))))
       :else ::not-special)))
 
-(defn invoke-nth [{:keys [args] :as expr} & [expected]]
+(defn invoke-nth [{:keys [args] :as expr} expected & {:keys [cargs]}]
   (let [_ (assert (#{2 3} (count args)))
-        [te ne de :as cargs] (doall (map check args))
+        [te ne de :as cargs] (or cargs (doall (map check args)))
         types (let [ts (c/-resolve (ret-t (expr-type te)))]
                 (if (r/Union? ts)
                   (:types ts)
@@ -1613,8 +1645,8 @@
                                                                     [default-t])))]
                                          (if res-t
                                            res-t
-                                           (throw (Exception. (str "Cannot get index " (:val num-t)
-                                                                   " from type " (prs/unparse-type t)))))))))
+                                           (u/tc-delayed-error (str "Cannot get index " (:val num-t)
+                                                                    " from type " (prs/unparse-type t))))))))
                             (let [nnth (:val num-t)
                                   target-o (ret-o (expr-type te))
                                   default-o (when de
@@ -1650,8 +1682,14 @@
 
 ;nth
 (defmethod static-method-special 'clojure.lang.RT/nth
-  [expr & [expected]]
-  (invoke-nth expr expected))
+  [{:keys [args] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (let [cargs (doall (map check args))
+        r (invoke-nth expr expected :cargs cargs)]
+    (if-not (#{::not-special} r)
+      r
+      (check-invoke-method expr expected false
+                           :cargs cargs))))
 
 ;assoc
 ; TODO handle unions of hmaps as the target
@@ -1661,11 +1699,11 @@
   {:post [(-> % expr-type TCResult?)]}
   (let [[target & keyvals] args
 
-        _ (assert (<= 3 (count args))
-                  (str "assoc accepts at least 3 arguments, found "
-                       (count args)))
-        _ (assert (even? (count keyvals))
-                  "assoc accepts an even number of keyvals")
+        _ (when-not (<= 3 (count args))
+            (u/tc-delayed-error (str "assoc accepts at least 3 arguments, found "
+                                     (count args))))
+        _ (when-not (even? (count keyvals))
+            (u/tc-delayed-error "assoc accepts an even number of keyvals"))
 
         targetun (-> target check expr-type ret-t)
         targett (c/-resolve targetun)
@@ -1674,8 +1712,8 @@
                 ((some-fn r/HeterogeneousVector? r/HeterogeneousMap? r/Record?) targett) #{targett}
                 (sub/subtype? targett (c/RClass-of IPersistentMap [r/-any r/-any])) #{targett}
                 (sub/subtype? targett (c/RClass-of IPersistentVector [r/-any])) #{targett}
-                :else (throw (Exception. (str "Must supply map, vector or nil to first argument of assoc, given "
-                                              (prs/unparse-type targetun)))))
+                :else (u/int-error (str "Must supply map, vector or nil to first argument of assoc, given "
+                                        (prs/unparse-type targetun))))
 
         _ (assert (every? #(sub/subtype? % (c/Un (c/RClass-of IPersistentVector [r/-any])
                                                  (c/RClass-of IPersistentMap [r/-any r/-any]))) 
@@ -1708,11 +1746,11 @@
                                                           (get (.fields hmap) (symbol (name (.val kt)))))]
                                          (when-not (and field-type
                                                         (sub/subtype? vt field-type))
-                                           (throw (Exception. 
-                                                    (u/error-msg "Cannot associate key " (prs/unparse-type kt)
-                                                               " with value type " (prs/unparse-type vt)
-                                                               " to record " (prs/unparse-type hmap)
-                                                               "\n\n" "in: " (u/emit-form-fn expr)))))
+                                           (u/tc-delayed-error
+                                             (str "Cannot associate key " (prs/unparse-type kt)
+                                                  " with value type " (prs/unparse-type vt)
+                                                  " to record " (prs/unparse-type hmap)
+                                                  "\n\n" "in: " (u/emit-form-fn expr))))
                                          hmap)
 
                                        ;keep hvector if number Value key and already hvector
@@ -1750,19 +1788,20 @@
 
 ;conj
 (defmethod invoke-special 'clojure.core/conj
-  [{[t & args] :args :keys [fexpr] :as expr} & [expected]]
+  [{[t & args :as all-args] :args :keys [fexpr] :as expr} & [expected]]
   (let [t (check t)
-        args (doall (map check args))]
+        args (doall (map check args))
+        c-all-args (concat [t] args)]
     (cond
       ;(conj {...} [a b]) => (merge {...} {a b})
       (and (r/HeterogeneousMap? (expr-type t))
            (r/HeterogeneousVector? (expr-type (first args))))
       (let [m (expr-type t)
             arg1 (expr-type (first args))
-            _ (assert (= 2 (count (:types arg1)))
-                      "Need vector of length 2 to conj to map")
-            _ (assert (every? r/Value? (:types arg1))
-                      "NYI Vector must be of Values for now")
+            _ (when-not (= 2 (count (:types arg1)))
+                (u/int-error "Need vector of length 2 to conj to map"))
+            _ (when-not (every? r/Value? (:types arg1))
+                (u/nyi-error "NYI Vector must be of Values for now"))
             res (c/-hmap
                   (assoc (:types m)
                          (-> arg1 :types first)
@@ -1784,7 +1823,8 @@
                               (vec (concat (:types (expr-type t)) 
                                            [(expr-type (first args))])))))
 
-      :else ::not-special)))
+      :else (normal-invoke expr fexpr all-args expected
+                           :cargs c-all-args))))
 
 (comment
   (method-expected-type (prs/parse-type '[Any -> Any])
@@ -1816,9 +1856,9 @@
     (assoc expr
            expr-type (ret (c/RClass-of clojure.lang.MultiFn)))))
 
-(defmethod invoke-special :default [& args] ::not-special)
-(defmethod static-method-special :default [& args] ::not-special)
-(defmethod instance-method-special :default [& args] ::not-special)
+(defmethod invoke-special :default [& args] :default)
+(defmethod static-method-special :default [& args] :default)
+(defmethod instance-method-special :default [& args] :default)
 
 (defn check-apply
   [{[fexpr & args] :args :as expr} expected]
@@ -1830,7 +1870,7 @@
       (r/FnIntersection? ftype)
       (do 
         (when (empty? (:types ftype))
-          (throw (Exception. "Empty function intersection given as argument to apply")))
+          (u/int-error (str "Empty function intersection given as argument to apply")))
         (let [arg-tres (mapv check fixed-args)
               arg-tys (mapv (comp ret-t expr-type) arg-tres)
               tail-ty (ret-t (expr-type (check tail)))]
@@ -1838,10 +1878,8 @@
             (cond
               ;we've run out of cases to try, so error out
               (empty? fs)
-              (throw (Exception. (str (when vs/*current-env*
-                                        (str (:line vs/*current-env*) ": "))
-                                      "Bad arguments to function in apply: " 
-                                      (prs/unparse-type ftype) (mapv prs/unparse-type (concat arg-tys [tail-ty])))))
+              (u/tc-delayed-error (str "Bad arguments to function in apply: " 
+                                       (prs/unparse-type ftype) (mapv prs/unparse-type (concat arg-tys [tail-ty]))))
 
               ;this case of the function type has a rest argument
               (and rest
@@ -1872,10 +1910,10 @@
           ;            (prn "checking fn" (prs/unparse-type (first fs))
           ;                 (mapv prs/unparse-type arg-tys)))
           (cond
-            (empty? fs) (throw (Exception. "Bad arguments to polymorphic function in apply"))
+            (empty? fs) (u/tc-delayed-error (str "Bad arguments to polymorphic function in apply"))
             ;the actual work, when we have a * function and a list final argument
             :else 
-            (if-let [substitution (try
+            (if-let [substitution (cgen/handle-failure
                                     (and rest (not tail-bound) 
                                          (<= (count dom)
                                              (count arg-tys))
@@ -1883,12 +1921,7 @@
                                                             (cons tail-ty arg-tys)
                                                             (cons (c/Un r/-nil (c/RClass-of Seqable [rest])) dom)
                                                             rest
-                                                            (r/Result-type* rng)))
-                                    (catch IllegalArgumentException e
-                                      (throw e))
-                                    (catch Exception e
-                                      ;(prn "caught failed polymorphic case")
-                                      ))]
+                                                            (r/Result-type* rng))))]
               (ret (subst/subst-all substitution (r/Result-type* rng)))
               (recur (next fs))))))
 
@@ -1903,37 +1936,40 @@
       (assoc expr
              expr-type t))))
 
+(defn normal-invoke [expr fexpr args expected & {:keys [cfexpr cargs]}]
+  (let [cfexpr (or cfexpr
+                   (check fexpr))
+        cargs (or cargs
+                  (doall (map check args)))
+        ftype (expr-type cfexpr)
+        argtys (map expr-type cargs)
+        actual (check-funapp fexpr args ftype argtys expected)]
+    (assoc expr
+           expr-type actual)))
+
 (defmethod check :invoke
   [{:keys [fexpr args env] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
   #_(prn "invoke:" ((some-fn :var :keyword :op) fexpr))
   (binding [vs/*current-env* env]
     (let [e (invoke-special expr expected)]
-      (cond 
-        (not= ::not-special e) e
+      (if (not= :default e) 
+        e
+        (let [cfexpr (check fexpr)]
+          (cond
+            (let [fexprt (ret-t (expr-type cfexpr))]
+              (and (r/Value? fexprt)
+                   (keyword? (:val fexprt))))
+            (let [[target default] args]
+              (assert (<= 1 (count args) 2))
+              (assoc expr
+                     expr-type (invoke-keyword (expr-type (check fexpr))
+                                               (expr-type (check target))
+                                               (when default
+                                                 (expr-type (check default))) 
+                                               expected)))
 
-        (let [fexprt (ret-t (expr-type (check fexpr)))]
-          (and (r/Value? fexprt)
-               (keyword? (:val fexprt))))
-        (let [[target default] args]
-          (assert (<= 1 (count args) 2))
-          (assoc expr
-                 expr-type (invoke-keyword (expr-type (check fexpr))
-                                           (expr-type (check target))
-                                           (when default
-                                             (expr-type (check default))) 
-                                           expected)))
-
-        :else
-        (let [cfexpr (check fexpr)
-              cargs (doall (map check args))
-              ftype (expr-type cfexpr)
-              argtys (map expr-type cargs)
-              actual (check-funapp fexpr args ftype argtys expected)]
-          (assoc expr
-                 :fexpr cfexpr
-                 :args cargs
-                 expr-type actual))))))
+            :else (normal-invoke expr fexpr args expected :cfexpr cfexpr)))))))
 
 ;lam-result in TR
 (u/defrecord FnResult [args kws rest drest body]
@@ -2376,7 +2412,8 @@
                           (apply fo/-and f new-then-props)))
 _ (binding [vs/*current-expr* body
             vs/*current-env* (:env body)]
-    (sub/subtype (-> crng expr-type ret-t) (ret-t expected-rng)))
+    (when (not (sub/subtype? (-> crng expr-type ret-t) (ret-t expected-rng)))
+      (expected-error (-> crng expr-type ret-t) (ret-t expected-rng))))
 rest-param-name (when rest-param
                   (hygienic/hsym-key rest-param))]
 (FnResult->Function 
@@ -2427,7 +2464,7 @@ rest-param-name (when rest-param
 
 (defmethod check :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
-  (binding [u/*current-env* (:env expr)]
+  (binding [vs/*current-env* (:env expr)]
     (let [sym (hygienic/hsym-key local-binding)
           t (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
               (var-env/type-of sym))
@@ -2494,7 +2531,7 @@ rest-param-name (when rest-param
                               (when nilable?
                                 [r/-nil])))))]
     typ
-    (throw (Exception. (str "Method symbol " sym " does not resolve to a type")))))
+    (u/tc-delayed-error (str "Method symbol " sym " does not resolve to a type"))))
 
 ;[clojure.reflect.Method -> Type]
 (defn- instance-method->Function [{:keys [parameter-types declaring-class return-type] :as method}]
@@ -2536,7 +2573,7 @@ rest-param-name (when rest-param
    :post [(r/FnIntersection? %)]}
   (let [cls (resolve declaring-class)
         _ (when-not (class? cls)
-            (throw (Exception. (str "Constructor for unresolvable class " (:class ctor)))))]
+            (u/tc-delayed-error (str "Constructor for unresolvable class " (:class ctor))))]
     (r/make-FnIntersection (r/make-Function (doall (map #(Java-symbol->Type % false) parameter-types))
                                           (c/RClass-of cls nil)
                                           nil nil
@@ -2552,7 +2589,8 @@ rest-param-name (when rest-param
                                 (str method-name))))
 
 ;[MethodExpr Type Any -> Expr]
-(defn check-invoke-method [{c :class :keys [args tag method env method-name] :as expr} expected inst?]
+(defn check-invoke-method [{c :class :keys [args tag method env method-name] :as expr} expected inst?
+                           & {:keys [ctarget cargs]}]
   {:pre [((some-fn nil? TCResult?) expected)]
    :post [(-> % expr-type TCResult?)]}
   #_(prn "invoke method: " (when method (Method->symbol method)) inst?)
@@ -2562,42 +2600,38 @@ rest-param-name (when rest-param
                           (@mth-override/METHOD-OVERRIDE-ENV msym))
                         (when method
                           (Method->Type method)))
-          _ (assert rfin-type (u/error-msg "Unresolved " (if inst? "instance" "static") 
-                                         " method invocation " 
-                                         (when c
-                                           (str (u/Class->symbol c) "/"))
-                                         method-name 
-                                         ;", insufficient type hints."
-                                         ;"\n\nForm:\n\t" (u/emit-form-fn expr))
-                                         ))
+          _ (when-not rfin-type 
+              (u/int-error (str "Unresolved " (if inst? "instance" "static") 
+                                " method invocation " 
+                                (when c
+                                  (str (u/Class->symbol c) "/"))
+                                method-name 
+                                ;", insufficient type hints."
+                                ;"\n\nForm:\n\t" (u/emit-form-fn expr))
+                                )))
           _ (when inst?
-              (let [ctarget (check (:target expr))
+              (let [ctarget (or ctarget (check (:target expr)))
                     target-class (resolve (:declaring-class method))
                     _ (assert target-class)]
                 ;                (prn "check target" (prs/unparse-type (ret-t (expr-type ctarget)))
                 ;                     (prs/unparse-type (c/RClass-of (u/Class->symbol (resolve (:declaring-class method))) nil)))
                 (when-not (sub/subtype? (ret-t (expr-type ctarget)) (c/RClass-of-with-unknown-params target-class))
-                  (throw (Exception. (u/error-msg "Cannot call instance method " (Method->symbol method)
-                                                " on type " (pr-str (prs/unparse-type (ret-t (expr-type ctarget))))
-                                                "\n\n"
-                                                "Form:"
-                                                "\n\t" (u/emit-form-fn expr)))))))
-          cargs (doall (map check args))
+                  (u/tc-delayed-error (str "Cannot call instance method " (Method->symbol method)
+                                           " on type " (pr-str (prs/unparse-type (ret-t (expr-type ctarget)))))
+                                      :form (u/emit-form-fn expr)))))
+          cargs (or cargs (doall (map check args)))
           result-type (check-funapp expr args (ret rfin-type) (map expr-type cargs) expected)
           _ (when expected
               (when-not (sub/subtype? (ret-t result-type) (ret-t expected))
-                (throw (Exception. (u/error-msg "Return type of " (if inst? "instance" "static")
-                                              " method " (Method->symbol method)
-                                              " is " (prs/unparse-type (ret-t result-type))
-                                              ", expected " (prs/unparse-type (ret-t expected)) "."
-                                              (when (sub/subtype? r/-nil (ret-t result-type))
-                                                (str "\n\nHint: Use `non-nil-return` and `nilable-param` to configure "
-                                                     "where `nil` is allowed in a Java method call. `method-type` "
-                                                     "prints the current type of a method."))
-
-                                              "\n\n"
-                                              "Form:"
-                                              "\n\t" (u/emit-form-fn expr))))))]
+                (u/tc-delayed-error (str "Return type of " (if inst? "instance" "static")
+                                         " method " (Method->symbol method)
+                                         " is " (prs/unparse-type (ret-t result-type))
+                                         ", expected " (prs/unparse-type (ret-t expected)) "."
+                                         (when (sub/subtype? r/-nil (ret-t result-type))
+                                           (str "\n\nHint: Use `non-nil-return` and `nilable-param` to configure "
+                                                "where `nil` is allowed in a Java method call. `method-type` "
+                                                "prints the current type of a method.")))
+                                    :form (u/emit-form-fn expr))))]
       (assoc expr
              expr-type result-type))))
 
@@ -2606,17 +2640,17 @@ rest-param-name (when rest-param
   {:post [(-> % expr-type TCResult?)]}
   #_(prn "static-method" (-> expr :method :name))
   (let [spec (static-method-special expr expected)]
-    (cond
-      (not= ::not-special spec) spec
-      :else (check-invoke-method expr expected false))))
+    (if (not= :default spec)
+      spec
+      (check-invoke-method expr expected false))))
 
 (defmethod check :instance-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (let [spec (instance-method-special expr expected)]
-    (cond
-      (not= ::not-special spec) spec
-      :else (check-invoke-method expr expected true))))
+    (if (not= :default spec)
+      spec
+      (check-invoke-method expr expected true))))
 
 (def COMPILE-STUB-PREFIX "compile__stub")
 
@@ -2651,10 +2685,10 @@ rest-param-name (when rest-param
                  dtp)
             _ (assert ((some-fn r/DataType? r/Record?) dt))
             ft (or (-> dt :fields (get fsym))
-                   (throw (Exception. (str "No field " fsym " in Datatype " target-class))))]
+                   (u/tc-delayed-error (str "No field " fsym " in Datatype " target-class)))]
         (assoc expr
                expr-type (ret ft)))
-      (throw (Exception. ":instance-field NYI")))))
+      (u/nyi-error ":instance-field NYI"))))
 
 ;[Symbol -> Type]
 (defn DataType-ctor-type [sym]
@@ -2673,7 +2707,8 @@ rest-param-name (when rest-param
                            (r/make-FnIntersection 
                              (r/make-Function (-> dt :fields vals) dt))
                            (c/Poly-free-names* dtp)))
-      :else (throw (Exception. (str "Cannot get DataType constructor of " sym))))))
+      :else (u/tc-delayed-error (str "Cannot get DataType constructor of " sym)
+                                :return r/Err))))
 
 (defmethod check :instance-of
   [{cls :class :keys [the-expr] :as expr} & [expected]]
@@ -2760,20 +2795,20 @@ rest-param-name (when rest-param
               ;_ (prn "Expected constructor" (prs/unparse-type (ret-t ifn)))
               cargs (mapv check args)
               res-type (check-funapp expr args ifn (map expr-type cargs) nil)
-              _ (when expected
-                  (sub/subtype (ret-t res-type) (ret-t expected)))]
+              _ (when (and expected (not (sub/subtype? (ret-t res-type) (ret-t expected))))
+                  (expected-error (ret-t res-type) (ret-t expected)))]
           (assoc expr
                  expr-type res-type))))))
 
 (defmethod check :throw
   [{:keys [exception] :as expr} & [expected]]
   (let [cexception (check exception)
-        _ (assert (sub/subtype? (ret-t (expr-type cexception))
-                                (c/RClass-of (u/Class->symbol Throwable) nil))
-                  (str "Can only throw Throwable, found "
-                       (prs/unparse-type (ret-t (expr-type cexception)))))]
+        _ (when-not (sub/subtype? (ret-t (expr-type cexception))
+                                  (c/RClass-of Throwable))
+            (u/tc-delayed-error (str "Cannot throw: "
+                                     (prs/unparse-type (ret-t (expr-type cexception))))))]
     (assoc expr
-           expr-type (ret (c/Un) 
+           expr-type (ret (c/Un)
                           (fo/-FS fl/-top fl/-top) 
                           obj/-empty
                           ;never returns normally
@@ -3164,7 +3199,7 @@ rest-param-name (when rest-param
         (if-let [cnt (when (and (r/Value? u) (integer? (:val u)))
                        (r/make-ExactCountRange (:val u)))]
           (c/restrict cnt t)
-          (do (prn "WARNING:" (str "Cannot infer Count from type " (prs/unparse-type u)))
+          (do (tc-warning "Cannot infer Count from type " (prs/unparse-type u))
               t)))
 
       ;can't do much without a NotCountRange type or difference type
@@ -3189,7 +3224,7 @@ rest-param-name (when rest-param
           (c/restrict r/-nil t)
 
           :else
-          (do (prn "WARNING:" (str "Cannot infer type via ClassPE from type " (prs/unparse-type u)))
+          (do (tc-warning "Cannot infer type via ClassPE from type " (prs/unparse-type u))
               t)))
 
       ; Does not tell us anything.
@@ -3218,7 +3253,7 @@ rest-param-name (when rest-param
                        (prs/unparse-type t)))
           t)
 
-      :else (throw (Exception. (u/error-msg "update along ill-typed path " (prs/unparse-type t) " " (with-out-str (pr lo))))))))
+      :else (u/int-error (str "update along ill-typed path " (prs/unparse-type t) " " (with-out-str (pr lo)))))))
 
 ; f can be a composite filter. bnd-env is a the :l of a PropEnv
 ; ie. a map of symbols to types
@@ -3368,7 +3403,7 @@ rest-param-name (when rest-param
                                      final-els-prop (fo/-or +t-t -t-e)
                                      fs (fo/-FS final-thn-prop final-els-prop)]
                                  fs)
-                               :else (throw (Exception. (str "What are these?" fs2 fs3))))
+                               :else (u/int-error (str "What are these?" fs2 fs3)))
                       type (c/Un ts us)
                       object (if (object-equal? os2 os3) os2 (obj/->EmptyObject))
 
@@ -3385,7 +3420,7 @@ rest-param-name (when rest-param
         (if expected (check-below (ret ts fs2 os2 flow2) expected) (ret ts fs2 os2 flow2))
         (type-equal? ts (c/Un))
         (if expected (check-below (ret us fs3 os3 flow3) expected) (ret us fs3 os3 flow3))
-        :else (throw (Exception. "Something happened"))))))
+        :else (u/int-error "Something happened")))))
 
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
@@ -3414,7 +3449,8 @@ rest-param-name (when rest-param
                 (not init-provided) expr ;handle `declare`
                 check? (check init (ret t)))
         _ (when (and init-provided check?)
-            (sub/subtype (ret-t (expr-type cinit)) t)
+            (when (not (sub/subtype? (ret-t (expr-type cinit)) t))
+              (expected-error (ret-t (expr-type cinit)) t))
             ;record checked definition
             (var-env/add-checked-var-def vsym))]
     ;def returns a Var
@@ -3548,8 +3584,8 @@ rest-param-name (when rest-param
                 (check body (ret (r/Result-type* rng)
                                  (r/Result-filter* rng)
                                  (r/Result-object* rng))))
-        _ (sub/subtype (-> cbody expr-type ret-t)
-                   (r/Result-type* rng))]
+        _ (when-not (sub/subtype? (-> cbody expr-type ret-t) (r/Result-type* rng))
+            (expected-error (-> cbody expr-type ret-t) (r/Result-type* rng)))]
     (assoc expr
            expr-type (expr-type cbody))))
 

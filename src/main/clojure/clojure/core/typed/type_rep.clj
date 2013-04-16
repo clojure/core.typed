@@ -60,6 +60,14 @@
 (defn Bottom? [a]
   (= empty-union a))
 
+(u/defrecord TCError []
+  "Use *only* when a type error occurs"
+  [])
+
+(def Err (->TCError))
+
+(declare-type TCError)
+
 ;should probably be ordered
 (u/defrecord Intersection [types]
   "An unordered intersection of types."

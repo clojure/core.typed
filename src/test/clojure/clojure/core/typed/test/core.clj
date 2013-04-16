@@ -10,6 +10,7 @@
             [clojure.core.typed :as tc, :refer :all]
             [clojure.core.typed.init]
             [clojure.core.typed
+             [utils :as u]
              [current-impl :as impl]
              [check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp]]
              [subtype :as sub]
@@ -391,7 +392,8 @@
   (is-cf (map number? [1])))
 
 (deftest check-invoke
-  (is (thrown? Exception (ety (symbol "a" 'b))))
+  ; wrap in thunk to prevent evaluation (analyzer currently evaluates forms)
+  (is (u/top-level-error-thrown? (cf (fn [] (symbol "a" 'b)))))
   (is (= (ety (symbol "a" "a"))
          (RClass-of clojure.lang.Symbol))))
 
@@ -949,9 +951,10 @@
                 (RClass-of Number)))
   (is (subtype? (:t (tc-t (+ 1 2)))
                 (RClass-of Number)))
-  (is (thrown? Exception (tc-t (+ 1 2 "a"))))
-  (is (thrown? Exception (tc-t (-))))
-  (is (thrown? Exception (tc-t (/)))))
+  ;wrap in thunks to prevent evaluation
+  (is (u/top-level-error-thrown? (cf (fn [] (+ 1 2 "a")))))
+  (is (u/top-level-error-thrown? (cf (fn [] (-)))))
+  (is (u/top-level-error-thrown? (cf (fn [] (/))))))
 
 (deftest tc-constructor-test
   (is (= (tc-t (Exception. "a"))
@@ -1025,8 +1028,8 @@
                 (RClass-of Seqable [(RClass-of Number)])))
   (is (subtype? (ret-t (tc-t (map + [1 2] [1 2] [4 5] [6 7] [4 4] [3 4])))
                 (RClass-of Seqable [(RClass-of Number)])))
-  (is (thrown? Exception (tc-t (map + [1 2] [1 2] [4 5] [6 7] [4 4] {3 4}))))
-  (is (thrown? Exception (tc-t (map + [1 2] [1 2] [4 5] [6 7] [4 4] #{'a 4})))))
+  (is (u/top-level-error-thrown? (cf (map + [1 2] [1 2] [4 5] [6 7] [4 4] {3 4}))))
+  (is (u/top-level-error-thrown? (cf (map + [1 2] [1 2] [4 5] [6 7] [4 4] #{'a 4})))))
 
 (deftest ann-form-test
   (is (= (ret-t (tc-t 
@@ -1247,10 +1250,10 @@
             AddProtoc
             (adder [_ i] 1)))
       true))
-  (is (thrown? Exception
-               (cf (deftype Accumulator [t]
-                     AddProtoc
-                     (adder [_ i] (Accumulator. (+ t i))))))))
+  (is (u/top-level-error-thrown?
+        (cf (deftype Accumulator [t]
+              AddProtoc
+              (adder [_ i] (Accumulator. (+ t i))))))))
 ;;;;
 
 (deftest let-filter-unscoping-test
@@ -1265,9 +1268,11 @@
   (is-cf (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]
                    :when a]
             (inc a)))
-  (is (thrown? Exception
-               (cf (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]]
-                     (inc a))))))
+  ;wrap in thunk to prevent evaluation
+  (is (u/top-level-error-thrown?
+               (cf (fn []
+                     (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]]
+                                                (inc a)))))))
 
 (deftest for>-test
   (is-cf
@@ -1277,12 +1282,23 @@
                               :when a]
                              (+ a b))
     (clojure.lang.LazySeq Number))
-  (is (thrown? Exception
-               (cf
-                 (clojure.core.typed/for> :- Number
+  (is (u/top-level-error-thrown?
+        (cf
+          (clojure.core.typed/for> :- Number
+                                   [[a :- (U clojure.lang.Symbol nil Number)] [1 nil 2 3]
+                                    [b :- Number] [1 2 3]]
+                                   (+ a b))))))
+
+#_(clojure.pprint/pprint
+(clojure.tools.analyzer.emit-form/emit-form
+(clojure.tools.analyzer/ast
+(clojure.core.typed/for> :- Number
                        [[a :- (U clojure.lang.Symbol nil Number)] [1 nil 2 3]
                         [b :- Number] [1 2 3]]
-                       (+ a b))))))
+                       (+ a b))
+  )
+  )
+  )
 
 (deftest dotimes>-test
   (is-cf (clojure.core.typed/dotimes> [i 100] (inc i)) nil))
