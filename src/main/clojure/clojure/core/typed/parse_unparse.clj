@@ -392,7 +392,7 @@
         ;Datatypes that are annotated in this namespace, but not yet defined
         (@dtenv/DATATYPE-ENV clssym) (@dtenv/DATATYPE-ENV clssym)
         (@prenv/PROTOCOL-ENV qsym) (prenv/resolve-protocol qsym)
-        :else (let [res (resolve sym)]
+        :else (let [res (resolve-type sym)]
                 ;(prn *ns* "res" sym "->" res)
                 (cond 
                   (class? res) (or (@dtenv/DATATYPE-ENV (symbol (.getName ^Class res)))
