@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.core
   (:import (clojure.lang Seqable ISeq ASeq IPersistentVector Atom IPersistentMap
-                         Keyword))
+                         Keyword ExceptionInfo))
   (:require [clojure.test :refer :all]
             [clojure.tools.analyzer :refer [ast]]
             [clojure.tools.analyzer.hygienic :refer [ast-hy]]
@@ -10,7 +10,7 @@
             [clojure.core.typed :as tc, :refer :all]
             [clojure.core.typed.init]
             [clojure.core.typed
-             [utils :as u]
+             [utils :as u :refer [with-ex-info-handlers top-level-error?]]
              [current-impl :as impl]
              [check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp]]
              [subtype :as sub]
@@ -1311,3 +1311,16 @@
 
 (deftest common-destructuring-test
   (is (check-ns 'clojure.core.typed.test.destructure)))
+
+(defmacro number-top-level-errors [nfn & body]
+  `(with-ex-info-handlers
+     [top-level-error? (fn [data# _#]
+                         (~nfn (count (:errors data#))))]
+     ~@body
+     false))
+
+(deftest loop-errors-test
+  (is (number-top-level-errors #{1}
+        (cf (loop [a 1] a))))
+  (is (number-top-level-errors #{2}
+        (cf (clojure.core.typed/loop> [[a :- String] 1] a)))))

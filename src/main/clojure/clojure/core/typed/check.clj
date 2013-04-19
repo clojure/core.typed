@@ -43,7 +43,7 @@
             [clojure.set :as set])
   (:import (clojure.core.typed.lex_env PropEnv)
            (clojure.core.typed.type_rep Function FnIntersection RClass Poly DottedPretype HeterogeneousSeq
-                                        Record Value KwArgs HeterogeneousMap)
+                                        Value KwArgs HeterogeneousMap DataType)
            (clojure.core.typed.object_rep Path)
            (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet)
            (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector)))
@@ -1233,7 +1233,7 @@
                                    nil 
                                    expected)))
 
-(defn Record->HMap [^Record r]
+(defn Record->HMap [^DataType r]
   {:pre [(r/Record? r)]
    :post [(Type? %)]}
   (let [kf (zipmap (map (comp r/-val keyword) (keys (.fields r)))
@@ -1740,7 +1740,7 @@
                                        ;updating a base record key must be a subtype of the record's
                                        ;corresponding field, otherwise just ignore any interesting results.
                                        (r/Record? hmap)
-                                       (let [^Record hmap hmap
+                                       (let [^DataType hmap hmap
                                              ^Value kt kt
                                              field-type (when (c/keyword-value? kt)
                                                           (get (.fields hmap) (symbol (name (.val kt)))))]
@@ -2861,72 +2861,79 @@ rest-param-name (when rest-param
 (declare combine-props)
 
 (defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
-  (assert (or (not is-loop) expected-bnds) (u/error-msg "Loop requires more annotations"))
-  (let [check-let-checkfn *check-let-checkfn*
-        env (reduce (fn [env [{{:keys [init]} :local-binding :as expr} expected-bnd]]
-                      {:pre [(lex/PropEnv? env)]
-                       :post [(lex/PropEnv? env)]}
-                      (let [sym (binding-init-sym expr)
-                            ; check rhs
-                            {:keys [t fl flow]} (expr-type
-                                                  (binding [vs/*current-expr* init]
-                                                    (var-env/with-lexical-env env
-                                                      (check-let-checkfn init (when is-loop
-                                                                                (ret expected-bnd))))))
-                            _ (assert (or (not expected-bnd)
-                                          (sub/subtype? t expected-bnd))
-                                      (u/error-msg "Loop variable " sym " initialised to "
-                                                 (pr-str (prs/unparse-type t))
-                                                 ", expected " (pr-str (prs/unparse-type expected-bnd))
-                                                 "\n\nForm:\n\t" (u/emit-form-fn init)))
-                            t (or expected-bnd t)]
-                        (cond
-                          (fl/FilterSet? fl)
-                          (let [{:keys [then else]} fl
-                                p* [(fo/-imp (fo/-not-filter (c/Un r/-nil r/-false) sym) then)
-                                    (fo/-imp (fo/-filter (c/Un r/-nil r/-false) sym) else)]
-                                flow-f (r/flow-normal flow)
-                                flow-atom (atom true)
-                                new-env (-> env
-                                            ;update binding type
-                                            (assoc-in [:l sym] t)
-                                            ;update props
-                                            (update-in [:props] #(set 
-                                                                   (apply concat 
-                                                                          (combine-props p* % (atom true)))))
-                                            (env+ [(if (= fl/-bot flow-f) fl/-top flow-f)] flow-atom))
-                                _ (assert @flow-atom "Applying flow filter resulted in local being bottom")]
-                            new-env)
+  (cond
+    (and is-loop (not expected-bnds) )
+    (do
+      (u/tc-delayed-error "Loop requires more annotations")
+      (assoc expr
+             expr-type (ret (c/Un))))
+    :else
+    (let [check-let-checkfn *check-let-checkfn*
+          env (reduce (fn [env [{{:keys [init]} :local-binding :as expr} expected-bnd]]
+                        {:pre [(lex/PropEnv? env)]
+                         :post [(lex/PropEnv? env)]}
+                        (let [sym (binding-init-sym expr)
+                              ; check rhs
+                              {:keys [t fl flow]} (expr-type
+                                                    (binding [vs/*current-expr* init]
+                                                      (var-env/with-lexical-env env
+                                                        (check-let-checkfn init (when is-loop
+                                                                                  (ret expected-bnd))))))
+                              _ (when (and expected-bnd
+                                           (not (sub/subtype? t expected-bnd)))
+                                  (u/tc-delayed-error 
+                                    (str "Loop variable " sym " initialised to "
+                                         (pr-str (prs/unparse-type t))
+                                         ", expected " (pr-str (prs/unparse-type expected-bnd))
+                                         "\n\nForm:\n\t" (u/emit-form-fn init))))
+                              t (or expected-bnd t)]
+                          (cond
+                            (fl/FilterSet? fl)
+                            (let [{:keys [then else]} fl
+                                  p* [(fo/-imp (fo/-not-filter (c/Un r/-nil r/-false) sym) then)
+                                      (fo/-imp (fo/-filter (c/Un r/-nil r/-false) sym) else)]
+                                  flow-f (r/flow-normal flow)
+                                  flow-atom (atom true)
+                                  new-env (-> env
+                                              ;update binding type
+                                              (assoc-in [:l sym] t)
+                                              ;update props
+                                              (update-in [:props] #(set 
+                                                                     (apply concat 
+                                                                            (combine-props p* % (atom true)))))
+                                              (env+ [(if (= fl/-bot flow-f) fl/-top flow-f)] flow-atom))
+                                  _ (assert @flow-atom "Applying flow filter resulted in local being bottom")]
+                              new-env)
 
-                          (fl/NoFilter? fl) (do
-                                              (assert (= (r/-flow fl/-top) flow))
-                                              (-> env
-                                                  ;no propositions to add, just update binding type
-                                                  (assoc-in [:l sym] t))))))
-                    lex/*lexical-env* (map vector binding-inits (or expected-bnds
-                                                                    (repeat nil))))
+                            (fl/NoFilter? fl) (do
+                                                (assert (= (r/-flow fl/-top) flow))
+                                                (-> env
+                                                    ;no propositions to add, just update binding type
+                                                    (assoc-in [:l sym] t))))))
+                      lex/*lexical-env* (map vector binding-inits (or expected-bnds
+                                                                      (repeat nil))))
 
-        cbody (var-env/with-lexical-env env
-                (if is-loop
-                  (binding [*recur-target* (->RecurTarget expected-bnds nil nil nil)]
-                    (check-let-checkfn body expected))
-                  (binding [vs/*current-expr* body]
-                    (check-let-checkfn body expected))))
-        ;now we return a result to the enclosing scope, so we
-        ;erase references to any bindings this scope introduces
-        unshadowed-ret
-        (reduce (fn [ty sym]
-                  {:pre [(TCResult? ty)
-                         (symbol? sym)]}
-                  (-> ty
-                      (update-in [:t] subst-type sym obj/-empty true)
-                      (update-in [:fl] subst-filter-set sym obj/-empty true)
-                      (update-in [:o] subst-object sym obj/-empty true)
-                      (update-in [:flow :normal] subst-filter sym obj/-empty true)))
-                (expr-type cbody)
-                (map (comp hygienic/hsym-key :local-binding) binding-inits))]
-    (assoc expr
-           expr-type unshadowed-ret)))
+          cbody (var-env/with-lexical-env env
+                  (if is-loop
+                    (binding [*recur-target* (->RecurTarget expected-bnds nil nil nil)]
+                      (check-let-checkfn body expected))
+                    (binding [vs/*current-expr* body]
+                      (check-let-checkfn body expected))))
+          ;now we return a result to the enclosing scope, so we
+          ;erase references to any bindings this scope introduces
+          unshadowed-ret
+          (reduce (fn [ty sym]
+                    {:pre [(TCResult? ty)
+                           (symbol? sym)]}
+                    (-> ty
+                        (update-in [:t] subst-type sym obj/-empty true)
+                        (update-in [:fl] subst-filter-set sym obj/-empty true)
+                        (update-in [:o] subst-object sym obj/-empty true)
+                        (update-in [:flow :normal] subst-filter sym obj/-empty true)))
+                  (expr-type cbody)
+                  (map (comp hygienic/hsym-key :local-binding) binding-inits))]
+      (assoc expr
+             expr-type unshadowed-ret))))
 
 ;unhygienic version
 ;(defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
@@ -3457,6 +3464,7 @@ rest-param-name (when rest-param
     (assoc expr
            expr-type (ret (c/RClass-of Var)))))
 
+;TODO print a hint that `ann` forms must be wrapping in `cf` at the REPL
 (defmethod check :def
   [{:keys [var init init-provided env] :as expr} & [expected]]
   (assert (not expected) expected)

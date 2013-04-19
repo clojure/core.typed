@@ -19,7 +19,7 @@
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
                                         Result AnyValue Top HeterogeneousSeq RClass HeterogeneousList
-                                        HeterogeneousVector DataType Record HeterogeneousMap PrimitiveArray
+                                        HeterogeneousVector DataType HeterogeneousMap PrimitiveArray
                                         Function)
            (clojure.lang ISeq IPersistentList APersistentVector APersistentMap)))
 
@@ -465,8 +465,7 @@
 
 (defn cs-gen-datatypes-or-records 
   [V X Y S T]
-  {:pre [(or (every? r/Record? [S T])
-             (every? r/DataType? [S T]))]}
+  {:pre [(every? r/DataType? [S T])]}
   (when-not (= (:the-class S) (:the-class T)) 
     (fail! S T))
   (if (seq (:poly? S))
@@ -474,7 +473,6 @@
     (cr/empty-cset X Y)))
 
 (defmethod cs-gen* [DataType DataType impl/default] [V X Y S T] (cs-gen-datatypes-or-records V X Y S T))
-(defmethod cs-gen* [Record Record impl/default] [V X Y S T] (cs-gen-datatypes-or-records V X Y S T))
 
 (defmethod cs-gen* [HeterogeneousVector HeterogeneousVector impl/default] 
   [V X Y S T]
@@ -841,8 +839,8 @@
               {:pre [(cr/c? v)
                      (frees/variance-map? h)
                      ((some-fn nil? symbol?) variable)]}
-              (assert (sub/subtype? S T) (fail! S T))
-              (assert (not higher-kind) "NYI")
+              (when-not (sub/subtype? S T) (fail! S T))
+              (when higher-kind (u/nyi-error "Higher kinds"))
               (let [var (h (or variable X) :constant)
                     inferred (case var
                                (:constant :covariant) S
@@ -938,12 +936,12 @@
                                      [(map first s)
                                       (map (comp :type second) s)])]
                 (doseq [[nme {inferred :type :keys [bnds]}] t-substs]
-                  (assert (not (:higher-kind bnds)) "NYI")
+                  (when (:higher-kind bnds) (u/nyi-error "NYI"))
                   (let [lower-bound (subst/substitute-many (:lower-bound bnds) images names)
                         upper-bound (subst/substitute-many (:upper-bound bnds) images names)]
                     (assert (sub/subtype? lower-bound upper-bound)
                             (u/error-msg "Lower-bound " (prs/unparse-type lower-bound)
-                                       " is not below upper-bound " (prs/unparse-type upper-bound)))
+                                         " is not below upper-bound " (prs/unparse-type upper-bound)))
                     (assert (and (sub/subtype? inferred upper-bound)
                                  (sub/subtype? lower-bound inferred))
                             (u/error-msg "Inferred type " (prs/unparse-type inferred)
@@ -975,9 +973,8 @@
 ;       V X Y
 ;       (map prs/unparse-type S)
 ;       (map prs/unparse-type T))
-  (assert (= (count S) (count T))
-          (pr-str "S:" (map prs/unparse-type S)
-                  "T:" (map prs/unparse-type T)))
+  (when-not (= (count S) (count T))
+    (fail! S T))
   (cset-meet*
     ;; We meet early to prune the csets to a reasonable size.
     ;; This weakens the inference a bit, but sometimes avoids

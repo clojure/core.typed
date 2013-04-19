@@ -697,7 +697,8 @@
               (println))))
         (flush))))
   (throw (ex-info (str "Type Checker: Found " (count errors) " errors")
-                  {:type-error :top-level-error})))
+                  {:type-error :top-level-error
+                   :errors errors})))
 
 (def ^:dynamic *currently-checking-clj* nil)
 (def ^:dynamic *delayed-errors*)

@@ -15,7 +15,7 @@
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
                                         Result Protocol TypeFn Name F Bounds HeterogeneousVector
-                                        PrimitiveArray DataType Record RClass Mu HeterogeneousMap
+                                        PrimitiveArray DataType RClass Mu HeterogeneousMap
                                         HeterogeneousList HeterogeneousSeq CountRange)
            (clojure.lang APersistentMap APersistentVector PersistentList ASeq Seqable)))
 
@@ -527,7 +527,6 @@
 
 ;Not quite correct, datatypes have other implicit ancestors (?)
 (defmethod subtype* [DataType r/Type impl/clojure] [s t] (subtype-datatype-record-on-left s t))
-(defmethod subtype* [Record r/Type impl/clojure] [s t] (subtype-datatype-record-on-left s t))
 
 (defn- subtype-datatype-record-on-right
   [s {:keys [the-class] :as t}]
@@ -538,13 +537,11 @@
     (fail! s t)))
 
 (defmethod subtype* [r/Type DataType impl/clojure] [s t] (subtype-datatype-record-on-right s t))
-(defmethod subtype* [r/Type Record impl/clojure] [s t] (subtype-datatype-record-on-right s t))
 
 (defn- subtype-datatypes-or-records
   [{cls1 :the-class poly1 :poly? :as s} 
    {cls2 :the-class poly2 :poly? :as t}]
-  {:pre [(or (every? r/Record? [s t])
-             (every? r/DataType? [s t]))]}
+  {:pre [(every? r/DataType? [s t])]}
   (if (and (= cls1 cls2)
            (every? (fn [[v l r]]
                      (case v
@@ -556,7 +553,6 @@
     *sub-current-seen*
     (fail! s t)))
 
-(defmethod subtype* [Record Record impl/default] [s t] (subtype-datatypes-or-records s t))
 (defmethod subtype* [DataType DataType impl/default] [s t] (subtype-datatypes-or-records s t))
 
 (defn- subtype-rclass

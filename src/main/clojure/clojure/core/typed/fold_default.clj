@@ -11,7 +11,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result
-                                        Record HeterogeneousSeq TCResult TCError)
+                                        HeterogeneousSeq TCResult TCError)
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -92,17 +92,6 @@
                            (update-in [:output-type] type-rec))))
 
 (add-default-fold-case DataType
-                       (fn [ty _]
-                         (-> ty
-                           (update-in [:poly?] #(when %
-                                                  (mapv type-rec %)))
-                           (update-in [:fields] (fn [fs]
-                                                  (apply array-map
-                                                         (apply concat
-                                                                (for [[k v] fs]
-                                                                  [k (type-rec v)]))))))))
-
-(add-default-fold-case Record
                        (fn [ty _]
                          (-> ty
                            (update-in [:poly?] #(when %

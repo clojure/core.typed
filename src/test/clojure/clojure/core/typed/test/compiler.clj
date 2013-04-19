@@ -501,7 +501,7 @@
 (ann emit [Expr -> nil])
 (defmulti emit :op)
 
-(ann emits [(U Expr nil (ISeq Expr) [-> Any] Any) * -> nil])
+(ann ^:nocheck emits [(U Expr nil (ISeq Expr) [-> Any] Any) * -> nil])
 ;weird invariants
 (defn emits [& xs]
   (doseq> [[x :- (U Expr nil (ISeq Expr) [-> Any] Any)] xs]
@@ -741,7 +741,7 @@
     (emits "(function(){throw " throw "})()")
     (emitln "throw " throw ";")))
 
-(ann emit-comment [Any Any -> nil])
+(ann ^:nocheck emit-comment [Any Any -> nil])
 (defn emit-comment
   "Emit a nicely formatted comment string."
   [doc jsdoc]
@@ -1173,110 +1173,6 @@
               (analyze env (first exprs))
               (analyze (assoc env :context (if (= :statement (:context env)) :statement :return)) (last exprs)))]
     {:statements statements :ret ret}))
-
-(declare-names SpecialForm)
-
-#_(def-alias IfForm
-  (U (Seq* (Value 'if) Form)
-     (Seq* (Value 'if) Form Form)))
-
-#_(def-alias ThrowForm
-  (Seq* (Value 'throw) Form))
-
-#_(def-alias Try*Form
-  (Seq* (Value 'try*) Form *)) ;TODO "rest" Seqs
-
-#_(def-alias Def*Form
-  (U (Seq* (Value 'def) Symbol)
-     (Seq* (Value 'def) Symbol x)
-     (Seq* (Value 'def) Symbol String x)))
-
-#_(def-alias Fn*Form
-  (U
-    (Seq* (Value 'fn*) (IPersistentVector Symbol) Form *)
-    (Seq* (Value 'fn*) (IPersistentVector Symbol) (IPersistentMap Form Form) Form Form *)
-    (Seq* (Value 'fn*) (Seq* (IPersistentVector Symbol) Form *) *)
-    (Seq* (Value 'fn*) (Seq* (IPersistentVector Symbol) (IPersistentMap Form Form) Form Form *) *)
-    (Seq* (Value 'fn*) Symbol (IPersistentVector Symbol) Form *)
-    (Seq* (Value 'fn*) Symbol (IPersistentVector Symbol) (IPersistentMap Form Form) Form Form *)
-    (Seq* (Value 'fn*) Symbol (Seq* (IPersistentVector Symbol) Form *) *)
-    (Seq* (Value 'fn*) Symbol (Seq* (IPersistentVector Symbol) (IPersistentMap Form Form) Form Form *) *)))
-
-#_(def-alias LetFn*Form
-  (Seq* (Value 'letfn*) (Vector* Symbol Form *2) Form *))
-
-#_(def-alias DoForm
-  (Seq* (Value 'do) Form *))
-
-#_(def-alias Let*Form
-  (Seq* (Value 'let*) (Vector* Symbol Form *2) Form *))
-
-#_(def-alias Loop*Form
-  (Seq* (Value 'loop*) (Vector* Symbol Form *2) Form *))
-
-#_(def-alias RecurForm
-  (Seq* (Value 'recur) Form *))
-
-#_(def-alias QuoteForm
-  (Seq* (Value 'quote) Form))
-
-#_(def-alias NewForm
-  (Seq* (Value 'new) Form Form *))
-
-#_(def-alias Set!Form
-  (Set* (Value 'set!) Form Form))
-
-#_(def-alias NsForm
-  Any) ; TODO
-
-#_(def-alias Deftype*Form
-  (Seq* (Value 'deftype*) (IPersistentVector Symbol) Any)) ;TODO
-
-#_(def-alias Defrecord*Form
-  (Seq* (Value 'defrecord*) (IPersistentVector Symbol) Any)) ;TODO
-
-#_(def-alias DotForm
-  (Seq* (Value '.) Form Form *)) ;Rest args correct?
-
-#_(def-alias Js*Form
-  (Seq* (Value 'js*) String Form *))
-
-#_(def-alias SpecialForm
-  (U IfForm ThrowForm Try*Form Def*Form Fn*Form LetFn*Form DoForm Let*Form Loop*Form
-     RecurForm QuoteForm NewForm Set!Form NsForm Deftype*Form Defrecord*Form DotForm
-     Js*Form ))
-
-#_(def-alias InvokeForm
-  (I (Seq* Form Form *)
-     (not SpecialForm)))
-
-#_(def-alias Form
-  (U SpecialForm
-     InvokeForm
-     ; Other literals
-     Symbol (IPersistentMap Form Form) (IPersistentVector Form) (IPersistentSet Form)
-     ; Hmm other unspecified constants go here...
-     ))
-
-#_(ann parse 
-     (Fn [(Value 'if) Env IfForm (U nil Symbol) -> Expr]
-         [(Value 'throw) Env ThrowForm (U nil Symbol) -> Expr]
-         [(Value 'try*) Env Try*Form (U nil Symbol) -> Expr]
-         [(Value 'def*) Env Def*Form (U nil Symbol) -> Expr]
-         [(Value 'fn*) Env Fn*Form (U nil Symbol) -> Expr]
-         [(Value 'letfn*) Env LetFn*Form (U nil Symbol) -> Expr]
-         [(Value 'do) Env DoForm (U nil Symbol) -> Expr]
-         [(Value 'let*) Env Let*Form (U nil Symbol) -> Expr]
-         [(Value 'loop*) Env Loop*Form (U nil Symbol) -> Expr]
-         [(Value 'recur) Env RecurForm (U nil Symbol) -> Expr]
-         [(Value 'quote) Env QuoteForm (U nil Symbol) -> Expr]
-         [(Value 'new) Env NewForm (U nil Symbol) -> Expr]
-         [(Value 'set!) Env Set!Form (U nil Symbol) -> Expr]
-         [(Value 'ns) Env NsForm (U nil Symbol) -> Expr]
-         [(Value 'deftype*) Env Deftype*Form (U nil Symbol) -> Expr]
-         [(Value 'defrecord*) Env Defrecord*Form (U nil Symbol) -> Expr]
-         [(Value '.) Env DotForm (U nil Symbol) -> Expr]
-         [(Value 'js*) Env Js*Form (U nil Symbol) -> Expr]))
 
 (defmulti parse (fn [op & rest] op))
 

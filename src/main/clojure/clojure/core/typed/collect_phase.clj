@@ -73,9 +73,7 @@
   (let [{ancests :unchecked-ancestors} opt
         vs (seq (map second vbnd))
         args (seq (map first vbnd))
-        ctor (if record?
-               r/->Record
-               r/->DataType)]
+        ctor r/->DataType]
     (do (impl/ensure-clojure)
         (let [provided-name-str (str provided-name)
               ;_ (prn "provided-name-str" provided-name-str)
@@ -101,13 +99,13 @@
               map-ctor-name (symbol demunged-ns-str (str "map->" local-name))
               dt (if (seq args)
                    (c/Poly* args (repeat (count args) r/no-bounds)
-                            (ctor s vs (map r/make-F args) fs)
+                            (ctor s vs (map r/make-F args) fs record?)
                             args)
-                   (ctor s nil nil fs))
+                   (ctor s nil nil fs record?))
               pos-ctor (if args
                           (c/Poly* args (repeat (count args) r/no-bounds)
                                    (r/make-FnIntersection
-                                     (r/make-Function (vec (vals fs)) (ctor s vs (map r/make-F args) fs)))
+                                     (r/make-Function (vec (vals fs)) (ctor s vs (map r/make-F args) fs record?)))
                                    args)
                           (r/make-FnIntersection
                             (r/make-Function (vec (vals fs)) dt)))
@@ -117,7 +115,7 @@
                             (if args
                               (c/Poly* args (repeat (count args) r/no-bounds)
                                      (r/make-FnIntersection
-                                       (r/make-Function [hmap-arg] (ctor s vs (map r/make-F args) fs)))
+                                       (r/make-Function [hmap-arg] (ctor s vs (map r/make-F args) fs record?)))
                                      args)
                               (r/make-FnIntersection
                                 (r/make-Function [hmap-arg] dt)))))]

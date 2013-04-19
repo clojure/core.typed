@@ -156,20 +156,7 @@
 (defn ^Class RClass->Class [^RClass rcls]
   (u/symbol->Class (.the-class rcls)))
 
-(u/defrecord Record [the-class variances poly? fields]
-  "A Clojure record"
-  [(or (nil? variances)
-       (and (seq variances)
-            (every? variance? variances)))
-   (or (nil? poly?)
-       (and (seq poly?)
-            (every? Type? poly?)))
-   (symbol? the-class)
-   ((u/array-map-c? symbol? (some-fn Scope? Type?)) fields)])
-
-(declare-type Record)
-
-(u/defrecord DataType [the-class variances poly? fields]
+(u/defrecord DataType [the-class variances poly? fields record?]
   "A Clojure datatype"
   [(or (nil? variances)
        (and (seq variances)
@@ -178,7 +165,13 @@
        (and (seq poly?)
             (every? Type? poly?)))
    (symbol? the-class)
-   ((u/array-map-c? symbol? (some-fn Scope? Type?)) fields)])
+   ((u/array-map-c? symbol? (some-fn Scope? Type?)) fields)
+   (u/boolean? record?)])
+
+(defn Record? [^DataType a]
+  (boolean
+    (when (DataType? a)
+      (.record? a))))
 
 (declare-type DataType)
 

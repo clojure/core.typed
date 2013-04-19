@@ -68,7 +68,10 @@
   (throw (ex-info estr 
                   {:type-error nyi-error-kw})))
 
-(defmacro with-ex-info-handlers [handlers & body]
+(defmacro with-ex-info-handlers 
+  "Handle an ExceptionInfo e thrown in body. The first handler whos left hand
+  side returns true, then the right hand side is called passing (ex-info e) and e."
+  [handlers & body]
   `(try
      ~@body
      (catch clojure.lang.ExceptionInfo e#

@@ -22,3 +22,9 @@
           MyRecord)
 
 #_(ann-form (assoc (->MyRecord 1) :a 'a) MyRecord)
+
+#_(do
+  (defrecord A [a]
+    clojure.lang.IFn
+    (invoke [this query] (get this query)))
+  (ann-record A [a :- Number]))

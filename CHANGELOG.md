@@ -2,6 +2,8 @@
 - Add support for mandatory and optional function keyword parameters
 - HMaps can track known absent keys
 - HMaps warn if looking up missing/known absent keys
+- Collect and display multiple type errors
+- Fix type resolve for classes when checking from other namespaces
 
 0.1.13 - Released 9 April 2013
 - Add :nocheck metadata for `ann` to avoid checking `def`s. (CTYP-25)

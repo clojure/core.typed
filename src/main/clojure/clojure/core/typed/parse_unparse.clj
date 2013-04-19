@@ -21,7 +21,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
-                                        Record HeterogeneousSeq KwArgsSeq TCError)
+                                        HeterogeneousSeq KwArgsSeq TCError)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -646,12 +646,6 @@
     the-var))
 
 (defmethod unparse-type* DataType
-  [{:keys [the-class poly?]}]
-  (if poly?
-    (list* the-class (mapv unparse-type poly?))
-    the-class))
-
-(defmethod unparse-type* Record
   [{:keys [the-class poly?]}]
   (if poly?
     (list* the-class (mapv unparse-type poly?))
