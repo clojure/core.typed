@@ -664,7 +664,7 @@
         (do (ensure-clojure#)
             (binding [*currently-checking-clj* true
                       *delayed-errors* (-init-delayed-errors)]
-              (let [ast# (ast-for-form# '~form)
+              (let [ast# (ast-for-form# '(ann-form ~form ~expected))
                     _# (collect# ast#)
                     c-ast# (check# ast# 
                                    (ret#
