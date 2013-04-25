@@ -48,6 +48,11 @@
            (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet)
            (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector)))
 
+;==========================================================
+; # Type Checker
+;
+; The type checker is implemented here.
+
 (defn tc-warning [& ss]
   (let [env vs/*current-env*]
     (binding [*out* *err*]
@@ -82,18 +87,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
-
-;[TCResult -> Any]
-(defn unparse-TCResult [r]
-  (let [t (prs/unparse-type (ret-t r))
-        fs (prs/unparse-filter-set (ret-f r))
-        o (prs/unparse-object (ret-o r))]
-    (if (and (= (fo/-FS fl/-top fl/-top) (ret-f r))
-             (= (ret-o r) obj/-empty))
-      t
-      (if (= (ret-o r) obj/-empty)
-        [t fs]
-        [t fs o]))))
 
 (defn expr-ns [expr]
   (let [nsym (-> expr :env :ns :name symbol)
@@ -3382,8 +3375,8 @@ rest-param-name (when rest-param
 
       ;some optimization code here, contraditions etc? omitted
 
-      ;      (prn "check-if: then branch:" (unparse-TCResult then-ret))
-      ;      (prn "check-if: else branch:" (unparse-TCResult else-ret))
+      ;      (prn "check-if: then branch:" (prs/unparse-TCResult then-ret))
+      ;      (prn "check-if: else branch:" (prs/unparse-TCResult else-ret))
       (cond
         ;both branches reachable
         (and (not (type-equal? (c/Un) ts))
@@ -3420,7 +3413,7 @@ rest-param-name (when rest-param
                       flow (r/-flow fl/-top)
                       ]
                   (ret type filter object flow))]
-          ;(prn "check if:" "both branches reachable, with combined result" (unparse-TCResult r))
+          ;(prn "check if:" "both branches reachable, with combined result" (prs/unparse-TCResult r))
           (if expected (check-below r expected) r))
         ;; special case if one of the branches is unreachable
         (type-equal? us (c/Un))

@@ -1,6 +1,44 @@
 (ns clojure.core.typed
   (:refer-clojure :exclude [defrecord type]))
 
+;=============================================================
+; # core.typed
+;
+; This is the main namespace for core.typed. This project is
+; split into many internal namespaces. Here are some of the main ones:
+;
+; c.c.typed.base-env
+;   The base global type environment. All base Var Annotations,
+;   Java method annotations, Class overriding and other annotations
+;   live here.
+;
+; c.c.typed.type-{rep,ctors}, c.c.parse-unparse,
+; c.c.typed.fold-{rep,default}
+;   Internal type representation and operations.
+;   
+; c.c.typed.check
+;   The type checker.
+;
+; c.c.typed.cs-gen
+;   Polymorphic local type inference algorithm.
+
+;=============================================================
+; # Internal Loading
+
+; ## Lazy Loading
+;
+; We handle lazy loading by moving all of c.c.typed's namespace
+; dependencies to c.c.typed.init. We assume that
+; if c.c.typed.init exists, then core.typed is fully loaded.
+; Does this work with namespaces reloading tools like tools.namespace?
+;
+; By default, core.typed only loads:
+; - c.c.typed macros (eg. `doseq>`, `for>`)
+; - c.c.typed internal marker functions
+;
+; Code that requires anything further than this (eg. type checking) 
+; must load *all* of core.typed with `load-if-needed`.
+
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
   []
@@ -11,26 +49,42 @@
     (println "core.typed initialized.")
     (flush)))
 
-; make sure aliases are declared
+; ## Base alias vars
+;
+; Type aliases are resolved using possibly-unbound Vars. We get around
+; having to load c.c.typed.base-env by interning each alias' Var in c.c.typed
+; here. This way the user can refer the base alias Vars without necessarily loading
+; all of core.typed.
+;
+; ### Consistency
+;
+; `-base-aliases` is ensured not to get out of date.
+; c.c.typed.base-env asserts that -base-aliases is kept in sync with the
+; actual set of aliases defined in the c.c.typed namespace. ie. adding
+; a new alias in c.c.typed.base-env without updating `-base-aliases` throws an internal error.
+;
+; ### Visibility level
+;
+; `-base-aliases` is not private because it is used from c.c.typed.base-env.
 
 (def -base-aliases
+  "Internal use only."
   '#{Option AnyInteger AnyPrimitive Atom1})
 
 (doseq [v -base-aliases]
   (intern 'clojure.core.typed v))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Special functions
+;=============================================================
+; Query functions
 
-;(ann print-filterset [String Any -> Any])
-(defn print-filterset
-  "Print the filter set attached to form, and debug-string"
-  [debug-string frm] 
-  frm)
+; Usually query functions need to force core.typed to fully load.
+; To be as lazy as possible, we use `ns-resolve` to grab the Vars
+; we need.
 
 ;(ann method-type [Symbol -> nil])
 (defn method-type
-  "Given a method symbol, print the core.typed types assigned to it"
+  "Given a method symbol, print the core.typed types assigned to it.
+  Intended for use at the REPL."
   [mname]
   (load-if-needed)
   (let [type-reflect @(ns-resolve (find-ns 'clojure.reflect) 
@@ -52,13 +106,24 @@
                  (Method->Type m)))
       (flush))))
 
-;(ann inst-poly [Any Any -> Any])
+
+;=============================================================
+; Special functions
+
+(defn print-filterset
+  "During type checking, print the filter set attached to form, 
+  preceeded by literal string debug-string"
+  [debug-string frm]
+  frm)
+
 (defn inst-poly 
+  "Internal use only. Use inst."
   [inst-of types-syn]
   inst-of)
 
-;(ann inst-poly-ctor [Any Any -> Any])
-(defn inst-poly-ctor [inst-of types-syn]
+(defn inst-poly-ctor 
+  "Internal use only. Use inst-ctor"
+  [inst-of types-syn]
   inst-of)
 
 (defmacro inst 
@@ -72,16 +137,19 @@
   [inst-of & types]
   `(inst-poly-ctor ~inst-of '~types))
 
-;(ann fn>-ann [Any Any -> Any])
-(defn fn>-ann [fn-of param-types-syn]
+(defn fn>-ann 
+  "Internal use only. Use fn>."
+  [fn-of param-types-syn]
   fn-of)
 
-;(ann pfn>-ann [Any Any -> Any])
-(defn pfn>-ann [fn-of polys param-types-syn]
+(defn pfn>-ann 
+  "Internal use only. Use pfn>."
+  [fn-of polys param-types-syn]
   fn-of)
 
-;(ann loop>-ann [Any Any -> Any])
-(defn loop>-ann [loop-of bnding-types]
+(defn loop>-ann 
+  "Internal use only. Use loop>"
+  [loop-of bnding-types]
   loop-of)
 
 (defmacro dotimes>
@@ -99,8 +167,7 @@
            (recur (unchecked-inc ~i)))))))
 
 (defmacro for>
-  "Like for but requires annotation for each loop variable: 
-  [a [1 2]] becomes [[a :- Long] [1 2]]
+  "Like for but requires annotation for each loop variable: [a [1 2]] becomes [[a :- Long] [1 2]]
   Also requires annotation for return type.
   
   eg.
@@ -343,7 +410,7 @@
     `(fn>-ann ~fn '~parsed-methods)))
 
 (defmacro defprotocol> [& body]
-  "Define a typed protocol"
+  "Define a typed protocol. Syntax like defprotocol."
   `(tc-ignore
      (defprotocol ~@body)))
 
@@ -363,7 +430,9 @@
                   ~@forms)
                 '~bnd-anns)))
 
-(defn declare-datatypes* [nms]
+(defn declare-datatypes* 
+  "Internal use only. Use declare-datatypes."
+  [nms]
   nil)
 
 (defmacro declare-datatypes 
@@ -371,7 +440,9 @@
   [& syms]
   `(declare-datatypes* '~syms))
 
-(defn declare-protocols* [syms]
+(defn declare-protocols* 
+  "Internal use only. Use declare-protocols."
+  [syms]
   nil)
 
 (defmacro declare-protocols 
@@ -379,7 +450,9 @@
   [& syms]
   `(declare-protocols* '~syms))
 
-(defn declare-alias-kind* [sym ty]
+(defn declare-alias-kind* 
+  "Internal use only. Use declare-alias-kind."
+  [sym ty]
   nil)
 
 (defmacro declare-alias-kind
@@ -389,7 +462,9 @@
      (declare ~sym)
      (declare-alias-kind* '~sym '~ty)))
 
-(defn declare-names* [syms]
+(defn declare-names* 
+  "Internal use only. Use declare-names."
+  [syms]
   nil)
 
 (defmacro declare-names 
@@ -397,7 +472,9 @@
   [& syms]
   `(declare-names* '~syms))
 
-(defn def-alias* [sym type]
+(defn def-alias* 
+  "Internal use only. Use def-alias."
+  [sym type]
   nil)
 
 (defmacro def-alias 
@@ -413,6 +490,7 @@
 
 ;(ann into-array>* [Any Any -> Any])
 (defn into-array>*
+  "Internal use only. Use into-array>."
   ([cljt coll]
    (load-if-needed)
    (let [pt @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
@@ -447,7 +525,9 @@
   ([into-array-syn javat cljt coll]
    `(into-array>* '~javat '~cljt ~coll)))
 
-(defn ann-form* [form ty]
+(defn ann-form* 
+  "Internal use only. Use ann-form."
+  [form ty]
   form)
 
 (defmacro ann-form 
@@ -456,14 +536,16 @@
   `(ann-form* ~form '~ty))
 
 ;(ann unsafe-ann-form* [Any Any -> Any])
-(defn unsafe-ann-form* [form ty]
+(defn- unsafe-ann-form* [form ty]
   form)
 
 (defmacro ^:private unsafe-ann-form [form ty]
   `(unsafe-ann-form* ~form '~ty))
 
 ;(ann tc-ignore-forms* [Any -> Any])
-(defn tc-ignore-forms* [r]
+(defn tc-ignore-forms* 
+  "Internal use only. Use tc-ignore"
+  [r]
   r)
 
 ;; `do` is special at the top level
@@ -472,7 +554,9 @@
   [& body]
   `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
 
-(defn non-nil-return* [msym arities]
+(defn non-nil-return* 
+  "Internal use only. Use non-nil-return."
+  [msym arities]
   nil)
 
 (defmacro non-nil-return 
@@ -485,7 +569,9 @@
   [msym arities]
   `(non-nil-return* '~msym '~arities))
 
-(defn nilable-param* [msym mmap]
+(defn nilable-param* 
+  "Internal use only. Use nilable-param."
+  [msym mmap]
   nil)
 
 (defmacro nilable-param 
@@ -502,10 +588,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Annotations
 
-(defn print-env [debug-str]
+(defn print-env 
+  "During type checking, print the type environment to *out*,
+  preceeded by literal string debug-str."
+  [debug-str]
   nil)
 
-(defn ann* [varsym typesyn check?]
+(defn ann* 
+  "Internal use only. Use ann."
+  [varsym typesyn check?]
   nil)
 
 (defmacro ann 
@@ -517,7 +608,9 @@
                (symbol (-> *ns* ns-name str) (str varsym)))]
     `(ann* '~qsym '~typesyn '~(-> varsym meta :nocheck not))))
 
-(defn ann-datatype* [dname fields opts]
+(defn ann-datatype*
+  "Internal use only. Use ann-datatype."
+  [dname fields opts]
   nil)
 
 (defmacro ann-datatype 
@@ -530,6 +623,7 @@
   `(ann-datatype* '~dname '~fields '~opts))
 
 (defn ann-pdatatype* 
+  "Internal use only. Use ann-pdatatype."
   [dname vbnd fields opt]
   nil)
 
@@ -542,7 +636,9 @@
           (str "Must provide local symbol: " dname))
   `(ann-pdatatype* '~dname '~vbnd '~fields '~opt))
 
-(defn ann-record* [dname fields opt]
+(defn ann-record* 
+  "Internal use only. Use ann-record"
+  [dname fields opt]
   nil)
 
 (defmacro ann-record 
@@ -551,7 +647,9 @@
   [dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   `(ann-record* '~dname '~fields '~opt))
 
-(defn ann-precord* [dname vbnd fields opt]
+(defn ann-precord* 
+  "Internal use only. Use ann-precord."
+  [dname vbnd fields opt]
   nil)
 
 (defmacro ann-precord 
@@ -560,7 +658,9 @@
   [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   `(ann-precord* '~dname '~vbnd '~fields '~opt))
 
-(defn ann-protocol* [local-varsym mth]
+(defn ann-protocol* 
+  "Internal use only. Use ann-protocol."
+  [local-varsym mth]
   nil)
 
 (defmacro ann-protocol 
@@ -571,7 +671,9 @@
           (str "Must provide local var name for protocol: " local-varsym))
   `(ann-protocol* '~local-varsym '~mth))
 
-(defn ann-pprotocol* [local-varsym vbnd mth]
+(defn ann-pprotocol* 
+  "Internal use only. Use ann-pprotocol."
+  [local-varsym vbnd mth]
   nil)
 
 (defmacro ann-pprotocol 
@@ -582,7 +684,9 @@
           (str "Must provide local var name for protocol: " local-varsym))
   `(ann-pprotocol* '~local-varsym '~vbnd '~mth))
 
-(defn override-constructor* [ctorsym typesyn]
+(defn override-constructor* 
+  "Internal use only. Use override-constructor."
+  [ctorsym typesyn]
   nil)
 
 (defmacro override-constructor 
@@ -590,7 +694,9 @@
   [ctorsym typesyn]
   `(override-constructor* '~ctorsym '~typesyn))
 
-(defn override-method* [methodsym typesyn]
+(defn override-method* 
+  "Internal use only. Use override-method."
+  [methodsym typesyn]
   nil)
 
 (defmacro override-method 
@@ -598,7 +704,9 @@
   [methodsym typesyn]
   `(override-method* '~methodsym '~typesyn))
 
-(defn typed-deps* [args]
+(defn typed-deps* 
+  "Internal use only. Use typed-deps."
+  [args]
   nil)
 
 (defmacro typed-deps 
@@ -619,7 +727,7 @@
                                 '~'check)
             expr-type# @(ns-resolve (find-ns '~'clojure.core.typed.check)
                                     '~'expr-type )
-            unparse-TCResult# @(ns-resolve (find-ns '~'clojure.core.typed.check)
+            unparse-TCResult# @(ns-resolve (find-ns '~'clojure.core.typed.parse-unparse)
                                            '~'unparse-TCResult)
             ensure-clojure# @(ns-resolve (find-ns '~'clojure.core.typed.current-impl)
                                          '~'ensure-clojure)
@@ -647,7 +755,7 @@
                                 '~'check)
             expr-type# @(ns-resolve (find-ns '~'clojure.core.typed.check)
                                     '~'expr-type )
-            unparse-TCResult# @(ns-resolve (find-ns '~'clojure.core.typed.check)
+            unparse-TCResult# @(ns-resolve (find-ns '~'clojure.core.typed.parse-unparse)
                                            '~'unparse-TCResult)
             ensure-clojure# @(ns-resolve (find-ns '~'clojure.core.typed.current-impl)
                                          '~'ensure-clojure)
@@ -703,7 +811,9 @@
 (def ^:dynamic *currently-checking-clj* nil)
 (def ^:dynamic *delayed-errors*)
 
-(defn -init-delayed-errors []
+(defn -init-delayed-errors 
+  "Internal use only"
+  []
   (atom [] :validator #(and (vector? %)
                             (every? (fn [a] 
                                       (instance? clojure.lang.ExceptionInfo a))

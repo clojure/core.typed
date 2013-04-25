@@ -862,3 +862,15 @@
   [{:keys [a c]}]
   (list 'when (unparse-filter a) (unparse-filter c)))
 
+;[TCResult -> Any]
+(defn unparse-TCResult [r]
+  (let [t (unparse-type (r/ret-t r))
+        fs (unparse-filter-set (r/ret-f r))
+        o (unparse-object (r/ret-o r))]
+    (if (and (= (fl/-FS f/-top f/-top) (r/ret-f r))
+             (= (r/ret-o r) orep/-empty))
+      t
+      (if (= (r/ret-o r) orep/-empty)
+        [t fs]
+        [t fs o]))))
+
