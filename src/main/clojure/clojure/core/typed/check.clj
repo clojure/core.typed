@@ -724,17 +724,21 @@
                 instance-method?)  
           (or method-sym
               (:method-name fexpr))
-          (u/emit-form-fn fexpr)) 
+          (if fexpr
+            (u/emit-form-fn fexpr)
+            "<NO FORM>"))
         " could not be applied to arguments:\n"
         "Domains: \n\t" 
         (clojure.string/join "\n\t" (map (partial apply pr-str) (map (comp #(map prs/unparse-type %) :dom) (.types fin)))) 
         "\n\n"
         "Arguments:\n\t" (apply prn-str (mapv (comp prs/unparse-type ret-t) arg-ret-types)) "\n"
         (when expected (str "with expected type:\n\t" (prs/unparse-type (ret-t expected)) "\n\n"))
-        "in: " (if (or static-method? instance-method?)
-                 (u/emit-form-fn fexpr)
-                 (list* (u/emit-form-fn fexpr)
-                        (map u/emit-form-fn args))))
+        "in: " (if fexpr
+                 (if (or static-method? instance-method?)
+                   (u/emit-form-fn fexpr)
+                   (list* (u/emit-form-fn fexpr)
+                          (map u/emit-form-fn args)))
+                 "<NO FORM>"))
       :return (or expected (ret r/Err)))))
 
 (defn ^String polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]
