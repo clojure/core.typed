@@ -66,8 +66,8 @@
 
 (defn expected-error [actual expected]
   (u/tc-delayed-error (str "Expected type: "
-                           (prs/unparse-type expected)
-                           ", Actual: " (prs/unparse-type actual))))
+                           (pr-str (prs/unparse-type expected))
+                           ", Actual: " (pr-str (prs/unparse-type actual)))))
 
 (declare check-expr)
 
