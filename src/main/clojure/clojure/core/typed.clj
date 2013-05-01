@@ -247,7 +247,7 @@
                                             (let [c# (chunk-first ~gxs)
                                                   size# (int (count c#))
                                                   ~gb (ann-form (chunk-buffer size#)
-                                                                (~'clojure.lang.ChunkBuffer Number))]
+                                                                (~'clojure.lang.ChunkBuffer ~ret-ann))]
                                               (if (loop> [[~gi :- (~'U ~'Long ~'Integer)] (int 0)]
                                                          (if (< ~gi size#)
                                                            (let [;~bind (.nth c# ~gi)]
