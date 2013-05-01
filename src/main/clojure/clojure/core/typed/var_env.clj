@@ -16,6 +16,8 @@
      ~@body))
 
 (defn add-var-type [sym type]
+  (when (contains? @VAR-ANNOTATIONS sym)
+    (prn "WARNING: Duplicate var annotation: " sym))
   (swap! VAR-ANNOTATIONS #(assoc % sym type))
   nil)
 
