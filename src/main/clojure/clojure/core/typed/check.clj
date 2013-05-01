@@ -1460,16 +1460,18 @@
 
 ;unsafe form annotation
 (defmethod invoke-special 'clojure.core.typed/unsafe-ann-form*
-  [{[frm {tsyn :val}] :args :as expr} & [expected]]
-  (let [parsed-ty (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+  [{[frm {tsyn :val}] :args, :keys [env], :as expr} & [expected]]
+  (let [parsed-ty (binding [vs/*current-env* env
+                            prs/*parse-type-in-ns* (expr-ns expr)]
                     (prs/parse-type tsyn))]
     (assoc expr
            expr-type (ret parsed-ty))))
 
 ;form annotation
 (defmethod invoke-special 'clojure.core.typed/ann-form*
-  [{[frm {tsyn :val}] :args :as expr} & [expected]]
-  (let [parsed-ty (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+  [{[frm {tsyn :val}] :args, :keys [env], :as expr} & [expected]]
+  (let [parsed-ty (binding [vs/*current-env* env
+                            prs/*parse-type-in-ns* (expr-ns expr)]
                     (prs/parse-type tsyn))
         cty (check frm (ret parsed-ty))
         checked-type (ret-t (expr-type cty))
@@ -1478,7 +1480,7 @@
               (expected-error checked-type parsed-ty)))
         _ (when (and expected (not (sub/subtype? checked-type (ret-t expected))))
             (binding [vs/*current-expr* frm
-                      vs/*current-env* (:env expr)]
+                      vs/*current-env* env]
               (expected-error checked-type (ret-t expected))))]
     (assoc expr
            expr-type (ret parsed-ty))))
@@ -2404,7 +2406,9 @@
                         (fn [f]
                           (apply fo/-and f new-then-props)))
 _ (binding [vs/*current-expr* body
-            vs/*current-env* (:env body)]
+            ; don't override the env because :do node don't have line numbers
+            ; The :fn-expr that contains this arity rebinds current-env.
+            #_vs/*current-env* #_(:env body)]
     (when (not (sub/subtype? (-> crng expr-type ret-t) (ret-t expected-rng)))
       (expected-error (-> crng expr-type ret-t) (ret-t expected-rng))))
 rest-param-name (when rest-param
