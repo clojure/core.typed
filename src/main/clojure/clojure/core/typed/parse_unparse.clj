@@ -518,6 +518,10 @@
   [f]
   (apply r/make-FnIntersection [(parse-function f)]))
 
+(defmethod parse-type :default
+  [k]
+  (u/tc-error (str "Bad type syntax: " (pr-str k))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unparse
 

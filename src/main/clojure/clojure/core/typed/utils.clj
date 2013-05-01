@@ -53,10 +53,18 @@
 (derive-error int-error-kw)
 (derive-error nyi-error-kw)
 
-(defn type-error
+(defn tc-error
   [estr]
-  (throw (ex-info estr 
-                  {:type-error tc-error-parent})))
+  (when-not *current-env*
+    (prn "Internal core.typed BUG! No *current-env* with tc-error"))
+  (let [env *current-env*]
+    (throw (ex-info (str "Type Error "
+                         "(" (-> env :ns :name) ":" (:line env) 
+                         (when-let [col (:column env)]
+                           (str ":"col))
+                         ") "
+                         estr)
+                    {:type-error tc-error-parent}))))
 
 (defn int-error
   [estr]
