@@ -1250,13 +1250,13 @@
                                   (if (or (contains? (.absent-keys t) k)
                                           (c/complete-hmap? t))
                                     (do
-                                      (tc-warning
+                                      #_(tc-warning
                                         "Looking up key " (prs/unparse-type k) 
                                         " in heterogeneous map type " (prs/unparse-type t)
                                         " that declares the key always absent.")
                                       (or default r/-nil))
                                     ; otherwise result is Any
-                                    (do (tc-warning "Looking up key " (prs/unparse-type k)
+                                    (do #_(tc-warning "Looking up key " (prs/unparse-type k)
                                                     " in heterogeneous map type " (prs/unparse-type t)
                                                     " which does not declare the key absent ")
                                         r/-any))))
