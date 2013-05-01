@@ -567,7 +567,7 @@ clojure.core/interleave (All [x] [(Option (Seqable x)) -> (Seqable x)])
 
 clojure.core/repeat (All [x] 
                          (Fn [x -> (Seqable x)]
-                             [x AnyInteger -> (Seqable x)]))
+                             [AnyInteger x -> (Seqable x)]))
 
 clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
                             [Object -> Class :object {:id 0 :path [Class]}]
