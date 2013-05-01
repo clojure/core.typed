@@ -236,7 +236,11 @@
                                           (keyword? k)
                                             (err "Invalid 'for' keyword " k)
                                           :else
-                                            `(do (chunk-append ~gb ~body-expr)
+                                            `(do (chunk-append ~gb 
+                                                               ; put an ann-form here so at least one error message
+                                                               ; points to code the user can recognise.
+                                                               (ann-form ~body-expr
+                                                                         ~ret-ann))
                                                  (recur (unchecked-inc ~gi)))))]
                           `(ann-form
                              (fn ~giter [~gxs]
