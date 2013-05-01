@@ -350,7 +350,9 @@
                                    %)
                              [svar scls]))]
             (r/->App (r/->Name s) (mapv parse-type args))
-            (throw (Exception. (u/error-msg "Cannot parse list: " syn)))))))))
+            (u/tc-error (str "Cannot parse type: " (pr-str syn)
+                             (when (seq syn)
+                               (str "\nHint: Does " (first syn) " accept parameters and is it in scope?"))))))))))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] (parse-type-list l))
@@ -400,7 +402,8 @@
                   :else (if-let [t (and (var? res) 
                                         (@nmenv/TYPE-NAME-ENV (u/var->symbol res)))]
                           t
-                          (throw (Exception. (u/error-msg "Cannot resolve type: " sym))))))))))
+                          (u/tc-error (str "Cannot resolve type: " (pr-str res)
+                                           "\nHint: Is " (pr-str res) " in scope?")))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
