@@ -16,7 +16,7 @@
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
                                         Result Protocol TypeFn Name F Bounds HeterogeneousVector
                                         PrimitiveArray DataType RClass Mu HeterogeneousMap
-                                        HeterogeneousList HeterogeneousSeq CountRange)
+                                        HeterogeneousList HeterogeneousSeq CountRange KwArgs)
            (clojure.lang APersistentMap APersistentVector PersistentList ASeq Seqable)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -310,12 +310,18 @@
         (recur (next dom) (next argtys) A)
         (fail! (first argtys) (first dom))))))
 
+(defn subtype-kwargs* [^KwArgs s ^KwArgs t]
+  {:pre [((some-fn r/KwArgs? nil?) s)
+         ((some-fn r/KwArgs? nil?) t)]}
+  (if (= s t)
+    *sub-current-seen*
+    (u/nyi-error "subtype kwargs")))
+
 ;; simple co/contra-variance for ->
 ;[(IPersistentSet '[Type Type]) Function Function -> (IPersistentSet '[Type Type])]
 (defn arr-subtype [A0 ^Function s ^Function t]
   {:pre [(r/Function? s)
          (r/Function? t)]}
-  (assert (not (some :kws [s t])))
   ;; top for functions is above everything
   (cond
     ;; top for functions is above everything
@@ -334,6 +340,14 @@
                    A0
                    (map vector (.dom t) (.dom s)))))
         (subtypeA* (.rng s) (.rng t))))
+
+    ;kw args
+    (and (.kws s)
+         (.kws t))
+    (do
+      (mapv subtype (.dom t) (.dom s))
+      (subtype (.rng s) (.rng t))
+      (subtype-kwargs* (.kws t) (.kws s)))
 
     (and (:rest s)
          (not ((some-fn :rest :drest) t)))

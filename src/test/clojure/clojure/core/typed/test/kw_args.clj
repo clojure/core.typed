@@ -3,6 +3,10 @@
             [clojure.tools.analyzer :refer [ast]]
             [clojure.tools.analyzer.emit-form :refer [emit-form]]))
 
+(ann empty-kw [& {} -> nil])
+(defn empty-kw [& {:as opts}]
+  nil)
+
 (ann foo-kw [& {:a Number} -> (U nil Number)])
 (defn foo-kw [& {:keys [a]}]
   (when a
