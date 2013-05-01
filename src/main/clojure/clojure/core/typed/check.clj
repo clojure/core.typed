@@ -102,8 +102,8 @@
                   (:op expr)))
 
 (defn check-expr [expr & [expected]]
-  (println "Checking line:" (-> expr :env :line))
-  (flush)
+  #_(println "Checking line:" (-> expr :env :line))
+  #_(flush)
   (check expr expected))
 
 ; Just for unit testing
