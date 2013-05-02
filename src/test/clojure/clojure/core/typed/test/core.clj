@@ -227,19 +227,18 @@
 
 (deftest tc-invoke-fn-test
   (is (subtype? (ety
-                  ((clojure.core.typed/fn> [[a :- Number] [b :- Number]] b)
+                  ((clojure.core.typed/fn> [a :- Number, b :- Number] b)
                      1 2))
                 (parse-type 'Number)))
   ; manual instantiation "seq"
   (is (subtype? (ety
-                  ((clojure.core.typed/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
+                  ((clojure.core.typed/fn> [a :- (clojure.lang.Seqable Number), b :- Number] 
                                    ((clojure.core.typed/inst seq Number) a))
                      [1 2 1.2] 1))
                 (parse-type '(clojure.core.typed/Option (I (clojure.lang.ISeq java.lang.Number) (CountRange 1))))))
   ; inferred "seq"
   (is (= (ety
-           (clojure.core.typed/fn> [[a :- (clojure.lang.Seqable Number)] 
-                            [b :- Number]] 
+           (clojure.core.typed/fn> [a :- (clojure.lang.Seqable Number), b :- Number] 
                            1))
          (make-FnIntersection
            (make-Function
@@ -268,19 +267,19 @@
                   '(x)))))
   ;test invoke fn
   (is (subtype? (ety
-                  ((clojure.core.typed/fn> [[a :- (clojure.lang.Seqable Number)] [b :- Number]] 
+                  ((clojure.core.typed/fn> [a :- (clojure.lang.Seqable Number), b :- Number] 
                                    (seq a))
                      [1 2 1.2] 1))
                 (parse-type '(U nil (I (CountRange 1) (clojure.lang.ISeq Number))))))
   (is (subtype? (ety
-                  ((clojure.core.typed/fn> [[a :- (clojure.lang.IPersistentMap Any Number)] [b :- Number]] 
+                  ((clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap Any Number), b :- Number] 
                                    ((clojure.core.typed/inst get Number Nothing) a b))
                      (zipmap [1] [2]) 1))
                 (parse-type '(U nil Number)))))
 
 (deftest get-special-test
   (is (= (ety 
-           (clojure.core.typed/fn> [[a :- (HMap {:a Number})]]
+           (clojure.core.typed/fn> [a :- (HMap {:a Number})]
                            (get a :a)))
          (make-FnIntersection
            (make-Function [(-hmap {(-val :a) (RClass-of Number)})]
@@ -346,9 +345,9 @@
 (deftest name-to-param-index-test
   ;a => 0
   (is (= (tc-t 
-           (clojure.core.typed/fn> [[a :- (U (HMap {:op (Value :if)})
-                                     (HMap {:op (Value :var)}))]] 
-                           (:op a)))
+           (clojure.core.typed/fn> [a :- (U (HMap {:op (Value :if)})
+                                            (HMap {:op (Value :var)}))] 
+                                   (:op a)))
          (ret (make-FnIntersection
                 (->Function
                     [(Un (-hmap {(->Value :op) (->Value :if)})
@@ -365,8 +364,8 @@
 
 (deftest refine-test
   (is (= (tc-t 
-           (clojure.core.typed/fn> [[a :- (U (HMap {:op (Value :if)})
-                                     (HMap {:op (Value :var)}))]] 
+           (clojure.core.typed/fn> [a :- (U (HMap {:op (Value :if)})
+                                            (HMap {:op (Value :var)}))]
                            (when (= (:op a) :if) 
                              a)))
          (ret (make-FnIntersection
@@ -517,7 +516,7 @@
                      a)))
            ret-t)
          (-complete-hmap {(->Value :a) (->Value 1)})))
-  (is (= (tc-t (clojure.core.typed/fn> [[{a :a} :- (HMap {:a (Value 1)})]]
+  (is (= (tc-t (clojure.core.typed/fn> [{a :a} :- (HMap {:a (Value 1)})]
                                a))
          (ret (make-FnIntersection 
                 (->Function [(-hmap {(->Value :a) (->Value 1)})]
@@ -529,7 +528,7 @@
               (-FS -top -bot)
               -empty)))
   ;FIXME inferred filters are bit messy, but should be (-FS -bot (! Seq 0))
-  #_(is-with-aliases (= (-> (tc-t (clojure.core.typed/fn> [[a :- clojure.core.typed.test.core/UnionName]]
+  #_(is-with-aliases (= (-> (tc-t (clojure.core.typed/fn> [a :- clojure.core.typed.test.core/UnionName]
                                    (seq? a)))
            ret-t)
          (make-FnIntersection
@@ -545,7 +544,7 @@
               (-FS -top -top) ; a goes out of scope, throw out filters
               -empty)))
   ;FIXME should be (-FS -bot (! ISeq 0))
-  #_(is (= (tc-t (clojure.core.typed/fn> [[a :- (HMap {:a (Value 1)})]]
+  #_(is (= (tc-t (clojure.core.typed/fn> [a :- (HMap {:a (Value 1)})]
                                (seq? a)))
          (ret (make-FnIntersection
                 (->Function [(-hmap {(->Value :a) (->Value 1)})]
@@ -556,7 +555,7 @@
   ;roughly the macroexpansion of map destructuring
   ;FIXME
   #_(is (= (tc-t (clojure.core.typed/fn> 
-                 [[map-param :- clojure.core.typed.test.rbt-types/badRight]]
+                 [map-param :- clojure.core.typed.test.rbt-types/badRight]
                  (when (and (= :Black (-> map-param :tree))
                             (= :Red (-> map-param :left :tree))
                             (= :Red (-> map-param :left :right :tree)))
@@ -581,8 +580,8 @@
                      maprl))))))
   ;destructuring a variable of union type
   (is (= (->
-           (tc-t (clojure.core.typed/fn> [[{a :a} :- (U (HMap {:a (Value 1)})
-                                                        (HMap {:b (Value 2)}))]]
+           (tc-t (clojure.core.typed/fn> [{a :a} :- (U (HMap {:a (Value 1)})
+                                                       (HMap {:b (Value 2)}))]
                                          a))
            ret-t)
          (make-FnIntersection 
@@ -591,7 +590,7 @@
                           (Un (-val 1) -any))))))
 
 (deftest Name-resolve-test
-  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/MyName]]
+  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/MyName]
                                                     ;call to (apply hash-map tmap) should be eliminated
                                                     (let [{e :a} tmap]
                                                       e)))
@@ -600,7 +599,7 @@
                                          (make-Result (->Value 1) (-FS -top -top) -empty)
                                          nil nil nil))
                            (-FS -top -bot) -empty)))
-  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/MapName]]
+  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/MapName]
                                                     (let [{e :a} tmap]
                                                       (assoc e :c :b))))
                       (ret (make-FnIntersection (->Function [(->Name 'clojure.core.typed.test.core/MapName)]
@@ -611,14 +610,14 @@
                            (-FS -top -bot) -empty)))
   ; Name representing union of two maps, both with :type key
   (is-with-aliases (subtype? 
-                     (-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
+                     (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/UnionName]
                                                        (:type tmap)))
                          ret-t)
                      (parse-type '[clojure.core.typed.test.core/UnionName -> (U (Value :MapStruct2)
                                                                                 (Value :MapStruct1))])))
   ; using = to derive paths
   (is-with-aliases (subtype? 
-                     (-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
+                     (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/UnionName]
                                                        (= :MapStruct1 (:type tmap))))
                          ret-t)
                      (make-FnIntersection 
@@ -636,7 +635,7 @@
                                           (-filter t 0 path))
                                         (-not-filter t 0 path)))))))
   ; using filters derived by =
-  (is-with-aliases (subtype? (-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
+  (is-with-aliases (subtype? (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/UnionName]
                                                                (if (= :MapStruct1 (:type tmap))
                                                                  (:a tmap)
                                                                  (:b tmap))))
@@ -644,7 +643,7 @@
                              (parse-type '[clojure.core.typed.test.core/UnionName -> clojure.core.typed.test.core/MyName])))
   ; following paths with test of conjuncts
   ;FIXME
-  #_(is (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.core/UnionName]]
+  #_(is (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/UnionName]
                                          ; (and (= :MapStruct1 (-> tmap :type))
                                ;      (= 1 1))
                                (if (clojure.core.typed/print-filterset "final filters"
@@ -767,7 +766,7 @@
                       -empty))))
          
 (comment
-(-> (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.rbt-types/badRight]]
+(-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.rbt-types/badRight]
                           (and (= :Black (-> tmap :tree))
                                (= :Red (-> tmap :left :tree))
                                (= :Red (-> tmap :right :tree))
@@ -815,7 +814,7 @@
                                    (-val :right) (->Name 'clojure.core.typed.test.rbt-types/bt)})}))))
          
 (deftest rbt-test
-  (is-check-rbt (= (tc-t (clojure.core.typed/fn> [[tmap :- clojure.core.typed.test.rbt-types/badRight]]
+  (is-check-rbt (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.rbt-types/badRight]
                                                  (let [and1 (= :Black (-> tmap :tree))]
                                                    #_(tc-pr-env "first clause")
                                                    (if and1
@@ -1016,7 +1015,7 @@
                   -any))))
 
 (deftest ccfind-test
-  (is (subtype? (-> (tc-t (clojure.core.typed/fn> [[a :- (clojure.lang.IPersistentMap Long String)]]
+  (is (subtype? (-> (tc-t (clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap Long String)]
                                           (find a 1)))
                   :t :types first :rng :t)
                 (Un (->HeterogeneousVector [(RClass-of Long) (RClass-of String)])
@@ -1257,36 +1256,36 @@
   (is-cf {:bar (identity 1)}))
 
 (deftest doseq>-test
-  (is-cf (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]
+  (is-cf (clojure.core.typed/doseq> [a :- (U clojure.core.typed/AnyInteger nil) [1 nil 2 3]
                    :when a]
             (inc a)))
   ;wrap in thunk to prevent evaluation
   (is (u/top-level-error-thrown?
                (cf (fn []
-                     (clojure.core.typed/doseq> [[a :- (U clojure.core.typed/AnyInteger nil)] [1 nil 2 3]]
+                     (clojure.core.typed/doseq> [a :- (U clojure.core.typed/AnyInteger nil) [1 nil 2 3]]
                                                 (inc a)))))))
 
 (deftest for>-test
   (is-cf
     (clojure.core.typed/for> :- Number
-                             [[a :- (U nil Number)] [1 nil 2 3]
-                              [b :- Number] [1 2 3]
+                             [a :- (U nil Number) [1 nil 2 3]
+                              b :- Number [1 2 3]
                               :when a]
                              (+ a b))
     (clojure.lang.LazySeq Number))
   (is (u/top-level-error-thrown?
         (cf
           (clojure.core.typed/for> :- Number
-                                   [[a :- (U clojure.lang.Symbol nil Number)] [1 nil 2 3]
-                                    [b :- Number] [1 2 3]]
+                                   [a :- (U clojure.lang.Symbol nil Number) [1 nil 2 3]
+                                    b :- Number [1 2 3]]
                                    (+ a b))))))
 
 #_(clojure.pprint/pprint
 (clojure.tools.analyzer.emit-form/emit-form
 (clojure.tools.analyzer/ast
 (clojure.core.typed/for> :- Number
-                       [[a :- (U clojure.lang.Symbol nil Number)] [1 nil 2 3]
-                        [b :- Number] [1 2 3]]
+                       [a :- (U clojure.lang.Symbol nil Number) [1 nil 2 3]
+                        b :- Number [1 2 3]]
                        (+ a b))
   )
   )
@@ -1308,4 +1307,4 @@
   (is (caught-top-level-errors #{1}
         (cf (loop [a 1] a))))
   (is (caught-top-level-errors #{2}
-        (cf (clojure.core.typed/loop> [[a :- String] 1] a)))))
+        (cf (clojure.core.typed/loop> [a :- String 1] a)))))

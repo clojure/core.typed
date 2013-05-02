@@ -428,11 +428,11 @@
        (> c 1) (FiniteDomain. s (first s) max))
        :else nil))
   (drop-before [_ n]
-    (apply domain (drop-while (fn> [(s* :- Number)]
+    (apply domain (drop-while (fn> [s* :- Number]
                                  (< s* n))
                               s)))
   (keep-before [this n]
-    (apply domain (take-while (fn> [(s* :- Number)]
+    (apply domain (take-while (fn> [s* :- Number]
                                  (< s* n))
                               s)))
   IRefinable

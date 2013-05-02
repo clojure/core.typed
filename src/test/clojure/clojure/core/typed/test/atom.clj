@@ -7,7 +7,7 @@
 (def my-atom (atom 2))
 
 (reset! my-atom 1)
-(swap! my-atom (fn> [[x :- Number]] (+ x 2 3)))
+(swap! my-atom (fn> [x :- Number] (+ x 2 3)))
 
 (def-alias InnerEntry (HMap {:c 
                              (HMap {:d 

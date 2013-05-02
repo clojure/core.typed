@@ -455,7 +455,7 @@
 (ann ^:nocheck confirm-bindings [Env (Seqable Symbol) -> Any])
 ;merge hmaps
 (defn confirm-bindings [env names]
-  (doseq> [[name :- Symbol] names]
+  (doseq> [name :- Symbol names]
     (let [env (merge env {:ns (@namespaces *cljs-ns*)})
           ev (resolve-existing-var env name)]
       (when (and *cljs-warn-on-dynamic*
@@ -490,7 +490,7 @@
 (ann escape-string [CharSequence -> String])
 (defn- escape-string [^CharSequence s]
   (let [sb (StringBuilder. (count s))]
-    (doseq> [[c :- Character] s]
+    (doseq> [c :- Character s]
       (.append sb (escape-char c)))
     (.toString ^Object sb)))
 
@@ -504,7 +504,7 @@
 (ann ^:nocheck emits [(U Expr nil (ISeq Expr) [-> Any] Any) * -> nil])
 ;weird invariants
 (defn emits [& xs]
-  (doseq> [[x :- (U Expr nil (ISeq Expr) [-> Any] Any)] xs]
+  (doseq> [x :- (U Expr nil (ISeq Expr) [-> Any] Any) xs]
     (cond
       (nil? x) nil
       (map? x) (emit x)
@@ -532,7 +532,7 @@
   (println)
   ;; when-let added for core.typed. *position* is mutable so can't infer better type here.
   (when-let [p *position*]
-    (swap! p (fn> [[[line column] :- '[AnyInteger AnyInteger]]]
+    (swap! p (fn> [[line column] :- '[AnyInteger AnyInteger]]
                   [(inc line) 0])))
   nil)
 
@@ -655,7 +655,7 @@
       (emits "cljs.core.ObjMap.fromObject(["
              (comma-sep keys) ; keys
              "],{"
-             (comma-sep (map (fn> [[k :- Expr] [v :- Expr]]
+             (comma-sep (map (fn> [k :- Expr, v :- Expr]
                                (with-out-str (emit k) (print ":") (emit v)))
                              keys vals)) ; js obj
              "})")
@@ -752,12 +752,12 @@
           (ann-form
             (fn print-comment-lines 
               [e] 
-              (doseq> [[next-line :- String] (string/split-lines e)]
+              (doseq> [next-line :- String (string/split-lines e)]
                 (emitln "* " (string/trim next-line))))
             [String -> nil])]
       (when (seq docs)
         (emitln "/**")
-        (doseq> [[e :- (U nil String)] docs]
+        (doseq> [e :- (U nil String) docs]
           (when e
             (print-comment-lines e)))
         (emitln "*/")))))
@@ -780,7 +780,7 @@
   (let [arglist (gensym "arglist__")
         delegate-name (str name "__delegate")]
     (emitln "(function (" arglist "){")
-    (doseq> [[[i param] :- '[AnyInteger Expr]] (map-indexed vector (butlast params))]
+    (doseq> [[i param] :- '[AnyInteger Expr] (map-indexed vector (butlast params))]
       (emits "var " param " = cljs.core.first(")
       (dotimes> [_ i] (emits "cljs.core.next("))
       (emits arglist ")")

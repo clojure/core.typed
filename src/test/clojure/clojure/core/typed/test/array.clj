@@ -10,8 +10,8 @@
 
 (ann sum [(ReadOnlyArray Number) -> Number])
 (defn sum [arr]
-  (loop> [[idx :- long] 0 
-          [ret :- Number] 0]
+  (loop> [idx :- long 0,
+          ret :- Number 0]
          (if (< idx (alength arr))
            (recur 
              (unchecked-inc idx) 

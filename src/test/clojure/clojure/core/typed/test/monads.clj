@@ -143,8 +143,8 @@
       :else
         (list 'm-bind expr 
               (list 'clojure.core.typed/fn> 
-                    [[bform :- (do #_(assert (contains? :T (meta bform)))
-                                 (-> bform meta :T))]] 
+                    [bform :- (do #_(assert (contains? :T (meta bform)))
+                                  (-> bform meta :T))] 
                     mexpr)))))
 
 (defn- monad-expr
@@ -252,7 +252,7 @@
                    (take n (repeatedly #(gensym "x_")))
                    arg-tys)
          arg-names (take n (repeatedly #(gensym "mv_")))
-         vars (vec (map #(vector %1 :- (list 'm %2)) arg-names arg-tys))
+         vars (vec (mapcat #(vector %1 :- (list 'm %2)) arg-names arg-tys))
          steps (vec (interleave expr arg-names))]
      (list `fn> vars (monad-expr steps (cons f expr)))))
   ([n f]
@@ -918,7 +918,7 @@
                     sequence-m nil :m-plus-default))
 
 (domonad seq-maybe-m
-  [^{:T AnyInteger} x  (map (fn> [[n :- AnyInteger]] (when (odd? n) n)) (range 10))]
+  [^{:T AnyInteger} x  (map (fn> [n :- AnyInteger] (when (odd? n) n)) (range 10))]
   (inc x))
   )
 
@@ -1068,7 +1068,7 @@
 (tc-ignore
 (defn sqrt-as-str [x]
   (call-cc
-    (fn> [[k :- [String -> (ContM String String)]]]
+    (fn> [k :- [String -> (ContM String String)]]
       (domonad (inst cont-m String)
         [_ (m-when (< x 0) 
              (k (str "negative argument " x)))]

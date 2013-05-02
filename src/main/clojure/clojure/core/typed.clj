@@ -161,31 +161,54 @@
   (let [i (first bindings)
         n (second bindings)]
     `(let [n# (long ~n)]
-       (loop> [[~i :- (~'U Long Integer)] 0]
+       (loop> [~i :- (~'U Long Integer) 0]
          (when (< ~i n#)
            ~@body
            (recur (unchecked-inc ~i)))))))
 
 (defmacro for>
-  "Like for but requires annotation for each loop variable: [a [1 2]] becomes [[a :- Long] [1 2]]
+  "Like for but requires annotation for each loop variable: [a [1 2]] becomes [a :- Long [1 2]]
   Also requires annotation for return type.
   
   eg.
   (for> :- Number
-        [[a :- (U nil AnyInteger)] [1 nil 2 3]
+        [a :- (U nil AnyInteger) [1 nil 2 3]
          :when a]
      (inc a))"
   [tk ret-ann seq-exprs body-expr]
   (@#'clojure.core/assert-args
      (vector? seq-exprs) "a vector for its binding"
      (even? (count seq-exprs)) "an even number of forms in binding vector")
-  (assert (#{:-} tk))
-  (let [to-groups (fn [seq-exprs]
+  (assert (#{:-} tk) "Must provide return type annotation for for>.")
+  (let [normalise-args
+        ; change [a :- b c] to [[a :- b] c]
+        (fn [seq-exprs]
+          (loop [flat-result ()
+                 seq-exprs seq-exprs]
+            (cond
+              (empty? seq-exprs) flat-result
+              (keyword? (first seq-exprs)) (recur (concat flat-result (take 2 seq-exprs))
+                                                  (drop 2 seq-exprs))
+              (and (vector? (first seq-exprs))
+                   (#{:-} (-> seq-exprs first second))) (do
+                                                          (prn "DEPRECATED WARNING: for> syntax has changed, use [b :- t i] for clauses")
+                                                          (recur (concat flat-result (take 2 seq-exprs))
+                                                                 (drop 2 seq-exprs)))
+              :else (do (assert (#{:-} (second seq-exprs))
+                                "Incorrect syntax in for>.")
+                        (recur (concat flat-result [(vec (take 3 seq-exprs))
+                                                    (nth seq-exprs 3)])
+                               (drop 4 seq-exprs))))))
+
+        ; normalise seq-exprs to be flat pairs
+        seq-exprs (normalise-args seq-exprs)
+
+        to-groups (fn [seq-exprs]
                     (@#'clojure.core/reduce1 (fn [groups [k v]]
-                              (if (keyword? k)
-                                (conj (pop groups) (conj (peek groups) [k v]))
-                                (conj groups [k v])))
-                            [] (partition 2 seq-exprs)))
+                                               (if (keyword? k)
+                                                 (conj (pop groups) (conj (peek groups) [k v]))
+                                                 (conj groups [k v])))
+                                             [] (partition 2 seq-exprs)))
         err (fn [& msg] (throw (IllegalArgumentException. ^String (apply str msg))))
         emit-bind (fn emit-bind [[[bind expr & mod-pairs]
                                   & [[_ next-expr] :as next-groups]]]
@@ -218,7 +241,7 @@
                         `(ann-form
                            (fn ~giter [~gxs]
                              (lazy-seq
-                               (loop> [[~gxs :- (~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann))] ~gxs]
+                               (loop> [~gxs :- (~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~gxs]
                                  (when-first [~bind ~gxs]
                                    ~(do-mod mod-pairs)))))
                            [(~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~'-> (~'clojure.lang.LazySeq ~ret-ann)])
@@ -245,14 +268,14 @@
                           `(ann-form
                              (fn ~giter [~gxs]
                                (lazy-seq
-                                 (loop> [[~gxs :- (~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann))] ~gxs]
+                                 (loop> [~gxs :- (~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~gxs]
                                         (when-let [~gxs (seq ~gxs)]
                                           (if (chunked-seq? ~gxs)
                                             (let [c# (chunk-first ~gxs)
                                                   size# (int (count c#))
                                                   ~gb (ann-form (chunk-buffer size#)
                                                                 (~'clojure.lang.ChunkBuffer ~ret-ann))]
-                                              (if (loop> [[~gi :- (~'U ~'Long ~'Integer)] (int 0)]
+                                              (if (loop> [~gi :- (~'U ~'Long ~'Integer) (int 0)]
                                                          (if (< ~gi size#)
                                                            (let [;~bind (.nth c# ~gi)]
                                                                  ~bind (nth c# ~gi)]
@@ -271,17 +294,39 @@
 
 (defmacro doseq>
   "Like doseq but requires annotation for each loop variable: 
-  [a [1 2]] becomes [[a :- Long] [1 2]]
+  [a [1 2]] becomes [a :- Long [1 2]]
   
   eg.
-  (doseq> [[a :- (U nil AnyInteger)] [1 nil 2 3]
+  (doseq> [a :- (U nil AnyInteger) [1 nil 2 3]
            :when a]
      (inc a))"
   [seq-exprs & body]
   (@#'clojure.core/assert-args
      (vector? seq-exprs) "a vector for its binding"
      (even? (count seq-exprs)) "an even number of forms in binding vector")
-  (let [step (fn step [recform exprs]
+  (let [normalise-args
+        ; change [a :- b c] to [[a :- b] c]
+        (fn [seq-exprs]
+          (loop [flat-result ()
+                 seq-exprs seq-exprs]
+            (cond
+              (empty? seq-exprs) flat-result
+              (keyword? (first seq-exprs)) (recur (concat flat-result (take 2 seq-exprs))
+                                                  (drop 2 seq-exprs))
+              (and (vector? (first seq-exprs))
+                   (#{:-} (-> seq-exprs first second))) (do
+                                                          (prn "DEPRECATED WARNING: doseq> syntax has changed, use [b :- t i] for clauses")
+                                                          (recur (concat flat-result (take 2 seq-exprs))
+                                                                 (drop 2 seq-exprs)))
+              :else (do (assert (#{:-} (second seq-exprs))
+                                "Incorrect syntax in doseq>")
+                        (recur (concat flat-result [(vec (take 3 seq-exprs))
+                                                    (nth seq-exprs 3)])
+                               (drop 4 seq-exprs))))))
+
+        ; normalise seq-exprs to be flat pairs
+        seq-exprs (normalise-args seq-exprs)
+        step (fn step [recform exprs]
                (if-not exprs
                  [true `(do ~@body)]
                  (let [k (first exprs)
@@ -322,10 +367,10 @@
                            steppair-chunk (step recform-chunk (nnext exprs))
                            subform-chunk (steppair-chunk 1)]
                        [true
-                        `(loop> [[~seq- :- (~'U nil (~'clojure.lang.Seqable ~k-ann))] (seq ~v), 
-                                 [~chunk- :- (~'U nil (~'clojure.lang.IChunk ~k-ann))] nil
-                                 [~count- :- ~'(U Integer Long)] 0,
-                                 [~i- :- ~'(U Integer Long)] 0]
+                        `(loop> [~seq- :- (~'U nil (~'clojure.lang.Seqable ~k-ann)) (seq ~v), 
+                                 ~chunk- :- (~'U nil (~'clojure.lang.IChunk ~k-ann)) nil
+                                 ~count- :- ~'(U Integer Long) 0,
+                                 ~i- :- ~'(U Integer Long) 0]
                            (if (and (< ~i- ~count-)
                                     ;; core.typed thinks chunk- could be nil here
                                     ~chunk-)
@@ -365,6 +410,41 @@
         methods (if ((some-fn vector? keyword?) (first forms))
                   (list forms)
                   forms)
+        ; turn [param :- type* & param :- type *?]
+        ; into [[param :- type]* & [param :- type *]?]
+        normalise-args
+        (fn [arg-anns]
+          (loop [flat-result ()
+                 seq-exprs arg-anns]
+            (cond
+              (empty? seq-exprs) flat-result
+              (and (#{'&} (first seq-exprs))
+                   ; new syntax
+                   (#{:-} (nth seq-exprs 2)))
+              (do
+                (assert (#{'*} (nth seq-exprs 4)))
+                (assert (#{:-} (nth seq-exprs 2)))
+                (assert (empty? (drop 5 seq-exprs)))
+                (recur (concat flat-result ['& (vec (take 4 (next seq-exprs)))])
+                       (drop 4 seq-exprs)))
+              ;old syntax
+              (#{'&} (first seq-exprs))
+              (do 
+                (assert (#{2} (count seq-exprs)))
+                (prn "DEPRECATED WARNING: fn> syntax has changed, use [& b :- t i *] for rest arguments"
+                     "ns: " *ns*)
+                (recur (concat flat-result ['& (second seq-exprs)])
+                       (drop 1 seq-exprs)))
+              (and (vector? (first seq-exprs))
+                   (#{:-} (-> seq-exprs first second))) (do
+                                                          (prn "DEPRECATED WARNING: fn> syntax has changed, use [b :- t i] for clauses"
+                                                               "ns: " *ns*)
+                                                          (recur (concat flat-result (take 1 seq-exprs))
+                                                                 (drop 1 seq-exprs)))
+              :else (do (assert (#{:-} (second seq-exprs))
+                                "Incorrect syntax in fn>.")
+                        (recur (concat flat-result [(vec (take 3 seq-exprs))])
+                               (drop 3 seq-exprs))))))
         ;(fn> name? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
         ; (HMap {:dom (Seqable TypeSyntax)
         ;        :rng (U nil TypeSyntax)
@@ -379,7 +459,7 @@
                                           (nnext method)
                                           method)
                                  body (rest method)
-                                 arg-anns (first method)
+                                 arg-anns (normalise-args (first method))
                                  [required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)]
                              (assert (sequential? required-params)
                                      "Must provide a sequence of typed parameters to fn>")
@@ -421,11 +501,30 @@
 (defmacro loop>
   "Like loop, except loop variables require annotation.
 
-  eg. (loop> [[a :- Number] 1
-              [b :- (U nil Number)] nil]
+  eg. (loop> [a :- Number 1
+              b :- (U nil Number) nil]
         ...)"
   [bndings* & forms]
-  (let [bnds (partition 2 bndings*)
+  (let [normalise-args
+        (fn [seq-exprs]
+          (loop [flat-result ()
+                 seq-exprs seq-exprs]
+            (cond
+              (empty? seq-exprs) flat-result
+              (and (vector? (first seq-exprs))
+                   (#{:-} (-> seq-exprs first second))) (do
+                                                          (prn "DEPRECATED WARNING: loop> syntax has changed, use [b :- t i] for clauses"
+                                                               "ns: " *ns* " form:" &form)
+                                                          (recur (concat flat-result (take 2 seq-exprs))
+                                                                 (drop 2 seq-exprs)))
+              :else (do (assert (#{:-} (second seq-exprs))
+                                "Incorrect syntax in loop>.")
+                        (recur (concat flat-result [(vec (take 3 seq-exprs))
+                                                    (nth seq-exprs 3)])
+                               (drop 4 seq-exprs))))))
+        ;group args in flat pairs
+        bndings* (normalise-args bndings*)
+        bnds (partition 2 bndings*)
         ; [[lhs :- bnd-ann] rhs]
         lhs (map ffirst bnds)
         rhs (map second bnds)
