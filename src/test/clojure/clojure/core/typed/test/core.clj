@@ -13,6 +13,7 @@
              [utils :as u :refer [with-ex-info-handlers top-level-error?]]
              [current-impl :as impl]
              [check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp]]
+             [inst :as inst]
              [subtype :as sub]
              [type-rep :refer :all]
              [type-ctors :refer :all]
@@ -201,24 +202,22 @@
                     (HMap {:op (Value :nil)})
                     (HMap {:op (Value :false)})))))
 
- #_(is (sub? (Rec [x] (U Integer (clojure.lang.ILookup x x)))
-            (Rec [x] (U Number (clojure.lang.ILookup x x)))))
-  )
+  (is (sub? (Rec [x] (U Integer (clojure.lang.ILookup x x)))
+            (Rec [x] (U Number (clojure.lang.ILookup x x))))))
 
-;FIXME expanding dotted pretypes
-#_(deftest trans-dots-test
-  (is (= (manual-inst (parse-type '(All [x b ...]
-                                        [x ... b -> x]))
-                      (map parse-type '(Integer Double Float)))
+(deftest trans-dots-test
+  (is (= (inst/manual-inst (parse-type '(All [x b ...]
+                                             [x ... b -> x]))
+                           (map parse-type '(Integer Double Float)))
          (parse-type '[Integer Integer -> Integer])))
-  (is (= (manual-inst (parse-type '(All [x b ...]
-                                        [b ... b -> x]))
-                      (map parse-type '(Integer Double Float)))
+  (is (= (inst/manual-inst (parse-type '(All [x b ...]
+                                             [b ... b -> x]))
+                           (map parse-type '(Integer Double Float)))
          (parse-type '[Double Float -> Integer])))
   ;map type
-  (is (= (manual-inst (parse-type '(All [c a b ...]
-                                        [[a b ... b -> c] (clojure.lang.Seqable a) (clojure.lang.Seqable b) ... b -> (clojure.lang.Seqable c)]))
-                      (map parse-type '(Integer Double Float)))
+  (is (= (inst/manual-inst (parse-type '(All [c a b ...]
+                                             [[a b ... b -> c] (clojure.lang.Seqable a) (clojure.lang.Seqable b) ... b -> (clojure.lang.Seqable c)]))
+                           (map parse-type '(Integer Double Float)))
          (parse-type '[[Double Float -> Integer] (clojure.lang.Seqable Double) (clojure.lang.Seqable Float) -> (clojure.lang.Seqable Integer)]))))
 
 ;return type for an expression f
@@ -1094,6 +1093,7 @@
          (ret (->TApp (make-F 'm) [-nil])))))
 
 ;TODO how to handle casts. CTYP-12
+;Also need tc-t to bind *delayed-errors*
 #_(deftest prims-test
   (is (= (ret-t (tc-t (Math/sqrt 1)))
          (parse-type 'double))))
@@ -1235,25 +1235,17 @@
 
 ;;;; Checking deftype implementation of protocol methods
 
-;FIXME refactor into files
-#_(deftest new-instance-method-return-test
-  (is 
-    (do 
-      ;ensure annotating in current namespace
-      (ann-protocol AddProtoc
-                    adder [AddProtoc Number -> Number])
-      (defprotocol> AddProtoc
-        (adder [this amount]))
+(defmacro caught-top-level-errors [nfn & body]
+  `(with-ex-info-handlers
+     [top-level-error? (fn [data# _#]
+                         (~nfn (count (:errors data#))))]
+     ~@body
+     false))
 
-      (ann-datatype Accumulator [t :- Number])
-      (cf (deftype Accumulator [t]
-            AddProtoc
-            (adder [_ i] 1)))
-      true))
-  (is (u/top-level-error-thrown?
-        (cf (deftype Accumulator [t]
-              AddProtoc
-              (adder [_ i] (Accumulator. (+ t i))))))))
+(deftest new-instance-method-return-test
+  (is (check-ns 'clojure.core.typed.test.protocol))
+  (is (caught-top-level-errors #{2}
+        (check-ns 'clojure.core.typed.test.protocol-fail))))
 ;;;;
 
 (deftest let-filter-unscoping-test
@@ -1312,15 +1304,8 @@
 (deftest common-destructuring-test
   (is (check-ns 'clojure.core.typed.test.destructure)))
 
-(defmacro number-top-level-errors [nfn & body]
-  `(with-ex-info-handlers
-     [top-level-error? (fn [data# _#]
-                         (~nfn (count (:errors data#))))]
-     ~@body
-     false))
-
 (deftest loop-errors-test
-  (is (number-top-level-errors #{1}
+  (is (caught-top-level-errors #{1}
         (cf (loop [a 1] a))))
-  (is (number-top-level-errors #{2}
+  (is (caught-top-level-errors #{2}
         (cf (clojure.core.typed/loop> [[a :- String] 1] a)))))

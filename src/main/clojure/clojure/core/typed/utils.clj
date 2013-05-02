@@ -3,9 +3,12 @@
   (:import (clojure.lang PersistentArrayMap Var))
   (:require [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]
             [clojure.core.contracts.constraints :as contracts]
+            [clojure.repl :as repl]
             [clojure.core.contracts]
             [clojure.tools.analyzer :as analyze]
             [clojure.tools.analyzer.hygienic :as hygienic]))
+
+(declare emit-form-fn)
 
 (defn every-c? [c]
   #(every? c %))
@@ -36,10 +39,20 @@
   (isa? (:type-error exdata) tc-error-parent))
 
 (defn tc-delayed-error [msg & {:keys [return form] :as opt}]
+  (when-not (:line *current-env*)
+    (try (throw (Exception. ""))
+      (catch Exception e
+        (prn "core.typed Internal BUG! Delayed error without line number, stacktrace following...")
+        (prn "with env:" (pr-str *current-env*))
+        (repl/pst e))))
   (swap! clojure.core.typed/*delayed-errors*
          conj (ex-info msg (merge {:type-error tc-error-parent}
-                                  (when (contains? opt :form)
-                                    {:form form})
+                                  (when (or (contains? opt :form)
+                                            (and (bound? #'uvs/*current-expr*)
+                                                 uvs/*current-expr*))
+                                    {:form (if (contains? opt :form)
+                                             form
+                                             (emit-form-fn uvs/*current-expr*))})
                                   (when-let [env *current-env*]
                                     {:env env}))))
   (or return @(ns-resolve (find-ns 'clojure.core.typed.type-rep) '-nothing)))

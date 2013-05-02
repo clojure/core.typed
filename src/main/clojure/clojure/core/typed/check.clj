@@ -2438,7 +2438,11 @@ rest-param-name (when rest-param
                          (integer? n)
                          (< n nexprs)]
                    :post [(u/hvector-c? lex/PropEnv? vector?)]}
-                  (let [cexpr (binding [vs/*current-expr* expr]
+                  (let [cexpr (binding [; always prefer envs with :line information, even if inaccurate
+                                        vs/*current-env* (if (:line (:env expr))
+                                                           (:env expr)
+                                                           vs/*current-env*)
+                                        vs/*current-expr* expr]
                                 (var-env/with-lexical-env env
                                   (check expr 
                                          ;propagate expected type only to final expression
@@ -2773,33 +2777,35 @@ rest-param-name (when rest-param
 
 (defmethod new-special :default [expr & [expected]] ::not-special)
 
+; This node does not have line numbers in jvm.tools.analyzer.
+; Hopefully a case above it binds *current-env*
 (defmethod check :new
-  [{cls :class :keys [ctor args env] :as expr} & [expected]]
-  #_(prn "check: :new" "env" env)
-  (binding [vs/*current-env* env]
-    (let [spec (new-special expr expected)]
-      (cond
-        (not= ::not-special spec) spec
-        :else
-        (let [inst-types *inst-ctor-types*
-              clssym (ctor-Class->symbol cls)
-              ifn (let [ctor-fn (or (@ctor-override/CONSTRUCTOR-OVERRIDE-ENV clssym)
-                                    (and (@dt-env/DATATYPE-ENV clssym)
-                                         (DataType-ctor-type clssym))
-                                    (when ctor
-                                      (Constructor->Function ctor)))
-                        _ (assert ctor-fn ctor-fn)
-                        ctor-fn (if inst-types
-                                  (inst/manual-inst ctor-fn inst-types)
-                                  ctor-fn)]
-                    (ret ctor-fn))
-              ;_ (prn "Expected constructor" (prs/unparse-type (ret-t ifn)))
-              cargs (mapv check args)
-              res-type (check-funapp expr args ifn (map expr-type cargs) nil)
-              _ (when (and expected (not (sub/subtype? (ret-t res-type) (ret-t expected))))
-                  (expected-error (ret-t res-type) (ret-t expected)))]
-          (assoc expr
-                 expr-type res-type))))))
+  [{cls :class :keys [ctor args] :as expr} & [expected]]
+  (when-not (:line vs/*current-env*)
+    (prn "Internal Bug! No line information for :new"))
+  (let [spec (new-special expr expected)]
+    (cond
+      (not= ::not-special spec) spec
+      :else
+      (let [inst-types *inst-ctor-types*
+            clssym (ctor-Class->symbol cls)
+            ifn (let [ctor-fn (or (@ctor-override/CONSTRUCTOR-OVERRIDE-ENV clssym)
+                                  (and (@dt-env/DATATYPE-ENV clssym)
+                                       (DataType-ctor-type clssym))
+                                  (when ctor
+                                    (Constructor->Function ctor)))
+                      _ (assert ctor-fn ctor-fn)
+                      ctor-fn (if inst-types
+                                (inst/manual-inst ctor-fn inst-types)
+                                ctor-fn)]
+                  (ret ctor-fn))
+            ;_ (prn "Expected constructor" (prs/unparse-type (ret-t ifn)))
+            cargs (mapv check args)
+            res-type (check-funapp expr args ifn (map expr-type cargs) nil)
+            _ (when (and expected (not (sub/subtype? (ret-t res-type) (ret-t expected))))
+                (expected-error (ret-t res-type) (ret-t expected)))]
+        (assoc expr
+               expr-type res-type)))))
 
 (defmethod check :throw
   [{:keys [exception] :as expr} & [expected]]
@@ -3508,79 +3514,81 @@ rest-param-name (when rest-param
 (declare check-new-instance-method)
 
 (defmethod check :deftype*
-  [{nme :name :keys [methods] :as expr} & [expected]]
+  [{nme :name :keys [methods env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (assert nme) ;remove once analyze is released
   ;TODO check fields match, handle extra fields in records
   #_(prn "Checking deftype definition:" nme)
-  (let [cmmap (into {} (for [[k v] (:mmap expr)]
-                         [[(symbol (first k)) (count (second k))]
-                          (@#'clojure.reflect/method->map v)]))
-        _ (assert ((u/hash-c? (u/hvector-c? (every-pred symbol? (complement namespace))
-                                            u/nat?)
-                            #(instance? clojure.reflect.Method %))
-                   cmmap))
-        dtp (@dt-env/DATATYPE-ENV nme)
-        dt (if (r/Poly? dtp)
-             (do (assert (-> dtp meta :actual-frees))
-                 (unwrap-datatype dtp (-> dtp meta :actual-frees)))
-             dtp)
+  (binding [vs/*current-env* env]
+    (let [cmmap (into {} (for [[k v] (:mmap expr)]
+                           [[(symbol (first k)) (count (second k))]
+                            (@#'clojure.reflect/method->map v)]))
+          _ (assert ((u/hash-c? (u/hvector-c? (every-pred symbol? (complement namespace))
+                                              u/nat?)
+                                #(instance? clojure.reflect.Method %))
+                     cmmap))
+          dtp (@dt-env/DATATYPE-ENV nme)
+          dt (if (r/Poly? dtp)
+               (do (assert (-> dtp meta :actual-frees))
+                   (unwrap-datatype dtp (-> dtp meta :actual-frees)))
+               dtp)
 
-        _ (assert ((some-fn r/DataType? r/Record?) dt))
-        _ (assert dt (str "Untyped datatype definition: " nme))
-        ; update this deftype's ancestors to include each protocol/interface in this deftype
-        old-ancestors (or (@ancest/DATATYPE-ANCESTOR-ENV nme) #{})
-        ancestor-diff (set/difference
-                        (set
-                          (for [[_ method] cmmap]
-                            (let [tsym (:declaring-class method)]
-                              (if-let [cls (when-let [cls (resolve tsym)]
-                                             (and (class? cls) 
-                                                  cls))]
-                                (or (first (filter #(= (:on-class %) tsym) (vals @pcl-env/PROTOCOL-ENV)))
-                                    (c/RClass-of-with-unknown-params cls))
-                                (pcl-env/resolve-protocol tsym)))))
-                        old-ancestors)
-        ;_ (prn "ancestor diff" ancestor-diff)
-        _ (swap! ancest/DATATYPE-ANCESTOR-ENV update-in [nme] set/union ancestor-diff)
-        check-method? (fn [inst-method]
-                        (not (and (r/Record? dt)
-                                  (record-implicits (symbol (:name inst-method))))))
-        _ (try
-            (doseq [inst-method methods
-                    :when (check-method? inst-method)]
-              #_(prn "Checking deftype* method: "(:name inst-method))
-              (let [nme (:name inst-method)
-                    _ (assert (symbol? nme))
-                    ; minus the target arg
-                    method-sig (cmmap [nme (dec (count (:required-params inst-method)))])
-                    _ (assert (instance? clojure.reflect.Method method-sig))
-                    expected-ifn 
-                    (extend-method-expected dt
-                                            (or (let [ptype (first
-                                                              (filter #(= (:on-class %) (:declaring-class method-sig))
-                                                                      (vals @pcl-env/PROTOCOL-ENV)))]
-                                                  ;(prn "ptype" ptype)
-                                                  (when ptype
-                                                    (let [munged-methods (into {} (for [[k v] (:methods ptype)]
-                                                                                    [(symbol (munge k)) v]))]
-                                                      (munged-methods (:name method-sig)))))
-                                                (instance-method->Function method-sig)))]
-                #_(prn "method expected type" (prs/unparse-type expected-ifn))
-                (lex/with-locals (:fields dt)
-                  ;(prn "lexical env when checking method" nme lex/*lexical-env*)
-                  ;(prn (:fields dt))
-                  (check-new-instance-method
-                    inst-method 
-                    expected-ifn))))
-            (catch Throwable e
-              ; reset old ancestors
-              (swap! ancest/DATATYPE-ANCESTOR-ENV update-in [nme] set/difference ancestor-diff)
-              (throw e)))]
-    (assoc expr
-           expr-type (ret (let [res (resolve nme)]
-                            (assert (class? res))
-                            (r/-val res))))))
+          _ (assert ((some-fn r/DataType? r/Record?) dt))
+          _ (assert dt (str "Untyped datatype definition: " nme))
+          ; update this deftype's ancestors to include each protocol/interface in this deftype
+          old-ancestors (or (@ancest/DATATYPE-ANCESTOR-ENV nme) #{})
+          ancestor-diff (set/difference
+                          (set
+                            (for [[_ method] cmmap]
+                              (let [tsym (:declaring-class method)]
+                                (if-let [cls (when-let [cls (resolve tsym)]
+                                               (and (class? cls) 
+                                                    cls))]
+                                  (or (first (filter #(= (:on-class %) tsym) (vals @pcl-env/PROTOCOL-ENV)))
+                                      (c/RClass-of-with-unknown-params cls))
+                                  (pcl-env/resolve-protocol tsym)))))
+                          old-ancestors)
+          ;_ (prn "ancestor diff" ancestor-diff)
+          _ (swap! ancest/DATATYPE-ANCESTOR-ENV update-in [nme] set/union ancestor-diff)
+          check-method? (fn [inst-method]
+                          (not (and (r/Record? dt)
+                                    (record-implicits (symbol (:name inst-method))))))
+          _ (try
+              (doseq [{:keys [env] :as inst-method} methods
+                      :when (check-method? inst-method)]
+                #_(prn "Checking deftype* method: "(:name inst-method))
+                (binding [vs/*current-env* env]
+                  (let [nme (:name inst-method)
+                        _ (assert (symbol? nme))
+                        ; minus the target arg
+                        method-sig (cmmap [nme (dec (count (:required-params inst-method)))])
+                        _ (assert (instance? clojure.reflect.Method method-sig))
+                        expected-ifn 
+                        (extend-method-expected dt
+                                                (or (let [ptype (first
+                                                                  (filter #(= (:on-class %) (:declaring-class method-sig))
+                                                                          (vals @pcl-env/PROTOCOL-ENV)))]
+                                                      ;(prn "ptype" ptype)
+                                                      (when ptype
+                                                        (let [munged-methods (into {} (for [[k v] (:methods ptype)]
+                                                                                        [(symbol (munge k)) v]))]
+                                                          (munged-methods (:name method-sig)))))
+                                                    (instance-method->Function method-sig)))]
+                    #_(prn "method expected type" (prs/unparse-type expected-ifn))
+                    (lex/with-locals (:fields dt)
+                      ;(prn "lexical env when checking method" nme lex/*lexical-env*)
+                      ;(prn (:fields dt))
+                      (check-new-instance-method
+                        inst-method 
+                        expected-ifn)))))
+              (catch Throwable e
+                ; reset old ancestors
+                (swap! ancest/DATATYPE-ANCESTOR-ENV update-in [nme] set/difference ancestor-diff)
+                (throw e)))]
+      (assoc expr
+             expr-type (ret (let [res (resolve nme)]
+                              (assert (class? res))
+                              (r/-val res)))))))
 
 ;[Expr FnIntersection -> Expr]
 (defn check-new-instance-method

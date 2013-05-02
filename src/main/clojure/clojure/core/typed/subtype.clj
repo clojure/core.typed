@@ -15,7 +15,7 @@
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
                                         Result Protocol TypeFn Name F Bounds HeterogeneousVector
-                                        PrimitiveArray DataType RClass Mu HeterogeneousMap
+                                        PrimitiveArray DataType RClass HeterogeneousMap
                                         HeterogeneousList HeterogeneousSeq CountRange KwArgs)
            (clojure.lang APersistentMap APersistentVector PersistentList ASeq Seqable)))
 
@@ -237,6 +237,12 @@
         (if (every? #(subtype? s %) (.types ^Intersection t))
           *sub-current-seen*
           (fail! s t))
+
+        (r/Mu? s)
+        (subtype (c/unfold s) t)
+
+        (r/Mu? t)
+        (subtype s (c/unfold t))
 
         (and (r/TopFunction? t)
              (r/FnIntersection? s))
@@ -665,10 +671,6 @@
 
       :else (fail! s t))))
 
-(prefer-method subtype* 
-               [r/Type Mu impl/default]
-               [HeterogeneousMap r/Type impl/clojure])
-
 (defmethod subtype* [HeterogeneousMap r/Type impl/clojure]
   [^HeterogeneousMap s t]
   ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
@@ -714,16 +716,6 @@
   (let [ss (apply c/Un (:types s))]
     (subtype (c/RClass-of (u/Class->symbol ASeq) [ss])
              t)))
-
-(defmethod subtype* [Mu r/Type impl/default]
-  [s t]
-  (let [s* (c/unfold s)]
-    (subtype s* t)))
-
-(defmethod subtype* [r/Type Mu impl/default]
-  [s t]
-  (let [t* (c/unfold t)]
-    (subtype s t*)))
 
 ;subtype if t includes all of s. 
 ;tl <= sl, su <= tu
