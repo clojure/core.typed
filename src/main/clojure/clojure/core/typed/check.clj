@@ -1280,15 +1280,15 @@
                                      '(All [x y]
                                            (Fn 
                                              ;no default
-                                             [(IPersistentSet x) Any -> (Option x)]
+                                             [(clojure.lang.IPersistentSet x) Any -> (clojure.core.typed/Option x)]
                                              [nil Any -> nil]
-                                             [(Option (ILookup Any x)) Any -> (Option x)]
-                                             [java.util.Map Any -> (Option Any)]
-                                             [String Any -> (Option Character)]
+                                             [(U nil (clojure.lang.ILookup Any x)) Any -> (U nil x)]
+                                             [java.util.Map Any -> (U nil Any)]
+                                             [String Any -> (U nil Character)]
                                              ;default
-                                             [(IPersistentSet x) Any y -> (U y x)]
+                                             [(clojure.lang.IPersistentSet x) Any y -> (U y x)]
                                              [nil Any y -> y]
-                                             [(Option (ILookup Any x)) Any y -> (U y x)]
+                                             [(U nil (clojure.lang.ILookup Any x)) Any y -> (U y x)]
                                              [java.util.Map Any y -> (U y Any)]
                                              [String Any y -> (U y Character)]
                                              ))))
