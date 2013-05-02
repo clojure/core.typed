@@ -589,7 +589,7 @@ clojure.core/range
     [AnyInteger Number -> (LazySeq AnyInteger)]
     [Number Number -> (LazySeq Number)]
     [AnyInteger Number AnyInteger -> (LazySeq AnyInteger)]
-    [Number Number Number -> (LazySeq Number)]))
+    [Number Number Number -> (LazySeq Number)])
 
 clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
                             [Object -> Class :object {:id 0 :path [Class]}]
