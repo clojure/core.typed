@@ -1275,7 +1275,23 @@
                           (find-val-type t* k default)))
       (r/RClass? t)
       (->
-        (check-funapp nil nil (ret (prs/parse-type '(All [x y] [(clojure.lang.IPersistentMap Any x) y -> (U x y)])))
+        (check-funapp nil nil (ret (prs/parse-type 
+                                     ;same as clojure.core/get
+                                     '(All [x y]
+                                           (Fn 
+                                             ;no default
+                                             [(IPersistentSet x) Any -> (Option x)]
+                                             [nil Any -> nil]
+                                             [(Option (ILookup Any x)) Any -> (Option x)]
+                                             [java.util.Map Any -> (Option Any)]
+                                             [String Any -> (Option Character)]
+                                             ;default
+                                             [(IPersistentSet x) Any y -> (U y x)]
+                                             [nil Any y -> y]
+                                             [(Option (ILookup Any x)) Any y -> (U y x)]
+                                             [java.util.Map Any y -> (U y Any)]
+                                             [String Any y -> (U y Character)]
+                                             ))))
                       [(ret t) (ret (or default r/-nil))] nil)
         ret-t)
       :else r/-any)))
