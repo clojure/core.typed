@@ -582,6 +582,15 @@ clojure.core/repeat (All [x]
                          (Fn [x -> (Seqable x)]
                              [AnyInteger x -> (Seqable x)]))
 
+
+clojure.core/range
+(Fn [-> (LazySeq AnyInteger)]
+    [Number -> (LazySeq AnyInteger)]
+    [AnyInteger Number -> (LazySeq AnyInteger)]
+    [Number Number -> (LazySeq Number)]
+    [AnyInteger Number AnyInteger -> (LazySeq AnyInteger)]
+    [Number Number Number -> (LazySeq Number)]))
+
 clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
                             [Object -> Class :object {:id 0 :path [Class]}]
                             [Any -> (Option Class) :object {:id 0 :path [Class]}])
