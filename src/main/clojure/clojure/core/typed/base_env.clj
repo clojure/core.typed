@@ -622,7 +622,7 @@ clojure.core/mapcat
           [[b ... b -> (Option (Seqable c))] (Option (Seqable b)) ... b -> (LazySeq c)])
 
 clojure.core/map-indexed
-     (All [x y] [[x -> y] (Option (Seqable x)) -> (Seqable '[AnyInteger (Seqable y)])])
+     (All [x y] [[AnyInteger x -> y] (Option (Seqable x)) -> (Seqable '[AnyInteger (Seqable y)])])
 
 clojure.core/merge-with
      (All [k v]

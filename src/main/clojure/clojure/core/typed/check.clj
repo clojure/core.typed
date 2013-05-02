@@ -1237,6 +1237,7 @@
                    (vals (.fields r)))]
     (c/-hmap kf)))
 
+;TODO pass fexpr and args for better errors
 ;[Type Type (Option Type) -> Type]
 (defn find-val-type [t k default]
   {:pre [(Type? t)
