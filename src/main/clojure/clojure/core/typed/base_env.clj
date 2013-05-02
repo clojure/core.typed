@@ -4,7 +4,7 @@
                          APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
                          APersistentMap IDeref ISeq IMeta ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
-                         IPersistentList IRef IReference AReference ARef Var Delay))
+                         IPersistentList IRef IReference AReference ARef Var Delay Reversible))
   (:require [clojure.core.typed
              [base-env-helper :as h]
              [parse-unparse :as prs]
@@ -46,6 +46,9 @@
 
 Seqable [[[a :variance :covariant]]
          ]
+
+Reversible [[[a :variance :covariant]]
+            ]
 
 IMeta [[[a :variance :covariant]]]
 
@@ -99,6 +102,7 @@ PersistentHashSet [[[a :variance :covariant]]
 PersistentTreeSet [[[a :variance :covariant]]
                    :replace
                    {Seqable (Seqable a)
+                    Reversible (Reversible a)
                     APersistentSet (APersistentSet a)
                     IFn [Any -> (U a nil)]
                     AFn [Any -> (U a nil)]
@@ -141,6 +145,7 @@ IPersistentVector [[[a :variance :covariant]]
                    :replace
                    {IPersistentCollection (IPersistentCollection a)
                     Seqable (Seqable a)
+                    Reversible (Reversible a)
                     IPersistentStack (IPersistentStack a)
                     ILookup (ILookup Number a)
                     Associative (Associative Number a)
@@ -163,6 +168,7 @@ APersistentVector [[[a :variance :covariant]]
                    {IPersistentCollection (IPersistentCollection a)
                     Seqable (Seqable a)
                     IPersistentVector (IPersistentVector a)
+                    Reversible (Reversible a)
                     IFn [Number -> a]
                     IPersistentStack (IPersistentStack a)
                     ILookup (ILookup Number a)
@@ -175,6 +181,7 @@ PersistentVector [[[a :variance :covariant]]
                    IPersistentCollection (IPersistentCollection a)
                    Seqable (Seqable a)
                    IPersistentVector (IPersistentVector a)
+                    Reversible (Reversible a)
                    IFn [Number -> a]
                    IPersistentStack (IPersistentStack a)
                    ILookup (ILookup Number a)
@@ -789,6 +796,10 @@ clojure.core/cons
 clojure.core/reverse
      (All [x]
        [(Option (Seqable x)) -> (Seqable x)])
+
+clojure.core/rseq
+     (All [x]
+       [(Reversible x) -> (Option (I (ISeq x) (CountRange 1)))])
 
 ;coercions
 clojure.core/bigdec [Any -> BigDecimal]
