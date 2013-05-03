@@ -438,7 +438,16 @@ clojure.core/hash-set (All [x] [x * -> (PersistentHashSet x)])
 clojure.core/sorted-set (All [x] [x * -> (PersistentTreeSet x)])
 clojure.core/sorted-set-by (All [x] [[x x -> AnyInteger] x * -> (PersistentTreeSet x)])
 clojure.core/list (All [x] [x * -> (PersistentList x)])
-clojure.core/vector (All [x] [x * -> (APersistentVector x)])
+clojure.core/vector (All [x y z a b c] 
+                         (Fn
+                           [-> '[]]
+                           [x -> '[x]]
+                           [x y -> '[x y]]
+                           [x y z -> '[x y z]]
+                           [x y z a -> '[x y z a]]
+                           [x y z a b -> '[x y z a b]]
+                           [x y z a b c -> '[x y z a b c]]
+                           [x * -> (APersistentVector x)]))
 clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
 
 clojure.core/not [Any -> boolean]
@@ -622,7 +631,7 @@ clojure.core/mapcat
           [[b ... b -> (Option (Seqable c))] (Option (Seqable b)) ... b -> (LazySeq c)])
 
 clojure.core/map-indexed
-     (All [x y] [[AnyInteger x -> y] (Option (Seqable x)) -> (Seqable '[AnyInteger (Seqable y)])])
+     (All [x y] [[AnyInteger x -> y] (Option (Seqable x)) -> (Seqable y)])
 
 clojure.core/merge-with
      (All [k v]

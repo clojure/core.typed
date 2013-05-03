@@ -1308,3 +1308,8 @@
         (cf (loop [a 1] a))))
   (is (caught-top-level-errors #{2}
         (cf (clojure.core.typed/loop> [a :- String 1] a)))))
+
+(deftest map-indexed-test
+  (is (cf (map-indexed (clojure.core.typed/inst vector clojure.core.typed/AnyInteger Long Any Any Any Any) 
+                       [1 2])
+          (clojure.lang.Seqable '[clojure.core.typed/AnyInteger Long]))))
