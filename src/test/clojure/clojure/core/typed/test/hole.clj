@@ -1,17 +1,13 @@
 (ns clojure.core.typed.test.hole
   (:require [clojure.repl :refer [pst]]
-            [clojure.core.typed :refer [ann ann-form ann-datatype check-ns]]
+            [clojure.core.typed :refer [ann ann-form ann-datatype check-ns typed-deps]]
+            [clojure.core.typed.hole :refer [noisy-hole silent-hole]]
             [clojure.core.typed.test.monads :refer [;types 
                                                     AnyMonad 
                                                     ;vars
                                                     domonad defmonadfn ann-monadfn]]))
 
-(ann-datatype Hole [])
-(deftype Hole [])
-
-(ann hole [-> Nothing])
-(defn hole [] 
-  (throw (Exception. "hole")))
+(typed-deps clojure.core.typed.hole)
 
 ; # Holes
 ;
@@ -26,7 +22,7 @@
   (let [_ (ann-form f [b -> c])
         _ (ann-form g [a -> b])
         _ (ann-form x b)]
-    (hole)))
+    (silent-hole)))
 
 ; 1. give x wrong type (b).
 
@@ -38,7 +34,7 @@
   (let [_ (ann-form f [b -> c])
         _ (ann-form g [a -> b])
         _ (ann-form x a)]
-    (hole)))
+    (silent-hole)))
 
 ; 2. Silent hole is silent. Passes type checking
 
@@ -49,7 +45,7 @@
   (let [_ (ann-form f [b -> c])
         _ (ann-form g [a -> b])
         _ (ann-form x a)]
-    (->Hole)))
+    (noisy-hole)))
 
 ; 3. Noisy hole complains.
 
@@ -66,7 +62,7 @@
   (let [_ (ann-form f [b -> c])
         _ (ann-form g [a -> b])
         _ (ann-form x a)]
-    (f (->Hole))))
+    (f (noisy-hole))))
 
 ; 4. Fill in hole with an expression that returns `c`
 
@@ -83,7 +79,7 @@
   (let [_ (ann-form f [b -> c])
         _ (ann-form g [a -> b])
         _ (ann-form x a)]
-    (f (g (->Hole)))))
+    (f (g (noisy-hole)))))
 
 ; 5. Fill in hole with an expression that returns `b`
 
@@ -126,7 +122,7 @@
 #_(defmonadfn mapply [mf ma]
   (let [_ (ann-form mf (m [a -> b]))
         _ (ann-form ma (m a))]
-    (->Hole)))
+    (noisy-hole)))
 
 ; 1. Noisy hole
 
@@ -154,7 +150,7 @@
         _ (ann-form #(m-bind mf %) [[[a -> b] -> (m b)] -> (m b)])
         _ (ann-form #(m-bind ma %) [[a -> (m b)] -> (m b)])
         ]
-    (->Hole)))
+    (noisy-hole)))
 
 ; Note: line number sucks :/
 ;
@@ -176,7 +172,7 @@
         _ (ann-form #(m-bind ma %) [[a -> (m b)] -> (m b)])
         k (ann-form
             (fn [f]
-              (->Hole))
+              (noisy-hole))
             [[a -> b] -> (m b)])]
     (m-bind mf k)))
 
