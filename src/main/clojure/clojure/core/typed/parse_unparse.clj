@@ -1,5 +1,6 @@
 (ns clojure.core.typed.parse-unparse
-  (:require [clojure.core.typed
+  (:require [clojure.core.typed]
+            [clojure.core.typed
              [type-rep :as r]
              [type-ctors :as c]
              [object-rep :as orep]
@@ -26,7 +27,7 @@
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.path_rep KeyPE CountPE ClassPE)
-           (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
+           (clojure.lang ISeq Cons IPersistentList Symbol IPersistentVector PersistentHashMap)))
 
 (def ^:dynamic *parse-type-in-ns* nil)
 
@@ -275,9 +276,24 @@
     (map? syn) (syn-to-hmap syn nil)
     :else (throw (Exception. (str "Invalid use of quote:" syn)))))
 
+(declare parse-in-ns)
+
 (defmethod parse-type-list 'HMap
-  [[_ mandatory & {:keys [optional]}]]
-  (syn-to-hmap mandatory optional))
+  [[_HMap_ & flat-opts]]
+  (let [deprecated-mandatory (when (map? (first flat-opts))
+                               (println 
+                                 (ns-name (parse-in-ns))
+                                 ": DEPRECATED: HMap syntax changed. Use :mandatory keyword argument instead of initial map")
+                               (flush)
+                               (first flat-opts))
+        ^ISeq flat-opts (if deprecated-mandatory
+                          (next flat-opts)
+                          flat-opts)
+        {:keys [optional mandatory]} (PersistentHashMap/createWithCheck flat-opts)
+        _ (when (and deprecated-mandatory mandatory)
+            (throw (Exception. "Cannot provide both deprecated initial map syntax and :mandatory option to HMap")))
+        mandatory (or deprecated-mandatory mandatory)]
+    (syn-to-hmap mandatory optional)))
 
 (defn- parse-in-ns []
   (or *parse-type-in-ns* *ns*))

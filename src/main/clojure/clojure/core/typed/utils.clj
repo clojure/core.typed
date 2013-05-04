@@ -1,7 +1,8 @@
 (ns clojure.core.typed.utils
   (:refer-clojure :exclude [defrecord])
   (:import (clojure.lang PersistentArrayMap Var))
-  (:require [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]
+  (:require [clojure.core.typed]
+            [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]
             [clojure.core.contracts.constraints :as contracts]
             [clojure.repl :as repl]
             [clojure.core.contracts]

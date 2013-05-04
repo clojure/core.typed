@@ -50,11 +50,11 @@
 ;Aliases used in unit tests
 (defmacro declare-map-aliases []
   `(do
-     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MyName ~'(HMap {:a (Value 1)})))
-     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapName ~'(HMap {:a clojure.core.typed.test.core/MyName})))
-     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapStruct1 ~'(HMap {:type (Value :MapStruct1) 
+     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MyName ~'(HMap :mandatory {:a (Value 1)})))
+     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapName ~'(HMap :mandatory {:a clojure.core.typed.test.core/MyName})))
+     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapStruct1 ~'(HMap :mandatory {:type (Value :MapStruct1) 
                                                                                         :a clojure.core.typed.test.core/MyName})))
-     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapStruct2 ~'(HMap {:type (Value :MapStruct2) 
+     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapStruct2 ~'(HMap :mandatory {:type (Value :MapStruct2) 
                                                                                         :b clojure.core.typed.test.core/MyName})))
      (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/UnionName ~'(U clojure.core.typed.test.core/MapStruct1 
                                                                                    clojure.core.typed.test.core/MapStruct2)))))
@@ -187,20 +187,20 @@
                 (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
   (is (not (subtype? (parse-type 'Number)
                      (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x)))))))
-  (is (sub? (HMap {:op (Value :if)
-                  :test (HMap {:op (Value :var)
+  (is (sub? (HMap :mandatory {:op (Value :if)
+                  :test (HMap :mandatory {:op (Value :var)
                                :var clojure.lang.Var})
-                  :then (HMap {:op (Value :nil)})
-                  :else (HMap {:op (Value :false)})})
+                  :then (HMap :mandatory {:op (Value :nil)})
+                  :else (HMap :mandatory {:op (Value :false)})})
             (Rec [x] 
-                 (U (HMap {:op (Value :if)
+                 (U (HMap :mandatory {:op (Value :if)
                            :test x
                            :then x
                            :else x})
-                    (HMap {:op (Value :var)
+                    (HMap :mandatory {:op (Value :var)
                            :var clojure.lang.Var})
-                    (HMap {:op (Value :nil)})
-                    (HMap {:op (Value :false)})))))
+                    (HMap :mandatory {:op (Value :nil)})
+                    (HMap :mandatory {:op (Value :false)})))))
 
   (is (sub? (Rec [x] (U Integer (clojure.lang.ILookup x x)))
             (Rec [x] (U Number (clojure.lang.ILookup x x))))))
@@ -279,7 +279,7 @@
 
 (deftest get-special-test
   (is (= (ety 
-           (clojure.core.typed/fn> [a :- (HMap {:a Number})]
+           (clojure.core.typed/fn> [a :- (HMap :mandatory {:a Number})]
                            (get a :a)))
          (make-FnIntersection
            (make-Function [(-hmap {(-val :a) (RClass-of Number)})]
@@ -345,8 +345,8 @@
 (deftest name-to-param-index-test
   ;a => 0
   (is (= (tc-t 
-           (clojure.core.typed/fn> [a :- (U (HMap {:op (Value :if)})
-                                            (HMap {:op (Value :var)}))] 
+           (clojure.core.typed/fn> [a :- (U (HMap :mandatory {:op (Value :if)})
+                                            (HMap :mandatory {:op (Value :var)}))] 
                                    (:op a)))
          (ret (make-FnIntersection
                 (->Function
@@ -364,8 +364,8 @@
 
 (deftest refine-test
   (is (= (tc-t 
-           (clojure.core.typed/fn> [a :- (U (HMap {:op (Value :if)})
-                                            (HMap {:op (Value :var)}))]
+           (clojure.core.typed/fn> [a :- (U (HMap :mandatory {:op (Value :if)})
+                                            (HMap :mandatory {:op (Value :var)}))]
                            (when (= (:op a) :if) 
                              a)))
          (ret (make-FnIntersection
@@ -411,7 +411,7 @@
               (-FS -top -top) -empty))))
 
 (deftest heterogeneous-ds-test
-  (is (not (subtype? (parse-type '(HMap {:a (Value 1)}))
+  (is (not (subtype? (parse-type '(HMap :mandatory {:a (Value 1)}))
                      (RClass-of ISeq [(->Top)]))))
   (is (not (subtype? (parse-type '(Vector* (Value 1) (Value 2)))
                      (RClass-of ISeq [(->Top)]))))
@@ -455,7 +455,7 @@
                 (-PropEnv {'a (->Value :a)} props))
              @flag)))
   ;test positive KeyPE
-  ;update a from (U (HMap {:op :if}) (HMap {:op :var})) => (HMap {:op :if})
+  ;update a from (U (HMap :mandatory {:op :if}) (HMap :mandatory {:op :var})) => (HMap :mandatory {:op :if})
   (is (let [props [(-filter (->Value :if) 'a [(->KeyPE :op)])]
             flag (atom true)]
         (and (= (let [env {'a (Un (-hmap {(->Value :op) (->Value :if)})
@@ -516,7 +516,7 @@
                      a)))
            ret-t)
          (-complete-hmap {(->Value :a) (->Value 1)})))
-  (is (= (tc-t (clojure.core.typed/fn> [{a :a} :- (HMap {:a (Value 1)})]
+  (is (= (tc-t (clojure.core.typed/fn> [{a :a} :- (HMap :mandatory {:a (Value 1)})]
                                a))
          (ret (make-FnIntersection 
                 (->Function [(-hmap {(->Value :a) (->Value 1)})]
@@ -544,7 +544,7 @@
               (-FS -top -top) ; a goes out of scope, throw out filters
               -empty)))
   ;FIXME should be (-FS -bot (! ISeq 0))
-  #_(is (= (tc-t (clojure.core.typed/fn> [a :- (HMap {:a (Value 1)})]
+  #_(is (= (tc-t (clojure.core.typed/fn> [a :- (HMap :mandatory {:a (Value 1)})]
                                (seq? a)))
          (ret (make-FnIntersection
                 (->Function [(-hmap {(->Value :a) (->Value 1)})]
@@ -580,8 +580,8 @@
                      maprl))))))
   ;destructuring a variable of union type
   (is (= (->
-           (tc-t (clojure.core.typed/fn> [{a :a} :- (U (HMap {:a (Value 1)})
-                                                       (HMap {:b (Value 2)}))]
+           (tc-t (clojure.core.typed/fn> [{a :a} :- (U (HMap :mandatory {:a (Value 1)})
+                                                       (HMap :mandatory {:b (Value 2)}))]
                                          a))
            ret-t)
          (make-FnIntersection 
@@ -743,8 +743,8 @@
   (is (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.PersistentVector [-any])))
   )
 
-#_(def-alias SomeMap (U (HMap {:a (Value :b)})
-                      (HMap {:b (Value :c)})))
+#_(def-alias SomeMap (U (HMap :mandatory {:a (Value :b)})
+                      (HMap :mandatory {:b (Value :c)})))
 
 (deftest assoc-test
   (is (= (tc-t (assoc {} :a :b))
@@ -1010,7 +1010,7 @@
 (deftest names-expansion-test
   (is (do
         (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MyAlias
-              (U nil (HMap {:a Number}))))
+              (U nil (HMap :mandatory {:a Number}))))
         (subtype? (->Name 'clojure.core.typed.test.core/MyAlias) 
                   -any))))
 
