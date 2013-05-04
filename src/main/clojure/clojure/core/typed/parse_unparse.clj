@@ -418,8 +418,8 @@
                   :else (if-let [t (and (var? res) 
                                         (@nmenv/TYPE-NAME-ENV (u/var->symbol res)))]
                           t
-                          (u/tc-error (str "Cannot resolve type: " (pr-str res)
-                                           "\nHint: Is " (pr-str res) " in scope?")))))))))
+                          (u/tc-error (str "Cannot resolve type: " (pr-str sym)
+                                           "\nHint: Is " (pr-str sym) " in scope?")))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
