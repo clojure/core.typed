@@ -502,6 +502,8 @@ clojure.core/print [Any * -> nil]
 clojure.core/println [Any * -> nil]
 clojure.core/pr [Any * -> nil]
 clojure.core/prn [Any * -> nil]
+clojure.core/flush [-> nil]
+
 
 clojure.core/format [String Any * -> String]
 
@@ -840,6 +842,11 @@ clojure.core/double-array (Fn [(U nil Number (Seqable Number)) -> (Array double)
 clojure.core/short-array (Fn [(U nil Number (Seqable Short)) -> (Array short)]
                                   [Number (U Short (Seqable Short)) -> (Array short)])
 
+clojure.core/char-array (Fn [(U nil Number (Seqable Character)) -> (Array char)]
+                            [Number (U Number (Seqable Character)) -> (Array char)])
+
+
+
 clojure.core/< [Number Number * -> boolean]
 
 clojure.core/<= [Number Number * -> boolean]
@@ -854,6 +861,10 @@ clojure.core/max [Number Number * -> Number]
 clojure.core/min [Number Number * -> Number]
 
 clojure.core/ref (All [x] [x -> (clojure.lang.ARef x x)])
+
+clojure.core/rand (Fn [-> Number]
+                      [Number -> Number])
+
 
 ;; START CHUNK HACKS
 ;; These are hacks to get around the expansion of doseq>
@@ -1039,6 +1050,11 @@ clojure.lang.RT/box
          [(U float double) -> Number]
          [nil -> nil]
          [x -> x]))
+
+
+clojure.lang.Numbers/char_array (Fn [(U nil Number (Seqable Character)) -> (Array char)]
+                                    [Number (U Number (Seqable Character)) -> (Array char)])
+
 
 clojure.lang.LockingTransaction/runInTransaction
                  (All [x]
