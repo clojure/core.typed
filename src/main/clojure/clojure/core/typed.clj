@@ -1,4 +1,5 @@
 (ns clojure.core.typed
+  (:require [clojure.pprint :as pprint])
   (:refer-clojure :exclude [defrecord type]))
 
 ;=============================================================
@@ -581,15 +582,22 @@
   nil)
 
 (defmacro def-alias 
-  "Define a type alias"
-  [sym type]
-  (assert (symbol? sym))
-  (let [qsym (if (namespace sym)
-               sym
-               (symbol (-> *ns* ns-name str) (str sym)))]
-    `(do
-       (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))
-       (def-alias* '~qsym '~type))))
+  "Define a type alias. Takes an optional doc-string as a second
+  argument."
+  ([sym doc-str type]
+   (assert (string? doc-str) "Doc-string passed to def-alias must be a string")
+   `(def-alias ~(vary-meta sym assoc :doc doc-str) ~type))
+  ([sym type]
+   (assert (symbol? sym) (str "First argument to def-alias must be a symbol: " sym))
+   (let [qsym (if (namespace sym)
+                sym
+                (symbol (-> *ns* ns-name str) (str sym)))
+         m (-> (meta sym)
+             (update-in [:doc] #(str % "\n\n" (with-out-str (pprint/pprint type)))))]
+     `(do
+        (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))
+        (tc-ignore (alter-meta! (resolve '~qsym) merge '~m))
+        (def-alias* '~qsym '~type)))))
 
 ;(ann into-array>* [Any Any -> Any])
 (defn into-array>*
