@@ -1,5 +1,6 @@
 (ns clojure.core.typed.collect-phase
-  (:require [clojure.core.typed
+  (:require [clojure.core.typed :refer [*already-collected*]]
+            [clojure.core.typed
              [type-rep :as r]
              [type-ctors :as c]
              [utils :as u]
@@ -30,14 +31,24 @@
 
 (declare collect)
 
+(defn- collected-ns! [nsym]
+  (swap! *already-collected* conj nsym))
+
+(defn- already-collected? [nsym]
+  (boolean (@*already-collected* nsym)))
+
 (defn collect-ns
   "Collect type annotations and dependency information
   for namespace symbol nsym, and recursively check 
   declared typed namespace dependencies."
-  [nsym]
-  (let [asts (ana-clj/ast-for-ns nsym)]
-    (doseq [ast asts]
-      (collect ast))))
+  ([nsym]
+   (if (already-collected? nsym)
+     (do (println (str "Already collected " nsym ", skipping"))
+         (flush))
+     (let [asts (ana-clj/ast-for-ns nsym)]
+       (collected-ns! nsym)
+       (doseq [ast asts]
+         (collect ast))))))
 
 (defmulti collect (fn [expr] (:op expr)))
 (defmulti invoke-special-collect (fn [expr]

@@ -919,6 +919,8 @@
                   {:type-error :top-level-error
                    :errors errors})))
 
+(def ^:dynamic *already-collected*)
+(def ^:dynamic *already-checked*)
 (def ^:dynamic *currently-checking-clj* nil)
 (def ^:dynamic *delayed-errors*)
 
@@ -929,6 +931,7 @@
                             (every? (fn [a] 
                                       (instance? clojure.lang.ExceptionInfo a))
                                     %))))
+
 (defn check-ns
   "Type check a namespace. If not provided default to current namespace"
   ([] (check-ns (ns-name *ns*)))
@@ -945,10 +948,14 @@
          vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
                                                'vars-with-unchecked-defs)]
    (reset-envs!)
-   (if *currently-checking-clj*
-     (throw (Exception. "Found inner call to check-ns or cf"))
+   (cond
+     *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
+
+     :else
      (binding [*currently-checking-clj* true
-               *delayed-errors* (-init-delayed-errors)]
+               *delayed-errors* (-init-delayed-errors)
+               *already-collected* (atom #{})
+               *already-checked* (atom #{})]
        (ensure-clojure)
        (collect-ns nsym)
        (check-ns-and-deps nsym)

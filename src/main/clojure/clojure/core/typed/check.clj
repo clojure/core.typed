@@ -1,6 +1,7 @@
 (ns clojure.core.typed.check
   (:refer-clojure :exclude [defrecord])
-  (:require [clojure.core.typed
+  (:require [clojure.core.typed :refer [*already-checked*]]
+            [clojure.core.typed
              [utils :as u]
              [parse-unparse :as prs]
              [current-impl :as impl]
@@ -71,19 +72,32 @@
 
 (declare check-expr)
 
+(defn- checked-ns! [nsym]
+  (swap! *already-checked* conj nsym))
+
+(defn- already-checked? [nsym]
+  (boolean (@*already-checked* nsym)))
+
+
 (defn check-ns-and-deps 
   "Type check a namespace and its dependencies.
   Assumes type annotations in each namespace
-  has already been collected"
-  [nsym]
-  ; check deps
-  (let [deps (ns-deps/immediate-deps nsym)]
-    (doseq [dep deps]
-      (check-ns-and-deps dep)))
-  ; ignore ns declaration
-  (let [[_ns-decl_ & asts] (ana-clj/ast-for-ns nsym)]
-    (doseq [ast asts]
-      (check-expr ast))))
+  has already been collected."
+  ([nsym]
+   (cond 
+     (already-checked? nsym) (do
+                               (println (str "Already checked " nsym ", skipping"))
+                               (flush))
+     :else
+     ; check deps
+     (let [deps (ns-deps/immediate-deps nsym)]
+       (checked-ns! nsym)
+       (doseq [dep deps]
+         (check-ns-and-deps dep))
+       ; ignore ns declaration
+       (let [[_ns-decl_ & asts] (ana-clj/ast-for-ns nsym)]
+         (doseq [ast asts]
+           (check-expr ast)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
