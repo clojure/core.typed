@@ -2283,7 +2283,7 @@
         _ (assert (r/FnIntersection? fin)
                   (str (when vs/*current-env*
                          (str (:line vs/*current-env*) ": "))
-                       (prs/unparse-type fin) " is not a function type"))
+                       (pr-str (prs/unparse-type fin)) " is not a function type"))
         ;collect all inferred Functions
         inferred-fni (lex/with-locals (when-let [name (hygienic/hname-key fexpr)] ;self calls
                                     (assert expected "Recursive methods require full annotation")
@@ -3074,6 +3074,41 @@ rest-param-name (when rest-param
         (binding [*loop-bnd-anns* nil]
           (check-let binding-inits body expr true expected :expected-bnds loop-bnd-anns)))
       (check-let binding-inits body expr false expected))))
+
+; annotations are in the first expression of the body (a :do)
+(defmethod check :letfn
+  [{:keys [binding-inits body] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (assert (#{:do} (:op body)))
+  (assert (#{:map} (:op (-> body :exprs first))))
+  (prn (-> body :exprs first :keyvals))
+  (prn (u/emit-form-fn body))
+  (let [inits-expected
+        (into {}
+          (for [[lb-expr type-syn-expr] (partition 2 (-> body :exprs first :keyvals))]
+            (do
+              (prn type-syn-expr)
+              (assert (#{:local-binding-expr} (:op lb-expr)))
+              [(-> lb-expr :local-binding :sym)
+               (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+                 (prs/parse-type (u/constant-expr type-syn-expr)))])))
+
+        cbinding-inits
+        (doall
+          (for [b-init binding-inits]
+            (let [sym (-> b-init :local-binding :sym)
+                  init (-> b-init :init)]
+              (check init (ret (inits-expected sym))))))
+
+        ;ignore the type annotations at the top of the body
+        normal-letfn-body
+        (-> body
+            (update-in [:exprs] rest))
+
+        cbody (lex/with-locals inits-expected
+                (check normal-letfn-body expected))]
+    (assoc expr
+           expr-type (expr-type cbody))))
 
 ;[(Seqable Filter) Filter -> Filter]
 (defn resolve* [atoms prop]

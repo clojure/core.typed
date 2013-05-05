@@ -1313,3 +1313,9 @@
   (is (cf (map-indexed (clojure.core.typed/inst vector clojure.core.typed/AnyInteger Long Any Any Any Any) 
                        [1 2])
           (clojure.lang.Seqable '[clojure.core.typed/AnyInteger Long]))))
+
+(deftest letfn>-test
+  (is (cf (clojure.core.typed/letfn> [a :- [Number -> Number]
+                                      (a [b] b)]
+            (a 1))
+          Number)))

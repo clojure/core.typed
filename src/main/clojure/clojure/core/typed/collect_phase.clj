@@ -3,7 +3,7 @@
             [clojure.core.typed
              [type-rep :as r]
              [type-ctors :as c]
-             [utils :as u]
+             [utils :as u :refer [constant-exprs]]
              [parse-unparse :as prs]
              [var-env :as var-env]
              [name-env :as nme-env]
@@ -67,12 +67,6 @@
 (defmethod collect :default
   [_]
   nil)
-
-(defn constant-exprs [exprs]
-  (map #(case (:op %)
-          (:constant :keyword :number :string :nil :boolean) (:val %)
-          :empty-expr (:coll %))
-       exprs))
 
 (defn assert-expr-args [{:keys [args] :as expr} cnts]
   {:pre [(set? cnts)]}

@@ -126,6 +126,14 @@
 ;(ann emit-form-fn [Any -> Any])
 (def emit-form-fn hygienic/emit-hy)
 
+(defn constant-expr [expr]
+  (case (:op expr)
+    (:constant :keyword :number :string :nil :boolean) (:val expr)
+    :empty-expr (:coll expr)))
+
+(defn constant-exprs [exprs]
+  (map constant-expr exprs))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint shorthands
 

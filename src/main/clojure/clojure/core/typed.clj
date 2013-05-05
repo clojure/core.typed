@@ -494,6 +494,47 @@
   (let [{:keys [fn parsed-methods]} (parse-fn> false forms)]
     `(fn>-ann ~fn '~parsed-methods)))
 
+(defmacro letfn> 
+  "Like letfn, but each binding must be annotated.
+
+  eg.
+  (letfn> [a :- [Number -> Number]
+           (a [b] 2)
+           c :- [Symbol -> nil]
+           (c [s] nil)]
+    ...)"
+  [bindings & body]
+  (let [; (Vector (U '[Symbol TypeSyn] LetFnInit))
+        normalised-bindings
+        (loop [[fbnd :as bindings] bindings
+               norm []]
+          (cond
+            (empty? bindings) norm
+            (symbol? fbnd) (do
+                             (assert (#{:-} (second bindings))
+                                     "letfn> annotations require :- separator")
+                             (assert (<= 3 (count bindings)))
+                             (recur 
+                               (drop 3 bindings)
+                               (conj norm [(nth bindings 0)
+                                           (nth bindings 2)])))
+            (list? fbnd) (recur
+                           (next bindings)
+                           (conj norm fbnd))
+            :else (throw (Exception. (str "Unknown syntax to letfn>: " fbnd)))))
+        {anns false inits true} (group-by list? normalised-bindings)
+        ; init-syn unquotes local binding references to be compatible with hygienic expansion
+        init-syn (into {}
+                   (for [[lb type] anns]
+                     [lb `'~type]))]
+    `(letfn ~(vec inits)
+       ;unquoted to allow bindings to resolve with hygiene
+       ~init-syn
+       ;preserve letfn empty body
+       nil
+       ~@body)))
+
+
 (defmacro defprotocol> [& body]
   "Define a typed protocol. Syntax like defprotocol."
   `(tc-ignore
