@@ -1863,6 +1863,143 @@
   ;=> ['{:if Any} -> Any]
   )
 
+(defn- parse-fn-return-type [parse-fn-type]
+  (let [subst-in (free-ops/with-free-symbols 
+                   #{'a} (prs/parse-type '[String -> a]))] 
+    (-> (cgen/cs-gen #{} {'a r/no-bounds} {} parse-fn-type subst-in) 
+        (cgen/subst-gen #{} subst-in)
+        (get-in ['a :type]))))
+
+(defn vector-args [expr]
+  (case (:op expr)
+    :constant (when (vector? (:val expr))
+                (map (fn [f] [f nil]) (:val expr)))
+    :vector (map (fn [arg-expr]
+                   [(u/emit-form-fn arg-expr) arg-expr])
+                 (:args expr))
+    nil))
+
+; some code taken from tools.cli
+; (All [x]
+;   [CliSpec -> (U nil '[Value Type])])
+(defn parse-cli-spec [spec-expr]
+  (letfn [(opt? [^String x]
+            (.startsWith x "-"))
+          (name-for [k]
+            (str/replace k #"^--no-|^--\[no-\]|^--|^-" "")) 
+          (flag? [^String x]
+              (.startsWith x "--[no-]"))]
+
+  (let [; (U nil (Seqable '[Form (U nil Expr)]))
+        raw-spec (vector-args spec-expr)]
+    (cond
+      (not raw-spec) (do
+                       ;(prn "cli: not vector " spec-expr)
+                       nil)
+      :else
+      (let [; each seq and map entry is a pair of [form expr]
+            [switches raw-spec] (split-with (fn [[frm _]] (and (string? frm) (opt? frm))) raw-spec)
+            [docs raw-spec]     (split-with (fn [[frm _]] (string? frm)) raw-spec)
+            ; keys are [kw expr]
+            options             (apply hash-map raw-spec)
+            ; keys are keywords
+            ; (Map Keyword [Form Expr])
+            options             (into {}
+                                      (for [[[kfrm _] v] options]
+                                        [kfrm v]))
+            ; (Seqable Form)
+            aliases             (map (fn [[frm _]] (name-for frm)) switches)
+            ; assume we fail later if there is anything ambiguous
+            flag                (or (if (seq switches)
+                                      (flag? (first (last switches)))
+                                      :unknown)
+                                    (when (contains? options :flag)
+                                      (let [flg-form (first (:flag options))]
+                                        (if (u/boolean? flg-form)
+                                          flg-form
+                                          :unknown)))
+                                    false)]
+        (cond
+          ;not accurate enough, return nil
+          (not-every? keyword? (keys options)) (do
+                                                 ;(prn "cli: not every option key was keyword" options)
+                                                 nil)
+          (#{:unknown} flag) (do 
+                               ;(prn "cli: flag unknown")
+                               nil)
+          (not
+            (and (#{0 1} (count docs))
+                 ((some-fn nil? string?) (-> docs first first)))) (do
+                                                                    ;(prn "cli: docs" docs) 
+                                                                    nil)
+          (empty? aliases) (do
+                             ;(prn "cli: empty aliases")
+                             nil)
+          :else
+          (let [name (r/-val (keyword (last aliases)))
+                default-type (when-let [[frm default-expr] (:default options)]
+                               (if default-expr
+                                 (-> (check default-expr)
+                                     expr-type
+                                     ret-t)
+                                 (const/constant-type frm)))
+                parse-fn-type (when-let [[_ parse-fn-expr] (:parse-fn options)]
+                                (-> (check parse-fn-expr (ret (prs/parse-type
+                                                                '[String -> Any])))
+                                    expr-type
+                                    ret-t))
+                parse-fn-ret (when parse-fn-type
+                               (parse-fn-return-type parse-fn-type))
+                type (cond
+                       (and parse-fn-type
+                            (not parse-fn-ret)) (do
+                                                  ;(prn "cli: parse-fn")
+                                                  nil)
+                       flag (c/RClass-of Boolean)
+                       :else
+                       (apply c/Un (concat (when default-type
+                                             [default-type])
+                                           (if parse-fn-type
+                                             [parse-fn-ret]
+                                             [(c/RClass-of String)]))))]
+            (when type
+              [name type]))))))))
+
+; cli
+(defmethod invoke-special 'clojure.tools.cli/cli
+  [{[args-expr & specs-exprs] :args :keys [env] :as expr} & [expected]]
+  (binding [vs/*current-env* env]
+    (let [args-expected-ty (prs/parse-type '(U nil (clojure.lang.Seqable String)))
+          cargs-expr (binding [vs/*current-env* (:env args-expr)]
+                       (check args-expr))
+          _ (when-not (sub/subtype? 
+                        (-> cargs-expr expr-type ret-t)
+                        args-expected-ty)
+              (binding [vs/*current-env* (:env args-expr)]
+                (expected-error (-> cargs-expr expr-type ret-t) args-expected-ty)))
+          spec-map-ty (reduce (fn [t spec-expr]
+                                (if-let [[keyt valt] (parse-cli-spec spec-expr)]
+                                  (-> t
+                                    (assoc-in [:types keyt] valt))
+                                  ; resort to a general type
+                                  (do
+                                    ;(prn "cli: giving up because of" (u/emit-form-fn spec-expr)
+                                         ;"\n" spec-expr)
+                                    (reduced 
+                                      (c/RClass-of IPersistentMap [(c/RClass-of clojure.lang.Keyword) r/-any])))))
+                              (c/-complete-hmap {})
+                              specs-exprs)
+
+          actual (r/-hvec [spec-map-ty 
+                           (prs/parse-type '(clojure.lang.Seqable String))
+                           (prs/parse-type 'String)])
+          _ (when expected
+              (when-not (sub/subtype? actual (ret-t expected))
+                (expected-error 
+                  actual (ret-t expected))))]
+      (assoc expr
+             expr-type (ret actual)))))
+
 (def ^:dynamic *current-mm* nil)
 (set-validator! #'*current-mm* (some-fn nil? 
                                         (u/hmap-c? :dispatch-fn-type Type?
