@@ -2377,18 +2377,17 @@
                          (some-fn nil? #{:Poly :PolyDots})) %)]}
   (cond
     (r/Poly? t) (let [_ (assert (c/Poly-free-names* t) (prs/unparse-type t))
-                    old-nmes (c/Poly-free-names* t)
-                    _ (assert ((every-pred seq (u/every-c? symbol?)) old-nmes))
-                    new-nmes (repeatedly (:nbound t) gensym)
-                    new-frees (map r/make-F new-nmes)]
-                [(c/Poly-body* new-nmes t) old-nmes new-frees (c/Poly-bbnds* new-nmes t) :Poly])
+                      old-nmes (c/Poly-free-names* t)
+                      _ (assert ((every-pred seq (u/every-c? symbol?)) old-nmes))
+                      new-nmes (repeatedly (:nbound t) gensym)
+                      new-frees (map r/make-F new-nmes)]
+                  [(c/Poly-body* new-nmes t) old-nmes new-frees (c/Poly-bbnds* new-nmes t) :Poly])
     (r/PolyDots? t) (let [_ (assert (-> t meta :actual-frees))
-                        old-nmes (-> t meta :actual-frees)
-                        _ (assert ((every-pred seq (u/every-c? symbol?)) old-nmes))
-                        new-nmes (repeatedly (:nbound t) gensym)
-                        new-frees (map r/make-F new-nmes)]
-                    (prn "here")
-                    [(c/PolyDots-body* new-nmes t) old-nmes new-frees (c/PolyDots-bbnds* new-nmes t) :PolyDots])
+                          old-nmes (-> t meta :actual-frees)
+                          _ (assert ((every-pred seq (u/every-c? symbol?)) old-nmes))
+                          new-nmes (repeatedly (:nbound t) gensym)
+                          new-frees (map r/make-F new-nmes)]
+                      [(c/PolyDots-body* new-nmes t) old-nmes new-frees (c/PolyDots-bbnds* new-nmes t) :PolyDots])
     :else [t nil nil nil nil]))
 
 ;[Type (Seqable Symbol) (Seqable F) (U :Poly :Polydots nil) -> Type]
@@ -3220,13 +3219,12 @@ rest-param-name (when rest-param
   {:post [(-> % expr-type TCResult?)]}
   (assert (#{:do} (:op body)))
   (assert (#{:map} (:op (-> body :exprs first))))
-  (prn (-> body :exprs first :keyvals))
-  (prn (u/emit-form-fn body))
+;  (prn (-> body :exprs first :keyvals))
+;  (prn (u/emit-form-fn body))
   (let [inits-expected
         (into {}
           (for [[lb-expr type-syn-expr] (partition 2 (-> body :exprs first :keyvals))]
             (do
-              (prn type-syn-expr)
               (assert (#{:local-binding-expr} (:op lb-expr)))
               [(-> lb-expr :local-binding :sym)
                (binding [prs/*parse-type-in-ns* (expr-ns expr)]
