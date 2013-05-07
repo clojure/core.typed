@@ -1318,4 +1318,12 @@
   (is (cf (clojure.core.typed/letfn> [a :- [Number -> Number]
                                       (a [b] b)]
             (a 1))
+          Number))
+  ;interdependent functions
+  (is (cf (clojure.core.typed/letfn> [a :- [Number -> Number]
+                                      (a [c] (b c))
+                                      
+                                      b :- [Number -> Number]
+                                      (b [d] (do a d))]
+            (a 1))
           Number)))
