@@ -1051,6 +1051,7 @@ clojure.lang.RT/box
          [nil -> nil]
          [x -> x]))
 
+clojure.lang.RT/booleanCast [Any -> boolean]
 
 clojure.lang.Numbers/char_array (Fn [(U nil Number (Seqable Character)) -> (Array char)]
                                     [Number (U Number (Seqable Character)) -> (Array char)])

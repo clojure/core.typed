@@ -36,6 +36,16 @@
                        "Need fully qualified symbol")
                [s# t#])))))
 
+(defmacro method-nilable-param-mappings [& args]
+  `(let [ts# (partition 2 '~args)]
+     (into {}
+           (for [[s# t#] ts#]
+             (do
+               (assert (and (symbol? s#)
+                            (namespace s#))
+                       "Need fully qualified symbol")
+               [s# t#])))))
+
 (defmacro method-override-mappings [& args]
   `(let [ts# (partition 2 '~args)]
      (into {}

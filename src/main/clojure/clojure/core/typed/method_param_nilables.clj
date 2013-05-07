@@ -8,8 +8,8 @@
 
 (defonce METHOD-PARAM-NILABLE-ENV (atom {}))
 (set-validator! METHOD-PARAM-NILABLE-ENV (u/hash-c? (every-pred namespace symbol?)
-                                                    (u/hash-c? (some-fn #(= :all %) u/nat?)
-                                                               (some-fn #(= :all %) (u/set-c? u/nat?)))))
+                                                    (u/hash-c? (some-fn #{:all} u/nat?)
+                                                               (some-fn #{:all} (u/set-c? u/nat?)))))
 
 (defn reset-method-nilable-param-env! [m]
   (reset! METHOD-PARAM-NILABLE-ENV m)
@@ -24,6 +24,6 @@
     (when-let [nilables (@METHOD-PARAM-NILABLE-ENV sym)]
       (when-let [params (or (nilables :all)
                             (nilables arity))]
-        (or (= :all params)
+        (or (#{:all} params)
             (params param))))))
 
