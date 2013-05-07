@@ -3231,11 +3231,12 @@ rest-param-name (when rest-param
                  (prs/parse-type (u/constant-expr type-syn-expr)))])))
 
         cbinding-inits
-        (doall
-          (for [b-init binding-inits]
-            (let [sym (-> b-init :local-binding :sym)
-                  init (-> b-init :init)]
-              (check init (ret (inits-expected sym))))))
+        (lex/with-locals inits-expected
+          (doall
+            (for [b-init binding-inits]
+              (let [sym (-> b-init :local-binding :sym)
+                    init (-> b-init :init)]
+                (check init (ret (inits-expected sym)))))))
 
         ;ignore the type annotations at the top of the body
         normal-letfn-body
