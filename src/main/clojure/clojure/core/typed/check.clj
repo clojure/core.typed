@@ -1943,11 +1943,13 @@
                                      expr-type
                                      ret-t)
                                  (const/constant-type frm)))
-                parse-fn-type (when-let [[_ parse-fn-expr] (:parse-fn options)]
-                                (-> (check parse-fn-expr (ret (prs/parse-type
-                                                                '[String -> Any])))
-                                    expr-type
-                                    ret-t))
+                parse-fn-type (when-let [[pfrm parse-fn-expr] (:parse-fn options)]
+                                (if parse-fn-expr
+                                  (-> (check parse-fn-expr (ret (prs/parse-type
+                                                                  '[String -> Any])))
+                                      expr-type
+                                      ret-t)
+                                  (const/constant-type pfrm)))
                 parse-fn-ret (when parse-fn-type
                                (parse-fn-return-type parse-fn-type))
                 type (cond
