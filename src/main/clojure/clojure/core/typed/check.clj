@@ -678,7 +678,7 @@
                                          (interpose ", " (map prs/unparse-type missing-ks)))))
               ;check each keyword argument is correctly typed
               (doseq [[kw-key-t kw-val-t] kw-args-paired-t]
-                (when-not (r/Value? kw-val-t)
+                (when-not (r/Value? kw-key-t)
                   (u/tc-delayed-error (str "Can only check keyword arguments with Value keys, found"
                                            (prs/unparse-type kw-key-t))))
                 (let [expected-val-t ((some-fn optional-kw mandatory-kw) kw-key-t)]
