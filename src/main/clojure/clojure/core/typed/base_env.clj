@@ -891,6 +891,19 @@ clojure.core/chunk-append
           [(clojure.lang.ChunkBuffer x) x -> Any])
 ;;END CHUNK HACKS
 
+
+
+;; math.numeric-tower
+
+clojure.math.numeric-tower/floor
+(Fn [AnyInteger -> AnyInteger]
+    [Number -> Number])
+
+clojure.math.numeric-tower/abs
+(Fn [AnyInteger -> AnyInteger]
+    [Number -> Number])
+
+
       )
     {'clojure.core/count (count-type)}
 ))
