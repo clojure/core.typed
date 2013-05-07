@@ -46,3 +46,8 @@
 ;(ann poly-kw-variance (All [x]
 ;                      [& {:a x :b [x -> Any]} -> Any]))
 ;     What happens if we don't supply a :b parameter? Is `x` detected to be contravariant? It should probably be invariant
+
+(ann test-non-value-kw [& {:a [Any -> Any]} -> Any])
+(defn test-non-value-kw [& {:keys [a]}] a)
+
+(test-non-value-kw :a (fn [a] a))
