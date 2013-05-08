@@ -312,7 +312,7 @@
     (ptl-env/add-protocol s t)
     (doseq [[kuq mt] ms]
       ;qualify method names when adding methods as vars
-      (let [kq (symbol (-> *ns* ns-name str) (str kuq))]
+      (let [kq (symbol (-> current-ns ns-name str) (str kuq))]
         (var-env/add-var-type kq mt)))
     nil))
 

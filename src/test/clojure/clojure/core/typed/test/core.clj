@@ -1327,3 +1327,7 @@
                                       (b [d] (do a d))]
             (a 1))
           Number)))
+
+;FIXME conver datatypes+records to RClasses
+#_(deftest protocol-untyped-ancestor-test
+  (is (check-ns 'clojure.core.typed.test.protocol-untyped-extend)))

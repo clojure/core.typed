@@ -112,7 +112,7 @@
       (handle-cgen-failure
         (infer X {} S T r/-any)))))
 
-(declare subtype-TApp?)
+(declare subtype-TApp? protocol-descendants)
 
 ;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
 (defn subtypeA* [A s t]
@@ -289,7 +289,39 @@
                               (string? (.val s)) [(r/make-ExactCountRange (count (.val s)))]))
                      t)))
 
+        (and (r/Protocol? s)
+             (r/Protocol? t))
+        (let [{var1 :the-var variances* :variances poly1 :poly?} s
+              {var2 :the-var poly2 :poly?} t]
+          (if (and (= var1 var2)
+                   (every? (fn [[v l r]]
+                             (case v
+                               :covariant (subtypeA* *sub-current-seen* l r)
+                               :contravariant (subtypeA* *sub-current-seen* r l)
+                               :invariant (and (subtypeA* *sub-current-seen* l r)
+                                               (subtypeA* *sub-current-seen* r l))))
+                           (map vector variances* poly1 poly2)))
+            *sub-current-seen*
+            (fail! s t)))
+
+        (r/Protocol? s)
+        (if (= (c/RClass-of Object) t)
+          *sub-current-seen*
+          (fail! s t))
+        
+        (r/Protocol? t)
+        (subtypeA* (conj *sub-current-seen* [s t])
+                   s (protocol-descendants t))
+
         :else (subtype* s t)))))
+
+(defn protocol-descendants [^Protocol p]
+  {:pre [(r/Protocol? p)]
+   :post [(every? r/Type? %)]}
+  (let [protocol-var (resolve (.the-var p))
+        exts (extenders protocol-var)]
+    (for [ext exts]
+      (c/RClass-of-with-unknown-params ext))))
 
 ;[Type Type -> (IPersistentSet '[Type Type])]
 (defn subtype [s t]
@@ -420,26 +452,6 @@
     :else (if (= o1 o2)
             (throw (Exception. (u/error-msg "Filters do not match: \n" (prs/unparse-filter-set f1) "\n" (prs/unparse-filter-set f2))))
             (throw (Exception. (u/error-msg "Objects do not match " (prs/unparse-object o1) (prs/unparse-object o2)))))))
-
-(defmethod subtype* [Protocol r/Type impl/clojure]
-  [s t]
-  (if (= (c/RClass-of Object) t)
-    *sub-current-seen*
-    (fail! s t)))
-
-(defmethod subtype* [Protocol Protocol impl/default]
-  [{var1 :the-var variances* :variances poly1 :poly? :as s}
-   {var2 :the-var poly2 :poly? :as t}]
-  (if (and (= var1 var2)
-           (every? (fn [[v l r]]
-                     (case v
-                       :covariant (subtypeA* *sub-current-seen* l r)
-                       :contravariant (subtypeA* *sub-current-seen* r l)
-                       :invariant (and (subtypeA* *sub-current-seen* l r)
-                                       (subtypeA* *sub-current-seen* r l))))
-                   (map vector variances* poly1 poly2)))
-    *sub-current-seen*
-    (fail! s t)))
 
 (defn subtype-TypeFn-app?
   [^TypeFn tfn ^TApp ltapp ^TApp rtapp]
