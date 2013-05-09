@@ -346,7 +346,7 @@
             _ (assert (= (.nbound k) (count args)) (u/error-msg "Wrong number of arguments (" (count args)
                                                                 ") to type function " (unparse-type k)))]
         (r/->TApp (free-ops/free-in-scope n) (mapv parse-type args)))
-      (if-let [t ((some-fn @dtenv/DATATYPE-ENV @prenv/PROTOCOL-ENV @nmenv/TYPE-NAME-ENV) rsym)]
+      (if-let [t ((some-fn dtenv/get-datatype prenv/get-protocol nmenv/get-type-name) rsym)]
         ;don't resolve if operator is declared
         (if (keyword? t)
           (cond

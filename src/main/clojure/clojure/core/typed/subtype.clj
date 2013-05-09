@@ -310,8 +310,12 @@
           (fail! s t))
         
         (r/Protocol? t)
-        (subtypeA* (conj *sub-current-seen* [s t])
-                   s (protocol-descendants t))
+        (let [desc (protocol-descendants t)]
+          (prn t)
+          (prn (map prs/unparse-type desc))
+          (if (some #(subtype? s %) desc)
+            *sub-current-seen*
+            (fail! s t)))
 
         :else (subtype* s t)))))
 
@@ -319,7 +323,8 @@
   {:pre [(r/Protocol? p)]
    :post [(every? r/Type? %)]}
   (let [protocol-var (resolve (.the-var p))
-        exts (extenders protocol-var)]
+        _ (assert protocol-var (str "Protocol cannot be resolved: " (.the-var p)))
+        exts (extenders @protocol-var)]
     (for [ext exts]
       (c/RClass-of-with-unknown-params ext))))
 
@@ -751,4 +756,3 @@
 (defmacro sub [s t]
   `(subtype (parse-type '~s)
             (parse-type '~t)))
-

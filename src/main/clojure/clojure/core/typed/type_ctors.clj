@@ -8,7 +8,8 @@
              [cs-rep :as crep]
              [util-vars :as vs]
              [fold-rep :as f]
-             [name-env :as nme-env]]
+             [name-env :as nme-env]
+             [datatype-env :as dtenv]]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
             [clojure.reflect :as reflect])
@@ -130,34 +131,51 @@
     (Poly* names (repeat (count names) r/no-bounds) (r/->RClass variances poly? the-class replacements unchecked-ancestors) names)
     (r/->RClass nil nil the-class replacements unchecked-ancestors))))
 
+(defn isa-DataType? [sym-or-cls]
+  (let [cls (if (class? sym-or-cls)
+              sym-or-cls
+              (u/symbol->Class sym-or-cls))]
+    (isa? cls clojure.lang.IType)))
+
+(defn isa-Record? [sym-or-cls]
+  (let [cls (if (class? sym-or-cls)
+              sym-or-cls
+              (u/symbol->Class sym-or-cls))]
+    (isa? cls clojure.lang.IRecord)))
+
 (defn RClass-of 
   ([sym-or-cls] (RClass-of sym-or-cls nil))
   ([sym-or-cls args]
    {:pre [((some-fn class? symbol?) sym-or-cls)
           (every? r/Type? args)]
-    :post [(r/RClass? %)]}
+    :post [((some-fn r/RClass? r/DataType?) %)]}
    (let [sym (if (class? sym-or-cls)
                (u/Class->symbol sym-or-cls)
                sym-or-cls)
-         rc (@rcls/RESTRICTED-CLASS sym)]
-     (assert ((some-fn r/Poly? r/RClass? nil?) rc))
-     (assert (or (r/Poly? rc) (empty? args)) 
+         rc ((some-fn dtenv/get-datatype rcls/get-rclass) 
+             sym)]
+     (assert ((some-fn r/Poly? r/RClass? r/DataType? nil?) rc))
+     (assert (or (r/Poly? rc) (empty? args))
              (str "Cannot instantiate non-polymorphic RClass " sym
                   (when *current-RClass-super*
                     (str " when checking supertypes of RClass " *current-RClass-super*))))
      (cond 
        (r/Poly? rc) (instantiate-poly rc args)
-       (r/RClass? rc) rc
-       :else (r/->RClass nil nil sym {} #{})))))
+       ((some-fn r/DataType? r/RClass?) rc) rc
+       :else
+       (let [cls (u/symbol->Class sym)]
+         (if (isa-DataType? cls)
+           (r/->DataType sym nil nil [] (isa-Record? cls))
+           (r/->RClass nil nil sym {} #{})))))))
 
 (defn RClass-of-with-unknown-params
   ([sym-or-cls]
    {:pre [((some-fn class? symbol?) sym-or-cls)]
-    :post [(r/RClass? %)]}
+    :post [((some-fn r/RClass? r/DataType?) %)]}
    (let [sym (if (class? sym-or-cls)
                (u/Class->symbol sym-or-cls)
                sym-or-cls)
-         rc (@rcls/RESTRICTED-CLASS sym)
+         rc ((some-fn dtenv/get-datatype rcls/get-rclass) sym)
          args (when (r/Poly? rc)
                 ;instantiate with Any, could be more general if respecting variance
                 (repeat (.nbound ^Poly rc) r/-any))]

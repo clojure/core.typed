@@ -15,7 +15,15 @@
   (swap! DATATYPE-ENV assoc sym t)
   nil)
 
-(defn resolve-datatype [sym]
-  (let [d (@DATATYPE-ENV sym)]
+(defn get-datatype 
+  "Get the datatype with class symbol sym.
+  Returns nil if not found."
+  [sym]
+  (@DATATYPE-ENV sym))
+
+(defn resolve-datatype 
+  "Same as get-datatype, but fails if datatype is not found."
+  [sym]
+  (let [d (get-datatype sym)]
     (assert d (str "Could not resolve DataType: " sym))
     d))

@@ -33,6 +33,12 @@
   (reset! TYPE-NAME-ENV nme-env)
   nil)
 
+(defn get-type-name 
+  "Return the name with var symbol sym.
+  Returns nil if not found."
+  [sym]
+  (@TYPE-NAME-ENV sym))
+
 (defn add-type-name [sym ty]
   (swap! TYPE-NAME-ENV assoc sym (if (r/Type? ty)
                                    (vary-meta ty assoc :from-name sym)

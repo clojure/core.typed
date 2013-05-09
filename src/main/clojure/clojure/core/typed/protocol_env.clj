@@ -13,6 +13,12 @@
   (swap! PROTOCOL-ENV assoc sym t)
   nil)
 
+(defn get-protocol 
+  "Returns the protocol with var symbol sym.
+  Returns nil if not found."
+  [sym]
+  (@PROTOCOL-ENV sym))
+
 (defn resolve-protocol [sym]
   (let [p (@PROTOCOL-ENV sym)]
     (assert p (str "Could not resolve Protocol: " sym))

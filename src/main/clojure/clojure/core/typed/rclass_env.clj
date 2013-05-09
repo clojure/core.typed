@@ -21,6 +21,12 @@
 (defonce RESTRICTED-CLASS (atom {}))
 (set-validator! RESTRICTED-CLASS (u/hash-c? symbol? r/Type?))
 
+(defn get-rclass 
+  "Returns the RClass with class symbol csym.
+  Returns nil if not found."
+  [csym]
+  (@RESTRICTED-CLASS csym))
+
 (defn alter-class* [csym type]
   (swap! RESTRICTED-CLASS assoc csym type))
 

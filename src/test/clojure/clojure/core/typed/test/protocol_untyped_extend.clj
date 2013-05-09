@@ -2,10 +2,13 @@
   (:require [clojure.core.typed :refer [ann-protocol defprotocol> tc-ignore
                                         ann-datatype ann check-ns]]))
 
-(ann-protocol IFoo)
+(ann-protocol IFoo
+              bar
+              [IFoo -> Any])
 (defprotocol> IFoo
   (bar [this]))
 
+(ann-datatype Bar [])
 (deftype Bar [])
 
 (tc-ignore
