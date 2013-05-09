@@ -4,6 +4,17 @@
 - HMaps warn if looking up missing/known absent keys
 - Collect and display multiple type errors
 - Fix type resolve for classes when checking from other namespaces
+- def-alias supports docstring + var metadata
+- Subtyping with protocols takes `extenders` into account.
+- `ann-protocol` can annotate protocols in other namespaces
+- Change for>, loop>, doseq>, fn> syntax
+- Support letfn via letfn>
+- Support clojure.tools.cli/cli
+- Add various annotations
+
+DEPRECATED
+- Old syntax for for>, loop>, doseq>, fn>
+  - still works but emits a warning
 
 0.1.13 - Released 9 April 2013
 - Add :nocheck metadata for `ann` to avoid checking `def`s. (CTYP-25)
