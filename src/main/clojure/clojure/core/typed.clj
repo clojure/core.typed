@@ -816,7 +816,13 @@
   nil)
 
 (defmacro ann-protocol 
-  "Annotate protocol var name local-varsym with method types"
+  "Annotate protocol var with method types.
+  
+  eg. (ann-protocol IFoo
+        bar
+        [IFoo -> Any]
+        baz
+        [IFoo -> Number])"
   [varsym & {:as mth}]
   `(ann-protocol* '~varsym '~mth))
 
@@ -826,7 +832,7 @@
   nil)
 
 (defmacro ann-pprotocol 
-  "Annotate protocol unqualified var name local-varsym with a polymorphic binder and method types"
+  "Annotate polymorphic protocol with a polymorphic binder and method types."
   [varsym vbnd & {:as mth}]
   `(ann-pprotocol* '~varsym '~vbnd '~mth))
 
