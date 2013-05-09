@@ -362,7 +362,7 @@
           ;unqualified declared protocols and datatypes
           (if-let [s (let [svar (symbol current-nstr (name n))
                            scls (symbol (munge (str current-nstr \. (name n))))]
-                       (some #(and (@nmenv/TYPE-NAME-ENV %)
+                       (some #(and (nmenv/get-type-name %)
                                    %)
                              [svar scls]))]
             (r/->App (r/->Name s) (mapv parse-type args))
@@ -392,34 +392,36 @@
 
 (defmethod parse-type-symbol :default
   [sym]
-  (if-let [f (free-ops/free-in-scope sym)]
-    f
-    (let [primitives (primitives-fn)
-          RClass-of @(RClass-of-var)
-          current-nstr (-> (parse-in-ns) ns-name name)
-          qsym (if (namespace sym)
-                 sym
-                 (symbol current-nstr (name sym)))
-          clssym (if (some #(= \. %) (str sym))
-                   sym
-                   (symbol (str (munge current-nstr) \. (name sym))))]
-      (cond
-        (primitives sym) (primitives sym)
-        (@nmenv/TYPE-NAME-ENV qsym) (r/->Name qsym)
-        (@nmenv/TYPE-NAME-ENV clssym) (r/->Name clssym)
-        ;Datatypes that are annotated in this namespace, but not yet defined
-        (@dtenv/DATATYPE-ENV clssym) (@dtenv/DATATYPE-ENV clssym)
-        (@prenv/PROTOCOL-ENV qsym) (prenv/resolve-protocol qsym)
-        :else (let [res (resolve-type sym)]
-                ;(prn *ns* "res" sym "->" res)
-                (cond 
-                  (class? res) (or (@dtenv/DATATYPE-ENV (symbol (.getName ^Class res)))
-                                   (RClass-of res))
-                  :else (if-let [t (and (var? res) 
-                                        (@nmenv/TYPE-NAME-ENV (u/var->symbol res)))]
-                          t
-                          (u/tc-error (str "Cannot resolve type: " (pr-str sym)
-                                           "\nHint: Is " (pr-str sym) " in scope?")))))))))
+  (let [primitives (primitives-fn)]
+    (letfn [(resolve-symbol [qsym clssym]
+              (cond
+                (primitives sym) (primitives sym)
+                (nmenv/get-type-name qsym) (r/->Name qsym)
+                (nmenv/get-type-name clssym) (r/->Name clssym)
+                ;Datatypes that are annotated in this namespace, but not yet defined
+                (dtenv/get-datatype clssym) (dtenv/resolve-datatype clssym)
+                (prenv/get-protocol qsym) (prenv/resolve-protocol qsym)))]
+      (if-let [f (free-ops/free-in-scope sym)]
+        f
+        (let [ RClass-of @(RClass-of-var)
+              current-nstr (-> (parse-in-ns) ns-name name)
+              qsym (if (namespace sym)
+                     sym
+                     (symbol current-nstr (name sym)))
+              clssym (if (some #(= \. %) (str sym))
+                       sym
+                       (symbol (str (munge current-nstr) \. (name sym))))]
+          (or (resolve-symbol qsym clssym)
+              (let [res (resolve-type sym)
+                    qsym (when (var? res)
+                           (u/var->symbol res))
+                    clssym (when (class? res)
+                             (u/Class->symbol res))]
+                (or (resolve-symbol qsym clssym)
+                    (when clssym
+                      (c/RClass-of clssym))))
+              (u/tc-error (str "Cannot resolve type: " (pr-str sym)
+                               "\nHint: Is " (pr-str sym) " in scope?"))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 

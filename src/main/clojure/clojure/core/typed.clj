@@ -812,29 +812,23 @@
 
 (defn ann-protocol* 
   "Internal use only. Use ann-protocol."
-  [local-varsym mth]
+  [varsym mth]
   nil)
 
 (defmacro ann-protocol 
-  "Annotate protocol unqualified var name local-varsym with method types"
-  [local-varsym & {:as mth}]
-  (assert (not (or (namespace local-varsym)
-                   (some #{\.} (str local-varsym))))
-          (str "Must provide local var name for protocol: " local-varsym))
-  `(ann-protocol* '~local-varsym '~mth))
+  "Annotate protocol var name local-varsym with method types"
+  [varsym & {:as mth}]
+  `(ann-protocol* '~varsym '~mth))
 
 (defn ann-pprotocol* 
   "Internal use only. Use ann-pprotocol."
-  [local-varsym vbnd mth]
+  [varsym vbnd mth]
   nil)
 
 (defmacro ann-pprotocol 
   "Annotate protocol unqualified var name local-varsym with a polymorphic binder and method types"
-  [local-varsym vbnd & {:as mth}]
-  (assert (not (or (namespace local-varsym)
-                   (some #{\.} (str local-varsym))))
-          (str "Must provide local var name for protocol: " local-varsym))
-  `(ann-pprotocol* '~local-varsym '~vbnd '~mth))
+  [varsym vbnd & {:as mth}]
+  `(ann-pprotocol* '~varsym '~vbnd '~mth))
 
 (defn override-constructor* 
   "Internal use only. Use override-constructor."

@@ -287,11 +287,14 @@
     (override/add-method-override msym ty)
     nil))
 
-(defn gen-protocol* [current-env current-ns local-vsym vbnds mths]
+(defn gen-protocol* [current-env current-ns vsym vbnds mths]
   (let [variances (seq (map second vbnds))
         args (seq (map first vbnds))
-        s (symbol (-> current-ns ns-name str) (str local-vsym))
-        on-class (symbol (str (munge (namespace s)) \. local-vsym))
+        s (if (namespace vsym)
+            (symbol vsym)
+            (symbol (-> current-ns ns-name str) (name vsym)))
+        protocol-defined-in-nstr (namespace s)
+        on-class (symbol (str (munge (namespace s)) \. (name s)))
         ; add a Name so the methods can be parsed
         _ (nme-env/declare-protocol* s)
         fs (when args
@@ -311,22 +314,24 @@
             (r/->Protocol s nil nil on-class ms))]
     (ptl-env/add-protocol s t)
     (doseq [[kuq mt] ms]
+      (assert (not (namespace kuq))
+              "Protocol method names should be unqualified")
       ;qualify method names when adding methods as vars
-      (let [kq (symbol (-> current-ns ns-name str) (str kuq))]
+      (let [kq (symbol protocol-defined-in-nstr (name kuq))]
         (var-env/add-var-type kq mt)))
     nil))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-protocol*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{2})
-  (let [[local-varsym mth] (constant-exprs args)]
-    (gen-protocol* env (chk/expr-ns expr) local-varsym nil mth)))
+  (let [[varsym mth] (constant-exprs args)]
+    (gen-protocol* env (chk/expr-ns expr) varsym nil mth)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-pprotocol*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{3})
-  (let [[local-varsym vbnd mth] (constant-exprs args)]
-    (gen-protocol* env (chk/expr-ns expr) local-varsym vbnd mth)))
+  (let [[varsym vbnd mth] (constant-exprs args)]
+    (gen-protocol* env (chk/expr-ns expr) varsym vbnd mth)))
 
 
 (defmethod invoke-special-collect :default

@@ -311,8 +311,6 @@
         
         (r/Protocol? t)
         (let [desc (protocol-descendants t)]
-          (prn t)
-          (prn (map prs/unparse-type desc))
           (if (some #(subtype? s %) desc)
             *sub-current-seen*
             (fail! s t)))
