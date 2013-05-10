@@ -16,7 +16,10 @@
 (tc-ignore
   (extend-protocol IFoo
     Bar
-    (bar [b] 'a))
+    (bar [b] 'a)
+    
+    nil
+    (bar [c] 'd))
   )
 
 (ann takes-IFoo [IFoo -> Any])
@@ -42,3 +45,7 @@
   (baz a))
 
 (takes-AnotherNs (->Bar))
+
+;; A protocol that extends
+
+;(deftype Pair [a]
