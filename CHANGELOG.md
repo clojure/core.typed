@@ -1,14 +1,27 @@
-0.1.14 - SNAPSHOT
+0.1.14
 - Add support for mandatory and optional function keyword parameters
+  - [& {:a Number} :mandatory {:b Number} -> Any]  takes an optional :a parameter (Number)
+    and a mandatory :b parameter.
+  - It is a type error to provide parameters not explicitly declared
+  - can also check the [& {:keys [a b] :as opt}] idiom
+    - here opt is a complete HMap, ie. has no unknown keys
 - HMaps can track known absent keys
-- HMaps warn if looking up missing/known absent keys
 - Collect and display multiple type errors
 - Fix type resolve for classes when checking from other namespaces
 - def-alias supports docstring + var metadata
+  - (def-alias Alias "This is an alias for Number" Number)
 - Subtyping with protocols takes `extenders` into account.
 - `ann-protocol` can annotate protocols in other namespaces
 - Change for>, loop>, doseq>, fn> syntax
+  - old syntax still supported, but shows warning
+  - old way: (fn> [[a :- Number], [b :- Number]] ...)
+  - new way: (fn> [a :- Number, b :- Number] ...)
 - Support letfn via letfn>
+  - (letfn> [foo :- [Any -> Any]
+             (foo [x] x)
+             bar :- [Number -> Any]
+             (bar [y] y)]
+      ...)
 - Support clojure.tools.cli/cli
 - Add various annotations
 
