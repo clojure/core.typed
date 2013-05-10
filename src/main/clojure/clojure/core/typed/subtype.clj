@@ -324,7 +324,10 @@
         _ (assert protocol-var (str "Protocol cannot be resolved: " (.the-var p)))
         exts (extenders @protocol-var)]
     (for [ext exts]
-      (c/RClass-of-with-unknown-params ext))))
+      (cond
+        (class? ext) (c/RClass-of-with-unknown-params ext)
+        (nil? ext) r/-nil
+        :else (throw (Exception. (str "What is this?" ext)))))))
 
 ;[Type Type -> (IPersistentSet '[Type Type])]
 (defn subtype [s t]

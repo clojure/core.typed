@@ -51,3 +51,9 @@
 (defn test-non-value-kw [& {:keys [a]}] a)
 
 (test-non-value-kw :a (fn [a] a))
+
+; keyword map is a (union of) complete hash-map(s)
+
+(ann test-complete-hmap [& {:a Number} -> Any])
+(defn test-complete-hmap [& {:keys [a]}]
+  (ann-form a (U nil Number)))

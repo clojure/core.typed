@@ -1328,6 +1328,10 @@
             (a 1))
           Number)))
 
-;FIXME conver datatypes+records to RClasses
-#_(deftest protocol-untyped-ancestor-test
+;FIXME convert datatypes+records to RClasses
+(deftest protocol-untyped-ancestor-test
   (is (check-ns 'clojure.core.typed.test.protocol-untyped-extend)))
+
+(deftest kw-args-fail-test
+  (is (caught-top-level-errors #{1}
+        (check-ns 'clojure.core.typed.test.kw-args-undeclared-fail))))

@@ -31,18 +31,25 @@
 (defn -complete-hmap [types]
   (-hmap types false))
 
-(defn make-HMap [mandatory optional]
-  (assert (= #{}
-             (set/intersection (-> mandatory keys set)
-                               (-> optional keys set))))
-  (apply Un
-         (for [ss (map #(into {} %) (comb/subsets optional))]
-           (-hmap (merge mandatory ss) 
-                  ;other optional keys cannot appear...
-                  (set/difference (set (keys optional))
-                                  (set (keys ss)))
-                  ;...but we don't know about other keys
-                  true))))
+(defn make-HMap 
+  "Generate a type which is every possible combination of mandatory
+  and optional key entries. Takes an optional third parameter which
+  is true if the entries are complete (ie. we know there are no more entries),
+  and false otherwise. Defaults to false."
+  ([mandatory optional]
+   (make-HMap mandatory optional false))
+  ([mandatory optional complete?]
+   (assert (= #{}
+              (set/intersection (-> mandatory keys set)
+                                (-> optional keys set))))
+   (apply Un
+          (for [ss (map #(into {} %) (comb/subsets optional))]
+            (-hmap (merge mandatory ss) 
+                   ;other optional keys cannot appear...
+                   (set/difference (set (keys optional))
+                                   (set (keys ss)))
+                   ;...but we don't know about other keys
+                   (not complete?))))))
 
 (defn complete-hmap? [^HeterogeneousMap hmap]
   {:pre [(r/HeterogeneousMap? hmap)]}
