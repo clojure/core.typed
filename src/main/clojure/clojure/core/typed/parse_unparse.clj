@@ -421,7 +421,9 @@
                     (when clssym
                       (c/RClass-of clssym))))
               (u/tc-error (str "Cannot resolve type: " (pr-str sym)
-                               "\nHint: Is " (pr-str sym) " in scope?"))))))))
+                               "\nHint: Is " (pr-str sym) " in scope?"
+                               "\nHint: Has " (pr-str sym) "'s annotation been"
+                               " found via check-ns, cf or typed-deps?"))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 

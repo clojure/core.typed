@@ -73,5 +73,7 @@
                             t
                             (throw (Exception. (str (when vs/*current-env*
                                                       (str (:line vs/*current-env*) ": "))
-                                                    "Reference to untyped binding: " sym))))
+                                                    "Reference to untyped binding: " sym
+                                                    "\nHint: Has the annotation for " sym
+                                                    " been added via check-ns, cf or typed-deps?"))))
     :else (lookup-Var sym)))
