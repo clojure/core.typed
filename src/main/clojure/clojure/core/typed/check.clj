@@ -680,11 +680,14 @@
               (doseq [[kw-key-t kw-val-t] kw-args-paired-t]
                 (when-not (r/Value? kw-key-t)
                   (u/tc-delayed-error (str "Can only check keyword arguments with Value keys, found"
-                                           (prs/unparse-type kw-key-t))))
+                                           (pr-str (prs/unparse-type kw-key-t)))))
                 (let [expected-val-t ((some-fn optional-kw mandatory-kw) kw-key-t)]
                   (if expected-val-t
                     (check-below kw-val-t expected-val-t)
-                    (tc-warning "Undeclared keyword parameter " (prs/unparse-type kw-key-t)))))))))))
+                    ; It is an error to use an undeclared keyword arg because we want to treat the rest parameter
+                    ; as a complete hash-map.
+                    (u/tc-delayed-error (str "Undeclared keyword parameter " 
+                                             (pr-str (prs/unparse-type kw-key-t)))))))))))))
   (let [dom-count (count dom)
         arg-count (+ dom-count (if rest 1 0) (count optional-kw))
         o-a (map ret-o argtys)
@@ -870,7 +873,7 @@
 
                                       ;generate two vectors identical in length with actual kw val types
                                       ;on the left, and expected kw val types on the right.
-                                      ; Undeclared keyword value types are given expected type Any
+
                                       [kw-val-actual-tys kw-val-expected-tys]
                                       (reduce (fn [[kw-val-actual-tys kw-val-expected-tys]
                                                    [kw-key-t kw-val-t]]
@@ -884,14 +887,19 @@
                                                 (when-not (r/Value? kw-val-t)
                                                   (u/int-error 
                                                     (str "Can only check keyword arguments with Value keys, found"
-                                                         (prs/unparse-type kw-key-t))))
+                                                         (pr-str (prs/unparse-type kw-key-t)))))
                                                 (let [expected-val-t ((some-fn optional mandatory) kw-key-t)]
                                                   (if expected-val-t
                                                     [(conj kw-val-actual-tys kw-val-t)
                                                      (conj kw-val-expected-tys expected-val-t)]
-                                                    (do (tc-warning "Undeclared keyword parameter " (prs/unparse-type kw-key-t))
-                                                        [(conj kw-val-actual-tys kw-val-t)
-                                                         (conj kw-val-expected-tys r/-any)]))))
+                                                    (do 
+                                                      ; Using undeclared keyword keys is an error because we want to treat
+                                                      ; the rest param as a complete hash map when checking 
+                                                      ; fn bodies.
+                                                      (u/tc-delayed-error (str "Undeclared keyword parameter " 
+                                                                               (pr-str (prs/unparse-type kw-key-t))))
+                                                      [(conj kw-val-actual-tys kw-val-t)
+                                                       (conj kw-val-expected-tys r/-any)]))))
                                               [[] []]
                                               paired-kw-argtys)]
                                   ;make sure all mandatory keys are present

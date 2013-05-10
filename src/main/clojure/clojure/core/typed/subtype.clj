@@ -453,11 +453,9 @@
     (let [f1-tf (first (filter fr/TypeFilter? (:fs (:then f1))))]
       (if (= f1-tf (:then f2))
         (subtype t1 t2)
-        (throw (Exception. (u/error-msg "Filters do not match: \n" (prs/unparse-filter-set f1) "\n" (prs/unparse-filter-set f2))))))
+        (fail! t1 t2)))
 
-    :else (if (= o1 o2)
-            (throw (Exception. (u/error-msg "Filters do not match: \n" (prs/unparse-filter-set f1) "\n" (prs/unparse-filter-set f2))))
-            (throw (Exception. (u/error-msg "Objects do not match " (prs/unparse-object o1) (prs/unparse-object o2)))))))
+    :else (fail! t1 t2)))
 
 (defn subtype-TypeFn-app?
   [^TypeFn tfn ^TApp ltapp ^TApp rtapp]
