@@ -1256,40 +1256,29 @@
   (is-cf {:bar (identity 1)}))
 
 (deftest doseq>-test
-  (is-cf (clojure.core.typed/doseq> [a :- (U clojure.core.typed/AnyInteger nil) [1 nil 2 3]
+  (is-cf (clojure.core.typed/doseq> [a :- (U clojure.core.typed/AnyInteger nil), [1 nil 2 3]
                    :when a]
             (inc a)))
   ;wrap in thunk to prevent evaluation
   (is (u/top-level-error-thrown?
                (cf (fn []
-                     (clojure.core.typed/doseq> [a :- (U clojure.core.typed/AnyInteger nil) [1 nil 2 3]]
+                     (clojure.core.typed/doseq> [a :- (U clojure.core.typed/AnyInteger nil), [1 nil 2 3]]
                                                 (inc a)))))))
 
 (deftest for>-test
   (is-cf
     (clojure.core.typed/for> :- Number
-                             [a :- (U nil Number) [1 nil 2 3]
-                              b :- Number [1 2 3]
+                             [a :- (U nil Number), [1 nil 2 3]
+                              b :- Number, [1 2 3]
                               :when a]
                              (+ a b))
     (clojure.lang.LazySeq Number))
   (is (u/top-level-error-thrown?
         (cf
           (clojure.core.typed/for> :- Number
-                                   [a :- (U clojure.lang.Symbol nil Number) [1 nil 2 3]
-                                    b :- Number [1 2 3]]
+                                   [a :- (U clojure.lang.Symbol nil Number), [1 nil 2 3]
+                                    b :- Number, [1 2 3]]
                                    (+ a b))))))
-
-#_(clojure.pprint/pprint
-(clojure.tools.analyzer.emit-form/emit-form
-(clojure.tools.analyzer/ast
-(clojure.core.typed/for> :- Number
-                       [a :- (U clojure.lang.Symbol nil Number) [1 nil 2 3]
-                        b :- Number [1 2 3]]
-                       (+ a b))
-  )
-  )
-  )
 
 (deftest dotimes>-test
   (is-cf (clojure.core.typed/dotimes> [i 100] (inc i)) nil))
@@ -1307,7 +1296,7 @@
   (is (caught-top-level-errors #{1}
         (cf (loop [a 1] a))))
   (is (caught-top-level-errors #{2}
-        (cf (clojure.core.typed/loop> [a :- String 1] a)))))
+        (cf (clojure.core.typed/loop> [a :- String, 1] a)))))
 
 (deftest map-indexed-test
   (is (cf (map-indexed (clojure.core.typed/inst vector clojure.core.typed/AnyInteger Long Any Any Any Any) 
