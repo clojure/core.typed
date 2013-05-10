@@ -431,7 +431,7 @@ clojure.core/repeatedly
 
 clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)])
 
-clojure.core/concat (All [x] [(Option (Seqable x)) * -> (Seqable x)])
+clojure.core/concat (All [x] [(Option (Seqable x)) * -> (LazySeq x)])
 
 clojure.core/set (All [x] [(Option (Seqable x)) -> (PersistentHashSet x)])
 clojure.core/hash-set (All [x] [x * -> (PersistentHashSet x)])
@@ -789,7 +789,7 @@ clojure.core/number? (predicate Number)
 clojure.core/+ (Fn [AnyInteger * -> AnyInteger]
                         [Number * -> Number])
 clojure.core/- (Fn [AnyInteger AnyInteger * -> AnyInteger]
-                        [Number Number * -> Number])
+                   [Number Number * -> Number])
 clojure.core/* (Fn [AnyInteger * -> AnyInteger]
                         [Number * -> Number])
 clojure.core// [Number Number * -> Number]
@@ -1107,10 +1107,13 @@ clojure.lang.Numbers/inc (Fn [AnyInteger -> AnyInteger]
                                               [Number -> Number])
 clojure.lang.Numbers/dec (Fn [AnyInteger -> AnyInteger]
                              [Number -> Number])
-clojure.lang.Numbers/minus (Fn [AnyInteger AnyInteger -> AnyInteger]
-                                                [Number Number -> Number])
+clojure.lang.Numbers/minus (Fn 
+                             [AnyInteger -> AnyInteger]
+                             [Number -> Number]
+                             [AnyInteger AnyInteger -> AnyInteger]
+                             [Number Number -> Number])
 clojure.lang.Numbers/multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
-                                                   [Number Number -> Number])
+                                  [Number Number -> Number])
 clojure.lang.Numbers/divide [Number Number -> Number]
 
 clojure.lang.Numbers/lt [Number Number -> boolean]
