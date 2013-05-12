@@ -1,4 +1,4 @@
-(ns clojure.core.typed.contib-annotations
+(ns clojure.core.typed.contrib-annotations
   (:require [clojure.core.typed :refer [ann-protocol ann]]))
 
 (ann-protocol clojure.java.io/IOFactory 

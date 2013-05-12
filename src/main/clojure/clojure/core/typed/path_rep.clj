@@ -6,13 +6,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Paths
 
-(def PathElem ::path-elem)
+(defprotocol IPathElem)
 
 (defn PathElem? [a]
-  (isa? (class a) PathElem))
+  (satisfies? IPathElem a))
 
 (defn declare-path-elem [c]
-  (derive c PathElem))
+  (extend c IPathElem {}))
 
 (u/defrecord FirstPE []
   "A path calling clojure.core/first"

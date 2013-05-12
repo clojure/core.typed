@@ -1096,7 +1096,7 @@
       ; handle keyword args macroexpansion
       (r/KwArgsSeq? (-> ctarget expr-type ret-t))
       (assoc expr
-             expr-type (ret r/-true fo/-true-filter))
+             expr-type (ret r/-true (fo/-true-filter)))
       :else (normal-invoke expr fexpr args expected
                            :cargs cargs))))
 
@@ -1479,7 +1479,7 @@
   (print-env*)
   ;DO NOT REMOVE
   (assoc expr
-         expr-type (ret r/-nil fo/-false-filter obj/-empty)))
+         expr-type (ret r/-nil (fo/-false-filter) obj/-empty)))
 
 ;filter printing
 (defmethod invoke-special 'clojure.core.typed/print-filterset
@@ -2444,10 +2444,11 @@
                                                  :PolyDots {(last orig-names) (last inst-frees)}
                                                  nil)
                            (apply r/make-FnIntersection
-                                  (mapcat (fn [method]
-                                            (let [fnt (check-fn-method method fin)]
-                                              fnt))
-                                          methods)))))
+                                  (doall
+                                    (mapcat (fn [method]
+                                              (let [fnt (check-fn-method method fin)]
+                                                fnt))
+                                            methods))))))
         ;rewrap in Poly or PolyDots if needed
         pfni (rewrap-poly inferred-fni orig-names inst-frees bnds poly?)]
     (ret pfni (fo/-FS fl/-top fl/-bot) obj/-empty)))

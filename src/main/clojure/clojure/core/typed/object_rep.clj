@@ -10,12 +10,13 @@
 ;; Runtime Objects
 
 (def RObject ::r-object)
+(defprotocol IRObject)
 
 (defn RObject? [a]
-  (isa? (class a) RObject))
+  (satisfies? IRObject a))
 
 (defn declare-robject [c]
-  (derive c RObject))
+  (extend c IRObject {}))
 
 (u/defrecord EmptyObject []
   "?"

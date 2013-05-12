@@ -436,10 +436,6 @@
   [V X Y S T] 
   (cr/empty-cset X Y))
 
-(defmethod cs-gen* [r/TCType Top impl/default]
-  [V X Y S T] 
-  (cr/empty-cset X Y))
-
 (defmethod cs-gen* [HeterogeneousSeq RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y 

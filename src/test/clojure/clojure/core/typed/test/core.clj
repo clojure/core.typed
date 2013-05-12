@@ -420,17 +420,17 @@
   (is (subtype? (parse-type '(List* (Value 1) (Value 2)))
                 (RClass-of ISeq [(->Top)])))
   (is (= (tc-t [1 2])
-         (ret (->HeterogeneousVector [(->Value 1) (->Value 2)]) -true-filter -empty)))
+         (ret (->HeterogeneousVector [(->Value 1) (->Value 2)]) (-true-filter) -empty)))
   (is (= (tc-t '(1 2))
-         (ret (->HeterogeneousList [(->Value 1) (->Value 2)]) -true-filter -empty)))
+         (ret (->HeterogeneousList [(->Value 1) (->Value 2)]) (-true-filter) -empty)))
   (is (= (tc-t {:a 1})
-         (ret (-complete-hmap {(->Value :a) (->Value 1)}) -true-filter -empty)))
+         (ret (-complete-hmap {(->Value :a) (->Value 1)}) (-true-filter) -empty)))
   (is (= (tc-t {})
-         (ret (-complete-hmap {}) -true-filter -empty)))
+         (ret (-complete-hmap {}) (-true-filter) -empty)))
   (is (= (tc-t [])
-         (ret (->HeterogeneousVector []) -true-filter -empty)))
+         (ret (->HeterogeneousVector []) (-true-filter) -empty)))
   (is (= (tc-t '())
-         (ret (->HeterogeneousList []) -true-filter -empty)))
+         (ret (->HeterogeneousList []) (-true-filter) -empty)))
   (is-cf '(a b) (List* clojure.lang.Symbol clojure.lang.Symbol)))
 
 (deftest implied-atomic?-test
@@ -508,7 +508,7 @@
   ;FIXME for destructuring rest args
 ;  (is (= (tc-t (let [a '(a b)]
 ;                 (seq? a)))
-;         (ret -true -true-filter -empty)))
+;         (ret -true (-true-filter) -empty)))
   (is (= (-> 
            (tc-t (let [a {:a 1}]
                    (if (seq? a)
@@ -548,7 +548,7 @@
                                (seq? a)))
          (ret (make-FnIntersection
                 (->Function [(-hmap {(->Value :a) (->Value 1)})]
-                              (make-Result -false -false-filter -empty)
+                              (make-Result -false (-false-filter) -empty)
                               nil nil nil))
               (-FS -top -bot)
               -empty)))

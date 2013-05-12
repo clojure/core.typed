@@ -11,9 +11,9 @@
 ;clj bug means protocols need at least one method
 ; Seems fixed for 1.5.1, but leaving for compatibility.
 (defprotocol TCType
-  (-dummy [_]))
+  (dummy [_]))
 (defprotocol TCAnyType
-  (-dummy2 [_]))
+  (dummy2 [_]))
 
 (defn Type? [a]
   (satisfies? TCType a))

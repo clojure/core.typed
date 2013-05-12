@@ -10,13 +10,13 @@
 
 (def name-ref? (some-fn symbol? integer?))
 
-(def Filter ::filter)
+(defprotocol IFilter)
 
 (defn Filter? [a]
-  (isa? (class a) Filter))
+  (satisfies? IFilter a))
 
 (defn declare-filter [c]
-  (derive c Filter))
+  (extend c IFilter {}))
 
 (u/defrecord BotFilter []
   "Always false proposition"

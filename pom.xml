@@ -27,9 +27,11 @@
         <artifactId>clojure-maven-plugin</artifactId>
         <version>1.3.10</version>
         <configuration>
-          <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
+          <!--<compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>-->
           <namespaces>
-            <namespace>!.*</namespace>
+            <namespace>!clojure.core.typed.base-env</namespace>
+            <namespace>!clojure.core.typed.alms-infer</namespace>
+            <namespace>!clojure.core.typed.init</namespace>
           </namespaces>
         </configuration>
       </plugin>

@@ -17,6 +17,7 @@
 ; fld-fn has type-rec, filter-rec and object-rec in scope
 (defmacro add-fold-case [mode ty fld-fn]
   `(defmethod fold-rhs [~mode ~ty]
+     ~(symbol (str "fold-rhs" mode ty))
      [mode# options# ty#]
      (let [~'[type-rec filter-rec object-rec pathelem-rec]
            (map #(or (% options#)

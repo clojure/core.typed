@@ -17,8 +17,6 @@
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.path_rep KeyPE)))
 
-(set! *warn-on-reflection* true)
-
 (add-default-fold-case NotType
                        (fn [ty _]
                          (-> ty
