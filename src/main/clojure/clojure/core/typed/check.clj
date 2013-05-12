@@ -198,7 +198,7 @@
   (let [cargs (mapv check args)
         res-type (r/-hvec (mapv (comp ret-t expr-type) cargs))
         _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
-            (expected-error res-type (ret-t expected-error)))]
+            (expected-error res-type (ret-t expected)))]
     (assoc expr
            expr-type (ret res-type (fo/-FS fl/-top fl/-bot)))))
 
@@ -206,7 +206,7 @@
   [{coll :coll :as expr} & [expected]]
   (let [actual (const/constant-type coll)
         _ (when (and expected (not (sub/subtype? actual (ret-t expected))))
-            (expected-error actual (ret-t expected-error)))]
+            (expected-error actual (ret-t expected)))]
     (assoc expr
            expr-type (ret actual (fo/-FS fl/-top fl/-bot)))))
 

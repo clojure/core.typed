@@ -436,7 +436,7 @@
   [V X Y S T] 
   (cr/empty-cset X Y))
 
-(defmethod cs-gen* [r/Type Top impl/default]
+(defmethod cs-gen* [r/TCType Top impl/default]
   [V X Y S T] 
   (cr/empty-cset X Y))
 

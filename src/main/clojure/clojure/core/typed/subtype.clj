@@ -69,12 +69,8 @@
 
 ;subtype and subtype? use *sub-current-seen* for remembering types (for Rec)
 ;subtypeA* takes an extra argument (the current-seen subtypes), called by subtype
-;subtype* shouldn't be called directly, is called by subtypeA*
 ;
 ; In short, only call subtype (or subtype?)
-
-;[Type Type -> (IPersistentSet '[Type Type])]
-(defmulti subtype* (fn [s t] [(class s) (class t) @impl/TYPED-IMPL]))
 
 (declare subtype)
 
@@ -112,7 +108,10 @@
       (handle-cgen-failure
         (infer X {} S T r/-any)))))
 
-(declare subtype-TApp? protocol-descendants)
+(declare subtype-TApp? protocol-descendants
+         subtype-datatype-record-on-left subtype-datatype-record-on-right
+         subtype-datatypes-or-records subtype-Result subtype-PrimitiveArray
+         subtype-CountRange subtype-TypeFn subtype-RClass)
 
 ;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
 (defn subtypeA* [A s t]
@@ -272,8 +271,55 @@
               #{})
           (fail! s t))
 
-        (r/KwArgsSeq? s)
-        (subtype (c/Un r/-nil (c/RClass-of Seqable [r/-any])) t)
+          ;every rtype entry must be in ltypes
+          ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
+          (and (r/HeterogeneousMap? s)
+               (r/HeterogeneousMap? t))
+          (let [{ltypes :types :as s} s
+                {rtypes :types :as t} t]
+            (or (last (doall (map (fn [[k v]]
+                                    (if-let [t (ltypes k)]
+                                      (subtype t v)
+                                      (fail! s t)))
+                                  rtypes)))
+                #{}))
+
+        (r/HeterogeneousMap? s)
+        (let [^HeterogeneousMap s s]
+          ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
+          (if (c/complete-hmap? s)
+            (subtype (c/RClass-of APersistentMap [(apply c/Un (keys (.types s)))
+                                                  (apply c/Un (vals (.types s)))]) 
+                     t)
+            (subtype (c/RClass-of APersistentMap [r/-any r/-any]) t)))
+
+                (r/KwArgsSeq? s)
+                (subtype (c/Un r/-nil (c/RClass-of Seqable [r/-any])) t)
+
+        (r/HeterogeneousVector? s)
+        (let [ss (apply c/Un (:types s))]
+          (subtype (c/In (c/RClass-of APersistentVector [ss])
+                         (r/make-ExactCountRange (count (:types s))))
+                   t))
+
+        (r/HeterogeneousList? s)
+        (let [ss (apply c/Un (:types s))]
+          (subtype (c/RClass-of PersistentList [ss]) t))
+
+        (r/HeterogeneousSeq? s)
+        (let [ss (apply c/Un (:types s))]
+          (subtype (c/RClass-of (u/Class->symbol ASeq) [ss])
+                   t))
+
+        (and (r/DataType? s)
+             (r/DataType? t))
+        (subtype-datatypes-or-records s t)
+
+;Not quite correct, datatypes have other implicit ancestors (?)
+        (r/DataType? s)
+        (subtype-datatype-record-on-left s t)
+        (r/DataType? t)
+        (subtype-datatype-record-on-right s t)
 
         ;values are subtypes of their classes
         (and (r/Value? s)
@@ -315,7 +361,30 @@
             *sub-current-seen*
             (fail! s t)))
 
-        :else (subtype* s t)))))
+        (and (r/Result? s)
+             (r/Result? t))
+        (subtype-Result s t)
+        
+        (and (r/PrimitiveArray? s)
+             (r/PrimitiveArray? t))
+        (subtype-PrimitiveArray s t)
+
+        (r/PrimitiveArray? s)
+        (subtype (r/->PrimitiveArray Object r/-any r/-any) t)
+      
+        (and (r/TypeFn? s)
+             (r/TypeFn? t))
+        (subtype-TypeFn s t)
+
+        (and (r/RClass? s)
+             (r/RClass? t))
+        (subtype-RClass s t)
+
+        (and (r/CountRange? s)
+             (r/CountRange? t))
+        (subtype-CountRange s t)
+
+        :else (fail! s t)))))
 
 (defn protocol-descendants [^Protocol p]
   {:pre [(r/Protocol? p)]
@@ -430,7 +499,7 @@
            (arr-subtype A % s))
         ts))
 
-(defmethod subtype* [Result Result impl/default]
+(defn subtype-Result
   [{t1 :t f1 :fl o1 :o :as s}
    {t2 :t f2 :fl o2 :o :as t}]
   (cond
@@ -485,20 +554,20 @@
   (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
     (subtype-TypeFn-app? (.rator S) S T)))
 
-(defmethod subtype-TApp? [r/AnyType Name false]
+(defmethod subtype-TApp? [r/TCAnyType Name false]
   [S T]
   (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
     (subtype-TApp? S (update-in T [:rator] c/resolve-Name))))
 
-(defmethod subtype-TApp? [Name r/AnyType false]
+(defmethod subtype-TApp? [Name r/TCAnyType false]
   [S T]
   (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
     (subtype-TApp? (update-in S [:rator] c/resolve-Name) T)))
 
 ; for [Name Name false]
 (prefer-method subtype-TApp? 
-               [Name r/AnyType false]
-               [r/AnyType Name false])
+               [Name r/TCAnyType false]
+               [r/TCAnyType Name false])
 
 ;same operator
 (defmethod subtype-TApp? [Name Name true]
@@ -521,10 +590,7 @@
 
 (defmethod subtype-TApp? :default [S T] false)
 
-(prefer-method subtype* [r/Type TApp impl/default] [HeterogeneousVector r/Type impl/default])
-(prefer-method subtype* [r/Type TApp impl/default] [HeterogeneousVector r/Type impl/default])
-
-(defmethod subtype* [TypeFn TypeFn impl/default]
+(defn subtype-TypeFn
   [^TypeFn S ^TypeFn T]
   (if (and (= (.nbound S) (.nbound T))
            (= (.variances S) (.variances T))
@@ -536,11 +602,7 @@
     *sub-current-seen*
     (fail! S T)))
 
-(defmethod subtype* [PrimitiveArray r/Type impl/clojure]
-  [_ t]
-  (subtype (r/->PrimitiveArray Object r/-any r/-any) t))
-
-(defmethod subtype* [PrimitiveArray PrimitiveArray impl/clojure]
+(defn subtype-PrimitiveArray
   [^PrimitiveArray s 
    ^PrimitiveArray t]
   (if (and ;(= (.jtype s) (.jtype t))
@@ -561,9 +623,6 @@
     *sub-current-seen*
     (fail! s t)))
 
-;Not quite correct, datatypes have other implicit ancestors (?)
-(defmethod subtype* [DataType r/Type impl/clojure] [s t] (subtype-datatype-record-on-left s t))
-
 (defn- subtype-datatype-record-on-right
   [s {:keys [the-class] :as t}]
   (if (some #(subtype? s %) (set/union #{(c/RClass-of Object)} 
@@ -571,8 +630,6 @@
                                            #{})))
     *sub-current-seen*
     (fail! s t)))
-
-(defmethod subtype* [r/Type DataType impl/clojure] [s t] (subtype-datatype-record-on-right s t))
 
 (defn- subtype-datatypes-or-records
   [{cls1 :the-class poly1 :poly? :as s} 
@@ -589,7 +646,10 @@
     *sub-current-seen*
     (fail! s t)))
 
-(defmethod subtype* [DataType DataType impl/default] [s t] (subtype-datatypes-or-records s t))
+(defn class-isa? 
+  "A faster version of isa?, both parameters must be classes"
+  [s ^Class t]
+  (.isAssignableFrom t s))
 
 (defn- subtype-rclass
   [{variancesl :variances classl :the-class replacementsl :replacements :as s}
@@ -600,7 +660,7 @@
          (empty? variancesr)
          (empty? replacementsl)
          (empty? replacementsr))
-    (if (isa? classl classr)
+    (if (class-isa? classl classr)
       *sub-current-seen*
       (fail! s t))))
 
@@ -652,9 +712,9 @@
                    spcls)
           tcls (or (boxed-primitives tpcls)
                    tpcls)]
-      (isa? scls tcls))))
+      (class-isa? scls tcls))))
 
-(defmethod subtype* [RClass RClass impl/clojure]
+(defn subtype-RClass
   [{polyl? :poly? :as s}
    {polyr? :poly? :as t}]
   (let [scls (r/RClass->Class s)
@@ -666,7 +726,7 @@
              (empty? polyr?)
              (empty? (:replacements s))
              (empty? (:replacements t))
-             (isa? scls tcls))
+             (class-isa? scls tcls))
 
         ;same base class
         (and (= scls tcls)
@@ -687,68 +747,15 @@
 
       :else (fail! s t))))
 
-(defmethod subtype* [HeterogeneousMap r/Type impl/clojure]
-  [^HeterogeneousMap s t]
-  ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
-  (if (c/complete-hmap? s)
-    (subtype (c/RClass-of APersistentMap [(apply c/Un (keys (.types s)))
-                                        (apply c/Un (vals (.types s)))]) 
-             t)
-    (subtype (c/RClass-of APersistentMap [r/-any r/-any]) t)))
-
-;every rtype entry must be in ltypes
-;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
-(defmethod subtype* [HeterogeneousMap HeterogeneousMap impl/default]
-  [{ltypes :types :as s}
-   {rtypes :types :as t}]
-  (or (last (doall (map (fn [[k v]]
-                          (if-let [t (ltypes k)]
-                            (subtype t v)
-                            (fail! s t)))
-                        rtypes)))
-      #{}))
-
-(prefer-method subtype* 
-               [HeterogeneousVector HeterogeneousVector impl/default]
-               [HeterogeneousVector r/Type impl/clojure])
-(prefer-method subtype* 
-               [HeterogeneousMap HeterogeneousMap impl/default],
-               [HeterogeneousMap r/Type impl/clojure] )
-
-(defmethod subtype* [HeterogeneousVector r/Type impl/clojure]
-  [s t]
-  (let [ss (apply c/Un (:types s))]
-    (subtype (c/In (c/RClass-of APersistentVector [ss])
-                   (r/make-ExactCountRange (count (:types s))))
-             t)))
-
-(defmethod subtype* [HeterogeneousList r/Type impl/clojure]
-  [s t]
-  (let [ss (apply c/Un (:types s))]
-    (subtype (c/RClass-of PersistentList [ss]) t)))
-
-(defmethod subtype* [HeterogeneousSeq r/Type impl/clojure]
-  [s t]
-  (let [ss (apply c/Un (:types s))]
-    (subtype (c/RClass-of (u/Class->symbol ASeq) [ss])
-             t)))
-
 ;subtype if t includes all of s. 
 ;tl <= sl, su <= tu
-(defmethod subtype* [CountRange CountRange impl/default]
+(defn subtype-CountRange
   [{supper :upper slower :lower :as s}
    {tupper :upper tlower :lower :as t}]
   (if (and (<= tlower slower)
            (if tupper
              (and supper (<= supper tupper))
              true))
-    *sub-current-seen*
-    (fail! s t)))
-
-(defmethod subtype* :default
-  [s t]
-  #_(prn "subtype :default" @impl/TYPED-IMPL (prs/unparse-type s) (prs/unparse-type t))
-  (if (r/Top? t)
     *sub-current-seen*
     (fail! s t)))
 

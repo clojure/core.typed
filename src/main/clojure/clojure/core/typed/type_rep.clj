@@ -8,23 +8,25 @@
 
 ;;; Type rep predicates
 
-(def Type ::Type)
+;clj bug means protocols need at least one method
+; Seems fixed for 1.5.1, but leaving for compatibility.
+(defprotocol TCType
+  (-dummy [_]))
+(defprotocol TCAnyType
+  (-dummy2 [_]))
 
 (defn Type? [a]
-  (isa? (class a) Type))
-
-(def AnyType ::AnyType)
+  (satisfies? TCType a))
 
 (defn AnyType? [a]
-  (isa? (class a) AnyType))
-
-(derive Type AnyType)
+  (or (Type? a)
+      (satisfies? TCAnyType a)))
 
 (defn declare-type [a]
-  (derive a Type))
+  (extend a TCType {}))
 
 (defn declare-AnyType [a]
-  (derive a AnyType))
+  (extend a TCAnyType {}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types

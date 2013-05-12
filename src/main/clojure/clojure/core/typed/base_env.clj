@@ -4,7 +4,9 @@
                          APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
                          APersistentMap IDeref ISeq IMeta ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
-                         IPersistentList IRef IReference AReference ARef Var Delay Reversible))
+                         IPersistentList IRef IReference AReference ARef Var Delay Reversible
+                         ITransientCollection ITransientSet ITransientAssociative ITransientMap
+                         ITransientVector PersistentHashMap))
   (:require [clojure.core.typed
              [base-env-helper :as h]
              [parse-unparse :as prs]
@@ -110,6 +112,8 @@ PersistentTreeSet [[[a :variance :covariant]]
                     IPersistentCollection (IPersistentCollection a)
                     IMeta (IMeta Any)}]
 
+IMapEntry [[[a :variance :covariant]
+            [b :variance :covariant]]]
 
 Associative [[[a :variance :covariant]
               [b :variance :covariant]]
@@ -118,8 +122,51 @@ Associative [[[a :variance :covariant]
               Seqable (Seqable Any)
               ILookup (ILookup a b)}]
 
-IMapEntry [[[a :variance :covariant]
-            [b :variance :covariant]]]
+;ITransientCollection [[[w :variance :contravariant]
+;                       [r :variance :covariant]]]
+;
+;ITransientSet [[[w :variance :contravariant]
+;                [r :variance :covariant]]
+;               :replace
+;               {ITransientCollection (ITransientCollection w r)}]
+;
+;ITransientAssociative [[[wkey :variance :contravariant]
+;                        [wval :variance :contravariant]
+;                        [rkey :variance :covariant]
+;                        [rval :variance :covariant]]
+;                       :replace
+;                       {ILookup (ILookup rkey rval)
+;                        ITransientCollection (ITransientCollection (IMapEntry wkey wval)
+;                                                                   (IMapEntry rkey rval))}]
+;
+;ITransientMap [[[wkey :variance :contravariant]
+;                [wval :variance :contravariant]
+;                [rkey :variance :covariant]
+;                [rval :variance :covariant]]
+;               :replace
+;               {ILookup (ILookup rkey rval)
+;                ITransientAssociative (ITransientAssociative wkey wval rkey rval)
+;                ITransientCollection (ITransientCollection (IMapEntry wkey wval)
+;                                                           (IMapEntry rkey rval))}]
+;
+;ATransientMap [[[wkey :variance :contravariant]
+;                [wval :variance :contravariant]
+;                [rkey :variance :covariant]
+;                [rval :variance :covariant]]
+;               {;TODO override AFn
+;                ILookup (ILookup rkey rval)
+;                ITransientAssociative (ITransientAssociative wkey wval rkey rval)
+;                ITransientCollection (ITransientCollection (IMapEntry wkey wval)
+;                                                           (IMapEntry rkey rval))}]
+;
+;ITransientVector [[[w :variance :contravariant]
+;                   [r :variance :covariant]]
+;                  :replace
+;                  {ITransientAssociative (ITransientAssociative Number wval Number rval)
+;                   ITransientCollection (ITransientCollection w r)
+;                   Indexed (Indexed r)}]
+;
+;IEditableCollection [[c :variance :covariant]]
 
 IPersistentMap [[[a :variance :covariant]
                  [b :variance :covariant]]
@@ -163,6 +210,22 @@ APersistentMap [[[a :variance :covariant]
                  ILookup (ILookup a b)
                  Associative (Associative Number a)}]
 
+
+PersistentHashMap [[[a :variance :covariant] 
+                    [b :variance :covariant]]
+                   :replace
+                   {IPersistentCollection (IPersistentCollection (IMapEntry a b))
+                    IPersistentMap (IPersistentMap a b)
+                    APersistentMap (APersistentMap a b)
+                    Seqable (Seqable (IMapEntry a b))
+                    IFn (All [d]
+                             (Fn [Any -> (U nil b)]
+                                 [Any d -> (U b d)]))
+                    ILookup (ILookup a b)
+                    IMeta (IMeta Any)
+                    Associative (Associative Number a)
+                    #_IEditableCollection #_(IEditableCollection (ITransientMap a b a b))}]
+
 APersistentVector [[[a :variance :covariant]]
                    :replace
                    {IPersistentCollection (IPersistentCollection a)
@@ -181,13 +244,14 @@ PersistentVector [[[a :variance :covariant]]
                    IPersistentCollection (IPersistentCollection a)
                    Seqable (Seqable a)
                    IPersistentVector (IPersistentVector a)
-                    Reversible (Reversible a)
+                   Reversible (Reversible a)
                    IFn [Number -> a]
                    IPersistentStack (IPersistentStack a)
                    ILookup (ILookup Number a)
                    IMeta (IMeta Any)
                    Associative (Associative Number a)
-                   Indexed (Indexed a)}]
+                   Indexed (Indexed a)
+                   #_IEditableCollection #_(IEditableCollection (ITransientVector a))}]
 
 Cons [[[a :variance :covariant]]
       :replace
@@ -606,6 +670,10 @@ clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
                             [Object -> Class :object {:id 0 :path [Class]}]
                             [Any -> (Option Class) :object {:id 0 :path [Class]}])
 
+; FIXME are the filters here still sound if the argument is mutable eg. an array?
+; I don't think so. We probably need an arity that also requires an (IPersistentCollection x)
+; This is where the filters would go. Then a base arity with no filters.
+; Also applies to the other seq functions.
 clojure.core/seq (All [x]
                         (Fn 
                           [(I (Seqable x) (CountRange 1)) -> (I (ISeq x) (CountRange 1))]
@@ -614,6 +682,17 @@ clojure.core/seq (All [x]
                                               (! nil 0))
                                      :else (| (is nil 0)
                                               (is (ExactCount 0) 0))}]))
+; Seqable [[x :variance :covariant]
+;          :count [l :variance :covariant :< AnyCountRange]
+;          :to-seq [sfn :kind (TFn [[x :variance :covariant]]
+;                               (I IWithMeta (IMeta nil) (ISeq x) (ICollection x) 
+;                                  IEmptyableCollection ISequential))]]
+
+; clojure.core/seq (All [x
+;                        [sfn :kind [* -> *]]
+;                    (Fn
+;                      [(Seqable x :count (CountRange 1) :to-seq sfn) -> (sfn x)]
+;                      [(Seqable x :count AnyCountRange :to-seq sfn) -> (U nil (sfn x))]
 
 clojure.core/empty? [(Option (Seqable Any)) -> boolean
                           :filters {:then (| (is (ExactCount 0) 0)
@@ -748,6 +827,22 @@ clojure.core/conj
               [nil x x * -> (clojure.lang.PersistentList x)]
               [(IPersistentCollection Any) Any Any * -> (IPersistentCollection Any)]
               ))
+
+; IPersistentCollection [[x :variance :covariant]
+;                        :conj-fn [conj-fn :kind (TFn [[x :variance :covariant]] (IPersistentCollection x))]
+;                        :empty-fn [empty-fn :kind (TFn [] (IPersistentCollection Nothing :count (ExactCount 0)))]]
+
+; clojure.core/conj
+;   (All [x conj-fn]
+;     [(IPersistentCollection x :conj-fn conj-fn) x -> (conj-fn x)]
+;     [nil x -> (PersistentList x)]
+;     [(U nil (IPersistentCollection x :conj-fn conj-fn)) x -> (U nil (conj-fn x))])
+
+; clojure.core/empty
+;   (All [x empty-fn]
+;      [(IPersistentCollection Any :empty-fn empty-fn) -> (empty-fn)]
+;      [nil -> nil]
+;      [(U nil (IPersistentCollection Any :empty-fn empty-fn)) -> (U nil (empty-fn))])
 
 clojure.core/find
      (All [x y]
@@ -1115,6 +1210,9 @@ clojure.lang.Numbers/minus (Fn
 clojure.lang.Numbers/multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
                                   [Number Number -> Number])
 clojure.lang.Numbers/divide [Number Number -> Number]
+
+clojure.lang.Numbers/max [Number Number * -> Number]
+
 
 clojure.lang.Numbers/lt [Number Number -> boolean]
 clojure.lang.Numbers/lte [Number Number -> boolean]

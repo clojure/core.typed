@@ -46,17 +46,24 @@
         (prn "core.typed Internal BUG! Delayed error without line number, stacktrace following...")
         (prn "with env:" (pr-str *current-env*))
         (repl/pst e))))
-  (swap! clojure.core.typed/*delayed-errors*
-         conj (ex-info msg (merge {:type-error tc-error-parent}
-                                  (when (or (contains? opt :form)
-                                            (and (bound? #'uvs/*current-expr*)
-                                                 uvs/*current-expr*))
-                                    {:form (if (contains? opt :form)
-                                             form
-                                             (emit-form-fn uvs/*current-expr*))})
-                                  (when-let [env *current-env*]
-                                    {:env env}))))
-  (or return @(ns-resolve (find-ns 'clojure.core.typed.type-rep) '-nothing)))
+  (let [e (ex-info msg (merge {:type-error tc-error-parent}
+                              (when (or (contains? opt :form)
+                                        (and (bound? #'uvs/*current-expr*)
+                                             uvs/*current-expr*))
+                                {:form (if (contains? opt :form)
+                                         form
+                                         (emit-form-fn uvs/*current-expr*))})
+                              (when-let [env *current-env*]
+                                {:env env})))]
+    (cond
+      ;can't delay here
+      (not (bound? #'clojure.core.typed/*delayed-errors*))
+      (throw e)
+
+      :else
+      (do
+        (swap! clojure.core.typed/*delayed-errors* conj e)
+        (or return @(ns-resolve (find-ns 'clojure.core.typed.type-rep) '-nothing))))))
 
 (defn derive-error [kw]
   (derive kw tc-error-parent))
