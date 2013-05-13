@@ -65,10 +65,15 @@
              ss)
       (flush))))
 
+(declare expr-ns)
+
 (defn expected-error [actual expected]
-  (u/tc-delayed-error (str "Expected type: "
-                           (pr-str (prs/unparse-type expected))
-                           ", Actual: " (pr-str (prs/unparse-type actual)))))
+  (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
+                                         (when vs/*current-expr*
+                                           (expr-ns vs/*current-expr*)))]
+    (u/tc-delayed-error (str "Expected type: "
+                             (pr-str (prs/unparse-type expected))
+                             "\nActual: " (pr-str (prs/unparse-type actual))))))
 
 (declare check-expr)
 
@@ -114,6 +119,11 @@
 (defmulti check (fn [expr & [expected]]
                   {:pre [((some-fn nil? TCResult?) expected)]}
                   (:op expr)))
+
+(defmacro add-check-method [nme & body]
+  `(defmethod check ~nme
+     ~(symbol (str "check " nme))
+     ~@body))
 
 (defn check-expr [expr & [expected]]
   #_(println "Checking line:" (-> expr :env :line))
@@ -162,14 +172,14 @@
                             obj/-empty
                             flow)))))
 
-(defmethod check :constant [& args] (apply check-value args))
-(defmethod check :number [& args] (apply check-value args))
-(defmethod check :string [& args] (apply check-value args))
-(defmethod check :keyword [& args] (apply check-value args))
-(defmethod check :boolean [& args] (apply check-value args))
-(defmethod check :nil [& args] (apply check-value args))
+(add-check-method :constant [& args] (apply check-value args))
+(add-check-method :number [& args] (apply check-value args))
+(add-check-method :string [& args] (apply check-value args))
+(add-check-method :keyword [& args] (apply check-value args))
+(add-check-method :boolean [& args] (apply check-value args))
+(add-check-method :nil [& args] (apply check-value args))
 
-(defmethod check :map
+(add-check-method :map
   [{:keys [keyvals] :as expr} & [expected]]
   (let [expected (when expected 
                    (ret-t expected))
@@ -184,7 +194,7 @@
     (assoc expr
            expr-type (ret actual (fo/-FS fl/-top fl/-bot)))))
 
-(defmethod check :set
+(add-check-method :set
   [{:keys [args] :as expr} & [expected]]
   (let [cargs (mapv check args)
         res-type (c/RClass-of IPersistentSet [(apply c/Un (mapv (comp ret-t expr-type) cargs))])
@@ -193,7 +203,7 @@
     (assoc expr
            expr-type (ret res-type (fo/-FS fl/-top fl/-bot)))))
 
-(defmethod check :vector
+(add-check-method :vector
   [{:keys [args] :as expr} & [expected]]
   (let [cargs (mapv check args)
         res-type (r/-hvec (mapv (comp ret-t expr-type) cargs))
@@ -202,7 +212,7 @@
     (assoc expr
            expr-type (ret res-type (fo/-FS fl/-top fl/-bot)))))
 
-(defmethod check :empty-expr 
+(add-check-method :empty-expr 
   [{coll :coll :as expr} & [expected]]
   (let [actual (const/constant-type coll)
         _ (when (and expected (not (sub/subtype? actual (ret-t expected))))
@@ -727,36 +737,41 @@
         instance-method? (= :instance-method (:op fexpr))
         method-sym (when (or static-method? instance-method?)
                      (MethodExpr->qualsym fexpr))]
-    (u/tc-delayed-error
-      (str
-        (if poly? 
-          (str "Polymorphic " 
-               (cond static-method? "static method "
-                     instance-method? "instance method "
-                     :else "function "))
-          (cond static-method? "Static method "
-                instance-method? "Instance method "
-                :else "Function "))
-        (if (or static-method?
-                instance-method?)  
-          (or method-sym
-              (:method-name fexpr))
-          (if fexpr
-            (u/emit-form-fn fexpr)
-            "<NO FORM>"))
-        " could not be applied to arguments:\n"
-        "Domains: \n\t" 
-        (clojure.string/join "\n\t" (map (partial apply pr-str) (map (comp #(map prs/unparse-type %) :dom) (.types fin)))) 
-        "\n\n"
-        "Arguments:\n\t" (apply prn-str (mapv (comp prs/unparse-type ret-t) arg-ret-types)) "\n"
-        (when expected (str "with expected type:\n\t" (prs/unparse-type (ret-t expected)) "\n\n"))
-        "in: " (if fexpr
-                 (if (or static-method? instance-method?)
-                   (u/emit-form-fn fexpr)
-                   (list* (u/emit-form-fn fexpr)
-                          (map u/emit-form-fn args)))
-                 "<NO FORM>"))
-      :return (or expected (ret r/Err)))))
+    (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
+                                           (when fexpr
+                                             (expr-ns fexpr))
+                                           (when vs/*current-expr*
+                                             (expr-ns vs/*current-expr*)))]
+      (u/tc-delayed-error
+        (str
+          (if poly? 
+            (str "Polymorphic " 
+                 (cond static-method? "static method "
+                       instance-method? "instance method "
+                       :else "function "))
+            (cond static-method? "Static method "
+                  instance-method? "Instance method "
+                  :else "Function "))
+          (if (or static-method?
+                  instance-method?)  
+            (or method-sym
+                (:method-name fexpr))
+            (if fexpr
+              (u/emit-form-fn fexpr)
+              "<NO FORM>"))
+          " could not be applied to arguments:\n"
+          "Domains: \n\t" 
+          (clojure.string/join "\n\t" (map (partial apply pr-str) (map (comp #(map prs/unparse-type %) :dom) (.types fin)))) 
+          "\n\n"
+          "Arguments:\n\t" (apply prn-str (mapv (comp prs/unparse-type ret-t) arg-ret-types)) "\n"
+          (when expected (str "with expected type:\n\t" (prs/unparse-type (ret-t expected)) "\n\n"))
+          "in: " (if fexpr
+                   (if (or static-method? instance-method?)
+                     (u/emit-form-fn fexpr)
+                     (list* (u/emit-form-fn fexpr)
+                            (map u/emit-form-fn args)))
+                   "<NO FORM>"))
+        :return (or expected (ret r/Err))))))
 
 (defn ^String polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]
   {:pre [(r/Poly? fexpr-type)]}
@@ -777,6 +792,9 @@
    :post [(TCResult? %)]}
   (let [fexpr-type (resolve-to-ftype (ret-t fexpr-ret-type))
         arg-types (mapv ret-t arg-ret-types)]
+    (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
+                                           (when fexpr
+                                             (expr-ns fexpr)))]
     ;(prn "check-funapp" (prs/unparse-type fexpr-type) (map prs/unparse-type arg-types) fexpr-type)
     (cond
       ;keyword function
@@ -980,15 +998,15 @@
           ;(prn "inferred-rng"inferred-rng)
           (if inferred-rng
             inferred-rng
-            (u/tc-delayed-error (str "Could not apply dotted function " (prs/unparse-type fexpr-type)
-                                     " to arguments " (mapv prs/unparse-type arg-types))
-                                :return (or expected (ret (c/Un))))))
+              (u/tc-delayed-error (str "Could not apply dotted function " (prs/unparse-type fexpr-type)
+                                       " to arguments " (mapv prs/unparse-type arg-types))
+                                  :return (or expected (ret (c/Un))))))
 
         (u/tc-delayed-error (str
                               "Cannot invoke type: " (prs/unparse-type fexpr-type))
-                            :return (or expected (ret (c/Un))))))))
+                            :return (or expected (ret (c/Un)))))))))
 
-(defmethod check :var
+(add-check-method :var
   [{:keys [var] :as expr} & [expected]]
   (let [id (u/var->symbol var)
         _ (when-not (var-env/used-var? id)
@@ -999,7 +1017,7 @@
                           (fo/-FS fl/-top fl/-top)
                           obj/-empty))))
 
-(defmethod check :the-var
+(add-check-method :the-var
   [{:keys [var] :as expr} & [expected]]
   (assoc expr
          expr-type (ret (c/RClass-of Var)
@@ -1243,7 +1261,7 @@
           (assoc expr
                  expr-type (ret res)))))))
 
-(defmethod check :keyword-invoke
+(add-check-method :keyword-invoke
   [{:keys [kw target] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
   (assoc expr
@@ -2124,7 +2142,7 @@
     (assoc expr
            expr-type actual)))
 
-(defmethod check :invoke
+(add-check-method :invoke
   [{:keys [fexpr args env] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
   #_(prn "invoke:" ((some-fn :var :keyword :op) fexpr))
@@ -2200,7 +2218,7 @@
 
 (declare check-fn)
 
-(defmethod check :fn-expr
+(add-check-method :fn-expr
   [{:keys [env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (assert (:line env))
@@ -2606,7 +2624,7 @@ rest-param-name (when rest-param
               (expr-type crng)))))
 
 
-(defmethod check :do
+(add-check-method :do
   [{:keys [exprs] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
   (let [nexprs (count exprs)
@@ -2645,7 +2663,7 @@ rest-param-name (when rest-param
            :exprs cexprs
            expr-type (-> cexprs last expr-type)))) ;should be a ret already
 
-(defmethod check :local-binding-expr
+(add-check-method :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
   (binding [vs/*current-env* (:env expr)]
     (let [sym (hygienic/hsym-key local-binding)
@@ -2818,7 +2836,7 @@ rest-param-name (when rest-param
       (assoc expr
              expr-type result-type))))
 
-(defmethod check :static-method
+(add-check-method :static-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   #_(prn "static-method" (-> expr :method :name))
@@ -2827,7 +2845,7 @@ rest-param-name (when rest-param
       spec
       (check-invoke-method expr expected false))))
 
-(defmethod check :instance-method
+(add-check-method :instance-method
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (let [spec (instance-method-special expr expected)]
@@ -2837,7 +2855,7 @@ rest-param-name (when rest-param
 
 (def COMPILE-STUB-PREFIX "compile__stub")
 
-(defmethod check :static-field
+(add-check-method :static-field
   [{:keys [field] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (assert field "Static field requires type hints")
@@ -2847,7 +2865,7 @@ rest-param-name (when rest-param
 
 (declare unwrap-datatype)
 
-(defmethod check :instance-field
+(add-check-method :instance-field
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   #_(prn "instance-field:" expr)
@@ -2893,7 +2911,7 @@ rest-param-name (when rest-param
       :else (u/tc-delayed-error (str "Cannot get DataType constructor of " sym)
                                 :return r/Err))))
 
-(defmethod check :instance-of
+(add-check-method :instance-of
   [{cls :class :keys [the-expr] :as expr} & [expected]]
   (let [cls-stub (symbol (.getName ^Class cls))
         clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
@@ -2957,7 +2975,7 @@ rest-param-name (when rest-param
 
 ; This node does not have line numbers in jvm.tools.analyzer.
 ; Hopefully a case above it binds *current-env*
-(defmethod check :new
+(add-check-method :new
   [{cls :class :keys [ctor args] :as expr} & [expected]]
   (when-not (:line vs/*current-env*)
     (prn "Internal Bug! No line information for :new"))
@@ -2985,7 +3003,7 @@ rest-param-name (when rest-param
         (assoc expr
                expr-type res-type)))))
 
-(defmethod check :throw
+(add-check-method :throw
   [{:keys [exception] :as expr} & [expected]]
   (let [cexception (check exception)
         _ (when-not (sub/subtype? (ret-t (expr-type cexception))
@@ -3006,12 +3024,19 @@ rest-param-name (when rest-param
    (nil? drest) ;TODO
    (nil? kws)]) ;TODO
 
+(defmacro set-validator-doc! [var val-fn]
+  `(set-validator! ~var (fn [a#] (assert (~val-fn a#)
+                                         (str "Invalid reference state: " ~var
+                                              " with value: "
+                                              (pr-str a#)))
+                          true)))
+
 (def ^:dynamic *recur-target* nil)
-(set-validator! #'*recur-target* (some-fn nil? RecurTarget?))
+(set-validator-doc! #'*recur-target* (some-fn nil? RecurTarget?))
 
 ;Arguments passed to recur must match recur target exactly. Rest parameter
 ;equals 1 extra argument, either a Seqable or nil.
-(defmethod check :recur
+(add-check-method :recur
   [{:keys [args env] :as expr} & [expected]]
   (binding [vs/*current-env* env]
     (assert *recur-target* (u/error-msg "No recur target"))
@@ -3212,7 +3237,7 @@ rest-param-name (when rest-param
 ;    (assoc expr
 ;           expr-type unshadowed-type)))
 
-(defmethod check :let
+(add-check-method :let
   [{:keys [is-loop binding-inits body] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (binding [*check-let-checkfn* check]
@@ -3223,7 +3248,7 @@ rest-param-name (when rest-param
       (check-let binding-inits body expr false expected))))
 
 ; annotations are in the first expression of the body (a :do)
-(defmethod check :letfn
+(add-check-method :letfn
   [{:keys [binding-inits body] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (assert (#{:do} (:op body)))
@@ -3649,7 +3674,7 @@ rest-param-name (when rest-param
         (if expected (check-below (ret us fs3 os3 flow3) expected) (ret us fs3 os3 flow3))
         :else (u/int-error "Something happened")))))
 
-(defmethod check :if
+(add-check-method :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (let [ctest (binding [vs/*current-expr* test]
@@ -3685,7 +3710,7 @@ rest-param-name (when rest-param
            expr-type (ret (c/RClass-of Var)))))
 
 ;TODO print a hint that `ann` forms must be wrapping in `cf` at the REPL
-(defmethod check :def
+(add-check-method :def
   [{:keys [var init init-provided env] :as expr} & [expected]]
   (assert (not expected) expected)
   (assert (:line env))
@@ -3726,7 +3751,7 @@ rest-param-name (when rest-param
 
 (declare check-new-instance-method)
 
-(defmethod check :deftype*
+(add-check-method :deftype*
   [{nme :name :keys [methods env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (assert nme) ;remove once analyze is released
@@ -3819,12 +3844,12 @@ rest-param-name (when rest-param
     (assoc expr
            expr-type (expr-type cbody))))
 
-(defmethod check :import*
+(add-check-method :import*
   [{:keys [class-str] :as expr} & [expected]]
   (assoc expr
          expr-type (ret r/-nil)))
 
-(defmethod check :case*
+(add-check-method :case*
   [{:keys [] :as expr} & [expected]]
   #_(prn "Checking case")
   ; tests have no duplicates
@@ -3854,7 +3879,7 @@ rest-param-name (when rest-param
     (assoc expr
            expr-type case-result)))
 
-(defmethod check :catch
+(add-check-method :catch
   [{ecls :class, :keys [handler local-binding] :as expr} & [expected]]
   (let [local-sym (hygienic/hsym-key local-binding)
         local-type (c/RClass-of ecls)
@@ -3864,7 +3889,7 @@ rest-param-name (when rest-param
            expr-type (expr-type chandler))))
 
 ; filters don't propagate between components of a `try`, nor outside of it.
-(defmethod check :try
+(add-check-method :try
   [{:keys [try-expr catch-exprs finally-expr] :as expr} & [expected]]
   (let [ctry-expr (check try-expr expected)
         ccatch-exprs (mapv #(check % expected) catch-exprs)
@@ -3874,7 +3899,7 @@ rest-param-name (when rest-param
            expr-type (ret (apply c/Un (-> ctry-expr expr-type ret-t) 
                                  (map (comp ret-t expr-type) ccatch-exprs))))))
 
-(defmethod check :set!
+(add-check-method :set!
   [{:keys [target val] :as expr} & [expected]]
   (let [ctarget (check target)
         cval (check val (expr-type ctarget))

@@ -198,13 +198,13 @@
 
         (r/Union? s)
         ;use subtypeA*, throws error
-        (if (every? #(subtypeA* *sub-current-seen* % t) (.types ^Union s))
+        (if (every? (fn union-left [s] (subtypeA* *sub-current-seen* s t)) (.types ^Union s))
           *sub-current-seen*
           (fail! s t))
 
         ;use subtypeA*?, boolean result
         (r/Union? t)
-        (if (some #(subtypeA*? *sub-current-seen* s %) (.types ^Union t))
+        (if (some (fn union-right [t] (subtypeA*? *sub-current-seen* s t)) (.types ^Union t))
           *sub-current-seen*
           (fail! s t))
 
@@ -221,8 +221,8 @@
 
         (and (r/Intersection? s)
              (r/Intersection? t))
-        (if (every? (fn [s*]
-                      (some #(subtype? s* %) (.types ^Intersection t)))
+        (if (every? (fn intersection-both [s*]
+                      (some (fn intersection-both-inner [t*] (subtype? s* t*)) (.types ^Intersection t)))
                     (.types ^Intersection s))
           *sub-current-seen*
           (fail! s t))

@@ -879,8 +879,8 @@
                                 '~'check)
             expr-type# @(ns-resolve (find-ns '~'clojure.core.typed.check)
                                     '~'expr-type )
-            unparse-TCResult# @(ns-resolve (find-ns '~'clojure.core.typed.parse-unparse)
-                                           '~'unparse-TCResult)
+            unparse-TCResult-in-ns# @(ns-resolve (find-ns '~'clojure.core.typed.parse-unparse)
+                                           '~'unparse-TCResult-in-ns)
             ensure-clojure# @(ns-resolve (find-ns '~'clojure.core.typed.current-impl)
                                          '~'ensure-clojure)
             ast-for-form# @(ns-resolve (find-ns '~'clojure.core.typed.analyze-clj)
@@ -899,7 +899,7 @@
                     (print-errors! errors#)
                     (-> cexpr#
                         expr-type#
-                        unparse-TCResult#)))))))))
+                        (unparse-TCResult-in-ns# *ns*))))))))))
    ([form expected]
    `(do
       (load-if-needed)
@@ -907,8 +907,8 @@
                                 '~'check)
             expr-type# @(ns-resolve (find-ns '~'clojure.core.typed.check)
                                     '~'expr-type )
-            unparse-TCResult# @(ns-resolve (find-ns '~'clojure.core.typed.parse-unparse)
-                                           '~'unparse-TCResult)
+            unparse-TCResult-in-ns# @(ns-resolve (find-ns '~'clojure.core.typed.parse-unparse)
+                                                 '~'unparse-TCResult-in-ns)
             ensure-clojure# @(ns-resolve (find-ns '~'clojure.core.typed.current-impl)
                                          '~'ensure-clojure)
             ast-for-form# @(ns-resolve (find-ns '~'clojure.core.typed.analyze-clj)
@@ -933,7 +933,9 @@
                   (print-errors! errors#)
                   (-> c-ast# 
                       expr-type# 
-                      unparse-TCResult#))))))))))
+                      (unparse-TCResult-in-ns# *ns*)))))))))))
+
+(declare ^:dynamic *verbose-forms*)
 
 (defn print-errors! [errors]
   {:pre [(seq errors)
@@ -951,10 +953,15 @@
         (flush)
         (let [[_ form :as has-form?] (find data :form)]
           (when has-form?
-            (binding [*print-length* 30]
-              (println "in: " form)
+            (binding [*print-length* (when-not *verbose-forms*
+                                       4)
+                      *print-level* (when-not *verbose-forms*
+                                      2)]
+              (print "in: ")
+              (println form)
               (println)
-              (println))))
+              (println)
+              (flush))))
         (flush))))
   (throw (ex-info (str "Type Checker: Found " (count errors) " errors")
                   {:type-error :top-level-error
@@ -965,6 +972,14 @@
 (def ^:dynamic *currently-checking-clj* nil)
 (def ^:dynamic *delayed-errors*)
 
+(def ^:dynamic *verbose-types* 
+  "If true, print fully qualified types in error messages
+  and return values."
+  nil)
+(def ^:dynamic *verbose-forms* 
+  "If true, print complete forms in error messages."
+  nil)
+
 (defn -init-delayed-errors 
   "Internal use only"
   []
@@ -974,7 +989,10 @@
                                     %))))
 
 (defn check-ns
-  "Type check a namespace. If not provided default to current namespace"
+  "Type check a namespace. If not provided default to current namespace.
+  
+  Bind *verbose-types* to true to print fully qualified types.
+  Bind *verbose-forms* to print full forms in error messages."
   ([] (check-ns (ns-name *ns*)))
   ([nsym]
    (load-if-needed)

@@ -550,6 +550,65 @@
 
 (def ^:dynamic *next-nme* 0) ;stupid readable variables
 
+(def ^:dynamic *unparse-type-in-ns* nil)
+(set-validator! #'*unparse-type-in-ns* (some-fn nil? #(instance? clojure.lang.Namespace %)))
+
+(defn alias-in-ns
+  "Returns an alias for namespace sym in ns, or nil if none."
+  [nsym ns]
+  (some (fn [[alias ans]]
+          (when (= (str nsym) (str (ns-name ans)))
+            alias))
+        (ns-aliases ns)))
+
+(defn core-lang-Class-sym [clsym]
+  (when (.startsWith (str clsym) "clojure.lang.")
+    (symbol (.getSimpleName (Class/forName (str clsym))))))
+
+(defn Class-symbol-intern [clsym ns]
+  (some (fn [[isym cls]]
+          (when (= (str clsym) (str (u/Class->symbol cls)))
+            isym))
+        (ns-imports ns)))
+
+(defn var-symbol-intern 
+  "Returns a symbol interned in ns for var symbol, or nil if none.
+
+  (var-symbol-intern 'symbol (find-ns 'clojure.core))
+  ;=> 'symbol
+  (var-symbol-intern 'bar (find-ns 'clojure.core))
+  ;=> nil"
+  [sym ns]
+  (some (fn [[isym var]]
+          (when (= (str sym) (str (u/var->symbol var)))
+            isym))
+        (merge (ns-interns ns)
+               (ns-refers ns))))
+
+(defn unparse-Class-symbol-in-ns [sym]
+  (if-let [ns (and (not clojure.core.typed/*verbose-types*)
+                   *unparse-type-in-ns*)]
+        ; use an import name
+    (or (Class-symbol-intern sym ns)
+        ; core.lang classes are special
+        (core-lang-Class-sym sym)
+        ; otherwise use fully qualified name
+        sym)
+    sym))
+
+(defn unparse-var-symbol-in-ns [sym]
+  {:pre [(namespace sym)]}
+  (if-let [ns (and (not clojure.core.typed/*verbose-types*)
+                   *unparse-type-in-ns*)]
+        ; use unqualified name if interned
+    (or (var-symbol-intern sym ns)
+        ; use aliased ns if not interned, but ns is aliased
+        (when-let [alias (alias-in-ns (namespace sym) ns)]
+          (symbol (str alias) (name sym)))
+        ; otherwise use fully qualified name
+        sym)
+    sym))
+
 (declare unparse-type* unparse-object unparse-filter-set unparse-filter)
 
 (defn unparse-type [t]
@@ -562,7 +621,7 @@
 
 (defmethod unparse-type* Top [_] 'Any)
 (defmethod unparse-type* TCError [_] 'Error)
-(defmethod unparse-type* Name [{:keys [id]}] id)
+(defmethod unparse-type* Name [{:keys [id]}] (unparse-var-symbol-in-ns id))
 (defmethod unparse-type* AnyValue [_] 'AnyValue)
 
 (defmethod unparse-type* Projection 
@@ -669,13 +728,13 @@
 (defmethod unparse-type* Protocol
   [{:keys [the-var poly?]}]
   (if poly?
-    (list* the-var (mapv unparse-type poly?))
+    (list* (unparse-var-symbol-in-ns the-var) (mapv unparse-type poly?))
     the-var))
 
 (defmethod unparse-type* DataType
   [{:keys [the-class poly?]}]
   (if poly?
-    (list* the-class (mapv unparse-type poly?))
+    (list* (unparse-Class-symbol-in-ns the-class) (mapv unparse-type poly?))
     the-class))
 
 (defmulti unparse-RClass :the-class)
@@ -683,18 +742,18 @@
 (defmethod unparse-RClass 'clojure.lang.Atom
   [{:keys [the-class poly?]}]
   (let [[w r] poly?]
-    (list* the-class (map unparse-type (concat [w]
+    (list* (unparse-Class-symbol-in-ns the-class) (map unparse-type (concat [w]
                                                (when (not= w r)
                                                  [r]))))))
 
 (defmethod unparse-RClass :default
   [{:keys [the-class poly?]}]
-  (list* the-class (doall (map unparse-type poly?))))
+  (list* (unparse-Class-symbol-in-ns the-class) (doall (map unparse-type poly?))))
 
 (defmethod unparse-type* RClass
   [{:keys [the-class poly?] :as r}]
   (if (empty? poly?)
-    the-class
+    (unparse-Class-symbol-in-ns the-class)
     (unparse-RClass r)))
 
 (defmethod unparse-type* Mu
@@ -901,3 +960,6 @@
         [t fs]
         [t fs o]))))
 
+(defn unparse-TCResult-in-ns [r ns]
+  (binding [*unparse-type-in-ns* ns]
+    (unparse-TCResult r)))
