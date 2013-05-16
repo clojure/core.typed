@@ -1,3 +1,10 @@
+0.1.15
+- Code successfully AOT compiles, some exclusions (see pom.xml)
+- Error messages use abbreviated types and forms
+  - can be customised via *verbose-{types,forms}*, see check-ns docstring
+  - types are printed according to the interns, aliases and imports of
+    the currently checked namespace.
+
 0.1.14
 - Add support for mandatory and optional function keyword parameters
   - `[& {:a Number} :mandatory {:b Number} -> Any]`  takes an optional :a parameter (Number)
