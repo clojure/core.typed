@@ -140,6 +140,9 @@
 (defmethod promote Top [T V] T)
 (defmethod demote Top [T V] T)
 
+(defmethod promote CountRange [T V] T)
+(defmethod demote CountRange [T V] T)
+
 (defmethod promote TApp
   [T V]
   (-> T
