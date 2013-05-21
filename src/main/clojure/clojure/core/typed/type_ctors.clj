@@ -23,10 +23,10 @@
 (defn -hmap 
   ([types] (-hmap types #{} true))
   ([types other-keys?] (-hmap types #{} other-keys?))
-  ([types abstent-keys other-keys?]
+  ([types absent-keys other-keys?]
    (if (some #(= (Un) %) (concat (keys types) (vals types)))
      (Un)
-     (r/->HeterogeneousMap types abstent-keys other-keys?))))
+     (r/->HeterogeneousMap types absent-keys other-keys?))))
 
 (defn -complete-hmap [types]
   (-hmap types false))
@@ -351,7 +351,7 @@
       (r/Poly? t) (do (assert (= (:nbound t) (count types)) (u/error-msg "Wrong number of arguments (" (count types) 
                                                                        ") passed to polymorphic type: "
                                                                        (unparse-type t)
-                                                                       (when *current-RClass-super*
+                                                                       (when (bound? #'*current-RClass-super*)
                                                                          (str " when checking ancestors of " *current-RClass-super*))))
                       (let [nms (repeatedly (:nbound t) gensym)
                             body (Poly-body* nms t)]

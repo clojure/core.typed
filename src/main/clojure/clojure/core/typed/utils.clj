@@ -43,9 +43,11 @@
   (when-not (:line *current-env*)
     (try (throw (Exception. ""))
       (catch Exception e
-        (prn "core.typed Internal BUG! Delayed error without line number, stacktrace following...")
+        (prn "core.typed Internal BUG! Delayed error without line number, "
+             (when (contains? opt :form) (str "in form " form)))
         (prn "with env:" (pr-str *current-env*))
-        (repl/pst e))))
+        #_(binding [*err* *out*] 
+          (repl/pst e)))))
   (let [e (ex-info msg (merge {:type-error tc-error-parent}
                               (when (or (contains? opt :form)
                                         (and (bound? #'uvs/*current-expr*)

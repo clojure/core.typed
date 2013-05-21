@@ -18,6 +18,7 @@
                  #_[net.intensivesystems/arrows "1.3.0"
                     :exclusions [org.clojure/clojure]] ;for testing conduit, lein test wants it here?
                  [com.taoensso/timbre "1.6.0"]
+                 [org.clojure/core.match "0.2.0-alpha12"]
                  ]
 
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}

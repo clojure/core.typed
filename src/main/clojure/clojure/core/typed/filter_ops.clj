@@ -6,6 +6,7 @@
              [path-rep :as pr]
              [object-rep :as or]
              [utils :as u]]
+            [clojure.math.combinatorics :as comb]
             [clojure.set :as set]))
 
 (defn -filter [t i & [p]]
@@ -217,90 +218,94 @@
     (apply -and (remove #(opposite? % atom-f) (:fs and-f)))
     and-f))
 
-(defn -or [& args]
-  (loop [new-props (set args)
-         atoms #{}
-         last-props #{} ;stop iteration when (= (set/union new-props atoms) last-props)
-         ]
-    (assert ((u/set-c? atomic-filter?) atoms))
-    (assert (every? (u/set-c? fr/Filter?) [new-props last-props]))
-    (cond
-      ;reached fixed point
-      (= (set/union new-props atoms) last-props)
-      (case (count last-props)
-        0 fr/-bot
-        1 (first last-props)
-        (fr/->OrFilter last-props))
-
-      :else
-      (let [;flatten OrFilters
-            original-props (set/union new-props atoms)
-            original-atoms atoms
-            fs (-> (apply concat
-                          (for [a (set/union new-props atoms)]
-                            (if (fr/OrFilter? a)
-                              (:fs a)
-                              [a])))
-                 set (disj fr/-bot))
-            {:keys [atoms] old-props :props} (group-by #(cond
-                                                          ((some-fn fr/TypeFilter? fr/NotTypeFilter?) %) :atoms
-                                                          :else :props)
-                                                       fs)
-            ;simplify AndFilters by removing atomic props directly inside the AndFilter
-            ;if they are opposite of any atomic props we already have
-            next-props (doall
-                         (for [p old-props]
-                           (reduce (fn [p a] (remove-opposite p a))
-                                   p atoms)))
-            {:keys [atoms] new-props :props} (group-by #(cond
-                                                          ((some-fn fr/TypeFilter? fr/NotTypeFilter?) %) :atoms
-                                                          :else :props)
-                                                       (set/union (set next-props) (set atoms)))]
-        (assert (<= (count original-atoms) (count atoms)))
-        (recur (set new-props) (set atoms) (set original-props))))))
-
 ;(defn -or [& args]
-;  {:pre [(every? Filter? args)]
-;   :post [(Filter? %)]}
-;  (letfn [(mk [& fs]
-;            {:pre [(every? Filter? fs)]
-;             :post [(Filter? %)]}
-;            (cond
-;              (empty? fs) -bot
-;              (= 1 (count fs)) (first fs)
-;              :else (->OrFilter fs)))
-;          (distribute [args]
-;            (let [{ands true others false} (group-by AndFilter? args)]
-;              (if (empty? ands)
-;                (apply mk others)
-;                (let [{elems :fs} (first ands)] ;an AndFilter
-;                  (apply -and (for [a elems]
-;                                (apply -or a (concat (next ands) others))))))))]
-;    (loop [fs args
-;           result nil]
-;      (assert (every? Filter? fs))
-;      (assert (every? Filter? result))
-;      (if (empty? fs)
-;        (cond
-;          (empty? result) -bot
-;          (= 1 (count result)) (first result)
-;          :else (distribute (compact result true)))
-;        (cond
-;          (Top? (first fs)) (first fs)
-;          (OrFilter? (first fs)) (let [fs* (:fs (first fs))]
-;                                   (recur (concat fs* (next fs)) result))
-;          (BotFilter? (first fs)) (recur (next fs) result)
-;          :else (let [t (first fs)]
-;                  (assert (Filter? t))
-;                  (cond 
-;                    (some (fn [f] (opposite? f t)) (concat (rest fs) result))
-;                    -top
-;                    (some (fn [f] (or (= f t)
-;                                      (implied-atomic? f t)))
-;                          result)
-;                    (recur (next fs) result)
-;                    :else
-;                    (recur (next fs) (cons t result)))))))))
+;  (loop [new-props (set args)
+;         ;atomic propositions
+;         atoms #{}
+;         last-props #{} ;stop iteration when (= (set/union new-props atoms) last-props)
+;         ]
+;    (assert ((u/set-c? atomic-filter?) atoms))
+;    (assert (every? (u/set-c? fr/Filter?) [new-props last-props]))
+;    (cond
+;      ;reached fixed point
+;      (= (set/union new-props atoms) last-props)
+;      (case (count last-props)
+;        0 fr/-bot
+;        1 (first last-props)
+;        (fr/->OrFilter last-props))
+;
+;      :else
+;      (let [;flatten OrFilters
+;            original-props (set/union new-props atoms)
+;            original-atoms atoms
+;            fs (-> (apply concat
+;                          (for [a (set/union new-props atoms)]
+;                            (if (fr/OrFilter? a)
+;                              (:fs a)
+;                              [a])))
+;                 set (disj fr/-bot))
+;            {:keys [atoms] old-props :props} (group-by #(cond
+;                                                          ((some-fn fr/TypeFilter? fr/NotTypeFilter?) %) :atoms
+;                                                          :else :props)
+;                                                       fs)
+;            ;simplify AndFilters by removing atomic props directly inside the AndFilter
+;            ;if they are opposite of any atomic props we already have
+;            next-props (doall
+;                         (for [p old-props]
+;                           (reduce (fn [p a] (remove-opposite p a))
+;                                   p atoms)))
+;            {:keys [atoms] new-props :props} (group-by #(cond
+;                                                          ((some-fn fr/TypeFilter? fr/NotTypeFilter?) %) :atoms
+;                                                          :else :props)
+;                                                       (set/union (set next-props) (set atoms)))]
+;
+;        (assert (<= (count original-atoms) (count atoms)))
+;        (recur (set new-props) (set atoms) (set original-props))))))
+
+(declare implied-atomic?)
+
+(defn -or [& args]
+  {:pre [(every? fr/Filter? args)]
+   :post [(fr/Filter? %)]}
+  (letfn [(mk [& fs]
+            {:pre [(every? fr/Filter? fs)]
+             :post [(fr/Filter? %)]}
+            (cond
+              (empty? fs) fr/-bot
+              (= 1 (count fs)) (first fs)
+              :else (fr/->OrFilter (set fs))))
+          (distribute [args]
+            (let [{ands true others false} (group-by fr/AndFilter? args)]
+              (if (empty? ands)
+                (apply mk others)
+                (let [{elems :fs} (first ands)] ;an AndFilter
+                  (apply -and (for [a elems]
+                                (apply -or a (concat (next ands) others))))))))]
+    (loop [fs args
+           result nil]
+      (assert (every? fr/Filter? fs))
+      (assert (every? fr/Filter? result))
+      (if (empty? fs)
+        (cond
+          (empty? result) fr/-bot
+          (= 1 (count result)) (first result)
+          :else (distribute (compact result true)))
+        (cond
+          (fr/TopFilter? (first fs)) (first fs)
+          (fr/OrFilter? (first fs)) (let [fs* (:fs (first fs))]
+                                      (recur (concat fs* (next fs)) result))
+          (fr/BotFilter? (first fs)) (recur (next fs) result)
+          :else (let [t (first fs)]
+                  (assert (fr/Filter? t))
+                  (cond 
+                    (some (fn [f] (opposite? f t)) (concat (rest fs) result))
+                    fr/-top
+                    (some (fn [f] (or (= f t)
+                                      (implied-atomic? f t)))
+                          result)
+                    (recur (next fs) result)
+                    :else
+                    (recur (next fs) (cons t result)))))))))
 
 (defn -imp [a c]
   {:pre [(fr/Filter? a)
@@ -406,9 +411,11 @@
         (fr/OrFilter? f1) (boolean (some #(= % f2) (:fs f1)))
         (and (fr/TypeFilter? f1)
              (fr/TypeFilter? f2)) (and (= (:id f1) (:id f2))
+                                       (= (:path f1) (:path f2))
                                        (subtype? (:type f2) (:type f1)))
         (and (fr/NotTypeFilter? f1)
              (fr/NotTypeFilter? f2)) (and (= (:id f1) (:id f2))
+                                          (= (:path f1) (:path f2))
                                           (subtype? (:type f1) (:type f2)))
         :else false))))
 

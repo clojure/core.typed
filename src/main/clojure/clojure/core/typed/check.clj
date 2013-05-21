@@ -122,7 +122,7 @@
 
 (defmacro add-check-method [nme & body]
   `(defmethod check ~nme
-     ~(symbol (str "check " nme))
+     ~(symbol (str "check " (name nme)))
      ~@body))
 
 (defn check-expr [expr & [expected]]
@@ -998,12 +998,12 @@
           ;(prn "inferred-rng"inferred-rng)
           (if inferred-rng
             inferred-rng
-              (u/tc-delayed-error (str "Could not apply dotted function " (prs/unparse-type fexpr-type)
+              (u/tc-delayed-error (str "Could not apply dotted function " (pr-str (prs/unparse-type fexpr-type))
                                        " to arguments " (mapv prs/unparse-type arg-types))
                                   :return (or expected (ret (c/Un))))))
 
         (u/tc-delayed-error (str
-                              "Cannot invoke type: " (prs/unparse-type fexpr-type))
+                              "Cannot invoke type: " (pr-str (prs/unparse-type fexpr-type)))
                             :return (or expected (ret (c/Un)))))))))
 
 (add-check-method :var
@@ -2667,12 +2667,17 @@ rest-param-name (when rest-param
   [{:keys [local-binding] :as expr} & [expected]]
   (binding [vs/*current-env* (:env expr)]
     (let [sym (hygienic/hsym-key local-binding)
+          cur-ns (expr-ns expr)
           t (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
               (var-env/type-of sym))
-          _ (assert (or (not expected)
-                        (sub/subtype? t (ret-t expected)))
-                    (u/error-msg "Local binding " sym " expected type " (prs/unparse-type (ret-t expected))
-                                 ", but actual type " (prs/unparse-type t)))]
+          _ (when (and expected
+                       (not (sub/subtype? t (ret-t expected))))
+              (binding [prs/*unparse-type-in-ns* cur-ns]
+                ;FIXME no line number, not present in AST
+                (u/tc-delayed-error 
+                  (str "Local binding " sym " expected type " (prs/unparse-type (ret-t expected))
+                       ", but actual type " (prs/unparse-type t))
+                  :form (u/emit-form-fn expr))))]
       (assoc expr
              expr-type (ret t 
                             (fo/-FS (fo/-not-filter (c/Un r/-nil r/-false) sym)
@@ -2913,10 +2918,10 @@ rest-param-name (when rest-param
 
 (add-check-method :instance-of
   [{cls :class :keys [the-expr] :as expr} & [expected]]
-  (let [cls-stub (symbol (.getName ^Class cls))
+  (let [cls-stub (u/Class->symbol cls)
         clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
-        inst-of (or (@dt-env/DATATYPE-ENV clssym)
-                    (c/RClass-of clssym))
+        inst-of (or (dt-env/get-datatype clssym)
+                    (c/RClass-of-with-unknown-params clssym))
         cexpr (check the-expr)
         expr-tr (expr-type cexpr)]
     (assoc expr
@@ -3421,10 +3426,21 @@ rest-param-name (when rest-param
         (assert (Type? u))
         (remove* t u))
 
+      (r/Union? t) (let [ts (:types t)
+                       new-ts (mapv (fn [t] 
+                                      (let [n (update t lo)]
+                                        n))
+                                    ts)]
+                   (apply c/Un new-ts))
+      (r/Intersection? t) (let [ts (:types t)]
+                          (apply c/In (doall (map (fn [t] (update t lo)) ts))))
+
+      ;from here, t is fully resolved and is not a Union or Intersection
+
       ;heterogeneous map ops
       (and (fl/TypeFilter? lo)
            (pe/KeyPE? (first (:path lo)))
-           (r/HeterogeneousMap? t)) 
+           (r/HeterogeneousMap? t))
       (let [{:keys [type path id]} lo
             [{fpth-kw :val} & rstpth] path
             fpth (r/-val fpth-kw)
@@ -3434,15 +3450,21 @@ rest-param-name (when rest-param
           (c/Un)))
 
       (and (fl/NotTypeFilter? lo)
-           (pe/KeyPE? (first (:path lo)))
-           (r/HeterogeneousMap? t)) 
-      (let [{:keys [type path id]} lo
-            [{fpth-kw :val} & rstpth] path
-            fpth (r/-val fpth-kw)
-            type-at-pth (get (:types t) fpth)]
-        (if type-at-pth 
-          (c/-hmap (assoc (:types t) fpth (update type-at-pth (fo/-not-filter type id rstpth))))
-          (c/Un)))
+           (pe/KeyPE? (first (:path lo))))
+      (cond
+        (r/HeterogeneousMap? t)
+        (let [{:keys [type path id]} lo
+              [{fpth-kw :val} & rstpth] path
+              fpth (r/-val fpth-kw)
+              type-at-pth (get (:types t) fpth)]
+          (if type-at-pth 
+            (c/-hmap (assoc (:types t) fpth (update type-at-pth (fo/-not-filter type id rstpth))))
+            (c/Un)))
+        ; looking up something that isn't an ILookup, therefore will always result in nil
+        (not (sub/subtype? t (c/RClass-of clojure.lang.ILookup [r/-any r/-any])))
+        (update r/-nil (update-in lo [:path] rest))
+
+        :else t)
 
 
       (and (fl/TypeFilter? lo)
@@ -3486,15 +3508,6 @@ rest-param-name (when rest-param
            (pe/ClassPE? (-> lo :path first)))
       t
 
-      (r/Union? t) (let [ts (:types t)
-                       new-ts (mapv (fn [t] 
-                                      (let [n (update t lo)]
-                                        n))
-                                    ts)]
-                   (apply c/Un new-ts))
-      (r/Intersection? t) (let [ts (:types t)]
-                          (apply c/In (doall (map (fn [t] (update t lo)) ts))))
-
       ;keyword invoke of non-hmaps
       ;FIXME TypeFilter case can refine type further
       (and (or (fl/TypeFilter? lo)
@@ -3505,7 +3518,7 @@ rest-param-name (when rest-param
                        (prs/unparse-type t)))
           t)
 
-      :else (u/int-error (str "update along ill-typed path " (prs/unparse-type t) " " (with-out-str (pr lo)))))))
+      :else (u/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (with-out-str (pr lo)))))))
 
 ; f can be a composite filter. bnd-env is a the :l of a PropEnv
 ; ie. a map of symbols to types

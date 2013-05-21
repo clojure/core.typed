@@ -1324,3 +1324,34 @@
 (deftest kw-args-fail-test
   (is (caught-top-level-errors #{1}
         (check-ns 'clojure.core.typed.test.kw-args-undeclared-fail))))
+
+(deftest filter-combine-test
+  (is (check-ns 'clojure.core.typed.test.filter-combine)))
+
+(deftest or-filter-simplify-test
+  ;(| (is T  'a)
+  ;   (is T' 'a))
+  ; simplifies to
+  ;(is (U T T') 'a)
+  (is (= (-or (-filter (RClass-of clojure.lang.Symbol) 'id)
+              (-filter (RClass-of String) 'id))
+         (-filter (Un (RClass-of clojure.lang.Symbol)
+                      (RClass-of String))
+                  'id))))
+
+(deftest or-filter-update-test
+  (is (= (update -any
+                 (-or (-filter (RClass-of clojure.lang.Symbol) 'id)
+                      (-filter (RClass-of String) 'id)))
+         (Un (RClass-of clojure.lang.Symbol)
+             (RClass-of String)))))
+
+(deftest path-update-test
+  (is (= (update (Un -nil (-hmap {(-val :foo) (RClass-of Number)}))
+                 (-not-filter (Un -false -nil) 'id [(->KeyPE :foo)]))
+         (-hmap {(-val :foo) (RClass-of Number)})))
+  ; if (:foo a) is nil, either a has a :foo entry with nil, or no :foo entry
+  ; TODO
+  #_(is (= (update (-hmap {})
+                 (-filter -nil 'id [(->KeyPE :foo)]))
+         (make-HMap {} {(-val :foo) -nil}))))

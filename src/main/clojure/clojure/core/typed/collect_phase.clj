@@ -184,29 +184,29 @@
       (let [qsym (symbol (str (munge (name (ns-name *ns*))) \. (name sym)))]
         (nme-env/declare-datatype* qsym)))))
 
-(defmethod invoke-special-collect 'clojure.core.typed/declare-protocols*
-  [{:keys [args] :as expr}]
-  (assert-expr-args expr #{1})
-  (let [[syms] (constant-exprs args)]
-    (doseq [sym syms]
-      (let [qsym (if (namespace sym)
-                   sym
-                   (symbol (str (name (ns-name *ns*))) (name sym)))]
-        (nme-env/declare-protocol* qsym)))))
-
-(defmethod invoke-special-collect 'clojure.core.typed/declare-protocols*
-  [{:keys [args env] :as expr}]
-  (assert-expr-args expr #{2})
-  (let [prs-ns (chk/expr-ns expr)
-        [sym tsyn] (constant-exprs args)
-        _ (assert ((every-pred symbol? (complement namespace)) sym))
-        ty (binding [uvar/*current-env* env
-                     prs/*parse-type-in-ns* prs-ns]
-             (prs/parse-type tsyn))
-        qsym (symbol (-> prs-ns ns-name str) (str sym))]
-    (nme-env/declare-name* qsym)
-    (decl/declare-alias-kind* qsym ty)
-    nil))
+;(defmethod invoke-special-collect 'clojure.core.typed/declare-protocols*
+;  [{:keys [args] :as expr}]
+;  (assert-expr-args expr #{1})
+;  (let [[syms] (constant-exprs args)]
+;    (doseq [sym syms]
+;      (let [qsym (if (namespace sym)
+;                   sym
+;                   (symbol (str (name (ns-name *ns*))) (name sym)))]
+;        (nme-env/declare-protocol* qsym)))))
+;
+;(defmethod invoke-special-collect 'clojure.core.typed/declare-protocols*
+;  [{:keys [args env] :as expr}]
+;  (assert-expr-args expr #{2})
+;  (let [prs-ns (chk/expr-ns expr)
+;        [sym tsyn] (constant-exprs args)
+;        _ (assert ((every-pred symbol? (complement namespace)) sym))
+;        ty (binding [uvar/*current-env* env
+;                     prs/*parse-type-in-ns* prs-ns]
+;             (prs/parse-type tsyn))
+;        qsym (symbol (-> prs-ns ns-name str) (str sym))]
+;    (nme-env/declare-name* qsym)
+;    (decl/declare-alias-kind* qsym ty)
+;    nil))
 
 (defmethod invoke-special-collect 'clojure.core.typed/declare-names*
   [{:keys [args] :as expr}]
@@ -318,6 +318,7 @@
               "Protocol method names should be unqualified")
       ;qualify method names when adding methods as vars
       (let [kq (symbol protocol-defined-in-nstr (name kuq))]
+        (var-env/add-nocheck-var kq)
         (var-env/add-var-type kq mt)))
     nil))
 

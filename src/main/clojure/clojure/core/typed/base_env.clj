@@ -987,6 +987,10 @@ clojure.core/chunk-append
 ;;END CHUNK HACKS
 
 
+clojure.core/subvec (All [x] 
+                     (Fn [(IPersistentVector x) AnyInteger -> (IPersistentVector x)]
+                         [(IPersistentVector x) AnyInteger AnyInteger -> (IPersistentVector x)]))
+
 
 ;; math.numeric-tower
 
@@ -998,6 +1002,9 @@ clojure.math.numeric-tower/abs
 (Fn [AnyInteger -> AnyInteger]
     [Number -> Number])
 
+;; core.match
+
+clojure.core.match/backtrack Exception
 
       )
     {'clojure.core/count (count-type)}
