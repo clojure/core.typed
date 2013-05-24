@@ -133,6 +133,7 @@
                 (rcls/alter-class* s (c/RClass* (map :name f) vs f s {}))))
             (dt-env/add-datatype s dt)
             (var-env/add-var-type pos-ctor-name pos-ctor)
+            (var-env/add-nocheck-var pos-ctor-name)
             (when record?
               (override/add-method-override (symbol (str s) "create") map-ctor)
               (var-env/add-var-type map-ctor-name map-ctor)))))))

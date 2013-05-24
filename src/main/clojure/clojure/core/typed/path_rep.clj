@@ -1,38 +1,50 @@
 (ns clojure.core.typed.path-rep
-  (:refer-clojure :exclude [defrecord])
+  (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed
-             [utils :as u]]))
+             [utils :as u]]
+            [clojure.core.typed :as t])
+  (:import (clojure.lang Keyword)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Paths
 
-(defprotocol IPathElem)
+(t/ann-protocol IPathElem)
+(u/defprotocol IPathElem)
 
+(t/ann ^:nocheck PathElem? (predicate IPathElem))
 (defn PathElem? [a]
   (satisfies? IPathElem a))
 
+(t/ann ^:nocheck declare-path-elem [Class -> Any])
 (defn declare-path-elem [c]
   (extend c IPathElem {}))
 
+(t/ann-record FirstPE [])
 (u/defrecord FirstPE []
   "A path calling clojure.core/first"
   [])
+
+(t/ann-record NextPE [])
 (u/defrecord NextPE []
   "A path calling clojure.core/next"
   [])
 
+(t/ann-record ClassPE [])
 (u/defrecord ClassPE []
   "A path calling clojure.core/class"
   [])
 
+(t/ann-record CountPE [])
 (u/defrecord CountPE []
   "A path calling clojure.core/count"
   [])
 
+(t/ann-record KeyPE [val :- Keyword])
 (u/defrecord KeyPE [val]
   "A key in a hash-map"
   [(keyword? val)])
 
+(t/ann -kpe [Keyword -> KeyPE])
 (def -kpe ->KeyPE)
 
 (declare-path-elem FirstPE)

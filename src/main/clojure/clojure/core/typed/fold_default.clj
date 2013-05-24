@@ -91,6 +91,7 @@
 
 (add-default-fold-case DataType
                        (fn [ty _]
+                         #_(prn (clojure.core.typed.parse-unparse/unparse-type ty))
                          (-> ty
                            (update-in [:poly?] #(when %
                                                   (mapv type-rec %)))

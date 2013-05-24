@@ -418,6 +418,10 @@
                     clssym (when (class? res)
                              (u/Class->symbol res))]
                 (or (resolve-symbol qsym clssym)
+                    (when qsym
+                      (prn "WARNING: Assuming unannotated var " qsym
+                           " is a protocol.")
+                      (r/->Name qsym))
                     (when clssym
                       (c/RClass-of clssym))))
               (u/tc-error (str "Cannot resolve type: " (pr-str sym)

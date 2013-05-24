@@ -1355,3 +1355,7 @@
   #_(is (= (update (-hmap {})
                  (-filter -nil 'id [(->KeyPE :foo)]))
          (make-HMap {} {(-val :foo) -nil}))))
+
+;TODO destructuring on records
+;TODO does this instance lookup work? (cf (.the-class (->RClass ...)))
+;TODO unmunge fields (.other-keys? hmap)

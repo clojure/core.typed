@@ -1,7 +1,7 @@
 (ns clojure.core.typed.cs-gen
   (:require [clojure.core.typed
              [utils :as u]
-             [type-rep :as r]
+             [type-rep :as r :refer [TCType TCAnyType]]
              [type-ctors :as c]
              [filter-rep :as fr]
              [filter-ops :as fo]
@@ -16,6 +16,7 @@
              [free-ops :as free-ops]
              [promote-demote :as prmt]
              [subst :as subst]]
+            [clojure.core.typed :as t]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
                                         Result AnyValue Top HeterogeneousSeq RClass HeterogeneousList
@@ -23,6 +24,9 @@
                                         Function)
            (clojure.lang ISeq IPersistentList APersistentVector APersistentMap)))
 
+(t/typed-deps clojure.core.typed.utils)
+
+(t/tc-ignore
 (def cs-error ::cs-error)
 
 (u/derive-error cs-error)
@@ -30,7 +34,9 @@
 (defn cs-error? [exdata]
   (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
   (isa? (:type-error exdata) cs-error))
+  )
 
+(t/ann ^:nocheck fail! [TCAnyType TCAnyType -> Nothing])
 (defn fail! [s t]
   (throw (ex-info 
            "Constraint gen failed"
@@ -44,7 +50,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint Generation
 
+(t/ann meet [TCType TCType -> TCType])
 (defn meet [s t] (c/In s t))
+
+(t/ann join [TCType TCType -> TCType])
 (defn join [s t] (c/Un s t))
 
 (defn c-meet [{S  :S X  :X T  :T bnds  :bnds :as c1}

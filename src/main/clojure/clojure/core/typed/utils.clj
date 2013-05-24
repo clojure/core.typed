@@ -1,16 +1,19 @@
 (ns clojure.core.typed.utils
-  (:refer-clojure :exclude [defrecord])
-  (:import (clojure.lang PersistentArrayMap Var))
-  (:require [clojure.core.typed]
+  (:refer-clojure :exclude [defrecord defprotocol])
+  (:require [clojure.core.typed :as t]
             [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]
             [clojure.core.contracts.constraints :as contracts]
             [clojure.repl :as repl]
             [clojure.core.contracts]
             [clojure.tools.analyzer :as analyze]
-            [clojure.tools.analyzer.hygienic :as hygienic]))
+            [clojure.tools.analyzer.hygienic :as hygienic])
+  (:import (clojure.lang PersistentArrayMap Var Symbol)))
 
 (declare emit-form-fn)
 
+(t/ann ^:nocheck nat? (predicate t/AnyInteger))
+
+(t/tc-ignore
 (defn every-c? [c]
   #(every? c %))
 
@@ -91,8 +94,14 @@
 
 (defn int-error
   [estr]
-  (throw (ex-info estr 
-                  {:type-error int-error-kw})))
+  (let [env *current-env*]
+    (throw (ex-info (str "Internal Error "
+                         "(" (-> env :ns :name) ":" (:line env) 
+                         (when-let [col (:column env)]
+                           (str ":"col))
+                         ") "
+                         estr)
+                    {:type-error int-error-kw}))))
 
 (defn nyi-error
   [estr]
@@ -125,7 +134,19 @@
   (when-not (resolve name)
     `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc)))
 
+(defmacro defprotocol [name & args]
+  ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
+  (when-not (resolve name)
+    `(clojure.core/defprotocol ~name ~@args)))
+
 (def third (comp second next))
+
+(defmacro ann-record 
+  "Like ann-record, but also adds an unchecked annotation for core.contract's generated
+  nme? predicate."
+  [nme & args]
+  `(do (clojure.core.typed/ann-record ~nme ~@args)
+       (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:nocheck true}) ~(list 'predicate nme))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; AST ops
@@ -188,14 +209,18 @@
 ;(comp-mm replace-image (disj kinds :scope))
 ;(comp-mm replace-image (disj kinds :scope))
 
+) ;end tc-ignore
 
-(defn var->symbol [var]
+;TODO to check, needs support for instance field
+(t/ann ^:nocheck var->symbol [Var -> Symbol])
+(defn var->symbol [^Var var]
   {:pre [(var? var)]
    :post [(symbol? %)
           (namespace %)]}
-  (symbol (str (ns-name (.ns ^Var var)))
-          (str (.sym ^Var var))))
+  (symbol (str (ns-name (.ns var)))
+          (str (.sym var))))
 
+(t/ann symbol->Class [Symbol -> Class])
 (defn symbol->Class 
   "Returns the Class represented by the symbol. Works for
   primitives (eg. byte, int). Does not further resolve the symbol."
@@ -213,6 +238,7 @@
     char Character/TYPE
     (Class/forName (str sym))))
 
+(t/ann Class->symbol [Class -> Symbol])
 (defn Class->symbol [^Class cls]
   {:pre [(class? cls)]
    :post [(symbol? %)]}

@@ -447,6 +447,11 @@ clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> Var]
                         [(U Symbol Namespace) Symbol Any -> Var])
 
 
+clojure.core/doall (All [x]
+                     (Fn [(Seqable x) -> (Seqable x)]
+                         [AnyInteger (Seqable x) -> (Seqable x)]))
+clojure.core/iterate (All [x]
+                       [[x -> x] x -> (LazySeq x)])
 clojure.core/memoize (All [x y ...]
                             [[y ... y -> x] -> [y ... y -> x]])
 
@@ -880,6 +885,8 @@ clojure.core/= [Any Any * -> (U true false)]
 
 clojure.core/integer? (predicate AnyInteger)
 clojure.core/number? (predicate Number)
+clojure.core/var? (predicate clojure.lang.Var)
+clojure.core/class? (predicate Class)
 
 clojure.core/+ (Fn [AnyInteger * -> AnyInteger]
                         [Number * -> Number])
@@ -1127,6 +1134,8 @@ clojure.core.match/backtrack Exception
 
 java.lang.Object/getClass #{0}
 clojure.lang.Compiler/munge :all
+java.lang.Class/getName :all
+java.lang.Class/forName :all
 
 java.lang.Object/toString :all
 java.lang.String/toUpperCase :all

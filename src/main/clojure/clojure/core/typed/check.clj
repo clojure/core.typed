@@ -761,7 +761,8 @@
               "<NO FORM>"))
           " could not be applied to arguments:\n"
           "Domains: \n\t" 
-          (clojure.string/join "\n\t" (map (partial apply pr-str) (map (comp #(map prs/unparse-type %) :dom) (.types fin)))) 
+          (clojure.string/join "\n\t" 
+                               (map (partial apply pr-str) (map (comp #(map prs/unparse-type %) :dom) (.types fin))))
           "\n\n"
           "Arguments:\n\t" (apply prn-str (mapv (comp prs/unparse-type ret-t) arg-ret-types)) "\n"
           (when expected (str "with expected type:\n\t" (prs/unparse-type (ret-t expected)) "\n\n"))
@@ -816,13 +817,13 @@
       (and (r/RClass? fexpr-type)
            (isa? (u/symbol->Class (.the-class ^RClass fexpr-type)) IPersistentMap))
       ;rewrite ({..} x) as (f {..} x), where f is some dummy fn
-      (let [mapfn (prs/parse-type '(All [x] [(IPersistentMap Any x) Any -> (U nil x)]))]
+      (let [mapfn (prs/parse-type '(All [x] [(clojure.lang.IPersistentMap Any x) Any -> (U nil x)]))]
         (check-funapp fexpr args (ret mapfn) (concat [fexpr-ret-type] arg-ret-types) expected))
 
       ;Symbol function
       (and (r/RClass? fexpr-type)
            ('#{clojure.lang.Symbol} (.the-class ^RClass fexpr-type)))
-      (let [symfn (prs/parse-type '(All [x] [(U (IPersistentMap Any x) Any) -> (U x nil)]))]
+      (let [symfn (prs/parse-type '(All [x] [(U (clojure.lang.IPersistentMap Any x) Any) -> (U x nil)]))]
         (check-funapp fexpr args (ret symfn) arg-ret-types expected))
 
       ;Error is perfectly good fn type
@@ -1123,10 +1124,11 @@
   (assert (and atype (even? (count protos))) "Wrong arguments to extend")
   (let [catype (check atype)
         target-type (ret-t (expr-type catype))
-        _ (assert (and (r/Value? target-type)
-                       (class? (:val target-type)))
-                  (str "Must provide Class as first argument to extend, "
-                       "got" (prs/unparse-type target-type)))
+        _ (when-not (and (r/Value? target-type)
+                         (class? (:val target-type)))
+            (u/int-error
+              (str "Must provide Class as first argument to extend, "
+                   " got " (prs/unparse-type target-type))))
         ; build expected types for each method map
         extends (into {}
                       (for [[prcl-expr mmap-expr] (apply hash-map protos)]
