@@ -15,6 +15,9 @@
               [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedOutputStream])
 
 (ann ^:nocheck clojure.core/*in* java.io.Reader)
+(ann ^:nocheck clojure.core/*out* java.io.Writer)
 
 (ann ^:nocheck clojure.java.io/reader
      [clojure.java.io/IOFactory -> java.io.BufferedReader])
+(ann ^:nocheck clojure.java.io/writer
+     [clojure.java.io/IOFactory -> java.io.BufferedWriter])

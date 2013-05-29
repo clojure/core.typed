@@ -2075,8 +2075,8 @@
             (cond
               ;we've run out of cases to try, so error out
               (empty? fs)
-              (u/tc-delayed-error (str "Bad arguments to function in apply: " 
-                                       (prs/unparse-type ftype) (mapv prs/unparse-type (concat arg-tys [tail-ty]))))
+              (u/int-error (str "Bad arguments to function in apply: " 
+                                (prs/unparse-type ftype) (mapv prs/unparse-type (concat arg-tys [tail-ty]))))
 
               ;this case of the function type has a rest argument
               (and rest
@@ -2107,7 +2107,7 @@
           ;            (prn "checking fn" (prs/unparse-type (first fs))
           ;                 (mapv prs/unparse-type arg-tys)))
           (cond
-            (empty? fs) (u/tc-delayed-error (str "Bad arguments to polymorphic function in apply"))
+            (empty? fs) (u/int-error (str "Bad arguments to polymorphic function in apply"))
             ;the actual work, when we have a * function and a list final argument
             :else 
             (if-let [substitution (cgen/handle-failure

@@ -1359,3 +1359,12 @@
 ;TODO destructuring on records
 ;TODO does this instance lookup work? (cf (.the-class (->RClass ...)))
 ;TODO unmunge fields (.other-keys? hmap)
+;TODO this is non-nil (last (take 100 (iterate update-without-plot initial-state)))
+;TODO 
+;          {final-grid :grid,
+;           :as final-state} (last (take 100 (iterate update-without-plot initial-state)))
+;          _ (assert final-state)
+;          ; be smart enough to infer final-grid cannot be nil just from the above assertion.
+;          _ (assert final-grid)
+
+;TODO support (some #{...} coll)
