@@ -1247,11 +1247,12 @@
                expr-type (ret (c/KwArgsSeq->HMap targett)))
 
         :else
-        (let [_ (assert (r/HeterogeneousSeq? targett) 
-                        (u/error-msg "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
-                                     (prs/unparse-type targett)
-                                     "\n\nForm:\n\t"
-                                     (u/emit-form-fn expr)))
+        (let [_ (when-not (r/HeterogeneousSeq? targett) 
+                  (u/int-error (str "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
+                                    (prs/unparse-type targett)
+                                    "\n\nHint: Check the expected type of the function and the actual argument list for any differences. eg. extra undeclared arguments"
+                                    "\n\nForm:\n\t"
+                                    (u/emit-form-fn expr))))
               res (reduce (fn [t [kt vt]]
                             {:pre [(Type? t)]}
                             ;preserve bottom
@@ -2654,11 +2655,17 @@ rest-param-name (when rest-param
                                env
                                (-> env
                                    (env+ [flow] flow-atom)))
-                        _ (assert @flow-atom (str "Applying flow filter resulted in local being bottom"
-                                                  "\n"
-                                                  (with-out-str (print-env* nenv))
-                                                  "\nOld: "
-                                                  (with-out-str (print-env* env))))]
+                        _ (when-not @flow-atom 
+                            (binding [; always prefer envs with :line information, even if inaccurate
+                                                  vs/*current-env* (if (:line (:env expr))
+                                                                     (:env expr)
+                                                                     vs/*current-env*)
+                                      vs/*current-expr* expr]
+                              (u/int-error (str "Applying flow filter resulted in local being bottom"
+                                                "\n"
+                                                (with-out-str (print-env* nenv))
+                                                "\nOld: "
+                                                (with-out-str (print-env* env))))))]
                     [nenv (conj exprs cexpr)]))
                 [lex/*lexical-env* []] (map-indexed vector exprs))]
     (assoc expr
@@ -3119,7 +3126,14 @@ rest-param-name (when rest-param
                                                                      (apply concat 
                                                                             (combine-props p* % (atom true)))))
                                               (env+ [(if (= fl/-bot flow-f) fl/-top flow-f)] flow-atom))
-                                  _ (assert @flow-atom "Applying flow filter resulted in local being bottom")]
+                                  _ (when-not @flow-atom 
+                                      (binding [vs/*current-expr* init]
+                                        (u/int-error
+                                          (str "Applying flow filter resulted in local being bottom"
+                                               "\n"
+                                               (with-out-str (print-env* new-env))
+                                               "\nOld: "
+                                               (with-out-str (print-env* env))))))]
                               new-env)
 
                             (fl/NoFilter? fl) (do

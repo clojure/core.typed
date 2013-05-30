@@ -662,6 +662,9 @@ clojure.core/repeat (All [x]
                          (Fn [x -> (Seqable x)]
                              [AnyInteger x -> (Seqable x)]))
 
+;inaccurate, could do much more with filters
+; need to design better intersection simplification.
+clojure.core/every? (All [x] [[x -> Any] (Seqable x) -> Boolean])
 
 clojure.core/range
 (Fn [-> (LazySeq AnyInteger)]
