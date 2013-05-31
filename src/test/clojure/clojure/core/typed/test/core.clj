@@ -1368,3 +1368,4 @@
 ;          _ (assert final-grid)
 
 ;TODO support (some #{...} coll)
+;TODO (apply == (non-empty-seq))

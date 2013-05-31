@@ -658,8 +658,8 @@
                                          (seq mandatory-kw) (str "and " (count mandatory-kw) "  mandatory keyword arguments")
                                          (seq optional-kw) " and some optional keyword arguments"))
                                  ", and got " nactual
-                                 " for function " (prs/unparse-type ftype0) 
-                                 " and arguments " (mapv (comp prs/unparse-type ret-t) argtys))))
+                                 " for function " (pr-str (prs/unparse-type ftype0))
+                                 " and arguments " (pr-str (mapv (comp prs/unparse-type ret-t) argtys)))))
       (cond
         ; case for regular rest argument, or no rest parameter
         (or rest (empty? (remove nil? [rest drest kws])))
@@ -685,7 +685,7 @@
                                       (set/difference (set (keys mandatory-kw))
                                                       (set (keys kw-args-paired-t))))]
                 (u/tc-delayed-error (str "Missing mandatory keyword keys: "
-                                         (interpose ", " (map prs/unparse-type missing-ks)))))
+                                         (pr-str (interpose ", " (map prs/unparse-type missing-ks))))))
               ;check each keyword argument is correctly typed
               (doseq [[kw-key-t kw-val-t] kw-args-paired-t]
                 (when-not (r/Value? kw-key-t)
@@ -720,7 +720,7 @@
          seen #{}]
     (if (seen etype)
       (u/int-error (str "Stuck in loop, cannot resolve function type "
-                        (prs/unparse-type (ret-t expected))))
+                        (pr-str (prs/unparse-type (ret-t expected)))))
       (let [seen (conj seen etype)]
         (cond
           (r/Name? etype) (recur (c/resolve-Name etype) seen)
