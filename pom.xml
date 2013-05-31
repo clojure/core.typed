@@ -47,13 +47,9 @@
     <!-- for algo.monads -->
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>tools.namespace</artifactId>
-      <version>0.2.3</version>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
       <artifactId>tools.macro</artifactId>
       <version>0.1.0</version>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -77,11 +73,11 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <dependency>
+    <!--<dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojurescript</artifactId>
       <version>0.0-1450</version>
-    </dependency>
+    </dependency>-->
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.trace</artifactId>
@@ -92,6 +88,7 @@
           <artifactId>clojure</artifactId>
         </exclusion>
       </exclusions>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
