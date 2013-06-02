@@ -1,6 +1,6 @@
 (ns clojure.core.typed.check
   (:refer-clojure :exclude [defrecord])
-  (:require [clojure.core.typed :refer [*already-checked*]]
+  (:require [clojure.core.typed :as t :refer [*already-checked* letfn>]]
             [clojure.core.typed
              [utils :as u]
              [parse-unparse :as prs]
@@ -44,16 +44,18 @@
             [clojure.set :as set])
   (:import (clojure.core.typed.lex_env PropEnv)
            (clojure.core.typed.type_rep Function FnIntersection RClass Poly DottedPretype HeterogeneousSeq
-                                        Value KwArgs HeterogeneousMap DataType)
+                                        Value KwArgs HeterogeneousMap DataType TCResult HeterogeneousVector)
            (clojure.core.typed.object_rep Path)
            (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet)
-           (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector)))
+           (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector
+                         )))
 
 ;==========================================================
 ; # Type Checker
 ;
 ; The type checker is implemented here.
 
+(t/ann tc-warning [Any * -> nil])
 (defn tc-warning [& ss]
   (let [env vs/*current-env*]
     (binding [*out* *err*]
@@ -67,6 +69,7 @@
 
 (declare expr-ns)
 
+(t/ann expected-error [r/TCType r/TCType -> nil])
 (defn expected-error [actual expected]
   (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
                                          (when vs/*current-expr*
@@ -77,13 +80,17 @@
 
 (declare check-expr)
 
+(t/ann checked-ns! [Symbol -> nil])
 (defn- checked-ns! [nsym]
-  (swap! *already-checked* conj nsym))
+  (swap! *already-checked* conj nsym)
+  nil)
 
+(t/ann already-checked? [Symbol -> Boolean])
 (defn- already-checked? [nsym]
   (boolean (@*already-checked* nsym)))
 
 
+(t/ann check-ns-and-deps [Symbol -> nil])
 (defn check-ns-and-deps 
   "Type check a namespace and its dependencies.
   Assumes type annotations in each namespace
@@ -107,6 +114,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
 
+(t/ann expr-ns [Any -> Namespace])
 (defn expr-ns [expr]
   (let [nsym (-> expr :env :ns :name symbol)
         _ (assert nsym (str "Bug! " (:op expr) " expr has no associated namespace"))
@@ -206,7 +214,9 @@
 (add-check-method :vector
   [{:keys [args] :as expr} & [expected]]
   (let [cargs (mapv check args)
-        res-type (r/-hvec (mapv (comp ret-t expr-type) cargs))
+        res-type (r/-hvec (mapv (comp ret-t expr-type) cargs)
+                          :filters (mapv (comp ret-f expr-type) cargs)
+                          :objects (mapv (comp ret-o expr-type) cargs))
         _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
             (expected-error res-type (ret-t expected)))]
     (assoc expr
@@ -1420,27 +1430,51 @@
     (assoc expr
            expr-type (apply tc-equiv := (map expr-type cargs)))))
 
-;[TCResult TCResult -> TCResult]
-(defn tc-isa? [child-ret parent-ret]
+(t/ann hvec->rets [HeterogeneousVector -> (Seqable TCResult)])
+(defn hvec->rets [^HeterogeneousVector v]
+  {:pre [(r/HeterogeneousVector? v)]
+   :post [(every? TCResult? %)]}
+  (map ret
+       (.types v)
+       (.fs v)
+       (.objects v)))
+
+(t/ann tc-isa? [TCResult TCResult -> TCResult])
+(defn tc-isa? 
+  "Type check a call to isa?. Assumes global hierarchy.
+  Also supports the case where both elements are vectors, but not recursively."
+  [child-ret parent-ret]
   {:pre [(TCResult? child-ret)
          (TCResult? parent-ret)]
    :post [(TCResult? %)]}
-  ;  (prn "tc-isa?")
-  ;  (prn "child-ret" child-ret)
-  ;  (prn "parent-ret" parent-ret)
-  (let [parent-t (ret-t parent-ret)
-        fs (fo/-FS (fo/-filter-at parent-t (ret-o child-ret))
-                   (fo/-not-filter-at parent-t (ret-o child-ret)))]
-    ;    (prn "fs" fs)
-    ;    (prn "child object" (ret-o child-ret))
-    (ret (c/Un r/-true r/-false) fs obj/-empty)))
+  (letfn> [fs :- [TCResult TCResult -> '{:then fl/IFilter :else fl/IFilter}]
+           (fs [child1 parent1]
+             {:pre [(TCResult? child1)
+                    (TCResult? parent1)]
+              :post [((u/hmap-c? :then fl/Filter? :else fl/Filter?) %)]}
+             {:then (fo/-filter-at (ret-t parent1) (ret-o child1))
+              :else (fo/-not-filter-at (ret-t parent1) (ret-o child1))})]
+    (let [child-t (ret-t child-ret)
+          parent-t (ret-t parent-ret)
+          fs (cond
+               ; interesting case with (isa? [...] [...])
+               ; use each pairing between child and parent
+               (and (r/HeterogeneousVector? child-t)
+                    (r/HeterogeneousVector? parent-t))
+               (let [individual-fs (map fs (hvec->rets child-t) (hvec->rets parent-t))]
+                 (fo/-FS (apply fo/-and (map :then individual-fs))
+                         (apply fo/-or (map :else individual-fs))))
+               ; simple (isa? child parent) 
+               :else (let [{:keys [then else]} (fs child-ret parent-ret)]
+                       (fo/-FS then else)))]
+      (ret (c/Un r/-true r/-false) fs obj/-empty))))
 
 
 ;isa? (2 arity only)
 (defmethod invoke-special 'clojure.core/isa?
   [{:keys [args] :as expr} & [expected]]
   (when-not (= 2 (count args))
-    (u/nyi-error "Only supports 2 argument invocations of isa?"))
+    (u/nyi-error "core.typed supports 2 argument invocations of isa?"))
   (let [[cchild-expr cparent-expr :as cargs] (mapv check args)]
     (assoc expr
            expr-type (tc-isa? (expr-type cchild-expr)
@@ -1636,8 +1670,9 @@
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [cargs (doall (map check args))]
     (assoc expr
-           expr-type (ret (r/-hvec
-                            (mapv (comp ret-t expr-type) cargs))))))
+           expr-type (ret (r/-hvec (mapv (comp ret-t expr-type) cargs)
+                                   :filters (mapv (comp ret-f expr-type) cargs)
+                                   :objects (mapv (comp ret-o expr-type) cargs))))))
 
 ;make hash-map
 (defmethod invoke-special 'clojure.core/hash-map
@@ -2883,27 +2918,31 @@ rest-param-name (when rest-param
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   #_(prn "instance-field:" expr)
-  (assert (:target-class expr) "Instance fields require type hints")
-  (let [; may be prefixed by COMPILE-STUB-PREFIX
-        target-class (symbol
-                       (str/replace-first (.getName ^Class (:target-class expr))
-                                          (str COMPILE-STUB-PREFIX ".")
-                                          ""))
-        ;_ (prn (:target-class expr))
-        ;_ (prn "target class" (str target-class) target-class)
-        ;_ (prn (class target-class))
-        fsym (symbol (:field-name expr))]
-    (if-let [dtp (@dt-env/DATATYPE-ENV target-class)]
-      (let [dt (if (r/Poly? dtp)
-                 ;generate new names
-                 (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
-                 dtp)
-            _ (assert ((some-fn r/DataType? r/Record?) dt))
-            ft (or (-> dt :fields (get fsym))
-                   (u/tc-delayed-error (str "No field " fsym " in Datatype " target-class)))]
-        (assoc expr
-               expr-type (ret ft)))
-      (u/nyi-error ":instance-field NYI"))))
+  (binding [vs/*current-expr* expr]
+    (when-not (:target-class expr) 
+      (u/int-error (str "Call to instance field "
+                        (symbol (:field-name expr))
+                        " requires type hints.")))
+    (let [; may be prefixed by COMPILE-STUB-PREFIX
+          target-class (symbol
+                         (str/replace-first (.getName ^Class (:target-class expr))
+                                            (str COMPILE-STUB-PREFIX ".")
+                                            ""))
+          ;_ (prn (:target-class expr))
+          ;_ (prn "target class" (str target-class) target-class)
+          ;_ (prn (class target-class))
+          fsym (symbol (:field-name expr))]
+      (if-let [dtp (@dt-env/DATATYPE-ENV target-class)]
+        (let [dt (if (r/Poly? dtp)
+                   ;generate new names
+                   (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
+                   dtp)
+              _ (assert ((some-fn r/DataType? r/Record?) dt))
+              ft (or (-> dt :fields (get fsym))
+                     (u/tc-delayed-error (str "No field " fsym " in Datatype " target-class)))]
+          (assoc expr
+                 expr-type (ret ft)))
+        (u/nyi-error (str "Instance field lookup NYI, with field " fsym))))))
 
 ;[Symbol -> Type]
 (defn DataType-ctor-type [sym]
@@ -2975,7 +3014,7 @@ rest-param-name (when rest-param
           "Non :default default dispatch value NYI")
   (let [mm-name (:val nme-expr)
         _ (assert (string? (:val nme-expr)))
-        mm-qual (symbol (str (ns-name *ns*)) mm-name)
+        mm-qual (symbol (str (ns-name (expr-ns expr))) mm-name)
         ;_ (prn "mm-qual" mm-qual)
         ;_ (prn "expected ret-t" (prs/unparse-type (ret-t expected)))
         ;_ (prn "expected ret-t class" (class (ret-t expected)))

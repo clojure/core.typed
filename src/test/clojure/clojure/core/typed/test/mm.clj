@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.mm
   (:import (clojure.lang IPersistentMap))
-  (:require [clojure.core.typed :refer [def-alias ann check-ns print-env cf]]
+  (:require [clojure.core.typed :refer [def-alias ann check-ns print-env cf ann-form]]
             [clojure.tools.analyzer :refer [ast]]
             [clojure.repl :refer [pst]]))
 
@@ -10,15 +10,22 @@
        :b Number}
      '{:op ':test2}))
 
-(ann MapToString [Expr -> String])
+(ann single-dispatch [Expr -> Any])
 
 ; Expected type for :op
 ; -> (All [x] [Any -> x :object {:id 0 :path [(Key :op)]}
-; Dispatch 
-(defmulti MapToString :op)
+(defmulti single-dispatch :op)
 
-;(isa? (:op 0th) :test1)
-(defmethod MapToString :test1
+; check a has been refined correctly
+(defmethod single-dispatch :test1
   [a]
-  (print-env "mm")
-  )
+  (ann-form a '{:op ':test1}))
+
+(ann multi-dipatch [Expr Expr -> Any])
+(defmulti multi-dipatch (fn [a b]
+                          [(:op a) (:op b)]))
+
+(defmethod multi-dipatch [:test1 :test2]
+  [a b]
+  (ann-form a '{:op ':test1})
+  (ann-form b '{:op ':test2}))

@@ -105,8 +105,14 @@
 
 (defn nyi-error
   [estr]
-  (throw (ex-info estr 
-                  {:type-error nyi-error-kw})))
+  (let [env *current-env*]
+    (throw (ex-info (str "core.typed Not Yet Implemented Error:"
+                           "(" (-> env :ns :name) ":" (:line env) 
+                           (when-let [col (:column env)]
+                             (str ":"col))
+                           ") "
+                           estr)
+                    {:type-error nyi-error-kw}))))
 
 (defmacro with-ex-info-handlers 
   "Handle an ExceptionInfo e thrown in body. The first handler whos left hand

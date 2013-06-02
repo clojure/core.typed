@@ -420,7 +420,7 @@
   (is (subtype? (parse-type '(List* (Value 1) (Value 2)))
                 (RClass-of ISeq [(->Top)])))
   (is (= (tc-t [1 2])
-         (ret (->HeterogeneousVector [(->Value 1) (->Value 2)]) (-true-filter) -empty)))
+         (ret (-hvec [(->Value 1) (->Value 2)]) (-true-filter) -empty)))
   (is (= (tc-t '(1 2))
          (ret (->HeterogeneousList [(->Value 1) (->Value 2)]) (-true-filter) -empty)))
   (is (= (tc-t {:a 1})
@@ -428,7 +428,7 @@
   (is (= (tc-t {})
          (ret (-complete-hmap {}) (-true-filter) -empty)))
   (is (= (tc-t [])
-         (ret (->HeterogeneousVector []) (-true-filter) -empty)))
+         (ret (-hvec []) (-true-filter) -empty)))
   (is (= (tc-t '())
          (ret (->HeterogeneousList []) (-true-filter) -empty)))
   (is-cf '(a b) (List* clojure.lang.Symbol clojure.lang.Symbol)))
@@ -908,7 +908,7 @@
                                     'y (->c (Un) 'y (->Top) no-bounds)})])))
   ;intersections correctly inferred
   (is (= (cs-gen '#{} {'x no-bounds} '{} 
-                 (->HeterogeneousVector [(RClass-of Number)])
+                 (-hvec [(RClass-of Number)])
                  (In (RClass-of Seqable [(make-F 'x)]) (make-CountRange 1)))
          (->cset [(make-cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)})])))
 ;correct RClass ancestor inference
@@ -940,7 +940,7 @@
                 (RClass-of ASeq [(make-F 'x)])))) ;result
   (is (= (infer {'x no-bounds} ;tv env
                 {}
-                [(->HeterogeneousVector [(-val 1) (-val 2) (-val 3)])] ;actual
+                [(-hvec [(-val 1) (-val 2) (-val 3)])] ;actual
                 [(RClass-of Seqable [(make-F 'x)])] ;expected
                 (RClass-of ASeq [(make-F 'x)]))))) ;result
 
@@ -1018,7 +1018,7 @@
   (is (subtype? (-> (tc-t (clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap Long String)]
                                           (find a 1)))
                   :t :types first :rng :t)
-                (Un (->HeterogeneousVector [(RClass-of Long) (RClass-of String)])
+                (Un (-hvec [(RClass-of Long) (RClass-of String)])
                     -nil))))
 
 (deftest map-infer-test
@@ -1052,7 +1052,7 @@
   ;Vector destructuring with :as
   (is (= (ret-t (tc-t (let [[a b :as c] (clojure.core.typed/ann-form [1 2] (clojure.lang.Seqable Number))] 
                         [a b c])))
-         (->HeterogeneousVector [(Un -nil (RClass-of Number))
+         (-hvec [(Un -nil (RClass-of Number))
                                  (Un -nil (RClass-of Number))
                                  (RClass-of Seqable [(RClass-of Number)])])))
   (is (= (ret-t (tc-t (let [[a b :as c] [1 2]] 
@@ -1355,6 +1355,9 @@
   #_(is (= (update (-hmap {})
                  (-filter -nil 'id [(->KeyPE :foo)]))
          (make-HMap {} {(-val :foo) -nil}))))
+
+(deftest multimethod-test
+  (is (check-ns 'clojure.core.typed.test.mm)))
 
 ;TODO destructuring on records
 ;TODO does this instance lookup work? (cf (.the-class (->RClass ...)))

@@ -99,6 +99,6 @@
       (= datatype-name-type t) (dtenv/resolve-datatype sym)
       (= declared-name-type t) (throw (IllegalArgumentException. (str "Reference to declared but undefined name " sym)))
       (r/Type? t) (vary-meta t assoc :source-Name sym)
-      :else (throw (IllegalArgumentException. (u/error-msg "Cannot resolve name " sym
-                                                           (when t
-                                                             (str " (Resolved to instance of)" (class t)))))))))
+      :else (u/int-error (str "Cannot resolve name " (pr-str sym)
+                              (when t
+                                (str " (Resolved to instance of)" (pr-str (class t)))))))))

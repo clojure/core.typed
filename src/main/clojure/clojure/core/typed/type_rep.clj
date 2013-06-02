@@ -21,6 +21,38 @@
 (alias 'or 'clojure.core.typed.object-rep)
   )
 
+(t/tc-ignore
+(defn- Filter?-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) 'Filter?)]
+    (assert (var? v) "Filter? unbound")
+    v))
+
+(defn- FilterSet?-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) 'FilterSet?)]
+    (assert (var? v) "FilterSet? unbound")
+    v))
+
+(defn- -FS-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-ops) '-FS)]
+    (assert (var? v) "-FS unbound")
+    v))
+
+(defn RObject?-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.object-rep) 'RObject?)]
+    (assert (var? v) "RObject? unbound")
+    v))
+
+(defn -top-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) '-top)]
+    (assert (var? v) "-top unbound")
+    v))
+
+(defn -empty-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.object-rep) '-empty)]
+    (assert (var? v) "-empty unbound")
+    v))
+  )
+
 ;(set! *warn-on-reflection* true)
 
 ;;; Type rep predicates
@@ -392,17 +424,37 @@
 
 (declare-type HeterogeneousMap)
 
-(u/ann-record HeterogeneousVector [types :- (IPersistentVector TCType)])
-(u/defrecord HeterogeneousVector [types]
+(u/ann-record HeterogeneousVector [types :- (IPersistentVector TCType)
+                                   fs :- (IPersistentVector TempFilterSet)
+                                   objects :- (IPersistentVector or/IRObject)])
+(u/defrecord HeterogeneousVector [types fs objects]
   "A constant vector, clojure.lang.IPersistentVector"
   [(vector? types)
-   (every? (some-fn Type? Result?) types)])
+   (every? (some-fn Type? Result?) types)
+   (vector? fs)
+   (let [FilterSet? @(FilterSet?-var)]
+     (every? FilterSet? fs))
+   (vector? objects)
+   (let [RObject? @(RObject?-var)]
+     (every? RObject? objects))
+   (apply = (map count [types fs objects]))])
 
-(t/ann -hvec [(IPersistentVector TCType) -> TCType])
-(defn -hvec [types]
-  (if (some Bottom? types)
-    (Bottom)
-    (->HeterogeneousVector types)))
+(t/ann ^:nocheck -hvec 
+       [(IPersistentVector TCType) & {:filters (Seqable TempFilterSet) :objects (Seqable or/IRObject)} -> TCType])
+(defn -hvec 
+  [types & {:keys [filters objects]}]
+  (let [-FS @(-FS-var)
+        -top @(-top-var)
+        -empty @(-empty-var)]
+    (if (some Bottom? types)
+      (Bottom)
+      (->HeterogeneousVector types
+                             (if filters
+                               (vec filters)
+                               (vec (repeat (count types) (-FS -top -top))))
+                             (if objects
+                               (vec objects)
+                               (vec (repeat (count types) -empty)))))))
 
 (declare-type HeterogeneousVector)
 
@@ -546,22 +598,6 @@
 
 (declare-type ListDots)
 
-(t/tc-ignore
-(defn- Filter?-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) 'Filter?)]
-    (assert (var? v) "Filter? unbound")
-    v))
-
-(defn- FilterSet?-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) 'FilterSet?)]
-    (assert (var? v) "FilterSet? unbound")
-    v))
-
-(defn RObject?-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.object-rep) 'RObject?)]
-    (assert (var? v) "RObject? unbound")
-    v))
-  )
 
 (u/ann-record Result [t :- TCType,
                       fl :- fr/IFilter
@@ -633,23 +669,6 @@
 (defn -flow [normal]
   (->FlowSet normal))
 
-(t/tc-ignore
-(defn- -FS-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-ops) '-FS)]
-    (assert (var? v) "-FS unbound")
-    v))
-
-(defn- -top-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) '-top)]
-    (assert (var? v) "-top unbound")
-    v))
-
-(defn- ->EmptyObject-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.object-rep) '->EmptyObject)]
-    (assert (var? v) "->EmptyObject unbound")
-    v))
-  )
-
 (t/def-alias TempFilterSet
   "Can't import FilterSet here, so an alias will do for now"
   clojure.core.typed.filter_rep.FilterSet)
@@ -663,12 +682,12 @@
   "Convenience function for returning the type of an expression"
   ([t] (let [-FS @(-FS-var)
              -top @(-top-var)
-             ->EmptyObject @(->EmptyObject-var)]
-         (ret t (-FS -top -top) (->EmptyObject) (-flow -top))))
+             -empty @(-empty-var)]
+         (ret t (-FS -top -top) -empty (-flow -top))))
   ([t f] 
    (let [-top @(-top-var)
-         ->EmptyObject @(->EmptyObject-var)]
-     (ret t f (->EmptyObject) (-flow -top))))
+         -empty @(-empty-var)]
+     (ret t f -empty (-flow -top))))
   ([t f o] 
    (let [-top @(-top-var)]
      (ret t f o (-flow -top))))
@@ -738,8 +757,8 @@
   ([t f o] 
    (let [-FS @(-FS-var)
          -top @(-top-var)
-         ->EmptyObject @(->EmptyObject-var)]
-     (->Result t (or f (-FS -top -top)) (or o (->EmptyObject))))))
+         -empty @(-empty-var)]
+     (->Result t (or f (-FS -top -top)) (or o -empty)))))
 
 (t/ann ^:nocheck make-Function
        (Fn [(U nil (Seqable TCType)) TCType -> Function]
@@ -758,8 +777,8 @@
   ([dom rng rest drest & {:keys [filter object mandatory-kws optional-kws]}]
    (let [-FS @(-FS-var)
          -top @(-top-var)
-         ->EmptyObject @(->EmptyObject-var)]
-     (->Function dom (->Result rng (or filter (-FS -top -top)) (or object (->EmptyObject))) 
+         -empty @(-empty-var)]
+     (->Function dom (->Result rng (or filter (-FS -top -top)) (or object -empty)) 
                  rest drest (when (or mandatory-kws optional-kws)
                               (->KwArgs (or mandatory-kws {})
                                         (or optional-kws {})))))))

@@ -113,6 +113,7 @@
          subtype-datatypes-or-records subtype-Result subtype-PrimitiveArray
          subtype-CountRange subtype-TypeFn subtype-RClass)
 
+;TODO replace hardcoding cases for unfolding Mu? etc. with a single case for unresolved types.
 ;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
 (defn subtypeA* [A s t]
   {:post [(set? %)]}
@@ -249,17 +250,27 @@
 
         (and (r/HeterogeneousVector? s)
              (r/HeterogeneousVector? t))
-        (if (= (count (:types s))
-               (count (:types t)))
-          (or (last (doall (map #(subtype %1 %2) (:types s) (:types t))))
-              #{})
-          (fail! s t))
+        (let [^HeterogeneousVector s s
+              ^HeterogeneousVector t t]
+          (if (and (= (count (.types s))
+                      (count (.types t)))
+                   ; ignore interesting results
+                   (every? (fn [[f1 f2]] (or (= (fops/-FS fr/-top fr/-top) f2)
+                                             (= f1 f2)))
+                           (map vector (.fs s) (.fs t)))
+                   ; ignore interesting results
+                   (every? (fn [[o1 o2]] (or (orep/EmptyObject? o2)
+                                             (= o1 o2)))
+                           (map vector (.objects s) (.objects t))))
+            (or (last (doall (map subtype (.types s) (.types t))))
+                #{})
+            (fail! s t)))
 
         (and (r/HeterogeneousList? s)
              (r/HeterogeneousList? t))
         (if (= (count (:types s))
                (count (:types t)))
-          (or (last (doall (map #(subtype %1 %2) (:types s) (:types t))))
+          (or (last (doall (map subtype (:types s) (:types t))))
               #{})
           (fail! s t))
 

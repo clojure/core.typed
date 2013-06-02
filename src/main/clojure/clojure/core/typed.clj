@@ -113,7 +113,11 @@
 
 (defn print-filterset
   "During type checking, print the filter set attached to form, 
-  preceeded by literal string debug-string"
+  preceeded by literal string debug-string.
+  Returns nil.
+  
+  eg. (let [s (seq (get-a-seqable))]
+        (print-filterset \"Here now\" s))"
   [debug-string frm]
   frm)
 
@@ -134,7 +138,8 @@
 
 (defmacro inst-ctor
   "Instantiate a call to a constructor with a number of types.
-  First argument must be an immediate call to a constructor."
+  First argument must be an immediate call to a constructor.
+  Returns exactly the instantiatee (the first argument)."
   [inst-of & types]
   `(inst-poly-ctor ~inst-of '~types))
 
@@ -154,7 +159,10 @@
   loop-of)
 
 (defmacro dotimes>
-  "Like dotimes."
+  "Like dotimes.
+  
+  eg. (dotimes> [_ 100]
+        (println \"like normal\"))"
   [bindings & body]
   (@#'clojure.core/assert-args
      (vector? bindings) "a vector for its binding"
@@ -171,11 +179,10 @@
   "Like for but requires annotation for each loop variable: [a [1 2]] becomes [a :- Long [1 2]]
   Also requires annotation for return type.
   
-  eg.
-  (for> :- Number
+  eg. (for> :- Number
         [a :- (U nil AnyInteger) [1 nil 2 3]
          :when a]
-     (inc a))"
+        (inc a))"
   [tk ret-ann seq-exprs body-expr]
   (@#'clojure.core/assert-args
      (vector? seq-exprs) "a vector for its binding"
@@ -486,25 +493,46 @@
   (let [{:keys [poly fn parsed-methods]} (parse-fn> true forms)]
     `(pfn>-ann ~fn '~poly '~parsed-methods)))
 
-(defmacro fn> 
-  "Define a typed anonymous function.
-  (fn> name? :- type? [[param :- type]* & [param :- type *]?] exprs*)
-  (fn> name? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
+(defmacro 
+  ^{:forms '[(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
+             (fn> name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
+  fn> 
+  "Like fn, but with annotations. Annotations are mandatory
+  for parameters, with optional annotations for return type.
+  If fn is named, return type annotation is mandatory.
+
+  Suggested idiom: use commas between parameter annotation triples.
+
+  eg. (fn> [a :- Number, b :- (U Symbol nil)] ...)
+
+      ;annotate return
+      (fn> :- String [a :- String] ...)
+
+      ;named fn
+      (fn> fname :- String [a :- String] ...)
+
+      ;multi-arity
+      (fn> fname 
+        (:- String [a :- String] ...)
+        (:- Long   [a :- String, b :- Number] ...))"
   [& forms]
   (let [{:keys [fn parsed-methods]} (parse-fn> false forms)]
     `(fn>-ann ~fn '~parsed-methods)))
 
-(defmacro letfn> 
-  "Like letfn, but each binding must be annotated.
+(defmacro 
+  ^{:forms '[(letfn> [fn-spec-or-annotation*] expr*)]}
+  letfn>
+  "Like letfn, but each function spec must be annotated.
 
-  eg.
-  (letfn> [a :- [Number -> Number]
-           (a [b] 2)
-           c :- [Symbol -> nil]
-           (c [s] nil)]
-    ...)"
-  [bindings & body]
-  (let [; (Vector (U '[Symbol TypeSyn] LetFnInit))
+  eg. (letfn> [a :- [Number -> Number]
+               (a [b] 2)
+
+               c :- [Symbol -> nil]
+               (c [s] nil)]
+        ...)"
+  [fn-specs-and-annotations & body]
+  (let [bindings fn-specs-and-annotations
+        ; (Vector (U '[Symbol TypeSyn] LetFnInit))
         normalised-bindings
         (loop [[fbnd :as bindings] bindings
                norm []]
@@ -536,15 +564,24 @@
 
 
 (defmacro defprotocol> [& body]
-  "Define a typed protocol. Syntax like defprotocol."
+  "Like defprotocol, but required for type checking
+  its macroexpansion.
+  
+  eg. (defprotocol> MyProtocol
+        (a [this]))"
   `(tc-ignore
      (defprotocol ~@body)))
 
-(defmacro loop>
+(defmacro 
+  ^{:forms '[(loop> [binding :- type, init*] exprs*)]}
+  loop>
   "Like loop, except loop variables require annotation.
 
-  eg. (loop> [a :- Number 1
-              b :- (U nil Number) nil]
+  Suggested idiom: use a comma between the type and the initial
+  expression.
+
+  eg. (loop> [a :- Number, 1
+              b :- (U nil Number), nil]
         ...)"
   [bndings* & forms]
   (let [normalise-args
@@ -624,7 +661,13 @@
 
 (defmacro def-alias 
   "Define a type alias. Takes an optional doc-string as a second
-  argument."
+  argument.
+
+  Updates the corresponding var with documentation.
+  
+  eg. (def-alias MyAlias
+        \"Here is my alias\"
+        (U nil String))"
   ([sym doc-str type]
    (assert (string? doc-str) "Doc-string passed to def-alias must be a string")
    `(def-alias ~(vary-meta sym assoc :doc doc-str) ~type))
@@ -753,7 +796,16 @@
 
 (defmacro ann 
   "Annotate varsym with type. If unqualified, qualify in the current namespace.
-  If varsym has metadata {:nocheck true}, ignore definitions of varsym while type checking."
+  If varsym has metadata {:nocheck true}, ignore definitions of varsym while type checking.
+  
+  eg. ; annotate the var foo in this namespace
+      (ann foo [Number -> Number])
+  
+      ; annotate a var in another namespace
+      (ann another.ns/bar [-> nil])
+   
+      ; don't check this var
+      (ann ^:nocheck foobar [Integer -> String])"
   [varsym typesyn]
   (let [qsym (if (namespace varsym)
                varsym
@@ -765,9 +817,18 @@
   [dname fields opts]
   nil)
 
-(defmacro ann-datatype 
+(defmacro
+  ^{:forms '[(ann-datatype dname [field :- type*] opts*)]}
+  ann-datatype
   "Annotate datatype Class name dname with expected fields.
-  If unqualified, qualify in the current namespace."
+  If unqualified, qualify in the current namespace.
+
+  eg. (ann-datatype MyDatatype [a :- Number,
+                                b :- Long])
+      
+      (ann-datatype another.ns.TheirDatatype
+                    [str :- String,
+                     vec :- (IPersistentVector Number)])"
   [dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
   (assert (not rplc) "Replace NYI")
   (assert (symbol? dname)
@@ -863,7 +924,10 @@
 
 (defmacro typed-deps 
   "Declare namespaces which should be checked before the current namespace.
-  Accepts any number of symbols."
+  Accepts any number of symbols.
+  
+  eg. (typed-deps clojure.core.typed.holes
+                  myns.types)"
   [& args]
   `(typed-deps* '~args))
 
@@ -871,7 +935,14 @@
 ; cf can pollute current type environment to allow REPL experimentation, 
 ; which is ok because check-ns resets it when called.
 (defmacro cf
-  "Type check a Clojure form and return its type"
+  "Takes a form and an optional expected type and
+  returns a human-readable inferred type for that form.
+  
+  eg. (cf 1) 
+      ;=> \"Long\"
+
+      (cf #(inc %) [Number -> Number)
+      ;=> \"[Number -> Number]"
   ([form]
    `(do
       (load-if-needed)
@@ -937,7 +1008,9 @@
 
 (declare ^:dynamic *verbose-forms*)
 
-(defn print-errors! [errors]
+(defn print-errors! 
+  "Internal use only"
+  [errors]
   {:pre [(seq errors)
          (every? #(instance? clojure.lang.ExceptionInfo %) errors)]}
   (binding [*out* *err*]
@@ -967,10 +1040,10 @@
                   {:type-error :top-level-error
                    :errors errors})))
 
-(def ^:dynamic *already-collected*)
-(def ^:dynamic *already-checked*)
-(def ^:dynamic *currently-checking-clj* nil)
-(def ^:dynamic *delayed-errors*)
+(def ^{:doc "Internal use only"} ^:dynamic *already-collected*)
+(def ^{:doc "Internal use only"} ^:dynamic *already-checked*)
+(def ^{:doc "Internal use only"} ^:dynamic *currently-checking-clj* nil)
+(def ^{:doc "Internal use only"} ^:dynamic *delayed-errors*)
 
 (def ^:dynamic *verbose-types* 
   "If true, print fully qualified types in error messages
@@ -990,9 +1063,19 @@
 
 (defn check-ns
   "Type check a namespace. If not provided default to current namespace.
+  Returns a true value if type checking is successful, otherwise
+  throws an Exception.
   
   Bind *verbose-types* to true to print fully qualified types.
-  Bind *verbose-forms* to print full forms in error messages."
+  Bind *verbose-forms* to print full forms in error messages.
+  
+  eg. (check-ns 'myns.typed)
+      ;=> :ok
+     
+      ;implicitly check current namespace
+      (binding [*ns* (find-ns 'myns.typed)]
+        (check-ns))
+      ;=> :ok"
   ([] (check-ns (ns-name *ns*)))
   ([nsym]
    (load-if-needed)

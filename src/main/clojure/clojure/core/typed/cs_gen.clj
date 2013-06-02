@@ -480,8 +480,15 @@
 (defmethod cs-gen* [DataType DataType impl/default] [V X Y S T] (cs-gen-datatypes-or-records V X Y S T))
 
 (defmethod cs-gen* [HeterogeneousVector HeterogeneousVector impl/default] 
-  [V X Y S T]
-  (cs-gen-list V X Y (:types S) (:types T)))
+  [V X Y ^HeterogeneousVector S ^HeterogeneousVector T]
+  (cset-meet* (concat
+                [(cs-gen-list V X Y (.types S) (.types T))]
+                (map (fn [fs1 fs2]
+                       (cs-gen-filter-set V X Y fs1 fs2))
+                     (.fs S) (.fs T))
+                (map (fn [o1 o2]
+                       (cs-gen-filter-set V X Y o1 o2))
+                     (.objects S) (.objects T)))))
 
 (defmethod cs-gen* [HeterogeneousMap HeterogeneousMap impl/default]
   [V X Y S T]

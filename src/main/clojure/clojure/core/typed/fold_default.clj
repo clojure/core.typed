@@ -149,7 +149,10 @@
 
 (add-default-fold-case HeterogeneousVector
                        (fn [ty _]
-                         (-> ty (update-in [:types] #(mapv type-rec %)))))
+                         (-> ty 
+                           (update-in [:types] #(mapv type-rec %))
+                           (update-in [:fs] #(mapv filter-rec %))
+                           (update-in [:objects] #(mapv object-rec %)))))
 
 (add-default-fold-case HeterogeneousList 
                        (fn [ty _]

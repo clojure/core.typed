@@ -5,7 +5,8 @@
              [type-ctors :as c]
              [filter-rep]
              [object-rep]
-             [path-rep]]
+             [path-rep]
+             [frees :as frees]]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         Projection DottedPretype Function RClass App TApp
@@ -252,10 +253,13 @@
   (let [pmt #(promote % V)
         dmt #(demote % V)
         dmt-kw #(into {} (for [[k v] %]
-                           [k (dmt v)]))]
+                           [k (dmt v)]))
+        latent-filter-vs (let [f (r/Result-filter* rng)]
+                           (set/intersection (frees/fv f)
+                                             (frees/fi f)))]
     (cond 
       ;if filter contains V, give up
-      (seq (set/intersection V (r/Result-filter* rng))) (r/->TopFunction)
+      (seq (set/intersection V latent-filter-vs)) (r/->TopFunction)
 
       ;if dotted bound is in V, transfer to rest args
       (and drest (V (:name drest)))
@@ -290,10 +294,13 @@
   (let [pmt #(promote % V)
         dmt #(demote % V)
         pmt-kw #(into {} (for [[k v] %]
-                           [k (pmt v)]))]
+                           [k (pmt v)]))
+        latent-filter-vs (let [f (r/Result-filter* rng)]
+                           (set/intersection (frees/fv f)
+                                             (frees/fi f)))]
     (cond 
       ;if filter contains V, give up
-      (seq (set/intersection V (r/Result-filter* rng))) (r/->TopFunction)
+      (seq (set/intersection V latent-filter-vs)) (r/->TopFunction)
 
       ;if dotted bound is in V, transfer to rest args
       (and drest (V (:name drest)))

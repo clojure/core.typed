@@ -201,8 +201,8 @@
   (apply combine-frees (mapv frees (concat (keys types) (vals types)))))
 
 (defmethod frees [::any-var HeterogeneousVector]
-  [{:keys [types]}] 
-  (apply combine-frees (mapv frees types)))
+  [{:keys [types filters objects]}] 
+  (apply combine-frees (mapv frees (concat types filters objects))))
 
 (defmethod frees [::any-var Intersection]
   [{:keys [types]}] 
