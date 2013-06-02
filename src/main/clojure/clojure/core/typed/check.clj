@@ -2072,7 +2072,7 @@
                                                    :dispatch-val-ret TCResult?)))
 
 (defmethod instance-method-special 'clojure.lang.MultiFn/addMethod
-  [{[dispatch-val-expr method-expr :as args] :args :keys [target] :as expr} & [expected]]
+  [{[dispatch-val-expr method-expr :as args] :args :keys [target env] :as expr} & [expected]]
   (assert (= 2 (count args)))
   (let [_ (assert (#{:var} (:op target)))
         _ (assert (#{:fn-expr} (:op method-expr))
@@ -2082,8 +2082,9 @@
         cdispatch-val-expr (check dispatch-val-expr)
         dispatch-type (mm/multimethod-dispatch-type mmsym)
         _ (when-not dispatch-type
-            (u/int-error (str "Multimethod requires dispatch type: " mmsym
-                              "\n\nHint: defmulti must be checked before its defmethods")))
+            (binding [vs/*current-env* env]
+              (u/int-error (str "Multimethod requires dispatch type: " mmsym
+                                "\n\nHint: defmulti must be checked before its defmethods"))))
         method-expected (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
                           (var-env/type-of mmsym))
         cmethod-expr (binding [*current-mm* {:dispatch-fn-type dispatch-type
