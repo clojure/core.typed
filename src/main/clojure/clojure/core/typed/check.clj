@@ -2080,7 +2080,10 @@
         mmsym (u/var->symbol (:var target))
         ctarget (check target)
         cdispatch-val-expr (check dispatch-val-expr)
-        dispatch-type (mm/get-multimethod-dispatch-type mmsym)
+        dispatch-type (mm/multimethod-dispatch-type mmsym)
+        _ (when-not dispatch-type
+            (u/int-error (str "Multimethod requires dispatch type: " mmsym
+                              "\n\nHint: defmulti must be checked before its defmethods")))
         method-expected (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
                           (var-env/type-of mmsym))
         cmethod-expr (binding [*current-mm* {:dispatch-fn-type dispatch-type

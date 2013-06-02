@@ -13,7 +13,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
-                                        HeterogeneousSeq)
+                                        HeterogeneousSeq TCError)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -21,9 +21,10 @@
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 
 ;FIXME use fold!
+;TODO automatically check for completeness
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Variable Elim
+;; Variable Elimination
 
 (declare promote demote)
 
@@ -140,6 +141,9 @@
 
 (defmethod promote Top [T V] T)
 (defmethod demote Top [T V] T)
+
+(defmethod promote TCError [T V] T)
+(defmethod demote TCError [T V] T)
 
 (defmethod promote CountRange [T V] T)
 (defmethod demote CountRange [T V] T)

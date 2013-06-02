@@ -27,6 +27,13 @@
   (swap! MULTIMETHOD-DISPATCH-ENV assoc mmsym dtype)
   nil)
 
+(defn multimethod-dispatch-type 
+  "Can return nil"
+  [mmsym]
+  {:pre [(symbol? mmsym)]
+   :post [((some-fn nil? r/Type?) %)]}
+  (@MULTIMETHOD-DISPATCH-ENV mmsym))
+
 (defn get-multimethod-dispatch-type [mmsym]
   {:pre [(symbol? mmsym)]
    :post [(r/Type? %)]}
