@@ -322,30 +322,7 @@
           (subtype (c/RClass-of (u/Class->symbol ASeq) [ss])
                    t))
 
-        (and (r/DataType? s)
-             (r/DataType? t))
-        (subtype-datatypes-or-records s t)
-
-;Not quite correct, datatypes have other implicit ancestors (?)
-        (r/DataType? s)
-        (subtype-datatype-record-on-left s t)
-        (r/DataType? t)
-        (subtype-datatype-record-on-right s t)
-
-        ;values are subtypes of their classes
-        (and (r/Value? s)
-             (impl/checking-clojure?))
-        (let [^Value s s]
-          (if (nil? (.val s))
-            (fail! s t)
-            (subtype (apply c/In (c/RClass-of (class (.val s)))
-                            (cond
-                              ;keyword values are functions
-                              (keyword? (.val s)) [(c/keyword->Fn (.val s))]
-                              ;strings have a known length as a seqable
-                              (string? (.val s)) [(r/make-ExactCountRange (count (.val s)))]))
-                     t)))
-
+; check protocols before datatypes
         (and (r/Protocol? s)
              (r/Protocol? t))
         (let [{var1 :the-var variances* :variances poly1 :poly?} s
@@ -371,6 +348,30 @@
           (if (some #(subtype? s %) desc)
             *sub-current-seen*
             (fail! s t)))
+
+        (and (r/DataType? s)
+             (r/DataType? t))
+        (subtype-datatypes-or-records s t)
+
+;Not quite correct, datatypes have other implicit ancestors (?)
+        (r/DataType? s)
+        (subtype-datatype-record-on-left s t)
+        (r/DataType? t)
+        (subtype-datatype-record-on-right s t)
+
+        ;values are subtypes of their classes
+        (and (r/Value? s)
+             (impl/checking-clojure?))
+        (let [^Value s s]
+          (if (nil? (.val s))
+            (fail! s t)
+            (subtype (apply c/In (c/RClass-of (class (.val s)))
+                            (cond
+                              ;keyword values are functions
+                              (keyword? (.val s)) [(c/keyword->Fn (.val s))]
+                              ;strings have a known length as a seqable
+                              (string? (.val s)) [(r/make-ExactCountRange (count (.val s)))]))
+                     t)))
 
         (and (r/Result? s)
              (r/Result? t))
@@ -409,10 +410,21 @@
         (nil? ext) r/-nil
         :else (throw (Exception. (str "What is this?" ext)))))))
 
+(def subtype-cache (atom {}))
+
+(defn reset-subtype-cache []
+  (reset! subtype-cache {}))
+
 ;[Type Type -> (IPersistentSet '[Type Type])]
 (defn subtype [s t]
   {:post [(set? %)]}
-  (subtypeA* *sub-current-seen* s t))
+  #_(prn "subtype")
+;  (if-let [hit (@subtype-cache (set [s t]))]
+;    (do #_(prn "subtype hit")
+;        hit)
+    (let [res (subtypeA* *sub-current-seen* s t)]
+      ;(swap! subtype-cache assoc (set [s t]) res)
+      res))
 
 ;[(IPersistentSet '[Type Type]) (Seqable Type) (Seqable Type) (Option Type)
 ;  -> (IPersistentSet '[Type Type])]
@@ -511,17 +523,19 @@
         ts))
 
 (defn subtype-Result
-  [{t1 :t f1 :fl o1 :o :as s}
-   {t2 :t f2 :fl o2 :o :as t}]
+  [{t1 :t f1 :fl o1 :o flow1 :flow :as s}
+   {t2 :t f2 :fl o2 :o flow2 :flow :as t}]
   (cond
     ;trivial case
     (and (= f1 f2)
-         (= o1 o2))
+         (= o1 o2)
+         (= flow1 flow2))
     (subtype t1 t2)
 
     ;we can ignore some interesting results
     (and (orep/EmptyObject? o2)
-         (= f2 (fops/-FS fr/-top fr/-top)))
+         (= f2 (fops/-FS fr/-top fr/-top))
+         (= flow2 (r/-flow fr/-top)))
     (subtype t1 t2)
 
     ;special case for (& (is y sym) ...) <: (is y sym)
@@ -529,7 +543,8 @@
          (fr/TypeFilter? (:then f2))
          (every? fops/atomic-filter? (:fs (:then f1)))
          (= 1 (count (filter fr/TypeFilter? (:fs (:then f1)))))
-         (= fr/-top (:else f2)))
+         (= fr/-top (:else f2))
+         (= flow1 flow2 (r/-flow fr/-top)))
     (let [f1-tf (first (filter fr/TypeFilter? (:fs (:then f1))))]
       (if (= f1-tf (:then f2))
         (subtype t1 t2)

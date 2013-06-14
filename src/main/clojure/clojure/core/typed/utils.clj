@@ -154,6 +154,14 @@
   `(do (clojure.core.typed/ann-record ~nme ~@args)
        (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:nocheck true}) ~(list 'predicate nme))))
 
+(defmacro ann-precord 
+  "Like ann-precord, but also adds an unchecked annotation for core.contract's generated
+  nme? predicate."
+  [nme & args]
+  `(do (clojure.core.typed/ann-precord ~nme ~@args)
+       (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:nocheck true}) ~(list 'predicate nme))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; AST ops
 

@@ -44,9 +44,11 @@
   "Load and initialize all of core.typed if not already"
   []
   (when-not (find-ns 'clojure.core.typed.init)
+    (require 'clojure.core.typed.init))
+  (when-not (@(ns-resolve (find-ns 'clojure.core.typed.init) 'loaded?))
     (println "Initializing core.typed ...")
     (flush)
-    (require 'clojure.core.typed.init)
+    (time (@(ns-resolve (find-ns 'clojure.core.typed.init) 'load-impl)))
     (println "core.typed initialized.")
     (flush)))
 
@@ -946,6 +948,7 @@
   ([form]
    `(do
       (load-if-needed)
+      (reset-caches)
       (let [check# @(ns-resolve (find-ns '~'clojure.core.typed.check)
                                 '~'check)
             expr-type# @(ns-resolve (find-ns '~'clojure.core.typed.check)
@@ -965,6 +968,7 @@
                         *delayed-errors* (-init-delayed-errors)]
                 (let [ast# (ast-for-form# '~form)
                       _# (collect# ast#)
+                      _# (reset-caches)
                       cexpr# (check# ast#)]
                   (if-let [errors# (seq @*delayed-errors*)]
                     (print-errors! errors#)
@@ -974,6 +978,7 @@
    ([form expected]
    `(do
       (load-if-needed)
+      (reset-caches)
       (let [check# @(ns-resolve (find-ns '~'clojure.core.typed.check)
                                 '~'check)
             expr-type# @(ns-resolve (find-ns '~'clojure.core.typed.check)
@@ -997,6 +1002,7 @@
                       *delayed-errors* (-init-delayed-errors)]
               (let [ast# (ast-for-form# '(ann-form ~form ~expected))
                     _# (collect# ast#)
+                    _# (reset-caches)
                     c-ast# (check# ast# 
                                    (ret#
                                      (parse-type# '~expected)))]
@@ -1027,16 +1033,16 @@
         (let [[_ form :as has-form?] (find data :form)]
           (when has-form?
             (binding [*print-length* (when-not *verbose-forms*
-                                       4)
+                                       6)
                       *print-level* (when-not *verbose-forms*
-                                      2)]
+                                      4)]
               (print "in: ")
               (println form)
               (println)
               (println)
               (flush))))
         (flush))))
-  (throw (ex-info (str "Type Checker: Found " (count errors) " errors")
+  (throw (ex-info (str "Type Checker: Found " (count errors) " error" (when (< 1 (count errors)) "s"))
                   {:type-error :top-level-error
                    :errors errors})))
 
@@ -1061,6 +1067,15 @@
                                       (instance? clojure.lang.ExceptionInfo a))
                                     %))))
 
+(defn reset-caches 
+  "Reset internal type caches."
+  []
+  (load-if-needed)
+  (@(ns-resolve (find-ns 'clojure.core.typed.subtype) 'reset-subtype-cache))
+  (@(ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'reset-Un-cache))
+  (@(ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'reset-In-cache))
+  nil)
+
 (defn check-ns
   "Type check a namespace. If not provided default to current namespace.
   Returns a true value if type checking is successful, otherwise
@@ -1079,7 +1094,8 @@
   ([] (check-ns (ns-name *ns*)))
   ([nsym]
    (load-if-needed)
-   (let [reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.init)
+   (reset-caches)
+   (let [reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
                                   'reset-envs!)
          ensure-clojure @(ns-resolve (find-ns 'clojure.core.typed.current-impl)
                                      'ensure-clojure)
@@ -1100,6 +1116,7 @@
                *already-checked* (atom #{})]
        (ensure-clojure)
        (collect-ns nsym)
+       (reset-caches)
        (check-ns-and-deps nsym)
        (let [vs (vars-with-unchecked-defs)]
          (binding [*out* *err*]

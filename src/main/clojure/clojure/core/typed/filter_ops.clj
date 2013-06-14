@@ -7,7 +7,9 @@
              [object-rep :as or]
              [utils :as u]]
             [clojure.math.combinatorics :as comb]
-            [clojure.set :as set]))
+            [clojure.set :as set])
+  (:import (clojure.core.typed.filter_rep BotFilter TopFilter NoFilter AndFilter 
+                                          OrFilter TypeFilter NotTypeFilter ImpFilter)))
 
 (defn -filter [t i & [p]]
   {:pre [(r/Type? t)
@@ -74,6 +76,9 @@
   {:pre [(every? fr/Filter? props)
          (u/boolean? or?)]
    :post [(every? fr/Filter? %)]}
+;  (prn "compact")
+;  (prn "props" (map clojure.core.typed.parse-unparse/unparse-filter props))
+;  (prn "or?" or?)
   (let [tf-map (atom {})
         ntf-map (atom {})]
     ;; props: the propositions we're processing
@@ -139,7 +144,7 @@
     (fr/TypeFilter? a) (-not-filter (:type a) (:id a) (:path a))
     (fr/NotTypeFilter? a) (-filter (:type a) (:id a) (:path a))))
 
-(defn simplify-prop 
+(defn simplify-prop
   "Try and use atomic proposition a to simplify composite
   proposition b. a must be correct polarity."
   [a b]
@@ -275,6 +280,7 @@
               (= 1 (count fs)) (first fs)
               :else (fr/->OrFilter (set fs))))
           (distribute [args]
+            ;(prn "distribute:" (map clojure.core.typed.parse-unparse/unparse-filter args))
             (let [{ands true others false} (group-by fr/AndFilter? args)]
               (if (empty? ands)
                 (apply mk others)
@@ -356,7 +362,8 @@
           (empty? result) fr/-top
           (= 1 (count result)) (first result)
           ;; don't think this is useful here
-          (= 2 (count result)) (let [[f1 f2] result]
+          (= 2 (count result)) (let [;_ (prn "hit special 2 case in -and")
+                                     [f1 f2] result]
                                  (if (opposite? f1 f2)
                                    fr/-bot
                                    (if (= f1 f2)
@@ -366,16 +373,18 @@
            ;; first, remove anything implied by the atomic propositions
            ;; We commonly see: (And (Or P Q) (Or P R) (Or P S) ... P), which this fixes
           (let [{atomic true not-atomic false} (group-by atomic-filter? result)
+                ;_ (prn "not-atomic" (map clojure.core.typed.parse-unparse/unparse-filter not-atomic))
                 not-atomic* (for [p not-atomic
-                                  :when (some (fn [a] (implied-atomic? p a)) atomic)]
+                                  :when (not (some (fn [a] (implied-atomic? p a)) atomic))]
                               p)]
+            ;(prn "not-atomic*" (map clojure.core.typed.parse-unparse/unparse-filter not-atomic*))
              ;; `compact' takes care of implications between atomic props
             (apply mk (compact (concat not-atomic* atomic) false))))
         (let [ffs (first fs)]
           (cond
             (fr/BotFilter? ffs) ffs
             (fr/AndFilter? ffs) (let [fs* (:fs ffs)]
-                               (recur (next fs) (concat fs* result)))
+                                  (recur (next fs) (concat fs* result)))
             (fr/TopFilter? ffs) (recur (next fs) result)
             :else (let [t ffs]
                     (cond
@@ -396,8 +405,11 @@
     (fr/BotFilter? -) (fr/->FilterSet fr/-top fr/-bot)
     :else (fr/->FilterSet + -)))
 
-(def atomic-filter? (some-fn fr/TypeFilter? fr/NotTypeFilter?
-                             fr/TopFilter? fr/BotFilter?))
+(defn atomic-filter? [a]
+  (boolean 
+    ((some-fn fr/TypeFilter? fr/NotTypeFilter?
+              fr/TopFilter? fr/BotFilter?) 
+     a)))
 
 ; functions to get around compilation issues
 (defn -true-filter [] (-FS fr/-top fr/-bot))
@@ -419,3 +431,38 @@
                                           (subtype? (:type f1) (:type f2)))
         :else false))))
 
+(defmulti opposite-filter class)
+
+(def negate (memoize opposite-filter))
+
+(defmethod opposite-filter TypeFilter
+  [{:keys [type id path]}]
+  (-not-filter type id path))
+
+(defmethod opposite-filter NotTypeFilter
+  [{:keys [type id path]}]
+  (-filter type id path))
+
+(defmethod opposite-filter AndFilter
+  [{:keys [fs]}]
+  (apply -or (map opposite-filter fs)))
+
+(defmethod opposite-filter OrFilter
+  [{:keys [fs]}]
+  (apply -and (map opposite-filter fs)))
+
+(defmethod opposite-filter BotFilter
+  [_]
+  fr/-top)
+
+(defmethod opposite-filter TopFilter
+  [_]
+  fr/-bot)
+
+(defmethod opposite-filter ImpFilter
+  [f]
+  f)
+
+(defmethod opposite-filter NoFilter
+  [f]
+  f)

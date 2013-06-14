@@ -259,28 +259,32 @@
 (defmethod parse-type-list 'List* [syn] (r/->HeterogeneousList (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'Vector* [syn] (r/-hvec (mapv parse-type (rest syn))))
 
-(defn- syn-to-hmap [mandatory optional]
+(defn- syn-to-hmap [mandatory optional absent-keys complete?]
   (letfn [(mapt [m]
             (into {} (for [[k v] m]
                        [(r/-val k)
                         (parse-type v)])))]
     (let [mandatory (mapt mandatory)
-          optional (mapt optional)]
-      (c/make-HMap mandatory optional))))
+          optional (mapt optional)
+          absent-keys (set (map parse-type absent-keys))]
+      (c/make-HMap mandatory optional complete? :absent-keys absent-keys))))
 
 (defmethod parse-type-list 'quote 
   [[_ syn]]
   (cond
     ((some-fn number? keyword? symbol?) syn) (r/-val syn)
     (vector? syn) (r/-hvec (mapv parse-type syn))
-    (map? syn) (syn-to-hmap syn nil)
+    ; quoted map is a partial map with mandatory keys
+    (map? syn) (syn-to-hmap syn nil nil false)
     :else (throw (Exception. (str "Invalid use of quote:" syn)))))
 
 (declare parse-in-ns)
 
 (defmethod parse-type-list 'HMap
   [[_HMap_ & flat-opts]]
-  (let [deprecated-mandatory (when (map? (first flat-opts))
+  (let [supported-options #{:optional :mandatory :absent-keys :complete?}
+        ; support deprecated syntax (HMap {}), which is now (HMap :mandatory {})
+        deprecated-mandatory (when (map? (first flat-opts))
                                (println 
                                  (ns-name (parse-in-ns))
                                  ": DEPRECATED: HMap syntax changed. Use :mandatory keyword argument instead of initial map")
@@ -289,11 +293,16 @@
         ^ISeq flat-opts (if deprecated-mandatory
                           (next flat-opts)
                           flat-opts)
-        {:keys [optional mandatory]} (PersistentHashMap/createWithCheck flat-opts)
+        {:keys [optional mandatory absent-keys complete?]
+         :or {complete? false}
+         :as others} (PersistentHashMap/createWithCheck flat-opts)
+        _ (when-let [more (seq (set/difference (set (keys others)) supported-options))]
+            (println "WARNING: Unsupported HMap options:" (vec more))
+            (flush))
         _ (when (and deprecated-mandatory mandatory)
             (throw (Exception. "Cannot provide both deprecated initial map syntax and :mandatory option to HMap")))
         mandatory (or deprecated-mandatory mandatory)]
-    (syn-to-hmap mandatory optional)))
+    (syn-to-hmap mandatory optional absent-keys complete?)))
 
 (defn- parse-in-ns []
   (or *parse-type-in-ns* *ns*))
@@ -502,9 +511,9 @@
         (zipmap all-dom (range))
 
         _ (assert (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos])))
-                  "Can only provide one rest argument option: &, ... or *")
+                  "Can only provide one rest argument option: & ... or *")
 
-        _ (when-let [ks (seq (remove #{:filters :object} (keys opts)))]
+        _ (when-let [ks (seq (remove #{:filters :object :flow} (keys opts)))]
             (throw (Exception. (str "Invalid option/s: " ks))))
 
         filters (when-let [[_ fsyn] (find opts :filters)]
@@ -512,6 +521,9 @@
 
         object (when-let [[_ obj] (find opts :object)]
                  (parse-object obj))
+
+        flow (when-let [[_ obj] (find opts :flow)]
+               (parse-filter obj))
 
         fixed-dom (cond 
                     asterix-pos (take (dec asterix-pos) all-dom)
@@ -536,6 +548,7 @@
                          (:name (dvar/*dotted-scope* drest-bnd))))
                      :filter filters
                      :object object
+                     :flow flow
                      :optional-kws (when optional-kws
                                      (parse-kw-map optional-kws))
                      :mandatory-kws (when mandatory-kws
@@ -547,7 +560,10 @@
 
 (defmethod parse-type :default
   [k]
-  (u/tc-error (str "Bad type syntax: " (pr-str k))))
+  (u/tc-error (str "Bad type syntax: " (pr-str k)
+                   (when ((some-fn symbol? keyword?) k)
+                     (str "\n\nHint: Value types should be preceded by a quote or wrapped in the Value constructor."  
+                          " eg. '" (pr-str k) " or (Value " (pr-str k)")")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unparse
@@ -725,9 +741,9 @@
                  (concat ['-> (unparse-type t)]
                          (when (not (and ((some-fn f/TopFilter? f/BotFilter?) (:then fl))
                                          ((some-fn f/TopFilter? f/BotFilter?) (:else fl))))
-                           [(unparse-filter-set fl)])
+                           [:filters (unparse-filter-set fl)])
                          (when (not ((some-fn orep/NoObject? orep/EmptyObject?) o))
-                           [(unparse-object o)]))))))
+                           [:object (unparse-object o)]))))))
 
 (defmethod unparse-type* Protocol
   [{:keys [the-var poly?]}]
@@ -869,13 +885,15 @@
 
 (defmethod unparse-type* HeterogeneousMap
   [^HeterogeneousMap v]
-  (list* (if (c/complete-hmap? v)
-           'CompleteHMap 
-           'PartialHMap)
-         (unparse-map-of-types (:types v))
-         (when-let [ks (and (not (c/complete-hmap? v))
-                            (seq (.absent-keys v)))]
-           [:absent-keys (set (map unparse-type ks))])))
+  (list* 'HMap 
+         (concat
+           (when-let [types (not-empty (:types v))]
+             [:mandatory (unparse-map-of-types types)])
+           (when-let [ks (and (not (c/complete-hmap? v))
+                              (seq (.absent-keys v)))]
+             [:absent-keys (set (map unparse-type ks))])
+           (when (c/complete-hmap? v)
+             [:complete? true]))))
 
 (defmethod unparse-type* HeterogeneousSeq
   [v]
@@ -937,13 +955,13 @@
   [{:keys [type path id]}]
   (concat (list 'is (unparse-type type) id)
           (when (seq path)
-            [(map unparse-path-elem path)])))
+            [(mapv unparse-path-elem path)])))
 
 (defmethod unparse-filter* NotTypeFilter
   [{:keys [type path id]}]
   (concat (list '! (unparse-type type) id)
           (when (seq path)
-            [(map unparse-path-elem path)])))
+            [(mapv unparse-path-elem path)])))
 
 (defmethod unparse-filter* AndFilter [{:keys [fs]}] (apply list '& (map unparse-filter fs)))
 (defmethod unparse-filter* OrFilter [{:keys [fs]}] (apply list '| (map unparse-filter fs)))

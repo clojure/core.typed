@@ -41,14 +41,16 @@
             [clojure.pprint :as pprint]
             [clojure.math.combinatorics :as comb]
             [clojure.string :as str]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [clojure.reflect :as reflect])
   (:import (clojure.core.typed.lex_env PropEnv)
            (clojure.core.typed.type_rep Function FnIntersection RClass Poly DottedPretype HeterogeneousSeq
-                                        Value KwArgs HeterogeneousMap DataType TCResult HeterogeneousVector)
+                                        Value KwArgs HeterogeneousMap DataType TCResult HeterogeneousVector
+                                        FlowSet Union)
            (clojure.core.typed.object_rep Path)
-           (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet)
+           (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet AndFilter OrFilter)
            (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector
-                         )))
+                         Reflector)))
 
 ;==========================================================
 ; # Type Checker
@@ -468,6 +470,32 @@
       (let [{t :type p :path i :id} f]
         (tf-matcher t p i k o polarity fo/-not-filter)))))
 
+(defn- add-extra-filter
+  "If provided a type t, then add the filter (is t k).
+  Helper function."
+  [fl k t]
+  {:pre [(fl/Filter? fl)
+         (fl/name-ref? k)
+         ((some-fn nil? Type?) t)]
+   :post [(fl/Filter? %)]}
+  (let [extra-filter (if t (fl/->TypeFilter t nil k) fl/-top)]
+    (letfn [(add-extra-filter [f]
+              {:pre [(fl/Filter? f)]
+               :post [(fl/Filter? %)]}
+              (let [f* (fo/-and extra-filter f)]
+                (if (fl/BotFilter? f*)
+                  f*
+                  f)))]
+      (add-extra-filter fl))))
+
+(defn subst-flow-set [^FlowSet fs k o polarity & [t]]
+  {:pre [(r/FlowSet? fs)
+         (fl/name-ref? k)
+         (obj/RObject? o)
+         ((some-fn nil? Type?) t)]
+   :post [(r/FlowSet? %)]}
+  (r/-flow (subst-filter (add-extra-filter (.normal fs) k t) k o polarity)))
+
 ;[FilterSet Number RObject Boolean (Option Type) -> FilterSet]
 (defn subst-filter-set [fs k o polarity & [t]]
   {:pre [((some-fn fl/FilterSet? fl/NoFilter?) fs)
@@ -481,19 +509,11 @@
   ;  (prn "o" o)
   ;  (prn "polarity" polarity) 
   ;  (prn "t" (when t (prs/unparse-type t)))
-  (let [extra-filter (if t (fl/->TypeFilter t nil k) fl/-top)]
-    (letfn [(add-extra-filter [f]
-              {:pre [(fl/Filter? f)]
-               :post [(fl/Filter? %)]}
-              (let [f* (fo/-and extra-filter f)]
-                (if (fl/BotFilter? f*)
-                  f*
-                  f)))]
-      (cond
-        (fl/FilterSet? fs) (let [^FilterSet fs fs]
-                             (fo/-FS (subst-filter (add-extra-filter (.then fs)) k o polarity)
-                                     (subst-filter (add-extra-filter (.else fs)) k o polarity)))
-        :else (fo/-FS fl/-top fl/-top)))))
+  (cond
+    (fl/FilterSet? fs) (let [^FilterSet fs fs]
+                         (fo/-FS (subst-filter (add-extra-filter (.then fs) k t) k o polarity)
+                                 (subst-filter (add-extra-filter (.else fs) k t) k o polarity)))
+    :else (fo/-FS fl/-top fl/-top)))
 
 ;[Type Number RObject Boolean -> RObject]
 (defn subst-object [t k o polarity]
@@ -547,12 +567,14 @@
          (obj/RObject? o)
          (u/boolean? polarity)]
    :post [(r/AnyType? %)]}
+  ;(prn "subst-type" (prs/unparse-type t))
   (letfn [(st [t*]
             (subst-type t* k o polarity))
           (sf [fs] 
-            {:pre [(fl/FilterSet? fs)] 
-             :post [(fl/FilterSet? %)]}
-            (subst-filter-set fs k o polarity))]
+            {:pre [((some-fn fl/FilterSet? r/FlowSet?) fs)] 
+             :post [((some-fn fl/FilterSet? r/FlowSet?) %)]}
+            ((if (fl/FilterSet? fs) subst-filter-set subst-flow-set) 
+             fs k o polarity))]
     (fold/fold-rhs ::subst-type
       {:type-rec st
        :filter-rec sf
@@ -589,34 +611,37 @@
 ;  -> '[Type FilterSet RObject]]
 (defn open-Result 
   "Substitute ids for objs in Result t"
-  [{t :t fs :fl old-obj :o :as r} objs & [ts]]
+  [{t :t fs :fl old-obj :o :keys [flow] :as r} objs & [ts]]
   {:pre [(r/Result? r)
          (every? obj/RObject? objs)
          ((some-fn fl/FilterSet? fl/NoFilter?) fs)
          (obj/RObject? old-obj)
+         (r/FlowSet? flow)
          ((some-fn nil? (u/every-c? Type?)) ts)]
-   :post [((u/hvector-c? Type? fl/FilterSet? obj/RObject?) %)]}
+   :post [((u/hvector-c? Type? fl/FilterSet? obj/RObject? r/FlowSet?) %)]}
   ;  (prn "open-result")
   ;  (prn "result type" (prs/unparse-type t))
   ;  (prn "result filterset" (prs/unparse-filter-set fs))
   ;  (prn "result (old) object" old-obj)
   ;  (prn "objs" objs)
   ;  (prn "ts" (mapv prs/unparse-type ts))
-  (reduce (fn [[t fs old-obj] [[o k] arg-ty]]
+  (reduce (fn [[t fs old-obj flow] [[o k] arg-ty]]
             {:pre [(Type? t)
                    ((some-fn fl/FilterSet? fl/NoFilter?) fs)
                    (obj/RObject? old-obj)
                    (integer? k)
                    (obj/RObject? o)
+                   (r/FlowSet? flow)
                    ((some-fn false? Type?) arg-ty)]
-             :post [((u/hvector-c? Type? fl/FilterSet? obj/RObject?) %)]}
+             :post [((u/hvector-c? Type? fl/FilterSet? obj/RObject? r/FlowSet?) %)]}
             (let [r [(subst-type t k o true)
                      (subst-filter-set fs k o true arg-ty)
-                     (subst-object old-obj k o true)]]
+                     (subst-object old-obj k o true)
+                     (subst-flow-set flow k o true arg-ty)]]
               ;              (prn [(prs/unparse-type t) (prs/unparse-filter-set fs) old-obj])
               ;              (prn "r" r)
               r))
-          [t fs old-obj]
+          [t fs old-obj flow]
           ; this is just a sequence of pairs of [nat? RObject] and Type?
           ; Represents the object and type of each argument, and its position
           (map vector 
@@ -721,8 +746,8 @@
                              [(if (>= nm dom-count) (obj/->EmptyObject) oa)
                               ta])]
                     [(map first rs) (map second rs)])
-        [t-r f-r o-r] (open-Result rng o-a t-a)]
-    (ret t-r f-r o-r)))
+        [t-r f-r o-r flow-r] (open-Result rng o-a t-a)]
+    (ret t-r f-r o-r flow-r)))
 
 ;[TCResult -> Type]
 (defn resolve-to-ftype [expected]
@@ -1040,30 +1065,34 @@
   {:pre [(every? TCResult? vs)]
    :post [(TCResult? %)]}
   (assert (#{:=} comparator))
-  (let [thn-fls (set (apply concat
-                            (for [[{t1 :t fl1 :fl o1 :o}
-                                   {t2 :t fl2 :fl o2 :o}]
-                                  (comb/combinations vs 2)]
-                              (concat (when (obj/Path? o2)
-                                        [(fo/-filter t1 (:id o2) (:path o2))])
-                                      (when (obj/Path? o1)
-                                        [(fo/-filter t2 (:id o1) (:path o1))])))))
-        els-fls (set (apply concat
-                            (for [[{t1 :t fl1 :fl o1 :o}
-                                   {t2 :t fl2 :fl o2 :o}]
-                                  (comb/combinations vs 2)]
-                              (concat (when (obj/Path? o2)
-                                        [(fo/-not-filter t1 (:id o2) (:path o2))])
-                                      (when (obj/Path? o1)
-                                        [(fo/-not-filter t2 (:id o1) (:path o1))])))))]
+  (let [; TODO sequence behaviour is subtle
+        ; conservative for now
+        equiv-able (fn [t]
+                     (boolean
+                       (when (r/Value? t)
+                         ((some-fn number? symbol? keyword? nil? true? false? class?) (.val ^Value t)))))
+        vs-combinations (comb/combinations vs 2)
+        then-filter (apply fo/-and (apply concat
+                                          (for [[{t1 :t fl1 :fl o1 :o}
+                                                 {t2 :t fl2 :fl o2 :o}] vs-combinations]
+                                            (cond
+                                              (equiv-able t1) [(fo/-filter-at t1 o2)]
+                                              (equiv-able t2) [(fo/-filter-at t2 o1)]))))
+        else-filter (apply fo/-or (apply concat
+                                         (for [[{t1 :t fl1 :fl o1 :o}
+                                                {t2 :t fl2 :fl o2 :o}] vs-combinations]
+                                           (cond
+                                             (equiv-able t1) [(fo/-not-filter-at t1 o2)]
+                                             (equiv-able t2) [(fo/-not-filter-at t2 o1)]))))]
     (ret (c/Un r/-false r/-true)
-         (fo/-FS (if (empty? thn-fls)
-                   fl/-top
-                   (apply fo/-and thn-fls))
-                 (if (empty? els-fls)
-                   fl/-top
-                   (apply fo/-or els-fls)))
-         obj/-empty)))
+         (fo/-FS then-filter else-filter))))
+
+(comment
+  (tc-equiv (ret (r/-val :if))
+            (ret (prs/parse-type '(U ':if ':case))
+                 ))
+
+  )
 
 (defmulti invoke-special (fn [expr & args] 
                            (when-let [var (-> expr :fexpr :var)]
@@ -1372,13 +1401,16 @@
           (ret val-type
                (fo/-FS (if (obj/Path? o)
                          (fo/-filter val-type id-hm (concat path-hm [this-pelem]))
-                         (fo/-filter-at val-type (obj/->EmptyObject)))
-                       fl/-top)
+                         fl/-top)
+                       (if (obj/Path? o)
+                         (fo/-or (fo/-filter (c/-hmap {} #{kwt} true) id-hm path-hm) ; this map doesn't have a kwt key or...
+                                 (fo/-filter (c/Un r/-nil r/-false) id-hm (concat path-hm [this-pelem]))) ; this map has a false kwt key
+                         fl/-top))
                (if (obj/Path? o)
                  (update-in o [:path] #(seq (concat % [this-pelem])))
                  o))
-          (u/tc-delayed-error (str (u/error-msg "Keyword lookup gave bottom type: "
-                                                (:val kwt) " " (prs/unparse-type targett))))))
+          (u/int-error (str "Keyword lookup gave bottom type: "
+                            (:val kwt) " " (prs/unparse-type targett)))))
 
       :else (u/int-error (str "keyword-invoke only supports keyword lookup, no default. Found " 
                               (prs/unparse-type kwt))))))
@@ -1527,10 +1559,12 @@
 
 ;debug printing
 (defmethod invoke-special 'clojure.core.typed/print-env
-  [{[debug-string] :args :as expr} & [expected]]
-  (assert (= :string (:op debug-string)))
+  [{[debug-string :as args] :args :as expr} & [expected]]
+  (assert (#{1} (count args)) (str "Wrong arguments to print-env, Expected 1, found " (count args)))
+  (assert (= :string (:op debug-string)) "Must pass print-env a string literal")
   ;DO NOT REMOVE
-  (pr (:val debug-string))
+  (println (:val debug-string))
+  (flush)
   (print-env*)
   ;DO NOT REMOVE
   (assoc expr
@@ -1538,13 +1572,15 @@
 
 ;filter printing
 (defmethod invoke-special 'clojure.core.typed/print-filterset
-  [{[debug-string form] :args :as expr} & [expected]]
-  (assert (and debug-string form) "Wrong arguments to print-filterset")
+  [{[debug-string form :as args] :args :as expr} & [expected]]
+  (assert (#{2} (count args)) (str "Wrong arguments to print-filterset. Expected 2, found " (count args)))
+  (assert (= :string (:op debug-string)) "Must pass print-filterset a string literal as the first argument.")
   (let [cform (check form expected)
         t (expr-type cform)]
     (assert (= :string (:op debug-string)))
     ;DO NOT REMOVE
-    (prn (:val debug-string))
+    (println (:val debug-string))
+    (flush)
     ;(prn (:fl t))
     (if (fl/FilterSet? (:fl t))
       (do (pprint/pprint (prs/unparse-filter-set (:fl t)))
@@ -2713,7 +2749,8 @@ rest-param-name (when rest-param
 
 (add-check-method :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
-  (binding [vs/*current-env* (:env expr)]
+  (binding [; no line/col info in AST
+            #_vs/*current-env* #_(:env expr)]
     (let [sym (hygienic/hsym-key local-binding)
           cur-ns (expr-ns expr)
           t (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
@@ -2842,6 +2879,38 @@ rest-param-name (when rest-param
     (and c method-name) (symbol (str (u/Class->symbol c))
                                 (str method-name))))
 
+(defn Type->Classes [t]
+  {:post [(every? (some-fn class? nil?) %)]}
+  (let [t (c/fully-resolve-type t)]
+    (cond
+      (r/RClass? t) [(r/RClass->Class t)]
+      (r/DataType? t) [(r/DataType->Class t)]
+      (r/Value? t) [(class (.val ^Value t))]
+      (r/Union? t) (mapcat Type->Classes (.types ^Union t))
+      :else [Object])))
+
+(defn possible-methods [t method-name arg-tys static?]
+  {:pre [(Type? t)
+         (every? Type? arg-tys)]
+   :post [(every? (partial instance? clojure.reflect.Method) %)]}
+  (let [cs (remove nil? (Type->Classes t))]
+    (apply concat 
+           (for [c cs]
+             (let [{:keys [members]} (reflect/reflect c)]
+               (filter (fn [{:keys [flags parameter-types name] :as m}]
+                         (and (instance? clojure.reflect.Method m)
+                              (= (contains? flags :static)
+                                 (boolean static?))
+                              (= (count parameter-types)
+                                 (count arg-tys))
+                              (= (str name)
+                                 (str method-name))
+                              (every? identity
+                                      (map sub/subtype?
+                                           arg-tys
+                                           (map Java-symbol->Type parameter-types)))))
+                       members))))))
+
 ;[MethodExpr Type Any -> Expr]
 (defn check-invoke-method [{c :class :keys [args tag method env method-name] :as expr} expected inst?
                            & {:keys [ctarget cargs]}]
@@ -2919,34 +2988,43 @@ rest-param-name (when rest-param
 (declare unwrap-datatype)
 
 (add-check-method :instance-field
-  [expr & [expected]]
+  [{:keys [target field target-class field-name] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   #_(prn "instance-field:" expr)
   (binding [vs/*current-expr* expr]
-    (when-not (:target-class expr) 
+    (when-not target-class
       (u/int-error (str "Call to instance field "
-                        (symbol (:field-name expr))
+                        (symbol field-name)
                         " requires type hints.")))
     (let [; may be prefixed by COMPILE-STUB-PREFIX
           target-class (symbol
-                         (str/replace-first (.getName ^Class (:target-class expr))
+                         (str/replace-first (.getName ^Class target-class)
                                             (str COMPILE-STUB-PREFIX ".")
                                             ""))
-          ;_ (prn (:target-class expr))
-          ;_ (prn "target class" (str target-class) target-class)
-          ;_ (prn (class target-class))
-          fsym (symbol (:field-name expr))]
-      (if-let [dtp (@dt-env/DATATYPE-ENV target-class)]
-        (let [dt (if (r/Poly? dtp)
-                   ;generate new names
-                   (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
-                   dtp)
-              _ (assert ((some-fn r/DataType? r/Record?) dt))
-              ft (or (-> dt :fields (get fsym))
-                     (u/tc-delayed-error (str "No field " fsym " in Datatype " target-class)))]
-          (assoc expr
-                 expr-type (ret ft)))
-        (u/nyi-error (str "Instance field lookup NYI, with field " fsym))))))
+          fsym (symbol field-name)
+          field-target (c/RClass-of (u/symbol->Class target-class))
+          cexpr (check target (ret field-target))
+          _ (when-not (sub/subtype? 
+                        (-> cexpr expr-type ret-t)
+                        field-target)
+              (u/tc-delayed-error (str "Instance field " fsym " expected "
+                                       (pr-str (prs/unparse-type field-target))
+                                       ", actual " (pr-str (prs/unparse-type (-> cexpr expr-type ret-t))))
+                                  :form (u/emit-form-fn expr)))
+          
+                            ; datatype fields are special
+          result-t (if-let [override (when-let [dtp (@dt-env/DATATYPE-ENV target-class)]
+                                       (let [dt (if (r/Poly? dtp)
+                                                  ;generate new names
+                                                  (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
+                                                  dtp)
+                                             _ (assert ((some-fn r/DataType? r/Record?) dt))]
+                                         (-> dt :fields (get fsym))))]
+                     override
+                     ; if not a datatype field, convert as normal
+                     (Field->Type field))]
+      (assoc expr
+             expr-type (ret result-t)))))
 
 ;[Symbol -> Type]
 (defn DataType-ctor-type [sym]
@@ -3388,7 +3466,7 @@ rest-param-name (when rest-param
             (and (every? (some-fn fl/ImpFilter? fl/OrFilter? fl/AndFilter?) derived-props)
                  (every? (some-fn fl/TypeFilter? fl/NotTypeFilter?) derived-atoms)))]}
   (let [atomic-prop? (some-fn fl/TypeFilter? fl/NotTypeFilter?)
-        {new-atoms true new-formulas false} (group-by atomic-prop? (flatten-props new-props))]
+        {new-atoms true new-formulas false} (group-by (comp boolean atomic-prop?) (flatten-props new-props))]
     (loop [derived-props []
            derived-atoms new-atoms
            worklist (concat old-props new-formulas)]
@@ -3586,21 +3664,44 @@ rest-param-name (when rest-param
   {:pre [(lex/lex-env? bnd-env)
          (fl/Filter? f)]
    :post [(lex/lex-env? %)]}
-  ;(prn "update-composite" bnd-env f)
+  #_(prn "update-composite" #_bnd-env #_f)
   (cond
-    ;    (and (fl/AndFilter? f) 
-    ;         (every? atomic-filter? (.fs f)))
-    ;    (reduce (fn [env a] (update-composite env a))
-    ;            bnd-env (.fs f))
-    ;    (and (fl/OrFilter? f) 
-    ;         (every? atomic-filter? (.fs f)))
+;    (fl/AndFilter? f) 
+;    (reduce (fn [env a]
+;              #_(prn "And filter")
+;              ;eagerly merge
+;              (merge-with c/In env (update-composite env a)))
+;            bnd-env (.fs ^AndFilter f))
+;
+;    ; At this point, the OrFilter will be simplified. To update
+;    ; the types we need to make explicit the fact
+;    ; (| (! ... a) (! ... b))  is shorthand for
+;    ;
+;    ; (| (& (! ... a) (is ... b))
+;    ;    (& (is ... a) (! ... b))
+;    ;    (& (! ... a) (! ... b)))
+;    ;
+;    ;  then use the verbose representation to update the types.
+;    (fl/OrFilter? f)
+;    (let [fs (.fs ^OrFilter f)]
+;      (reduce (fn [env positive-filters]
+;                #_(prn "inside orfilter")
+;                (let [negative-filters (map fo/negate (set/difference fs positive-filters))
+;                      combination-filter (apply fo/-and (concat positive-filters negative-filters))]
+;                  (merge-with c/Un env (update-composite env combination-filter))))
+;              bnd-env 
+;              (map set (remove empty? (comb/subsets fs)))))
+;
     (fl/BotFilter? f)
-    (zipmap (:keys bnd-env) (c/Un))
+    (do ;(prn "update-composite: found bottom, unreachable")
+      (zipmap (:keys bnd-env) (c/Un)))
 
     (or (fl/TypeFilter? f)
         (fl/NotTypeFilter? f))
     (let [x (:id f)]
       (update-in bnd-env [x] (fn [t]
+                               (assert t (str "Local binding " x " found in filter "
+                                              "but not in scope"))
                                ;check if var is ever a target of a set!
                                (if (r/is-var-mutated? x)
                                  ; if it is, we do nothing
@@ -3714,17 +3815,25 @@ rest-param-name (when rest-param
                                      {f3+ :then f3- :else} fs3
                                      ; +ve test, +ve then
                                      new-thn-props (:props env-thn)
+                                     ;_ (prn "new-thn-props" (map prs/unparse-filter new-thn-props))
                                      new-els-props (:props env-els)
+                                     ;_ (prn "new-els-props" (map prs/unparse-filter new-els-props))
                                      +t+t (apply fo/-and fs+ f2+ new-thn-props)
+                                     ;_ (prn "+t+t" (prs/unparse-filter +t+t))
                                      ; -ve test, +ve else
                                      -t+e (apply fo/-and fs- f3+ new-els-props)
+                                     ;_ (prn "-t+e" (prs/unparse-filter -t+e))
                                      ; +ve test, -ve then
                                      +t-t (apply fo/-and fs+ f2- new-thn-props)
+                                     ;_ (prn "+t-t" (prs/unparse-filter +t-t))
                                      ; -ve test, -ve else
                                      -t-e (apply fo/-and fs- f3- new-els-props)
+                                     ;_ (prn "-t-e" (prs/unparse-filter -t-e))
 
                                      final-thn-prop (fo/-or +t+t -t+e)
+                                     ;_ (prn "final-thn-prop" (prs/unparse-filter final-thn-prop))
                                      final-els-prop (fo/-or +t-t -t-e)
+                                     ;_ (prn "final-els-prop" (prs/unparse-filter final-els-prop))
                                      fs (fo/-FS final-thn-prop final-els-prop)]
                                  fs)
                                :else (u/int-error (str "What are these?" fs2 fs3)))

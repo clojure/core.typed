@@ -196,6 +196,8 @@
 
 (declare-type B)
 
+;FIXME kind should be part of the identity of a free, otherwise type caching is unsound
+; Same with bounds.
 (u/ann-record F [name :- Symbol])
 (u/defrecord F [name]
   "A named free variable"
@@ -272,6 +274,10 @@
    (symbol? the-class)
    ((u/array-map-c? symbol? (some-fn Scope? Type?)) fields)
    (u/boolean? record?)])
+
+(t/ann ^:nocheck DataType->Class [DataType -> Class])
+(defn ^Class DataType->Class [^DataType dt]
+  (u/symbol->Class (.the-class dt)))
 
 (t/ann ^:nocheck Record? [Any -> Boolean])
 (defn Record? [^DataType a]
@@ -400,9 +406,9 @@
 (def -true (-val true))
 (def -nil (-val nil))
 
-(t/ann Nil? (predicate TCType))
-(t/ann False? (predicate TCType))
-(t/ann True? (predicate TCType))
+(t/ann Nil? [Any -> Boolean])
+(t/ann False? [Any -> Boolean])
+(t/ann True? [Any -> Boolean])
 (defn Nil? [a] (= -nil a))
 (defn False? [a] (= -false a))
 (defn True? [a] (= -true a))
@@ -423,6 +429,10 @@
    (u/boolean? other-keys?)])
 
 (declare-type HeterogeneousMap)
+
+(t/def-alias TempFilterSet
+  "Can't import FilterSet here, so an alias will do for now"
+  clojure.core.typed.filter_rep.FilterSet)
 
 (u/ann-record HeterogeneousVector [types :- (IPersistentVector TCType)
                                    fs :- (IPersistentVector TempFilterSet)
@@ -598,15 +608,17 @@
 
 (declare-type ListDots)
 
+(declare FlowSet?)
 
 (u/ann-record Result [t :- TCType,
                       fl :- fr/IFilter
                       o :- or/IRObject])
-(u/defrecord Result [t fl o]
+(u/defrecord Result [t fl o flow]
   "A result type with filter f and object o. NOT a type."
   [(Type? t)
-   (@(Filter?-var) fl)
-   (@(RObject?-var) o)])
+   (@(FilterSet?-var) fl)
+   (@(RObject?-var) o)
+   (FlowSet? flow)])
 
 (declare-AnyType Result)
 
@@ -635,6 +647,12 @@
   {:pre [(Result? r)]
    :post [(@(RObject?-var) %)]}
   (:o r))
+
+(t/ann ^:nocheck Result-flow* [Result -> FlowSet])
+(defn Result-flow* [r]
+  {:pre [(Result? r)]
+   :post [(FlowSet? %)]}
+  (:flow r))
 
 (t/ann no-bounds Bounds)
 (def no-bounds (->Bounds (->Top) (Un) nil))
@@ -668,10 +686,6 @@
 (t/ann -flow [fr/IFilter -> FlowSet])
 (defn -flow [normal]
   (->FlowSet normal))
-
-(t/def-alias TempFilterSet
-  "Can't import FilterSet here, so an alias will do for now"
-  clojure.core.typed.filter_rep.FilterSet)
 
 (t/ann ^:nocheck ret
        (Fn [TCType -> TCResult]
@@ -748,17 +762,19 @@
 
 (t/ann ^:nocheck make-Result
        (Fn [TCType -> Result]
-           [TCType fr/IFilter -> Result]
-           [TCType fr/IFilter or/IRObject -> Result]))
+           [TCType (U nil fr/IFilter) -> Result]
+           [TCType (U nil fr/IFilter) (U nil or/IRObject) -> Result]
+           [TCType (U nil fr/IFilter) (U nil or/IRObject) (U nil FlowSet) -> Result]))
 (defn make-Result
   "Make a result. ie. the range of a Function"
-  ([t] (make-Result t nil nil))
-  ([t f] (make-Result t f nil))
-  ([t f o] 
+  ([t] (make-Result t nil nil nil))
+  ([t f] (make-Result t f nil nil))
+  ([t f o] (make-Result t f o nil))
+  ([t f o flow]
    (let [-FS @(-FS-var)
          -top @(-top-var)
          -empty @(-empty-var)]
-     (->Result t (or f (-FS -top -top)) (or o -empty)))))
+     (->Result t (or f (-FS -top -top)) (or o -empty) (or flow (-flow -top))))))
 
 (t/ann ^:nocheck make-Function
        (Fn [(U nil (Seqable TCType)) TCType -> Function]
@@ -774,11 +790,11 @@
   and EmptyObject"
   ([dom rng] (make-Function dom rng nil nil))
   ([dom rng rest] (make-Function dom rng rest nil))
-  ([dom rng rest drest & {:keys [filter object mandatory-kws optional-kws]}]
+  ([dom rng rest drest & {:keys [filter object mandatory-kws optional-kws flow]}]
    (let [-FS @(-FS-var)
          -top @(-top-var)
          -empty @(-empty-var)]
-     (->Function dom (->Result rng (or filter (-FS -top -top)) (or object -empty)) 
+     (->Function dom (make-Result rng filter object flow)
                  rest drest (when (or mandatory-kws optional-kws)
                               (->KwArgs (or mandatory-kws {})
                                         (or optional-kws {})))))))

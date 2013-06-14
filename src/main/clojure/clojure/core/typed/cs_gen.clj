@@ -373,6 +373,20 @@
       (cs-gen-filter V X Y tf t))
     :else (fail! s t)))
 
+;must be *latent* flow sets
+(defn cs-gen-flow-set [V X Y s t]
+  {:pre [((u/set-c? symbol?) V)
+         (every? (u/hash-c? symbol? r/Bounds?) [X Y])
+         (r/FlowSet? s)
+         (r/FlowSet? t)]
+   :post [(cr/cset? %)]}
+  (cond
+    (= s t) (cr/empty-cset X Y)
+    :else
+    (let [{n1 :normal} s
+          {n2 :normal} t]
+      (cs-gen-filter V X Y n1 n2))))
+
 ;must be *latent* filter sets
 (defn cs-gen-filter-set [V X Y s t]
   {:pre [((u/set-c? symbol?) V)
@@ -439,7 +453,8 @@
   [V X Y S T] 
   (cset-meet* [(cs-gen V X Y (r/Result-type* S) (r/Result-type* T))
                (cs-gen-filter-set V X Y (r/Result-filter* S) (r/Result-filter* T))
-               (cs-gen-object V X Y (r/Result-object* S) (r/Result-object* T))]))
+               (cs-gen-object V X Y (r/Result-object* S) (r/Result-object* T))
+               (cs-gen-flow-set V X Y (r/Result-flow* S) (r/Result-flow* T))]))
 
 (defmethod cs-gen* [Value AnyValue impl/default] 
   [V X Y S T] 

@@ -28,6 +28,8 @@
   (@RESTRICTED-CLASS csym))
 
 (defn alter-class* [csym type]
+  (assert (r/Type? type)
+          (str "alter-class* " csym " not a type: " type))
   (swap! RESTRICTED-CLASS assoc csym type))
 
 (defn reset-rclass-env! [m]

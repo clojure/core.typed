@@ -9,7 +9,13 @@
 
 ;(Map Symbol F)
 (def ^:dynamic *free-scope* {})
-(set-validator! #'*free-scope* (u/hash-c? symbol? (u/hmap-c? :F r/F? :bnds r/Bounds?)))
+(set-validator! #'*free-scope* 
+                (fn [a]
+                  (when-not ((u/hash-c? symbol? (u/hmap-c? :F r/F? :bnds r/Bounds?))
+                             a)
+                    (throw (IllegalStateException. (str "Validator violation clojure.core.typed.free-ops/*free-ops*."
+                                                        " Given: " a))))
+                  true))
 
 (defn free-with-name 
   "Find the free with the actual name name, as opposed to

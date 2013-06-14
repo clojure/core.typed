@@ -1,9 +1,39 @@
 (ns clojure.core.typed.test.rbt
+  (:refer-clojure :exclude [and])
   (:require [clojure.core.typed :refer [ann inst cf fn> pfn> def-alias declare-names
-                                        print-env print-filterset check-ns typed-deps]]
-            [clojure.core.typed.test.rbt-types :refer [badRight rbt EntryT]]
+                                        print-env print-filterset check-ns typed-deps
+                                        ann-form]]
+            [clojure.core.typed.test.rbt-types :refer [badRight rbt EntryT Empty
+                                                       Red Black bt]]
+            #_[clojure.core.typed.subtype :as sub]
+            #_[clojure.core.typed.check :as chk]
+            #_[clojure.core.typed.parse-unparse :as prs]
+            #_[clojure.core.typed.filter-ops :as fo]
             [clojure.repl :refer [pst]]
+            [clojure.math.combinatorics :as comb]
             [clojure.tools.analyzer :refer [ast]]))
+
+(defmacro and
+  "Scheme's and. Returns false on a false case."
+  {:added "1.0"}
+  ([] true)
+  ([x] x)
+  ([x & next]
+   `(if ~x (and ~@next) false)))
+
+(defmacro and-trace
+  "Scheme's and. Returns false on a false case."
+  {:added "1.0"}
+  ([] true)
+  ([x] x)
+  ([x & next]
+   `(print-filterset ~(str "trace result:\n" `(and ~x ~@next))
+      (if (print-filterset ~(str "trace test\n" x) ~x) (and-trace ~@next) false))))
+
+
+; This is an implementation of red-black tree invariant checking.
+; Invariants are copied from Rowan Davies' PhD dissertation
+; "Practical Refinement Type Checking".
 
 (typed-deps clojure.core.typed.test.rbt-types)
 
@@ -15,12 +45,1196 @@
 ;  and dict is re-balanced red/black tree (satisfying all inv's)
 ;  and the same black height n.
 
+(ann ^:nocheck tsyns Any)
+(def tsyns '((HMap
+                  :mandatory
+                  {:tree (Value :Black),
+                   :entry EntryT,
+                   :left rbt,
+                   :right
+                   (HMap
+                     :mandatory
+                     {:tree (Value :Black),
+                      :entry EntryT,
+                      :left
+                      (U
+                       (HMap :mandatory {:tree (Value :Empty)})
+                       (HMap
+                         :mandatory
+                         {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+                      :right
+                      (U
+                       (HMap :mandatory {:tree (Value :Empty)})
+                       (HMap
+                         :mandatory
+                         {:tree (Value :Black),
+                          :entry EntryT,
+                          :left rbt,
+                          :right rbt}))})})
+               (HMap
+                 :mandatory
+                 {:tree (Value :Black),
+                  :entry EntryT,
+                  :left
+                  (U
+                   (HMap :mandatory {:tree (Value :Empty)})
+                   (HMap
+                     :mandatory
+                     {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+                  :right
+                  (U
+                   (HMap
+                     :mandatory
+                     {:tree (Value :Red),
+                      :entry EntryT,
+                      :left rbt,
+                      :right
+                      (U
+                       (HMap :mandatory {:tree (Value :Empty)})
+                       (HMap
+                         :mandatory
+                         {:tree (Value :Black),
+                          :entry EntryT,
+                          :left rbt,
+                          :right rbt}))})
+                   (HMap
+                     :mandatory
+                     {:tree (Value :Red),
+                      :entry EntryT,
+                      :left bt,
+                      :right
+                      (U
+                       (HMap :mandatory {:tree (Value :Empty)})
+                       (HMap
+                         :mandatory
+                         {:tree (Value :Black),
+                          :entry EntryT,
+                          :left rbt,
+                          :right rbt}))})
+                   (HMap
+                     :mandatory
+                     {:tree (Value :Black),
+                      :entry EntryT,
+                      :left rbt,
+                      :right
+                      (U
+                       (HMap :mandatory {:tree (Value :Empty)})
+                       (HMap
+                         :mandatory
+                         {:tree (Value :Black),
+                          :entry EntryT,
+                          :left rbt,
+                          :right rbt}))}))})
+               (HMap
+                 :mandatory
+                 {:tree (Value :Black),
+                  :entry EntryT,
+                  :left
+                  (U
+                   (HMap :mandatory {:tree (Value :Empty)})
+                   (HMap
+                     :mandatory
+                     {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+                  :right
+                  (U
+                   (HMap
+                     :mandatory
+                     {:tree (Value :Red),
+                      :entry EntryT,
+                      :left bt,
+                      :right
+                      (U
+                       (HMap :mandatory {:tree (Value :Empty)})
+                       (HMap
+                         :mandatory
+                         {:tree (Value :Black),
+                          :entry EntryT,
+                          :left rbt,
+                          :right rbt}))})
+                   (HMap
+                     :mandatory
+                     {:tree (Value :Black),
+                      :entry EntryT,
+                      :left rbt,
+                      :right
+                      (U
+                       (HMap :mandatory {:tree (Value :Empty)})
+                       (HMap
+                         :mandatory
+                         {:tree (Value :Black),
+                          :entry EntryT,
+                          :left rbt,
+                          :right rbt}))}))})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left rbt,
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left rbt,
+      :right
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black),
+          :entry EntryT,
+          :left rbt,
+          :right rbt}))})})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left rbt,
+   :right
+   (U
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right bt})
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right rbt})
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right bt}))})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left rbt,
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+      :right rbt})})
+(HMap
+  :mandatory
+  {:tree (Value :Red),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt}))})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+      :right
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black),
+          :entry EntryT,
+          :left rbt,
+          :right rbt}))})})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (U
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right bt})
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right rbt})
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right bt}))})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left rbt,
+      :right
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black),
+          :entry EntryT,
+          :left rbt,
+          :right rbt}))})})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left rbt,
+   :right
+   (U
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right rbt}))})
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right rbt}))}))})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right clojure.core.typed.test.rbt-types/badRoot})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+      :right rbt})})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left rbt,
+   :right
+   (U
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right bt})
+    (HMap :mandatory {:tree (Value :Empty)}))})
+(HMap
+  :mandatory
+  {:tree (Value :Red),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left rbt,
+      :right
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black),
+          :entry EntryT,
+          :left rbt,
+          :right rbt}))})})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (U
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right rbt}))})
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right rbt}))}))})
+(HMap
+  :mandatory
+  {:tree (Value :Red),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right bt})
+(HMap
+  :mandatory
+  {:tree (Value :Red),
+   :entry EntryT,
+   :left bt,
+   :right
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt}))})
+badRight
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (U
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right bt})
+    (HMap :mandatory {:tree (Value :Empty)}))})
+(HMap
+  :mandatory
+  {:tree (Value :Red),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+      :right
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black),
+          :entry EntryT,
+          :left rbt,
+          :right rbt}))})})
+(HMap
+  :mandatory
+  {:tree (Value :Red),
+   :entry EntryT,
+   :left bt,
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left rbt,
+      :right
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black),
+          :entry EntryT,
+          :left rbt,
+          :right rbt}))})})
+(HMap
+  :mandatory
+  {:tree (Value :Red), :entry EntryT, :left bt, :right bt})
+(HMap :mandatory {:tree (Value :Empty)})
+(HMap
+  :mandatory
+  {:tree (Value :Red),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+      :right rbt})})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt}))})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left rbt,
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+      :right bt})})
+(HMap
+  :mandatory
+  {:tree (Value :Red),
+   :entry EntryT,
+   :left bt,
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+      :right
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black),
+          :entry EntryT,
+          :left rbt,
+          :right rbt}))})})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left rbt,
+   :right
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt}))})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (U
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right bt})
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right rbt}))})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left rbt,
+   :right
+   (U
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left bt,
+       :right
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right rbt}))})
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left rbt,
+       :right
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right rbt}))}))})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left rbt,
+   :right
+   (U
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left rbt,
+       :right
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right rbt}))})
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left bt,
+       :right
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right rbt}))})
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left rbt,
+       :right
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right rbt}))}))})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right rbt})
+(HMap
+  :mandatory
+  {:tree (Value :Red),
+   :entry EntryT,
+   :left bt,
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+      :right rbt})})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left
+   (U
+    (HMap :mandatory {:tree (Value :Empty)})
+    (HMap
+      :mandatory
+      {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+   :right
+   (HMap
+     :mandatory
+     {:tree (Value :Black),
+      :entry EntryT,
+      :left
+      (U
+       (HMap :mandatory {:tree (Value :Empty)})
+       (HMap
+         :mandatory
+         {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+      :right bt})})
+(HMap
+  :mandatory
+  {:tree (Value :Black),
+   :entry EntryT,
+   :left rbt,
+   :right
+   (U
+    (HMap
+      :mandatory
+      {:tree (Value :Red),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right bt})
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right rbt}))})))
+
+#_(doseq [tsyn tsyns]
+  (try 
+    (sub/subtype
+      (prs/parse-type tsyn)
+      (prs/parse-type 'rbt))
+    (catch clojure.lang.ExceptionInfo e
+      (clojure.pprint/pprint tsyn)
+      (flush))))
+
+;Filters in final case
+
+;TEST4
+(ann ^:nocheck final-case-filters1 Any)
+(def final-case-filters1
+  '((! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :right) (Key :tree)])
+    (! (Value :Black) tmap [(Key :tree)])))
+
+;TEST3
+(ann ^:nocheck final-case-filters2 Any)
+(def final-case-filters2
+  '((! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
+    (! (Value :Red) tmap [(Key :right) (Key :tree)])
+    (! (Value :Black) tmap [(Key :tree)])))
+
+;TEST2
+(ann ^:nocheck final-case-filters3 Any)
+(def final-case-filters3
+  '((! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :left) (Key :tree)])
+    (! (Value :Black) tmap [(Key :tree)])))
+
+;TEST1
+(ann ^:nocheck final-case-filters4 Any)
+(def final-case-filters4
+  '((! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
+    (! (Value :Red) tmap [(Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :left) (Key :tree)])
+    (! (Value :Black) tmap [(Key :tree)])))
+
+#_(doseq [f1 (map prs/parse-filter final-case-filters1)
+        f2 (map prs/parse-filter final-case-filters2)
+        f3 (map prs/parse-filter final-case-filters3)
+        f4 (map prs/parse-filter final-case-filters4)]
+  (pr "*")
+  (flush)
+  (let [f (fo/-and f1 f2 f3 f4)]
+    (when-not
+      (sub/subtype?
+        (-> (chk/update-composite {'tmap (prs/parse-type 'badRight)} f)
+            (get 'tmap))
+        (prs/parse-type 'rbt))
+      (pr ".")
+      (prn (map prs/unparse-filter [f1 f2 f3 f4]))
+      (flush)
+      (throw (Exception. "a")))))
+
+; applying this filter to a badRight does not give rbt
+(ann ^:nocheck a-failure-combo1 Any)
+(def a-failure-combo1
+ '(& ;TEST4
+     (! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)]) 
+     ;TEST3
+     (! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)]) 
+     ;TEST2
+     (! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)]) 
+     ;TEST1
+     (! (Value :Red) tmap [(Key :left) (Key :tree)])))
+
+#_(->
+  (chk/update-composite {'tmap (prs/parse-type 'badRight)}
+                        (prs/parse-filter a-failure-combo1))
+  (get 'tmap)
+  prs/unparse-type
+  count)
+
+#_(def disj-of-conj-filter
+  '(| 
+     (& (is (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
+        (! (Value :Red) tmap [(Key :right) (Key :tree)])
+        (! (Value :Red) tmap [(Key :left) (Key :tree)])
+        (! (Value :Black) tmap [(Key :tree)]))
+     (& (! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
+        (is (Value :Red) tmap [(Key :right) (Key :tree)])
+        (! (Value :Red) tmap [(Key :left) (Key :tree)])
+        (! (Value :Black) tmap [(Key :tree)]))))
+
+#_(clojure.pprint/pprint (prs/unparse-filter (prs/parse-filter disj-of-conj-filter)))
+
+; FAILURE CASES FOR FINAL CASE
+
+(ann ^:nocheck final-failure-cases Any)
+(def final-failure-cases
+  '((HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right
+       (U
+        (HMap
+          :mandatory
+          {:tree (Value :Red),
+           :entry EntryT,
+           :left rbt,
+           :right
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt}))})
+        (HMap
+          :mandatory
+          {:tree (Value :Red),
+           :entry EntryT,
+           :left bt,
+           :right
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt}))})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black),
+               :entry EntryT,
+               :left rbt,
+               :right rbt}))}))})
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left rbt,
+       :right
+       (U
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+           :right bt})
+        (HMap
+          :mandatory
+          {:tree (Value :Red),
+           :entry EntryT,
+           :left
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+           :right rbt})
+        (HMap
+          :mandatory
+          {:tree (Value :Red),
+           :entry EntryT,
+           :left
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+           :right bt}))})
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right
+       (U
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+           :right bt})
+        (HMap
+          :mandatory
+          {:tree (Value :Red),
+           :entry EntryT,
+           :left
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+           :right rbt})
+        (HMap
+          :mandatory
+          {:tree (Value :Red),
+           :entry EntryT,
+           :left
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+           :right bt}))})
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left
+       (U
+        (HMap :mandatory {:tree (Value :Empty)})
+        (HMap
+          :mandatory
+          {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+       :right clojure.core.typed.test.rbt-types/badRoot})
+
+    badRight
+
+    (HMap
+      :mandatory
+      {:tree (Value :Black),
+       :entry EntryT,
+       :left rbt,
+       :right
+       (U
+        (HMap
+          :mandatory
+          {:tree (Value :Red),
+           :entry EntryT,
+           :left rbt,
+           :right
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt}))})
+        (HMap
+          :mandatory
+          {:tree (Value :Red),
+           :entry EntryT,
+           :left bt,
+           :right
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt}))})
+        (HMap
+          :mandatory
+          {:tree (Value :Black),
+           :entry EntryT,
+           :left rbt,
+           :right
+           (U
+            (HMap :mandatory {:tree (Value :Empty)})
+            (HMap
+              :mandatory
+              {:tree (Value :Black),
+               :entry EntryT,
+               :left rbt,
+               :right rbt}))}))})))
+
+
+#_(cf
+(ann-form 
+  (ann-form {:tree :Empty} rbt)
+  (HMap
+    :mandatory
+    {:tree (Value :Black),
+     :entry EntryT,
+     :left rbt,
+     :right
+     (HMap
+       :mandatory
+       {:tree (Value :Black),
+        :entry EntryT,
+        :left
+        (U
+         (HMap :mandatory {:tree (Value :Empty)})
+         (HMap
+           :mandatory
+           {:tree (Value :Black), :entry EntryT, :left rbt, :right rbt})),
+        :right
+        (U
+         (HMap :mandatory {:tree (Value :Empty)})
+         (HMap
+           :mandatory
+           {:tree (Value :Black),
+            :entry EntryT,
+            :left rbt,
+            :right rbt}))})})))
+
 (ann restore-right 
      (Fn [badRight -> rbt]))
 (defn restore-right [tmap]
   (cond
-    (print-filterset "TEST1"
-      (and (= :Black (-> tmap :tree))
+    (print-filterset 
+      "TEST1 
+        FS
+        {:then (& (is :Black tmap [:tree])
+                  (is :Red tmap [:left :tree])
+                  (is :Red tmap [:right :tree])
+                  (is :Red tmap [:right :left :tree]))
+         :else (| (! :Black tmap [:tree])
+                  (! :Red tmap [:left :tree])
+                  (! :Red tmap [:right :tree])
+                  (! :Red tmap [:right :left :tree]))}"
+      (and-trace (= :Black (-> tmap :tree))
            (= :Red (-> tmap :left :tree))
            (= :Red (-> tmap :right :tree))
            (= :Red (-> tmap :right :left :tree))))
@@ -34,14 +1248,43 @@
                :right (assoc rt
                              :tree :Black)}]
       ;(print-env "restore-right: output first branch (res)")
-      res)
+      (ann-form res rbt))
 
-    (print-filterset "TEST2"
+    (print-filterset 
+      "TEST2
+      FS
+      {:then
+       (&
+        (! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
+        (is (Value :Red) tmap [(Key :right) (Key :tree)])
+        (is (Value :Red) tmap [(Key :left) (Key :tree)])
+        (is (Value :Black) tmap [(Key :tree)])
+        (is (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)])),
+       :else
+       (&
+        (|
+         (! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)])
+         (! (Value :Red) tmap [(Key :right) (Key :tree)])
+         (! (Value :Red) tmap [(Key :left) (Key :tree)])
+         (! (Value :Black) tmap [(Key :tree)]))
+        (|
+         (! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
+         (! (Value :Red) tmap [(Key :right) (Key :tree)])
+         (! (Value :Red) tmap [(Key :left) (Key :tree)])
+         (! (Value :Black) tmap [(Key :tree)])))}"
        (and (= :Black (-> tmap :tree))
             (= :Red (-> tmap :left :tree))
             (= :Red (-> tmap :right :tree))
-            (= :Red (-> tmap :right :left :tree))))
-    (let [{lt :left rt :right e :entry} tmap
+            (= :Red (-> tmap :right :right :tree))))
+    (let [; Input to the second case: - Rowan
+          ; Empty | Black of 'a entry * 'a rbt * 'a rbt | Red of 'a entry * 'a bt * 'a bt
+          ; | Black of 'a entry * 'a rbt * (Red of 'a entry * 'a bt * 'a rbt)
+          _ (ann-form tmap
+                      (U Empty
+                         (Black rbt rbt)
+                         (Red bt bt)
+                         (Black rbt (Red bt rbt))))
+          {lt :left rt :right e :entry} tmap
           ;re-color
           res {:tree :Red
                :entry e
@@ -49,8 +1292,8 @@
                             :tree :Black)
                :right (assoc rt
                              :tree :Black)}]
-      (print-env "restore-right: output second branch (res)")
-      res)
+      ;(print-env "restore-right: output second branch (res)")
+      (ann-form res rbt))
 
     (print-filterset "TEST3"
       (and (= :Black (-> tmap :tree))
@@ -61,8 +1304,10 @@
            {re :entry
             {rle :entry
              rll :left
-             rlr :right} :left
-            rr :right} :right} tmap
+             rlr :right}
+            :left
+            rr :right}
+           :right} tmap
           ;l is black, deep rotate
           res {:tree :Black
                :entry rle
@@ -74,28 +1319,33 @@
                        :entry re
                        :left rlr
                        :right rr}}]
-      res)
+      (ann-form res rbt))
 
-    (and (= :Black (-> tmap :tree))
-         (= :Red (-> tmap :right :tree))
-         (= :Red (-> tmap :right :right :tree)))
+    (print-filterset "TEST4"
+      (and (= :Black (-> tmap :tree))
+           (= :Red (-> tmap :right :tree))
+           (= :Red (-> tmap :right :right :tree))))
     (let [{e :entry
            l :left
            {re :entry
             rl :left
-            rr :right} :right} tmap]
+            rr :right} 
+           :right} tmap]
       ;l is black, shallow rotate
-      {:tree :Black
-       :left {:tree :Red
-              :entry re
-              :left l
-              :right rl}
-       :right rr})
+      (ann-form
+        {:tree :Black
+         :entry re
+         :left {:tree :Red
+                :entry e
+                :left l
+                :right rl}
+         :right rr}
+        rbt))
 
     (do (print-env "final else:")
-      :else) 
+      :else)
     (do (print-env "follow final else:")
-      tmap)))
+      (ann-form tmap rbt))))
 
 ; Okasaki's simplified rotations for red-black trees
 ;(Fn [badRight -> rbt])

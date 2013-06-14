@@ -278,16 +278,16 @@
                 (parse-type '(U nil Number)))))
 
 (deftest get-special-test
-  (is (= (ety 
-           (clojure.core.typed/fn> [a :- (HMap :mandatory {:a Number})]
-                           (get a :a)))
-         (make-FnIntersection
-           (make-Function [(-hmap {(-val :a) (RClass-of Number)})]
-                          (RClass-of Number)
-                          nil nil
-                          :filter (-FS (-filter (RClass-of Number) 0 [(->KeyPE :a)])
-                                       -top)
-                          :object (->Path [(->KeyPE :a)] 0))))))
+  (is (subtype? 
+        (ety 
+          (clojure.core.typed/fn> [a :- (HMap :mandatory {:a Number})]
+                                  (get a :a)))
+        (parse-type
+          '(Fn ['{:a java.lang.Number} -> java.lang.Number 
+                :filters {:then (is java.lang.Number 0 [(Key :a)]), 
+                          :else (| (is (HMap :absent-keys #{(Value :a)}) 0) 
+                                   (is (U nil false) 0 [(Key :a)]))} 
+                :object {:path [(Key :a)], :id 0}])))))
 
 (deftest truth-false-values-test
   (is (= (tc-t (if nil 1 2))
@@ -330,10 +330,12 @@
          (ret -nil (-FS -top -top) -empty))))
 
 (deftest equiv-test
+  ; 1 arity :else filter is always bot
   (is (= (tc-t (= 1))
-         (tc-t (= 1 1))
+         (ret (Un -true -false) (-FS -top -bot) -empty)))
+  (is (= (tc-t (= 1 1))
          (tc-t (= 1 1 1 1 1 1 1 1 1 1))
-         (ret (Un -true -false) (-FS -top -top) (->EmptyObject))))
+         (ret (Un -true -false) (-FS -top -top) -empty)))
   (is (= (tc-t (= 'a 'b))
          (tc-t (= 1 2))
          (tc-t (= :a :b))
@@ -348,19 +350,15 @@
            (clojure.core.typed/fn> [a :- (U (HMap :mandatory {:op (Value :if)})
                                             (HMap :mandatory {:op (Value :var)}))] 
                                    (:op a)))
-         (ret (make-FnIntersection
-                (->Function
-                    [(Un (-hmap {(->Value :op) (->Value :if)})
-                         (-hmap {(->Value :op) (->Value :var)}))]
-                    (let [t (Un (->Value :if) (->Value :var))
-                          i 0
-                          p [(->KeyPE :op)]]
-                      (make-Result t
-                                   (-FS (-filter t i p) -top)
-                                   (->Path p 0)))
-                    nil nil nil))
-                  (-FS -top -bot)
-                  -empty))))
+         (ret 
+           (parse-type 
+             '(Fn [(U '{:op (Value :var)} '{:op (Value :if)}) -> (U ':var ':if) 
+                   :filters {:then (is (U (Value :var) (Value :if)) 0 [(Key :op)]), 
+                             :else (| (is (HMap :absent-keys #{(Value :op)}) 0) 
+                                      (is (U nil false) 0 [(Key :op)]))} 
+                   :object {:path [(Key :op)], :id 0}]))
+           (-FS -top -bot)
+           -empty))))
 
 (deftest refine-test
   (is (= (tc-t 
@@ -765,72 +763,7 @@
                       (-FS -top -bot)
                       -empty))))
          
-(comment
-(-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.rbt-types/badRight]
-                          (and (= :Black (-> tmap :tree))
-                               (= :Red (-> tmap :left :tree))
-                               (= :Red (-> tmap :right :tree))
-                               (= :Red (-> tmap :right :left :tree)))))
-                          ;(and (tc-pr-filters "first filter"
-                          ;       (= :Black (-> tmap :tree)))
-                          ;     (tc-pr-filters "second filter"
-                          ;       (= :Red (-> tmap :left :tree)))
-                          ;     (tc-pr-filters "third filter"
-                          ;       (= :Red (-> tmap :right :tree)))
-                          ;     (tc-pr-filters "fourth filter"
-                          ;       (= :Red (-> tmap :right :left :tree))))
-  ret-t :types first :rng :fl :else unparse-filter pprint)
-)
 
-;FIXME
-#_(deftest filter-simplification
-  (is (= (read-string "#clojure.core.typed.OrFilter{:fs #{#clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id 0} #clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Black}, :path (#clojure.core.typed.KeyPE{:val :tree}), :id 0} #clojure.core.typed.OrFilter{:fs #{#clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id 0} #clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id 0} #clojure.core.typed.OrFilter{:fs #{#clojure.core.typed.AndFilter{:fs #{#clojure.core.typed.TypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :tree}), :id 0} #clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :left} #clojure.core.typed.KeyPE{:val :tree}), :id 0}}} #clojure.core.typed.NotTypeFilter{:type #clojure.core.typed.Value{:val :Red}, :path (#clojure.core.typed.KeyPE{:val :right} #clojure.core.typed.KeyPE{:val :tree}), :id 0}}}}}}}}}}}")
-         (-or 
-          (-not-filter (-val :Black) 0 [(-kpe :tree)]) 
-           (-and 
-             (-filter (-val :Black) 0 [(-kpe :tree)]) 
-             (-or 
-               (-and (-filter (-val :Red) 0 (map -kpe [:left :tree]))
-                     (-or (-not-filter (-val  :Red) 0 (map -kpe [:right :tree]))
-                          (-and (-not-filter (-val :Red) 0 (map -kpe [:right :left :tree]))
-                                (-filter (-val :Red) 0 (map -kpe [:right :tree]))))) 
-               (-not-filter (-val :Red) 0 (:left :tree)))))
-         (-or (-not-filter (-val :Black) 0 [(->KeyPE :tree)])
-              (-not-filter (-val :Red) 0 [(->KeyPE :right) (->KeyPE :tree)])
-              (-not-filter (-val :Red) 0 (map ->KeyPE [:right :left :tree]))
-              (-not-filter (-val :Red) 0 (map ->KeyPE [:left :tree]))))))
-
-(defmacro is-check-rbt [& body]
-  `(is (do (check-ns '~'clojure.core.typed.test.rbt-types)
-           ~@body)))
-
-(deftest update-nested-hmap-test
-  (is-check-rbt (= (update (-hmap {(-val :left) (->Name 'clojure.core.typed.test.rbt-types/rbt)})
-                           (-filter (-val :Red) 'id [(->KeyPE :left) (->KeyPE :tree)]))
-                   (-hmap {(-val :left) 
-                           (-hmap {(-val :tree) (-val :Red) 
-                                   (-val :entry) (->Name 'clojure.core.typed.test.rbt-types/EntryT) 
-                                   (-val :left) (->Name 'clojure.core.typed.test.rbt-types/bt) 
-                                   (-val :right) (->Name 'clojure.core.typed.test.rbt-types/bt)})}))))
-         
-(deftest rbt-test
-  (is-check-rbt (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.rbt-types/badRight]
-                                                 (let [and1 (= :Black (-> tmap :tree))]
-                                                   #_(tc-pr-env "first clause")
-                                                   (if and1
-                                                     (let [and1 (= :Red (-> tmap :left :tree))]
-                                                       #_(tc-pr-env "second then clause")
-                                                       (if and1
-                                                         (let [and1 (= :Red (-> tmap :right :tree))]
-                                                           #_(tc-pr-env "third then clause")
-                                                           (if and1
-                                                             (= :Red (-> tmap :right :left :tree))
-                                                             (do #_(tc-pr-env "last clause")
-                                                                 and1)))
-                                                         (do #_(tc-pr-env "third else clause")
-                                                             and1)))
-                                                     (do #_(tc-pr-env "second else clause")
-                                                         and1))))))))
 
 (deftest check-get-keyword-invoke-test
   ;truth valued key
@@ -1358,6 +1291,42 @@
 
 (deftest multimethod-test
   (is (check-ns 'clojure.core.typed.test.mm)))
+
+(deftest instance-field-test
+  (is (cf (.ns ^clojure.lang.Var #'clojure.core/map))))
+
+(deftest HMap-syntax-test
+  (is (= (parse-type '(HMap :absent-keys #{':op}))
+         (-hmap {} #{(-val :op)} true))))
+
+(deftest map-filter-test
+  (is (cf (clojure.core.typed/ann-form (fn [a] (:op a))
+                                       [(U '{:op ':if} '{:op ':case})
+                                        -> (U ':if ':case)
+                                        :filters {:then (is (U ':case ':if) 0 [(Key :op)])
+                                                  :else (| (is (HMap :absent-keys #{':op}) 0)
+                                                           (is (U false nil) 0 [(Key :op)]))}
+                                        :object {:id 0
+                                                 :path [(Key :op)]}])))
+  ; {:then (is :if 0 [:op])
+  ;  :else (| (! :if 0 [:op])
+  ;           (is (HMap :absent-keys #{:op}) 0))}
+  (is (cf #(= :if (:op %))
+          [(U '{:op ':if} '{:op ':case})
+           -> Boolean
+           :filters {:then (& (is '{:op (Value :if)} 0)
+                              (is ':if 0 [(Key :op)]))
+                     :else (! ':if 0 [(Key :op)])}]))
+  (is (cf (clojure.core.typed/fn> [a :- (U '{:op ':if} '{:op ':case})
+                b :- (U '{:op ':if} '{:op ':case})]
+            (if (= :if (:op a))
+              (= :case (:op b))
+              false))))
+  (is (cf (fn [a b] 
+            (let [and__3941__auto__ (clojure.core/symbol? a)] 
+              (if (clojure.core.typed/print-filterset "test" and__3941__auto__)
+                (clojure.core/number? b) 
+                and__3941__auto__))))))
 
 ;TODO destructuring on records
 ;TODO does this instance lookup work? (cf (.the-class (->RClass ...)))

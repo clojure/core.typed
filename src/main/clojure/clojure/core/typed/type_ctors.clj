@@ -10,14 +10,15 @@
              [fold-rep :as f]
              [name-env :as nme-env]
              [datatype-env :as dtenv]]
-            [clojure.core.typed :as t]
+            [clojure.core.typed :as t :refer [fn>]]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
             [clojure.reflect :as reflect])
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
-                                        Bounds Name Scope CountRange)
-           (clojure.lang Seqable IPersistentSet IPersistentMap Symbol Keyword)))
+                                        Bounds Name Scope CountRange Intersection)
+           (clojure.lang Seqable IPersistentSet IPersistentMap Symbol Keyword
+                         Atom)))
 
 (t/typed-deps clojure.core.typed.utils
               clojure.core.typed.type-rep
@@ -30,7 +31,26 @@
   (alias 'cr 'clojure.core.typed.cs-rep)
   )
 
-(declare Un)
+(t/tc-ignore
+(defn- unparse-type-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
+                      'unparse-type)]
+    (assert (var? v) "unparse-type unbound")
+    v))
+  )
+
+(declare Un make-Union)
+
+(t/ann make-Union [(U nil (Seqable TCType)) -> TCType])
+(defn- make-Union
+  "Arguments should not overlap or be unions"
+  [args]
+  (cond
+    (= 1 (count args)) (first args)
+    :else (r/->Union (set args))))
+
+(t/ann bottom TCType)
+(def ^:private bottom (make-Union []))
 
 ;; Heterogeneous maps
 
@@ -41,8 +61,11 @@
   ([types] (-hmap types #{} true))
   ([types other-keys?] (-hmap types #{} other-keys?))
   ([types absent-keys other-keys?]
-   (if (some #{(Un)} (concat (keys types) (vals types)))
-     (Un)
+   (if (or ; simplify to bottom if an entry is bottom
+           (some #{bottom} (concat (keys types) (vals types)))
+           ; contradictory overlap in present/absent keys
+           (seq (set/intersection (set (keys types)) (set absent-keys))))
+     bottom
      (r/->HeterogeneousMap types absent-keys other-keys?))))
 
 (t/ann -complete-hmap [(Seqable TCType) -> TCType])
@@ -59,21 +82,30 @@
   "Generate a type which is every possible combination of mandatory
   and optional key entries. Takes an optional third parameter which
   is true if the entries are complete (ie. we know there are no more entries),
-  and false otherwise. Defaults to false."
+  and false otherwise. Defaults to false.
+  
+  Options:
+  - :absent-keys  a set of types that are not keys this/these maps"
   ([mandatory optional]
    (make-HMap mandatory optional false))
-  ([mandatory optional complete?]
-   (assert (= #{}
-              (set/intersection (-> mandatory keys set)
-                                (-> optional keys set))))
-   (apply Un
-          (for [ss (map #(into {} %) (comb/subsets optional))]
-            (-hmap (merge mandatory ss) 
-                   ;other optional keys cannot appear...
-                   (set/difference (set (keys optional))
-                                   (set (keys ss)))
-                   ;...but we don't know about other keys
-                   (not complete?))))))
+  ([mandatory optional complete? & {:keys [absent-keys]}]
+   ; simplifies to bottom with contradictory options
+   (if (seq (set/intersection (-> mandatory keys set)
+                              (-> optional keys set)
+                              (set absent-keys)))
+     (make-Union [])
+     (make-Union 
+            (remove
+              #{(make-Union [])}
+              (for [ss (map #(into {} %) (comb/subsets optional))]
+                (-hmap (merge mandatory ss) 
+                       ;other optional keys cannot appear...
+                       (set/union
+                         (set/difference (set (keys optional))
+                                         (set (keys ss)))
+                         (set absent-keys))
+                       ;...but we don't know about other keys
+                       (not complete?))))))))
 
 ;TODO to type check this, need to un-munge instance field names
 (t/ann ^:nocheck complete-hmap? [HeterogeneousMap -> Any])
@@ -98,53 +130,175 @@
       (first flat)
       (->Union flat))))
 
+(t/tc-ignore
+(defn- subtype?-var []
+  (let [n (find-ns 'clojure.core.typed.subtype)
+        _ (assert n "subtype ns doesn't exist")
+        v (ns-resolve n 'subtype?)]
+    (assert (var? v) "subtype? unbound")
+    v))
+  )
+
+(t/def-alias TempAtom1
+  "clojure.core.typed/Atom1 might not be around here"
+  (TFn [[a :variance :invariant]]
+    (Atom a a)))
+
+(t/ann ^:nocheck Un-cache (TempAtom1 TypeCache))
+(def Un-cache (atom {}))
+
+(t/ann ^:nocheck reset-Un-cache [-> nil])
+(defn reset-Un-cache []
+  (reset! Un-cache {})
+  nil)
+
+(declare flatten-unions)
+
 (t/ann ^:nocheck Un [TCType * -> TCType])
 (defn Un [& types]
-  (let [types (disj (set types) r/empty-union)]
-    (cond
-      (empty? types) r/empty-union
-      (= 1 (count types)) (first types)
-      :else (r/->Union (set (apply concat
-                                   (for [t (set types)]
-                                     (if (r/Union? t)
-                                       (:types t)
-                                       [t]))))))))
+  ;(prn "Un" (map @(unparse-type-var) types))
+;  (if-let [hit (@Un-cache (set types))]
+;    (do #_(prn "Un hit" (set types))
+;        hit)
+    (let [res (let [subtype? @(subtype?-var)]
+                (letfn [;; a is a Type (not a union type)
+                        ;; b is a Set[Type] (non overlapping, non Union-types)
+                        ;; The output is a non overlapping list of non Union types.
+                        (merge-type [a b]
+                          {:pre [(set? b)]
+                           :post [(set? %)]}
+                          ;(prn "merge-type" a b)
+                          (let [b* (make-Union b)
+                                res (cond
+                                      (subtype? a b*) b
+                                      (subtype? b* a) #{a}
+                                      :else (conj b a))]
+                            ;(prn "res" res)
+                            res))]
+                  (let [types (set types)]
+                    (cond
+                      (empty? types) r/empty-union
+                      (= 1 (count types)) (first types)
+                      :else 
+                      (make-Union
+                        (reduce (fn [acc t] (merge-type t acc))
+                                #{}
+                                (set (flatten-unions types))))))))]
+      ;(swap! Un-cache (fn> [c :- TypeCache] (assoc c (set types) res)))
+      res))
 
 ;; Intersections
 
-(declare overlap)
+(declare overlap In)
+
+(t/def-alias TypeCache (IPersistentMap (IPersistentSet TCType) TCType))
+
+(t/ann In-cache (TempAtom1 TypeCache))
+(def In-cache (atom {}))
+
+(t/ann intersect-cache (TempAtom1 TypeCache))
+(def intersect-cache (atom {}))
+
+(t/ann reset-In-cache [-> nil])
+(defn reset-In-cache []
+  (reset! In-cache {})
+  (reset! intersect-cache {})
+  nil)
+
+(t/ann ^:nocheck make-Intersection [(U nil (Seqable TCType)) -> TCType])
+(defn make-Intersection [types]
+  #_(prn "make-Intersection" types)
+  (r/->Intersection (set types)))
+
+(t/ann ^:nocheck intersect [TCType TCType -> TCType])
+(defn intersect [t1 t2]
+  {:pre [(r/Type? t1)
+         (r/Type? t2)
+         (not (r/Union? t1))
+         (not (r/Union? t2))]
+   :post [(r/Type? %)]}
+  (let [subtype? @(subtype?-var)]
+    #_(prn "intersect")
+;    (if-let [hit (@intersect-cache (set [t1 t2]))]
+;      (do
+;        #_(prn "intersect hit")
+;        hit)
+      (let [t (cond
+                (and (r/HeterogeneousMap? t1)
+                     (r/HeterogeneousMap? t2))
+                (-hmap
+                  (merge-with In
+                              (:types t1)
+                              (:types t2))
+                  (set/union (:absent-keys t1)
+                             (:absent-keys t2))
+                  (or (:other-keys? t1)
+                      (:other-keys? t2)))
+                (not (overlap t1 t2)) bottom
+                (subtype? t1 t2) t1
+                (subtype? t2 t1) t2
+                :else (do
+                        #_(prn "failed to eliminate intersection" (@(unparse-type-var) (make-Intersection [t1 t2])))
+                        (make-Intersection [t1 t2])))]
+        ;(swap! intersect-cache (fn> [c :- TypeCache] (assoc c (set [t1 t2]) t)))
+        t)))
+
+(t/ann ^:nocheck flatten-intersections [(U nil (Seqable TCType)) -> (Seqable TCType)])
+(defn flatten-intersections [types]
+  {:pre [(every? r/Type? types)]
+   :post [(every? r/Type? %)]}
+  (apply concat
+         (for [^Intersection t types]
+           (if (r/Intersection? t)
+             (.types t)
+             [t]))))
+
+(t/ann ^:nocheck flatten-unions [(U nil (Seqable TCType)) -> (Seqable TCType)])
+(defn flatten-unions [types]
+  {:pre [(every? r/Type? types)]
+   :post [(every? r/Type? %)]}
+  (apply concat
+         (for [^Intersection t (set types)]
+           (if (r/Union? t)
+             (:types t)
+             [t]))))
 
 (t/ann ^:nocheck In [TCType * -> TCType])
 (defn In [& types]
   {:pre [(every? r/Type? types)]
    :post [(r/Type? %)]}
-           ;flatten intersections
-  (let [ts (set (apply concat
-                       (for [t (set types)]
-                         (if (r/Intersection? t)
-                           (:types t)
-                           [t]))))]
-    (cond
-      (or (empty? ts)
-          (ts (Un))) (Un)
+  #_(prn "In" (map @(unparse-type-var) types))
+;  (if-let [hit (@In-cache (set types))]
+;    (do #_(prn "In hit" (@(unparse-type-var) hit))
+;        hit)
+    (let [res (let [ts (set (flatten-intersections types))]
+                (cond
+                  ; empty intersection is bottom
+                  (or (empty? ts)
+                      (contains? ts bottom)) bottom
 
-      (= 1 (count ts)) (first ts)
+                  (= 1 (count ts)) (first ts)
 
-      ; if there no overlap
-      (and (<= (count ts) 2)
-           (some (fn [[t1 t2]] (not (overlap t1 t2))) (comb/combinations ts 2))) (Un)
-
-      (some r/Union? ts) (let [flat (set (mapcat #(if (r/Union? %)
-                                                    (:types %)
-                                                    [%])
-                                                 ts))]
-                           (apply Un
-                                  (set
-                                    (for [[t1 t2] (comb/combinations flat 2)]
-                                      (In t1 t2)))))
-
-      (ts r/-any) (apply In (disj ts r/-any))
-      :else (r/->Intersection ts))))
+                  ; normalise (I t1 t2 (U t3 t4))
+                  ; to (U (I t1 t2) (I t1 t2 t3) (U t1 t2 t4))
+                  :else (let [{unions true non-unions false} (group-by r/Union? ts)
+                              ;intersect all the non-unions to get a possibly-nil type
+                              intersect-non-unions (when (seq non-unions)
+                                                     (reduce intersect non-unions))
+                              ;if we have an intersection above, use it to update each
+                              ;member of the unions we're intersecting
+                              intersect-union-ts (if intersect-non-unions
+                                                   (reduce (fn [acc union-m]
+                                                             (conj acc (intersect intersect-non-unions union-m)))
+                                                           #{} (flatten-unions unions))
+                                                   (set (flatten-unions unions)))]
+                          ;make a union of the above types
+                          (apply Un (set/union intersect-union-ts 
+                                               (set (when intersect-non-unions
+                                                      #{intersect-non-unions})))))))]
+      ;(swap! In-cache assoc (set types) res)
+      #_(prn 'IN res (class res))
+      res))
 
 ;; RClass
 
@@ -367,14 +521,6 @@
 
 
 ;; Instantiate ops
-
-(t/tc-ignore
-(defn- unparse-type-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
-                      'unparse-type)]
-    (assert (var? v) "unparse-type unbound")
-    v))
-  )
 
 (t/ann ^:nocheck make-simple-substitution [(Seqable Symbol) (Seqable TCType) -> cr/SubstMap])
 (defn make-simple-substitution [vs ts]
@@ -609,13 +755,6 @@
     ;; ---->>
     true))
 
-(t/tc-ignore
-(defn- subtype?-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.subtype) 'subtype?)]
-    (assert (var? v) "subtype? unbound")
-    v))
-  )
-
 ;true if types t1 and t2 overlap (NYI)
 (t/ann ^:nocheck overlap [TCType TCType -> Any])
 (defn overlap [t1 t2]
@@ -737,7 +876,7 @@
   (last 
     (take (inc n) (iterate r/->Scope t))))
 
-(t/ann remove-scopes [t/AnyInteger (U Scope TCType) -> (U Scope TCType)])
+(t/ann ^:nocheck remove-scopes [t/AnyInteger (U Scope TCType) -> (U Scope TCType)])
 (defn remove-scopes 
   "Unwrap n Scopes"
   [n sc]
@@ -746,7 +885,7 @@
              (r/Scope? sc))]
    :post [(or (r/Scope? %) (r/Type? %))]}
   (last
-    (take (inc n) (iterate (fn [t]
+    (take (inc n) (iterate (fn> [t :- Scope]
                              (assert (r/Scope? t) "Tried to remove too many Scopes")
                              (:body t))
                            sc))))
@@ -976,16 +1115,19 @@
                    (next images)
                    (dec count))))))))
 
-(t/ann abstract [Symbol TCType -> TCType])
-(defn abstract [name ty]
+(t/ann abstract [Symbol TCType -> Scope])
+(defn abstract 
   "Make free name bound"
+  [name ty]
   {:pre [(symbol? name)
-         (r/Type? ty)]}
+         (r/Type? ty)]
+   :post [(r/Scope? %)]}
   (abstract-many [name] ty))
 
 (t/ann instantiate [Symbol Scope -> TCType])
-(defn instantiate [f sc]
+(defn instantiate 
   "Instantiate bound name to free"
+  [f sc]
   {:pre [(symbol? f)
          (r/Scope? sc)]}
   (instantiate-many [f] sc))

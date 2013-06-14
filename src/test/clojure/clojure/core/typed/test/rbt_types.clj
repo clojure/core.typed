@@ -1,100 +1,81 @@
 (ns clojure.core.typed.test.rbt-types
   (:require [clojure.core.typed :refer [def-alias declare-names]]))
 
-(def-alias EntryT (HMap :mandatory {:key Number
-                         :datum Number})) ;TODO is this EntryT type correct? No definition in thesis
+;-------------------------------
+; 'Normal' types
+;-------------------------------
+
+(def-alias EntryT 
+  "The payload"
+  '{:key Number
+    :datum Number})
+
+(def-alias Empty
+  "A terminating node."
+  '{:tree ':Empty})
+
+(def-alias Red
+  "A red node"
+  (TFn [[l :variance :covariant]
+        [r :variance :covariant]]
+    '{:tree ':Red
+      :entry EntryT
+      :left l
+      :right r}))
+
+(def-alias Black
+  "A black node"
+  (TFn [[l :variance :covariant]
+        [r :variance :covariant]]
+    '{:tree ':Black
+      :entry EntryT
+      :left l
+      :right r}))
+
+
+;-------------------------------
+; 'Refinement' types
+;-------------------------------
 
 (declare-names rbt bt)
 
-;Trees with only black children for red nodes
-(def-alias rbt (U 
-                 ;Empty
-                 (HMap :mandatory {:tree (Value :Empty)})
-                 ;Black
-                 (HMap :mandatory {:tree (Value :Black)
-                        :entry EntryT
-                        :left rbt
-                        :right rbt})
-                 ;Red
-                 (HMap :mandatory {:tree (Value :Red)
-                        :entry EntryT
-                        :left bt
-                        :right bt})))
+(def-alias rbt 
+  "Trees with only black children for red nodes"
+  (U 
+    Empty
+    (Black rbt rbt)
+    (Red bt bt)))
 
-;As above but additionally the root node is black
-(def-alias bt (U
-                ;Empty
-                (HMap :mandatory {:tree (Value :Empty)})
-                ;Black
-                (HMap :mandatory {:tree (Value :Black)
-                       :entry EntryT
-                       :left rbt
-                       :right rbt})))
+(def-alias bt 
+  "Like rbt but additionally the root node is black"
+  (U 
+    Empty
+    (Black rbt rbt)))
 
-; Trees with a red root
-(def-alias red (U
-                 ;Red
-                 (HMap :mandatory {:tree (Value :Red)
-                        :entry EntryT
-                        :left bt
-                        :right bt})))
+(def-alias red 
+  "Trees with a red root"
+  (Red bt bt))
 
-;invariant possibly violated at the root
-(def-alias badRoot (U
-                     ;Empty
-                     (HMap :mandatory {:tree (Value :Empty)})
-                     ;Black
-                     (HMap :mandatory {:tree (Value :Black)
-                            :entry EntryT
-                            :left rbt
-                            :right bt})
-                     ;Red
-                     (HMap :mandatory {:tree (Value :Red)
-                            :entry EntryT
-                            :left rbt
-                            :right bt})
-                     ;Red
-                     (HMap :mandatory {:tree (Value :Red)
-                            :entry EntryT
-                            :left bt
-                            :right rbt})))
+(def-alias badRoot 
+  "Invariant possibly violated at the root"
+  (U 
+    Empty
+    (Black rbt bt)
+    (Red rbt bt)
+    (Red bt rbt)))
 
-;invariant possibly violated at the left child
-(def-alias badLeft (U
-                     ;Empty
-                     (HMap :mandatory {:tree (Value :Empty)})
-                     ;Black
-                     (HMap :mandatory {:tree (Value :Black)
-                            :entry EntryT
-                            :left rbt
-                            :right rbt})
-                     ;Red
-                     (HMap :mandatory {:tree (Value :Red)
-                            :entry EntryT
-                            :left bt
-                            :right bt})
-                     ;Black
-                     (HMap :mandatory {:tree (Value :Black)
-                            :entry EntryT
-                            :left badRoot
-                            :right rbt})))
+(def-alias badLeft 
+  "Invariant possibly violated at the left child"
+  (U
+   Empty
+   (Black rbt rbt)
+   (Red bt bt)
+   (Black badRoot rbt)))
 
-;invariant possibly violated at the right child
-(def-alias badRight (U
-                      ;Empty
-                      (HMap :mandatory {:tree (Value :Empty)})
-                      ;Black
-                      (HMap :mandatory {:tree (Value :Black)
-                             :entry EntryT
-                             :left rbt
-                             :right rbt})
-                      ;Red
-                      (HMap :mandatory {:tree (Value :Red)
-                             :entry EntryT
-                             :left bt
-                             :right bt})
-                      ;Black
-                      (HMap :mandatory {:tree (Value :Black)
-                             :entry EntryT
-                             :left rbt
-                             :right badRoot})))
+(def-alias badRight 
+  "Invariant possibly violated at the right child"
+  (U
+   Empty
+   (Black rbt rbt)
+   (Red bt bt)
+   (Black rbt badRoot)))

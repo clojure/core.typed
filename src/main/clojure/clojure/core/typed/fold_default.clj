@@ -4,6 +4,7 @@
              [type-rep :as r]
              [type-ctors :as c]
              [filter-rep]
+             [filter-ops :as fops]
              [object-rep]
              [path-rep]])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
@@ -11,7 +12,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result
-                                        HeterogeneousSeq TCResult TCError)
+                                        HeterogeneousSeq TCResult TCError FlowSet)
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -28,6 +29,7 @@
 
 (add-default-fold-case Union 
                        (fn [ty _]
+                         ;(prn "union default" (clojure.core.typed.parse-unparse/unparse-type ty))
                          (apply c/Un (mapv type-rec (:types ty)))))
 
 (add-default-fold-case FnIntersection
@@ -91,7 +93,7 @@
 
 (add-default-fold-case DataType
                        (fn [ty _]
-                         #_(prn (clojure.core.typed.parse-unparse/unparse-type ty))
+                         ;(prn "datatype default" (clojure.core.typed.parse-unparse/unparse-type ty))
                          (-> ty
                            (update-in [:poly?] #(when %
                                                   (mapv type-rec %)))
@@ -148,11 +150,11 @@
                            (c/Mu* name (type-rec body)))))
 
 (add-default-fold-case HeterogeneousVector
-                       (fn [ty _]
-                         (-> ty 
-                           (update-in [:types] #(mapv type-rec %))
-                           (update-in [:fs] #(mapv filter-rec %))
-                           (update-in [:objects] #(mapv object-rec %)))))
+                       (fn [^HeterogeneousVector ty _]
+                         (r/-hvec
+                           (mapv type-rec (.types ty))
+                           :filters (mapv filter-rec (.fs ty))
+                           :objects (mapv object-rec (.objects ty)))))
 
 (add-default-fold-case HeterogeneousList 
                        (fn [ty _]
@@ -184,7 +186,8 @@
                          (-> ty
                            (update-in [:t] type-rec)
                            (update-in [:fl] filter-rec)
-                           (update-in [:o] object-rec))))
+                           (update-in [:o] object-rec)
+                           (update-in [:flow] filter-rec))))
 
 
 ;filters
@@ -212,20 +215,25 @@
                            (update-in [:c] filter-rec))))
 
 (add-default-fold-case AndFilter
-                       (fn [ty _]
-                         (-> ty
-                           (update-in [:fs] #(set (map filter-rec %))))))
+                       (fn [^AndFilter ty _]
+                         (apply fops/-and
+                                (map filter-rec (.fs ty)))))
 
 (add-default-fold-case OrFilter
-                       (fn [ty _]
-                         (-> ty
-                           (update-in [:fs] #(set (map filter-rec %))))))
+                       (fn [^OrFilter ty _]
+                         (apply fops/-or
+                                (map filter-rec (.fs ty)))))
 
 (add-default-fold-case FilterSet
-                       (fn [ty _]
-                         (-> ty
-                           (update-in [:then] filter-rec)
-                           (update-in [:else] filter-rec))))
+                       (fn [^FilterSet ty _]
+                         (fops/-FS
+                           (filter-rec (.then ty))
+                           (filter-rec (.else ty)))))
+
+(add-default-fold-case FlowSet
+                       (fn [^FlowSet ty _]
+                         (r/-flow (filter-rec (.normal ty)))))
+
 
 ;objects
 (add-default-fold-case EmptyObject ret-first)
@@ -248,4 +256,4 @@
                            (update-in [:t] type-rec)
                            (update-in [:fl] filter-rec)
                            (update-in [:o] object-rec)
-                           (update-in [:flow :normal] filter-rec))))
+                           (update-in [:flow] filter-rec))))
