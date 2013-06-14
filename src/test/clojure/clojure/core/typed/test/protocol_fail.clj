@@ -3,8 +3,6 @@
             [clojure.core.typed.test.protocol
              :refer [AddProtoc]]))
 
-(typed-deps clojure.core.typed.test.protocol)
-
 (ann-datatype Accumulator [t :- Number])
 (deftype Accumulator [t]
   AddProtoc

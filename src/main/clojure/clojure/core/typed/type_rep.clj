@@ -1,15 +1,14 @@
 (ns clojure.core.typed.type-rep
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require [clojure.core.typed
-             [utils :as u]]
+  (:require (clojure.core.typed
+             [utils :as u])
             [clojure.core.typed :as t]
             [clojure.set :as set])
   (:import (clojure.lang IPersistentSet Seqable Symbol Keyword IPersistentMap
                          IPersistentVector)))
 
 (t/typed-deps clojure.core.typed.filter-rep
-              clojure.core.typed.object-rep
-              clojure.core.typed.utils)
+              clojure.core.typed.object-rep)
 
 (t/tc-ignore
 ; add fr as an alias to filter-rep

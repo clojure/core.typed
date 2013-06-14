@@ -1,17 +1,12 @@
 (ns clojure.core.typed.name-env
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [type-rep :as r]
              [utils :as u]
              [datatype-env :as dtenv]
-             [protocol-env :as prenv]]
+             [protocol-env :as prenv])
             [clojure.core.typed :as t :refer [fn>]])
   (:import (clojure.lang Symbol IPersistentMap Keyword)
            #_(clojure.core.typed.type_rep )))
-
-(t/typed-deps clojure.core.typed.type-rep
-              clojure.core.typed.utils
-              clojure.core.typed.protocol-env
-              clojure.core.typed.datatype-env)
 
 (t/def-alias NameEnv
   "Environment mapping names to types. Keyword values are special."

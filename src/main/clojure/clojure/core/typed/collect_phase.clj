@@ -1,6 +1,6 @@
 (ns clojure.core.typed.collect-phase
   (:require [clojure.core.typed :refer [*already-collected*]]
-            [clojure.core.typed
+            (clojure.core.typed
              [type-rep :as r]
              [type-ctors :as c]
              [utils :as u :refer [constant-exprs]]
@@ -23,8 +23,17 @@
              [method-override-env :as override]
              [method-return-nilables :as ret-nil]
              [method-param-nilables :as param-nil]
-             [subtype :as sub]]
-            [clojure.repl :as repl]))
+             [subtype :as sub])
+            [clojure.repl :as repl]
+            (clojure.tools.namespace
+             [track :as track]
+             [dir :as dir]
+             [dependency :as ndep])))
+
+(def ns-deps-tracker (atom (track/tracker)))
+
+(defn update-ns-deps! []
+  (swap! ns-deps-tracker dir/scan))
 
 (defn parse-field [[n _ t]]
   [n (prs/parse-type t)])
@@ -37,6 +46,27 @@
 (defn- already-collected? [nsym]
   (boolean (@*already-collected* nsym)))
 
+(defn immediate-deps [nsym]
+  (ndep/immediate-dependencies (-> @ns-deps-tracker ::track/deps) nsym))
+
+(defn directly-depends? [nsym another-nsym]
+  (contains? (immediate-deps nsym) another-nsym))
+
+(defn probably-typed? [nsym]
+  (directly-depends? nsym 'clojure.core.typed))
+
+(defn infer-typed-ns-deps!
+  "Automatically find other namespaces that are likely to
+  be typed dependencies to the current ns."
+  [nsym]
+  (update-ns-deps!)
+  (let [all-deps (immediate-deps nsym)
+        new-deps (set (filter probably-typed? all-deps))]
+    (prn "check" nsym)
+    (prn "all-deps" all-deps)
+    (prn "new-deps" new-deps)
+    (dep/add-ns-deps nsym new-deps)))
+
 (defn collect-ns
   "Collect type annotations and dependency information
   for namespace symbol nsym, and recursively check 
@@ -45,10 +75,15 @@
    (if (already-collected? nsym)
      (do (println (str "Already collected " nsym ", skipping"))
          (flush))
-     (let [asts (ana-clj/ast-for-ns nsym)]
-       (collected-ns! nsym)
-       (doseq [ast asts]
-         (collect ast))))))
+     (do (infer-typed-ns-deps! nsym)
+         (prn "inferred deps for " nsym)
+         (doseq [dep (dep/immediate-deps nsym)]
+           (prn "collecting .. " dep)
+           (collect-ns dep))
+         (let [asts (ana-clj/ast-for-ns nsym)]
+           (collected-ns! nsym)
+           (doseq [ast asts]
+             (collect ast)))))))
 
 (defmulti collect (fn [expr] (:op expr)))
 (defmulti invoke-special-collect (fn [expr]

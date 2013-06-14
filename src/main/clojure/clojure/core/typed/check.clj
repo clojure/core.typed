@@ -1,7 +1,7 @@
 (ns clojure.core.typed.check
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t :refer [*already-checked* letfn>]]
-            [clojure.core.typed
+            (clojure.core.typed
              [utils :as u]
              [parse-unparse :as prs]
              [current-impl :as impl]
@@ -35,9 +35,9 @@
              [method-override-env :as mth-override]
              [ctor-override-env :as ctor-override]
              [analyze-clj :as ana-clj]
-             [ns-deps :as ns-deps]]
-            [clojure.tools.analyzer
-             [hygienic :as hygienic]]
+             [ns-deps :as ns-deps])
+            (clojure.tools.analyzer
+             [hygienic :as hygienic])
             [clojure.pprint :as pprint]
             [clojure.math.combinatorics :as comb]
             [clojure.string :as str]

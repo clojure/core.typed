@@ -1,5 +1,5 @@
 (ns clojure.core.typed.cs-gen
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [utils :as u]
              [type-rep :as r :refer [TCType TCAnyType]]
              [type-ctors :as c]
@@ -15,7 +15,7 @@
              [frees :as frees]
              [free-ops :as free-ops]
              [promote-demote :as prmt]
-             [subst :as subst]]
+             [subst :as subst])
             [clojure.core.typed :as t]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
@@ -23,8 +23,6 @@
                                         HeterogeneousVector DataType HeterogeneousMap PrimitiveArray
                                         Function)
            (clojure.lang ISeq IPersistentList APersistentVector APersistentMap)))
-
-(t/typed-deps clojure.core.typed.utils)
 
 (t/tc-ignore
 (def cs-error ::cs-error)

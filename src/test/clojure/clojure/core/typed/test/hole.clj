@@ -7,8 +7,6 @@
                                                     ;vars
                                                     domonad defmonadfn ann-monadfn]]))
 
-(typed-deps clojure.core.typed.hole)
-
 ; # Holes
 ;
 ; See: http://matthew.brecknell.net/posts/2013/02/26/hole-driven-haskell/

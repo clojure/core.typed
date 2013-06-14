@@ -1,6 +1,6 @@
 (ns clojure.core.typed.type-ctors
   (:refer-clojure :exclude [defrecord])
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [utils :as u]
              [type-rep :as r :refer [TCType]]
              [filter-rep :as fr]
@@ -9,7 +9,7 @@
              [util-vars :as vs]
              [fold-rep :as f]
              [name-env :as nme-env]
-             [datatype-env :as dtenv]]
+             [datatype-env :as dtenv])
             [clojure.core.typed :as t :refer [fn>]]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
@@ -19,11 +19,6 @@
                                         Bounds Name Scope CountRange Intersection)
            (clojure.lang Seqable IPersistentSet IPersistentMap Symbol Keyword
                          Atom)))
-
-(t/typed-deps clojure.core.typed.utils
-              clojure.core.typed.type-rep
-              clojure.core.typed.cs-rep
-              clojure.core.typed.name-env)
 
 ; create an alias cr -> cs-rep
 (t/tc-ignore

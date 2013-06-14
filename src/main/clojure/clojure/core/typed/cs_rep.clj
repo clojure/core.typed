@@ -1,13 +1,11 @@
 (ns clojure.core.typed.cs-rep
   (:refer-clojure :exclude [defrecord])
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [utils :as u]
-             [type-rep :as r]]
+             [type-rep :as r])
             [clojure.core.typed :as t])
   (:import (clojure.lang IPersistentMap Symbol Seqable)
            (clojure.core.typed.type_rep Bounds F)))
-
-(t/typed-deps clojure.core.typed.type-rep)
 
 (t/ann-record t-subst [type :- r/TCType,
                        bnds :- Bounds])

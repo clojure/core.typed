@@ -1,17 +1,12 @@
 (ns clojure.core.typed.object-rep
   (:refer-clojure :exclude [defrecord])
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [type-rep :as r]
              [path-rep :as pr]
              [filter-rep :as fr]
-             [utils :as u]]
+             [utils :as u])
             [clojure.core.typed :as t])
   (:import (clojure.lang Seqable)))
-
-(t/typed-deps clojure.core.typed.type-rep
-              clojure.core.typed.path-rep
-              clojure.core.typed.filter-rep
-              clojure.core.typed.utils)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Objects

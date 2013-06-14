@@ -1,15 +1,13 @@
 (ns clojure.core.typed.filter-rep
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [type-rep :as r]
              [path-rep :as pr]
-             [utils :as u]]
+             [utils :as u])
             [clojure.core.typed :as t])
   (:import (clojure.lang Symbol Seqable IPersistentSet)
            (clojure.core.typed.type_rep TCType)
            (clojure.core.typed.path_rep IPathElem)))
-
-(t/typed-deps clojure.core.typed.path-rep)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters

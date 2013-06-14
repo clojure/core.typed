@@ -1,12 +1,9 @@
 (ns clojure.core.typed.datatype-env
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [utils :as u]
-             [type-rep :as r]]
+             [type-rep :as r])
             [clojure.core.typed :as t :refer [fn>]])
   (:import (clojure.lang IPersistentMap Symbol)))
-
-(t/typed-deps clojure.core.typed.utils
-              clojure.core.typed.type-rep)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Datatype Env
