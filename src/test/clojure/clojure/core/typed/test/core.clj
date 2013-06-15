@@ -1341,3 +1341,6 @@
 
 ;TODO support (some #{...} coll)
 ;TODO (apply == (non-empty-seq))
+
+(deftest warn-on-unannotated-vars-test
+  (is (check-ns 'clojure.core.typed.test.warn-on-unannotated-var)))

@@ -1,5 +1,5 @@
 (ns clojure.core.typed.reset-env
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [type-ctors :as tc]
              [lex-env :as lex]
              [var-env :as var-env]
@@ -11,7 +11,8 @@
              [name-env :as nme-env]
              [rclass-env :as rcls-env]
              [base-env :as bse]
-             [ns-deps :as deps]]))
+             [ns-deps :as deps]
+             [ns-options :as ns-opts])))
 
 (defn reset-envs! []
   (nme-env/reset-name-env! bse/init-alias-env)
@@ -22,5 +23,6 @@
   (ctor-override/reset-constructor-override-env! bse/init-ctor-override-env)
   (rcls-env/reset-rclass-env! bse/init-altered-env)
   (deps/reset-deps!)
+  (ns-opts/reset-ns-opts!)
   nil)
 

@@ -9,6 +9,7 @@
              [name-env :as nme-env]
              [declared-kind-env :as decl]
              [ns-deps :as dep]
+             [ns-options :as ns-opts]
              [utils :as u]
              [util-vars :as uvar]
              [check :as chk]
@@ -62,9 +63,6 @@
   (update-ns-deps!)
   (let [all-deps (immediate-deps nsym)
         new-deps (set (filter probably-typed? all-deps))]
-    (prn "check" nsym)
-    (prn "all-deps" all-deps)
-    (prn "new-deps" new-deps)
     (dep/add-ns-deps nsym new-deps)))
 
 (defn collect-ns
@@ -76,9 +74,7 @@
      (do (println (str "Already collected " nsym ", skipping"))
          (flush))
      (do (infer-typed-ns-deps! nsym)
-         (prn "inferred deps for " nsym)
          (doseq [dep (dep/immediate-deps nsym)]
-           (prn "collecting .. " dep)
            (collect-ns dep))
          (let [asts (ana-clj/ast-for-ns nsym)]
            (collected-ns! nsym)
@@ -197,6 +193,12 @@
   (let [[dname fields opt] (constant-exprs args)]
     (gen-datatype* env (chk/expr-ns expr) dname fields nil opt true)))
 
+(defmethod invoke-special-collect 'clojure.core.typed/warn-on-unannotated-vars*
+  [{:as expr}]
+  (assert-expr-args expr #{0})
+  (let [prs-ns (chk/expr-ns expr)]
+    (ns-opts/register-warn-on-unannotated-vars (ns-name prs-ns))
+    nil))
 
 (defmethod invoke-special-collect 'clojure.core.typed/typed-deps*
   [{:keys [args] :as expr}]

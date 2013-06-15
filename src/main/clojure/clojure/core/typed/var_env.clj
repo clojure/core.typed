@@ -64,6 +64,9 @@
             "Untyped var reference: " nsym))
   (@*var-annotations* nsym))
 
+(defn lookup-Var-nofail [nsym]
+  (@*var-annotations* nsym))
+
 (defn type-of [sym]
   {:pre [(symbol? sym)]
    :post [(or (r/Type? %)

@@ -933,6 +933,36 @@
   [& args]
   `(typed-deps* '~args))
 
+;(defn unchecked-ns*
+;  "Internal use only. Use unchecked-ns."
+;  [])
+;
+;(defmacro unchecked-ns
+;  "Declare this namespace to be unchecked. 
+;  
+;  This disables type collection and checking for the current namespace.
+;  Useful when the namespace has a dependency on clojure.core.typed,
+;  and therefore a candidate for automatically inferred type dependencies,
+;  but should never be type checked.
+;  
+;  eg. (unchecked-ns)"
+;  []
+;  `(unchecked-ns*))
+
+(defn warn-on-unannotated-vars*
+  "Internal use only. Use allow-unannotated-vars"
+  []
+  nil)
+
+(defmacro warn-on-unannotated-vars
+  "Allow unannotated vars in the current namespace. 
+  
+  Emits a warning instead of a type error when checking
+  a def without a corresponding expected type.
+  
+  eg. (warn-on-unannotated-vars)"
+  []
+  `(warn-on-unannotated-vars*))
 
 ; cf can pollute current type environment to allow REPL experimentation, 
 ; which is ok because check-ns resets it when called.

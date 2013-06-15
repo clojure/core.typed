@@ -35,7 +35,8 @@
              [method-override-env :as mth-override]
              [ctor-override-env :as ctor-override]
              [analyze-clj :as ana-clj]
-             [ns-deps :as ns-deps])
+             [ns-deps :as ns-deps]
+             [ns-options :as ns-opts])
             (clojure.tools.analyzer
              [hygienic :as hygienic])
             [clojure.pprint :as pprint]
@@ -3872,9 +3873,15 @@ rest-param-name (when rest-param
   (assert (not expected))
   (assert init-provided)
   (let [vsym (u/var->symbol var)
+        warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (ns-name (expr-ns expr)))
         t (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
-            (var-env/type-of vsym))
-        check? (var-env/check-var? vsym)
+            (if warn-if-unannotated?
+              (var-env/lookup-Var-nofail vsym)
+              (var-env/lookup-Var vsym)))
+        ; t could only be nil if warn-if-unannotated? is true
+        _ (assert (or t warn-if-unannotated?))
+        check? (when t
+                 (var-env/check-var? vsym))
         _ (when-not check?
             (println (when-let [line (-> expr :env :line)] (str line ": ")) "Not checking" vsym "definition")
             (flush))
