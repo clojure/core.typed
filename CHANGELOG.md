@@ -1,3 +1,9 @@
+0.1.17
+- Automatically infer typed namespaces
+- Add `warn-on-unannotated-vars` to allow partially typed namespaces
+- Add :absent-keys and :complete options to HMap
+- Fix bugs with filter constructors
+
 0.1.15
 - Code successfully AOT compiles, some exclusions (see pom.xml)
 - Error messages use abbreviated types and forms
