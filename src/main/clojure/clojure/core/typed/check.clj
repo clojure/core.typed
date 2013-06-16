@@ -3700,17 +3700,19 @@ rest-param-name (when rest-param
     (or (fl/TypeFilter? f)
         (fl/NotTypeFilter? f))
     (let [x (:id f)]
-      (update-in bnd-env [x] (fn [t]
-                               (assert t (str "Local binding " x " found in filter "
-                                              "but not in scope"))
-                               ;check if var is ever a target of a set!
-                               (if (r/is-var-mutated? x)
-                                 ; if it is, we do nothing
-                                 t
-                                 ;otherwise, refine the type
-                                 (let [t (or t r/-any)
-                                       new-t (update t f)]
-                                   new-t)))))
+      (if-not (bnd-env x)
+        bnd-env
+        (update-in bnd-env [x] (fn [t]
+                                 ;check if var is ever a target of a set!
+                                 ; or not currently in scope
+                                 (if (or (nil? t)
+                                         (r/is-var-mutated? x))
+                                   ; if it is, we do nothing
+                                   t
+                                   ;otherwise, refine the type
+                                   (let [t (or t r/-any)
+                                         new-t (update t f)]
+                                     new-t))))))
     :else bnd-env))
 
 ;; sets the flag box to #f if anything becomes (U)

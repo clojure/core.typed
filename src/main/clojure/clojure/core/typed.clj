@@ -1062,15 +1062,15 @@
         (flush)
         (let [[_ form :as has-form?] (find data :form)]
           (when has-form?
+            (print "in: ")
             (binding [*print-length* (when-not *verbose-forms*
                                        6)
                       *print-level* (when-not *verbose-forms*
                                       4)]
-              (print "in: ")
-              (println form)
-              (println)
-              (println)
-              (flush))))
+              (println form))
+            (println)
+            (println)
+            (flush)))
         (flush))))
   (throw (ex-info (str "Type Checker: Found " (count errors) " error" (when (< 1 (count errors)) "s"))
                   {:type-error :top-level-error
@@ -1122,10 +1122,13 @@
         (check-ns))
       ;=> :ok"
   ([] (check-ns (ns-name *ns*)))
-  ([nsym]
+  ([ns-or-sym]
    (load-if-needed)
    (reset-caches)
-   (let [reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
+   (let [nsym (if (symbol? ns-or-sym)
+                ns-or-sym
+                (ns-name ns-or-sym))
+         reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
                                   'reset-envs!)
          ensure-clojure @(ns-resolve (find-ns 'clojure.core.typed.current-impl)
                                      'ensure-clojure)

@@ -1,3 +1,8 @@
+0.1.18
+- Update to tools.namespace SNAPSHOT, avoids StackOverflow error
+  with malformed ns forms
+- check-ns now takes either a symbol or a namespace
+
 0.1.17
 - Automatically infer typed namespaces
 - Add `warn-on-unannotated-vars` to allow partially typed namespaces
