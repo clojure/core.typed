@@ -12,14 +12,13 @@
 (defn init-deps [] 
   {})
 
-(t/ann TYPED-DEPS (t/Atom1 DepMap))
-(defonce TYPED-DEPS (atom (init-deps)))
+(t/ann ^:nocheck TYPED-DEPS (t/Atom1 DepMap))
+(defonce TYPED-DEPS (atom (init-deps)
+                          :validator (u/hash-c? symbol? (u/set-c? symbol?))))
 
 (t/ann ^:nocheck add-ns-deps [Symbol (IPersistentSet Symbol) -> DepMap])
 (defn add-ns-deps [nsym deps]
-  (swap! TYPED-DEPS 
-         (fn> [dm :- DepMap]
-           (update-in dm [nsym] set/union deps))))
+  (swap! TYPED-DEPS update-in [nsym] u/set-union deps))
 
 (t/ann ^:nocheck immediate-deps [Symbol -> (IPersistentSet Symbol)])
 (defn immediate-deps [target-ns]

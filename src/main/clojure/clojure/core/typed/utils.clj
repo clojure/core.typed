@@ -6,7 +6,8 @@
             [clojure.repl :as repl]
             [clojure.core.contracts]
             [clojure.tools.analyzer :as analyze]
-            [clojure.tools.analyzer.hygienic :as hygienic])
+            [clojure.tools.analyzer.hygienic :as hygienic]
+            [clojure.set :as set])
   (:import (clojure.lang PersistentArrayMap Var Symbol)))
 
 (declare emit-form-fn)
@@ -216,6 +217,8 @@
 (defn sequential-c? [c?]
   (every-pred sequential?
               (every-c? c?)))
+
+(def set-union (fnil set/union #{}))
 
 ;(defn- comp-mm [mm disps]
 ;  (set/difference disps (set (keys (methods mm)))))
