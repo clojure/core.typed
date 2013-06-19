@@ -24,26 +24,13 @@
                                         Function)
            (clojure.lang ISeq IPersistentList APersistentVector APersistentMap)))
 
-(t/tc-ignore
-(def cs-error ::cs-error)
-
-(u/derive-error cs-error)
-
-(defn cs-error? [exdata]
-  (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
-  (isa? (:type-error exdata) cs-error))
-  )
 
 (t/ann ^:nocheck fail! [TCAnyType TCAnyType -> Nothing])
 (defn fail! [s t]
-  (throw (ex-info 
-           "Constraint gen failed"
-           {:type-error cs-error})))
+  (throw u/cs-gen-exn))
 
 (defmacro handle-failure [& body]
-  `(u/with-ex-info-handlers
-     [cs-error? (constantly false)]
-     ~@body))
+  `(u/handle-cs-gen-failure ~@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraint Generation

@@ -10,6 +10,27 @@
             [clojure.set :as set])
   (:import (clojure.lang PersistentArrayMap Var Symbol)))
 
+(t/ann subtype-exn Exception)
+(def subtype-exn (Exception. "Subtyping failed."))
+(t/ann cs-gen-exn Exception)
+(def cs-gen-exn (Exception. "Constraint generation failed."))
+
+(defmacro handle-subtype-failure [& body]
+  `(try
+     ~@body
+     (catch Exception e#
+       (if (identical? subtype-exn e#)
+         false
+         (throw e#)))))
+
+(defmacro handle-cs-gen-failure [& body]
+  `(try
+     ~@body
+     (catch Exception e#
+       (if (identical? cs-gen-exn e#)
+         false
+         (throw e#)))))
+
 (declare emit-form-fn)
 
 (t/ann ^:nocheck nat? (predicate t/AnyInteger))
@@ -136,10 +157,46 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
 
+; Temp copy from core.contracts. Faster predicates.
+(defmacro defconstrainedrecord
+  [name slots inv-description invariants & etc]
+  (let [fields (vec slots)
+        ns-part (namespace-munge *ns*)
+        classname (symbol (str ns-part "." name))
+        ctor-name (symbol (str name \.))
+        positional-factory-name (symbol (str "->" name))
+        map-arrow-factory-name (symbol (str "map->" name))
+        pred-arg (gensym)
+        chk `(clojure.core.contracts/contract
+                ~(symbol (str "chk-" name))
+                ~inv-description
+                [{:keys ~fields :as m#}]
+                ~invariants)]
+    `(do
+       (clojure.core/defrecord ~name ~fields ~@etc)
+       (defn ~(symbol (str name \?)) [~pred-arg]
+         (instance? ~name ~pred-arg))
+
+       ~(@#'clojure.core.contracts.constraints/build-positional-factory name classname fields invariants chk)
+
+       (clojure.core.contracts.constraints/defconstrainedfn ~map-arrow-factory-name
+         ([{:keys ~fields :as m#}]
+            ~invariants
+            (with-meta
+              (merge (new ~name ~@(for [e fields] nil)) m#)
+              {:contract ~chk})))
+       ~name)))
+
+(comment
+  (defconstrainedrecord A [] "" [])
+  (-> (clojure.tools.analyzer/ast (defconstrainedrecord A [] "" []))
+      :exprs second clojure.pprint/pprint)
+  )
+
 (defmacro defrecord [name slots inv-description invariants & etc]
   ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
   (when-not (resolve name)
-    `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc)))
+    `(defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc)))
 
 (defmacro defprotocol [name & args]
   ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
@@ -219,6 +276,7 @@
               (every-c? c?)))
 
 (def set-union (fnil set/union #{}))
+(def set-difference (fnil set/difference #{}))
 
 ;(defn- comp-mm [mm disps]
 ;  (set/difference disps (set (keys (methods mm)))))

@@ -13,45 +13,21 @@
 (defprotocol ConstantType 
   (constant-type [this]))
 
+(defmacro constant-type->val
+  [& cls]
+  (let [method `(constant-type [v#] (r/-val v#))]
+    `(extend-protocol ConstantType
+       ~@(apply concat (zipmap cls (repeat method))))))
+
+(constant-type->val
+  nil Class Symbol Long Double Integer java.math.BigDecimal
+  clojure.lang.BigInt String Character clojure.lang.Keyword
+  Boolean clojure.lang.Namespace)
+
 (extend-protocol ConstantType
-  nil
-  (constant-type [_] r/-nil)
-
-  Class
-  (constant-type [v] (r/-val v))
-
-  Symbol
-  (constant-type [v] (r/-val v))
-
-  Long
-  (constant-type [v] (r/-val v))
-
-  Double
-  (constant-type [v] (r/-val v))
-
-  Integer
-  (constant-type [v] (r/-val v))
-
-  java.math.BigDecimal
-  (constant-type [v] (r/-val v))
-
-  clojure.lang.BigInt
-  (constant-type [v] (r/-val v))
-
-  String
-  (constant-type [v] (r/-val v))
-
-  Character
-  (constant-type [v] (r/-val v))
-
-  clojure.lang.Keyword
-  (constant-type  [v] (r/-val v))
-
   java.util.regex.Pattern
   (constant-type [v] (c/RClass-of java.util.regex.Pattern))
 
-  Boolean
-  (constant-type [v] (if v r/-true r/-false))
   PersistentHashSet
   (constant-type [v] (c/RClass-of PersistentHashSet [(apply c/Un (map constant-type v))]))
 
@@ -87,4 +63,9 @@
         (c/-complete-hmap (zipmap kts vts))
         (c/RClass-of IPersistentMap 
                      [(apply c/Un kts)
-                      (apply c/Un vts)])))))
+                      (apply c/Un vts)]))))
+  
+  ;base case
+  Object
+  (constant-type [bse]
+    (c/RClass-of-with-unknown-params (class bse))))

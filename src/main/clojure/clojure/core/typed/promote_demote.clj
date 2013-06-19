@@ -123,7 +123,7 @@
   (-> T
     (update-in [:poly?] #(when %
                            (mapv promote % (repeat V))))
-    (update-in [:fields] #(apply array-map
+    #_(update-in [:fields] #(apply array-map
                                  (apply concat
                                         (for [[k v] %]
                                           [k (promote v V)]))))))
@@ -131,10 +131,13 @@
   (-> T
     (update-in [:poly?] #(when %
                            (mapv demote % (repeat V))))
-    (update-in [:fields] #(apply array-map
+    #_(update-in [:fields] #(apply array-map
                                  (apply concat
                                         (for [[k v] %]
                                           [k (demote v V)]))))))
+
+(defmethod promote B [T V] T)
+(defmethod demote B [T V] T)
 
 (defmethod promote Name [T V] T)
 (defmethod demote Name [T V] T)
@@ -208,7 +211,7 @@
     (-> T
       (update-in [:poly?] #(when %
                              (mapv pmt %)))
-      (update-in [:replacements] #(into {} (for [[k v] %]
+      #_(update-in [:replacements] #(into {} (for [[k v] %]
                                              [k (pmt v)]))))))
 
 (defmethod demote RClass
@@ -217,7 +220,7 @@
     (-> T
       (update-in [:poly?] #(when %
                              (mapv dmt %)))
-      (update-in [:replacements] #(into {} (for [[k v] %]
+      #_(update-in [:replacements] #(into {} (for [[k v] %]
                                              [k (dmt v)]))))))
 
 (defmethod promote Poly

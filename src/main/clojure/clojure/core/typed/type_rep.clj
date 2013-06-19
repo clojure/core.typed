@@ -258,8 +258,8 @@
   (u/symbol->Class (.the-class rcls)))
 
 (u/ann-record DataType [the-class :- Symbol,
-                        variances :- (U nil (Seqable Variance)),
-                        poly? :- (U nil TCType),
+                        variances :- (U nil (I (CountRange 1) (Seqable Variance))),
+                        poly? :- (U nil (I (CountRange 1) (Seqable TCType))),
                         fields :- (IPersistentMap Symbol (U Scope TCType))
                         record? :- Boolean])
 (u/defrecord DataType [the-class variances poly? fields record?]

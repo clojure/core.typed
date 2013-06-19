@@ -101,8 +101,9 @@
   ([nsym]
    (cond 
      (already-checked? nsym) (do
-                               (println (str "Already checked " nsym ", skipping"))
-                               (flush))
+                               ;(println (str "Already checked " nsym ", skipping"))
+                               ;(flush)
+                               nil)
      :else
      ; check deps
      (let [deps (ns-deps/immediate-deps nsym)]
@@ -3020,7 +3021,7 @@ rest-param-name (when rest-param
                                                   (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
                                                   dtp)
                                              _ (assert ((some-fn r/DataType? r/Record?) dt))]
-                                         (-> dt :fields (get fsym))))]
+                                         (-> (c/DataType-fields* dt) (get fsym))))]
                      override
                      ; if not a datatype field, convert as normal
                      (Field->Type field))]
@@ -3034,16 +3035,16 @@ rest-param-name (when rest-param
       ((some-fn r/DataType? r/Record?) dtp) 
       (let [dt dtp]
         (r/make-FnIntersection 
-          (r/make-Function (-> dt :fields vals) dt)))
+          (r/make-Function (-> (c/DataType-fields* dt) vals) dt)))
 
       (r/Poly? dtp) (let [nms (repeatedly (:nbound dtp) gensym)
-                        bbnds (c/Poly-bbnds* nms dtp)
-                        dt (unwrap-datatype dtp nms)]
-                    (c/Poly* nms
-                           bbnds
-                           (r/make-FnIntersection 
-                             (r/make-Function (-> dt :fields vals) dt))
-                           (c/Poly-free-names* dtp)))
+                          bbnds (c/Poly-bbnds* nms dtp)
+                          dt (unwrap-datatype dtp nms)]
+                      (c/Poly* nms
+                               bbnds
+                               (r/make-FnIntersection 
+                                 (r/make-Function (-> (c/DataType-fields* dt) vals) dt))
+                               (c/Poly-free-names* dtp)))
       :else (u/tc-delayed-error (str "Cannot get DataType constructor of " sym)
                                 :return r/Err))))
 
@@ -3916,7 +3917,6 @@ rest-param-name (when rest-param
 
       :else (check-normal-def expr expected))))
 
-
 ;[Type (Seqable Symbol) -> Type]
 ;[Type -> Type]
 (defn unwrap-datatype 
@@ -4003,15 +4003,14 @@ rest-param-name (when rest-param
                                                           (munged-methods (:name method-sig)))))
                                                     (instance-method->Function method-sig)))]
                     #_(prn "method expected type" (prs/unparse-type expected-ifn))
-                    (lex/with-locals (:fields dt)
+                    (lex/with-locals (c/DataType-fields* dt)
                       ;(prn "lexical env when checking method" nme lex/*lexical-env*)
-                      ;(prn (:fields dt))
                       (check-new-instance-method
                         inst-method 
                         expected-ifn)))))
               (catch Throwable e
                 ; reset old ancestors
-                (swap! ancest/DATATYPE-ANCESTOR-ENV update-in [nme] set/difference ancestor-diff)
+                (swap! ancest/DATATYPE-ANCESTOR-ENV update-in [nme] u/set-difference ancestor-diff)
                 (throw e)))]
       (assoc expr
              expr-type (ret (let [res (resolve nme)]

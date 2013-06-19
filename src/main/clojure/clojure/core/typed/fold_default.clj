@@ -25,6 +25,7 @@
 
 (add-default-fold-case Intersection
                        (fn [ty _]
+                         ;(prn "fold-default Intersection" ty)
                          (apply c/In (mapv type-rec (:types ty)))))
 
 (add-default-fold-case Union 
@@ -53,6 +54,7 @@
 
 (add-default-fold-case Function
                        (fn [ty _]
+                         ;(prn "fold Function" ty)
                          (-> ty
                            (update-in [:dom] #(mapv type-rec %))
                            (update-in [:rng] type-rec)
@@ -67,9 +69,9 @@
                          (-> ty
                            (update-in [:poly?] #(when %
                                                   (mapv type-rec %)))
-                           (update-in [:replacements] #(into {} (for [[k v] %]
+                           #_(update-in [:replacements] #(into {} (for [[k v] %]
                                                                   [k (type-rec v)])))
-                           (update-in [:unchecked-ancestors] #(->> %
+                           #_(update-in [:unchecked-ancestors] #(->> %
                                                                 (map type-rec)
                                                                 set)))))
 
@@ -97,7 +99,7 @@
                          (-> ty
                            (update-in [:poly?] #(when %
                                                   (mapv type-rec %)))
-                           (update-in [:fields] (fn [fs]
+                           #_(update-in [:fields] (fn [fs]
                                                   (apply array-map
                                                          (apply concat
                                                                 (for [[k v] fs]
@@ -108,6 +110,7 @@
                          (-> ty
                            (update-in [:poly?] #(when %
                                                   (mapv type-rec %)))
+                             ;FIXME this should probably be left alone in fold (like :fields in DataType)
                            (update-in [:methods] (fn [ms]
                                                    (into {}
                                                          (for [[k v] ms]

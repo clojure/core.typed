@@ -1,9 +1,9 @@
 (ns clojure.core.typed.var-env
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [utils :as u]
              [type-rep :as r]
              [lex-env :as lex]
-             [util-vars :as vs]]
+             [util-vars :as vs])
             [clojure.set :as set]))
 
 (defonce VAR-ANNOTATIONS (atom {} :validator (u/hash-c? (every-pred symbol? namespace) r/Type?)))

@@ -12,7 +12,13 @@
                          Compiler$ConstantExpr Compiler$NumberExpr Compiler$NilExpr Compiler$BooleanExpr Compiler$StringExpr
                          Compiler$ObjMethod Compiler$Expr
                          Keyword Seqable Var Symbol IPersistentSet))
-  (:require [clojure.core.typed :refer [def-alias declare-names check-ns AnyInteger]]))
+  (:require [clojure.core.typed :refer [def-alias declare-names check-ns AnyInteger ann
+                                        warn-on-unannotated-vars]]
+            (clojure.core.typed
+              [parse-unparse :refer [parse-type]]
+              [type-ctors :refer [Un]])))
+
+(warn-on-unannotated-vars)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types
@@ -473,3 +479,6 @@
   "Options for analysis"
   '{})
 
+(ann test1 [Expr -> Any])
+(defn test1 [a]
+  (:op a))

@@ -1,5 +1,5 @@
 (ns clojure.core.typed.subtype
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [current-impl :as impl]
              [type-rep :as r]
              [type-ctors :as c]
@@ -11,7 +11,7 @@
              [object-rep :as orep]
              [frees :as frees]
              [free-ops :as free-ops]
-             [datatype-ancestor-env :as dtenv]]
+             [datatype-ancestor-env :as dtenv])
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
                                         Result Protocol TypeFn Name F Bounds HeterogeneousVector
@@ -22,35 +22,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtype
 
-(def subtype-error ::subtype-error)
-
-(u/derive-error subtype-error)
-
-(defn subtype-error? [exdata]
-  (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
-  (isa? (:type-error exdata) subtype-error))
+(defmacro handle-failure [& body]
+  `(u/handle-subtype-failure ~@body))
 
 ;[Type Type -> Nothing]
 (defn fail! [s t]
-  (throw (ex-info 
-           "Subtyping failed"
-           #_(str "Type Error"
-                          (when vs/*current-env*
-                            (str ", " (:source vs/*current-env*) ":" (:line vs/*current-env*)))
-                          "\n\nActual type\n\t"
-                          (or (-> s meta :source-Name)
-                              (with-out-str (pr (prs/unparse-type s))))
-                          "\nis not a subtype of Expected type\n\t" 
-                          (or (-> t meta :source-Name)
-                              (with-out-str (pr (prs/unparse-type t))))
-                          (when vs/*current-expr*
-                            (str "\n\nForm: " (u/emit-form-fn vs/*current-expr*))))
-                  {:type-error subtype-error})))
-
-(defmacro handle-failure [& body]
-  `(u/with-ex-info-handlers
-     [subtype-error? (constantly false)]
-     ~@body))
+  (throw u/subtype-exn))
 
 ;keeps track of currently seen subtype relations for recursive types.
 ;(Set [Type Type])
@@ -65,7 +42,6 @@
   (handle-failure
     (subtypes*-varargs #{} argtys dom rst)
     true))
-
 
 ;subtype and subtype? use *sub-current-seen* for remembering types (for Rec)
 ;subtypeA* takes an extra argument (the current-seen subtypes), called by subtype
@@ -95,17 +71,12 @@
     (assert (var? v) "infer unbound")
     v))
 
-(defmacro handle-cgen-failure [& body]
-  `(u/with-ex-info-handlers
-     [@(ns-resolve (find-ns '~'clojure.core.typed.cs-gen) '~'cs-error?) (constantly false)]
-     ~@body))
-
 ;[(IPersistentMap Symbol Bounds) (Seqable Type) (Seqable Type)
 ;  -> Boolean]
 (defn unify [X S T]
   (let [infer @(infer-var)]
     (boolean 
-      (handle-cgen-failure
+      (u/handle-cs-gen-failure
         (infer X {} S T r/-any)))))
 
 (declare subtype-TApp? protocol-descendants
@@ -678,17 +649,19 @@
   (.isAssignableFrom t s))
 
 (defn- subtype-rclass
-  [{variancesl :variances classl :the-class replacementsl :replacements :as s}
-   {variancesr :variances classr :the-class replacementsr :replacements :as t}]
-  (cond
-    ;easy case
-    (and (empty? variancesl)
-         (empty? variancesr)
-         (empty? replacementsl)
-         (empty? replacementsr))
-    (if (class-isa? classl classr)
-      *sub-current-seen*
-      (fail! s t))))
+  [{variancesl :variances classl :the-class :as s}
+   {variancesr :variances classr :the-class :as t}]
+  (let [replacementsl (c/RClass-replacements* s)
+        replacementsr (c/RClass-replacements* t)]
+    (cond
+      ;easy case
+      (and (empty? variancesl)
+           (empty? variancesr)
+           (empty? replacementsl)
+           (empty? replacementsr))
+      (if (class-isa? classl classr)
+        *sub-current-seen*
+        (fail! s t)))))
 
 ; (Cons Integer) <: (Seqable Integer)
 ; (ancestors (Seqable Integer)
@@ -743,6 +716,7 @@
 (defn subtype-RClass
   [{polyl? :poly? :as s}
    {polyr? :poly? :as t}]
+  ;(prn "subtype-RClass" (prs/unparse-type s) (prs/unparse-type t))
   (let [scls (r/RClass->Class s)
         tcls (r/RClass->Class t)]
     (cond

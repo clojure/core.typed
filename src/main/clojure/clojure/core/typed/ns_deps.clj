@@ -20,6 +20,10 @@
 (defn add-ns-deps [nsym deps]
   (swap! TYPED-DEPS update-in [nsym] u/set-union deps))
 
+(t/ann ^:nocheck remove-ns-deps [Symbol (IPersistentSet Symbol) -> DepMap])
+(defn remove-ns-deps [nsym deps]
+  (swap! TYPED-DEPS update-in [nsym] u/set-difference deps))
+
 (t/ann ^:nocheck immediate-deps [Symbol -> (IPersistentSet Symbol)])
 (defn immediate-deps [target-ns]
   {:pre [(symbol? target-ns)]

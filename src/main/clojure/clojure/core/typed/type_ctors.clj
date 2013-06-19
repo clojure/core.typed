@@ -16,7 +16,7 @@
             [clojure.reflect :as reflect])
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
-                                        Bounds Name Scope CountRange Intersection)
+                                        Bounds Name Scope CountRange Intersection DataType)
            (clojure.lang Seqable IPersistentSet IPersistentMap Symbol Keyword
                          Atom)))
 
@@ -139,6 +139,8 @@
   (TFn [[a :variance :invariant]]
     (Atom a a)))
 
+(t/def-alias TypeCache (IPersistentMap (IPersistentSet TCType) TCType))
+
 (t/ann ^:nocheck Un-cache (TempAtom1 TypeCache))
 (def Un-cache (atom {}))
 
@@ -164,6 +166,7 @@
                            :post [(set? %)]}
                           ;(prn "merge-type" a b)
                           (let [b* (make-Union b)
+                                ;_ (prn "merge-type" (@(unparse-type-var) a) (@(unparse-type-var) b*))
                                 res (cond
                                       (subtype? a b*) b
                                       (subtype? b* a) #{a}
@@ -185,8 +188,6 @@
 ;; Intersections
 
 (declare overlap In)
-
-(t/def-alias TypeCache (IPersistentMap (IPersistentSet TCType) TCType))
 
 (t/ann In-cache (TempAtom1 TypeCache))
 (def In-cache (atom {}))
@@ -262,7 +263,7 @@
 (defn In [& types]
   {:pre [(every? r/Type? types)]
    :post [(r/Type? %)]}
-  #_(prn "In" (map @(unparse-type-var) types))
+  ;(prn "In" (map @(unparse-type-var) types))
 ;  (if-let [hit (@In-cache (set types))]
 ;    (do #_(prn "In hit" (@(unparse-type-var) hit))
 ;        hit)
@@ -300,7 +301,7 @@
 (t/ann *current-RClass-super* Symbol)
 (def ^:dynamic *current-RClass-super*)
 
-(declare Poly* instantiate-poly)
+(declare Poly* instantiate-poly abstract-many instantiate-many)
 
 ;smart constructor
 (t/ann ^:nocheck RClass* 
@@ -316,9 +317,13 @@
          (= (count variances) (count poly?))
          (every? r/Type? poly?)
          (symbol? the-class)]}
-  (if (seq variances)
-    (Poly* names (repeat (count names) r/no-bounds) (r/->RClass variances poly? the-class replacements unchecked-ancestors) names)
-    (r/->RClass nil nil the-class replacements unchecked-ancestors))))
+   (let [repl (into {} (for [[k v] replacements]
+                         [k (abstract-many names v)]))
+         uncked (set (for [u unchecked-ancestors]
+                       (abstract-many names u)))]
+     (if (seq variances)
+       (Poly* names (repeat (count names) r/no-bounds) (r/->RClass variances poly? the-class repl uncked) names)
+       (r/->RClass nil nil the-class repl uncked)))))
 
 (t/ann ^:nocheck isa-DataType? [(U Symbol Class) -> Any])
 (defn isa-DataType? [sym-or-cls]
@@ -377,17 +382,64 @@
                 (repeat (.nbound ^Poly rc) r/-any))]
      (RClass-of sym args))))
 
+(t/tc-ignore
+(defn- infer-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.cs-gen) 'infer)]
+    (assert (var? v) "infer unbound")
+    v))
+  )
+
+(t/tc-ignore
+(defn- subst-all-var []
+  (let [v (ns-resolve (find-ns 'clojure.core.typed.subst) 'subst-all)]
+    (assert (var? v) "subst-all unbound")
+    v))
+  )
+
+(t/ann ^:nocheck RClass-replacements* [RClass -> (IPersistentMap Symbol TCType)])
+(defn RClass-replacements*
+  "Return the replacements map for the RClass"
+  [^RClass rcls]
+  {:pre [(r/RClass? rcls)]
+   :post [((u/hash-c? symbol? r/Type?) %)]}
+  (let [infer @(infer-var)
+        subst-all @(subst-all-var)
+        poly (.poly? rcls)
+        names (repeatedly (count poly) gensym)
+        fs (map r/make-F names)]
+    (into {} (for [[k v] (.replacements rcls)]
+               (let [t (instantiate-many names v)
+                     _ (assert (r/Type? t))
+                     subst (infer (zipmap names (repeat r/no-bounds)) {} poly fs t)]
+                 [k (subst-all subst t)])))))
+
+(t/ann ^:nocheck RClass-unchecked-ancestors* [RClass -> (IPersistentSet TCType)])
+(defn RClass-unchecked-ancestors*
+  [^RClass rcls]
+  {:pre [(r/RClass? rcls)]
+   :post [((u/set-c? r/Type?) %)]}
+  (let [infer @(infer-var)
+        subst-all @(subst-all-var)
+        poly (.poly? rcls)
+        names (repeatedly (count poly) gensym)
+        fs (map r/make-F names)]
+    (set (for [u (.unchecked-ancestors rcls)]
+           (let [t (instantiate-many names u)
+                 subst (infer (zipmap names (repeat r/no-bounds)) {} poly fs t)]
+             (subst-all subst t))))))
+
 ;TODO won't type check because records+destructuring
 (t/ann ^:nocheck RClass-supers* [RClass -> (Seqable TCType)])
 (defn RClass-supers* 
   "Return a set of ancestors to the RClass"
-  [{:keys [poly? replacements the-class unchecked-ancestors] :as rcls}]
+  [{:keys [the-class] :as rcls}]
   {:pre [(r/RClass? rcls)]
-   :post [(set? %)
-          (every? r/Type? %)
+   :post [((u/set-c? r/Type?) %)
           (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) %))
               1)]}
-  (let [;set of symbols of Classes we haven't explicitly replaced
+  (let [unchecked-ancestors (RClass-unchecked-ancestors* rcls)
+        replacements (RClass-replacements* rcls)
+        ;set of symbols of Classes we haven't explicitly replaced
         not-replaced (set/difference (set (map u/Class->symbol (-> the-class u/symbol->Class supers)))
                                      (set (keys replacements)))]
     (set/union (binding [*current-RClass-super* the-class]
@@ -398,9 +450,21 @@
                #{(RClass-of Object)}
                unchecked-ancestors)))
 
-;; TypeFn
+(t/ann ^:nocheck DataType-fields* [DataType -> (IPersistentMap Symbol TCType)])
+(defn DataType-fields* [^DataType dt]
+  {:pre [(r/DataType? dt)]
+   :post [((u/array-map-c? symbol? r/Type?) %)]}
+  (let [infer @(infer-var)
+        subst-all @(subst-all-var)
+        poly (.poly? dt)
+        names (repeatedly (count poly) gensym)
+        fs (map r/make-F names)]
+    (apply array-map (apply concat (for [[k v] (.fields dt)]
+                                     (let [t (instantiate-many names v)
+                                           subst (infer (zipmap names (repeat r/no-bounds)) {} poly fs t)]
+                                       [k (subst-all subst t)]))))))
 
-(declare abstract-many instantiate-many)
+;; TypeFn
 
 ;smart constructor
 (t/ann ^:nocheck TypeFn* [(Seqable Symbol) (Seqable r/Variance) (Seqable Bounds) TCType -> TCType])
@@ -525,13 +589,6 @@
             (count ts))]}
   (into {} (for [[v t] (map vector vs ts)]
              [v (crep/->t-subst t r/no-bounds)])))
-
-(t/tc-ignore
-(defn- subst-all-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.subst) 'subst-all)]
-    (assert (var? v) "subst-all unbound")
-    v))
-  )
 
 (t/ann ^:nocheck instantiate-typefn [TypeFn (Seqable TCType) -> TCType])
 (defn instantiate-typefn [^TypeFn t types]
@@ -823,13 +880,6 @@
 
       :else true))) ;FIXME conservative result
 
-(t/tc-ignore
-(defn- infer-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.cs-gen) 'infer)]
-    (assert (var? v) "infer unbound")
-    v))
-  )
-
 ; restrict t1 to be a subtype of t2
 (t/ann ^:nocheck restrict [TCType TCType -> TCType])
 (defn restrict [t1 t2]
@@ -848,11 +898,8 @@
       (let [names (repeatedly (:nbound t2) gensym)
             t (Poly-body* names t2)
             bbnds (Poly-bbnds* names t2)
-            subst (try 
-                    (infer (zipmap names bbnds) {} (list t1) (list t) t1)
-                    (catch IllegalArgumentException e
-                      (throw e))
-                    (catch Exception e))]
+            subst (u/handle-cs-gen-failure
+                    (infer (zipmap names bbnds) {} (list t1) (list t) t1))]
         (and subst (restrict t1 (subst-all subst t1))))
 
       ;TODO other cases
@@ -903,7 +950,7 @@
 
 (f/add-fold-case ::abstract-many
                  Function
-                 (fn [{:keys [dom rng rest drest kws]} {{:keys [name count outer sb]} :locals}]
+                 (fn [{:keys [dom rng rest drest kws] :as ty} {{:keys [name count outer sb]} :locals}]
                    (r/->Function (doall (map sb dom))
                                  (sb rng)
                                  (when rest (sb rest))

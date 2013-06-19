@@ -1,6 +1,5 @@
 (ns clojure.core.typed.parse-unparse
-  (:require [clojure.core.typed]
-            [clojure.core.typed
+  (:require (clojure.core.typed
              [type-rep :as r]
              [type-ctors :as c]
              [object-rep :as orep]
@@ -14,7 +13,7 @@
              [protocol-env :as prenv]
              [name-env :as nmenv]
              [free-ops :as free-ops]
-             [frees :as frees]]
+             [frees :as frees])
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
@@ -164,7 +163,8 @@
            (map first frees-with-bnds))))
 
 (defmethod parse-type-list 'All
-  [[All bnds syn & more]]
+  [[All bnds syn & more :as all]]
+  ;(prn "All syntax" all)
   (assert (not more) "Bad All syntax")
   (parse-all-type bnds syn))
 
@@ -428,8 +428,9 @@
                              (u/Class->symbol res))]
                 (or (resolve-symbol qsym clssym)
                     (when qsym
-                      (prn "WARNING: Assuming unannotated var " qsym
-                           " is a protocol.")
+                      (println (str "WARNING: Assuming unannotated var " qsym
+                                    " is a protocol."))
+                      (flush)
                       (r/->Name qsym))
                     (when clssym
                       (c/RClass-of clssym))))
@@ -887,8 +888,7 @@
   [^HeterogeneousMap v]
   (list* 'HMap 
          (concat
-           (when-let [types (not-empty (:types v))]
-             [:mandatory (unparse-map-of-types types)])
+           [:mandatory (unparse-map-of-types (.types v))]
            (when-let [ks (and (not (c/complete-hmap? v))
                               (seq (.absent-keys v)))]
              [:absent-keys (set (map unparse-type ks))])

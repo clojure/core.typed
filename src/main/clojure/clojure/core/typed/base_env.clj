@@ -422,6 +422,7 @@ clojure.core.typed/nilable-param* [Any Any -> Any]
 clojure.core.typed/override-constructor* [Any Any -> Any]
 clojure.core.typed/override-method* [Any Any -> Any]
 clojure.core.typed/typed-deps* [Any -> Any]
+clojure.core.typed/load-if-needed [-> Any]
 
 ;; core annotations
 

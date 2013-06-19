@@ -49,9 +49,7 @@
 (def subst-rhs? (some-fn t-subst? i-subst? i-subst-starred? i-subst-dotted?))
 
 (t/ann ^:nocheck substitution-c? (predicate SubstMap))
-(def substitution-c? (every-pred map? 
-                                 #(every? symbol? (keys %)) 
-                                 #(every? subst-rhs? (vals %))))
+(def substitution-c? (u/hash-c? symbol? subst-rhs?))
 
 (t/ann-record c [S :- r/TCType,
                  X :- clojure.lang.Symbol,
