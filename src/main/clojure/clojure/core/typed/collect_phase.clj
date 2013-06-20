@@ -35,8 +35,11 @@
 
 (defn update-ns-deps! []
   (p :collect/update-ns-deps!
-  (swap! ns-deps-tracker dir/scan))
-  )
+  (try
+    (swap! ns-deps-tracker dir/scan))
+    (catch StackOverflowError e
+      (prn "ERROR COLLECTING DEPENDENCIES: caught StackOverflowError from tools.namespace"))
+  ))
 
 (defn parse-field [[n _ t]]
   [n (prs/parse-type t)])
