@@ -628,6 +628,8 @@ clojure.core/find-keyword
 clojure.core/compare (All []
                           [Comparable Any -> Number])
 
+clojure.core/require [Any * -> nil]
+
 clojure.core/seq? (predicate (ISeq Any))
 clojure.core/set? (predicate (IPersistentSet Any))
 clojure.core/vector? (predicate (IPersistentVector Any))
@@ -1233,6 +1235,7 @@ clojure.lang.Numbers/multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
 clojure.lang.Numbers/divide [Number Number -> Number]
 
 clojure.lang.Numbers/max [Number Number * -> Number]
+clojure.lang.Numbers/min [Number Number * -> Number]
 
 
 clojure.lang.Numbers/lt [Number Number -> boolean]

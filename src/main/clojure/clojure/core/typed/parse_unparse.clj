@@ -534,19 +534,32 @@
 
         rest-type (when asterix-pos
                     (nth all-dom (dec asterix-pos)))
-        [drest-type _ drest-bnd] (when ellipsis-pos
-                                   (drop (dec ellipsis-pos) all-dom))
-        [optional-kws & {mandatory-kws :mandatory}] (when ampersand-pos
-                                                      (drop (inc ampersand-pos) all-dom))]
+        _ (assert (or (not asterix-pos)
+                      (= (count all-dom) (inc asterix-pos)))
+                  (str "Trailing syntax after rest parameter: " (pr-str (drop (inc asterix-pos) all-dom))))
+        [drest-type _ drest-bnd :as drest-seq] (when ellipsis-pos
+                                                 (drop (dec ellipsis-pos) all-dom))
+        _ (assert (or (not ellipsis-pos) (= 3 (count drest-seq))) 
+                  "Dotted rest entry must be 3 entries")
+        _ (assert (or (not ellipsis-pos) (symbol? drest-bnd))
+                  "Dotted bound must be symbol")
+        [optional-kws & {mandatory-kws :mandatory} :as kws-seq] (when ampersand-pos
+                                                                  (drop (inc ampersand-pos) all-dom))
+        _ (assert (or (not ampersand-pos) (seq kws-seq)) 
+                  "Must provide syntax after &")
+        _ (assert (or (not ampersand-pos) (map? optional-kws)) 
+                  "Must provide map after &. Hint: use [Type * -> Type] for rest parameters")]
     (r/make-Function (mapv parse-type fixed-dom)
                      (parse-type rng)
                      (when asterix-pos
                        (parse-type rest-type))
                      (when ellipsis-pos
-                       (r/->DottedPretype
-                         (free-ops/with-frees [(dvar/*dotted-scope* drest-bnd)] ;with dotted bound in scope as free
-                           (parse-type drest-type))
-                         (:name (dvar/*dotted-scope* drest-bnd))))
+                       (let [bnd (dvar/*dotted-scope* drest-bnd)
+                             _ (assert bnd (str (pr-str drest-bnd) " is not in scope as a dotted variable"))]
+                         (r/->DottedPretype
+                           (free-ops/with-frees [bnd] ;with dotted bound in scope as free
+                             (parse-type drest-type))
+                           (:name bnd))))
                      :filter filters
                      :object object
                      :flow flow

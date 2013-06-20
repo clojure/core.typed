@@ -3,7 +3,7 @@
             (clojure.core.typed
              [type-rep :as r]
              [type-ctors :as c]
-             [utils :as u :refer [constant-exprs]]
+             [utils :as u :refer [constant-exprs p profile]]
              [parse-unparse :as prs]
              [var-env :as var-env]
              [name-env :as nme-env]
@@ -34,7 +34,9 @@
 (def ns-deps-tracker (atom (track/tracker)))
 
 (defn update-ns-deps! []
+  (p :collect/update-ns-deps!
   (swap! ns-deps-tracker dir/scan))
+  )
 
 (defn parse-field [[n _ t]]
   [n (prs/parse-type t)])
@@ -70,16 +72,25 @@
   for namespace symbol nsym, and recursively check 
   declared typed namespace dependencies."
   ([nsym]
+   (p :collect-phase/collect-ns
    (if (already-collected? nsym)
      (do (println (str "Already collected " nsym ", skipping"))
          (flush))
-     (do (infer-typed-ns-deps! nsym)
-         (doseq [dep (dep/immediate-deps nsym)]
-           (collect-ns dep))
+     (do (collected-ns! nsym)
+         (infer-typed-ns-deps! nsym)
+         (let [deps (dep/immediate-deps nsym)]
+           ;(prn "collecting immediate deps for " nsym deps)
+           (doseq [dep deps]
+             ;(prn "collect:" dep)
+             (collect-ns dep)))
          (let [asts (ana-clj/ast-for-ns nsym)]
-           (collected-ns! nsym)
+           (p :collect/collect-form
            (doseq [ast asts]
-             (collect ast)))))))
+             (collect ast)))))))))
+
+(defn collect-ns-setup [nsym]
+  (binding [*already-collected* (atom #{})]
+    (collect-ns nsym)))
 
 (defmulti collect (fn [expr] (:op expr)))
 (defmulti invoke-special-collect (fn [expr]

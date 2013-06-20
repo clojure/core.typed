@@ -1,6 +1,8 @@
 (ns clojure.core.typed.analyze-clj
   (:require [clojure.tools.analyzer :as analyze]
-            [clojure.tools.analyzer.hygienic :as hygienic]))
+            [clojure.tools.analyzer.hygienic :as hygienic]
+            (clojure.core.typed
+             [utils :as u :refer [p]])))
 
 (defn ast-for-form-in-ns
   "Returns an AST node for the form 
@@ -20,8 +22,10 @@
   in the given namespace symbol nsym"
   [nsym]
   {:pre [(symbol? nsym)]}
+  (p :analyze/ast-for-ns
   (with-open [^clojure.lang.LineNumberingPushbackReader pbr (analyze/pb-reader-for-ns nsym)]
     (let [astv (->> (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)
                     (map hygienic/ast-hy)
                     vec)]
       astv)))
+  )

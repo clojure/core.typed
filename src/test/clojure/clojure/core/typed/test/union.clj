@@ -16,7 +16,8 @@
                                         warn-on-unannotated-vars]]
             (clojure.core.typed
               [parse-unparse :refer [parse-type]]
-              [type-ctors :refer [Un]])))
+              [type-ctors :refer [Un]]
+              [utils :refer [profile]])))
 
 (warn-on-unannotated-vars)
 
@@ -479,6 +480,6 @@
   "Options for analysis"
   '{})
 
-(ann test1 [Expr -> Any])
-(defn test1 [a]
-  (:op a))
+;(ann test1 [Expr -> Any])
+;(defn test1 [a]
+;  (:op a))

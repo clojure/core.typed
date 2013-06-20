@@ -1,7 +1,7 @@
 (ns clojure.core.typed.type-ctors
   (:refer-clojure :exclude [defrecord])
   (:require (clojure.core.typed
-             [utils :as u]
+             [utils :as u :refer [p]]
              [type-rep :as r :refer [TCType]]
              [filter-rep :as fr]
              [rclass-env :as rcls]
@@ -14,6 +14,7 @@
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
             [clojure.reflect :as reflect])
+
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
                                         Bounds Name Scope CountRange Intersection DataType)
@@ -156,34 +157,37 @@
   ;(prn "Un" (map @(unparse-type-var) types))
 ;  (if-let [hit (@Un-cache (set types))]
 ;    (do #_(prn "Un hit" (set types))
-;        hit)
-    (let [res (let [subtype? @(subtype?-var)]
-                (letfn [;; a is a Type (not a union type)
-                        ;; b is a Set[Type] (non overlapping, non Union-types)
-                        ;; The output is a non overlapping list of non Union types.
-                        (merge-type [a b]
-                          {:pre [(set? b)]
-                           :post [(set? %)]}
-                          ;(prn "merge-type" a b)
-                          (let [b* (make-Union b)
-                                ;_ (prn "merge-type" (@(unparse-type-var) a) (@(unparse-type-var) b*))
-                                res (cond
-                                      (subtype? a b*) b
-                                      (subtype? b* a) #{a}
-                                      :else (conj b a))]
-                            ;(prn "res" res)
-                            res))]
-                  (let [types (set types)]
-                    (cond
-                      (empty? types) r/empty-union
-                      (= 1 (count types)) (first types)
-                      :else 
-                      (make-Union
-                        (reduce (fn [acc t] (merge-type t acc))
-                                #{}
-                                (set (flatten-unions types))))))))]
-      ;(swap! Un-cache (fn> [c :- TypeCache] (assoc c (set types) res)))
-      res))
+;        hit))
+  (p :type-ctors/Un-ctor
+  (let [res (let [subtype? @(subtype?-var)]
+              (letfn [;; a is a Type (not a union type)
+                      ;; b is a Set[Type] (non overlapping, non Union-types)
+                      ;; The output is a non overlapping list of non Union types.
+                      (merge-type [a b]
+                        {:pre [(set? b)]
+                         :post [(set? %)]}
+                        ;(prn "merge-type" a b)
+                        (let [b* (make-Union b)
+                              ;_ (prn "merge-type" (@(unparse-type-var) a) (@(unparse-type-var) b*))
+                              res (cond
+                                    (p :Un-merge-type-subtype1 (subtype? a b*)) b
+                                    (p :Un-merge-type-subtype2 (subtype? b* a)) #{a}
+                                    :else (conj b a))]
+                          ;(prn "res" res)
+                          res))]
+                (let [types (set types)]
+                  (cond
+                    (empty? types) r/empty-union
+                    (= 1 (count types)) (first types)
+                    :else 
+                    (p :Un-merge-type 
+                       (make-Union
+                         (reduce (fn [acc t] (merge-type t acc))
+                                 #{}
+                                 (set (flatten-unions types)))))))))]
+    ;(swap! Un-cache (fn> [c :- TypeCache] (assoc c (set types) res)))
+    res)
+     ))
 
 ;; Intersections
 
@@ -267,6 +271,7 @@
 ;  (if-let [hit (@In-cache (set types))]
 ;    (do #_(prn "In hit" (@(unparse-type-var) hit))
 ;        hit)
+  (p :type-ctors/In-ctor
     (let [res (let [ts (set (flatten-intersections types))]
                 (cond
                   ; empty intersection is bottom
@@ -279,8 +284,9 @@
                   ; to (U (I t1 t2) (I t1 t2 t3) (U t1 t2 t4))
                   :else (let [{unions true non-unions false} (group-by r/Union? ts)
                               ;intersect all the non-unions to get a possibly-nil type
-                              intersect-non-unions (when (seq non-unions)
-                                                     (reduce intersect non-unions))
+                              intersect-non-unions 
+                              (p :intersect-in-In (when (seq non-unions)
+                                                    (reduce intersect non-unions)))
                               ;if we have an intersection above, use it to update each
                               ;member of the unions we're intersecting
                               intersect-union-ts (if intersect-non-unions
@@ -295,6 +301,7 @@
       ;(swap! In-cache assoc (set types) res)
       #_(prn 'IN res (class res))
       res))
+  )
 
 ;; RClass
 
@@ -835,6 +842,22 @@
              (some (complement :interface) [t1-flags t2-flags])))
       (or (subtype? t1 t2)
           (subtype? t2 t1))
+;      (and (r/RClass? t1)
+;           (r/RClass? t2))
+;      (let [{t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
+;            {t2-flags :flags} (reflect/type-reflect (r/RClass->Class t2))]
+;        ; there is only an overlap if a class could have both classes as parents
+;        (or (subtype? t1 t2)
+;            (subtype? t2 t1)
+;            ; from here they are disjoint
+;
+;            (cond
+;              ; no potential ancestors
+;              (some :final [t1-flags t2-flags]) false
+;              ; if we have two things that are not interfaces, ie. abstract, normal
+;              ; classes, there is no possibility of overlap
+;              (every? (complement :interface) [t1-flags t2-flags]) false
+;              :else true)))
 
       (or (r/Value? t1)
           (r/Value? t2)) 

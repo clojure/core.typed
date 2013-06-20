@@ -318,3 +318,15 @@
   {:pre [(class? cls)]
    :post [(symbol? %)]}
   (symbol (.getName cls)))
+
+(try 
+  (require '[taoensso.timbre.profiling])
+  (catch Exception e))
+
+(defmacro p [name & body]
+  (if (find-ns 'taoensso.timbre.profiling)
+    `(taoensso.timbre.profiling/p ~name ~@body)
+    `(do ~@body)))
+
+(defmacro profile [& body]
+  `(taoensso.timbre.profiling/profile ~@body))

@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.core
   (:import (clojure.lang Seqable ISeq ASeq IPersistentVector Atom IPersistentMap
-                         Keyword ExceptionInfo))
+                         Keyword ExceptionInfo Symbol))
   (:require [clojure.test :refer :all]
             [clojure.tools.analyzer :refer [ast]]
             [clojure.tools.analyzer.hygienic :refer [ast-hy]]
@@ -923,6 +923,16 @@
   (is (= (In (RClass-of Seqable [-any])
              -nil)
          (Un))))
+;FIXME
+;  (is (= (In (RClass-of Number)
+;             (RClass-of Symbol))
+;         (Un)))
+;  (is (= (In (RClass-of clojure.lang.APersistentMap [-any -any])
+;             (RClass-of clojure.lang.Sorted))
+;         (make-Intersection 
+;           #{(RClass-of clojure.lang.APersistentMap [-any -any])
+;             (RClass-of clojure.lang.Sorted)}))))
+;
 
 (deftest count-subtype-test
   (is (subtype? (make-CountRange 1)
@@ -1344,3 +1354,22 @@
 
 (deftest warn-on-unannotated-vars-test
   (is (check-ns 'clojure.core.typed.test.warn-on-unannotated-var)))
+
+(deftest number-ops-test
+  (is (cf (min (Integer. 3) 10) Number)))
+
+(defmacro throws-tc-error? [& body]
+  `(with-ex-info-handlers
+     [u/tc-error? (constantly true)]
+     ~@body
+     false))
+
+(deftest ctor-infer-test
+  (is (cf (java.io.File. "a")))
+  (is (cf (let [a (or "a" "b")]
+            (java.io.File. a))))
+  (is (throws-tc-error?
+        (cf (fn [& {:keys [path] :or {path "foo"}}]
+            (clojure.core.typed/print-env "a")
+            (java.io.File. path))
+          [& {:path String} -> java.io.File]))))

@@ -27,7 +27,7 @@
 (t/ann ^:nocheck immediate-deps [Symbol -> (IPersistentSet Symbol)])
 (defn immediate-deps [target-ns]
   {:pre [(symbol? target-ns)]
-   :post [(u/set-c? Symbol)]}
+   :post [((u/set-c? symbol?) %)]}
   (or (@TYPED-DEPS target-ns)
       #{}))
 

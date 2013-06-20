@@ -3,7 +3,7 @@
              [current-impl :as impl]
              [type-rep :as r]
              [type-ctors :as c]
-             [utils :as u]
+             [utils :as u :refer [p]]
              [util-vars :as vs]
              [parse-unparse :as prs]
              [filter-rep :as fr]
@@ -170,15 +170,19 @@
 
         (r/Union? s)
         ;use subtypeA*, throws error
+        (p :subtype-union-l
         (if (every? (fn union-left [s] (subtypeA* *sub-current-seen* s t)) (.types ^Union s))
           *sub-current-seen*
           (fail! s t))
+           )
 
         ;use subtypeA*?, boolean result
         (r/Union? t)
+        (p :subtype-union-r
         (if (some (fn union-right [t] (subtypeA*? *sub-current-seen* s t)) (.types ^Union t))
           *sub-current-seen*
           (fail! s t))
+           )
 
         (and (r/FnIntersection? s)
              (r/FnIntersection? t))
@@ -275,8 +279,8 @@
                      t)
             (subtype (c/RClass-of APersistentMap [r/-any r/-any]) t)))
 
-                (r/KwArgsSeq? s)
-                (subtype (c/Un r/-nil (c/RClass-of Seqable [r/-any])) t)
+        (r/KwArgsSeq? s)
+        (subtype (c/Un r/-nil (c/RClass-of Seqable [r/-any])) t)
 
         (r/HeterogeneousVector? s)
         (let [ss (apply c/Un (:types s))]
@@ -361,7 +365,7 @@
 
         (and (r/RClass? s)
              (r/RClass? t))
-        (subtype-RClass s t)
+        (p :subtype-RClass (subtype-RClass s t))
 
         (and (r/CountRange? s)
              (r/CountRange? t))

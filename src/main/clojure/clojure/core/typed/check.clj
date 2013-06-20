@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t :refer [*already-checked* letfn>]]
             (clojure.core.typed
-             [utils :as u]
+             [utils :as u :refer [p]]
              [parse-unparse :as prs]
              [current-impl :as impl]
              [type-rep :as r :refer [ret-t ret-f ret-o ret TCResult? Type?]]
@@ -99,6 +99,7 @@
   Assumes type annotations in each namespace
   has already been collected."
   ([nsym]
+   (p :check/check-ns-and-deps
    (cond 
      (already-checked? nsym) (do
                                ;(println (str "Already checked " nsym ", skipping"))
@@ -114,6 +115,7 @@
        (let [[_ns-decl_ & asts] (ana-clj/ast-for-ns nsym)]
          (doseq [ast asts]
            (check-expr ast)))))))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -2931,9 +2933,8 @@ rest-param-name (when rest-param
                                 (when c
                                   (str (u/Class->symbol c) "/"))
                                 method-name 
-                                ;", insufficient type hints."
-                                ;"\n\nForm:\n\t" (u/emit-form-fn expr))
-                                )))
+                                ".\n\nHint: add type hints."
+                                "\n\nin: " (u/emit-form-fn expr))))
           _ (when inst?
               (let [ctarget (or ctarget (check (:target expr)))
                     target-class (resolve (:declaring-class method))
@@ -3127,7 +3128,12 @@ rest-param-name (when rest-param
                                        (DataType-ctor-type clssym))
                                   (when ctor
                                     (Constructor->Function ctor)))
-                      _ (assert ctor-fn ctor-fn)
+                      _ (when-not ctor-fn 
+                          (u/int-error (str "Unresolved constructor invocation " 
+                                            (when cls
+                                              (u/Class->symbol cls))
+                                            ".\n\nHint: add type hints."
+                                            "\n\nin: " (u/emit-form-fn expr))))
                       ctor-fn (if inst-types
                                 (inst/manual-inst ctor-fn inst-types)
                                 ctor-fn)]

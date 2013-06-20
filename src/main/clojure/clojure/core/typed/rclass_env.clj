@@ -21,6 +21,9 @@
 (defonce RESTRICTED-CLASS (atom {}))
 (set-validator! RESTRICTED-CLASS (u/hash-c? symbol? r/Type?))
 
+(defonce DISJOINT-CLASSES (atom {}))
+(set-validator! DISJOINT-CLASSES (u/hash-c? symbol? (u/set-c? symbol?)))
+
 (defn get-rclass 
   "Returns the RClass with class symbol csym.
   Returns nil if not found."
