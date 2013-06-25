@@ -1255,7 +1255,7 @@
    :line 3066,
    :file "src/main/clojure/clojure/core/typed/check.clj"}
   {:arglists
-   ([{:as m__3247__auto__, :keys [args kws rest drest body]}]),
+   ([{:as m__3251__auto__, :keys [args kws rest drest body]}]),
    :name "map->FnResult",
    :namespace "clojure.core.typed.check",
    :source-url
@@ -1268,7 +1268,7 @@
    :var-type "function",
    :line 2252,
    :file "src/main/clojure/clojure/core/typed/check.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [dom rest drest kws]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [dom rest drest kws]}]),
    :name "map->RecurTarget",
    :namespace "clojure.core.typed.check",
    :source-url
@@ -1577,7 +1577,7 @@
    :doc
    "The substitution records.\n\n(U t-subst i-subst i-subst-starred i-subst-dotted)",
    :name "SubstRHS"}
-  {:arglists ([{:as m__3247__auto__, :keys [S X T bnds]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [S X T bnds]}]),
    :name "map->c",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1590,7 +1590,7 @@
    :var-type "function",
    :line 58,
    :file "src/main/clojure/clojure/core/typed/cs_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [maps]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [maps]}]),
    :name "map->cset",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1603,7 +1603,7 @@
    :var-type "function",
    :line 133,
    :file "src/main/clojure/clojure/core/typed/cs_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [fixed dmap projections]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [fixed dmap projections]}]),
    :name "map->cset-entry",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1616,7 +1616,7 @@
    :var-type "function",
    :line 108,
    :file "src/main/clojure/clojure/core/typed/cs_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [fixed rest]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [fixed rest]}]),
    :name "map->dcon",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1629,7 +1629,7 @@
    :var-type "function",
    :line 72,
    :file "src/main/clojure/clojure/core/typed/cs_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [fixed dc dbound]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [fixed dc dbound]}]),
    :name "map->dcon-dotted",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1642,7 +1642,7 @@
    :var-type "function",
    :line 88,
    :file "src/main/clojure/clojure/core/typed/cs_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [fixed rest]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [fixed rest]}]),
    :name "map->dcon-exact",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1655,7 +1655,7 @@
    :var-type "function",
    :line 80,
    :file "src/main/clojure/clojure/core/typed/cs_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [map]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [map]}]),
    :name "map->dmap",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1668,7 +1668,7 @@
    :var-type "function",
    :line 101,
    :file "src/main/clojure/clojure/core/typed/cs_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [types]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [types]}]),
    :name "map->i-subst",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1681,7 +1681,7 @@
    :var-type "function",
    :line 18,
    :file "src/main/clojure/clojure/core/typed/cs_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [types dty dbound]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [types dty dbound]}]),
    :name "map->i-subst-dotted",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1694,7 +1694,7 @@
    :var-type "function",
    :line 32,
    :file "src/main/clojure/clojure/core/typed/cs_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [types starred]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [types starred]}]),
    :name "map->i-subst-starred",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1707,7 +1707,7 @@
    :var-type "function",
    :line 24,
    :file "src/main/clojure/clojure/core/typed/cs_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [type bnds]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [type bnds]}]),
    :name "map->t-subst",
    :namespace "clojure.core.typed.cs-rep",
    :source-url
@@ -1986,7 +1986,7 @@
    :doc
    "A name for a type variable, either a symbol or a number.\n\n(U Symbol Number)",
    :name "NameRef"}
-  {:arglists ([{:as m__3247__auto__, :keys [fs]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [fs]}]),
    :name "map->AndFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -1999,7 +1999,7 @@
    :var-type "function",
    :line 72,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->BotFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -2012,7 +2012,7 @@
    :var-type "function",
    :line 34,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [then else]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [then else]}]),
    :name "map->FilterSet",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -2025,7 +2025,7 @@
    :var-type "function",
    :line 94,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [a c]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [a c]}]),
    :name "map->ImpFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -2038,7 +2038,7 @@
    :var-type "function",
    :line 87,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->NoFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -2051,7 +2051,7 @@
    :var-type "function",
    :line 49,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [type path id]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [type path id]}]),
    :name "map->NotTypeFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -2064,7 +2064,7 @@
    :var-type "function",
    :line 65,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [fs]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [fs]}]),
    :name "map->OrFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -2077,7 +2077,7 @@
    :var-type "function",
    :line 79,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->TopFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -2090,7 +2090,7 @@
    :var-type "function",
    :line 39,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [type path id]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [type path id]}]),
    :name "map->TypeFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -2400,7 +2400,7 @@
    :var-type "function",
    :line 10,
    :file "src/main/clojure/clojure/core/typed/lex_env.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [l props]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [l props]}]),
    :name "map->PropEnv",
    :namespace "clojure.core.typed.lex-env",
    :source-url
@@ -2531,7 +2531,7 @@
    :var-type "function",
    :line 35,
    :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->EmptyObject",
    :namespace "clojure.core.typed.object-rep",
    :source-url
@@ -2544,7 +2544,7 @@
    :var-type "function",
    :line 26,
    :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->NoObject",
    :namespace "clojure.core.typed.object-rep",
    :source-url
@@ -2557,7 +2557,7 @@
    :var-type "function",
    :line 45,
    :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [path id]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [path id]}]),
    :name "map->Path",
    :namespace "clojure.core.typed.object-rep",
    :source-url
@@ -2686,7 +2686,7 @@
    :var-type "function",
    :line 28,
    :file "src/main/clojure/clojure/core/typed/path_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->ClassPE",
    :namespace "clojure.core.typed.path-rep",
    :source-url
@@ -2699,7 +2699,7 @@
    :var-type "function",
    :line 33,
    :file "src/main/clojure/clojure/core/typed/path_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->CountPE",
    :namespace "clojure.core.typed.path-rep",
    :source-url
@@ -2712,7 +2712,7 @@
    :var-type "function",
    :line 38,
    :file "src/main/clojure/clojure/core/typed/path_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->FirstPE",
    :namespace "clojure.core.typed.path-rep",
    :source-url
@@ -2725,7 +2725,7 @@
    :var-type "function",
    :line 23,
    :file "src/main/clojure/clojure/core/typed/path_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [val]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [val]}]),
    :name "map->KeyPE",
    :namespace "clojure.core.typed.path-rep",
    :source-url
@@ -2738,7 +2738,7 @@
    :var-type "function",
    :line 43,
    :file "src/main/clojure/clojure/core/typed/path_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->NextPE",
    :namespace "clojure.core.typed.path-rep",
    :source-url
@@ -3605,7 +3605,7 @@
    :var-type "function",
    :line 767,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->AnyValue",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3618,7 +3618,7 @@
    :var-type "function",
    :line 394,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [rator rands]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [rator rands]}]),
    :name "map->App",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3631,7 +3631,7 @@
    :var-type "function",
    :line 372,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [idx]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [idx]}]),
    :name "map->B",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3645,7 +3645,7 @@
    :line 192,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
   {:arglists
-   ([{:as m__3247__auto__,
+   ([{:as m__3251__auto__,
       :keys [upper-bound lower-bound higher-kind]}]),
    :name "map->Bounds",
    :namespace "clojure.core.typed.type-rep",
@@ -3659,7 +3659,7 @@
    :var-type "function",
    :line 184,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [lower upper]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [lower upper]}]),
    :name "map->CountRange",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3673,7 +3673,7 @@
    :line 554,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
   {:arglists
-   ([{:as m__3247__auto__,
+   ([{:as m__3251__auto__,
       :keys [the-class variances poly? fields record?]}]),
    :name "map->DataType",
    :namespace "clojure.core.typed.type-rep",
@@ -3687,7 +3687,7 @@
    :var-type "function",
    :line 265,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [pre-type name]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [pre-type name]}]),
    :name "map->DottedPretype",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3700,7 +3700,7 @@
    :var-type "function",
    :line 499,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [name]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [name]}]),
    :name "map->F",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3713,7 +3713,7 @@
    :var-type "function",
    :line 201,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [normal]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [normal]}]),
    :name "map->FlowSet",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3726,7 +3726,7 @@
    :var-type "function",
    :line 668,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [types]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [types]}]),
    :name "map->FnIntersection",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3739,7 +3739,7 @@
    :var-type "function",
    :line 150,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [dom rng rest drest kws]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [dom rng rest drest kws]}]),
    :name "map->Function",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3752,7 +3752,7 @@
    :var-type "function",
    :line 530,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [n]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [n]}]),
    :name "map->GTRange",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3765,7 +3765,7 @@
    :var-type "function",
    :line 563,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [types]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [types]}]),
    :name "map->HeterogeneousList",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3779,7 +3779,7 @@
    :line 471,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
   {:arglists
-   ([{:as m__3247__auto__, :keys [types absent-keys other-keys?]}]),
+   ([{:as m__3251__auto__, :keys [types absent-keys other-keys?]}]),
    :name "map->HeterogeneousMap",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3792,7 +3792,7 @@
    :var-type "function",
    :line 423,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [types]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [types]}]),
    :name "map->HeterogeneousSeq",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3805,7 +3805,7 @@
    :var-type "function",
    :line 479,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [types fs objects]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [types fs objects]}]),
    :name "map->HeterogeneousVector",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3818,7 +3818,7 @@
    :var-type "function",
    :line 439,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [types]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [types]}]),
    :name "map->Intersection",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3831,7 +3831,7 @@
    :var-type "function",
    :line 141,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [mandatory optional]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [mandatory optional]}]),
    :name "map->KwArgs",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3844,7 +3844,7 @@
    :var-type "function",
    :line 509,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [mandatory optional]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [mandatory optional]}]),
    :name "map->KwArgsSeq",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3857,7 +3857,7 @@
    :var-type "function",
    :line 517,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [n]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [n]}]),
    :name "map->LTRange",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3870,7 +3870,7 @@
    :var-type "function",
    :line 568,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [pre-type bound]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [pre-type bound]}]),
    :name "map->ListDots",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3883,7 +3883,7 @@
    :var-type "function",
    :line 603,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [scope]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [scope]}]),
    :name "map->Mu",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3896,7 +3896,7 @@
    :var-type "function",
    :line 382,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [id]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [id]}]),
    :name "map->Name",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3909,7 +3909,7 @@
    :var-type "function",
    :line 355,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [type]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [type]}]),
    :name "map->NotType",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3923,7 +3923,7 @@
    :line 595,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
   {:arglists
-   ([{:as m__3247__auto__, :keys [nbound bbnds scope actual-frees]}]),
+   ([{:as m__3251__auto__, :keys [nbound bbnds scope actual-frees]}]),
    :name "map->Poly",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3936,7 +3936,7 @@
    :var-type "function",
    :line 330,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [nbound bbnds scope]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [nbound bbnds scope]}]),
    :name "map->PolyDots",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3950,7 +3950,7 @@
    :line 344,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
   {:arglists
-   ([{:as m__3247__auto__, :keys [jtype input-type output-type]}]),
+   ([{:as m__3251__auto__, :keys [jtype input-type output-type]}]),
    :name "map->PrimitiveArray",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3963,7 +3963,7 @@
    :var-type "function",
    :line 489,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [afn ts]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [afn ts]}]),
    :name "map->Projection",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -3977,7 +3977,7 @@
    :line 227,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
   {:arglists
-   ([{:as m__3247__auto__,
+   ([{:as m__3251__auto__,
       :keys [the-var variances poly? on-class methods]}]),
    :name "map->Protocol",
    :namespace "clojure.core.typed.type-rep",
@@ -3992,7 +3992,7 @@
    :line 294,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
   {:arglists
-   ([{:as m__3247__auto__,
+   ([{:as m__3251__auto__,
       :keys
       [variances poly? the-class replacements unchecked-ancestors]}]),
    :name "map->RClass",
@@ -4007,7 +4007,7 @@
    :var-type "function",
    :line 239,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [t fl o flow]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [t fl o flow]}]),
    :name "map->Result",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -4020,7 +4020,7 @@
    :var-type "function",
    :line 615,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [body]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [body]}]),
    :name "map->Scope",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -4033,7 +4033,7 @@
    :var-type "function",
    :line 213,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [rator rands]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [rator rands]}]),
    :name "map->TApp",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -4046,7 +4046,7 @@
    :var-type "function",
    :line 363,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->TCError",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -4059,7 +4059,7 @@
    :var-type "function",
    :line 129,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [t fl o flow]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [t fl o flow]}]),
    :name "map->TCResult",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -4072,7 +4072,7 @@
    :var-type "function",
    :line 676,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->Top",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -4085,7 +4085,7 @@
    :var-type "function",
    :line 90,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys []}]),
+  {:arglists ([{:as m__3251__auto__, :keys []}]),
    :name "map->TopFunction",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -4099,7 +4099,7 @@
    :line 548,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
   {:arglists
-   ([{:as m__3247__auto__, :keys [nbound variances bbnds scope]}]),
+   ([{:as m__3251__auto__, :keys [nbound variances bbnds scope]}]),
    :name "map->TypeFn",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -4112,7 +4112,7 @@
    :var-type "function",
    :line 309,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [types]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [types]}]),
    :name "map->Union",
    :namespace "clojure.core.typed.type-rep",
    :source-url
@@ -4125,7 +4125,7 @@
    :var-type "function",
    :line 101,
    :file "src/main/clojure/clojure/core/typed/type_rep.clj"}
-  {:arglists ([{:as m__3247__auto__, :keys [val]}]),
+  {:arglists ([{:as m__3251__auto__, :keys [val]}]),
    :name "map->Value",
    :namespace "clojure.core.typed.type-rep",
    :source-url
