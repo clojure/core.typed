@@ -7,6 +7,7 @@
   (:import (clojure.lang IPersistentSet Seqable Symbol Keyword IPersistentMap
                          IPersistentVector)))
 
+; cyclic deps
 (t/typed-deps clojure.core.typed.filter-rep
               clojure.core.typed.object-rep)
 
@@ -51,6 +52,18 @@
     (assert (var? v) "-empty unbound")
     v))
   )
+
+(t/def-alias SeqNumber Long)
+
+(t/ann next-sequence-number (t/Atom1 SeqNumber))
+(def ^:private next-sequence-number 
+  "The next number to use for sequence hashing"
+  (atom 0))
+
+(t/ann type-sequence-mapping (t/Atom1 (IPersistentMap TCType SeqNumber)))
+(def ^:private type-sequence-mapping 
+  "Mapping from types to sequence number"
+  (atom {}))
 
 ;(set! *warn-on-reflection* true)
 
@@ -606,6 +619,15 @@
    ((some-fn F? B?) bound)])
 
 (declare-type ListDots)
+
+(u/ann-record Extends [extends :- (U nil (Seqable TCType))
+                       without :- (U nil (Seqable TCType))])
+(u/defrecord Extends [extends without]
+  "A set of ancestors that always and never occur."
+  [(every? Type? extends)
+   (every? Type? without)])
+
+(declare-type Extends)
 
 (declare FlowSet?)
 

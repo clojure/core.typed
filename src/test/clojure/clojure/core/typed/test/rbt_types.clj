@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.rbt-types
-  (:require [clojure.core.typed :refer [def-alias declare-names]]))
+  (:require [clojure.core.typed :as t :refer [def-alias declare-names]]))
 
 ;-------------------------------
 ; 'Normal' types

@@ -480,6 +480,6 @@
   "Options for analysis"
   '{})
 
-;(ann test1 [Expr -> Any])
-;(defn test1 [a]
-;  (:op a))
+(ann test1 [Expr -> Any])
+(defn test1 [a]
+  (:op a))

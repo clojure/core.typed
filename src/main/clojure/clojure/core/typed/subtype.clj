@@ -33,6 +33,9 @@
 ;(Set [Type Type])
 (def ^:dynamic *sub-current-seen* #{})
 
+(defn currently-subtyping? []
+  (boolean (seq *sub-current-seen*)))
+
 (declare subtypes*-varargs)
 
 ;[(Seqable Type) (Seqable Type) Type -> Boolean]
@@ -50,12 +53,27 @@
 
 (declare subtype)
 
+(def subtype-cache (atom {}))
+
+(defn reset-subtype-cache []
+  (reset! subtype-cache {}))
+
 ;[Type Type -> Boolean]
 (defn subtype? [s t]
   {:post [(u/boolean? %)]}
-  (boolean
-    (handle-failure
-      (subtype s t))))
+  (letfn [(do-subtype []
+            (p :subtype-subtype?
+               (boolean
+                 (handle-failure
+                   (subtype s t)))))]
+    (if-let [[_ res] (p :subtype-cache-lookup (find @subtype-cache [(hash s) (hash t)]))]
+      (p :subtype-cache-hit 
+       res)
+      (let [_ (p :subtype-cache-miss)
+            res (do-subtype)]
+        (when-not (currently-subtyping?)
+          (swap! subtype-cache assoc [(hash s) (hash t)] res))
+        res))))
 
 (declare subtypeA*)
 
@@ -261,6 +279,7 @@
           ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
           (and (r/HeterogeneousMap? s)
                (r/HeterogeneousMap? t))
+          (p :subtype-HMap
           (let [{ltypes :types :as s} s
                 {rtypes :types :as t} t]
             (or (last (doall (map (fn [[k v]]
@@ -269,6 +288,7 @@
                                       (fail! s t)))
                                   rtypes)))
                 #{}))
+             )
 
         (r/HeterogeneousMap? s)
         (let [^HeterogeneousMap s s]
@@ -385,19 +405,14 @@
         (nil? ext) r/-nil
         :else (throw (Exception. (str "What is this?" ext)))))))
 
-(def subtype-cache (atom {}))
-
-(defn reset-subtype-cache []
-  (reset! subtype-cache {}))
-
 ;[Type Type -> (IPersistentSet '[Type Type])]
-(defn subtype [s t]
+(defn- subtype [s t]
   {:post [(set? %)]}
   #_(prn "subtype")
 ;  (if-let [hit (@subtype-cache (set [s t]))]
 ;    (do #_(prn "subtype hit")
 ;        hit)
-    (let [res (subtypeA* *sub-current-seen* s t)]
+    (let [res (p :subtype-top-subtypeA* (subtypeA* *sub-current-seen* s t))]
       ;(swap! subtype-cache assoc (set [s t]) res)
       res))
 

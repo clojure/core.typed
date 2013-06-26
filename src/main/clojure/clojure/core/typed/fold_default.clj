@@ -12,7 +12,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result
-                                        HeterogeneousSeq TCResult TCError FlowSet)
+                                        HeterogeneousSeq TCResult TCError FlowSet Extends)
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -111,6 +111,7 @@
                            (update-in [:poly?] #(when %
                                                   (mapv type-rec %)))
                              ;FIXME this should probably be left alone in fold (like :fields in DataType)
+                             ; same in promote/demote
                            (update-in [:methods] (fn [ms]
                                                    (into {}
                                                          (for [[k v] ms]
@@ -172,6 +173,13 @@
                          (-> ty 
                            (update-in [:types] #(into {} (for [[k v] %]
                                                            [(type-rec k) (type-rec v)]))))))
+
+(add-default-fold-case Extends
+                       (fn [{:keys [extends without] :as ty} _]
+                         (c/-extends
+                           (doall (map type-rec extends))
+                           :without (doall (mapv type-rec without)))))
+
 
 (def ret-first (fn [a & rest] a))
 

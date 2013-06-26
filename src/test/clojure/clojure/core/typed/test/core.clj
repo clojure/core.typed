@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.core
   (:import (clojure.lang Seqable ISeq ASeq IPersistentVector Atom IPersistentMap
-                         Keyword ExceptionInfo Symbol))
+                         Keyword ExceptionInfo Symbol Var))
   (:require [clojure.test :refer :all]
             [clojure.tools.analyzer :refer [ast]]
             [clojure.tools.analyzer.hygienic :refer [ast-hy]]
@@ -9,7 +9,7 @@
             [clojure.data :refer [diff]]
             [clojure.core.typed :as tc, :refer :all]
             [clojure.core.typed.init]
-            [clojure.core.typed
+            (clojure.core.typed
              [utils :as u :refer [with-ex-info-handlers top-level-error?]]
              [current-impl :as impl]
              [check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp]]
@@ -28,7 +28,7 @@
              [frees :refer :all]
              [free-ops :refer :all]
              [cs-gen :refer :all]
-             [cs-rep :refer :all]]
+             [cs-rep :refer :all])
             [clojure.core.typed.test.rbt]
             [clojure.core.typed.test.person]
             [clojure.tools.trace :refer [trace-vars untrace-vars
@@ -1373,3 +1373,40 @@
             (clojure.core.typed/print-env "a")
             (java.io.File. path))
           [& {:path String} -> java.io.File]))))
+
+;(fn> [a :- (U (Extends Number :without [(IPerVec Any)])
+;              (Extends (IPV Any) :without [Number])
+;              String)]
+;  (cond
+;    (number? a) ...
+;    (vector? a) ...
+;    :else ...))
+;
+;(Extends [(IPersistentCollection a)
+;          (Seqable a)
+;          (IPersistentVector a)
+;          (Reversible a)
+;          [Number -> a]
+;          (IPersistentStack a)
+;          (ILookup Number a)
+;          (Associative Number a)
+;          (Indexed a)]
+;         :without [(IPersistentMap Any Any)])
+
+#_(deftest extends-test
+  (is (cf (fn [a]
+            (if (vector? a)
+              a
+              nil))
+          [(U (Extends [(IPersistentVector Any)]
+                       :without [(IPersistentMap Any Any)])
+              (Extends [(IPersistentMap Any)]
+                       :without [(IPersistentVector Any)]))
+           -> (U nil (IPersistentVector Any))])))
+
+(deftest complete-hash-subtype-test
+  (is (sub? (HMap :optional {} :complete? true)
+            (clojure.lang.IPersistentMap Integer Long))))
+
+(deftest set!-test
+  (is (check-ns 'clojure.core.typed.test.set-bang)))

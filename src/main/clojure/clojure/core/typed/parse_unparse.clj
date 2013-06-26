@@ -162,6 +162,13 @@
              (parse-type type))
            (map first frees-with-bnds))))
 
+(defmethod parse-type-list 'Extends
+  [[_ extends & {:keys [without] :as opts}]]
+  (assert (empty? (set/difference (set (keys opts)) #{:without}))
+          (str "Invalid options to Extends:" (keys opts)))
+  (c/-extends (doall (map parse-type extends))
+              :without (doall (map parse-type without))))
+
 (defmethod parse-type-list 'All
   [[All bnds syn & more :as all]]
   ;(prn "All syntax" all)

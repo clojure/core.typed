@@ -1,5 +1,5 @@
 (ns clojure.core.typed.frees
-  (:require [clojure.core.typed
+  (:require (clojure.core.typed
              [type-rep :as r]
              [type-ctors :as c]
              [object-rep]
@@ -7,22 +7,20 @@
              [filter-rep :as fr]
              [free-ops :as free-ops]
              [name-env :as nmenv]
-             [declared-kind-env :as kinds]])
+             [declared-kind-env :as kinds]))
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         Projection DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
-                                        HeterogeneousSeq Scope TCError)
+                                        HeterogeneousSeq Scope TCError Extends)
            (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
            (clojure.core.typed.path_rep KeyPE)))
 
 (def ^:dynamic *frees-mode* nil)
-(set-validator! #'*frees-mode* #(or (= ::frees %)
-                                    (= ::idxs %)
-                                    (nil? %)))
+(set-validator! #'*frees-mode* (some-fn #{::frees ::idxs} nil?))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Collecting frees
@@ -203,6 +201,10 @@
 (defmethod frees [::any-var HeterogeneousVector]
   [{:keys [types filters objects]}] 
   (apply combine-frees (mapv frees (concat types filters objects))))
+
+(defmethod frees [::any-var Extends]
+  [{:keys [extends without]}] 
+  (apply combine-frees (mapv frees (concat extends without))))
 
 (defmethod frees [::any-var Intersection]
   [{:keys [types]}] 

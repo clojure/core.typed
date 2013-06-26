@@ -21,9 +21,8 @@
          (r/Type? dtype)]}
   (when-let [old (@MULTIMETHOD-DISPATCH-ENV mmsym)]
     (assert (= old dtype)
-            (str "Cannot assign multimethod a different dispatch result: "
-                 " Old: " (prs/unparse-type old)
-                 " New: " (prs/unparse-type dtype))))
+            (str "Inconsistent dispatch type inferred for multimethod: " mmsym
+                 ".  JVM process restart probably necessary.")))
   (swap! MULTIMETHOD-DISPATCH-ENV assoc mmsym dtype)
   nil)
 

@@ -205,6 +205,28 @@
   (-> T
     (update-in [:types] #(mapv demote % (repeat V)))))
 
+(defmethod promote Protocol
+  [T V]
+  (let [pmt #(promote % V)]
+    (-> T
+        (update-in [:poly?] #(when %
+                               (mapv pmt %)))
+        (update-in [:methods] (fn [ms]
+                                (into {}
+                                      (for [[k v] ms]
+                                        [k (pmt v)])))))))
+
+(defmethod demote Protocol
+  [T V]
+  (let [dmt #(demote % V)]
+    (-> T
+        (update-in [:poly?] #(when %
+                               (mapv dmt %)))
+        (update-in [:methods] (fn [ms]
+                                (into {}
+                                      (for [[k v] ms]
+                                        [k (dmt v)])))))))
+
 (defmethod promote RClass
   [T V]
   (let [pmt #(promote % V)]

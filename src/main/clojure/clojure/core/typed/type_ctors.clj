@@ -155,11 +155,12 @@
 (t/ann ^:nocheck Un [TCType * -> TCType])
 (defn Un [& types]
   ;(prn "Un" (map @(unparse-type-var) types))
-;  (if-let [hit (@Un-cache (set types))]
-;    (do #_(prn "Un hit" (set types))
-;        hit))
+  (if-let [hit (p :Union-cache-lookup (@Un-cache (p :Union-calc-hash (set (map hash types)))))]
+    (do (p :Un-cache-hit)
+        hit)
   (p :type-ctors/Un-ctor
-  (let [res (let [subtype? @(subtype?-var)]
+  (let [_ (p :Un-cache-miss)
+        res (let [subtype? @(subtype?-var)]
               (letfn [;; a is a Type (not a union type)
                       ;; b is a Set[Type] (non overlapping, non Union-types)
                       ;; The output is a non overlapping list of non Union types.
@@ -170,8 +171,8 @@
                         (let [b* (make-Union b)
                               ;_ (prn "merge-type" (@(unparse-type-var) a) (@(unparse-type-var) b*))
                               res (cond
-                                    (p :Un-merge-type-subtype1 (subtype? a b*)) b
-                                    (p :Un-merge-type-subtype2 (subtype? b* a)) #{a}
+                                    (subtype? a b*) b
+                                    (subtype? b* a) #{a}
                                     :else (conj b a))]
                           ;(prn "res" res)
                           res))]
@@ -182,12 +183,12 @@
                     :else 
                     (p :Un-merge-type 
                        (make-Union
-                         (reduce (fn [acc t] (merge-type t acc))
+                         (reduce (fn [acc t] (p :Un-merge-type-inner (merge-type t acc)))
                                  #{}
-                                 (set (flatten-unions types)))))))))]
-    ;(swap! Un-cache (fn> [c :- TypeCache] (assoc c (set types) res)))
-    res)
-     ))
+                                 (p :Un-flatten-unions 
+                                    (set (flatten-unions types))))))))))]
+    (swap! Un-cache assoc (set (map hash types)) res)
+    res))))
 
 ;; Intersections
 
@@ -219,11 +220,12 @@
    :post [(r/Type? %)]}
   (let [subtype? @(subtype?-var)]
     #_(prn "intersect")
-;    (if-let [hit (@intersect-cache (set [t1 t2]))]
-;      (do
-;        #_(prn "intersect hit")
-;        hit)
-      (let [t (cond
+    (if-let [hit (@intersect-cache (set [(hash t1) (hash t2)]))]
+      (do
+        (p :intersect-cache-hit)
+        hit)
+      (let [_ (p :intersect-cache-miss)
+            t (cond
                 (and (r/HeterogeneousMap? t1)
                      (r/HeterogeneousMap? t2))
                 (-hmap
@@ -240,8 +242,8 @@
                 :else (do
                         #_(prn "failed to eliminate intersection" (@(unparse-type-var) (make-Intersection [t1 t2])))
                         (make-Intersection [t1 t2])))]
-        ;(swap! intersect-cache (fn> [c :- TypeCache] (assoc c (set [t1 t2]) t)))
-        t)))
+        (swap! intersect-cache assoc (set [(hash t1) (hash t2)]) t)
+        t))))
 
 (t/ann ^:nocheck flatten-intersections [(U nil (Seqable TCType)) -> (Seqable TCType)])
 (defn flatten-intersections [types]
@@ -1214,6 +1216,13 @@
                        (fr/->TypeFilter (-hmap {(r/-val kw) r/-any}) nil 0) 
                        fr/-top)))
          ['x]))
+
+;; Extends
+
+(t/tc-ignore
+(defn -extends [clss & {:keys [without]}]
+  (r/->Extends clss without))
+  )
 
 ;;; KwArgs
 

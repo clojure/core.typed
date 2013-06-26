@@ -1552,6 +1552,11 @@
     (assoc expr
            expr-type (expr-type cexpr))))
 
+(defn- print-lex-env [l]
+  {:pre [(lex/lex-env? l)]}
+  (prn (into {} (for [[k v] l]
+                  [k (prs/unparse-type v)]))))
+
 (defn- print-env*
   ([] (print-env* lex/*lexical-env*))
   ([e]
@@ -3743,6 +3748,20 @@ rest-param-name (when rest-param
                 new-env))
             (assoc env :props (set (concat atoms props)))
             (concat atoms props))))
+;  (letfn [(update-env [env f]
+;            {:pre [(lex/PropEnv? env)
+;                   (fl/Filter? f)]}
+;            (let [new-env (update-in env [:l] update-composite f)]
+;              ; update flag if a variable is now bottom
+;              (when-let [bs (seq (filter (comp #{(c/Un)} val) (:l new-env)))]
+;                ;(prn "variables are now bottom: " (map key bs))
+;                (reset! flag false))
+;              new-env))]
+;    (let [[props atoms] (combine-props fs (:props env) flag)
+;          all-filters (apply fo/-and (concat props atoms))]
+;      (-> env
+;          (update-env all-filters)
+;          (assoc :props (set (concat atoms props)))))))
 
 (def object-equal? =)
 
@@ -4105,7 +4124,7 @@ rest-param-name (when rest-param
                              " to " (-> cval expr-type ret-t prs/unparse-type pr-str)
                              "\n\nForm:\n\t" (u/emit-form-fn expr)))]
     (assoc expr
-           expr-type r/-any
+           expr-type (expr-type cval)
            :target ctarget
            :val cval)))
 
