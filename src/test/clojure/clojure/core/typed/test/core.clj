@@ -71,17 +71,17 @@
            body)))
   (is (let [body (make-F 'a)]
         (= (add-scopes 1 body)
-           (->Scope body))))
+           (Scope-maker body))))
   (is (let [body (make-F 'a)]
         (= (add-scopes 3 body)
-           (-> body ->Scope ->Scope ->Scope)))))
+           (-> body Scope-maker Scope-maker Scope-maker)))))
 
 (deftest remove-scopes-test
-  (is (let [scope (->Scope (make-F 'a))]
+  (is (let [scope (Scope-maker (make-F 'a))]
         (= (remove-scopes 0 scope)
            scope)))
   (is (let [body (make-F 'a)]
-        (= (remove-scopes 1 (->Scope body))
+        (= (remove-scopes 1 (Scope-maker body))
            body))))
 
 (deftest parse-type-test
@@ -99,7 +99,7 @@
          (make-FnIntersection (make-Function () -nil -nil))))
   (is (= (parse-type '(All [x ...] [nil ... x -> nil]))
          (PolyDots* '(x) [no-bounds]
-                    (make-FnIntersection (make-Function () -nil nil (->DottedPretype -nil 'x)))))))
+                    (make-FnIntersection (make-Function () -nil nil (DottedPretype-maker -nil 'x)))))))
 
 (deftest poly-constructor-test
   (is (= (Poly-body*
@@ -111,26 +111,26 @@
   (is (= (Poly-body*
            '(x)
            (Poly* '(x)
-                  [(->Bounds -nil -false nil)]
+                  [(Bounds-maker -nil -false nil)]
                   (make-F 'x)
                   '(x)))
          (make-F 'x)))
   (is (= (parse-type '(All [x x1 [y :< x] z] [x -> y]))
-         (let [no-bounds-scoped (->Bounds
+         (let [no-bounds-scoped (Bounds-maker
                                   (add-scopes 4 -any)
                                   (add-scopes 4 (Un))
                                   nil)]
-           (->Poly 4
+           (Poly-maker 4
                    [no-bounds-scoped
                     no-bounds-scoped
-                    (->Bounds 
-                      (add-scopes 4 (->B 3))
+                    (Bounds-maker 
+                      (add-scopes 4 (B-maker 3))
                       (add-scopes 4 (Un))
                       nil)
                     no-bounds-scoped]
                    (add-scopes 4
                                (make-FnIntersection
-                                 (make-Function [(->B 3)] (->B 1)
+                                 (make-Function [(B-maker 3)] (B-maker 1)
                                                 nil nil)))
                    '(x x1 y z))))))
 (defmacro sub? [s t]
@@ -291,16 +291,16 @@
 
 (deftest truth-false-values-test
   (is (= (tc-t (if nil 1 2))
-         (ret (->Value 2) (-FS -top -bot) (->EmptyObject))))
+         (ret (-val 2) (-FS -top -bot) (->EmptyObject))))
   (is (= (tc-t (if false 1 2))
-         (ret (->Value 2) (-FS -top -bot) (->EmptyObject))))
+         (ret (-val 2) (-FS -top -bot) (->EmptyObject))))
   (is (= (tc-t (if 1 1 2))
-         (ret (->Value 1) (-FS -top -bot) (->EmptyObject)))))
+         (ret (-val 1) (-FS -top -bot) (->EmptyObject)))))
 
 (deftest empty-fn-test
   (is (= (tc-t (clojure.core/fn []))
          (ret (make-FnIntersection
-                (->Function [] (make-Result -nil
+                (Function-maker [] (make-Result -nil
                                             (-FS -bot -top)
                                             (->EmptyObject))
                             nil nil nil))
@@ -308,7 +308,7 @@
               (->EmptyObject))))
   (is (= (tc-t (fn [] 1))
          (ret (make-FnIntersection
-                (->Function [] (make-Result (->Value 1)
+                (Function-maker [] (make-Result (-val 1)
                                               (-FS -top -bot)
                                               (->EmptyObject))
                               nil nil nil))
@@ -320,7 +320,7 @@
 (deftest path-test
   (is (= (tc-t (fn [a] (let [a 1] a)))
          (ret (make-FnIntersection
-                (->Function [-any]
+                (Function-maker [-any]
                               (make-Result (-val 1)
                                            (-FS -top -top)
                                            -empty)
@@ -367,7 +367,7 @@
                            (when (= (:op a) :if) 
                              a)))
          (ret (make-FnIntersection
-                (->Function
+                (Function-maker
                     [(Un (-hmap {(-val :op) (-val :if)})
                          (-hmap {(-val :op) (-val :var)}))]
                     (make-Result (Un -nil (-hmap {(-val :op) (-val :if)}))
@@ -375,9 +375,9 @@
                                             (-not-filter (Un -false -nil) 0)
                                             (-filter (-hmap {(-val :op) (-val :if)}) 0))
                                            ; what are these filters doing here?
-                                      (-or (-and (-filter (->Value :if) 0 [(->KeyPE :op)])
+                                      (-or (-and (-filter (-val :if) 0 [(->KeyPE :op)])
                                                  (-filter (Un -false -nil) 0))
-                                           (-not-filter (->Value :if) 0 [(->KeyPE :op)])))
+                                           (-not-filter (-val :if) 0 [(->KeyPE :op)])))
                                  -empty)
                     nil nil nil))
               (-FS -top -bot)
@@ -395,12 +395,12 @@
 
 (deftest check-do-test
   (is (= (ety (do 1 2))
-         (->Value 2))))
+         (-val 2))))
 
 (deftest tc-var-test
   (is (= (tc-t seq?)
          (ret (make-FnIntersection
-                (->Function [-any]
+                (Function-maker [-any]
                               (make-Result (RClass-of 'boolean) 
                                            (-FS (-filter (RClass-of ISeq [-any]) 0)
                                                 (-not-filter (RClass-of ISeq [-any]) 0))
@@ -410,25 +410,25 @@
 
 (deftest heterogeneous-ds-test
   (is (not (subtype? (parse-type '(HMap :mandatory {:a (Value 1)}))
-                     (RClass-of ISeq [(->Top)]))))
+                     (RClass-of ISeq [-any]))))
   (is (not (subtype? (parse-type '(Vector* (Value 1) (Value 2)))
-                     (RClass-of ISeq [(->Top)]))))
+                     (RClass-of ISeq [-any]))))
   (is (subtype? (parse-type '(Seq* (Value 1) (Value 2)))
-                (RClass-of ISeq [(->Top)])))
+                (RClass-of ISeq [-any])))
   (is (subtype? (parse-type '(List* (Value 1) (Value 2)))
-                (RClass-of ISeq [(->Top)])))
+                (RClass-of ISeq [-any])))
   (is (= (tc-t [1 2])
-         (ret (-hvec [(->Value 1) (->Value 2)]) (-true-filter) -empty)))
+         (ret (-hvec [(-val 1) (-val 2)]) (-true-filter) -empty)))
   (is (= (tc-t '(1 2))
-         (ret (->HeterogeneousList [(->Value 1) (->Value 2)]) (-true-filter) -empty)))
+         (ret (HeterogeneousList-maker [(-val 1) (-val 2)]) (-true-filter) -empty)))
   (is (= (tc-t {:a 1})
-         (ret (-complete-hmap {(->Value :a) (->Value 1)}) (-true-filter) -empty)))
+         (ret (-complete-hmap {(-val :a) (-val 1)}) (-true-filter) -empty)))
   (is (= (tc-t {})
          (ret (-complete-hmap {}) (-true-filter) -empty)))
   (is (= (tc-t [])
          (ret (-hvec []) (-true-filter) -empty)))
   (is (= (tc-t '())
-         (ret (->HeterogeneousList []) (-true-filter) -empty)))
+         (ret (HeterogeneousList-maker []) (-true-filter) -empty)))
   (is-cf '(a b) (List* clojure.lang.Symbol clojure.lang.Symbol)))
 
 (deftest implied-atomic?-test
@@ -445,31 +445,31 @@
 (deftest env+-test
   ;test basic TypeFilter
   ;update a from Any to (Value :a)
-  (is (let [props [(-filter (->Value :a) 'a)]
+  (is (let [props [(-filter (-val :a) 'a)]
             flag (atom true)]
         (and (= (let [env {'a -any}
                       lenv (-PropEnv env props)]
                   (env+ lenv [] flag))
-                (-PropEnv {'a (->Value :a)} props))
+                (-PropEnv {'a (-val :a)} props))
              @flag)))
   ;test positive KeyPE
   ;update a from (U (HMap :mandatory {:op :if}) (HMap :mandatory {:op :var})) => (HMap :mandatory {:op :if})
-  (is (let [props [(-filter (->Value :if) 'a [(->KeyPE :op)])]
+  (is (let [props [(-filter (-val :if) 'a [(->KeyPE :op)])]
             flag (atom true)]
-        (and (= (let [env {'a (Un (-hmap {(->Value :op) (->Value :if)})
-                                  (-hmap {(->Value :op) (->Value :var)}))}
+        (and (= (let [env {'a (Un (-hmap {(-val :op) (-val :if)})
+                                  (-hmap {(-val :op) (-val :var)}))}
                       lenv (-PropEnv env props)]
                   (env+ lenv [] flag))
-                (-PropEnv {'a (-hmap {(->Value :op) (->Value :if)})} props))
+                (-PropEnv {'a (-hmap {(-val :op) (-val :if)})} props))
              @flag)))
   ;test negative KeyPE
-  (is (let [props [(-not-filter (->Value :if) 'a [(->KeyPE :op)])]
+  (is (let [props [(-not-filter (-val :if) 'a [(->KeyPE :op)])]
             flag (atom true)]
-        (and (= (let [env {'a (Un (-hmap {(->Value :op) (->Value :if)})
-                                  (-hmap {(->Value :op) (->Value :var)}))}
+        (and (= (let [env {'a (Un (-hmap {(-val :op) (-val :if)})
+                                  (-hmap {(-val :op) (-val :var)}))}
                       lenv (-PropEnv env props)]
                   (env+ lenv [] flag))
-                (-PropEnv {'a (-hmap {(->Value :op) (->Value :var)})} props))
+                (-PropEnv {'a (-hmap {(-val :op) (-val :var)})} props))
              @flag)))
   ;test impfilter
   (is (let [{:keys [l props]}
@@ -484,7 +484,7 @@
                   (-filter -true 'b)}))))
   ; more complex impfilter
   (is-with-aliases (= (env+ (-PropEnv {'and1 (Un -false -true)
-                                       'tmap (->Name 'clojure.core.typed.test.core/UnionName)}
+                                       'tmap (Name-maker 'clojure.core.typed.test.core/UnionName)}
                                       [(->ImpFilter (-filter (Un -nil -false) 'and1)
                                                     (-not-filter (-val :MapStruct1)
                                                                  'tmap
@@ -513,12 +513,12 @@
                      (apply hash-map a)
                      a)))
            ret-t)
-         (-complete-hmap {(->Value :a) (->Value 1)})))
+         (-complete-hmap {(-val :a) (-val 1)})))
   (is (= (tc-t (clojure.core.typed/fn> [{a :a} :- (HMap :mandatory {:a (Value 1)})]
                                a))
          (ret (make-FnIntersection 
-                (->Function [(-hmap {(->Value :a) (->Value 1)})]
-                              (make-Result (->Value 1) 
+                (Function-maker [(-hmap {(-val :a) (-val 1)})]
+                              (make-Result (-val 1) 
                                            (-FS -top -top)  ; have to throw out filters whos id's go out of scope
                                            ;(->Path [(->KeyPE :a)] 0) ; requires 'equivalence' filters
                                            -empty)
@@ -530,7 +530,7 @@
                                    (seq? a)))
            ret-t)
          (make-FnIntersection
-           (->Function [(->Name 'clojure.core.typed.test.core/UnionName)]
+           (Function-maker [(Name-maker 'clojure.core.typed.test.core/UnionName)]
                          (make-Result -false 
                                       ;FIXME why isn't this (-FS -bot (-not-filter (RClass-of ISeq [-any]) 0)) ?
                                       (-FS -bot -top)
@@ -538,14 +538,14 @@
                          nil nil nil))))
   (is (= (tc-t (let [{a :a} {:a 1}]
                  a))
-         (ret (->Value 1) 
+         (ret (-val 1) 
               (-FS -top -top) ; a goes out of scope, throw out filters
               -empty)))
   ;FIXME should be (-FS -bot (! ISeq 0))
   #_(is (= (tc-t (clojure.core.typed/fn> [a :- (HMap :mandatory {:a (Value 1)})]
                                (seq? a)))
          (ret (make-FnIntersection
-                (->Function [(-hmap {(->Value :a) (->Value 1)})]
+                (Function-maker [(-hmap {(-val :a) (-val 1)})]
                               (make-Result -false (-false-filter) -empty)
                               nil nil nil))
               (-FS -top -bot)
@@ -593,16 +593,16 @@
                                                     (let [{e :a} tmap]
                                                       e)))
                       (ret (make-FnIntersection 
-                             (->Function [(->Name 'clojure.core.typed.test.core/MyName)]
-                                         (make-Result (->Value 1) (-FS -top -top) -empty)
+                             (Function-maker [(Name-maker 'clojure.core.typed.test.core/MyName)]
+                                         (make-Result (-val 1) (-FS -top -top) -empty)
                                          nil nil nil))
                            (-FS -top -bot) -empty)))
   (is-with-aliases (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/MapName]
                                                     (let [{e :a} tmap]
                                                       (assoc e :c :b))))
-                      (ret (make-FnIntersection (->Function [(->Name 'clojure.core.typed.test.core/MapName)]
-                                                            (make-Result (-hmap {(->Value :a) (->Value 1)
-                                                                                 (->Value :c) (->Value :b)})
+                      (ret (make-FnIntersection (Function-maker [(Name-maker 'clojure.core.typed.test.core/MapName)]
+                                                            (make-Result (-hmap {(-val :a) (-val 1)
+                                                                                 (-val :c) (-val :b)})
                                                                          (-FS -top -bot) -empty)
                                                             nil nil nil))
                            (-FS -top -bot) -empty)))
@@ -620,14 +620,14 @@
                          ret-t)
                      (make-FnIntersection 
                        (make-Function 
-                         [(->Name 'clojure.core.typed.test.core/UnionName)]
+                         [(Name-maker 'clojure.core.typed.test.core/UnionName)]
                          (Un -false -true)
                          nil nil
                          :filter (let [t (-val :MapStruct1)
                                        path [(->KeyPE :type)]]
                                    (-FS (-and 
                                           (-filter (-hmap {(-val :type) (-val :MapStruct1)
-                                                           (-val :a) (->Name 'clojure.core.typed.test.core/MyName)})
+                                                           (-val :a) (Name-maker 'clojure.core.typed.test.core/MyName)})
                                                    0)
                                           (-filter (-val :MapStruct1) 0 path)
                                           (-filter t 0 path))
@@ -660,11 +660,11 @@
                                  (do (clojure.core.typed/print-env "follow then")
                                    (assoc tmap :c :d))
                                  1)))
-         (ret (make-FnIntersection (->Function [(->Name 'clojure.core.typed.test.core/UnionName)]
+         (ret (make-FnIntersection (Function-maker [(Name-maker 'clojure.core.typed.test.core/UnionName)]
                               (let [t (Un (-val 1)
                                           (-hmap {(-val :type) (-val :MapStruct1)
                                                                (-val :c) (-val :d)
-                                                               (-val :a) (->Name 'clojure.core.typed.test.core/MyName)}))]
+                                                               (-val :a) (Name-maker 'clojure.core.typed.test.core/MyName)}))]
                                 (make-Result t (-FS -top -bot) -empty))
                               nil nil nil))
               (-FS -top -bot) -empty))))
@@ -711,23 +711,23 @@
 (deftest update-test
   (is (= (update (Un (-hmap {(-val :type) (-val :Map1)})
                      (-hmap {(-val :type) (-val :Map2)}))
-                 (-filter (->Value :Map1) 'tmap [(->KeyPE :type)]))
+                 (-filter (-val :Map1) 'tmap [(->KeyPE :type)]))
          (-hmap {(-val :type) (-val :Map1)})))
   ;test that update resolves Names properly
-  (is-with-aliases (= (update (->Name 'clojure.core.typed.test.core/MapStruct2)
+  (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.core/MapStruct2)
                               (-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
                       (Un)))
   ;test that update resolves Names properly
   ; here we refine the type of tmap with the equivalent of following the then branch 
   ; with test (= :MapStruct1 (:type tmap))
-  (is-with-aliases (= (update (->Name 'clojure.core.typed.test.core/UnionName)
-                              (-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
+  (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.core/UnionName)
+                              (-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
                       (-hmap {(-val :type) (-val :MapStruct1) 
-                              (-val :a) (->Name 'clojure.core.typed.test.core/MyName)})))
-  (is-with-aliases (= (update (->Name 'clojure.core.typed.test.core/UnionName)
-                              (-not-filter (->Value :MapStruct1) 'tmap [(->KeyPE :type)]))
+                              (-val :a) (Name-maker 'clojure.core.typed.test.core/MyName)})))
+  (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.core/UnionName)
+                              (-not-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
                       (-hmap {(-val :type) (-val :MapStruct2) 
-                              (-val :b) (->Name 'clojure.core.typed.test.core/MyName)})))
+                              (-val :b) (Name-maker 'clojure.core.typed.test.core/MyName)})))
   (is (= (update (Un -true -false) (-filter (Un -false -nil) 'a nil)) 
          -false)))
 
@@ -746,7 +746,7 @@
 
 (deftest assoc-test
   (is (= (tc-t (assoc {} :a :b))
-         (ret (-complete-hmap {(->Value :a) (->Value :b)})
+         (ret (-complete-hmap {(-val :a) (-val :b)})
               (-FS -top -bot)
               -empty)))
   ;see `invoke-special` for assoc for TODO
@@ -769,7 +769,7 @@
   ;truth valued key
   (is (= (tc-t (let [a {:a 1}]
                  (:a a)))
-         (ret (->Value 1) (-FS -top -top) -empty)))
+         (ret (-val 1) (-FS -top -top) -empty)))
   ;false valued key, a bit conservative in filters for now
   (is (= (tc-t (let [a {:a nil}]
                  (:a a)))
@@ -777,13 +777,13 @@
   ;multiple levels
   (is (= (tc-t (let [a {:c {:a :b}}]
                  (-> a :c :a)))
-         (ret (->Value :b) (-FS -top -top) -empty)))
+         (ret (-val :b) (-FS -top -top) -empty)))
   (is (= (tc-t (clojure.core/get {:a 1} :a))
          (tc-t (clojure.lang.RT/get {:a 1} :a))
          ;FIXME
          #_(tc-t ({:a 1} :a))
          (tc-t (:a {:a 1}))
-         (ret (->Value 1)
+         (ret (-val 1)
               (-FS -top -top)
               -empty))))
 
@@ -800,18 +800,18 @@
 
 (deftest promote-demote-test
   (is (= (promote-var (make-F 'x) '#{x})
-         (->Top)))
+         -any))
   (is (= (demote-var (make-F 'x) '#{x})
          (Bottom)))
   (is (= (promote-var (RClass-of clojure.lang.ISeq [(make-F 'x)]) '#{x})
-         (RClass-of clojure.lang.ISeq [(->Top)])))
+         (RClass-of clojure.lang.ISeq [-any])))
   (is (= (demote-var (RClass-of clojure.lang.ISeq [(make-F 'x)]) '#{x})
          (RClass-of clojure.lang.ISeq [(Bottom)]))))
 
 (deftest variances-test
   (is (= (fv-variances (make-F 'x))
          '{x :covariant}))
-  (is (= (fv-variances (->Top))
+  (is (= (fv-variances -any)
          '{}))
   (is (= (fv-variances 
            (make-Function [] (RClass-of Atom [(make-F 'a) (make-F 'a)])))
@@ -835,10 +835,10 @@
   (is (= (cs-gen #{} ;V
                  (zipmap '[x y] (repeat no-bounds)) ;X
                  {} ;Y
-                 (->Value 1) ;S
+                 (-val 1) ;S
                  (make-F 'x)) ;T
-         (->cset [(make-cset-entry {'x (->c (->Value 1) 'x (->Top) no-bounds)
-                                    'y (->c (Un) 'y (->Top) no-bounds)})])))
+         (->cset [(make-cset-entry {'x (->c (-val 1) 'x -any no-bounds)
+                                    'y (->c (Un) 'y -any no-bounds)})])))
   ;intersections correctly inferred
   (is (= (cs-gen '#{} {'x no-bounds} '{} 
                  (-hvec [(RClass-of Number)])
@@ -854,16 +854,16 @@
   (let [cs (cs-gen #{} ;V
                    (zipmap '[x y] (repeat no-bounds)) ;X
                    {} ;Y
-                   (->Value 1) ;S
+                   (-val 1) ;S
                    (make-F 'x))]
     (is (= (subst-gen cs #{} (make-F 'x))
-           {'x (->t-subst (->Value 1) no-bounds)
+           {'x (->t-subst (-val 1) no-bounds)
             'y (->t-subst (Un) no-bounds)}))))
 
 (deftest infer-test
   (is (= (infer (zipmap '[x y] (repeat no-bounds)) ;tv env
                 {}
-                [(->Value 1) (->Value 2)] ;actual
+                [(-val 1) (-val 2)] ;actual
                 [(make-F 'x) (make-F 'y)] ;expected
                 (make-F 'x)))) ;result
   (is (= (infer {'x no-bounds} ;tv env
@@ -954,7 +954,7 @@
   (is (do
         (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MyAlias
               (U nil (HMap :mandatory {:a Number}))))
-        (subtype? (->Name 'clojure.core.typed.test.core/MyAlias) 
+        (subtype? (Name-maker 'clojure.core.typed.test.core/MyAlias) 
                   -any))))
 
 (deftest ccfind-test
@@ -1032,7 +1032,7 @@
                                     [x -> (m x)])))
            [(ret -nil)]
            nil))
-         (ret (->TApp (make-F 'm) [-nil])))))
+         (ret (TApp-maker (make-F 'm) [-nil])))))
 
 ;TODO how to handle casts. CTYP-12
 ;Also need tc-t to bind *delayed-errors*
@@ -1068,7 +1068,7 @@
   (is (subtype? (-> (tc-t 
                       #(= Number (class %)))
                   ret-t)
-                (->FnIntersection 
+                (FnIntersection-maker
                   [(make-Function
                      [-any]
                      (RClass-of 'boolean)
@@ -1227,7 +1227,8 @@
   (is-cf (clojure.core.typed/dotimes> [i 100] (inc i)) nil))
 
 (deftest records-test
-  (is (check-ns 'clojure.core.typed.test.records)))
+  (is (check-ns 'clojure.core.typed.test.records))
+  (is (check-ns 'clojure.core.typed.test.records2)))
 
 (deftest string-methods-test
   (is-cf (.toUpperCase "a") String))
@@ -1393,16 +1394,39 @@
 ;          (Indexed a)]
 ;         :without [(IPersistentMap Any Any)])
 
-#_(deftest extends-test
+(deftest extends-test
+  ; without extends: never returns a (IPV Number) because we can have
+  ; a type (I (IPM Any Any) (IPV Any))
+  (is (u/top-level-error-thrown?
+        (cf (fn [a]
+              (if (vector? a)
+                a
+                nil))
+            [(U (clojure.lang.IPersistentVector Number)
+                (clojure.lang.IPersistentMap Any Any))
+             -> (U nil (clojure.lang.IPersistentVector Number))])))
+  ; can use assertions to prove non-overlapping interfaces
+  (is (cf (fn [a]
+            {:pre [(or (and (vector? a)
+                            (not (map? a)))
+                       (and (map? a)
+                            (not (vector? a))))]}
+            (if (vector? a)
+              a
+              nil))
+          [(U (clojure.lang.IPersistentVector Number)
+              (clojure.lang.IPersistentMap Any Any))
+           -> (U nil (clojure.lang.IPersistentVector Number))]))
+  ; or use static types
   (is (cf (fn [a]
             (if (vector? a)
               a
               nil))
-          [(U (Extends [(IPersistentVector Any)]
-                       :without [(IPersistentMap Any Any)])
-              (Extends [(IPersistentMap Any)]
-                       :without [(IPersistentVector Any)]))
-           -> (U nil (IPersistentVector Any))])))
+          [(U (Extends [(clojure.lang.IPersistentVector Number)]
+                       :without [(clojure.lang.IPersistentMap Any Any)])
+              (Extends [(clojure.lang.IPersistentMap Any Any)]
+                       :without [(clojure.lang.IPersistentVector Any)]))
+           -> (U nil (clojure.lang.IPersistentVector Number))])))
 
 (deftest complete-hash-subtype-test
   (is (sub? (HMap :optional {} :complete? true)
@@ -1410,3 +1434,6 @@
 
 (deftest set!-test
   (is (check-ns 'clojure.core.typed.test.set-bang)))
+
+#_(deftest flow-unreachable-test
+  (is (cf (clojure.core.typed/fn> [a :- Long] {:pre [(symbol? a)]} (clojure.core.typed/ann-form a clojure.lang.Symbol)))))

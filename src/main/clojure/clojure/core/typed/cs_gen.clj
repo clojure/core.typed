@@ -527,8 +527,9 @@
 
 (defmethod cs-gen* [RClass RClass impl/clojure]
   [V X Y S T]
-  (let [relevant-S (some #(and (= (:the-class %) (:the-class T))
-                               %)
+  (let [relevant-S (some #(when (r/RClass? %)
+                            (and (= (:the-class %) (:the-class T))
+                                 %))
                          (conj (c/RClass-supers* S) S))]
     (cond
       relevant-S
@@ -546,7 +547,7 @@
                                           (cs-gen V X Y ti si)))))))
       :else (fail! S T))))
 
-(defn demote-F [V X Y {:keys [name bnds] :as S} T]
+(defn demote-F [V X Y {:keys [name] :as S} T]
   {:pre [(r/F? S)]}
   ;constrain T to be below S (but don't mention V)
   (assert (contains? X name) (str X name))
@@ -777,7 +778,7 @@
                                                  (count (:dom S))))
               new-tys (doall (for [var vars]
                                (subst/substitute (r/make-F var) dbound dty)))
-              new-s-arr (r/->Function (concat (:dom S) new-tys) (:rng S) nil nil nil)
+              new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil nil nil)
               new-cset (cs-gen-Function V 
                                         ;move dotted lower/upper bounds to vars
                                         (merge X (zipmap vars (repeat (Y dbound)))) Y new-s-arr T)]
@@ -797,7 +798,7 @@
                           (subst/substitute (r/make-F var) dbound dty)))
               ;_ (prn "dotted on the right, nothing on the left")
               ;_ (prn "vars" vars)
-              new-t-arr (r/->Function (concat (:dom T) new-tys) (:rng T) nil nil nil)
+              new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil nil nil)
               ;_ (prn "S" (prs/unparse-type S))
               ;_ (prn "new-t-arr" (prs/unparse-type new-t-arr))
               new-cset (cs-gen-Function V 
@@ -821,7 +822,7 @@
           (let [vars (var-store-take dbound t-dty (- (count (:dom S)) (count (:dom T))))
                 new-tys (doall (for [var vars]
                                  (subst/substitute (r/make-F var) dbound t-dty)))
-                new-t-arr (r/->Function (concat (:dom T) new-tys) (:rng T) nil (r/->DottedPretype t-dty dbound) nil)
+                new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil (r/DottedPretype-maker t-dty dbound) nil)
                 new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y S new-t-arr)]
             (move-vars+rest-to-dmap new-cset dbound vars))))
 

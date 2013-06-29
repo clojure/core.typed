@@ -17,7 +17,7 @@
 
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
-                                        Bounds Name Scope CountRange Intersection DataType)
+                                        Bounds Name Scope CountRange Intersection DataType Extends)
            (clojure.lang Seqable IPersistentSet IPersistentMap Symbol Keyword
                          Atom)))
 
@@ -43,7 +43,7 @@
   [args]
   (cond
     (= 1 (count args)) (first args)
-    :else (r/->Union (set args))))
+    :else (r/Union-maker (set args))))
 
 (t/ann bottom TCType)
 (def ^:private bottom (make-Union []))
@@ -62,7 +62,7 @@
            ; contradictory overlap in present/absent keys
            (seq (set/intersection (set (keys types)) (set absent-keys))))
      bottom
-     (r/->HeterogeneousMap types absent-keys other-keys?))))
+     (r/HeterogeneousMap-maker types absent-keys other-keys?))))
 
 (t/ann -complete-hmap [(Seqable TCType) -> TCType])
 (defn -complete-hmap [types]
@@ -124,7 +124,7 @@
                           (map :types ms)))))]
     (if (= 1 (count flat))
       (first flat)
-      (->Union flat))))
+      (Union-maker flat))))
 
 (t/tc-ignore
 (defn- subtype?-var []
@@ -209,7 +209,7 @@
 (t/ann ^:nocheck make-Intersection [(U nil (Seqable TCType)) -> TCType])
 (defn make-Intersection [types]
   #_(prn "make-Intersection" types)
-  (r/->Intersection (set types)))
+  (r/Intersection-maker (set types)))
 
 (t/ann ^:nocheck intersect [TCType TCType -> TCType])
 (defn intersect [t1 t2]
@@ -331,8 +331,8 @@
          uncked (set (for [u unchecked-ancestors]
                        (abstract-many names u)))]
      (if (seq variances)
-       (Poly* names (repeat (count names) r/no-bounds) (r/->RClass variances poly? the-class repl uncked) names)
-       (r/->RClass nil nil the-class repl uncked)))))
+       (Poly* names (repeat (count names) r/no-bounds) (r/RClass-maker variances poly? the-class repl uncked) names)
+       (r/RClass-maker nil nil the-class repl uncked)))))
 
 (t/ann ^:nocheck isa-DataType? [(U Symbol Class) -> Any])
 (defn isa-DataType? [sym-or-cls]
@@ -374,8 +374,8 @@
        :else
        (let [cls (u/symbol->Class sym)]
          (if (isa-DataType? cls)
-           (r/->DataType sym nil nil [] (isa-Record? cls))
-           (r/->RClass nil nil sym {} #{})))))))
+           (r/DataType-maker sym nil nil (array-map) (isa-Record? cls))
+           (r/RClass-maker nil nil sym {} #{})))))))
 
 (t/ann ^:nocheck RClass-of-with-unknown-params [(U Symbol Class) -> TCType])
 (defn RClass-of-with-unknown-params
@@ -486,12 +486,12 @@
    :post [(r/Type? %)]}
   (if (empty? names)
     body
-    (r/->TypeFn (count names) 
-                variances
-                (vec
-                  (for [bnd bbnds]
-                    (r/visit-bounds bnd #(abstract-many names %))))
-                (abstract-many names body))))
+    (r/TypeFn-maker (count names) 
+                    variances
+                    (vec
+                      (for [bnd bbnds]
+                        (r/visit-bounds bnd #(abstract-many names %))))
+                    (abstract-many names body))))
 
 ;smart destructor
 (t/ann ^:nocheck TypeFn-body* [(Seqable Symbol) TypeFn -> TCType])
@@ -523,12 +523,12 @@
          (apply = (map count [names bbnds free-names]))]}
   (if (empty? names)
     body
-    (r/->Poly (count names) 
-              (vec
-                (for [bnd bbnds]
-                  (r/visit-bounds bnd #(abstract-many names %))))
-              (abstract-many names body)
-              free-names)))
+    (r/Poly-maker (count names) 
+                  (vec
+                    (for [bnd bbnds]
+                      (r/visit-bounds bnd #(abstract-many names %))))
+                  (abstract-many names body)
+                  free-names)))
 
 (t/ann ^:nocheck Poly-free-names* [Poly -> (Seqable Symbol)])
 (defn Poly-free-names* [^Poly poly]
@@ -564,11 +564,11 @@
   (assert (= (count names) (count bbnds)) "Wrong number of names")
   (if (empty? names)
     body
-    (r/->PolyDots (count names) 
-                  (mapv (fn [bnd] 
-                          (r/visit-bounds bnd #(abstract-many names %)))
-                        bbnds)
-                  (abstract-many names body))))
+    (r/PolyDots-maker (count names) 
+                      (mapv (fn [bnd] 
+                              (r/visit-bounds bnd #(abstract-many names %)))
+                            bbnds)
+                      (abstract-many names body))))
 
 ;smart destructor
 (t/ann ^:nocheck PolyDots-body* [(Seqable Symbol) PolyDots -> TCType])
@@ -709,7 +709,7 @@
 ;smart constructor
 (t/ann Mu* [Symbol TCType -> TCType])
 (defn Mu* [name body]
-  (r/->Mu (abstract name body)))
+  (r/Mu-maker (abstract name body)))
 
 ;smart destructor
 (t/ann Mu-body* [Symbol Mu -> TCType])
@@ -861,6 +861,16 @@
 ;              (every? (complement :interface) [t1-flags t2-flags]) false
 ;              :else true)))
 
+      (some r/Extends? [t1 t2])
+      (let [[^Extends the-extends other-type] (if (r/Extends? t1)
+                                                [t1 t2]
+                                                [t2 t1])]
+        ; returns true if at least one +ve type overlaps, and if
+        ; no negative types overlap, else false
+        (boolean
+          (and (seq (filter (fn [pos] (overlap pos other-type)) (.extends the-extends)))
+               (not-any? (fn [neg] (overlap neg other-type)) (.extends the-extends)))))
+
       (or (r/Value? t1)
           (r/Value? t2)) 
       (or (subtype? t1 t2)
@@ -941,7 +951,7 @@
          (r/Type? t)]
    :post [((some-fn r/Scope? r/Type?) %)]}
   (last 
-    (take (inc n) (iterate r/->Scope t))))
+    (take (inc n) (iterate r/Scope-maker t))))
 
 (t/ann ^:nocheck remove-scopes [t/AnyInteger (U Scope TCType) -> (U Scope TCType)])
 (defn remove-scopes 
@@ -970,13 +980,13 @@
                  F
                  (fn [{name* :name :as t} {{:keys [name count outer sb]} :locals}]
                    (if (= name name*)
-                     (r/->B (+ count outer))
+                     (r/B-maker (+ count outer))
                      t)))
 
 (f/add-fold-case ::abstract-many
                  Function
                  (fn [{:keys [dom rng rest drest kws] :as ty} {{:keys [name count outer sb]} :locals}]
-                   (r/->Function (doall (map sb dom))
+                   (r/Function-maker (doall (map sb dom))
                                  (sb rng)
                                  (when rest (sb rest))
                                  (when drest
@@ -998,7 +1008,7 @@
                  Mu
                  (fn [{:keys [scope]} {{:keys [name count type outer name-to]} :locals}]
                    (let [body (remove-scopes 1 scope)]
-                     (r/->Mu (r/->Scope (name-to name count type (inc outer) body))))))
+                     (r/Mu-maker (r/Scope-maker (name-to name count type (inc outer) body))))))
 
 (f/add-fold-case ::abstract-many
                  PolyDots
@@ -1007,7 +1017,7 @@
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
-                     (r/->PolyDots n 
+                     (r/PolyDots-maker n 
                                    (mapv #(r/visit-bounds % rs) bbnds)
                                    (as body)))))
 
@@ -1018,7 +1028,7 @@
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
-                     (r/->Poly n 
+                     (r/Poly-maker n 
                              (mapv #(r/visit-bounds % as) bbnds)
                              (as body)
                              (Poly-free-names* poly)))))
@@ -1030,7 +1040,7 @@
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
-                     (r/->TypeFn n 
+                     (r/TypeFn-maker n 
                                  variances
                                  (mapv #(r/visit-bounds % as) bbnds)
                                  (as body)))))
@@ -1075,13 +1085,13 @@
                B
                (fn [{:keys [idx] :as t} {{:keys [count outer image sb]} :locals}]
                  (if (= (+ count outer) idx)
-                   (r/->F image)
+                   (r/F-maker image)
                    t)))
 
 (f/add-fold-case ::instantiate-many
                Function
                (fn [{:keys [dom rng rest drest kws]} {{:keys [count outer image sb]} :locals}]
-                 (r/->Function (map sb dom)
+                 (r/Function-maker (map sb dom)
                              (sb rng)
                              (when rest
                                (sb rest))
@@ -1106,7 +1116,7 @@
                Mu
                (fn [{:keys [scope]} {{:keys [replace count outer image sb type]} :locals}]
                  (let [body (remove-scopes 1 scope)]
-                   (r/->Mu (r/->Scope (replace image count type (inc outer) body))))))
+                   (r/Mu-maker (r/Scope-maker (replace image count type (inc outer) body))))))
 
 (f/add-fold-case ::instantiate-many
                PolyDots
@@ -1115,7 +1125,7 @@
                        body (rs body*)
                        bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                        as #(add-scopes n (replace image count type (+ n outer) %))]
-                   (r/->PolyDots n 
+                   (r/PolyDots-maker n 
                                (mapv #(r/visit-bounds % as) bbnds)
                                (as body)))))
 
@@ -1126,7 +1136,7 @@
                        body (rs body*)
                        bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                        as #(add-scopes n (replace image count type (+ n outer) %))]
-                   (r/->Poly n 
+                   (r/Poly-maker n 
                            (mapv #(r/visit-bounds % as) bbnds)
                            (as body)
                            (Poly-free-names* poly)))))
@@ -1138,7 +1148,7 @@
                        body (rs body*)
                        bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                        as #(add-scopes n (replace image count type (+ n outer) %))]
-                   (r/->TypeFn n 
+                   (r/TypeFn-maker n 
                              variances
                              (mapv #(r/visit-bounds % as) bbnds)
                              (as body)))))
@@ -1221,7 +1231,7 @@
 
 (t/tc-ignore
 (defn -extends [clss & {:keys [without]}]
-  (r/->Extends clss without))
+  (r/Extends-maker clss without))
   )
 
 ;;; KwArgs
@@ -1230,7 +1240,7 @@
 (defn KwArgs->Type [^KwArgs kws]
   {:pre [(r/KwArgs? kws)]
    :post [(r/Type? %)]}
-  (r/->KwArgsSeq (.mandatory kws)
+  (r/KwArgsSeq-maker (.mandatory kws)
                  (.optional kws)))
 
 (t/ann KwArgsSeq->HMap [KwArgsSeq -> TCType])

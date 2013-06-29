@@ -550,7 +550,7 @@
                                     {:pre [(r/AnyType? t)]}
                                     (subst-type t (if (number? k) (+ arg-count k) k) o polarity))
                                   st)]
-                        (r/->Function (map st dom)
+                        (r/Function-maker (map st dom)
                                       (st* rng)
                                       (and rest (st rest))
                                       (when drest
@@ -1217,7 +1217,7 @@
                (prs/parse-type (:val cljt-syn)))
         ccoll (check coll-expr (ret (c/Un r/-nil (c/RClass-of Seqable [cljt]))))]
     (assoc expr
-           expr-type (ret (r/->PrimitiveArray javat cljt cljt)))))
+           expr-type (ret (r/PrimitiveArray-maker javat cljt cljt)))))
 
 ;not
 (defmethod invoke-special 'clojure.core/not
@@ -1706,7 +1706,7 @@
        (expr-type ccoll))
       (assoc expr
              expr-type (ret (if-let [ts (seq (:types (expr-type ccoll)))]
-                              (r/->HeterogeneousSeq ts)
+                              (r/HeterogeneousSeq-maker ts)
                               r/-nil)))
       :else (normal-invoke expr fexpr args expected :cargs cargs))))
 
@@ -2428,7 +2428,7 @@
         arg-names (concat (map first args)
                           (when rest-param-name
                             [rest-param-name]))]
-    (r/->Function
+    (r/Function-maker
       (map second args)
       (abstract-result body arg-names)
       (when rest
@@ -2803,7 +2803,7 @@ rest-param-name (when rest-param
                             (resolve (symbol s-nosuffix)))
                       _ (assert (class? c) s-nosuffix)]
                   c)]
-          (r/->PrimitiveArray c t t))))))
+          (r/PrimitiveArray-maker c t t))))))
 
 ;[Symbol Boolean -> Type]
 (defn Java-symbol->Type [sym nilable?]
@@ -3986,8 +3986,9 @@ rest-param-name (when rest-param
                    (unwrap-datatype dtp (-> dtp meta :actual-frees)))
                dtp)
 
-          _ (assert ((some-fn r/DataType? r/Record?) dt))
-          _ (assert dt (str "Untyped datatype definition: " nme))
+          _ (when-not ((some-fn r/DataType? r/Record?) dt)
+              (u/int-error (str "deftype " nme " must have corresponding annotation. "
+                                "See ann-datatype and ann-record")))
           ; update this deftype's ancestors to include each protocol/interface in this deftype
           old-ancestors (or (@ancest/DATATYPE-ANCESTOR-ENV nme) #{})
           ancestor-diff (set/difference

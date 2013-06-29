@@ -140,7 +140,7 @@
 (defn no-constraint [v bnds]
   {:pre [(symbol? v)
          (r/Bounds? bnds)]}
-  (->c (r/->Union #{}) v (r/->Top) bnds))
+  (->c (r/Union-maker #{}) v r/-any bnds))
 
 (t/def-alias FreeBnds 
   "A map of free variable names to their bounds."

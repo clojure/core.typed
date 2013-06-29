@@ -199,8 +199,8 @@
   (apply combine-frees (mapv frees (concat (keys types) (vals types)))))
 
 (defmethod frees [::any-var HeterogeneousVector]
-  [{:keys [types filters objects]}] 
-  (apply combine-frees (mapv frees (concat types filters objects))))
+  [{:keys [types fs objects]}] 
+  (apply combine-frees (mapv frees (concat types fs objects))))
 
 (defmethod frees [::any-var Extends]
   [{:keys [extends without]}] 

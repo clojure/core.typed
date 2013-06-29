@@ -21,7 +21,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
-                                        HeterogeneousSeq KwArgsSeq TCError)
+                                        HeterogeneousSeq KwArgsSeq TCError Extends)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -42,11 +42,11 @@
           {upp :<
            low :>
            kind :kind} (apply hash-map opts)]
-      [n (r/->Bounds
+      [n (r/Bounds-maker
            (when-not kind
              (if upp 
                (parse-type upp)
-               (r/->Top)) )
+               r/-any) )
            (when-not kind
              (if low
                (parse-type low)
@@ -84,7 +84,7 @@
   (assert *parse-pretype* "DottedPretype only allowed in Project")
   (let [df (dvar/*dotted-scope* bsyn)]
     (assert df bsyn)
-    (r/->DottedPretype (free-ops/with-frees [df]
+    (r/DottedPretype-maker (free-ops/with-frees [df]
                          (parse-type psyn))
                        (:name (dvar/*dotted-scope* bsyn)))))
 
@@ -94,7 +94,7 @@
         afn (eval fread)
         ts (binding [*parse-pretype* true]
              (mapv parse-type ttsyn))]
-    (with-meta (r/->Projection afn ts)
+    (with-meta (r/Projection-maker afn ts)
                {:fsyn fread})))
 
 (defmethod parse-type-list 'CountRange
@@ -163,9 +163,10 @@
            (map first frees-with-bnds))))
 
 (defmethod parse-type-list 'Extends
-  [[_ extends & {:keys [without] :as opts}]]
+  [[_ extends & {:keys [without] :as opts} :as syn]]
   (assert (empty? (set/difference (set (keys opts)) #{:without}))
           (str "Invalid options to Extends:" (keys opts)))
+  (assert (vector? extends) (str "Extends takes a vector of types: " (pr-str syn)))
   (c/-extends (doall (map parse-type extends))
               :without (doall (map parse-type without))))
 
@@ -196,24 +197,24 @@
         jtype (if (r/RClass? t)
                 (r/RClass->Class t)
                 Object)]
-    (r/->PrimitiveArray jtype t t)))
+    (r/PrimitiveArray-maker jtype t t)))
 
 (defmethod parse-type-list 'ReadOnlyArray
   [[_ osyn & none]]
   (assert (empty? none) "Expected 1 argument to ReadOnlyArray")
-  (r/->PrimitiveArray Object (r/Bottom) (parse-type osyn)))
+  (r/PrimitiveArray-maker Object (r/Bottom) (parse-type osyn)))
 
 (defmethod parse-type-list 'Array2
   [[_ isyn osyn & none]]
   (assert (empty? none) "Expected 2 arguments to Array2")
-  (r/->PrimitiveArray Object (parse-type isyn) (parse-type osyn)))
+  (r/PrimitiveArray-maker Object (parse-type isyn) (parse-type osyn)))
 
 (defmethod parse-type-list 'Array3
   [[_ jsyn isyn osyn & none]]
   (assert (empty? none) "Expected 3 arguments to Array3")
   (let [jrclass (parse-type jsyn)
         _ (assert (r/RClass? jrclass) "First argument to Array3 must be a Class")]
-    (r/->PrimitiveArray (r/RClass->Class jrclass) (parse-type isyn) (parse-type osyn))))
+    (r/PrimitiveArray-maker (r/RClass->Class jrclass) (parse-type isyn) (parse-type osyn))))
 
 (declare parse-function)
 
@@ -232,17 +233,20 @@
                     (do
                       (assert nme)
                       {:nme nme :variance (or variance :invariant)
-                       :bound (r/map->Bounds 
-                                {:upper-bound (when-not kind
-                                                (if (contains? opts :<)
-                                                  (parse-type <)
-                                                  r/-any))
-                                 :lower-bound (when-not kind
-                                                (if (contains? opts :>) 
-                                                  (parse-type >)
-                                                  r/-nothing))
-                                 :higher-kind (when kind
-                                                (parse-type kind))})}))
+                       :bound (r/Bounds-maker 
+                                ;upper
+                                (when-not kind
+                                  (if (contains? opts :<)
+                                    (parse-type <)
+                                    r/-any))
+                                ;lower
+                                (when-not kind
+                                  (if (contains? opts :>) 
+                                    (parse-type >)
+                                    r/-nothing))
+                                ;kind
+                                (when kind
+                                  (parse-type kind)))}))
         bodyt (free-ops/with-bounded-frees (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
                                        free-maps)
                 (parse-type bodysyn))
@@ -262,8 +266,8 @@
   [syn]
   (parse-type-fn syn))
 
-(defmethod parse-type-list 'Seq* [syn] (r/->HeterogeneousSeq (mapv parse-type (rest syn))))
-(defmethod parse-type-list 'List* [syn] (r/->HeterogeneousList (mapv parse-type (rest syn))))
+(defmethod parse-type-list 'Seq* [syn] (r/HeterogeneousSeq-maker (mapv parse-type (rest syn))))
+(defmethod parse-type-list 'List* [syn] (r/HeterogeneousList-maker (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'Vector* [syn] (r/-hvec (mapv parse-type (rest syn))))
 
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]
@@ -344,7 +348,7 @@
                        (let [m (merge mandatory opts)
                              kss (comb/permutations (keys m))]
                          (for [ks kss]
-                           (r/->HeterogeneousSeq (mapcat #(find m %) ks)))))))))
+                           (r/HeterogeneousSeq-maker (mapcat #(find m %) ks)))))))))
 
 (declare unparse-type)
 
@@ -361,16 +365,16 @@
             _ (assert (r/TypeFn? k) (u/error-msg "Cannot invoke type variable " n))
             _ (assert (= (.nbound k) (count args)) (u/error-msg "Wrong number of arguments (" (count args)
                                                                 ") to type function " (unparse-type k)))]
-        (r/->TApp (free-ops/free-in-scope n) (mapv parse-type args)))
+        (r/TApp-maker (free-ops/free-in-scope n) (mapv parse-type args)))
       (if-let [t ((some-fn dtenv/get-datatype prenv/get-protocol nmenv/get-type-name) rsym)]
         ;don't resolve if operator is declared
         (if (keyword? t)
           (cond
             ; declared names can be TFns
-            (isa? t nmenv/declared-name-type) (r/->TApp (r/->Name rsym) (mapv parse-type args))
+            (isa? t nmenv/declared-name-type) (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
             ; for now use Apps for declared Classes and protocols
-            :else (r/->App (r/->Name rsym) (mapv parse-type args)))
-          (r/->TApp (r/->Name rsym) (mapv parse-type args)))
+            :else (r/App-maker (r/Name-maker rsym) (mapv parse-type args)))
+          (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args)))
         (cond
           ;a Class that's not a DataType
           (class? res) (c/RClass-of res (mapv parse-type args))
@@ -381,7 +385,7 @@
                        (some #(and (nmenv/get-type-name %)
                                    %)
                              [svar scls]))]
-            (r/->App (r/->Name s) (mapv parse-type args))
+            (r/App-maker (r/Name-maker s) (mapv parse-type args))
             (u/tc-error (str "Cannot parse type: " (pr-str syn)
                              (when (seq syn)
                                (str "\nHint: Does " (first syn) " accept parameters and is it in scope?"))))))))))
@@ -390,9 +394,9 @@
 (defmethod parse-type IPersistentList [l] (parse-type-list l))
 
 (defmulti parse-type-symbol identity)
-(defmethod parse-type-symbol 'Any [_] (r/->Top))
+(defmethod parse-type-symbol 'Any [_] r/-any)
 (defmethod parse-type-symbol 'Nothing [_] (r/Bottom))
-(defmethod parse-type-symbol 'AnyFunction [_] (r/->TopFunction))
+(defmethod parse-type-symbol 'AnyFunction [_] (r/TopFunction-maker))
 
 (defn primitives-fn []
   (let [RClass-of @(RClass-of-var)]
@@ -412,8 +416,8 @@
     (letfn [(resolve-symbol [qsym clssym]
               (cond
                 (primitives sym) (primitives sym)
-                (nmenv/get-type-name qsym) (r/->Name qsym)
-                (nmenv/get-type-name clssym) (r/->Name clssym)
+                (nmenv/get-type-name qsym) (r/Name-maker qsym)
+                (nmenv/get-type-name clssym) (r/Name-maker clssym)
                 ;Datatypes that are annotated in this namespace, but not yet defined
                 (dtenv/get-datatype clssym) (dtenv/resolve-datatype clssym)
                 (prenv/get-protocol qsym) (prenv/resolve-protocol qsym)))]
@@ -438,7 +442,7 @@
                       (println (str "WARNING: Assuming unannotated var " qsym
                                     " is a protocol."))
                       (flush)
-                      (r/->Name qsym))
+                      (r/Name-maker qsym))
                     (when clssym
                       (c/RClass-of clssym))))
               (u/tc-error (str "Cannot resolve type: " (pr-str sym)
@@ -563,7 +567,7 @@
                      (when ellipsis-pos
                        (let [bnd (dvar/*dotted-scope* drest-bnd)
                              _ (assert bnd (str (pr-str drest-bnd) " is not in scope as a dotted variable"))]
-                         (r/->DottedPretype
+                         (r/DottedPretype-maker
                            (free-ops/with-frees [bnd] ;with dotted bound in scope as free
                              (parse-type drest-type))
                            (:name bnd))))
@@ -819,6 +823,13 @@
         body (c/PolyDots-body* fs p)]
     (binding [*next-nme* end-nme]
       (list 'All (vec (concat (butlast fs) [(last fs) '...])) (unparse-type body)))))
+
+(defmethod unparse-type* Extends
+  [{:keys [extends without]}]
+  (list* 'Extends
+         (mapv unparse-type extends)
+         (when (seq without)
+           [:without (mapv unparse-type without)])))
 
 (defmethod unparse-type* Poly
   [{:keys [nbound] :as p}]

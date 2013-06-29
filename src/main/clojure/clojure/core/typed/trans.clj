@@ -26,7 +26,7 @@
 (defmethod trans-dots TApp
   [^TApp t b bm]
   (let [tfn #(trans-dots % b bm)]
-    (r/->TApp (tfn (.rator t)) (mapv tfn (.rands t)))))
+    (r/TApp-maker (tfn (.rator t)) (mapv tfn (.rands t)))))
 
 (defmethod trans-dots Union
   [t b bm]
@@ -36,7 +36,7 @@
 (defmethod trans-dots FnIntersection
   [t b bm]
   (let [tfn #(trans-dots % b bm)]
-    (r/->FnIntersection (doall (map tfn (:types t))))))
+    (r/FnIntersection-maker (doall (map tfn (:types t))))))
 
 (defmethod trans-dots Intersection
   [t b bm]
@@ -64,7 +64,7 @@
                                       (-> (subst/substitute bk b pre-type)
                                         tfn))
                                     bm)))]
-            (r/->Function dom
+            (r/Function-maker dom
                         (update-in (:rng t) [:t] tfn)
                         nil
                         nil ;dotted pretype now expanded to fixed domain

@@ -16,7 +16,8 @@
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
                                         Result Protocol TypeFn Name F Bounds HeterogeneousVector
                                         PrimitiveArray DataType RClass HeterogeneousMap
-                                        HeterogeneousList HeterogeneousSeq CountRange KwArgs)
+                                        HeterogeneousList HeterogeneousSeq CountRange KwArgs
+                                        Extends)
            (clojure.lang APersistentMap APersistentVector PersistentList ASeq Seqable)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -377,7 +378,7 @@
         (subtype-PrimitiveArray s t)
 
         (r/PrimitiveArray? s)
-        (subtype (r/->PrimitiveArray Object r/-any r/-any) t)
+        (subtype (r/PrimitiveArray-maker Object r/-any r/-any) t)
       
         (and (r/TypeFn? s)
              (r/TypeFn? t))
@@ -386,6 +387,20 @@
         (and (r/RClass? s)
              (r/RClass? t))
         (p :subtype-RClass (subtype-RClass s t))
+
+        (r/Extends? s)
+        (let [^Extends s s]
+          (if (and (some #(subtype? % t) (.extends s))
+                   (not-any? #(subtype? % t) (.without s)))
+            *sub-current-seen*
+            (fail! s t)))
+
+        (r/Extends? t)
+        (let [^Extends t t]
+          (if (and (some #(subtype? s %) (.extends t))
+                   (not-any? #(subtype? s %) (.without t)))
+            *sub-current-seen*
+            (fail! s t)))
 
         (and (r/CountRange? s)
              (r/CountRange? t))
@@ -757,8 +772,9 @@
              (coerse-RClass-primitive s t))
 
         ;find a supertype of s that is the same base as t, and subtype of it
-        (some #(and (= (:the-class t) (:the-class %))
-                    (subtype-RClass-common-base % t))
+        (some #(when (r/RClass? %)
+                 (and (= (:the-class t) (:the-class %))
+                      (subtype-RClass-common-base % t)))
               (c/RClass-supers* s)))
       *sub-current-seen*
 

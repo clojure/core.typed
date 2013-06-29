@@ -12,9 +12,10 @@
 (let [{:as c} nil]
   (ann-form c nil))
 
-(let [{:strs [str] :syms [symb]} (ann-form {} (APersistentMap Any String))]
-  (ann-form symb (U nil String))
-  (ann-form str (U nil String)))
+;FIXME
+;(let [{:strs [str] :syms [symb]} (ann-form {} (Extends [(APersistentMap Any String)] :without [(clojure.lang.ISeq Any)]))]
+;  (ann-form symb (U nil String))
+;  (ann-form str (U nil String)))
 
 ;; vector destructuring
 (let [[a b & c :as d] (ann-form [] (APersistentVector Number))]

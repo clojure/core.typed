@@ -61,17 +61,17 @@
                  (assert (not kws) "TODO substitute keyword args")
                  (if (and drest
                           (= name (:name drest)))
-                   (r/->Function (concat (map sb dom)
+                   (r/Function-maker (concat (map sb dom)
                                        ;; We need to recur first, just to expand out any dotted usages of this.
                                        (let [expanded (sb (:pre-type drest))]
                                          ;(prn "expanded" (unparse-type expanded))
                                          (map (fn [img] (substitute img name expanded)) images)))
                                (sb rng)
                                rimage nil nil)
-                   (r/->Function (map sb dom)
+                   (r/Function-maker (map sb dom)
                                (sb rng)
                                (and rest (sb rest))
-                               (and drest (r/->DottedPretype (sb (:pre-type drest))
+                               (and drest (r/DottedPretype-maker (sb (:pre-type drest))
                                                            (:name drest)))
                                nil))))
 
@@ -109,11 +109,11 @@
                Function
                (fn [{:keys [dom rng rest drest kws]} {{:keys [sb name image]} :locals}]
                  (assert (not kws))
-                 (r/->Function (map sb dom)
+                 (r/Function-maker (map sb dom)
                              (sb rng)
                              (and rest (sb rest))
                              (and drest
-                                  (r/->DottedPretype (substitute image (:name drest) (sb (:pretype drest)))
+                                  (r/DottedPretype-maker (substitute image (:name drest) (sb (:pretype drest)))
                                                      (if (= name (:name drest))
                                                        name
                                                        (:name drest))))

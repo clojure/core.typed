@@ -288,7 +288,7 @@
                                              (frees/fi f)))]
     (cond 
       ;if filter contains V, give up
-      (seq (set/intersection V latent-filter-vs)) (r/->TopFunction)
+      (seq (set/intersection V latent-filter-vs)) (r/TopFunction-maker)
 
       ;if dotted bound is in V, transfer to rest args
       (and drest (V (:name drest)))
@@ -329,7 +329,7 @@
                                              (frees/fi f)))]
     (cond 
       ;if filter contains V, give up
-      (seq (set/intersection V latent-filter-vs)) (r/->TopFunction)
+      (seq (set/intersection V latent-filter-vs)) (r/TopFunction-maker)
 
       ;if dotted bound is in V, transfer to rest args
       (and drest (V (:name drest)))

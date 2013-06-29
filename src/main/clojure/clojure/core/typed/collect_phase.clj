@@ -124,7 +124,7 @@
   (let [{ancests :unchecked-ancestors} opt
         vs (seq (map second vbnd))
         args (seq (map first vbnd))
-        ctor r/->DataType]
+        ctor r/DataType-maker]
     (do (impl/ensure-clojure)
         (let [provided-name-str (str provided-name)
               ;_ (prn "provided-name-str" provided-name-str)
@@ -361,9 +361,9 @@
                                    (prs/parse-type v)))])))
         t (if fs
             (c/Poly* (map :name fs) (repeat (count fs) r/no-bounds) 
-                     (r/->Protocol s variances fs on-class ms)
+                     (r/Protocol-maker s variances fs on-class ms)
                      (map :name fs))
-            (r/->Protocol s nil nil on-class ms))]
+            (r/Protocol-maker s nil nil on-class ms))]
     (ptl-env/add-protocol s t)
     (doseq [[kuq mt] ms]
       (assert (not (namespace kuq))

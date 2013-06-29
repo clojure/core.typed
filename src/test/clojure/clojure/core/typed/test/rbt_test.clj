@@ -43,13 +43,13 @@
 )
 
 (deftest update-nested-hmap-test
-  (is-check-rbt (= (update (-hmap {(-val :left) (->Name 'clojure.core.typed.test.rbt-types/rbt)})
+  (is-check-rbt (= (update (-hmap {(-val :left) (Name-maker 'clojure.core.typed.test.rbt-types/rbt)})
                            (-filter (-val :Red) 'id [(->KeyPE :left) (->KeyPE :tree)]))
                    (-hmap {(-val :left) 
                            (-hmap {(-val :tree) (-val :Red) 
-                                   (-val :entry) (->Name 'clojure.core.typed.test.rbt-types/EntryT) 
-                                   (-val :left) (->Name 'clojure.core.typed.test.rbt-types/bt) 
-                                   (-val :right) (->Name 'clojure.core.typed.test.rbt-types/bt)})}))))
+                                   (-val :entry) (Name-maker 'clojure.core.typed.test.rbt-types/EntryT) 
+                                   (-val :left) (Name-maker 'clojure.core.typed.test.rbt-types/bt) 
+                                   (-val :right) (Name-maker 'clojure.core.typed.test.rbt-types/bt)})}))))
          
 (deftest rbt-test
   #_(is-check-rbt (tc-t (clojure.core.typed/ann-form 
@@ -160,28 +160,29 @@
 ;     (is ':Red tmap [(Key :right) (Key :tree)])
 ;     (is ':Red tmap [(Key :right) (Key :left) (Key :tree)])))
 ;
-;(u/profile :info :foo
-;(update-badRight-tmap
-;  (| (! ':Black tmap [(Key :tree)])
-;     (! ':Red tmap [(Key :left) (Key :tree)])
-;     (! ':Red tmap [(Key :right) (Key :tree)])
-;     (! ':Red tmap [(Key :right) (Key :left) (Key :tree)])))
-;  )
-;
-;(u/profile :info :foo
-;(update-badRight-tmap
-;  (&
-;   (|
-;    (! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)])
-;    (! (Value :Red) tmap [(Key :right) (Key :tree)])
-;    (! (Value :Red) tmap [(Key :left) (Key :tree)])
-;    (! (Value :Black) tmap [(Key :tree)]))
-;   (|
-;    (! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
-;    (! (Value :Red) tmap [(Key :right) (Key :tree)])
-;    (! (Value :Red) tmap [(Key :left) (Key :tree)])
-;    (! (Value :Black) tmap [(Key :tree)]))))
-;)
+(comment
+(u/profile :info :foo
+(update-badRight-tmap
+  (| (! ':Black tmap [(Key :tree)])
+     (! ':Red tmap [(Key :left) (Key :tree)])
+     (! ':Red tmap [(Key :right) (Key :tree)])
+     (! ':Red tmap [(Key :right) (Key :left) (Key :tree)])))
+  )
+(u/profile :info :foo
+(update-badRight-tmap
+  (&
+   (|
+    (! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :left) (Key :tree)])
+    (! (Value :Black) tmap [(Key :tree)]))
+   (|
+    (! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
+    (! (Value :Red) tmap [(Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :left) (Key :tree)])
+    (! (Value :Black) tmap [(Key :tree)]))))
+)
+  )
 
 ;FIXME why doesn't this simplify?
 #_(u/profile :info :foo
@@ -212,28 +213,30 @@
 ;  )
 ;           )
 ;
-;(u/profile :info :foo
-;(update-badRight-tmap
-;  (&
-;   (|
-;    (! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)])
-;    (! (Value :Red) tmap [(Key :right) (Key :tree)])
-;    (! (Value :Black) tmap [(Key :tree)]))
-;   (|
-;    (! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
-;    (! (Value :Red) tmap [(Key :right) (Key :tree)])
-;    (! (Value :Black) tmap [(Key :tree)]))
-;   (|
-;    (! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)])
-;    (! (Value :Red) tmap [(Key :right) (Key :tree)])
-;    (! (Value :Red) tmap [(Key :left) (Key :tree)])
-;    (! (Value :Black) tmap [(Key :tree)]))
-;   (|
-;    (! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
-;    (! (Value :Red) tmap [(Key :right) (Key :tree)])
-;    (! (Value :Red) tmap [(Key :left) (Key :tree)])
-;    (! (Value :Black) tmap [(Key :tree)]))))
-;  )
+(comment
+(u/profile :info :foo
+(update-badRight-tmap
+  (&
+   (|
+    (! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :right) (Key :tree)])
+    (! (Value :Black) tmap [(Key :tree)]))
+   (|
+    (! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
+    (! (Value :Red) tmap [(Key :right) (Key :tree)])
+    (! (Value :Black) tmap [(Key :tree)]))
+   (|
+    (! (Value :Red) tmap [(Key :right) (Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :left) (Key :tree)])
+    (! (Value :Black) tmap [(Key :tree)]))
+   (|
+    (! (Value :Red) tmap [(Key :right) (Key :left) (Key :tree)])
+    (! (Value :Red) tmap [(Key :right) (Key :tree)])
+    (! (Value :Red) tmap [(Key :left) (Key :tree)])
+    (! (Value :Black) tmap [(Key :tree)]))))
+  )
+  )
 ;
 ;(def res-last (parse-type '(U (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/bt, :right clojure.core.typed.test.rbt-types/bt}), :right clojure.core.typed.test.rbt-types/rbt})}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/bt, :right clojure.core.typed.test.rbt-types/bt}), :right (U (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/bt}) (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/bt, :right clojure.core.typed.test.rbt-types/rbt}))}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left (U (HMap :mandatory {:tree (Value :Empty)}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/rbt})), :right (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/bt, :right clojure.core.typed.test.rbt-types/bt})})}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right (U (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/bt}) (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left (U (HMap :mandatory {:tree (Value :Empty)}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/rbt})), :right clojure.core.typed.test.rbt-types/rbt}))}) clojure.core.typed.test.rbt-types/badRight (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/bt, :right clojure.core.typed.test.rbt-types/bt}), :right (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/rbt})}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/rbt})})))))
 ;

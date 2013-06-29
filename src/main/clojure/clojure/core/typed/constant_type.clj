@@ -36,20 +36,20 @@
   (constant-type [v] (c/RClass-of Seqable [(apply c/Un (map constant-type v))]))
 
   IPersistentList
-  (constant-type [clist] (r/->HeterogeneousList (apply list (map constant-type clist))))
+  (constant-type [clist] (r/HeterogeneousList-maker (apply list (map constant-type clist))))
 
   ;Make sure lists hit these cases instead of ISeq
   PersistentList
-  (constant-type [clist] (r/->HeterogeneousList (apply list (map constant-type clist))))
+  (constant-type [clist] (r/HeterogeneousList-maker (apply list (map constant-type clist))))
 ;  PersistentList$EmptyList
-;  (constant-type [clist] (r/->HeterogeneousList (apply list (map constant-type clist))))
+;  (constant-type [clist] (r/HeterogeneousList-maker (apply list (map constant-type clist))))
 
   ;default for ISeqs
   ISeq
   (constant-type [iseq] 
     (cond
       ;handle empty list?
-      (list? iseq) (r/->HeterogeneousList (apply list (map constant-type iseq)))
+      (list? iseq) (r/HeterogeneousList-maker (apply list (map constant-type iseq)))
       :else (c/RClass-of ISeq [(apply c/Un (map constant-type iseq))])))
 
   IPersistentVector

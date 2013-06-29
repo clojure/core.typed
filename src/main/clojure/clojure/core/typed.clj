@@ -23,23 +23,6 @@
 ; c.c.typed.cs-gen
 ;   Polymorphic local type inference algorithm.
 
-;=============================================================
-; # Internal Loading
-
-; ## Lazy Loading
-;
-; We handle lazy loading by moving all of c.c.typed's namespace
-; dependencies to c.c.typed.init. We assume that
-; if c.c.typed.init exists, then core.typed is fully loaded.
-; Does this work with namespaces reloading tools like tools.namespace?
-;
-; By default, core.typed only loads:
-; - c.c.typed macros (eg. `doseq>`, `for>`)
-; - c.c.typed internal marker functions
-;
-; Code that requires anything further than this (eg. type checking) 
-; must load *all* of core.typed with `load-if-needed`.
-
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
   []

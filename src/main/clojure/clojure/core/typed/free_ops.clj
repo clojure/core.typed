@@ -79,5 +79,5 @@
   "Scopes sfrees, a sequence of symbols, inside body as free variables, with default bounds."
   [sfrees & body]
   `(with-free-mappings (into {} (for [f# ~sfrees]
-                                  [f# {:F (r/->F f#) :bnds r/no-bounds}]))
+                                  [f# {:F (r/F-maker f#) :bnds r/no-bounds}]))
      ~@body))
