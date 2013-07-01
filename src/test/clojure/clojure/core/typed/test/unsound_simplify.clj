@@ -1,14 +1,15 @@
 (ns clojure.core.typed.test.unsound-simplify
-  (:require [clojure.core.typed :refer [ann-pprotocol ann ann-pdatatype check-ns]]))
+  (:require [clojure.core.typed :refer [ann-pprotocol ann ann-pdatatype check-ns cf defprotocol>]])
+  (:import (clojure.lang Symbol)))
 
 (ann-pprotocol P1 [[a :covariant]]
                get-p1 [(P1 a) -> a])
-(defprotocol P1
+(defprotocol> P1
   (get-p1 [this]))
 
 (ann-pprotocol P2 [[a :covariant]]
                get-p2 [(P2 a) -> a])
-(defprotocol P2
+(defprotocol> P2
   (get-p2 [this]))
 
 (ann ^:nocheck P1? (predicate (P1 Any)))
@@ -26,21 +27,21 @@
 
 (ann-pdatatype T1 [[a :covariant]]
                [p :- a]
-               :unchecked-ancestors [(P1 p)])
+               :unchecked-ancestors [(P1 a)])
 (deftype T1 [p]
   P1
   (get-p1 [this] p))
 
 (ann-pdatatype T2 [[a :covariant]]
                [p :- a]
-               :unchecked-ancestors [(P2 p)])
+               :unchecked-ancestors [(P2 a)])
 (deftype T2 [p]
   P2
   (get-p2 [this] p))
 
 (ann-pdatatype T3 [[a :covariant]]
                [p :- a]
-               :unchecked-ancestors [(P1 p)
+               :unchecked-ancestors [(P1 a)
                                      (P2 Symbol)])
 (deftype T3 [p]
   P1

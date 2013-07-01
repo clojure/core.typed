@@ -1,6 +1,7 @@
 (ns clojure.core.typed.protocol-env
   (:require (clojure.core.typed
              [utils :as u]
+             [util-vars :as vs]
              [type-rep :as r])
             [clojure.core.typed :as t :refer [fn>]])
   (:import (clojure.lang IPersistentMap Symbol)))
@@ -15,7 +16,7 @@
 (t/ann PROTOCOL-ENV (t/Atom1 ProtocolEnv))
 (defonce PROTOCOL-ENV (atom {}))
 (t/tc-ignore
-(set-validator! PROTOCOL-ENV (u/hash-c? (every-pred symbol? namespace) r/Type?))
+(set-validator! PROTOCOL-ENV (u/hash-c? (every-pred symbol? namespace) (some-fn r/Protocol? r/TypeFn?)))
   )
 
 (t/ann add-protocol [Symbol r/TCType -> nil])
@@ -35,6 +36,5 @@
 (defn resolve-protocol [sym]
   (let [p (@PROTOCOL-ENV sym)]
     (assert p (str "Could not resolve Protocol: " sym))
-    (assert (not (r/Poly? p)) (str "Protocol " sym " takes mandatory arguments, none provided"))
     p))
 

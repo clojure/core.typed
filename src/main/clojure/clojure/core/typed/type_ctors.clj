@@ -310,7 +310,7 @@
 (t/ann *current-RClass-super* Symbol)
 (def ^:dynamic *current-RClass-super*)
 
-(declare Poly* instantiate-poly abstract-many instantiate-many)
+(declare TypeFn* instantiate-poly instantiate-typefn abstract-many instantiate-many)
 
 ;smart constructor
 (t/ann ^:nocheck RClass* 
@@ -325,13 +325,14 @@
          (every? r/variance? variances)
          (= (count variances) (count poly?))
          (every? r/Type? poly?)
-         (symbol? the-class)]}
+         (symbol? the-class)]
+   :post [((some-fn r/TypeFn? r/RClass?) %)]}
    (let [repl (into {} (for [[k v] replacements]
                          [k (abstract-many names v)]))
          uncked (set (for [u unchecked-ancestors]
                        (abstract-many names u)))]
      (if (seq variances)
-       (Poly* names (repeat (count names) r/no-bounds) (r/RClass-maker variances poly? the-class repl uncked) names)
+       (TypeFn* names variances (repeat (count names) r/no-bounds) (r/RClass-maker variances poly? the-class repl uncked))
        (r/RClass-maker nil nil the-class repl uncked)))))
 
 (t/ann ^:nocheck isa-DataType? [(U Symbol Class) -> Any])
@@ -363,13 +364,13 @@
                sym-or-cls)
          rc ((some-fn dtenv/get-datatype rcls/get-rclass) 
              sym)]
-     (assert ((some-fn r/Poly? r/RClass? r/DataType? nil?) rc))
-     (assert (or (r/Poly? rc) (empty? args))
+     (assert ((some-fn r/TypeFn? r/RClass? r/DataType? nil?) rc))
+     (assert (or (r/TypeFn? rc) (empty? args))
              (str "Cannot instantiate non-polymorphic RClass " sym
                   (when *current-RClass-super*
                     (str " when checking supertypes of RClass " *current-RClass-super*))))
      (cond 
-       (r/Poly? rc) (instantiate-poly rc args)
+       (r/TypeFn? rc) (instantiate-typefn rc args)
        ((some-fn r/DataType? r/RClass?) rc) rc
        :else
        (let [cls (u/symbol->Class sym)]
@@ -386,9 +387,9 @@
                (u/Class->symbol sym-or-cls)
                sym-or-cls)
          rc ((some-fn dtenv/get-datatype rcls/get-rclass) sym)
-         args (when (r/Poly? rc)
+         args (when (r/TypeFn? rc)
                 ;instantiate with Any, could be more general if respecting variance
-                (repeat (.nbound ^Poly rc) r/-any))]
+                (repeat (.nbound ^TypeFn rc) r/-any))]
      (RClass-of sym args))))
 
 (t/tc-ignore
@@ -463,15 +464,7 @@
 (defn DataType-fields* [^DataType dt]
   {:pre [(r/DataType? dt)]
    :post [((u/array-map-c? symbol? r/Type?) %)]}
-  (let [infer @(infer-var)
-        subst-all @(subst-all-var)
-        poly (.poly? dt)
-        names (repeatedly (count poly) gensym)
-        fs (map r/make-F names)]
-    (apply array-map (apply concat (for [[k v] (.fields dt)]
-                                     (let [t (instantiate-many names v)
-                                           subst (infer (zipmap names (repeat r/no-bounds)) {} poly fs t)]
-                                       [k (subst-all subst t)]))))))
+  (:fields dt))
 
 ;; TypeFn
 

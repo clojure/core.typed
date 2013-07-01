@@ -3942,19 +3942,32 @@ rest-param-name (when rest-param
 
       :else (check-normal-def expr expected))))
 
+(defn unwrap-tfn
+  "Get the instantiated type wrapped by this TFn"
+  ([dt nms]
+   {:pre [(r/Type? dt)
+          (every? symbol? nms)]
+    :post [(r/Type? %)]}
+   (if (r/TypeFn? dt)
+     (c/TypeFn-body* nms dt)
+     dt))
+  ([dt] (let [nms (when (r/TypeFn? dt)
+                    (repeatedly (:nbound dt) gensym))]
+          (unwrap-tfn dt nms))))
+
 ;[Type (Seqable Symbol) -> Type]
 ;[Type -> Type]
-(defn unwrap-datatype 
-  "Takes a possibly polymorphic DataType and returns the 
+(defn unwrap-datatype
+  "Takes a DataType that might be wrapped in a TypeFn and returns the 
   DataType after instantiating it"
   ([dt nms]
-   {:pre [((some-fn r/DataType? r/Poly?) dt)
+   {:pre [((some-fn r/DataType? r/TypeFn?) dt)
           (every? symbol? nms)]
     :post [(r/DataType? %)]}
-   (if (r/Poly? dt)
-     (c/Poly-body* nms dt)
+   (if (r/TypeFn? dt)
+     (c/TypeFn-body* nms dt)
      dt))
-  ([dt] (let [nms (when (r/Poly? dt)
+  ([dt] (let [nms (when (r/TypeFn? dt)
                     (repeatedly (:nbound dt) gensym))]
           (unwrap-datatype dt nms))))
 
@@ -3981,9 +3994,9 @@ rest-param-name (when rest-param
                                 #(instance? clojure.reflect.Method %))
                      cmmap))
           dtp (@dt-env/DATATYPE-ENV nme)
-          dt (if (r/Poly? dtp)
-               (do (assert (-> dtp meta :actual-frees))
-                   (unwrap-datatype dtp (-> dtp meta :actual-frees)))
+          dt (if (r/TypeFn? dtp)
+               (do #_(assert (-> dtp meta :actual-frees))
+                   (unwrap-datatype dtp #_(-> dtp meta :actual-frees)))
                dtp)
 
           _ (when-not ((some-fn r/DataType? r/Record?) dt)
@@ -3998,7 +4011,10 @@ rest-param-name (when rest-param
                                 (if-let [cls (when-let [cls (resolve tsym)]
                                                (and (class? cls) 
                                                     cls))]
-                                  (or (first (filter #(= (:on-class %) tsym) (vals @pcl-env/PROTOCOL-ENV)))
+                                  (or (first (filter #(when-let [p (unwrap-tfn %)]
+                                                        (assert (r/Protocol? p))
+                                                        (= (:on-class p) tsym)) 
+                                                     (vals @pcl-env/PROTOCOL-ENV)))
                                       (c/RClass-of-with-unknown-params cls))
                                   (pcl-env/resolve-protocol tsym)))))
                           old-ancestors)
@@ -4020,11 +4036,13 @@ rest-param-name (when rest-param
                         expected-ifn 
                         (extend-method-expected dt
                                                 (or (let [ptype (first
-                                                                  (filter #(= (:on-class %) (:declaring-class method-sig))
+                                                                  (filter #(when-let [p (unwrap-tfn %)]
+                                                                             (assert (r/Protocol? p))
+                                                                             (= (:on-class p) (:declaring-class method-sig)))
                                                                           (vals @pcl-env/PROTOCOL-ENV)))]
                                                       ;(prn "ptype" ptype)
-                                                      (when ptype
-                                                        (let [munged-methods (into {} (for [[k v] (:methods ptype)]
+                                                      (when-let [ptype* (and ptype (unwrap-tfn ptype))]
+                                                        (let [munged-methods (into {} (for [[k v] (:methods ptype*)]
                                                                                         [(symbol (munge k)) v]))]
                                                           (munged-methods (:name method-sig)))))
                                                     (instance-method->Function method-sig)))]

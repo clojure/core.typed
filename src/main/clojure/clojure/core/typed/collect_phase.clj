@@ -122,6 +122,7 @@
 
 (defn gen-datatype* [current-env current-ns provided-name fields vbnd opt record?]
   (let [{ancests :unchecked-ancestors} opt
+        ;variances
         vs (seq (map second vbnd))
         args (seq (map first vbnd))
         ctor r/DataType-maker]
@@ -151,9 +152,8 @@
               pos-ctor-name (symbol demunged-ns-str (str "->" local-name))
               map-ctor-name (symbol demunged-ns-str (str "map->" local-name))
               dt (if (seq args)
-                   (c/Poly* args (repeat (count args) r/no-bounds)
-                            (ctor s vs (map r/make-F args) fs record?)
-                            args)
+                   (c/TypeFn* args vs (repeat (count args) r/no-bounds)
+                            (ctor s vs (map r/make-F args) fs record?))
                    (ctor s nil nil fs record?))
               pos-ctor (if args
                           (c/Poly* args (repeat (count args) r/no-bounds)
@@ -360,9 +360,8 @@
                                            prs/*parse-type-in-ns* current-ns]
                                    (prs/parse-type v)))])))
         t (if fs
-            (c/Poly* (map :name fs) (repeat (count fs) r/no-bounds) 
-                     (r/Protocol-maker s variances fs on-class ms)
-                     (map :name fs))
+            (c/TypeFn* (map :name fs) variances (repeat (count fs) r/no-bounds) 
+                     (r/Protocol-maker s variances fs on-class ms))
             (r/Protocol-maker s nil nil on-class ms))]
     (ptl-env/add-protocol s t)
     (doseq [[kuq mt] ms]

@@ -99,7 +99,7 @@
                          (-> ty
                            (update-in [:poly?] #(when %
                                                   (mapv type-rec %)))
-                           #_(update-in [:fields] (fn [fs]
+                           (update-in [:fields] (fn [fs]
                                                   (apply array-map
                                                          (apply concat
                                                                 (for [[k v] fs]
@@ -110,7 +110,7 @@
                          (-> ty
                            (update-in [:poly?] #(when %
                                                   (mapv type-rec %)))
-                             ;FIXME this should probably be left alone in fold (like :fields in DataType)
+                             ;FIXME this should probably be left alone in fold
                              ; same in promote/demote
                            (update-in [:methods] (fn [ms]
                                                    (into {}

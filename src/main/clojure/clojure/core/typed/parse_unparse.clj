@@ -368,13 +368,7 @@
         (r/TApp-maker (free-ops/free-in-scope n) (mapv parse-type args)))
       (if-let [t ((some-fn dtenv/get-datatype prenv/get-protocol nmenv/get-type-name) rsym)]
         ;don't resolve if operator is declared
-        (if (keyword? t)
-          (cond
-            ; declared names can be TFns
-            (isa? t nmenv/declared-name-type) (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
-            ; for now use Apps for declared Classes and protocols
-            :else (r/App-maker (r/Name-maker rsym) (mapv parse-type args)))
-          (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args)))
+        (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
         (cond
           ;a Class that's not a DataType
           (class? res) (c/RClass-of res (mapv parse-type args))
@@ -385,7 +379,7 @@
                        (some #(and (nmenv/get-type-name %)
                                    %)
                              [svar scls]))]
-            (r/App-maker (r/Name-maker s) (mapv parse-type args))
+            (r/TApp-maker (r/Name-maker s) (mapv parse-type args))
             (u/tc-error (str "Cannot parse type: " (pr-str syn)
                              (when (seq syn)
                                (str "\nHint: Does " (first syn) " accept parameters and is it in scope?"))))))))))

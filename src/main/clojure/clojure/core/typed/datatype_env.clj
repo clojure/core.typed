@@ -17,7 +17,7 @@
 (t/tc-ignore
 (set-validator! DATATYPE-ENV (u/hash-c? (every-pred symbol? 
                                                     (fn [k] (some #(= \. %) (str k)))) 
-                                        r/Type?))
+                                        (some-fn r/DataType? r/TypeFn?)))
   )
 
 (t/ann add-datatype [Symbol r/TCType -> nil])
