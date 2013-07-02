@@ -2754,10 +2754,9 @@ rest-param-name (when rest-param
                       ;reachable
                       [nenv (conj actual-rets res)]
                       ;unreachable
-                      (do (prn "Detected unreachable code")
+                      (do ;(prn "Detected unreachable code")
                         (reduced [nenv (conj actual-rets (ret (r/Bottom)))])))))
                 [lex/*lexical-env* []] (map-indexed vector exprs))]
-    (prn "end of do")
     (assoc expr
            expr-type (last actual-types)))) ;should be a ret already
 
@@ -3843,8 +3842,8 @@ rest-param-name (when rest-param
               :else (do #_(prn (u/error-msg "Not checking unreachable code"))
                         (ret (c/Un)))))]
     (let [{fs+ :then fs- :else :as f1} (ret-f tst)
-          ;          _ (prn "check-if: fs+" (unparse-filter fs+))
-          ;          _ (prn "check-if: fs-" (unparse-filter fs-))
+          ;          _ (prn "check-if: fs+" (prs/unparse-filter fs+))
+          ;          _ (prn "check-if: fs-" (prs/unparse-filter fs-))
           flag+ (atom true :validator u/boolean?)
           flag- (atom true :validator u/boolean?)
 
@@ -3852,10 +3851,10 @@ rest-param-name (when rest-param
           idsym (gensym)
           env-thn (env+ lex/*lexical-env* [fs+] flag+)
           ;          _ (do (pr "check-if: env-thn")
-          ;              (print-env env-thn))
+          ;              (print-env* env-thn))
           env-els (env+ lex/*lexical-env* [fs-] flag-)
           ;          _ (do (pr "check-if: env-els")
-          ;              (print-env env-els))
+          ;              (print-env* env-els))
           ;          new-thn-props (set
           ;                          (filter atomic-filter?
           ;                                  (set/difference
@@ -3876,7 +3875,11 @@ rest-param-name (when rest-param
           {us :t fs3 :fl os3 :o flow3 :flow :as else-ret} 
           (binding [vs/*current-expr* els]
             (var-env/with-lexical-env env-els
-              (tc els @flag-)))]
+              (tc els @flag-)))
+            
+            ;_ (prn "flow2" (prs/unparse-flow-set flow2))
+            ;_ (prn "flow3" (prs/unparse-flow-set flow3))
+          ]
 
       ;some optimization code here, contraditions etc? omitted
 
@@ -3886,7 +3889,8 @@ rest-param-name (when rest-param
         ;both branches reachable
         (and (not (type-equal? (c/Un) ts))
              (not (type-equal? (c/Un) us)))
-        (let [r (let [filter (cond
+        (let [;_ (prn "both branches reachable")
+              r (let [filter (cond
                                (or (fl/NoFilter? fs2)
                                    (fl/NoFilter? fs3)) (fo/-FS fl/-top fl/-top)
                                (and (fl/FilterSet? fs2)
@@ -3928,6 +3932,10 @@ rest-param-name (when rest-param
                   (ret type filter object flow))]
           ;(prn "check if:" "both branches reachable, with combined result" (prs/unparse-TCResult r))
           (if expected (check-below r expected) r))
+        ;; both branches unreachable, flow-set is ff
+        (and (= us (c/Un))
+             (= ts (c/Un)))
+        (ret (c/Un) (fo/-FS fl/-top fl/-top) obj/-empty (r/-flow fl/-bot))
         ;; special case if one of the branches is unreachable
         (type-equal? us (c/Un))
         (if expected (check-below (ret ts fs2 os2 flow2) expected) (ret ts fs2 os2 flow2))

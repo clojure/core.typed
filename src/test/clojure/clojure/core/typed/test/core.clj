@@ -1431,7 +1431,13 @@
                        :without [(clojure.lang.IPersistentMap Any Any)])
               (Extends [(clojure.lang.IPersistentMap Any Any)]
                        :without [(clojure.lang.IPersistentVector Any)]))
-           -> (U nil (clojure.lang.IPersistentVector Number))])))
+           -> (U nil (clojure.lang.IPersistentVector Number))]))
+  ; technically it's ok to implement Number and IPM
+  (is (cf (fn [a]
+            {:pre [(number? a)]}
+            (clojure.core.typed/print-env "a")
+            (+ 1 a))
+          [(clojure.lang.IPersistentMap Any Any) -> Number])))
 
 (deftest complete-hash-subtype-test
   (is (sub? (HMap :optional {} :complete? true)
@@ -1440,15 +1446,10 @@
 (deftest set!-test
   (is (check-ns 'clojure.core.typed.test.set-bang)))
 
-;(-> (clojure.tools.analyzer/macroexpand '(clojure.core.typed/fn> [a :- Long] {:pre [(symbol? a)]} (clojure.core.typed/print-env "a") (clojure.core.typed/ann-form a clojure.lang.Symbol)))
-    ;clojure.pprint/pprint)
-
-#_(deftest flow-unreachable-test
-  (is (cf (clojure.core.typed/fn> [a :- Long] 
-                                  (print-filterset
-                                    "f"
-                                    (if (symbol? a) 
-                                      (do (print-env "inner") nil )
-                                      (throw (Exception. ""))))
-                                  (clojure.core.typed/print-env "a") 
-                                  (clojure.core.typed/ann-form a clojure.lang.Symbol)))))
+(deftest flow-unreachable-test
+  ; this will always throw an runtime exception, which is ok.
+  (is (cf (fn [a] 
+            {:pre [(symbol? a)]}
+            (clojure.core.typed/print-env "a") 
+            (clojure.core.typed/ann-form a clojure.lang.Symbol))
+          [Long -> clojure.lang.Symbol])))

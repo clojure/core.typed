@@ -764,6 +764,10 @@
                          (when (not ((some-fn orep/NoObject? orep/EmptyObject?) o))
                            [:object (unparse-object o)]))))))
 
+(defn unparse-flow-set [flow]
+  {:pre [(r/FlowSet? flow)]}
+  (unparse-filter (r/flow-normal flow)))
+
 (defmethod unparse-type* Protocol
   [{:keys [the-var poly?]}]
   (if poly?
