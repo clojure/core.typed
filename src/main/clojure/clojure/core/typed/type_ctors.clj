@@ -830,29 +830,29 @@
       eq
 
       ;if both are Classes, and at least one isn't an interface, then they must be subtypes to have overlap
-      (and (r/RClass? t1)
-           (r/RClass? t2)
-           (let [{t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
-                 {t2-flags :flags} (reflect/type-reflect (r/RClass->Class t2))]
-             (some (complement :interface) [t1-flags t2-flags])))
-      (or (subtype? t1 t2)
-          (subtype? t2 t1))
 ;      (and (r/RClass? t1)
-;           (r/RClass? t2))
-;      (let [{t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
-;            {t2-flags :flags} (reflect/type-reflect (r/RClass->Class t2))]
-;        ; there is only an overlap if a class could have both classes as parents
-;        (or (subtype? t1 t2)
-;            (subtype? t2 t1)
-;            ; from here they are disjoint
-;
-;            (cond
-;              ; no potential ancestors
-;              (some :final [t1-flags t2-flags]) false
-;              ; if we have two things that are not interfaces, ie. abstract, normal
-;              ; classes, there is no possibility of overlap
-;              (every? (complement :interface) [t1-flags t2-flags]) false
-;              :else true)))
+;           (r/RClass? t2)
+;           (let [{t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
+;                 {t2-flags :flags} (reflect/type-reflect (r/RClass->Class t2))]
+;             (some (complement :interface) [t1-flags t2-flags])))
+;      (or (subtype? t1 t2)
+;          (subtype? t2 t1))
+      (and (r/RClass? t1)
+           (r/RClass? t2))
+      (let [{t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
+            {t2-flags :flags} (reflect/type-reflect (r/RClass->Class t2))]
+        ; there is only an overlap if a class could have both classes as parents
+        (or (subtype? t1 t2)
+            (subtype? t2 t1)
+            ; from here they are disjoint
+
+            (cond
+              ; no potential ancestors
+              (some :final [t1-flags t2-flags]) false
+              ; if we have two things that are not interfaces, ie. abstract, normal
+              ; classes, there is no possibility of overlap
+              (every? (complement :interface) [t1-flags t2-flags]) false
+              :else true)))
 
       (some r/Extends? [t1 t2])
       (let [[^Extends the-extends other-type] (if (r/Extends? t1)

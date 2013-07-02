@@ -2715,46 +2715,51 @@ rest-param-name (when rest-param
   [{:keys [exprs] :as expr} & [expected]]
   {:post [(TCResult? (expr-type %))]}
   (let [nexprs (count exprs)
-        [env cexprs]
-        (reduce (fn [[env exprs] [n expr]]
+        [env actual-types]
+        (reduce (fn [[env actual-rets] [n expr]]
                   {:pre [(lex/PropEnv? env)
                          (integer? n)
                          (< n nexprs)]
-                   :post [(u/hvector-c? lex/PropEnv? vector?)]}
-                  (let [cexpr (binding [; always prefer envs with :line information, even if inaccurate
+                   :post [(u/hvector-c? lex/PropEnv? (every-pred vector? (u/every-c? r/TCResult?)))]}
+                  (let [res (binding [; always prefer envs with :line information, even if inaccurate
                                         vs/*current-env* (if (:line (:env expr))
                                                            (:env expr)
                                                            vs/*current-env*)
                                         vs/*current-expr* expr]
                                 (var-env/with-lexical-env env
-                                  (check expr 
-                                         ;propagate expected type only to final expression
-                                         (when (= (inc n) nexprs)
-                                           expected))))
-                        flow (-> cexpr expr-type r/ret-flow r/flow-normal)
+                                  (-> (check expr 
+                                             ;propagate expected type only to final expression
+                                             (when (= (inc n) nexprs)
+                                               expected))
+                                      expr-type)))
+                        flow (-> res r/ret-flow r/flow-normal)
                         flow-atom (atom true)
+                        ;_ (prn flow)
                         ;add normal flow filter
-                        ;Ignore if bottom (exceptional return)
-                        nenv (if (= fl/-bot flow)
-                               env
-                               (-> env
-                                   (env+ [flow] flow-atom)))
-                        _ (when-not @flow-atom 
-                            (binding [; always prefer envs with :line information, even if inaccurate
-                                                  vs/*current-env* (if (:line (:env expr))
-                                                                     (:env expr)
-                                                                     vs/*current-env*)
-                                      vs/*current-expr* expr]
-                              (u/int-error (str "Applying flow filter resulted in local being bottom"
-                                                "\n"
-                                                (with-out-str (print-env* nenv))
-                                                "\nOld: "
-                                                (with-out-str (print-env* env))))))]
-                    [nenv (conj exprs cexpr)]))
+                        nenv (env+ env [flow] flow-atom)
+                        ;_ (prn nenv)
+                        ]
+;                        _ (when-not @flow-atom 
+;                            (binding [; always prefer envs with :line information, even if inaccurate
+;                                                  vs/*current-env* (if (:line (:env expr))
+;                                                                     (:env expr)
+;                                                                     vs/*current-env*)
+;                                      vs/*current-expr* expr]
+;                              (u/int-error (str "Applying flow filter resulted in local being bottom"
+;                                                "\n"
+;                                                (with-out-str (print-env* nenv))
+;                                                "\nOld: "
+;                                                (with-out-str (print-env* env))))))]
+                    (if @flow-atom
+                      ;reachable
+                      [nenv (conj actual-rets res)]
+                      ;unreachable
+                      (do (prn "Detected unreachable code")
+                        (reduced [nenv (conj actual-rets (ret (r/Bottom)))])))))
                 [lex/*lexical-env* []] (map-indexed vector exprs))]
+    (prn "end of do")
     (assoc expr
-           :exprs cexprs
-           expr-type (-> cexprs last expr-type)))) ;should be a ret already
+           expr-type (last actual-types)))) ;should be a ret already
 
 (add-check-method :local-binding-expr
   [{:keys [local-binding] :as expr} & [expected]]
@@ -3679,22 +3684,68 @@ rest-param-name (when rest-param
    :post [(lex/lex-env? %)]}
   #_(prn "update-composite" #_bnd-env #_f)
   (cond
-;    (fl/AndFilter? f) 
+    ; At this point, the OrFilter will be simplified. To update
+    ; the types we need to make explicit the fact
+    ; (| (! ... a) (! ... b))  is shorthand for
+    ;
+    ; (| (& (! ... a) (is ... b))
+    ;    (& (is ... a) (! ... b))
+    ;    (& (! ... a) (! ... b)))
+    ;
+    ;  then use the verbose representation to update the types.
+;    ((some-fn fl/AndFilter? fl/OrFilter?) f)
+;    (let [; normalise filters to a set of AndFilters, which are disjuncts
+;          disjuncts (if (fl/AndFilter? f)
+;                      #{f}
+;                      (.fs ^OrFilter f))
+;          _ (assert (not-any? fl/OrFilter? disjuncts)
+;                    disjuncts)
+;          ; each disjunct expands can be expanded to more filters
+;          ; this is a list of the new, expanded disjuncts
+;          expanded-disjucts (mapcat
+;                              (fn [inner-f]
+;                                (assert (not (fl/OrFilter? inner-f)) inner-f)
+;                                (let [conjuncts (if (fl/AndFilter? inner-f)
+;                                                  (.fs ^AndFilter inner-f)
+;                                                  #{inner-f})]
+;                                  (assert (every? fo/atomic-filter? conjuncts)
+;                                          (pr-str inner-f))
+;                                  (map (fn [positive-filters]
+;                                         (let [negative-filters (map fo/negate (set/difference conjuncts positive-filters))
+;                                               combination-filter (apply fo/-and (concat positive-filters negative-filters))]
+;                                           combination-filter))
+;                                       (map set (remove empty? (comb/subsets conjuncts))))))
+;                              disjuncts)
+;          update-and (fn [init-env ^AndFilter and-f]
+;                       {:pre [(fl/AndFilter? and-f)]}
+;                       (reduce (fn [env a]
+;                                 {:pre [(fo/atomic-filter? a)]}
+;                                 ;eagerly merge
+;                                 (merge-with c/In env (update-composite env a)))
+;                               init-env (.fs ^AndFilter f)))]
+;      ;update env with each disjunct. If variables change, capture both old and new types with Un.
+;      ; first time around is special. At least 1 of disjuncts must be applied to the
+;      ; environment, so we throw away the initial environment instead of merging it.
+;      (let [first-time? (atom true)]
+;        (reduce (fn [env fl]
+;                  (let [updated-env (cond
+;                                      (fl/AndFilter? fl) (update-and env fl)
+;                                      (fo/atomic-filter? fl) (update-composite env fl)
+;                                      :else (throw (Exception. "shouldn't get here")))]
+;                    (if @first-time?
+;                      (do (reset! first-time? false)
+;                          updated-env)
+;                      (merge-with c/Un env updated-env))))
+;                bnd-env
+;                expanded-disjucts)))
+
+;    (fl/AndFilter? f)
 ;    (reduce (fn [env a]
 ;              #_(prn "And filter")
 ;              ;eagerly merge
 ;              (merge-with c/In env (update-composite env a)))
 ;            bnd-env (.fs ^AndFilter f))
 ;
-;    ; At this point, the OrFilter will be simplified. To update
-;    ; the types we need to make explicit the fact
-;    ; (| (! ... a) (! ... b))  is shorthand for
-;    ;
-;    ; (| (& (! ... a) (is ... b))
-;    ;    (& (is ... a) (! ... b))
-;    ;    (& (! ... a) (! ... b)))
-;    ;
-;    ;  then use the verbose representation to update the types.
 ;    (fl/OrFilter? f)
 ;    (let [fs (.fs ^OrFilter f)]
 ;      (reduce (fn [env positive-filters]
@@ -3707,7 +3758,7 @@ rest-param-name (when rest-param
 ;
     (fl/BotFilter? f)
     (do ;(prn "update-composite: found bottom, unreachable")
-      (zipmap (:keys bnd-env) (c/Un)))
+      (zipmap (keys bnd-env) (repeat (c/Un))))
 
     (or (fl/TypeFilter? f)
         (fl/NotTypeFilter? f))

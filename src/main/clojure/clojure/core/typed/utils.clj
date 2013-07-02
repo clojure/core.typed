@@ -367,7 +367,7 @@
              (when (instance? ~name ~that)
                (== ~intern-id (.intern-id ~(with-meta that {:tag name}))))))
          (hasheq [this#] (bit-xor ~type-hash ~intern-id))
-         (hashCode [this#] (throw (UnsupportedOperationException. (str "hashCode on " '~name))))
+         (hashCode [this#] (bit-xor ~type-hash ~intern-id))
 
          clojure.lang.IObj
          (meta [this#] ~meta-field)

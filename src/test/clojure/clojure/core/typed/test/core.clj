@@ -499,7 +499,11 @@
   (is (= (:l (env+ (-PropEnv {'and1 (RClass-of Seqable [-any])} [])
                    [(-filter (RClass-of IPersistentVector [-any]) 'and1)]
                    (atom true)))
-         {'and1 (RClass-of IPersistentVector [-any])})))
+         {'and1 (RClass-of IPersistentVector [-any])}))
+  ; bottom preserved
+  (is (let [a (atom true)]
+        (env+ (-PropEnv {'foo -any} []) [-bot] a)
+        (false? @a))))
 
 ;FIXME all these tests relate to CTYP-24
 (deftest destructuring-special-ops
@@ -1159,7 +1163,8 @@
                 (parse-type 'AnyFunction))))
 
 (deftest intersection-simplify-test
-  (is-cf (let [a (clojure.core.typed/ann-form [] (U Number (clojure.lang.IPersistentVector Number)))]
+  (is-cf (let [a (clojure.core.typed/ann-form [] (U (Extends [Number] :without [(clojure.lang.IPersistentVector Number)])
+                                                    (clojure.lang.IPersistentVector Number)))]
            (when (vector? a)
              a))
          (U nil (clojure.lang.IPersistentVector Number))))
@@ -1435,5 +1440,15 @@
 (deftest set!-test
   (is (check-ns 'clojure.core.typed.test.set-bang)))
 
+;(-> (clojure.tools.analyzer/macroexpand '(clojure.core.typed/fn> [a :- Long] {:pre [(symbol? a)]} (clojure.core.typed/print-env "a") (clojure.core.typed/ann-form a clojure.lang.Symbol)))
+    ;clojure.pprint/pprint)
+
 #_(deftest flow-unreachable-test
-  (is (cf (clojure.core.typed/fn> [a :- Long] {:pre [(symbol? a)]} (clojure.core.typed/ann-form a clojure.lang.Symbol)))))
+  (is (cf (clojure.core.typed/fn> [a :- Long] 
+                                  (print-filterset
+                                    "f"
+                                    (if (symbol? a) 
+                                      (do (print-env "inner") nil )
+                                      (throw (Exception. ""))))
+                                  (clojure.core.typed/print-env "a") 
+                                  (clojure.core.typed/ann-form a clojure.lang.Symbol)))))
