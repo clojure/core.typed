@@ -11,6 +11,12 @@
 - Fix set!
 - Support every?
 - Support (every? p? (keys m)), (every? p? (vals m))
+- Improve type: filter, filterv, remove, doall
+- Add annotation: dorun
+- Add correct Seqable ancestor to IPersistentCollection
+- RClasses with same base combine in an intersection
+  - (I (ISeq Number) (ISeq Long)) => (ISeq (I Number Long)) => (ISeq Long)
+- Misc bug fixes
 
 0.1.17
 - Automatically infer typed namespaces
