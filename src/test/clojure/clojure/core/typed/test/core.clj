@@ -993,7 +993,7 @@
 (deftest apply-test
   ;conservative while not tracking keys "not" in a hmap
   (is (subtype? (ret-t (tc-t (apply merge [{:a 1}])))
-                (RClass-of IPersistentMap [-any -any]))))
+                (Un -nil (RClass-of IPersistentMap [-any -any])))))
 
 (deftest destructuring-test
   ;Vector destructuring with :as
@@ -1021,7 +1021,7 @@
   (is-cf (clojure.core.typed/ann-form (clojure.core.typed/inst merge Any Any) [nil -> nil])))
 
 (deftest poly-filter-test
-  (is (= (ret-t (tc-t (let [a (clojure.core.typed/ann-form [1] (clojure.lang.Seqable clojure.core.typed/AnyInteger))]
+  (is (= (ret-t (tc-t (let [a (clojure.core.typed/ann-form [1] (clojure.lang.IPersistentCollection clojure.core.typed/AnyInteger))]
                         (if (seq a)
                           (first a)
                           'a))))
@@ -1107,6 +1107,9 @@
 (deftest array-subtype-test
   (is (sub? (Array int) (Array int)))
   (is (sub? (Array int) (ReadOnlyArray int)))
+  (is (sub? (Array Long) (clojure.lang.Seqable Long)))
+  ;FIXME
+  ;(is (not (sub? (Array Object) (clojure.lang.Seqable Long))))
   (is (not (sub? (ReadOnlyArray int) (Array int)))))
 
 (deftest flow-assert-test
@@ -1447,9 +1450,72 @@
   (is (check-ns 'clojure.core.typed.test.set-bang)))
 
 (deftest flow-unreachable-test
-  ; this will always throw an runtime exception, which is ok.
+  ; this will always throw a runtime exception, which is ok.
   (is (cf (fn [a] 
             {:pre [(symbol? a)]}
             (clojure.core.typed/print-env "a") 
             (clojure.core.typed/ann-form a clojure.lang.Symbol))
           [Long -> clojure.lang.Symbol])))
+
+; FIXME this is wrong, should not just be nil
+#_(deftest array-first-test
+  (is (cf (let [a (clojure.core.typed/into-array> Long [1 2])]
+            (first a)))))
+
+(deftest every?-update-test
+  (is (cf (let [a (clojure.core.typed/ann-form [] (U nil (clojure.lang.IPersistentCollection Any)))]
+            (assert (every? number? a))
+            a)
+          (U nil (clojure.lang.IPersistentCollection Number)))))
+
+(deftest keys-vals-update-test
+  (is (= (update (RClass-of IPersistentMap [-any -any])
+                 (-filter (RClass-of Seqable [(RClass-of Number)])
+                          'a [(->KeysPE)]))
+         (RClass-of IPersistentMap [(RClass-of Number) -any])))
+  ; test with = instead of subtype to catch erroneous downcast to (IPersistentMap Nothing Any)
+  (is (= (tc-t (let [m (clojure.core.typed/ann-form {} (clojure.lang.IPersistentMap Any Any))]
+                 (assert (every? number? (keys m)))
+                 m))
+         (ret (parse-type '(clojure.lang.IPersistentMap Number Any)))))
+  (is (= (tc-t (let [m (clojure.core.typed/ann-form {} (clojure.lang.IPersistentMap Any Any))]
+                 (assert (every? number? (vals m)))
+                 m))
+         (ret (parse-type '(clojure.lang.IPersistentMap Any Number)))))
+  (is (= (tc-t (let [m (clojure.core.typed/ann-form {} (clojure.lang.IPersistentMap Any Any))]
+                 (assert (every? number? (keys m)))
+                 (assert (every? number? (vals m)))
+                 m))
+         (ret (parse-type '(clojure.lang.IPersistentMap Number Number)))))
+  (is (cf (fn [m]
+            {:pre [(every? number? (vals m))]}
+            m)
+          [(clojure.lang.IPersistentMap Any Any) -> (clojure.lang.IPersistentMap Any Number)]))
+  (is (cf (fn [m]
+            {:pre [(every? symbol? (keys m))
+                   (every? number? (vals m))]}
+            m)
+          [(clojure.lang.IPersistentMap Any Any) -> (clojure.lang.IPersistentMap clojure.lang.Symbol Number)])))
+
+; a sanity test for intersection cache collisions
+(deftest intersect-cache-test
+  (is (=
+       (Poly-body*
+         ['foo1 'foo2]
+         (Poly* '[x y] 
+                [no-bounds no-bounds]
+                (In (make-F 'x) (make-F 'y))
+                '[x y]))
+       (In (make-F 'foo1) (make-F 'foo2)))))
+
+(deftest latent-filter-subtype-test 
+  (is (not (subtype? (parse-type '(Fn [Any -> Any :filters {:then (is Number 0)}]))
+                     (parse-type '(Fn [Any -> Any :filters {:then (is Nothing 0)}]))))))
+
+(deftest filter-seq-test
+  (is (cf (filter :a (clojure.core.typed/ann-form [] (clojure.lang.Seqable '{:b Number})))
+          ;FIXME why does this fail with an expected type?
+          #_(Seqable '{:b Number :a Any})))
+  ;TODO
+  #_(is (cf (filter identity (clojure.core.typed/ann-form [] (clojure.lang.Seqable (U nil Number))))
+            (Seqable Number))))

@@ -25,7 +25,7 @@
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE CountPE ClassPE)
+           (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE)
            (clojure.lang ISeq Cons IPersistentList Symbol IPersistentVector PersistentHashMap)))
 
 (def ^:dynamic *parse-type-in-ns* nil)
@@ -448,7 +448,13 @@
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
 (defmethod parse-type nil [_] r/-nil)
 
-(declare parse-path-elem parse-filter)
+(declare parse-path-elem parse-filter*)
+
+(defn parse-filter [f]
+  (cond
+    (= 'tt f) f/-top
+    (= 'ff f) f/-bot
+    :else (parse-filter* f)))
 
 (defn parse-object [{:keys [id path]}]
   (orep/->Path (when path (mapv parse-path-elem path)) id))
@@ -461,9 +467,9 @@
             (parse-filter else)
             f/-top)))
 
-(defmulti parse-filter first)
+(defmulti parse-filter* first)
 
-(defmethod parse-filter 'is
+(defmethod parse-filter* 'is
   [[_ & [tsyn nme psyns :as all]]]
   (assert (#{2 3} (count all)))
   (let [t (parse-type tsyn)
@@ -471,7 +477,7 @@
             (mapv parse-path-elem psyns))]
     (fl/-filter t nme p)))
 
-(defmethod parse-filter '!
+(defmethod parse-filter* '!
   [[_ & [tsyn nme psyns :as all]]]
   (assert (#{2 3} (count all)))
   (let [t (parse-type tsyn)
@@ -479,11 +485,11 @@
             (mapv parse-path-elem psyns))]
     (fl/-not-filter t nme p)))
 
-(defmethod parse-filter '|
+(defmethod parse-filter* '|
   [[_ & fsyns]]
   (apply fl/-or (mapv parse-filter fsyns)))
 
-(defmethod parse-filter '&
+(defmethod parse-filter* '&
   [[_ & fsyns]]
   (apply fl/-and (mapv parse-filter fsyns)))
 
@@ -492,6 +498,9 @@
                              :else (first %)))
 
 (defmethod parse-path-elem 'Class [_] (pthrep/->ClassPE))
+
+(defmethod parse-path-elem 'Keys [_] (pthrep/->KeysPE))
+(defmethod parse-path-elem 'Vals [_] (pthrep/->ValsPE))
 
 (defmethod parse-path-elem 'Key
   [[_ & [ksyn :as all]]]
@@ -960,6 +969,8 @@
 (defmethod unparse-path-elem KeyPE [t] (list 'Key (:val t)))
 (defmethod unparse-path-elem CountPE [t] 'Count)
 (defmethod unparse-path-elem ClassPE [t] 'Class)
+(defmethod unparse-path-elem KeysPE [t] 'Keys)
+(defmethod unparse-path-elem ValsPE [t] 'Vals)
 
 ; Filters
 

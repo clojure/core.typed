@@ -22,6 +22,7 @@
                                         Result AnyValue Top HeterogeneousSeq RClass HeterogeneousList
                                         HeterogeneousVector DataType HeterogeneousMap PrimitiveArray
                                         Function)
+           (clojure.core.typed.filter_rep TypeFilter)
            (clojure.lang ISeq IPersistentList APersistentVector APersistentMap)))
 
 
@@ -341,11 +342,16 @@
     (fr/TopFilter? t) (cr/empty-cset X Y)
 
     (and (fr/TypeFilter? s)
-         (fr/TypeFilter? t))
+         (fr/TypeFilter? t)
+         (and (= (:path s) (:path t))
+              (= (:id s) (:id t))))
     (cset-meet (cs-gen V X Y (:type s) (:type t))
                (cs-gen V X Y (:type t) (:type s)))
+
     (and (fr/NotTypeFilter? s)
-         (fr/NotTypeFilter? t))
+         (fr/NotTypeFilter? t)
+         (and (= (:path s) (:path t))
+              (= (:id s) (:id t))))
     (cset-meet (cs-gen V X Y (:type s) (:type t))
                (cs-gen V X Y (:type t) (:type s)))
 
@@ -527,10 +533,16 @@
 
 (defmethod cs-gen* [RClass RClass impl/clojure]
   [V X Y S T]
-  (let [relevant-S (some #(when (r/RClass? %)
+  ;(prn "cs-gen* RClass RClass")
+  (let [rsupers (c/RClass-supers* S)
+        relevant-S (some #(when (r/RClass? %)
                             (and (= (:the-class %) (:the-class T))
                                  %))
-                         (conj (c/RClass-supers* S) S))]
+                         (conj rsupers S))]
+    ;(prn "S" (prs/unparse-type S))
+    ;(prn "supers" (map prs/unparse-type rsupers))
+    ;(when relevant-S
+    ;  (prn "relevant-S" (prs/unparse-type relevant-S)))
     (cond
       relevant-S
       (cset-meet*
@@ -1103,3 +1115,11 @@
       (subst-gen cs* (set (keys Y)) R)
       true)))
 
+(comment
+         (let [x (gensym)]
+           (infer {x r/no-bounds} {} 
+                  [(c/RClass-of clojure.lang.IPersistentCollection [(c/RClass-of Number)])]
+                  [(c/RClass-of clojure.lang.Seqable [(r/make-F x)])]
+                  r/-any))
+  (map prs/unparse-type (c/RClass-supers* (c/RClass-of clojure.lang.IPersistentCollection [(c/RClass-of Number)])))
+  )

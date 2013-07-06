@@ -18,6 +18,7 @@
                                         PrimitiveArray DataType RClass HeterogeneousMap
                                         HeterogeneousList HeterogeneousSeq CountRange KwArgs
                                         Extends)
+           (clojure.core.typed.filter_rep FilterSet)
            (clojure.lang APersistentMap APersistentVector PersistentList ASeq Seqable)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -528,8 +529,8 @@
         ts))
 
 (defn subtype-Result
-  [{t1 :t f1 :fl o1 :o flow1 :flow :as s}
-   {t2 :t f2 :fl o2 :o flow2 :flow :as t}]
+  [{t1 :t ^FilterSet f1 :fl o1 :o flow1 :flow :as s}
+   {t2 :t ^FilterSet f2 :fl o2 :o flow2 :flow :as t}]
   (cond
     ;trivial case
     (and (= f1 f2)
@@ -539,7 +540,18 @@
 
     ;we can ignore some interesting results
     (and (orep/EmptyObject? o2)
-         (= f2 (fops/-FS fr/-top fr/-top))
+         (or (= f2 (fops/-FS fr/-top fr/-top))
+             ; check :then, :else is top
+             #_(and (= (.else f2) fr/-top)
+                  (= (.then f1) (.then f2)))
+             ; check :else, :then is top
+             #_(and (= (.then f2) fr/-top)
+                  (= (.else f1) (.else f2))))
+         (= flow2 (r/-flow fr/-top)))
+    (subtype t1 t2)
+
+    (and (orep/EmptyObject? o2)
+         (= f1 f2)
          (= flow2 (r/-flow fr/-top)))
     (subtype t1 t2)
 

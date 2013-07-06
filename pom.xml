@@ -54,7 +54,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.namespace</artifactId>
-      <version>0.2.4-20130603.150534-5</version>
+      <version>0.2.4-20130702.200107-7</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

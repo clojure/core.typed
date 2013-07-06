@@ -16,6 +16,7 @@
              [util-vars :as vs]
              [subtype :as sub]
              [fold-rep :as fold]
+             [cs-rep :as crep]
              [cs-gen :as cgen]
              [subst :as subst]
              [frees :as frees]
@@ -152,13 +153,15 @@
     (check ast)))
 
 (defmacro tc-t [form]
-  `(do (impl/ensure-clojure)
+  `(do (t/load-if-needed)
+       (impl/ensure-clojure)
        (-> (check-top-level (symbol (ns-name *ns*))
                             '~form)
            expr-type)))
 
 (defmacro tc [form]
-  `(do (impl/ensure-clojure)
+  `(do (t/load-if-needed)
+       (impl/ensure-clojure)
        (-> (check-top-level (symbol (ns-name *ns*))
                             '~form)
            expr-type prs/unparse-type)))
@@ -835,7 +838,7 @@
     (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
                                            (when fexpr
                                              (expr-ns fexpr)))]
-    ;(prn "check-funapp" (prs/unparse-type fexpr-type) (map prs/unparse-type arg-types) fexpr-type)
+    ;(prn "check-funapp" (prs/unparse-type fexpr-type) (map prs/unparse-type arg-types))
     (cond
       ;keyword function
       (and (r/Value? fexpr-type)
@@ -906,6 +909,7 @@
                        (when ftype
                          #_(prn "infer poly fn" (prs/unparse-type ftype) (map prs/unparse-type arg-types)
                                 (count dom) (count arg-types))
+                         #_(prn ftype)
                          #_(when rest (prn "rest" (prs/unparse-type rest)))
                          ;; only try inference if argument types are appropriate
                          (if-let 
@@ -924,9 +928,9 @@
                                 (let [{:keys [mandatory optional]} kws
                                       [normal-argtys flat-kw-argtys] (split-at (count dom) arg-types)
                                       _ (when-not (even? (count flat-kw-argtys))
-                                          (str "Uneven number of keyword arguments "
-                                               "provided to polymorphic function "
-                                               "with keyword parameters."))
+                                          (u/int-error (str "Uneven number of keyword arguments "
+                                                            "provided to polymorphic function "
+                                                            "with keyword parameters.")))
                                       paired-kw-argtys (apply hash-map flat-kw-argtys)
 
                                       ;generate two vectors identical in length with actual kw val types
@@ -2820,9 +2824,9 @@ rest-param-name (when rest-param
                      (let [rcls-or-poly (@rcls/RESTRICTED-CLASS (u/Class->symbol cls))
                            ; use correct number of arguments. Could be more general by recognising variance.
                            nargs (when rcls-or-poly
-                                   (if (r/Poly? rcls-or-poly)
-                                     (let [^RClass body (c/Poly-body* (repeatedly (:nbound rcls-or-poly) gensym)
-                                                                    rcls-or-poly)
+                                   (if (r/TypeFn? rcls-or-poly)
+                                     (let [^RClass body (c/TypeFn-body* (repeatedly (:nbound rcls-or-poly) gensym)
+                                                                        rcls-or-poly)
                                            _ (assert (r/RClass? body))]
                                        (count (.poly? body)))
                                      (let [_ (assert (r/RClass? rcls-or-poly))]
@@ -3671,6 +3675,39 @@ rest-param-name (when rest-param
                   (str "Further path NYI " (pr-str (:path lo))
                        (prs/unparse-type t)))
           t)
+
+      (and ((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)
+           ((some-fn pe/KeysPE? pe/ValsPE?) (first (:path lo))))
+      (let [[fstpth & rstpth] (:path lo)
+            u (:type lo)
+            ;_ (prn "u" (prs/unparse-type u))
+
+            ; solve for x:  t <: (Seqable x)
+            x (gensym)
+            subst (u/handle-cs-gen-failure
+                    (cgen/infer {x r/no-bounds} {} 
+                                [u]
+                                [(c/RClass-of clojure.lang.Seqable [(r/make-F x)])]
+                                r/-any))
+            ;_ (prn "subst for Keys/Vals" subst)
+            _ (when-not subst
+                (u/int-error (str "Cannot update " (if (pe/KeysPE? fstpth) "keys" "vals") " of an "
+                                  "IPersistentMap with type: " (pr-str (prs/unparse-type u)))))
+            element-t-subst (get subst x)
+            _ (assert (crep/t-subst? element-t-subst))
+            ; the updated 'keys/vals' type
+            element-t (:type element-t-subst)
+            ;_ (prn "element-t" (prs/unparse-type element-t))
+            _ (assert element-t)]
+        (assert (empty? rstpth) (str "Further path NYI keys/vals"))
+        (if (fl/TypeFilter? lo)
+          (c/restrict (if (pe/KeysPE? fstpth)
+                        (c/RClass-of IPersistentMap [element-t r/-any])
+                        (c/RClass-of IPersistentMap [r/-any element-t]))
+                      t)
+          ; can we do anything for a NotTypeFilter?
+          t))
+
 
       :else (u/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (with-out-str (pr lo)))))))
 

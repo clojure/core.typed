@@ -2,6 +2,15 @@
 - Update to tools.namespace SNAPSHOT, avoids StackOverflow error
   with malformed ns forms
 - check-ns now takes either a symbol or a namespace
+- Fix unsoundness where we assume incorrectly that interfaces cannot
+  be combined arbitrarily.
+- Add Extends type, which records +ve and -ve information on interfaces implemented
+- Don't check unreachable branches in a `do`. eg. (do (assert false) (+ 1 'a))
+- Performance work
+  - quick hashing for types, a la Typed Racket
+- Fix set!
+- Support every?
+- Support (every? p? (keys m)), (every? p? (vals m))
 
 0.1.17
 - Automatically infer typed namespaces

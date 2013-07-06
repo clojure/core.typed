@@ -54,7 +54,14 @@ Reversible [[[a :variance :covariant]]
 
 IMeta [[[a :variance :covariant]]]
 
-IPersistentCollection [[[a :variance :covariant]]]
+IPersistentCollection [[[a :variance :covariant]]
+                       :replace
+                       {Seqable (Seqable a)}]
+;                        [conj-arg :variance :covariant
+;                         :kind (TFn [[x :variance :covariant]] Any)]
+;                        [conj-res :variance :covariant
+;                         :kind (TFn [[x :variance :covariant]] Any)
+;                         :< (TFn [[x :variance :covariant]] (IPersistentCollection Any conj-arg conj-res))]]]
 
 ISeq [[[a :variance :covariant]]
       :replace
@@ -441,18 +448,20 @@ clojure.core/name [(U String Named) -> String]
 clojure.core/in-ns [Symbol -> nil]
 clojure.core/import [Any * -> nil]
 clojure.core/identity (All [x] [x -> x
-                                     :filters {:then (! (U nil false) 0)
-                                               :else (is (U nil false) 0)}
-                                     :object {:id 0}])
+                                :filters {:then (! (U nil false) 0)
+                                          :else (is (U nil false) 0)}
+                                :object {:id 0}])
 clojure.core/gensym (Fn [-> Symbol]
                         [String -> Symbol])
 clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> Var]
                         [(U Symbol Namespace) Symbol Any -> Var])
 
 
-clojure.core/doall (All [x]
-                     (Fn [(Seqable x) -> (Seqable x)]
-                         [AnyInteger (Seqable x) -> (Seqable x)]))
+clojure.core/doall (All [[c :< (U nil (Seqable Any))]]
+                     (Fn [c -> c]
+                         [AnyInteger c -> c]))
+clojure.core/dorun (Fn [(U nil (Seqable Any)) -> nil]
+                       [AnyInteger (U nil (Seqable Any)) -> nil])
 clojure.core/iterate (All [x]
                        [[x -> x] x -> (LazySeq x)])
 clojure.core/memoize (All [x y ...]
@@ -468,23 +477,23 @@ clojure.core/boolean [Any -> boolean]
 
 clojure.core/filter (All [x y]
                            (Fn
-                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seqable y)]
-                             [[x -> Any] (Option (Seqable x)) -> (Seqable x)]))
+                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (LazySeq (I x y))]
+                             [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]))
 clojure.core/filterv (All [x y]
                           (Fn
-                            [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (APersistentVector y)]
+                            [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (APersistentVector (I x y))]
                             [[x -> Any] (Option (Seqable x)) -> (APersistentVector x)]))
 clojure.core/remove (All [x y]
-                           (Fn 
-                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seqable y)]
-                             [[x -> Any] (Option (Seqable x)) -> (Seqable x)]
+                           (Fn
+                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (LazySeq (I x y))]
+                             [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]
                              ))
 
 
 clojure.core/take-while (All [x y]
                                (Fn 
-                                 [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seqable y)]
-                                 [[x -> Any] (Option (Seqable x)) -> (Seqable x)]))
+                                 [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (LazySeq y)]
+                                 [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]))
 clojure.core/drop-while (All [x]
                                [[x -> Any] (Option (Seqable x)) -> (Seqable x)])
 
@@ -525,6 +534,7 @@ clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
 clojure.core/not [Any -> boolean]
 clojure.core/constantly (All [x y] [x -> [y * -> x]])
 
+;TODO make extensible via IPersisentSet
 clojure.core/disj
      (All [x]
           (Fn [(I (APersistentSet x) Sorted) Any Any * -> (I (APersistentSet x) Sorted)]
@@ -532,6 +542,7 @@ clojure.core/disj
               [(I (APersistentSet x) Sorted) Any Any * -> (I (IPersistentSet x) Sorted)]
               [(IPersistentSet x) Any Any * -> (IPersistentSet x)]))
 
+;TODO make extensible via IPersistentMap
 clojure.core/assoc
      (All [b c d]
        (Fn [(IPersistentMap b c) b c -> (IPersistentMap b c)]
@@ -541,6 +552,13 @@ clojure.core/zipmap
      (All [k v]
        [(U nil (Seqable k)) (U nil (Seqable v)) -> (APersistentMap k v)])
 
+clojure.core/keys
+(All [k]
+     [(IPersistentMap k Any) -> (ISeq k) :object {:id 0 :path [Keys]}])
+
+clojure.core/vals
+(All [v]
+     [(IPersistentMap Any v) -> (ISeq v) :object {:id 0 :path [Vals]}])
 
 ;most useful case
 clojure.core/comp
@@ -641,6 +659,8 @@ clojure.core/zero? (predicate (Value 0))
 clojure.core/symbol? (predicate Symbol)
 clojure.core/keyword? (predicate Keyword)
 clojure.core/map? (predicate (IPersistentMap Any Any))
+)
+    (h/var-mappings
 
 clojure.core/meta (All [x]
                             (Fn [(IMeta x) -> x]
@@ -660,16 +680,22 @@ clojure.string/join
          [Any (Option (Seqable Any)) -> String])
 
 ;usually for string manipulation, accurate enough?
-clojure.core/interpose (Fn [Any (Option (Seqable Any)) -> (Seqable Any)])
-clojure.core/interleave (All [x] [(Option (Seqable x)) -> (Seqable x)])
+clojure.core/interpose (Fn [Any (Option (Seqable Any)) -> (ISeq Any)])
+clojure.core/interleave (All [x] [(Option (Seqable x)) -> (ISeq x)])
 
 clojure.core/repeat (All [x] 
-                         (Fn [x -> (Seqable x)]
-                             [AnyInteger x -> (Seqable x)]))
+                         (Fn [x -> (ISeq x)]
+                             [AnyInteger x -> (ISeq x)]))
 
 ;inaccurate, could do much more with filters
 ; need to design better intersection simplification.
-clojure.core/every? (All [x] [[x -> Any] (Seqable x) -> Boolean])
+clojure.core/every? (All [x y] 
+                         (Fn [[x -> Any :filters {:then (is y 0)}] (IPersistentCollection x) -> Boolean
+                              :filters {:then (is (IPersistentCollection (I x y)) 1)}]
+                             ; argument could be nil
+                             [[x -> Any :filters {:then (is y 0)}] (U nil (IPersistentCollection x)) -> Boolean
+                              :filters {:then (is (U nil (IPersistentCollection (I x y))) 1)}]
+                             [[x -> Any] (U nil (Seqable x)) -> Boolean]))
 
 clojure.core/range
 (Fn [-> (LazySeq AnyInteger)]
@@ -683,18 +709,17 @@ clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
                             [Object -> Class :object {:id 0 :path [Class]}]
                             [Any -> (Option Class) :object {:id 0 :path [Class]}])
 
-; FIXME are the filters here still sound if the argument is mutable eg. an array?
-; I don't think so. We probably need an arity that also requires an (IPersistentCollection x)
-; This is where the filters would go. Then a base arity with no filters.
 ; Also applies to the other seq functions.
 clojure.core/seq (All [x]
                         (Fn 
-                          [(I (Seqable x) (CountRange 1)) -> (I (ISeq x) (CountRange 1))]
-                          [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))
+                          [(I (IPersistentCollection x) (CountRange 1)) -> (I (ISeq x) (CountRange 1))]
+                          [(Option (IPersistentCollection x)) -> (Option (I (ISeq x) (CountRange 1)))
                            :filters {:then (& (is (CountRange 1) 0)
                                               (! nil 0))
                                      :else (| (is nil 0)
-                                              (is (ExactCount 0) 0))}]))
+                                              (is (ExactCount 0) 0))}]
+                          [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))]))
+
 ; Seqable [[x :variance :covariant]
 ;          :count [l :variance :covariant :< AnyCountRange]
 ;          :to-seq [sfn :kind (TFn [[x :variance :covariant]]
@@ -707,10 +732,11 @@ clojure.core/seq (All [x]
 ;                      [(Seqable x :count (CountRange 1) :to-seq sfn) -> (sfn x)]
 ;                      [(Seqable x :count AnyCountRange :to-seq sfn) -> (U nil (sfn x))]
 
-clojure.core/empty? [(Option (Seqable Any)) -> boolean
+clojure.core/empty? (Fn [(Option (IPersistentCollection Any)) -> boolean
                           :filters {:then (| (is (ExactCount 0) 0)
                                              (is nil 0))
                                     :else (is (CountRange 1) 0)}]
+                        [(Option (Seqable Any)) -> boolean])
 
 clojure.core/map
      (All [c a b ...]
@@ -820,13 +846,38 @@ clojure.core/butlast
 
 clojure.core/next
      (All [x]
-          [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))
-           :filters {:then (& (is (CountRange 2) 0)
-                              (! nil 0))
-                     :else (| (is (CountRange 0 1) 0)
-                              (is nil 0))}])
+          (Fn [(Option (IPersistentCollection x)) -> (Option (I (ISeq x) (CountRange 1)))
+               :filters {:then (& (is (CountRange 2) 0)
+                                  (! nil 0))
+                         :else (| (is (CountRange 0 1) 0)
+                                  (is nil 0))}]
+              [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))]))
+
 
 clojure.core/conj
+;     (All [x
+;           [e :> x]
+;           [Arg :kind (TFn [[x :variance :covariant]] Any)]
+;           [Res :kind (TFn [[x :variance :covariant]] Any)]
+;           [p :< (IPersistentCollection x a c)]]
+;          (Fn [(IPersistentCollection e a c) (Arg e) (Arg e) * -> (Res e)]
+;              [nil x x * -> (clojure.lang.IPersistentList x)]))
+;
+;     (IPersistentMap [[k :variance :covariant]
+;                      [v :variance :covariant]]
+;         :extends
+;         (IPersistentCollection (IMapEntry k v)
+;                                (TFn [[x :variance :covariant 
+;                                         :< (IMapEntry Any Any)]]
+;                                  (U nil x))
+;                                ; should call infer on TApps wrapped in Poly
+;                                (All [k1 v1]
+;                                  (TFn [[x :variance :covariant 
+;                                           :< (IMapEntry k1 v1)]]
+;                                    (IPersistentMap k1 v1)))
+;                                ;empty
+;                                (IPersistentMap Nothing Nothing)))
+;                               
      (All [x y]
           (Fn [(IPersistentVector x) x x * -> (IPersistentVector x)]
               [(APersistentMap x y)
@@ -882,7 +933,7 @@ clojure.core/get
 clojure.core/merge 
      (All [k v]
           (Fn [nil * -> nil]
-              [(IPersistentMap k v) * -> (IPersistentMap k v)]
+              [(IPersistentMap k v) (IPersistentMap k v) * -> (IPersistentMap k v)]
               [(Option (IPersistentMap k v)) * -> (Option (IPersistentMap k v))]))
 
 ;more to be said here?
@@ -1244,8 +1295,7 @@ clojure.lang.Numbers/lte [Number Number -> boolean]
 clojure.lang.Numbers/gt [Number Number -> boolean]
 clojure.lang.Numbers/gte [Number Number -> boolean]
 
-clojure.lang.Numbers/isZero [Number -> boolean :filters {:then (is (Value 0) 0)
-                                                         :else (! (Value 0) 0)}]
+clojure.lang.Numbers/isZero (predicate (Value 0))
     )
     {'clojure.lang.RT/count (count-type)}))
 

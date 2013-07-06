@@ -57,6 +57,7 @@
   "A filter claiming looking up id, down the given path, is of given type"
   [(r/Type? type)
    (every? pr/PathElem? path)
+   (not (pr/PathElem? path))
    (name-ref? id)])
 
 (t/ann-record NotTypeFilter [type :- TCType,
@@ -66,9 +67,10 @@
   "A filter claiming looking up id, down the given path, is NOT of given type"
   [(r/Type? type)
    (every? pr/PathElem? path)
+   (not (pr/PathElem? path))
    (name-ref? id)])
 
-(t/ann-record AnyFilter [fs :- (IPersistentSet IFilter)])
+(t/ann-record AndFilter [fs :- (IPersistentSet IFilter)])
 (u/defrecord AndFilter [fs]
   "Logical conjunction of filters"
   [(set? fs)

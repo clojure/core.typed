@@ -55,7 +55,8 @@
 
 (t/def-alias SeqNumber Long)
 
-(t/ann type-sequence-mapping (t/Atom1 (IPersistentMap TCType SeqNumber)))
+; FIXME this throw a type error for some reason
+(t/ann ^:nocheck type-sequence-mapping (t/Atom1 (IPersistentMap TCType SeqNumber)))
 (def ^:private type-sequence-mapping 
   "Mapping from types to sequence number"
   (atom {}))

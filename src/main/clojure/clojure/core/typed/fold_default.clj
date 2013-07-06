@@ -16,7 +16,7 @@
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE)))
+           (clojure.core.typed.path_rep KeyPE KeysPE ValsPE)))
 
 (add-default-fold-case NotType
                        (fn [ty _]
@@ -26,7 +26,9 @@
 (add-default-fold-case Intersection
                        (fn [ty _]
                          ;(prn "fold-default Intersection" ty)
-                         (apply c/In (mapv type-rec (:types ty)))))
+                         (let [ts (mapv type-rec (:types ty))]
+                           ;(prn ts)
+                           (apply c/In ts))))
 
 (add-default-fold-case Union 
                        (fn [ty _]
@@ -211,13 +213,13 @@
                        (fn [ty _]
                          (-> ty
                            (update-in [:type] type-rec)
-                           (update-in [:path] #(seq (map pathelem-rec %))))))
+                           (update-in [:path] #(seq (doall (map pathelem-rec %)))))))
 
 (add-default-fold-case NotTypeFilter
                        (fn [ty _]
                          (-> ty
                            (update-in [:type] type-rec)
-                           (update-in [:path] #(seq (map pathelem-rec %))))))
+                           (update-in [:path] #(seq (doall (map pathelem-rec %)))))))
 
 (add-default-fold-case ImpFilter
                        (fn [ty _]
@@ -258,6 +260,8 @@
 ;path-elems
 
 (add-default-fold-case KeyPE ret-first)
+(add-default-fold-case KeysPE ret-first)
+(add-default-fold-case ValsPE ret-first)
 
 ;TCResult
 

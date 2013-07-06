@@ -155,7 +155,7 @@
 (t/ann ^:nocheck Un [TCType * -> TCType])
 (defn Un [& types]
   ;(prn "Un" (map @(unparse-type-var) types))
-  (if-let [hit (p :Union-cache-lookup (@Un-cache (p :Union-calc-hash (set (map hash types)))))]
+  (if-let [hit (p :Union-cache-lookup (@Un-cache (p :Union-calc-hash (set (map r/type-id types)))))]
     (do (p :Un-cache-hit)
         hit)
   (p :type-ctors/Un-ctor
@@ -187,7 +187,7 @@
                                  #{}
                                  (p :Un-flatten-unions 
                                     (set (flatten-unions types))))))))))]
-    (swap! Un-cache assoc (set (map hash types)) res)
+    (swap! Un-cache assoc (set (map r/type-id types)) res)
     res))))
 
 ;; Intersections
@@ -211,6 +211,8 @@
   #_(prn "make-Intersection" types)
   (r/Intersection-maker (set types)))
 
+(declare RClass-of)
+
 (t/ann ^:nocheck intersect [TCType TCType -> TCType])
 (defn intersect [t1 t2]
   {:pre [(r/Type? t1)
@@ -219,9 +221,10 @@
          (not (r/Union? t2))]
    :post [(r/Type? %)]}
   (let [subtype? @(subtype?-var)]
-    #_(prn "intersect")
-    (if-let [hit (@intersect-cache (set [(hash t1) (hash t2)]))]
+    ;(prn "intersect" t1 t2)
+    (if-let [hit (@intersect-cache (set [(r/type-id t1) (r/type-id t2)]))]
       (do
+        ;(prn "hit" hit)
         (p :intersect-cache-hit)
         hit)
       (let [_ (p :intersect-cache-miss)
@@ -236,13 +239,28 @@
                              (:absent-keys t2))
                   (or (:other-keys? t1)
                       (:other-keys? t2)))
+
+                ;RClass's with the same base, intersect args pairwise
+                (and (r/RClass? t1)
+                     (r/RClass? t2)
+                     (= (:the-class t1) (:the-class t2)))
+                (let [args (doall (map intersect (:poly? t1) (:poly? t2)))]
+                  ; if a new arg is bottom when none of the old args are bottom,
+                  ; reduce type to bottom
+                  (if (some (fn [[new [old1 old2]]]
+                              (and (every? (complement #{(Un)}) [old1 old2])
+                                   (#{(Un)} new)))
+                            (map vector args (map vector (:poly? t1) (:poly? t2))))
+                    (Un)
+                    (RClass-of (:the-class t1) args)))
+
                 (not (overlap t1 t2)) bottom
                 (subtype? t1 t2) t1
                 (subtype? t2 t1) t2
                 :else (do
                         #_(prn "failed to eliminate intersection" (@(unparse-type-var) (make-Intersection [t1 t2])))
                         (make-Intersection [t1 t2])))]
-        (swap! intersect-cache assoc (set [(hash t1) (hash t2)]) t)
+        (swap! intersect-cache assoc (set [(r/type-id t1) (r/type-id t2)]) t)
         t))))
 
 (t/ann ^:nocheck flatten-intersections [(U nil (Seqable TCType)) -> (Seqable TCType)])
@@ -447,11 +465,15 @@
    :post [((u/set-c? r/Type?) %)
           (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) %))
               1)]}
+  ;(prn "RClass-supers*" the-class (@(unparse-type-var) rcls))
   (let [unchecked-ancestors (RClass-unchecked-ancestors* rcls)
+        ;_ (prn "unchecked-ancestors" (map @(unparse-type-var) unchecked-ancestors))
         replacements (RClass-replacements* rcls)
+        ;_ (prn "replacements" (map @(unparse-type-var) (vals replacements)))
         ;set of symbols of Classes we haven't explicitly replaced
         not-replaced (set/difference (set (map u/Class->symbol (-> the-class u/symbol->Class supers)))
                                      (set (keys replacements)))]
+    ;(prn "not-replaced" not-replaced)
     (set/union (binding [*current-RClass-super* the-class]
                  (set (doall 
                         (for [csym not-replaced]

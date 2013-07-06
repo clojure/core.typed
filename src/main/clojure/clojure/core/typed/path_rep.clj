@@ -47,9 +47,21 @@
 (t/ann -kpe [Keyword -> KeyPE])
 (def -kpe ->KeyPE)
 
+(t/ann-record KeysPE [])
+(u/defrecord KeysPE []
+  "Calling clojure.core/keys"
+  [])
+
+(t/ann-record ValsPE [])
+(u/defrecord ValsPE []
+  "Calling clojure.core/vals"
+  [])
+
 (declare-path-elem FirstPE)
 (declare-path-elem NextPE)
 (declare-path-elem ClassPE)
 (declare-path-elem CountPE)
 (declare-path-elem KeyPE)
+(declare-path-elem KeysPE)
+(declare-path-elem ValsPE)
 
