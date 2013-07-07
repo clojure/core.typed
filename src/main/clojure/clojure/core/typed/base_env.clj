@@ -475,17 +475,30 @@ clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]])
 ; should preserve filters
 clojure.core/boolean [Any -> boolean]
 
+;clojure.core/filter (All [x y]
+;                           (Fn
+;                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (LazySeq (I x y))]
+;                             [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]))
 clojure.core/filter (All [x y]
                            (Fn
-                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (LazySeq (I x y))]
+                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (LazySeq y)]
                              [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]))
+;clojure.core/filterv (All [x y]
+;                          (Fn
+;                            [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (APersistentVector (I x y))]
+;                            [[x -> Any] (Option (Seqable x)) -> (APersistentVector x)]))
 clojure.core/filterv (All [x y]
                           (Fn
-                            [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (APersistentVector (I x y))]
+                            [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (APersistentVector y)]
                             [[x -> Any] (Option (Seqable x)) -> (APersistentVector x)]))
+;clojure.core/remove (All [x y]
+;                           (Fn
+;                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (LazySeq (I x y))]
+;                             [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]
+;                             ))
 clojure.core/remove (All [x y]
                            (Fn
-                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (LazySeq (I x y))]
+                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (LazySeq y)]
                              [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]
                              ))
 
@@ -687,14 +700,19 @@ clojure.core/repeat (All [x]
                          (Fn [x -> (ISeq x)]
                              [AnyInteger x -> (ISeq x)]))
 
-;inaccurate, could do much more with filters
-; need to design better intersection simplification.
+;clojure.core/every? (All [x y] 
+;                         (Fn [[x -> Any :filters {:then (is y 0)}] (IPersistentCollection x) -> Boolean
+;                              :filters {:then (is (IPersistentCollection (I x y)) 1)}]
+;                             ; argument could be nil
+;                             [[x -> Any :filters {:then (is y 0)}] (U nil (IPersistentCollection x)) -> Boolean
+;                              :filters {:then (is (U nil (IPersistentCollection (I x y))) 1)}]
+;                             [[x -> Any] (U nil (Seqable x)) -> Boolean]))
 clojure.core/every? (All [x y] 
                          (Fn [[x -> Any :filters {:then (is y 0)}] (IPersistentCollection x) -> Boolean
-                              :filters {:then (is (IPersistentCollection (I x y)) 1)}]
+                              :filters {:then (is (IPersistentCollection y) 1)}]
                              ; argument could be nil
                              [[x -> Any :filters {:then (is y 0)}] (U nil (IPersistentCollection x)) -> Boolean
-                              :filters {:then (is (U nil (IPersistentCollection (I x y))) 1)}]
+                              :filters {:then (is (U nil (IPersistentCollection y)) 1)}]
                              [[x -> Any] (U nil (Seqable x)) -> Boolean]))
 
 clojure.core/range

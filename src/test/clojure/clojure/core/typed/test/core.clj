@@ -1347,20 +1347,6 @@
                 (clojure.core/number? b) 
                 and__3941__auto__))))))
 
-;TODO destructuring on records
-;TODO does this instance lookup work? (cf (.the-class (->RClass ...)))
-;TODO unmunge fields (.other-keys? hmap)
-;TODO this is non-nil (last (take 100 (iterate update-without-plot initial-state)))
-;TODO 
-;          {final-grid :grid,
-;           :as final-state} (last (take 100 (iterate update-without-plot initial-state)))
-;          _ (assert final-state)
-;          ; be smart enough to infer final-grid cannot be nil just from the above assertion.
-;          _ (assert final-grid)
-
-;TODO support (some #{...} coll)
-;TODO (apply == (non-empty-seq))
-
 (deftest warn-on-unannotated-vars-test
   (is (check-ns 'clojure.core.typed.test.warn-on-unannotated-var)))
 
@@ -1512,10 +1498,25 @@
   (is (not (subtype? (parse-type '(Fn [Any -> Any :filters {:then (is Number 0)}]))
                      (parse-type '(Fn [Any -> Any :filters {:then (is Nothing 0)}]))))))
 
-(deftest filter-seq-test
-  (is (cf (filter :a (clojure.core.typed/ann-form [] (clojure.lang.Seqable '{:b Number})))
-          ;FIXME why does this fail with an expected type?
-          #_(Seqable '{:b Number :a Any})))
-  ;TODO
-  #_(is (cf (filter identity (clojure.core.typed/ann-form [] (clojure.lang.Seqable (U nil Number))))
-            (Seqable Number))))
+;TODO
+;(deftest filter-seq-test
+;  (is (cf (filter :a (clojure.core.typed/ann-form [] (clojure.lang.Seqable '{:b Number})))
+;          ;FIXME why does this fail with an expected type?
+;          (clojure.lang.Seqable '{:b Number :a Any})))
+;  ;TODO
+;  #_(is (cf (filter identity (clojure.core.typed/ann-form [] (clojure.lang.Seqable (U nil Number))))
+;            (clojure.lang.Seqable Number))))
+
+;TODO destructuring on records
+;TODO does this instance lookup work? (cf (.the-class (->RClass ...)))
+;TODO unmunge fields (.other-keys? hmap)
+;TODO this is non-nil (last (take 100 (iterate update-without-plot initial-state)))
+;TODO 
+;          {final-grid :grid,
+;           :as final-state} (last (take 100 (iterate update-without-plot initial-state)))
+;          _ (assert final-state)
+;          ; be smart enough to infer final-grid cannot be nil just from the above assertion.
+;          _ (assert final-grid)
+
+;TODO support (some #{...} coll)
+;TODO (apply == (non-empty-seq))
