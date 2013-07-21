@@ -17,7 +17,7 @@
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
-                                        Projection DottedPretype Function RClass App TApp
+                                        DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
@@ -33,26 +33,22 @@
 (defmulti parse-type class)
 (defmulti parse-type-list first)
 
+(declare find-lower-bound find-upper-bound infer-bounds)
+
 ;return a vector of [name bnds]
 (defn parse-free [f]
   {:post [(u/hvector-c? symbol? r/Bounds?)]}
   (if (symbol? f)
     [f r/no-bounds]
-    (let [[n & opts] f
-          {upp :<
-           low :>
-           kind :kind} (apply hash-map opts)]
-      [n (r/Bounds-maker
-           (when-not kind
-             (if upp 
-               (parse-type upp)
-               r/-any) )
-           (when-not kind
-             (if low
-               (parse-type low)
-               (r/Bottom)))
-           (when kind
-             (parse-type kind)))])))
+    (let [[n & {:keys [< >] :as opts}] f]
+      (when (contains? opts :kind)
+        (prn "DEPRECATED: kind annotation for TFn parameters"))
+      (assert (not (:variance opts)) "Variance not supported for variables introduced with All")
+      [n (let [upper-or-nil (when (contains? opts :<)
+                              (parse-type <))
+               lower-or-nil (when (contains? opts :>)
+                              (parse-type >))]
+           (infer-bounds upper-or-nil lower-or-nil))])))
 
 (defn check-forbidden-rec [rec tbody]
   (when (or (= rec tbody) 
@@ -77,25 +73,13 @@
         _ (check-forbidden-rec f body)]
     (Mu* (:name f) body)))
 
-(def ^:dynamic *parse-pretype* nil)
-
-(defmethod parse-type-list 'DottedPretype
-  [[_ psyn bsyn]]
-  (assert *parse-pretype* "DottedPretype only allowed in Project")
-  (let [df (dvar/*dotted-scope* bsyn)]
-    (assert df bsyn)
-    (r/DottedPretype-maker (free-ops/with-frees [df]
-                         (parse-type psyn))
-                       (:name (dvar/*dotted-scope* bsyn)))))
-
-(defmethod parse-type-list 'Project
-  [[_ fsyn ttsyn]]
-  (let [fread (read-string (str fsyn))
-        afn (eval fread)
-        ts (binding [*parse-pretype* true]
-             (mapv parse-type ttsyn))]
-    (with-meta (r/Projection-maker afn ts)
-               {:fsyn fread})))
+;(defmethod parse-type-list 'DottedPretype
+;  [[_ psyn bsyn]]
+;  (let [df (dvar/*dotted-scope* bsyn)]
+;    (assert df bsyn)
+;    (r/DottedPretype-maker (free-ops/with-frees [df]
+;                         (parse-type psyn))
+;                       (:name (dvar/*dotted-scope* bsyn)))))
 
 (defmethod parse-type-list 'CountRange
   [[_ n u]]
@@ -118,6 +102,11 @@
       (r/make-Function [r/-any] (RClass-of 'boolean) nil nil
                        :filter (fl/-FS (fl/-filter on-type 0)
                                        (fl/-not-filter on-type 0))))))
+
+(defmethod parse-type-list 'Not
+  [[_ tsyn :as all]]
+  (assert (= (count all) 2) "Wrong arguments to Not (expected 2)")
+  (r/NotType-maker (parse-type tsyn)))
 
 (defmethod parse-type-list 'Rec
   [syn]
@@ -225,30 +214,94 @@
   [syn]
   (parse-fn-intersection-type syn))
 
+(defn parse-free-binder [[nme & {:keys [variance < > kind] :as opts}]]
+  (assert nme)
+  {:nme nme :variance (or variance :invariant)
+   :bound (r/Bounds-maker
+            ;upper
+            (when-not kind
+              (if (contains? opts :<)
+                (parse-type <)
+                r/-any))
+            ;lower
+            (when-not kind
+              (if (contains? opts :>)
+                (parse-type >)
+                r/-nothing))
+            ;kind
+            (when kind
+              (parse-type kind)))})
+
+(defn find-bound* 
+  "Find upper bound if polarity is true, otherwise lower bound"
+  [t* polarity]
+  {:pre [(r/Type? t*)]}
+  (let [fnd-bnd #(find-bound* % polarity)
+        t (c/fully-resolve-type t*)]
+    (cond
+      (r/Poly? t) (fnd-bnd (c/Poly-body* (repeatedly (:nbound t) gensym) t))
+      (r/TypeFn? t) (let [names (repeatedly (:nbound t) gensym)
+                          body (c/TypeFn-body* names t)
+                          bbnds (c/TypeFn-bbnds* names t)]
+                      (c/TypeFn* names
+                                 (:variances t)
+                                 bbnds
+                                 (fnd-bnd body)))
+      :else (if polarity
+              r/-any
+              r/-nothing))))
+
+(defn find-upper-bound [t]
+  {:pre [(r/Type? t)]}
+  (find-bound* t true))
+
+(defn find-lower-bound [t]
+  {:pre [(r/Type? t)]}
+  (find-bound* t false))
+
+(defn infer-bounds
+  "Returns a Bounds that attempts to fill in meaningful
+  upper/lower bounds of the same rank"
+  [upper-or-nil lower-or-nil]
+  {:pre [(every? (some-fn nil? r/AnyType?) [upper-or-nil lower-or-nil])]
+   :post [(r/Bounds? %)]}
+  (let [{:keys [upper lower]} (cond 
+                                ;both bounds provided
+                                (and upper-or-nil lower-or-nil) {:upper upper-or-nil :lower lower-or-nil}
+                                ;only upper
+                                upper-or-nil {:upper upper-or-nil :lower (find-lower-bound upper-or-nil)}
+                                ;only lower
+                                lower-or-nil {:upper (find-upper-bound lower-or-nil) :lower lower-or-nil}
+                                ;no bounds provided, default to Nothing <: Any
+                                :else {:upper r/-any :lower r/-nothing})]
+    (r/Bounds-maker upper lower nil)))
+
+(defn parse-tfn-binder [[nme & {:keys [variance < >] :as opts}]]
+  {:post [((u/hmap-c? :nme symbol? :variance r/variance?
+                      :bound r/Bounds?) %)]}
+  (assert nme)
+  (when (contains? opts :kind)
+    (prn "DEPRECATED: kind annotation for TFn parameters"))
+  {:nme nme :variance (or variance :invariant)
+   :bound (let [upper-or-nil (when (contains? opts :<)
+                               (parse-type <))
+                lower-or-nil (when (contains? opts :>)
+                               (parse-type >))]
+            (infer-bounds upper-or-nil lower-or-nil))})
+
 (defn parse-type-fn 
   [[_ binder bodysyn :as tfn]]
   (assert (= 3 (count tfn)))
   (assert (every? vector? binder))
-  (let [free-maps (for [[nme & {:keys [variance < > kind] :as opts}] binder]
-                    (do
-                      (assert nme)
-                      {:nme nme :variance (or variance :invariant)
-                       :bound (r/Bounds-maker 
-                                ;upper
-                                (when-not kind
-                                  (if (contains? opts :<)
-                                    (parse-type <)
-                                    r/-any))
-                                ;lower
-                                (when-not kind
-                                  (if (contains? opts :>) 
-                                    (parse-type >)
-                                    r/-nothing))
-                                ;kind
-                                (when kind
-                                  (parse-type kind)))}))
+  (let [; don't bound frees because mutually dependent bounds are problematic
+        free-maps (free-ops/with-free-symbols (map (fn [s]
+                                                     {:pre [(vector? s)]
+                                                      :post [(symbol? %)]}
+                                                     (first s))
+                                                   binder)
+                    (mapv parse-tfn-binder binder))
         bodyt (free-ops/with-bounded-frees (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
-                                       free-maps)
+                                                free-maps)
                 (parse-type bodysyn))
         vs (free-ops/with-bounded-frees (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
                                              free-maps)
@@ -319,6 +372,7 @@
   (or *parse-type-in-ns* *ns*))
 
 (defn- resolve-type [sym]
+  {:pre [(symbol? sym)]}
   (ns-resolve (parse-in-ns) sym))
 
 (defn parse-RClass [cls-sym params-syn]
@@ -352,27 +406,25 @@
 
 (declare unparse-type)
 
+;TODO should probably just be (r/TApp-maker (parse-type n) (mapv parse-type args))
 (defmethod parse-type-list :default 
   [[n & args :as syn]]
   (let [RClass-of @(RClass-of-var)
         current-nstr (-> (parse-in-ns) ns-name name)
-        res (resolve-type n)
+        res (when (symbol? n)
+              (resolve-type n))
         rsym (cond 
                (class? res) (u/Class->symbol res)
                (var? res) (u/var->symbol res))]
-    (if (free-ops/free-in-scope n)
-      (let [^TypeFn k (.higher-kind (free-ops/free-in-scope-bnds n))
-            _ (assert (r/TypeFn? k) (u/error-msg "Cannot invoke type variable " n))
-            _ (assert (= (.nbound k) (count args)) (u/error-msg "Wrong number of arguments (" (count args)
-                                                                ") to type function " (unparse-type k)))]
-        (r/TApp-maker (free-ops/free-in-scope n) (mapv parse-type args)))
+    (if-let [free (and (symbol? n) (free-ops/free-in-scope n))]
+      (r/TApp-maker free (mapv parse-type args))
       (if-let [t ((some-fn dtenv/get-datatype prenv/get-protocol nmenv/get-type-name) rsym)]
         ;don't resolve if operator is declared
         (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
         (cond
           ;a Class that's not a DataType
-          (class? res) (c/RClass-of res (mapv parse-type args))
-          :else
+          (class? res) (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
+          (symbol? n)
           ;unqualified declared protocols and datatypes
           (if-let [s (let [svar (symbol current-nstr (name n))
                            scls (symbol (munge (str current-nstr \. (name n))))]
@@ -382,7 +434,8 @@
             (r/TApp-maker (r/Name-maker s) (mapv parse-type args))
             (u/tc-error (str "Cannot parse type: " (pr-str syn)
                              (when (seq syn)
-                               (str "\nHint: Does " (first syn) " accept parameters and is it in scope?"))))))))))
+                               (str "\nHint: Does " (first syn) " accept parameters and is it in scope?")))))
+          :else (r/TApp-maker (parse-type n) (mapv parse-type args)))))))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] (parse-type-list l))
@@ -669,13 +722,10 @@
 
 (defmethod unparse-type* Top [_] 'Any)
 (defmethod unparse-type* TCError [_] 'Error)
-(defmethod unparse-type* Name [{:keys [id]}] (unparse-var-symbol-in-ns id))
+(defmethod unparse-type* Name [{:keys [id]}] (if (namespace id)
+                                               (unparse-var-symbol-in-ns id)
+                                               id))
 (defmethod unparse-type* AnyValue [_] 'AnyValue)
-
-(defmethod unparse-type* Projection 
-  [{:keys [ts] :as t}]
-  (let [{:keys [fsyn]} (meta t)]
-    (list 'Project fsyn (mapv unparse-type ts))))
 
 (defmethod unparse-type* DottedPretype
   [{:keys [pre-type name]}]
@@ -744,12 +794,25 @@
   [{types :types}]
   (list* 'I (doall (map unparse-type types))))
 
+(defmethod unparse-type* NotType
+  [{:keys [type]}]
+  (list 'Not (unparse-type type)))
+
 (defmethod unparse-type* TopFunction [_] 'AnyFunction)
 
 (defn- unparse-kw-map [m]
   {:pre [((u/hash-c? r/Value? r/Type?) m)]}
   (into {} (for [[^Value k v] m] 
              [(.val k) (unparse-type v)])))
+
+(defn unparse-result [{:keys [t fl o] :as rng}]
+  {:pre [(r/Result? rng)]}
+  (concat [(unparse-type t)]
+          (when (not (and ((some-fn f/TopFilter? f/BotFilter?) (:then fl))
+                          ((some-fn f/TopFilter? f/BotFilter?) (:else fl))))
+            [:filters (unparse-filter-set fl)])
+          (when (not ((some-fn orep/NoObject? orep/EmptyObject?) o))
+            [:object (unparse-object o)])))
 
 (defmethod unparse-type* Function
   [{:keys [dom rng kws rest drest]}]
@@ -765,13 +828,8 @@
                           (unparse-kw-map optional)
                           (when (seq mandatory) 
                             [:mandatory (unparse-kw-map mandatory)]))))
-               (let [{:keys [t fl o]} rng]
-                 (concat ['-> (unparse-type t)]
-                         (when (not (and ((some-fn f/TopFilter? f/BotFilter?) (:then fl))
-                                         ((some-fn f/TopFilter? f/BotFilter?) (:else fl))))
-                           [:filters (unparse-filter-set fl)])
-                         (when (not ((some-fn orep/NoObject? orep/EmptyObject?) o))
-                           [:object (unparse-object o)]))))))
+               ['->]
+               (unparse-result rng))))
 
 (defn unparse-flow-set [flow]
   {:pre [(r/FlowSet? flow)]}
@@ -885,27 +943,26 @@
                        (for [x (range *next-nme* end-nme)]
                          (symbol (str "v" x)))))
         bbnds (c/TypeFn-bbnds* fs-names p)
-        fs (if given-names?
-             (vec
-               (for [[name {:keys [upper-bound lower-bound higher-kind]}] (map vector 
-                                                                               (-> p meta :actual-frees)
-                                                                               bbnds)]
-                 (let [u (when upper-bound 
-                           (unparse-type upper-bound))
-                       l (when lower-bound 
-                           (unparse-type lower-bound))
-                       h (when higher-kind
-                           (unparse-type higher-kind))]
-                   (or (when higher-kind
-                         [name :kind h])
-                       (when-not (or (r/Top? upper-bound) (r/Bottom? lower-bound))
-                         [name :< u :> l])
-                       (when-not (r/Top? upper-bound) 
-                         [name :< u])
-                       (when-not (r/Bottom? lower-bound)
-                         [name :> l])
-                       name))))
-             fs-names)
+        fs (vec
+             (for [[name {:keys [upper-bound lower-bound higher-kind]} v] (map vector 
+                                                                               fs-names
+                                                                               bbnds
+                                                                               (:variances p))]
+               (let [u (when upper-bound 
+                         (unparse-type upper-bound))
+                     l (when lower-bound 
+                         (unparse-type lower-bound))
+                     h (when higher-kind
+                         (unparse-type higher-kind))]
+                 (or (when higher-kind
+                       [name :variance v :kind h])
+                     (when-not (or (r/Top? upper-bound) (r/Bottom? lower-bound))
+                       [name :variance v :< u :> l])
+                     (when-not (r/Top? upper-bound) 
+                       [name :variance v :< u])
+                     (when-not (r/Bottom? lower-bound)
+                       [name :variance v :> l])
+                     [name :variance v]))))
         body (c/TypeFn-body* fs-names p)]
     (binding [*next-nme* end-nme]
       (list 'TFn fs (unparse-type body)))))

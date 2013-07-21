@@ -175,6 +175,7 @@
           (do 
             (when vs
               (let [f (mapv r/make-F (repeatedly (count vs) gensym))]
+                ; TODO bounds
                 (rcls/alter-class* s (c/RClass* (map :name f) vs f s {}))))
             (dt-env/add-datatype s dt)
             (var-env/add-var-type pos-ctor-name pos-ctor)

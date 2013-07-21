@@ -3,7 +3,9 @@
              [type-rep :as r]
              [utils :as u]
              [datatype-env :as dtenv]
-             [protocol-env :as prenv])
+             [rclass-env :as rcls]
+             [protocol-env :as prenv]
+             [declared-kind-env :as kinds])
             [clojure.core.typed :as t :refer [fn>]])
   (:import (clojure.lang Symbol IPersistentMap Keyword)
            #_(clojure.core.typed.type_rep )))
@@ -88,8 +90,19 @@
 
 (t/ann ^:nocheck resolve-name* [Symbol -> r/TCType])
 (defn resolve-name* [sym]
-  (let [t (@TYPE-NAME-ENV sym)]
+  {:post [(r/Type? %)]}
+  (let [t (@TYPE-NAME-ENV sym)
+        cls (resolve sym)]
     (cond
+      (class? cls) (let [tfn ((some-fn dtenv/get-datatype rcls/get-rclass
+                                       ; during the definition of RClass's that reference
+                                       ; themselves in their definition, a temporary TFn is
+                                       ; added to the declared kind env which is enough to determine
+                                       ; type rank and variance.
+                                       kinds/declared-kind-or-nil) 
+                              sym)]
+                     (assert tfn (str "No corresponding TFn for " sym))
+                     tfn)
       (= protocol-name-type t) (prenv/resolve-protocol sym)
       (= datatype-name-type t) (dtenv/resolve-datatype sym)
       (= declared-name-type t) (throw (IllegalArgumentException. (str "Reference to declared but undefined name " sym)))

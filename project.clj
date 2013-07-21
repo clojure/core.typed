@@ -13,13 +13,15 @@
                  [org.clojure/tools.trace "0.7.5"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/clojure "1.5.1"]
-                 [org.clojure/tools.namespace "0.2.4-20130702.200107-7"]
+                 [org.clojure/tools.namespace "0.2.4"]
                  [org.clojure/tools.macro "0.1.0"] ;for algo.monads
                  #_[net.intensivesystems/arrows "1.3.0"
                     :exclusions [org.clojure/clojure]] ;for testing conduit, lein test wants it here?
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
                  ]
+
+  :global-vars {*warn-on-reflection* true}
 
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
 

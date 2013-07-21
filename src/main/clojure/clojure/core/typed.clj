@@ -55,7 +55,7 @@
 
 (def -base-aliases
   "Internal use only."
-  '#{Option AnyInteger AnyPrimitive Atom1})
+  '#{Option AnyInteger AnyPrimitive Atom1 Id Coll})
 
 (doseq [v -base-aliases]
   (intern 'clojure.core.typed v))

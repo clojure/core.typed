@@ -9,7 +9,7 @@
              [frees :as frees]]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
-                                        Projection DottedPretype Function RClass App TApp
+                                        DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
@@ -185,6 +185,19 @@
   (-> T
     (update-in [:types] #(set (mapv demote % (repeat V))))))
 
+; FIXME is this correct? Promoting NotType should make the inner type smaller,
+; and demoting should make inner type bigger?
+(defmethod promote NotType
+  [T V] 
+  (-> T
+    (update-in [:type] #(demote % V))))
+
+(defmethod demote NotType
+  [T V] 
+  (-> T
+    (update-in [:type] #(promote % V))))
+
+
 (defmethod promote Intersection
   [T V] 
   (-> T
@@ -244,6 +257,24 @@
                              (mapv dmt %)))
       #_(update-in [:replacements] #(into {} (for [[k v] %]
                                              [k (dmt v)]))))))
+
+(defmethod promote TypeFn
+  [{:keys [nbound variances] :as T} V]
+  (let [names (repeatedly nbound gensym)
+        pmt-body (promote (c/TypeFn-body* names T) V)]
+    (c/TypeFn* names 
+               variances
+               (c/TypeFn-bbnds* names T)
+               pmt-body)))
+
+(defmethod demote TypeFn
+  [{:keys [nbound variances] :as T} V]
+  (let [names (repeatedly nbound gensym)
+        dem-body (demote (c/TypeFn-body* names T) V)]
+    (c/TypeFn* names 
+               variances
+               (c/TypeFn-bbnds* names T)
+               dem-body)))
 
 (defmethod promote Poly
   [{:keys [nbound] :as T} V]

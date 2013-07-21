@@ -52,7 +52,7 @@
            (clojure.core.typed.object_rep Path)
            (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet AndFilter OrFilter)
            (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector
-                         Reflector)))
+                         Reflector PersistentHashSet)))
 
 ;==========================================================
 ; # Type Checker
@@ -214,7 +214,7 @@
 (add-check-method :set
   [{:keys [args] :as expr} & [expected]]
   (let [cargs (mapv check args)
-        res-type (c/RClass-of IPersistentSet [(apply c/Un (mapv (comp ret-t expr-type) cargs))])
+        res-type (c/RClass-of PersistentHashSet [(apply c/Un (mapv (comp ret-t expr-type) cargs))])
         _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
             (expected-error res-type (ret-t expected)))]
     (assoc expr
@@ -774,7 +774,9 @@
 ;[Expr (Seqable Expr) (Seqable TCResult) (Option TCResult) Boolean
 ; -> Any]
 (defn ^String app-type-error [fexpr args ^FnIntersection fin arg-ret-types expected poly?]
-  {:pre [(r/FnIntersection? fin)]}
+  {:pre [(r/FnIntersection? fin)
+         (or (not poly?)
+             (r/Poly? poly?))]}
   (let [static-method? (= :static-method (:op fexpr))
         instance-method? (= :instance-method (:op fexpr))
         method-sym (when (or static-method? instance-method?)
@@ -786,7 +788,7 @@
                                              (expr-ns vs/*current-expr*)))]
       (u/tc-delayed-error
         (str
-          (if poly? 
+          (if poly?
             (str "Polymorphic " 
                  (cond static-method? "static method "
                        instance-method? "instance method "
@@ -802,11 +804,38 @@
               (u/emit-form-fn fexpr)
               "<NO FORM>"))
           " could not be applied to arguments:\n"
-          "Domains: \n\t" 
+          (when poly?
+            (let [names (c/Poly-free-names* poly?)
+                  bnds (c/Poly-bbnds* names poly?)]
+              (str "Polymorphic Variables:\n\t"
+                   (clojure.string/join "\n\t" 
+                                        (map (partial apply pr-str)
+                                             (map (fn [{:keys [lower-bound upper-bound] :as bnd} nme]
+                                                    {:pre [(r/Bounds? bnd)
+                                                           (symbol? nme)]}
+                                                    (concat (when-not (= r/-nothing lower-bound)
+                                                              [(prs/unparse-type lower-bound) :<])
+                                                            [nme]
+                                                            (when-not (= r/-any upper-bound)
+                                                              [:< (prs/unparse-type upper-bound)])))
+                                                  bnds names))))))
+          "\n\nDomains:\n\t" 
           (clojure.string/join "\n\t" 
-                               (map (partial apply pr-str) (map (comp #(map prs/unparse-type %) :dom) (.types fin))))
+                               (map (partial apply pr-str) 
+                                    (map (fn [{:keys [dom rest drest]}]
+                                           (concat (map prs/unparse-type dom)
+                                                   (when rest
+                                                     [(prs/unparse-type rest) '*])
+                                                   (when-let [{:keys [pre-type name]} drest]
+                                                     [(prs/unparse-type pre-type) '... name])))
+                                         (:types fin))))
           "\n\n"
-          "Arguments:\n\t" (apply prn-str (mapv (comp prs/unparse-type ret-t) arg-ret-types)) "\n"
+          "Arguments:\n\t" (apply prn-str (map (comp prs/unparse-type ret-t) arg-ret-types))
+          "\n"
+          "Ranges:\n\t"
+          (clojure.string/join "\n\t" 
+                               (map (partial apply pr-str) (map (comp prs/unparse-result :rng) (:types fin))))
+          "\n\n"
           (when expected (str "with expected type:\n\t" (prs/unparse-type (ret-t expected)) "\n\n"))
           "in: " (if fexpr
                    (if (or static-method? instance-method?)
@@ -819,7 +848,7 @@
 (defn ^String polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]
   {:pre [(r/Poly? fexpr-type)]}
   (let [fin (c/Poly-body* (c/Poly-free-names* fexpr-type) fexpr-type)]
-    (app-type-error fexpr args fin arg-ret-types expected true)))
+    (app-type-error fexpr args fin arg-ret-types expected fexpr-type)))
 
 (defn ^String plainapp-type-error [fexpr args fexpr-type arg-ret-types expected]
   {:pre [(r/FnIntersection? fexpr-type)]}
@@ -2331,9 +2360,10 @@
                                                    (c/In (c/RClass-of Seqable [(or rest (.pre-type ^DottedPretype drest))])
                                                          (r/make-CountRange 1)))
                                              :else (c/KwArgs->Type kws)))]
-    (let [type (check-fn expr (or expected
-                                  (ret (r/make-FnIntersection
-                                         (r/make-Function [] r/-any r/-any)))))]
+    (let [type (check-fn expr (let [default-ret (ret (r/make-FnIntersection
+                                                       (r/make-Function [] r/-any r/-any)))]
+                                (cond (and expected (not= r/-any (ret-t expected))) expected
+                                      :else default-ret)))]
       (assoc expr
              expr-type type))))
 
@@ -2538,7 +2568,8 @@
         _ (assert (r/FnIntersection? fin)
                   (str (when vs/*current-env*
                          (str (:line vs/*current-env*) ": "))
-                       (pr-str (prs/unparse-type fin)) " is not a function type"))
+                       (pr-str (prs/unparse-type fin)) " is not a function type"
+                       (when vs/*current-expr* (str "\n\nin:\n\t" (u/emit-form-fn vs/*current-expr*)))))
         ;collect all inferred Functions
         inferred-fni (lex/with-locals (when-let [name (hygienic/hname-key fexpr)] ;self calls
                                     (assert expected "Recursive methods require full annotation")

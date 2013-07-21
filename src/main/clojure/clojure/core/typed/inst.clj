@@ -13,6 +13,24 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Polymorphic type instantiation
 
+(defn same-or-narrower-bounds?
+  "True if arg-bounds is inside bounds, false otherwise"
+  [bounds arg-bounds]
+  {:pre [(r/Bounds? bounds)
+         (r/Bounds? arg-bounds)]
+   :post [(u/boolean? %)]}
+  (and (sub/subtype? (:lower-bound bounds) (:lower-bound arg-bounds))
+       (sub/subtype? (:upper-bound arg-bounds) (:upper-bound bounds))
+       ; make sure bounds make sense
+       (sub/subtype? (:lower-bound bounds) (:upper-bound bounds))
+       (sub/subtype? (:lower-bound arg-bounds) (:upper-bound arg-bounds))))
+
+(defn satisfies-bounds?
+  "True if type t is inside bounds"
+  [t bnds]
+  (and (sub/subtype? t (:upper-bound bnds))
+       (sub/subtype? (:lower-bound bnds) t)))
+
 (defn manual-inst 
   "Poly Type^n -> Type
   Substitute the type parameters of the polymorphic type
@@ -33,17 +51,18 @@
         (if (.higher-kind bnds)
           (do 
             (if (r/F? ty)
-              (assert (and (r/TypeFn? (.higher-kind bnds))
-                           (let [given-bnds (free-ops/free-with-name-bnds (.name ^F ty))
-                                 _ (assert given-bnds free-ops/*free-scope*)]
-                             (and (.higher-kind given-bnds)
-                                  (sub/subtype? (.higher-kind given-bnds) (.higher-kind bnds)))))
+              ; instantiating a higher rank F with another F
+              (assert (let [param-bnds bnds
+                            arg-bnds (free-ops/free-with-name-bnds (.name ^F ty))
+                            _ (assert arg-bnds (str "Type varible " (prs/unparse-type ty) " not in scope"))]
+                        ; bounds of arg must be within parameter's bounds
+                        (same-or-narrower-bounds? param-bnds arg-bnds))
                       (u/error-msg "Must instantitate higher-order type variable with another higher-order type variable, given: "
-                                 (prs/unparse-type ty)))
+                                   (prs/unparse-type ty)))
               (do 
                 (assert (r/TypeFn? ty) (u/error-msg "Must instantiate higher-order type variable with type function, given:"
                                                     (prs/unparse-type ty)))
-                (assert (sub/subtype? ty (.higher-kind bnds))
+                (assert (satisfies-bounds? ty bnds)
                         (u/error-msg "Higher-order type variable " (prs/unparse-type ty)
                                    " does not match bound " (prs/unparse-type (.higher-kind bnds)))))))
           (let [lower-bound (subst/substitute-many (.lower-bound bnds) argtys names)
@@ -66,7 +85,6 @@
           body (c/PolyDots-body* names ptype)
           bbnds (c/PolyDots-bbnds* names ptype)]
       (doseq [[nme ty ^Bounds bnds] (map vector names argtys bbnds)]
-        (assert (not (.higher-kind bnds)) "NYI")
         (let [lower-bound (subst/substitute-many (.lower-bound bnds) argtys names)
               upper-bound (subst/substitute-many (.upper-bound bnds) argtys names)]
           (assert (sub/subtype? lower-bound upper-bound)

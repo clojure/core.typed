@@ -1,8 +1,11 @@
 (ns clojure.core.typed.base-env-helper
   (:require [clojure.core.typed
+             [type-rep :as r]
              [parse-unparse :as prs]
              [utils :as u]
              [free-ops :as free-ops]
+             [type-ctors :as c]
+             [declared-kind-env :as decl-env]
              [rclass-env :as rcls]]))
 
 (defmacro alias-mappings [& args]
@@ -75,10 +78,6 @@
                  k#)
                (prs/parse-type v#)])))
 
-(defn parse-RClass-binder [bnds]
-  `(for [[nme# & {variance# :variance}] ~bnds]
-     [variance# (r/make-F nme#)]))
-
 (defn resolve-class-symbol [the-class]
   `(let [cls# (when-let [c# (resolve ~the-class)]
                 (when (class? c#)
@@ -92,15 +91,36 @@
         fs (gensym 'fs)]
     `(let [{~replacements-syn :replace
             unchecked-ancestors-syn# :unchecked-ancestors} (apply hash-map ~opts)
-           [variances# frees#] (when-let [~fs (seq ~frees-syn)]
-                                 (let [b# ~(parse-RClass-binder fs)]
-                                   [(map first b#) (map second b#)]))
-           csym# ~(resolve-class-symbol the-class)]
-       (c/RClass* (map :name frees#) variances# frees# csym#
-                  (free-ops/with-frees frees#
+           {variances# :variances
+            nmes# :nmes
+            bnds# :bnds}
+           (when-let [fs# (seq ~frees-syn)]
+             ; don't bound frees because mutually dependent bounds are problematic
+             (let [b# (free-ops/with-free-symbols (mapv (fn [s#]
+                                                         {:pre [(vector? s#)]
+                                                          :post [(symbol? ~'%)]}
+                                                         (first s#))
+                                                       fs#)
+                        (mapv prs/parse-tfn-binder fs#))]
+               {:variances (map :variance b#)
+                :nmes (map :nme b#)
+                :bnds (map :bound b#)}))
+           frees# (map r/make-F nmes#)
+           csym# ~(resolve-class-symbol the-class)
+           frees-and-bnds# (zipmap frees# bnds#)]
+       (assert ((u/hash-c? r/F? r/Bounds?) frees-and-bnds#) frees-and-bnds#)
+       (c/RClass* nmes# variances# frees# csym#
+                  (free-ops/with-bounded-frees frees-and-bnds#
                     ~(build-replacement-syntax replacements-syn))
-                  (free-ops/with-frees frees#
-                    (set (map prs/parse-type unchecked-ancestors-syn#)))))))
+                  (free-ops/with-bounded-frees frees-and-bnds#
+                    (set (map prs/parse-type unchecked-ancestors-syn#)))
+                  bnds#))))
+
+(defn declared-kind-for-rclass [fields]
+  (let [fs (map first fields)
+        _ (assert (every? symbol? fs) fs)
+        vs (map (fn [[v & {:keys [variance]}]] variance) fields)]
+    (c/TypeFn* fs vs (repeat (count vs) r/no-bounds) r/-any)))
 
 (defmacro alters [& args]
   (let [fields (gensym 'fields)
@@ -108,9 +128,14 @@
         s (gensym 's)]
     `(let [ts# (partition 2 '~args)]
        (into {}
-             (for [[~s [~fields & ~opts]] ts#]
-               (let [sym# ~(resolve-class-symbol s)
-                     rcls# ~(make-RClass-syn s fields opts)]
-                 ;accumulate altered classes in initial env
-                 (rcls/alter-class* sym# rcls#)
-                 [sym# rcls#]))))))
+             (doall
+               (for [[~s [~fields & ~opts]] ts#]
+                 (let [sym# ~(resolve-class-symbol s)
+                       decl-kind# (declared-kind-for-rclass ~fields)
+                       _# (when (r/TypeFn? decl-kind#)
+                            (decl-env/add-declared-kind sym# decl-kind#))
+                       rcls# ~(make-RClass-syn s fields opts)]
+                   ;accumulate altered classes in initial env
+                   (rcls/alter-class* sym# rcls#)
+                   (decl-env/remove-declared-kind sym#)
+                   [sym# rcls#])))))))
