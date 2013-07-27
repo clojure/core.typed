@@ -233,7 +233,7 @@
          (r/AnyType? S)
          (r/AnyType? T)]
    :post [(cr/cset? %)]}
-  (prn "cs-gen" (prs/unparse-type S) (prs/unparse-type T))
+  ;(prn "cs-gen" (prs/unparse-type S) (prs/unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (sub/subtype? S T))
     ;already been around this loop, is a subtype
@@ -990,11 +990,11 @@
                     [names images] (let [s (seq t-substs)]
                                      [(map first s)
                                       (map (comp :type second) s)])]
-                (prn delayed-checks)
+                ;(prn delayed-checks)
                 (doseq [[S T] delayed-checks]
                   (let [S* (subst/substitute-many S images names)
                         T* (subst/substitute-many T images names)]
-                    (prn "delayed" (map prs/unparse-type [S* T*]))
+                    ;(prn "delayed" (map prs/unparse-type [S* T*]))
                     (assert (sub/subtype? S* T*)
                             (str "Delayed check failed"
                                  (mapv prs/unparse-type [S T])))))
