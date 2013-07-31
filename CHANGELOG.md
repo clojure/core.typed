@@ -11,12 +11,17 @@
 - Fix set!
 - Support every?
 - Support (every? p? (keys m)), (every? p? (vals m))
-- Improve type: filter, filterv, remove, doall
 - Add annotation: dorun
 - Add correct Seqable ancestor to IPersistentCollection
 - RClasses with same base combine in an intersection
   - (I (ISeq Number) (ISeq Long)) => (ISeq (I Number Long)) => (ISeq Long)
 - Misc bug fixes
+- RClass's can now have bounded tvars (syntax didn't exist before)
+- clojure.core/filter can sometimes understand predicates that have negative information.
+  - eg. identity: true iff argument is *not* nil/false
+  - (filter identity coll) should work, may have to instantiate identity.
+    - (filter (inst identity (U nil Number)) [1 nil])
+      => (Seqable Number)
 
 0.1.17
 - Automatically infer typed namespaces
