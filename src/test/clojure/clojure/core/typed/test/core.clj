@@ -1498,6 +1498,14 @@
   (is (not (subtype? (parse-type '(Fn [Any -> Any :filters {:then (is Number 0)}]))
                      (parse-type '(Fn [Any -> Any :filters {:then (is Nothing 0)}]))))))
 
+;CTYP-27
+;(deftest nth-inline-test
+;  (is (cf (fn [s] (clojure.lang.RT/nth s 0 nil))
+;          (All [x] (Fn #_[nil -> nil]
+;                       #_[(I (clojure.lang.Seqable x) (ExactCount 0)) -> nil]
+;                       [(I (clojure.lang.Seqable x) (CountRange 1)) -> x]
+;                       #_[(U nil  (clojure.lang.Seqable x)) -> (U nil  x)])))))
+
 ;TODO
 ;(deftest filter-seq-test
 ;  (is (cf (filter :a (clojure.core.typed/ann-form [] (clojure.lang.Seqable '{:b Number})))
