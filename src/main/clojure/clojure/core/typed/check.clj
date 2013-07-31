@@ -1758,9 +1758,9 @@
       :else ::not-special)))
 
 (defn invoke-nth [{:keys [args] :as expr} expected & {:keys [cargs]}]
-  (let [_ (assert (#{2 3} (count args)))
+  (let [_ (assert (#{2 3} (count args)) (str "nth takes 2 or 3 arguments, actual " (count args)))
         [te ne de :as cargs] (or cargs (doall (map check args)))
-        types (let [ts (c/-resolve (ret-t (expr-type te)))]
+        types (let [ts (c/fully-resolve-type (ret-t (expr-type te)))]
                 (if (r/Union? ts)
                   (:types ts)
                   [ts]))
@@ -1779,17 +1779,13 @@
              expr-type (ret (apply c/Un
                                    (doall
                                      (for [t types]
-                                       (let [res-t (cond
-                                                     (r/Nil? t) (or default-t r/-nil)
-                                                     :else (apply nth 
-                                                                  (:types t)
-                                                                  (:val num-t) 
-                                                                  (when default-t
-                                                                    [default-t])))]
-                                         (if res-t
-                                           res-t
-                                           (u/tc-delayed-error (str "Cannot get index " (:val num-t)
-                                                                    " from type " (prs/unparse-type t))))))))
+                                       (if-let [res-t (cond
+                                                        (r/Nil? t) (or default-t r/-nil)
+                                                        ; nil on out-of-bounds and no default-t
+                                                        :else (nth (:types t) (:val num-t) default-t))]
+                                         res-t
+                                         (u/int-error (str "Cannot get index " (:val num-t)
+                                                           " from type " (prs/unparse-type t)))))))
                             (let [nnth (:val num-t)
                                   target-o (ret-o (expr-type te))
                                   default-o (when de
