@@ -274,7 +274,7 @@
          * '*]
      `(do
         (ann ~name ~'Any)
-        (ann ~fn-name ~`(~All [[~m :kind (~TFn [[~x :variance :covariant]] ~Any)]]
+        (ann ~fn-name ~`(~All [[~m :< (~TFn [[~x :variance :covariant]] ~Any)]]
                             [(~All ~[x y]
                                  [(~m ~x) [~x ~-> (~m ~y)] ~-> (~m ~y)])
                              (~All [~x]
@@ -423,7 +423,7 @@
 
 ;possibly missing zero and plus
 (def-alias AnyMonad 
-  (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
+  (TFn [[m :< (TFn [[x :variance :covariant]] Any)]]
     '{:m-bind (All [x y]
                 [(m x) [x -> (m y)] -> (m y)])
       :m-result (All [x]
@@ -435,7 +435,7 @@
 
 ;always missing zero and plus
 (def-alias Monad 
-  (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
+  (TFn [[m :< (TFn [[x :variance :covariant]] Any)]]
     '{:m-bind (All [x y]
                 [(m x) [x -> (m y)] -> (m y)])
       :m-result (All [x]
@@ -445,7 +445,7 @@
 
 ;missing plus
 (def-alias MonadZero
-  (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
+  (TFn [[m :< (TFn [[x :variance :covariant]] Any)]]
     '{:m-bind (All [x y]
                 [(m x) [x -> (m y)] -> (m y)])
       :m-result (All [x]
@@ -455,7 +455,7 @@
 
 ;missing zero
 (def-alias MonadPlus
-  (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
+  (TFn [[m :< (TFn [[x :variance :covariant]] Any)]]
     '{:m-bind (All [x y]
                 [(m x) [x -> (m y)] -> (m y)])
       :m-result (All [x]
@@ -466,7 +466,7 @@
 
 ;all four operations
 (def-alias MonadPlusZero
-  (TFn [[m :kind (TFn [[x :variance :covariant]] Any)]]
+  (TFn [[m :< (TFn [[x :variance :covariant]] Any)]]
     '{:m-bind (All [x y]
                 [(m x) [x -> (m y)] -> (m y)])
       :m-result (All [x]
@@ -844,7 +844,7 @@
       combined-monad#)))
 
 (ann maybe-t
-     (All [[m :kind (TFn [[x :variance :covariant]] Any)]]
+     (All [[m :< (TFn [[x :variance :covariant]] Any)]]
        (Fn 
          [(AnyMonad m) -> (AnyMonad (TFn [[y :variance :covariant]]
                                          (m (U nil y))))]
@@ -923,7 +923,7 @@
   )
 
 (ann sequence-t
-     (All [[m :kind (TFn [[x :variance :covariant]] Any)]]
+     (All [[m :< (TFn [[x :variance :covariant]] Any)]]
        (Fn 
          [(MonadPlusZero m) -> (MonadPlusZero (TFn [[x :variance :covariant]]
                                                 (m (Seqable x))))]
@@ -969,7 +969,7 @@
       ])))
 
 (ann state-t
-     (All [[m :kind (TFn [[x :variance :covariant]] Any)]]
+     (All [[m :< (TFn [[x :variance :covariant]] Any)]]
        (Fn 
          [(MonadPlusZero m) -> (All [s]
                                  (MonadPlusZero (TFn [[x :variance :covariant]]

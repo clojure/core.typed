@@ -16,6 +16,7 @@
              [object-rep :as obj]
              [fold-default]
              [name-env :as nme-env]
+             [subst]
              [rclass-env :as rcls]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -54,26 +55,41 @@ Reversible [[[a :variance :covariant]]
 
 IMeta [[[a :variance :covariant]]]
 
-IPersistentCollection [[[a :variance :covariant]]
+IPersistentCollection [[[a :variance :covariant]
+                        #_[conj-arg :variance :covariant
+                         :< (TFn [[x :variance :covariant]] Any)]
+                        #_[conj-res :variance :covariant
+                         :< (Rec [c]
+                              (TFn [[x :variance :covariant]] 
+                                (IPersistentCollection 
+                                  Any 
+                                  (TFn [[x :variance :covariant]] Any) 
+                                  c)))]
+                        ]
                        :replace
                        {Seqable (Seqable a)}]
-;                        [conj-arg :variance :covariant
-;                         :kind (TFn [[x :variance :covariant]] Any)]
-;                        [conj-res :variance :covariant
-;                         :kind (TFn [[x :variance :covariant]] Any)
-;                         :< (TFn [[x :variance :covariant]] (IPersistentCollection Any conj-arg conj-res))]]]
 
 ISeq [[[a :variance :covariant]]
       :replace
       {Seqable (Seqable a)
-       IPersistentCollection (IPersistentCollection a)}]
+       IPersistentCollection (IPersistentCollection 
+                               a
+                               #_(TFn [[x :variance :covariant]]
+                                 x)
+                               #_(TFn [[x :variance :covariant]]
+                                 (ISeq x)))}]
 
 clojure.lang.ChunkBuffer [[[a :variance :invariant]]]
 
 clojure.lang.IChunkedSeq [[[a :variance :covariant]]
                           :replace
                           {Seqable (Seqable a)
-                           IPersistentCollection (IPersistentCollection a)
+                           IPersistentCollection (IPersistentCollection 
+                                                   a
+                                                   #_(TFn [[x :variance :covariant]]
+                                                        x)
+                                                   #_(TFn [[x :variance :covariant]]
+                                                        (clojure.lang.IChunkedSeq x)))
                            ISeq (ISeq a)}]
 
 clojure.lang.Indexed [[[a :variance :covariant]]]
@@ -87,7 +103,12 @@ ILookup [[[a :variance :covariant]
 
 IPersistentSet [[[a :variance :covariant]]
                 :replace
-                {IPersistentCollection (IPersistentCollection a)
+                {IPersistentCollection (IPersistentCollection 
+                                         a
+                                         #_(TFn [[x :variance :covariant]]
+                                              x)
+                                         #_(TFn [[x :variance :covariant]]
+                                              (IPersistentSet x)))
                  Seqable (Seqable a)}]
 
 APersistentSet [[[a :variance :covariant]]
@@ -95,7 +116,12 @@ APersistentSet [[[a :variance :covariant]]
                 {Seqable (Seqable a)
                  IFn [Any -> (U a nil)]
                  AFn [Any -> (U a nil)]
-                 IPersistentCollection (IPersistentCollection a)
+                 IPersistentCollection (IPersistentCollection 
+                                         a
+                                         #_(TFn [[x :variance :covariant]]
+                                              x)
+                                         #_(TFn [[x :variance :covariant]]
+                                              (APersistentSet x)))
                  IPersistentSet (IPersistentSet a)}]
 
 PersistentHashSet [[[a :variance :covariant]]
@@ -105,7 +131,12 @@ PersistentHashSet [[[a :variance :covariant]]
                     IFn [Any -> (U a nil)]
                     AFn [Any -> (U a nil)]
                     IPersistentSet (IPersistentSet a)
-                    IPersistentCollection (IPersistentCollection a)
+                    IPersistentCollection (IPersistentCollection 
+                                            a
+                                            #_(TFn [[x :variance :covariant]]
+                                                 x)
+                                            #_(TFn [[x :variance :covariant]]
+                                                 (PersistentHashSet x)))
                     IMeta (IMeta Any)}]
 
 PersistentTreeSet [[[a :variance :covariant]]
@@ -116,7 +147,12 @@ PersistentTreeSet [[[a :variance :covariant]]
                     IFn [Any -> (U a nil)]
                     AFn [Any -> (U a nil)]
                     IPersistentSet (IPersistentSet a)
-                    IPersistentCollection (IPersistentCollection a)
+                    IPersistentCollection (IPersistentCollection
+                                            a
+                                            #_(TFn [[x :variance :covariant]]
+                                                 x)
+                                            #_(TFn [[x :variance :covariant]]
+                                                 (PersistentTreeSet x)))
                     IMeta (IMeta Any)}]
 
 IMapEntry [[[a :variance :covariant]
@@ -125,7 +161,12 @@ IMapEntry [[[a :variance :covariant]
 Associative [[[a :variance :covariant]
               [b :variance :covariant]]
              :replace
-             {IPersistentCollection (IPersistentCollection Any)
+             {IPersistentCollection (IPersistentCollection 
+                                      Any
+                                      #_(TFn [[x :variance :covariant]]
+                                           Any)
+                                      #_(TFn [[x :variance :covariant]]
+                                           (Associative Any Any)))
               Seqable (Seqable Any)
               ILookup (ILookup a b)}]
 
@@ -178,26 +219,49 @@ Associative [[[a :variance :covariant]
 IPersistentMap [[[a :variance :covariant]
                  [b :variance :covariant]]
                 :replace
-                {IPersistentCollection (IPersistentCollection (IMapEntry a b))
+                {IPersistentCollection (IPersistentCollection 
+                                         (IMapEntry a b)
+                                         #_(TFn [[x :variance :covariant
+                                                :< (U nil (IMapEntry Any Any))]]
+                                              x)
+                                         #_(All [a1 b1]
+                                           (TFn [[x :variance :covariant
+                                                  :< (U nil (IMapEntry a1 b1))]]
+                                                (IPersistentMap a1 b1))))
                  Seqable (Seqable (IMapEntry a b))
                  ILookup (ILookup a b)
                  Associative (Associative a b)}]
 
 ASeq [[[a :variance :covariant]]
       :replace
-      {IPersistentCollection (IPersistentCollection a)
+      {IPersistentCollection (IPersistentCollection 
+                               a
+                               #_(TFn [[x :variance :covariant]]
+                                    x)
+                               #_(TFn [[x :variance :covariant]]
+                                    (ASeq x)))
        Seqable (Seqable a)
        ISeq (ISeq a)
        IMeta (IMeta Any)}]
 
 IPersistentStack [[[a :variance :covariant]]
                   :replace
-                  {IPersistentCollection (IPersistentCollection a)
+                  {IPersistentCollection (IPersistentCollection 
+                                           a
+                                           #_(TFn [[x :variance :covariant]]
+                                                x)
+                                           #_(TFn [[x :variance :covariant]]
+                                                (IPersistentStack x)))
                    Seqable (Seqable a)}]
 
 IPersistentVector [[[a :variance :covariant]]
                    :replace
-                   {IPersistentCollection (IPersistentCollection a)
+                   {IPersistentCollection (IPersistentCollection 
+                                            a
+                                            #_(TFn [[x :variance :covariant]]
+                                                 x)
+                                            #_(TFn [[x :variance :covariant]]
+                                                 (IPersistentVector x)))
                     Seqable (Seqable a)
                     Reversible (Reversible a)
                     IPersistentStack (IPersistentStack a)
@@ -208,7 +272,15 @@ IPersistentVector [[[a :variance :covariant]]
 APersistentMap [[[a :variance :covariant] 
                  [b :variance :covariant]]
                 :replace
-                {IPersistentCollection (IPersistentCollection (IMapEntry a b))
+                {IPersistentCollection (IPersistentCollection 
+                                         (IMapEntry a b)
+                                         #_(TFn [[x :variance :covariant
+                                                :< (U nil (IMapEntry Any Any))]]
+                                              x)
+                                         #_(All [a1 b1]
+                                           (TFn [[x :variance :covariant
+                                                  :< (U nil (IMapEntry a1 b1))]]
+                                             (APersistentMap a1 b1))))
                  IPersistentMap (IPersistentMap a b)
                  Seqable (Seqable (IMapEntry a b))
                  IFn (All [d]
@@ -221,7 +293,15 @@ APersistentMap [[[a :variance :covariant]
 PersistentHashMap [[[a :variance :covariant] 
                     [b :variance :covariant]]
                    :replace
-                   {IPersistentCollection (IPersistentCollection (IMapEntry a b))
+                   {IPersistentCollection (IPersistentCollection 
+                                            (IMapEntry a b)
+                                            #_(TFn [[x :variance :covariant
+                                                   :< (U nil (IMapEntry Any Any))]]
+                                                 x)
+                                            #_(All [a1 b1]
+                                                 (TFn [[x :variance :covariant
+                                                        :< (U nil (IMapEntry a1 b1))]]
+                                                      (PersistentHashMap a1 b1))))
                     IPersistentMap (IPersistentMap a b)
                     APersistentMap (APersistentMap a b)
                     Seqable (Seqable (IMapEntry a b))
@@ -235,7 +315,12 @@ PersistentHashMap [[[a :variance :covariant]
 
 APersistentVector [[[a :variance :covariant]]
                    :replace
-                   {IPersistentCollection (IPersistentCollection a)
+                   {IPersistentCollection (IPersistentCollection 
+                                            a
+                                            #_(TFn [[x :variance :covariant]]
+                                                 x)
+                                            #_(TFn [[x :variance :covariant]]
+                                                 (APersistentVector x)))
                     Seqable (Seqable a)
                     IPersistentVector (IPersistentVector a)
                     Reversible (Reversible a)
@@ -248,7 +333,12 @@ APersistentVector [[[a :variance :covariant]]
 PersistentVector [[[a :variance :covariant]]
                   :replace
                   {APersistentVector (APersistentVector a)
-                   IPersistentCollection (IPersistentCollection a)
+                   IPersistentCollection (IPersistentCollection 
+                                           a
+                                           #_(TFn [[x :variance :covariant]]
+                                                x)
+                                           #_(TFn [[x :variance :covariant]]
+                                                (PersistentVector x)))
                    Seqable (Seqable a)
                    IPersistentVector (IPersistentVector a)
                    Reversible (Reversible a)
@@ -262,7 +352,10 @@ PersistentVector [[[a :variance :covariant]]
 
 Cons [[[a :variance :covariant]]
       :replace
-      {IPersistentCollection (IPersistentCollection a)
+      {IPersistentCollection (IPersistentCollection 
+                               a
+                               #_(TFn [[x :variance :covariant]] x)
+                               #_(TFn [[x :variance :covariant]] (Cons x)))
        ASeq (ASeq a)
        Seqable (Seqable a)
        ISeq (ISeq a)
@@ -270,13 +363,19 @@ Cons [[[a :variance :covariant]]
 
 IPersistentList [[[a :variance :covariant]]
                  :replace
-                 {IPersistentCollection (IPersistentCollection a)
+                 {IPersistentCollection (IPersistentCollection
+                                          a
+                                          #_(TFn [[x :variance :covariant]] x)
+                                          #_(TFn [[x :variance :covariant]] (IPersistentList x)))
                   Seqable (Seqable a)
                   IPersistentStack (IPersistentStack a)}]
 
 PersistentList [[[a :variance :covariant]]
                 :replace
-                {IPersistentCollection (IPersistentCollection a)
+                {IPersistentCollection (IPersistentCollection
+                                          a
+                                          #_(TFn [[x :variance :covariant]] x)
+                                          #_(TFn [[x :variance :covariant]] (PersistentList x)))
                  ASeq (ASeq a)
                  Seqable (Seqable a)
                  IPersistentList (IPersistentList a)
@@ -344,7 +443,10 @@ LazySeq [[[a :variance :covariant]]
          {Seqable (Seqable a)
           ISeq (ISeq a)
           IMeta (IMeta Any)
-          IPersistentCollection (IPersistentCollection a)}]
+          IPersistentCollection (IPersistentCollection
+                                  a
+                                  #_(TFn [[x :variance :covariant]] x)
+                                  #_(TFn [[x :variance :covariant]] (LazySeq x)))}]
 
 ; Hack for Seqable things. Not needed if Seqable was a protocol.
 
@@ -364,7 +466,7 @@ java.lang.String [[]
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Initial type aliases
 
-; Note: All mappings here *must* be in set c.c.t/-core-aliases
+; Note: All mappings here *must* be in set c.c.t/-base-aliases
 
 (def init-alias-env
   (h/alias-mappings
@@ -374,6 +476,17 @@ clojure.core.typed/AnyPrimitive (U char int short boolean byte short long float 
 
 clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] (Atom x x))
 clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
+
+clojure.core.typed/Id (TFn [[x :variance :covariant]] x)
+clojure.core.typed/Coll (TFn [[x :variance :covariant]]
+                             (IPersistentCollection x 
+                                                    #_(TFn [[x :variance :covariant]] x)
+                                                    #_(Rec [c]
+                                                      (TFn [[x :variance :covariant]] 
+                                                         (IPersistentCollection 
+                                                           Any 
+                                                           (TFn [[x :variance :covariant]] Any) 
+                                                           c)))))
     ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -389,11 +502,12 @@ clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
 
 ;;for parsing init-var-env
 ; must be after init-alias-env def as vars are interned there
-(when (resolve 'Option)
-  (ns-unmap *ns* 'Option)
-  (ns-unmap *ns* 'AnyInteger))
-(refer 'clojure.core.typed :only '[Option AnyInteger])
-(nme-env/reset-name-env! init-alias-env)
+(let [interns '[Option AnyInteger Id Coll]]
+  (when (some resolve interns)
+    (doseq [i interns]
+      (ns-unmap *ns* i)))
+  (refer 'clojure.core.typed :only interns)
+  (nme-env/reset-name-env! init-alias-env))
 
 (defn ^:private count-type []
   (r/make-FnIntersection
@@ -482,6 +596,7 @@ clojure.core/boolean [Any -> boolean]
 clojure.core/filter (All [x y]
                            (Fn
                              [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (LazySeq y)]
+                             [[x -> Any :filters {:then (! y 0)}] (Option (Seqable x)) -> (LazySeq (I x (Not y)))]
                              [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]))
 ;clojure.core/filterv (All [x y]
 ;                          (Fn
@@ -701,18 +816,18 @@ clojure.core/repeat (All [x]
                              [AnyInteger x -> (ISeq x)]))
 
 ;clojure.core/every? (All [x y] 
-;                         (Fn [[x -> Any :filters {:then (is y 0)}] (IPersistentCollection x) -> Boolean
-;                              :filters {:then (is (IPersistentCollection (I x y)) 1)}]
+;                         (Fn [[x -> Any :filters {:then (is y 0)}] (Coll x) -> Boolean
+;                              :filters {:then (is (Coll (I x y)) 1)}]
 ;                             ; argument could be nil
-;                             [[x -> Any :filters {:then (is y 0)}] (U nil (IPersistentCollection x)) -> Boolean
-;                              :filters {:then (is (U nil (IPersistentCollection (I x y))) 1)}]
+;                             [[x -> Any :filters {:then (is y 0)}] (U nil (Coll x)) -> Boolean
+;                              :filters {:then (is (U nil (Coll (I x y))) 1)}]
 ;                             [[x -> Any] (U nil (Seqable x)) -> Boolean]))
-clojure.core/every? (All [x y] 
-                         (Fn [[x -> Any :filters {:then (is y 0)}] (IPersistentCollection x) -> Boolean
-                              :filters {:then (is (IPersistentCollection y) 1)}]
+clojure.core/every? (All [x y]
+                         (Fn [[x -> Any :filters {:then (is y 0)}] (Coll x) -> Boolean
+                              :filters {:then (is (Coll y) 1)}]
                              ; argument could be nil
-                             [[x -> Any :filters {:then (is y 0)}] (U nil (IPersistentCollection x)) -> Boolean
-                              :filters {:then (is (U nil (IPersistentCollection y)) 1)}]
+                             [[x -> Any :filters {:then (is y 0)}] (U nil (Coll x)) -> Boolean
+                              :filters {:then (is (U nil (Coll y)) 1)}]
                              [[x -> Any] (U nil (Seqable x)) -> Boolean]))
 
 clojure.core/range
@@ -727,11 +842,10 @@ clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
                             [Object -> Class :object {:id 0 :path [Class]}]
                             [Any -> (Option Class) :object {:id 0 :path [Class]}])
 
-; Also applies to the other seq functions.
 clojure.core/seq (All [x]
                         (Fn 
-                          [(I (IPersistentCollection x) (CountRange 1)) -> (I (ISeq x) (CountRange 1))]
-                          [(Option (IPersistentCollection x)) -> (Option (I (ISeq x) (CountRange 1)))
+                          [(I (Coll x) (CountRange 1)) -> (I (ISeq x) (CountRange 1))]
+                          [(Option (Coll x)) -> (Option (I (ISeq x) (CountRange 1)))
                            :filters {:then (& (is (CountRange 1) 0)
                                               (! nil 0))
                                      :else (| (is nil 0)
@@ -750,7 +864,7 @@ clojure.core/seq (All [x]
 ;                      [(Seqable x :count (CountRange 1) :to-seq sfn) -> (sfn x)]
 ;                      [(Seqable x :count AnyCountRange :to-seq sfn) -> (U nil (sfn x))]
 
-clojure.core/empty? (Fn [(Option (IPersistentCollection Any)) -> boolean
+clojure.core/empty? (Fn [(Option (Coll Any)) -> boolean
                           :filters {:then (| (is (ExactCount 0) 0)
                                              (is nil 0))
                                     :else (is (CountRange 1) 0)}]
@@ -864,7 +978,7 @@ clojure.core/butlast
 
 clojure.core/next
      (All [x]
-          (Fn [(Option (IPersistentCollection x)) -> (Option (I (ISeq x) (CountRange 1)))
+          (Fn [(Option (Coll x)) -> (Option (I (ISeq x) (CountRange 1)))
                :filters {:then (& (is (CountRange 2) 0)
                                   (! nil 0))
                          :else (| (is (CountRange 0 1) 0)
@@ -873,29 +987,14 @@ clojure.core/next
 
 
 clojure.core/conj
-;     (All [x
-;           [e :> x]
-;           [Arg :kind (TFn [[x :variance :covariant]] Any)]
-;           [Res :kind (TFn [[x :variance :covariant]] Any)]
-;           [p :< (IPersistentCollection x a c)]]
-;          (Fn [(IPersistentCollection e a c) (Arg e) (Arg e) * -> (Res e)]
-;              [nil x x * -> (clojure.lang.IPersistentList x)]))
-;
-;     (IPersistentMap [[k :variance :covariant]
-;                      [v :variance :covariant]]
-;         :extends
-;         (IPersistentCollection (IMapEntry k v)
-;                                (TFn [[x :variance :covariant 
-;                                         :< (IMapEntry Any Any)]]
-;                                  (U nil x))
-;                                ; should call infer on TApps wrapped in Poly
-;                                (All [k1 v1]
-;                                  (TFn [[x :variance :covariant 
-;                                           :< (IMapEntry k1 v1)]]
-;                                    (IPersistentMap k1 v1)))
-;                                ;empty
-;                                (IPersistentMap Nothing Nothing)))
-;                               
+;     (All [e
+;           [Arg :< (TFn [[x :variance :covariant]] Any)]
+;           [Res :< (TFn [[x :variance :covariant]]
+;                     (Coll Any))]]
+;          (Fn [(clojure.lang.IPersistentCollection e Arg Res) (Arg e) (Arg e) * -> (Res e)]
+;              [nil e e * -> (clojure.lang.PersistentList e)]))
+
+
      (All [x y]
           (Fn [(IPersistentVector x) x x * -> (IPersistentVector x)]
               [(APersistentMap x y)
@@ -907,7 +1006,7 @@ clojure.core/conj
               [(IPersistentSet x) x x * -> (IPersistentSet x)]
               [(ISeq x) x x * -> (ASeq x)]
               [nil x x * -> (clojure.lang.PersistentList x)]
-              [(IPersistentCollection Any) Any Any * -> (IPersistentCollection Any)]
+              [(Coll Any) Any Any * -> (Coll Any)]
               ))
 
 ; IPersistentCollection [[x :variance :covariant]

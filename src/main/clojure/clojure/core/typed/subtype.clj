@@ -157,11 +157,11 @@
               b (c/Poly-body* names t)]
           (subtype s b))
 
-        (and (r/TApp? s)
-             (r/TApp? t))
-        (if (subtype-TApp? s t)
-          *sub-current-seen*
-          (fail! s t))
+;        (and (r/TApp? s)
+;             (r/TApp? t))
+;        (if (subtypeA*? (fully-resolve-type s) (fully-resolve-type t))
+;          *sub-current-seen*
+;          (fail! s t))
 
         (r/TApp? s)
         (let [^TApp s s]
@@ -242,6 +242,24 @@
         (and (r/TopFunction? t)
              (r/FnIntersection? s))
         *sub-current-seen*
+
+        ;       B <: A
+        ;_______________________________
+        ; (Not A) <: (Not B)
+        (every? r/NotType? [s t])
+        (if (subtype? (:type t) (:type s))
+          *sub-current-seen*
+          (fail! s t))
+
+        ;  A <!: B  A is not free  B is not free
+        ;________________________________________
+        ; A <: (Not B)
+;   Should this also require (fv s) U (fv t) to be empty?
+        (r/NotType? t)
+        (if (and (not-any? (some-fn r/B? r/F?) [s (:type t)])
+                 (not (subtype? s (:type t))))
+          *sub-current-seen*
+          (fail! s t))
 
         (and (r/HeterogeneousVector? s)
              (r/HeterogeneousVector? t))
@@ -574,6 +592,7 @@
   {:pre [(r/TypeFn? tfn)
          (r/TApp? ltapp)
          (r/TApp? rtapp)]}
+  ;(prn "subtype-TApp")
   (every? (fn [[v l r]]
             (case v
               :covariant (subtypeA*? *sub-current-seen* l r)
@@ -582,7 +601,7 @@
                               (subtypeA*? *sub-current-seen* r l))))
           (map vector (.variances tfn) (.rands ltapp) (.rands rtapp))))
 
-(defmulti subtype-TApp? (fn [^TApp S ^TApp T] 
+(defmulti subtype-TApp? (fn [^TApp S ^TApp T]
                           {:pre [(r/TApp? S)
                                  (r/TApp? T)]}
                           [(class (.rator S)) (class (.rator T))
@@ -606,6 +625,12 @@
   [S T]
   (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
     (subtype-TApp? (update-in S [:rator] c/resolve-Name) T)))
+
+(defmethod subtype-TApp? [Name Name false]
+  [S T]
+  (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
+    (subtype-TApp? (update-in S [:rator] c/resolve-Name) 
+                   (update-in T [:rator] c/resolve-Name))))
 
 ; for [Name Name false]
 (prefer-method subtype-TApp? 
@@ -635,15 +660,23 @@
 
 (defn subtype-TypeFn
   [^TypeFn S ^TypeFn T]
-  (if (and (= (.nbound S) (.nbound T))
-           (= (.variances S) (.variances T))
-           (= (.bbnds S) (.bbnds T))
-           (let [names (repeatedly (.nbound S) gensym)
-                 sbody (c/TypeFn-body* names S)
-                 tbody (c/TypeFn-body* names T)]
-             (subtype? sbody tbody)))
-    *sub-current-seen*
-    (fail! S T)))
+  (let [names (repeatedly (.nbound S) gensym)
+        sbnds (c/TypeFn-bbnds* names S)
+        tbnds (c/TypeFn-bbnds* names T)
+        sbody (c/TypeFn-body* names S)
+        tbody (c/TypeFn-body* names T)]
+    (if (and (= (.nbound S) (.nbound T))
+             (= (.variances S) (.variances T))
+             (every? identity
+                     (map (fn [lbnd rbnd]
+                            (and (subtype? (:upper-bound lbnd) (:upper-bound rbnd))
+                                 (subtype? (:lower-bound rbnd) (:lower-bound lbnd))
+                                 (subtype? (:lower-bound lbnd) (:upper-bound lbnd))
+                                 (subtype? (:lower-bound rbnd) (:upper-bound rbnd))))
+                          sbnds tbnds))
+             (subtype? sbody tbody))
+      *sub-current-seen*
+      (fail! S T))))
 
 (defn subtype-PrimitiveArray
   [^PrimitiveArray s 
@@ -762,9 +795,9 @@
 (defn subtype-RClass
   [{polyl? :poly? :as s}
    {polyr? :poly? :as t}]
-  ;(prn "subtype-RClass" (prs/unparse-type s) (prs/unparse-type t))
   (let [scls (r/RClass->Class s)
         tcls (r/RClass->Class t)]
+    ;(prn "subtype RClass" (prs/unparse-type s) (prs/unparse-type t))
     (cond
       (or
         ; use java subclassing
@@ -787,7 +820,7 @@
         (some #(when (r/RClass? %)
                  (and (= (:the-class t) (:the-class %))
                       (subtype-RClass-common-base % t)))
-              (c/RClass-supers* s)))
+              (map c/fully-resolve-type (c/RClass-supers* s))))
       *sub-current-seen*
 
       ;try each ancestor

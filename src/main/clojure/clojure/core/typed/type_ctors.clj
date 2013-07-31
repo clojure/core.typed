@@ -33,6 +33,9 @@
                       'unparse-type)]
     (assert (var? v) "unparse-type unbound")
     v))
+
+  (defn- unparse-type [t]
+    (@(unparse-type-var) t))
   )
 
 (declare Un make-Union)
@@ -221,10 +224,10 @@
          (not (r/Union? t2))]
    :post [(r/Type? %)]}
   (let [subtype? @(subtype?-var)]
-    ;(prn "intersect" t1 t2)
+    ;(prn "intersect" (map unparse-type [t1 t2]))
     (if-let [hit (@intersect-cache (set [(r/type-id t1) (r/type-id t2)]))]
       (do
-        ;(prn "hit" hit)
+        ;(prn "intersect hit" (unparse-type hit))
         (p :intersect-cache-hit)
         hit)
       (let [_ (p :intersect-cache-miss)
@@ -255,12 +258,14 @@
                     (RClass-of (:the-class t1) args)))
 
                 (not (overlap t1 t2)) bottom
+
                 (subtype? t1 t2) t1
                 (subtype? t2 t1) t2
                 :else (do
                         #_(prn "failed to eliminate intersection" (@(unparse-type-var) (make-Intersection [t1 t2])))
                         (make-Intersection [t1 t2])))]
         (swap! intersect-cache assoc (set [(r/type-id t1) (r/type-id t2)]) t)
+        ;(prn "intersect miss" (unparse-type t))
         t))))
 
 (t/ann ^:nocheck flatten-intersections [(U nil (Seqable TCType)) -> (Seqable TCType)])
@@ -303,21 +308,29 @@
                   ; normalise (I t1 t2 (U t3 t4))
                   ; to (U (I t1 t2) (I t1 t2 t3) (U t1 t2 t4))
                   :else (let [{unions true non-unions false} (group-by r/Union? ts)
+                              ;_ (prn "unions" (map unparse-type unions))
+                              ;_ (prn "non-unions" (map unparse-type non-unions))
                               ;intersect all the non-unions to get a possibly-nil type
                               intersect-non-unions 
                               (p :intersect-in-In (when (seq non-unions)
                                                     (reduce intersect non-unions)))
                               ;if we have an intersection above, use it to update each
                               ;member of the unions we're intersecting
-                              intersect-union-ts (if intersect-non-unions
-                                                   (reduce (fn [acc union-m]
-                                                             (conj acc (intersect intersect-non-unions union-m)))
-                                                           #{} (flatten-unions unions))
-                                                   (set (flatten-unions unions)))]
-                          ;make a union of the above types
-                          (apply Un (set/union intersect-union-ts 
-                                               (set (when intersect-non-unions
-                                                      #{intersect-non-unions})))))))]
+                              flat-unions (set (flatten-unions unions))
+                              intersect-union-ts (cond 
+                                                   intersect-non-unions
+                                                   (if (seq flat-unions)
+                                                     (reduce (fn [acc union-m]
+                                                               (conj acc (intersect intersect-non-unions union-m)))
+                                                             #{} flat-unions)
+                                                     #{intersect-non-unions})
+
+                                                   :else flat-unions)
+                              _ (assert (every? r/Type? intersect-union-ts)
+                                        intersect-union-ts)
+                              ;_ (prn "intersect-union-ts" (map unparse-type intersect-union-ts))
+                              ]
+                          (apply Un intersect-union-ts))))]
       ;(swap! In-cache assoc (set types) res)
       #_(prn 'IN res (class res))
       res))
@@ -339,10 +352,13 @@
   ([names variances poly? the-class replacements]
    (RClass* names variances poly? the-class replacements #{}))
   ([names variances poly? the-class replacements unchecked-ancestors]
+   (RClass* names variances poly? the-class replacements unchecked-ancestors (repeat (count names) r/no-bounds)))
+  ([names variances poly? the-class replacements unchecked-ancestors bnds]
   {:pre [(every? symbol? names)
          (every? r/variance? variances)
          (= (count variances) (count poly?))
          (every? r/Type? poly?)
+         (every? r/Bounds? bnds)
          (symbol? the-class)]
    :post [((some-fn r/TypeFn? r/RClass?) %)]}
    (let [repl (into {} (for [[k v] replacements]
@@ -350,7 +366,7 @@
          uncked (set (for [u unchecked-ancestors]
                        (abstract-many names u)))]
      (if (seq variances)
-       (TypeFn* names variances (repeat (count names) r/no-bounds) (r/RClass-maker variances poly? the-class repl uncked))
+       (TypeFn* names variances bnds (r/RClass-maker variances poly? the-class repl uncked))
        (r/RClass-maker nil nil the-class repl uncked)))))
 
 (t/ann ^:nocheck isa-DataType? [(U Symbol Class) -> Any])
@@ -407,6 +423,7 @@
          rc ((some-fn dtenv/get-datatype rcls/get-rclass) sym)
          args (when (r/TypeFn? rc)
                 ;instantiate with Any, could be more general if respecting variance
+                ;FIXME higher rank types? should respect TFn bounds.
                 (repeat (.nbound ^TypeFn rc) r/-any))]
      (RClass-of sym args))))
 
@@ -655,9 +672,9 @@
   (let [unparse-type @(unparse-type-var)
         ^TypeFn rator (-resolve rator)
         _ (assert (r/TypeFn? rator) (unparse-type rator))]
-    (assert (= (count rands) (.nbound rator))
-            (u/error-msg "Wrong number of arguments provided to type function"
-                         (unparse-type rator)))
+    (when-not (= (count rands) (.nbound rator))
+      (u/int-error (str "Wrong number of arguments (" (count rands) ", expected " (:nbound rator) ") provided to type function "
+                        (unparse-type rator) (mapv unparse-type rands))))
     (instantiate-typefn rator rands)))
 
 (t/ann ^:nocheck resolve-App [App -> TCType])
@@ -679,11 +696,12 @@
                                       (str (:line vs/*current-env*) ": "))
                                     "Cannot apply non-polymorphic type " (unparse-type rator)))))))
 
-(declare resolve-Name unfold)
+(declare resolve-Name unfold fully-resolve-type)
 
 (t/ann -resolve [TCType -> TCType])
 (defn -resolve [ty]
-  {:pre [(r/AnyType? ty)]}
+  {:pre [(r/AnyType? ty)]
+   :post [(r/AnyType? ty)]}
   (cond 
     (r/Name? ty) (resolve-Name ty)
     (r/Mu? ty) (unfold ty)
@@ -693,11 +711,11 @@
 
 (t/ann requires-resolving? [TCType -> Any])
 (defn requires-resolving? [ty]
-  {:pre [(r/Type? ty)]}
+  {:pre [(r/AnyType? ty)]}
   (or (r/Name? ty)
       (r/App? ty)
       (and (r/TApp? ty)
-           (not (r/F? (.rator ^TApp ty))))
+           (not (r/F? (fully-resolve-type (.rator ^TApp ty)))))
       (r/Mu? ty)))
 
 (t/ann resolve-Name [Name -> TCType])
@@ -851,6 +869,37 @@
            (r/Value? t2))
       eq
 
+      (r/Union? t1)
+      (boolean 
+        (some #(overlap % t2) (.types ^Union t1)))
+
+      (r/Union? t2)
+      (boolean 
+        (some #(overlap t1 %) (.types ^Union t2)))
+
+      (r/Intersection? t1)
+      (every? #(overlap % t2) (.types ^Intersection t1))
+
+      (r/Intersection? t2)
+      (every? #(overlap t1 %) (.types ^Intersection t2))
+
+      (and (r/NotType? t1)
+           (r/NotType? t2))
+      ;FIXME what if both are Not's?
+      true
+
+      ; eg. (overlap (Not Number) Integer) => false
+      ;     (overlap (Not Integer) Number) => true
+      ;     (overlap (Not y) x) => true
+      (r/NotType? t1)
+      (let [neg-type (fully-resolve-type (:type t1))]
+        (or (some (some-fn r/B? r/F?) [neg-type t2])
+            (not (overlap neg-type t2))))
+
+      (r/NotType? t2)
+      ;switch arguments to catch above case
+      (overlap t2 t1)
+
       ;if both are Classes, and at least one isn't an interface, then they must be subtypes to have overlap
 ;      (and (r/RClass? t1)
 ;           (r/RClass? t2)
@@ -894,20 +943,6 @@
       (and (r/CountRange? t1)
            (r/CountRange? t2)) 
       (countrange-overlap? t1 t2)
-
-      (r/Union? t1)
-      (boolean 
-        (some #(overlap % t2) (.types ^Union t1)))
-
-      (r/Union? t2)
-      (boolean 
-        (some #(overlap t1 %) (.types ^Union t2)))
-
-      (r/Intersection? t1)
-      (every? #(overlap % t2) (.types ^Intersection t1))
-
-      (r/Intersection? t2)
-      (every? #(overlap t1 %) (.types ^Intersection t2))
 
       (and (r/HeterogeneousMap? t1)
            (r/HeterogeneousMap? t2)) 

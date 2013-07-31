@@ -9,7 +9,7 @@
              [name-env :as nmenv]
              [declared-kind-env :as kinds]))
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
-                                        Projection DottedPretype Function RClass App TApp
+                                        DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
@@ -107,7 +107,7 @@
 
 (defmethod frees [::any-var NotTypeFilter]
   [{:keys [type]}] 
-  (frees type))
+  (flip-variances (frees type)))
 
 (defmethod frees [::any-var ImpFilter]
   [{:keys [a c]}] 
@@ -170,13 +170,25 @@
                tfn (loop [rator rator]
                      (cond
                        (r/F? rator) (when-let [bnds (free-ops/free-with-name-bnds (.name ^F rator))]
-                                      (.higher-kind bnds))
-                       (r/Name? rator) (if (= nmenv/declared-name-type (@nmenv/TYPE-NAME-ENV (.id ^Name rator)))
-                                         (recur (kinds/get-declared-kind (.id ^Name rator)))
-                                         (recur (c/resolve-Name rator)))
+                                      ;assume upper/lower bound variance agree
+                                      (c/fully-resolve-type (:upper-bound bnds)))
+                       (r/Name? rator) (let [{:keys [id]} rator]
+                                         (cond
+                                           (= nmenv/declared-name-type (@nmenv/TYPE-NAME-ENV id))
+                                           (kinds/get-declared-kind id)
+
+                                           ; alter class introduces temporary declared kinds for
+                                           ; computing variance when referencing an RClass inside
+                                           ; its own definition.
+                                           (and (class? (resolve id))
+                                                (kinds/has-declared-kind? id))
+                                           (kinds/get-declared-kind id)
+
+                                           :else
+                                           (recur (c/resolve-Name rator))))
                        (r/TypeFn? rator) rator
                        :else (throw (Exception. (u/error-msg "NYI case " (class rator))))))
-               _ (assert (r/TypeFn? tfn))]
+               _ (assert (r/TypeFn? tfn) "First argument to TApp must be TypeFn")]
            (mapv (fn [[v arg-vs]]
                    (case v
                      :covariant arg-vs
@@ -205,6 +217,10 @@
 (defmethod frees [::any-var Extends]
   [{:keys [extends without]}] 
   (apply combine-frees (mapv frees (concat extends without))))
+
+(defmethod frees [::any-var NotType]
+  [{:keys [type]}] 
+  (frees type))
 
 (defmethod frees [::any-var Intersection]
   [{:keys [types]}] 
@@ -270,6 +286,10 @@
   (frees scope))
 
 (defmethod frees [::any-var Poly]
+  [{:keys [scope]}]
+  (frees scope))
+
+(defmethod frees [::any-var Mu]
   [{:keys [scope]}]
   (frees scope))
 

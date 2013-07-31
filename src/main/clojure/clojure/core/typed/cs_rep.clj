@@ -4,7 +4,7 @@
              [utils :as u]
              [type-rep :as r])
             [clojure.core.typed :as t])
-  (:import (clojure.lang IPersistentMap Symbol Seqable)
+  (:import (clojure.lang IPersistentMap IPersistentSet Symbol Seqable)
            (clojure.core.typed.type_rep Bounds F)))
 
 (t/ann-record t-subst [type :- r/TCType,
@@ -72,8 +72,7 @@
 (u/defrecord dcon [fixed rest]
   ""
   [(every? c? fixed)
-   (or (nil? rest)
-       (c? rest))])
+   ((some-fn nil? c?) rest)])
 
 (t/ann-record dcon-exact [fixed :- (Seqable c),
                           rest :- c])
@@ -102,26 +101,36 @@
   ""
   [((u/hash-c? symbol? dcon-c?) map)])
 
+(t/def-alias DelayedCheck
+  "A pair of types. The left type must be a subtype
+  to the right type at instantiation time."
+  '[r/TCType r/TCType])
+
+;  Delayed checks are subtype relationships t1 <: t2 that should be instantiated
+;  at the same time as bounds checking. t1 should be a subtype of t2 after instantiating
+;  them with the current substitution, otherwise constraint generation should fail.
+;  This is useful for types like (I a (Not b)) where it's too hard to use the expression
+;  to constrain the type variables.
 (t/ann-record cset-entry [fixed :- (IPersistentMap Symbol c),
                           dmap :- dmap,
-                          projections :- Any])
-(u/defrecord cset-entry [fixed dmap projections]
+                          delayed-checks :- (IPersistentSet DelayedCheck)])
+(u/defrecord cset-entry [fixed dmap delayed-checks]
   ""
   [((u/hash-c? symbol? c?) fixed)
    (dmap? dmap)
-   ((u/set-c? (u/hvector-c? (some-fn r/Type? r/Projection?)
-                            (some-fn r/Type? r/Projection?)))
-     projections)])
+   ((u/set-c? (u/hvector-c? r/Type? r/Type?))
+     delayed-checks)])
 
 (t/ann make-cset-entry (Fn [(IPersistentMap Symbol c) -> cset-entry]
                            [(IPersistentMap Symbol c) (U nil dmap) -> cset-entry]
-                           [(IPersistentMap Symbol c) (U nil dmap) Any -> cset-entry]))
+                           [(IPersistentMap Symbol c) (U nil dmap) 
+                            (U nil (IPersistentSet DelayedCheck)) -> cset-entry]))
 (defn make-cset-entry
   ([fixed] (make-cset-entry fixed nil nil))
   ([fixed dmap] (make-cset-entry fixed dmap nil))
-  ([fixed dmap projections] (->cset-entry fixed 
-                                          (or dmap (->dmap {}))
-                                          (or projections #{}))))
+  ([fixed dmap delayed-checks] (->cset-entry fixed
+                                             (or dmap (->dmap {}))
+                                             (or delayed-checks #{}))))
 
 ;; maps is a list of cset-entries, consisting of
 ;;    - functional maps from vars to c's
@@ -156,11 +165,3 @@
   (->cset [(->cset-entry (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
                          (->dmap {})
                          #{})]))
-
-(t/ann ^:nocheck empty-cset-projection [FreeBnds FreeBnds Any -> cset])
-(defn empty-cset-projection [X Y proj]
-  {:pre [(every? (u/hash-c? symbol? r/Bounds?) [X Y])]
-   :post [(cset? %)]}
-  (->cset [(->cset-entry (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
-                         (->dmap {})
-                         #{proj})]))

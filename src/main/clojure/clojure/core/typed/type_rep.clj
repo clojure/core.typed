@@ -190,13 +190,12 @@
 
 (u/ann-record Bounds [upper-bound :- (U nil TCType Scope)
                       lower-bound :- (U nil TCType Scope)
-                      higher-kind :- (U nil TypeFn)])
+                      higher-kind :- nil])
 (u/def-type Bounds [upper-bound lower-bound higher-kind]
   "A type bound or higher-kind bound on a variable"
-  [(some-fn (and (every? (some-fn Type? Scope?) [upper-bound lower-bound])
-                 (nil? higher-kind))
-            (and (every? nil? [upper-bound lower-bound])
-                 (TypeFn? higher-kind)))])
+  [(every? (some-fn Type? Scope?) [upper-bound lower-bound])
+   ;deprecated
+   (nil? higher-kind)])
 
 (u/ann-record B [idx :- Number])
 (u/def-type B [idx]
@@ -233,13 +232,6 @@
   (Type? (last (take (inc depth) (iterate #(and (Scope? %)
                                                 (:body %))
                                           scope)))))
-
-(u/def-type Projection [afn ts]
-  "Projects type variables as arguments to afn"
-  [(fn? afn)
-   (every? AnyType? ts)])
-
-(declare-type Projection)
 
 (u/ann-record RClass [variances :- (U nil (I (CountRange 1) (Seqable Variance)))
                       poly? :- (U nil (I (CountRange 1) (Seqable TCType)))
@@ -328,10 +320,6 @@
 
 (declare-type TypeFn)
 
-(t/ann tfn-bound [TypeFn -> Bounds])
-(defn tfn-bound [tfn]
-  (Bounds-maker nil nil tfn))
-
 ;FIXME actual-frees should be metadata. ie. it should not affect equality
 (u/ann-record Poly [nbound :- Number,
                     bbnds :- (U nil (Seqable Bounds)),
@@ -372,7 +360,7 @@
                     rands :- (Seqable TCType)])
 (u/def-type TApp [rator rands]
   "An application of a type function to arguments."
-  [((some-fn Name? TypeFn? F? B?) rator)
+  [((some-fn Name? TypeFn? F? B? Poly?) rator)
    (every? (some-fn TypeFn? Type?) rands)])
 
 (declare-type TApp) ;not always a type
@@ -677,6 +665,10 @@
 (t/ann no-bounds Bounds)
 (def no-bounds (Bounds-maker -any (Un) nil))
 
+(t/ann -bounds [TCType TCType -> Bounds])
+(defn -bounds [u l]
+  (Bounds-maker u l nil))
+
 ;unused
 (t/tc-ignore
 (def ^:dynamic *mutated-bindings* #{})
@@ -818,4 +810,3 @@
                      rest drest (when (or mandatory-kws optional-kws)
                                   (KwArgs-maker (or mandatory-kws {})
                                             (or optional-kws {})))))))
-

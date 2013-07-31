@@ -61,11 +61,11 @@
 (defn cset-meet [{maps1 :maps :as x} {maps2 :maps :as y}]
   {:pre [(cr/cset? x)
          (cr/cset? y)]}
-  (let [maps (doall (for [[{map1 :fixed dmap1 :dmap prj1 :projections} 
-                           {map2 :fixed dmap2 :dmap prj2 :projections}] (map vector maps1 maps2)]
+  (let [maps (doall (for [[{map1 :fixed dmap1 :dmap delay1 :delayed-checks} 
+                           {map2 :fixed dmap2 :dmap delay2 :delayed-checks}] (map vector maps1 maps2)]
                       (cr/->cset-entry (merge-with c-meet map1 map2)
                                        (dmap-meet dmap1 dmap2)
-                                       (set/union prj1 prj2))))]
+                                       (set/union delay1 delay2))))]
     (when (empty? maps)
       (fail! maps1 maps2))
     (cr/->cset maps)))
@@ -91,10 +91,20 @@
          (r/Bounds? bnds)]
    :post [(cr/cset? %)]}
   (cr/->cset (doall
-            (for [{fmap :fixed dmap :dmap} (:maps cs)]
-              (cr/->cset-entry (assoc fmap var (cr/->c S var T bnds))
-                            dmap
-                            #{})))))
+               (for [{fmap :fixed dmap :dmap :keys [delayed-checks]} (:maps cs)]
+                 (cr/->cset-entry (assoc fmap var (cr/->c S var T bnds))
+                                  dmap
+                                  delayed-checks)))))
+
+(defn insert-delayed-constraint [cs S T]
+  {:pre [(cr/cset? cs)
+         (r/Type? S)
+         (r/Type? T)]
+   :post [(cr/cset? %)]}
+  (cr/->cset
+    (doall
+      (for [{fmap :fixed dmap :dmap :keys [delayed-checks]} (:maps cs)]
+        (cr/->cset-entry fmap dmap (conj delayed-checks [S T]))))))
 
 (defn dcon-meet [dc1 dc2]
   {:pre [(cr/dcon-c? dc1)
@@ -196,8 +206,8 @@
 (def ^:dynamic *cs-current-seen* #{})
 
 ;; V : a set of variables not to mention in the constraints
-;; X : the set of type variables to be constrained
-;; Y : the set of index variables to be constrained
+;; X : the map of type variables to be constrained to their bounds
+;; Y : the map of index variables to be constrained to their bounds
 ;; S : a type to be the subtype of T
 ;; T : a type
 ;; produces a cset which determines a substitution that makes S a subtype of T
@@ -223,7 +233,7 @@
          (r/AnyType? S)
          (r/AnyType? T)]
    :post [(cr/cset? %)]}
-  #_(prn "cs-gen" (prs/unparse-type S) (prs/unparse-type T))
+  ;(prn "cs-gen" (prs/unparse-type S) (prs/unparse-type T))
   (if (or (*cs-current-seen* [S T]) 
           (sub/subtype? S T))
     ;already been around this loop, is a subtype
@@ -295,20 +305,36 @@
         (cset-meet*
           (doall
             ; for each element of T, we need at least one element of S that works
+            ; FIXME I don't think this is sound if there are type variables in more
+            ; than one member of the intersection. eg. (I x y)
+            ; The current implementation is useful for types like (I (Seqable Any) (CountRange 1))
+            ; so we want to preserve the current behaviour while handling the other cases intelligently.
             (for [t* (:types T)]
-              (if-let [results (seq (filter identity
-                                            (map #(handle-failure
-                                                    (cs-gen V X Y % t*))
-                                                 (:types S))))]
+              (if-let [results (doall
+                                 (seq (filter identity
+                                              (map #(handle-failure
+                                                      (cs-gen V X Y % t*))
+                                                   (:types S)))))]
                 (cset-combine results)
-                (fail! S T)))))
+                ; check this invariant after instantiation, and don't use this
+                ; relationship to constrain any variables.
+                (do
+                  ;(prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
+                  (-> (cr/empty-cset X Y)
+                      (insert-delayed-constraint S T)))))))
 
         ;; find *an* element of S which can be made a subtype of T
         (r/Intersection? S)
-        (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
-                          (:types S))]
-          cs
-          (fail! S T))
+        (if (some r/F? (:types S)) 
+          ; same as Intersection <: Intersection case
+          (do ;(prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
+              (-> (cr/empty-cset X Y)
+                  (insert-delayed-constraint S T)))
+          (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
+                            (:types S))]
+            (do ;(prn "intersection S normal case" (map prs/unparse-type [S T]))
+                cs)
+            (fail! S T)))
 
         ;constrain *every* element of T to be above S, and then meet the constraints
         ;FIXME Should this combine csets instead?
@@ -322,10 +348,6 @@
 
         (r/App? T)
         (cs-gen V X Y S (c/resolve-App T))
-
-        (or (r/Projection? S)
-            (r/Projection? T))
-        (cr/empty-cset-projection X Y [S T])
 
         :else
         (cs-gen* V X Y S T)))))
@@ -417,6 +439,7 @@
 
 (declare cs-gen-Function)
 
+;FIXME handle variance
 (defmethod cs-gen* [TApp TApp impl/default]
   [V X Y ^TApp S ^TApp T]
   (when-not (= (.rator S) (.rator T)) 
@@ -487,14 +510,15 @@
 
 (defmethod cs-gen* [HeterogeneousVector HeterogeneousVector impl/default] 
   [V X Y ^HeterogeneousVector S ^HeterogeneousVector T]
-  (cset-meet* (concat
-                [(cs-gen-list V X Y (.types S) (.types T))]
-                (map (fn [fs1 fs2]
-                       (cs-gen-filter-set V X Y fs1 fs2))
-                     (.fs S) (.fs T))
-                (map (fn [o1 o2]
-                       (cs-gen-filter-set V X Y o1 o2))
-                     (.objects S) (.objects T)))))
+  (cset-meet* (doall
+                (concat
+                  [(cs-gen-list V X Y (.types S) (.types T))]
+                  (map (fn [fs1 fs2]
+                         (cs-gen-filter-set V X Y fs1 fs2))
+                       (.fs S) (.fs T))
+                  (map (fn [o1 o2]
+                         (cs-gen-filter-set V X Y o1 o2))
+                       (.objects S) (.objects T))))))
 
 (defmethod cs-gen* [HeterogeneousMap HeterogeneousMap impl/default]
   [V X Y S T]
@@ -538,11 +562,12 @@
         relevant-S (some #(when (r/RClass? %)
                             (and (= (:the-class %) (:the-class T))
                                  %))
-                         (conj rsupers S))]
-    ;(prn "S" (prs/unparse-type S))
-    ;(prn "supers" (map prs/unparse-type rsupers))
-    ;(when relevant-S
-    ;  (prn "relevant-S" (prs/unparse-type relevant-S)))
+                         (map c/fully-resolve-type (conj rsupers S)))]
+;    (prn "S" (prs/unparse-type S))
+;    (prn "T" (prs/unparse-type T))
+;    (prn "supers" (map (juxt prs/unparse-type class) rsupers))
+;    (when relevant-S
+;      (prn "relevant-S" (prs/unparse-type relevant-S)))
     (cond
       relevant-S
       (cset-meet*
@@ -618,14 +643,14 @@
          (every? symbol? vars)]
    :post [(cr/cset? %)]}
   (cr/->cset (map
-            (fn [{cmap :fixed dmap :dmap}]
+            (fn [{cmap :fixed dmap :dmap :keys [delayed-checks]}]
               (cr/->cset-entry (apply dissoc cmap dbound vars)
                             (dmap-meet 
                               (singleton-dmap 
                                 dbound
                                 (f cmap dmap))
                               (cr/->dmap (dissoc (:map dmap) dbound)))
-                            #{}))
+                            delayed-checks))
             (:maps cset))))
 
 ;; dbound : index variable
@@ -860,12 +885,12 @@
             ;; v : Symbol - variable for which to check variance
             ;; h : (Hash F Variance) - hash to check variance in (either var or idx hash)
             ;; variable: Symbol - variable to use instead, if v was a temp var for idx extension
-            (constraint->type [{{:keys [upper-bound lower-bound higher-kind]} :bnds :keys [S X T] :as v} h & {:keys [variable]}]
+            (constraint->type [{{:keys [upper-bound lower-bound]} :bnds :keys [S X T] :as v} h & {:keys [variable]}]
               {:pre [(cr/c? v)
                      (frees/variance-map? h)
                      ((some-fn nil? symbol?) variable)]}
               (when-not (sub/subtype? S T) (fail! S T))
-              (when higher-kind (u/nyi-error "Higher kinds"))
+              (when (some r/TypeFn? [upper-bound lower-bound]) (u/nyi-error "Higher kinds"))
               (let [var (h (or variable X) :constant)
                     inferred (case var
                                (:constant :covariant) S
@@ -921,7 +946,7 @@
                                              :contravariant (cr/->i-subst-starred nil r/-any))])))
                                 S))))))]
 
-      (let [{cmap :fixed dmap* :dmap} (-> C :maps first)
+      (let [{cmap :fixed dmap* :dmap :keys [delayed-checks]} (-> C :maps first)
             _ (when-not (= 1 (count (:maps C))) 
                 (u/int-error "More than one constraint set found"))
             dm (:map dmap*)
@@ -955,13 +980,22 @@
                       (for [[k v] cmap]
                         [k (cr/->t-subst (constraint->type v var-hash)
                                       (:bnds v))])))
-            ;check bounds
+            ;check delayed constraints and type variable bounds
             _ (let [t-substs (into {} (filter (fn [[_ v]] (cr/t-subst? v)) subst))
                     [names images] (let [s (seq t-substs)]
                                      [(map first s)
                                       (map (comp :type second) s)])]
+                ;(prn delayed-checks)
+                (doseq [[S T] delayed-checks]
+                  (let [S* (subst/substitute-many S images names)
+                        T* (subst/substitute-many T images names)]
+                    ;(prn "delayed" (map prs/unparse-type [S* T*]))
+                    (when-not (sub/subtype? S* T*)
+                      (fail! S T))
+                            #_(str "Delayed check failed"
+                                 (mapv prs/unparse-type [S T]))))
                 (doseq [[nme {inferred :type :keys [bnds]}] t-substs]
-                  (when (:higher-kind bnds) (u/nyi-error "NYI"))
+                  (when (some r/TypeFn? [(:upper-bound bnds) (:lower-bound bnds)]) (u/nyi-error "Higher kinds"))
                   (let [lower-bound (subst/substitute-many (:lower-bound bnds) images names)
                         upper-bound (subst/substitute-many (:upper-bound bnds) images names)]
                     (assert (sub/subtype? lower-bound upper-bound)
@@ -981,8 +1015,8 @@
           r)))))
 
 ;; V : a set of variables not to mention in the constraints
-;; X : the set of type variables to be constrained
-;; Y : the set of index variables to be constrained
+;; X : the set of type variables to be constrained mapped to their bounds
+;; Y : the set of index variables to be constrained mapped to their bounds
 ;; S : a list of types to be the subtypes of T
 ;; T : a list of types
 ;; expected-cset : a cset representing the expected type, to meet early and
@@ -1079,8 +1113,8 @@
     (and (>= (count S) (count T))
          (infer X Y S new-T R expected))))
 
-;; X : variables to infer
-;; Y : indices to infer
+;; X : variables to infer mapped to their bounds
+;; Y : indices to infer mapped to their bounds
 ;; S : actual argument types
 ;; T : formal argument types
 ;; R : result type
@@ -1098,12 +1132,12 @@
 ;  (prn "infer" )
 ;  (prn "X:" X) 
 ;  (prn "Y:" Y) 
-;  (prn "S:" (map unparse-type S))
-;  (prn "T:" (map unparse-type T))
+;  (prn "S:" (map prs/unparse-type S))
+;  (prn "T:" (map prs/unparse-type T))
 ;  (when R
-;    (prn "R:" (class R) (unparse-type R)))
+;    (prn "R:" (class R) (prs/unparse-type R)))
 ;  (when expected
-;    (prn "expected:" (class expected) (unparse-type expected)))
+;    (prn "expected:" (class expected) (prs/unparse-type expected)))
   (let [expected-cset (if expected
                         (cs-gen #{} X Y R expected)
                         (cr/empty-cset {} {}))
