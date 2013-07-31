@@ -4,7 +4,7 @@
              [utils :as u]
              [type-rep :as r])
             [clojure.core.typed :as t])
-  (:import (clojure.lang IPersistentMap Symbol Seqable)
+  (:import (clojure.lang IPersistentMap IPersistentSet Symbol Seqable)
            (clojure.core.typed.type_rep Bounds F)))
 
 (t/ann-record t-subst [type :- r/TCType,
@@ -101,6 +101,11 @@
   ""
   [((u/hash-c? symbol? dcon-c?) map)])
 
+(t/def-alias DelayedCheck
+  "A pair of types. The left type must be a subtype
+  to the right type at instantiation time."
+  '[r/TCType r/TCType])
+
 ;  Delayed checks are subtype relationships t1 <: t2 that should be instantiated
 ;  at the same time as bounds checking. t1 should be a subtype of t2 after instantiating
 ;  them with the current substitution, otherwise constraint generation should fail.
@@ -108,7 +113,7 @@
 ;  to constrain the type variables.
 (t/ann-record cset-entry [fixed :- (IPersistentMap Symbol c),
                           dmap :- dmap,
-                          delayed-checks :- (IPersistentSet '[TCType TCType])])
+                          delayed-checks :- (IPersistentSet DelayedCheck)])
 (u/defrecord cset-entry [fixed dmap delayed-checks]
   ""
   [((u/hash-c? symbol? c?) fixed)
@@ -119,7 +124,7 @@
 (t/ann make-cset-entry (Fn [(IPersistentMap Symbol c) -> cset-entry]
                            [(IPersistentMap Symbol c) (U nil dmap) -> cset-entry]
                            [(IPersistentMap Symbol c) (U nil dmap) 
-                            (U nil (IPersistentSet TCType TCType)) -> cset-entry]))
+                            (U nil (IPersistentSet DelayedCheck)) -> cset-entry]))
 (defn make-cset-entry
   ([fixed] (make-cset-entry fixed nil nil))
   ([fixed dmap] (make-cset-entry fixed dmap nil))

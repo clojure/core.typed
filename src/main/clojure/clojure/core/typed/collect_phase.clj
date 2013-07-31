@@ -77,8 +77,9 @@
   ([nsym]
    (p :collect-phase/collect-ns
    (if (already-collected? nsym)
-     (do (println (str "Already collected " nsym ", skipping"))
-         (flush))
+     (do #_(println (str "Already collected " nsym ", skipping"))
+         #_(flush)
+         nil)
      (do (collected-ns! nsym)
          (infer-typed-ns-deps! nsym)
          (let [deps (dep/immediate-deps nsym)]

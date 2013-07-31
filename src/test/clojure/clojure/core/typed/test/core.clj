@@ -1495,8 +1495,8 @@
             (TFn [[x :variance :covariant]] Any)))
   (is (not (sub? (TFn [[x :variance :covariant]] Any)
                  (TFn [[x :variance :covariant]] Number))))
-  (is (sub? (IPersistentMap Any Any)
-            ((TFn [[x :variance :covariant]] (IPersistentMap Any Any)) Any))))
+  (is (sub? (clojure.lang.IPersistentMap Any Any)
+            ((TFn [[x :variance :covariant]] (clojure.lang.IPersistentMap Any Any)) Any))))
 
 (deftest invoke-tfn-test
   (is (inst/manual-inst (parse-type '(All [[x :< (TFn [[x :variance :covariant]] Any)]]
@@ -1513,52 +1513,54 @@
 
 #_(fully-resolve-type (parse-type '((All [a] (TFn [[x :variance :covariant :< a]] a)) Number)))
 
-(deftest subtype-ipcoll-test
-  (is (sub? (clojure.lang.IPersistentCollection 
-              (clojure.lang.IMapEntry Any Any)
-              (TFn [[x :variance :covariant
-                     :< (U nil (clojure.lang.IMapEntry Any Any))]]
-                   x)
-              (All [a1 b1]
-                   (TFn [[x :variance :covariant
-                          :< (U nil (clojure.lang.IMapEntry a1 b1))]]
-                        (clojure.lang.APersistentMap a1 b1))))
-            (clojure.core.typed/Coll Any)))
-  (is (sub? (TFn [[x :variance :covariant]]
-                   x)
-            (TFn [[x :variance :covariant]]
-                 Any)))
-  (is (sub? (TFn [[x :variance :covariant
-                     :< (U nil (clojure.lang.IMapEntry Any Any))]]
-                   x)
-            (TFn [[x :variance :covariant]]
-                 Any)))
-  (is (sub? (All [a1 b1]
-                 (TFn [[x :variance :covariant
-                        :< (U nil (clojure.lang.IMapEntry a1 b1))]]
-                      (clojure.lang.APersistentMap a1 b1)))
-            (Rec [c]
-                 (TFn [[x :variance :covariant]] 
-                      (clojure.lang.IPersistentCollection 
-                        Any 
-                        (TFn [[x :variance :covariant]] Any) 
-                        c))))))
 
 (deftest filter-seq-test
-  (is (cf (filter :a (clojure.core.typed/ann-form [] (clojure.lang.Seqable '{:b Number})))
-          (clojure.lang.Seqable '{:b Number :a Any})))
-  (is (cf (filter (inst identity (U nil Number)) [1 nil])
+  ;  TODO possible extension for filter
+;  (is (cf (filter :a (clojure.core.typed/ann-form [] (clojure.lang.Seqable '{:b Number})))
+;          (clojure.lang.Seqable '{:b Number :a Any})))
+  (is (cf (filter (clojure.core.typed/inst identity (U nil Number)) [1 nil])
           (clojure.lang.Seqable Number))))
 
-(deftest extensible-conj-test
-  (is (cf ((clojure.core.typed/inst conj Number (TFn [[x :variance :covariant]] x)
-                 (TFn [[x :variance :covariant]] (clojure.lang.PersistentHashSet x)))
-            (clojure.core.typed/ann-form #{} (clojure.lang.PersistentHashSet Number)) 1)
-          (clojure.lang.PersistentHashSet Number)))
-  ;FIXME
-#_(is (cf (conj
-            (clojure.core.typed/ann-form #{} (clojure.lang.PersistentHashSet Number)) 1)
-          (clojure.lang.PersistentHashSet Number))))
+; keeping if we decide to use more expressive type for conj
+;(deftest extensible-conj-test
+;  (is (cf ((clojure.core.typed/inst conj Number (TFn [[x :variance :covariant]] x)
+;                 (TFn [[x :variance :covariant]] (clojure.lang.PersistentHashSet x)))
+;            (clojure.core.typed/ann-form #{} (clojure.lang.PersistentHashSet Number)) 1)
+;          (clojure.lang.PersistentHashSet Number)))
+;  ;FIXME
+;#_(is (cf (conj
+;            (clojure.core.typed/ann-form #{} (clojure.lang.PersistentHashSet Number)) 1)
+;          (clojure.lang.PersistentHashSet Number))))
+;(deftest subtype-ipcoll-test
+;  (is (sub? (clojure.lang.IPersistentCollection 
+;              (clojure.lang.IMapEntry Any Any)
+;              (TFn [[x :variance :covariant
+;                     :< (U nil (clojure.lang.IMapEntry Any Any))]]
+;                   x)
+;              (All [a1 b1]
+;                   (TFn [[x :variance :covariant
+;                          :< (U nil (clojure.lang.IMapEntry a1 b1))]]
+;                        (clojure.lang.APersistentMap a1 b1))))
+;            (clojure.core.typed/Coll Any)))
+;  (is (sub? (TFn [[x :variance :covariant]]
+;                   x)
+;            (TFn [[x :variance :covariant]]
+;                 Any)))
+;  (is (sub? (TFn [[x :variance :covariant
+;                     :< (U nil (clojure.lang.IMapEntry Any Any))]]
+;                   x)
+;            (TFn [[x :variance :covariant]]
+;                 Any)))
+;  (is (sub? (All [a1 b1]
+;                 (TFn [[x :variance :covariant
+;                        :< (U nil (clojure.lang.IMapEntry a1 b1))]]
+;                      (clojure.lang.APersistentMap a1 b1)))
+;            (Rec [c]
+;                 (TFn [[x :variance :covariant]] 
+;                      (clojure.lang.IPersistentCollection 
+;                        Any 
+;                        (TFn [[x :variance :covariant]] Any) 
+;                        c))))))
 
 (deftest not-type-subtype
   (is (not (sub? (Not nil) nil)))
@@ -1571,7 +1573,8 @@
                             (All [x y]
                                  [[x -> Any :filters {:then (! y 0)}]
                                   (U nil (clojure.lang.Seqable x)) -> (clojure.lang.LazySeq (I x (Not y)))]))]
-            (fn [] (a identity [1 nil])))
+            ;need to instantiate negative types for now
+            (fn [] (a (clojure.core.typed/inst identity (U nil Number)) [1 nil])))
           [-> (clojure.lang.Seqable Number)])))
 
 
@@ -1624,7 +1627,7 @@
   (is (= (subst-all {'x (->t-subst (Un (RClass-of Number) -nil) no-bounds) 
                      'y (->t-subst -nil no-bounds)} 
                     (In (make-F 'x) (NotType-maker (make-F 'y))))
-         (Un)))
+         (RClass-of Number)))
 
   (is (overlap (make-F 'x)
                (NotType-maker (make-F 'y))))
@@ -1636,6 +1639,13 @@
                 (NotType-maker (make-F 'y)))
             (Un))))
 
+(deftest intersection-csgen-test
+  (is (cs-gen #{} {'a no-bounds} {}
+              (In (RClass-of Seqable [(RClass-of Number)])
+                   (make-CountRange 1))
+              (In (RClass-of Seqable [(make-F 'a)])
+                  (make-CountRange 1))
+              )))
 
 ;TODO destructuring on records
 ;TODO does this instance lookup work? (cf (.the-class (->RClass ...)))

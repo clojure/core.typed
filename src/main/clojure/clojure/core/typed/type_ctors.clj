@@ -672,9 +672,9 @@
   (let [unparse-type @(unparse-type-var)
         ^TypeFn rator (-resolve rator)
         _ (assert (r/TypeFn? rator) (unparse-type rator))]
-    (assert (= (count rands) (.nbound rator))
-            (u/error-msg "Wrong number of arguments (" (count rands) ", expected " (:nbound rator) ") provided to type function "
-                         (unparse-type rator) (mapv unparse-type rands)))
+    (when-not (= (count rands) (.nbound rator))
+      (u/int-error (str "Wrong number of arguments (" (count rands) ", expected " (:nbound rator) ") provided to type function "
+                        (unparse-type rator) (mapv unparse-type rands))))
     (instantiate-typefn rator rands)))
 
 (t/ann ^:nocheck resolve-App [App -> TCType])
@@ -869,6 +869,20 @@
            (r/Value? t2))
       eq
 
+      (r/Union? t1)
+      (boolean 
+        (some #(overlap % t2) (.types ^Union t1)))
+
+      (r/Union? t2)
+      (boolean 
+        (some #(overlap t1 %) (.types ^Union t2)))
+
+      (r/Intersection? t1)
+      (every? #(overlap % t2) (.types ^Intersection t1))
+
+      (r/Intersection? t2)
+      (every? #(overlap t1 %) (.types ^Intersection t2))
+
       (and (r/NotType? t1)
            (r/NotType? t2))
       ;FIXME what if both are Not's?
@@ -878,8 +892,9 @@
       ;     (overlap (Not Integer) Number) => true
       ;     (overlap (Not y) x) => true
       (r/NotType? t1)
-      (or (some (some-fn r/B? r/F?) [(:type t1) t2])
-          (not (overlap (:type t1) t2)))
+      (let [neg-type (fully-resolve-type (:type t1))]
+        (or (some (some-fn r/B? r/F?) [neg-type t2])
+            (not (overlap neg-type t2))))
 
       (r/NotType? t2)
       ;switch arguments to catch above case
@@ -928,20 +943,6 @@
       (and (r/CountRange? t1)
            (r/CountRange? t2)) 
       (countrange-overlap? t1 t2)
-
-      (r/Union? t1)
-      (boolean 
-        (some #(overlap % t2) (.types ^Union t1)))
-
-      (r/Union? t2)
-      (boolean 
-        (some #(overlap t1 %) (.types ^Union t2)))
-
-      (r/Intersection? t1)
-      (every? #(overlap % t2) (.types ^Intersection t1))
-
-      (r/Intersection? t2)
-      (every? #(overlap t1 %) (.types ^Intersection t2))
 
       (and (r/HeterogeneousMap? t1)
            (r/HeterogeneousMap? t2)) 

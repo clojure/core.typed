@@ -302,8 +302,6 @@
 
         (and (r/Intersection? S)
              (r/Intersection? T))
-        (let []
-          (prn "Intersection S T FOOFOFOFOFOOFOF")
         (cset-meet*
           (doall
             ; for each element of T, we need at least one element of S that works
@@ -321,32 +319,29 @@
                 ; check this invariant after instantiation, and don't use this
                 ; relationship to constrain any variables.
                 (do
-                  (prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
+                  ;(prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
                   (-> (cr/empty-cset X Y)
-                      (insert-delayed-constraint S T))))))))
+                      (insert-delayed-constraint S T)))))))
 
         ;; find *an* element of S which can be made a subtype of T
         (r/Intersection? S)
         (if (some r/F? (:types S)) 
           ; same as Intersection <: Intersection case
-          (do (prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
+          (do ;(prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
               (-> (cr/empty-cset X Y)
                   (insert-delayed-constraint S T)))
           (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
                             (:types S))]
-            (do (prn "intersection S normal case" (map prs/unparse-type [S T]))
+            (do ;(prn "intersection S normal case" (map prs/unparse-type [S T]))
                 cs)
             (fail! S T)))
 
         ;constrain *every* element of T to be above S, and then meet the constraints
         ;FIXME Should this combine csets instead?
         (r/Intersection? T)
-        (do
-          (prn "Intersection T")
         (cset-meet*
           (cons (cr/empty-cset X Y)
                 (mapv #(cs-gen V X Y S %) (:types T))))
-          )
 
         (r/App? S)
         (cs-gen V X Y (c/resolve-App S) T)
@@ -995,9 +990,10 @@
                   (let [S* (subst/substitute-many S images names)
                         T* (subst/substitute-many T images names)]
                     ;(prn "delayed" (map prs/unparse-type [S* T*]))
-                    (assert (sub/subtype? S* T*)
-                            (str "Delayed check failed"
-                                 (mapv prs/unparse-type [S T])))))
+                    (when-not (sub/subtype? S* T*)
+                      (fail! S T))
+                            #_(str "Delayed check failed"
+                                 (mapv prs/unparse-type [S T]))))
                 (doseq [[nme {inferred :type :keys [bnds]}] t-substs]
                   (when (some r/TypeFn? [(:upper-bound bnds) (:lower-bound bnds)]) (u/nyi-error "Higher kinds"))
                   (let [lower-bound (subst/substitute-many (:lower-bound bnds) images names)
@@ -1019,8 +1015,8 @@
           r)))))
 
 ;; V : a set of variables not to mention in the constraints
-;; X : the set of type variables to be constrained
-;; Y : the set of index variables to be constrained
+;; X : the set of type variables to be constrained mapped to their bounds
+;; Y : the set of index variables to be constrained mapped to their bounds
 ;; S : a list of types to be the subtypes of T
 ;; T : a list of types
 ;; expected-cset : a cset representing the expected type, to meet early and
@@ -1117,8 +1113,8 @@
     (and (>= (count S) (count T))
          (infer X Y S new-T R expected))))
 
-;; X : variables to infer
-;; Y : indices to infer
+;; X : variables to infer mapped to their bounds
+;; Y : indices to infer mapped to their bounds
 ;; S : actual argument types
 ;; T : formal argument types
 ;; R : result type
