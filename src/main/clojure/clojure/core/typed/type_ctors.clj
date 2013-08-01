@@ -441,6 +441,8 @@
     v))
   )
 
+(declare make-simple-substitution)
+
 (t/ann ^:nocheck RClass-replacements* [RClass -> (IPersistentMap Symbol TCType)])
 (defn RClass-replacements*
   "Return the replacements map for the RClass"
@@ -455,7 +457,7 @@
     (into {} (for [[k v] (.replacements rcls)]
                (let [t (instantiate-many names v)
                      _ (assert (r/Type? t))
-                     subst (infer (zipmap names (repeat r/no-bounds)) {} poly fs t)]
+                     subst (make-simple-substitution names poly)]
                  [k (subst-all subst t)])))))
 
 (t/ann ^:nocheck RClass-unchecked-ancestors* [RClass -> (IPersistentSet TCType)])
@@ -470,7 +472,7 @@
         fs (map r/make-F names)]
     (set (for [u (.unchecked-ancestors rcls)]
            (let [t (instantiate-many names u)
-                 subst (infer (zipmap names (repeat r/no-bounds)) {} poly fs t)]
+                 subst (make-simple-substitution names poly)]
              (subst-all subst t))))))
 
 ;TODO won't type check because records+destructuring

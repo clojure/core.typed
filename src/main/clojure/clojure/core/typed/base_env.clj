@@ -459,6 +459,10 @@ java.lang.CharSequence [[]
 java.lang.String [[]
                   :unchecked-ancestors
                   #{(Seqable Character)}]
+
+java.lang.Iterable [[]
+                  :unchecked-ancestors
+                  #{(Seqable Any)}]
 ))
 
 (rcls/reset-rclass-env! init-altered-env)

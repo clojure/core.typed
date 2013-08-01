@@ -1657,6 +1657,14 @@
                   (make-CountRange 1))
               )))
 
+(deftest iterable-as-seqable-test
+  (is (cf (first (clojure.core.typed/ann-form [] Iterable)))))
+
+;(deftest intersect-RClass-ancestors-test
+;  (is (= (In (RClass-of IPersistentSet [-any])
+;             (RClass-of Seqable [(RClass-of Number)]))
+;         (RClass-of IPersistentSet [-any]))))
+
 ;TODO destructuring on records
 ;TODO does this instance lookup work? (cf (.the-class (->RClass ...)))
 ;TODO unmunge fields (.other-keys? hmap)
