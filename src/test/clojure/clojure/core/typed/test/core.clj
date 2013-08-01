@@ -1660,6 +1660,22 @@
 (deftest iterable-as-seqable-test
   (is (cf (first (clojure.core.typed/ann-form [] Iterable)))))
 
+; See CTYP-29 for discussion. f in (map f coll) needs to be only a single arity
+; to help inference.
+(deftest map-over-multiarity-fn-test
+  (is (cf (map (clojure.core.typed/ann-form + [Number -> Number]) 
+               (clojure.core.typed/ann-form [] (clojure.lang.Seqable Number)))))
+  (is (cf (map inc [(or (first (range)) 0) 1])
+          (clojure.lang.Seqable clojure.core.typed/AnyInteger)))
+  (is (cf (fn [x] (map (clojure.core.typed/ann-form inc [Number -> Number]) [x 1]))
+          [Number -> (clojure.lang.Seqable Number)]))
+  (is (subtype? (ret-t (tc-t [(or (first (range)) 2) 1]))
+                (RClass-of Seqable [(RClass-of Number)])))
+  (is (cf (fn [x] 
+            (map (clojure.core.typed/ann-form inc [Number -> Number]) 
+                 [x 2 3])) 
+          [Number -> (clojure.lang.LazySeq Number)])))
+
 ;(deftest intersect-RClass-ancestors-test
 ;  (is (= (In (RClass-of IPersistentSet [-any])
 ;             (RClass-of Seqable [(RClass-of Number)]))

@@ -776,7 +776,8 @@
 (defn ^String app-type-error [fexpr args ^FnIntersection fin arg-ret-types expected poly?]
   {:pre [(r/FnIntersection? fin)
          (or (not poly?)
-             (r/Poly? poly?))]}
+             ((some-fn r/Poly? r/PolyDots?) poly?))]
+   :post [(r/TCResult? %)]}
   (let [static-method? (= :static-method (:op fexpr))
         instance-method? (= :instance-method (:op fexpr))
         method-sym (when (or static-method? instance-method?)
@@ -805,19 +806,28 @@
               "<NO FORM>"))
           " could not be applied to arguments:\n"
           (when poly?
-            (let [names (c/Poly-free-names* poly?)
-                  bnds (c/Poly-bbnds* names poly?)]
+            (let [names (if (r/Poly? poly?)
+                          (c/Poly-free-names* poly?)
+                          ;PolyDots
+                          (repeatedly (:nbound poly?) (fn [] (gensym "v"))))
+                  bnds (if (r/Poly? poly?)
+                         (c/Poly-bbnds* names poly?)
+                         (c/PolyDots-bbnds* names poly?))
+                  dotted (when (r/PolyDots? poly?)
+                           (last names))]
               (str "Polymorphic Variables:\n\t"
                    (clojure.string/join "\n\t" 
                                         (map (partial apply pr-str)
                                              (map (fn [{:keys [lower-bound upper-bound] :as bnd} nme]
                                                     {:pre [(r/Bounds? bnd)
                                                            (symbol? nme)]}
-                                                    (concat (when-not (= r/-nothing lower-bound)
-                                                              [(prs/unparse-type lower-bound) :<])
-                                                            [nme]
-                                                            (when-not (= r/-any upper-bound)
-                                                              [:< (prs/unparse-type upper-bound)])))
+                                                    (cond
+                                                      (= nme dotted) [nme '...]
+                                                      :else (concat (when-not (= r/-nothing lower-bound)
+                                                                      [(prs/unparse-type lower-bound) :<])
+                                                                    [nme]
+                                                                    (when-not (= r/-any upper-bound)
+                                                                      [:< (prs/unparse-type upper-bound)]))))
                                                   bnds names))))))
           "\n\nDomains:\n\t" 
           (clojure.string/join "\n\t" 
@@ -846,12 +856,16 @@
         :return (or expected (ret r/Err))))))
 
 (defn ^String polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]
-  {:pre [(r/Poly? fexpr-type)]}
-  (let [fin (c/Poly-body* (c/Poly-free-names* fexpr-type) fexpr-type)]
+  {:pre [((some-fn r/Poly? r/PolyDots?) fexpr-type)]
+   :post [(r/TCResult? %)]}
+  (let [fin (if (r/Poly? fexpr-type)
+              (c/Poly-body* (c/Poly-free-names* fexpr-type) fexpr-type)
+              (c/PolyDots-body* (repeatedly (:nbound fexpr-type) (fn [] (gensym "v"))) fexpr-type))]
     (app-type-error fexpr args fin arg-ret-types expected fexpr-type)))
 
 (defn ^String plainapp-type-error [fexpr args fexpr-type arg-ret-types expected]
-  {:pre [(r/FnIntersection? fexpr-type)]}
+  {:pre [(r/FnIntersection? fexpr-type)]
+   :post [(r/TCResult? %)]}
   (app-type-error fexpr args fexpr-type arg-ret-types expected false))
 
 (declare invoke-keyword)
@@ -1071,9 +1085,7 @@
           ;(prn "inferred-rng"inferred-rng)
           (if inferred-rng
             inferred-rng
-              (u/tc-delayed-error (str "Could not apply dotted function " (pr-str (prs/unparse-type fexpr-type))
-                                       " to arguments " (mapv prs/unparse-type arg-types))
-                                  :return (or expected (ret (c/Un))))))
+            (polyapp-type-error fexpr args fexpr-type arg-ret-types expected)))
 
         (u/tc-delayed-error (str
                               "Cannot invoke type: " (pr-str (prs/unparse-type fexpr-type)))
