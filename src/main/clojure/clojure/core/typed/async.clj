@@ -1,4 +1,18 @@
-(ns clojure.core.typed.async
+(ns 
+  ^{:doc 
+    "This namespace contains annotations and helper macros for type
+    checking core.async code.
+    
+    go
+      use go>
+
+    chan
+      use chan>
+
+    buffer
+      use buffer> (similar for other buffer constructors)
+    "}
+    clojure.core.typed.async
   (:require [clojure.core.typed :refer [ann ann-pdatatype def-alias ann-pprotocol check-ns cf doseq> inst loop>
                                         AnyInteger tc-ignore ann-form Seqable]
              :as t]
@@ -11,7 +25,8 @@
            (java.util.concurrent Executor)
            (java.util.concurrent.atomic AtomicReferenceArray)))
 
-;TODO should we encode that nil is illegal to provide to Ports/Channels?
+;TODO how do we encode that nil is illegal to provide to Ports/Channels?
+;     Is it essential?
 
 (ann-pprotocol clojure.core.async.impl.protocols/Channel
                [[x :invariant]])
@@ -49,7 +64,8 @@
 
 (ann ^:nocheck clojure.core.async/thread-call (All [x] [[-> x] -> (Chan x)]))
 
-(ann ^:nocheck clojure.core.async/timeout [AnyInteger -> (Chan Nothing)])
+; FIXME what should the result type be? Is it writeable? Do we want bivariant channels?
+(ann ^:nocheck clojure.core.async/timeout [AnyInteger -> (Chan Any)])
 
 (ann ^:nocheck clojure.core.async/chan (All [x] 
                                             (Fn [-> (Chan x)] 
@@ -73,9 +89,9 @@
 (ann ^:nocheck clojure.core.async/>!! (All [x] [(Port x) x -> nil]))
 (ann ^:nocheck clojure.core.async/alts!! 
      (All [x d]
-          (Fn [(U (Port x) '[(Port x) x]) (Seqable (Port x)) & :mandatory {:default d} :optional {:priority (U nil true)} -> 
+          (Fn [(Seqable (U (Port x) '[(Port x) x])) (Seqable (Port x)) & :mandatory {:default d} :optional {:priority (U nil true)} -> 
                (U '[d ':default] '[x (Port x)])]
-              [(U (Port x) '[(Port x) x]) & :optional {:priority (U nil true)} -> '[x (Port x)]])))
+              [(Seqable (U (Port x) '[(Port x) x])) & :optional {:priority (U nil true)} -> '[x (Port x)]])))
 
 (ann ^:nocheck clojure.core.async/close! [(Chan Any) -> nil])
 

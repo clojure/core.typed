@@ -100,6 +100,18 @@
       <artifactId>clojure</artifactId>
       <version>1.5.1</version>
     </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>core.async</artifactId>
+      <version>0.1.0-20130802.160123-63</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.clojure</groupId>
+          <artifactId>clojure</artifactId>
+        </exclusion>
+      </exclusions>
+      <optional>true</optional>
+    </dependency>
   </dependencies>
 
   <developers>

@@ -569,14 +569,40 @@
            (arr-subtype A % s))
         ts))
 
+(defn fully-resolve-filter [fl]
+  {:pre [(fr/Filter? fl)]
+   :post [(fr/Filter? %)]}
+  (cond
+    (fr/TypeFilter? fl) (update-in fl [:type] c/fully-resolve-type)
+    (fr/NotTypeFilter? fl) (update-in fl [:type] c/fully-resolve-type)
+    (fr/AndFilter? fl) (update-in fl [:fs] #(set (map fully-resolve-filter %)))
+    (fr/OrFilter? fl) (update-in fl [:fs] #(set (map fully-resolve-filter %)))
+    (fr/ImpFilter? fl) (-> fl
+                           (update-in [:a] fully-resolve-filter)
+                           (update-in [:c] fully-resolve-filter))
+    :else fl))
+
+(defn fully-resolve-flowset [flow]
+  {:pre [(r/FlowSet? flow)]
+   :post [(r/FlowSet? %)]}
+  (-> flow
+      (update-in [:normal] fully-resolve-filter)))
+
+(defn fully-resolve-fs [fs]
+  {:pre [(fr/FilterSet? fs)]
+   :post [(fr/FilterSet? %)]}
+  (-> fs
+      (update-in [:then] fully-resolve-filter)
+      (update-in [:else] fully-resolve-filter)))
+
 (defn subtype-Result
   [{t1 :t ^FilterSet f1 :fl o1 :o flow1 :flow :as s}
    {t2 :t ^FilterSet f2 :fl o2 :o flow2 :flow :as t}]
   (cond
     ;trivial case
-    (and (= f1 f2)
+    (and (= (fully-resolve-fs f1) (fully-resolve-fs f2))
          (= o1 o2)
-         (= flow1 flow2))
+         (= (fully-resolve-flowset flow1) (fully-resolve-flowset flow2)))
     (subtype t1 t2)
 
     ;we can ignore some interesting results

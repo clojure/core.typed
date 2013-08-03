@@ -45,8 +45,6 @@
 (defn c-meet [{S  :S X  :X T  :T bnds  :bnds :as c1}
               {S* :S X* :X T* :T bnds* :bnds :as c2}
               & [var]]
-  (prn "c-meet" (prs/unparse-type S) (prs/unparse-type T))
-  (prn (prs/unparse-type S*) (prs/unparse-type T*))
   (when-not (or var (= X X*))
     (u/int-error (str "Non-matching vars in c-meet:" X X*)))
   (when-not (= bnds bnds*)
@@ -347,8 +345,8 @@
 
         (and (r/Extends? S)
              (r/Extends? T))
-        (let [_ (prn "Extends" (prs/unparse-type S) (prs/unparse-type T)
-                     V X Y)
+        (let [;_ (prn "Extends" (prs/unparse-type S) (prs/unparse-type T)
+              ;       V X Y)
               ; FIXME handle negative information
               cs (cset-meet*
                    (doall
@@ -655,11 +653,11 @@
                             (and (= (:the-class %) (:the-class T))
                                  %))
                          (map c/fully-resolve-type (conj rsupers S)))]
-;    (prn "S" (prs/unparse-type S))
-;    (prn "T" (prs/unparse-type T))
+  ;  (prn "S" (prs/unparse-type S))
+  ;  (prn "T" (prs/unparse-type T))
 ;    (prn "supers" (map (juxt prs/unparse-type class) rsupers))
 ;    (when relevant-S
-;      (prn "relevant-S" (prs/unparse-type relevant-S)))
+  ;    (prn "relevant-S" (prs/unparse-type relevant-S)))
     (cond
       relevant-S
       (cset-meet*
@@ -678,12 +676,20 @@
 
 (defmethod cs-gen* [Protocol Protocol impl/clojure]
   [V X Y S T]
-  (if (and (= (:the-var S)
-              (:the-var T)))
-    (cs-gen-list-with-variances V X Y 
-                                (:variances S)
-                                (:poly? S)
-                                (:poly? T))
+  (if (= (:the-var S)
+         (:the-var T))
+    (cset-meet*
+      (cons (cr/empty-cset X Y)
+            (doall
+              (for [[vari si ti] (map vector
+                                      (:variances T)
+                                      (:poly? S)
+                                      (:poly? T))]
+                (case vari
+                  (:covariant :constant) (cs-gen V X Y si ti)
+                  :contravariant (cs-gen V X Y ti si)
+                  :invariant (cset-meet (cs-gen V X Y si ti)
+                                        (cs-gen V X Y ti si)))))))
     (fail! S T)))
 
 (defn demote-F [V X Y {:keys [name] :as S} T]

@@ -941,8 +941,8 @@
         ; returns true if at least one +ve type overlaps, and if
         ; no negative types overlap, else false
         (boolean
-          (and (seq (filter (fn [pos] (overlap pos other-type)) (.extends the-extends)))
-               (not-any? (fn [neg] (overlap neg other-type)) (.extends the-extends)))))
+          (and (some (fn [pos] (overlap pos other-type)) (.extends the-extends))
+               (not-any? (fn [neg] (overlap neg other-type)) (.without the-extends)))))
 
       (or (r/Value? t1)
           (r/Value? t2)) 
