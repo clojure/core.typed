@@ -55,7 +55,8 @@
 
 (def -base-aliases
   "Internal use only."
-  '#{Option AnyInteger AnyPrimitive Atom1 Id Coll})
+  '#{Option AnyInteger Int Num AnyPrimitive Atom1 Id Coll NonEmptyColl Vec NonEmptyVec
+     Map Set SortedSet Seqable NonEmptySeqable EmptySeqable Seq NonEmptySeq EmptyCount NonEmptyCount})
 
 (doseq [v -base-aliases]
   (intern 'clojure.core.typed v))
@@ -360,11 +361,12 @@
                            steppair-chunk (step recform-chunk (nnext exprs))
                            subform-chunk (steppair-chunk 1)]
                        [true
-                        `(loop> [~seq- :- (~'U nil (~'clojure.lang.Seqable ~k-ann)) (seq ~v), 
+                        `(loop> [~seq- :- (~'U nil (~'clojure.core.typed/Seq ~k-ann)) (seq ~v), 
                                  ~chunk- :- (~'U nil (~'clojure.lang.IChunk ~k-ann)) nil
                                  ~count- :- ~'(U Integer Long) 0,
                                  ~i- :- ~'(U Integer Long) 0]
                            (if (and (< ~i- ~count-)
+                                    ;; FIXME review this
                                     ;; core.typed thinks chunk- could be nil here
                                     ~chunk-)
                              (let [;~k (.nth ~chunk- ~i-)

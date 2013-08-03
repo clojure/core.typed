@@ -58,10 +58,9 @@
 (def ^:dynamic *var-annotations*)
 
 (defn lookup-Var [nsym]
-  (assert (contains? @*var-annotations* nsym) 
-          (str (when vs/*current-env*
-                 (str (:line vs/*current-env*) ": "))
-            "Untyped var reference: " nsym))
+  (when-not (contains? @*var-annotations* nsym) 
+    (u/int-error
+      (str "Untyped var reference: " nsym)))
   (@*var-annotations* nsym))
 
 (defn lookup-Var-nofail [nsym]

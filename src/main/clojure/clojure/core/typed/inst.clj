@@ -37,9 +37,10 @@
   with given types"
   [ptype argtys]
   {:pre [((some-fn r/Poly? r/PolyDots?) ptype)
-         (seq argtys)
          (every? r/Type? argtys)]
    :post [(r/Type? %)]}
+  (when-not (seq argtys)
+    (u/int-error (str "Must provide arguments to inst")))
   (cond
     (r/Poly? ptype)
     (let [^Poly ptype ptype

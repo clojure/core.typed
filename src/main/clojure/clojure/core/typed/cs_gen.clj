@@ -21,7 +21,7 @@
   (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
                                         Result AnyValue Top HeterogeneousSeq RClass HeterogeneousList
                                         HeterogeneousVector DataType HeterogeneousMap PrimitiveArray
-                                        Function)
+                                        Function Protocol)
            (clojure.core.typed.filter_rep TypeFilter)
            (clojure.lang ISeq IPersistentList APersistentVector APersistentMap)))
 
@@ -45,7 +45,8 @@
 (defn c-meet [{S  :S X  :X T  :T bnds  :bnds :as c1}
               {S* :S X* :X T* :T bnds* :bnds :as c2}
               & [var]]
-  #_(prn "c-meet" c1 c2)
+  (prn "c-meet" (prs/unparse-type S) (prs/unparse-type T))
+  (prn (prs/unparse-type S*) (prs/unparse-type T*))
   (when-not (or var (= X X*))
     (u/int-error (str "Non-matching vars in c-meet:" X X*)))
   (when-not (= bnds bnds*)
@@ -337,11 +338,54 @@
             (fail! S T)))
 
         ;constrain *every* element of T to be above S, and then meet the constraints
-        ;FIXME Should this combine csets instead?
+        ; we meet instead of cset-combine because we want all elements of T to be under
+        ; S simultaneously.
         (r/Intersection? T)
         (cset-meet*
           (cons (cr/empty-cset X Y)
                 (mapv #(cs-gen V X Y S %) (:types T))))
+
+        (and (r/Extends? S)
+             (r/Extends? T))
+        (let [_ (prn "Extends" (prs/unparse-type S) (prs/unparse-type T)
+                     V X Y)
+              ; FIXME handle negative information
+              cs (cset-meet*
+                   (doall
+                     ; for each element of T, we need at least one element of S that works
+                     (for [t* (:extends T)]
+                       (if-let [results (doall
+                                          (seq (filter identity
+                                                       (map #(handle-failure
+                                                               (cs-gen V X Y % t*))
+                                                            (:extends S)))))]
+                         (cset-meet* results)
+                         (fail! S T)))))]
+          cs)
+
+        ;; find *an* element of S which can be made a subtype of T
+        ;; we don't care about what S does *not* implement, so we don't
+        ;; use the "without" field of Extends
+        (r/Extends? S)
+        (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
+                          (:extends S))]
+          cs
+          (fail! S T))
+
+        ;constrain *every* element of T to be above S, and then meet the constraints
+        ; also ensure T's negative information is reflected in S
+        (r/Extends? T)
+        (let [cs (cset-meet*
+                   (cons (cr/empty-cset X Y)
+                         (mapv #(cs-gen V X Y S %) (:extends T))))
+              satisfies-without? (not-any? identity 
+                                           (doall
+                                             (map #(handle-failure (cs-gen V X Y % T))
+                                                  (:without T))))]
+          (if satisfies-without?
+            cs
+            (fail! S T)))
+
 
         (r/App? S)
         (cs-gen V X Y (c/resolve-App S) T)
@@ -517,7 +561,7 @@
                          (cs-gen-filter-set V X Y fs1 fs2))
                        (.fs S) (.fs T))
                   (map (fn [o1 o2]
-                         (cs-gen-filter-set V X Y o1 o2))
+                         (cs-gen-object V X Y o1 o2))
                        (.objects S) (.objects T))))))
 
 (defmethod cs-gen* [HeterogeneousMap HeterogeneousMap impl/default]
@@ -555,6 +599,54 @@
                 (c/RClass-of APersistentMap [r/-any r/-any]))]
     (cs-gen V X Y new-S T)))
 
+; constrain si and ti according to variance
+(defn cs-gen-with-variance
+  [V X Y variance si ti]
+  {:pre [(r/variance? variance)
+         (r/AnyType? si)
+         (r/AnyType? ti)]
+   :post [(cr/cset? %)]}
+  (case variance
+    (:covariant :constant) (cs-gen V X Y si ti)
+    :contravariant (cs-gen V X Y ti si)
+    :invariant (cset-meet (cs-gen V X Y si ti)
+                          (cs-gen V X Y ti si))))
+
+;constrain lists of types ss and ts according to variances
+(defn cs-gen-list-with-variances
+  [V X Y variances ss ts]
+  {:pre [(every? r/variance? variances)
+         (every? r/AnyType? ss)
+         (every? r/AnyType? ts)
+         (apply = (map count [variances ss ts]))]
+   :post [(cr/cset? %)]}
+  (cset-meet*
+    (cons (cr/empty-cset X Y)
+          (doall
+            (for [[variance si ti] (map vector variances ss ts)]
+              (cs-gen-with-variance V X Y variance si ti))))))
+
+;(defmethod cs-gen* [RClass RClass impl/clojure]
+;  [V X Y S T]
+;  ;(prn "cs-gen* RClass RClass")
+;  (let [rsupers (c/RClass-supers* S)
+;        relevant-S (some #(when (r/RClass? %)
+;                            (and (= (:the-class %) (:the-class T))
+;                                 %))
+;                         (map c/fully-resolve-type (conj rsupers S)))]
+;    (prn "S" (prs/unparse-type S))
+;    (prn "T" (prs/unparse-type T))
+;    (prn "supers" (map (juxt prs/unparse-type class) rsupers))
+;    (when relevant-S
+;      (prn "relevant-S" (prs/unparse-type relevant-S)))
+;    (cond
+;      relevant-S
+;      (cs-gen-list-with-variances V X Y
+;                                  (:variances T) 
+;                                  (:poly? relevant-S) 
+;                                  (:poly? T)))
+;      :else (fail! S T)))
+
 (defmethod cs-gen* [RClass RClass impl/clojure]
   [V X Y S T]
   ;(prn "cs-gen* RClass RClass")
@@ -583,6 +675,16 @@
                     :invariant (cset-meet (cs-gen V X Y si ti)
                                           (cs-gen V X Y ti si)))))))
       :else (fail! S T))))
+
+(defmethod cs-gen* [Protocol Protocol impl/clojure]
+  [V X Y S T]
+  (if (and (= (:the-var S)
+              (:the-var T)))
+    (cs-gen-list-with-variances V X Y 
+                                (:variances S)
+                                (:poly? S)
+                                (:poly? T))
+    (fail! S T)))
 
 (defn demote-F [V X Y {:keys [name] :as S} T]
   {:pre [(r/F? S)]}

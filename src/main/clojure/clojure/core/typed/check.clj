@@ -42,6 +42,7 @@
              [hygienic :as hygienic])
             [clojure.pprint :as pprint]
             [clojure.math.combinatorics :as comb]
+            [clojure.repl :as repl]
             [clojure.string :as str]
             [clojure.set :as set]
             [clojure.reflect :as reflect])
@@ -806,10 +807,10 @@
               "<NO FORM>"))
           " could not be applied to arguments:\n"
           (when poly?
-            (let [names (if (r/Poly? poly?)
-                          (c/Poly-free-names* poly?)
+            (let [names (cond 
+                          (r/Poly? poly?) (c/Poly-free-names* poly?)
                           ;PolyDots
-                          (repeatedly (:nbound poly?) (fn [] (gensym "v"))))
+                          :else (c/PolyDots-free-names* poly?))
                   bnds (if (r/Poly? poly?)
                          (c/Poly-bbnds* names poly?)
                          (c/PolyDots-bbnds* names poly?))
@@ -832,12 +833,22 @@
           "\n\nDomains:\n\t" 
           (clojure.string/join "\n\t" 
                                (map (partial apply pr-str) 
-                                    (map (fn [{:keys [dom rest drest]}]
+                                    (map (fn [{:keys [dom rest drest kws]}]
                                            (concat (map prs/unparse-type dom)
                                                    (when rest
                                                      [(prs/unparse-type rest) '*])
                                                    (when-let [{:keys [pre-type name]} drest]
-                                                     [(prs/unparse-type pre-type) '... name])))
+                                                     [(prs/unparse-type pre-type) '... name])
+                                                   (letfn [(readable-kw-map [m]
+                                                             (into {} (for [[k v] m]
+                                                                        (do (assert (r/Value? k))
+                                                                            [(:val k) (prs/unparse-type v)]))))]
+                                                     (when-let [{:keys [mandatory optional]} kws]
+                                                       (concat ['&]
+                                                               (when (seq mandatory)
+                                                                 [:mandatory (readable-kw-map mandatory)])
+                                                               (when (seq optional)
+                                                                 [:optional (readable-kw-map optional)]))))))
                                          (:types fin))))
           "\n\n"
           "Arguments:\n\t" (apply prn-str (map (comp prs/unparse-type ret-t) arg-ret-types))
@@ -860,7 +871,7 @@
    :post [(r/TCResult? %)]}
   (let [fin (if (r/Poly? fexpr-type)
               (c/Poly-body* (c/Poly-free-names* fexpr-type) fexpr-type)
-              (c/PolyDots-body* (repeatedly (:nbound fexpr-type) (fn [] (gensym "v"))) fexpr-type))]
+              (c/PolyDots-body* (c/PolyDots-free-names* fexpr-type) fexpr-type))]
     (app-type-error fexpr args fin arg-ret-types expected fexpr-type)))
 
 (defn ^String plainapp-type-error [fexpr args fexpr-type arg-ret-types expected]
@@ -1011,15 +1022,18 @@
                                   (when-let [missing-ks (seq 
                                                           (set/difference (set (keys mandatory))
                                                                           (set (keys paired-kw-argtys))))]
-                                    (u/tc-delayed-error (str "Missing mandatory keyword keys: "
-                                                             (interpose ", "
-                                                                        (map prs/unparse-type missing-ks)))))
-                                  ; it's probably a bug to not infer for unused optional args, revisit this
-                                  (when-let [missing-optional-ks (seq
-                                                                   (set/difference (set (keys optional))
-                                                                                   (set (keys paired-kw-argtys))))]
-                                    (u/nyi-error (str "NYI POSSIBLE BUG?! Unused optional parameters"
-                                                      (interpose ", " (map prs/unparse-type missing-optional-ks)))))
+                                    ; move to next arity
+                                    (cgen/fail! nil nil))
+                                    ;(u/tc-delayed-error (str "Missing mandatory keyword keys: "
+                                    ;                         (pr-str (vec (interpose ", "
+                                    ;                                                 (map prs/unparse-type missing-ks))))))
+                                  ;; it's probably a bug to not infer for unused optional args, revisit this
+                                  ;(when-let [missing-optional-ks (seq
+                                  ;                                 (set/difference (set (keys optional))
+                                  ;                                                 (set (keys paired-kw-argtys))))]
+                                  ;  (u/nyi-error (str "NYI POSSIBLE BUG?! Unused optional parameters"
+                                  ;                    (pr-str (interpose ", " (map prs/unparse-type missing-optional-ks)))))
+                                  ;  )
                                   ; infer keyword and fixed parameters all at once
                                   (cgen/infer (zipmap fs-names bbnds) {}
                                               (concat normal-argtys kw-val-actual-tys)
@@ -1188,8 +1202,9 @@
           body (c/PolyDots-body* names expected)
           body (extend-method-expected target-type body)]
       (c/PolyDots* names 
-                 (c/PolyDots-bbnds* names expected)
-                 body))
+                   (c/PolyDots-bbnds* names expected)
+                   body
+                   (c/PolyDots-free-names* expected)))
     :else (u/int-error (str "Expected Function type, found " (prs/unparse-type expected)))))
 
 (declare normal-invoke)
@@ -2365,8 +2380,8 @@
                                            (cond
                                              (or rest drest)
                                              (c/Un r/-nil 
-                                                   (c/In (c/RClass-of Seqable [(or rest (.pre-type ^DottedPretype drest))])
-                                                         (r/make-CountRange 1)))
+                                                   (r/TApp-maker (r/Name-maker 'clojure.core.typed/NonEmptySeq)
+                                                                 [(or rest (.pre-type ^DottedPretype drest))]))
                                              :else (c/KwArgs->Type kws)))]
     (let [type (check-fn expr (let [default-ret (ret (r/make-FnIntersection
                                                        (r/make-Function [] r/-any r/-any)))]
@@ -2554,8 +2569,7 @@
    :post [(Type? %)]}
   (case poly?
     :Poly (c/Poly* (map :name inst-frees) bnds body orig-names)
-    :PolyDots (with-meta (c/PolyDots* (map :name inst-frees) bnds body)
-                         {:actual-frees orig-names})
+    :PolyDots (c/PolyDots* (map :name inst-frees) bnds body orig-names)
     body))
 
 (declare check-fn-method check-fn-method1)
@@ -2816,8 +2830,8 @@ rest-param-name (when rest-param
               (binding [prs/*unparse-type-in-ns* cur-ns]
                 ;FIXME no line number, not present in AST
                 (u/tc-delayed-error 
-                  (str "Local binding " sym " expected type " (prs/unparse-type (ret-t expected))
-                       ", but actual type " (prs/unparse-type t))
+                  (str "Local binding " sym " expected type " (pr-str (prs/unparse-type (ret-t expected)))
+                       ", but actual type " (pr-str (prs/unparse-type t)))
                   :form (u/emit-form-fn expr))))]
       (assoc expr
              expr-type (ret t 
@@ -3074,7 +3088,7 @@ rest-param-name (when rest-param
                                                   (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
                                                   dtp)
                                              _ (assert ((some-fn r/DataType? r/Record?) dt))]
-                                         (-> (c/DataType-fields* dt) (get fsym))))]
+                                         (-> (c/DataType-fields* dt) (get (symbol (repl/demunge (str fsym)))))))]
                      override
                      ; if not a datatype field, convert as normal
                      (Field->Type field))]
@@ -3267,7 +3281,7 @@ rest-param-name (when rest-param
 
 (defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
   (cond
-    (and is-loop (not expected-bnds) )
+    (and is-loop (seq binding-inits) (not expected-bnds) )
     (do
       (u/tc-delayed-error "Loop requires more annotations")
       (assoc expr

@@ -141,8 +141,9 @@
                                body (c/PolyDots-body* names ty)
                                bbnds (c/PolyDots-bbnds* names ty)]
                            (c/PolyDots* names 
-                                      (mapv #(r/visit-bounds % type-rec) bbnds)
-                                      (type-rec body)))))
+                                        (mapv #(r/visit-bounds % type-rec) bbnds)
+                                        (type-rec body)
+                                        (.free-names ty)))))
 
 (add-default-fold-case Mu
                        (fn [ty _]

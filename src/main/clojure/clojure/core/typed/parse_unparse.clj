@@ -126,13 +126,12 @@
                                           (parse-free fsyn))))
                                 [] (-> bnds butlast butlast))
         dvar (parse-free (-> bnds butlast last))]
-    (-> 
-      (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
-                   (map second (concat frees-with-bnds [dvar]))
-                   (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
-                     (dvar/with-dotted [(r/make-F (first dvar))]
-                       (parse-type type))))
-      (with-meta {:actual-frees (concat (map first frees-with-bnds) [(first dvar)])}))))
+    (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
+                 (map second (concat frees-with-bnds [dvar]))
+                 (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
+                   (dvar/with-dotted [(r/make-F (first dvar))]
+                     (parse-type type)))
+                 (concat (map first frees-with-bnds) [(first dvar)]))))
 
 ;(All [a b] type)
 (defmethod parse-all-type :default
@@ -610,8 +609,16 @@
                   "Dotted rest entry must be 3 entries")
         _ (assert (or (not ellipsis-pos) (symbol? drest-bnd))
                   "Dotted bound must be symbol")
-        [optional-kws & {mandatory-kws :mandatory} :as kws-seq] (when ampersand-pos
-                                                                  (drop (inc ampersand-pos) all-dom))
+        [& {optional-kws :optional mandatory-kws :mandatory} :as kws-seq]
+        (let [kwsyn (when ampersand-pos
+                      (drop (inc ampersand-pos) all-dom))]
+          ; support deprecated syntax [& {} -> ] to be equivalent to [& :optional {} -> ]
+          (if (and kwsyn
+                   (map? (first kwsyn)))
+            (do (prn "DEPRECATED: implicit optional parameters for Fn arity. Use :optional keyword argument beteween & and ->.")
+                (cons :optional kwsyn))
+            kwsyn))
+
         _ (assert (or (not ampersand-pos) (seq kws-seq)) 
                   "Must provide syntax after &")
         _ (assert (or (not ampersand-pos) (map? optional-kws)) 

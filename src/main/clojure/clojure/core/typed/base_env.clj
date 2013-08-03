@@ -17,7 +17,8 @@
              [fold-default]
              [name-env :as nme-env]
              [subst]
-             [rclass-env :as rcls]]))
+             [rclass-env :as rcls]]
+            [clojure.set :as set]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Altered Classes
@@ -476,6 +477,10 @@ java.lang.Iterable [[]
   (h/alias-mappings
 
 clojure.core.typed/AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
+
+clojure.core.typed/Int (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
+clojure.core.typed/Num Number
+
 clojure.core.typed/AnyPrimitive (U char int short boolean byte short long float double)
 
 clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] (Atom x x))
@@ -491,6 +496,32 @@ clojure.core.typed/Coll (TFn [[x :variance :covariant]]
                                                            Any 
                                                            (TFn [[x :variance :covariant]] Any) 
                                                            c)))))
+clojure.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
+                                  (I (IPersistentCollection x) (CountRange 1)))
+clojure.core.typed/Vec (TFn [[x :variance :covariant]]
+                            (IPersistentVector x))
+clojure.core.typed/NonEmptyVec (TFn [[x :variance :covariant]]
+                                    (I (IPersistentVector x) (CountRange 1)))
+clojure.core.typed/Map (TFn [[k :variance :covariant]
+                             [v :variance :covariant]]
+                            (IPersistentMap k v))
+clojure.core.typed/Set (TFn [[x :variance :covariant]]
+                            (IPersistentSet x))
+clojure.core.typed/SortedSet (TFn [[x :variance :covariant]]
+                               (Extends [(IPersistentSet x) Sorted]))
+clojure.core.typed/Seqable (TFn [[x :variance :covariant]]
+                                (Seqable x))
+clojure.core.typed/NonEmptySeqable (TFn [[x :variance :covariant]]
+                                        (I (Seqable x) (CountRange 1)))
+clojure.core.typed/EmptySeqable (TFn [[x :variance :covariant]]
+                                  (I (Seqable x) (ExactCount 0)))
+clojure.core.typed/Seq (TFn [[x :variance :covariant]]
+                            (ISeq x))
+clojure.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
+                                    (I (ISeq x) (CountRange 1)))
+
+clojure.core.typed/EmptyCount (ExactCount 0)
+clojure.core.typed/NonEmptyCount (CountRange 1)
     ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -501,12 +532,22 @@ clojure.core.typed/Coll (TFn [[x :variance :covariant]]
 (assert (= (set (keys init-alias-env))
            (set (map #(symbol "clojure.core.typed" (str %))
                      clojure.core.typed/-base-aliases)))
-        "core.typed Bug! Base aliases do not agree with base environment")
+        (str "core.typed Bug! Base aliases do not agree with base environment."
+             " Missing from core.typed ns: "
+             (set/difference (set (keys init-alias-env))
+                             (set (map #(symbol "clojure.core.typed" (str %))
+                                       clojure.core.typed/-base-aliases)))
+             " Missing from base-env ns "
+             (set/difference (set (map #(symbol "clojure.core.typed" (str %))
+                                       clojure.core.typed/-base-aliases))
+                             (set (keys init-alias-env)))))
 
 
 ;;for parsing init-var-env
 ; must be after init-alias-env def as vars are interned there
-(let [interns '[Option AnyInteger Id Coll]]
+(let [interns '[Option AnyInteger Id Coll Seq NonEmptySeq EmptySeqable
+                NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
+                Vec NonEmptyColl]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -669,16 +710,14 @@ clojure.core/constantly (All [x y] [x -> [y * -> x]])
 ;TODO make extensible via IPersisentSet
 clojure.core/disj
      (All [x]
-          (Fn [(I (APersistentSet x) Sorted) Any Any * -> (I (APersistentSet x) Sorted)]
-              [(APersistentSet x) Any Any * -> (APersistentSet x)]
-              [(I (APersistentSet x) Sorted) Any Any * -> (I (IPersistentSet x) Sorted)]
-              [(IPersistentSet x) Any Any * -> (IPersistentSet x)]))
+          (Fn [(SortedSet x) Any Any * -> (SortedSet x)]
+              [(Set x) Any Any * -> (Set x)]))
 
 ;TODO make extensible via IPersistentMap
 clojure.core/assoc
      (All [b c d]
-       (Fn [(IPersistentMap b c) b c -> (IPersistentMap b c)]
-           [(IPersistentVector d) AnyInteger d -> (IPersistentVector d)]))
+       (Fn [(Map b c) b c -> (Map b c)]
+           [(Vec d) AnyInteger d -> (Vec d)]))
 
 clojure.core/zipmap
      (All [k v]
@@ -686,11 +725,11 @@ clojure.core/zipmap
 
 clojure.core/keys
 (All [k]
-     [(IPersistentMap k Any) -> (ISeq k) :object {:id 0 :path [Keys]}])
+     [(Map k Any) -> (Seq k) :object {:id 0 :path [Keys]}])
 
 clojure.core/vals
 (All [v]
-     [(IPersistentMap Any v) -> (ISeq v) :object {:id 0 :path [Vals]}])
+     [(Map Any v) -> (Seq v) :object {:id 0 :path [Vals]}])
 
 ;most useful case
 clojure.core/comp
@@ -738,6 +777,8 @@ clojure.core/re-find (Fn [java.util.regex.Matcher -> (U nil String (APersistentV
 clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String])
 
+clojure.core/future-call [[-> Any] -> Any]
+
 ;clojure.core/atom (All [x [y :< (U )]]
 ;                         (Fn 
 ;                           [x & {:validator (Option [Any -> Any])} :mandatory {:meta (Option y)}
@@ -781,16 +822,16 @@ clojure.core/compare (All []
 
 clojure.core/require [Any * -> nil]
 
-clojure.core/seq? (predicate (ISeq Any))
-clojure.core/set? (predicate (IPersistentSet Any))
-clojure.core/vector? (predicate (IPersistentVector Any))
+clojure.core/seq? (predicate (Seq Any))
+clojure.core/set? (predicate (Set Any))
+clojure.core/vector? (predicate (Vec Any))
 clojure.core/nil? (predicate nil)
 clojure.core/false? (predicate false)
 clojure.core/true? (predicate true)
 clojure.core/zero? (predicate (Value 0))
 clojure.core/symbol? (predicate Symbol)
 clojure.core/keyword? (predicate Keyword)
-clojure.core/map? (predicate (IPersistentMap Any Any))
+clojure.core/map? (predicate (Map Any Any))
 )
     (h/var-mappings
 
@@ -812,12 +853,12 @@ clojure.string/join
          [Any (Option (Seqable Any)) -> String])
 
 ;usually for string manipulation, accurate enough?
-clojure.core/interpose (Fn [Any (Option (Seqable Any)) -> (ISeq Any)])
-clojure.core/interleave (All [x] [(Option (Seqable x)) -> (ISeq x)])
+clojure.core/interpose (Fn [Any (Option (Seqable Any)) -> (Seq Any)])
+clojure.core/interleave (All [x] [(Option (Seqable x)) -> (Seq x)])
 
 clojure.core/repeat (All [x] 
-                         (Fn [x -> (ISeq x)]
-                             [AnyInteger x -> (ISeq x)]))
+                         (Fn [x -> (Seq x)]
+                             [AnyInteger x -> (Seq x)]))
 
 ;clojure.core/every? (All [x y] 
 ;                         (Fn [[x -> Any :filters {:then (is y 0)}] (Coll x) -> Boolean
@@ -848,13 +889,13 @@ clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
 
 clojure.core/seq (All [x]
                         (Fn 
-                          [(I (Coll x) (CountRange 1)) -> (I (ISeq x) (CountRange 1))]
-                          [(Option (Coll x)) -> (Option (I (ISeq x) (CountRange 1)))
-                           :filters {:then (& (is (CountRange 1) 0)
+                          [(NonEmptyColl x) -> (NonEmptySeq x)]
+                          [(Option (Coll x)) -> (Option (NonEmptySeq x))
+                           :filters {:then (& (is NonEmptyCount 0)
                                               (! nil 0))
                                      :else (| (is nil 0)
-                                              (is (ExactCount 0) 0))}]
-                          [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))]))
+                                              (is EmptyCount 0))}]
+                          [(Option (Seqable x)) -> (Option (NonEmptySeq x))]))
 
 ; Seqable [[x :variance :covariant]
 ;          :count [l :variance :covariant :< AnyCountRange]
@@ -869,9 +910,9 @@ clojure.core/seq (All [x]
 ;                      [(Seqable x :count AnyCountRange :to-seq sfn) -> (U nil (sfn x))]
 
 clojure.core/empty? (Fn [(Option (Coll Any)) -> boolean
-                          :filters {:then (| (is (ExactCount 0) 0)
+                          :filters {:then (| (is EmptyCount 0)
                                              (is nil 0))
-                                    :else (is (CountRange 1) 0)}]
+                                    :else (is NonEmptyCount 0)}]
                         [(Option (Seqable Any)) -> boolean])
 
 clojure.core/map
@@ -892,8 +933,8 @@ clojure.core/map-indexed
 clojure.core/merge-with
      (All [k v]
           (Fn [[v v -> v] nil * -> nil]
-              [[v v -> v] (IPersistentMap k v) * -> (IPersistentMap k v)]
-              [[v v -> v] (Option (IPersistentMap k v)) * -> (Option (IPersistentMap k v))]))
+              [[v v -> v] (Map k v) * -> (Map k v)]
+              [[v v -> v] (Option (Map k v)) * -> (Option (Map k v))]))
 
 clojure.core/reduce
      (All [a c]
@@ -901,7 +942,7 @@ clojure.core/reduce
             ;Without accumulator
             ; default
             ; (reduce + my-coll)
-            [[a c -> a] (I (Seqable c) (CountRange 1)) -> a]
+            [[a c -> a] (NonEmptySeqable c) -> a]
             [(Fn [a c -> a] [-> a]) (Option (Seqable c)) -> a]
             ; default
             ; (reduce + 3 my-coll)
@@ -938,8 +979,8 @@ clojure.core/not= [Any Any * -> boolean]
 
 clojure.core/first
      (All [x]
-          (Fn [(Option (I (Seqable x) (ExactCount 0))) -> nil]
-              [(I (Seqable x) (CountRange 1)) -> x]
+          (Fn [(Option (EmptySeqable x)) -> nil]
+              [(NonEmptySeqable x) -> x]
               [(Option (Seqable x)) -> (Option x)]))
 
 clojure.core/second
@@ -950,11 +991,11 @@ clojure.core/second
 
 clojure.core/ffirst
      (All [x]
-          [(Option (Seqable (Option (Seqable x)))) -> (Option x)])
+          [(Option (Seqable (U nil (Seqable x)))) -> (Option x)])
 
 clojure.core/nfirst
 (All [x]
-     [(Option (Seqable (Option (Seqable x)))) -> (Option (I (CountRange 1) (Seqable x)))])
+     [(Option (Seqable (Option (Seqable x)))) -> (Option (NonEmptySeq x))])
 
 clojure.core/fnext
 (All [x]
@@ -962,15 +1003,15 @@ clojure.core/fnext
 
 clojure.core/nnext
 (All [x]
-     [(Option (Seqable x)) -> (Option (I (CountRange 1) (Seqable x)))])
+     [(Option (Seqable x)) -> (Option (NonEmptySeq x))])
 
 clojure.core/nthnext
 (All [x]
-     [(Option (Seqable x)) AnyInteger -> (Option (I (CountRange 1) (Seqable x)))])
+     [(Option (Seqable x)) AnyInteger -> (Option (NonEmptySeq x))])
 
 clojure.core/rest
      (All [x]
-          [(Option (Seqable x)) -> (ISeq x)])
+          [(Option (Seqable x)) -> (Seq x)])
 
 clojure.core/last
      (All [x]
@@ -978,16 +1019,16 @@ clojure.core/last
 
 clojure.core/butlast
      (All [x]
-          [(Option (Seqable x)) -> (ISeq x)])
+          [(Option (Seqable x)) -> (Seq x)])
 
 clojure.core/next
      (All [x]
-          (Fn [(Option (Coll x)) -> (Option (I (ISeq x) (CountRange 1)))
+          (Fn [(Option (Coll x)) -> (Option (NonEmptySeq x))
                :filters {:then (& (is (CountRange 2) 0)
                                   (! nil 0))
                          :else (| (is (CountRange 0 1) 0)
                                   (is nil 0))}]
-              [(Option (Seqable x)) -> (Option (I (ISeq x) (CountRange 1)))]))
+              [(Option (Seqable x)) -> (Option (NonEmptySeq x))]))
 
 
 clojure.core/conj
@@ -1008,7 +1049,7 @@ clojure.core/conj
                (Option (IMapEntry x y) (Vector* x y))
                (Option (IMapEntry x y) (Vector* x y)) * -> (IPersistentMap x y)]
               [(IPersistentSet x) x x * -> (IPersistentSet x)]
-              [(ISeq x) x x * -> (ASeq x)]
+              [(Seq x) x x * -> (ASeq x)]
               [nil x x * -> (clojure.lang.PersistentList x)]
               [(Coll Any) Any Any * -> (Coll Any)]
               ))
@@ -1101,7 +1142,7 @@ clojure.core/reverse
 
 clojure.core/rseq
      (All [x]
-       [(Reversible x) -> (Option (I (ISeq x) (CountRange 1)))])
+       [(Reversible x) -> (Option (NonEmptySeq x))])
 
 ;coercions
 clojure.core/bigdec [Any -> BigDecimal]
@@ -1155,10 +1196,12 @@ clojure.core/rand (Fn [-> Number]
 clojure.core/chunked-seq? [Any -> Any]
 clojure.core/chunk-first 
      (All [x]
+          ;should be IChunkedSeq -> IChunk
           [(Seqable x) -> (clojure.lang.IChunk x)])
 clojure.core/chunk-rest
      (All [x]
-          [(Seqable x) -> (Seqable x)])
+          ;should be IChunkRest -> Seq
+          [(clojure.lang.Seqable x) -> (Seq x)])
 clojure.core/chunk-buffer
      (All [x]
           [(U Integer Long) -> (clojure.lang.ChunkBuffer x)])

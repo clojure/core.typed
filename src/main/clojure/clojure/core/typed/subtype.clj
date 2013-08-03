@@ -233,6 +233,43 @@
           *sub-current-seen*
           (fail! s t))
 
+        (and (r/Extends? s)
+             (r/Extends? t))
+        (if (and ;all positive information matches.
+                 ; Each t should occur in at least one s.
+                 (every? (fn [t*]
+                           (some #(subtype? % t*) (:extends s)))
+                         (:extends t))
+                 ;lhs does not explicitly implement any forbidden types.
+                 ; No negative t should be a supertype of a positive s
+                 (not-any? (fn [not-t*]
+                             (some #(subtype? % not-t*) (:extends s)))
+                           (:without t))
+                 ;lhs explicitly disallows same types as rhs
+                 ; Each negative t should be a supertype of some negative s
+                 (every? (fn [not-t*]
+                           (some #(subtype? % not-t*) (:without s)))
+                         (:without t)))
+          *sub-current-seen*
+          (fail! s t))
+
+        (r/Extends? s)
+        (let [^Extends s s]
+          (if (and (some #(subtype? % t) (.extends s))
+                   (not-any? #(subtype? % t) (.without s)))
+            *sub-current-seen*
+            (fail! s t)))
+
+        (r/Extends? t)
+        (let [^Extends t t]
+          (if (and (every? identity 
+                           (doall
+                             (for [e (.extends t)]
+                               (subtype? s e))))
+                   (not-any? #(subtype? s %) (.without t)))
+            *sub-current-seen*
+            (fail! s t)))
+
         (r/Mu? s)
         (subtype (c/unfold s) t)
 
@@ -406,20 +443,6 @@
         (and (r/RClass? s)
              (r/RClass? t))
         (p :subtype-RClass (subtype-RClass s t))
-
-        (r/Extends? s)
-        (let [^Extends s s]
-          (if (and (some #(subtype? % t) (.extends s))
-                   (not-any? #(subtype? % t) (.without s)))
-            *sub-current-seen*
-            (fail! s t)))
-
-        (r/Extends? t)
-        (let [^Extends t t]
-          (if (and (some #(subtype? s %) (.extends t))
-                   (not-any? #(subtype? s %) (.without t)))
-            *sub-current-seen*
-            (fail! s t)))
 
         (and (r/CountRange? s)
              (r/CountRange? t))

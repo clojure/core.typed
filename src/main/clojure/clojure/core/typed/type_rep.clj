@@ -338,11 +338,13 @@
 
 (u/ann-record PolyDots [nbound :- Number,
                         bbnds :- (U nil (Seqable Bounds)),
-                        scope :- Scope])
-(u/def-type PolyDots [nbound bbnds ^Scope scope]
+                        scope :- Scope
+                        actual-frees :- (U nil (Seqable Symbol))])
+(u/def-type PolyDots [nbound bbnds ^Scope scope actual-frees]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
   [(u/nat? nbound)
    (every? Bounds? bbnds)
+   (every? symbol? actual-frees)
    (= nbound (count bbnds))
    (scope-depth? scope nbound)
    (Scope? scope)])

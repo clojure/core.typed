@@ -590,8 +590,8 @@
 ;; PolyDots
 
 ;smart constructor
-(t/ann ^:nocheck PolyDots* [(Seqable Symbol) (Seqable Bounds) TCType -> TCType])
-(defn PolyDots* [names bbnds body]
+(t/ann ^:nocheck PolyDots* [(Seqable Symbol) (Seqable Bounds) TCType (Seqable Symbol) -> TCType])
+(defn PolyDots* [names bbnds body free-names]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
          (r/Type? body)]}
@@ -602,7 +602,8 @@
                       (mapv (fn [bnd] 
                               (r/visit-bounds bnd #(abstract-many names %)))
                             bbnds)
-                      (abstract-many names body))))
+                      (abstract-many names body)
+                      free-names)))
 
 ;smart destructor
 (t/ann ^:nocheck PolyDots-body* [(Seqable Symbol) PolyDots -> TCType])
@@ -620,6 +621,12 @@
   (mapv (fn [b]
           (r/visit-bounds b #(instantiate-many names %)))
         (.bbnds poly)))
+
+(t/ann ^:nocheck PolyDots-free-names* [Poly -> (Seqable Symbol)])
+(defn PolyDots-free-names* [^PolyDots poly]
+  {:pre [(r/PolyDots? poly)]
+   :post [((every-pred seq (u/every-c? symbol?)) %)]}
+  (.actual-frees poly))
 
 
 ;; Instantiate ops
@@ -1064,14 +1071,15 @@
 
 (f/add-fold-case ::abstract-many
                  PolyDots
-                 (fn [{bbnds* :bbnds n :nbound body* :scope} {{:keys [name count type outer name-to]} :locals}]
+                 (fn [{bbnds* :bbnds n :nbound body* :scope :as ty} {{:keys [name count type outer name-to]} :locals}]
                    (let [rs #(remove-scopes n %)
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
                      (r/PolyDots-maker n 
-                                   (mapv #(r/visit-bounds % rs) bbnds)
-                                   (as body)))))
+                                       (mapv #(r/visit-bounds % rs) bbnds)
+                                       (as body)
+                                       (PolyDots-free-names* ty)))))
 
 (f/add-fold-case ::abstract-many
                  Poly
@@ -1172,14 +1180,15 @@
 
 (f/add-fold-case ::instantiate-many
                PolyDots
-               (fn [{bbnds* :bbnds n :nbound body* :scope} {{:keys [replace count outer image sb type]} :locals}]
+               (fn [{bbnds* :bbnds n :nbound body* :scope :as ty} {{:keys [replace count outer image sb type]} :locals}]
                  (let [rs #(remove-scopes n %)
                        body (rs body*)
                        bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                        as #(add-scopes n (replace image count type (+ n outer) %))]
                    (r/PolyDots-maker n 
-                               (mapv #(r/visit-bounds % as) bbnds)
-                               (as body)))))
+                                     (mapv #(r/visit-bounds % as) bbnds)
+                                     (as body)
+                                     (PolyDots-free-names* ty)))))
 
 (f/add-fold-case ::instantiate-many
                Poly

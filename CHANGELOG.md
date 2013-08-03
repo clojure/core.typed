@@ -1,3 +1,29 @@
+0.1.19
+- Start supporting core.async
+  - see c.c.t.test.async-* for examples
+  - c.c.t.async is the companion namespace
+- Deprecate implicit optional keyword parameters
+  - old syntax: [args & {opts} :mandatory {mand...} -> t]
+  - new syntax (interchangable keyword args): [& :optional {opts} :mandatory {mand...} -> t]
+- Add lots of useful aliases in clojure.core.typed namespace
+  - Int, Num 
+    - Same as AnyInteger & j.l.Number
+  - (Coll x), (NonEmptyColl x) 
+    - IPersistentCollection
+  - (Vec x), (NonEmptyVec x)
+    - IPersistentVector
+  - (Map k v) 
+    - IPersistentMap
+  - (Set x), (SortedSet x) 
+    - IPersistentMap w/ clojure.lang.Sorted
+  - (Seqable x), (NonEmptySeqable x), (EmptySeqable x) 
+    - c.l.Seqable
+  - (Seq x), (NonEmptySeq x)
+    - clojure.lang.ISeq
+  - (EmptyCount NonEmptyCount)
+    - (ExactCount 0) and (CountRange 1)
+- Update base env with new aliases
+
 0.1.18
 - Update to tools.namespace SNAPSHOT, avoids StackOverflow error
   with malformed ns forms

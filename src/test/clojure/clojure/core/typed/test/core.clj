@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.core
-  (:import (clojure.lang Seqable ISeq ASeq IPersistentVector Atom IPersistentMap
+  (:import (clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
                          Keyword ExceptionInfo Symbol Var))
   (:require [clojure.test :refer :all]
             [clojure.tools.analyzer :refer [ast]]
@@ -34,6 +34,12 @@
             [clojure.core.typed.test.person]
             [clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]]))
+
+; we want clojure.lang.Seqable to be scoped here. 
+; There :refer :all of clojure.core.typed adds another Seqable which
+; is less useful here.
+(ns-unmap *ns* 'Seqable)
+(import (clojure.lang Seqable))
 
 (defn subtype? [& rs]
   (impl/ensure-clojure)
@@ -100,7 +106,8 @@
          (make-FnIntersection (make-Function () -nil -nil))))
   (is (= (parse-type '(All [x ...] [nil ... x -> nil]))
          (PolyDots* '(x) [no-bounds]
-                    (make-FnIntersection (make-Function () -nil nil (DottedPretype-maker -nil 'x)))))))
+                    (make-FnIntersection (make-Function () -nil nil (DottedPretype-maker -nil 'x)))
+                    '(x)))))
 
 (deftest poly-constructor-test
   (is (= (Poly-body*
@@ -1676,14 +1683,90 @@
                  [x 2 3])) 
           [Number -> (clojure.lang.LazySeq Number)])))
 
+(deftest unannotated-datatype-test
+  (is (check-ns 'clojure.core.typed.test.unannotated-datatype)))
+
 ;(deftest intersect-RClass-ancestors-test
 ;  (is (= (In (RClass-of IPersistentSet [-any])
 ;             (RClass-of Seqable [(RClass-of Number)]))
 ;         (RClass-of IPersistentSet [-any]))))
 
+(deftest munged-datatype-fields-test
+  (is (check-ns 'clojure.core.typed.test.munge-record-field)))
+
+(deftest Extends-subtype-test
+  (is (check-ns 'clojure.core.typed.test.async))
+  (is (sub? (Extends [(Seqable Long)
+                      (IPersistentVector Long)])
+            (Extends [(Seqable Number)
+                      (IPersistentVector Number)])))
+
+  (is (sub? (clojure.core.typed.async/Chan clojure.core.typed.test.async/Query)
+            (clojure.core.typed.async/Chan Any)))
+
+  (is (sub? (clojure.core.async.impl.protocols/ReadPort clojure.core.typed.test.async/Query)
+                (clojure.core.async.impl.protocols/ReadPort Any)))
+
+  (is (sub? (clojure.core.async.impl.protocols/Channel clojure.core.typed.test.async/Query)
+            (clojure.core.async.impl.protocols/Channel Any)))
+
+  (is (sub? (Extends [(clojure.core.async.impl.protocols/Channel clojure.core.typed.test.async/Query)
+                      (clojure.core.async.impl.protocols/WritePort clojure.core.typed.test.async/Query)
+                      (clojure.core.async.impl.protocols/ReadPort clojure.core.typed.test.async/Query)])
+            (Extends [(clojure.core.async.impl.protocols/Channel Any)
+                      (clojure.core.async.impl.protocols/WritePort Any)
+                      (clojure.core.async.impl.protocols/ReadPort Any)]))))
+
+(sub? (Extends [(clojure.core.async.impl.protocols/Channel clojure.core.typed.test.async/Query)
+                (clojure.core.async.impl.protocols/WritePort clojure.core.typed.test.async/Query)
+                (clojure.core.async.impl.protocols/ReadPort clojure.core.typed.test.async/Query)])
+      (Extends [(clojure.core.async.impl.protocols/ReadPort Any)]))
+
+(deftest Extends-cs-gen-test
+  (is (check-ns 'clojure.core.typed.test.async))
+  (is (cs-gen #{} {'x no-bounds} {} 
+          (parse-type '(clojure.lang.LazySeq Any))
+          (with-bounded-frees {(make-F 'x) no-bounds}
+            (parse-type '(clojure.lang.LazySeq x)))))
+
+  (is (cs-gen #{} {'x no-bounds} {} 
+              (parse-type '(clojure.core.async.impl.protocols/ReadPort Any))
+              (with-bounded-frees {(make-F 'x) no-bounds}
+                (parse-type '(clojure.core.async.impl.protocols/ReadPort x)))))
+  (is (cf ((inst identity  (Extends [(clojure.core.async.impl.protocols/ReadPort Any)]))
+           (ann-form (clojure.core.typed.async/chan> Any) 
+                              (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
+          (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
+  (is (cf (identity
+           (ann-form (clojure.core.typed.async/chan> Any) 
+                              (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
+          (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
+  (is (cf (identity
+           (ann-form (clojure.core.typed.async/chan> Any) 
+                     (clojure.core.async.impl.protocols/ReadPort Any)))
+          (clojure.core.async.impl.protocols/ReadPort Any)))
+  (is (cf (seq (ann-form [] (clojure.lang.Seqable (clojure.core.typed.async/Chan Any))))
+          (U nil (Seqable (clojure.core.typed.async/Chan Any))))))
+
+(deftest Extends-inference-test
+  (is (cf [1] (Extends [(Seqable Number) (IPersistentVector Number)])))
+  (is (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(Seqable Number) (IPersistentVector Number)]))]
+            ((inst first Number) x))
+          (U nil Number)))
+  (is (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(Seqable Number) (IPersistentVector Number)]))]
+            (first x))))
+  (is (cf (clojure.core.typed/letfn> [af :- (All [a]
+                                                 [(Extends [(Seqable a)
+                                                            (IPersistentVector a)])
+                                                  -> a])
+                                      (af [x] {:post [%]} (first x))]
+            (af [1])))))
+
+;(cf (seq (ann-form (seq []) (Seqable Any))))
+;(cf (seq (ann-form (seq []) (ISeq Any))))
+
+;
 ;TODO destructuring on records
-;TODO does this instance lookup work? (cf (.the-class (->RClass ...)))
-;TODO unmunge fields (.other-keys? hmap)
 ;TODO this is non-nil (last (take 100 (iterate update-without-plot initial-state)))
 ;TODO 
 ;          {final-grid :grid,

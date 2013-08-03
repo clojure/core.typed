@@ -13,7 +13,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
-                                        HeterogeneousSeq TCError)
+                                        HeterogeneousSeq TCError Extends)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -196,6 +196,18 @@
   [T V] 
   (-> T
     (update-in [:type] #(promote % V))))
+
+(defmethod promote Extends
+  [T V] 
+  (-> T
+    (update-in [:extends] #(mapv promote % (repeat V)))
+    (update-in [:without] #(mapv demote % (repeat V)))))
+
+(defmethod demote Extends
+  [T V] 
+  (-> T
+    (update-in [:extends] #(mapv demote % (repeat V)))
+    (update-in [:without] #(mapv promote % (repeat V)))))
 
 
 (defmethod promote Intersection
