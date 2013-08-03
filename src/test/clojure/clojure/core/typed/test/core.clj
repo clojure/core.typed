@@ -1694,6 +1694,13 @@
 (deftest munged-datatype-fields-test
   (is (check-ns 'clojure.core.typed.test.munge-record-field)))
 
+(defmacro when-async-dep [& body]
+  (when (try (require 'clojure.core.async)
+             true
+             (catch Exception e false))
+    `(do ~@body)))
+
+(when-async-dep
 (deftest Extends-subtype-test
   (is (check-ns 'clojure.core.typed.test.async))
   (is (sub? (Extends [(clojure.lang.Seqable Long)
@@ -1720,7 +1727,9 @@
                       (clojure.core.async.impl.protocols/WritePort clojure.core.typed.test.async/Query)
                       (clojure.core.async.impl.protocols/ReadPort clojure.core.typed.test.async/Query)])
             (Extends [(clojure.core.async.impl.protocols/ReadPort Any)]))))
+  )
 
+(when-async-dep
 (deftest Extends-cs-gen-test
   (is (check-ns 'clojure.core.typed.test.async))
   (is (cs-gen #{} {'x no-bounds} {} 
@@ -1753,7 +1762,9 @@
 
   (is (overlap (parse-type '(clojure.core.typed.async/Chan Any))
                -any)))
+  )
 
+(when-async-dep
 (deftest Extends-inference-test
   (is (cf [1] (Extends [(clojure.lang.IPersistentVector Number)])))
   (is (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(clojure.lang.Seqable Number) 
@@ -1769,10 +1780,13 @@
                                                   -> a])
                                       (af [x] {:post [%]} (first x))]
             (af [1])))))
+  )
 
+(when-async-dep
 (deftest core-async-test
   (is (check-ns 'clojure.core.typed.test.async-go))
   (is (check-ns 'clojure.core.typed.test.async-alts)))
+  )
 
 ;(cf (seq (ann-form (seq []) (Seqable Any))))
 ;(cf (seq (ann-form (seq []) (ISeq Any))))
