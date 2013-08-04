@@ -1,8 +1,8 @@
 0.1.19
 - Start supporting core.async
-  - see c.c.t.test.async-{go,alts} for examples
-  - c.c.t.async is the companion namespace. Just require it
-    and the annotations will be picked up in your core.async ns
+  - see examples/async for examples
+  - clojure.core.typed.async is the companion namespace. Just require it
+    and the annotations will be registered during type checking.
 - Deprecate implicit optional keyword parameters
   - old syntax: [args & {opts} :mandatory {mand...} -> t]
   - new syntax (interchangable keyword args): [& :optional {opts} :mandatory {mand...} -> t]
@@ -26,6 +26,7 @@
 - Update base env with new aliases
 - Fixes for Extends type
   - subtyping, cs gen
+- defmethods now respect warn-on-unannotated-var (reported by Allen Rohner)
 
 0.1.18
 - Update to tools.namespace SNAPSHOT, avoids StackOverflow error

@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.async-go
+(ns examples.async.async-go
   (:require [clojure.core.typed :refer [ann def-alias check-ns cf doseq> loop>
                                         AnyInteger]
              :as t]

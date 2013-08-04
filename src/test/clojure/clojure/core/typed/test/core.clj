@@ -1694,102 +1694,105 @@
 (deftest munged-datatype-fields-test
   (is (check-ns 'clojure.core.typed.test.munge-record-field)))
 
-(defmacro when-async-dep [& body]
-  (when (try (require 'clojure.core.async)
-             true
-             (catch Exception e false))
-    `(do ~@body)))
-
-(when-async-dep
-(deftest Extends-subtype-test
-  (is (check-ns 'clojure.core.typed.test.async))
-  (is (sub? (Extends [(clojure.lang.Seqable Long)
-                      (clojure.lang.IPersistentVector Long)])
-            (Extends [(clojure.lang.Seqable Number)
-                      (clojure.lang.IPersistentVector Number)])))
-
-  (is (sub? (clojure.core.typed.async/Chan clojure.core.typed.test.async/Query)
-            (clojure.core.typed.async/Chan Any)))
-
-  (is (sub? (clojure.core.async.impl.protocols/ReadPort clojure.core.typed.test.async/Query)
-            (clojure.core.async.impl.protocols/ReadPort Any)))
-
-  (is (sub? (clojure.core.async.impl.protocols/Channel clojure.core.typed.test.async/Query)
-            (clojure.core.async.impl.protocols/Channel Any)))
-
-  (is (sub? (Extends [(clojure.core.async.impl.protocols/Channel clojure.core.typed.test.async/Query)
-                      (clojure.core.async.impl.protocols/WritePort clojure.core.typed.test.async/Query)
-                      (clojure.core.async.impl.protocols/ReadPort clojure.core.typed.test.async/Query)])
-            (Extends [(clojure.core.async.impl.protocols/Channel Any)
-                      (clojure.core.async.impl.protocols/WritePort Any)
-                      (clojure.core.async.impl.protocols/ReadPort Any)])))
-  (is (sub? (Extends [(clojure.core.async.impl.protocols/Channel clojure.core.typed.test.async/Query)
-                      (clojure.core.async.impl.protocols/WritePort clojure.core.typed.test.async/Query)
-                      (clojure.core.async.impl.protocols/ReadPort clojure.core.typed.test.async/Query)])
-            (Extends [(clojure.core.async.impl.protocols/ReadPort Any)]))))
-  )
-
-(when-async-dep
-(deftest Extends-cs-gen-test
-  (is (check-ns 'clojure.core.typed.test.async))
-  (is (cs-gen #{} {'x no-bounds} {} 
-          (parse-type '(clojure.lang.LazySeq Any))
-          (with-bounded-frees {(make-F 'x) no-bounds}
-            (parse-type '(clojure.lang.LazySeq x)))))
-
-  (is (cs-gen #{} {'x no-bounds} {} 
-              (parse-type '(clojure.core.async.impl.protocols/ReadPort Any))
-              (with-bounded-frees {(make-F 'x) no-bounds}
-                (parse-type '(clojure.core.async.impl.protocols/ReadPort x)))))
-  (is (cf ((clojure.core.typed/inst identity  (Extends [(clojure.core.async.impl.protocols/ReadPort Any)]))
-           (clojure.core.typed/ann-form (clojure.core.typed.async/chan> Any) 
-                              (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
-          (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
-  (is (cf (identity
-           (clojure.core.typed/ann-form (clojure.core.typed.async/chan> Any) 
-                                        (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
-          (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
-  (is (cf (identity
-           (clojure.core.typed/ann-form (clojure.core.typed.async/chan> Any) 
-                     (clojure.core.async.impl.protocols/ReadPort Any)))
-          (clojure.core.async.impl.protocols/ReadPort Any)))
-  (is (cf (seq (clojure.core.typed/ann-form [] (clojure.core.typed/Coll (clojure.core.typed.async/Chan Any))))
-          (U nil (clojure.core.typed/Coll (clojure.core.typed.async/Chan Any)))))
-  (is (cf (seq (clojure.core.typed/ann-form [] (clojure.core.typed/Coll (clojure.core.typed/Seqable Any))))
-          (U nil (clojure.core.typed/Coll (clojure.core.typed/Seqable Any)))))
-  (is (subtype? (parse-type '(clojure.core.typed.async/Chan Any))
-                -any))
-
-  (is (overlap (parse-type '(clojure.core.typed.async/Chan Any))
-               -any)))
-  )
-
-(when-async-dep
-(deftest Extends-inference-test
-  (is (cf [1] (Extends [(clojure.lang.IPersistentVector Number)])))
-  (is (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(clojure.lang.Seqable Number) 
-                                                             (clojure.lang.IPersistentVector Number)]))]
-            ((clojure.core.typed/inst first Number) x))
-          (U nil Number)))
-  (is (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(clojure.lang.Seqable Number) 
-                                                             (clojure.lang.IPersistentVector Number)]))]
-            (first x))))
-  (is (cf (clojure.core.typed/letfn> [af :- (All [a]
-                                                 [(Extends [(clojure.lang.Seqable a)
-                                                            (clojure.lang.IPersistentVector a)])
-                                                  -> a])
-                                      (af [x] {:post [%]} (first x))]
-            (af [1])))))
-  )
-
-(when-async-dep
-(deftest core-async-test
-  (is (check-ns 'clojure.core.typed.test.async-go))
-  (is (check-ns 'clojure.core.typed.test.async-alts)))
-  )
+;(defmacro when-async-dep [& body]
+;  (when (try (require 'clojure.core.async)
+;             true
+;             (catch Exception e false))
+;    `(do ~@body)))
+;
+;(when-async-dep
+;(deftest Extends-subtype-test
+;  (is (check-ns 'clojure.core.typed.test.async))
+;  (is (sub? (Extends [(clojure.lang.Seqable Long)
+;                      (clojure.lang.IPersistentVector Long)])
+;            (Extends [(clojure.lang.Seqable Number)
+;                      (clojure.lang.IPersistentVector Number)])))
+;
+;  (is (sub? (clojure.core.typed.async/Chan clojure.core.typed.test.async/Query)
+;            (clojure.core.typed.async/Chan Any)))
+;
+;  (is (sub? (clojure.core.async.impl.protocols/ReadPort clojure.core.typed.test.async/Query)
+;            (clojure.core.async.impl.protocols/ReadPort Any)))
+;
+;  (is (sub? (clojure.core.async.impl.protocols/Channel clojure.core.typed.test.async/Query)
+;            (clojure.core.async.impl.protocols/Channel Any)))
+;
+;  (is (sub? (Extends [(clojure.core.async.impl.protocols/Channel clojure.core.typed.test.async/Query)
+;                      (clojure.core.async.impl.protocols/WritePort clojure.core.typed.test.async/Query)
+;                      (clojure.core.async.impl.protocols/ReadPort clojure.core.typed.test.async/Query)])
+;            (Extends [(clojure.core.async.impl.protocols/Channel Any)
+;                      (clojure.core.async.impl.protocols/WritePort Any)
+;                      (clojure.core.async.impl.protocols/ReadPort Any)])))
+;  (is (sub? (Extends [(clojure.core.async.impl.protocols/Channel clojure.core.typed.test.async/Query)
+;                      (clojure.core.async.impl.protocols/WritePort clojure.core.typed.test.async/Query)
+;                      (clojure.core.async.impl.protocols/ReadPort clojure.core.typed.test.async/Query)])
+;            (Extends [(clojure.core.async.impl.protocols/ReadPort Any)]))))
+;  )
+;
+;(when-async-dep
+;(deftest Extends-cs-gen-test
+;  (is (check-ns 'clojure.core.typed.test.async))
+;  (is (cs-gen #{} {'x no-bounds} {} 
+;          (parse-type '(clojure.lang.LazySeq Any))
+;          (with-bounded-frees {(make-F 'x) no-bounds}
+;            (parse-type '(clojure.lang.LazySeq x)))))
+;
+;  (is (cs-gen #{} {'x no-bounds} {} 
+;              (parse-type '(clojure.core.async.impl.protocols/ReadPort Any))
+;              (with-bounded-frees {(make-F 'x) no-bounds}
+;                (parse-type '(clojure.core.async.impl.protocols/ReadPort x)))))
+;  (is (cf ((clojure.core.typed/inst identity  (Extends [(clojure.core.async.impl.protocols/ReadPort Any)]))
+;           (clojure.core.typed/ann-form (clojure.core.typed.async/chan> Any) 
+;                              (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
+;          (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
+;  (is (cf (identity
+;           (clojure.core.typed/ann-form (clojure.core.typed.async/chan> Any) 
+;                                        (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
+;          (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
+;  (is (cf (identity
+;           (clojure.core.typed/ann-form (clojure.core.typed.async/chan> Any) 
+;                     (clojure.core.async.impl.protocols/ReadPort Any)))
+;          (clojure.core.async.impl.protocols/ReadPort Any)))
+;  (is (cf (seq (clojure.core.typed/ann-form [] (clojure.core.typed/Coll (clojure.core.typed.async/Chan Any))))
+;          (U nil (clojure.core.typed/Coll (clojure.core.typed.async/Chan Any)))))
+;  (is (cf (seq (clojure.core.typed/ann-form [] (clojure.core.typed/Coll (clojure.core.typed/Seqable Any))))
+;          (U nil (clojure.core.typed/Coll (clojure.core.typed/Seqable Any)))))
+;  (is (subtype? (parse-type '(clojure.core.typed.async/Chan Any))
+;                -any))
+;
+;  (is (overlap (parse-type '(clojure.core.typed.async/Chan Any))
+;               -any)))
+;  )
+;
+;(when-async-dep
+;(deftest Extends-inference-test
+;  (is (cf [1] (Extends [(clojure.lang.IPersistentVector Number)])))
+;  (is (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(clojure.lang.Seqable Number) 
+;                                                             (clojure.lang.IPersistentVector Number)]))]
+;            ((clojure.core.typed/inst first Number) x))
+;          (U nil Number)))
+;  (is (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(clojure.lang.Seqable Number) 
+;                                                             (clojure.lang.IPersistentVector Number)]))]
+;            (first x))))
+;  (is (cf (clojure.core.typed/letfn> [af :- (All [a]
+;                                                 [(Extends [(clojure.lang.Seqable a)
+;                                                            (clojure.lang.IPersistentVector a)])
+;                                                  -> a])
+;                                      (af [x] {:post [%]} (first x))]
+;            (af [1])))))
+;  )
+;
+;(when-async-dep
+;(deftest core-async-test
+;  (is (check-ns 'clojure.core.typed.test.async-go))
+;  (is (check-ns 'clojure.core.typed.test.async-alts)))
+;  )
 
 ;(cf (seq (ann-form (seq []) (Seqable Any))))
 ;(cf (seq (ann-form (seq []) (ISeq Any))))
+
+(deftest mm-warn-on-unannotated-vars-test
+  (is (check-ns 'clojure.core.typed.test.mm-warn-on-unannotated)))
 
 ;
 ;TODO destructuring on records

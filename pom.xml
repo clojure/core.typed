@@ -28,11 +28,13 @@
         <version>1.3.10</version>
         <configuration>
           <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
+          <testDeclareNamespacesOnly>false</testDeclareNamespacesOnly>
           <namespaces>
             <namespace>!clojure.core.typed.base-env</namespace>
             <namespace>!clojure.core.typed.alms-infer</namespace>
             <namespace>!clojure.core.typed.init</namespace>
           </namespaces>
+          <warnOnReflection>true</warnOnReflection>
         </configuration>
       </plugin>
     </plugins>
@@ -100,7 +102,7 @@
       <artifactId>clojure</artifactId>
       <version>1.5.1</version>
     </dependency>
-    <dependency>
+    <!--<dependency>
       <groupId>org.clojure</groupId>
       <artifactId>core.async</artifactId>
       <version>0.1.0-20130802.160123-63</version>
@@ -111,7 +113,7 @@
         </exclusion>
       </exclusions>
       <scope>test</scope>
-    </dependency>
+    </dependency>-->
   </dependencies>
 
   <developers>

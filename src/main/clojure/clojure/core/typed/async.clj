@@ -1,7 +1,8 @@
 (ns 
   ^{:doc 
     "This namespace contains annotations and helper macros for type
-    checking core.async code.
+    checking core.async code. Ensure clojure.core.async is require'd
+    before performing type checking.
     
     go
       use go>
@@ -13,50 +14,58 @@
       use buffer> (similar for other buffer constructors)
     "}
     clojure.core.typed.async
-  (:require [clojure.core.typed :refer [ann ann-pdatatype def-alias ann-pprotocol check-ns cf doseq> inst loop>
-                                        AnyInteger tc-ignore ann-form Seqable]
-             :as t]
-            [clojure.core.async :as async :refer [<! >! <!! timeout chan alt! go]]
-            [clojure.core.async.impl.protocols :as p :refer [Buffer]]
-            [clojure.core.async.impl.channels :as c]
-            [clojure.core.async.impl.dispatch :as dispatch]
-            [clojure.core.async.impl.ioc-macros :as ioc])
-  (:import (clojure.core.async.impl.channels ManyToManyChannel)
-           (java.util.concurrent Executor)
+  (:require [clojure.core.typed :refer [ann ann-pdatatype def-alias ann-pprotocol inst
+                                        AnyInteger tc-ignore Seqable]
+             :as t])
+  (:import (java.util.concurrent Executor)
            (java.util.concurrent.atomic AtomicReferenceArray)))
 
 ;TODO how do we encode that nil is illegal to provide to Ports/Channels?
 ;     Is it essential?
 
+;;;;;;;;;;;;;;;;;;;;
+;; Protocols
+
 (ann-pprotocol clojure.core.async.impl.protocols/Channel
                [[x :invariant]])
 
 (ann-pprotocol clojure.core.async.impl.protocols/ReadPort
-               [[x :invariant]] )
+               [[x :invariant]])
 
 (ann-pprotocol clojure.core.async.impl.protocols/WritePort
-               [[x :invariant]] )
+               [[x :invariant]])
 
 (ann-pprotocol clojure.core.async.impl.protocols/Buffer
-               [[x :invariant]] )
+               [[x :invariant]])
 
 (ann-pdatatype clojure.core.async.impl.channels.ManyToManyChannel 
-               [[x :invariant]] 
+               [[x :invariant]]
                []
-               :unchecked-ancestors #{(p/Channel x)
-                                      (p/ReadPort x)
-                                      (p/WritePort x)})
+               :unchecked-ancestors #{(clojure.core.async.impl.protocols/Channel x)
+                                      (clojure.core.async.impl.protocols/ReadPort x)
+                                      (clojure.core.async.impl.protocols/WritePort x)})
+
+;;;;;;;;;;;;;;;;;;;;
+;; Aliases
 
 (def-alias Chan
   "A core.async channel"
   (TFn [[x :variance :invariant]]
-    (Extends [(p/WritePort x)
-              (p/ReadPort x)
-              (p/Channel x)])))
+    (Extends [(clojure.core.async.impl.protocols/WritePort x)
+              (clojure.core.async.impl.protocols/ReadPort x)
+              (clojure.core.async.impl.protocols/Channel x)])))
 
 (def-alias TimeoutChan
   "A channel that times out. Not writeable or readable."
   (Chan Nothing))
+
+(def-alias Buffer
+  "A buffer of type x."
+  (TFn [[x :variance :invariant]]
+    (clojure.core.async.impl.protocols/Buffer x)))
+
+;;;;;;;;;;;;;;;;;;;;
+;; Var annotations
 
 (ann ^:nocheck clojure.core.async/buffer (All [x] [AnyInteger -> (Buffer x)]))
 (ann ^:nocheck clojure.core.async/dropping-buffer (All [x] [AnyInteger -> (Buffer x)]))
@@ -83,7 +92,8 @@
 (def-alias Port
   "A port that can read and write type x"
   (TFn [[x :variance :invariant]]
-    (Extends [(p/ReadPort x) (p/WritePort x)])))
+    (Extends [(clojure.core.async.impl.protocols/ReadPort x) 
+              (clojure.core.async.impl.protocols/WritePort x)])))
 
 (ann ^:nocheck clojure.core.async/<!! (All [x] [(Port x) -> (U nil x)]))
 (ann ^:nocheck clojure.core.async/>!! (All [x] [(Port x) x -> nil]))
@@ -94,6 +104,21 @@
               [(Seqable (U (Port x) '[(Port x) x])) & :optional {:priority (U nil true)} -> '[x (Port x)]])))
 
 (ann ^:nocheck clojure.core.async/close! [(Chan Any) -> nil])
+
+(ann ^:nocheck clojure.core.async.impl.dispatch/run [[-> (Chan Any)] -> Executor])
+;(ann clojure.core.async.impl.ioc-macros/async-chan-wrapper kV
+
+;;;;;;;;;;;;;;;;;;;;
+;; Typed wrappers
+
+(defn ^:private v [vsym]
+  {:pre [(symbol? vsym)]
+   :post [(var? %)]}
+  (let [ns (find-ns (namespace vsym))
+        _ (assert ns (str "Cannot find namespace: " (namespace vsym)))
+        var (ns-resolve ns (name vsym))]
+    (assert var (str "Cannot find var: " vsym))
+    var))
 
 (defmacro go>
   "Asynchronously executes the body, returning immediately to the
@@ -109,43 +134,55 @@
   `(let [c# (chan> ~'Any 1)
          captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
      (tc-ignore
-       (dispatch/run
+       (clojure.core.async.impl.dispatch/run
          (fn []
-           (let [f# ~(ioc/state-machine body 1 &env ioc/async-custom-terminators)
+           (let [f# ~((v 'clojure.core.async.impl.ioc-macros/state-machine) 
+                      body 1 &env (v 'clojure.core.async.impl.ioc-macros/async-custom-terminators))
                  state# (-> (f#)
-                            (ioc/aset-all! ioc/USER-START-IDX c#
-                                           ioc/BINDINGS-IDX captured-bindings#))]
-             (ioc/run-state-machine state#)))))
+                            (clojure.core.async.impl.ioc-macros/aset-all! 
+                              clojure.core.async.impl.ioc-macros/USER-START-IDX c#
+                              clojure.core.async.impl.ioc-macros/BINDINGS-IDX captured-bindings#))]
+             (clojure.core.async.impl.ioc-macros/run-state-machine state#)))))
      c#))
 
 
 (defmacro chan> 
   "A statically typed core.async channel. 
+
+  (chan> t ...) creates a buffer that can read and write type t.
+  Subsequent arguments are passed directly to clojure.core.async/chan.
   
+  Note: 
   (chan> t ...) is the same as ((inst chan t) ...)"
   [t & args]
-  `((inst chan ~t) ~@args))
+  `((inst clojure.core.async/chan ~t) ~@args))
 
 (defmacro buffer>
   "A statically typed core.async buffer. 
+
+  (buffer> t ...) creates a buffer that can read and write type t.
+  Subsequent arguments are passed directly to clojure.core.async/buffer.
   
-  (buffer> t ...) is the same as ((inst buffer t) ...)"
+  Note: (buffer> t ...) is the same as ((inst buffer t) ...)"
   [t & args]
-  `((inst async/buffer ~t) ~@args))
+  `((inst clojure.core.async/buffer ~t) ~@args))
 
 (defmacro sliding-buffer>
   "A statically typed core.async sliding buffer. 
+
+  (sliding-buffer> t ...) creates a sliding buffer that can read and write type t.
+  Subsequent arguments are passed directly to clojure.core.async/sliding-buffer.
   
-  (sliding-buffer> t ...) is the same as ((inst sliding-buffer t) ...)"
+  Note: (sliding-buffer> t ...) is the same as ((inst sliding-buffer t) ...)"
   [t & args]
-  `((inst async/sliding-buffer ~t) ~@args))
+  `((inst clojure.core.async/sliding-buffer ~t) ~@args))
 
 (defmacro dropping-buffer>
   "A statically typed core.async dropping buffer. 
   
-  (dropping-buffer> t ...) is the same as ((inst dropping-buffer t) ...)"
+  (dropping-buffer> t ...) creates a dropping buffer that can read and write type t.
+  Subsequent arguments are passed directly to clojure.core.async/dropping-buffer.
+  
+  Note: (dropping-buffer> t ...) is the same as ((inst dropping-buffer t) ...)"
   [t & args]
-  `((inst async/dropping-buffer ~t) ~@args))
-
-(ann ^:nocheck clojure.core.async.impl.dispatch/run [[-> (Chan Any)] -> Executor])
-;(ann clojure.core.async.impl.ioc-macros/async-chan-wrapper kV
+  `((inst clojure.core.async/dropping-buffer ~t) ~@args))

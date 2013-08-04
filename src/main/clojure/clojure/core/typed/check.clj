@@ -2172,27 +2172,38 @@
                                         (u/hmap-c? :dispatch-fn-type Type?
                                                    :dispatch-val-ret TCResult?)))
 
+; FIXME this needs a line number from somewhere!
 (defmethod instance-method-special 'clojure.lang.MultiFn/addMethod
   [{[dispatch-val-expr method-expr :as args] :args :keys [target env] :as expr} & [expected]]
   (assert (= 2 (count args)))
-  (let [_ (assert (#{:var} (:op target)))
-        _ (assert (#{:fn-expr} (:op method-expr))
-                  "Method must be a fn")
-        mmsym (u/var->symbol (:var target))
-        ctarget (check target)
-        cdispatch-val-expr (check dispatch-val-expr)
-        dispatch-type (mm/multimethod-dispatch-type mmsym)
-        _ (when-not dispatch-type
-            (binding [vs/*current-env* env]
-              (u/int-error (str "Multimethod requires dispatch type: " mmsym
-                                "\n\nHint: defmulti must be checked before its defmethods"))))
-        method-expected (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
-                          (var-env/type-of mmsym))
-        cmethod-expr (binding [*current-mm* {:dispatch-fn-type dispatch-type
-                                             :dispatch-val-ret (expr-type cdispatch-val-expr)}]
-                       (check method-expr (ret method-expected)))]
-    (assoc expr
-           expr-type (ret (c/RClass-of clojure.lang.MultiFn)))))
+  (let [mmsym (u/var->symbol (:var target))
+        ret-expr (assoc expr
+                        expr-type (ret (c/RClass-of clojure.lang.MultiFn)))]
+    (cond
+      ;skip if warn-on-unannotated-vars is in effect
+      (and (ns-opts/warn-on-unannotated-vars? (ns-name (expr-ns expr)))
+           (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
+             (not (var-env/lookup-Var-nofail mmsym))))
+      (do (println "<NO LINE NUMBER>: Not checking defmethod " mmsym " with dispatch " (u/emit-form-fn dispatch-val-expr))
+          (flush)
+          ret-expr)
+      :else
+      (let [_ (assert (#{:var} (:op target)))
+            _ (assert (#{:fn-expr} (:op method-expr))
+                      "Method must be a fn")
+            ctarget (check target)
+            cdispatch-val-expr (check dispatch-val-expr)
+            dispatch-type (mm/multimethod-dispatch-type mmsym)
+            _ (when-not dispatch-type
+                (binding [vs/*current-env* env]
+                  (u/int-error (str "Multimethod requires dispatch type: " mmsym
+                                    "\n\nHint: defmulti must be checked before its defmethods"))))
+            method-expected (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
+                              (var-env/type-of mmsym))
+            cmethod-expr (binding [*current-mm* {:dispatch-fn-type dispatch-type
+                                                 :dispatch-val-ret (expr-type cdispatch-val-expr)}]
+                           (check method-expr (ret method-expected)))]
+        ret-expr))))
 
 (defmethod invoke-special :default [& args] :default)
 (defmethod static-method-special :default [& args] :default)

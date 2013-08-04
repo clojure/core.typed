@@ -1,7 +1,7 @@
 ;; This walkthrough introduces the core concepts of core.async.
 
 ;; The clojure.core.async namespace contains the public API.
-(ns clojure.core.typed.test.async-walkthrough
+(ns exaples.async.async-walkthrough
   (:require [clojure.core.typed :as t :refer [inst check-ns doseq> dotimes> ann-form
                                               Seqable]]
             [clojure.core.typed.async :refer [chan> go> Chan sliding-buffer> dropping-buffer>]]

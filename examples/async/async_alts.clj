@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.async-alts
+(ns examples.async.async-alts
   (:require [clojure.core.typed :refer [ann def-alias check-ns cf doseq> loop>
                                         AnyInteger dotimes> Seqable ann-form]
              :as t]
