@@ -13,7 +13,7 @@
     buffer
       use buffer> (similar for other buffer constructors)
     "}
-    clojure.core.typed.async
+  clojure.core.typed.async
   (:require [clojure.core.typed :refer [ann ann-pdatatype def-alias ann-pprotocol inst
                                         AnyInteger tc-ignore Seqable]
              :as t])
@@ -111,14 +111,16 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;; Typed wrappers
 
+(t/tc-ignore
 (defn ^:private v [vsym]
-  {:pre [(symbol? vsym)]
-   :post [(var? %)]}
-  (let [ns (find-ns (namespace vsym))
+  {:pre [(symbol? vsym)
+         (namespace vsym)]}
+  (let [ns (find-ns (symbol (namespace vsym)))
         _ (assert ns (str "Cannot find namespace: " (namespace vsym)))
-        var (ns-resolve ns (name vsym))]
-    (assert var (str "Cannot find var: " vsym))
-    var))
+        var (ns-resolve ns (symbol (name vsym)))]
+    (assert (var? var) (str "Cannot find var: " vsym))
+    @var))
+  )
 
 (defmacro go>
   "Asynchronously executes the body, returning immediately to the
