@@ -26,7 +26,7 @@
            (clojure.lang ISeq IPersistentList APersistentVector APersistentMap)))
 
 
-(t/ann ^:nocheck fail! [TCAnyType TCAnyType -> Nothing])
+(t/ann ^:no-check fail! [TCAnyType TCAnyType -> Nothing])
 (defn fail! [s t]
   (throw u/cs-gen-exn))
 

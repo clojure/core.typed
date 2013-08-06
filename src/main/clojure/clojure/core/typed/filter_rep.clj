@@ -16,17 +16,17 @@
   "A name for a type variable, either a symbol or a number."
   (U Symbol Number))
 
-(t/ann ^:nocheck name-ref? (predicate NameRef))
+(t/ann ^:no-check name-ref? (predicate NameRef))
 (def name-ref? (some-fn symbol? integer?))
 
 (t/ann-protocol IFilter)
 (u/defprotocol IFilter)
 
-(t/ann ^:nocheck Filter? (predicate IFilter))
+(t/ann ^:no-check Filter? (predicate IFilter))
 (defn Filter? [a]
   (satisfies? IFilter a))
 
-(t/ann ^:nocheck declare-filter [Class -> Any])
+(t/ann ^:no-check declare-filter [Class -> Any])
 (defn declare-filter [c]
   (extend c IFilter {}))
 

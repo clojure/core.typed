@@ -14,11 +14,11 @@
 (t/ann-protocol IRObject)
 (u/defprotocol IRObject)
 
-(t/ann ^:nocheck RObject? (predicate IRObject))
+(t/ann ^:no-check RObject? (predicate IRObject))
 (defn RObject? [a]
   (satisfies? IRObject a))
 
-(t/ann ^:nocheck declare-robject [Class -> Any])
+(t/ann ^:no-check declare-robject [Class -> Any])
 (defn declare-robject [c]
   (extend c IRObject {}))
 

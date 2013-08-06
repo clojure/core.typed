@@ -476,17 +476,26 @@ java.lang.Iterable [[]
 (def init-alias-env
   (h/alias-mappings
 
+  ^{:doc "A type that returns true for clojure.core/integer?"}
 clojure.core.typed/AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
 
+    ^{:doc "A type that returns true for clojure.core/integer?"}
 clojure.core.typed/Int (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
+      ^{:doc "A type that returns true for clojure.core/number?"}
 clojure.core.typed/Num Number
 
 clojure.core.typed/AnyPrimitive (U char int short boolean byte short long float double)
 
+    ^{:doc "An atom that can read and write type x."}
 clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] (Atom x x))
+    ^{:doc "A union of x and nil."}
 clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
 
+      ^{:doc "The identity function at the type level."}
 clojure.core.typed/Id (TFn [[x :variance :covariant]] x)
+
+      ^{:doc "A persistent collection with member type x. 
+Returns true when passed to clojure.core/Coll"}
 clojure.core.typed/Coll (TFn [[x :variance :covariant]]
                              (IPersistentCollection x 
                                                     #_(TFn [[x :variance :covariant]] x)
@@ -496,31 +505,51 @@ clojure.core.typed/Coll (TFn [[x :variance :covariant]]
                                                            Any 
                                                            (TFn [[x :variance :covariant]] Any) 
                                                            c)))))
+    ^{:doc "A persistent collection with member type x and count greater than 0."}
 clojure.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
-                                  (I (IPersistentCollection x) (CountRange 1)))
+                                      (I (IPersistentCollection x) (CountRange 1)))
+    ^{:doc "A persistent vector with member type x."}
 clojure.core.typed/Vec (TFn [[x :variance :covariant]]
                             (IPersistentVector x))
+    ^{:doc "A persistent vector with member type x and count greater than 0."}
 clojure.core.typed/NonEmptyVec (TFn [[x :variance :covariant]]
-                                    (I (IPersistentVector x) (CountRange 1)))
+                                     (I (IPersistentVector x) (CountRange 1)))
+    ^{:doc "A persistent map with keys k and vals v."}
 clojure.core.typed/Map (TFn [[k :variance :covariant]
                              [v :variance :covariant]]
                             (IPersistentMap k v))
+    ^{:doc "A persistent set with member type x"}
 clojure.core.typed/Set (TFn [[x :variance :covariant]]
                             (IPersistentSet x))
+    ^{:doc "A sorted persistent set with member type x"}
 clojure.core.typed/SortedSet (TFn [[x :variance :covariant]]
                                (Extends [(IPersistentSet x) Sorted]))
+    ^{:doc "A type that can be used to create a sequence of member type x."}
 clojure.core.typed/Seqable (TFn [[x :variance :covariant]]
                                 (Seqable x))
+    ^{:doc "A type that can be used to create a sequence of member type x
+with count greater than 0."}
+
 clojure.core.typed/NonEmptySeqable (TFn [[x :variance :covariant]]
-                                        (I (Seqable x) (CountRange 1)))
+                                         (I (Seqable x) (CountRange 1)))
+    ^{:doc "A type that can be used to create a sequence of member type x
+with count 0."}
 clojure.core.typed/EmptySeqable (TFn [[x :variance :covariant]]
                                   (I (Seqable x) (ExactCount 0)))
+      ^{:doc "A persistent sequence of member type x."}
 clojure.core.typed/Seq (TFn [[x :variance :covariant]]
                             (ISeq x))
+
+    ^{:doc "A persistent sequence of member type x with count greater than 0."}
 clojure.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
-                                    (I (ISeq x) (CountRange 1)))
+                                     (I (ISeq x) (CountRange 1)))
+
+    ^{:doc "The type of all things with count 0. Use as part of an intersection.
+eg. See EmptySeq."}
 
 clojure.core.typed/EmptyCount (ExactCount 0)
+    ^{:doc "The type of all things with count greater than 0. Use as part of an intersection.
+eg. See NonEmptySeq"}
 clojure.core.typed/NonEmptyCount (CountRange 1)
     ))
 
@@ -770,9 +799,10 @@ clojure.core/format [String Any * -> String]
 
 
 clojure.core/re-matcher [java.util.regex.Pattern String -> java.util.regex.Matcher]
-clojure.core/re-groups [java.util.regex.Matcher -> (U nil String (APersistentVector (Option String)))]
-clojure.core/re-find (Fn [java.util.regex.Matcher -> (U nil String (APersistentVector (Option String)))]
-                              [java.util.regex.Pattern String -> (U nil String (APersistentVector (Option String)))])
+clojure.core/re-groups [java.util.regex.Matcher -> (U nil String (Vec (Option String)))]
+clojure.core/re-find (Fn [java.util.regex.Matcher -> (U nil String (Vec (Option String)))]
+                              [java.util.regex.Pattern String -> (U nil String (Vec (Option String)))])
+clojure.core/re-seq [java.util.regex.Pattern String -> (LazySeq (U nil String (Vec (Option String))))]
 
 clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String])
@@ -886,6 +916,10 @@ clojure.core/range
 clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
                             [Object -> Class :object {:id 0 :path [Class]}]
                             [Any -> (Option Class) :object {:id 0 :path [Class]}])
+
+; need better metadata support if this even has a chance of working
+; like class
+clojure.core/type [Any -> Any]
 
 clojure.core/seq (All [x]
                         (Fn 

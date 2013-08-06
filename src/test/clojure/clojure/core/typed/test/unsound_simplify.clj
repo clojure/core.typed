@@ -12,11 +12,11 @@
 (defprotocol> P2
   (get-p2 [this]))
 
-(ann ^:nocheck P1? (predicate (P1 Any)))
+(ann ^:no-check P1? (predicate (P1 Any)))
 (defn P1? [a]
   (satisfies? P1 a))
 
-(ann ^:nocheck P2? (predicate (P2 Any)))
+(ann ^:no-check P2? (predicate (P2 Any)))
 (defn P2? [a]
   (satisfies? P2 a))
 

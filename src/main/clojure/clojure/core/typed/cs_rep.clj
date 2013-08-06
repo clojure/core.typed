@@ -45,10 +45,10 @@
   to instantitate them with."
   (IPersistentMap Symbol SubstRHS))
 
-(t/ann ^:nocheck subst-rhs? (predicate SubstRHS))
+(t/ann ^:no-check subst-rhs? (predicate SubstRHS))
 (def subst-rhs? (some-fn t-subst? i-subst? i-subst-starred? i-subst-dotted?))
 
-(t/ann ^:nocheck substitution-c? (predicate SubstMap))
+(t/ann ^:no-check substitution-c? (predicate SubstMap))
 (def substitution-c? (u/hash-c? symbol? subst-rhs?))
 
 (t/ann-record c [S :- r/TCType,
@@ -92,7 +92,7 @@
 
 (t/def-alias DCon (U dcon dcon-exact dcon-dotted))
 
-(t/ann ^:nocheck dcon-c? (predicate DCon))
+(t/ann ^:no-check dcon-c? (predicate DCon))
 (def dcon-c? (some-fn dcon? dcon-exact? dcon-dotted?))
 
 ;; map : hash mapping index variables to dcons
@@ -158,7 +158,7 @@
 ;; Create an empty constraint map from a set of type variables X and
 ;; index variables Y.  For now, we add the widest constraints for
 ;; variables in X to the cmap and create an empty dmap.
-(t/ann ^:nocheck empty-cset [FreeBnds FreeBnds -> cset])
+(t/ann ^:no-check empty-cset [FreeBnds FreeBnds -> cset])
 (defn empty-cset [X Y]
   {:pre [(every? (u/hash-c? symbol? r/Bounds?) [X Y])]
    :post [(cset? %)]}

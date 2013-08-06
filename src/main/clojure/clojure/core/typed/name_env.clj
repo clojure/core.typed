@@ -55,40 +55,40 @@
   (reset! TYPE-NAME-ENV nme-env)
   nil)
 
-(t/ann ^:nocheck get-type-name [Symbol -> (U nil Keyword r/TCType)])
+(t/ann ^:no-check get-type-name [Symbol -> (U nil Keyword r/TCType)])
 (defn get-type-name 
   "Return the name with var symbol sym.
   Returns nil if not found."
   [sym]
   (@TYPE-NAME-ENV sym))
 
-(t/ann ^:nocheck add-type-name [Symbol (U Keyword r/TCType) -> nil])
+(t/ann ^:no-check add-type-name [Symbol (U Keyword r/TCType) -> nil])
 (defn add-type-name [sym ty]
   (swap! TYPE-NAME-ENV assoc sym (if (r/Type? ty)
                                    (vary-meta ty assoc :from-name sym)
                                    ty))
   nil)
 
-(t/ann ^:nocheck declare-name* [Symbol -> nil])
+(t/ann ^:no-check declare-name* [Symbol -> nil])
 (defn declare-name* [sym]
   {:pre [(symbol? sym)
          (namespace sym)]}
   (add-type-name sym declared-name-type)
   nil)
 
-(t/ann ^:nocheck declare-protocol* [Symbol -> nil])
+(t/ann ^:no-check declare-protocol* [Symbol -> nil])
 (defn declare-protocol* [sym]
   {:pre [(symbol? sym)
          (some #(= \. %) (str sym))]}
   (add-type-name sym protocol-name-type)
   nil)
 
-(t/ann ^:nocheck declare-datatype* [Symbol -> nil])
+(t/ann ^:no-check declare-datatype* [Symbol -> nil])
 (defn declare-datatype* [sym]
   (add-type-name sym datatype-name-type)
   nil)
 
-(t/ann ^:nocheck resolve-name* [Symbol -> r/TCType])
+(t/ann ^:no-check resolve-name* [Symbol -> r/TCType])
 (defn resolve-name* [sym]
   {:post [(r/Type? %)]}
   (let [t (@TYPE-NAME-ENV sym)

@@ -1,4 +1,5 @@
 (ns clojure.core.typed.base-env-helper
+  (:refer-clojure :exclude [type])
   (:require [clojure.core.typed
              [type-rep :as r]
              [parse-unparse :as prs]
@@ -6,18 +7,23 @@
              [free-ops :as free-ops]
              [type-ctors :as c]
              [declared-kind-env :as decl-env]
-             [rclass-env :as rcls]]))
+             [rclass-env :as rcls]]
+            [clojure.pprint :as pprint]))
 
 (defmacro alias-mappings [& args]
   `(let [ts# (partition 2 '~args)]
      (into {}
            (for [[s# t#] ts#]
-             (do
-               (assert (and (symbol? s#)
-                            (namespace s#))
-                       "Need fully qualified symbol")
-               (intern (find-ns (symbol (namespace s#))) (symbol (name s#)))
-               [s# (prs/parse-type t#)])))))
+             (let [desc# (-> s# meta :doc)
+                   doc# (str (when desc#
+                               (str desc# "\n\n")) 
+                             (with-out-str (pprint/pprint t#)))
+                   _# (assert (and (symbol? s#)
+                                   (namespace s#))
+                              "Need fully qualified symbol")
+                   v# (intern (find-ns (symbol (namespace s#))) (symbol (name s#)))
+                   _# (alter-meta! v# merge {:doc doc#})]
+               [(with-meta s# nil) (prs/parse-type t#)])))))
 
 (defmacro var-mappings [& args]
   `(let [ts# (partition 2 '~args)]

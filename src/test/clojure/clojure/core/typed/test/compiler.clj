@@ -370,7 +370,7 @@
         step (fn [part] (str "['" part "']"))]
     (apply str first (map step (rest parts)))))
 
-(ann ^:nocheck resolve-existing-var [Env Symbol -> LocalBinding])
+(ann ^:no-check resolve-existing-var [Env Symbol -> LocalBinding])
 (defn resolve-existing-var [env sym]
   (if (= (namespace sym) "js")
     {:name (js-var sym) :ns 'js}
@@ -421,7 +421,7 @@
                         :name-sym (symbol (str full-ns) (str sym))
                         :ns full-ns})))))))))
 
-(ann ^:nocheck resolve-var [Env Symbol -> (HMap {:name Symbol})])
+(ann ^:no-check resolve-var [Env Symbol -> (HMap {:name Symbol})])
 ;need a NamespacedSymbol refinement, of which `namespace` is a predicate.
 (defn resolve-var [env sym]
   (if (= (namespace sym) "js")
@@ -452,7 +452,7 @@
                     "." (munge (name sym)))]
          {:name (munge (symbol s))})))))
 
-(ann ^:nocheck confirm-bindings [Env (Seqable Symbol) -> Any])
+(ann ^:no-check confirm-bindings [Env (Seqable Symbol) -> Any])
 ;merge hmaps
 (defn confirm-bindings [env names]
   (doseq> [name :- Symbol names]
@@ -501,7 +501,7 @@
 (ann emit [Expr -> nil])
 (defmulti emit :op)
 
-(ann ^:nocheck emits [(U Expr nil (ISeq Expr) [-> Any] Any) * -> nil])
+(ann ^:no-check emits [(U Expr nil (ISeq Expr) [-> Any] Any) * -> nil])
 ;weird invariants
 (defn emits [& xs]
   (doseq> [x :- (U Expr nil (ISeq Expr) [-> Any] Any) xs]
@@ -696,7 +696,7 @@
   (or (-> e :tag)
       (-> e :info :tag)))
 
-(ann ^:nocheck infer-tag [Expr -> (Option Symbol)])
+(ann ^:no-check infer-tag [Expr -> (Option Symbol)])
 ;case needs improvements
 (defn infer-tag [e]
   (if-let [tag (get-tag e)]
@@ -741,7 +741,7 @@
     (emits "(function(){throw " throw "})()")
     (emitln "throw " throw ";")))
 
-(ann ^:nocheck emit-comment [Any Any -> nil])
+(ann ^:no-check emit-comment [Any Any -> nil])
 (defn emit-comment
   "Emit a nicely formatted comment string."
   [doc jsdoc]
@@ -815,7 +815,7 @@
                (emitln "}"))
              (emits "})")))
 
-(ann ^:nocheck emit-variadic-fn-method [FnMethod -> nil])
+(ann ^:no-check emit-variadic-fn-method [FnMethod -> nil])
 ;assoc not working
 (defn emit-variadic-fn-method
   [{:keys [gthis name variadic params statements ret env recurs max-fixed-arity] :as f}]

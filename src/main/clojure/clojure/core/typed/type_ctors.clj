@@ -53,7 +53,7 @@
 
 ;; Heterogeneous maps
 
-(t/ann ^:nocheck -hmap (Fn [(Seqable TCType) -> TCType]
+(t/ann ^:no-check -hmap (Fn [(Seqable TCType) -> TCType]
                            [(Seqable TCType) Boolean -> TCType]
                            [(Seqable TCType) (IPersistentSet TCType) Boolean -> TCType]))
 (defn -hmap 
@@ -75,7 +75,7 @@
   "A regular map with types as keys and vals."
   (IPersistentMap TCType TCType))
 
-(t/ann ^:nocheck make-HMap (Fn [TypeMap TypeMap -> TCType]
+(t/ann ^:no-check make-HMap (Fn [TypeMap TypeMap -> TCType]
                                [TypeMap TypeMap Any -> TCType]))
 (defn make-HMap 
   "Generate a type which is every possible combination of mandatory
@@ -107,7 +107,7 @@
                        (not complete?))))))))
 
 ;TODO to type check this, need to un-munge instance field names
-(t/ann ^:nocheck complete-hmap? [HeterogeneousMap -> Any])
+(t/ann ^:no-check complete-hmap? [HeterogeneousMap -> Any])
 (defn complete-hmap? [^HeterogeneousMap hmap]
   {:pre [(r/HeterogeneousMap? hmap)]}
   (not (.other-keys? hmap)))
@@ -145,17 +145,17 @@
 
 (t/def-alias TypeCache (IPersistentMap (IPersistentSet TCType) TCType))
 
-(t/ann ^:nocheck Un-cache (TempAtom1 TypeCache))
+(t/ann ^:no-check Un-cache (TempAtom1 TypeCache))
 (def Un-cache (atom {}))
 
-(t/ann ^:nocheck reset-Un-cache [-> nil])
+(t/ann ^:no-check reset-Un-cache [-> nil])
 (defn reset-Un-cache []
   (reset! Un-cache {})
   nil)
 
 (declare flatten-unions)
 
-(t/ann ^:nocheck Un [TCType * -> TCType])
+(t/ann ^:no-check Un [TCType * -> TCType])
 (defn Un [& types]
   ;(prn "Un" (map @(unparse-type-var) types))
   (if-let [hit (p :Union-cache-lookup (@Un-cache (p :Union-calc-hash (set (map r/type-id types)))))]
@@ -209,14 +209,14 @@
   (reset! intersect-cache {})
   nil)
 
-(t/ann ^:nocheck make-Intersection [(U nil (Seqable TCType)) -> TCType])
+(t/ann ^:no-check make-Intersection [(U nil (Seqable TCType)) -> TCType])
 (defn make-Intersection [types]
   #_(prn "make-Intersection" types)
   (r/Intersection-maker (set types)))
 
 (declare RClass-of)
 
-(t/ann ^:nocheck intersect [TCType TCType -> TCType])
+(t/ann ^:no-check intersect [TCType TCType -> TCType])
 (defn intersect [t1 t2]
   {:pre [(r/Type? t1)
          (r/Type? t2)
@@ -268,7 +268,7 @@
         ;(prn "intersect miss" (unparse-type t))
         t))))
 
-(t/ann ^:nocheck flatten-intersections [(U nil (Seqable TCType)) -> (Seqable TCType)])
+(t/ann ^:no-check flatten-intersections [(U nil (Seqable TCType)) -> (Seqable TCType)])
 (defn flatten-intersections [types]
   {:pre [(every? r/Type? types)]
    :post [(every? r/Type? %)]}
@@ -278,7 +278,7 @@
              (.types t)
              [t]))))
 
-(t/ann ^:nocheck flatten-unions [(U nil (Seqable TCType)) -> (Seqable TCType)])
+(t/ann ^:no-check flatten-unions [(U nil (Seqable TCType)) -> (Seqable TCType)])
 (defn flatten-unions [types]
   {:pre [(every? r/Type? types)]
    :post [(every? r/Type? %)]}
@@ -288,7 +288,7 @@
              (:types t)
              [t]))))
 
-(t/ann ^:nocheck In [TCType * -> TCType])
+(t/ann ^:no-check In [TCType * -> TCType])
 (defn In [& types]
   {:pre [(every? r/Type? types)]
    :post [(r/Type? %)]}
@@ -344,7 +344,7 @@
 (declare TypeFn* instantiate-poly instantiate-typefn abstract-many instantiate-many)
 
 ;smart constructor
-(t/ann ^:nocheck RClass* 
+(t/ann ^:no-check RClass* 
   (Fn [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol (IPersistentMap Symbol TCType) -> TCType]
       [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol 
        (IPersistentMap Symbol TCType) (IPersistentSet TCType) -> TCType]))
@@ -369,7 +369,7 @@
        (TypeFn* names variances bnds (r/RClass-maker variances poly? the-class repl uncked))
        (r/RClass-maker nil nil the-class repl uncked)))))
 
-(t/ann ^:nocheck isa-DataType? [(U Symbol Class) -> Any])
+(t/ann ^:no-check isa-DataType? [(U Symbol Class) -> Any])
 (defn isa-DataType? [sym-or-cls]
   {:pre [((some-fn symbol? class?) sym-or-cls)]}
   (let [cls (if (class? sym-or-cls)
@@ -377,7 +377,7 @@
               (u/symbol->Class sym-or-cls))]
     (isa? cls clojure.lang.IType)))
 
-(t/ann ^:nocheck isa-Record? [(U Symbol Class) -> Any])
+(t/ann ^:no-check isa-Record? [(U Symbol Class) -> Any])
 (defn isa-Record? [sym-or-cls]
   {:pre [((some-fn symbol? class?) sym-or-cls)]}
   (let [cls (if (class? sym-or-cls)
@@ -385,7 +385,7 @@
               (u/symbol->Class sym-or-cls))]
     (isa? cls clojure.lang.IRecord)))
 
-(t/ann ^:nocheck RClass-of (Fn [(U Symbol Class) -> TCType]
+(t/ann ^:no-check RClass-of (Fn [(U Symbol Class) -> TCType]
                                [(U Symbol Class) (U nil (Seqable TCType)) -> TCType]))
 (defn RClass-of 
   ([sym-or-cls] (RClass-of sym-or-cls nil))
@@ -412,7 +412,7 @@
            (r/DataType-maker sym nil nil (array-map) (isa-Record? cls))
            (r/RClass-maker nil nil sym {} #{})))))))
 
-(t/ann ^:nocheck RClass-of-with-unknown-params [(U Symbol Class) -> TCType])
+(t/ann ^:no-check RClass-of-with-unknown-params [(U Symbol Class) -> TCType])
 (defn RClass-of-with-unknown-params
   ([sym-or-cls]
    {:pre [((some-fn class? symbol?) sym-or-cls)]
@@ -443,7 +443,7 @@
 
 (declare make-simple-substitution)
 
-(t/ann ^:nocheck RClass-replacements* [RClass -> (IPersistentMap Symbol TCType)])
+(t/ann ^:no-check RClass-replacements* [RClass -> (IPersistentMap Symbol TCType)])
 (defn RClass-replacements*
   "Return the replacements map for the RClass"
   [^RClass rcls]
@@ -460,7 +460,7 @@
                      subst (make-simple-substitution names poly)]
                  [k (subst-all subst t)])))))
 
-(t/ann ^:nocheck RClass-unchecked-ancestors* [RClass -> (IPersistentSet TCType)])
+(t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (IPersistentSet TCType)])
 (defn RClass-unchecked-ancestors*
   [^RClass rcls]
   {:pre [(r/RClass? rcls)]
@@ -476,7 +476,7 @@
              (subst-all subst t))))))
 
 ;TODO won't type check because records+destructuring
-(t/ann ^:nocheck RClass-supers* [RClass -> (Seqable TCType)])
+(t/ann ^:no-check RClass-supers* [RClass -> (Seqable TCType)])
 (defn RClass-supers* 
   "Return a set of ancestors to the RClass"
   [{:keys [the-class] :as rcls}]
@@ -501,7 +501,7 @@
                #{(RClass-of Object)}
                unchecked-ancestors)))
 
-(t/ann ^:nocheck DataType-fields* [DataType -> (IPersistentMap Symbol TCType)])
+(t/ann ^:no-check DataType-fields* [DataType -> (IPersistentMap Symbol TCType)])
 (defn DataType-fields* [^DataType dt]
   {:pre [(r/DataType? dt)]
    :post [((u/array-map-c? symbol? r/Type?) %)]}
@@ -510,7 +510,7 @@
 ;; TypeFn
 
 ;smart constructor
-(t/ann ^:nocheck TypeFn* [(Seqable Symbol) (Seqable r/Variance) (Seqable Bounds) TCType -> TCType])
+(t/ann ^:no-check TypeFn* [(Seqable Symbol) (Seqable r/Variance) (Seqable Bounds) TCType -> TCType])
 (defn TypeFn* [names variances bbnds body]
   {:pre [(every? symbol names)
          (every? r/variance? variances)
@@ -528,14 +528,14 @@
                     (abstract-many names body))))
 
 ;smart destructor
-(t/ann ^:nocheck TypeFn-body* [(Seqable Symbol) TypeFn -> TCType])
+(t/ann ^:no-check TypeFn-body* [(Seqable Symbol) TypeFn -> TCType])
 (defn TypeFn-body* [names ^TypeFn typefn]
   {:pre [(every? symbol? names)
          (r/TypeFn? typefn)]}
   (assert (= (.nbound typefn) (count names)) "Wrong number of names")
   (instantiate-many names (.scope typefn)))
 
-(t/ann ^:nocheck TypeFn-bbnds* [(Seqable Symbol) TypeFn -> (Seqable Bounds)])
+(t/ann ^:no-check TypeFn-bbnds* [(Seqable Symbol) TypeFn -> (Seqable Bounds)])
 (defn TypeFn-bbnds* [names ^TypeFn typefn]
   {:pre [(every? symbol? names)
          (r/TypeFn? typefn)]
@@ -548,7 +548,7 @@
 ;; Poly
 
 ;smart constructor
-(t/ann ^:nocheck Poly* [(Seqable Symbol) (Seqable Bounds) TCType (Seqable Symbol) -> TCType])
+(t/ann ^:no-check Poly* [(Seqable Symbol) (Seqable Bounds) TCType (Seqable Symbol) -> TCType])
 (defn Poly* [names bbnds body free-names]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
@@ -564,21 +564,21 @@
                   (abstract-many names body)
                   free-names)))
 
-(t/ann ^:nocheck Poly-free-names* [Poly -> (Seqable Symbol)])
+(t/ann ^:no-check Poly-free-names* [Poly -> (Seqable Symbol)])
 (defn Poly-free-names* [^Poly poly]
   {:pre [(r/Poly? poly)]
    :post [((every-pred seq (u/every-c? symbol?)) %)]}
   (.actual-frees poly))
 
 ;smart destructor
-(t/ann ^:nocheck Poly-body* [(Seqable Symbol) Poly -> TCType])
+(t/ann ^:no-check Poly-body* [(Seqable Symbol) Poly -> TCType])
 (defn Poly-body* [names ^Poly poly]
   {:pre [(every? symbol? names)
          (r/Poly? poly)]}
   (assert (= (.nbound poly) (count names)) "Wrong number of names")
   (instantiate-many names (.scope poly)))
 
-(t/ann ^:nocheck Poly-bbnds* [(Seqable Symbol) Poly -> (Seqable Bounds)])
+(t/ann ^:no-check Poly-bbnds* [(Seqable Symbol) Poly -> (Seqable Bounds)])
 (defn Poly-bbnds* [names ^Poly poly]
   {:pre [(every? symbol? names)
          (r/Poly? poly)]}
@@ -590,7 +590,7 @@
 ;; PolyDots
 
 ;smart constructor
-(t/ann ^:nocheck PolyDots* [(Seqable Symbol) (Seqable Bounds) TCType (Seqable Symbol) -> TCType])
+(t/ann ^:no-check PolyDots* [(Seqable Symbol) (Seqable Bounds) TCType (Seqable Symbol) -> TCType])
 (defn PolyDots* [names bbnds body free-names]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
@@ -606,14 +606,14 @@
                       free-names)))
 
 ;smart destructor
-(t/ann ^:nocheck PolyDots-body* [(Seqable Symbol) PolyDots -> TCType])
+(t/ann ^:no-check PolyDots-body* [(Seqable Symbol) PolyDots -> TCType])
 (defn PolyDots-body* [names ^PolyDots poly]
   {:pre [(every? symbol? names)
          (r/PolyDots? poly)]}
   (assert (= (.nbound poly) (count names)) "Wrong number of names")
   (instantiate-many names (.scope poly)))
 
-(t/ann ^:nocheck PolyDots-bbnds* [(Seqable Symbol) PolyDots -> (Seqable Bounds)])
+(t/ann ^:no-check PolyDots-bbnds* [(Seqable Symbol) PolyDots -> (Seqable Bounds)])
 (defn PolyDots-bbnds* [names ^PolyDots poly]
   {:pre [(every? symbol? names)
          (r/PolyDots? poly)]}
@@ -622,7 +622,7 @@
           (r/visit-bounds b #(instantiate-many names %)))
         (.bbnds poly)))
 
-(t/ann ^:nocheck PolyDots-free-names* [Poly -> (Seqable Symbol)])
+(t/ann ^:no-check PolyDots-free-names* [Poly -> (Seqable Symbol)])
 (defn PolyDots-free-names* [^PolyDots poly]
   {:pre [(r/PolyDots? poly)]
    :post [((every-pred seq (u/every-c? symbol?)) %)]}
@@ -631,7 +631,7 @@
 
 ;; Instantiate ops
 
-(t/ann ^:nocheck make-simple-substitution [(Seqable Symbol) (Seqable TCType) -> cr/SubstMap])
+(t/ann ^:no-check make-simple-substitution [(Seqable Symbol) (Seqable TCType) -> cr/SubstMap])
 (defn make-simple-substitution [vs ts]
   {:pre [(every? symbol? vs)
          (every? r/Type? ts)
@@ -640,7 +640,7 @@
   (into {} (for [[v t] (map vector vs ts)]
              [v (crep/->t-subst t r/no-bounds)])))
 
-(t/ann ^:nocheck instantiate-typefn [TypeFn (Seqable TCType) -> TCType])
+(t/ann ^:no-check instantiate-typefn [TypeFn (Seqable TCType) -> TCType])
 (defn instantiate-typefn [^TypeFn t types]
   (let [subst-all @(subst-all-var)
         unparse-type @(unparse-type-var)]
@@ -651,7 +651,7 @@
               body (TypeFn-body* nms t)]
           (subst-all (make-simple-substitution nms types) body)))))
 
-(t/ann ^:nocheck instantiate-poly [Poly (Seqable TCType) -> TCType])
+(t/ann ^:no-check instantiate-poly [Poly (Seqable TCType) -> TCType])
 (defn instantiate-poly [t types]
   (let [subst-all @(subst-all-var)
         unparse-type @(unparse-type-var)]
@@ -671,12 +671,12 @@
 
 (declare resolve-tapp* -resolve resolve-app*)
 
-(t/ann ^:nocheck resolve-TApp [TApp -> TCType])
+(t/ann ^:no-check resolve-TApp [TApp -> TCType])
 (defn resolve-TApp [^TApp app]
   {:pre [(r/TApp? app)]}
   (resolve-tapp* (.rator app) (.rands app)))
 
-(t/ann ^:nocheck resolve-tapp* [TCType (Seqable TCType) -> TCType])
+(t/ann ^:no-check resolve-tapp* [TCType (Seqable TCType) -> TCType])
 (defn resolve-tapp* [rator rands]
   (let [unparse-type @(unparse-type-var)
         ^TypeFn rator (-resolve rator)
@@ -686,12 +686,12 @@
                         (unparse-type rator) (mapv unparse-type rands))))
     (instantiate-typefn rator rands)))
 
-(t/ann ^:nocheck resolve-App [App -> TCType])
+(t/ann ^:no-check resolve-App [App -> TCType])
 (defn resolve-App [^App app]
   {:pre [(r/App? app)]}
   (resolve-app* (.rator app) (.rands app)))
 
-(t/ann ^:nocheck resolve-app* [TCType (Seqable TCType) -> TCType])
+(t/ann ^:no-check resolve-app* [TCType (Seqable TCType) -> TCType])
 (defn resolve-app* [rator rands]
   (let [unparse-type @(unparse-type-var)
         rator (-resolve rator)]
@@ -767,7 +767,7 @@
     v))
   )
 
-(t/ann ^:nocheck unfold [Mu -> TCType])
+(t/ann ^:no-check unfold [Mu -> TCType])
 (defn unfold [t]
   {:pre [(r/Mu? t)]
    :post [(r/Type? %)]}
@@ -792,7 +792,7 @@
 ;; Overlap
 
 ;; FIXME much better algorithms around I'm sure
-(t/ann ^:nocheck countrange-overlap? [CountRange CountRange -> Any])
+(t/ann ^:no-check countrange-overlap? [CountRange CountRange -> Any])
 (defn countrange-overlap? 
   [{lowerl :lower upperl :upper :as l}
    {lowerr :lower upperr :upper :as r}]
@@ -859,7 +859,7 @@
     true))
 
 ;true if types t1 and t2 overlap (NYI)
-(t/ann ^:nocheck overlap [TCType TCType -> Any])
+(t/ann ^:no-check overlap [TCType TCType -> Any])
 (defn overlap [t1 t2]
   (let [subtype? @(subtype?-var)
         t1 (fully-resolve-type t1)
@@ -975,7 +975,7 @@
       :else true))) ;FIXME conservative result
 
 ; restrict t1 to be a subtype of t2
-(t/ann ^:nocheck restrict [TCType TCType -> TCType])
+(t/ann ^:no-check restrict [TCType TCType -> TCType])
 (defn restrict [t1 t2]
   (let [subtype? @(subtype?-var)
         subst-all @(subst-all-var)
@@ -1002,7 +1002,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
 
-(t/ann ^:nocheck add-scopes [t/AnyInteger TCType -> (U TCType Scope)])
+(t/ann ^:no-check add-scopes [t/AnyInteger TCType -> (U TCType Scope)])
 (defn add-scopes 
   "Wrap type in n Scopes"
   [n t]
@@ -1012,7 +1012,7 @@
   (last 
     (take (inc n) (iterate r/Scope-maker t))))
 
-(t/ann ^:nocheck remove-scopes [t/AnyInteger (U Scope TCType) -> (U Scope TCType)])
+(t/ann ^:no-check remove-scopes [t/AnyInteger (U Scope TCType) -> (U Scope TCType)])
 (defn remove-scopes 
   "Unwrap n Scopes"
   [n sc]
@@ -1026,7 +1026,7 @@
                              (:body t))
                            sc))))
 
-(t/ann ^:nocheck rev-indexed (All [x] [(Seqable x) -> (Seqable '[t/AnyInteger x])]))
+(t/ann ^:no-check rev-indexed (All [x] [(Seqable x) -> (Seqable '[t/AnyInteger x])]))
 (defn- rev-indexed 
   "'(a b c) -> '([2 a] [1 b] [0 c])"
   [c]
@@ -1106,7 +1106,7 @@
                                  (as body)))))
   )
 
-(t/ann ^:nocheck abstract-many [(Seqable Symbol) TCType -> (U TCType Scope)])
+(t/ann ^:no-check abstract-many [(Seqable Symbol) TCType -> (U TCType Scope)])
 (defn abstract-many 
   "Names Type -> Scope^n  where n is (count names)"
   [names ty]
@@ -1215,7 +1215,7 @@
                              (as body)))))
   )
 
-(t/ann ^:nocheck instantiate-many [(Seqable Symbol) Scope -> TCType])
+(t/ann ^:no-check instantiate-many [(Seqable Symbol) Scope -> TCType])
 (defn instantiate-many 
   "instantiate-many : List[Symbols] Scope^n -> Type
   Instantiate de Bruijn indices in sc to frees named by
@@ -1272,7 +1272,7 @@
 
 ;TODO not sure why this fails to type check
 ;[(U Any {kw x}) -> (U nil x) :filters {:then (is {kw Any} 0)}]
-(t/ann ^:nocheck keyword->Fn [Keyword -> TCType])
+(t/ann ^:no-check keyword->Fn [Keyword -> TCType])
 (defn keyword->Fn [kw]
   {:pre [(keyword? kw)]
    :post [(r/Type? %)]}

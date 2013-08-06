@@ -251,7 +251,7 @@
 
     :else tmap))
 
-(ann ^:nocheck insert (Fn [rbt EntryT -> rbt]))
+(ann ^:no-check insert (Fn [rbt EntryT -> rbt]))
 (defn insert [dict {:keys [key datum] :as entry}]
   (letfn [;; ins (Red _) may violate color invariant at root
           ;; ins (Black _) or ins (Empty) will be red/black tree

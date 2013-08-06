@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.nocheck
   (:require [clojure.core.typed :refer [ann check-ns]]))
 
-(ann ^:nocheck foo [Number -> Number])
+(ann ^:no-check foo [Number -> Number])
 (defn foo [a]
   'a)
 

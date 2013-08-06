@@ -56,7 +56,7 @@
 (t/def-alias SeqNumber Long)
 
 ; FIXME this throw a type error for some reason
-(t/ann ^:nocheck type-sequence-mapping (t/Atom1 (IPersistentMap TCType SeqNumber)))
+(t/ann ^:no-check type-sequence-mapping (t/Atom1 (IPersistentMap TCType SeqNumber)))
 (def ^:private type-sequence-mapping 
   "Mapping from types to sequence number"
   (atom {}))
@@ -76,20 +76,20 @@
 (u/defprotocol TypeId
   (type-id [_]))
 
-(t/ann ^:nocheck Type? (predicate TCType))
+(t/ann ^:no-check Type? (predicate TCType))
 (defn Type? [a]
   (satisfies? TCType a))
 
-(t/ann ^:nocheck AnyType? (predicate TCAnyType))
+(t/ann ^:no-check AnyType? (predicate TCAnyType))
 (defn AnyType? [a]
   (or (Type? a)
       (satisfies? TCAnyType a)))
 
-(t/ann ^:nocheck declare-type [Class -> Any])
+(t/ann ^:no-check declare-type [Class -> Any])
 (defn declare-type [a]
   (extend a TCType {}))
 
-(t/ann ^:nocheck declare-AnyType [Class -> Any])
+(t/ann ^:no-check declare-AnyType [Class -> Any])
 (defn declare-AnyType [a]
   (extend a TCAnyType {}))
 
@@ -131,7 +131,7 @@
 (t/ann -nothing TCType)
 (def -nothing (Bottom))
 
-(t/ann ^:nocheck Bottom? (predicate TCType))
+(t/ann ^:no-check Bottom? (predicate TCType))
 (defn Bottom? [a]
   (= empty-union a))
 
@@ -174,7 +174,7 @@
 (t/ann variances (IPersistentSet Variance))
 (def variances #{:constant :covariant :contravariant :invariant :dotted})
 
-(t/ann ^:nocheck variance? (predicate Variance))
+(t/ann ^:no-check variance? (predicate Variance))
 (defn variance? [v]
   (contains? variances v))
 
@@ -223,7 +223,7 @@
   "A scope that contains one bound variable, can be nested. Not used directly"
   [((some-fn Type? Scope?) body)])
 
-(t/ann ^:nocheck scope-depth? [Scope Number -> Any])
+(t/ann ^:no-check scope-depth? [Scope Number -> Any])
 (defn scope-depth? 
   "True if scope is has depth number of scopes nested"
   [scope depth]
@@ -255,7 +255,7 @@
 
 (declare-type RClass)
 
-(t/ann ^:nocheck RClass->Class [RClass -> Class])
+(t/ann ^:no-check RClass->Class [RClass -> Class])
 (defn ^Class RClass->Class [^RClass rcls]
   (u/symbol->Class (.the-class rcls)))
 
@@ -276,11 +276,11 @@
    ((u/array-map-c? symbol? (some-fn Scope? Type?)) fields)
    (u/boolean? record?)])
 
-(t/ann ^:nocheck DataType->Class [DataType -> Class])
+(t/ann ^:no-check DataType->Class [DataType -> Class])
 (defn ^Class DataType->Class [^DataType dt]
   (u/symbol->Class (.the-class dt)))
 
-(t/ann ^:nocheck Record? [Any -> Boolean])
+(t/ann ^:no-check Record? [Any -> Boolean])
 (defn Record? [^DataType a]
   (boolean
     (when (DataType? a)
@@ -448,7 +448,7 @@
      (every? RObject? objects))
    (apply = (map count [types fs objects]))])
 
-(t/ann ^:nocheck -hvec 
+(t/ann ^:no-check -hvec 
        [(IPersistentVector TCType) & {:filters (Seqable TempFilterSet) :objects (Seqable or/IRObject)} -> TCType])
 (defn -hvec 
   [types & {:keys [filters objects]}]
@@ -586,7 +586,7 @@
 
 (declare Result-maker)
 
-(t/ann ^:nocheck make-FnIntersection [Function * -> FnIntersection])
+(t/ann ^:no-check make-FnIntersection [Function * -> FnIntersection])
 (defn make-FnIntersection [& fns]
   {:pre [(every? Function? fns)]}
   (FnIntersection-maker fns))
@@ -634,7 +634,7 @@
 
 (declare ret TCResult?)
 
-(t/ann ^:nocheck Result->TCResult [Result -> TCResult])
+(t/ann ^:no-check Result->TCResult [Result -> TCResult])
 (defn Result->TCResult [{:keys [t fl o] :as r}]
   {:pre [(Result? r)]
    :post [(TCResult? %)]}
@@ -646,19 +646,19 @@
    :post [(Type? %)]}
   (:t r))
 
-(t/ann ^:nocheck Result-filter* [Result -> fr/IFilter])
+(t/ann ^:no-check Result-filter* [Result -> fr/IFilter])
 (defn Result-filter* [r]
   {:pre [(Result? r)]
    :post [(@(Filter?-var) %)]}
   (:fl r))
 
-(t/ann ^:nocheck Result-object* [Result -> or/IRObject])
+(t/ann ^:no-check Result-object* [Result -> or/IRObject])
 (defn Result-object* [r]
   {:pre [(Result? r)]
    :post [(@(RObject?-var) %)]}
   (:o r))
 
-(t/ann ^:nocheck Result-flow* [Result -> FlowSet])
+(t/ann ^:no-check Result-flow* [Result -> FlowSet])
 (defn Result-flow* [r]
   {:pre [(Result? r)]
    :post [(FlowSet? %)]}
@@ -701,7 +701,7 @@
 (defn -flow [normal]
   (FlowSet-maker normal))
 
-(t/ann ^:nocheck ret
+(t/ann ^:no-check ret
        (Fn [TCType -> TCResult]
            [TCType TempFilterSet -> TCResult]
            [TCType TempFilterSet or/IRObject -> TCResult]
@@ -733,13 +733,13 @@
    :post [(AnyType? %)]}
   (:t r))
 
-(t/ann ^:nocheck ret-f [TCResult -> TempFilterSet])
+(t/ann ^:no-check ret-f [TCResult -> TempFilterSet])
 (defn ret-f [r]
   {:pre [(TCResult? r)]
    :post [(@(FilterSet?-var) %)]}
   (:fl r))
 
-(t/ann ^:nocheck ret-o [TCResult -> or/IRObject])
+(t/ann ^:no-check ret-o [TCResult -> or/IRObject])
 (defn ret-o [r]
   {:pre [(TCResult? r)]
    :post [(@(RObject?-var) %)]}
@@ -751,7 +751,7 @@
    :post [(FlowSet? %)]}
   (:flow r))
 
-(t/ann ^:nocheck flow-normal [FlowSet -> fr/IFilter])
+(t/ann ^:no-check flow-normal [FlowSet -> fr/IFilter])
 (defn flow-normal [f]
   {:pre [(FlowSet? f)]
    :post [(@(Filter?-var) %)]}
@@ -760,7 +760,7 @@
 ;; Utils
 ;; It seems easier to put these here because of dependencies
 
-(t/ann ^:nocheck visit-bounds [Bounds [TCType -> TCType] -> Bounds])
+(t/ann ^:no-check visit-bounds [Bounds [TCType -> TCType] -> Bounds])
 (defn visit-bounds 
   "Apply f to each element of bounds"
   [ty f]
@@ -774,7 +774,7 @@
     (update-in [:higher-kind] #(when %
                                  (f %)))))
 
-(t/ann ^:nocheck make-Result
+(t/ann ^:no-check make-Result
        (Fn [TCType -> Result]
            [TCType (U nil fr/IFilter) -> Result]
            [TCType (U nil fr/IFilter) (U nil or/IRObject) -> Result]
@@ -790,7 +790,7 @@
          -empty @(-empty-var)]
      (Result-maker t (or f (-FS -top -top)) (or o -empty) (or flow (-flow -top))))))
 
-(t/ann ^:nocheck make-Function
+(t/ann ^:no-check make-Function
        (Fn [(U nil (Seqable TCType)) TCType -> Function]
            [(U nil (Seqable TCType)) TCType (U nil TCType) -> Function]
            [(U nil (Seqable TCType)) TCType (U nil TCType) (U nil TCType) 

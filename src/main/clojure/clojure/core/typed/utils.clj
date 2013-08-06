@@ -33,7 +33,7 @@
 
 (declare emit-form-fn)
 
-(t/ann ^:nocheck nat? (predicate t/AnyInteger))
+(t/ann ^:no-check nat? (predicate t/AnyInteger))
 
 (t/tc-ignore
 (defn every-c? [c]
@@ -210,16 +210,16 @@
   nme? predicate."
   [nme & args]
   `(do (clojure.core.typed/ann-record ~nme ~@args)
-       (clojure.core.typed/ann ~(with-meta (symbol (str nme "-maker")) {:nocheck true})
+       (clojure.core.typed/ann ~(with-meta (symbol (str nme "-maker")) {:no-check true})
                                [~@(map #(nth % 2) (partition 3 (first args))) ~'-> ~nme])
-       (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:nocheck true}) ~(list 'predicate nme))))
+       (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list 'predicate nme))))
 
 (defmacro ann-precord 
   "Like ann-precord, but also adds an unchecked annotation for core.contract's generated
   nme? predicate."
   [nme & args]
   `(do (clojure.core.typed/ann-precord ~nme ~@args)
-       (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:nocheck true}) ~(list 'predicate nme))))
+       (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list 'predicate nme))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -289,7 +289,7 @@
 ) ;end tc-ignore
 
 ;TODO to check, needs support for instance field
-(t/ann ^:nocheck var->symbol [Var -> Symbol])
+(t/ann ^:no-check var->symbol [Var -> Symbol])
 (defn var->symbol [^Var var]
   {:pre [(var? var)]
    :post [(symbol? %)

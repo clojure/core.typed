@@ -385,6 +385,7 @@
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{3})
   (let [[varsym vbnd mth] (constant-exprs args)]
+    (println "DEPRECATED: ann-pprotocol, use ann-protocol with binder as first argument")
     (gen-protocol* env (chk/expr-ns expr) varsym vbnd mth)))
 
 

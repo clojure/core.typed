@@ -1,3 +1,11 @@
+0.1.21
+- Add docstrings to core def-alias's
+- DEPRECATION: use :no-check instead of :nocheck for ann.
+  See ann docstring.
+
+0.1.20
+- Fix core.async support
+
 0.1.19
 - Start supporting core.async
   - see examples/async for examples

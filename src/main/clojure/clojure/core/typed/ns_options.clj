@@ -19,13 +19,13 @@
   (reset! ns-opts (init-ns-opts))
   nil)
 
-(t/ann ^:nocheck register-warn-on-unannotated-vars [Symbol -> nil])
+(t/ann ^:no-check register-warn-on-unannotated-vars [Symbol -> nil])
 (defn register-warn-on-unannotated-vars [nsym]
   (swap! ns-opts 
          (fn> [o :- NsOptions] 
            (update-in o [nsym :warn-on-unannotated-vars] (constantly true))))
   nil)
 
-(t/ann ^:nocheck warn-on-unannotated-vars? [Symbol -> Boolean])
+(t/ann ^:no-check warn-on-unannotated-vars? [Symbol -> Boolean])
 (defn warn-on-unannotated-vars? [nsym]
   (boolean (:warn-on-unannotated-vars (@ns-opts nsym))))

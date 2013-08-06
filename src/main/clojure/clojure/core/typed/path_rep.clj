@@ -11,11 +11,11 @@
 (t/ann-protocol IPathElem)
 (u/defprotocol IPathElem)
 
-(t/ann ^:nocheck PathElem? (predicate IPathElem))
+(t/ann ^:no-check PathElem? (predicate IPathElem))
 (defn PathElem? [a]
   (satisfies? IPathElem a))
 
-(t/ann ^:nocheck declare-path-elem [Class -> Any])
+(t/ann ^:no-check declare-path-elem [Class -> Any])
 (defn declare-path-elem [c]
   (extend c IPathElem {}))
 

@@ -1,6 +1,7 @@
 (ns clojure.core.typed
-  (:require [clojure.pprint :as pprint])
-  (:refer-clojure :exclude [defrecord type]))
+  (:require [clojure.pprint :as pprint]
+            [clojure.set :as set])
+  (:refer-clojure :exclude [type]))
 
 ;=============================================================
 ; # core.typed
@@ -22,6 +23,16 @@
 ;
 ; c.c.typed.cs-gen
 ;   Polymorphic local type inference algorithm.
+
+(defn ^:private v [vsym]
+  {:pre [(symbol? vsym)
+         (namespace vsym)]
+   :post [(var? %)]}
+  (let [ns (find-ns (symbol (namespace vsym)))
+        _ (assert ns (str "Cannot find namespace: " (namespace vsym)))
+        var (ns-resolve ns (symbol (name vsym)))]
+    (assert (var? var) (str "Cannot find var: " vsym))
+    var))
 
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
@@ -53,7 +64,8 @@
 ;
 ; `-base-aliases` is not private because it is used from c.c.typed.base-env.
 
-(def -base-aliases
+(def ^:skip-wiki
+  -base-aliases
   "Internal use only."
   '#{Option AnyInteger Int Num AnyPrimitive Atom1 Id Coll NonEmptyColl Vec NonEmptyVec
      Map Set SortedSet Seqable NonEmptySeqable EmptySeqable Seq NonEmptySeq EmptyCount NonEmptyCount})
@@ -74,12 +86,9 @@
   Intended for use at the REPL."
   [mname]
   (load-if-needed)
-  (let [type-reflect @(ns-resolve (find-ns 'clojure.reflect) 
-                                  'type-reflect)
-        unparse-type @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
-                                  'unparse-type)
-        Method->Type @(ns-resolve (find-ns 'clojure.core.typed.check)
-                                  'Method->Type)
+  (let [type-reflect (v 'clojure.reflect/type-reflect)
+        unparse-type (v 'clojure.core.typed.parse-unparse/unparse-type)
+        Method->Type (v 'clojure.core.typed.check/Method->Type)
         ms (->> (type-reflect (Class/forName (namespace mname)))
              :members
              (filter #(and (instance? clojure.reflect.Method %)
@@ -107,12 +116,14 @@
   [debug-string frm]
   frm)
 
-(defn inst-poly 
+(defn ^:skip-wiki
+  inst-poly 
   "Internal use only. Use inst."
   [inst-of types-syn]
   inst-of)
 
-(defn inst-poly-ctor 
+(defn ^:skip-wiki
+  inst-poly-ctor 
   "Internal use only. Use inst-ctor"
   [inst-of types-syn]
   inst-of)
@@ -129,17 +140,20 @@
   [inst-of & types]
   `(inst-poly-ctor ~inst-of '~types))
 
-(defn fn>-ann 
+(defn ^:skip-wiki
+  fn>-ann 
   "Internal use only. Use fn>."
   [fn-of param-types-syn]
   fn-of)
 
-(defn pfn>-ann 
+(defn ^:skip-wiki
+  pfn>-ann 
   "Internal use only. Use pfn>."
   [fn-of polys param-types-syn]
   fn-of)
 
-(defn loop>-ann 
+(defn ^:skip-wiki
+  loop>-ann 
   "Internal use only. Use loop>"
   [loop-of bnding-types]
   loop-of)
@@ -599,7 +613,8 @@
                   ~@forms)
                 '~bnd-anns)))
 
-(defn declare-datatypes* 
+(defn ^:skip-wiki
+  declare-datatypes* 
   "Internal use only. Use declare-datatypes."
   [nms]
   nil)
@@ -609,7 +624,8 @@
   [& syms]
   `(declare-datatypes* '~syms))
 
-(defn declare-protocols* 
+(defn ^:skip-wiki
+  declare-protocols* 
   "Internal use only. Use declare-protocols."
   [syms]
   nil)
@@ -619,7 +635,8 @@
   [& syms]
   `(declare-protocols* '~syms))
 
-(defn declare-alias-kind* 
+(defn ^:skip-wiki
+  declare-alias-kind* 
   "Internal use only. Use declare-alias-kind."
   [sym ty]
   nil)
@@ -631,7 +648,8 @@
      (declare ~sym)
      (declare-alias-kind* '~sym '~ty)))
 
-(defn declare-names* 
+(defn ^:skip-wiki
+  declare-names* 
   "Internal use only. Use declare-names."
   [syms]
   nil)
@@ -641,7 +659,8 @@
   [& syms]
   `(declare-names* '~syms))
 
-(defn def-alias* 
+(defn ^:skip-wiki
+  def-alias* 
   "Internal use only. Use def-alias."
   [sym type]
   nil)
@@ -655,23 +674,24 @@
   eg. (def-alias MyAlias
         \"Here is my alias\"
         (U nil String))"
-  ([sym doc-str type]
+  ([sym doc-str t]
    (assert (string? doc-str) "Doc-string passed to def-alias must be a string")
-   `(def-alias ~(vary-meta sym assoc :doc doc-str) ~type))
-  ([sym type]
+   `(def-alias ~(vary-meta sym assoc :doc doc-str) ~t))
+  ([sym t]
    (assert (symbol? sym) (str "First argument to def-alias must be a symbol: " sym))
    (let [qsym (if (namespace sym)
                 sym
                 (symbol (-> *ns* ns-name str) (str sym)))
          m (-> (meta sym)
-             (update-in [:doc] #(str % "\n\n" (with-out-str (pprint/pprint type)))))]
+             (update-in [:doc] #(str % "\n\n" (with-out-str (pprint/pprint t)))))]
      `(do
         (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))
         (tc-ignore (alter-meta! (resolve '~qsym) merge '~m))
-        (def-alias* '~qsym '~type)))))
+        (def-alias* '~qsym '~t)))))
 
 ;(ann into-array>* [Any Any -> Any])
-(defn into-array>*
+(defn ^:skip-wiki
+  into-array>*
   "Internal use only. Use into-array>."
   ([cljt coll]
    (load-if-needed)
@@ -707,7 +727,8 @@
   ([into-array-syn javat cljt coll]
    `(into-array>* '~javat '~cljt ~coll)))
 
-(defn ann-form* 
+(defn ^:skip-wiki
+  ann-form* 
   "Internal use only. Use ann-form."
   [form ty]
   form)
@@ -725,7 +746,8 @@
   `(unsafe-ann-form* ~form '~ty))
 
 ;(ann tc-ignore-forms* [Any -> Any])
-(defn tc-ignore-forms* 
+(defn ^:skip-wiki
+  tc-ignore-forms* 
   "Internal use only. Use tc-ignore"
   [r]
   r)
@@ -736,7 +758,8 @@
   [& body]
   `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
 
-(defn non-nil-return* 
+(defn ^:skip-wiki
+  non-nil-return* 
   "Internal use only. Use non-nil-return."
   [msym arities]
   nil)
@@ -751,7 +774,8 @@
   [msym arities]
   `(non-nil-return* '~msym '~arities))
 
-(defn nilable-param* 
+(defn ^:skip-wiki
+  nilable-param* 
   "Internal use only. Use nilable-param."
   [msym mmap]
   nil)
@@ -776,14 +800,15 @@
   [debug-str]
   nil)
 
-(defn ann* 
+(defn ^:skip-wiki
+  ann* 
   "Internal use only. Use ann."
   [varsym typesyn check?]
   nil)
 
 (defmacro ann 
   "Annotate varsym with type. If unqualified, qualify in the current namespace.
-  If varsym has metadata {:nocheck true}, ignore definitions of varsym while type checking.
+  If varsym has metadata {:no-check true}, ignore definitions of varsym while type checking.
   
   eg. ; annotate the var foo in this namespace
       (ann foo [Number -> Number])
@@ -792,14 +817,24 @@
       (ann another.ns/bar [-> nil])
    
       ; don't check this var
-      (ann ^:nocheck foobar [Integer -> String])"
+      (ann ^:no-check foobar [Integer -> String])"
   [varsym typesyn]
   (let [qsym (if (namespace varsym)
                varsym
-               (symbol (-> *ns* ns-name str) (str varsym)))]
-    `(ann* '~qsym '~typesyn '~(-> varsym meta :nocheck not))))
+               (symbol (-> *ns* ns-name str) (str varsym)))
+        _ (when (contains? (meta varsym) :nocheck)
+            (println (str "DEPRECATED: :nocheck metadata for " varsym " ann. Use :no-check"))
+            (flush))
+        opts (meta varsym)
+        _ (assert (not (and (contains? opts :nocheck)
+                            (contains? opts :no-check)))
+                  "Cannot provide both :nocheck and :no-check metadata to ann")
+        check? (not (or (:no-check opts)
+                        (:nocheck opts)))]
+    `(ann* '~qsym '~typesyn '~check?)))
 
-(defn ann-datatype*
+(defn ^:skip-wiki
+  ann-datatype*
   "Internal use only. Use ann-datatype."
   [dname fields opts]
   nil)
@@ -822,7 +857,8 @@
           (str "Must provide name symbol: " dname))
   `(ann-datatype* '~dname '~fields '~opts))
 
-(defn ann-pdatatype* 
+(defn ^:skip-wiki
+  ann-pdatatype* 
   "Internal use only. Use ann-pdatatype."
   [dname vbnd fields opt]
   nil)
@@ -836,7 +872,8 @@
           (str "Must provide local symbol: " dname))
   `(ann-pdatatype* '~dname '~vbnd '~fields '~opt))
 
-(defn ann-record* 
+(defn ^:skip-wiki
+  ann-record* 
   "Internal use only. Use ann-record"
   [dname fields opt]
   nil)
@@ -847,7 +884,8 @@
   [dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   `(ann-record* '~dname '~fields '~opt))
 
-(defn ann-precord* 
+(defn ^:skip-wiki
+  ann-precord* 
   "Internal use only. Use ann-precord."
   [dname vbnd fields opt]
   nil)
@@ -858,7 +896,8 @@
   [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   `(ann-precord* '~dname '~vbnd '~fields '~opt))
 
-(defn ann-protocol* 
+(defn ^:skip-wiki
+  ann-protocol* 
   "Internal use only. Use ann-protocol."
   [varsym mth]
   nil)
@@ -874,7 +913,8 @@
   [varsym & {:as mth}]
   `(ann-protocol* '~varsym '~mth))
 
-(defn ann-pprotocol* 
+(defn ^:skip-wiki
+  ann-pprotocol* 
   "Internal use only. Use ann-pprotocol."
   [varsym vbnd mth]
   nil)
@@ -884,7 +924,8 @@
   [varsym vbnd & {:as mth}]
   `(ann-pprotocol* '~varsym '~vbnd '~mth))
 
-(defn override-constructor* 
+(defn ^:skip-wiki
+  override-constructor* 
   "Internal use only. Use override-constructor."
   [ctorsym typesyn]
   nil)
@@ -894,7 +935,8 @@
   [ctorsym typesyn]
   `(override-constructor* '~ctorsym '~typesyn))
 
-(defn override-method* 
+(defn ^:skip-wiki
+  override-method* 
   "Internal use only. Use override-method."
   [methodsym typesyn]
   nil)
@@ -904,7 +946,8 @@
   [methodsym typesyn]
   `(override-method* '~methodsym '~typesyn))
 
-(defn typed-deps* 
+(defn ^:skip-wiki
+  typed-deps* 
   "Internal use only. Use typed-deps."
   [args]
   nil)
@@ -934,7 +977,8 @@
 ;  []
 ;  `(unchecked-ns*))
 
-(defn warn-on-unannotated-vars*
+(defn ^:skip-wiki
+  warn-on-unannotated-vars*
   "Internal use only. Use allow-unannotated-vars"
   []
   nil)
@@ -1029,7 +1073,8 @@
 
 (declare ^:dynamic *verbose-forms*)
 
-(defn print-errors! 
+(defn ^:skip-wiki
+  print-errors! 
   "Internal use only"
   [errors]
   {:pre [(seq errors)
@@ -1061,10 +1106,10 @@
                   {:type-error :top-level-error
                    :errors errors})))
 
-(def ^{:doc "Internal use only"} ^:dynamic *already-collected*)
-(def ^{:doc "Internal use only"} ^:dynamic *already-checked*)
-(def ^{:doc "Internal use only"} ^:dynamic *currently-checking-clj* nil)
-(def ^{:doc "Internal use only"} ^:dynamic *delayed-errors*)
+(def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-collected*)
+(def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-checked*)
+(def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *currently-checking-clj* nil)
+(def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors*)
 
 (def ^:dynamic *verbose-types* 
   "If true, print fully qualified types in error messages
@@ -1074,7 +1119,8 @@
   "If true, print complete forms in error messages."
   nil)
 
-(defn -init-delayed-errors 
+(defn ^:skip-wiki
+  -init-delayed-errors 
   "Internal use only"
   []
   (atom [] :validator #(and (vector? %)

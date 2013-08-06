@@ -27,67 +27,63 @@
 ;; Protocols
 
 (ann-pprotocol clojure.core.async.impl.protocols/Channel
-               [[x :invariant]])
+               [[w :contravariant]
+                [r :covariant]])
 
 (ann-pprotocol clojure.core.async.impl.protocols/ReadPort
-               [[x :invariant]])
+               [[r :covariant]])
 
 (ann-pprotocol clojure.core.async.impl.protocols/WritePort
-               [[x :invariant]])
+               [[w :contravariant]])
 
 (ann-pprotocol clojure.core.async.impl.protocols/Buffer
                [[x :invariant]])
 
 (ann-pdatatype clojure.core.async.impl.channels.ManyToManyChannel 
-               [[x :invariant]]
+               [[w :covariant]
+                [r :contravariant]]
                []
-               :unchecked-ancestors #{(clojure.core.async.impl.protocols/Channel x)
-                                      (clojure.core.async.impl.protocols/ReadPort x)
-                                      (clojure.core.async.impl.protocols/WritePort x)})
+               :unchecked-ancestors #{(clojure.core.async.impl.protocols/Channel w r)
+                                      (clojure.core.async.impl.protocols/ReadPort r)
+                                      (clojure.core.async.impl.protocols/WritePort w)})
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Aliases
+
+(def-alias ReadOnlyChan
+  "A core.async channel that statically disallows writes."
+  (TFn [[r :variance :covariant]]
+    (Extends [(clojure.core.async.impl.protocols/WritePort Nothing)
+              (clojure.core.async.impl.protocols/ReadPort r)
+              (clojure.core.async.impl.protocols/Channel Nothing r)])))
 
 (def-alias Chan
   "A core.async channel"
   (TFn [[x :variance :invariant]]
     (Extends [(clojure.core.async.impl.protocols/WritePort x)
               (clojure.core.async.impl.protocols/ReadPort x)
-              (clojure.core.async.impl.protocols/Channel x)])))
+              (clojure.core.async.impl.protocols/Channel x x)])))
 
 (def-alias TimeoutChan
-  "A channel that times out. Not writeable or readable."
-  (Chan Nothing))
+  "A timeout channel"
+  (Chan Any))
 
 (def-alias Buffer
   "A buffer of type x."
   (TFn [[x :variance :invariant]]
     (clojure.core.async.impl.protocols/Buffer x)))
 
-;;;;;;;;;;;;;;;;;;;;
-;; Var annotations
+(def-alias ReadOnlyPort
+  "A read-only port that can read type x"
+  (TFn [[r :variance :covariant]]
+    (Extends [(clojure.core.async.impl.protocols/ReadPort r) 
+              (clojure.core.async.impl.protocols/WritePort Nothing)])))
 
-(ann ^:nocheck clojure.core.async/buffer (All [x] [AnyInteger -> (Buffer x)]))
-(ann ^:nocheck clojure.core.async/dropping-buffer (All [x] [AnyInteger -> (Buffer x)]))
-(ann ^:nocheck clojure.core.async/sliding-buffer (All [x] [AnyInteger -> (Buffer x)]))
-
-(ann ^:nocheck clojure.core.async/thread-call (All [x] [[-> x] -> (Chan x)]))
-
-; FIXME what should the result type be? Is it writeable? Do we want bivariant channels?
-(ann ^:nocheck clojure.core.async/timeout [AnyInteger -> (Chan Any)])
-
-(ann ^:nocheck clojure.core.async/chan (All [x] 
-                                            (Fn [-> (Chan x)] 
-                                                [(U (Buffer x) AnyInteger) -> (Chan x)])))
-;(ann clojure.core.async/>! (All [x] [(Chan x) -> (Chan x)]))
-
-(ann ^:nocheck clojure.core.async.impl.ioc-macros/aget-object [AtomicReferenceArray AnyInteger -> Any])
-(ann ^:nocheck clojure.core.async.impl.ioc-macros/aset-object [AtomicReferenceArray Any -> nil])
-(ann ^:nocheck clojure.core.async.impl.ioc-macros/run-state-machine [AtomicReferenceArray -> Any])
-
-;FIXME what is 2nd arg?
-(ann ^:nocheck clojure.core.async.impl.ioc-macros/put! (All [x] [AnyInteger Any (Chan x) x -> Any]))
-(ann ^:nocheck clojure.core.async.impl.ioc-macros/return-chan (All [x] [AtomicReferenceArray x -> (Chan x)]))
+(def-alias WriteOnlyPort
+  "A write-only port that can write type x"
+  (TFn [[x :variance :invariant]]
+    (Extends [(clojure.core.async.impl.protocols/ReadPort x) 
+              (clojure.core.async.impl.protocols/WritePort x)])))
 
 (def-alias Port
   "A port that can read and write type x"
@@ -95,17 +91,41 @@
     (Extends [(clojure.core.async.impl.protocols/ReadPort x) 
               (clojure.core.async.impl.protocols/WritePort x)])))
 
-(ann ^:nocheck clojure.core.async/<!! (All [x] [(Port x) -> (U nil x)]))
-(ann ^:nocheck clojure.core.async/>!! (All [x] [(Port x) x -> nil]))
-(ann ^:nocheck clojure.core.async/alts!! 
+;;;;;;;;;;;;;;;;;;;;
+;; Var annotations
+
+(ann ^:no-check clojure.core.async/buffer (All [x] [AnyInteger -> (Buffer x)]))
+(ann ^:no-check clojure.core.async/dropping-buffer (All [x] [AnyInteger -> (Buffer x)]))
+(ann ^:no-check clojure.core.async/sliding-buffer (All [x] [AnyInteger -> (Buffer x)]))
+
+(ann ^:no-check clojure.core.async/thread-call (All [x] [[-> x] -> (Chan x)]))
+
+(ann ^:no-check clojure.core.async/timeout [AnyInteger -> TimeoutChan])
+
+(ann ^:no-check clojure.core.async/chan (All [x] 
+                                            (Fn [-> (Chan x)]
+                                                [(U (Buffer x) AnyInteger) -> (Chan x)])))
+;(ann clojure.core.async/>! (All [x] [(Chan x) -> (Chan x)]))
+
+(ann ^:no-check clojure.core.async.impl.ioc-macros/aget-object [AtomicReferenceArray AnyInteger -> Any])
+(ann ^:no-check clojure.core.async.impl.ioc-macros/aset-object [AtomicReferenceArray Any -> nil])
+(ann ^:no-check clojure.core.async.impl.ioc-macros/run-state-machine [AtomicReferenceArray -> Any])
+
+;FIXME what is 2nd arg?
+(ann ^:no-check clojure.core.async.impl.ioc-macros/put! (All [x] [AnyInteger Any (Chan x) x -> Any]))
+(ann ^:no-check clojure.core.async.impl.ioc-macros/return-chan (All [x] [AtomicReferenceArray x -> (Chan x)]))
+
+(ann ^:no-check clojure.core.async/<!! (All [x] [(ReadOnlyPort x) -> (U nil x)]))
+(ann ^:no-check clojure.core.async/>!! (All [x] [(WriteOnlyPort x) x -> nil]))
+(ann ^:no-check clojure.core.async/alts!! 
      (All [x d]
           (Fn [(Seqable (U (Port x) '[(Port x) x])) (Seqable (Port x)) & :mandatory {:default d} :optional {:priority (U nil true)} -> 
                (U '[d ':default] '[x (Port x)])]
               [(Seqable (U (Port x) '[(Port x) x])) & :optional {:priority (U nil true)} -> '[x (Port x)]])))
 
-(ann ^:nocheck clojure.core.async/close! [(Chan Any) -> nil])
+(ann ^:no-check clojure.core.async/close! [(ReadOnlyChan Any) -> nil])
 
-(ann ^:nocheck clojure.core.async.impl.dispatch/run [[-> (Chan Any)] -> Executor])
+(ann ^:no-check clojure.core.async.impl.dispatch/run [[-> (ReadOnlyChan Any)] -> Executor])
 ;(ann clojure.core.async.impl.ioc-macros/async-chan-wrapper kV
 
 ;;;;;;;;;;;;;;;;;;;;
