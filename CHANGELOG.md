@@ -1,3 +1,7 @@
+0.1.22
+- Fix HMap's new keyword options
+  - Documented here https://github.com/clojure/core.typed/wiki/Types
+
 0.1.21
 - Add docstrings to core def-alias's
 - DEPRECATION: use :no-check instead of :nocheck for ann.
