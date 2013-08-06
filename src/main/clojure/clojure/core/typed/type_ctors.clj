@@ -1,15 +1,14 @@
 (ns clojure.core.typed.type-ctors
   (:refer-clojure :exclude [defrecord])
-  (:require (clojure.core.typed
-             [utils :as u :refer [p]]
-             [type-rep :as r :refer [TCType]]
-             [filter-rep :as fr]
-             [rclass-env :as rcls]
-             [cs-rep :as crep]
-             [util-vars :as vs]
-             [fold-rep :as f]
-             [name-env :as nme-env]
-             [datatype-env :as dtenv])
+  (:require [clojure.core.typed.utils :as u :refer [p]]
+            [clojure.core.typed.type-rep :as r :refer [TCType]]
+            [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.rclass-env :as rcls]
+            [clojure.core.typed.cs-rep :as crep]
+            [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.fold-rep :as f]
+            [clojure.core.typed.name-env :as nme-env]
+            [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed :as t :refer [fn>]]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]

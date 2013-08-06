@@ -1,7 +1,6 @@
 (ns clojure.core.typed.constant-type
-  (:require [clojure.core.typed
-             [type-rep :as r :refer [ret]]
-             [type-ctors :as c]])
+  (:require [clojure.core.typed.type-rep :as r :refer [ret]]
+            [clojure.core.typed.type-ctors :as c])
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry

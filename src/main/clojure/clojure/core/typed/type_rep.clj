@@ -1,7 +1,6 @@
 (ns clojure.core.typed.type-rep
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require (clojure.core.typed
-             [utils :as u])
+  (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t]
             [clojure.set :as set])
   (:import (clojure.lang IPersistentSet Seqable Symbol Keyword IPersistentMap

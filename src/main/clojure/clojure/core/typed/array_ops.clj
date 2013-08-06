@@ -1,7 +1,6 @@
 (ns clojure.core.typed.array-ops
-  (:require [clojure.core.typed
-             [type-rep :as r]
-             [type-ctors :as c]]))
+  (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-ctors :as c]))
 
 ;Return a Class that generalises what this Clojure type will look like from Java,
 ;suitable  for use as a Java primitive array member type.

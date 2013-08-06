@@ -1,13 +1,12 @@
 (ns clojure.core.typed.base-env-helper
   (:refer-clojure :exclude [type])
-  (:require [clojure.core.typed
-             [type-rep :as r]
-             [parse-unparse :as prs]
-             [utils :as u]
-             [free-ops :as free-ops]
-             [type-ctors :as c]
-             [declared-kind-env :as decl-env]
-             [rclass-env :as rcls]]
+  (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.declared-kind-env :as decl-env]
+            [clojure.core.typed.rclass-env :as rcls]
             [clojure.pprint :as pprint]))
 
 (defmacro alias-mappings [& args]

@@ -1,9 +1,8 @@
 (ns clojure.core.typed.trans
-  (:require [clojure.core.typed
-             [utils :as u]
-             [type-rep :as r]
-             [type-ctors :as c]
-             [subst :as subst]])
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.subst :as subst])
   (:import (clojure.core.typed.type_rep Name F Value RClass Union FnIntersection
                                         Intersection Union Function TApp)))
 

@@ -1,12 +1,11 @@
 (ns clojure.core.typed.promote-demote
-  (:require [clojure.core.typed
-             [utils :as u]
-             [type-rep :as r]
-             [type-ctors :as c]
-             [filter-rep]
-             [object-rep]
-             [path-rep]
-             [frees :as frees]]
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.filter-rep]
+            [clojure.core.typed.object-rep]
+            [clojure.core.typed.path-rep]
+            [clojure.core.typed.frees :as frees]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp

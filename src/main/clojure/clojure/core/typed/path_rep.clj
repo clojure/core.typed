@@ -1,7 +1,6 @@
 (ns clojure.core.typed.path-rep
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require [clojure.core.typed
-             [utils :as u]]
+  (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t])
   (:import (clojure.lang Keyword)))
 

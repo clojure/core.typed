@@ -7,17 +7,16 @@
                          IPersistentList IRef IReference AReference ARef Var Delay Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
                          ITransientVector PersistentHashMap))
-  (:require [clojure.core.typed
-             [base-env-helper :as h]
-             [parse-unparse :as prs]
-             [type-rep :as r]
-             [type-ctors :as c]
-             [path-rep :as pe]
-             [object-rep :as obj]
-             [fold-default]
-             [name-env :as nme-env]
-             [subst]
-             [rclass-env :as rcls]]
+  (:require [clojure.core.typed.base-env-helper :as h]
+            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.path-rep :as pe]
+            [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.fold-default]
+            [clojure.core.typed.name-env :as nme-env]
+            [clojure.core.typed.subst]
+            [clojure.core.typed.rclass-env :as rcls]
             [clojure.set :as set]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

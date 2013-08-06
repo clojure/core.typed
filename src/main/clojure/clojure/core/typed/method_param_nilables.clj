@@ -1,7 +1,6 @@
 (ns clojure.core.typed.method-param-nilables
-  (:require [clojure.core.typed
-             [utils :as u]
-             [type-rep :as r]]))
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.type-rep :as r]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Param nilables

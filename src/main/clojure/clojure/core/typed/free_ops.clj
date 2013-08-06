@@ -1,7 +1,6 @@
 (ns clojure.core.typed.free-ops
-  (:require [clojure.core.typed
-             [utils :as u]
-             [type-rep :as r]])
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.type-rep :as r])
   (:import (clojure.core.typed.type_rep Bounds)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

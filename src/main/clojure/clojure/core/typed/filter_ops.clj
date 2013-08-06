@@ -1,11 +1,10 @@
 (ns clojure.core.typed.filter-ops
-  (:require [clojure.core.typed
-             [type-rep :as r]
-             [type-ctors :as c]
-             [filter-rep :as fr]
-             [path-rep :as pr]
-             [object-rep :as or]
-             [utils :as u]]
+  (:require [clojure.core.typed.type-rep :as r] 
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.path-rep :as pr]
+            [clojure.core.typed.object-rep :as or]
+            [clojure.core.typed.utils :as u]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set])
   (:import (clojure.core.typed.filter_rep BotFilter TopFilter NoFilter AndFilter 

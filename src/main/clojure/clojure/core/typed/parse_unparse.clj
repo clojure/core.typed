@@ -1,19 +1,18 @@
 (ns clojure.core.typed.parse-unparse
-  (:require (clojure.core.typed
-             [type-rep :as r]
-             [type-ctors :as c]
-             [object-rep :as orep]
-             [path-rep :as pthrep]
-             [utils :as u]
-             [dvar-env :as dvar]
-             [filter-rep :as f]
-             [filter-ops :as fl]
-             [constant-type :as const]
-             [datatype-env :as dtenv]
-             [protocol-env :as prenv]
-             [name-env :as nmenv]
-             [free-ops :as free-ops]
-             [frees :as frees])
+  (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.object-rep :as orep]
+            [clojure.core.typed.path-rep :as pthrep]
+            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.dvar-env :as dvar]
+            [clojure.core.typed.filter-rep :as f]
+            [clojure.core.typed.filter-ops :as fl]
+            [clojure.core.typed.constant-type :as const]
+            [clojure.core.typed.datatype-env :as dtenv]
+            [clojure.core.typed.protocol-env :as prenv]
+            [clojure.core.typed.name-env :as nmenv]
+            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.frees :as frees]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds

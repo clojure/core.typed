@@ -1,10 +1,9 @@
 (ns clojure.core.typed.subst
-  (:require (clojure.core.typed
-             [type-rep :as r]
-             [fold-rep :as f]
-             [type-ctors :as tc]
-             [frees :as frees]
-             [cs-rep :as crep]))
+  (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.fold-rep :as f]
+            [clojure.core.typed.type-ctors :as tc]
+            [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.cs-rep :as crep])
   (:import (clojure.core.typed.type_rep F Function)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

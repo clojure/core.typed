@@ -1,8 +1,7 @@
 (ns clojure.core.typed.lex-env
-  (:require [clojure.core.typed
-             [utils :as u]
-             [type-rep :as r]
-             [filter-rep :as fr]]))
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.filter-rep :as fr]))
 
 ;(ann (predicate (APersistentMap Symbol Any)))
 (def lex-env? (u/hash-c? (every-pred symbol? (complement namespace)) r/Type?))

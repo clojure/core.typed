@@ -1,13 +1,12 @@
 (ns clojure.core.typed.frees
-  (:require (clojure.core.typed
-             [type-rep :as r]
-             [type-ctors :as c]
-             [object-rep]
-             [utils :as u]
-             [filter-rep :as fr]
-             [free-ops :as free-ops]
-             [name-env :as nmenv]
-             [declared-kind-env :as kinds]))
+  (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.object-rep]
+            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.name-env :as nmenv]
+            [clojure.core.typed.declared-kind-env :as kinds])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots

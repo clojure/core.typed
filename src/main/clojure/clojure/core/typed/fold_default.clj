@@ -1,12 +1,11 @@
 (ns clojure.core.typed.fold-default
-  (:require [clojure.core.typed
-             [fold-rep :refer [add-default-fold-case]]
-             [type-rep :as r]
-             [type-ctors :as c]
-             [filter-rep]
-             [filter-ops :as fops]
-             [object-rep]
-             [path-rep]])
+  (:require [clojure.core.typed.fold-rep :refer [add-default-fold-case]]
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.filter-rep]
+            [clojure.core.typed.filter-ops :as fops]
+            [clojure.core.typed.object-rep]
+            [clojure.core.typed.path-rep])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots

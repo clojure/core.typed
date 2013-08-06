@@ -1,8 +1,7 @@
 (ns clojure.core.typed.cs-rep
   (:refer-clojure :exclude [defrecord])
-  (:require (clojure.core.typed
-             [utils :as u]
-             [type-rep :as r])
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed :as t])
   (:import (clojure.lang IPersistentMap IPersistentSet Symbol Seqable)
            (clojure.core.typed.type_rep Bounds F)))

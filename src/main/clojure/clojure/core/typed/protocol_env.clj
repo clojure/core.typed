@@ -1,8 +1,7 @@
 (ns clojure.core.typed.protocol-env
-  (:require (clojure.core.typed
-             [utils :as u]
-             [util-vars :as vs]
-             [type-rep :as r])
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed :as t :refer [fn>]])
   (:import (clojure.lang IPersistentMap Symbol)))
 

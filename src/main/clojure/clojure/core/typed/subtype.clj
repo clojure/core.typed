@@ -1,17 +1,16 @@
 (ns clojure.core.typed.subtype
-  (:require (clojure.core.typed
-             [current-impl :as impl]
-             [type-rep :as r]
-             [type-ctors :as c]
-             [utils :as u :refer [p]]
-             [util-vars :as vs]
-             [parse-unparse :as prs]
-             [filter-rep :as fr]
-             [filter-ops :as fops]
-             [object-rep :as orep]
-             [frees :as frees]
-             [free-ops :as free-ops]
-             [datatype-ancestor-env :as dtenv])
+  (:require [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.utils :as u :refer [p]]
+            [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.filter-ops :as fops]
+            [clojure.core.typed.object-rep :as orep]
+            [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.datatype-ancestor-env :as dtenv]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
                                         Result Protocol TypeFn Name F Bounds HeterogeneousVector

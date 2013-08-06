@@ -1,10 +1,9 @@
 (ns clojure.core.typed.object-rep
   (:refer-clojure :exclude [defrecord])
-  (:require (clojure.core.typed
-             [type-rep :as r]
-             [path-rep :as pr]
-             [filter-rep :as fr]
-             [utils :as u])
+  (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.path-rep :as pr]
+            [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t])
   (:import (clojure.lang Seqable)))
 

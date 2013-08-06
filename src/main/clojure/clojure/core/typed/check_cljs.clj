@@ -1,4 +1,5 @@
-(in-ns 'clojure.core.typed)
+(ns clojure.core.typed.check-cljs
+  (:require [clojure.core.typed]))
 
 ;; All CLJS related stuff are dumped here. Need to revisit.
 
@@ -38,8 +39,7 @@
                     (recur (read pbr false eof false) (conj asts ast1)))
                   asts)))))))))
 
-;FIXME uncomment
-#_(defn check-cljs-ns*
+(defn check-cljs-ns*
   "Type check a CLJS namespace. If not provided default to current namespace"
   ([] (check-cljs-ns* cljs/*cljs-ns*))
   ([nsym]
@@ -47,10 +47,6 @@
    (let [asts (analyze-file-asts (cljs/ns->relpath nsym))]
      (doseq [ast asts]
        (check-cljs ast)))))
-
-#_(defmacro check-cljs-ns
-  ([] (check-cljs-ns*) `'~'success)
-  ([nsym] (check-cljs-ns* nsym) `'~'success))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -74,20 +70,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Special forms
 
-(defmacro ann-form-cljs [form tsyn]
-  `(typed.internal/ann-form-cljs* ~form '~tsyn))
-
-(declare cljs-ann*)
-
-(defmacro cljs-ann [vname tsyn]
-  (let [r (cljs-ann* vname tsyn)]
-  `'~r))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Envs
 
 (defonce CLJS-VAR-ENV (atom {}))
-(set-validator! CLJS-VAR-ENV (hash-c? symbol? Type?))
+(set-validator! CLJS-VAR-ENV (u/hash-c? symbol? Type?))
 
 (defn cljs-ann* [vname tsyn]
   (let [vtype (parse-type tsyn)

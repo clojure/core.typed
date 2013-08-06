@@ -1,8 +1,7 @@
 (ns clojure.core.typed.rclass-env
-  (:require (clojure.core.typed
-             [utils :as u]
-             [free-ops :as free-ops]
-             [type-rep :as r])))
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.type-rep :as r]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class

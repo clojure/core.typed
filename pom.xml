@@ -80,11 +80,11 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <!--<dependency>
+    <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojurescript</artifactId>
-      <version>0.0-1450</version>
-    </dependency>-->
+      <version>0.0-1847</version>
+    </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.trace</artifactId>
@@ -102,18 +102,6 @@
       <artifactId>clojure</artifactId>
       <version>1.5.1</version>
     </dependency>
-    <!--<dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>core.async</artifactId>
-      <version>0.1.0-20130802.160123-63</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>clojure</artifactId>
-        </exclusion>
-      </exclusions>
-      <scope>test</scope>
-    </dependency>-->
   </dependencies>
 
   <developers>

@@ -1,8 +1,7 @@
 (ns clojure.core.typed.mm-env
-  (:require [clojure.core.typed
-             [utils :as u]
-             [type-rep :as r]
-             [parse-unparse :as prs]]))
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.parse-unparse :as prs]))
 
 ;; Environment for storing multimethod types and inferred filters
 

@@ -1,8 +1,7 @@
 (ns clojure.core.typed.analyze-clj
   (:require [clojure.tools.analyzer :as analyze]
             [clojure.tools.analyzer.hygienic :as hygienic]
-            (clojure.core.typed
-             [utils :as u :refer [p]])))
+            [clojure.core.typed.utils :as u :refer [p]]))
 
 (defn ast-for-form-in-ns
   "Returns an AST node for the form 

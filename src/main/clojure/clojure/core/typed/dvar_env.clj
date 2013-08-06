@@ -1,7 +1,6 @@
 (ns clojure.core.typed.dvar-env
-  (:require [clojure.core.typed
-             [type-rep :as r]
-             [utils :as u]]))
+  (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.utils :as u]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dotted Variable Environment

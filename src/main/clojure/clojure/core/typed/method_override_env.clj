@@ -1,7 +1,6 @@
 (ns clojure.core.typed.method-override-env
-  (:require [clojure.core.typed
-             [utils :as u]
-             [type-rep :as r]]))
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.type-rep :as r]))
 
 ; Should only override a method with a more specific type
 ; eg. 

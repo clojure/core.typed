@@ -1,13 +1,12 @@
 (ns clojure.core.typed.inst
-  (:require [clojure.core.typed
-             [utils :as u]
-             [parse-unparse :as prs]
-             [type-rep :as r]
-             [type-ctors :as c]
-             [free-ops :as free-ops]
-             [subtype :as sub]
-             [subst :as subst]
-             [trans :as trans]])
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.trans :as trans])
   (:import (clojure.core.typed.type_rep Poly Bounds PolyDots F)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

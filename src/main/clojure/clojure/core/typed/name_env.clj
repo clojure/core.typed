@@ -1,11 +1,10 @@
 (ns clojure.core.typed.name-env
-  (:require (clojure.core.typed
-             [type-rep :as r]
-             [utils :as u]
-             [datatype-env :as dtenv]
-             [rclass-env :as rcls]
-             [protocol-env :as prenv]
-             [declared-kind-env :as kinds])
+  (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.datatype-env :as dtenv]
+            [clojure.core.typed.rclass-env :as rcls]
+            [clojure.core.typed.protocol-env :as prenv]
+            [clojure.core.typed.declared-kind-env :as kinds]
             [clojure.core.typed :as t :refer [fn>]])
   (:import (clojure.lang Symbol IPersistentMap Keyword)
            #_(clojure.core.typed.type_rep )))
