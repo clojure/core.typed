@@ -326,9 +326,21 @@
             (into {} (for [[k v] m]
                        [(r/-val k)
                         (parse-type v)])))]
-    (let [mandatory (mapt mandatory)
+    (let [_ (assert (every? empty? [(set/intersection (set (keys mandatory))
+                                                      (set (keys optional)))
+                                    (set/intersection (set (keys mandatory))
+                                                      (set absent-keys))
+                                    (set/intersection (set (keys optional))
+                                                      (set absent-keys))])
+                    (str "HMap options contain duplicate key entries: "
+                         "Mandatory: " (into {} mandatory) ", Optional: " (into {} optional) 
+                         ", Absent: " (set absent-keys)))
+          _ (assert (every? keyword? (keys mandatory)) "HMap's mandatory keys must be keywords")
+          mandatory (mapt mandatory)
+          _ (assert (every? keyword? (keys optional)) "HMap's optional keys must be keywords")
           optional (mapt optional)
-          absent-keys (set (map parse-type absent-keys))]
+          _ (assert (every? keyword? absent-keys) "HMap's absent keys must be keywords")
+          absent-keys (set (map r/-val absent-keys))]
       (c/make-HMap mandatory optional complete? :absent-keys absent-keys))))
 
 (defmethod parse-type-list 'quote 

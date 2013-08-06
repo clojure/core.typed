@@ -293,7 +293,7 @@
         (parse-type
           '(Fn ['{:a java.lang.Number} -> java.lang.Number 
                 :filters {:then (is java.lang.Number 0 [(Key :a)]), 
-                          :else (| (is (HMap :absent-keys #{(Value :a)}) 0) 
+                          :else (| (is (HMap :absent-keys #{:a}) 0) 
                                    (is (U nil false) 0 [(Key :a)]))} 
                 :object {:path [(Key :a)], :id 0}])))))
 
@@ -362,7 +362,7 @@
            (parse-type 
              '(Fn [(U '{:op (Value :var)} '{:op (Value :if)}) -> (U ':var ':if) 
                    :filters {:then (is (U (Value :var) (Value :if)) 0 [(Key :op)]), 
-                             :else (| (is (HMap :absent-keys #{(Value :op)}) 0) 
+                             :else (| (is (HMap :absent-keys #{:op}) 0) 
                                       (is (U nil false) 0 [(Key :op)]))} 
                    :object {:path [(Key :op)], :id 0}]))
            (-FS -top -bot)
@@ -1317,7 +1317,7 @@
   (is (cf (.ns ^clojure.lang.Var #'clojure.core/map))))
 
 (deftest HMap-syntax-test
-  (is (= (parse-type '(HMap :absent-keys #{':op}))
+  (is (= (parse-type '(HMap :absent-keys #{:op}))
          (-hmap {} #{(-val :op)} true))))
 
 (deftest map-filter-test
@@ -1325,7 +1325,7 @@
                                        [(U '{:op ':if} '{:op ':case})
                                         -> (U ':if ':case)
                                         :filters {:then (is (U ':case ':if) 0 [(Key :op)])
-                                                  :else (| (is (HMap :absent-keys #{':op}) 0)
+                                                  :else (| (is (HMap :absent-keys #{:op}) 0)
                                                            (is (U false nil) 0 [(Key :op)]))}
                                         :object {:id 0
                                                  :path [(Key :op)]}])))
@@ -1793,6 +1793,19 @@
 
 (deftest mm-warn-on-unannotated-vars-test
   (is (check-ns 'clojure.core.typed.test.mm-warn-on-unannotated)))
+
+(deftest HMap-parse-fail-test
+  (is (thrown? Error (parse-type '(HMap :mandatory {:a Any} :absent-keys #{:a})))))
+
+(deftest HMap-absent-complete-test
+  (is (not (sub? (HMap :mandatory {:a Any}) (HMap :absent-keys #{:a}))))
+  (is (not (sub? (HMap :complete? false) (HMap :complete? true))))
+  (is (sub? (HMap :complete? false) (HMap :complete? false)))
+  (is (sub? (HMap :complete? true) (HMap :complete? false)))
+  (is (sub? (HMap :complete? true) (HMap :complete? true)))
+  (is (sub? (HMap :absent-keys #{:a :b}) (HMap :absent-keys #{:a})))
+  (is (not (sub? (HMap :absent-keys #{}) (HMap :absent-keys #{:a}))))
+  (is (not (sub? (HMap :absent-keys #{:a}) (HMap :absent-keys #{:a :b})))))
 
 ;
 ;TODO destructuring on records
