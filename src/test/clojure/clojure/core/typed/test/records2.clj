@@ -62,3 +62,24 @@
     (lines-intersect? (:l r1) (:b r0))
     (lines-intersect? (:r r1) (:t r0))
     (lines-intersect? (:r r1) (:b r0))))
+
+; a record is never an ISeq
+(ann-form
+  (let [r (->Point 1 2)]
+    (if (seq? r)
+      (do (t/print-env "") 'a)
+      (do (t/print-env "") 1)))
+  Number)
+
+(ann-form
+  (let [r {}]
+    (if (seq? r)
+      'a
+      1))
+  Number)
+
+; destructuring
+(ann destruct [Point -> Number])
+(defn destruct [{:keys [lat] :as r}]
+  lat)
+

@@ -750,9 +750,9 @@
 
 (defn- subtype-datatype-record-on-right
   [s {:keys [the-class] :as t}]
-  (if (some #(subtype? s %) (set/union #{(c/RClass-of Object)} 
-                                       (or (@dtenv/DATATYPE-ANCESTOR-ENV the-class)
-                                           #{})))
+  (if (every? #(subtype? s %) (set/union #{(c/RClass-of Object)} 
+                                         (or (@dtenv/DATATYPE-ANCESTOR-ENV the-class)
+                                             #{})))
     *sub-current-seen*
     (fail! s t)))
 

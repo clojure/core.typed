@@ -870,7 +870,10 @@
                                      (= (u/Class->symbol clojure.lang.ISeq) (:the-class s))))
         hvec-and-seq? (fn [h s] (and (r/HeterogeneousVector? h)
                                      (r/RClass? s)
-                                     (= (u/Class->symbol clojure.lang.ISeq) (:the-class s))))]
+                                     (= (u/Class->symbol clojure.lang.ISeq) (:the-class s))))
+        record-and-iseq? (fn [r s]
+                           (and (r/Record? r)
+                                (subtype? s (RClass-of clojure.lang.ISeq [r/-any]))))]
     (cond 
       eq eq
 
@@ -970,6 +973,11 @@
       ;for vector destructuring mexpansion
       (or (hvec-and-seq? t1 t2)
           (hvec-and-seq? t2 t1))
+      false
+
+      ;for map destructuring of records. A record is never an ISeq
+      (or (record-and-iseq? t1 t2)
+          (record-and-iseq? t2 t1))
       false
 
       :else true))) ;FIXME conservative result
