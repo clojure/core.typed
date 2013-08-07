@@ -86,56 +86,29 @@
 ;    [var (unparse-type vtype)]))
 
 (defonce CLJS-PROTOCOL-ENV (atom {}))
-;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Types
-
-(defrecord BooleanCLJS []
-  "Primitive boolean in CLJS"
-  [])
-
-(def-type ObjectCLJS []
-  "Primitive object in CLJS"
-  [])
-
-(def-type StringCLJS []
-  "Primitive string in CLJS"
-  [])
-
-(def-type NumberCLJS []
-  "Primitive number in CLJS"
-  [])
-
-(def-type ArrayCLJS []
-  "Primitive array in CLJS"
-  [])
-
-(def-type FunctionCLJS []
-  "Primitive function in CLJS"
-  [])
 
 ;;; Parse type
-;
-;(defmethod parse-type-symbol 'SymbolCLJS [_] (->SymbolCLJS))
-;(defmethod parse-type-symbol 'BooleanCLJS [_] (->BooleanCLJS))
-;
-;(defmethod parse-type-list 'predicate-cljs
-;  [[_ t-syn]]
-;  (let [on-type (parse-type t-syn)]
-;    (make-FnIntersection
-;      (make-Function [-any] (->BooleanCLJS) nil nil
-;                     :filter (-FS (-filter on-type 0)
-;                                  (-not-filter on-type 0))))))
-;
-;;; Unparse-type 
-;
-;(defmethod unparse-type* SymbolCLJS
-;  [_]
-;  'SymbolCLJS)
-;
-;(defmethod unparse-type* BooleanCLJS
-;  [_]
-;  'BooleanCLJS)
+
+(defmethod parse-type-symbol 'SymbolCLJS [_] (->SymbolCLJS))
+(defmethod parse-type-symbol 'BooleanCLJS [_] (->BooleanCLJS))
+
+(defmethod parse-type-list 'predicate-cljs
+  [[_ t-syn]]
+  (let [on-type (parse-type t-syn)]
+    (make-FnIntersection
+      (make-Function [-any] (->BooleanCLJS) nil nil
+                     :filter (-FS (-filter on-type 0)
+                                  (-not-filter on-type 0))))))
+
+;; Unparse-type 
+
+(defmethod unparse-type* SymbolCLJS
+  [_]
+  'SymbolCLJS)
+
+(defmethod unparse-type* BooleanCLJS
+  [_]
+  'BooleanCLJS)
 ;
 ;;; fold
 ;

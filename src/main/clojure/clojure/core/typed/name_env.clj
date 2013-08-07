@@ -5,26 +5,26 @@
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.declared-kind-env :as kinds]
-            [clojure.core.typed :as t :refer [fn>]])
-  (:import (clojure.lang Symbol IPersistentMap Keyword)
-           #_(clojure.core.typed.type_rep )))
+            [clojure.core.typed :as t :refer [fn> ann when-let-fail def-alias ann-many]])
+  (:import (clojure.lang Symbol IPersistentMap Keyword)))
 
-(t/def-alias NameEnv
+(def-alias NameEnv
   "Environment mapping names to types. Keyword values are special."
   (IPersistentMap Symbol (U Keyword r/TCType)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Name Env
 
-(t/ann declared-name-type Keyword)
-(t/ann protocol-name-type Keyword)
-(t/ann datatype-name-type Keyword)
+(ann-many Keyword 
+          declared-name-type 
+          protocol-name-type 
+          datatype-name-type)
 
 (def declared-name-type ::declared-name)
 (def protocol-name-type ::protocol-name)
 (def datatype-name-type ::datatype-name)
 
-(t/ann temp-binding Keyword)
+(ann temp-binding Keyword)
 (def temp-binding ::temp-binding)
 
 (t/tc-ignore
@@ -32,65 +32,102 @@
   (derive k temp-binding))
   )
 
-(t/ann TYPE-NAME-ENV (t/Atom1 NameEnv))
-(defonce TYPE-NAME-ENV (atom {}))
+(defmacro with-clj-name-env [& body]
+  `(binding [*current-name-env* CLJ-TYPE-NAME-ENV]
+     ~@body))
+
+(defmacro with-cljs-name-env [& body]
+  `(binding [*current-name-env* CLJS-TYPE-NAME-ENV]
+     ~@body))
+
+(ann ^:no-check name-env? [Any -> Any])
+(def name-env? (u/hash-c? (every-pred (some-fn namespace 
+                                               #(some #{\.} (str %)))
+                                      symbol?)
+                          (some-fn r/Type? #(isa? % temp-binding))))
+
+
+(ann *current-name-env* (U nil (t/Atom1 NameEnv)))
+(def ^:dynamic *current-name-env* nil)
+
 (t/tc-ignore
-(set-validator! TYPE-NAME-ENV #(and (every? (every-pred (some-fn namespace 
-                                                                 (fn [k] (some (fn [a] (= \. a)) (str k))))
-                                                        symbol?) 
-                                            (keys %))
-                                    (every? (some-fn r/Type? (fn [a] (isa? a temp-binding)))
-                                            (vals %))))
-  )
+(set-validator! #'*current-name-env* (some-fn nil? #(instance? clojure.lang.Atom %)))
+)
 
-(t/ann update-name-env! [NameEnv -> nil])
+(ann ^:no-check CLJ-TYPE-NAME-ENV (t/Atom1 NameEnv))
+(defonce CLJ-TYPE-NAME-ENV (atom {} :validator name-env?))
+
+(ann ^:no-check CLJS-TYPE-NAME-ENV (t/Atom1 NameEnv))
+(defonce CLJS-TYPE-NAME-ENV (atom {} :validator name-env?))
+
+(ann assert-name-env [-> nil])
+(defn assert-name-env []
+  (assert *current-name-env* "No name environment bound"))
+
+(ann update-name-env! [NameEnv -> nil])
 (defn update-name-env! [nme-env]
-  (swap! TYPE-NAME-ENV (fn> [n :- NameEnv] 
-                         (merge n nme-env)))
+  (assert-name-env)
+  (when-let-fail [e *current-name-env*]
+    (swap! e (fn> [n :- (U nil NameEnv)]
+               {:pre [n]}
+               (merge n nme-env))))
   nil)
 
-(t/ann reset-name-env! [NameEnv -> nil])
+(ann reset-name-env! [NameEnv -> nil])
 (defn reset-name-env! [nme-env]
-  (reset! TYPE-NAME-ENV nme-env)
+  (assert-name-env)
+  (when-let-fail [e *current-name-env*]
+    (reset! e nme-env))
   nil)
 
-(t/ann ^:no-check get-type-name [Symbol -> (U nil Keyword r/TCType)])
+(ann ^:no-check get-type-name [Any -> (U nil Keyword r/TCType)])
 (defn get-type-name 
   "Return the name with var symbol sym.
   Returns nil if not found."
   [sym]
-  (@TYPE-NAME-ENV sym))
+  (assert-name-env)
+  (when-let-fail [e *current-name-env*]
+    (@e sym)))
 
-(t/ann ^:no-check add-type-name [Symbol (U Keyword r/TCType) -> nil])
+(ann ^:no-check add-type-name [Symbol (U Keyword r/TCType) -> nil])
 (defn add-type-name [sym ty]
-  (swap! TYPE-NAME-ENV assoc sym (if (r/Type? ty)
-                                   (vary-meta ty assoc :from-name sym)
-                                   ty))
+  (assert-name-env)
+  (when-let-fail [e *current-name-env*]
+    (swap! e
+           (fn> [e :- (U nil NameEnv)]
+            {:pre [e]}
+            (assoc e sym (if (r/Type? ty)
+                           (vary-meta ty assoc :from-name sym)
+                           ty)))))
   nil)
 
-(t/ann ^:no-check declare-name* [Symbol -> nil])
+(ann ^:no-check declare-name* [Symbol -> nil])
 (defn declare-name* [sym]
   {:pre [(symbol? sym)
          (namespace sym)]}
   (add-type-name sym declared-name-type)
   nil)
 
-(t/ann ^:no-check declare-protocol* [Symbol -> nil])
+(ann declared-name? [Any -> Any])
+(defn declared-name? [sym]
+  (= declared-name-type (get-type-name sym)))
+
+(ann ^:no-check declare-protocol* [Symbol -> nil])
 (defn declare-protocol* [sym]
   {:pre [(symbol? sym)
          (some #(= \. %) (str sym))]}
   (add-type-name sym protocol-name-type)
   nil)
 
-(t/ann ^:no-check declare-datatype* [Symbol -> nil])
+(ann ^:no-check declare-datatype* [Symbol -> nil])
 (defn declare-datatype* [sym]
   (add-type-name sym datatype-name-type)
   nil)
 
-(t/ann ^:no-check resolve-name* [Symbol -> r/TCType])
+(ann ^:no-check resolve-name* [Symbol -> r/TCType])
 (defn resolve-name* [sym]
   {:post [(r/Type? %)]}
-  (let [t (@TYPE-NAME-ENV sym)
+  (let [t (get-type-name sym)
         cls (resolve sym)]
     (cond
       (class? cls) (let [tfn ((some-fn dtenv/get-datatype rcls/get-rclass

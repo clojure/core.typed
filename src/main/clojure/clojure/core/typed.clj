@@ -27,13 +27,12 @@
 
 (defn ^:private v [vsym]
   {:pre [(symbol? vsym)
-         (namespace vsym)]
-   :post [(var? %)]}
+         (namespace vsym)]}
   (let [ns (find-ns (symbol (namespace vsym)))
         _ (assert ns (str "Cannot find namespace: " (namespace vsym)))
         var (ns-resolve ns (symbol (name vsym)))]
     (assert (var? var) (str "Cannot find var: " vsym))
-    var))
+    @var))
 
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
@@ -495,6 +494,14 @@
   (let [{:keys [poly fn parsed-methods]} (parse-fn> true forms)]
     `(pfn>-ann ~fn '~poly '~parsed-methods)))
 
+
+(defmacro when-let-fail 
+  "Like when-let, but fails if the binding yields a false value."
+  [b & body]
+  `(if-let ~b
+     (do ~@body)
+     (assert nil "Expression was nil or false")))
+
 (defmacro 
   ^{:forms '[(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
              (fn> name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
@@ -696,18 +703,20 @@
   "Internal use only. Use into-array>."
   ([cljt coll]
    (load-if-needed)
-   (let [pt @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
-                         'parse-type)
+   (let [parse-type @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
+                                 'parse-type)
          amc @(ns-resolve (find-ns 'clojure.core.typed.array-ops)
                           'Type->array-member-Class)]
-     (into-array (-> cljt pt amc) coll)))
+     (impl/with-clojure-impl
+       (into-array (-> cljt parse-type amc) coll))))
   ([javat cljt coll]
    (load-if-needed)
-   (let [pt @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
-                         'parse-type)
+   (let [parse-type @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
+                                 'parse-type)
          amc @(ns-resolve (find-ns 'clojure.core.typed.array-ops)
                           'Type->array-member-Class)]
-     (into-array (-> javat pt amc) coll)))
+     (impl/with-clojure-impl
+       (into-array (-> javat parse-type amc) coll))))
   ;this is the hacky case to prevent full core.typed from loading
   ([into-array-syn javat cljt coll]
    (into-array (resolve into-array-syn) coll)))
@@ -833,6 +842,14 @@
         check? (not (or (:no-check opts)
                         (:nocheck opts)))]
     `(ann* '~qsym '~typesyn '~check?)))
+
+(defmacro ann-many
+  "Annotate several vars with type t.
+
+  eg. (ann-many FakeSearch
+                web1 web2 image1 image2 video1 video2)"
+  [t & vs]
+  `(do ~@(map #(list `ann % t) vs)))
 
 (defn ^:skip-wiki
   ann-datatype*
@@ -1164,7 +1181,8 @@
                                         'check-ns-and-deps)
          vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
                                                'vars-with-unchecked-defs)]
-   (reset-envs!)
+   (impl/with-clojure-impl
+     (reset-envs!))
    (cond
      *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
 

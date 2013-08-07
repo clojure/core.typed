@@ -1,4 +1,5 @@
-(ns clojure.core.typed.init)
+(ns clojure.core.typed.init
+  (:require [clojure.core.typed.current-impl :as impl]))
 
 (def ^:private attempted-loading? (atom false))
 (def ^:private successfully-loaded? (atom false))
@@ -67,5 +68,7 @@
           (reset! successfully-loaded? false)
           (throw e)))
       (reset! successfully-loaded? true)
-      (@(ns-resolve (find-ns 'clojure.core.typed.reset-env) 'reset-envs!))
+      ;FIXME what about other implementations? Is this still a good idea to put here?
+      (impl/with-clojure-impl
+        (@(ns-resolve (find-ns 'clojure.core.typed.reset-env) 'reset-envs!)))
       nil)))

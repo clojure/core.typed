@@ -76,7 +76,8 @@
 (defn expected-error [actual expected]
   (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
                                          (when vs/*current-expr*
-                                           (expr-ns vs/*current-expr*)))]
+                                           (when-let [ns (expr-ns vs/*current-expr*)]
+                                             (ns-name ns))))]
     (u/tc-delayed-error (str "Expected type: "
                              (pr-str (prs/unparse-type expected))
                              "\nActual: " (pr-str (prs/unparse-type actual))))))
@@ -782,10 +783,11 @@
         method-sym (when (or static-method? instance-method?)
                      (MethodExpr->qualsym fexpr))]
     (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
-                                           (when fexpr
-                                             (expr-ns fexpr))
-                                           (when vs/*current-expr*
-                                             (expr-ns vs/*current-expr*)))]
+                                           (when-let [ns (or (when fexpr
+                                                               (expr-ns fexpr))
+                                                             (when vs/*current-expr*
+                                                               (expr-ns vs/*current-expr*)))]
+                                             (ns-name ns)))]
       (u/tc-delayed-error
         (str
           (if poly?
@@ -889,7 +891,8 @@
         arg-types (mapv ret-t arg-ret-types)]
     (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
                                            (when fexpr
-                                             (expr-ns fexpr)))]
+                                             (when-let [ns (expr-ns fexpr)]
+                                               (ns-name ns))))]
     ;(prn "check-funapp" (prs/unparse-type fexpr-type) (map prs/unparse-type arg-types))
     (cond
       ;keyword function
@@ -1266,12 +1269,12 @@
         javat (let [syn (or (when has-java-syn? (:val javat-syn))  ; generalise javat-syn if provided, otherwise cljt-syn
                             (:val cljt-syn))
                     c (-> 
-                        (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+                        (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
                           (prs/parse-type syn))
                         arr-ops/Type->array-member-Class)]
                 (assert (class? c))
                 c)
-        cljt (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+        cljt (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
                (prs/parse-type (:val cljt-syn)))
         ccoll (check coll-expr (ret (c/Un r/-nil (c/RClass-of Seqable [cljt]))))]
     (assoc expr
@@ -1592,7 +1595,7 @@
                   (c/resolve-Name t)
                   t))
         _ (assert ((some-fn r/Poly? r/PolyDots?) ptype))
-        targs (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+        targs (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
                 (doall (map prs/parse-type (:val targs-exprs))))]
     (assoc expr
            expr-type (ret (inst/manual-inst ptype targs)))))
@@ -1603,7 +1606,7 @@
 ;manual instantiation for calls to polymorphic constructors
 (defmethod invoke-special 'clojure.core.typed/inst-poly-ctor
   [{[ctor-expr targs-exprs] :args :as expr} & [expected]]
-  (let [targs (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+  (let [targs (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
                 (mapv prs/parse-type (:val targs-exprs)))
         cexpr (binding [*inst-ctor-types* targs]
                 (check ctor-expr))]
@@ -1663,7 +1666,7 @@
 (defmethod invoke-special 'clojure.core.typed/unsafe-ann-form*
   [{[frm {tsyn :val}] :args, :keys [env], :as expr} & [expected]]
   (let [parsed-ty (binding [vs/*current-env* env
-                            prs/*parse-type-in-ns* (expr-ns expr)]
+                            prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
                     (prs/parse-type tsyn))]
     (assoc expr
            expr-type (ret parsed-ty))))
@@ -1672,7 +1675,7 @@
 (defmethod invoke-special 'clojure.core.typed/ann-form*
   [{[frm {tsyn :val}] :args, :keys [env], :as expr} & [expected]]
   (let [parsed-ty (binding [vs/*current-env* env
-                            prs/*parse-type-in-ns* (expr-ns expr)]
+                            prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
                     (prs/parse-type tsyn))
         cty (check frm (ret parsed-ty))
         checked-type (ret-t (expr-type cty))
@@ -1691,7 +1694,7 @@
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [[fexpr {type-syns :val}] args
         expected
-        (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+        (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
           (apply
             r/make-FnIntersection
             (doall
@@ -1711,7 +1714,7 @@
   #_(let [[fexpr {poly-decl :val} {method-types-syn :val}] args
         frees-with-bounds (map prs/parse-free poly-decl)
         method-types (free-ops/with-bounded-frees frees-with-bounds
-                       (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+                       (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
                          (doall 
                            (for [{:keys [dom-syntax has-rng? rng-syntax]} method-types-syn]
                              {:dom (doall (map prs/parse-type dom-syntax))
@@ -1733,7 +1736,7 @@
 (defmethod invoke-special 'clojure.core.typed/loop>-ann
   [{:keys [args] :as expr} & [expected]]
   (let [[expr {expected-bnds-syn :val}] args
-        expected-bnds (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+        expected-bnds (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
                         (mapv prs/parse-type expected-bnds-syn))]
     ;loop may be nested, type the first loop found
     (binding [*loop-bnd-anns* expected-bnds]
@@ -2836,7 +2839,8 @@ rest-param-name (when rest-param
               (var-env/type-of sym))
           _ (when (and expected
                        (not (sub/subtype? t (ret-t expected))))
-              (binding [prs/*unparse-type-in-ns* cur-ns]
+              (binding [prs/*unparse-type-in-ns* (when cur-ns
+                                                   (ns-name cur-ns))]
                 ;FIXME no line number, not present in AST
                 (u/tc-delayed-error 
                   (str "Local binding " sym " expected type " (pr-str (prs/unparse-type (ret-t expected)))
@@ -2868,7 +2872,7 @@ rest-param-name (when rest-param
         (assert (not (.contains s-nosuffix "<>")))
         ;Nullable elements
         (let [t (Java-symbol->Type (symbol s-nosuffix) nilable?)
-              c (let [c (or (when-let [rclass ((prs/primitives-fn) (symbol s-nosuffix))]
+              c (let [c (or (when-let [rclass ((prs/clj-primitives-fn) (symbol s-nosuffix))]
                               (r/RClass->Class rclass))
                             (resolve (symbol s-nosuffix)))
                       _ (assert (class? c) s-nosuffix)]
@@ -2880,7 +2884,7 @@ rest-param-name (when rest-param
   {:pre [(symbol? sym)
          (u/boolean? nilable?)]
    :post [(Type? %)]}
-  (if-let [typ (or ((prs/primitives-fn) sym)
+  (if-let [typ (or ((prs/clj-primitives-fn) sym)
                    (symbol->PArray sym nilable?)
                    (when-let [cls (resolve sym)]
                      (let [rcls-or-poly (@rcls/RESTRICTED-CLASS (u/Class->symbol cls))
@@ -3486,7 +3490,7 @@ rest-param-name (when rest-param
             (do
               (assert (#{:local-binding-expr} (:op lb-expr)))
               [(-> lb-expr :local-binding :sym)
-               (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+               (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
                  (prs/parse-type (u/constant-expr type-syn-expr)))])))
 
         cbinding-inits
@@ -4172,7 +4176,7 @@ rest-param-name (when rest-param
                                   (or (first (filter #(when-let [p (unwrap-tfn %)]
                                                         (assert (r/Protocol? p))
                                                         (= (:on-class p) tsym)) 
-                                                     (vals @pcl-env/PROTOCOL-ENV)))
+                                                     (vals @pcl-env/CLJ-PROTOCOL-ENV)))
                                       (c/RClass-of-with-unknown-params cls))
                                   (pcl-env/resolve-protocol tsym)))))
                           old-ancestors)
@@ -4197,7 +4201,7 @@ rest-param-name (when rest-param
                                                                   (filter #(when-let [p (unwrap-tfn %)]
                                                                              (assert (r/Protocol? p))
                                                                              (= (:on-class p) (:declaring-class method-sig)))
-                                                                          (vals @pcl-env/PROTOCOL-ENV)))]
+                                                                          (vals @pcl-env/CLJ-PROTOCOL-ENV)))]
                                                       ;(prn "ptype" ptype)
                                                       (when-let [ptype* (and ptype (unwrap-tfn ptype))]
                                                         (let [munged-methods (into {} (for [[k v] (:methods ptype*)]

@@ -8,88 +8,96 @@
             [clojure.core.typed.declared-kind-env :as decl-env]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.name-env]
             [clojure.pprint :as pprint]))
 
 (defmacro alias-mappings [& args]
   `(impl/with-clojure-impl
      (let [ts# (partition 2 '~args)]
        (into {}
-             (for [[s# t#] ts#]
-               (let [desc# (-> s# meta :doc)
-                     doc# (str (when desc#
-                                 (str desc# "\n\n")) 
-                               (with-out-str (pprint/pprint t#)))
-                     _# (assert (and (symbol? s#)
-                                     (namespace s#))
-                                "Need fully qualified symbol")
-                     v# (intern (find-ns (symbol (namespace s#))) (symbol (name s#)))
-                     _# (alter-meta! v# merge {:doc doc#})]
-                 [(with-meta s# nil) (prs/parse-type t#)]))))))
+             (doall
+               (for [[s# t#] ts#]
+                 (let [desc# (-> s# meta :doc)
+                       doc# (str (when desc#
+                                   (str desc# "\n\n")) 
+                                 (with-out-str (pprint/pprint t#)))
+                       _# (assert (and (symbol? s#)
+                                       (namespace s#))
+                                  "Need fully qualified symbol")
+                       v# (intern (find-ns (symbol (namespace s#))) (symbol (name s#)))
+                       _# (alter-meta! v# merge {:doc doc#})]
+                   [(with-meta s# nil) (prs/parse-type t#)])))))))
 
 (defmacro var-mappings [& args]
   `(impl/with-clojure-impl
      (let [ts# (partition 2 '~args)]
        (into {}
-             (for [[s# t#] ts#]
-               (do
-                 (assert (and (symbol? s#)
-                              (namespace s#))
-                         "Need fully qualified symbol")
-                 [s# (prs/parse-type t#)]))))))
+             (doall
+               (for [[s# t#] ts#]
+                 (do
+                   (assert (and (symbol? s#)
+                                (namespace s#))
+                           "Need fully qualified symbol")
+                   [s# (prs/parse-type t#)])))))))
 
 (defmacro method-nonnilable-return-mappings [& args]
   `(impl/with-clojure-impl
      (let [ts# (partition 2 '~args)]
        (into {}
-             (for [[s# t#] ts#]
-               (do
-                 (assert (and (symbol? s#)
-                              (namespace s#))
-                         "Need fully qualified symbol")
-                 [s# t#]))))))
+             (doall
+               (for [[s# t#] ts#]
+                 (do
+                   (assert (and (symbol? s#)
+                                (namespace s#))
+                           "Need fully qualified symbol")
+                   [s# t#])))))))
 
 (defmacro method-nilable-param-mappings [& args]
   `(impl/with-clojure-impl
      (let [ts# (partition 2 '~args)]
        (into {}
-             (for [[s# t#] ts#]
-               (do
-                 (assert (and (symbol? s#)
-                              (namespace s#))
-                         "Need fully qualified symbol")
-                 [s# t#]))))))
+             (doall
+               (for [[s# t#] ts#]
+                 (do
+                   (assert (and (symbol? s#)
+                                (namespace s#))
+                           "Need fully qualified symbol")
+                   [s# t#])))))))
 
 (defmacro method-override-mappings [& args]
   `(impl/with-clojure-impl
      (let [ts# (partition 2 '~args)]
        (into {}
-             (for [[s# t#] ts#]
-               (do
-                 (assert (and (symbol? s#)
-                              (namespace s#))
-                         "Need fully qualified symbol")
-                 [s# (prs/parse-type t#)]))))))
+             (doall
+               (for [[s# t#] ts#]
+                 (do
+                   (assert (and (symbol? s#)
+                                (namespace s#))
+                           "Need fully qualified symbol")
+                   [s# (prs/parse-type t#)])))))))
 
 (defmacro ctor-override-mappings [& args]
   `(impl/with-clojure-impl
      (let [ts# (partition 2 '~args)]
        (into {}
-             (for [[s# t#] ts#]
-               (do
-                 (assert (and (symbol? s#)
-                              (not (namespace s#)))
-                         "Need unqualified symbol")
-                 [s# (prs/parse-type t#)]))))))
+             (doall
+               (for [[s# t#] ts#]
+                 (do
+                   (assert (and (symbol? s#)
+                                (not (namespace s#)))
+                           "Need unqualified symbol")
+                   [s# (prs/parse-type t#)])))))))
 
 ;; Alter class
 
 (defn- build-replacement-syntax [m]
   `(impl/with-clojure-impl
-     (into {} (for [[k# v#] ~m]
-                [(if-let [c# (resolve k#)] 
-                   (and (class? c#) (u/Class->symbol c#))
-                   k#)
-                 (prs/parse-type v#)]))))
+     (into {} (doall
+                (for [[k# v#] ~m]
+                  [(if-let [c# (resolve k#)] 
+                     (and (class? c#) (u/Class->symbol c#))
+                     k#)
+                   (prs/parse-type v#)])))))
 
 (defn resolve-class-symbol [the-class]
   `(impl/with-clojure-impl

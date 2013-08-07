@@ -574,6 +574,7 @@ clojure.core.typed/NonEmptyCount (CountRange 1)
 
 ;;for parsing init-var-env
 ; must be after init-alias-env def as vars are interned there
+(impl/with-clojure-impl
 (let [interns '[Option AnyInteger Id Coll Seq NonEmptySeq EmptySeqable
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl]]
@@ -582,6 +583,7 @@ clojure.core.typed/NonEmptyCount (CountRange 1)
       (ns-unmap *ns* i)))
   (refer 'clojure.core.typed :only interns)
   (nme-env/reset-name-env! init-alias-env))
+  )
 
 (defn ^:private count-type []
   (impl/with-clojure-impl

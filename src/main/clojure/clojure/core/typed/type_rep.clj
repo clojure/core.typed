@@ -811,3 +811,39 @@
                      rest drest (when (or mandatory-kws optional-kws)
                                   (KwArgs-maker (or mandatory-kws {})
                                             (or optional-kws {})))))))
+
+
+;;;;;;;;;;;;;;;;;
+;; Clojurescript types
+
+(u/ann-record BooleanCLJS [])
+(u/def-type BooleanCLJS []
+  "Primitive boolean in CLJS"
+  [])
+
+(u/ann-record ObjectCLJS [])
+(u/def-type ObjectCLJS []
+  "Primitive object in CLJS"
+  [])
+
+(u/ann-record StringCLJS [])
+(u/def-type StringCLJS []
+  "Primitive string in CLJS"
+  [])
+
+(u/ann-record NumberCLJS [])
+(u/def-type NumberCLJS []
+  "Primitive number in CLJS"
+  [])
+
+(u/ann-record ArrayCLJS [input-type :- TCType
+                         output-type :- TCType])
+(u/def-type ArrayCLJS [input-type output-type]
+  "Primitive array in CLJS"
+  [(Type? input-type)
+   (Type? output-type)])
+
+(u/def-type FunctionCLJS []
+  "Primitive function in CLJS"
+  [])
+

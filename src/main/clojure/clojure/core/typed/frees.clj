@@ -173,7 +173,7 @@
                                       (c/fully-resolve-type (:upper-bound bnds)))
                        (r/Name? rator) (let [{:keys [id]} rator]
                                          (cond
-                                           (= nmenv/declared-name-type (@nmenv/TYPE-NAME-ENV id))
+                                           (nmenv/declared-name? id)
                                            (kinds/get-declared-kind id)
 
                                            ; alter class introduces temporary declared kinds for

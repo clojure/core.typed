@@ -245,6 +245,8 @@
 
 (def boolean? (some-fn true? false?))
 
+(def namespace? #(instance? clojure.lang.Namespace %))
+
 (defn =-c? [& as]
   #(apply = (concat as %&)))
 

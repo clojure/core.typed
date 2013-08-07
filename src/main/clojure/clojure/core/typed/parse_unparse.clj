@@ -13,8 +13,10 @@
             [clojure.core.typed.name-env :as nmenv]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.frees :as frees]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.set :as set]
-            [clojure.math.combinatorics :as comb])
+            [clojure.math.combinatorics :as comb]
+            [cljs.analyzer :as cljs-ana])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
@@ -28,6 +30,21 @@
            (clojure.lang ISeq Cons IPersistentList Symbol IPersistentVector PersistentHashMap)))
 
 (def ^:dynamic *parse-type-in-ns* nil)
+(set-validator! #'*parse-type-in-ns* (some-fn nil? symbol?))
+
+(defmacro with-parse-ns [sym & body]
+  `(binding [*parse-type-in-ns* sym]
+     ~@body))
+
+(declare parse-type)
+
+(defn parse-clj [s]
+  (impl/with-clojure-impl
+    (parse-type s)))
+
+(defn parse-cljs [s]
+  (impl/with-cljs-impl
+    (parse-type s)))
 
 (defmulti parse-type class)
 (defmulti parse-type-list first)
@@ -360,7 +377,7 @@
         ; support deprecated syntax (HMap {}), which is now (HMap :mandatory {})
         deprecated-mandatory (when (map? (first flat-opts))
                                (println 
-                                 (ns-name (parse-in-ns))
+                                 (parse-in-ns)
                                  ": DEPRECATED: HMap syntax changed. Use :mandatory keyword argument instead of initial map")
                                (flush)
                                (first flat-opts))
@@ -379,11 +396,20 @@
     (syn-to-hmap mandatory optional absent-keys complete?)))
 
 (defn- parse-in-ns []
-  (or *parse-type-in-ns* *ns*))
+  {:post [(symbol? %)]}
+  (or *parse-type-in-ns* 
+      (impl/impl-case
+        :clojure (ns-name *ns*)
+        :cljs cljs-ana/*cljs-ns*)))
 
 (defn- resolve-type [sym]
   {:pre [(symbol? sym)]}
-  (ns-resolve (parse-in-ns) sym))
+  (let [nsym (parse-in-ns)]
+    (impl/impl-case
+      :clojure (if-let [ns (find-ns nsym)]
+                 (ns-resolve ns sym)
+                 (assert nil (str "Cannot find namespace: " sym)))
+      :cljs (assert nil "FIXME"))))
 
 (defn parse-RClass [cls-sym params-syn]
   (let [RClass-of @(RClass-of-var)
@@ -420,7 +446,7 @@
 (defmethod parse-type-list :default 
   [[n & args :as syn]]
   (let [RClass-of @(RClass-of-var)
-        current-nstr (-> (parse-in-ns) ns-name name)
+        current-nstr (-> (parse-in-ns) name)
         res (when (symbol? n)
               (resolve-type n))
         rsym (cond 
@@ -455,7 +481,7 @@
 (defmethod parse-type-symbol 'Nothing [_] (r/Bottom))
 (defmethod parse-type-symbol 'AnyFunction [_] (r/TopFunction-maker))
 
-(defn primitives-fn []
+(defn clj-primitives-fn []
   (let [RClass-of @(RClass-of-var)]
     {'byte (RClass-of 'byte)
      'short (RClass-of 'short)
@@ -467,9 +493,9 @@
      'char (RClass-of 'char)
      'void r/-nil}))
 
-(defmethod parse-type-symbol :default
-  [sym]
-  (let [primitives (primitives-fn)]
+(defn parse-symbol-clj [sym] 
+  (impl/assert-clojure)
+  (let [primitives (clj-primitives-fn)]
     (letfn [(resolve-symbol [qsym clssym]
               (cond
                 (primitives sym) (primitives sym)
@@ -481,7 +507,7 @@
       (if-let [f (free-ops/free-in-scope sym)]
         f
         (let [ RClass-of @(RClass-of-var)
-              current-nstr (-> (parse-in-ns) ns-name name)
+              current-nstr (-> (parse-in-ns) name)
               qsym (if (namespace sym)
                      sym
                      (symbol current-nstr (name sym)))
@@ -506,6 +532,14 @@
                                "\nHint: Is " (pr-str sym) " in scope?"
                                "\nHint: Has " (pr-str sym) "'s annotation been"
                                " found via check-ns, cf or typed-deps?"))))))))
+(defn parse-symbol-cljs [sym]
+  (assert nil "FIXME"))
+
+(defmethod parse-type-symbol :default
+  [sym]
+  (impl/impl-case
+    :clojure (parse-symbol-clj sym)
+    :cljs (parse-symbol-cljs sym)))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
@@ -670,7 +704,7 @@
 (def ^:dynamic *next-nme* 0) ;stupid readable variables
 
 (def ^:dynamic *unparse-type-in-ns* nil)
-(set-validator! #'*unparse-type-in-ns* (some-fn nil? #(instance? clojure.lang.Namespace %)))
+(set-validator! #'*unparse-type-in-ns* (some-fn nil? symbol?))
 
 (defn alias-in-ns
   "Returns an alias for namespace sym in ns, or nil if none."
@@ -685,6 +719,7 @@
     (symbol (.getSimpleName (Class/forName (str clsym))))))
 
 (defn Class-symbol-intern [clsym ns]
+  {:pre [(u/namespace? ns)]}
   (some (fn [[isym cls]]
           (when (= (str clsym) (str (u/Class->symbol cls)))
             isym))
@@ -698,6 +733,9 @@
   (var-symbol-intern 'bar (find-ns 'clojure.core))
   ;=> nil"
   [sym ns]
+  {:pre [(symbol? sym)
+         (u/namespace? ns)]
+   :post [((some-fn nil? symbol?) %)]}
   (some (fn [[isym var]]
           (when (= (str sym) (str (u/var->symbol var)))
             isym))
@@ -706,7 +744,8 @@
 
 (defn unparse-Class-symbol-in-ns [sym]
   (if-let [ns (and (not clojure.core.typed/*verbose-types*)
-                   *unparse-type-in-ns*)]
+                   (when-let [nsym *unparse-type-in-ns*]
+                     (find-ns *unparse-type-in-ns*)))]
         ; use an import name
     (or (Class-symbol-intern sym ns)
         ; core.lang classes are special
@@ -718,7 +757,8 @@
 (defn unparse-var-symbol-in-ns [sym]
   {:pre [(namespace sym)]}
   (if-let [ns (and (not clojure.core.typed/*verbose-types*)
-                   *unparse-type-in-ns*)]
+                   (when-let [nsym *unparse-type-in-ns*]
+                     (find-ns nsym)))]
         ; use unqualified name if interned
     (or (var-symbol-intern sym ns)
         ; use aliased ns if not interned, but ns is aliased
@@ -1098,5 +1138,6 @@
         [t fs o]))))
 
 (defn unparse-TCResult-in-ns [r ns]
-  (binding [*unparse-type-in-ns* ns]
+  {:pre [(u/namespace? ns)]}
+  (binding [*unparse-type-in-ns* (ns-name ns)]
     (unparse-TCResult r)))

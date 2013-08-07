@@ -4,23 +4,24 @@
                                         print-env print-filterset check-ns typed-deps
                                         ann-form]]
             [clojure.core.typed.test.rbt-types]
-            (clojure.core.typed
-             [utils :as u]
-             [type-rep :refer :all]
-             [type-ctors :refer :all]
-             [filter-rep :refer :all]
-             [filter-ops :refer :all]
-             [object-rep :refer :all]
-             [path-rep :refer :all]
-             [parse-unparse :refer :all]
-             [check :as chk :refer [update tc-t]])
+            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.type-rep :refer :all]
+            [clojure.core.typed.type-ctors :refer :all]
+            [clojure.core.typed.filter-rep :refer :all]
+            [clojure.core.typed.filter-ops :refer :all]
+            [clojure.core.typed.object-rep :refer :all]
+            [clojure.core.typed.path-rep :refer :all]
+            [clojure.core.typed.parse-unparse :refer :all]
+            [clojure.core.typed.check :as chk :refer [update tc-t]]
             [clojure.repl :refer [pst]]
             [clojure.tools.analyzer :refer [ast]]
             [clojure.test :refer :all]))
 
 (defmacro check-rbt [& body]
   `(do (check-ns '~'clojure.core.typed.test.rbt-types)
-       ~@body))
+       (impl/with-clojure-impl
+         ~@body)))
 
 (defmacro is-check-rbt [& body]
   `(is (check-rbt ~@body)))

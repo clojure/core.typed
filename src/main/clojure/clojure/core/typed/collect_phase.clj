@@ -141,11 +141,11 @@
               s (symbol (str munged-ns-str \. local-name))
               fs (apply array-map (apply concat (free-ops/with-frees (mapv r/make-F args)
                                                   (binding [uvar/*current-env* current-env
-                                                            prs/*parse-type-in-ns* current-ns]
+                                                            prs/*parse-type-in-ns* (ns-name current-ns)]
                                                     (mapv parse-field (partition 3 fields))))))
               as (set (free-ops/with-frees (mapv r/make-F args)
                         (binding [uvar/*current-env* current-env
-                                  prs/*parse-type-in-ns* current-ns]
+                                  prs/*parse-type-in-ns* (ns-name current-ns)]
                           (mapv prs/parse-type ancests))))
               _ (ancest/add-datatype-ancestors s as)
               pos-ctor-name (symbol demunged-ns-str (str "->" local-name))
@@ -278,7 +278,7 @@
         ;macroexpansion provides qualified symbols
         _ (assert ((every-pred symbol? namespace) qsym))
         expected-type (binding [uvar/*current-env* env
-                                prs/*parse-type-in-ns* prs-ns]
+                                prs/*parse-type-in-ns* (when prs-ns (ns-name prs-ns))]
                         (prs/parse-type typesyn))]
     (when-not check?
       (var-env/add-nocheck-var qsym))
@@ -293,7 +293,7 @@
         ;macroexpansion provides qualified symbols
         _ (assert ((every-pred symbol? namespace) qsym))
         alias-type (binding [uvar/*current-env* env
-                             prs/*parse-type-in-ns* prs-ns]
+                             prs/*parse-type-in-ns* (when prs-ns (ns-name prs-ns))]
                      (prs/parse-type typesyn))]
     ;var already interned via macroexpansion
     (nme-env/add-type-name qsym alias-type)
@@ -323,7 +323,7 @@
         [msym tsyn] (constant-exprs args)
         _ (assert (namespace msym) "Method symbol must be a qualified symbol")
         ty (binding [uvar/*current-env* env
-                     prs/*parse-type-in-ns* prs-ns]
+                     prs/*parse-type-in-ns* (when prs-ns (ns-name prs-ns))]
              (prs/parse-type tsyn))]
     (override/add-method-override msym ty)
     nil))
@@ -334,7 +334,7 @@
   (let [prs-ns (chk/expr-ns expr)
         [msym tsyn] (constant-exprs args)
         ty (binding [uvar/*current-env* env
-                     prs/*parse-type-in-ns* prs-ns]
+                     prs/*parse-type-in-ns* (when prs-ns (ns-name prs-ns))]
              (prs/parse-type tsyn))]
     (override/add-method-override msym ty)
     nil))
@@ -357,7 +357,7 @@
                                   "Protocol method should be unqualified")
                           [knq (free-ops/with-frees fs 
                                  (binding [uvar/*current-env* current-env
-                                           prs/*parse-type-in-ns* current-ns]
+                                           prs/*parse-type-in-ns* (ns-name current-ns)]
                                    (prs/parse-type v)))])))
         t (if fs
             (c/TypeFn* (map :name fs) variances (repeat (count fs) r/no-bounds) 
