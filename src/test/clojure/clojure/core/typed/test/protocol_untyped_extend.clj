@@ -13,14 +13,12 @@
 (ann-datatype Bar [])
 (deftype Bar [])
 
-(tc-ignore
-  (extend-protocol IFoo
-    Bar
-    (bar [b] 'a)
-    
-    nil
-    (bar [c] 'd))
-  )
+(extend-protocol IFoo
+  Bar
+  (bar [b] 'a)
+
+  nil
+  (bar [c] 'd))
 
 (ann takes-IFoo [IFoo -> Any])
 (defn takes-IFoo [f]
@@ -34,11 +32,9 @@
               baz
               [AnotherNs -> Any])
 
-(tc-ignore
-  (extend-protocol AnotherNs
-    Bar
-    (baz [this] nil))
-  )
+(extend-protocol AnotherNs
+  Bar
+  (baz [this] nil))
 
 (ann takes-AnotherNs [AnotherNs -> Any])
 (defn takes-AnotherNs [a]

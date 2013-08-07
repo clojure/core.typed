@@ -1226,10 +1226,10 @@
   (let [catype (check atype)
         target-type (ret-t (expr-type catype))
         _ (when-not (and (r/Value? target-type)
-                         (class? (:val target-type)))
+                         ((some-fn class? nil?) (:val target-type)))
             (u/int-error
-              (str "Must provide Class as first argument to extend, "
-                   " got " (prs/unparse-type target-type))))
+              (str "Must provide a Class or nil as first argument to extend, "
+                   "got " (pr-str (prs/unparse-type target-type)))))
         ; build expected types for each method map
         extends (into {}
                       (for [[prcl-expr mmap-expr] (apply hash-map protos)]
