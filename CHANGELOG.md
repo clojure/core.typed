@@ -1,3 +1,6 @@
+0.1.23
+- Support extending protocols to nil
+
 0.1.22
 - Fix HMap's new keyword options
   - Documented here https://github.com/clojure/core.typed/wiki/Types
