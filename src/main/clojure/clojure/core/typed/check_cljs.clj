@@ -2,8 +2,6 @@
   (:require [clojure.core.typed]
             [clojure.core.typed.utils :as u :refer [def-type]]))
 
-;; All CLJS related stuff are dumped here. Need to revisit.
-
 ;emit something that CLJS can display ie. a quoted unparsed typed
 #_(defmacro cf-cljs
   "Type check a Clojurescript form and return its type"
@@ -74,9 +72,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Envs
 
-(defonce CLJS-VAR-ENV (atom {}))
-(set-validator! CLJS-VAR-ENV (u/hash-c? symbol? Type?))
-
 ;(defn cljs-ann* [vname tsyn]
 ;  (let [vtype (parse-type tsyn)
 ;        var (if (namespace vname)
@@ -85,44 +80,8 @@
 ;    (swap! CLJS-VAR-ENV assoc var vtype)
 ;    [var (unparse-type vtype)]))
 
-(defonce CLJS-PROTOCOL-ENV (atom {}))
-
-;;; Parse type
-
-(defmethod parse-type-symbol 'SymbolCLJS [_] (->SymbolCLJS))
-(defmethod parse-type-symbol 'BooleanCLJS [_] (->BooleanCLJS))
-
-(defmethod parse-type-list 'predicate-cljs
-  [[_ t-syn]]
-  (let [on-type (parse-type t-syn)]
-    (make-FnIntersection
-      (make-Function [-any] (->BooleanCLJS) nil nil
-                     :filter (-FS (-filter on-type 0)
-                                  (-not-filter on-type 0))))))
-
-;; Unparse-type 
-
-(defmethod unparse-type* SymbolCLJS
-  [_]
-  'SymbolCLJS)
-
-(defmethod unparse-type* BooleanCLJS
-  [_]
-  'BooleanCLJS)
-;
-;;; fold
-;
-;(add-default-fold-case BooleanCLJS ret-first)
-;(add-default-fold-case SymbolCLJS ret-first)
-;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Subtyping
-;
-;(defmethod subtype* [Value SymbolCLJS impl/clojurescript]
-;  [{:keys [val] :as s} t]
-;  (if (symbol? val)
-;    *sub-current-seen*
-;    (type-error s t)))
 ;
 ;(defmethod subtype* [Value BooleanCLJS impl/clojurescript]
 ;  [{:keys [val] :as s} t]

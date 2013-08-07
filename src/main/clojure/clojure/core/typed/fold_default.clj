@@ -11,7 +11,8 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result
-                                        HeterogeneousSeq TCResult TCError FlowSet Extends)
+                                        HeterogeneousSeq TCResult TCError FlowSet Extends
+                                        NumberCLJS IntegerCLJS ObjectCLJS StringCLJS ArrayCLJS)
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -197,6 +198,18 @@
                            (update-in [:o] object-rec)
                            (update-in [:flow] filter-rec))))
 
+(defmacro ret-first-many [& cls]
+  `(do ~@(map #(list `add-default-fold-case % `ret-first) cls)))
+
+; CLJS types
+
+(ret-first-many NumberCLJS IntegerCLJS ObjectCLJS StringCLJS)
+
+(add-default-fold-case ArrayCLJS
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:input-type] type-rec)
+                           (update-in [:output-type] type-rec))))
 
 ;filters
 

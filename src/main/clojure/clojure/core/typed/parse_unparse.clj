@@ -22,7 +22,8 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
-                                        HeterogeneousSeq KwArgsSeq TCError Extends)
+                                        HeterogeneousSeq KwArgsSeq TCError Extends NumberCLJS BooleanCLJS
+                                        IntegerCLJS ArrayCLJS)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -121,7 +122,7 @@
 
 (defmethod parse-type-list 'Not
   [[_ tsyn :as all]]
-  (assert (= (count all) 2) "Wrong arguments to Not (expected 2)")
+  (assert (= (count all) 2) "Wrong arguments to Not (expected 1)")
   (r/NotType-maker (parse-type tsyn)))
 
 (defmethod parse-type-list 'Rec
@@ -197,25 +198,35 @@
 (defmethod parse-type-list 'Array
   [[_ syn & none]]
   (assert (empty? none) "Expected 1 argument to Array")
-  (let [t (parse-type syn)
-        jtype (if (r/RClass? t)
-                (r/RClass->Class t)
-                Object)]
-    (r/PrimitiveArray-maker jtype t t)))
+  (let [t (parse-type syn)]
+    (impl/impl-case
+      :clojure (let [jtype (if (r/RClass? t)
+                             (r/RClass->Class t)
+                             Object)]
+                 (r/PrimitiveArray-maker jtype t t))
+      :cljs (r/ArrayCLJS-maker t t))))
 
 (defmethod parse-type-list 'ReadOnlyArray
   [[_ osyn & none]]
   (assert (empty? none) "Expected 1 argument to ReadOnlyArray")
-  (r/PrimitiveArray-maker Object (r/Bottom) (parse-type osyn)))
+  (let [o (parse-type osyn)]
+    (impl/impl-case
+      :clojure (r/PrimitiveArray-maker Object (r/Bottom) o)
+      :cljs (r/ArrayCLJS-maker (r/Bottom) o))))
 
 (defmethod parse-type-list 'Array2
   [[_ isyn osyn & none]]
   (assert (empty? none) "Expected 2 arguments to Array2")
-  (r/PrimitiveArray-maker Object (parse-type isyn) (parse-type osyn)))
+  (let [i (parse-type isyn)
+        o (parse-type osyn)]
+    (impl/impl-case
+      :clojure (r/PrimitiveArray-maker Object i o)
+      :cljs (r/ArrayCLJS-maker i o))))
 
 (defmethod parse-type-list 'Array3
   [[_ jsyn isyn osyn & none]]
   (assert (empty? none) "Expected 3 arguments to Array3")
+  (impl/assert-clojure)
   (let [jrclass (parse-type jsyn)
         _ (assert (r/RClass? jrclass) "First argument to Array3 must be a Class")]
     (r/PrimitiveArray-maker (r/RClass->Class jrclass) (parse-type isyn) (parse-type osyn))))
@@ -493,9 +504,18 @@
      'char (RClass-of 'char)
      'void r/-nil}))
 
-(defn parse-symbol-clj [sym] 
-  (impl/assert-clojure)
-  (let [primitives (clj-primitives-fn)]
+(defn cljs-primitives-fn []
+  {'number (r/NumberCLJS-maker)
+   'int (r/IntegerCLJS-maker)
+   'boolean (r/BooleanCLJS-maker)
+   'object (r/ObjectCLJS-maker)
+   'string (r/StringCLJS-maker)})
+
+(defmethod parse-type-symbol :default
+  [sym]
+  (let [primitives (impl/impl-case
+                     :clojure (clj-primitives-fn)
+                     :cljs (cljs-primitives-fn))]
     (letfn [(resolve-symbol [qsym clssym]
               (cond
                 (primitives sym) (primitives sym)
@@ -515,31 +535,25 @@
                        sym
                        (symbol (str (munge current-nstr) \. (name sym))))]
           (or (resolve-symbol qsym clssym)
-              (let [res (resolve-type sym)
-                    qsym (when (var? res)
-                           (u/var->symbol res))
-                    clssym (when (class? res)
-                             (u/Class->symbol res))]
-                (or (resolve-symbol qsym clssym)
-                    (when qsym
-                      (println (str "WARNING: Assuming unannotated var " qsym
-                                    " is a protocol."))
-                      (flush)
-                      (r/Name-maker qsym))
-                    (when clssym
-                      (c/RClass-of clssym))))
+              (impl/impl-case
+                :clojure (let [res (resolve-type sym)
+                               qsym (when (var? res)
+                                      (u/var->symbol res))
+                               clssym (when (class? res)
+                                        (u/Class->symbol res))]
+                           (or (resolve-symbol qsym clssym)
+                               (when qsym
+                                 (println (str "WARNING: Assuming unannotated var " qsym
+                                               " is a protocol."))
+                                 (flush)
+                                 (r/Name-maker qsym))
+                               (when clssym
+                                 (c/RClass-of clssym))))
+                :cljs (assert nil "FIXME"))
               (u/tc-error (str "Cannot resolve type: " (pr-str sym)
                                "\nHint: Is " (pr-str sym) " in scope?"
                                "\nHint: Has " (pr-str sym) "'s annotation been"
                                " found via check-ns, cf or typed-deps?"))))))))
-(defn parse-symbol-cljs [sym]
-  (assert nil "FIXME"))
-
-(defmethod parse-type-symbol :default
-  [sym]
-  (impl/impl-case
-    :clojure (parse-symbol-clj sym)
-    :cljs (parse-symbol-cljs sym)))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
@@ -1069,6 +1083,18 @@
   [v]
   (list* 'List* (doall (map unparse-type (:types v)))))
 
+; CLJS Types
+
+(defmethod unparse-type* NumberCLJS [v] 'number)
+(defmethod unparse-type* BooleanCLJS [v] 'boolean)
+(defmethod unparse-type* IntegerCLJS [v] 'int)
+
+(defmethod unparse-type* ArrayCLJS
+  [{:keys [input-type output-type]}]
+  (cond 
+    (= input-type output-type) (list 'Array (unparse-type input-type))
+    :else (list 'Array2 (unparse-type input-type) (unparse-type output-type))))
+
 ; Objects
 
 (declare unparse-path-elem)
@@ -1141,3 +1167,4 @@
   {:pre [(u/namespace? ns)]}
   (binding [*unparse-type-in-ns* (ns-name ns)]
     (unparse-TCResult r)))
+

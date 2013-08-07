@@ -47,8 +47,13 @@
 
 (defmacro with-cljs-impl [& body]
   `(with-impl clojurescript
-     (clojure.core.typed.name-env/with-cljs-name-env
-       ~@body)))
+     (push-thread-bindings {(the-var '~'clojure.core.typed.name-env/*current-name-env*)
+                             (v '~'clojure.core.typed.name-env/CLJS-TYPE-NAME-ENV)
+                            (the-var '~'clojure.core.typed.protocol-env/*current-protocol-env*)
+                             (v '~'clojure.core.typed.protocol-env/CLJS-PROTOCOL-ENV)})
+     (try 
+       ~@body
+       (finally (pop-thread-bindings)))))
 
 (defn implementation-specified? []
   (boolean *current-impl*))

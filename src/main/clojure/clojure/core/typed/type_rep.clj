@@ -821,20 +821,35 @@
   "Primitive boolean in CLJS"
   [])
 
+(declare-type BooleanCLJS)
+
 (u/ann-record ObjectCLJS [])
 (u/def-type ObjectCLJS []
   "Primitive object in CLJS"
   [])
+
+(declare-type ObjectCLJS)
 
 (u/ann-record StringCLJS [])
 (u/def-type StringCLJS []
   "Primitive string in CLJS"
   [])
 
+(declare-type StringCLJS)
+
 (u/ann-record NumberCLJS [])
 (u/def-type NumberCLJS []
   "Primitive number in CLJS"
   [])
+
+(declare-type NumberCLJS)
+
+(u/ann-record IntegerCLJS [])
+(u/def-type IntegerCLJS []
+  "Primitive integer in CLJS"
+  [])
+
+(declare-type IntegerCLJS)
 
 (u/ann-record ArrayCLJS [input-type :- TCType
                          output-type :- TCType])
@@ -843,7 +858,10 @@
   [(Type? input-type)
    (Type? output-type)])
 
+(declare-type ArrayCLJS)
+
 (u/def-type FunctionCLJS []
   "Primitive function in CLJS"
   [])
 
+(declare-type FunctionCLJS)
