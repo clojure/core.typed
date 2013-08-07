@@ -125,7 +125,7 @@
         vs (seq (map second vbnd))
         args (seq (map first vbnd))
         ctor r/DataType-maker]
-    (do (impl/ensure-clojure)
+    (impl/with-clojure-impl
         (let [provided-name-str (str provided-name)
               ;_ (prn "provided-name-str" provided-name-str)
               munged-ns-str (if (some #(= \. %) provided-name-str)

@@ -1,23 +1,47 @@
 (ns clojure.core.typed.current-impl)
+; FIXME these should be dynamic vars
 
-(def default ::default)
 (def clojure ::clojure)
 (def clojurescript ::clojurescript)
 
-(derive clojurescript default)
-(derive clojure default)
+(def any-impl ::any-impl)
 
-(def TYPED-IMPL (atom clojure))
-(set-validator! TYPED-IMPL #(isa? % default))
+(derive clojure any-impl)
+(derive clojurescript any-impl)
 
-(defn ensure-clojure []
-  (reset! TYPED-IMPL clojure))
+(def ^:dynamic *current-impl* nil)
+(set-validator! #'*current-impl* (some-fn nil? keyword?))
 
-(defn ensure-clojurescript []
-  (reset! TYPED-IMPL clojurescript))
+(defmacro with-impl [impl & body]
+  `(do (assert ((some-fn #{~impl} nil?) *current-impl*) "Cannot overlay different core.typed implementations")
+     (binding [*current-impl* ~impl]
+       ~@body)))
+
+(defmacro with-clojure-impl [& body]
+  `(with-impl clojure
+     ~@body))
+
+(defmacro with-cljs-impl [& body]
+  `(with-impl clojurescript
+     ~@body))
+
+(defn implementation-specified? []
+  (boolean *current-impl*))
+
+(defn ensure-impl-specified []
+  (assert (implementation-specified?) "No implementation specified"))
+
+(defn current-impl []
+  (ensure-impl-specified)
+  *current-impl*)
 
 (defn checking-clojure? []
-  (= clojure @TYPED-IMPL))
+  (ensure-impl-specified)
+  (= clojure *current-impl*))
 
 (defn checking-clojurescript? []
-  (= clojurescript @TYPED-IMPL))
+  (ensure-impl-specified)
+  (= clojurescript *current-impl*))
+
+(defn assert-clojure []
+  (assert (= clojure *current-impl*) "Clojure implementation only"))

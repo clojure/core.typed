@@ -217,7 +217,7 @@
            (every? (u/hash-c? symbol r/Bounds?) [X Y])
            (r/AnyType? S)
            (r/AnyType? T)]}
-    [(class S) (class T) @impl/TYPED-IMPL]))
+    [(class S) (class T) (impl/current-impl)]))
 
 ; (see cs-gen*)
 ;cs-gen calls cs-gen*, remembering the current subtype for recursive types
@@ -481,14 +481,14 @@
 (declare cs-gen-Function)
 
 ;FIXME handle variance
-(defmethod cs-gen* [TApp TApp impl/default]
+(defmethod cs-gen* [TApp TApp impl/any-impl]
   [V X Y ^TApp S ^TApp T]
   (when-not (= (.rator S) (.rator T)) 
     (fail! S T))
   (cset-meet*
     (mapv #(cs-gen V X Y %1 %2) (.rands S) (.rands T))))
 
-(defmethod cs-gen* [FnIntersection FnIntersection impl/default]
+(defmethod cs-gen* [FnIntersection FnIntersection impl/any-impl]
   [V X Y ^FnIntersection S ^FnIntersection T] 
   (cset-meet*
     (doall
@@ -504,14 +504,14 @@
             (fail! S T))
           (cset-combine results))))))
 
-(defmethod cs-gen* [Result Result impl/default]
+(defmethod cs-gen* [Result Result impl/any-impl]
   [V X Y S T] 
   (cset-meet* [(cs-gen V X Y (r/Result-type* S) (r/Result-type* T))
                (cs-gen-filter-set V X Y (r/Result-filter* S) (r/Result-filter* T))
                (cs-gen-object V X Y (r/Result-object* S) (r/Result-object* T))
                (cs-gen-flow-set V X Y (r/Result-flow* S) (r/Result-flow* T))]))
 
-(defmethod cs-gen* [Value AnyValue impl/default] 
+(defmethod cs-gen* [Value AnyValue impl/any-impl] 
   [V X Y S T] 
   (cr/empty-cset X Y))
 
@@ -547,9 +547,9 @@
     (cs-gen-list V X Y (:poly? S) (:poly? T))
     (cr/empty-cset X Y)))
 
-(defmethod cs-gen* [DataType DataType impl/default] [V X Y S T] (cs-gen-datatypes-or-records V X Y S T))
+(defmethod cs-gen* [DataType DataType impl/any-impl] [V X Y S T] (cs-gen-datatypes-or-records V X Y S T))
 
-(defmethod cs-gen* [HeterogeneousVector HeterogeneousVector impl/default] 
+(defmethod cs-gen* [HeterogeneousVector HeterogeneousVector impl/any-impl] 
   [V X Y ^HeterogeneousVector S ^HeterogeneousVector T]
   (cset-meet* (doall
                 (concat
@@ -561,7 +561,7 @@
                          (cs-gen-object V X Y o1 o2))
                        (.objects S) (.objects T))))))
 
-(defmethod cs-gen* [HeterogeneousMap HeterogeneousMap impl/default]
+(defmethod cs-gen* [HeterogeneousMap HeterogeneousMap impl/any-impl]
   [V X Y S T]
   (let [Skeys (set (keys (:types S)))
         Tkeys (set (keys (:types T)))]
@@ -973,7 +973,7 @@
 :else 
 (u/nyi-error (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T))))))
 
-(defmethod cs-gen* [Function Function impl/default]
+(defmethod cs-gen* [Function Function impl/any-impl]
   [V X Y S T]
   #_(prn "cs-gen* [Function Function]")
   (cs-gen-Function V X Y S T))

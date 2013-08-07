@@ -17,6 +17,7 @@
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.subst]
             [clojure.core.typed.rclass-env :as rcls]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.set :as set]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -583,12 +584,13 @@ clojure.core.typed/NonEmptyCount (CountRange 1)
   (nme-env/reset-name-env! init-alias-env))
 
 (defn ^:private count-type []
-  (r/make-FnIntersection
-    (r/make-Function 
-      [(c/Un r/-nil (c/RClass-of Seqable [r/-any]) (c/RClass-of clojure.lang.Counted))]
-      (prs/parse-type '(U Integer Long))
-      nil nil
-      :object (obj/->Path [(pe/->CountPE)] 0))))
+  (impl/with-clojure-impl
+    (r/make-FnIntersection
+      (r/make-Function 
+        [(c/Un r/-nil (c/RClass-of Seqable [r/-any]) (c/RClass-of clojure.lang.Counted))]
+        (prs/parse-type '(U Integer Long))
+        nil nil
+        :object (obj/->Path [(pe/->CountPE)] 0)))))
 
 (def init-var-env
   (merge
@@ -598,7 +600,8 @@ clojure.core.typed/check-ns (Fn [Symbol -> Any]
                                 [-> Any])
 ;; Internal annotations
 
-clojure.core.typed/ensure-clojure [-> Any]
+clojure.core.typed.current-impl/*current-impl* Any
+clojure.core.typed.current-impl/clojure Any
 clojure.core.typed/ann* [Any Any Any -> Any]
 clojure.core.typed/def-alias* [Any Any -> Any]
 clojure.core.typed/declare-names* [Any -> Any]

@@ -1,6 +1,7 @@
 (ns clojure.core.typed
   (:require [clojure.pprint :as pprint]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [clojure.core.typed.current-impl :as impl])
   (:refer-clojure :exclude [type]))
 
 ;=============================================================
@@ -1014,15 +1015,13 @@
                                     '~'expr-type )
             unparse-TCResult-in-ns# @(ns-resolve (find-ns '~'clojure.core.typed.parse-unparse)
                                            '~'unparse-TCResult-in-ns)
-            ensure-clojure# @(ns-resolve (find-ns '~'clojure.core.typed.current-impl)
-                                         '~'ensure-clojure)
             ast-for-form# @(ns-resolve (find-ns '~'clojure.core.typed.analyze-clj)
                                        '~'ast-for-form)
             collect# @(ns-resolve (find-ns '~'clojure.core.typed.collect-phase)
                                   '~'collect)]
         (if *currently-checking-clj*
           (throw (Exception. "Found inner call to check-ns or cf"))
-          (do (ensure-clojure#)
+          (impl/with-clojure-impl
               (binding [*currently-checking-clj* true
                         *delayed-errors* (-init-delayed-errors)]
                 (let [ast# (ast-for-form# '~form)
@@ -1044,8 +1043,6 @@
                                     '~'expr-type )
             unparse-TCResult-in-ns# @(ns-resolve (find-ns '~'clojure.core.typed.parse-unparse)
                                                  '~'unparse-TCResult-in-ns)
-            ensure-clojure# @(ns-resolve (find-ns '~'clojure.core.typed.current-impl)
-                                         '~'ensure-clojure)
             ast-for-form# @(ns-resolve (find-ns '~'clojure.core.typed.analyze-clj)
                                        '~'ast-for-form)
             collect# @(ns-resolve (find-ns '~'clojure.core.typed.collect-phase)
@@ -1056,7 +1053,7 @@
                                      '~'parse-type)]
       (if *currently-checking-clj*
         (throw (Exception. "Found inner call to check-ns or cf"))
-        (do (ensure-clojure#)
+        (impl/with-clojure-impl
             (binding [*currently-checking-clj* true
                       *delayed-errors* (-init-delayed-errors)]
               (let [ast# (ast-for-form# '(ann-form ~form ~expected))
@@ -1161,8 +1158,6 @@
                 (ns-name ns-or-sym))
          reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
                                   'reset-envs!)
-         ensure-clojure @(ns-resolve (find-ns 'clojure.core.typed.current-impl)
-                                     'ensure-clojure)
          collect-ns @(ns-resolve (find-ns 'clojure.core.typed.collect-phase)
                                  'collect-ns)
          check-ns-and-deps @(ns-resolve (find-ns 'clojure.core.typed.check)
@@ -1178,18 +1173,18 @@
                *delayed-errors* (-init-delayed-errors)
                *already-collected* (atom #{})
                *already-checked* (atom #{})]
-       (ensure-clojure)
-       (collect-ns nsym)
-       (reset-caches)
-       (check-ns-and-deps nsym)
-       (let [vs (vars-with-unchecked-defs)]
-         (binding [*out* *err*]
-           (doseq [v vs]
-             (println "WARNING: Type Checker: Definition missing:" v)
-             (flush))))
-       (when-let [errors (seq @*delayed-errors*)]
-         (print-errors! errors))
-       :ok)))))
+       (impl/with-clojure-impl
+         (collect-ns nsym)
+         (reset-caches)
+         (check-ns-and-deps nsym)
+         (let [vs (vars-with-unchecked-defs)]
+           (binding [*out* *err*]
+             (doseq [v vs]
+               (println "WARNING: Type Checker: Definition missing:" v)
+               (flush))))
+         (when-let [errors (seq @*delayed-errors*)]
+           (print-errors! errors))
+         :ok))))))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)

@@ -849,6 +849,7 @@
 (defn subtype-RClass
   [{polyl? :poly? :as s}
    {polyr? :poly? :as t}]
+  (impl/assert-clojure)
   (let [scls (r/RClass->Class s)
         tcls (r/RClass->Class t)]
     ;(prn "subtype RClass" (prs/unparse-type s) (prs/unparse-type t))

@@ -9,27 +9,26 @@
             [clojure.data :refer [diff]]
             [clojure.core.typed :as tc, :refer :all]
             [clojure.core.typed.init]
-            (clojure.core.typed
-             [utils :as u :refer [with-ex-info-handlers top-level-error?]]
-             [current-impl :as impl]
-             [check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp]]
-             [inst :as inst]
-             [subtype :as sub]
-             [type-rep :refer :all]
-             [type-ctors :refer :all]
-             [filter-rep :refer :all]
-             [filter-ops :refer :all]
-             [object-rep :refer :all]
-             [path-rep :refer :all]
-             [parse-unparse :refer :all]
-             [constant-type :refer [constant-type]]
-             [lex-env :refer :all]
-             [promote-demote :refer :all]
-             [frees :refer :all]
-             [free-ops :refer :all]
-             [cs-gen :refer :all]
-             [cs-rep :refer :all]
-             [subst :refer [subst-all]])
+            [clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error?]]
+            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp]]
+            [clojure.core.typed.inst :as inst]
+            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.type-rep :refer :all]
+            [clojure.core.typed.type-ctors :refer :all]
+            [clojure.core.typed.filter-rep :refer :all]
+            [clojure.core.typed.filter-ops :refer :all]
+            [clojure.core.typed.object-rep :refer :all]
+            [clojure.core.typed.path-rep :refer :all]
+            [clojure.core.typed.parse-unparse :refer :all]
+            [clojure.core.typed.constant-type :refer [constant-type]]
+            [clojure.core.typed.lex-env :refer :all]
+            [clojure.core.typed.promote-demote :refer :all]
+            [clojure.core.typed.frees :refer :all]
+            [clojure.core.typed.free-ops :refer :all]
+            [clojure.core.typed.cs-gen :refer :all]
+            [clojure.core.typed.cs-rep :refer :all]
+            [clojure.core.typed.subst :refer [subst-all]]
             [clojure.core.typed.test.rbt]
             [clojure.core.typed.test.person]
             [clojure.tools.trace :refer [trace-vars untrace-vars
@@ -42,17 +41,23 @@
 (import (clojure.lang Seqable))
 
 (defn subtype? [& rs]
-  (impl/ensure-clojure)
-  (apply sub/subtype? rs))
+  (impl/with-clojure-impl
+    (apply sub/subtype? rs)))
 
 (defn check [& as]
-  (impl/ensure-clojure)
-  (apply chk/check as))
+  (impl/with-clojure-impl
+    (apply chk/check as)))
 
 (defmacro is-cf [& args]
   `(is (do
          (cf ~@args)
          true)))
+
+(defmacro is-clj [& args]
+  `(is (clj ~@args)))
+
+(defmacro clj [& body]
+  `(impl/with-clojure-impl ~@body))
 
 ;Aliases used in unit tests
 (defmacro declare-map-aliases []
@@ -142,8 +147,9 @@
                                                 nil nil)))
                    '(x x1 y z))))))
 (defmacro sub? [s t]
-  `(subtype? (parse-type '~s)
-             (parse-type '~t)))
+  `(impl/with-clojure-impl
+     (subtype? (parse-type '~s)
+               (parse-type '~t))))
 
 (deftest subtype-test
   (is (subtype? (parse-type 'Integer)
@@ -189,12 +195,12 @@
                 (parse-type '(All [y] (clojure.lang.Seqable y))))))
 
 (deftest subtype-rec
-  (is (subtype? (parse-type 'Integer)
-                (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
-  (is (subtype? (parse-type '(clojure.lang.Seqable (clojure.lang.Seqable Integer)))
-                (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
-  (is (not (subtype? (parse-type 'Number)
-                     (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x)))))))
+  (is-clj (subtype? (parse-type 'Integer)
+                    (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
+  (is-clj (subtype? (parse-type '(clojure.lang.Seqable (clojure.lang.Seqable Integer)))
+                    (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
+  (is-clj (not (subtype? (parse-type 'Number)
+                         (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x)))))))
   (is (sub? (HMap :mandatory {:op (Value :if)
                   :test (HMap :mandatory {:op (Value :var)
                                :var clojure.lang.Var})
@@ -230,7 +236,7 @@
 
 ;return type for an expression f
 (defmacro ety [f]
-  `(do (impl/ensure-clojure)
+  `(impl/with-clojure-impl
      (-> (ast ~f) ast-hy check expr-type ret-t)))
 
 (deftest tc-invoke-fn-test
@@ -279,11 +285,11 @@
                                    (seq a))
                      [1 2 1.2] 1))
                 (parse-type '(U nil (I (CountRange 1) (clojure.lang.ISeq Number))))))
-  (is (subtype? (ety
-                  ((clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap Any Number), b :- Number] 
-                                   ((clojure.core.typed/inst get Number Nothing) a b))
-                     (zipmap [1] [2]) 1))
-                (parse-type '(U nil Number)))))
+  (is-clj (subtype? (ety
+                      ((clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap Any Number), b :- Number] 
+                                               ((clojure.core.typed/inst get Number Nothing) a b))
+                       (zipmap [1] [2]) 1))
+                    (parse-type '(U nil Number)))))
 
 (deftest get-special-test
   (is (subtype? 
@@ -497,10 +503,10 @@
                             [(-filter (Un -nil -false) 'and1)]
                             (atom true))))
   ; refine a subtype
-  (is (= (:l (env+ (-PropEnv {'and1 (RClass-of Seqable [-any])} [])
-                   [(-filter (RClass-of IPersistentVector [-any]) 'and1)]
-                   (atom true)))
-         {'and1 (RClass-of IPersistentVector [-any])}))
+  (is-clj (= (:l (env+ (-PropEnv {'and1 (RClass-of Seqable [-any])} [])
+                       [(-filter (RClass-of IPersistentVector [-any]) 'and1)]
+                       (atom true)))
+             {'and1 (RClass-of IPersistentVector [-any])}))
   ; bottom preserved
   (is (let [a (atom true)]
         (env+ (-PropEnv {'foo -any} []) [-bot] a)
@@ -739,11 +745,11 @@
 (deftest overlap-test
   (is (not (overlap -false -true)))
   (is (not (overlap (-val :a) (-val :b))))
-  (is (overlap (RClass-of Number) (RClass-of Integer)))
-  (is (not (overlap (RClass-of Number) (RClass-of clojure.lang.Symbol))))
-  (is (not (overlap (RClass-of Number) (RClass-of String))))
-  (is (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.IMeta [-any])))
-  (is (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.PersistentVector [-any])))
+  (is-clj (overlap (RClass-of Number) (RClass-of Integer)))
+  (is-clj (not (overlap (RClass-of Number) (RClass-of clojure.lang.Symbol))))
+  (is-clj (not (overlap (RClass-of Number) (RClass-of String))))
+  (is-clj (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.IMeta [-any])))
+  (is-clj (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.PersistentVector [-any])))
   )
 
 #_(def-alias SomeMap (U (HMap :mandatory {:a (Value :b)})
@@ -837,50 +843,53 @@
   (is (empty? (fi (make-F 'x)))))
 
 (deftest cs-gen-test
-  (is (= (cs-gen #{} ;V
-                 (zipmap '[x y] (repeat no-bounds)) ;X
-                 {} ;Y
-                 (-val 1) ;S
-                 (make-F 'x)) ;T
-         (->cset [(make-cset-entry {'x (->c (-val 1) 'x -any no-bounds)
-                                    'y (->c (Un) 'y -any no-bounds)})])))
+  (is-clj (= (cs-gen #{} ;V
+                     (zipmap '[x y] (repeat no-bounds)) ;X
+                     {} ;Y
+                     (-val 1) ;S
+                     (make-F 'x)) ;T
+             (->cset [(make-cset-entry {'x (->c (-val 1) 'x -any no-bounds)
+                                        'y (->c (Un) 'y -any no-bounds)})])))
   ;intersections correctly inferred
-  (is (= (cs-gen '#{} {'x no-bounds} '{} 
-                 (-hvec [(RClass-of Number)])
-                 (In (RClass-of Seqable [(make-F 'x)]) (make-CountRange 1)))
-         (->cset [(make-cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)})])))
+  (is-clj (= (cs-gen '#{} {'x no-bounds} '{} 
+                     (-hvec [(RClass-of Number)])
+                     (In (RClass-of Seqable [(make-F 'x)]) (make-CountRange 1)))
+             (->cset [(make-cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)})])))
 ;correct RClass ancestor inference
-  (is (= (cs-gen #{} {'x no-bounds} {} 
-                 (RClass-of IPersistentVector [(RClass-of Number)])
-                 (RClass-of Seqable [(make-F 'x)]))
-         (->cset [(make-cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)})]))))
+  (is-clj (= (cs-gen #{} {'x no-bounds} {} 
+                     (RClass-of IPersistentVector [(RClass-of Number)])
+                     (RClass-of Seqable [(make-F 'x)]))
+             (->cset [(make-cset-entry {'x (->c (RClass-of Number) 'x -any no-bounds)})]))))
 
 (deftest subst-gen-test
-  (let [cs (cs-gen #{} ;V
-                   (zipmap '[x y] (repeat no-bounds)) ;X
-                   {} ;Y
-                   (-val 1) ;S
-                   (make-F 'x))]
+  (let [cs (clj (cs-gen #{} ;V
+                        (zipmap '[x y] (repeat no-bounds)) ;X
+                        {} ;Y
+                        (-val 1) ;S
+                        (make-F 'x)))]
     (is (= (subst-gen cs #{} (make-F 'x))
            {'x (->t-subst (-val 1) no-bounds)
             'y (->t-subst (Un) no-bounds)}))))
 
 (deftest infer-test
-  (is (= (infer (zipmap '[x y] (repeat no-bounds)) ;tv env
-                {}
-                [(-val 1) (-val 2)] ;actual
-                [(make-F 'x) (make-F 'y)] ;expected
-                (make-F 'x)))) ;result
-  (is (= (infer {'x no-bounds} ;tv env
-                {}
-                [(RClass-of IPersistentVector [(Un (-val 1) (-val 2) (-val 3))])] ;actual
-                [(RClass-of Seqable [(make-F 'x)])] ;expected
-                (RClass-of ASeq [(make-F 'x)])))) ;result
-  (is (= (infer {'x no-bounds} ;tv env
-                {}
-                [(-hvec [(-val 1) (-val 2) (-val 3)])] ;actual
-                [(RClass-of Seqable [(make-F 'x)])] ;expected
-                (RClass-of ASeq [(make-F 'x)]))))) ;result
+  (is (clj
+        (= (infer (zipmap '[x y] (repeat no-bounds)) ;tv env
+                  {}
+                  [(-val 1) (-val 2)] ;actual
+                  [(make-F 'x) (make-F 'y)] ;expected
+                  (make-F 'x))))) ;result
+  (is (clj 
+        (= (infer {'x no-bounds} ;tv env
+                  {}
+                  [(RClass-of IPersistentVector [(Un (-val 1) (-val 2) (-val 3))])] ;actual
+                  [(RClass-of Seqable [(make-F 'x)])] ;expected
+                  (RClass-of ASeq [(make-F 'x)]))))) ;result
+  (is (clj
+        (= (infer {'x no-bounds} ;tv env
+                  {}
+                  [(-hvec [(-val 1) (-val 2) (-val 3)])] ;actual
+                  [(RClass-of Seqable [(make-F 'x)])] ;expected
+                  (RClass-of ASeq [(make-F 'x)])))))) ;result
 
 (deftest arith-test
   (is (subtype? (:t (tc-t (+)))
@@ -904,8 +913,8 @@
                   (make-Function [] (Un))))))
 
 (deftest first-seq-test
-  (is (subtype? (ret-t (tc-t (first [1 1 1])))
-                (Un -nil (RClass-of Number))))
+  (is (clj (subtype? (ret-t (tc-t (first [1 1 1])))
+                     (Un -nil (RClass-of Number)))))
   (is (subtype? (In (RClass-of clojure.lang.PersistentList [-any])
                     (make-CountRange 1))
                 (In (RClass-of Seqable [-any])
@@ -925,9 +934,10 @@
 (deftest intersection-maker-test
   (is (= (In -nil (-val 1))
          (Un)))
-  (is (= (In (RClass-of Seqable [-any])
-             -nil)
-         (Un))))
+  (is (clj 
+        (= (In (RClass-of Seqable [-any])
+               -nil)
+           (Un)))))
 ;FIXME
 ;  (is (= (In (RClass-of Number)
 ;             (RClass-of Symbol))
@@ -963,11 +973,12 @@
                   -any))))
 
 (deftest ccfind-test
-  (is (subtype? (-> (tc-t (clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap Long String)]
-                                          (find a 1)))
-                  :t :types first :rng :t)
-                (Un (-hvec [(RClass-of Long) (RClass-of String)])
-                    -nil))))
+  (is (clj
+        (subtype? (-> (tc-t (clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap Long String)]
+                                                    (find a 1)))
+                      :t :types first :rng :t)
+                  (Un (-hvec [(RClass-of Long) (RClass-of String)])
+                      -nil)))))
 
 (deftest map-infer-test
   (is (subtype? (ret-t (tc-t (map + [1 2])))
@@ -993,8 +1004,9 @@
 
 (deftest apply-test
   ;conservative while not tracking keys "not" in a hmap
-  (is (subtype? (ret-t (tc-t (apply merge [{:a 1}])))
-                (Un -nil (RClass-of IPersistentMap [-any -any])))))
+  (is (clj
+        (subtype? (ret-t (tc-t (apply merge [{:a 1}])))
+                  (Un -nil (RClass-of IPersistentMap [-any -any]))))))
 
 (deftest destructuring-test
   ;Vector destructuring with :as
@@ -1029,16 +1041,17 @@
          (parse-type '(U clojure.core.typed/AnyInteger (Value a))))))
 
 (deftest type-fn-test 
-  (is (= (with-bounded-frees [[(make-F 'm) (-bounds (parse-type '(TFn [[x :variance :covariant]] Any))
-                                                    (parse-type '(TFn [[x :variance :covariant]] Nothing)) )]]
-           (check-funapp
-             (-> (ast 'a) ast-hy) ;dummy
-             [(-> (ast 1) ast-hy)];dummy
-             (ret (parse-type '(All [x]
-                                    [x -> (m x)])))
-           [(ret -nil)]
-           nil))
-         (ret (TApp-maker (make-F 'm) [-nil])))))
+  (is (clj
+        (= (with-bounded-frees [[(make-F 'm) (-bounds (parse-type '(TFn [[x :variance :covariant]] Any))
+                                                      (parse-type '(TFn [[x :variance :covariant]] Nothing)) )]]
+             (check-funapp
+               (-> (ast 'a) ast-hy) ;dummy
+               [(-> (ast 1) ast-hy)];dummy
+               (ret (parse-type '(All [x]
+                                      [x -> (m x)])))
+               [(ret -nil)]
+               nil))
+           (ret (TApp-maker (make-F 'm) [-nil]))))))
 
 ;TODO how to handle casts. CTYP-12
 ;Also need tc-t to bind *delayed-errors*
@@ -1057,12 +1070,12 @@
 (deftest array-test
   (is (= (Class/forName "[I") 
          (class (into-array> int [1]))))
-  (is (= (Class/forName "[Ljava.lang.Object;") 
-         (class (into-array> (U nil int) [1]))))
-  (is (= (Class/forName "[Ljava.lang.Number;") 
-         (class (into-array> (U nil Number) [1]))))
-  (is (= (Class/forName "[Ljava.lang.Object;") 
-         (class (into-array> (U clojure.lang.Symbol Number) [1]))))
+  (is (clj (= (Class/forName "[Ljava.lang.Object;") 
+              (class (into-array> (U nil int) [1])))))
+  (is (clj (= (Class/forName "[Ljava.lang.Number;") 
+              (class (into-array> (U nil Number) [1])))))
+  (is (clj (= (Class/forName "[Ljava.lang.Object;") 
+              (class (into-array> (U clojure.lang.Symbol Number) [1])))))
   (is (= (Class/forName "[Ljava.lang.Object;") 
          (class (into-array> Object (U clojure.lang.Symbol Number) [1]))))
   )
@@ -1287,11 +1300,12 @@
   ;   (is T' 'a))
   ; simplifies to
   ;(is (U T T') 'a)
-  (is (= (-or (-filter (RClass-of clojure.lang.Symbol) 'id)
-              (-filter (RClass-of String) 'id))
-         (-filter (Un (RClass-of clojure.lang.Symbol)
-                      (RClass-of String))
-                  'id))))
+  (is (clj 
+        (= (-or (-filter (RClass-of clojure.lang.Symbol) 'id)
+                (-filter (RClass-of String) 'id))
+           (-filter (Un (RClass-of clojure.lang.Symbol)
+                        (RClass-of String))
+                    'id)))))
 
 (deftest or-filter-update-test
   (is (= (update -any
@@ -1301,9 +1315,9 @@
              (RClass-of String)))))
 
 (deftest path-update-test
-  (is (= (update (Un -nil (-hmap {(-val :foo) (RClass-of Number)}))
-                 (-not-filter (Un -false -nil) 'id [(->KeyPE :foo)]))
-         (-hmap {(-val :foo) (RClass-of Number)})))
+  (is (clj (= (update (Un -nil (-hmap {(-val :foo) (RClass-of Number)}))
+                      (-not-filter (Un -false -nil) 'id [(->KeyPE :foo)]))
+              (-hmap {(-val :foo) (RClass-of Number)}))))
   ; if (:foo a) is nil, either a has a :foo entry with nil, or no :foo entry
   ; TODO
   #_(is (= (update (-hmap {})
@@ -1457,10 +1471,10 @@
           (U nil (clojure.core.typed/Coll Number)))))
 
 (deftest keys-vals-update-test
-  (is (= (update (RClass-of IPersistentMap [-any -any])
-                 (-filter (RClass-of Seqable [(RClass-of Number)])
-                          'a [(->KeysPE)]))
-         (RClass-of IPersistentMap [(RClass-of Number) -any])))
+  (is-clj (= (update (RClass-of IPersistentMap [-any -any])
+                     (-filter (RClass-of Seqable [(RClass-of Number)])
+                              'a [(->KeysPE)]))
+             (RClass-of IPersistentMap [(RClass-of Number) -any])))
   ; test with = instead of subtype to catch erroneous downcast to (IPersistentMap Nothing Any)
   (is (= (tc-t (let [m (clojure.core.typed/ann-form {} (clojure.lang.IPersistentMap Any Any))]
                  (assert (every? number? (keys m)))
@@ -1599,11 +1613,12 @@
 (deftest Not-combine-test
   (is (= (In -nil (NotType-maker -nil))
          (Un)))
-  (is (= (In (RClass-of Integer) (NotType-maker (RClass-of Number)))
-         (Un)))
+  (is (clj
+        (= (In (RClass-of Integer) (NotType-maker (RClass-of Number)))
+           (Un))))
 
   (is (not (overlap (RClass-of Integer) (NotType-maker (RClass-of Number)))))
-  (is (overlap (RClass-of Number) (NotType-maker -nil)))
+  (is (clj (overlap (RClass-of Number) (NotType-maker -nil))))
 
   (is (overlap (NotType-maker (RClass-of Number))
                (NotType-maker (RClass-of Integer))))
@@ -1621,8 +1636,8 @@
   (is (= (In (RClass-of Number) (NotType-maker -nil))
          (RClass-of Number)))
 
-  (is (= (In (Un -nil (RClass-of Number)) (NotType-maker (Un -false -nil)))
-         (RClass-of Number)))
+  (is (clj (= (In (Un -nil (RClass-of Number)) (NotType-maker (Un -false -nil)))
+              (RClass-of Number))))
 
   (is (overlap (Un -nil (RClass-of Number)) (NotType-maker (Un -false -nil))))
 
@@ -1657,12 +1672,11 @@
             (Un))))
 
 (deftest intersection-csgen-test
-  (is (cs-gen #{} {'a no-bounds} {}
-              (In (RClass-of Seqable [(RClass-of Number)])
-                   (make-CountRange 1))
-              (In (RClass-of Seqable [(make-F 'a)])
-                  (make-CountRange 1))
-              )))
+  (is (clj (cs-gen #{} {'a no-bounds} {}
+                   (In (RClass-of Seqable [(RClass-of Number)])
+                       (make-CountRange 1))
+                   (In (RClass-of Seqable [(make-F 'a)])
+                       (make-CountRange 1))))))
 
 (deftest iterable-as-seqable-test
   (is (cf (first (clojure.core.typed/ann-form [] Iterable)))))

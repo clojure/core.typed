@@ -147,23 +147,23 @@
 ; Just for unit testing
 ;[Symbol Any -> Expr]
 (defn check-top-level [nsym form]
-  (impl/ensure-clojure)
-  (let [ast (ana-clj/ast-for-form-in-ns nsym form)]
-    (check ast)))
+  (impl/with-clojure-impl
+    (let [ast (ana-clj/ast-for-form-in-ns nsym form)]
+      (check ast))))
 
 (defmacro tc-t [form]
   `(do (t/load-if-needed)
-       (impl/ensure-clojure)
-       (-> (check-top-level (symbol (ns-name *ns*))
-                            '~form)
-           expr-type)))
+       (impl/with-clojure-impl
+         (-> (check-top-level (symbol (ns-name *ns*))
+                              '~form)
+             expr-type))))
 
 (defmacro tc [form]
   `(do (t/load-if-needed)
-       (impl/ensure-clojure)
-       (-> (check-top-level (symbol (ns-name *ns*))
-                            '~form)
-           expr-type prs/unparse-type)))
+       (impl/with-clojure-impl
+         (-> (check-top-level (symbol (ns-name *ns*))
+                              '~form)
+             expr-type prs/unparse-type))))
 
 (defn flow-for-value []
   (let [props (.props ^PropEnv lex/*lexical-env*)
