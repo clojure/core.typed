@@ -7,7 +7,8 @@
             [clojure.core.contracts]
             [clojure.tools.analyzer :as analyze]
             [clojure.tools.analyzer.hygienic :as hygienic]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [clojure.core.typed.current-impl :as impl])
   (:import (clojure.lang PersistentArrayMap Var Symbol)))
 
 (t/ann subtype-exn Exception)
@@ -228,7 +229,10 @@
 
 ;AnalysisExpr -> Form
 ;(ann emit-form-fn [Any -> Any])
-(def emit-form-fn hygienic/emit-hy)
+(defn emit-form-fn [expr]
+  (impl/impl-case
+    :clojure (hygienic/emit-hy expr)
+    :cljs (:form expr)))
 
 (defn constant-expr [expr]
   (case (:op expr)

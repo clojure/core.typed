@@ -40,7 +40,19 @@
      (push-thread-bindings {(the-var '~'clojure.core.typed.name-env/*current-name-env*)
                              (v '~'clojure.core.typed.name-env/CLJ-TYPE-NAME-ENV)
                             (the-var '~'clojure.core.typed.protocol-env/*current-protocol-env*)
-                             (v '~'clojure.core.typed.protocol-env/CLJ-PROTOCOL-ENV)})
+                             (v '~'clojure.core.typed.protocol-env/CLJ-PROTOCOL-ENV)
+                            (the-var '~'clojure.core.typed.ns-deps/*current-deps*)
+                             (v '~'clojure.core.typed.ns-deps/CLJ-TYPED-DEPS)
+                            ; var env
+                            (the-var '~'clojure.core.typed.var-env/*current-var-annotations*)
+                             (v '~'clojure.core.typed.var-env/CLJ-VAR-ANNOTATIONS)
+                            (the-var '~'clojure.core.typed.var-env/*current-nocheck-var?*)
+                             (v '~'clojure.core.typed.var-env/CLJ-NOCHECK-VAR?)
+                            (the-var '~'clojure.core.typed.var-env/*current-used-vars*)
+                             (v '~'clojure.core.typed.var-env/CLJ-USED-VARS)
+                            (the-var '~'clojure.core.typed.var-env/*current-checked-var-defs*)
+                             (v '~'clojure.core.typed.var-env/CLJ-CHECKED-VAR-DEFS) 
+                            })
      (try 
        ~@body
        (finally (pop-thread-bindings)))))
@@ -50,7 +62,19 @@
      (push-thread-bindings {(the-var '~'clojure.core.typed.name-env/*current-name-env*)
                              (v '~'clojure.core.typed.name-env/CLJS-TYPE-NAME-ENV)
                             (the-var '~'clojure.core.typed.protocol-env/*current-protocol-env*)
-                             (v '~'clojure.core.typed.protocol-env/CLJS-PROTOCOL-ENV)})
+                             (v '~'clojure.core.typed.protocol-env/CLJS-PROTOCOL-ENV)
+                            (the-var '~'clojure.core.typed.ns-deps/*current-deps*)
+                             (v '~'clojure.core.typed.ns-deps/CLJS-TYPED-DEPS)
+                            ; var env
+                            (the-var '~'clojure.core.typed.var-env/*current-var-annotations*)
+                             (v '~'clojure.core.typed.var-env/CLJS-VAR-ANNOTATIONS)
+                            (the-var '~'clojure.core.typed.var-env/*current-nocheck-var?*)
+                             (v '~'clojure.core.typed.var-env/CLJS-NOCHECK-VAR?)
+                            (the-var '~'clojure.core.typed.var-env/*current-used-vars*)
+                             (v '~'clojure.core.typed.var-env/CLJS-USED-VARS)
+                            (the-var '~'clojure.core.typed.var-env/*current-checked-var-defs*)
+                             (v '~'clojure.core.typed.var-env/CLJS-CHECKED-VAR-DEFS) 
+                            })
      (try 
        ~@body
        (finally (pop-thread-bindings)))))

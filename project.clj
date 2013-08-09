@@ -3,13 +3,13 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :dependencies [[org.clojure/jvm.tools.analyzer "0.4.2"
+  :dependencies [[org.clojure/jvm.tools.analyzer "0.4.3-SNAPSHOT"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/core.contracts "0.0.4"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.0.2"
                   :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojurescript "0.0-1450"]
+                 [org.clojure/clojurescript "0.0-1806"]
                  [org.clojure/tools.trace "0.7.5"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/clojure "1.5.1"]
@@ -26,9 +26,13 @@
 
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
 
-  :source-paths ["src/main/clojure"]
-  :test-paths ["src/test/clojure"]
+  :source-paths ["src/main/clojure"
+                 "src/main/cljs"]
+  :test-paths ["src/test/clojure"
+               "src/test/cljs"]
 
   :profiles {:dev {:repl-options {:port 64394}}}
+
+  :cljsbuild {:builds {}}
 
   :dev-dependencies [])

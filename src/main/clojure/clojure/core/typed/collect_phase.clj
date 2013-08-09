@@ -120,6 +120,7 @@
           (mapv :op args)))
 
 (defn gen-datatype* [current-env current-ns provided-name fields vbnd opt record?]
+  {:pre [(symbol? current-ns)]}
   (let [{ancests :unchecked-ancestors} opt
         ;variances
         vs (seq (map second vbnd))
@@ -130,7 +131,7 @@
               ;_ (prn "provided-name-str" provided-name-str)
               munged-ns-str (if (some #(= \. %) provided-name-str)
                               (apply str (butlast (apply concat (butlast (partition-by #(= \. %) provided-name-str)))))
-                              (str (munge (-> current-ns ns-name))))
+                              (str (munge current-ns)))
               ;_ (prn "munged-ns-str" munged-ns-str)
               demunged-ns-str (str (repl/demunge munged-ns-str))
               ;_ (prn "demunged-ns-str" demunged-ns-str)
@@ -141,11 +142,11 @@
               s (symbol (str munged-ns-str \. local-name))
               fs (apply array-map (apply concat (free-ops/with-frees (mapv r/make-F args)
                                                   (binding [uvar/*current-env* current-env
-                                                            prs/*parse-type-in-ns* (ns-name current-ns)]
+                                                            prs/*parse-type-in-ns* current-ns]
                                                     (mapv parse-field (partition 3 fields))))))
               as (set (free-ops/with-frees (mapv r/make-F args)
                         (binding [uvar/*current-env* current-env
-                                  prs/*parse-type-in-ns* (ns-name current-ns)]
+                                  prs/*parse-type-in-ns* current-ns]
                           (mapv prs/parse-type ancests))))
               _ (ancest/add-datatype-ancestors s as)
               pos-ctor-name (symbol demunged-ns-str (str "->" local-name))
@@ -278,7 +279,7 @@
         ;macroexpansion provides qualified symbols
         _ (assert ((every-pred symbol? namespace) qsym))
         expected-type (binding [uvar/*current-env* env
-                                prs/*parse-type-in-ns* (when prs-ns (ns-name prs-ns))]
+                                prs/*parse-type-in-ns* (ns-name prs-ns)]
                         (prs/parse-type typesyn))]
     (when-not check?
       (var-env/add-nocheck-var qsym))
@@ -293,7 +294,7 @@
         ;macroexpansion provides qualified symbols
         _ (assert ((every-pred symbol? namespace) qsym))
         alias-type (binding [uvar/*current-env* env
-                             prs/*parse-type-in-ns* (when prs-ns (ns-name prs-ns))]
+                             prs/*parse-type-in-ns* (ns-name prs-ns)]
                      (prs/parse-type typesyn))]
     ;var already interned via macroexpansion
     (nme-env/add-type-name qsym alias-type)
@@ -323,7 +324,7 @@
         [msym tsyn] (constant-exprs args)
         _ (assert (namespace msym) "Method symbol must be a qualified symbol")
         ty (binding [uvar/*current-env* env
-                     prs/*parse-type-in-ns* (when prs-ns (ns-name prs-ns))]
+                     prs/*parse-type-in-ns* (ns-name prs-ns)]
              (prs/parse-type tsyn))]
     (override/add-method-override msym ty)
     nil))
@@ -334,17 +335,18 @@
   (let [prs-ns (chk/expr-ns expr)
         [msym tsyn] (constant-exprs args)
         ty (binding [uvar/*current-env* env
-                     prs/*parse-type-in-ns* (when prs-ns (ns-name prs-ns))]
+                     prs/*parse-type-in-ns* (ns-name prs-ns)]
              (prs/parse-type tsyn))]
     (override/add-method-override msym ty)
     nil))
 
 (defn gen-protocol* [current-env current-ns vsym vbnds mths]
+  {:pre [(symbol? current-ns)]}
   (let [variances (seq (map second vbnds))
         args (seq (map first vbnds))
         s (if (namespace vsym)
             (symbol vsym)
-            (symbol (-> current-ns ns-name str) (name vsym)))
+            (symbol (str current-ns) (name vsym)))
         protocol-defined-in-nstr (namespace s)
         on-class (symbol (str (munge (namespace s)) \. (name s)))
         ; add a Name so the methods can be parsed
@@ -357,7 +359,7 @@
                                   "Protocol method should be unqualified")
                           [knq (free-ops/with-frees fs 
                                  (binding [uvar/*current-env* current-env
-                                           prs/*parse-type-in-ns* (ns-name current-ns)]
+                                           prs/*parse-type-in-ns* current-ns]
                                    (prs/parse-type v)))])))
         t (if fs
             (c/TypeFn* (map :name fs) variances (repeat (count fs) r/no-bounds) 

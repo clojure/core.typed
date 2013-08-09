@@ -417,18 +417,22 @@
         (subtype-datatype-record-on-right s t)
 
         ;values are subtypes of their classes
-        (and (r/Value? s)
-             (impl/checking-clojure?))
-        (let [^Value s s]
-          (if (nil? (.val s))
-            (fail! s t)
-            (subtype (apply c/In (c/RClass-of (class (.val s)))
-                            (cond
-                              ;keyword values are functions
-                              (keyword? (.val s)) [(c/keyword->Fn (.val s))]
-                              ;strings have a known length as a seqable
-                              (string? (.val s)) [(r/make-ExactCountRange (count (.val s)))]))
-                     t)))
+        (r/Value? s)
+        (let [^Value s s
+              sval (.val s)]
+          (impl/impl-case
+            :clojure (if (nil? sval)
+                       (fail! s t)
+                       (subtype (apply c/In (c/RClass-of (class sval))
+                                       (cond
+                                         ;keyword values are functions
+                                         (keyword? sval) [(c/keyword->Fn sval)]
+                                         ;strings have a known length as a seqable
+                                         (string? sval) [(r/make-ExactCountRange (count sval))]))
+                                t))
+            :cljs (cond
+                    (number? (.val s)) (subtype (r/NumberCLJS-maker) t)
+                    :else (fail! s t))))
 
         (and (r/Result? s)
              (r/Result? t))

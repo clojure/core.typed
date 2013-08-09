@@ -63,12 +63,15 @@
                  '[clojure.core.typed.base-env]
                  '[clojure.core.typed.ns-deps]
                  '[clojure.core.typed.reset-env]
-                 '[clojure.reflect])
+                 '[clojure.reflect]
+                 ;cljs
+                 '[clojure.core.typed.collect-cljs]
+                 '[clojure.core.typed.check-cljs]
+                 '[clojure.core.typed.base-env-cljs]
+                 '[clojure.core.typed.base-env-helper-cljs])
         (catch Exception e
           (reset! successfully-loaded? false)
           (throw e)))
       (reset! successfully-loaded? true)
-      ;FIXME what about other implementations? Is this still a good idea to put here?
-      (impl/with-clojure-impl
-        (@(ns-resolve (find-ns 'clojure.core.typed.reset-env) 'reset-envs!)))
+      (@(ns-resolve (find-ns 'clojure.core.typed.reset-env) 'reset-envs!))
       nil)))

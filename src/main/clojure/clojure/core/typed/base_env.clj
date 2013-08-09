@@ -17,7 +17,7 @@
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.subst]
             [clojure.core.typed.rclass-env :as rcls]
-            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.current-impl :as impl :refer [v]]
             [clojure.set :as set]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1130,6 +1130,7 @@ clojure.core/get
             [String Any y -> (U y Character)]
             ))
 
+;FIXME maps after the first can always be nil
 clojure.core/merge 
      (All [k v]
           (Fn [nil * -> nil]
@@ -1536,3 +1537,19 @@ clojure.lang.LazySeq (All [x]
 clojure.lang.Delay (All [x]
                         [[-> x] -> (Delay x)])
     ))
+
+(defn reset-clojure-envs! []
+  (impl/with-clojure-impl
+    ((v 'clojure.core.typed.name-env/reset-name-env!) init-alias-env)
+    ((v 'clojure.core.typed.var-env/reset-var-type-env!)
+     init-var-env init-var-nochecks)
+    ((v 'clojure.core.typed.method-return-nilables/reset-nonnilable-method-return-env!) 
+     init-method-nonnilable-return-env)
+    ((v 'clojure.core.typed.method-param-nilables/reset-method-nilable-param-env!)
+     init-method-nilable-param-env)
+    ((v 'clojure.core.typed.method-override-env/reset-method-override-env!)
+     init-method-override-env)
+    ((v 'clojure.core.typed.ctor-override-env/reset-constructor-override-env!) 
+     init-ctor-override-env)
+    ((v 'clojure.core.typed.rclass-env/reset-rclass-env!) 
+     init-altered-env)))

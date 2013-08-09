@@ -34,7 +34,7 @@
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol?))
 
 (defmacro with-parse-ns [sym & body]
-  `(binding [*parse-type-in-ns* sym]
+  `(binding [*parse-type-in-ns* ~sym]
      ~@body))
 
 (declare parse-type)
@@ -720,6 +720,10 @@
 (def ^:dynamic *unparse-type-in-ns* nil)
 (set-validator! #'*unparse-type-in-ns* (some-fn nil? symbol?))
 
+(defmacro with-unparse-ns [sym & body]
+  `(binding [*unparse-type-in-ns* ~sym]
+     ~@body))
+
 (defn alias-in-ns
   "Returns an alias for namespace sym in ns, or nil if none."
   [nsym ns]
@@ -1164,7 +1168,9 @@
         [t fs o]))))
 
 (defn unparse-TCResult-in-ns [r ns]
-  {:pre [(u/namespace? ns)]}
-  (binding [*unparse-type-in-ns* (ns-name ns)]
+  {:pre [((some-fn u/namespace? symbol?) ns)]}
+  (binding [*unparse-type-in-ns* (if (symbol? ns)
+                                   ns
+                                   (ns-name ns))]
     (unparse-TCResult r)))
 

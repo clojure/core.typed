@@ -1,8 +1,10 @@
 (ns clojure.core.typed.test.cljs
   (:require [clojure.test :refer :all]
+            [cljs.core.typed :as t]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.parse-unparse :as prs])
+            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.subtype :as sub])
   (:import (clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
                          Keyword ExceptionInfo Symbol Var)))
 
@@ -41,3 +43,12 @@
               (prs/unparse-type (prs/parse-cljs '(Array number)))))
   (is-cljs (= '(Array2 number boolean)
               (prs/unparse-type (prs/parse-cljs '(Array2 number boolean))))))
+
+(deftest subtype-prims-cljs-test
+  (is-cljs (sub/subtype? (r/-val 1) (prs/parse-cljs 'number))))
+
+(deftest ann-test
+  (is (t/cf (cljs.core.typed/ann foo number))))
+
+(deftest check-ns-test
+  (is (t/check-ns 'clojure.core.typed.test.ann)))

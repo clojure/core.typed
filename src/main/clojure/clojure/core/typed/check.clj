@@ -76,8 +76,7 @@
 (defn expected-error [actual expected]
   (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
                                          (when vs/*current-expr*
-                                           (when-let [ns (expr-ns vs/*current-expr*)]
-                                             (ns-name ns))))]
+                                           (expr-ns vs/*current-expr*)))]
     (u/tc-delayed-error (str "Expected type: "
                              (pr-str (prs/unparse-type expected))
                              "\nActual: " (pr-str (prs/unparse-type actual))))))
@@ -121,13 +120,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
 
-(t/ann expr-ns [Any -> Namespace])
+(t/ann expr-ns [Any -> Symbol])
 (defn expr-ns [expr]
-  (let [nsym (-> expr :env :ns :name symbol)
-        _ (assert nsym (str "Bug! " (:op expr) " expr has no associated namespace"))
-        ns (find-ns nsym)
-        _ (assert ns)]
-    ns))
+  {:post [(symbol? %)]}
+  (impl/impl-case
+    :clojure (let [nsym (-> expr :env :ns :name symbol)
+                   _ (assert nsym (str "Bug! " (:op expr) " expr has no associated namespace"))
+                   ns (find-ns nsym)
+                   _ (assert ns)]
+               (ns-name ns))
+    :cljs (-> expr :env :ns :name)))
 
 (def expr-type ::expr-type)
 
@@ -783,11 +785,10 @@
         method-sym (when (or static-method? instance-method?)
                      (MethodExpr->qualsym fexpr))]
     (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
-                                           (when-let [ns (or (when fexpr
-                                                               (expr-ns fexpr))
-                                                             (when vs/*current-expr*
-                                                               (expr-ns vs/*current-expr*)))]
-                                             (ns-name ns)))]
+                                           (or (when fexpr
+                                                 (expr-ns fexpr))
+                                               (when vs/*current-expr*
+                                                 (expr-ns vs/*current-expr*))))]
       (u/tc-delayed-error
         (str
           (if poly?
@@ -891,8 +892,7 @@
         arg-types (mapv ret-t arg-ret-types)]
     (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
                                            (when fexpr
-                                             (when-let [ns (expr-ns fexpr)]
-                                               (ns-name ns))))]
+                                             (expr-ns fexpr)))]
     ;(prn "check-funapp" (prs/unparse-type fexpr-type) (map prs/unparse-type arg-types))
     (cond
       ;keyword function
@@ -1112,8 +1112,7 @@
         _ (when-not (var-env/used-var? id)
             (var-env/add-used-var id))]
     (assoc expr
-           expr-type (ret (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
-                            (var-env/lookup-Var (u/var->symbol var)))
+           expr-type (ret (var-env/lookup-Var (u/var->symbol var))
                           (fo/-FS fl/-top fl/-top)
                           obj/-empty))))
 
@@ -1269,12 +1268,12 @@
         javat (let [syn (or (when has-java-syn? (:val javat-syn))  ; generalise javat-syn if provided, otherwise cljt-syn
                             (:val cljt-syn))
                     c (-> 
-                        (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
+                        (binding [prs/*parse-type-in-ns* (expr-ns expr)]
                           (prs/parse-type syn))
                         arr-ops/Type->array-member-Class)]
                 (assert (class? c))
                 c)
-        cljt (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
+        cljt (binding [prs/*parse-type-in-ns* (expr-ns expr)]
                (prs/parse-type (:val cljt-syn)))
         ccoll (check coll-expr (ret (c/Un r/-nil (c/RClass-of Seqable [cljt]))))]
     (assoc expr
@@ -1492,17 +1491,16 @@
   (assert (#{#'hash-map} (-> bindings-expr :fexpr :var)))
   (assert (even? (count (-> bindings-expr :args))))
   (let [new-bindings-exprs (apply hash-map (-> bindings-expr :args))
-        _ (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
-            (doseq [[{:keys [op var] :as var-expr} bnd-expr] new-bindings-exprs]
-              (assert (#{:the-var} op))
-              (let [expected (var-env/type-of (u/var->symbol var))
-                    cexpr (check bnd-expr (ret expected))
-                    actual (-> cexpr expr-type ret-t)]
-                (when (not (sub/subtype? actual expected))
-                  (u/tc-delayed-error (str "Expected binding for "
-                                           (u/var->symbol var)
-                                           " to be: " (prs/unparse-type expected)
-                                           ", Actual: " (prs/unparse-type actual)))))))]
+        _ (doseq [[{:keys [op var] :as var-expr} bnd-expr] new-bindings-exprs]
+            (assert (#{:the-var} op))
+            (let [expected (var-env/type-of (u/var->symbol var))
+                  cexpr (check bnd-expr (ret expected))
+                  actual (-> cexpr expr-type ret-t)]
+              (when (not (sub/subtype? actual expected))
+                (u/tc-delayed-error (str "Expected binding for "
+                                         (u/var->symbol var)
+                                         " to be: " (prs/unparse-type expected)
+                                         ", Actual: " (prs/unparse-type actual))))))]
     (assoc expr
            expr-type (ret r/-any))))
 
@@ -1595,7 +1593,7 @@
                   (c/resolve-Name t)
                   t))
         _ (assert ((some-fn r/Poly? r/PolyDots?) ptype))
-        targs (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
+        targs (binding [prs/*parse-type-in-ns* (expr-ns expr)]
                 (doall (map prs/parse-type (:val targs-exprs))))]
     (assoc expr
            expr-type (ret (inst/manual-inst ptype targs)))))
@@ -1606,7 +1604,7 @@
 ;manual instantiation for calls to polymorphic constructors
 (defmethod invoke-special 'clojure.core.typed/inst-poly-ctor
   [{[ctor-expr targs-exprs] :args :as expr} & [expected]]
-  (let [targs (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
+  (let [targs (binding [prs/*parse-type-in-ns* (expr-ns expr)]
                 (mapv prs/parse-type (:val targs-exprs)))
         cexpr (binding [*inst-ctor-types* targs]
                 (check ctor-expr))]
@@ -1666,7 +1664,7 @@
 (defmethod invoke-special 'clojure.core.typed/unsafe-ann-form*
   [{[frm {tsyn :val}] :args, :keys [env], :as expr} & [expected]]
   (let [parsed-ty (binding [vs/*current-env* env
-                            prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
+                            prs/*parse-type-in-ns* (expr-ns expr)]
                     (prs/parse-type tsyn))]
     (assoc expr
            expr-type (ret parsed-ty))))
@@ -1675,7 +1673,7 @@
 (defmethod invoke-special 'clojure.core.typed/ann-form*
   [{[frm {tsyn :val}] :args, :keys [env], :as expr} & [expected]]
   (let [parsed-ty (binding [vs/*current-env* env
-                            prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
+                            prs/*parse-type-in-ns* (expr-ns expr)]
                     (prs/parse-type tsyn))
         cty (check frm (ret parsed-ty))
         checked-type (ret-t (expr-type cty))
@@ -1694,7 +1692,7 @@
   [{:keys [fexpr args] :as expr} & [expected]]
   (let [[fexpr {type-syns :val}] args
         expected
-        (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
+        (binding [prs/*parse-type-in-ns* (expr-ns expr)]
           (apply
             r/make-FnIntersection
             (doall
@@ -1714,7 +1712,7 @@
   #_(let [[fexpr {poly-decl :val} {method-types-syn :val}] args
         frees-with-bounds (map prs/parse-free poly-decl)
         method-types (free-ops/with-bounded-frees frees-with-bounds
-                       (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
+                       (binding [prs/*parse-type-in-ns* (expr-ns expr)]
                          (doall 
                            (for [{:keys [dom-syntax has-rng? rng-syntax]} method-types-syn]
                              {:dom (doall (map prs/parse-type dom-syntax))
@@ -1736,7 +1734,7 @@
 (defmethod invoke-special 'clojure.core.typed/loop>-ann
   [{:keys [args] :as expr} & [expected]]
   (let [[expr {expected-bnds-syn :val}] args
-        expected-bnds (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
+        expected-bnds (binding [prs/*parse-type-in-ns* (expr-ns expr)]
                         (mapv prs/parse-type expected-bnds-syn))]
     ;loop may be nested, type the first loop found
     (binding [*loop-bnd-anns* expected-bnds]
@@ -2182,9 +2180,8 @@
                         expr-type (ret (c/RClass-of clojure.lang.MultiFn)))]
     (cond
       ;skip if warn-on-unannotated-vars is in effect
-      (and (ns-opts/warn-on-unannotated-vars? (ns-name (expr-ns expr)))
-           (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
-             (not (var-env/lookup-Var-nofail mmsym))))
+      (and (ns-opts/warn-on-unannotated-vars? (expr-ns expr))
+           (not (var-env/lookup-Var-nofail mmsym)))
       (do (println "<NO LINE NUMBER>: Not checking defmethod " mmsym " with dispatch " (u/emit-form-fn dispatch-val-expr))
           (flush)
           ret-expr)
@@ -2199,8 +2196,7 @@
                 (binding [vs/*current-env* env]
                   (u/int-error (str "Multimethod requires dispatch type: " mmsym
                                     "\n\nHint: defmulti must be checked before its defmethods"))))
-            method-expected (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
-                              (var-env/type-of mmsym))
+            method-expected (var-env/type-of mmsym)
             cmethod-expr (binding [*current-mm* {:dispatch-fn-type dispatch-type
                                                  :dispatch-val-ret (expr-type cdispatch-val-expr)}]
                            (check method-expr (ret method-expected)))]
@@ -2834,13 +2830,10 @@ rest-param-name (when rest-param
   (binding [; no line/col info in AST
             #_vs/*current-env* #_(:env expr)]
     (let [sym (hygienic/hsym-key local-binding)
-          cur-ns (expr-ns expr)
-          t (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
-              (var-env/type-of sym))
+          t (var-env/type-of sym)
           _ (when (and expected
                        (not (sub/subtype? t (ret-t expected))))
-              (binding [prs/*unparse-type-in-ns* (when cur-ns
-                                                   (ns-name cur-ns))]
+              (binding [prs/*unparse-type-in-ns* (expr-ns expr)]
                 ;FIXME no line number, not present in AST
                 (u/tc-delayed-error 
                   (str "Local binding " sym " expected type " (pr-str (prs/unparse-type (ret-t expected)))
@@ -3178,7 +3171,7 @@ rest-param-name (when rest-param
           "Non :default default dispatch value NYI")
   (let [mm-name (:val nme-expr)
         _ (assert (string? (:val nme-expr)))
-        mm-qual (symbol (str (ns-name (expr-ns expr))) mm-name)
+        mm-qual (symbol (str (expr-ns expr)) mm-name)
         ;_ (prn "mm-qual" mm-qual)
         ;_ (prn "expected ret-t" (prs/unparse-type (ret-t expected)))
         ;_ (prn "expected ret-t class" (class (ret-t expected)))
@@ -3281,7 +3274,7 @@ rest-param-name (when rest-param
       (assoc expr
              expr-type (ret (c/Un))))))
 
-(def ^:dynamic *check-let-checkfn*)
+(def ^:dynamic *check-let-checkfn* nil)
 
 (defn binding-init-sym [binding-init]
   {:pre [(= :binding-init (:op binding-init))]
@@ -3300,7 +3293,9 @@ rest-param-name (when rest-param
       (assoc expr
              expr-type (ret (c/Un))))
     :else
-    (let [check-let-checkfn *check-let-checkfn*
+    (let [check-let-checkfn (if-let [c *check-let-checkfn*]
+                              c
+                              (assert nil "No checkfn bound for let"))
           env (reduce (fn [env [{{:keys [init]} :local-binding :as expr} expected-bnd]]
                         {:pre [(lex/PropEnv? env)]
                          :post [(lex/PropEnv? env)]}
@@ -3490,7 +3485,7 @@ rest-param-name (when rest-param
             (do
               (assert (#{:local-binding-expr} (:op lb-expr)))
               [(-> lb-expr :local-binding :sym)
-               (binding [prs/*parse-type-in-ns* (when-let [ns (expr-ns expr)] (ns-name ns))]
+               (binding [prs/*parse-type-in-ns* (expr-ns expr)]
                  (prs/parse-type (u/constant-expr type-syn-expr)))])))
 
         cbinding-inits
@@ -3918,133 +3913,136 @@ rest-param-name (when rest-param
 
 (def object-equal? =)
 
-(def ^:dynamic *check-if-checkfn*)
+(def ^:dynamic *check-if-checkfn* nil)
 
 ;[TCResult Expr Expr (Option Type) -> TCResult]
 (defn check-if [tst thn els & [expected]]
   {:pre [(TCResult? tst)
          ((some-fn TCResult? nil?) expected)]
    :post [(TCResult? %)]}
-  (letfn [(tc [expr reachable?]
-            {:post [(TCResult? %)]}
-            (when-not reachable?
-              #_(prn "Unreachable code found.. " expr))
-            (cond
-              ;; if reachable? is #f, then we don't want to verify that this branch has the appropriate type
-              ;; in particular, it might be (void)
-              (and expected reachable?)
-              (-> (*check-if-checkfn* expr (-> expected
-                                               (assoc :fl (fo/-FS fl/-top fl/-top))
-                                               (assoc :o obj/-empty)
-                                               (assoc :flow (r/-flow fl/-top))))
-                  expr-type)
-              ;; this code is reachable, but we have no expected type
-              reachable? (-> (*check-if-checkfn* expr) expr-type)
-              ;; otherwise, this code is unreachable
-              ;; and the resulting type should be the empty type
-              :else (do #_(prn (u/error-msg "Not checking unreachable code"))
-                        (ret (c/Un)))))]
-    (let [{fs+ :then fs- :else :as f1} (ret-f tst)
-          ;          _ (prn "check-if: fs+" (prs/unparse-filter fs+))
-          ;          _ (prn "check-if: fs-" (prs/unparse-filter fs-))
-          flag+ (atom true :validator u/boolean?)
-          flag- (atom true :validator u/boolean?)
+  (let [check-if-checkfn (if-let [c *check-if-checkfn*]
+                           c
+                           (assert nil "No checkfn bound for if"))]
+    (letfn [(tc [expr reachable?]
+              {:post [(TCResult? %)]}
+              (when-not reachable?
+                #_(prn "Unreachable code found.. " expr))
+              (cond
+                ;; if reachable? is #f, then we don't want to verify that this branch has the appropriate type
+                ;; in particular, it might be (void)
+                (and expected reachable?)
+                (-> (check-if-checkfn expr (-> expected
+                                                 (assoc :fl (fo/-FS fl/-top fl/-top))
+                                                 (assoc :o obj/-empty)
+                                                 (assoc :flow (r/-flow fl/-top))))
+                    expr-type)
+                ;; this code is reachable, but we have no expected type
+                reachable? (-> (check-if-checkfn expr) expr-type)
+                ;; otherwise, this code is unreachable
+                ;; and the resulting type should be the empty type
+                :else (do #_(prn (u/error-msg "Not checking unreachable code"))
+                          (ret (c/Un)))))]
+      (let [{fs+ :then fs- :else :as f1} (ret-f tst)
+            ;          _ (prn "check-if: fs+" (prs/unparse-filter fs+))
+            ;          _ (prn "check-if: fs-" (prs/unparse-filter fs-))
+            flag+ (atom true :validator u/boolean?)
+            flag- (atom true :validator u/boolean?)
 
-          ;_ (print-env)
-          idsym (gensym)
-          env-thn (env+ lex/*lexical-env* [fs+] flag+)
-          ;          _ (do (pr "check-if: env-thn")
-          ;              (print-env* env-thn))
-          env-els (env+ lex/*lexical-env* [fs-] flag-)
-          ;          _ (do (pr "check-if: env-els")
-          ;              (print-env* env-els))
-          ;          new-thn-props (set
-          ;                          (filter atomic-filter?
-          ;                                  (set/difference
-          ;                                    (set (:props lex/*lexical-env*))
-          ;                                    (set (:props env-thn)))))
-          ;_ (prn idsym"env+: new-thn-props" (map unparse-filter new-thn-props))
-          ;          new-els-props (set
-          ;                          (filter atomic-filter?
-          ;                                  (set/difference
-          ;                                    (set (:props lex/*lexical-env*))
-          ;                                    (set (:props env-els)))))
-          ;_ (prn idsym"env+: new-els-props" (map unparse-filter new-els-props))
-          {ts :t fs2 :fl os2 :o flow2 :flow :as then-ret} 
-          (binding [vs/*current-expr* thn]
-            (var-env/with-lexical-env env-thn
-              (tc thn @flag+)))
+            ;_ (print-env)
+            idsym (gensym)
+            env-thn (env+ lex/*lexical-env* [fs+] flag+)
+            ;          _ (do (pr "check-if: env-thn")
+            ;              (print-env* env-thn))
+            env-els (env+ lex/*lexical-env* [fs-] flag-)
+            ;          _ (do (pr "check-if: env-els")
+            ;              (print-env* env-els))
+            ;          new-thn-props (set
+            ;                          (filter atomic-filter?
+            ;                                  (set/difference
+            ;                                    (set (:props lex/*lexical-env*))
+            ;                                    (set (:props env-thn)))))
+            ;_ (prn idsym"env+: new-thn-props" (map unparse-filter new-thn-props))
+            ;          new-els-props (set
+            ;                          (filter atomic-filter?
+            ;                                  (set/difference
+            ;                                    (set (:props lex/*lexical-env*))
+            ;                                    (set (:props env-els)))))
+            ;_ (prn idsym"env+: new-els-props" (map unparse-filter new-els-props))
+            {ts :t fs2 :fl os2 :o flow2 :flow :as then-ret} 
+            (binding [vs/*current-expr* thn]
+              (var-env/with-lexical-env env-thn
+                (tc thn @flag+)))
 
-          {us :t fs3 :fl os3 :o flow3 :flow :as else-ret} 
-          (binding [vs/*current-expr* els]
-            (var-env/with-lexical-env env-els
-              (tc els @flag-)))
-            
+            {us :t fs3 :fl os3 :o flow3 :flow :as else-ret} 
+            (binding [vs/*current-expr* els]
+              (var-env/with-lexical-env env-els
+                (tc els @flag-)))
+
             ;_ (prn "flow2" (prs/unparse-flow-set flow2))
             ;_ (prn "flow3" (prs/unparse-flow-set flow3))
-          ]
+            ]
 
-      ;some optimization code here, contraditions etc? omitted
+        ;some optimization code here, contraditions etc? omitted
 
-      ;      (prn "check-if: then branch:" (prs/unparse-TCResult then-ret))
-      ;      (prn "check-if: else branch:" (prs/unparse-TCResult else-ret))
-      (cond
-        ;both branches reachable
-        (and (not (type-equal? (c/Un) ts))
-             (not (type-equal? (c/Un) us)))
-        (let [;_ (prn "both branches reachable")
-              r (let [filter (cond
-                               (or (fl/NoFilter? fs2)
-                                   (fl/NoFilter? fs3)) (fo/-FS fl/-top fl/-top)
-                               (and (fl/FilterSet? fs2)
-                                    (fl/FilterSet? fs3))
-                               (let [{f2+ :then f2- :else} fs2
-                                     {f3+ :then f3- :else} fs3
-                                     ; +ve test, +ve then
-                                     new-thn-props (:props env-thn)
-                                     ;_ (prn "new-thn-props" (map prs/unparse-filter new-thn-props))
-                                     new-els-props (:props env-els)
-                                     ;_ (prn "new-els-props" (map prs/unparse-filter new-els-props))
-                                     +t+t (apply fo/-and fs+ f2+ new-thn-props)
-                                     ;_ (prn "+t+t" (prs/unparse-filter +t+t))
-                                     ; -ve test, +ve else
-                                     -t+e (apply fo/-and fs- f3+ new-els-props)
-                                     ;_ (prn "-t+e" (prs/unparse-filter -t+e))
-                                     ; +ve test, -ve then
-                                     +t-t (apply fo/-and fs+ f2- new-thn-props)
-                                     ;_ (prn "+t-t" (prs/unparse-filter +t-t))
-                                     ; -ve test, -ve else
-                                     -t-e (apply fo/-and fs- f3- new-els-props)
-                                     ;_ (prn "-t-e" (prs/unparse-filter -t-e))
+        ;      (prn "check-if: then branch:" (prs/unparse-TCResult then-ret))
+        ;      (prn "check-if: else branch:" (prs/unparse-TCResult else-ret))
+        (cond
+          ;both branches reachable
+          (and (not (type-equal? (c/Un) ts))
+               (not (type-equal? (c/Un) us)))
+          (let [;_ (prn "both branches reachable")
+                r (let [filter (cond
+                                 (or (fl/NoFilter? fs2)
+                                     (fl/NoFilter? fs3)) (fo/-FS fl/-top fl/-top)
+                                 (and (fl/FilterSet? fs2)
+                                      (fl/FilterSet? fs3))
+                                 (let [{f2+ :then f2- :else} fs2
+                                       {f3+ :then f3- :else} fs3
+                                       ; +ve test, +ve then
+                                       new-thn-props (:props env-thn)
+                                       ;_ (prn "new-thn-props" (map prs/unparse-filter new-thn-props))
+                                       new-els-props (:props env-els)
+                                       ;_ (prn "new-els-props" (map prs/unparse-filter new-els-props))
+                                       +t+t (apply fo/-and fs+ f2+ new-thn-props)
+                                       ;_ (prn "+t+t" (prs/unparse-filter +t+t))
+                                       ; -ve test, +ve else
+                                       -t+e (apply fo/-and fs- f3+ new-els-props)
+                                       ;_ (prn "-t+e" (prs/unparse-filter -t+e))
+                                       ; +ve test, -ve then
+                                       +t-t (apply fo/-and fs+ f2- new-thn-props)
+                                       ;_ (prn "+t-t" (prs/unparse-filter +t-t))
+                                       ; -ve test, -ve else
+                                       -t-e (apply fo/-and fs- f3- new-els-props)
+                                       ;_ (prn "-t-e" (prs/unparse-filter -t-e))
 
-                                     final-thn-prop (fo/-or +t+t -t+e)
-                                     ;_ (prn "final-thn-prop" (prs/unparse-filter final-thn-prop))
-                                     final-els-prop (fo/-or +t-t -t-e)
-                                     ;_ (prn "final-els-prop" (prs/unparse-filter final-els-prop))
-                                     fs (fo/-FS final-thn-prop final-els-prop)]
-                                 fs)
-                               :else (u/int-error (str "What are these?" fs2 fs3)))
-                      type (c/Un ts us)
-                      object (if (object-equal? os2 os3) os2 (obj/->EmptyObject))
+                                       final-thn-prop (fo/-or +t+t -t+e)
+                                       ;_ (prn "final-thn-prop" (prs/unparse-filter final-thn-prop))
+                                       final-els-prop (fo/-or +t-t -t-e)
+                                       ;_ (prn "final-els-prop" (prs/unparse-filter final-els-prop))
+                                       fs (fo/-FS final-thn-prop final-els-prop)]
+                                   fs)
+                                 :else (u/int-error (str "What are these?" fs2 fs3)))
+                        type (c/Un ts us)
+                        object (if (object-equal? os2 os3) os2 (obj/->EmptyObject))
 
-                      ;only bother with something interesting if a branch is unreachable (the next two cond cases)
-                      ;Should be enough for `assert`
-                      ;flow (r/-flow (fo/-or flow2 flow3))
-                      flow (r/-flow fl/-top)
-                      ]
-                  (ret type filter object flow))]
-          ;(prn "check if:" "both branches reachable, with combined result" (prs/unparse-TCResult r))
-          (if expected (check-below r expected) r))
-        ;; both branches unreachable, flow-set is ff
-        (and (= us (c/Un))
-             (= ts (c/Un)))
-        (ret (c/Un) (fo/-FS fl/-top fl/-top) obj/-empty (r/-flow fl/-bot))
-        ;; special case if one of the branches is unreachable
-        (type-equal? us (c/Un))
-        (if expected (check-below (ret ts fs2 os2 flow2) expected) (ret ts fs2 os2 flow2))
-        (type-equal? ts (c/Un))
-        (if expected (check-below (ret us fs3 os3 flow3) expected) (ret us fs3 os3 flow3))
-        :else (u/int-error "Something happened")))))
+                        ;only bother with something interesting if a branch is unreachable (the next two cond cases)
+                        ;Should be enough for `assert`
+                        ;flow (r/-flow (fo/-or flow2 flow3))
+                        flow (r/-flow fl/-top)
+                        ]
+                    (ret type filter object flow))]
+            ;(prn "check if:" "both branches reachable, with combined result" (prs/unparse-TCResult r))
+            (if expected (check-below r expected) r))
+          ;; both branches unreachable, flow-set is ff
+          (and (= us (c/Un))
+               (= ts (c/Un)))
+          (ret (c/Un) (fo/-FS fl/-top fl/-top) obj/-empty (r/-flow fl/-bot))
+          ;; special case if one of the branches is unreachable
+          (type-equal? us (c/Un))
+          (if expected (check-below (ret ts fs2 os2 flow2) expected) (ret ts fs2 os2 flow2))
+          (type-equal? ts (c/Un))
+          (if expected (check-below (ret us fs3 os3 flow3) expected) (ret us fs3 os3 flow3))
+          :else (u/int-error "Something happened"))))))
 
 (add-check-method :if
   [{:keys [test then else] :as expr} & [expected]]
@@ -4063,11 +4061,10 @@ rest-param-name (when rest-param
   (assert (not expected))
   (assert init-provided)
   (let [vsym (u/var->symbol var)
-        warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (ns-name (expr-ns expr)))
-        t (binding [var-env/*var-annotations* var-env/VAR-ANNOTATIONS]
-            (if warn-if-unannotated?
-              (var-env/lookup-Var-nofail vsym)
-              (var-env/lookup-Var vsym)))
+        warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (expr-ns expr))
+        t (if warn-if-unannotated?
+            (var-env/lookup-Var-nofail vsym)
+            (var-env/lookup-Var vsym))
         ; t could only be nil if warn-if-unannotated? is true
         _ (assert (or t warn-if-unannotated?))
         check? (when t

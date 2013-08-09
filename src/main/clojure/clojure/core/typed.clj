@@ -1,7 +1,7 @@
 (ns clojure.core.typed
   (:require [clojure.pprint :as pprint]
             [clojure.set :as set]
-            [clojure.core.typed.current-impl :as impl])
+            [clojure.core.typed.current-impl :as impl :refer [v]])
   (:refer-clojure :exclude [type]))
 
 ;=============================================================
@@ -25,26 +25,19 @@
 ; c.c.typed.cs-gen
 ;   Polymorphic local type inference algorithm.
 
-(defn ^:private v [vsym]
-  {:pre [(symbol? vsym)
-         (namespace vsym)]}
-  (let [ns (find-ns (symbol (namespace vsym)))
-        _ (assert ns (str "Cannot find namespace: " (namespace vsym)))
-        var (ns-resolve ns (symbol (name vsym)))]
-    (assert (var? var) (str "Cannot find var: " vsym))
-    @var))
-
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
   []
   (when-not (find-ns 'clojure.core.typed.init)
     (require 'clojure.core.typed.init))
-  (when-not (@(ns-resolve (find-ns 'clojure.core.typed.init) 'loaded?))
-    (println "Initializing core.typed ...")
-    (flush)
-    (time (@(ns-resolve (find-ns 'clojure.core.typed.init) 'load-impl)))
-    (println "core.typed initialized.")
-    (flush)))
+  (let [init-ns (find-ns 'clojure.core.typed.init)]
+    (assert init-ns)
+    (when-not (@(ns-resolve init-ns 'loaded?))
+      (println "Initializing core.typed ...")
+      (flush)
+      (time (@(ns-resolve init-ns 'load-impl)))
+      (println "core.typed initialized.")
+      (flush))))
 
 ; ## Base alias vars
 ;
@@ -1181,8 +1174,7 @@
                                         'check-ns-and-deps)
          vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
                                                'vars-with-unchecked-defs)]
-   (impl/with-clojure-impl
-     (reset-envs!))
+   (reset-envs!)
    (cond
      *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
 

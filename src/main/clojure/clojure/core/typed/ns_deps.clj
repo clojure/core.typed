@@ -12,25 +12,47 @@
 (defn init-deps [] 
   {})
 
-(t/ann ^:no-check TYPED-DEPS (t/Atom1 DepMap))
-(defonce TYPED-DEPS (atom (init-deps)
-                          :validator (u/hash-c? symbol? (u/set-c? symbol?))))
+(t/ann *current-deps* (U nil (t/Atom1 DepMap)))
+(def ^:dynamic *current-deps* nil)
+
+(t/ann assert-dep-map [-> Any])
+(defn assert-dep-map []
+  (assert *current-deps* "No current namespace dependencies"))
+
+(t/ann current-deps [-> (t/Atom1 DepMap)])
+(defn current-deps []
+  {:post [%]}
+  (assert-dep-map)
+  *current-deps*)
+
+(t/ann ^:no-check dep-map? [Any -> Any])
+(def dep-map? (u/hash-c? symbol? (u/set-c? symbol?)))
+
+(t/ann ^:no-check CLJ-TYPED-DEPS (t/Atom1 DepMap))
+(defonce CLJ-TYPED-DEPS (atom (init-deps) :validator dep-map?))
+
+(t/ann ^:no-check CLJS-TYPED-DEPS (t/Atom1 DepMap))
+(defonce CLJS-TYPED-DEPS (atom (init-deps) :validator dep-map?))
 
 (t/ann ^:no-check add-ns-deps [Symbol (IPersistentSet Symbol) -> DepMap])
 (defn add-ns-deps [nsym deps]
-  (swap! TYPED-DEPS update-in [nsym] u/set-union deps))
+  (assert-dep-map)
+  (swap! (current-deps) update-in [nsym] u/set-union deps))
 
 (t/ann ^:no-check remove-ns-deps [Symbol (IPersistentSet Symbol) -> DepMap])
 (defn remove-ns-deps [nsym deps]
-  (swap! TYPED-DEPS update-in [nsym] u/set-difference deps))
+  (assert-dep-map)
+  (swap! (current-deps) update-in [nsym] u/set-difference deps))
 
 (t/ann ^:no-check immediate-deps [Symbol -> (IPersistentSet Symbol)])
 (defn immediate-deps [target-ns]
   {:pre [(symbol? target-ns)]
    :post [((u/set-c? symbol?) %)]}
-  (or (@TYPED-DEPS target-ns)
+  (assert-dep-map)
+  (or (@(current-deps) target-ns)
       #{}))
 
 (t/ann reset-deps! [-> DepMap])
 (defn reset-deps! []
-  (reset! TYPED-DEPS (init-deps)))
+  (assert-dep-map)
+  (reset! (current-deps) (init-deps)))
