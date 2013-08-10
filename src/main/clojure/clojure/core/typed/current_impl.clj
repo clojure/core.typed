@@ -52,6 +52,9 @@
                              (v '~'clojure.core.typed.var-env/CLJ-USED-VARS)
                             (the-var '~'clojure.core.typed.var-env/*current-checked-var-defs*)
                              (v '~'clojure.core.typed.var-env/CLJ-CHECKED-VAR-DEFS) 
+
+                            (the-var '~'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
+                             (v '~'clojure.core.typed.declared-kind-env/CLJ-DECLARED-KIND-ENV) 
                             })
      (try 
        ~@body
@@ -74,6 +77,9 @@
                              (v '~'clojure.core.typed.var-env/CLJS-USED-VARS)
                             (the-var '~'clojure.core.typed.var-env/*current-checked-var-defs*)
                              (v '~'clojure.core.typed.var-env/CLJS-CHECKED-VAR-DEFS) 
+
+                            (the-var '~'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
+                             (v '~'clojure.core.typed.declared-kind-env/CLJS-DECLARED-KIND-ENV) 
                             })
      (try 
        ~@body
@@ -97,8 +103,11 @@
   (ensure-impl-specified)
   (= clojurescript *current-impl*))
 
-(defn assert-clojure []
-  (assert (= clojure *current-impl*) "Clojure implementation only"))
+(defn assert-clojure 
+  ([] (assert-clojure nil))
+  ([msg] (assert (= clojure *current-impl*) (str "Clojure implementation only"
+                                                 (when (seq msg)
+                                                   (str ": " msg))))))
 
 (defn assert-cljs []
   (assert (= clojurescript *current-impl*) "Clojurescript implementation only"))

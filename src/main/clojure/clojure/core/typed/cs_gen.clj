@@ -15,6 +15,7 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.promote-demote :as prmt]
             [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed :as t]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
@@ -254,16 +255,20 @@
         (and (r/Value? S)
              (impl/checking-clojure?))
         (let [^Value S S]
-          (if (nil? (.val S))
-            (fail! S T)
-            (cs-gen V X Y
-                    (apply c/In (c/RClass-of (class (.val S)))
-                           (cond 
-                             ;keyword values are functions
-                             (keyword? (.val S)) [(c/keyword->Fn (.val S))]
-                             ;strings have a known length as a seqable
-                             (string? (.val S)) [(r/make-ExactCountRange (count (.val S)))]))
-                    T)))
+          (impl/impl-case
+            :clojure (if (nil? (.val S))
+                       (fail! S T)
+                       (cs-gen V X Y
+                               (apply c/In (c/RClass-of (class (.val S)))
+                                      (cond 
+                                        ;keyword values are functions
+                                        (keyword? (.val S)) [(c/keyword->Fn (.val S))]
+                                        ;strings have a known length as a seqable
+                                        (string? (.val S)) [(r/make-ExactCountRange (count (.val S)))]))
+                               T))
+            :cljs (cond
+                    (number? (.val S)) (cs-gen V X Y (r/NumberCLJS-maker) T)
+                    :else (fail! S T))))
 
         ;; constrain body to be below T, but don't mention the new vars
         (r/Poly? S)
@@ -518,22 +523,28 @@
 (defmethod cs-gen* [HeterogeneousSeq RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y 
-          (c/In (c/RClass-of ISeq [(apply c/Un (:types S))]) 
-              (r/make-ExactCountRange (count (:types S))))
+          (c/In (impl/impl-case
+                  :clojure (c/RClass-of ISeq [(apply c/Un (:types S))]) 
+                  :cljs (c/Protocol-of 'cljs.core/ISeq [(apply c/Un (:types S))]))
+                (r/make-ExactCountRange (count (:types S))))
           T))
 
 (defmethod cs-gen* [HeterogeneousList RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y 
-          (c/In (c/RClass-of IPersistentList [(apply c/Un (:types S))]) 
-              (r/make-ExactCountRange (count (:types S))))
+          (c/In (impl/impl-case
+                  :clojure (c/RClass-of IPersistentList [(apply c/Un (:types S))])
+                  :cljs (c/Protocol-of 'cljs.core/IList [(apply c/Un (:types S))]))
+                (r/make-ExactCountRange (count (:types S))))
           T))
 
 (defmethod cs-gen* [HeterogeneousVector RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y 
-          (c/In (c/RClass-of APersistentVector [(apply c/Un (:types S))]) 
-              (r/make-ExactCountRange (count (:types S))))
+          (c/In (impl/impl-case
+                  :clojure (c/RClass-of APersistentVector [(apply c/Un (:types S))]) 
+                  :cljs (c/Protocol-of 'cljs.core/IVector [(apply c/Un (:types S))]))
+                (r/make-ExactCountRange (count (:types S))))
           T))
 
 (declare cs-gen-list)
@@ -590,10 +601,15 @@
   [V X Y ^HeterogeneousMap S T]
   ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
   (let [new-S (if (c/complete-hmap? S)
-                (c/RClass-of APersistentMap [(apply c/Un (keys (.types S)))
-                                           (apply c/Un (vals (.types S)))]) 
+                (impl/impl-case
+                  :clojure (c/RClass-of APersistentMap [(apply c/Un (keys (.types S)))
+                                                        (apply c/Un (vals (.types S)))])
+                  :cljs (c/Protocol-of 'cljs.core/IMap [(apply c/Un (keys (.types S)))
+                                                        (apply c/Un (vals (.types S)))]))
 
-                (c/RClass-of APersistentMap [r/-any r/-any]))]
+                (impl/impl-case
+                  :clojure (c/RClass-of APersistentMap [r/-any r/-any])
+                  :cljs (c/Protocol-of 'cljs.core/IMap [r/-any r/-any])))]
     (cs-gen V X Y new-S T)))
 
 ; constrain si and ti according to variance

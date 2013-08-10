@@ -5,29 +5,47 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Declared kind Env
 
-(defonce DECLARED-KIND-ENV (atom {}))
-(set-validator! DECLARED-KIND-ENV (u/hash-c? symbol? r/TypeFn?))
+(def ^:dynamic *current-declared-kinds* nil)
+
+(defn assert-declared-kinds []
+  (assert *current-declared-kinds* "No declared kinds bound"))
+
+(defonce CLJ-DECLARED-KIND-ENV (atom {}))
+(set-validator! CLJ-DECLARED-KIND-ENV (u/hash-c? symbol? r/TypeFn?))
+
+(defonce CLJS-DECLARED-KIND-ENV (atom {}))
+(set-validator! CLJS-DECLARED-KIND-ENV (u/hash-c? symbol? r/TypeFn?))
+
+(defn reset-declared-kinds! [m]
+  (assert-declared-kinds)
+  (reset! *current-declared-kinds* m))
 
 (defn add-declared-kind [sym tfn]
   {:pre [(symbol? sym)
          (r/TypeFn? tfn)]}
-  (swap! DECLARED-KIND-ENV assoc sym tfn)
+  (assert-declared-kinds)
+  (swap! *current-declared-kinds* assoc sym tfn)
   nil)
 
 (defn declared-kind-or-nil [sym]
-  (@DECLARED-KIND-ENV sym))
+  (assert-declared-kinds)
+  (@*current-declared-kinds* sym))
 
 (defn get-declared-kind [sym]
+  (assert-declared-kinds)
   (if-let [tfn (declared-kind-or-nil sym)]
     tfn
     (throw (Exception. (u/error-msg "No declared kind for Name " sym)))))
 
 (defn has-declared-kind? [sym]
+  (assert-declared-kinds)
   (boolean (declared-kind-or-nil sym)))
 
 (defn remove-declared-kind [sym]
-  (swap! DECLARED-KIND-ENV dissoc sym)
+  (assert-declared-kinds)
+  (swap! *current-declared-kinds* dissoc sym)
   nil)
 
 (defn declare-alias-kind* [sym ty]
+  (assert-declared-kinds)
   (add-declared-kind sym ty))

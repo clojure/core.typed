@@ -356,27 +356,44 @@
         (let [^HeterogeneousMap s s]
           ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
           (if (c/complete-hmap? s)
-            (subtype (c/RClass-of APersistentMap [(apply c/Un (keys (.types s)))
-                                                  (apply c/Un (vals (.types s)))]) 
+            (subtype (impl/impl-case
+                       :clojure (c/RClass-of APersistentMap [(apply c/Un (keys (.types s)))
+                                                             (apply c/Un (vals (.types s)))])
+                       :cljs (c/Protocol-of 'cljs.core/IMap [(apply c/Un (keys (.types s)))
+                                                             (apply c/Un (vals (.types s)))]))
                      t)
-            (subtype (c/RClass-of APersistentMap [r/-any r/-any]) t)))
+            (subtype (impl/impl-case
+                       :clojure (c/RClass-of APersistentMap [r/-any r/-any])
+                       :cljs (c/Protocol-of 'cljs.core/IMap [r/-any r/-any]))
+                     t)))
 
         (r/KwArgsSeq? s)
-        (subtype (c/Un r/-nil (c/RClass-of Seqable [r/-any])) t)
+        (subtype (c/Un r/-nil 
+                       (impl/impl-case
+                         :clojure (c/RClass-of Seqable [r/-any])
+                         :cljs (c/Protocol-of 'cljs.core/ISeqable [r/-any])))
+                 t)
 
         (r/HeterogeneousVector? s)
         (let [ss (apply c/Un (:types s))]
-          (subtype (c/In (c/RClass-of APersistentVector [ss])
+          (subtype (c/In (impl/impl-case
+                           :clojure (c/RClass-of APersistentVector [ss])
+                           :cljs (c/Protocol-of 'cljs.core/IVector [ss]))
                          (r/make-ExactCountRange (count (:types s))))
                    t))
 
         (r/HeterogeneousList? s)
         (let [ss (apply c/Un (:types s))]
-          (subtype (c/RClass-of PersistentList [ss]) t))
+          (subtype (impl/impl-case
+                     :clojure (c/RClass-of PersistentList [ss])
+                     :cljs (c/Protocol-of 'cljs.core/IList [ss]))
+                   t))
 
         (r/HeterogeneousSeq? s)
         (let [ss (apply c/Un (:types s))]
-          (subtype (c/RClass-of (u/Class->symbol ASeq) [ss])
+          (subtype (impl/impl-case
+                     :clojure (c/RClass-of ASeq [ss])
+                     :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))
                    t))
 
 ; check protocols before datatypes
@@ -396,9 +413,11 @@
             (fail! s t)))
 
         (r/Protocol? s)
-        (if (= (c/RClass-of Object) t)
-          *sub-current-seen*
-          (fail! s t))
+        (impl/impl-case
+          :clojure (if (= (c/RClass-of Object) t)
+                     *sub-current-seen*
+                     (fail! s t))
+          :cljs (fail! s t))
         
         (r/Protocol? t)
         (let [desc (protocol-descendants t)]
@@ -462,6 +481,7 @@
 (defn protocol-descendants [^Protocol p]
   {:pre [(r/Protocol? p)]
    :post [(every? r/Type? %)]}
+  (impl/assert-clojure "compute protocol descendants")
   (let [protocol-var (resolve (.the-var p))
         _ (assert protocol-var (str "Protocol cannot be resolved: " (.the-var p)))
         exts (extenders @protocol-var)]
@@ -751,19 +771,23 @@
 
 (defn- subtype-datatype-record-on-left
   [{:keys [the-class] :as s} t]
-  (if (some #(subtype? % t) (set/union #{(c/RClass-of Object)} 
-                                       (or (@dtenv/DATATYPE-ANCESTOR-ENV the-class)
-                                           #{})))
-    *sub-current-seen*
-    (fail! s t)))
+  (impl/impl-case
+    :clojure (if (some #(subtype? % t) (set/union #{(c/RClass-of Object)} 
+                                                  (or (@dtenv/DATATYPE-ANCESTOR-ENV the-class)
+                                                      #{})))
+               *sub-current-seen*
+               (fail! s t))
+    :cljs (assert nil "FIXME datatype subtyping CLJS")))
 
 (defn- subtype-datatype-record-on-right
   [s {:keys [the-class] :as t}]
-  (if (every? #(subtype? s %) (set/union #{(c/RClass-of Object)} 
-                                         (or (@dtenv/DATATYPE-ANCESTOR-ENV the-class)
-                                             #{})))
-    *sub-current-seen*
-    (fail! s t)))
+  (impl/impl-case
+    :clojure (if (every? #(subtype? s %) (set/union #{(c/RClass-of Object)} 
+                                                    (or (@dtenv/DATATYPE-ANCESTOR-ENV the-class)
+                                                        #{})))
+               *sub-current-seen*
+               (fail! s t))
+    :cljs (assert nil "FIXME datatype subtype CLJS")))
 
 (defn- subtype-datatypes-or-records
   [{cls1 :the-class poly1 :poly? :as s} 
@@ -788,6 +812,7 @@
 (defn- subtype-rclass
   [{variancesl :variances classl :the-class :as s}
    {variancesr :variances classr :the-class :as t}]
+  (impl/assert-clojure)
   (let [replacementsl (c/RClass-replacements* s)
         replacementsr (c/RClass-replacements* t)]
     (cond
@@ -806,6 +831,7 @@
 (defn- subtype-RClass-common-base 
   [{polyl? :poly? lcls-sym :the-class :as s}
    {polyr? :poly? rcls-sym :the-class :as t}]
+  (impl/assert-clojure)
   (let [{variances :variances} s]
     (and (= lcls-sym rcls-sym)
          (or (and (empty? polyl?) (empty? polyr?))
@@ -834,6 +860,7 @@
 ;[RClass RClass -> Boolean]
 (defn coerse-RClass-primitive
   [s t]
+  (impl/assert-clojure)
   (cond
     ; (U Integer Long) <: (U int long)
     (and 

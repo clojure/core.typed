@@ -4,6 +4,7 @@
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.path-rep :as pthrep]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.util-cljs :as ucljs]
             [clojure.core.typed.dvar-env :as dvar]
             [clojure.core.typed.filter-rep :as f]
             [clojure.core.typed.filter-ops :as fl]
@@ -52,6 +53,23 @@
 
 (declare find-lower-bound find-upper-bound infer-bounds)
 
+; parsing TFn, protocol, RCLass binders
+(defn parse-free-with-variance [f]
+  {:post [(u/hvector-c? symbol? r/Bounds?)]}
+  (if (symbol? f)
+    [f r/no-bounds]
+    (let [[n & {:keys [< > variance] :as opts}] f]
+      (when (contains? opts :kind)
+        (prn "DEPRECATED: kind annotation for TFn parameters"))
+      {:fname n 
+       :bnd (let [upper-or-nil (when (contains? opts :<)
+                                 (parse-type <))
+                  lower-or-nil (when (contains? opts :>)
+                                 (parse-type >))]
+              (infer-bounds upper-or-nil lower-or-nil))
+       :variance variance})))
+
+; parsing All binders
 ;return a vector of [name bnds]
 (defn parse-free [f]
   {:post [(u/hvector-c? symbol? r/Bounds?)]}
@@ -413,25 +431,37 @@
         :clojure (ns-name *ns*)
         :cljs cljs-ana/*cljs-ns*)))
 
-(defn- resolve-type [sym]
+(defn- resolve-type-clj 
+  "Returns a qualified symbol, class or nil"
+  [sym]
   {:pre [(symbol? sym)]}
+  (impl/assert-clojure)
   (let [nsym (parse-in-ns)]
-    (impl/impl-case
-      :clojure (if-let [ns (find-ns nsym)]
-                 (ns-resolve ns sym)
-                 (assert nil (str "Cannot find namespace: " sym)))
-      :cljs (assert nil "FIXME"))))
+    (if-let [ns (find-ns nsym)]
+      (ns-resolve ns sym)
+      (assert nil (str "Cannot find namespace: " sym)))))
+
+(defn- resolve-type-cljs 
+  "Returns a var map of {:ns sym :name sym} or nil"
+  [sym]
+  {:pre [(symbol? sym)]}
+  (impl/assert-cljs)
+  (let [nsym (parse-in-ns)]
+    (ucljs/resolve-var nsym sym)))
 
 (defn parse-RClass [cls-sym params-syn]
+  (impl/assert-clojure)
   (let [RClass-of @(RClass-of-var)
-        cls (resolve-type cls-sym)
+        cls (resolve-type-clj cls-sym)
         _ (assert (class? cls) (str cls-sym " cannot be resolved"))
         tparams (doall (map parse-type params-syn))]
     (RClass-of cls tparams)))
 
 (defmethod parse-type-list 'Value
   [[_Value_ syn]]
-  (const/constant-type syn))
+  (impl/impl-case
+    :clojure (const/constant-type syn)
+    :cljs (assert nil "FIX parse Value")))
 
 (defmethod parse-type-list 'KeywordArgs
   [[_KeywordArgs_ & {:keys [optional mandatory]}]]
@@ -457,32 +487,40 @@
 (defmethod parse-type-list :default 
   [[n & args :as syn]]
   (let [RClass-of @(RClass-of-var)
-        current-nstr (-> (parse-in-ns) name)
-        res (when (symbol? n)
-              (resolve-type n))
-        rsym (cond 
-               (class? res) (u/Class->symbol res)
-               (var? res) (u/var->symbol res))]
+        current-nstr (-> (parse-in-ns) name)]
+    (let [rsym (impl/impl-case
+                 :clojure (when-let [res (when (symbol? n)
+                                           (resolve-type-clj n))]
+                            (cond 
+                              (class? res) (u/Class->symbol res)
+                              (var? res) (u/var->symbol res)))
+                 :cljs (when-let [res (when (symbol? n)
+                                        (resolve-type-cljs n))]
+                         (:name res)))
+          _ (assert ((some-fn symbol? nil?) rsym))]
     (if-let [free (and (symbol? n) (free-ops/free-in-scope n))]
       (r/TApp-maker free (mapv parse-type args))
       (if-let [t ((some-fn dtenv/get-datatype prenv/get-protocol nmenv/get-type-name) rsym)]
         ;don't resolve if operator is declared
         (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
-        (cond
-          ;a Class that's not a DataType
-          (class? res) (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
-          (symbol? n)
-          ;unqualified declared protocols and datatypes
-          (if-let [s (let [svar (symbol current-nstr (name n))
-                           scls (symbol (munge (str current-nstr \. (name n))))]
-                       (some #(and (nmenv/get-type-name %)
-                                   %)
-                             [svar scls]))]
-            (r/TApp-maker (r/Name-maker s) (mapv parse-type args))
-            (u/tc-error (str "Cannot parse type: " (pr-str syn)
-                             (when (seq syn)
-                               (str "\nHint: Does " (first syn) " accept parameters and is it in scope?")))))
-          :else (r/TApp-maker (parse-type n) (mapv parse-type args)))))))
+        (if (and (impl/checking-clojure?)
+                 (class? (when (symbol? n)
+                           (resolve-type-clj n))))
+          ;a Class that's not a datatype
+          (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
+          (cond
+            (symbol? n)
+            ;unqualified declared protocols and datatypes
+            (if-let [s (let [svar (symbol current-nstr (name n))
+                             scls (symbol (munge (str current-nstr \. (name n))))]
+                         (some #(and (nmenv/get-type-name %)
+                                     %)
+                               [svar scls]))]
+              (r/TApp-maker (r/Name-maker s) (mapv parse-type args))
+              (u/tc-error (str "Cannot parse type: " (pr-str syn)
+                               (when (seq syn)
+                                 (str "\nHint: Does " (first syn) " accept parameters and is it in scope?")))))
+            :else (r/TApp-maker (parse-type n) (mapv parse-type args)))))))))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] (parse-type-list l))
@@ -536,7 +574,7 @@
                        (symbol (str (munge current-nstr) \. (name sym))))]
           (or (resolve-symbol qsym clssym)
               (impl/impl-case
-                :clojure (let [res (resolve-type sym)
+                :clojure (let [res (resolve-type-clj sym)
                                qsym (when (var? res)
                                       (u/var->symbol res))
                                clssym (when (class? res)

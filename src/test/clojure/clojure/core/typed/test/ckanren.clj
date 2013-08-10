@@ -3,7 +3,7 @@
   (:use [clojure.walk :only [postwalk]])
   (:require [clojure.set :as set]
             [clojure.core.typed :refer [ann def-alias declare-protocols ann-protocol
-                                        ann-pprotocol declare-datatypes
+                                        declare-datatypes
                                         ann-form
                                         tc-ignore check-ns ann-datatype cf
                                         ann-pdatatype fn> AnyInteger
@@ -333,8 +333,9 @@
 ;; =============================================================================
 ;; Pair
 
-(ann-pprotocol IPair [[a :covariant] 
-                      [b :covariant]]
+(ann-protocol [[a :variance :covariant] 
+                [b :variance :covariant]]
+               IPair 
                lhs [(IPair a b) -> a]
                rhs [(IPair a b) -> b])
 

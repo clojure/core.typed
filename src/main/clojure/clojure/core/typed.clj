@@ -910,19 +910,39 @@
 (defn ^:skip-wiki
   ann-protocol* 
   "Internal use only. Use ann-protocol."
-  [varsym mth]
+  [vbnd varsym mth]
   nil)
 
-(defmacro ann-protocol 
-  "Annotate protocol var with method types.
+(defmacro 
+  ^{:forms '[(ann-protocol vbnd varsym & methods)
+             (ann-protocol varsym & methods)]}
+  ann-protocol 
+  "Annotate a possibly polymorphic protocol var with method types.
   
   eg. (ann-protocol IFoo
         bar
         [IFoo -> Any]
         baz
+        [IFoo -> Number])
+
+      ; polymorphic
+      (ann-protocol [[x :variance :covariant]]
+        IFoo
+        bar
+        [IFoo -> Any]
+        baz
         [IFoo -> Number])"
-  [varsym & {:as mth}]
-  `(ann-protocol* '~varsym '~mth))
+  [& args]
+  (let [bnd-provided? (vector? (first args))
+        vbnd (when bnd-provided?
+               (first args))
+        varsym (if bnd-provided?
+                 (second args)
+                 (first args))
+        {:as mth} (if bnd-provided?
+                    (next (next args))
+                    (next args))]
+    `(ann-protocol* '~vbnd '~varsym '~mth)))
 
 (defn ^:skip-wiki
   ann-pprotocol* 
@@ -933,6 +953,7 @@
 (defmacro ann-pprotocol 
   "Annotate polymorphic protocol with a polymorphic binder and method types."
   [varsym vbnd & {:as mth}]
+  (prn "UNSUPPPORTED OPERATION: ann-pprotocol, use ann-protocol with binder as first argument, ie. before protocol name")
   `(ann-pprotocol* '~varsym '~vbnd '~mth))
 
 (defn ^:skip-wiki

@@ -610,7 +610,8 @@ clojure.core.typed/declare-names* [Any -> Any]
 clojure.core.typed/typed-deps* [Any -> Any]
 clojure.core.typed/warn-on-unannotated-vars* [-> Any]
 clojure.core.typed/ann-datatype* [Any Any Any -> Any]
-clojure.core.typed/ann-protocol* [Any Any -> Any]
+clojure.core.typed/ann-protocol* [Any Any Any -> Any]
+      ; REMOVED
 clojure.core.typed/ann-pprotocol* [Any Any Any -> Any]
 clojure.core.typed/ann-record* [Any Any Any -> Any]
 clojure.core.typed/ann-pdatatype* [Any Any Any Any -> Any]
@@ -1538,6 +1539,10 @@ clojure.lang.Delay (All [x]
                         [[-> x] -> (Delay x)])
     ))
 
+(def init-protocol-env {})
+
+(def init-declared-kinds {})
+
 (defn reset-clojure-envs! []
   (impl/with-clojure-impl
     ((v 'clojure.core.typed.name-env/reset-name-env!) init-alias-env)
@@ -1552,4 +1557,8 @@ clojure.lang.Delay (All [x]
     ((v 'clojure.core.typed.ctor-override-env/reset-constructor-override-env!) 
      init-ctor-override-env)
     ((v 'clojure.core.typed.rclass-env/reset-rclass-env!) 
-     init-altered-env)))
+     init-altered-env)
+    ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
+     init-protocol-env)
+    ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
+     init-declared-kinds)))

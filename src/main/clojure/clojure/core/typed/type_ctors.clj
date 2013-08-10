@@ -9,6 +9,7 @@
             [clojure.core.typed.fold-rep :as f]
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.datatype-env :as dtenv]
+            [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed :as t :refer [fn>]]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
@@ -335,12 +336,55 @@
       res))
   )
 
+(declare TypeFn* instantiate-poly instantiate-typefn abstract-many instantiate-many)
+
+;; Protocol
+
+(defn Protocol* [names variances poly? the-var on-class methods bnds]
+  {:pre [(every? symbol? names)
+         (every? r/variance? variances)
+         (= (count variances) (count poly?))
+         (every? r/Type? poly?)
+         (every? r/Bounds? bnds)
+         (symbol? the-var)
+         (symbol? on-class)]
+   :post [(r/Type? %)]}
+  (let [methods (into {} (for [[k v] methods]
+                           [k (abstract-many names v)]))
+        p (r/Protocol-maker the-var (seq variances) (seq poly?) on-class methods)]
+    (if (seq variances)
+      (TypeFn* names variances bnds p)
+      p)))
+
+(defn Protocol-var->on-class 
+  "Given the var symbol of a protocol, returns the corresponding
+  class the protocol is based on as a munged symbol."
+  [sym]
+  {:pre [(symbol? sym)]
+   :post [(symbol? %)]}
+  (symbol (str (munge (namespace sym)) \. (name sym))))
+
+(defn Protocol-of 
+  ([sym] (Protocol-of sym nil))
+  ([sym args]
+   {:pre [(symbol? sym)
+          (every? r/Type? args)]
+    :post [(r/Type? %)]}
+   (let [p (prenv/get-protocol sym)]
+     (assert ((some-fn r/TypeFn? r/Protocol? nil?) p))
+     ; parameterised protocols must be previously annotated
+     (assert (or (r/TypeFn? p) (empty? args))
+             (str "Cannot instantiate non-polymorphic Protocol " sym))
+     (cond 
+       (r/TypeFn? p) (instantiate-typefn p args)
+       (r/Protocol? p) p
+       ; allow unannotated protocols if unparameterised
+       :else (r/Protocol-maker sym nil nil (Protocol-var->on-class sym) {})))))
+
 ;; RClass
 
 (t/ann *current-RClass-super* Symbol)
 (def ^:dynamic *current-RClass-super*)
-
-(declare TypeFn* instantiate-poly instantiate-typefn abstract-many instantiate-many)
 
 ;smart constructor
 (t/ann ^:no-check RClass* 

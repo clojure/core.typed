@@ -28,6 +28,37 @@
   [varsym typesyn]
   `(ann* '~varsym '~typesyn))
 
+(defmacro 
+  ^{:forms '[(ann-protocol vbnd varsym & methods)
+             (ann-protocol varsym & methods)]}
+  ann-protocol 
+  "Annotate a possibly polymorphic protocol var with method types.
+  
+  eg. (ann-protocol IFoo
+        bar
+        [IFoo -> Any]
+        baz
+        [IFoo -> Number])
+
+      ; polymorphic
+      (ann-protocol [[x :variance :covariant]]
+        IFoo
+        bar
+        [IFoo -> Any]
+        baz
+        [IFoo -> Number])"
+  [& args]
+  (let [bnd-provided? (vector? (first args))
+        vbnd (when bnd-provided?
+               (first args))
+        varsym (if bnd-provided?
+                 (second args)
+                 (first args))
+        {:as mth} (if bnd-provided?
+                    (next (next args))
+                    (next args))]
+    `(ann-protocol* '~vbnd '~varsym '~mth)))
+
 (def ^:dynamic *currently-checking-cljs* nil)
 (def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors*)
 (def ^:dynamic *already-collected*)
@@ -56,8 +87,8 @@
                 ;check
                 c-ast ((v 'clojure.core.typed.check-cljs/check) ast
                        (when expected-provided?
-                         (v 'clojure.core.typed.type-rep/ret 
-                            (v 'clojure.core.typed.parse-type/parse-type expected))))]
+                         ((v 'clojure.core.typed.type-rep/ret)
+                          ((v 'clojure.core.typed.parse-unparse/parse-type) expected))))]
             ;handle errors
             (if-let [errors (seq @*delayed-errors*)]
               (t/print-errors! errors)

@@ -298,7 +298,7 @@
                      (prs/parse-type typesyn))]
     ;var already interned via macroexpansion
     (nme-env/add-type-name qsym alias-type)
-    (when-let [tfn (@decl/DECLARED-KIND-ENV qsym)]
+    (when-let [tfn (decl/declared-kind-or-nil qsym)]
       (assert (sub/subtype? alias-type tfn) (u/error-msg "Declared kind " (prs/unparse-type tfn)
                                                          " does not match actual kind " (prs/unparse-type alias-type))))
     nil))
@@ -340,19 +340,19 @@
     (override/add-method-override msym ty)
     nil))
 
-(defn gen-protocol* [current-env current-ns vsym vbnds mths]
+(defn gen-protocol* [current-env current-ns vsym binder mths]
   {:pre [(symbol? current-ns)]}
-  (let [variances (seq (map second vbnds))
-        args (seq (map first vbnds))
+  (let [parsed-binder (when binder 
+                        (map prs/parse-free-with-variance binder))
         s (if (namespace vsym)
             (symbol vsym)
             (symbol (str current-ns) (name vsym)))
         protocol-defined-in-nstr (namespace s)
-        on-class (symbol (str (munge (namespace s)) \. (name s)))
+        on-class (c/Protocol-var->on-class s)
         ; add a Name so the methods can be parsed
         _ (nme-env/declare-protocol* s)
-        fs (when args
-              (map r/make-F args))
+        fs (when parsed-binder
+             (map (comp r/make-F :fname) parsed-binder))
         ms (into {} (for [[knq v] mths]
                        (do
                          (assert (not (namespace knq))
@@ -361,10 +361,8 @@
                                  (binding [uvar/*current-env* current-env
                                            prs/*parse-type-in-ns* current-ns]
                                    (prs/parse-type v)))])))
-        t (if fs
-            (c/TypeFn* (map :name fs) variances (repeat (count fs) r/no-bounds) 
-                     (r/Protocol-maker s variances fs on-class ms))
-            (r/Protocol-maker s nil nil on-class ms))]
+        t (c/Protocol* (map :name fs) (map :variance parsed-binder) 
+                       fs s on-class ms (map :bnd parsed-binder))]
     (ptl-env/add-protocol s t)
     (doseq [[kuq mt] ms]
       (assert (not (namespace kuq))
@@ -377,16 +375,16 @@
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-protocol*
   [{:keys [args env] :as expr}]
-  (assert-expr-args expr #{2})
-  (let [[varsym mth] (constant-exprs args)]
-    (gen-protocol* env (chk/expr-ns expr) varsym nil mth)))
+  (assert-expr-args expr #{3})
+  (let [[binder varsym mth] (constant-exprs args)]
+    (gen-protocol* env (chk/expr-ns expr) varsym binder mth)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-pprotocol*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{3})
-  (let [[varsym vbnd mth] (constant-exprs args)]
-    ;(println "DEPRECATED: ann-pprotocol, use ann-protocol with binder as first argument")
-    (gen-protocol* env (chk/expr-ns expr) varsym vbnd mth)))
+  (let [[varsym binder mth] (constant-exprs args)]
+    (assert nil "UNSUPPPORTED OPERATION: ann-pprotocol, use ann-protocol with binder as first argument, ie. before protocol name")
+    #_(gen-protocol* env (chk/expr-ns expr) varsym binder mth)))
 
 
 (defmethod invoke-special-collect :default

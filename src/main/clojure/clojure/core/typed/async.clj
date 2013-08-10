@@ -14,9 +14,11 @@
       use buffer> (similar for other buffer constructors)
     "}
   clojure.core.typed.async
-  (:require [clojure.core.typed :refer [ann ann-pdatatype def-alias ann-pprotocol inst
+  (:require [clojure.core.typed :refer [ann ann-pdatatype def-alias inst ann-protocol
                                         AnyInteger tc-ignore Seqable]
-             :as t])
+             :as t]
+            #_[clojure.core.async]
+            )
   (:import (java.util.concurrent Executor)
            (java.util.concurrent.atomic AtomicReferenceArray)))
 
@@ -26,18 +28,18 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;; Protocols
 
-(ann-pprotocol clojure.core.async.impl.protocols/Channel
-               [[w :contravariant]
-                [r :covariant]])
+(ann-protocol [[w :variance :contravariant]
+               [r :variance :covariant]]
+              clojure.core.async.impl.protocols/Channel)
 
-(ann-pprotocol clojure.core.async.impl.protocols/ReadPort
-               [[r :covariant]])
+(ann-protocol [[r :variance :covariant]]
+              clojure.core.async.impl.protocols/ReadPort)
 
-(ann-pprotocol clojure.core.async.impl.protocols/WritePort
-               [[w :contravariant]])
+(ann-protocol [[w :variance :contravariant]]
+              clojure.core.async.impl.protocols/WritePort)
 
-(ann-pprotocol clojure.core.async.impl.protocols/Buffer
-               [[x :invariant]])
+(ann-protocol [[x :variance :invariant]]
+               clojure.core.async.impl.protocols/Buffer)
 
 (ann-pdatatype clojure.core.async.impl.channels.ManyToManyChannel 
                [[w :covariant]

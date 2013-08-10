@@ -3,7 +3,8 @@
   (:require [clojure.set :as set]
             [clojure.core.typed :as t]))
 
-#_(t/ann-pprotocol Monad [[m :variance :covariant]]
+#_(t/ann-protocol [[m :variance :covariant]]
+                  Monad 
                  :methods
                  {bind (All [a b]
                          [(m a) [a -> (m b)] -> (m b)])

@@ -44,22 +44,46 @@
 
 (defmethod check :vector
   [{:keys [items] :as expr} & [expected]]
-  (assert (not expected))
-  (let [citems (mapv check items)]
+  (let [citems (mapv check items)
+        actual (r/-hvec (mapv (comp ret-t expr-type) citems))
+        _ (binding [vs/*current-env* (:env expr)]
+            (when expected 
+              (when-not (sub/subtype? actual (ret-t expected))
+                (chk/expected-error actual (ret-t expected)))))]
     (assoc expr
-           expr-type (ret (r/-hvec (mapv (comp ret-t expr-type) citems))))))
+           expr-type (ret actual))))
+
+(defmethod check :set
+  [{:keys [items] :as expr} & [expected]]
+  (let [citems (mapv check items)
+        actual (c/Protocol-of 'cljs.core/ISet [(apply c/Un (map (comp ret-t expr-type) citems))])
+        _ (binding [vs/*current-env* (:env expr)]
+            (when expected 
+              (when-not (sub/subtype? actual (ret-t expected))
+                (chk/expected-error actual (ret-t expected)))))]
+    (assoc expr
+           expr-type (ret actual))))
 
 (defmethod check :map
   [{mkeys :keys mvals :vals :as expr} & [expected]]
-  (assert (not expected))
   (let [ckeys (mapv check mkeys)
         cvals (mapv check mvals)
-        ;only handle keyword keys for now
-        _ (assert (every? (every-pred r/Value? #(keyword? (.val ^Value %)))
-                          (map (comp ret-t expr-type) ckeys)))]
+        keyts (map (comp ret-t expr-type) ckeys)
+        valts (map (comp ret-t expr-type) cvals)
+        ; use heterogeneous version if all keys are keywords
+        actual (if (every? #(when (r/Value? %)
+                              (keyword? (:val %)))
+                           keyts)
+                 (c/-complete-hmap (zipmap keyts valts))
+                 (c/Protocol-of 'cljs.core/IMap
+                                [(apply c/Un keyts)
+                                 (apply c/Un valts)]))
+        _ (binding [vs/*current-env* (:env expr)]
+            (when expected
+              (when-not (sub/subtype? actual (ret-t expected))
+                (chk/expected-error actual (ret-t expected)))))]
     (assoc expr
-           expr-type (ret (c/-complete-hmap (zipmap (map (comp ret-t expr-type) ckeys)
-                                                    (map (comp ret-t expr-type) cvals)))))))
+           expr-type (ret actual))))
 
 (defmethod check :def
   [{:keys [init env] vname :name :as expr} & [expected]]
@@ -75,6 +99,18 @@
     (assoc expr
            ;FIXME should really be Var, change when protocols are implemented
            expr-type (ret r/-any))))
+
+(defmethod check :js
+  [{:keys [js-op args env] :as expr} & [expected]]
+  (assert js-op "js-op missing")
+  (let [res (expr-type (check {:op :invoke
+                               :env env
+                               :f {:op :var
+                                   :env env
+                                   :info {:name js-op}}
+                               :args args}))]
+    (assoc expr
+           expr-type res)))
 
 (defmulti invoke-special (fn [{{:keys [op] :as fexpr} :f :as expr} & expected]
                                 (when (= :var op)
@@ -163,7 +199,8 @@
     (assoc expr
            expr-type
            (chk/check-fn 
-             (-> ;conform to what `check-fn` expects for now
+             (-> ;FIXME 
+                 ;conform to what `check-fn` expects for now
                  expr
                  (dissoc :variadic)
                  (assoc :variadic-method variadic)
