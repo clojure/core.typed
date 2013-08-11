@@ -1,7 +1,7 @@
 (ns clojure.core.typed.datatype-env
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed :as t :refer [fn>]])
+            [clojure.core.typed :as t :refer [fn> inst]])
   (:import (clojure.lang IPersistentMap Symbol)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -11,18 +11,26 @@
   "An Environment mapping datatype symbols to types."
   (IPersistentMap Symbol r/TCType))
 
+(t/ann *current-datatype-env* (U nil DataTypeEnv))
+(def ^:dynamic *current-datatype-env* nil)
+
+(t/ann assert-datatype-env [-> Any])
+(defn assert-datatype-env []
+  (assert *current-datatype-env* "No datatype env bound"))
+
+(t/ann ^:no-check datatype-env? [Any -> Any])
+(def datatype-env? (u/hash-c? (every-pred symbol? 
+                                          (fn [k] (some #(= \. %) (str k)))) 
+                              (some-fn r/DataType? r/TypeFn?)))
+
 (t/ann DATATYPE-ENV (t/Atom1 DataTypeEnv))
-(defonce DATATYPE-ENV (atom {}))
-(t/tc-ignore
-(set-validator! DATATYPE-ENV (u/hash-c? (every-pred symbol? 
-                                                    (fn [k] (some #(= \. %) (str k)))) 
-                                        (some-fn r/DataType? r/TypeFn?)))
-  )
+(defonce DATATYPE-ENV ((inst atom DataTypeEnv) {} :validator datatype-env?))
 
 (t/ann add-datatype [Symbol r/TCType -> nil])
 (defn add-datatype [sym t]
-  (swap! DATATYPE-ENV (fn> [e :- DataTypeEnv]
-                        (assoc e sym t)))
+  ((inst swap! DataTypeEnv DataTypeEnv)
+   DATATYPE-ENV (fn> [e :- DataTypeEnv]
+                  (assoc e sym t)))
   nil)
 
 (t/ann get-datatype [Symbol -> (U nil r/TCType)])

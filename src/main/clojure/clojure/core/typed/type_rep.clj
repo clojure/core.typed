@@ -54,6 +54,8 @@
 
 (t/def-alias SeqNumber Long)
 
+(t/ann-protocol TCType)
+
 ; FIXME this throw a type error for some reason
 (t/ann ^:no-check type-sequence-mapping (t/Atom1 (IPersistentMap TCType SeqNumber)))
 (def ^:private type-sequence-mapping 
@@ -64,7 +66,6 @@
 
 ;;; Type rep predicates
 
-(t/ann-protocol TCType)
 (t/ann-protocol TCAnyType)
 (t/ann-protocol TypeId
                 type-id [TypeId -> Long])
@@ -448,7 +449,7 @@
    (apply = (map count [types fs objects]))])
 
 (t/ann ^:no-check -hvec 
-       [(IPersistentVector TCType) & {:filters (Seqable TempFilterSet) :objects (Seqable or/IRObject)} -> TCType])
+       [(IPersistentVector TCType) & :optional {:filters (Seqable TempFilterSet) :objects (Seqable or/IRObject)} -> TCType])
 (defn -hvec 
   [types & {:keys [filters objects]}]
   (let [-FS @(-FS-var)
@@ -793,7 +794,8 @@
        (Fn [(U nil (Seqable TCType)) TCType -> Function]
            [(U nil (Seqable TCType)) TCType (U nil TCType) -> Function]
            [(U nil (Seqable TCType)) TCType (U nil TCType) (U nil TCType) 
-            & {:filter (U nil TempFilterSet) :object (U nil or/IRObject)
+            & :optional 
+              {:filter (U nil TempFilterSet) :object (U nil or/IRObject)
                :mandatory-kws (U nil (IPersistentMap TCType TCType))
                :optional-kws (U nil (IPersistentMap TCType TCType))}
             -> Function]))

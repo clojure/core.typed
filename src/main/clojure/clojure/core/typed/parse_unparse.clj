@@ -587,7 +587,14 @@
                                  (r/Name-maker qsym))
                                (when clssym
                                  (c/RClass-of clssym))))
-                :cljs (assert nil "FIXME"))
+                :cljs (let [res (resolve-type-cljs sym)
+                            sym (:name res)]
+                        (or (resolve-symbol sym sym)
+                            (when sym
+                              (println (str "WARNING: Assuming unannotated var " sym
+                                            " is a protocol."))
+                              (flush)
+                              (r/Name-maker sym)))))
               (u/tc-error (str "Cannot resolve type: " (pr-str sym)
                                "\nHint: Is " (pr-str sym) " in scope?"
                                "\nHint: Has " (pr-str sym) "'s annotation been"
@@ -717,9 +724,7 @@
             kwsyn))
 
         _ (assert (or (not ampersand-pos) (seq kws-seq)) 
-                  "Must provide syntax after &")
-        _ (assert (or (not ampersand-pos) (map? optional-kws)) 
-                  "Must provide map after &. Hint: use [Type * -> Type] for rest parameters")]
+                  "Must provide syntax after &")]
     (r/make-Function (mapv parse-type fixed-dom)
                      (parse-type rng)
                      (when asterix-pos

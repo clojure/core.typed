@@ -17,15 +17,16 @@
        (into {}
              (doall
                (for [[s# t#] ts#]
-                 (let [desc# (-> s# meta :doc)
-                       doc# (str (when desc#
-                                   (str desc# "\n\n")) 
-                                 (with-out-str (pprint/pprint t#)))
-                       _# (assert (and (symbol? s#)
-                                       (namespace s#))
-                                  "Need fully qualified symbol")
-                       v# (intern (find-ns (symbol (namespace s#))) (symbol (name s#)))
-                       _# (alter-meta! v# merge {:doc doc#})]
+                 (let [;desc# (-> s# meta :doc)
+                       ;doc# (str (when desc#
+                       ;            (str desc# "\n\n")) 
+                       ;          (with-out-str (pprint/pprint t#)))
+                       ;_# (assert (and (symbol? s#)
+                       ;                (namespace s#))
+                       ;           "Need fully qualified symbol")
+                       ;v# (intern (find-ns (symbol (namespace s#))) (symbol (name s#)))
+                       ;_# (alter-meta! v# merge {:doc doc#})
+                       ]
                    [(with-meta s# nil) (prs/parse-type t#)])))))))
 
 (defmacro var-mappings [& args]

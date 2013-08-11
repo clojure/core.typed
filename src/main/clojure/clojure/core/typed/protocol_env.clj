@@ -34,10 +34,12 @@
 (defn assert-protocol-env []
   (assert *current-protocol-env* "No current protocol env"))
 
-(ann reset-protocol-env [ProtocolEnv -> nil])
+(ann reset-protocol-env! [ProtocolEnv -> nil])
 (defn reset-protocol-env! [e]
   (assert-protocol-env)
-  (reset! *current-protocol-env* e))
+  (when-let-fail [env *current-protocol-env*]
+    (reset! env e))
+  nil)
 
 (ann add-protocol [Symbol r/TCType -> nil])
 (defn add-protocol [sym t]

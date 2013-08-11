@@ -609,7 +609,7 @@ clojure.core.typed/def-alias* [Any Any -> Any]
 clojure.core.typed/declare-names* [Any -> Any]
 clojure.core.typed/typed-deps* [Any -> Any]
 clojure.core.typed/warn-on-unannotated-vars* [-> Any]
-clojure.core.typed/ann-datatype* [Any Any Any -> Any]
+clojure.core.typed/ann-datatype* [Any Any Any Any -> Any]
 clojure.core.typed/ann-protocol* [Any Any Any -> Any]
       ; REMOVED
 clojure.core.typed/ann-pprotocol* [Any Any Any -> Any]
@@ -814,15 +814,11 @@ clojure.core/subs (Fn [String AnyInteger -> String]
 
 clojure.core/future-call [[-> Any] -> Any]
 
-;clojure.core/atom (All [x [y :< (U )]]
-;                         (Fn 
-;                           [x & {:validator (Option [Any -> Any])} :mandatory {:meta (Option y)}
-;                            -> (I (Atom x x)
-;                                  (IMeta y))]
-;                           [x & {:validator (Option [Any -> Any])} -> (Atom x x)]))
-
 clojure.core/atom (All [x]
-                         [x Any * -> (Atom x x)])
+                       [x & :optional {:validator (U nil [x -> Any]) :meta Any}-> (Atom x x)])
+
+clojure.core/set-validator! (All [x]
+                                 [(clojure.lang.IRef Any x) [x -> Any] -> nil])
 
 clojure.core/deref (All [x y]
                              (Fn [(IDeref x) -> x]
@@ -1561,4 +1557,5 @@ clojure.lang.Delay (All [x]
     ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
      init-protocol-env)
     ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
-     init-declared-kinds)))
+     init-declared-kinds))
+  nil)

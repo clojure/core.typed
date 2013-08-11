@@ -3,7 +3,8 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.current-impl :as impl :refer [v]]
             [cljs.analyzer :as ana]
-            [cljs.compiler :as comp]))
+            [cljs.compiler :as comp]
+            [clojure.pprint :as pprint]))
 
 ; many of these macros resolve to CLJS functions in 
 ; the CLJS ns cljs.core.typed
@@ -58,6 +59,97 @@
                     (next (next args))
                     (next args))]
     `(ann-protocol* '~vbnd '~varsym '~mth)))
+
+(defmacro
+  ^{:forms '[(ann-datatype dname [field :- type*] opts*)
+             (ann-datatype binder dname [field :- type*] opts*)]}
+  ann-datatype
+  "Annotate datatype Class name dname with expected fields.
+  If unqualified, qualify in the current namespace.
+
+  eg. (ann-datatype MyDatatype [a :- Number,
+  b :- Long])
+
+  (ann-datatype another.ns.TheirDatatype
+  [str :- String,
+  vec :- (IPersistentVector Number)])"
+  [& args]
+  ;[dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
+  (let [bnd-provided? (vector? (first args))
+        vbnd (when bnd-provided?
+               (first args))
+        [dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
+        (if bnd-provided?
+          (next args)
+          args)]
+    (assert (not rplc) "Replace NYI")
+    (assert (symbol? dname)
+            (str "Must provide name symbol: " dname))
+    `(ann-datatype* '~vbnd '~dname '~fields '~opts)))
+
+(defmacro def-alias 
+  "Define a type alias. Takes an optional doc-string as a second
+  argument.
+
+  Updates the corresponding var with documentation.
+  
+  eg. (def-alias MyAlias
+        \"Here is my alias\"
+        (U nil String))"
+  ([sym doc-str t]
+   (assert (string? doc-str) "Doc-string passed to def-alias must be a string")
+   `(def-alias ~sym ~t))
+  ([sym t]
+   (assert (symbol? sym) (str "First argument to def-alias must be a symbol: " sym))
+   `(def-alias* '~sym '~t)))
+
+(defmacro inst 
+  "Instantiate a polymorphic type with a number of types"
+  [inst-of & types]
+  `(inst-poly ~inst-of '~types))
+
+(defmacro 
+  ^{:forms '[(letfn> [fn-spec-or-annotation*] expr*)]}
+  letfn>
+  "Like letfn, but each function spec must be annotated.
+
+  eg. (letfn> [a :- [Number -> Number]
+               (a [b] 2)
+
+               c :- [Symbol -> nil]
+               (c [s] nil)]
+        ...)"
+  [fn-specs-and-annotations & body]
+  (let [bindings fn-specs-and-annotations
+        ; (Vector (U '[Symbol TypeSyn] LetFnInit))
+        normalised-bindings
+        (loop [[fbnd :as bindings] bindings
+               norm []]
+          (cond
+            (empty? bindings) norm
+            (symbol? fbnd) (do
+                             (assert (#{:-} (second bindings))
+                                     "letfn> annotations require :- separator")
+                             (assert (<= 3 (count bindings)))
+                             (recur 
+                               (drop 3 bindings)
+                               (conj norm [(nth bindings 0)
+                                           (nth bindings 2)])))
+            (list? fbnd) (recur
+                           (next bindings)
+                           (conj norm fbnd))
+            :else (throw (Exception. (str "Unknown syntax to letfn>: " fbnd)))))
+        {anns false inits true} (group-by list? normalised-bindings)
+        ; init-syn unquotes local binding references to be compatible with hygienic expansion
+        init-syn (into {}
+                   (for [[lb type] anns]
+                     [lb `'~type]))]
+    `(cljs.core/letfn ~(vec inits)
+       ;unquoted to allow bindings to resolve with hygiene
+       ~init-syn
+       ;preserve letfn empty body
+       nil
+       ~@body)))
 
 (def ^:dynamic *currently-checking-cljs* nil)
 (def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors*)

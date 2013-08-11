@@ -357,7 +357,8 @@
 
 (deftest name-to-param-index-test
   ;a => 0
-  (is (= (tc-t 
+  (is-clj 
+    (= (tc-t 
            (clojure.core.typed/fn> [a :- (U (HMap :mandatory {:op (Value :if)})
                                             (HMap :mandatory {:op (Value :var)}))] 
                                    (:op a)))
@@ -413,14 +414,18 @@
                     (parse-type '(predicate (clojure.lang.ISeq Any))))))
 
 (deftest heterogeneous-ds-test
-  (is (not (subtype? (parse-type '(HMap :mandatory {:a (Value 1)}))
+  (is-clj 
+    (not (subtype? (parse-type '(HMap :mandatory {:a (Value 1)}))
                      (RClass-of ISeq [-any]))))
-  (is (not (subtype? (parse-type '(Vector* (Value 1) (Value 2)))
+  (is-clj 
+    (not (subtype? (parse-type '(Vector* (Value 1) (Value 2)))
                      (RClass-of ISeq [-any]))))
-  (is (subtype? (parse-type '(Seq* (Value 1) (Value 2)))
+  (is-clj
+    (subtype? (parse-type '(Seq* (Value 1) (Value 2)))
                 (RClass-of ISeq [-any])))
-  (is (subtype? (parse-type '(List* (Value 1) (Value 2)))
-                (RClass-of ISeq [-any])))
+  (is-clj 
+    (subtype? (parse-type '(List* (Value 1) (Value 2)))
+              (RClass-of ISeq [-any])))
   (is (= (tc-t [1 2])
          (ret (-hvec [(-val 1) (-val 2)]) (-true-filter) -empty)))
   (is (= (tc-t '(1 2))
@@ -1817,6 +1822,9 @@
   (is (sub? (HMap :absent-keys #{:a :b}) (HMap :absent-keys #{:a})))
   (is (not (sub? (HMap :absent-keys #{}) (HMap :absent-keys #{:a}))))
   (is (not (sub? (HMap :absent-keys #{:a}) (HMap :absent-keys #{:a :b})))))
+
+(deftest extend-record-to-protocol-test
+  (is (check-ns 'clojure.core.typed.test.extend-record)))
 
 ;
 ;TODO destructuring on records

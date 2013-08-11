@@ -1,5 +1,7 @@
 (ns cljs.core.typed
-  "Internal functions for CLJS")
+  "Internal functions for CLJS"
+  (:require-macros 
+    [clojure.core.typed.bootstrap-cljs :as boot]))
 
 (defn ^:skip-wiki
   ann-form* 
@@ -12,3 +14,23 @@
   "Internal use only. Use ann-protocol."
   [vbnd varsym mth]
   nil)
+
+(defn ^:skip-wiki
+  ann-datatype*
+  "Internal use only. Use ann-datatype."
+  [vbnd dname fields opts]
+  nil)
+
+(defn ^:skip-wiki
+  def-alias* 
+  "Internal use only. Use def-alias."
+  [sym type]
+  nil)
+
+(defn ^:skip-wiki
+  inst-poly 
+  "Internal use only. Use inst."
+  [inst-of types-syn]
+  inst-of)
+
+(boot/base-aliases)

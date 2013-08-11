@@ -340,6 +340,8 @@
 
 ;; Protocol
 
+(t/ann ^:no-check Protocol*
+  [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol Symbol (IPersistentMap Symbol TCType) (Seqable Bounds) -> TCType])
 (defn Protocol* [names variances poly? the-var on-class methods bnds]
   {:pre [(every? symbol? names)
          (every? r/variance? variances)
@@ -356,6 +358,7 @@
       (TypeFn* names variances bnds p)
       p)))
 
+(t/ann ^:no-check Protocol-var->on-class [Symbol -> Symbol])
 (defn Protocol-var->on-class 
   "Given the var symbol of a protocol, returns the corresponding
   class the protocol is based on as a munged symbol."
@@ -364,6 +367,8 @@
    :post [(symbol? %)]}
   (symbol (str (munge (namespace sym)) \. (name sym))))
 
+(t/ann ^:no-check Protocol-of (Fn [Symbol -> TCType]
+                                  [Symbol (U nil (Seqable TCType)) -> TCType]))
 (defn Protocol-of 
   ([sym] (Protocol-of sym nil))
   ([sym args]

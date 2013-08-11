@@ -11,6 +11,7 @@
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.filter-rep :as f]
             [clojure.core.typed.filter-ops :as fl]
+            [clojure.core.typed.inst :as inst]
             [clojure.core.typed.object-rep :as o]
             [clojure.core.typed.analyze-cljs :as ana])
   (:import (clojure.core.typed.type_rep Value)))
@@ -41,6 +42,17 @@
                 (chk/expected-error t (ret-t expected)))))]
     (assoc expr
            expr-type (ret t))))
+
+(defmethod check :list
+  [{:keys [items] :as expr} & [expected]]
+  (let [citems (mapv check items)
+        actual (r/HeterogeneousList-maker (mapv (comp ret-t expr-type) citems))
+        _ (binding [vs/*current-env* (:env expr)]
+            (when expected 
+              (when-not (sub/subtype? actual (ret-t expected))
+                (chk/expected-error actual (ret-t expected)))))]
+    (assoc expr
+           expr-type (ret actual))))
 
 (defmethod check :vector
   [{:keys [items] :as expr} & [expected]]
@@ -138,10 +150,22 @@
   (assoc expr
          expr-type (ret r/-any)))
 
+(defmethod invoke-special 'cljs.core.typed/inst-poly
+  [{[pexpr targs-expr :as args] :args :as expr} & [expected]]
+  (assert (#{2} (count args)) "Wrong arguments to inst")
+  (let [ptype (let [t (-> (check pexpr) expr-type ret-t)]
+                (if (r/Name? t)
+                  (c/resolve-Name t)
+                  t))
+        _ (assert ((some-fn r/Poly? r/PolyDots?) ptype))
+        targs (binding [prs/*parse-type-in-ns* (chk/expr-ns expr)]
+                (doall (map prs/parse-type (:form targs-expr))))]
+    (assoc expr
+           expr-type (ret (inst/manual-inst ptype targs)))))
+
 (defmethod invoke-special 'cljs.core.typed/ann-form*
   [{[the-expr {typ-syn :form :as texpr} :as args] :args :as expr} & [expected]]
   (assert (= (count args) 2))
-  (assert (= (:op texpr) :constant))
   (let [current-ns (chk/expr-ns expr)
         given-type (prs/with-parse-ns current-ns
                      (prs/parse-type typ-syn))
@@ -193,27 +217,14 @@
            
 
 (defmethod check :fn
-  [{:keys [name max-fixed-arity methods variadic] :as expr} & [expected]]
-  #_(when expected (prn 'fn-expected (prs/unparse-type (ret-t expected))))
+  [{:keys [] :as expr} & [expected]]
   (binding [chk/*check-fn-method1-checkfn* check]
     (assoc expr
-           expr-type
-           (chk/check-fn 
-             (-> ;FIXME 
-                 ;conform to what `check-fn` expects for now
-                 expr
-                 (dissoc :variadic)
-                 (assoc :variadic-method variadic)
-                 (update-in [:methods] #(map (fn [{:keys [params max-fixed-arity variadic ret statements] :as cljs-m}]
-                                               {:required-params (map (fn [p] {:sym p}) params),
-                                                :rest-param (when variadic
-                                                              {:sym variadic})
-                                                ;transform body into a `do`
-                                                :body {:op :do, :ret ret, :statements statements}})
-                                             %)))
-             (or expected
-                 (ret (r/FnIntersection-maker
-                        (r/Function-maker [] r/-any r/-any))))))))
+           expr-type (chk/check-fn 
+                       expr
+                       (or expected
+                           (ret (r/make-FnIntersection
+                                  (r/make-Function [] r/-any r/-any))))))))
 
 (defmethod check :deftype*
   [expr & [expected]]
@@ -226,6 +237,7 @@
   (assert (not expected))
   (let [ctarget (check target)
         cval (check val)]
+    (assert nil "FIXME :set! subtype checking")
     (assoc expr
            expr-type (ret r/-any))))
 
@@ -249,16 +261,21 @@
                        (chk/check-if (expr-type ctest) then else expected)))))
 
 (defmethod check :let
-  [{:keys [loop bindings statements ret env] :as expr} & [expected]]
-  (let [;; conform to Clojure `analyze` for now
-        bindings (mapv #(let [n (:name %)]
-                          {:local-binding (-> % (dissoc :name) (assoc :sym n))})
-                       bindings)
-        body {:op :do, :statements statements, :ret ret :env env}]
+  [{:keys [bindings expr env] :as let-expr} & [expected]]
   (binding [chk/*check-let-checkfn* check]
-    (if loop
-      (assert false) ;#_(check-let bindings body expr true expected)
-      (chk/check-let bindings body expr false expected)))))
+    (chk/check-let bindings expr let-expr false expected)))
+
+(defmethod check :letfn
+  [{:keys [bindings expr env] :as letfn-expr} & [expected]]
+  (chk/check-letfn bindings expr letfn-expr expected check))
+
+(defmethod check :loop
+  [{:keys [loop bindings expr env] :as loop-expr} & [expected]]
+  (assert nil "FIXME :loop needs loop>-ann annotation to be used")
+  (binding [chk/*check-let-checkfn* check]
+    (let [loop-bnd-anns chk/*loop-bnd-anns*]
+      (binding [chk/*loop-bnd-anns* nil]
+        (chk/check-let bindings expr loop-expr true expected :expected-bnds loop-bnd-anns)))))
 
 (defmethod check :ns
   [expr & [expected]]

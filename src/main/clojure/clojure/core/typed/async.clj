@@ -14,7 +14,7 @@
       use buffer> (similar for other buffer constructors)
     "}
   clojure.core.typed.async
-  (:require [clojure.core.typed :refer [ann ann-pdatatype def-alias inst ann-protocol
+  (:require [clojure.core.typed :refer [ann ann-datatype def-alias inst ann-protocol
                                         AnyInteger tc-ignore Seqable]
              :as t]
             #_[clojure.core.async]
@@ -41,13 +41,13 @@
 (ann-protocol [[x :variance :invariant]]
                clojure.core.async.impl.protocols/Buffer)
 
-(ann-pdatatype clojure.core.async.impl.channels.ManyToManyChannel 
-               [[w :covariant]
-                [r :contravariant]]
-               []
-               :unchecked-ancestors #{(clojure.core.async.impl.protocols/Channel w r)
-                                      (clojure.core.async.impl.protocols/ReadPort r)
-                                      (clojure.core.async.impl.protocols/WritePort w)})
+(ann-datatype [[w :variance :covariant]
+               [r :variance :contravariant]]
+              clojure.core.async.impl.channels.ManyToManyChannel 
+              []
+              :unchecked-ancestors #{(clojure.core.async.impl.protocols/Channel w r)
+                                     (clojure.core.async.impl.protocols/ReadPort r)
+                                     (clojure.core.async.impl.protocols/WritePort w)})
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Aliases

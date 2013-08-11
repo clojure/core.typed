@@ -5,6 +5,7 @@
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.declared-kind-env :as kinds]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed :as t :refer [fn> ann when-let-fail def-alias ann-many]])
   (:import (clojure.lang Symbol IPersistentMap Keyword)))
 
@@ -128,21 +129,22 @@
 (defn resolve-name* [sym]
   {:post [(r/Type? %)]}
   (let [t (get-type-name sym)
-        cls (resolve sym)]
-    (cond
-      (class? cls) (let [tfn ((some-fn dtenv/get-datatype rcls/get-rclass
-                                       ; during the definition of RClass's that reference
-                                       ; themselves in their definition, a temporary TFn is
-                                       ; added to the declared kind env which is enough to determine
-                                       ; type rank and variance.
-                                       kinds/declared-kind-or-nil) 
-                              sym)]
-                     (assert tfn (str "No corresponding TFn for " sym))
-                     tfn)
-      (= protocol-name-type t) (prenv/resolve-protocol sym)
-      (= datatype-name-type t) (dtenv/resolve-datatype sym)
-      (= declared-name-type t) (throw (IllegalArgumentException. (str "Reference to declared but undefined name " sym)))
-      (r/Type? t) (vary-meta t assoc :source-Name sym)
-      :else (u/int-error (str "Cannot resolve name " (pr-str sym)
-                              (when t
-                                (str " (Resolved to instance of)" (pr-str (class t)))))))))
+        tfn ((some-fn dtenv/get-datatype 
+                      prenv/get-protocol
+                      (impl/impl-case :clojure rcls/get-rclass :cljs (constantly nil)) 
+                      ; during the definition of RClass's that reference
+                      ; themselves in their definition, a temporary TFn is
+                      ; added to the declared kind env which is enough to determine
+                      ; type rank and variance.
+                      kinds/declared-kind-or-nil) 
+             sym)]
+    (if tfn
+      tfn
+      (cond
+        (= protocol-name-type t) (prenv/resolve-protocol sym)
+        (= datatype-name-type t) (dtenv/resolve-datatype sym)
+        (= declared-name-type t) (throw (IllegalArgumentException. (str "Reference to declared but undefined name " sym)))
+        (r/Type? t) (vary-meta t assoc :source-Name sym)
+        :else (u/int-error (str "Cannot resolve name " (pr-str sym)
+                                (when t
+                                  (str " (Resolved to instance of)" (pr-str (class t))))))))))

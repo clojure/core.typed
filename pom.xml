@@ -34,6 +34,10 @@
             <namespace>!clojure.core.typed.alms-infer</namespace>
             <namespace>!clojure.core.typed.init</namespace>
           </namespaces>
+          <testNamespaces>
+            <!-- waiting on CLJS release -->
+            <namespace>!clojure.core.typed.test.cljs</namespace>
+          </testNamespaces>
           <warnOnReflection>true</warnOnReflection>
           <sourceDirectories>
             <sourceDirectory>src/main/cljs</sourceDirectory>
@@ -48,7 +52,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>jvm.tools.analyzer</artifactId>
-      <version>0.4.4-SNAPSHOT</version>
+      <version>0.4.4</version>
     </dependency>
     <!-- for algo.monads -->
     <dependency>
@@ -114,6 +118,13 @@
       <name>Ambrose Bonnaire-Sergeant</name>
     </developer>
   </developers>
+
+  <repositories>
+    <repository>
+      <id>sonatype-oss-public</id>
+      <url>https://oss.sonatype.org/content/groups/public/</url>
+    </repository>
+  </repositories>
 
   <scm>
     <connection>scm:git:git://github.com/clojure/core.typed.git</connection>

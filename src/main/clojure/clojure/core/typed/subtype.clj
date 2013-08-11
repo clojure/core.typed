@@ -396,7 +396,10 @@
                      :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))
                    t))
 
-; check protocols before datatypes
+; The order of checking protocols and datatypes is subtle.
+; It is easier to calculate the ancestors of a datatype than
+; the descendants of a protocol, so Datatype <: Any comes 
+; before Protocol <: Any.
         (and (r/Protocol? s)
              (r/Protocol? t))
         (let [{var1 :the-var variances* :variances poly1 :poly?} s
@@ -412,19 +415,6 @@
             *sub-current-seen*
             (fail! s t)))
 
-        (r/Protocol? s)
-        (impl/impl-case
-          :clojure (if (= (c/RClass-of Object) t)
-                     *sub-current-seen*
-                     (fail! s t))
-          :cljs (fail! s t))
-        
-        (r/Protocol? t)
-        (let [desc (protocol-descendants t)]
-          (if (some #(subtype? s %) desc)
-            *sub-current-seen*
-            (fail! s t)))
-
         (and (r/DataType? s)
              (r/DataType? t))
         (subtype-datatypes-or-records s t)
@@ -434,6 +424,22 @@
         (subtype-datatype-record-on-left s t)
         (r/DataType? t)
         (subtype-datatype-record-on-right s t)
+
+        (r/Protocol? s)
+        (impl/impl-case
+          :clojure (if (= (c/RClass-of Object) t)
+                     *sub-current-seen*
+                     (fail! s t))
+          :cljs (fail! s t))
+        
+        (r/Protocol? t)
+        (impl/impl-case
+          :clojure (let [desc (protocol-descendants t)]
+                     (if (some #(subtype? s %) desc)
+                       *sub-current-seen*
+                       (fail! s t)))
+          :cljs (do (prn "FIXME compute CLJS protocol descendants")
+                    (fail! s t)))
 
         ;values are subtypes of their classes
         (r/Value? s)
@@ -925,6 +931,7 @@
     *sub-current-seen*
     (fail! s t)))
 
-(defmacro sub [s t]
-  `(subtype (parse-type '~s)
-            (parse-type '~t)))
+(defmacro sub-clj? [s t]
+  `(impl/with-clojure-impl
+     (subtype? (prs/parse-type '~s)
+               (prs/parse-type '~t))))

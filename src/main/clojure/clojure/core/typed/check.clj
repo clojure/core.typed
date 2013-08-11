@@ -1001,7 +1001,7 @@
                                                  :post [((u/hvector-c? (every-pred vector? (u/every-c? Type?)) 
                                                                        (every-pred vector? (u/every-c? Type?)))
                                                          %)]}
-                                                (when-not (r/Value? kw-val-t)
+                                                (when-not (r/Value? kw-key-t)
                                                   (u/int-error 
                                                     (str "Can only check keyword arguments with Value keys, found"
                                                          (pr-str (prs/unparse-type kw-key-t)))))
@@ -1587,7 +1587,8 @@
 
 ;manual instantiation
 (defmethod invoke-special 'clojure.core.typed/inst-poly
-  [{[pexpr targs-exprs] :args :as expr} & [expected]]
+  [{[pexpr targs-exprs :as args] :args :as expr} & [expected]]
+  (assert (#{2} (count args)) "Wrong arguments to inst")
   (let [ptype (let [t (-> (check pexpr) expr-type ret-t)]
                 (if (r/Name? t)
                   (c/resolve-Name t)
@@ -2595,24 +2596,25 @@
         ; once more to make sure (FIXME is this needed?)
         fin (resolve-to-ftype fin)
         ;ensure a function type
-        _ (assert (r/FnIntersection? fin)
-                  (str (when vs/*current-env*
-                         (str (:line vs/*current-env*) ": "))
-                       (pr-str (prs/unparse-type fin)) " is not a function type"
-                       (when vs/*current-expr* (str "\n\nin:\n\t" (u/emit-form-fn vs/*current-expr*)))))
+        _ (when-not (r/FnIntersection? fin)
+            (u/int-error
+              (str (pr-str (prs/unparse-type fin)) " is not a function type")))
         ;collect all inferred Functions
-        inferred-fni (lex/with-locals (when-let [name (hygienic/hname-key fexpr)] ;self calls
-                                    (assert expected "Recursive methods require full annotation")
-                                    {name (ret-t expected)})
+        inferred-fni (lex/with-locals (when-let [name (impl/impl-case
+                                                        :clojure (hygienic/hname-key fexpr)
+                                                        :cljs (-> fexpr :name :name))] ;self calls
+                                        (assert expected "Recursive methods require full annotation")
+                                        (assert (symbol? name) name)
+                                        {name (ret-t expected)})
                        ;scope type variables from polymorphic type in body
                        (free-ops/with-free-mappings (case poly?
-                                             :Poly (zipmap orig-names (map #(hash-map :F %1 :bnds %2) inst-frees bnds))
-                                             :PolyDots (zipmap (next orig-names) 
-                                                               (map #(hash-map :F %1 :bnds %2) (next inst-frees) (next bnds)))
-                                             nil)
+                                                      :Poly (zipmap orig-names (map #(hash-map :F %1 :bnds %2) inst-frees bnds))
+                                                      :PolyDots (zipmap (next orig-names) 
+                                                                        (map #(hash-map :F %1 :bnds %2) (next inst-frees) (next bnds)))
+                                                      nil)
                          (dvar-env/with-dotted-mappings (case poly?
-                                                 :PolyDots {(last orig-names) (last inst-frees)}
-                                                 nil)
+                                                          :PolyDots {(last orig-names) (last inst-frees)}
+                                                          nil)
                            (apply r/make-FnIntersection
                                   (doall
                                     (mapcat (fn [method]
@@ -2624,17 +2626,26 @@
     (ret pfni (fo/-FS fl/-top fl/-bot) obj/-empty)))
 
 ;[MethodExpr FnIntersection -> (I (Seqable Function) Sequential)]
-(defn check-fn-method [{:keys [required-params rest-param] :as method} fin]
+(defn check-fn-method [method fin]
   {:pre [(r/FnIntersection? fin)]
    :post [(seq %)
           (every? r/Function? %)]}
-  (let [mfns (relevant-Fns required-params rest-param fin)]
+  (let [required-params (impl/impl-case
+                          :clojure (:required-params method)
+                          :cljs ((if (:variadic method) butlast identity)
+                                 (:params method)))
+        rest-param (impl/impl-case
+                     :clojure (:rest-param method)
+                     :cljs ((if (:variadic method) last (constantly nil))
+                            (:params method)))
+        mfns (relevant-Fns required-params rest-param fin)]
     #_(prn "relevant-Fns" (map prs/unparse-type mfns))
     (cond
       ;If no matching cases, assign parameters to Any
-      (empty? mfns) [(check-fn-method1 method (r/make-Function (repeat (count required-params) r/-any)
-                                                               r/-any (when rest-param
-                                                                        r/-any) nil))]
+      (empty? mfns) [(check-fn-method1 method (r/make-Function (repeat (count required-params) r/-any) ;doms
+                                                               r/-any  ;rng 
+                                                               (when rest-param ;rest
+                                                                 r/-any)))]
       :else (doall
               (for [f mfns]
                 (check-fn-method1 method f))))))
@@ -2649,11 +2660,22 @@
 
 ;check method is under a particular Function, and return inferred Function
 ;[MethodExpr Function -> Function]
-(defn check-fn-method1 [{:keys [body required-params rest-param] :as method} {:keys [dom rest drest kws] :as expected}]
+(defn check-fn-method1 [method {:keys [dom rest drest kws] :as expected}]
   {:pre [(r/Function? expected)]
    :post [(r/Function? %)]}
   #_(prn "checking syntax:" (u/emit-form-fn method))
-  (let [expected-rng (r/Result->TCResult (:rng expected))
+  (let [body (impl/impl-case
+               :clojure (:body method)
+               :cljs (:expr method))
+        required-params (impl/impl-case
+                          :clojure (:required-params method)
+                          :cljs ((if (:variadic method) butlast identity)
+                                 (:params method)))
+        rest-param (impl/impl-case
+                     :clojure (:rest-param method)
+                     :cljs ((if (:variadic method) last (constantly nil))
+                            (:params method)))
+        expected-rng (r/Result->TCResult (:rng expected))
         ;ensure Function fits method
         _ (assert ((if (or rest drest kws) <= =) (count required-params) (count dom))
                   (u/error-msg "Checking method with incorrect number of expected parameters"
@@ -2679,16 +2701,25 @@
         ;                              oldp (map :sym required-params)))
         ;                    (:props lex/*lexical-env*))
 
-        _ (assert (every? symbol? (map hygienic/hsym-key required-params))
-                  "Unhygienic AST detected")
+        _ (when (impl/checking-clojure?)
+            (assert (every? symbol? (map hygienic/hsym-key required-params))
+                    "Unhygienic AST detected"))
         props (:props lex/*lexical-env*)
-        fixed-entry (map vector (map hygienic/hsym-key required-params) 
+        fixed-entry (map vector 
+                         (map (impl/impl-case
+                                :clojure hygienic/hsym-key
+                                :cljs :name)
+                              required-params)
                          (concat dom 
                                  (repeat (or rest (:pre-type drest)))))
         ;_ (prn "checking function:" (prs/unparse-type expected))
+        check-fn-method1-rest-type *check-fn-method1-rest-type*
+        _ (assert check-fn-method1-rest-type "No check-fn bound for rest type")
         rest-entry (when rest-param
-                     [[(hygienic/hsym-key rest-param) 
-                       (*check-fn-method1-rest-type* rest drest kws)]])
+                     [[(impl/impl-case
+                         :clojure (hygienic/hsym-key rest-param) 
+                         :cljs (:name rest-param))
+                       (check-fn-method1-rest-type rest drest kws)]])
         ;_ (prn "rest entry" rest-entry)
         _ (assert ((u/hash-c? symbol? Type?) (into {} fixed-entry))
                   (into {} fixed-entry))
@@ -2703,7 +2734,11 @@
                     (let [disp-app-ret (check-funapp nil nil 
                                                      (ret dispatch-fn-type)
                                                      (map ret dom (repeat (fo/-FS fl/-top fl/-top)) 
-                                                          (map (comp #(obj/->Path nil %) hygienic/hsym-key) required-params))
+                                                          (map (comp #(obj/->Path nil %) 
+                                                                     (impl/impl-case
+                                                                       :clojure hygienic/hsym-key
+                                                                       :cljs :name))
+                                                               required-params))
                                                      nil)
                           ;_ (prn "disp-app-ret" disp-app-ret)
                           ;_ (prn "disp-fn-type" (prs/unparse-type dispatch-fn-type))
@@ -2730,13 +2765,14 @@
               (assert (not @flag) "Unreachable method: Local inferred to be bottom when applying multimethod filter")
               env)
 
-
+        check-fn-method1-checkfn *check-fn-method1-checkfn*
+        _ (assert check-fn-method1-checkfn "No check-fn bound for method1")
         ; rng before adding new filters
         crng-nopass
         (binding [*current-mm* nil]
           (var-env/with-lexical-env env
             (with-recur-target (->RecurTarget dom rest drest nil)
-              (*check-fn-method1-checkfn* body expected-rng))))
+              (check-fn-method1-checkfn body expected-rng))))
 
         ; Apply the filters of computed rng to the environment and express
         ; changes to the lexical env as new filters, and conjoin with existing filters.
@@ -3296,10 +3332,15 @@ rest-param-name (when rest-param
     (let [check-let-checkfn (if-let [c *check-let-checkfn*]
                               c
                               (assert nil "No checkfn bound for let"))
-          env (reduce (fn [env [{{:keys [init]} :local-binding :as expr} expected-bnd]]
+          env (reduce (fn [env [expr expected-bnd]]
                         {:pre [(lex/PropEnv? env)]
                          :post [(lex/PropEnv? env)]}
-                        (let [sym (binding-init-sym expr)
+                        (let [init (impl/impl-case
+                                     :clojure (-> expr :local-binding :init)
+                                     :cljs (-> expr :init))
+                              sym (impl/impl-case
+                                    :clojure (binding-init-sym expr)
+                                    :cljs (:name expr))
                               ; check rhs
                               {:keys [t fl flow]} (expr-type
                                                     (binding [vs/*current-expr* init]
@@ -3365,7 +3406,10 @@ rest-param-name (when rest-param
                         (update-in [:o] subst-object sym obj/-empty true)
                         (update-in [:flow :normal] subst-filter sym obj/-empty true)))
                   (expr-type cbody)
-                  (map (comp hygienic/hsym-key :local-binding) binding-inits))]
+                  (map (impl/impl-case
+                         :clojure (comp hygienic/hsym-key :local-binding)
+                         :cljs :name)
+                       binding-inits))]
       (assoc expr
              expr-type unshadowed-ret))))
 
@@ -3471,40 +3515,59 @@ rest-param-name (when rest-param
           (check-let binding-inits body expr true expected :expected-bnds loop-bnd-anns)))
       (check-let binding-inits body expr false expected))))
 
+(defn check-letfn [bindings body letfn-expr expected check-fn-letfn]
+  (let [inits-expected
+        (impl/impl-case
+          :clojure (do (assert (#{:map} (:op (-> body :exprs first))))
+                    (into {}
+                         (for [[lb-expr type-syn-expr] (partition 2 (-> body :exprs first :keyvals))]
+                           (do
+                             (assert (#{:local-binding-expr} (:op lb-expr)))
+                             [(-> lb-expr :local-binding :sym)
+                              (binding [prs/*parse-type-in-ns* (expr-ns letfn-expr)]
+                                (prs/parse-type (u/constant-expr type-syn-expr)))]))))
+          :cljs (do (assert (#{:map} (-> body :statements first :op)))
+                  (into {} 
+                      (for [[lb-expr type-syn-expr] 
+                            (map vector 
+                                 (-> body :statements first :keys)
+                                 (-> body :statements first :vals))]
+                        [(-> lb-expr :info :name)
+                         (binding [prs/*parse-type-in-ns* (expr-ns letfn-expr)]
+                           (prs/parse-type (:form type-syn-expr)))]))))
+
+        cbinding-inits
+        (lex/with-locals inits-expected
+          (impl/impl-case
+            :clojure (doall
+                       (for [b-init bindings]
+                         (let [sym (-> b-init :local-binding :sym)
+                               init (-> b-init :init)]
+                           (check-fn-letfn init (ret (inits-expected sym))))))
+            :cljs (doall
+                    (for [{:keys [name init]} bindings]
+                      (let [expected-fn (inits-expected name)]
+                        (assert expected-fn (str "No expected type for " name))
+                        (check-fn-letfn init (ret expected-fn)))))))
+
+        ;ignore the type annotations at the top of the body
+        normal-letfn-body
+        (impl/impl-case
+          :clojure (-> body
+                       (update-in [:exprs] rest))
+          :cljs (-> body
+                    (update-in [:statements] rest)))
+
+        cbody (lex/with-locals inits-expected
+                (check-fn-letfn normal-letfn-body expected))]
+    (assoc letfn-expr
+           expr-type (expr-type cbody))))
+
 ; annotations are in the first expression of the body (a :do)
 (add-check-method :letfn
   [{:keys [binding-inits body] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (assert (#{:do} (:op body)))
-  (assert (#{:map} (:op (-> body :exprs first))))
-;  (prn (-> body :exprs first :keyvals))
-;  (prn (u/emit-form-fn body))
-  (let [inits-expected
-        (into {}
-          (for [[lb-expr type-syn-expr] (partition 2 (-> body :exprs first :keyvals))]
-            (do
-              (assert (#{:local-binding-expr} (:op lb-expr)))
-              [(-> lb-expr :local-binding :sym)
-               (binding [prs/*parse-type-in-ns* (expr-ns expr)]
-                 (prs/parse-type (u/constant-expr type-syn-expr)))])))
-
-        cbinding-inits
-        (lex/with-locals inits-expected
-          (doall
-            (for [b-init binding-inits]
-              (let [sym (-> b-init :local-binding :sym)
-                    init (-> b-init :init)]
-                (check init (ret (inits-expected sym)))))))
-
-        ;ignore the type annotations at the top of the body
-        normal-letfn-body
-        (-> body
-            (update-in [:exprs] rest))
-
-        cbody (lex/with-locals inits-expected
-                (check normal-letfn-body expected))]
-    (assoc expr
-           expr-type (expr-type cbody))))
+  (check-letfn binding-inits body expr expected check))
 
 ;[(Seqable Filter) Filter -> Filter]
 (defn resolve* [atoms prop]

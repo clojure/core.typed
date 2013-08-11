@@ -847,11 +847,12 @@
 (defn ^:skip-wiki
   ann-datatype*
   "Internal use only. Use ann-datatype."
-  [dname fields opts]
+  [vbnd dname fields opts]
   nil)
 
 (defmacro
-  ^{:forms '[(ann-datatype dname [field :- type*] opts*)]}
+  ^{:forms '[(ann-datatype dname [field :- type*] opts*)
+             (ann-datatype binder dname [field :- type*] opts*)]}
   ann-datatype
   "Annotate datatype Class name dname with expected fields.
   If unqualified, qualify in the current namespace.
@@ -862,11 +863,19 @@
       (ann-datatype another.ns.TheirDatatype
                     [str :- String,
                      vec :- (IPersistentVector Number)])"
-  [dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
-  (assert (not rplc) "Replace NYI")
-  (assert (symbol? dname)
-          (str "Must provide name symbol: " dname))
-  `(ann-datatype* '~dname '~fields '~opts))
+  [& args]
+  ;[dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
+  (let [bnd-provided? (vector? (first args))
+        vbnd (when bnd-provided?
+               (first args))
+        [dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
+        (if bnd-provided?
+          (next args)
+          args)]
+    (assert (not rplc) "Replace NYI")
+    (assert (symbol? dname)
+            (str "Must provide name symbol: " dname))
+    `(ann-datatype* '~vbnd '~dname '~fields '~opts)))
 
 (defn ^:skip-wiki
   ann-pdatatype* 
@@ -878,6 +887,7 @@
   "Annotate datatype Class name dname with a polymorphic binder and expected fields.
   If unqualified, qualify in the current namespace."
   [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
+  (prn "REMOVED OPERATION: ann-pdatatype, use ann-datatype")
   (assert (not rplc) "Replace NYI")
   (assert (symbol? dname)
           (str "Must provide local symbol: " dname))
@@ -936,12 +946,9 @@
   (let [bnd-provided? (vector? (first args))
         vbnd (when bnd-provided?
                (first args))
-        varsym (if bnd-provided?
-                 (second args)
-                 (first args))
-        {:as mth} (if bnd-provided?
-                    (next (next args))
-                    (next args))]
+        [varsym & {:as mth}] (if bnd-provided?
+                               (next args)
+                               args)]
     `(ann-protocol* '~vbnd '~varsym '~mth)))
 
 (defn ^:skip-wiki

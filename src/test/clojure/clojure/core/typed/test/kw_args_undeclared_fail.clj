@@ -4,7 +4,7 @@
             [clojure.tools.analyzer.emit-form :refer [emit-form]]))
 
 ;; invoking a kw-fn with undeclared keywords is an error
-(ann undeclared-kw-invoke-test [& {:foo Any} -> nil])
+(ann undeclared-kw-invoke-test [& :optional {:foo Any} -> nil])
 (defn undeclared-kw-invoke-test [& a])
 
 (undeclared-kw-invoke-test :blah 'a)

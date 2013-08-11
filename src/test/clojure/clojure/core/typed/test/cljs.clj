@@ -58,10 +58,9 @@
   (is (t/check-ns 'clojure.core.typed.test.ann)))
 
 (deftest resolve-type-test
-  (is (= (comp/with-core-cljs
-           (ucljs/resolve-var 'cljs.user 'cljs.core/IMap))
-         {:ns 'cljs.core
-          :name 'cljs.core/IMap})))
+  (is (= (:name (comp/with-core-cljs
+                  (ucljs/resolve-var 'cljs.user 'cljs.core/IMap)))
+          'cljs.core/IMap)))
 
 (deftest parse-protocol-test 
   (is (prs/parse-cljs '(cljs.core/IMap number number))))
@@ -80,10 +79,28 @@
   (is (t/cf {1 1}
             (cljs.core/IMap number number)))
   (is (t/cf #{1}
+            (cljs.core/ISet number)))
+  (is (t/cf (let [a 1] #{1 a})
             (cljs.core/ISet number))))
 
 (deftest js*-test
   (is (t/cf (+ 1 1))))
 
+(deftest fn-test
+  (is (t/cf (fn a [b] a)))
+  (is (t/cf (fn [a] a)
+            (All [x] [x -> x]))))
+
+(deftest inst-test
+  (is (t/cf (let [f (-> (fn [a] a)
+                        (cljs.core.typed/ann-form (All [x] [x -> x])))]
+              ((cljs.core.typed/inst f number) 1)))))
+
+(deftest letfn-test
+  (is (t/cf (cljs.core.typed/letfn> [a :- (All [x] [x -> x])
+                                     (a [b] b)]
+              (a 1)))))
+
 (deftest async-test
   (is (t/check-ns 'cljs.core.typed.async)))
+

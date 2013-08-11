@@ -6,7 +6,7 @@
                                         declare-datatypes
                                         ann-form
                                         tc-ignore check-ns ann-datatype cf
-                                        ann-pdatatype fn> AnyInteger
+                                        fn> AnyInteger
                                         print-env defprotocol>]]
             [clojure.repl :refer [pst]]
             [clojure.tools.analyzer :refer [ast]])
@@ -343,11 +343,12 @@
   (lhs [this])
   (rhs [this]))
 
-(ann-pdatatype Pair [[a :covariant]
-                     [b :covariant]]
-               [[lhs :- a]
-                [rhs :- b]]
-               :unchecked-ancestors #{(IPair a b) (ExactCount 2)})
+(ann-datatype [[a :variance :covariant]
+               [b :variance :covariant]]
+              Pair 
+              [[lhs :- a]
+               [rhs :- b]]
+              :unchecked-ancestors #{(IPair a b) (ExactCount 2)})
 (deftype Pair [lhs rhs]
   clojure.lang.Counted
   (count [_] 2)
