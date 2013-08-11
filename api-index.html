@@ -1,7 +1,7 @@
 <html>
   <head>
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
-    <title>Index - Gradual Typing 0.1.18 API documentation</title>
+    <title>Index - Gradual Typing 0.1.24 API documentation</title>
     <link href="static/favicon.png" rel="icon" />
     <link href="static/favicon.png" rel="shortcut icon" />
     <link media="all" type="text/css" href="static/clojure.css" rel="stylesheet" />
@@ -25,7 +25,7 @@ namespace.
       <div id="leftcolumn"><div style="text-align: center;"></div>
 <div class="menu">
   <div class="WikiCustomNav WikiElement wiki">
-    <span class="toc-header"><span id="project-name">Gradual Typing</span> <span id="version">0.1.18</span> API</span><br />
+    <span class="toc-header"><span id="project-name">Gradual Typing</span> <span id="version">0.1.24</span> API</span><br />
     <ul>
       <li><a class="wiki_link" href="index.html">Overview</a></li>
       <li><a class="wiki_link" href="api-index.html">API Index</a></li>
@@ -41,7 +41,7 @@ namespace.
 	  <div class="contentBox"><div class="innerContentBox">
               <div id="content_view" class="wiki wikiPage">
                 <div id="right-sidebar"></div>
-                <div id="content-tag"><h1 id="overview">Index of Public Functions and Variables - <span id="header-project">Gradual Typing</span> <span id="header-version">0.1.18</span><span id="header-status-block"> (<span id="header-status">in development</span>)</span></h1>
+                <div id="content-tag"><h1 id="overview">Index of Public Functions and Variables - <span id="header-project">Gradual Typing</span> <span id="header-version">0.1.24</span><span id="header-status-block"> (<span id="header-status">in development</span>)</span></h1>
 This page has an alphabetical index of all the documented functions and variables
 in <span class="project-name-span">Gradual Typing</span>. 
 
@@ -70,11 +70,7 @@ Shortcuts:<br />
 <div id="index-body">
   <h2 id="A"><span id="section-head">A</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed/*already-checked*">*already-checked*</a><span id="line-content">            var           clojure.core.typed Internal use only.
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/*already-collected*">*already-collected*</a><span id="line-content">          var           clojure.core.typed Internal use only.
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;AndFilter">-&gt;AndFilter</a><span id="line-content">                  function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;AnyValue">-&gt;AnyValue</a><span id="line-content">                   function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;App">-&gt;App</a><span id="line-content">                        function      clojure.core.typed.type-rep .
+<span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;AndFilter">-&gt;AndFilter</a><span id="line-content">                  function      clojure.core.typed.filter-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/abstract">abstract</a><span id="line-content">                     function      clojure.core.typed.type-ctors Make free name bound.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/abstract-many">abstract-many</a><span id="line-content">                function      clojure.core.typed.type-ctors Names Type -&gt; Scope^n  where n is (coun...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.mm-env/add-multimethod-dispatch-type">add-multimethod-dispatch-type</a><span id="line-content"> function     clojure.core.typed.mm-env Add the type of the dispatch function of th...
@@ -82,62 +78,61 @@ Shortcuts:<br />
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.parse-unparse/alias-in-ns">alias-in-ns</a><span id="line-content">                  function      clojure.core.typed.parse-unparse Returns an alias for namespace sym i...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/AndFilter">AndFilter</a><span id="line-content">                    record        clojure.core.typed.filter-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann">ann</a><span id="line-content">                          macro         clojure.core.typed Annotate varsym with type. If unqualified, qualify...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann*">ann*</a><span id="line-content">                         function      clojure.core.typed Internal use only. Use ann..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-datatype">ann-datatype</a><span id="line-content">                 macro         clojure.core.typed Annotate datatype Class name dname with expected f...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-datatype*">ann-datatype*</a><span id="line-content">                function      clojure.core.typed Internal use only. Use ann-datatype..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-form">ann-form</a><span id="line-content">                     macro         clojure.core.typed Annotate a form with an expected type..
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-form*">ann-form*</a><span id="line-content">                    function      clojure.core.typed Internal use only. Use ann-form..
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-many">ann-many</a><span id="line-content">                     macro         clojure.core.typed Annotate several vars with type t.  eg. (ann-many ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-pdatatype">ann-pdatatype</a><span id="line-content">                macro         clojure.core.typed Annotate datatype Class name dname with a polymorp...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-pdatatype*">ann-pdatatype*</a><span id="line-content">               function      clojure.core.typed Internal use only. Use ann-pdatatype..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-pprotocol">ann-pprotocol</a><span id="line-content">                macro         clojure.core.typed Annotate polymorphic protocol with a polymorphic b...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-pprotocol*">ann-pprotocol*</a><span id="line-content">               function      clojure.core.typed Internal use only. Use ann-pprotocol..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-precord">ann-precord</a><span id="line-content">                  macro         clojure.core.typed Annotate record Class name dname with a polymorphi...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.utils/ann-precord">ann-precord</a><span id="line-content">                  macro         clojure.core.typed.utils Like ann-precord, but also adds an unchecked...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-precord*">ann-precord*</a><span id="line-content">                 function      clojure.core.typed Internal use only. Use ann-precord..
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-protocol">ann-protocol</a><span id="line-content">                 macro         clojure.core.typed Annotate protocol var with method types.  eg. (ann...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-protocol*">ann-protocol*</a><span id="line-content">                function      clojure.core.typed Internal use only. Use ann-protocol..
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-protocol">ann-protocol</a><span id="line-content">                 macro         clojure.core.typed Annotate a possibly polymorphic protocol var with ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-record">ann-record</a><span id="line-content">                   macro         clojure.core.typed Annotate record Class name dname with expected fie...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.utils/ann-record">ann-record</a><span id="line-content">                   macro         clojure.core.typed.utils Like ann-record, but also adds an unchecked ...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/ann-record*">ann-record*</a><span id="line-content">                  function      clojure.core.typed Internal use only. Use ann-record.
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/AnyValue">AnyValue</a><span id="line-content">                     record        clojure.core.typed.type-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/App">App</a><span id="line-content">                          record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/AnyValue">AnyValue</a><span id="line-content">                     type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/App">App</a><span id="line-content">                          type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/ArrayCLJS">ArrayCLJS</a><span id="line-content">                    type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.analyze-clj/ast-for-form">ast-for-form</a><span id="line-content">                 function      clojure.core.typed.analyze-clj Returns an AST node for the form.
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.analyze-cljs/ast-for-form">ast-for-form</a><span id="line-content">                 function      clojure.core.typed.analyze-cljs Returns an AST node for the form.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.analyze-clj/ast-for-form-in-ns">ast-for-form-in-ns</a><span id="line-content">           function      clojure.core.typed.analyze-clj Returns an AST node for the form  anal...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.analyze-cljs/ast-for-form-in-ns">ast-for-form-in-ns</a><span id="line-content">           function      clojure.core.typed.analyze-cljs Returns an AST node for the form  ana...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.analyze-clj/ast-for-ns">ast-for-ns</a><span id="line-content">                   function      clojure.core.typed.analyze-clj Returns a vector of AST nodes containe...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.analyze-cljs/ast-for-ns">ast-for-ns</a><span id="line-content">                   function      clojure.core.typed.analyze-cljs Returns a vector of AST nodes contain...
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="B"><span id="section-head">B</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;B">-&gt;B</a><span id="line-content">                          function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;BotFilter">-&gt;BotFilter</a><span id="line-content">                  function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Bounds">-&gt;Bounds</a><span id="line-content">                     function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/-base-aliases">-base-aliases</a><span id="line-content">                var           clojure.core.typed Internal use only..
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/B">B</a><span id="line-content">                            record        clojure.core.typed.type-rep 
+<span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;BotFilter">-&gt;BotFilter</a><span id="line-content">                  function      clojure.core.typed.filter-rep .
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/B">B</a><span id="line-content">                            type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.bootstrap-cljs/base-aliases">base-aliases</a><span id="line-content">                 macro         clojure.core.typed.bootstrap-cljs Define base aliases.
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/BooleanCLJS">BooleanCLJS</a><span id="line-content">                  type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/BotFilter">BotFilter</a><span id="line-content">                    record        clojure.core.typed.filter-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Bounds">Bounds</a><span id="line-content">                       record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Bounds">Bounds</a><span id="line-content">                       type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/Buffer">Buffer</a><span id="line-content">                       var           clojure.core.typed.async A buffer of type x.  (TFn [[x :variance :in...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/buffer&gt;">buffer&gt;</a><span id="line-content">                      macro         clojure.core.typed.async A statically typed core.async buffer.   (buf...
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="C"><span id="section-head">C</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed/*currently-checking-clj*">*currently-checking-clj*</a><span id="line-content">     var           clojure.core.typed Internal use only.
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;c">-&gt;c</a><span id="line-content">                          function      clojure.core.typed.cs-rep .
+<span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;c">-&gt;c</a><span id="line-content">                          function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/-&gt;ClassPE">-&gt;ClassPE</a><span id="line-content">                    function      clojure.core.typed.path-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/-&gt;CountPE">-&gt;CountPE</a><span id="line-content">                    function      clojure.core.typed.path-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;CountRange">-&gt;CountRange</a><span id="line-content">                 function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;cset">-&gt;cset</a><span id="line-content">                       function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;cset-entry">-&gt;cset-entry</a><span id="line-content">                 function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/c">c</a><span id="line-content">                            record        clojure.core.typed.cs-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/cf">cf</a><span id="line-content">                           macro         clojure.core.typed Takes a form and an optional expected type and ret...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/Chan">Chan</a><span id="line-content">                         var           clojure.core.typed.async A core.async channel  (TFn [[x :variance :i...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/chan&gt;">chan&gt;</a><span id="line-content">                        macro         clojure.core.typed.async A statically typed core.async channel.   (ch...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/check-fn">check-fn</a><span id="line-content">                     function      clojure.core.typed.check Check a fn to be under expected and annotate...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/check-ns">check-ns</a><span id="line-content">                     function      clojure.core.typed Type check a namespace. If not provided default to...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/check-ns-and-deps">check-ns-and-deps</a><span id="line-content">            function      clojure.core.typed.check Type check a namespace and its dependencies....
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.subtype/class-isa?">class-isa?</a><span id="line-content">                   function      clojure.core.typed.subtype A faster version of isa?, both parameters ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/ClassPE">ClassPE</a><span id="line-content">                      record        clojure.core.typed.path-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.collect-cljs/collect-ns">collect-ns</a><span id="line-content">                   function      clojure.core.typed.collect-cljs Collect type annotations and dependen...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.collect-phase/collect-ns">collect-ns</a><span id="line-content">                   function      clojure.core.typed.collect-phase Collect type annotations and depende...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/CountPE">CountPE</a><span id="line-content">                      record        clojure.core.typed.path-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/CountRange">CountRange</a><span id="line-content">                   record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/CountRange">CountRange</a><span id="line-content">                   type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/cset">cset</a><span id="line-content">                         record        clojure.core.typed.cs-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/cset-entry">cset-entry</a><span id="line-content">                   record        clojure.core.typed.cs-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/ctor-Class-&gt;symbol">ctor-Class-&gt;symbol</a><span id="line-content">           function      clojure.core.typed.check Returns a symbol representing this construct...
@@ -146,35 +141,29 @@ Shortcuts:<br />
 </div><div id="index-body">
   <h2 id="D"><span id="section-head">D</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed/*delayed-errors*">*delayed-errors*</a><span id="line-content">             var           clojure.core.typed Internal use only.
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;DataType">-&gt;DataType</a><span id="line-content">                   function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;dcon">-&gt;dcon</a><span id="line-content">                       function      clojure.core.typed.cs-rep .
+<span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;dcon">-&gt;dcon</a><span id="line-content">                       function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;dcon-dotted">-&gt;dcon-dotted</a><span id="line-content">                function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;dcon-exact">-&gt;dcon-exact</a><span id="line-content">                 function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;dmap">-&gt;dmap</a><span id="line-content">                       function      clojure.core.typed.cs-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;DottedPretype">-&gt;DottedPretype</a><span id="line-content">              function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/DataType">DataType</a><span id="line-content">                     record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/DataType">DataType</a><span id="line-content">                     type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.datatype-env/DataTypeEnv">DataTypeEnv</a><span id="line-content">                  var           clojure.core.typed.datatype-env An Environment mapping datatype symbo...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/DCon">DCon</a><span id="line-content">                         var           clojure.core.typed.cs-rep (U dcon dcon-exact dcon-dotted).
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/dcon">dcon</a><span id="line-content">                         record        clojure.core.typed.cs-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/dcon-dotted">dcon-dotted</a><span id="line-content">                  record        clojure.core.typed.cs-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/dcon-exact">dcon-exact</a><span id="line-content">                   record        clojure.core.typed.cs-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/declare-alias-kind">declare-alias-kind</a><span id="line-content">           macro         clojure.core.typed Declare a kind for an alias, similar to declare bu...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/declare-alias-kind*">declare-alias-kind*</a><span id="line-content">          function      clojure.core.typed Internal use only. Use declare-alias-kind..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/declare-datatypes">declare-datatypes</a><span id="line-content">            macro         clojure.core.typed Declare datatypes, similar to declare but on the t...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/declare-datatypes*">declare-datatypes*</a><span id="line-content">           function      clojure.core.typed Internal use only. Use declare-datatypes..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/declare-names">declare-names</a><span id="line-content">                macro         clojure.core.typed Declare names, similar to declare but on the type ...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/declare-names*">declare-names*</a><span id="line-content">               function      clojure.core.typed Internal use only. Use declare-names..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/declare-protocols">declare-protocols</a><span id="line-content">            macro         clojure.core.typed Declare protocols, similar to declare but on the t...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/declare-protocols*">declare-protocols*</a><span id="line-content">           function      clojure.core.typed Internal use only. Use declare-protocols..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/def-alias">def-alias</a><span id="line-content">                    macro         clojure.core.typed Define a type alias. Takes an optional doc-string ...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/def-alias*">def-alias*</a><span id="line-content">                   function      clojure.core.typed Internal use only. Use def-alias..
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/DelayedCheck">DelayedCheck</a><span id="line-content">                 var           clojure.core.typed.cs-rep A pair of types. The left type must be a su...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.promote-demote/demote">demote</a><span id="line-content">                       multimethod   clojure.core.typed.promote-demote Eliminate all variables V in T by d...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.ns-deps/DepMap">DepMap</a><span id="line-content">                       var           clojure.core.typed.ns-deps A map declaring possibly-circular namespac...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/dmap">dmap</a><span id="line-content">                         record        clojure.core.typed.cs-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/doseq&gt;">doseq&gt;</a><span id="line-content">                       macro         clojure.core.typed Like doseq but requires annotation for each loop v...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/dotimes&gt;">dotimes&gt;</a><span id="line-content">                     macro         clojure.core.typed Like dotimes.  eg. (dotimes&gt; [_ 100] (printl...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/DottedPretype">DottedPretype</a><span id="line-content">                record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/DottedPretype">DottedPretype</a><span id="line-content">                type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/dropping-buffer&gt;">dropping-buffer&gt;</a><span id="line-content">             macro         clojure.core.typed.async A statically typed core.async dropping buffe...
 </span></span>
   </pre>
 </div><div id="index-body">
@@ -182,26 +171,23 @@ Shortcuts:<br />
   <pre>
 <span id="section-content"> <a href="index.html#clojure.core.typed.object-rep/-&gt;EmptyObject">-&gt;EmptyObject</a><span id="line-content">                function      clojure.core.typed.object-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.object-rep/EmptyObject">EmptyObject</a><span id="line-content">                  record        clojure.core.typed.object-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Extends">Extends</a><span id="line-content">                      type          clojure.core.typed.type-rep 
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="F"><span id="section-head">F</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;F">-&gt;F</a><span id="line-content">                          function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;FilterSet">-&gt;FilterSet</a><span id="line-content">                  function      clojure.core.typed.filter-rep .
+<span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;FilterSet">-&gt;FilterSet</a><span id="line-content">                  function      clojure.core.typed.filter-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/-&gt;FirstPE">-&gt;FirstPE</a><span id="line-content">                    function      clojure.core.typed.path-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;FlowSet">-&gt;FlowSet</a><span id="line-content">                    function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;FnIntersection">-&gt;FnIntersection</a><span id="line-content">             function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/-&gt;FnResult">-&gt;FnResult</a><span id="line-content">                   function      clojure.core.typed.check .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Function">-&gt;Function</a><span id="line-content">                   function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/F">F</a><span id="line-content">                            record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/F">F</a><span id="line-content">                            type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.frees/fi">fi</a><span id="line-content">                           function      clojure.core.typed.frees All index variables in type (dotted bounds, ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/FilterSet">FilterSet</a><span id="line-content">                    record        clojure.core.typed.filter-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.parse-unparse/find-bound*">find-bound*</a><span id="line-content">                  function      clojure.core.typed.parse-unparse Find upper bound if polarity is true...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/FirstPE">FirstPE</a><span id="line-content">                      record        clojure.core.typed.path-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/FlowSet">FlowSet</a><span id="line-content">                      record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/FlowSet">FlowSet</a><span id="line-content">                      type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/fn&gt;">fn&gt;</a><span id="line-content">                          macro         clojure.core.typed Like fn, but with annotations. Annotations are man...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/fn&gt;-ann">fn&gt;-ann</a><span id="line-content">                      function      clojure.core.typed Internal use only. Use fn&gt;..
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/FnIntersection">FnIntersection</a><span id="line-content">               record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/FnIntersection">FnIntersection</a><span id="line-content">               type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/FnResult">FnResult</a><span id="line-content">                     record        clojure.core.typed.check 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/for&gt;">for&gt;</a><span id="line-content">                         macro         clojure.core.typed Like for but requires annotation for each loop var...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.free-ops/free-in-scope">free-in-scope</a><span id="line-content">                function      clojure.core.typed.free-ops Find the free scoped as name.
@@ -209,7 +195,8 @@ Shortcuts:<br />
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.free-ops/free-with-name">free-with-name</a><span id="line-content">               function      clojure.core.typed.free-ops Find the free with the actual name name, ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.free-ops/free-with-name-bnds">free-with-name-bnds</a><span id="line-content">          function      clojure.core.typed.free-ops Find the bounds for the free with the act...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/FreeBnds">FreeBnds</a><span id="line-content">                     var           clojure.core.typed.cs-rep A map of free variable names to their bound...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Function">Function</a><span id="line-content">                     record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Function">Function</a><span id="line-content">                     type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/FunctionCLJS">FunctionCLJS</a><span id="line-content">                 type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.frees/fv">fv</a><span id="line-content">                           function      clojure.core.typed.frees All frees in type.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.frees/fv-variances">fv-variances</a><span id="line-content">                 function      clojure.core.typed.frees Map of frees to their variances.
 </span></span>
@@ -217,25 +204,21 @@ Shortcuts:<br />
 </div><div id="index-body">
   <h2 id="G"><span id="section-head">G</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;GTRange">-&gt;GTRange</a><span id="line-content">                    function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.datatype-env/get-datatype">get-datatype</a><span id="line-content">                 function      clojure.core.typed.datatype-env Get the datatype with class symbol sy...
+<span id="section-content"> <a href="index.html#clojure.core.typed.datatype-env/get-datatype">get-datatype</a><span id="line-content">                 function      clojure.core.typed.datatype-env Get the datatype with class symbol sy...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.protocol-env/get-protocol">get-protocol</a><span id="line-content">                 function      clojure.core.typed.protocol-env Returns the protocol with var symbol ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.rclass-env/get-rclass">get-rclass</a><span id="line-content">                   function      clojure.core.typed.rclass-env Returns the RClass with class symbol cs...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.name-env/get-type-name">get-type-name</a><span id="line-content">                function      clojure.core.typed.name-env Return the name with var symbol sym. Retu...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/GTRange">GTRange</a><span id="line-content">                      record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/go&gt;">go&gt;</a><span id="line-content">                          macro         clojure.core.typed.async Asynchronously executes the body, returning ...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/GTRange">GTRange</a><span id="line-content">                      type          clojure.core.typed.type-rep 
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="H"><span id="section-head">H</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;HeterogeneousList">-&gt;HeterogeneousList</a><span id="line-content">          function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;HeterogeneousMap">-&gt;HeterogeneousMap</a><span id="line-content">           function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;HeterogeneousSeq">-&gt;HeterogeneousSeq</a><span id="line-content">           function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;HeterogeneousVector">-&gt;HeterogeneousVector</a><span id="line-content">        function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/HeterogeneousList">HeterogeneousList</a><span id="line-content">            record        clojure.core.typed.type-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/HeterogeneousMap">HeterogeneousMap</a><span id="line-content">             record        clojure.core.typed.type-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/HeterogeneousSeq">HeterogeneousSeq</a><span id="line-content">             record        clojure.core.typed.type-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/HeterogeneousVector">HeterogeneousVector</a><span id="line-content">          record        clojure.core.typed.type-rep 
+<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/HeterogeneousList">HeterogeneousList</a><span id="line-content">            type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/HeterogeneousMap">HeterogeneousMap</a><span id="line-content">             type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/HeterogeneousSeq">HeterogeneousSeq</a><span id="line-content">             type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/HeterogeneousVector">HeterogeneousVector</a><span id="line-content">          type          clojure.core.typed.type-rep 
 </span></span>
   </pre>
 </div><div id="index-body">
@@ -245,23 +228,20 @@ Shortcuts:<br />
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;i-subst-dotted">-&gt;i-subst-dotted</a><span id="line-content">             function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;i-subst-starred">-&gt;i-subst-starred</a><span id="line-content">            function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;ImpFilter">-&gt;ImpFilter</a><span id="line-content">                  function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Intersection">-&gt;Intersection</a><span id="line-content">               function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/-init-delayed-errors">-init-delayed-errors</a><span id="line-content">         function      clojure.core.typed Internal use only.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/i-subst">i-subst</a><span id="line-content">                      record        clojure.core.typed.cs-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/i-subst-dotted">i-subst-dotted</a><span id="line-content">               record        clojure.core.typed.cs-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/i-subst-starred">i-subst-starred</a><span id="line-content">              record        clojure.core.typed.cs-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.frees/idx-variances">idx-variances</a><span id="line-content">                function      clojure.core.typed.frees Map of indexes to their variances.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/ImpFilter">ImpFilter</a><span id="line-content">                    record        clojure.core.typed.filter-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.parse-unparse/infer-bounds">infer-bounds</a><span id="line-content">                 function      clojure.core.typed.parse-unparse Returns a Bounds that attempts to fi...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.collect-phase/infer-typed-ns-deps!">infer-typed-ns-deps!</a><span id="line-content">         function      clojure.core.typed.collect-phase Automatically find other namespaces ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/inst">inst</a><span id="line-content">                         macro         clojure.core.typed Instantiate a polymorphic type with a number of ty...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/inst-ctor">inst-ctor</a><span id="line-content">                    macro         clojure.core.typed Instantiate a call to a constructor with a number ...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/inst-poly">inst-poly</a><span id="line-content">                    function      clojure.core.typed Internal use only. Use inst..
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/inst-poly-ctor">inst-poly-ctor</a><span id="line-content">               function      clojure.core.typed Internal use only. Use inst-ctor.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/instantiate">instantiate</a><span id="line-content">                  function      clojure.core.typed.type-ctors Instantiate bound name to free.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/instantiate-many">instantiate-many</a><span id="line-content">             function      clojure.core.typed.type-ctors instantiate-many : List[Symbols] Scope^...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Intersection">Intersection</a><span id="line-content">                 record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/IntegerCLJS">IntegerCLJS</a><span id="line-content">                  type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Intersection">Intersection</a><span id="line-content">                 type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/into-array&gt;">into-array&gt;</a><span id="line-content">                  macro         clojure.core.typed Make a Java array with Java class javat and Typed ...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/into-array&gt;*">into-array&gt;*</a><span id="line-content">                 function      clojure.core.typed Internal use only. Use into-array&gt;..
 </span></span>
   </pre>
 </div><div id="index-body">
@@ -273,173 +253,121 @@ Shortcuts:<br />
   <h2 id="K"><span id="section-head">K</span></h2>
   <pre>
 <span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/-&gt;KeyPE">-&gt;KeyPE</a><span id="line-content">                      function      clojure.core.typed.path-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;KwArgs">-&gt;KwArgs</a><span id="line-content">                     function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;KwArgsSeq">-&gt;KwArgsSeq</a><span id="line-content">                  function      clojure.core.typed.type-rep .
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/-&gt;KeysPE">-&gt;KeysPE</a><span id="line-content">                     function      clojure.core.typed.path-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/KeyPE">KeyPE</a><span id="line-content">                        record        clojure.core.typed.path-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/KwArgs">KwArgs</a><span id="line-content">                       record        clojure.core.typed.type-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/KwArgsSeq">KwArgsSeq</a><span id="line-content">                    record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/KeysPE">KeysPE</a><span id="line-content">                       record        clojure.core.typed.path-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/KwArgs">KwArgs</a><span id="line-content">                       type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/KwArgsSeq">KwArgsSeq</a><span id="line-content">                    type          clojure.core.typed.type-rep 
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="L"><span id="section-head">L</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;ListDots">-&gt;ListDots</a><span id="line-content">                   function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;LTRange">-&gt;LTRange</a><span id="line-content">                    function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/letfn&gt;">letfn&gt;</a><span id="line-content">                       macro         clojure.core.typed Like letfn, but each function spec must be annotat...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/ListDots">ListDots</a><span id="line-content">                     record        clojure.core.typed.type-rep 
+<span id="section-content"> <a href="index.html#clojure.core.typed/letfn&gt;">letfn&gt;</a><span id="line-content">                       macro         clojure.core.typed Like letfn, but each function spec must be annotat...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/ListDots">ListDots</a><span id="line-content">                     type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/load-if-needed">load-if-needed</a><span id="line-content">               function      clojure.core.typed Load and initialize all of core.typed if not alrea...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/loop&gt;">loop&gt;</a><span id="line-content">                        macro         clojure.core.typed Like loop, except loop variables require annotatio...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/loop&gt;-ann">loop&gt;-ann</a><span id="line-content">                    function      clojure.core.typed Internal use only. Use loop&gt;.
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/LTRange">LTRange</a><span id="line-content">                      record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/LTRange">LTRange</a><span id="line-content">                      type          clojure.core.typed.type-rep 
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="M"><span id="section-head">M</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Mu">-&gt;Mu</a><span id="line-content">                         function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/make-F">make-F</a><span id="line-content">                       function      clojure.core.typed.type-rep Make a free variable .
+<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/make-F">make-F</a><span id="line-content">                       function      clojure.core.typed.type-rep Make a free variable .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/make-Function">make-Function</a><span id="line-content">                function      clojure.core.typed.type-rep Make a function, wrap range type in a Res...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/make-HMap">make-HMap</a><span id="line-content">                    function      clojure.core.typed.type-ctors Generate a type which is every possible...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/make-Result">make-Result</a><span id="line-content">                  function      clojure.core.typed.type-rep Make a result. ie. the range of a Functio...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.inst/manual-inst">manual-inst</a><span id="line-content">                  function      clojure.core.typed.inst Poly Type^n -&gt; Type Substitute the type param...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/map-&gt;AndFilter">map-&gt;AndFilter</a><span id="line-content">               function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;AnyValue">map-&gt;AnyValue</a><span id="line-content">                function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;App">map-&gt;App</a><span id="line-content">                     function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;B">map-&gt;B</a><span id="line-content">                       function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/map-&gt;BotFilter">map-&gt;BotFilter</a><span id="line-content">               function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Bounds">map-&gt;Bounds</a><span id="line-content">                  function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;c">map-&gt;c</a><span id="line-content">                       function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/map-&gt;ClassPE">map-&gt;ClassPE</a><span id="line-content">                 function      clojure.core.typed.path-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/map-&gt;CountPE">map-&gt;CountPE</a><span id="line-content">                 function      clojure.core.typed.path-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;CountRange">map-&gt;CountRange</a><span id="line-content">              function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;cset">map-&gt;cset</a><span id="line-content">                    function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;cset-entry">map-&gt;cset-entry</a><span id="line-content">              function      clojure.core.typed.cs-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;DataType">map-&gt;DataType</a><span id="line-content">                function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;dcon">map-&gt;dcon</a><span id="line-content">                    function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;dcon-dotted">map-&gt;dcon-dotted</a><span id="line-content">             function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;dcon-exact">map-&gt;dcon-exact</a><span id="line-content">              function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;dmap">map-&gt;dmap</a><span id="line-content">                    function      clojure.core.typed.cs-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;DottedPretype">map-&gt;DottedPretype</a><span id="line-content">           function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.object-rep/map-&gt;EmptyObject">map-&gt;EmptyObject</a><span id="line-content">             function      clojure.core.typed.object-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;F">map-&gt;F</a><span id="line-content">                       function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/map-&gt;FilterSet">map-&gt;FilterSet</a><span id="line-content">               function      clojure.core.typed.filter-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/map-&gt;FirstPE">map-&gt;FirstPE</a><span id="line-content">                 function      clojure.core.typed.path-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;FlowSet">map-&gt;FlowSet</a><span id="line-content">                 function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;FnIntersection">map-&gt;FnIntersection</a><span id="line-content">          function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/map-&gt;FnResult">map-&gt;FnResult</a><span id="line-content">                function      clojure.core.typed.check .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Function">map-&gt;Function</a><span id="line-content">                function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;GTRange">map-&gt;GTRange</a><span id="line-content">                 function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;HeterogeneousList">map-&gt;HeterogeneousList</a><span id="line-content">       function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;HeterogeneousMap">map-&gt;HeterogeneousMap</a><span id="line-content">        function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;HeterogeneousSeq">map-&gt;HeterogeneousSeq</a><span id="line-content">        function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;HeterogeneousVector">map-&gt;HeterogeneousVector</a><span id="line-content">     function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;i-subst">map-&gt;i-subst</a><span id="line-content">                 function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;i-subst-dotted">map-&gt;i-subst-dotted</a><span id="line-content">          function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;i-subst-starred">map-&gt;i-subst-starred</a><span id="line-content">         function      clojure.core.typed.cs-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/map-&gt;ImpFilter">map-&gt;ImpFilter</a><span id="line-content">               function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Intersection">map-&gt;Intersection</a><span id="line-content">            function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/map-&gt;KeyPE">map-&gt;KeyPE</a><span id="line-content">                   function      clojure.core.typed.path-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;KwArgs">map-&gt;KwArgs</a><span id="line-content">                  function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;KwArgsSeq">map-&gt;KwArgsSeq</a><span id="line-content">               function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;ListDots">map-&gt;ListDots</a><span id="line-content">                function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;LTRange">map-&gt;LTRange</a><span id="line-content">                 function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Mu">map-&gt;Mu</a><span id="line-content">                      function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Name">map-&gt;Name</a><span id="line-content">                    function      clojure.core.typed.type-rep .
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/map-&gt;KeysPE">map-&gt;KeysPE</a><span id="line-content">                  function      clojure.core.typed.path-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/map-&gt;NextPE">map-&gt;NextPE</a><span id="line-content">                  function      clojure.core.typed.path-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/map-&gt;NoFilter">map-&gt;NoFilter</a><span id="line-content">                function      clojure.core.typed.filter-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.object-rep/map-&gt;NoObject">map-&gt;NoObject</a><span id="line-content">                function      clojure.core.typed.object-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;NotType">map-&gt;NotType</a><span id="line-content">                 function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/map-&gt;NotTypeFilter">map-&gt;NotTypeFilter</a><span id="line-content">           function      clojure.core.typed.filter-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/map-&gt;OrFilter">map-&gt;OrFilter</a><span id="line-content">                function      clojure.core.typed.filter-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.object-rep/map-&gt;Path">map-&gt;Path</a><span id="line-content">                    function      clojure.core.typed.object-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Poly">map-&gt;Poly</a><span id="line-content">                    function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;PolyDots">map-&gt;PolyDots</a><span id="line-content">                function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;PrimitiveArray">map-&gt;PrimitiveArray</a><span id="line-content">          function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Projection">map-&gt;Projection</a><span id="line-content">              function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.lex-env/map-&gt;PropEnv">map-&gt;PropEnv</a><span id="line-content">                 function      clojure.core.typed.lex-env .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Protocol">map-&gt;Protocol</a><span id="line-content">                function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;RClass">map-&gt;RClass</a><span id="line-content">                  function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/map-&gt;RecurTarget">map-&gt;RecurTarget</a><span id="line-content">             function      clojure.core.typed.check .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Result">map-&gt;Result</a><span id="line-content">                  function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Scope">map-&gt;Scope</a><span id="line-content">                   function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/map-&gt;t-subst">map-&gt;t-subst</a><span id="line-content">                 function      clojure.core.typed.cs-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;TApp">map-&gt;TApp</a><span id="line-content">                    function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;TCError">map-&gt;TCError</a><span id="line-content">                 function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;TCResult">map-&gt;TCResult</a><span id="line-content">                function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Top">map-&gt;Top</a><span id="line-content">                     function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/map-&gt;TopFilter">map-&gt;TopFilter</a><span id="line-content">               function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;TopFunction">map-&gt;TopFunction</a><span id="line-content">             function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/map-&gt;TypeFilter">map-&gt;TypeFilter</a><span id="line-content">              function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;TypeFn">map-&gt;TypeFn</a><span id="line-content">                  function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Union">map-&gt;Union</a><span id="line-content">                   function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/map-&gt;Value">map-&gt;Value</a><span id="line-content">                   function      clojure.core.typed.type-rep .
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/map-&gt;ValsPE">map-&gt;ValsPE</a><span id="line-content">                  function      clojure.core.typed.path-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/method-type">method-type</a><span id="line-content">                  function      clojure.core.typed Given a method symbol, print the core.typed types ...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Mu">Mu</a><span id="line-content">                           record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Mu">Mu</a><span id="line-content">                           type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.mm-env/multimethod-dispatch-type">multimethod-dispatch-type</a><span id="line-content">    function      clojure.core.typed.mm-env Can return nil.
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="N"><span id="section-head">N</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Name">-&gt;Name</a><span id="line-content">                       function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/-&gt;NextPE">-&gt;NextPE</a><span id="line-content">                     function      clojure.core.typed.path-rep .
+<span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/-&gt;NextPE">-&gt;NextPE</a><span id="line-content">                     function      clojure.core.typed.path-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;NoFilter">-&gt;NoFilter</a><span id="line-content">                   function      clojure.core.typed.filter-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.hole/-&gt;NoisyHole">-&gt;NoisyHole</a><span id="line-content">                  function      clojure.core.typed.hole Positional factory function for class clojure...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.object-rep/-&gt;NoObject">-&gt;NoObject</a><span id="line-content">                   function      clojure.core.typed.object-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;NotType">-&gt;NotType</a><span id="line-content">                    function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;NotTypeFilter">-&gt;NotTypeFilter</a><span id="line-content">              function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Name">Name</a><span id="line-content">                         record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Name">Name</a><span id="line-content">                         type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.name-env/NameEnv">NameEnv</a><span id="line-content">                      var           clojure.core.typed.name-env Environment mapping names to types. Keywo...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/NameRef">NameRef</a><span id="line-content">                      var           clojure.core.typed.filter-rep A name for a type variable, either a sy...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/NextPE">NextPE</a><span id="line-content">                       record        clojure.core.typed.path-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/nilable-param">nilable-param</a><span id="line-content">                macro         clojure.core.typed Override which parameters in qualified method msym...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/nilable-param*">nilable-param*</a><span id="line-content">               function      clojure.core.typed Internal use only. Use nilable-param..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/NoFilter">NoFilter</a><span id="line-content">                     record        clojure.core.typed.filter-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.hole/noisy-hole">noisy-hole</a><span id="line-content">                   function      clojure.core.typed.hole A noisy hole. The type system will complain w...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.hole/NoisyHole">NoisyHole</a><span id="line-content">                    type          clojure.core.typed.hole 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/non-nil-return">non-nil-return</a><span id="line-content">               macro         clojure.core.typed Override the return type of qualified method msym ...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/non-nil-return*">non-nil-return*</a><span id="line-content">              function      clojure.core.typed Internal use only. Use non-nil-return..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.object-rep/NoObject">NoObject</a><span id="line-content">                     record        clojure.core.typed.object-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/NotType">NotType</a><span id="line-content">                      record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/NotType">NotType</a><span id="line-content">                      type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/NotTypeFilter">NotTypeFilter</a><span id="line-content">                record        clojure.core.typed.filter-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.ns-options/NsOptions">NsOptions</a><span id="line-content">                    var           clojure.core.typed.ns-options Options for namespaces  (HMap :optional...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/NumberCLJS">NumberCLJS</a><span id="line-content">                   type          clojure.core.typed.type-rep 
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="O"><span id="section-head">O</span></h2>
   <pre>
 <span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;OrFilter">-&gt;OrFilter</a><span id="line-content">                   function      clojure.core.typed.filter-rep .
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/ObjectCLJS">ObjectCLJS</a><span id="line-content">                   type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/open-Result">open-Result</a><span id="line-content">                  function      clojure.core.typed.check Substitute ids for objs in Result t.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/OrFilter">OrFilter</a><span id="line-content">                     record        clojure.core.typed.filter-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/override-constructor">override-constructor</a><span id="line-content">         macro         clojure.core.typed Override all constructors for Class ctorsym with t...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/override-constructor*">override-constructor*</a><span id="line-content">        function      clojure.core.typed Internal use only. Use override-constructor..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/override-method">override-method</a><span id="line-content">              macro         clojure.core.typed Override type for qualified method methodsym..
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/override-method*">override-method*</a><span id="line-content">             function      clojure.core.typed Internal use only. Use override-method..
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="P"><span id="section-head">P</span></h2>
   <pre>
 <span id="section-content"> <a href="index.html#clojure.core.typed.object-rep/-&gt;Path">-&gt;Path</a><span id="line-content">                       function      clojure.core.typed.object-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Poly">-&gt;Poly</a><span id="line-content">                       function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;PolyDots">-&gt;PolyDots</a><span id="line-content">                   function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;PrimitiveArray">-&gt;PrimitiveArray</a><span id="line-content">             function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Projection">-&gt;Projection</a><span id="line-content">                 function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.lex-env/-&gt;PropEnv">-&gt;PropEnv</a><span id="line-content">                    function      clojure.core.typed.lex-env .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Protocol">-&gt;Protocol</a><span id="line-content">                   function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.object-rep/Path">Path</a><span id="line-content">                         record        clojure.core.typed.object-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/pfn&gt;">pfn&gt;</a><span id="line-content">                         macro         clojure.core.typed Define a polymorphic typed anonymous function. (pf...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/pfn&gt;-ann">pfn&gt;-ann</a><span id="line-content">                     function      clojure.core.typed Internal use only. Use pfn&gt;..
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Poly">Poly</a><span id="line-content">                         record        clojure.core.typed.type-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/PolyDots">PolyDots</a><span id="line-content">                     record        clojure.core.typed.type-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/PrimitiveArray">PrimitiveArray</a><span id="line-content">               record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Poly">Poly</a><span id="line-content">                         type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/PolyDots">PolyDots</a><span id="line-content">                     type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/Port">Port</a><span id="line-content">                         var           clojure.core.typed.async A port that can read and write type x  (TFn ...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/PrimitiveArray">PrimitiveArray</a><span id="line-content">               type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/print-env">print-env</a><span id="line-content">                    function      clojure.core.typed During type checking, print the type environment t...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/print-errors!">print-errors!</a><span id="line-content">                function      clojure.core.typed Internal use only.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/print-filterset">print-filterset</a><span id="line-content">              function      clojure.core.typed During type checking, print the filter set attache...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Projection">Projection</a><span id="line-content">                   record        clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.promote-demote/promote">promote</a><span id="line-content">                      multimethod   clojure.core.typed.promote-demote Eliminate all variables V in t by p...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.lex-env/PropEnv">PropEnv</a><span id="line-content">                      record        clojure.core.typed.lex-env 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Protocol">Protocol</a><span id="line-content">                     record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Protocol">Protocol</a><span id="line-content">                     type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/Protocol-var-&gt;on-class">Protocol-var-&gt;on-class</a><span id="line-content">       function      clojure.core.typed.type-ctors Given the var symbol of a protocol, ret...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.protocol-env/ProtocolEnv">ProtocolEnv</a><span id="line-content">                  var           clojure.core.typed.protocol-env A map mapping protocol symbols their ...
 </span></span>
   </pre>
@@ -451,28 +379,33 @@ Shortcuts:<br />
 </div><div id="index-body">
   <h2 id="R"><span id="section-head">R</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;RClass">-&gt;RClass</a><span id="line-content">                     function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/-&gt;RecurTarget">-&gt;RecurTarget</a><span id="line-content">                function      clojure.core.typed.check .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/RClass">RClass</a><span id="line-content">                       record        clojure.core.typed.type-rep 
+<span id="section-content"> <a href="index.html#clojure.core.typed.check/-&gt;RecurTarget">-&gt;RecurTarget</a><span id="line-content">                function      clojure.core.typed.check .
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/RClass">RClass</a><span id="line-content">                       type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/RClass-replacements*">RClass-replacements*</a><span id="line-content">         function      clojure.core.typed.type-ctors Return the replacements map for the RCl...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/RClass-supers*">RClass-supers*</a><span id="line-content">               function      clojure.core.typed.type-ctors Return a set of ancestors to the RClass.
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/ReadOnlyChan">ReadOnlyChan</a><span id="line-content">                 var           clojure.core.typed.async A core.async channel that statically disallo...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/ReadOnlyPort">ReadOnlyPort</a><span id="line-content">                 var           clojure.core.typed.async A read-only port that can read type x  (TFn ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/RecurTarget">RecurTarget</a><span id="line-content">                  record        clojure.core.typed.check 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/relevant-Fns">relevant-Fns</a><span id="line-content">                 function      clojure.core.typed.check Given a set of required-param exprs, rest-pa...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/remove-scopes">remove-scopes</a><span id="line-content">                function      clojure.core.typed.type-ctors Unwrap n Scopes.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/reset-caches">reset-caches</a><span id="line-content">                 function      clojure.core.typed Reset internal type caches..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.datatype-env/resolve-datatype">resolve-datatype</a><span id="line-content">             function      clojure.core.typed.datatype-env Same as get-datatype, but fails if da...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Result">Result</a><span id="line-content">                       record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Result">Result</a><span id="line-content">                       type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/ret">ret</a><span id="line-content">                          function      clojure.core.typed.type-rep Convenience function for returning the ty...
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="S"><span id="section-head">S</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Scope">-&gt;Scope</a><span id="line-content">                      function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Scope">Scope</a><span id="line-content">                        record        clojure.core.typed.type-rep 
+<span id="section-content"> <a href="index.html#clojure.core.typed.inst/same-or-narrower-bounds?">same-or-narrower-bounds?</a><span id="line-content">     function      clojure.core.typed.inst True if arg-bounds is inside bounds, false ot...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.inst/satisfies-bounds?">satisfies-bounds?</a><span id="line-content">            function      clojure.core.typed.inst True if type t is inside bounds.
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Scope">Scope</a><span id="line-content">                        type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/scope-depth?">scope-depth?</a><span id="line-content">                 function      clojure.core.typed.type-rep True if scope is has depth number of scop...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/SeqNumber">SeqNumber</a><span id="line-content">                    var           clojure.core.typed.type-rep Long.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.hole/silent-hole">silent-hole</a><span id="line-content">                  function      clojure.core.typed.hole A silent hole. (silent-hole) passes for any o...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-ops/simplify-prop">simplify-prop</a><span id="line-content">                function      clojure.core.typed.filter-ops Try and use atomic proposition a to sim...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/sliding-buffer&gt;">sliding-buffer&gt;</a><span id="line-content">              macro         clojure.core.typed.async A statically typed core.async sliding buffer...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/StringCLJS">StringCLJS</a><span id="line-content">                   type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/SubstMap">SubstMap</a><span id="line-content">                     var           clojure.core.typed.cs-rep A substutition map of symbols naming frees ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/SubstRHS">SubstRHS</a><span id="line-content">                     var           clojure.core.typed.cs-rep The substitution records.  (U t-subst i-sub...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.subtype/subtypes-varargs?">subtypes-varargs?</a><span id="line-content">            function      clojure.core.typed.subtype True if argtys are under dom.
@@ -483,41 +416,34 @@ Shortcuts:<br />
   <h2 id="T"><span id="section-head">T</span></h2>
   <pre>
 <span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/-&gt;t-subst">-&gt;t-subst</a><span id="line-content">                    function      clojure.core.typed.cs-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;TApp">-&gt;TApp</a><span id="line-content">                       function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;TCError">-&gt;TCError</a><span id="line-content">                    function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;TCResult">-&gt;TCResult</a><span id="line-content">                   function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Top">-&gt;Top</a><span id="line-content">                        function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;TopFilter">-&gt;TopFilter</a><span id="line-content">                  function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;TopFunction">-&gt;TopFunction</a><span id="line-content">                function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/-&gt;TypeFilter">-&gt;TypeFilter</a><span id="line-content">                 function      clojure.core.typed.filter-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;TypeFn">-&gt;TypeFn</a><span id="line-content">                     function      clojure.core.typed.type-rep .
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.cs-rep/t-subst">t-subst</a><span id="line-content">                      record        clojure.core.typed.cs-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TApp">TApp</a><span id="line-content">                         record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TApp">TApp</a><span id="line-content">                         type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/tc-ignore">tc-ignore</a><span id="line-content">                    macro         clojure.core.typed Ignore forms in body during type checking.
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/tc-ignore-forms*">tc-ignore-forms*</a><span id="line-content">             function      clojure.core.typed Internal use only. Use tc-ignore.
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/tc-isa?">tc-isa?</a><span id="line-content">                      function      clojure.core.typed.check Type check a call to isa?. Assumes global hi...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TCError">TCError</a><span id="line-content">                      record        clojure.core.typed.type-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TCResult">TCResult</a><span id="line-content">                     record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TCError">TCError</a><span id="line-content">                      type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TCResult">TCResult</a><span id="line-content">                     type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/TempAtom1">TempAtom1</a><span id="line-content">                    var           clojure.core.typed.type-ctors clojure.core.typed/Atom1 might not be a...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TempFilterSet">TempFilterSet</a><span id="line-content">                var           clojure.core.typed.type-rep Can't import FilterSet here, so an alias ...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Top">Top</a><span id="line-content">                          record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/TimeoutChan">TimeoutChan</a><span id="line-content">                  var           clojure.core.typed.async A timeout channel  (Chan Any).
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Top">Top</a><span id="line-content">                          type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/TopFilter">TopFilter</a><span id="line-content">                    record        clojure.core.typed.filter-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TopFunction">TopFunction</a><span id="line-content">                  record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TopFunction">TopFunction</a><span id="line-content">                  type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/TypeCache">TypeCache</a><span id="line-content">                    var           clojure.core.typed.type-ctors (IPersistentMap (IPersistentSet TCTyp...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/typed-deps">typed-deps</a><span id="line-content">                   macro         clojure.core.typed Declare namespaces which should be checked before ...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/typed-deps*">typed-deps*</a><span id="line-content">                  function      clojure.core.typed Internal use only. Use typed-deps..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.filter-rep/TypeFilter">TypeFilter</a><span id="line-content">                   record        clojure.core.typed.filter-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TypeFn">TypeFn</a><span id="line-content">                       record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/TypeFn">TypeFn</a><span id="line-content">                       type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-ctors/TypeMap">TypeMap</a><span id="line-content">                      var           clojure.core.typed.type-ctors A regular map with types as keys and va...
 </span></span>
   </pre>
 </div><div id="index-body">
   <h2 id="U"><span id="section-head">U</span></h2>
   <pre>
-<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Union">-&gt;Union</a><span id="line-content">                      function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Union">Union</a><span id="line-content">                        record        clojure.core.typed.type-rep 
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/unwrap-datatype">unwrap-datatype</a><span id="line-content">              function      clojure.core.typed.check Takes a possibly polymorphic DataType and re...
+<span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Union">Union</a><span id="line-content">                        type          clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/unwrap-datatype">unwrap-datatype</a><span id="line-content">              function      clojure.core.typed.check Takes a DataType that might be wrapped in a ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/unwrap-poly">unwrap-poly</a><span id="line-content">                  function      clojure.core.typed.check Return a pair vector of the instantiated bod...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.check/unwrap-tfn">unwrap-tfn</a><span id="line-content">                   function      clojure.core.typed.check Get the instantiated type wrapped by this TF...
 </span></span>
   </pre>
 </div><div id="index-body">
@@ -525,8 +451,9 @@ Shortcuts:<br />
   <pre>
 <span id="section-content"> <a href="index.html#clojure.core.typed/*verbose-forms*">*verbose-forms*</a><span id="line-content">              var           clojure.core.typed If true, print complete forms in error messages..
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed/*verbose-types*">*verbose-types*</a><span id="line-content">              var           clojure.core.typed If true, print fully qualified types in error mess...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/-&gt;Value">-&gt;Value</a><span id="line-content">                      function      clojure.core.typed.type-rep .
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Value">Value</a><span id="line-content">                        record        clojure.core.typed.type-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/-&gt;ValsPE">-&gt;ValsPE</a><span id="line-content">                     function      clojure.core.typed.path-rep .
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.path-rep/ValsPE">ValsPE</a><span id="line-content">                       record        clojure.core.typed.path-rep 
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Value">Value</a><span id="line-content">                        type          clojure.core.typed.type-rep 
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.parse-unparse/var-symbol-intern">var-symbol-intern</a><span id="line-content">            function      clojure.core.typed.parse-unparse Returns a symbol interned in ns for ...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/Variance">Variance</a><span id="line-content">                     var           clojure.core.typed.type-rep Keywords that represent a certain varianc...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.type-rep/visit-bounds">visit-bounds</a><span id="line-content">                 function      clojure.core.typed.type-rep Apply f to each element of bounds.
@@ -536,11 +463,12 @@ Shortcuts:<br />
   <h2 id="W"><span id="section-head">W</span></h2>
   <pre>
 <span id="section-content"> <a href="index.html#clojure.core.typed/warn-on-unannotated-vars">warn-on-unannotated-vars</a><span id="line-content">     macro         clojure.core.typed Allow unannotated vars in the current namespace.  ...
-</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/warn-on-unannotated-vars*">warn-on-unannotated-vars*</a><span id="line-content">    function      clojure.core.typed Internal use only. Use allow-unannotated-vars.
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed/when-let-fail">when-let-fail</a><span id="line-content">                macro         clojure.core.typed Like when-let, but fails if the binding yields a f...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.free-ops/with-bounded-frees">with-bounded-frees</a><span id="line-content">           macro         clojure.core.typed.free-ops Scopes bfrees, a map of instances of F to...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.utils/with-ex-info-handlers">with-ex-info-handlers</a><span id="line-content">        macro         clojure.core.typed.utils Handle an ExceptionInfo e thrown in body. Th...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.free-ops/with-free-symbols">with-free-symbols</a><span id="line-content">            macro         clojure.core.typed.free-ops Scopes sfrees, a sequence of symbols, ins...
 </span></span><span id="section-content"> <a href="index.html#clojure.core.typed.free-ops/with-frees">with-frees</a><span id="line-content">                   macro         clojure.core.typed.free-ops Scopes frees, which are instances of F, i...
+</span></span><span id="section-content"> <a href="index.html#clojure.core.typed.async/WriteOnlyPort">WriteOnlyPort</a><span id="line-content">                var           clojure.core.typed.async A write-only port that can write type x  (TF...
 </span></span>
   </pre>
 </div><div id="index-body">
