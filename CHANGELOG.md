@@ -1,5 +1,14 @@
-0.1.23
+0.1.23-24
 - Support extending protocols to nil
+- Fix subtyping between protocols and records
+
+- *BREAKING CHANGE* remove ann-pprotocol
+  - use ann-protocol with vector as first argument
+  - see doc for ann-protocol
+
+- *BREAKING CHANGE* remove ann-pdatatype
+  - use ann-datatype with vector as first argument
+  - see doc for ann-datatype
 
 0.1.22
 - Fix HMap's new keyword options
