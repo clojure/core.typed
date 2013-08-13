@@ -68,6 +68,10 @@ cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
 
 (def init-declared-kinds {})
 
+(def init-jsnominals {})
+
+(def init-datatype-env {})
+
 (defn reset-cljs-envs! []
   (impl/with-cljs-impl
     ((v 'clojure.core.typed.name-env/reset-name-env!) init-alias-env)
@@ -76,5 +80,9 @@ cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
     ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
      init-protocol-env)
     ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
-     init-declared-kinds))
+     init-declared-kinds)
+    ((v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
+     init-jsnominals)
+    ((v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
+     init-datatype-env))
   nil)

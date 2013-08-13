@@ -10,10 +10,12 @@
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.protocol-env :as prenv]
+            [clojure.core.typed.jsnominal-env :as jsnom]
             [clojure.core.typed :as t :refer [fn>]]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
-            [clojure.reflect :as reflect])
+            [clojure.reflect :as reflect]
+            [clojure.repl :as repl])
 
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
@@ -338,6 +340,79 @@
 
 (declare TypeFn* instantiate-poly instantiate-typefn abstract-many instantiate-many)
 
+;; JS Nominal
+
+(t/ann ^:no-check JSNominal*
+  [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol (Seqable Bounds) -> TCType])
+(defn JSNominal* [names variances poly? name bnds]
+  {:pre [(every? symbol? names)
+         (every? r/variance? variances)
+         (= (count variances) (count poly?))
+         (every? r/Type? poly?)
+         (every? r/Bounds? bnds)
+         (symbol? name)]
+   :post [(r/Type? %)]}
+  (let [p (r/JSNominal-maker (seq variances) (seq poly?) name)]
+    (if (seq variances)
+      (TypeFn* names variances bnds p)
+      p)))
+
+(t/ann ^:no-check JSNominal-of (Fn [Symbol -> TCType]
+                                   [Symbol (U nil (Seqable TCType)) -> TCType]))
+(defn JSNominal-of
+  ([sym] (JSNominal-of sym nil))
+  ([sym args]
+   {:pre [(symbol? sym)
+          (every? r/Type? args)]
+    :post [(r/Type? %)]}
+   (let [p (jsnom/get-jsnominal sym)]
+     (assert ((some-fn r/TypeFn? r/JSNominal? nil?) p))
+     ; parameterised nominals must be previously annotated
+     (assert (or (r/TypeFn? p) (empty? args))
+             (str "Cannot instantiate non-polymorphic JS nominal " sym))
+     (cond 
+       (r/TypeFn? p) (instantiate-typefn p args)
+       (r/JSNominal? p) p
+       ; allow unannotated nominals if unparameterised
+       :else (JSNominal* nil nil sym nil)))))
+
+;Datatype
+
+(t/ann ^:no-check DataType*
+  [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol (Seqable Bounds) -> TCType])
+(defn DataType* [names variances poly? name bnds fields record?]
+  {:pre [(every? symbol? names)
+         (every? r/variance? variances)
+         (= (count variances) (count poly?))
+         (every? r/Type? poly?)
+         (every? r/Bounds? bnds)
+         (symbol? name)]
+   :post [(r/Type? %)]}
+  (let [p (r/DataType-maker name (seq variances) (seq poly?) fields record?)]
+    (if (seq variances)
+      (TypeFn* names variances bnds p)
+      p)))
+
+(t/ann ^:no-check DataType-of (Fn [Symbol -> TCType]
+                                  [Symbol (U nil (Seqable TCType)) -> TCType]))
+(defn DataType-of
+  ([sym] (DataType-of sym nil))
+  ([sym args]
+   {:pre [(symbol? sym)
+          (every? r/Type? args)]
+    :post [(r/Type? %)]}
+   (let [p (dtenv/get-datatype sym)]
+     (assert ((some-fn r/TypeFn? r/DataType? nil?) p))
+     ; parameterised datatypes must be previously annotated
+     (assert (or (r/TypeFn? p) (empty? args))
+             (str "Cannot instantiate non-polymorphic datatype " sym))
+     (cond 
+       (r/TypeFn? p) (instantiate-typefn p args)
+       (r/DataType? p) p
+       ; allow unannotated datatypes if unparameterised
+       :else (DataType* nil nil nil sym nil {} false)))))
+
+
 ;; Protocol
 
 (t/ann ^:no-check Protocol*
@@ -366,6 +441,19 @@
   {:pre [(symbol? sym)]
    :post [(symbol? %)]}
   (symbol (str (munge (namespace sym)) \. (name sym))))
+
+(t/ann ^:no-check Protocol-interface->on-var [Symbol -> Symbol])
+(defn Protocol-interface->on-var
+  "Given the interface symbol of a protocol, returns the corresponding
+  var the protocol is based on as a symbol. Assumes the interface is possible
+  to demunge. Only useful for Clojure implementation."
+  [sym]
+  {:pre [(symbol? sym)]
+   :post [(symbol? %)]}
+  (let [segs (vec (partition-by #{\.} (str (repl/demunge (str sym)))))
+        segs (assoc-in segs [(- (count segs) 2)] '(\/))
+        var-sym (symbol (apply str (apply concat segs)))]
+    var-sym))
 
 (t/ann ^:no-check Protocol-of (Fn [Symbol -> TCType]
                                   [Symbol (U nil (Seqable TCType)) -> TCType]))
@@ -460,6 +548,21 @@
            (r/DataType-maker sym nil nil (array-map) (isa-Record? cls))
            (r/RClass-maker nil nil sym {} #{})))))))
 
+(t/ann ^:no-check most-general-on-variance [(Seqable r/Variance) (Seqable Bounds) -> TCType])
+(defn most-general-on-variance [variances bnds]
+  (doall
+    (for [[variance bnd] (map vector variances bnds)]
+      (if (= r/no-bounds bnd)
+        (case variance
+          (:invariant :constant :covariant) r/-any
+          :contravariant r/-nothing)
+        (assert nil (str "Don't know most general type for bounds other than Any/Nothing" 
+                         (unparse-type (:upper-bound bnd))
+                         (unparse-type (:lower-bound bnd))))))))
+
+(declare TypeFn-bbnds*)
+
+;FIXME rename to RClass-with-unknown-params
 (t/ann ^:no-check RClass-of-with-unknown-params [(U Symbol Class) -> TCType])
 (defn RClass-of-with-unknown-params
   ([sym-or-cls]
@@ -470,10 +573,42 @@
                sym-or-cls)
          rc ((some-fn dtenv/get-datatype rcls/get-rclass) sym)
          args (when (r/TypeFn? rc)
-                ;instantiate with Any, could be more general if respecting variance
-                ;FIXME higher rank types? should respect TFn bounds.
-                (repeat (.nbound ^TypeFn rc) r/-any))]
+                (most-general-on-variance (:variances rc)
+                                          (TypeFn-bbnds* (repeatedly (count (:variances rc)) gensym) rc)))]
      (RClass-of sym args))))
+
+(t/ann ^:no-check DataType-with-unknown-params [Symbol -> TCType])
+(defn DataType-with-unknown-params
+  ([sym]
+   {:pre [(symbol? sym)]
+    :post [((some-fn r/DataType?) %)]}
+   (let [t (dtenv/get-datatype sym)
+         args (when (r/TypeFn? t)
+                (most-general-on-variance (:variances t)
+                                          (TypeFn-bbnds* (repeatedly (count (:variances t)) gensym) t)))]
+     (DataType-of sym args))))
+
+(t/ann ^:no-check JSNominal-with-unknown-params [Symbol -> TCType])
+(defn JSNominal-with-unknown-params
+  ([sym]
+   {:pre [(symbol? sym)]
+    :post [((some-fn r/JSNominal?) %)]}
+   (let [t (jsnom/get-jsnominal sym)
+         args (when (r/TypeFn? t)
+                (most-general-on-variance (:variances t)
+                                          (TypeFn-bbnds* (repeatedly (count (:variances t)) gensym) t)))]
+     (JSNominal-of sym args))))
+
+(t/ann ^:no-check Protocol-with-unknown-params [Symbol -> TCType])
+(defn Protocol-with-unknown-params
+  ([sym]
+   {:pre [(symbol? sym)]
+    :post [((some-fn r/Protocol?) %)]}
+   (let [t (prenv/get-protocol sym)
+         args (when (r/TypeFn? t)
+                (most-general-on-variance (:variances t)
+                                          (TypeFn-bbnds* (repeatedly (count (:variances t)) gensym) t)))]
+     (Protocol-of sym args))))
 
 (t/tc-ignore
 (defn- infer-var []
@@ -513,8 +648,7 @@
   [^RClass rcls]
   {:pre [(r/RClass? rcls)]
    :post [((u/set-c? r/Type?) %)]}
-  (let [infer @(infer-var)
-        subst-all @(subst-all-var)
+  (let [subst-all @(subst-all-var)
         poly (.poly? rcls)
         names (repeatedly (count poly) gensym)
         fs (map r/make-F names)]

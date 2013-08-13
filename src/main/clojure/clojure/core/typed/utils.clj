@@ -35,6 +35,8 @@
 (declare emit-form-fn)
 
 (t/ann ^:no-check nat? (predicate t/AnyInteger))
+(t/ann ^:no-check hash-c? [[Any -> Any] [Any -> Any] -> [Any -> Any]])
+(t/ann ^:no-check set-c? [[Any -> Any] -> [Any -> Any]])
 
 (t/tc-ignore
 (defn every-c? [c]

@@ -13,6 +13,11 @@
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.declared-kind-env :as decl]
             [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.collect-phase :as coll-clj]
+            [clojure.core.typed.datatype-ancestor-env :as ancest]
+            [clojure.core.typed.datatype-env :as dt-env]
+            [clojure.repl :as repl]
             [clojure.core.typed.util-vars :as vs]))
 
 (defn- collected-ns! [nsym]
@@ -90,6 +95,74 @@
         (var-env/add-nocheck-var kq)
         (var-env/add-var-type kq mt)))
     nil))
+
+(defn gen-datatype* [current-env current-ns provided-name fields vbnd opt record?]
+  {:pre [(symbol? current-ns)]}
+  (impl/with-cljs-impl
+    (let [{ancests :unchecked-ancestors} opt
+          _ (when ancests
+              (assert nil "Unchecked ancestors for CLJS NYI"))
+          parsed-binders (when vbnd
+                           (map prs/parse-free-with-variance vbnd))
+          ;variances
+          vs (seq (map :variance parsed-binders))
+          args (seq (map :fname parsed-binders))
+          bnds (seq (map :bnd parsed-binders))]
+      (let [provided-name-str (str provided-name)
+            ;_ (prn "provided-name-str" provided-name-str)
+            munged-ns-str (if (some #(= \. %) provided-name-str)
+                            (apply str (butlast (apply concat (butlast (partition-by #(= \. %) provided-name-str)))))
+                            (str (munge current-ns)))
+            ;_ (prn "munged-ns-str" munged-ns-str)
+            demunged-ns-str (str (repl/demunge munged-ns-str))
+            ;_ (prn "demunged-ns-str" demunged-ns-str)
+            local-name (if (some #(= \. %) provided-name-str)
+                         (symbol (apply str (last (partition-by #(= \. %) (str provided-name-str)))))
+                         provided-name-str)
+            ;_ (prn "local-name" local-name)
+            s (symbol (str munged-ns-str \. local-name))
+            fs (apply array-map (apply concat (free-ops/with-frees (mapv r/make-F args)
+                                                (binding [uvar/*current-env* current-env
+                                                          prs/*parse-type-in-ns* current-ns]
+                                                  (mapv coll-clj/parse-field (partition 3 fields))))))
+            ;FIXME unchecked ancestors
+            ;as (set (free-ops/with-frees (mapv r/make-F args)
+            ;          (binding [uvar/*current-env* current-env
+            ;                    prs/*parse-type-in-ns* current-ns]
+            ;            (mapv prs/parse-type ancests))))
+            ;_ (ancest/add-datatype-ancestors s as)
+            pos-ctor-name (symbol demunged-ns-str (str "->" local-name))
+            map-ctor-name (symbol demunged-ns-str (str "map->" local-name))
+            dt (c/DataType* args vs (map r/make-F args) s bnds fs record?)
+            _ (dt-env/add-datatype s dt)
+            pos-ctor (if args
+                       (c/Poly* args bnds
+                                (r/make-FnIntersection
+                                  (r/make-Function (vec (vals fs)) (c/DataType-of s (map r/make-F args))))
+                                args)
+                       (r/make-FnIntersection
+                         (r/make-Function (vec (vals fs)) (c/DataType-of s))))
+            map-ctor (when record?
+                       (let [hmap-arg (c/-hmap (zipmap (map (comp r/-val keyword) (keys fs))
+                                                       (vals fs)))]
+                         (if args
+                           (c/Poly* args bnds
+                                    (r/make-FnIntersection
+                                      (r/make-Function [hmap-arg] (c/DataType-of s (map r/make-F args))))
+                                    args)
+                           (r/make-FnIntersection
+                             (r/make-Function [hmap-arg] (c/DataType-of s))))))]
+        (do 
+          (var-env/add-var-type pos-ctor-name pos-ctor)
+          (var-env/add-nocheck-var pos-ctor-name)
+          (when record?
+            (var-env/add-var-type map-ctor-name map-ctor)))))))
+
+(defmethod invoke-special-collect 'cljs.core.typed/ann-datatype*
+  [{:keys [args env] :as expr}]
+  (assert (= (count args) 4) "Wrong arguments to ann-datatype")
+  (let [[binder dname fields opt] (map :form args)]
+    (gen-datatype* env (chk/expr-ns expr) dname fields binder opt false)))
 
 (defmethod invoke-special-collect 'cljs.core.typed/ann-protocol*
   [{[{vbnd :form} {varsym :form} {mth :form} :as args] :args :keys [env] :as expr}]

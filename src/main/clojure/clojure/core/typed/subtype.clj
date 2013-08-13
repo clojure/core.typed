@@ -10,8 +10,10 @@
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.free-ops :as free-ops]
-            [clojure.core.typed.datatype-ancestor-env :as dtenv]
-            [clojure.set :as set])
+            [clojure.core.typed.datatype-ancestor-env :as ancest]
+            [clojure.core.typed.analyze-cljs :as cljs-util]
+            [clojure.set :as set]
+            [clojure.repl :as repl])
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
                                         Result Protocol TypeFn Name F Bounds HeterogeneousVector
                                         PrimitiveArray DataType RClass HeterogeneousMap
@@ -98,10 +100,11 @@
       (u/handle-cs-gen-failure
         (infer X {} S T r/-any)))))
 
-(declare subtype-TApp? protocol-descendants
+(declare subtype-TApp? protocol-extenders
          subtype-datatype-record-on-left subtype-datatype-record-on-right
          subtype-datatypes-or-records subtype-Result subtype-PrimitiveArray
-         subtype-CountRange subtype-TypeFn subtype-RClass)
+         subtype-CountRange subtype-TypeFn subtype-RClass
+         subtype-protocol-on-right subtype-protocol-on-left)
 
 ;TODO replace hardcoding cases for unfolding Mu? etc. with a single case for unresolved types.
 ;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
@@ -419,6 +422,18 @@
              (r/DataType? t))
         (subtype-datatypes-or-records s t)
 
+        ; sometimes we get ancestors from datatypes or descendants
+        ; from Protocols in Clojure
+        (and (r/DataType? s)
+             (r/Protocol? t)
+             (impl/checking-clojure?))
+        (if (or (handle-failure
+                  (subtype-datatype-record-on-left s t))
+                (handle-failure
+                  (subtype-protocol-on-right s t)))
+          *sub-current-seen*
+          (fail! s t))
+
 ;Not quite correct, datatypes have other implicit ancestors (?)
         (r/DataType? s)
         (subtype-datatype-record-on-left s t)
@@ -426,20 +441,10 @@
         (subtype-datatype-record-on-right s t)
 
         (r/Protocol? s)
-        (impl/impl-case
-          :clojure (if (= (c/RClass-of Object) t)
-                     *sub-current-seen*
-                     (fail! s t))
-          :cljs (fail! s t))
+        (subtype-protocol-on-left s t)
         
         (r/Protocol? t)
-        (impl/impl-case
-          :clojure (let [desc (protocol-descendants t)]
-                     (if (some #(subtype? s %) desc)
-                       *sub-current-seen*
-                       (fail! s t)))
-          :cljs (do (prn "FIXME compute CLJS protocol descendants")
-                    (fail! s t)))
+        (subtype-protocol-on-right s t)
 
         ;values are subtypes of their classes
         (r/Value? s)
@@ -484,18 +489,47 @@
 
         :else (fail! s t)))))
 
-(defn protocol-descendants [^Protocol p]
+(def base-type
+  {'object (r/ObjectCLJS-maker)
+   'string (r/StringCLJS-maker)
+   'number (r/NumberCLJS-maker)
+   'array  (r/ArrayCLJS-maker r/-any r/-any)
+   'function (r/FunctionCLJS-maker)
+   'boolean (r/BooleanCLJS-maker)
+   ;'default "_"
+   })
+
+
+(defn resolve-JS-reference [sym]
+  (impl/assert-cljs)
+  (cond
+    (= "js" (namespace sym)) (c/JSNominal-with-unknown-params sym)
+    (= "default" sym) (assert nil "FIXME what is default?")
+    (base-type sym) (base-type sym)
+    :else (let [{{:keys [protocol-symbol name]} :info} (cljs-util/analyze-qualified-symbol sym)]
+            (if protocol-symbol
+              (c/Protocol-with-unknown-params name)
+              (c/DataType-with-unknown-params name)))))
+
+
+(defn protocol-extenders [^Protocol p]
   {:pre [(r/Protocol? p)]
    :post [(every? r/Type? %)]}
-  (impl/assert-clojure "compute protocol descendants")
-  (let [protocol-var (resolve (.the-var p))
-        _ (assert protocol-var (str "Protocol cannot be resolved: " (.the-var p)))
-        exts (extenders @protocol-var)]
-    (for [ext exts]
-      (cond
-        (class? ext) (c/RClass-of-with-unknown-params ext)
-        (nil? ext) r/-nil
-        :else (throw (Exception. (str "What is this?" ext)))))))
+  (impl/impl-case
+    :clojure (let [protocol-var (resolve (.the-var p))
+                   _ (assert protocol-var (str "Protocol cannot be resolved: " (.the-var p)))
+                   exts (extenders @protocol-var)]
+               (for [ext exts]
+                 (cond
+                   (class? ext) (c/RClass-of-with-unknown-params ext)
+                   (nil? ext) r/-nil
+                   :else (throw (Exception. (str "What is this?" ext))))))
+    :cljs (let [exts (cljs-util/extenders (:the-var p))]
+            (for [ext exts]
+              (cond
+                (symbol? ext) (resolve-JS-reference ext)
+                (nil? ext) r/-nil
+                :else (throw (Exception. (str "What is this?" ext))))))))
 
 ;[Type Type -> (IPersistentSet '[Type Type])]
 (defn- subtype [s t]
@@ -775,25 +809,80 @@
     *sub-current-seen*
     (fail! s t)))
 
+(defn datatype-ancestors 
+  "Returns a set of Types which are ancestors of this datatype.
+  Only useful when checking Clojure. This is because we need to query datatypes
+  for their ancestors, as sometimes datatypes do not appear in `extenders`
+  of a protocol (this happens when a protocol is extend directly in a deftype)."
+  [{:keys [the-class] :as dt}]
+  {:pre [(r/DataType? dt)]}
+  (impl/assert-clojure)
+  (let [overidden-by (fn [sym o]
+                       (cond
+                         ((some-fn r/DataType? r/RClass?) o)
+                         (when (= sym (:the-class o))
+                           o)
+                         (r/Protocol? o)
+                         ; protocols are extended via their interface if they
+                         ; show up in the ancestors of the datatype
+                         (when (and (namespace sym)
+                                    (= sym (c/Protocol-var->on-class (:the-var o))))
+                           o)))
+        overrides (ancest/get-datatype-ancestors dt)
+        _ (assert (every? (some-fn r/DataType? r/RClass?) overrides)
+                  "Overriding datatypes to things other than datatypes and classes NYI")
+        ; the classes that this datatype extends.
+        ; No vars should occur here because protocol are extend via
+        ; their interface.
+        normal-asyms (->> (ancestors (u/symbol->Class the-class))
+                          (filter class?)
+                          (map u/Class->symbol))
+        post-override (set
+                        (for [sym normal-asyms]
+                          ; either we override this ancestor ...
+                          (if-let [o (some #(overidden-by sym %) overrides)]
+                            o
+                            (let [protocol-varsym (c/Protocol-interface->on-var sym)]
+                              (if (resolve protocol-varsym)
+                                ;... or we make a protocol type from the varified interface ...
+                                (c/Protocol-with-unknown-params protocol-varsym)
+                                ;... or we make an RClass from the actual ancestor.
+                                (c/RClass-of-with-unknown-params sym))))))]
+    post-override))
+
+(defn- subtype-protocol-on-left
+  [s t]
+  (impl/impl-case
+    :clojure (if (= (c/RClass-of Object) t)
+               *sub-current-seen*
+               (fail! s t))
+    :cljs (fail! s t)))
+        
+(defn- subtype-protocol-on-right
+  [s t]
+  (let [desc (protocol-extenders t)]
+    (if (some #(subtype? s %) desc)
+      *sub-current-seen*
+      (fail! s t))))
+
 (defn- subtype-datatype-record-on-left
   [{:keys [the-class] :as s} t]
   (impl/impl-case
-    :clojure (if (some #(subtype? % t) (set/union #{(c/RClass-of Object)} 
-                                                  (or (@dtenv/DATATYPE-ANCESTOR-ENV the-class)
-                                                      #{})))
-               *sub-current-seen*
-               (fail! s t))
-    :cljs (assert nil "FIXME datatype subtyping CLJS")))
+             ; protocols extended in a deftype are not retrievable from (extenders protocol).
+             ; We can retrieve this information via (ancestors datatype).
+    :clojure (let [as (datatype-ancestors s)]
+               (if (some #(subtype? % t) as)
+                 *sub-current-seen*
+                 (fail! s t)))
+          ; no need to enumerate protocols here, we can get all descendants
+          ; from t. This is failing case
+    :cljs (fail! s t)))
 
 (defn- subtype-datatype-record-on-right
   [s {:keys [the-class] :as t}]
   (impl/impl-case
-    :clojure (if (every? #(subtype? s %) (set/union #{(c/RClass-of Object)} 
-                                                    (or (@dtenv/DATATYPE-ANCESTOR-ENV the-class)
-                                                        #{})))
-               *sub-current-seen*
-               (fail! s t))
-    :cljs (assert nil "FIXME datatype subtype CLJS")))
+    :clojure (fail! s t)
+    :cljs (fail! s t)))
 
 (defn- subtype-datatypes-or-records
   [{cls1 :the-class poly1 :poly? :as s} 
@@ -810,6 +899,7 @@
     *sub-current-seen*
     (fail! s t)))
 
+; does this really help?
 (defn class-isa? 
   "A faster version of isa?, both parameters must be classes"
   [s ^Class t]

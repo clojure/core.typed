@@ -7,7 +7,7 @@
             [clojure.core.typed.object-rep]
             [clojure.core.typed.path-rep])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
-                                        DottedPretype Function RClass App TApp
+                                        DottedPretype Function RClass JSNominal App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result
@@ -60,6 +60,12 @@
                            (update-in [:drest] #(when %
                                                   (-> %
                                                     (update-in [:pre-type] type-rec)))))))
+
+(add-default-fold-case JSNominal
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:poly?] #(when %
+                                                  (mapv type-rec %))))))
 
 (add-default-fold-case RClass 
                        (fn [ty _]

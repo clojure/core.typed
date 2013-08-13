@@ -1,17 +1,61 @@
 (ns clojure.core.typed.test.extend-record
   (:require [clojure.core.typed :as t :refer [ann-protocol ann-record]]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.parse-unparse :as prs]))
+            [clojure.core.typed.parse-unparse :as prs]
+            [clojure.core.typed.current-impl :as impl]))
 
 (ann-protocol PMaths
               mult-by-two [PMaths -> PMaths])
 (t/defprotocol> PMaths
   (mult-by-two [this]))
 
+(ann-protocol PMathsExtend
+              mult-extended [PMathsExtend -> PMathsExtend])
+(t/defprotocol> PMathsExtend
+  (mult-extended [this]))
+
 (ann-record SpecialNumber [x :- Number])
 (defrecord SpecialNumber [x]
   PMaths
-  (mult-by-two [this] (assoc this :x (* (:x this) 2))))
+  (mult-by-two [this] 
+    (t/ann-form this SpecialNumber)
+    (assoc this :x (* (:x this) 2))))
 
-;(sub/sub-clj? PMaths SpecialNumber)
+(extend-protocol PMaths
+  nil
+  (mult-by-two [this]
+    (t/ann-form this nil))
+  String
+  (mult-by-two [this]
+    (t/ann-form this String)))
+
+(extend-protocol PMathsExtend
+  SpecialNumber
+  (mult-extended [this]
+    (t/ann-form this SpecialNumber)
+    (assoc this :x (* (:x this) 2))
+    this))
+
+;(not (sub/sub-clj? PMaths SpecialNumber))
 ;(sub/sub-clj? SpecialNumber PMaths)
+
+;(ancestors SpecialNumber)
+;(prs/parse-clj 'PMaths)
+;(impl/with-clojure-impl
+;  (clojure.core.typed.datatype-ancestor-env/get-datatype-ancestors  (prs/parse-clj 'SpecialNumber)))
+
+;(sub/sub-clj? SpecialNumber PMathsExtend)
+;(not (sub/sub-clj? PMathsExtend SpecialNumber))
+
+;(sub/sub-clj?
+;  (HMap :mandatory {:mult-by-two (Fn [Any -> nil])} :complete? true)
+;  (U (HMap :mandatory {} :absent-keys #{:mult-by-two}) 
+;     (HMap :mandatory {:mult-by-two (Fn [Nothing -> String])})))
+;
+;(sub/sub-clj?
+;  [Any -> nil]
+;  [Nothing -> Any])
+
+;(sub/sub-clj? String PMaths)
+;(sub/sub-clj? PMaths String)
+;(prs/parse-clj '(I String PMaths))

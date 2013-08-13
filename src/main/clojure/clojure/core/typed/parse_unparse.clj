@@ -1105,7 +1105,7 @@
            [:mandatory (unparse-map-of-types (.types v))]
            (when-let [ks (and (not (c/complete-hmap? v))
                               (seq (.absent-keys v)))]
-             [:absent-keys (set (map unparse-type ks))])
+             [:absent-keys (set (map :val ks))])
            (when (c/complete-hmap? v)
              [:complete? true]))))
 

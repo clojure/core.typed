@@ -104,6 +104,19 @@
   (doseq [expr exprs]
     (collect expr)))
 
+(defmethod collect :def
+  [{:keys [var env] :as expr}]
+  (let [prs-ns (chk/expr-ns expr)]
+    (let [mvar (meta var)
+          qsym (u/var->symbol var)]
+      (when-let [[_ tsyn] (find mvar :ann)]
+        (let [ann-type (binding [uvar/*current-env* env
+                                 prs/*parse-type-in-ns* (ns-name prs-ns)]
+                         (prs/parse-type tsyn))]
+          (var-env/add-var-type qsym ann-type)))
+      (when (:no-check mvar)
+        (var-env/add-nocheck-var qsym)))))
+
 (defmethod collect :invoke
   [expr]
   (invoke-special-collect expr))
@@ -128,8 +141,7 @@
           ;variances
           vs (seq (map :variance parsed-binders))
           args (seq (map :fname parsed-binders))
-          bnds (seq (map :bnd parsed-binders))
-          ctor r/DataType-maker]
+          bnds (seq (map :bnd parsed-binders))]
       (let [provided-name-str (str provided-name)
             ;_ (prn "provided-name-str" provided-name-str)
             munged-ns-str (if (some #(= \. %) provided-name-str)
@@ -150,37 +162,34 @@
             as (set (free-ops/with-frees (mapv r/make-F args)
                       (binding [uvar/*current-env* current-env
                                 prs/*parse-type-in-ns* current-ns]
-                        (mapv prs/parse-type ancests))))
+                        (mapv (comp #(c/abstract-many args) prs/parse-type) ancests))))
             _ (ancest/add-datatype-ancestors s as)
             pos-ctor-name (symbol demunged-ns-str (str "->" local-name))
             map-ctor-name (symbol demunged-ns-str (str "map->" local-name))
-            dt (if (seq args)
-                 (c/TypeFn* args vs bnds
-                            (ctor s vs (map r/make-F args) fs record?))
-                 (ctor s nil nil fs record?))
+            dt (c/DataType* args vs (map r/make-F args) s bnds fs record?)
+            _ (dt-env/add-datatype s dt)
             pos-ctor (if args
                        (c/Poly* args bnds
                                 (r/make-FnIntersection
-                                  (r/make-Function (vec (vals fs)) (ctor s vs (map r/make-F args) fs record?)))
+                                  (r/make-Function (vec (vals fs)) (c/DataType-of s (map r/make-F args))))
                                 args)
                        (r/make-FnIntersection
-                         (r/make-Function (vec (vals fs)) dt)))
+                         (r/make-Function (vec (vals fs)) (c/DataType-of s))))
             map-ctor (when record?
                        (let [hmap-arg (c/-hmap (zipmap (map (comp r/-val keyword) (keys fs))
                                                        (vals fs)))]
                          (if args
                            (c/Poly* args bnds
                                     (r/make-FnIntersection
-                                      (r/make-Function [hmap-arg] (ctor s vs (map r/make-F args) fs record?)))
+                                      (r/make-Function [hmap-arg] (c/DataType-of s (map r/make-F args))))
                                     args)
                            (r/make-FnIntersection
-                             (r/make-Function [hmap-arg] dt)))))]
+                             (r/make-Function [hmap-arg] (c/DataType-of s))))))]
         (do 
           (when vs
             (let [f (mapv r/make-F (repeatedly (count vs) gensym))]
               ;TODO replacements and unchecked-ancestors go here
               (rcls/alter-class* s (c/RClass* (map :name f) vs f s {} {} bnds))))
-          (dt-env/add-datatype s dt)
           (var-env/add-var-type pos-ctor-name pos-ctor)
           (var-env/add-nocheck-var pos-ctor-name)
           (when record?

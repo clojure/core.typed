@@ -848,6 +848,10 @@ clojure.core/find-keyword
      (Fn [(U Keyword Symbol String) -> (Option Keyword)]
          [String String -> (Option Keyword)])
 
+clojure.core/derive (Fn [(U Symbol Keyword Class) (U Symbol Keyword) -> Any]
+                        ; could be more accurate with 3rd arg
+                        [(U Symbol Keyword Class) (U Symbol Keyword) Any -> Any])
+
 clojure.core/compare (All []
                           [Comparable Any -> Number])
 
@@ -1539,6 +1543,10 @@ clojure.lang.Delay (All [x]
 
 (def init-declared-kinds {})
 
+(def init-datatype-env {})
+
+(def init-datatype-ancestor-env {})
+
 (defn reset-clojure-envs! []
   (impl/with-clojure-impl
     ((v 'clojure.core.typed.name-env/reset-name-env!) init-alias-env)
@@ -1557,5 +1565,9 @@ clojure.lang.Delay (All [x]
     ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
      init-protocol-env)
     ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
-     init-declared-kinds))
+     init-declared-kinds)
+    ((v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
+     init-datatype-env)
+    ((v 'clojure.core.typed.datatype-ancestor-env/reset-datatype-ancestors!)
+     init-datatype-ancestor-env))
   nil)

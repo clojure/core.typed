@@ -67,6 +67,7 @@
                  ;cljs
                  '[clojure.core.typed.collect-cljs]
                  '[clojure.core.typed.check-cljs]
+                 '[clojure.core.typed.jsnominal-env]
                  '[clojure.core.typed.base-env-cljs]
                  '[clojure.core.typed.base-env-helper-cljs])
         (catch Exception e

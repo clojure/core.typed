@@ -259,6 +259,23 @@
 (defn ^Class RClass->Class [^RClass rcls]
   (u/symbol->Class (.the-class rcls)))
 
+(u/ann-record JSNominal [variances :- (U nil (I (CountRange 1) (Seqable Variance)))
+                         poly? :- (U nil (I (CountRange 1) (Seqable TCType)))
+                         name :- Symbol])
+(u/def-type JSNominal [variances poly? name]
+  "A Javascript nominal type"
+  [(or (nil? variances)
+       (and (seq variances)
+            (sequential? variances)
+            (every? variance? variances)))
+   (or (nil? poly?)
+       (and (seq poly?)
+            (sequential? poly?)
+            (every? Type? poly?)))
+   (symbol? name)])
+
+(declare-type JSNominal)
+
 (u/ann-record DataType [the-class :- Symbol,
                         variances :- (U nil (I (CountRange 1) (Seqable Variance))),
                         poly? :- (U nil (I (CountRange 1) (Seqable TCType))),

@@ -55,6 +55,10 @@
 
                             (the-var '~'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
                              (v '~'clojure.core.typed.declared-kind-env/CLJ-DECLARED-KIND-ENV) 
+                            (the-var '~'clojure.core.typed.datatype-env/*current-datatype-env*)
+                             (v '~'clojure.core.typed.datatype-env/CLJ-DATATYPE-ENV) 
+                            (the-var '~'clojure.core.typed.datatype-ancestor-env/*current-dt-ancestors*)
+                             (v '~'clojure.core.typed.datatype-ancestor-env/CLJ-DT-ANCESTOR-ENV) 
                             })
      (try 
        ~@body
@@ -80,6 +84,8 @@
 
                             (the-var '~'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
                              (v '~'clojure.core.typed.declared-kind-env/CLJS-DECLARED-KIND-ENV) 
+                            (the-var '~'clojure.core.typed.datatype-env/*current-datatype-env*)
+                             (v '~'clojure.core.typed.datatype-env/CLJS-DATATYPE-ENV) 
                             })
      (try 
        ~@body

@@ -3,21 +3,26 @@
             [clojure.core.typed.fold-rep :as f]
             [clojure.core.typed.type-ctors :as tc]
             [clojure.core.typed.frees :as frees]
-            [clojure.core.typed.cs-rep :as crep])
-  (:import (clojure.core.typed.type_rep F Function)))
+            [clojure.core.typed.cs-rep :as crep]
+            [clojure.core.typed :as t :refer [ann Seqable]])
+  (:import (clojure.core.typed.type_rep F Function)
+           (clojure.lang Symbol)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable substitution
 
-(derive ::substitute f/fold-rhs-default)
 
+(t/tc-ignore
+(derive ::substitute f/fold-rhs-default)
 (f/add-fold-case ::substitute
                F
                (fn [{name* :name :as f} {{:keys [name image]} :locals}]
                  (if (= name* name)
                    image
                    f)))
+  )
 
+(ann ^:no-check substitute [r/TCType Symbol r/TCType -> r/TCType])
 (defn substitute [image name target]
   {:pre [(r/AnyType? image)
          (symbol? name)
@@ -28,6 +33,8 @@
                         :image image}}
               target))
 
+(ann ^:no-check substitute-many [r/TCType (U nil (Seqable r/TCType)) (U nil (Seqable Symbol))
+                                 -> r/TCType])
 (defn substitute-many [target images names]
   (reduce (fn [t [im nme]] (substitute im nme t))
           target
@@ -35,6 +42,7 @@
 
 (declare substitute-dots substitute-dotted)
 
+(ann ^:no-check subst-all [crep/SubstMap r/TCType -> r/TCType])
 (defn subst-all [s t]
   {:pre [(crep/substitution-c? s)
          (r/AnyType? t)]
@@ -52,8 +60,9 @@
 
 ;; Substitute dots
 
-(derive ::substitute-dots f/fold-rhs-default)
 
+(t/tc-ignore
+(derive ::substitute-dots f/fold-rhs-default)
 (f/add-fold-case ::substitute-dots
                Function
                (fn [{:keys [dom rng rest drest kws] :as ftype} {{:keys [name sb images rimage]} :locals}]
@@ -73,9 +82,11 @@
                                (and drest (r/DottedPretype-maker (sb (:pre-type drest))
                                                            (:name drest)))
                                nil))))
+  )
 
 ;; implements angle bracket substitution from the formalism
 ;; substitute-dots : Listof[Type] Option[type] Name Type -> Type
+(ann ^:no-check substitute-dots [(U nil (Seqable r/TCType)) (U nil r/TCType) Symbol r/TCType -> r/TCType])
 (defn substitute-dots [images rimage name target]
   {:pre [(every? r/AnyType? images)
          ((some-fn nil? r/AnyType?) rimage)
@@ -95,8 +106,9 @@
                 target)
       target)))
 
-(derive ::substitute-dotted f/fold-rhs-default)
 
+(t/tc-ignore
+(derive ::substitute-dotted f/fold-rhs-default)
 (f/add-fold-case ::substitute-dotted
                F
                (fn [{name* :name :as t} {{:keys [name image]} :locals}]
@@ -117,9 +129,11 @@
                                                        name
                                                        (:name drest))))
                              nil)))
+  )
 
 ;; implements curly brace substitution from the formalism
 ;; substitute-dotted : Type Name Name Type -> Type
+(ann ^:no-check substitute-dotted [r/TCType Symbol Symbol r/TCType -> r/TCType])
 (defn substitute-dotted [image image-bound name target]
   {:pre [(r/AnyType? image)
          (symbol? image-bound)

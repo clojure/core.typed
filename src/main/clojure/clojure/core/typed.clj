@@ -811,7 +811,8 @@
 
 (defmacro ann 
   "Annotate varsym with type. If unqualified, qualify in the current namespace.
-  If varsym has metadata {:no-check true}, ignore definitions of varsym while type checking.
+  If varsym has metadata {:no-check true}, ignore definitions of varsym 
+  while type checking.
   
   eg. ; annotate the var foo in this namespace
       (ann foo [Number -> Number])
@@ -883,9 +884,8 @@
   [dname vbnd fields opt]
   nil)
 
-(defmacro ann-pdatatype 
-  "Annotate datatype Class name dname with a polymorphic binder and expected fields.
-  If unqualified, qualify in the current namespace."
+(defmacro ^:skip-wiki ann-pdatatype 
+  "REMOVED OPERATION: ann-pdatatype, use ann-datatype"
   [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   (prn "REMOVED OPERATION: ann-pdatatype, use ann-datatype")
   (assert (not rplc) "Replace NYI")
@@ -957,8 +957,9 @@
   [varsym vbnd mth]
   nil)
 
-(defmacro ann-pprotocol 
-  "Annotate polymorphic protocol with a polymorphic binder and method types."
+(defmacro ^:skip-wiki ann-pprotocol  
+  "UNSUPPPORTED OPERATION: ann-pprotocol, use ann-protocol with binder 
+  as first argument, ie. before protocol name"
   [varsym vbnd & {:as mth}]
   (prn "UNSUPPPORTED OPERATION: ann-pprotocol, use ann-protocol with binder as first argument, ie. before protocol name")
   `(ann-pprotocol* '~varsym '~vbnd '~mth))
@@ -1032,6 +1033,7 @@
   []
   `(warn-on-unannotated-vars*))
 
+;TODO main body should be a single arity function, not two arity macro
 ; cf can pollute current type environment to allow REPL experimentation, 
 ; which is ok because check-ns resets it when called.
 (defmacro cf

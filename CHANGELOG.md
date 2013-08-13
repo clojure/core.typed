@@ -1,6 +1,14 @@
 0.1.23-24
 - Support extending protocols to nil
-- Fix subtyping between protocols and records
+- Fix subtyping between protocols and datatypes/records
+- Can attach :nocheck and :ann metadata to def's
+  instead of using clojure.core.typed/ann.
+  Note :ann type must be quoted.
+  - eg. 
+```clojure
+     (defn ^:nocheck ^{:ann '[Any -> Any]}
+        my-fn [a] a)
+```
 
 - *BREAKING CHANGE* remove ann-pprotocol
   - use ann-protocol with vector as first argument

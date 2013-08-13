@@ -200,10 +200,61 @@
 
 (add-check-method :map
   [{:keys [keyvals] :as expr} & [expected]]
-  (let [expected (when expected 
-                   (ret-t expected))
-        ts (apply hash-map (map (comp ret-t expr-type) (mapv check keyvals)))
+  (let [[keyexprs valexprs] (let [s (partition 2 keyvals)]
+                              [(map first s) (map second s)])
+        ckeyexprs (mapv check keyexprs)
+        ; If every key in this map expression is a Value, let's try and
+        ; make use of our expected type for each individual entry. This is
+        ; most useful for `extend`, where we have HMaps of functions, and
+        ; we want to forward the expected types to each val, a function.
+        ;
+        ; The expected type also needs to be an expected shape:
+        ; - a HMap or union of just HMaps
+        ; - each key must have exactly one possible type if it is
+        ;   present
+        ; - if a key is absent in a HMap type, it must be explicitly
+        ;   absent
+        expected (when expected 
+                   (c/fully-resolve-type (ret-t expected)))
+        key-types (map (comp ret-t expr-type) ckeyexprs)
 
+        hmap-expecteds 
+        (when (and expected (every? r/Value? key-types))
+          (let [hmaps (mapv c/fully-resolve-type
+                            (if (r/Union? expected)
+                              (:types expected)
+                              [expected]))]
+            (when (every? r/HeterogeneousMap? hmaps)
+              (reduce (fn [val-expecteds ktype]
+                        (let [; find the ktype key in each hmap.
+                              ; - If ktype is present in :types then we either use the entry's val type 
+                              ; - if ktype is explicitly forbidden via :absent-keys or :other-keys
+                              ;   we skip the entry.
+                              ; - otherwise we give up and don't check this as a hmap, return nil
+                              ;   that gets propagated up
+                              corresponding-vals 
+                              (reduce (fn [corresponding-vals {:keys [types absent-keys other-keys?] :as hmap}]
+                                        (if-let [v (get types ktype)]
+                                          (conj corresponding-vals v)
+                                          (cond
+                                            (or (contains? absent-keys ktype)
+                                                (not other-keys?)) 
+                                            corresponding-vals
+                                            :else (reduced nil))))
+                                      #{} hmaps)
+                              val-expect (when (= 1 (count corresponding-vals))
+                                           (first corresponding-vals))]
+                          (if val-expect
+                            (conj val-expecteds val-expect)
+                            (reduced nil))))
+                      [] key-types))))
+
+        cvalexprs (if hmap-expecteds
+                    (mapv check valexprs (map ret hmap-expecteds))
+                    (mapv check valexprs))
+        val-types (map (comp ret-t expr-type) cvalexprs)
+
+        ts (zipmap key-types val-types)
         actual (if (every? c/keyword-value? (keys ts))
                  (c/-complete-hmap ts)
                  (c/RClass-of APersistentMap [(apply c/Un (keys ts))
@@ -1226,12 +1277,20 @@
   [{[atype & protos] :args :as expr} & [expected]]
   (assert (and atype (even? (count protos))) "Wrong arguments to extend")
   (let [catype (check atype)
-        target-type (ret-t (expr-type catype))
-        _ (when-not (and (r/Value? target-type)
-                         ((some-fn class? nil?) (:val target-type)))
+        ; this is a Value type containing a java.l.Class representing
+        ; the type extending the protocol, or (Value nil) if extending to nil
+        target-literal-class (ret-t (expr-type catype))
+        _ (when-not (and (r/Value? target-literal-class)
+                         ((some-fn class? nil?) (:val target-literal-class)))
             (u/int-error
               (str "Must provide a Class or nil as first argument to extend, "
-                   "got " (pr-str (prs/unparse-type target-type)))))
+                   "got " (pr-str (prs/unparse-type target-literal-class)))))
+        ; this is the actual core.typed type of the thing extending the protocol
+        target-type (let [v (:val target-literal-class)]
+                      (if (nil? v)
+                        r/-nil
+                        (c/RClass-of-with-unknown-params (u/Class->symbol v))))
+
         ; build expected types for each method map
         extends (into {}
                       (for [[prcl-expr mmap-expr] (apply hash-map protos)]
@@ -1246,7 +1305,8 @@
                                                                 (extend-method-expected target-type mtype)])))]
                           [protocol [mmap-expr expected-mmap]])))
         _ (doseq [[protocol [mmap-expr expected-hmap]] extends]
-            (check mmap-expr (ret expected-hmap)))]
+            (let [cmmap-expr (check mmap-expr (ret expected-hmap))
+                  actual (-> cmmap-expr expr-type ret-t)]))]
     (assoc expr
            expr-type (ret r/-nil))))
 
@@ -1890,7 +1950,7 @@
 ; TODO handle unions of hmaps as the target
 ; FIXME needs more tests
 (defmethod invoke-special 'clojure.core/assoc
-  [{:keys [args] :as expr} & [expected]]
+  [{:keys [fexpr args] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (let [[target & keyvals] args
 
@@ -1958,7 +2018,7 @@
 
                                        ;otherwise just make normal map if already a map, or normal vec if already a vec
                                        is-map (ret-t 
-                                                (check-funapp target keyvals
+                                                (check-funapp fexpr (cons target keyvals)
                                                               (ret 
                                                                 (prs/parse-type '(All [b c] 
                                                                                   [(clojure.lang.IPersistentMap b c) b c -> 
@@ -1966,7 +2026,7 @@
                                                               (mapv ret [hmap kt vt])
                                                               nil))
                                        :else (ret-t 
-                                               (check-funapp target keyvals
+                                               (check-funapp fexpr (cons target keyvals)
                                                              (ret 
                                                                (prs/parse-type '(All [c] 
                                                                                  [(clojure.lang.IPersistentVector c) c -> 
@@ -3124,7 +3184,7 @@ rest-param-name (when rest-param
                                   :form (u/emit-form-fn expr)))
           
                             ; datatype fields are special
-          result-t (if-let [override (when-let [dtp (@dt-env/DATATYPE-ENV target-class)]
+          result-t (if-let [override (when-let [dtp (dt-env/get-datatype target-class)]
                                        (let [dt (if (r/Poly? dtp)
                                                   ;generate new names
                                                   (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
@@ -3139,7 +3199,7 @@ rest-param-name (when rest-param
 
 ;[Symbol -> Type]
 (defn DataType-ctor-type [sym]
-  (let [dtp (@dt-env/DATATYPE-ENV sym)]
+  (let [dtp (dt-env/get-datatype sym)]
     (cond
       ((some-fn r/DataType? r/Record?) dtp) 
       (let [dt dtp]
@@ -3232,7 +3292,7 @@ rest-param-name (when rest-param
       (let [inst-types *inst-ctor-types*
             clssym (ctor-Class->symbol cls)
             ifn (let [ctor-fn (or (@ctor-override/CONSTRUCTOR-OVERRIDE-ENV clssym)
-                                  (and (@dt-env/DATATYPE-ENV clssym)
+                                  (and (dt-env/get-datatype clssym)
                                        (DataType-ctor-type clssym))
                                   (when ctor
                                     (Constructor->Function ctor)))
@@ -4215,73 +4275,47 @@ rest-param-name (when rest-param
                                               u/nat?)
                                 #(instance? clojure.reflect.Method %))
                      cmmap))
-          dtp (@dt-env/DATATYPE-ENV nme)
+          dtp (dt-env/get-datatype nme)
           dt (if (r/TypeFn? dtp)
-               (do #_(assert (-> dtp meta :actual-frees))
-                   (unwrap-datatype dtp #_(-> dtp meta :actual-frees)))
+               (unwrap-datatype dtp)
                dtp)
 
           _ (when-not ((some-fn r/DataType? r/Record?) dt)
               (u/int-error (str "deftype " nme " must have corresponding annotation. "
                                 "See ann-datatype and ann-record")))
-          ; update this deftype's ancestors to include each protocol/interface in this deftype
-          old-ancestors (or (@ancest/DATATYPE-ANCESTOR-ENV nme) #{})
-          ancestor-diff (set/difference
-                          (set
-                            (for [[_ method] cmmap]
-                              (let [tsym (:declaring-class method)]
-                                (if-let [cls (when-let [cls (resolve tsym)]
-                                               (and (class? cls) 
-                                                    cls))]
-                                  (or (first (filter #(when-let [p (unwrap-tfn %)]
-                                                        (assert (r/Protocol? p))
-                                                        (= (:on-class p) tsym)) 
-                                                     (vals @pcl-env/CLJ-PROTOCOL-ENV)))
-                                      (c/RClass-of-with-unknown-params cls))
-                                  (pcl-env/resolve-protocol tsym)))))
-                          old-ancestors)
-          ;_ (prn "ancestor diff" ancestor-diff)
-          _ (swap! ancest/DATATYPE-ANCESTOR-ENV update-in [nme] set/union ancestor-diff)
           check-method? (fn [inst-method]
                           (not (and (r/Record? dt)
                                     (record-implicits (symbol (:name inst-method))))))
-          _ (try
-              (doseq [{:keys [env] :as inst-method} methods
-                      :when (check-method? inst-method)]
-                #_(prn "Checking deftype* method: "(:name inst-method))
-                (binding [vs/*current-env* env]
-                  (let [nme (:name inst-method)
-                        _ (assert (symbol? nme))
-                        ; minus the target arg
-                        method-sig (cmmap [nme (dec (count (:required-params inst-method)))])
-                        _ (assert (instance? clojure.reflect.Method method-sig))
-                        expected-ifn 
-                        (extend-method-expected dt
-                                                (or (let [ptype (first
-                                                                  (filter #(when-let [p (unwrap-tfn %)]
-                                                                             (assert (r/Protocol? p))
-                                                                             (= (:on-class p) (:declaring-class method-sig)))
-                                                                          (vals @pcl-env/CLJ-PROTOCOL-ENV)))]
-                                                      ;(prn "ptype" ptype)
-                                                      (when-let [ptype* (and ptype (unwrap-tfn ptype))]
-                                                        (let [munged-methods (into {} (for [[k v] (:methods ptype*)]
-                                                                                        [(symbol (munge k)) v]))]
-                                                          (munged-methods (:name method-sig)))))
-                                                    (instance-method->Function method-sig)))]
-                    #_(prn "method expected type" (prs/unparse-type expected-ifn))
-                    (lex/with-locals (c/DataType-fields* dt)
-                      ;(prn "lexical env when checking method" nme lex/*lexical-env*)
-                      (check-new-instance-method
-                        inst-method 
-                        expected-ifn)))))
-              (catch Throwable e
-                ; reset old ancestors
-                (swap! ancest/DATATYPE-ANCESTOR-ENV update-in [nme] u/set-difference ancestor-diff)
-                (throw e)))]
+          _ (doseq [{:keys [env] :as inst-method} methods
+                    :when (check-method? inst-method)]
+              #_(prn "Checking deftype* method: "(:name inst-method))
+              (binding [vs/*current-env* env]
+                (let [nme (:name inst-method)
+                      _ (assert (symbol? nme))
+                      ; minus the target arg
+                      method-sig (cmmap [nme (dec (count (:required-params inst-method)))])
+                      _ (assert (instance? clojure.reflect.Method method-sig))
+                      expected-ifn 
+                      (extend-method-expected dt
+                                              (or (let [ptype (first
+                                                                (filter #(when-let [p (unwrap-tfn %)]
+                                                                           (assert (r/Protocol? p))
+                                                                           (= (:on-class p) (:declaring-class method-sig)))
+                                                                        (vals @pcl-env/CLJ-PROTOCOL-ENV)))]
+                                                    ;(prn "ptype" ptype)
+                                                    (when-let [ptype* (and ptype (unwrap-tfn ptype))]
+                                                      (let [munged-methods (into {} (for [[k v] (:methods ptype*)]
+                                                                                      [(symbol (munge k)) v]))]
+                                                        (munged-methods (:name method-sig)))))
+                                                  (instance-method->Function method-sig)))]
+                  #_(prn "method expected type" (prs/unparse-type expected-ifn))
+                  (lex/with-locals (c/DataType-fields* dt)
+                    ;(prn "lexical env when checking method" nme lex/*lexical-env*)
+                    (check-new-instance-method
+                      inst-method 
+                      expected-ifn)))))]
       (assoc expr
-             expr-type (ret (let [res (resolve nme)]
-                              (assert (class? res))
-                              (r/-val res)))))))
+             expr-type (ret (c/RClass-of Class))))))
 
 ;[Expr FnIntersection -> Expr]
 (defn check-new-instance-method
