@@ -29,7 +29,7 @@ Maven dependency information:
 ## Mailing List
 
 Use the core.typed [mailing list](https://groups.google.com/forum/?fromgroups#!forum/clojure-core-typed) for core.typed discussion, 
-or try #clojure on IRC.
+or try #clojure on IRC (the main developer is ambrosebs).
 
 ## Documentation
 
