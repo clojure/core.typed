@@ -7,6 +7,7 @@
   instead of using clojure.core.typed/ann.
   Note :ann type must be quoted.
   - eg. 
+
 ```clojure
      (defn ^:nocheck ^{:ann '[Any -> Any]}
         my-fn [a] a)
