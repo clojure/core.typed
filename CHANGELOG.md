@@ -1,6 +1,8 @@
 0.1.23-24
 - Support extending protocols to nil
 - Fix subtyping between protocols and datatypes/records
+- Fix extending protocols to datatypes both in deftype's
+  and extend.
 - Can attach :nocheck and :ann metadata to def's
   instead of using clojure.core.typed/ann.
   Note :ann type must be quoted.
@@ -17,6 +19,12 @@
 - *BREAKING CHANGE* remove ann-pdatatype
   - use ann-datatype with vector as first argument
   - see doc for ann-datatype
+
+- *BREAKING CHANGE* change ann-datatype syntax
+  - see ann-datatype doc
+
+- *BREAKING CHANGE* change ann-protocol syntax
+  - see ann-protocol doc
 
 0.1.22
 - Fix HMap's new keyword options
