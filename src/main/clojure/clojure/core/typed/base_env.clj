@@ -476,26 +476,33 @@ java.lang.Iterable [[]
 (def init-alias-env
   (h/alias-mappings
 
-  ^{:doc "A type that returns true for clojure.core/integer?"}
+  ^{:doc "A type that returns true for clojure.core/integer?"
+    :forms [AnyInteger]}
 clojure.core.typed/AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
 
-    ^{:doc "A type that returns true for clojure.core/integer?"}
+    ^{:doc "A type that returns true for clojure.core/integer?"
+      :forms [Int]}
 clojure.core.typed/Int (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
-      ^{:doc "A type that returns true for clojure.core/number?"}
+      ^{:doc "A type that returns true for clojure.core/number?"
+        :forms [Number]}
 clojure.core.typed/Num Number
 
 clojure.core.typed/AnyPrimitive (U char int short boolean byte short long float double)
 
-    ^{:doc "An atom that can read and write type x."}
+    ^{:doc "An atom that can read and write type x."
+      :forms [(Atom1 t)]}
 clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] (Atom x x))
-    ^{:doc "A union of x and nil."}
+    ^{:doc "A union of x and nil."
+      :forms [(Option t)]}
 clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
 
-      ^{:doc "The identity function at the type level."}
+      ^{:doc "The identity function at the type level."
+        :forms [Id]}
 clojure.core.typed/Id (TFn [[x :variance :covariant]] x)
 
       ^{:doc "A persistent collection with member type x. 
-Returns true when passed to clojure.core/Coll"}
+Returns true when passed to clojure.core/Coll"
+        :forms [(Coll t)]}
 clojure.core.typed/Coll (TFn [[x :variance :covariant]]
                              (IPersistentCollection x 
                                                     #_(TFn [[x :variance :covariant]] x)
@@ -505,51 +512,64 @@ clojure.core.typed/Coll (TFn [[x :variance :covariant]]
                                                            Any 
                                                            (TFn [[x :variance :covariant]] Any) 
                                                            c)))))
-    ^{:doc "A persistent collection with member type x and count greater than 0."}
+    ^{:doc "A persistent collection with member type x and count greater than 0."
+      :forms [(NonEmptyColl t)]}
 clojure.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
                                       (I (IPersistentCollection x) (CountRange 1)))
-    ^{:doc "A persistent vector with member type x."}
+    ^{:doc "A persistent vector with member type x."
+      :forms [(Vec t)]}
 clojure.core.typed/Vec (TFn [[x :variance :covariant]]
                             (IPersistentVector x))
-    ^{:doc "A persistent vector with member type x and count greater than 0."}
+    ^{:doc "A persistent vector with member type x and count greater than 0."
+      :forms [(NonEmptyVec t)]}
 clojure.core.typed/NonEmptyVec (TFn [[x :variance :covariant]]
                                      (I (IPersistentVector x) (CountRange 1)))
-    ^{:doc "A persistent map with keys k and vals v."}
+    ^{:doc "A persistent map with keys k and vals v."
+      :forms [(Map t t)]}
 clojure.core.typed/Map (TFn [[k :variance :covariant]
                              [v :variance :covariant]]
                             (IPersistentMap k v))
-    ^{:doc "A persistent set with member type x"}
+    ^{:doc "A persistent set with member type x"
+      :forms [(Set t)]}
 clojure.core.typed/Set (TFn [[x :variance :covariant]]
                             (IPersistentSet x))
-    ^{:doc "A sorted persistent set with member type x"}
+    ^{:doc "A sorted persistent set with member type x"
+      :forms [(SortedSet t)]}
 clojure.core.typed/SortedSet (TFn [[x :variance :covariant]]
                                (Extends [(IPersistentSet x) Sorted]))
-    ^{:doc "A type that can be used to create a sequence of member type x."}
+    ^{:doc "A type that can be used to create a sequence of member type x."
+      :forms [(Seqable t)]}
 clojure.core.typed/Seqable (TFn [[x :variance :covariant]]
                                 (Seqable x))
     ^{:doc "A type that can be used to create a sequence of member type x
-with count greater than 0."}
+with count greater than 0."
+      :forms [(NonEmptySeqable t)]}
 
 clojure.core.typed/NonEmptySeqable (TFn [[x :variance :covariant]]
                                          (I (Seqable x) (CountRange 1)))
     ^{:doc "A type that can be used to create a sequence of member type x
-with count 0."}
+with count 0."
+      :forms [(EmptySeqable t)]}
 clojure.core.typed/EmptySeqable (TFn [[x :variance :covariant]]
                                   (I (Seqable x) (ExactCount 0)))
-      ^{:doc "A persistent sequence of member type x."}
+      ^{:doc "A persistent sequence of member type x."
+        :forms [(Seq t)]}
 clojure.core.typed/Seq (TFn [[x :variance :covariant]]
                             (ISeq x))
 
-    ^{:doc "A persistent sequence of member type x with count greater than 0."}
+    ^{:doc "A persistent sequence of member type x with count greater than 0."
+      :forms [(NonEmptySeq t)]}
 clojure.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
                                      (I (ISeq x) (CountRange 1)))
 
     ^{:doc "The type of all things with count 0. Use as part of an intersection.
-eg. See EmptySeq."}
+eg. See EmptySeq."
+      :forms [EmptyCount]}
 
 clojure.core.typed/EmptyCount (ExactCount 0)
     ^{:doc "The type of all things with count greater than 0. Use as part of an intersection.
-eg. See NonEmptySeq"}
+eg. See NonEmptySeq"
+      :forms [NonEmptyCount]}
 clojure.core.typed/NonEmptyCount (CountRange 1)
     ))
 

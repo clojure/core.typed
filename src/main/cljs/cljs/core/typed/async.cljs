@@ -50,42 +50,56 @@
 ;;;;;;;;;;;;;;;;;;;;;
 ;;; Aliases
 
-(def-alias ReadOnlyChan
+(def-alias 
+  ^{:forms [(ReadOnlyChan t)]}
+  ReadOnlyChan
   "A core.async channel that statically disallows writes."
   (TFn [[r :variance :covariant]]
     (Extends [(cljs.core.async.impl.protocols/WritePort Nothing)
               (cljs.core.async.impl.protocols/ReadPort r)
               (cljs.core.async.impl.protocols/Channel Nothing r)])))
 
-(def-alias Chan
+(def-alias 
+  ^{:forms [(Chan t)]}
+  Chan
   "A core.async channel"
   (TFn [[x :variance :invariant]]
     (Extends [(cljs.core.async.impl.protocols/WritePort x)
               (cljs.core.async.impl.protocols/ReadPort x)
               (cljs.core.async.impl.protocols/Channel x x)])))
 
-(def-alias TimeoutChan
+(def-alias 
+  ^{:forms [TimeoutChan]}
+  TimeoutChan
   "A timeout channel"
   (Chan Any))
 
-(def-alias Buffer
+(def-alias 
+  ^{:forms [(Buffer t)]}
+  Buffer
   "A buffer of type x."
   (TFn [[x :variance :invariant]]
     (cljs.core.async.impl.protocols/Buffer x)))
 
-(def-alias ReadOnlyPort
+(def-alias 
+  ^{:forms [(ReadOnlyPort t)]}
+  ReadOnlyPort
   "A read-only port that can read type x"
   (TFn [[r :variance :covariant]]
     (Extends [(cljs.core.async.impl.protocols/ReadPort r) 
               (cljs.core.async.impl.protocols/WritePort Nothing)])))
 
-(def-alias WriteOnlyPort
+(def-alias 
+  ^{:forms [(WriteOnlyPort t)]}
+  WriteOnlyPort
   "A write-only port that can write type x"
   (TFn [[x :variance :invariant]]
     (Extends [(cljs.core.async.impl.protocols/ReadPort x) 
               (cljs.core.async.impl.protocols/WritePort x)])))
 
-(def-alias Port
+(def-alias 
+  ^{:forms [(Port t)]}
+  Port
   "A port that can read and write type x"
   (TFn [[x :variance :invariant]]
     (Extends [(cljs.core.async.impl.protocols/ReadPort x) 
