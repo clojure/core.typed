@@ -1,4 +1,4 @@
-(ns clojure.core.typed.inst
+(ns ^:skip-wiki clojure.core.typed.inst
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.type-rep :as r]

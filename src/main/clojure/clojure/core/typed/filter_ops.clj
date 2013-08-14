@@ -1,4 +1,4 @@
-(ns clojure.core.typed.filter-ops
+(ns ^:skip-wiki clojure.core.typed.filter-ops
   (:require [clojure.core.typed.type-rep :as r] 
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.filter-rep :as fr]

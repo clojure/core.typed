@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.logic
+(ns cljs.core.typed.test.logic
   (:refer-clojure :exclude [==])
   (:use-macros [clojure.core.typed.test.logic.macros :only
                 [defne defna defnu fresh == -inc]])

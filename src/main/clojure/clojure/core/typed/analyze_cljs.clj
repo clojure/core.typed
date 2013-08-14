@@ -1,4 +1,4 @@
-(ns clojure.core.typed.analyze-cljs
+(ns ^:skip-wiki clojure.core.typed.analyze-cljs
   (:refer-clojure :exclude [extenders])
   (:require [cljs.tools.analyzer :as analyze]
             [cljs.tools.analyzer.hygienic :as hygienic]

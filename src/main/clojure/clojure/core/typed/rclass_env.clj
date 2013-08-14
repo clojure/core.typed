@@ -1,4 +1,4 @@
-(ns clojure.core.typed.rclass-env
+(ns ^:skip-wiki clojure.core.typed.rclass-env
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.type-rep :as r]))

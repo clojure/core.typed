@@ -55,7 +55,7 @@
   (is (t/cf (cljs.core.typed/ann foo number))))
 
 (deftest check-ns-test
-  (is (t/check-ns 'clojure.core.typed.test.ann)))
+  (is (t/check-ns 'cljs.core.typed.test.ann)))
 
 (deftest resolve-type-test
   (is (= (:name (comp/with-core-cljs
@@ -104,3 +104,17 @@
 (deftest async-test
   (is (t/check-ns 'cljs.core.typed.async)))
 
+(deftest inline-annotation-test
+  ; code from David Nolen's blog
+  (is (t/cf 
+        (defn ^{:ann '[(U nil (cljs.core/ISeqable Any)) Any -> int]}
+          index-of [xs x]
+          (let [len (count xs)]
+            (cljs.core.typed/loop> [i :- int, 0]
+              (if (< i len)
+                (if (= (nth xs i) x)
+                  i
+                  (recur (inc i)))
+                -1)))))))
+
+;(t/check-ns 'cljs.core.typed.test.dom)

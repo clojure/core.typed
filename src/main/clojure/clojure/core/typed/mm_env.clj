@@ -1,4 +1,4 @@
-(ns clojure.core.typed.mm-env
+(ns ^:skip-wiki clojure.core.typed.mm-env
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.parse-unparse :as prs]))

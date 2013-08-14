@@ -689,7 +689,7 @@
                                           (cs-gen V X Y ti si)))))))
       :else (fail! S T))))
 
-(defmethod cs-gen* [Protocol Protocol impl/clojure]
+(defmethod cs-gen* [Protocol Protocol impl/any-impl]
   [V X Y S T]
   (if (= (:the-var S)
          (:the-var T))

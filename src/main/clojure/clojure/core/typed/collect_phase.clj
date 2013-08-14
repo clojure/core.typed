@@ -111,7 +111,7 @@
           qsym (u/var->symbol var)]
       (when-let [[_ tsyn] (find mvar :ann)]
         (let [ann-type (binding [uvar/*current-env* env
-                                 prs/*parse-type-in-ns* (ns-name prs-ns)]
+                                 prs/*parse-type-in-ns* prs-ns]
                          (prs/parse-type tsyn))]
           (var-env/add-var-type qsym ann-type)))
       (when (:no-check mvar)
@@ -225,7 +225,7 @@
   [{:as expr}]
   (assert-expr-args expr #{0})
   (let [prs-ns (chk/expr-ns expr)]
-    (ns-opts/register-warn-on-unannotated-vars (ns-name prs-ns))
+    (ns-opts/register-warn-on-unannotated-vars prs-ns)
     nil))
 
 (defmethod invoke-special-collect 'clojure.core.typed/typed-deps*
@@ -234,7 +234,7 @@
   (let [prs-ns (chk/expr-ns expr)
         [deps] (constant-exprs args)
         _ (assert (and deps (seq deps) (every? symbol? deps)))]
-    (dep/add-ns-deps (ns-name prs-ns) (set deps))
+    (dep/add-ns-deps prs-ns (set deps))
     (doseq [dep deps]
       (collect-ns dep))
     nil))
@@ -277,7 +277,7 @@
 (defmethod invoke-special-collect 'clojure.core.typed/declare-names*
   [{:keys [args] :as expr}]
   (assert-expr-args expr #{1})
-  (let [nsym (ns-name (chk/expr-ns expr))
+  (let [nsym (chk/expr-ns expr)
         [syms] (constant-exprs args)
         _ (assert (every? (every-pred symbol? (complement namespace)) syms)
                   "declare-names only accepts unqualified symbols")]
@@ -292,7 +292,7 @@
         ;macroexpansion provides qualified symbols
         _ (assert ((every-pred symbol? namespace) qsym))
         expected-type (binding [uvar/*current-env* env
-                                prs/*parse-type-in-ns* (ns-name prs-ns)]
+                                prs/*parse-type-in-ns* prs-ns]
                         (prs/parse-type typesyn))]
     (when-not check?
       (var-env/add-nocheck-var qsym))
@@ -339,7 +339,7 @@
         [msym tsyn] (constant-exprs args)
         _ (assert (namespace msym) "Method symbol must be a qualified symbol")
         ty (binding [uvar/*current-env* env
-                     prs/*parse-type-in-ns* (ns-name prs-ns)]
+                     prs/*parse-type-in-ns* prs-ns]
              (prs/parse-type tsyn))]
     (override/add-method-override msym ty)
     nil))
@@ -350,7 +350,7 @@
   (let [prs-ns (chk/expr-ns expr)
         [msym tsyn] (constant-exprs args)
         ty (binding [uvar/*current-env* env
-                     prs/*parse-type-in-ns* (ns-name prs-ns)]
+                     prs/*parse-type-in-ns* prs-ns]
              (prs/parse-type tsyn))]
     (override/add-method-override msym ty)
     nil))

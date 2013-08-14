@@ -1,4 +1,4 @@
-(ns clojure.core.typed.ns-options
+(ns ^:skip-wiki clojure.core.typed.ns-options
   (:require [clojure.core.typed :as t :refer [fn>]])
   (:import (clojure.lang IPersistentMap Symbol)))
 

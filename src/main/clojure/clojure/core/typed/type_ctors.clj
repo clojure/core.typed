@@ -1,4 +1,4 @@
-(ns clojure.core.typed.type-ctors
+(ns ^:skip-wiki clojure.core.typed.type-ctors
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed.utils :as u :refer [p]]
             [clojure.core.typed.type-rep :as r :refer [TCType]]

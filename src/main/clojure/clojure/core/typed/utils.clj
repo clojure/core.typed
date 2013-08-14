@@ -1,4 +1,4 @@
-(ns clojure.core.typed.utils
+(ns ^:skip-wiki clojure.core.typed.utils
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]

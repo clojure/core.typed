@@ -1,4 +1,4 @@
-(ns clojure.core.typed.parse-unparse
+(ns ^:skip-wiki clojure.core.typed.parse-unparse
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep :as orep]
@@ -654,6 +654,7 @@
                              :else (first %)))
 
 (defmethod parse-path-elem 'Class [_] (pthrep/->ClassPE))
+(defmethod parse-path-elem 'Count [_] (pthrep/->CountPE))
 
 (defmethod parse-path-elem 'Keys [_] (pthrep/->KeysPE))
 (defmethod parse-path-elem 'Vals [_] (pthrep/->ValsPE))

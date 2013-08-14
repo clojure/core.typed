@@ -1,4 +1,4 @@
-(ns clojure.core.typed.protocol-env
+(ns ^:skip-wiki clojure.core.typed.protocol-env
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.type-rep :as r]

@@ -1,4 +1,4 @@
-(ns clojure.core.typed.collect-cljs
+(ns ^:skip-wiki clojure.core.typed.collect-cljs
   (:require [cljs.core.typed :as t]
             [clojure.core.typed.analyze-cljs :as ana]
             [clojure.core.typed.type-rep :as r :refer [ret]]
@@ -46,6 +46,25 @@
 (defmulti invoke-special-collect (fn [expr]
                                    (when (#{:var} (-> expr :f :op))
                                      (-> expr :f :info :name))))
+
+(defmethod collect :def
+  [{:keys [name form env] :as expr}]
+  (let [mvar (-> form second meta)
+        prs-ns (chk/expr-ns expr)]
+    (binding [vs/*current-env* env
+              vs/*current-expr* expr
+              prs/*parse-type-in-ns* prs-ns]
+      (when-let [[_ tsyn] (find mvar :ann)]
+        (assert (list? tsyn) "Type must be quoted in :ann metadata")
+        ; CLJS does not currently evaluate metadata attached to
+        ; a def. We want to conform to CLJ's behaviour so we "unwrap"
+        ; one level of quoting. inline-annotation-test unit test should 
+        ; fail if this ever gets "fixed".
+        (let [unwrap-one (second tsyn)
+              ann-type (prs/parse-type unwrap-one)]
+          (var-env/add-var-type name ann-type)))
+      (when (:no-check mvar)
+        (var-env/add-nocheck-var name)))))
 
 (defmethod invoke-special-collect 'cljs.core.typed/ann*
   [{[target texpr :as args] :args :keys [env] :as expr}]

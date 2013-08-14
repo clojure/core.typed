@@ -151,8 +151,48 @@
        nil
        ~@body)))
 
+(defmacro 
+  ^{:forms '[(loop> [binding :- type, init*] exprs*)]}
+  loop>
+  "Like loop, except loop variables require annotation.
+
+  Suggested idiom: use a comma between the type and the initial
+  expression.
+
+  eg. (loop> [a :- Number, 1
+              b :- (U nil Number), nil]
+        ...)"
+  [bndings* & forms]
+  (let [normalise-args
+        (fn [seq-exprs]
+          (loop [flat-result ()
+                 seq-exprs seq-exprs]
+            (cond
+              (empty? seq-exprs) flat-result
+              (and (vector? (first seq-exprs))
+                   (#{:-} (-> seq-exprs first second))) (do
+                                                          (prn "DEPRECATED WARNING: loop> syntax has changed, use [b :- t i] for clauses"
+                                                               "ns: " *ns* " form:" &form)
+                                                          (recur (concat flat-result (take 2 seq-exprs))
+                                                                 (drop 2 seq-exprs)))
+              :else (do (assert (#{:-} (second seq-exprs))
+                                "Incorrect syntax in loop>.")
+                        (recur (concat flat-result [(vec (take 3 seq-exprs))
+                                                    (nth seq-exprs 3)])
+                               (drop 4 seq-exprs))))))
+        ;group args in flat pairs
+        bndings* (normalise-args bndings*)
+        bnds (partition 2 bndings*)
+        ; [[lhs :- bnd-ann] rhs]
+        lhs (map ffirst bnds)
+        rhs (map second bnds)
+        bnd-anns (map #(-> % first next second) bnds)]
+    `(loop>-ann (cljs.core/loop ~(vec (mapcat vector lhs rhs))
+                  ~@forms)
+                '~bnd-anns)))
+
+
 (def ^:dynamic *currently-checking-cljs* nil)
-(def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors*)
 (def ^:dynamic *already-collected*)
 
 (defn ^:skip-wiki
@@ -171,7 +211,7 @@
     (if *currently-checking-cljs*
       (throw (Exception. "Found inner call to check-ns or cf"))
       (binding [*currently-checking-cljs* true
-                *delayed-errors* (-init-delayed-errors)]
+                t/*delayed-errors* (-init-delayed-errors)]
         (impl/with-cljs-impl
           (let [ast ((v 'clojure.core.typed.analyze-cljs/ast-for-form) form)
                 ;collect
@@ -182,7 +222,7 @@
                          ((v 'clojure.core.typed.type-rep/ret)
                           ((v 'clojure.core.typed.parse-unparse/parse-type) expected))))]
             ;handle errors
-            (if-let [errors (seq @*delayed-errors*)]
+            (if-let [errors (seq @t/*delayed-errors*)]
               (t/print-errors! errors)
               (-> c-ast 
                   ((v 'clojure.core.typed.check/expr-type))
@@ -207,11 +247,11 @@
          (t/load-if-needed)
          (binding [*currently-checking-cljs* true
                    *already-collected* (atom #{})
-                   *delayed-errors* (-init-delayed-errors)]
+                   t/*delayed-errors* (-init-delayed-errors)]
            (impl/with-cljs-impl
              (let [_ ((v 'clojure.core.typed.collect-cljs/collect-ns) nsym)
                    _ ((v 'clojure.core.typed.check-cljs/check-ns) nsym)]
                ;handle errors
-               (if-let [errors (seq @*delayed-errors*)]
+               (if-let [errors (seq @t/*delayed-errors*)]
                  (t/print-errors! errors)
                  :ok)))))))))

@@ -1,4 +1,4 @@
-(ns clojure.core.typed.promote-demote
+(ns ^:skip-wiki clojure.core.typed.promote-demote
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]

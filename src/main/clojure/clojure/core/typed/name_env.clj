@@ -1,4 +1,4 @@
-(ns clojure.core.typed.name-env
+(ns ^:skip-wiki clojure.core.typed.name-env
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.datatype-env :as dtenv]

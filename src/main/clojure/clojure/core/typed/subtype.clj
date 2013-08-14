@@ -1,4 +1,4 @@
-(ns clojure.core.typed.subtype
+(ns ^:skip-wiki clojure.core.typed.subtype
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
@@ -461,7 +461,9 @@
                                          (string? sval) [(r/make-ExactCountRange (count sval))]))
                                 t))
             :cljs (cond
+                    (integer? (.val s)) (subtype (r/IntegerCLJS-maker) t)
                     (number? (.val s)) (subtype (r/NumberCLJS-maker) t)
+                    (u/boolean? (.val s)) (subtype (r/BooleanCLJS-maker) t)
                     :else (fail! s t))))
 
         (and (r/Result? s)
@@ -486,6 +488,11 @@
         (and (r/CountRange? s)
              (r/CountRange? t))
         (subtype-CountRange s t)
+
+        ; CLJS special types
+        (and (r/IntegerCLJS? s)
+             (r/NumberCLJS? t))
+        *sub-current-seen*
 
         :else (fail! s t)))))
 

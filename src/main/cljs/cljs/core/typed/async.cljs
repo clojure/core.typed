@@ -71,7 +71,7 @@
 (def-alias Buffer
   "A buffer of type x."
   (TFn [[x :variance :invariant]]
-    (clojure.core.async.impl.protocols/Buffer x)))
+    (cljs.core.async.impl.protocols/Buffer x)))
 
 (def-alias ReadOnlyPort
   "A read-only port that can read type x"

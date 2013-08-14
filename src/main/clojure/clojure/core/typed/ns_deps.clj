@@ -1,4 +1,4 @@
-(ns clojure.core.typed.ns-deps
+(ns ^:skip-wiki clojure.core.typed.ns-deps
   (:require [clojure.core.typed :as t :refer [fn>]]
             [clojure.core.typed.utils :as u]
             [clojure.set :as set])

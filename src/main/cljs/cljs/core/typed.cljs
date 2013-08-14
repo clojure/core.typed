@@ -33,4 +33,11 @@
   [inst-of types-syn]
   inst-of)
 
+(defn ^:skip-wiki
+  loop>-ann 
+  "Internal use only. Use loop>"
+  [loop-of bnding-types]
+  loop-of)
+
+; populate this namespace with core aliases
 (boot/base-aliases)

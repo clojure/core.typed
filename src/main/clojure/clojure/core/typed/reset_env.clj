@@ -1,4 +1,4 @@
-(ns clojure.core.typed.reset-env
+(ns ^:skip-wiki clojure.core.typed.reset-env
   (:require [clojure.core.typed.base-env :as bse-clj]
             [clojure.core.typed.base-env-cljs :as bse-cljs]
             [clojure.core.typed.ns-deps :as deps]

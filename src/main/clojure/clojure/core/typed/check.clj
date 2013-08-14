@@ -1,4 +1,4 @@
-(ns clojure.core.typed.check
+(ns ^:skip-wiki clojure.core.typed.check
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t :refer [*already-checked* letfn>]]
             [clojure.core.typed.utils :as u :refer [p]]
@@ -3345,30 +3345,41 @@ rest-param-name (when rest-param
 (def ^:dynamic *recur-target* nil)
 (set-validator-doc! #'*recur-target* (some-fn nil? RecurTarget?))
 
-;Arguments passed to recur must match recur target exactly. Rest parameter
-;equals 1 extra argument, either a Seqable or nil.
-(add-check-method :recur
-  [{:keys [args env] :as expr} & [expected]]
+(defn check-recur [args env recur-expr expected check]
   (binding [vs/*current-env* env]
-    (assert *recur-target* (u/error-msg "No recur target"))
-    (let [{:keys [dom rest] :as recur-target} *recur-target*
+    (let [{:keys [dom rest] :as recur-target} (if-let [r *recur-target*]
+                                                r
+                                                (u/int-error (str "No recur target")))
           _ (assert (not ((some-fn :drest :kw) recur-target)) "NYI")
           fixed-args (if rest
                        (butlast args)
                        args)
           rest-arg (when rest
                      (last args))
-          cargs (mapv check args (map ret (concat dom (when rest-arg
-                                                        [(c/RClass-of Seqable [rest])]))))
-          _ (assert (and (= (count fixed-args) (count dom))
-                         (= (boolean rest) (boolean rest-arg)))
-                    (u/error-msg "Wrong number of arguments to recur:"
-                               " Expected: " ((if rest inc identity) 
-                                              (count dom))
-                               " Given: " ((if rest-arg inc identity)
-                                           (count fixed-args))))]
-      (assoc expr
+          rest-arg-type (when rest-arg
+                          [(impl/impl-case
+                             :clojure (c/RClass-of Seqable [rest])
+                             :cljs (c/Protocol-of 'cljs.core/ISeqable [rest]))])
+          cargs (mapv check args (map ret 
+                                      (concat dom 
+                                              (when rest-arg-type
+                                                [rest-arg-type]))))
+          _ (when-not (and (= (count fixed-args) (count dom))
+                           (= (boolean rest) (boolean rest-arg)))
+              (u/tc-delayed-error 
+                (str "Wrong number of arguments to recur:"
+                     " Expected: " ((if rest inc identity) 
+                                    (count dom))
+                     " Given: " ((if rest-arg inc identity)
+                                 (count fixed-args)))))]
+      (assoc recur-expr
              expr-type (ret (c/Un))))))
+
+;Arguments passed to recur must match recur target exactly. Rest parameter
+;equals 1 extra argument, either a Seqable or nil.
+(add-check-method :recur
+  [{:keys [args env] :as expr} & [expected]]
+  (check-recur args env expr expected check))
 
 (def ^:dynamic *check-let-checkfn* nil)
 

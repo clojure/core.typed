@@ -100,17 +100,22 @@
 (defmethod check :def
   [{:keys [init env] vname :name :as expr} & [expected]]
   (assert (not expected))
-  (let [ann-type (binding [vs/*current-env* env]
-                   (var-env/lookup-Var vname))
-        cinit (check init (ret ann-type))
-        _ (assert (sub/subtype? (-> cinit expr-type ret-t)
-                                ann-type)
-                  (str "Var definition did not match annotation."
-                       " Expected: " (prs/unparse-type ann-type)
-                       ", Actual: " (prs/unparse-type (-> cinit expr-type ret-t))))]
-    (assoc expr
-           ;FIXME should really be Var, change when protocols are implemented
-           expr-type (ret r/-any))))
+  (binding [vs/*current-env* env
+            vs/*current-expr* expr]
+    (let [ann-type (var-env/lookup-Var-nofail vname)
+          res-expr (assoc expr
+                          ;FIXME should really be Var, change when protocols are implemented
+                          expr-type (ret r/-any))]
+      (if ann-type
+        (let [ cinit (check init (ret ann-type))
+              _ (when-not (sub/subtype? (-> cinit expr-type ret-t)
+                                        ann-type)
+                  (u/tc-delayed-error (str "Var definition did not match annotation."
+                                           " Expected: " (prs/unparse-type ann-type)
+                                           ", Actual: " (prs/unparse-type (-> cinit expr-type ret-t)))))]
+          res-expr)
+        (u/tc-delayed-error (str "Found untyped var definition: " vname)
+                            :return res-expr)))))
 
 (defmethod check :js
   [{:keys [js-op args env] :as expr} & [expected]]
@@ -179,6 +184,14 @@
             (assert (sub/subtype? given-type (ret-t expected))))]
     (assoc expr
            expr-type (ret given-type))))
+
+(defmethod invoke-special 'cljs.core.typed/loop>-ann
+  [{[expr {expected-bnds-syn :form}] :args :as dummy-expr} & [expected]]
+  (let [expected-bnds (binding [prs/*parse-type-in-ns* (chk/expr-ns dummy-expr)]
+                        (mapv prs/parse-type expected-bnds-syn))]
+    ;loop may be nested, type the first loop found
+    (binding [chk/*loop-bnd-anns* expected-bnds]
+      (check expr expected))))
 
 (defmethod check :invoke
   [{fexpr :f :keys [args] :as expr} & [expected]]
@@ -269,9 +282,12 @@
   [{:keys [bindings expr env] :as letfn-expr} & [expected]]
   (chk/check-letfn bindings expr letfn-expr expected check))
 
+(defmethod check :recur
+  [{:keys [exprs env] :as recur-expr} & [expected]]
+  (chk/check-recur exprs env recur-expr expected check))
+
 (defmethod check :loop
-  [{:keys [loop bindings expr env] :as loop-expr} & [expected]]
-  (assert nil "FIXME :loop needs loop>-ann annotation to be used")
+  [{:keys [bindings expr env] :as loop-expr} & [expected]]
   (binding [chk/*check-let-checkfn* check]
     (let [loop-bnd-anns chk/*loop-bnd-anns*]
       (binding [chk/*loop-bnd-anns* nil]

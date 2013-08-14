@@ -1,4 +1,4 @@
-(ns clojure.core.typed.lex-env
+(ns ^:skip-wiki clojure.core.typed.lex-env
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.filter-rep :as fr]))

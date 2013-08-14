@@ -1,4 +1,4 @@
-(ns clojure.core.typed.type-rep
+(ns ^:skip-wiki clojure.core.typed.type-rep
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t]

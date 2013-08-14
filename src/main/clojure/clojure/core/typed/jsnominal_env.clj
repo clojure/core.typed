@@ -1,4 +1,4 @@
-(ns clojure.core.typed.jsnominal-env
+(ns ^:skip-wiki clojure.core.typed.jsnominal-env
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]))
 

@@ -52,7 +52,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>jvm.tools.analyzer</artifactId>
-      <version>0.4.4</version>
+      <version>0.4.5</version>
     </dependency>
     <!-- for algo.monads -->
     <dependency>

@@ -1,4 +1,4 @@
-(ns clojure.core.typed.frees
+(ns ^:skip-wiki clojure.core.typed.frees
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep]

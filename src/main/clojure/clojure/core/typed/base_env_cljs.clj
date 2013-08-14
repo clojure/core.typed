@@ -32,7 +32,18 @@ cljs.core.typed/ann-protocol* [Any Any Any -> Any]
 cljs.core.typed/ann-datatype* [Any Any Any Any -> Any]
 cljs.core.typed/def-alias* [Any Any -> Any]
 
-cljs.core/+ [number * -> number]
+cljs.core/+ (Fn [int * -> int]
+                [number * -> number])
+cljs.core/> [number number * -> boolean]
+cljs.core/< [number number * -> boolean]
+cljs.core/= [Any * -> boolean]
+cljs.core/nth (All [x y] 
+                (Fn [(U nil (cljs.core/ISeqable x)) int -> x]
+                    [(U nil (cljs.core/ISeqable x)) int y -> (U y x)]))
+cljs.core/count
+      ; TODO also accepts Counted
+      ; FIXME should return integer
+      [(U nil (cljs.core/ISeqable Any)) -> int :object {:id 0, :path [Count]}]
       )))
 
 (def init-var-nochecks

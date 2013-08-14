@@ -1,4 +1,4 @@
-(ns clojure.core.typed.datatype-ancestor-env
+(ns ^:skip-wiki clojure.core.typed.datatype-ancestor-env
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]

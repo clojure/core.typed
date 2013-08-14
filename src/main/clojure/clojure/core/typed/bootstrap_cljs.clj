@@ -1,4 +1,4 @@
-(ns clojure.core.typed.bootstrap-cljs)
+(ns ^:skip-wiki clojure.core.typed.bootstrap-cljs)
 
 (def -base-aliases
   '#{AnyInteger Seqable})

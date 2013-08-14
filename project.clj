@@ -3,7 +3,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :dependencies [[org.clojure/jvm.tools.analyzer "0.4.4"
+  :dependencies [[org.clojure/jvm.tools.analyzer "0.4.5"
                   :exclusions [org.clojure/clojure
                                org.clojure/clojurescript]]
                  [org.clojure/core.contracts "0.0.4"

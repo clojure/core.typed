@@ -12,7 +12,8 @@
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result
                                         HeterogeneousSeq TCResult TCError FlowSet Extends
-                                        NumberCLJS IntegerCLJS ObjectCLJS StringCLJS ArrayCLJS)
+                                        NumberCLJS IntegerCLJS ObjectCLJS StringCLJS ArrayCLJS
+                                        BooleanCLJS)
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -209,7 +210,7 @@
 
 ; CLJS types
 
-(ret-first-many NumberCLJS IntegerCLJS ObjectCLJS StringCLJS)
+(ret-first-many NumberCLJS IntegerCLJS ObjectCLJS StringCLJS BooleanCLJS)
 
 (add-default-fold-case ArrayCLJS
                        (fn [ty _]

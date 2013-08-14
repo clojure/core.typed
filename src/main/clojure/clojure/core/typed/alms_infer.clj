@@ -1,4 +1,4 @@
-(ns clojure.core.typed.alms-infer)
+;(ns clojure.core.typed.alms-infer)
 ;  (:refer-clojure :exclude [defrecord])
 ;  (:require [clojure.core.typed :refer :all]
 ;            [clojure.core.typed.utils :refer [defrecord]]))
