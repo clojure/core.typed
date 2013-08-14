@@ -1,4 +1,7 @@
-(ns clojure.core.typed.hole
+(ns 
+  ^{:see-also [["http://matthew.brecknell.net/post/hole-driven-haskell/" "Hole Driven Development"]]
+    :doc "This namespace contains easy tools for hole driven development"}
+  clojure.core.typed.hole
   (:require [clojure.core.typed :refer [ann ann-datatype]]))
 
 (ann silent-hole [-> Nothing])
