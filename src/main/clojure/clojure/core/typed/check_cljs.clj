@@ -14,7 +14,6 @@
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.object-rep :as o]
             [clojure.core.typed.jsnominal-env :as jsnom]
-            [clojure.core.typed.js-env :as jsenv]
             [clojure.core.typed.analyze-cljs :as ana])
   (:import (clojure.core.typed.type_rep Value)))
 
@@ -173,19 +172,22 @@
 (defmethod invoke-special 'cljs.core.typed/ann-form*
   [{[the-expr {typ-syn :form :as texpr} :as args] :args :as expr} & [expected]]
   (assert (= (count args) 2))
-  (let [current-ns (chk/expr-ns expr)
-        given-type (prs/with-parse-ns current-ns
-                     (prs/parse-type typ-syn))
-        cform (check the-expr (ret given-type))
-        _ (assert (sub/subtype? (-> cform expr-type ret-t) given-type)
-                  (prs/with-unparse-ns current-ns
-                    (str "Annotation does not match actual type:\n"
-                         "Expected: " (prs/unparse-type given-type)"\n"
-                         "Actual: " (prs/unparse-type (-> cform expr-type ret-t)))))
-        _ (when expected
-            (assert (sub/subtype? given-type (ret-t expected))))]
-    (assoc expr
-           expr-type (ret given-type))))
+  (binding [vs/*current-expr* expr
+            vs/*current-env* (:env expr)]
+    (let [current-ns (chk/expr-ns expr)
+          given-type (prs/with-parse-ns current-ns
+                       (prs/parse-type typ-syn))
+          cform (check the-expr (ret given-type))
+          _ (when-not (sub/subtype? (-> cform expr-type ret-t) given-type)
+              (u/tc-delayed-error 
+                (prs/with-unparse-ns current-ns
+                  (str "Annotation does not match actual type:\n"
+                       "Expected: " (prs/unparse-type given-type)"\n"
+                       "Actual: " (prs/unparse-type (-> cform expr-type ret-t))))))
+          _ (when expected
+              (assert (sub/subtype? given-type (ret-t expected))))]
+      (assoc expr
+             expr-type (ret given-type)))))
 
 (defmethod invoke-special 'cljs.core.typed/loop>-ann
   [{[expr {expected-bnds-syn :form}] :args :as dummy-expr} & [expected]]
@@ -213,11 +215,9 @@
   [{{vname :name} :info :keys [env] :as expr} & [expected]]
   (assoc expr
          expr-type (ret (binding [vs/*current-env* env]
-                          (if (= "js" (namespace vname))
-                            (jsenv/resolve-js-var (symbol (name vname)))
-                            (var-env/type-of vname)))
+                          (var-env/type-of vname))
                         ;only local bindings are immutable, vars/js do not partipate in occurrence typing
-                        (if-not ((some-fn nil? #{"js"}) (namespace vname))
+                        (if-not (namespace vname)
                           (fl/-FS (fl/-not-filter (c/Un r/-nil r/-false) vname)
                                   (fl/-filter (c/Un r/-nil r/-false) vname))
                           (fl/-FS f/-top f/-top))
@@ -292,7 +292,9 @@
           (assoc dot-expr
                  expr-type actual)))
       (u/tc-delayed-error (str "Don't know how to use type " (prs/unparse-type target-t)
-                               " with dot")
+                               " with "
+                               (if field (str "field " field)
+                                 (str "method " method)))
                           :return 
                           (assoc dot-expr
                                  expr-type (ret (or (when expected

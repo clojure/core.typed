@@ -2,31 +2,38 @@
 (ns cljs.core.typed.test.dom
   (:require [goog.style :as style]
             [goog.dom :as dom]
-            [goog.dom.classes :as classes]))
+            [goog.dom.classes :as classes])
+  (:require-macros [cljs.core.typed :as t]))
 
-(defn ^{:ann '[string -> js/HTMLElement]}
+(defn ^{:ann '[string -> (U nil js/HTMLElement)]}
   by-id [id]
   (.getElementById js/document id))
 
-(defn ^{:ann '[js/HTMLElement Any -> Any]}
+(defn ^{:ann '[js/HTMLElement string -> string]}
   set-html! [el s]
   (set! (.-innerHTML el) s))
 
-(defn set-text! [el s]
+(defn ^{:ann '[js/Element (U string number) -> js/Window]}
+  set-text! [el s]
   (dom/setTextContent el s))
 
-(defn set-class! [el name]
+(defn ^{:ann '[(U js/Node nil) string -> Any]}
+  set-class! [el name]
   (classes/set el name))
 
-(defn add-class! [el name]
+(defn ^{:ann '[js/Node (U nil string) -> boolean]}
+  add-class! [el name]
   (classes/add el name))
 
-(defn remove-class! [el name]
+(defn ^{:ann '[(U js/Node nil) (U nil string) -> boolean]}
+  remove-class! [el name]
   (classes/remove el name))
 
-(defn tag-match [tag]
+(defn ^{:ann '[string -> [js/HTMLElement -> Any]]}
+  tag-match [tag]
   (fn [el]
     (when-let [tag-name (.-tagName el)]
+      (t/ann-form tag-name string)
       (= tag (.toLowerCase tag-name)))))
 
 (defn el-matcher [el]

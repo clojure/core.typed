@@ -14,13 +14,33 @@ cljs.core/IMap [[[k :variance :covariant]
 cljs.core/ISet [[[x :variance :covariant]]]
 cljs.core/IVector [[[x :variance :covariant]]]
 cljs.core/IList [[[x :variance :covariant]]]
-    
+
+
     ))
 
 ; add protocols to environment to parse rest of file
 (impl/with-cljs-impl
   ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
    init-protocol-env))
+
+(def init-jsnominals 
+  (h/jsnominal-mappings
+    
+Document [[]
+          :fields
+          {}
+          :methods
+          {getElementById [string -> (U nil js/HTMLElement)]}]
+
+HTMLElement [[]
+             :fields
+             {innerHTML string
+              tagName (U nil string)}]))
+
+; add js nominals to environment to parse rest of file
+(impl/with-cljs-impl
+  ((v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
+   init-jsnominals))
 
 (def init-var-env
   (merge
@@ -44,6 +64,17 @@ cljs.core/count
       ; TODO also accepts Counted
       ; FIXME should return integer
       [(U nil (cljs.core/ISeqable Any)) -> int :object {:id 0, :path [Count]}]
+;; js
+    
+js/document js/Document
+
+;; goog.dom
+
+goog.dom/setTextContent [js/Element (U string number) -> js/Window]
+goog.dom.classes/set [(U js/Node nil) string -> Any]
+goog.dom.classes/add [(U js/Node nil) (U nil string) * -> boolean]
+goog.dom.classes/remove [(U js/Node nil) (U nil string) * -> boolean]
+
       )))
 
 (def init-var-nochecks
@@ -79,26 +110,7 @@ cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
 
 (def init-declared-kinds {})
 
-(def init-jsnominals 
-  (h/jsnominal-mappings
-    
-Document [[]
-          :fields
-          {}
-          :methods
-          {getElementById [string -> (U nil js/HTMLElement)]}]
-
-HTMLElement [[]
-             :fields
-             {innerHTML string}]))
-
 (def init-datatype-env {})
-
-(def init-js-env 
-  (h/jsenv-mappings
-document js/Document
-    
-    ))
 
 (defn reset-cljs-envs! []
   (impl/with-cljs-impl
@@ -112,7 +124,5 @@ document js/Document
     ((v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
      init-jsnominals)
     ((v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
-     init-datatype-env)
-    ((v 'clojure.core.typed.js-env/reset-js-env!)
-     init-js-env))
+     init-datatype-env))
   nil)
