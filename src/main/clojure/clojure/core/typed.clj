@@ -1,4 +1,8 @@
-(ns clojure.core.typed
+(ns 
+  ^{:doc "This namespace contains typed wrapper macros, type aliases
+and functions for type checking Clojure code. check-ns is the interface
+for checking namespaces, cf for checking individual forms."}
+  clojure.core.typed
   (:require [clojure.pprint :as pprint]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl :refer [v]])
