@@ -19,11 +19,12 @@
    :name "clojure.core.typed.filter-rep",
    :doc nil}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/5769b2da06f0cd7f21d115e789413191f4cb6ec2/src/main/clojure/clojure/core/typed/hole.clj",
+   "https://github.com/clojure/core.typed/blob/6b5231ad882ee07b0ef6c5e978e09c09aed083a6/src/main/clojure/clojure/core/typed/hole.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.hole-api.html",
    :name "clojure.core.typed.hole",
-   :doc nil}
+   :doc
+   "This namespace contains easy tools for hole driven development"}
   {:source-url
    "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj",
    :wiki-url
@@ -1035,43 +1036,43 @@
    :name "->NoisyHole",
    :namespace "clojure.core.typed.hole",
    :source-url
-   "https://github.com/clojure/core.typed/blob/5769b2da06f0cd7f21d115e789413191f4cb6ec2/src/main/clojure/clojure/core/typed/hole.clj#L14",
+   "https://github.com/clojure/core.typed/blob/6b5231ad882ee07b0ef6c5e978e09c09aed083a6/src/main/clojure/clojure/core/typed/hole.clj#L17",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/5769b2da06f0cd7f21d115e789413191f4cb6ec2/src/main/clojure/clojure/core/typed/hole.clj",
+   "https://github.com/clojure/core.typed/raw/6b5231ad882ee07b0ef6c5e978e09c09aed083a6/src/main/clojure/clojure/core/typed/hole.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.hole/->NoisyHole",
    :doc
    "Positional factory function for class clojure.core.typed.hole.NoisyHole.",
    :var-type "function",
-   :line 14,
+   :line 17,
    :file "src/main/clojure/clojure/core/typed/hole.clj"}
   {:arglists ([]),
    :name "noisy-hole",
    :namespace "clojure.core.typed.hole",
    :source-url
-   "https://github.com/clojure/core.typed/blob/5769b2da06f0cd7f21d115e789413191f4cb6ec2/src/main/clojure/clojure/core/typed/hole.clj#L17",
+   "https://github.com/clojure/core.typed/blob/6b5231ad882ee07b0ef6c5e978e09c09aed083a6/src/main/clojure/clojure/core/typed/hole.clj#L20",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/5769b2da06f0cd7f21d115e789413191f4cb6ec2/src/main/clojure/clojure/core/typed/hole.clj",
+   "https://github.com/clojure/core.typed/raw/6b5231ad882ee07b0ef6c5e978e09c09aed083a6/src/main/clojure/clojure/core/typed/hole.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.hole/noisy-hole",
    :doc
    "A noisy hole. The type system will complain when\n(noisy-hole) is used in positions that expect a type\nmore specific than Object or Any.\nUse (noisy-hole) as a placeholder for code.\nThrows an exception when evaluted.",
    :var-type "function",
-   :line 17,
+   :line 20,
    :file "src/main/clojure/clojure/core/typed/hole.clj"}
   {:arglists ([]),
    :name "silent-hole",
    :namespace "clojure.core.typed.hole",
    :source-url
-   "https://github.com/clojure/core.typed/blob/5769b2da06f0cd7f21d115e789413191f4cb6ec2/src/main/clojure/clojure/core/typed/hole.clj#L5",
+   "https://github.com/clojure/core.typed/blob/6b5231ad882ee07b0ef6c5e978e09c09aed083a6/src/main/clojure/clojure/core/typed/hole.clj#L8",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/5769b2da06f0cd7f21d115e789413191f4cb6ec2/src/main/clojure/clojure/core/typed/hole.clj",
+   "https://github.com/clojure/core.typed/raw/6b5231ad882ee07b0ef6c5e978e09c09aed083a6/src/main/clojure/clojure/core/typed/hole.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.hole/silent-hole",
    :doc
    "A silent hole. (silent-hole) passes for any other type\nwhen type checking.\nUse (silent-hole) as a placeholder for code.\nThrows an exception when evaluted.",
    :var-type "function",
-   :line 5,
+   :line 8,
    :file "src/main/clojure/clojure/core/typed/hole.clj"}
   {:file nil,
    :raw-source-url nil,
