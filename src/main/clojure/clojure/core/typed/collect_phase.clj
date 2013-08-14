@@ -1,4 +1,4 @@
-(ns clojure.core.typed.collect-phase
+(ns ^:skip-wiki clojure.core.typed.collect-phase
   (:require [clojure.core.typed :refer [*already-collected*]]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]

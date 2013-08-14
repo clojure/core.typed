@@ -1,4 +1,4 @@
-(ns clojure.core.typed.datatype-env
+(ns ^:skip-wiki clojure.core.typed.datatype-env
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed :as t :refer [fn> inst when-let-fail]])
