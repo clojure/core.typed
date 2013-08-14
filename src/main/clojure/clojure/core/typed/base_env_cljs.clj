@@ -79,9 +79,24 @@ cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
 
 (def init-declared-kinds {})
 
-(def init-jsnominals {})
+(def init-jsnominals 
+  (h/jsnominal-mappings
+    
+Document [[]
+          :fields
+          {}
+          :methods
+          {getElementById [string -> (U nil js/HTMLElement)]}]
+
+HTMLElement [[]]))
 
 (def init-datatype-env {})
+
+(def init-js-env 
+  (h/jsenv-mappings
+document js/Document
+    
+    ))
 
 (defn reset-cljs-envs! []
   (impl/with-cljs-impl
@@ -95,5 +110,7 @@ cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
     ((v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
      init-jsnominals)
     ((v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
-     init-datatype-env))
+     init-datatype-env)
+    ((v 'clojure.core.typed.js-env/reset-js-env!)
+     init-js-env))
   nil)

@@ -9,6 +9,7 @@
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.name-env :as nme-env]
+            [clojure.core.typed.jsnominal-env :as jsnom]
             [clojure.pprint :as pprint]))
 
 (defmacro alias-mappings [& args]
@@ -41,10 +42,10 @@
                            "Need fully qualified symbol")
                    [s# (prs/parse-type t#)])))))))
 
-(defn declared-kind-for-protocol [fields]
-  (let [fs (map first fields)
+(defn declared-kind-for-protocol [binder]
+  (let [fs (map first binder)
         _ (assert (every? symbol? fs) fs)
-        vs (map (fn [[v & {:keys [variance]}]] variance) fields)]
+        vs (map (fn [[v & {:keys [variance]}]] variance) binder)]
     (c/TypeFn* fs vs (repeat (count vs) r/no-bounds) r/-any)))
 
 (defmacro protocol-mappings [& args]
@@ -77,3 +78,44 @@
                    (decl-env/remove-declared-kind n#)
                    [n# (c/Protocol* names# vs# frees# the-var#
                                     on-class# methods# bnds#)])))))))
+
+(defmacro jsnominal-mappings [& args]
+  `(impl/with-cljs-impl
+     (let [ts# (partition 2 '~args)]
+       (into {}
+             (doall
+               (for [[n# [binder# & {:as opts#}]] ts#]
+                 (let [names# (when (seq binder#)
+                                (map first binder#))
+                       {vs# :variances
+                        names# :names
+                        bnds# :bnds} 
+                       (when (seq binder#)
+                         ; don't bound frees because mutually dependent bounds are problematic
+                         ; FIXME ... Or is this just laziness? 
+                         (let [b# (free-ops/with-free-symbols names#
+                                    (mapv prs/parse-tfn-binder binder#))]
+                           {:variances (map :variance b#)
+                            :nmes (map :nme b#)
+                            :bnds (map :bound b#)}))
+                       frees# (map r/make-F names#)
+                       methods# (free-ops/with-bounded-frees (zipmap frees# bnds#)
+                                  (into {}
+                                        (for [[mname# mtype#] (:methods opts#)]
+                                          [mname# (prs/parse-type mtype#)])))
+                       fields# (free-ops/with-bounded-frees (zipmap frees# bnds#)
+                                 (into {}
+                                       (for [[mname# mtype#] (:fields opts#)]
+                                         [mname# (prs/parse-type mtype#)])))]
+                   (decl-env/remove-declared-kind n#)
+                   [n# {:jsnominal (c/JSNominal* names# vs# frees# n# bnds#)
+                        :fields fields#
+                        :methods methods#}])))))))
+
+(defmacro jsenv-mappings [& args]
+  `(impl/with-cljs-impl
+     (let [ts# (partition 2 '~args)]
+       (into {}
+             (doall
+               (for [[s# t#] ts#]
+                 [s# (prs/parse-type t#)]))))))

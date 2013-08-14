@@ -13,6 +13,8 @@
             [clojure.core.typed.filter-ops :as fl]
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.object-rep :as o]
+            [clojure.core.typed.jsnominal-env :as jsnom]
+            [clojure.core.typed.js-env :as jsenv]
             [clojure.core.typed.analyze-cljs :as ana])
   (:import (clojure.core.typed.type_rep Value)))
 
@@ -211,9 +213,11 @@
   [{{vname :name} :info :keys [env] :as expr} & [expected]]
   (assoc expr
          expr-type (ret (binding [vs/*current-env* env]
-                          (var-env/type-of vname))
-                        ;only local bindings are immutable, vars do not partipate in occurrence typing
-                        (if-not (namespace vname)
+                          (if (= "js" (namespace vname))
+                            (jsenv/resolve-js-var (symbol (name vname)))
+                            (var-env/type-of vname)))
+                        ;only local bindings are immutable, vars/js do not partipate in occurrence typing
+                        (if-not ((some-fn nil? #{"js"}) (namespace vname))
                           (fl/-FS (fl/-not-filter (c/Un r/-nil r/-false) vname)
                                   (fl/-filter (c/Un r/-nil r/-false) vname))
                           (fl/-FS f/-top f/-top))
@@ -247,28 +251,55 @@
 
 (defmethod check :set!
   [{:keys [target val] :as expr} & [expected]]
-  (assert (not expected))
   (let [ctarget (check target)
         cval (check val)]
     (assert nil "FIXME :set! subtype checking")
     (assoc expr
            expr-type (ret r/-any))))
 
-(defn check-field 
-  [{:keys [target field val] :as expr} & [expected]]
-  (assert false))
+(defn check-dot [{:keys [target field method args] :as dot-expr} expected]
+  (let [ctarget (check target)
+        target-t (-> ctarget expr-type ret-t)
+        resolved (let [t (c/fully-resolve-type target-t)]
+                   ;TODO DataType
+                   (when ((some-fn r/JSNominal? #_r/DataType?) t)
+                     t))]
+    (if resolved
+      (cond
+        field
+        (let [field-type (cond
+                           (r/JSNominal? resolved)
+                           (jsnom/get-field (:name resolved) field))
+              _ (assert field-type (str "Don't know how to get field " field
+                                        " from " (prs/unparse-type resolved)))]
+          (assoc dot-expr
+                 expr-type (ret field-type)))
+        :else
+        (let [method-type (cond
+                            (r/JSNominal? resolved)
+                            (jsnom/get-method (:name resolved) method))
+              _ (assert method-type (str "Don't know how to call method " method
+                                         " from " (prs/unparse-type resolved)))
+              cargs (mapv check args)
+              actual (chk/check-funapp nil cargs (ret method-type) (map expr-type cargs)
+                                       expected)]
+          (assoc dot-expr
+                 expr-type actual)))
+      (u/tc-delayed-error (str "Don't know how to use type " (prs/unparse-type target-t)
+                               " with dot")
+                          :return 
+                          (assoc dot-expr
+                                 expr-type (ret (or (when expected
+                                                      (ret-t expected))
+                                                    (r/TCError-maker))))))))
 
 (defmethod check :dot
-  [{:keys [field method] :as expr} & [expected]]
-  #_((if field check-field (throw (Exception. "NYI")))
-    expr expected)
-  (assoc expr
-         expr-type (ret r/-any)))
+  [expr & [expected]]
+  (check-dot expr expected))
 
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
   (let [ctest (check test)]
-    #_(prn "check :if" (expr-type ctest))
     (assoc expr
            expr-type (binding [chk/*check-if-checkfn* check]
                        (chk/check-if (expr-type ctest) then else expected)))))

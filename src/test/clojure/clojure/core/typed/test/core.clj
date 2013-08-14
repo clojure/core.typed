@@ -1387,7 +1387,7 @@
         (cf (fn [& {:keys [path] :or {path "foo"}}]
             (clojure.core.typed/print-env "a")
             (java.io.File. path))
-          [& {:path String} -> java.io.File]))))
+          [& :optional {:path String} -> java.io.File]))))
 
 ;(fn> [a :- (U (Extends Number :without [(IPerVec Any)])
 ;              (Extends (IPV Any) :without [Number])

@@ -4,10 +4,12 @@
             [goog.dom :as dom]
             [goog.dom.classes :as classes]))
 
-(defn by-id [id]
+(defn ^{:ann '[string -> js/HTMLElement]}
+  by-id [id]
   (.getElementById js/document id))
 
-(defn set-html! [el s]
+(defn ^{:ann '[js/HTMLElement Any -> Any]}
+  set-html! [el s]
   (set! (.-innerHTML el) s))
 
 (defn set-text! [el s]

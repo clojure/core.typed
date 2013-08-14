@@ -343,19 +343,22 @@
 ;; JS Nominal
 
 (t/ann ^:no-check JSNominal*
-  [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol (Seqable Bounds) -> TCType])
-(defn JSNominal* [names variances poly? name bnds]
-  {:pre [(every? symbol? names)
-         (every? r/variance? variances)
-         (= (count variances) (count poly?))
-         (every? r/Type? poly?)
-         (every? r/Bounds? bnds)
-         (symbol? name)]
-   :post [(r/Type? %)]}
-  (let [p (r/JSNominal-maker (seq variances) (seq poly?) name)]
-    (if (seq variances)
-      (TypeFn* names variances bnds p)
-      p)))
+  (Fn [Symbol -> TCType]
+      [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol (Seqable Bounds) -> TCType]))
+(defn JSNominal* 
+  ([name] (JSNominal* nil nil nil name nil))
+  ([names variances poly? name bnds]
+   {:pre [(every? symbol? names)
+          (every? r/variance? variances)
+          (= (count variances) (count poly?))
+          (every? r/Type? poly?)
+          (every? r/Bounds? bnds)
+          (symbol? name)]
+    :post [(r/Type? %)]}
+   (let [p (r/JSNominal-maker (seq variances) (seq poly?) name)]
+     (if (seq variances)
+       (TypeFn* names variances bnds p)
+       p))))
 
 (t/ann ^:no-check JSNominal-of (Fn [Symbol -> TCType]
                                    [Symbol (U nil (Seqable TCType)) -> TCType]))
@@ -374,7 +377,7 @@
        (r/TypeFn? p) (instantiate-typefn p args)
        (r/JSNominal? p) p
        ; allow unannotated nominals if unparameterised
-       :else (JSNominal* nil nil sym nil)))))
+       :else (JSNominal* sym)))))
 
 ;Datatype
 

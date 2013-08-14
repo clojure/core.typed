@@ -1159,13 +1159,23 @@
 
 (add-check-method :var
   [{:keys [var] :as expr} & [expected]]
-  (let [id (u/var->symbol var)
-        _ (when-not (var-env/used-var? id)
-            (var-env/add-used-var id))]
-    (assoc expr
-           expr-type (ret (var-env/lookup-Var (u/var->symbol var))
-                          (fo/-FS fl/-top fl/-top)
-                          obj/-empty))))
+  (binding [vs/*current-expr* expr]
+    (let [id (u/var->symbol var)
+          _ (when-not (var-env/used-var? id)
+              (var-env/add-used-var id))
+          t (var-env/lookup-Var-nofail (u/var->symbol var))]
+      (if t
+        (assoc expr
+               expr-type (ret t (fo/-FS fl/-top fl/-top) obj/-empty))
+        (u/tc-delayed-error
+          (str "Unannotated var " id)
+          :return (assoc expr
+                         expr-type 
+                         (ret (or (when expected
+                                    (ret-t expected))
+                                  (r/TCError-maker))
+                              (fo/-FS fl/-top fl/-top) 
+                              obj/-empty)))))))
 
 (add-check-method :the-var
   [{:keys [var] :as expr} & [expected]]
@@ -4196,27 +4206,29 @@ rest-param-name (when rest-param
   (assert init-provided)
   (let [vsym (u/var->symbol var)
         warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (expr-ns expr))
-        t (if warn-if-unannotated?
-            (var-env/lookup-Var-nofail vsym)
-            (var-env/lookup-Var vsym))
-        ; t could only be nil if warn-if-unannotated? is true
-        _ (assert (or t warn-if-unannotated?))
-        check? (when t
-                 (var-env/check-var? vsym))
-        _ (when-not check?
-            (println (when-let [line (-> expr :env :line)] (str line ": ")) "Not checking" vsym "definition")
-            (flush))
-        cinit (cond 
-                (not init-provided) expr ;handle `declare`
-                check? (check init (ret t)))
-        _ (when (and init-provided check?)
-            (when (not (sub/subtype? (ret-t (expr-type cinit)) t))
-              (expected-error (ret-t (expr-type cinit)) t))
-            ;record checked definition
-            (var-env/add-checked-var-def vsym))]
-    ;def returns a Var
-    (assoc expr
-           expr-type (ret (c/RClass-of Var)))))
+        t (var-env/lookup-Var-nofail vsym)
+        ;def returns a Var
+        res-expr (assoc expr
+                        expr-type (ret (c/RClass-of Var)))
+        check? (var-env/check-var? vsym)]
+    (cond
+      (and check? t)
+      (let [cinit (cond 
+                    (not init-provided) expr ;handle `declare`
+                    check? (check init (ret t)))
+            _ (when (and init-provided check?)
+                (when (not (sub/subtype? (ret-t (expr-type cinit)) t))
+                  (expected-error (ret-t (expr-type cinit)) t))
+                ;record checked definition
+                (var-env/add-checked-var-def vsym))]
+        res-expr)
+      (not check?) (do (println (when-let [line (-> expr :env :line)] 
+                                  (str line ": ")) 
+                                "Not checking" vsym "definition")
+                       (flush)
+                       res-expr)
+      :else (u/tc-delayed-error (str "Found untyped var definition: " vsym)
+                                :return res-expr))))
 
 ;TODO print a hint that `ann` forms must be wrapping in `cf` at the REPL
 (add-check-method :def

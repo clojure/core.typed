@@ -1567,6 +1567,7 @@ clojure.lang.Delay (All [x]
 
 (def init-datatype-ancestor-env {})
 
+
 (defn reset-clojure-envs! []
   (impl/with-clojure-impl
     ((v 'clojure.core.typed.name-env/reset-name-env!) init-alias-env)

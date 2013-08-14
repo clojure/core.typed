@@ -11,3 +11,5 @@
      (collatz (/ n 2))
     :else 
      (collatz (inc (* 3 n)))))
+
+(collatz 10)

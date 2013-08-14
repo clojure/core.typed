@@ -24,7 +24,7 @@
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
                                         HeterogeneousSeq KwArgsSeq TCError Extends NumberCLJS BooleanCLJS
-                                        IntegerCLJS ArrayCLJS)
+                                        IntegerCLJS ArrayCLJS JSNominal StringCLJS)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -564,41 +564,46 @@
                 (prenv/get-protocol qsym) (prenv/resolve-protocol qsym)))]
       (if-let [f (free-ops/free-in-scope sym)]
         f
-        (let [ RClass-of @(RClass-of-var)
-              current-nstr (-> (parse-in-ns) name)
-              qsym (if (namespace sym)
-                     sym
-                     (symbol current-nstr (name sym)))
-              clssym (if (some #(= \. %) (str sym))
+        (cond
+          (and (= "js" (namespace sym))
+               (impl/checking-clojurescript?)) (c/JSNominal-of (symbol (name sym)))
+
+          :else
+          (let [ RClass-of @(RClass-of-var)
+                current-nstr (-> (parse-in-ns) name)
+                qsym (if (namespace sym)
                        sym
-                       (symbol (str (munge current-nstr) \. (name sym))))]
-          (or (resolve-symbol qsym clssym)
-              (impl/impl-case
-                :clojure (let [res (resolve-type-clj sym)
-                               qsym (when (var? res)
-                                      (u/var->symbol res))
-                               clssym (when (class? res)
-                                        (u/Class->symbol res))]
-                           (or (resolve-symbol qsym clssym)
-                               (when qsym
-                                 (println (str "WARNING: Assuming unannotated var " qsym
-                                               " is a protocol."))
-                                 (flush)
-                                 (r/Name-maker qsym))
-                               (when clssym
-                                 (c/RClass-of clssym))))
-                :cljs (let [res (resolve-type-cljs sym)
-                            sym (:name res)]
-                        (or (resolve-symbol sym sym)
-                            (when sym
-                              (println (str "WARNING: Assuming unannotated var " sym
-                                            " is a protocol."))
-                              (flush)
-                              (r/Name-maker sym)))))
-              (u/tc-error (str "Cannot resolve type: " (pr-str sym)
-                               "\nHint: Is " (pr-str sym) " in scope?"
-                               "\nHint: Has " (pr-str sym) "'s annotation been"
-                               " found via check-ns, cf or typed-deps?"))))))))
+                       (symbol current-nstr (name sym)))
+                clssym (if (some #(= \. %) (str sym))
+                         sym
+                         (symbol (str (munge current-nstr) \. (name sym))))]
+            (or (resolve-symbol qsym clssym)
+                (impl/impl-case
+                  :clojure (let [res (resolve-type-clj sym)
+                                 qsym (when (var? res)
+                                        (u/var->symbol res))
+                                 clssym (when (class? res)
+                                          (u/Class->symbol res))]
+                             (or (resolve-symbol qsym clssym)
+                                 (when qsym
+                                   (println (str "WARNING: Assuming unannotated var " qsym
+                                                 " is a protocol."))
+                                   (flush)
+                                   (r/Name-maker qsym))
+                                 (when clssym
+                                   (c/RClass-of clssym))))
+                  :cljs (let [res (resolve-type-cljs sym)
+                              sym (:name res)]
+                          (or (resolve-symbol sym sym)
+                              (when sym
+                                (println (str "WARNING: Assuming unannotated var " sym
+                                              " is a protocol."))
+                                (flush)
+                                (r/Name-maker sym)))))
+                (u/tc-error (str "Cannot resolve type: " (pr-str sym)
+                                 "\nHint: Is " (pr-str sym) " in scope?"
+                                 "\nHint: Has " (pr-str sym) "'s annotation been"
+                                 " found via check-ns, cf or typed-deps?")))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
@@ -1133,15 +1138,23 @@
 
 ; CLJS Types
 
-(defmethod unparse-type* NumberCLJS [v] 'number)
-(defmethod unparse-type* BooleanCLJS [v] 'boolean)
-(defmethod unparse-type* IntegerCLJS [v] 'int)
+(defmethod unparse-type* NumberCLJS [_] 'number)
+(defmethod unparse-type* BooleanCLJS [_] 'boolean)
+(defmethod unparse-type* IntegerCLJS [_] 'int)
+(defmethod unparse-type* StringCLJS [_] 'string)
 
 (defmethod unparse-type* ArrayCLJS
   [{:keys [input-type output-type]}]
   (cond 
     (= input-type output-type) (list 'Array (unparse-type input-type))
     :else (list 'Array2 (unparse-type input-type) (unparse-type output-type))))
+
+(defmethod unparse-type* JSNominal
+  [{:keys [name poly?]}]
+  (let [sym (symbol (str "js/" name))]
+    (if (seq poly?)
+      (list* sym (map unparse-type poly?))
+      sym)))
 
 ; Objects
 
