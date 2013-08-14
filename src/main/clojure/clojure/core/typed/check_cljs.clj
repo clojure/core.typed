@@ -251,11 +251,17 @@
 
 (defmethod check :set!
   [{:keys [target val] :as expr} & [expected]]
-  (let [ctarget (check target)
-        cval (check val)]
-    (assert nil "FIXME :set! subtype checking")
-    (assoc expr
-           expr-type (ret r/-any))))
+  (binding [vs/*current-expr* expr]
+    (let [ctarget (check target)
+          cval (check val)
+          target-expected (-> ctarget expr-type ret-t)
+          val-type (-> cval expr-type ret-t)
+          _ (when-not (sub/subtype? val-type target-expected)
+              (chk/expected-error val-type target-expected))
+          _ (when-not (and expected (sub/subtype? target-expected (ret-t expected)))
+              (chk/expected-error target-expected (ret-t expected)))]
+      (assoc expr
+             expr-type (ret val-type)))))
 
 (defn check-dot [{:keys [target field method args] :as dot-expr} expected]
   (let [ctarget (check target)

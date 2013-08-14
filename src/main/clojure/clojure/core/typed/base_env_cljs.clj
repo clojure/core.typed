@@ -88,7 +88,9 @@ Document [[]
           :methods
           {getElementById [string -> (U nil js/HTMLElement)]}]
 
-HTMLElement [[]]))
+HTMLElement [[]
+             :fields
+             {innerHTML string}]))
 
 (def init-datatype-env {})
 
