@@ -13,18 +13,6 @@
    :doc
    "This namespace contains annotations and helper macros for type\nchecking core.async code. Ensure clojure.core.async is require'd\nbefore performing type checking.\n\ngo\n  use go>\n\nchan\n  use chan>\n\nbuffer\n  use buffer> (similar for other buffer constructors)\n"}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/collect_phase.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.collect-phase-api.html",
-   :name "clojure.core.typed.collect-phase",
-   :doc nil}
-  {:source-url
-   "https://github.com/clojure/core.typed/blob/e4acf081a6abc0cbbe0e2b71892bc2a1f89fd75b/src/main/clojure/clojure/core/typed/datatype_env.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.datatype-env-api.html",
-   :name "clojure.core.typed.datatype-env",
-   :doc nil}
-  {:source-url
    "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.filter-rep-api.html",
@@ -727,71 +715,6 @@
    :var-type "macro",
    :line 194,
    :file "src/main/clojure/clojure/core/typed/async.clj"}
-  {:arglists ([nsym]),
-   :name "collect-ns",
-   :namespace "clojure.core.typed.collect-phase",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/collect_phase.clj#L71",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/collect_phase.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.collect-phase/collect-ns",
-   :doc
-   "Collect type annotations and dependency information\nfor namespace symbol nsym, and recursively check \ndeclared typed namespace dependencies.",
-   :var-type "function",
-   :line 71,
-   :file "src/main/clojure/clojure/core/typed/collect_phase.clj"}
-  {:arglists ([nsym]),
-   :name "infer-typed-ns-deps!",
-   :namespace "clojure.core.typed.collect-phase",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/collect_phase.clj#L62",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/collect_phase.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.collect-phase/infer-typed-ns-deps!",
-   :doc
-   "Automatically find other namespaces that are likely to\nbe typed dependencies to the current ns.",
-   :var-type "function",
-   :line 62,
-   :file "src/main/clojure/clojure/core/typed/collect_phase.clj"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.datatype-env/DataTypeEnv",
-   :namespace "clojure.core.typed.datatype-env",
-   :var-type "var",
-   :doc
-   "An Environment mapping datatype symbols to types.\n\n(IPersistentMap Symbol r/TCType)",
-   :name "DataTypeEnv"}
-  {:arglists ([sym]),
-   :name "get-datatype",
-   :namespace "clojure.core.typed.datatype-env",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/e4acf081a6abc0cbbe0e2b71892bc2a1f89fd75b/src/main/clojure/clojure/core/typed/datatype_env.clj#L42",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e4acf081a6abc0cbbe0e2b71892bc2a1f89fd75b/src/main/clojure/clojure/core/typed/datatype_env.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.datatype-env/get-datatype",
-   :doc
-   "Get the datatype with class symbol sym.\nReturns nil if not found.",
-   :var-type "function",
-   :line 42,
-   :file "src/main/clojure/clojure/core/typed/datatype_env.clj"}
-  {:arglists ([sym]),
-   :name "resolve-datatype",
-   :namespace "clojure.core.typed.datatype-env",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/e4acf081a6abc0cbbe0e2b71892bc2a1f89fd75b/src/main/clojure/clojure/core/typed/datatype_env.clj#L51",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/e4acf081a6abc0cbbe0e2b71892bc2a1f89fd75b/src/main/clojure/clojure/core/typed/datatype_env.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.datatype-env/resolve-datatype",
-   :doc "Same as get-datatype, but fails if datatype is not found.",
-   :var-type "function",
-   :line 51,
-   :file "src/main/clojure/clojure/core/typed/datatype_env.clj"}
   {:arglists ([fs]),
    :name "->AndFilter",
    :namespace "clojure.core.typed.filter-rep",

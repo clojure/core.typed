@@ -211,27 +211,6 @@ namespace.
       
     </div>
   </div><div style="margin-left: 1em;" class="toc-section">
-    <a href="#clojure.core.typed.collect-phase" style="margin-top: 3px;">clojure.core.typed.collect-phase</a>
-    <div style="margin-left: 1em;" class="toc-entry">
-      <a class="toc-entry-anchor" href="#clojure.core.typed.collect-phase/collect-ns">collect-ns</a>
-      
-    </div><div style="margin-left: 1em;" class="toc-entry">
-      <a class="toc-entry-anchor" href="#clojure.core.typed.collect-phase/infer-typed-ns-deps!">infer-typed-ns-deps!</a>
-      
-    </div>
-  </div><div style="margin-left: 1em;" class="toc-section">
-    <a href="#clojure.core.typed.datatype-env" style="margin-top: 3px;">clojure.core.typed.datatype-env</a>
-    <div style="margin-left: 1em;" class="toc-entry">
-      <a class="toc-entry-anchor" href="#clojure.core.typed.datatype-env/DataTypeEnv">DataTypeEnv</a>
-      
-    </div><div style="margin-left: 1em;" class="toc-entry">
-      <a class="toc-entry-anchor" href="#clojure.core.typed.datatype-env/get-datatype">get-datatype</a>
-      
-    </div><div style="margin-left: 1em;" class="toc-entry">
-      <a class="toc-entry-anchor" href="#clojure.core.typed.datatype-env/resolve-datatype">resolve-datatype</a>
-      
-    </div>
-  </div><div style="margin-left: 1em;" class="toc-section">
     <a href="#clojure.core.typed.filter-rep" style="margin-top: 3px;">clojure.core.typed.filter-rep</a>
     <div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.filter-rep/AndFilter">AndFilter</a>
@@ -1182,92 +1161,6 @@ Note: (sliding-buffer&gt; t ...) is the same as ((inst sliding-buffer t) ...)</p
     
     
     <a href="https://github.com/clojure/core.typed/blob/75da3a91f5a78b759d020961e5e8a1c4772e8475/src/main/clojure/clojure/core/typed/async.clj#L194" id="var-source">Source</a>
-  </div>
-</div>
-<br />
-<h2 id="clojure.core.typed.collect-phase">clojure.core.typed.collect-phase</h2>
-<pre id="namespace-docstr"></pre>
-
-
-<br />
-
-
-<div id="var-section">
-  <p></p>
-  <h2>Public Variables and Functions</h2>
-  <div id="var-entry">
-    <br />
-    <hr />
-    <h2 id="clojure.core.typed.collect-phase/collect-ns">collect-ns</h2>
-    <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (collect-ns nsym)
-</pre>
-    <pre id="var-docstr">Collect type annotations and dependency information
-for namespace symbol nsym, and recursively check 
-declared typed namespace dependencies.</pre>
-    
-    
-    <a href="https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/collect_phase.clj#L71" id="var-source">Source</a>
-  </div><div id="var-entry">
-    <br />
-    <hr />
-    <h2 id="clojure.core.typed.collect-phase/infer-typed-ns-deps!">infer-typed-ns-deps!</h2>
-    <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (infer-typed-ns-deps! nsym)
-</pre>
-    <pre id="var-docstr">Automatically find other namespaces that are likely to
-be typed dependencies to the current ns.</pre>
-    
-    
-    <a href="https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/collect_phase.clj#L62" id="var-source">Source</a>
-  </div>
-</div>
-<br />
-<h2 id="clojure.core.typed.datatype-env">clojure.core.typed.datatype-env</h2>
-<pre id="namespace-docstr"></pre>
-
-
-<br />
-
-
-<div id="var-section">
-  <p></p>
-  <h2>Public Variables and Functions</h2>
-  <div id="var-entry">
-    <br />
-    <hr />
-    <h2 id="clojure.core.typed.datatype-env/DataTypeEnv">DataTypeEnv</h2>
-    <span id="var-type">var</span><br />
-    <pre id="var-usage"></pre>
-    <pre id="var-docstr">An Environment mapping datatype symbols to types.
-
-(IPersistentMap Symbol r/TCType)</pre>
-    
-    
-    
-  </div><div id="var-entry">
-    <br />
-    <hr />
-    <h2 id="clojure.core.typed.datatype-env/get-datatype">get-datatype</h2>
-    <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (get-datatype sym)
-</pre>
-    <pre id="var-docstr">Get the datatype with class symbol sym.
-Returns nil if not found.</pre>
-    
-    
-    <a href="https://github.com/clojure/core.typed/blob/e4acf081a6abc0cbbe0e2b71892bc2a1f89fd75b/src/main/clojure/clojure/core/typed/datatype_env.clj#L42" id="var-source">Source</a>
-  </div><div id="var-entry">
-    <br />
-    <hr />
-    <h2 id="clojure.core.typed.datatype-env/resolve-datatype">resolve-datatype</h2>
-    <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (resolve-datatype sym)
-</pre>
-    <pre id="var-docstr">Same as get-datatype, but fails if datatype is not found.</pre>
-    
-    
-    <a href="https://github.com/clojure/core.typed/blob/e4acf081a6abc0cbbe0e2b71892bc2a1f89fd75b/src/main/clojure/clojure/core/typed/datatype_env.clj#L51" id="var-source">Source</a>
   </div>
 </div>
 <br />
