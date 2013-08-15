@@ -55,7 +55,8 @@
               vs/*current-expr* expr
               prs/*parse-type-in-ns* prs-ns]
       (when-let [[_ tsyn] (find mvar :ann)]
-        (assert ((some-fn list? seq?) tsyn)) (str "Type must be quoted in :ann metadata: " tsyn (class tsyn))
+        (assert ((some-fn list? seq?) tsyn) 
+                (str "Type must be quoted in :ann metadata for def " name ": " tsyn))
         ; CLJS does not currently evaluate metadata attached to
         ; a def. We want to conform to CLJ's behaviour so we "unwrap"
         ; one level of quoting. inline-annotation-test unit test should 

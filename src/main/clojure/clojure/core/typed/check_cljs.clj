@@ -268,12 +268,16 @@
         target-t (-> ctarget expr-type ret-t)
         resolved (let [t (c/fully-resolve-type target-t)]
                    ;TODO DataType
-                   (when ((some-fn r/JSNominal? #_r/DataType?) t)
+                   (when ((some-fn r/JSNominal? 
+                                   r/StringCLJS?
+                                   #_r/DataType?) t)
                      t))]
     (if resolved
       (cond
         field
         (let [field-type (cond
+                           (r/StringCLJS? resolved)
+                           (jsnom/get-field 'string field)
                            (r/JSNominal? resolved)
                            (jsnom/get-field (:name resolved) field))
               _ (assert field-type (str "Don't know how to get field " field
@@ -282,6 +286,8 @@
                  expr-type (ret field-type)))
         :else
         (let [method-type (cond
+                            (r/StringCLJS? resolved)
+                            (jsnom/get-method 'string method)
                             (r/JSNominal? resolved)
                             (jsnom/get-method (:name resolved) method))
               _ (assert method-type (str "Don't know how to call method " method

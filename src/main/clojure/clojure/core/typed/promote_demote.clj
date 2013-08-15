@@ -12,7 +12,9 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
-                                        HeterogeneousSeq TCError Extends)
+                                        HeterogeneousSeq TCError Extends JSNominal
+                                        StringCLJS BooleanCLJS NumberCLJS IntegerCLJS ObjectCLJS
+                                        ArrayCLJS FunctionCLJS)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -56,6 +58,18 @@
            (set? V)
            (every? symbol? V)]}
     (class T)))
+
+(defmethod promote ArrayCLJS
+  [T V]
+  (-> T
+    (update-in [:input-type] #(demote % V))
+    (update-in [:output-type] #(promote % V))))
+
+(defmethod demote ArrayCLJS
+  [T V]
+  (-> T
+    (update-in [:input-type] #(promote % V))
+    (update-in [:output-type] #(demote % V))))
 
 (defmethod promote PrimitiveArray
   [T V]
@@ -118,6 +132,16 @@
 (defmethod promote Value [T V] T)
 (defmethod demote Value [T V] T)
 
+(defmethod promote JSNominal [T V]
+  (-> T
+    (update-in [:poly?] #(when %
+                           (mapv promote % (repeat V))))))
+
+(defmethod demote JSNominal [T V]
+  (-> T
+    (update-in [:poly?] #(when %
+                           (mapv demote % (repeat V))))))
+
 (defmethod promote DataType [T V]
   (-> T
     (update-in [:poly?] #(when %
@@ -149,6 +173,24 @@
 
 (defmethod promote CountRange [T V] T)
 (defmethod demote CountRange [T V] T)
+
+(defmethod promote StringCLJS [T V] T)
+(defmethod demote StringCLJS [T V] T)
+
+(defmethod promote BooleanCLJS [T V] T)
+(defmethod demote BooleanCLJS [T V] T)
+
+(defmethod promote NumberCLJS [T V] T)
+(defmethod demote NumberCLJS [T V] T)
+
+(defmethod promote ObjectCLJS [T V] T)
+(defmethod demote ObjectCLJS [T V] T)
+
+(defmethod promote IntegerCLJS [T V] T)
+(defmethod demote IntegerCLJS [T V] T)
+
+(defmethod promote FunctionCLJS [T V] T)
+(defmethod demote FunctionCLJS [T V] T)
 
 (defmethod promote TApp
   [T V]

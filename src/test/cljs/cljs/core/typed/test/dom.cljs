@@ -2,7 +2,8 @@
 (ns cljs.core.typed.test.dom
   (:require [goog.style :as style]
             [goog.dom :as dom]
-            [goog.dom.classes :as classes])
+            [goog.dom.classes :as classes]
+            [cljs.core :refer [ISeq]])
   (:require-macros [cljs.core.typed :as t]))
 
 (defn ^{:ann '[string -> (U nil js/HTMLElement)]}
@@ -36,11 +37,14 @@
       (t/ann-form tag-name string)
       (= tag (.toLowerCase tag-name)))))
 
-(defn el-matcher [el]
+(defn ^{:ann '[Any -> [Any -> Any]]}
+  el-matcher [el]
   (fn [other] (identical? other el)))
 
-(defn by-tag-name [el tag]
+(defn ^{:ann '[(U nil js/Document js/Element) (U nil string) -> (U nil (ISeq js/Element))]}
+  by-tag-name [el tag]
   (prim-seq (dom/getElementsByTagNameAndClass tag nil el)))
 
-(defn offset [el]
+(defn ^{:ann '[(U nil js/Element) -> '[number number]]}
+  offset [el]
   [(style/getPageOffsetLeft el) (style/getPageOffsetTop el)])

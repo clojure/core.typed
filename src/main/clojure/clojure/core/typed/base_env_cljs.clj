@@ -25,6 +25,13 @@ cljs.core/IList [[[x :variance :covariant]]]
 
 (def init-jsnominals 
   (h/jsnominal-mappings
+
+; seems like a good place to put this
+string [[]
+        :fields
+        {}
+        :methods
+        {toLowerCase [-> string]}]
     
 Document [[]
           :fields
@@ -57,6 +64,7 @@ cljs.core/+ (Fn [int * -> int]
 cljs.core/> [number number * -> boolean]
 cljs.core/< [number number * -> boolean]
 cljs.core/= [Any * -> boolean]
+cljs.core/identical? [Any Any -> boolean]
 cljs.core/nth (All [x y] 
                 (Fn [(U nil (cljs.core/ISeqable x)) int -> x]
                     [(U nil (cljs.core/ISeqable x)) int y -> (U y x)]))
@@ -64,6 +72,10 @@ cljs.core/count
       ; TODO also accepts Counted
       ; FIXME should return integer
       [(U nil (cljs.core/ISeqable Any)) -> int :object {:id 0, :path [Count]}]
+cljs.core/prim-seq
+      (All [x]
+           [(cljs.core/ISeqable x) -> (U nil (cljs.core/ISeq x))])
+
 ;; js
     
 js/document js/Document
@@ -71,10 +83,13 @@ js/document js/Document
 ;; goog.dom
 
 goog.dom/setTextContent [js/Element (U string number) -> js/Window]
+goog.dom/getElementsByTagNameAndClass 
+      [(U nil string) (U nil string) (U nil js/Document js/Element) -> (cljs.core/ISeqable js/Element)]
 goog.dom.classes/set [(U js/Node nil) string -> Any]
 goog.dom.classes/add [(U js/Node nil) (U nil string) * -> boolean]
 goog.dom.classes/remove [(U js/Node nil) (U nil string) * -> boolean]
-
+goog.style/getPageOffsetLeft [(U nil js/Element) -> number]
+goog.style/getPageOffsetTop [(U nil js/Element) -> number]
       )))
 
 (def init-var-nochecks
