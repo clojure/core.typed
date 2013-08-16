@@ -93,8 +93,7 @@
 
 (defn type-of [sym]
   {:pre [(symbol? sym)]
-   :post [(or (r/Type? %)
-              (r/TCResult? %))]}
+   :post [(r/Type? %)]}
   (cond
     (not (namespace sym)) (if-let [t (lex/lookup-local sym)]
                             t
@@ -104,3 +103,10 @@
                                                     "\nHint: Has the annotation for " sym
                                                     " been added via check-ns, cf or typed-deps?"))))
     :else (lookup-Var sym)))
+
+(defn type-of-nofail [sym]
+  {:pre [(symbol? sym)]
+   :post [((some-fn nil? r/Type?) %)]}
+  (cond
+    (not (namespace sym)) (lex/lookup-local sym)
+    :else (lookup-Var-nofail sym)))

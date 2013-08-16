@@ -38,6 +38,7 @@
          #_(flush)
          nil)
      (do (collected-ns! nsym)
+         (prn "Collecting " nsym)
          (let [asts (ana/ast-for-ns nsym)]
            (doseq [ast asts]
              (collect ast)))))))
@@ -66,6 +67,18 @@
           (var-env/add-var-type name ann-type)))
       (when (:no-check mvar)
         (var-env/add-nocheck-var name)))))
+
+(defmethod invoke-special-collect 'cljs.core.typed/typed-deps*
+  [{:keys [args] :as expr}]
+  (assert (= (count args) 1) "Wrong arguments to typed-deps*")
+  (let [prs-ns (chk/expr-ns expr)
+        deps (:form (first args))
+        _ (prn "Found typed deps" deps)
+        _ (assert (and deps (seq deps) (every? symbol? deps)))]
+    ;(dep/add-ns-deps prs-ns (set deps))
+    (doseq [dep deps]
+      (collect-ns dep))
+    nil))
 
 (defmethod invoke-special-collect 'cljs.core.typed/ann*
   [{[target texpr :as args] :args :keys [env] :as expr}]

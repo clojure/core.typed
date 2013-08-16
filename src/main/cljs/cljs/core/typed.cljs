@@ -39,5 +39,11 @@
   [loop-of bnding-types]
   loop-of)
 
+(defn ^:skip-wiki
+  typed-deps* 
+  "Internal use only. Use typed-deps."
+  [args]
+  nil)
+
 ; populate this namespace with core aliases
 (boot/base-aliases)

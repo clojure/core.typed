@@ -117,4 +117,5 @@
                   (recur (inc i)))
                 -1)))))))
 
-;(t/check-ns 'cljs.core.typed.test.dom)
+;(t/check-ns 'cljs.core.typed.test.dnolen.utils.dom)
+;(t/check-ns 'cljs.core.typed.test.dnolen.utils.reactive)

@@ -101,7 +101,9 @@
    `(def-alias ~sym ~t))
   ([sym t]
    (assert (symbol? sym) (str "First argument to def-alias must be a symbol: " sym))
-   `(def-alias* '~sym '~t)))
+   `(do (def-alias* '~sym '~t)
+        ~(when-not (namespace sym)
+           `(def ~sym)))))
 
 (defmacro inst 
   "Instantiate a polymorphic type with a number of types"
@@ -191,6 +193,14 @@
                   ~@forms)
                 '~bnd-anns)))
 
+(defmacro typed-deps 
+  "Declare namespaces which should be checked before the current namespace.
+  Accepts any number of symbols.
+  
+  eg. (typed-deps clojure.core.typed.holes
+                  myns.types)"
+  [& args]
+  `(typed-deps* '~args))
 
 (def ^:dynamic *currently-checking-cljs* nil)
 (def ^:dynamic *already-collected*)

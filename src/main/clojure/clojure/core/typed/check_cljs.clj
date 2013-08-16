@@ -215,7 +215,13 @@
   [{{vname :name} :info :keys [env] :as expr} & [expected]]
   (assoc expr
          expr-type (ret (binding [vs/*current-env* env]
-                          (var-env/type-of vname))
+                          (let [t (var-env/type-of-nofail vname)]
+                            (if t
+                              t
+                              (u/tc-delayed-error (str "Found untyped var: " vname)
+                                                  :return (or (when expected
+                                                                (ret-t expected))
+                                                              (r/TCError-maker))))))
                         ;only local bindings are immutable, vars/js do not partipate in occurrence typing
                         (if-not (namespace vname)
                           (fl/-FS (fl/-not-filter (c/Un r/-nil r/-false) vname)
@@ -234,14 +240,37 @@
            
 
 (defmethod check :fn
-  [{:keys [] :as expr} & [expected]]
+  [{:keys [methods] :as expr} & [expected]]
+  (let [found-meta? (atom nil)
+        parse-meta (fn [{:keys [ann] :as m}] 
+                     (or (when (contains? m :ann)
+                           (assert ((some-fn list? seq?) ann) 
+                                   (str "Annotations must be quoted: " m))
+                           (reset! found-meta? true)
+                           (prs/with-parse-ns (chk/expr-ns expr)
+                             (prs/parse-type ann)))
+                         r/-any))
+        manual-annot (doall
+                       (for [{:keys [variadic params]} methods]
+                         (let [fixed (if variadic
+                                       (butlast params)
+                                       params)
+                               rest (when variadic
+                                      (last params))]
+                           (r/make-Function (mapv parse-meta (map meta fixed))
+                                            r/-any
+                                            (when variadic
+                                              (parse-meta rest))))))]
+
   (binding [chk/*check-fn-method1-checkfn* check]
     (assoc expr
            expr-type (chk/check-fn 
                        expr
-                       (or expected
+                       (or (when @found-meta?
+                             manual-annot)
+                           expected
                            (ret (r/make-FnIntersection
-                                  (r/make-Function [] r/-any r/-any))))))))
+                                  (r/make-Function [] r/-any r/-any)))))))))
 
 (defmethod check :deftype*
   [expr & [expected]]

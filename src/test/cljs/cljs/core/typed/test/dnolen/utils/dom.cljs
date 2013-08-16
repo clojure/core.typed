@@ -1,5 +1,5 @@
 ;From David Nolen's blog
-(ns cljs.core.typed.test.dom
+(ns cljs.core.typed.test.dnolen.utils.dom
   (:require [goog.style :as style]
             [goog.dom :as dom]
             [goog.dom.classes :as classes]

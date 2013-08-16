@@ -15,6 +15,9 @@ cljs.core/ISet [[[x :variance :covariant]]]
 cljs.core/IVector [[[x :variance :covariant]]]
 cljs.core/IList [[[x :variance :covariant]]]
 
+cljs.core/Atom [[[w :variance :contravariant]
+                 [r :variance :covariant]]]
+
 
     ))
 
@@ -42,7 +45,12 @@ Document [[]
 HTMLElement [[]
              :fields
              {innerHTML string
-              tagName (U nil string)}]))
+              tagName (U nil string)}]
+    
+    
+Event [[]
+       :method
+       {preventDefault [-> nil]}]))
 
 ; add js nominals to environment to parse rest of file
 (impl/with-cljs-impl
@@ -58,6 +66,7 @@ cljs.core.typed/ann* [Any Any -> Any]
 cljs.core.typed/ann-protocol* [Any Any Any -> Any]
 cljs.core.typed/ann-datatype* [Any Any Any Any -> Any]
 cljs.core.typed/def-alias* [Any Any -> Any]
+cljs.core.typed/typed-deps* [Any -> Any]
 
 cljs.core/+ (Fn [int * -> int]
                 [number * -> number])
