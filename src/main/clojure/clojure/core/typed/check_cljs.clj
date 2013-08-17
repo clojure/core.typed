@@ -1,7 +1,7 @@
 (ns clojure.core.typed.check-cljs
   (:require [clojure.core.typed]
             [clojure.core.typed.check :as chk :refer [expr-type]]
-            [clojure.core.typed.type-rep :as r :refer [ret ret-t]]
+            [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.utils :as u :refer [def-type]]
@@ -14,6 +14,8 @@
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.object-rep :as o]
             [clojure.core.typed.jsnominal-env :as jsnom]
+            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.object-rep :a obj]
             [clojure.core.typed.analyze-cljs :as ana])
   (:import (clojure.core.typed.type_rep Value)))
 
@@ -156,6 +158,13 @@
   (assoc expr
          expr-type (ret r/-any)))
 
+;don't type check
+(defmethod invoke-special 'cljs.core.typed/tc-ignore-forms*
+  [{:keys [] :as expr} & [expected]]
+  (assoc expr
+         expr-type (ret r/-any)))
+
+
 (defmethod invoke-special 'cljs.core.typed/inst-poly
   [{[pexpr targs-expr :as args] :args :as expr} & [expected]]
   (assert (#{2} (count args)) "Wrong arguments to inst")
@@ -197,6 +206,24 @@
     (binding [chk/*loop-bnd-anns* expected-bnds]
       (check expr expected))))
 
+(defmethod invoke-special 'cljs.core/instance?
+  [{:keys [args] :as expr} & [expected]]
+  (assert (= 2 (count args)) "Wrong arguments to instance?")
+  (binding [vs/*current-env* (:env expr)
+            vs/*current-expr* expr]
+    (let [varsym (when (#{:var} (:op  (first args)))
+                   (-> (first args) :info :name))
+          _ (when-not varsym
+              (u/int-error (str "First argument to instance? must be a datatype var "
+                                (:op (first args)))))
+          inst-of (c/DataType-with-unknown-params varsym)
+          cexpr (check (second args))
+          expr-tr (expr-type cexpr)]
+      (assoc expr
+             expr-type (ret (c/Un r/-true r/-false)
+                            (fo/-FS (fo/-filter-at inst-of (ret-o expr-tr))
+                                    (fo/-not-filter-at inst-of (ret-o expr-tr))))))))
+
 (defmethod check :invoke
   [{fexpr :f :keys [args] :as expr} & [expected]]
   (let [e (invoke-special expr)]
@@ -213,6 +240,7 @@
 
 (defmethod check :var
   [{{vname :name} :info :keys [env] :as expr} & [expected]]
+  (prn "var" vname)
   (assoc expr
          expr-type (ret (binding [vs/*current-env* env]
                           (let [t (var-env/type-of-nofail vname)]
@@ -340,6 +368,10 @@
   [expr & [expected]]
   (check-dot expr expected))
 
+(defmethod check :new
+  [{:keys [ctor args] :as expr} & [expected]]
+  (assert nil ctor))
+
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
   (let [ctest (check test)]
@@ -349,8 +381,7 @@
 
 (defmethod check :let
   [{:keys [bindings expr env] :as let-expr} & [expected]]
-  (binding [chk/*check-let-checkfn* check]
-    (chk/check-let bindings expr let-expr false expected)))
+  (chk/check-let bindings expr let-expr false expected :check-let-checkfn check))
 
 (defmethod check :letfn
   [{:keys [bindings expr env] :as letfn-expr} & [expected]]
@@ -362,10 +393,10 @@
 
 (defmethod check :loop
   [{:keys [bindings expr env] :as loop-expr} & [expected]]
-  (binding [chk/*check-let-checkfn* check]
-    (let [loop-bnd-anns chk/*loop-bnd-anns*]
-      (binding [chk/*loop-bnd-anns* nil]
-        (chk/check-let bindings expr loop-expr true expected :expected-bnds loop-bnd-anns)))))
+  (let [loop-bnd-anns chk/*loop-bnd-anns*]
+    (binding [chk/*loop-bnd-anns* nil]
+      (chk/check-let bindings expr loop-expr true expected :expected-bnds loop-bnd-anns
+                     :check-let-checkfn check))))
 
 (defmethod check :ns
   [expr & [expected]]

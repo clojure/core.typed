@@ -45,5 +45,11 @@
   [args]
   nil)
 
+(defn ^:skip-wiki
+  tc-ignore-forms* 
+  "Internal use only. Use tc-ignore"
+  [r]
+  r)
+
 ; populate this namespace with core aliases
 (boot/base-aliases)

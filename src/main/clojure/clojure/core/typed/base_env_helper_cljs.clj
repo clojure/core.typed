@@ -10,6 +10,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.jsnominal-env :as jsnom]
+            [clojure.core.typed.datatype-env :as dtenv]
             [clojure.pprint :as pprint]))
 
 (defmacro alias-mappings [& args]
@@ -96,7 +97,7 @@
                          (let [b# (free-ops/with-free-symbols names#
                                     (mapv prs/parse-tfn-binder binder#))]
                            {:variances (map :variance b#)
-                            :nmes (map :nme b#)
+                            :names (map :nme b#)
                             :bnds (map :bound b#)}))
                        frees# (map r/make-F names#)
                        methods# (free-ops/with-bounded-frees (zipmap frees# bnds#)
@@ -111,6 +112,33 @@
                    [n# {:jsnominal (c/JSNominal* names# vs# frees# n# bnds#)
                         :fields fields#
                         :methods methods#}])))))))
+
+(defmacro datatype-mappings [& args]
+  `(impl/with-cljs-impl
+     (let [ts# (partition 2 '~args)]
+       (into {}
+             (doall
+               (for [[n# [binder# & {record?# :record? :as opts#}]] ts#]
+                 (let [names# (when (seq binder#)
+                                (map first binder#))
+                       {vs# :variances
+                        names# :names
+                        bnds# :bnds} 
+                       (when (seq binder#)
+                         ; don't bound frees because mutually dependent bounds are problematic
+                         ; FIXME ... Or is this just laziness? 
+                         (let [b# (free-ops/with-free-symbols names#
+                                    (mapv prs/parse-tfn-binder binder#))]
+                           {:variances (seq (map :variance b#))
+                            :names (seq (map :nme b#))
+                            :bnds (seq (map :bound b#))}))
+                       frees# (seq (map r/make-F names#))
+                       fields# (free-ops/with-bounded-frees (zipmap frees# bnds#)
+                                 (into {}
+                                       (for [[mname# mtype#] (:fields opts#)]
+                                         [mname# (prs/parse-type mtype#)])))]
+                   (decl-env/remove-declared-kind n#)
+                   [n# (c/DataType* names# vs# frees# n# bnds# fields# (boolean record?#))])))))))
 
 (defmacro jsenv-mappings [& args]
   `(impl/with-cljs-impl

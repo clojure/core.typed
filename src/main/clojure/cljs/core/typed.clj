@@ -193,6 +193,12 @@
                   ~@forms)
                 '~bnd-anns)))
 
+;; `do` is special at the top level in Clojure, same in CLJS?
+(defmacro tc-ignore 
+  "Ignore forms in body during type checking"
+  [& body]
+  `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
+
 (defmacro typed-deps 
   "Declare namespaces which should be checked before the current namespace.
   Accepts any number of symbols.

@@ -497,6 +497,7 @@
                  :cljs (when-let [res (when (symbol? n)
                                         (resolve-type-cljs n))]
                          (:name res)))
+          _ (prn rsym)
           _ (assert ((some-fn symbol? nil?) rsym))]
     (if-let [free (and (symbol? n) (free-ops/free-in-scope n))]
       (r/TApp-maker free (mapv parse-type args))

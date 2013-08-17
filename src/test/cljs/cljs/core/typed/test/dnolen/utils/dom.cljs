@@ -2,49 +2,49 @@
 (ns cljs.core.typed.test.dnolen.utils.dom
   (:require [goog.style :as style]
             [goog.dom :as dom]
-            [goog.dom.classes :as classes]
-            [cljs.core :refer [ISeq]])
-  (:require-macros [cljs.core.typed :as t]))
+            [goog.dom.classes :as classes])
+  (:require-macros [cljs.core.typed :as t :refer [ann]]))
 
-(defn ^{:ann '[string -> (U nil js/HTMLElement)]}
-  by-id [id]
+(ann by-id [string -> (U nil js/HTMLElement)])
+(defn by-id [id]
   (.getElementById js/document id))
 
-(defn ^{:ann '[js/HTMLElement string -> string]}
-  set-html! [el s]
+(ann set-html! [js/HTMLElement string -> string])
+(defn set-html! [el s]
   (set! (.-innerHTML el) s))
 
-(defn ^{:ann '[js/Element (U string number) -> js/Window]}
-  set-text! [el s]
+(ann set-text! [js/Element (U string number) -> js/Window])
+(defn set-text! [el s]
   (dom/setTextContent el s))
 
-(defn ^{:ann '[(U js/Node nil) string -> Any]}
-  set-class! [el name]
+(ann set-class! [(U js/Node nil) string -> Any])
+(defn set-class! [el name]
   (classes/set el name))
 
-(defn ^{:ann '[js/Node (U nil string) -> boolean]}
-  add-class! [el name]
+(ann add-class! [js/Node (U nil string) -> boolean])
+(defn add-class! [el name]
   (classes/add el name))
 
-(defn ^{:ann '[(U js/Node nil) (U nil string) -> boolean]}
-  remove-class! [el name]
+(ann remove-class! [(U js/Node nil) (U nil string) -> boolean])
+(defn remove-class! [el name]
   (classes/remove el name))
 
-(defn ^{:ann '[string -> [js/HTMLElement -> Any]]}
-  tag-match [tag]
+(ann tag-match [string -> [js/HTMLElement -> Any]])
+(defn tag-match [tag]
   (fn [el]
     (when-let [tag-name (.-tagName el)]
       (t/ann-form tag-name string)
       (= tag (.toLowerCase tag-name)))))
 
-(defn ^{:ann '[Any -> [Any -> Any]]}
-  el-matcher [el]
+(ann el-matcher [Any -> [Any -> Any]])
+(defn el-matcher [el]
   (fn [other] (identical? other el)))
 
-(defn ^{:ann '[(U nil js/Document js/Element) (U nil string) -> (U nil (ISeq js/Element))]}
-  by-tag-name [el tag]
+(ann by-tag-name [(U nil js/Document js/Element) (U nil string) 
+                  -> (U nil (ISeq js/Element))])
+(defn by-tag-name [el tag]
   (prim-seq (dom/getElementsByTagNameAndClass tag nil el)))
 
-(defn ^{:ann '[(U nil js/Element) -> '[number number]]}
-  offset [el]
+(ann offset [(U nil js/Element) -> '[number number]])
+(defn offset [el]
   [(style/getPageOffsetLeft el) (style/getPageOffsetTop el)])

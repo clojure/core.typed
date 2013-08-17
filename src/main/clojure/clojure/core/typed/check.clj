@@ -1662,12 +1662,18 @@
   (let [ptype (let [t (-> (check pexpr) expr-type ret-t)]
                 (if (r/Name? t)
                   (c/resolve-Name t)
-                  t))
-        _ (assert ((some-fn r/Poly? r/PolyDots?) ptype))
-        targs (binding [prs/*parse-type-in-ns* (expr-ns expr)]
-                (doall (map prs/parse-type (:val targs-exprs))))]
-    (assoc expr
-           expr-type (ret (inst/manual-inst ptype targs)))))
+                  t))]
+    (if-not ((some-fn r/Poly? r/PolyDots?) ptype)
+      (binding [vs/*current-expr* pexpr]
+        (u/tc-delayed-error (str "Cannot instantiate non-polymorphic type: " (prs/unparse-type ptype))
+                            :return (assoc expr
+                                           expr-type (ret (or (when expected
+                                                                (ret-t expected))
+                                                              (r/TCError-maker))))))
+      (let [targs (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+                    (doall (map prs/parse-type (:val targs-exprs))))]
+        (assoc expr
+               expr-type (ret (inst/manual-inst ptype targs)))))))
 
 (def ^:dynamic *inst-ctor-types* nil)
 (set-validator! #'*inst-ctor-types* (some-fn nil? (u/every-c? Type?)))
@@ -3231,8 +3237,7 @@ rest-param-name (when rest-param
   [{cls :class :keys [the-expr] :as expr} & [expected]]
   (let [cls-stub (u/Class->symbol cls)
         clssym (symbol (str/replace-first (str cls-stub) (str COMPILE-STUB-PREFIX ".") ""))
-        inst-of (or (dt-env/get-datatype clssym)
-                    (c/RClass-of-with-unknown-params clssym))
+        inst-of (c/RClass-of-with-unknown-params clssym)
         cexpr (check the-expr)
         expr-tr (expr-type cexpr)]
     (assoc expr
@@ -3391,8 +3396,6 @@ rest-param-name (when rest-param
   [{:keys [args env] :as expr} & [expected]]
   (check-recur args env expr expected check))
 
-(def ^:dynamic *check-let-checkfn* nil)
-
 (defn binding-init-sym [binding-init]
   {:pre [(= :binding-init (:op binding-init))]
    :post [(symbol? %)]}
@@ -3402,7 +3405,8 @@ rest-param-name (when rest-param
 
 (declare combine-props)
 
-(defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds]}]
+(defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds check-let-checkfn]}]
+  (assert check-let-checkfn "No checkfn bound for let")
   (cond
     (and is-loop (seq binding-inits) (not expected-bnds) )
     (do
@@ -3410,12 +3414,10 @@ rest-param-name (when rest-param
       (assoc expr
              expr-type (ret (c/Un))))
     :else
-    (let [check-let-checkfn (if-let [c *check-let-checkfn*]
-                              c
-                              (assert nil "No checkfn bound for let"))
-          env (reduce (fn [env [expr expected-bnd]]
+    (let [env (reduce (fn [env [expr expected-bnd]]
                         {:pre [(lex/PropEnv? env)]
                          :post [(lex/PropEnv? env)]}
+                        (prn "let reduce")
                         (let [init (impl/impl-case
                                      :clojure (-> expr :local-binding :init)
                                      :cljs (-> expr :init))
@@ -3589,12 +3591,12 @@ rest-param-name (when rest-param
 (add-check-method :let
   [{:keys [is-loop binding-inits body] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (binding [*check-let-checkfn* check]
-    (if is-loop
-      (let [loop-bnd-anns *loop-bnd-anns*]
-        (binding [*loop-bnd-anns* nil]
-          (check-let binding-inits body expr true expected :expected-bnds loop-bnd-anns)))
-      (check-let binding-inits body expr false expected))))
+  (if is-loop
+    (let [loop-bnd-anns *loop-bnd-anns*]
+      (binding [*loop-bnd-anns* nil]
+        (check-let binding-inits body expr true expected :expected-bnds loop-bnd-anns
+                   :check-let-checkfn check)))
+    (check-let binding-inits body expr false expected :check-let-checkfn check)))
 
 (defn check-letfn [bindings body letfn-expr expected check-fn-letfn]
   (let [inits-expected

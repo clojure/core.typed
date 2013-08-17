@@ -1831,6 +1831,14 @@
 (deftest hmap-smart-infer-test
   (is (cf {:a #(+ % 1)} (HMap :optional {:a [Number -> Number]}))))
 
+(deftest fnil-test
+  (is (cf ((fnil + 0) 2)))
+  (is (cf ((fnil + 0) nil)))
+  ; can Typed Racket do better here?
+  (is (cf ((fnil (clojure.core.typed/ann-form + [Number * -> Number])
+                 0) 
+           2.2))))
+
 ;
 ;TODO destructuring on records
 ;TODO this is non-nil (last (take 100 (iterate update-without-plot initial-state)))

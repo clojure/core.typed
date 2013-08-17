@@ -856,6 +856,11 @@ clojure.core/reset! (All [w r]
 clojure.core/swap! (All [w r b ...] 
                              [(Atom w r) [r b ... b -> w] b ... b -> w])
 
+clojure.core/fnil (All [x y z a b ...]
+                    (Fn [[x b ... b -> a] x -> [(U nil x) b ... b -> a]]
+                        [[x y b ... b -> a] x y -> [(U nil x) (U nil y) b ... b -> a]]
+                        [[x y z b ... b -> a] x y z -> [(U nil x) (U nil y) (U nil z) b ... b -> a]]))
+
 clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
          [String String -> Symbol])

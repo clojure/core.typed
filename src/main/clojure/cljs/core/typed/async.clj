@@ -1,4 +1,42 @@
-(ns cljs.core.typed.async)
+(ns cljs.core.typed.async
+  (:require [cljs.core.async.impl.ioc-macros :as ioc])
+  (:require-macros [cljs.core.typed :as t]))
+
+
+(defmacro chan> 
+  "A statically typed core.async channel. 
+
+  (chan> t ...) creates a buffer that can read and write type t.
+  Subsequent arguments are passed directly to clojure.core.async/chan.
+  
+  Note: 
+  (chan> t ...) is the same as ((inst chan t) ...)"
+  [t & args]
+  `((cljs.core.typed/inst cljs.core.async/chan ~t) ~@args))
+
+(defmacro go>
+  "Asynchronously executes the body, returning immediately to the
+  calling thread. Additionally, any visible calls to <!, >! and alt!/alts!
+  channel operations within the body will block (if necessary) by
+  'parking' the calling thread rather than tying up an OS thread (or
+  the only JS thread when in ClojureScript). Upon completion of the
+  operation, the body will be resumed.
+
+  The first argument is the type for the channel being created/returned.
+
+  Returns a channel which will receive the result of the body when
+  completed"
+  [t & body]
+  `(let [c# (cljs.core.async/chan> ~t 1)]
+     (t/tc-ignore
+     (cljs.core.async.impl.dispatch/run
+       (fn []
+         (let [f# ~(ioc/state-machine body 1 &env ioc/async-custom-terminators)
+               state# (-> (f#)
+                          (ioc/aset-all! cljs.core.async.impl.ioc-helpers/USER-START-IDX c#))]
+           (cljs.core.async.impl.ioc-helpers/run-state-machine state#))))
+       )
+     c#))
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;;; Typed wrappers
@@ -40,16 +78,7 @@
 ;     c#))
 ;
 ;
-;(defmacro chan> 
-;  "A statically typed core.async channel. 
 ;
-;  (chan> t ...) creates a buffer that can read and write type t.
-;  Subsequent arguments are passed directly to clojure.core.async/chan.
-;  
-;  Note: 
-;  (chan> t ...) is the same as ((inst chan t) ...)"
-;  [t & args]
-;  `((inst clojure.core.async/chan ~t) ~@args))
 ;
 ;(defmacro buffer>
 ;  "A statically typed core.async buffer. 

@@ -134,7 +134,12 @@ cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
 
 (def init-declared-kinds {})
 
-(def init-datatype-env {})
+(def init-datatype-env 
+  (h/datatype-mappings
+    
+cljs.core/Atom [[[w :variance :contravariant]
+                 [r :variance :covariant]]]
+    ))
 
 (defn reset-cljs-envs! []
   (impl/with-cljs-impl
