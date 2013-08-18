@@ -87,12 +87,15 @@
             vs/*current-expr* expr]
     (let [current-ns (chk/expr-ns expr)
           target-sym (:form target)
+          {:keys [no-check] :as opt} (meta target-sym)
           _ (assert (symbol? target-sym) "First argument to ann must be a symbol")
           qsym (if (namespace target-sym)
                  target-sym
                  (symbol (str current-ns) (str target-sym)))
           t (prs/with-parse-ns current-ns
               (prs/parse-type (:form texpr)))]
+      (when no-check 
+        (var-env/add-nocheck-var qsym))
       (var-env/add-var-type qsym t))))
 
 ;copied from CLJ implementation, should be identical

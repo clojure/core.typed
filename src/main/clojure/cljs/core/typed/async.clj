@@ -1,6 +1,6 @@
 (ns cljs.core.typed.async
-  (:require [cljs.core.async.impl.ioc-macros :as ioc])
-  (:require-macros [cljs.core.typed :as t]))
+  (:require [cljs.core.async.impl.ioc-macros :as ioc]
+            [cljs.core.typed :as t]))
 
 
 (defmacro chan> 
@@ -27,7 +27,7 @@
   Returns a channel which will receive the result of the body when
   completed"
   [t & body]
-  `(let [c# (cljs.core.async/chan> ~t 1)]
+  `(let [c# (chan> ~t 1)]
      (t/tc-ignore
      (cljs.core.async.impl.dispatch/run
        (fn []

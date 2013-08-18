@@ -11,6 +11,7 @@
             [clojure.core.typed.constant-type :as const]
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.protocol-env :as prenv]
+            [clojure.core.typed.jsnominal-env :as jsnom]
             [clojure.core.typed.name-env :as nmenv]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.frees :as frees]
@@ -497,7 +498,6 @@
                  :cljs (when-let [res (when (symbol? n)
                                         (resolve-type-cljs n))]
                          (:name res)))
-          _ (prn rsym)
           _ (assert ((some-fn symbol? nil?) rsym))]
     (if-let [free (and (symbol? n) (free-ops/free-in-scope n))]
       (r/TApp-maker free (mapv parse-type args))
@@ -565,46 +565,52 @@
                 (prenv/get-protocol qsym) (prenv/resolve-protocol qsym)))]
       (if-let [f (free-ops/free-in-scope sym)]
         f
-        (cond
-          (and (= "js" (namespace sym))
-               (impl/checking-clojurescript?)) (c/JSNominal-of (symbol (name sym)))
+        (let []
+          (or (impl/impl-case
+                :clojure (let [current-nstr (-> (parse-in-ns) name)
+                               qsym (if (namespace sym)
+                                      sym
+                                      (symbol current-nstr (name sym)))
+                               clssym (if (some #(= \. %) (str sym))
+                                        sym
+                                        (symbol (str (munge current-nstr) \. (name sym))))
+                               res (resolve-type-clj sym)
+                               qsym (when (var? res)
+                                      (u/var->symbol res))
+                               clssym (when (class? res)
+                                        (u/Class->symbol res))]
+                           (or (resolve-symbol qsym clssym)
+                               (when qsym
+                                 (println (str "WARNING: Assuming unannotated var " qsym
+                                               " is a protocol."))
+                                 (flush)
+                                 (r/Name-maker qsym))
+                               (when clssym
+                                 (c/RClass-of clssym))))
+                :cljs (let [res (resolve-type-cljs sym)
+                            ressym (:name res)]
+                        (or (when (= "js" (namespace ressym)) 
+                              (c/JSNominal-of ressym))
+                            (when (and (some #{\.} (str sym))
+                                       (not-any? #{\/} (str sym)))
+                              ; sometimes we have a class-like symbol, foo.Bar
+                              ; but resolve-type-cljs depends on the current namespace
+                              ; scope. We might have this fully qualified name bound somewhere in our type
+                              ; environent instead.
+                              (cond
+                                (jsnom/contains-jsnominal? sym)
+                                (c/JSNominal-of sym)))
 
-          :else
-          (let [ RClass-of @(RClass-of-var)
-                current-nstr (-> (parse-in-ns) name)
-                qsym (if (namespace sym)
-                       sym
-                       (symbol current-nstr (name sym)))
-                clssym (if (some #(= \. %) (str sym))
-                         sym
-                         (symbol (str (munge current-nstr) \. (name sym))))]
-            (or (resolve-symbol qsym clssym)
-                (impl/impl-case
-                  :clojure (let [res (resolve-type-clj sym)
-                                 qsym (when (var? res)
-                                        (u/var->symbol res))
-                                 clssym (when (class? res)
-                                          (u/Class->symbol res))]
-                             (or (resolve-symbol qsym clssym)
-                                 (when qsym
-                                   (println (str "WARNING: Assuming unannotated var " qsym
-                                                 " is a protocol."))
-                                   (flush)
-                                   (r/Name-maker qsym))
-                                 (when clssym
-                                   (c/RClass-of clssym))))
-                  :cljs (let [res (resolve-type-cljs sym)
-                              sym (:name res)]
-                          (or (resolve-symbol sym sym)
-                              (when sym
-                                (println (str "WARNING: Assuming unannotated var " sym
-                                              " is a protocol."))
-                                (flush)
-                                (r/Name-maker sym)))))
-                (u/tc-error (str "Cannot resolve type: " (pr-str sym)
-                                 "\nHint: Is " (pr-str sym) " in scope?"
-                                 "\nHint: Has " (pr-str sym) "'s annotation been"
-                                 " found via check-ns, cf or typed-deps?")))))))))
+                            (resolve-symbol ressym ressym)
+                            (when ressym
+                              (println (str "WARNING: Assuming unannotated var " ressym
+                                            " is a protocol."))
+                              (flush)
+                              (r/Name-maker ressym)))))
+              (u/tc-error (str "Cannot resolve type: " (pr-str sym)
+                               "\nHint: Is " (pr-str sym) " in scope?"
+                               "\nHint: Has " (pr-str sym) "'s annotation been"
+                               " found via check-ns, cf or typed-deps?"))))))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
@@ -616,6 +622,7 @@
   (cond
     (= 'tt f) f/-top
     (= 'ff f) f/-bot
+    (not ((some-fn seq? list?) f)) (assert nil (str "Malformed filter expression: " f))
     :else (parse-filter* f)))
 
 (defn parse-object [{:keys [id path]}]

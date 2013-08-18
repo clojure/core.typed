@@ -49,13 +49,9 @@
   [{poly :poly? :as dt} anctrs]
   {:pre [(r/DataType? dt)]
    :post [((u/set-c? r/Type?) %)]}
-  (let [names (repeatedly (count poly) gensym)
-        fs (map r/make-F names)]
-    (set (t/for> :- r/TCType
-           [u :- Symbol, anctrs]
-           (let [t (c/instantiate-many names u)
-                 subst (c/make-simple-substitution names poly)]
-             (subst/subst-all subst t))))))
+  (set (t/for> :- r/TCType
+         [u :- Symbol, anctrs]
+         (c/inst-and-subst u poly))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interface

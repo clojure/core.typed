@@ -10,7 +10,7 @@
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.protocol-env :as prenv]
-            [clojure.core.typed.jsnominal-env :as jsnom]
+            [clojure.core.typed.current-impl :refer [v]]
             [clojure.core.typed :as t :refer [fn>]]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
@@ -19,7 +19,8 @@
 
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
-                                        Bounds Name Scope CountRange Intersection DataType Extends)
+                                        Bounds Name Scope CountRange Intersection DataType Extends
+                                        JSNominal)
            (clojure.lang Seqable IPersistentSet IPersistentMap Symbol Keyword
                          Atom)))
 
@@ -368,7 +369,7 @@
    {:pre [(symbol? sym)
           (every? r/Type? args)]
     :post [(r/Type? %)]}
-   (let [p (jsnom/get-jsnominal sym)]
+   (let [p ((v 'clojure.core.typed.jsnominal-env/get-jsnominal) sym)]
      (assert ((some-fn r/TypeFn? r/JSNominal? nil?) p))
      ; parameterised nominals must be previously annotated
      (assert (or (r/TypeFn? p) (empty? args))
@@ -596,11 +597,40 @@
   ([sym]
    {:pre [(symbol? sym)]
     :post [((some-fn r/JSNominal?) %)]}
-   (let [t (jsnom/get-jsnominal sym)
+   (let [t ((v 'clojure.core.typed.jsnominal-env/get-jsnominal) sym)
          args (when (r/TypeFn? t)
                 (most-general-on-variance (:variances t)
                                           (TypeFn-bbnds* (repeatedly (count (:variances t)) gensym) t)))]
      (JSNominal-of sym args))))
+
+(t/ann ^:no-check JSNominal-method* [JSNominal Symbol -> TCType])
+(defn JSNominal-method*
+  [{:keys [name poly?] :as jsnom} msym]
+  {:pre [(r/JSNominal? jsnom)
+         (symbol? msym)]
+   :post [(r/Type? %)]}
+  (if-let [t ((v 'clojure.core.typed.jsnominal-env/get-method) name poly? msym)]
+    t
+    (assert nil (str "JS nominal type " name " does not have method " msym))))
+
+(t/ann ^:no-check JSNominal-field* [JSNominal Symbol -> TCType])
+(defn JSNominal-field*
+  [{:keys [name poly?] :as jsnom} fsym]
+  {:pre [(r/JSNominal? jsnom)
+         (symbol? fsym)]
+   :post [(r/Type? %)]}
+  (if-let [t ((v 'clojure.core.typed.jsnominal-env/get-field) name poly? fsym)]
+    t
+    (assert nil (str "JS nominal type " name " does not have field " fsym))))
+
+(t/ann ^:no-check JSNominal-ctor* [JSNominal -> TCType])
+(defn JSNominal-ctor*
+  [{:keys [name poly?] :as jsnom}]
+  {:pre [(r/JSNominal? jsnom)]
+   :post [(r/Type? %)]}
+  (if-let [t ((v 'clojure.core.typed.jsnominal-env/get-ctor) name poly?)]
+    t
+    (assert nil (str "JS nominal type " name " does not have a constructor."))))
 
 (t/ann ^:no-check Protocol-with-unknown-params [Symbol -> TCType])
 (defn Protocol-with-unknown-params
@@ -629,22 +659,34 @@
 
 (declare make-simple-substitution)
 
+(t/ann ^:no-check inst-and-subst [(U TCType Scope) (U nil (Seqable TCType)) -> TCType])
+(defn inst-and-subst 
+  "Instantiate target type with ts number of
+  free names. Target must be wrapped in ts number
+  of Scopes. Substitutes the temporary names with
+  types ts."
+  [target ts]
+  {:pre [((some-fn r/Type? r/Scope?) target)
+         (every? r/Type? ts)]
+   :post [(r/Type? %)]}
+  (let [subst-all @(subst-all-var)
+        names (repeatedly (count ts) gensym)
+        fs (map r/make-F names)
+        t (instantiate-many names target)
+        _ (assert (r/Type? t))
+        subst (make-simple-substitution names ts)]
+    (subst-all subst t)))
+
 (t/ann ^:no-check RClass-replacements* [RClass -> (IPersistentMap Symbol TCType)])
 (defn RClass-replacements*
   "Return the replacements map for the RClass"
   [^RClass rcls]
   {:pre [(r/RClass? rcls)]
    :post [((u/hash-c? symbol? r/Type?) %)]}
-  (let [infer @(infer-var)
-        subst-all @(subst-all-var)
-        poly (.poly? rcls)
-        names (repeatedly (count poly) gensym)
-        fs (map r/make-F names)]
+  (let [subst-all @(subst-all-var)
+        poly (.poly? rcls)]
     (into {} (for [[k v] (.replacements rcls)]
-               (let [t (instantiate-many names v)
-                     _ (assert (r/Type? t))
-                     subst (make-simple-substitution names poly)]
-                 [k (subst-all subst t)])))))
+               [k (inst-and-subst v poly)]))))
 
 (t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (IPersistentSet TCType)])
 (defn RClass-unchecked-ancestors*

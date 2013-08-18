@@ -29,7 +29,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Check CLJS AST
 
-(defmulti check (fn [expr & [expected]] (:op expr)))
+(defmulti check (fn [expr & [expected]] 
+                  (:op expr)))
 
 (defmethod check :no-op
   [expr & [expected]]
@@ -106,10 +107,13 @@
   (binding [vs/*current-env* env
             vs/*current-expr* expr]
     (let [ann-type (var-env/lookup-Var-nofail vname)
+          check? (var-env/check-var? vname)
           res-expr (assoc expr
-                          ;FIXME should really be Var, change when protocols are implemented
+                          ;FIXME should really be Var, change when Var is annotated
                           expr-type (ret r/-any))]
-      (if ann-type
+      (cond
+        (not check?) res-expr
+        ann-type
         (let [ cinit (check init (ret ann-type))
               _ (when-not (sub/subtype? (-> cinit expr-type ret-t)
                                         ann-type)
@@ -117,18 +121,20 @@
                                            " Expected: " (prs/unparse-type ann-type)
                                            ", Actual: " (prs/unparse-type (-> cinit expr-type ret-t)))))]
           res-expr)
-        (u/tc-delayed-error (str "Found untyped var definition: " vname)
-                            :return res-expr)))))
+        :else (u/tc-delayed-error (str "Found untyped var definition: " vname)
+                                  :return res-expr)))))
 
 (defmethod check :js
   [{:keys [js-op args env] :as expr} & [expected]]
   (assert js-op "js-op missing")
   (let [res (expr-type (check {:op :invoke
+                               :from-js-op expr
                                :env env
                                :f {:op :var
                                    :env env
                                    :info {:name js-op}}
-                               :args args}))]
+                               :args args}
+                              expected))]
     (assoc expr
            expr-type res)))
 
@@ -206,23 +212,29 @@
     (binding [chk/*loop-bnd-anns* expected-bnds]
       (check expr expected))))
 
+; args are backwards if from inlining
 (defmethod invoke-special 'cljs.core/instance?
   [{:keys [args] :as expr} & [expected]]
   (assert (= 2 (count args)) "Wrong arguments to instance?")
+  ; are arguments the correct way round?
+  (assert (:from-js-op expr) "instance? without inlining NYI")
   (binding [vs/*current-env* (:env expr)
             vs/*current-expr* expr]
-    (let [varsym (when (#{:var} (:op  (first args)))
-                   (-> (first args) :info :name))
+    (let [target-expr (first args)
+          inst-of-expr (second args)
+          varsym (when (#{:var} (:op inst-of-expr))
+                   (-> inst-of-expr :info :name))
           _ (when-not varsym
               (u/int-error (str "First argument to instance? must be a datatype var "
-                                (:op (first args)))))
+                                (:op inst-of-expr))))
           inst-of (c/DataType-with-unknown-params varsym)
-          cexpr (check (second args))
-          expr-tr (expr-type cexpr)]
+          cexpr (check target-expr)
+          expr-tr (expr-type cexpr)
+          final-ret (ret (r/BooleanCLJS-maker)
+                         (fo/-FS (fo/-filter-at inst-of (ret-o expr-tr))
+                                 (fo/-not-filter-at inst-of (ret-o expr-tr))))]
       (assoc expr
-             expr-type (ret (c/Un r/-true r/-false)
-                            (fo/-FS (fo/-filter-at inst-of (ret-o expr-tr))
-                                    (fo/-not-filter-at inst-of (ret-o expr-tr))))))))
+             expr-type final-ret))))
 
 (defmethod check :invoke
   [{fexpr :f :keys [args] :as expr} & [expected]]
@@ -240,13 +252,24 @@
 
 (defmethod check :var
   [{{vname :name} :info :keys [env] :as expr} & [expected]]
-  (prn "var" vname)
   (assoc expr
-         expr-type (ret (binding [vs/*current-env* env]
-                          (let [t (var-env/type-of-nofail vname)]
+         expr-type (ret (binding [vs/*current-env* env
+                                  vs/*current-expr* expr]
+                          ; sometimes unnamespaced vars like goog.events.Foo get
+                          ; converted to goog/events.Foo. Needs further investigation.
+                          (let [altname (:form expr)
+                                t (var-env/type-of-nofail vname)
+                                t (if t
+                                    t
+                                    (when-let [altt (var-env/type-of-nofail altname)]
+                                      (println "WARNING: Resolving var " vname " as " altname)
+                                      (flush)
+                                      altt))]
                             (if t
                               t
-                              (u/tc-delayed-error (str "Found untyped var: " vname)
+                              (u/tc-delayed-error (str "Found untyped var: " vname
+                                                       (when-not (= altname vname)
+                                                         (str " (also tried " altname ")")))
                                                   :return (or (when expected
                                                                 (ret-t expected))
                                                               (r/TCError-maker))))))

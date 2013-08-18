@@ -3,6 +3,8 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed :as t]
             [clojure.set :as set]))
 
 (def ^:dynamic *current-var-annotations* nil)
@@ -19,6 +21,8 @@
 (defonce CLJS-NOCHECK-VAR? (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
 (defonce CLJS-USED-VARS (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
 (defonce CLJS-CHECKED-VAR-DEFS (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
+
+(defonce CLJS-JSVAR-ANNOTATIONS (atom {} :validator (u/hash-c? symbol? r/Type?)))
 
 (defmacro with-lexical-env [env & body]
   `(binding [lex/*lexical-env* ~env]
@@ -79,34 +83,40 @@
   (reset! *current-checked-var-defs* #{})
   nil)
 
-(defn lookup-Var [nsym]
-  {:post [%]}
-  (assert-var-env)
-  (when-not (contains? @*current-var-annotations* nsym) 
-    (u/int-error
-      (str "Untyped var reference: " nsym)))
-  (@*current-var-annotations* nsym))
+(defn reset-jsvar-type-env! [m]
+  (reset! CLJS-JSVAR-ANNOTATIONS m)
+  nil)
 
 (defn lookup-Var-nofail [nsym]
   (assert-var-env)
-  (@*current-var-annotations* nsym))
+  (or (t/when-let-fail [e *current-var-annotations*]
+        (@e nsym))
+      (when (impl/checking-clojurescript?)
+        (@CLJS-JSVAR-ANNOTATIONS nsym))))
 
-(defn type-of [sym]
-  {:pre [(symbol? sym)]
-   :post [(r/Type? %)]}
-  (cond
-    (not (namespace sym)) (if-let [t (lex/lookup-local sym)]
-                            t
-                            (throw (Exception. (str (when vs/*current-env*
-                                                      (str (:line vs/*current-env*) ": "))
-                                                    "Reference to untyped binding: " sym
-                                                    "\nHint: Has the annotation for " sym
-                                                    " been added via check-ns, cf or typed-deps?"))))
-    :else (lookup-Var sym)))
+(defn lookup-Var [nsym]
+  {:post [%]}
+  (assert-var-env)
+  (if-let [t (lookup-Var-nofail nsym)]
+    t
+    (u/int-error
+      (str "Untyped var reference: " nsym))))
 
 (defn type-of-nofail [sym]
   {:pre [(symbol? sym)]
    :post [((some-fn nil? r/Type?) %)]}
-  (cond
-    (not (namespace sym)) (lex/lookup-local sym)
-    :else (lookup-Var-nofail sym)))
+  (if (and (not (namespace sym))
+           (not-any? #{\.} (str sym))) 
+    (lex/lookup-local sym)
+    (lookup-Var-nofail sym)))
+
+(defn type-of [sym]
+  {:pre [(symbol? sym)]
+   :post [(r/Type? %)]}
+  (if-let [t (type-of-nofail sym)]
+    t
+    (throw (Exception. (str (when vs/*current-env*
+                              (str (:line vs/*current-env*) ": "))
+                            "Reference to untyped binding: " sym
+                            "\nHint: Has the annotation for " sym
+                            " been added via check-ns, cf or typed-deps?")))))

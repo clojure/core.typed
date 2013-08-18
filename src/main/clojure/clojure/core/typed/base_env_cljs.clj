@@ -14,9 +14,7 @@ cljs.core/IMap [[[k :variance :covariant]
 cljs.core/ISet [[[x :variance :covariant]]]
 cljs.core/IVector [[[x :variance :covariant]]]
 cljs.core/IList [[[x :variance :covariant]]]
-
-cljs.core/Atom [[[w :variance :contravariant]
-                 [r :variance :covariant]]]
+cljs.core/IEquiv [[]]
 
 
     ))
@@ -36,21 +34,29 @@ string [[]
         :methods
         {toLowerCase [-> string]}]
     
-Document [[]
+js/Document [[]
           :fields
           {}
           :methods
           {getElementById [string -> (U nil js/HTMLElement)]}]
 
-HTMLElement [[]
+js/HTMLElement [[]
              :fields
              {innerHTML string
               tagName (U nil string)}]
     
     
-Event [[]
-       :method
-       {preventDefault [-> nil]}]))
+js/Event [[]
+       :methods
+       {preventDefault [-> nil]}]
+    
+
+    ;http://dom.spec.whatwg.org/#interface-eventtarget
+js/EventTarget [[]]
+    
+goog.events.Listenable [[]]
+goog.events.EventTarget [[]]
+    ))
 
 ; add js nominals to environment to parse rest of file
 (impl/with-cljs-impl
@@ -85,6 +91,13 @@ cljs.core/prim-seq
       (All [x]
            [(cljs.core/ISeqable x) -> (U nil (cljs.core/ISeq x))])
 
+      )))
+
+(def init-var-nochecks
+  (set (keys init-var-env)))
+
+(def init-jsvar-env
+  (h/js-var-mappings
 ;; js
     
 js/document js/Document
@@ -99,10 +112,18 @@ goog.dom.classes/add [(U js/Node nil) (U nil string) * -> boolean]
 goog.dom.classes/remove [(U js/Node nil) (U nil string) * -> boolean]
 goog.style/getPageOffsetLeft [(U nil js/Element) -> number]
 goog.style/getPageOffsetTop [(U nil js/Element) -> number]
-      )))
+goog.events/listen [(U nil js/EventTarget goog.events.EventTarget goog.events.Listenable) 
+                    (U nil string (ReadOnlyArray string)) -> number]
 
-(def init-var-nochecks
-  (set (keys init-var-env)))
+goog.events.EventType.KEYUP   string
+goog.events.EventType.KEYDOWN string
+goog.events.EventType.KEYPRESS string
+goog.events.EventType.CLICK   string
+goog.events.EventType.DBLCLICK string
+goog.events.EventType.MOUSEOVER string
+goog.events.EventType.MOUSEOUT string
+goog.events.EventType.MOUSEMOVE string
+    ))
 
 (def init-alias-env 
   (h/alias-mappings
@@ -146,6 +167,8 @@ cljs.core/Atom [[[w :variance :contravariant]
     ((v 'clojure.core.typed.name-env/reset-name-env!) init-alias-env)
     ((v 'clojure.core.typed.var-env/reset-var-type-env!)
      init-var-env init-var-nochecks)
+    ((v 'clojure.core.typed.var-env/reset-jsvar-type-env!)
+     init-jsvar-env)
     ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
      init-protocol-env)
     ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 

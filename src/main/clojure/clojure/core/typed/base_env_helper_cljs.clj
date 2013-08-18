@@ -43,6 +43,14 @@
                            "Need fully qualified symbol")
                    [s# (prs/parse-type t#)])))))))
 
+(defmacro js-var-mappings [& args]
+  `(impl/with-cljs-impl
+     (let [ts# (partition 2 '~args)]
+       (into {}
+             (doall
+               (for [[s# t#] ts#]
+                 [s# (prs/parse-type t#)]))))))
+
 (defn declared-kind-for-protocol [binder]
   (let [fs (map first binder)
         _ (assert (every? symbol? fs) fs)
@@ -103,15 +111,24 @@
                        methods# (free-ops/with-bounded-frees (zipmap frees# bnds#)
                                   (into {}
                                         (for [[mname# mtype#] (:methods opts#)]
-                                          [mname# (prs/parse-type mtype#)])))
+                                          [mname# (c/abstract-many names# (prs/parse-type mtype#))])))
                        fields# (free-ops/with-bounded-frees (zipmap frees# bnds#)
                                  (into {}
                                        (for [[mname# mtype#] (:fields opts#)]
-                                         [mname# (prs/parse-type mtype#)])))]
+                                         [mname# (c/abstract-many names# (prs/parse-type mtype#))])))
+                       ctor# (when-let [ctor# (:ctor opts#)]
+                               (free-ops/with-bounded-frees (zipmap frees# bnds#)
+                                 (c/abstract-many names# (prs/parse-type ctor#))))
+                       ancestors# (free-ops/with-bounded-frees (zipmap frees# bnds#)
+                                    (into #{}
+                                          (for [mtype# (:ancestors opts#)]
+                                            (c/abstract-many names# (prs/parse-type mtype#)))))]
                    (decl-env/remove-declared-kind n#)
                    [n# {:jsnominal (c/JSNominal* names# vs# frees# n# bnds#)
                         :fields fields#
-                        :methods methods#}])))))))
+                        :methods methods#
+                        :ctor ctor#
+                        :ancestors ancestors#}])))))))
 
 (defmacro datatype-mappings [& args]
   `(impl/with-cljs-impl

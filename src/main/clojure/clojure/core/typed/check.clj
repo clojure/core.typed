@@ -2739,6 +2739,7 @@
 (defn check-fn-method1 [method {:keys [dom rest drest kws] :as expected}]
   {:pre [(r/Function? expected)]
    :post [(r/Function? %)]}
+  (prn "check-fn-method1")
   #_(prn "checking syntax:" (u/emit-form-fn method))
   (let [body (impl/impl-case
                :clojure (:body method)
@@ -3407,6 +3408,7 @@ rest-param-name (when rest-param
 
 (defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds check-let-checkfn]}]
   (assert check-let-checkfn "No checkfn bound for let")
+  (prn "check-let")
   (cond
     (and is-loop (seq binding-inits) (not expected-bnds) )
     (do
