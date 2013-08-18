@@ -844,7 +844,7 @@
    :doc
    "Type Alias\n\nA name for a type variable, either a symbol or a number.\n\n(U Symbol Number)",
    :name "NameRef"}
-  {:arglists ([{:as m__4842__auto__, :keys [fs]}]),
+  {:arglists ([{:as m__4844__auto__, :keys [fs]}]),
    :name "map->AndFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -857,7 +857,7 @@
    :var-type "function",
    :line 73,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys []}]),
+  {:arglists ([{:as m__4844__auto__, :keys []}]),
    :name "map->BotFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -870,7 +870,7 @@
    :var-type "function",
    :line 33,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys [then else]}]),
+  {:arglists ([{:as m__4844__auto__, :keys [then else]}]),
    :name "map->FilterSet",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -883,7 +883,7 @@
    :var-type "function",
    :line 95,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys [a c]}]),
+  {:arglists ([{:as m__4844__auto__, :keys [a c]}]),
    :name "map->ImpFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -896,7 +896,7 @@
    :var-type "function",
    :line 88,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys []}]),
+  {:arglists ([{:as m__4844__auto__, :keys []}]),
    :name "map->NoFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -909,7 +909,7 @@
    :var-type "function",
    :line 48,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys [type path id]}]),
+  {:arglists ([{:as m__4844__auto__, :keys [type path id]}]),
    :name "map->NotTypeFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -922,7 +922,7 @@
    :var-type "function",
    :line 65,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys [fs]}]),
+  {:arglists ([{:as m__4844__auto__, :keys [fs]}]),
    :name "map->OrFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -935,7 +935,7 @@
    :var-type "function",
    :line 80,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys []}]),
+  {:arglists ([{:as m__4844__auto__, :keys []}]),
    :name "map->TopFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -948,7 +948,7 @@
    :var-type "function",
    :line 38,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys [type path id]}]),
+  {:arglists ([{:as m__4844__auto__, :keys [type path id]}]),
    :name "map->TypeFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -1122,7 +1122,7 @@
    :var-type "function",
    :line 34,
    :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys []}]),
+  {:arglists ([{:as m__4844__auto__, :keys []}]),
    :name "map->EmptyObject",
    :namespace "clojure.core.typed.object-rep",
    :source-url
@@ -1135,7 +1135,7 @@
    :var-type "function",
    :line 25,
    :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys []}]),
+  {:arglists ([{:as m__4844__auto__, :keys []}]),
    :name "map->NoObject",
    :namespace "clojure.core.typed.object-rep",
    :source-url
@@ -1148,7 +1148,7 @@
    :var-type "function",
    :line 44,
    :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__4842__auto__, :keys [path id]}]),
+  {:arglists ([{:as m__4844__auto__, :keys [path id]}]),
    :name "map->Path",
    :namespace "clojure.core.typed.object-rep",
    :source-url
