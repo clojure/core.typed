@@ -1,4 +1,4 @@
-(ns clojure.core.typed.cs-gen
+(ns ^:skip-wiki iclojure.core.typed.cs-gen
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r :refer []]
             [clojure.core.typed.type-ctors :as c]
