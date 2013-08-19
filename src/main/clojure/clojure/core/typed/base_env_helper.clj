@@ -19,7 +19,7 @@
                (for [[s# t#] ts#]
                  (let [meta# (-> s# meta)
                        desc# (:doc meta#)
-                       doc# (str "Type Alias\n\n"
+                       doc# (str #_"Type Alias\n\n"
                                  (when desc#
                                    (str desc# "\n\n")) 
                                  (with-out-str (pprint/pprint t#)))

@@ -688,7 +688,7 @@ for checking namespaces, cf for checking individual forms."}
                 sym
                 (symbol (-> *ns* ns-name str) (str sym)))
          m (-> (meta sym)
-             (update-in [:doc] #(str "Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t)))))]
+             (update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t)))))]
      `(do
         (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))
         (tc-ignore (alter-meta! (resolve '~qsym) merge '~m))
