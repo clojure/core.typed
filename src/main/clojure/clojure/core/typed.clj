@@ -1154,11 +1154,22 @@ for checking namespaces, cf for checking individual forms."}
 
 (def ^:dynamic *verbose-types* 
   "If true, print fully qualified types in error messages
-  and return values."
+  and return values. Bind around a type checking form like 
+  cf or check-ns.
+  
+  eg. 
+  (binding [*verbose-types* true] 
+    (cf 1 Number))
+  ;=> java.lang.Number"
   nil)
 (def ^:dynamic *verbose-forms* 
-  "If true, print complete forms in error messages."
-  nil)
+  "If true, print complete forms in error messages. Bind
+  around a type checking form like cf or check-ns.
+  
+  eg.
+  (binding [*verbose-forms* true]
+    (cf ['deep ['deep ['deep ['deep]]]] Number))
+  ;=> <full form in error>"
 
 (defn ^:skip-wiki
   -init-delayed-errors 
