@@ -35,6 +35,8 @@ or try #clojure on IRC (the main developer is ambrosebs).
 
 See [wiki](https://github.com/clojure/core.typed/wiki).
 
+[API Reference](http://clojure.github.io/core.typed/)
+
 ## Quickstart
 
 `(clojure.core.typed/ann v t)` gives var `v` the static type `t`.
