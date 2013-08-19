@@ -80,6 +80,22 @@
 
 ; destructuring
 (ann destruct [Point -> Number])
-(defn destruct [{:keys [lat] :as r}]
+(defn destruct [{lng :lng :keys [lat] :as r}]
   lat)
 
+(ann map-over [(t/Seqable Point) -> Number])
+;FIXME Datatypes+records need proper handling in cs-gen
+(defn map-over [ps]
+  (apply + (map (t/inst :lat Number) ps)))
+
+;(clojure.core.typed.subtype/sub-clj? [Point -> Number]
+;                                     ['{:lat Number} -> Number])
+;
+;(clojure.core.typed.subtype/sub-clj? ['{:lat Number} -> Number]
+;                                     [Point -> Number])
+;
+;(clojure.core.typed.subtype/sub-clj? '{:lat Number}
+;                                     Point)
+;
+;(clojure.core.typed.subtype/sub-clj? Point
+;                                     '{:lat Number})

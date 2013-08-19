@@ -1,24 +1,15 @@
 (ns ^:skip-wiki clojure.core.typed.type-rep
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.filter-protocols :as fr]
+            [clojure.core.typed.object-protocols :as or]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t]
             [clojure.set :as set])
   (:import (clojure.lang IPersistentSet Seqable Symbol Keyword IPersistentMap
                          IPersistentVector)))
 
-; cyclic deps
-(t/typed-deps clojure.core.typed.filter-rep
-              clojure.core.typed.object-rep)
-
-(t/tc-ignore
-; add fr as an alias to filter-rep
-(create-ns 'clojure.core.typed.filter-rep)
-(alias 'fr 'clojure.core.typed.filter-rep)
-
-; add or as an alias to object-rep
-(create-ns 'clojure.core.typed.object-rep)
-(alias 'or 'clojure.core.typed.object-rep)
-  )
+(t/typed-deps clojure.core.typed.filter-protocols
+              clojure.core.typed.object-protocols)
 
 (t/tc-ignore
 (defn- Filter?-var []
@@ -72,6 +63,14 @@
 
 (u/defprotocol TCType)
 (u/defprotocol TCAnyType)
+
+(t/def-alias Type
+  "A normal type"
+  TCType)
+
+(t/def-alias AnyType
+  "A normal type or special type like Function."
+  (U Type TCAnyType))
 
 (u/defprotocol TypeId
   (type-id [_]))
@@ -152,18 +151,6 @@
   "An unordered intersection of types."
   [(seq types)
    (every? Type? types)])
-
-(declare Function?)
-
-(u/ann-record FnIntersection [types :- (I (Seqable TCType)
-                                          (CountRange 1))])
-(u/def-type FnIntersection [types]
-  "An ordered intersection of Functions."
-  [(seq types)
-   (sequential? types)
-   (every? Function? types)])
-
-(declare-type FnIntersection)
 
 (declare-type Intersection)
 
@@ -568,6 +555,16 @@
   "Supertype to all functions"
   [])
 
+(u/ann-record FnIntersection [types :- (I (Seqable Function)
+                                          (CountRange 1))])
+(u/def-type FnIntersection [types]
+  "An ordered intersection of Functions."
+  [(seq types)
+   (sequential? types)
+   (every? Function? types)])
+
+(declare-type FnIntersection)
+
 (u/ann-record CountRange [lower :- Number,
                           upper :- (U nil Number)])
 (u/def-type CountRange [lower upper]
@@ -815,6 +812,7 @@
            [(U nil (Seqable TCType)) TCType (U nil TCType) (U nil TCType) 
             & :optional 
               {:filter (U nil TempFilterSet) :object (U nil or/IRObject)
+               :flow (U nil FlowSet)
                :mandatory-kws (U nil (IPersistentMap TCType TCType))
                :optional-kws (U nil (IPersistentMap TCType TCType))}
             -> Function]))

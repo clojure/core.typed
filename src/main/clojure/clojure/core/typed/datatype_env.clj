@@ -18,7 +18,7 @@
 (defn ^:private assert-datatype-env []
   (assert *current-datatype-env* "No datatype env bound"))
 
-(t/ann ^:no-check datatype-env? [Any -> Any])
+(t/ann datatype-env? [Any -> Any])
 (def ^:private datatype-env? 
   (u/hash-c? (every-pred symbol? 
                          (fn [k] (some #(= \. %) (str k)))) 
@@ -34,8 +34,9 @@
 (defn add-datatype [sym t]
   (assert-datatype-env)
   (when-let-fail [env *current-datatype-env*]
-    (swap! env (fn> [e :- DataTypeEnv]
-                 (assoc e sym t))))
+    (let [swap!' (inst swap! DataTypeEnv DataTypeEnv Symbol r/TCType)
+          assoc' (inst assoc Symbol r/TCType Any)]
+      (swap!' env assoc' sym t)))
   nil)
 
 (t/ann get-datatype [Symbol -> (U nil r/TCType)])

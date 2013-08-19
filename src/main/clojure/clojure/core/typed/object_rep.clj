@@ -1,17 +1,19 @@
 (ns ^:skip-wiki clojure.core.typed.object-rep
   (:refer-clojure :exclude [defrecord])
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.object-protocols :refer [IRObject]]
+            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t])
   (:import (clojure.lang Seqable)))
 
+(t/def-alias RObject
+  "An object with a path."
+  IRObject)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Objects
-
-(t/ann-protocol IRObject)
-(u/defprotocol IRObject)
 
 (t/ann ^:no-check RObject? (predicate IRObject))
 (defn RObject? [a]

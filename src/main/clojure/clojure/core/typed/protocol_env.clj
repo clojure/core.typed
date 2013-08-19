@@ -15,20 +15,16 @@
 (ann *current-protocol-env* (U nil (t/Atom1 ProtocolEnv)))
 (def ^:dynamic *current-protocol-env* nil)
 
-(ann ^:no-check protocol-env? [Any -> Any])
-(def protocol-env? (u/hash-c? (every-pred symbol? namespace) (some-fn r/Protocol? r/TypeFn?)))
+(ann protocol-env? [Any -> Any])
+(def protocol-env? (u/hash-c? #(when (symbol? %)
+                                 (namespace %)) 
+                              (some-fn r/Protocol? r/TypeFn?)))
 
 (ann CLJ-PROTOCOL-ENV (t/Atom1 ProtocolEnv))
-(defonce CLJ-PROTOCOL-ENV (atom {}))
-(t/tc-ignore
-(set-validator! CLJ-PROTOCOL-ENV protocol-env?)
-  )
+(defonce CLJ-PROTOCOL-ENV (atom {} :validator protocol-env?))
 
 (ann CLJS-PROTOCOL-ENV (t/Atom1 ProtocolEnv))
-(defonce CLJS-PROTOCOL-ENV (atom {}))
-(t/tc-ignore
-(set-validator! CLJS-PROTOCOL-ENV protocol-env?)
-  )
+(defonce CLJS-PROTOCOL-ENV (atom {} :validator protocol-env?))
 
 (ann assert-protocol-env [-> Any])
 (defn assert-protocol-env []
@@ -45,8 +41,9 @@
 (defn add-protocol [sym t]
   (assert-protocol-env)
   (when-let-fail [e *current-protocol-env*]
-    (swap! e (fn> [e :- ProtocolEnv]
-               (assoc e sym t))))
+    (let [swap!' (t/inst swap! ProtocolEnv ProtocolEnv Symbol r/TCType)
+          assoc' (t/inst assoc Symbol r/TCType Any)]
+      (swap!' e assoc' sym t)))
   nil)
 
 (ann get-protocol [Symbol -> (U nil r/TCType)])

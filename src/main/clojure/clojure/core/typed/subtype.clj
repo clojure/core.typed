@@ -877,7 +877,10 @@
   (impl/impl-case
              ; protocols extended in a deftype are not retrievable from (extenders protocol).
              ; We can retrieve this information via (ancestors datatype).
-    :clojure (let [as (datatype-ancestors s)]
+    :clojure (let [as (concat (datatype-ancestors s)
+                              ; records are also HMaps
+                              (when (r/Record? s)
+                                [(c/Record->HMap s)]))]
                (if (some #(subtype? % t) as)
                  *sub-current-seen*
                  (fail! s t)))

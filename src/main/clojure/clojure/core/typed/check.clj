@@ -7,6 +7,7 @@
             [clojure.core.typed.type-rep :as r :refer [ret-t ret-f ret-o ret TCResult? Type?]]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep :as obj]
+            [clojure.core.typed.filter-protocols :as fprotocol]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.path-rep :as pe]
@@ -51,7 +52,7 @@
            (clojure.core.typed.object_rep Path)
            (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet AndFilter OrFilter)
            (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector
-                         Reflector PersistentHashSet)))
+                         Reflector PersistentHashSet Symbol)))
 
 ;==========================================================
 ; # Type Checker
@@ -70,6 +71,17 @@
              ss)
       (flush))))
 
+(t/ann error-ret [(U nil TCResult) -> TCResult])
+(defn error-ret 
+  "Return a TCResult appropriate for when a type
+  error occurs, with expected type expected.
+  
+  Use *only* in case of a type error."
+  [expected]
+  (ret (or (when expected
+             (ret-t expected))
+           (r/TCError-maker))))
+
 (declare expr-ns)
 
 (t/ann expected-error [r/TCType r/TCType -> nil])
@@ -77,9 +89,9 @@
   (binding [prs/*unparse-type-in-ns* (or prs/*unparse-type-in-ns*
                                          (when vs/*current-expr*
                                            (expr-ns vs/*current-expr*)))]
-    (u/tc-delayed-error (str "Expected type: "
-                             (pr-str (prs/unparse-type expected))
-                             "\nActual: " (pr-str (prs/unparse-type actual))))))
+    (u/tc-delayed-error (str "Type mismatch:"
+                             "\n\nExpected: \t" (pr-str (prs/unparse-type expected))
+                             "\n\nActual: \t" (pr-str (prs/unparse-type actual))))))
 
 (declare check-expr)
 
@@ -947,8 +959,7 @@
     ;(prn "check-funapp" (prs/unparse-type fexpr-type) (map prs/unparse-type arg-types))
     (cond
       ;keyword function
-      (and (r/Value? fexpr-type)
-           (keyword? (:val fexpr-type)))
+      (c/keyword-value? fexpr-type)
       (let [[target-ret default-ret & more-args] arg-ret-types]
         (assert (empty? more-args))
         (invoke-keyword fexpr-ret-type target-ret default-ret expected))
@@ -1372,7 +1383,7 @@
   (let [[ctarget ckw cdefault] cargs
         kwr (expr-type ckw)]
     (cond
-      ((every-pred r/Value? (comp keyword? :val)) (ret-t kwr))
+      (c/keyword-value? (ret-t kwr))
       (assoc expr
              expr-type (invoke-keyword kwr
                                        (expr-type ctarget)
@@ -1418,15 +1429,16 @@
         (r/KwArgsSeq? targett)
         (assoc expr
                expr-type (ret (c/KwArgsSeq->HMap targett)))
-
+        (not (r/HeterogeneousSeq? targett))
+        (u/tc-delayed-error (str "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
+                                 (prs/unparse-type targett)
+                                 "\n\nHint: Check the expected type of the function and the actual argument list for any differences. eg. extra undeclared arguments"
+                                 "\n\nForm:\n\t"
+                                 (u/emit-form-fn expr))
+                            :return (assoc expr
+                                           expr-type (error-ret expected)))
         :else
-        (let [_ (when-not (r/HeterogeneousSeq? targett) 
-                  (u/int-error (str "Must pass HeterogeneousSeq to clojure.lang.PersistentHashMap/create given "
-                                    (prs/unparse-type targett)
-                                    "\n\nHint: Check the expected type of the function and the actual argument list for any differences. eg. extra undeclared arguments"
-                                    "\n\nForm:\n\t"
-                                    (u/emit-form-fn expr))))
-              res (reduce (fn [t [kt vt]]
+        (let [res (reduce (fn [t [kt vt]]
                             {:pre [(Type? t)]}
                             ;preserve bottom
                             (if (= (c/Un) vt)
@@ -1445,13 +1457,6 @@
                                    (expr-type (check target))
                                    nil 
                                    expected)))
-
-(defn Record->HMap [^DataType r]
-  {:pre [(r/Record? r)]
-   :post [(Type? %)]}
-  (let [kf (zipmap (map (comp r/-val keyword) (keys (.fields r)))
-                   (vals (.fields r)))]
-    (c/-hmap kf)))
 
 ;TODO pass fexpr and args for better errors
 ;[Type Type (Option Type) -> Type]
@@ -1482,7 +1487,7 @@
                                                     " which does not declare the key absent ")
                                         r/-any))))
 
-      (r/Record? t) (find-val-type (Record->HMap t) k default)
+      (r/Record? t) (find-val-type (c/Record->HMap t) k default)
 
       (r/Intersection? t) (apply c/In 
                                (for [t* (:types t)]
@@ -1526,8 +1531,7 @@
                    (ret-t default-ret))]
     (cond
       ;Keyword must be a singleton with no default
-      (and (r/Value? kwt)
-           (keyword? (:val kwt)))
+      (c/keyword-value? kwt)
       (let [{{path-hm :path id-hm :id :as o} :o} target-ret
             this-pelem (pe/->KeyPE (:val kwt))
             val-type (find-val-type targett kwt defaultt)]
@@ -1612,7 +1616,7 @@
   {:pre [(TCResult? child-ret)
          (TCResult? parent-ret)]
    :post [(TCResult? %)]}
-  (letfn> [fs :- [TCResult TCResult -> '{:then fl/IFilter :else fl/IFilter}]
+  (letfn> [fs :- [TCResult TCResult -> '{:then fprotocol/IFilter :else fprotocol/IFilter}]
            (fs [child1 parent1]
              {:pre [(TCResult? child1)
                     (TCResult? parent1)]
@@ -1651,9 +1655,11 @@
   [expr & [expected]]
   ;(prn "special apply:")
   (let [e (invoke-apply expr expected)]
-    (when (= e ::not-special)
-      (u/int-error (str "apply must be special: " (u/emit-form-fn expr))))
-    e))
+    (if (= e ::not-special)
+      (u/tc-delayed-error (str "apply must be special: " (u/emit-form-fn expr))
+                          :return (assoc expr
+                                         expr-type (error-ret expected)))
+      e)))
 
 ;manual instantiation
 (defmethod invoke-special 'clojure.core.typed/inst-poly
@@ -1662,14 +1668,16 @@
   (let [ptype (let [t (-> (check pexpr) expr-type ret-t)]
                 (if (r/Name? t)
                   (c/resolve-Name t)
-                  t))]
+                  t))
+        ; support (inst :kw ...)
+        ptype (if (c/keyword-value? ptype)
+                (c/KeywordValue->Fn ptype)
+                ptype)]
     (if-not ((some-fn r/Poly? r/PolyDots?) ptype)
       (binding [vs/*current-expr* pexpr]
         (u/tc-delayed-error (str "Cannot instantiate non-polymorphic type: " (prs/unparse-type ptype))
                             :return (assoc expr
-                                           expr-type (ret (or (when expected
-                                                                (ret-t expected))
-                                                              (r/TCError-maker))))))
+                                           expr-type (error-ret expected))))
       (let [targs (binding [prs/*parse-type-in-ns* (expr-ns expr)]
                     (doall (map prs/parse-type (:val targs-exprs))))]
         (assoc expr
@@ -1978,83 +1986,87 @@
 
         targetun (-> target check expr-type ret-t)
         targett (c/-resolve targetun)
+        ; nil if not found
         hmaps (cond
                 (and (r/Value? targett) (nil? (.val ^Value targett))) #{(c/-hmap {})}
                 ((some-fn r/HeterogeneousVector? r/HeterogeneousMap? r/Record?) targett) #{targett}
                 (sub/subtype? targett (c/RClass-of IPersistentMap [r/-any r/-any])) #{targett}
-                (sub/subtype? targett (c/RClass-of IPersistentVector [r/-any])) #{targett}
-                :else (u/int-error (str "Must supply map, vector or nil to first argument of assoc, given "
-                                        (prs/unparse-type targetun))))
+                (sub/subtype? targett (c/RClass-of IPersistentVector [r/-any])) #{targett})]
+    (if-not hmaps
+      (u/tc-delayed-error (str "Must supply map, vector or nil to first argument of assoc, given "
+                               (prs/unparse-type targetun))
+                          :return (assoc expr
+                                         expr-type (error-ret expected)))
+      (let [_ (assert (every? #(sub/subtype? % (c/Un (c/RClass-of IPersistentVector [r/-any])
+                                                     (c/RClass-of IPersistentMap [r/-any r/-any]))) 
+                              hmaps))
 
-        _ (assert (every? #(sub/subtype? % (c/Un (c/RClass-of IPersistentVector [r/-any])
-                                                 (c/RClass-of IPersistentMap [r/-any r/-any]))) 
-                          hmaps))
+            ; we must already have an even number of keyvals if we've got this far
+            ckeyvals (doall (map check keyvals))
+            keypair-types (partition 2 (map (comp ret-t expr-type) ckeyvals))
 
-        ; we must already have an even number of keyvals if we've got this far
-        ckeyvals (doall (map check keyvals))
-        keypair-types (partition 2 (map (comp ret-t expr-type) ckeyvals))
+            ; TODO handle unions of hmaps without promoting to IPersistentMap
+            new-hmaps (mapv (fn [init-hmap]
+                              (reduce (fn [hmap [kt vt]]
+                                        (let [is-vec (sub/subtype? hmap (c/RClass-of IPersistentVector [r/-any]))
+                                              is-map (sub/subtype? hmap (c/RClass-of IPersistentMap [r/-any r/-any]))]
+                                          ;check that hmap is either a vector or map
+                                          (assert (and (not= is-vec is-map)
+                                                       (or is-vec is-map)))
+                                          (cond
+                                            ;keep hmap is keyword key and already hmap
+                                            (and (r/HeterogeneousMap? hmap)
+                                                 (c/keyword-value? kt))
+                                            (assoc-in hmap [:types kt] vt)
 
-        ; TODO handle unions of hmaps without promoting to IPersistentMap
-        new-hmaps (mapv #(reduce (fn [hmap [kt vt]]
-                                   (let [is-vec (sub/subtype? hmap (c/RClass-of IPersistentVector [r/-any]))
-                                         is-map (sub/subtype? hmap (c/RClass-of IPersistentMap [r/-any r/-any]))]
-                                     ;check that hmap is either a vector or map
-                                     (assert (and (not= is-vec is-map)
-                                                  (or is-vec is-map)))
-                                     (cond
-                                       ;keep hmap if keyword key and already hmap
-                                       (and (r/HeterogeneousMap? hmap)
-                                            (r/Value? kt)
-                                            (keyword? (.val ^Value kt)))
-                                       (assoc-in hmap [:types kt] vt)
+                                            ;updating a base record key must be a subtype of the record's
+                                            ;corresponding field, otherwise just ignore any interesting results.
+                                            (r/Record? hmap)
+                                            (let [^DataType hmap hmap
+                                                  ^Value kt kt
+                                                  field-type (when (c/keyword-value? kt)
+                                                               (get (.fields hmap) (symbol (name (.val kt)))))]
+                                              (when-not (and field-type
+                                                             (sub/subtype? vt field-type))
+                                                (u/tc-delayed-error
+                                                  (str "Cannot associate key " (prs/unparse-type kt)
+                                                       " with value type " (prs/unparse-type vt)
+                                                       " to record " (prs/unparse-type hmap)
+                                                       "\n\n" "in: " (u/emit-form-fn expr))))
+                                              hmap)
 
-                                       ;updating a base record key must be a subtype of the record's
-                                       ;corresponding field, otherwise just ignore any interesting results.
-                                       (r/Record? hmap)
-                                       (let [^DataType hmap hmap
-                                             ^Value kt kt
-                                             field-type (when (c/keyword-value? kt)
-                                                          (get (.fields hmap) (symbol (name (.val kt)))))]
-                                         (when-not (and field-type
-                                                        (sub/subtype? vt field-type))
-                                           (u/tc-delayed-error
-                                             (str "Cannot associate key " (prs/unparse-type kt)
-                                                  " with value type " (prs/unparse-type vt)
-                                                  " to record " (prs/unparse-type hmap)
-                                                  "\n\n" "in: " (u/emit-form-fn expr))))
-                                         hmap)
+                                            ;keep hvector if number Value key and already hvector
+                                            (and (r/HeterogeneousVector? hmap)
+                                                 (c/number-value? kt))
+                                            (let [^Value kt kt] 
+                                              (assert (integer? (.val kt))
+                                                      (str "Must associate integer keys to vector, given: " (:val kt)))
+                                              (assoc-in hmap [:types (.val kt)] vt))
 
-                                       ;keep hvector if number Value key and already hvector
-                                       (and (r/HeterogeneousVector? hmap)
-                                            (r/Value? kt)
-                                            (number? (.val ^Value kt)))
-                                       (let [^Value kt kt] 
-                                         (assert (integer? (.val kt)))
-                                         (assoc-in hmap [:types (.val kt)] vt))
-
-                                       ;otherwise just make normal map if already a map, or normal vec if already a vec
-                                       is-map (ret-t 
-                                                (check-funapp fexpr (cons target keyvals)
-                                                              (ret 
-                                                                (prs/parse-type '(All [b c] 
-                                                                                  [(clojure.lang.IPersistentMap b c) b c -> 
-                                                                                   (clojure.lang.IPersistentMap b c)])))
-                                                              (mapv ret [hmap kt vt])
-                                                              nil))
-                                       :else (ret-t 
-                                               (check-funapp fexpr (cons target keyvals)
-                                                             (ret 
-                                                               (prs/parse-type '(All [c] 
-                                                                                 [(clojure.lang.IPersistentVector c) c -> 
-                                                                                  (clojure.lang.IPersistentVector c)])))
-                                                             (mapv ret [hmap vt])
-                                                             nil)))))
-                                 % keypair-types)
-                        hmaps)]
-    (assoc expr
-           expr-type (ret (apply c/Un new-hmaps)
-                          (fo/-FS fl/-top fl/-bot) ;assoc never returns nil
-                          obj/-empty))))
+                                            ;otherwise just make normal map if already a map, or normal vec if already a vec
+                                            is-map (ret-t 
+                                                     (check-funapp fexpr (cons target keyvals)
+                                                                   (ret 
+                                                                     (prs/parse-type '(All [b c] 
+                                                                                           [(clojure.lang.IPersistentMap b c) b c -> 
+                                                                                            (clojure.lang.IPersistentMap b c)])))
+                                                                   (mapv ret [hmap kt vt])
+                                                                   nil))
+                                            :else (ret-t 
+                                                    (check-funapp fexpr (cons target keyvals)
+                                                                  (ret 
+                                                                    (prs/parse-type '(All [c] 
+                                                                                          [(clojure.lang.IPersistentVector c) c -> 
+                                                                                           (clojure.lang.IPersistentVector c)])))
+                                                                  (mapv ret [hmap vt])
+                                                                  nil)))))
+                                      init-hmap keypair-types))
+                            hmaps)
+            final-t (apply c/Un new-hmaps)]
+        (assoc expr
+               expr-type (ret final-t
+                              (fo/-FS fl/-top fl/-bot) ;assoc never returns nil
+                              obj/-empty))))))
 
 
 ;conj
@@ -2268,16 +2280,17 @@
                       "Method must be a fn")
             ctarget (check target)
             cdispatch-val-expr (check dispatch-val-expr)
-            dispatch-type (mm/multimethod-dispatch-type mmsym)
-            _ (when-not dispatch-type
-                (binding [vs/*current-env* env]
-                  (u/int-error (str "Multimethod requires dispatch type: " mmsym
-                                    "\n\nHint: defmulti must be checked before its defmethods"))))
-            method-expected (var-env/type-of mmsym)
-            cmethod-expr (binding [*current-mm* {:dispatch-fn-type dispatch-type
-                                                 :dispatch-val-ret (expr-type cdispatch-val-expr)}]
-                           (check method-expr (ret method-expected)))]
-        ret-expr))))
+            dispatch-type (mm/multimethod-dispatch-type mmsym)]
+        (if-not dispatch-type
+          (binding [vs/*current-env* env]
+            (u/tc-delayed-error (str "Multimethod requires dispatch type: " mmsym
+                                     "\n\nHint: defmulti must be checked before its defmethods")
+                                :return ret-expr))
+          (let [method-expected (var-env/type-of mmsym)
+                cmethod-expr (binding [*current-mm* {:dispatch-fn-type dispatch-type
+                                                     :dispatch-val-ret (expr-type cdispatch-val-expr)}]
+                               (check method-expr (ret method-expected)))]
+            ret-expr))))))
 
 (defmethod invoke-special :default [& args] :default)
 (defmethod static-method-special :default [& args] :default)
@@ -2301,8 +2314,10 @@
             (cond
               ;we've run out of cases to try, so error out
               (empty? fs)
-              (u/int-error (str "Bad arguments to function in apply: " 
-                                (prs/unparse-type ftype) (mapv prs/unparse-type (concat arg-tys [tail-ty]))))
+              (u/tc-delayed-error (str "Bad arguments to apply: "
+                                       "\n\nTarget: \t" (prs/unparse-type ftype) 
+                                       "\n\nArguments:\t" (str/join " " (mapv prs/unparse-type (concat arg-tys [tail-ty]))))
+                                  :return (error-ret expected))
 
               ;this case of the function type has a rest argument
               (and rest
@@ -2333,7 +2348,8 @@
           ;            (prn "checking fn" (prs/unparse-type (first fs))
           ;                 (mapv prs/unparse-type arg-tys)))
           (cond
-            (empty? fs) (u/int-error (str "Bad arguments to polymorphic function in apply"))
+            (empty? fs) (u/tc-delayed-error (str "Bad arguments to polymorphic function in apply")
+                                            :return (error-ret expected))
             ;the actual work, when we have a * function and a list final argument
             :else 
             (if-let [substitution (cgen/handle-failure
@@ -2380,9 +2396,7 @@
         e
         (let [cfexpr (check fexpr)]
           (cond
-            (let [fexprt (ret-t (expr-type cfexpr))]
-              (and (r/Value? fexprt)
-                   (keyword? (:val fexprt))))
+            (c/keyword-value? (ret-t (expr-type cfexpr)))
             (let [[target default] args]
               (assert (<= 1 (count args) 2))
               (assoc expr
@@ -2739,7 +2753,6 @@
 (defn check-fn-method1 [method {:keys [dom rest drest kws] :as expected}]
   {:pre [(r/Function? expected)]
    :post [(r/Function? %)]}
-  (prn "check-fn-method1")
   #_(prn "checking syntax:" (u/emit-form-fn method))
   (let [body (impl/impl-case
                :clojure (:body method)
@@ -3408,7 +3421,6 @@ rest-param-name (when rest-param
 
 (defn check-let [binding-inits body expr is-loop expected & {:keys [expected-bnds check-let-checkfn]}]
   (assert check-let-checkfn "No checkfn bound for let")
-  (prn "check-let")
   (cond
     (and is-loop (seq binding-inits) (not expected-bnds) )
     (do
@@ -3419,7 +3431,6 @@ rest-param-name (when rest-param
     (let [env (reduce (fn [env [expr expected-bnd]]
                         {:pre [(lex/PropEnv? env)]
                          :post [(lex/PropEnv? env)]}
-                        (prn "let reduce")
                         (let [init (impl/impl-case
                                      :clojure (-> expr :local-binding :init)
                                      :cljs (-> expr :init))
@@ -3602,51 +3613,58 @@ rest-param-name (when rest-param
 
 (defn check-letfn [bindings body letfn-expr expected check-fn-letfn]
   (let [inits-expected
+        ;try and find annotations, and throw a delayed error if not found
+        ;(this expression returns nil)
         (impl/impl-case
-          :clojure (do (assert (#{:map} (:op (-> body :exprs first))))
-                    (into {}
-                         (for [[lb-expr type-syn-expr] (partition 2 (-> body :exprs first :keyvals))]
-                           (do
-                             (assert (#{:local-binding-expr} (:op lb-expr)))
-                             [(-> lb-expr :local-binding :sym)
-                              (binding [prs/*parse-type-in-ns* (expr-ns letfn-expr)]
-                                (prs/parse-type (u/constant-expr type-syn-expr)))]))))
-          :cljs (do (assert (#{:map} (-> body :statements first :op)))
+          :clojure (when (#{:map} (:op (-> body :exprs first)))
+                     (into {}
+                           (for [[lb-expr type-syn-expr] (partition 2 (-> body :exprs first :keyvals))]
+                             (do
+                               (assert (#{:local-binding-expr} (:op lb-expr)))
+                               [(-> lb-expr :local-binding :sym)
+                                (binding [prs/*parse-type-in-ns* (expr-ns letfn-expr)]
+                                  (prs/parse-type (u/constant-expr type-syn-expr)))]))))
+          :cljs (when (#{:map} (-> body :statements first :op))
                   (into {} 
-                      (for [[lb-expr type-syn-expr] 
-                            (map vector 
-                                 (-> body :statements first :keys)
-                                 (-> body :statements first :vals))]
-                        [(-> lb-expr :info :name)
-                         (binding [prs/*parse-type-in-ns* (expr-ns letfn-expr)]
-                           (prs/parse-type (:form type-syn-expr)))]))))
+                        (for [[lb-expr type-syn-expr] 
+                              (map vector 
+                                   (-> body :statements first :keys)
+                                   (-> body :statements first :vals))]
+                          [(-> lb-expr :info :name)
+                           (binding [prs/*parse-type-in-ns* (expr-ns letfn-expr)]
+                             (prs/parse-type (:form type-syn-expr)))]))))]
+    (if-not inits-expected
+      (u/tc-delayed-error (str "letfn requires annotation, see: "
+                               (impl/impl-case :clojure 'clojure :cljs 'cljs) ".core.letfn>")
+                          :return (assoc letfn-expr
+                                         expr-type (error-ret expected)))
 
-        cbinding-inits
-        (lex/with-locals inits-expected
-          (impl/impl-case
-            :clojure (doall
-                       (for [b-init bindings]
-                         (let [sym (-> b-init :local-binding :sym)
-                               init (-> b-init :init)]
-                           (check-fn-letfn init (ret (inits-expected sym))))))
-            :cljs (doall
-                    (for [{:keys [name init]} bindings]
-                      (let [expected-fn (inits-expected name)]
-                        (assert expected-fn (str "No expected type for " name))
-                        (check-fn-letfn init (ret expected-fn)))))))
+      (let [cbinding-inits
+            (lex/with-locals inits-expected
+              (impl/impl-case
+                :clojure (doall
+                           (for [b-init bindings]
+                             (let [sym (-> b-init :local-binding :sym)
+                                   init (-> b-init :init)]
+                               (check-fn-letfn init (ret (inits-expected sym))))))
+                :cljs (doall
+                        (for [{:keys [name init]} bindings]
+                          (let [expected-fn (inits-expected name)]
+                            (assert expected-fn (str "No expected type for " name))
+                            (check-fn-letfn init (ret expected-fn)))))))
 
-        ;ignore the type annotations at the top of the body
-        normal-letfn-body
-        (impl/impl-case
-          :clojure (-> body
-                       (update-in [:exprs] rest))
-          :cljs (-> body
-                    (update-in [:statements] rest)))
+            ;ignore the type annotations at the top of the body
+            normal-letfn-body
+            (impl/impl-case
+              :clojure (-> body
+                           (update-in [:exprs] rest))
+              :cljs (-> body
+                        (update-in [:statements] rest)))
 
-        cbody (lex/with-locals inits-expected
-                (check-fn-letfn normal-letfn-body expected))]
-    (assoc letfn-expr
-           expr-type (expr-type cbody))))
+            cbody (lex/with-locals inits-expected
+                    (check-fn-letfn normal-letfn-body expected))]
+        (assoc letfn-expr
+               expr-type (expr-type cbody))))))
 
 ; annotations are in the first expression of the body (a :do)
 (add-check-method :letfn
@@ -3678,10 +3696,12 @@ rest-param-name (when rest-param
 ;[(Seqable Filter) -> (Seqable Filter)]
 (defn flatten-props [ps]
   {:post [(every? fl/Filter? %)]}
-  (cond
-    (empty? ps) []
-    (fl/AndFilter? (first ps)) (flatten-props (concat (-> ps first :fs) (next ps)))
-    :else (cons (first ps) (flatten-props (next ps)))))
+  (loop [acc #{}
+         ps ps]
+    (cond
+      (empty? ps) acc
+      (fl/AndFilter? (first ps)) (recur acc (concat (-> ps first :fs) (next ps)))
+      :else (recur (conj acc (first ps)) (next ps)))))
 
 (def type-equal? =)
 
@@ -4239,7 +4259,7 @@ rest-param-name (when rest-param
   [{:keys [var init init-provided env] :as expr} & [expected]]
   (assert (not expected) expected)
   (assert (:line env))
-  #_(prn "Checking" var)
+  (prn "Checking def" var)
   (binding [vs/*current-env* env
             vs/*current-expr* expr]
     (cond 

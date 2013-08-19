@@ -6,7 +6,8 @@
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.name-env :as nmenv]
-            [clojure.core.typed.declared-kind-env :as kinds])
+            [clojure.core.typed.declared-kind-env :as kinds]
+            [clojure.core.typed :as t])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
@@ -16,18 +17,27 @@
            (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
-           (clojure.core.typed.path_rep KeyPE)))
+           (clojure.core.typed.path_rep KeyPE)
+           (clojure.lang Keyword Symbol)))
 
+;TODO make this an argument
+(t/ann *frees-mode* (U nil Keyword))
 (def ^:dynamic *frees-mode* nil)
 (set-validator! #'*frees-mode* (some-fn #{::frees ::idxs} nil?))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Collecting frees
 
+(t/def-alias VarianceMap
+  "A map of free names (symbols) to their variances"
+  (t/Map Symbol r/Variance))
+
+(t/ann variance-map? [Any -> Any])
 (def variance-map? (u/hash-c? symbol? r/variance?))
 
 (declare frees-in)
 
+(t/ann fv-variances [r/AnyType -> VarianceMap])
 (defn fv-variances 
   "Map of frees to their variances"
   [t]
@@ -35,6 +45,7 @@
   (binding [*frees-mode* ::frees]
     (frees-in t)))
 
+(t/ann idx-variances [r/AnyType -> VarianceMap])
 (defn idx-variances 
   "Map of indexes to their variances"
   [t]
@@ -42,18 +53,21 @@
   (binding [*frees-mode* ::idxs]
     (frees-in t)))
 
+(t/ann fv [r/AnyType -> (t/Set Symbol)])
 (defn fv 
   "All frees in type"
   [t]
   {:post [((u/set-c? symbol?) %)]}
   (set (keys (fv-variances t))))
 
+(t/ann fi [r/AnyType -> (t/Set Symbol)])
 (defn fi
   "All index variables in type (dotted bounds, etc.)"
   [t]
   {:post [((u/set-c? symbol?) %)]}
   (set (keys (idx-variances t))))
 
+(t/ann flip-variances [VarianceMap -> VarianceMap])
 (defn flip-variances [vs]
   {:pre [(variance-map? vs)]}
   (into {} (for [[k vari] vs]
@@ -62,6 +76,7 @@
                   :contravariant :covariant
                   vari)])))
 
+(t/ann combine-frees [VarianceMap * -> VarianceMap])
 (defn combine-frees [& frees]
   {:pre [(every? variance-map? frees)]
    :post [(variance-map? %)]}
@@ -81,10 +96,12 @@
 
 (declare frees)
 
+(t/ann frees-in [r/AnyType -> VarianceMap])
 (defn frees-in [t]
   {:post [(variance-map? %)]}
   (frees t))
 
+(t/ann frees [r/AnyType -> VarianceMap])
 (defmulti frees (fn [t] [*frees-mode* (class t)]))
 
 (defmethod frees [::any-var Result]
@@ -162,6 +179,8 @@
   [{:keys [rator rands]}]
   (apply combine-frees (mapv frees (cons rator rands))))
 
+;FIXME flow error during checking
+(t/tc-ignore
 (defmethod frees [::any-var TApp]
   [{:keys [rator rands]}]
   (apply combine-frees
@@ -195,6 +214,7 @@
                      :invariant (into {} (for [[k _] arg-vs]
                                            [k :invariant]))))
                  (map vector (.variances tfn) (map frees rands))))))
+  )
 
 (defmethod frees [::any-var PrimitiveArray]
   [{:keys [input-type output-type]}] 

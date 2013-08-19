@@ -708,7 +708,7 @@
                  (parse-object obj))
 
         flow (when-let [[_ obj] (find opts :flow)]
-               (parse-filter obj))
+               (r/-flow (parse-filter obj)))
 
         fixed-dom (cond 
                     asterix-pos (take (dec asterix-pos) all-dom)

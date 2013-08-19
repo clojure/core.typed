@@ -730,6 +730,9 @@ clojure.core/split-with
          [[x -> Any :filters {:then (is y 0), :else (is z 0)}] (Option (Seqable x)) -> '[(Seqable y) (Seqable z)]]
          [[x -> Any] (Option (Seqable x)) -> '[(Seqable x) (Seqable x)]]))
 
+clojure.core/split-at
+     (All [x y z] 
+          [AnyInteger (Option (Seqable x)) -> '[(Seqable x) (Seqable x)]])
 
 clojure.core/repeatedly 
      (All [x]
@@ -738,6 +741,9 @@ clojure.core/repeatedly
 
 
 clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)])
+
+clojure.core/some-fn [[Any -> Any] [Any -> Any] * -> [Any -> Any]]
+clojure.core/every-pred [[Any -> Any] [Any -> Any] * -> [Any -> Any]]
 
 clojure.core/concat (All [x] [(Option (Seqable x)) * -> (LazySeq x)])
 
@@ -772,6 +778,10 @@ clojure.core/assoc
      (All [b c d]
        (Fn [(Map b c) b c -> (Map b c)]
            [(Vec d) AnyInteger d -> (Vec d)]))
+
+clojure.core/dissoc
+     (All [k v]
+       (Fn [(Map k v) Any * -> (Map k v)]))
 
 clojure.core/zipmap
      (All [k v]
@@ -1094,6 +1104,11 @@ clojure.core/next
                                   (is nil 0))}]
               [(Option (Seqable x)) -> (Option (NonEmptySeq x))]))
 
+clojure.core/into
+      (All [x y]
+           (Fn [(IPersistentMap x y) (Seqable '[x y]) -> (IPersistentMap x y)]
+               [(IPersistentVector x) (Seqable x) -> (IPersistentVector x)]
+               [(IPersistentSet x) (Seqable x) -> (IPersistentSet x)]))
 
 clojure.core/conj
 ;     (All [e

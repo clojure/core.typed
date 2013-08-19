@@ -6,26 +6,26 @@
   (:import (clojure.lang IPersistentMap IPersistentSet Symbol Seqable)
            (clojure.core.typed.type_rep Bounds F)))
 
-(t/ann-record t-subst [type :- r/TCType,
+(u/ann-record t-subst [type :- r/TCType,
                        bnds :- Bounds])
 (u/defrecord t-subst [type bnds]
   ""
   [(r/Type? type)
    (r/Bounds? bnds)])
 
-(t/ann-record i-subst [types :- (Seqable r/TCType)])
+(u/ann-record i-subst [types :- (U nil (Seqable r/TCType))])
 (u/defrecord i-subst [types]
   ""
   [(every? r/Type? types)])
 
-(t/ann-record i-subst-starred [types :- (Seqable r/TCType),
+(u/ann-record i-subst-starred [types :- (U nil (Seqable r/TCType)),
                                starred :- r/TCType])
 (u/defrecord i-subst-starred [types starred]
   ""
   [(every? r/Type? types)
    (r/Type? starred)])
 
-(t/ann-record i-subst-dotted [types :- (U nil (Seqable r/TCType)),
+(u/ann-record i-subst-dotted [types :- (U nil (Seqable r/TCType)),
                               dty :- r/TCType,
                               dbound :- F])
 (u/defrecord i-subst-dotted [types dty dbound]
@@ -50,7 +50,7 @@
 (t/ann ^:no-check substitution-c? (predicate SubstMap))
 (def substitution-c? (u/hash-c? symbol? subst-rhs?))
 
-(t/ann-record c [S :- r/TCType,
+(u/ann-record c [S :- r/TCType,
                  X :- clojure.lang.Symbol,
                  T :- r/TCType,
                  bnds :- Bounds])
@@ -66,21 +66,21 @@
 ;; a constraint on an index variable
 ;; the index variable must be instantiated with |fixed| arguments, each meeting the appropriate constraint
 ;; and further instantions of the index variable must respect the rest constraint, if it exists
-(t/ann-record dcon [fixed :- (Seqable c)
+(u/ann-record dcon [fixed :- (U nil (Seqable c))
                     rest :- (U nil c)])
 (u/defrecord dcon [fixed rest]
   ""
   [(every? c? fixed)
    ((some-fn nil? c?) rest)])
 
-(t/ann-record dcon-exact [fixed :- (Seqable c),
+(u/ann-record dcon-exact [fixed :- (U nil (Seqable c)),
                           rest :- c])
 (u/defrecord dcon-exact [fixed rest]
   ""
   [(every? c? fixed)
    (c? rest)])
 
-(t/ann-record dcon-dotted [fixed :- (Seqable c),
+(u/ann-record dcon-dotted [fixed :- (U nil (Seqable c)),
                            dc :- c,
                            dbound :- F])
 (u/defrecord dcon-dotted [fixed dc dbound]
@@ -95,7 +95,7 @@
 (def dcon-c? (some-fn dcon? dcon-exact? dcon-dotted?))
 
 ;; map : hash mapping index variables to dcons
-(t/ann-record dmap [map :- (IPersistentMap Symbol DCon)])
+(u/ann-record dmap [map :- (IPersistentMap Symbol DCon)])
 (u/defrecord dmap [map]
   ""
   [((u/hash-c? symbol? dcon-c?) map)])
@@ -110,7 +110,7 @@
 ;  them with the current substitution, otherwise constraint generation should fail.
 ;  This is useful for types like (I a (Not b)) where it's too hard to use the expression
 ;  to constrain the type variables.
-(t/ann-record cset-entry [fixed :- (IPersistentMap Symbol c),
+(u/ann-record cset-entry [fixed :- (IPersistentMap Symbol c),
                           dmap :- dmap,
                           delayed-checks :- (IPersistentSet DelayedCheck)])
 (u/defrecord cset-entry [fixed dmap delayed-checks]
@@ -137,7 +137,7 @@
 ;; we need a bunch of mappings for each cset to handle case-lambda
 ;; because case-lambda can generate multiple possible solutions, and we
 ;; don't want to rule them out too early
-(t/ann-record cset [maps :- (Seqable cset-entry)])
+(u/ann-record cset [maps :- (U nil (Seqable cset-entry))])
 (u/defrecord cset [maps]
   ""
   [(every? cset-entry? maps)])

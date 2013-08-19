@@ -1839,6 +1839,8 @@
                  0) 
            2.2))))
 
+(cf (every? (fn [a] a) [1]))
+
 ;
 ;TODO destructuring on records
 ;TODO this is non-nil (last (take 100 (iterate update-without-plot initial-state)))

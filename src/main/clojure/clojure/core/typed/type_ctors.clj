@@ -525,6 +525,14 @@
               (u/symbol->Class sym-or-cls))]
     (isa? cls clojure.lang.IRecord)))
 
+(t/ann ^:no-check Record->HMap [DataType -> TCType])
+(defn Record->HMap [^DataType r]
+  {:pre [(r/Record? r)]
+   :post [(r/Type? %)]}
+  (let [kf (zipmap (map (comp r/-val keyword) (keys (.fields r)))
+                   (vals (.fields r)))]
+    (-hmap kf)))
+
 (t/ann ^:no-check RClass-of (Fn [(U Symbol Class) -> TCType]
                                [(U Symbol Class) (U nil (Seqable TCType)) -> TCType]))
 (defn RClass-of 
@@ -1016,6 +1024,12 @@
     (when (r/Value? val)
       (keyword? (.val val)))))
 
+(t/ann number-value? [Any -> Any])
+(defn number-value? [^Value val]
+  (boolean
+    (when (r/Value? val)
+      (number? (.val val)))))
+
 ;; Overlap
 
 ;; FIXME much better algorithms around I'm sure
@@ -1506,7 +1520,9 @@
   (instantiate-many [f] sc))
 
 ;TODO not sure why this fails to type check
-;[(U Any {kw x}) -> (U nil x) :filters {:then (is {kw Any} 0)}]
+;(All [x]
+;  (Fn ['{kw x} -> x]
+;      [(U Any '{kw x}) -> (U nil x) :filters {:then (is {kw Any} 0)}]))
 (t/ann ^:no-check keyword->Fn [Keyword -> TCType])
 (defn keyword->Fn [kw]
   {:pre [(keyword? kw)]
@@ -1515,6 +1531,10 @@
          [r/no-bounds]
          (r/make-FnIntersection
            (r/make-Function
+             [(-hmap {(r/-val kw) (r/make-F 'x)})]
+             (r/make-F 'x)
+             nil nil)
+           (r/make-Function
              [(Un r/-any (-hmap {(r/-val kw) (r/make-F 'x)}))]
              (Un r/-nil (r/make-F 'x))
              nil nil
@@ -1522,6 +1542,13 @@
                        (fr/->TypeFilter (-hmap {(r/-val kw) r/-any}) nil 0) 
                        fr/-top)))
          ['x]))
+
+(t/ann KeywordValue->Fn [Value -> TCType])
+(defn KeywordValue->Fn [{:keys [val] :as t}]
+  {:pre [(keyword-value? t)
+         ;redundant test for core.typed
+         (keyword? val)]}
+  (keyword->Fn val))
 
 ;; Extends
 

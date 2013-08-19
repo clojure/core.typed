@@ -1,12 +1,17 @@
 (ns ^:skip-wiki clojure.core.typed.filter-rep
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed.filter-protocols :refer [IFilter]]
+            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t])
   (:import (clojure.lang Symbol Seqable IPersistentSet)
            (clojure.core.typed.type_rep TCType)
            (clojure.core.typed.path_rep IPathElem)))
+
+(t/def-alias Filter
+  "A filter"
+  IFilter)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
@@ -18,9 +23,6 @@
 (t/ann ^:no-check name-ref? (predicate NameRef))
 (def name-ref? (some-fn symbol? integer?))
 
-(t/ann-protocol IFilter)
-(u/defprotocol IFilter)
-
 (t/ann ^:no-check Filter? (predicate IFilter))
 (defn Filter? [a]
   (satisfies? IFilter a))
@@ -29,12 +31,12 @@
 (defn declare-filter [c]
   (extend c IFilter {}))
 
-(t/ann-record BotFilter [])
+(u/ann-record BotFilter [])
 (u/defrecord BotFilter []
   "Always false proposition"
   [])
 
-(t/ann-record TopFilter [])
+(u/ann-record TopFilter [])
 (u/defrecord TopFilter []
   "Trivially true proposition"
   [])
@@ -44,12 +46,12 @@
 (def -top (->TopFilter))
 (def -bot (->BotFilter))
 
-(t/ann-record NoFilter [])
+(u/ann-record NoFilter [])
 (u/defrecord NoFilter []
   "Represents no info about filters, used for parsing types"
   [])
 
-(t/ann-record TypeFilter [type :- TCType,
+(u/ann-record TypeFilter [type :- TCType,
                           path :- (U nil (Seqable IPathElem))
                           id :- NameRef])
 (u/defrecord TypeFilter [type path id]
@@ -59,7 +61,7 @@
    (not (pr/PathElem? path))
    (name-ref? id)])
 
-(t/ann-record NotTypeFilter [type :- TCType,
+(u/ann-record NotTypeFilter [type :- TCType,
                              path :- (Seqable IPathElem)
                              id :- NameRef])
 (u/defrecord NotTypeFilter [type path id]
@@ -69,28 +71,28 @@
    (not (pr/PathElem? path))
    (name-ref? id)])
 
-(t/ann-record AndFilter [fs :- (IPersistentSet IFilter)])
+(u/ann-record AndFilter [fs :- (IPersistentSet IFilter)])
 (u/defrecord AndFilter [fs]
   "Logical conjunction of filters"
   [(set? fs)
    (seq fs)
    (every? Filter? fs)])
 
-(t/ann-record OrFilter [fs :- (IPersistentSet IFilter)])
+(u/ann-record OrFilter [fs :- (IPersistentSet IFilter)])
 (u/defrecord OrFilter [fs]
   "Logical disjunction of filters"
   [(seq fs)
    (set? fs)
    (every? Filter? fs)])
 
-(t/ann-record ImpFilter [a :- IFilter
+(u/ann-record ImpFilter [a :- IFilter
                          c :- IFilter])
 (u/defrecord ImpFilter [a c]
   "Antecedent (filter a) implies consequent (filter c)"
   [(Filter? a)
    (Filter? c)])
 
-(t/ann-record FilterSet [then :- IFilter
+(u/ann-record FilterSet [then :- IFilter
                          else :- IFilter])
 (u/defrecord FilterSet [then else]
   "A set of filters: those true when the expression is a true value, and 
