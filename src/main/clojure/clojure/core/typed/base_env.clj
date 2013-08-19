@@ -487,7 +487,7 @@ clojure.core.typed/Int (U Integer Long clojure.lang.BigInt BigInteger Short Byte
         :forms [Number]}
 clojure.core.typed/Num Number
 
-clojure.core.typed/AnyPrimitive (U char int short boolean byte short long float double)
+;clojure.core.typed/AnyPrimitive (U char int short boolean byte short long float double)
 
     ^{:doc "An atom that can read and write type x."
       :forms [(Atom1 t)]}
