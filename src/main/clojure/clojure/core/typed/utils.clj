@@ -338,7 +338,9 @@
     `(taoensso.timbre.profiling/p ~name ~@body)
     `(do ~@body)))
 
-(defmacro profile [& body]
+(defmacro profile 
+  "Usage: (profile :info :foo ...)"
+  [& body]
   `(taoensso.timbre.profiling/profile ~@body))
 
 (t/tc-ignore

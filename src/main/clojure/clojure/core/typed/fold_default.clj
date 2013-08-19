@@ -17,7 +17,7 @@
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE KeysPE ValsPE)))
+           (clojure.core.typed.path_rep KeyPE KeysPE ValsPE ClassPE)))
 
 (add-default-fold-case NotType
                        (fn [ty _]
@@ -277,6 +277,7 @@
 (add-default-fold-case KeyPE ret-first)
 (add-default-fold-case KeysPE ret-first)
 (add-default-fold-case ValsPE ret-first)
+(add-default-fold-case ClassPE ret-first)
 
 ;TCResult
 

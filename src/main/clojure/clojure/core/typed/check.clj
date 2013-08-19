@@ -1126,7 +1126,8 @@
                            (seq (:types pbody))
                            (not (some :kws (:types pbody)))
                            [pbody fixed-vars fixed-bnds dotted-var dotted-bnd])))]
-        (let [inferred-rng (some identity
+        (let [;_ (prn "polydots, no kw args")
+              inferred-rng (some identity
                                  (for [{:keys [dom rest ^DottedPretype drest rng] :as ftype} (:types pbody)
                                        ;only try inference if argument types match
                                        :when (cond
@@ -2489,7 +2490,14 @@
       (assoc expr
              expr-type type))))
 
-(declare abstract-object abstract-filter abo)
+(declare abstract-object abstract-filter abstract-type abo)
+
+; Difference from Typed Racket
+;
+; Here we also abstract types with abstract-type. We have types
+; like HeterogeneousVector that contains Result's, but can also
+; appear in arbitrary positions. The combination of these means
+; we need to abstract and instantiate all types at function boundaries.
 
 ;[TCResult (Seqable Symbol) -> Result]
 (defn abstract-result [result arg-names]
@@ -2498,9 +2506,24 @@
    :post [(r/Result? %)]}
   (let [keys (range (count arg-names))]
     (r/make-Result
-      (ret-t result)
+      (abstract-type   arg-names keys (ret-t result))
       (abstract-filter arg-names keys (ret-f result))
       (abstract-object arg-names keys (ret-o result)))))
+
+;[Type (Seqable Symbol) -> Type]
+(defn abstract-type [ids keys t]
+  {:pre [(every? symbol? ids)
+         (every? integer? keys)
+         (r/AnyType? t)]
+   :post [(r/AnyType? %)]}
+  (letfn [(sb-t [t] (abstract-type ids keys t))
+          (sb-f [f] (abo ids keys f))
+          (sb-o [o] (abstract-object ids keys o))]
+    (fold/fold-rhs ::abo
+       {:type-rec sb-t
+        :filter-rec sb-f
+        :object-rec sb-o}
+      t)))
 
 ;[(Seqable Symbol) (Seqable AnyInteger) RObject -> RObject]
 (defn abstract-object [ids keys o]
@@ -2566,7 +2589,7 @@
             (some (fn [[x i]] (and (= x y) i))
                   (map vector xs idxs)))
           (rec [f] (abo xs idxs f))
-          (sb-t [t] t)]
+          (sb-t [t] (abstract-type xs idxs t))]
     (fold/fold-rhs ::abo
       {:type-rec sb-t 
        :filter-rec rec
@@ -4246,11 +4269,14 @@ rest-param-name (when rest-param
                 ;record checked definition
                 (var-env/add-checked-var-def vsym))]
         res-expr)
-      (not check?) (do (println (when-let [line (-> expr :env :line)] 
-                                  (str line ": ")) 
-                                "Not checking" vsym "definition")
-                       (flush)
-                       res-expr)
+      (or (not check?) 
+          (and warn-if-unannotated?
+               (not t)))
+      (do (println (when-let [line (-> expr :env :line)] 
+                     (str line ": ")) 
+                   "Not checking" vsym "definition")
+          (flush)
+          res-expr)
       :else (u/tc-delayed-error (str "Found untyped var definition: " vsym)
                                 :return res-expr))))
 
@@ -4259,7 +4285,7 @@ rest-param-name (when rest-param
   [{:keys [var init init-provided env] :as expr} & [expected]]
   (assert (not expected) expected)
   (assert (:line env))
-  (prn "Checking def" var)
+  ;(prn "Checking def" var)
   (binding [vs/*current-env* env
             vs/*current-expr* expr]
     (cond 

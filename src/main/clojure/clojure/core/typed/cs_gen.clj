@@ -33,6 +33,14 @@
 
 (t/ann fail! [Any Any -> Nothing])
 (defn fail! [s t]
+;  (try (throw (Exception. ""))
+;       (catch Exception e 
+;         (prn "csgen fail!:")
+;         (prn (when (r/Type? s)
+;                (prs/unparse-type s))
+;              (when (r/Type? t)
+;                (prs/unparse-type t)))
+;         (binding [*err* *out*] (clojure.repl/pst e 40))))
   (throw u/cs-gen-exn))
 
 (defmacro handle-failure [& body]
@@ -59,7 +67,10 @@
    (when-not (= bnds bnds*)
      (u/int-error (str "Non-matching bounds in c-meet:" bnds bnds*)))
    (let [S (join S S*)
-         T (meet T T*)]
+         ;_ (prn "S" (prs/unparse-type S))
+         T (meet T T*)
+         ;_ (prn "T" (prs/unparse-type S))
+         ]
      (when-not (sub/subtype? S T)
        (fail! S T))
      (cr/->c S (or var X) T bnds))))
@@ -67,20 +78,19 @@
 (declare dmap-meet)
 
 ;FIXME flow error when checking
-(t/ann ^:no-check cset-meet [cset cset -> cset])
+(t/ann cset-meet [cset cset -> cset])
 (defn cset-meet [{maps1 :maps :as x} {maps2 :maps :as y}]
   {:pre [(cr/cset? x)
-         (cr/cset? y)]}
-  (let [maps (doall (t/for> :- cset-entry
-                      [[e1 e2] :- '[cset-entry cset-entry], (map (t/fn> [m1 :- cset-entry,
-                                                                         m2 :- cset-entry]
-                                                                    (vector m1 m2)) 
-                                                                 maps1 maps2)]
-                      (let [{map1 :fixed dmap1 :dmap delay1 :delayed-checks} e1
-                            {map2 :fixed dmap2 :dmap delay2 :delayed-checks} e2]
-                        (cr/->cset-entry (merge-with c-meet map1 map2)
-                                         (dmap-meet dmap1 dmap2)
-                                         (set/union delay1 delay2)))))]
+         (cr/cset? y)]
+   :post [(cr/cset? %)]}
+  (let [maps (filter (t/inst identity (U false cset-entry))
+                     (doall (t/for> :- cset-entry
+                              [{map1 :fixed dmap1 :dmap delay1 :delayed-checks} :- cset-entry, maps1
+                               {map2 :fixed dmap2 :dmap delay2 :delayed-checks} :- cset-entry, maps2]
+                              (handle-failure
+                                (cr/->cset-entry (merge-with c-meet map1 map2)
+                                                 (dmap-meet dmap1 dmap2)
+                                                 (set/union delay1 delay2))))))]
     (when (empty? maps)
       (fail! maps1 maps2))
     (cr/->cset maps)))
@@ -96,10 +106,7 @@
 (t/ann cset-combine [(U nil (t/Seqable cset)) -> cset])
 (defn cset-combine [l]
   {:pre [(every? cr/cset? l)]}
-  (let [mapss (let [get-maps (t/ann-form (t/inst :maps (U nil (t/Seqable cset-entry) ))
-                                         ['{:maps (U nil (t/Seqable cset-entry))} -> (U nil (t/Seqable cset-entry))])
-                    map' (t/inst map (U nil (t/Seqable cset-entry)) '{:maps (U nil (t/Seqable cset-entry))})]
-                (map' get-maps l))]
+  (let [mapss (map (t/inst :maps cset-entry) l)]
     (t/ann-form mapss (t/Seqable (U nil (t/Seqable cset-entry))))
     (cr/->cset (apply concat mapss))))
 
@@ -177,6 +184,7 @@
          (cr/dcon? dc2))
     (let [{fixed1 :fixed} dc1
           {fixed2 :fixed rest :rest} dc2]
+      (assert rest)
       (when-not (>= (count fixed1) (count fixed2))
         (fail! fixed1 fixed2))
       (cr/->dcon
@@ -637,6 +645,7 @@
 
 (defmethod cs-gen* [FnIntersection FnIntersection impl/any-impl]
   [V X Y ^FnIntersection S ^FnIntersection T] 
+  ;(prn "cs-gen FnIntersections")
   (cset-meet*
     (doall
       (for> :- cset
@@ -646,12 +655,18 @@
                               (doall
                                 (for> :- (U false cset)
                                   [s-arr :- Function, (.types S)]
-                                  (handle-failure
-                                    (cs-gen-Function V X Y s-arr t-arr)))))]
-          ;; ensure that something produces a constraint set
-          (when (empty? results) 
-            (fail! S T))
-          (cset-combine results))))))
+                                  (let [r (handle-failure
+                                            (cs-gen-Function V X Y s-arr t-arr))]
+                                    r))))
+              ;_ (prn "results" (count results))
+              ;_ (clojure.pprint/pprint results) 
+              ;_ (flush)
+              ;; ensure that something produces a constraint set
+              _ (when (empty? results) 
+                  (fail! S T))
+              comb (cset-combine results)]
+          ;(prn "combined" comb)
+          comb)))))
 
 (defmethod cs-gen* [Result Result impl/any-impl]
   [V X Y S T] 
@@ -985,7 +1000,7 @@
          (r/Function? S)
          (r/Function? T)]
    :post [(cr/cset? %)]}
-  ;(prn "cs-gen-Function")
+  ;(prn "cs-gen-Function" (prs/unparse-type S) (prs/unparse-type T))
   (letfn [(cg [S T] (cs-gen V X Y S T))]
     (cond
       ;easy case - no rests, drests, kws
@@ -1183,8 +1198,10 @@
                                 S))))))]
 
       (let [{cmap :fixed dmap* :dmap :keys [delayed-checks]} (-> C :maps first)
-            _ (when-not (= 1 (count (:maps C))) 
-                (u/int-error "More than one constraint set found"))
+            ; Typed Racket arbitrarily picks the first constraint here, we follow.
+            ;
+            ;_ (when-not (= 1 (count (:maps C))) 
+            ;    (u/int-error "More than one constraint set found"))
             dm (:map dmap*)
             subst (merge 
                     (into {}
@@ -1286,12 +1303,22 @@
         (doall 
           (for> :- cset
             [[s t] :- '[r/Type r/Type], (map' vector' S T)]
-            (let [c (cs-gen V X Y s t)]
-  ;            (prn "s" s)
-  ;            (prn "t" t)
-  ;            (prn "c" c)
-  ;            (prn "expected cset" expected-cset)
-              (cset-meet c expected-cset))))))))
+            (let [c (cs-gen V X Y s t)
+                  ;_ (prn "csgen-list 1")
+                  ;_ (prn "V" V)
+                  ;_ (prn "X" X)
+                  ;_ (prn "Y" Y)
+                  ;_ (prn "s" (prs/unparse-type s))
+                  ;_ (prn "t" (prs/unparse-type t))
+                  ;_ (prn "c")
+                  ;_ (clojure.pprint/pprint c)
+                  ;_ (flush)
+                  ;_ (prn "expected cset" expected-cset)
+                  m (cset-meet c expected-cset)]
+              ;(prn "meet:")
+              ;(clojure.pprint/pprint m)
+              ;(flush)
+              m)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Infer
@@ -1313,15 +1340,18 @@
          ((u/set-c? symbol?) must-vars)
          ((some-fn nil? r/Type?) expected)]
    :post [(cr/substitution-c? %)]}
+;  (prn "infer-dots")
+;  (prn "must-vars" must-vars)
   (let [[short-S rest-S] (split-at (count T) S)
-;        _ (prn "short-S" (map unparse-type short-S))
-;        _ (prn "rest-S" (map unparse-type rest-S))
+;        _ (prn "short-S" (map prs/unparse-type short-S))
+;        _ (prn "T" (map prs/unparse-type T))
+;        _ (prn "rest-S" (map prs/unparse-type rest-S))
         expected-cset (if expected
                         (cs-gen #{} X {dotted-var dotted-bnd} R expected)
                         (cr/empty-cset {} {}))
-;        _ (prn "expected-cset" expected-cset)
+        ;_ (prn "expected-cset" expected-cset)
         cs-short (cs-gen-list #{} X {dotted-var dotted-bnd} short-S T
-                              :expected-cset expected-cset)
+                                :expected-cset expected-cset)
         ;_ (prn "cs-short" cs-short)
         new-vars (var-store-take dotted-var T-dotted (count rest-S))
         new-Ts (doall

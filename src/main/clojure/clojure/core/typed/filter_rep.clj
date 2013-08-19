@@ -6,7 +6,7 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t])
   (:import (clojure.lang Symbol Seqable IPersistentSet)
-           (clojure.core.typed.type_rep TCType)
+           (clojure.core.typed.type_rep TCType FlowSet)
            (clojure.core.typed.path_rep IPathElem)))
 
 (t/def-alias Filter
@@ -115,3 +115,4 @@
 (declare-filter NotTypeFilter)
 (declare-filter ImpFilter)
 (declare-filter FilterSet)
+(declare-filter FlowSet)

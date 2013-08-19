@@ -7,7 +7,7 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.name-env :as nmenv]
             [clojure.core.typed.declared-kind-env :as kinds]
-            [clojure.core.typed :as t])
+            [clojure.core.typed :as t :refer [for> fn>]])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
@@ -23,16 +23,22 @@
 ;TODO make this an argument
 (t/ann *frees-mode* (U nil Keyword))
 (def ^:dynamic *frees-mode* nil)
+(t/tc-ignore
 (set-validator! #'*frees-mode* (some-fn #{::frees ::idxs} nil?))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Collecting frees
+
+(t/def-alias VarianceEntry
+  "A map entry of a VarianceMap."
+  '[Symbol r/Variance])
 
 (t/def-alias VarianceMap
   "A map of free names (symbols) to their variances"
   (t/Map Symbol r/Variance))
 
-(t/ann variance-map? [Any -> Any])
+(t/ann ^:no-check variance-map? (predicate VarianceMap))
 (def variance-map? (u/hash-c? symbol? r/variance?))
 
 (declare frees-in)
@@ -70,11 +76,13 @@
 (t/ann flip-variances [VarianceMap -> VarianceMap])
 (defn flip-variances [vs]
   {:pre [(variance-map? vs)]}
-  (into {} (for [[k vari] vs]
-             [k (case vari
-                  :covariant :contravariant
-                  :contravariant :covariant
-                  vari)])))
+  (zipmap (keys vs) 
+          (map (fn> [vari :- r/Variance]
+                 (case vari
+                   :covariant :contravariant
+                   :contravariant :covariant
+                   vari))
+               (vals vs))))
 
 (t/ann combine-frees [VarianceMap * -> VarianceMap])
 (defn combine-frees [& frees]
@@ -101,14 +109,16 @@
   {:post [(variance-map? %)]}
   (frees t))
 
-(t/ann frees [r/AnyType -> VarianceMap])
+(t/ann frees [Any -> VarianceMap])
 (defmulti frees (fn [t] [*frees-mode* (class t)]))
 
 (defmethod frees [::any-var Result]
-  [{:keys [t fl o]}]
-  (combine-frees (frees t)
-                 (frees fl)
-                 (frees o)))
+  [t]
+  (t/ann-form t Result)
+  (let [{:keys [t fl o]} t]
+    (combine-frees (frees t)
+                   (frees fl)
+                   (frees o))))
 
 ;; Filters
 
@@ -268,7 +278,7 @@
 
 (defmethod frees [::idxs Function]
   [{:keys [dom rng rest drest kws]}]
-  (apply combine-frees (concat (mapv (comp flip-variances frees)
+  (apply combine-frees (concat (mapv #(-> % frees flip-variances)
                                      (concat dom
                                              (when rest
                                                [rest])
@@ -277,7 +287,8 @@
                                [(frees rng)]
                                (when drest
                                  (let [{:keys [name pre-type]} drest]
-                                   [{name :contravariant}
+                                   (assert (symbol? name))
+                                   [(t/ann-form {name :contravariant} VarianceMap)
                                     (-> pre-type
                                       frees flip-variances)])))))
 
@@ -286,14 +297,15 @@
   (let [varis (:variances t)
         args (:poly? t)]
     (assert (= (count args) (count varis)))
-    (apply combine-frees (for [[arg va] (map vector args varis)]
+    (apply combine-frees (for> :- VarianceMap
+                           [[arg va] :- '[Any r/Variance], (map (-> vector 
+                                                                    (t/inst Any r/Variance Any Any Any Any))
+                                                                args varis)]
                            (case va
                              :covariant (frees arg)
                              :contravariant (flip-variances (frees arg))
                              :invariant (let [fvs (frees arg)]
-                                          (into {}
-                                                (for [[k _] fvs]
-                                                  [k :invariant]))))))))
+                                          (zipmap (keys fvs) (repeat :invariant))))))))
 
 (defmethod frees [::any-var Scope]
   [{:keys [body]}]

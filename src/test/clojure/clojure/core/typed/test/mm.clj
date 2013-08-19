@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.mm
   (:import (clojure.lang IPersistentMap))
-  (:require [clojure.core.typed :refer [def-alias ann check-ns print-env cf ann-form]]
+  (:require [clojure.core.typed :as t :refer [def-alias ann check-ns print-env cf ann-form]]
             [clojure.tools.analyzer :refer [ast]]
             [clojure.repl :refer [pst]]))
 
@@ -29,3 +29,32 @@
   [a b]
   (ann-form a '{:op ':test1})
   (ann-form b '{:op ':test2}))
+
+(t/ann-datatype FooDT [])
+(deftype FooDT [])
+
+(t/ann-record FooRec [a :- Number])
+(defrecord FooRec [a])
+
+(ann multi-dipatch2 [Any -> Any])
+(defmulti multi-dipatch2 (fn [a]
+                           [(+ 2 3 4 2) (class a)]))
+
+(defmethod multi-dipatch2 [1 Number]
+  [a]
+  (ann-form a Number)
+  (+ 1 a))
+
+(defmethod multi-dipatch2 [1 FooDT] [a] (ann-form a FooDT))
+(defmethod multi-dipatch2 [1 FooRec] [a] (ann-form a FooRec))
+(defmethod multi-dipatch2 [::anyfoo FooRec] [a] (ann-form a FooRec))
+
+(defmethod multi-dipatch2 [::anyfoo FooRec] 
+  [{:keys [a]}]
+  (ann-form a Number))
+
+(defmethod multi-dipatch2 [::anyfoo FooRec] 
+  [arg]
+  (ann-form arg FooRec)
+  (let [{:keys [a]} arg]
+    (ann-form a Number)))

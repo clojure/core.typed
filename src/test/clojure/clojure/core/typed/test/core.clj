@@ -26,6 +26,7 @@
             [clojure.core.typed.promote-demote :refer :all]
             [clojure.core.typed.frees :refer :all]
             [clojure.core.typed.free-ops :refer :all]
+            [clojure.core.typed.dvar-env :refer :all]
             [clojure.core.typed.cs-gen :refer :all]
             [clojure.core.typed.cs-rep :refer :all]
             [clojure.core.typed.subst :refer [subst-all]]
@@ -1836,10 +1837,28 @@
   (is (cf ((fnil + 0) nil)))
   ; can Typed Racket do better here?
   (is (cf ((fnil (clojure.core.typed/ann-form + [Number * -> Number])
-                 0) 
+                 0)
            2.2))))
 
-(cf (every? (fn [a] a) [1]))
+;(cf (every? (fn [a] a) [1]))
+
+;
+(deftest csgen-combine-test
+  (is (cf (map inc [0 1.1])
+          (clojure.lang.Seqable Number)))
+  (is (cf (map (clojure.core.typed/inst vector Number Number Any Any Any Any) [1] [2])
+          (clojure.lang.Seqable '[Number Number]))))
+
+;(chk/abstract-result
+;  (ret (-hvec [-any] :filters [(-FS (-filter (parse-clj 'Number) 'a) -top)] :objects [(->Path nil 'a)])
+;       (-FS (-filter (parse-clj 'Number) 'a) -top))
+;  ['a])
+;
+;(ety (fn [a] [a]))
+;
+;(impl/with-clojure-impl
+;  (update -any (-filter (-val clojure.core.typed.test.mm.FooRec) 'arg [(->ClassPE)])))
+
 
 ;
 ;TODO destructuring on records
