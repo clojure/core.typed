@@ -1179,7 +1179,7 @@ for checking namespaces, cf for checking individual forms."}
   (binding [*verbose-forms* true]
     (cf ['deep ['deep ['deep ['deep]]]] Number))
   ;=> <full form in error>"
-  )
+  nil)
 
 (defn ^:skip-wiki
   -init-delayed-errors 
