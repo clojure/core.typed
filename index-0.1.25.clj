@@ -14,10 +14,10 @@
    :doc
    "This namespace contains annotations and helper macros for type\nchecking core.async code. Ensure clojure.core.async is require'd\nbefore performing type checking.\n\ngo\n  use go>\n\nchan\n  use chan>\n\nbuffer\n  use buffer> (similar for other buffer constructors)\n"}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
+   "https://github.com/clojure/core.typed/blob/2b21ce2a9cd898df4c47772178f8359d40ebdaff/src/main/clojure/clojure/core/typed/cs_gen.clj",
    :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.filter-rep-api.html",
-   :name "clojure.core.typed.filter-rep",
+   "http://clojure.github.com/core.typed/clojure.core.typed.cs-gen-api.html",
+   :name "clojure.core.typed.cs-gen",
    :doc nil}
   {:source-url
    "https://github.com/clojure/core.typed/blob/6b5231ad882ee07b0ef6c5e978e09c09aed083a6/src/main/clojure/clojure/core/typed/hole.clj",
@@ -25,13 +25,7 @@
    "http://clojure.github.com/core.typed/clojure.core.typed.hole-api.html",
    :name "clojure.core.typed.hole",
    :doc
-   "This namespace contains easy tools for hole driven development"}
-  {:source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.object-rep-api.html",
-   :name "clojure.core.typed.object-rep",
-   :doc nil}),
+   "This namespace contains easy tools for hole driven development"}),
  :vars
  ({:name "*verbose-forms*",
    :namespace "clojure.core.typed",
@@ -961,322 +955,26 @@
    :var-type "macro",
    :line 194,
    :file "src/main/clojure/clojure/core/typed/async.clj"}
-  {:arglists ([fs]),
-   :name "->AndFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L73",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/->AndFilter",
-   :doc "",
-   :var-type "function",
-   :line 73,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([]),
-   :name "->BotFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L33",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/->BotFilter",
-   :doc "",
-   :var-type "function",
-   :line 33,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([then else]),
-   :name "->FilterSet",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L95",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/->FilterSet",
-   :doc "",
-   :var-type "function",
-   :line 95,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([a c]),
-   :name "->ImpFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L88",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/->ImpFilter",
-   :doc "",
-   :var-type "function",
-   :line 88,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([]),
-   :name "->NoFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L48",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/->NoFilter",
-   :doc "",
-   :var-type "function",
-   :line 48,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([type path id]),
-   :name "->NotTypeFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L65",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/->NotTypeFilter",
-   :doc "",
-   :var-type "function",
-   :line 65,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([fs]),
-   :name "->OrFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L80",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/->OrFilter",
-   :doc "",
-   :var-type "function",
-   :line 80,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([]),
-   :name "->TopFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L38",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/->TopFilter",
-   :doc "",
-   :var-type "function",
-   :line 38,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([type path id]),
-   :name "->TypeFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L55",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/->TypeFilter",
-   :doc "",
-   :var-type "function",
-   :line 55,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
   {:file nil,
    :raw-source-url nil,
    :source-url nil,
    :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/NameRef",
-   :namespace "clojure.core.typed.filter-rep",
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.cs-gen/ConstrainVars",
+   :namespace "clojure.core.typed.cs-gen",
    :var-type "var",
    :doc
-   "Type Alias\n\nA name for a type variable, either a symbol or a number.\n\n(U Symbol Number)",
-   :name "NameRef"}
-  {:arglists ([{:as m__966__auto__, :keys [fs]}]),
-   :name "map->AndFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L73",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/map->AndFilter",
-   :doc "",
-   :var-type "function",
-   :line 73,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys []}]),
-   :name "map->BotFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L33",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/map->BotFilter",
-   :doc "",
-   :var-type "function",
-   :line 33,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys [then else]}]),
-   :name "map->FilterSet",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L95",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/map->FilterSet",
-   :doc "",
-   :var-type "function",
-   :line 95,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys [a c]}]),
-   :name "map->ImpFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L88",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/map->ImpFilter",
-   :doc "",
-   :var-type "function",
-   :line 88,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys []}]),
-   :name "map->NoFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L48",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/map->NoFilter",
-   :doc "",
-   :var-type "function",
-   :line 48,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys [type path id]}]),
-   :name "map->NotTypeFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L65",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/map->NotTypeFilter",
-   :doc "",
-   :var-type "function",
-   :line 65,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys [fs]}]),
-   :name "map->OrFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L80",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/map->OrFilter",
-   :doc "",
-   :var-type "function",
-   :line 80,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys []}]),
-   :name "map->TopFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L38",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/map->TopFilter",
-   :doc "",
-   :var-type "function",
-   :line 38,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys [type path id]}]),
-   :name "map->TypeFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj#L55",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/filter_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/map->TypeFilter",
-   :doc "",
-   :var-type "function",
-   :line 55,
-   :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
+   "Type Alias\n\nThe map of variables to be constrained to their bounds\n\n(t/Map Symbol Bounds)",
+   :name "ConstrainVars"}
   {:file nil,
    :raw-source-url nil,
    :source-url nil,
    :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/AndFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :var-type "record",
-   :name "AndFilter"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/BotFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :var-type "record",
-   :name "BotFilter"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/FilterSet",
-   :namespace "clojure.core.typed.filter-rep",
-   :var-type "record",
-   :name "FilterSet"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/ImpFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :var-type "record",
-   :name "ImpFilter"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/NoFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :var-type "record",
-   :name "NoFilter"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/NotTypeFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :var-type "record",
-   :name "NotTypeFilter"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/OrFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :var-type "record",
-   :name "OrFilter"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/TopFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :var-type "record",
-   :name "TopFilter"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.filter-rep/TypeFilter",
-   :namespace "clojure.core.typed.filter-rep",
-   :var-type "record",
-   :name "TypeFilter"}
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.cs-gen/NoMentions",
+   :namespace "clojure.core.typed.cs-gen",
+   :var-type "var",
+   :doc
+   "Type Alias\n\nA set of variables not to mention in the constraints\n\n(t/Set Symbol)",
+   :name "NoMentions"}
   {:arglists ([]),
    :name "->NoisyHole",
    :namespace "clojure.core.typed.hole",
@@ -1326,106 +1024,4 @@
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.hole/NoisyHole",
    :namespace "clojure.core.typed.hole",
    :var-type "type",
-   :name "NoisyHole"}
-  {:arglists ([]),
-   :name "->EmptyObject",
-   :namespace "clojure.core.typed.object-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj#L25",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.object-rep/->EmptyObject",
-   :doc "",
-   :var-type "function",
-   :line 25,
-   :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([]),
-   :name "->NoObject",
-   :namespace "clojure.core.typed.object-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj#L44",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.object-rep/->NoObject",
-   :doc "",
-   :var-type "function",
-   :line 44,
-   :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([path id]),
-   :name "->Path",
-   :namespace "clojure.core.typed.object-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj#L34",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.object-rep/->Path",
-   :doc "",
-   :var-type "function",
-   :line 34,
-   :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys []}]),
-   :name "map->EmptyObject",
-   :namespace "clojure.core.typed.object-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj#L25",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.object-rep/map->EmptyObject",
-   :doc "",
-   :var-type "function",
-   :line 25,
-   :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys []}]),
-   :name "map->NoObject",
-   :namespace "clojure.core.typed.object-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj#L44",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.object-rep/map->NoObject",
-   :doc "",
-   :var-type "function",
-   :line 44,
-   :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__966__auto__, :keys [path id]}]),
-   :name "map->Path",
-   :namespace "clojure.core.typed.object-rep",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj#L34",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/object_rep.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.object-rep/map->Path",
-   :doc "",
-   :var-type "function",
-   :line 34,
-   :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.object-rep/EmptyObject",
-   :namespace "clojure.core.typed.object-rep",
-   :var-type "record",
-   :name "EmptyObject"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.object-rep/NoObject",
-   :namespace "clojure.core.typed.object-rep",
-   :var-type "record",
-   :name "NoObject"}
-  {:file nil,
-   :raw-source-url nil,
-   :source-url nil,
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.object-rep/Path",
-   :namespace "clojure.core.typed.object-rep",
-   :var-type "record",
-   :name "Path"})}
+   :name "NoisyHole"})}
