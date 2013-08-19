@@ -861,11 +861,20 @@ for checking namespaces, cf for checking individual forms."}
   ann-datatype
   "Annotate datatype Class name dname with expected fields.
   If unqualified, qualify in the current namespace.
+  Takes an optional type variable binder before the name.
 
-  eg. (ann-datatype MyDatatype [a :- Number,
+  eg. ; a datatype in the current namespace
+      (ann-datatype MyDatatype [a :- Number,
                                 b :- Long])
-      
+
+      ; a datatype in another namespace
       (ann-datatype another.ns.TheirDatatype
+                    [str :- String,
+                     vec :- (IPersistentVector Number)])
+
+      ; a datatype, polymorphic in a
+      (ann-datatype [[a :variance :covariant]]
+                    MyPolyDatatype
                     [str :- String,
                      vec :- (IPersistentVector Number)])"
   [& args]
