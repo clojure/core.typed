@@ -60,6 +60,236 @@
    :var-type "var",
    :line 1155,
    :file "src/main/clojure/clojure/core/typed.clj"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/AnyInteger",
+   :namespace "clojure.core.typed",
+   :forms [AnyInteger],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA type that returns true for clojure.core/integer?\n\n(U Integer Long clojure.lang.BigInt BigInteger Short Byte)",
+   :name "AnyInteger"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/AnyPrimitive",
+   :namespace "clojure.core.typed",
+   :var-type "var",
+   :doc
+   "Type Alias\n\n(U char int short boolean byte short long float double)",
+   :name "AnyPrimitive"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Atom1",
+   :namespace "clojure.core.typed",
+   :forms [(Atom1 t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nAn atom that can read and write type x.\n\n(TFn [[x :variance :invariant]] (Atom x x))",
+   :name "Atom1"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Coll",
+   :namespace "clojure.core.typed",
+   :forms [(Coll t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA persistent collection with member type x. \nReturns true when passed to clojure.core/Coll\n\n(TFn [[x :variance :covariant]] (IPersistentCollection x))",
+   :name "Coll"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/EmptyCount",
+   :namespace "clojure.core.typed",
+   :forms [EmptyCount],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nThe type of all things with count 0. Use as part of an intersection.\neg. See EmptySeq.\n\n(ExactCount 0)",
+   :name "EmptyCount"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/EmptySeqable",
+   :namespace "clojure.core.typed",
+   :forms [(EmptySeqable t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA type that can be used to create a sequence of member type x\nwith count 0.\n\n(TFn [[x :variance :covariant]] (I (Seqable x) (ExactCount 0)))",
+   :name "EmptySeqable"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Id",
+   :namespace "clojure.core.typed",
+   :forms [Id],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nThe identity function at the type level.\n\n(TFn [[x :variance :covariant]] x)",
+   :name "Id"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Int",
+   :namespace "clojure.core.typed",
+   :forms [Int],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA type that returns true for clojure.core/integer?\n\n(U Integer Long clojure.lang.BigInt BigInteger Short Byte)",
+   :name "Int"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Map",
+   :namespace "clojure.core.typed",
+   :forms [(Map t t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA persistent map with keys k and vals v.\n\n(TFn\n [[k :variance :covariant] [v :variance :covariant]]\n (IPersistentMap k v))",
+   :name "Map"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/NonEmptyColl",
+   :namespace "clojure.core.typed",
+   :forms [(NonEmptyColl t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA persistent collection with member type x and count greater than 0.\n\n(TFn\n [[x :variance :covariant]]\n (I (IPersistentCollection x) (CountRange 1)))",
+   :name "NonEmptyColl"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/NonEmptyCount",
+   :namespace "clojure.core.typed",
+   :forms [NonEmptyCount],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nThe type of all things with count greater than 0. Use as part of an intersection.\neg. See NonEmptySeq\n\n(CountRange 1)",
+   :name "NonEmptyCount"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/NonEmptySeq",
+   :namespace "clojure.core.typed",
+   :forms [(NonEmptySeq t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA persistent sequence of member type x with count greater than 0.\n\n(TFn [[x :variance :covariant]] (I (ISeq x) (CountRange 1)))",
+   :name "NonEmptySeq"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/NonEmptySeqable",
+   :namespace "clojure.core.typed",
+   :forms [(NonEmptySeqable t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA type that can be used to create a sequence of member type x\nwith count greater than 0.\n\n(TFn [[x :variance :covariant]] (I (Seqable x) (CountRange 1)))",
+   :name "NonEmptySeqable"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/NonEmptyVec",
+   :namespace "clojure.core.typed",
+   :forms [(NonEmptyVec t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA persistent vector with member type x and count greater than 0.\n\n(TFn\n [[x :variance :covariant]]\n (I (IPersistentVector x) (CountRange 1)))",
+   :name "NonEmptyVec"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Num",
+   :namespace "clojure.core.typed",
+   :forms [Number],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA type that returns true for clojure.core/number?\n\nNumber",
+   :name "Num"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Option",
+   :namespace "clojure.core.typed",
+   :forms [(Option t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA union of x and nil.\n\n(TFn [[x :variance :covariant]] (U nil x))",
+   :name "Option"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Seq",
+   :namespace "clojure.core.typed",
+   :forms [(Seq t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA persistent sequence of member type x.\n\n(TFn [[x :variance :covariant]] (ISeq x))",
+   :name "Seq"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Seqable",
+   :namespace "clojure.core.typed",
+   :forms [(Seqable t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA type that can be used to create a sequence of member type x.\n\n(TFn [[x :variance :covariant]] (Seqable x))",
+   :name "Seqable"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Set",
+   :namespace "clojure.core.typed",
+   :forms [(Set t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA persistent set with member type x\n\n(TFn [[x :variance :covariant]] (IPersistentSet x))",
+   :name "Set"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/SortedSet",
+   :namespace "clojure.core.typed",
+   :forms [(SortedSet t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA sorted persistent set with member type x\n\n(TFn [[x :variance :covariant]] (Extends [(IPersistentSet x) Sorted]))",
+   :name "SortedSet"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Vec",
+   :namespace "clojure.core.typed",
+   :forms [(Vec t)],
+   :var-type "type alias",
+   :doc
+   "Type Alias\n\nA persistent vector with member type x.\n\n(TFn [[x :variance :covariant]] (IPersistentVector x))",
+   :name "Vec"}
   {:arglists ([varsym typesyn]),
    :name "ann",
    :namespace "clojure.core.typed",
@@ -75,6 +305,9 @@
    :line 816,
    :file "src/main/clojure/clojure/core/typed.clj"}
   {:arglists ([& args]),
+   :forms
+   [(ann-datatype dname [field :- type*] opts*)
+    (ann-datatype binder dname [field :- type*] opts*)],
    :name "ann-datatype",
    :namespace "clojure.core.typed",
    :source-url
@@ -135,6 +368,9 @@
    :line 918,
    :file "src/main/clojure/clojure/core/typed.clj"}
   {:arglists ([& args]),
+   :forms
+   [(ann-protocol vbnd varsym & methods)
+    (ann-protocol varsym & methods)],
    :name "ann-protocol",
    :namespace "clojure.core.typed",
    :source-url
@@ -290,6 +526,12 @@
    :line 158,
    :file "src/main/clojure/clojure/core/typed.clj"}
   {:arglists ([& forms]),
+   :forms
+   [(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
+    (fn>
+     name?
+     (:- type? [param :- type* & param :- type * ?] exprs*)
+     +)],
    :name "fn>",
    :namespace "clojure.core.typed",
    :source-url
@@ -360,6 +602,7 @@
    :line 722,
    :file "src/main/clojure/clojure/core/typed.clj"}
   {:arglists ([fn-specs-and-annotations & body]),
+   :forms [(letfn> [fn-spec-or-annotation*] expr*)],
    :name "letfn>",
    :namespace "clojure.core.typed",
    :source-url
@@ -387,6 +630,7 @@
    :line 32,
    :file "src/main/clojure/clojure/core/typed.clj"}
   {:arglists ([bndings* & forms]),
+   :forms [(loop> [binding :- type init*] exprs*)],
    :name "loop>",
    :namespace "clojure.core.typed",
    :source-url
@@ -844,7 +1088,7 @@
    :doc
    "Type Alias\n\nA name for a type variable, either a symbol or a number.\n\n(U Symbol Number)",
    :name "NameRef"}
-  {:arglists ([{:as m__4844__auto__, :keys [fs]}]),
+  {:arglists ([{:as m__966__auto__, :keys [fs]}]),
    :name "map->AndFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -857,7 +1101,7 @@
    :var-type "function",
    :line 73,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys []}]),
+  {:arglists ([{:as m__966__auto__, :keys []}]),
    :name "map->BotFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -870,7 +1114,7 @@
    :var-type "function",
    :line 33,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys [then else]}]),
+  {:arglists ([{:as m__966__auto__, :keys [then else]}]),
    :name "map->FilterSet",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -883,7 +1127,7 @@
    :var-type "function",
    :line 95,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys [a c]}]),
+  {:arglists ([{:as m__966__auto__, :keys [a c]}]),
    :name "map->ImpFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -896,7 +1140,7 @@
    :var-type "function",
    :line 88,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys []}]),
+  {:arglists ([{:as m__966__auto__, :keys []}]),
    :name "map->NoFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -909,7 +1153,7 @@
    :var-type "function",
    :line 48,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys [type path id]}]),
+  {:arglists ([{:as m__966__auto__, :keys [type path id]}]),
    :name "map->NotTypeFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -922,7 +1166,7 @@
    :var-type "function",
    :line 65,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys [fs]}]),
+  {:arglists ([{:as m__966__auto__, :keys [fs]}]),
    :name "map->OrFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -935,7 +1179,7 @@
    :var-type "function",
    :line 80,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys []}]),
+  {:arglists ([{:as m__966__auto__, :keys []}]),
    :name "map->TopFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -948,7 +1192,7 @@
    :var-type "function",
    :line 38,
    :file "src/main/clojure/clojure/core/typed/filter_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys [type path id]}]),
+  {:arglists ([{:as m__966__auto__, :keys [type path id]}]),
    :name "map->TypeFilter",
    :namespace "clojure.core.typed.filter-rep",
    :source-url
@@ -1122,7 +1366,7 @@
    :var-type "function",
    :line 34,
    :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys []}]),
+  {:arglists ([{:as m__966__auto__, :keys []}]),
    :name "map->EmptyObject",
    :namespace "clojure.core.typed.object-rep",
    :source-url
@@ -1135,7 +1379,7 @@
    :var-type "function",
    :line 25,
    :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys []}]),
+  {:arglists ([{:as m__966__auto__, :keys []}]),
    :name "map->NoObject",
    :namespace "clojure.core.typed.object-rep",
    :source-url
@@ -1148,7 +1392,7 @@
    :var-type "function",
    :line 44,
    :file "src/main/clojure/clojure/core/typed/object_rep.clj"}
-  {:arglists ([{:as m__4844__auto__, :keys [path id]}]),
+  {:arglists ([{:as m__966__auto__, :keys [path id]}]),
    :name "map->Path",
    :namespace "clojure.core.typed.object-rep",
    :source-url
