@@ -500,8 +500,7 @@ clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
         :forms [Id]}
 clojure.core.typed/Id (TFn [[x :variance :covariant]] x)
 
-      ^{:doc "A persistent collection with member type x. 
-Returns true when passed to clojure.core/Coll"
+      ^{:doc "A persistent collection with member type x."
         :forms [(Coll t)]}
 clojure.core.typed/Coll (TFn [[x :variance :covariant]]
                              (IPersistentCollection x 
