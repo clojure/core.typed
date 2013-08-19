@@ -64,7 +64,7 @@ for checking namespaces, cf for checking individual forms."}
 (def ^:skip-wiki
   -base-aliases
   "Internal use only."
-  '#{Option AnyInteger Int Num AnyPrimitive Atom1 Id Coll NonEmptyColl Vec NonEmptyVec
+  '#{Option AnyInteger Int Num Atom1 Id Coll NonEmptyColl Vec NonEmptyVec
      Map Set SortedSet Seqable NonEmptySeqable EmptySeqable Seq NonEmptySeq EmptyCount NonEmptyCount})
 
 (doseq [v -base-aliases]
@@ -1179,6 +1179,7 @@ for checking namespaces, cf for checking individual forms."}
   (binding [*verbose-forms* true]
     (cf ['deep ['deep ['deep ['deep]]]] Number))
   ;=> <full form in error>"
+  )
 
 (defn ^:skip-wiki
   -init-delayed-errors 

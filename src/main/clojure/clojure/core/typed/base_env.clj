@@ -1105,7 +1105,7 @@ clojure.core/next
 
 clojure.core/into
       (All [x y]
-           (Fn [(IPersistentMap x y) (Seqable '[x y]) -> (IPersistentMap x y)]
+           (Fn [(IPersistentMap x y) (Seqable (U nil (IMapEntry x y) '[x y])) -> (IPersistentMap x y)]
                [(IPersistentVector x) (Seqable x) -> (IPersistentVector x)]
                [(IPersistentSet x) (Seqable x) -> (IPersistentSet x)]))
 
