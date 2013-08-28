@@ -1852,6 +1852,11 @@
 (deftest subtype-explosion-test
   (is (sub? nil clojure.core.typed.type-rep/TCType)))
 
+(deftest var-as-function-test
+  (is (cf #'+ [Number * -> Number]))
+  (is (cf (#'+ 1 2)))
+  (is (sub? (Var [-> nil]) [-> nil])))
+
 ;(reset-caches)
 
 ;(chk/abstract-result

@@ -1003,6 +1003,14 @@
            ('#{clojure.lang.Symbol} (.the-class ^RClass fexpr-type)))
       (let [symfn (prs/parse-type '(All [x] [(U (clojure.lang.IPersistentMap Any x) Any) -> (U x nil)]))]
         (check-funapp fexpr args (ret symfn) arg-ret-types expected))
+      
+      ;Var function
+      (and (r/RClass? fexpr-type)
+           ('#{clojure.lang.Var} (.the-class ^RClass fexpr-type)))
+      (let [{[ftype :as poly?] :poly?} fexpr-type
+            _ (assert (= 1 (count poly?))
+                      "Assuming clojure.lang.Var only takes 1 argument")]
+        (check-funapp fexpr args (ret ftype) arg-ret-types expected))
 
       ;Error is perfectly good fn type
       (r/TCError? fexpr-type)
@@ -1213,10 +1221,11 @@
 
 (add-check-method :the-var
   [{:keys [var] :as expr} & [expected]]
-  (assoc expr
-         expr-type (ret (c/RClass-of Var)
-                        (fo/-FS fl/-top fl/-bot)
-                        obj/-empty)))
+  (let [t (var-env/lookup-Var (u/var->symbol var))]
+    (assoc expr
+           expr-type (ret (c/RClass-of Var [t])
+                          (fo/-FS fl/-top fl/-bot)
+                          obj/-empty))))
 
 ;[Any TCResult * -> TCResult]
 (defn tc-equiv [comparator & vs]
@@ -4361,7 +4370,7 @@
         t (var-env/lookup-Var-nofail vsym)
         ;def returns a Var
         res-expr (assoc expr
-                        expr-type (ret (c/RClass-of Var)))
+                        expr-type (ret (c/RClass-of Var [(or t r/-any)])))
         check? (var-env/check-var? vsym)]
     (cond
       (and check? t)
@@ -4398,7 +4407,7 @@
       (or (.isMacro ^Var var)
           (not init-provided))
       (assoc expr
-             expr-type (ret (c/RClass-of Var)))
+             expr-type (ret (c/RClass-of Var [r/-any])))
 
       :else (check-normal-def expr expected))))
 

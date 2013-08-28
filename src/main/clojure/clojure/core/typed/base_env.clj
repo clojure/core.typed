@@ -427,10 +427,11 @@ Delay [[[r :variance :covariant]]
        :replace
        {IDeref (IDeref r)}]
 
-Var [[]
+Var [[[v :variance :invariant]]
      :replace
      {AReference (AReference Any Any)
       IReference (IReference Any Any)
+      IFn v
       IRef (IRef Any Any)
       ARef (ARef Any Any)
       IDeref (IDeref Any)
@@ -673,8 +674,8 @@ clojure.core/identity (All [x] [x -> x
                                 :object {:id 0}])
 clojure.core/gensym (Fn [-> Symbol]
                         [String -> Symbol])
-clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> Var]
-                        [(U Symbol Namespace) Symbol Any -> Var])
+clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> (Var Any)]
+                        [(U Symbol Namespace) Symbol Any -> (Var Any)])
 
 
 clojure.core/doall (All [[c :< (U nil (Seqable Any))]]
@@ -1193,16 +1194,16 @@ clojure.core/= [Any Any * -> (U true false)]
 
 clojure.core/integer? (predicate AnyInteger)
 clojure.core/number? (predicate Number)
-clojure.core/var? (predicate clojure.lang.Var)
+clojure.core/var? (predicate (clojure.lang.Var Any))
 clojure.core/class? (predicate Class)
 
-clojure.core/resolve (Fn [Symbol -> (U Var Class nil)]
+clojure.core/resolve (Fn [Symbol -> (U (Var Any) Class nil)]
                          ; should &env arg be more accurate?
-                         [Any Symbol -> (U Var Class nil)])
+                         [Any Symbol -> (U (Var Any) Class nil)])
 
-clojure.core/ns-resolve (Fn [Namespace Symbol -> (U Var Class nil)]
+clojure.core/ns-resolve (Fn [Namespace Symbol -> (U (Var Any) Class nil)]
                             ; should &env arg be more accurate?
-                            [Namespace Any Symbol -> (U Var Class nil)])
+                            [Namespace Any Symbol -> (U (Var Any) Class nil)])
 
 clojure.core/extenders [Any -> (U nil (Seqable (U Class nil)))]
 

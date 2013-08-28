@@ -153,6 +153,7 @@
   (if (or (u/p :subtype/query-current-seen
             (contains? A [s t]))
           (= s t)
+          ; FIXME TypeFn's probably are not between Top/Bottom
           (r/Top? t)
           (r/Bottom? s)
           ;TCError is top and bottom
@@ -528,6 +529,15 @@
         (and (r/RClass? s)
              (r/RClass? t))
         (u/p :subtype/RClass (subtype-RClass s t))
+
+        ; handles Var-as-function
+        (and (r/RClass? s)
+             (r/FnIntersection? t))
+        (if (some #(when (r/FnIntersection? %)
+                     (subtype? % t))
+                  (map c/fully-resolve-type (c/RClass-supers* s)))
+          *sub-current-seen*
+          (fail! s t))
 
         (and (r/CountRange? s)
              (r/CountRange? t))
