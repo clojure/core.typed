@@ -10,6 +10,9 @@
 - CTYP-27 Support `clojure.core/future`
 - CTYP-37 (Progress) Better errors in deftype.
 
+- *BREAKING CHANGE*
+  - clojure.lang.Var now takes a single invariant parameter, the type contained in the var
+
 0.1.23-24
 - Support extending protocols to nil
 - Fix subtyping between protocols and datatypes/records
