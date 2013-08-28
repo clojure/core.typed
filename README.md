@@ -10,6 +10,10 @@ Leiningen dependency information:
 
 ```clojure
 [org.clojure/core.typed "0.2.0"]
+
+...
+; for very recent releases
+:repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
 ```
 
 Maven dependency information:
