@@ -1220,8 +1220,20 @@
                               obj/-empty)))))))
 
 (add-check-method :the-var
-  [{:keys [var] :as expr} & [expected]]
-  (let [t (var-env/lookup-Var (u/var->symbol var))]
+  [{:keys [^Var var env] :as expr} & [expected]]
+  {:pre [(var? var)]}
+  (let [id (u/var->symbol var)
+        macro? (.isMacro var)
+        _ (when-not (or macro?
+                        (var-env/used-var? id))
+            (var-env/add-used-var id))
+        t (var-env/lookup-Var-nofail id)
+        t (cond
+            t t
+            macro? r/-any
+            :else (u/tc-delayed-error (str "Untyped var reference: " id)
+                                      :form (u/emit-form-fn expr)
+                                      :return (r/TCError-maker)))]
     (assoc expr
            expr-type (ret (c/RClass-of Var [t])
                           (fo/-FS fl/-top fl/-bot)

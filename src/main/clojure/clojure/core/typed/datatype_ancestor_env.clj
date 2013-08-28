@@ -16,14 +16,13 @@
 
 (t/def-alias DTAncestorEnv
   "Environment mapping datatype names to sets of ancestor types."
-                       ; FIXME should this be (U Scope Type)?
-  (t/Map Symbol (t/Set r/Type)))
+  (t/Map Symbol (t/Set (U r/Type r/Scope))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Predicates
 
 (def ^:no-check ^{:ann '[Any -> Any]}
-  dt-ancestor-env? (u/hash-c? symbol? (u/set-c? r/Type?)))
+  dt-ancestor-env? (u/hash-c? symbol? (u/set-c? (some-fn r/Scope? r/Type?))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation specific global state

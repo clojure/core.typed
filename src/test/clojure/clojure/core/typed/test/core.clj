@@ -1864,6 +1864,9 @@
   (is (cf @(future 'a) clojure.lang.Symbol))
   (is (cf (future 'a) java.util.concurrent.Future)))
 
+(deftest ignore-macro-def-test
+  (is (cf (defmacro foobar []))))
+
 ;(reset-caches)
 
 ;(chk/abstract-result

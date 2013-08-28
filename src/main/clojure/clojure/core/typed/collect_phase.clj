@@ -57,7 +57,10 @@
   (contains? (immediate-deps nsym) another-nsym))
 
 (defn probably-typed? [nsym]
-  (let [ns (find-ns (u/demunge-ns nsym))
+  (let [demunged (u/demunge-ns nsym)
+        ns (or (find-ns demunged)
+               (do (require demunged)
+                   (find-ns demunged)))
         _ (assert ns (str "Namespace " nsym " not found"))
         {:keys [check] :as opts} (u/typed-ns-opts ns)]
     (or check
@@ -213,7 +216,7 @@
             as (set (free-ops/with-frees (mapv r/make-F args)
                       (binding [uvar/*current-env* current-env
                                 prs/*parse-type-in-ns* current-ns]
-                        (mapv (comp #(c/abstract-many args) prs/parse-type) ancests))))
+                        (mapv (comp #(c/abstract-many args %) prs/parse-type) ancests))))
             _ (ancest/add-datatype-ancestors s as)
             pos-ctor-name (symbol demunged-ns-str (str "->" local-name))
             map-ctor-name (symbol demunged-ns-str (str "map->" local-name))
