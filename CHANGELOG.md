@@ -8,6 +8,7 @@
     defs and other things.
   - instance fields throws delayed errors
 - CTYP-27 Support `clojure.core/future`
+- CTYP-37 (Progress) Better errors in deftype.
 
 0.1.23-24
 - Support extending protocols to nil

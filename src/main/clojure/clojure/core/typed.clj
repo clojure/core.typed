@@ -5,6 +5,7 @@ for checking namespaces, cf for checking individual forms."}
   clojure.core.typed
   (:require [clojure.pprint :as pprint]
             [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.core.typed.current-impl :as impl :refer [v]]
             [clojure.core.typed.profiling :as p]
             [clojure.java.io :as io])
@@ -950,9 +951,15 @@ for checking namespaces, cf for checking individual forms."}
   (let [bnd-provided? (vector? (first args))
         vbnd (when bnd-provided?
                (first args))
-        [varsym & {:as mth}] (if bnd-provided?
-                               (next args)
-                               args)]
+        [varsym & mth] (if bnd-provided?
+                         (next args)
+                         args)
+        _ (let [fs (frequencies (map first (partition 2 mth)))]
+            (when-let [dups (seq (filter (fn [[_ freq]] (< 1 freq)) fs))]
+              (println (str "WARNING: Duplicate method annotations in ann-protocol (" varsym 
+                            "): " (str/join ", " (map first dups))))
+              (flush)))
+        {:as mth} mth]
     `(ann-protocol* '~vbnd '~varsym '~mth)))
 
 (defn ^:skip-wiki

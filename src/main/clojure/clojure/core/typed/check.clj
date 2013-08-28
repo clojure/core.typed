@@ -4474,43 +4474,47 @@
           dt (if (r/TypeFn? dtp)
                (unwrap-datatype dtp)
                dtp)
+          ret-expr (assoc expr
+                          expr-type (ret (c/RClass-of Class)))]
 
-          _ (when-not ((some-fn r/DataType? r/Record?) dt)
-              (u/int-error (str "deftype " nme " must have corresponding annotation. "
-                                "See ann-datatype and ann-record")))
-          check-method? (fn [inst-method]
-                          (not (and (r/Record? dt)
-                                    (record-implicits (symbol (:name inst-method))))))
-          _ (doseq [{:keys [env] :as inst-method} methods
-                    :when (check-method? inst-method)]
-              #_(prn "Checking deftype* method: "(:name inst-method))
-              (binding [vs/*current-env* env]
-                (let [nme (:name inst-method)
-                      _ (assert (symbol? nme))
-                      ; minus the target arg
-                      method-sig (cmmap [nme (dec (count (:required-params inst-method)))])
-                      _ (assert (instance? clojure.reflect.Method method-sig))
-                      expected-ifn 
-                      (extend-method-expected dt
-                                              (or (let [ptype (first
-                                                                (filter #(when-let [p (unwrap-tfn %)]
-                                                                           (assert (r/Protocol? p))
-                                                                           (= (:on-class p) (:declaring-class method-sig)))
-                                                                        (vals @pcl-env/CLJ-PROTOCOL-ENV)))]
-                                                    ;(prn "ptype" ptype)
-                                                    (when-let [ptype* (and ptype (unwrap-tfn ptype))]
-                                                      (let [munged-methods (into {} (for [[k v] (:methods ptype*)]
-                                                                                      [(symbol (munge k)) v]))]
-                                                        (munged-methods (:name method-sig)))))
-                                                  (instance-method->Function method-sig)))]
-                  #_(prn "method expected type" (prs/unparse-type expected-ifn))
-                  (lex/with-locals (c/DataType-fields* dt)
-                    ;(prn "lexical env when checking method" nme lex/*lexical-env*)
-                    (check-new-instance-method
-                      inst-method 
-                      expected-ifn)))))]
-      (assoc expr
-             expr-type (ret (c/RClass-of Class))))))
+      (if-not ((some-fn r/DataType? r/Record?) dt)
+        (u/tc-delayed-error (str "deftype " nme " must have corresponding annotation. "
+                                 "See ann-datatype and ann-record")
+                            :return ret-expr)
+        (let [check-method? (fn [inst-method]
+                              (not (and (r/Record? dt)
+                                        (record-implicits (symbol (:name inst-method))))))
+              _ (doseq [{:keys [env] :as inst-method} methods
+                        :when (check-method? inst-method)]
+                  #_(prn "Checking deftype* method: "(:name inst-method))
+                  (binding [vs/*current-env* env]
+                    (let [method-nme (:name inst-method)
+                          _ (assert (symbol? method-nme))
+                          ; minus the target arg
+                          method-sig (cmmap [method-nme (dec (count (:required-params inst-method)))])]
+                      (if-not (instance? clojure.reflect.Method method-sig)
+                        (u/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme
+                                                 ". Available methods: " (pr-str (map (comp first first) cmmap))))
+                        (let [expected-ifn 
+                              (extend-method-expected dt
+                                                      (or (let [ptype (first
+                                                                        (filter #(when-let [p (unwrap-tfn %)]
+                                                                                   (assert (r/Protocol? p))
+                                                                                   (= (:on-class p) (:declaring-class method-sig)))
+                                                                                (vals @pcl-env/CLJ-PROTOCOL-ENV)))]
+                                                            ;(prn "ptype" ptype)
+                                                            (when-let [ptype* (and ptype (unwrap-tfn ptype))]
+                                                              (let [munged-methods (into {} (for [[k v] (:methods ptype*)]
+                                                                                              [(symbol (munge k)) v]))]
+                                                                (munged-methods (:name method-sig)))))
+                                                          (instance-method->Function method-sig)))]
+                          #_(prn "method expected type" (prs/unparse-type expected-ifn))
+                          (lex/with-locals (c/DataType-fields* dt)
+                            ;(prn "lexical env when checking method" method-nme lex/*lexical-env*)
+                            (check-new-instance-method
+                              inst-method 
+                              expected-ifn)))))))]
+          ret-expr)))))
 
 ;[Expr FnIntersection -> Expr]
 (defn check-new-instance-method
