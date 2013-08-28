@@ -74,8 +74,8 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 ## Contributors
 
-Stephen Compall (S11001001)
-Andrew Brehaut (brehaut)
+* Stephen Compall (S11001001)
+* Andrew Brehaut (brehaut)
 
 ## YourKit
 

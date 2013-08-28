@@ -5,7 +5,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Declared kind Env
 
-(def ^:dynamic *current-declared-kinds* nil)
+(defonce ^:dynamic *current-declared-kinds* nil)
 
 (defn assert-declared-kinds []
   (assert *current-declared-kinds* "No declared kinds bound"))

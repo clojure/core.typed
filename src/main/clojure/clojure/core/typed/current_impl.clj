@@ -1,4 +1,5 @@
-(ns clojure.core.typed.current-impl)
+(ns clojure.core.typed.current-impl
+  (:require [clojure.core.typed.profiling :as p]))
 
 (defn v [vsym]
   {:pre [(symbol? vsym)
@@ -27,7 +28,7 @@
 (derive clojure any-impl)
 (derive clojurescript any-impl)
 
-(def ^:dynamic *current-impl* nil)
+(defonce ^:dynamic *current-impl* nil)
 (set-validator! #'*current-impl* (some-fn nil? keyword?))
 
 (defmacro with-impl [impl & body]
@@ -37,6 +38,7 @@
 
 (defmacro with-clojure-impl [& body]
   `(with-impl clojure
+     (clojure.core.typed.profiling/p :current-impl/push-thread-bindings
      (push-thread-bindings {(the-var '~'clojure.core.typed.name-env/*current-name-env*)
                              (v '~'clojure.core.typed.name-env/CLJ-TYPE-NAME-ENV)
                             (the-var '~'clojure.core.typed.protocol-env/*current-protocol-env*)
@@ -59,10 +61,11 @@
                              (v '~'clojure.core.typed.datatype-env/CLJ-DATATYPE-ENV) 
                             (the-var '~'clojure.core.typed.datatype-ancestor-env/*current-dt-ancestors*)
                              (v '~'clojure.core.typed.datatype-ancestor-env/CLJ-DT-ANCESTOR-ENV) 
-                            })
+                            }))
      (try 
        ~@body
-       (finally (pop-thread-bindings)))))
+       (finally (clojure.core.typed.profiling/p :current-impl/pop-thread-bindings 
+                     (pop-thread-bindings))))))
 
 (defmacro with-cljs-impl [& body]
   `(with-impl clojurescript

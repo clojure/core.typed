@@ -432,7 +432,7 @@
 
 (defmulti opposite-filter class)
 
-(def negate (memoize opposite-filter))
+(def negate opposite-filter)
 
 (defmethod opposite-filter TypeFilter
   [{:keys [type id path]}]

@@ -5,7 +5,9 @@ for checking namespaces, cf for checking individual forms."}
   clojure.core.typed
   (:require [clojure.pprint :as pprint]
             [clojure.set :as set]
-            [clojure.core.typed.current-impl :as impl :refer [v]])
+            [clojure.core.typed.current-impl :as impl :refer [v]]
+            [clojure.core.typed.profiling :as p]
+            [clojure.java.io :as io])
   (:refer-clojure :exclude [type]))
 
 ;=============================================================
@@ -28,20 +30,6 @@ for checking namespaces, cf for checking individual forms."}
 ;
 ; c.c.typed.cs-gen
 ;   Polymorphic local type inference algorithm.
-
-(defn load-if-needed 
-  "Load and initialize all of core.typed if not already"
-  []
-  (when-not (find-ns 'clojure.core.typed.init)
-    (require 'clojure.core.typed.init))
-  (let [init-ns (find-ns 'clojure.core.typed.init)]
-    (assert init-ns)
-    (when-not (@(ns-resolve init-ns 'loaded?))
-      (println "Initializing core.typed ...")
-      (flush)
-      (time (@(ns-resolve init-ns 'load-impl)))
-      (println "core.typed initialized.")
-      (flush))))
 
 ; ## Base alias vars
 ;
@@ -76,6 +64,8 @@ for checking namespaces, cf for checking individual forms."}
 ; Usually query functions need to force core.typed to fully load.
 ; To be as lazy as possible, we use `ns-resolve` to grab the Vars
 ; we need.
+
+(declare load-if-needed)
 
 ;(ann method-type [Symbol -> nil])
 (defn method-type
@@ -694,6 +684,37 @@ for checking namespaces, cf for checking individual forms."}
         (tc-ignore (alter-meta! (resolve '~qsym) merge '~m))
         (def-alias* '~qsym '~t)))))
 
+(defn ^:skip-wiki
+  ann-form* 
+  "Internal use only. Use ann-form."
+  [form ty]
+  form)
+
+(defmacro ann-form 
+  "Annotate a form with an expected type."
+  [form ty]
+  `(ann-form* ~form '~ty))
+
+;(ann unsafe-ann-form* [Any Any -> Any])
+(defn- unsafe-ann-form* [form ty]
+  form)
+
+(defmacro ^:private unsafe-ann-form [form ty]
+  `(unsafe-ann-form* ~form '~ty))
+
+;(ann tc-ignore-forms* [Any -> Any])
+(defn ^:skip-wiki
+  tc-ignore-forms* 
+  "Internal use only. Use tc-ignore"
+  [r]
+  r)
+
+;; `do` is special at the top level
+(defmacro tc-ignore 
+  "Ignore forms in body during type checking"
+  [& body]
+  `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
+
 ;(ann into-array>* [Any Any -> Any])
 (defn ^:skip-wiki
   into-array>*
@@ -734,36 +755,6 @@ for checking namespaces, cf for checking individual forms."}
   ([into-array-syn javat cljt coll]
    `(into-array>* '~javat '~cljt ~coll)))
 
-(defn ^:skip-wiki
-  ann-form* 
-  "Internal use only. Use ann-form."
-  [form ty]
-  form)
-
-(defmacro ann-form 
-  "Annotate a form with an expected type."
-  [form ty]
-  `(ann-form* ~form '~ty))
-
-;(ann unsafe-ann-form* [Any Any -> Any])
-(defn- unsafe-ann-form* [form ty]
-  form)
-
-(defmacro ^:private unsafe-ann-form [form ty]
-  `(unsafe-ann-form* ~form '~ty))
-
-;(ann tc-ignore-forms* [Any -> Any])
-(defn ^:skip-wiki
-  tc-ignore-forms* 
-  "Internal use only. Use tc-ignore"
-  [r]
-  r)
-
-;; `do` is special at the top level
-(defmacro tc-ignore 
-  "Ignore forms in body during type checking"
-  [& body]
-  `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
 
 (defn ^:skip-wiki
   non-nil-return* 
@@ -1156,12 +1147,13 @@ for checking namespaces, cf for checking individual forms."}
                   {:type-error :top-level-error
                    :errors errors})))
 
-(def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-collected*)
-(def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-checked*)
-(def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *currently-checking-clj* nil)
-(def ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors*)
+(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-collected* nil)
+(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-checked* nil)
+(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *currently-checking-clj* nil)
+(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors* nil)
 
-(def ^:dynamic *verbose-types* 
+(defonce ^:dynamic 
+  ^{:doc 
   "If true, print fully qualified types in error messages
   and return values. Bind around a type checking form like 
   cf or check-ns.
@@ -1169,16 +1161,20 @@ for checking namespaces, cf for checking individual forms."}
   eg. 
   (binding [*verbose-types* true] 
     (cf 1 Number))
-  ;=> java.lang.Number"
+  ;=> java.lang.Number"}
+  *verbose-types* 
   nil)
-(def ^:dynamic *verbose-forms* 
+
+(defonce ^:dynamic 
+  ^{:doc 
   "If true, print complete forms in error messages. Bind
   around a type checking form like cf or check-ns.
   
   eg.
   (binding [*verbose-forms* true]
     (cf ['deep ['deep ['deep ['deep]]]] Number))
-  ;=> <full form in error>"
+  ;=> <full form in error>"}
+  *verbose-forms* 
   nil)
 
 (defn ^:skip-wiki
@@ -1190,15 +1186,38 @@ for checking namespaces, cf for checking individual forms."}
                                       (instance? clojure.lang.ExceptionInfo a))
                                     %))))
 
+(defn load-if-needed 
+  "Load and initialize all of core.typed if not already"
+  []
+  (p/p :typed/load-if-needed
+  (when-not (find-ns 'clojure.core.typed.init)
+    (require 'clojure.core.typed.init))
+  (let [init-ns (find-ns 'clojure.core.typed.init)]
+    (assert init-ns)
+    (when-not (@(ns-resolve init-ns 'loaded?))
+      (println "Initializing core.typed ...")
+      (flush)
+      (time (@(ns-resolve init-ns 'load-impl)))
+      (println "core.typed initialized.")
+      (flush)))))
+
+
 (defn reset-caches 
   "Reset internal type caches."
   []
+  (p/p :typed/reset-caches
   (load-if-needed)
   (@(ns-resolve (find-ns 'clojure.core.typed.subtype) 'reset-subtype-cache))
   (@(ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'reset-Un-cache))
   (@(ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'reset-In-cache))
-  nil)
+  (@(ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'reset-supers-cache!))
+  (@(ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'reset-RClass-of-cache!))
+  (@(ns-resolve (find-ns 'clojure.core.typed.cs-gen) 'reset-dotted-var-store!))
+  nil))
 
+
+; FIXME some things strangely break when reset-caches is removed.
+; eg. Try checking frees.clj 
 (defn check-ns
   "Type check a namespace. If not provided default to current namespace.
   Returns a true value if type checking is successful, otherwise
@@ -1215,41 +1234,58 @@ for checking namespaces, cf for checking individual forms."}
         (check-ns))
       ;=> :ok"
   ([] (check-ns (ns-name *ns*)))
-  ([ns-or-sym]
-   (load-if-needed)
-   (reset-caches)
-   (let [nsym (if (symbol? ns-or-sym)
-                ns-or-sym
-                (ns-name ns-or-sym))
-         reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
-                                  'reset-envs!)
-         collect-ns @(ns-resolve (find-ns 'clojure.core.typed.collect-phase)
-                                 'collect-ns)
-         check-ns-and-deps @(ns-resolve (find-ns 'clojure.core.typed.check)
-                                        'check-ns-and-deps)
-         vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
-                                               'vars-with-unchecked-defs)]
-   (reset-envs!)
-   (cond
-     *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
+  ([ns-or-sym & {:keys [collect-only]}]
+   (p/p :typed/check-ns
+  (let [start (. System (nanoTime))]
+    (load-if-needed)
+    (reset-caches)
+    (let [nsym (if (symbol? ns-or-sym)
+                 ns-or-sym
+                 (ns-name ns-or-sym))
+          reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
+                                   'reset-envs!)
+          collect-ns @(ns-resolve (find-ns 'clojure.core.typed.collect-phase)
+                                  'collect-ns)
+          check-ns-and-deps @(ns-resolve (find-ns 'clojure.core.typed.check)
+                                         'check-ns-and-deps)
+          vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
+                                                'vars-with-unchecked-defs)
+          uri-for-ns (impl/v 'clojure.tools.analyzer/uri-for-ns)]
+      (reset-envs!)
+      (cond
+        *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
 
-     :else
-     (binding [*currently-checking-clj* true
-               *delayed-errors* (-init-delayed-errors)
-               *already-collected* (atom #{})
-               *already-checked* (atom #{})]
-       (impl/with-clojure-impl
-         (collect-ns nsym)
-         (reset-caches)
-         (check-ns-and-deps nsym)
-         (let [vs (vars-with-unchecked-defs)]
-           (binding [*out* *err*]
-             (doseq [v vs]
-               (println "WARNING: Type Checker: Definition missing:" v)
-               (flush))))
-         (when-let [errors (seq @*delayed-errors*)]
-           (print-errors! errors))
-         :ok))))))
+        :else
+        (binding [*currently-checking-clj* true
+                  *delayed-errors* (-init-delayed-errors)
+                  *already-collected* (atom #{})
+                  *already-checked* (atom #{})]
+          (impl/with-clojure-impl
+            (let [collect-start (. System (nanoTime))
+                  _ (collect-ns nsym)
+                  ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
+                  collected @*already-collected*]
+                (println "Collected" (count collected) "namespaces in" ms "msecs")
+                (flush))
+            ;(reset-caches)
+            (when-not collect-only
+              (check-ns-and-deps nsym))
+            (let [vs (vars-with-unchecked-defs)]
+              (binding [*out* *err*]
+                (doseq [v vs]
+                  (println "WARNING: Type Checker: Definition missing:" v)
+                  (flush))))
+            (when-let [errors (seq @*delayed-errors*)]
+              (print-errors! errors))
+            (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
+                  checked @*already-checked*
+                  nlines (p/p :typed/line-count
+                          (apply + (for [nsym checked]
+                                (with-open [rdr (io/reader (uri-for-ns nsym))]
+                                  (count (line-seq rdr))))))]
+              (println "Checked" (count checked) "namespaces (approx." nlines "lines) in" ms "msecs")
+              (flush))
+            :ok))))))))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)

@@ -6,27 +6,27 @@
   (:import (clojure.lang IPersistentMap IPersistentSet Symbol Seqable)
            (clojure.core.typed.type_rep Bounds F)))
 
-(u/ann-record t-subst [type :- r/TCType,
+(u/ann-record t-subst [type :- r/Type,
                        bnds :- Bounds])
 (u/defrecord t-subst [type bnds]
   ""
   [(r/Type? type)
    (r/Bounds? bnds)])
 
-(u/ann-record i-subst [types :- (U nil (Seqable r/TCType))])
+(u/ann-record i-subst [types :- (U nil (Seqable r/Type))])
 (u/defrecord i-subst [types]
   ""
   [(every? r/Type? types)])
 
-(u/ann-record i-subst-starred [types :- (U nil (Seqable r/TCType)),
-                               starred :- r/TCType])
+(u/ann-record i-subst-starred [types :- (U nil (Seqable r/Type)),
+                               starred :- r/Type])
 (u/defrecord i-subst-starred [types starred]
   ""
   [(every? r/Type? types)
    (r/Type? starred)])
 
-(u/ann-record i-subst-dotted [types :- (U nil (Seqable r/TCType)),
-                              dty :- r/TCType,
+(u/ann-record i-subst-dotted [types :- (U nil (Seqable r/Type)),
+                              dty :- r/Type,
                               dbound :- F])
 (u/defrecord i-subst-dotted [types dty dbound]
   ""
@@ -50,9 +50,9 @@
 (t/ann ^:no-check substitution-c? (predicate SubstMap))
 (def substitution-c? (u/hash-c? symbol? subst-rhs?))
 
-(u/ann-record c [S :- r/TCType,
+(u/ann-record c [S :- r/Type,
                  X :- clojure.lang.Symbol,
-                 T :- r/TCType,
+                 T :- r/Type,
                  bnds :- Bounds])
 (u/defrecord c [S X T bnds]
   "A type constraint on a variable within an upper and lower bound"
@@ -103,16 +103,25 @@
 (t/def-alias DelayedCheck
   "A pair of types. The left type must be a subtype
   to the right type at instantiation time."
-  '[r/TCType r/TCType])
+  '[r/Type r/Type])
+
+(t/def-alias CMap
+  "Map of free symbols to constraints"
+  (t/Map Symbol c))
+
+(t/def-alias DMap
+  "Map of dotted free symbols to constraints, wrapped
+  in a dmap constructor."
+  dmap)
 
 ;  Delayed checks are subtype relationships t1 <: t2 that should be instantiated
 ;  at the same time as bounds checking. t1 should be a subtype of t2 after instantiating
 ;  them with the current substitution, otherwise constraint generation should fail.
 ;  This is useful for types like (I a (Not b)) where it's too hard to use the expression
 ;  to constrain the type variables.
-(u/ann-record cset-entry [fixed :- (IPersistentMap Symbol c),
-                          dmap :- dmap,
-                          delayed-checks :- (IPersistentSet DelayedCheck)])
+(u/ann-record cset-entry [fixed :- CMap
+                          dmap :- DMap,
+                          delayed-checks :- (t/Set DelayedCheck)])
 (u/defrecord cset-entry [fixed dmap delayed-checks]
   ""
   [((u/hash-c? symbol? c?) fixed)

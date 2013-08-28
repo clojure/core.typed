@@ -6,6 +6,7 @@
             [clojure.core.typed.object-rep]
             [clojure.core.typed.path-rep]
             [clojure.core.typed.frees :as frees]
+            [clojure.core.typed :as t]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
@@ -27,22 +28,31 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable Elimination
 
+(t/def-alias ElimVars
+  "A set of variables to be eliminated via promotion
+  or demotion."
+  (t/Set clojure.lang.Symbol))
+
 (declare promote demote)
 
+(t/ann promote-var [r/AnyType ElimVars -> r/AnyType])
 (defn promote-var [T V]
-  {:pre [(r/Type? T)
+  {:pre [(r/AnyType? T)
          (set? V)
          (every? symbol? V)]
-   :post [(r/Type? %)]}
+   :post [(r/AnyType? %)]}
   (promote T V))
 
+(t/ann demote-var [r/AnyType ElimVars -> r/AnyType])
 (defn demote-var [T V]
   {:pre [(r/AnyType? T)
          (set? V)
          (every? symbol? V)]
-   :post [(r/Type? %)]}
+   :post [(r/AnyType? %)]}
   (demote T V))
 
+;no-check because of update-in
+(t/ann ^:no-check promote [r/AnyType ElimVars -> r/AnyType])
 (defmulti promote 
   "Eliminate all variables V in t by promotion"
   (fn [T V] 
@@ -51,6 +61,8 @@
            (every? symbol? V)]}
     (class T)))
 
+;no-check because of update-in
+(t/ann ^:no-check demote [r/AnyType ElimVars -> r/AnyType])
 (defmulti demote 
   "Eliminate all variables V in T by demotion"
   (fn [T V]

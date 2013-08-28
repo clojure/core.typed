@@ -1,4 +1,5 @@
-(ns clojure.core.typed.fold-rep)
+(ns clojure.core.typed.fold-rep
+  (:require [clojure.core.typed.utils :as u]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Folding
@@ -19,11 +20,12 @@
   `(defmethod fold-rhs [~mode ~ty]
      ~(symbol (str "fold-rhs " (name mode) ty))
      [mode# options# ty#]
+     (u/p ~(keyword (str "fold-" mode) (str ty))
      (let [~'[type-rec filter-rec object-rec pathelem-rec]
            (map #(or (% options#)
                      (partial fold-rhs mode# options#))
                 [:type-rec :filter-rec :object-rec :pathelem-rec])]
-       (~fld-fn ty# options#))))
+       (~fld-fn ty# options#)))))
 
 (defmacro add-default-fold-case [ty fld-fn]
   `(add-fold-case fold-rhs-default ~ty ~fld-fn))

@@ -7,10 +7,10 @@
             [clojure.core.typed :as t]
             [clojure.set :as set]))
 
-(def ^:dynamic *current-var-annotations* nil)
-(def ^:dynamic *current-nocheck-var?* nil)
-(def ^:dynamic *current-used-vars* nil)
-(def ^:dynamic *current-checked-var-defs* nil)
+(defonce ^:dynamic *current-var-annotations* nil)
+(defonce ^:dynamic *current-nocheck-var?* nil)
+(defonce ^:dynamic *current-used-vars* nil)
+(defonce ^:dynamic *current-checked-var-defs* nil)
 
 (defonce CLJ-VAR-ANNOTATIONS (atom {} :validator (u/hash-c? (every-pred symbol? namespace) r/Type?)))
 (defonce CLJ-NOCHECK-VAR? (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))

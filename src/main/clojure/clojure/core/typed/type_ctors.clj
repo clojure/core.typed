@@ -1,7 +1,8 @@
 (ns ^:skip-wiki clojure.core.typed.type-ctors
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed.utils :as u :refer [p]]
-            [clojure.core.typed.type-rep :as r :refer [TCType]]
+            [clojure.core.typed.impl-protocols :as p]
+            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.cs-rep :as crep]
@@ -20,9 +21,9 @@
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
                                         Bounds Name Scope CountRange Intersection DataType Extends
-                                        JSNominal)
+                                        JSNominal Protocol)
            (clojure.lang Seqable IPersistentSet IPersistentMap Symbol Keyword
-                         Atom)))
+                         Atom Var)))
 
 ; create an alias cr -> cs-rep
 (t/tc-ignore
@@ -43,7 +44,7 @@
 
 (declare Un make-Union)
 
-(t/ann make-Union [(U nil (Seqable TCType)) -> TCType])
+(t/ann make-Union [(U nil (Seqable r/Type)) -> r/Type])
 (defn- make-Union
   "Arguments should not overlap or be unions"
   [args]
@@ -51,14 +52,14 @@
     (= 1 (count args)) (first args)
     :else (r/Union-maker (set args))))
 
-(t/ann bottom TCType)
+(t/ann bottom r/Type)
 (def ^:private bottom (make-Union []))
 
 ;; Heterogeneous maps
 
-(t/ann ^:no-check -hmap (Fn [(Seqable TCType) -> TCType]
-                           [(Seqable TCType) Boolean -> TCType]
-                           [(Seqable TCType) (IPersistentSet TCType) Boolean -> TCType]))
+(t/ann ^:no-check -hmap (Fn [(Seqable r/Type) -> r/Type]
+                           [(Seqable r/Type) Boolean -> r/Type]
+                           [(Seqable r/Type) (IPersistentSet r/Type) Boolean -> r/Type]))
 (defn -hmap 
   ([types] (-hmap types #{} true))
   ([types other-keys?] (-hmap types #{} other-keys?))
@@ -70,16 +71,16 @@
      bottom
      (r/HeterogeneousMap-maker types absent-keys other-keys?))))
 
-(t/ann -complete-hmap [(Seqable TCType) -> TCType])
+(t/ann -complete-hmap [(Seqable r/Type) -> r/Type])
 (defn -complete-hmap [types]
   (-hmap types false))
 
 (t/def-alias TypeMap
   "A regular map with types as keys and vals."
-  (IPersistentMap TCType TCType))
+  (IPersistentMap r/Type r/Type))
 
-(t/ann ^:no-check make-HMap (Fn [TypeMap TypeMap -> TCType]
-                               [TypeMap TypeMap Any -> TCType]))
+(t/ann ^:no-check make-HMap (Fn [TypeMap TypeMap -> r/Type]
+                               [TypeMap TypeMap Any -> r/Type]))
 (defn make-HMap 
   "Generate a type which is every possible combination of mandatory
   and optional key entries. Takes an optional third parameter which
@@ -110,7 +111,7 @@
                        (not complete?))))))))
 
 ;TODO to type check this, need to un-munge instance field names
-(t/ann ^:no-check complete-hmap? [HeterogeneousMap -> Any])
+(t/ann complete-hmap? [HeterogeneousMap -> Any])
 (defn complete-hmap? [^HeterogeneousMap hmap]
   {:pre [(r/HeterogeneousMap? hmap)]}
   (not (.other-keys? hmap)))
@@ -141,15 +142,11 @@
     v))
   )
 
-(t/def-alias TempAtom1
-  "clojure.core.typed/Atom1 might not be around here"
-  (TFn [[a :variance :invariant]]
-    (Atom a a)))
+(t/def-alias TypeCache 
+  (IPersistentMap (IPersistentSet r/Type) r/Type))
 
-(t/def-alias TypeCache (IPersistentMap (IPersistentSet TCType) TCType))
-
-(t/ann ^:no-check Un-cache (TempAtom1 TypeCache))
-(def Un-cache (atom {}))
+(t/ann ^:no-check Un-cache (t/Atom1 TypeCache))
+(defonce Un-cache (atom {}))
 
 (t/ann ^:no-check reset-Un-cache [-> nil])
 (defn reset-Un-cache []
@@ -158,7 +155,7 @@
 
 (declare flatten-unions)
 
-(t/ann ^:no-check Un [TCType * -> TCType])
+(t/ann ^:no-check Un [r/Type * -> r/Type])
 (defn Un [& types]
   ;(prn "Un" (map @(unparse-type-var) types))
   (if-let [hit (p :Union-cache-lookup (@Un-cache (p :Union-calc-hash (set (map r/type-id types)))))]
@@ -200,11 +197,11 @@
 
 (declare overlap In)
 
-(t/ann In-cache (TempAtom1 TypeCache))
-(def In-cache (atom {}))
+(t/ann In-cache (t/Atom1 TypeCache))
+(defonce In-cache (atom {}))
 
-(t/ann intersect-cache (TempAtom1 TypeCache))
-(def intersect-cache (atom {}))
+(t/ann intersect-cache (t/Atom1 TypeCache))
+(defonce intersect-cache (atom {}))
 
 (t/ann reset-In-cache [-> nil])
 (defn reset-In-cache []
@@ -212,14 +209,14 @@
   (reset! intersect-cache {})
   nil)
 
-(t/ann ^:no-check make-Intersection [(U nil (Seqable TCType)) -> TCType])
+(t/ann ^:no-check make-Intersection [(U nil (Seqable r/Type)) -> r/Type])
 (defn make-Intersection [types]
   #_(prn "make-Intersection" types)
   (r/Intersection-maker (set types)))
 
 (declare RClass-of)
 
-(t/ann ^:no-check intersect [TCType TCType -> TCType])
+(t/ann ^:no-check intersect [r/Type r/Type -> r/Type])
 (defn intersect [t1 t2]
   {:pre [(r/Type? t1)
          (r/Type? t2)
@@ -271,7 +268,7 @@
         ;(prn "intersect miss" (unparse-type t))
         t))))
 
-(t/ann ^:no-check flatten-intersections [(U nil (Seqable TCType)) -> (Seqable TCType)])
+(t/ann ^:no-check flatten-intersections [(U nil (Seqable r/Type)) -> (Seqable r/Type)])
 (defn flatten-intersections [types]
   {:pre [(every? r/Type? types)]
    :post [(every? r/Type? %)]}
@@ -281,7 +278,7 @@
              (.types t)
              [t]))))
 
-(t/ann ^:no-check flatten-unions [(U nil (Seqable TCType)) -> (Seqable TCType)])
+(t/ann ^:no-check flatten-unions [(U nil (Seqable r/Type)) -> (Seqable r/Type)])
 (defn flatten-unions [types]
   {:pre [(every? r/Type? types)]
    :post [(every? r/Type? %)]}
@@ -291,7 +288,7 @@
              (:types t)
              [t]))))
 
-(t/ann ^:no-check In [TCType * -> TCType])
+(t/ann ^:no-check In [r/Type * -> r/Type])
 (defn In [& types]
   {:pre [(every? r/Type? types)]
    :post [(r/Type? %)]}
@@ -344,8 +341,8 @@
 ;; JS Nominal
 
 (t/ann ^:no-check JSNominal*
-  (Fn [Symbol -> TCType]
-      [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol (Seqable Bounds) -> TCType]))
+  (Fn [Symbol -> r/Type]
+      [(Seqable Symbol) (Seqable r/Variance) (Seqable r/Type) Symbol (Seqable Bounds) -> r/Type]))
 (defn JSNominal* 
   ([name] (JSNominal* nil nil nil name nil))
   ([names variances poly? name bnds]
@@ -361,8 +358,8 @@
        (TypeFn* names variances bnds p)
        p))))
 
-(t/ann ^:no-check JSNominal-of (Fn [Symbol -> TCType]
-                                   [Symbol (U nil (Seqable TCType)) -> TCType]))
+(t/ann ^:no-check JSNominal-of (Fn [Symbol -> r/Type]
+                                   [Symbol (U nil (Seqable r/Type)) -> r/Type]))
 (defn JSNominal-of
   ([sym] (JSNominal-of sym nil))
   ([sym args]
@@ -383,7 +380,7 @@
 ;Datatype
 
 (t/ann ^:no-check DataType*
-  [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol (Seqable Bounds) -> TCType])
+  [(Seqable Symbol) (Seqable r/Variance) (Seqable r/Type) Symbol (Seqable Bounds) -> r/Type])
 (defn DataType* [names variances poly? name bnds fields record?]
   {:pre [(every? symbol? names)
          (every? r/variance? variances)
@@ -397,8 +394,8 @@
       (TypeFn* names variances bnds p)
       p)))
 
-(t/ann ^:no-check DataType-of (Fn [Symbol -> TCType]
-                                  [Symbol (U nil (Seqable TCType)) -> TCType]))
+(t/ann ^:no-check DataType-of (Fn [Symbol -> r/Type]
+                                  [Symbol (U nil (Seqable r/Type)) -> r/Type]))
 (defn DataType-of
   ([sym] (DataType-of sym nil))
   ([sym args]
@@ -420,8 +417,10 @@
 ;; Protocol
 
 (t/ann ^:no-check Protocol*
-  [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol Symbol (IPersistentMap Symbol TCType) (Seqable Bounds) -> TCType])
-(defn Protocol* [names variances poly? the-var on-class methods bnds]
+  [(Seqable Symbol) (Seqable r/Variance) (Seqable r/Type) Symbol Symbol (IPersistentMap Symbol r/Type) (Seqable Bounds) 
+   & :optional {:declared? Boolean} -> r/Type])
+(defn Protocol* [names variances poly? the-var on-class methods bnds
+                 & {:keys [declared?] :or {declared? false}}]
   {:pre [(every? symbol? names)
          (every? r/variance? variances)
          (= (count variances) (count poly?))
@@ -432,7 +431,7 @@
    :post [(r/Type? %)]}
   (let [methods (into {} (for [[k v] methods]
                            [k (abstract-many names v)]))
-        p (r/Protocol-maker the-var (seq variances) (seq poly?) on-class methods)]
+        p (r/Protocol-maker the-var (seq variances) (seq poly?) on-class methods declared?)]
     (if (seq variances)
       (TypeFn* names variances bnds p)
       p)))
@@ -459,8 +458,21 @@
         var-sym (symbol (apply str (apply concat segs)))]
     var-sym))
 
-(t/ann ^:no-check Protocol-of (Fn [Symbol -> TCType]
-                                  [Symbol (U nil (Seqable TCType)) -> TCType]))
+(t/ann resolve-Protocol [Protocol -> Var])
+(defn resolve-Protocol
+  [{:keys [the-var]}]
+  {:post [(var? %)]}
+  (let [v (resolve the-var)]
+    (assert (var? v) (str "Cannot resolve protocol: " the-var))
+    v))
+
+(t/ann Protocol-normal-extenders [Protocol -> (t/Set (U nil Class))])
+(defn Protocol-normal-extenders
+  [p]
+  (set (extenders @(resolve-Protocol p))))
+
+(t/ann ^:no-check Protocol-of (Fn [Symbol -> r/Type]
+                                  [Symbol (U nil (Seqable r/Type)) -> r/Type]))
 (defn Protocol-of 
   ([sym] (Protocol-of sym nil))
   ([sym args]
@@ -476,18 +488,18 @@
        (r/TypeFn? p) (instantiate-typefn p args)
        (r/Protocol? p) p
        ; allow unannotated protocols if unparameterised
-       :else (r/Protocol-maker sym nil nil (Protocol-var->on-class sym) {})))))
+       :else (r/Protocol-maker sym nil nil (Protocol-var->on-class sym) {} false)))))
 
 ;; RClass
 
-(t/ann *current-RClass-super* Symbol)
-(def ^:dynamic *current-RClass-super*)
+(t/ann *current-RClass-super* (U nil Symbol))
+(defonce ^:dynamic *current-RClass-super* nil)
 
 ;smart constructor
 (t/ann ^:no-check RClass* 
-  (Fn [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol (IPersistentMap Symbol TCType) -> TCType]
-      [(Seqable Symbol) (Seqable r/Variance) (Seqable TCType) Symbol 
-       (IPersistentMap Symbol TCType) (IPersistentSet TCType) -> TCType]))
+  (Fn [(Seqable Symbol) (Seqable r/Variance) (Seqable r/Type) Symbol (IPersistentMap Symbol r/Type) -> r/Type]
+      [(Seqable Symbol) (Seqable r/Variance) (Seqable r/Type) Symbol 
+       (IPersistentMap Symbol r/Type) (IPersistentSet r/Type) -> r/Type]))
 (defn RClass* 
   ([names variances poly? the-class replacements]
    (RClass* names variances poly? the-class replacements #{}))
@@ -515,7 +527,8 @@
   (let [cls (if (class? sym-or-cls)
               sym-or-cls
               (u/symbol->Class sym-or-cls))]
-    (isa? cls clojure.lang.IType)))
+    (and (isa? cls clojure.lang.IType)
+         (not= cls clojure.lang.IType))))
 
 (t/ann ^:no-check isa-Record? [(U Symbol Class) -> Any])
 (defn isa-Record? [sym-or-cls]
@@ -523,9 +536,10 @@
   (let [cls (if (class? sym-or-cls)
               sym-or-cls
               (u/symbol->Class sym-or-cls))]
-    (isa? cls clojure.lang.IRecord)))
+    (and (isa? cls clojure.lang.IRecord)
+         (not= cls clojure.lang.IRecord))))
 
-(t/ann ^:no-check Record->HMap [DataType -> TCType])
+(t/ann ^:no-check Record->HMap [DataType -> r/Type])
 (defn Record->HMap [^DataType r]
   {:pre [(r/Record? r)]
    :post [(r/Type? %)]}
@@ -533,34 +547,58 @@
                    (vals (.fields r)))]
     (-hmap kf)))
 
-(t/ann ^:no-check RClass-of (Fn [(U Symbol Class) -> TCType]
-                               [(U Symbol Class) (U nil (Seqable TCType)) -> TCType]))
+(t/ann RClass-of-cache (t/Atom1 (t/Map Any r/Type)))
+(defonce ^:private RClass-of-cache (atom {}))
+
+(t/ann reset-RClass-of-cache! [-> nil])
+(defn reset-RClass-of-cache! []
+  (reset! RClass-of-cache {})
+  nil)
+
+(t/ann ^:no-check RClass-of (Fn [(U Symbol Class) -> r/Type]
+                               [(U Symbol Class) (U nil (Seqable r/Type)) -> r/Type]))
 (defn RClass-of 
   ([sym-or-cls] (RClass-of sym-or-cls nil))
   ([sym-or-cls args]
    {:pre [((some-fn class? symbol?) sym-or-cls)
           (every? r/Type? args)]
     :post [((some-fn r/RClass? r/DataType?) %)]}
+   (u/p :ctors/RClass-of
    (let [sym (if (class? sym-or-cls)
                (u/Class->symbol sym-or-cls)
                sym-or-cls)
-         rc ((some-fn dtenv/get-datatype rcls/get-rclass) 
-             sym)]
-     (assert ((some-fn r/TypeFn? r/RClass? r/DataType? nil?) rc))
-     (assert (or (r/TypeFn? rc) (empty? args))
-             (str "Cannot instantiate non-polymorphic RClass " sym
-                  (when *current-RClass-super*
-                    (str " when checking supertypes of RClass " *current-RClass-super*))))
-     (cond 
-       (r/TypeFn? rc) (instantiate-typefn rc args)
-       ((some-fn r/DataType? r/RClass?) rc) rc
-       :else
-       (let [cls (u/symbol->Class sym)]
-         (if (isa-DataType? cls)
-           (r/DataType-maker sym nil nil (array-map) (isa-Record? cls))
-           (r/RClass-maker nil nil sym {} #{})))))))
+         cache-key-hash [(keyword sym) (mapv r/type-id args)]
+         cache-hit (@RClass-of-cache cache-key-hash)]
+     (if cache-hit
+       (u/p :ctors/RClass-of-cache-hit
+            cache-hit)
+       (u/p :ctors/RClass-of-cache-miss
+         (let [rc ((some-fn dtenv/get-datatype rcls/get-rclass) 
+                   sym)
+               _ (assert ((some-fn r/TypeFn? r/RClass? r/DataType? nil?) rc))
+               _ (assert (or (r/TypeFn? rc) (empty? args))
+                         (str "Cannot instantiate non-polymorphic RClass " sym
+                              (when *current-RClass-super*
+                                (str " when checking supertypes of RClass " *current-RClass-super*))))
+               res (cond 
+                     (r/TypeFn? rc) (instantiate-typefn rc args)
+                     ((some-fn r/DataType? r/RClass?) rc) rc
+                     :else
+                     (let [cls (u/symbol->Class sym)]
+                       (if (isa-DataType? cls)
+                         (do (println (str "WARNING: Assuming unannotated Clojure type " sym
+                                           " is a datatype"))
+                             (flush)
+                             (when (isa-Record? cls)
+                               (println (str "WARNING: " sym " is probably a record because it extends IRecord."
+                                             " Annotate with ann-record above the first time it is parsed"))
+                               (flush))
+                           (r/DataType-maker sym nil nil (array-map) (isa-Record? cls)))
+                         (r/RClass-maker nil nil sym {} #{}))))]
+           (swap! RClass-of-cache assoc cache-key-hash res)
+           res)))))))
 
-(t/ann ^:no-check most-general-on-variance [(Seqable r/Variance) (Seqable Bounds) -> TCType])
+(t/ann ^:no-check most-general-on-variance [(Seqable r/Variance) (Seqable Bounds) -> r/Type])
 (defn most-general-on-variance [variances bnds]
   (doall
     (for [[variance bnd] (map vector variances bnds)]
@@ -575,7 +613,7 @@
 (declare TypeFn-bbnds*)
 
 ;FIXME rename to RClass-with-unknown-params
-(t/ann ^:no-check RClass-of-with-unknown-params [(U Symbol Class) -> TCType])
+(t/ann ^:no-check RClass-of-with-unknown-params [(U Symbol Class) -> r/Type])
 (defn RClass-of-with-unknown-params
   ([sym-or-cls]
    {:pre [((some-fn class? symbol?) sym-or-cls)]
@@ -589,7 +627,7 @@
                                           (TypeFn-bbnds* (repeatedly (count (:variances rc)) gensym) rc)))]
      (RClass-of sym args))))
 
-(t/ann ^:no-check DataType-with-unknown-params [Symbol -> TCType])
+(t/ann ^:no-check DataType-with-unknown-params [Symbol -> r/Type])
 (defn DataType-with-unknown-params
   ([sym]
    {:pre [(symbol? sym)]
@@ -600,7 +638,7 @@
                                           (TypeFn-bbnds* (repeatedly (count (:variances t)) gensym) t)))]
      (DataType-of sym args))))
 
-(t/ann ^:no-check JSNominal-with-unknown-params [Symbol -> TCType])
+(t/ann ^:no-check JSNominal-with-unknown-params [Symbol -> r/Type])
 (defn JSNominal-with-unknown-params
   ([sym]
    {:pre [(symbol? sym)]
@@ -611,7 +649,7 @@
                                           (TypeFn-bbnds* (repeatedly (count (:variances t)) gensym) t)))]
      (JSNominal-of sym args))))
 
-(t/ann ^:no-check JSNominal-method* [JSNominal Symbol -> TCType])
+(t/ann ^:no-check JSNominal-method* [JSNominal Symbol -> r/Type])
 (defn JSNominal-method*
   [{:keys [name poly?] :as jsnom} msym]
   {:pre [(r/JSNominal? jsnom)
@@ -621,7 +659,7 @@
     t
     (assert nil (str "JS nominal type " name " does not have method " msym))))
 
-(t/ann ^:no-check JSNominal-field* [JSNominal Symbol -> TCType])
+(t/ann ^:no-check JSNominal-field* [JSNominal Symbol -> r/Type])
 (defn JSNominal-field*
   [{:keys [name poly?] :as jsnom} fsym]
   {:pre [(r/JSNominal? jsnom)
@@ -631,7 +669,7 @@
     t
     (assert nil (str "JS nominal type " name " does not have field " fsym))))
 
-(t/ann ^:no-check JSNominal-ctor* [JSNominal -> TCType])
+(t/ann ^:no-check JSNominal-ctor* [JSNominal -> r/Type])
 (defn JSNominal-ctor*
   [{:keys [name poly?] :as jsnom}]
   {:pre [(r/JSNominal? jsnom)]
@@ -640,7 +678,7 @@
     t
     (assert nil (str "JS nominal type " name " does not have a constructor."))))
 
-(t/ann ^:no-check Protocol-with-unknown-params [Symbol -> TCType])
+(t/ann ^:no-check Protocol-with-unknown-params [Symbol -> r/Type])
 (defn Protocol-with-unknown-params
   ([sym]
    {:pre [(symbol? sym)]
@@ -667,7 +705,7 @@
 
 (declare make-simple-substitution)
 
-(t/ann ^:no-check inst-and-subst [(U TCType Scope) (U nil (Seqable TCType)) -> TCType])
+(t/ann ^:no-check inst-and-subst [(U r/Type Scope) (U nil (Seqable r/Type)) -> r/Type])
 (defn inst-and-subst 
   "Instantiate target type with ts number of
   free names. Target must be wrapped in ts number
@@ -677,15 +715,16 @@
   {:pre [((some-fn r/Type? r/Scope?) target)
          (every? r/Type? ts)]
    :post [(r/Type? %)]}
+  (u/p :ctors/inst-and-subst
   (let [subst-all @(subst-all-var)
         names (repeatedly (count ts) gensym)
         fs (map r/make-F names)
         t (instantiate-many names target)
         _ (assert (r/Type? t))
         subst (make-simple-substitution names ts)]
-    (subst-all subst t)))
+    (subst-all subst t))))
 
-(t/ann ^:no-check RClass-replacements* [RClass -> (IPersistentMap Symbol TCType)])
+(t/ann ^:no-check RClass-replacements* [RClass -> (IPersistentMap Symbol r/Type)])
 (defn RClass-replacements*
   "Return the replacements map for the RClass"
   [^RClass rcls]
@@ -696,11 +735,12 @@
     (into {} (for [[k v] (.replacements rcls)]
                [k (inst-and-subst v poly)]))))
 
-(t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (IPersistentSet TCType)])
+(t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (IPersistentSet r/Type)])
 (defn RClass-unchecked-ancestors*
   [^RClass rcls]
   {:pre [(r/RClass? rcls)]
    :post [((u/set-c? r/Type?) %)]}
+  (u/p :ctors/RClass-unchecked-ancestors*
   (let [subst-all @(subst-all-var)
         poly (.poly? rcls)
         names (repeatedly (count poly) gensym)
@@ -708,35 +748,60 @@
     (set (for [u (.unchecked-ancestors rcls)]
            (let [t (instantiate-many names u)
                  subst (make-simple-substitution names poly)]
-             (subst-all subst t))))))
+             (subst-all subst t)))))))
+
+(t/ann supers-cache (t/Atom1 (t/Map Number (t/Map Symbol r/Type))))
+(defonce ^:private supers-cache (atom {}))
+
+(t/ann reset-supers-cache! [-> nil])
+(defn reset-supers-cache! []
+  (reset! supers-cache {})
+  nil)
 
 ;TODO won't type check because records+destructuring
-(t/ann ^:no-check RClass-supers* [RClass -> (Seqable TCType)])
+(t/ann ^:no-check RClass-supers* [RClass -> (t/Set r/Type)])
 (defn RClass-supers* 
   "Return a set of ancestors to the RClass"
   [{:keys [the-class] :as rcls}]
   {:pre [(r/RClass? rcls)]
    :post [((u/set-c? r/Type?) %)
-          (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) %))
-              1)]}
+          ]}
+  (u/p :ctors/RClass-supers*
   ;(prn "RClass-supers*" the-class (@(unparse-type-var) rcls))
-  (let [unchecked-ancestors (RClass-unchecked-ancestors* rcls)
-        ;_ (prn "unchecked-ancestors" (map @(unparse-type-var) unchecked-ancestors))
-        replacements (RClass-replacements* rcls)
-        ;_ (prn "replacements" (map @(unparse-type-var) (vals replacements)))
-        ;set of symbols of Classes we haven't explicitly replaced
-        not-replaced (set/difference (set (map u/Class->symbol (-> the-class u/symbol->Class supers)))
-                                     (set (keys replacements)))]
-    ;(prn "not-replaced" not-replaced)
-    (set/union (binding [*current-RClass-super* the-class]
-                 (set (doall 
-                        (for [csym not-replaced]
-                          (RClass-of-with-unknown-params csym)))))
-               (set (vals replacements))
-               #{(RClass-of Object)}
-               unchecked-ancestors)))
+  (let [cache-key (r/type-id rcls)
+        cache-hit (@supers-cache cache-key)]
+    (if cache-hit
+      (u/p :ctors/RClass-supers-cache-hit
+       cache-hit)
+      (u/p :ctors/RClass-supers-cache-miss
+        (let [unchecked-ancestors (RClass-unchecked-ancestors* rcls)
+              ;_ (prn "unchecked-ancestors" (map @(unparse-type-var) unchecked-ancestors))
+              replacements (RClass-replacements* rcls)
+              ;_ (prn "replacements" (map @(unparse-type-var) (vals replacements)))
+              ;set of symbols of Classes we haven't explicitly replaced
+              not-replaced (set/difference (set (map u/Class->symbol (-> the-class u/symbol->Class supers)))
+                                           (set (keys replacements)))
+              ;(prn "not-replaced" not-replaced)
+              res (set/union (binding [*current-RClass-super* the-class]
+                       (set (doall 
+                              (for [csym not-replaced]
+                                (RClass-of-with-unknown-params csym)))))
+                     (set (vals replacements))
+                     #{(RClass-of Object)}
+                     unchecked-ancestors)]
+          (assert (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
+                      1)
+                  (str "Found more than one function supertype for RClass " (unparse-type rcls) ": \n"
+                       (mapv unparse-type (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
+                       "\nReplacements:" (into {} (map (fn [[k v]] [k (unparse-type v)]) replacements))
+                       "\nNot replaced:" not-replaced
+                       (try (throw (Exception. ""))
+                            (catch Exception e
+                              (with-out-str (clojure.repl/pst e 40))))))
+          (swap! supers-cache assoc cache-key res)
+          res))))))
 
-(t/ann ^:no-check DataType-fields* [DataType -> (IPersistentMap Symbol TCType)])
+(t/ann ^:no-check DataType-fields* [DataType -> (IPersistentMap Symbol r/Type)])
 (defn DataType-fields* [^DataType dt]
   {:pre [(r/DataType? dt)]
    :post [((u/array-map-c? symbol? r/Type?) %)]}
@@ -745,7 +810,7 @@
 ;; TypeFn
 
 ;smart constructor
-(t/ann ^:no-check TypeFn* [(Seqable Symbol) (Seqable r/Variance) (Seqable Bounds) TCType -> TCType])
+(t/ann ^:no-check TypeFn* [(Seqable Symbol) (Seqable r/Variance) (Seqable Bounds) r/Type -> r/Type])
 (defn TypeFn* [names variances bbnds body]
   {:pre [(every? symbol names)
          (every? r/variance? variances)
@@ -763,12 +828,13 @@
                     (abstract-many names body))))
 
 ;smart destructor
-(t/ann ^:no-check TypeFn-body* [(Seqable Symbol) TypeFn -> TCType])
+(t/ann ^:no-check TypeFn-body* [(Seqable Symbol) TypeFn -> r/Type])
 (defn TypeFn-body* [names ^TypeFn typefn]
   {:pre [(every? symbol? names)
          (r/TypeFn? typefn)]}
+  (u/p :ctors/TypeFn-body*
   (assert (= (.nbound typefn) (count names)) "Wrong number of names")
-  (instantiate-many names (.scope typefn)))
+  (instantiate-many names (.scope typefn))))
 
 (t/ann ^:no-check TypeFn-bbnds* [(Seqable Symbol) TypeFn -> (Seqable Bounds)])
 (defn TypeFn-bbnds* [names ^TypeFn typefn]
@@ -783,7 +849,7 @@
 ;; Poly
 
 ;smart constructor
-(t/ann ^:no-check Poly* [(Seqable Symbol) (Seqable Bounds) TCType (Seqable Symbol) -> TCType])
+(t/ann ^:no-check Poly* [(Seqable Symbol) (Seqable Bounds) r/Type (Seqable Symbol) -> r/Type])
 (defn Poly* [names bbnds body free-names]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
@@ -806,12 +872,13 @@
   (.actual-frees poly))
 
 ;smart destructor
-(t/ann ^:no-check Poly-body* [(Seqable Symbol) Poly -> TCType])
+(t/ann ^:no-check Poly-body* [(Seqable Symbol) Poly -> r/Type])
 (defn Poly-body* [names ^Poly poly]
   {:pre [(every? symbol? names)
          (r/Poly? poly)]}
+  (u/p :ctors/Poly-body*
   (assert (= (.nbound poly) (count names)) "Wrong number of names")
-  (instantiate-many names (.scope poly)))
+  (instantiate-many names (.scope poly))))
 
 (t/ann ^:no-check Poly-bbnds* [(Seqable Symbol) Poly -> (Seqable Bounds)])
 (defn Poly-bbnds* [names ^Poly poly]
@@ -825,7 +892,7 @@
 ;; PolyDots
 
 ;smart constructor
-(t/ann ^:no-check PolyDots* [(Seqable Symbol) (Seqable Bounds) TCType (Seqable Symbol) -> TCType])
+(t/ann ^:no-check PolyDots* [(Seqable Symbol) (Seqable Bounds) r/Type (Seqable Symbol) -> r/Type])
 (defn PolyDots* [names bbnds body free-names]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
@@ -841,7 +908,7 @@
                       free-names)))
 
 ;smart destructor
-(t/ann ^:no-check PolyDots-body* [(Seqable Symbol) PolyDots -> TCType])
+(t/ann ^:no-check PolyDots-body* [(Seqable Symbol) PolyDots -> r/Type])
 (defn PolyDots-body* [names ^PolyDots poly]
   {:pre [(every? symbol? names)
          (r/PolyDots? poly)]}
@@ -866,7 +933,7 @@
 
 ;; Instantiate ops
 
-(t/ann ^:no-check make-simple-substitution [(Seqable Symbol) (Seqable TCType) -> cr/SubstMap])
+(t/ann ^:no-check make-simple-substitution [(Seqable Symbol) (Seqable r/Type) -> cr/SubstMap])
 (defn make-simple-substitution [vs ts]
   {:pre [(every? symbol? vs)
          (every? r/Type? ts)
@@ -875,7 +942,7 @@
   (into {} (for [[v t] (map vector vs ts)]
              [v (crep/->t-subst t r/no-bounds)])))
 
-(t/ann ^:no-check instantiate-typefn [TypeFn (Seqable TCType) -> TCType])
+(t/ann ^:no-check instantiate-typefn [TypeFn (Seqable r/Type) -> r/Type])
 (defn instantiate-typefn [^TypeFn t types]
   (let [subst-all @(subst-all-var)
         unparse-type @(unparse-type-var)]
@@ -886,7 +953,7 @@
               body (TypeFn-body* nms t)]
           (subst-all (make-simple-substitution nms types) body)))))
 
-(t/ann ^:no-check instantiate-poly [Poly (Seqable TCType) -> TCType])
+(t/ann ^:no-check instantiate-poly [Poly (Seqable r/Type) -> r/Type])
 (defn instantiate-poly [t types]
   (let [subst-all @(subst-all-var)
         unparse-type @(unparse-type-var)]
@@ -906,12 +973,12 @@
 
 (declare resolve-tapp* -resolve resolve-app*)
 
-(t/ann ^:no-check resolve-TApp [TApp -> TCType])
+(t/ann ^:no-check resolve-TApp [TApp -> r/Type])
 (defn resolve-TApp [^TApp app]
   {:pre [(r/TApp? app)]}
   (resolve-tapp* (.rator app) (.rands app)))
 
-(t/ann ^:no-check resolve-tapp* [TCType (Seqable TCType) -> TCType])
+(t/ann ^:no-check resolve-tapp* [r/Type (Seqable r/Type) -> r/Type])
 (defn resolve-tapp* [rator rands]
   (let [unparse-type @(unparse-type-var)
         ^TypeFn rator (-resolve rator)
@@ -921,12 +988,12 @@
                         (unparse-type rator) (mapv unparse-type rands))))
     (instantiate-typefn rator rands)))
 
-(t/ann ^:no-check resolve-App [App -> TCType])
+(t/ann ^:no-check resolve-App [App -> r/Type])
 (defn resolve-App [^App app]
   {:pre [(r/App? app)]}
   (resolve-app* (.rator app) (.rands app)))
 
-(t/ann ^:no-check resolve-app* [TCType (Seqable TCType) -> TCType])
+(t/ann ^:no-check resolve-app* [r/Type (Seqable r/Type) -> r/Type])
 (defn resolve-app* [rator rands]
   (let [unparse-type @(unparse-type-var)
         rator (-resolve rator)]
@@ -942,34 +1009,36 @@
 
 (declare resolve-Name unfold fully-resolve-type)
 
-(t/ann -resolve [TCType -> TCType])
+(t/ann -resolve [r/Type -> r/Type])
 (defn -resolve [ty]
   {:pre [(r/AnyType? ty)]
-   :post [(r/AnyType? ty)]}
+   :post [(r/AnyType? %)]}
+  (u/p :type-ctors/-resolve
   (cond 
     (r/Name? ty) (resolve-Name ty)
     (r/Mu? ty) (unfold ty)
     (r/App? ty) (resolve-App ty)
     (r/TApp? ty) (resolve-TApp ty)
-    :else ty))
+    :else ty)))
 
-(t/ann requires-resolving? [TCType -> Any])
+(t/ann requires-resolving? [r/Type -> Any])
 (defn requires-resolving? [ty]
   {:pre [(r/AnyType? ty)]}
+  (u/p :ctors/requires-resolving?
   (or (r/Name? ty)
       (r/App? ty)
       (and (r/TApp? ty)
            (not (r/F? (fully-resolve-type (.rator ^TApp ty)))))
-      (r/Mu? ty)))
+      (r/Mu? ty))))
 
-(t/ann resolve-Name [Name -> TCType])
+(t/ann resolve-Name [Name -> r/Type])
 (defn resolve-Name [nme]
   {:pre [(r/Name? nme)]}
   (nme-env/resolve-name* (:id nme)))
 
 (t/ann fully-resolve-type 
-       (Fn [TCType -> TCType]
-           [TCType (IPersistentSet TCType) -> TCType]))
+       (Fn [r/Type -> r/Type]
+           [r/Type (IPersistentSet r/Type) -> r/Type]))
 (defn fully-resolve-type 
   ([t seen]
    (let [_ (assert (not (seen t)) "Infinite non-Rec type detected")
@@ -977,23 +1046,23 @@
      (if (requires-resolving? t)
        (recur (-resolve t) seen)
        t)))
-  ([t] (fully-resolve-type t #{})))
+  ([t] (u/p :ctors/fully-resolve-type (fully-resolve-type t #{}))))
 
 ;; Mu
 
 (declare abstract instantiate)
 
 ;smart constructor
-(t/ann Mu* [Symbol TCType -> TCType])
+(t/ann Mu* [Symbol r/Type -> r/Type])
 (defn Mu* [name body]
   (r/Mu-maker (abstract name body)))
 
 ;smart destructor
-(t/ann Mu-body* [Symbol Mu -> TCType])
+(t/ann Mu-body* [Symbol Mu -> r/Type])
 (defn Mu-body* [name t]
   {:pre [(r/Mu? t)
          (symbol? name)]}
-  (instantiate name (:scope t)))
+  (instantiate name (p/mu-scope t)))
 
 (t/tc-ignore
 (defn- substitute-var []
@@ -1002,7 +1071,7 @@
     v))
   )
 
-(t/ann ^:no-check unfold [Mu -> TCType])
+(t/ann ^:no-check unfold [Mu -> r/Type])
 (defn unfold [t]
   {:pre [(r/Mu? t)]
    :post [(r/Type? %)]}
@@ -1100,7 +1169,7 @@
     true))
 
 ;true if types t1 and t2 overlap (NYI)
-(t/ann ^:no-check overlap [TCType TCType -> Any])
+(t/ann ^:no-check overlap [r/Type r/Type -> Any])
 (defn overlap [t1 t2]
   (let [subtype? @(subtype?-var)
         t1 (fully-resolve-type t1)
@@ -1224,7 +1293,7 @@
       :else true))) ;FIXME conservative result
 
 ; restrict t1 to be a subtype of t2
-(t/ann ^:no-check restrict [TCType TCType -> TCType])
+(t/ann ^:no-check restrict [r/Type r/Type -> r/Type])
 (defn restrict [t1 t2]
   (let [subtype? @(subtype?-var)
         subst-all @(subst-all-var)
@@ -1251,7 +1320,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable rep
 
-(t/ann ^:no-check add-scopes [t/AnyInteger TCType -> (U TCType Scope)])
+(t/ann ^:no-check add-scopes [t/AnyInteger r/Type -> (U r/Type Scope)])
 (defn add-scopes 
   "Wrap type in n Scopes"
   [n t]
@@ -1261,7 +1330,7 @@
   (last 
     (take (inc n) (iterate r/Scope-maker t))))
 
-(t/ann ^:no-check remove-scopes [t/AnyInteger (U Scope TCType) -> (U Scope TCType)])
+(t/ann ^:no-check remove-scopes [t/AnyInteger (U Scope r/Type) -> (U Scope r/Type)])
 (defn remove-scopes 
   "Unwrap n Scopes"
   [n sc]
@@ -1355,7 +1424,7 @@
                                  (as body)))))
   )
 
-(t/ann ^:no-check abstract-many [(Seqable Symbol) TCType -> (U TCType Scope)])
+(t/ann ^:no-check abstract-many [(Seqable Symbol) r/Type -> (U r/Type Scope)])
 (defn abstract-many 
   "Names Type -> Scope^n  where n is (count names)"
   [names ty]
@@ -1464,7 +1533,7 @@
                              (as body)))))
   )
 
-(t/ann ^:no-check instantiate-many [(Seqable Symbol) Scope -> TCType])
+(t/ann ^:no-check instantiate-many [(Seqable Symbol) Scope -> r/Type])
 (defn instantiate-many 
   "instantiate-many : List[Symbols] Scope^n -> Type
   Instantiate de Bruijn indices in sc to frees named by
@@ -1474,6 +1543,7 @@
          (or (r/Scope? sc)
              (empty? images))]
    :post [((some-fn r/Type? r/TypeFn?) %)]}
+  (u/p :ctors/instantiate-many
   (letfn [(replace 
             ([image count type] (replace image count type 0 type))
             ([image count type outer ty]
@@ -1500,9 +1570,9 @@
             (replace (first images) 0 ty)
             (recur (replace (first images) count ty)
                    (next images)
-                   (dec count))))))))
+                   (dec count)))))))))
 
-(t/ann abstract [Symbol TCType -> Scope])
+(t/ann abstract [Symbol r/Type -> Scope])
 (defn abstract 
   "Make free name bound"
   [name ty]
@@ -1511,19 +1581,19 @@
    :post [(r/Scope? %)]}
   (abstract-many [name] ty))
 
-(t/ann instantiate [Symbol Scope -> TCType])
+(t/ann instantiate [Symbol p/IScope -> r/Type])
 (defn instantiate 
   "Instantiate bound name to free"
   [f sc]
   {:pre [(symbol? f)
-         (r/Scope? sc)]}
+         (p/IScope? sc)]}
   (instantiate-many [f] sc))
 
 ;TODO not sure why this fails to type check
 ;(All [x]
 ;  (Fn ['{kw x} -> x]
 ;      [(U Any '{kw x}) -> (U nil x) :filters {:then (is {kw Any} 0)}]))
-(t/ann ^:no-check keyword->Fn [Keyword -> TCType])
+(t/ann ^:no-check keyword->Fn [Keyword -> r/Type])
 (defn keyword->Fn [kw]
   {:pre [(keyword? kw)]
    :post [(r/Type? %)]}
@@ -1543,7 +1613,7 @@
                        fr/-top)))
          ['x]))
 
-(t/ann KeywordValue->Fn [Value -> TCType])
+(t/ann KeywordValue->Fn [Value -> r/Type])
 (defn KeywordValue->Fn [{:keys [val] :as t}]
   {:pre [(keyword-value? t)
          ;redundant test for core.typed
@@ -1559,14 +1629,14 @@
 
 ;;; KwArgs
 
-(t/ann KwArgs->Type [KwArgs -> TCType])
+(t/ann KwArgs->Type [KwArgs -> r/Type])
 (defn KwArgs->Type [^KwArgs kws]
   {:pre [(r/KwArgs? kws)]
    :post [(r/Type? %)]}
   (r/KwArgsSeq-maker (.mandatory kws)
                  (.optional kws)))
 
-(t/ann KwArgsSeq->HMap [KwArgsSeq -> TCType])
+(t/ann KwArgsSeq->HMap [KwArgsSeq -> r/Type])
 (defn KwArgsSeq->HMap [^KwArgsSeq kws]
   {:pre [(r/KwArgsSeq? kws)]
    :post [(r/Type? %)]}

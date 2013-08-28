@@ -11,7 +11,7 @@
 
 (def-alias NameEnv
   "Environment mapping names to types. Keyword values are special."
-  (IPersistentMap Symbol (U Keyword r/TCType)))
+  (IPersistentMap Symbol (U Keyword r/Type)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Name Env
@@ -49,7 +49,7 @@
 
 
 (ann *current-name-env* (U nil (t/Atom1 NameEnv)))
-(def ^:dynamic *current-name-env* nil)
+(defonce ^:dynamic *current-name-env* nil)
 
 (t/tc-ignore
 (set-validator! #'*current-name-env* (some-fn nil? #(instance? clojure.lang.Atom %)))
@@ -69,8 +69,7 @@
 (defn update-name-env! [nme-env]
   (assert-name-env)
   (when-let-fail [e *current-name-env*]
-    (swap! e (fn> [n :- (U nil NameEnv)]
-               {:pre [n]}
+    (swap! e (fn> [n :- NameEnv]
                (merge n nme-env))))
   nil)
 
@@ -81,7 +80,7 @@
     (reset! e nme-env))
   nil)
 
-(ann ^:no-check get-type-name [Any -> (U nil Keyword r/TCType)])
+(ann get-type-name [Any -> (U nil Keyword r/Type)])
 (defn get-type-name 
   "Return the name with var symbol sym.
   Returns nil if not found."
@@ -90,19 +89,18 @@
   (when-let-fail [e *current-name-env*]
     (@e sym)))
 
-(ann ^:no-check add-type-name [Symbol (U Keyword r/TCType) -> nil])
+(ann ^:no-check add-type-name [Symbol (U Keyword r/Type) -> nil])
 (defn add-type-name [sym ty]
   (assert-name-env)
   (when-let-fail [e *current-name-env*]
     (swap! e
-           (fn> [e :- (U nil NameEnv)]
-            {:pre [e]}
+           (fn> [e :- NameEnv]
             (assoc e sym (if (r/Type? ty)
                            (vary-meta ty assoc :from-name sym)
                            ty)))))
   nil)
 
-(ann ^:no-check declare-name* [Symbol -> nil])
+(ann declare-name* [Symbol -> nil])
 (defn declare-name* [sym]
   {:pre [(symbol? sym)
          (namespace sym)]}
@@ -113,25 +111,26 @@
 (defn declared-name? [sym]
   (= declared-name-type (get-type-name sym)))
 
-(ann ^:no-check declare-protocol* [Symbol -> nil])
+(ann declare-protocol* [Symbol -> nil])
 (defn declare-protocol* [sym]
   {:pre [(symbol? sym)
-         (some #(= \. %) (str sym))]}
+         (some #{\.} (str sym))]}
   (add-type-name sym protocol-name-type)
   nil)
 
-(ann ^:no-check declare-datatype* [Symbol -> nil])
+(ann declare-datatype* [Symbol -> nil])
 (defn declare-datatype* [sym]
   (add-type-name sym datatype-name-type)
   nil)
 
-(ann ^:no-check resolve-name* [Symbol -> r/TCType])
+(ann ^:no-check resolve-name* [Symbol -> r/Type])
 (defn resolve-name* [sym]
   {:post [(r/Type? %)]}
   (let [t (get-type-name sym)
         tfn ((some-fn dtenv/get-datatype 
                       prenv/get-protocol
-                      (impl/impl-case :clojure rcls/get-rclass :cljs (constantly nil)) 
+                      (impl/impl-case :clojure rcls/get-rclass 
+                                      :cljs (constantly nil)) 
                       ; during the definition of RClass's that reference
                       ; themselves in their definition, a temporary TFn is
                       ; added to the declared kind env which is enough to determine

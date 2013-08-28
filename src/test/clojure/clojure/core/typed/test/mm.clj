@@ -30,6 +30,11 @@
   (ann-form a '{:op ':test1})
   (ann-form b '{:op ':test2}))
 
+(defmethod multi-dipatch :default
+  [a b]
+  ; this shouldn't emit a warning about ClassPE
+  'foo)
+
 (t/ann-datatype FooDT [])
 (deftype FooDT [])
 

@@ -1,5 +1,6 @@
 (ns clojure.core.typed.subst
   (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed.fold-rep :as f]
             [clojure.core.typed.type-ctors :as tc]
             [clojure.core.typed.frees :as frees]
@@ -22,7 +23,7 @@
                    f)))
   )
 
-(ann ^:no-check substitute [r/TCType Symbol r/TCType -> r/TCType])
+(ann ^:no-check substitute [r/Type Symbol r/Type -> r/Type])
 (defn substitute [image name target]
   {:pre [(r/AnyType? image)
          (symbol? name)
@@ -33,8 +34,8 @@
                         :image image}}
               target))
 
-(ann ^:no-check substitute-many [r/TCType (U nil (Seqable r/TCType)) (U nil (Seqable Symbol))
-                                 -> r/TCType])
+(ann ^:no-check substitute-many [r/Type (U nil (Seqable r/Type)) (U nil (Seqable Symbol))
+                                 -> r/Type])
 (defn substitute-many [target images names]
   (reduce (fn [t [im nme]] (substitute im nme t))
           target
@@ -42,11 +43,12 @@
 
 (declare substitute-dots substitute-dotted)
 
-(ann ^:no-check subst-all [crep/SubstMap r/TCType -> r/TCType])
+(ann ^:no-check subst-all [crep/SubstMap r/Type -> r/Type])
 (defn subst-all [s t]
   {:pre [(crep/substitution-c? s)
          (r/AnyType? t)]
    :post [(r/AnyType? %)]}
+  (u/p :subst/subst-all
   (reduce (fn [t [v r]]
             (cond
               (crep/t-subst? r) (substitute (:type r) v t)
@@ -56,7 +58,7 @@
                    (empty? (:types r))) (substitute-dotted (:dty r) (:name (:dbound r)) v t)
               (crep/i-subst-dotted? r) (throw (Exception. "i-subst-dotted nyi"))
               :else (throw (Exception. "Other substitutions NYI"))))
-          t s))
+          t s)))
 
 ;; Substitute dots
 
@@ -86,7 +88,7 @@
 
 ;; implements angle bracket substitution from the formalism
 ;; substitute-dots : Listof[Type] Option[type] Name Type -> Type
-(ann ^:no-check substitute-dots [(U nil (Seqable r/TCType)) (U nil r/TCType) Symbol r/TCType -> r/TCType])
+(ann ^:no-check substitute-dots [(U nil (Seqable r/Type)) (U nil r/Type) Symbol r/Type -> r/Type])
 (defn substitute-dots [images rimage name target]
   {:pre [(every? r/AnyType? images)
          ((some-fn nil? r/AnyType?) rimage)
@@ -133,7 +135,7 @@
 
 ;; implements curly brace substitution from the formalism
 ;; substitute-dotted : Type Name Name Type -> Type
-(ann ^:no-check substitute-dotted [r/TCType Symbol Symbol r/TCType -> r/TCType])
+(ann ^:no-check substitute-dotted [r/Type Symbol Symbol r/Type -> r/Type])
 (defn substitute-dotted [image image-bound name target]
   {:pre [(r/AnyType? image)
          (symbol? image-bound)

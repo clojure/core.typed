@@ -13,7 +13,7 @@
   {})
 
 (t/ann *current-deps* (U nil (t/Atom1 DepMap)))
-(def ^:dynamic *current-deps* nil)
+(defonce ^:dynamic *current-deps* nil)
 
 (t/ann assert-dep-map [-> Any])
 (defn assert-dep-map []

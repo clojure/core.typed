@@ -10,10 +10,10 @@
 
 (def-alias ProtocolEnv 
   "A map mapping protocol symbols their types."
-  (IPersistentMap Symbol r/TCType))
+  (IPersistentMap Symbol r/Type))
 
 (ann *current-protocol-env* (U nil (t/Atom1 ProtocolEnv)))
-(def ^:dynamic *current-protocol-env* nil)
+(defonce ^:dynamic *current-protocol-env* nil)
 
 (ann protocol-env? [Any -> Any])
 (def protocol-env? (u/hash-c? #(when (symbol? %)
@@ -37,16 +37,16 @@
     (reset! env e))
   nil)
 
-(ann add-protocol [Symbol r/TCType -> nil])
+(ann add-protocol [Symbol r/Type -> nil])
 (defn add-protocol [sym t]
   (assert-protocol-env)
   (when-let-fail [e *current-protocol-env*]
-    (let [swap!' (t/inst swap! ProtocolEnv ProtocolEnv Symbol r/TCType)
-          assoc' (t/inst assoc Symbol r/TCType Any)]
+    (let [swap!' (t/inst swap! ProtocolEnv ProtocolEnv Symbol r/Type)
+          assoc' (t/inst assoc Symbol r/Type Any)]
       (swap!' e assoc' sym t)))
   nil)
 
-(ann get-protocol [Symbol -> (U nil r/TCType)])
+(ann get-protocol [Symbol -> (U nil r/Type)])
 (defn get-protocol 
   "Returns the protocol with var symbol sym.
   Returns nil if not found."
@@ -55,7 +55,7 @@
   (when-let-fail [e *current-protocol-env*]
     (@e sym)))
 
-(ann resolve-protocol [Symbol -> r/TCType])
+(ann resolve-protocol [Symbol -> r/Type])
 (defn resolve-protocol [sym]
   (assert-protocol-env)
   (let [p (get-protocol sym)]

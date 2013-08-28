@@ -10,7 +10,7 @@
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.0.2"
                   :exclusions [org.clojure/clojure]]
-                 ;[org.clojure/clojurescript "0.0-1806"]
+                 [org.clojure/clojurescript "0.0-1859"]
                  [org.clojure/tools.trace "0.7.5"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/clojure "1.5.1"]
@@ -37,8 +37,8 @@
 
   :source-paths ["src/main/clojure"
                  "src/main/cljs"
-                 "../clojurescript/src/clj" 
-                 "../clojurescript/src/cljs"]
+                 #_"../clojurescript/src/clj" 
+                 #_"../clojurescript/src/cljs"]
   :test-paths ["src/test/clojure"
                "src/test/cljs"]
 

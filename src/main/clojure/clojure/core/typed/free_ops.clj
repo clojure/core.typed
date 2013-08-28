@@ -1,13 +1,21 @@
 (ns ^:skip-wiki clojure.core.typed.free-ops
   (:require [clojure.core.typed.utils :as u]
-            [clojure.core.typed.type-rep :as r])
-  (:import (clojure.core.typed.type_rep Bounds)))
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed :as t :refer [fn>]])
+  (:import (clojure.core.typed.type_rep F Bounds)
+           (clojure.lang Symbol)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parse Type syntax
 
+(t/def-alias FreeEntry
+  "The right hand side of the free-scope map.
+  Includes the F and the bound."
+  '{:F F :bnds Bounds})
+
 ;(Map Symbol F)
-(def ^:dynamic *free-scope* {})
+(t/ann *free-scope* (t/Map Symbol FreeEntry))
+(defonce ^:dynamic *free-scope* {})
 (set-validator! #'*free-scope* 
                 (fn [a]
                   (when-not ((u/hash-c? symbol? (u/hmap-c? :F r/F? :bnds r/Bounds?))
@@ -16,17 +24,20 @@
                                                         " Given: " a))))
                   true))
 
+(t/ann free-with-name [Symbol -> (U nil F)])
 (defn free-with-name 
   "Find the free with the actual name name, as opposed to
   the alias used for scoping"
   [name]
   {:pre [(symbol? name)]
    :post [((some-fn nil? r/F?) %)]}
-  (some (fn [[_ {{fname :name :as f} :F}]]
+  (some (fn> [[_ {{fname :name :as f} :F}] :- '[Symbol FreeEntry]]
+          (t/ann-form fname Symbol)
           (when (= name fname)
             f))
         *free-scope*))
 
+(t/ann free-with-name-bnds [Symbol -> (U nil Bounds)])
 (defn ^Bounds
   free-with-name-bnds 
   "Find the bounds for the free with the actual name name, as opposed to
@@ -34,11 +45,12 @@
   [name]
   {:pre [(symbol? name)]
    :post [((some-fn nil? r/Bounds?) %)]}
-  (some (fn [[_ {{fname :name} :F :keys [bnds]}]]
+  (some (fn> [[_ {{fname :name} :F :keys [bnds]}] :- '[Symbol FreeEntry]]
           (when (= name fname)
             bnds))
         *free-scope*))
 
+(t/ann free-in-scope [Symbol -> (U nil F)])
 (defn free-in-scope 
   "Find the free scoped as name"
   [name]
@@ -46,6 +58,7 @@
    :post [((some-fn nil? r/F?) %)]}
   (:F (*free-scope* name)))
 
+(t/ann free-in-scope-bnds [Symbol -> (U nil Bounds)])
 (defn free-in-scope-bnds 
   "Find the bounds for the free scoped as name"
   ^Bounds

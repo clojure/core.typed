@@ -1,6 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.object-rep
   (:refer-clojure :exclude [defrecord])
-  (:require [clojure.core.typed.object-protocols :refer [IRObject]]
+  (:require [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.filter-rep :as fr]
@@ -10,28 +10,25 @@
 
 (t/def-alias RObject
   "An object with a path."
-  IRObject)
+  p/IRObject)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Objects
 
-(t/ann ^:no-check RObject? (predicate IRObject))
+(t/ann ^:no-check RObject? (predicate p/IRObject))
 (defn RObject? [a]
-  (satisfies? IRObject a))
-
-(t/ann ^:no-check declare-robject [Class -> Any])
-(defn declare-robject [c]
-  (extend c IRObject {}))
+  (instance? clojure.core.typed.impl_protocols.IRObject a))
 
 (t/ann-record EmptyObject [])
 (u/defrecord EmptyObject []
-  "?"
-  [])
+  "No interesting information about this path/object"
+  []
+  p/IRObject)
 
 (t/ann -empty EmptyObject)
 (def -empty (->EmptyObject))
 
-(t/ann-record Path [path :- (Seqable IRObject)
+(t/ann-record Path [path :- (Seqable p/IRObject)
                     id :- fr/NameRef])
 (u/defrecord Path [path id]
   "A path to a variable. Paths grow to the right, with leftmost
@@ -40,16 +37,12 @@
             (sequential? path))
        (nil? path))
    (every? pr/PathElem? path)
-   (fr/name-ref? id)])
+   (fr/name-ref? id)]
+  p/IRObject)
 
 (t/ann-record NoObject [])
 (u/defrecord NoObject []
   "Represents no info about the object of this expression
   should only be used for parsing type annotations and expected types"
-  [])
-
-;Objects
-
-(declare-robject EmptyObject)
-(declare-robject Path)
-(declare-robject NoObject)
+  []
+  p/IRObject)

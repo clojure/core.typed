@@ -1,8 +1,9 @@
 (ns ^:skip-wiki clojure.core.typed.subtype
   (:require [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.type-protocols :as tp]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.utils :as u :refer [p]]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.filter-rep :as fr]
@@ -34,7 +35,7 @@
 
 ;keeps track of currently seen subtype relations for recursive types.
 ;(Set [Type Type])
-(def ^:dynamic *sub-current-seen* #{})
+(defonce ^:dynamic *sub-current-seen* #{})
 
 (defn currently-subtyping? []
   (boolean (seq *sub-current-seen*)))
@@ -56,7 +57,7 @@
 
 (declare subtype)
 
-(def subtype-cache (atom {}))
+(defonce subtype-cache (atom {}))
 
 (defn reset-subtype-cache []
   (reset! subtype-cache {}))
@@ -65,17 +66,55 @@
 (defn subtype? [s t]
   {:post [(u/boolean? %)]}
   (letfn [(do-subtype []
-            (p :subtype-subtype?
+            (u/p :subtype/subtype?
                (boolean
                  (handle-failure
                    (subtype s t)))))]
-    (if-let [[_ res] (p :subtype-cache-lookup (find @subtype-cache [(hash s) (hash t)]))]
-      (p :subtype-cache-hit 
+    (if-let [[_ res] (u/p :subtype-cache-lookup (find @subtype-cache [(hash s) (hash t)]))]
+      ;HIT
+      (u/p :subtype-cache-hit 
+          #_(spit "subtype-cache.dump" 
+                (str (prn-str "HIT")
+                     (prn-str [(hash s) (hash t)]) 
+                     (prn-str (prs/unparse-type s) (prs/unparse-type t))
+                     (prn-str "res = " res)
+                     (prn-str))
+                :append true)
+        ;RETURN HIT
        res)
-      (let [_ (p :subtype-cache-miss)
+      ;MISS
+      (let [
+            #__ #_(spit "subtype-cache.dump" 
+                    (str (prn-str "SUBTYPE?")
+                         (prn-str (prs/unparse-type s) (prs/unparse-type t)))
+                    :append true)
+            
+            _ (u/p :subtype-cache-miss)
             res (do-subtype)]
+        #_(if-not (currently-subtyping?)
+          (spit "subtype-cache.dump" 
+                (str (prn-str "MISS, UPDATE CACHE")
+                     (prn-str [(hash s) (hash t)]) 
+                     (prn-str (prs/unparse-type s) (prs/unparse-type t))
+                     (prn-str "res = " res)
+                     (prn-str))
+                :append true)
+          (spit "subtype-cache.dump" 
+                (str (prn-str "MISS, NOUPDATE")
+                     (prn-str "currently checking:")
+                     (prn-str (count *sub-current-seen*))
+                     (prn-str (map #(map prs/unparse-type %) *sub-current-seen*))
+                     (prn-str (map hash *sub-current-seen*))
+                     (prn-str (map #(map hash %) *sub-current-seen*))
+                     (prn-str [(hash s) (hash t)]) 
+                     (prn-str (prs/unparse-type s) (prs/unparse-type t))
+                     (prn-str "res = " res)
+                     (prn-str))
+                :append true))
+        ;UPDATE CACHE
         (when-not (currently-subtyping?)
           (swap! subtype-cache assoc [(hash s) (hash t)] res))
+        ;RETURN CALCULATED RESULT
         res))))
 
 (declare subtypeA*)
@@ -95,29 +134,31 @@
 ;[(IPersistentMap Symbol Bounds) (Seqable Type) (Seqable Type)
 ;  -> Boolean]
 (defn unify [X S T]
+  (u/p :subtype/unify
   (let [infer @(infer-var)]
     (boolean 
       (u/handle-cs-gen-failure
-        (infer X {} S T r/-any)))))
+        (infer X {} S T r/-any))))))
 
 (declare subtype-TApp? protocol-extenders
-         subtype-datatype-record-on-left subtype-datatype-record-on-right
          subtype-datatypes-or-records subtype-Result subtype-PrimitiveArray
          subtype-CountRange subtype-TypeFn subtype-RClass
-         subtype-protocol-on-right subtype-protocol-on-left)
+         subtype-datatype-and-protocol subtype-rclass-protocol
+         boxed-primitives)
 
 ;TODO replace hardcoding cases for unfolding Mu? etc. with a single case for unresolved types.
 ;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
 (defn subtypeA* [A s t]
   {:post [(set? %)]}
-  (if (or (contains? A [s t])
+  (if (or (u/p :subtype/query-current-seen
+            (contains? A [s t]))
           (= s t)
           (r/Top? t)
           (r/Bottom? s)
           ;TCError is top and bottom
           (some r/TCError? [s t]))
     A
-    (binding [*sub-current-seen* (conj A [s t])]
+    (binding [*sub-current-seen* (u/p :subtype/extend-current-seen (conj A [s t]))]
       (cond
         (and (r/Value? s)
              (r/Value? t))
@@ -136,7 +177,9 @@
         (let [names (repeatedly (.nbound ^Poly s) gensym)
               b1 (c/Poly-body* names s)
               b2 (c/Poly-body* names t)]
-          (subtype b1 b2))
+          (if (subtype? b1 b2)
+            *sub-current-seen*
+            (fail! s t)))
 
         ;use unification to see if we can use the Poly type here
         (and (r/Poly? s)
@@ -192,7 +235,7 @@
 
         (r/Union? s)
         ;use subtypeA*, throws error
-        (p :subtype-union-l
+        (u/p :subtype-union-l
         (if (every? (fn union-left [s] (subtypeA* *sub-current-seen* s t)) (.types ^Union s))
           *sub-current-seen*
           (fail! s t))
@@ -200,7 +243,7 @@
 
         ;use subtypeA*?, boolean result
         (r/Union? t)
-        (p :subtype-union-r
+        (u/p :subtype-union-r
         (if (some (fn union-right [t] (subtypeA*? *sub-current-seen* s t)) (.types ^Union t))
           *sub-current-seen*
           (fail! s t))
@@ -422,44 +465,45 @@
              (r/DataType? t))
         (subtype-datatypes-or-records s t)
 
-        ; sometimes we get ancestors from datatypes or descendants
-        ; from Protocols in Clojure
         (and (r/DataType? s)
-             (r/Protocol? t)
-             (impl/checking-clojure?))
-        (if (or (handle-failure
-                  (subtype-datatype-record-on-left s t))
-                (handle-failure
-                  (subtype-protocol-on-right s t)))
+             (r/Protocol? t))
+        (if (subtype-datatype-and-protocol s t)
           *sub-current-seen*
           (fail! s t))
 
-;Not quite correct, datatypes have other implicit ancestors (?)
-        (r/DataType? s)
-        (subtype-datatype-record-on-left s t)
-        (r/DataType? t)
-        (subtype-datatype-record-on-right s t)
+        (and (r/RClass? s)
+             (r/Protocol? t))
+        (subtype-rclass-protocol s t)
 
-        (r/Protocol? s)
-        (subtype-protocol-on-left s t)
-        
-        (r/Protocol? t)
-        (subtype-protocol-on-right s t)
+        (and (r/Nil? s)
+             (r/Protocol? t)
+             (impl/checking-clojure?))
+        (if (contains? (c/Protocol-normal-extenders t) nil)
+          *sub-current-seen*
+          (fail! s t))
 
         ;values are subtypes of their classes
         (r/Value? s)
         (let [^Value s s
               sval (.val s)]
           (impl/impl-case
-            :clojure (if (nil? sval)
-                       (fail! s t)
-                       (subtype (apply c/In (c/RClass-of (class sval))
-                                       (cond
-                                         ;keyword values are functions
-                                         (keyword? sval) [(c/keyword->Fn sval)]
-                                         ;strings have a known length as a seqable
-                                         (string? sval) [(r/make-ExactCountRange (count sval))]))
-                                t))
+            :clojure (cond 
+                       ; this is after the nil <: Protocol case, so we fail
+                       (nil? sval) (fail! s t)
+                       ; this is a faster path than the final case
+                       (r/RClass? t) (let [cls (let [cls (u/symbol->Class (:the-class t))]
+                                                 (or (boxed-primitives cls)
+                                                     cls))]
+                                       (if (instance? cls sval)
+                                         *sub-current-seen*
+                                         (fail! s t)))
+                       :else (subtype (apply c/In (c/RClass-of (class sval))
+                                             (cond
+                                               ;keyword values are functions
+                                               (keyword? sval) [(c/keyword->Fn sval)]
+                                               ;strings have a known length as a seqable
+                                               (string? sval) [(r/make-ExactCountRange (count sval))]))
+                                      t))
             :cljs (cond
                     (integer? (.val s)) (subtype (r/IntegerCLJS-maker) t)
                     (number? (.val s)) (subtype (r/NumberCLJS-maker) t)
@@ -483,7 +527,7 @@
 
         (and (r/RClass? s)
              (r/RClass? t))
-        (p :subtype-RClass (subtype-RClass s t))
+        (u/p :subtype/RClass (subtype-RClass s t))
 
         (and (r/CountRange? s)
              (r/CountRange? t))
@@ -522,10 +566,9 @@
 (defn protocol-extenders [^Protocol p]
   {:pre [(r/Protocol? p)]
    :post [(every? r/Type? %)]}
+  (u/p :subtype/protocol-extenders
   (impl/impl-case
-    :clojure (let [protocol-var (resolve (.the-var p))
-                   _ (assert protocol-var (str "Protocol cannot be resolved: " (.the-var p)))
-                   exts (extenders @protocol-var)]
+    :clojure (let [exts (c/Protocol-normal-extenders p)]
                (for [ext exts]
                  (cond
                    (class? ext) (c/RClass-of-with-unknown-params ext)
@@ -537,6 +580,7 @@
                 (symbol? ext) (resolve-JS-reference ext)
                 (nil? ext) r/-nil
                 :else (throw (Exception. (str "What is this?" ext))))))))
+  )
 
 ;[Type Type -> (IPersistentSet '[Type Type])]
 (defn- subtype [s t]
@@ -545,7 +589,7 @@
 ;  (if-let [hit (@subtype-cache (set [s t]))]
 ;    (do #_(prn "subtype hit")
 ;        hit)
-    (let [res (p :subtype-top-subtypeA* (subtypeA* *sub-current-seen* s t))]
+    (let [res (u/p :subtype-top-subtypeA* (subtypeA* *sub-current-seen* s t))]
       ;(swap! subtype-cache assoc (set [s t]) res)
       res))
 
@@ -648,6 +692,7 @@
 (defn fully-resolve-filter [fl]
   {:pre [(fr/Filter? fl)]
    :post [(fr/Filter? %)]}
+  (u/p :subtype/fully-resolve-filter
   (cond
     (fr/TypeFilter? fl) (update-in fl [:type] c/fully-resolve-type)
     (fr/NotTypeFilter? fl) (update-in fl [:type] c/fully-resolve-type)
@@ -656,7 +701,7 @@
     (fr/ImpFilter? fl) (-> fl
                            (update-in [:a] fully-resolve-filter)
                            (update-in [:c] fully-resolve-filter))
-    :else fl))
+    :else fl)))
 
 (defn fully-resolve-flowset [flow]
   {:pre [(r/FlowSet? flow)]
@@ -741,12 +786,12 @@
   (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
     (subtype-TypeFn-app? (.rator S) S T)))
 
-(defmethod subtype-TApp? [r/TCAnyType Name false]
+(defmethod subtype-TApp? [tp/TCAnyType Name false]
   [S T]
   (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
     (subtype-TApp? S (update-in T [:rator] c/resolve-Name))))
 
-(defmethod subtype-TApp? [Name r/TCAnyType false]
+(defmethod subtype-TApp? [Name tp/TCAnyType false]
   [S T]
   (binding [*sub-current-seen* (conj *sub-current-seen* [S T])]
     (subtype-TApp? (update-in S [:rator] c/resolve-Name) T)))
@@ -759,8 +804,8 @@
 
 ; for [Name Name false]
 (prefer-method subtype-TApp? 
-               [Name r/TCAnyType false]
-               [r/TCAnyType Name false])
+               [Name tp/TCAnyType false]
+               [tp/TCAnyType Name false])
 
 ;same operator
 (defmethod subtype-TApp? [Name Name true]
@@ -824,6 +869,7 @@
   [{:keys [the-class] :as dt}]
   {:pre [(r/DataType? dt)]}
   (impl/assert-clojure)
+  (u/p :subtype/datatype-ancestors
   (let [overidden-by (fn [sym o]
                        (cond
                          ((some-fn r/DataType? r/RClass?) o)
@@ -856,43 +902,61 @@
                                 ;... or we make an RClass from the actual ancestor.
                                 (c/RClass-of-with-unknown-params sym))))))]
     post-override))
+  )
 
-(defn- subtype-protocol-on-left
+(defn ^:private subtype-rclass-protocol
   [s t]
-  (impl/impl-case
-    :clojure (if (= (c/RClass-of Object) t)
-               *sub-current-seen*
-               (fail! s t))
-    :cljs (fail! s t)))
-        
-(defn- subtype-protocol-on-right
+  {:pre [(r/RClass? s)
+         (r/Protocol? t)]}
+  (impl/assert-clojure)
+  (let [;first try and find the datatype in the protocol's extenders
+        p-cls-extenders (map u/Class->symbol (filter class? (c/Protocol-normal-extenders t)))
+        in-protocol-extenders? (some #{(:the-class s)} p-cls-extenders)
+        relevant-rclass-ancestor (some (fn [p] 
+                                         (when (and (r/Protocol? p)
+                                                    (= (:the-var p) (:the-var t)))
+                                           p))
+                                       (c/RClass-supers* s))]
+    (cond 
+      ; the extension is via the protocol
+      (or in-protocol-extenders?
+          ; extension via the protocol's interface, or explicitly overriden
+          relevant-rclass-ancestor)
+      (let [relevant-protocol-extender (if relevant-rclass-ancestor
+                                         relevant-rclass-ancestor
+                                         (c/DataType-with-unknown-params (:the-class s)))]
+        (if (subtype? s relevant-protocol-extender)
+          *sub-current-seen*
+          (fail! s t)))
+      :else (fail! s t))))
+
+(defn ^:private subtype-datatype-and-protocol
   [s t]
-  (let [desc (protocol-extenders t)]
-    (if (some #(subtype? s %) desc)
-      *sub-current-seen*
-      (fail! s t))))
-
-(defn- subtype-datatype-record-on-left
-  [{:keys [the-class] :as s} t]
+  {:pre [(r/DataType? s)
+         (r/Protocol? t)]}
   (impl/impl-case
-             ; protocols extended in a deftype are not retrievable from (extenders protocol).
-             ; We can retrieve this information via (ancestors datatype).
-    :clojure (let [as (concat (datatype-ancestors s)
-                              ; records are also HMaps
-                              (when (r/Record? s)
-                                [(c/Record->HMap s)]))]
-               (if (some #(subtype? % t) as)
-                 *sub-current-seen*
-                 (fail! s t)))
-          ; no need to enumerate protocols here, we can get all descendants
-          ; from t. This is failing case
-    :cljs (fail! s t)))
+    :clojure (let [;first try and find the datatype in the protocol's extenders
+                   p-cls-extenders (map u/Class->symbol (filter class? (c/Protocol-normal-extenders t)))
+                   in-protocol-extenders? (some #{(:the-class s)} p-cls-extenders)
+                   relevant-datatype-ancestor (some (fn [p] 
+                                                      (when (and (r/Protocol? p)
+                                                                 (= (:the-var p) (:the-var t)))
+                                                        p))
+                                                    (datatype-ancestors s))]
+               (cond 
+                 ; the extension is via the protocol
+                 (or in-protocol-extenders?
+                     ; extension via the protocol's interface, or explicitly overriden
+                     relevant-datatype-ancestor)
+                 (let [relevant-protocol-extender (if relevant-datatype-ancestor
+                                                    relevant-datatype-ancestor
+                                                    (c/DataType-with-unknown-params (:the-class s)))]
+                   (if (subtype? s relevant-protocol-extender)
+                     *sub-current-seen*
+                     (fail! s t)))
+                 :else (fail! s t)))
 
-(defn- subtype-datatype-record-on-right
-  [s {:keys [the-class] :as t}]
-  (impl/impl-case
-    :clojure (fail! s t)
-    :cljs (fail! s t)))
+    :cljs (assert nil "FIXME")))
 
 (defn- subtype-datatypes-or-records
   [{cls1 :the-class poly1 :poly? :as s} 
@@ -914,22 +978,6 @@
   "A faster version of isa?, both parameters must be classes"
   [s ^Class t]
   (.isAssignableFrom t s))
-
-(defn- subtype-rclass
-  [{variancesl :variances classl :the-class :as s}
-   {variancesr :variances classr :the-class :as t}]
-  (impl/assert-clojure)
-  (let [replacementsl (c/RClass-replacements* s)
-        replacementsr (c/RClass-replacements* t)]
-    (cond
-      ;easy case
-      (and (empty? variancesl)
-           (empty? variancesr)
-           (empty? replacementsl)
-           (empty? replacementsr))
-      (if (class-isa? classl classr)
-        *sub-current-seen*
-        (fail! s t)))))
 
 ; (Cons Integer) <: (Seqable Integer)
 ; (ancestors (Seqable Integer)

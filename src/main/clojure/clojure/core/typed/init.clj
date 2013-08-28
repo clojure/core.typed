@@ -1,8 +1,8 @@
 (ns clojure.core.typed.init
   (:require [clojure.core.typed.current-impl :as impl]))
 
-(def ^:private attempted-loading? (atom false))
-(def ^:private successfully-loaded? (atom false))
+(defonce ^:private attempted-loading? (atom false))
+(defonce ^:private successfully-loaded? (atom false))
 
 (defn loaded? []
   @successfully-loaded?)

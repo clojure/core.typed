@@ -12,7 +12,7 @@
   {})
 
 (t/ann ns-opts (t/Atom1 (IPersistentMap Symbol NsOptions)))
-(def ns-opts (atom (init-ns-opts)))
+(defonce ns-opts (atom (init-ns-opts)))
 
 (t/ann reset-ns-opts! [-> nil])
 (defn reset-ns-opts! []

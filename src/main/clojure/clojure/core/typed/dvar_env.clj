@@ -10,7 +10,7 @@
 
 ;symbol -> F
 (t/ann *dotted-scope* (t/Map Symbol F))
-(def ^:dynamic *dotted-scope* {})
+(defonce ^:dynamic *dotted-scope* {})
 (set-validator! #'*dotted-scope* (u/hash-c? symbol? r/F?))
 
 (t/ann bound-index? [Any -> Any])

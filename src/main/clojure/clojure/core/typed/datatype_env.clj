@@ -9,10 +9,10 @@
 
 (t/def-alias DataTypeEnv
   "An Environment mapping datatype symbols to types."
-  (IPersistentMap Symbol r/TCType))
+  (IPersistentMap Symbol r/Type))
 
 (t/ann *current-datatype-env* (U nil (t/Atom1 DataTypeEnv)))
-(def ^:dynamic *current-datatype-env* nil)
+(defonce ^:dynamic *current-datatype-env* nil)
 
 (t/ann assert-datatype-env [-> Any])
 (defn ^:private assert-datatype-env []
@@ -30,16 +30,16 @@
 (t/ann CLJS-DATATYPE-ENV (t/Atom1 DataTypeEnv))
 (defonce ^:private CLJS-DATATYPE-ENV ((inst atom DataTypeEnv) {} :validator datatype-env?))
 
-(t/ann add-datatype [Symbol r/TCType -> nil])
+(t/ann add-datatype [Symbol r/Type -> nil])
 (defn add-datatype [sym t]
   (assert-datatype-env)
   (when-let-fail [env *current-datatype-env*]
-    (let [swap!' (inst swap! DataTypeEnv DataTypeEnv Symbol r/TCType)
-          assoc' (inst assoc Symbol r/TCType Any)]
+    (let [swap!' (inst swap! DataTypeEnv DataTypeEnv Symbol r/Type)
+          assoc' (inst assoc Symbol r/Type Any)]
       (swap!' env assoc' sym t)))
   nil)
 
-(t/ann get-datatype [Symbol -> (U nil r/TCType)])
+(t/ann get-datatype [Symbol -> (U nil r/Type)])
 (defn get-datatype 
   "Get the datatype with class symbol sym.
   Returns nil if not found."
@@ -48,7 +48,7 @@
   (when-let-fail [env *current-datatype-env*]
     (@env sym)))
 
-(t/ann resolve-datatype [Symbol -> r/TCType])
+(t/ann resolve-datatype [Symbol -> r/Type])
 (defn resolve-datatype 
   "Same as get-datatype, but fails if datatype is not found."
   [sym]

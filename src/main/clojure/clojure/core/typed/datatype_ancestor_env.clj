@@ -16,7 +16,8 @@
 
 (t/def-alias DTAncestorEnv
   "Environment mapping datatype names to sets of ancestor types."
-  (t/Map Symbol (t/Set r/TCType)))
+                       ; FIXME should this be (U Scope Type)?
+  (t/Map Symbol (t/Set r/Type)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Predicates
@@ -33,30 +34,31 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation agnostic state
 
-(def ^:dynamic ^{:ann '(U nil (t/Atom1 DTAncestorEnv))}
+(t/ann ^:no-check *current-dt-ancestors* (U nil (t/Atom1 DTAncestorEnv)))
+(defonce ^:dynamic 
   *current-dt-ancestors* nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Helpers
 
-(defn ^:private ^{:ann '[Any -> Any]}
+(defn ^:private ^{:ann '[-> Any]}
   assert-dt-ancestors []
   (assert *current-dt-ancestors* "No datatype ancestor environment bound"))
 
-(defn ^:private ^{:ann '[DataType (U nil (t/Seqable r/TCType)) -> (t/Set r/TCType)]}
+(defn ^:private ^{:ann '[DataType (U nil (t/Seqable Symbol)) -> (t/Set r/Type)]}
   inst-ancestors
   "Given a datatype, return its instantiated ancestors"
   [{poly :poly? :as dt} anctrs]
   {:pre [(r/DataType? dt)]
    :post [((u/set-c? r/Type?) %)]}
-  (set (t/for> :- r/TCType
+  (set (t/for> :- r/Type
          [u :- Symbol, anctrs]
          (c/inst-and-subst u poly))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interface
 
-(defn ^:no-check ^{:ann '[DataType -> (t/Set r/TCType)]}
+(defn ^:no-check ^{:ann '[DataType -> (t/Set r/Type)]}
   get-datatype-ancestors 
   "Returns the set of overriden ancestors of the given DataType."
   [{:keys [poly? the-class] :as dt}]
@@ -65,7 +67,7 @@
   (when-let-fail [a *current-dt-ancestors*]
     (inst-ancestors dt (@a the-class))))
 
-(defn ^:no-check ^{:ann '[Symbol (t/Set r/TCType) -> nil]}
+(defn ^:no-check ^{:ann '[Symbol (t/Set r/Type) -> nil]}
   add-datatype-ancestors 
   "Add a set of ancestor overrides for the datatype named sym."
   [sym tset]

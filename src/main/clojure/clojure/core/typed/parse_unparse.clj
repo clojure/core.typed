@@ -32,7 +32,7 @@
            (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE)
            (clojure.lang ISeq Cons IPersistentList Symbol IPersistentVector PersistentHashMap)))
 
-(def ^:dynamic *parse-type-in-ns* nil)
+(defonce ^:dynamic *parse-type-in-ns* nil)
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol?))
 
 (defmacro with-parse-ns [sym & body]
@@ -501,7 +501,7 @@
           _ (assert ((some-fn symbol? nil?) rsym))]
     (if-let [free (and (symbol? n) (free-ops/free-in-scope n))]
       (r/TApp-maker free (mapv parse-type args))
-      (if-let [t ((some-fn dtenv/get-datatype prenv/get-protocol nmenv/get-type-name) rsym)]
+      (if ((some-fn dtenv/get-datatype prenv/get-protocol nmenv/get-type-name) rsym)
         ;don't resolve if operator is declared
         (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
         (if (and (impl/checking-clojure?)
@@ -581,9 +581,11 @@
                                         (u/Class->symbol res))]
                            (or (resolve-symbol qsym clssym)
                                (when qsym
-                                 (println (str "WARNING: Assuming unannotated var " qsym
-                                               " is a protocol."))
-                                 (flush)
+                                 (assert nil (str "Unannotated var reference " qsym 
+                                                  ". If " qsym " is a protocol, annotate with ann-protocol."))
+                                 ;(println (str "WARNING: Assuming unannotated var " qsym
+                                 ;              " is a protocol."))
+                                 ;(flush)
                                  (r/Name-maker qsym))
                                (when clssym
                                  (c/RClass-of clssym))))
@@ -603,9 +605,11 @@
 
                             (resolve-symbol ressym ressym)
                             (when ressym
-                              (println (str "WARNING: Assuming unannotated var " ressym
-                                            " is a protocol."))
-                              (flush)
+                              (assert nil (str "Unannotated var reference " ressym
+                                               ". If " ressym " is a protocol, annotate with ann-protocol."))
+                              ;(println (str "WARNING: Assuming unannotated var " ressym
+                              ;              " is a protocol."))
+                              ;(flush)
                               (r/Name-maker ressym)))))
               (u/tc-error (str "Cannot resolve type: " (pr-str sym)
                                "\nHint: Is " (pr-str sym) " in scope?"
@@ -686,7 +690,7 @@
   {:post [(r/Function? %)]}
   (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
-        _ (assert (<= 2 (count chk)) (str "Missing range in " f))
+        _ (assert (<= 2 (count chk)) (str (parse-in-ns) ":" "Missing range in " f))
 
         opts (apply hash-map opts-flat)
 
@@ -772,9 +776,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unparse
 
-(def ^:dynamic *next-nme* 0) ;stupid readable variables
+(defonce ^:dynamic *next-nme* 0) ;stupid readable variables
 
-(def ^:dynamic *unparse-type-in-ns* nil)
+(defonce ^:dynamic *unparse-type-in-ns* nil)
 (set-validator! #'*unparse-type-in-ns* (some-fn nil? symbol?))
 
 (defmacro with-unparse-ns [sym & body]

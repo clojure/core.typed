@@ -1,13 +1,13 @@
 (ns ^:skip-wiki clojure.core.typed.frees
-  (:require [clojure.core.typed.type-rep :as r]
+  (:require [clojure.core.typed :as t :refer [for> fn>]]
+            [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.name-env :as nmenv]
-            [clojure.core.typed.declared-kind-env :as kinds]
-            [clojure.core.typed :as t :refer [for> fn>]])
+            [clojure.core.typed.declared-kind-env :as kinds])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
@@ -20,9 +20,11 @@
            (clojure.core.typed.path_rep KeyPE)
            (clojure.lang Keyword Symbol)))
 
+;(t/typed-deps clojure.core.typed.type-rep)
+
 ;TODO make this an argument
 (t/ann *frees-mode* (U nil Keyword))
-(def ^:dynamic *frees-mode* nil)
+(defonce ^:dynamic *frees-mode* nil)
 (t/tc-ignore
 (set-validator! #'*frees-mode* (some-fn #{::frees ::idxs} nil?))
   )
@@ -107,12 +109,15 @@
 (t/ann frees-in [r/AnyType -> VarianceMap])
 (defn frees-in [t]
   {:post [(variance-map? %)]}
-  (frees t))
+  (u/p :frees/frees-in
+  (frees t)))
 
 (t/ann frees [Any -> VarianceMap])
-(defmulti frees (fn [t] [*frees-mode* (class t)]))
+(defmulti ^:private frees (fn [t] [*frees-mode* (class t)]))
 
-(defmethod frees [::any-var Result]
+(u/add-defmethod-generator frees)
+
+(add-frees-method [::any-var Result]
   [t]
   (t/ann-form t Result)
   (let [{:keys [t fl o]} t]
@@ -122,76 +127,76 @@
 
 ;; Filters
 
-(defmethod frees [::any-var FilterSet]
+(add-frees-method [::any-var FilterSet]
   [{:keys [then else]}]
   (combine-frees (frees then)
                  (frees else)))
 
-(defmethod frees [::any-var TypeFilter]
+(add-frees-method [::any-var TypeFilter]
   [{:keys [type]}]
   (frees type))
 
-(defmethod frees [::any-var NotTypeFilter]
+(add-frees-method [::any-var NotTypeFilter]
   [{:keys [type]}] 
   (flip-variances (frees type)))
 
-(defmethod frees [::any-var ImpFilter]
+(add-frees-method [::any-var ImpFilter]
   [{:keys [a c]}] 
   (combine-frees (frees a)
                  (frees c)))
 
-(defmethod frees [::any-var AndFilter]
+(add-frees-method [::any-var AndFilter]
   [{:keys [fs]}] 
   (apply combine-frees (mapv frees fs)))
 
-(defmethod frees [::any-var OrFilter]
+(add-frees-method [::any-var OrFilter]
   [{:keys [fs]}]
   (apply combine-frees (mapv frees fs)))
 
-(defmethod frees [::any-var TopFilter] [t] {})
-(defmethod frees [::any-var BotFilter] [t] {})
+(add-frees-method [::any-var TopFilter] [t] {})
+(add-frees-method [::any-var BotFilter] [t] {})
 
 ;; Objects
 
-(defmethod frees [::any-var Path]
+(add-frees-method [::any-var Path]
   [{:keys [path]}]
   (apply combine-frees (mapv frees path)))
 
-(defmethod frees [::any-var EmptyObject] [t] {})
-(defmethod frees [::any-var NoObject] [t] {})
-(defmethod frees [::any-var KeyPE] [t] {})
+(add-frees-method [::any-var EmptyObject] [t] {})
+(add-frees-method [::any-var NoObject] [t] {})
+(add-frees-method [::any-var KeyPE] [t] {})
 
 
-(defmethod frees [::frees F]
+(add-frees-method [::frees F]
   [{:keys [name] :as t}]
   {name :covariant})
 
-(defmethod frees [::idxs F] [t] {})
+(add-frees-method [::idxs F] [t] {})
 
-(defmethod frees [::any-var TCError] [t] {})
-(defmethod frees [::any-var B] [t] {})
-(defmethod frees [::any-var CountRange] [t] {})
-(defmethod frees [::any-var Value] [t] {})
-(defmethod frees [::any-var AnyValue] [t] {})
-(defmethod frees [::any-var Top] [t] {})
-(defmethod frees [::any-var Name] [t] {})
+(add-frees-method [::any-var TCError] [t] {})
+(add-frees-method [::any-var B] [t] {})
+(add-frees-method [::any-var CountRange] [t] {})
+(add-frees-method [::any-var Value] [t] {})
+(add-frees-method [::any-var AnyValue] [t] {})
+(add-frees-method [::any-var Top] [t] {})
+(add-frees-method [::any-var Name] [t] {})
 
-(defmethod frees [::any-var DataType]
+(add-frees-method [::any-var DataType]
   [{:keys [fields poly?]}]
   (apply combine-frees 
          (mapv frees (concat (vals fields) poly?))))
 
-(defmethod frees [::any-var HeterogeneousList]
+(add-frees-method [::any-var HeterogeneousList]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
 
-(defmethod frees [::any-var App]
+(add-frees-method [::any-var App]
   [{:keys [rator rands]}]
   (apply combine-frees (mapv frees (cons rator rands))))
 
 ;FIXME flow error during checking
 (t/tc-ignore
-(defmethod frees [::any-var TApp]
+(add-frees-method [::any-var TApp]
   [{:keys [rator rands]}]
   (apply combine-frees
          (let [^TypeFn
@@ -226,44 +231,44 @@
                  (map vector (.variances tfn) (map frees rands))))))
   )
 
-(defmethod frees [::any-var PrimitiveArray]
+(add-frees-method [::any-var PrimitiveArray]
   [{:keys [input-type output-type]}] 
   (combine-frees (flip-variances (frees input-type))
                  (frees output-type)))
 
-(defmethod frees [::any-var HeterogeneousSeq]
+(add-frees-method [::any-var HeterogeneousSeq]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
 
-(defmethod frees [::any-var HeterogeneousMap]
+(add-frees-method [::any-var HeterogeneousMap]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees (concat (keys types) (vals types)))))
 
-(defmethod frees [::any-var HeterogeneousVector]
+(add-frees-method [::any-var HeterogeneousVector]
   [{:keys [types fs objects]}] 
   (apply combine-frees (mapv frees (concat types fs objects))))
 
-(defmethod frees [::any-var Extends]
+(add-frees-method [::any-var Extends]
   [{:keys [extends without]}] 
   (apply combine-frees (mapv frees (concat extends without))))
 
-(defmethod frees [::any-var NotType]
+(add-frees-method [::any-var NotType]
   [{:keys [type]}] 
   (frees type))
 
-(defmethod frees [::any-var Intersection]
+(add-frees-method [::any-var Intersection]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
 
-(defmethod frees [::any-var Union]
+(add-frees-method [::any-var Union]
   [{:keys [types]}]
   (apply combine-frees (mapv frees types)))
 
-(defmethod frees [::any-var FnIntersection]
+(add-frees-method [::any-var FnIntersection]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
 
-(defmethod frees [::frees Function]
+(add-frees-method [::frees Function]
   [{:keys [dom rng rest drest kws]}]
   (apply combine-frees (concat (mapv (comp flip-variances frees)
                                      (concat dom
@@ -276,7 +281,7 @@
                                  [(dissoc (-> (:pre-type drest) frees flip-variances)
                                           (:name drest))]))))
 
-(defmethod frees [::idxs Function]
+(add-frees-method [::idxs Function]
   [{:keys [dom rng rest drest kws]}]
   (apply combine-frees (concat (mapv #(-> % frees flip-variances)
                                      (concat dom
@@ -292,7 +297,9 @@
                                     (-> pre-type
                                       frees flip-variances)])))))
 
-(defmethod frees [::any-var RClass]
+
+(t/tc-ignore
+(add-frees-method [::any-var RClass]
   [t]
   (let [varis (:variances t)
         args (:poly? t)]
@@ -306,25 +313,30 @@
                              :contravariant (flip-variances (frees arg))
                              :invariant (let [fvs (frees arg)]
                                           (zipmap (keys fvs) (repeat :invariant))))))))
+  )
 
-(defmethod frees [::any-var Scope]
+(add-frees-method [::any-var Scope]
   [{:keys [body]}]
   (frees body))
 
 ;FIXME Type variable bounds should probably be checked for frees
-(defmethod frees [::any-var TypeFn]
+(add-frees-method [::any-var TypeFn]
   [{:keys [scope]}]
   (frees scope))
 
-(defmethod frees [::any-var Poly]
+(add-frees-method [::any-var Poly]
   [{:keys [scope]}]
   (frees scope))
 
-(defmethod frees [::any-var Mu]
+(add-frees-method [::any-var Mu]
   [{:keys [scope]}]
   (frees scope))
 
-(defmethod frees [::any-var PolyDots]
+(add-frees-method [::any-var PolyDots]
   [{:keys [nbound scope]}]
   (frees scope))
 
+
+(comment
+(u/profile :info :foo (t/check-ns))
+  )

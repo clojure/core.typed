@@ -17,7 +17,7 @@
                  props
                  (into #{} props))))
 
-(def ^:dynamic *lexical-env* (-PropEnv {} #{}))
+(defonce ^:dynamic *lexical-env* (-PropEnv {} #{}))
 (set-validator! #'*lexical-env* (fn [a]
                                   (or (PropEnv? a)
                                       ;work around for recompilation issues with AOT

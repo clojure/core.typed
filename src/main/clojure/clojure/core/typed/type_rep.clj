@@ -1,35 +1,16 @@
-(ns ^:skip-wiki clojure.core.typed.type-rep
+(ns ^:skip-wiki 
+  clojure.core.typed.type-rep
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require [clojure.core.typed.filter-protocols :as fr]
-            [clojure.core.typed.object-protocols :as or]
+  (:require [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t]
             [clojure.set :as set])
-  (:import (clojure.lang IPersistentSet Seqable Symbol Keyword IPersistentMap
-                         IPersistentVector)))
-
-(t/typed-deps clojure.core.typed.filter-protocols
-              clojure.core.typed.object-protocols)
+  (:import (clojure.lang Seqable Symbol Keyword)))
 
 (t/tc-ignore
-(defn- Filter?-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) 'Filter?)]
-    (assert (var? v) "Filter? unbound")
-    v))
-
-(defn- FilterSet?-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) 'FilterSet?)]
-    (assert (var? v) "FilterSet? unbound")
-    v))
-
 (defn- -FS-var []
   (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-ops) '-FS)]
     (assert (var? v) "-FS unbound")
-    v))
-
-(defn RObject?-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.object-rep) 'RObject?)]
-    (assert (var? v) "RObject? unbound")
     v))
 
 (defn -top-var []
@@ -45,52 +26,36 @@
 
 (t/def-alias SeqNumber Long)
 
-(t/ann-protocol TCType)
-
-; FIXME this throw a type error for some reason
-(t/ann ^:no-check type-sequence-mapping (t/Atom1 (IPersistentMap TCType SeqNumber)))
-(def ^:private type-sequence-mapping 
-  "Mapping from types to sequence number"
-  (atom {}))
-
 ;(set! *warn-on-reflection* true)
 
 ;;; Type rep predicates
 
-(t/ann-protocol TCAnyType)
-(t/ann-protocol TypeId
-                type-id [TypeId -> Long])
-
-(u/defprotocol TCType)
-(u/defprotocol TCAnyType)
-
 (t/def-alias Type
   "A normal type"
-  TCType)
+  p/TCType)
 
 (t/def-alias AnyType
   "A normal type or special type like Function."
-  (U Type TCAnyType))
+  (U Type p/TCAnyType))
+
+(t/def-alias MaybeScopedType
+  "A type or a scope"
+  (U Type p/IScope))
+
+(t/ann-protocol TypeId
+                type-id [TypeId -> Long])
 
 (u/defprotocol TypeId
   (type-id [_]))
 
-(t/ann ^:no-check Type? (predicate TCType))
+(t/ann ^:no-check Type? (predicate Type))
 (defn Type? [a]
-  (satisfies? TCType a))
+  (instance? clojure.core.typed.impl_protocols.TCType a))
 
-(t/ann ^:no-check AnyType? (predicate TCAnyType))
+(t/ann ^:no-check AnyType? (predicate AnyType))
 (defn AnyType? [a]
   (or (Type? a)
-      (satisfies? TCAnyType a)))
-
-(t/ann ^:no-check declare-type [Class -> Any])
-(defn declare-type [a]
-  (extend a TCType {}))
-
-(t/ann ^:no-check declare-AnyType [Class -> Any])
-(defn declare-AnyType [a]
-  (extend a TCAnyType {}))
+      (instance? clojure.core.typed.impl_protocols.TCAnyType a)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types
@@ -98,67 +63,69 @@
 (u/ann-record Top [])
 (u/def-type Top []
   "The top type"
-  [])
+  []
+  :methods
+  [p/TCType])
 
-(t/ann -any TCType)
+(t/ann -any Type)
 (def -any (Top-maker))
 
-(declare-type Top)
 
 ;FIXME proper union maker, with sorted types
-(u/ann-record Union [types :- (IPersistentSet TCType)])
+(u/ann-record Union [types :- (t/Set Type)])
 (u/def-type Union [types]
   "An flattened, unordered union of types"
   [(set? types)
    (every? Type? types)
-   (not (some Union? types))])
+   (not (some Union? types))]
+  :methods
+  [p/TCType])
 
 ;temporary union maker
-(t/ann Un [TCType * -> Union])
+(t/ann Un [Type * -> Union])
 (defn- Un [& types]
   (Union-maker (set types)))
 
-(declare-type Union)
 
-(t/ann empty-union TCType)
+(t/ann empty-union Type)
 (def empty-union (Un))
 
-(t/ann Bottom [-> TCType])
+(t/ann Bottom [-> Type])
 (defn Bottom []
   empty-union)
 
-(t/ann -nothing TCType)
+(t/ann -nothing Type)
 (def -nothing (Bottom))
 
-(t/ann ^:no-check Bottom? (predicate TCType))
+(t/ann ^:no-check Bottom? [Any -> Any :filters {:then Type}])
 (defn Bottom? [a]
   (= empty-union a))
 
 (u/ann-record TCError [])
 (u/def-type TCError []
   "Use *only* when a type error occurs"
-  [])
+  []
+  :methods
+  [p/TCType])
 
-(t/ann Err TCType)
+(t/ann Err Type)
 (def Err (TCError-maker))
 
-(declare-type TCError)
 
 ;should probably be ordered
-(u/ann-record Intersection [types :- (I (Seqable TCType)
-                                        (CountRange 1))])
+(u/ann-record Intersection [types :- (t/NonEmptySeqable Type)])
 (u/def-type Intersection [types]
   "An unordered intersection of types."
   [(seq types)
-   (every? Type? types)])
-
-(declare-type Intersection)
+   (every? Type? types)]
+  :methods 
+  [p/TCType])
 
 (t/def-alias Variance
   "Keywords that represent a certain variance"
   (U ':constant ':covariant ':contravariant ':invariant ':dotted))
 
-(t/ann variances (IPersistentSet Variance))
+(t/ann variances (t/Set Variance))
 (def variances #{:constant :covariant :contravariant :invariant :dotted})
 
 (t/ann ^:no-check variance? (predicate Variance))
@@ -167,48 +134,51 @@
 
 (declare Scope? TypeFn?)
 
+(u/ann-record Bounds [upper-bound :- MaybeScopedType
+                      lower-bound :- MaybeScopedType
+                      higher-kind :- nil])
+
 ; This annotation needs to go before the first reference to TypeFn,
 ; otherwise it will resolve to an RClass, instead of a DataType.
 ; DataType should be combined with RClass in the future.
 (u/ann-record TypeFn [nbound :- Number,
                       variances :- (U nil (Seqable Variance))
                       bbnds :- (U nil (Seqable Bounds)),
-                      scope :- Scope])
-
-(u/ann-record Bounds [upper-bound :- (U nil TCType Scope)
-                      lower-bound :- (U nil TCType Scope)
-                      higher-kind :- nil])
+                      scope :- p/IScope])
 (u/def-type Bounds [upper-bound lower-bound higher-kind]
   "A type bound or higher-kind bound on a variable"
   [(every? (some-fn Type? Scope?) [upper-bound lower-bound])
-   ;deprecated
+   ;deprecated/unused
    (nil? higher-kind)])
 
 (u/ann-record B [idx :- Number])
 (u/def-type B [idx]
   "A bound variable. Should not appear outside this file"
-  [(u/nat? idx)])
+  [(u/nat? idx)]
+  :methods
+  [p/TCType])
 
-(declare-type B)
-
-;FIXME kind should be part of the identity of a free, otherwise type caching is unsound
+;FIXME rank should be part of the identity of a free, otherwise type caching is unsound
 ; Same with bounds.
 (u/ann-record F [name :- Symbol])
 (u/def-type F [name]
   "A named free variable"
-  [(symbol? name)])
+  [(symbol? name)]
+  :methods
+  [p/TCType])
 
 (t/ann make-F [Symbol -> F])
 (defn make-F
   "Make a free variable "
   [name] (F-maker name))
 
-(declare-type F)
-
-(u/ann-record Scope [body :- (U Scope TCType)])
+(u/ann-record Scope [body :- MaybeScopedType])
 (u/def-type Scope [body]
   "A scope that contains one bound variable, can be nested. Not used directly"
-  [((some-fn Type? Scope?) body)])
+  [((some-fn Type? Scope?) body)]
+  :methods
+  [p/IScope
+   (scope-body [this] body)])
 
 (t/ann ^:no-check scope-depth? [Scope Number -> Any])
 (defn scope-depth? 
@@ -220,11 +190,11 @@
                                                 (:body %))
                                           scope)))))
 
-(u/ann-record RClass [variances :- (U nil (I (CountRange 1) (Seqable Variance)))
-                      poly? :- (U nil (I (CountRange 1) (Seqable TCType)))
+(u/ann-record RClass [variances :- (U nil (t/NonEmptySeqable Variance))
+                      poly? :- (U nil (t/NonEmptySeqable Type))
                       the-class :- Symbol
-                      replacements :- (IPersistentMap Symbol (U TCType Scope))
-                      unchecked-ancestors :- (IPersistentSet (U TCType Scope))])
+                      replacements :- (t/Map Symbol MaybeScopedType)
+                      unchecked-ancestors :- (t/Set MaybeScopedType)])
 (u/def-type RClass [variances poly? the-class replacements unchecked-ancestors]
   "A restricted class, where ancestors are
   (replace replacements (ancestors the-class))"
@@ -238,16 +208,23 @@
             (every? Type? poly?)))
    (symbol? the-class)
    ((u/hash-c? symbol? (some-fn Type? Scope?)) replacements)
-   ((u/set-c? (some-fn Type? Scope?)) unchecked-ancestors)])
-
-(declare-type RClass)
+   ((u/set-c? (some-fn Type? Scope?)) unchecked-ancestors)]
+  :intern
+  [variances 
+   (when poly? (map hash poly?))
+   (keyword the-class)
+   (into {} (for [[k v] replacements]
+              [(keyword k) (hash v)]))
+   (into #{} (map hash unchecked-ancestors))]
+  :methods
+  [p/TCType])
 
 (t/ann ^:no-check RClass->Class [RClass -> Class])
 (defn ^Class RClass->Class [^RClass rcls]
   (u/symbol->Class (.the-class rcls)))
 
-(u/ann-record JSNominal [variances :- (U nil (I (CountRange 1) (Seqable Variance)))
-                         poly? :- (U nil (I (CountRange 1) (Seqable TCType)))
+(u/ann-record JSNominal [variances :- (U nil (t/NonEmptySeqable Variance))
+                         poly? :- (U nil (t/NonEmptySeqable Type))
                          name :- Symbol])
 (u/def-type JSNominal [variances poly? name]
   "A Javascript nominal type"
@@ -260,14 +237,14 @@
        (and (seq poly?)
             (sequential? poly?)
             (every? Type? poly?)))
-   (symbol? name)])
-
-(declare-type JSNominal)
+   (symbol? name)]
+  :methods
+  [p/TCType])
 
 (u/ann-record DataType [the-class :- Symbol,
-                        variances :- (U nil (I (CountRange 1) (Seqable Variance))),
-                        poly? :- (U nil (I (CountRange 1) (Seqable TCType))),
-                        fields :- (IPersistentMap Symbol (U Scope TCType))
+                        variances :- (U nil (t/NonEmptySeqable Variance)),
+                        poly? :- (U nil (t/NonEmptySeqable Type)),
+                        fields :- (t/Map Symbol MaybeScopedType)
                         record? :- Boolean])
 (u/def-type DataType [the-class variances poly? fields record?]
   "A Clojure datatype"
@@ -280,26 +257,27 @@
    (= (count variances) (count poly?))
    (symbol? the-class)
    ((u/array-map-c? symbol? (some-fn Scope? Type?)) fields)
-   (u/boolean? record?)])
+   (u/boolean? record?)]
+  :methods
+  [p/TCType])
 
-(t/ann ^:no-check DataType->Class [DataType -> Class])
+(t/ann DataType->Class [DataType -> Class])
 (defn ^Class DataType->Class [^DataType dt]
   (u/symbol->Class (.the-class dt)))
 
-(t/ann ^:no-check Record? [Any -> Boolean])
+(t/ann Record? [Any -> Boolean])
 (defn Record? [^DataType a]
   (boolean
     (when (DataType? a)
       (.record? a))))
 
-(declare-type DataType)
-
 (u/ann-record Protocol [the-var :- Symbol,
-                        variances :- (U nil (Seqable Variance)),
-                        poly? :- (U nil TCType),
+                        variances :- (U nil (t/NonEmptySeqable Variance)),
+                        poly? :- (U nil (t/NonEmptySeqable Type)),
                         on-class :- Symbol,
-                        methods :- (IPersistentMap Symbol TCType)])
-(u/def-type Protocol [the-var variances poly? on-class methods]
+                        methods :- (t/Map Symbol Type)
+                        declared? :- Boolean])
+(u/def-type Protocol [the-var variances poly? on-class methods declared?]
   "A Clojure Protocol"
   [(symbol? the-var)
    (or (nil? variances)
@@ -310,9 +288,10 @@
             (every? Type? poly?)))
    (= (count poly?) (count variances))
    (symbol? on-class)
-   ((u/hash-c? (every-pred symbol? (complement namespace)) Type?) methods)])
-
-(declare-type Protocol)
+   ((u/hash-c? (every-pred symbol? (complement namespace)) Type?) methods)
+   (u/boolean? declared?)]
+  :methods
+  [p/TCType])
 
 (u/def-type TypeFn [nbound variances bbnds scope]
   "A type function containing n bound variables with variances.
@@ -322,14 +301,14 @@
    (every? Bounds? bbnds)
    (apply = nbound (map count [variances bbnds]))
    (scope-depth? scope nbound)
-   (Scope? scope)])
-
-(declare-type TypeFn)
+   (Scope? scope)]
+  :methods
+  [p/TCType])
 
 ;FIXME actual-frees should be metadata. ie. it should not affect equality
 (u/ann-record Poly [nbound :- Number,
                     bbnds :- (U nil (Seqable Bounds)),
-                    scope :- Scope,
+                    scope :- p/IScope,
                     actual-frees :- (U nil (Seqable Symbol))])
 (u/def-type Poly [nbound bbnds scope actual-frees]
   "A polymorphic type containing n bound variables, with display names actual-frees"
@@ -338,13 +317,13 @@
    (every? symbol? actual-frees)
    (apply = nbound (map count [bbnds actual-frees]))
    (scope-depth? scope nbound)
-   (Scope? scope)])
-
-(declare-type Poly)
+   (Scope? scope)]
+  :methods
+  [p/TCType])
 
 (u/ann-record PolyDots [nbound :- Number,
                         bbnds :- (U nil (Seqable Bounds)),
-                        scope :- Scope
+                        scope :- p/IScope
                         actual-frees :- (U nil (Seqable Symbol))])
 (u/def-type PolyDots [nbound bbnds ^Scope scope actual-frees]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
@@ -353,109 +332,106 @@
    (every? symbol? actual-frees)
    (= nbound (count bbnds))
    (scope-depth? scope nbound)
-   (Scope? scope)])
-
-(declare-type PolyDots)
+   (Scope? scope)]
+  :methods
+  [p/TCType])
 
 (u/ann-record Name [id :- Symbol])
 (u/def-type Name [id]
   "A late bound name"
   [((every-pred (some-fn namespace (fn [a] (some (fn [c] (= \. c)) (str a))))
                 symbol?) 
-     id)])
+     id)]
+  :methods
+  [p/TCType])
 
-(u/ann-record TApp [rator :- TCType,
-                    rands :- (Seqable TCType)])
+(u/ann-record TApp [rator :- Type,
+                    rands :- (Seqable Type)])
 (u/def-type TApp [rator rands]
   "An application of a type function to arguments."
   [((some-fn Name? TypeFn? F? B? Poly?) rator)
-   (every? (some-fn TypeFn? Type?) rands)])
+   (every? (some-fn TypeFn? Type?) rands)]
+  :methods
+  [p/TCType]);not always a type
 
-(declare-type TApp) ;not always a type
-
-(u/ann-record App [rator :- TCType,
-                   rands :- (Seqable TCType)])
+(u/ann-record App [rator :- Type,
+                   rands :- (Seqable Type)])
 (u/def-type App [rator rands]
   "An application of a polymorphic type to type arguments"
   [(Type? rator)
-   (every? Type? rands)])
+   (every? Type? rands)]
+  :methods
+  [p/TCType])
 
-(declare-type App)
-
-(declare-type Name)
-
-(u/ann-record Mu [scope :- Scope])
+(u/ann-record Mu [scope :- p/IScope])
 (u/def-type Mu [scope]
   "A recursive type containing one bound variable, itself"
-  [(Scope? scope)])
-
-(declare-type Mu)
+  [(Scope? scope)]
+  :methods
+  [p/TCType
+   p/IMu
+   (mu-scope [_] scope)])
 
 (u/ann-record Value [val :- Any])
 (u/def-type Value [val]
   "A Clojure value"
-  [])
+  []
+  :methods
+  [p/TCType])
 
 (u/ann-record AnyValue [])
 (u/def-type AnyValue []
   "Any Value"
-  [])
+  []
+  :methods
+  [p/TCType])
 
-(t/ann -val [Any -> TCType])
+(t/ann -val [Any -> Type])
 (def -val Value-maker)
 
-(t/ann -false TCType)
-(t/ann -true TCType)
-(t/ann -nil TCType)
+(t/ann-many Type 
+            -false -true -nil)
 (def -false (-val false))
 (def -true (-val true))
 (def -nil (-val nil))
 
-(t/ann Nil? [Any -> Boolean])
-(t/ann False? [Any -> Boolean])
-(t/ann True? [Any -> Boolean])
+(t/ann-many [Any -> Boolean]
+            Nil? False? True?)
 (defn Nil? [a] (= -nil a))
 (defn False? [a] (= -false a))
 (defn True? [a] (= -true a))
 
-(declare-type Value)
-(declare-type AnyValue)
-
 (declare Result?)
 
-(u/ann-record HeterogeneousMap [types :- (IPersistentMap TCType TCType),
-                                absent-keys :- (IPersistentSet TCType),
+(u/ann-record HeterogeneousMap [types :- (t/Map Type Type),
+                                absent-keys :- (t/Set Type),
                                 other-keys? :- Boolean])
 (u/def-type HeterogeneousMap [types absent-keys other-keys?]
   "A constant map, clojure.lang.IPersistentMap"
   [((u/hash-c? Value? (some-fn Type? Result?))
      types)
    ((u/set-c? Value?) absent-keys)
-   (u/boolean? other-keys?)])
+   (u/boolean? other-keys?)]
+  :methods
+  [p/TCType])
 
-(declare-type HeterogeneousMap)
-
-(t/def-alias TempFilterSet
-  "Can't import FilterSet here, so an alias will do for now"
-  clojure.core.typed.filter_rep.FilterSet)
-
-(u/ann-record HeterogeneousVector [types :- (IPersistentVector TCType)
-                                   fs :- (IPersistentVector TempFilterSet)
-                                   objects :- (IPersistentVector or/IRObject)])
+(u/ann-record HeterogeneousVector [types :- (t/Vec Type)
+                                   fs :- (t/Vec p/IFilterSet)
+                                   objects :- (t/Vec p/IRObject)])
 (u/def-type HeterogeneousVector [types fs objects]
   "A constant vector, clojure.lang.IPersistentVector"
   [(vector? types)
    (every? (some-fn Type? Result?) types)
    (vector? fs)
-   (let [FilterSet? @(FilterSet?-var)]
-     (every? FilterSet? fs))
+   (every? p/IFilterSet? fs)
    (vector? objects)
-   (let [RObject? @(RObject?-var)]
-     (every? RObject? objects))
-   (apply = (map count [types fs objects]))])
+   (every? p/IRObject? objects)
+   (apply = (map count [types fs objects]))]
+  :methods
+  [p/TCType])
 
 (t/ann ^:no-check -hvec 
-       [(IPersistentVector TCType) & :optional {:filters (Seqable TempFilterSet) :objects (Seqable or/IRObject)} -> TCType])
+       [(t/Vec Type) & :optional {:filters (Seqable p/IFilterSet) :objects (Seqable p/IRObject)} -> Type])
 (defn -hvec 
   [types & {:keys [filters objects]}]
   (let [-FS @(-FS-var)
@@ -471,66 +447,73 @@
                                (vec objects)
                                (vec (repeat (count types) -empty)))))))
 
-(declare-type HeterogeneousVector)
-
-(u/ann-record HeterogeneousList [types :- (Seqable TCType)])
+(u/ann-record HeterogeneousList [types :- (Seqable Type)])
 (u/def-type HeterogeneousList [types]
   "A constant list, clojure.lang.IPersistentList"
   [(sequential? types)
-   (every? Type? types)])
+   (every? Type? types)]
+  :methods
+  [p/TCType])
 
-(declare-type HeterogeneousList)
-
-(u/ann-record HeterogeneousSeq [types :- (Seqable TCType)])
+(u/ann-record HeterogeneousSeq [types :- (Seqable Type)])
 (u/def-type HeterogeneousSeq [types]
   "A constant seq, clojure.lang.ISeq"
   [(sequential? types)
-   (every? Type? types)])
-
-(declare-type HeterogeneousSeq)
+   (every? Type? types)]
+  :methods
+  [p/TCType])
 
 (u/ann-record PrimitiveArray [jtype :- Class,
-                              input-type :- TCType
-                              output-type :- TCType])
+                              input-type :- Type
+                              output-type :- Type])
 (u/def-type PrimitiveArray [jtype input-type output-type]
   "A Java Primitive array"
   [(class? jtype)
    (Type? input-type)
-   (Type? output-type)])
+   (Type? output-type)]
+  :methods
+  [p/TCType])
 
-(declare-type PrimitiveArray)
-
-(u/ann-record DottedPretype [pre-type :- TCType,
+(u/ann-record DottedPretype [pre-type :- Type,
                              name :- (U Symbol Number)])
 (u/def-type DottedPretype [pre-type name]
   "A dotted pre-type. Not a type"
   [(Type? pre-type)
-   ((some-fn symbol? u/nat?) name)])
-
-(declare-AnyType DottedPretype)
+   ((some-fn symbol? u/nat?) name)]
+  :methods
+  [p/TCAnyType])
 
 ;not a type, see KwArgsSeq
-(u/ann-record KwArgs [mandatory :- (IPersistentMap TCType TCType)
-                      optional  :- (IPersistentMap TCType TCType)])
+(u/ann-record KwArgs [mandatory :- (t/Map Type Type)
+                      optional  :- (t/Map Type Type)])
 (u/def-type KwArgs [mandatory optional]
   "A set of mandatory and optional keywords"
   [(every? (u/hash-c? Value? Type?) [mandatory optional])
    (= #{} (set/intersection (set (keys mandatory)) 
                             (set (keys optional))))])
 
-(u/ann-record KwArgsSeq [mandatory :- (IPersistentMap TCType TCType)
-                         optional  :- (IPersistentMap TCType TCType)])
+(u/ann-record KwArgsSeq [mandatory :- (t/Map Type Type)
+                         optional  :- (t/Map Type Type)])
 (u/def-type KwArgsSeq [mandatory optional]
   "A sequential seq representing a flattened map (for keyword arguments)."
   [(every? (u/hash-c? Value? Type?) [mandatory optional])
    (= #{} (set/intersection (set (keys mandatory)) 
-                            (set (keys optional))))])
+                            (set (keys optional))))]
+  :methods
+  [p/TCType])
 
-(declare-type KwArgsSeq)
+; must go before Result
+(u/ann-record FlowSet [normal :- p/IFilter])
 
-(u/ann-record Function [dom :- (U nil (Seqable TCType)),
+;must go before Function
+(u/ann-record Result [t :- Type,
+                      fl :- p/IFilterSet
+                      o :- p/IRObject
+                      flow :- FlowSet])
+
+(u/ann-record Function [dom :- (U nil (Seqable Type)),
                         rng :- Result,
-                        rest :- (U nil TCType)
+                        rest :- (U nil Type)
                         drest :- (U nil DottedPretype)
                         kws :- (U nil KwArgs)])
 (u/def-type Function [dom rng rest drest kws]
@@ -546,24 +529,23 @@
    (or (nil? drest)
        (DottedPretype? drest))
    (or (nil? kws)
-       (KwArgs? kws))])
-
-(declare-AnyType Function)
+       (KwArgs? kws))]
+  :methods
+  [p/TCAnyType])
 
 (u/ann-record TopFunction [])
 (u/def-type TopFunction []
   "Supertype to all functions"
   [])
 
-(u/ann-record FnIntersection [types :- (I (Seqable Function)
-                                          (CountRange 1))])
+(u/ann-record FnIntersection [types :- (t/NonEmptySeqable Function)])
 (u/def-type FnIntersection [types]
   "An ordered intersection of Functions."
   [(seq types)
    (sequential? types)
-   (every? Function? types)])
-
-(declare-type FnIntersection)
+   (every? Function? types)]
+  :methods
+  [p/TCType])
 
 (u/ann-record CountRange [lower :- Number,
                           upper :- (U nil Number)])
@@ -573,21 +555,23 @@
   [(u/nat? lower)
    (or (nil? upper)
        (and (u/nat? upper)
-            (<= lower upper)))])
+            (<= lower upper)))]
+  :methods
+  [p/TCType])
 
 (u/ann-record GTRange [n :- Number])
 (u/def-type GTRange [n]
   "The type of all numbers greater than n"
-  [(number? n)])
+  [(number? n)]
+  :methods
+  [p/TCType])
 
 (u/ann-record LTRange [n :- Number])
 (u/def-type LTRange [n]
   "The type of all numbers less than n"
-  [(number? n)])
-
-(declare-type CountRange)
-(declare-type GTRange)
-(declare-type LTRange)
+  [(number? n)]
+  :methods
+  [p/TCType])
 
 (t/ann make-CountRange (Fn [Number -> CountRange]
                            [Number (U nil Number) -> CountRange]))
@@ -607,71 +591,72 @@
   {:pre [(every? Function? fns)]}
   (FnIntersection-maker fns))
 
-(u/ann-record NotType [type :- TCType])
+(u/ann-record NotType [type :- Type])
 (u/def-type NotType [type]
   "A type that does not include type"
-  [(Type? type)])
+  [(Type? type)]
+  :methods
+  [p/TCType])
 
-(declare-type NotType)
-
-(u/ann-record ListDots [pre-type :- TCType,
+(u/ann-record ListDots [pre-type :- Type,
                         bound :- (U F B)])
 (u/def-type ListDots [pre-type bound]
   "A dotted list"
   [(Type? pre-type)
-   ((some-fn F? B?) bound)])
+   ((some-fn F? B?) bound)]
+  :methods
+  [p/TCType])
 
-(declare-type ListDots)
-
-(u/ann-record Extends [extends :- (I (CountRange 1) (Seqable TCType))
-                       without :- (U nil (Seqable TCType))])
+(u/ann-record Extends [extends :- (I (CountRange 1) (Seqable Type))
+                       without :- (U nil (Seqable Type))])
 (u/def-type Extends [extends without]
   "A set of ancestors that always and never occur."
   [(every? Type? extends)
    (seq extends)
-   (every? Type? without)])
-
-(declare-type Extends)
+   (every? Type? without)]
+  :methods
+  [p/TCType])
 
 (declare FlowSet?)
 
-(u/ann-record Result [t :- TCType,
-                      fl :- fr/IFilter
-                      o :- or/IRObject
-                      flow :- FlowSet])
 (u/def-type Result [t fl o flow]
   "A result type with filter f and object o. NOT a type."
   [(Type? t)
-   (@(FilterSet?-var) fl)
-   (@(RObject?-var) o)
-   (FlowSet? flow)])
-
-(declare-AnyType Result)
+   (p/IFilterSet? fl)
+   (p/IRObject? o)
+   (FlowSet? flow)]
+  :methods
+  [p/TCAnyType])
 
 (declare ret TCResult?)
 
-(t/ann ^:no-check Result->TCResult [Result -> TCResult])
+(u/ann-record TCResult [t :- Type
+                        fl :- p/IFilterSet?
+                        o :- p/IRObject
+                        flow :- FlowSet])
+
+(t/ann Result->TCResult [Result -> TCResult])
 (defn Result->TCResult [{:keys [t fl o] :as r}]
   {:pre [(Result? r)]
    :post [(TCResult? %)]}
   (ret t fl o))
 
-(t/ann Result-type* [Result -> TCType])
+(t/ann Result-type* [Result -> Type])
 (defn Result-type* [r]
   {:pre [(Result? r)]
    :post [(Type? %)]}
   (:t r))
 
-(t/ann ^:no-check Result-filter* [Result -> fr/IFilter])
+(t/ann ^:no-check Result-filter* [Result -> p/IFilter])
 (defn Result-filter* [r]
   {:pre [(Result? r)]
-   :post [(@(Filter?-var) %)]}
+   :post [(p/IFilter? %)]}
   (:fl r))
 
-(t/ann ^:no-check Result-object* [Result -> or/IRObject])
+(t/ann ^:no-check Result-object* [Result -> p/IRObject])
 (defn Result-object* [r]
   {:pre [(Result? r)]
-   :post [(@(RObject?-var) %)]}
+   :post [(p/IRObject? %)]}
   (:o r))
 
 (t/ann ^:no-check Result-flow* [Result -> FlowSet])
@@ -683,45 +668,42 @@
 (t/ann no-bounds Bounds)
 (def no-bounds (Bounds-maker -any (Un) nil))
 
-(t/ann -bounds [TCType TCType -> Bounds])
+(t/ann -bounds [Type Type -> Bounds])
 (defn -bounds [u l]
   (Bounds-maker u l nil))
 
 ;unused
 (t/tc-ignore
-(def ^:dynamic *mutated-bindings* #{})
+(defonce ^:dynamic *mutated-bindings* #{})
 
 (defn is-var-mutated? [id]
   (contains? *mutated-bindings* id))
   )
 
-(u/ann-record FlowSet [normal :- fr/IFilter])
 (u/def-type FlowSet [normal]
   "The filter that is true when an expression returns normally ie. not an exception."
-  [(@(Filter?-var) normal)])
+  [(p/IFilter? normal)]
+  :methods
+  [p/IFilter])
 
-(u/ann-record TCResult [t :- TCType
-                        fl :- fr/IFilter
-                        o :- or/IRObject
-                        flow :- FlowSet])
 (u/def-type TCResult [t fl o flow]
   "This record represents the result of typechecking an expression"
   [(Type? t)
-   (@(FilterSet?-var) fl)
-   (@(RObject?-var) o)
-   (FlowSet? flow)])
+   (p/IFilterSet? fl)
+   (p/IRObject? o)
+   (FlowSet? flow)]
+  :methods
+  [p/TCAnyType])
 
-(declare-AnyType TCResult)
-
-(t/ann -flow [fr/IFilter -> FlowSet])
+(t/ann -flow [p/IFilter -> FlowSet])
 (defn -flow [normal]
   (FlowSet-maker normal))
 
 (t/ann ^:no-check ret
-       (Fn [TCType -> TCResult]
-           [TCType TempFilterSet -> TCResult]
-           [TCType TempFilterSet or/IRObject -> TCResult]
-           [TCType TempFilterSet or/IRObject FlowSet -> TCResult]))
+       (Fn [Type -> TCResult]
+           [Type p/IFilterSet -> TCResult]
+           [Type p/IFilterSet p/IRObject -> TCResult]
+           [Type p/IFilterSet p/IRObject FlowSet -> TCResult]))
 (defn ret
   "Convenience function for returning the type of an expression"
   ([t] (let [-FS @(-FS-var)
@@ -737,28 +719,28 @@
      (ret t f o (-flow -top))))
   ([t f o flow]
    {:pre [(AnyType? t)
-          (@(FilterSet?-var) f)
-          (@(RObject?-var) o)
+          (p/IFilterSet? f)
+          (p/IRObject? o)
           (FlowSet? flow)]
     :post [(TCResult? %)]}
    (TCResult-maker t f o flow)))
 
-(t/ann ret-t [TCResult -> TCType])
+(t/ann ret-t [TCResult -> Type])
 (defn ret-t [r]
   {:pre [(TCResult? r)]
    :post [(AnyType? %)]}
   (:t r))
 
-(t/ann ^:no-check ret-f [TCResult -> TempFilterSet])
+(t/ann ^:no-check ret-f [TCResult -> p/IFilterSet])
 (defn ret-f [r]
   {:pre [(TCResult? r)]
-   :post [(@(FilterSet?-var) %)]}
+   :post [(p/IFilterSet? %)]}
   (:fl r))
 
-(t/ann ^:no-check ret-o [TCResult -> or/IRObject])
+(t/ann ^:no-check ret-o [TCResult -> p/IRObject])
 (defn ret-o [r]
   {:pre [(TCResult? r)]
-   :post [(@(RObject?-var) %)]}
+   :post [(p/IRObject? %)]}
   (:o r))
 
 (t/ann ret-flow [TCResult -> FlowSet])
@@ -767,16 +749,16 @@
    :post [(FlowSet? %)]}
   (:flow r))
 
-(t/ann ^:no-check flow-normal [FlowSet -> fr/IFilter])
+(t/ann ^:no-check flow-normal [FlowSet -> p/IFilter])
 (defn flow-normal [f]
   {:pre [(FlowSet? f)]
-   :post [(@(Filter?-var) %)]}
+   :post [(p/IFilter? %)]}
   (:normal f))
 
 ;; Utils
 ;; It seems easier to put these here because of dependencies
 
-(t/ann ^:no-check visit-bounds [Bounds [TCType -> TCType] -> Bounds])
+(t/ann ^:no-check visit-bounds [Bounds [Type -> Type] -> Bounds])
 (defn visit-bounds 
   "Apply f to each element of bounds"
   [ty f]
@@ -791,10 +773,10 @@
                                  (f %)))))
 
 (t/ann ^:no-check make-Result
-       (Fn [TCType -> Result]
-           [TCType (U nil fr/IFilter) -> Result]
-           [TCType (U nil fr/IFilter) (U nil or/IRObject) -> Result]
-           [TCType (U nil fr/IFilter) (U nil or/IRObject) (U nil FlowSet) -> Result]))
+       (Fn [Type -> Result]
+           [Type (U nil p/IFilter) -> Result]
+           [Type (U nil p/IFilter) (U nil p/IRObject) -> Result]
+           [Type (U nil p/IFilter) (U nil p/IRObject) (U nil FlowSet) -> Result]))
 (defn make-Result
   "Make a result. ie. the range of a Function"
   ([t] (make-Result t nil nil nil))
@@ -807,14 +789,14 @@
      (Result-maker t (or f (-FS -top -top)) (or o -empty) (or flow (-flow -top))))))
 
 (t/ann ^:no-check make-Function
-       (Fn [(U nil (Seqable TCType)) TCType -> Function]
-           [(U nil (Seqable TCType)) TCType (U nil TCType) -> Function]
-           [(U nil (Seqable TCType)) TCType (U nil TCType) (U nil TCType) 
+       (Fn [(U nil (Seqable Type)) Type -> Function]
+           [(U nil (Seqable Type)) Type (U nil Type) -> Function]
+           [(U nil (Seqable Type)) Type (U nil Type) (U nil Type) 
             & :optional 
-              {:filter (U nil TempFilterSet) :object (U nil or/IRObject)
+              {:filter (U nil p/IFilterSet) :object (U nil p/IRObject)
                :flow (U nil FlowSet)
-               :mandatory-kws (U nil (IPersistentMap TCType TCType))
-               :optional-kws (U nil (IPersistentMap TCType TCType))}
+               :mandatory-kws (U nil (t/Map Type Type))
+               :optional-kws (U nil (t/Map Type Type))}
             -> Function]))
 (defn make-Function
   "Make a function, wrap range type in a Result.
@@ -838,49 +820,49 @@
 (u/ann-record BooleanCLJS [])
 (u/def-type BooleanCLJS []
   "Primitive boolean in CLJS"
-  [])
-
-(declare-type BooleanCLJS)
+  []
+  :methods
+  [p/TCType])
 
 (u/ann-record ObjectCLJS [])
 (u/def-type ObjectCLJS []
   "Primitive object in CLJS"
-  [])
-
-(declare-type ObjectCLJS)
+  []
+  :methods
+  [p/TCType])
 
 (u/ann-record StringCLJS [])
 (u/def-type StringCLJS []
   "Primitive string in CLJS"
-  [])
-
-(declare-type StringCLJS)
+  []
+  :methods
+  [p/TCType])
 
 (u/ann-record NumberCLJS [])
 (u/def-type NumberCLJS []
   "Primitive number in CLJS"
-  [])
-
-(declare-type NumberCLJS)
+  []
+  :methods
+  [p/TCType])
 
 (u/ann-record IntegerCLJS [])
 (u/def-type IntegerCLJS []
   "Primitive integer in CLJS"
-  [])
+  []
+  :methods
+  [p/TCType])
 
-(declare-type IntegerCLJS)
-
-(u/ann-record ArrayCLJS [input-type :- TCType
-                         output-type :- TCType])
+(u/ann-record ArrayCLJS [input-type :- Type
+                         output-type :- Type])
 (u/def-type ArrayCLJS [input-type output-type]
   "Primitive array in CLJS"
   [(Type? input-type)
-   (Type? output-type)])
-
-(declare-type ArrayCLJS)
+   (Type? output-type)]
+  :methods
+  [p/TCType])
 
 (u/def-type FunctionCLJS []
   "Primitive function in CLJS"
-  [])
-
-(declare-type FunctionCLJS)
+  []
+  :methods
+  [p/TCType])

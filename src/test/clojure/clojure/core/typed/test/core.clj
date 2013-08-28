@@ -1849,6 +1849,11 @@
   (is (cf (map (clojure.core.typed/inst vector Number Number Any Any Any Any) [1] [2])
           (clojure.lang.Seqable '[Number Number]))))
 
+(deftest subtype-explosion-test
+  (is (sub? nil clojure.core.typed.type-rep/TCType)))
+
+;(reset-caches)
+
 ;(chk/abstract-result
 ;  (ret (-hvec [-any] :filters [(-FS (-filter (parse-clj 'Number) 'a) -top)] :objects [(->Path nil 'a)])
 ;       (-FS (-filter (parse-clj 'Number) 'a) -top))

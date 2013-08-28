@@ -29,7 +29,7 @@
             [clojure.tools.namespace.dir :as dir]
             [clojure.tools.namespace.dependency :as ndep]))
 
-(def ns-deps-tracker (atom (track/tracker)))
+(defonce ns-deps-tracker (atom (track/tracker)))
 
 (defn update-ns-deps! []
   (p :collect/update-ns-deps!
@@ -57,7 +57,11 @@
   (contains? (immediate-deps nsym) another-nsym))
 
 (defn probably-typed? [nsym]
-  (directly-depends? nsym 'clojure.core.typed))
+  (let [ns (find-ns (u/demunge-ns nsym))
+        _ (assert ns (str "Namespace " nsym " not found"))
+        {:keys [check] :as opts} (u/typed-ns-opts ns)]
+    (or check
+        (directly-depends? nsym 'clojure.core.typed))))
 
 (defn infer-typed-ns-deps!
   "Automatically find other namespaces that are likely to
@@ -67,6 +71,8 @@
   (let [all-deps (immediate-deps nsym)
         new-deps (set (filter probably-typed? all-deps))]
     (dep/add-ns-deps nsym new-deps)))
+
+(declare collect-asts)
 
 (defn collect-ns
   "Collect type annotations and dependency information
@@ -79,32 +85,84 @@
          #_(flush)
          nil)
      (do (collected-ns! nsym)
+         (println (str "Start collecting " nsym))
+         (flush)
          (infer-typed-ns-deps! nsym)
          (let [deps (dep/immediate-deps nsym)]
            ;(prn "collecting immediate deps for " nsym deps)
            (doseq [dep deps]
              ;(prn "collect:" dep)
              (collect-ns dep)))
-         (let [asts (ana-clj/ast-for-ns nsym)]
+         (let [asts (p :collect-phase/get-clj-analysis (ana-clj/ast-for-ns nsym))]
            (p :collect/collect-form
-           (doseq [ast asts]
-             (collect ast)))))))))
+             (collect-asts asts)))
+         (println (str "Finished collecting " nsym))
+         (flush))))))
+
+(defn collect-asts [asts]
+  ; phase 1
+  ; declare all protocols and datatypes
+;  (doseq [ast asts]
+;    (collect-declares ast))
+  ; phase 2
+  ; collect type annotations
+  (doseq [ast asts]
+    (collect ast)))
 
 (defn collect-ns-setup [nsym]
   (binding [*already-collected* (atom #{})]
     (collect-ns nsym)))
 
+(defn visit-do [{:keys [exprs] :as expr} f]
+  (doseq [expr exprs]
+    (f expr)))
+
+(defn assert-expr-args [{:keys [args] :as expr} cnts]
+  {:pre [(set? cnts)]}
+  (assert (cnts (count args)))
+  (assert (every? #{:constant :keyword :number :string :nil :boolean :empty-expr}
+                  (map :op args))
+          (mapv :op args)))
+
+;; Phase 1
+
+;(defmulti collect-declares :op)
+;(u/add-defmethod-generator collect-declares)
+;
+;(defmulti invoke-special-collect-declares 
+;  (fn [expr]
+;    (when-let [var (-> expr :fexpr :var)]
+;      (u/var->symbol var))))
+;
+;(defn declare-protocol [current-env current-ns vsym binder mths]
+;  {:pre [(symbol? current-ns)]}
+;  (let [s (if (namespace vsym)
+;            (symbol vsym)
+;            (symbol (str current-ns) (name vsym)))
+;        on-class (c/Protocol-var->on-class s)
+;        variances (when binder
+;                    (map (fn [[_ & {:keys [variance]}]] variance) binder))
+;
+;(defmethod invoke-special-collect-declares 'clojure.core.typed/ann-protocol*
+;  [{:keys [args env] :as expr}]
+;  (assert-expr-args expr #{3})
+;  (let [[binder varsym mth] (constant-exprs args)]
+;    (declare-protocol env (chk/expr-ns expr) varsym binder mth)))
+;
+;
+;(add-collect-method :do [expr] (visit-do expr collect))
+
+;; Phase 2
+
 (defmulti collect (fn [expr] (:op expr)))
+(u/add-defmethod-generator collect)
 (defmulti invoke-special-collect (fn [expr]
                                    (when-let [var (-> expr :fexpr :var)]
                                      (u/var->symbol var))))
 
-(defmethod collect :do
-  [{:keys [exprs] :as expr}]
-  (doseq [expr exprs]
-    (collect expr)))
+(add-collect-method :do [expr] (visit-do expr collect))
 
-(defmethod collect :def
+(add-collect-method :def
   [{:keys [var env] :as expr}]
   (let [prs-ns (chk/expr-ns expr)]
     (let [mvar (meta var)
@@ -117,20 +175,13 @@
       (when (:no-check mvar)
         (var-env/add-nocheck-var qsym)))))
 
-(defmethod collect :invoke
+(add-collect-method :invoke
   [expr]
   (invoke-special-collect expr))
 
-(defmethod collect :default
+(add-collect-method :default
   [_]
   nil)
-
-(defn assert-expr-args [{:keys [args] :as expr} cnts]
-  {:pre [(set? cnts)]}
-  (assert (cnts (count args)))
-  (assert (every? #{:constant :keyword :number :string :nil :boolean :empty-expr}
-                  (map :op args))
-          (mapv :op args)))
 
 (defn gen-datatype* [current-env current-ns provided-name fields vbnd opt record?]
   {:pre [(symbol? current-ns)]}

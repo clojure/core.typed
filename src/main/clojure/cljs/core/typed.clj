@@ -208,8 +208,8 @@
   [& args]
   `(typed-deps* '~args))
 
-(def ^:dynamic *currently-checking-cljs* nil)
-(def ^:dynamic *already-collected*)
+(defonce ^:dynamic *currently-checking-cljs* nil)
+(defonce ^:dynamic *already-collected* nil)
 
 (defn ^:skip-wiki
   -init-delayed-errors 

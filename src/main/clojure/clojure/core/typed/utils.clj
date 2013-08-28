@@ -8,8 +8,12 @@
             [clojure.tools.analyzer :as analyze]
             [clojure.tools.analyzer.hygienic :as hygienic]
             [clojure.set :as set]
-            [clojure.core.typed.current-impl :as impl])
+            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.profiling :as profiling])
   (:import (clojure.lang PersistentArrayMap Var Symbol)))
+
+(t/ann ^:no-check taoensso.timbre/logging-enabled? [Any -> Any])
+(t/ann ^:no-check taoensso.timbre.profiling/*pdata* (t/Atom1 Any))
 
 (t/ann subtype-exn Exception)
 (def subtype-exn (Exception. "Subtyping failed."))
@@ -36,7 +40,10 @@
 
 (t/ann ^:no-check nat? (predicate t/AnyInteger))
 (t/ann ^:no-check hash-c? [[Any -> Any] [Any -> Any] -> [Any -> Any]])
+;can't express the alternating args
+(t/ann ^:no-check hmap-c? [Any * -> [Any -> Any]])
 (t/ann ^:no-check set-c? [[Any -> Any] -> [Any -> Any]])
+(t/ann ^:no-check every-c? [[Any -> Any] -> [(U nil (t/Seqable Any)) -> Any]])
 
 (t/tc-ignore
 (defn every-c? [c]
@@ -312,6 +319,7 @@
   [sym]
   {:pre [(symbol? sym)]
    :post [(class? %)]}
+  (profiling/p :utils/symbols->Class
   (case sym
     byte Byte/TYPE
     short Short/TYPE
@@ -321,7 +329,7 @@
     double Double/TYPE
     boolean Boolean/TYPE
     char Character/TYPE
-    (Class/forName (str sym))))
+    (Class/forName (str sym)))))
 
 (t/ann Class->symbol [Class -> Symbol])
 (defn Class->symbol [^Class cls]
@@ -329,35 +337,23 @@
    :post [(symbol? %)]}
   (symbol (.getName cls)))
 
-(try 
-  (require '[taoensso.timbre.profiling])
-  (catch Exception e))
-
-(defmacro p [name & body]
-  (if (find-ns 'taoensso.timbre.profiling)
-    `(taoensso.timbre.profiling/p ~name ~@body)
-    `(do ~@body)))
-
-(defmacro profile 
-  "Usage: (profile :info :foo ...)"
-  [& body]
-  `(taoensso.timbre.profiling/profile ~@body))
-
 (t/tc-ignore
 ;(t/ann next-sequence-number (t/Atom1 SeqNumber))
-(def ^:private next-sequence-number 
-  "The next number to use for sequence hashing"
+(defonce ^:private 
+  ^{:doc "The next number to use for sequence hashing"}
+  next-sequence-number 
   (atom 0))
 
 (defn inc-sequence-number []
   (swap! next-sequence-number inc))
 
 (defn get-and-inc-id []
+  (profiling/p :utils/get-and-inc-id
   (let [id @next-sequence-number
         _ (inc-sequence-number)]
-    id))
+    id)))
 
-(defmacro mk [name fields invariants methods]
+(defmacro mk [name fields invariants & {:keys [methods intern]}]
   (let [classname (with-meta (symbol (str (namespace-munge *ns*) "." name)) (meta name))
         ->ctor (symbol (str "->" name))
         maker (symbol (str name "-maker"))
@@ -441,19 +437,81 @@
        (defn ~(symbol (str name "?")) [a#]
          (instance? ~name a#))
 
-       (def ~interns (atom {}))
+       ; (Atom1 (Map Any Number))
+       (defonce ~interns (atom {}))
        (defn ~maker [~@fields & {meta# :meta :as opt#}]
          {:pre ~invariants}
+         (profiling/p ~(keyword "maker" (str name))
+         (profiling/p ~(keyword "maker" (str name "-meta-check"))
          (let [extra# (set/difference (set (keys opt#)) #{:meta})]
-           (assert (empty? extra#) (str "Extra arguments:" extra#)))
-         (let [id# (or (p :utils/intern-lookup ((deref ~interns) [~@fields]))
+           (assert (empty? extra#) (str "Extra arguments:" extra#))))
+         (let [; the intern-fn uses ~@fields that are in scope above
+               intern-fn# ~(when intern
+                             `(fn [] ~intern))
+               interns# (profiling/p ~(keyword "maker" (str name "-intern-fields-total"))
+                          (or (when intern-fn#
+                                (profiling/p ~(keyword "maker" (str name "-intern-fields-custom"))
+                                  (intern-fn#)))
+                              (profiling/p ~(keyword "maker" (str name "-intern-fields-default"))
+                                [~@fields])))
+               id# (or (profiling/p :utils/intern-lookup 
+                         (profiling/p ~(keyword "maker" (str name "-intern-lookup"))
+                            ((deref ~interns) interns#)))
                        (let [nxt# (get-and-inc-id)]
-                         (p :utils/intern-miss)
-                         (swap! ~interns assoc [~@fields] nxt#)
+                         (profiling/p :utils/intern-miss)
+                         (swap! ~interns assoc interns# nxt#)
                          nxt#))]
-           (~->ctor ~@fields id# meta#)))))))
+           (~->ctor ~@fields id# meta#))))))))
 
 (defmacro def-type
-  [name fields doc invariants & methods]
-  `(mk ~name ~fields ~invariants ~methods))
+  [name fields doc invariants & opts]
+  `(mk ~name ~fields ~invariants ~@opts))
 )
+
+(defmacro add-defmethod-generator 
+  "Generates a macro called mm-name, which can be used instead
+  of defmethod of the multimethod called mm-name.
+  The generated macro adds a meaningful name to the local function
+  of the defmethod, and profiling information via timbre for each
+  defmethod.
+  
+  Usage: (add-mm-name-method check)
+
+  (defmethod check  ...) then becomes (add-check-method ...)"
+  [mm-name]
+  `(defmacro ~(symbol (str "add-" mm-name "-method")) 
+     [~'nme ~'params & ~'body]
+     (let [[~'assertmap ~'body] (if (and (map? (first ~'body))
+                                         (< 1 (count ~'body)))
+                                  [(first ~'body) (next ~'body)]
+                                  [nil ~'body])]
+       `(defmethod 
+          ;the multimethod to install methods to
+          ~'~mm-name 
+          ;the dispatch value
+          ~~'nme
+          ;the local fn name of this defmethod, gensymed to
+          ;avoid reloading conflicts
+          ~(symbol (str ~(str mm-name " ") (str ~'nme) (gensym "")))
+          ;the param list
+          ~~'params
+          ;the pre/post condition map
+          ~~'assertmap
+          ;the body, wrapped in a profiling macro
+          (u/p ~(keyword (str '~mm-name) (str ~'nme))
+               ~@~'body)))))
+
+;; Aliases for profiling stuff
+(defmacro p [& args]
+  `(profiling/p ~@args))
+
+(defmacro profile [& args]
+  `(profiling/profile ~@args))
+
+(t/ann typed-ns-opts [Any -> Any])
+(defn typed-ns-opts [ns]
+  (-> ns meta :core.typed))
+
+(t/ann ^:no-check demunge-ns [(U Symbol String) -> Symbol])
+(defn demunge-ns [nsym]
+  (symbol (clojure.repl/demunge (str nsym))))

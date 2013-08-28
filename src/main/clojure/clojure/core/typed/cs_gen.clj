@@ -5,7 +5,8 @@
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as or]
-            [clojure.core.typed.subtype :as sub]
+            ; use subtype? utility defined in this namespace
+            [clojure.core.typed.subtype]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.cs-rep :as cr]
             [clojure.core.typed.current-impl :as impl]
@@ -15,7 +16,7 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.promote-demote :as prmt]
             [clojure.core.typed.subst :as subst]
-            [clojure.core.typed :as t :refer [for> fn>]]
+            [clojure.core.typed :as t :refer [for> fn> letfn> doseq>]]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
                                         Result AnyValue Top HeterogeneousSeq RClass HeterogeneousList
@@ -25,11 +26,22 @@
            (clojure.core.typed.filter_rep TypeFilter)
            (clojure.lang Symbol ISeq IPersistentList APersistentVector APersistentMap)))
 
+(t/typed-deps clojure.core.typed.free-ops
+              clojure.core.typed.promote-demote)
+
 (t/ann ^:no-check clojure.core.typed.subtype/subtype? [r/AnyType r/AnyType -> Boolean])
 (t/ann ^:no-check clojure.set/union (All [x] [(t/Set x) * -> (t/Set x)]))
 (t/ann ^:no-check clojure.core.typed.current-impl/current-impl [-> Any])
 (t/ann ^:no-check clojure.core.typed.current-impl/any-impl Any)
 (t/ann ^:no-check clojure.core.typed.current-impl/checking-clojure? [-> Any])
+
+(t/ann subtype? [r/AnyType r/AnyType -> Boolean])
+(defn ^:private subtype? [s t]
+  (u/p :cs-gen/subtype-via-csgen
+    #_(spit "subtype-cache.dump" 
+          (str (prn-str "FROM CSGEN"))
+          :append true)
+  (clojure.core.typed.subtype/subtype? s t)))
 
 (t/ann fail! [Any Any -> Nothing])
 (defn fail! [s t]
@@ -71,7 +83,7 @@
          T (meet T T*)
          ;_ (prn "T" (prs/unparse-type S))
          ]
-     (when-not (sub/subtype? S T)
+     (when-not (subtype? S T)
        (fail! S T))
      (cr/->c S (or var X) T bnds))))
 
@@ -83,8 +95,9 @@
   {:pre [(cr/cset? x)
          (cr/cset? y)]
    :post [(cr/cset? %)]}
+  (u/p :cs-gen/cset-meet
   (let [maps (filter (t/inst identity (U false cset-entry))
-                     (doall (t/for> :- cset-entry
+                     (doall (t/for> :- (U false cset-entry)
                               [{map1 :fixed dmap1 :dmap delay1 :delayed-checks} :- cset-entry, maps1
                                {map2 :fixed dmap2 :dmap delay2 :delayed-checks} :- cset-entry, maps2]
                               (handle-failure
@@ -93,26 +106,29 @@
                                                  (set/union delay1 delay2))))))]
     (when (empty? maps)
       (fail! maps1 maps2))
-    (cr/->cset maps)))
+    (cr/->cset maps))))
 
 (t/ann cset-meet* [(U nil (t/Seqable cset)) -> cset])
 (defn cset-meet* [args]
   {:pre [(every? cr/cset? args)]
    :post [(cr/cset? %)]}
+  (u/p :cs-gen/cset-meet*
   (reduce cset-meet
           (cr/->cset [(cr/->cset-entry {} (cr/->dmap {}) #{})])
-          args))
+          args)))
 
 (t/ann cset-combine [(U nil (t/Seqable cset)) -> cset])
 (defn cset-combine [l]
   {:pre [(every? cr/cset? l)]}
-  (let [mapss (map (t/inst :maps cset-entry) l)]
-    (t/ann-form mapss (t/Seqable (U nil (t/Seqable cset-entry))))
+  (let [mapss (map (-> :maps 
+                       (t/inst (U nil (t/Seqable cset-entry)))) 
+                   l)]
+    (-> mapss
+        (t/ann-form (t/Seqable (U nil (t/Seqable cset-entry)))))
     (cr/->cset (apply concat mapss))))
 
 ;add new constraint to existing cset
-(t/ann insert-constraint [cset Symbol r/TCType r/TCType Bounds
-                                     -> cset])
+(t/ann insert-constraint [cset Symbol r/Type r/Type Bounds -> cset])
 (defn insert-constraint [cs var S T bnds]
   {:pre [(cr/cset? cs)
          (symbol? var)
@@ -127,7 +143,7 @@
                                   dmap
                                   delayed-checks)))))
 
-(t/ann insert-delayed-constraint [cset r/TCType r/TCType -> cset])
+(t/ann insert-delayed-constraint [cset r/Type r/Type -> cset])
 (defn insert-delayed-constraint [cs S T]
   {:pre [(cr/cset? cs)
          (r/Type? S)
@@ -145,6 +161,7 @@
   {:pre [(cr/dcon-c? dc1)
          (cr/dcon-c? dc2)]
    :post [(cr/dcon-c? %)]}
+  (u/p :cs-gen/dcon-meet
   (cond
     (and (cr/dcon-exact? dc1)
          (or (cr/dcon? dc2) 
@@ -238,7 +255,7 @@
          (cr/dcon? dc2))
     (fail! dc1 dc2)
 
-    :else (u/int-error (str "Got non-dcons" dc1 dc2))))
+    :else (u/int-error (str "Got non-dcons" dc1 dc2)))))
 
 (t/ann dmap-meet [dmap dmap -> dmap])
 (defn dmap-meet [dm1 dm2]
@@ -250,8 +267,8 @@
 
 ;current seen subtype relations, for recursive types
 ;(Set [Type Type])
-(t/ann *cs-current-seen* (t/Set '[r/TCType r/TCType]))
-(def ^:dynamic *cs-current-seen* #{})
+(t/ann *cs-current-seen* (t/Set '[r/AnyType r/AnyType]))
+(defonce ^:dynamic *cs-current-seen* #{})
 
 (t/def-alias NoMentions
   "A set of variables not to mention in the constraints"
@@ -278,10 +295,12 @@
 (defmulti cs-gen*
   (fn [V X Y S T] 
     {:pre [((u/set-c? symbol?) V)
-           (every? (u/hash-c? symbol r/Bounds?) [X Y])
+           (every? (u/hash-c? symbol? r/Bounds?) [X Y])
            (r/AnyType? S)
            (r/AnyType? T)]}
     [(class S) (class T) (impl/current-impl)]))
+
+(u/add-defmethod-generator cs-gen*)
 
 ; (see cs-gen*)
 ;cs-gen calls cs-gen*, remembering the current subtype for recursive types
@@ -290,12 +309,13 @@
 (declare cs-gen-right-F cs-gen-left-F cs-gen-datatypes-or-records cs-gen-list
          cs-gen-filter-set cs-gen-object)
 
-(t/ann ^:no-check cs-gen [(t/Set Symbol) 
-               (t/Map Symbol Bounds)
-               (t/Map Symbol Bounds)
-               r/AnyType
-               r/AnyType
-               -> cset])
+(t/ann ^:no-check cs-gen 
+       [(t/Set Symbol) 
+        (t/Map Symbol Bounds)
+        (t/Map Symbol Bounds)
+        r/AnyType
+        r/AnyType
+        -> cset])
 (defn cs-gen [V X Y S T]
   {:pre [((u/set-c? symbol?) V)
          (every? (u/hash-c? symbol? r/Bounds?) [X Y])
@@ -303,8 +323,9 @@
          (r/AnyType? T)]
    :post [(cr/cset? %)]}
   ;(prn "cs-gen" (prs/unparse-type S) (prs/unparse-type T))
-  (if (or (*cs-current-seen* [S T]) 
-          (sub/subtype? S T))
+  (u/p :cs-gen/cs-gen
+  (if (or (u/p :cs-gen/cs-gen-current-seen-lookup (*cs-current-seen* [S T]) )
+          (subtype? S T))
     ;already been around this loop, is a subtype
     (cr/empty-cset X Y)
     (binding [*cs-current-seen* (conj *cs-current-seen* [S T])]
@@ -325,6 +346,7 @@
         (and (r/Value? S)
              (impl/checking-clojure?))
         (let [^Value S S]
+          (u/p :cs-gen/Value-on-left
           (impl/impl-case
             :clojure (if (nil? (.val S))
                        (fail! S T)
@@ -338,7 +360,7 @@
                                T))
             :cljs (cond
                     (number? (.val S)) (cs-gen V X Y (r/NumberCLJS-maker) T)
-                    :else (fail! S T))))
+                    :else (fail! S T)))))
 
         ;; constrain body to be below T, but don't mention the new vars
         (r/Poly? S)
@@ -384,9 +406,10 @@
             ; so we want to preserve the current behaviour while handling the other cases intelligently.
             (for [t* (:types T)]
               (if-let [results (doall
-                                 (seq (filter identity
-                                              (map #(handle-failure
-                                                      (cs-gen V X Y % t*))
+                                 (seq (filter (t/inst identity (U false r/Type))
+                                              (map (fn> [s* :- r/Type]
+                                                     (handle-failure
+                                                       (cs-gen V X Y s* t*)))
                                                    (:types S)))))]
                 (cset-combine results)
                 ; check this invariant after instantiation, and don't use this
@@ -531,7 +554,7 @@
             (cs-gen V X Y new-S T)))
 
         :else
-        (cs-gen* V X Y S T)))))
+        (cs-gen* V X Y S T))))))
 
 ;; FIXME - anything else to say about And and OrFilters?
 (t/ann cs-gen-filter [NoMentions ConstrainVars ConstrainVars fr/Filter fr/Filter
@@ -542,6 +565,7 @@
          (fr/Filter? s)
          (fr/Filter? t)]
    :post [(cr/cset? %)]}
+  (u/p :cs-gen/cs-gen-filter
   (cond
     (= s t) (cr/empty-cset X Y)
     (fr/TopFilter? t) (cr/empty-cset X Y)
@@ -567,11 +591,11 @@
          (= 1 (count fr/TypeFilter?) (:fs s)))
     (let [tf (first (filter fr/TypeFilter? (:fs s)))]
       (cs-gen-filter V X Y tf t))
-    :else (fail! s t)))
+    :else (fail! s t))))
 
 ;must be *latent* flow sets
 (t/ann cs-gen-flow-set [NoMentions ConstrainVars ConstrainVars FlowSet FlowSet
-                      -> cset])
+                        -> cset])
 (defn cs-gen-flow-set [V X Y s t]
   {:pre [((u/set-c? symbol?) V)
          (every? (u/hash-c? symbol? r/Bounds?) [X Y])
@@ -620,20 +644,20 @@
     ;;FIXME do something here
     :else (fail! s t)))
 
-(defmethod cs-gen* :default
+(add-cs-gen*-method :default
   [V X Y S T]
 #_(prn "cs-gen* default" (class S) (class T))
   #_(when (some r/Result? [S T])
     (throw (IllegalArgumentException. (u/error-msg "Result on left or right "
                                                    (pr-str S) " " (pr-str T)))))
-  (when-not (sub/subtype? S T) 
+  (when-not (subtype? S T) 
     (fail! S T))
   (cr/empty-cset X Y))
 
 (declare cs-gen-Function)
 
 ;FIXME handle variance
-(defmethod cs-gen* [TApp TApp impl/any-impl]
+(add-cs-gen*-method [TApp TApp impl/any-impl]
   [V X Y ^TApp S ^TApp T]
   (when-not (= (.rator S) (.rator T)) 
     (fail! S T))
@@ -643,7 +667,7 @@
             (cs-gen V X Y s1 t1)) 
           (.rands S) (.rands T))))
 
-(defmethod cs-gen* [FnIntersection FnIntersection impl/any-impl]
+(add-cs-gen*-method [FnIntersection FnIntersection impl/any-impl]
   [V X Y ^FnIntersection S ^FnIntersection T] 
   ;(prn "cs-gen FnIntersections")
   (cset-meet*
@@ -668,18 +692,18 @@
           ;(prn "combined" comb)
           comb)))))
 
-(defmethod cs-gen* [Result Result impl/any-impl]
+(add-cs-gen*-method [Result Result impl/any-impl]
   [V X Y S T] 
   (cset-meet* [(cs-gen V X Y (r/Result-type* S) (r/Result-type* T))
                (cs-gen-filter-set V X Y (r/Result-filter* S) (r/Result-filter* T))
                (cs-gen-object V X Y (r/Result-object* S) (r/Result-object* T))
                (cs-gen-flow-set V X Y (r/Result-flow* S) (r/Result-flow* T))]))
 
-(defmethod cs-gen* [Value AnyValue impl/any-impl] 
+(add-cs-gen*-method [Value AnyValue impl/any-impl] 
   [V X Y S T] 
   (cr/empty-cset X Y))
 
-(defmethod cs-gen* [HeterogeneousSeq RClass impl/clojure]
+(add-cs-gen*-method [HeterogeneousSeq RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y 
           (c/In (impl/impl-case
@@ -688,7 +712,7 @@
                 (r/make-ExactCountRange (count (:types S))))
           T))
 
-(defmethod cs-gen* [HeterogeneousList RClass impl/clojure]
+(add-cs-gen*-method [HeterogeneousList RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y 
           (c/In (impl/impl-case
@@ -697,7 +721,7 @@
                 (r/make-ExactCountRange (count (:types S))))
           T))
 
-(defmethod cs-gen* [HeterogeneousVector RClass impl/clojure]
+(add-cs-gen*-method [HeterogeneousVector RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y 
           (c/In (impl/impl-case
@@ -714,10 +738,13 @@
   (when-not (= (:the-class S) (:the-class T)) 
     (fail! S T))
   (if (seq (:poly? S))
+    ;TODO variance
     (cs-gen-list V X Y (:poly? S) (:poly? T))
     (cr/empty-cset X Y)))
 
 ; constrain si and ti according to variance
+(t/ann cs-gen-with-variance [NoMentions ConstrainVars ConstrainVars r/Variance
+                             r/AnyType r/AnyType -> cset])
 (defn cs-gen-with-variance
   [V X Y variance si ti]
   {:pre [(r/variance? variance)
@@ -731,20 +758,27 @@
                           (cs-gen V X Y ti si))))
 
 ;constrain lists of types ss and ts according to variances
+(t/ann cs-gen-list-with-variances 
+       [NoMentions ConstrainVars ConstrainVars (U nil (t/Seqable r/Variance))
+        (U nil (t/Seqable r/AnyType)) (U nil (t/Seqable r/AnyType)) -> cset])
 (defn cs-gen-list-with-variances
   [V X Y variances ss ts]
   {:pre [(every? r/variance? variances)
          (every? r/AnyType? ss)
          (every? r/AnyType? ts)
-         (apply = (map count [variances ss ts]))]
+         (apply = (count variances) (map count [ss ts]))]
    :post [(cr/cset? %)]}
   (cset-meet*
     (cons (cr/empty-cset X Y)
           (doall
-            (for [[variance si ti] (map vector variances ss ts)]
+            (for> :- cset
+              [[variance si ti] :- '[r/Variance r/AnyType r/AnyType]
+              , (map (-> vector 
+                         (t/inst r/Variance r/AnyType r/AnyType Any Any Any))
+                     variances ss ts)]
               (cs-gen-with-variance V X Y variance si ti))))))
 
-;(defmethod cs-gen* [RClass RClass impl/clojure]
+;(add-cs-gen*-method [RClass RClass impl/clojure]
 ;  [V X Y S T]
 ;  ;(prn "cs-gen* RClass RClass")
 ;  (let [rsupers (c/RClass-supers* S)
@@ -765,10 +799,10 @@
 ;                                  (:poly? T)))
 ;      :else (fail! S T)))
 
-(defmethod cs-gen* [RClass RClass impl/clojure]
+(add-cs-gen*-method [RClass RClass impl/clojure]
   [V X Y S T]
   ;(prn "cs-gen* RClass RClass")
-  (let [rsupers (c/RClass-supers* S)
+  (let [rsupers (u/p :cs-gen*/cs-gen*-RClass-RClass-inner-RClass-supers (c/RClass-supers* S))
         relevant-S (some #(when (r/RClass? %)
                             (and (= (:the-class %) (:the-class T))
                                  %))
@@ -783,10 +817,13 @@
       (cset-meet*
         (cons (cr/empty-cset X Y)
               (doall
-                (for [[vari si ti] (map vector
-                                        (:variances T)
-                                        (:poly? relevant-S)
-                                        (:poly? T))]
+                (for> :- cset
+                  [[vari si ti] :- '[r/Variance r/Type r/Type]
+                       (map (-> vector
+                                (t/inst r/Variance r/Type r/Type Any Any Any))
+                            (:variances T)
+                            (:poly? relevant-S)
+                            (:poly? T))]
                   (case vari
                     (:covariant :constant) (cs-gen V X Y si ti)
                     :contravariant (cs-gen V X Y ti si)
@@ -794,17 +831,21 @@
                                           (cs-gen V X Y ti si)))))))
       :else (fail! S T))))
 
-(defmethod cs-gen* [Protocol Protocol impl/any-impl]
+(add-cs-gen*-method [Protocol Protocol impl/any-impl]
   [V X Y S T]
+  (t/ann-form [S T] (t/Seqable Protocol))
   (if (= (:the-var S)
          (:the-var T))
     (cset-meet*
       (cons (cr/empty-cset X Y)
             (doall
-              (for [[vari si ti] (map vector
-                                      (:variances T)
-                                      (:poly? S)
-                                      (:poly? T))]
+              (for> :- cset
+                [[vari si ti] :- '[r/Variance r/Type r/Type]
+                  (map (-> vector
+                           (t/inst r/Variance r/Type r/Type Any Any Any))
+                       (:variances T)
+                       (t/ann-form (:poly? S) (U nil (t/Seqable r/Type)))
+                       (:poly? T))]
                 (case vari
                   (:covariant :constant) (cs-gen V X Y si ti)
                   :contravariant (cs-gen V X Y ti si)
@@ -821,9 +862,11 @@
              (denv/bound-index? (:name T))
              (not (free-ops/free-in-scope (:name T))))
     (fail! S T))
-  (let [dt (prmt/demote-var T V)]
+  (let [dt (prmt/demote-var T V)
+        bnd (X name)
+        _ (assert bnd)]
     (-> (cr/empty-cset X Y)
-      (insert-constraint name (r/Bottom) dt (X name)))))
+      (insert-constraint name (r/Bottom) dt bnd))))
 
 (t/ann promote-F [NoMentions ConstrainVars ConstrainVars r/Type F -> cset])
 (defn promote-F [V X Y S {:keys [name] :as T}]
@@ -836,9 +879,11 @@
              (denv/bound-index? (:name S))
              (not (free-ops/free-in-scope (:name S))))
     (fail! S T))
-  (let [ps (prmt/promote-var S V)]
+  (let [ps (prmt/promote-var S V)
+        bnd (X name)
+        _ (assert bnd)]
     (-> (cr/empty-cset X Y)
-      (insert-constraint name ps r/-any (X name)))))
+      (insert-constraint name ps r/-any bnd))))
 
 (t/ann cs-gen-left-F [NoMentions ConstrainVars ConstrainVars F r/Type -> cset])
 (defn cs-gen-left-F [V X Y ^F S T]
@@ -872,7 +917,7 @@
 (defn singleton-dmap [dbound dcon]
   (cr/->dmap {dbound dcon}))
 
-(t/ann mover [cset Symbol (U nil (t/Seqable Symbol)) -> cset])
+(t/ann mover [cset Symbol (U nil (t/Seqable Symbol)) [cr/CMap cr/DMap -> cr/DCon] -> cset])
 (defn mover [cset dbound vars f]
   {:pre [(cr/cset? cset)
          (symbol? dbound)
@@ -935,11 +980,11 @@
 ;; we now handled.  So I've extended the mover to give access to the dmap, which we use here.
 ;FIXME no-check because of unreachable flow 
 (t/ann ^:no-check move-vars+rest-to-dmap 
-       [cset Symbol (t/Set Symbol) & :optional {:exact (U nil true)} -> cset])
+       [cset Symbol (U nil (t/Seqable Symbol)) & :optional {:exact (U nil true)} -> cset])
 (defn move-vars+rest-to-dmap [cset dbound vars & {:keys [exact]}]
   {:pre [(cr/cset? cset)
          (symbol? dbound)
-         ((u/set-c? symbol?) vars)
+         (every? symbol? vars)
          ((some-fn nil? true?) exact)]
    :post [(cr/cset? %)]}
   (mover cset dbound vars
@@ -969,7 +1014,12 @@
 ;; The range is this map is a list of symbols generated on demand, as we need
 ;; more dots.
 (t/ann DOTTED-VAR-STORE (t/Atom1 (t/Map '[r/Type Symbol] Symbol)))
-(def ^:private DOTTED-VAR-STORE (atom {}))
+(defonce ^:private DOTTED-VAR-STORE (atom {}))
+
+(t/ann reset-dotted-var-store! [-> nil])
+(defn reset-dotted-var-store! []
+  (reset! DOTTED-VAR-STORE {})
+  nil)
 
 ;; Take (generate as needed) n symbols that correspond to variable var used in
 ;; the context of type t.
@@ -1001,7 +1051,9 @@
          (r/Function? T)]
    :post [(cr/cset? %)]}
   ;(prn "cs-gen-Function" (prs/unparse-type S) (prs/unparse-type T))
-  (letfn [(cg [S T] (cs-gen V X Y S T))]
+  (u/p :cs-gen/cs-gen-Function
+  (letfn> [cg :- [r/AnyType r/AnyType -> cset]
+           (cg [S T] (cs-gen V X Y S T))]
     (cond
       ;easy case - no rests, drests, kws
       (and (not (:rest S))
@@ -1011,11 +1063,12 @@
            (not (:kws S))
            (not (:kws T)))
       ; contravariant
+      (u/p :cs-gen/cs-gen-Function-easy-case
       (let [;_ (prn "easy case")
             ]
         (cset-meet* [(cs-gen-list V X Y (:dom T) (:dom S))
                      ; covariant
-                     (cg (:rng S) (:rng T))]))
+                     (cg (:rng S) (:rng T))])))
 
       ;just a rest arg, no drest, no keywords
       (and (or (:rest S)
@@ -1024,6 +1077,7 @@
            (not (:drest T))
            (not (:kws S))
            (not (:kws T)))
+      (u/p :cs-gen/cs-gen-Function-just-rests
       (let [arg-mapping (cond
                           ;both rest args are present, so make them the same length
                           (and (:rest S) (:rest T))
@@ -1047,7 +1101,7 @@
                           ;no rest arg on left, or wrong number = fail
                           :else (fail! S T))
             ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
-        (cset-meet* [arg-mapping ret-mapping]))
+        (cset-meet* [arg-mapping ret-mapping])))
 
       ;; dotted on the left, nothing on the right
       (and (not (:rest S))
@@ -1056,6 +1110,7 @@
            (not (:drest T))
            (not (:kws S))
            (not (:kws T)))
+      (u/p :cs-gen/cs-gen-Function-dotted-left-nothing-right
       (let [{dty :pre-type dbound :name} (:drest S)]
         (when-not (Y dbound)
           (fail! S T))
@@ -1063,17 +1118,19 @@
           (fail! S T))
         (let [vars (var-store-take dbound dty (- (count (:dom T))
                                                  (count (:dom S))))
-              new-tys (doall (for [var vars]
+              new-tys (doall (for> :- r/AnyType
+                               [var :- Symbol, vars]
                                (subst/substitute (r/make-F var) dbound dty)))
               new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil nil nil)
               new-cset (cs-gen-Function V 
                                         ;move dotted lower/upper bounds to vars
                                         (merge X (zipmap vars (repeat (Y dbound)))) Y new-s-arr T)]
-          (move-vars-to-dmap new-cset dbound vars)))
+          (move-vars-to-dmap new-cset dbound vars))))
 
       ;; dotted on the right, nothing on the left
       (and (not ((some-fn :rest :drest) S))
            (:drest T))
+      (u/p :cs-gen/cs-gen-Function-dotted-right-nothing-left
       (let [{dty :pre-type dbound :name} (:drest T)]
         (when-not (Y dbound)
           (fail! S T))
@@ -1081,7 +1138,8 @@
           (fail! S T))
         (let [vars (var-store-take dbound dty (- (count (:dom S)) (count (:dom T))))
               new-tys (doall
-                        (for [var vars]
+                        (for> :- r/AnyType
+                          [var :- Symbol, vars]
                           (subst/substitute (r/make-F var) dbound dty)))
               ;_ (prn "dotted on the right, nothing on the left")
               ;_ (prn "vars" vars)
@@ -1091,11 +1149,12 @@
               new-cset (cs-gen-Function V 
                                         ;move dotted lower/upper bounds to vars
                                         (merge X (zipmap vars (repeat (Y dbound)))) Y S new-t-arr)]
-          (move-vars-to-dmap new-cset dbound vars)))
+          (move-vars-to-dmap new-cset dbound vars))))
 
       ;; * <: ...
       (and (:rest S)
            (:drest T))
+      (u/p :cs-gen/cs-gen-Function-*-<-...
       (let [{t-dty :pre-type dbound :name} (-> T :drest)]
         (when-not (Y dbound)
           (fail! S T))
@@ -1107,16 +1166,17 @@
             (cset-meet* [arg-mapping darg-mapping ret-mapping]))
           ;; the hard case
           (let [vars (var-store-take dbound t-dty (- (count (:dom S)) (count (:dom T))))
-                new-tys (doall (for [var vars]
+                new-tys (doall (for> :- r/AnyType
+                                 [var :- Symbol, vars]
                                  (subst/substitute (r/make-F var) dbound t-dty)))
                 new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil (r/DottedPretype-maker t-dty dbound) nil)
                 new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y S new-t-arr)]
-            (move-vars+rest-to-dmap new-cset dbound vars))))
+            (move-vars+rest-to-dmap new-cset dbound vars)))))
 
 :else 
-(u/nyi-error (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T))))))
+(u/nyi-error (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T)))))))
 
-(defmethod cs-gen* [Function Function impl/any-impl]
+(add-cs-gen*-method [Function Function impl/any-impl]
   [V X Y S T]
   #_(prn "cs-gen* [Function Function]")
   (cs-gen-Function V X Y S T))
@@ -1124,23 +1184,27 @@
 ;; C : cset? - set of constraints found by the inference engine
 ;; Y : (setof symbol?) - index variables that must have entries
 ;; R : Type? - result type into which we will be substituting
-(t/ann subst-gen [cset (t/Set Symbol) r/AnyType -> (U nil cr/SubstMap)])
+;TODO no-check, very slow!
+(t/ann ^:no-check subst-gen [cset (t/Set Symbol) r/AnyType -> (U nil cr/SubstMap)])
 (defn subst-gen [C Y R]
   {:pre [(cr/cset? C)
          ((u/set-c? symbol?) Y)
          (r/AnyType? R)]
    :post [((some-fn nil? cr/substitution-c?) %)]}
+  (u/p :cs-gen/subst-gen
   (let [var-hash (frees/fv-variances R)
         idx-hash (frees/idx-variances R)]
-    (letfn [
+    (letfn> 
+           [
             ;; v : Symbol - variable for which to check variance
             ;; h : (Hash F Variance) - hash to check variance in (either var or idx hash)
             ;; variable: Symbol - variable to use instead, if v was a temp var for idx extension
+            constraint->type :- [c frees/VarianceMap & :optional {:variable (U nil Symbol)} -> r/Variance]
             (constraint->type [{{:keys [upper-bound lower-bound]} :bnds :keys [S X T] :as v} h & {:keys [variable]}]
               {:pre [(cr/c? v)
                      (frees/variance-map? h)
                      ((some-fn nil? symbol?) variable)]}
-              (when-not (sub/subtype? S T) (fail! S T))
+              (when-not (subtype? S T) (fail! S T))
               (when (some r/TypeFn? [upper-bound lower-bound]) (u/nyi-error "Higher kinds"))
               (let [var (h (or variable X) :constant)
                     inferred (case var
@@ -1158,6 +1222,7 @@
             ;; widest constraint, due to dcon-exacts), we must add substitutions here if no constraint
             ;; was found.  If we're at this point and had no other constraints, then adding the
             ;; equivalent of the constraint (dcon null (c Bot X Top)) is okay.
+            extend-idxs :- [cr/SubstMap -> (U nil cr/SubstMap)]
             (extend-idxs [S]
               {:pre [(cr/substitution-c? S)]}
               (let [fi-R (frees/fi R)] ;free indices in R
@@ -1165,15 +1230,17 @@
                 ;; we allow it to be replaced with the empty list of types;
                 ;; otherwise we error, as we do not yet know what an appropriate
                 ;; lower bound is.
-                (letfn [(demote-check-free [v]
-                          {:pre [(symbol? v)]}
-                          (if (fi-R v)
-                            (u/int-error "attempted to demote dotted variable")
-                            (cr/->i-subst nil)))]
+                (letfn> [demote-check-free :- [Symbol -> cr/SubstRHS]
+                         (demote-check-free [v]
+                           {:pre [(symbol? v)]}
+                           (if (fi-R v)
+                             (u/int-error "attempted to demote dotted variable")
+                             (cr/->i-subst nil)))]
                   ;; absent-entries is false if there's an error in the substitution, otherwise
                   ;; it's a list of variables that don't appear in the substitution
                   (let [absent-entries
-                        (reduce (fn [no-entry v]
+                        (reduce (fn> [no-entry :- Any
+                                      v :- Symbol]
                                   {:pre [(symbol? v)]}
                                   (let [entry (S v)]
                                     ;; Make sure we got a subst entry for an index var
@@ -1189,7 +1256,8 @@
                                 [] Y)]
                     (and absent-entries
                          (merge (into {}
-                                      (for [missing absent-entries]
+                                      (for> :- '[Symbol r/Variance]
+                                        [missing :- Symbol, absent-entries]
                                         (let [var (idx-hash missing :constant)]
                                           [missing
                                            (case var
@@ -1197,7 +1265,9 @@
                                              :contravariant (cr/->i-subst-starred nil r/-any))])))
                                 S))))))]
 
-      (let [{cmap :fixed dmap* :dmap :keys [delayed-checks]} (-> C :maps first)
+      (let [{cmap :fixed dmap* :dmap :keys [delayed-checks]} (if-let [c (-> C :maps first)]
+                                                               c
+                                                               (u/int-error "No constraints found"))
             ; Typed Racket arbitrarily picks the first constraint here, we follow.
             ;
             ;_ (when-not (= 1 (count (:maps C))) 
@@ -1205,7 +1275,8 @@
             dm (:map dmap*)
             subst (merge 
                     (into {}
-                      (for [[k dc] dm]
+                      (for> :- '[Symbol cr/SubstRHS]
+                        [[k dc] :- '[Symbol cr/DCon], dm]
                         (cond
                           (and (cr/dcon? dc) (not (:rest dc)))
                           [k (cr/->i-subst (doall
@@ -1230,42 +1301,46 @@
                           :else (u/int-error (prn-str "What is this? " dc)))))
 
                     (into {}
-                      (for [[k v] cmap]
+                      (for> :- '[Symbol cr/SubstRHS]
+                        [[k v] :- '[Symbol c], cmap]
                         [k (cr/->t-subst (constraint->type v var-hash)
-                                      (:bnds v))])))
+                                         (:bnds v))])))
             ;check delayed constraints and type variable bounds
-            _ (let [t-substs (into {} (filter (fn [[_ v]] (cr/t-subst? v)) subst))
+            _ (let [t-substs (into {} (filter (fn> [[_ v] :- '[Symbol cr/SubstRHS]]
+                                                (cr/t-subst? v)) 
+                                              subst))
                     [names images] (let [s (seq t-substs)]
                                      [(map first s)
                                       (map (comp :type second) s)])]
                 ;(prn delayed-checks)
-                (doseq [[S T] delayed-checks]
+                (doseq> [[S T] :- '[r/AnyType r/AnyType], delayed-checks]
                   (let [S* (subst/substitute-many S images names)
                         T* (subst/substitute-many T images names)]
                     ;(prn "delayed" (map prs/unparse-type [S* T*]))
-                    (when-not (sub/subtype? S* T*)
+                    (when-not (subtype? S* T*)
                       (fail! S T))
                             #_(str "Delayed check failed"
                                  (mapv prs/unparse-type [S T]))))
-                (doseq [[nme {inferred :type :keys [bnds]}] t-substs]
+                (doseq> [[nme {inferred :type :keys [bnds]}] :- '[Symbol t-subst], t-substs]
                   (when (some r/TypeFn? [(:upper-bound bnds) (:lower-bound bnds)]) (u/nyi-error "Higher kinds"))
                   (let [lower-bound (subst/substitute-many (:lower-bound bnds) images names)
                         upper-bound (subst/substitute-many (:upper-bound bnds) images names)]
-                    (assert (sub/subtype? lower-bound upper-bound)
+                    (assert (subtype? lower-bound upper-bound)
                             (u/error-msg "Lower-bound " (prs/unparse-type lower-bound)
                                          " is not below upper-bound " (prs/unparse-type upper-bound)))
-                    (assert (and (sub/subtype? inferred upper-bound)
-                                 (sub/subtype? lower-bound inferred))
+                    (assert (and (subtype? inferred upper-bound)
+                                 (subtype? lower-bound inferred))
                             (u/error-msg "Inferred type " (prs/unparse-type inferred)
                                        " is not between bounds " (prs/unparse-type lower-bound)
                                        " and " (prs/unparse-type upper-bound))))))]
         ;; verify that we got all the important variables
         (when-let [r (and (every? identity
-                                  (for [v (frees/fv R)]
+                                  (for> :- Any
+                                    [v :- Symbol, (frees/fv R)]
                                     (let [entry (subst v)]
                                       (and entry (cr/t-subst? entry)))))
                           (extend-idxs subst))]
-          r)))))
+          r))))))
 
 ;; V : a set of variables not to mention in the constraints
 ;; X : the set of type variables to be constrained mapped to their bounds
@@ -1290,8 +1365,10 @@
 ;       V X Y
 ;       (map prs/unparse-type S)
 ;       (map prs/unparse-type T))
+  (u/p :cs-gen/cs-gen-list
   (when-not (= (count S) (count T))
     (fail! S T))
+  (u/p :cs-gen/cs-gen-list-meet-csets
   (cset-meet*
     ;; We meet early to prune the csets to a reasonable size.
     ;; This weakens the inference a bit, but sometimes avoids
@@ -1300,6 +1377,7 @@
       (cr/empty-cset X Y)
       (let [vector' (t/inst vector r/Type r/Type Any Any Any Any)
             map' (t/inst map '[r/Type r/Type] r/Type r/Type)]
+        (u/p :cs-gen/cs-gen-list-gen-csets
         (doall 
           (for> :- cset
             [[s t] :- '[r/Type r/Type], (map' vector' S T)]
@@ -1318,7 +1396,7 @@
               ;(prn "meet:")
               ;(clojure.pprint/pprint m)
               ;(flush)
-              m)))))))
+              m))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Infer
@@ -1334,7 +1412,7 @@
   {:pre [((u/hash-c? symbol? r/Bounds?) X)
          (symbol? dotted-var)
          (r/Bounds? dotted-bnd)
-         (every? #(every? r/Type? %) [S T])
+         (every? (u/every-c? r/Type?) [S T])
          (r/Type? T-dotted) 
          (r/AnyType? R)
          ((u/set-c? symbol?) must-vars)
@@ -1342,6 +1420,7 @@
    :post [(cr/substitution-c? %)]}
 ;  (prn "infer-dots")
 ;  (prn "must-vars" must-vars)
+  (u/p :cs-gen/infer-dots
   (let [[short-S rest-S] (split-at (count T) S)
 ;        _ (prn "short-S" (map prs/unparse-type short-S))
 ;        _ (prn "T" (map prs/unparse-type T))
@@ -1369,7 +1448,7 @@
         cs (cset-meet cs-short cs-dotted)
         ;_ (prn "cs" cs)
         ]
-    (subst-gen (cset-meet cs expected-cset) #{dotted-var} R)))
+    (subst-gen (cset-meet cs expected-cset) #{dotted-var} R))))
 
 (declare infer)
 
@@ -1395,6 +1474,7 @@
     :post [(or (nil? %)
                (cr/substitution-c? %))]}
    ;(prn "infer-vararg" "X:" X)
+   (u/p :cs-gen/infer-vararg
    (let [new-T (if T-var
                  ;Pad out T
                  (concat T (repeat (- (count S) (count T)) T-var))
@@ -1404,7 +1484,7 @@
      ;    (prn "R" (unparse-type R))
      ;    (prn "expected" (class expected) (when expected (unparse-type expected)))
      (and (>= (count S) (count T))
-          (infer X Y S new-T R expected)))))
+          (infer X Y S new-T R expected))))))
 
 ;; X : variables to infer mapped to their bounds
 ;; Y : indices to infer mapped to their bounds
@@ -1442,16 +1522,20 @@
    ;    (prn "R:" (class R) (prs/unparse-type R)))
    ;  (when expected
    ;    (prn "expected:" (class expected) (prs/unparse-type expected)))
+   (u/p :cs-gen/infer
    (let [expected-cset (if expected
                          (cs-gen #{} X Y R expected)
                          (cr/empty-cset {} {}))
          ;_ (prn "expected cset" expected-cset)
-         cs (cs-gen-list #{} X Y S T :expected-cset expected-cset)
-         cs* (cset-meet cs expected-cset)]
+         cs (u/p :cs-gen/infer-inner-csgen 
+              (cs-gen-list #{} X Y S T :expected-cset expected-cset))
+         cs* (u/p :cs-gen/infer-inner-cset-meet
+               (cset-meet cs expected-cset))]
      ;(prn "final cs" cs*)
      (if R
-       (subst-gen cs* (set (keys Y)) R)
-       true))))
+       (u/p :cs-gen/infer-inner-subst-gen
+         (subst-gen cs* (set (keys Y)) R))
+       true)))))
 
 (comment
          (let [x (gensym)]
