@@ -85,8 +85,8 @@
 
 (ann map-over [(t/Seqable Point) -> Number])
 ;FIXME Datatypes+records need proper handling in cs-gen
-(defn map-over [ps]
-  (apply + (map (t/inst :lat Number) ps)))
+;(defn map-over [ps]
+;  (apply + (map (t/inst :lat Number) ps)))
 
 ;(clojure.core.typed.subtype/sub-clj? [Point -> Number]
 ;                                     ['{:lat Number} -> Number])

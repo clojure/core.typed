@@ -1166,11 +1166,11 @@
 
 (deftest string-as-seqable-test
   (is-clj (subtype? 
-        (RClass-of String)
-        (RClass-of Seqable [-any])))
+            (RClass-of String)
+            (RClass-of Seqable [-any])))
   (is-clj (subtype? 
-        (-val "a")
-        (RClass-of Seqable [-any])))
+            (-val "a")
+            (RClass-of Seqable [-any])))
   (is-cf (seq "a"))
   (is-cf (first "a") Character)
   (is-cf (first (clojure.core.typed/ann-form "a" String)) (clojure.core.typed/Option Character)))
@@ -1332,8 +1332,16 @@
 (deftest multimethod-test
   (is (check-ns 'clojure.core.typed.test.mm)))
 
+(defmacro throws-tc-error? [& body]
+  `(with-ex-info-handlers
+     [u/tc-error? (constantly true)]
+     ~@body
+     false))
+
 (deftest instance-field-test
-  (is (cf (.ns ^clojure.lang.Var #'clojure.core/map))))
+  (is (cf (.ns ^clojure.lang.Var #'clojure.core/map)))
+  (is (caught-top-level-errors #{2}
+        (cf (fn [] (.ns ^clojure.lang.Var 'a))))))
 
 (deftest HMap-syntax-test
   (is (= (parse-type '(HMap :absent-keys #{:op}))
@@ -1373,12 +1381,6 @@
 
 (deftest number-ops-test
   (is (cf (min (Integer. 3) 10) Number)))
-
-(defmacro throws-tc-error? [& body]
-  `(with-ex-info-handlers
-     [u/tc-error? (constantly true)]
-     ~@body
-     false))
 
 (deftest ctor-infer-test
   (is (cf (java.io.File. "a")))
@@ -1849,13 +1851,14 @@
   (is (cf (map (clojure.core.typed/inst vector Number Number Any Any Any Any) [1] [2])
           (clojure.lang.Seqable '[Number Number]))))
 
-(deftest subtype-explosion-test
-  (is (sub? nil clojure.core.typed.type-rep/TCType)))
+;FIXME uncomment after core.typed internals are being checked
+;(deftest subtype-explosion-test
+;  (is (sub? nil clojure.core.typed.type-rep/TCType)))
 
 (deftest var-as-function-test
   (is (cf #'+ [Number * -> Number]))
   (is (cf (#'+ 1 2)))
-  (is (sub? (Var [-> nil]) [-> nil])))
+  (is (sub? (clojure.lang.Var [-> nil]) [-> nil])))
 
 (deftest future-test
   (is (cf @(future 'a) clojure.lang.Symbol))

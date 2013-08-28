@@ -1,3 +1,14 @@
+0.1.25
+- CTYP-33 Vars as functions
+- Lots of cleaning up
+- [API Reference](http://clojure.github.io/core.typed/) now builds properly
+  - type aliases have nice headers (thanks Tom Faulhaber!)
+- Some slightly better error messages
+  - will throw a delayed error instead of an internal error on unannotated
+    defs and other things.
+  - instance fields throws delayed errors
+- CTYP-27 Support `clojure.core/future`
+
 0.1.23-24
 - Support extending protocols to nil
 - Fix subtyping between protocols and datatypes/records

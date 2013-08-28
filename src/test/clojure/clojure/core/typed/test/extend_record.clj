@@ -38,6 +38,8 @@
 
 ;(not (sub/sub-clj? PMaths SpecialNumber))
 ;(sub/sub-clj? SpecialNumber PMaths)
+;(sub/sub-clj? String PMaths)
+;(sub/sub-clj? SpecialNumber (t/Map Any Any))
 
 ;(ancestors SpecialNumber)
 ;(prs/parse-clj 'PMaths)

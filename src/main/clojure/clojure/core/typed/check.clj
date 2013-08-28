@@ -3338,15 +3338,19 @@
                                             (str COMPILE-STUB-PREFIX ".")
                                             ""))
           fsym (symbol field-name)
-          field-target (c/RClass-of (u/symbol->Class target-class))
-          cexpr (check target (ret field-target))
-          _ (when-not (sub/subtype? 
-                        (-> cexpr expr-type ret-t)
-                        field-target)
-              (u/tc-delayed-error (str "Instance field " fsym " expected "
-                                       (pr-str (prs/unparse-type field-target))
-                                       ", actual " (pr-str (prs/unparse-type (-> cexpr expr-type ret-t))))
-                                  :form (u/emit-form-fn expr)))
+          hinted-cls (u/symbol->Class target-class)
+          cexpr (check target)
+          ; check that the hinted class at least matches the runtime class we expect
+          _ (let [expr-ty (c/fully-resolve-type (-> cexpr expr-type ret-t))
+                  cls (cond
+                         (r/DataType? expr-ty) (u/symbol->Class (:the-class expr-ty))
+                         (r/RClass? expr-ty) (u/symbol->Class (:the-class expr-ty)))]
+              (when-not (and cls
+                             (sub/class-isa? cls hinted-cls))
+                (u/tc-delayed-error (str "Instance field " fsym " expected "
+                                         (pr-str hinted-cls)
+                                         ", actual " (pr-str (prs/unparse-type expr-ty)))
+                                    :form (u/emit-form-fn expr))))
           
                             ; datatype fields are special
           result-t (if-let [override (when-let [dtp (dt-env/get-datatype target-class)]
@@ -3358,7 +3362,11 @@
                                          (-> (c/DataType-fields* dt) (get (symbol (repl/demunge (str fsym)))))))]
                      override
                      ; if not a datatype field, convert as normal
-                     (Field->Type field))]
+                     (if field
+                       (Field->Type field)
+                       (u/tc-delayed-error (str "Instance field " fsym " needs type hints")
+                                           :form (u/emit-form-fn expr)
+                                           :return (r/TCError-maker))))] 
       (assoc expr
              expr-type (ret result-t)))))
 
