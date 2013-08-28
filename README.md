@@ -4,12 +4,12 @@ Gradual typing in Clojure, as a library.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.1.26.
+Latest stable release is 0.2.0.
 
 Leiningen dependency information:
 
 ```clojure
-[org.clojure/core.typed "0.1.26"]
+[org.clojure/core.typed "0.2.0"]
 ```
 
 Maven dependency information:
@@ -18,7 +18,7 @@ Maven dependency information:
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed</artifactId>
-  <version>0.1.26</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
@@ -64,6 +64,7 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 - [Continuous Integration](http://build.clojure.org/job/core.typed/)
 - [Compatibility Test Matrix](http://build.clojure.org/job/core.typed-test-matrix/)
 
+<!---
 ## Future work
 
 * Equality filters for occurrence typing
@@ -71,6 +72,7 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 * Namespace dependency management
 * Track changes to Typed Racket
   * https://github.com/plt/racket/compare/6105ce8b2087...71d6189132ce
+-->
 
 ## Contributors
 
