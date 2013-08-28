@@ -850,7 +850,8 @@ clojure.core/re-seq [java.util.regex.Pattern String -> (LazySeq (U nil String (V
 clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String])
 
-clojure.core/future-call [[-> Any] -> Any]
+clojure.core/future-call (All [x] [[-> x] -> (Extends [(IDeref x)
+                                                       java.util.concurrent.Future])])
 
 clojure.core/atom (All [x]
                        [x & :optional {:validator (U nil [x -> Any]) :meta Any}-> (Atom x x)])
