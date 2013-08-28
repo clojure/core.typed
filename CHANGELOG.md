@@ -1,4 +1,4 @@
-0.1.25
+0.1.26
 - CTYP-33 Vars as functions
 - Lots of cleaning up
 - [API Reference](http://clojure.github.io/core.typed/) now builds properly
