@@ -118,5 +118,5 @@
     (throw (Exception. (str (when vs/*current-env*
                               (str (:line vs/*current-env*) ": "))
                             "Reference to untyped binding: " sym
-                            "\nHint: Has the annotation for " sym
-                            " been added via check-ns, cf or typed-deps?")))))
+                            "\nHint: Add the annotation for " sym
+                            " via check-ns or cf")))))

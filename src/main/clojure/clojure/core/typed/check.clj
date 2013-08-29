@@ -1210,7 +1210,9 @@
         (assoc expr
                expr-type (ret t (fo/-FS fl/-top fl/-top) obj/-empty))
         (u/tc-delayed-error
-          (str "Unannotated var " id)
+          (str "Unannotated var " id
+               "\nHint: Add the annotation for " id
+               " via check-ns or cf")
           :return (assoc expr
                          expr-type 
                          (ret (or (when expected
@@ -1231,7 +1233,9 @@
         t (cond
             t t
             macro? r/-any
-            :else (u/tc-delayed-error (str "Untyped var reference: " id)
+            :else (u/tc-delayed-error (str "Untyped var reference: " id
+                                           "\nHint: Has the annotation for " id
+                                           " been added via check-ns, cf or typed-deps?")
                                       :form (u/emit-form-fn expr)
                                       :return (r/TCError-maker)))]
     (assoc expr
@@ -4411,7 +4415,9 @@
                    "Not checking" vsym "definition")
           (flush)
           res-expr)
-      :else (u/tc-delayed-error (str "Found untyped var definition: " vsym)
+      :else (u/tc-delayed-error (str "Found untyped var definition: " vsym
+                                     "\nHint: Add the annotation for " vsym
+                                     " via check-ns or cf")
                                 :return res-expr))))
 
 ;TODO print a hint that `ann` forms must be wrapping in `cf` at the REPL
