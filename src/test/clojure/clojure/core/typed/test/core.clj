@@ -1867,6 +1867,9 @@
 (deftest ignore-macro-def-test
   (is (cf (defmacro foobar []))))
 
+(deftest typed-deps-fail-gracefully-test
+  (is (cf (clojure.core.typed/typed-deps clojure.core.async))))
+
 ;(reset-caches)
 
 ;(chk/abstract-result

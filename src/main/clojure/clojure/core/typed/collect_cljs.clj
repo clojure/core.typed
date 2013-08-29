@@ -21,10 +21,14 @@
             [clojure.core.typed.util-vars :as vs]))
 
 (defn- collected-ns! [nsym]
-  (swap! t/*already-collected* conj nsym))
+  (if-let [a t/*already-collected*]
+    (swap! a conj nsym)
+    (assert nil "Type system is not set up for namespace collection")))
 
 (defn- already-collected? [nsym]
-  (boolean (@t/*already-collected* nsym)))
+  (if-let [a t/*already-collected*]
+    (boolean (@a nsym))
+    (assert nil "Type system is not set up for namespace collection")))
 
 (declare collect)
 
@@ -75,9 +79,12 @@
         deps (:form (first args))
         _ (prn "Found typed deps" deps)
         _ (assert (and deps (seq deps) (every? symbol? deps)))]
-    ;(dep/add-ns-deps prs-ns (set deps))
-    (doseq [dep deps]
-      (collect-ns dep))
+    (if t/*already-collected*
+      (do ;(dep/add-ns-deps prs-ns (set deps))
+          (doseq [dep deps]
+            (collect-ns dep)))
+      (do (println "WARNING: Not collecting namespaces, must call typed-deps via check-ns")
+          (flush)))
     nil))
 
 (defmethod invoke-special-collect 'cljs.core.typed/ann*
