@@ -1,4 +1,4 @@
-(ns clojure.core.typed.profiling)
+(ns ^:skip-wiki clojure.core.typed.profiling)
 
 ;;;;;;;;;;;;;;;;;
 ;; Timbre stuff
