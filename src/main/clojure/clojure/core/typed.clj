@@ -1005,7 +1005,7 @@ for checking namespaces, cf for checking individual forms."}
 
 (defmacro typed-deps 
   "Declare namespaces which should be checked before the current namespace.
-  Accepts any number of symbols.
+  Accepts any number of symbols. Only has effect via check-ns.
   
   eg. (typed-deps clojure.core.typed.holes
                   myns.types)"
