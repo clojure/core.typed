@@ -1258,7 +1258,6 @@ for checking namespaces, cf for checking individual forms."}
           vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
                                                 'vars-with-unchecked-defs)
           uri-for-ns (impl/v 'clojure.tools.analyzer/uri-for-ns)]
-      (reset-envs!)
       (cond
         *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
 
@@ -1267,6 +1266,7 @@ for checking namespaces, cf for checking individual forms."}
                   *delayed-errors* (-init-delayed-errors)
                   *already-collected* (atom #{})
                   *already-checked* (atom #{})]
+          (reset-envs!)
           (impl/with-clojure-impl
             (let [collect-start (. System (nanoTime))
                   _ (collect-ns nsym)
