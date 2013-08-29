@@ -1,3 +1,6 @@
+0.2.1
+- Improve errors messages
+
 0.2.0
 - No changes
 
