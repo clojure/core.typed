@@ -1,5 +1,8 @@
 0.2.1
 - Improve errors messages
+  - add hint to annotate vars via cf
+  - remove "missing line number" message
+  - more descriptive error for recursive check-ns
 
 0.2.0
 - No changes
