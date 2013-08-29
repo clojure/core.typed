@@ -76,7 +76,7 @@
 
 (defn tc-delayed-error [msg & {:keys [return form] :as opt}]
   (when-not (:line *current-env*)
-    (try (throw (Exception. ""))
+    #_(try (throw (Exception. ""))
       (catch Exception e
         (prn "core.typed Internal BUG! Delayed error without line number, "
              (when (contains? opt :form) (str "in form " form)))
@@ -113,11 +113,11 @@
 
 (defn tc-error
   [estr]
-  (when-not *current-env*
+  #_(when-not *current-env*
     (prn "Internal core.typed BUG! No *current-env* with tc-error"))
   (let [env *current-env*]
     (throw (ex-info (str "Type Error "
-                         "(" (-> env :ns :name) ":" (:line env) 
+                         "(" (-> env :ns :name) ":" (or (:line env) "<NO LINE>")
                          (when-let [col (:column env)]
                            (str ":"col))
                          ") "
@@ -128,7 +128,7 @@
   [estr]
   (let [env *current-env*]
     (throw (ex-info (str "Internal Error "
-                         "(" (-> env :ns :name) ":" (:line env) 
+                         "(" (-> env :ns :name) ":" (or (:line env) "<NO LINE>")
                          (when-let [col (:column env)]
                            (str ":"col))
                          ") "
@@ -139,7 +139,7 @@
   [estr]
   (let [env *current-env*]
     (throw (ex-info (str "core.typed Not Yet Implemented Error:"
-                           "(" (-> env :ns :name) ":" (:line env) 
+                           "(" (-> env :ns :name) ":" (or (:line env) "<NO LINE>")
                            (when-let [col (:column env)]
                              (str ":"col))
                            ") "
