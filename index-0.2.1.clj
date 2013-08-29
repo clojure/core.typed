@@ -19,13 +19,7 @@
    "http://clojure.github.com/core.typed/clojure.core.typed.hole-api.html",
    :name "clojure.core.typed.hole",
    :doc
-   "This namespace contains easy tools for hole driven development"}
-  {:source-url
-   "https://github.com/clojure/core.typed/blob/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/profiling.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.profiling-api.html",
-   :name "clojure.core.typed.profiling",
-   :doc nil}),
+   "This namespace contains easy tools for hole driven development"}),
  :vars
  ({:name "*verbose-forms*",
    :namespace "clojure.core.typed",
@@ -1001,44 +995,4 @@
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.hole/NoisyHole",
    :namespace "clojure.core.typed.hole",
    :var-type "type",
-   :name "NoisyHole"}
-  {:arglists ([name]),
-   :name "fq-keyword",
-   :namespace "clojure.core.typed.profiling",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/profiling.clj#L20",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/profiling.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.profiling/fq-keyword",
-   :doc "Returns namespaced keyword for given name.",
-   :var-type "macro",
-   :line 20,
-   :file "src/main/clojure/clojure/core/typed/profiling.clj"}
-  {:arglists ([& body]),
-   :name "profile",
-   :namespace "clojure.core.typed.profiling",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/profiling.clj#L43",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/profiling.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.profiling/profile",
-   :doc "Usage: (profile :info :foo ...)",
-   :var-type "macro",
-   :line 43,
-   :file "src/main/clojure/clojure/core/typed/profiling.clj"}
-  {:arglists ([name & body]),
-   :name "pspy",
-   :namespace "clojure.core.typed.profiling",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/profiling.clj#L27",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/profiling.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.profiling/pspy",
-   :doc
-   "Profile spy. When in the context of a *pdata* binding, records execution time\nof named body. Always returns the body's result.",
-   :var-type "macro",
-   :line 27,
-   :file "src/main/clojure/clojure/core/typed/profiling.clj"})}
+   :name "NoisyHole"})}
