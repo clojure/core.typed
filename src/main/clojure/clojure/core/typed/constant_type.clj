@@ -8,14 +8,13 @@
                          IRef AReference ARef IDeref IReference APersistentSet PersistentHashSet Sorted
                          LazySeq APersistentMap Indexed)))
 
-(declare constant-ret)
+(defprotocol ConstantType 
+  (constant-ret [this]))
 
 (defn constant-type [s]
   (r/ret-t (constant-ret s)))
 
 ;[Any -> Type]
-(defprotocol ConstantType 
-  (constant-ret [this]))
 
 (defmacro constant-type->val
   [& cls]

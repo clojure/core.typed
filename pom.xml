@@ -27,19 +27,21 @@
         <artifactId>clojure-maven-plugin</artifactId>
         <version>1.3.10</version>
         <configuration>
-          <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
+          <!--<compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>-->
           <testDeclareNamespacesOnly>true</testDeclareNamespacesOnly>
           <namespaces>
-            <namespace>!clojure.core.typed.base-env</namespace>
-            <namespace>!clojure.core.typed.alms-infer</namespace>
-            <namespace>!clojure.core.typed.init</namespace>
+            <!-- depends on core.async -->
+            <namespace>!cljs.core.typed.async</namespace>
+            <namespace>!clojure.core.typed.test.*</namespace>
           </namespaces>
+          <!-- waiting on CLJS release -->
           <testNamespaces>
-            <!-- waiting on CLJS release -->
             <namespace>!clojure.core.typed.test.cljs</namespace>
           </testNamespaces>
           <warnOnReflection>true</warnOnReflection>
           <sourceDirectories>
+            <sourceDirectory>src/main/clojure</sourceDirectory>
+            <sourceDirectory>src/test/clojure</sourceDirectory>
             <sourceDirectory>src/main/cljs</sourceDirectory>
             <sourceDirectory>src/test/cljs</sourceDirectory>
           </sourceDirectories>

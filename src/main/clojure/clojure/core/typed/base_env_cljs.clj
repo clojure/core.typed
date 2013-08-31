@@ -1,10 +1,11 @@
 (ns clojure.core.typed.base-env-cljs
   (:require [clojure.core.typed.base-env-helper-cljs :as h]
+            [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.current-impl :as impl :refer [v]]
             [clojure.core.typed.bootstrap-cljs :as boot]
             [clojure.set :as set]))
 
-(def init-protocol-env 
+(delay-and-cache-env ^:private init-protocol-env 
   (h/protocol-mappings
     
 cljs.core/ISeqable [[[x :variance :covariant]]]
@@ -19,12 +20,13 @@ cljs.core/IEquiv [[]]
 
     ))
 
-; add protocols to environment to parse rest of file
-(impl/with-cljs-impl
-  ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
-   init-protocol-env))
+(defn reset-protocol-env! []
+  (impl/with-cljs-impl
+    ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
+     (init-protocol-env))))
 
-(def init-jsnominals 
+(delay-and-cache-env ^:private init-jsnominals 
+  (reset-protocol-env!)
   (h/jsnominal-mappings
 
 ; seems like a good place to put this
@@ -58,12 +60,14 @@ goog.events.Listenable [[]]
 goog.events.EventTarget [[]]
     ))
 
-; add js nominals to environment to parse rest of file
-(impl/with-cljs-impl
-  ((v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
-   init-jsnominals))
+(defn reset-jsnominal-env! []
+  (impl/with-cljs-impl
+    ((v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
+     (init-jsnominals))))
 
-(def init-var-env
+(delay-and-cache-env ^:private init-var-env
+  (reset-protocol-env!)
+  (reset-jsnominal-env!)
   (merge
     (h/var-mappings
 
@@ -93,10 +97,12 @@ cljs.core/prim-seq
 
       )))
 
-(def init-var-nochecks
-  (set (keys init-var-env)))
+(delay-and-cache-env ^:private init-var-nochecks
+  (set (keys (init-var-env))))
 
-(def init-jsvar-env
+(delay-and-cache-env init-jsvar-env
+  (reset-protocol-env!)
+  (reset-jsnominal-env!)
   (h/js-var-mappings
 ;; js
     
@@ -125,7 +131,9 @@ goog.events.EventType.MOUSEOUT string
 goog.events.EventType.MOUSEMOVE string
     ))
 
-(def init-alias-env 
+(delay-and-cache-env init-alias-env 
+  (reset-protocol-env!)
+  (reset-jsnominal-env!)
   (h/alias-mappings
 
   ^{:doc "A type that returns true for clojure.core/integer?"}
@@ -136,26 +144,29 @@ cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
                              (cljs.core/ISeqable x))
     ))
 
-; Ensure init-alias-env agrees with the -base-aliases
 
-(assert (= (set (keys init-alias-env))
-           (set (map #(symbol "cljs.core.typed" (str %))
-                     boot/-base-aliases)))
-        (str "core.typed Bug! Base aliases do not agree with base environment."
-             " Missing from core.typed ns: "
-             (set/difference (set (keys init-alias-env))
-                             (set (map #(symbol "cljs.core.typed" (str %))
-                                       boot/-base-aliases)))
-             " Missing from base-env ns "
-             (set/difference (set (map #(symbol "cljs.core.typed" (str %))
-                                       boot/-base-aliases))
-                             (set (keys init-alias-env)))))
+(defn reset-alias-env! []
+  (let [alias-env (init-alias-env)]
+    ; Ensure init-alias-env agrees with the -base-aliases
+    (assert (= (set (keys alias-env))
+               (set (map #(symbol "cljs.core.typed" (str %))
+                         boot/-base-aliases)))
+            (str "core.typed Bug! Base aliases do not agree with base environment."
+                 " Missing from core.typed ns: "
+                 (set/difference (set (keys alias-env))
+                                 (set (map #(symbol "cljs.core.typed" (str %))
+                                           boot/-base-aliases)))
+                 " Missing from base-env ns "
+                 (set/difference (set (map #(symbol "cljs.core.typed" (str %))
+                                           boot/-base-aliases))
+                                 (set (keys alias-env)))))
+    ((v 'clojure.core.typed.name-env/reset-name-env!) alias-env)))
 
+(delay-and-cache-env init-declared-kinds {})
 
-
-(def init-declared-kinds {})
-
-(def init-datatype-env 
+(delay-and-cache-env init-datatype-env 
+  (reset-protocol-env!)
+  (reset-jsnominal-env!)
   (h/datatype-mappings
     
 cljs.core/Atom [[[w :variance :contravariant]
@@ -164,17 +175,15 @@ cljs.core/Atom [[[w :variance :contravariant]
 
 (defn reset-cljs-envs! []
   (impl/with-cljs-impl
-    ((v 'clojure.core.typed.name-env/reset-name-env!) init-alias-env)
+    (reset-alias-env!)
     ((v 'clojure.core.typed.var-env/reset-var-type-env!)
-     init-var-env init-var-nochecks)
+     (init-var-env) (init-var-nochecks))
     ((v 'clojure.core.typed.var-env/reset-jsvar-type-env!)
-     init-jsvar-env)
-    ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
-     init-protocol-env)
+     (init-jsvar-env))
+    (reset-protocol-env!)
     ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
-     init-declared-kinds)
-    ((v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
-     init-jsnominals)
+     (init-declared-kinds))
+    (reset-jsnominal-env!)
     ((v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
-     init-datatype-env))
+     (init-datatype-env)))
   nil)

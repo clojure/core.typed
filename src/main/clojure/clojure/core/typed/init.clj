@@ -1,11 +1,17 @@
 (ns clojure.core.typed.init
-  (:require [clojure.core.typed.current-impl :as impl]))
+  (:require [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.profiling :as p]))
 
 (defonce ^:private attempted-loading? (atom false))
 (defonce ^:private successfully-loaded? (atom false))
 
 (defn loaded? []
   @successfully-loaded?)
+
+(defn require-time [& args]
+  (doseq [a args]
+    (prn "Requiring: " a)
+    (time (require a))))
 
 (defn load-impl []
   (cond 
@@ -22,7 +28,8 @@
     (do
       (try
         (reset! attempted-loading? true)
-        (require '[clojure.core.typed.utils]
+        (require-time 
+                 '[clojure.core.typed.utils]
                  '[clojure.core.typed.type-rep]
                  '[clojure.core.typed.type-ctors]
                  '[clojure.core.typed.filter-rep]

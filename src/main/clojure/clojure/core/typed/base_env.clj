@@ -8,6 +8,7 @@
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
                          ITransientVector PersistentHashMap))
   (:require [clojure.core.typed.base-env-helper :as h]
+            [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
@@ -20,9 +21,7 @@
             [clojure.core.typed.current-impl :as impl :refer [v]]
             [clojure.set :as set]))
 
-;TODO make sure the type checker never checks this file, things will get redefined
-;     during type checking!
-;     Better solution: don't implitly update the environment when compiling/evaling this file.
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Altered Classes
@@ -49,7 +48,8 @@
               clojure.lang.Fn (clojure.lang.Fn a)})
 
 
-(def init-altered-env
+(delay-and-cache-env init-altered-env
+                     (assert (class? Seqable))
   (h/alters
 
 Seqable [[[a :variance :covariant]]
@@ -474,14 +474,16 @@ java.lang.Iterable [[]
                   #{(Seqable Any)}]
 ))
 
-(rcls/reset-rclass-env! init-altered-env)
+(defn reset-rclass-env! []
+  (rcls/reset-rclass-env! (init-altered-env)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Initial type aliases
 
 ; Note: All mappings here *must* be in set c.c.t/-base-aliases
 
-(def init-alias-env
+(delay-and-cache-env init-alias-env
+  (reset-rclass-env!)
   (h/alias-mappings
 
   ^{:doc "A type that returns true for clojure.core/integer?"
@@ -580,48 +582,47 @@ eg. See NonEmptySeq"
 clojure.core.typed/NonEmptyCount (CountRange 1)
     ))
 
+(defn reset-alias-env! []
+  (let [alias-env (init-alias-env)]
+    ; Ensure init-alias-env agrees with the -base-aliases
+    (assert (= (set (keys alias-env))
+               (set (map #(symbol "clojure.core.typed" (str %))
+                         clojure.core.typed/-base-aliases)))
+            (str "core.typed Bug! Base aliases do not agree with base environment."
+                 " Missing from core.typed ns: "
+                 (set/difference (set (keys alias-env))
+                                 (set (map #(symbol "clojure.core.typed" (str %))
+                                           clojure.core.typed/-base-aliases)))
+                 " Missing from base-env ns "
+                 (set/difference (set (map #(symbol "clojure.core.typed" (str %))
+                                           clojure.core.typed/-base-aliases))
+                                 (set (keys alias-env)))))
+    (nme-env/reset-name-env! alias-env)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
-; Ensure init-alias-env agrees with the -base-aliases
-
-(assert (= (set (keys init-alias-env))
-           (set (map #(symbol "clojure.core.typed" (str %))
-                     clojure.core.typed/-base-aliases)))
-        (str "core.typed Bug! Base aliases do not agree with base environment."
-             " Missing from core.typed ns: "
-             (set/difference (set (keys init-alias-env))
-                             (set (map #(symbol "clojure.core.typed" (str %))
-                                       clojure.core.typed/-base-aliases)))
-             " Missing from base-env ns "
-             (set/difference (set (map #(symbol "clojure.core.typed" (str %))
-                                       clojure.core.typed/-base-aliases))
-                             (set (keys init-alias-env)))))
-
-
 ;;for parsing init-var-env
 ; must be after init-alias-env def as vars are interned there
-(impl/with-clojure-impl
 (let [interns '[Option AnyInteger Id Coll Seq NonEmptySeq EmptySeqable
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
-  (refer 'clojure.core.typed :only interns)
-  (nme-env/reset-name-env! init-alias-env))
-  )
+  (refer 'clojure.core.typed :only interns))
 
 (defn ^:private count-type []
   (impl/with-clojure-impl
     (r/make-FnIntersection
       (r/make-Function 
         [(c/Un r/-nil (c/RClass-of Seqable [r/-any]) (c/RClass-of clojure.lang.Counted))]
-        (prs/parse-type '(U Integer Long))
+        (prs/parse-type '(U java.lang.Integer java.lang.Long))
         nil nil
         :object (obj/->Path [(pe/->CountPE)] 0)))))
 
-(def init-var-env
+(delay-and-cache-env ^:private init-var-env
+  (reset-alias-env!)
   (merge
     (h/var-mappings
 
@@ -1439,19 +1440,19 @@ clojure.core.match/backtrack Exception
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Nocheck env
 
-(def init-var-nochecks
-  (set (keys init-var-env)))
+(delay-and-cache-env ^:private init-var-nochecks
+  (set (keys (init-var-env))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method param annotations
 
-(def init-method-nilable-param-env {})
+(delay-and-cache-env ^:private init-method-nilable-param-env {})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method return annotations
 
-(def init-method-nonnilable-return-env
+(delay-and-cache-env ^:private init-method-nonnilable-return-env
   (h/method-nonnilable-return-mappings
 
 java.lang.Object/getClass #{0}
@@ -1466,7 +1467,8 @@ java.lang.String/toUpperCase :all
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method override annotations
 
-(def init-method-override-env
+(delay-and-cache-env ^:private init-method-override-env
+  (reset-alias-env!)
   (merge
     (h/method-override-mappings
 
@@ -1589,7 +1591,8 @@ clojure.lang.Numbers/isZero (predicate (Value 0))
                                  [[a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19 arest * -> r] a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19 (Seqable arest) -> r]
                                  )))
 
-(def init-ctor-override-env
+(delay-and-cache-env ^:private init-ctor-override-env
+  (reset-alias-env!)
   (h/ctor-override-mappings
 
 clojure.lang.LazySeq (All [x]
@@ -1598,36 +1601,35 @@ clojure.lang.Delay (All [x]
                         [[-> x] -> (Delay x)])
     ))
 
-(def init-protocol-env {})
+(delay-and-cache-env ^:private init-protocol-env {})
 
-(def init-declared-kinds {})
+(delay-and-cache-env ^:private init-declared-kinds {})
 
-(def init-datatype-env {})
+(delay-and-cache-env ^:private init-datatype-env {})
 
-(def init-datatype-ancestor-env {})
-
+(delay-and-cache-env ^:private init-datatype-ancestor-env {})
 
 (defn reset-clojure-envs! []
   (impl/with-clojure-impl
-    ((v 'clojure.core.typed.name-env/reset-name-env!) init-alias-env)
+    (reset-alias-env!)
     ((v 'clojure.core.typed.var-env/reset-var-type-env!)
-     init-var-env init-var-nochecks)
+     (init-var-env) 
+     (init-var-nochecks))
     ((v 'clojure.core.typed.method-return-nilables/reset-nonnilable-method-return-env!) 
-     init-method-nonnilable-return-env)
+     (init-method-nonnilable-return-env))
     ((v 'clojure.core.typed.method-param-nilables/reset-method-nilable-param-env!)
-     init-method-nilable-param-env)
+     (init-method-nilable-param-env))
     ((v 'clojure.core.typed.method-override-env/reset-method-override-env!)
-     init-method-override-env)
+     (init-method-override-env))
     ((v 'clojure.core.typed.ctor-override-env/reset-constructor-override-env!) 
-     init-ctor-override-env)
-    ((v 'clojure.core.typed.rclass-env/reset-rclass-env!) 
-     init-altered-env)
+     (init-ctor-override-env))
     ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
-     init-protocol-env)
+     (init-protocol-env))
+    (reset-rclass-env!)
     ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
-     init-declared-kinds)
+     (init-declared-kinds))
     ((v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
-     init-datatype-env)
+     (init-datatype-env))
     ((v 'clojure.core.typed.datatype-ancestor-env/reset-datatype-ancestors!)
-     init-datatype-ancestor-env))
+     (init-datatype-ancestor-env)))
   nil)

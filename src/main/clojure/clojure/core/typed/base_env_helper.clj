@@ -9,6 +9,8 @@
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.name-env]
+            [clojure.core.typed.var-env]
+            [clojure.core.typed.ns-deps]
             [clojure.pprint :as pprint]))
 
 (defmacro alias-mappings [& args]

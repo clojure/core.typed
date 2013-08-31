@@ -2,7 +2,6 @@
   (:require [cljs.core.async.impl.ioc-macros :as ioc]
             [cljs.core.typed :as t]))
 
-
 (defmacro chan> 
   "A statically typed core.async channel. 
 
