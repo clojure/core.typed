@@ -6,12 +6,6 @@
    :name "clojure.core.typed",
    :doc nil}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/analyze_clj.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.analyze-clj-api.html",
-   :name "clojure.core.typed.analyze-clj",
-   :doc nil}
-  {:source-url
    "https://github.com/clojure/core.typed/blob/01f5802054988df89c51e2eb7b133d8dc5f634ca/src/main/clojure/clojure/core/typed/analyze_cljs.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.analyze-cljs-api.html",
@@ -997,47 +991,6 @@
    :var-type "macro",
    :line 486,
    :file "src/main/clojure/clojure/core/typed.clj"}
-  {:arglists ([form]),
-   :name "ast-for-form",
-   :namespace "clojure.core.typed.analyze-clj",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/analyze_clj.clj#L13",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/analyze_clj.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.analyze-clj/ast-for-form",
-   :doc "Returns an AST node for the form",
-   :var-type "function",
-   :line 13,
-   :file "src/main/clojure/clojure/core/typed/analyze_clj.clj"}
-  {:arglists ([nsym form]),
-   :name "ast-for-form-in-ns",
-   :namespace "clojure.core.typed.analyze-clj",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/analyze_clj.clj#L6",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/analyze_clj.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.analyze-clj/ast-for-form-in-ns",
-   :doc
-   "Returns an AST node for the form \nanalyzed in the given namespace",
-   :var-type "function",
-   :line 6,
-   :file "src/main/clojure/clojure/core/typed/analyze_clj.clj"}
-  {:arglists ([nsym]),
-   :name "ast-for-ns",
-   :namespace "clojure.core.typed.analyze-clj",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/analyze_clj.clj#L19",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/f9007ea909d82e3e2ceac27307a38ce5b7a486e8/src/main/clojure/clojure/core/typed/analyze_clj.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.analyze-clj/ast-for-ns",
-   :doc
-   "Returns a vector of AST nodes contained\nin the given namespace symbol nsym",
-   :var-type "function",
-   :line 19,
-   :file "src/main/clojure/clojure/core/typed/analyze_clj.clj"}
   {:arglists ([sym]),
    :name "analyze-qualified-symbol",
    :namespace "clojure.core.typed.analyze-cljs",
