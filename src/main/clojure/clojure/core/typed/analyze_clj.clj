@@ -3,6 +3,8 @@
             [clojure.tools.analyzer.hygienic :as hygienic]
             [clojure.core.typed.utils :as u]))
 
+(alter-meta! *ns* :skip-wiki true)
+
 (defn ast-for-form-in-ns
   "Returns an AST node for the form 
   analyzed in the given namespace"
