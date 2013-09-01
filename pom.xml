@@ -27,16 +27,21 @@
         <artifactId>clojure-maven-plugin</artifactId>
         <version>1.3.10</version>
         <configuration>
-          <!--<compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>-->
+          <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
           <testDeclareNamespacesOnly>true</testDeclareNamespacesOnly>
+          <temporaryOutputDirectory>false</temporaryOutputDirectory>
           <namespaces>
             <!-- depends on core.async -->
             <namespace>!cljs.core.typed.async</namespace>
-            <namespace>!clojure.core.typed.test.*</namespace>
+            <namespace>clojure.core.typed.*</namespace>
+            <namespace>clojure.core.typed.test.*</namespace>
+            <namespace>cljs.core.typed.*</namespace>
           </namespaces>
           <!-- waiting on CLJS release -->
           <testNamespaces>
             <namespace>!clojure.core.typed.test.cljs</namespace>
+            <namespace>!clojure.core.typed.test.array</namespace>
+            <namespace>clojure.core.typed.test.*</namespace>
           </testNamespaces>
           <warnOnReflection>true</warnOnReflection>
           <sourceDirectories>

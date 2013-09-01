@@ -35,6 +35,8 @@
             [clojure.tools.trace :refer [trace-vars untrace-vars
                                          trace-ns untrace-ns]]))
 
+(load-if-needed)
+
 ; we want clojure.lang.Seqable to be scoped here. 
 ; There :refer :all of clojure.core.typed adds another Seqable which
 ; is less useful here.

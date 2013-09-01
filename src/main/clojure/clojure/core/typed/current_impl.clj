@@ -32,7 +32,9 @@
 (set-validator! #'*current-impl* (some-fn nil? keyword?))
 
 (defmacro with-impl [impl & body]
-  `(do (assert ((some-fn #{~impl} nil?) *current-impl*) "Cannot overlay different core.typed implementations")
+  `(do (assert ((some-fn #{~impl} nil?) *current-impl*) 
+               (str "Cannot overlay different core.typed implementations: " (pr-str *current-impl*)
+                    ", expected " (pr-str ~impl)))
      (binding [*current-impl* ~impl]
        ~@body)))
 

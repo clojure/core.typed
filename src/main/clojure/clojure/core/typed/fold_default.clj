@@ -150,7 +150,7 @@
                            (c/PolyDots* names 
                                         (mapv #(r/visit-bounds % type-rec) bbnds)
                                         (type-rec body)
-                                        (.free-names ty)))))
+                                        (.actual-frees ty)))))
 
 (add-default-fold-case Mu
                        (fn [ty _]

@@ -8,11 +8,6 @@
 (defn loaded? []
   @successfully-loaded?)
 
-(defn require-time [& args]
-  (doseq [a args]
-    (prn "Requiring: " a)
-    (time (require a))))
-
 (defn load-impl []
   (cond 
     (and @attempted-loading?
@@ -28,8 +23,7 @@
     (do
       (try
         (reset! attempted-loading? true)
-        (require-time 
-                 '[clojure.core.typed.utils]
+        (require '[clojure.core.typed.utils]
                  '[clojure.core.typed.type-rep]
                  '[clojure.core.typed.type-ctors]
                  '[clojure.core.typed.filter-rep]
