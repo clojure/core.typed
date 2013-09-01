@@ -4,6 +4,8 @@
             [clojure.core.typed :as t :refer [fn> inst when-let-fail]])
   (:import (clojure.lang IPersistentMap Symbol)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Datatype Env
 

@@ -5,6 +5,8 @@
   (:import (clojure.core.typed.type_rep F Bounds)
            (clojure.lang Symbol)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parse Type syntax
 

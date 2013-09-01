@@ -26,6 +26,8 @@
            (clojure.core.typed.filter_rep TypeFilter)
            (clojure.lang Symbol ISeq IPersistentList APersistentVector APersistentMap)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (t/typed-deps clojure.core.typed.free-ops
               clojure.core.typed.promote-demote)
 

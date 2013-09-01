@@ -9,6 +9,8 @@
             [clojure.core.typed.trans :as trans])
   (:import (clojure.core.typed.type_rep Poly Bounds PolyDots F)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Polymorphic type instantiation
 

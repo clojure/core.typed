@@ -25,6 +25,8 @@
            (clojure.lang Seqable IPersistentSet IPersistentMap Symbol Keyword
                          Atom Var)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ; create an alias cr -> cs-rep
 (t/tc-ignore
   (create-ns 'clojure.core.typed.cs-rep)

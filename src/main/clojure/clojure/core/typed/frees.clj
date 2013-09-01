@@ -20,6 +20,8 @@
            (clojure.core.typed.path_rep KeyPE)
            (clojure.lang Keyword Symbol)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;(t/typed-deps clojure.core.typed.type-rep)
 
 ;TODO make this an argument

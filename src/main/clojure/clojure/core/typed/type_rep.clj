@@ -7,6 +7,8 @@
             [clojure.set :as set])
   (:import (clojure.lang Seqable Symbol Keyword)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (t/tc-ignore
 (defn- -FS-var []
   (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-ops) '-FS)]

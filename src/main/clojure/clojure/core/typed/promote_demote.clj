@@ -22,6 +22,8 @@
            (clojure.core.typed.path_rep KeyPE CountPE ClassPE)
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;FIXME use fold!
 ;TODO automatically check for completeness
 

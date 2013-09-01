@@ -20,6 +20,8 @@
             [clojure.repl :as repl]
             [clojure.core.typed.util-vars :as vs]))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (defn- collected-ns! [nsym]
   (if-let [a t/*already-collected*]
     (swap! a conj nsym)

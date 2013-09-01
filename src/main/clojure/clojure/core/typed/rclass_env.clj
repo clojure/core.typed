@@ -3,6 +3,8 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.type-rep :as r]))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class
 

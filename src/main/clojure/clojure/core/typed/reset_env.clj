@@ -5,6 +5,8 @@
             [clojure.core.typed.ns-options :as ns-opts]
             [clojure.core.typed.current-impl :as impl]))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (defn reset-envs! 
   "Reset all environments for all implementations. Cannot be called
   if a specific implementation is currently bound"

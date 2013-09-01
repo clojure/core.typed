@@ -3,6 +3,8 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.parse-unparse :as prs]))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;; Environment for storing multimethod types and inferred filters
 
 ; (Atom (Seqable (IPersistentMap Symbol '{:fn-type Type, :dispatch-result (U nil Type)})))

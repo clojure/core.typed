@@ -4,6 +4,8 @@
             [clojure.set :as set])
   (:import (clojure.lang IPersistentMap Symbol IPersistentSet)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (t/def-alias DepMap
   "A map declaring possibly-circular namespace dependencies."
   (IPersistentMap Symbol (IPersistentSet Symbol)))

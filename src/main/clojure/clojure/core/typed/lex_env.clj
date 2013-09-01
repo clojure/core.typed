@@ -3,6 +3,8 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.filter-rep :as fr]))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;(ann (predicate (APersistentMap Symbol Any)))
 (def lex-env? (u/hash-c? (every-pred symbol? (complement namespace)) r/Type?))
 

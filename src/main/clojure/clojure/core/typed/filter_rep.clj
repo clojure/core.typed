@@ -8,6 +8,8 @@
   (:import (clojure.lang Symbol Seqable IPersistentSet)
            (clojure.core.typed.path_rep IPathElem)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (t/def-alias Filter
   "A filter"
   p/IFilter)

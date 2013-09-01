@@ -4,6 +4,8 @@
             [clojure.core.typed :as t])
   (:import (clojure.lang Keyword)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Paths
 

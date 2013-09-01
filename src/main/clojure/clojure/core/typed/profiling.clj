@@ -1,5 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.profiling)
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;;;;;;;;;;;;;;;;;
 ;; Timbre stuff
 ;;

@@ -10,6 +10,8 @@
   (:import (clojure.core.typed.filter_rep BotFilter TopFilter NoFilter AndFilter 
                                           OrFilter TypeFilter NotTypeFilter ImpFilter)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (defn -filter [t i & [p]]
   {:pre [(r/Type? t)
          (fr/name-ref? i)

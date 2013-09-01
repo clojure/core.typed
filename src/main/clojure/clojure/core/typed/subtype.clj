@@ -23,6 +23,8 @@
            (clojure.core.typed.filter_rep FilterSet)
            (clojure.lang APersistentMap APersistentVector PersistentList ASeq Seqable)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;(def-alias Seen Any)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

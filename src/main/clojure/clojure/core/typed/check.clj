@@ -56,6 +56,8 @@
            (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector
                          Reflector PersistentHashSet Symbol)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (set! *warn-on-reflection* true)
 
 (t/ann ^:no-check clojure.core.typed.parse-unparse/*unparse-type-in-ns* (U nil Symbol))

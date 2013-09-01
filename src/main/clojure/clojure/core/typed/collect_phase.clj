@@ -29,6 +29,8 @@
             [clojure.tools.namespace.dir :as dir]
             [clojure.tools.namespace.dependency :as ndep]))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (defonce ns-deps-tracker (atom (track/tracker)))
 
 (defn update-ns-deps! []

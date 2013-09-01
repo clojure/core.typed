@@ -7,6 +7,8 @@
   (:import [clojure.core.typed.type_rep Scope]
            [clojure.lang Symbol]))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; JSNominal
 

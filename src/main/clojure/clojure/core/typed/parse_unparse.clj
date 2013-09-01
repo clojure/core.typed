@@ -32,6 +32,8 @@
            (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE)
            (clojure.lang ISeq Cons IPersistentList Symbol IPersistentVector PersistentHashMap)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (defonce ^:dynamic *parse-type-in-ns* nil)
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol?))
 

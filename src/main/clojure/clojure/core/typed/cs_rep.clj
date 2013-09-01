@@ -6,6 +6,8 @@
   (:import (clojure.lang IPersistentMap IPersistentSet Symbol Seqable)
            (clojure.core.typed.type_rep Bounds F)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (u/ann-record t-subst [type :- r/Type,
                        bnds :- Bounds])
 (u/defrecord t-subst [type bnds]

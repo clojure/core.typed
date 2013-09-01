@@ -2,6 +2,8 @@
   (:require [clojure.core.typed :as t :refer [fn>]])
   (:import (clojure.lang IPersistentMap Symbol)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (t/def-alias NsOptions
   "Options for namespaces"
   (HMap :optional

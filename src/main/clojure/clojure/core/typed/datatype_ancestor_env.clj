@@ -8,6 +8,8 @@
   (:import (clojure.lang Symbol)
            (clojure.core.typed.type_rep DataType)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (t/typed-deps clojure.core.typed.type-ctors
               clojure.core.typed.subst)
 

@@ -4,6 +4,8 @@
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t]))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (t/ann-protocol TCType)
 (u/defprotocol TCType)
 

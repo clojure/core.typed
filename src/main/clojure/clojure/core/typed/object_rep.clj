@@ -8,6 +8,8 @@
             [clojure.core.typed :as t])
   (:import (clojure.lang Seqable)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (t/def-alias RObject
   "An object with a path."
   p/IRObject)
