@@ -36,6 +36,7 @@
             <namespace>clojure.core.typed.*</namespace>
             <namespace>clojure.core.typed.test.*</namespace>
             <namespace>!clojure.core.typed.test.array</namespace>
+            <namespace>!clojure.core.typed.test.core</namespace>
             <namespace>cljs.core.typed.*</namespace>
           </namespaces>
           <!-- waiting on CLJS release -->
