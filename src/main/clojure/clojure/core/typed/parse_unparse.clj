@@ -258,7 +258,11 @@
   (apply r/make-FnIntersection (mapv parse-function types)))
 
 (defmethod parse-type-list 'Fn
-  [syn]
+  [[_ & types :as syn]]
+  (when-not (seq types) 
+    (u/int-error "Must pass at least one arity to Fn: " syn))
+  (when-not (every? vector? types) 
+    (u/int-error (str "Fn accepts vectors, given: " syn)))
   (parse-fn-intersection-type syn))
 
 (defn parse-free-binder [[nme & {:keys [variance < > kind] :as opts}]]
