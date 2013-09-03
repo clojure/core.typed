@@ -4,6 +4,8 @@
             [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.filter-rep :as fr]
+            [clojure.core.typed.object-rep :as or]
+            [clojure.core.typed.path-rep :as path]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.cs-rep :as crep]
             [clojure.core.typed.util-vars :as vs]
@@ -1593,8 +1595,9 @@
 
 ;TODO not sure why this fails to type check
 ;(All [x]
-;  (Fn ['{kw x} -> x]
-;      [(U Any '{kw x}) -> (U nil x) :filters {:then (is {kw Any} 0)}]))
+;  (Fn ['{kw x} -> x :object {:id 0, :path [Key]}]
+;      [(U '{kw x} (HMap :without [(Value kw)]) nil) -> (U x nil) :object {:id 0, :path [Key]}]
+;      [Any -> Any :object {:id 0, :path [Key]}]))
 (t/ann ^:no-check keyword->Fn [Keyword -> r/Type])
 (defn keyword->Fn [kw]
   {:pre [(keyword? kw)]
@@ -1605,14 +1608,20 @@
            (r/make-Function
              [(-hmap {(r/-val kw) (r/make-F 'x)})]
              (r/make-F 'x)
-             nil nil)
+             nil nil
+             :object (or/->Path [(path/->KeyPE kw)] 0))
            (r/make-Function
-             [(Un r/-any (-hmap {(r/-val kw) (r/make-F 'x)}))]
+             [(Un (-hmap {(r/-val kw) (r/make-F 'x)})
+                  (-hmap {} #{(r/-val kw)} true)
+                  r/-nil)]
              (Un r/-nil (r/make-F 'x))
              nil nil
-             :filter (fr/->FilterSet 
-                       (fr/->TypeFilter (-hmap {(r/-val kw) r/-any}) nil 0) 
-                       fr/-top)))
+             :object (or/->Path [(path/->KeyPE kw)] 0))
+           (r/make-Function
+             [r/-any]
+             r/-any
+             nil nil
+             :object (or/->Path [(path/->KeyPE kw)] 0)))
          ['x]))
 
 (t/ann KeywordValue->Fn [Value -> r/Type])

@@ -21,14 +21,6 @@
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.1.0-20130802.160123-63"]
-
-                 ; temporary deps for CLJS
-                 [com.google.javascript/closure-compiler "v20130603"]
-                 [org.clojure/google-closure-library "0.0-20130212-95c19e7f0f5f"]
-                 [org.clojure/data.json "0.2.2"]
-                 [org.mozilla/rhino "1.7R4"]
-                 [org.clojure/tools.reader "0.7.5"]
-
                  ]
 
   :global-vars {*warn-on-reflection* true}

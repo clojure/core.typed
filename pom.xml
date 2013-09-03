@@ -39,7 +39,6 @@
             <namespace>!clojure.core.typed.test.core</namespace>
             <namespace>cljs.core.typed.*</namespace>
           </namespaces>
-          <!-- waiting on CLJS release -->
           <testNamespaces>
             <namespace>!clojure.core.typed.test.cljs</namespace>
             <namespace>!clojure.core.typed.test.array</namespace>
