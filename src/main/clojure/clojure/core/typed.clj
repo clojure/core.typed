@@ -809,6 +809,10 @@ for checking namespaces, cf for checking individual forms."}
   "Annotate varsym with type. If unqualified, qualify in the current namespace.
   If varsym has metadata {:no-check true}, ignore definitions of varsym 
   while type checking.
+
+  If annotating vars in namespaces other than the current one, a fully
+  qualified symbol must be provided. Note that namespace aliases are not
+  recognised: the *full* namespace must be given in the first part of the symbol.
   
   eg. ; annotate the var foo in this namespace
       (ann foo [Number -> Number])
