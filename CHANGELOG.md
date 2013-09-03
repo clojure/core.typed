@@ -1,3 +1,10 @@
+0.2.2
+- Add AOT classes to jar
+  - decreases load time from 20s to 5s
+  - adds 10mb to jar
+- Error and warning message improvements
+  - CTYP-41
+
 0.2.1
 - Improve errors messages
   - add hint to annotate vars via cf
