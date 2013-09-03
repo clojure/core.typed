@@ -1050,12 +1050,23 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro cf
   "Takes a form and an optional expected type and
   returns a human-readable inferred type for that form.
+  Throws an exception if type checking fails.
+
+  Do not use cf inside a typed namespace. cf is intended to be
+  used at the REPL or within a unit test. Note that testing for
+  truthiness is not sufficient to unit test a call to cf, as nil
+  and false are valid type syntax.
+
+  cf preserves annotations from previous calls to check-ns or cf,
+  and keeps any new ones collected during a cf. This is useful for
+  debugging and experimentation. cf may be less strict than check-ns
+  with type checker warnings.
   
   eg. (cf 1) 
-      ;=> \"Long\"
+      ;=> Long
 
-      (cf #(inc %) [Number -> Number)
-      ;=> \"[Number -> Number]"
+      (cf #(inc %) [Number -> Number])
+      ;=> [Number -> Number]"
   ([form]
    `(do
       (load-if-needed)
@@ -1226,20 +1237,38 @@ for checking namespaces, cf for checking individual forms."}
 ; FIXME some things strangely break when reset-caches is removed.
 ; eg. Try checking frees.clj 
 (defn check-ns
-  "Type check a namespace. If not provided default to current namespace.
+  "Type check a namespace (a symbol or Namespace).
+  If not provided default to current namespace.
   Returns a true value if type checking is successful, otherwise
   throws an Exception.
+
+  Do not use check-ns within a checked namespace.
+  It is intended to be used at the REPL or within a unit test.
+  Suggested idiom for clojure.test: (is (check-ns 'your.ns))
+
+  check-ns resets annotations collected from 
+  previous check-ns calls or cf. A successful check-ns call will
+  preserve any type annotations collect during that checking run.
   
+  Keyword arguments:
+  - :collect-only  if true, collect type annotations but don't type check code.
+                   Useful for debugging purposes.
+
+  If providing keyword arguments, the namespace to check must be provided
+  as the first argument.
+
   Bind *verbose-types* to true to print fully qualified types.
   Bind *verbose-forms* to print full forms in error messages.
   
   eg. (check-ns 'myns.typed)
       ;=> :ok
      
-      ;implicitly check current namespace
-      (binding [*ns* (find-ns 'myns.typed)]
-        (check-ns))
-      ;=> :ok"
+      ; implicitly check current namespace
+      (check-ns)
+      ;=> :ok
+  
+      ; collect but don't check the current namespace
+      (check-ns *ns* :collect-only true)"
   ([] (check-ns (ns-name *ns*)))
   ([ns-or-sym & {:keys [collect-only]}]
    (p/p :typed/check-ns
@@ -1280,7 +1309,8 @@ for checking namespaces, cf for checking individual forms."}
             (let [vs (vars-with-unchecked-defs)]
               (binding [*out* *err*]
                 (doseq [v vs]
-                  (println "WARNING: Type Checker: Definition missing:" v)
+                  (println "WARNING: Type Checker: Definition missing:" v 
+                           "\nHint: Use :no-check metadata with ann if this is an unchecked var")
                   (flush))))
             (when-let [errors (seq @*delayed-errors*)]
               (print-errors! errors))
