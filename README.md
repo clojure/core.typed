@@ -41,6 +41,10 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 [API Reference](http://clojure.github.io/core.typed/)
 
+## Leiningen Plugin
+
+[lein-typed](https://github.com/frenchy64/lein-typed)
+
 ## Quickstart
 
 `(clojure.core.typed/ann v t)` gives var `v` the static type `t`.
