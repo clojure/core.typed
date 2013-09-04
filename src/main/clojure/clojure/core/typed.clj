@@ -1199,6 +1199,10 @@ for checking namespaces, cf for checking individual forms."}
   *verbose-forms* 
   nil)
 
+(defonce ^:dynamic
+  *trace-checker*
+  nil)
+
 (defn ^:skip-wiki
   -init-delayed-errors 
   "Internal use only"
@@ -1274,7 +1278,7 @@ for checking namespaces, cf for checking individual forms."}
       ; collect but don't check the current namespace
       (check-ns *ns* :collect-only true)"
   ([] (check-ns (ns-name *ns*)))
-  ([ns-or-sym & {:keys [collect-only]}]
+  ([ns-or-sym & {:keys [collect-only trace]}]
    (p/p :typed/check-ns
   (let [start (. System (nanoTime))]
     (load-if-needed)
@@ -1298,7 +1302,8 @@ for checking namespaces, cf for checking individual forms."}
         (binding [*currently-checking-clj* true
                   *delayed-errors* (-init-delayed-errors)
                   *already-collected* (atom #{})
-                  *already-checked* (atom #{})]
+                  *already-checked* (atom #{})
+                  *trace-checker* trace]
           (reset-envs!)
           (impl/with-clojure-impl
             (let [collect-start (. System (nanoTime))

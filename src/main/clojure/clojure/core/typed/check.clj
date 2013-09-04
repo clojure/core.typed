@@ -174,8 +174,9 @@
 (u/add-defmethod-generator check)
 
 (defn check-expr [expr & [expected]]
-  #_(println "Checking line:" (-> expr :env :line))
-  #_(flush)
+  (when t/*trace-checker*
+    (println "Checking line:" (-> expr :env :line))
+    (flush))
   (u/p :check/check-expr
   (check expr expected)))
 
