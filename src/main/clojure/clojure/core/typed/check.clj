@@ -4389,14 +4389,16 @@
 
 ;[Expr (Option TCResult) -> Expr]
 (defn check-normal-def [{:keys [var init init-provided env] :as expr} & [expected]]
-  (assert (not expected))
   (assert init-provided)
   (let [vsym (u/var->symbol var)
         warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (expr-ns expr))
         t (var-env/lookup-Var-nofail vsym)
         ;def returns a Var
+        actual-t (c/RClass-of Var [(or t r/-any)])
+        _ (when (and expected (not (sub/subtype? actual-t (ret-t expected))))
+            (expected-error actual-t (ret-t expected)))
         res-expr (assoc expr
-                        expr-type (ret (c/RClass-of Var [(or t r/-any)])))
+                        expr-type (ret actual-t))
         check? (var-env/check-var? vsym)]
     (cond
       (and check? t)
@@ -4425,7 +4427,6 @@
 ;TODO print a hint that `ann` forms must be wrapping in `cf` at the REPL
 (add-check-method :def
   [{:keys [var init init-provided env] :as expr} & [expected]]
-  (assert (not expected) expected)
   (assert (:line env))
   ;(prn "Checking def" var)
   (binding [vs/*current-env* env
@@ -4434,8 +4435,12 @@
       ;ignore macro definitions and declare
       (or (.isMacro ^Var var)
           (not init-provided))
-      (assoc expr
-             expr-type (ret (c/RClass-of Var [r/-any])))
+      (let [actual-t (c/RClass-of Var [r/-any])
+            _ (when (and expected
+                         (not (sub/subtype? actual-t (ret-t expected))))
+                (expected-error actual-t (ret-t expected)))]
+        (assoc expr
+               expr-type (ret actual-t)))
 
       :else (check-normal-def expr expected))))
 

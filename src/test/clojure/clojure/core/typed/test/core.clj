@@ -1872,6 +1872,14 @@
 (deftest typed-deps-fail-gracefully-test
   (is (cf (clojure.core.typed/typed-deps clojure.core.async))))
 
+(deftest def-expected-test
+  (is (cf (do
+            (clojure.core.typed/ann foo Any)
+            (clojure.core.typed/ann-form (def foo 1) Any))))
+  (is (cf (do
+            (clojure.core.typed/ann foo Any)
+            (clojure.core.typed/ann-form (def foo) Any)))))
+
 ;(reset-caches)
 
 ;(chk/abstract-result
