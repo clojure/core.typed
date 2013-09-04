@@ -9,8 +9,5 @@
 
 (t/ann-record SpecialNumber [x :- Number])
 (defrecord SpecialNumber [x]
-  )
-;  PMaths
-;  (mult-by-two [this] (assoc this :x (* (:x this) 2))))
-
-(->SpecialNumber 1)
+  PMaths
+  (mult-by-two [this] (assoc this :x (* (:x this) 2))))

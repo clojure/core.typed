@@ -4512,7 +4512,9 @@
                                         (record-implicits (symbol (:name inst-method))))))
               _ (doseq [{:keys [env] :as inst-method} methods
                         :when (check-method? inst-method)]
-                  #_(prn "Checking deftype* method: "(:name inst-method))
+                  (when t/*trace-checker*
+                    (println "Checking deftype* method: "(:name inst-method))
+                    (flush))
                   (binding [vs/*current-env* env]
                     (let [method-nme (:name inst-method)
                           _ (assert (symbol? method-nme))

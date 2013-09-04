@@ -1880,6 +1880,9 @@
             (clojure.core.typed/ann foo Any)
             (clojure.core.typed/ann-form (def foo) Any)))))
 
+(deftest CTYP-42
+  (is (check-ns 'clojure.core.typed.test.succeed.CTYP-42-record-extend-protocol)))
+
 ;(reset-caches)
 
 ;(chk/abstract-result
