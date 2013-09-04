@@ -34,6 +34,21 @@
   (assert *current-used-vars*)
   (assert *current-checked-var-defs*))
 
+(defn var-annotations []
+  @*current-var-annotations*)
+
+(defn var-no-checks []
+  (assert-var-env)
+  @*current-nocheck-var?*)
+
+(defn used-vars []
+  (assert-var-env)
+  @*current-used-vars*)
+
+(defn checked-vars []
+  (assert-var-env)
+  @*current-checked-var-defs*)
+
 (defn add-var-type [sym type]
   (assert-var-env)
   (when (contains? @*current-var-annotations* sym)

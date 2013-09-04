@@ -1,3 +1,7 @@
+0.2.3
+- Handle expected types for def forms
+- Add clojure.core.typed/statistics, clojure.core.typed/var-coverage
+
 0.2.2
 - Add AOT classes to jar
   - decreases load time from 20s to 5s

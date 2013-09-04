@@ -6,7 +6,7 @@ for checking namespaces, cf for checking individual forms."}
   (:require [clojure.pprint :as pprint]
             [clojure.set :as set]
             [clojure.string :as str]
-            [clojure.core.typed.current-impl :as impl :refer [v]]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.profiling :as p]
             [clojure.java.io :as io])
   (:refer-clojure :exclude [type]))
@@ -74,9 +74,9 @@ for checking namespaces, cf for checking individual forms."}
   Intended for use at the REPL."
   [mname]
   (load-if-needed)
-  (let [type-reflect (v 'clojure.reflect/type-reflect)
-        unparse-type (v 'clojure.core.typed.parse-unparse/unparse-type)
-        Method->Type (v 'clojure.core.typed.check/Method->Type)
+  (let [type-reflect (impl/v 'clojure.reflect/type-reflect)
+        unparse-type (impl/v 'clojure.core.typed.parse-unparse/unparse-type)
+        Method->Type (impl/v 'clojure.core.typed.check/Method->Type)
         ms (->> (type-reflect (Class/forName (namespace mname)))
              :members
              (filter #(and (instance? clojure.reflect.Method %)
@@ -1327,6 +1327,77 @@ for checking namespaces, cf for checking individual forms."}
               (println "Checked" (count checked) "namespaces (approx." nlines "lines) in" ms "msecs")
               (flush))
             :ok))))))))
+
+; (ann all-defs-in-ns [Namespace -> (Set Symbol)])
+(defn ^:private ^:no-wiki 
+  all-defs-in-ns
+  [ns]
+  {:pre [(instance? clojure.lang.Namespace ns)]}
+  (set
+    (map #(symbol (str (ns-name ns)) (str %))
+         (clojure.set/difference 
+           (set (keys (ns-map ns))) 
+           (set (keys (ns-refers ns))) 
+           (set (keys (ns-imports ns)))))))
+
+;(ann statistics [(U Symbol (Coll Symbol)) -> (Map Symbol Stats)])
+(defn statistics 
+  "Takes a collection of namespace symbols and returns a map mapping the namespace
+  symbols to a map of data"
+  [nsyms]
+  (assert (and (coll? nsyms) (every? symbol? nsyms))
+          "Must pass a collection of symbols to statistics")
+  (reduce (fn [stats nsym]
+            (let [_ (check-ns nsym :collect-only true)
+                  ns (find-ns nsym)
+                  _ (assert ns (str "Namespace " nsym " not found"))]
+              (conj stats
+                    [nsym
+                     {:vars {:all-vars (all-defs-in-ns ns)
+                             :no-checks (let [all-no-checks @(impl/v 'clojure.core.typed.var-env/CLJ-NOCHECK-VAR?)]
+                                          (filter (fn [s] (= (namespace s) nsym)) all-no-checks))
+                             :var-annotations (let [annots @(impl/v 'clojure.core.typed.var-env/CLJ-VAR-ANNOTATIONS)]
+                                                (->> annots
+                                                     (filter (fn [[k v]] (= (namespace k) (str nsym))))
+                                                     (map (fn [[k v]] [k (binding [*verbose-types* true]
+                                                                           ((impl/v 'clojure.core.typed.parse-unparse/unparse-type)
+                                                                            v))]))
+                                                     (into {})))}}])))
+          {} nsyms))
+
+; (ann var-coverage [(Coll Symbol) -> nil])
+(defn var-coverage 
+  "Summarises annotated var coverage statistics to *out*
+  for namespaces nsyms, a collection of symbols or a symbol/namespace.
+  Defaults to the current namespace if no argument provided."
+  ([] (var-coverage *ns*))
+  ([nsyms-or-nsym]
+   (assert (or (instance? clojure.lang.Namespace nsyms-or-nsym)
+               (symbol? nsyms-or-nsym)
+               (and (coll? nsyms-or-nsym) (every? symbol? nsyms-or-nsym)))
+           "Must pass a collection of symbols or a symbol/namespace to var-coverage")
+   (let [nsyms (if ((some-fn symbol? #(instance? clojure.lang.Namespace %))
+                    nsyms-or-nsym)
+                 [(ns-name nsyms-or-nsym)]
+                 nsyms-or-nsym)
+         stats (statistics nsyms)
+         nall-vars (->> (vals stats) 
+                        (map :vars) 
+                        (map :all-vars)
+                        (apply set/union)
+                        set
+                        count)
+         nannotated-vars (->> (vals stats) 
+                              (map :vars) 
+                              (map :var-annotations) 
+                              (map count)
+                              (apply +))
+         perc (if (zero? nall-vars)
+                0
+                (long (* (/ nannotated-vars nall-vars) 100)))]
+     (println (str "Found " nannotated-vars " annotated vars out of " nall-vars " vars"))
+     (println (str perc "% var annotation coverage"))
+     (flush))))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)
