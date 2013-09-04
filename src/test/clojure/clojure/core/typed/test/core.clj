@@ -1883,6 +1883,10 @@
 (deftest CTYP-42
   (is (check-ns 'clojure.core.typed.test.succeed.CTYP-42-record-extend-protocol)))
 
+(deftest atom>-test
+  (is (cf (clojure.core.typed/atom> (clojure.core.typed/Vec Any) [])
+          (clojure.core.typed/Atom1 (clojure.core.typed/Vec Any)))))
+
 ;(reset-caches)
 
 ;(chk/abstract-result

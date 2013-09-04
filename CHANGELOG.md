@@ -1,3 +1,6 @@
+0.2.4
+- Add atom>
+
 0.2.3
 - Handle expected types for def forms
 - Add clojure.core.typed/statistics, clojure.core.typed/var-coverage

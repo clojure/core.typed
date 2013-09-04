@@ -1032,6 +1032,16 @@ for checking namespaces, cf for checking individual forms."}
 ;  []
 ;  `(unchecked-ns*))
 
+(defmacro atom>
+  "Like atom, but creates an Atom1 of type t.
+  
+  Same as (atom (ann-form init t) args*)
+  
+  eg. (atom> Number 1)
+      (atom> (Vec Any) [])"
+  [t init & args]
+  `(atom (ann-form ~init ~t) ~@args))
+
 (defn ^:skip-wiki
   warn-on-unannotated-vars*
   "Internal use only. Use allow-unannotated-vars"
