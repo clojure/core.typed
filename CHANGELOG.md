@@ -1,7 +1,6 @@
 0.2.4
 - Add atom>
 - Made Clojurescript an optional dependency
-- Exclude transitive core.unify dependency
 
 0.2.3
 - Handle expected types for def forms
