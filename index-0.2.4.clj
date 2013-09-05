@@ -13,12 +13,24 @@
    :doc
    "This namespace contains annotations and helper macros for type\nchecking core.async code. Ensure clojure.core.async is require'd\nbefore performing type checking.\n\ngo\n  use go>\n\nchan\n  use chan>\n\nbuffer\n  use buffer> (similar for other buffer constructors)\n"}
   {:source-url
+   "https://github.com/clojure/core.typed/blob/57da1175037dfd61c96c711165ea318db65f46c0/src/main/clojure/clojure/core/typed/base_env_common.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.base-env-common-api.html",
+   :name "clojure.core.typed.base-env-common",
+   :doc "Utilities for all implementations of the type checker"}
+  {:source-url
    "https://github.com/clojure/core.typed/blob/6b5231ad882ee07b0ef6c5e978e09c09aed083a6/src/main/clojure/clojure/core/typed/hole.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.hole-api.html",
    :name "clojure.core.typed.hole",
    :doc
-   "This namespace contains easy tools for hole driven development"}),
+   "This namespace contains easy tools for hole driven development"}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/830d22f6a7548ed7826ccb558821642a0549be04/src/main/clojure/clojure/core/typed/util_cljs.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.util-cljs-api.html",
+   :name "clojure.core.typed.util-cljs",
+   :doc nil}),
  :vars
  ({:name "*verbose-forms*",
    :namespace "clojure.core.typed",
@@ -1036,4 +1048,17 @@
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.hole/NoisyHole",
    :namespace "clojure.core.typed.hole",
    :var-type "type",
-   :name "NoisyHole"})}
+   :name "NoisyHole"}
+  {:arglists ([& body]),
+   :name "with-core-cljs",
+   :namespace "clojure.core.typed.util-cljs",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/830d22f6a7548ed7826ccb558821642a0549be04/src/main/clojure/clojure/core/typed/util_cljs.clj#L29",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/830d22f6a7548ed7826ccb558821642a0549be04/src/main/clojure/clojure/core/typed/util_cljs.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.util-cljs/with-core-cljs",
+   :doc "Ensure that core.cljs has been loaded.",
+   :var-type "macro",
+   :line 29,
+   :file "src/main/clojure/clojure/core/typed/util_cljs.clj"})}
