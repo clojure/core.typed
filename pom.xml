@@ -89,10 +89,6 @@
           <groupId>org.clojure</groupId>
           <artifactId>clojure</artifactId>
         </exclusion>
-        <exclusion>
-          <groupId>org.clojure</groupId>
-          <artifactId>core.unify</artifactId>
-        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
