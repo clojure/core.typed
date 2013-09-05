@@ -7,17 +7,26 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
+(defn load-cljs? []
+  (try (require 'cljs.analyzer)
+       true
+       (catch Throwable e
+         false)))
+
 (defn reset-envs! 
   "Reset all environments for all implementations. Cannot be called
   if a specific implementation is currently bound"
   []
-  (bse-clj/reset-clojure-envs!)
-  (bse-cljs/reset-cljs-envs!)
-  (impl/with-clojure-impl
-    (deps/reset-deps!)
-    (ns-opts/reset-ns-opts!))
-  (impl/with-cljs-impl
-    (deps/reset-deps!)
-    (ns-opts/reset-ns-opts!))
-  nil)
+  (let [cljs? (load-cljs?)]
+    (bse-clj/reset-clojure-envs!)
+    (when cljs?
+      (bse-cljs/reset-cljs-envs!))
+    (impl/with-clojure-impl
+      (deps/reset-deps!)
+      (ns-opts/reset-ns-opts!))
+    (when cljs?
+      (impl/with-cljs-impl
+        (deps/reset-deps!)
+        (ns-opts/reset-ns-opts!)))
+    nil))
 

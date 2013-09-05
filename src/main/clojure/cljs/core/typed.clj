@@ -2,8 +2,7 @@
   "Macros for Clojurescript type checking"
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.current-impl :as impl :refer [v]]
-            [cljs.analyzer :as ana]
-            [cljs.compiler :as comp]
+            [clojure.core.typed.util-cljs :as u]
             [clojure.pprint :as pprint]))
 
 ; many of these macros resolve to CLJS functions in 
@@ -223,7 +222,7 @@
 (defn cf* [form expected expected-provided?]
   (t/load-if-needed)
   (t/reset-caches)
-  (comp/with-core-cljs
+  (u/with-core-cljs
     (if *currently-checking-cljs*
       (throw (Exception. "Found inner call to check-ns or cf"))
       (binding [*currently-checking-cljs* true
@@ -242,7 +241,7 @@
               (t/print-errors! errors)
               (-> c-ast 
                   ((v 'clojure.core.typed.check/expr-type))
-                  ((v 'clojure.core.typed.parse-unparse/unparse-TCResult-in-ns) ana/*cljs-ns*)))))))))
+                  ((v 'clojure.core.typed.parse-unparse/unparse-TCResult-in-ns) (u/cljs-ns))))))))))
 
 (defmacro cf
   "Check a single form with an optional expected type."
@@ -251,12 +250,12 @@
 
 (defn check-ns
   "Check a Clojurescript namespace, or the current namespace."
-  ([] (check-ns ana/*cljs-ns*))
+  ([] (check-ns (u/cljs-ns)))
   ([nsym]
    (t/load-if-needed)
    (t/reset-caches)
    ((v 'clojure.core.typed.reset-env/reset-envs!))
-   (comp/with-core-cljs
+   (u/with-core-cljs
      (if *currently-checking-cljs*
        (throw (Exception. "Found inner call to check-ns or cf"))
        (do

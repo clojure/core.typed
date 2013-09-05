@@ -17,8 +17,7 @@
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.current-impl :as impl]
             [clojure.set :as set]
-            [clojure.math.combinatorics :as comb]
-            [cljs.analyzer :as cljs-ana])
+            [clojure.math.combinatorics :as comb])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
@@ -436,7 +435,7 @@
   (or *parse-type-in-ns* 
       (impl/impl-case
         :clojure (ns-name *ns*)
-        :cljs cljs-ana/*cljs-ns*)))
+        :cljs (ucljs/cljs-ns))))
 
 (defn- resolve-type-clj 
   "Returns a qualified symbol, class or nil"
