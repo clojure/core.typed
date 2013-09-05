@@ -30,10 +30,10 @@ Maven dependency information:
 
 [Video](http://www.youtube.com/watch?v=wNhK8t3uLJU)
 
-## Mailing List
+## Mailing List and IRC
 
 Use the core.typed [mailing list](https://groups.google.com/forum/?fromgroups#!forum/clojure-core-typed) for core.typed discussion, 
-or try #clojure on IRC (the main developer is ambrosebs).
+or try #typed-clojure on Freenode (the main developer is ambrosebs).
 
 ## Documentation
 
