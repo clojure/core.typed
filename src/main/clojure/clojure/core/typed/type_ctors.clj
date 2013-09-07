@@ -13,7 +13,7 @@
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.protocol-env :as prenv]
-            [clojure.core.typed.current-impl :refer [v]]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed :as t :refer [fn>]]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
@@ -370,7 +370,7 @@
    {:pre [(symbol? sym)
           (every? r/Type? args)]
     :post [(r/Type? %)]}
-   (let [p ((v 'clojure.core.typed.jsnominal-env/get-jsnominal) sym)]
+   (let [p ((impl/v 'clojure.core.typed.jsnominal-env/get-jsnominal) sym)]
      (assert ((some-fn r/TypeFn? r/JSNominal? nil?) p))
      ; parameterised nominals must be previously annotated
      (assert (or (r/TypeFn? p) (empty? args))
@@ -647,7 +647,7 @@
   ([sym]
    {:pre [(symbol? sym)]
     :post [((some-fn r/JSNominal?) %)]}
-   (let [t ((v 'clojure.core.typed.jsnominal-env/get-jsnominal) sym)
+   (let [t ((impl/v 'clojure.core.typed.jsnominal-env/get-jsnominal) sym)
          args (when (r/TypeFn? t)
                 (most-general-on-variance (:variances t)
                                           (TypeFn-bbnds* (repeatedly (count (:variances t)) gensym) t)))]
@@ -659,7 +659,7 @@
   {:pre [(r/JSNominal? jsnom)
          (symbol? msym)]
    :post [(r/Type? %)]}
-  (if-let [t ((v 'clojure.core.typed.jsnominal-env/get-method) name poly? msym)]
+  (if-let [t ((impl/v 'clojure.core.typed.jsnominal-env/get-method) name poly? msym)]
     t
     (assert nil (str "JS nominal type " name " does not have method " msym))))
 
@@ -669,7 +669,7 @@
   {:pre [(r/JSNominal? jsnom)
          (symbol? fsym)]
    :post [(r/Type? %)]}
-  (if-let [t ((v 'clojure.core.typed.jsnominal-env/get-field) name poly? fsym)]
+  (if-let [t ((impl/v 'clojure.core.typed.jsnominal-env/get-field) name poly? fsym)]
     t
     (assert nil (str "JS nominal type " name " does not have field " fsym))))
 
@@ -678,7 +678,7 @@
   [{:keys [name poly?] :as jsnom}]
   {:pre [(r/JSNominal? jsnom)]
    :post [(r/Type? %)]}
-  (if-let [t ((v 'clojure.core.typed.jsnominal-env/get-ctor) name poly?)]
+  (if-let [t ((impl/v 'clojure.core.typed.jsnominal-env/get-ctor) name poly?)]
     t
     (assert nil (str "JS nominal type " name " does not have a constructor."))))
 
@@ -1629,6 +1629,7 @@
   {:pre [(keyword-value? t)
          ;redundant test for core.typed
          (keyword? val)]}
+  (impl/assert-clojure)
   (keyword->Fn val))
 
 ;; Extends
@@ -1644,6 +1645,7 @@
 (defn KwArgs->Type [^KwArgs kws]
   {:pre [(r/KwArgs? kws)]
    :post [(r/Type? %)]}
+  (impl/assert-clojure)
   (r/KwArgsSeq-maker (.mandatory kws)
                  (.optional kws)))
 
