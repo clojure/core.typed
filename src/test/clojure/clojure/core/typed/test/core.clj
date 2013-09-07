@@ -1889,7 +1889,7 @@
 
 (deftest CTYP-48
   (is (cf (fn [a] (:a a))
-          [Nothing -> Any]))
+          [Nothing -> Any])))
 
 ;(reset-caches)
 
