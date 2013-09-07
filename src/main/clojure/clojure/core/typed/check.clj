@@ -1617,7 +1617,7 @@
                  o))
           (do (tc-warning (str "Keyword lookup gave bottom type: "
                                (:val kwt) " " (prs/unparse-type targett)))
-              r/-any)))
+              (ret r/-any))))
 
       :else (u/int-error (str "keyword-invoke only supports keyword lookup, no default. Found " 
                               (prs/unparse-type kwt)))))))
