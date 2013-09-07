@@ -2,8 +2,6 @@
   (:require [clojure.test :refer :all]
             [cljs.core.typed :as t]
             [clojure.core.typed.type-ctors :as c]
-            [cljs.analyzer]
-            [cljs.compiler :as comp]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.parse-unparse :as prs]
@@ -58,9 +56,8 @@
   (is (t/check-ns 'cljs.core.typed.test.ann)))
 
 (deftest resolve-type-test
-  (is (= (:name (comp/with-core-cljs
-                  (ucljs/resolve-var 'cljs.user 'cljs.core/IMap)))
-          'cljs.core/IMap)))
+  (is (= (:name (ucljs/resolve-var 'cljs.user 'cljs.core/IMap))
+         'cljs.core/IMap)))
 
 (deftest parse-protocol-test 
   (is (prs/parse-cljs '(cljs.core/IMap number number))))

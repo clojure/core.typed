@@ -1,7 +1,7 @@
 (ns clojure.core.typed.base-env-cljs
   (:require [clojure.core.typed.base-env-helper-cljs :as h]
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
-            [clojure.core.typed.current-impl :as impl :refer [v]]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.bootstrap-cljs :as boot]
             [clojure.set :as set]))
 
@@ -22,7 +22,7 @@ cljs.core/IEquiv [[]]
 
 (defn reset-protocol-env! []
   (impl/with-cljs-impl
-    ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
+    ((impl/v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
      (init-protocol-env))))
 
 (delay-and-cache-env ^:private init-jsnominals 
@@ -62,7 +62,7 @@ goog.events.EventTarget [[]]
 
 (defn reset-jsnominal-env! []
   (impl/with-cljs-impl
-    ((v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
+    ((impl/v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
      (init-jsnominals))))
 
 (delay-and-cache-env ^:private init-var-env
@@ -142,6 +142,11 @@ cljs.core.typed/AnyInteger int
     ^{:doc "A type that can be used to create a sequence of member type x."}
 cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
                              (cljs.core/ISeqable x))
+
+    ^{:doc "A persistent sequence of member type x with count greater than 0."
+      :forms [(NonEmptySeq t)]}
+cljs.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
+                                 (I (cljs.core/ISeq x) (CountRange 1)))
     ))
 
 
@@ -152,15 +157,15 @@ cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
                (set (map #(symbol "cljs.core.typed" (str %))
                          boot/-base-aliases)))
             (str "core.typed Bug! Base aliases do not agree with base environment."
-                 " Missing from core.typed ns: "
+                 " Missing from cljs.core.typed ns: "
                  (set/difference (set (keys alias-env))
                                  (set (map #(symbol "cljs.core.typed" (str %))
                                            boot/-base-aliases)))
-                 " Missing from base-env ns "
+                 " Missing from base-env-cljs ns "
                  (set/difference (set (map #(symbol "cljs.core.typed" (str %))
                                            boot/-base-aliases))
                                  (set (keys alias-env)))))
-    ((v 'clojure.core.typed.name-env/reset-name-env!) alias-env)))
+    ((impl/v 'clojure.core.typed.name-env/reset-name-env!) alias-env)))
 
 (delay-and-cache-env init-declared-kinds {})
 
@@ -176,14 +181,14 @@ cljs.core/Atom [[[w :variance :contravariant]
 (defn reset-cljs-envs! []
   (impl/with-cljs-impl
     (reset-alias-env!)
-    ((v 'clojure.core.typed.var-env/reset-var-type-env!)
+    ((impl/v 'clojure.core.typed.var-env/reset-var-type-env!)
      (init-var-env) (init-var-nochecks))
-    ((v 'clojure.core.typed.var-env/reset-jsvar-type-env!)
+    ((impl/v 'clojure.core.typed.var-env/reset-jsvar-type-env!)
      (init-jsvar-env))
     (reset-protocol-env!)
-    ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
+    ((impl/v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
      (init-declared-kinds))
     (reset-jsnominal-env!)
-    ((v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
+    ((impl/v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
      (init-datatype-env)))
   nil)

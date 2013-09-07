@@ -17,7 +17,7 @@
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :a obj]
             [clojure.core.typed.analyze-cljs :as ana])
-  (:import (clojure.core.typed.type_rep Value)))
+  (:import (clojure.core.typed.type_rep Value DottedPretype)))
 
 (declare check)
 
@@ -112,7 +112,8 @@
                           ;FIXME should really be Var, change when Var is annotated
                           expr-type (ret r/-any))]
       (cond
-        (not check?) res-expr
+        (or (not check?)
+            (not init)) res-expr
         ann-type
         (let [ cinit (check init (ret ann-type))
               _ (when-not (sub/subtype? (-> cinit expr-type ret-t)
@@ -121,7 +122,9 @@
                                            " Expected: " (prs/unparse-type ann-type)
                                            ", Actual: " (prs/unparse-type (-> cinit expr-type ret-t)))))]
           res-expr)
-        :else (u/tc-delayed-error (str "Found untyped var definition: " vname)
+        :else (u/tc-delayed-error (str "Found untyped var definition: " vname
+                                       "\nHint: Add the annotation for " vname
+                                       " via check-ns or cf")
                                   :return res-expr)))))
 
 (defmethod check :js
@@ -313,7 +316,23 @@
                                             (when variadic
                                               (parse-meta rest))))))]
 
-  (binding [chk/*check-fn-method1-checkfn* check]
+  (binding [chk/*check-fn-method1-checkfn* check
+            ;this is identical to the Clojure implementation
+            chk/*check-fn-method1-rest-type* (fn [rest drest kws]
+                                               {:pre [(or (r/Type? rest)
+                                                          (r/DottedPretype? drest)
+                                                          (r/KwArgs? kws))
+                                                      (#{1} (count (filter identity [rest drest kws])))]
+                                                :post [(r/Type? %)]}
+                                               ;(prn "rest" rest)
+                                               ;(prn "drest" drest)
+                                               ;(prn "kws" kws)
+                                               (cond
+                                                 (or rest drest)
+                                                 (c/Un r/-nil 
+                                                       (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
+                                                                     [(or rest (.pre-type ^DottedPretype drest))]))
+                                                 :else (c/KwArgs->Type kws)))]
     (assoc expr
            expr-type (chk/check-fn 
                        expr

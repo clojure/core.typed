@@ -3,7 +3,7 @@
 (alter-meta! *ns* assoc :skip-wiki true)
 
 (def -base-aliases
-  '#{AnyInteger Seqable})
+  '#{AnyInteger Seqable NonEmptySeq})
 
 (defmacro base-aliases 
   "Define base aliases"

@@ -1,16 +1,12 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-cljs
   (:refer-clojure :exclude [extenders])
-  (:require [clojure.core.typed.current-impl :as impl]))
+  (:require [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.load-cljs :as load]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
-(try 
-  (require '[cljs.analyzer]
-           '[cljs.tools.analyzer :as analyze]
-           '[cljs.tools.analyzer.hygienic :as hygienic])
-  (catch Throwable e))
-
 (defn assert-cljs-dep []
+  (load/load-cljs)
   (assert (and (find-ns 'cljs.tools.analyzer)
                (find-ns 'cljs.tools.analyzer.hygienic)
                (find-ns 'cljs.analyzer))

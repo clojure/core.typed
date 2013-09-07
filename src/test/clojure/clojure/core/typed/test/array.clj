@@ -2,11 +2,11 @@
   (:require [clojure.core.typed :refer [ann check-ns into-array> cf loop> print-env ann-form]]
             [clojure.repl :refer [pst]]))
 
-(ann my-integer-array (Array Integer))
-(def my-integer-array (into-array> Integer (map int [1 2])))
+(ann my-integer-array [-> (Array Integer)])
+(defn my-integer-array [] (into-array> Integer (map int [1 2])))
 
-(ann my-int-array (Array int))
-(def my-int-array (into-array> int (map int [1 2])))
+(ann my-int-array [-> (Array int)])
+(defn my-int-array [] (into-array> int (map int [1 2])))
 
 (ann sum [(ReadOnlyArray Number) -> Number])
 (defn sum [arr]
@@ -18,7 +18,7 @@
              (+ (aget arr idx) ret))
            ret)))
 
-(sum my-integer-array)
+(fn [] (sum (my-integer-array)))
 
 (ann write-integer-to-zero [(Array2 Integer Any) -> nil])
 (defn write-integer-to-zero [arr]
@@ -30,8 +30,8 @@
   (aset arr 0 (int 12))
   nil)
 
-(write-integer-to-zero my-integer-array)
-(write-int-to-zero my-int-array)
+(fn [] (write-integer-to-zero my-integer-array))
+(fn [] (write-int-to-zero (my-int-array)))
 
 (ann bad-modify-array [(Array Number) -> nil])
 #_(defn bad-modify-array [ar]
