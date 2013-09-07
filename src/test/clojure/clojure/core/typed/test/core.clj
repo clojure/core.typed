@@ -1887,6 +1887,10 @@
   (is (cf (clojure.core.typed/atom> (clojure.core.typed/Vec Any) [])
           (clojure.core.typed/Atom1 (clojure.core.typed/Vec Any)))))
 
+(deftest CTYP-48
+  (is (cf (fn [a] (:a a))
+          [Nothing -> Any]))
+
 ;(reset-caches)
 
 ;(chk/abstract-result
