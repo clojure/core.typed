@@ -1891,6 +1891,9 @@
   (is (cf (fn [a] (:a a))
           [Nothing -> Any])))
 
+(deftest CTYP-49 
+  (is (check-ns 'clojure.core.typed.test.succeed.CTYP49-unreachable)))
+
 (deftest plain-defprotocol-test
   (is (u/top-level-error-thrown? (cf (defprotocol Foo (bar [this])))))
   (is (u/top-level-error-thrown? 
