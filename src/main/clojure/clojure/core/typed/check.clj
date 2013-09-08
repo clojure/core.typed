@@ -3291,7 +3291,7 @@
           _ (when inst?
               (let [ctarget (or ctarget (check (:target expr)))
                     target-class (resolve (:declaring-class method))
-                    _ (assert target-class)]
+                    _ (assert (class? target-class))]
                 ;                (prn "check target" (prs/unparse-type (ret-t (expr-type ctarget)))
                 ;                     (prs/unparse-type (c/RClass-of (u/Class->symbol (resolve (:declaring-class method))) nil)))
                 (when-not (sub/subtype? (ret-t (expr-type ctarget)) (c/RClass-of-with-unknown-params target-class))
