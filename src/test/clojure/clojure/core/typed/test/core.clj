@@ -1891,6 +1891,11 @@
   (is (cf (fn [a] (:a a))
           [Nothing -> Any])))
 
+(deftest plain-defprotocol-test
+  (is (u/top-level-error-thrown? (cf (defprotocol Foo (bar [this])))))
+  (is (u/top-level-error-thrown? 
+        (check-ns 'clojure.core.typed.test.fail.CTYP-45))))
+
 ;(reset-caches)
 
 ;(chk/abstract-result
