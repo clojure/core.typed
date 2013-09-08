@@ -331,7 +331,7 @@
     double Double/TYPE
     boolean Boolean/TYPE
     char Character/TYPE
-    (Class/forName (str sym)))))
+    (clojure.lang.RT/classForName (str sym)))))
 
 (t/ann Class->symbol [Class -> Symbol])
 (defn Class->symbol [^Class cls]
