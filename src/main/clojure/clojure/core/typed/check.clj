@@ -4620,12 +4620,12 @@
   [{:keys [target val] :as expr} & [expected]]
   (let [ctarget (check target)
         cval (check val (expr-type ctarget))
-        _ (assert (sub/subtype? 
-                    (-> cval expr-type ret-t)
-                    (-> ctarget expr-type ret-t))
-                  (u/error-msg "Cannot set! " (-> ctarget expr-type ret-t prs/unparse-type pr-str)
-                             " to " (-> cval expr-type ret-t prs/unparse-type pr-str)
-                             "\n\nForm:\n\t" (u/emit-form-fn expr)))]
+        _ (when-not (sub/subtype? 
+                      (-> cval expr-type ret-t)
+                      (-> ctarget expr-type ret-t))
+            (u/tc-delayed-error (str "Cannot set! " (-> ctarget expr-type ret-t prs/unparse-type pr-str)
+                                     " to " (-> cval expr-type ret-t prs/unparse-type pr-str)
+                                     "\n\nForm:\n\t" (u/emit-form-fn expr))))]
     (assoc expr
            expr-type (expr-type cval)
            :target ctarget
