@@ -1237,8 +1237,8 @@
             t t
             macro? r/-any
             :else (u/tc-delayed-error (str "Untyped var reference: " id
-                                           "\nHint: Has the annotation for " id
-                                           " been added via check-ns, cf or typed-deps?")
+                                           "\nHint: Add the annotation for " id
+                                           " via check-ns or cf")
                                       :form (u/emit-form-fn expr)
                                       :return (r/TCError-maker)))]
     (assoc expr
