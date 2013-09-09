@@ -51,8 +51,27 @@
           </sourceDirectories>
         </configuration>
       </plugin>
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>2.2</version>
+        <executions>
+          <execution>
+            <id>core-typed-slim-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <descriptors>
+                <descriptor>src/assembly/slim.xml</descriptor>
+              </descriptors>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
+
 
   <dependencies>
     <dependency>
