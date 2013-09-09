@@ -357,7 +357,8 @@
                        (c/complete-hmap? s)
                        true)
                      ; all absent keys in t should be absent in s
-                     (empty? (set/difference rabsent labsent))
+                     (or (empty? (set/difference rabsent labsent))
+                         (c/complete-hmap? s))
                      ; all present keys in t should be present in s
                      (every? identity
                              (map (fn [[k v]]

@@ -1512,7 +1512,7 @@
                               vt
                               (do (assert (r/HeterogeneousMap? t))
                                   (assoc-in [:types kt] vt))))
-                          (c/-hmap {}) (.types ^HeterogeneousSeq targett))]
+                          (c/-complete-hmap {}) (.types ^HeterogeneousSeq targett))]
           (assoc expr
                  expr-type (ret res)))))))
 
@@ -1534,6 +1534,8 @@
    :post [(Type? %)]}
   (let [t (c/fully-resolve-type t)]
     (cond
+      ; propagate the error
+      (r/TCError? t) t
       (r/Nil? t) (or default r/-nil)
       (r/HeterogeneousMap? t) (let [^HeterogeneousMap t t]
                                 ; normal case, we have the key declared present
@@ -1937,7 +1939,7 @@
     (cond
       (every? r/Value? (keys (apply hash-map (mapv (comp ret-t expr-type) cargs))))
       (assoc expr
-             expr-type (ret (c/-hmap
+             expr-type (ret (c/-complete-hmap
                               (apply hash-map (mapv (comp ret-t expr-type) cargs)))))
       :else (normal-invoke expr fexpr args expected :cargs cargs))))
 
@@ -1959,7 +1961,7 @@
            (every? r/Value? (keys (apply hash-map (concat (map expr-type (butlast cargs))
                                                         (mapcat vector (:types (expr-type (last cargs)))))))))
       (assoc expr
-             expr-type (ret (c/-hmap
+             expr-type (ret (c/-complete-hmap
                               (apply hash-map (concat (map expr-type (butlast cargs))
                                                       (mapcat vector (:types (expr-type (last cargs)))))))))
       :else ::not-special)))
@@ -2198,7 +2200,9 @@
             res (c/-hmap
                   (assoc (:types m)
                          (-> arg1 :types first)
-                         (-> arg1 :types second)))]
+                         (-> arg1 :types second))
+                  (:absent-keys m)
+                  (:other-keys? m))]
         (assoc expr
                expr-type (ret res)))
 
@@ -3998,7 +4002,9 @@
             fpth (r/-val fpth-kw)
             type-at-pth (get (:types t) fpth)]
         (if type-at-pth 
-          (c/-hmap (assoc (:types t) fpth (update type-at-pth (fo/-filter type id rstpth))))
+          (c/-hmap (assoc (:types t) fpth (update type-at-pth (fo/-filter type id rstpth)))
+                   (:absent-keys t)
+                   (:other-keys? t))
           (c/Un)))
 
       (and (fl/NotTypeFilter? lo)
@@ -4010,7 +4016,9 @@
               fpth (r/-val fpth-kw)
               type-at-pth (get (:types t) fpth)]
           (if type-at-pth 
-            (c/-hmap (assoc (:types t) fpth (update type-at-pth (fo/-not-filter type id rstpth))))
+            (c/-hmap (assoc (:types t) fpth (update type-at-pth (fo/-not-filter type id rstpth)))
+                     (:absent-keys t)
+                     (:other-keys? t))
             (c/Un)))
         ; looking up something that isn't an ILookup, therefore will always result in nil
         (not (sub/subtype? t (c/RClass-of clojure.lang.ILookup [r/-any r/-any])))

@@ -105,14 +105,15 @@
             (remove
               #{(make-Union [])}
               (for [ss (map #(into {} %) (comb/subsets optional))]
-                (-hmap (merge mandatory ss) 
-                       ;other optional keys cannot appear...
-                       (set/union
-                         (set/difference (set (keys optional))
-                                         (set (keys ss)))
-                         (set absent-keys))
-                       ;...but we don't know about other keys
-                       (not complete?))))))))
+                (let [new-mandatory (merge mandatory ss)
+                      ;other optional keys cannot appear...
+                      new-absent (set/union
+                                   (set/difference (set (keys optional))
+                                                   (set (keys ss)))
+                                   (set absent-keys))
+                      ;...but we don't know about other keys
+                      new-other-keys? (not complete?)]
+                  (-hmap new-mandatory new-absent new-other-keys?))))))))
 
 ;TODO to type check this, need to un-munge instance field names
 (t/ann complete-hmap? [HeterogeneousMap -> Any])

@@ -1894,10 +1894,25 @@
 (deftest CTYP-49 
   (is (check-ns 'clojure.core.typed.test.succeed.CTYP49-unreachable)))
 
+#_(deftest CTYP-47-Fn-as-IFn
+  (is (cf (fn [] #())
+          [-> clojure.lang.IFn])))
+
 (deftest plain-defprotocol-test
   (is (u/top-level-error-thrown? (cf (defprotocol Foo (bar [this])))))
   (is (u/top-level-error-thrown? 
         (check-ns 'clojure.core.typed.test.fail.CTYP-45))))
+
+(deftest HMap-absent-key-update-test
+  ;ensure absent keys are preserved when passed through occurrence typing's `update`
+  (is (cf
+        (let [a (ann-form {:a 1} (HMap :mandatory {:a Number}
+                                       :optional {:b Number,
+                                                  :c Number}))]
+          (when (:b a)
+            (ann-form a (HMap :mandatory {:a Number}
+                              :optional {:b Number,
+                                         :c Number})))))))
 
 ;(reset-caches)
 
