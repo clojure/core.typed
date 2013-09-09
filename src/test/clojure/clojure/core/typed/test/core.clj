@@ -1906,13 +1906,13 @@
 (deftest HMap-absent-key-update-test
   ;ensure absent keys are preserved when passed through occurrence typing's `update`
   (is (cf
-        (let [a (ann-form {:a 1} (HMap :mandatory {:a Number}
-                                       :optional {:b Number,
-                                                  :c Number}))]
+        (let [a (clojure.core.typed/ann-form {:a 1} (HMap :mandatory {:a Number}
+                                                          :optional {:b Number,
+                                                                     :c Number}))]
           (when (:b a)
-            (ann-form a (HMap :mandatory {:a Number}
-                              :optional {:b Number,
-                                         :c Number})))))))
+            (clojure.core.typed/ann-form a (HMap :mandatory {:a Number}
+                                                 :optional {:b Number,
+                                                            :c Number})))))))
 
 ;(reset-caches)
 
