@@ -18,13 +18,7 @@
    "http://clojure.github.com/core.typed/clojure.core.typed.hole-api.html",
    :name "clojure.core.typed.hole",
    :doc
-   "This namespace contains easy tools for hole driven development"}
-  {:source-url
-   "https://github.com/clojure/core.typed/blob/048c9ca3dbf7218157423ddf8e18f2a12a48eb9e/src/main/clojure/clojure/core/typed/util_cljs.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.util-cljs-api.html",
-   :name "clojure.core.typed.util-cljs",
-   :doc nil}),
+   "This namespace contains easy tools for hole driven development"}),
  :vars
  ({:name "*verbose-forms*",
    :namespace "clojure.core.typed",
@@ -1095,17 +1089,4 @@
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.hole/NoisyHole",
    :namespace "clojure.core.typed.hole",
    :var-type "type",
-   :name "NoisyHole"}
-  {:arglists ([& body]),
-   :name "with-core-cljs",
-   :namespace "clojure.core.typed.util-cljs",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/048c9ca3dbf7218157423ddf8e18f2a12a48eb9e/src/main/clojure/clojure/core/typed/util_cljs.clj#L12",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/048c9ca3dbf7218157423ddf8e18f2a12a48eb9e/src/main/clojure/clojure/core/typed/util_cljs.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.util-cljs/with-core-cljs",
-   :doc "Ensure that core.cljs has been loaded.",
-   :var-type "macro",
-   :line 12,
-   :file "src/main/clojure/clojure/core/typed/util_cljs.clj"})}
+   :name "NoisyHole"})}
