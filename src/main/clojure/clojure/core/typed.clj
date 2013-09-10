@@ -54,7 +54,8 @@ for checking namespaces, cf for checking individual forms."}
   -base-aliases
   "Internal use only."
   '#{Option AnyInteger Int Num Atom1 Id Coll NonEmptyColl Vec NonEmptyVec
-     Map Set SortedSet Seqable NonEmptySeqable EmptySeqable Seq NonEmptySeq EmptyCount NonEmptyCount})
+     Map Set SortedSet Seqable NonEmptySeqable EmptySeqable Seq NonEmptySeq EmptyCount NonEmptyCount
+     NonEmptyLazySeq})
 
 (doseq [v -base-aliases]
   (intern 'clojure.core.typed v))
