@@ -1,6 +1,8 @@
 0.2.4
 - Add atom>
 - Made Clojurescript an optional dependency
+- HMap: fix subtyping and preserve absent keys with type updates
+- `map` knows non-empty arguments returns NonEmptyLazySeq
 
 0.2.3
 - Handle expected types for def forms

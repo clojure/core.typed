@@ -1914,6 +1914,10 @@
                                                  :optional {:b Number,
                                                             :c Number})))))))
 
+(deftest non-empty-map-test
+  (is (cf (map inc [1 2 3])
+          (clojure.core.typed/NonEmptyLazySeq Number))))
+
 ;(reset-caches)
 
 ;(chk/abstract-result

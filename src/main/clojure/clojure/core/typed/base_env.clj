@@ -533,6 +533,10 @@ clojure.core.typed/Vec (TFn [[x :variance :covariant]]
       :forms [(NonEmptyVec t)]}
 clojure.core.typed/NonEmptyVec (TFn [[x :variance :covariant]]
                                      (I (IPersistentVector x) (CountRange 1)))
+    ^{:doc "A non-empty lazy sequence of type t"
+      :forms [(NonEmptyLazySeq t)]}
+clojure.core.typed/NonEmptyLazySeq (TFn [[t :variance :covariant]]
+                                        (I (LazySeq t) (CountRange 1)))
     ^{:doc "A persistent map with keys k and vals v."
       :forms [(Map t t)]}
 clojure.core.typed/Map (TFn [[k :variance :covariant]
@@ -606,7 +610,7 @@ clojure.core.typed/NonEmptyCount (CountRange 1)
 ; must be after init-alias-env def as vars are interned there
 (let [interns '[Option AnyInteger Id Coll Seq NonEmptySeq EmptySeqable
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
-                Vec NonEmptyColl]]
+                Vec NonEmptyColl NonEmptyLazySeq]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -1001,7 +1005,8 @@ clojure.core/empty? (Fn [(Option (Coll Any)) -> boolean
 
 clojure.core/map
      (All [c a b ...]
-          [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (LazySeq c)])
+          (Fn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable a) ... b -> (NonEmptyLazySeq c)]
+              [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (LazySeq c)]))
 
 clojure.core/mapv
      (All [c a b ...]
