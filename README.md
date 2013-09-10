@@ -4,16 +4,18 @@ Gradual typing in Clojure, as a library.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.2.4.
+Latest stable release is 0.2.5.
 
 Leiningen dependency information:
 
 ```clojure
-[org.clojure/core.typed "0.2.4"]
+[org.clojure/core.typed "0.2.5"]
 
 ...
 ; for very recent releases
 :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
+
+; for slim jars, follow version string with: :classifier "slim"
 ```
 
 Maven dependency information:
@@ -22,9 +24,14 @@ Maven dependency information:
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed</artifactId>
-  <version>0.2.4</version>
+  <version>0.2.5</version>
+  <!-- slim jar -->
+  <!-- <classifier>slim</classifier> -->
 </dependency>
 ```
+
+The default jars contain AOT files for faster loading. If jar size is a concern, consider
+using the slim jar in production.
 
 ## [Talk] Clojure Conj 2012
 

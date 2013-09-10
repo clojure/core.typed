@@ -1,11 +1,20 @@
-0.2.4
-- Add atom>
-- Made Clojurescript an optional dependency
+0.2.5
 - HMap: fix subtyping and preserve absent keys with type updates
+- Add clojure.core.typed/NonEmptyLazySeq alias
 - `map` knows non-empty arguments returns NonEmptyLazySeq
 - add check-form-info and check-ns-info that returns a map of type
   checkingr results
 - add check-form*, like cf but a function
+- Fix CTYP-41 (note recursive cf and check-ns are disallowed)
+- Fix CTYP-42 (class not found in particular situations)
+- Fix CTYP-45 (better error for bare defprotocol)
+- Fix CTYP-48
+- Generate slim jar that excludes AOT files
+  - add :classifier "slim" after version string
+
+0.2.4
+- Add atom>
+- Made Clojurescript an optional dependency
 
 0.2.3
 - Handle expected types for def forms
