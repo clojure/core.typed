@@ -24,7 +24,7 @@
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
                                         HeterogeneousSeq KwArgsSeq TCError Extends NumberCLJS BooleanCLJS
-                                        IntegerCLJS ArrayCLJS JSNominal StringCLJS)
+                                        IntegerCLJS ArrayCLJS JSNominal StringCLJS TCResult)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -35,6 +35,21 @@
 
 (defonce ^:dynamic *parse-type-in-ns* nil)
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol?))
+
+(declare unparse-type)
+
+; Types print by unparsing them
+(do (defmethod print-method clojure.core.typed.impl_protocols.TCType [s writer]
+      (print-method (unparse-type s) writer))
+    (prefer-method print-method clojure.core.typed.impl_protocols.TCType clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.impl_protocols.TCType java.util.Map)
+    (prefer-method print-method clojure.core.typed.impl_protocols.TCType clojure.lang.IPersistentMap)
+
+    (defmethod print-method clojure.core.typed.impl_protocols.TCAnyType [s writer]
+      (print-method (unparse-type s) writer))
+    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType java.util.Map)
+    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IPersistentMap))
 
 (defmacro with-parse-ns [sym & body]
   `(binding [*parse-type-in-ns* ~sym]
@@ -855,6 +870,7 @@
 (declare unparse-type* unparse-object unparse-filter-set unparse-filter)
 
 (defn unparse-type [t]
+  ; quick way of giving a Name that the user is familiar with
   (if-let [nsym (-> t meta :source-Name)]
     nsym
     (unparse-type* t)))
@@ -1248,3 +1264,6 @@
                                    (ns-name ns))]
     (unparse-TCResult r)))
 
+(defmethod unparse-type* TCResult
+  [v]
+  (unparse-TCResult v))
