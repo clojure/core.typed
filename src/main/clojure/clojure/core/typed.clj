@@ -1059,7 +1059,23 @@ for checking namespaces, cf for checking individual forms."}
   []
   `(warn-on-unannotated-vars*))
 
-;TODO main body should be a single arity function, not two arity macro
+(declare check-form-info print-errors!)
+
+(defn check-form*
+  "Takes a (quoted) form and optional expected type syntax and
+  type checks the form. If expected is provided, type-provided?
+  must be true."
+  ([form] (check-form* form nil nil))
+  ([form expected] (check-form* form expected true))
+  ([form expected type-provided?]
+   (let [unparse-TCResult-in-ns (impl/v 'clojure.core.typed.parse-unparse/unparse-TCResult-in-ns)
+         {:keys [delayed-errors ret]} (check-form-info form 
+                                                       :expected expected 
+                                                       :type-provided? type-provided?)]
+     (if-let [errors (seq delayed-errors)]
+       (print-errors! errors)
+       (unparse-TCResult-in-ns ret *ns*)))))
+
 ; cf can pollute current type environment to allow REPL experimentation, 
 ; which is ok because check-ns resets it when called.
 (defmacro cf
@@ -1082,68 +1098,8 @@ for checking namespaces, cf for checking individual forms."}
 
       (cf #(inc %) [Number -> Number])
       ;=> [Number -> Number]"
-  ([form]
-   `(do
-      (load-if-needed)
-      (reset-caches)
-      (let [check# @(ns-resolve (find-ns '~'clojure.core.typed.check)
-                                '~'check)
-            expr-type# @(ns-resolve (find-ns '~'clojure.core.typed.check)
-                                    '~'expr-type )
-            unparse-TCResult-in-ns# @(ns-resolve (find-ns '~'clojure.core.typed.parse-unparse)
-                                           '~'unparse-TCResult-in-ns)
-            ast-for-form# @(ns-resolve (find-ns '~'clojure.core.typed.analyze-clj)
-                                       '~'ast-for-form)
-            collect# @(ns-resolve (find-ns '~'clojure.core.typed.collect-phase)
-                                  '~'collect)]
-        (if *currently-checking-clj*
-          (throw (Exception. "Found inner call to check-ns or cf"))
-          (impl/with-clojure-impl
-              (binding [*currently-checking-clj* true
-                        *delayed-errors* (-init-delayed-errors)]
-                (let [ast# (ast-for-form# '~form)
-                      _# (collect# ast#)
-                      _# (reset-caches)
-                      cexpr# (check# ast#)]
-                  (if-let [errors# (seq @*delayed-errors*)]
-                    (print-errors! errors#)
-                    (-> cexpr#
-                        expr-type#
-                        (unparse-TCResult-in-ns# *ns*))))))))))
-   ([form expected]
-   `(do
-      (load-if-needed)
-      (reset-caches)
-      (let [check# @(ns-resolve (find-ns '~'clojure.core.typed.check)
-                                '~'check)
-            expr-type# @(ns-resolve (find-ns '~'clojure.core.typed.check)
-                                    '~'expr-type )
-            unparse-TCResult-in-ns# @(ns-resolve (find-ns '~'clojure.core.typed.parse-unparse)
-                                                 '~'unparse-TCResult-in-ns)
-            ast-for-form# @(ns-resolve (find-ns '~'clojure.core.typed.analyze-clj)
-                                       '~'ast-for-form)
-            collect# @(ns-resolve (find-ns '~'clojure.core.typed.collect-phase)
-                                  '~'collect)
-            ret# @(ns-resolve (find-ns '~'clojure.core.typed.type-rep)
-                              '~'ret)
-            parse-type# @(ns-resolve (find-ns 'clojure.core.typed.parse-unparse)
-                                     '~'parse-type)]
-      (if *currently-checking-clj*
-        (throw (Exception. "Found inner call to check-ns or cf"))
-        (impl/with-clojure-impl
-            (binding [*currently-checking-clj* true
-                      *delayed-errors* (-init-delayed-errors)]
-              (let [ast# (ast-for-form# '(ann-form ~form ~expected))
-                    _# (collect# ast#)
-                    _# (reset-caches)
-                    c-ast# (check# ast# 
-                                   (ret#
-                                     (parse-type# '~expected)))]
-                (if-let [errors# (seq @*delayed-errors*)]
-                  (print-errors! errors#)
-                  (-> c-ast# 
-                      expr-type# 
-                      (unparse-TCResult-in-ns# *ns*)))))))))))
+   ([form] `(check-form* '~form))
+   ([form expected] `(check-form* '~form '~expected)))
 
 (declare ^:dynamic *verbose-forms*)
 
@@ -1252,6 +1208,94 @@ for checking namespaces, cf for checking individual forms."}
   (@(ns-resolve (find-ns 'clojure.core.typed.cs-gen) 'reset-dotted-var-store!))
   nil))
 
+(defn check-form-info 
+  "Alpha - subject to change
+
+  Type checks a (quoted) form and returns a map of results from type checking the
+  form."
+  [form & {:keys [expected type-provided?]}]
+  (load-if-needed)
+  (reset-caches)
+  (let [check (impl/v 'clojure.core.typed.check/check)
+        expr-type (impl/v 'clojure.core.typed.check/expr-type)
+        ast-for-form (impl/v 'clojure.core.typed.analyze-clj/ast-for-form)
+        collect (impl/v 'clojure.core.typed.collect-phase/collect)
+        ret (impl/v 'clojure.core.typed.type-rep/ret)
+        parse-type (impl/v 'clojure.core.typed.parse-unparse/parse-type)]
+    (if *currently-checking-clj*
+      (throw (Exception. "Found inner call to check-ns or cf"))
+      (impl/with-clojure-impl
+        (binding [*currently-checking-clj* true
+                  *delayed-errors* (-init-delayed-errors)]
+          (let [ast (ast-for-form (if type-provided?
+                                    `(ann-form ~form ~expected)
+                                    form))
+                _ (collect ast)
+                _ (reset-caches)
+                c-ast (check ast)
+                res (expr-type c-ast)]
+            {:delayed-errors @*delayed-errors*
+             :ret res}))))))
+
+(defn check-ns-info
+  "Alpha - subject to change
+
+  Same as check-ns, but returns a map of results from type checking the
+  namespace."
+  ([] (check-ns-info *ns*))
+  ([ns-or-sym & {:keys [collect-only trace]}]
+   (let [start (. System (nanoTime))]
+     (load-if-needed)
+     (reset-caches)
+     (let [nsym (if (symbol? ns-or-sym)
+                  ns-or-sym
+                  (ns-name ns-or-sym))
+           reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
+                                    'reset-envs!)
+           collect-ns @(ns-resolve (find-ns 'clojure.core.typed.collect-phase)
+                                   'collect-ns)
+           check-ns-and-deps @(ns-resolve (find-ns 'clojure.core.typed.check)
+                                          'check-ns-and-deps)
+           vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
+                                                 'vars-with-unchecked-defs)
+           uri-for-ns (impl/v 'clojure.tools.analyzer/uri-for-ns)]
+       (cond
+         *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
+
+         :else
+         (binding [*currently-checking-clj* true
+                   *delayed-errors* (-init-delayed-errors)
+                   *already-collected* (atom #{})
+                   *already-checked* (atom #{})
+                   *trace-checker* trace]
+           (reset-envs!)
+           (impl/with-clojure-impl
+             (let [collect-start (. System (nanoTime))
+                   _ (collect-ns nsym)
+                   ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
+                   collected @*already-collected*]
+               (println "Collected" (count collected) "namespaces in" ms "msecs")
+               (flush))
+             ;(reset-caches)
+             (when-not collect-only
+               (check-ns-and-deps nsym))
+             (let [vs (vars-with-unchecked-defs)]
+               (binding [*out* *err*]
+                 (doseq [v vs]
+                   (println "WARNING: Type Checker: Definition missing:" v 
+                            "\nHint: Use :no-check metadata with ann if this is an unchecked var")
+                   (flush))))
+;             (when-let [errors (seq @*delayed-errors*)]
+;               (print-errors! errors))
+             (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
+                   checked @*already-checked*
+                   nlines (p/p :typed/line-count
+                               (apply + (for [nsym checked]
+                                          (with-open [rdr (io/reader (uri-for-ns nsym))]
+                                            (count (line-seq rdr))))))]
+               (println "Checked" (count checked) "namespaces (approx." nlines "lines) in" ms "msecs")
+               (flush))
+             {:delayed-errors @*delayed-errors*})))))))
 
 ; FIXME some things strangely break when reset-caches is removed.
 ; eg. Try checking frees.clj 
