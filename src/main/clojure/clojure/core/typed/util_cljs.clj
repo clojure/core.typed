@@ -1,6 +1,8 @@
-(ns clojure.core.typed.util-cljs
+(ns ^:skip-wiki clojure.core.typed.util-cljs
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.load-cljs :as load]))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 ; this namespace should compile fine without CLJS dep
 
