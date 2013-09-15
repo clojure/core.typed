@@ -860,6 +860,26 @@ for checking namespaces, cf for checking individual forms."}
   If unqualified, qualify in the current namespace.
   Takes an optional type variable binder before the name.
 
+  Fields must be specified in the same order as presented 
+  in deftype, with exactly the same field names.
+
+  Also annotates datatype factories and constructors.
+
+  Binder is a vector of specs. Each spec is a vector
+  with the variable name as the first entry, followed by
+  keyword arguments:
+  - :variance (mandatory)
+    The declared variance of the type variable. Possible
+    values are :covariant, :contravariant and :invariant.
+  - :< (optional)
+    The upper type bound of the type variable. Defaults to
+    Any, or the most general type of the same rank as the
+    lower bound.
+  - :> (optional)
+    The lower type bound of the type variable. Defaults to
+    Any, or the most general type of the same rank as the
+    upper bound.
+
   eg. ; a datatype in the current namespace
       (ann-datatype MyDatatype [a :- Number,
                                 b :- Long])
@@ -867,13 +887,13 @@ for checking namespaces, cf for checking individual forms."}
       ; a datatype in another namespace
       (ann-datatype another.ns.TheirDatatype
                     [str :- String,
-                     vec :- (IPersistentVector Number)])
+                     vec :- (Vec Number)])
 
       ; a datatype, polymorphic in a
       (ann-datatype [[a :variance :covariant]]
                     MyPolyDatatype
                     [str :- String,
-                     vec :- (IPersistentVector Number)])"
+                     vec :- (Vec Number)])"
   [& args]
   ;[dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
   (let [bnd-provided? (vector? (first args))
@@ -909,9 +929,48 @@ for checking namespaces, cf for checking individual forms."}
   [dname fields opt]
   nil)
 
-(defmacro ann-record 
+(defmacro 
+  ^{:forms '[(ann-record dname [field :- type*] opts*)
+             (ann-record binder dname [field :- type*] opts*)]}
+  ann-record 
   "Annotate record Class name dname with expected fields.
-  If unqualified, qualify in the current namespace."
+  If unqualified, qualify in the current namespace.
+  Takes an optional type variable binder before the name.
+
+  Fields must be specified in the same order as presented 
+  in defrecord, with exactly the same field names.
+
+  Also annotates record factories and constructors.
+
+  Binder is a vector of specs. Each spec is a vector
+  with the variable name as the first entry, followed by
+  keyword arguments:
+  - :variance (mandatory)
+    The declared variance of the type variable. Possible
+    values are :covariant, :contravariant and :invariant.
+  - :< (optional)
+    The upper type bound of the type variable. Defaults to
+    Any, or the most general type of the same rank as the
+    lower bound.
+  - :> (optional)
+    The lower type bound of the type variable. Defaults to
+    Any, or the most general type of the same rank as the
+    upper bound.
+  
+  eg. ; a record in the current namespace
+      (ann-record MyRecord [a :- Number,
+                            b :- Long])
+
+      ; a record in another namespace
+      (ann-record another.ns.TheirRecord
+                    [str :- String,
+                     vec :- (Vec Number)])
+
+      ; a record, polymorphic in a
+      (ann-record [[a :variance :covariant]]
+                    MyPolyRecord
+                    [str :- String,
+                     vec :- (Vec Number)])"
   [dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   `(ann-record* '~dname '~fields '~opt))
 
