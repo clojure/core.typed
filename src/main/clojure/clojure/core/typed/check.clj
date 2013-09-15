@@ -3999,33 +3999,82 @@
            (r/HeterogeneousMap? t))
       (let [{:keys [type path id]} lo
             [{fpth-kw :val} & rstpth] path
+            next-filter (fo/-filter type id rstpth)
             fpth (r/-val fpth-kw)
-            type-at-pth (get (:types t) fpth)]
+            present? (contains? (:types t) fpth)
+            absent? (when-not present?
+                      (or ; absent if in :absent-keys
+                          (contains? (:absent-keys t) fpth)
+                          ; absent if no other keys
+                          (not (:other-keys? t))))
+            type-at-pth (or (get (:types t) fpth)
+                            (when-not absent?
+                              r/-any))]
+        ;updating a positive KeyPE should consider 3 cases:
+        ; 1. the key is declared present
+        ; 2. the key is not declared present, and is not declared absent
+        ; 3. the key is declared absent
         (if type-at-pth 
-          (c/-hmap (assoc (:types t) fpth (update type-at-pth (fo/-filter type id rstpth)))
-                   (:absent-keys t)
-                   (:other-keys? t))
+          (c/Un
+            ; assume key is present and update value type
+            (c/-hmap (assoc (:types t) fpth (update type-at-pth next-filter))
+                     (:absent-keys t)
+                     (:other-keys? t))
+            (let [val-maybe-nil? (not (r/Bottom? (update r/-nil next-filter)))]
+              ; is there any situation where the value could be nil?
+              (if val-maybe-nil?
+                ; if yes, assume key is absent.
+                ; handles (:a {}) => nil
+                (c/-hmap (:types t)
+                         (conj (:absent-keys t) fpth)
+                         (:other-keys? t))
+                ; otherwise, don't add to type
+                (c/Un))))
           (c/Un)))
 
       (and (fl/NotTypeFilter? lo)
-           (pe/KeyPE? (first (:path lo))))
-      (cond
-        (r/HeterogeneousMap? t)
-        (let [{:keys [type path id]} lo
-              [{fpth-kw :val} & rstpth] path
-              fpth (r/-val fpth-kw)
-              type-at-pth (get (:types t) fpth)]
-          (if type-at-pth 
-            (c/-hmap (assoc (:types t) fpth (update type-at-pth (fo/-not-filter type id rstpth)))
+           (pe/KeyPE? (first (:path lo)))
+           (r/HeterogeneousMap? t))
+      (let [{:keys [type path id]} lo
+            [{fpth-kw :val} & rstpth] path
+            fpth (r/-val fpth-kw)
+            next-filter (fo/-not-filter type id rstpth)
+            present? (contains? (:types t) fpth)
+            absent? (when-not present?
+                      (or ; absent if in :absent-keys
+                          (contains? (:absent-keys t) fpth)
+                          ; absent if no other keys
+                          (not (:other-keys? t))))
+            type-at-pth (or (get (:types t) fpth)
+                            (when-not absent?
+                              r/-any))]
+        ;updating a negative KeyPE should consider 3 cases:
+        ; 1. the key is declared present
+        ; 2. the key is not declared present, and is not declared absent
+        ; 3. the key is declared absent
+        (if type-at-pth 
+          (c/Un
+            ; key is present, update corresponding value
+            (c/-hmap (assoc (:types t) fpth (update type-at-pth next-filter))
                      (:absent-keys t)
                      (:other-keys? t))
-            (c/Un)))
-        ; looking up something that isn't an ILookup, therefore will always result in nil
-        (not (sub/subtype? t (c/RClass-of clojure.lang.ILookup [r/-any r/-any])))
-        (update r/-nil (update-in lo [:path] rest))
+            (let [val-maybe-nil? (not (r/Bottom? (update r/-nil next-filter)))]
+              ; is there any situation where the value could be nil?
+              (if val-maybe-nil?
+                ; if yes, assume key is absent.
+                ; handles (:a {}) => nil
+                (c/-hmap (:types t)
+                         (conj (:absent-keys t) fpth)
+                         (:other-keys? t))
+                ; otherwise, don't add to type
+                (c/Un))))
+          (c/Un)))
 
-        :else t)
-
+      ; nil returns nil on keyword lookups
+      (and (fl/NotTypeFilter? lo)
+           (pe/KeyPE? (first (:path lo)))
+           (r/Nil? t))
+      (update r/-nil (update-in lo [:path] rest))
 
       (and (fl/TypeFilter? lo)
            (pe/CountPE? (first (:path lo))))

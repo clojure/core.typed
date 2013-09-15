@@ -47,6 +47,10 @@
   (impl/with-clojure-impl
     (apply sub/subtype? rs)))
 
+(defn both-subtype? [s t]
+  (and (subtype? s t)
+       (subtype? t s)))
+
 (defn check [& as]
   (impl/with-clojure-impl
     (apply chk/check as)))
@@ -1322,14 +1326,18 @@
                (RClass-of String))))))
 
 (deftest path-update-test
-  (is-clj (clj (= (update (Un -nil (-hmap {(-val :foo) (RClass-of Number)}))
-                      (-not-filter (Un -false -nil) 'id [(->KeyPE :foo)]))
-              (-hmap {(-val :foo) (RClass-of Number)}))))
+  (is-clj 
+    (both-subtype? (clj (update (Un -nil (-hmap {(-val :foo) (RClass-of Number)}))
+                                (-filter (Un -false -nil) 'id [(->KeyPE :foo)])))
+                   -nil))
+  (is-clj 
+    (both-subtype? (update (Un -nil (-hmap {(-val :foo) (RClass-of Number)}))
+                           (-not-filter (Un -false -nil) 'id [(->KeyPE :foo)]))
+                   (-hmap {(-val :foo) (RClass-of Number)})))
   ; if (:foo a) is nil, either a has a :foo entry with nil, or no :foo entry
-  ; TODO
-  #_(is-clj (= (update (-hmap {})
-                 (-filter -nil 'id [(->KeyPE :foo)]))
-         (make-HMap {} {(-val :foo) -nil}))))
+  (is-clj (both-subtype? (update (-hmap {})
+                                 (-filter -nil 'id [(->KeyPE :foo)]))
+                         (make-HMap {} {(-val :foo) -nil}))))
 
 (deftest multimethod-test
   (is (check-ns 'clojure.core.typed.test.mm)))
@@ -1917,6 +1925,65 @@
 (deftest non-empty-map-test
   (is (cf (map inc [1 2 3])
           (clojure.core.typed/NonEmptyLazySeq Number))))
+
+;CTYP-53
+(deftest hmap-cast-test
+  (is (both-subtype?
+        (ety
+          (clojure.core.typed/fn> 
+            [m :- (HMap)]
+            (assert (:foo m))
+            m))
+        (parse-clj '['{} -> 
+                     '{}
+                     :filters {:then (! (U nil false) 0)
+                               :else (is (U nil false) 0)}
+                     :object {:id 0}])))
+  (is (both-subtype? 
+        (ety
+          (clojure.core.typed/fn> 
+            :- (HMap :mandatory {:foo (clojure.core.typed/Vec Any)})
+            [m :- (HMap)]
+            (assert (vector? (:foo m)))
+            m))
+        (parse-clj '[(HMap) -> 
+                     (HMap :mandatory {:foo (clojure.core.typed/Vec Any)})
+                     :filters {:then (! (U nil false) 0)
+                               :else (is (U nil false) 0)}
+                     :object {:id 0}])))
+  (is (both-subtype? 
+        (ety 
+          (clojure.core.typed/fn> 
+            [m :- (HMap :mandatory {:bar Any})]
+            (assert (nil? (:foo m)))
+            m))
+        (parse-clj '[(HMap :mandatory {:bar Any}) -> 
+                     (U (HMap :mandatory {:bar Any, :foo nil})
+                        (HMap :mandatory {:bar Any}
+                              :absent-keys #{:foo}))
+                     :filters {:then (! (U nil false) 0)
+                               :else (is (U nil false) 0)}
+                     :object {:id 0}])))
+  (is
+    (both-subtype?
+      (ety
+        (clojure.core.typed/fn> 
+          [m :- '{}]
+          (assert (not (vector? (:foo m))))
+          m))
+      (parse-clj '[(HMap) -> 
+                   ; not sure if this should simplify to (HMap)
+                   (U (HMap :mandatory {:foo Any})
+                      (HMap :absent-keys #{:foo}))
+                   :filters {:then (! (U nil false) 0)
+                             :else (is (U nil false) 0)}
+                   :object {:id 0}])))
+  (is 
+    (clj
+      (let [t1 (clj (update (parse-type '(HMap))
+                            (parse-filter '(is (clojure.core.typed/Vec Any) m [(Key :foo)]))))
+            t2 (clj (parse-type '(HMap :mandatory {:foo (clojure.core.typed/Vec Any)})))]
+        (both-subtype? t1 t2)))))
 
 ;CTYP-60
 (deftest absent-keys-test

@@ -69,7 +69,7 @@
   ([types other-keys?] (-hmap types #{} other-keys?))
   ([types absent-keys other-keys?]
    (if (or ; simplify to bottom if an entry is bottom
-           (some #{bottom} (concat (keys types) (vals types)))
+           (some #{bottom} (concat (keys types) (vals types) absent-keys))
            ; contradictory overlap in present/absent keys
            (seq (set/intersection (set (keys types)) (set absent-keys))))
      bottom
