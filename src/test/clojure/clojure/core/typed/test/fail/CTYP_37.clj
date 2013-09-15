@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.succeed.CTYP37
+(ns clojure.core.typed.test.fail.CTYP-37
   (:require [clojure.core.typed :as t]))
 
 (t/ann-protocol PProcess

@@ -1994,6 +1994,11 @@
     (u/top-level-error-thrown?
       (cf {:a "a"} (HMap :absent-keys #{:a})))))
 
+(deftest CTYP-37-defprotocol-better-error
+  (is (u/top-level-error-thrown?
+        (check-ns 'clojure.core.typed.test.fail.CTYP-37))))
+
+
 ;(reset-caches)
 
 ;(chk/abstract-result
