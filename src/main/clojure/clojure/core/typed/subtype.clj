@@ -350,20 +350,27 @@
           ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
           (and (r/HeterogeneousMap? s)
                (r/HeterogeneousMap? t))
-          (let [{ltypes :types labsent :absent-keys :as s} s
+          (let [; convention: prefix things on left with l, right with r
+                {ltypes :types labsent :absent-keys :as s} s
                 {rtypes :types rabsent :absent-keys :as t} t]
             (if (and ; if t is complete, s must be complete
                      (if (c/complete-hmap? t)
                        (c/complete-hmap? s)
                        true)
                      ; all absent keys in t should be absent in s
-                     (or (empty? (set/difference rabsent labsent))
-                         (c/complete-hmap? s))
+                     (every? identity
+                             (for [rabsent-key rabsent]
+                               ; Subtyping is good if rabsent-key is:
+                               ; 1. Absent in s
+                               ; 2. Not present in s, but s is complete
+                               (or ((set labsent) rabsent-key)
+                                   (when (c/complete-hmap? s)
+                                     (not ((set (keys ltypes)) rabsent-key))))))
                      ; all present keys in t should be present in s
                      (every? identity
                              (map (fn [[k v]]
                                     (when-let [t (get ltypes k)]
-                                      (subtype t v)))
+                                      (subtype? t v)))
                                   rtypes)))
               *sub-current-seen*
               (fail! s t)))

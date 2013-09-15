@@ -1918,6 +1918,15 @@
   (is (cf (map inc [1 2 3])
           (clojure.core.typed/NonEmptyLazySeq Number))))
 
+;CTYP-60
+(deftest absent-keys-test
+  (is (not (sub? (HMap :mandatory {:a String}
+                       :complete? true)
+                 (HMap :absent-keys #{:a}))))
+  (is 
+    (u/top-level-error-thrown?
+      (cf {:a "a"} (HMap :absent-keys #{:a})))))
+
 ;(reset-caches)
 
 ;(chk/abstract-result
