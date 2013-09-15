@@ -5,6 +5,8 @@ BUG FIXES
   HMap bug fixes
 - [CTYP-37](http://dev.clojure.org/jira/browse/CTYP-37)
   Better error for deftype
+- [CTYP-40](http://dev.clojure.org/jira/browse/CTYP-40)
+  Clojurescript fix
 
 DOCUMENTATION
 - [CTYP-46](http://dev.clojure.org/jira/browse/CTYP-46)
