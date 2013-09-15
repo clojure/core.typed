@@ -1,3 +1,15 @@
+0.2.6
+BUG FIXES
+- [CTYP-53](http://dev.clojure.org/jira/browse/CTYP-53)
+  [CTYP-60](http://dev.clojure.org/jira/browse/CTYP-60)
+  HMap bug fixes
+- [CTYP-37](http://dev.clojure.org/jira/browse/CTYP-37)
+  Better error for deftype
+
+DOCUMENTATION
+- [CTYP-46](http://dev.clojure.org/jira/browse/CTYP-46)
+  Document ann-record
+
 0.2.5
 - HMap: fix subtyping and preserve absent keys with type updates
 - Add clojure.core.typed/NonEmptyLazySeq alias
