@@ -1,5 +1,7 @@
 0.2.6 - Released 15 September 2013
-* BUG FIXES
+
+BUG FIXES
+
 - [CTYP-53](http://dev.clojure.org/jira/browse/CTYP-53)
   [CTYP-60](http://dev.clojure.org/jira/browse/CTYP-60)
   HMap bug fixes
@@ -8,7 +10,8 @@
 - [CTYP-40](http://dev.clojure.org/jira/browse/CTYP-40)
   Clojurescript fix
 
-* DOCUMENTATION
+DOCUMENTATION
+
 - [CTYP-46](http://dev.clojure.org/jira/browse/CTYP-46)
   Document ann-record
 
