@@ -2000,6 +2000,13 @@
     (u/top-level-error-thrown?
       (cf {:a "a"} (HMap :absent-keys #{:a})))))
 
+;CTYP-61
+(deftest hmap-assoc-test
+  (is-cf (assoc (clojure.core.typed/ann-form {} (HMap :optional {:a Any})) :b "v")
+         (HMap :mandatory {:b (Value "v")} :optional {:a Any}))
+  (is-cf (assoc (clojure.core.typed/ann-form {} (HMap :optional {:a Any})) :a "v")
+         (HMap :mandatory {:a (Value "v")})))
+
 (deftest CTYP-37-defprotocol-better-error
   (is (u/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.CTYP-37))))

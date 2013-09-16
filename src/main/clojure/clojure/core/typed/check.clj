@@ -2099,8 +2099,64 @@
 ;                      )
 ;                    hmap (.types ^HeterogeneousMap update-path-t)))
 
+;supporting assoc function
+(defn update-assoc-hmap [{:keys [expr fexpr target keyvals keypair-types]} init-hmap]
+  (reduce (fn [hmap [kt vt]]
+    (let [is-vec (sub/subtype? hmap (c/RClass-of IPersistentVector [r/-any]))
+          is-map (sub/subtype? hmap (c/RClass-of IPersistentMap [r/-any r/-any]))]
+      ;check that hmap is either a vector or map
+      (assert (and (not= is-vec is-map)
+                   (or is-vec is-map)))
+      (cond
+        ;keep hmap is keyword key and already hmap
+        (and (r/HeterogeneousMap? hmap)
+             (c/keyword-value? kt))
+        (assoc-in hmap [:types kt] vt)
+
+        ;updating a base record key must be a subtype of the record's
+        ;corresponding field, otherwise just ignore any interesting results.
+        (r/Record? hmap)
+        (let [^DataType hmap hmap
+              ^Value kt kt
+              field-type (when (c/keyword-value? kt)
+                           (get (.fields hmap) (symbol (name (.val kt)))))]
+          (when-not (and field-type
+                         (sub/subtype? vt field-type))
+            (u/tc-delayed-error
+              (str "Cannot associate key " (prs/unparse-type kt)
+                   " with value type " (prs/unparse-type vt)
+                   " to record " (prs/unparse-type hmap)
+                   "\n\n" "in: " (u/emit-form-fn expr))))
+          hmap)
+
+        ;keep hvector if number Value key and already hvector
+        (and (r/HeterogeneousVector? hmap)
+             (c/number-value? kt))
+        (let [^Value kt kt] 
+          (assert (integer? (.val kt))
+                  (str "Must associate integer keys to vector, given: " (:val kt)))
+          (assoc-in hmap [:types (.val kt)] vt))
+
+        ;otherwise just make normal map if already a map, or normal vec if already a vec
+        is-map (ret-t 
+                 (check-funapp fexpr (cons target keyvals)
+                               (ret 
+                                 (prs/parse-type '(All [b c] 
+                                                       [(clojure.lang.IPersistentMap b c) b c -> 
+                                                        (clojure.lang.IPersistentMap b c)])))
+                               (mapv ret [hmap kt vt])
+                               nil))
+        :else (ret-t 
+                (check-funapp fexpr (cons target keyvals)
+                              (ret 
+                                (prs/parse-type '(All [c] 
+                                                      [(clojure.lang.IPersistentVector c) c -> 
+                                                       (clojure.lang.IPersistentVector c)])))
+                              (mapv ret [hmap vt])
+                              nil)))))
+  init-hmap keypair-types))
+
 ;assoc
-; TODO handle unions of hmaps as the target
 ; FIXME needs more tests
 (add-invoke-special-method 'clojure.core/assoc
   [{:keys [fexpr args] :as expr} & [expected]]
@@ -2131,63 +2187,21 @@
       (let [; we must already have an even number of keyvals if we've got this far
             ckeyvals (doall (map check keyvals))
             keypair-types (partition 2 (map (comp ret-t expr-type) ckeyvals))
-
-            ; TODO handle unions of hmaps without promoting to IPersistentMap
             new-hmaps (mapv (fn [init-hmap]
-                              (reduce (fn [hmap [kt vt]]
-                                        (let [is-vec (sub/subtype? hmap (c/RClass-of IPersistentVector [r/-any]))
-                                              is-map (sub/subtype? hmap (c/RClass-of IPersistentMap [r/-any r/-any]))]
-                                          ;check that hmap is either a vector or map
-                                          (assert (and (not= is-vec is-map)
-                                                       (or is-vec is-map)))
-                                          (cond
-                                            ;keep hmap is keyword key and already hmap
-                                            (and (r/HeterogeneousMap? hmap)
-                                                 (c/keyword-value? kt))
-                                            (assoc-in hmap [:types kt] vt)
-
-                                            ;updating a base record key must be a subtype of the record's
-                                            ;corresponding field, otherwise just ignore any interesting results.
-                                            (r/Record? hmap)
-                                            (let [^DataType hmap hmap
-                                                  ^Value kt kt
-                                                  field-type (when (c/keyword-value? kt)
-                                                               (get (.fields hmap) (symbol (name (.val kt)))))]
-                                              (when-not (and field-type
-                                                             (sub/subtype? vt field-type))
-                                                (u/tc-delayed-error
-                                                  (str "Cannot associate key " (prs/unparse-type kt)
-                                                       " with value type " (prs/unparse-type vt)
-                                                       " to record " (prs/unparse-type hmap)
-                                                       "\n\n" "in: " (u/emit-form-fn expr))))
-                                              hmap)
-
-                                            ;keep hvector if number Value key and already hvector
-                                            (and (r/HeterogeneousVector? hmap)
-                                                 (c/number-value? kt))
-                                            (let [^Value kt kt] 
-                                              (assert (integer? (.val kt))
-                                                      (str "Must associate integer keys to vector, given: " (:val kt)))
-                                              (assoc-in hmap [:types (.val kt)] vt))
-
-                                            ;otherwise just make normal map if already a map, or normal vec if already a vec
-                                            is-map (ret-t 
-                                                     (check-funapp fexpr (cons target keyvals)
-                                                                   (ret 
-                                                                     (prs/parse-type '(All [b c] 
-                                                                                           [(clojure.lang.IPersistentMap b c) b c -> 
-                                                                                            (clojure.lang.IPersistentMap b c)])))
-                                                                   (mapv ret [hmap kt vt])
-                                                                   nil))
-                                            :else (ret-t 
-                                                    (check-funapp fexpr (cons target keyvals)
-                                                                  (ret 
-                                                                    (prs/parse-type '(All [c] 
-                                                                                          [(clojure.lang.IPersistentVector c) c -> 
-                                                                                           (clojure.lang.IPersistentVector c)])))
-                                                                  (mapv ret [hmap vt])
-                                                                  nil)))))
-                                      init-hmap keypair-types))
+                              (let [t-hmaps (if (r/Union? init-hmap)
+                                                (:types init-hmap)
+                                                [init-hmap])
+                                    mapped (map
+                                              (partial update-assoc-hmap
+                                                {:expr expr
+                                                :fexpr fexpr
+                                                :target target
+                                                :keyvals keyvals
+                                                :keypair-types keypair-types})
+                                              t-hmaps)]
+                                (if (= (count mapped) 1)
+                                  (first mapped)
+                                  (apply c/Un mapped))))
                             hmaps)
             final-t (apply c/Un new-hmaps)]
         (assoc expr
