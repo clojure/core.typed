@@ -20,7 +20,7 @@
                     :exclusions [org.clojure/clojure]] ;for testing conduit, lein test wants it here?
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
-                 [org.clojure/core.async "0.1.0-20130802.160123-63"]
+                 [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
                  ]
 
   :global-vars {*warn-on-reflection* true}
