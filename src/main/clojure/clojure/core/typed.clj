@@ -1127,6 +1127,7 @@ for checking namespaces, cf for checking individual forms."}
   ([form] (check-form* form nil nil))
   ([form expected] (check-form* form expected true))
   ([form expected type-provided?]
+   (load-if-needed)
    (let [unparse-TCResult-in-ns (impl/v 'clojure.core.typed.parse-unparse/unparse-TCResult-in-ns)
          {:keys [delayed-errors ret]} (check-form-info form 
                                                        :expected expected 
