@@ -1,3 +1,7 @@
+0.2.7 - Released 17 September 2013
+- Fix regression: Load implementation on cf/check-form*
+- Stable core.async dep in project.clj
+
 0.2.6 - Released 15 September 2013
 
 BUG FIXES
