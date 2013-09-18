@@ -2,7 +2,7 @@
   (:import (clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
                          Keyword ExceptionInfo Symbol Var))
   (:require [clojure.test :refer :all]
-            [clojure.tools.analyzer :refer [ast]]
+            [clojure.tools.analyzer :refer [ast analyze-form]]
             [clojure.tools.analyzer.hygienic :refer [ast-hy]]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
@@ -11,7 +11,8 @@
             [clojure.core.typed.init]
             [clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error?]]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp]]
+            [clojure.core.typed.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp
+                                                      tc-equiv]]
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.type-rep :refer :all]
@@ -238,10 +239,15 @@
                                (map parse-type '(Integer Double Float)))
              (parse-type '[[Double Float -> Integer] (clojure.lang.Seqable Double) (clojure.lang.Seqable Float) -> (clojure.lang.Seqable Integer)]))))
 
+;return ret for an expression f
+(defmacro eret [f]
+  `(let [ret# (-> (check-form-info '~f) :ret)]
+     (assert (TCResult? ret#))
+     ret#))
+
 ;return type for an expression f
 (defmacro ety [f]
-  `(impl/with-clojure-impl
-     (-> (ast ~f) ast-hy check expr-type ret-t)))
+  `(-> (eret ~f) ret-t))
 
 (deftest tc-invoke-fn-test
   (is-clj (subtype? (ety
@@ -1998,6 +2004,16 @@
   (is (u/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.CTYP-37))))
 
+
+(deftest CTYP-62-equiv-test
+  (is (tc-equiv := 
+                (ret (-val "a"))
+                (ret -any))
+      (ret (Un -false -true)))
+  (is (= (eret (= "a" (clojure.core.typed/ann-form 1 Any)))
+         (ret (Un -false -true))))
+  (is (= (eret (= "a" (clojure.core.typed/ann-form 1 Any)))
+         (ret (Un -false -true)))))
 
 ;(reset-caches)
 
