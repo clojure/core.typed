@@ -2228,6 +2228,35 @@
                                     expr-type (error-ret expected))))
     ))
 
+; dissoc support functions
+(defn- -dissoc-key [t k]
+  (cond
+   (r/Nil? t)
+   t
+   
+   (and (r/HeterogeneousMap? t) (c/keyword-value? k))
+   (if (:other-keys? t)
+     (-> (update-in t [:types] dissoc k)
+         (update-in [:absent-keys] conj k))
+     (update-in t [:types] dissoc k))
+   
+   (sub/subtype? t (c/RClass-of IPersistentMap [r/-any r/-any]))
+   t
+   ))
+
+(defn dissoc-keys [t ks]
+  (reduce-type-transform -dissoc-key t ks))
+
+(add-invoke-special-method 'clojure.core/dissoc
+  [{:keys [fexpr args] :as expr} & [expected]]
+  {:post [(or (= % :default) (-> % expr-type TCResult?))]}
+  (let [[ctarget & cargs :as all-cargs] (map check args)
+        ttarget (-> ctarget expr-type ret-t)
+        targs (map (comp ret-t expr-type) cargs)]
+    (if-let [new-t (dissoc-keys ttarget targs)]
+      (assoc expr expr-type (ret new-t))
+      (normal-invoke expr fexpr args expected
+                     :cargs all-cargs))))
 
 
 ;conj
