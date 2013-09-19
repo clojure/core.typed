@@ -23,8 +23,12 @@
            (analyze-file# "cljs/core.cljs")))
        ~@body))
 
-(defn ^:private empty-env-in-ns [nsym]
-  {:ns {:name nsym} :context :statement :locals {}})
+(defn ^:private empty-env [nsym]
+  (assert-cljs-dep)
+  (with-bindings {(impl/the-var 'cljs.analyzer/*cljs-ns*) nsym}
+    (let [empty-env (impl/v 'cljs.analyzer/empty-env)]
+      (empty-env))))
+
 
 (defn resolve-var [nsym sym]
   (assert-cljs-dep)
@@ -33,11 +37,9 @@
           resolve-var (impl/v 'cljs.analyzer/resolve-var)]
       (assert (contains? @namespaces nsym)
               (str "Namespace " nsym " does not exist"))
-      (resolve-var (empty-env-in-ns nsym) sym))))
+      (resolve-var (empty-env nsym) sym))))
 
 (defn cljs-ns []
   (assert-cljs-dep)
   (let [*cljs-ns* (impl/v 'cljs.analyzer/*cljs-ns*)]
-   *cljs-ns*))
-
-
+    *cljs-ns*))

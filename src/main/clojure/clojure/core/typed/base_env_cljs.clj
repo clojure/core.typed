@@ -84,6 +84,7 @@ cljs.core/> [number number * -> boolean]
 cljs.core/< [number number * -> boolean]
 cljs.core/= [Any * -> boolean]
 cljs.core/identical? [Any Any -> boolean]
+cljs.core/number? (predicate number)
 cljs.core/nth (All [x y] 
                 (Fn [(U nil (cljs.core/ISeqable x)) int -> x]
                     [(U nil (cljs.core/ISeqable x)) int y -> (U y x)]))
@@ -136,8 +137,11 @@ goog.events.EventType.MOUSEMOVE string
   (reset-jsnominal-env!)
   (h/alias-mappings
 
-  ^{:doc "A type that returns true for clojure.core/integer?"}
+  ^{:doc "A type that returns true for cljs.core/integer?"}
 cljs.core.typed/AnyInteger int
+
+  ^{:doc "A type that returns true for cljs.core/number?"}
+cljs.core.typed/Number number
     
     ^{:doc "A type that can be used to create a sequence of member type x."}
 cljs.core.typed/Seqable (TFn [[x :variance :covariant]]

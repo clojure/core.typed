@@ -87,7 +87,7 @@
 
 (ann get-field [Symbol (U nil (Seqable r/Type)) Symbol -> (U nil r/Type)])
 (defn get-field 
-  "Returns the instantiated field type named method-sym on nominal csym."
+  "Returns the instantiated field type named field-sym on nominal csym."
   [csym args field-sym]
   {:pre [(symbol? csym)
          (every? r/Type? args)

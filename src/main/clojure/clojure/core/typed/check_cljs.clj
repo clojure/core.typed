@@ -258,21 +258,10 @@
   (assoc expr
          expr-type (ret (binding [vs/*current-env* env
                                   vs/*current-expr* expr]
-                          ; sometimes unnamespaced vars like goog.events.Foo get
-                          ; converted to goog/events.Foo. Needs further investigation.
-                          (let [altname (:form expr)
-                                t (var-env/type-of-nofail vname)
-                                t (if t
-                                    t
-                                    (when-let [altt (var-env/type-of-nofail altname)]
-                                      (println "WARNING: Resolving var " vname " as " altname)
-                                      (flush)
-                                      altt))]
+                          (let [t (var-env/type-of-nofail vname)]
                             (if t
                               t
-                              (u/tc-delayed-error (str "Found untyped var: " vname
-                                                       (when-not (= altname vname)
-                                                         (str " (also tried " altname ")")))
+                              (u/tc-delayed-error (str "Found untyped var: " vname)
                                                   :return (or (when expected
                                                                 (ret-t expected))
                                                               (r/TCError-maker))))))
@@ -376,9 +365,9 @@
         field
         (let [field-type (cond
                            (r/StringCLJS? resolved)
-                           (jsnom/get-field 'string field)
+                           (jsnom/get-field 'string nil field)
                            (r/JSNominal? resolved)
-                           (jsnom/get-field (:name resolved) field))
+                           (jsnom/get-field (:name resolved) (:poly? resolved) field))
               _ (assert field-type (str "Don't know how to get field " field
                                         " from " (prs/unparse-type resolved)))]
           (assoc dot-expr
@@ -386,9 +375,9 @@
         :else
         (let [method-type (cond
                             (r/StringCLJS? resolved)
-                            (jsnom/get-method 'string method)
+                            (jsnom/get-method 'string nil method)
                             (r/JSNominal? resolved)
-                            (jsnom/get-method (:name resolved) method))
+                            (jsnom/get-method (:name resolved) (:poly? resolved) method))
               _ (assert method-type (str "Don't know how to call method " method
                                          " from " (prs/unparse-type resolved)))
               cargs (mapv check args)
