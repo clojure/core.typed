@@ -14,7 +14,9 @@
       (try (require '[cljs.analyzer]
                     '[cljs.compiler]
                     '[cljs.tools.analyzer]
-                    '[cljs.tools.analyzer.hygienic])
+                    '[cljs.tools.analyzer.hygienic]
+                    '[cljs.tools.analyzer.emit-form]
+                    '[cljs.core])
            (println (str "Clojurescript found and loaded."))
            (flush)
            (catch Throwable e

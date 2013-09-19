@@ -43,3 +43,8 @@
   (assert-cljs-dep)
   (let [*cljs-ns* (impl/v 'cljs.analyzer/*cljs-ns*)]
     *cljs-ns*))
+
+(defn emit-form [f]
+  (assert-cljs-dep)
+  (let [emit-form (impl/v 'cljs.tools.analyzer.emit-form/emit-form)]
+    (emit-form f)))
