@@ -116,7 +116,8 @@
 
 #_(clojure.core.typed.analyze-cljs/ast-for-form '(fn [x] (instance? Atom x)))
 
-(t/check-ns 'cljs.core.typed.test.identity)
+(deftest simple-polymorphic-test
+  (t/check-ns 'cljs.core.typed.test.identity))
 
 ;(t/check-ns 'cljs.core.typed.test.dnolen.utils.dom)
 ;(t/check-ns 'cljs.core.typed.test.dnolen.utils.reactive)
