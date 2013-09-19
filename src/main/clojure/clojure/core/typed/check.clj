@@ -2099,62 +2099,102 @@
 ;                      )
 ;                    hmap (.types ^HeterogeneousMap update-path-t)))
 
-;supporting assoc function
-(defn update-assoc-hmap [{:keys [expr fexpr target keyvals keypair-types]} init-hmap]
-  (reduce (fn [hmap [kt vt]]
-    (let [is-vec (sub/subtype? hmap (c/RClass-of IPersistentVector [r/-any]))
-          is-map (sub/subtype? hmap (c/RClass-of IPersistentMap [r/-any r/-any]))]
-      ;check that hmap is either a vector or map
-      (assert (and (not= is-vec is-map)
-                   (or is-vec is-map)))
-      (cond
-        ;keep hmap is keyword key and already hmap
-        (and (r/HeterogeneousMap? hmap)
-             (c/keyword-value? kt))
-        (assoc-in hmap [:types kt] vt)
+; utility functions
 
-        ;updating a base record key must be a subtype of the record's
-        ;corresponding field, otherwise just ignore any interesting results.
-        (r/Record? hmap)
-        (let [^DataType hmap hmap
-              ^Value kt kt
-              field-type (when (c/keyword-value? kt)
-                           (get (.fields hmap) (symbol (name (.val kt)))))]
-          (when-not (and field-type
-                         (sub/subtype? vt field-type))
-            (u/tc-delayed-error
-              (str "Cannot associate key " (prs/unparse-type kt)
-                   " with value type " (prs/unparse-type vt)
-                   " to record " (prs/unparse-type hmap)
-                   "\n\n" "in: " (u/emit-form-fn expr))))
-          hmap)
+(defn type-into-vector [x] (if (r/Union? x) (:types x) [x]))
 
-        ;keep hvector if number Value key and already hvector
-        (and (r/HeterogeneousVector? hmap)
-             (c/number-value? kt))
-        (let [^Value kt kt] 
-          (assert (integer? (.val kt))
-                  (str "Must associate integer keys to vector, given: " (:val kt)))
-          (assoc-in hmap [:types (.val kt)] vt))
+(defn reduce-type-transform
+  "Given a function f, left hand type t, and arguments, reduce the function
+  over the left hand types with each argument in turn.
+  
+  Type arguments will be resolved and expanded, so the transform function
+  does not have to handle unions (except if the arguments are compound).
+  
+  Reduction is skipped once nil is returned, or optional predicate :when
+  returns false.
+  
+  TODO: use fold/fold-rhs here?"
+  [func t args & {pred :when}]
+  (let [; unions of TApps don't seem to be recursively resolved?
+        ; could maybe only happen in testing?
+        arg-vector #(if (r/AnyType? %)
+                        (mapv c/fully-resolve-type
+                           (-> % c/fully-resolve-type type-into-vector))
+                        [%])
+        new-ts (reduce
+                (fn [left-types arg]
+                  (for [left left-types
+                        rarg (arg-vector arg)]
+                    (when (and left (if pred (pred left) true))
+                      (func left rarg))))
+                (arg-vector t)
+                args)]
+    (if (some nil? new-ts)
+      nil
+      (apply c/Un new-ts))))
 
-        ;otherwise just make normal map if already a map, or normal vec if already a vec
-        is-map (ret-t 
-                 (check-funapp fexpr (cons target keyvals)
-                               (ret 
-                                 (prs/parse-type '(All [b c] 
-                                                       [(clojure.lang.IPersistentMap b c) b c -> 
-                                                        (clojure.lang.IPersistentMap b c)])))
-                               (mapv ret [hmap kt vt])
-                               nil))
-        :else (ret-t 
-                (check-funapp fexpr (cons target keyvals)
-                              (ret 
-                                (prs/parse-type '(All [c] 
-                                                      [(clojure.lang.IPersistentVector c) c -> 
-                                                       (clojure.lang.IPersistentVector c)])))
-                              (mapv ret [hmap vt])
-                              nil)))))
-  init-hmap keypair-types))
+;supporting assoc functionality
+
+(defprotocol AssocableType
+  (-assoc-pair [left kv]))
+
+(extend-protocol AssocableType
+  Value
+  (-assoc-pair
+   [v [kt vt]]
+   (when (r/Nil? v)
+     (c/-complete-hmap {kt vt})))
+  
+  RClass
+  (-assoc-pair
+   [rc [kt vt]]
+   (cond
+    (= (:the-class rc) 'clojure.lang.IPersistentMap)
+    (c/RClass-of IPersistentMap [(c/Un kt (nth (:poly? rc) 0))
+                                 (c/Un vt (nth (:poly? rc) 1))])
+    
+    (= (:the-class rc) 'clojure.lang.IPersistentVector)
+    (let [kt ^Value kt]
+      (when (integer? (.val kt))
+        (c/RClass-of IPersistentVector [(c/Un vt (nth (:poly? rc) 0))])))
+    ))
+  
+  HeterogeneousMap
+  (-assoc-pair
+   [hmap [kt vt]]
+   (if (c/keyword-value? kt)
+     (-> (assoc-in hmap [:types kt] vt)
+         (update-in [:absent-keys] disj kt))
+     ; devolve the map
+     ;; todo: probably some machinery I can reuse here?
+     (c/RClass-of IPersistentMap [(apply c/Un (concat [kt] (keys (:types hmap))))
+                                  (apply c/Un (concat [vt] (vals (:types hmap))))])
+     ))
+  
+  HeterogeneousVector
+  (-assoc-pair
+   [v [kt vt]]
+   (when (r/Value? kt)
+     (let [^Value kt kt
+           k (.val kt)] 
+       (when (and (integer? k) (<= k (count (:types v))))
+         (r/-hvec (vec (assoc (:types v) k vt)))
+         ))))
+  
+  DataType
+  (-assoc-pair
+   [dt [kt vt]]
+   (when (and (r/Record? dt) (c/keyword-value? kt))
+     (let [^Value kt kt
+           field-type (when (c/keyword-value? kt)
+                        (get (.fields dt) (symbol (name (.val kt)))))]
+       (when (and field-type (sub/subtype? vt field-type))
+         dt)))))
+
+(defn assoc-type-pairs [t & pairs]
+  {:pre [(every? (fn [kv] (= 2 (count kv))) pairs)]}
+  (reduce-type-transform -assoc-pair t pairs
+                         :when (partial satisfies? AssocableType)))
 
 ;assoc
 ; FIXME needs more tests
@@ -2170,44 +2210,24 @@
             (u/tc-delayed-error "assoc accepts an even number of keyvals"))
 
         targetun (-> target check expr-type ret-t)
-        targett (c/fully-resolve-type targetun)
-        ; nil if not found
-        hmaps (cond
-                (and (r/Value? targett) (nil? (.val ^Value targett))) #{(c/-hmap {})}
-                ((some-fn r/HeterogeneousVector? r/HeterogeneousMap? r/Record?) targett) #{targett}
-                (sub/subtype? targett (c/RClass-of IPersistentMap [r/-any r/-any])) #{targett}
-                (sub/subtype? targett (c/RClass-of IPersistentVector [r/-any])) #{targett})]
-    (if-not (and hmaps (every? #(sub/subtype? % (c/Un (c/RClass-of IPersistentVector [r/-any])
-                                                      (c/RClass-of IPersistentMap [r/-any r/-any]))) 
-                               hmaps))
-      (u/tc-delayed-error (str "Must supply map, vector or nil to first argument of assoc, given "
+        ckeyvals (doall (map check keyvals))
+        keypair-types (partition 2 (map (comp ret-t expr-type) ckeyvals))]
+    (if-let [new-hmaps (apply (partial assoc-type-pairs targetun) keypair-types)]
+      (assoc expr
+        expr-type (ret new-hmaps
+                       (fo/-FS fl/-top fl/-bot) ;assoc never returns nil
+                       obj/-empty))
+      
+      ;; to do: improve this error message
+      (u/tc-delayed-error (str "Cannot assoc args `"
+                               (clojure.string/join " "
+                                 (map (comp prs/unparse-type expr-type) ckeyvals))
+                               "` on "
                                (prs/unparse-type targetun))
                           :return (assoc expr
-                                         expr-type (error-ret expected)))
-      (let [; we must already have an even number of keyvals if we've got this far
-            ckeyvals (doall (map check keyvals))
-            keypair-types (partition 2 (map (comp ret-t expr-type) ckeyvals))
-            new-hmaps (mapv (fn [init-hmap]
-                              (let [t-hmaps (if (r/Union? init-hmap)
-                                                (:types init-hmap)
-                                                [init-hmap])
-                                    mapped (map
-                                              (partial update-assoc-hmap
-                                                {:expr expr
-                                                :fexpr fexpr
-                                                :target target
-                                                :keyvals keyvals
-                                                :keypair-types keypair-types})
-                                              t-hmaps)]
-                                (if (= (count mapped) 1)
-                                  (first mapped)
-                                  (apply c/Un mapped))))
-                            hmaps)
-            final-t (apply c/Un new-hmaps)]
-        (assoc expr
-               expr-type (ret final-t
-                              (fo/-FS fl/-top fl/-bot) ;assoc never returns nil
-                              obj/-empty))))))
+                                    expr-type (error-ret expected))))
+    ))
+
 
 
 ;conj

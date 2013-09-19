@@ -2019,6 +2019,70 @@
   (is (u/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.CTYP-37))))
 
+(defmacro equal-types [l r]
+  `(clj (is (let [l# (ety ~l)
+                  r# (parse-type (quote ~r))]
+              (or (both-subtype? l# r#)
+                  (println "Actual" l#)
+                  (println "Expected" r#)
+                  (println "In" (quote ~l)))
+              ))))
+
+(deftest invoke-assoc-test
+  
+  ; HMaps
+  (equal-types (assoc {} :a 5)
+               (HMap :mandatory {:a '5} :complete? true))
+  
+  (equal-types (assoc nil :a 5)
+               (HMap :mandatory {:a '5} :complete? true))
+  
+  (equal-types (assoc (clojure.core.typed/ann-form nil (U nil (HMap))) :a 5)
+               (HMap :mandatory {:a '5}))
+  
+  (equal-types (assoc (clojure.core.typed/ann-form nil (U nil (HMap :complete? true))) :a 5)
+               (HMap :mandatory {:a '5} :complete? true))
+  
+  (equal-types (assoc (clojure.core.typed/ann-form {} (HMap)) :a 5)
+               (HMap :mandatory {:a '5}))
+  
+  (equal-types (assoc (clojure.core.typed/ann-form {} (HMap :optional {:a Any})) :b "v")
+               (HMap :mandatory {:b (Value "v")} :optional {:a Any}))
+  
+  (equal-types (assoc (clojure.core.typed/ann-form {} (HMap :optional {:a Any})) :a "v")
+               (HMap :mandatory {:a (Value "v")}))
+  
+  ; HVecs
+  (equal-types (assoc [] 0 1)
+               (Vector* '1))
+  
+  (equal-types (assoc [3] 1 2)
+               (Vector* '3 '2))
+  
+  (equal-types (assoc [0] 0 1)
+               (Vector* '1))
+  
+  ; Basic types
+  (equal-types (assoc {} 'a 5)
+               (clojure.lang.IPersistentMap 'a '5))
+  
+  (equal-types (assoc {:b 6} 'a 5)
+               (clojure.lang.IPersistentMap (U 'a ':b) (U '5 '6)))
+  
+  (equal-types (assoc (clojure.core.typed/ann-form nil
+                                                   (U nil (clojure.lang.IPersistentMap Any Any)))
+                 :a 5)
+               (clojure.lang.IPersistentMap Any Any))
+  
+  (equal-types (assoc (clojure.core.typed/ann-form {} (clojure.lang.IPersistentMap Any Any)) :a 5)
+               (clojure.lang.IPersistentMap Any Any))
+  
+  (equal-types (assoc (clojure.core.typed/ann-form [] (clojure.lang.IPersistentVector Any)) 0 2)
+               (clojure.lang.IPersistentVector Any))
+  
+  ;; TODO: assocs on records
+  
+  )
 
 (deftest CTYP-62-equiv-test
   (is (tc-equiv := 
