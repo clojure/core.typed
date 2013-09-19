@@ -190,10 +190,18 @@
   (is-clj (subtype? (RClass-of clojure.lang.IPersistentList [-any]) (RClass-of Object nil))))
 
 (deftest subtype-hmap
-  (is-clj (not (subtype? (constant-type '{:a nil})
-                     (constant-type '{:a 1}))))
-  (is-clj (subtype? (constant-type '{:a 1 :b 2 :c 3})
-                (constant-type '{:a 1 :b 2}))))
+  (is (sub? (HMap :mandatory {:a '1} :complete? true)
+            (HMap :mandatory {:a Number} :complete? true)))
+  (is (sub? (HMap :mandatory {:a '1} :complete? true)
+            (HMap :mandatory {} :complete? false)))
+  (is (sub? (HMap :mandatory {:a '1 :b '2 :c '3} :complete? true)
+            (HMap :mandatory {:a '1 :b '2} :complete? false)))
+  (is (not (sub? '{:a nil}
+                 '{:a '1})))
+  (is (not (sub? (HMap :mandatory {:a '1} :complete? true)
+                 (HMap :mandatory {} :complete? true))))
+  (is (not (sub? (HMap :mandatory {:a '1 :b '2} :complete? true)
+                 (HMap :mandatory {:a '1 :b '2 :c '3} :complete? false)))))
 
 (deftest subtype-poly
   (is-clj (subtype? (parse-type '(All [x] (clojure.lang.ASeq x)))

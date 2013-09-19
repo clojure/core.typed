@@ -353,9 +353,11 @@
           (let [; convention: prefix things on left with l, right with r
                 {ltypes :types labsent :absent-keys :as s} s
                 {rtypes :types rabsent :absent-keys :as t} t]
-            (if (and ; if t is complete, s must be complete
+            (if (and ; if t is complete, s must be complete with the same keys
                      (if (c/complete-hmap? t)
-                       (c/complete-hmap? s)
+                       (if (c/complete-hmap? s)
+                         (= (set (keys ltypes)) (set (keys rtypes)))
+                         false)
                        true)
                      ; all absent keys in t should be absent in s
                      (every? identity
