@@ -2296,28 +2296,24 @@
     final-pass))
 
 (defn- merge-pair [left right]
-  (let [map-merge (or (r/Nil? left)
-                      (sub/subtype? left
-                                    (c/RClass-of IPersistentMap [r/-any r/-any])))]
-    (cond
-     (r/HeterogeneousVector? left)
-     (r/-hvec (vec (concat (:types left) [right])))
-     
-     (sub/subtype? left (c/RClass-of IPersistentVector [r/-any]))
-     (c/RClass-of IPersistentVector [(c/Un right (nth (:poly? left) 0))])
-     
-     (and map-merge (r/Nil? right))
-     left
-     
-     (and (r/HeterogeneousMap? left) (r/HeterogeneousMap? right))
-     (merge-hmaps left right)
-     
-     (and (r/Nil? left) (r/HeterogeneousMap? right))
-     (merge-hmaps (c/-complete-hmap {}) right)
-     
-     (and (satisfies? AssocableType left) (r/HeterogeneousMap? right))
-     (apply (partial assoc-type-pairs left) (:types right))
-     )))
+  (cond
+   (and (or (r/Nil? left)
+            (sub/subtype? left
+                          (c/RClass-of IPersistentMap [r/-any r/-any])))
+        (r/Nil? right))
+   left
+   
+   (and (r/HeterogeneousMap? left) (r/HeterogeneousMap? right))
+   (merge-hmaps left right)
+   
+   (and (r/Nil? left) (r/HeterogeneousMap? right))
+   (merge-hmaps (c/-complete-hmap {}) right)
+   
+   (and (not (sub/subtype? left (c/RClass-of IPersistentVector [r/-any])))
+        (satisfies? AssocableType left)
+        (r/HeterogeneousMap? right))
+   (apply (partial assoc-type-pairs left) (:types right))
+   ))
 
 (defn merge-types [left & rtypes]
   (reduce-type-transform merge-pair left rtypes))

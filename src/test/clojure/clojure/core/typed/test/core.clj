@@ -2251,14 +2251,6 @@
 ;;   (equal-types (merge {'a 5} {:b 6})
 ;;                (clojure.lang.IPersistentMap (U 'a ':b) (U '5 '6)))
   
-  ; Vector targets act like conj
-  (equal-types (merge [1] 2 3)
-               (Vector* '1 '2 '3))
-  
-  ; Vector targets act like conj
-  (equal-types (merge (clojure.core.typed/ann-form [1] (clojure.lang.IPersistentVector '1)) 2 3)
-               (clojure.lang.IPersistentVector (U '1 '2 '3)))
-  
   )
 
   
