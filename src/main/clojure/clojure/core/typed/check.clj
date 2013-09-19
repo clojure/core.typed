@@ -2332,47 +2332,40 @@
       (normal-invoke expr fexpr args expected
                      :cargs all-cargs))))
 
+(defn- conj-pair [left right]
+  (cond
+   (and (r/HeterogeneousMap? left)
+        (r/HeterogeneousVector? right))
+   (if (= (count (:types right)) 2)
+     (assoc-type-pairs left (:types right))
+     (u/int-error "Need vector of length 2 to conj to map"))
+   
+   (and (r/HeterogeneousMap? left)
+        (r/Nil? right))
+   left
+   
+   (r/HeterogeneousVector? left)
+   (assoc-type-pairs left [(r/-val (count (:types left))) right])
+   
+   (r/Nil? left)
+   (r/-hvec [right])
+   ))
+
+(defn conj-types [left & rtypes]
+  (reduce-type-transform conj-pair left rtypes))
+
 ;conj
 (add-invoke-special-method 'clojure.core/conj
-  [{[t & args :as all-args] :args :keys [fexpr] :as expr} & [expected]]
-  (let [t (check t)
-        args (doall (map check args))
-        c-all-args (concat [t] args)]
-    (cond
-      ;(conj {...} [a b]) => (merge {...} {a b})
-      (and (r/HeterogeneousMap? (expr-type t))
-           (r/HeterogeneousVector? (expr-type (first args))))
-      (let [m (expr-type t)
-            arg1 (expr-type (first args))
-            _ (when-not (= 2 (count (:types arg1)))
-                (u/int-error "Need vector of length 2 to conj to map"))
-            _ (when-not (every? r/Value? (:types arg1))
-                (u/nyi-error "NYI Vector must be of Values for now"))
-            res (c/-hmap
-                  (assoc (:types m)
-                         (-> arg1 :types first)
-                         (-> arg1 :types second))
-                  (:absent-keys m)
-                  (:other-keys? m))]
-        (assoc expr
-               expr-type (ret res)))
-
-      ;(conj {...} nil) => {...}
-      (and (r/HeterogeneousMap? (expr-type t))
-           (r/Nil? (expr-type (first args))))
-      (assoc expr
-             expr-type (ret (expr-type t)))
-
-      ;[...]
-      (r/HeterogeneousVector? (expr-type t))
-      (assoc expr
-             expr-type (ret (r/-hvec
-                              ;vectors conj onto end
-                              (vec (concat (:types (expr-type t)) 
-                                           [(expr-type (first args))])))))
-
-      :else (normal-invoke expr fexpr all-args expected
-                           :cargs c-all-args))))
+  [{:keys [args fexpr] :as expr} & [expected]]
+  (let [[ctarget & cargs :as all-cargs] (map check args)
+        ttarget (-> ctarget expr-type ret-t)
+        targs (map (comp ret-t expr-type) cargs)]
+    (if-let [conjed (apply (partial conj-types ttarget) targs)]
+      (assoc expr expr-type (ret conjed
+                                 (fo/-FS fl/-top fl/-bot) ; conj never returns nil
+                                 obj/-empty))
+      (normal-invoke expr fexpr args expected
+                     :cargs all-cargs))))
 
 (comment
   (method-expected-type (prs/parse-type '[Any -> Any])

@@ -2253,7 +2253,45 @@
   
   )
 
+(deftest invoke-conj-test
   
+  (equal-types (conj nil nil)
+               '[nil])
+  
+  (equal-types (conj [1] 2 3)
+               '['1 '2 '3])
+  
+  (equal-types (conj [1] (clojure.core.typed/ann-form nil (U nil '2)))
+               (U '['1 nil]
+                  '['1 '2]))
+  
+  (equal-types (conj (clojure.core.typed/ann-form nil (U nil '['1]))
+                     (clojure.core.typed/ann-form nil (U nil '2)))
+               (U '[nil]
+                  '['2]
+                  '['1 nil]
+                  '['1 '2]))
+  
+  (equal-types (conj {:a 1} [:b 2])
+               (HMap :mandatory {:a '1 :b '2} :complete? true))
+  
+  (equal-types (conj {:a 1}
+                     (clojure.core.typed/ann-form nil (U nil '[':b '2])))
+               (U (HMap :mandatory {:a '1} :complete? true)
+                  (HMap :mandatory {:a '1 :b '2} :complete? true)))
+  
+  (equal-types (conj (clojure.core.typed/ann-form nil (U nil (HMap :mandatory {:a '1} :complete? true)))
+                     (clojure.core.typed/ann-form nil (U nil '[':b '2])))
+               (U '[nil]
+                  '['[':b '2]]
+                  (HMap :mandatory {:a '1} :complete? true)
+                  (HMap :mandatory {:a '1 :b '2} :complete? true)))
+  
+  (equal-types (conj #{5} 6 7)
+               (clojure.lang.IPersistentSet (U '5 '6 '7)))
+  
+  )
+
 ;(reset-caches)
 
 ;(chk/abstract-result
