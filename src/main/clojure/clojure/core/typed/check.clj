@@ -2258,6 +2258,83 @@
       (normal-invoke expr fexpr args expected
                      :cargs all-cargs))))
 
+; merge support functions
+(defn- merge-hmaps
+  "Merges two HMaps into one, right into left.
+  
+  Preserves all key information where possible, missing keys in a right hand incomplete
+  map will erase type information for those keys in the left.
+  
+  This strategy allows a merge of HMaps to always stay an HMap, without having to drop
+  down to an IPersistentMap.
+  
+  For example:
+  (merge {:a 4 :b 6} '{:b 5}) -> '{:a Any :b 5}"
+  [left right]
+  {:pre [(r/HeterogeneousMap? left)
+         (r/HeterogeneousMap? right)]}
+  
+  (let [; update lhs with known types
+        first-pass (apply (partial assoc-type-pairs left) (:types right))
+        ; clear missing types when incomplete rhs and lhs still hmap
+        second-pass (if (and (r/HeterogeneousMap? first-pass) (:other-keys? right))
+                      (reduce
+                       (fn [t [lk lv]]
+                         (if (and t
+                                  ; left type not in right and not absent
+                                  (not (get (:types right) lk))
+                                  (not (get (:absent-keys right) lk)))
+                           (assoc-type-pairs t [lk r/-any])
+                           t))
+                       first-pass
+                       (:types left))
+                      first-pass)
+        ; ensure :other-keys? updated appropriately
+        final-pass (when (r/HeterogeneousMap? second-pass)
+                     (update-in second-pass [:other-keys?]
+                                #(or % (:other-keys? right))))]
+    final-pass))
+
+(defn- merge-pair [left right]
+  (let [map-merge (or (r/Nil? left)
+                      (sub/subtype? left
+                                    (c/RClass-of IPersistentMap [r/-any r/-any])))]
+    (cond
+     (r/HeterogeneousVector? left)
+     (r/-hvec (vec (concat (:types left) [right])))
+     
+     (sub/subtype? left (c/RClass-of IPersistentVector [r/-any]))
+     (c/RClass-of IPersistentVector [(c/Un right (nth (:poly? left) 0))])
+     
+     (and map-merge (r/Nil? right))
+     left
+     
+     (and (r/HeterogeneousMap? left) (r/HeterogeneousMap? right))
+     (merge-hmaps left right)
+     
+     (and (r/Nil? left) (r/HeterogeneousMap? right))
+     (merge-hmaps (c/-complete-hmap {}) right)
+     
+     (and (satisfies? AssocableType left) (r/HeterogeneousMap? right))
+     (apply (partial assoc-type-pairs left) (:types right))
+     )))
+
+(defn merge-types [left & rtypes]
+  (reduce-type-transform merge-pair left rtypes))
+
+; merge
+(add-invoke-special-method 'clojure.core/merge
+  [{:keys [fexpr args] :as expr} & [expected]]
+  {:post [(or (= % :default) (-> % expr-type TCResult?))]}
+  (let [[ctarget & cargs :as all-cargs] (map check args)
+        basemap (-> ctarget expr-type ret-t c/fully-resolve-type)
+        targs (map (comp ret-t expr-type) cargs)]
+    (if-let [merged (apply merge-types (concat [basemap] targs))]
+      (assoc expr expr-type (ret merged
+                                 (fo/-FS fl/-top fl/-bot) ;assoc never returns nil
+                                 obj/-empty))
+      (normal-invoke expr fexpr args expected
+                     :cargs all-cargs))))
 
 ;conj
 (add-invoke-special-method 'clojure.core/conj

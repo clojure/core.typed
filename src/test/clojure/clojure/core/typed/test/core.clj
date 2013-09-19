@@ -2127,6 +2127,141 @@
   (is (= (eret (= "a" (clojure.core.typed/ann-form 1 Any)))
          (ret (Un -false -true)))))
 
+(deftest invoke-merge-test
+  
+  ; basic literal case
+  (equal-types (merge {:a 5 :b 6} {:c 7 :d 8} {:e 9})
+               (HMap :mandatory {:a '5 :b '6 :c '7 :d '8 :e '9} :complete? true))
+  
+  ; right hand optionals
+  (equal-types (merge {:a 5 :b 6}
+                      (clojure.core.typed/ann-form {} (HMap :optional {:c String} :complete? true)))
+               (HMap :mandatory {:a '5 :b '6}
+                     :optional {:c String}
+                     :complete? true))
+  
+  ; left hand optionals
+  (equal-types (merge (clojure.core.typed/ann-form {} (HMap :optional {:a Number} :complete? true))
+                      (clojure.core.typed/ann-form {} (HMap :optional {:b String} :complete? true)))
+               (HMap :optional {:a Number :b String} :complete? true))
+  
+  ; nil first argument
+  (equal-types (merge nil
+                      (clojure.core.typed/ann-form {} (HMap :optional {:a Number} :complete? true))
+                      (clojure.core.typed/ann-form {} (HMap :optional {:b String} :complete? true)))
+               (HMap :optional {:a Number :b String} :complete? true))
+  
+  ; nils in other arguments
+  (equal-types (merge nil
+                      nil
+                      (clojure.core.typed/ann-form {} (HMap :optional {:a Number} :complete? true))
+                      nil
+                      nil
+                      (clojure.core.typed/ann-form {} (HMap :optional {:b String} :complete? true))
+                      nil)
+               (HMap :optional {:a Number :b String} :complete? true))
+  
+  ; all nils
+  (equal-types (merge nil)
+               nil)
+  (equal-types (merge nil nil nil)
+               nil)
+  
+  ; (Option HMap) first argument
+  (equal-types (merge (clojure.core.typed/ann-form {:c 5} (U nil (HMap :mandatory {:c '5} :complete? true)))
+                      (clojure.core.typed/ann-form {} (HMap :optional {:a Number} :complete? true))
+                      (clojure.core.typed/ann-form {} (HMap :optional {:b String} :complete? true)))
+               (HMap :optional {:a Number :b String :c '5} :complete? true))
+  
+  ; (Option HMap) arguments
+  (equal-types (merge (clojure.core.typed/ann-form {} (U nil (HMap :complete? true)))
+                      (clojure.core.typed/ann-form {} (U nil (HMap :optional {:a Number} :complete? true)))
+                      (clojure.core.typed/ann-form {} (U nil (HMap :optional {:b String} :complete? true))))
+               (U nil (HMap :optional {:a Number :b String} :complete? true)))
+  
+  ; this merge doesn't actually give us any information about :b
+  (equal-types (merge (clojure.core.typed/ann-form {} (HMap :optional {:a Number} :complete? false))
+                      (clojure.core.typed/ann-form {} (HMap :optional {:b String} :complete? true)))
+               (HMap :optional {:a Number}))
+  
+  ; but this does
+  (equal-types (merge (clojure.core.typed/ann-form {} (HMap :optional {:a Number} :complete? false))
+                      (clojure.core.typed/ann-form {:b "s"} (HMap :mandatory {:b String} :complete? true)))
+               (HMap :mandatory {:b String} :optional {:a Number}))
+  
+  ; multiple optionals
+  (equal-types (merge (clojure.core.typed/ann-form {} (HMap :optional {:a Number} :complete? true))
+                      (clojure.core.typed/ann-form {} (HMap :optional {:b String} :complete? true))
+                      (clojure.core.typed/ann-form {} (HMap :optional {:c Long} :complete? true)))
+               (HMap :optional {:a Number :b String :c Long} :complete? true))
+  
+  ;; incomplete right handsides
+  
+  ; non-covering right hand side
+  (equal-types (merge {:a 5 :b 6}
+                      (clojure.core.typed/ann-form {} '{}))
+               '{:a Any :b Any})
+  
+  (equal-types (merge (clojure.core.typed/ann-form {:a 6} '{:a Number})
+                      (clojure.core.typed/ann-form {:b "s"} '{:b String}))
+               '{:a Any :b String})
+  
+  ; incomplete covering mandatory
+  (equal-types (merge {:a 5}
+                      (clojure.core.typed/ann-form {:a 10} '{:a '10}))
+               '{:a '10})
+  
+  ; incomplete covering optional
+  (equal-types (merge {:a 5}
+                      (clojure.core.typed/ann-form {} (HMap :optional {:a (Value 10)})))
+               (U '{:a (Value 5)}
+                  '{:a (Value 10)}))
+  
+  
+  ; both incomplete optionals
+  (equal-types (merge (clojure.core.typed/ann-form {} (HMap :optional {:a '5}))
+                      (clojure.core.typed/ann-form {} (HMap :optional {:a '10})))
+               (U '{:a '5}
+                  '{:a '10}
+                  (HMap :mandatory {} :absent-keys #{:a} :complete? false)))
+  
+  ; (Option HMap) first argument incomplete
+  (equal-types (merge (clojure.core.typed/ann-form {:a 5} (U nil '{:a '5}))
+                      (clojure.core.typed/ann-form {:b 8} (HMap :mandatory {:b Number} :complete? true)))
+               (U (HMap :mandatory {:b Number} :complete? true)
+                  '{:a '5 :b Number}))
+  
+  ; combination of Option and an optional incomplete map
+  ; erases all information except for being an hmap
+  (equal-types (merge (clojure.core.typed/ann-form {:a 5} (U nil '{:a '5}))
+                      (clojure.core.typed/ann-form {} (HMap :optional {:a Number} :complete? false)))
+               '{})
+  
+  ; Basic maps
+  (equal-types (merge (clojure.core.typed/ann-form {} (clojure.lang.IPersistentMap Any Any)) {:a 5})
+               (clojure.lang.IPersistentMap Any Any))
+  
+  (equal-types (merge {} {'a 5})
+               (clojure.lang.IPersistentMap 'a '5))
+  
+  (equal-types (merge {:b 6} {'a 5})
+               (clojure.lang.IPersistentMap (U 'a ':b) (U '5 '6)))
+
+;;  not handling presence of non keyword keys yet
+;;   (equal-types (merge {'a 5} {:b 6})
+;;                (clojure.lang.IPersistentMap (U 'a ':b) (U '5 '6)))
+  
+  ; Vector targets act like conj
+  (equal-types (merge [1] 2 3)
+               (Vector* '1 '2 '3))
+  
+  ; Vector targets act like conj
+  (equal-types (merge (clojure.core.typed/ann-form [1] (clojure.lang.IPersistentVector '1)) 2 3)
+               (clojure.lang.IPersistentVector (U '1 '2 '3)))
+  
+  )
+
+  
 ;(reset-caches)
 
 ;(chk/abstract-result
