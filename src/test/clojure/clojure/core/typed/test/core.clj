@@ -2091,24 +2091,24 @@
   ; HVecs
   (equal-types-noparse (assoc [] 0 1)
                        (-hvec [(-val 1)]
-                              :filters [(-FS -top -bot)]
+                              :filters [(-true-filter)]
                               :objects [-empty]))
   
   (equal-types-noparse (assoc [3] 1 2)
                        (-hvec [(-val 3) (-val 2)]
                               :filters [(-FS -top -top) ; embedded literals dont get any
                                                         ; filter information (yet)?
-                                        (-FS -top -bot)]
+                                        (-true-filter)]
                               :objects [-empty -empty]))
   
   (equal-types-noparse (assoc [0] 0 1)
                        (-hvec [(-val 1)]
-                              :filters [(-FS -top -bot)]
+                              :filters [(-true-filter)]
                               :objects [-empty]))
   
   (equal-types-noparse (assoc [0] 0 (if (clojure.core.typed/ann-form 1 Any) 1 2))
                        (-hvec [(Un (-val 1) (-val 2))]
-                              :filters [(-FS -top -bot)]
+                              :filters [(-true-filter)]
                               :objects [-empty]))
   
   ; Basic types
@@ -2278,15 +2278,15 @@
   ; probably the filter/object info of the nil inside the vector is different?
   (equal-types-noparse (conj nil nil)
                        (-hvec [-nil]
-                              :filters [(-FS -bot -top)]
+                              :filters [(-false-filter)]
                               :objects [-empty]))
   
   (equal-types-noparse (conj [1] 2 3)
                        (-hvec [(-val 1) (-val 2) (-val 3)]
                               :filters [(-FS -top -top) ; embedded literals dont get any
                                                         ; filter information (yet)?
-                                        (-FS -top -bot)
-                                        (-FS -top -bot)]
+                                        (-true-filter)
+                                        (-true-filter)]
                               :objects [-empty -empty -empty]))
   
   (equal-types-noparse (conj [1]
@@ -2296,7 +2296,7 @@
                               :filters [(-FS -top -top) ; embedded literals dont get any
                                                         ; filter information (yet)?
                                         (-FS -top -top)
-                                        (-FS -top -bot)]
+                                        (-true-filter)]
                               :objects [-empty -empty -empty]))
   
   (equal-types (conj (clojure.core.typed/ann-form nil (U nil '['1]))
