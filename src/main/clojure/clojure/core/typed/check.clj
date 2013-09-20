@@ -2122,13 +2122,12 @@
   "Given a function f, left hand type t, and arguments, reduce the function
   over the left hand types with each argument in turn.
   
-  Type arguments will be resolved and expanded, so the transform function
-  does not have to handle unions (except if the arguments are compound).
+  Arguments will not be touched, it is up to f to resolve TCResults as needed.
+  However, unions returned by f will be expanded, so the left hand type argument
+  will not be a (raw) Union.
   
   Reduction is skipped once nil is returned, or optional predicate :when
-  returns false.
-  
-  TODO: use fold/fold-rhs here?"
+  returns false."
   [func t args & {pred :when}]
   (let [ok? #(and % (if pred (pred %) true))]
     (union-or-nil
