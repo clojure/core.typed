@@ -2019,7 +2019,7 @@
   (is (u/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.CTYP-37))))
 
-(defmacro equal-types-raw [l r]
+(defmacro equal-types-noparse [l r]
   `(clj (is (let [l# (ety ~l)
                   r# ~r]
               (or (both-subtype? l# r#)
@@ -2029,7 +2029,7 @@
               ))))
 
 (defmacro equal-types [l r]
-  `(equal-types-raw ~l (parse-type (quote ~r))))
+  `(equal-types-noparse ~l (parse-type (quote ~r))))
 
 (deftest invoke-dissoc-test
   ; complete dissocs
@@ -2089,27 +2089,27 @@
                (HMap :mandatory {:a (Value "v")}))
   
   ; HVecs
-  (equal-types-raw (assoc [] 0 1)
-                   (-hvec [(-val 1)]
-                            :filters [(-FS -top -bot)]
-                            :objects [-empty]))
+  (equal-types-noparse (assoc [] 0 1)
+                       (-hvec [(-val 1)]
+                              :filters [(-FS -top -bot)]
+                              :objects [-empty]))
   
-  (equal-types-raw (assoc [3] 1 2)
-                   (-hvec [(-val 3) (-val 2)]
-                            :filters [(-FS -top -top) ; embedded literals dont get any
-                                                      ; filter information (yet)?
-                                      (-FS -top -bot)]
-                            :objects [-empty -empty]))
+  (equal-types-noparse (assoc [3] 1 2)
+                       (-hvec [(-val 3) (-val 2)]
+                              :filters [(-FS -top -top) ; embedded literals dont get any
+                                                        ; filter information (yet)?
+                                        (-FS -top -bot)]
+                              :objects [-empty -empty]))
   
-  (equal-types-raw (assoc [0] 0 1)
-                   (-hvec [(-val 1)]
-                            :filters [(-FS -top -bot)]
-                            :objects [-empty]))
+  (equal-types-noparse (assoc [0] 0 1)
+                       (-hvec [(-val 1)]
+                              :filters [(-FS -top -bot)]
+                              :objects [-empty]))
   
-  (equal-types-raw (assoc [0] 0 (if (clojure.core.typed/ann-form 1 Any) 1 2))
-                   (-hvec [(Un (-val 1) (-val 2))]
-                            :filters [(-FS -top -bot)]
-                            :objects [-empty]))
+  (equal-types-noparse (assoc [0] 0 (if (clojure.core.typed/ann-form 1 Any) 1 2))
+                       (-hvec [(Un (-val 1) (-val 2))]
+                              :filters [(-FS -top -bot)]
+                              :objects [-empty]))
   
   ; Basic types
   (equal-types (assoc {} 'a 5)
@@ -2274,31 +2274,30 @@
 
 (deftest invoke-conj-test
   
-  (equal-types (nth (conj nil nil) 0)
-               nil)
+  ; Fails for some reason though the types look the same
+  ; probably the filter/object info of the nil inside the vector is different?
+  (equal-types-noparse (conj nil nil)
+                       (-hvec [-nil]
+                              :filters [(-FS -bot -top)]
+                              :objects [-empty]))
   
-  ;; ; Fails for some reason though the types look the same
-  ;; ; probably the filter/object info of the nil inside the vector is different?
-  ;; (equal-types (conj nil nil)
-  ;;              '[nil])
+  (equal-types-noparse (conj [1] 2 3)
+                       (-hvec [(-val 1) (-val 2) (-val 3)]
+                              :filters [(-FS -top -top) ; embedded literals dont get any
+                                                        ; filter information (yet)?
+                                        (-FS -top -bot)
+                                        (-FS -top -bot)]
+                              :objects [-empty -empty -empty]))
   
-  (equal-types-raw (conj [1] 2 3)
-                   (-hvec [(-val 1) (-val 2) (-val 3)]
-                            :filters [(-FS -top -top) ; embedded literals dont get any
-                                                      ; filter information (yet)?
-                                      (-FS -top -bot)
-                                      (-FS -top -bot)]
-                            :objects [-empty -empty -empty]))
-  
-  (equal-types-raw (conj [1]
-                         (clojure.core.typed/ann-form nil (U nil '2))
-                         3)
-                   (-hvec [(-val 1) (Un -nil (-val 2)) (-val 3)]
-                            :filters [(-FS -top -top) ; embedded literals dont get any
-                                                      ; filter information (yet)?
-                                      (-FS -top -top)
-                                      (-FS -top -bot)]
-                            :objects [-empty -empty -empty]))
+  (equal-types-noparse (conj [1]
+                             (clojure.core.typed/ann-form nil (U nil '2))
+                             3)
+                       (-hvec [(-val 1) (Un -nil (-val 2)) (-val 3)]
+                              :filters [(-FS -top -top) ; embedded literals dont get any
+                                                        ; filter information (yet)?
+                                        (-FS -top -top)
+                                        (-FS -top -bot)]
+                              :objects [-empty -empty -empty]))
   
   (equal-types (conj (clojure.core.typed/ann-form nil (U nil '['1]))
                      (clojure.core.typed/ann-form nil (U nil '2)))
