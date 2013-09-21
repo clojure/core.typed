@@ -1,3 +1,9 @@
+0.2.8 - Released 21 September 2013
+- Some Clojurescript fixes/cleanup
+- [CTYP-61](http://dev.clojure.org/jira/browse/CTYP-61)
+- [CTYP-66](http://dev.clojure.org/jira/browse/CTYP-66)
+  Big improvements to merge/assoc/dissoc/conj by cspencer
+
 0.2.7 - Released 17 September 2013
 - Fix regression: Load implementation on cf/check-form*
 - Stable core.async dep in project.clj
