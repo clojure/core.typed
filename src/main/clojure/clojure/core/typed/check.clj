@@ -1393,7 +1393,7 @@
             target-type (let [v (:val target-literal-class)]
                           (if (nil? v)
                             r/-nil
-                            (c/RClass-of-with-unknown-params (u/Class->symbol v))))
+                            (c/RClass-of-with-unknown-params v)))
 
             ; build expected types for each method map
             extends (into {}
@@ -2021,21 +2021,21 @@
                                   ;;  * target is nil or seq and default is true
                                   ;;  * target is seqable, default is false
                                   ;;    and target is at least (inc nnth) count
-                                  default-fs+ (fo/-or (fo/-and (fo/-filter-at (c/Un r/-nil (c/RClass-of (u/Class->symbol ISeq) [r/-any])) 
-                                                                           target-o)
+                                  default-fs+ (fo/-or (fo/-and (fo/-filter-at (c/Un r/-nil (c/RClass-of ISeq [r/-any])) 
+                                                                              target-o)
                                                                (fo/-not-filter-at (c/Un r/-false r/-nil) 
-                                                                               default-o))
-                                                      (fo/-and (fo/-filter-at (c/In (c/RClass-of (u/Class->symbol Seqable) [r/-any])
-                                                                               (r/make-CountRange (inc nnth)))
-                                                                           target-o)
+                                                                                  default-o))
+                                                      (fo/-and (fo/-filter-at (c/In (c/RClass-of Seqable [r/-any])
+                                                                                    (r/make-CountRange (inc nnth)))
+                                                                              target-o)
                                                                (fo/-filter-at (c/Un r/-false r/-nil) 
-                                                                           default-o)))
+                                                                              default-o)))
                                   ;;Without default:
                                   ;; if this is a true value: 
                                   ;;  * target is seqable of at least nnth count
-                                  nodefault-fs+ (fo/-filter-at (c/In (c/RClass-of (u/Class->symbol Seqable) [r/-any])
-                                                                (r/make-CountRange (inc nnth)))
-                                                            target-o)]
+                                  nodefault-fs+ (fo/-filter-at (c/In (c/RClass-of Seqable [r/-any])
+                                                                     (r/make-CountRange (inc nnth)))
+                                                               target-o)]
                               (fo/-FS (if default-t
                                         default-fs+
                                         nodefault-fs+)
@@ -3361,23 +3361,9 @@
   (if-let [typ (or ((prs/clj-primitives-fn) sym)
                    (symbol->PArray sym nilable?)
                    (when-let [cls (resolve sym)]
-                     (let [rcls-or-poly (@rcls/RESTRICTED-CLASS (u/Class->symbol cls))
-                           ; use correct number of arguments. Could be more general by recognising variance.
-                           nargs (when rcls-or-poly
-                                   (if (r/TypeFn? rcls-or-poly)
-                                     (let [^RClass body (c/TypeFn-body* (repeatedly (:nbound rcls-or-poly) gensym)
-                                                                        rcls-or-poly)
-                                           _ (assert (r/RClass? body))]
-                                       (count (.poly? body)))
-                                     (let [_ (assert (r/RClass? rcls-or-poly))]
-                                       (count (.poly? ^RClass rcls-or-poly)))))]
-                       ;                       (prn "class" cls)
-                       ;                       (prn "nargs" nargs)
-                       (apply c/Un (apply c/RClass-of cls (when nargs
-                                                            ; fill in arguments with Any
-                                                            [(repeat nargs r/-any)]))
-                              (when nilable?
-                                [r/-nil])))))]
+                     (apply c/Un (c/RClass-of-with-unknown-params cls)
+                            (when nilable?
+                              [r/-nil]))))]
     typ
     (u/tc-delayed-error (str "Method symbol " sym " does not resolve to a type"))))
 
@@ -3386,9 +3372,9 @@
   {:pre [(instance? clojure.reflect.Method method)]
    :post [(r/FnIntersection? %)]}
   (assert (class? (resolve declaring-class)))
-  (r/make-FnIntersection (r/make-Function (concat [(c/RClass-of declaring-class nil)]
-                                                (doall (map #(Java-symbol->Type % false) parameter-types)))
-                                        (Java-symbol->Type return-type true))))
+  (r/make-FnIntersection (r/make-Function (concat [(c/RClass-of-with-unknown-params declaring-class)]
+                                                  (doall (map #(Java-symbol->Type % false) parameter-types)))
+                                          (Java-symbol->Type return-type true))))
 
 ;[clojure.reflect.Field - Type]
 (defn- Field->Type [{:keys [type flags] :as field}]
@@ -3423,9 +3409,9 @@
         _ (when-not (class? cls)
             (u/tc-delayed-error (str "Constructor for unresolvable class " (:class ctor))))]
     (r/make-FnIntersection (r/make-Function (doall (map #(Java-symbol->Type % false) parameter-types))
-                                          (c/RClass-of cls nil)
-                                          nil nil
-                                          :filter (fo/-FS fl/-top fl/-bot))))) ;always a true value
+                                            (c/RClass-of-with-unknown-params cls)
+                                            nil nil
+                                            :filter (fo/-FS fl/-top fl/-bot))))) ;always a true value
 
 ;[MethodExpr -> (U nil NamespacedSymbol)]
 (defn MethodExpr->qualsym [{c :class :keys [op method method-name] :as expr}]
@@ -4296,7 +4282,7 @@
           ; eg. #(= (class %) Number)
           (and (r/Value? u)
                (class? (:val u)))
-          (c/restrict (c/RClass-of (:val u)) t)
+          (c/restrict (c/RClass-of-with-unknown-params (:val u)) t)
 
           ; handle (class nil) => nil
           (r/Nil? u)
@@ -4739,7 +4725,6 @@
 (add-check-method :deftype*
   [{nme :name :keys [methods env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (assert nme) ;remove once analyze is released
   ;TODO check fields match, handle extra fields in records
   #_(prn "Checking deftype definition:" nme)
   (binding [vs/*current-env* env]
@@ -4750,17 +4735,30 @@
                                               u/nat?)
                                 #(instance? clojure.reflect.Method %))
                      cmmap))
+          field-syms (:hinted-fields expr)
+          _ (assert (every? symbol? field-syms))
           dtp (dt-env/get-datatype nme)
           dt (if (r/TypeFn? dtp)
                (unwrap-datatype dtp)
                dtp)
+          expected-fields (c/DataType-fields* dt)
+          expected-field-syms (vec (keys expected-fields))
           ret-expr (assoc expr
                           expr-type (ret (c/RClass-of Class)))]
 
-      (if-not ((some-fn r/DataType? r/Record?) dt)
+      (cond
+        (not ((some-fn r/DataType? r/Record?) dt))
         (u/tc-delayed-error (str "deftype " nme " must have corresponding annotation. "
                                  "See ann-datatype and ann-record")
                             :return ret-expr)
+
+        (not= expected-field-syms field-syms)
+        (u/tc-delayed-error (str "deftype " nme " fields do not match annotation. "
+                                 " Expected: " (vec expected-field-syms) 
+                                 ", Actual: " (vec field-syms))
+                            :return ret-expr)
+
+        :else
         (let [check-method? (fn [inst-method]
                               (not (and (r/Record? dt)
                                         (record-implicits (symbol (:name inst-method))))))
@@ -4791,7 +4789,7 @@
                                                                 (munged-methods (:name method-sig)))))
                                                           (instance-method->Function method-sig)))]
                           #_(prn "method expected type" (prs/unparse-type expected-ifn))
-                          (lex/with-locals (c/DataType-fields* dt)
+                          (lex/with-locals expected-fields
                             ;(prn "lexical env when checking method" method-nme lex/*lexical-env*)
                             (check-new-instance-method
                               inst-method 
@@ -4852,7 +4850,7 @@
 (add-check-method :catch
   [{ecls :class, :keys [handler local-binding] :as expr} & [expected]]
   (let [local-sym (hygienic/hsym-key local-binding)
-        local-type (c/RClass-of ecls)
+        local-type (c/RClass-of-with-unknown-params ecls)
         chandler (lex/with-locals {local-sym local-type}
                    (check handler expected))]
     (assoc expr
