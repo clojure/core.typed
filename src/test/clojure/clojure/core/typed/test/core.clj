@@ -2023,10 +2023,10 @@
   `(clj (is (let [l# (ety ~l)
                   r# ~r]
               (or (both-subtype? l# r#)
-                  (println "Actual" l#)
-                  (println "Expected" r#)
-                  (println "In" (quote ~l)))
-              ))))
+                  (do (println "Actual" l#)
+                      (println "Expected" r#)
+                      (println "In" (quote ~l))
+                      nil))))))
 
 (defmacro equal-types [l r]
   `(equal-types-noparse ~l (parse-type (quote ~r))))
@@ -2266,7 +2266,7 @@
   (equal-types (merge {:b 6} {'a 5})
                (clojure.lang.IPersistentMap (U 'a ':b) (U '5 '6)))
 
-;;  not handling presence of non keyword keys yet
+;;  TODO not handling presence of non keyword keys yet
 ;;   (equal-types (merge {'a 5} {:b 6})
 ;;                (clojure.lang.IPersistentMap (U 'a ':b) (U '5 '6)))
   
@@ -2274,8 +2274,7 @@
 
 (deftest invoke-conj-test
   
-  ; Fails for some reason though the types look the same
-  ; probably the filter/object info of the nil inside the vector is different?
+  ; need to manually build hvec to match filters/objects
   (equal-types-noparse (conj nil nil)
                        (-hvec [-nil]
                               :filters [(-false-filter)]
@@ -2283,8 +2282,7 @@
   
   (equal-types-noparse (conj [1] 2 3)
                        (-hvec [(-val 1) (-val 2) (-val 3)]
-                              :filters [(-FS -top -top) ; embedded literals dont get any
-                                                        ; filter information (yet)?
+                              :filters [(-FS -top -top)
                                         (-true-filter)
                                         (-true-filter)]
                               :objects [-empty -empty -empty]))
@@ -2338,13 +2336,6 @@
 
 ;
 ;TODO destructuring on records
-;TODO this is non-nil (last (take 100 (iterate update-without-plot initial-state)))
-;TODO 
-;          {final-grid :grid,
-;           :as final-state} (last (take 100 (iterate update-without-plot initial-state)))
-;          _ (assert final-state)
-;          ; be smart enough to infer final-grid cannot be nil just from the above assertion.
-;          _ (assert final-grid)
 
 ;TODO support (some #{...} coll)
 ;TODO (apply == (non-empty-seq))
