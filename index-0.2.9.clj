@@ -13,12 +13,6 @@
    :doc
    "This namespace contains annotations and helper macros for type\nchecking core.async code. Ensure clojure.core.async is require'd\nbefore performing type checking.\n\ngo\n  use go>\n\nchan\n  use chan>\n\nbuffer\n  use buffer> (similar for other buffer constructors)\n"}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/57da1175037dfd61c96c711165ea318db65f46c0/src/main/clojure/clojure/core/typed/base_env_common.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.base-env-common-api.html",
-   :name "clojure.core.typed.base-env-common",
-   :doc "Utilities for all implementations of the type checker"}
-  {:source-url
    "https://github.com/clojure/core.typed/blob/6b5231ad882ee07b0ef6c5e978e09c09aed083a6/src/main/clojure/clojure/core/typed/hole.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.hole-api.html",
