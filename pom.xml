@@ -85,13 +85,6 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <!-- for algo.monads -->
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>tools.macro</artifactId>
-      <version>0.1.0</version>
-      <optional>true</optional>
-    </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.namespace</artifactId>
