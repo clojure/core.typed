@@ -10,3 +10,5 @@
 (deftype Accumulator [t]
   AddProtoc
   (adder [_ i] 1))
+
+(ann-protocol short/ShortNs)
