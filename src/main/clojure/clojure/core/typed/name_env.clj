@@ -116,7 +116,7 @@
 (ann declare-protocol* [Symbol -> nil])
 (defn declare-protocol* [sym]
   {:pre [(symbol? sym)
-         (some #{\.} (str sym))]}
+         (namespace sym)]}
   (add-type-name sym protocol-name-type)
   nil)
 
