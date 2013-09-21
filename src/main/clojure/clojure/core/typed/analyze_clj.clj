@@ -24,8 +24,8 @@
   [nsym]
   {:pre [(symbol? nsym)]}
   (u/p :analyze/ast-for-ns
-  (with-open [^clojure.lang.LineNumberingPushbackReader pbr (analyze/pb-reader-for-ns nsym)]
-    (let [astv (->> (analyze/analyze-ns pbr (analyze/uri-for-ns nsym) nsym)
+  (with-open [pbr (analyze/pb-reader-for-ns nsym)]
+    (let [astv (->> (analyze/analyze-ns nsym :reader pbr)
                     (map hygienic/ast-hy)
                     vec)]
       astv))))
