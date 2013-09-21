@@ -1,3 +1,11 @@
+0.2.9 - Released 22 September 2013
+- Partially fix [CTYP-64](http://dev.clojure.org/jira/browse/CTYP-64)
+  - comprehensible error when annotating a defrecord with ann-datatype
+- Fix [CTYP-65](http://dev.clojure.org/jira/browse/CTYP-65)
+  - annotate protocols in single-level namespaces
+- Upgrade to jvm.tools.analyzer 0.5.1
+  - AST now has source path information
+
 0.2.8 - Released 21 September 2013
 - Some Clojurescript fixes/cleanup
 - [CTYP-61](http://dev.clojure.org/jira/browse/CTYP-61)
