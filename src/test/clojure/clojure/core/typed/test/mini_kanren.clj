@@ -14,11 +14,12 @@
 (ns clojure.core.typed.test.mini-kanren
   (:import (clojure.lang IMeta Symbol Keyword IPersistentList IPersistentMap
                          Seqable))
-  (:require [clojure.core.typed.test.monads :refer [defmonad with-monad m-chain]]
+  (:require #_[clojure.core.typed.test.monads :refer [defmonad with-monad m-chain]]
             [clojure.pprint :refer [pprint]]
             [clojure.repl :refer [pst]]
             [clojure.core.typed :refer [ann inst def-alias check-ns declare-names
                                         tc-ignore]]))
+(comment
 
 (comment
   This file is the result of implementing the logic programming system described
@@ -651,3 +652,4 @@
     ((& 'pasta x) fail)
     (else succeed)))
 
+)

@@ -2,7 +2,7 @@
   (:require [clojure.repl :refer [pst]]
             [clojure.core.typed :refer [ann ann-form ann-datatype check-ns typed-deps]]
             [clojure.core.typed.hole :refer [noisy-hole silent-hole]]
-            [clojure.core.typed.test.monads :refer [;types 
+            #_[clojure.core.typed.test.monads :refer [;types 
                                                     AnyMonad 
                                                     ;vars
                                                     domonad defmonadfn ann-monadfn]]))
@@ -112,7 +112,7 @@
 
 ;; ## monadic apply
 
-(ann-monadfn mapply 
+#_(ann-monadfn mapply 
              m
              (All [a b]
                   [(m [a -> b]) (m a) -> (m b)]))
