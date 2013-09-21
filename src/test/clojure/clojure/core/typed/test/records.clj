@@ -28,3 +28,6 @@
     clojure.lang.IFn
     (invoke [this query] (get this query)))
   (ann-record A [a :- Number]))
+
+(ann-record [[a :variance :covariant]]
+            MyPolyRecord [a :- Number])

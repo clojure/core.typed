@@ -971,8 +971,19 @@ for checking namespaces, cf for checking individual forms."}
                     MyPolyRecord
                     [str :- String,
                      vec :- (Vec Number)])"
-  [dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
-  `(ann-record* '~dname '~fields '~opt))
+  [& args]
+  ;[dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
+  (let [bnd-provided? (vector? (first args))
+        vbnd (when bnd-provided?
+               (first args))
+        [dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
+        (if bnd-provided?
+          (next args)
+          args)]
+    (if bnd-provided?
+      ;reuse ann-precord for now
+      `(ann-precord ~dname ~vbnd ~fields ~@opt)
+      `(ann-record* '~dname '~fields '~opt))))
 
 (defn ^:skip-wiki
   ann-precord* 
@@ -1175,7 +1186,7 @@ for checking namespaces, cf for checking individual forms."}
         (print "Type Error ")
         (print (str "(" (-> env :ns :name) ":" (:line env) 
                     (when-let [col (:column env)]
-                      (str ":"col))
+                      (str ":" col))
                     ") "))
         (print (.getMessage e))
         (println)
