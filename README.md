@@ -95,6 +95,7 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 * Stephen Compall (S11001001)
 * Andrew Brehaut (brehaut)
+* Christopher Spencer (cspencer)
 
 ## YourKit
 
