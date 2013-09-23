@@ -1,3 +1,18 @@
+0.2.10-SNAPSHOT
+- [CTYP-69](http://dev.clojure.org/jira/browse/CTYP-69)
+  Good error for unannotated deftype
+- New aliases
+  - clojure.core.typed/Nilable
+  - clojure.core.typed/NilableNonEmptySeq
+- New annotations
+  - bound?, thread-bound?, bases, make-hierarchy, isa?,
+    rand-int
+- Datatype methods support recur
+- Partial fix for [CTYP-64](http://dev.clojure.org/jira/browse/CTYP-64)
+  It is an explicit error to annotate a datatype as a record or vice-versa
+- Providing a rest type or a multiple arity function intersection type to deftype methods throw
+  a delayed error. Multiple arities throw a NYI message.
+
 0.2.9 - Released 22 September 2013
 - Partially fix [CTYP-64](http://dev.clojure.org/jira/browse/CTYP-64)
   - comprehensible error when annotating a defrecord with ann-datatype
