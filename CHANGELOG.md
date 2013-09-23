@@ -1,4 +1,6 @@
 0.2.11-SNAPSHOT
+- Fix [CTYP-56](http://dev.clojure.org/jira/browse/CTYP-56)
+  Support 3-argument isa?
 
 0.2.10 - Released 24 September 2013
 - [CTYP-69](http://dev.clojure.org/jira/browse/CTYP-69)
