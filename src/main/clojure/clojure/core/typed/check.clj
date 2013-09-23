@@ -295,7 +295,7 @@
         _ (when (and expected (not (sub/subtype? actual expected)))
             (expected-error actual expected))]
     (assoc expr
-           expr-type (ret actual fo/-true-filter))))
+           expr-type (ret actual (fo/-true-filter)))))
 
 (add-check-method :set
   [{:keys [args] :as expr} & [expected]]
@@ -304,7 +304,7 @@
         _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
             (expected-error res-type (ret-t expected)))]
     (assoc expr
-           expr-type (ret res-type fo/-true-filter))))
+           expr-type (ret res-type (fo/-true-filter)))))
 
 (add-check-method :vector
   [{:keys [args] :as expr} & [expected]]
@@ -315,7 +315,7 @@
         _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
             (expected-error res-type (ret-t expected)))]
     (assoc expr
-           expr-type (ret res-type fo/-true-filter))))
+           expr-type (ret res-type (fo/-true-filter)))))
 
 (add-check-method :empty-expr 
   [{coll :coll :as expr} & [expected]]
@@ -323,7 +323,7 @@
         _ (when (and expected (not (sub/subtype? actual (ret-t expected))))
             (expected-error actual (ret-t expected)))]
     (assoc expr
-           expr-type (ret actual fo/-true-filter))))
+           expr-type (ret actual (fo/-true-filter)))))
 
 ;; check-below : (/\ (Results Type -> Result)
 ;;                   (Results Results -> Result)
@@ -1243,7 +1243,7 @@
                                       :return (r/TCError-maker)))]
     (assoc expr
            expr-type (ret (c/RClass-of Var [t])
-                          fo/-true-filter
+                          (fo/-true-filter)
                           obj/-empty))))
 
 ;[Any TCResult * -> TCResult]
@@ -2238,7 +2238,7 @@
     (if-let [new-hmaps (apply (partial assoc-type-pairs targetun) keypair-types)]
       (assoc expr
         expr-type (ret new-hmaps
-                       fo/-true-filter ;assoc never returns nil
+                       (fo/-true-filter) ;assoc never returns nil
                        obj/-empty))
       
       ;; to do: improve this error message
@@ -2371,7 +2371,7 @@
         targs (map expr-type cargs)]
     (if-let [merged (apply merge-types (concat [basemap] targs))]
       (assoc expr expr-type (ret merged
-                                 fo/-true-filter ;assoc never returns nil
+                                 (fo/-true-filter) ;assoc never returns nil
                                  obj/-empty))
       (normal-invoke expr fexpr args expected
                      :cargs all-cargs))))
@@ -2414,7 +2414,7 @@
         targs (map expr-type cargs)]
     (if-let [conjed (apply (partial conj-types ttarget) targs)]
       (assoc expr expr-type (ret conjed
-                                 fo/-true-filter ; conj never returns nil
+                                 (fo/-true-filter) ; conj never returns nil
                                  obj/-empty))
       (normal-invoke expr fexpr args expected
                      :cargs all-cargs))))
@@ -2977,7 +2977,7 @@
                                                            (check-anon-fn-method m dom rng))
                                                          methods methods-types)))]
       (assoc expr
-             expr-type (ret ftype fo/-true-filter obj/-empty)))))
+             expr-type (ret ftype (fo/-true-filter) obj/-empty)))))
 
 ;[Type -> '[Type (Option (Seqable Symbol)) (Option (Seqable F)) (Option (Seqable Bounds)) (Option (U :Poly :PolyDots))]
 ; -> Type]
@@ -3411,7 +3411,7 @@
     (r/make-FnIntersection (r/make-Function (doall (map #(Java-symbol->Type % false) parameter-types))
                                             (c/RClass-of-with-unknown-params cls)
                                             nil nil
-                                            :filter fo/-true-filter)))) ;always a true value
+                                            :filter (fo/-true-filter))))) ;always a true value
 
 ;[MethodExpr -> (U nil NamespacedSymbol)]
 (defn MethodExpr->qualsym [{c :class :keys [op method method-name] :as expr}]
