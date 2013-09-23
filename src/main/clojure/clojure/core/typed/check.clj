@@ -1725,15 +1725,16 @@
       (ret (c/Un r/-true r/-false) fs obj/-empty))))
 
 
-;isa? (2 arity only)
+;isa? (2 arity is special)
 (add-invoke-special-method 'clojure.core/isa?
   [{:keys [args] :as expr} & [expected]]
-  (when-not (= 2 (count args))
-    (u/nyi-error "core.typed supports 2 argument invocations of isa?"))
-  (let [[cchild-expr cparent-expr :as cargs] (mapv check args)]
-    (assoc expr
-           expr-type (tc-isa? (expr-type cchild-expr)
-                              (expr-type cparent-expr)))))
+  (cond
+    (#{2} (count args))
+    (let [[cchild-expr cparent-expr :as cargs] (mapv check args)]
+      (assoc expr
+             expr-type (tc-isa? (expr-type cchild-expr)
+                                (expr-type cparent-expr))))
+    :else :default))
 
 ;FIXME need to review if any repeated "check"s happen between invoke-apply and specials
 ;apply

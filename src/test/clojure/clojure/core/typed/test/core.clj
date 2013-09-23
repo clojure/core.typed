@@ -1136,8 +1136,9 @@
          (clojure.lang.IPersistentMap clojure.lang.Keyword ':b)))
 
 (deftest isa-test
-  (is-clj (tc-t (isa? 1 1)))
-  (is-clj (tc-t #(isa? (class %) Number))))
+  (is-cf (isa? 1 1))
+  (is-cf (isa? {:parents {} :ancestors {} :descendants {}} 1 1))
+  (is-cf #(isa? (class %) Number)))
 
 (deftest array-primitive-hint-test
   (is-cf (let [^ints a (clojure.core.typed/into-array> int [(int 1)])]
