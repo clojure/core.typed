@@ -295,7 +295,7 @@
         _ (when (and expected (not (sub/subtype? actual expected)))
             (expected-error actual expected))]
     (assoc expr
-           expr-type (ret actual (fo/-FS fl/-top fl/-bot)))))
+           expr-type (ret actual fo/-true-filter))))
 
 (add-check-method :set
   [{:keys [args] :as expr} & [expected]]
@@ -304,7 +304,7 @@
         _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
             (expected-error res-type (ret-t expected)))]
     (assoc expr
-           expr-type (ret res-type (fo/-FS fl/-top fl/-bot)))))
+           expr-type (ret res-type fo/-true-filter))))
 
 (add-check-method :vector
   [{:keys [args] :as expr} & [expected]]
@@ -315,7 +315,7 @@
         _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
             (expected-error res-type (ret-t expected)))]
     (assoc expr
-           expr-type (ret res-type (fo/-FS fl/-top fl/-bot)))))
+           expr-type (ret res-type fo/-true-filter))))
 
 (add-check-method :empty-expr 
   [{coll :coll :as expr} & [expected]]
@@ -323,7 +323,7 @@
         _ (when (and expected (not (sub/subtype? actual (ret-t expected))))
             (expected-error actual (ret-t expected)))]
     (assoc expr
-           expr-type (ret actual (fo/-FS fl/-top fl/-bot)))))
+           expr-type (ret actual fo/-true-filter))))
 
 ;; check-below : (/\ (Results Type -> Result)
 ;;                   (Results Results -> Result)
@@ -1243,7 +1243,7 @@
                                       :return (r/TCError-maker)))]
     (assoc expr
            expr-type (ret (c/RClass-of Var [t])
-                          (fo/-FS fl/-top fl/-bot)
+                          fo/-true-filter
                           obj/-empty))))
 
 ;[Any TCResult * -> TCResult]
@@ -2217,7 +2217,7 @@
                         (r/TCResult? v)))
                  pairs)]}
   (reduce-type-transform -assoc-pair t pairs
-                         :when (partial satisfies? AssocableType)))
+                         :when #(satisfies? AssocableType %)))
 
 ;assoc
 ; FIXME needs more tests
@@ -2238,7 +2238,7 @@
     (if-let [new-hmaps (apply (partial assoc-type-pairs targetun) keypair-types)]
       (assoc expr
         expr-type (ret new-hmaps
-                       (fo/-FS fl/-top fl/-bot) ;assoc never returns nil
+                       fo/-true-filter ;assoc never returns nil
                        obj/-empty))
       
       ;; to do: improve this error message
@@ -2371,7 +2371,7 @@
         targs (map expr-type cargs)]
     (if-let [merged (apply merge-types (concat [basemap] targs))]
       (assoc expr expr-type (ret merged
-                                 (fo/-FS fl/-top fl/-bot) ;assoc never returns nil
+                                 fo/-true-filter ;assoc never returns nil
                                  obj/-empty))
       (normal-invoke expr fexpr args expected
                      :cargs all-cargs))))
@@ -2414,7 +2414,7 @@
         targs (map expr-type cargs)]
     (if-let [conjed (apply (partial conj-types ttarget) targs)]
       (assoc expr expr-type (ret conjed
-                                 (fo/-FS fl/-top fl/-bot) ; conj never returns nil
+                                 fo/-true-filter ; conj never returns nil
                                  obj/-empty))
       (normal-invoke expr fexpr args expected
                      :cargs all-cargs))))
@@ -2977,7 +2977,7 @@
                                                            (check-anon-fn-method m dom rng))
                                                          methods methods-types)))]
       (assoc expr
-             expr-type (ret ftype (fo/-FS fl/-top fl/-bot) obj/-empty)))))
+             expr-type (ret ftype fo/-true-filter obj/-empty)))))
 
 ;[Type -> '[Type (Option (Seqable Symbol)) (Option (Seqable F)) (Option (Seqable Bounds)) (Option (U :Poly :PolyDots))]
 ; -> Type]
@@ -3411,7 +3411,7 @@
     (r/make-FnIntersection (r/make-Function (doall (map #(Java-symbol->Type % false) parameter-types))
                                             (c/RClass-of-with-unknown-params cls)
                                             nil nil
-                                            :filter (fo/-FS fl/-top fl/-bot))))) ;always a true value
+                                            :filter fo/-true-filter)))) ;always a true value
 
 ;[MethodExpr -> (U nil NamespacedSymbol)]
 (defn MethodExpr->qualsym [{c :class :keys [op method method-name] :as expr}]
@@ -4723,7 +4723,7 @@
 (declare check-new-instance-method)
 
 (add-check-method :deftype*
-  [{nme :name :keys [methods env] :as expr} & [expected]]
+  [{nme :name :keys [methods compiled-class env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   ;TODO check fields match, handle extra fields in records
   #_(prn "Checking deftype definition:" nme)
@@ -4752,6 +4752,20 @@
         (u/tc-delayed-error (str "deftype " nme " must have corresponding annotation. "
                                  "See ann-datatype and ann-record")
                             :return ret-expr)
+
+        (if (r/Record? dt)
+          (c/isa-DataType? compiled-class)
+          (c/isa-Record? compiled-class))
+        (let [datatype? (c/isa-DataType? compiled-class)]
+          (prn (c/isa-DataType? compiled-class)
+               (c/isa-Record? compiled-class)
+               (r/DataType? dt)
+               (r/Record? dt))
+          (u/tc-delayed-error (str (if datatype? "Datatype" "Record ") nme 
+                                   " is annotated as a " (if datatype? "record" "datatype") 
+                                   ", should be a " (if datatype? "datatype" "record") ". "
+                                   "See ann-datatype and ann-record")
+                              :return ret-expr))
 
         (not= expected-field-syms field-syms)
         (u/tc-delayed-error (str "deftype " nme " fields do not match annotation. "
@@ -4801,17 +4815,21 @@
 (defn check-new-instance-method
   [{:keys [body required-params] :as expr} expected-fin]
   {:pre [(r/FnIntersection? expected-fin)]}
-  (let [_ (assert (= 1 (count (:types expected-fin))))
-        {:keys [dom rng] :as expected-fn} (-> expected-fin :types first)
-        _ (assert (not (:rest expected-fn)))
-        cbody (lex/with-locals (zipmap (map hygienic/hsym-key required-params) dom)
-                (check body (ret (r/Result-type* rng)
-                                 (r/Result-filter* rng)
-                                 (r/Result-object* rng))))
-        _ (when-not (sub/subtype? (-> cbody expr-type ret-t) (r/Result-type* rng))
-            (expected-error (-> cbody expr-type ret-t) (r/Result-type* rng)))]
-    (assoc expr
-           expr-type (expr-type cbody))))
+  (if (not= 1 (count (:types expected-fin)))
+    (u/tc-delayed-error (str "Checking of deftype methods with more than one arity not yet implemented")
+                        :return (assoc expr expr-type (ret (r/TCError-maker))))
+    (let [{:keys [dom rng] :as expected-fn} (-> expected-fin :types first)]
+      (if (:rest expected-fn)
+        (u/tc-delayed-error (str "deftype methods do not support rest arguments")
+                            :return (assoc expr expr-type (ret (r/TCError-maker))))
+        (let [cbody (lex/with-locals (zipmap (map hygienic/hsym-key required-params) dom)
+                      ; recur target omits the first argument, 'this'
+                      (with-recur-target (->RecurTarget (rest dom) nil nil nil)
+                        (check body (r/Result->TCResult rng))))
+              _ (when-not (sub/subtype? (-> cbody expr-type ret-t) (r/Result-type* rng))
+                  (expected-error (-> cbody expr-type ret-t) (r/Result-type* rng)))]
+          (assoc expr
+                 expr-type (expr-type cbody)))))))
 
 (add-check-method :import*
   [{:keys [class-str] :as expr} & [expected]]
@@ -4869,19 +4887,20 @@
                                  (map (comp ret-t expr-type) ccatch-exprs))))))
 
 (add-check-method :set!
-  [{:keys [target val] :as expr} & [expected]]
-  (let [ctarget (check target)
-        cval (check val (expr-type ctarget))
-        _ (when-not (sub/subtype? 
-                      (-> cval expr-type ret-t)
-                      (-> ctarget expr-type ret-t))
-            (u/tc-delayed-error (str "Cannot set! " (-> ctarget expr-type ret-t prs/unparse-type pr-str)
-                                     " to " (-> cval expr-type ret-t prs/unparse-type pr-str)
-                                     "\n\nForm:\n\t" (u/emit-form-fn expr))))]
-    (assoc expr
-           expr-type (expr-type cval)
-           :target ctarget
-           :val cval)))
+  [{:keys [target val env] :as expr} & [expected]]
+  (binding [vs/*current-expr* expr
+            vs/*current-env* env]
+    (let [ctarget (check target)
+          cval (check val (expr-type ctarget))
+          _ (when-not (sub/subtype? 
+                        (-> cval expr-type ret-t)
+                        (-> ctarget expr-type ret-t))
+              (u/tc-delayed-error (str "Cannot set! " (-> ctarget expr-type ret-t prs/unparse-type pr-str)
+                                       " to " (-> cval expr-type ret-t prs/unparse-type pr-str))))]
+      (assoc expr
+             expr-type (expr-type cval)
+             :target ctarget
+             :val cval))))
 
 (comment
   ;; error checking
