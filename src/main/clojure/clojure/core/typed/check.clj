@@ -4741,7 +4741,8 @@
           dt (if (r/TypeFn? dtp)
                (unwrap-datatype dtp)
                dtp)
-          expected-fields (c/DataType-fields* dt)
+          expected-fields (when dt
+                            (c/DataType-fields* dt))
           expected-field-syms (vec (keys expected-fields))
           ret-expr (assoc expr
                           expr-type (ret (c/RClass-of Class)))]

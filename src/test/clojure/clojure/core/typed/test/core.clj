@@ -2321,6 +2321,10 @@
   
   )
 
+(deftest unannotated-record-test
+  (is (u/top-level-error-thrown?
+        (cf (defrecord Unannotated [])))))
+
 ;(reset-caches)
 
 ;(chk/abstract-result
