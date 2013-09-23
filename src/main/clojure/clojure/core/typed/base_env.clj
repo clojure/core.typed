@@ -506,6 +506,10 @@ clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] (Atom x x))
       :forms [(Option t)]}
 clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
 
+    ^{:doc "A union of x and nil."
+      :forms [(Nilable t)]}
+clojure.core.typed/Nilable (TFn [[x :variance :covariant]] (U nil x))
+
       ^{:doc "The identity function at the type level."
         :forms [Id]}
 clojure.core.typed/Id (TFn [[x :variance :covariant]] x)
@@ -575,6 +579,11 @@ clojure.core.typed/Seq (TFn [[x :variance :covariant]]
 clojure.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
                                      (I (ISeq x) (CountRange 1)))
 
+    ^{:doc "A persistent sequence of member type x with count greater than 0, or nil."
+      :forms [(NilableNonEmptySeq t)]}
+clojure.core.typed/NilableNonEmptySeq (TFn [[x :variance :covariant]]
+                                         (U nil (I (ISeq x) (CountRange 1))))
+
     ^{:doc "The type of all things with count 0. Use as part of an intersection.
 eg. See EmptySeqable."
       :forms [EmptyCount]}
@@ -584,6 +593,12 @@ clojure.core.typed/EmptyCount (ExactCount 0)
 eg. See NonEmptySeq"
       :forms [NonEmptyCount]}
 clojure.core.typed/NonEmptyCount (CountRange 1)
+
+    ^{:doc "A hierarchy for use with derive, isa? etc."
+      :forms [Hierarchy]}
+clojure.core.typed/Hierarchy '{:parents (IPersistentMap Any Any)
+                               :ancestors (IPersistentMap Any Any)
+                               :descendants (IPersistentMap Any Any)}
     ))
 
 (defn reset-alias-env! []
@@ -610,7 +625,8 @@ clojure.core.typed/NonEmptyCount (CountRange 1)
 ; must be after init-alias-env def as vars are interned there
 (let [interns '[Option AnyInteger Id Coll Seq NonEmptySeq EmptySeqable
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
-                Vec NonEmptyColl NonEmptyLazySeq]]
+                Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
+                Hierarchy Nilable Int]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -779,6 +795,14 @@ clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
 
 clojure.core/not [Any -> boolean]
 clojure.core/constantly (All [x y] [x -> [y * -> x]])
+
+clojure.core/bound? [(Var Any) * -> Boolean]
+clojure.core/thread-bound? [(Var Any) * -> Boolean]
+clojure.core/bases [(Nilable Class) -> (NilableNonEmptySeq Class)]
+
+clojure.core/make-hierarchy [-> Hierarchy]
+clojure.core/isa? (Fn [Any Any -> Boolean]
+                      [Hierarchy Any Any -> Boolean])
 
 ;TODO make extensible via IPersisentSet
 clojure.core/disj
@@ -1292,6 +1316,8 @@ clojure.core/ref (All [x] [x -> (clojure.lang.ARef x x)])
 
 clojure.core/rand (Fn [-> Number]
                       [Number -> Number])
+
+clojure.core/rand-int [Int -> Int]
 
 
 ;; START CHUNK HACKS

@@ -55,7 +55,7 @@ for checking namespaces, cf for checking individual forms."}
   "Internal use only."
   '#{Option AnyInteger Int Num Atom1 Id Coll NonEmptyColl Vec NonEmptyVec
      Map Set SortedSet Seqable NonEmptySeqable EmptySeqable Seq NonEmptySeq EmptyCount NonEmptyCount
-     NonEmptyLazySeq})
+     NonEmptyLazySeq Hierarchy NilableNonEmptySeq Nilable})
 
 (doseq [v -base-aliases]
   (intern 'clojure.core.typed v))
@@ -1485,9 +1485,11 @@ for checking namespaces, cf for checking individual forms."}
               (conj stats
                     [nsym
                      {:vars {:all-vars (all-defs-in-ns ns)
-                             :no-checks (let [all-no-checks @(impl/v 'clojure.core.typed.var-env/CLJ-NOCHECK-VAR?)]
+                             :no-checks (let [; deref the atom
+                                              all-no-checks @(impl/v 'clojure.core.typed.var-env/CLJ-NOCHECK-VAR?)]
                                           (filter (fn [s] (= (namespace s) nsym)) all-no-checks))
-                             :var-annotations (let [annots @(impl/v 'clojure.core.typed.var-env/CLJ-VAR-ANNOTATIONS)]
+                             :var-annotations (let [; deref the atom
+                                                    annots @(impl/v 'clojure.core.typed.var-env/CLJ-VAR-ANNOTATIONS)]
                                                 (->> annots
                                                      (filter (fn [[k v]] (= (namespace k) (str nsym))))
                                                      (map (fn [[k v]] [k (binding [*verbose-types* true]
