@@ -1,11 +1,13 @@
-0.2.10-SNAPSHOT
+0.2.10
 - [CTYP-69](http://dev.clojure.org/jira/browse/CTYP-69)
   Good error for unannotated deftype
 - New aliases
-  - clojure.core.typed/Nilable
-  - clojure.core.typed/NilableNonEmptySeq
+  - [Nilable](http://clojure.github.io/core.typed/#clojure.core.typed/Nilable)
+  - [NilableNonEmptySeq](http://clojure.github.io/core.typed/#clojure.core.typed/NilableNonEmptySeq)
+  - [Hierarchy](http://clojure.github.io/core.typed/#clojure.core.typed/Hierarchy)
 - New annotations
-  - bound?, thread-bound?, bases, make-hierarchy, isa?,
+  - bound?, thread-bound?, bases, make-hierarchy, 
+    isa? ([CYP-56](http://dev.clojure.org/jira/browse/CTYP-56), 3-arg version will work in next release),
     rand-int
 - Datatype methods support recur
 - Partial fix for [CTYP-64](http://dev.clojure.org/jira/browse/CTYP-64)
