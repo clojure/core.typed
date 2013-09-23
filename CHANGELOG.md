@@ -1,4 +1,4 @@
-0.2.10
+0.2.10 - Released 24 September 2013
 - [CTYP-69](http://dev.clojure.org/jira/browse/CTYP-69)
   Good error for unannotated deftype
 - New aliases
