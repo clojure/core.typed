@@ -710,7 +710,10 @@
   {:post [(r/Function? %)]}
   (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
-        _ (assert (<= 2 (count chk)) (str (parse-in-ns) ":" "Missing range in " f))
+        _ (assert (<= 2 (count chk)) (str (parse-in-ns) ": Incorrect function syntax: " f))
+
+        _ (assert (even? (count opts-flat)) 
+                  (str (parse-in-ns) ": Incorrect function syntax, must have even number of keyword parameters: " f))
 
         opts (apply hash-map opts-flat)
 
