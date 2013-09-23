@@ -2325,6 +2325,20 @@
   (is (u/top-level-error-thrown?
         (cf (defrecord Unannotated [])))))
 
+(deftest datatype-method-recur-test
+  (is (check-ns 'clojure.core.typed.test.datatype-recur)))
+
+(deftest record-annotated-as-datatype-test
+  ; record annotated as datatype
+  (is (u/top-level-error-thrown?
+        (cf (do (clojure.core.typed/ann-datatype IncorrectRec [])
+                (defrecord IncorrectRec [])))))
+  ; datatype annotated as record
+  (is (u/top-level-error-thrown?
+        (cf (do (clojure.core.typed/ann-record IncorrectDt [])
+                (deftype IncorrectDt []))))))
+
+
 ;(reset-caches)
 
 ;(chk/abstract-result
