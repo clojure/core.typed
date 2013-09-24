@@ -9,10 +9,6 @@
             [clojure.core.typed.filter-rep :as f]
             [clojure.core.typed.filter-ops :as fl]
             [clojure.core.typed.constant-type :as const]
-            [clojure.core.typed.datatype-env :as dtenv]
-            [clojure.core.typed.protocol-env :as prenv]
-            [clojure.core.typed.jsnominal-env :as jsnom]
-            [clojure.core.typed.name-env :as nmenv]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.current-impl :as impl]
@@ -504,44 +500,9 @@
 
 (declare unparse-type)
 
-;TODO should probably just be (r/TApp-maker (parse-type n) (mapv parse-type args))
 (defmethod parse-type-list :default 
   [[n & args :as syn]]
-  (let [RClass-of @(RClass-of-var)
-        current-nstr (-> (parse-in-ns) name)]
-    (let [rsym (impl/impl-case
-                 :clojure (when-let [res (when (symbol? n)
-                                           (resolve-type-clj n))]
-                            (cond 
-                              (class? res) (u/Class->symbol res)
-                              (var? res) (u/var->symbol res)))
-                 :cljs (when-let [res (when (symbol? n)
-                                        (resolve-type-cljs n))]
-                         (:name res)))
-          _ (assert ((some-fn symbol? nil?) rsym))]
-    (if-let [free (and (symbol? n) (free-ops/free-in-scope n))]
-      (r/TApp-maker free (mapv parse-type args))
-      (if ((some-fn dtenv/get-datatype prenv/get-protocol nmenv/get-type-name) rsym)
-        ;don't resolve if operator is declared
-        (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
-        (if (and (impl/checking-clojure?)
-                 (class? (when (symbol? n)
-                           (resolve-type-clj n))))
-          ;a Class that's not a datatype
-          (r/TApp-maker (r/Name-maker rsym) (mapv parse-type args))
-          (cond
-            (symbol? n)
-            ;unqualified declared protocols and datatypes
-            (if-let [s (let [svar (symbol current-nstr (name n))
-                             scls (symbol (munge (str current-nstr \. (name n))))]
-                         (some #(and (nmenv/get-type-name %)
-                                     %)
-                               [svar scls]))]
-              (r/TApp-maker (r/Name-maker s) (mapv parse-type args))
-              (u/tc-error (str "Cannot parse type: " (pr-str syn)
-                               (when (seq syn)
-                                 (str "\nHint: Does " (first syn) " accept parameters and is it in scope?")))))
-            :else (r/TApp-maker (parse-type n) (mapv parse-type args)))))))))
+  (r/TApp-maker (parse-type n) (mapv parse-type args)))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] (parse-type-list l))
@@ -574,67 +535,27 @@
   [sym]
   (let [primitives (impl/impl-case
                      :clojure (clj-primitives-fn)
-                     :cljs (cljs-primitives-fn))]
-    (letfn [(resolve-symbol [qsym clssym]
-              (cond
-                (primitives sym) (primitives sym)
-                (nmenv/get-type-name qsym) (r/Name-maker qsym)
-                (nmenv/get-type-name clssym) (r/Name-maker clssym)
-                ;Datatypes that are annotated in this namespace, but not yet defined
-                (dtenv/get-datatype clssym) (dtenv/resolve-datatype clssym)
-                (prenv/get-protocol qsym) (prenv/resolve-protocol qsym)))]
-      (if-let [f (free-ops/free-in-scope sym)]
-        f
-        (let []
-          (or (impl/impl-case
-                :clojure (let [current-nstr (-> (parse-in-ns) name)
-                               qsym (if (namespace sym)
-                                      sym
-                                      (symbol current-nstr (name sym)))
-                               clssym (if (some #(= \. %) (str sym))
-                                        sym
-                                        (symbol (str (munge current-nstr) \. (name sym))))
-                               res (resolve-type-clj sym)
-                               qsym (when (var? res)
-                                      (u/var->symbol res))
-                               clssym (when (class? res)
-                                        (u/Class->symbol res))]
-                           (or (resolve-symbol qsym clssym)
-                               (when qsym
-                                 (assert nil (str "Unannotated var reference " qsym 
-                                                  ". If " qsym " is a protocol, annotate with ann-protocol."))
-                                 ;(println (str "WARNING: Assuming unannotated var " qsym
-                                 ;              " is a protocol."))
-                                 ;(flush)
-                                 (r/Name-maker qsym))
-                               (when clssym
-                                 (c/RClass-of clssym))))
-                :cljs (let [res (resolve-type-cljs sym)
-                            ressym (:name res)]
-                        (or (when (= "js" (namespace ressym)) 
-                              (c/JSNominal-of ressym))
-                            (when (and (some #{\.} (str sym))
-                                       (not-any? #{\/} (str sym)))
-                              ; sometimes we have a class-like symbol, foo.Bar
-                              ; but resolve-type-cljs depends on the current namespace
-                              ; scope. We might have this fully qualified name bound somewhere in our type
-                              ; environent instead.
-                              (cond
-                                (jsnom/contains-jsnominal? sym)
-                                (c/JSNominal-of sym)))
-
-                            (resolve-symbol ressym ressym)
-                            (when ressym
-                              (assert nil (str "Unannotated var reference " ressym
-                                               ". If " ressym " is a protocol, annotate with ann-protocol."))
-                              ;(println (str "WARNING: Assuming unannotated var " ressym
-                              ;              " is a protocol."))
-                              ;(flush)
-                              (r/Name-maker ressym)))))
-              (u/tc-error (str "Cannot resolve type: " (pr-str sym)
-                               "\nHint: Is " (pr-str sym) " in scope?"
-                               "\nHint: Has " (pr-str sym) "'s annotation been"
-                               " found via check-ns, cf or typed-deps?"))))))))
+                     :cljs (cljs-primitives-fn))
+        rsym (impl/impl-case
+               :clojure (when-let [res (when (symbol? sym)
+                                         (resolve-type-clj sym))]
+                          (cond 
+                            (class? res) (u/Class->symbol res)
+                            (var? res) (u/var->symbol res)))
+               :cljs (when-let [res (when (symbol? sym)
+                                      (resolve-type-cljs sym))]
+                       (:name res)))
+        free (when (symbol? sym) 
+               (free-ops/free-in-scope sym))
+        _ (assert ((some-fn symbol? nil?) rsym))]
+    (cond
+      free free
+      (primitives sym) (primitives sym)
+      rsym (r/Name-maker rsym)
+      :else (u/tc-error (str "Cannot resolve type: " (pr-str sym)
+                             "\nHint: Is " (pr-str sym) " in scope?"
+                             "\nHint: Has " (pr-str sym) "'s annotation been"
+                             " found via check-ns, cf or typed-deps?")))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
@@ -1187,7 +1108,7 @@
 
 (defmethod unparse-type* JSNominal
   [{:keys [name poly?]}]
-  (let [sym (symbol (str "js/" name))]
+  (let [sym (symbol name)]
     (if (seq poly?)
       (list* sym (map unparse-type poly?))
       sym)))

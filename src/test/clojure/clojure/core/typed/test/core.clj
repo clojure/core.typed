@@ -423,8 +423,8 @@
 (deftest check-invoke
   ; wrap in thunk to prevent evaluation (analyzer currently evaluates forms)
   (is (u/top-level-error-thrown? (cf (fn [] (symbol "a" 'b)))))
-  (is (= (ety (symbol "a" "a"))
-         (clj (RClass-of clojure.lang.Symbol)))))
+  (is (both-subtype? (ety (symbol "a" "a"))
+                     (clj (RClass-of clojure.lang.Symbol)))))
 
 (deftest check-do-test
   (is-clj (= (ety (do 1 2))
@@ -2339,6 +2339,8 @@
         (cf (do (clojure.core.typed/ann-record IncorrectDt [])
                 (deftype IncorrectDt []))))))
 
+(deftest recursive-ann-test
+  (is (check-ns 'clojure.core.typed.test.recursive)))
 
 ;(reset-caches)
 

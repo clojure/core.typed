@@ -10,7 +10,6 @@
             [clojure.core.typed.cs-rep :as crep]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.fold-rep :as f]
-            [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.current-impl :as impl]
@@ -123,21 +122,6 @@
 
 ;; Unions
 
-#_(defn simplify-HMap-Un [hmaps]
-  {:pre [(every? r/HeterogeneousMap? hmaps)]
-   :post [(r/Type? %)]}
-  (let [mss (vals
-              (group-by #(-> % :types keys set) (set hmaps)))
-        ;union the vals of maps with exactly the same keys
-        flat (set
-               (for [ms mss]
-                 (-hmap
-                   (apply merge-with Un
-                          (map :types ms)))))]
-    (if (= 1 (count flat))
-      (first flat)
-      (Union-maker flat))))
-
 (t/tc-ignore
 (defn- subtype?-var []
   (let [n (find-ns 'clojure.core.typed.subtype)
@@ -173,12 +157,19 @@
                       ;; b is a Set[Type] (non overlapping, non Union-types)
                       ;; The output is a non overlapping list of non Union types.
                       (merge-type [a b]
-                        {:pre [(set? b)]
+                        {:pre [(set? b)
+                               (do (assert (r/Type? a) a)
+                                   true)
+                               (not (r/Union? a))]
                          :post [(set? %)]}
-                        ;(prn "merge-type" a b)
+                        #_(prn "merge-type" a b)
                         (let [b* (make-Union b)
                               ;_ (prn "merge-type" (@(unparse-type-var) a) (@(unparse-type-var) b*))
                               res (cond
+                                    ; don't resolve type applications in case types aren't
+                                    ; fully defined yet
+                                    ; TODO basic error checking, eg. number of params
+                                    (some (some-fn r/Name? r/TApp?) (conj b a)) (conj b a)
                                     (subtype? a b*) b
                                     (subtype? b* a) #{a}
                                     :else (conj b a))]
@@ -278,17 +269,17 @@
   {:pre [(every? r/Type? types)]
    :post [(every? r/Type? %)]}
   (apply concat
-         (for [^Intersection t types]
+         (for [t types]
            (if (r/Intersection? t)
-             (.types t)
+             (:types t)
              [t]))))
 
 (t/ann ^:no-check flatten-unions [(U nil (Seqable r/Type)) -> (Seqable r/Type)])
 (defn flatten-unions [types]
   {:pre [(every? r/Type? types)]
-   :post [(every? r/Type? %)]}
+   :post [(every? (every-pred r/Type? (complement r/Union?)) %)]}
   (apply concat
-         (for [^Intersection t (set types)]
+         (for [t (set types)]
            (if (r/Union? t)
              (:types t)
              [t]))))
@@ -1039,7 +1030,8 @@
 (t/ann resolve-Name [Name -> r/Type])
 (defn resolve-Name [nme]
   {:pre [(r/Name? nme)]}
-  (nme-env/resolve-name* (:id nme)))
+  (let [resolve-name* (impl/v 'clojure.core.typed.name-env/resolve-name*)]
+    (resolve-name* (:id nme))))
 
 (t/ann fully-resolve-type 
        (Fn [r/Type -> r/Type]

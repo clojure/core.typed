@@ -1,8 +1,10 @@
 (ns ^:skip-wiki clojure.core.typed.name-env
   (:require [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.rclass-env :as rcls]
+            [clojure.core.typed.jsnominal-env :as jsnom]
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.declared-kind-env :as kinds]
             [clojure.core.typed.current-impl :as impl]
@@ -131,8 +133,10 @@
   (let [t (get-type-name sym)
         tfn ((some-fn dtenv/get-datatype 
                       prenv/get-protocol
-                      (impl/impl-case :clojure rcls/get-rclass 
-                                      :cljs (constantly nil)) 
+                      (impl/impl-case :clojure #(or (rcls/get-rclass %)
+                                                    (when (class? (resolve %))
+                                                      (c/RClass-of-with-unknown-params %)))
+                                      :cljs jsnom/get-jsnominal)
                       ; during the definition of RClass's that reference
                       ; themselves in their definition, a temporary TFn is
                       ; added to the declared kind env which is enough to determine
