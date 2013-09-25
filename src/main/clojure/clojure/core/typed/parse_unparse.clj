@@ -654,10 +654,10 @@
   (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
         _ (when-not (<= 2 (count chk)) 
-            (u/int-error (str (parse-in-ns) ": Incorrect function syntax: " f)))
+            (u/int-error (str "Incorrect function syntax: " f)))
 
         _ (when-not (even? (count opts-flat)) 
-            (u/int-error (str (parse-in-ns) ": Incorrect function syntax, must have even number of keyword parameters: " f)))
+            (u/int-error (str "Incorrect function syntax, must have even number of keyword parameters: " f)))
 
         opts (apply hash-map opts-flat)
 
