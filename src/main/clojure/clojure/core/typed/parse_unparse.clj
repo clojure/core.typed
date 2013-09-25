@@ -91,7 +91,8 @@
     (let [[n & {:keys [< >] :as opts}] f]
       (when (contains? opts :kind)
         (prn "DEPRECATED: kind annotation for TFn parameters"))
-      (assert (not (:variance opts)) "Variance not supported for variables introduced with All")
+      (when (:variance opts) 
+        (u/int-error "Variance not supported for variables introduced with All"))
       [n (let [upper-or-nil (when (contains? opts :<)
                               (parse-type <))
                lower-or-nil (when (contains? opts :>)
@@ -113,7 +114,8 @@
 
 (defn parse-rec-type [[rec [free-symbol :as bnder] type]]
   (let [Mu* @(Mu*-var)
-        _ (assert (= 1 (count bnder)) "Only one variable in allowed: Rec")
+        _ (when-not (= 1 (count bnder)) 
+            (u/int-error "Only one variable in allowed: Rec"))
         f (r/make-F free-symbol)
         body (free-ops/with-frees [f]
                (parse-type type))
@@ -153,7 +155,8 @@
 
 (defmethod parse-type-list 'Not
   [[_ tsyn :as all]]
-  (assert (= (count all) 2) "Wrong arguments to Not (expected 1)")
+  (when-not (= (count all) 2) 
+    (u/int-error "Wrong arguments to Not (expected 1)"))
   (r/NotType-maker (parse-type tsyn)))
 
 (defmethod parse-type-list 'Rec
@@ -200,16 +203,18 @@
 
 (defmethod parse-type-list 'Extends
   [[_ extends & {:keys [without] :as opts} :as syn]]
-  (assert (empty? (set/difference (set (keys opts)) #{:without}))
-          (str "Invalid options to Extends:" (keys opts)))
-  (assert (vector? extends) (str "Extends takes a vector of types: " (pr-str syn)))
+  (when-not (empty? (set/difference (set (keys opts)) #{:without}))
+    (u/int-error (str "Invalid options to Extends:" (keys opts))))
+  (when-not (vector? extends) 
+    (u/int-error (str "Extends takes a vector of types: " (pr-str syn))))
   (c/-extends (doall (map parse-type extends))
               :without (doall (map parse-type without))))
 
 (defmethod parse-type-list 'All
   [[All bnds syn & more :as all]]
   ;(prn "All syntax" all)
-  (assert (not more) "Bad All syntax")
+  (when-not (not more) 
+    (u/int-error "Bad All syntax"))
   (parse-all-type bnds syn))
 
 (defn parse-union-type [[u & types]]
@@ -228,7 +233,8 @@
 
 (defmethod parse-type-list 'Array
   [[_ syn & none]]
-  (assert (empty? none) "Expected 1 argument to Array")
+  (when-not (empty? none) 
+    (u/int-error "Expected 1 argument to Array"))
   (let [t (parse-type syn)]
     (impl/impl-case
       :clojure (let [jtype (if (r/RClass? t)
@@ -239,7 +245,8 @@
 
 (defmethod parse-type-list 'ReadOnlyArray
   [[_ osyn & none]]
-  (assert (empty? none) "Expected 1 argument to ReadOnlyArray")
+  (when-not (empty? none) 
+    (u/int-error "Expected 1 argument to ReadOnlyArray"))
   (let [o (parse-type osyn)]
     (impl/impl-case
       :clojure (r/PrimitiveArray-maker Object (r/Bottom) o)
@@ -247,7 +254,8 @@
 
 (defmethod parse-type-list 'Array2
   [[_ isyn osyn & none]]
-  (assert (empty? none) "Expected 2 arguments to Array2")
+  (when-not (empty? none) 
+    (u/int-error "Expected 2 arguments to Array2"))
   (let [i (parse-type isyn)
         o (parse-type osyn)]
     (impl/impl-case
@@ -256,10 +264,12 @@
 
 (defmethod parse-type-list 'Array3
   [[_ jsyn isyn osyn & none]]
-  (assert (empty? none) "Expected 3 arguments to Array3")
+  (when-not (empty? none) 
+    (u/int-error "Expected 3 arguments to Array3"))
   (impl/assert-clojure)
-  (let [jrclass (parse-type jsyn)
-        _ (assert (r/RClass? jrclass) "First argument to Array3 must be a Class")]
+  (let [jrclass (c/fully-resolve-type (parse-type jsyn))
+        _ (when-not (r/RClass? jrclass) 
+            (u/int-error "First argument to Array3 must be a Class"))]
     (r/PrimitiveArray-maker (r/RClass->Class jrclass) (parse-type isyn) (parse-type osyn))))
 
 (declare parse-function)
@@ -270,13 +280,14 @@
 (defmethod parse-type-list 'Fn
   [[_ & types :as syn]]
   (when-not (seq types) 
-    (u/int-error "Must pass at least one arity to Fn: " syn))
+    (u/int-error "Must pass at least one arity to Fn: " (pr-str syn)))
   (when-not (every? vector? types) 
-    (u/int-error (str "Fn accepts vectors, given: " syn)))
+    (u/int-error (str "Fn accepts vectors, given: " (pr-str syn))))
   (parse-fn-intersection-type syn))
 
 (defn parse-free-binder [[nme & {:keys [variance < > kind] :as opts}]]
-  (assert nme)
+  (when-not (symbol? nme)
+    (u/int-error "First entry in free binder should be a name symbol"))
   {:nme nme :variance (or variance :invariant)
    :bound (r/Bounds-maker
             ;upper
@@ -340,7 +351,8 @@
 (defn parse-tfn-binder [[nme & {:keys [variance < >] :as opts}]]
   {:post [((u/hmap-c? :nme symbol? :variance r/variance?
                       :bound r/Bounds?) %)]}
-  (assert nme)
+  (when-not (symbol? nme)
+    (u/int-error "Must provide a name symbol to TFn"))
   (when (contains? opts :kind)
     (prn "DEPRECATED: kind annotation for TFn parameters"))
   {:nme nme :variance (or variance :invariant)
@@ -352,8 +364,10 @@
 
 (defn parse-type-fn 
   [[_ binder bodysyn :as tfn]]
-  (assert (= 3 (count tfn)))
-  (assert (every? vector? binder))
+  (when-not (= 3 (count tfn))
+    (u/int-error "Wrong number of arguments to TFn"))
+  (when-not (every? vector? binder)
+    (u/int-error "TFn binder should be vector of vectors"))
   (let [; don't bound frees because mutually dependent bounds are problematic
         free-maps (free-ops/with-free-symbols (map (fn [s]
                                                      {:pre [(vector? s)]
@@ -369,9 +383,9 @@
              (frees/fv-variances bodyt))
         _ (doseq [{:keys [nme variance]} free-maps]
             (when-let [actual-v (vs nme)]
-              (assert (= (vs nme) variance)
-                      (u/error-msg "Type variable " nme " appears in " (name actual-v) " position "
-                                   "when declared " (name variance)))))]
+              (when-not (= (vs nme) variance)
+                (u/int-error "Type variable " nme " appears in " (name actual-v) " position "
+                             "when declared " (name variance)))))]
     (with-meta (c/TypeFn* (map :nme free-maps) (map :variance free-maps)
                           (map :bound free-maps) bodyt)
                {:actual-frees (map :nme free-maps)})))
@@ -389,20 +403,20 @@
             (into {} (for [[k v] m]
                        [(r/-val k)
                         (parse-type v)])))]
-    (let [_ (assert (every? empty? [(set/intersection (set (keys mandatory))
-                                                      (set (keys optional)))
-                                    (set/intersection (set (keys mandatory))
-                                                      (set absent-keys))
-                                    (set/intersection (set (keys optional))
-                                                      (set absent-keys))])
-                    (str "HMap options contain duplicate key entries: "
-                         "Mandatory: " (into {} mandatory) ", Optional: " (into {} optional) 
-                         ", Absent: " (set absent-keys)))
-          _ (assert (every? keyword? (keys mandatory)) "HMap's mandatory keys must be keywords")
+    (let [_ (when-not (every? empty? [(set/intersection (set (keys mandatory))
+                                                        (set (keys optional)))
+                                      (set/intersection (set (keys mandatory))
+                                                        (set absent-keys))
+                                      (set/intersection (set (keys optional))
+                                                        (set absent-keys))])
+              (u/int-error (str "HMap options contain duplicate key entries: "
+                                "Mandatory: " (into {} mandatory) ", Optional: " (into {} optional) 
+                                ", Absent: " (set absent-keys))))
+          _ (when-not (every? keyword? (keys mandatory)) (u/int-error "HMap's mandatory keys must be keywords"))
           mandatory (mapt mandatory)
-          _ (assert (every? keyword? (keys optional)) "HMap's optional keys must be keywords")
+          _ (when-not (every? keyword? (keys optional)) (u/int-error "HMap's optional keys must be keywords"))
           optional (mapt optional)
-          _ (assert (every? keyword? absent-keys) "HMap's absent keys must be keywords")
+          _ (when-not (every? keyword? absent-keys) (u/int-error "HMap's absent keys must be keywords"))
           absent-keys (set (map r/-val absent-keys))]
       (c/make-HMap mandatory optional complete? :absent-keys absent-keys))))
 
@@ -413,7 +427,7 @@
     (vector? syn) (r/-hvec (mapv parse-type syn))
     ; quoted map is a partial map with mandatory keys
     (map? syn) (syn-to-hmap syn nil nil false)
-    :else (throw (Exception. (str "Invalid use of quote:" syn)))))
+    :else (u/int-error (str "Invalid use of quote:" (pr-str syn)))))
 
 (declare parse-in-ns)
 
@@ -456,7 +470,7 @@
   (let [nsym (parse-in-ns)]
     (if-let [ns (find-ns nsym)]
       (ns-resolve ns sym)
-      (assert nil (str "Cannot find namespace: " sym)))))
+      (u/int-error (str "Cannot find namespace: " sym)))))
 
 (defn- resolve-type-cljs 
   "Returns a var map of {:ns sym :name sym} or nil"
@@ -470,7 +484,7 @@
   (impl/assert-clojure)
   (let [RClass-of @(RClass-of-var)
         cls (resolve-type-clj cls-sym)
-        _ (assert (class? cls) (str cls-sym " cannot be resolved"))
+        _ (when-not (class? cls) (u/int-error (str (pr-str cls-sym) " cannot be resolved")))
         tparams (doall (map parse-type params-syn))]
     (RClass-of cls tparams)))
 
@@ -482,14 +496,17 @@
 
 (defmethod parse-type-list 'KeywordArgs
   [[_KeywordArgs_ & {:keys [optional mandatory]}]]
-  (assert (= #{}
-             (set/intersection (set (keys optional))
-                               (set (keys mandatory)))))
+  (when-not (= #{}
+               (set/intersection (set (keys optional))
+                                 (set (keys mandatory))))
+    (u/int-error (str "Optional and mandatory keyword arguments should be disjoint: "
+                      (set/intersection (set (keys optional))
+                                        (set (keys mandatory))))))
   (let [optional (into {} (for [[k v] optional]
-                            (do (assert (keyword? k))
+                            (do (when-not (keyword? k) (u/int-error (str "Keyword argument keys must be keywords: " (pr-str k))))
                               [(r/-val k) (parse-type v)])))
         mandatory (into {} (for [[k v] mandatory]
-                             (do (assert (keyword? k))
+                             (do (when-not (keyword? k)) (u/int-error (str "Keyword argument keys must be keywords: " (pr-str k)))
                                [(r/-val k) (parse-type v)])))]
     (apply c/Un (apply concat
                      (for [opts (map #(into {} %) (comb/subsets optional))]
@@ -567,10 +584,12 @@
   (cond
     (= 'tt f) f/-top
     (= 'ff f) f/-bot
-    (not ((some-fn seq? list?) f)) (assert nil (str "Malformed filter expression: " f))
+    (not ((some-fn seq? list?) f)) (u/int-error (str "Malformed filter expression: " (pr-str f)))
     :else (parse-filter* f)))
 
 (defn parse-object [{:keys [id path]}]
+  (when-not (f/name-ref? id)
+    (u/int-error (str "Must pass natural number or symbol as id: " (pr-str id))))
   (orep/->Path (when path (mapv parse-path-elem path)) id))
 
 (defn parse-filter-set [{:keys [then else] :as fsyn}]
@@ -585,7 +604,8 @@
 
 (defmethod parse-filter* 'is
   [[_ & [tsyn nme psyns :as all]]]
-  (assert (#{2 3} (count all)))
+  (when-not (#{2 3} (count all))
+    (u/int-error (str "Wrong number of arguments to is")))
   (let [t (parse-type tsyn)
         p (when (= 3 (count all))
             (mapv parse-path-elem psyns))]
@@ -593,7 +613,8 @@
 
 (defmethod parse-filter* '!
   [[_ & [tsyn nme psyns :as all]]]
-  (assert (#{2 3} (count all)))
+  (when-not (#{2 3} (count all))
+    (u/int-error (str "Wrong number of arguments to !")))
   (let [t (parse-type tsyn)
         p (when (= 3 (count all))
             (mapv parse-path-elem psyns))]
@@ -619,7 +640,8 @@
 
 (defmethod parse-path-elem 'Key
   [[_ & [ksyn :as all]]]
-  (assert (= 1 (count all)))
+  (when-not (= 1 (count all))
+    (u/int-error "Wrong arguments to Key"))
   (pthrep/->KeyPE ksyn))
 
 (defn- parse-kw-map [m]
@@ -631,10 +653,11 @@
   {:post [(r/Function? %)]}
   (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
-        _ (assert (<= 2 (count chk)) (str (parse-in-ns) ": Incorrect function syntax: " f))
+        _ (when-not (<= 2 (count chk)) 
+            (u/int-error (str (parse-in-ns) ": Incorrect function syntax: " f)))
 
-        _ (assert (even? (count opts-flat)) 
-                  (str (parse-in-ns) ": Incorrect function syntax, must have even number of keyword parameters: " f))
+        _ (when-not (even? (count opts-flat)) 
+            (u/int-error (str (parse-in-ns) ": Incorrect function syntax, must have even number of keyword parameters: " f)))
 
         opts (apply hash-map opts-flat)
 
@@ -643,11 +666,11 @@
          ampersand-pos '&}
         (zipmap all-dom (range))
 
-        _ (assert (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos])))
-                  "Can only provide one rest argument option: & ... or *")
+        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos])))
+            (u/int-error "Can only provide one rest argument option: & ... or *"))
 
         _ (when-let [ks (seq (remove #{:filters :object :flow} (keys opts)))]
-            (throw (Exception. (str "Invalid option/s: " ks))))
+            (u/int-error (str "Invalid function keyword option/s: " ks)))
 
         filters (when-let [[_ fsyn] (find opts :filters)]
                   (parse-filter-set fsyn))
@@ -666,15 +689,15 @@
 
         rest-type (when asterix-pos
                     (nth all-dom (dec asterix-pos)))
-        _ (assert (or (not asterix-pos)
-                      (= (count all-dom) (inc asterix-pos)))
-                  (str "Trailing syntax after rest parameter: " (pr-str (drop (inc asterix-pos) all-dom))))
+        _ (when-not (or (not asterix-pos)
+                        (= (count all-dom) (inc asterix-pos)))
+            (u/int-error (str "Trailing syntax after rest parameter: " (pr-str (drop (inc asterix-pos) all-dom)))))
         [drest-type _ drest-bnd :as drest-seq] (when ellipsis-pos
                                                  (drop (dec ellipsis-pos) all-dom))
-        _ (assert (or (not ellipsis-pos) (= 3 (count drest-seq))) 
-                  "Dotted rest entry must be 3 entries")
-        _ (assert (or (not ellipsis-pos) (symbol? drest-bnd))
-                  "Dotted bound must be symbol")
+        _ (when-not (or (not ellipsis-pos) (= 3 (count drest-seq))) 
+            (u/int-error "Dotted rest entry must be 3 entries"))
+        _ (when-not (or (not ellipsis-pos) (symbol? drest-bnd))
+            (u/int-error "Dotted bound must be symbol"))
         [& {optional-kws :optional mandatory-kws :mandatory} :as kws-seq]
         (let [kwsyn (when ampersand-pos
                       (drop (inc ampersand-pos) all-dom))]
@@ -685,15 +708,16 @@
                 (cons :optional kwsyn))
             kwsyn))
 
-        _ (assert (or (not ampersand-pos) (seq kws-seq)) 
-                  "Must provide syntax after &")]
+        _ (when-not (or (not ampersand-pos) (seq kws-seq)) 
+            (u/int-error "Must provide syntax after &"))]
     (r/make-Function (mapv parse-type fixed-dom)
                      (parse-type rng)
                      (when asterix-pos
                        (parse-type rest-type))
                      (when ellipsis-pos
                        (let [bnd (dvar/*dotted-scope* drest-bnd)
-                             _ (assert bnd (str (pr-str drest-bnd) " is not in scope as a dotted variable"))]
+                             _ (when-not bnd 
+                                 (u/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
                          (r/DottedPretype-maker
                            (free-ops/with-frees [bnd] ;with dotted bound in scope as free
                              (parse-type drest-type))

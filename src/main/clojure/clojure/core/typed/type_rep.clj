@@ -99,7 +99,7 @@
 (t/ann -nothing Type)
 (def -nothing (Bottom))
 
-(t/ann ^:no-check Bottom? [Any -> Any :filters {:then Type}])
+(t/ann ^:no-check Bottom? [Any -> Boolean])
 (defn Bottom? [a]
   (= empty-union a))
 

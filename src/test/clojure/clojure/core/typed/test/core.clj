@@ -1841,7 +1841,7 @@
   (is (check-ns 'clojure.core.typed.test.mm-warn-on-unannotated)))
 
 (deftest HMap-parse-fail-test
-  (is (thrown? Error (clj (parse-type '(HMap :mandatory {:a Any} :absent-keys #{:a}))))))
+  (is (u/tc-error-thrown? (clj (parse-type '(HMap :mandatory {:a Any} :absent-keys #{:a}))))))
 
 (deftest HMap-absent-complete-test
   (is-clj (not (sub? (HMap :mandatory {:a Any}) (HMap :absent-keys #{:a}))))

@@ -71,6 +71,12 @@
      ~@body
      false))
 
+(defmacro tc-error-thrown? [& body]
+  `(with-ex-info-handlers
+     [tc-error? (constantly true)]
+     ~@body
+     false))
+
 (def tc-error-parent ::tc-error-parent)
 
 (defn tc-error? [exdata]
