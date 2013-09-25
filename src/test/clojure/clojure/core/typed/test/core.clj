@@ -2342,6 +2342,9 @@
 (deftest recursive-ann-test
   (is (check-ns 'clojure.core.typed.test.recursive)))
 
+(deftest comparable-inline-test
+  (is-cf (fn [v x] (compare v x)) (Fn [Comparable Any -> Number])))
+
 ;(reset-caches)
 
 ;(chk/abstract-result

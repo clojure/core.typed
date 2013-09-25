@@ -927,8 +927,7 @@ clojure.core/derive (Fn [(U Symbol Keyword Class) (U Symbol Keyword) -> Any]
                         ; could be more accurate with 3rd arg
                         [(U Symbol Keyword Class) (U Symbol Keyword) Any -> Any])
 
-clojure.core/compare (All []
-                          [Comparable Any -> Number])
+clojure.core/compare [Comparable Any -> Number]
 
 clojure.core/require [Any * -> nil]
 
@@ -1595,6 +1594,8 @@ clojure.lang.Numbers/gt [Number Number -> boolean]
 clojure.lang.Numbers/gte [Number Number -> boolean]
 
 clojure.lang.Numbers/isZero (predicate (Value 0))
+
+clojure.lang.Util/compare [Any Any -> Number]
     )
     {'clojure.lang.RT/count (count-type)}))
 
