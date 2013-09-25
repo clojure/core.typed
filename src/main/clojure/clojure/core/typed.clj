@@ -1114,7 +1114,7 @@ for checking namespaces, cf for checking individual forms."}
   `(atom (ann-form ~init ~t) ~@args))
 
 (defn ^:skip-wiki var>* [sym]
-  (impl/v sym))
+  (impl/the-var sym))
 
 (defmacro var>
   "Like var, but resolves at runtime like ns-resolve and is understood by
