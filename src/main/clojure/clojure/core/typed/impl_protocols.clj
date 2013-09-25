@@ -4,7 +4,9 @@
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t]))
 
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
+  )
 
 ;; Implementation Protocols and protocol predicates go here.
 ;;

@@ -13,10 +13,13 @@
             [clojure.core.typed.profiling :as profiling])
   (:import (clojure.lang PersistentArrayMap Var Symbol)))
 
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
+  )
 
 (t/ann ^:no-check taoensso.timbre/logging-enabled? [Any -> Any])
 (t/ann ^:no-check taoensso.timbre.profiling/*pdata* (t/Atom1 Any))
+(t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure [-> Any])
 
 (t/ann subtype-exn Exception)
 (def subtype-exn (Exception. "Subtyping failed."))

@@ -1113,6 +1113,17 @@ for checking namespaces, cf for checking individual forms."}
   [t init & args]
   `(atom (ann-form ~init ~t) ~@args))
 
+(defn ^:skip-wiki var>* [sym]
+  (impl/v sym))
+
+(defmacro var>
+  "Like var, but resolves at runtime like ns-resolve and is understood by
+  the type checker.
+  
+  eg. (var> clojure.core/+)"
+  [sym]
+  `(var>* '~sym))
+
 (defn ^:skip-wiki
   warn-on-unannotated-vars*
   "Internal use only. Use allow-unannotated-vars"

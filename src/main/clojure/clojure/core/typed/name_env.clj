@@ -11,7 +11,9 @@
             [clojure.core.typed :as t :refer [fn> ann when-let-fail def-alias ann-many]])
   (:import (clojure.lang Symbol IPersistentMap Keyword)))
 
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
+  )
 
 (def-alias NameEnv
   "Environment mapping names to types. Keyword values are special."

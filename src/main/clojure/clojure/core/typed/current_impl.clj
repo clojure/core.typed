@@ -1,3 +1,4 @@
+; untyped, clojure.core.typed depends on this namespace
 (ns clojure.core.typed.current-impl
   (:require [clojure.core.typed.profiling :as p]))
 

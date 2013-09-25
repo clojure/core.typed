@@ -5,7 +5,9 @@
             [clojure.core.typed :as t :refer [fn> ann def-alias when-let-fail]])
   (:import (clojure.lang IPersistentMap Symbol)))
 
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Protocol Env

@@ -20,6 +20,8 @@
                  [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
                  ]
 
+  :plugins [[lein-typed "0.3.0"]]
+
   :global-vars {*warn-on-reflection* true}
 
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}

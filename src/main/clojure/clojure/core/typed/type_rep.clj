@@ -5,26 +5,35 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t]
             [clojure.set :as set])
-  (:import (clojure.lang Seqable Symbol Keyword)))
-
-(alter-meta! *ns* assoc :skip-wiki true)
+  (:import (clojure.lang Seqable Symbol Keyword Var)))
 
 (t/tc-ignore
+(alter-meta! *ns* assoc :skip-wiki true)
+  )
+
+(t/ann ^:no-check -FS-var [-> (Var [p/IFilter p/IFilter -> p/IFilterSet])])
 (defn- -FS-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-ops) '-FS)]
+  (let [ns (find-ns 'clojure.core.typed.filter-ops)
+        _ (assert ns)
+        v (ns-resolve ns '-FS)]
     (assert (var? v) "-FS unbound")
     v))
 
+(t/ann ^:no-check -top-var [-> (Var p/IFilter)])
 (defn -top-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.filter-rep) '-top)]
+  (let [ns (find-ns 'clojure.core.typed.filter-rep)
+        _ (assert ns)
+        v (ns-resolve ns '-top)]
     (assert (var? v) "-top unbound")
     v))
 
+(t/ann ^:no-check -empty-var [-> (Var p/IRObject)])
 (defn -empty-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.object-rep) '-empty)]
+  (let [ns (find-ns 'clojure.core.typed.object-rep)
+        _ (assert ns)
+        v (ns-resolve ns '-empty)]
     (assert (var? v) "-empty unbound")
     v))
-  )
 
 (t/def-alias SeqNumber Long)
 
@@ -73,7 +82,6 @@
 (def -any (Top-maker))
 
 
-;FIXME proper union maker, with sorted types
 (u/ann-record Union [types :- (t/Set Type)])
 (u/def-type Union [types]
   "An flattened, unordered union of types"
@@ -88,7 +96,6 @@
 (defn- Un [& types]
   (Union-maker (set types)))
 
-
 (t/ann empty-union Type)
 (def empty-union (Un))
 
@@ -99,7 +106,7 @@
 (t/ann -nothing Type)
 (def -nothing (Bottom))
 
-(t/ann ^:no-check Bottom? [Any -> Boolean])
+(t/ann Bottom? [Any -> Boolean])
 (defn Bottom? [a]
   (= empty-union a))
 

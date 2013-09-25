@@ -1351,6 +1351,21 @@
 
 (declare normal-invoke)
 
+(add-invoke-special-method 'clojure.core.typed/var>*
+  [{[sym-expr] :args :keys [args fexpr] :as expr} & [expected]]
+  (assert (#{1} (count args)))
+  (assert (#{:constant} (:op sym-expr)))
+  (let [sym (-> sym-expr :val)
+        _ (assert (symbol? sym))
+        t (var-env/lookup-Var-nofail sym)
+        _ (when-not t
+            (u/tc-delayed-error (str "Unannotated var: " sym)))
+        _ (when (and t expected)
+            (when-not (sub/subtype? t (ret-t expected))
+              (expected-error t (ret-t expected))))]
+    (assoc expr
+           expr-type (ret (or t (r/TCError-maker))))))
+
 ; ignore some keyword argument related intersections
 (add-invoke-special-method 'clojure.core/seq?
   [{:keys [args fexpr] :as expr} & [expected]]
@@ -2055,50 +2070,6 @@
       (check-invoke-method expr expected false
                            :cargs cargs))))
 
-;(add-invoke-special-method 'clojure.core/update-in
-;  [{:keys [fexpr args] :as expr} & [expected]]
-;  {:post [(-> % expr-type TCResult?)]}
-;  (let [[[target-expr path-expr fn-expr & more-exprs] args
-;        
-;        _ (when-not (<= 3 (count args))
-;            (u/tc-delayed-error (str "assoc accepts at least 3 arguments, found "
-;                                     (count args))))
-;        targetun (-> target-expr check expr-type ret-t)
-;        targett (c/fully-resolve-type targetun)
-;        ; nil if not found
-;        hmaps (cond
-;                (and (r/Value? targett) (nil? (.val ^Value targett))) #{(c/-hmap {})}
-;                ((some-fn r/HeterogeneousVector? r/HeterogeneousMap? r/Record?) targett) #{targett}
-;                (sub/subtype? targett (c/RClass-of IPersistentMap [r/-any r/-any])) #{targett}
-;                (sub/subtype? targett (c/RClass-of IPersistentVector [r/-any])) #{targett})]
-;    (if-not hmaps
-;      (u/tc-delayed-error (str "Must supply map, vector or nil to first argument of update-in, given "
-;                               (prs/unparse-type targetun))
-;                          :return (assoc expr
-;                                         expr-type (error-ret expected)))
-;      (let [_ (assert (every? #(sub/subtype? % (c/Un (c/RClass-of IPersistentVector [r/-any])
-;                                                     (c/RClass-of IPersistentMap [r/-any r/-any]))) 
-;                              hmaps))
-;
-;            cpath-expr (check path-expr)
-;            update-path-t (-> cpath-expr expr-type ret-t)
-;            cfn-expr (check fn-expr)
-;            cmore-exprs (mapv check more-exprs)]
-;        (if-not (HeterogeneousVector? update-path-t)
-;          (u/tc-delayed-error (str "Must supply vector literal to second argument of update-in, given "
-;                                   (prs/unparse-type update-path-t))
-;                              :return (assoc expr
-;                                             expr-type (error-ret expected)))
-;          ; for each hmap, follow the path and then update the result
-;          (for [hmap hmaps]
-;            (reduce (fn [hmap p]
-;                      (assert (keyword-value? p))
-;                      (check-invoke
-;                              {:op :var
-;                               :var (resolve 'clojure.core/get)}
-;                              [hmap p]
-;                      )
-;                    hmap (.types ^HeterogeneousMap update-path-t)))
 
 ; utility functions
 
@@ -2419,6 +2390,31 @@
                                  obj/-empty))
       (normal-invoke expr fexpr args expected
                      :cargs all-cargs))))
+
+#_(add-invoke-special-method 'clojure.core/update-in
+  [{:keys [fexpr args env] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (binding [vs/*current-expr* expr
+            vs/*current-env* env]
+    (let [error-expr (assoc expr expr-type (ret (r/TCError-maker)))]
+      (cond
+        (not (< 3 (count args))) (u/tc-delayed-error (str "update-in takes at least 3 arguments"
+                                                          ", actual " (count args))
+                                                     :return error-expr)
+
+        :else
+        (let [[ctarget-expr cpath-expr cfn-expr & more-exprs] (map check args)
+              path-type (-> cpath-expr expr-type ret-t c/fully-resolve-type)]
+          (if (not (HeterogeneousVector? path-type))
+            (u/tc-delayed-error (str "Can only check update-in with vector as second argument")
+                                :return error-expr)
+            (let [path (:types path-type)
+                  follow-path (reduce (fn [t pth]
+                                        (when t
+                                          ))
+                                      (-> ctarget-expr expr-type ret-t)
+                                      path)])))))))
+        
 
 (comment
   (method-expected-type (prs/parse-type '[Any -> Any])

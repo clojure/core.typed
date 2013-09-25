@@ -7,7 +7,9 @@
   (:import [clojure.core.typed.type_rep Scope]
            [clojure.lang Symbol]))
 
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; JSNominal
@@ -20,7 +22,11 @@
     :ctors (U Scope r/Type nil)
     :ancestors (t/Set (U Scope r/Type))})
 
-(ann JSNOMINAL-ENV (t/Atom1 (t/Map Symbol JSNominalEntry)))
+(def-alias JSNominalEnv
+  "A map of symbols of JSNomainalEntry's"
+  (t/Map Symbol JSNominalEntry))
+
+(ann JSNOMINAL-ENV (t/Atom1 JSNominalEnv))
 (defonce JSNOMINAL-ENV 
   (atom {} 
         :validator
@@ -39,7 +45,7 @@
    :ctors nil
    :ancestors #{}})
 
-(ann get-jsnominal [Any -> nil])
+(ann get-jsnominal [Any -> (t/Nilable r/Type)])
 (defn get-jsnominal
   "Returns the nomainal JS type with class symbol csym.
   Returns nil if not found."
@@ -74,7 +80,7 @@
 ;  [csym field-sym type]
 ;  (swap! JSNOMINAL-ENV update-in [csym :fields field-sym] (constantly type)))
 
-(ann get-method [Symbol (U nil (Seqable r/Type)) Symbol -> (U nil r/Type)])
+(ann ^:no-check get-method [Symbol (U nil (t/Seqable r/Type)) Symbol -> (U nil r/Type)])
 (defn get-method 
   "Returns the instantiated method type named method-sym on nominal csym."
   [csym args method-sym]
@@ -85,7 +91,7 @@
   (when-let [tscope (get-in @JSNOMINAL-ENV [csym :methods method-sym])]
     (c/inst-and-subst tscope args)))
 
-(ann get-field [Symbol (U nil (Seqable r/Type)) Symbol -> (U nil r/Type)])
+(ann ^:no-check get-field [Symbol (U nil (t/Seqable r/Type)) Symbol -> (U nil r/Type)])
 (defn get-field 
   "Returns the instantiated field type named field-sym on nominal csym."
   [csym args field-sym]
@@ -96,7 +102,7 @@
   (when-let [tscope (get-in @JSNOMINAL-ENV [csym :fields field-sym])]
     (c/inst-and-subst tscope args)))
 
-(ann get-ctor [Symbol (U nil (Seqable r/Type)) -> (U nil r/Type)])
+(ann ^:no-check get-ctor [Symbol (U nil (t/Seqable r/Type)) -> (U nil r/Type)])
 (defn get-ctor
   "Returns the instantiated constructor type on nominal csym."
   [csym args]
@@ -106,6 +112,7 @@
   (when-let [tscope (get-in @JSNOMINAL-ENV [csym :ctor])]
     (c/inst-and-subst tscope args)))
 
+(ann reset-jsnominal! [JSNominalEnv -> nil])
 (defn reset-jsnominal! [m]
   (reset! JSNOMINAL-ENV m)
   nil)

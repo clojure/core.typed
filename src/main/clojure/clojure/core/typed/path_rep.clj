@@ -4,7 +4,9 @@
             [clojure.core.typed :as t])
   (:import (clojure.lang Keyword)))
 
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Paths

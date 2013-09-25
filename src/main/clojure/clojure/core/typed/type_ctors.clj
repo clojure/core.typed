@@ -26,7 +26,11 @@
            (clojure.lang Seqable IPersistentSet IPersistentMap Symbol Keyword
                          Atom Var)))
 
+(t/typed-deps clojure.core.typed.name-env)
+
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
+  )
 
 ; create an alias cr -> cs-rep
 (t/tc-ignore
@@ -454,7 +458,7 @@
         var-sym (symbol (apply str (apply concat segs)))]
     var-sym))
 
-(t/ann resolve-Protocol [Protocol -> Var])
+(t/ann resolve-Protocol [Protocol -> (Var Any)])
 (defn resolve-Protocol
   [{:keys [the-var]}]
   {:post [(var? %)]}
@@ -1030,7 +1034,7 @@
 (t/ann resolve-Name [Name -> r/Type])
 (defn resolve-Name [nme]
   {:pre [(r/Name? nme)]}
-  (let [resolve-name* (impl/v 'clojure.core.typed.name-env/resolve-name*)]
+  (let [resolve-name* (t/var> clojure.core.typed.name-env/resolve-name*)]
     (resolve-name* (:id nme))))
 
 (t/ann fully-resolve-type 
@@ -1530,7 +1534,7 @@
                              (as body)))))
   )
 
-(t/ann ^:no-check instantiate-many [(Seqable Symbol) Scope -> r/Type])
+(t/ann ^:no-check instantiate-many [(Seqable Symbol) p/IScope -> r/Type])
 (defn instantiate-many 
   "instantiate-many : List[Symbols] Scope^n -> Type
   Instantiate de Bruijn indices in sc to frees named by
