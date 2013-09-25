@@ -1118,7 +1118,7 @@ for checking namespaces, cf for checking individual forms."}
 
 (defmacro var>
   "Like var, but resolves at runtime like ns-resolve and is understood by
-  the type checker.
+  the type checker. sym must be fully qualified (without aliases).
   
   eg. (var> clojure.core/+)"
   [sym]
