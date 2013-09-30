@@ -1233,9 +1233,9 @@ clojure.core/resolve (Fn [Symbol -> (U (Var Any) Class nil)]
                          ; should &env arg be more accurate?
                          [Any Symbol -> (U (Var Any) Class nil)])
 
-clojure.core/ns-resolve (Fn [Namespace Symbol -> (U (Var Any) Class nil)]
+clojure.core/ns-resolve (Fn [(U Symbol Namespace) Symbol -> (U (Var Any) Class nil)]
                             ; should &env arg be more accurate?
-                            [Namespace Any Symbol -> (U (Var Any) Class nil)])
+                            [(U Symbol Namespace) Any Symbol -> (U (Var Any) Class nil)])
 
 clojure.core/extenders [Any -> (U nil (Seqable (U Class nil)))]
 
