@@ -924,7 +924,6 @@ clojure.core/find-keyword
          [String String -> (Option Keyword)])
 
 clojure.core/derive (Fn [(U Symbol Keyword Class) (U Symbol Keyword) -> Any]
-                        ; could be more accurate with 3rd arg
                         [Hierarchy (U Symbol Keyword Class) (U Symbol Keyword) -> Any])
 
 clojure.core/compare [Comparable Any -> Number]
