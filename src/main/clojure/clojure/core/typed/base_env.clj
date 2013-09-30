@@ -944,6 +944,7 @@ clojure.core/map? (predicate (Map Any Any))
 )
     (h/var-mappings
 
+clojure.core/coll? (predicate (Coll Any))
 clojure.core/meta (All [x]
                             (Fn [(IMeta x) -> x]
                                 [Any -> nil]))
@@ -1247,6 +1248,13 @@ clojure.core/* (Fn [AnyInteger * -> AnyInteger]
                         [Number * -> Number])
 clojure.core// [Number Number * -> Number]
 
+clojure.core/+' (Fn [AnyInteger * -> AnyInteger]
+                    [Number * -> Number])
+clojure.core/-' (Fn [AnyInteger AnyInteger * -> AnyInteger]
+                    [Number Number * -> Number])
+clojure.core/*' (Fn [AnyInteger * -> AnyInteger]
+                    [Number * -> Number])
+
 clojure.core/inc (Fn [AnyInteger -> AnyInteger]
                           [Number -> Number])
 clojure.core/dec (Fn [AnyInteger -> AnyInteger]
@@ -1352,6 +1360,9 @@ clojure.core/chunk-append
 clojure.core/subvec (All [x] 
                      (Fn [(IPersistentVector x) AnyInteger -> (IPersistentVector x)]
                          [(IPersistentVector x) AnyInteger AnyInteger -> (IPersistentVector x)]))
+
+clojure.core/alias [Symbol Symbol -> nil]
+clojure.core/all-ns [-> (Coll Namespace)]
 
 
 ;; math.numeric-tower
