@@ -42,6 +42,8 @@ using the slim jar in production.
 Use the core.typed [mailing list](https://groups.google.com/forum/?fromgroups#!forum/clojure-core-typed) for core.typed discussion, 
 or try #typed-clojure on Freenode (the main developer is ambrosebs).
 
+[IRC Logs](http://logs.lazybot.org/irc.freenode.net/%23typed-clojure) (Thanks to [Anthony Grimes](https://twitter.com/IORayne)!)
+
 ## Documentation
 
 See [wiki](https://github.com/clojure/core.typed/wiki).
