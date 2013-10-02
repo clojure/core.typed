@@ -1,4 +1,4 @@
-(defproject core.typed "0.2.10-SNAPSHOT"
+(defproject core.typed "0.2.14-SNAPSHOT"
   :description "Gradual typing for Clojure"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -21,6 +21,8 @@
                  ]
 
   :plugins [[lein-typed "0.3.0"]]
+  :core.typed {:check [clojure.core.typed.test.records]
+               :check-cljs []}
 
   :global-vars {*warn-on-reflection* true}
 

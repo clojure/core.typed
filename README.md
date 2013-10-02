@@ -33,6 +33,10 @@ Maven dependency information:
 The default jars contain AOT files for faster loading. If jar size is a concern, consider
 using the slim jar in production.
 
+## Crowdfunding
+
+[Support full-time core.typed development](http://www.indiegogo.com/projects/typed-clojure/)
+
 ## [Talk] Clojure Conj 2012
 
 [Video](http://www.youtube.com/watch?v=wNhK8t3uLJU)
