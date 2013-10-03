@@ -1030,7 +1030,7 @@ clojure.core/empty? (Fn [(Option (Coll Any)) -> boolean
 
 clojure.core/map
      (All [c a b ...]
-          (Fn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable a) ... b -> (NonEmptyLazySeq c)]
+          (Fn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable b) ... b -> (NonEmptyLazySeq c)]
               [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (LazySeq c)]))
 
 clojure.core/mapv
