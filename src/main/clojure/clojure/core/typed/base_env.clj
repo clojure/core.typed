@@ -419,7 +419,7 @@ ARef [[[w :variance :contravariant]
       :replace
       {IRef (IRef w r)
        IMeta (IMeta Any)
-       AReference (AReference w r)
+       AReference (AReference Any Any)
        IDeref (IDeref r)
        IReference (IReference w r)}]
 
@@ -443,7 +443,7 @@ Atom [[[w :variance :contravariant]
       :replace
       {IRef (IRef w r)
        IMeta (IMeta Any)
-       AReference (AReference w r)
+       AReference (AReference Any Any)
        ARef (ARef w r)
        IDeref (IDeref r)
        IReference (IReference w r)}]
