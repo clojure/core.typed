@@ -2354,6 +2354,9 @@
 (deftest CTYP-78-finally-expected-test
   (is (check-ns 'clojure.core.typed.test.finally)))
 
+(deftest CTYP-74-malformed-TApp-test
+  (is (u/tc-error-thrown? (parse-type '([Any -> Any])))))
+
 ;(reset-caches)
 
 ;(chk/abstract-result

@@ -519,7 +519,10 @@
 
 (defmethod parse-type-list :default 
   [[n & args :as syn]]
-  (r/TApp-maker (parse-type n) (mapv parse-type args)))
+  (let [op (parse-type n)]
+    (when-not ((some-fn r/Name? r/TypeFn? r/F? r/B? r/Poly?) op)
+      (u/int-error (str "Invalid operator to TApp: " (pr-str (unparse-type op)))))
+    (r/TApp-maker op (mapv parse-type args))))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] (parse-type-list l))
