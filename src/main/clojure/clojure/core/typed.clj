@@ -765,12 +765,13 @@ for checking namespaces, cf for checking individual forms."}
   nil)
 
 (defmacro non-nil-return 
-  "Override the return type of qualified method msym to be non-nil.
+  "Override the return type of fully qualified method msym to be non-nil.
   Takes a set of relevant arities,
   represented by the number of parameters it takes (rest parameter counts as one),
   or :all which overrides all arities.
   
-  eg.  (non-nil-return java.lang.Class/getDeclaredMethod :all)"
+  eg. ; must use full class name
+      (non-nil-return java.lang.Class/getDeclaredMethod :all)"
   [msym arities]
   `(non-nil-return* '~msym '~arities))
 
