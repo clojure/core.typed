@@ -409,16 +409,18 @@
 
         (r/HeterogeneousList? s)
         (let [ss (apply c/Un (:types s))]
-          (subtype (impl/impl-case
-                     :clojure (c/RClass-of PersistentList [ss])
-                     :cljs (c/Protocol-of 'cljs.core/IList [ss]))
+          (subtype (c/In (impl/impl-case
+                           :clojure (c/RClass-of PersistentList [ss])
+                           :cljs (c/Protocol-of 'cljs.core/IList [ss]))
+                         (r/make-ExactCountRange (count (:types s))))
                    t))
 
         (r/HeterogeneousSeq? s)
         (let [ss (apply c/Un (:types s))]
-          (subtype (impl/impl-case
-                     :clojure (c/RClass-of ASeq [ss])
-                     :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))
+          (subtype (c/In (impl/impl-case
+                           :clojure (c/RClass-of ASeq [ss])
+                           :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))
+                         (r/make-ExactCountRange (count (:types s))))
                    t))
 
 ; The order of checking protocols and datatypes is subtle.

@@ -2345,6 +2345,9 @@
 (deftest comparable-inline-test
   (is-cf (fn [v x] (compare v x)) (Fn [Comparable Any -> Number])))
 
+(deftest CTYP-84-hlist-ancestor-test
+  (is-cf (seq '(1)) (clojure.core.typed/NonEmptySeq Number)))
+
 ;(reset-caches)
 
 ;(chk/abstract-result
