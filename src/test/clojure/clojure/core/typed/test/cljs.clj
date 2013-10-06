@@ -17,6 +17,9 @@
 (defmacro is-cljs [& body]
   `(is (cljs ~@body)))
 
+(defmacro is-cf [& body]
+  `(is (t/cf ~@body) true))
+
 (deftest parse-prims-cljs-test
   (is (= (prs/parse-cljs 'number)
          (r/NumberCLJS-maker)))
@@ -118,6 +121,14 @@
 
 (deftest simple-polymorphic-test
   (t/check-ns 'cljs.core.typed.test.identity))
+
+(deftest value-supertype-test
+  (is-cf 'a cljs.core/Symbol)
+  (is-cf :a cljs.core/Keyword)
+  (is-cf 1 int)
+  (is-cf 1.1 number)
+  (is-cf 1 number)
+  (is-cf true boolean))
 
 ;(t/check-ns 'cljs.core.typed.test.dnolen.utils.dom)
 ;(t/check-ns 'cljs.core.typed.test.dnolen.utils.reactive)
