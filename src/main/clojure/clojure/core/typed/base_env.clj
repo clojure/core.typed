@@ -6,7 +6,7 @@
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
                          IPersistentList IRef IReference AReference ARef Var Delay Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
-                         ITransientVector PersistentHashMap))
+                         ITransientVector PersistentHashMap Reduced))
   (:require [clojure.core.typed.base-env-helper :as h]
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.parse-unparse :as prs]
@@ -456,6 +456,10 @@ LazySeq [[[a :variance :covariant]]
                                   a
                                   #_(TFn [[x :variance :covariant]] x)
                                   #_(TFn [[x :variance :covariant]] (LazySeq x)))}]
+
+Reduced [[[a :variance :covariant]]
+         :replace
+         {IDeref (IDeref a)}]
 
 ; Hack for Seqable things. Not needed if Seqable was a protocol.
 
@@ -1056,11 +1060,14 @@ clojure.core/reduce
             ;Without accumulator
             ; default
             ; (reduce + my-coll)
-            [[a c -> a] (NonEmptySeqable c) -> a]
-            [(Fn [a c -> a] [-> a]) (Option (Seqable c)) -> a]
+            [[a c -> (U (Reduced a) a)] (NonEmptySeqable c) -> a]
+            [(Fn [a c -> (U (Reduced a) a)] [-> (U (Reduced a) a)]) (Option (Seqable c)) -> a]
             ; default
             ; (reduce + 3 my-coll)
-            [[a c -> a] a (Option (Seqable c)) -> a]))
+            [[a c -> (U (Reduced a) a)] a (Option (Seqable c)) -> a]))
+
+clojure.core/reduced (All [x] [x -> (Reduced x)])
+clojure.core/reduced? (predicate (Reduced Any))
 
 #_(comment
   clojure.core/reduce

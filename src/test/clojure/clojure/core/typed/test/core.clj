@@ -2357,6 +2357,15 @@
 (deftest CTYP-74-malformed-TApp-test
   (is (u/tc-error-thrown? (parse-type '([Any -> Any])))))
 
+(deftest CTYP-73-reduced-test
+  (is-cf (reduced 1) (clojure.lang.Reduced Number))
+  (is-cf @(reduced 1) Number)
+  (is-cf (reduce (clojure.core.typed/ann-form
+                   (fn [a b] (if (= a b) 1 (reduced 1)))
+                   [Number Number -> (U (clojure.lang.Reduced Number) Number)])
+                 1 [1 2 3])
+         Number))
+
 ;(reset-caches)
 
 ;(chk/abstract-result
