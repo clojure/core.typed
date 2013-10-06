@@ -587,12 +587,12 @@
                (cs-gen V X Y (:type t) (:type s)))
 
     ; simple case for unifying x and y in (& (is x sym) ...) (is y sym)
-    (and (fr/AndFilter? s)
-         (fr/TypeFilter? t)
-         (every? fo/atomic-filter? (:fs s))
-         (= 1 (count fr/TypeFilter?) (:fs s)))
-    (let [tf (first (filter fr/TypeFilter? (:fs s)))]
-      (cs-gen-filter V X Y tf t))
+;    (and (fr/AndFilter? s)
+;         (fr/TypeFilter? t)
+;         (every? fo/atomic-filter? (:fs s))
+;         (= 1 (count (filter fr/TypeFilter? (:fs s)))))
+;    (let [tf (first (filter fr/TypeFilter? (:fs s)))]
+;      (cs-gen-filter V X Y tf t))
     :else (fail! s t))))
 
 ;must be *latent* flow sets
