@@ -134,8 +134,8 @@
 (ann ^:no-check cljs.core.async/alts!! 
      (All [x d]
           (Fn [(Seqable (U (Port x) '[(Port x) x])) (Seqable (Port x)) & :mandatory {:default d} :optional {:priority (U nil true)} -> 
-               (U '[d ':default] '[x (Port x)])]
-              [(Seqable (U (Port x) '[(Port x) x])) & :optional {:priority (U nil true)} -> '[x (Port x)]])))
+               (U '[d ':default] '[(U nil x) (Port x)])]
+              [(Seqable (U (Port x) '[(Port x) x])) & :optional {:priority (U nil true)} -> '[(U nil x) (Port x)]])))
 
 (ann ^:no-check cljs.core.async/close! [(ReadOnlyChan Any) -> nil])
 
