@@ -4,6 +4,7 @@
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.path-rep :as pthrep]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.util-cljs :as ucljs]
             [clojure.core.typed.dvar-env :as dvar]
             [clojure.core.typed.filter-rep :as f]
@@ -521,8 +522,10 @@
   [[n & args :as syn]]
   (let [op (parse-type n)]
     (when-not ((some-fn r/Name? r/TypeFn? r/F? r/B? r/Poly?) op)
-      (u/int-error (str "Invalid operator to TApp: " (pr-str (unparse-type op)))))
-    (r/TApp-maker op (mapv parse-type args))))
+      (u/int-error (str "Invalid operator to type application: " syn)))
+    (with-meta (r/TApp-maker op (mapv parse-type args))
+               {:syn syn
+                :env vs/*current-env*})))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] (parse-type-list l))

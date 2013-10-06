@@ -985,8 +985,11 @@
         ^TypeFn rator (-resolve rator)
         _ (assert (r/TypeFn? rator) (unparse-type rator))]
     (when-not (= (count rands) (.nbound rator))
-      (u/int-error (str "Wrong number of arguments (" (count rands) ", expected " (:nbound rator) ") provided to type function "
-                        (unparse-type rator) (mapv unparse-type rands))))
+      (binding [vs/*current-env* (-> tapp meta :env)] ;must override env, or clear it
+        (u/int-error (str "Wrong number of arguments (" (count rands) ") passed to type function: "
+                          (unparse-type tapp) 
+                          (when-let [syn (-> tapp meta :syn)]
+                            (str " in " (pr-str syn)))))))
     (instantiate-typefn rator rands)))
 
 (t/ann ^:no-check resolve-App [App -> r/Type])
