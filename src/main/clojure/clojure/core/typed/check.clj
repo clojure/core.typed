@@ -2078,11 +2078,13 @@
 (defn resolved-type-vector [t]
   (cond
    (r/TCResult? t)
-   (map c/fully-resolve-type
-        (type-into-vector (-> t :t c/fully-resolve-type)))
+   (doall
+     (map c/fully-resolve-type
+          (type-into-vector (-> t :t c/fully-resolve-type))))
    
    (r/AnyType? t)
-   (map c/fully-resolve-type (type-into-vector t))
+   (doall 
+     (map c/fully-resolve-type (type-into-vector (c/fully-resolve-type t))))
    
    :else
    [t]))
@@ -2249,7 +2251,7 @@
 (add-invoke-special-method 'clojure.core/dissoc
   [{:keys [fexpr args] :as expr} & [expected]]
   {:post [(or (= % :default) (-> % expr-type TCResult?))]}
-  (let [[ctarget & cargs :as all-cargs] (map check args)
+  (let [[ctarget & cargs :as all-cargs] (doall (map check args))
         ttarget (-> ctarget expr-type ret-t)
         targs (map expr-type cargs)]
     (if-let [new-t (dissoc-keys ttarget targs)]
@@ -2338,7 +2340,7 @@
 (add-invoke-special-method 'clojure.core/merge
   [{:keys [fexpr args] :as expr} & [expected]]
   {:post [(or (= % :default) (-> % expr-type TCResult?))]}
-  (let [[ctarget & cargs :as all-cargs] (map check args)
+  (let [[ctarget & cargs :as all-cargs] (doall (map check args))
         basemap (-> ctarget expr-type ret-t c/fully-resolve-type)
         targs (map expr-type cargs)]
     (if-let [merged (apply merge-types (concat [basemap] targs))]
@@ -2381,7 +2383,7 @@
 ;conj
 (add-invoke-special-method 'clojure.core/conj
   [{:keys [args fexpr] :as expr} & [expected]]
-  (let [[ctarget & cargs :as all-cargs] (map check args)
+  (let [[ctarget & cargs :as all-cargs] (doall (map check args))
         ttarget (-> ctarget expr-type ret-t)
         targs (map expr-type cargs)]
     (if-let [conjed (apply (partial conj-types ttarget) targs)]
@@ -2403,7 +2405,7 @@
                                                      :return error-expr)
 
         :else
-        (let [[ctarget-expr cpath-expr cfn-expr & more-exprs] (map check args)
+        (let [[ctarget-expr cpath-expr cfn-expr & more-exprs] (doall (map check args))
               path-type (-> cpath-expr expr-type ret-t c/fully-resolve-type)]
           (if (not (HeterogeneousVector? path-type))
             (u/tc-delayed-error (str "Can only check update-in with vector as second argument")
@@ -2434,9 +2436,10 @@
   (case (:op expr)
     :constant (when (vector? (:val expr))
                 (map (fn [f] [f nil]) (:val expr)))
-    :vector (map (fn [arg-expr]
-                   [(u/emit-form-fn arg-expr) arg-expr])
-                 (:args expr))
+    :vector (doall
+              (map (fn [arg-expr]
+                     [(u/emit-form-fn arg-expr) arg-expr])
+                   (:args expr)))
     nil))
 
 ; some code taken from tools.cli
@@ -4123,7 +4126,9 @@
 ;; produces old without the contents of rem
 ;[Type Type -> Type]
 (defn remove* [old rem]
-  (let [initial (if (sub/subtype? old rem)
+  (let [old (c/fully-resolve-type old)
+        rem (c/fully-resolve-type rem)
+        initial (if (sub/subtype? old rem)
                   (c/Un) ;the empty type
                   (cond
                     ;FIXME TR also tests for App? here. ie (or (r/Name? old) (App? old))

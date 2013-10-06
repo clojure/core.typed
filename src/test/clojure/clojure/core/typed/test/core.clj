@@ -2088,6 +2088,9 @@
   
   (equal-types (assoc (clojure.core.typed/ann-form {} (HMap :optional {:a Any})) :a "v")
                (HMap :mandatory {:a (Value "v")}))
+
+  ;CTYP-79 resolve types properly in assoc
+  (is (check-ns 'clojure.core.typed.test.hmap-resolve-assoc))
   
   ; HVecs
   (equal-types-noparse (assoc [] 0 1)
