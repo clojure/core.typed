@@ -4883,7 +4883,7 @@
   (let [ctry-expr (check try-expr expected)
         ccatch-exprs (mapv #(check % expected) catch-exprs)
         _cfinally-expr_ (when finally-expr
-                          (check finally-expr expected))]
+                          (check finally-expr))]
     (assoc expr
            expr-type (ret (apply c/Un (-> ctry-expr expr-type ret-t) 
                                  (map (comp ret-t expr-type) ccatch-exprs))))))
