@@ -20,7 +20,7 @@
                  [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
                  ]
 
-  :plugins [[lein-typed "0.3.0"]]
+  :plugins [[lein-typed "0.3.1"]]
   :core.typed {:check [clojure.core.typed.test.records]
                :check-cljs []}
 
