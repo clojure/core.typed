@@ -11,7 +11,7 @@
 (alter-meta! *ns* assoc :skip-wiki true)
   )
 
-(t/ann ^:no-check -FS-var [-> (Var [p/IFilter p/IFilter -> p/IFilterSet])])
+(t/ann ^:no-check -FS-var [-> (t/Var1 [p/IFilter p/IFilter -> p/IFilterSet])])
 (defn- -FS-var []
   (let [ns (find-ns 'clojure.core.typed.filter-ops)
         _ (assert ns)
@@ -19,7 +19,7 @@
     (assert (var? v) "-FS unbound")
     v))
 
-(t/ann ^:no-check -top-var [-> (Var p/IFilter)])
+(t/ann ^:no-check -top-var [-> (t/Var1 p/IFilter)])
 (defn -top-var []
   (let [ns (find-ns 'clojure.core.typed.filter-rep)
         _ (assert ns)
@@ -27,7 +27,7 @@
     (assert (var? v) "-top unbound")
     v))
 
-(t/ann ^:no-check -empty-var [-> (Var p/IRObject)])
+(t/ann ^:no-check -empty-var [-> (t/Var1 p/IRObject)])
 (defn -empty-var []
   (let [ns (find-ns 'clojure.core.typed.object-rep)
         _ (assert ns)

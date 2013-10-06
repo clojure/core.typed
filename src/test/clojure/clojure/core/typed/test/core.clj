@@ -216,7 +216,7 @@
                          (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x)))))))
   (is-clj (sub? (HMap :mandatory {:op (Value :if)
                   :test (HMap :mandatory {:op (Value :var)
-                               :var (clojure.lang.Var Any)})
+                               :var (clojure.lang.Var Nothing Any)})
                   :then (HMap :mandatory {:op (Value :nil)})
                   :else (HMap :mandatory {:op (Value :false)})})
             (Rec [x] 
@@ -225,7 +225,7 @@
                            :then x
                            :else x})
                     (HMap :mandatory {:op (Value :var)
-                           :var (clojure.lang.Var Any)})
+                           :var (clojure.lang.Var Nothing Any)})
                     (HMap :mandatory {:op (Value :nil)})
                     (HMap :mandatory {:op (Value :false)})))))
 
@@ -1883,7 +1883,7 @@
 (deftest var-as-function-test
   (is (cf #'+ [Number * -> Number]))
   (is (cf (#'+ 1 2)))
-  (is (sub? (clojure.lang.Var [-> nil]) [-> nil])))
+  (is (sub? (clojure.core.typed/Var1 [-> nil]) [-> nil])))
 
 (deftest future-test
   (is (cf @(future 'a) clojure.lang.Symbol))

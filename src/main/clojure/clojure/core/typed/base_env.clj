@@ -427,14 +427,15 @@ Delay [[[r :variance :covariant]]
        :replace
        {IDeref (IDeref r)}]
 
-Var [[[v :variance :invariant]]
+Var [[[w :variance :contravariant]
+      [r :variance :covariant]]
      :replace
      {AReference (AReference Any Any)
       IReference (IReference Any Any)
-      IFn v
-      IRef (IRef Any Any)
-      ARef (ARef Any Any)
-      IDeref (IDeref Any)
+      IFn r
+      IRef (IRef w r)
+      ARef (ARef w r)
+      IDeref (IDeref r)
       IMeta (IMeta Any)}]
 
 Atom [[[w :variance :contravariant]
@@ -506,6 +507,9 @@ clojure.core.typed/Num Number
     ^{:doc "An atom that can read and write type x."
       :forms [(Atom1 t)]}
 clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] (Atom x x))
+    ^{:doc "An var that can read and write type x."
+      :forms [(Var1 t)]}
+clojure.core.typed/Var1 (TFn [[x :variance :invariant]] (Var x x))
     ^{:doc "A union of x and nil."
       :forms [(Option t)]}
 clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
@@ -630,7 +634,7 @@ clojure.core.typed/Hierarchy '{:parents (IPersistentMap Any Any)
 (let [interns '[Option AnyInteger Id Coll Seq NonEmptySeq EmptySeqable
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
-                Hierarchy Nilable Int]]
+                Hierarchy Nilable Int Var1]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -701,8 +705,8 @@ clojure.core/identity (All [x] [x -> x
                                 :object {:id 0}])
 clojure.core/gensym (Fn [-> Symbol]
                         [String -> Symbol])
-clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> (Var Any)]
-                        [(U Symbol Namespace) Symbol Any -> (Var Any)])
+clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> (Var Nothing Any)]
+                        [(U Symbol Namespace) Symbol Any -> (Var Nothing Any)])
 
 
 clojure.core/doall (All [[c :< (U nil (Seqable Any))]]
@@ -802,8 +806,8 @@ clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
 clojure.core/not [Any -> boolean]
 clojure.core/constantly (All [x y] [x -> [y * -> x]])
 
-clojure.core/bound? [(Var Any) * -> Boolean]
-clojure.core/thread-bound? [(Var Any) * -> Boolean]
+clojure.core/bound? [(Var Nothing Any) * -> Boolean]
+clojure.core/thread-bound? [(Var Nothing Any) * -> Boolean]
 clojure.core/bases [(Nilable Class) -> (NilableNonEmptySeq Class)]
 
 clojure.core/make-hierarchy [-> Hierarchy]
@@ -1233,16 +1237,16 @@ clojure.core/= [Any Any * -> (U true false)]
 
 clojure.core/integer? (predicate AnyInteger)
 clojure.core/number? (predicate Number)
-clojure.core/var? (predicate (clojure.lang.Var Any))
+clojure.core/var? (predicate (clojure.lang.Var Nothing Any))
 clojure.core/class? (predicate Class)
 
-clojure.core/resolve (Fn [Symbol -> (U (Var Any) Class nil)]
+clojure.core/resolve (Fn [Symbol -> (U (Var Nothing Any) Class nil)]
                          ; should &env arg be more accurate?
-                         [Any Symbol -> (U (Var Any) Class nil)])
+                         [Any Symbol -> (U (Var Nothing Any) Class nil)])
 
-clojure.core/ns-resolve (Fn [(U Symbol Namespace) Symbol -> (U (Var Any) Class nil)]
+clojure.core/ns-resolve (Fn [(U Symbol Namespace) Symbol -> (U (Var Nothing Any) Class nil)]
                             ; should &env arg be more accurate?
-                            [(U Symbol Namespace) Any Symbol -> (U (Var Any) Class nil)])
+                            [(U Symbol Namespace) Any Symbol -> (U (Var Nothing Any) Class nil)])
 
 clojure.core/extenders [Any -> (U nil (Seqable (U Class nil)))]
 

@@ -458,7 +458,7 @@
         var-sym (symbol (apply str (apply concat segs)))]
     var-sym))
 
-(t/ann resolve-Protocol [Protocol -> (Var Any)])
+(t/ann resolve-Protocol [Protocol -> (Var Nothing Any)])
 (defn resolve-Protocol
   [{:keys [the-var]}]
   {:post [(var? %)]}
@@ -976,10 +976,11 @@
 (t/ann ^:no-check resolve-TApp [TApp -> r/Type])
 (defn resolve-TApp [^TApp app]
   {:pre [(r/TApp? app)]}
-  (resolve-tapp* (.rator app) (.rands app)))
+  (resolve-tapp* (.rator app) (.rands app) :tapp app))
 
 (t/ann ^:no-check resolve-tapp* [r/Type (Seqable r/Type) -> r/Type])
-(defn resolve-tapp* [rator rands]
+(defn resolve-tapp* [rator rands & {:keys [tapp]}]
+  {:pre [(r/TApp? tapp)]}
   (let [unparse-type @(unparse-type-var)
         ^TypeFn rator (-resolve rator)
         _ (assert (r/TypeFn? rator) (unparse-type rator))]

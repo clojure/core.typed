@@ -316,7 +316,7 @@
 ) ;end tc-ignore
 
 ;TODO to check, needs support for instance field
-(t/ann ^:no-check var->symbol [(Var Any) -> Symbol])
+(t/ann ^:no-check var->symbol [(Var Nothing Any) -> Symbol])
 (defn var->symbol [^Var var]
   {:pre [(var? var)]
    :post [(symbol? %)

@@ -1007,13 +1007,13 @@
       (let [symfn (prs/parse-type '(All [x] [(U (clojure.lang.IPersistentMap Any x) Any) -> (U x nil)]))]
         (check-funapp fexpr args (ret symfn) arg-ret-types expected))
       
-      ;Var function
-      (and (r/RClass? fexpr-type)
-           ('#{clojure.lang.Var} (.the-class ^RClass fexpr-type)))
-      (let [{[ftype :as poly?] :poly?} fexpr-type
-            _ (assert (= 1 (count poly?))
-                      "Assuming clojure.lang.Var only takes 1 argument")]
-        (check-funapp fexpr args (ret ftype) arg-ret-types expected))
+;      ;Var function
+;      (and (r/RClass? fexpr-type)
+;           ('#{clojure.lang.Var} (.the-class ^RClass fexpr-type)))
+;      (let [{[ftype :as poly?] :poly?} fexpr-type
+;            _ (assert (= 1 (count poly?))
+;                      "Assuming clojure.lang.Var only takes 1 argument")]
+;        (check-funapp fexpr args (ret ftype) arg-ret-types expected))
 
       ;Error is perfectly good fn type
       (r/TCError? fexpr-type)
@@ -1242,7 +1242,7 @@
                                       :form (u/emit-form-fn expr)
                                       :return (r/TCError-maker)))]
     (assoc expr
-           expr-type (ret (c/RClass-of Var [t])
+           expr-type (ret (c/RClass-of Var [t t])
                           (fo/-true-filter)
                           obj/-empty))))
 
@@ -4637,7 +4637,7 @@
         warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (expr-ns expr))
         t (var-env/lookup-Var-nofail vsym)
         ;def returns a Var
-        actual-t (c/RClass-of Var [(or t r/-any)])
+        actual-t (c/RClass-of Var [(or t r/-any) (or t r/-any)])
         _ (when (and expected (not (sub/subtype? actual-t (ret-t expected))))
             (expected-error actual-t (ret-t expected)))
         res-expr (assoc expr
@@ -4678,7 +4678,7 @@
       ;ignore macro definitions and declare
       (or (.isMacro ^Var var)
           (not init-provided))
-      (let [actual-t (c/RClass-of Var [r/-any])
+      (let [actual-t (c/RClass-of Var [(r/Bottom) r/-any])
             _ (when (and expected
                          (not (sub/subtype? actual-t (ret-t expected))))
                 (expected-error actual-t (ret-t expected)))]
