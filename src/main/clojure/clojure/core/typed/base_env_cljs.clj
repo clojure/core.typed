@@ -16,7 +16,8 @@ cljs.core/ISet [[[x :variance :covariant]]]
 cljs.core/IVector [[[x :variance :covariant]]]
 cljs.core/IList [[[x :variance :covariant]]]
 cljs.core/IEquiv [[]]
-
+cljs.core/Symbol [[]]
+cljs.core/Keyword [[]]
 
     ))
 
