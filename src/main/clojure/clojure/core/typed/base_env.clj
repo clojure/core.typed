@@ -395,6 +395,12 @@ Symbol [[]
              :replace
              {IMeta (IMeta Any)}]
 
+Keyword [[]
+         :replace
+         {IFn (All [x] 
+                (Fn [(U nil (IPersistentMap Any x)) -> (U nil x)]
+                    [Any -> Any]))}]
+
 IDeref [[[r :variance :covariant]]]
 
 

@@ -842,19 +842,6 @@
         [t-r f-r o-r flow-r] (open-Result rng o-a t-a)]
     (ret t-r f-r o-r flow-r)))
 
-;[TCResult -> Type]
-(defn resolve-to-ftype [expected]
-  (loop [etype expected 
-         seen #{}]
-    (if (seen etype)
-      (u/int-error (str "Stuck in loop, cannot resolve function type "
-                        (pr-str (prs/unparse-type (ret-t expected)))))
-      (let [seen (conj seen etype)]
-        (cond
-          (r/Name? etype) (recur (c/resolve-Name etype) seen)
-          (r/TApp? etype) (recur (c/resolve-TApp etype) seen)
-          :else etype)))))
-
 (declare MethodExpr->qualsym)
 
 ;[Expr (Seqable Expr) (Seqable TCResult) (Option TCResult) Boolean
@@ -966,6 +953,21 @@
 
 (declare invoke-keyword)
 
+(defn ifn-ancestor 
+  "If this type can be treated like a function, return one of its
+  possibly polymorphic function ancestors.
+  
+  Assumes the type is not a union"
+  [t]
+  {:pre [(r/Type? t)]
+   :post [((some-fn nil? r/Type?) %)]}
+  (let [t (c/fully-resolve-type t)]
+    (cond
+      (r/RClass? t)
+      (first (filter (some-fn r/Poly? r/FnIntersection?) (c/RClass-supers* t)))
+      ;handle other types here
+      )))
+
 ; Expr Expr^n TCResult TCResult^n (U nil TCResult) -> TCResult
 (defn check-funapp [fexpr args fexpr-ret-type arg-ret-types expected]
   {:pre [(TCResult? fexpr-ret-type)
@@ -973,13 +975,26 @@
          ((some-fn nil? TCResult?) expected)]
    :post [(TCResult? %)]}
   (u/p :check/check-funapp
-  (let [fexpr-type (resolve-to-ftype (ret-t fexpr-ret-type))
+  (let [fexpr-type (c/fully-resolve-type (ret-t fexpr-ret-type))
         arg-types (mapv ret-t arg-ret-types)]
     (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
                              (when fexpr
                                (expr-ns fexpr)))
     ;(prn "check-funapp" (prs/unparse-type fexpr-type) (map prs/unparse-type arg-types))
     (cond
+      ;; a union of functions can be applied if we can apply all of the elements
+      (r/Union? fexpr-type)
+      (ret (reduce (fn [t ftype]
+                     {:pre [(r/Type? t)
+                            (r/Type? ftype)]
+                      :post [(r/Type? %)]}
+                     (c/Un t (ret-t (check-funapp fexpr args (ret ftype) arg-ret-types expected))))
+                   (c/Un)
+                   (:types fexpr-type)))
+
+      (ifn-ancestor fexpr-type)
+      (check-funapp fexpr args (ret (ifn-ancestor fexpr-type)) arg-ret-types expected)
+
       ;keyword function
       (c/keyword-value? fexpr-type)
       (let [[target-ret default-ret & more-args] arg-ret-types]
@@ -987,7 +1002,7 @@
         (invoke-keyword fexpr-ret-type target-ret default-ret expected))
 
       ;set function
-      ;FIXME yuck
+      ;FIXME yuck. Also this is wrong, should be APersistentSet or something that *actually* extends IFn
       (and (r/RClass? fexpr-type)
            (isa? (u/symbol->Class (.the-class ^RClass fexpr-type)) IPersistentSet))
       (do
@@ -995,6 +1010,7 @@
           (u/tc-delayed-error "Wrong number of arguments to set function (" (count args)")"))
         (ret r/-any))
 
+      ;FIXME same as IPersistentSet case
       (and (r/RClass? fexpr-type)
            (isa? (u/symbol->Class (.the-class ^RClass fexpr-type)) IPersistentMap))
       ;rewrite ({..} x) as (f {..} x), where f is some dummy fn
@@ -3028,11 +3044,11 @@
    :post [(TCResult? %)]}
   (u/p :check/check-fn
   (let [; try and unwrap type enough to find function types
-        exp (resolve-to-ftype (ret-t expected))
+        exp (c/fully-resolve-type (ret-t expected))
         ; unwrap polymorphic expected types
         [fin orig-names inst-frees bnds poly?] (unwrap-poly exp)
         ; once more to make sure (FIXME is this needed?)
-        fin (resolve-to-ftype fin)
+        fin (c/fully-resolve-type fin)
         ;ensure a function type
         _ (when-not (r/FnIntersection? fin)
             (u/int-error
