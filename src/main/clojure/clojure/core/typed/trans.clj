@@ -4,7 +4,7 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subst :as subst])
   (:import (clojure.core.typed.type_rep Name F Value RClass Union FnIntersection
-                                        Intersection Union Function TApp)))
+                                        Intersection Union Function TApp Top)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dotted pre-type expansion
@@ -21,6 +21,7 @@
 (defmethod trans-dots F [t b bm] t)
 (defmethod trans-dots Value [t b bm] t)
 (defmethod trans-dots RClass [t b bm] t)
+(defmethod trans-dots Top [t b bm] t)
 
 (defmethod trans-dots TApp
   [^TApp t b bm]
