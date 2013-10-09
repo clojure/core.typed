@@ -1,5 +1,7 @@
 # core.typed
 
+<img src='images/part-of-typed-clojure-project.png'>
+
 Gradual typing in Clojure, as a library.
 
 ## Releases and Dependency Information
