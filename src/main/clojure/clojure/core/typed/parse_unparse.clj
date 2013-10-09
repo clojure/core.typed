@@ -33,7 +33,7 @@
 (defonce ^:dynamic *parse-type-in-ns* nil)
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol?))
 
-(declare unparse-type)
+(declare unparse-type unparse-filter)
 
 ; Types print by unparsing them
 (do (defmethod print-method clojure.core.typed.impl_protocols.TCType [s writer]
@@ -46,7 +46,13 @@
       (print-method (unparse-type s) writer))
     (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IRecord)
     (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType java.util.Map)
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IPersistentMap))
+    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IPersistentMap)
+
+    (defmethod print-method clojure.core.typed.impl_protocols.IFilter [s writer]
+      (print-method (unparse-filter s) writer))
+    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter java.util.Map)
+    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IPersistentMap))
 
 (defmacro with-parse-ns [sym & body]
   `(binding [*parse-type-in-ns* ~sym]
