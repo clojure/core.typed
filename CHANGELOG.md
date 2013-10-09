@@ -1,3 +1,31 @@
+0.2.14-SNAPSHOT
+
+BREAKING CHANGES
+
+- Var now takes 2 parameters (see c.c.t/Var1)
+- Change AReference/IReference ancestors in base-env to (IReference Any Any)
+
+Enhacements
+
+- add c.c.t/Var1 alias
+- improve docstrings of Java interop annotators
+- CLJS
+  - add Symbol, Keyword
+  - add value subtyping cases
+- ns-resolve can take a symbol as first arg
+- clarify var> in docstring
+
+Fixes
+
+- [CTYP-67](http://dev.clojure.org/jira/browse/CTYP-67)
+- [CTYP-73](http://dev.clojure.org/jira/browse/CTYP-73)
+- [CTYP-74](http://dev.clojure.org/jira/browse/CTYP-74)
+- [CTYP-78](http://dev.clojure.org/jira/browse/CTYP-78)
+- [CTYP-79](http://dev.clojure.org/jira/browse/CTYP-79)
+- [CTYP-82](http://dev.clojure.org/jira/browse/CTYP-82)
+- [CTYP-84](http://dev.clojure.org/jira/browse/CTYP-84)
+- Fix first arity of map type
+
 0.2.13 - Released 25 September 2013
 - Syntax parsing errors have line numbers
 - Add [var>](http://clojure.github.io/core.typed/#clojure.core.typed/var>)
