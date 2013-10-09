@@ -516,6 +516,10 @@ clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] (Atom x x))
     ^{:doc "An var that can read and write type x."
       :forms [(Var1 t)]}
 clojure.core.typed/Var1 (TFn [[x :variance :invariant]] (Var x x))
+    ^{:doc "A ref that can read and write type x."
+      :forms [(Ref1 t)]}
+clojure.core.typed/Ref1 (TFn [[x :variance :invariant]] (IRef x x))
+
     ^{:doc "A union of x and nil."
       :forms [(Option t)]}
 clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))

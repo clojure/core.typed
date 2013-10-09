@@ -14,6 +14,8 @@ Enhacements
   - add value subtyping cases
 - ns-resolve can take a symbol as first arg
 - clarify var> in docstring
+- add c.c.t/ref>
+- add c.c.t/Ref1 alias
 
 Fixes
 

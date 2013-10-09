@@ -55,7 +55,7 @@ for checking namespaces, cf for checking individual forms."}
   "Internal use only."
   '#{Option AnyInteger Int Num Atom1 Id Coll NonEmptyColl Vec NonEmptyVec
      Map Set SortedSet Seqable NonEmptySeqable EmptySeqable Seq NonEmptySeq EmptyCount NonEmptyCount
-     NonEmptyLazySeq Hierarchy NilableNonEmptySeq Nilable Var1})
+     NonEmptyLazySeq Hierarchy NilableNonEmptySeq Nilable Var1 Ref1})
 
 (doseq [v -base-aliases]
   (intern 'clojure.core.typed v))
@@ -1113,6 +1113,17 @@ for checking namespaces, cf for checking individual forms."}
       (atom> (Vec Any) [])"
   [t init & args]
   `(atom (ann-form ~init ~t) ~@args))
+
+(defmacro ref>
+  "Like ref, but creates a Ref1 of type t.
+  
+  Same as (ref (ann-form init t) args*)
+  
+  eg. (ref> Number 1)
+      (ref> (Vec Any) [])"
+  [t init & args]
+  `(ref (ann-form ~init ~t) ~@args))
+
 
 (defn ^:skip-wiki var>* [sym]
   (impl/the-var sym))
