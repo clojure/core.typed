@@ -1,11 +1,14 @@
-(ns ^:skip-wiki clojure.core.typed.free-ops
+(ns ^:skip-wiki 
+  ^{:core.typed {:collect-only true}}
+  clojure.core.typed.free-ops
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed :as t :refer [fn>]])
   (:import (clojure.core.typed.type_rep F Bounds)
            (clojure.lang Symbol)))
 
-(alter-meta! *ns* assoc :skip-wiki true)
+(alter-meta! *ns* assoc :skip-wiki true
+             :core.typed {:collect-only true})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parse Type syntax
@@ -58,7 +61,8 @@
   [name]
   {:pre [(symbol? name)]
    :post [((some-fn nil? r/F?) %)]}
-  (:F (*free-scope* name)))
+  (when-let [entry (*free-scope* name)]
+    (:F entry)))
 
 (t/ann free-in-scope-bnds [Symbol -> (U nil Bounds)])
 (defn free-in-scope-bnds 
@@ -67,7 +71,8 @@
   [name]
   {:pre [(symbol? name)]
    :post [((some-fn nil? r/Bounds?) %)]}
-  (:bnds (*free-scope* name)))
+  (when-let [entry (*free-scope* name)]
+    (:bnds entry)))
 
 (defmacro with-free-mappings 
   [frees-map & body]
