@@ -87,6 +87,11 @@
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
+      <artifactId>core.cache</artifactId>
+      <version>0.6.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
       <artifactId>tools.namespace</artifactId>
       <version>0.2.4</version>
     </dependency>

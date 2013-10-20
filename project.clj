@@ -18,6 +18,7 @@
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
+                 [org.clojure/core.cache "0.6.3"]
                  ]
 
   :plugins [[lein-typed "0.3.1"]]

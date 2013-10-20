@@ -13,17 +13,19 @@
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.free-ops :as free]
             [clojure.core.typed :as t :refer [fn>]]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
             [clojure.reflect :as reflect]
-            [clojure.repl :as repl])
+            [clojure.repl :as repl]
+            [clojure.core.cache :as cache])
 
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
                                         Bounds Name Scope CountRange Intersection DataType Extends
-                                        JSNominal Protocol)
-           (clojure.lang Seqable IPersistentSet IPersistentMap Symbol Keyword
+                                        JSNominal Protocol HeterogeneousVector)
+           (clojure.lang Seqable IPersistentSet IPersistentMap IPersistentVector Symbol Keyword
                          Atom Var)))
 
 (t/typed-deps clojure.core.typed.name-env)
@@ -133,17 +135,23 @@
         v (ns-resolve n 'subtype?)]
     (assert (var? v) "subtype? unbound")
     v))
+
+(defn- subtype? [& args]
+  (apply (impl/v 'clojure.core.typed.subtype/subtype?) args))
   )
 
 (t/def-alias TypeCache 
-  (IPersistentMap (IPersistentSet r/Type) r/Type))
+  (t/Map (t/Set r/Type) r/Type))
+
+(t/ann ^:no-check initial-Un-cache TypeCache)
+(def ^:private initial-Un-cache (cache/lu-cache-factory {} :threshold 256))
 
 (t/ann ^:no-check Un-cache (t/Atom1 TypeCache))
-(defonce Un-cache (atom {}))
+(defonce Un-cache (atom initial-Un-cache))
 
 (t/ann ^:no-check reset-Un-cache [-> nil])
 (defn reset-Un-cache []
-  (reset! Un-cache {})
+  (reset! Un-cache initial-Un-cache)
   nil)
 
 (declare flatten-unions)
@@ -151,7 +159,7 @@
 (t/ann ^:no-check Un [r/Type * -> r/Type])
 (defn Un [& types]
   ;(prn "Un" (map @(unparse-type-var) types))
-  (if-let [hit (p :Union-cache-lookup (@Un-cache (p :Union-calc-hash (set (map r/type-id types)))))]
+  (if-let [hit (p :Union-cache-lookup (get @Un-cache (p :Union-calc-hash (set (map r/type-id types)))))]
     (do (p :Un-cache-hit)
         hit)
   (p :type-ctors/Un-ctor
