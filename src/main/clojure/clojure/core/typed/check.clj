@@ -2842,6 +2842,7 @@
   {:pre [(TCResult? result)
          (every? symbol? arg-names)]
    :post [(r/Result? %)]}
+  ;(prn "abstract result" result arg-names)
   (u/p :check/abstract-result
   (let [keys (range (count arg-names))]
     (r/make-Result
@@ -2855,6 +2856,7 @@
          (every? integer? keys)
          (r/AnyType? t)]
    :post [(r/AnyType? %)]}
+  ;(prn "abstract type" ids keys t)
   (letfn [(sb-t [t] (abstract-type ids keys t))
           (sb-f [f] (abo ids keys f))
           (sb-o [o] (abstract-object ids keys o))]
@@ -2870,8 +2872,19 @@
          (every? integer? keys)
          (obj/RObject? o)]
    :post [(obj/RObject? %)]}
-  (letfn [(lookup [y]
-            {:pre [(symbol? y)]
+  ;(prn "abstract-object" ids keys o)
+  (letfn [ ; Difference from Typed Racket:
+            ;   because abstract-result calls abstract-type, we could have
+            ;   already-abstracted filters at this point. We relax the contract
+            ;   to allow naturals.
+            ;
+            ; eg. (ann-form (fn [] (fn [b] b)) [-> [Any -> Any]])
+            ;
+            ;    In this type the (fn [b] b) is already abstracted as 
+            ;      [Any -> Any :filters {:then (! (U nil false) 0), :else (is (U nil false) 0)} :object {:id 0}]
+            ;    by the time we call abstract-result.
+          (lookup [y]
+            {:pre [((some-fn symbol? u/nat?) y)]
              :post [((some-fn nil? integer?) %)]}
             (some (fn [[x i]] (and (= x y) i))
                   (map vector ids keys)))]
@@ -2887,8 +2900,7 @@
          (every? integer? keys)
          ((some-fn fl/NoFilter? fl/FilterSet?) fs)]
    :post [((some-fn fl/NoFilter? fl/FilterSet?) %)]}
-  ;  (prn "abstract filter")
-  ;  (prn ids keys fs)
+  ;(prn "abstract filter" ids keys fs)
   (cond
     (fl/FilterSet? fs)
     (let [{fs+ :then fs- :else} fs]
@@ -2902,16 +2914,16 @@
                     TypeFilter
                     (fn [{:keys [type path id] :as fl} {{:keys [lookup]} :locals}]
                       ;if variable goes out of scope, replace filter with fl/-top
-                      (if (lookup id)
-                        (fo/-filter type (lookup id) path)
+                      (if-let [scoped (lookup id)]
+                        (fo/-filter type scoped path)
                         fl/-top)))
 
 (fold/add-fold-case ::abo
                     NotTypeFilter
                     (fn [{:keys [type path id] :as fl} {{:keys [lookup]} :locals}]
                       ;if variable goes out of scope, replace filter with fl/-top
-                      (if (lookup id)
-                        (fo/-not-filter type (lookup id)  path)
+                      (if-let [scoped (lookup id)]
+                        (fo/-not-filter type scoped path)
                         fl/-top)))
 
 ;[(Seqable Symbol) (Seqable AnyInteger) Filter -> Filter]
@@ -2920,10 +2932,19 @@
          (every? integer? idxs)
          (fl/Filter? f)]
    :post [(fl/Filter? %)]}
-  ;  (prn "abo")
-  ;  (prn xs idxs f)
+  ;(prn "abo" xs idxs f)
   (letfn [(lookup [y]
-            {:pre [(symbol? y)]
+            ; Difference from Typed Racket:
+            ;   because abstract-result calls abstract-type, we could have
+            ;   already-abstracted filters at this point. We relax the contract
+            ;   to allow naturals.
+            ;
+            ; eg. (ann-form (fn [] (fn [b] b)) [-> [Any -> Any]])
+            ;
+            ;    In this type the (fn [b] b) is already abstracted as 
+            ;      [Any -> Any :filters {:then (! (U nil false) 0), :else (is (U nil false) 0)} :object {:id 0}]
+            ;    by the time we call abstract-result.
+            {:pre [((some-fn symbol? u/nat?) y)]
              :post [((some-fn nil? integer?) %)]}
             (some (fn [[x i]] (and (= x y) i))
                   (map vector xs idxs)))

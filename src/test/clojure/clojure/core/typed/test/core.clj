@@ -2369,6 +2369,10 @@
                  1 [1 2 3])
          Number))
 
+(deftest CTYP-85-abo-test
+  (is-cf (fn [] (fn [b] b))
+         [-> [Any -> Any]]))
+
 ;(reset-caches)
 
 ;(chk/abstract-result
