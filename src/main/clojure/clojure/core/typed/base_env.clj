@@ -507,6 +507,12 @@ clojure.core.typed/Int (U Integer Long clojure.lang.BigInt BigInteger Short Byte
       ^{:doc "A type that returns true for clojure.core/number?"
         :forms [Number]}
 clojure.core.typed/Num Number
+      ^{:doc "A keyword"
+        :forms [Keyword]}
+clojure.core.typed/Keyword clojure.lang.Keyword
+      ^{:doc "A symbol"
+        :forms [Symbol]}
+clojure.core.typed/Symbol clojure.lang.Symbol
 
 ;clojure.core.typed/AnyPrimitive (U char int short boolean byte short long float double)
 
