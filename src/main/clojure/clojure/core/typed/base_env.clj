@@ -930,6 +930,9 @@ clojure.core/reset! (All [w r]
 clojure.core/swap! (All [w r b ...] 
                              [(Atom w r) [r b ... b -> w] b ... b -> w])
 
+clojure.core/alter-var-root (All [w r b ...] 
+                              [(Var w r) [r b ... b -> w] b ... b -> w])
+
 clojure.core/fnil (All [x y z a b ...]
                     (Fn [[x b ... b -> a] x -> [(U nil x) b ... b -> a]]
                         [[x y b ... b -> a] x y -> [(U nil x) (U nil y) b ... b -> a]]
