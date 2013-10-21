@@ -5,8 +5,11 @@
             [clojure.core.typed.type-ctors :as tc]
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.cs-rep :as crep]
+            [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed :as t :refer [ann Seqable]])
-  (:import (clojure.core.typed.type_rep F Function)
+  (:import (clojure.core.typed.type_rep F Function HeterogeneousVector)
            (clojure.lang Symbol)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -84,6 +87,26 @@
                                (and drest (r/DottedPretype-maker (sb (:pre-type drest))
                                                            (:name drest)))
                                nil))))
+
+(f/add-fold-case ::substitute-dots
+  HeterogeneousVector
+  (fn [{:keys [types fs objects rest drest] :as ftype} {{:keys [name sb images rimage]} :locals}]
+   (if (and drest
+            (= name (:name drest)))
+     (r/-hvec (doall
+                (concat (map sb types)
+                        ;; We need to recur first, just to expand out any dotted usages of this.
+                        (let [expanded (sb (:pre-type drest))]
+                          ;(prn "expanded" (unparse-type expanded))
+                          (map (fn [img] (substitute img name expanded)) images))))
+              :filters (doall (concat (map sb fs) (repeat (count images) (fo/-FS fl/-top fl/-top))))
+              :objects (doall (concat (map sb objects) (repeat (count images) orep/-empty))))
+     (r/-hvec (doall (map sb types))
+              :filters (doall (map sb fs))
+              :objects (doall (map sb objects))
+              :rest (when rest (sb rest))
+              :drest (when drest (r/DottedPretype1-maker (sb (:pre-type drest))
+                                                         (:name drest)))))))
   )
 
 ;; implements angle bracket substitution from the formalism
@@ -131,6 +154,19 @@
                                                        name
                                                        (:name drest))))
                              nil)))
+
+(f/add-fold-case ::substitute-dotted
+  HeterogeneousVector
+  (fn [{:keys [types fs objects rest drest]} {{:keys [sb name image]} :locals}]
+    (r/-hvec (doall (map sb types))
+             :filters (doall (map sb fs))
+             :objects (doall (map sb objects))
+             :rest (when rest (sb rest))
+             :drest (when drest
+                      (r/DottedPretype1-maker (substitute image (:name drest) (sb (:pretype drest)))
+                                              (if (= name (:name drest))
+                                                name
+                                                (:name drest)))))))
   )
 
 ;; implements curly brace substitution from the formalism

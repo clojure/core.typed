@@ -2086,131 +2086,7 @@
       (check-invoke-method expr expected false
                            :cargs cargs))))
 
-
-; utility functions
-
-(defn type-into-vector [x] (if (r/Union? x) (:types x) [x]))
-
-(defn resolved-type-vector [t]
-  (cond
-   (r/TCResult? t)
-   (doall
-     (map c/fully-resolve-type
-          (type-into-vector (-> t :t c/fully-resolve-type))))
-   
-   (r/AnyType? t)
-   (doall 
-     (map c/fully-resolve-type (type-into-vector (c/fully-resolve-type t))))
-   
-   :else
-   [t]))
-
-(defn union-or-nil [ts]
-  (if (some nil? ts) nil (apply c/Un ts)))
-
-(defn reduce-type-transform
-  "Given a function f, left hand type t, and arguments, reduce the function
-  over the left hand types with each argument in turn.
-  
-  Arguments will not be touched, it is up to f to resolve TCResults as needed.
-  However, unions returned by f will be expanded, so the left hand type argument
-  will not be a (raw) Union.
-  
-  Reduction is skipped once nil is returned, or optional predicate :when
-  returns false."
-  [func t args & {pred :when}]
-  (let [ok? #(and % (if pred (pred %) true))]
-    (union-or-nil
-     (reduce
-      (fn [left-types arg]
-        (if (every? ok? left-types)
-          (for [left left-types
-                res (type-into-vector (func left arg))]
-            res)
-          [nil]))
-      (resolved-type-vector t)
-      args))))
-
-;supporting assoc functionality
-
-(defprotocol AssocableType
-  (-assoc-pair [left kv]))
-
-(extend-protocol AssocableType
-  Value
-  (-assoc-pair
-   [v [kt vt]]
-   (when (r/Nil? v)
-     (let [rkt (-> kt :t c/fully-resolve-type)]
-       (if (c/keyword-value? rkt)
-         (c/-complete-hmap {rkt (:t vt)})
-         (c/RClass-of IPersistentMap [rkt (:t vt)])
-         ))))
-  
-  RClass
-  (-assoc-pair
-   [rc [kt vt]]
-   (let [rkt (-> kt :t c/fully-resolve-type)]
-     (cond
-      (= (:the-class rc) 'clojure.lang.IPersistentMap)
-      (c/RClass-of IPersistentMap [(c/Un (:t kt) (nth (:poly? rc) 0))
-                                   (c/Un (:t vt) (nth (:poly? rc) 1))])
-      
-      (and (= (:the-class rc) 'clojure.lang.IPersistentVector)
-           (r/Value? rkt))
-      (let [kt ^Value rkt]
-        (when (integer? (.val kt))
-          (c/RClass-of IPersistentVector [(c/Un (:t vt) (nth (:poly? rc) 0))])))
-      )))
-  
-  HeterogeneousMap
-  (-assoc-pair
-   [hmap [kt vt]]
-   (let [rkt (-> kt :t c/fully-resolve-type)]
-     (if (c/keyword-value? rkt)
-       (-> (assoc-in hmap [:types rkt] (:t vt))
-           (update-in [:absent-keys] disj rkt))
-       ; devolve the map
-       ;; todo: probably some machinery I can reuse here?
-       (c/RClass-of IPersistentMap [(apply c/Un (concat [rkt] (keys (:types hmap))))
-                                    (apply c/Un (concat [(:t vt)] (vals (:types hmap))))])
-       )))
-  
-  HeterogeneousVector
-  (-assoc-pair
-   [v [kt vt]]
-   (let [rkt (-> kt :t c/fully-resolve-type)]
-     (when (r/Value? rkt)
-       (let [^Value kt rkt
-             k (.val kt)] 
-         (when (and (integer? k) (<= k (count (:types v))))
-           (r/-hvec (assoc (:types v) k (:t vt))
-                    :filters (assoc (:fs v) k (:fl vt))
-                    :objects (assoc (:objects v) k (:o vt))))))))
-  
-  DataType
-  (-assoc-pair
-   [dt [kt vt]]
-   (let [rkt (-> kt :t c/fully-resolve-type)]
-     (when (and (r/Record? dt) (c/keyword-value? rkt))
-       (let [^Value kt rkt
-             field-type (when (c/keyword-value? kt)
-                          (get (.fields dt) (symbol (name (.val kt)))))]
-         (when (and field-type (sub/subtype? (:t vt) field-type))
-           dt))))))
-
-(defn assoc-type-pairs [t & pairs]
-  {:pre [(r/AnyType? t)
-         (every? (fn [[k v :as kv]]
-                   (and (= 2 (count kv))
-                        (r/TCResult? k)
-                        (r/TCResult? v)))
-                 pairs)]}
-  (reduce-type-transform -assoc-pair t pairs
-                         :when #(satisfies? AssocableType %)))
-
 ;assoc
-; FIXME needs more tests
 (add-invoke-special-method 'clojure.core/assoc
   [{:keys [fexpr args] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
@@ -2225,7 +2101,7 @@
         targetun (-> target check expr-type ret-t)
         ckeyvals (doall (map check keyvals))
         keypair-types (partition 2 (map expr-type ckeyvals))]
-    (if-let [new-hmaps (apply (partial assoc-type-pairs targetun) keypair-types)]
+    (if-let [new-hmaps (apply c/assoc-type-pairs targetun keypair-types)]
       (assoc expr
         expr-type (ret new-hmaps
                        (fo/-true-filter) ;assoc never returns nil
@@ -2241,116 +2117,16 @@
                                     expr-type (error-ret expected))))
     ))
 
-; dissoc support functions
-(defn- -dissoc-key [t k]
-  {:pre [(r/AnyType? t)
-         (r/TCResult? k)]}
-  (union-or-nil
-   (for [rtype (resolved-type-vector k)]
-     (cond
-      (r/Nil? t)
-      t
-      
-      (and (r/HeterogeneousMap? t) (c/keyword-value? rtype))
-      (if (:other-keys? t)
-        (-> (update-in t [:types] dissoc rtype)
-            (update-in [:absent-keys] conj rtype))
-        (update-in t [:types] dissoc rtype))
-      
-      (sub/subtype? t (c/RClass-of IPersistentMap [r/-any r/-any]))
-      t
-      ))))
-
-(defn dissoc-keys [t ks]
-  (reduce-type-transform -dissoc-key t ks))
-
 (add-invoke-special-method 'clojure.core/dissoc
   [{:keys [fexpr args] :as expr} & [expected]]
   {:post [(or (= % :default) (-> % expr-type TCResult?))]}
   (let [[ctarget & cargs :as all-cargs] (doall (map check args))
         ttarget (-> ctarget expr-type ret-t)
         targs (map expr-type cargs)]
-    (if-let [new-t (dissoc-keys ttarget targs)]
+    (if-let [new-t (c/dissoc-keys ttarget targs)]
       (assoc expr expr-type (ret new-t))
       (normal-invoke expr fexpr args expected
                      :cargs all-cargs))))
-
-; merge support functions
-(defn- merge-hmaps
-  "Merges two HMaps into one, right into left.
-  
-  Preserves all key information where possible, missing keys in a right hand incomplete
-  map will erase type information for those keys in the left.
-  
-  This strategy allows a merge of HMaps to always stay an HMap, without having to drop
-  down to an IPersistentMap.
-  
-  For example:
-  (merge {:a 4 :b 6} '{:b 5}) -> '{:a Any :b 5}"
-  [left right]
-  {:pre [(r/HeterogeneousMap? left)
-         (r/HeterogeneousMap? right)]}
-  
-  (let [; update lhs with known types
-        first-pass (apply (partial assoc-type-pairs left) (map (fn [[k t]]
-                                                                 [(ret k) (ret t)])
-                                                               (:types right)))
-        ; clear missing types when incomplete rhs and lhs still hmap
-        second-pass (if (and (r/HeterogeneousMap? first-pass) (:other-keys? right))
-                      (reduce
-                       (fn [t [lk lv]]
-                         (if (and t
-                                  ; left type not in right and not absent
-                                  (not (get (:types right) lk))
-                                  (not (get (:absent-keys right) lk)))
-                           (assoc-type-pairs t [(ret lk)
-                                                (ret r/-any)])
-                           t))
-                       first-pass
-                       (:types left))
-                      first-pass)
-        ; ensure :other-keys? updated appropriately
-        final-pass (when (r/HeterogeneousMap? second-pass)
-                     (update-in second-pass [:other-keys?]
-                                #(or % (:other-keys? right))))]
-    final-pass))
-
-(defn- merge-pair
-  [left right]
-  {:pre [(r/AnyType? left)
-         (r/TCResult? right)]}
-  (let [sub-class? #(sub/subtype? %1 (c/RClass-of %2 %3))
-        left-map (sub-class? left IPersistentMap [r/-any r/-any])
-        right-map (sub-class? right IPersistentMap [r/-any r/-any])]
-    (cond
-     ; preserve the rhand alias when possible
-     (and (r/Nil? left) right-map)
-     right
-     
-     :else
-     (union-or-nil
-      (for [rtype (resolved-type-vector right)]
-        (cond
-         (and (or left-map (r/Nil? left))
-              (r/Nil? rtype))
-         left
-         
-         (and (r/Nil? left) (sub-class? rtype IPersistentMap [r/-any r/-any]))
-         rtype
-         
-         (and (r/HeterogeneousMap? left) (r/HeterogeneousMap? rtype))
-         (merge-hmaps left rtype)
-         
-         (and (not (sub-class? left IPersistentVector [r/-any]))
-              (satisfies? AssocableType left)
-              (r/HeterogeneousMap? rtype))
-         (apply (partial assoc-type-pairs left) (map (fn [[k t]]
-                                                       [(ret k) (ret t)])
-                                                     (:types rtype)))
-         ))))))
-
-(defn merge-types [left & r-tcresults]
-  (reduce-type-transform merge-pair left r-tcresults))
 
 ; merge
 (add-invoke-special-method 'clojure.core/merge
@@ -2359,42 +2135,12 @@
   (let [[ctarget & cargs :as all-cargs] (doall (map check args))
         basemap (-> ctarget expr-type ret-t c/fully-resolve-type)
         targs (map expr-type cargs)]
-    (if-let [merged (apply merge-types (concat [basemap] targs))]
+    (if-let [merged (apply c/merge-types basemap targs)]
       (assoc expr expr-type (ret merged
                                  (fo/-true-filter) ;assoc never returns nil
                                  obj/-empty))
       (normal-invoke expr fexpr args expected
                      :cargs all-cargs))))
-
-(defn- conj-pair [left right]
-  (cond
-   (r/HeterogeneousVector? left)
-   (assoc-type-pairs left [(ret (r/-val (count (:types left))))
-                           right])
-   
-   (r/Nil? left)
-   (r/-hvec [(:t right)]
-            :filters [(:fl right)]
-            :objects [(:o right)])
-   
-   ; other rules need to unwrap the rhs
-   :else
-   (union-or-nil
-    (for [rtype (resolved-type-vector right)]
-      (cond
-       (and (r/HeterogeneousMap? left)
-            (r/HeterogeneousVector? rtype))
-       (if (= (count (:types rtype)) 2)
-         (assoc-type-pairs left (map ret (:types rtype)))
-         (u/int-error "Need vector of length 2 to conj to map"))
-       
-       (and (r/HeterogeneousMap? left)
-            (r/Nil? rtype))
-       left
-       )))))
-
-(defn conj-types [left & rtypes]
-  (reduce-type-transform conj-pair left rtypes))
 
 ;conj
 (add-invoke-special-method 'clojure.core/conj
@@ -2402,7 +2148,7 @@
   (let [[ctarget & cargs :as all-cargs] (doall (map check args))
         ttarget (-> ctarget expr-type ret-t)
         targs (map expr-type cargs)]
-    (if-let [conjed (apply (partial conj-types ttarget) targs)]
+    (if-let [conjed (apply c/conj-types ttarget targs)]
       (assoc expr expr-type (ret conjed
                                  (fo/-true-filter) ; conj never returns nil
                                  obj/-empty))

@@ -498,17 +498,31 @@
 
         (and (r/HeterogeneousVector? S)
              (r/HeterogeneousVector? T))
-        (let [^HeterogeneousVector S S 
-              ^HeterogeneousVector T T]
-          (cset-meet* (doall
-                  (concat
-                    [(cs-gen-list V X Y (.types S) (.types T))]
-                    (map (fn [fs1 fs2]
-                           (cs-gen-filter-set V X Y fs1 fs2))
-                         (.fs S) (.fs T))
-                    (map (fn [o1 o2]
-                           (cs-gen-object V X Y o1 o2))
-                         (.objects S) (.objects T))))))
+        (cset-meet* (concat
+                        (cond
+                          ;simple case
+                          (and (not-any? :rest [S T])
+                               (not-any? :drest [S T]))
+                          [(cs-gen-list V X Y (:types S) (:types T))]
+
+                          ;rest on right, optionally on left
+                          (and (:rest T)
+                               (not (:drest S)))
+                          (concat [(cs-gen-list V X Y (:types S) (concat (:types T)
+                                                                         (repeat (- (count (:types S))
+                                                                                    (count (:types T)))
+                                                                                 (:rest T))))]
+                                  (when (:rest S)
+                                    [(cs-gen V X Y (:rest S) (:rest T))]))
+
+                          ;TODO cases
+                          :else (fail! S T))
+                        (map (fn [fs1 fs2]
+                               (cs-gen-filter-set V X Y fs1 fs2))
+                             (:fs S) (:fs T))
+                        (map (fn [o1 o2]
+                               (cs-gen-object V X Y o1 o2))
+                             (:objects S) (:objects T))))
 
         (and (r/HeterogeneousMap? S)
              (r/HeterogeneousMap? T))

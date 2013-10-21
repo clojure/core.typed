@@ -159,11 +159,13 @@
                            (c/Mu* name (type-rec body)))))
 
 (add-default-fold-case HeterogeneousVector
-                       (fn [^HeterogeneousVector ty _]
+                       (fn [{:keys [types fs objects rest drest] :as ty} _]
                          (r/-hvec
-                           (mapv type-rec (.types ty))
-                           :filters (mapv filter-rec (.fs ty))
-                           :objects (mapv object-rec (.objects ty)))))
+                           (mapv type-rec (:types ty))
+                           :filters (mapv filter-rec (:fs ty))
+                           :objects (mapv object-rec (:objects ty))
+                           :rest (when rest (type-rec rest))
+                           :drest (when drest (update-in drest [:pre-type] type-rec)))))
 
 (add-default-fold-case HeterogeneousList 
                        (fn [ty _]

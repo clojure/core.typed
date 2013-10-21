@@ -134,7 +134,7 @@
 ;  [[_ psyn bsyn]]
 ;  (let [df (dvar/*dotted-scope* bsyn)]
 ;    (assert df bsyn)
-;    (r/DottedPretype-maker (free-ops/with-frees [df]
+;    (r/DottedPretype1-maker (free-ops/with-frees [df]
 ;                         (parse-type psyn))
 ;                       (:name (dvar/*dotted-scope* bsyn)))))
 
@@ -401,9 +401,54 @@
   [syn]
   (parse-type-fn syn))
 
+(declare parse-quoted-hvec)
+
 (defmethod parse-type-list 'Seq* [syn] (r/HeterogeneousSeq-maker (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'List* [syn] (r/HeterogeneousList-maker (mapv parse-type (rest syn))))
-(defmethod parse-type-list 'Vector* [syn] (r/-hvec (mapv parse-type (rest syn))))
+(defmethod parse-type-list 'Vector* [syn] (parse-quoted-hvec (rest syn)))
+
+(declare parse-hvec-types parse-object parse-filter-set)
+
+(defmethod parse-type-list 'HVec 
+  [[_ syn & {:keys [filter-sets objects]}]]
+  (let [{:keys [fixed drest rest]} (parse-hvec-types syn)]
+    (r/-hvec fixed
+             :filters (when filter-sets
+                        (mapv parse-filter-set filter-sets))
+             :objects (when objects
+                        (mapv parse-object objects))
+             :drest drest
+             :rest rest)))
+
+(defn parse-hvec-types [syns]
+  (let [rest? (#{'*} (last syns))
+        dotted? (#{'...} (-> syns butlast last))
+        _ (when (and rest? dotted?)
+            (u/int-error (str "Invalid heterogeneous vector syntax:" syns)))
+        {:keys [fixed rest drest]}
+        (cond
+          rest?
+          (let [fixed (mapv parse-type (drop-last 2 syns))
+                rest (parse-type (-> syns butlast last))]
+            {:fixed fixed
+             :rest rest})
+          dotted?
+          (let [fixed (mapv parse-type (drop-last 3 syns))
+                [drest-bnd _dots_ drest-type] (take-last 3 syns)
+                bnd (dvar/*dotted-scope* drest-bnd)
+                _ (when-not bnd 
+                    (u/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
+            {:fixed fixed
+             :drest (r/DottedPretype1-maker
+                      (free-ops/with-frees [bnd] ;with dotted bound in scope as free
+                        (parse-type drest-type))
+                      (:name bnd))})
+          :else {:fixed (mapv parse-type syns)})]
+    {:fixed fixed
+     :rest rest
+     :drest drest}))
+
+
 
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]
   (letfn [(mapt [m]
@@ -427,11 +472,17 @@
           absent-keys (set (map r/-val absent-keys))]
       (c/make-HMap mandatory optional complete? :absent-keys absent-keys))))
 
+(defn parse-quoted-hvec [syn]
+  (let [{:keys [fixed drest rest]} (parse-hvec-types syn)]
+    (r/-hvec fixed
+             :drest drest
+             :rest rest)))
+
 (defmethod parse-type-list 'quote 
   [[_ syn]]
   (cond
     ((some-fn number? keyword? symbol?) syn) (r/-val syn)
-    (vector? syn) (r/-hvec (mapv parse-type syn))
+    (vector? syn) (parse-quoted-hvec syn)
     ; quoted map is a partial map with mandatory keys
     (map? syn) (syn-to-hmap syn nil nil false)
     :else (u/int-error (str "Invalid use of quote:" (pr-str syn)))))
@@ -1122,8 +1173,18 @@
              [:mandatory (unparse-map-of-types (.mandatory v))]))))
 
 (defmethod unparse-type* HeterogeneousVector
-  [v]
-  (mapv unparse-type (:types v)))
+  [{:keys [types rest drest fs objects] :as v}]
+  (list* 'HVec 
+         (vec
+           (concat
+             (map unparse-type (:types v))
+             (when rest [(unparse-type rest) '*])
+             (when drest [(:name drest) '... (unparse-type (:pre-type drest))])))
+         (concat
+           (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
+             [:filter-sets (mapv unparse-filter-set fs)])
+           (when-not (every? #{orep/-empty} objects)
+             [:objects (mapv unparse-object objects)]))))
 
 (defmethod unparse-type* HeterogeneousList
   [v]

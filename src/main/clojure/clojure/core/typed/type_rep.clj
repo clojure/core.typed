@@ -424,10 +424,16 @@
   :methods
   [p/TCType])
 
-(u/ann-record HeterogeneousVector [types :- (t/Vec Type)
+(declare DottedPretype?)
+
+(u/ann-record HeterogeneousVector [;fixed members
+                                   types :- (t/Vec Type)
                                    fs :- (t/Vec p/IFilterSet)
-                                   objects :- (t/Vec p/IRObject)])
-(u/def-type HeterogeneousVector [types fs objects]
+                                   objects :- (t/Vec p/IRObject)
+                                   ;variable members to the right of fixed
+                                   rest :- (U nil Type)
+                                   drest :- (U nil DottedPretype)])
+(u/def-type HeterogeneousVector [types fs objects rest drest]
   "A constant vector, clojure.lang.IPersistentVector"
   [(vector? types)
    (every? (some-fn Type? Result?) types)
@@ -435,26 +441,32 @@
    (every? p/IFilterSet? fs)
    (vector? objects)
    (every? p/IRObject? objects)
-   (apply = (map count [types fs objects]))]
+   (apply = (map count [types fs objects]))
+   (#{0 1} (count (filter identity [rest drest])))
+   ((some-fn nil? Type?) rest)
+   ((some-fn nil? DottedPretype?) drest)]
   :methods
   [p/TCType])
 
 (t/ann ^:no-check -hvec 
-       [(t/Vec Type) & :optional {:filters (Seqable p/IFilterSet) :objects (Seqable p/IRObject)} -> Type])
+       [(t/Vec Type) & :optional {:filters (Seqable p/IFilterSet) :objects (Seqable p/IRObject)
+                                  :rest (U nil Type) :drest (U nil DottedPretype)} -> Type])
 (defn -hvec 
-  [types & {:keys [filters objects]}]
+  [types & {:keys [filters objects rest drest]}]
   (let [-FS @(-FS-var)
         -top @(-top-var)
         -empty @(-empty-var)]
     (if (some Bottom? types)
       (Bottom)
       (HeterogeneousVector-maker types
-                             (if filters
-                               (vec filters)
-                               (vec (repeat (count types) (-FS -top -top))))
-                             (if objects
-                               (vec objects)
-                               (vec (repeat (count types) -empty)))))))
+                                 (if filters
+                                   (vec filters)
+                                   (vec (repeat (count types) (-FS -top -top))))
+                                 (if objects
+                                   (vec objects)
+                                   (vec (repeat (count types) -empty)))
+                                 rest
+                                 drest))))
 
 (u/ann-record HeterogeneousList [types :- (Seqable Type)])
 (u/def-type HeterogeneousList [types]
@@ -484,13 +496,25 @@
   [p/TCType])
 
 (u/ann-record DottedPretype [pre-type :- Type,
-                             name :- (U Symbol Number)])
-(u/def-type DottedPretype [pre-type name]
+                             name :- (U Symbol Number)
+                             partition-count :- Number])
+(u/def-type DottedPretype [pre-type name partition-count]
   "A dotted pre-type. Not a type"
   [(Type? pre-type)
-   ((some-fn symbol? u/nat?) name)]
+   ((some-fn symbol? u/nat?) name)
+   (u/nat? partition-count)]
   :methods
   [p/TCAnyType])
+
+(t/ann-many [Type (U Symbol Number) -> DottedPretype]
+            DottedPretype1-maker
+            DottedPretype2-maker)
+
+(defn DottedPretype1-maker [pre-type name]
+  (DottedPretype-maker pre-type name 1))
+
+(defn DottedPretype2-maker [pre-type name]
+  (DottedPretype-maker pre-type name 2))
 
 ;not a type, see KwArgsSeq
 (u/ann-record KwArgs [mandatory :- (t/Map Type Type)

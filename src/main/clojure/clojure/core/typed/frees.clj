@@ -247,8 +247,12 @@
   (apply combine-frees (mapv frees (concat (keys types) (vals types)))))
 
 (add-frees-method [::any-var HeterogeneousVector]
-  [{:keys [types fs objects]}] 
-  (apply combine-frees (mapv frees (concat types fs objects))))
+  [{:keys [types fs objects rest drest]}] 
+  (apply combine-frees (concat (mapv frees (concat types fs objects))
+                               (when rest [(frees rest)])
+                               (when drest
+                                 [(dissoc (-> (:pre-type drest) frees)
+                                          (:name drest))]))))
 
 (add-frees-method [::any-var Extends]
   [{:keys [extends without]}] 

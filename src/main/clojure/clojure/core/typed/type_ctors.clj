@@ -1663,3 +1663,277 @@
   {:pre [(r/KwArgsSeq? kws)]
    :post [(r/Type? %)]}
   (make-HMap (.mandatory kws) (.optional kws)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Heterogenous type ops
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; utility functions
+
+(t/tc-ignore
+(defn type-into-vector [x] (if (r/Union? x) (:types x) [x]))
+
+(defn resolved-type-vector [t]
+  (cond
+   (r/TCResult? t)
+   (doall
+     (map fully-resolve-type
+          (type-into-vector (-> t :t fully-resolve-type))))
+   
+   (r/AnyType? t)
+   (doall 
+     (map fully-resolve-type (type-into-vector (fully-resolve-type t))))
+   
+   :else
+   [t]))
+
+(defn union-or-nil [ts]
+  (if (some nil? ts) nil (apply Un ts)))
+
+(defn reduce-type-transform
+  "Given a function f, left hand type t, and arguments, reduce the function
+  over the left hand types with each argument in turn.
+  
+  Arguments will not be touched, it is up to f to resolve TCResults as needed.
+  However, unions returned by f will be expanded, so the left hand type argument
+  will not be a (raw) Union.
+  
+  Reduction is skipped once nil is returned, or optional predicate :when
+  returns false."
+  [func t args & {pred :when}]
+  (let [ok? #(and % (if pred (pred %) true))]
+    (union-or-nil
+     (reduce
+      (fn [left-types arg]
+        (if (every? ok? left-types)
+          (for [left left-types
+                res (type-into-vector (func left arg))]
+            res)
+          [nil]))
+      (resolved-type-vector t)
+      args))))
+
+;supporting assoc functionality
+
+(defprotocol AssocableType
+  (-assoc-pair [left kv]))
+
+(extend-protocol AssocableType
+  ; use the upper bound if bounds below (Map Any Any)
+  F
+  (-assoc-pair
+    [{:keys [name] :as f} assoc-entry]
+    (let [bnd (free/free-with-name-bnds name)
+          _ (when-not bnd
+              (u/int-error (str "No bounds for type variable: " name free/*free-scope*)))]
+      (when (subtype? (:upper-bound bnd) (RClass-of IPersistentMap [r/-any r/-any]))
+        (r/AssocType-maker f [(mapv r/ret-t assoc-entry)] nil))))
+
+  Value
+  (-assoc-pair
+   [v [kt vt]]
+   (when (r/Nil? v)
+     (let [rkt (-> kt :t fully-resolve-type)]
+       (if (keyword-value? rkt)
+         (-complete-hmap {rkt (:t vt)})
+         (RClass-of IPersistentMap [rkt (:t vt)])
+         ))))
+  
+  RClass
+  (-assoc-pair
+   [rc [kt vt]]
+   (let [rkt (-> kt :t fully-resolve-type)]
+     (cond
+      (= (:the-class rc) 'clojure.lang.IPersistentMap)
+      (RClass-of IPersistentMap [(Un (:t kt) (nth (:poly? rc) 0))
+                                   (Un (:t vt) (nth (:poly? rc) 1))])
+      
+      (and (= (:the-class rc) 'clojure.lang.IPersistentVector)
+           (r/Value? rkt))
+      (let [kt ^Value rkt]
+        (when (integer? (.val kt))
+          (RClass-of IPersistentVector [(Un (:t vt) (nth (:poly? rc) 0))])))
+      )))
+  
+  HeterogeneousMap
+  (-assoc-pair
+   [hmap [kt vt]]
+   (let [rkt (-> kt :t fully-resolve-type)]
+     (if (keyword-value? rkt)
+       (-> (assoc-in hmap [:types rkt] (:t vt))
+           (update-in [:absent-keys] disj rkt))
+       ; devolve the map
+       ;; todo: probably some machinery I can reuse here?
+       (RClass-of IPersistentMap [(apply Un (concat [rkt] (keys (:types hmap))))
+                                  (apply Un (concat [(:t vt)] (vals (:types hmap))))])
+       )))
+  
+  HeterogeneousVector
+  (-assoc-pair
+   [v [kt vt]]
+   (let [rkt (-> kt :t fully-resolve-type)]
+     (when (r/Value? rkt)
+       (let [^Value kt rkt
+             k (.val kt)] 
+         (when (and (integer? k) (<= k (count (:types v))))
+           (r/-hvec (assoc (:types v) k (:t vt))
+                    :filters (assoc (:fs v) k (:fl vt))
+                    :objects (assoc (:objects v) k (:o vt))))))))
+  
+  DataType
+  (-assoc-pair
+   [dt [kt vt]]
+   (let [rkt (-> kt :t fully-resolve-type)]
+     (when (and (r/Record? dt) (keyword-value? rkt))
+       (let [^Value kt rkt
+             field-type (when (keyword-value? kt)
+                          (get (.fields dt) (symbol (name (.val kt)))))]
+         (when (and field-type (subtype? (:t vt) field-type))
+           dt))))))
+
+(defn assoc-type-pairs [t & pairs]
+  {:pre [(r/AnyType? t)
+         (every? (fn [[k v :as kv]]
+                   (and (= 2 (count kv))
+                        (r/TCResult? k)
+                        (r/TCResult? v)))
+                 pairs)]}
+  (reduce-type-transform -assoc-pair t pairs
+                         :when #(satisfies? AssocableType %)))
+
+(defn assoc-pairs-noret [t & pairs]
+  {:pre [(r/AnyType? t)]}
+  (apply assoc-type-pairs t (map (fn [[k v]] [(r/ret k) (r/ret v)]) pairs)))
+
+; dissoc support functions
+(defn- -dissoc-key [t k]
+  {:pre [(r/AnyType? t)
+         (r/TCResult? k)]}
+  (union-or-nil
+   (for [rtype (resolved-type-vector k)]
+     (cond
+      (r/Nil? t)
+      t
+      
+      (and (r/HeterogeneousMap? t) (keyword-value? rtype))
+      (if (:other-keys? t)
+        (-> (update-in t [:types] dissoc rtype)
+            (update-in [:absent-keys] conj rtype))
+        (update-in t [:types] dissoc rtype))
+      
+      (subtype? t (RClass-of IPersistentMap [r/-any r/-any]))
+      t
+      ))))
+
+(defn dissoc-keys [t ks]
+  (reduce-type-transform -dissoc-key t ks))
+
+; merge support functions
+(defn- merge-hmaps
+  "Merges two HMaps into one, right into left.
+  
+  Preserves all key information where possible, missing keys in a right hand incomplete
+  map will erase type information for those keys in the left.
+  
+  This strategy allows a merge of HMaps to always stay an HMap, without having to drop
+  down to an IPersistentMap.
+  
+  For example:
+  (merge {:a 4 :b 6} '{:b 5}) -> '{:a Any :b 5}"
+  [left right]
+  {:pre [(r/HeterogeneousMap? left)
+         (r/HeterogeneousMap? right)]}
+  
+  (let [; update lhs with known types
+        first-pass (apply assoc-type-pairs left (map (fn [[k t]]
+                                                       [(r/ret k) (r/ret t)])
+                                                     (:types right)))
+        ; clear missing types when incomplete rhs and lhs still hmap
+        second-pass (if (and (r/HeterogeneousMap? first-pass) (:other-keys? right))
+                      (reduce
+                       (fn [t [lk lv]]
+                         (if (and t
+                                  ; left type not in right and not absent
+                                  (not (get (:types right) lk))
+                                  (not (get (:absent-keys right) lk)))
+                           (assoc-type-pairs t [(r/ret lk)
+                                                (r/ret r/-any)])
+                           t))
+                       first-pass
+                       (:types left))
+                      first-pass)
+        ; ensure :other-keys? updated appropriately
+        final-pass (when (r/HeterogeneousMap? second-pass)
+                     (update-in second-pass [:other-keys?]
+                                #(or % (:other-keys? right))))]
+    final-pass))
+
+(defn- merge-pair
+  [left right]
+  {:pre [(r/AnyType? left)
+         (r/TCResult? right)]}
+  (let [sub-class? #(subtype? %1 (RClass-of %2 %3))
+        left-map (sub-class? left IPersistentMap [r/-any r/-any])
+        right-map (sub-class? right IPersistentMap [r/-any r/-any])]
+    (cond
+     ; preserve the rhand alias when possible
+     (and (r/Nil? left) right-map)
+     right
+     
+     :else
+     (union-or-nil
+      (for [rtype (resolved-type-vector right)]
+        (cond
+         (and (or left-map (r/Nil? left))
+              (r/Nil? rtype))
+         left
+         
+         (and (r/Nil? left) (sub-class? rtype IPersistentMap [r/-any r/-any]))
+         rtype
+         
+         (and (r/HeterogeneousMap? left) (r/HeterogeneousMap? rtype))
+         (merge-hmaps left rtype)
+         
+         (and (not (sub-class? left IPersistentVector [r/-any]))
+              (satisfies? AssocableType left)
+              (r/HeterogeneousMap? rtype))
+         (apply assoc-type-pairs left (map (fn [[k t]]
+                                             [(r/ret k) (r/ret t)])
+                                           (:types rtype)))
+         ))))))
+
+(defn merge-types [left & r-tcresults]
+  (reduce-type-transform merge-pair left r-tcresults))
+
+; conj helper
+
+(defn- conj-pair [left right]
+  (cond
+   (r/HeterogeneousVector? left)
+   (assoc-type-pairs left [(r/ret (r/-val (count (:types left))))
+                           right])
+   
+   (r/Nil? left)
+   (r/-hvec [(:t right)]
+            :filters [(:fl right)]
+            :objects [(:o right)])
+   
+   ; other rules need to unwrap the rhs
+   :else
+   (union-or-nil
+    (for [rtype (resolved-type-vector right)]
+      (cond
+       (and (r/HeterogeneousMap? left)
+            (r/HeterogeneousVector? rtype))
+       (if (= (count (:types rtype)) 2)
+         (assoc-type-pairs left (map r/ret (:types rtype)))
+         (u/int-error "Need vector of length 2 to conj to map"))
+       
+       (and (r/HeterogeneousMap? left)
+            (r/Nil? rtype))
+       left
+       )))))
+
+(defn conj-types [left & rtypes]
+  (reduce-type-transform conj-pair left rtypes))
+)

@@ -41,8 +41,11 @@
 ; we want clojure.lang.Seqable to be scoped here. 
 ; There :refer :all of clojure.core.typed adds another Seqable which
 ; is less useful here.
-(ns-unmap *ns* 'Seqable)
-(import (clojure.lang Seqable))
+  (:use [clojure.core.typed :as tc :exclude [Seqable]])
+  (:import (clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
+                         ExceptionInfo Var Seqable)))
+
+(load-if-needed)
 
 (defn subtype? [& rs]
   (impl/with-clojure-impl
@@ -119,7 +122,7 @@
          (make-FnIntersection (make-Function () -nil -nil))))
   (is-clj (= (parse-type '(All [x ...] [nil ... x -> nil]))
          (PolyDots* '(x) [no-bounds]
-                    (make-FnIntersection (make-Function () -nil nil (DottedPretype-maker -nil 'x)))
+                    (make-FnIntersection (make-Function () -nil nil (DottedPretype1-maker -nil 'x)))
                     '(x)))))
 
 (deftest poly-constructor-test
@@ -2368,6 +2371,21 @@
                    [Number Number -> (U (clojure.lang.Reduced Number) Number)])
                  1 [1 2 3])
          Number))
+
+
+(deftest hvec-ops
+  (is-cf (first [1 'a]) Number)
+  (is-cf (-> {:a 1} first second) Number))
+
+(deftest variable-hvec-test
+  (is (sub? '[Number Number Number] '[Number Number *]))
+  (is (sub? '[Number Number Number] '[Number Number *]))
+  (is (sub? '[Number Number Integer *] '[Number Number *]))
+  (is (not (sub? '[Number Number clojure.lang.Symbol *] '[Number Number *])))
+  (is-cf [1 2 3] '[Number Number *])
+  (is-cf [1 2 3] '[Number Number Number Number *])
+  (is-cf (first [1 'a 2]) Number)
+  (is-cf (second [1 2 3]) Number))
 
 (deftest CTYP-85-abo-test
   (is-cf (fn [] (fn [b] b))
