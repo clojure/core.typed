@@ -1,6 +1,6 @@
 # 0.2.14 - Released 21 October 2013
 
-## BREAKING CHANGES
+## *Breaking* Changes
 
 - clojure.lang.Var now takes 2 parameters
   - bivariant like Atom.
@@ -33,11 +33,14 @@
 - [CTYP-90](http://dev.clojure.org/jira/browse/CTYP-90) Assoc on the type level
   - eg. (Assoc '{} ':a Number) <: '{:a Number}
   - can abstract over arbitrary maps:
-    (defn ^{:ann '(All [[x :< (Map Any Any)]]
-                    [x -> (Assoc x ':a Number)])}
-      f [m] (assoc m :a 1))
 
-    (ann-form (f {:b 2}) '{:a Number :b Number})
+```clojure
+(ann (All [[x :< (Map Any Any)]]
+       [x -> (Assoc x ':a Number)]))
+(defn f [m] (assoc m :a 1))
+
+(ann-form (f {:b 2}) '{:a Number :b Number})
+```
 
 ## Fixes
 
