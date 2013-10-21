@@ -2,20 +2,42 @@
 
 BREAKING CHANGES
 
-- Var now takes 2 parameters (see c.c.t/Var1)
+- clojure.lang.Var now takes 2 parameters
+  - bivariant like Atom.
+  - for common usages see c.c.t/Var1
 - Change AReference/IReference ancestors in base-env to (IReference Any Any)
+  - unlikely to affect anyone
 
 Enhacements
 
-- add c.c.t/Var1 alias
+- add aliases
+  - c.c.t/Var1
+  - c.c.t/Keyword
+  - c.c.t/Symbol
+  - c.c.t/Ref1
+- add typed helper functions
+  - c.c.t/ref>
+- add annotations
+  - c.c/alter-var-root
 - improve docstrings of Java interop annotators
-- CLJS
+- CLJS checker
   - add Symbol, Keyword
   - add value subtyping cases
 - ns-resolve can take a symbol as first arg
 - clarify var> in docstring
-- add c.c.t/ref>
-- add c.c.t/Ref1 alias
+- add HVec constructor (unqualified syntax)
+  - eg. (HVec [Number Number])
+- [CTYP-89](http://dev.clojure.org/jira/browse/CTYP-89) Heterogeneous vectors now take rest & dotted rest args, similar to function types
+  - dotted args WIP
+  - eg. (cf [1 2 3 4] '[Number Number *])
+- [CTYP-90](http://dev.clojure.org/jira/browse/CTYP-90) Assoc on the type level
+  - eg. (Assoc '{} ':a Number) <: '{:a Number}
+  - can abstract over arbitrary maps:
+    (defn ^{:ann '(All [[x :< (Map Any Any)]]
+                    [x -> (Assoc x ':a Number)])}
+      f [m] (assoc m :a 1))
+
+    (ann-form (f {:b 2}) '{:a Number :b Number})
 
 Fixes
 
@@ -27,6 +49,10 @@ Fixes
 - [CTYP-82](http://dev.clojure.org/jira/browse/CTYP-82)
 - [CTYP-84](http://dev.clojure.org/jira/browse/CTYP-84)
 - Fix first arity of map type
+- [CTYP-85](http://dev.clojure.org/jira/browse/CTYP-85) - abstract-object failure
+
+Other
+- core.cache used for caching
 
 0.2.13 - Released 25 September 2013
 - Syntax parsing errors have line numbers
