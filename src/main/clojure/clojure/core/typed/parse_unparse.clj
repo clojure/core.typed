@@ -21,7 +21,8 @@
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
                                         HeterogeneousSeq KwArgsSeq TCError Extends NumberCLJS BooleanCLJS
-                                        IntegerCLJS ArrayCLJS JSNominal StringCLJS TCResult)
+                                        IntegerCLJS ArrayCLJS JSNominal StringCLJS TCResult AssocType
+                                        GetType)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -33,7 +34,7 @@
 (defonce ^:dynamic *parse-type-in-ns* nil)
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol?))
 
-(declare unparse-type unparse-filter)
+(declare unparse-type unparse-filter unparse-filter-set)
 
 ; Types print by unparsing them
 (do (defmethod print-method clojure.core.typed.impl_protocols.TCType [s writer]
@@ -49,7 +50,9 @@
     (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IPersistentMap)
 
     (defmethod print-method clojure.core.typed.impl_protocols.IFilter [s writer]
-      (print-method (unparse-filter s) writer))
+      (if (f/FilterSet? s)
+        (print-method (unparse-filter-set s) writer)
+        (print-method (unparse-filter s) writer)))
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IRecord)
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter java.util.Map)
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IPersistentMap))
@@ -163,12 +166,34 @@
 (defmethod parse-type-list 'Not
   [[_ tsyn :as all]]
   (when-not (= (count all) 2) 
-    (u/int-error "Wrong arguments to Not (expected 1)"))
+    (u/int-error (str "Wrong arguments to Not (expected 1): " all)))
   (r/NotType-maker (parse-type tsyn)))
 
 (defmethod parse-type-list 'Rec
   [syn]
   (parse-rec-type syn))
+
+(defmethod parse-type-list 'Assoc
+  [[_ tsyn & entries :as all]]
+  (when-not (and (<= 1 (count (next all)))
+                 (even? (count entries)))
+    (u/int-error (str "Wrong arguments to Assoc: " all)))
+  (r/AssocType-maker (parse-type tsyn)
+                     (doall (->> entries 
+                                 (map parse-type)
+                                 (partition 2)
+                                 (map vec)))
+                     nil))
+
+(defmethod parse-type-list 'Get
+  [[_ tsyn keysyn & not-foundsyn :as all]]
+  (when-not (#{2 3} (count (next all)))
+    (u/int-error (str "Wrong arguments to Get: " all)))
+  (r/-get (parse-type tsyn)
+          (parse-type keysyn)
+          :not-found
+          (when (#{3} (count (next all)))
+            (parse-type not-foundsyn))))
 
 ;dispatch on last element of syntax in binder
 (defmulti parse-all-type (fn [bnds type] (last bnds)))
@@ -691,6 +716,12 @@
   [[_ & fsyns]]
   (apply fl/-and (mapv parse-filter fsyns)))
 
+(defmethod parse-filter* 'when
+  [[_ & [a c :as args] :as all]]
+  (when-not (#{2} (count args))
+    (u/int-error (str "Wrong number of arguments to when: " all)))
+  (fl/-imp (parse-filter a) (parse-filter c)))
+
 (defmulti parse-path-elem #(cond
                              (symbol? %) %
                              :else (first %)))
@@ -781,7 +812,7 @@
                        (let [bnd (dvar/*dotted-scope* drest-bnd)
                              _ (when-not bnd 
                                  (u/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
-                         (r/DottedPretype-maker
+                         (r/DottedPretype1-maker
                            (free-ops/with-frees [bnd] ;with dotted bound in scope as free
                              (parse-type drest-type))
                            (:name bnd))))
@@ -1189,6 +1220,19 @@
 (defmethod unparse-type* HeterogeneousList
   [v]
   (list* 'List* (doall (map unparse-type (:types v)))))
+
+(defmethod unparse-type* AssocType
+  [{:keys [target entries dentries]}]
+  (assert (not dentries) "dentries for Assoc NYI")
+  (list* 'Assoc (unparse-type target) 
+         (doall (map unparse-type (apply concat entries)))))
+
+(defmethod unparse-type* GetType
+  [{:keys [target key not-found]}]
+  (list* 'Get (unparse-type target) 
+         (unparse-type key)
+         (when (not= r/-nil not-found)
+           [(unparse-type not-found)])))
 
 ; CLJS Types
 

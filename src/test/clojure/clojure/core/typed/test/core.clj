@@ -1,13 +1,10 @@
 (ns clojure.core.typed.test.core
-  (:import (clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
-                         Keyword ExceptionInfo Symbol Var))
   (:require [clojure.test :refer :all]
             [clojure.tools.analyzer :refer [ast analyze-form]]
             [clojure.tools.analyzer.hygienic :refer [ast-hy]]
             [clojure.repl :refer [pst]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
-            [clojure.core.typed :as tc, :refer :all]
             [clojure.core.typed.init]
             [clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error?]]
             [clojure.core.typed.current-impl :as impl]
@@ -34,10 +31,7 @@
             [clojure.core.typed.test.rbt]
             [clojure.core.typed.test.person]
             [clojure.tools.trace :refer [trace-vars untrace-vars
-                                         trace-ns untrace-ns]]))
-
-(load-if-needed)
-
+                                         trace-ns untrace-ns]])
 ; we want clojure.lang.Seqable to be scoped here. 
 ; There :refer :all of clojure.core.typed adds another Seqable which
 ; is less useful here.
@@ -2372,6 +2366,24 @@
                  1 [1 2 3])
          Number))
 
+(deftest Assoc-test
+  (is-cf {:a 1} (Assoc '{} ':a Number))
+  (is-cf {:a 1} (Assoc (U '{:a Number} '{:a Double}) ':a Long))
+  (is-cf (fn [a] (assoc a 1 2))
+         (All [[x :> (clojure.core.typed/Map Nothing Nothing) :< (clojure.core.typed/Map Number Number)]]
+              [x -> (clojure.core.typed/Map Number Number)]))
+  (is-cf (fn [a] (assoc a :a 1)) 
+         (All [[x :> (clojure.core.typed/Map Nothing Nothing) :< (clojure.core.typed/Map Any Any)]] 
+              [x -> (Assoc x ':a Number)]))
+  (is-cf (let [f (clojure.core.typed/ann-form 
+                   (fn [a] (assoc a :a 1)) 
+                   (All [[x :< (clojure.core.typed/Map Any Any)]] 
+                        [x -> (Assoc x ':a Number)]))]
+           (clojure.core.typed/ann-form 
+             (f {:b 1})
+             '{:b Number :a Number})))
+  (is-cf (fn [a] (assoc a :a 1)) 
+         (All [[x :< (clojure.core.typed/Map Any Any)]] [x -> (Assoc x ':a Number)])))
 
 (deftest hvec-ops
   (is-cf (first [1 'a]) Number)

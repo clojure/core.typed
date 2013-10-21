@@ -16,7 +16,7 @@
             [clojure.set :as set]
             [clojure.repl :as repl])
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
-                                        Result Protocol TypeFn Name F Bounds HeterogeneousVector
+                                        Result Protocol TypeFn Name F Bounds
                                         PrimitiveArray DataType RClass HeterogeneousMap
                                         HeterogeneousList HeterogeneousSeq CountRange KwArgs
                                         Extends)
@@ -144,9 +144,13 @@
              (r/Poly? t)
              (= (.nbound ^Poly s) (.nbound ^Poly t)))
         (let [names (repeatedly (.nbound ^Poly s) gensym)
+              bbnds1 (c/Poly-bbnds* names s)
+              bbnds2 (c/Poly-bbnds* names t)
               b1 (c/Poly-body* names s)
               b2 (c/Poly-body* names t)]
-          (if (subtype? b1 b2)
+          (if (and (= bbnds1 bbnds2)
+                   (free-ops/with-bounded-frees (zipmap (map r/F-maker names) bbnds1)
+                     (subtype? b1 b2)))
             *sub-current-seen*
             (fail! s t)))
 
@@ -251,17 +255,17 @@
              (r/Extends? t))
         (if (and ;all positive information matches.
                  ; Each t should occur in at least one s.
-                 (every? (fn [t*]
+                 (every? (fn extends-t [t*]
                            (some #(subtype? % t*) (:extends s)))
                          (:extends t))
                  ;lhs does not explicitly implement any forbidden types.
                  ; No negative t should be a supertype of a positive s
-                 (not-any? (fn [not-t*]
+                 (not-any? (fn extends-not-t [not-t*]
                              (some #(subtype? % not-t*) (:extends s)))
                            (:without t))
                  ;lhs explicitly disallows same types as rhs
                  ; Each negative t should be a supertype of some negative s
-                 (every? (fn [not-t*]
+                 (every? (fn extends-without-t[not-t*]
                            (some #(subtype? % not-t*) (:without s)))
                          (:without t)))
           *sub-current-seen*
@@ -312,6 +316,44 @@
           *sub-current-seen*
           (fail! s t))
 
+        (and (r/AssocType? s)
+             (r/AssocType? t)
+             (r/F? (:target s))
+             (r/F? (:target t))
+             (not-any? :dentries [s t]))
+        (if (and (= (:target s) (:target t))
+                 (subtype? (apply c/assoc-pairs-noret (c/-complete-hmap {}) (:entries s))
+                           (apply c/assoc-pairs-noret (c/-complete-hmap {}) (:entries t))))
+          *sub-current-seen*
+          (fail! s t))
+
+        (and (r/AssocType? s)
+             (r/F? (:target s))
+             (not (r/AssocType? t)))
+        (let [bnds (free-ops/free-with-name-bnds (-> s :target :name))
+              _ (assert bnds
+                        (str "Bounds not found for free variable: " (-> s :target :name)
+                             free-ops/*free-scope*))]
+          (if (and (subtype? (:upper-bound bnds) t)
+                   (subtype? (apply c/assoc-pairs-noret (c/-complete-hmap {}) (:entries s))
+                             t))
+            *sub-current-seen*
+            (fail! s t)))
+      
+        ; avoids infinite expansion because associng an F is a fixed point
+        (and (r/AssocType? s)
+             (not (r/F? (:target s))))
+        (if (subtype? (apply c/assoc-pairs-noret (:target s) (:entries s)) t)
+          *sub-current-seen*
+          (fail! s t))
+
+        ; avoids infinite expansion because associng an F is a fixed point
+        (and (r/AssocType? t)
+             (not (r/F? (:target t))))
+        (if (subtype? s (apply c/assoc-pairs-noret (:target t) (:entries t)))
+          *sub-current-seen*
+          (fail! s t))
+
         (and (r/HeterogeneousVector? s)
              (r/HeterogeneousVector? t))
         (if (and (cond 
@@ -356,7 +398,7 @@
              (r/HeterogeneousList? t))
         (if (= (count (:types s))
                (count (:types t)))
-          (or (last (doall (map subtype (:types s) (:types t))))
+          (or (last (map subtype (:types s) (:types t)))
               #{})
           (fail! s t))
 
@@ -364,54 +406,56 @@
              (r/HeterogeneousSeq? t))
         (if (= (count (:types s))
                (count (:types t)))
-          (or (last (doall (map #(subtype %1 %2) (:types s) (:types t))))
+          (or (last (map subtype (:types s) (:types t)))
               #{})
           (fail! s t))
 
-          ;every rtype entry must be in ltypes
-          ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
-          (and (r/HeterogeneousMap? s)
-               (r/HeterogeneousMap? t))
-          (let [; convention: prefix things on left with l, right with r
-                {ltypes :types labsent :absent-keys :as s} s
-                {rtypes :types rabsent :absent-keys :as t} t]
-            (if (and ; if t is complete, s must be complete with the same keys
-                     (if (c/complete-hmap? t)
-                       (if (c/complete-hmap? s)
-                         (= (set (keys ltypes)) (set (keys rtypes)))
-                         false)
-                       true)
-                     ; all absent keys in t should be absent in s
-                     (every? identity
-                             (for [rabsent-key rabsent]
-                               ; Subtyping is good if rabsent-key is:
-                               ; 1. Absent in s
-                               ; 2. Not present in s, but s is complete
-                               (or ((set labsent) rabsent-key)
-                                   (when (c/complete-hmap? s)
-                                     (not ((set (keys ltypes)) rabsent-key))))))
-                     ; all present keys in t should be present in s
-                     (every? identity
-                             (map (fn [[k v]]
-                                    (when-let [t (get ltypes k)]
-                                      (subtype? t v)))
-                                  rtypes)))
-              *sub-current-seen*
-              (fail! s t)))
+        ;every rtype entry must be in ltypes
+        ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
+        (and (r/HeterogeneousMap? s)
+             (r/HeterogeneousMap? t))
+        (let [; convention: prefix things on left with l, right with r
+              {ltypes :types labsent :absent-keys :as s} s
+              {rtypes :types rabsent :absent-keys :as t} t]
+          (if (and ; if t is complete, s must be complete with the same keys
+                   (if (c/complete-hmap? t)
+                     (if (c/complete-hmap? s)
+                       (= (set (keys ltypes)) (set (keys rtypes)))
+                       false)
+                     true)
+                   ; all absent keys in t should be absent in s
+                   (every? identity
+                           (for [rabsent-key rabsent]
+                             ; Subtyping is good if rabsent-key is:
+                             ; 1. Absent in s
+                             ; 2. Not present in s, but s is complete
+                             (or ((set labsent) rabsent-key)
+                                 (when (c/complete-hmap? s)
+                                   (not ((set (keys ltypes)) rabsent-key))))))
+                   ; all present keys in t should be present in s
+                   (every? identity
+                           (map (fn [[k v]]
+                                  (when-let [t (get ltypes k)]
+                                    (subtype? t v)))
+                                rtypes)))
+            *sub-current-seen*
+            (fail! s t)))
 
         (r/HeterogeneousMap? s)
         (let [^HeterogeneousMap s s]
           ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
           (if (c/complete-hmap? s)
-            (subtype (impl/impl-case
-                       :clojure (c/RClass-of APersistentMap [(apply c/Un (keys (.types s)))
-                                                             (apply c/Un (vals (.types s)))])
-                       :cljs (c/Protocol-of 'cljs.core/IMap [(apply c/Un (keys (.types s)))
-                                                             (apply c/Un (vals (.types s)))]))
+            (subtype (c/In (impl/impl-case
+                             :clojure (c/RClass-of APersistentMap [(apply c/Un (keys (.types s)))
+                                                                   (apply c/Un (vals (.types s)))])
+                             :cljs (c/Protocol-of 'cljs.core/IMap [(apply c/Un (keys (.types s)))
+                                                                   (apply c/Un (vals (.types s)))]))
+                           (r/make-ExactCountRange (count (:types s))))
                      t)
-            (subtype (impl/impl-case
-                       :clojure (c/RClass-of APersistentMap [r/-any r/-any])
-                       :cljs (c/Protocol-of 'cljs.core/IMap [r/-any r/-any]))
+            (subtype (c/In (impl/impl-case
+                             :clojure (c/RClass-of APersistentMap [r/-any r/-any])
+                             :cljs (c/Protocol-of 'cljs.core/IMap [r/-any r/-any]))
+                           (r/make-CountRange (count (:types s))))
                      t)))
 
         (r/KwArgsSeq? s)
@@ -457,7 +501,7 @@
         (let [{var1 :the-var variances* :variances poly1 :poly?} s
               {var2 :the-var poly2 :poly?} t]
           (if (and (= var1 var2)
-                   (every? (fn [[v l r]]
+                   (every? (fn prcol-variance [[v l r]]
                              (case v
                                :covariant (subtypeA* *sub-current-seen* l r)
                                :contravariant (subtypeA* *sub-current-seen* r l)
@@ -746,6 +790,20 @@
       (update-in [:then] fully-resolve-filter)
       (update-in [:else] fully-resolve-filter)))
 
+(defn subtype-type-filter? [s t]
+  {:pre [(fr/TypeFilter? s)
+         (fr/TypeFilter? t)]}
+  (and (= (:path s) (:path t))
+       (= (:id s) (:id t))
+       (subtype? (:type s) (:type t))))
+
+(defn subtype-not-type-filter? [s t]
+  {:pre [(fr/NotTypeFilter? s)
+         (fr/NotTypeFilter? t)]}
+  (and (= (:path s) (:path t))
+       (= (:id s) (:id t))
+       (subtype? (:type t) (:type s))))
+
 (defn subtype-Result
   [{t1 :t ^FilterSet f1 :fl o1 :o flow1 :flow :as s}
    {t2 :t ^FilterSet f2 :fl o2 :o flow2 :flow :as t}]
@@ -779,7 +837,8 @@
          (every? fops/atomic-filter? (:fs (:then f1)))
          (= 1 (count (filter fr/TypeFilter? (:fs (:then f1)))))
          (= fr/-top (:else f2))
-         (= flow1 flow2 (r/-flow fr/-top)))
+         (= flow1 flow2 (r/-flow fr/-top))
+         (= o1 o2))
     (let [f1-tf (first (filter fr/TypeFilter? (:fs (:then f1))))]
       (if (= f1-tf (:then f2))
         (subtype t1 t2)

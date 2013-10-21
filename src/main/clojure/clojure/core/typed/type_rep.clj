@@ -495,6 +495,64 @@
   :methods
   [p/TCType])
 
+;; Heterogeneous ops
+
+(declare DottedPretype?)
+
+(u/ann-record AssocType [target :- Type,
+                         entries :- (t/Coll '[Type Type])
+                         dentries :- (U nil DottedPretype)])
+(u/def-type AssocType [target entries dentries]
+  "An assoc[iate] operation on the type level"
+  [(Type? target)
+   (or (DottedPretype? dentries)
+       (nil? dentries))
+   (and (every? (u/hvector-c? Type? Type?) entries)
+        (sequential? entries))
+   (not (and entries dentries))]
+  :methods
+  [p/TCType])
+
+(u/ann-record DissocType [target :- Type,
+                          keys :- (t/Coll Type)
+                          dkeys :- (U nil DottedPretype)])
+(u/def-type DissocType [target keys dkeys]
+  "A dissoc[iate] operation on the type level"
+  [(Type? target)
+   (or (DottedPretype? dkeys)
+       (nil? dkeys))
+   (and (every? Type? keys)
+        (sequential? keys))
+   (not (and keys dkeys))]
+  :methods
+  [p/TCType])
+
+(u/ann-record GetType [target :- Type,
+                       key :- Type
+                       not-found :- Type
+                       target-fs :- p/IFilterSet
+                       target-object :- p/IRObject])
+(u/def-type GetType [target key not-found target-fs target-object]
+  "get on the type level"
+  [(Type? target) 
+   (Type? key) 
+   (Type? not-found)
+   (p/IFilterSet? target-fs)
+   (p/IRObject? target-object)]
+  :methods
+  [p/TCType])
+
+(t/ann ^:no-check -get 
+       [Type Type & :optional {:not-found (U nil Type)
+                               :target-fs (U nil p/IFilterSet)
+                               :target-object (U nil p/IRObject)}
+        -> GetType])
+(defn -get 
+  [target key & {:keys [not-found target-fs target-object]}]
+  (GetType-maker target key (or not-found -nil) 
+                 (or target-fs ((-FS-var) @(-top-var) @(-top-var)))
+                 (or target-object @(-empty-var))))
+
 (u/ann-record DottedPretype [pre-type :- Type,
                              name :- (U Symbol Number)
                              partition-count :- Number])

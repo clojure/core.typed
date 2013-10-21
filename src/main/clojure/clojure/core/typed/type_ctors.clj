@@ -84,6 +84,12 @@
 (defn -complete-hmap [types]
   (-hmap types false))
 
+(t/ann -partial-hmap (Fn [(Seqable r/Type) -> r/Type]
+                         [(Seqable r/Type) (IPersistentSet r/Type) -> r/Type]))
+(defn -partial-hmap 
+  ([types] (-partial-hmap types #{}))
+  ([types absent-keys] (-hmap types absent-keys true)))
+
 (t/def-alias TypeMap
   "A regular map with types as keys and vals."
   (IPersistentMap r/Type r/Type))

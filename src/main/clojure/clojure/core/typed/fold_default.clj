@@ -13,7 +13,7 @@
                                         CountRange Name Value Top TopFunction B F Result
                                         HeterogeneousSeq TCResult TCError FlowSet Extends
                                         NumberCLJS IntegerCLJS ObjectCLJS StringCLJS ArrayCLJS
-                                        BooleanCLJS)
+                                        BooleanCLJS AssocType)
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -187,6 +187,15 @@
                            (doall (map type-rec extends))
                            :without (doall (mapv type-rec without)))))
 
+(add-default-fold-case AssocType
+                       (fn [{:keys [target entries dentries] :as ty} _]
+                         (-> ty
+                           (update-in [:target] type-rec)
+                           (update-in [:entries] (fn [es]
+                                                   (doall
+                                                     (for [[k v] es]
+                                                       [(type-rec k) (type-rec v)]))))
+                           (update-in [:dentries] #(when % (type-rec %))))))
 
 (def ret-first (fn [a & rest] a))
 

@@ -231,7 +231,7 @@
         (let [vector' (t/inst vector c c Any Any Any Any)]
           (doall
             (for> :- c
-              [[c1 c2] :- '[c c ], (map vector' longer (concat shorter (repeat srest)))]
+              [[c1 c2] :- '[c c], (map vector' longer (concat shorter (repeat srest)))]
               (c-meet c1 c2 (:X c1)))))
         (c-meet lrest srest (:X lrest))))
 
@@ -539,7 +539,61 @@
                 Svals (map first STvals)
                 Tvals (map second STvals)]
             (cs-gen-list V X Y Svals Tvals)))
-        
+
+
+; Completeness matters:
+;
+; (Assoc x ':a Number ':b Long) <: (HMap {:a Number :b Long} :complete? true)
+; (Assoc x ':a Number ':b Long ':c Foo) <!: (HMap {:a Number :b Long} :complete? true)
+        (and (r/AssocType? S)
+             (r/HeterogeneousMap? T))
+        (let [_ (prn "cs-gen Assoc HMap")
+              {:keys [target entries]} S
+              {:keys [types absent-keys]} T
+              Assoc-keys (map first entries)
+              Tkeys (keys types)
+              ; All keys must be keyword values
+              _ (when-not (every? c/keyword-value? (concat Tkeys Assoc-keys absent-keys))
+                  (fail! S T))
+              ; All keys explicitly not in T should not appear in the Assoc operation
+              absents-satisfied?
+              (if (c/complete-hmap? T)
+                ; if T is partial, we just need to ensure the absent keys in T
+                ; don't appear in the entries of the Assoc.
+                (empty?
+                  (set/intersection
+                    (set absent-keys)
+                    (set (map first entries))))
+                ; if T is complete, all entries of the Assoc should *only* have
+                ; keys that are mandatory keys of T.
+                (empty?
+                  (set/difference
+                    (set (map first entries))
+                    (set Tkeys))))
+              _ (when-not absents-satisfied?
+                  (fail! S T))
+              ;; Isolate the entries of Assoc in a new HMap, with a corresponding expected HMap.
+              ; keys on the right overwrite those on the left.
+              assoc-args-hmap (c/-hmap (into {} entries))
+              expected-assoc-args-hmap (c/-hmap (select-keys (:types assoc-args-hmap) (set Assoc-keys)))
+              
+              ;; The target of the Assoc needs all the keys not explicitly Assoc'ed.
+              expected-target-hmap 
+              (let [types (select-keys (into {} entries)
+                                       (set/difference (set Assoc-keys) (set Tkeys)))]
+                (if (c/complete-hmap? T) 
+                  (c/-complete-hmap types)
+                  (c/-partial-hmap types absent-keys)))
+              
+              ;_ (prn assoc-args-hmap :< expected-assoc-args-hmap)
+              ;_ (prn (:target S) :< expected-target-hmap)
+              ]
+          (cs-gen-list V X Y
+                       [assoc-args-hmap 
+                        (:target S)]
+                       [expected-assoc-args-hmap
+                        expected-target-hmap]))
+
         (and (r/PrimitiveArray? S)
              (r/PrimitiveArray? T)
              (impl/checking-clojure?))
@@ -626,11 +680,7 @@
       (cs-gen-filter V X Y n1 n2))))
 
 ;must be *latent* filter sets
-(t/ann cs-gen-filter-set [NoMentions
-                          ConstrainVars
-                          ConstrainVars
-                          fr/Filter
-                          fr/Filter
+(t/ann cs-gen-filter-set [NoMentions ConstrainVars ConstrainVars fr/Filter fr/Filter
                           -> cset])
 (defn cs-gen-filter-set [V X Y s t]
   {:pre [((u/set-c? symbol?) V)
@@ -971,7 +1021,7 @@
 ;; dbound : index variable
 ;; vars : listof[type variable] - temporary variables
 ;; cset : the constraints being manipulated
-;; takes the constraints on vars and creates a dmap entry contstraining dbound to be |vars|
+;; takes the constraints on vars and creates a dmap entry constraining dbound to be |vars|
 ;; with the constraints that cset places on vars
 (t/ann move-vars-to-dmap [cset Symbol (U nil (t/Seqable Symbol)) -> cset])
 ;FIXME no-check, flow error
@@ -1029,7 +1079,7 @@
 ;; The domain of this map is pairs (var . dotted-type).
 ;; The range is this map is a list of symbols generated on demand, as we need
 ;; more dots.
-(t/ann DOTTED-VAR-STORE (t/Atom1 (t/Map '[r/Type Symbol] Symbol)))
+(t/ann DOTTED-VAR-STORE (t/Atom1 (t/Map '[r/Type Symbol] (t/Seq Symbol))))
 (defonce ^:private DOTTED-VAR-STORE (atom {}))
 
 (t/ann reset-dotted-var-store! [-> nil])
@@ -1185,7 +1235,7 @@
                 new-tys (doall (for> :- r/AnyType
                                  [var :- Symbol, vars]
                                  (subst/substitute (r/make-F var) dbound t-dty)))
-                new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil (r/DottedPretype-maker t-dty dbound) nil)
+                new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil (r/DottedPretype1-maker t-dty dbound) nil)
                 new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y S new-t-arr)]
             (move-vars+rest-to-dmap new-cset dbound vars)))))
 
@@ -1420,9 +1470,14 @@
 ;; like infer, but dotted-var is the bound on the ...
 ;; and T-dotted is the repeated type
 (t/ann infer-dots
-  (Fn [ConstrainVars Symbol Bounds
-       (U nil (t/Seqable r/Type)) (U nil (t/Seqable r/Type))
-       r/Type (U nil r/AnyType) (t/Set Symbol)
+  (Fn [ConstrainVars 
+       Symbol 
+       Bounds
+       (U nil (t/Seqable r/Type)) 
+       (U nil (t/Seqable r/Type))
+       r/Type 
+       (U nil r/AnyType) 
+       (t/Set Symbol)
        & :optional {:expected (U nil r/Type)} -> cr/SubstMap]))
 (defn infer-dots [X dotted-var dotted-bnd S T T-dotted R must-vars & {:keys [expected]}]
   {:pre [((u/hash-c? symbol? r/Bounds?) X)

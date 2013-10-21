@@ -1071,7 +1071,9 @@
             bbnds (c/Poly-bbnds* fs-names fexpr-type)
             _ (assert (r/FnIntersection? fin))
             ;; Only infer free variables in the return type
-            ret-type (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (.types fin)]
+            ret-type 
+            (free-ops/with-bounded-frees (zipmap (map r/F-maker fs-names) bbnds)
+                     (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (.types fin)]
                        (when ftype
                          #_(prn "infer poly fn" (prs/unparse-type ftype) (map prs/unparse-type arg-types)
                                 (count dom) (count arg-types))
@@ -1158,7 +1160,7 @@
                            (if drest
                              (do (u/tc-delayed-error (str "Cannot infer arguments to polymorphic functions with dotted rest"))
                                  nil)
-                             (recur ftypes)))))]
+                             (recur ftypes))))))]
         (if ret-type
           ret-type
           (polyapp-type-error fexpr args fexpr-type arg-ret-types expected))))
@@ -1176,7 +1178,9 @@
                            (not (some :kws (:types pbody)))
                            [pbody fixed-vars fixed-bnds dotted-var dotted-bnd])))]
         (let [;_ (prn "polydots, no kw args")
-              inferred-rng (some identity
+              inferred-rng 
+              (free-ops/with-bounded-frees (zipmap (map r/F-maker fixed-vars) fixed-bnds)
+                           (some identity
                                  (for [{:keys [dom rest ^DottedPretype drest rng] :as ftype} (:types pbody)
                                        ;only try inference if argument types match
                                        :when (cond
@@ -1208,7 +1212,7 @@
                                                 (check-funapp1 fexpr args 
                                                                substituted-type arg-ret-types expected :check? false))
                                            (u/tc-delayed-error "Error applying dotted type")
-                                           nil)))))]
+                                           nil))))))]
           ;(prn "inferred-rng"inferred-rng)
           (if inferred-rng
             inferred-rng

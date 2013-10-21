@@ -1450,6 +1450,10 @@ clojure.core.match/backtrack Exception
 ;                        (rec x b ... b)])))
 ;
 ;  clojure.core/assoc 
+;       (All [[h <: (IPersistentMap Any Any)]
+;             a b e ...2]
+;         [h k ...2 a b -> (Assoc h k ...2 a b)])
+;
 ;       (Label [rec]
 ;              (All [[h :< (HMap {})] x y [k :< (I AnyValue Keyword)] [e :< k] :dotted [b]]
 ;                   [h k v -> (I h (HMap k v))]
