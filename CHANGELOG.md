@@ -1,6 +1,6 @@
 # 0.2.14 - Released 21 October 2013
 
-BREAKING CHANGES
+## BREAKING CHANGES
 
 - clojure.lang.Var now takes 2 parameters
   - bivariant like Atom.
@@ -8,7 +8,7 @@ BREAKING CHANGES
 - Change AReference/IReference ancestors in base-env to (IReference Any Any)
   - unlikely to affect anyone
 
-Enhacements
+## Enhacements
 
 - add aliases
   - c.c.t/Var1
@@ -39,7 +39,7 @@ Enhacements
 
     (ann-form (f {:b 2}) '{:a Number :b Number})
 
-Fixes
+## Fixes
 
 - [CTYP-67](http://dev.clojure.org/jira/browse/CTYP-67)
 - [CTYP-73](http://dev.clojure.org/jira/browse/CTYP-73)
@@ -51,7 +51,7 @@ Fixes
 - Fix first arity of map type
 - [CTYP-85](http://dev.clojure.org/jira/browse/CTYP-85) - abstract-object failure
 
-Other
+## Other
 - core.cache used for caching
 
 # 0.2.13 - Released 25 September 2013
@@ -62,12 +62,12 @@ Other
 # 0.2.12
 - Contains defect with var> (fixed 0.2.13)
 
-0.2.11 - Released 24 September 2013
+# 0.2.11 - Released 24 September 2013
 - Fix [CTYP-56](http://dev.clojure.org/jira/browse/CTYP-56)
   Support 3-argument isa?
 - Much better support for mutually recursive protocols/records
 
-0.2.10 - Released 24 September 2013
+# 0.2.10 - Released 24 September 2013
 - [CTYP-69](http://dev.clojure.org/jira/browse/CTYP-69)
   Good error for unannotated deftype
 - New aliases
@@ -84,7 +84,7 @@ Other
 - Providing a rest type or a multiple arity function intersection type to deftype methods throw
   a delayed error. Multiple arities throw a NYI message.
 
-0.2.9 - Released 22 September 2013
+# 0.2.9 - Released 22 September 2013
 - Partially fix [CTYP-64](http://dev.clojure.org/jira/browse/CTYP-64)
   - comprehensible error when annotating a defrecord with ann-datatype
 - Fix [CTYP-65](http://dev.clojure.org/jira/browse/CTYP-65)
@@ -92,19 +92,19 @@ Other
 - Upgrade to jvm.tools.analyzer 0.5.1
   - AST now has source path information
 
-0.2.8 - Released 21 September 2013
+# 0.2.8 - Released 21 September 2013
 - Some Clojurescript fixes/cleanup
 - [CTYP-61](http://dev.clojure.org/jira/browse/CTYP-61)
 - [CTYP-66](http://dev.clojure.org/jira/browse/CTYP-66)
   Big improvements to merge/assoc/dissoc/conj by cspencer
 
-0.2.7 - Released 17 September 2013
+# 0.2.7 - Released 17 September 2013
 - Fix regression: Load implementation on cf/check-form*
 - Stable core.async dep in project.clj
 
-0.2.6 - Released 15 September 2013
+# 0.2.6 - Released 15 September 2013
 
-BUG FIXES
+## BUG FIXES
 
 - [CTYP-53](http://dev.clojure.org/jira/browse/CTYP-53)
   [CTYP-60](http://dev.clojure.org/jira/browse/CTYP-60)
@@ -114,12 +114,12 @@ BUG FIXES
 - [CTYP-40](http://dev.clojure.org/jira/browse/CTYP-40)
   Clojurescript fix
 
-DOCUMENTATION
+## DOCUMENTATION
 
 - [CTYP-46](http://dev.clojure.org/jira/browse/CTYP-46)
   Document ann-record
 
-0.2.5
+# 0.2.5
 - HMap: fix subtyping and preserve absent keys with type updates
 - Add clojure.core.typed/NonEmptyLazySeq alias
 - `map` knows non-empty arguments returns NonEmptyLazySeq
@@ -133,28 +133,28 @@ DOCUMENTATION
 - Generate slim jar that excludes AOT files
   - add :classifier "slim" after version string
 
-0.2.4
+# 0.2.4
 - Add atom>
 - Made Clojurescript an optional dependency
 
-0.2.3
+# 0.2.3
 - Handle expected types for def forms
 - Add clojure.core.typed/statistics, clojure.core.typed/var-coverage
 
-0.2.2
+# 0.2.2
 - Add AOT classes to jar
   - decreases load time from 20s to 5s
   - adds 10mb to jar
 - Error and warning message improvements
   - CTYP-41
 
-0.2.1
+# 0.2.1
 - Improve errors messages
   - add hint to annotate vars via cf
   - remove "missing line number" message
   - more descriptive error for recursive check-ns
 
-0.2.0
+# 0.2.0
 - No changes
 
 0.1.26
