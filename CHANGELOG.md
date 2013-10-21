@@ -1,4 +1,4 @@
-0.2.14-SNAPSHOT
+0.2.14 - Released 21 October 2013
 
 BREAKING CHANGES
 
