@@ -1,4 +1,4 @@
-0.2.14 - Released 21 October 2013
+# 0.2.14 - Released 21 October 2013
 
 BREAKING CHANGES
 
@@ -54,12 +54,12 @@ Fixes
 Other
 - core.cache used for caching
 
-0.2.13 - Released 25 September 2013
+# 0.2.13 - Released 25 September 2013
 - Syntax parsing errors have line numbers
 - Add [var>](http://clojure.github.io/core.typed/#clojure.core.typed/var>)
 - Re-enable type checking of the checker
 
-0.2.12
+# 0.2.12
 - Contains defect with var> (fixed 0.2.13)
 
 0.2.11 - Released 24 September 2013
