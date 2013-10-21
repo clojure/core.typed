@@ -3,20 +3,20 @@
 ## *Breaking* Changes
 
 - clojure.lang.Var now takes 2 parameters
-  - bivariant like Atom.
-  - for common usages see c.c.t/Var1
+  - bivariant like Atom
+  - for common usages see [c.c.t/Var1](http://clojure.github.io/core.typed/#clojure.core.typed/Var1)
 - Change AReference/IReference ancestors in base-env to (IReference Any Any)
   - unlikely to affect anyone
 
 ## Enhacements
 
 - add aliases
-  - c.c.t/Var1
-  - c.c.t/Keyword
-  - c.c.t/Symbol
-  - c.c.t/Ref1
+  - [c.c.t/Var1](http://clojure.github.io/core.typed/#clojure.core.typed/Var1)
+  - [c.c.t/Keyword](http://clojure.github.io/core.typed/#clojure.core.typed/Keyword)
+  - [c.c.t/Symbol](http://clojure.github.io/core.typed/#clojure.core.typed/Symbol)
+  - [c.c.t/Ref1](http://clojure.github.io/core.typed/#clojure.core.typed/Ref1)
 - add typed helper functions
-  - c.c.t/ref>
+  - [c.c.t/ref>](http://clojure.github.io/core.typed/#clojure.core.typed/ref>)
 - add annotations
   - c.c/alter-var-root
 - improve docstrings of Java interop annotators
@@ -42,15 +42,16 @@
 (ann-form (f {:b 2}) '{:a Number :b Number})
 ```
 
+- [CTYP-73](http://dev.clojure.org/jira/browse/CTYP-73) Support `reduced`
+
 ## Fixes
 
-- [CTYP-67](http://dev.clojure.org/jira/browse/CTYP-67)
-- [CTYP-73](http://dev.clojure.org/jira/browse/CTYP-73)
-- [CTYP-74](http://dev.clojure.org/jira/browse/CTYP-74)
-- [CTYP-78](http://dev.clojure.org/jira/browse/CTYP-78)
-- [CTYP-79](http://dev.clojure.org/jira/browse/CTYP-79)
-- [CTYP-82](http://dev.clojure.org/jira/browse/CTYP-82)
-- [CTYP-84](http://dev.clojure.org/jira/browse/CTYP-84)
+- [CTYP-67](http://dev.clojure.org/jira/browse/CTYP-67) Fix `compare` inlining
+- [CTYP-74](http://dev.clojure.org/jira/browse/CTYP-74) Better syntax errors
+- [CTYP-78](http://dev.clojure.org/jira/browse/CTYP-78) Fix `finally` blocks incorrectly using propagated types
+- [CTYP-79](http://dev.clojure.org/jira/browse/CTYP-79) assoc optional HMap keys
+- [CTYP-82](http://dev.clojure.org/jira/browse/CTYP-82) Fix `alts!!` annotation
+- [CTYP-84](http://dev.clojure.org/jira/browse/CTYP-84) Fix heterogeneous seq/list subtyping
 - Fix first arity of map type
 - [CTYP-85](http://dev.clojure.org/jira/browse/CTYP-85) - abstract-object failure
 
