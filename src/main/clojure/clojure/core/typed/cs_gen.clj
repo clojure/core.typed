@@ -547,7 +547,7 @@
 ; (Assoc x ':a Number ':b Long ':c Foo) <!: (HMap {:a Number :b Long} :complete? true)
         (and (r/AssocType? S)
              (r/HeterogeneousMap? T))
-        (let [_ (prn "cs-gen Assoc HMap")
+        (let [;_ (prn "cs-gen Assoc HMap")
               {:keys [target entries]} S
               {:keys [types absent-keys]} T
               Assoc-keys (map first entries)

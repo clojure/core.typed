@@ -2384,7 +2384,22 @@
              (f {:b 1})
              '{:b Number :a Number})))
   (is-cf (fn [a] (assoc a :a 1)) 
-         (All [[x :< (clojure.core.typed/Map Any Any)]] [x -> (Assoc x ':a Number)])))
+         (All [[x :< (clojure.core.typed/Map Any Any)]] [x -> (Assoc x ':a Number)]))
+
+  (is-cf (let [add-a (-> #(assoc % :a 1)
+                         (clojure.core.typed/ann-form
+                           (All [[x :< (clojure.core.typed/Map Any Any)]]
+                                [x -> (Assoc x ':a Number)])))]
+           (clojure.core.typed/ann-form
+             (add-a {})
+             '{:a Number})
+           (clojure.core.typed/ann-form
+             (-> (add-a {}) :a)
+             Number)))
+  (is-cf {:a 1 :b 2}
+         (U (Assoc '{} ':a Number)
+            (Assoc '{} ':b Number)
+            (Assoc '{} ':a Number ':b Number))))
 
 (deftest hvec-ops
   (is-cf (first [1 'a]) Number)

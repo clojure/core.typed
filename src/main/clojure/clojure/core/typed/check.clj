@@ -1587,6 +1587,21 @@
       ; propagate the error
       (r/TCError? t) t
       (r/Nil? t) (or default r/-nil)
+      (r/AssocType? t) (let [t* (apply c/assoc-pairs-noret (:target t) (:entries t))]
+                         (cond
+                           (:dentries t) (do
+                                           (prn "dentries NYI")
+                                           r/-any)
+                           (r/HeterogeneousMap? t*) (find-val-type t* k default)
+
+                           (and (not t*)
+                                (r/F? (:target t))
+                                (every? c/keyword-value? (map first (:entries t))))
+                           (let [hmap (apply c/assoc-pairs-noret (c/-partial-hmap {}) (:entries t))]
+                             (if (r/HeterogeneousMap? hmap)
+                               (find-val-type hmap k default)
+                               r/-any))
+                           :else r/-any))
       (r/HeterogeneousMap? t) (let [^HeterogeneousMap t t]
                                 ; normal case, we have the key declared present
                                 (if-let [v (get (.types t) k)]
