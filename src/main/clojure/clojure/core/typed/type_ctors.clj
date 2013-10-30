@@ -51,6 +51,12 @@
     (@(unparse-type-var) t))
   )
 
+(t/ann fresh-symbol [Symbol -> Symbol])
+(defn fresh-symbol [s]
+  {:pre [(symbol? s)]
+   :post [(symbol? %)]}
+  (with-meta (gensym s) {:original-name s}))
+
 (declare Un make-Union)
 
 (t/ann make-Union [(U nil (Seqable r/Type)) -> r/Type])
@@ -624,7 +630,7 @@
                          (unparse-type (:upper-bound bnd))
                          (unparse-type (:lower-bound bnd))))))))
 
-(declare TypeFn-bbnds*)
+(declare TypeFn-bbnds* TypeFn-fresh-symbols*)
 
 ;FIXME rename to RClass-with-unknown-params
 (t/ann ^:no-check RClass-of-with-unknown-params [(U Symbol Class) -> r/Type])
@@ -637,8 +643,9 @@
                sym-or-cls)
          rc ((some-fn dtenv/get-datatype rcls/get-rclass) sym)
          args (when (r/TypeFn? rc)
-                (most-general-on-variance (:variances rc)
-                                          (TypeFn-bbnds* (repeatedly (count (:variances rc)) gensym) rc)))]
+                (let [syms (TypeFn-fresh-symbols* rc)]
+                  (most-general-on-variance (:variances rc)
+                                            (TypeFn-bbnds* syms rc))))]
      (RClass-of sym args))))
 
 (t/ann ^:no-check DataType-with-unknown-params [Symbol -> r/Type])
@@ -648,8 +655,9 @@
     :post [((some-fn r/DataType?) %)]}
    (let [t (dtenv/get-datatype sym)
          args (when (r/TypeFn? t)
-                (most-general-on-variance (:variances t)
-                                          (TypeFn-bbnds* (repeatedly (count (:variances t)) gensym) t)))]
+                (let [syms (TypeFn-fresh-symbols* t)]
+                  (most-general-on-variance (:variances t)
+                                            (TypeFn-bbnds* syms t))))]
      (DataType-of sym args))))
 
 (t/ann ^:no-check JSNominal-with-unknown-params [Symbol -> r/Type])
@@ -659,8 +667,9 @@
     :post [((some-fn r/JSNominal?) %)]}
    (let [t ((impl/v 'clojure.core.typed.jsnominal-env/get-jsnominal) sym)
          args (when (r/TypeFn? t)
-                (most-general-on-variance (:variances t)
-                                          (TypeFn-bbnds* (repeatedly (count (:variances t)) gensym) t)))]
+                (let [syms (TypeFn-fresh-symbols* t)]
+                  (most-general-on-variance (:variances t)
+                                            (TypeFn-bbnds* syms t))))]
      (JSNominal-of sym args))))
 
 (t/ann ^:no-check JSNominal-method* [JSNominal Symbol -> r/Type])
@@ -699,8 +708,9 @@
     :post [((some-fn r/Protocol?) %)]}
    (let [t (prenv/get-protocol sym)
          args (when (r/TypeFn? t)
-                (most-general-on-variance (:variances t)
-                                          (TypeFn-bbnds* (repeatedly (count (:variances t)) gensym) t)))]
+                (let [syms (TypeFn-fresh-symbols* t)]
+                  (most-general-on-variance (:variances t)
+                                            (TypeFn-bbnds* syms t))))]
      (Protocol-of sym args))))
 
 (t/tc-ignore
@@ -731,6 +741,8 @@
    :post [(r/Type? %)]}
   (u/p :ctors/inst-and-subst
   (let [subst-all @(subst-all-var)
+        ; these names are eliminated immediately, they don't need to be
+        ; created with fresh-symbol
         names (repeatedly (count ts) gensym)
         fs (map r/make-F names)
         t (instantiate-many names target)
@@ -750,6 +762,8 @@
                [k (inst-and-subst v poly)]))))
 
 (t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (IPersistentSet r/Type)])
+; FIXME this is dumb, unchecked-ancestors field should be properly unwrapped
+; as an RClass field
 (defn RClass-unchecked-ancestors*
   [^RClass rcls]
   {:pre [(r/RClass? rcls)]
@@ -834,12 +848,14 @@
    :post [(r/Type? %)]}
   (if (empty? names)
     body
-    (r/TypeFn-maker (count names) 
-                    variances
-                    (vec
-                      (for [bnd bbnds]
-                        (r/visit-bounds bnd #(abstract-many names %))))
-                    (abstract-many names body))))
+    (let [t (r/TypeFn-maker (count names) 
+                            variances
+                            (vec
+                              (for [bnd bbnds]
+                                (r/visit-bounds bnd #(abstract-many names %))))
+                            (abstract-many names body))]
+      (r/set-name-table! t names)
+      t)))
 
 ;smart destructor
 (t/ann ^:no-check TypeFn-body* [(Seqable Symbol) TypeFn -> r/Type])
@@ -860,30 +876,65 @@
           (r/visit-bounds b #(instantiate-many names %)))
         (.bbnds typefn)))
 
+(t/ann ^:no-check TypeFn-free-names* [TypeFn -> (Seqable Symbol)])
+(defn ^:private TypeFn-free-names* [tfn]
+  {:pre [(r/TypeFn? tfn)]
+   :post [((some-fn nil? 
+                    (every-pred seq (u/every-c? symbol?))) 
+           %)]}
+  (r/lookup-name-table tfn))
+
+(t/ann ^:no-check TypeFn-fresh-symbols* [TypeFn -> (Seqable Symbol)])
+(defn TypeFn-fresh-symbols* [tfn]
+  {:pre [(r/TypeFn? tfn)]
+   :post [((every-pred seq (u/every-c? symbol?)) %)]}
+  (map fresh-symbol (or (TypeFn-free-names* tfn)
+                        (repeatedly (:nbound tfn) gensym))))
+
 ;; Poly
 
 ;smart constructor
-(t/ann ^:no-check Poly* [(Seqable Symbol) (Seqable Bounds) r/Type (Seqable Symbol) -> r/Type])
-(defn Poly* [names bbnds body free-names]
+;;
+;; Corresponds to closing a type in locally nameless representation
+;; (turns free `names` into bound De Bruijn vars)
+;; Also keeps track of the original name in a table to recover names
+;; for debugging or to correlate with surface syntax
+;;
+;; Provide #:original-names if the names that you are closing off
+;; are *different* from the names you want recorded in the table.
+;;
+(t/ann ^:no-check Poly* [(Seqable Symbol) (Seqable Bounds) r/Type (Seqable Symbol) 
+                         & :optional {:original-names (Seqable Symbol)} -> r/Type])
+(defn Poly* [names bbnds body & {:keys [original-names] :or {original-names names}}]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
          (r/Type? body)
-         (every? symbol? free-names)
-         (apply = (map count [names bbnds free-names]))]}
+         (every? symbol? original-names)
+         (apply = (map count [names bbnds original-names]))]}
   (if (empty? names)
     body
-    (r/Poly-maker (count names) 
-                  (vec
-                    (for [bnd bbnds]
-                      (r/visit-bounds bnd #(abstract-many names %))))
-                  (abstract-many names body)
-                  free-names)))
+    (let [v (r/Poly-maker (count names)
+                          (vec
+                            (for [bnd bbnds]
+                              (r/visit-bounds bnd #(abstract-many names %))))
+                          (abstract-many names body))]
+      (r/set-name-table! v original-names)
+      v)))
 
-(t/ann ^:no-check Poly-free-names* [Poly -> (Seqable Symbol)])
-(defn Poly-free-names* [^Poly poly]
+(t/ann ^:no-check Poly-free-names* [Poly -> (U nil (Seqable Symbol))])
+(defn ^:private Poly-free-names* [poly]
+  {:pre [(r/Poly? poly)]
+   :post [((some-fn nil? 
+                    (every-pred seq (u/every-c? symbol?)))
+           %)]}
+  (r/lookup-name-table poly))
+
+(t/ann ^:no-check Poly-fresh-symbols* [Poly -> (Seqable Symbol)])
+(defn Poly-fresh-symbols* [poly]
   {:pre [(r/Poly? poly)]
    :post [((every-pred seq (u/every-c? symbol?)) %)]}
-  (.actual-frees poly))
+  (map fresh-symbol (or (Poly-free-names* poly)
+                        (repeatedly (:nbound poly) gensym))))
 
 ;smart destructor
 (t/ann ^:no-check Poly-body* [(Seqable Symbol) Poly -> r/Type])
@@ -906,20 +957,22 @@
 ;; PolyDots
 
 ;smart constructor
-(t/ann ^:no-check PolyDots* [(Seqable Symbol) (Seqable Bounds) r/Type (Seqable Symbol) -> r/Type])
-(defn PolyDots* [names bbnds body free-names]
+(t/ann ^:no-check PolyDots* [(Seqable Symbol) (Seqable Bounds) r/Type 
+                             & :optional {:original-names (Seqable Symbol)}-> r/Type])
+(defn PolyDots* [names bbnds body & {:keys [original-names] :or {original-names names}}]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
          (r/Type? body)]}
   (assert (= (count names) (count bbnds)) "Wrong number of names")
   (if (empty? names)
     body
-    (r/PolyDots-maker (count names) 
-                      (mapv (fn [bnd] 
-                              (r/visit-bounds bnd #(abstract-many names %)))
-                            bbnds)
-                      (abstract-many names body)
-                      free-names)))
+    (let [v (r/PolyDots-maker (count names) 
+                              (mapv (fn [bnd] 
+                                      (r/visit-bounds bnd #(abstract-many names %)))
+                                    bbnds)
+                              (abstract-many names body))]
+      (r/set-name-table! v original-names)
+      v)))
 
 ;smart destructor
 (t/ann ^:no-check PolyDots-body* [(Seqable Symbol) PolyDots -> r/Type])
@@ -938,12 +991,20 @@
           (r/visit-bounds b #(instantiate-many names %)))
         (.bbnds poly)))
 
-(t/ann ^:no-check PolyDots-free-names* [Poly -> (Seqable Symbol)])
-(defn PolyDots-free-names* [^PolyDots poly]
+(t/ann ^:no-check PolyDots-free-names* [Poly -> (U nil (Seqable Symbol))])
+(defn ^:private PolyDots-free-names* [poly]
+  {:pre [(r/PolyDots? poly)]
+   :post [((some-fn nil? 
+                    (every-pred seq (u/every-c? symbol?))) 
+           %)]}
+  (r/lookup-name-table poly))
+
+(t/ann ^:no-check PolyDots-fresh-symbols* [PolyDots -> (Seqable Symbol)])
+(defn PolyDots-fresh-symbols* [poly]
   {:pre [(r/PolyDots? poly)]
    :post [((every-pred seq (u/every-c? symbol?)) %)]}
-  (.actual-frees poly))
-
+  (map fresh-symbol (or (PolyDots-free-names* poly)
+                        (repeatedly (:nbound poly) gensym))))
 
 ;; Instantiate ops
 
@@ -963,7 +1024,7 @@
     (assert (r/TypeFn? t) (str "instantiate-typefn requires a TypeFn: " (unparse-type t)))
     (do (assert (= (.nbound t) (count types)) (u/error-msg "Wrong number of arguments passed to type function: "
                                                          (unparse-type t) (mapv unparse-type types)))
-        (let [nms (repeatedly (.nbound t) gensym)
+        (let [nms (TypeFn-fresh-symbols* t)
               body (TypeFn-body* nms t)]
           (subst-all (make-simple-substitution nms types) body)))))
 
@@ -977,7 +1038,7 @@
                                                                        (unparse-type t)
                                                                        (when (bound? #'*current-RClass-super*)
                                                                          (str " when checking ancestors of " *current-RClass-super*))))
-                      (let [nms (repeatedly (:nbound t) gensym)
+                      (let [nms (Poly-fresh-symbols* t)
                             body (Poly-body* nms t)]
                         (subst-all (make-simple-substitution nms types) body)))
       ;PolyDots NYI
@@ -1074,7 +1135,9 @@
 ;smart constructor
 (t/ann Mu* [Symbol r/Type -> r/Type])
 (defn Mu* [name body]
-  (r/Mu-maker (abstract name body)))
+  (let [v (r/Mu-maker (abstract name body))]
+    (r/set-name-table! v name)
+    v))
 
 ;smart destructor
 (t/ann Mu-body* [Symbol Mu -> r/Type])
@@ -1082,6 +1145,20 @@
   {:pre [(r/Mu? t)
          (symbol? name)]}
   (instantiate name (p/mu-scope t)))
+
+(t/ann ^:no-check Mu-free-name* [Mu -> (U nil Symbol)])
+(defn Mu-free-name* [t]
+  {:pre [(r/Mu? t)]
+   :post [((some-fn symbol? nil?) %)]}
+  (r/lookup-name-table t))
+
+(t/ann ^:no-check Mu-fresh-symbol* [Mu -> Symbol])
+(defn Mu-fresh-symbol* [t]
+  {:pre [(r/Mu? t)]
+   :post [(symbol? %)]}
+  (let [s (or (Mu-free-name* t)
+              (gensym))]
+    (fresh-symbol s)))
 
 (t/tc-ignore
 (defn- substitute-var []
@@ -1095,7 +1172,7 @@
   {:pre [(r/Mu? t)]
    :post [(r/Type? %)]}
   (let [substitute @(substitute-var)
-        sym (gensym)
+        sym (Mu-fresh-symbol* t)
         body (Mu-body* sym t)]
     (substitute t sym body)))
 
@@ -1314,7 +1391,9 @@
 ; restrict t1 to be a subtype of t2
 (t/ann ^:no-check restrict [r/Type r/Type -> r/Type])
 (defn restrict [t1 t2]
-  (let [subtype? @(subtype?-var)
+  (let [t1 (fully-resolve-type t1)
+        t2 (fully-resolve-type t2)
+        subtype? @(subtype?-var)
         subst-all @(subst-all-var)
         infer @(infer-var)]
     (cond
@@ -1326,7 +1405,7 @@
       (r/Union? t2) (apply Un (map (fn [e] (restrict t1 e)) (:types t2)))
 
       (r/Poly? t2)
-      (let [names (repeatedly (:nbound t2) gensym)
+      (let [names (Poly-fresh-symbols* t2)
             t (Poly-body* names t2)
             bbnds (Poly-bbnds* names t2)
             subst (u/handle-cs-gen-failure
@@ -1415,8 +1494,7 @@
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
                      (r/PolyDots-maker n 
                                        (mapv #(r/visit-bounds % rs) bbnds)
-                                       (as body)
-                                       (PolyDots-free-names* ty)))))
+                                       (as body)))))
 
 (f/add-fold-case ::abstract-many
                  Poly
@@ -1427,8 +1505,7 @@
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
                      (r/Poly-maker n 
                              (mapv #(r/visit-bounds % as) bbnds)
-                             (as body)
-                             (Poly-free-names* poly)))))
+                             (as body)))))
 
 (f/add-fold-case ::abstract-many
                  TypeFn
@@ -1524,8 +1601,7 @@
                        as #(add-scopes n (replace image count type (+ n outer) %))]
                    (r/PolyDots-maker n 
                                      (mapv #(r/visit-bounds % as) bbnds)
-                                     (as body)
-                                     (PolyDots-free-names* ty)))))
+                                     (as body)))))
 
 (f/add-fold-case ::instantiate-many
                Poly
@@ -1536,8 +1612,7 @@
                        as #(add-scopes n (replace image count type (+ n outer) %))]
                    (r/Poly-maker n 
                            (mapv #(r/visit-bounds % as) bbnds)
-                           (as body)
-                           (Poly-free-names* poly)))))
+                           (as body)))))
 
 (f/add-fold-case ::instantiate-many
                TypeFn
@@ -1636,8 +1711,7 @@
              [r/-any]
              r/-any
              nil nil
-             :object (or/->Path [(path/->KeyPE kw)] 0)))
-         ['x]))
+             :object (or/->Path [(path/->KeyPE kw)] 0)))))
 
 (t/ann KeywordValue->Fn [Value -> r/Type])
 (defn KeywordValue->Fn [{:keys [val] :as t}]

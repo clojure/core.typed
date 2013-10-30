@@ -4,36 +4,38 @@
   (:require [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed :as t]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [clojure.core.typed.current-impl :as impl])
   (:import (clojure.lang Seqable Symbol Keyword Var)))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
   )
 
+
+(t/ann name-table Any)
+(defonce ^:private name-table (java.util.WeakHashMap.))
+
+(t/ann ^:no-check lookup-name-table [Any -> (U nil Symbol (t/Coll Symbol))])
+(defn lookup-name-table [v]
+  (.get name-table v))
+
+(t/ann ^:no-check set-name-table! [Type (U Symbol (t/Coll Symbol)) -> nil])
+(defn set-name-table! [v n]
+  (.put name-table v n)
+  nil)
+
 (t/ann ^:no-check -FS-var [-> (t/Var1 [p/IFilter p/IFilter -> p/IFilterSet])])
 (defn- -FS-var []
-  (let [ns (find-ns 'clojure.core.typed.filter-ops)
-        _ (assert ns)
-        v (ns-resolve ns '-FS)]
-    (assert (var? v) "-FS unbound")
-    v))
+  (impl/the-var 'clojure.core.typed.filter-ops/-FS))
 
 (t/ann ^:no-check -top-var [-> (t/Var1 p/IFilter)])
 (defn -top-var []
-  (let [ns (find-ns 'clojure.core.typed.filter-rep)
-        _ (assert ns)
-        v (ns-resolve ns '-top)]
-    (assert (var? v) "-top unbound")
-    v))
+  (impl/the-var 'clojure.core.typed.filter-rep/-top))
 
 (t/ann ^:no-check -empty-var [-> (t/Var1 p/IRObject)])
 (defn -empty-var []
-  (let [ns (find-ns 'clojure.core.typed.object-rep)
-        _ (assert ns)
-        v (ns-resolve ns '-empty)]
-    (assert (var? v) "-empty unbound")
-    v))
+  (impl/the-var 'clojure.core.typed.object-rep/-empty))
 
 (t/def-alias SeqNumber Long)
 
@@ -59,10 +61,13 @@
 (u/defprotocol TypeId
   (type-id [_]))
 
+; not a real symmetric predicate, but we always extend Type with the
+; interface for speed, so it's sufficient.
 (t/ann ^:no-check Type? (predicate Type))
 (defn Type? [a]
   (instance? clojure.core.typed.impl_protocols.TCType a))
 
+; similar for AnyType
 (t/ann ^:no-check AnyType? (predicate AnyType))
 (defn AnyType? [a]
   (or (Type? a)
@@ -147,6 +152,7 @@
                       lower-bound :- MaybeScopedType
                       higher-kind :- nil])
 
+;;;; FIXME playing around with order shouldn't be needed anymore
 ; This annotation needs to go before the first reference to TypeFn,
 ; otherwise it will resolve to an RClass, instead of a DataType.
 ; DataType should be combined with RClass in the future.
@@ -167,7 +173,19 @@
   :methods
   [p/TCType])
 
-;FIXME rank should be part of the identity of a free, otherwise type caching is unsound
+; Always naming frees as fresh is crucial in Typed Clojure.
+; Typed Clojure has bounded-polymorphism, which means we need to be very careful
+; when caching results of subtyping, intersections and similar. 
+;
+; We use bounds to our advantage to make subtyping between free variables more useful
+;
+; eg. 
+; In 
+;   (All [[x :< Long]] [-> x]) <: (All [[y :< Number]] [-> y])
+; x <: y
+;
+; Because of the way we check function return values, we cache this result.
+
 ; Same with bounds.
 (u/ann-record F [name :- Symbol])
 (u/def-type F [name]
@@ -180,6 +198,18 @@
 (defn make-F
   "Make a free variable "
   [name] (F-maker name))
+
+(t/ann F-original-name [F -> Symbol])
+(defn F-original-name 
+  "Get the printable name of a free variable.
+  
+  Should *only* be used for pretty-printing errors or similar, *never* instantiate
+  an instance of F with this name."
+  [f]
+  {:pre [(F? f)]
+   :post [(symbol? %)]}
+  (or (-> f :name meta :original-name)
+      (:name f)))
 
 (u/ann-record Scope [body :- MaybeScopedType])
 (u/def-type Scope [body]
@@ -314,17 +344,14 @@
   :methods
   [p/TCType])
 
-;FIXME actual-frees should be metadata. ie. it should not affect equality
 (u/ann-record Poly [nbound :- Number,
                     bbnds :- (U nil (Seqable Bounds)),
-                    scope :- p/IScope,
-                    actual-frees :- (U nil (Seqable Symbol))])
-(u/def-type Poly [nbound bbnds scope actual-frees]
-  "A polymorphic type containing n bound variables, with display names actual-frees"
+                    scope :- p/IScope,])
+(u/def-type Poly [nbound bbnds scope]
+  "A polymorphic type containing n bound variables"
   [(u/nat? nbound)
    (every? Bounds? bbnds)
-   (every? symbol? actual-frees)
-   (apply = nbound (map count [bbnds actual-frees]))
+   (apply = nbound (map count [bbnds]))
    (scope-depth? scope nbound)
    (Scope? scope)]
   :methods
@@ -332,13 +359,11 @@
 
 (u/ann-record PolyDots [nbound :- Number,
                         bbnds :- (U nil (Seqable Bounds)),
-                        scope :- p/IScope
-                        actual-frees :- (U nil (Seqable Symbol))])
-(u/def-type PolyDots [nbound bbnds ^Scope scope actual-frees]
+                        scope :- p/IScope])
+(u/def-type PolyDots [nbound bbnds scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
   [(u/nat? nbound)
    (every? Bounds? bbnds)
-   (every? symbol? actual-frees)
    (= nbound (count bbnds))
    (scope-depth? scope nbound)
    (Scope? scope)]
@@ -698,7 +723,7 @@
   :methods
   [p/TCType])
 
-(u/ann-record Extends [extends :- (I (CountRange 1) (Seqable Type))
+(u/ann-record Extends [extends :- (t/NonEmptySeqable Type)
                        without :- (U nil (Seqable Type))])
 (u/def-type Extends [extends without]
   "A set of ancestors that always and never occur."

@@ -142,8 +142,9 @@
 
         (and (r/Poly? s)
              (r/Poly? t)
-             (= (.nbound ^Poly s) (.nbound ^Poly t)))
-        (let [names (repeatedly (.nbound ^Poly s) gensym)
+             (= (:nbound s) (:nbound t)))
+        (let [;instantiate both sides with the same fresh variables
+              names (repeatedly (:nbound s) gensym)
               bbnds1 (c/Poly-bbnds* names s)
               bbnds2 (c/Poly-bbnds* names t)
               b1 (c/Poly-body* names s)
@@ -156,11 +157,11 @@
 
         ;use unification to see if we can use the Poly type here
         (and (r/Poly? s)
-             (let [names (repeatedly (.nbound ^Poly s) gensym)
+             (let [names (c/Poly-fresh-symbols* s)
                    bnds (c/Poly-bbnds* names s)
                    b1 (c/Poly-body* names s)]
                (unify (zipmap names bnds) [b1] [t])))
-        (let [names (repeatedly (.nbound ^Poly s) gensym)
+        (let [names (c/Poly-fresh-symbols* s)
               bnds (c/Poly-bbnds* names s)
               b1 (c/Poly-body* names s)]
           (if (unify (zipmap names bnds) [b1] [t])
@@ -168,12 +169,14 @@
             (fail! s t)))
 
         (and (r/Poly? t)
-             (let [names (repeatedly (.nbound ^Poly t) gensym)
+             (let [names (c/Poly-fresh-symbols* t)
                    b (c/Poly-body* names t)]
                (empty? (frees/fv t))))
-        (let [names (repeatedly (.nbound ^Poly t) gensym)
+        (let [names (c/Poly-fresh-symbols* t)
               b (c/Poly-body* names t)]
-          (subtype s b))
+          (if (subtype? s b)
+            *sub-current-seen*
+            (fail! s t)))
 
 ;        (and (r/TApp? s)
 ;             (r/TApp? t))
@@ -182,20 +185,18 @@
 ;          (fail! s t))
 
         (r/TApp? s)
-        (let [^TApp s s]
-          (if (and (not (r/F? (.rator s)))
-                   (subtypeA*? (conj *sub-current-seen* [s t])
-                               (c/resolve-TApp s) t))
-            *sub-current-seen*
-            (fail! s t)))
+        (if (and (not (r/F? (:rator s)))
+                 (subtypeA*? (conj *sub-current-seen* [s t])
+                             (c/resolve-TApp s) t))
+          *sub-current-seen*
+          (fail! s t))
 
         (r/TApp? t)
-        (let [^TApp t t]
-          (if (and (not (r/F? (.rator t)))
-                   (subtypeA*? (conj *sub-current-seen* [s t])
-                               s (c/resolve-TApp t)))
-            *sub-current-seen*
-            (fail! s t)))
+        (if (and (not (r/F? (:rator t)))
+                 (subtypeA*? (conj *sub-current-seen* [s t])
+                             s (c/resolve-TApp t)))
+          *sub-current-seen*
+          (fail! s t))
 
         (r/App? s)
         (subtypeA* *sub-current-seen* (c/resolve-App s) t)
@@ -209,7 +210,7 @@
         (r/Union? s)
         ;use subtypeA*, throws error
         (u/p :subtype-union-l
-        (if (every? (fn union-left [s] (subtypeA* *sub-current-seen* s t)) (.types ^Union s))
+        (if (every? (fn union-left [s] (subtypeA* *sub-current-seen* s t)) (:types s))
           *sub-current-seen*
           (fail! s t))
            )
@@ -217,7 +218,7 @@
         ;use subtypeA*?, boolean result
         (r/Union? t)
         (u/p :subtype-union-r
-        (if (some (fn union-right [t] (subtypeA*? *sub-current-seen* s t)) (.types ^Union t))
+        (if (some (fn union-right [t] (subtypeA*? *sub-current-seen* s t)) (:types t))
           *sub-current-seen*
           (fail! s t))
            )
@@ -315,6 +316,24 @@
                  (not (subtype? s (:type t))))
           *sub-current-seen*
           (fail! s t))
+
+        (and (r/F? s)
+             (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name s))]
+               (if-not bnd 
+                 (do #_(prn "No bounds in scope for " s free-ops/*free-scope*)
+                     #_(try (throw (Exception. ""))
+                          (catch Throwable e (clojure.repl/pst e 1000))))
+                 (and (subtype? upper-bound t)
+                      (subtype? lower-bound t)))))
+        *sub-current-seen*
+
+        (and (r/F? t)
+             (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name t))]
+               (if-not bnd 
+                 (do #_(prn "No bounds in scope for " t free-ops/*free-scope*))
+                 (and (subtype? s upper-bound)
+                      (subtype? s lower-bound)))))
+        *sub-current-seen*
 
         (and (r/AssocType? s)
              (r/AssocType? t)
@@ -919,7 +938,8 @@
 
 (defn subtype-TypeFn
   [^TypeFn S ^TypeFn T]
-  (let [names (repeatedly (.nbound S) gensym)
+  (let [;instantiate both type functions with the same names
+        names (repeatedly (.nbound S) gensym)
         sbnds (c/TypeFn-bbnds* names S)
         tbnds (c/TypeFn-bbnds* names T)
         sbody (c/TypeFn-body* names S)

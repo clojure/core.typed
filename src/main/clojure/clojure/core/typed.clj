@@ -1391,8 +1391,6 @@ for checking namespaces, cf for checking individual forms."}
                (flush))
              {:delayed-errors @*delayed-errors*})))))))
 
-; FIXME some things strangely break when reset-caches is removed.
-; eg. Try checking frees.clj 
 (defn check-ns
   "Type check a namespace (a symbol or Namespace).
   If not provided default to current namespace.

@@ -123,7 +123,7 @@
 
 (add-default-fold-case TypeFn
                        (fn [^TypeFn ty _]
-                         (let [names (repeatedly (.nbound ty) gensym)
+                         (let [names (c/TypeFn-fresh-symbols* ty)
                                body (c/TypeFn-body* names ty)
                                bbnds (c/TypeFn-bbnds* names ty)]
                            (c/TypeFn* names 
@@ -134,27 +134,25 @@
 
 (add-default-fold-case Poly
                        (fn [^Poly ty _]
-                         (let [names (repeatedly (.nbound ty) gensym)
+                         (let [names (c/Poly-fresh-symbols* ty)
                                body (c/Poly-body* names ty)
                                bbnds (c/Poly-bbnds* names ty)]
                            (c/Poly* names 
                                   (mapv #(r/visit-bounds % type-rec) bbnds)
-                                  (type-rec body)
-                                  (c/Poly-free-names* ty)))))
+                                  (type-rec body)))))
 
 (add-default-fold-case PolyDots
                        (fn [^PolyDots ty _]
-                         (let [names (repeatedly (.nbound ty) gensym)
+                         (let [names (c/PolyDots-fresh-symbols* ty)
                                body (c/PolyDots-body* names ty)
                                bbnds (c/PolyDots-bbnds* names ty)]
                            (c/PolyDots* names 
                                         (mapv #(r/visit-bounds % type-rec) bbnds)
-                                        (type-rec body)
-                                        (.actual-frees ty)))))
+                                        (type-rec body)))))
 
 (add-default-fold-case Mu
                        (fn [ty _]
-                         (let [name (gensym)
+                         (let [name (c/Mu-fresh-symbol* ty)
                                body (c/Mu-body* name ty)]
                            (c/Mu* name (type-rec body)))))
 

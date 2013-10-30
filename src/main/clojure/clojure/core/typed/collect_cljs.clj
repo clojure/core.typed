@@ -183,8 +183,7 @@
             pos-ctor (if args
                        (c/Poly* args bnds
                                 (r/make-FnIntersection
-                                  (r/make-Function (vec (vals fs)) (c/DataType-of s (map r/make-F args))))
-                                args)
+                                  (r/make-Function (vec (vals fs)) (c/DataType-of s (map r/make-F args)))))
                        (r/make-FnIntersection
                          (r/make-Function (vec (vals fs)) (c/DataType-of s))))
             map-ctor (when record?
@@ -193,8 +192,7 @@
                          (if args
                            (c/Poly* args bnds
                                     (r/make-FnIntersection
-                                      (r/make-Function [hmap-arg] (c/DataType-of s (map r/make-F args))))
-                                    args)
+                                      (r/make-Function [hmap-arg] (c/DataType-of s (map r/make-F args)))))
                            (r/make-FnIntersection
                              (r/make-Function [hmap-arg] (c/DataType-of s))))))]
         (do 

@@ -116,22 +116,19 @@
          (make-FnIntersection (make-Function () -nil -nil))))
   (is-clj (= (parse-type '(All [x ...] [nil ... x -> nil]))
          (PolyDots* '(x) [no-bounds]
-                    (make-FnIntersection (make-Function () -nil nil (DottedPretype1-maker -nil 'x)))
-                    '(x)))))
+                    (make-FnIntersection (make-Function () -nil nil (DottedPretype1-maker -nil 'x)))))))
 
 (deftest poly-constructor-test
   (is-clj (= (Poly-body*
            '(x)
            (Poly* '(x) [no-bounds]
-                  (make-F 'x)
-                  '(x)))
+                  (make-F 'x)))
          (make-F 'x)))
   (is-clj (= (Poly-body*
            '(x)
            (Poly* '(x)
                   [(Bounds-maker -nil -false nil)]
-                  (make-F 'x)
-                  '(x)))
+                  (make-F 'x)))
          (make-F 'x)))
   (is-clj (= (parse-type '(All [x x1 [y :< x] z] [x -> y]))
              (let [no-bounds-scoped (Bounds-maker
@@ -149,8 +146,7 @@
                            (add-scopes 4
                                        (make-FnIntersection
                                          (make-Function [(B-maker 3)] (B-maker 1)
-                                                        nil nil)))
-                           '(x x1 y z))))))
+                                                        nil nil))))))))
 (defmacro sub? [s t]
   `(impl/with-clojure-impl
      (subtype? (parse-type '~s)
@@ -292,8 +288,7 @@
                       (-val 1)
                       nil nil
                       :filter (-FS -top -bot)
-                      :object -empty))
-                  '(x)))))
+                      :object -empty))))))
   ;test invoke fn
   (is-clj (subtype? (ety
                       ((clojure.core.typed/fn> [a :- (clojure.lang.Seqable Number), b :- Number] 
@@ -306,17 +301,19 @@
                        (zipmap [1] [2]) 1))
                     (parse-type '(U nil Number)))))
 
-(deftest get-special-test
-  (is-clj (subtype? 
-            (ety 
-              (clojure.core.typed/fn> [a :- (HMap :mandatory {:a Number})]
-                                      (get a :a)))
-            (parse-type
-              '(Fn ['{:a java.lang.Number} -> java.lang.Number 
-                    :filters {:then (is java.lang.Number 0 [(Key :a)]), 
-                              :else (| (is (HMap :absent-keys #{:a}) 0) 
-                                       (is (U nil false) 0 [(Key :a)]))} 
-                    :object {:path [(Key :a)], :id 0}])))))
+;FIXME
+;(deftest get-special-test
+;  (is-clj (subtype? 
+;            (ety 
+;              (clojure.core.typed/fn> [a :- (HMap :mandatory {:a Number})]
+;                                      (get a :a)))
+;            (parse-type
+;              '(Fn ['{:a java.lang.Number} -> java.lang.Number 
+;                    :filters {:then (& (is (HMap :mandatory {:a Number}) 0)
+;                                       (is java.lang.Number 0 [(Key :a)]))
+;                              :else (| (is (U nil false) 0 [(Key :a)])
+;                                       (is (HMap :absent-keys #{:a}) 0) )} 
+;                    :object {:path [(Key :a)], :id 0}])))))
 
 (deftest truth-false-values-test
   (is-clj (= (tc-t (if nil 1 2))
@@ -1532,8 +1529,7 @@
          ['foo1 'foo2]
          (Poly* '[x y] 
                 [no-bounds no-bounds]
-                (In (make-F 'x) (make-F 'y))
-                '[x y]))
+                (In (make-F 'x) (make-F 'y))))
        (In (make-F 'foo1) (make-F 'foo2)))))
 
 (deftest latent-filter-subtype-test 
@@ -1579,8 +1575,20 @@
   ;  TODO possible extension for filter
 ;  (is (cf (filter :a (clojure.core.typed/ann-form [] (clojure.lang.Seqable '{:b Number})))
 ;          (clojure.lang.Seqable '{:b Number :a Any})))
-  (is (cf (filter (clojure.core.typed/inst identity (U nil Number)) [1 nil])
-          (clojure.lang.Seqable Number))))
+  (is-cf (filter (clojure.core.typed/inst identity (U nil Number)) [1 nil])
+         (clojure.lang.Seqable Number))
+  (is-cf (let [filter (clojure.core.typed/ann-form filter
+                        (All [x y]
+                             [[x -> Any :filters {:then (! y 0)}] 
+                              (U nil (clojure.lang.Seqable x)) -> (clojure.lang.LazySeq (I x (Not y)))]))]
+           (filter (clojure.core.typed/inst identity (U nil Number)) [1 nil]))
+         (clojure.lang.Seqable Number))
+  (is-cf (let [filter (clojure.core.typed/ann-form filter
+                        (All [x y]
+                             [[x -> Any :filters {:then (is y 0)}] 
+                              (U nil (clojure.lang.Seqable x)) -> (clojure.lang.LazySeq y)]))]
+           (filter number? [1 nil]))
+         (clojure.lang.Seqable Number)))
 
 ; keeping if we decide to use more expressive type for conj
 ;(deftest extensible-conj-test
@@ -2346,6 +2354,15 @@
 (deftest comparable-inline-test
   (is-cf (fn [v x] (compare v x)) (Fn [Comparable Any -> Number])))
 
+(deftest CTYP-71-simplify-test
+                                              ; must be resolvable to trigger the bug
+  (is-cf (clojure.core.typed/fn> [a :- (U nil (clojure.core.typed/Nilable java.util.Date))] 
+                                 (when a (clojure.core.typed/ann-form a java.util.Date)))))
+
+;(clj (compact [(-filter (parse-type 'Number) 0)
+;               (-not-filter (Un -false -nil) 0)]
+;              false))
+
 (deftest CTYP-84-hlist-ancestor-test
   (is-cf (seq '(1)) (clojure.core.typed/NonEmptySeq Number)))
 
@@ -2401,6 +2418,40 @@
             (Assoc '{} ':b Number)
             (Assoc '{} ':a Number ':b Number))))
 
+;(deftest Get-test
+;  (is-cf 1 (Get '{:a Number} ':a)))
+
+;(clj
+;  (parse-filter 
+;    '(&
+;      (when
+;        (! (U nil false) b69880)
+;        (& (is clojure.core.typed/NonEmptyCount b) (! nil b)))
+;      (! (U nil false) b69880)
+;      (is clojure.core.typed/NonEmptyCount a)
+;      (when
+;        (is (U nil false) a69879)
+;        (is (U clojure.core.typed/EmptyCount nil) a))
+;      (! nil a)
+;      (! (U nil false) a69879)
+;      (when
+;        (is (U nil false) b69880)
+;        (is (U clojure.core.typed/EmptyCount nil) b)))))
+;
+;(clj
+;  (parse-filter 
+;    '(&
+;      (when (! (U nil false) b69880)
+;        (& (is clojure.core.typed/NonEmptyCount b) (! nil b)))
+;      (! (U nil false) b69880))))
+;
+;(clj
+;  (compact
+;    [(parse-filter '(when (! (U nil false) b69880)
+;                      (& (is clojure.core.typed/NonEmptyCount b) (! nil b))))
+;     (parse-filter '(! (U nil false) b69880))]
+;    false))
+
 (deftest hvec-ops
   (is-cf (first [1 'a]) Number)
   (is-cf (-> {:a 1} first second) Number))
@@ -2418,6 +2469,15 @@
 (deftest CTYP-85-abo-test
   (is-cf (fn [] (fn [b] b))
          [-> [Any -> Any]]))
+
+(deftest array-reflection-test
+  (is-cf (fn make-process [script]
+           {:post [%]}
+           (let [^Runtime r (Runtime/getRuntime)
+                 _ (assert r)
+                 ^"[Ljava.lang.String;" arr (clojure.core.typed/into-array> String ["echo 'hello'"])]
+             (.exec r arr)))
+         [String -> java.lang.Process]))
 
 ;(reset-caches)
 

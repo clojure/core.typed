@@ -213,8 +213,7 @@
                  (map second (concat frees-with-bnds [dvar]))
                  (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
                    (dvar/with-dotted [(r/make-F (first dvar))]
-                     (parse-type type)))
-                 (concat (map first frees-with-bnds) [(first dvar)]))))
+                     (parse-type type))))))
 
 ;(All [a b] type)
 (defmethod parse-all-type :default
@@ -228,10 +227,9 @@
                           (parse-free fsyn))))
                 [] bnds)]
     (c/Poly* (map first frees-with-bnds)
-           (map second frees-with-bnds)
-           (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
-             (parse-type type))
-           (map first frees-with-bnds))))
+             (map second frees-with-bnds)
+             (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
+               (parse-type type)))))
 
 (defmethod parse-type-list 'Extends
   [[_ extends & {:keys [without] :as opts} :as syn]]
@@ -343,8 +341,8 @@
   (let [fnd-bnd #(find-bound* % polarity)
         t (c/fully-resolve-type t*)]
     (cond
-      (r/Poly? t) (fnd-bnd (c/Poly-body* (repeatedly (:nbound t) gensym) t))
-      (r/TypeFn? t) (let [names (repeatedly (:nbound t) gensym)
+      (r/Poly? t) (fnd-bnd (c/Poly-body* (c/Poly-fresh-symbols* t)) t)
+      (r/TypeFn? t) (let [names (c/TypeFn-fresh-symbols* t)
                           body (c/TypeFn-body* names t)
                           bbnds (c/TypeFn-bbnds* names t)]
                       (c/TypeFn* names
@@ -400,7 +398,7 @@
     (u/int-error "Wrong number of arguments to TFn"))
   (when-not (every? vector? binder)
     (u/int-error "TFn binder should be vector of vectors"))
-  (let [; don't bound frees because mutually dependent bounds are problematic
+  (let [; don't scope frees in bounds because mutually dependent bounds are problematic
         free-maps (free-ops/with-free-symbols (map (fn [s]
                                                      {:pre [(vector? s)]
                                                       :post [(symbol? %)]}
@@ -418,9 +416,8 @@
               (when-not (= (vs nme) variance)
                 (u/int-error "Type variable " nme " appears in " (name actual-v) " position "
                              "when declared " (name variance)))))]
-    (with-meta (c/TypeFn* (map :nme free-maps) (map :variance free-maps)
-                          (map :bound free-maps) bodyt)
-               {:actual-frees (map :nme free-maps)})))
+    (c/TypeFn* (map :nme free-maps) (map :variance free-maps)
+               (map :bound free-maps) bodyt)))
 
 (defmethod parse-type-list 'TFn
   [syn]
@@ -838,8 +835,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unparse
 
-(defonce ^:dynamic *next-nme* 0) ;stupid readable variables
-
 (defonce ^:dynamic *unparse-type-in-ns* nil)
 (set-validator! #'*unparse-type-in-ns* (some-fn nil? symbol?))
 
@@ -953,12 +948,8 @@
   (unparse-type t))
 
 (defmethod unparse-type* F
-  [{:keys [name]}]
-  (or (some (fn [[sym {{fname :name} :F}]]
-              (when (= name fname)
-                sym))
-            free-ops/*free-scope*)
-      name))
+  [{:keys [] :as f}]
+  (r/F-original-name f))
 
 (defmethod unparse-type* PrimitiveArray
   [{:keys [jtype input-type output-type]}]
@@ -1068,26 +1059,38 @@
 
 (defmethod unparse-type* Mu
   [m]
-  (let [nme (gensym "Mu")
+  (let [nme (c/Mu-fresh-symbol* m)
         body (c/Mu-body* nme m)]
     (list 'Rec [nme] (unparse-type body))))
 
+(defn unparse-poly-bounds-entry [name {:keys [upper-bound lower-bound higher-kind] :as bnds}]
+  (let [u (when upper-bound 
+            (unparse-type upper-bound))
+        l (when lower-bound 
+            (unparse-type lower-bound))
+        h (when higher-kind
+            (unparse-type higher-kind))]
+    (or (when higher-kind
+          [name :kind h])
+        (when-not (or (r/Top? upper-bound) (r/Bottom? lower-bound))
+          [name :< u :> l])
+        (when-not (r/Top? upper-bound) 
+          [name :< u])
+        (when-not (r/Bottom? lower-bound)
+          [name :> l])
+        name)))
+
 (defmethod unparse-type* PolyDots
   [{:keys [nbound] :as p}]
-  (let [{:keys [actual-frees dvar-name]} (meta p)
-        free-names actual-frees
-        given-names? (and free-names dvar-name)
-        end-nme (if given-names?
-                  *next-nme*
-                  (+ nbound *next-nme*))
-        fs (if given-names?
-             (vec (concat free-names [dvar-name]))
-             (vec 
-               (for [x (range *next-nme* end-nme)]
-                 (symbol (str "v" x)))))
-        body (c/PolyDots-body* fs p)]
-    (binding [*next-nme* end-nme]
-      (list 'All (vec (concat (butlast fs) [(last fs) '...])) (unparse-type body)))))
+  (let [free-and-dotted-names (vec (c/PolyDots-fresh-symbols* p))
+        ; ignore dotted bound for now
+        bbnds (butlast (c/PolyDots-bbnds* free-and-dotted-names p))
+        binder (vec (concat (map unparse-poly-bounds-entry 
+                                 (butlast free-and-dotted-names) 
+                                 bbnds)
+                            [(last free-and-dotted-names) '...]))
+        body (c/PolyDots-body* free-and-dotted-names p)]
+    (list 'All binder (unparse-type body))))
 
 (defmethod unparse-type* Extends
   [{:keys [extends without]}]
@@ -1098,74 +1101,37 @@
 
 (defmethod unparse-type* Poly
   [{:keys [nbound] :as p}]
-  (let [free-names (c/Poly-free-names* p)
-        given-names? free-names
-        end-nme (if given-names?
-                  *next-nme*
-                  (+ nbound *next-nme*))
-        fs-names (or (and given-names? free-names)
-                     (vec
-                       (for [x (range *next-nme* end-nme)]
-                         (symbol (str "v" x)))))
-        bbnds (c/Poly-bbnds* fs-names p)
-        fs (if given-names?
-             (vec
-               (for [[name {:keys [upper-bound lower-bound higher-kind]}] (map vector free-names bbnds)]
-                 (let [u (when upper-bound 
-                           (unparse-type upper-bound))
-                       l (when lower-bound 
-                           (unparse-type lower-bound))
-                       h (when higher-kind
-                           (unparse-type higher-kind))]
-                   (or (when higher-kind
-                         [name :kind h])
-                       (when-not (or (r/Top? upper-bound) (r/Bottom? lower-bound))
-                         [name :< u :> l])
-                       (when-not (r/Top? upper-bound) 
-                         [name :< u])
-                       (when-not (r/Bottom? lower-bound)
-                         [name :> l])
-                       name))))
-             fs-names)
-        body (c/Poly-body* fs-names p)]
-    (binding [*next-nme* end-nme]
-      (list 'All fs (unparse-type body)))))
+  (let [free-names (c/Poly-fresh-symbols* p)
+        bbnds (c/Poly-bbnds* free-names p)
+        binder (mapv unparse-poly-bounds-entry free-names bbnds)
+        body (c/Poly-body* free-names p)]
+    (list 'All binder (unparse-type body))))
+
+;(ann unparse-typefn-bounds-entry [Symbol Bounds Variance -> Any])
+(defn unparse-typefn-bounds-entry [name {:keys [upper-bound lower-bound higher-kind]} v]
+  (let [u (when upper-bound 
+            (unparse-type upper-bound))
+        l (when lower-bound 
+            (unparse-type lower-bound))
+        h (when higher-kind
+            (unparse-type higher-kind))]
+    (or (when higher-kind
+          [name :variance v :kind h])
+        (when-not (or (r/Top? upper-bound) (r/Bottom? lower-bound))
+          [name :variance v :< u :> l])
+        (when-not (r/Top? upper-bound) 
+          [name :variance v :< u])
+        (when-not (r/Bottom? lower-bound)
+          [name :variance v :> l])
+        [name :variance v])))
 
 (defmethod unparse-type* TypeFn
   [{:keys [nbound] :as p}]
-  (let [free-names (-> p meta :actual-frees)
-        given-names? free-names
-        end-nme (if given-names?
-                  *next-nme*
-                  (+ nbound *next-nme*))
-        fs-names (or (and given-names? free-names)
-                     (vec
-                       (for [x (range *next-nme* end-nme)]
-                         (symbol (str "v" x)))))
-        bbnds (c/TypeFn-bbnds* fs-names p)
-        fs (vec
-             (for [[name {:keys [upper-bound lower-bound higher-kind]} v] (map vector 
-                                                                               fs-names
-                                                                               bbnds
-                                                                               (:variances p))]
-               (let [u (when upper-bound 
-                         (unparse-type upper-bound))
-                     l (when lower-bound 
-                         (unparse-type lower-bound))
-                     h (when higher-kind
-                         (unparse-type higher-kind))]
-                 (or (when higher-kind
-                       [name :variance v :kind h])
-                     (when-not (or (r/Top? upper-bound) (r/Bottom? lower-bound))
-                       [name :variance v :< u :> l])
-                     (when-not (r/Top? upper-bound) 
-                       [name :variance v :< u])
-                     (when-not (r/Bottom? lower-bound)
-                       [name :variance v :> l])
-                     [name :variance v]))))
-        body (c/TypeFn-body* fs-names p)]
-    (binding [*next-nme* end-nme]
-      (list 'TFn fs (unparse-type body)))))
+  (let [free-names (c/TypeFn-fresh-symbols* p)
+        bbnds (c/TypeFn-bbnds* free-names p)
+        binder (mapv unparse-typefn-bounds-entry free-names bbnds (:variances p))
+        body (c/TypeFn-body* free-names p)]
+    (list 'TFn binder (unparse-type body))))
 
 (defmethod unparse-type* Value
   [v]

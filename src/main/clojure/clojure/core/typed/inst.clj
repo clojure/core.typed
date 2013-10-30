@@ -44,9 +44,9 @@
     (u/int-error (str "Must provide arguments to inst")))
   (cond
     (r/Poly? ptype)
-    (let [^Poly ptype ptype
-          _ (assert (= (.nbound ptype) (count argtys)) (u/error-msg "Wrong number of arguments to instantiate polymorphic type"))
-          names (repeatedly (.nbound ptype) gensym)
+    (let [_ (assert (= (:nbound ptype) (count argtys)) 
+                    (u/error-msg "Wrong number of arguments to instantiate polymorphic type"))
+          names (c/Poly-fresh-symbols* ptype)
           body (c/Poly-body* names ptype)
           bbnds (c/Poly-bbnds* names ptype)]
       (doseq [[nme ty ^Bounds bnds] (map vector names argtys bbnds)]
@@ -80,10 +80,10 @@
       (subst/substitute-many body argtys names))
 
     (r/PolyDots? ptype)
-    (let [^PolyDots ptype ptype
-          nrequired-types (dec (.nbound ptype))
-          _ (assert (<= nrequired-types (count argtys)) "Insufficient arguments to instantiate dotted polymorphic type")
-          names (repeatedly (.nbound ptype) gensym)
+    (let [nrequired-types (dec (.nbound ptype))
+          _ (assert (<= nrequired-types (count argtys)) 
+                    "Insufficient arguments to instantiate dotted polymorphic type")
+          names (c/PolyDots-fresh-symbols* ptype)
           body (c/PolyDots-body* names ptype)
           bbnds (c/PolyDots-bbnds* names ptype)]
       (doseq [[nme ty ^Bounds bnds] (map vector names argtys bbnds)]

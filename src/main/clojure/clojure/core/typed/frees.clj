@@ -330,22 +330,33 @@
   [{:keys [body]}]
   (frees body))
 
+(add-frees-method [::any-var Bounds]
+  [{:keys [upper-bound lower-bound]}]
+  (combine-frees (frees upper-bound)
+                 (frees lower-bound)))
+
 ;FIXME Type variable bounds should probably be checked for frees
 (add-frees-method [::any-var TypeFn]
-  [{:keys [scope]}]
-  (frees scope))
+  [{:keys [scope bbnds]}]
+  (let [_ (assert (every? empty? (map frees bbnds))
+                  "NYI Handle frees in bounds")]
+    (frees scope)))
 
 (add-frees-method [::any-var Poly]
-  [{:keys [scope]}]
-  (frees scope))
+  [{:keys [scope bbnds]}]
+  (let [_ (assert (every? empty? (map frees bbnds))
+                  "NYI Handle frees in bounds")]
+    (frees scope)))
 
 (add-frees-method [::any-var Mu]
   [{:keys [scope]}]
   (frees scope))
 
 (add-frees-method [::any-var PolyDots]
-  [{:keys [nbound scope]}]
-  (frees scope))
+  [{:keys [scope bbnds]}]
+  (let [_ (assert (every? empty? (map frees bbnds))
+                  "NYI Handle frees in bounds")]
+    (frees scope)))
 
 
 (comment

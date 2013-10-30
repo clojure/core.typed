@@ -880,9 +880,9 @@
           " could not be applied to arguments:\n"
           (when poly?
             (let [names (cond 
-                          (r/Poly? poly?) (c/Poly-free-names* poly?)
+                          (r/Poly? poly?) (c/Poly-fresh-symbols* poly?)
                           ;PolyDots
-                          :else (c/PolyDots-free-names* poly?))
+                          :else (c/PolyDots-fresh-symbols* poly?))
                   bnds (if (r/Poly? poly?)
                          (c/Poly-bbnds* names poly?)
                          (c/PolyDots-bbnds* names poly?))
@@ -942,8 +942,8 @@
   {:pre [((some-fn r/Poly? r/PolyDots?) fexpr-type)]
    :post [(r/TCResult? %)]}
   (let [fin (if (r/Poly? fexpr-type)
-              (c/Poly-body* (c/Poly-free-names* fexpr-type) fexpr-type)
-              (c/PolyDots-body* (c/PolyDots-free-names* fexpr-type) fexpr-type))]
+              (c/Poly-body* (c/Poly-fresh-symbols* fexpr-type) fexpr-type)
+              (c/PolyDots-body* (c/PolyDots-fresh-symbols* fexpr-type) fexpr-type))]
     (app-type-error fexpr args fin arg-ret-types expected fexpr-type)))
 
 (defn ^String plainapp-type-error [fexpr args fexpr-type arg-ret-types expected]
@@ -1061,11 +1061,12 @@
 
       ;ordinary polymorphic function without dotted rest
       (when (r/Poly? fexpr-type)
-        (let [^FnIntersection body (c/Poly-body* (repeatedly (.nbound ^Poly fexpr-type) gensym) fexpr-type)]
+        (let [names (c/Poly-fresh-symbols* fexpr-type)
+              body (c/Poly-body* names fexpr-type)]
           (when (r/FnIntersection? body)
-            (every? (complement :drest) (.types body)))))
+            (every? (complement :drest) (:types body)))))
       (u/p :check/funapp-poly-nodots
-      (let [fs-names (repeatedly (.nbound ^Poly fexpr-type) gensym)
+      (let [fs-names (c/Poly-fresh-symbols* fexpr-type)
             _ (assert (every? symbol? fs-names))
             ^FnIntersection fin (c/Poly-body* fs-names fexpr-type)
             bbnds (c/Poly-bbnds* fs-names fexpr-type)
@@ -1168,7 +1169,7 @@
       :else ;; any kind of dotted polymorphic function without mandatory or optional keyword args
       (if-let [[pbody fixed-vars fixed-bnds dotted-var dotted-bnd]
                (and (r/PolyDots? fexpr-type)
-                    (let [vars (vec (repeatedly (:nbound fexpr-type) gensym))
+                    (let [vars (vec (c/PolyDots-fresh-symbols* fexpr-type))
                           bbnds (c/PolyDots-bbnds* vars fexpr-type)
                           [fixed-bnds dotted-bnd] [(butlast bbnds) (last bbnds)]
                           [fixed-vars dotted-var] [(butlast vars) (last vars)]
@@ -1351,22 +1352,20 @@
                                                          (update-in (vec dom) [0] (partial c/In target-type)))))))))
 
     (r/Poly? expected)
-    (let [names (repeat (:nbound expected) gensym)
+    (let [names (c/Poly-fresh-symbols* expected)
           body (c/Poly-body* names expected)
           body (extend-method-expected target-type body)]
       (c/Poly* names 
-             (c/Poly-bbnds* names expected)
-             body
-             (c/Poly-free-names* expected)))
+               (c/Poly-bbnds* names expected)
+               body))
 
     (r/PolyDots? expected)
-    (let [names (repeat (:nbound expected) gensym)
+    (let [names (c/PolyDots-fresh-symbols* expected)
           body (c/PolyDots-body* names expected)
           body (extend-method-expected target-type body)]
       (c/PolyDots* names 
                    (c/PolyDots-bbnds* names expected)
-                   body
-                   (c/PolyDots-free-names* expected)))
+                   body))
     :else (u/int-error (str "Expected Function type, found " (prs/unparse-type expected)))))
 
 (declare normal-invoke)
@@ -1942,8 +1941,7 @@
         cexpr (-> (check-anon-fn fexpr method-types :poly frees-with-bounds)
                   (update-in [expr-type :t] (fn [fin] (c/Poly* (map first frees-with-bounds) 
                                                              (map second frees-with-bounds)
-                                                             fin
-                                                             (map first frees-with-bounds)))))]
+                                                             fin))))]
     cexpr))
 
 (defonce ^:dynamic *loop-bnd-anns* nil)
@@ -2438,7 +2436,7 @@
 
       ;; apply of a simple polymorphic function
       (r/Poly? ftype)
-      (let [vars (repeatedly (:nbound ftype) gensym)
+      (let [vars (c/Poly-fresh-symbols* ftype)
             bbnds (c/Poly-bbnds* vars ftype)
             body (c/Poly-body* vars ftype)
             _ (assert (r/FnIntersection? body))
@@ -2767,8 +2765,7 @@
                        ftype (if poly
                                (c/Poly* (map first poly)
                                       (map second poly)
-                                      ftype
-                                      (map first poly))
+                                      ftype)
                                ftype)]
 
                    (check expr (ret ftype)))
@@ -2789,35 +2786,27 @@
   [t]
   {:pre [(Type? t)]
    :post [((u/hvector-c? Type? 
-                         (some-fn nil? (u/every-c? symbol?))
                          (some-fn nil? (u/every-c? r/F?))
                          (some-fn nil? (u/every-c? r/Bounds?))
                          (some-fn nil? #{:Poly :PolyDots})) %)]}
   (cond
-    (r/Poly? t) (let [_ (assert (c/Poly-free-names* t) (prs/unparse-type t))
-                      old-nmes (c/Poly-free-names* t)
-                      _ (assert ((every-pred seq (u/every-c? symbol?)) old-nmes))
-                      new-nmes (repeatedly (:nbound t) gensym)
+    (r/Poly? t) (let [new-nmes (c/Poly-fresh-symbols* t)
                       new-frees (map r/make-F new-nmes)]
-                  [(c/Poly-body* new-nmes t) old-nmes new-frees (c/Poly-bbnds* new-nmes t) :Poly])
-    (r/PolyDots? t) (let [_ (assert (-> t meta :actual-frees))
-                          old-nmes (-> t meta :actual-frees)
-                          _ (assert ((every-pred seq (u/every-c? symbol?)) old-nmes))
-                          new-nmes (repeatedly (:nbound t) gensym)
+                  [(c/Poly-body* new-nmes t) new-frees (c/Poly-bbnds* new-nmes t) :Poly])
+    (r/PolyDots? t) (let [new-nmes (c/PolyDots-fresh-symbols* t)
                           new-frees (map r/make-F new-nmes)]
-                      [(c/PolyDots-body* new-nmes t) old-nmes new-frees (c/PolyDots-bbnds* new-nmes t) :PolyDots])
-    :else [t nil nil nil nil]))
+                      [(c/PolyDots-body* new-nmes t) new-frees (c/PolyDots-bbnds* new-nmes t) :PolyDots])
+    :else [t nil nil nil]))
 
 ;[Type (Seqable Symbol) (Seqable F) (U :Poly :Polydots nil) -> Type]
-(defn rewrap-poly [body orig-names inst-frees bnds poly?]
+(defn rewrap-poly [body inst-frees bnds poly?]
   {:pre [(Type? body)
-         (every? symbol? orig-names)
          (every? r/F? inst-frees)
          ((some-fn nil? #{:Poly :PolyDots}) poly?)]
    :post [(Type? %)]}
   (case poly?
-    :Poly (c/Poly* (map :name inst-frees) bnds body orig-names)
-    :PolyDots (c/PolyDots* (map :name inst-frees) bnds body orig-names)
+    :Poly (c/Poly* (map :name inst-frees) bnds body)
+    :PolyDots (c/PolyDots* (map :name inst-frees) bnds body)
     body))
 
 (declare check-fn-method check-fn-method1)
@@ -2832,7 +2821,7 @@
   (let [; try and unwrap type enough to find function types
         exp (c/fully-resolve-type (ret-t expected))
         ; unwrap polymorphic expected types
-        [fin orig-names inst-frees bnds poly?] (unwrap-poly exp)
+        [fin inst-frees bnds poly?] (unwrap-poly exp)
         ; once more to make sure (FIXME is this needed?)
         fin (c/fully-resolve-type fin)
         ;ensure a function type
@@ -2843,17 +2832,19 @@
         inferred-fni (lex/with-locals (when-let [name (impl/impl-case
                                                         :clojure (hygienic/hname-key fexpr)
                                                         :cljs (-> fexpr :name :name))] ;self calls
-                                        (assert expected "Recursive methods require full annotation")
+                                        (when-not expected 
+                                          (u/int-error (str "Recursive functions require full annotation")))
                                         (assert (symbol? name) name)
                                         {name (ret-t expected)})
                        ;scope type variables from polymorphic type in body
                        (free-ops/with-free-mappings (case poly?
-                                                      :Poly (zipmap orig-names (map #(hash-map :F %1 :bnds %2) inst-frees bnds))
-                                                      :PolyDots (zipmap (next orig-names) 
+                                                      :Poly (zipmap (map :name inst-frees)
+                                                                    (map #(hash-map :F %1 :bnds %2) inst-frees bnds))
+                                                      :PolyDots (zipmap (map :name (next inst-frees))
                                                                         (map #(hash-map :F %1 :bnds %2) (next inst-frees) (next bnds)))
                                                       nil)
                          (dvar-env/with-dotted-mappings (case poly?
-                                                          :PolyDots {(last orig-names) (last inst-frees)}
+                                                          :PolyDots {(-> inst-frees last :name) (last inst-frees)}
                                                           nil)
                            (apply r/make-FnIntersection
                                   (doall
@@ -2862,7 +2853,7 @@
                                                 fnt))
                                             methods))))))
         ;rewrap in Poly or PolyDots if needed
-        pfni (rewrap-poly inferred-fni orig-names inst-frees bnds poly?)]
+        pfni (rewrap-poly inferred-fni inst-frees bnds poly?)]
     (ret pfni (fo/-FS fl/-top fl/-bot) obj/-empty))))
 
 ;[MethodExpr FnIntersection -> (I (Seqable Function) Sequential)]
@@ -3387,14 +3378,13 @@
         (r/make-FnIntersection 
           (r/make-Function (-> (c/DataType-fields* dt) vals) dt)))
 
-      (r/Poly? dtp) (let [nms (repeatedly (:nbound dtp) gensym)
+      (r/Poly? dtp) (let [nms (c/Poly-fresh-symbols* dtp)
                           bbnds (c/Poly-bbnds* nms dtp)
                           dt (unwrap-datatype dtp nms)]
                       (c/Poly* nms
                                bbnds
                                (r/make-FnIntersection 
-                                 (r/make-Function (-> (c/DataType-fields* dt) vals) dt))
-                               (c/Poly-free-names* dtp)))
+                                 (r/make-Function (-> (c/DataType-fields* dt) vals) dt))))
       :else (u/tc-delayed-error (str "Cannot get DataType constructor of " sym)
                                 :return r/Err))))
 
@@ -3940,12 +3930,11 @@
                     (r/Union? old) (let [l (:types old)]
                                    (apply c/Un (map (fn [e] (remove* e rem)) l)))
                     (r/Mu? old) (remove* (c/unfold old) rem)
-                    (r/Poly? old) (let [vs (repeatedly (:nbound old) gensym)
-                                      b (c/Poly-body* vs old)]
-                                  (c/Poly* vs 
-                                         (c/Poly-bbnds* vs old)
-                                         (remove* b rem)
-                                         (c/Poly-free-names* old)))
+                    (r/Poly? old) (let [vs (c/Poly-fresh-symbols* old)
+                                        b (c/Poly-body* vs old)]
+                                    (c/Poly* vs 
+                                             (c/Poly-bbnds* vs old)
+                                             (remove* b rem)))
                     :else old))]
     (if (sub/subtype? old initial) old initial)))
 
@@ -4502,6 +4491,7 @@
                     (repeatedly (:nbound dt) gensym))]
           (unwrap-tfn dt nms))))
 
+;FIXME I think this hurts more than it helps
 ;[Type (Seqable Symbol) -> Type]
 ;[Type -> Type]
 (defn unwrap-datatype

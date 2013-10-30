@@ -326,8 +326,8 @@
                                              [k (dmt v)]))))))
 
 (defmethod promote TypeFn
-  [{:keys [nbound variances] :as T} V]
-  (let [names (repeatedly nbound gensym)
+  [{:keys [variances] :as T} V]
+  (let [names (c/TypeFn-fresh-symbols* T)
         pmt-body (promote (c/TypeFn-body* names T) V)]
     (c/TypeFn* names 
                variances
@@ -335,8 +335,8 @@
                pmt-body)))
 
 (defmethod demote TypeFn
-  [{:keys [nbound variances] :as T} V]
-  (let [names (repeatedly nbound gensym)
+  [{:keys [variances] :as T} V]
+  (let [names (c/TypeFn-fresh-symbols* T)
         dem-body (demote (c/TypeFn-body* names T) V)]
     (c/TypeFn* names 
                variances
@@ -344,34 +344,32 @@
                dem-body)))
 
 (defmethod promote Poly
-  [{:keys [nbound] :as T} V]
-  (let [free-names (c/Poly-free-names* T)
-        names (repeatedly nbound gensym)
+  [{:keys [] :as T} V]
+  (let [names (c/Poly-fresh-symbols* T)
+        bbnds (c/Poly-bbnds* names T)
         pmt-body (promote (c/Poly-body* names T) V)]
     (c/Poly* names 
-           (c/Poly-bbnds* names T)
-           pmt-body
-           free-names)))
+             bbnds
+             pmt-body)))
 
 (defmethod demote Poly
   [{:keys [nbound] :as T} V]
-  (let [free-names (c/Poly-free-names* T)
-        names (repeatedly nbound gensym)
+  (let [names (c/Poly-fresh-symbols* T)
+        bbnds (c/Poly-bbnds* names T)
         dem-body (demote (c/Poly-body* names T) V)]
     (c/Poly* names 
-           (c/Poly-bbnds* names T)
-           dem-body
-           free-names)))
+             bbnds
+             dem-body)))
 
 (defmethod promote Mu
   [T V]
-  (let [name (gensym)
+  (let [name (c/Mu-fresh-symbol* T)
         body (c/Mu-body* name T)]
     (c/Mu* name (promote body V))))
 
 (defmethod demote Mu
   [T V]
-  (let [name (gensym)
+  (let [name (c/Mu-fresh-symbol* T)
         body (c/Mu-body* name T)]
     (c/Mu* name (demote body V))))
 

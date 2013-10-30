@@ -720,7 +720,7 @@ clojure.core/identity (All [x] [x -> x
                                           :else (is (U nil false) 0)}
                                 :object {:id 0}])
 clojure.core/gensym (Fn [-> Symbol]
-                        [String -> Symbol])
+                        [(U Symbol String) -> Symbol])
 clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> (Var Nothing Any)]
                         [(U Symbol Namespace) Symbol Any -> (Var Nothing Any)])
 

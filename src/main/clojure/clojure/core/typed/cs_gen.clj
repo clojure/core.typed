@@ -366,7 +366,7 @@
 
         ;; constrain body to be below T, but don't mention the new vars
         (r/Poly? S)
-        (let [nms (repeatedly (.nbound ^Poly S) gensym)
+        (let [nms (c/Poly-fresh-symbols* S)
               body (c/Poly-body* nms S)]
           (cs-gen (set/union (set nms) V) X Y body T))
 
@@ -1391,14 +1391,16 @@
                   (when (some r/TypeFn? [(:upper-bound bnds) (:lower-bound bnds)]) (u/nyi-error "Higher kinds"))
                   (let [lower-bound (subst/substitute-many (:lower-bound bnds) images names)
                         upper-bound (subst/substitute-many (:upper-bound bnds) images names)]
-                    (assert (subtype? lower-bound upper-bound)
-                            (u/error-msg "Lower-bound " (prs/unparse-type lower-bound)
-                                         " is not below upper-bound " (prs/unparse-type upper-bound)))
-                    (assert (and (subtype? inferred upper-bound)
-                                 (subtype? lower-bound inferred))
-                            (u/error-msg "Inferred type " (prs/unparse-type inferred)
-                                       " is not between bounds " (prs/unparse-type lower-bound)
-                                       " and " (prs/unparse-type upper-bound))))))]
+                    (cond
+                      (not (subtype? lower-bound upper-bound))
+                      (fail! lower-bound upper-bound)
+
+
+                      (not (subtype? inferred upper-bound))
+                      (fail! inferred upper-bound)
+
+                      (not (subtype? lower-bound inferred))
+                      (fail! lower-bound inferred)))))]
         ;; verify that we got all the important variables
         (when-let [r (and (every? identity
                                   (for> :- Any
