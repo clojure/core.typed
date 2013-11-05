@@ -1,4 +1,4 @@
-(defproject core.typed "0.2.14-SNAPSHOT"
+(defproject core.typed "0.2.16-SNAPSHOT"
   :description "Gradual typing for Clojure"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -31,7 +31,7 @@
 
   :source-paths ["src/main/clojure"
                  "src/main/cljs"
-                 #_"../clojurescript/src/clj" 
+                 #_"../clojurescript/src/clj"
                  #_"../clojurescript/src/cljs"]
   :test-paths ["src/test/clojure"
                "src/test/cljs"]

@@ -2838,13 +2838,13 @@
                                         {name (ret-t expected)})
                        ;scope type variables from polymorphic type in body
                        (free-ops/with-free-mappings (case poly?
-                                                      :Poly (zipmap (map :name inst-frees)
+                                                      :Poly (zipmap (map r/F-original-name inst-frees)
                                                                     (map #(hash-map :F %1 :bnds %2) inst-frees bnds))
-                                                      :PolyDots (zipmap (map :name (next inst-frees))
+                                                      :PolyDots (zipmap (map r/F-original-name (next inst-frees))
                                                                         (map #(hash-map :F %1 :bnds %2) (next inst-frees) (next bnds)))
                                                       nil)
                          (dvar-env/with-dotted-mappings (case poly?
-                                                          :PolyDots {(-> inst-frees last :name) (last inst-frees)}
+                                                          :PolyDots {(-> inst-frees last r/F-original-name) (last inst-frees)}
                                                           nil)
                            (apply r/make-FnIntersection
                                   (doall

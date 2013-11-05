@@ -320,7 +320,7 @@
         (and (r/F? s)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name s))]
                (if-not bnd 
-                 (do #_(prn "No bounds in scope for " s free-ops/*free-scope*)
+                 (do #_(prn "No bounds in scope for " s)
                      #_(try (throw (Exception. ""))
                           (catch Throwable e (clojure.repl/pst e 1000))))
                  (and (subtype? upper-bound t)
@@ -330,7 +330,7 @@
         (and (r/F? t)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name t))]
                (if-not bnd 
-                 (do #_(prn "No bounds in scope for " t free-ops/*free-scope*))
+                 (do #_(prn "No bounds in scope for " t))
                  (and (subtype? s upper-bound)
                       (subtype? s lower-bound)))))
         *sub-current-seen*
@@ -351,8 +351,7 @@
              (not (r/AssocType? t)))
         (let [bnds (free-ops/free-with-name-bnds (-> s :target :name))
               _ (assert bnds
-                        (str "Bounds not found for free variable: " (-> s :target :name)
-                             free-ops/*free-scope*))]
+                        (str "Bounds not found for free variable: " (-> s :target :name)))]
           (if (and (subtype? (:upper-bound bnds) t)
                    (subtype? (apply c/assoc-pairs-noret (c/-complete-hmap {}) (:entries s))
                              t))
@@ -925,14 +924,14 @@
 
 ; only subtypes if applied to the same F
 (defmethod subtype-TApp? [F F false] [S T] false)
-(defmethod subtype-TApp? [F F true]
-  [^TApp S T]
-  (let [tfn (some (fn [[_ {{:keys [name]} :F :keys [^Bounds bnds]}]] 
-                    (when (= name (.name ^F (.rator S)))
-                      (.higher-kind bnds)))
-                  free-ops/*free-scope*)]
-    (when tfn
-      (subtype-TypeFn-app? tfn S T))))
+;(defmethod subtype-TApp? [F F true]
+;  [^TApp S T]
+;  (let [tfn (some (fn [[_ {{:keys [name]} :F :keys [^Bounds bnds]}]] 
+;                    (when (= name (.name ^F (.rator S)))
+;                      (.higher-kind bnds)))
+;                  free-ops/*free-scope*)]
+;    (when tfn
+;      (subtype-TypeFn-app? tfn S T))))
 
 (defmethod subtype-TApp? :default [S T] false)
 

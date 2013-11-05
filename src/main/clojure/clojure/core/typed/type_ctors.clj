@@ -14,12 +14,14 @@
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.free-ops :as free]
+            [clojure.core.typed.tvar-bnds :as bnds]
             [clojure.core.typed :as t :refer [fn>]]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
             [clojure.reflect :as reflect]
             [clojure.repl :as repl]
-            [clojure.core.cache :as cache])
+            [clojure.core.cache :as cache]
+            )
 
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
@@ -1805,7 +1807,7 @@
     [{:keys [name] :as f} assoc-entry]
     (let [bnd (free/free-with-name-bnds name)
           _ (when-not bnd
-              (u/int-error (str "No bounds for type variable: " name free/*free-scope*)))]
+              (u/int-error (str "No bounds for type variable: " name bnds/*current-tvar-bnds*)))]
       (when (subtype? (:upper-bound bnd) (RClass-of IPersistentMap [r/-any r/-any]))
         (r/AssocType-maker f [(mapv r/ret-t assoc-entry)] nil))))
 
