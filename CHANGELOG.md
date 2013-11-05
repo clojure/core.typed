@@ -1,3 +1,25 @@
+# 0.2.15-16
+
+## Enhancements
+
+- improvements to Assoc
+  - keyword invoke understands how to use an Assoc target
+
+## Fixes
+
+- [CTYP-91](http://dev.clojure.org/jira/browse/CTYP-91) Correctly instatiate polymorphic Protocol instances
+  - More work needed to make polymorphic protocols usable
+- add promote/demote case for KwArgsSeq
+  - Reported by [Allen Rohner](https://groups.google.com/forum/#!topic/clojure-core-typed/W9bndgskRtI)
+- docstring for `ann-protocol` now has correct example usage
+
+## Internal
+
+- split type variable environments
+  - tvar-env & tvar-bnds
+- type variables are now always named with fresh names
+  - original name can be retrieved via c.c.t.type-ctors/F-original-name
+
 # 0.2.14 - Released 21 October 2013
 
 ## *Breaking* Changes
@@ -8,7 +30,7 @@
 - Change AReference/IReference ancestors in base-env to (IReference Any Any)
   - unlikely to affect anyone
 
-## Enhacements
+## Enhancements
 
 - add aliases
   - [c.c.t/Var1](http://clojure.github.io/core.typed/#clojure.core.typed/Var1)
