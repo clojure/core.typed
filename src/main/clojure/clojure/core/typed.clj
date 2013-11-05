@@ -1015,14 +1015,21 @@ for checking namespaces, cf for checking individual forms."}
         [IFoo -> Any]
         baz
         [IFoo -> Number])
+      (defprotocol> IFoo
+        (bar [this])
+        (baz [this]))
 
-      ; polymorphic
+      ; polymorphic protocol
+      ; x is scoped in the methods
       (ann-protocol [[x :variance :covariant]]
-        IFoo
+        IFooPoly
         bar
-        [IFoo -> Any]
+        [(IFooPoly x) -> Any]
         baz
-        [IFoo -> Number])"
+        [(IFooPoly x) -> Number])
+      (defprotocol> IFooPoly
+        (bar [this])
+        (baz [this]))
   [& args]
   (let [bnd-provided? (vector? (first args))
         vbnd (when bnd-provided?
