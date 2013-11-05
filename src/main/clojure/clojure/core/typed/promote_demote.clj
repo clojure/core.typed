@@ -15,7 +15,7 @@
                                         CountRange Name Value Top TopFunction B F Result AnyValue
                                         HeterogeneousSeq TCError Extends JSNominal
                                         StringCLJS BooleanCLJS NumberCLJS IntegerCLJS ObjectCLJS
-                                        ArrayCLJS FunctionCLJS)
+                                        ArrayCLJS FunctionCLJS KwArgsSeq)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -109,19 +109,32 @@
     (r/Bottom)
     T))
 
+(defn handle-kw-map [m p-or-d-fn V]
+  (into {}
+        (for [[k v] m]
+          [k (p-or-d-fn v V)])))
+
+(defmethod promote KwArgsSeq
+  [T V]
+  (-> T
+    (update-in [:mandatory] handle-kw-map promote V)
+    (update-in [:optional] handle-kw-map promote V)))
+
+(defmethod demote KwArgsSeq
+  [T V]
+  (-> T
+    (update-in [:mandatory] handle-kw-map demote V)
+    (update-in [:optional] handle-kw-map demote V)))
+
 (defmethod promote HeterogeneousMap
   [T V]
   (-> T
-    (update-in [:types] #(into {}
-                               (for [[k v] %]
-                                 [k (promote v V)])))))
+    (update-in [:types] handle-kw-map promote V)))
 
 (defmethod demote HeterogeneousMap
   [T V]
   (-> T
-    (update-in [:types] #(into {}
-                               (for [[k v] %]
-                                 [k (demote v V)])))))
+    (update-in [:types] handle-kw-map demote V)))
 
 (defmethod promote HeterogeneousVector
   [T V]
