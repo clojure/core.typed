@@ -1029,7 +1029,7 @@ for checking namespaces, cf for checking individual forms."}
         [(IFooPoly x) -> Number])
       (defprotocol> IFooPoly
         (bar [this])
-        (baz [this]))
+        (baz [this]))"
   [& args]
   (let [bnd-provided? (vector? (first args))
         vbnd (when bnd-provided?
