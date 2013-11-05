@@ -168,7 +168,8 @@
 
 (u/ann-record B [idx :- Number])
 (u/def-type B [idx]
-  "A bound variable. Should not appear outside this file"
+  "de Bruijn indexes - should never appear outside of this file.
+  Bound type variables"
   [(u/nat? idx)]
   :methods
   [p/TCType])
