@@ -505,7 +505,7 @@ clojure.core.typed/AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Sho
       :forms [Int]}
 clojure.core.typed/Int (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
       ^{:doc "A type that returns true for clojure.core/number?"
-        :forms [Number]}
+        :forms [Num]}
 clojure.core.typed/Num Number
       ^{:doc "A keyword"
         :forms [Keyword]}
