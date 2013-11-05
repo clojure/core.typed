@@ -17,11 +17,30 @@
 
 (ann-protocol [[x :variance :covariant]]
               IFoo
-              bar [IFoo -> Number]
-              baz [IFoo -> Any])
+              bar [(IFoo x) -> Number]
+              baz [(IFoo x) -> Any])
 (defprotocol> IFoo
   (bar [this])
   (baz [this]))
+
+;TODO
+;(ann-datatype FooPoly []
+;              :unchecked-ancestors
+;              [(IFoo Any)])
+;(deftype FooPoly []
+;  IFoo
+;  (bar [_] 1))
+
+;#(bar (FooPoly.))
+;
+;;; extend a polymophic protocol after deftype definition
+;
+;(ann-datatype FooLatePoly [])
+;(deftype FooLatePoly [])
+;
+;(extend-type FooLatePoly
+;  IFoo
+;  (bar [this] 1))
 
 (comment
  (check-ns 'clojure.core.typed.test.protocol)
