@@ -12,3 +12,17 @@
   (adder [_ i] 1))
 
 (ann-protocol short/ShortNs)
+
+;; polymorphic protocols
+
+(ann-protocol [[x :variance :covariant]]
+              IFoo
+              bar [IFoo -> Number]
+              baz [IFoo -> Any])
+(defprotocol> IFoo
+  (bar [this])
+  (baz [this]))
+
+(comment
+ (check-ns 'clojure.core.typed.test.protocol)
+  )

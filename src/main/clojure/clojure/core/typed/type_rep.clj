@@ -324,10 +324,10 @@
             (every? variance? variances)))
    (or (nil? poly?)
        (and (seq poly?)
-            (every? Type? poly?)))
+            (every? (some-fn Scope? Type?) poly?)))
    (= (count poly?) (count variances))
    (symbol? on-class)
-   ((u/hash-c? (every-pred symbol? (complement namespace)) Type?) methods)
+   ((u/hash-c? (every-pred symbol? (complement namespace)) (some-fn Scope? Type?)) methods)
    (u/boolean? declared?)]
   :methods
   [p/TCType])

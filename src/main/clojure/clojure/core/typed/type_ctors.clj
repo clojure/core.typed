@@ -451,9 +451,7 @@
          (symbol? the-var)
          (symbol? on-class)]
    :post [(r/Type? %)]}
-  (let [methods (into {} (for [[k v] methods]
-                           [k (abstract-many names v)]))
-        p (r/Protocol-maker the-var (seq variances) (seq poly?) on-class methods declared?)]
+  (let [p (r/Protocol-maker the-var (seq variances) (seq poly?) on-class methods declared?)]
     (if (seq variances)
       (TypeFn* names variances bnds p)
       p)))
