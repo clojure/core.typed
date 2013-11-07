@@ -4634,31 +4634,32 @@
   [{:keys [] :as expr} & [expected]]
   #_(prn "Checking case")
   ; tests have no duplicates
-  (let [;_ (prn (:the-expr expr))
-        cthe-expr (check (:the-expr expr))
-        etype (expr-type cthe-expr)
-        ctests (mapv check (:tests expr))
-        cdefault (check (:default expr))
-        cthens-and-envs (doall
-                          (for [[tst-ret thn] (map vector (map expr-type ctests) (:thens expr))]
-                            (let [{{fs+ :then} :fl :as rslt} (tc-equiv := etype tst-ret)
-                                  flag+ (atom true)
-                                  env-thn (env+ lex/*lexical-env* [fs+] flag+)
-                                  then-ret (var-env/with-lexical-env env-thn
-                                             (check thn))]
-                              [(assoc thn
-                                      expr-type (expr-type then-ret))
-                               env-thn])))
-        ;TODO consider tests that failed to refine env
-        cdefault (check (:default expr))
-        case-result (let [type (apply c/Un (map (comp :t expr-type) (cons cdefault (map first cthens-and-envs))))
-                          ; TODO
-                          filter (fo/-FS fl/-top fl/-top)
-                          ; TODO
-                          object obj/-empty]
-                      (ret type filter object))]
-    (assoc expr
-           expr-type case-result)))
+  (binding [vs/*current-expr* expr
+            vs/*current-env* (:env expr)]
+    (let [;_ (prn (:the-expr expr))
+          cthe-expr (check (:the-expr expr))
+          etype (expr-type cthe-expr)
+          ctests (mapv check (:tests expr))
+          cthens-and-envs (doall
+                            (for [[tst-ret thn] (map vector (map expr-type ctests) (:thens expr))]
+                              (let [{{fs+ :then} :fl :as rslt} (tc-equiv := etype tst-ret)
+                                    flag+ (atom true)
+                                    env-thn (env+ lex/*lexical-env* [fs+] flag+)
+                                    then-ret (var-env/with-lexical-env env-thn
+                                               (check thn expected))]
+                                [(assoc thn
+                                        expr-type (expr-type then-ret))
+                                 env-thn])))
+          ;TODO consider tests that failed to refine env
+          cdefault (check (:default expr) expected)
+          case-result (let [type (apply c/Un (map (comp :t expr-type) (cons cdefault (map first cthens-and-envs))))
+                            ; TODO
+                            filter (fo/-FS fl/-top fl/-top)
+                            ; TODO
+                            object obj/-empty]
+                        (ret type filter object))]
+      (assoc expr
+             expr-type case-result))))
 
 (add-check-method :catch
   [{ecls :class, :keys [handler local-binding] :as expr} & [expected]]
