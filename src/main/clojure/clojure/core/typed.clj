@@ -559,7 +559,7 @@ for checking namespaces, cf for checking individual forms."}
         signature (defn>-parse-typesig m0ar)]
     `(do (ann ~symbol ~signature)
          (def ~symbol ^{:doc ~docstring} 
-           (fn> ~symbol ~m0ar)))))
+           (fn> ~symbol ~@m0ar)))))
 
 (defmacro 
   ^{:forms '[(letfn> [fn-spec-or-annotation*] expr*)]}
