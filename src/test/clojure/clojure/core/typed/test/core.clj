@@ -2502,3 +2502,6 @@
 ;TODO support (some #{...} coll)
 ;TODO (apply == (non-empty-seq))
 ;TODO tests for inferring upper/lower bounds
+
+(deftest defn>-test
+  (is (check-ns 'clojure.core.typed.test.defn-arrow)))
