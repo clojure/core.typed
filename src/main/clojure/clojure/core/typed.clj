@@ -517,6 +517,50 @@ for checking namespaces, cf for checking individual forms."}
   (let [{:keys [fn parsed-methods]} (parse-fn> false forms)]
     `(fn>-ann ~fn '~parsed-methods)))
 
+(defn- defn>-parse-typesig 
+  "Helper for parsing type signatures out of defn> forms"
+  [forms]
+  (if (= :- (first forms))
+    (let [ret (second forms)
+          args (take-nth 3 (drop 2 (first (drop 2 forms))))]
+      `[~@args ~'-> ~ret])
+    `(~'Fn ~@(map defn>-parse-typesig forms))))
+
+(defn- take-when
+  "When pred is true of the head of seq, return [head tail]. Otherwise
+  [nil seq]. Used as a helper for parsing optinal typed elements out
+  of sequences. Say docstrings out of argument seqs."
+  [pred seq]
+  (if (pred (first seq))
+    ((juxt first rest) seq)
+    [nil seq]))
+
+(defmacro
+  ^{:forms '[(defn> name docstring? :- type? [param :- type* & param :- type * ?] exprs*)
+             (defn> name docstring? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
+  defn>
+  "Like defn, but with annotations. Annotations are mandatory for
+  parameters and for return type.
+
+  eg. (defn> fname :- Integer [a :- Number, b :- (U Symbol nil)] ...)
+
+      ;annotate return
+      (defn> :- String [a :- String] ...)
+
+      ;named fn
+      (defn> fname :- String [a :- String] ...)
+
+      ;multi-arity
+      (defn> fname 
+        (:- String [a :- String] ...)
+        (:- Long   [a :- String, b :- Number] ...))"
+  [symbol & m0ar]
+  (let [[docstring m0ar] (take-when string? m0ar)
+        signature (defn>-parse-typesig m0ar)]
+    `(do (ann ~symbol ~signature)
+         (def ~symbol ^{:doc ~docstring} 
+           (fn> ~symbol ~m0ar)))))
+
 (defmacro 
   ^{:forms '[(letfn> [fn-spec-or-annotation*] expr*)]}
   letfn>
