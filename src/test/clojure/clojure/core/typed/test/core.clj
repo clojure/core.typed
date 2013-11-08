@@ -2505,3 +2505,8 @@
 
 (deftest defn>-test
   (is (check-ns 'clojure.core.typed.test.defn-arrow)))
+
+(deftest def>-test
+  (is (check-ns 'clojure.core.typed.test.def-arrow))
+  (is-cf (clojure.core.typed/def> a :- Number 1)
+         (clojure.core.typed/Var1 Number)))

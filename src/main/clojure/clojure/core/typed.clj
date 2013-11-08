@@ -560,6 +560,29 @@ for checking namespaces, cf for checking individual forms."}
     `(do (ann ~symbol ~signature)
          (def ~symbol ^{:doc ~docstring} 
            (fn> ~symbol ~@m0ar)))))
+(defmacro
+  ^{:forms '[(def> name docstring? :- type expr)]}
+  def>
+  "Like def, but with annotations.
+
+  eg. (def> vname :- Long 1)
+
+  ;doc
+  (def> vname
+    \"Docstring\"
+    :- Long
+    1)"
+  [name & fdecl]
+  (let [[docstring fdecl] (take-when string? fdecl)
+        _ (assert (and (#{3} (count fdecl))
+                       (#{:-} (first fdecl)))
+                  (str "Bad def> syntax: " fdecl))
+        [_ tsyn body] fdecl]
+    `(do (ann ~name ~tsyn)
+         ~(list* 'def name 
+                 (concat
+                   (when docstring [docstring])
+                   [body])))))
 
 (defmacro 
   ^{:forms '[(letfn> [fn-spec-or-annotation*] expr*)]}
