@@ -4,8 +4,8 @@
 
 - Propagate more type information to map literals
   - eg. `(cf {:a #(+ %1 %2)} (Map Any [Number Number -> Number]))`
-- [CTYP-92](http://dev.clojure.org/jira/browse/CTYP-92) - Add [defn>](http://clojure.github.io/core.typed/#clojure.core.typed/defn>)
-- Add [def>](http://clojure.github.io/core.typed/#clojure.core.typed/def>)
+- [CTYP-92](http://dev.clojure.org/jira/browse/CTYP-92) - Add [defn>](http://clojure.github.io/core.typed/#clojure.core.typed/defn&gt;)
+- Add [def>](http://clojure.github.io/core.typed/#clojure.core.typed/def&gt;)
 
 ```
 (defn> add-two :- AnyInteger [a :- AnyInteger]
