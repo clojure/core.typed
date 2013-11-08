@@ -4452,24 +4452,18 @@
   (let [vsym (u/var->symbol var)
         warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (expr-ns expr))
         t (var-env/lookup-Var-nofail vsym)
-        ;def returns a Var
-        actual-t (c/RClass-of Var [(or t r/-any) (or t r/-any)])
-        _ (when (and expected (not (sub/subtype? actual-t (ret-t expected))))
-            (expected-error actual-t (ret-t expected)))
-        res-expr (assoc expr
-                        expr-type (ret actual-t))
         check? (var-env/check-var? vsym)]
     (cond
       (and check? t)
-      (let [cinit (cond 
-                    (not init-provided) expr ;handle `declare`
-                    check? (check init (ret t)))
-            _ (when (and init-provided check?)
-                (when (not (sub/subtype? (ret-t (expr-type cinit)) t))
+      (let [cinit (when init-provided
+                    (check init (ret t)))
+            _ (when cinit
+                (when-not (sub/subtype? (ret-t (expr-type cinit)) t)
                   (expected-error (ret-t (expr-type cinit)) t))
-                ;record checked definition
+                ; now consider this var as checked
                 (var-env/add-checked-var-def vsym))]
-        res-expr)
+        (assoc expr
+               expr-type (ret (c/RClass-of Var [t t]))))
       (or (not check?) 
           (and warn-if-unannotated?
                (not t)))
@@ -4477,11 +4471,13 @@
                      (str line ": ")) 
                    "Not checking" vsym "definition")
           (flush)
-          res-expr)
+          (assoc expr
+                 expr-type (ret (c/RClass-of Var [(or t r/-nothing) (or t r/-any)]))))
       :else (u/tc-delayed-error (str "Found untyped var definition: " vsym
                                      "\nHint: Add the annotation for " vsym
                                      " via check-ns or cf")
-                                :return res-expr))))
+                                :return (assoc expr
+                                               expr-type (ret (r/TCError-maker)))))))
 
 ;TODO print a hint that `ann` forms must be wrapping in `cf` at the REPL
 (add-check-method :def
