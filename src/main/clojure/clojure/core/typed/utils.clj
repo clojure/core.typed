@@ -10,7 +10,8 @@
             [clojure.core.typed.util-cljs :as util-cljs]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.profiling :as profiling])
+            [clojure.core.typed.profiling :as profiling]
+            [clojure.pprint :as pprint])
   (:import (clojure.lang PersistentArrayMap Var Symbol)))
 
 (t/tc-ignore
@@ -527,3 +528,21 @@
 (t/ann ^:no-check demunge-ns [(U Symbol String) -> Symbol])
 (defn demunge-ns [nsym]
   (symbol (clojure.repl/demunge (str nsym))))
+
+
+; debug code from https://groups.google.com/d/msg/clojure/cOXClow1Wn4/UkvtICjvgrIJ
+(t/ann ^:no-check pprint-str [Any -> Any])
+(defn pprint-str
+  [x]
+  (with-out-str (pprint/pprint x)))
+
+(defmacro dbg
+  [x]
+  `(let [x# ~x]
+     (printf "dbg %s:%s> %s is %s\n"
+             ~*ns*
+             ~(:line (meta &form))
+             ~(pr-str x)
+             (pprint-str x#))
+     (flush)
+     x#))
