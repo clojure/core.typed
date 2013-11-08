@@ -3,7 +3,9 @@
 ## Enhancements
 
 - Propagate more type information to map literals
-  - eg. `(cf {:a #(+ %1 %2)} (Map Any [Number Number -> Number]))`
+  - eg. vals are checked against [Number Number -> Number]
+    `(cf {:a #(+ %1 %2)} (Map Any [Number Number -> Number]))`
+  - currently Only works with Map/IPersistentMap
 - [CTYP-92](http://dev.clojure.org/jira/browse/CTYP-92) - Add [defn>](http://clojure.github.io/core.typed/#clojure.core.typed/defn>>)
 - Add [def>](http://clojure.github.io/core.typed/#clojure.core.typed/def>>)
 
@@ -12,13 +14,6 @@
   (+ a 2))
 
 (def> vname :- Long 1)
-```
-
-- Better inference for literal IPersistentMap's
-
-```
-; vals are checked against [Number Number -> Number]
-(ann-form {1 #(+ %1 %2)} (Map Any [Number Number -> Number]))
 ```
 
 ## Fixes
