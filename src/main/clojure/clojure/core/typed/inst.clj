@@ -80,7 +80,7 @@
       (subst/substitute-many body argtys names))
 
     (r/PolyDots? ptype)
-    (let [nrequired-types (dec (.nbound ptype))
+    (let [nrequired-types (dec (:nbound ptype))
           _ (assert (<= nrequired-types (count argtys)) 
                     "Insufficient arguments to instantiate dotted polymorphic type")
           names (c/PolyDots-fresh-symbols* ptype)

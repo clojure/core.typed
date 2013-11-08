@@ -1,3 +1,38 @@
+# 0.2.17
+
+## Enhancements
+
+- Propagate more type information to map literals
+  - eg. `(cf {:a #(+ %1 %2)} (Map Any [Number Number -> Number]))`
+- [CTYP-92](http://dev.clojure.org/jira/browse/CTYP-92) - Add [defn>](http://clojure.github.io/core.typed/#clojure.core.typed/defn>)
+- Add [def>](http://clojure.github.io/core.typed/#clojure.core.typed/def>)
+
+```
+(defn> add-two :- AnyInteger [a :- AnyInteger]
+  (+ a 2))
+
+(def> vname :- Long 1)
+```
+
+- Better inference for literal IPersistentMap's
+
+```
+; vals are checked against [Number Number -> Number]
+(ann-form {1 #(+ %1 %2)} (Map Any [Number Number -> Number]))
+```
+
+## Fixes
+
+- Better internal error checking in subtyping
+  - Found various bad arguments to subtype where it would previously
+    return `false` silently
+
+## Misc
+
+- `check-form-info` does not implicitly wrap the checked form with `ann-form`
+  when an expected type is provided. Doing so conflicts with the simple `collect`
+  strategy of only looking under `do` forms for global annotations.
+
 # 0.2.15-16
 
 ## Enhancements
