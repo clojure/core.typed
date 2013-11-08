@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed.utils :as u :refer [p]]
             [clojure.core.typed.impl-protocols :as p]
-            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.type-rep :as r :refer [ret-t]]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.object-rep :as or]
             [clojure.core.typed.path-rep :as path]
@@ -1754,13 +1754,14 @@
 (defn type-into-vector [x] (if (r/Union? x) (:types x) [x]))
 
 (defn resolved-type-vector [t]
+  {:post [(every? r/Type? %)]}
   (cond
    (r/TCResult? t)
    (doall
      (map fully-resolve-type
           (type-into-vector (-> t :t fully-resolve-type))))
    
-   (r/AnyType? t)
+   (r/Type? t)
    (doall 
      (map fully-resolve-type (type-into-vector (fully-resolve-type t))))
    
@@ -1781,6 +1782,7 @@
   Reduction is skipped once nil is returned, or optional predicate :when
   returns false."
   [func t args & {pred :when}]
+  {:post [((some-fn nil? r/Type?) %)]}
   (let [ok? #(and % (if pred (pred %) true))]
     (union-or-nil
      (reduce
@@ -1872,23 +1874,31 @@
            dt))))))
 
 (defn assoc-type-pairs [t & pairs]
-  {:pre [(r/AnyType? t)
+  {:pre [(r/Type? t)
          (every? (fn [[k v :as kv]]
                    (and (= 2 (count kv))
                         (r/TCResult? k)
                         (r/TCResult? v)))
-                 pairs)]}
+                 pairs)]
+   :post [((some-fn nil? r/Type?) %)]}
   (reduce-type-transform -assoc-pair t pairs
                          :when #(satisfies? AssocableType %)))
 
 (defn assoc-pairs-noret [t & pairs]
-  {:pre [(r/AnyType? t)]}
+  {:pre [(r/Type? t)
+         (every? (fn [[k v :as kv]]
+                   (and (= 2 (count kv))
+                        (r/Type? k)
+                        (r/Type? v)))
+                 pairs)]
+   :post [((some-fn nil? r/Type?) %)]}
   (apply assoc-type-pairs t (map (fn [[k v]] [(r/ret k) (r/ret v)]) pairs)))
 
 ; dissoc support functions
 (defn- -dissoc-key [t k]
-  {:pre [(r/AnyType? t)
-         (r/TCResult? k)]}
+  {:pre [(r/Type? t)
+         (r/TCResult? k)]
+   :post [((some-fn nil? r/Type?) %)]}
   (union-or-nil
    (for [rtype (resolved-type-vector k)]
      (cond
@@ -1906,6 +1916,7 @@
       ))))
 
 (defn dissoc-keys [t ks]
+  {:post [((some-fn nil? r/Type?) %)]}
   (reduce-type-transform -dissoc-key t ks))
 
 ; merge support functions
@@ -1950,19 +1961,20 @@
 
 (defn- merge-pair
   [left right]
-  {:pre [(r/AnyType? left)
-         (r/TCResult? right)]}
+  {:pre [(r/Type? left)
+         (r/TCResult? right)]
+   :post [((some-fn nil? r/Type?) %)]}
   (let [sub-class? #(subtype? %1 (RClass-of %2 %3))
         left-map (sub-class? left IPersistentMap [r/-any r/-any])
-        right-map (sub-class? right IPersistentMap [r/-any r/-any])]
+        right-map (sub-class? (ret-t right) IPersistentMap [r/-any r/-any])]
     (cond
      ; preserve the rhand alias when possible
      (and (r/Nil? left) right-map)
-     right
+     (ret-t right)
      
      :else
      (union-or-nil
-      (for [rtype (resolved-type-vector right)]
+      (for [rtype (resolved-type-vector (ret-t right))]
         (cond
          (and (or left-map (r/Nil? left))
               (r/Nil? rtype))
@@ -1983,11 +1995,17 @@
          ))))))
 
 (defn merge-types [left & r-tcresults]
+  {:pre [(r/Type? left)
+         (every? r/TCResult? r-tcresults)]
+   :post [((some-fn nil? r/Type?) %)]}
   (reduce-type-transform merge-pair left r-tcresults))
 
 ; conj helper
 
 (defn- conj-pair [left right]
+  {:pre [(r/Type? left)
+         (r/TCResult? right)]
+   :post [((some-fn nil? r/TCResult?) right)]}
   (cond
    (r/HeterogeneousVector? left)
    (assoc-type-pairs left [(r/ret (r/-val (count (:types left))))
@@ -2015,5 +2033,8 @@
        )))))
 
 (defn conj-types [left & rtypes]
+  {:pre [(r/Type? left)
+         (every? r/TCResult? rtypes)]
+   :post [((some-fn nil? r/Type?) %)]}
   (reduce-type-transform conj-pair left rtypes))
 )

@@ -231,60 +231,84 @@
 (add-check-method :boolean [& args] (apply check-value args))
 (add-check-method :nil [& args] (apply check-value args))
 
+;(ann expected-vals [(Coll Type) (Nilable TCResult) -> (Coll (Nilable TCResult))])
+(defn expected-vals
+  "Returns a sequence of (Nilable TCResults) to use as expected types for type
+  checking the values of a literal map expression"
+  [key-types expected]
+  {:pre [(every? r/Type? key-types)
+         ((some-fn r/TCResult? nil?) expected)]
+   :post [(every? (some-fn nil? r/TCResult?) %)
+          (= (count %)
+             (count key-types))]}
+  (let [expected (when expected 
+                   (c/fully-resolve-type (ret-t expected)))
+        flat-expecteds (when expected
+                         (mapv c/fully-resolve-type
+                               (if (r/Union? expected)
+                                 (:types expected)
+                                 [expected])))
+        no-expecteds (repeat (count key-types) nil)]
+    (cond 
+      ; If every key in this map expression is a Value, let's try and
+      ; make use of our expected type for each individual entry. This is
+      ; most useful for `extend`, where we have HMaps of functions, and
+      ; we want to forward the expected types to each val, a function.
+      ;
+      ; The expected type also needs to be an expected shape:
+      ; - a HMap or union of just HMaps
+      ; - each key must have exactly one possible type if it is
+      ;   present
+      ; - if a key is absent in a HMap type, it must be explicitly
+      ;   absent
+      (and expected 
+           (every? r/Value? key-types)
+           (every? r/HeterogeneousMap? flat-expecteds))
+        (let [hmaps flat-expecteds]
+          (reduce (fn [val-expecteds ktype]
+                    {:post [(every? (some-fn nil? r/TCResult?) %)]}
+                    (let [; find the ktype key in each hmap.
+                          ; - If ktype is present in :types then we either use the entry's val type 
+                          ; - if ktype is explicitly forbidden via :absent-keys or :other-keys
+                          ;   we skip the entry.
+                          ; - otherwise we give up and don't check this as a hmap, return nil
+                          ;   that gets propagated up
+                          corresponding-vals 
+                          (reduce (fn [corresponding-vals {:keys [types absent-keys other-keys?] :as hmap}]
+                                    (if-let [v (get types ktype)]
+                                      (conj corresponding-vals v)
+                                      (cond
+                                        (or (contains? absent-keys ktype)
+                                            (not other-keys?)) 
+                                        corresponding-vals
+                                        :else (reduced nil))))
+                                  #{} hmaps)
+                          val-expect (when (= 1 (count corresponding-vals))
+                                       (ret (first corresponding-vals)))]
+                      (if val-expect
+                        (conj val-expecteds val-expect)
+                        (reduced no-expecteds))))
+                  [] key-types))
+
+      ; If we expect an (IPersistentMap k v), just use the v as the expected val types
+      (and (r/RClass? expected)
+           (= (:the-class expected) 'clojure.lang.IPersistentMap))
+        (let [{[_ vt] :poly?} expected]
+          (map ret (repeat (count key-types) vt)))
+      ; otherwise we don't give expected types
+      :else no-expecteds)))
+
 (add-check-method :map
   [{:keys [keyvals] :as expr} & [expected]]
   (let [[keyexprs valexprs] (let [s (partition 2 keyvals)]
                               [(map first s) (map second s)])
         ckeyexprs (mapv check keyexprs)
-        ; If every key in this map expression is a Value, let's try and
-        ; make use of our expected type for each individual entry. This is
-        ; most useful for `extend`, where we have HMaps of functions, and
-        ; we want to forward the expected types to each val, a function.
-        ;
-        ; The expected type also needs to be an expected shape:
-        ; - a HMap or union of just HMaps
-        ; - each key must have exactly one possible type if it is
-        ;   present
-        ; - if a key is absent in a HMap type, it must be explicitly
-        ;   absent
-        expected (when expected 
-                   (c/fully-resolve-type (ret-t expected)))
         key-types (map (comp ret-t expr-type) ckeyexprs)
 
-        hmap-expecteds 
-        (when (and expected (every? r/Value? key-types))
-          (let [hmaps (mapv c/fully-resolve-type
-                            (if (r/Union? expected)
-                              (:types expected)
-                              [expected]))]
-            (when (every? r/HeterogeneousMap? hmaps)
-              (reduce (fn [val-expecteds ktype]
-                        (let [; find the ktype key in each hmap.
-                              ; - If ktype is present in :types then we either use the entry's val type 
-                              ; - if ktype is explicitly forbidden via :absent-keys or :other-keys
-                              ;   we skip the entry.
-                              ; - otherwise we give up and don't check this as a hmap, return nil
-                              ;   that gets propagated up
-                              corresponding-vals 
-                              (reduce (fn [corresponding-vals {:keys [types absent-keys other-keys?] :as hmap}]
-                                        (if-let [v (get types ktype)]
-                                          (conj corresponding-vals v)
-                                          (cond
-                                            (or (contains? absent-keys ktype)
-                                                (not other-keys?)) 
-                                            corresponding-vals
-                                            :else (reduced nil))))
-                                      #{} hmaps)
-                              val-expect (when (= 1 (count corresponding-vals))
-                                           (first corresponding-vals))]
-                          (if val-expect
-                            (conj val-expecteds val-expect)
-                            (reduced nil))))
-                      [] key-types))))
+        val-rets
+        (expected-vals key-types expected)
 
-        cvalexprs (if hmap-expecteds
-                    (mapv check valexprs (map ret hmap-expecteds))
-                    (mapv check valexprs))
+        cvalexprs (mapv check valexprs val-rets)
         val-types (map (comp ret-t expr-type) cvalexprs)
 
         ts (zipmap key-types val-types)
@@ -292,8 +316,9 @@
                  (c/-complete-hmap ts)
                  (c/RClass-of APersistentMap [(apply c/Un (keys ts))
                                               (apply c/Un (vals ts))]))
-        _ (when (and expected (not (sub/subtype? actual expected)))
-            (expected-error actual expected))]
+        _ (when expected
+            (when-not (sub/subtype? actual (ret-t expected))
+              (expected-error actual (ret-t expected))))]
     (assoc expr
            expr-type (ret actual (fo/-true-filter)))))
 

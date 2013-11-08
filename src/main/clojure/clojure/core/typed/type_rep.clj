@@ -653,7 +653,9 @@
 (u/ann-record TopFunction [])
 (u/def-type TopFunction []
   "Supertype to all functions"
-  [])
+  []
+  :methods
+  [p/TCType])
 
 (u/ann-record FnIntersection [types :- (t/NonEmptySeqable Function)])
 (u/def-type FnIntersection [types]
@@ -809,8 +811,9 @@
    (p/IFilterSet? fl)
    (p/IRObject? o)
    (FlowSet? flow)]
-  :methods
-  [p/TCAnyType])
+  ;:methods
+  ;[p/TCAnyType]
+  )
 
 (t/ann -flow [p/IFilter -> FlowSet])
 (defn -flow [normal]

@@ -2479,6 +2479,10 @@
              (.exec r arr)))
          [String -> java.lang.Process]))
 
+(deftest expected-IPersistentMap-test
+  (is-cf {:a #(+ %1 %2)}
+         (clojure.core.typed/Map Any [Number Number -> Number])))
+
 ;(reset-caches)
 
 ;(chk/abstract-result

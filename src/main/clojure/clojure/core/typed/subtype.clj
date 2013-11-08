@@ -117,7 +117,9 @@
 ;TODO replace hardcoding cases for unfolding Mu? etc. with a single case for unresolved types.
 ;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
 (defn subtypeA* [A s t]
-  {:post [(set? %)]}
+  {:pre [(r/AnyType? s)
+         (r/AnyType? t)]
+   :post [(set? %)]}
   (if (or (u/p :subtype/query-current-seen
             (contains? A [s t]))
           (= s t)
@@ -129,6 +131,10 @@
     A
     (binding [*sub-current-seen* (u/p :subtype/extend-current-seen (conj A [s t]))]
       (cond
+        (or (r/TCResult? s)
+            (r/TCResult? t))
+        (assert nil "Cannot give TCResult to subtype")
+
         (and (r/Value? s)
              (r/Value? t))
         ;already (not= s t)
@@ -592,7 +598,7 @@
         (and (r/Result? s)
              (r/Result? t))
         (subtype-Result s t)
-        
+
         (and (r/PrimitiveArray? s)
              (r/PrimitiveArray? t))
         (subtype-PrimitiveArray s t)
@@ -1049,7 +1055,8 @@
                                                       (= (:the-class p) (:the-class t)))
                                              p))
                                          (map c/fully-resolve-type (datatype-ancestors s)))]
-    (if (subtype? s relevant-datatype-ancestor)
+    (if (and relevant-datatype-ancestor
+             (subtype? s relevant-datatype-ancestor))
       *sub-current-seen*
       (fail! s t))))
 
