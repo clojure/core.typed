@@ -1357,7 +1357,12 @@ for checking namespaces, cf for checking individual forms."}
   "Alpha - subject to change
 
   Type checks a (quoted) form and returns a map of results from type checking the
-  form."
+  form.
+  
+  Options
+  - :expected        Type syntax representing the expected type for this form
+                     type-provided? option must be true to utilise the type.
+  - :type-provided?  If true, use the expected type to check the form"
   [form & {:keys [expected type-provided?]}]
   (load-if-needed)
   (reset-caches)
@@ -1372,12 +1377,12 @@ for checking namespaces, cf for checking individual forms."}
       (impl/with-clojure-impl
         (binding [*currently-checking-clj* true
                   *delayed-errors* (-init-delayed-errors)]
-          (let [ast (ast-for-form (if type-provided?
-                                    `(ann-form ~form ~expected)
-                                    form))
+          (let [expected (when type-provided?
+                           (ret (parse-type expected)))
+                ast (ast-for-form form)
                 _ (collect ast)
                 _ (reset-caches)
-                c-ast (check ast)
+                c-ast (check ast expected)
                 res (expr-type c-ast)]
             {:delayed-errors @*delayed-errors*
              :ret res}))))))
