@@ -2504,7 +2504,13 @@
 ;TODO tests for inferring upper/lower bounds
 
 (deftest defn>-test
-  (is (check-ns 'clojure.core.typed.test.defn-arrow)))
+  (is-cf (clojure.core.typed/defn> add-two :- clojure.core.typed/AnyInteger [a :- clojure.core.typed/AnyInteger]
+           (+ a 2))
+         (clojure.core.typed/Var1 [clojure.core.typed/AnyInteger -> clojure.core.typed/AnyInteger]))
+  (is-cf (clojure.core.typed/defn> add-three 
+           (:- clojure.core.typed/AnyInteger [a :- clojure.core.typed/AnyInteger]
+               (+ a 3)))
+         (clojure.core.typed/Var1 [clojure.core.typed/AnyInteger -> clojure.core.typed/AnyInteger])))
 
 (deftest def>-test
   (is (check-ns 'clojure.core.typed.test.def-arrow))

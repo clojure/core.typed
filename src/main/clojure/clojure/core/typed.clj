@@ -536,30 +536,33 @@ for checking namespaces, cf for checking individual forms."}
     [nil seq]))
 
 (defmacro
-  ^{:forms '[(defn> name docstring? :- type? [param :- type* & param :- type * ?] exprs*)
-             (defn> name docstring? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
+  ^{:forms '[(defn> name docstring? :- type [param :- type *] exprs*)
+             (defn> name docstring? (:- type [param :- type *] exprs*)+)]}
   defn>
   "Like defn, but with annotations. Annotations are mandatory for
   parameters and for return type.
 
   eg. (defn> fname :- Integer [a :- Number, b :- (U Symbol nil)] ...)
 
-      ;annotate return
-      (defn> :- String [a :- String] ...)
+  ;annotate return
+  (defn> :- String [a :- String] ...)
 
-      ;named fn
-      (defn> fname :- String [a :- String] ...)
+  ;named fn
+  (defn> fname :- String [a :- String] ...)
 
-      ;multi-arity
-      (defn> fname 
-        (:- String [a :- String] ...)
-        (:- Long   [a :- String, b :- Number] ...))"
-  [symbol & m0ar]
-  (let [[docstring m0ar] (take-when string? m0ar)
-        signature (defn>-parse-typesig m0ar)]
-    `(do (ann ~symbol ~signature)
-         (def ~symbol ^{:doc ~docstring} 
-           (fn> ~symbol ~@m0ar)))))
+  ;multi-arity
+  (defn> fname 
+    (:- String [a :- String] ...)
+    (:- Long   [a :- String, b :- Number] ...))"
+  [name & fdecl]
+  (let [[docstring fdecl] (take-when string? fdecl)
+        signature (defn>-parse-typesig fdecl)]
+    `(do (ann ~name ~signature)
+         ~(list* 'def name 
+                 (concat
+                   (when docstring [docstring])
+                   [`(fn> ~name ~@fdecl)])))))
+
 (defmacro
   ^{:forms '[(def> name docstring? :- type expr)]}
   def>
