@@ -14,6 +14,13 @@
 (def> vname :- Long 1)
 ```
 
+- Better inference for literal IPersistentMap's
+
+```
+; vals are checked against [Number Number -> Number]
+(ann-form {1 #(+ %1 %2)} (Map Any [Number Number -> Number]))
+```
+
 ## Fixes
 
 - Better internal error checking in subtyping
