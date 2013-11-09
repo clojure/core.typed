@@ -1,4 +1,4 @@
-(defproject core.typed "0.2.17-SNAPSHOT"
+(defproject core.typed "0.2.18-SNAPSHOT"
   :description "Gradual typing for Clojure"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
