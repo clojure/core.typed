@@ -1,4 +1,4 @@
-# 0.2.17
+# 0.2.16
 
 ## Enhancements
 
@@ -28,7 +28,7 @@
   when an expected type is provided. Doing so conflicts with the simple `collect`
   strategy of only looking under `do` forms for global annotations.
 
-# 0.2.15-16
+# 0.2.15
 
 ## Enhancements
 
