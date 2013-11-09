@@ -948,7 +948,7 @@ for checking namespaces, cf for checking individual forms."}
     lower bound.
   - :> (optional)
     The lower type bound of the type variable. Defaults to
-    Any, or the most general type of the same rank as the
+    Nothing, or the least general type of the same rank as the
     upper bound.
 
   eg. ; a datatype in the current namespace
@@ -1025,7 +1025,7 @@ for checking namespaces, cf for checking individual forms."}
     lower bound.
   - :> (optional)
     The lower type bound of the type variable. Defaults to
-    Any, or the most general type of the same rank as the
+    Nothing, or the least general type of the same rank as the
     upper bound.
   
   eg. ; a record in the current namespace
