@@ -13,7 +13,7 @@
                                         CountRange Name Value Top TopFunction B F Result
                                         HeterogeneousSeq TCResult TCError FlowSet Extends
                                         NumberCLJS IntegerCLJS ObjectCLJS StringCLJS ArrayCLJS
-                                        BooleanCLJS AssocType)
+                                        BooleanCLJS AssocType KwArgsSeq)
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -173,11 +173,20 @@
                        (fn [ty _]
                          (-> ty (update-in [:types] #(mapv type-rec %)))))
 
+(defn visit-type-map [m f]
+  (into {} (for [[k v] m]
+             [(f k) (f v)])))
+
 (add-default-fold-case HeterogeneousMap
                        (fn [ty _]
                          (-> ty 
-                           (update-in [:types] #(into {} (for [[k v] %]
-                                                           [(type-rec k) (type-rec v)]))))))
+                           (update-in [:types] visit-type-map type-rec))))
+
+(add-default-fold-case KwArgsSeq
+                       (fn [ty _]
+                         (-> ty 
+                           (update-in [:mandatory] visit-type-map type-rec)
+                           (update-in [:optional] visit-type-map type-rec))))
 
 (add-default-fold-case Extends
                        (fn [{:keys [extends without] :as ty} _]
