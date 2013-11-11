@@ -473,6 +473,12 @@
 
 
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]
+  (when mandatory
+    (when-not (map? mandatory)
+      (u/int-error (str "Mandatory entries to HMap must be a map: " mandatory))))
+  (when optional
+    (when-not (map? optional)
+      (u/int-error (str "Optional entries to HMap must be a map: " optional))))
   (letfn [(mapt [m]
             (into {} (for [[k v] m]
                        [(r/-val k)

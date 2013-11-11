@@ -1,5 +1,9 @@
 # 0.2.18
 
+## Enhancements
+
+- Better error reporing for HMap syntax
+
 ## Fixes
 
 - Better occurrence typing updates for maps
