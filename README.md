@@ -1,17 +1,17 @@
 # core.typed
 
-<img src='images/part-of-typed-clojure-project.png'>
+<a href='http://typedclojure.org'><img src='images/part-of-typed-clojure-project.png'></a>
 
 Gradual typing in Clojure, as a library.
 
 ## Releases and Dependency Information
 
-Latest stable release is 0.2.17.
+Latest stable release is 0.2.19.
 
 Leiningen dependency information:
 
 ```clojure
-[org.clojure/core.typed "0.2.17"]
+[org.clojure/core.typed "0.2.19"]
 
 ...
 ; for very recent releases
@@ -26,7 +26,7 @@ Maven dependency information:
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>core.typed</artifactId>
-  <version>0.2.17</version>
+  <version>0.2.19</version>
   <!-- slim jar -->
   <!-- <classifier>slim</classifier> -->
 </dependency>
