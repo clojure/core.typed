@@ -367,16 +367,18 @@
         ; avoids infinite expansion because associng an F is a fixed point
         (and (r/AssocType? s)
              (not (r/F? (:target s))))
-        (if (subtype? (apply c/assoc-pairs-noret (:target s) (:entries s)) t)
-          *sub-current-seen*
-          (fail! s t))
+        (let [s-or-n (apply c/assoc-pairs-noret (:target s) (:entries s))]
+          (if (and s-or-n (subtype? s-or-n t))
+            *sub-current-seen*
+            (fail! s t)))
 
         ; avoids infinite expansion because associng an F is a fixed point
         (and (r/AssocType? t)
              (not (r/F? (:target t))))
-        (if (subtype? s (apply c/assoc-pairs-noret (:target t) (:entries t)))
-          *sub-current-seen*
-          (fail! s t))
+        (let [t-or-n (apply c/assoc-pairs-noret (:target t) (:entries t))]
+          (if (and t-or-n (subtype? s t-or-n))
+            *sub-current-seen*
+            (fail! s t)))
 
         (and (r/HeterogeneousVector? s)
              (r/HeterogeneousVector? t))
