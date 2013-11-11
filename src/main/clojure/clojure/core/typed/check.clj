@@ -266,7 +266,10 @@
            (every? r/HeterogeneousMap? flat-expecteds))
         (let [hmaps flat-expecteds]
           (reduce (fn [val-expecteds ktype]
-                    {:post [(every? (some-fn nil? r/TCResult?) %)]}
+                    ; also includes this contract wrapped in a Reduced
+                    ; The post-condition for `expected-vals` catches this anyway
+                    ;{:post [(every? (some-fn nil? r/TCResult?) %)]}
+
                     (let [; find the ktype key in each hmap.
                           ; - If ktype is present in :types then we either use the entry's val type 
                           ; - if ktype is explicitly forbidden via :absent-keys or :other-keys
