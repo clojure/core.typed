@@ -2547,7 +2547,17 @@
             (= t
                (update t (-not-filter (parse-clj 'Number) 'a [(->KeyPE :a) (->KeyPE :b)])))))
 
-  ; if we were smarter this might simplify to Nothing. 
-  (is-clj (let [t (parse-type '(HMap :absent-keys #{:a}))]
-            (= t
-               (update t (-not-filter -nil 'a [(->KeyPE :a) (->KeyPE :b)]))))))
+  ; When we update a (HMap) that has no information about an :a key, sometimes we can prove
+  ; the updated type always has an :a key.
+  ;
+  ; Here we restrict to a '{:a Number} because the path is a Number, which is never nil. We assume
+  ; nil is the not-found type.
+  (is-clj (let [t (parse-type '(HMap))]
+            (both-subtype? (parse-type '(HMap :mandatory {:a Number}))
+                           (update t (-filter (RClass-of Number) 'a [(->KeyPE :a)])))))
+
+  ; We restrict (HMap) to (HMap :optional {:a Any}), which is slightly less accurate, because
+  ; we can't prove that the HMap :a entry is never nil. 
+  (is-clj (let [t (parse-type '(HMap))]
+            (both-subtype? (parse-type '(HMap :optional {:a Any}))
+                           (update t (-not-filter (RClass-of Number) 'a [(->KeyPE :a)]))))))
