@@ -3963,12 +3963,22 @@
                     :else old))]
     (if (sub/subtype? old initial) old initial)))
 
+(defn KeyPE->Type [k]
+  {:pre [(pe/KeyPE? k)]
+   :post [(r/Type? %)]}
+  (r/-val (:val k)))
+
 ; This is where filters are applied to existing types to generate more specific ones
 ;[Type Filter -> Type]
 (defn update [t lo]
+  {:pre [((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)]
+   :post [(r/Type? %)]}
   (u/p :check/update
   (let [t (c/fully-resolve-type t)]
     (cond
+      ; The easy cases: we have a filter without a further path to travel down.
+      ; Just update t with the correct polarity.
+
       (and (fl/TypeFilter? lo)
            (empty? (:path lo))) 
       (let [u (:type lo)
@@ -3982,6 +3992,8 @@
         (assert (Type? u))
         (remove* t u))
 
+      ; unwrap unions and intersections to update their members
+
       (r/Union? t) (let [ts (:types t)
                        new-ts (mapv (fn [t] 
                                       (let [n (update t lo)]
@@ -3994,81 +4006,51 @@
       ;from here, t is fully resolved and is not a Union or Intersection
 
       ;heterogeneous map ops
-      (and (fl/TypeFilter? lo)
+      ; Positive and negative information down a keyword path
+      ; eg. (number? (-> hmap :a :b))
+      (and ((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)
            (pe/KeyPE? (first (:path lo)))
            (r/HeterogeneousMap? t))
-      (let [{:keys [type path id]} lo
-            [{fpth-kw :val} & rstpth] path
-            next-filter (fo/-filter type id rstpth)
-            fpth (r/-val fpth-kw)
-            present? (contains? (:types t) fpth)
-            absent? (when-not present?
-                      (or ; absent if in :absent-keys
-                          (contains? (:absent-keys t) fpth)
-                          ; absent if no other keys
-                          (not (:other-keys? t))))
-            type-at-pth (or (get (:types t) fpth)
-                            (when-not absent?
-                              r/-any))]
-        ;updating a positive KeyPE should consider 3 cases:
+      (let [polarity (fl/TypeFilter? lo)
+            {update-to-type :type :keys [path id]} lo
+            [fkeype & rstpth] path
+            fpth (KeyPE->Type fkeype)
+            ; use this filter to update the right hand side value
+            next-filter ((if polarity fo/-filter fo/-not-filter) 
+                         update-to-type id rstpth)
+            present? (c/hmap-present-key? t fpth)
+            absent? (c/hmap-absent-key? t fpth)
+            _ (u/dbg present?)
+            _ (u/dbg absent?)
+            _ (u/dbg t)
+            ]
+        ;updating a KeyPE should consider 3 cases:
         ; 1. the key is declared present
-        ; 2. the key is not declared present, and is not declared absent
-        ; 3. the key is declared absent
-        (if type-at-pth 
-          (c/Un
-            ; assume key is present and update value type
-            (c/-hmap (assoc (:types t) fpth (update type-at-pth next-filter))
-                     (:absent-keys t)
-                     (:other-keys? t))
-            (let [val-maybe-nil? (not (r/Bottom? (update r/-nil next-filter)))]
-              ; is there any situation where the value could be nil?
-              (if val-maybe-nil?
-                ; if yes, assume key is absent.
-                ; handles (:a {}) => nil
-                (c/-hmap (:types t)
-                         (conj (:absent-keys t) fpth)
-                         (:other-keys? t))
-                ; otherwise, don't add to type
-                (c/Un))))
-          (c/Un)))
+        ; 2. the key is declared absent
+        ; 3. the key is not declared present, and is not declared absent
+        (cond
+          present?
+          ; -hmap simplifies to bottom if an entry is bottom
+          (c/-hmap (update-in (:types t) [fpth] update next-filter)
+                   (:absent-keys t)
+                   (:other-keys? t))
+          absent?
+          t
 
-      (and (fl/NotTypeFilter? lo)
-           (pe/KeyPE? (first (:path lo)))
-           (r/HeterogeneousMap? t))
-      (let [{:keys [type path id]} lo
-            [{fpth-kw :val} & rstpth] path
-            fpth (r/-val fpth-kw)
-            next-filter (fo/-not-filter type id rstpth)
-            present? (contains? (:types t) fpth)
-            absent? (when-not present?
-                      (or ; absent if in :absent-keys
-                          (contains? (:absent-keys t) fpth)
-                          ; absent if no other keys
-                          (not (:other-keys? t))))
-            type-at-pth (or (get (:types t) fpth)
-                            (when-not absent?
-                              r/-any))]
-        ;updating a negative KeyPE should consider 3 cases:
-        ; 1. the key is declared present
-        ; 2. the key is not declared present, and is not declared absent
-        ; 3. the key is declared absent
-        (if type-at-pth 
+          ; key not declared present or absent
+          :else
           (c/Un
-            ; key is present, update corresponding value
-            (c/-hmap (assoc (:types t) fpth (update type-at-pth next-filter))
+            (c/-hmap (assoc-in (:types t) [fpth] (update r/-any next-filter))
                      (:absent-keys t)
                      (:other-keys? t))
-            (let [val-maybe-nil? (not (r/Bottom? (update r/-nil next-filter)))]
-              ; is there any situation where the value could be nil?
-              (if val-maybe-nil?
-                ; if yes, assume key is absent.
-                ; handles (:a {}) => nil
-                (c/-hmap (:types t)
-                         (conj (:absent-keys t) fpth)
-                         (:other-keys? t))
-                ; otherwise, don't add to type
-                (c/Un))))
-          (c/Un)))
+            ; could be smarter here. If we can prove that the result is always
+            ; a true value, can we claim the key is ever absent? We should also
+            ; consider entending KeyPE to include defaults on not-found, which 
+            ; would affect this calculation (eg. always being a true value no longer means
+            ; this key is absent)
+            (c/-hmap (:types t)
+                     (conj (:absent-keys t) fpth)
+                     (:other-keys? t)))))
 
       ; nil returns nil on keyword lookups
       (and (fl/NotTypeFilter? lo)
@@ -4076,6 +4058,8 @@
            (r/Nil? t))
       (update r/-nil (update-in lo [:path] rest))
 
+      ; update count information based on a call to `count`
+      ; eg. (= 1 (count a))
       (and (fl/TypeFilter? lo)
            (pe/CountPE? (first (:path lo))))
       (let [u (:type lo)]
@@ -4090,7 +4074,8 @@
            (pe/CountPE? (first (:path lo))))
       t
 
-      ;ClassPE
+      ; Update class information based on a call to `class`
+      ; eg. (= java.lang.Integer (class a))
       (and (fl/TypeFilter? lo)
            (pe/ClassPE? (-> lo :path first)))
       (let [_ (assert (empty? (rest (:path lo))))
@@ -4117,16 +4102,18 @@
            (pe/ClassPE? (-> lo :path first)))
       t
 
-      ;keyword invoke of non-hmaps
-      ;FIXME TypeFilter case can refine type further
+      ; keyword invoke of non-hmaps
+      ; (let [a (ann-form {} (Map Any Any))]
+      ;   (number? (-> a :a :b)))
+      ; 
+      ; I don't think there's anything interesting worth encoding:
+      ; use HMap for accurate updating.
       (and (or (fl/TypeFilter? lo)
                (fl/NotTypeFilter? lo))
            (pe/KeyPE? (first (:path lo))))
-      (do (assert (= (count (:path lo)) 1) 
-                  (str "Further path NYI " (pr-str (:path lo))
-                       (prs/unparse-type t)))
-          t)
+      t
 
+      ; calls to `keys` and `vals`
       (and ((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)
            ((some-fn pe/KeysPE? pe/ValsPE?) (first (:path lo))))
       (let [[fstpth & rstpth] (:path lo)

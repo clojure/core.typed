@@ -2496,9 +2496,6 @@
 ;  (update -any (-filter (-val clojure.core.typed.test.mm.FooRec) 'arg [(->ClassPE)])))
 
 
-;
-;TODO destructuring on records
-
 ;TODO support (some #{...} coll)
 ;TODO (apply == (non-empty-seq))
 ;TODO tests for inferring upper/lower bounds
@@ -2516,3 +2513,42 @@
   (is (check-ns 'clojure.core.typed.test.def-arrow))
   (is-cf (clojure.core.typed/def> a :- Number 1)
          (clojure.core.typed/Var1 Number)))
+
+(deftest nested-keyword-update-test
+  ; ordinary IPersistentMap does not get updated
+  (is-cf (fn []
+           (let [a (clojure.core.typed/ann-form {} (Map Any Any))]
+             (if (number? (-> a :a :b))
+               a
+               (assert nil))))
+         [-> (clojure.core.typed/Map Any Any)])
+  ; HMaps can gain "one level" of known entries.
+  (is-cf (fn []
+           (let [a (clojure.core.typed/ann-form {} '{})]
+             (if (number? (-> a :a :b))
+               (do (print-env "a")
+                   a)
+               (assert nil))))
+         [-> (HMap :optional {:a Any})])
+  ; update a (HMap) with (is Any a [(Key :a) (Key :b)])
+  ; returns a (HMap :optional {:a Any})
+  ; Only one level is updated, we can't say any more about the inner
+  ; :b key.
+  (is-clj  (let [t (parse-clj '(HMap))
+                 path [(->KeyPE :a) (->KeyPE :b)]
+                 lo+ (-filter (parse-clj 'Number) 'a path)
+                 lo- (-not-filter (parse-clj 'Number) 'a path)
+                 expected+ (parse-clj '(HMap :optional {:a Any}))
+                 expected- (parse-clj '(HMap :optional {:a Any}))]
+             (and (both-subtype? (update t lo+) expected+)
+                  (both-subtype? (update t lo-) expected+))))
+  ; negative absent keys. The absent entry :a is not a Number (KeyPE does not support defaults), so we
+  ; just return the original type
+  (is-clj (let [t (parse-type '(HMap :absent-keys #{:a}))]
+            (= t
+               (update t (-not-filter (parse-clj 'Number) 'a [(->KeyPE :a) (->KeyPE :b)])))))
+
+  ; if we were smarter this might simplify to Nothing. 
+  (is-clj (let [t (parse-type '(HMap :absent-keys #{:a}))]
+            (= t
+               (update t (-not-filter -nil 'a [(->KeyPE :a) (->KeyPE :b)]))))))

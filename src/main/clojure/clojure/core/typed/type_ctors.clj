@@ -98,6 +98,25 @@
   ([types] (-partial-hmap types #{}))
   ([types absent-keys] (-hmap types absent-keys true)))
 
+(defn hmap-present-key? 
+  "Returns true if hmap always has a keyt entry."
+  [hmap keyt]
+  {:pre [(r/HeterogeneousMap? hmap)
+         (r/Type? keyt)]}
+  (contains? (:types hmap) keyt))
+
+(defn hmap-absent-key?
+  "Returns true if hmap never has a keyt entry."
+  [hmap keyt]
+  {:pre [(r/HeterogeneousMap? hmap)
+         (r/Type? keyt)]}
+  (boolean
+    (when-not (hmap-present-key? hmap keyt)
+      (or ; absent if in :absent-keys
+          (contains? (:absent-keys hmap) keyt)
+          ; absent if no other keys
+          (not (:other-keys? hmap))))))
+
 (t/def-alias TypeMap
   "A regular map with types as keys and vals."
   (IPersistentMap r/Type r/Type))

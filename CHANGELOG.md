@@ -1,3 +1,9 @@
+# 0.2.18
+
+## Fixes
+
+- Better occurrence typing updates for maps
+
 # 0.2.17
 
 ## Enhancements
