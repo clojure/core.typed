@@ -98,6 +98,7 @@
   ([types] (-partial-hmap types #{}))
   ([types absent-keys] (-hmap types absent-keys true)))
 
+(t/ann hmap-present-key? [HeterogeneousMap r/Type -> Boolean])
 (defn hmap-present-key? 
   "Returns true if hmap always has a keyt entry."
   [hmap keyt]
@@ -105,6 +106,7 @@
          (r/Type? keyt)]}
   (contains? (:types hmap) keyt))
 
+(t/ann hmap-absent-key? [HeterogeneousMap r/Type -> Boolean])
 (defn hmap-absent-key?
   "Returns true if hmap never has a keyt entry."
   [hmap keyt]
