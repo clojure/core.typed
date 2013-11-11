@@ -1,4 +1,18 @@
+# 0.2.19 - Released 11th November 2013
+
+## Fixes
+
+- Fix [CTYP-94](http://dev.clojure.org/jira/browse/CTYP-94) Better return type for `derive`
+
+## Misc
+
+- Remove a post-condition that incorrectly blows up with 0.2.17-0.2.18
+
 # 0.2.18 - Released 11th November 2013
+
+## Notes
+
+- Contains unintentional regression, fixed in 0.2.19
 
 ## Enhancements
 
@@ -11,6 +25,10 @@
 - Fix copy/paste typo about lower bounds in docstrings
 
 # 0.2.17 - Released 8th November 2013
+
+## Notes
+
+- Contains unintentional regression, fixed in 0.2.19
 
 ## Enhancements
 
