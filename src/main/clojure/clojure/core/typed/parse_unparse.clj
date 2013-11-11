@@ -414,8 +414,8 @@
         _ (doseq [{:keys [nme variance]} free-maps]
             (when-let [actual-v (vs nme)]
               (when-not (= (vs nme) variance)
-                (u/int-error "Type variable " nme " appears in " (name actual-v) " position "
-                             "when declared " (name variance)))))]
+                (u/int-error (str "Type variable " nme " appears in " (name actual-v) " position "
+                                  "when declared " (name variance))))))]
     (c/TypeFn* (map :nme free-maps) (map :variance free-maps)
                (map :bound free-maps) bodyt)))
 
