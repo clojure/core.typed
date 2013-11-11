@@ -4019,11 +4019,7 @@
             next-filter ((if polarity fo/-filter fo/-not-filter) 
                          update-to-type id rstpth)
             present? (c/hmap-present-key? t fpth)
-            absent? (c/hmap-absent-key? t fpth)
-            _ (u/dbg present?)
-            _ (u/dbg absent?)
-            _ (u/dbg t)
-            ]
+            absent? (c/hmap-absent-key? t fpth)]
         ;updating a KeyPE should consider 3 cases:
         ; 1. the key is declared present
         ; 2. the key is declared absent
@@ -4043,14 +4039,14 @@
             (c/-hmap (assoc-in (:types t) [fpth] (update r/-any next-filter))
                      (:absent-keys t)
                      (:other-keys? t))
-            ; could be smarter here. If we can prove that the result is always
-            ; a true value, can we claim the key is ever absent? We should also
-            ; consider entending KeyPE to include defaults on not-found, which 
-            ; would affect this calculation (eg. always being a true value no longer means
-            ; this key is absent)
-            (c/-hmap (:types t)
-                     (conj (:absent-keys t) fpth)
-                     (:other-keys? t)))))
+            ; if we can prove we only ever update this path to nil,
+            ; we can ignore the absent case.
+            (let [updated-nil (update r/-nil next-filter)]
+              (if-not (r/Bottom? updated-nil)
+                (c/-hmap (:types t)
+                         (conj (:absent-keys t) fpth)
+                         (:other-keys? t))
+                r/-nothing)))))
 
       ; nil returns nil on keyword lookups
       (and (fl/NotTypeFilter? lo)

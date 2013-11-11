@@ -2517,7 +2517,7 @@
 (deftest nested-keyword-update-test
   ; ordinary IPersistentMap does not get updated
   (is-cf (fn []
-           (let [a (clojure.core.typed/ann-form {} (Map Any Any))]
+           (let [a (clojure.core.typed/ann-form {} (clojure.core.typed/Map Any Any))]
              (if (number? (-> a :a :b))
                a
                (assert nil))))
@@ -2526,8 +2526,7 @@
   (is-cf (fn []
            (let [a (clojure.core.typed/ann-form {} '{})]
              (if (number? (-> a :a :b))
-               (do (print-env "a")
-                   a)
+               a
                (assert nil))))
          [-> (HMap :optional {:a Any})])
   ; update a (HMap) with (is Any a [(Key :a) (Key :b)])
