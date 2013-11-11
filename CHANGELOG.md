@@ -1,4 +1,4 @@
-# 0.2.18
+# 0.2.18 - Released 11th November 2013
 
 ## Enhancements
 
@@ -7,8 +7,10 @@
 ## Fixes
 
 - Better occurrence typing updates for maps
+- Add KwArgsSeq fold cases
+- Fix copy/paste typo about lower bounds in docstrings
 
-# 0.2.17
+# 0.2.17 - Released 8th November 2013
 
 ## Enhancements
 
