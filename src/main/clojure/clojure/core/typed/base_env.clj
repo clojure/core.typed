@@ -731,7 +731,7 @@ clojure.core/doall (All [[c :< (U nil (Seqable Any))]]
 clojure.core/dorun (Fn [(U nil (Seqable Any)) -> nil]
                        [AnyInteger (U nil (Seqable Any)) -> nil])
 clojure.core/iterate (All [x]
-                       [[x -> x] x -> (LazySeq x)])
+                       [[x -> x] x -> (ISeq x)])
 clojure.core/memoize (All [x y ...]
                             [[y ... y -> x] -> [y ... y -> x]])
 
