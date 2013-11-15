@@ -925,7 +925,7 @@ clojure.core/force (All [x]
                             [x -> x]))
 
 clojure.core/reset! (All [w r]
-                              [(Atom w r) w -> r])
+                              [(Atom w r) w -> w])
 
 clojure.core/swap! (All [w r b ...] 
                              [(Atom w r) [r b ... b -> w] b ... b -> w])
