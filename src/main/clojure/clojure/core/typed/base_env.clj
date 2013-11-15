@@ -332,7 +332,7 @@ APersistentMap [[[a :variance :covariant]
                           (Fn [Any -> (U nil b)]
                               [Any d -> (U b d)]))
                  ILookup (ILookup a b)
-                 Associative (Associative Number a)}]
+                 Associative (Associative a b)}]
 
 
 PersistentHashMap [[[a :variance :covariant] 
@@ -355,7 +355,7 @@ PersistentHashMap [[[a :variance :covariant]
                                  [Any d -> (U b d)]))
                     ILookup (ILookup a b)
                     IMeta (IMeta Any)
-                    Associative (Associative Number a)
+                    Associative (Associative a b)
                     #_IEditableCollection #_(IEditableCollection (ITransientMap a b a b))}]
 
 Cons [[[a :variance :covariant]]
