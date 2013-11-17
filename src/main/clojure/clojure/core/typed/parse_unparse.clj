@@ -76,7 +76,7 @@
 
 (declare find-lower-bound find-upper-bound infer-bounds)
 
-; parsing TFn, protocol, RCLass binders
+; parsing TFn, protocol, RClass binders
 (defn parse-free-with-variance [f]
   {:post [(u/hvector-c? symbol? r/Bounds?)]}
   (if (symbol? f)
