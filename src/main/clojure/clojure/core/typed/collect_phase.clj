@@ -185,8 +185,9 @@
         (var-env/add-nocheck-var qsym)))))
 
 (add-collect-method :invoke
-  [expr]
-  (invoke-special-collect expr))
+  [{:keys [env] :as expr}]
+  (binding [uvar/*current-env* env]
+    (invoke-special-collect expr)))
 
 (add-collect-method :default
   [_]
