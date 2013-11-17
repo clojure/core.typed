@@ -13,7 +13,7 @@
             [clojure.core.typed.datatype-env :as dtenv]
             [clojure.core.typed.protocol-env :as prenv]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.free-ops :as free]
+            [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.tvar-bnds :as bnds]
             [clojure.core.typed :as t :refer [fn>]]
             [clojure.math.combinatorics :as comb]
@@ -880,12 +880,26 @@
 
 ;smart destructor
 (t/ann ^:no-check TypeFn-body* [(Seqable Symbol) TypeFn -> r/Type])
-(defn TypeFn-body* [names ^TypeFn typefn]
+(defn TypeFn-body* [names typefn]
   {:pre [(every? symbol? names)
          (r/TypeFn? typefn)]}
   (u/p :ctors/TypeFn-body*
-  (assert (= (.nbound typefn) (count names)) "Wrong number of names")
-  (instantiate-many names (.scope typefn))))
+  (assert (= (:nbound typefn) (count names)) "Wrong number of names")
+  (let [body (instantiate-many names (:scope typefn))
+        ; We don't check variances are consistent at parse-time. Instead
+        ; we check at instantiation time. This avoids some implementation headaches,
+        ; like dealing with partially defined types.
+        bbnds (TypeFn-bbnds* names typefn)
+        fv-variances (impl/v 'clojure.core.typed.frees/fv-variances)
+        vs (free-ops/with-bounded-frees 
+             (map vector (map r/make-F names) bbnds)
+             (fv-variances body))
+        _ (doseq [[nme variance] (map vector names (:variances typefn))]
+            (when-let [actual-v (vs nme)]
+              (when-not (= (vs nme) variance)
+                (u/int-error (str "Type variable " nme " appears in " (name actual-v) " position "
+                                  "when declared " (name variance))))))]
+    body)))
 
 (t/ann ^:no-check TypeFn-bbnds* [(Seqable Symbol) TypeFn -> (Seqable Bounds)])
 (defn TypeFn-bbnds* [names ^TypeFn typefn]
@@ -1826,7 +1840,7 @@
   F
   (-assoc-pair
     [{:keys [name] :as f} assoc-entry]
-    (let [bnd (free/free-with-name-bnds name)
+    (let [bnd (free-ops/free-with-name-bnds name)
           _ (when-not bnd
               (u/int-error (str "No bounds for type variable: " name bnds/*current-tvar-bnds*)))]
       (when (subtype? (:upper-bound bnd) (RClass-of IPersistentMap [r/-any r/-any]))

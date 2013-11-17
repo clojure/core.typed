@@ -408,14 +408,17 @@
         bodyt (free-ops/with-bounded-frees (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
                                                 free-maps)
                 (parse-type bodysyn))
-        vs (free-ops/with-bounded-frees (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
-                                             free-maps)
-             (frees/fv-variances bodyt))
-        _ (doseq [{:keys [nme variance]} free-maps]
-            (when-let [actual-v (vs nme)]
-              (when-not (= (vs nme) variance)
-                (u/int-error (str "Type variable " nme " appears in " (name actual-v) " position "
-                                  "when declared " (name variance))))))]
+        ; We check variances lazily in TypeFn-body*. This avoids any weird issues with calculating
+        ; variances with potentially partially defined types.
+        ;vs (free-ops/with-bounded-frees (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
+        ;                                     free-maps)
+        ;     (frees/fv-variances bodyt))
+        ;_ (doseq [{:keys [nme variance]} free-maps]
+        ;    (when-let [actual-v (vs nme)]
+        ;      (when-not (= (vs nme) variance)
+        ;        (u/int-error (str "Type variable " nme " appears in " (name actual-v) " position "
+        ;                          "when declared " (name variance))))))
+        ]
     (c/TypeFn* (map :nme free-maps) (map :variance free-maps)
                (map :bound free-maps) bodyt)))
 
