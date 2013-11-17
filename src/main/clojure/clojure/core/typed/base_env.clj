@@ -731,7 +731,7 @@ clojure.core/doall (All [[c :< (U nil (Seqable Any))]]
 clojure.core/dorun (Fn [(U nil (Seqable Any)) -> nil]
                        [AnyInteger (U nil (Seqable Any)) -> nil])
 clojure.core/iterate (All [x]
-                       [[x -> x] x -> (LazySeq x)])
+                       [[x -> x] x -> (Seq x)])
 clojure.core/memoize (All [x y ...]
                             [[y ... y -> x] -> [y ... y -> x]])
 
@@ -745,13 +745,13 @@ clojure.core/boolean [Any -> boolean]
 
 ;clojure.core/filter (All [x y]
 ;                           (Fn
-;                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (LazySeq (I x y))]
-;                             [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]))
+;                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seq (I x y))]
+;                             [[x -> Any] (Option (Seqable x)) -> (Seq x)]))
 clojure.core/filter (All [x y]
                            (Fn
-                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (LazySeq y)]
-                             [[x -> Any :filters {:then (! y 0)}] (Option (Seqable x)) -> (LazySeq (I x (Not y)))]
-                             [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]))
+                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seq y)]
+                             [[x -> Any :filters {:then (! y 0)}] (Option (Seqable x)) -> (Seq (I x (Not y)))]
+                             [[x -> Any] (Option (Seqable x)) -> (Seq x)]))
 ;clojure.core/filterv (All [x y]
 ;                          (Fn
 ;                            [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (APersistentVector (I x y))]
@@ -762,20 +762,20 @@ clojure.core/filterv (All [x y]
                             [[x -> Any] (Option (Seqable x)) -> (APersistentVector x)]))
 ;clojure.core/remove (All [x y]
 ;                           (Fn
-;                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (LazySeq (I x y))]
-;                             [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]
+;                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seq (I x y))]
+;                             [[x -> Any] (Option (Seqable x)) -> (Seq x)]
 ;                             ))
 clojure.core/remove (All [x y]
                            (Fn
-                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (LazySeq y)]
-                             [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]
+                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seq y)]
+                             [[x -> Any] (Option (Seqable x)) -> (Seq x)]
                              ))
 
 
 clojure.core/take-while (All [x y]
                                (Fn 
-                                 [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (LazySeq y)]
-                                 [[x -> Any] (Option (Seqable x)) -> (LazySeq x)]))
+                                 [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seq y)]
+                                 [[x -> Any] (Option (Seqable x)) -> (Seq x)]))
 clojure.core/drop-while (All [x]
                                [[x -> Any] (Option (Seqable x)) -> (Seqable x)])
 
@@ -791,8 +791,8 @@ clojure.core/split-at
 
 clojure.core/repeatedly 
      (All [x]
-          (Fn [[-> x] -> (LazySeq x)]
-              [AnyInteger [-> x] -> (LazySeq x)]))
+          (Fn [[-> x] -> (Seq x)]
+              [AnyInteger [-> x] -> (Seq x)]))
 
 
 clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)])
@@ -800,7 +800,7 @@ clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)])
 clojure.core/some-fn [[Any -> Any] [Any -> Any] * -> [Any -> Any]]
 clojure.core/every-pred [[Any -> Any] [Any -> Any] * -> [Any -> Any]]
 
-clojure.core/concat (All [x] [(Option (Seqable x)) * -> (LazySeq x)])
+clojure.core/concat (All [x] [(Option (Seqable x)) * -> (Seq x)])
 
 clojure.core/set (All [x] [(Option (Seqable x)) -> (PersistentHashSet x)])
 clojure.core/hash-set (All [x] [x * -> (PersistentHashSet x)])
@@ -900,7 +900,7 @@ clojure.core/re-matcher [java.util.regex.Pattern String -> java.util.regex.Match
 clojure.core/re-groups [java.util.regex.Matcher -> (U nil String (Vec (Option String)))]
 clojure.core/re-find (Fn [java.util.regex.Matcher -> (U nil String (Vec (Option String)))]
                               [java.util.regex.Pattern String -> (U nil String (Vec (Option String)))])
-clojure.core/re-seq [java.util.regex.Pattern String -> (LazySeq (U nil String (Vec (Option String))))]
+clojure.core/re-seq [java.util.regex.Pattern String -> (Seq (U nil String (Vec (Option String))))]
 
 clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String])
@@ -988,8 +988,7 @@ clojure.string/join
      (Fn [(Option (Seqable Any)) -> String]
          [Any (Option (Seqable Any)) -> String])
 
-;usually for string manipulation, accurate enough?
-clojure.core/interpose (Fn [Any (Option (Seqable Any)) -> (Seq Any)])
+clojure.core/interpose (All [x] (Fn [x (Option (Seqable x)) -> (Seq x)]))
 clojure.core/interleave (All [x] [(Option (Seqable x)) -> (Seq x)])
 
 clojure.core/repeat (All [x] 
@@ -1012,12 +1011,12 @@ clojure.core/every? (All [x y]
                              [[x -> Any] (U nil (Seqable x)) -> Boolean]))
 
 clojure.core/range
-(Fn [-> (LazySeq AnyInteger)]
-    [Number -> (LazySeq AnyInteger)]
-    [AnyInteger Number -> (LazySeq AnyInteger)]
-    [Number Number -> (LazySeq Number)]
-    [AnyInteger Number AnyInteger -> (LazySeq AnyInteger)]
-    [Number Number Number -> (LazySeq Number)])
+(Fn [-> (Seq AnyInteger)]
+    [Number -> (Seq AnyInteger)]
+    [AnyInteger Number -> (Seq AnyInteger)]
+    [Number Number -> (Seq Number)]
+    [AnyInteger Number AnyInteger -> (Seq AnyInteger)]
+    [Number Number Number -> (Seq Number)])
 
 clojure.core/class (Fn [nil -> nil :object {:id 0 :path [Class]}]
                             [Object -> Class :object {:id 0 :path [Class]}]
@@ -1057,8 +1056,8 @@ clojure.core/empty? (Fn [(Option (Coll Any)) -> boolean
 
 clojure.core/map
      (All [c a b ...]
-          (Fn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable b) ... b -> (NonEmptyLazySeq c)]
-              [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (LazySeq c)]))
+          (Fn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable b) ... b -> (NonEmptySeq c)]
+              [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (Seq c)]))
 
 clojure.core/mapv
      (All [c a b ...]
@@ -1066,7 +1065,7 @@ clojure.core/mapv
 
 clojure.core/mapcat
      (All [c b ...]
-          [[b ... b -> (Option (Seqable c))] (Option (Seqable b)) ... b -> (LazySeq c)])
+          [[b ... b -> (Option (Seqable c))] (Option (Seqable b)) ... b -> (Seq c)])
 
 clojure.core/map-indexed
      (All [x y] [[AnyInteger x -> y] (Option (Seqable x)) -> (Seqable y)])
@@ -1301,7 +1300,7 @@ clojure.core/odd? [AnyInteger -> boolean]
 
 clojure.core/take
      (All [x]
-       [AnyInteger (Seqable x) -> (LazySeq x)])
+       [AnyInteger (Seqable x) -> (Seq x)])
 
 clojure.core/cons
      (All [x]
