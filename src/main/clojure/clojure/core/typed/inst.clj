@@ -44,45 +44,51 @@
     (u/int-error (str "Must provide arguments to inst")))
   (cond
     (r/Poly? ptype)
-    (let [_ (assert (= (:nbound ptype) (count argtys)) 
-                    (u/error-msg "Wrong number of arguments to instantiate polymorphic type"))
+    (let [_ (when-not (= (:nbound ptype) (count argtys)) 
+              (u/int-error
+                (str "Wrong number of arguments to instantiate polymorphic type")))
           names (c/Poly-fresh-symbols* ptype)
           body (c/Poly-body* names ptype)
           bbnds (c/Poly-bbnds* names ptype)]
       (free-ops/with-bounded-frees (zipmap (map r/make-F names) bbnds)
-        (doseq [[nme ty ^Bounds bnds] (map vector names argtys bbnds)]
+        (doseq [[nme ty bnds] (map vector names argtys bbnds)]
           (assert (not (:higher-kind bnds)))
-          (let [lower-bound (subst/substitute-many (.lower-bound bnds) argtys names)
-                upper-bound (subst/substitute-many (.upper-bound bnds) argtys names)]
-            (assert (sub/subtype? lower-bound upper-bound)
-                    (u/error-msg "Lower-bound " (prs/unparse-type lower-bound)
-                                 " is not below upper-bound " (prs/unparse-type upper-bound)))
-            (assert (and (sub/subtype? ty upper-bound)
-                         (sub/subtype? lower-bound ty))
-                    (u/error-msg "Manually instantiated type " (prs/unparse-type ty)
-                                 " is not between bounds " (prs/unparse-type lower-bound)
-                                 " and " (prs/unparse-type upper-bound)))))
+          (let [lower-bound (subst/substitute-many (:lower-bound bnds) argtys names)
+                upper-bound (subst/substitute-many (:upper-bound bnds) argtys names)]
+            (when-not (sub/subtype? lower-bound upper-bound)
+              (u/int-error
+                (str "Lower-bound " (prs/unparse-type lower-bound)
+                     " is not below upper-bound " (prs/unparse-type upper-bound))))
+            (when-not (and (sub/subtype? ty upper-bound)
+                           (sub/subtype? lower-bound ty))
+              (u/int-error
+                (str "Manually instantiated type " (prs/unparse-type ty)
+                     " is not between bounds " (prs/unparse-type lower-bound)
+                     " and " (prs/unparse-type upper-bound))))))
         (subst/substitute-many body argtys names)))
 
     (r/PolyDots? ptype)
     (let [nrequired-types (dec (:nbound ptype))
-          _ (assert (<= nrequired-types (count argtys)) 
-                    "Insufficient arguments to instantiate dotted polymorphic type")
+          _ (when-not (<= nrequired-types (count argtys)) 
+              (u/int-error
+                (str "Insufficient arguments to instantiate dotted polymorphic type")))
           names (c/PolyDots-fresh-symbols* ptype)
           body (c/PolyDots-body* names ptype)
           bbnds (c/PolyDots-bbnds* names ptype)]
       (free-ops/with-bounded-frees (zipmap (-> (map r/make-F names) butlast) (butlast bbnds))
-        (doseq [[nme ty ^Bounds bnds] (map vector names argtys bbnds)]
-          (let [lower-bound (subst/substitute-many (.lower-bound bnds) argtys names)
-                upper-bound (subst/substitute-many (.upper-bound bnds) argtys names)]
-            (assert (sub/subtype? lower-bound upper-bound)
-                    (u/error-msg "Lower-bound " (prs/unparse-type lower-bound)
-                               " is not below upper-bound " (prs/unparse-type upper-bound)))
-            (assert (and (sub/subtype? ty upper-bound)
-                         (sub/subtype? lower-bound ty))
-                    (u/error-msg "Manually instantiated type " (prs/unparse-type ty)
-                               " is not between bounds " (prs/unparse-type lower-bound)
-                               " and " (prs/unparse-type upper-bound)))))
+        (doseq [[nme ty bnds] (map vector names argtys bbnds)]
+          (let [lower-bound (subst/substitute-many (:lower-bound bnds) argtys names)
+                upper-bound (subst/substitute-many (:upper-bound bnds) argtys names)]
+            (when-not (sub/subtype? lower-bound upper-bound)
+              (u/int-error
+                (str "Lower-bound " (prs/unparse-type lower-bound)
+                     " is not below upper-bound " (prs/unparse-type upper-bound))))
+            (when-not (and (sub/subtype? ty upper-bound)
+                           (sub/subtype? lower-bound ty))
+              (u/int-error
+                (str "Manually instantiated type " (prs/unparse-type ty)
+                     " is not between bounds " (prs/unparse-type lower-bound)
+                     " and " (prs/unparse-type upper-bound))))))
         (-> body
           ; expand dotted pre-types in body
           (trans/trans-dots (last names) ;the bound
