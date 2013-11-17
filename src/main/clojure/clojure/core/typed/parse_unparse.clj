@@ -226,9 +226,9 @@
                         (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) fs)
                           (parse-free fsyn))))
                 [] bnds)]
-    (c/Poly* (map first frees-with-bnds)
-             (map second frees-with-bnds)
-             (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
+    (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
+      (c/Poly* (map first frees-with-bnds)
+               (map second frees-with-bnds)
                (parse-type type)))))
 
 (defmethod parse-type-list 'Extends
