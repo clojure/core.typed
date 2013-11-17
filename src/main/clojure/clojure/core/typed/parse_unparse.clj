@@ -210,11 +210,11 @@
                                           (parse-free fsyn))))
                                 [] (-> bnds butlast butlast))
         dvar (parse-free (-> bnds butlast last))]
-    (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
-                 (map second (concat frees-with-bnds [dvar]))
-                 (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
-                   (dvar/with-dotted [(r/make-F (first dvar))]
-                     (parse-type type))))))
+    (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
+      (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
+                   (map second (concat frees-with-bnds [dvar]))
+                     (dvar/with-dotted [(r/make-F (first dvar))]
+                       (parse-type type))))))
 
 ;(All [a b] type)
 (defmethod parse-all-type :default
