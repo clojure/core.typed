@@ -924,9 +924,9 @@
                                                            (symbol? nme)]}
                                                     (cond
                                                       (= nme dotted) [nme '...]
-                                                      :else (concat (when-not (= r/-nothing lower-bound)
-                                                                      [(prs/unparse-type lower-bound) :<])
-                                                                    [nme]
+                                                      :else (concat [nme]
+                                                                    (when-not (= r/-nothing lower-bound)
+                                                                      [:> (prs/unparse-type lower-bound)])
                                                                     (when-not (= r/-any upper-bound)
                                                                       [:< (prs/unparse-type upper-bound)]))))
                                                   bnds names))))))
