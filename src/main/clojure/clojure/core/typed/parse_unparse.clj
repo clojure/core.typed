@@ -13,6 +13,7 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.name-env :as name-env]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
@@ -339,8 +340,14 @@
   [t* polarity]
   {:pre [(r/Type? t*)]}
   (let [fnd-bnd #(find-bound* % polarity)
-        t (c/fully-resolve-type t*)]
+        t t*]
     (cond
+      (r/Name? t) (fnd-bnd (name-env/resolve-name* t))
+      (r/App? t) (c/resolve-App t)
+      (r/TApp? t) (c/resolve-TApp t)
+      (r/Mu? t) (let [name (c/Mu-fresh-symbol* t)
+                      body (c/Mu-body* name t)]
+                  (c/Mu* name (fnd-bnd body)))
       (r/Poly? t) (fnd-bnd (c/Poly-body* (c/Poly-fresh-symbols* t)) t)
       (r/TypeFn? t) (let [names (c/TypeFn-fresh-symbols* t)
                           body (c/TypeFn-body* names t)
