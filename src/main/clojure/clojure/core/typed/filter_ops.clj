@@ -376,7 +376,7 @@
           (let [{atomic true not-atomic false} (group-by atomic-filter? result)
                 ;_ (prn "not-atomic" (map clojure.core.typed.parse-unparse/unparse-filter not-atomic))
                 not-atomic* (for [p not-atomic
-                                  :when (not (some (fn [a] (implied-atomic? p a)) atomic))]
+                                  :when (not-any? (fn [a] (implied-atomic? p a)) atomic)]
                               p)]
             ;(prn "not-atomic*" (map clojure.core.typed.parse-unparse/unparse-filter not-atomic*))
              ;; `compact' takes care of implications between atomic props
