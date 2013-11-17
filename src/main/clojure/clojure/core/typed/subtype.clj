@@ -326,9 +326,7 @@
         (and (r/F? s)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name s))]
                (if-not bnd 
-                 (do #_(prn "No bounds in scope for " s)
-                     #_(try (throw (Exception. ""))
-                          (catch Throwable e (clojure.repl/pst e 1000))))
+                 (assert nil (str "No bounds for " (:name s)))
                  (and (subtype? upper-bound t)
                       (subtype? lower-bound t)))))
         *sub-current-seen*
@@ -336,7 +334,7 @@
         (and (r/F? t)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name t))]
                (if-not bnd 
-                 (do #_(prn "No bounds in scope for " t))
+                 (assert nil (str "No bounds for " (:name t)))
                  (and (subtype? s upper-bound)
                       (subtype? s lower-bound)))))
         *sub-current-seen*
