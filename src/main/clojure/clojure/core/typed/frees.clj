@@ -326,6 +326,23 @@
                                           (zipmap (keys fvs) (repeat :invariant))))))))
   )
 
+(t/tc-ignore
+(add-frees-method [::any-var Protocol]
+  [t]
+  (let [varis (:variances t)
+        args (:poly? t)]
+    (assert (= (count args) (count varis)))
+    (apply combine-frees (for> :- VarianceMap
+                           [[arg va] :- '[Any r/Variance], (map (-> vector 
+                                                                    (t/inst Any r/Variance Any Any Any Any))
+                                                                args varis)]
+                           (case va
+                             :covariant (frees arg)
+                             :contravariant (flip-variances (frees arg))
+                             :invariant (let [fvs (frees arg)]
+                                          (zipmap (keys fvs) (repeat :invariant))))))))
+  )
+
 (add-frees-method [::any-var Scope]
   [{:keys [body]}]
   (frees body))
