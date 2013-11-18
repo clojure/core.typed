@@ -989,7 +989,7 @@ clojure.string/join
          [Any (Option (Seqable Any)) -> String])
 
 clojure.core/interpose (All [x] (Fn [x (Option (Seqable x)) -> (Seq x)]))
-clojure.core/interleave (All [x] [(Option (Seqable x)) -> (Seq x)])
+clojure.core/interleave (All [x] [(Option (Seqable x)) (Option (Seqable x)) (Option (Seqable x)) * -> (Seq x)])
 
 clojure.core/repeat (All [x] 
                          (Fn [x -> (Seq x)]
