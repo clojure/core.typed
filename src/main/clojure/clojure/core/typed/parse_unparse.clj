@@ -13,6 +13,7 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.name-env :as name-env]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
@@ -76,7 +77,7 @@
 
 (declare find-lower-bound find-upper-bound infer-bounds)
 
-; parsing TFn, protocol, RCLass binders
+; parsing TFn, protocol, RClass binders
 (defn parse-free-with-variance [f]
   {:post [(u/hvector-c? symbol? r/Bounds?)]}
   (if (symbol? f)
@@ -209,11 +210,11 @@
                                           (parse-free fsyn))))
                                 [] (-> bnds butlast butlast))
         dvar (parse-free (-> bnds butlast last))]
-    (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
-                 (map second (concat frees-with-bnds [dvar]))
-                 (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
-                   (dvar/with-dotted [(r/make-F (first dvar))]
-                     (parse-type type))))))
+    (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
+      (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
+                   (map second (concat frees-with-bnds [dvar]))
+                     (dvar/with-dotted [(r/make-F (first dvar))]
+                       (parse-type type))))))
 
 ;(All [a b] type)
 (defmethod parse-all-type :default
@@ -226,9 +227,9 @@
                         (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) fs)
                           (parse-free fsyn))))
                 [] bnds)]
-    (c/Poly* (map first frees-with-bnds)
-             (map second frees-with-bnds)
-             (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
+    (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
+      (c/Poly* (map first frees-with-bnds)
+               (map second frees-with-bnds)
                (parse-type type)))))
 
 (defmethod parse-type-list 'Extends
@@ -339,8 +340,14 @@
   [t* polarity]
   {:pre [(r/Type? t*)]}
   (let [fnd-bnd #(find-bound* % polarity)
-        t (c/fully-resolve-type t*)]
+        t t*]
     (cond
+      (r/Name? t) (fnd-bnd (name-env/resolve-name* t))
+      (r/App? t) (c/resolve-App t)
+      (r/TApp? t) (c/resolve-TApp t)
+      (r/Mu? t) (let [name (c/Mu-fresh-symbol* t)
+                      body (c/Mu-body* name t)]
+                  (c/Mu* name (fnd-bnd body)))
       (r/Poly? t) (fnd-bnd (c/Poly-body* (c/Poly-fresh-symbols* t)) t)
       (r/TypeFn? t) (let [names (c/TypeFn-fresh-symbols* t)
                           body (c/TypeFn-body* names t)
@@ -408,14 +415,17 @@
         bodyt (free-ops/with-bounded-frees (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
                                                 free-maps)
                 (parse-type bodysyn))
-        vs (free-ops/with-bounded-frees (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
-                                             free-maps)
-             (frees/fv-variances bodyt))
-        _ (doseq [{:keys [nme variance]} free-maps]
-            (when-let [actual-v (vs nme)]
-              (when-not (= (vs nme) variance)
-                (u/int-error "Type variable " nme " appears in " (name actual-v) " position "
-                             "when declared " (name variance)))))]
+        ; We check variances lazily in TypeFn-body*. This avoids any weird issues with calculating
+        ; variances with potentially partially defined types.
+        ;vs (free-ops/with-bounded-frees (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
+        ;                                     free-maps)
+        ;     (frees/fv-variances bodyt))
+        ;_ (doseq [{:keys [nme variance]} free-maps]
+        ;    (when-let [actual-v (vs nme)]
+        ;      (when-not (= (vs nme) variance)
+        ;        (u/int-error (str "Type variable " nme " appears in " (name actual-v) " position "
+        ;                          "when declared " (name variance))))))
+        ]
     (c/TypeFn* (map :nme free-maps) (map :variance free-maps)
                (map :bound free-maps) bodyt)))
 
@@ -473,6 +483,12 @@
 
 
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]
+  (when mandatory
+    (when-not (map? mandatory)
+      (u/int-error (str "Mandatory entries to HMap must be a map: " mandatory))))
+  (when optional
+    (when-not (map? optional)
+      (u/int-error (str "Optional entries to HMap must be a map: " optional))))
   (letfn [(mapt [m]
             (into {} (for [[k v] m]
                        [(r/-val k)

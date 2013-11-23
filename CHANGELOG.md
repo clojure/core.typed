@@ -1,3 +1,63 @@
+# 0.2.19 - Released 11th November 2013
+
+## Fixes
+
+- Fix [CTYP-94](http://dev.clojure.org/jira/browse/CTYP-94) Better return type for `derive`
+
+## Misc
+
+- Remove a post-condition that incorrectly blows up with 0.2.17-0.2.18
+
+# 0.2.18 - Released 11th November 2013
+
+## Notes
+
+- Contains unintentional regression, fixed in 0.2.19
+
+## Enhancements
+
+- Better error reporing for HMap syntax
+
+## Fixes
+
+- Better occurrence typing updates for maps
+- Add KwArgsSeq fold cases
+- Fix copy/paste typo about lower bounds in docstrings
+
+# 0.2.17 - Released 8th November 2013
+
+## Notes
+
+- Contains unintentional regression, fixed in 0.2.19
+
+## Enhancements
+
+- Propagate more type information to map literals
+  - eg. vals are checked against [Number Number -> Number]
+    `(cf {:a #(+ %1 %2)} (Map Any [Number Number -> Number]))`
+  - currently Only works with Map/IPersistentMap
+- [CTYP-92](http://dev.clojure.org/jira/browse/CTYP-92) - Add [defn>](http://clojure.github.io/core.typed/#clojure.core.typed/defn>>)
+- Add [def>](http://clojure.github.io/core.typed/#clojure.core.typed/def>>)
+
+```
+(defn> add-two :- AnyInteger [a :- AnyInteger]
+  (+ a 2))
+
+(def> vname :- Long 1)
+```
+
+## Fixes
+
+- Better internal error checking in subtyping
+  - Found various bad arguments to subtype where it would previously
+    return `false` silently
+
+## Misc
+
+- `check-form-info` does not implicitly wrap the checked form with `ann-form`
+  when an expected type is provided. Doing so conflicts with the simple `collect`
+  strategy of only looking under `do` forms for global annotations.
+
 # 0.2.15-16
 
 ## Enhancements

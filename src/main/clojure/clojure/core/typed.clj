@@ -536,30 +536,56 @@ for checking namespaces, cf for checking individual forms."}
     [nil seq]))
 
 (defmacro
-  ^{:forms '[(defn> name docstring? :- type? [param :- type* & param :- type * ?] exprs*)
-             (defn> name docstring? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
+  ^{:forms '[(defn> name docstring? :- type [param :- type *] exprs*)
+             (defn> name docstring? (:- type [param :- type *] exprs*)+)]}
   defn>
   "Like defn, but with annotations. Annotations are mandatory for
   parameters and for return type.
 
   eg. (defn> fname :- Integer [a :- Number, b :- (U Symbol nil)] ...)
 
-      ;annotate return
-      (defn> :- String [a :- String] ...)
+  ;annotate return
+  (defn> :- String [a :- String] ...)
 
-      ;named fn
-      (defn> fname :- String [a :- String] ...)
+  ;named fn
+  (defn> fname :- String [a :- String] ...)
 
-      ;multi-arity
-      (defn> fname 
-        (:- String [a :- String] ...)
-        (:- Long   [a :- String, b :- Number] ...))"
-  [symbol & m0ar]
-  (let [[docstring m0ar] (take-when string? m0ar)
-        signature (defn>-parse-typesig m0ar)]
-    `(do (ann ~symbol ~signature)
-         (def ~symbol ^{:doc ~docstring} 
-           (fn> ~symbol ~@m0ar)))))
+  ;multi-arity
+  (defn> fname 
+    (:- String [a :- String] ...)
+    (:- Long   [a :- String, b :- Number] ...))"
+  [name & fdecl]
+  (let [[docstring fdecl] (take-when string? fdecl)
+        signature (defn>-parse-typesig fdecl)]
+    `(do (ann ~name ~signature)
+         ~(list* 'def name 
+                 (concat
+                   (when docstring [docstring])
+                   [`(fn> ~name ~@fdecl)])))))
+
+(defmacro
+  ^{:forms '[(def> name docstring? :- type expr)]}
+  def>
+  "Like def, but with annotations.
+
+  eg. (def> vname :- Long 1)
+
+  ;doc
+  (def> vname
+    \"Docstring\"
+    :- Long
+    1)"
+  [name & fdecl]
+  (let [[docstring fdecl] (take-when string? fdecl)
+        _ (assert (and (#{3} (count fdecl))
+                       (#{:-} (first fdecl)))
+                  (str "Bad def> syntax: " fdecl))
+        [_ tsyn body] fdecl]
+    `(do (ann ~name ~tsyn)
+         ~(list* 'def name 
+                 (concat
+                   (when docstring [docstring])
+                   [body])))))
 
 (defmacro 
   ^{:forms '[(letfn> [fn-spec-or-annotation*] expr*)]}
@@ -922,7 +948,7 @@ for checking namespaces, cf for checking individual forms."}
     lower bound.
   - :> (optional)
     The lower type bound of the type variable. Defaults to
-    Any, or the most general type of the same rank as the
+    Nothing, or the least general type of the same rank as the
     upper bound.
 
   eg. ; a datatype in the current namespace
@@ -999,7 +1025,7 @@ for checking namespaces, cf for checking individual forms."}
     lower bound.
   - :> (optional)
     The lower type bound of the type variable. Defaults to
-    Any, or the most general type of the same rank as the
+    Nothing, or the least general type of the same rank as the
     upper bound.
   
   eg. ; a record in the current namespace
@@ -1357,7 +1383,12 @@ for checking namespaces, cf for checking individual forms."}
   "Alpha - subject to change
 
   Type checks a (quoted) form and returns a map of results from type checking the
-  form."
+  form.
+  
+  Options
+  - :expected        Type syntax representing the expected type for this form
+                     type-provided? option must be true to utilise the type.
+  - :type-provided?  If true, use the expected type to check the form"
   [form & {:keys [expected type-provided?]}]
   (load-if-needed)
   (reset-caches)
@@ -1372,12 +1403,12 @@ for checking namespaces, cf for checking individual forms."}
       (impl/with-clojure-impl
         (binding [*currently-checking-clj* true
                   *delayed-errors* (-init-delayed-errors)]
-          (let [ast (ast-for-form (if type-provided?
-                                    `(ann-form ~form ~expected)
-                                    form))
+          (let [expected (when type-provided?
+                           (ret (parse-type expected)))
+                ast (ast-for-form form)
                 _ (collect ast)
                 _ (reset-caches)
-                c-ast (check ast)
+                c-ast (check ast expected)
                 res (expr-type c-ast)]
             {:delayed-errors @*delayed-errors*
              :ret res}))))))

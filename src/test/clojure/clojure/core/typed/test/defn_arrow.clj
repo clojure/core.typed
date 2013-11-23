@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.defn-arrow
   (:require [clojure.test :refer :all]
-            [clojure.core.typed :refer [defn> AnyInteger]]))
+            [clojure.core.typed :refer [defn> AnyInteger] :as t]))
 
 (def parse-typesig #'clojure.core.typed/defn>-parse-typesig)
 
@@ -15,10 +15,3 @@
        '(Fn [a -> b] [c -> d] [e -> f]) '((:- b [a0 :- a]) 
                                           (:- d [c0 :- c]) 
                                           (:- f [e0 :- e]))))
-
-(defn> add-two :- AnyInteger [a :- AnyInteger]
-  (+ a 2))
-
-(defn> add-three 
-  (:- AnyInteger [a :- AnyInteger]
-      (+ a 3)))

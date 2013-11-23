@@ -117,7 +117,9 @@
 ;TODO replace hardcoding cases for unfolding Mu? etc. with a single case for unresolved types.
 ;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
 (defn subtypeA* [A s t]
-  {:post [(set? %)]}
+  {:pre [(r/AnyType? s)
+         (r/AnyType? t)]
+   :post [(set? %)]}
   (if (or (u/p :subtype/query-current-seen
             (contains? A [s t]))
           (= s t)
@@ -129,6 +131,10 @@
     A
     (binding [*sub-current-seen* (u/p :subtype/extend-current-seen (conj A [s t]))]
       (cond
+        (or (r/TCResult? s)
+            (r/TCResult? t))
+        (assert nil "Cannot give TCResult to subtype")
+
         (and (r/Value? s)
              (r/Value? t))
         ;already (not= s t)
@@ -320,9 +326,7 @@
         (and (r/F? s)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name s))]
                (if-not bnd 
-                 (do #_(prn "No bounds in scope for " s)
-                     #_(try (throw (Exception. ""))
-                          (catch Throwable e (clojure.repl/pst e 1000))))
+                 (assert nil (str "No bounds for " (:name s)))
                  (and (subtype? upper-bound t)
                       (subtype? lower-bound t)))))
         *sub-current-seen*
@@ -330,7 +334,7 @@
         (and (r/F? t)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name t))]
                (if-not bnd 
-                 (do #_(prn "No bounds in scope for " t))
+                 (assert nil (str "No bounds for " (:name t)))
                  (and (subtype? s upper-bound)
                       (subtype? s lower-bound)))))
         *sub-current-seen*
@@ -361,16 +365,18 @@
         ; avoids infinite expansion because associng an F is a fixed point
         (and (r/AssocType? s)
              (not (r/F? (:target s))))
-        (if (subtype? (apply c/assoc-pairs-noret (:target s) (:entries s)) t)
-          *sub-current-seen*
-          (fail! s t))
+        (let [s-or-n (apply c/assoc-pairs-noret (:target s) (:entries s))]
+          (if (and s-or-n (subtype? s-or-n t))
+            *sub-current-seen*
+            (fail! s t)))
 
         ; avoids infinite expansion because associng an F is a fixed point
         (and (r/AssocType? t)
              (not (r/F? (:target t))))
-        (if (subtype? s (apply c/assoc-pairs-noret (:target t) (:entries t)))
-          *sub-current-seen*
-          (fail! s t))
+        (let [t-or-n (apply c/assoc-pairs-noret (:target t) (:entries t))]
+          (if (and t-or-n (subtype? s t-or-n))
+            *sub-current-seen*
+            (fail! s t)))
 
         (and (r/HeterogeneousVector? s)
              (r/HeterogeneousVector? t))
@@ -592,7 +598,7 @@
         (and (r/Result? s)
              (r/Result? t))
         (subtype-Result s t)
-        
+
         (and (r/PrimitiveArray? s)
              (r/PrimitiveArray? t))
         (subtype-PrimitiveArray s t)
@@ -1049,7 +1055,8 @@
                                                       (= (:the-class p) (:the-class t)))
                                              p))
                                          (map c/fully-resolve-type (datatype-ancestors s)))]
-    (if (subtype? s relevant-datatype-ancestor)
+    (if (and relevant-datatype-ancestor
+             (subtype? s relevant-datatype-ancestor))
       *sub-current-seen*
       (fail! s t))))
 

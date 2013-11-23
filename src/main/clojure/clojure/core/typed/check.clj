@@ -231,60 +231,87 @@
 (add-check-method :boolean [& args] (apply check-value args))
 (add-check-method :nil [& args] (apply check-value args))
 
+;(ann expected-vals [(Coll Type) (Nilable TCResult) -> (Coll (Nilable TCResult))])
+(defn expected-vals
+  "Returns a sequence of (Nilable TCResults) to use as expected types for type
+  checking the values of a literal map expression"
+  [key-types expected]
+  {:pre [(every? r/Type? key-types)
+         ((some-fn r/TCResult? nil?) expected)]
+   :post [(every? (some-fn nil? r/TCResult?) %)
+          (= (count %)
+             (count key-types))]}
+  (let [expected (when expected 
+                   (c/fully-resolve-type (ret-t expected)))
+        flat-expecteds (when expected
+                         (mapv c/fully-resolve-type
+                               (if (r/Union? expected)
+                                 (:types expected)
+                                 [expected])))
+        no-expecteds (repeat (count key-types) nil)]
+    (cond 
+      ; If every key in this map expression is a Value, let's try and
+      ; make use of our expected type for each individual entry. This is
+      ; most useful for `extend`, where we have HMaps of functions, and
+      ; we want to forward the expected types to each val, a function.
+      ;
+      ; The expected type also needs to be an expected shape:
+      ; - a HMap or union of just HMaps
+      ; - each key must have exactly one possible type if it is
+      ;   present
+      ; - if a key is absent in a HMap type, it must be explicitly
+      ;   absent
+      (and expected 
+           (every? r/Value? key-types)
+           (every? r/HeterogeneousMap? flat-expecteds))
+        (let [hmaps flat-expecteds]
+          (reduce (fn [val-expecteds ktype]
+                    ; also includes this contract wrapped in a Reduced
+                    ; The post-condition for `expected-vals` catches this anyway
+                    ;{:post [(every? (some-fn nil? r/TCResult?) %)]}
+
+                    (let [; find the ktype key in each hmap.
+                          ; - If ktype is present in :types then we either use the entry's val type 
+                          ; - if ktype is explicitly forbidden via :absent-keys or :other-keys
+                          ;   we skip the entry.
+                          ; - otherwise we give up and don't check this as a hmap, return nil
+                          ;   that gets propagated up
+                          corresponding-vals 
+                          (reduce (fn [corresponding-vals {:keys [types absent-keys other-keys?] :as hmap}]
+                                    (if-let [v (get types ktype)]
+                                      (conj corresponding-vals v)
+                                      (cond
+                                        (or (contains? absent-keys ktype)
+                                            (not other-keys?)) 
+                                        corresponding-vals
+                                        :else (reduced nil))))
+                                  #{} hmaps)
+                          val-expect (when (= 1 (count corresponding-vals))
+                                       (ret (first corresponding-vals)))]
+                      (if val-expect
+                        (conj val-expecteds val-expect)
+                        (reduced no-expecteds))))
+                  [] key-types))
+
+      ; If we expect an (IPersistentMap k v), just use the v as the expected val types
+      (and (r/RClass? expected)
+           (= (:the-class expected) 'clojure.lang.IPersistentMap))
+        (let [{[_ vt] :poly?} expected]
+          (map ret (repeat (count key-types) vt)))
+      ; otherwise we don't give expected types
+      :else no-expecteds)))
+
 (add-check-method :map
   [{:keys [keyvals] :as expr} & [expected]]
   (let [[keyexprs valexprs] (let [s (partition 2 keyvals)]
                               [(map first s) (map second s)])
         ckeyexprs (mapv check keyexprs)
-        ; If every key in this map expression is a Value, let's try and
-        ; make use of our expected type for each individual entry. This is
-        ; most useful for `extend`, where we have HMaps of functions, and
-        ; we want to forward the expected types to each val, a function.
-        ;
-        ; The expected type also needs to be an expected shape:
-        ; - a HMap or union of just HMaps
-        ; - each key must have exactly one possible type if it is
-        ;   present
-        ; - if a key is absent in a HMap type, it must be explicitly
-        ;   absent
-        expected (when expected 
-                   (c/fully-resolve-type (ret-t expected)))
         key-types (map (comp ret-t expr-type) ckeyexprs)
 
-        hmap-expecteds 
-        (when (and expected (every? r/Value? key-types))
-          (let [hmaps (mapv c/fully-resolve-type
-                            (if (r/Union? expected)
-                              (:types expected)
-                              [expected]))]
-            (when (every? r/HeterogeneousMap? hmaps)
-              (reduce (fn [val-expecteds ktype]
-                        (let [; find the ktype key in each hmap.
-                              ; - If ktype is present in :types then we either use the entry's val type 
-                              ; - if ktype is explicitly forbidden via :absent-keys or :other-keys
-                              ;   we skip the entry.
-                              ; - otherwise we give up and don't check this as a hmap, return nil
-                              ;   that gets propagated up
-                              corresponding-vals 
-                              (reduce (fn [corresponding-vals {:keys [types absent-keys other-keys?] :as hmap}]
-                                        (if-let [v (get types ktype)]
-                                          (conj corresponding-vals v)
-                                          (cond
-                                            (or (contains? absent-keys ktype)
-                                                (not other-keys?)) 
-                                            corresponding-vals
-                                            :else (reduced nil))))
-                                      #{} hmaps)
-                              val-expect (when (= 1 (count corresponding-vals))
-                                           (first corresponding-vals))]
-                          (if val-expect
-                            (conj val-expecteds val-expect)
-                            (reduced nil))))
-                      [] key-types))))
+        val-rets
+        (expected-vals key-types expected)
 
-        cvalexprs (if hmap-expecteds
-                    (mapv check valexprs (map ret hmap-expecteds))
-                    (mapv check valexprs))
+        cvalexprs (mapv check valexprs val-rets)
         val-types (map (comp ret-t expr-type) cvalexprs)
 
         ts (zipmap key-types val-types)
@@ -292,8 +319,9 @@
                  (c/-complete-hmap ts)
                  (c/RClass-of APersistentMap [(apply c/Un (keys ts))
                                               (apply c/Un (vals ts))]))
-        _ (when (and expected (not (sub/subtype? actual expected)))
-            (expected-error actual expected))]
+        _ (when expected
+            (when-not (sub/subtype? actual (ret-t expected))
+              (expected-error actual (ret-t expected))))]
     (assoc expr
            expr-type (ret actual (fo/-true-filter)))))
 
@@ -896,9 +924,9 @@
                                                            (symbol? nme)]}
                                                     (cond
                                                       (= nme dotted) [nme '...]
-                                                      :else (concat (when-not (= r/-nothing lower-bound)
-                                                                      [(prs/unparse-type lower-bound) :<])
-                                                                    [nme]
+                                                      :else (concat [nme]
+                                                                    (when-not (= r/-nothing lower-bound)
+                                                                      [:> (prs/unparse-type lower-bound)])
                                                                     (when-not (= r/-any upper-bound)
                                                                       [:< (prs/unparse-type upper-bound)]))))
                                                   bnds names))))))
@@ -3938,12 +3966,22 @@
                     :else old))]
     (if (sub/subtype? old initial) old initial)))
 
+(defn KeyPE->Type [k]
+  {:pre [(pe/KeyPE? k)]
+   :post [(r/Type? %)]}
+  (r/-val (:val k)))
+
 ; This is where filters are applied to existing types to generate more specific ones
 ;[Type Filter -> Type]
 (defn update [t lo]
+  {:pre [((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)]
+   :post [(r/Type? %)]}
   (u/p :check/update
   (let [t (c/fully-resolve-type t)]
     (cond
+      ; The easy cases: we have a filter without a further path to travel down.
+      ; Just update t with the correct polarity.
+
       (and (fl/TypeFilter? lo)
            (empty? (:path lo))) 
       (let [u (:type lo)
@@ -3957,6 +3995,8 @@
         (assert (Type? u))
         (remove* t u))
 
+      ; unwrap unions and intersections to update their members
+
       (r/Union? t) (let [ts (:types t)
                        new-ts (mapv (fn [t] 
                                       (let [n (update t lo)]
@@ -3969,81 +4009,47 @@
       ;from here, t is fully resolved and is not a Union or Intersection
 
       ;heterogeneous map ops
-      (and (fl/TypeFilter? lo)
+      ; Positive and negative information down a keyword path
+      ; eg. (number? (-> hmap :a :b))
+      (and ((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)
            (pe/KeyPE? (first (:path lo)))
            (r/HeterogeneousMap? t))
-      (let [{:keys [type path id]} lo
-            [{fpth-kw :val} & rstpth] path
-            next-filter (fo/-filter type id rstpth)
-            fpth (r/-val fpth-kw)
-            present? (contains? (:types t) fpth)
-            absent? (when-not present?
-                      (or ; absent if in :absent-keys
-                          (contains? (:absent-keys t) fpth)
-                          ; absent if no other keys
-                          (not (:other-keys? t))))
-            type-at-pth (or (get (:types t) fpth)
-                            (when-not absent?
-                              r/-any))]
-        ;updating a positive KeyPE should consider 3 cases:
+      (let [polarity (fl/TypeFilter? lo)
+            {update-to-type :type :keys [path id]} lo
+            [fkeype & rstpth] path
+            fpth (KeyPE->Type fkeype)
+            ; use this filter to update the right hand side value
+            next-filter ((if polarity fo/-filter fo/-not-filter) 
+                         update-to-type id rstpth)
+            present? (c/hmap-present-key? t fpth)
+            absent? (c/hmap-absent-key? t fpth)]
+        ;updating a KeyPE should consider 3 cases:
         ; 1. the key is declared present
-        ; 2. the key is not declared present, and is not declared absent
-        ; 3. the key is declared absent
-        (if type-at-pth 
-          (c/Un
-            ; assume key is present and update value type
-            (c/-hmap (assoc (:types t) fpth (update type-at-pth next-filter))
-                     (:absent-keys t)
-                     (:other-keys? t))
-            (let [val-maybe-nil? (not (r/Bottom? (update r/-nil next-filter)))]
-              ; is there any situation where the value could be nil?
-              (if val-maybe-nil?
-                ; if yes, assume key is absent.
-                ; handles (:a {}) => nil
-                (c/-hmap (:types t)
-                         (conj (:absent-keys t) fpth)
-                         (:other-keys? t))
-                ; otherwise, don't add to type
-                (c/Un))))
-          (c/Un)))
+        ; 2. the key is declared absent
+        ; 3. the key is not declared present, and is not declared absent
+        (cond
+          present?
+          ; -hmap simplifies to bottom if an entry is bottom
+          (c/-hmap (update-in (:types t) [fpth] update next-filter)
+                   (:absent-keys t)
+                   (:other-keys? t))
+          absent?
+          t
 
-      (and (fl/NotTypeFilter? lo)
-           (pe/KeyPE? (first (:path lo)))
-           (r/HeterogeneousMap? t))
-      (let [{:keys [type path id]} lo
-            [{fpth-kw :val} & rstpth] path
-            fpth (r/-val fpth-kw)
-            next-filter (fo/-not-filter type id rstpth)
-            present? (contains? (:types t) fpth)
-            absent? (when-not present?
-                      (or ; absent if in :absent-keys
-                          (contains? (:absent-keys t) fpth)
-                          ; absent if no other keys
-                          (not (:other-keys? t))))
-            type-at-pth (or (get (:types t) fpth)
-                            (when-not absent?
-                              r/-any))]
-        ;updating a negative KeyPE should consider 3 cases:
-        ; 1. the key is declared present
-        ; 2. the key is not declared present, and is not declared absent
-        ; 3. the key is declared absent
-        (if type-at-pth 
+          ; key not declared present or absent
+          :else
           (c/Un
-            ; key is present, update corresponding value
-            (c/-hmap (assoc (:types t) fpth (update type-at-pth next-filter))
+            (c/-hmap (assoc-in (:types t) [fpth] (update r/-any next-filter))
                      (:absent-keys t)
                      (:other-keys? t))
-            (let [val-maybe-nil? (not (r/Bottom? (update r/-nil next-filter)))]
-              ; is there any situation where the value could be nil?
-              (if val-maybe-nil?
-                ; if yes, assume key is absent.
-                ; handles (:a {}) => nil
+            ; if we can prove we only ever update this path to nil,
+            ; we can ignore the absent case.
+            (let [updated-nil (update r/-nil next-filter)]
+              (if-not (r/Bottom? updated-nil)
                 (c/-hmap (:types t)
                          (conj (:absent-keys t) fpth)
                          (:other-keys? t))
-                ; otherwise, don't add to type
-                (c/Un))))
-          (c/Un)))
+                r/-nothing)))))
 
       ; nil returns nil on keyword lookups
       (and (fl/NotTypeFilter? lo)
@@ -4051,6 +4057,8 @@
            (r/Nil? t))
       (update r/-nil (update-in lo [:path] rest))
 
+      ; update count information based on a call to `count`
+      ; eg. (= 1 (count a))
       (and (fl/TypeFilter? lo)
            (pe/CountPE? (first (:path lo))))
       (let [u (:type lo)]
@@ -4065,7 +4073,8 @@
            (pe/CountPE? (first (:path lo))))
       t
 
-      ;ClassPE
+      ; Update class information based on a call to `class`
+      ; eg. (= java.lang.Integer (class a))
       (and (fl/TypeFilter? lo)
            (pe/ClassPE? (-> lo :path first)))
       (let [_ (assert (empty? (rest (:path lo))))
@@ -4092,16 +4101,18 @@
            (pe/ClassPE? (-> lo :path first)))
       t
 
-      ;keyword invoke of non-hmaps
-      ;FIXME TypeFilter case can refine type further
+      ; keyword invoke of non-hmaps
+      ; (let [a (ann-form {} (Map Any Any))]
+      ;   (number? (-> a :a :b)))
+      ; 
+      ; I don't think there's anything interesting worth encoding:
+      ; use HMap for accurate updating.
       (and (or (fl/TypeFilter? lo)
                (fl/NotTypeFilter? lo))
            (pe/KeyPE? (first (:path lo))))
-      (do (assert (= (count (:path lo)) 1) 
-                  (str "Further path NYI " (pr-str (:path lo))
-                       (prs/unparse-type t)))
-          t)
+      t
 
+      ; calls to `keys` and `vals`
       (and ((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)
            ((some-fn pe/KeysPE? pe/ValsPE?) (first (:path lo))))
       (let [[fstpth & rstpth] (:path lo)
@@ -4427,24 +4438,18 @@
   (let [vsym (u/var->symbol var)
         warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (expr-ns expr))
         t (var-env/lookup-Var-nofail vsym)
-        ;def returns a Var
-        actual-t (c/RClass-of Var [(or t r/-any) (or t r/-any)])
-        _ (when (and expected (not (sub/subtype? actual-t (ret-t expected))))
-            (expected-error actual-t (ret-t expected)))
-        res-expr (assoc expr
-                        expr-type (ret actual-t))
         check? (var-env/check-var? vsym)]
     (cond
       (and check? t)
-      (let [cinit (cond 
-                    (not init-provided) expr ;handle `declare`
-                    check? (check init (ret t)))
-            _ (when (and init-provided check?)
-                (when (not (sub/subtype? (ret-t (expr-type cinit)) t))
+      (let [cinit (when init-provided
+                    (check init (ret t)))
+            _ (when cinit
+                (when-not (sub/subtype? (ret-t (expr-type cinit)) t)
                   (expected-error (ret-t (expr-type cinit)) t))
-                ;record checked definition
+                ; now consider this var as checked
                 (var-env/add-checked-var-def vsym))]
-        res-expr)
+        (assoc expr
+               expr-type (ret (c/RClass-of Var [t t]))))
       (or (not check?) 
           (and warn-if-unannotated?
                (not t)))
@@ -4452,11 +4457,13 @@
                      (str line ": ")) 
                    "Not checking" vsym "definition")
           (flush)
-          res-expr)
+          (assoc expr
+                 expr-type (ret (c/RClass-of Var [(or t r/-nothing) (or t r/-any)]))))
       :else (u/tc-delayed-error (str "Found untyped var definition: " vsym
                                      "\nHint: Add the annotation for " vsym
                                      " via check-ns or cf")
-                                :return res-expr))))
+                                :return (assoc expr
+                                               expr-type (ret (r/TCError-maker)))))))
 
 ;TODO print a hint that `ann` forms must be wrapping in `cf` at the REPL
 (add-check-method :def
@@ -4634,31 +4641,32 @@
   [{:keys [] :as expr} & [expected]]
   #_(prn "Checking case")
   ; tests have no duplicates
-  (let [;_ (prn (:the-expr expr))
-        cthe-expr (check (:the-expr expr))
-        etype (expr-type cthe-expr)
-        ctests (mapv check (:tests expr))
-        cdefault (check (:default expr))
-        cthens-and-envs (doall
-                          (for [[tst-ret thn] (map vector (map expr-type ctests) (:thens expr))]
-                            (let [{{fs+ :then} :fl :as rslt} (tc-equiv := etype tst-ret)
-                                  flag+ (atom true)
-                                  env-thn (env+ lex/*lexical-env* [fs+] flag+)
-                                  then-ret (var-env/with-lexical-env env-thn
-                                             (check thn))]
-                              [(assoc thn
-                                      expr-type (expr-type then-ret))
-                               env-thn])))
-        ;TODO consider tests that failed to refine env
-        cdefault (check (:default expr))
-        case-result (let [type (apply c/Un (map (comp :t expr-type) (cons cdefault (map first cthens-and-envs))))
-                          ; TODO
-                          filter (fo/-FS fl/-top fl/-top)
-                          ; TODO
-                          object obj/-empty]
-                      (ret type filter object))]
-    (assoc expr
-           expr-type case-result)))
+  (binding [vs/*current-expr* expr
+            vs/*current-env* (:env expr)]
+    (let [;_ (prn (:the-expr expr))
+          cthe-expr (check (:the-expr expr))
+          etype (expr-type cthe-expr)
+          ctests (mapv check (:tests expr))
+          cthens-and-envs (doall
+                            (for [[tst-ret thn] (map vector (map expr-type ctests) (:thens expr))]
+                              (let [{{fs+ :then} :fl :as rslt} (tc-equiv := etype tst-ret)
+                                    flag+ (atom true)
+                                    env-thn (env+ lex/*lexical-env* [fs+] flag+)
+                                    then-ret (var-env/with-lexical-env env-thn
+                                               (check thn expected))]
+                                [(assoc thn
+                                        expr-type (expr-type then-ret))
+                                 env-thn])))
+          ;TODO consider tests that failed to refine env
+          cdefault (check (:default expr) expected)
+          case-result (let [type (apply c/Un (map (comp :t expr-type) (cons cdefault (map first cthens-and-envs))))
+                            ; TODO
+                            filter (fo/-FS fl/-top fl/-top)
+                            ; TODO
+                            object obj/-empty]
+                        (ret type filter object))]
+      (assoc expr
+             expr-type case-result))))
 
 (add-check-method :catch
   [{ecls :class, :keys [handler local-binding] :as expr} & [expected]]

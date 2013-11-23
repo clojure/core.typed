@@ -18,11 +18,11 @@
 
 (t/ann ^:no-check lookup-name-table [Any -> (U nil Symbol (t/Coll Symbol))])
 (defn lookup-name-table [v]
-  (.get name-table v))
+  (.get ^java.util.WeakHashMap name-table v))
 
 (t/ann ^:no-check set-name-table! [Type (U Symbol (t/Coll Symbol)) -> nil])
 (defn set-name-table! [v n]
-  (.put name-table v n)
+  (.put ^java.util.WeakHashMap name-table v n)
   nil)
 
 (t/ann ^:no-check -FS-var [-> (t/Var1 [p/IFilter p/IFilter -> p/IFilterSet])])
@@ -653,7 +653,9 @@
 (u/ann-record TopFunction [])
 (u/def-type TopFunction []
   "Supertype to all functions"
-  [])
+  []
+  :methods
+  [p/TCType])
 
 (u/ann-record FnIntersection [types :- (t/NonEmptySeqable Function)])
 (u/def-type FnIntersection [types]
@@ -809,8 +811,9 @@
    (p/IFilterSet? fl)
    (p/IRObject? o)
    (FlowSet? flow)]
-  :methods
-  [p/TCAnyType])
+  ;:methods
+  ;[p/TCAnyType]
+  )
 
 (t/ann -flow [p/IFilter -> FlowSet])
 (defn -flow [normal]
