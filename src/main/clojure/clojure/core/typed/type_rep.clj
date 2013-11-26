@@ -384,10 +384,10 @@
                     rands :- (Seqable Type)])
 (u/def-type TApp [rator rands]
   "An application of a type function to arguments."
-  [((some-fn Name? TypeFn? F? B? Poly?) rator)
-   (every? (some-fn TypeFn? Type?) rands)]
+  [(Type? rator)
+   (every? Type? rands)]
   :methods
-  [p/TCType]);not always a type
+  [p/TCType])
 
 (u/ann-record App [rator :- Type,
                    rands :- (Seqable Type)])
