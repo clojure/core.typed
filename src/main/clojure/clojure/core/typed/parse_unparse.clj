@@ -77,11 +77,17 @@
 
 (declare find-lower-bound find-upper-bound infer-bounds)
 
+(def parsed-free-map? (u/hmap-c? :fname symbol?
+                                 :bnd r/Bounds?
+                                 :variance r/variance?))
+
 ; parsing TFn, protocol, RClass binders
-(defn parse-free-with-variance [f]
-  {:post [(u/hvector-c? symbol? r/Bounds?)]}
+(defn ^:private parse-free-with-variance [f]
+  {:post [(parsed-free-map? %)]}
   (if (symbol? f)
-    [f r/no-bounds]
+    {:fname f
+     :bnd r/no-bounds
+     :variance :invariant}
     (let [[n & {:keys [< > variance] :as opts}] f]
       (when (contains? opts :kind)
         (prn "DEPRECATED: kind annotation for TFn parameters"))
@@ -93,10 +99,23 @@
               (infer-bounds upper-or-nil lower-or-nil))
        :variance variance})))
 
+(defn parse-free-binder-with-variance [binder]
+  {:post [(every? parsed-free-map? %)]}
+  (reduce (fn [fs fsyn]
+            {:pre [(every? parsed-free-map? fs)]
+             :post [(every? parsed-free-map? %)]}
+            ;(prn "parse-free-binder-with-variance" (map :fname fs))
+            (conj fs
+                  (free-ops/with-bounded-frees 
+                    (zipmap (map (comp r/make-F :fname) fs)
+                            (map :bnd fs))
+                    (parse-free-with-variance fsyn))))
+          [] binder))
+
 ; parsing All binders
 ;return a vector of [name bnds]
 (defn parse-free [f]
-  {:post [(u/hvector-c? symbol? r/Bounds?)]}
+  {:post [((u/hvector-c? symbol? r/Bounds?) %)]}
   (if (symbol? f)
     [f r/no-bounds]
     (let [[n & {:keys [< >] :as opts}] f]
@@ -206,11 +225,11 @@
                                   {:pre [(vector? fs)]
                                    :post [(every? (u/hvector-c? symbol? r/Bounds?) %)]}
                                   (conj fs
-                                        (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) fs)
+                                        (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) fs))
                                           (parse-free fsyn))))
                                 [] (-> bnds butlast butlast))
         dvar (parse-free (-> bnds butlast last))]
-    (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
+    (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))
       (c/PolyDots* (map first (concat frees-with-bnds [dvar]))
                    (map second (concat frees-with-bnds [dvar]))
                      (dvar/with-dotted [(r/make-F (first dvar))]
@@ -224,10 +243,10 @@
                   {:pre [(vector? fs)]
                    :post [(every? (u/hvector-c? symbol? r/Bounds?) %)]}
                   (conj fs
-                        (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) fs)
+                        (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) fs))
                           (parse-free fsyn))))
                 [] bnds)]
-    (free-ops/with-bounded-frees (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds)
+    (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) frees-with-bnds))
       (c/Poly* (map first frees-with-bnds)
                (map second frees-with-bnds)
                (parse-type type)))))
@@ -255,8 +274,10 @@
   [syn]
   (parse-union-type syn))
 
+; don't do any simplification of the intersection because some types might
+; not be resolved
 (defn parse-intersection-type [[i & types]]
-  (apply c/In (doall (map parse-type types))))
+  (c/make-Intersection (doall (map parse-type types))))
 
 (defmethod parse-type-list 'I
   [syn]
@@ -342,9 +363,9 @@
   (let [fnd-bnd #(find-bound* % polarity)
         t t*]
     (cond
-      (r/Name? t) (fnd-bnd (name-env/resolve-name* t))
-      (r/App? t) (c/resolve-App t)
-      (r/TApp? t) (c/resolve-TApp t)
+      (r/Name? t) (fnd-bnd (c/resolve-Name t))
+      (r/App? t) (fnd-bnd (c/resolve-App t))
+      (r/TApp? t) (fnd-bnd (c/resolve-TApp t))
       (r/Mu? t) (let [name (c/Mu-fresh-symbol* t)
                       body (c/Mu-body* name t)]
                   (c/Mu* name (fnd-bnd body)))
@@ -412,8 +433,9 @@
                                                      (first s))
                                                    binder)
                     (mapv parse-tfn-binder binder))
-        bodyt (free-ops/with-bounded-frees (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
-                                                free-maps)
+        bodyt (free-ops/with-bounded-frees (into {}
+                                                 (map (fn [{:keys [nme bound]}] [(r/make-F nme) bound])
+                                                      free-maps))
                 (parse-type bodysyn))
         ; We check variances lazily in TypeFn-body*. This avoids any weird issues with calculating
         ; variances with potentially partially defined types.
@@ -965,6 +987,8 @@
 
 (defmethod unparse-type* F
   [{:keys [] :as f}]
+  ; Note: don't print f here, results in infinite recursion
+  ;(prn (-> f :name) (-> f :name meta))
   (r/F-original-name f))
 
 (defmethod unparse-type* PrimitiveArray
@@ -1028,7 +1052,9 @@
                  [(unparse-type rest) '*])
                (when drest
                  (let [{:keys [pre-type name]} drest]
-                   [(unparse-type pre-type) '... name]))
+                   [(unparse-type pre-type) 
+                    '... 
+                    (-> name r/make-F r/F-original-name)]))
                (when kws
                  (let [{:keys [optional mandatory]} kws]
                    (list* '& 
@@ -1080,7 +1106,8 @@
     (list 'Rec [nme] (unparse-type body))))
 
 (defn unparse-poly-bounds-entry [name {:keys [upper-bound lower-bound higher-kind] :as bnds}]
-  (let [u (when upper-bound 
+  (let [name (-> name r/make-F r/F-original-name)
+        u (when upper-bound 
             (unparse-type upper-bound))
         l (when lower-bound 
             (unparse-type lower-bound))
@@ -1118,6 +1145,7 @@
 (defmethod unparse-type* Poly
   [{:keys [nbound] :as p}]
   (let [free-names (c/Poly-fresh-symbols* p)
+        ;_ (prn "Poly unparse" free-names (map meta free-names))
         bbnds (c/Poly-bbnds* free-names p)
         binder (mapv unparse-poly-bounds-entry free-names bbnds)
         body (c/Poly-body* free-names p)]
@@ -1125,7 +1153,8 @@
 
 ;(ann unparse-typefn-bounds-entry [Symbol Bounds Variance -> Any])
 (defn unparse-typefn-bounds-entry [name {:keys [upper-bound lower-bound higher-kind]} v]
-  (let [u (when upper-bound 
+  (let [name (-> name r/make-F r/F-original-name)
+        u (when upper-bound 
             (unparse-type upper-bound))
         l (when lower-bound 
             (unparse-type lower-bound))
