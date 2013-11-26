@@ -1419,14 +1419,11 @@ for checking namespaces, cf for checking individual forms."}
   Same as check-ns, but returns a map of results from type checking the
   namespace."
   ([] (check-ns-info *ns*))
-  ([ns-or-sym & {:keys [collect-only trace]}]
+  ([ns-or-syms & {:keys [collect-only trace]}]
    (let [start (. System (nanoTime))]
      (load-if-needed)
      (reset-caches)
-     (let [nsym (if (symbol? ns-or-sym)
-                  ns-or-sym
-                  (ns-name ns-or-sym))
-           reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
+     (let [reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
                                     'reset-envs!)
            collect-ns @(ns-resolve (find-ns 'clojure.core.typed.collect-phase)
                                    'collect-ns)
@@ -1434,7 +1431,17 @@ for checking namespaces, cf for checking individual forms."}
                                           'check-ns-and-deps)
            vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
                                                  'vars-with-unchecked-defs)
-           uri-for-ns (impl/v 'clojure.tools.analyzer/uri-for-ns)]
+           uri-for-ns (impl/v 'clojure.tools.analyzer/uri-for-ns)
+           
+           nsym-coll (map #(if (symbol? %)
+                             ; namespace might not exist yet, so ns-name is not appropriate
+                             ; to convert to symbol
+                             %
+                             (ns-name %))
+                          (if ((some-fn symbol? #(instance? clojure.lang.Namespace %))
+                               ns-or-syms)
+                            [ns-or-syms]
+                            ns-or-syms))]
        (cond
          *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
 
@@ -1446,23 +1453,28 @@ for checking namespaces, cf for checking individual forms."}
                    *trace-checker* trace]
            (reset-envs!)
            (impl/with-clojure-impl
+             ;; collect
              (let [collect-start (. System (nanoTime))
-                   _ (collect-ns nsym)
+                   _ (doseq [nsym nsym-coll]
+                       (collect-ns nsym))
                    ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
                    collected @*already-collected*]
                (println "Collected" (count collected) "namespaces in" ms "msecs")
                (flush))
              ;(reset-caches)
+             ;
+             ;; check 
              (when-not collect-only
-               (check-ns-and-deps nsym))
+               (doseq [nsym nsym-coll]
+                 (check-ns-and-deps nsym)))
              (let [vs (vars-with-unchecked-defs)]
                (binding [*out* *err*]
                  (doseq [v vs]
                    (println "WARNING: Type Checker: Definition missing:" v 
                             "\nHint: Use :no-check metadata with ann if this is an unchecked var")
                    (flush))))
-;             (when-let [errors (seq @*delayed-errors*)]
-;               (print-errors! errors))
+             ;             (when-let [errors (seq @*delayed-errors*)]
+             ;               (print-errors! errors))
              (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
                    checked @*already-checked*
                    nlines (p/p :typed/line-count
@@ -1474,7 +1486,7 @@ for checking namespaces, cf for checking individual forms."}
              {:delayed-errors @*delayed-errors*})))))))
 
 (defn check-ns
-  "Type check a namespace (a symbol or Namespace).
+  "Type check a namespace/s (a symbol or Namespace, or collection).
   If not provided default to current namespace.
   Returns a true value if type checking is successful, otherwise
   throws an Exception.
@@ -1507,60 +1519,11 @@ for checking namespaces, cf for checking individual forms."}
       ; collect but don't check the current namespace
       (check-ns *ns* :collect-only true)"
   ([] (check-ns (ns-name *ns*)))
-  ([ns-or-sym & {:keys [collect-only trace]}]
-   (p/p :typed/check-ns
-  (let [start (. System (nanoTime))]
-    (load-if-needed)
-    (reset-caches)
-    (let [nsym (if (symbol? ns-or-sym)
-                 ns-or-sym
-                 (ns-name ns-or-sym))
-          reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
-                                   'reset-envs!)
-          collect-ns @(ns-resolve (find-ns 'clojure.core.typed.collect-phase)
-                                  'collect-ns)
-          check-ns-and-deps @(ns-resolve (find-ns 'clojure.core.typed.check)
-                                         'check-ns-and-deps)
-          vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
-                                                'vars-with-unchecked-defs)
-          uri-for-ns (impl/v 'clojure.tools.analyzer/uri-for-ns)]
-      (cond
-        *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
-
-        :else
-        (binding [*currently-checking-clj* true
-                  *delayed-errors* (-init-delayed-errors)
-                  *already-collected* (atom #{})
-                  *already-checked* (atom #{})
-                  *trace-checker* trace]
-          (reset-envs!)
-          (impl/with-clojure-impl
-            (let [collect-start (. System (nanoTime))
-                  _ (collect-ns nsym)
-                  ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                  collected @*already-collected*]
-                (println "Collected" (count collected) "namespaces in" ms "msecs")
-                (flush))
-            ;(reset-caches)
-            (when-not collect-only
-              (check-ns-and-deps nsym))
-            (let [vs (vars-with-unchecked-defs)]
-              (binding [*out* *err*]
-                (doseq [v vs]
-                  (println "WARNING: Type Checker: Definition missing:" v 
-                           "\nHint: Use :no-check metadata with ann if this is an unchecked var")
-                  (flush))))
-            (when-let [errors (seq @*delayed-errors*)]
-              (print-errors! errors))
-            (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                  checked @*already-checked*
-                  nlines (p/p :typed/line-count
-                          (apply + (for [nsym checked]
-                                (with-open [rdr (io/reader (uri-for-ns nsym))]
-                                  (count (line-seq rdr))))))]
-              (println "Checked" (count checked) "namespaces (approx." nlines "lines) in" ms "msecs")
-              (flush))
-            :ok))))))))
+  ([ns-or-syms & {:keys [collect-only trace] :as kw}]
+   (let [{:keys [delayed-errors]} (apply check-ns-info ns-or-syms (apply hash-map kw))]
+     (if-let [errors (seq delayed-errors)]
+       (print-errors! errors)
+       :ok))))
 
 ; (ann all-defs-in-ns [Namespace -> (Set Symbol)])
 (defn ^:private ^:no-wiki 
