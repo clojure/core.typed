@@ -241,7 +241,7 @@ for checking namespaces, cf for checking individual forms."}
                                (loop> [~gxs :- (~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~gxs]
                                  (when-first [~bind ~gxs]
                                    ~(do-mod mod-pairs)))))
-                           [(~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~'-> (~'clojure.lang.LazySeq ~ret-ann)])
+                           [(~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~'-> (~'clojure.core.typed/Seq ~ret-ann)])
                         #_"inner-most loop"
                         (let [gi (gensym "i__")
                               gb (gensym "b__")
@@ -285,7 +285,7 @@ for checking namespaces, cf for checking individual forms."}
                                             (let [~bind (first ~gxs)]
                                               ~(do-mod mod-pairs)))))))
                              [(~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~'->
-                              (~'clojure.lang.LazySeq ~ret-ann)])))))]
+                              (~'clojure.core.typed/Seq ~ret-ann)])))))]
     `(let [iter# ~(emit-bind (to-groups seq-exprs))]
         (iter# ~(second seq-exprs)))))
 
