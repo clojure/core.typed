@@ -14,8 +14,11 @@
 - Protocols type binders are scoped like TFn, with bounds being parsed with any type variables
   that appear above it in scope.
 
-## Misc
+## Enhancements
 
+- `check-ns` and `check-ns-info` now can take a collection of namespace/symbols to check.
+  The namespaces will be checked in batch, without rechecking common dependencies.
+  - around 2-5x faster for batches of interconnected namespaces
 - Polymorphic errors print bounds more consistently
   - when errors have type variables, they include upper/lower bounds if they are anything
     other than Any/Nothing respectively.
