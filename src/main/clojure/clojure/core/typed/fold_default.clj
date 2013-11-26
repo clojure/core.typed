@@ -5,6 +5,7 @@
             [clojure.core.typed.filter-rep]
             [clojure.core.typed.filter-ops :as fops]
             [clojure.core.typed.object-rep]
+            [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.path-rep])
   (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass JSNominal App TApp
@@ -125,30 +126,40 @@
                        (fn [^TypeFn ty _]
                          (let [names (c/TypeFn-fresh-symbols* ty)
                                body (c/TypeFn-body* names ty)
-                               bbnds (c/TypeFn-bbnds* names ty)]
+                               bbnds (c/TypeFn-bbnds* names ty)
+                               bmap (zipmap (map r/make-F names) bbnds)]
                            (c/TypeFn* names 
-                                    (.variances ty)
-                                    (mapv #(r/visit-bounds % type-rec) bbnds)
-                                    (type-rec body)))))
+                                      (.variances ty)
+                                      (free-ops/with-bounded-frees bmap
+                                        (mapv #(r/visit-bounds % type-rec) bbnds))
+                                      (free-ops/with-bounded-frees bmap
+                                        (type-rec body))))))
 
 
 (add-default-fold-case Poly
                        (fn [^Poly ty _]
                          (let [names (c/Poly-fresh-symbols* ty)
                                body (c/Poly-body* names ty)
-                               bbnds (c/Poly-bbnds* names ty)]
+                               bbnds (c/Poly-bbnds* names ty)
+                               bmap (zipmap (map r/make-F names) bbnds)]
                            (c/Poly* names 
-                                  (mapv #(r/visit-bounds % type-rec) bbnds)
-                                  (type-rec body)))))
+                                    (free-ops/with-bounded-frees bmap
+                                      (mapv #(r/visit-bounds % type-rec) bbnds))
+                                    (free-ops/with-bounded-frees bmap
+                                      (type-rec body))))))
 
 (add-default-fold-case PolyDots
                        (fn [^PolyDots ty _]
                          (let [names (c/PolyDots-fresh-symbols* ty)
                                body (c/PolyDots-body* names ty)
-                               bbnds (c/PolyDots-bbnds* names ty)]
+                               bbnds (c/PolyDots-bbnds* names ty)
+                               ; don't scope the dotted bound
+                               bmap (zipmap (map r/make-F (rest names)) (rest bbnds))]
                            (c/PolyDots* names 
-                                        (mapv #(r/visit-bounds % type-rec) bbnds)
-                                        (type-rec body)))))
+                                        (free-ops/with-bounded-frees bmap
+                                          (mapv #(r/visit-bounds % type-rec) bbnds))
+                                        (free-ops/with-bounded-frees bmap
+                                          (type-rec body))))))
 
 (add-default-fold-case Mu
                        (fn [ty _]
