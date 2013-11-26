@@ -39,8 +39,9 @@
 (ann-protocol [[x :variance :invariant]]
               cljs.core.async.impl.protocols/Buffer)
 
-(ann-datatype [[w :variance :covariant]
-               [r :variance :contravariant]]
+;unchecked-ancestors NYI
+#_(ann-datatype [[w :variance :contravariant]
+               [r :variance :covariant]]
               cljs.core.async.impl.channels.ManyToManyChannel 
               []
               :ancestors [(cljs.core.async.impl.protocols/Channel w r)
