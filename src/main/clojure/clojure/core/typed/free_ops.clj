@@ -56,6 +56,8 @@
   (when-let [f (free-in-scope name)]
     (bnds/lookup-tvar-bnds (:name f))))
 
+(def frees-map? (u/hash-c? symbol? (u/hmap-c? :F r/F? :bnds r/Bounds?)))
+
 ; we used to have scopes and bounds in the same map. To avoid changing the interface,
 ; with-free-mappings now handles frees-map to do scoping and bounds in separate bindings.
 ;
@@ -65,6 +67,8 @@
 (defmacro with-free-mappings
   [frees-map & body]
   `(let [frees-map# ~frees-map
+         _# (assert (frees-map? frees-map#)
+                    frees-map#)
          scoped-names# (keys frees-map#)
          fresh-names# (map (comp :name :F) (vals frees-map#))
          bndss# (map :bnds (vals frees-map#))]
@@ -72,12 +76,17 @@
        (bnds/with-extended-bnds fresh-names# bndss#
          ~@body))))
 
+(def bounded-frees? (u/hash-c? r/F? r/Bounds?))
+
 (defmacro with-bounded-frees
   "Scopes bfrees, a map of instances of F to their bounds, inside body."
   [bfrees & body]
-  `(with-free-mappings (into {} (for [[f# bnds#] ~bfrees]
-                                  [(:name f#) {:F f# :bnds bnds#}]))
-     ~@body))
+  `(let [bfrees# ~bfrees
+         _# (assert (bounded-frees? bfrees#)
+                    bfrees#)]
+     (with-free-mappings (into {} (for [[f# bnds#] bfrees#]
+                                    [(:name f#) {:F f# :bnds bnds#}]))
+       ~@body)))
 
 (defmacro with-frees
   "Scopes frees, which are instances of F, inside body, with
