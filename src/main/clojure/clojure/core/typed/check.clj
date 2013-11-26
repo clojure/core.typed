@@ -929,7 +929,7 @@
                                                                       [:> (prs/unparse-type lower-bound)])
                                                                     (when-not (= r/-any upper-bound)
                                                                       [:< (prs/unparse-type upper-bound)]))))
-                                                  bnds names))))))
+                                                  bnds (map (comp r/F-original-name r/make-F) names)))))))
           "\n\nDomains:\n\t" 
           (clojure.string/join "\n\t" 
                                (map (partial apply pr-str) 
@@ -938,7 +938,9 @@
                                                    (when rest
                                                      [(prs/unparse-type rest) '*])
                                                    (when-let [{:keys [pre-type name]} drest]
-                                                     [(prs/unparse-type pre-type) '... name])
+                                                     [(prs/unparse-type pre-type) 
+                                                      '... 
+                                                      (-> name r/make-F r/F-original-name)])
                                                    (letfn [(readable-kw-map [m]
                                                              (into {} (for [[k v] m]
                                                                         (do (assert (r/Value? k))
@@ -2870,10 +2872,10 @@
                                                                     (map #(hash-map :F %1 :bnds %2) inst-frees bnds))
                                                       :PolyDots (zipmap (map r/F-original-name (next inst-frees))
                                                                         (map #(hash-map :F %1 :bnds %2) (next inst-frees) (next bnds)))
-                                                      nil)
+                                                      {})
                          (dvar-env/with-dotted-mappings (case poly?
                                                           :PolyDots {(-> inst-frees last r/F-original-name) (last inst-frees)}
-                                                          nil)
+                                                          {})
                            (apply r/make-FnIntersection
                                   (doall
                                     (mapcat (fn [method]
@@ -4121,11 +4123,12 @@
 
             ; solve for x:  t <: (Seqable x)
             x (gensym)
-            subst (u/handle-cs-gen-failure
-                    (cgen/infer {x r/no-bounds} {} 
-                                [u]
-                                [(c/RClass-of clojure.lang.Seqable [(r/make-F x)])]
-                                r/-any))
+            subst (free-ops/with-bounded-frees {(r/make-F x) r/no-bounds}
+                    (u/handle-cs-gen-failure
+                      (cgen/infer {x r/no-bounds} {} 
+                                  [u]
+                                  [(c/RClass-of clojure.lang.Seqable [(r/make-F x)])]
+                                  r/-any)))
             ;_ (prn "subst for Keys/Vals" subst)
             _ (when-not subst
                 (u/int-error (str "Cannot update " (if (pe/KeysPE? fstpth) "keys" "vals") " of an "
@@ -4325,7 +4328,7 @@
             flag- (atom true :validator u/boolean?)
 
             ;_ (print-env)
-            idsym (gensym)
+            ;idsym (gensym)
             env-thn (env+ lex/*lexical-env* [fs+] flag+)
             ;          _ (do (pr "check-if: env-thn")
             ;              (print-env* env-thn))
@@ -4495,7 +4498,7 @@
      (c/TypeFn-body* nms dt)
      dt))
   ([dt] (let [nms (when (r/TypeFn? dt)
-                    (repeatedly (:nbound dt) gensym))]
+                    (c/TypeFn-fresh-symbols* dt))]
           (unwrap-tfn dt nms))))
 
 ;FIXME I think this hurts more than it helps
@@ -4512,7 +4515,7 @@
      (c/TypeFn-body* nms dt)
      dt))
   ([dt] (let [nms (when (r/TypeFn? dt)
-                    (repeatedly (:nbound dt) gensym))]
+                    (c/TypeFn-fresh-symbols* dt))]
           (unwrap-datatype dt nms))))
 
 ; don't check these implicit methods in a record
