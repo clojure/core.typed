@@ -777,17 +777,21 @@ clojure.core/take-while (All [x y]
                                  [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seq y)]
                                  [[x -> Any] (Option (Seqable x)) -> (Seq x)]))
 clojure.core/drop-while (All [x]
-                               [[x -> Any] (Option (Seqable x)) -> (Seqable x)])
+                               [[x -> Any] (Option (Seqable x)) -> (Seq x)])
 
 clojure.core/split-with 
      (All [x y z] 
        (Fn
-         [[x -> Any :filters {:then (is y 0), :else (is z 0)}] (Option (Seqable x)) -> '[(Seqable y) (Seqable z)]]
-         [[x -> Any] (Option (Seqable x)) -> '[(Seqable x) (Seqable x)]]))
+         [[x -> Any :filters {:then (is y 0), :else (is z 0)}] (Option (Seqable x)) -> '[(Seq y) (Seq z)]]
+         [[x -> Any] (Option (Seqable x)) -> '[(Seq x) (Seq x)]]))
 
 clojure.core/split-at
      (All [x y z] 
-          [AnyInteger (Option (Seqable x)) -> '[(Seqable x) (Seqable x)]])
+          [AnyInteger (Option (Seqable x)) -> '[(Seq x) (Seq x)]])
+
+clojure.core/partition-all (All [x] 
+                             (Fn [Int (Nilable (Seqable x)) -> (Seq (Seq x))] 
+                                 [Int Int (Nilable (Seqable x)) -> (Seq (Seq x))]))
 
 clojure.core/repeatedly 
      (All [x]
