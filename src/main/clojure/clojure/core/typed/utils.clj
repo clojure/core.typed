@@ -22,6 +22,8 @@
 (t/ann ^:no-check taoensso.timbre.profiling/*pdata* (t/Atom1 Any))
 (t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure [-> Any])
 
+(t/ann ^:no-check int-error [String -> Nothing])
+
 (t/ann subtype-exn Exception)
 (def subtype-exn (Exception. "Subtyping failed."))
 (t/ann cs-gen-exn Exception)
