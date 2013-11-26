@@ -63,6 +63,7 @@
 (defn resolve-protocol [sym]
   (assert-protocol-env)
   (let [p (get-protocol sym)]
-    (assert p (str "Could not resolve Protocol: " sym))
+    (when-not p 
+      (u/int-error (str "Could not resolve Protocol: " sym)))
     p))
 
