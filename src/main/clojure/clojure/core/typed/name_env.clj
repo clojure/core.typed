@@ -131,7 +131,8 @@
 
 (ann ^:no-check resolve-name* [Symbol -> r/Type])
 (defn resolve-name* [sym]
-  {:post [(r/Type? %)]}
+  {:pre [(symbol? sym)]
+   :post [(r/Type? %)]}
   (let [t (get-type-name sym)
         tfn ((some-fn dtenv/get-datatype 
                       prenv/get-protocol
