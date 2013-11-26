@@ -1,3 +1,32 @@
+# 0.2.20-SNAPSHOT
+
+## BREAKING CHANGES
+
+- All functions in base-env that return LazySeq have been changed to Seq
+  - also includes for>
+
+## Fixes
+
+- Fix [CTYP-95](http://dev.clojure.org/jira/browse/CTYP-95) Wrong annotation for `reset!`
+- Fix the `clojure.lang.Associative` ancestor for `APersistentMap` and `PersistentHashMap`
+- Type errors in `ann-protocol` et al. now have line numbers
+- Fix [CTYP-86](http://dev.clojure.org/jira/browse/CTYP-86) Fix `interleave` annotation
+- Protocols type binders are scoped like TFn, with bounds being parsed with any type variables
+  that appear above it in scope.
+
+## Misc
+
+- Polymorphic errors print bounds more consistently
+  - when errors have type variables, they include upper/lower bounds if they are anything
+    other than Any/Nothing respectively.
+    
+    Previously a type variable `a` would print `Lower :< a :< Higher` in an error.
+
+    This is a problem if Lower is itself type variable because it is hard to tell where
+    the lower bound is. The same error now prints `a :> Lower :< Higher`
+- add annotation for `clojure.core/partition-all`
+- Various tweaks to type signatures changing Seqable return types to Seq
+
 # 0.2.19 - Released 11th November 2013
 
 ## Fixes
