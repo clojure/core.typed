@@ -6,7 +6,7 @@
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as or]
             ; use subtype? utility defined in this namespace
-            [clojure.core.typed.subtype]
+            [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.cs-rep :as cr]
             [clojure.core.typed.current-impl :as impl]
@@ -406,41 +406,44 @@
             ; than one member of the intersection. eg. (I x y)
             ; The current implementation is useful for types like (I (Seqable Any) (CountRange 1))
             ; so we want to preserve the current behaviour while handling the other cases intelligently.
-            (for [t* (:types T)]
-              (if-let [results (doall
-                                 (seq (filter (t/inst identity (U false r/Type))
-                                              (map (fn> [s* :- r/Type]
-                                                     (handle-failure
-                                                       (cs-gen V X Y s* t*)))
-                                                   (:types S)))))]
-                (cset-combine results)
-                ; check this invariant after instantiation, and don't use this
-                ; relationship to constrain any variables.
-                (do
-                  ;(prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
-                  (-> (cr/empty-cset X Y)
-                      (insert-delayed-constraint S T)))))))
+            (let [ss (sub/simplify-In S)]
+              (for [t* (sub/simplify-In T)]
+                (if-let [results (doall
+                                   (seq (filter (t/inst identity (U false r/Type))
+                                                (map (fn> [s* :- r/Type]
+                                                       (handle-failure
+                                                         (cs-gen V X Y s* t*)))
+                                                     ss))))]
+                  (cset-combine results)
+                  ; check this invariant after instantiation, and don't use this
+                  ; relationship to constrain any variables.
+                  (do
+                    ;(prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
+                    (-> (cr/empty-cset X Y)
+                        (insert-delayed-constraint S T))))))))
 
         ;; find *an* element of S which can be made a subtype of T
         (r/Intersection? S)
-        (if (some r/F? (:types S)) 
-          ; same as Intersection <: Intersection case
-          (do ;(prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
-              (-> (cr/empty-cset X Y)
-                  (insert-delayed-constraint S T)))
-          (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
-                            (:types S))]
-            (do ;(prn "intersection S normal case" (map prs/unparse-type [S T]))
-                cs)
-            (fail! S T)))
+        (let [ss (sub/simplify-In S)]
+          (if (some r/F? ss) 
+            ; same as Intersection <: Intersection case
+            (do ;(prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
+                (-> (cr/empty-cset X Y)
+                    (insert-delayed-constraint S T)))
+            (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
+                              ss)]
+              (do ;(prn "intersection S normal case" (map prs/unparse-type [S T]))
+                  cs)
+              (fail! S T))))
 
         ;constrain *every* element of T to be above S, and then meet the constraints
         ; we meet instead of cset-combine because we want all elements of T to be under
         ; S simultaneously.
         (r/Intersection? T)
-        (cset-meet*
-          (cons (cr/empty-cset X Y)
-                (mapv #(cs-gen V X Y S %) (:types T))))
+        (let [ts (sub/simplify-In T)]
+          (cset-meet*
+            (cons (cr/empty-cset X Y)
+                  (mapv #(cs-gen V X Y S %) ts))))
 
         (and (r/Extends? S)
              (r/Extends? T))
