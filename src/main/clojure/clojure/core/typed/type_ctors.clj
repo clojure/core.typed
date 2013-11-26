@@ -401,6 +401,8 @@
        (TypeFn* names variances bnds p)
        p))))
 
+(declare TypeFn-fresh-symbols*)
+
 (t/ann ^:no-check JSNominal-of (Fn [Symbol -> r/Type]
                                    [Symbol (U nil (Seqable r/Type)) -> r/Type]))
 (defn JSNominal-of
@@ -765,6 +767,7 @@
         ; these names are eliminated immediately, they don't need to be
         ; created with fresh-symbol
         names (repeatedly (count ts) gensym)
+        ;_ (prn "inst-and-subst" names)
         fs (map r/make-F names)
         t (instantiate-many names target)
         _ (assert (r/Type? t))
@@ -792,8 +795,9 @@
   (u/p :ctors/RClass-unchecked-ancestors*
   (let [subst-all @(subst-all-var)
         poly (.poly? rcls)
-        names (repeatedly (count poly) gensym)
+        names (repeatedly (count poly) #(gensym "unchecked-ancestor"))
         fs (map r/make-F names)]
+    ;(prn "RClass-unchecked-ancestors*" names)
     (set (for [u (.unchecked-ancestors rcls)]
            (let [t (instantiate-many names u)
                  subst (make-simple-substitution names poly)]
@@ -867,16 +871,17 @@
          (apply = (map count [names variances bbnds]))
          ((some-fn r/TypeFn? r/Type?) body)]
    :post [(r/Type? %)]}
-  (if (empty? names)
-    body
-    (let [t (r/TypeFn-maker (count names) 
-                            variances
-                            (vec
-                              (for [bnd bbnds]
-                                (r/visit-bounds bnd #(abstract-many names %))))
-                            (abstract-many names body))]
-      (r/set-name-table! t names)
-      t)))
+  (let [original-names (map (comp r/F-original-name r/make-F) names)]
+    (if (empty? names)
+      body
+      (let [t (r/TypeFn-maker (count names) 
+                              variances
+                              (vec
+                                (for [bnd bbnds]
+                                  (r/visit-bounds bnd #(abstract-many names %))))
+                              (abstract-many names body))]
+        (r/set-name-table! t original-names)
+        t))))
 
 ;smart destructor
 (t/ann ^:no-check TypeFn-body* [(Seqable Symbol) TypeFn -> r/Type])
@@ -885,19 +890,22 @@
          (r/TypeFn? typefn)]}
   (u/p :ctors/TypeFn-body*
   (assert (= (:nbound typefn) (count names)) "Wrong number of names")
-  (let [body (instantiate-many names (:scope typefn))
+  (let [bbnds (TypeFn-bbnds* names typefn)
+        body (free-ops/with-bounded-frees
+               (zipmap (map r/make-F names) bbnds)
+               (instantiate-many names (:scope typefn)))
         ; We don't check variances are consistent at parse-time. Instead
         ; we check at instantiation time. This avoids some implementation headaches,
         ; like dealing with partially defined types.
-        bbnds (TypeFn-bbnds* names typefn)
         fv-variances (impl/v 'clojure.core.typed.frees/fv-variances)
         vs (free-ops/with-bounded-frees 
-             (map vector (map r/make-F names) bbnds)
+             (zipmap (map r/make-F names) bbnds)
              (fv-variances body))
         _ (doseq [[nme variance] (map vector names (:variances typefn))]
             (when-let [actual-v (vs nme)]
               (when-not (= (vs nme) variance)
-                (u/int-error (str "Type variable " nme " appears in " (name actual-v) " position "
+                (u/int-error (str "Type variable " (-> nme r/make-F r/F-original-name) 
+                                  " appears in " (name actual-v) " position "
                                   "when declared " (name variance))))))]
     body)))
 
@@ -924,7 +932,7 @@
   {:pre [(r/TypeFn? tfn)]
    :post [((every-pred seq (u/every-c? symbol?)) %)]}
   (map fresh-symbol (or (TypeFn-free-names* tfn)
-                        (repeatedly (:nbound tfn) gensym))))
+                        (repeatedly (:nbound tfn) #(gensym "fresh-sym")))))
 
 ;; Poly
 
@@ -940,7 +948,9 @@
 ;;
 (t/ann ^:no-check Poly* [(Seqable Symbol) (Seqable Bounds) r/Type (Seqable Symbol) 
                          & :optional {:original-names (Seqable Symbol)} -> r/Type])
-(defn Poly* [names bbnds body & {:keys [original-names] :or {original-names names}}]
+(defn Poly* [names bbnds body & {:keys [original-names] 
+                                 :or {original-names 
+                                      (map (comp r/F-original-name r/make-F) names)}}]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
          (r/Type? body)
@@ -957,7 +967,7 @@
       v)))
 
 (t/ann ^:no-check Poly-free-names* [Poly -> (U nil (Seqable Symbol))])
-(defn ^:private Poly-free-names* [poly]
+(defn Poly-free-names* [poly]
   {:pre [(r/Poly? poly)]
    :post [((some-fn nil? 
                     (every-pred seq (u/every-c? symbol?)))
@@ -968,17 +978,10 @@
 (defn Poly-fresh-symbols* [poly]
   {:pre [(r/Poly? poly)]
    :post [((every-pred seq (u/every-c? symbol?)) %)]}
+  ;(prn "Poly-fresh-symbols*" (:scope poly))
   (map fresh-symbol (or (Poly-free-names* poly)
-                        (repeatedly (:nbound poly) gensym))))
-
-;smart destructor
-(t/ann ^:no-check Poly-body* [(Seqable Symbol) Poly -> r/Type])
-(defn Poly-body* [names ^Poly poly]
-  {:pre [(every? symbol? names)
-         (r/Poly? poly)]}
-  (u/p :ctors/Poly-body*
-  (assert (= (.nbound poly) (count names)) "Wrong number of names")
-  (instantiate-many names (.scope poly))))
+                        ;(assert nil "no poly free names")
+                        (repeatedly (:nbound poly) #(gensym "Poly-fresh-sym")))))
 
 (t/ann ^:no-check Poly-bbnds* [(Seqable Symbol) Poly -> (Seqable Bounds)])
 (defn Poly-bbnds* [names ^Poly poly]
@@ -989,12 +992,25 @@
           (r/visit-bounds b #(instantiate-many names %)))
         (.bbnds poly)))
 
+;smart destructor
+(t/ann ^:no-check Poly-body* [(Seqable Symbol) Poly -> r/Type])
+(defn Poly-body* [names poly]
+  {:pre [(every? symbol? names)
+         (r/Poly? poly)]}
+  (u/p :ctors/Poly-body*
+  (let [bbnds (Poly-bbnds* names poly)]
+    (assert (= (:nbound poly) (count names)) "Wrong number of names")
+    (free-ops/with-bounded-frees
+      (zipmap (map r/make-F names) bbnds)
+      (instantiate-many names (:scope poly))))))
+
 ;; PolyDots
 
 ;smart constructor
 (t/ann ^:no-check PolyDots* [(Seqable Symbol) (Seqable Bounds) r/Type 
-                             & :optional {:original-names (Seqable Symbol)}-> r/Type])
-(defn PolyDots* [names bbnds body & {:keys [original-names] :or {original-names names}}]
+                             & :optional {:original-names (Seqable Symbol)} -> r/Type])
+(defn PolyDots* [names bbnds body & {:keys [original-names] 
+                                     :or {original-names (map (comp r/F-original-name r/make-F) names)}}]
   {:pre [(every? symbol names)
          (every? r/Bounds? bbnds)
          (r/Type? body)]}
@@ -1053,15 +1069,21 @@
              [v (crep/->t-subst t r/no-bounds)])))
 
 (t/ann ^:no-check instantiate-typefn [TypeFn (Seqable r/Type) -> r/Type])
-(defn instantiate-typefn [^TypeFn t types]
+(defn instantiate-typefn [t types & {:keys [names]
+                                     :or {names (TypeFn-fresh-symbols* t)}}]
   (let [subst-all @(subst-all-var)
         unparse-type @(unparse-type-var)]
-    (assert (r/TypeFn? t) (str "instantiate-typefn requires a TypeFn: " (unparse-type t)))
-    (do (assert (= (.nbound t) (count types)) (u/error-msg "Wrong number of arguments passed to type function: "
-                                                         (unparse-type t) (mapv unparse-type types)))
-        (let [nms (TypeFn-fresh-symbols* t)
-              body (TypeFn-body* nms t)]
-          (subst-all (make-simple-substitution nms types) body)))))
+    (when-not (r/TypeFn? t) (u/int-error (str "instantiate-typefn requires a TypeFn: " (unparse-type t))))
+    (do (when-not (= (:nbound t) (count types)) 
+          (u/int-error
+            (str "Wrong number of arguments passed to type function. Expected "
+                 (:nbound t) ", actual " (count types) ": "
+                 (unparse-type t) " " (mapv unparse-type types))))
+        (let [bbnds (TypeFn-bbnds* names t)
+              body (TypeFn-body* names t)]
+          ;(prn "subst" names (map meta names))
+          (free-ops/with-bounded-frees (zipmap (map r/make-F names) bbnds)
+            (subst-all (make-simple-substitution names types) body))))))
 
 (t/ann ^:no-check instantiate-poly [Poly (Seqable r/Type) -> r/Type])
 (defn instantiate-poly [t types]
@@ -1074,8 +1096,11 @@
                                                                        (when (bound? #'*current-RClass-super*)
                                                                          (str " when checking ancestors of " *current-RClass-super*))))
                       (let [nms (Poly-fresh-symbols* t)
+                            bbnds (Poly-bbnds* nms t)
                             body (Poly-body* nms t)]
-                        (subst-all (make-simple-substitution nms types) body)))
+                        (free-ops/with-bounded-frees
+                          (zipmap (map r/make-F nms) bbnds)
+                          (subst-all (make-simple-substitution nms types) body))))
       ;PolyDots NYI
       :else (throw (Exception. "instantiate-poly: requires Poly, and PolyDots NYI")))))
 
@@ -1092,9 +1117,10 @@
 (defn resolve-tapp* [rator rands & {:keys [tapp]}]
   {:pre [(r/TApp? tapp)]}
   (let [unparse-type @(unparse-type-var)
-        ^TypeFn rator (-resolve rator)
-        _ (assert (r/TypeFn? rator) (unparse-type rator))]
-    (when-not (= (count rands) (.nbound rator))
+        rator (-resolve rator)
+        _ (when-not (r/TypeFn? rator) 
+            (u/int-error (str "First argument to TApp must be TFn, actual: " rator)))]
+    (when-not (= (count rands) (:nbound rator))
       (binding [vs/*current-env* (-> tapp meta :env)] ;must override env, or clear it
         (u/int-error (str "Wrong number of arguments (" (count rands) ") passed to type function: "
                           (unparse-type tapp) 
@@ -1170,8 +1196,9 @@
 ;smart constructor
 (t/ann Mu* [Symbol r/Type -> r/Type])
 (defn Mu* [name body]
-  (let [v (r/Mu-maker (abstract name body))]
-    (r/set-name-table! v name)
+  (let [original-name (-> name r/make-F r/F-original-name)
+        v (r/Mu-maker (abstract name body))]
+    (r/set-name-table! v original-name)
     v))
 
 ;smart destructor
