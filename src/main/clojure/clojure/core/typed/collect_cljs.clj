@@ -110,15 +110,16 @@
 ;copied from CLJ implementation, should be identical
 (defn gen-protocol* [current-env current-ns vsym binder mths]
   {:pre [(symbol? current-ns)]}
-  (let [parsed-binder (when binder 
-                        (map prs/parse-free-with-variance binder))
-        s (if (namespace vsym)
+  (let [s (if (namespace vsym)
             (symbol vsym)
             (symbol (str current-ns) (name vsym)))
         protocol-defined-in-nstr (namespace s)
         on-class (c/Protocol-var->on-class s)
         ; add a Name so the methods can be parsed
         _ (nme-env/declare-protocol* s)
+        parsed-binder (when binder 
+                        (binding [prs/*parse-type-in-ns* current-ns]
+                          (prs/parse-free-binder-with-variance binder)))
         fs (when parsed-binder
              (map (comp r/make-F :fname) parsed-binder))
         ms (into {} (for [[knq v] mths]
@@ -148,7 +149,8 @@
           _ (when ancests
               (assert nil "Unchecked ancestors for CLJS NYI"))
           parsed-binders (when vbnd
-                           (map prs/parse-free-with-variance vbnd))
+                           (binding [prs/*parse-type-in-ns* current-ns]
+                             (prs/parse-free-binder-with-variance vbnd)))
           ;variances
           vs (seq (map :variance parsed-binders))
           args (seq (map :fname parsed-binders))
@@ -232,11 +234,13 @@
 ; only collect invocations in arbitrarily nested `do` blocks
 (defmethod collect :do
   [{:keys [statements ret]}]
-  (doall (map collect (concat statements [ret]))))
+  (doall (map collect (concat statements [ret])))
+  nil)
 
 (defmethod collect :invoke
   [expr]
-  (invoke-special-collect expr))
+  (binding [uvar/*current-env* (:env expr)]
+    (invoke-special-collect expr)))
 
 (defmethod collect :default
   [expr]
