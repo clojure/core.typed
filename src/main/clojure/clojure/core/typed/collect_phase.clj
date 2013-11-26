@@ -199,7 +199,7 @@
     (let [{ancests :unchecked-ancestors} opt
           parsed-binders (when vbnd
                            (binding [prs/*parse-type-in-ns* current-ns]
-                             (mapv prs/parse-free-with-variance vbnd)))
+                             (prs/parse-free-binder-with-variance vbnd)))
           ;variances
           vs (seq (map :variance parsed-binders))
           args (seq (map :fname parsed-binders))
@@ -420,26 +420,33 @@
 
 (defn gen-protocol* [current-env current-ns vsym binder mths]
   {:pre [(symbol? current-ns)]}
-  (let [parsed-binder (when binder 
-                        (binding [prs/*parse-type-in-ns* current-ns]
-                          (mapv prs/parse-free-with-variance binder)))
-        s (if (namespace vsym)
+  (let [s (if (namespace vsym)
             (symbol vsym)
             (symbol (str current-ns) (name vsym)))
+        ;_ (prn "gen-protocol*" s)
         protocol-defined-in-nstr (namespace s)
         on-class (c/Protocol-var->on-class s)
         ; add a Name so the methods can be parsed
         _ (nme-env/declare-protocol* s)
+        ;_ (prn "gen-protocol before parsed-binder")
+        parsed-binder (when binder 
+                        (binding [prs/*parse-type-in-ns* current-ns]
+                          (prs/parse-free-binder-with-variance binder)))
+        ;_ (prn "gen-protocol after parsed-binder")
         fs (when parsed-binder
              (map (comp r/make-F :fname) parsed-binder))
+        bnds (when parsed-binder
+               (map :bnd parsed-binder))
+        _ (assert (= (count fs) (count bnds)))
         ms (into {} (for [[knq v] mths]
                        (do
-                         (assert (not (namespace knq))
-                                  "Protocol method should be unqualified")
-                          [knq (free-ops/with-frees fs 
+                         (when (namespace knq)
+                           (u/int-error "Protocol method should be unqualified"))
+                          [knq (free-ops/with-bounded-frees (zipmap fs bnds)
                                  (binding [uvar/*current-env* current-env
                                            prs/*parse-type-in-ns* current-ns]
                                    (prs/parse-type v)))])))
+        ;_ (prn "collect protocol methods" (into {} ms))
         t (c/Protocol* (map :name fs) (map :variance parsed-binder) 
                        fs s on-class ms (map :bnd parsed-binder))]
     (ptl-env/add-protocol s t)
@@ -450,6 +457,7 @@
       (let [kq (symbol protocol-defined-in-nstr (name kuq))]
         (var-env/add-nocheck-var kq)
         (var-env/add-var-type kq mt)))
+    ;(prn "end gen-protocol" s)
     nil))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-protocol*
