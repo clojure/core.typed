@@ -1060,8 +1060,8 @@
 
 (deftest type-fn-test 
   (is-clj (clj
-        (= (with-bounded-frees [[(make-F 'm) (-bounds (parse-type '(TFn [[x :variance :covariant]] Any))
-                                                      (parse-type '(TFn [[x :variance :covariant]] Nothing)) )]]
+        (= (with-bounded-frees {(make-F 'm) (-bounds (parse-type '(TFn [[x :variance :covariant]] Any))
+                                                     (parse-type '(TFn [[x :variance :covariant]] Nothing)) )}
              (check-funapp
                (-> (ast 'a) ast-hy) ;dummy
                [(-> (ast 1) ast-hy)];dummy
@@ -1258,7 +1258,7 @@
                               b :- Number, [1 2 3]
                               :when a]
                              (+ a b))
-    (clojure.lang.LazySeq Number))
+    (clojure.core.typed/Seq Number))
   (is-clj (u/top-level-error-thrown?
         (cf
           (clojure.core.typed/for> :- Number
@@ -1316,16 +1316,42 @@
   (is (check-ns 'clojure.core.typed.test.filter-combine)))
 
 (deftest or-filter-simplify-test
-  ;(| (is-clj T  'a)
-  ;   (is-clj T' 'a))
+  ;(| (is T  a)
+  ;   (is T' a))
   ; simplifies to
-  ;(is-clj (U T T') 'a)
-  (is-clj (clj 
-        (= (-or (-filter (RClass-of clojure.lang.Symbol) 'id)
-                (-filter (RClass-of String) 'id))
-           (-filter (Un (RClass-of clojure.lang.Symbol)
-                        (RClass-of String))
-                    'id)))))
+  ;(is (U T T') a)
+  (is-clj 
+    (= (-or (-filter (RClass-of clojure.lang.Symbol) 'id)
+            (-filter (RClass-of String) 'id))
+       (-filter (Un (RClass-of clojure.lang.Symbol)
+                    (RClass-of String))
+                'id)))
+
+  ;(| (is T  a pth)
+  ;   (is T' a pth))
+  ; simplifies to
+  ;(is (U T T') a pth)
+  (is-clj 
+    (= (-or (-filter (RClass-of clojure.lang.Symbol) 'id [(->KeyPE :a)])
+            (-filter (RClass-of String) 'id [(->KeyPE :a)]))
+       (-filter (Un (RClass-of clojure.lang.Symbol)
+                    (RClass-of String))
+                'id [(->KeyPE :a)])))
+  
+  ;(& (is T a pth)
+  ;   (when (is T a pth)
+  ;     (is T' 'b)))
+  ;  simplifies to 
+  ;(& (is T a pth)
+  ;   (is T' 'b))
+  ;  FIXME
+;  (is-clj 
+;    (= (-and (-filter (RClass-of clojure.lang.Symbol) 'id [(->KeyPE :a)])
+;             (-imp (-filter (RClass-of clojure.lang.Symbol) 'id [(->KeyPE :a)])
+;               (-filter (RClass-of String) 'id2 [(->KeyPE :a) (->KeyPE :b)])))
+;       (-and (-filter (RClass-of clojure.lang.Symbol) 'id [(->KeyPE :a)])
+;             (-filter (RClass-of String) 'id2 [(->KeyPE :a) (->KeyPE :b)]))))
+  )
 
 (deftest or-filter-update-test
   (is-clj (clj
@@ -1580,13 +1606,13 @@
   (is-cf (let [filter (clojure.core.typed/ann-form filter
                         (All [x y]
                              [[x -> Any :filters {:then (! y 0)}] 
-                              (U nil (clojure.lang.Seqable x)) -> (clojure.lang.LazySeq (I x (Not y)))]))]
+                              (U nil (clojure.lang.Seqable x)) -> (clojure.core.typed/Seq (I x (Not y)))]))]
            (filter (clojure.core.typed/inst identity (U nil Number)) [1 nil]))
          (clojure.lang.Seqable Number))
   (is-cf (let [filter (clojure.core.typed/ann-form filter
                         (All [x y]
                              [[x -> Any :filters {:then (is y 0)}] 
-                              (U nil (clojure.lang.Seqable x)) -> (clojure.lang.LazySeq y)]))]
+                              (U nil (clojure.lang.Seqable x)) -> (clojure.core.typed/Seq y)]))]
            (filter number? [1 nil]))
          (clojure.lang.Seqable Number)))
 
@@ -1641,7 +1667,7 @@
   (is (cf (let [a (clojure.core.typed/ann-form (fn [a b] (assert false))
                             (All [x y]
                                  [[x -> Any :filters {:then (! y 0)}]
-                                  (U nil (clojure.lang.Seqable x)) -> (clojure.lang.LazySeq (I x (Not y)))]))]
+                                  (U nil (clojure.lang.Seqable x)) -> (clojure.core.typed/Seq (I x (Not y)))]))]
             ;need to instantiate negative types for now
             (fn [] (a (clojure.core.typed/inst identity (U nil Number)) [1 nil])))
           [-> (clojure.lang.Seqable Number)])))
@@ -1694,9 +1720,11 @@
   (is-clj (not (subtype? (RClass-of Integer) (NotType-maker (RClass-of Number)))))
   (is-clj (not (subtype? (NotType-maker -nil) (RClass-of Number))))
 
-  (is-clj (= (subst-all {'x (->t-subst (Un (RClass-of Number) -nil) no-bounds) 
-                         'y (->t-subst -nil no-bounds)} 
-                        (In (make-F 'x) (NotType-maker (make-F 'y))))
+  (is-clj (= (let [i (subst-all {'x (->t-subst (Un (RClass-of Number) -nil) no-bounds) 
+                                 'y (->t-subst -nil no-bounds)} 
+                                (In (make-F 'x) (NotType-maker (make-F 'y))))
+                   _ (assert (Intersection? i))]
+               (apply In (:types i)))
              (RClass-of Number)))
 
   (is-clj (overlap (make-F 'x)
@@ -1733,7 +1761,7 @@
   (is (cf (fn [x] 
             (map (clojure.core.typed/ann-form inc [Number -> Number]) 
                  [x 2 3])) 
-          [Number -> (clojure.lang.LazySeq Number)])))
+          [Number -> (clojure.core.typed/Seq Number)])))
 
 (deftest unannotated-datatype-test
   (is (check-ns 'clojure.core.typed.test.unannotated-datatype)))
@@ -1945,7 +1973,7 @@
 
 (deftest non-empty-map-test
   (is (cf (map inc [1 2 3])
-          (clojure.core.typed/NonEmptyLazySeq Number))))
+          (clojure.core.typed/NonEmptySeq Number))))
 
 ;CTYP-53
 (deftest hmap-cast-test
@@ -2561,3 +2589,42 @@
   (is-clj (let [t (parse-type '(HMap))]
             (both-subtype? (parse-type '(HMap :optional {:a Any}))
                            (update t (-not-filter (RClass-of Number) 'a [(->KeyPE :a)]))))))
+
+
+(deftest poly-inst-scoping-test
+  (is-cf (fn [a] (clojure.core.typed/inst identity foo))
+         (All [foo] [Any -> Any]))
+  (is-cf
+    (fn [f coll]
+      (clojure.core.typed/fn> 
+        [x :- a
+         y :- (clojure.core.typed/Seqable b)]))
+    (All [a b] [Any Any -> Any])))
+
+(deftest unparse-free-scoping-test
+  (is (= (unparse-type (parse-type '(All [a b] (Fn [Any Any -> Any]))))
+         (quote (All [a b] (Fn [Any Any -> Any])))))
+
+  (is (= (clj (unparse-type (parse-type '(TFn [[a :variance :covariant]] a))))
+         (quote (TFn [[a :variance :covariant]] a))))
+  (is (= '[(All [a b] (Fn [Any Any -> (Fn [a b -> nil])])) {:then tt, :else ff}]
+         (cf
+           (fn [f coll]
+             (clojure.core.typed/fn> 
+               [x :- a
+                y :- b]))
+           (All [a b] [Any Any -> Any])))))
+
+(deftest infer-bounds-test
+  (is (= (infer-bounds -any nil)
+         (infer-bounds -any -nothing)
+         (infer-bounds nil nil)
+         (-bounds -any -nothing)))
+  (is-clj (let [t (parse-type '(clojure.core.typed/Seq Number))]
+            (= (infer-bounds t nil)
+               (-bounds t -nothing)))))
+
+;(sub? (TFn (Rec [m]
+;                     (TFn [[x :variance :covariant]]
+;                       (Rec [c]
+;                         (IColl max-arg m c))))
