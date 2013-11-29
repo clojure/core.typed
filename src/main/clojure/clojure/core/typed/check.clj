@@ -597,7 +597,7 @@
   [fl k t]
   {:pre [(fl/Filter? fl)
          (fl/name-ref? k)
-         ((some-fn nil? Type?) t)]
+         ((some-fn false? nil? Type?) t)]
    :post [(fl/Filter? %)]}
   (let [extra-filter (if t (fl/->TypeFilter t nil k) fl/-top)]
     (letfn [(add-extra-filter [f]
@@ -613,7 +613,7 @@
   {:pre [(r/FlowSet? fs)
          (fl/name-ref? k)
          (obj/RObject? o)
-         ((some-fn nil? Type?) t)]
+         ((some-fn false? nil? Type?) t)]
    :post [(r/FlowSet? %)]}
   (r/-flow (subst-filter (add-extra-filter (.normal fs) k t) k o polarity)))
 
@@ -622,7 +622,7 @@
   {:pre [((some-fn fl/FilterSet? fl/NoFilter?) fs)
          (fl/name-ref? k)
          (obj/RObject? o)
-         ((some-fn nil? Type?) t)]
+         ((some-fn false? nil? Type?) t)]
    :post [(fl/FilterSet? %)]}
   ;  (prn "subst-filter-set")
   ;  (prn "fs" (prs/unparse-filter-set fs))
@@ -2938,18 +2938,44 @@
                      :clojure (:rest-param method)
                      :cljs ((if (:variadic method) last (constantly nil))
                             (:params method)))
-        expected-rng (r/Result->TCResult (:rng expected))
-        ;ensure Function fits method
-        _ (assert ((if (or rest drest kws) <= =) (count required-params) (count dom))
-                  (u/error-msg "Checking method with incorrect number of expected parameters"
-                               ", expected " (count dom) " required parameter(s) with"
-                               (if rest " a " " no ") "rest parameter, found " (count required-params)
-                               " required parameter(s) and" (if rest-param " a " " no ")
-                               "rest parameter."))
 
-        _ (assert (or (not rest-param)
-                      (some identity [drest rest kws]))
-                  (u/error-msg "No type for rest parameter"))
+        param-name (impl/impl-case
+                     :clojure hygienic/hsym-key
+                     :cljs :name)
+        param-obj (comp #(obj/->Path nil %)
+                        param-name)
+        ; Difference from Typed Racket:
+        ;
+        ; Because types can contain abstracted names, we instantiate
+        ; the expected type in the range before using it.
+        ;
+        ; eg. Checking against this function type:
+        ;      [Any Any
+        ;       -> (HVec [(U nil Class) (U nil Class)]
+        ;                :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]))
+        ;     means we need to instantiate the HVec type to the actual argument
+        ;     names with open-Result.
+        ;
+        ;     If the actual function method is (fn [a b] ...) we check against:
+        ;
+        ;       (HVec [(U nil Class) (U nil Class)]
+        ;              :objects [{:path [Class], :id a} {:path [Class], :id b}])
+        expected-rng (apply ret
+                       (open-Result (:rng expected)
+                                    (map param-obj
+                                         (concat required-params 
+                                                 (when rest-param [rest-param])))))
+        ;ensure Function fits method
+        _ (when-not ((if (or rest drest kws) <= =) (count required-params) (count dom))
+            (u/int-error (str "Checking method with incorrect number of expected parameters"
+                              ", expected " (count dom) " required parameter(s) with"
+                              (if rest " a " " no ") "rest parameter, found " (count required-params)
+                              " required parameter(s) and" (if rest-param " a " " no ")
+                              "rest parameter.")))
+
+        _ (when-not (or (not rest-param)
+                        (some identity [drest rest kws]))
+            (u/int-error (str "No type for rest parameter")))
 
         ;;unhygienic version
         ;        ; Update filters that reference bindings that the params shadow.
@@ -2965,23 +2991,18 @@
         ;                    (:props lex/*lexical-env*))
 
         _ (when (impl/checking-clojure?)
-            (assert (every? symbol? (map hygienic/hsym-key required-params))
+            (assert (every? symbol? (map param-name required-params))
                     "Unhygienic AST detected"))
         props (:props lex/*lexical-env*)
         fixed-entry (map vector 
-                         (map (impl/impl-case
-                                :clojure hygienic/hsym-key
-                                :cljs :name)
-                              required-params)
+                         (map param-name required-params)
                          (concat dom 
                                  (repeat (or rest (:pre-type drest)))))
         ;_ (prn "checking function:" (prs/unparse-type expected))
         check-fn-method1-rest-type *check-fn-method1-rest-type*
         _ (assert check-fn-method1-rest-type "No check-fn bound for rest type")
         rest-entry (when rest-param
-                     [[(impl/impl-case
-                         :clojure (hygienic/hsym-key rest-param) 
-                         :cljs (:name rest-param))
+                     [[(param-name rest-param)
                        (check-fn-method1-rest-type rest drest kws)]])
         ;_ (prn "rest entry" rest-entry)
         _ (assert ((u/hash-c? symbol? Type?) (into {} fixed-entry))
@@ -2998,11 +3019,7 @@
                     (let [disp-app-ret (check-funapp nil nil 
                                                      (ret dispatch-fn-type)
                                                      (map ret dom (repeat (fo/-FS fl/-top fl/-top)) 
-                                                          (map (comp #(obj/->Path nil %) 
-                                                                     (impl/impl-case
-                                                                       :clojure hygienic/hsym-key
-                                                                       :cljs :name))
-                                                               required-params))
+                                                          (map param-obj required-params))
                                                      nil)
                           ;_ (prn "disp-app-ret" disp-app-ret)
                           ;_ (prn "disp-fn-type" (prs/unparse-type dispatch-fn-type))
@@ -3067,7 +3084,7 @@
             (when (not (sub/subtype? (-> crng expr-type ret-t) (ret-t expected-rng)))
               (expected-error (-> crng expr-type ret-t) (ret-t expected-rng))))
         rest-param-name (when rest-param
-                          (hygienic/hsym-key rest-param))]
+                          (param-name rest-param))]
       (FnResult->Function 
         (->FnResult fixed-entry 
                     (when (and kws rest-param)

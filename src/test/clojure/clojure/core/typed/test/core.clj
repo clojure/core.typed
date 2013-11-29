@@ -2624,6 +2624,13 @@
             (= (infer-bounds t nil)
                (-bounds t -nothing)))))
 
+
+(deftest hvec-abstract-test
+  (is-cf (fn [a b] [(class a) (class b)])
+         [Any Any
+          -> (HVec [(U nil Class) (U nil Class)]
+                   :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]))
+
 ;(sub? (TFn (Rec [m]
 ;                     (TFn [[x :variance :covariant]]
 ;                       (Rec [c]
