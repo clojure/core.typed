@@ -1520,7 +1520,7 @@ for checking namespaces, cf for checking individual forms."}
       (check-ns *ns* :collect-only true)"
   ([] (check-ns (ns-name *ns*)))
   ([ns-or-syms & {:keys [collect-only trace] :as kw}]
-   (let [{:keys [delayed-errors]} (apply check-ns-info ns-or-syms (apply hash-map kw))]
+   (let [{:keys [delayed-errors]} (apply check-ns-info ns-or-syms (apply concat kw))]
      (if-let [errors (seq delayed-errors)]
        (print-errors! errors)
        :ok))))

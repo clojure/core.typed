@@ -2631,6 +2631,10 @@
           -> (HVec [(U nil Class) (U nil Class)]
                    :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]))
 
+; just a sanity check so keyword arguments don't accidentally break
+(deftest check-ns-kw-args-test
+  (is (check-ns 'clojure.core.typed.test.protocol :collect-only true)))
+
 ;(sub? (TFn (Rec [m]
 ;                     (TFn [[x :variance :covariant]]
 ;                       (Rec [c]
