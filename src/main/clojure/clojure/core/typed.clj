@@ -1229,7 +1229,7 @@ for checking namespaces, cf for checking individual forms."}
   []
   `(warn-on-unannotated-vars*))
 
-(declare check-form-info print-errors!)
+(declare check-form-info print-errors! ^:dynamic *currently-checking-clj*)
 
 (defn check-form*
   "Takes a (quoted) form and optional expected type syntax and
@@ -1245,7 +1245,9 @@ for checking namespaces, cf for checking individual forms."}
                                                        :type-provided? type-provided?)]
      (if-let [errors (seq delayed-errors)]
        (print-errors! errors)
-       (unparse-TCResult-in-ns ret *ns*)))))
+       (impl/with-clojure-impl
+         (binding [*currently-checking-clj* true]
+           (unparse-TCResult-in-ns ret *ns*)))))))
 
 ; cf can pollute current type environment to allow REPL experimentation, 
 ; which is ok because check-ns resets it when called.
