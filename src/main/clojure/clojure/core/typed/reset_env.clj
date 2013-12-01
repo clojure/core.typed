@@ -4,7 +4,8 @@
             [clojure.core.typed.ns-deps :as deps]
             [clojure.core.typed.ns-options :as ns-opts]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.load-cljs :as load]))
+            [clojure.core.typed.load-cljs :as load]
+            [clojure.core.typed.mm-env :as mmenv]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
@@ -18,6 +19,7 @@
   []
   (let [cljs? (load-cljs?)]
     (bse-clj/reset-clojure-envs!)
+    (mmenv/reset-mm-dispatch-env!)
     (when cljs?
       (bse-cljs/reset-cljs-envs!))
     (impl/with-clojure-impl

@@ -7,11 +7,17 @@
 
 ;; Environment for storing multimethod types and inferred filters
 
+(def initial-mm-dispatch-env {})
+
 ; (Atom (Seqable (IPersistentMap Symbol '{:fn-type Type, :dispatch-result (U nil Type)})))
-(defonce MULTIMETHOD-DISPATCH-ENV (atom {}
+(defonce MULTIMETHOD-DISPATCH-ENV (atom initial-mm-dispatch-env
                                         :validator (u/hash-c?
                                                      (every-pred symbol? namespace)
                                                      r/Type?)))
+
+(defn reset-mm-dispatch-env! []
+  (reset! MULTIMETHOD-DISPATCH-ENV initial-mm-dispatch-env)
+  nil)
 
 ; [Symbol Filter -> nil]
 (defn add-multimethod-dispatch-type
