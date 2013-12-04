@@ -2841,15 +2841,25 @@
 
 (declare check-fn-method check-fn-method1)
 
-;[FnExpr (Option Type) -> Expr]
-(defn check-fn 
-  "Check a fn to be under expected and annotate the inferred type"
-  [{:keys [methods] :as fexpr} expected]
-  {:pre [(TCResult? expected)]
-   :post [(TCResult? %)]}
-  (u/p :check/check-fn
-  (let [; try and unwrap type enough to find function types
-        exp (c/fully-resolve-type (ret-t expected))
+; Check a sequence of methods against a (possibly polymorphic) function type.
+;
+; If this is a deftype method, provide a recur-target-fn to handle recur behaviour
+; and validate-expected-fn to prevent expected types that include a rest argument.
+;
+; (ann check-fn-methods [Expr Type & :optional {:recur-target-fn (Nilable [Function -> RecurTarget])
+;                                               :validate-expected-fn (Nilable [FnIntersection -> Any])}])
+(defn check-fn-methods [methods expected
+                        & {:keys [recur-target-fn
+                                  validate-expected-fn
+                                  self-name]}]
+  {:pre [(r/Type? expected)
+         ((some-fn nil? symbol?) self-name)]
+   :post [(r/Type? %)]}
+  ; FIXME Unions of functions are not supported yet
+  (let [;; FIXME This is trying to be too smart, should be a simple cond with Poly/PolyDots cases
+
+        ; try and unwrap type enough to find function types
+        exp (c/fully-resolve-type expected)
         ; unwrap polymorphic expected types
         [fin inst-frees bnds poly?] (unwrap-poly exp)
         ; once more to make sure (FIXME is this needed?)
@@ -2858,10 +2868,10 @@
         _ (when-not (r/FnIntersection? fin)
             (u/int-error
               (str (pr-str (prs/unparse-type fin)) " is not a function type")))
+        _ (when validate-expected-fn
+            (validate-expected-fn fin))
         ;collect all inferred Functions
-        inferred-fni (lex/with-locals (when-let [name (impl/impl-case
-                                                        :clojure (hygienic/hname-key fexpr)
-                                                        :cljs (-> fexpr :name :name))] ;self calls
+        inferred-fni (lex/with-locals (when-let [name self-name] ;self calls
                                         (when-not expected 
                                           (u/int-error (str "Recursive functions require full annotation")))
                                         (assert (symbol? name) name)
@@ -2877,17 +2887,33 @@
                                                           :PolyDots {(-> inst-frees last r/F-original-name) (last inst-frees)}
                                                           {})
                            (apply r/make-FnIntersection
-                                  (doall
-                                    (mapcat (fn [method]
-                                              (let [fnt (check-fn-method method fin)]
-                                                fnt))
-                                            methods))))))
+                                  (mapcat (fn [method]
+                                            (let [fnt (check-fn-method method fin
+                                                                       :recur-target-fn recur-target-fn)]
+                                              fnt))
+                                          methods)))))
         ;rewrap in Poly or PolyDots if needed
         pfni (rewrap-poly inferred-fni inst-frees bnds poly?)]
-    (ret pfni (fo/-FS fl/-top fl/-bot) obj/-empty))))
+    pfni))
 
-;[MethodExpr FnIntersection -> (I (Seqable Function) Sequential)]
-(defn check-fn-method [method fin]
+; Can take a CLJ or CLJS function expression.
+;
+;[FnExpr (Option Type) -> Expr]
+(defn check-fn 
+  "Check a fn to be under expected and annotate the inferred type"
+  [{:keys [methods] :as fexpr} expected]
+  {:pre [(TCResult? expected)]
+   :post [(TCResult? %)]}
+  (ret (check-fn-methods methods (ret-t expected)
+                         :self-name (impl/impl-case
+                                      :clojure (hygienic/hname-key fexpr)
+                                      :cljs (-> fexpr :name :name)))
+       (fo/-FS fl/-top fl/-bot) 
+       obj/-empty))
+
+;[MethodExpr FnIntersection & :optional {:recur-target-fn (U nil [Function -> RecurTarget])}
+;   -> (Seq Function)]
+(defn check-fn-method [method fin & {:keys [recur-target-fn]}]
   {:pre [(r/FnIntersection? fin)]
    :post [(seq %)
           (every? r/Function? %)]}
@@ -2904,13 +2930,16 @@
     #_(prn "relevant-Fns" (map prs/unparse-type mfns))
     (cond
       ;If no matching cases, assign parameters to Any
-      (empty? mfns) [(check-fn-method1 method (r/make-Function (repeat (count required-params) r/-any) ;doms
-                                                               r/-any  ;rng 
-                                                               (when rest-param ;rest
-                                                                 r/-any)))]
+      (empty? mfns) [(check-fn-method1 method 
+                                       (r/make-Function (repeat (count required-params) r/-any) ;doms
+                                                        r/-any  ;rng 
+                                                        (when rest-param ;rest
+                                                          r/-any))
+                                       :recur-target-fn recur-target-fn)]
       :else (doall
               (for [f mfns]
-                (check-fn-method1 method f)))))))
+                (check-fn-method1 method f
+                                  :recur-target-fn recur-target-fn)))))))
 
 (declare ^:dynamic *recur-target*)
 
@@ -2921,8 +2950,22 @@
 (declare env+ ->RecurTarget)
 
 ;check method is under a particular Function, and return inferred Function
+;
+; check-fn-method1 exposes enough wiring to support the differences in deftype
+; methods and normal methods via `fn`.
+;
+; # Differences in recur behaviour
+;
+; deftype methods do *not* pass the first parameter (usually `this`) when calling `recur`.
+;
+; eg. (my-method [this a b c] (recur a b c))
+;
+; The behaviour of generating a RecurTarget type for recurs is exposed via the :recur-target-fn
+;
+;
 ;[MethodExpr Function -> Function]
-(defn check-fn-method1 [method {:keys [dom rest drest kws] :as expected}]
+(defn check-fn-method1 [method {:keys [dom rest drest kws] :as expected}
+                        & {:keys [recur-target-fn]}]
   {:pre [(r/Function? expected)]
    :post [(r/Function? %)]}
   #_(prn "checking syntax:" (u/emit-form-fn method))
@@ -3053,8 +3096,15 @@
         (u/p :check/check-fn-method1-chk-rng-pass1
         (binding [*current-mm* nil]
           (var-env/with-lexical-env env
-            (with-recur-target (->RecurTarget dom rest drest nil)
-              (check-fn-method1-checkfn body expected-rng)))))
+            (let [rec (or ; if there's a custom recur behaviour, use the provided
+                          ; keyword argument to generate the RecurTarget.
+                          (when recur-target-fn
+                            (recur-target-fn expected))
+                          ; Otherwise, assume we are checking a regular `fn` method
+                          (->RecurTarget dom rest drest nil))
+                  _ (assert (RecurTarget? rec))]
+              (with-recur-target rec
+                (check-fn-method1-checkfn body expected-rng))))))
 
         ; Apply the filters of computed rng to the environment and express
         ; changes to the lexical env as new filters, and conjoin with existing filters.
@@ -3418,22 +3468,24 @@
 
 ;[Symbol -> Type]
 (defn DataType-ctor-type [sym]
-  (let [dtp (dt-env/get-datatype sym)]
-    (cond
-      ((some-fn r/DataType? r/Record?) dtp) 
-      (let [dt dtp]
-        (r/make-FnIntersection 
-          (r/make-Function (-> (c/DataType-fields* dt) vals) dt)))
+  (letfn [(resolve-ctor [dtp]
+            (cond
+              ((some-fn r/DataType? r/Record?) dtp) 
+              (let [dt dtp]
+                (r/make-FnIntersection 
+                  (r/make-Function (-> (c/DataType-fields* dt) vals) dt)))
 
-      (r/Poly? dtp) (let [nms (c/Poly-fresh-symbols* dtp)
-                          bbnds (c/Poly-bbnds* nms dtp)
-                          dt (unwrap-datatype dtp nms)]
-                      (c/Poly* nms
-                               bbnds
-                               (r/make-FnIntersection 
-                                 (r/make-Function (-> (c/DataType-fields* dt) vals) dt))))
-      :else (u/tc-delayed-error (str "Cannot get DataType constructor of " sym)
-                                :return r/Err))))
+              (r/TypeFn? dtp) (let [nms (c/TypeFn-fresh-symbols* dtp)
+                                    bbnds (c/TypeFn-bbnds* nms dtp)
+                                    body (c/TypeFn-body* nms dtp)]
+                                (c/Poly* nms
+                                         bbnds
+                                         (free-ops/with-bounded-frees (zipmap (map r/make-F nms) bbnds)
+                                           (resolve-ctor body))))
+
+              :else (u/tc-delayed-error (str "Cannot generate constructor type for: " sym)
+                                        :return r/Err)))]
+    (resolve-ctor (dt-env/get-datatype sym))))
 
 (add-check-method :instance-of
   [{cls :class :keys [the-expr] :as expr} & [expected]]
@@ -4559,9 +4611,12 @@
           field-syms (:hinted-fields expr)
           _ (assert (every? symbol? field-syms))
           dtp (dt-env/get-datatype nme)
-          dt (if (r/TypeFn? dtp)
-               (unwrap-datatype dtp)
-               dtp)
+          [nms bbnds dt] (if (r/TypeFn? dtp)
+                           (let [nms (c/TypeFn-fresh-symbols* dtp)
+                                 bbnds (c/TypeFn-bbnds* nms dtp)
+                                 body (c/TypeFn-body* nms dtp)]
+                             [nms bbnds body])
+                           [nil nil dtp])
           expected-fields (when dt
                             (c/DataType-fields* dt))
           expected-field-syms (vec (keys expected-fields))
@@ -4569,16 +4624,20 @@
                           expr-type (ret (c/RClass-of Class)))]
 
       (cond
-        (not ((some-fn r/DataType? r/Record?) dt))
+        (not dtp)
         (u/tc-delayed-error (str "deftype " nme " must have corresponding annotation. "
                                  "See ann-datatype and ann-record")
+                            :return ret-expr)
+
+        (not ((some-fn r/DataType? r/Record?) dt))
+        (u/tc-delayed-error (str "deftype " nme " cannot be checked against: " (prs/unparse-type dt))
                             :return ret-expr)
 
         (if (r/Record? dt)
           (c/isa-DataType? compiled-class)
           (c/isa-Record? compiled-class))
         (let [datatype? (c/isa-DataType? compiled-class)]
-          (prn (c/isa-DataType? compiled-class)
+          #_(prn (c/isa-DataType? compiled-class)
                (c/isa-Record? compiled-class)
                (r/DataType? dt)
                (r/Record? dt))
@@ -4601,7 +4660,7 @@
               _ (doseq [{:keys [env] :as inst-method} methods
                         :when (check-method? inst-method)]
                   (when t/*trace-checker*
-                    (println "Checking deftype* method: "(:name inst-method))
+                    (println "Checking deftype* method: " (:name inst-method))
                     (flush))
                   (binding [vs/*current-env* env]
                     (let [method-nme (:name inst-method)
@@ -4625,11 +4684,33 @@
                                                                 (munged-methods (:name method-sig)))))
                                                           (instance-method->Function method-sig)))]
                           #_(prn "method expected type" (prs/unparse-type expected-ifn))
+                          (prn "names" nms)
                           (lex/with-locals expected-fields
-                            ;(prn "lexical env when checking method" method-nme lex/*lexical-env*)
-                            (check-new-instance-method
-                              inst-method 
-                              expected-ifn)))))))]
+                            (free-ops/with-free-mappings 
+                              (zipmap (map (comp r/F-original-name r/make-F) nms) 
+                                      (map (fn [nm bnd] {:F (r/make-F nm) :bnds bnd}) nms bbnds))
+                              (prn "lexical env when checking method" method-nme lex/*lexical-env*)
+                              (prn "frees when checking method" 
+                                   (into {} (for [[k {:keys [name]}] clojure.core.typed.tvar-env/*current-tvars*]
+                                              [k name])))
+                              (prn "bnds when checking method" 
+                                   clojure.core.typed.tvar-bnds/*current-tvar-bnds*)
+                              (prn "expected-ifn" expected-ifn)
+                              (check-fn-methods
+                                [inst-method]
+                                expected-ifn
+                                :recur-target-fn
+                                  (fn [{:keys [dom] :as f}]
+                                    {:pre [(r/Function? f)]
+                                     :post [(RecurTarget? %)]}
+                                    (->RecurTarget (rest dom) nil nil nil))
+                                :validate-expected-fn
+                                  (fn [fin]
+                                    {:pre [(r/FnIntersection? fin)]}
+                                    (when (some #{:rest :drest :kws} (:types fin))
+                                      (u/int-error
+                                        (str "Cannot provide rest arguments to deftype method: "
+                                             (prs/unparse-type fin)))))))))))))]
           ret-expr)))))
 
 ;[Expr FnIntersection -> Expr]
