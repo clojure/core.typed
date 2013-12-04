@@ -653,14 +653,11 @@
 (t/ann ^:no-check most-general-on-variance [(Seqable r/Variance) (Seqable Bounds) -> r/Type])
 (defn most-general-on-variance [variances bnds]
   (doall
-    (for [[variance bnd] (map vector variances bnds)]
-      (if (= r/no-bounds bnd)
-        (case variance
-          (:invariant :constant :covariant) r/-any
-          :contravariant r/-nothing)
-        (assert nil (str "Don't know most general type for bounds other than Any/Nothing" 
-                         (unparse-type (:upper-bound bnd))
-                         (unparse-type (:lower-bound bnd))))))))
+    (for [[variance {:keys [upper-bound lower-bound] :as bnd}] 
+          (map vector variances bnds)]
+      (case variance
+        (:invariant :constant :covariant) upper-bound
+        :contravariant lower-bound))))
 
 (declare TypeFn-bbnds* TypeFn-fresh-symbols*)
 
