@@ -32,6 +32,15 @@
 
 (t/typed-deps clojure.core.typed.name-env)
 
+(t/ann ^:no-check with-original-names [Type (U Symbol (Seqable Symbol))
+                                       -> Type])
+(defn- with-original-names [t names]
+  (with-meta t {::names names}))
+
+(t/ann ^:no-check get-original-names [Type -> (U nil Symbol (Seqable Symbol))])
+(defn get-original-names [t]
+  (-> t meta ::names))
+
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
   )
@@ -880,8 +889,7 @@
                                 (for [bnd bbnds]
                                   (r/visit-bounds bnd #(abstract-many names %))))
                               (abstract-many names body))]
-        (r/set-name-table! t original-names)
-        t))))
+        (with-original-names t original-names)))))
 
 ;smart destructor
 (t/ann ^:no-check TypeFn-body* [(Seqable Symbol) TypeFn -> r/Type])
@@ -925,7 +933,7 @@
    :post [((some-fn nil? 
                     (every-pred seq (u/every-c? symbol?))) 
            %)]}
-  (r/lookup-name-table tfn))
+  (get-original-names tfn))
 
 (t/ann ^:no-check TypeFn-fresh-symbols* [TypeFn -> (Seqable Symbol)])
 (defn TypeFn-fresh-symbols* [tfn]
@@ -963,8 +971,7 @@
                             (for [bnd bbnds]
                               (r/visit-bounds bnd #(abstract-many names %))))
                           (abstract-many names body))]
-      (r/set-name-table! v original-names)
-      v)))
+      (with-original-names v original-names))))
 
 (t/ann ^:no-check Poly-free-names* [Poly -> (U nil (Seqable Symbol))])
 (defn Poly-free-names* [poly]
@@ -972,7 +979,7 @@
    :post [((some-fn nil? 
                     (every-pred seq (u/every-c? symbol?)))
            %)]}
-  (r/lookup-name-table poly))
+  (get-original-names poly))
 
 (t/ann ^:no-check Poly-fresh-symbols* [Poly -> (Seqable Symbol)])
 (defn Poly-fresh-symbols* [poly]
@@ -1022,8 +1029,7 @@
                                       (r/visit-bounds bnd #(abstract-many names %)))
                                     bbnds)
                               (abstract-many names body))]
-      (r/set-name-table! v original-names)
-      v)))
+      (with-original-names v original-names))))
 
 ;smart destructor
 (t/ann ^:no-check PolyDots-body* [(Seqable Symbol) PolyDots -> r/Type])
@@ -1048,7 +1054,7 @@
    :post [((some-fn nil? 
                     (every-pred seq (u/every-c? symbol?))) 
            %)]}
-  (r/lookup-name-table poly))
+  (get-original-names poly))
 
 (t/ann ^:no-check PolyDots-fresh-symbols* [PolyDots -> (Seqable Symbol)])
 (defn PolyDots-fresh-symbols* [poly]
@@ -1198,8 +1204,7 @@
 (defn Mu* [name body]
   (let [original-name (-> name r/make-F r/F-original-name)
         v (r/Mu-maker (abstract name body))]
-    (r/set-name-table! v original-name)
-    v))
+    (with-original-names v original-name)))
 
 ;smart destructor
 (t/ann Mu-body* [Symbol Mu -> r/Type])
@@ -1212,7 +1217,7 @@
 (defn Mu-free-name* [t]
   {:pre [(r/Mu? t)]
    :post [((some-fn symbol? nil?) %)]}
-  (r/lookup-name-table t))
+  (get-original-names t))
 
 (t/ann ^:no-check Mu-fresh-symbol* [Mu -> Symbol])
 (defn Mu-fresh-symbol* [t]
@@ -1543,9 +1548,10 @@
 
 (f/add-fold-case ::abstract-many
                  Mu
-                 (fn [{:keys [scope]} {{:keys [name count type outer name-to]} :locals}]
+                 (fn [{:keys [scope] :as mu} {{:keys [name count type outer name-to]} :locals}]
                    (let [body (remove-scopes 1 scope)]
-                     (r/Mu-maker (r/Scope-maker (name-to name count type (inc outer) body))))))
+                     (r/Mu-maker (r/Scope-maker (name-to name count type (inc outer) body))
+                                 :meta (meta mu)))))
 
 (f/add-fold-case ::abstract-many
                  PolyDots
@@ -1556,7 +1562,8 @@
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
                      (r/PolyDots-maker n 
                                        (mapv #(r/visit-bounds % rs) bbnds)
-                                       (as body)))))
+                                       (as body)
+                                       :meta (meta ty)))))
 
 (f/add-fold-case ::abstract-many
                  Poly
@@ -1567,19 +1574,22 @@
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
                      (r/Poly-maker n 
                              (mapv #(r/visit-bounds % as) bbnds)
-                             (as body)))))
+                             (as body)
+                                   :meta (meta poly)))))
 
 (f/add-fold-case ::abstract-many
                  TypeFn
-                 (fn [{bbnds* :bbnds n :nbound body* :scope :keys [variances]} {{:keys [name count type outer name-to]} :locals}]
+                 (fn [{bbnds* :bbnds n :nbound body* :scope :keys [variances] :as t}
+                      {{:keys [name count type outer name-to]} :locals}]
                    (let [rs #(remove-scopes n %)
                          body (rs body*)
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
                      (r/TypeFn-maker n 
-                                 variances
-                                 (mapv #(r/visit-bounds % as) bbnds)
-                                 (as body)))))
+                                     variances
+                                     (mapv #(r/visit-bounds % as) bbnds)
+                                     (as body)
+                                     :meta (meta t)))))
   )
 
 (t/ann ^:no-check abstract-many [(Seqable Symbol) r/Type -> (U r/Type Scope)])
@@ -1650,9 +1660,10 @@
 
 (f/add-fold-case ::instantiate-many
                Mu
-               (fn [{:keys [scope]} {{:keys [replace count outer image sb type]} :locals}]
+               (fn [{:keys [scope] :as mu} {{:keys [replace count outer image sb type]} :locals}]
                  (let [body (remove-scopes 1 scope)]
-                   (r/Mu-maker (r/Scope-maker (replace image count type (inc outer) body))))))
+                   (r/Mu-maker (r/Scope-maker (replace image count type (inc outer) body))
+                               :meta (meta mu)))))
 
 (f/add-fold-case ::instantiate-many
                PolyDots
@@ -1663,30 +1674,35 @@
                        as #(add-scopes n (replace image count type (+ n outer) %))]
                    (r/PolyDots-maker n 
                                      (mapv #(r/visit-bounds % as) bbnds)
-                                     (as body)))))
+                                     (as body)
+                                     :meta (meta ty)))))
 
 (f/add-fold-case ::instantiate-many
-               Poly
-               (fn [{bbnds* :bbnds n :nbound body* :scope :as poly} {{:keys [replace count outer image sb type]} :locals}]
-                 (let [rs #(remove-scopes n %)
-                       body (rs body*)
-                       bbnds (mapv #(r/visit-bounds % rs) bbnds*)
-                       as #(add-scopes n (replace image count type (+ n outer) %))]
-                   (r/Poly-maker n 
-                           (mapv #(r/visit-bounds % as) bbnds)
-                           (as body)))))
+                 Poly
+                 (fn [{bbnds* :bbnds n :nbound body* :scope :as poly} 
+                      {{:keys [replace count outer image sb type]} :locals}]
+                   (let [rs #(remove-scopes n %)
+                         body (rs body*)
+                         bbnds (mapv #(r/visit-bounds % rs) bbnds*)
+                         as #(add-scopes n (replace image count type (+ n outer) %))]
+                     (r/Poly-maker n 
+                                   (mapv #(r/visit-bounds % as) bbnds)
+                                   (as body)
+                                   :meta (meta poly)))))
 
 (f/add-fold-case ::instantiate-many
-               TypeFn
-               (fn [{bbnds* :bbnds n :nbound body* :scope :keys [variances]} {{:keys [replace count outer image sb type]} :locals}]
-                 (let [rs #(remove-scopes n %)
-                       body (rs body*)
-                       bbnds (mapv #(r/visit-bounds % rs) bbnds*)
-                       as #(add-scopes n (replace image count type (+ n outer) %))]
-                   (r/TypeFn-maker n 
-                             variances
-                             (mapv #(r/visit-bounds % as) bbnds)
-                             (as body)))))
+                 TypeFn
+                 (fn [{bbnds* :bbnds n :nbound body* :scope :keys [variances] :as t} 
+                      {{:keys [replace count outer image sb type]} :locals}]
+                   (let [rs #(remove-scopes n %)
+                         body (rs body*)
+                         bbnds (mapv #(r/visit-bounds % rs) bbnds*)
+                         as #(add-scopes n (replace image count type (+ n outer) %))]
+                     (r/TypeFn-maker n 
+                                     variances
+                                     (mapv #(r/visit-bounds % as) bbnds)
+                                     (as body)
+                                     :meta (meta t)))))
   )
 
 (t/ann ^:no-check instantiate-many [(Seqable Symbol) p/IScope -> r/Type])

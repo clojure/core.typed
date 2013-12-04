@@ -13,18 +13,6 @@
   )
 
 
-(t/ann name-table Any)
-(defonce ^:private name-table (java.util.WeakHashMap.))
-
-(t/ann ^:no-check lookup-name-table [Any -> (U nil Symbol (t/Coll Symbol))])
-(defn lookup-name-table [v]
-  (.get ^java.util.WeakHashMap name-table v))
-
-(t/ann ^:no-check set-name-table! [Type (U Symbol (t/Coll Symbol)) -> nil])
-(defn set-name-table! [v n]
-  (.put ^java.util.WeakHashMap name-table v n)
-  nil)
-
 (t/ann ^:no-check -FS-var [-> (t/Var1 [p/IFilter p/IFilter -> p/IFilterSet])])
 (defn- -FS-var []
   (impl/the-var 'clojure.core.typed.filter-ops/-FS))
@@ -204,8 +192,8 @@
 (defn F-original-name 
   "Get the printable name of a free variable.
   
-  Should *only* be used for pretty-printing errors or similar, *never* instantiate
-  an instance of F with this name."
+  Used for pretty-printing errors or similar, only instantiate
+  an instance of F with this name for explicit scoping."
   [f]
   {:pre [(F? f)]
    :post [(symbol? %)]}
