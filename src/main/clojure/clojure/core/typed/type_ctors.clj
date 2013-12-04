@@ -2099,4 +2099,63 @@
          (every? r/TCResult? rtypes)]
    :post [((some-fn nil? r/Type?) %)]}
   (reduce-type-transform conj-pair left rtypes))
+
+(defn find-bound* 
+  "Find upper bound if polarity is true, otherwise lower bound"
+  [t* polarity]
+  {:pre [(r/Type? t*)]}
+  (let [fnd-bnd #(find-bound* % polarity)
+        t t*]
+    (cond
+      (r/Name? t) (fnd-bnd (resolve-Name t))
+      (r/App? t) (fnd-bnd (resolve-App t))
+      (r/TApp? t) (fnd-bnd (resolve-TApp t))
+      (r/Mu? t) (let [name (Mu-fresh-symbol* t)
+                      body (Mu-body* name t)
+                      new-body (fnd-bnd body)]
+                  (prn "Mu" t)
+                  (prn "Mu" name)
+                  (prn "Mu" new-body)
+                  (Mu* name new-body))
+      (r/Poly? t) (fnd-bnd (Poly-body* (Poly-fresh-symbols* t)) t)
+      (r/TypeFn? t) (let [names (TypeFn-fresh-symbols* t)
+                          body (TypeFn-body* names t)
+                          bbnds (TypeFn-bbnds* names t)
+                          new-body (fnd-bnd body)]
+                      (prn "TypeFn" t)
+                      (prn "TypeFn" (meta t))
+                      (prn "TypeFn" new-body)
+                      (prn names)
+                      (TypeFn* names
+                               (:variances t)
+                               bbnds
+                               new-body))
+      :else (if polarity
+              r/-any
+              r/-nothing))))
+
+(defn find-upper-bound [t]
+  {:pre [(r/Type? t)]}
+  (find-bound* t true))
+
+(defn find-lower-bound [t]
+  {:pre [(r/Type? t)]}
+  (find-bound* t false))
+
+(defn infer-bounds
+  "Returns a Bounds that attempts to fill in meaningful
+  upper/lower bounds of the same rank"
+  [upper-or-nil lower-or-nil]
+  {:pre [(every? (some-fn nil? r/AnyType?) [upper-or-nil lower-or-nil])]
+   :post [(r/Bounds? %)]}
+  (let [{:keys [upper lower]} (cond 
+                                ;both bounds provided
+                                (and upper-or-nil lower-or-nil) {:upper upper-or-nil :lower lower-or-nil}
+                                ;only upper
+                                upper-or-nil {:upper upper-or-nil :lower (find-lower-bound upper-or-nil)}
+                                ;only lower
+                                lower-or-nil {:upper (find-upper-bound lower-or-nil) :lower lower-or-nil}
+                                ;no bounds provided, default to Nothing <: Any
+                                :else {:upper r/-any :lower r/-nothing})]
+    (r/Bounds-maker upper lower nil)))
 )

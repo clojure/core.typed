@@ -11,7 +11,6 @@
             [clojure.core.typed.filter-ops :as fl]
             [clojure.core.typed.constant-type :as const]
             [clojure.core.typed.free-ops :as free-ops]
-            [clojure.core.typed.frees :as frees]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.name-env :as name-env]
             [clojure.set :as set]
@@ -75,8 +74,6 @@
 (defmulti parse-type class)
 (defmulti parse-type-list first)
 
-(declare find-lower-bound find-upper-bound infer-bounds)
-
 (def parsed-free-map? (u/hmap-c? :fname symbol?
                                  :bnd r/Bounds?
                                  :variance r/variance?))
@@ -96,7 +93,7 @@
                                  (parse-type <))
                   lower-or-nil (when (contains? opts :>)
                                  (parse-type >))]
-              (infer-bounds upper-or-nil lower-or-nil))
+              (c/infer-bounds upper-or-nil lower-or-nil))
        :variance variance})))
 
 (defn parse-free-binder-with-variance [binder]
@@ -125,9 +122,11 @@
         (u/int-error "Variance not supported for variables introduced with All"))
       [n (let [upper-or-nil (when (contains? opts :<)
                               (parse-type <))
+               _ (prn "upper-or-nil" upper-or-nil)
                lower-or-nil (when (contains? opts :>)
-                              (parse-type >))]
-           (infer-bounds upper-or-nil lower-or-nil))])))
+                              (parse-type >))
+               _ (prn "lower-or-nil" lower-or-nil)]
+           (c/infer-bounds upper-or-nil lower-or-nil))])))
 
 (defn check-forbidden-rec [rec tbody]
   (when (or (= rec tbody) 
@@ -145,7 +144,7 @@
 (defn parse-rec-type [[rec [free-symbol :as bnder] type]]
   (let [Mu* @(Mu*-var)
         _ (when-not (= 1 (count bnder)) 
-            (u/int-error "Only one variable in allowed: Rec"))
+            (u/int-error "Only one variable allowed: Rec"))
         f (r/make-F free-symbol)
         body (free-ops/with-frees [f]
                (parse-type type))
@@ -356,56 +355,6 @@
             (when kind
               (parse-type kind)))})
 
-(defn find-bound* 
-  "Find upper bound if polarity is true, otherwise lower bound"
-  [t* polarity]
-  {:pre [(r/Type? t*)]}
-  (let [fnd-bnd #(find-bound* % polarity)
-        t t*]
-    (cond
-      (r/Name? t) (fnd-bnd (c/resolve-Name t))
-      (r/App? t) (fnd-bnd (c/resolve-App t))
-      (r/TApp? t) (fnd-bnd (c/resolve-TApp t))
-      (r/Mu? t) (let [name (c/Mu-fresh-symbol* t)
-                      body (c/Mu-body* name t)]
-                  (c/Mu* name (fnd-bnd body)))
-      (r/Poly? t) (fnd-bnd (c/Poly-body* (c/Poly-fresh-symbols* t)) t)
-      (r/TypeFn? t) (let [names (c/TypeFn-fresh-symbols* t)
-                          body (c/TypeFn-body* names t)
-                          bbnds (c/TypeFn-bbnds* names t)]
-                      (c/TypeFn* names
-                                 (:variances t)
-                                 bbnds
-                                 (fnd-bnd body)))
-      :else (if polarity
-              r/-any
-              r/-nothing))))
-
-(defn find-upper-bound [t]
-  {:pre [(r/Type? t)]}
-  (find-bound* t true))
-
-(defn find-lower-bound [t]
-  {:pre [(r/Type? t)]}
-  (find-bound* t false))
-
-(defn infer-bounds
-  "Returns a Bounds that attempts to fill in meaningful
-  upper/lower bounds of the same rank"
-  [upper-or-nil lower-or-nil]
-  {:pre [(every? (some-fn nil? r/AnyType?) [upper-or-nil lower-or-nil])]
-   :post [(r/Bounds? %)]}
-  (let [{:keys [upper lower]} (cond 
-                                ;both bounds provided
-                                (and upper-or-nil lower-or-nil) {:upper upper-or-nil :lower lower-or-nil}
-                                ;only upper
-                                upper-or-nil {:upper upper-or-nil :lower (find-lower-bound upper-or-nil)}
-                                ;only lower
-                                lower-or-nil {:upper (find-upper-bound lower-or-nil) :lower lower-or-nil}
-                                ;no bounds provided, default to Nothing <: Any
-                                :else {:upper r/-any :lower r/-nothing})]
-    (r/Bounds-maker upper lower nil)))
-
 (defn parse-tfn-binder [[nme & {:keys [variance < >] :as opts}]]
   {:post [((u/hmap-c? :nme symbol? :variance r/variance?
                       :bound r/Bounds?) %)]}
@@ -418,7 +367,7 @@
                                (parse-type <))
                 lower-or-nil (when (contains? opts :>)
                                (parse-type >))]
-            (infer-bounds upper-or-nil lower-or-nil))})
+            (c/infer-bounds upper-or-nil lower-or-nil))})
 
 (defn parse-type-fn 
   [[_ binder bodysyn :as tfn]]
@@ -1101,7 +1050,7 @@
 
 (defmethod unparse-type* Mu
   [m]
-  (let [nme (c/Mu-fresh-symbol* m)
+  (let [nme (-> (c/Mu-fresh-symbol* m) r/make-F r/F-original-name)
         body (c/Mu-body* nme m)]
     (list 'Rec [nme] (unparse-type body))))
 
