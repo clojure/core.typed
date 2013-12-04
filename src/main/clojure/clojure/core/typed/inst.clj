@@ -6,7 +6,9 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.subst :as subst]
-            [clojure.core.typed.trans :as trans])
+            [clojure.core.typed.trans :as trans]
+            [clojure.string :as string]
+            [clojure.pprint :as pprint])
   (:import (clojure.core.typed.type_rep Poly Bounds PolyDots F)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -46,7 +48,10 @@
     (r/Poly? ptype)
     (let [_ (when-not (= (:nbound ptype) (count argtys)) 
               (u/int-error
-                (str "Wrong number of arguments to instantiate polymorphic type")))
+                (str "Wrong number of arguments to instantiate polymorphic type (expected " (:nbound ptype)
+                     ", actual " (count argtys)
+                     "\n\nTarget:\n" (with-out-str (pprint/pprint (prs/unparse-type ptype)))
+                     "\n\nActual arguments:\n" (string/join " " (map prs/unparse-type argtys)))))
           names (c/Poly-fresh-symbols* ptype)
           body (c/Poly-body* names ptype)
           bbnds (c/Poly-bbnds* names ptype)]
