@@ -57,7 +57,8 @@
   "Same as get-datatype, but fails if datatype is not found."
   [sym]
   (let [d (get-datatype sym)]
-    (assert d (str "Could not resolve DataType: " sym))
+    (when-not d 
+      (u/int-error (str "Could not resolve DataType: " sym)))
     d))
 
 (t/ann reset-datatype-env! [DataTypeEnv -> DataTypeEnv])
