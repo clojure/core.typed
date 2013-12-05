@@ -1030,8 +1030,8 @@
                                     (= sym (c/Protocol-var->on-class (:the-var o))))
                            o)))
         overrides (ancest/get-datatype-ancestors dt)
-        _ (assert (every? (some-fn r/DataType? r/RClass?) overrides)
-                  "Overriding datatypes to things other than datatypes and classes NYI")
+        _ (assert (every? (some-fn r/Protocol? r/DataType? r/RClass?) (map c/fully-resolve-type overrides))
+                  "Overriding datatypes to things other than datatypes, protocols and classes NYI")
         ; the classes that this datatype extends.
         ; No vars should occur here because protocol are extend via
         ; their interface.
