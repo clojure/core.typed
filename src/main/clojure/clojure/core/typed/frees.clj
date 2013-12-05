@@ -199,7 +199,7 @@
 ;FIXME flow error during checking
 (t/tc-ignore
 (add-frees-method [::any-var TApp]
-  [{:keys [rator rands]}]
+  [{:keys [rator rands] :as tapp}]
   (apply combine-frees
          (let [^TypeFn
                tfn (loop [rator rator]
@@ -222,8 +222,11 @@
                                            :else
                                            (recur (c/resolve-Name rator))))
                        (r/TypeFn? rator) rator
-                       :else (throw (Exception. (u/error-msg "NYI case " (class rator))))))
-               _ (assert (r/TypeFn? tfn) "First argument to TApp must be TypeFn")]
+                       :else (u/int-error (str "Invalid operator to type application: "
+                                               ((impl/v 'clojure.core.typed.parse-unparse/unparse-type)
+                                                tapp)))))
+               _ (when-not (r/TypeFn? tfn) 
+                   (u/int-error (str "First argument to TApp must be TypeFn")))]
            (mapv (fn [[v arg-vs]]
                    (case v
                      :covariant arg-vs
