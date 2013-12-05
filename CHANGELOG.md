@@ -1,9 +1,41 @@
-# 0.2.20-SNAPSHOT
+# 0.2.21-SNAPSHOT
+
+## Fixes
+
+- Instantiate any abstract objects in a result type before using
+  it to check a fn body
+  - eg. Checking against this function type:
+         [Any Any
+          -> (HVec [(U nil Class) (U nil Class)]
+                   :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]))
+        means we need to instantiate the HVec type to the actual argument
+        names with open-Result.
+    
+        If the actual function method is (fn [a b] ...) we check against:
+    
+          (HVec [(U nil Class) (U nil Class)]
+                 :objects [{:path [Class], :id a} {:path [Class], :id b}])
+- Calling `check-ns` with keyword arguments was broken in 0.2.20
+  - Fixed
+
+## Changes
+
+- Multimethod dispatch environment is reset between calls to `check-ns`
+  - Should avoid the type checker complaining if you are changing your
+    defmulti definition in the same JVM session
+
+# 0.2.20 - Released 27th November 2013
 
 ## BREAKING CHANGES
 
 - All functions in base-env that return LazySeq have been changed to Seq
   - also includes for>
+
+### core.async annotations
+
+- Channel takes zero parameters
+- ManyToManyChannel type parameters now have correct variance
+  - contravariant and covariant instead of vice-versa
 
 ## Fixes
 
