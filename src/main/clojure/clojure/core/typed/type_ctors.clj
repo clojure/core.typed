@@ -888,6 +888,9 @@
                               (abstract-many names body))]
         (with-original-names t original-names)))))
 
+;only set to true if throwing an error and need to print a TypeFn
+(def ^:dynamic *TypeFn-variance-check* true)
+
 ;smart destructor
 (t/ann ^:no-check TypeFn-body* [(Seqable Symbol) TypeFn -> r/Type])
 (defn TypeFn-body* [names typefn]
@@ -906,12 +909,15 @@
         vs (free-ops/with-bounded-frees 
              (zipmap (map r/make-F names) bbnds)
              (fv-variances body))
-        _ (doseq [[nme variance] (map vector names (:variances typefn))]
-            (when-let [actual-v (vs nme)]
-              (when-not (= (vs nme) variance)
-                (u/int-error (str "Type variable " (-> nme r/make-F r/F-original-name) 
-                                  " appears in " (name actual-v) " position "
-                                  "when declared " (name variance))))))]
+        _ (when *TypeFn-variance-check*
+            (doseq [[nme variance] (map vector names (:variances typefn))]
+              (when-let [actual-v (vs nme)]
+                (when-not (= (vs nme) variance)
+                  (u/int-error (str "Type variable " (-> nme r/make-F r/F-original-name) 
+                                    " appears in " (name actual-v) " position "
+                                    "when declared " (name variance)
+                                    ", in " (binding [*TypeFn-variance-check* false]
+                                              (unparse-type typefn))))))))]
     body)))
 
 (t/ann ^:no-check TypeFn-bbnds* [(Seqable Symbol) TypeFn -> (Seqable Bounds)])
