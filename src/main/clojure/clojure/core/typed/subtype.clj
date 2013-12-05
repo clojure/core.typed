@@ -142,6 +142,27 @@
             (r/TCResult? t))
         (assert nil "Cannot give TCResult to subtype")
 
+        ; use bounds to determine subtyping between frees and types
+        (and (r/F? s)
+             (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name s))]
+               (prn "F on left" s t bnd)
+               (if-not bnd 
+                 (do #_(u/int-error (str "No bounds for " (:name s)))
+                     nil)
+                 (and (subtype? upper-bound t)
+                      (subtype? lower-bound t)))))
+        *sub-current-seen*
+
+        (and (r/F? t)
+             (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name t))]
+               (prn "F on right" s t bnd)
+               (if-not bnd 
+                 (do #_(u/int-error (str "No bounds for " (:name t)))
+                     nil)
+                 (and (subtype? s upper-bound)
+                      (subtype? s lower-bound)))))
+        *sub-current-seen*
+
         (and (r/Value? s)
              (r/Value? t))
         ;already (not= s t)
@@ -350,24 +371,6 @@
                  (not (subtype? s (:type t))))
           *sub-current-seen*
           (fail! s t))
-
-        (and (r/F? s)
-             (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name s))]
-               (if-not bnd 
-                 (do #_(u/int-error (str "No bounds for " (:name s)))
-                     nil)
-                 (and (subtype? upper-bound t)
-                      (subtype? lower-bound t)))))
-        *sub-current-seen*
-
-        (and (r/F? t)
-             (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name t))]
-               (if-not bnd 
-                 (do #_(u/int-error (str "No bounds for " (:name t)))
-                     nil)
-                 (and (subtype? s upper-bound)
-                      (subtype? s lower-bound)))))
-        *sub-current-seen*
 
         (and (r/AssocType? s)
              (r/AssocType? t)
