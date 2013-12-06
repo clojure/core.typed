@@ -4683,19 +4683,19 @@
                                                                                               [(symbol (munge k)) v]))]
                                                                 (munged-methods (:name method-sig)))))
                                                           (instance-method->Function method-sig)))]
-                          #_(prn "method expected type" (prs/unparse-type expected-ifn))
-                          (prn "names" nms)
+                          ;(prn "method expected type" (prs/unparse-type expected-ifn))
+                          ;(prn "names" nms)
                           (lex/with-locals expected-fields
                             (free-ops/with-free-mappings 
                               (zipmap (map (comp r/F-original-name r/make-F) nms) 
                                       (map (fn [nm bnd] {:F (r/make-F nm) :bnds bnd}) nms bbnds))
-                              (prn "lexical env when checking method" method-nme lex/*lexical-env*)
-                              (prn "frees when checking method" 
-                                   (into {} (for [[k {:keys [name]}] clojure.core.typed.tvar-env/*current-tvars*]
-                                              [k name])))
-                              (prn "bnds when checking method" 
-                                   clojure.core.typed.tvar-bnds/*current-tvar-bnds*)
-                              (prn "expected-ifn" expected-ifn)
+                              ;(prn "lexical env when checking method" method-nme lex/*lexical-env*)
+                              ;(prn "frees when checking method" 
+                              ;     (into {} (for [[k {:keys [name]}] clojure.core.typed.tvar-env/*current-tvars*]
+                              ;                [k name])))
+                              ;(prn "bnds when checking method" 
+                              ;     clojure.core.typed.tvar-bnds/*current-tvar-bnds*)
+                              ;(prn "expected-ifn" expected-ifn)
                               (check-fn-methods
                                 [inst-method]
                                 expected-ifn

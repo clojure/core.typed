@@ -145,7 +145,6 @@
         ; use bounds to determine subtyping between frees and types
         (and (r/F? s)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name s))]
-               (prn "F on left" s t bnd)
                (if-not bnd 
                  (do #_(u/int-error (str "No bounds for " (:name s)))
                      nil)
@@ -155,7 +154,6 @@
 
         (and (r/F? t)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name t))]
-               (prn "F on right" s t bnd)
                (if-not bnd 
                  (do #_(u/int-error (str "No bounds for " (:name t)))
                      nil)
