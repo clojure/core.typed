@@ -2647,6 +2647,9 @@
 ;(sub? (All [x] (TFn [[a :variance :covariant]] Any))
 ;      (Rec [m] (TFn [[a :variance :covariant]] m)))
 
+(deftest nested-tfn-test
+  (is (check-ns 'clojure.core.typed.test.nested-tfn-operator)))
+
 ;(sub? (TFn (Rec [m]
 ;                     (TFn [[x :variance :covariant]]
 ;                       (Rec [c]

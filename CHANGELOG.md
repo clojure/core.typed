@@ -38,6 +38,12 @@
 - All functions in base-env that return LazySeq have been changed to Seq
   - also includes for>
 
+### core.async annotations
+
+- Channel takes zero parameters
+- ManyToManyChannel type parameters now have correct variance
+  - contravariant and covariant instead of vice-versa
+
 ## Fixes
 
 - Fix [CTYP-95](http://dev.clojure.org/jira/browse/CTYP-95) Wrong annotation for `reset!`

@@ -2875,7 +2875,7 @@
                                         (when-not expected 
                                           (u/int-error (str "Recursive functions require full annotation")))
                                         (assert (symbol? name) name)
-                                        {name (ret-t expected)})
+                                        {name expected})
                        ;scope type variables from polymorphic type in body
                        (free-ops/with-free-mappings (case poly?
                                                       :Poly (zipmap (map r/F-original-name inst-frees)
