@@ -2635,6 +2635,9 @@
 (deftest check-ns-kw-args-test
   (is (check-ns 'clojure.core.typed.test.protocol :collect-only true)))
 
+(deftest nested-tfn-test
+  (is (check-ns 'clojure.core.typed.test.nested-tfn-operator)))
+
 ;(sub? (TFn (Rec [m]
 ;                     (TFn [[x :variance :covariant]]
 ;                       (Rec [c]

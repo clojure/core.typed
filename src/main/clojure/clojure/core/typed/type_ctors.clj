@@ -1109,7 +1109,7 @@
 
 ;; Resolve
 
-(declare resolve-tapp* -resolve resolve-app*)
+(declare resolve-tapp* fully-resolve-type resolve-app*)
 
 (t/ann ^:no-check resolve-TApp [TApp -> r/Type])
 (defn resolve-TApp [^TApp app]
@@ -1120,7 +1120,7 @@
 (defn resolve-tapp* [rator rands & {:keys [tapp]}]
   {:pre [(r/TApp? tapp)]}
   (let [unparse-type @(unparse-type-var)
-        rator (-resolve rator)
+        rator (fully-resolve-type rator)
         _ (when-not (r/TypeFn? rator) 
             (u/int-error (str "First argument to TApp must be TFn, actual: " rator)))]
     (when-not (= (count rands) (:nbound rator))
@@ -1139,7 +1139,7 @@
 (t/ann ^:no-check resolve-app* [r/Type (Seqable r/Type) -> r/Type])
 (defn resolve-app* [rator rands]
   (let [unparse-type @(unparse-type-var)
-        rator (-resolve rator)]
+        rator (fully-resolve-type rator)]
     (cond
       (r/Poly? rator) (do (assert (= (count rands) (.nbound ^Poly rator))
                                   (u/error-msg "Wrong number of arguments provided to polymorphic type"

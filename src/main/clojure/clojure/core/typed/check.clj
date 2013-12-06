@@ -2947,7 +2947,7 @@
   `(binding [*recur-target* ~tgt]
      ~@body))
 
-(declare env+ ->RecurTarget)
+(declare env+ ->RecurTarget RecurTarget?)
 
 ;check method is under a particular Function, and return inferred Function
 ;
