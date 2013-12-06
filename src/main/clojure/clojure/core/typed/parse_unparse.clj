@@ -122,10 +122,8 @@
         (u/int-error "Variance not supported for variables introduced with All"))
       [n (let [upper-or-nil (when (contains? opts :<)
                               (parse-type <))
-               _ (prn "upper-or-nil" upper-or-nil)
                lower-or-nil (when (contains? opts :>)
-                              (parse-type >))
-               _ (prn "lower-or-nil" lower-or-nil)]
+                              (parse-type >))]
            (c/infer-bounds upper-or-nil lower-or-nil))])))
 
 (defn check-forbidden-rec [rec tbody]
