@@ -2644,6 +2644,9 @@
 (deftest check-ns-kw-args-test
   (is (check-ns 'clojure.core.typed.test.protocol :collect-only true)))
 
+;(sub? (All [x] (TFn [[a :variance :covariant]] Any))
+;      (Rec [m] (TFn [[a :variance :covariant]] m)))
+
 ;(sub? (TFn (Rec [m]
 ;                     (TFn [[x :variance :covariant]]
 ;                       (Rec [c]
