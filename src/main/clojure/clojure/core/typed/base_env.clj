@@ -1126,16 +1126,14 @@ clojure.core/not= [Any Any * -> boolean]
 
 clojure.core/first
      (All [x]
-          (Fn ['[x Any *] -> x]
-              [(IMapEntry x Any) -> x]
+          (Fn [(U (IMapEntry x Any) '[x Any *]) -> x]
               [(Option (EmptySeqable x)) -> nil]
               [(NonEmptySeqable x) -> x]
               [(Option (Seqable x)) -> (Option x)]))
 
 clojure.core/second
      (All [x]
-          (Fn ['[Any x Any *] -> x]
-              [(IMapEntry Any x) -> x]
+          (Fn [(U (IMapEntry Any x) '[Any x Any *]) -> x]
               [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
               [(I (Seqable x) (CountRange 2)) -> x]
               [(Option (Seqable x)) -> (Option x)]))
