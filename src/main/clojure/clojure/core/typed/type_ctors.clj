@@ -889,6 +889,7 @@
         (with-original-names t original-names)))))
 
 ;only set to true if throwing an error and need to print a TypeFn
+(t/ann *TypeFn-variance-check* Boolean)
 (def ^:dynamic *TypeFn-variance-check* true)
 
 ;smart destructor

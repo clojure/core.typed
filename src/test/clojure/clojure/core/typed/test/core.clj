@@ -2630,7 +2630,7 @@
             (TypeFn-body* (TypeFn-fresh-symbols* t) t)
             true))
   (is-clj (let [t (parse-type '(TFn [[x :variance :contravariant]]
-                                    x))]
+                                    Any))]
             (TypeFn-body* (TypeFn-fresh-symbols* t) t)
             true)))
 
