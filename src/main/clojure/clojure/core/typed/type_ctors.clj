@@ -2132,19 +2132,12 @@
       (r/Mu? t) (let [name (Mu-fresh-symbol* t)
                       body (Mu-body* name t)
                       new-body (fnd-bnd body)]
-                  (prn "Mu" t)
-                  (prn "Mu" name)
-                  (prn "Mu" new-body)
                   (Mu* name new-body))
       (r/Poly? t) (fnd-bnd (Poly-body* (Poly-fresh-symbols* t)) t)
       (r/TypeFn? t) (let [names (TypeFn-fresh-symbols* t)
                           body (TypeFn-body* names t)
                           bbnds (TypeFn-bbnds* names t)
                           new-body (fnd-bnd body)]
-                      (prn "TypeFn" t)
-                      (prn "TypeFn" (meta t))
-                      (prn "TypeFn" new-body)
-                      (prn names)
                       (TypeFn* names
                                (:variances t)
                                bbnds
