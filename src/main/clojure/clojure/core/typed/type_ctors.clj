@@ -32,12 +32,12 @@
 
 (t/typed-deps clojure.core.typed.name-env)
 
-(t/ann ^:no-check with-original-names [Type (U Symbol (Seqable Symbol))
-                                       -> Type])
+(t/ann ^:no-check with-original-names [r/Type (U Symbol (Seqable Symbol))
+                                       -> r/Type])
 (defn- with-original-names [t names]
   (with-meta t {::names names}))
 
-(t/ann ^:no-check get-original-names [Type -> (U nil Symbol (Seqable Symbol))])
+(t/ann ^:no-check get-original-names [r/Type -> (U nil Symbol (Seqable Symbol))])
 (defn get-original-names [t]
   (-> t meta ::names))
 
