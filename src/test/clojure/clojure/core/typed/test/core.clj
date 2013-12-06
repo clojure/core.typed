@@ -2624,6 +2624,15 @@
             (= (infer-bounds t nil)
                (-bounds t -nothing)))))
 
+(deftest consistent-variance-test
+  (is-clj (let [t (parse-type '(TFn [[x :variance :covariant]]
+                                    x))]
+            (TypeFn-body* (TypeFn-fresh-symbols* t) t)
+            true))
+  (is-clj (let [t (parse-type '(TFn [[x :variance :contravariant]]
+                                    x))]
+            (TypeFn-body* (TypeFn-fresh-symbols* t) t)
+            true)))
 
 (deftest hvec-abstract-test
   (is-cf (fn [a b] [(class a) (class b)])
