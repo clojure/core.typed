@@ -1,5 +1,12 @@
 # 0.2.21-SNAPSHOT
 
+## BREAKING CHANGES
+
+- Changes to core.async annotations
+  - c.c.a.i.p/Channel takes zero arguments (previously two)
+  - c.c.a.i.c.ManyToManyChannel has covariant/contravariant arguments
+    (previously contravariant/covariant)
+
 ## Fixes
 
 - Instantiate any abstract objects in a result type before using
@@ -30,12 +37,6 @@
 
 - All functions in base-env that return LazySeq have been changed to Seq
   - also includes for>
-
-### core.async annotations
-
-- Channel takes zero parameters
-- ManyToManyChannel type parameters now have correct variance
-  - contravariant and covariant instead of vice-versa
 
 ## Fixes
 
