@@ -127,12 +127,13 @@
            (c/infer-bounds upper-or-nil lower-or-nil))])))
 
 (defn check-forbidden-rec [rec tbody]
-  (when (or (= rec tbody) 
-            (and (r/Intersection? tbody)
-                 (contains? (set (:types tbody)) rec))
-            (and (r/Union? tbody)
-                 (contains? (set (:types tbody)) rec)))
-    (throw (Exception. "Recursive type not allowed here"))))
+  (letfn [(well-formed? [t]
+            (and (not= rec t)
+                 (if ((some-fn r/Intersection? r/Union?) t)
+                   (every? well-formed? (:types t))
+                   true)))]
+    (when-not (well-formed? tbody)
+      (u/int-error (str "Recursive type not allowed here")))))
 
 (defn- Mu*-var []
   (let [v (ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'Mu*)]
@@ -516,7 +517,7 @@
             (println "WARNING: Unsupported HMap options:" (vec more))
             (flush))
         _ (when (and deprecated-mandatory mandatory)
-            (throw (Exception. "Cannot provide both deprecated initial map syntax and :mandatory option to HMap")))
+            (u/int-error (str "Cannot provide both deprecated initial map syntax and :mandatory option to HMap")))
         mandatory (or deprecated-mandatory mandatory)]
     (syn-to-hmap mandatory optional absent-keys complete?)))
 
@@ -554,10 +555,13 @@
     (RClass-of cls tparams)))
 
 (defmethod parse-type-list 'Value
-  [[_Value_ syn]]
+  [[_Value_ syn :as all]]
+  (when-not (#{2} (count all))
+    (u/int-error (str "Incorrect number of arguments to Value, " (count all)
+                      ", expected 2: " all)))
   (impl/impl-case
     :clojure (const/constant-type syn)
-    :cljs (assert nil "FIX parse Value")))
+    :cljs (assert nil "FIXME CLJS parse Value")))
 
 (defmethod parse-type-list 'KeywordArgs
   [[_KeywordArgs_ & {:keys [optional mandatory]}]]
@@ -830,6 +834,7 @@
 (defn alias-in-ns
   "Returns an alias for namespace sym in ns, or nil if none."
   [nsym ns]
+  (impl/assert-clojure)
   (some (fn [[alias ans]]
           (when (= (str nsym) (str (ns-name ans)))
             alias))
@@ -1017,9 +1022,11 @@
 
 (defmethod unparse-type* Protocol
   [{:keys [the-var poly?]}]
-  (if poly?
-    (list* (unparse-var-symbol-in-ns the-var) (mapv unparse-type poly?))
-    the-var))
+  (let [s (impl/impl-case :clojure (unparse-var-symbol-in-ns the-var)
+                          :cljs the-var)]
+    (if poly?
+      (list* s (mapv unparse-type poly?))
+      s)))
 
 (defmethod unparse-type* DataType
   [{:keys [the-class poly?]}]

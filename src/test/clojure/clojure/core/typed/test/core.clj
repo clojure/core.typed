@@ -2650,6 +2650,28 @@
 (deftest nested-tfn-test
   (is (check-ns 'clojure.core.typed.test.nested-tfn-operator)))
 
+(deftest parse-forbidden-rec-test
+  (is-clj (throws-tc-error?
+            (parse-type '(Rec [x] x))))
+  (is-clj (throws-tc-error?
+            (parse-type '(Rec [x] (I x Number)))))
+  (is-clj (throws-tc-error?
+            (parse-type '(Rec [x] (U x Number)))))
+  (is-clj (throws-tc-error?
+            (parse-type '(Rec [x] (U (I x Number) Double))))))
+
+(deftest parse-value-test
+  (is-clj (throws-tc-error?
+            (parse-type '(Value))))
+  (is-clj (throws-tc-error?
+            (parse-type '(Value 1 2 3))))
+  (is-clj (throws-tc-error?
+            (parse-type 'a)))
+  (is-clj (throws-tc-error?
+            (parse-type ':a)))
+  (is-clj (throws-tc-error?
+            (parse-type '1))))
+
 ;(sub? (TFn (Rec [m]
 ;                     (TFn [[x :variance :covariant]]
 ;                       (Rec [c]
