@@ -1117,7 +1117,7 @@
   (let [unparse-type @(unparse-type-var)
         rator (fully-resolve-type rator)
         _ (when-not (r/TypeFn? rator) 
-            (u/int-error (str "First argument to TApp must be TFn, actual: " rator)))]
+            (u/int-error (str "First argument to TApp must be TFn, actual: " (unparse-type rator))))]
     (when-not (= (count rands) (:nbound rator))
       (binding [vs/*current-env* (-> tapp meta :env)] ;must override env, or clear it
         (u/int-error (str "Wrong number of arguments (" (count rands) ") passed to type function: "

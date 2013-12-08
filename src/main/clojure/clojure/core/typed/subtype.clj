@@ -230,7 +230,7 @@
                 *sub-current-seen*
                 (fail! s t)))
 
-            :else (u/int-error (str "First argument to TApp must be TFn, actual: " rator))))
+            :else (u/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
 
         (r/TApp? t)
         (let [{:keys [rands]} t
@@ -245,7 +245,7 @@
                 *sub-current-seen*
                 (fail! s t)))
 
-            :else (u/int-error (str "First argument to TApp must be TFn, actual: " rator))))
+            :else (u/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
 
         (r/App? s)
         (subtypeA* *sub-current-seen* (c/resolve-App s) t)
