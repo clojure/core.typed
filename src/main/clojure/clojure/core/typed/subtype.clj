@@ -1206,8 +1206,6 @@
         ; use java subclassing
         (and (empty? polyl?)
              (empty? polyr?)
-             (empty? (:replacements s))
-             (empty? (:replacements t))
              (class-isa? scls tcls))
 
         ;same base class

@@ -1,4 +1,6 @@
-(ns ^:skip-wiki clojure.core.typed.frees
+(ns ^:skip-wiki 
+  ^{:core.typed {:collect-only true}}
+  clojure.core.typed.frees
   (:require [clojure.core.typed :as t :refer [for> fn>]]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.current-impl :as impl]
@@ -21,7 +23,8 @@
            (clojure.core.typed.path_rep KeyPE)
            (clojure.lang Keyword Symbol)))
 
-(alter-meta! *ns* assoc :skip-wiki true)
+(alter-meta! *ns* assoc :skip-wiki true
+             :core.typed {:collect-only true})
 
 ;(t/typed-deps clojure.core.typed.type-rep)
 

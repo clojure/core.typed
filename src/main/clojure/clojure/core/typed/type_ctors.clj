@@ -565,13 +565,13 @@
          (every? r/Bounds? bnds)
          (symbol? the-class)]
    :post [((some-fn r/TypeFn? r/RClass?) %)]}
-   (let [repl (into {} (for [[k v] replacements]
-                         [k (abstract-many names v)]))
-         uncked (set (for [u unchecked-ancestors]
-                       (abstract-many names u)))]
+   (let [_ ((impl/v 'clojure.core.typed.rclass-ancestor-env/add-rclass-replacements)
+            the-class names replacements)
+         _ ((impl/v 'clojure.core.typed.rclass-ancestor-env/add-rclass-ancestors)
+            the-class names unchecked-ancestors)]
      (if (seq variances)
-       (TypeFn* names variances bnds (r/RClass-maker variances poly? the-class repl uncked))
-       (r/RClass-maker nil nil the-class repl uncked)))))
+       (TypeFn* names variances bnds (r/RClass-maker variances poly? the-class))
+       (r/RClass-maker nil nil the-class)))))
 
 (t/ann ^:no-check isa-DataType? [(U Symbol Class) -> Any])
 (defn isa-DataType? [sym-or-cls]
@@ -646,7 +646,7 @@
                                              " Annotate with ann-record above the first time it is parsed"))
                                (flush))
                            (r/DataType-maker sym nil nil (array-map) (isa-Record? cls)))
-                         (r/RClass-maker nil nil sym {} #{}))))]
+                         (r/RClass-maker nil nil sym))))]
            (swap! RClass-of-cache assoc cache-key-hash res)
            res)))))))
 
@@ -783,31 +783,19 @@
 (t/ann ^:no-check RClass-replacements* [RClass -> (IPersistentMap Symbol r/Type)])
 (defn RClass-replacements*
   "Return the replacements map for the RClass"
-  [^RClass rcls]
+  [rcls]
   {:pre [(r/RClass? rcls)]
    :post [((u/hash-c? symbol? r/Type?) %)]}
-  (let [subst-all @(subst-all-var)
-        poly (.poly? rcls)]
-    (into {} (for [[k v] (.replacements rcls)]
-               [k (inst-and-subst v poly)]))))
+  ((impl/v 'clojure.core.typed.rclass-ancestor-env/rclass-replacements)
+   rcls))
 
 (t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (IPersistentSet r/Type)])
-; FIXME this is dumb, unchecked-ancestors field should be properly unwrapped
-; as an RClass field
 (defn RClass-unchecked-ancestors*
-  [^RClass rcls]
+  [rcls]
   {:pre [(r/RClass? rcls)]
    :post [((u/set-c? r/Type?) %)]}
-  (u/p :ctors/RClass-unchecked-ancestors*
-  (let [subst-all @(subst-all-var)
-        poly (.poly? rcls)
-        names (repeatedly (count poly) #(gensym "unchecked-ancestor"))
-        fs (map r/make-F names)]
-    ;(prn "RClass-unchecked-ancestors*" names)
-    (set (for [u (.unchecked-ancestors rcls)]
-           (let [t (instantiate-many names u)
-                 subst (make-simple-substitution names poly)]
-             (subst-all subst t)))))))
+  ((impl/v 'clojure.core.typed.rclass-ancestor-env/rclass-ancestors)
+   rcls))
 
 (t/ann supers-cache (t/Atom1 (t/Map Number (t/Map Symbol r/Type))))
 (defonce ^:private supers-cache (atom {}))
@@ -2119,6 +2107,8 @@
          (every? r/TCResult? rtypes)]
    :post [((some-fn nil? r/Type?) %)]}
   (reduce-type-transform conj-pair left rtypes))
+
+;; Inferring bounds
 
 (defn find-bound* 
   "Find upper bound if polarity is true, otherwise lower bound"
