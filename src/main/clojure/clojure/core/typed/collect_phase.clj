@@ -472,7 +472,23 @@
       (assert (not (namespace kuq))
               "Protocol method names should be unqualified")
       ;qualify method names when adding methods as vars
-      (let [kq (symbol protocol-defined-in-nstr (name kuq))]
+      (let [kq (symbol protocol-defined-in-nstr (name kuq))
+            mt (cond
+                 (r/Poly? mt) (let [outer-names (map :name fs)
+                                    inner-names (concat (c/Poly-fresh-symbols* mt))]
+                                (c/Poly* (concat outer-names inner-names)
+                                         (concat bnds (c/Poly-bbnds* inner-names mt))
+                                         (c/Poly-body* inner-names mt)))
+
+                 (r/PolyDots? mt) (let [outer-names (map :name fs)
+                                        inner-names (concat (c/PolyDots-fresh-symbols* mt))]
+                                    (c/PolyDots* (concat outer-names inner-names)
+                                                 (concat bnds (c/PolyDots-bbnds* inner-names mt))
+                                                 (c/PolyDots-body* inner-names mt)))
+                 :else (let [outer-names (map :name fs)]
+                         (c/Poly* outer-names
+                                  bnds
+                                  mt)))]
         (var-env/add-nocheck-var kq)
         (var-env/add-var-type kq mt)))
     ;(prn "end gen-protocol" s)
