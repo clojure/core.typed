@@ -2672,6 +2672,25 @@
   (is-clj (throws-tc-error?
             (parse-type '1))))
 
+(deftest parse-TFn-bad-args-test
+  (is-clj (throws-tc-error?
+            (parse-type '(TFn [[x :variance :covariant :argh]]
+                              Any)))))
+
+(deftest parse-HMap-bad-args-test
+  (is-clj (throws-tc-error?
+            (parse-type '(HMap :foo))))
+  (is-clj (throws-tc-error?
+            (parse-type '(HMap :foo :foo))))
+  (is-clj (throws-tc-error?
+            (parse-type '(HMap :mandatory {} :mandatory {}))))
+  (is-clj (throws-tc-error?
+            (parse-type '(HMap mandatory {})))))
+
+;(deftest parse-with-inferred-variance
+;  (is-clj (= (clj (parse-type '(TFn [[x :variance :inferred]] x)))
+;             (parse-type '(TFn [[x :variance :covariant]] x)))))
+
 ;(sub? (TFn (Rec [m]
 ;                     (TFn [[x :variance :covariant]]
 ;                       (Rec [c]

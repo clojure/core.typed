@@ -22,14 +22,20 @@
     
           (HVec [(U nil Class) (U nil Class)]
                  :objects [{:path [Class], :id a} {:path [Class], :id b}])
-- Calling `check-ns` with keyword arguments was broken in 0.2.20
-  - Fixed
+- Fix `check-ns` with keyword arguments (was broken in 0.2.20)
+- Better error checking on badly formed `Rec` types
+  - eg. (Rec [x] x), (Rec [x] (U x Number))
+  - See `parse-forbidden-rec-test`
+- Better error checking on `Value` types
+  - See `parse-value-test`
 
 ## Changes
 
 - Multimethod dispatch environment is reset between calls to `check-ns`
   - Should avoid the type checker complaining if you are changing your
     defmulti definition in the same JVM session
+- It is now a type error (rather than a warning) to pass incorrect keyword
+  arguments to `HMap`.
 
 # 0.2.20 - Released 27th November 2013
 

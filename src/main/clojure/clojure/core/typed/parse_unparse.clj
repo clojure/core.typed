@@ -88,6 +88,8 @@
     (let [[n & {:keys [< > variance] :as opts}] f]
       (when (contains? opts :kind)
         (prn "DEPRECATED: kind annotation for TFn parameters"))
+      (when-not (r/variance? variance)
+        (u/int-error (str "Invalid variance " (pr-str variance) " in free binder: " f)))
       {:fname n 
        :bnd (let [upper-or-nil (when (contains? opts :<)
                                  (parse-type <))
@@ -354,27 +356,37 @@
             (when kind
               (parse-type kind)))})
 
-(defn parse-tfn-binder [[nme & {:keys [variance < >] :as opts}]]
-  {:post [((u/hmap-c? :nme symbol? :variance r/variance?
+(defn parse-tfn-binder [[nme & opts-flat :as all]]
+  {:pre [(vector? all)]
+   :post [((u/hmap-c? :nme symbol? :variance r/variance?
                       :bound r/Bounds?) %)]}
-  (when-not (symbol? nme)
-    (u/int-error "Must provide a name symbol to TFn"))
-  (when (contains? opts :kind)
-    (prn "DEPRECATED: kind annotation for TFn parameters"))
-  {:nme nme :variance (or variance :invariant)
-   :bound (let [upper-or-nil (when (contains? opts :<)
-                               (parse-type <))
-                lower-or-nil (when (contains? opts :>)
-                               (parse-type >))]
-            (c/infer-bounds upper-or-nil lower-or-nil))})
+  (let [_ (when-not (even? (count opts-flat))
+            (u/int-error (str "Uneven arguments passed to TFn binder: "
+                              (pr-str all))))
+        {:keys [variance < >] 
+         :or {variance :inferred}
+         :as opts} 
+        (apply hash-map opts-flat)]
+    (when-not (symbol? nme)
+      (u/int-error "Must provide a name symbol to TFn"))
+    (when (contains? opts :kind)
+      (u/int-error "DEPRECATED: kind annotation for TFn parameters"))
+    (when-not (r/variance? variance)
+      (u/int-error (str "Invalid variance: " (pr-str variance))))
+    {:nme nme :variance variance
+     :bound (let [upper-or-nil (when (contains? opts :<)
+                                 (parse-type <))
+                  lower-or-nil (when (contains? opts :>)
+                                 (parse-type >))]
+              (c/infer-bounds upper-or-nil lower-or-nil))}))
 
 (defn parse-type-fn 
   [[_ binder bodysyn :as tfn]]
   (when-not (= 3 (count tfn))
-    (u/int-error "Wrong number of arguments to TFn"))
+    (u/int-error "Wrong number of arguments to TFn: " (pr-str tfn)))
   (when-not (every? vector? binder)
-    (u/int-error "TFn binder should be vector of vectors"))
-  (let [; don't scope frees in bounds because mutually dependent bounds are problematic
+    (u/int-error "TFn binder should be vector of vectors: " (pr-str tfn)))
+  (let [; don't scope a free in its own bounds. Should review this decision
         free-maps (free-ops/with-free-symbols (map (fn [s]
                                                      {:pre [(vector? s)]
                                                       :post [(symbol? %)]}
@@ -497,8 +509,19 @@
 
 (declare parse-in-ns)
 
+(defn multi-frequencies 
+  "Like frequencies, but only returns frequencies greater
+  than one"
+  [coll]
+  (->> coll
+       frequencies
+       (filter (fn [[k freq]]
+                 (when (< 1 freq)
+                   true)))
+       (into {})))
+
 (defmethod parse-type-list 'HMap
-  [[_HMap_ & flat-opts]]
+  [[_HMap_ & flat-opts :as all]]
   (let [supported-options #{:optional :mandatory :absent-keys :complete?}
         ; support deprecated syntax (HMap {}), which is now (HMap :mandatory {})
         deprecated-mandatory (when (map? (first flat-opts))
@@ -507,15 +530,29 @@
                                  ": DEPRECATED: HMap syntax changed. Use :mandatory keyword argument instead of initial map")
                                (flush)
                                (first flat-opts))
-        ^ISeq flat-opts (if deprecated-mandatory
-                          (next flat-opts)
-                          flat-opts)
+        flat-opts (if deprecated-mandatory
+                    (next flat-opts)
+                    flat-opts)
+        _ (when-not (even? (count flat-opts))
+            (u/int-error (str "Uneven keyword arguments to HMap: " (pr-str all))))
+        flat-keys (->> flat-opts
+                       (partition 2)
+                       (map first))
+        _ (when-not (every? keyword? flat-keys)
+            (u/int-error (str "HMap requires keyword arguments, given " (pr-str (first flat-keys))
+                              " in: " (pr-str all))))
+        _ (let [kf (->> flat-keys
+                        multi-frequencies
+                        (map first)
+                        seq)]
+            (when-let [[k] kf]
+              (u/int-error (str "Repeated keyword argument to HMap: " (pr-str k)))))
+
         {:keys [optional mandatory absent-keys complete?]
          :or {complete? false}
-         :as others} (PersistentHashMap/createWithCheck flat-opts)
-        _ (when-let [more (seq (set/difference (set (keys others)) supported-options))]
-            (println "WARNING: Unsupported HMap options:" (vec more))
-            (flush))
+         :as others} (apply hash-map flat-opts)
+        _ (when-let [[k] (seq (set/difference (set (keys others)) supported-options))]
+            (u/int-error (str "Unsupported HMap keyword argument: " (pr-str k))))
         _ (when (and deprecated-mandatory mandatory)
             (u/int-error (str "Cannot provide both deprecated initial map syntax and :mandatory option to HMap")))
         mandatory (or deprecated-mandatory mandatory)]
