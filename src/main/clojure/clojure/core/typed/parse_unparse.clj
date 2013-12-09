@@ -1070,7 +1070,7 @@
   [{:keys [the-class poly?]}]
   (if poly?
     (list* (unparse-Class-symbol-in-ns the-class) (mapv unparse-type poly?))
-    the-class))
+    (unparse-Class-symbol-in-ns the-class)))
 
 (defmulti unparse-RClass :the-class)
 
