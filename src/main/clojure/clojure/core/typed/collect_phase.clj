@@ -197,6 +197,7 @@
   {:pre [(symbol? current-ns)]}
   (impl/with-clojure-impl
     (let [{ancests :unchecked-ancestors} opt
+          ancests (or ancests (:extends opt))
           parsed-binders (when vbnd
                            (binding [prs/*parse-type-in-ns* current-ns]
                              (prs/parse-free-binder-with-variance vbnd)))
@@ -225,6 +226,7 @@
                       (binding [uvar/*current-env* current-env
                                 prs/*parse-type-in-ns* current-ns]
                         (mapv (comp #(c/abstract-many args %) prs/parse-type) ancests))))
+            ;_ (prn "collected ancestors" as)
             _ (ancest/add-datatype-ancestors s as)
             pos-ctor-name (symbol demunged-ns-str (str "->" local-name))
             map-ctor-name (symbol demunged-ns-str (str "map->" local-name))

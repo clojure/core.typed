@@ -2731,6 +2731,9 @@
                              '(All [x1 x2 m1]
                                 [Any x1 m1 -> x2]))))))
 
+(deftest deftype-poly-ancestor-test
+  (is (check-ns 'clojure.core.typed.test.protocol-scoping)))
+
 ;(deftest parse-with-inferred-variance
 ;  (is-clj (= (clj (parse-type '(TFn [[x :variance :inferred]] x)))
 ;             (parse-type '(TFn [[x :variance :covariant]] x)))))

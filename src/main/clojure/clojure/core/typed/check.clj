@@ -4615,6 +4615,49 @@
 
 (declare check-new-instance-method)
 
+(defn protocol-implementation-type [datatype {:keys [declaring-class] :as method-sig}]
+  (let [pvar (c/Protocol-interface->on-var declaring-class)
+        ptype (pcl-env/get-protocol pvar)
+        demunged-msym (symbol (repl/demunge (str (:name method-sig))))
+        ans (doall (map c/fully-resolve-type (sub/datatype-ancestors datatype)))
+        ;_ (prn "datatype" datatype)
+        ;_ (prn "ancestors" (pr-str ans))
+        ]
+    (when ptype
+      (let [pancestor (if (r/Protocol? ptype)
+                        ptype
+                        (let [[an :as relevant-ancestors] 
+                              (filter 
+                                (fn [a] 
+                                  (and (r/Protocol? a)
+                                       (= (:the-var a) pvar)))
+                                ans)
+                              _ (when (empty? relevant-ancestors)
+                                  (u/int-error (str "Must provide instantiated ancestor for datatype "
+                                                    (:the-class datatype) " to check protocol implementation: "
+                                                    pvar)))
+                              _ (when (< 1 (count relevant-ancestors))
+                                  (u/int-error (str "Ambiguous ancestors for datatype when checking protocol implementation: "
+                                                    (pr-str (vec relevant-ancestors)))))]
+                          an))
+            _ (assert (r/Protocol? pancestor) (pr-str pancestor))
+            ;_ (prn "pancestor" pancestor)
+            pargs (seq (:poly? pancestor))
+            unwrapped-p (if (r/Protocol? ptype)
+                          ptype
+                          (c/instantiate-typefn ptype pargs))
+            _ (assert (r/Protocol? unwrapped-p))
+            mth (get (:methods unwrapped-p) demunged-msym)
+            _ (when-not mth
+                (u/int-error (str "No matching annotation for protocol method implementation: "
+                                  demunged-msym)))]
+        (extend-method-expected datatype mth)))))
+
+(defn datatype-method-expected [datatype method-sig]
+  {:post [(r/Type? %)]}
+  (or (protocol-implementation-type datatype method-sig)
+      (extend-method-expected datatype (instance-method->Function method-sig))))
+
 (add-check-method :deftype*
   [{nme :name :keys [methods compiled-class env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
@@ -4630,6 +4673,7 @@
                      cmmap))
           field-syms (:hinted-fields expr)
           _ (assert (every? symbol? field-syms))
+          ; unannotated datatypes are handled below
           dtp (dt-env/get-datatype nme)
           [nms bbnds dt] (if (r/TypeFn? dtp)
                            (let [nms (c/TypeFn-fresh-symbols* dtp)
@@ -4661,7 +4705,7 @@
                (c/isa-Record? compiled-class)
                (r/DataType? dt)
                (r/Record? dt))
-          (u/tc-delayed-error (str (if datatype? "Datatype" "Record ") nme 
+          (u/tc-delayed-error (str (if datatype? "Datatype " "Record ") nme 
                                    " is annotated as a " (if datatype? "record" "datatype") 
                                    ", should be a " (if datatype? "datatype" "record") ". "
                                    "See ann-datatype and ann-record")
@@ -4669,7 +4713,7 @@
 
         (not= expected-field-syms field-syms)
         (u/tc-delayed-error (str "deftype " nme " fields do not match annotation. "
-                                 " Expected: " (vec expected-field-syms) 
+                                 " Expected: " (vec expected-field-syms)
                                  ", Actual: " (vec field-syms))
                             :return ret-expr)
 
@@ -4690,19 +4734,7 @@
                       (if-not (instance? clojure.reflect.Method method-sig)
                         (u/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme
                                                  ". Available methods: " (pr-str (map (comp first first) cmmap))))
-                        (let [expected-ifn 
-                              (extend-method-expected dt
-                                                      (or (let [ptype (first
-                                                                        (filter #(when-let [p (unwrap-tfn %)]
-                                                                                   (assert (r/Protocol? p))
-                                                                                   (= (:on-class p) (:declaring-class method-sig)))
-                                                                                (vals @pcl-env/CLJ-PROTOCOL-ENV)))]
-                                                            ;(prn "ptype" ptype)
-                                                            (when-let [ptype* (and ptype (unwrap-tfn ptype))]
-                                                              (let [munged-methods (into {} (for [[k v] (:methods ptype*)]
-                                                                                              [(symbol (munge k)) v]))]
-                                                                (munged-methods (:name method-sig)))))
-                                                          (instance-method->Function method-sig)))]
+                        (let [expected-ifn (datatype-method-expected dt method-sig)]
                           ;(prn "method expected type" (prs/unparse-type expected-ifn))
                           ;(prn "names" nms)
                           (lex/with-locals expected-fields

@@ -1017,18 +1017,20 @@
   (impl/assert-clojure)
   (u/p :subtype/datatype-ancestors
   (let [overidden-by (fn [sym o]
+                       ;(prn "overriden by" sym (class o) o)
                        (cond
                          ((some-fn r/DataType? r/RClass?) o)
-                         (when (= sym (:the-class o))
+                         (when (#{sym} (:the-class o))
                            o)
                          (r/Protocol? o)
                          ; protocols are extended via their interface if they
                          ; show up in the ancestors of the datatype
-                         (when (and (namespace sym)
-                                    (= sym (c/Protocol-var->on-class (:the-var o))))
+                         (when (#{sym} (:on-class o))
                            o)))
-        overrides (ancest/get-datatype-ancestors dt)
-        _ (assert (every? (some-fn r/Protocol? r/DataType? r/RClass?) (map c/fully-resolve-type overrides))
+        overrides (doall (map c/fully-resolve-type (ancest/get-datatype-ancestors dt)))
+        ;_ (prn "datatype name" the-class)
+        ;_ (prn "datatype overrides" overrides)
+        _ (assert (every? (some-fn r/Protocol? r/DataType? r/RClass?) overrides)
                   "Overriding datatypes to things other than datatypes, protocols and classes NYI")
         ; the classes that this datatype extends.
         ; No vars should occur here because protocol are extend via
@@ -1036,6 +1038,7 @@
         normal-asyms (->> (ancestors (u/symbol->Class the-class))
                           (filter class?)
                           (map u/Class->symbol))
+        ;_ (prn "normal-asyms" normal-asyms)
         post-override (set
                         (for [sym normal-asyms]
                           ; either we override this ancestor ...
@@ -1047,8 +1050,7 @@
                                 (c/Protocol-with-unknown-params protocol-varsym)
                                 ;... or we make an RClass from the actual ancestor.
                                 (c/RClass-of-with-unknown-params sym))))))]
-    post-override))
-  )
+    post-override)))
 
 (defn ^:private subtype-rclass-protocol
   [s t]
