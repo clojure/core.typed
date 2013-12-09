@@ -34,7 +34,7 @@
 (defonce ^:dynamic *parse-type-in-ns* nil)
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol?))
 
-(declare unparse-type unparse-filter unparse-filter-set)
+(declare unparse-type unparse-filter unparse-filter-set unparse-flow-set)
 
 ; Types print by unparsing them
 (do (defmethod print-method clojure.core.typed.impl_protocols.TCType [s writer]
@@ -50,9 +50,10 @@
     (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IPersistentMap)
 
     (defmethod print-method clojure.core.typed.impl_protocols.IFilter [s writer]
-      (if (f/FilterSet? s)
-        (print-method (unparse-filter-set s) writer)
-        (print-method (unparse-filter s) writer)))
+      (cond 
+        (f/FilterSet? s) (print-method (unparse-filter-set s) writer)
+        (r/FlowSet? s) (print-method (unparse-flow-set s) writer)
+        :else (print-method (unparse-filter s) writer)))
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IRecord)
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter java.util.Map)
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IPersistentMap))
