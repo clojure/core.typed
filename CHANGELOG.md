@@ -28,6 +28,19 @@
   - See `parse-forbidden-rec-test`
 - Better error checking on `Value` types
   - See `parse-value-test`
+- Protocol methods now implicitly adds polymorphic type parameters to the *vars*
+  that represent the protocol methods
+  - eg. 
+```clojure
+        (ann-protocol [[foo :variance :covariant]]
+                      Pro
+                      pmethod
+                      (All [c]
+                        [(Pro foo) -> c]))
+```
+
+        This generates the equivalent of: 
+        `(ann pmethod (All [foo c] [(Pro foo) -> c]))`
 
 ## Changes
 
@@ -36,6 +49,24 @@
     defmulti definition in the same JVM session
 - It is now a type error (rather than a warning) to pass incorrect keyword
   arguments to `HMap`.
+- `ann-datatype` and `ann-record` take a keyword argument `:extends` to override
+  polymorphic ancestors
+  - if a `deftype` implements a protocol, the annotation must override the ancestor
+    eg. 
+```clojure
+        (t/ann-protocol [[foo :variance :covariant]]
+                        Foo
+
+                        bar-
+                        [(Foo foo) -> foo])
+
+        (t/ann-datatype FooD [t :- t/Symbol]
+                        :extends
+                        [(Foo t/Symbol)])
+        (deftype FooD [t]
+          Foo
+          (bar- [this] t))
+```
 
 # 0.2.20 - Released 27th November 2013
 
