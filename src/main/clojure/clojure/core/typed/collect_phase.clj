@@ -246,10 +246,10 @@
                            (r/make-FnIntersection
                              (r/make-Function [hmap-arg] (c/DataType-of s))))))]
         (do 
-          (when vs
-            (let [f (mapv r/make-F (repeatedly (count vs) gensym))]
-              ;TODO replacements and unchecked-ancestors go here
-              (rcls/alter-class* s (c/RClass* (map :name f) vs f s {} {} bnds))))
+          ;(when vs
+          ;  (let [f (mapv r/make-F (repeatedly (count vs) gensym))]
+          ;    ;TODO replacements and unchecked-ancestors go here
+          ;    (rcls/alter-class* s (c/RClass* (map :name f) vs f s {} {} bnds))))
           (var-env/add-var-type pos-ctor-name pos-ctor)
           (var-env/add-nocheck-var pos-ctor-name)
           (when record?
@@ -418,6 +418,24 @@
     (override/add-method-override msym ty)
     nil))
 
+(defn protocol-method-var-ann [mt names bnds]
+  (cond
+    (r/Poly? mt) (let [outer-names names
+                       inner-names (concat (c/Poly-fresh-symbols* mt))]
+                   (c/Poly* (concat outer-names inner-names)
+                            (concat bnds (c/Poly-bbnds* inner-names mt))
+                            (c/Poly-body* inner-names mt)))
+
+    (r/PolyDots? mt) (let [outer-names names
+                           inner-names (concat (c/PolyDots-fresh-symbols* mt))]
+                       (c/PolyDots* (concat outer-names inner-names)
+                                    (concat bnds (c/PolyDots-bbnds* inner-names mt))
+                                    (c/PolyDots-body* inner-names mt)))
+    :else (let [outer-names names]
+            (c/Poly* outer-names
+                     bnds
+                     mt))))
+
 (defn gen-protocol* [current-env current-ns vsym binder mths]
   {:pre [(symbol? current-ns)]}
   (let [s (if (namespace vsym)
@@ -473,24 +491,9 @@
               "Protocol method names should be unqualified")
       ;qualify method names when adding methods as vars
       (let [kq (symbol protocol-defined-in-nstr (name kuq))
-            mt (cond
-                 (r/Poly? mt) (let [outer-names (map :name fs)
-                                    inner-names (concat (c/Poly-fresh-symbols* mt))]
-                                (c/Poly* (concat outer-names inner-names)
-                                         (concat bnds (c/Poly-bbnds* inner-names mt))
-                                         (c/Poly-body* inner-names mt)))
-
-                 (r/PolyDots? mt) (let [outer-names (map :name fs)
-                                        inner-names (concat (c/PolyDots-fresh-symbols* mt))]
-                                    (c/PolyDots* (concat outer-names inner-names)
-                                                 (concat bnds (c/PolyDots-bbnds* inner-names mt))
-                                                 (c/PolyDots-body* inner-names mt)))
-                 :else (let [outer-names (map :name fs)]
-                         (c/Poly* outer-names
-                                  bnds
-                                  mt)))]
+            mt-ann (protocol-method-var-ann mt (map :name fs) bnds)]
         (var-env/add-nocheck-var kq)
-        (var-env/add-var-type kq mt)))
+        (var-env/add-var-type kq mt-ann)))
     ;(prn "end gen-protocol" s)
     nil))
 
