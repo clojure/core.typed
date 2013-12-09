@@ -10,6 +10,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp
                                                       tc-equiv]]
+            [clojure.core.typed.collect-phase :as collect]
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.type-rep :refer :all]
@@ -2716,6 +2717,19 @@
       (RClass-of 'clojure.lang.ChunkBuffer
                  [(Name-maker 'java.lang.Number)]))))
 
+(deftest protocol-method-ann-test
+  ; p
+  (is-clj (let [names '[x1 x2]
+                bnds [no-bounds no-bounds]
+                mt (with-bounded-frees (zipmap (map make-F names)
+                                               bnds)
+                     (parse-type '(All [m1]
+                                    [Any x1 m1 -> x2])))]
+            (both-subtype? (collect/protocol-method-var-ann
+                             mt names bnds)
+                           (parse-type 
+                             '(All [x1 x2 m1]
+                                [Any x1 m1 -> x2]))))))
 
 ;(deftest parse-with-inferred-variance
 ;  (is-clj (= (clj (parse-type '(TFn [[x :variance :inferred]] x)))
