@@ -30,6 +30,9 @@
                                         true
                                         (assert nil (pr-str e))))))
 
+(defn reset-rclass-ancestors-env! []
+  (reset! RCLASS-ANCESTORS-ENV initial-class-ancestors-env))
+
 (t/ann ^:no-check rclass-ancestors [RClass -> (t/Seqable r/Type)])
 (defn rclass-ancestors [{poly :poly?, rsym :the-class, :as rcls}]
   {:pre [(r/RClass? rcls)]}
