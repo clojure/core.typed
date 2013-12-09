@@ -2687,6 +2687,21 @@
   (is-clj (throws-tc-error?
             (parse-type '(HMap mandatory {})))))
 
+(deftest hmap-intersection-test
+  (is-cf {:a 1} (I '{} '{:a Number}))
+  (is-cf {:a 1 :b 2} (I '{:b Number} '{:a Number}))
+  (is-cf {:foo 3 :bar "hi"} (I '{:foo clojure.core.typed/Int} '{:bar String}))
+  (is-cf {:a 1 :b 2} (I '{:b Number} '{:a Number}))
+  (is-cf (do (clojure.core.typed/def-alias HMapAlias1 '{:a Number})
+             (clojure.core.typed/def-alias HMapAlias2 '{:b Number})
+             (clojure.core.typed/ann-form {:a 1 :b 2}
+                                          (I HMapAlias1 HMapAlias2))))
+  (is-cf (do (clojure.core.typed/def-alias HMapAliasInt1 '{:foo clojure.core.typed/Int})
+             (clojure.core.typed/def-alias HMapAliasStr2 '{:bar String})
+             (clojure.core.typed/ann-form {:foo 3 :bar "hi"}
+                                          (I HMapAliasInt1 HMapAliasStr2)))))
+
+
 ;(deftest parse-with-inferred-variance
 ;  (is-clj (= (clj (parse-type '(TFn [[x :variance :inferred]] x)))
 ;             (parse-type '(TFn [[x :variance :covariant]] x)))))

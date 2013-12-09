@@ -68,7 +68,7 @@
    :post [(symbol? %)]}
   (with-meta (gensym s) {:original-name s}))
 
-(declare Un make-Union)
+(declare Un make-Union fully-resolve-type)
 
 (t/ann make-Union [(U nil (Seqable r/Type)) -> r/Type])
 (defn- make-Union
@@ -324,21 +324,27 @@
 (defn flatten-intersections [types]
   {:pre [(every? r/Type? types)]
    :post [(every? r/Type? %)]}
-  (apply concat
-         (for [t types]
-           (if (r/Intersection? t)
-             (:types t)
-             [t]))))
+  (t/loop> [work :- (Seqable r/Type), types
+            result :- (Seqable r/Type), []]
+    (if (empty? work)
+      result
+      (let [resolved (doall (map fully-resolve-type work))
+            {intersections true non-intersections false} (group-by r/Intersection? resolved)]
+        (recur (doall (mapcat :types intersections))
+               (doall (concat result non-intersections)))))))
 
 (t/ann ^:no-check flatten-unions [(U nil (Seqable r/Type)) -> (Seqable r/Type)])
 (defn flatten-unions [types]
   {:pre [(every? r/Type? types)]
    :post [(every? (every-pred r/Type? (complement r/Union?)) %)]}
-  (apply concat
-         (for [t (set types)]
-           (if (r/Union? t)
-             (:types t)
-             [t]))))
+  (t/loop> [work :- (Seqable r/Type), types
+            result :- (Seqable r/Type), []]
+    (if (empty? work)
+      result
+      (let [resolved (doall (map fully-resolve-type work))
+            {intersections true non-intersections false} (group-by r/Union? resolved)]
+        (recur (doall (mapcat :types intersections))
+               (doall (concat result non-intersections)))))))
 
 (t/ann ^:no-check In [r/Type * -> r/Type])
 (defn In [& types]
@@ -1104,7 +1110,7 @@
 
 ;; Resolve
 
-(declare resolve-tapp* fully-resolve-type resolve-app*)
+(declare resolve-tapp* resolve-app*)
 
 (t/ann ^:no-check resolve-TApp [TApp -> r/Type])
 (defn resolve-TApp [^TApp app]
