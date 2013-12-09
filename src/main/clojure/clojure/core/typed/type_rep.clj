@@ -80,7 +80,7 @@
   "An flattened, unordered union of types"
   [(set? types)
    (every? Type? types)
-   (not (some Union? types))]
+   (not-any? Union? types)]
   :methods
   [p/TCType])
 

@@ -1158,7 +1158,8 @@
                           (doall (map #(case %1
                                          :covariant (subtype? %2 %3)
                                          :contravariant (subtype? %3 %2)
-                                         (= %2 %3))
+                                         (and (subtype? %2 %3)
+                                              (subtype? %3 %2)))
                                       variances
                                       polyl?
                                       polyr?))))))))

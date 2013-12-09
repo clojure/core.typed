@@ -70,13 +70,16 @@
 
 (declare Un make-Union fully-resolve-type)
 
-(t/ann make-Union [(U nil (Seqable r/Type)) -> r/Type])
-(defn- make-Union
+(t/ann ^:no-check make-Union [(U nil (Seqable r/Type)) -> r/Type])
+(defn make-Union
   "Arguments should not overlap or be unions"
   [args]
   (cond
     (= 1 (count args)) (first args)
-    :else (r/Union-maker (set args))))
+    :else 
+    (let [{unions true non-unions false} (group-by r/Union? args)]
+      (r/Union-maker (set (concat (mapcat :types unions)
+                                  non-unions))))))
 
 (t/ann bottom r/Type)
 (def ^:private bottom (make-Union []))
@@ -263,8 +266,11 @@
 
 (t/ann ^:no-check make-Intersection [(U nil (Seqable r/Type)) -> r/Type])
 (defn make-Intersection [types]
-  #_(prn "make-Intersection" types)
-  (r/Intersection-maker (set types)))
+  (let [cnt (count types)]
+    (cond
+      (= 0 cnt) r/-nothing
+      (= 1 cnt) (first types)
+      :else (r/Intersection-maker (set types)))))
 
 (declare RClass-of)
 

@@ -269,7 +269,7 @@
   (parse-all-type bnds syn))
 
 (defn parse-union-type [[u & types]]
-  (apply c/Un (doall (map parse-type types))))
+  (c/make-Union (doall (map parse-type types))))
 
 (defmethod parse-type-list 'U
   [syn]
