@@ -4,8 +4,8 @@
 
 - Changes to core.async annotations
   - c.c.a.i.p/Channel takes zero arguments (previously two)
-  - c.c.a.i.c.ManyToManyChannel has covariant/contravariant arguments
-    (previously contravariant/covariant)
+  - c.c.a.i.c.ManyToManyChannel has contravariant/covariant
+    arguments (previously vice-versa)
 
 ## Fixes
 
