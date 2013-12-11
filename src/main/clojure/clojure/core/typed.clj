@@ -1061,6 +1061,21 @@ for checking namespaces, cf for checking individual forms."}
       `(ann-precord ~dname ~vbnd ~fields ~@opt)
       `(ann-record* '~dname '~fields '~opt))))
 
+(defmacro 
+  ^{:forms '[(defrecord> name docstring? [member :- type *])]}
+  defrecord>
+  "Like defrecord, but with inline annotations on members, using the
+  same syntax as ann-record.
+
+  eg. (defrecord> foo [a :- Number, b :- (U Symbol nil)])"
+  [sym & m0ar]
+  (let [[docstring? m0ar] (take-when string? m0ar)
+        args              (vector (take-nth 3 m0ar))]
+    `(do (ann-record ~sym ~m0ar)
+         ~(if docstring?
+            `(defrecord ~sym ~docstring? ~args)
+            `(defrecord ~sym ~args)))))
+
 (defn ^:skip-wiki
   ann-precord* 
   "Internal use only. Use ann-precord."
