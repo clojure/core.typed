@@ -1148,9 +1148,9 @@
   (let [unparse-type @(unparse-type-var)
         rator (fully-resolve-type rator)]
     (cond
-      (r/Poly? rator) (do (assert (= (count rands) (.nbound ^Poly rator))
-                                  (u/error-msg "Wrong number of arguments provided to polymorphic type"
-                                             (unparse-type rator)))
+      (r/Poly? rator) (do (when-not (= (count rands) (.nbound ^Poly rator))
+                            (u/int-error (str "Wrong number of arguments provided to polymorphic type"
+                                              (unparse-type rator))))
                           (instantiate-poly rator rands))
       ;PolyDots NYI
       :else (throw (Exception. (str (when vs/*current-env*
