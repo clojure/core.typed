@@ -166,12 +166,6 @@
         ;already (not= s t)
         (fail! s t)
 
-        (r/Name? s)
-        (subtypeA* *sub-current-seen* (c/resolve-Name s) t)
-
-        (r/Name? t)
-        (subtypeA* *sub-current-seen* s (c/resolve-Name t))
-
         (and (r/Poly? s)
              (r/Poly? t)
              (= (:nbound s) (:nbound t)))
@@ -191,8 +185,11 @@
         (and (r/Poly? s)
              (let [names (c/Poly-fresh-symbols* s)
                    bnds (c/Poly-bbnds* names s)
-                   b1 (c/Poly-body* names s)]
-               (unify (zipmap names bnds) [b1] [t])))
+                   b1 (c/Poly-body* names s)
+                   ;_ (prn "try unify on left")
+                   u (unify (zipmap names bnds) [b1] [t])]
+               ;(prn "unified on left")
+               u))
         (let [names (c/Poly-fresh-symbols* s)
               bnds (c/Poly-bbnds* names s)
               b1 (c/Poly-body* names s)]
@@ -215,6 +212,18 @@
 ;        (if (subtypeA*? (fully-resolve-type s) (fully-resolve-type t))
 ;          *sub-current-seen*
 ;          (fail! s t))
+
+        (r/Name? s)
+        (subtypeA* *sub-current-seen* (c/resolve-Name s) t)
+
+        (r/Name? t)
+        (subtypeA* *sub-current-seen* s (c/resolve-Name t))
+
+        (r/Mu? s)
+        (subtype (c/unfold s) t)
+
+        (r/Mu? t)
+        (subtype s (c/unfold t))
 
         (r/TApp? s)
         (let [{:keys [rands]} s
@@ -341,12 +350,6 @@
                    (not-any? #(subtype? s %) (.without t)))
             *sub-current-seen*
             (fail! s t)))
-
-        (r/Mu? s)
-        (subtype (c/unfold s) t)
-
-        (r/Mu? t)
-        (subtype s (c/unfold t))
 
         (and (r/TopFunction? t)
              (r/FnIntersection? s))
