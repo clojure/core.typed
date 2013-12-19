@@ -656,7 +656,7 @@
 (u/ann-record CountRange [lower :- Number,
                           upper :- (U nil Number)])
 (u/def-type CountRange [lower upper]
-  "A sequence of count between lower and upper.
+  "A sequence of count between lower (inclusive) and upper (inclusive).
   If upper is nil, between lower and infinity."
   [(u/nat? lower)
    (or (nil? upper)
