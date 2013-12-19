@@ -494,7 +494,7 @@ for checking namespaces, cf for checking individual forms."}
   [b & body]
   `(if-let ~b
      (do ~@body)
-     (assert nil "Expression was nil or false")))
+     (throw (ex-info (str "Expression was nil or false") {:form '~(second b)}))))
 
 (defmacro 
   ^{:forms '[(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
