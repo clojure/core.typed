@@ -182,26 +182,17 @@
   (u/p :check/check-expr
   (check expr expected)))
 
-; Just for unit testing
-;[Symbol Any -> Expr]
-(defn check-top-level [nsym form]
-  (impl/with-clojure-impl
-    (let [ast (ana-clj/ast-for-form-in-ns nsym form)]
-      (check ast))))
-
 (defmacro tc-t [form]
-  `(do (t/load-if-needed)
-       (impl/with-clojure-impl
-         (-> (check-top-level (symbol (ns-name *ns*))
-                              '~form)
-             expr-type))))
+  `(let [{delayed-errors# :delayed-errors ret# :ret}
+         (impl/with-clojure-impl
+           (t/check-form-info '~form))]
+     (if-let [errors# (seq delayed-errors#)]
+       (t/print-errors! errors#)
+       ret#)))
 
 (defmacro tc [form]
-  `(do (t/load-if-needed)
-       (impl/with-clojure-impl
-         (-> (check-top-level (symbol (ns-name *ns*))
-                              '~form)
-             expr-type prs/unparse-type))))
+  `(impl/with-clojure-impl
+     (t/check-form* '~form)))
 
 (defn flow-for-value []
   (let [props (.props ^PropEnv lex/*lexical-env*)

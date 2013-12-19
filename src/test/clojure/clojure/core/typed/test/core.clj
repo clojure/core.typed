@@ -1,46 +1,47 @@
 (ns clojure.core.typed.test.core
-  (:require [clojure.test :refer :all]
-            [clojure.tools.analyzer :refer [ast analyze-form]]
-            [clojure.tools.analyzer.hygienic :refer [ast-hy]]
-            [clojure.repl :refer [pst]]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
-            [clojure.core.typed.init]
-            [clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error?]]
-            [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp
-                                                      tc-equiv]]
-            [clojure.core.typed.collect-phase :as collect]
-            [clojure.core.typed.inst :as inst]
-            [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.type-rep :refer :all]
-            [clojure.core.typed.type-ctors :refer :all]
-            [clojure.core.typed.filter-rep :refer :all]
-            [clojure.core.typed.filter-ops :refer :all]
-            [clojure.core.typed.object-rep :refer :all]
-            [clojure.core.typed.path-rep :refer :all]
-            [clojure.core.typed.parse-unparse :refer :all]
-            [clojure.core.typed.constant-type :refer [constant-type]]
-            [clojure.core.typed.lex-env :refer :all]
-            [clojure.core.typed.promote-demote :refer :all]
-            [clojure.core.typed.frees :refer :all]
-            [clojure.core.typed.free-ops :refer :all]
-            [clojure.core.typed.dvar-env :refer :all]
-            [clojure.core.typed.cs-gen :refer :all]
-            [clojure.core.typed.cs-rep :refer :all]
-            [clojure.core.typed.subst :refer [subst-all]]
-            [clojure.core.typed.test.rbt]
-            [clojure.core.typed.test.person]
-            [clojure.tools.trace :refer [trace-vars untrace-vars
-                                         trace-ns untrace-ns]])
 ; we want clojure.lang.Seqable to be scoped here. 
 ; There :refer :all of clojure.core.typed adds another Seqable which
 ; is less useful here.
-  (:use [clojure.core.typed :as tc :exclude [Seqable]])
-  (:import (clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
-                         ExceptionInfo Var Seqable)))
+  (:use [clojure.core.typed :as tc :exclude [Seqable]]))
 
 (load-if-needed)
+
+(require '[clojure.test :refer :all]
+         '[clojure.tools.analyzer :refer [ast analyze-form]]
+         '[clojure.tools.analyzer.hygienic :refer [ast-hy]]
+         '[clojure.repl :refer [pst]]
+         '[clojure.pprint :refer [pprint]]
+         '[clojure.data :refer [diff]]
+         '[clojure.core.typed.init]
+         '[clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error?]]
+         '[clojure.core.typed.current-impl :as impl]
+         '[clojure.core.typed.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp
+                                                    tc-equiv]]
+         '[clojure.core.typed.collect-phase :as collect]
+         '[clojure.core.typed.inst :as inst]
+         '[clojure.core.typed.subtype :as sub]
+         '[clojure.core.typed.type-rep :refer :all]
+         '[clojure.core.typed.type-ctors :refer :all]
+         '[clojure.core.typed.filter-rep :refer :all]
+         '[clojure.core.typed.filter-ops :refer :all]
+         '[clojure.core.typed.object-rep :refer :all]
+         '[clojure.core.typed.path-rep :refer :all]
+         '[clojure.core.typed.parse-unparse :refer :all]
+         '[clojure.core.typed.constant-type :refer [constant-type]]
+         '[clojure.core.typed.lex-env :refer :all]
+         '[clojure.core.typed.promote-demote :refer :all]
+         '[clojure.core.typed.frees :refer :all]
+         '[clojure.core.typed.free-ops :refer :all]
+         '[clojure.core.typed.dvar-env :refer :all]
+         '[clojure.core.typed.cs-gen :refer :all]
+         '[clojure.core.typed.cs-rep :refer :all]
+         '[clojure.core.typed.subst :refer [subst-all]]
+         '[clojure.core.typed.test.rbt]
+         '[clojure.core.typed.test.person]
+         '[clojure.tools.trace :refer [trace-vars untrace-vars
+                                       trace-ns untrace-ns]])
+(import '(clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
+                       ExceptionInfo Var Seqable))
 
 (defn subtype? [& rs]
   (impl/with-clojure-impl
@@ -2718,7 +2719,6 @@
                  [(Name-maker 'java.lang.Number)]))))
 
 (deftest protocol-method-ann-test
-  ; p
   (is-clj (let [names '[x1 x2]
                 bnds [no-bounds no-bounds]
                 mt (with-bounded-frees (zipmap (map make-F names)
@@ -2733,6 +2733,43 @@
 
 (deftest deftype-poly-ancestor-test
   (is (check-ns 'clojure.core.typed.test.protocol-scoping)))
+
+(deftest map-predicate-test
+  (is-cf (fn [a] (number? (:k a)))
+         (predicate (HMap :mandatory {:k Number})))
+  (is
+    (caught-top-level-errors #{1}
+      (cf (fn [a] (integer? (:k a)))
+          (predicate (HMap :mandatory {:k Number})))))
+  (is
+    (caught-top-level-errors #{1}
+      (cf (fn [a] (number? (:wrong-key a)))
+          (predicate (HMap :mandatory {:k Number})))))
+  (is 
+    (sub?
+      (Fn [Any -> boolean 
+           :filters {:then (is Number 0 [(Key :k)]), 
+                     :else (! Number 0 [(Key :k)])}])
+      (predicate (HMap :mandatory {:k Number}))))
+
+  (is 
+    (not
+      (sub?
+        (Fn [Any -> boolean 
+             :filters {:then (is Long 0 [(Key :k)]), 
+                       :else (! Long 0 [(Key :k)])}])
+        (predicate (HMap :mandatory {:k Number})))))
+
+  (is-clj 
+    (sub/subtype-type-filter?
+      (parse-filter '(is Number 0 [(Key :k)]))
+      (parse-filter '(is (HMap :mandatory {:k Number}) 0))))
+
+  (is-clj 
+    (sub/subtype-not-type-filter?
+      (parse-filter '(! Number 0 [(Key :k)]))
+      (parse-filter '(! (HMap :mandatory {:k Number}) 0)))))
+
 
 ;(deftest parse-with-inferred-variance
 ;  (is-clj (= (clj (parse-type '(TFn [[x :variance :inferred]] x)))

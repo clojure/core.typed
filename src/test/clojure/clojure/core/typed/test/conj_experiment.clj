@@ -3,7 +3,7 @@
   (:require [clojure.core.typed :as t])
   (:import (clojure.lang IMapEntry)))
 
-(do
+(comment
 ; # ICollection
 ;  
 ; This interface defines the extension point for `conj`, the polymorphic conjoin function.
@@ -68,6 +68,7 @@
 ;    -> (Map (U Boolean Number) (U Boolean Number))]
 ;
 ; # ICollection's type parameters
+;
 ; Now we will step through each of ICollection's type parameters.
 ;
 ; ## max-arg
@@ -125,7 +126,7 @@
                   ]]
                 IColl
                 -conj 
-                (All [[a :< max-arg]] 
+                (All [[a :< max-arg]]
                   [(IColl max-arg res) a a * -> (res a)])
                 )
 
@@ -179,11 +180,11 @@
                          (I (IWithMeta m)
                             ; seems useful to want to also read metadata abstractly
                             (IMeta new-meta))))]]
-                ;TODO the first argument should be implicit in protocols annotations
+
                 IWithMeta
                 -with-meta
                 (All [[mmap :< (U nil (t/Map Any Any))]]
-                 [(IWithMeta metafn) mmap -> (metafn mmap)])
+                  [(IWithMeta metafn) mmap -> (metafn mmap)])
                 )
 
 (t/defprotocol> IWithMeta
@@ -194,7 +195,7 @@
                 Symbol
                 [name :- String
                  meta-map :- m]
-                :unchecked-ancestors
+                :extends
                 [(IMeta m)
                  (IWithMeta Symbol)])
 (deftype Symbol [name meta-map]
@@ -202,18 +203,13 @@
   ; (All [mmap]
   ;   [(IWithMeta metafn) mmap -> (metafn mmap)])
   (-with-meta [this m]
-    (t/inst-ctor (Symbol. name m) mmap))
+    (Symbol. name m))
 
 
-  ; TODO in general we should use the protocol method's annotated type to
-  ; check any implementations of it. Interesting cases exist if the protocol
-  ; is parameterised: here IMeta is (IMeta m) as provided in :unchecked-ancestors
-  ; so we should check the implementation of -meta (below) against the type of -meta
-  ; but with the first type parameter of IMeta instantiated to `m`.
   IMeta
   (-meta [this] meta-map))
 
-(t/ann ^:no-check with-meta 
+(t/ann with-meta 
        (All [[metafn
               :> (TFn [[new-meta :variance :covariant
                         :< (U nil (t/Map Any Any))]]
@@ -226,8 +222,7 @@
              [m :< (U nil (t/Map Any Any))]]
           [(IWithMeta metafn) m -> (metafn m)]))
 (defn with-meta [a m]
-  (-with-meta a m))
-
+  ((t/inst -with-meta metafn m) a m))
 
 ; # ISeqable
 ;
@@ -301,24 +296,19 @@
 ;
 ; A function intersection describes 
 ; 
-; (TFn 
-;   [
 
 (t/def-alias MapLike
-  (TFn [[k :variance :covariant]
-        [v :variance :covariant]
+  (TFn [[kv :variance :covariant]
         [meta :variance :covariant]]
     (I (IColl (U nil '[Any Any] (IMapEntry Any Any))
-              ; this bound probably needs to be manually instantiated 
-              (All [a b]
-                (TFn 
-                  [[x :variance :covariant
-                    :< (U nil '[a b] (IMapEntry a b))]]
-                  (MapLike (U k a) (U v b) meta))))
-       (IMeta meta)
-       (IWithMeta (TFn [[new-meta :variance :covariant
+              (TFn 
+                [[x :variance :covariant
+                  :< (U nil '[Any Any] (IMapEntry Any Any))]]
+                (MapLike (U kv x) meta))))
+       #_(IMeta meta)
+       #_(IWithMeta (TFn [[new-meta :variance :covariant
                          :< (U nil (t/Map Any Any))]]
-                    (MapLike k v new-meta))))))
+                    (MapLike kv new-meta)))))
 
 ;; How can we make occurrence typing updating extensible?
 ;; eg. (HashMap a b) + (IMap c d) = (HashMap (I a c) (I b d))
@@ -343,9 +333,8 @@
   (t/inst conj 
           (U nil '[Any Any] (IMapEntry Any Any))
           (U nil '[Number Number] (IMapEntry Number Number))
-          (TFn [[x :variance :covariant
-                 :< (U nil '[Number Number] (IMapEntry Number Number))]]
-             (MapLike Number Number (U nil (t/Map Any Any)))))))
+          (TFn [[x :variance :covariant]]
+             (MapLike (IMapEntry Number Number) (U nil (t/Map Any Any)))))))
 
 ; the above appears to choke on computing the following subtyping relationship:
 
@@ -420,6 +409,15 @@
 ;                     [Any d -> (U b d)])))
 ;       (ILookup a b)
 ;       (Associative a b))))
+
+(t/ann-protocol [[x :variance :covariant]]
+                Dummy)
+(t/defprotocol> Dummy)
+
+(t/def-alias DummyAlias
+  (TFn [[k :variance :covariant]]
+       (All [a]
+            [-> (DummyAlias (U k a))])))
 )
 
 ;; WithMeta

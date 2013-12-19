@@ -9,9 +9,11 @@
             [clojure.core.typed :refer [ann-protocol ann tc-ignore def-alias
                                         declare-protocols declare-datatypes
                                         ann-datatype loop> check-ns non-nil-return
-                                        cf defprotocol>]]
+                                        cf defprotocol>]
+             :as t]
             [clojure.tools.analyzer :refer [ast]]))
 
+(comment
 (ann *occurs-check* (U true false))
 (ann *reify-vars* (U true false))
 (ann *locals* (IPersistentSet Symbol))
@@ -415,3 +417,4 @@
   (let [s (reduce (fn [m [k v]] (assoc m k v)) {} v)
         l (reduce (fn [l [k v]] (cons (Pair. k v) l)) '() v)]
     (make-s s l)))
+) ;comment
