@@ -34,7 +34,7 @@
 (defonce ^:dynamic *parse-type-in-ns* nil)
 (set-validator! #'*parse-type-in-ns* (some-fn nil? symbol?))
 
-(declare unparse-type unparse-filter unparse-filter-set)
+(declare unparse-type unparse-filter unparse-filter-set unparse-flow-set)
 
 ; Types print by unparsing them
 (do (defmethod print-method clojure.core.typed.impl_protocols.TCType [s writer]
@@ -50,9 +50,10 @@
     (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IPersistentMap)
 
     (defmethod print-method clojure.core.typed.impl_protocols.IFilter [s writer]
-      (if (f/FilterSet? s)
-        (print-method (unparse-filter-set s) writer)
-        (print-method (unparse-filter s) writer)))
+      (cond 
+        (f/FilterSet? s) (print-method (unparse-filter-set s) writer)
+        (r/FlowSet? s) (print-method (unparse-flow-set s) writer)
+        :else (print-method (unparse-filter s) writer)))
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IRecord)
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter java.util.Map)
     (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IPersistentMap))
@@ -88,6 +89,8 @@
     (let [[n & {:keys [< > variance] :as opts}] f]
       (when (contains? opts :kind)
         (prn "DEPRECATED: kind annotation for TFn parameters"))
+      (when-not (r/variance? variance)
+        (u/int-error (str "Invalid variance " (pr-str variance) " in free binder: " f)))
       {:fname n 
        :bnd (let [upper-or-nil (when (contains? opts :<)
                                  (parse-type <))
@@ -127,12 +130,13 @@
            (c/infer-bounds upper-or-nil lower-or-nil))])))
 
 (defn check-forbidden-rec [rec tbody]
-  (when (or (= rec tbody) 
-            (and (r/Intersection? tbody)
-                 (contains? (set (:types tbody)) rec))
-            (and (r/Union? tbody)
-                 (contains? (set (:types tbody)) rec)))
-    (throw (Exception. "Recursive type not allowed here"))))
+  (letfn [(well-formed? [t]
+            (and (not= rec t)
+                 (if ((some-fn r/Intersection? r/Union?) t)
+                   (every? well-formed? (:types t))
+                   true)))]
+    (when-not (well-formed? tbody)
+      (u/int-error (str "Recursive type not allowed here")))))
 
 (defn- Mu*-var []
   (let [v (ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'Mu*)]
@@ -265,7 +269,7 @@
   (parse-all-type bnds syn))
 
 (defn parse-union-type [[u & types]]
-  (apply c/Un (doall (map parse-type types))))
+  (c/make-Union (doall (map parse-type types))))
 
 (defmethod parse-type-list 'U
   [syn]
@@ -353,27 +357,37 @@
             (when kind
               (parse-type kind)))})
 
-(defn parse-tfn-binder [[nme & {:keys [variance < >] :as opts}]]
-  {:post [((u/hmap-c? :nme symbol? :variance r/variance?
+(defn parse-tfn-binder [[nme & opts-flat :as all]]
+  {:pre [(vector? all)]
+   :post [((u/hmap-c? :nme symbol? :variance r/variance?
                       :bound r/Bounds?) %)]}
-  (when-not (symbol? nme)
-    (u/int-error "Must provide a name symbol to TFn"))
-  (when (contains? opts :kind)
-    (prn "DEPRECATED: kind annotation for TFn parameters"))
-  {:nme nme :variance (or variance :invariant)
-   :bound (let [upper-or-nil (when (contains? opts :<)
-                               (parse-type <))
-                lower-or-nil (when (contains? opts :>)
-                               (parse-type >))]
-            (c/infer-bounds upper-or-nil lower-or-nil))})
+  (let [_ (when-not (even? (count opts-flat))
+            (u/int-error (str "Uneven arguments passed to TFn binder: "
+                              (pr-str all))))
+        {:keys [variance < >] 
+         :or {variance :inferred}
+         :as opts} 
+        (apply hash-map opts-flat)]
+    (when-not (symbol? nme)
+      (u/int-error "Must provide a name symbol to TFn"))
+    (when (contains? opts :kind)
+      (u/int-error "DEPRECATED: kind annotation for TFn parameters"))
+    (when-not (r/variance? variance)
+      (u/int-error (str "Invalid variance: " (pr-str variance))))
+    {:nme nme :variance variance
+     :bound (let [upper-or-nil (when (contains? opts :<)
+                                 (parse-type <))
+                  lower-or-nil (when (contains? opts :>)
+                                 (parse-type >))]
+              (c/infer-bounds upper-or-nil lower-or-nil))}))
 
 (defn parse-type-fn 
   [[_ binder bodysyn :as tfn]]
   (when-not (= 3 (count tfn))
-    (u/int-error "Wrong number of arguments to TFn"))
+    (u/int-error "Wrong number of arguments to TFn: " (pr-str tfn)))
   (when-not (every? vector? binder)
-    (u/int-error "TFn binder should be vector of vectors"))
-  (let [; don't scope frees in bounds because mutually dependent bounds are problematic
+    (u/int-error "TFn binder should be vector of vectors: " (pr-str tfn)))
+  (let [; don't scope a free in its own bounds. Should review this decision
         free-maps (free-ops/with-free-symbols (map (fn [s]
                                                      {:pre [(vector? s)]
                                                       :post [(symbol? %)]}
@@ -496,8 +510,19 @@
 
 (declare parse-in-ns)
 
+(defn multi-frequencies 
+  "Like frequencies, but only returns frequencies greater
+  than one"
+  [coll]
+  (->> coll
+       frequencies
+       (filter (fn [[k freq]]
+                 (when (< 1 freq)
+                   true)))
+       (into {})))
+
 (defmethod parse-type-list 'HMap
-  [[_HMap_ & flat-opts]]
+  [[_HMap_ & flat-opts :as all]]
   (let [supported-options #{:optional :mandatory :absent-keys :complete?}
         ; support deprecated syntax (HMap {}), which is now (HMap :mandatory {})
         deprecated-mandatory (when (map? (first flat-opts))
@@ -506,17 +531,31 @@
                                  ": DEPRECATED: HMap syntax changed. Use :mandatory keyword argument instead of initial map")
                                (flush)
                                (first flat-opts))
-        ^ISeq flat-opts (if deprecated-mandatory
-                          (next flat-opts)
-                          flat-opts)
+        flat-opts (if deprecated-mandatory
+                    (next flat-opts)
+                    flat-opts)
+        _ (when-not (even? (count flat-opts))
+            (u/int-error (str "Uneven keyword arguments to HMap: " (pr-str all))))
+        flat-keys (->> flat-opts
+                       (partition 2)
+                       (map first))
+        _ (when-not (every? keyword? flat-keys)
+            (u/int-error (str "HMap requires keyword arguments, given " (pr-str (first flat-keys))
+                              " in: " (pr-str all))))
+        _ (let [kf (->> flat-keys
+                        multi-frequencies
+                        (map first)
+                        seq)]
+            (when-let [[k] kf]
+              (u/int-error (str "Repeated keyword argument to HMap: " (pr-str k)))))
+
         {:keys [optional mandatory absent-keys complete?]
          :or {complete? false}
-         :as others} (PersistentHashMap/createWithCheck flat-opts)
-        _ (when-let [more (seq (set/difference (set (keys others)) supported-options))]
-            (println "WARNING: Unsupported HMap options:" (vec more))
-            (flush))
+         :as others} (apply hash-map flat-opts)
+        _ (when-let [[k] (seq (set/difference (set (keys others)) supported-options))]
+            (u/int-error (str "Unsupported HMap keyword argument: " (pr-str k))))
         _ (when (and deprecated-mandatory mandatory)
-            (throw (Exception. "Cannot provide both deprecated initial map syntax and :mandatory option to HMap")))
+            (u/int-error (str "Cannot provide both deprecated initial map syntax and :mandatory option to HMap")))
         mandatory (or deprecated-mandatory mandatory)]
     (syn-to-hmap mandatory optional absent-keys complete?)))
 
@@ -554,10 +593,13 @@
     (RClass-of cls tparams)))
 
 (defmethod parse-type-list 'Value
-  [[_Value_ syn]]
+  [[_Value_ syn :as all]]
+  (when-not (#{2} (count all))
+    (u/int-error (str "Incorrect number of arguments to Value, " (count all)
+                      ", expected 2: " all)))
   (impl/impl-case
     :clojure (const/constant-type syn)
-    :cljs (assert nil "FIX parse Value")))
+    :cljs (assert nil "FIXME CLJS parse Value")))
 
 (defmethod parse-type-list 'KeywordArgs
   [[_KeywordArgs_ & {:keys [optional mandatory]}]]
@@ -830,6 +872,7 @@
 (defn alias-in-ns
   "Returns an alias for namespace sym in ns, or nil if none."
   [nsym ns]
+  (impl/assert-clojure)
   (some (fn [[alias ans]]
           (when (= (str nsym) (str (ns-name ans)))
             alias))
@@ -1017,15 +1060,17 @@
 
 (defmethod unparse-type* Protocol
   [{:keys [the-var poly?]}]
-  (if poly?
-    (list* (unparse-var-symbol-in-ns the-var) (mapv unparse-type poly?))
-    the-var))
+  (let [s (impl/impl-case :clojure (unparse-var-symbol-in-ns the-var)
+                          :cljs the-var)]
+    (if poly?
+      (list* s (mapv unparse-type poly?))
+      s)))
 
 (defmethod unparse-type* DataType
   [{:keys [the-class poly?]}]
   (if poly?
     (list* (unparse-Class-symbol-in-ns the-class) (mapv unparse-type poly?))
-    the-class))
+    (unparse-Class-symbol-in-ns the-class)))
 
 (defmulti unparse-RClass :the-class)
 

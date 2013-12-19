@@ -17,7 +17,7 @@
 ;(defn test2 [a]
 ;  (map + [1 2]))
 
-(ann use-map [(HMap {:a Number}) -> Number])
+(ann use-map [(HMap :mandatory {:a Number}) -> Number])
 (defn use-map [a]
   (get a :a))
 
@@ -53,8 +53,8 @@
   (set a))
 
 (ann config
-     (HMap {:file String
-            :ns Symbol}))
+     (HMap :mandatory {:file String
+                       :ns Symbol}))
 (def config
   {:file "clojure/core.clj"
    :ns 'clojure.core})

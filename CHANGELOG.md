@@ -1,5 +1,12 @@
 # 0.2.21-SNAPSHOT
 
+## BREAKING CHANGES
+
+- Changes to core.async annotations
+  - c.c.a.i.p/Channel takes zero arguments (previously two)
+  - c.c.a.i.c.ManyToManyChannel has contravariant/covariant
+    arguments (previously vice-versa)
+
 ## Fixes
 
 - Instantiate any abstract objects in a result type before using
@@ -15,14 +22,51 @@
     
           (HVec [(U nil Class) (U nil Class)]
                  :objects [{:path [Class], :id a} {:path [Class], :id b}])
-- Calling `check-ns` with keyword arguments was broken in 0.2.20
-  - Fixed
+- Fix `check-ns` with keyword arguments (was broken in 0.2.20)
+- Better error checking on badly formed `Rec` types
+  - eg. (Rec [x] x), (Rec [x] (U x Number))
+  - See `parse-forbidden-rec-test`
+- Better error checking on `Value` types
+  - See `parse-value-test`
+- Protocol methods now implicitly adds polymorphic type parameters to the *vars*
+  that represent the protocol methods
+  - eg. 
+```clojure
+        (ann-protocol [[foo :variance :covariant]]
+                      Pro
+                      pmethod
+                      (All [c]
+                        [(Pro foo) -> c]))
+```
+
+        This generates the equivalent of: 
+        `(ann pmethod (All [foo c] [(Pro foo) -> c]))`
 
 ## Changes
 
 - Multimethod dispatch environment is reset between calls to `check-ns`
   - Should avoid the type checker complaining if you are changing your
     defmulti definition in the same JVM session
+- It is now a type error (rather than a warning) to pass incorrect keyword
+  arguments to `HMap`.
+- `ann-datatype` and `ann-record` take a keyword argument `:extends` to override
+  polymorphic ancestors
+  - if a `deftype` implements a protocol, the annotation must override the ancestor
+    eg. 
+```clojure
+        (t/ann-protocol [[foo :variance :covariant]]
+                        Foo
+
+                        bar-
+                        [(Foo foo) -> foo])
+
+        (t/ann-datatype FooD [t :- t/Symbol]
+                        :extends
+                        [(Foo t/Symbol)])
+        (deftype FooD [t]
+          Foo
+          (bar- [this] t))
+```
 
 # 0.2.20 - Released 27th November 2013
 

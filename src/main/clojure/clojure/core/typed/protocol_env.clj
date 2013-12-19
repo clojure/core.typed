@@ -64,6 +64,7 @@
   (assert-protocol-env)
   (let [p (get-protocol sym)]
     (when-not p 
-      (u/int-error (str "Could not resolve Protocol: " sym)))
+      (u/int-error (str "Could not resolve Protocol: " sym
+                        "\n\nHint: Add protocol annotations with ann-protocol")))
     p))
 

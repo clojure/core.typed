@@ -80,7 +80,7 @@
   "An flattened, unordered union of types"
   [(set? types)
    (every? Type? types)
-   (not (some Union? types))]
+   (not-any? Union? types)]
   :methods
   [p/TCType])
 
@@ -208,6 +208,12 @@
   [p/IScope
    (scope-body [this] body)])
 
+(t/def-alias ScopedType
+  (U Type Scope))
+
+(t/ann ^:no-check scoped-Type? (predicate (U Scope Type)))
+(def scoped-Type? (some-fn Scope? Type?))
+
 (t/ann ^:no-check scope-depth? [Scope Number -> Any])
 (defn scope-depth? 
   "True if scope is has depth number of scopes nested"
@@ -220,10 +226,8 @@
 
 (u/ann-record RClass [variances :- (U nil (t/NonEmptySeqable Variance))
                       poly? :- (U nil (t/NonEmptySeqable Type))
-                      the-class :- Symbol
-                      replacements :- (t/Map Symbol MaybeScopedType)
-                      unchecked-ancestors :- (t/Set MaybeScopedType)])
-(u/def-type RClass [variances poly? the-class replacements unchecked-ancestors]
+                      the-class :- Symbol])
+(u/def-type RClass [variances poly? the-class]
   "A restricted class, where ancestors are
   (replace replacements (ancestors the-class))"
   [(or (nil? variances)
@@ -234,16 +238,11 @@
        (and (seq poly?)
             (sequential? poly?)
             (every? Type? poly?)))
-   (symbol? the-class)
-   ((u/hash-c? symbol? (some-fn Type? Scope?)) replacements)
-   ((u/set-c? (some-fn Type? Scope?)) unchecked-ancestors)]
+   (symbol? the-class)]
   :intern
-  [variances 
-   (when poly? (map hash poly?))
-   (keyword the-class)
-   (into {} (for [[k v] replacements]
-              [(keyword k) (hash v)]))
-   (into #{} (map hash unchecked-ancestors))]
+  [variances
+   (map hash poly?)
+   (keyword the-class)]
   :methods
   [p/TCType])
 
@@ -657,7 +656,7 @@
 (u/ann-record CountRange [lower :- Number,
                           upper :- (U nil Number)])
 (u/def-type CountRange [lower upper]
-  "A sequence of count between lower and upper.
+  "A sequence of count between lower (inclusive) and upper (inclusive).
   If upper is nil, between lower and infinity."
   [(u/nat? lower)
    (or (nil? upper)

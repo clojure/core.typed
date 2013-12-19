@@ -1,6 +1,9 @@
-(ns ^:skip-wiki clojure.core.typed.frees
+(ns ^:skip-wiki 
+  ^{:core.typed {:collect-only true}}
+  clojure.core.typed.frees
   (:require [clojure.core.typed :as t :refer [for> fn>]]
             [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep]
             [clojure.core.typed.utils :as u]
@@ -20,7 +23,8 @@
            (clojure.core.typed.path_rep KeyPE)
            (clojure.lang Keyword Symbol)))
 
-(alter-meta! *ns* assoc :skip-wiki true)
+(alter-meta! *ns* assoc :skip-wiki true
+             :core.typed {:collect-only true})
 
 ;(t/typed-deps clojure.core.typed.type-rep)
 
@@ -184,9 +188,12 @@
 (add-frees-method [::any-var Name] [t] {})
 
 (add-frees-method [::any-var DataType]
-  [{:keys [fields poly?]}]
+  [{:keys [fields poly?] :as t}]
   (apply combine-frees 
-         (mapv frees (concat (vals fields) poly?))))
+         (mapv frees (concat (vals fields) poly?
+                             ; avoids a cyclic dependency
+                             #_((impl/v 'clojure.core.typed.datatype-ancestor-env/get-datatype-ancestors) 
+                              t)))))
 
 (add-frees-method [::any-var HeterogeneousList]
   [{:keys [types]}] 
@@ -199,7 +206,7 @@
 ;FIXME flow error during checking
 (t/tc-ignore
 (add-frees-method [::any-var TApp]
-  [{:keys [rator rands]}]
+  [{:keys [rator rands] :as tapp}]
   (apply combine-frees
          (let [^TypeFn
                tfn (loop [rator rator]
@@ -222,8 +229,11 @@
                                            :else
                                            (recur (c/resolve-Name rator))))
                        (r/TypeFn? rator) rator
-                       :else (throw (Exception. (u/error-msg "NYI case " (class rator))))))
-               _ (assert (r/TypeFn? tfn) "First argument to TApp must be TypeFn")]
+                       :else (u/int-error (str "Invalid operator to type application: "
+                                               ((impl/v 'clojure.core.typed.parse-unparse/unparse-type)
+                                                tapp)))))
+               _ (when-not (r/TypeFn? tfn) 
+                   (u/int-error (str "First argument to TApp must be TypeFn")))]
            (mapv (fn [[v arg-vs]]
                    (case v
                      :covariant arg-vs
@@ -328,19 +338,17 @@
 
 (t/tc-ignore
 (add-frees-method [::any-var Protocol]
-  [t]
-  (let [varis (:variances t)
-        args (:poly? t)]
-    (assert (= (count args) (count varis)))
-    (apply combine-frees (for> :- VarianceMap
-                           [[arg va] :- '[Any r/Variance], (map (-> vector 
-                                                                    (t/inst Any r/Variance Any Any Any Any))
-                                                                args varis)]
-                           (case va
-                             :covariant (frees arg)
-                             :contravariant (flip-variances (frees arg))
-                             :invariant (let [fvs (frees arg)]
-                                          (zipmap (keys fvs) (repeat :invariant))))))))
+  [{varis :variances, args :poly?, :as t}]
+  (assert (= (count args) (count varis)))
+  (apply combine-frees (for> :- VarianceMap
+                             [[arg va] :- '[Any r/Variance], (map (-> vector 
+                                                                      (t/inst Any r/Variance Any Any Any Any))
+                                                                  args varis)]
+                             (case va
+                               :covariant (frees arg)
+                               :contravariant (flip-variances (frees arg))
+                               :invariant (let [fvs (frees arg)]
+                                            (zipmap (keys fvs) (repeat :invariant)))))))
   )
 
 (add-frees-method [::any-var Scope]

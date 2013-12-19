@@ -1362,6 +1362,9 @@ clojure.core/rand (Fn [-> Number]
 
 clojure.core/rand-int [Int -> Int]
 
+clojure.core/ex-info (Fn [String (Map Any Any) -> clojure.lang.ExceptionInfo]
+                         [String (Map Any Any) (U nil Throwable) -> clojure.lang.ExceptionInfo])
+
 
 ;; START CHUNK HACKS
 ;; These are hacks to get around the expansion of doseq>

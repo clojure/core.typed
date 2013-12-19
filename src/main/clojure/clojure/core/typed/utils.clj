@@ -114,7 +114,9 @@
 
       :else
       (do
-        (swap! clojure.core.typed/*delayed-errors* conj e)
+        (if-let [delayed-errors clojure.core.typed/*delayed-errors*]
+          (swap! delayed-errors conj e)
+          (throw (Exception. (str "*delayed-errors* not rebound"))))
         (or return @(ns-resolve (find-ns 'clojure.core.typed.type-rep) '-nothing))))))
 
 (defn derive-error [kw]

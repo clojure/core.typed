@@ -197,6 +197,7 @@
   {:pre [(symbol? current-ns)]}
   (impl/with-clojure-impl
     (let [{ancests :unchecked-ancestors} opt
+          ancests (or ancests (:extends opt))
           parsed-binders (when vbnd
                            (binding [prs/*parse-type-in-ns* current-ns]
                              (prs/parse-free-binder-with-variance vbnd)))
@@ -225,6 +226,7 @@
                       (binding [uvar/*current-env* current-env
                                 prs/*parse-type-in-ns* current-ns]
                         (mapv (comp #(c/abstract-many args %) prs/parse-type) ancests))))
+            ;_ (prn "collected ancestors" as)
             _ (ancest/add-datatype-ancestors s as)
             pos-ctor-name (symbol demunged-ns-str (str "->" local-name))
             map-ctor-name (symbol demunged-ns-str (str "map->" local-name))
@@ -246,10 +248,10 @@
                            (r/make-FnIntersection
                              (r/make-Function [hmap-arg] (c/DataType-of s))))))]
         (do 
-          (when vs
-            (let [f (mapv r/make-F (repeatedly (count vs) gensym))]
-              ;TODO replacements and unchecked-ancestors go here
-              (rcls/alter-class* s (c/RClass* (map :name f) vs f s {} {} bnds))))
+          ;(when vs
+          ;  (let [f (mapv r/make-F (repeatedly (count vs) gensym))]
+          ;    ;TODO replacements and unchecked-ancestors go here
+          ;    (rcls/alter-class* s (c/RClass* (map :name f) vs f s {} {} bnds))))
           (var-env/add-var-type pos-ctor-name pos-ctor)
           (var-env/add-nocheck-var pos-ctor-name)
           (when record?
@@ -418,6 +420,24 @@
     (override/add-method-override msym ty)
     nil))
 
+(defn protocol-method-var-ann [mt names bnds]
+  (cond
+    (r/Poly? mt) (let [outer-names names
+                       inner-names (concat (c/Poly-fresh-symbols* mt))]
+                   (c/Poly* (concat outer-names inner-names)
+                            (concat bnds (c/Poly-bbnds* inner-names mt))
+                            (c/Poly-body* inner-names mt)))
+
+    (r/PolyDots? mt) (let [outer-names names
+                           inner-names (concat (c/PolyDots-fresh-symbols* mt))]
+                       (c/PolyDots* (concat outer-names inner-names)
+                                    (concat bnds (c/PolyDots-bbnds* inner-names mt))
+                                    (c/PolyDots-body* inner-names mt)))
+    :else (let [outer-names names]
+            (c/Poly* outer-names
+                     bnds
+                     mt))))
+
 (defn gen-protocol* [current-env current-ns vsym binder mths]
   {:pre [(symbol? current-ns)]}
   (let [s (if (namespace vsym)
@@ -439,13 +459,31 @@
                (map :bnd parsed-binder))
         _ (assert (= (count fs) (count bnds)))
         ms (into {} (for [[knq v] mths]
-                       (do
-                         (when (namespace knq)
-                           (u/int-error "Protocol method should be unqualified"))
-                          [knq (free-ops/with-bounded-frees (zipmap fs bnds)
-                                 (binding [uvar/*current-env* current-env
-                                           prs/*parse-type-in-ns* current-ns]
-                                   (prs/parse-type v)))])))
+                      (let [_ (when (namespace knq)
+                                (u/int-error "Protocol method should be unqualified"))
+                            mtype (free-ops/with-bounded-frees (zipmap fs bnds)
+                                    (binding [uvar/*current-env* current-env
+                                              prs/*parse-type-in-ns* current-ns]
+                                      (prs/parse-type v)))]
+                         (let [rt (c/fully-resolve-type mtype)
+                               fin? (fn [f]
+                                      (let [f (c/fully-resolve-type f)]
+                                        (boolean
+                                          (when (r/FnIntersection? f)
+                                            (every? seq (map :dom (:types f)))))))]
+                           (when-not 
+                             (or
+                               (fin? rt)
+                               (when (r/Poly? rt) 
+                                 (let [names (c/Poly-fresh-symbols* rt)]
+                                   (fin? (c/Poly-body* names rt))))
+                               (when (r/PolyDots? rt) 
+                                 (let [names (c/PolyDots-fresh-symbols* rt)]
+                                   (fin? (c/PolyDots-body* names rt)))))
+                             (u/int-error (str "Protocol method " knq " should be a possibly-polymorphic function intersection"
+                                               " taking at least one fixed argument: "
+                                               (prs/unparse-type mtype)))))
+                         [knq mtype])))
         ;_ (prn "collect protocol methods" (into {} ms))
         t (c/Protocol* (map :name fs) (map :variance parsed-binder) 
                        fs s on-class ms (map :bnd parsed-binder))]
@@ -454,9 +492,10 @@
       (assert (not (namespace kuq))
               "Protocol method names should be unqualified")
       ;qualify method names when adding methods as vars
-      (let [kq (symbol protocol-defined-in-nstr (name kuq))]
+      (let [kq (symbol protocol-defined-in-nstr (name kuq))
+            mt-ann (protocol-method-var-ann mt (map :name fs) bnds)]
         (var-env/add-nocheck-var kq)
-        (var-env/add-var-type kq mt)))
+        (var-env/add-var-type kq mt-ann)))
     ;(prn "end gen-protocol" s)
     nil))
 

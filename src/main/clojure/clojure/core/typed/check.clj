@@ -23,6 +23,8 @@
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.tvar-env :as tvar-env]
+            [clojure.core.typed.tvar-bnds :as tvar-bnds]
             [clojure.core.typed.dvar-env :as dvar-env]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.protocol-env :as ptl-env]
@@ -180,26 +182,17 @@
   (u/p :check/check-expr
   (check expr expected)))
 
-; Just for unit testing
-;[Symbol Any -> Expr]
-(defn check-top-level [nsym form]
-  (impl/with-clojure-impl
-    (let [ast (ana-clj/ast-for-form-in-ns nsym form)]
-      (check ast))))
-
 (defmacro tc-t [form]
-  `(do (t/load-if-needed)
-       (impl/with-clojure-impl
-         (-> (check-top-level (symbol (ns-name *ns*))
-                              '~form)
-             expr-type))))
+  `(let [{delayed-errors# :delayed-errors ret# :ret}
+         (impl/with-clojure-impl
+           (t/check-form-info '~form))]
+     (if-let [errors# (seq delayed-errors#)]
+       (t/print-errors! errors#)
+       ret#)))
 
 (defmacro tc [form]
-  `(do (t/load-if-needed)
-       (impl/with-clojure-impl
-         (-> (check-top-level (symbol (ns-name *ns*))
-                              '~form)
-             expr-type prs/unparse-type))))
+  `(impl/with-clojure-impl
+     (t/check-form* '~form)))
 
 (defn flow-for-value []
   (let [props (.props ^PropEnv lex/*lexical-env*)
@@ -1872,9 +1865,27 @@
   ([e]
    {:pre [(lex/PropEnv? e)]}
    ;; DO NOT REMOVE
-   (prn {:env (into {} (for [[k v] (:l e)]
-                         [k (prs/unparse-type v)]))
-         :props (map prs/unparse-filter (:props e))})))
+   (let [tvar-scope tvar-env/*current-tvars*
+         tvar-bounds tvar-bnds/*current-tvar-bnds*
+         scoped-names (keys tvar-scope)
+         actual-names (map :name (vals tvar-scope))
+         _ (every? symbol? actual-names)
+         actual-bnds (map tvar-bounds actual-names)]
+     (prn {:env (into {} (for [[k v] (:l e)]
+                           [k (prs/unparse-type v)]))
+           :props (map prs/unparse-filter (:props e))
+           ;:frees (map (t/fn> 
+           ;              [nme :- Symbol, bnd :- (U nil Bounds)]
+           ;              {:pre [(symbol? nme)
+           ;                     ((some-fn nil? r/Bounds?) bnd)]}
+           ;              (if bnd
+           ;                (prs/unparse-poly-bounds-entry nme bnd)
+           ;                [nme 'NO-BOUNDS]))
+           ;            scoped-names
+           ;            actual-bnds)
+           ;:tvar-scope tvar-scope
+           ;:tvar-bnds tvar-bounds
+           }))))
 
 ;debug printing
 (add-invoke-special-method 'clojure.core.typed/print-env
@@ -2617,7 +2628,10 @@
     (let [type (check-fn expr (let [default-ret (ret (r/make-FnIntersection
                                                        (r/make-Function [] r/-any r/-any)))]
                                 (cond (and expected (not= r/-any (ret-t expected))) expected
-                                      :else default-ret)))]
+                                      :else default-ret)))
+          _ (when expected
+              (when-not (sub/subtype? (ret-t type) (ret-t expected))
+               (expected-error (ret-t type) (ret-t expected))))]
       (assoc expr
              expr-type type))))
 
@@ -4595,6 +4609,49 @@
 
 (declare check-new-instance-method)
 
+(defn protocol-implementation-type [datatype {:keys [declaring-class] :as method-sig}]
+  (let [pvar (c/Protocol-interface->on-var declaring-class)
+        ptype (pcl-env/get-protocol pvar)
+        demunged-msym (symbol (repl/demunge (str (:name method-sig))))
+        ans (doall (map c/fully-resolve-type (sub/datatype-ancestors datatype)))
+        ;_ (prn "datatype" datatype)
+        ;_ (prn "ancestors" (pr-str ans))
+        ]
+    (when ptype
+      (let [pancestor (if (r/Protocol? ptype)
+                        ptype
+                        (let [[an :as relevant-ancestors] 
+                              (filter 
+                                (fn [a] 
+                                  (and (r/Protocol? a)
+                                       (= (:the-var a) pvar)))
+                                ans)
+                              _ (when (empty? relevant-ancestors)
+                                  (u/int-error (str "Must provide instantiated ancestor for datatype "
+                                                    (:the-class datatype) " to check protocol implementation: "
+                                                    pvar)))
+                              _ (when (< 1 (count relevant-ancestors))
+                                  (u/int-error (str "Ambiguous ancestors for datatype when checking protocol implementation: "
+                                                    (pr-str (vec relevant-ancestors)))))]
+                          an))
+            _ (assert (r/Protocol? pancestor) (pr-str pancestor))
+            ;_ (prn "pancestor" pancestor)
+            pargs (seq (:poly? pancestor))
+            unwrapped-p (if (r/Protocol? ptype)
+                          ptype
+                          (c/instantiate-typefn ptype pargs))
+            _ (assert (r/Protocol? unwrapped-p))
+            mth (get (:methods unwrapped-p) demunged-msym)
+            _ (when-not mth
+                (u/int-error (str "No matching annotation for protocol method implementation: "
+                                  demunged-msym)))]
+        (extend-method-expected datatype mth)))))
+
+(defn datatype-method-expected [datatype method-sig]
+  {:post [(r/Type? %)]}
+  (or (protocol-implementation-type datatype method-sig)
+      (extend-method-expected datatype (instance-method->Function method-sig))))
+
 (add-check-method :deftype*
   [{nme :name :keys [methods compiled-class env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
@@ -4610,6 +4667,7 @@
                      cmmap))
           field-syms (:hinted-fields expr)
           _ (assert (every? symbol? field-syms))
+          ; unannotated datatypes are handled below
           dtp (dt-env/get-datatype nme)
           [nms bbnds dt] (if (r/TypeFn? dtp)
                            (let [nms (c/TypeFn-fresh-symbols* dtp)
@@ -4641,7 +4699,7 @@
                (c/isa-Record? compiled-class)
                (r/DataType? dt)
                (r/Record? dt))
-          (u/tc-delayed-error (str (if datatype? "Datatype" "Record ") nme 
+          (u/tc-delayed-error (str (if datatype? "Datatype " "Record ") nme 
                                    " is annotated as a " (if datatype? "record" "datatype") 
                                    ", should be a " (if datatype? "datatype" "record") ". "
                                    "See ann-datatype and ann-record")
@@ -4649,7 +4707,7 @@
 
         (not= expected-field-syms field-syms)
         (u/tc-delayed-error (str "deftype " nme " fields do not match annotation. "
-                                 " Expected: " (vec expected-field-syms) 
+                                 " Expected: " (vec expected-field-syms)
                                  ", Actual: " (vec field-syms))
                             :return ret-expr)
 
@@ -4670,32 +4728,20 @@
                       (if-not (instance? clojure.reflect.Method method-sig)
                         (u/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme
                                                  ". Available methods: " (pr-str (map (comp first first) cmmap))))
-                        (let [expected-ifn 
-                              (extend-method-expected dt
-                                                      (or (let [ptype (first
-                                                                        (filter #(when-let [p (unwrap-tfn %)]
-                                                                                   (assert (r/Protocol? p))
-                                                                                   (= (:on-class p) (:declaring-class method-sig)))
-                                                                                (vals @pcl-env/CLJ-PROTOCOL-ENV)))]
-                                                            ;(prn "ptype" ptype)
-                                                            (when-let [ptype* (and ptype (unwrap-tfn ptype))]
-                                                              (let [munged-methods (into {} (for [[k v] (:methods ptype*)]
-                                                                                              [(symbol (munge k)) v]))]
-                                                                (munged-methods (:name method-sig)))))
-                                                          (instance-method->Function method-sig)))]
-                          #_(prn "method expected type" (prs/unparse-type expected-ifn))
-                          (prn "names" nms)
+                        (let [expected-ifn (datatype-method-expected dt method-sig)]
+                          ;(prn "method expected type" (prs/unparse-type expected-ifn))
+                          ;(prn "names" nms)
                           (lex/with-locals expected-fields
                             (free-ops/with-free-mappings 
                               (zipmap (map (comp r/F-original-name r/make-F) nms) 
                                       (map (fn [nm bnd] {:F (r/make-F nm) :bnds bnd}) nms bbnds))
-                              (prn "lexical env when checking method" method-nme lex/*lexical-env*)
-                              (prn "frees when checking method" 
-                                   (into {} (for [[k {:keys [name]}] clojure.core.typed.tvar-env/*current-tvars*]
-                                              [k name])))
-                              (prn "bnds when checking method" 
-                                   clojure.core.typed.tvar-bnds/*current-tvar-bnds*)
-                              (prn "expected-ifn" expected-ifn)
+                              ;(prn "lexical env when checking method" method-nme lex/*lexical-env*)
+                              ;(prn "frees when checking method" 
+                              ;     (into {} (for [[k {:keys [name]}] clojure.core.typed.tvar-env/*current-tvars*]
+                              ;                [k name])))
+                              ;(prn "bnds when checking method" 
+                              ;     clojure.core.typed.tvar-bnds/*current-tvar-bnds*)
+                              ;(prn "expected-ifn" expected-ifn)
                               (check-fn-methods
                                 [inst-method]
                                 expected-ifn

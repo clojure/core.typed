@@ -64,6 +64,9 @@
                  '[clojure.core.typed.base-env]
                  '[clojure.core.typed.ns-deps]
                  '[clojure.core.typed.reset-env]
+                 '[clojure.core.typed.tvar-env]
+                 '[clojure.core.typed.tvar-bnds]
+                 '[clojure.core.typed.rclass-ancestor-env]
                  '[clojure.reflect]
                  ;cljs
                  '[clojure.core.typed.collect-cljs]

@@ -28,26 +28,31 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;; Protocols
 
-(ann-protocol [[w :variance :contravariant]
-               [r :variance :covariant]]
-              clojure.core.async.impl.protocols/Channel)
+(ann-protocol clojure.core.async.impl.protocols/Channel
+              close! [clojure.core.async.impl.protocols/Channel -> nil])
 
 (ann-protocol [[r :variance :covariant]]
-              clojure.core.async.impl.protocols/ReadPort)
+              clojure.core.async.impl.protocols/ReadPort
+              take! [(clojure.core.async.impl.protocols/ReadPort r)
+                     java.util.concurrent.locks.Lock
+                     -> (U nil (clojure.lang.IDeref (U nil r)))])
 
 (ann-protocol [[w :variance :contravariant]]
-              clojure.core.async.impl.protocols/WritePort)
+              clojure.core.async.impl.protocols/WritePort
+              put! [(clojure.core.async.impl.protocols/WritePort w) w 
+                     java.util.concurrent.locks.Lock
+                     -> (U nil (clojure.lang.IDeref nil))])
 
 (ann-protocol [[x :variance :invariant]]
                clojure.core.async.impl.protocols/Buffer)
 
-(ann-datatype [[w :variance :covariant]
-               [r :variance :contravariant]]
+(ann-datatype [[w :variance :contravariant]
+               [r :variance :covariant]]
               clojure.core.async.impl.channels.ManyToManyChannel 
               []
-              :unchecked-ancestors #{(clojure.core.async.impl.protocols/Channel w r)
-                                     (clojure.core.async.impl.protocols/ReadPort r)
-                                     (clojure.core.async.impl.protocols/WritePort w)})
+              :unchecked-ancestors [clojure.core.async.impl.protocols/Channel
+                                    (clojure.core.async.impl.protocols/ReadPort r)
+                                    (clojure.core.async.impl.protocols/WritePort w)])
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Aliases
@@ -59,7 +64,7 @@
   (TFn [[r :variance :covariant]]
     (Extends [(clojure.core.async.impl.protocols/WritePort Nothing)
               (clojure.core.async.impl.protocols/ReadPort r)
-              (clojure.core.async.impl.protocols/Channel Nothing r)])))
+              clojure.core.async.impl.protocols/Channel])))
 
 (def-alias 
   ^{:forms '[(Chan t)]}
@@ -68,7 +73,7 @@
   (TFn [[x :variance :invariant]]
     (Extends [(clojure.core.async.impl.protocols/WritePort x)
               (clojure.core.async.impl.protocols/ReadPort x)
-              (clojure.core.async.impl.protocols/Channel x x)])))
+              clojure.core.async.impl.protocols/Channel])))
 
 (def-alias 
   ^{:forms [TimeoutChan]}

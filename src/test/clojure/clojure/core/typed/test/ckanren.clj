@@ -13,6 +13,8 @@
   (:import [java.io Writer]
            [clojure.lang Symbol Sequential IPersistentMap APersistentSet Sorted]))
 
+(comment
+
 (ann *occurs-check* boolean)
 (ann *reify-vars* boolean)
 (ann *locals* (APersistentSet Symbol))
@@ -960,6 +962,7 @@
 
 
 
+) ;comment
 
 
 (comment

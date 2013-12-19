@@ -6,20 +6,21 @@
 (def ^:private tried-loading-cljs? (atom false))
 
 (defn load-cljs []
-  (assert (not *compile-files*))
-  (when-not @tried-loading-cljs?
-    (do
-      (println (str "Loading Clojurescript..."))
-      (flush)
-      (try (require '[cljs.analyzer]
-                    '[cljs.compiler]
-                    '[cljs.tools.analyzer]
-                    '[cljs.tools.analyzer.hygienic]
-                    '[cljs.tools.analyzer.emit-form]
-                    '[cljs.core])
-           (println (str "Clojurescript found and loaded."))
-           (flush)
-           (catch Throwable e
-             (println (str "Clojurescript not found"))
-             (flush)))
-      (reset! tried-loading-cljs? true))))
+  (when-not *compile-files*
+    (assert (not *compile-files*))
+    (when-not @tried-loading-cljs?
+      (do
+        (println (str "Loading Clojurescript..."))
+        (flush)
+        (try (require '[cljs.analyzer]
+                      '[cljs.compiler]
+                      '[cljs.tools.analyzer]
+                      '[cljs.tools.analyzer.hygienic]
+                      '[cljs.tools.analyzer.emit-form]
+                      '[cljs.core])
+             (println (str "Clojurescript found and loaded."))
+             (flush)
+             (catch Throwable e
+               (println (str "Clojurescript not found"))
+               (flush)))
+        (reset! tried-loading-cljs? true)))))

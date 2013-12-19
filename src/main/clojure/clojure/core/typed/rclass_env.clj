@@ -8,22 +8,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Restricted Class
 
-;public because used in alter-class macro
-(defn RClass*-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'RClass*)]
-    (assert (var? v) "RClass* unbound")
-    v))
-(defn parse-type-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.parse-unparse) 'parse-type)]
-    (assert (var? v) "parse unbound")
-    v))
-
 ;Class -> RClass
 (defonce RESTRICTED-CLASS (atom {}))
 (set-validator! RESTRICTED-CLASS (u/hash-c? symbol? r/Type?))
-
-(defonce DISJOINT-CLASSES (atom {}))
-(set-validator! DISJOINT-CLASSES (u/hash-c? symbol? (u/set-c? symbol?)))
 
 (defn get-rclass 
   "Returns the RClass with class symbol csym.
