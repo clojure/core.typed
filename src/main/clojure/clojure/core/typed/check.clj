@@ -2628,7 +2628,10 @@
     (let [type (check-fn expr (let [default-ret (ret (r/make-FnIntersection
                                                        (r/make-Function [] r/-any r/-any)))]
                                 (cond (and expected (not= r/-any (ret-t expected))) expected
-                                      :else default-ret)))]
+                                      :else default-ret)))
+          _ (when expected
+              (when-not (sub/subtype? (ret-t type) (ret-t expected))
+               (expected-error (ret-t type) (ret-t expected))))]
       (assoc expr
              expr-type type))))
 
