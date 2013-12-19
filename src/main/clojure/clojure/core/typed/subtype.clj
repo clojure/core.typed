@@ -13,6 +13,7 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.datatype-ancestor-env :as ancest]
             [clojure.core.typed.analyze-cljs :as cljs-util]
+            [clojure.core.typed.path-rep :as pth-rep]
             [clojure.set :as set]
             [clojure.repl :as repl])
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
@@ -825,7 +826,6 @@
 (defn fully-resolve-filter [fl]
   {:pre [(fr/Filter? fl)]
    :post [(fr/Filter? %)]}
-  (u/p :subtype/fully-resolve-filter
   (cond
     (fr/TypeFilter? fl) (update-in fl [:type] c/fully-resolve-type)
     (fr/NotTypeFilter? fl) (update-in fl [:type] c/fully-resolve-type)
@@ -834,54 +834,98 @@
     (fr/ImpFilter? fl) (-> fl
                            (update-in [:a] fully-resolve-filter)
                            (update-in [:c] fully-resolve-filter))
-    :else fl)))
+    :else fl))
 
-(defn fully-resolve-flowset [flow]
-  {:pre [(r/FlowSet? flow)]
-   :post [(r/FlowSet? %)]}
-  (-> flow
-      (update-in [:normal] fully-resolve-filter)))
+(defn simplify-type-filter [f]
+  {:pre [(fr/TypeFilter? f)]}
+  (let [[fpth & rstpth] (:path f)]
+    (cond 
+      (empty? (:path f)) 
+      f
 
-(defn fully-resolve-fs [fs]
-  {:pre [(fr/FilterSet? fs)]
-   :post [(fr/FilterSet? %)]}
-  (-> fs
-      (update-in [:then] fully-resolve-filter)
-      (update-in [:else] fully-resolve-filter)))
+      (pth-rep/KeyPE? fpth)
+      (simplify-type-filter
+        (fops/-filter 
+          (c/make-HMap {(r/-val (:val fpth)) (:type f)}
+                       {})
+          (:id f)
+          rstpth))
+      :else f)))
 
 (defn subtype-type-filter? [s t]
   {:pre [(fr/TypeFilter? s)
          (fr/TypeFilter? t)]}
-  (and (= (:path s) (:path t))
-       (= (:id s) (:id t))
-       (subtype? (:type s) (:type t))))
+  (let [s (simplify-type-filter s)
+        t (simplify-type-filter t)]
+    (and (= (:path s) (:path t))
+         (= (:id s) (:id t))
+         (subtype? (:type s) (:type t)))))
+
+(defn simplify-not-type-filter [f]
+  {:pre [(fr/NotTypeFilter? f)]}
+  (let [[fpth & rstpth] (:path f)]
+    (cond 
+      (empty? (:path f)) 
+      f
+
+      (pth-rep/KeyPE? fpth)
+      (simplify-not-type-filter
+        (fops/-not-filter 
+          ; keys is optional
+          (c/make-HMap 
+            {}
+            {(r/-val (:val fpth)) (:type f)})
+          (:id f)
+          rstpth))
+      :else f)))
 
 (defn subtype-not-type-filter? [s t]
   {:pre [(fr/NotTypeFilter? s)
          (fr/NotTypeFilter? t)]}
-  (and (= (:path s) (:path t))
-       (= (:id s) (:id t))
-       (subtype? (:type t) (:type s))))
+  (let [s (simplify-not-type-filter s)
+        t (simplify-not-type-filter t)]
+    (and (= (:path s) (:path t))
+         (= (:id s) (:id t))
+         (subtype? (:type t) (:type s)))))
+
+(defn subtype-filter-set? [f1 f2]
+  {:pre [(fr/FilterSet? f1)
+         (fr/FilterSet? f2)]}
+  (boolean
+    (or (= f2 (fops/-FS fr/-top fr/-top))
+        (letfn [(sub-helper [f1 f2 pred field sub?]
+                  (when (every? pred (map field [f1 f2]))
+                    (sub? (field f1) (field f2))))]
+          (or
+            (and (sub-helper f1 f2 fr/TypeFilter? :then subtype-type-filter?)
+                 (sub-helper f1 f2 fr/TypeFilter? :else subtype-not-type-filter?))
+            (and (sub-helper f1 f2 fr/TypeFilter? :then subtype-type-filter?)
+                 (sub-helper f1 f2 fr/NotTypeFilter? :else subtype-not-type-filter?))
+            (and (sub-helper f1 f2 fr/NotTypeFilter? :then subtype-not-type-filter?)
+                 (sub-helper f1 f2 fr/NotTypeFilter? :else subtype-not-type-filter?))
+            (and (sub-helper f1 f2 fr/NotTypeFilter? :then subtype-not-type-filter?)
+                 (sub-helper f1 f2 fr/TypeFilter? :else subtype-type-filter?)))))))
+
+(defn subtype-flow-set? [fs1 fs2]
+  {:pre [(r/FlowSet? fs1)
+         (r/FlowSet? fs2)]}
+  (let [n1 (fully-resolve-filter (:normal fs1))
+        n2 (fully-resolve-filter (:normal fs2))]
+    (= n1 n2)))
 
 (defn subtype-Result
   [{t1 :t ^FilterSet f1 :fl o1 :o flow1 :flow :as s}
    {t2 :t ^FilterSet f2 :fl o2 :o flow2 :flow :as t}]
   (cond
     ;trivial case
-    (and (= (fully-resolve-fs f1) (fully-resolve-fs f2))
-         (= o1 o2)
-         (= (fully-resolve-flowset flow1) (fully-resolve-flowset flow2)))
+    (and (= o1 o2)
+         (subtype-filter-set? f1 f2)
+         (subtype-flow-set? flow1 flow2))
     (subtype t1 t2)
 
     ;we can ignore some interesting results
     (and (orep/EmptyObject? o2)
-         (or (= f2 (fops/-FS fr/-top fr/-top))
-             ; check :then, :else is top
-             #_(and (= (.else f2) fr/-top)
-                  (= (.then f1) (.then f2)))
-             ; check :else, :then is top
-             #_(and (= (.then f2) fr/-top)
-                  (= (.else f1) (.else f2))))
+         (= f2 (fops/-FS fr/-top fr/-top))
          (= flow2 (r/-flow fr/-top)))
     (subtype t1 t2)
 
