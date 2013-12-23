@@ -2770,6 +2770,10 @@
       (parse-filter '(! Number 0 [(Key :k)]))
       (parse-filter '(! (HMap :mandatory {:k Number}) 0)))))
 
+(deftest function-as-ifn-test
+  (is (sub? [-> nil] clojure.lang.IFn))
+  (is (sub? [-> nil] Callable))
+  (is (sub? [-> nil] Runnable)))
 
 ;(deftest parse-with-inferred-variance
 ;  (is-clj (= (clj (parse-type '(TFn [[x :variance :inferred]] x)))
