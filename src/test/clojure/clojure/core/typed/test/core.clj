@@ -2775,6 +2775,9 @@
   (is (sub? [-> nil] Callable))
   (is (sub? [-> nil] Runnable)))
 
+(deftest swap!-special-test
+  (is (check-ns 'clojure.core.typed.test.swap-bang)))
+
 ;(deftest parse-with-inferred-variance
 ;  (is-clj (= (clj (parse-type '(TFn [[x :variance :inferred]] x)))
 ;             (parse-type '(TFn [[x :variance :covariant]] x)))))
