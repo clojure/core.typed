@@ -1,4 +1,4 @@
-# 0.2.21-SNAPSHOT
+# 0.2.21 - Released 30 December 2013
 
 ## BREAKING CHANGES
 
