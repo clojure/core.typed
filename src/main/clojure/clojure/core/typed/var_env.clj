@@ -54,7 +54,7 @@
   (when (contains? @*current-var-annotations* sym)
     (println "WARNING: Duplicate var annotation: " sym)
     (flush))
-  (swap! *current-var-annotations* #(assoc % sym type))
+  (swap! *current-var-annotations* assoc sym type)
   nil)
 
 (defn check-var? [sym]
