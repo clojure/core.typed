@@ -95,7 +95,7 @@
 
 (declare expr-ns)
 
-(t/ann expected-error [r/TCType r/TCType -> nil])
+;(t/ann expected-error [r/Type r/Type -> nil])
 (defn expected-error [actual expected]
   (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
                            (when vs/*current-expr*
@@ -1735,6 +1735,136 @@
                                          ", Actual: " (prs/unparse-type actual))))))]
     (assoc expr
            expr-type (ret r/-any))))
+
+(defn dummy-invoke-expr [fexpr args env]
+  {:op :invoke
+   :env env
+   :fexpr fexpr
+   :args args})
+
+(defn dummy-fn-method-expr [body required-params rest-param env]
+  {:op :fn-method
+   :env env
+   :body body
+   :required-params required-params
+   :rest-param rest-param})
+
+(defn dummy-fn-expr [methods variadic-method env]
+  {:op :fn-expr
+   :env env
+   :methods methods
+   :variadic-method variadic-method})
+
+(defn dummy-local-binding* [sym env]
+  {:op :local-binding
+   :env env
+   :sym sym
+   hygienic/hsym-key sym})
+
+(defn dummy-local-binding-expr [sym env]
+  {:op :local-binding-expr
+   :env env
+   :local-binding (dummy-local-binding* sym env)})
+
+(defn dummy-var-expr [vsym env]
+  (let [v (resolve vsym)]
+    (assert (var? v))
+    {:op :var
+     :env env
+     :var v}))
+
+(defn dummy-constant-expr [c env]
+  {:op :constant
+   :env env
+   :val c})
+
+(defn swap!-dummy-arg-expr [env [target-expr & [f-expr & args]]]
+  (assert f-expr)
+  (assert target-expr)
+  (let [; transform (swap! t f a ...) to (swap! t (fn [t'] (f t' a ...)))
+        ;
+        ;generate fresh symbol for function param
+        sym (gensym 'swap-val)
+        derefed-param (dummy-local-binding-expr sym env)
+        ;
+        ;dummy-fn is (fn [t'] (f t' a ...)) with hygienic bindings
+        dummy-fn-expr (dummy-fn-expr
+                        [; (fn [t'] (f t' a ...))
+                         (dummy-fn-method-expr
+                           ; (f t' a ...)
+                           (dummy-invoke-expr f-expr
+                                              (concat [derefed-param]
+                                                      args)
+                                              env)
+                           [(dummy-local-binding* sym env)]
+                           nil
+                           env)]
+                        nil
+                        env)]
+    dummy-fn-expr))
+
+; Any Type Env -> Expr
+(defn dummy-ann-form-expr [expr t env]
+  (dummy-invoke-expr
+    (dummy-var-expr
+      'clojure.core.typed/ann-form*
+      env)
+    [expr
+     (dummy-constant-expr
+       (binding [t/*verbose-types* true]
+         (prs/unparse-type t))
+       env)]
+    env))
+
+;swap!
+;
+; attempt to rewrite a call to swap! to help type inference
+(add-invoke-special-method 'clojure.core/swap!
+  [{:keys [fexpr args env] :as expr} & [expected]]
+  (let [target-expr (first args)
+        ctarget-expr (check target-expr)
+        target-t (-> ctarget-expr expr-type ret-t c/fully-resolve-type)
+        deref-type (when (and (r/RClass? target-t)
+                              (= 'clojure.lang.Atom (:the-class target-t)))
+                     (when-not (= 2 (count (:poly? target-t)))
+                       (u/int-error (str "Atom takes 2 arguments, found " (count (:poly? target-t)))))
+                     (second (:poly? target-t)))
+        ]
+    (if deref-type
+      (cond
+        ; TODO if this is a lambda we can do better eg. (swap! (atom> Number 1) (fn [a] a))
+        ;(#{:fn-expr} (:op (second args)))
+
+        :else
+          (let [dummy-arg (swap!-dummy-arg-expr env args)
+                ;_ (prn (u/emit-form-fn dummy-arg) "\n" deref-type)
+                expected-dummy-fn-type (r/make-FnIntersection
+                                         (r/make-Function
+                                           [deref-type]
+                                           deref-type))
+                delayed-errors (t/-init-delayed-errors)
+                actual-dummy-fn-type 
+                (binding [t/*delayed-errors* delayed-errors]
+                  (-> (normal-invoke expr
+                                     (dummy-var-expr
+                                       'clojure.core/swap!
+                                       env)
+                                     [(first args)
+                                      (dummy-ann-form-expr
+                                        dummy-arg
+                                        expected-dummy-fn-type
+                                        env)]
+                                     expected)
+                      expr-type ret-t))]
+            ;(prn "deref expected" deref-type)
+            ;(prn "expected-dummy-fn-type" expected-dummy-fn-type)
+            ;(prn "actual-dummy-fn-type" actual-dummy-fn-type)
+            ;(prn "subtype?" (sub/subtype? actual-dummy-fn-type expected-dummy-fn-type))
+            (if (seq @delayed-errors)
+              :default
+              (assoc expr
+                     expr-type (ret deref-type)))))
+      :default)))
 
 ;=
 (add-invoke-special-method 'clojure.core/= 
