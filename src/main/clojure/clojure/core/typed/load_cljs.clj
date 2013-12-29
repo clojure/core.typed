@@ -14,9 +14,9 @@
         (flush)
         (try (require '[cljs.analyzer]
                       '[cljs.compiler]
-                      '[cljs.tools.analyzer]
-                      '[cljs.tools.analyzer.hygienic]
-                      '[cljs.tools.analyzer.emit-form]
+                      '[cljs.jvm.tools.analyzer]
+                      '[cljs.jvm.tools.analyzer.hygienic]
+                      '[cljs.jvm.tools.analyzer.emit-form]
                       '[cljs.core])
              (println (str "Clojurescript found and loaded."))
              (flush)

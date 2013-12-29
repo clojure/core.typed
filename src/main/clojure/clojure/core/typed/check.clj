@@ -42,7 +42,7 @@
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.core.typed.ns-options :as ns-opts]
-            [clojure.tools.analyzer.hygienic :as hygienic]
+            [clojure.jvm.tools.analyzer.hygienic :as hygienic]
             [clojure.pprint :as pprint]
             [clojure.math.combinatorics :as comb]
             [clojure.repl :as repl]

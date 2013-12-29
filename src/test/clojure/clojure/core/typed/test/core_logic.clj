@@ -11,7 +11,7 @@
                                         ann-datatype loop> check-ns non-nil-return
                                         cf defprotocol>]
              :as t]
-            [clojure.tools.analyzer :refer [ast]]))
+            [clojure.jvm.tools.analyzer :refer [ast]]))
 
 (comment
 (ann *occurs-check* (U true false))

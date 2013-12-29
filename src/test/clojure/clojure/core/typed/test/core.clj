@@ -7,8 +7,8 @@
 (load-if-needed)
 
 (require '[clojure.test :refer :all]
-         '[clojure.tools.analyzer :refer [ast analyze-form]]
-         '[clojure.tools.analyzer.hygienic :refer [ast-hy]]
+         '[clojure.jvm.tools.analyzer :refer [ast analyze-form]]
+         '[clojure.jvm.tools.analyzer.hygienic :refer [ast-hy]]
          '[clojure.repl :refer [pst]]
          '[clojure.pprint :refer [pprint]]
          '[clojure.data :refer [diff]]
