@@ -14,6 +14,8 @@
             [clojure.jvm.tools.analyzer :refer [ast]]))
 
 (comment
+(binding [t/*collect-on-eval* false]
+
 (ann *occurs-check* (U true false))
 (ann *reify-vars* (U true false))
 (ann *locals* (IPersistentSet Symbol))
@@ -417,4 +419,5 @@
   (let [s (reduce (fn [m [k v]] (assoc m k v)) {} v)
         l (reduce (fn [l [k v]] (cons (Pair. k v) l)) '() v)]
     (make-s s l)))
+) ;*collect-on-eval* false
 ) ;comment

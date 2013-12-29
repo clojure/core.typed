@@ -2,9 +2,10 @@
   ^{:see-also [["http://matthew.brecknell.net/post/hole-driven-haskell/" "Hole Driven Development"]]
     :doc "This namespace contains easy tools for hole driven development"}
   clojure.core.typed.hole
-  (:require [clojure.core.typed :refer [ann ann-datatype]]))
+  (:require [clojure.core.typed :refer [ann ann-datatype] :as t]))
 
-(ann silent-hole [-> Nothing])
+(binding [t/*collect-on-eval* false]
+  (ann silent-hole [-> Nothing]))
 (defn silent-hole
   "A silent hole. (silent-hole) passes for any other type
   when type checking.
@@ -13,10 +14,12 @@
   [] 
   (throw (Exception. "silent hole")))
 
-(ann-datatype NoisyHole [])
+(binding [t/*collect-on-eval* false]
+  (ann-datatype NoisyHole []))
 (deftype NoisyHole [])
 
-(ann noisy-hole [-> NoisyHole])
+(binding [t/*collect-on-eval* false]
+  (ann noisy-hole [-> NoisyHole]))
 (defn noisy-hole
   "A noisy hole. The type system will complain when
   (noisy-hole) is used in positions that expect a type
