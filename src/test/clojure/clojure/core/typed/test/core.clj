@@ -2779,9 +2779,9 @@
   (is (check-ns 'clojure.core.typed.test.swap-bang)))
 
 (deftest collect-on-eval-test
-  (is (do (t/ann foo-bar Number)
-          (t/cf (def foo-bar 1))
-          (t/cf foo-bar)
+  (is (do (ann foo-bar Number)
+          (cf (def foo-bar 1))
+          (cf foo-bar)
           true)))
 
 ;(deftest parse-with-inferred-variance
