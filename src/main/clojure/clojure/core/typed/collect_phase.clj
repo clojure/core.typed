@@ -108,6 +108,13 @@
          (println (str "Finished collecting " nsym))
          (flush))))))
 
+(defn collect-ast [expr]
+  (collect expr))
+
+(defn collect-form [form]
+  (let [ast (ana-clj/ast-for-form form)]
+    (collect-ast ast)))
+
 (defn collect-asts [asts]
   ; phase 1
   ; declare all protocols and datatypes

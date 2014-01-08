@@ -2778,6 +2778,10 @@
 (deftest swap!-special-test
   (is (check-ns 'clojure.core.typed.test.swap-bang)))
 
+(deftest collect-on-eval-test
+  (is (require 'clojure.core.typed.test.collect-on-eval)
+      true))
+
 ;(deftest parse-with-inferred-variance
 ;  (is-clj (= (clj (parse-type '(TFn [[x :variance :inferred]] x)))
 ;             (parse-type '(TFn [[x :variance :covariant]] x)))))
