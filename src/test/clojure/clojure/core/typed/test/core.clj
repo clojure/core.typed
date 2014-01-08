@@ -2778,11 +2778,11 @@
 (deftest swap!-special-test
   (is (check-ns 'clojure.core.typed.test.swap-bang)))
 
-(deftest collect-on-eval-test
-  (is (do (ann foo-bar Number)
-          (cf (def foo-bar 1))
-          (cf foo-bar)
-          true)))
+;(deftest collect-on-eval-test
+;  (is (do (ann foo-bar Number)
+;          (cf (def foo-bar 1))
+;          (cf foo-bar)
+;          true)))
 
 ;(deftest parse-with-inferred-variance
 ;  (is-clj (= (clj (parse-type '(TFn [[x :variance :inferred]] x)))
