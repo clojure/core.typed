@@ -567,7 +567,7 @@
         :cljs (ucljs/cljs-ns))))
 
 (defn- resolve-type-clj 
-  "Returns a qualified symbol, class or nil"
+  "Returns a var, class or nil"
   [sym]
   {:pre [(symbol? sym)]}
   (impl/assert-clojure)
