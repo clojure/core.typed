@@ -1,12 +1,12 @@
 (ns clojure.core.typed.base-env
-  (:import (clojure.lang Atom Symbol Namespace Keyword Named IMapEntry Seqable
+  (:import (clojure.lang Atom Keyword Named IMapEntry AMapEntry Seqable
                          LazySeq PersistentHashSet PersistentTreeSet PersistentList APersistentVector
                          APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
                          APersistentMap IDeref IBlockingDeref ISeq IMeta ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
                          IPersistentList IRef IReference AReference ARef Var Delay Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
-                         ITransientVector PersistentHashMap Reduced))
+                         ITransientVector PersistentHashMap Reduced IObj Obj))
   (:require [clojure.core.typed.base-env-helper :as h]
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.parse-unparse :as prs]
@@ -206,11 +206,49 @@ PersistentVector [[[a :variance :covariant]]
 IMapEntry [[[a :variance :covariant]
             [b :variance :covariant]]]
 
+clojure.lang.AMapEntry 
+          [[[a :variance :covariant]
+            [b :variance :covariant]]
+           :replace
+           {IMapEntry (IMapEntry a b)
+            IPersistentCollection (IPersistentCollection 
+                                    (U a b))
+            Seqable (Seqable (U a b))
+            IPersistentVector (IPersistentVector (U a b))
+            Reversible (Reversible (U a b))
+            IPersistentStack (IPersistentStack (U a b))
+            ILookup (ILookup Number (U a b))
+            Associative (Associative Number (U a b))
+            Indexed (Indexed (U a b))
+            APersistentVector (APersistentVector (U a b))}
+           :unchecked-ancestors
+           #{'[a b]
+             [Number -> (U a b)]}]
+
+clojure.lang.MapEntry
+          [[[a :variance :covariant]
+            [b :variance :covariant]]
+           :replace
+           {IMapEntry (IMapEntry a b)
+            AMapEntry (AMapEntry a b)
+            IPersistentCollection (IPersistentCollection (U a b))
+            Seqable (Seqable (U a b))
+            IPersistentVector (IPersistentVector (U a b))
+            Reversible (Reversible (U a b))
+            IPersistentStack (IPersistentStack (U a b))
+            ILookup (ILookup Number (U a b))
+            Associative (Associative Number (U a b))
+            Indexed (Indexed (U a b))
+            APersistentVector (APersistentVector (U a b))}
+           :unchecked-ancestors
+           #{'[a b]
+             [Number -> (U a b)]}]
+
 IPersistentMap [[[a :variance :covariant]
                  [b :variance :covariant]]
                 :replace
-                {IPersistentCollection (IPersistentCollection (U '[a b] (IMapEntry a b)))
-                 Seqable (Seqable (U '[a b] (IMapEntry a b)))
+                {IPersistentCollection (IPersistentCollection (AMapEntry a b))
+                 Seqable (Seqable (AMapEntry a b))
                  ILookup (ILookup a b)
                  Associative (Associative a b)}]
 
@@ -224,9 +262,9 @@ ASeq [[[a :variance :covariant]]
 APersistentMap [[[a :variance :covariant] 
                  [b :variance :covariant]]
                 :replace
-                {IPersistentCollection (IPersistentCollection (U '[a b] (IMapEntry a b)))
+                {IPersistentCollection (IPersistentCollection (AMapEntry a b))
                  IPersistentMap (IPersistentMap a b)
-                 Seqable (Seqable (U '[a b] (IMapEntry a b)))
+                 Seqable (Seqable (AMapEntry a b))
                  ILookup (ILookup a b)
                  Associative (Associative a b)}
                 :unchecked-ancestors
@@ -238,10 +276,10 @@ APersistentMap [[[a :variance :covariant]
 PersistentHashMap [[[a :variance :covariant] 
                     [b :variance :covariant]]
                    :replace
-                   {IPersistentCollection (IPersistentCollection (U '[a b] (IMapEntry a b)))
+                   {IPersistentCollection (IPersistentCollection (AMapEntry a b))
                     IPersistentMap (IPersistentMap a b)
                     APersistentMap (APersistentMap a b)
-                    Seqable (Seqable (U '[a b] (IMapEntry a b)))
+                    Seqable (Seqable (AMapEntry a b))
                     ILookup (ILookup a b)
                     IMeta (IMeta Any)
                     Associative (Associative a b)
