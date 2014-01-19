@@ -313,7 +313,7 @@ PersistentList [[[a :variance :covariant]]
                  IPersistentStack (IPersistentStack a)
                  IMeta (IMeta Any)}]
 
-Symbol [[]
+clojure.lang.Symbol [[]
              :replace
              {IMeta (IMeta Any)}]
 
