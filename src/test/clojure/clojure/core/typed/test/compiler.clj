@@ -23,7 +23,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def-alias NsEntry
-  (HMap {:name Symbol
+  (HMap :mandatory {:name Symbol
          ;these should really be optional
          :requires (IPersistentMap Symbol Symbol)
          :defs (IPersistentMap Symbol Symbol)
@@ -36,10 +36,10 @@
                       ':expr
                       ':return))
 
-(def-alias LocalBinding (HMap {:name Symbol}))
+(def-alias LocalBinding (HMap :mandatory {:name Symbol}))
 
 (def-alias Env
-  (HMap {:locals (IPersistentMap Symbol LocalBinding)
+  (HMap :mandatory {:locals (IPersistentMap Symbol LocalBinding)
          :context Context
          :line (U nil Number)
          :ns NsEntry}))
@@ -48,7 +48,7 @@
 ;syntax
 (def-alias Form Any)
 
-(def-alias FnMethod (HMap {:env Env
+(def-alias FnMethod (HMap :mandatory {:env Env
                            :variadic (U nil Expr)
                            :params (Seqable Any)
                            :max-fixed-arity Number
@@ -62,7 +62,7 @@
   Expr
   (Rec [x]
        (U ;; if
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :if)
                  :form Form
                  :test x
@@ -71,13 +71,13 @@
                  :unchecked Any
                  :children (Seqable x)})
           ;; throw
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :throw)
                  :form Form
                  :throw x
                  :children (Seqable x)})
           ;; try
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :try*)
                  :form Form
                  :try '{:statements (Option (Seqable x))
@@ -89,7 +89,7 @@
                  :name (Option String)
                  :children (Seqable x)})
           ;; def
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :def)
                  :form Form
                  :name Symbol
@@ -101,27 +101,27 @@
                  :export Any
                  :children (Seqable x)})
           ;; fn
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :fn)
                  :form Form
                  :name Any
                  :methods (Seqable FnMethod)})
           ;; letfn
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :letfn)
                  :bindings (IPersistentVector LocalBinding)
                  :statements (Seqable x)
                  :ret x
                  :children (Seqable x)})
           ;; do
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :do)
                  :form Form
                  :children (Seqable x)
                  :statements (Seqable x)
                  :ret x})
           ;; let
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :let)
                  :loop boolean
                  :bindings (Seqable LocalBinding)
@@ -130,35 +130,35 @@
                  :form Form
                  :children (Seqable x)})
           ;; recur
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :recur)
                  :form Form
                  :frame Any
                  :exprs (Seqable x)
                  :children (Seqable x)})
           ;; quote
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :constant)
                  :form Form})
           ;; new
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :new)
                  :form Form
                  :ctor x
                  :args (Seqable x)
                  :children (Seqable x)})
           ;; no-op
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :no-op)})
           ;; set!
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :set!)
                  :form Form
                  :target x
                  :val x
                  :children (Seqable x)})
           ;; ns
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :ns)
                  :form Form
                  :name Symbol
@@ -168,28 +168,28 @@
                  :requires-macros Any ;?
                  :excludes Any}) ;?
           ;; deftype
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :deftype*)
                  :as Any
                  :t Any
                  :fields Any
                  :pmasks Any})
           ;; defrecord
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :defrecord*)
                  :form Form
                  :t Any
                  :fields Any
                  :pmasks Any})
           ;; dot
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :dot)
                  :form Form
                  :target x
                  :children (Seqable x)
                  :tag (Option Symbol)})
           ;; js
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :js) 
                  :tag (Option Symbol)
                  :form Form
@@ -200,20 +200,20 @@
                  :code String})
 
           ;; var
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :var) 
                  :info '{:name Symbol}
                  :children (Seqable x)})
 
           ;; meta
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :meta) 
                  :expr x
                  :meta Any
                  :children (Seqable x)})
 
           ;; map
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :map) 
                  :simple-keys? Any
                  :keys (Seqable x)
@@ -221,13 +221,13 @@
                  :children (Seqable x)})
 
           ;; vector
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :vector) 
                  :items (Seqable x)
                  :children (Seqable x)})
 
           ;; set
-          (HMap {:env Env
+          (HMap :mandatory {:env Env
                  :op (Value :set) 
                  :items (Seqable x)
                  :children (Seqable x)}))))
@@ -237,7 +237,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def-alias NsAnalysis
-  (HMap {:ns Symbol
+  (HMap :mandatory {:ns Symbol
          :provides (IPersistentVector Symbol)
          :requires (IPersistentSet Symbol)
          :file String}))
@@ -421,7 +421,7 @@
                         :name-sym (symbol (str full-ns) (str sym))
                         :ns full-ns})))))))))
 
-(ann ^:no-check resolve-var [Env Symbol -> (HMap {:name Symbol})])
+(ann ^:no-check resolve-var [Env Symbol -> (HMap :mandatory {:name Symbol})])
 ;need a NamespacedSymbol refinement, of which `namespace` is a predicate.
 (defn resolve-var [env sym]
   (if (= (namespace sym) "js")
@@ -1149,12 +1149,12 @@
 (ann specials (IPersistentSet Symbol))
 (def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns deftype* defrecord* . js* & quote})
 
-(def-alias RecurFrame (HMap {:names (Seqable Symbol)
+(def-alias RecurFrame (HMap :mandatory {:names (Seqable Symbol)
                              :flag (Atom1 Any)}))
 (ann *recur-frames* (U nil (Seqable RecurFrame)))
 (def ^:dynamic *recur-frames* nil)
 
-(def-alias LoopLet (HMap {:names (Seqable Symbol)}))
+(def-alias LoopLet (HMap :mandatory {:names (Seqable Symbol)}))
 
 (ann *loop-lets* (U nil (Seqable LoopLet)))
 (def ^:dynamic *loop-lets* nil)
@@ -1162,7 +1162,7 @@
 (defmacro disallowing-recur [& body]
   `(binding [*recur-frames* (cons nil *recur-frames*)] ~@body))
 
-(ann analyze-block [Env (Seqable Any) -> (HMap {:statements (Seqable Expr)
+(ann analyze-block [Env (Seqable Any) -> (HMap :mandatory {:statements (Seqable Expr)
                                                 :ret Expr})])
 (defn analyze-block
   "returns {:statements .. :ret ..}"
