@@ -2,7 +2,7 @@
   (:import (clojure.lang Atom Symbol Namespace Keyword Named IMapEntry Seqable
                          LazySeq PersistentHashSet PersistentTreeSet PersistentList APersistentVector
                          APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
-                         APersistentMap IDeref ISeq IMeta ASeq IPersistentCollection
+                         APersistentMap IDeref IBlockingDeref ISeq IMeta ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
                          IPersistentList IRef IReference AReference ARef Var Delay Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
