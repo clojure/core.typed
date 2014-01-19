@@ -2173,4 +2173,7 @@
                                 ;no bounds provided, default to Nothing <: Any
                                 :else {:upper r/-any :lower r/-nothing})]
     (r/Bounds-maker upper lower nil)))
+
+(defn -any-meta []
+  (r/Un r/-nil (RClass-of clojure.lang.IPersistentMap r/-any r/-any)))
 )
