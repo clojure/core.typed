@@ -642,6 +642,28 @@ clojure.core.typed/Hierarchy '{:parents (IPersistentMap Any Any)
                                  (set (keys alias-env)))))
     (nme-env/reset-name-env! alias-env)))
 
+(delay-and-cache-env ^:private init-protocol-env 
+                     {}
+   #_(protocol-mappings
+clojure.java.io/IOFactory 
+     [[]
+      :methods
+      {
+       make-reader
+       [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedReader]
+
+       make-writer 
+       [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedWriter]
+
+       make-input-stream 
+       [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedInputStream]
+
+       make-output-stream
+       [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedOutputStream]
+       }]
+
+     ))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
