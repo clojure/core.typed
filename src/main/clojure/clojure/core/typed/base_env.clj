@@ -434,6 +434,9 @@ clojure.core.typed/Keyword clojure.lang.Keyword
 clojure.core.typed/Symbol clojure.lang.Symbol
 
 ;clojure.core.typed/AnyPrimitive (U char int short boolean byte short long float double)
+      ^{:doc "A namespace"
+        :forms [Namespace]}
+clojure.core.typed/Namespace clojure.lang.Namespace
 
     ^{:doc "An atom that can read and write type x."
       :forms [(Atom1 t)]}
@@ -604,7 +607,7 @@ clojure.java.io/IOFactory
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
                 Hierarchy Nilable Int Var1 Future Promise
-                Symbol]]
+                Symbol Namespace]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))

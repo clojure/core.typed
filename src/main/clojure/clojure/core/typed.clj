@@ -56,7 +56,7 @@ for checking namespaces, cf for checking individual forms."}
   '#{Option AnyInteger Int Num Atom1 Id Coll NonEmptyColl Vec NonEmptyVec
      Map Set SortedSet Seqable NonEmptySeqable EmptySeqable Seq NonEmptySeq EmptyCount NonEmptyCount
      NonEmptyLazySeq Hierarchy NilableNonEmptySeq Nilable Var1 Ref1 Keyword Symbol
-     Future Promise})
+     Future Promise Namespace})
 
 (doseq [v -base-aliases]
   (intern 'clojure.core.typed v))
