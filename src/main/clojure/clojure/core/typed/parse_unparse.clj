@@ -180,7 +180,7 @@
   (let [RClass-of @(RClass-of-var)
         on-type (parse-type t-syn)]
     (r/make-FnIntersection
-      (r/make-Function [r/-any] (RClass-of 'boolean) nil nil
+      (r/make-Function [r/-any] (RClass-of Boolean) nil nil
                        :filter (fl/-FS (fl/-filter on-type 0)
                                        (fl/-not-filter on-type 0))))))
 
