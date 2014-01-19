@@ -1047,13 +1047,13 @@
       (let [symfn (prs/parse-type '(All [x] [(U (clojure.lang.IPersistentMap Any x) Any) -> (U x nil)]))]
         (check-funapp fexpr args (ret symfn) arg-ret-types expected))
       
-;      ;Var function
-;      (and (r/RClass? fexpr-type)
-;           ('#{clojure.lang.Var} (.the-class ^RClass fexpr-type)))
-;      (let [{[ftype :as poly?] :poly?} fexpr-type
-;            _ (assert (= 1 (count poly?))
-;                      "Assuming clojure.lang.Var only takes 1 argument")]
-;        (check-funapp fexpr args (ret ftype) arg-ret-types expected))
+      ;Var function
+      (and (r/RClass? fexpr-type)
+           ('#{clojure.lang.Var} (:the-class ^RClass fexpr-type)))
+      (let [{[_ ftype :as poly?] :poly?} fexpr-type
+            _ (assert (#{2} (count poly?))
+                      "Assuming clojure.lang.Var only takes 1 argument")]
+        (check-funapp fexpr args (ret ftype) arg-ret-types expected))
 
       ;Error is perfectly good fn type
       (r/TCError? fexpr-type)
