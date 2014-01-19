@@ -445,9 +445,45 @@
                      bnds
                      mt))))
 
+#_(defn parse-protocol-methods [mths]
+  (into {} (for [[knq v] mths]
+             (let [_ (when (namespace knq)
+                       (u/int-error "Protocol method should be unqualified"))
+                   mtype (free-ops/with-bounded-frees (zipmap fs bnds)
+                           (binding [uvar/*current-env* current-env
+                                     prs/*parse-type-in-ns* current-ns]
+                             (prs/parse-type v)))]
+               (let [rt (c/fully-resolve-type mtype)
+                     fin? (fn [f]
+                            (let [f (c/fully-resolve-type f)]
+                              (boolean
+                                (when (r/FnIntersection? f)
+                                  (every? seq (map :dom (:types f)))))))]
+                 (when-not 
+                   (or
+                     (fin? rt)
+                     (when (r/Poly? rt) 
+                       (let [names (c/Poly-fresh-symbols* rt)]
+                         (fin? (c/Poly-body* names rt))))
+                     (when (r/PolyDots? rt) 
+                       (let [names (c/PolyDots-fresh-symbols* rt)]
+                         (fin? (c/PolyDots-body* names rt)))))
+                   (u/int-error (str "Protocol method " knq " should be a possibly-polymorphic function intersection"
+                                     " taking at least one fixed argument: "
+                                     (prs/unparse-type mtype)))))
+               [knq mtype]))))
+
+#_(defn parse-protocol-binder [binder]
+  (when binder 
+    (binding [prs/*parse-type-in-ns* current-ns]
+      (prs/parse-free-binder-with-variance binder))))
+
 (defn gen-protocol* [current-env current-ns vsym binder mths]
   {:pre [(symbol? current-ns)]}
-  (let [s (if (namespace vsym)
+  (let [_ (when-not (symbol? vsym)
+            (u/int-error
+              (str "First argument to ann-protocol must be a symbol: " vsym)))
+        s (if (namespace vsym)
             (symbol vsym)
             (symbol (str current-ns) (name vsym)))
         ;_ (prn "gen-protocol*" s)
