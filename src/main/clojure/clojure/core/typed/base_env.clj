@@ -603,7 +603,8 @@ clojure.java.io/IOFactory
 (let [interns '[Option AnyInteger Id Coll Seq NonEmptySeq EmptySeqable
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
-                Hierarchy Nilable Int Var1]]
+                Hierarchy Nilable Int Var1 Future Promise
+                Symbol]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
