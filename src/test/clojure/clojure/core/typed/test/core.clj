@@ -2778,6 +2778,12 @@
 (deftest swap!-special-test
   (is (check-ns 'clojure.core.typed.test.swap-bang)))
 
+(deftest seqable-map-test
+  (is-cf (map (clojure.core.typed/fn> 
+                [[a b] :- '[Number Number]]
+                (+ a b))
+              {1 2 3 4 5 6})))
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))
