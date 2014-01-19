@@ -2175,5 +2175,5 @@
     (r/Bounds-maker upper lower nil)))
 
 (defn -any-meta []
-  (r/Un r/-nil (RClass-of clojure.lang.IPersistentMap r/-any r/-any)))
+  (Un r/-nil (RClass-of clojure.lang.IPersistentMap r/-any r/-any)))
 )
