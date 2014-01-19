@@ -199,7 +199,7 @@ PersistentVector [[[a :variance :covariant]]
                    IMeta (IMeta Any)
                    Associative (Associative Number a)
                    Indexed (Indexed a)
-                   #_IEditableCollection #_(IEditableCollection (ITransientVector a))}]
+                   #_IEditableCollection #_(IEditableCollection (ITransientVector a))}
                   :unchecked-ancestors
                   #{[Number -> a]}]
 
