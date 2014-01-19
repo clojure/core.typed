@@ -29,24 +29,6 @@
 ;; TODO fix metadata representation
 ;; TODO remove redundant ancestors, add tests to ensure they are preserved.
 
-#_(alter-class IFn [[a :variance :covariant
-                   :< AnyFunction]])
-
-#_(alter-class clojure.lang.Fn [[a :variance :covariant
-                               :< AnyFunction]])
-
-#_(alter-class AFn [[a :variance :covariant
-                   :< AnyFunction]]
-             :replace
-             {IFn (IFn a)})
-
-#_(alter-class AFunction [[a :variance :covariant
-                         :< AnyFunction]]
-             :replace
-             {AFn (AFn a)
-              IFn (IFn a)
-              clojure.lang.Fn (clojure.lang.Fn a)})
-
 
 (delay-and-cache-env init-altered-env
                      (assert (class? Seqable))
