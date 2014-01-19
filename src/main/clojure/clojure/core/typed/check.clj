@@ -1426,8 +1426,10 @@
                            :cargs cargs))))
 
 (add-invoke-special-method 'clojure.core/extend
-  [{[atype & protos] :args :as expr} & [expected]]
-  (assert (and atype (even? (count protos))) "Wrong arguments to extend")
+  [{[atype & protos :as args] :args :as expr} & [expected]]
+  (when-not (and atype (even? (count protos))) 
+    (u/int-error "Wrong number of arguments to extend, expected at least one with an even "
+                 "number of variable arguments, given " (count args)))
   (let [catype (check atype)
         ret-expr (assoc expr
                         expr-type (ret r/-any))
