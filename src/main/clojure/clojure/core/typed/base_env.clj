@@ -282,6 +282,7 @@ Keyword [[]
                     [Any -> Any]))}]
 
 IDeref [[[r :variance :covariant]]]
+IBlockingDeref [[[r :variance :covariant]]]
 
 
 IRef [[[w :variance :contravariant]
@@ -493,6 +494,25 @@ clojure.core.typed/NonEmptyCount (CountRange 1)
 clojure.core.typed/Hierarchy '{:parents (IPersistentMap Any Any)
                                :ancestors (IPersistentMap Any Any)
                                :descendants (IPersistentMap Any Any)}
+
+    ^{:doc "A Clojure future (see clojure.core/{future-call,future})."
+      :forms [(Future x)]}
+clojure.core.typed/Future 
+                      (TFn [[x :variance :covariant]]
+                       (Extends [(IDeref x)
+                                 (IBlockingDeref x)
+                                 clojure.lang.IPending
+                                 java.util.concurrent.Future]))
+
+    ^{:doc "A Clojure promise (see clojure.core/{promise,deliver})."
+      :forms [(Promise x)]}
+clojure.core.typed/Promise 
+              (TFn [[x :variance :invariant]]
+               (Rec [p]
+                (I (Extends [(IDeref x)
+                             (IBlockingDeref x)
+                             clojure.lang.IPending])
+                   [x -> (U nil p)])))
     ))
 
 (defn reset-alias-env! []
@@ -811,8 +831,10 @@ clojure.core/set-validator! (All [x]
                                  [(clojure.lang.IRef Any x) [x -> Any] -> nil])
 
 clojure.core/deref (All [x y]
-                             (Fn [(IDeref x) -> x]
-                                 [(IDeref x) AnyInteger y -> (U x y)]))
+                     (Fn [(IDeref x) -> x]
+                         [(U (IDeref Any) java.util.concurrent.Future) -> Any]
+                         [(IBlockingDeref x) AnyInteger y -> (U x y)]
+                         [(U java.util.concurrent.Future (IBlockingDeref Any)) AnyInteger Any -> Any]))
 
 clojure.core/delay? (predicate (Delay Any))
 
