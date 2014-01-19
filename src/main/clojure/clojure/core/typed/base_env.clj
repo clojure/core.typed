@@ -203,6 +203,8 @@ PersistentVector [[[a :variance :covariant]]
                   :unchecked-ancestors
                   #{[Number -> a]}]
 
+IMapEntry [[[a :variance :covariant]
+            [b :variance :covariant]]]
 
 IPersistentMap [[[a :variance :covariant]
                  [b :variance :covariant]]
