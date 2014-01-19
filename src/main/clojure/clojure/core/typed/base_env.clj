@@ -77,34 +77,32 @@ IPersistentSet [[[a :variance :covariant]]
 APersistentSet [[[a :variance :covariant]]
                 :replace
                 {Seqable (Seqable a)
-                 IFn [Any -> (U a nil)]
-                 AFn [Any -> (U a nil)]
                  IPersistentCollection (IPersistentCollection a)
-                 IPersistentSet (IPersistentSet a)}]
+                 IPersistentSet (IPersistentSet a)}
+                :unchecked-ancestors
+                #{[Any -> (U a nil)]}
+                ]
 
 PersistentHashSet [[[a :variance :covariant]]
                    :replace
                    {Seqable (Seqable a)
                     APersistentSet (APersistentSet a)
-                    IFn [Any -> (U a nil)]
-                    AFn [Any -> (U a nil)]
                     IPersistentSet (IPersistentSet a)
                     IPersistentCollection (IPersistentCollection a)
-                    IMeta (IMeta Any)}]
+                    IMeta (IMeta Any)}
+                   :unchecked-ancestors
+                   #{[Any -> (U a nil)]}]
 
 PersistentTreeSet [[[a :variance :covariant]]
                    :replace
                    {Seqable (Seqable a)
                     Reversible (Reversible a)
                     APersistentSet (APersistentSet a)
-                    IFn [Any -> (U a nil)]
-                    AFn [Any -> (U a nil)]
                     IPersistentSet (IPersistentSet a)
                     IPersistentCollection (IPersistentCollection a)
-                    IMeta (IMeta Any)}]
-
-IMapEntry [[[a :variance :covariant]
-            [b :variance :covariant]]]
+                    IMeta (IMeta Any)}
+                    :unchecked-ancestors
+                    #{[Any -> (U a nil)]}]
 
 Associative [[[a :variance :covariant]
               [b :variance :covariant]]
@@ -182,11 +180,12 @@ APersistentVector [[[a :variance :covariant]]
                     Seqable (Seqable a)
                     IPersistentVector (IPersistentVector a)
                     Reversible (Reversible a)
-                    IFn [Number -> a]
                     IPersistentStack (IPersistentStack a)
                     ILookup (ILookup Number a)
                     Associative (Associative Number a)
-                    Indexed (Indexed a)}]
+                    Indexed (Indexed a)}
+                   :unchecked-ancestors
+                   #{[Number -> a]}]
 
 PersistentVector [[[a :variance :covariant]]
                   :replace
@@ -195,13 +194,14 @@ PersistentVector [[[a :variance :covariant]]
                    Seqable (Seqable a)
                    IPersistentVector (IPersistentVector a)
                    Reversible (Reversible a)
-                   IFn [Number -> a]
                    IPersistentStack (IPersistentStack a)
                    ILookup (ILookup Number a)
                    IMeta (IMeta Any)
                    Associative (Associative Number a)
                    Indexed (Indexed a)
                    #_IEditableCollection #_(IEditableCollection (ITransientVector a))}]
+                  :unchecked-ancestors
+                  #{[Number -> a]}]
 
 
 IPersistentMap [[[a :variance :covariant]
@@ -225,11 +225,12 @@ APersistentMap [[[a :variance :covariant]
                 {IPersistentCollection (IPersistentCollection (U '[a b] (IMapEntry a b)))
                  IPersistentMap (IPersistentMap a b)
                  Seqable (Seqable (U '[a b] (IMapEntry a b)))
-                 IFn (All [d]
-                          (Fn [Any -> (U nil b)]
-                              [Any d -> (U b d)]))
                  ILookup (ILookup a b)
-                 Associative (Associative a b)}]
+                 Associative (Associative a b)}
+                :unchecked-ancestors
+                #{(All [d]
+                          (Fn [Any -> (U nil b)]
+                              [Any d -> (U b d)]))}]
 
 
 PersistentHashMap [[[a :variance :covariant] 
@@ -239,13 +240,14 @@ PersistentHashMap [[[a :variance :covariant]
                     IPersistentMap (IPersistentMap a b)
                     APersistentMap (APersistentMap a b)
                     Seqable (Seqable (U '[a b] (IMapEntry a b)))
-                    IFn (All [d]
-                             (Fn [Any -> (U nil b)]
-                                 [Any d -> (U b d)]))
                     ILookup (ILookup a b)
                     IMeta (IMeta Any)
                     Associative (Associative a b)
-                    #_IEditableCollection #_(IEditableCollection (ITransientMap a b a b))}]
+                    #_IEditableCollection #_(IEditableCollection (ITransientMap a b a b))}
+                   :unchecked-ancestors
+                   #{(All [d]
+                             (Fn [Any -> (U nil b)]
+                                 [Any d -> (U b d)]))}]
 
 Cons [[[a :variance :covariant]]
       :replace
@@ -276,8 +278,8 @@ Symbol [[]
              {IMeta (IMeta Any)}]
 
 Keyword [[]
-         :replace
-         {IFn (All [x] 
+         :unchecked-ancestors
+         #{(All [x] 
                 (Fn [(U nil (IPersistentMap Any x)) -> (U nil x)]
                     [Any -> Any]))}]
 
@@ -319,7 +321,6 @@ Var [[[w :variance :contravariant]
      :replace
      {AReference (AReference Any Any)
       IReference (IReference Any Any)
-      IFn r
       IRef (IRef w r)
       ARef (ARef w r)
       IDeref (IDeref r)
