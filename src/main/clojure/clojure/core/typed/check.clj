@@ -160,7 +160,8 @@
 (defn expr-ns [expr]
   {:post [(symbol? %)]}
   (impl/impl-case
-    :clojure (let [nsym (-> expr :env :ns :name symbol)
+    :clojure (let [nsym (when-let [s (get-in expr [:env :ns :name])]
+                          (symbol s))
                    _ (assert nsym (str "Bug! " (:op expr) " expr has no associated namespace"))
                    ns (find-ns nsym)
                    _ (assert ns)]
