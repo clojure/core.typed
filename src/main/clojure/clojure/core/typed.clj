@@ -876,10 +876,13 @@ for checking namespaces, cf for checking individual forms."}
   [debug-str]
   nil)
 
+(declare ann-collect-eval)
+
 (defn ^:skip-wiki
   ann* 
   "Internal use only. Use ann."
   [varsym typesyn check?]
+  (ann-collect-eval varsym typesyn check?)
   nil)
 
 (defmacro ann 
@@ -922,10 +925,22 @@ for checking namespaces, cf for checking individual forms."}
   [t & vs]
   `(do ~@(map #(list `ann % t) vs)))
 
+(declare ann-datatype-collect-eval)
+
+(defonce ^:dynamic 
+  ^{:doc 
+  "If a true value, global annotations are collected by the
+  type checker when their respective forms are evaluated (eg. ann)."}
+  *collect-on-eval* 
+  true)
+
 (defn ^:skip-wiki
   ann-datatype*
   "Internal use only. Use ann-datatype."
   [vbnd dname fields opts]
+  ; ensure that ann-datatype-collect-eval isn't called during the bootstrap
+  (when *collect-on-eval*
+    (ann-datatype-collect-eval vbnd dname fields opts))
   nil)
 
 (defmacro
@@ -993,16 +1008,21 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro ^:skip-wiki ann-pdatatype 
   "REMOVED OPERATION: ann-pdatatype, use ann-datatype"
   [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
-  (prn "REMOVED OPERATION: ann-pdatatype, use ann-datatype")
+  (assert nil "REMOVED OPERATION: ann-pdatatype, use ann-datatype")
   (assert (not rplc) "Replace NYI")
   (assert (symbol? dname)
           (str "Must provide local symbol: " dname))
   `(ann-pdatatype* '~dname '~vbnd '~fields '~opt))
 
+(declare ann-record-collect-eval)
+
 (defn ^:skip-wiki
   ann-record* 
   "Internal use only. Use ann-record"
   [dname fields opt]
+  ; ensure that ann-record-collect-eval isn't called during the bootstrap
+  (when *collect-on-eval*
+    (ann-record-collect-eval dname fields opt))
   nil)
 
 (defmacro 
@@ -1357,20 +1377,24 @@ for checking namespaces, cf for checking individual forms."}
                                       (instance? clojure.lang.ExceptionInfo a))
                                     %))))
 
+(def ^:skip-wiki ^:private ^:dynamic *currently-loading* false)
+
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
   []
-  (p/p :typed/load-if-needed
-  (when-not (find-ns 'clojure.core.typed.init)
-    (require 'clojure.core.typed.init))
-  (let [init-ns (find-ns 'clojure.core.typed.init)]
-    (assert init-ns)
-    (when-not (@(ns-resolve init-ns 'loaded?))
-      (println "Initializing core.typed ...")
-      (flush)
-      (time (@(ns-resolve init-ns 'load-impl)))
-      (println "core.typed initialized.")
-      (flush)))))
+  (when-not *currently-loading*
+    (binding [*collect-on-eval* false
+              *currently-loading* true]
+      (when-not (find-ns 'clojure.core.typed.init)
+        (require 'clojure.core.typed.init))
+      (let [init-ns (find-ns 'clojure.core.typed.init)]
+        (assert init-ns)
+        (when-not (@(ns-resolve init-ns 'loaded?))
+          (println "Initializing core.typed ...")
+          (flush)
+          (time (@(ns-resolve init-ns 'load-impl)))
+          (println "core.typed initialized.")
+          (flush))))))
 
 
 (defn reset-caches 
@@ -1409,7 +1433,8 @@ for checking namespaces, cf for checking individual forms."}
       (throw (Exception. "Found inner call to check-ns or cf"))
       (impl/with-clojure-impl
         (binding [*currently-checking-clj* true
-                  *delayed-errors* (-init-delayed-errors)]
+                  *delayed-errors* (-init-delayed-errors)
+                  *collect-on-eval* false]
           (let [expected (when type-provided?
                            (ret (parse-type expected)))
                 ast (ast-for-form form)
@@ -1438,7 +1463,7 @@ for checking namespaces, cf for checking individual forms."}
                                           'check-ns-and-deps)
            vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
                                                  'vars-with-unchecked-defs)
-           uri-for-ns (impl/v 'clojure.tools.analyzer/uri-for-ns)
+           uri-for-ns (impl/v 'clojure.jvm.tools.analyzer/uri-for-ns)
            
            nsym-coll (map #(if (symbol? %)
                              ; namespace might not exist yet, so ns-name is not appropriate
@@ -1457,7 +1482,8 @@ for checking namespaces, cf for checking individual forms."}
                    *delayed-errors* (-init-delayed-errors)
                    *already-collected* (atom #{})
                    *already-checked* (atom #{})
-                   *trace-checker* trace]
+                   *trace-checker* trace
+                   *collect-on-eval* false]
            (reset-envs!)
            (impl/with-clojure-impl
              ;; collect
@@ -1604,6 +1630,36 @@ for checking namespaces, cf for checking individual forms."}
      (println (str "Found " nannotated-vars " annotated vars out of " nall-vars " vars"))
      (println (str perc "% var annotation coverage"))
      (flush))))
+
+
+(defn ^:private ^:skip-wiki collect-eval-form [frm]
+  (load-if-needed)
+  (when *collect-on-eval*
+    (impl/with-clojure-impl
+      (binding [*collect-on-eval* false]
+        ((impl/v 'clojure.core.typed.collect-phase/collect-form)
+         frm)))))
+
+(defn ^:skip-wiki ^:private 
+  ann-collect-eval [qsym typesyn check?]
+  (when-not *compile-files*
+    (load-if-needed)
+    (collect-eval-form 
+      `(ann* '~qsym '~typesyn '~check?))))
+
+(defn ^:skip-wiki ^:private 
+  ann-record-collect-eval [dname fields opt]
+  (when-not *compile-files*
+    (load-if-needed)
+    (collect-eval-form
+      `(ann-record* '~dname '~fields '~opt))))
+
+(defn ^:skip-wiki ^:private 
+  ann-datatype-collect-eval [vbnd dname fields opts]
+  (when-not *compile-files*
+    (load-if-needed)
+    (collect-eval-form
+      `(ann-datatype* '~vbnd '~dname '~fields '~opts))))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)

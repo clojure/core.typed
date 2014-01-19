@@ -51,10 +51,11 @@
 
 (defn add-var-type [sym type]
   (assert-var-env)
-  (when (contains? @*current-var-annotations* sym)
-    (println "WARNING: Duplicate var annotation: " sym)
-    (flush))
-  (swap! *current-var-annotations* #(assoc % sym type))
+  (when-let [old-t (@*current-var-annotations* sym)]
+    (when (not= old-t type)
+      (println "WARNING: Duplicate var annotation: " sym)
+      (flush)))
+  (swap! *current-var-annotations* assoc sym type)
   nil)
 
 (defn check-var? [sym]

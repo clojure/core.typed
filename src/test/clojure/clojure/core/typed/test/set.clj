@@ -2,10 +2,6 @@
   (:require [clojure.core.typed :refer [check-ns ann cf tc-ignore print-env ann-form]])
   (:import (clojure.lang Seqable APersistentSet IPersistentSet IPersistentMap)))
 
-(ann clojure.core/< [Number Number * -> Number])
-(ann clojure.core/max-key (All [x] 
-                            [[x -> Number] x x x * -> x]))
-
 (ann bubble-max-key (All [x]
                       [[x -> Number] (I (Seqable x) (CountRange 2)) -> (Seqable x)]))
 (tc-ignore

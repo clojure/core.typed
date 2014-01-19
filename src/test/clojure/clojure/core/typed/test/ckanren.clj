@@ -9,7 +9,7 @@
                                         fn> AnyInteger
                                         print-env defprotocol>]]
             [clojure.repl :refer [pst]]
-            [clojure.tools.analyzer :refer [ast]])
+            [clojure.jvm.tools.analyzer :refer [ast]])
   (:import [java.io Writer]
            [clojure.lang Symbol Sequential IPersistentMap APersistentSet Sorted]))
 

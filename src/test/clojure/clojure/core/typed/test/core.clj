@@ -7,8 +7,8 @@
 (load-if-needed)
 
 (require '[clojure.test :refer :all]
-         '[clojure.tools.analyzer :refer [ast analyze-form]]
-         '[clojure.tools.analyzer.hygienic :refer [ast-hy]]
+         '[clojure.jvm.tools.analyzer :refer [ast analyze-form]]
+         '[clojure.jvm.tools.analyzer.hygienic :refer [ast-hy]]
          '[clojure.repl :refer [pst]]
          '[clojure.pprint :refer [pprint]]
          '[clojure.data :refer [diff]]
@@ -2770,6 +2770,19 @@
       (parse-filter '(! Number 0 [(Key :k)]))
       (parse-filter '(! (HMap :mandatory {:k Number}) 0)))))
 
+(deftest function-as-ifn-test
+  (is (sub? [-> nil] clojure.lang.IFn))
+  (is (sub? [-> nil] Callable))
+  (is (sub? [-> nil] Runnable)))
+
+(deftest swap!-special-test
+  (is (check-ns 'clojure.core.typed.test.swap-bang)))
+
+;(deftest collect-on-eval-test
+;  (is (do (ann foo-bar Number)
+;          (cf (def foo-bar 1))
+;          (cf foo-bar)
+;          true)))
 
 ;(deftest parse-with-inferred-variance
 ;  (is-clj (= (clj (parse-type '(TFn [[x :variance :inferred]] x)))

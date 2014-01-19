@@ -7,8 +7,8 @@
 
 (defn assert-cljs-dep []
   (load/load-cljs)
-  (assert (and (find-ns 'cljs.tools.analyzer)
-               (find-ns 'cljs.tools.analyzer.hygienic)
+  (assert (and (find-ns 'cljs.jvm.tools.analyzer)
+               (find-ns 'cljs.jvm.tools.analyzer.hygienic)
                (find-ns 'cljs.analyzer))
           "Clojurescript dependency mising"))
 
@@ -17,8 +17,8 @@
   analyzed in the given namespace"
   [nsym form]
   (assert-cljs-dep)
-  (let [analyze-form-in-ns (impl/v 'cljs.tools.analyzer/analyze-form-in-ns)
-        ast-hy (impl/v 'cljs.tools.analyzer.hygienic/ast-hy)]
+  (let [analyze-form-in-ns (impl/v 'cljs.jvm.tools.analyzer/analyze-form-in-ns)
+        ast-hy (impl/v 'cljs.jvm.tools.analyzer.hygienic/ast-hy)]
     (-> (analyze-form-in-ns nsym form)
         ast-hy)))
 
@@ -26,8 +26,8 @@
   "Returns an AST node for the form"
   [form]
   (assert-cljs-dep)
-  (let [analyze-form (impl/v 'cljs.tools.analyzer/analyze-form)
-        ast-hy (impl/v 'cljs.tools.analyzer.hygienic/ast-hy)]
+  (let [analyze-form (impl/v 'cljs.jvm.tools.analyzer/analyze-form)
+        ast-hy (impl/v 'cljs.jvm.tools.analyzer.hygienic/ast-hy)]
     (-> (analyze-form form)
         ast-hy)))
 
@@ -37,8 +37,8 @@
   [nsym]
   {:pre [(symbol? nsym)]}
   (assert-cljs-dep)
-  (let [analyze-ns (impl/v 'cljs.tools.analyzer/analyze-ns)
-        ast-hy (impl/v 'cljs.tools.analyzer.hygienic/ast-hy)]
+  (let [analyze-ns (impl/v 'cljs.jvm.tools.analyzer/analyze-ns)
+        ast-hy (impl/v 'cljs.jvm.tools.analyzer.hygienic/ast-hy)]
     (map ast-hy (analyze-ns nsym))))
 
 (defn extenders

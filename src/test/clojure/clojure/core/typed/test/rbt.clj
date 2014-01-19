@@ -11,7 +11,7 @@
             #_[clojure.core.typed.filter-ops :as fo]
             [clojure.repl :refer [pst]]
             [clojure.math.combinatorics :as comb]
-            [clojure.tools.analyzer :refer [ast]]))
+            [clojure.jvm.tools.analyzer :refer [ast]]))
 
 (defmacro and
   "Scheme's and. Returns false on a false case."

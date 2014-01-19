@@ -5,8 +5,8 @@
             [clojure.core.contracts.constraints :as contracts]
             [clojure.repl :as repl]
             [clojure.core.contracts]
-            [clojure.tools.analyzer :as analyze]
-            [clojure.tools.analyzer.hygienic :as hygienic]
+            [clojure.jvm.tools.analyzer :as analyze]
+            [clojure.jvm.tools.analyzer.hygienic :as hygienic]
             [clojure.core.typed.util-cljs :as util-cljs]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]
@@ -216,7 +216,7 @@
 
 (comment
   (defconstrainedrecord A [] "" [])
-  (-> (clojure.tools.analyzer/ast (defconstrainedrecord A [] "" []))
+  (-> (clojure.jvm.tools.analyzer/ast (defconstrainedrecord A [] "" []))
       :exprs second clojure.pprint/pprint)
   )
 

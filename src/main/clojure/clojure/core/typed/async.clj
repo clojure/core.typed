@@ -28,6 +28,8 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;; Protocols
 
+(binding [t/*collect-on-eval* false]
+
 (ann-protocol clojure.core.async.impl.protocols/Channel
               close! [clojure.core.async.impl.protocols/Channel -> nil])
 
@@ -148,6 +150,8 @@
 
 (ann ^:no-check clojure.core.async.impl.dispatch/run [[-> (ReadOnlyChan Any)] -> Executor])
 ;(ann clojure.core.async.impl.ioc-macros/async-chan-wrapper kV
+
+) ; *collect-on-eval* false
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Typed wrappers

@@ -46,5 +46,5 @@
 
 (defn emit-form [f]
   (assert-cljs-dep)
-  (let [emit-form (impl/v 'cljs.tools.analyzer.emit-form/emit-form)]
+  (let [emit-form (impl/v 'cljs.jvm.tools.analyzer.emit-form/emit-form)]
     (emit-form f)))

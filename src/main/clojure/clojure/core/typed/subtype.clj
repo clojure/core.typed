@@ -663,6 +663,11 @@
           *sub-current-seen*
           (fail! s t))
 
+        ; hack for FnIntersection <: clojure.lang.IFn
+        (when (r/FnIntersection? s)
+          (subtype? (c/RClass-of clojure.lang.IFn) t))
+        *sub-current-seen*
+
         (and (r/CountRange? s)
              (r/CountRange? t))
         (subtype-CountRange s t)

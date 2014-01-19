@@ -1,6 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-clj
-  (:require [clojure.tools.analyzer :as analyze]
-            [clojure.tools.analyzer.hygienic :as hygienic]
+  (:require [clojure.jvm.tools.analyzer :as analyze]
+            [clojure.jvm.tools.analyzer.hygienic :as hygienic]
             [clojure.core.typed.utils :as u]))
 
 (alter-meta! *ns* assoc :skip-wiki true)

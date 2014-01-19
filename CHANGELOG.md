@@ -1,8 +1,8 @@
-# 0.2.21-SNAPSHOT
+# 0.2.21 - Released 30 December 2013
 
 ## BREAKING CHANGES
 
-- Changes to core.async annotations
+- (Duplicated from 0.2.20) Fix core.async annotations
   - c.c.a.i.p/Channel takes zero arguments (previously two)
   - c.c.a.i.c.ManyToManyChannel has contravariant/covariant
     arguments (previously vice-versa)
@@ -41,8 +41,9 @@
 
         This generates the equivalent of: 
         `(ann pmethod (All [foo c] [(Pro foo) -> c]))`
+- Improvements to subtyping between functions with complicated filters and objects
 
-## Changes
+## Enhancements
 
 - Multimethod dispatch environment is reset between calls to `check-ns`
   - Should avoid the type checker complaining if you are changing your
@@ -67,6 +68,17 @@
           Foo
           (bar- [this] t))
 ```
+- Add `clojure.core/ex-info` annotation
+- First order calls to `clojure.core/swap!` are flattened to reuse special cases
+  in the type checker
+  - eg. `(swap! a assoc :a 1)` is rewritten to `(swap! a (fn> [d :- D] (assoc d :a 1)))`
+- Global annotations are added to the type environment as they are evaluated
+  - only effective outside of cf/check-ns calls
+  - cf/check-ns semantics unaffected
+
+## Dependency changes
+
+- Migrate to `jvm.tools.analyzer` 0.6.0
 
 # 0.2.20 - Released 27th November 2013
 
@@ -75,11 +87,10 @@
 - All functions in base-env that return LazySeq have been changed to Seq
   - also includes for>
 
-### core.async annotations
-
-- Channel takes zero parameters
-- ManyToManyChannel type parameters now have correct variance
-  - contravariant and covariant instead of vice-versa
+- core.async annotations
+  - Channel takes zero parameters
+  - ManyToManyChannel type parameters now have correct variance
+    - contravariant and covariant instead of vice-versa
 
 ## Fixes
 

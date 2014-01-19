@@ -3,7 +3,7 @@
   (:import (clojure.lang Keyword))
   (:require [clojure.core.typed :refer [check-ns ann ann-form typed-deps]]
             [clojure.core.typed.hole :refer [noisy-hole]]
-            [clojure.tools.analyzer.hygienic :refer [macroexpand]]
+            [clojure.jvm.tools.analyzer.hygienic :refer [macroexpand]]
             [clojure.pprint :refer [pprint]]))
 (comment
 (require '[clojure.core.match :refer [match]])
