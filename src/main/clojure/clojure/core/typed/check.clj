@@ -1396,7 +1396,9 @@
 
 (add-invoke-special-method 'clojure.core.typed/var>*
   [{[sym-expr] :args :keys [args fexpr] :as expr} & [expected]]
-  (assert (#{1} (count args)))
+  (when-not (#{1} (count args))
+    (u/int-error (str "Wrong number of arguments to clojure.core.typed/var>,"
+                      " expected 1, given " (count args))))
   (assert (#{:constant} (:op sym-expr)))
   (let [sym (-> sym-expr :val)
         _ (assert (symbol? sym))
@@ -1412,7 +1414,9 @@
 ; ignore some keyword argument related intersections
 (add-invoke-special-method 'clojure.core/seq?
   [{:keys [args fexpr] :as expr} & [expected]]
-  (assert (#{1} (count args)))
+  (when-not (#{1} (count args))
+    (u/int-error (str "Wrong number of arguments to clojure.core/seq?,"
+                      " expected 1, given " (count args))))
   (let [[ctarget :as cargs] (map check args)]
     (cond 
       ; handle keyword args macroexpansion
