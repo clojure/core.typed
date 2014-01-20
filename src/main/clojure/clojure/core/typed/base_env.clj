@@ -1093,7 +1093,7 @@ clojure.core/fnil (All [x y z a b ...]
 
 clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
-         [String String -> Symbol])
+         [(U nil String) String -> Symbol])
 
 clojure.core/keyword
      (Fn [(U Keyword Symbol String) -> Keyword]
