@@ -1510,12 +1510,13 @@ clojure.core/even? [AnyInteger -> boolean]
 clojure.core/odd? [AnyInteger -> boolean]
 
 clojure.core/peek (All [x]
-                       [(I NonEmptyCount (IPersistentStack x)) -> x]
-                       [(IPersistentStack x) -> x])
+                       (Fn [(I NonEmptyCount (IPersistentStack x)) -> x]
+                           [(IPersistentStack x) -> x]))
 clojure.core/pop (All [x]
-                      [(IPersistentList x) -> (IPersistentList x)]
-                      [(Vec x) -> (Vec x)]
-                      [(IPersistentStack x) -> (IPersistentStack x)])
+                      (Fn
+                        [(IPersistentList x) -> (IPersistentList x)]
+                        [(Vec x) -> (Vec x)]
+                        [(IPersistentStack x) -> (IPersistentStack x)]))
 
 clojure.core/get-thread-bindings
     [-> (Map (Var2 Nothing Any) Any)]
