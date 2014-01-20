@@ -643,7 +643,7 @@ clojure.java.io/IOFactory
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
                 Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
-                Symbol Namespace]]
+                Symbol Namespace Atom2]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
