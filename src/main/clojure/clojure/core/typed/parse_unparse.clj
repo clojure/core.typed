@@ -265,7 +265,7 @@
   [[All bnds syn & more :as all]]
   ;(prn "All syntax" all)
   (when-not (not more) 
-    (u/int-error "Bad All syntax"))
+    (u/int-error (str "Bad All syntax: " all)))
   (parse-all-type bnds syn))
 
 (defn parse-union-type [[u & types]]
