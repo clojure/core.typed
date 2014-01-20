@@ -1,10 +1,10 @@
 (ns clojure.core.typed.base-env
-  (:import (clojure.lang Atom Keyword Named IMapEntry AMapEntry Seqable
+  (:import (clojure.lang Keyword Named IMapEntry AMapEntry Seqable
                          LazySeq PersistentHashSet PersistentTreeSet PersistentList APersistentVector
                          APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
                          APersistentMap IDeref IBlockingDeref ISeq IMeta ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
-                         IPersistentList IRef IReference AReference ARef Var Delay Reversible
+                         IPersistentList IRef IReference AReference ARef Delay Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
                          ITransientVector PersistentHashMap Reduced IObj Obj))
   (:require [clojure.core.typed.base-env-helper :as h]
@@ -356,7 +356,9 @@ Delay [[[r :variance :covariant]]
        :replace
        {IDeref (IDeref r)}]
 
-Var [[[w :variance :contravariant]
+;invoking Var as IFn is a special case in the checker
+clojure.lang.Var 
+    [[[w :variance :contravariant]
       [r :variance :covariant]]
      :replace
      {AReference (AReference Any Any)
@@ -366,7 +368,8 @@ Var [[[w :variance :contravariant]
       IDeref (IDeref r)
       IMeta (IMeta Any)}]
 
-Atom [[[w :variance :contravariant]
+clojure.lang.Atom 
+     [[[w :variance :contravariant]
        [r :variance :covariant]]
       :replace
       {IRef (IRef w r)
@@ -440,15 +443,26 @@ clojure.core.typed/Namespace clojure.lang.Namespace
 
     ^{:doc "An atom that can read and write type x."
       :forms [(Atom1 t)]}
-clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] (Atom x x))
+clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] 
+                              (clojure.lang.Atom 
+                                x x))
+    ^{:doc "An atom that can write type w and read type r."
+      :forms [(Atom2 t)]}
+clojure.core.typed/Atom2 (TFn [[w :variance :contravariant]
+                               [r :variance :covariant]] 
+                              (clojure.lang.Atom 
+                                w r))
     ^{:doc "An var that can read and write type x."
       :forms [(Var1 t)]}
-clojure.core.typed/Var1 (TFn [[x :variance :invariant]] (Var x x))
+clojure.core.typed/Var1 
+    (TFn [[x :variance :invariant]] 
+         (clojure.lang.Var x x))
     ^{:doc "An var that can write type w and read type r."
       :forms [(Var2 w r)]}
-clojure.core.typed/Var2 (TFn [[w :variance :contravariant]
-                              [r :variance :covariant]] 
-                             (Var x x))
+clojure.core.typed/Var2 
+    (TFn [[w :variance :contravariant]
+          [r :variance :covariant]] 
+         (clojure.lang.Var w r))
     ^{:doc "A ref that can read and write type x."
       :forms [(Ref1 t)]}
 clojure.core.typed/Ref1 (TFn [[x :variance :invariant]] (IRef x x))
@@ -628,7 +642,7 @@ clojure.java.io/IOFactory
 (let [interns '[Option AnyInteger Id Coll Seq NonEmptySeq EmptySeqable
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
-                Hierarchy Nilable Int Var1 Future Promise Agent1 Agent2
+                Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
                 Symbol Namespace]]
   (when (some resolve interns)
     (doseq [i interns]
@@ -677,7 +691,7 @@ clojure.core.typed/override-method* [Any Any -> Any]
 clojure.core.typed/typed-deps* [Any -> Any]
 clojure.core.typed/load-if-needed [-> Any]
 ; should always be special cased
-;clojure.core.typed/var>* [Any -> (Var Any)]
+;clojure.core.typed/var>* [Any -> (Var2 Nothing Any)]
 
 ;; core annotations
 
@@ -700,8 +714,8 @@ clojure.core/identity (All [x] [x -> x
                                 :object {:id 0}])
 clojure.core/gensym (Fn [-> Symbol]
                         [(U Symbol String) -> Symbol])
-clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> (Var Nothing Any)]
-                        [(U Symbol Namespace) Symbol Any -> (Var Nothing Any)])
+clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> (Var2 Nothing Any)]
+                        [(U Symbol Namespace) Symbol Any -> (Var2 Nothing Any)])
 
 
 clojure.core/doall (All [[c :< (U nil (Seqable Any))]]
@@ -805,8 +819,8 @@ clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
 clojure.core/not [Any -> boolean]
 clojure.core/constantly (All [x y] [x -> [y * -> x]])
 
-clojure.core/bound? [(Var Nothing Any) * -> Boolean]
-clojure.core/thread-bound? [(Var Nothing Any) * -> Boolean]
+clojure.core/bound? [(Var2 Nothing Any) * -> Boolean]
+clojure.core/thread-bound? [(Var2 Nothing Any) * -> Boolean]
 clojure.core/bases [(Nilable Class) -> (NilableNonEmptySeq Class)]
 
 clojure.core/make-hierarchy [-> Hierarchy]
@@ -892,7 +906,7 @@ clojure.core/future-call (All [x] [[-> x] -> (Extends [(IDeref x)
                                                        java.util.concurrent.Future])])
 
 clojure.core/atom (All [x]
-                       [x & :optional {:validator (U nil [x -> Any]) :meta Any}-> (Atom x x)])
+                       [x & :optional {:validator (U nil [x -> Any]) :meta Any}-> (Atom2 x x)])
 
 clojure.core/set-validator! (All [x]
                                  [(clojure.lang.IRef Any x) [x -> Any] -> nil])
@@ -910,13 +924,13 @@ clojure.core/force (All [x]
                             [x -> x]))
 
 clojure.core/reset! (All [w r]
-                              [(Atom w r) w -> w])
+                              [(Atom2 w r) w -> w])
 
 clojure.core/swap! (All [w r b ...] 
-                             [(Atom w r) [r b ... b -> w] b ... b -> w])
+                             [(Atom2 w r) [r b ... b -> w] b ... b -> w])
 
 clojure.core/alter-var-root (All [w r b ...] 
-                              [(Var w r) [r b ... b -> w] b ... b -> w])
+                              [(Var2 w r) [r b ... b -> w] b ... b -> w])
 
 clojure.core/fnil (All [x y z a b ...]
                     (Fn [[x b ... b -> a] x -> [(U nil x) b ... b -> a]]
@@ -1242,16 +1256,16 @@ clojure.core/= [Any Any * -> (U true false)]
 
 clojure.core/integer? (predicate AnyInteger)
 clojure.core/number? (predicate Number)
-clojure.core/var? (predicate (clojure.lang.Var Nothing Any))
+clojure.core/var? (predicate (Var2 Nothing Any))
 clojure.core/class? (predicate Class)
 
-clojure.core/resolve (Fn [Symbol -> (U (Var Nothing Any) Class nil)]
+clojure.core/resolve (Fn [Symbol -> (U (Var2 Nothing Any) Class nil)]
                          ; should &env arg be more accurate?
-                         [Any Symbol -> (U (Var Nothing Any) Class nil)])
+                         [Any Symbol -> (U (Var2 Nothing Any) Class nil)])
 
-clojure.core/ns-resolve (Fn [(U Symbol Namespace) Symbol -> (U (Var Nothing Any) Class nil)]
+clojure.core/ns-resolve (Fn [(U Symbol Namespace) Symbol -> (U (Var2 Nothing Any) Class nil)]
                             ; should &env arg be more accurate?
-                            [(U Symbol Namespace) Any Symbol -> (U (Var Nothing Any) Class nil)])
+                            [(U Symbol Namespace) Any Symbol -> (U (Var2 Nothing Any) Class nil)])
 
 clojure.core/extenders [Any -> (U nil (Seqable (U Class nil)))]
 
