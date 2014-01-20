@@ -1568,10 +1568,12 @@ clojure.core/restart-agent
      [(Agent2 w Any) w & :optional {:clear-actions Any} -> Any])
 
 clojure.core/set-error-handler!
-    [(Agent2 w r) [(Agent2 w r) Throwable -> Any] -> Any]
+(All [w r]
+    [(Agent2 w r) [(Agent2 w r) Throwable -> Any] -> Any])
 
 clojure.core/error-handler
-    [(Agent2 w r) -> (U nil [(Agent2 w r) Throwable -> Any])]
+(All [w r]
+    [(Agent2 w r) -> (U nil [(Agent2 w r) Throwable -> Any])])
 
 clojure.core/set-error-mode!
     [(Agent2 Nothing Any) (U ':fail :continue) -> Any]
