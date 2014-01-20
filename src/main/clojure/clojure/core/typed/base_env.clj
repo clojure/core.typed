@@ -1576,7 +1576,7 @@ clojure.core/error-handler
     [(Agent2 w r) -> (U nil [(Agent2 w r) Throwable -> Any])])
 
 clojure.core/set-error-mode!
-    [(Agent2 Nothing Any) (U ':fail :continue) -> Any]
+    [(Agent2 Nothing Any) (U ':fail ':continue) -> Any]
 
 clojure.core/error-mode
     [(Agent2 Nothing Any) -> Any]
