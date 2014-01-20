@@ -730,8 +730,10 @@ clojure.core/create-ns [Symbol -> Namespace]
 clojure.core/remove-ns [Symbol -> Namespace]
 
 clojure.core/namespace [(U Symbol String Keyword) -> (Option String)]
-clojure.core/ns-name [Namespace -> Symbol]
+clojure.core/ns-name [(U Symbol Namespace) -> Symbol]
+clojure.core/ns-map [(U Symbol Namespace) -> Symbol]
 clojure.core/name [(U String Named) -> String]
+clojure.core/the-ns [(U Symbol Namespace) -> Namespace]
 clojure.core/in-ns [Symbol -> nil]
 clojure.core/import [Any * -> nil]
 clojure.core/identity (All [x] [x -> x
