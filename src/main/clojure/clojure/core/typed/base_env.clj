@@ -592,7 +592,8 @@ clojure.core.typed/Promise
                 (I (Extends [(IDeref x)
                              (IBlockingDeref x)
                              clojure.lang.IPending])
-                   [x -> (U nil p)])))
+                   ;TODO this causes stack overflows
+                   #_[x -> (U nil p)])))
     ))
 
 (defn reset-alias-env! []
