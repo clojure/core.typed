@@ -587,7 +587,7 @@ clojure.core.typed/Future
     ^{:doc "A Clojure promise (see clojure.core/{promise,deliver})."
       :forms [(Promise x)]}
 clojure.core.typed/Promise 
-              (TFn [[x :variance :invariant]]
+              (TFn [[x :variance :covariant #_:invariant]]
                (Rec [p]
                 (I (Extends [(IDeref x)
                              (IBlockingDeref x)
