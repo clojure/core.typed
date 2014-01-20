@@ -165,7 +165,7 @@ for checking namespaces, cf for checking individual forms."}
   (let [i (first bindings)
         n (second bindings)]
     `(let [n# (long ~n)]
-       (loop> [~i :- (~'U Long Integer) 0]
+       (loop> [~i :- ~'clojure.core.typed/AnyInteger 0]
          (when (< ~i n#)
            ~@body
            (recur (unchecked-inc ~i)))))))
@@ -278,7 +278,7 @@ for checking namespaces, cf for checking individual forms."}
                                                   size# (int (count c#))
                                                   ~gb (ann-form (chunk-buffer size#)
                                                                 (~'clojure.lang.ChunkBuffer ~ret-ann))]
-                                              (if (loop> [~gi :- (~'U ~'Long ~'Integer) (int 0)]
+                                              (if (loop> [~gi :- ~'clojure.core.typed/AnyInteger, (int 0)]
                                                          (if (< ~gi size#)
                                                            (let [;~bind (.nth c# ~gi)]
                                                                  ~bind (nth c# ~gi)]
