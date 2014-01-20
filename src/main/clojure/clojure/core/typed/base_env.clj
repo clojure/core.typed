@@ -1406,7 +1406,7 @@ clojure.core/conj
 
 clojure.core/find
      (All [x y]
-          [(IPersistentMap x y) Any -> (Option (Vector* x y))])
+          [(U nil (Associative x y)) Any -> (U nil (HVec [x y]))])
 
 ; same as clojure.lang.RT/get
 clojure.core/get
