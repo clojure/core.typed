@@ -474,15 +474,15 @@ clojure.core.typed/Ref2 (TFn [[w :variance :contravariant]
     ^{:doc "An agent that can read and write type x."
       :forms [(Agent1 t)]}
 clojure.core.typed/Agent1 (TFn [[x :variance :invariant]] (clojure.lang.Agent x x 
-                                                                              (U nil (Map Any Any))
-                                                                              (U nil (Map Any Any))))
+                                                                              (U nil (clojure.lang.IPersistentMap Any Any))
+                                                                              (U nil (clojure.lang.IPersistentMap Any Any))))
     ^{:doc "An agent that can write type w and read type r."
       :forms [(Agent2 t t)]}
 clojure.core.typed/Agent2 (TFn [[w :variance :contravariant]
                                 [r :variance :covariant]] 
                                (clojure.lang.Agent w r 
-                                                   (U nil (Map Any Any))
-                                                   (U nil (Map Any Any))))
+                                                   (U nil (clojure.lang.IPersistentMap Any Any))
+                                                   (U nil (clojure.lang.IPersistentMap Any Any))))
 
     ^{:doc "A union of x and nil."
       :forms [(Option t)]}
