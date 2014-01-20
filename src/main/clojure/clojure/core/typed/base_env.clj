@@ -1053,7 +1053,7 @@ clojure.core/future-done? [java.util.concurrent.Future -> Boolean]
 
 clojure.core/force (All [x]
                         (Fn [(Delay x) -> x]
-                            [x -> x]))
+                            [Any -> Any]))
 
 clojure.core/reset! (All [w r]
                               [(Atom2 w r) w -> w])
