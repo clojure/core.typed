@@ -1686,8 +1686,8 @@ clojure.core/chunk-append
 
 
 clojure.core/subvec (All [x] 
-                     (Fn [(IPersistentVector x) AnyInteger -> (IPersistentVector x)]
-                         [(IPersistentVector x) AnyInteger AnyInteger -> (IPersistentVector x)]))
+                     (Fn [(Vec x) AnyInteger -> (Vec x)]
+                         [(Vec x) AnyInteger AnyInteger -> (Vec x)]))
 
 clojure.core/alias [Symbol Symbol -> nil]
 clojure.core/all-ns [-> (Coll Namespace)]
