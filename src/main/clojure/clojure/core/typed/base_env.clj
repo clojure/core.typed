@@ -444,9 +444,31 @@ clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] (Atom x x))
     ^{:doc "An var that can read and write type x."
       :forms [(Var1 t)]}
 clojure.core.typed/Var1 (TFn [[x :variance :invariant]] (Var x x))
+    ^{:doc "An var that can write type w and read type r."
+      :forms [(Var2 w r)]}
+clojure.core.typed/Var2 (TFn [[w :variance :contravariant]
+                              [r :variance :covariant]] 
+                             (Var x x))
     ^{:doc "A ref that can read and write type x."
       :forms [(Ref1 t)]}
 clojure.core.typed/Ref1 (TFn [[x :variance :invariant]] (IRef x x))
+    ^{:doc "A ref that can write type w and read type r."
+      :forms [(Ref2 w r)]}
+clojure.core.typed/Ref2 (TFn [[w :variance :contravariant]
+                              [r :variance :covariant]] 
+                             (IRef w r))
+    ^{:doc "An agent that can read and write type x."
+      :forms [(Agent1 t)]}
+clojure.core.typed/Agent1 (TFn [[x :variance :invariant]] (clojure.lang.Agent x x 
+                                                                              (U nil (Map Any Any))
+                                                                              (U nil (Map Any Any))))
+    ^{:doc "An agent that can write type w and read type r."
+      :forms [(Agent2 t t)]}
+clojure.core.typed/Agent2 (TFn [[w :variance :contravariant]
+                                [r :variance :covariant]] 
+                               (clojure.lang.Agent w r 
+                                                   (U nil (Map Any Any))
+                                                   (U nil (Map Any Any))))
 
     ^{:doc "A union of x and nil."
       :forms [(Option t)]}
@@ -606,7 +628,7 @@ clojure.java.io/IOFactory
 (let [interns '[Option AnyInteger Id Coll Seq NonEmptySeq EmptySeqable
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
-                Hierarchy Nilable Int Var1 Future Promise
+                Hierarchy Nilable Int Var1 Future Promise Agent1 Agent2
                 Symbol Namespace]]
   (when (some resolve interns)
     (doseq [i interns]
