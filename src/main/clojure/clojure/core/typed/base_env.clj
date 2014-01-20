@@ -696,12 +696,37 @@ clojure.core.typed/load-if-needed [-> Any]
 ;; core annotations
 
 clojure.core/*ns* Namespace
-clojure.core/*out* java.io.Writer
-clojure.core/*err* java.io.Writer
-clojure.core/*warn-on-reflection* Any
 clojure.core/pop-thread-bindings [-> Any]
 clojure.core/load [String * -> Any]
 clojure.core/read-string [String -> Any]
+clojure.core/read (Fn [-> Any]
+                      [java.io.Reader -> Any]
+                      [java.io.Reader Boolean Any -> Any]
+                      [java.io.Reader Boolean Any Boolean -> Any])
+clojure.core/read-line [-> Any]
+
+clojure.core/alength [(ReadOnlyArray Any) -> AnyInteger]
+clojure.core/aclone (All [x] [(ReadOnlyArray x) -> (Array x)])
+clojure.core/aget (All [x] (Fn [(ReadOnlyArray x) 
+                                AnyInteger -> x]
+                               [(ReadOnlyArray (ReadOnlyArray x)) 
+                                AnyInteger AnyInteger -> x]
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))) 
+                                AnyInteger AnyInteger AnyInteger -> x]
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))) 
+                                AnyInteger AnyInteger AnyInteger AnyInteger -> x]
+                               ; unsound
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray Any)))))
+                                AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger * -> Any]))
+
+clojure.core/macroexpand-1 [Any -> Any]
+clojure.core/macroexpand [Any -> Any]
+
+clojure.core/create-struct [Any * -> (Map Any Any)]
+
+clojure.core/find-ns [Symbol -> Namespace]
+clojure.core/create-ns [Symbol -> Namespace]
+clojure.core/remove-ns [Symbol -> Namespace]
 
 clojure.core/namespace [(U Symbol String Keyword) -> (Option String)]
 clojure.core/ns-name [Namespace -> Symbol]
@@ -730,6 +755,8 @@ clojure.core/memoize (All [x y ...]
 
 clojure.core/key (All [x]
                            [(IMapEntry x Any) -> x])
+clojure.core/val (All [x]
+                           [(IMapEntry Any x) -> x])
 
 ;TODO flip filters
 clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]])
@@ -794,8 +821,85 @@ clojure.core/repeatedly
 
 clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)])
 
-clojure.core/some-fn [[Any -> Any] [Any -> Any] * -> [Any -> Any]]
-clojure.core/every-pred [[Any -> Any] [Any -> Any] * -> [Any -> Any]]
+; Unions need to support dots for this to work:
+;
+; (All [t0 b ...]
+;    (Fn [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}] 
+;         [Any -> Any :filters {:then (is b 0) :else (! b 0)}] ... b
+;         -> (Fn [Any -> Any :filters {:then (is (U t0 b ... b) 0) :else (! (U t0 b ... b) 0)}]
+;                [Any * -> Any])]))
+clojure.core/some-fn 
+  (All [t0 t1 t2 t3 t4 t5]
+    (Fn [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         -> (Fn [Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (U t0 t1) 0) :else (! (U t0 t1) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (U t0 t1 t2) 0) :else (! (U t0 t1 t2) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (U t0 t1 t2 t3) 0) :else (! (U t0 t1 t2 t3) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
+         [Any -> Boolean :filters {:then (is t4 0) :else (! t4 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (U t0 t1 t2 t3 t4) 0) :else (! (U t0 t1 t2 t3 t4) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
+         [Any -> Boolean :filters {:then (is t4 0) :else (! t4 0)}]
+         [Any -> Boolean :filters {:then (is t5 0) :else (! t5 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (U t0 t1 t2 t3 t4 t5) 0) :else (! (U t0 t1 t2 t3 t4 t5) 0)}]
+                [Any * -> Any])]
+        [[Any -> Any] [Any -> Any] * -> [Any * -> Any]]))
+clojure.core/every-pred
+  (All [t0 t1 t2 t3 t4 t5]
+    (Fn [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         -> (Fn [Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (I t0 t1) 0) :else (! (I t0 t1) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (I t0 t1 t2) 0) :else (! (I t0 t1 t2) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3) 0) :else (! (I t0 t1 t2 t3) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
+         [Any -> Boolean :filters {:then (is t4 0) :else (! t4 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3 t4) 0) :else (! (I t0 t1 t2 t3 t4) 0)}]
+                [Any * -> Any])]
+        [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Any :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Any :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Any :filters {:then (is t3 0) :else (! t3 0)}]
+         [Any -> Any :filters {:then (is t4 0) :else (! t4 0)}]
+         [Any -> Any :filters {:then (is t5 0) :else (! t5 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3 t4 t5) 0) :else (! (I t0 t1 t2 t3 t4 t5) 0)}]
+                [Any * -> Any])]
+        [[Any -> Any] [Any -> Any] * -> [Any * -> Any]]))
 
 clojure.core/concat (All [x] [(Option (Seqable x)) * -> (Seq x)])
 
@@ -882,13 +986,28 @@ clojure.core/partial
 clojure.core/str [Any * -> String]
 clojure.core/prn-str [Any * -> String]
 clojure.core/pr-str [Any * -> String]
+clojure.core/newline [-> nil]
 
 clojure.core/print [Any * -> nil]
 clojure.core/println [Any * -> nil]
 clojure.core/pr [Any * -> nil]
 clojure.core/prn [Any * -> nil]
 clojure.core/flush [-> nil]
+clojure.core/*print-length* (U nil false AnyInteger)
+clojure.core/*print-level* (U nil false AnyInteger)
+clojure.core/*verbose-defrecords* Boolean
+clojure.core/print-ctor [Object [Object java.io.Writer -> Any] java.io.Writer -> nil]
 
+clojure.core/prefer-method [clojure.lang.MultiFn Any Any -> Any]
+clojure.core/print-simple [Any java.io.Writer -> nil]
+clojure.core/char-escape-string (Map Character String)
+clojure.core/char-name-string (Map Character String)
+clojure.core/primitives-classnames (Map Class String)
+
+clojure.core/namespace-munge [(U Symbol Namespace) -> String]
+
+;clojure.core/find-protocol-impl ['{:on-interface Class
+;                                   :impls ?}]
 
 clojure.core/format [String Any * -> String]
 
@@ -902,11 +1021,13 @@ clojure.core/re-seq [java.util.regex.Pattern String -> (Seq (U nil String (Vec (
 clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String])
 
-clojure.core/future-call (All [x] [[-> x] -> (Extends [(IDeref x)
-                                                       java.util.concurrent.Future])])
+;TODO
+;clojure.core/spit [java.io.Writer Any
+
+clojure.core/future-call (All [x] [[-> x] -> (Future x)])
 
 clojure.core/atom (All [x]
-                       [x & :optional {:validator (U nil [x -> Any]) :meta Any}-> (Atom2 x x)])
+                       [x & :optional {:validator (U nil [x -> Any]) :meta Any} -> (Atom2 x x)])
 
 clojure.core/set-validator! (All [x]
                                  [(clojure.lang.IRef Any x) [x -> Any] -> nil])
@@ -919,6 +1040,14 @@ clojure.core/deref (All [x y]
 
 clojure.core/delay? (predicate (Delay Any))
 
+clojure.core/future-cancelled? [java.util.concurrent.Future -> Boolean]
+
+clojure.core/future-cancel [java.util.concurrent.Future -> Any]
+
+clojure.core/future? (predicate java.util.concurrent.Future)
+
+clojure.core/future-done? [java.util.concurrent.Future -> Boolean]
+
 clojure.core/force (All [x]
                         (Fn [(Delay x) -> x]
                             [x -> x]))
@@ -929,8 +1058,30 @@ clojure.core/reset! (All [w r]
 clojure.core/swap! (All [w r b ...] 
                              [(Atom2 w r) [r b ... b -> w] b ... b -> w])
 
+clojure.core/compare-and-set!
+                   (All [w]
+                     [(Atom2 w Any) Any w -> Boolean])
+
+clojure.core/set-validator!
+                   (All [w]
+                     [(clojure.lang.IRef w Any) (U nil [w -> Any]) -> Any])
+
+clojure.core/get-validator
+                   (All [w]
+                     [(clojure.lang.IRef w Any) -> (U nil [w -> Any])])
+
 clojure.core/alter-var-root (All [w r b ...] 
                               [(Var2 w r) [r b ... b -> w] b ... b -> w])
+
+clojure.core/method-sig [java.lang.reflect.Method -> '[Any (U nil (NonEmptySeqable Any)) Any]]
+clojure.core/proxy-name [Class (U nil (Seqable Class)) -> String]
+clojure.core/get-proxy-class [Class * -> Class]
+clojure.core/construct-proxy [Class Any * -> Any]
+clojure.core/init-proxy [clojure.lang.IProxy (Map String Any) -> clojure.lang.IProxy]
+clojure.core/update-proxy [clojure.lang.IProxy (Map String Any) -> clojure.lang.IProxy]
+clojure.core/proxy-mappings [clojure.lang.IProxy -> (Map String Any)]
+clojure.core/proxy-call-with-super (All [x] [[-> x] clojure.lang.IProxy String -> x])
+clojure.core/bean [Object -> (Map Any Any)]
 
 clojure.core/fnil (All [x y z a b ...]
                     (Fn [[x b ... b -> a] x -> [(U nil x) b ... b -> a]]
@@ -1066,6 +1217,33 @@ clojure.core/mapcat
      (All [c b ...]
           [[b ... b -> (Option (Seqable c))] (Option (Seqable b)) ... b -> (Seq c)])
 
+clojure.core/pmap
+     (All [c a b ...]
+          (Fn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable b) ... b -> (NonEmptySeq c)]
+              [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (Seq c)]))
+
+clojure.core/pcalls
+      (All [r]
+           [[-> r] * -> (Seq r)])
+
+clojure.core/*clojure-version* '{:major Any
+                                 :minor Any
+                                 :incremental Any
+                                 :qualifier Any}
+
+clojure.core/clojure-version [-> String]
+
+clojure.core/promise
+        (All [x]
+           [-> (Promise x)])
+
+clojure.core/deliver (All [x] [(Promise x) x -> (U nil (Promise x))])
+
+clojure.core/flatten [Any -> Any]
+
+;TODO review
+;clojure.core/group-by (All [x y] [[x -> y] (U nil (Seqable x)) -> (Map y (Vec x))])
+
 clojure.core/map-indexed
      (All [x y] [[AnyInteger x -> y] (Option (Seqable x)) -> (Seqable y)])
 
@@ -1086,6 +1264,10 @@ clojure.core/reduce
             ; default
             ; (reduce + 3 my-coll)
             [[a c -> (U (Reduced a) a)] a (Option (Seqable c)) -> a]))
+
+clojure.core/reduce-kv
+    (All [a c k v]
+      [[a k v -> (U (Reduced a) a)] a (Option (Associative k v)) -> a])
 
 clojure.core/reduced (All [x] [x -> (Reduced x)])
 clojure.core/reduced? (predicate (Reduced Any))
@@ -1284,6 +1466,22 @@ clojure.core/-' (Fn [AnyInteger AnyInteger * -> AnyInteger]
 clojure.core/*' (Fn [AnyInteger * -> AnyInteger]
                     [Number * -> Number])
 
+clojure.core/unchecked-inc (Fn [AnyInteger -> AnyInteger]
+                               [Number -> Number])
+clojure.core/unchecked-inc-int [Number -> AnyInteger]
+clojure.core/unchecked-dec (Fn [AnyInteger -> AnyInteger]
+                               [Number -> Number])
+clojure.core/unchecked-dec-int [Number -> AnyInteger]
+clojure.core/unchecked-negate (Fn [AnyInteger -> AnyInteger]
+                               [Number -> Number])
+clojure.core/unchecked-negate-int [Number -> AnyInteger]
+clojure.core/unchecked-add (Fn [AnyInteger AnyInteger -> AnyInteger]
+                               [Number Number -> Number])
+clojure.core/unchecked-multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
+                                    [Number Number -> Number])
+clojure.core/unchecked-multiply-int [Number Number -> AnyInteger]
+clojure.core/unchecked-divide-int [Number Number -> AnyInteger]
+clojure.core/unchecked-remainder-int [Number Number -> AnyInteger]
 clojure.core/inc (Fn [AnyInteger -> AnyInteger]
                           [Number -> Number])
 clojure.core/dec (Fn [AnyInteger -> AnyInteger]
@@ -1292,8 +1490,99 @@ clojure.core/dec (Fn [AnyInteger -> AnyInteger]
 clojure.core/inc' (Fn [AnyInteger -> AnyInteger]
                           [Number -> Number])
 
+clojure.core/rationalize [Number -> Number]
+
+clojure.core/bit-not [AnyInteger -> AnyInteger]
+clojure.core/bit-and [AnyInteger AnyInteger AnyInteger * -> AnyInteger]
+clojure.core/bit-or [AnyInteger AnyInteger AnyInteger * -> AnyInteger]
+clojure.core/bit-xor [AnyInteger AnyInteger AnyInteger * -> AnyInteger]
+clojure.core/bit-and-not [AnyInteger AnyInteger AnyInteger * -> AnyInteger]
+clojure.core/bit-clear [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/bit-set [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/bit-flip [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/bit-test [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/bit-shift-left [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/bit-shift-right [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/unsigned-bit-shift-right [AnyInteger AnyInteger -> AnyInteger]
+
 clojure.core/even? [AnyInteger -> boolean]
 clojure.core/odd? [AnyInteger -> boolean]
+
+clojure.core/peek (All [x]
+                       [(I NonEmptyCount (IPersistentStack x)) -> x]
+                       [(IPersistentStack x) -> x])
+clojure.core/pop (All [x]
+                      [(IPersistentList x) -> (IPersistentList x)]
+                      [(Vec x) -> (Vec x)]
+                      [(IPersistentStack x) -> (IPersistentStack x)])
+
+clojure.core/get-thread-bindings
+    [-> (Map (Var2 Nothing Any) Any)]
+clojure.core/bound-fn*
+    (All [r b ...]
+         [[b ... b -> r] -> [b ... b -> r]])
+
+clojure.core/find-var
+    [Symbol -> (Var2 Nothing Any)]
+
+clojure.core/agent
+    (All [x] [x & :optional {:validator (U nil [x -> Any]) :meta Any
+                             :error-handler (U nil [(Agent1 x) Throwable -> Any])
+                             :error-mode (U ':continue ':fail)} 
+              -> (Agent1 x)])
+
+clojure.core/set-agent-send-executor!
+    [java.util.concurrent.ExecutorService -> Any]
+
+clojure.core/set-agent-send-off-executor!
+    [java.util.concurrent.ExecutorService -> Any]
+
+clojure.core/send-via (All [w r b ...] 
+                           [(Agent2 w r) [r b ... b -> w] b ... b -> (Agent2 w r)])
+
+clojure.core/send (All [w r b ...] 
+                           [(Agent2 w r) [r b ... b -> w] b ... b -> (Agent2 w r)])
+
+clojure.core/send-off (All [w r b ...] 
+                           [(Agent2 w r) [r b ... b -> w] b ... b -> (Agent2 w r)])
+
+clojure.core/release-pending-sends [-> AnyInteger]
+
+clojure.core/add-watch
+        (All [x [a :< (IRef Nothing x)]]
+             (Fn 
+               ; this arity remembers the type of reference we pass to the function
+               [a Any [Any a x x -> Any] -> Any]
+               ; if the above cannot be inferred, 
+               [(IRef Nothing x) Any [Any (IRef Nothing x) x x -> Any] -> Any])
+
+clojure.core/remove-watch [(IRef Nothing Any) Any -> Any]
+
+clojure.core/agent-error [(Agent2 Nothing Any) -> (U nil Throwable)]
+
+clojure.core/restart-agent
+(All [w]
+     ; w is invariant
+     [(Agent2 w Any) w & :optional {:clear-actions Any} -> Any])
+
+clojure.core/set-error-handler!
+    [(Agent2 w r) [(Agent2 w r) Throwable -> Any] -> Any]
+
+clojure.core/error-handler
+    [(Agent2 w r) -> (U nil [(Agent2 w r) Throwable -> Any])]
+
+clojure.core/set-error-mode!
+    [(Agent2 Nothing Any) (U ':fail :continue) -> Any]
+
+clojure.core/error-mode
+    [(Agent2 Nothing Any) -> Any]
+
+clojure.core/agent-errors
+    [(Agent2 Nothing Any) -> (U nil (Seq Throwable))]
+clojure.core/clear-agent-errors
+    [(Agent2 Nothing Any) -> Any]
+
+clojure.core/shutdown-agents [-> Any]
 
 clojure.core/take
      (All [x]
@@ -1335,7 +1624,8 @@ clojure.core/short-array (Fn [(U nil Number (Seqable Short)) -> (Array short)]
 clojure.core/char-array (Fn [(U nil Number (Seqable Character)) -> (Array char)]
                             [Number (U Number (Seqable Character)) -> (Array char)])
 
-
+clojure.core/max-key (All [x] 
+                          [[x -> Number] x x x * -> x])
 
 clojure.core/< [Number Number * -> boolean]
 
@@ -1396,6 +1686,21 @@ clojure.core/subvec (All [x]
 clojure.core/alias [Symbol Symbol -> nil]
 clojure.core/all-ns [-> (Coll Namespace)]
 
+clojure.core/*file* String
+clojure.core/*command-line-args* (U nil (NonEmptySeq String))
+clojure.core/*warn-on-reflection* Boolean
+clojure.core/*compile-path* String
+clojure.core/*compile-files* Boolean
+clojure.core/*unchecked-math* Boolean
+clojure.core/*compiler-options* (Map Any Any)
+clojure.core/*in* java.io.Reader
+clojure.core/*out* java.io.Writer
+clojure.core/*err* java.io.Writer
+clojure.core/*flush-on-newline* Boolean
+clojure.core/*print-meta* Boolean
+clojure.core/*print-dup* Boolean
+clojure.core/*print-readably* Boolean
+clojure.core/*read-eval* (U ':unknown Boolean)
 
 ;; math.numeric-tower
 
@@ -1622,14 +1927,44 @@ clojure.lang.Numbers/inc (Fn [AnyInteger -> AnyInteger]
                                               [Number -> Number])
 clojure.lang.Numbers/dec (Fn [AnyInteger -> AnyInteger]
                              [Number -> Number])
+clojure.lang.Numbers/unchecked_inc (Fn [AnyInteger -> AnyInteger]
+                                              [Number -> Number])
+clojure.lang.Numbers/unchecked_dec (Fn [AnyInteger -> AnyInteger]
+                                              [Number -> Number])
+clojure.lang.Numbers/unchecked_int_inc [Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_int_dec [Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_int_negate [Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_minus (Fn ; negate
+                                         [AnyInteger -> AnyInteger]
+                                         [Number -> Number]
+                                         ; subtract
+                                         [AnyInteger AnyInteger -> AnyInteger]
+                                         [Number Number -> Number])
 clojure.lang.Numbers/minus (Fn 
                              [AnyInteger -> AnyInteger]
                              [Number -> Number]
                              [AnyInteger AnyInteger -> AnyInteger]
                              [Number Number -> Number])
+clojure.lang.Numbers/unchecked_multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
+                                            [Number Number -> Number])
+clojure.lang.Numbers/unchecked_int_multiply [Number Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_int_divide [Number Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_int_remainder [Number Number -> AnyInteger]
 clojure.lang.Numbers/multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
                                   [Number Number -> Number])
 clojure.lang.Numbers/divide [Number Number -> Number]
+      ;bit-not
+clojure.lang.Numbers/not [AnyInteger -> AnyInteger]
+;bit-and
+clojure.lang.Numbers/and [AnyInteger AnyInteger -> AnyInteger]
+;bit-or
+clojure.lang.Numbers/or [AnyInteger AnyInteger -> AnyInteger]
+;bit-xor
+clojure.lang.Numbers/xor [AnyInteger AnyInteger -> AnyInteger]
+;bit-and-not
+clojure.lang.Numbers/andNot [AnyInteger AnyInteger -> AnyInteger]
+; unsigned-bit-shift-right 
+clojure.lang.Numbers/unsignedShiftRight [AnyInteger AnyInteger -> AnyInteger]
 
 clojure.lang.Numbers/max [Number Number * -> Number]
 clojure.lang.Numbers/min [Number Number * -> Number]
