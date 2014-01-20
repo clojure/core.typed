@@ -1690,7 +1690,7 @@ clojure.core/subvec (All [x]
                          [(Vec x) AnyInteger AnyInteger -> (Vec x)]))
 
 clojure.core/alias [Symbol Symbol -> nil]
-clojure.core/all-ns [-> (Coll Namespace)]
+clojure.core/all-ns [-> (NilableNonEmptySeq Namespace)]
 
 clojure.core/*file* String
 clojure.core/*command-line-args* (U nil (NonEmptySeq String))
