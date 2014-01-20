@@ -1554,7 +1554,7 @@ clojure.core/add-watch
                ; this arity remembers the type of reference we pass to the function
                [a Any [Any a x x -> Any] -> Any]
                ; if the above cannot be inferred, 
-               [(IRef Nothing x) Any [Any (IRef Nothing x) x x -> Any] -> Any])
+               [(IRef Nothing x) Any [Any (IRef Nothing x) x x -> Any] -> Any]))
 
 clojure.core/remove-watch [(IRef Nothing Any) Any -> Any]
 
