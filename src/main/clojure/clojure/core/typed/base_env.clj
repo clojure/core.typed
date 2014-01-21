@@ -2,11 +2,11 @@
   (:import (clojure.lang Keyword Named IMapEntry AMapEntry Seqable
                          LazySeq PersistentHashSet PersistentTreeSet PersistentList APersistentVector
                          APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
-                         APersistentMap IDeref IBlockingDeref ISeq IMeta ASeq IPersistentCollection
+                         APersistentMap IDeref IBlockingDeref ISeq ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
-                         IPersistentList IRef IReference AReference ARef Delay Reversible
+                         IPersistentList IRef ARef Delay Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
-                         ITransientVector PersistentHashMap Reduced IObj Obj))
+                         ITransientVector PersistentHashMap Reduced))
   (:require [clojure.core.typed.base-env-helper :as h]
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.parse-unparse :as prs]
@@ -26,7 +26,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Altered Classes
 
-;; TODO fix metadata representation
 ;; TODO remove redundant ancestors, add tests to ensure they are preserved.
 
 
@@ -39,8 +38,6 @@ Seqable [[[a :variance :covariant]]
 
 Reversible [[[a :variance :covariant]]
             ]
-
-IMeta [[[a :variance :covariant]]]
 
 IPersistentCollection [[[a :variance :covariant]
                         ]
@@ -88,8 +85,7 @@ PersistentHashSet [[[a :variance :covariant]]
                    {Seqable (Seqable a)
                     APersistentSet (APersistentSet a)
                     IPersistentSet (IPersistentSet a)
-                    IPersistentCollection (IPersistentCollection a)
-                    IMeta (IMeta Any)}
+                    IPersistentCollection (IPersistentCollection a)}
                    :unchecked-ancestors
                    #{[Any -> (U a nil)]}]
 
@@ -99,8 +95,7 @@ PersistentTreeSet [[[a :variance :covariant]]
                     Reversible (Reversible a)
                     APersistentSet (APersistentSet a)
                     IPersistentSet (IPersistentSet a)
-                    IPersistentCollection (IPersistentCollection a)
-                    IMeta (IMeta Any)}
+                    IPersistentCollection (IPersistentCollection a)}
                     :unchecked-ancestors
                     #{[Any -> (U a nil)]}]
 
@@ -196,7 +191,6 @@ PersistentVector [[[a :variance :covariant]]
                    Reversible (Reversible a)
                    IPersistentStack (IPersistentStack a)
                    ILookup (ILookup Number a)
-                   IMeta (IMeta Any)
                    Associative (Associative Number a)
                    Indexed (Indexed a)
                    #_IEditableCollection #_(IEditableCollection (ITransientVector a))}
@@ -257,7 +251,7 @@ ASeq [[[a :variance :covariant]]
       {IPersistentCollection (IPersistentCollection a)
        Seqable (Seqable a)
        ISeq (ISeq a)
-       IMeta (IMeta Any)}]
+       }]
 
 APersistentMap [[[a :variance :covariant] 
                  [b :variance :covariant]]
@@ -281,7 +275,6 @@ PersistentHashMap [[[a :variance :covariant]
                     APersistentMap (APersistentMap a b)
                     Seqable (Seqable (AMapEntry a b))
                     ILookup (ILookup a b)
-                    IMeta (IMeta Any)
                     Associative (Associative a b)
                     #_IEditableCollection #_(IEditableCollection (ITransientMap a b a b))}
                    :unchecked-ancestors
@@ -295,7 +288,7 @@ Cons [[[a :variance :covariant]]
        ASeq (ASeq a)
        Seqable (Seqable a)
        ISeq (ISeq a)
-       IMeta (IMeta Any)}]
+       }]
 
 IPersistentList [[[a :variance :covariant]]
                  :replace
@@ -311,11 +304,7 @@ PersistentList [[[a :variance :covariant]]
                  IPersistentList (IPersistentList a)
                  ISeq (ISeq a)
                  IPersistentStack (IPersistentStack a)
-                 IMeta (IMeta Any)}]
-
-clojure.lang.Symbol [[]
-             :replace
-             {IMeta (IMeta Any)}]
+                 }]
 
 Keyword [[]
          :unchecked-ancestors
@@ -332,25 +321,20 @@ IRef [[[w :variance :contravariant]
       :replace
       {IDeref (IDeref r)}]
 
-IReference [[[w :variance :contravariant]
-             [r :variance :covariant]]
-            :replace
-            {IMeta (IMeta Any)}]
-
-AReference [[[w :variance :contravariant]
-             [r :variance :covariant]]
-            :replace
-            {IMeta (IMeta Any)
-             IReference (IReference w r)}]
-
 ARef [[[w :variance :contravariant]
        [r :variance :covariant]]
       :replace
       {IRef (IRef w r)
-       IMeta (IMeta Any)
-       AReference (AReference Any Any)
-       IDeref (IDeref r)
-       IReference (IReference w r)}]
+       IDeref (IDeref r)}]
+
+clojure.lang.Agent 
+      [[[w :variance :contravariant]
+        [r :variance :covariant]]
+       :replace
+       {IRef (IRef w r)
+        IDeref (IDeref r)
+        }]
+
 
 Delay [[[r :variance :covariant]]
        :replace
@@ -361,29 +345,21 @@ clojure.lang.Var
     [[[w :variance :contravariant]
       [r :variance :covariant]]
      :replace
-     {AReference (AReference Any Any)
-      IReference (IReference Any Any)
-      IRef (IRef w r)
-      ARef (ARef w r)
-      IDeref (IDeref r)
-      IMeta (IMeta Any)}]
+     {IRef (IRef w r)
+      IDeref (IDeref r)}]
 
 clojure.lang.Atom 
      [[[w :variance :contravariant]
        [r :variance :covariant]]
       :replace
-      {IRef (IRef w r)
-       IMeta (IMeta Any)
-       AReference (AReference Any Any)
-       ARef (ARef w r)
-       IDeref (IDeref r)
-       IReference (IReference w r)}]
+      {ARef (ARef w r)
+       IRef (IRef w r)
+       IDeref (IDeref r)}]
 
 LazySeq [[[a :variance :covariant]]
          :replace
          {Seqable (Seqable a)
           ISeq (ISeq a)
-          IMeta (IMeta Any)
           IPersistentCollection (IPersistentCollection a)}]
 
 Reduced [[[a :variance :covariant]]
@@ -436,7 +412,6 @@ clojure.core.typed/Keyword clojure.lang.Keyword
         :forms [Symbol]}
 clojure.core.typed/Symbol clojure.lang.Symbol
 
-;clojure.core.typed/AnyPrimitive (U char int short boolean byte short long float double)
       ^{:doc "A namespace"
         :forms [Namespace]}
 clojure.core.typed/Namespace clojure.lang.Namespace
@@ -444,14 +419,12 @@ clojure.core.typed/Namespace clojure.lang.Namespace
     ^{:doc "An atom that can read and write type x."
       :forms [(Atom1 t)]}
 clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] 
-                              (clojure.lang.Atom 
-                                x x))
+                              (clojure.lang.Atom x x))
     ^{:doc "An atom that can write type w and read type r."
       :forms [(Atom2 t)]}
 clojure.core.typed/Atom2 (TFn [[w :variance :contravariant]
                                [r :variance :covariant]] 
-                              (clojure.lang.Atom 
-                                w r))
+                              (clojure.lang.Atom w r))
     ^{:doc "An var that can read and write type x."
       :forms [(Var1 t)]}
 clojure.core.typed/Var1 
@@ -473,16 +446,13 @@ clojure.core.typed/Ref2 (TFn [[w :variance :contravariant]
                              (IRef w r))
     ^{:doc "An agent that can read and write type x."
       :forms [(Agent1 t)]}
-clojure.core.typed/Agent1 (TFn [[x :variance :invariant]] (clojure.lang.Agent x x 
-                                                                              (U nil (clojure.lang.IPersistentMap Any Any))
-                                                                              (U nil (clojure.lang.IPersistentMap Any Any))))
+clojure.core.typed/Agent1 (TFn [[x :variance :invariant]] 
+                               (clojure.lang.Agent x x))
     ^{:doc "An agent that can write type w and read type r."
       :forms [(Agent2 t t)]}
 clojure.core.typed/Agent2 (TFn [[w :variance :contravariant]
                                 [r :variance :covariant]] 
-                               (clojure.lang.Agent w r 
-                                                   (U nil (clojure.lang.IPersistentMap Any Any))
-                                                   (U nil (clojure.lang.IPersistentMap Any Any))))
+                               (clojure.lang.Agent w r))
 
     ^{:doc "A union of x and nil."
       :forms [(Option t)]}
@@ -1124,11 +1094,16 @@ clojure.core/map? (predicate (Map Any Any))
     (h/var-mappings
 
 clojure.core/coll? (predicate (Coll Any))
-clojure.core/meta (All [x]
-                            (Fn [(IMeta x) -> x]
-                                [Any -> nil]))
-clojure.core/with-meta (All [[x :< clojure.lang.IObj] y]
-                              [x y -> (I x (IMeta y))])
+clojure.core/meta [Any -> (U nil (Map Any Any))]
+clojure.core/with-meta (All [[x :< clojure.lang.IObj]]
+                            [x (U nil (Map Any Any)) -> x])
+clojure.core/vary-meta (All [[x :< clojure.lang.IObj] b ...]
+                            [x [(U nil (Map Any Any)) b ... b -> (U nil (Map Any Any))] b ... b -> x])
+
+clojure.core/reset-meta! [clojure.lang.IReference (U nil (Map Any Any)) -> (U nil (Map Any Any))]
+clojure.core/alter-meta! 
+      (All [b ...]
+      [clojure.lang.IReference [(U nil (Map Any Any)) b ... b -> (U nil (Map Any Any))] b ... b -> (U nil (Map Any Any))])
 
 clojure.core/string? (predicate String)
 clojure.core/char? (predicate Character)
@@ -1199,7 +1174,7 @@ clojure.core/seq (All [x]
 ;                        [sfn :kind [* -> *]]
 ;                    (Fn
 ;                      [(Seqable x :count (CountRange 1) :to-seq sfn) -> (sfn x)]
-;                      [(Seqable x :count AnyCountRange :to-seq sfn) -> (U nil (sfn x))]
+;                      [(Seqable x :count AnyCountRange :to-seq sfn) -> (U nil (sfn x))]))
 
 clojure.core/empty? (Fn [(Option (Coll Any)) -> boolean
                           :filters {:then (| (is EmptyCount 0)
@@ -1361,9 +1336,10 @@ clojure.core/next
 
 clojure.core/into
       (All [x y]
-           (Fn [(IPersistentMap x y) (U nil (Seqable (U nil (IMapEntry x y) '[x y]))) -> (IPersistentMap x y)]
-               [(IPersistentVector x) (U nil (Seqable x)) -> (IPersistentVector x)]
-               [(IPersistentSet x) (U nil (Seqable x)) -> (IPersistentSet x)]))
+           (Fn [(Map x y) (U nil (Seqable (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) '[x y]))) -> (Map x y)]
+               [(Vec x) (U nil (Seqable x)) -> (Vec x)]
+               [(Set x) (U nil (Seqable x)) -> (Set x)]
+               [(Coll Any) (U nil (Seqable Any)) -> (Coll Any)]))
 
 clojure.core/conj
 ;     (All [e
@@ -1377,11 +1353,12 @@ clojure.core/conj
      (All [x y]
           (Fn [(IPersistentVector x) x x * -> (IPersistentVector x)]
               [(APersistentMap x y)
-               (U nil (IMapEntry x y) (Vector* x y))
-               (U nil (IMapEntry x y) (Vector* x y)) * -> (APersistentMap x y)]
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y))
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y)) *
+               -> (APersistentMap x y)]
               [(IPersistentMap x y)
-               (U nil (IMapEntry x y) (Vector* x y))
-               (U nil (IMapEntry x y) (Vector* x y)) * -> (IPersistentMap x y)]
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y))
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y)) * -> (IPersistentMap x y)]
               [(IPersistentSet x) x x * -> (IPersistentSet x)]
               [(Seq x) x x * -> (ASeq x)]
               [nil x x * -> (clojure.lang.PersistentList x)]
@@ -1413,18 +1390,21 @@ clojure.core/get
      (All [x y]
           (Fn 
             ;no default
-            [(IPersistentSet x) Any -> (Option x)]
-            [nil Any -> nil]
-            [(Option (ILookup Any x)) Any -> (Option x)]
-            [java.util.Map Any -> (Option Any)]
-            [String Any -> (Option Character)]
+            [(U nil (Set x) (ILookup Any x)) Any -> (Option x)]
+            [(Option java.util.Map) Any -> Any]
+            [(Option String) Any -> (Option Character)]
             ;default
-            [(IPersistentSet x) Any y -> (U y x)]
-            [nil Any y -> y]
-            [(Option (ILookup Any x)) Any y -> (U y x)]
-            [java.util.Map Any y -> (U y Any)]
-            [String Any y -> (U y Character)]
+            [(U nil (Set x) (ILookup Any x)) Any y -> (U y x)]
+            [(Option java.util.Map) Any y -> (U y Any)]
+            [(Option String) Any y -> (U y Character)]
             ))
+
+clojure.core/get-in
+    (Fn [Any (U nil (Seqable Any)) -> Any]
+        [Any (U nil (Seqable Any)) Any -> Any])
+
+clojure.core/assoc-in
+    [(U nil (Associative Any Any)) (Seqable Any) Any -> Any]
 
 ;FIXME maps after the first can always be nil
 clojure.core/merge 
@@ -1646,7 +1626,10 @@ clojure.core/== [Number Number * -> boolean]
 clojure.core/max [Number Number * -> Number]
 clojure.core/min [Number Number * -> Number]
 
-clojure.core/ref (All [x] [x -> (clojure.lang.ARef x x)])
+clojure.core/ref (All [x] [x & :optional {:validator (U nil [x -> Any]) :meta (U nil (Map Any Any))
+                                          :min-history (U nil AnyInteger)
+                                          :max-history (U nil AnyInteger)}
+                           -> (clojure.lang.ARef x x)])
 
 clojure.core/rand (Fn [-> Number]
                       [Number -> Number])
@@ -2022,8 +2005,6 @@ clojure.lang.LazySeq (All [x]
 clojure.lang.Delay (All [x]
                         [[-> x] -> (Delay x)])
     ))
-
-(delay-and-cache-env ^:private init-protocol-env {})
 
 (delay-and-cache-env ^:private init-declared-kinds {})
 
