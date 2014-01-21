@@ -767,7 +767,7 @@
   (is-clj (overlap (RClass-of Number) (RClass-of Integer)))
   (is-clj (not (overlap (RClass-of Number) (RClass-of clojure.lang.Symbol))))
   (is-clj (not (overlap (RClass-of Number) (RClass-of String))))
-  (is-clj (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.IMeta [-any])))
+  (is-clj (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.IMeta)))
   (is-clj (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.PersistentVector [-any])))
   )
 
