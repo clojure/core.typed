@@ -1,4 +1,4 @@
-# 0.2.22-SNAPSHOT
+# 0.2.22 - Released 21 January 2014
 
 ## BREAKING CHANGES
 
