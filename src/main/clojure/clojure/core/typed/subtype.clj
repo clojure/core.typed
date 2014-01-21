@@ -654,10 +654,33 @@
              (r/RClass? t))
         (subtype-datatype-rclass s t)
 
-        ; handles Var-as-function
+        ; handles classes with FnIntersection ancestors
         (and (r/RClass? s)
              (r/FnIntersection? t))
-        (if (some #(when (r/FnIntersection? %)
+        (cond
+          ; Var doesn't actually have an FnIntersection ancestor,
+          ; but this case simulates it.
+          (#{'clojure.lang.Var}
+             (:the-class s))
+            (let [[_ read-type :as poly] (:poly? s)
+                  _ (when-not (#{2} (count (:poly? s)))
+                      (u/int-error
+                        (str "Assuming Var takes 2 arguments, "
+                             "given " (count (:poly? s)))))]
+              (if (subtype? read-type t)
+                *sub-current-seen*
+                (fail! s t)))
+          :else
+            (if (some #(when (r/FnIntersection? %)
+                         (subtype? % t))
+                      (map c/fully-resolve-type (c/RClass-supers* s)))
+              *sub-current-seen*
+              (fail! s t)))
+
+        ; handles classes with heterogeneous vector ancestors (eg. IMapEntry)
+        (and (r/RClass? s)
+             (r/HeterogeneousVector? t))
+        (if (some #(when (r/HeterogeneousVector? %)
                      (subtype? % t))
                   (map c/fully-resolve-type (c/RClass-supers* s)))
           *sub-current-seen*

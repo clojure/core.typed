@@ -767,7 +767,7 @@
   (is-clj (overlap (RClass-of Number) (RClass-of Integer)))
   (is-clj (not (overlap (RClass-of Number) (RClass-of clojure.lang.Symbol))))
   (is-clj (not (overlap (RClass-of Number) (RClass-of String))))
-  (is-clj (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.IMeta [-any])))
+  (is-clj (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.IMeta)))
   (is-clj (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.PersistentVector [-any])))
   )
 
@@ -2410,7 +2410,7 @@
   (is (check-ns 'clojure.core.typed.test.non-literal-val-fn)))
 
 (deftest CTYP-74-malformed-TApp-test
-  (is (u/tc-error-thrown? (parse-type '([Any -> Any])))))
+  (is-clj (u/tc-error-thrown? (parse-type '([Any -> Any])))))
 
 (deftest CTYP-73-reduced-test
   (is-cf (reduced 1) (clojure.lang.Reduced Number))
@@ -2777,6 +2777,16 @@
 
 (deftest swap!-special-test
   (is (check-ns 'clojure.core.typed.test.swap-bang)))
+
+(deftest seqable-map-test
+  (is-cf (map (clojure.core.typed/fn> 
+                [[a b] :- '[Number Number]]
+                (+ a b))
+              {1 2 3 4 5 6})))
+
+(deftest mapentry-first-test
+  (is-cf (first (first {1 2}))
+         Number))
 
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)

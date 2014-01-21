@@ -14,9 +14,6 @@
               make-output-stream
               [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedOutputStream])
 
-(ann ^:no-check clojure.core/*in* java.io.Reader)
-(ann ^:no-check clojure.core/*out* java.io.Writer)
-
 (ann ^:no-check clojure.java.io/reader
      [clojure.java.io/IOFactory -> java.io.BufferedReader])
 (ann ^:no-check clojure.java.io/writer

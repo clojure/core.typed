@@ -361,8 +361,8 @@
 (u/ann-record Name [id :- Symbol])
 (u/def-type Name [id]
   "A late bound name"
-  [((every-pred (some-fn namespace (fn [a] (some (fn [c] (= \. c)) (str a))))
-                symbol?) 
+  [((every-pred symbol?
+                (some-fn namespace #(some #{\.} (str %))))
      id)]
   :methods
   [p/TCType])

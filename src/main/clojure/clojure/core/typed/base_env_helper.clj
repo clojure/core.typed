@@ -11,6 +11,7 @@
             [clojure.core.typed.name-env]
             [clojure.core.typed.var-env]
             [clojure.core.typed.ns-deps]
+            [clojure.core.typed.collect-phase :as coll]
             [clojure.pprint :as pprint]))
 
 (defmacro alias-mappings [& args]
@@ -91,6 +92,21 @@
                                 (not (namespace s#)))
                            "Need unqualified symbol")
                    [s# (prs/parse-type t#)])))))))
+
+;(defmacro protocol-mappings [& args]
+;  `(impl/with-clojure-impl
+;     (let [ts# (partition 2 '~args)]
+;       (into {}
+;             (doall
+;               (for [[s# [argsyn# {msyns# :methods}]] ts#]
+;                 (let [ms# (into {}
+;                                 (for [[msym# t#] msyns#]
+;                                   [msym# (prs/parse-type t#)]))
+;                       args# ]
+;                   (assert (and (symbol? s#)
+;                                (namespace s#))
+;                           "Need qualified symbol")
+;                   [s# ])))))))
 
 ;; Alter class
 

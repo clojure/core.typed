@@ -22,6 +22,7 @@
 (t/ann ^:no-check taoensso.timbre.profiling/*pdata* (t/Atom1 Any))
 (t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure [-> Any])
 
+(t/ann ^:no-check deprecated-warn [String -> nil])
 (t/ann ^:no-check int-error [String -> Nothing])
 
 (t/ann subtype-exn Exception)
@@ -140,6 +141,17 @@
                          ") "
                          estr)
                     {:type-error tc-error-parent}))))
+
+(defn deprecated-warn
+  [msg]
+  (let [env *current-env*]
+    (println "DEPRECATED SYNTAX "
+             "(" (-> env :ns :name) ":" (or (:line env) "<NO LINE>")
+             (when-let [col (:column env)]
+               (str ":"col))
+             ") :"
+             msg)
+    (flush)))
 
 (defn int-error
   [estr]

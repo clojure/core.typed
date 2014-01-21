@@ -160,7 +160,8 @@
 (defn expr-ns [expr]
   {:post [(symbol? %)]}
   (impl/impl-case
-    :clojure (let [nsym (-> expr :env :ns :name symbol)
+    :clojure (let [nsym (when-let [s (get-in expr [:env :ns :name])]
+                          (symbol s))
                    _ (assert nsym (str "Bug! " (:op expr) " expr has no associated namespace"))
                    ns (find-ns nsym)
                    _ (assert ns)]
@@ -1046,13 +1047,13 @@
       (let [symfn (prs/parse-type '(All [x] [(U (clojure.lang.IPersistentMap Any x) Any) -> (U x nil)]))]
         (check-funapp fexpr args (ret symfn) arg-ret-types expected))
       
-;      ;Var function
-;      (and (r/RClass? fexpr-type)
-;           ('#{clojure.lang.Var} (.the-class ^RClass fexpr-type)))
-;      (let [{[ftype :as poly?] :poly?} fexpr-type
-;            _ (assert (= 1 (count poly?))
-;                      "Assuming clojure.lang.Var only takes 1 argument")]
-;        (check-funapp fexpr args (ret ftype) arg-ret-types expected))
+      ;Var function
+      (and (r/RClass? fexpr-type)
+           ('#{clojure.lang.Var} (:the-class ^RClass fexpr-type)))
+      (let [{[_ ftype :as poly?] :poly?} fexpr-type
+            _ (assert (#{2} (count poly?))
+                      "Assuming clojure.lang.Var only takes 1 argument")]
+        (check-funapp fexpr args (ret ftype) arg-ret-types expected))
 
       ;Error is perfectly good fn type
       (r/TCError? fexpr-type)
@@ -1395,7 +1396,9 @@
 
 (add-invoke-special-method 'clojure.core.typed/var>*
   [{[sym-expr] :args :keys [args fexpr] :as expr} & [expected]]
-  (assert (#{1} (count args)))
+  (when-not (#{1} (count args))
+    (u/int-error (str "Wrong number of arguments to clojure.core.typed/var>,"
+                      " expected 1, given " (count args))))
   (assert (#{:constant} (:op sym-expr)))
   (let [sym (-> sym-expr :val)
         _ (assert (symbol? sym))
@@ -1411,7 +1414,9 @@
 ; ignore some keyword argument related intersections
 (add-invoke-special-method 'clojure.core/seq?
   [{:keys [args fexpr] :as expr} & [expected]]
-  (assert (#{1} (count args)))
+  (when-not (#{1} (count args))
+    (u/int-error (str "Wrong number of arguments to clojure.core/seq?,"
+                      " expected 1, given " (count args))))
   (let [[ctarget :as cargs] (map check args)]
     (cond 
       ; handle keyword args macroexpansion
@@ -1426,8 +1431,10 @@
                            :cargs cargs))))
 
 (add-invoke-special-method 'clojure.core/extend
-  [{[atype & protos] :args :as expr} & [expected]]
-  (assert (and atype (even? (count protos))) "Wrong arguments to extend")
+  [{[atype & protos :as args] :args :as expr} & [expected]]
+  (when-not (and atype (even? (count protos))) 
+    (u/int-error "Wrong number of arguments to extend, expected at least one with an even "
+                 "number of variable arguments, given " (count args)))
   (let [catype (check atype)
         ret-expr (assoc expr
                         expr-type (ret r/-any))

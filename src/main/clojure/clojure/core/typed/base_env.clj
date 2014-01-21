@@ -1,10 +1,10 @@
 (ns clojure.core.typed.base-env
-  (:import (clojure.lang Atom Symbol Namespace Keyword Named IMapEntry Seqable
+  (:import (clojure.lang Keyword Named IMapEntry AMapEntry Seqable
                          LazySeq PersistentHashSet PersistentTreeSet PersistentList APersistentVector
                          APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
-                         APersistentMap IDeref ISeq IMeta ASeq IPersistentCollection
+                         APersistentMap IDeref IBlockingDeref ISeq ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
-                         IPersistentList IRef IReference AReference ARef Var Delay Reversible
+                         IPersistentList IRef ARef Delay Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
                          ITransientVector PersistentHashMap Reduced))
   (:require [clojure.core.typed.base-env-helper :as h]
@@ -26,26 +26,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Altered Classes
 
-;; TODO fix metadata representation
 ;; TODO remove redundant ancestors, add tests to ensure they are preserved.
-
-#_(alter-class IFn [[a :variance :covariant
-                   :< AnyFunction]])
-
-#_(alter-class clojure.lang.Fn [[a :variance :covariant
-                               :< AnyFunction]])
-
-#_(alter-class AFn [[a :variance :covariant
-                   :< AnyFunction]]
-             :replace
-             {IFn (IFn a)})
-
-#_(alter-class AFunction [[a :variance :covariant
-                         :< AnyFunction]]
-             :replace
-             {AFn (AFn a)
-              IFn (IFn a)
-              clojure.lang.Fn (clojure.lang.Fn a)})
 
 
 (delay-and-cache-env init-altered-env
@@ -58,18 +39,7 @@ Seqable [[[a :variance :covariant]]
 Reversible [[[a :variance :covariant]]
             ]
 
-IMeta [[[a :variance :covariant]]]
-
 IPersistentCollection [[[a :variance :covariant]
-                        #_[conj-arg :variance :covariant
-                         :< (TFn [[x :variance :covariant]] Any)]
-                        #_[conj-res :variance :covariant
-                         :< (Rec [c]
-                              (TFn [[x :variance :covariant]] 
-                                (IPersistentCollection 
-                                  Any 
-                                  (TFn [[x :variance :covariant]] Any) 
-                                  c)))]
                         ]
                        :replace
                        {Seqable (Seqable a)}]
@@ -77,24 +47,14 @@ IPersistentCollection [[[a :variance :covariant]
 ISeq [[[a :variance :covariant]]
       :replace
       {Seqable (Seqable a)
-       IPersistentCollection (IPersistentCollection 
-                               a
-                               #_(TFn [[x :variance :covariant]]
-                                 x)
-                               #_(TFn [[x :variance :covariant]]
-                                 (ISeq x)))}]
+       IPersistentCollection (IPersistentCollection a)}]
 
 clojure.lang.ChunkBuffer [[[a :variance :invariant]]]
 
 clojure.lang.IChunkedSeq [[[a :variance :covariant]]
                           :replace
                           {Seqable (Seqable a)
-                           IPersistentCollection (IPersistentCollection 
-                                                   a
-                                                   #_(TFn [[x :variance :covariant]]
-                                                        x)
-                                                   #_(TFn [[x :variance :covariant]]
-                                                        (clojure.lang.IChunkedSeq x)))
+                           IPersistentCollection (IPersistentCollection a)
                            ISeq (ISeq a)}]
 
 clojure.lang.Indexed [[[a :variance :covariant]]]
@@ -108,70 +68,41 @@ ILookup [[[a :variance :covariant]
 
 IPersistentSet [[[a :variance :covariant]]
                 :replace
-                {IPersistentCollection (IPersistentCollection 
-                                         a
-                                         #_(TFn [[x :variance :covariant]]
-                                              x)
-                                         #_(TFn [[x :variance :covariant]]
-                                              (IPersistentSet x)))
+                {IPersistentCollection (IPersistentCollection a)
                  Seqable (Seqable a)}]
 
 APersistentSet [[[a :variance :covariant]]
                 :replace
                 {Seqable (Seqable a)
-                 IFn [Any -> (U a nil)]
-                 AFn [Any -> (U a nil)]
-                 IPersistentCollection (IPersistentCollection 
-                                         a
-                                         #_(TFn [[x :variance :covariant]]
-                                              x)
-                                         #_(TFn [[x :variance :covariant]]
-                                              (APersistentSet x)))
-                 IPersistentSet (IPersistentSet a)}]
+                 IPersistentCollection (IPersistentCollection a)
+                 IPersistentSet (IPersistentSet a)}
+                :unchecked-ancestors
+                #{[Any -> (U a nil)]}
+                ]
 
 PersistentHashSet [[[a :variance :covariant]]
                    :replace
                    {Seqable (Seqable a)
                     APersistentSet (APersistentSet a)
-                    IFn [Any -> (U a nil)]
-                    AFn [Any -> (U a nil)]
                     IPersistentSet (IPersistentSet a)
-                    IPersistentCollection (IPersistentCollection 
-                                            a
-                                            #_(TFn [[x :variance :covariant]]
-                                                 x)
-                                            #_(TFn [[x :variance :covariant]]
-                                                 (PersistentHashSet x)))
-                    IMeta (IMeta Any)}]
+                    IPersistentCollection (IPersistentCollection a)}
+                   :unchecked-ancestors
+                   #{[Any -> (U a nil)]}]
 
 PersistentTreeSet [[[a :variance :covariant]]
                    :replace
                    {Seqable (Seqable a)
                     Reversible (Reversible a)
                     APersistentSet (APersistentSet a)
-                    IFn [Any -> (U a nil)]
-                    AFn [Any -> (U a nil)]
                     IPersistentSet (IPersistentSet a)
-                    IPersistentCollection (IPersistentCollection
-                                            a
-                                            #_(TFn [[x :variance :covariant]]
-                                                 x)
-                                            #_(TFn [[x :variance :covariant]]
-                                                 (PersistentTreeSet x)))
-                    IMeta (IMeta Any)}]
-
-IMapEntry [[[a :variance :covariant]
-            [b :variance :covariant]]]
+                    IPersistentCollection (IPersistentCollection a)}
+                    :unchecked-ancestors
+                    #{[Any -> (U a nil)]}]
 
 Associative [[[a :variance :covariant]
               [b :variance :covariant]]
              :replace
-             {IPersistentCollection (IPersistentCollection 
-                                      Any
-                                      #_(TFn [[x :variance :covariant]]
-                                           Any)
-                                      #_(TFn [[x :variance :covariant]]
-                                           (Associative Any Any)))
+             {IPersistentCollection (IPersistentCollection Any)
               Seqable (Seqable Any)
               ILookup (ILookup a b)}]
 
@@ -223,24 +154,14 @@ Associative [[[a :variance :covariant]
 
 IPersistentStack [[[a :variance :covariant]]
                   :replace
-                  {IPersistentCollection (IPersistentCollection 
-                                           a
-                                           #_(TFn [[x :variance :covariant]]
-                                                x)
-                                           #_(TFn [[x :variance :covariant]]
-                                                (IPersistentStack x)))
+                  {IPersistentCollection (IPersistentCollection a)
                    Seqable (Seqable a)}]
 
 
 ;define vectors before maps, as HVector is part of map ancestors
 IPersistentVector [[[a :variance :covariant]]
                    :replace
-                   {IPersistentCollection (IPersistentCollection 
-                                            a
-                                            #_(TFn [[x :variance :covariant]]
-                                                 x)
-                                            #_(TFn [[x :variance :covariant]]
-                                                 (IPersistentVector x)))
+                   {IPersistentCollection (IPersistentCollection a)
                     Seqable (Seqable a)
                     Reversible (Reversible a)
                     IPersistentStack (IPersistentStack a)
@@ -250,158 +171,149 @@ IPersistentVector [[[a :variance :covariant]]
 
 APersistentVector [[[a :variance :covariant]]
                    :replace
-                   {IPersistentCollection (IPersistentCollection 
-                                            a
-                                            #_(TFn [[x :variance :covariant]]
-                                                 x)
-                                            #_(TFn [[x :variance :covariant]]
-                                                 (APersistentVector x)))
+                   {IPersistentCollection (IPersistentCollection a)
                     Seqable (Seqable a)
                     IPersistentVector (IPersistentVector a)
                     Reversible (Reversible a)
-                    IFn [Number -> a]
                     IPersistentStack (IPersistentStack a)
                     ILookup (ILookup Number a)
                     Associative (Associative Number a)
-                    Indexed (Indexed a)}]
+                    Indexed (Indexed a)}
+                   :unchecked-ancestors
+                   #{[Number -> a]}]
 
 PersistentVector [[[a :variance :covariant]]
                   :replace
                   {APersistentVector (APersistentVector a)
-                   IPersistentCollection (IPersistentCollection 
-                                           a
-                                           #_(TFn [[x :variance :covariant]]
-                                                x)
-                                           #_(TFn [[x :variance :covariant]]
-                                                (PersistentVector x)))
+                   IPersistentCollection (IPersistentCollection a)
                    Seqable (Seqable a)
                    IPersistentVector (IPersistentVector a)
                    Reversible (Reversible a)
-                   IFn [Number -> a]
                    IPersistentStack (IPersistentStack a)
                    ILookup (ILookup Number a)
-                   IMeta (IMeta Any)
                    Associative (Associative Number a)
                    Indexed (Indexed a)
-                   #_IEditableCollection #_(IEditableCollection (ITransientVector a))}]
+                   #_IEditableCollection #_(IEditableCollection (ITransientVector a))}
+                  :unchecked-ancestors
+                  #{[Number -> a]}]
 
+IMapEntry [[[a :variance :covariant]
+            [b :variance :covariant]]]
+
+clojure.lang.AMapEntry 
+          [[[a :variance :covariant]
+            [b :variance :covariant]]
+           :replace
+           {IMapEntry (IMapEntry a b)
+            IPersistentCollection (IPersistentCollection 
+                                    (U a b))
+            Seqable (Seqable (U a b))
+            IPersistentVector (IPersistentVector (U a b))
+            Reversible (Reversible (U a b))
+            IPersistentStack (IPersistentStack (U a b))
+            ILookup (ILookup Number (U a b))
+            Associative (Associative Number (U a b))
+            Indexed (Indexed (U a b))
+            APersistentVector (APersistentVector (U a b))}
+           :unchecked-ancestors
+           #{'[a b]
+             [Number -> (U a b)]}]
+
+clojure.lang.MapEntry
+          [[[a :variance :covariant]
+            [b :variance :covariant]]
+           :replace
+           {IMapEntry (IMapEntry a b)
+            AMapEntry (AMapEntry a b)
+            IPersistentCollection (IPersistentCollection (U a b))
+            Seqable (Seqable (U a b))
+            IPersistentVector (IPersistentVector (U a b))
+            Reversible (Reversible (U a b))
+            IPersistentStack (IPersistentStack (U a b))
+            ILookup (ILookup Number (U a b))
+            Associative (Associative Number (U a b))
+            Indexed (Indexed (U a b))
+            APersistentVector (APersistentVector (U a b))}
+           :unchecked-ancestors
+           #{'[a b]
+             [Number -> (U a b)]}]
 
 IPersistentMap [[[a :variance :covariant]
                  [b :variance :covariant]]
                 :replace
-                {IPersistentCollection (IPersistentCollection 
-                                         (U '[a b] (IMapEntry a b))
-                                         #_(TFn [[x :variance :covariant
-                                                :< (U nil (IMapEntry Any Any))]]
-                                              x)
-                                         #_(All [a1 b1]
-                                           (TFn [[x :variance :covariant
-                                                  :< (U nil (IMapEntry a1 b1))]]
-                                                (IPersistentMap a1 b1))))
-                 Seqable (Seqable (U '[a b] (IMapEntry a b)))
+                {IPersistentCollection (IPersistentCollection (AMapEntry a b))
+                 Seqable (Seqable (AMapEntry a b))
                  ILookup (ILookup a b)
                  Associative (Associative a b)}]
 
 ASeq [[[a :variance :covariant]]
       :replace
-      {IPersistentCollection (IPersistentCollection 
-                               a
-                               #_(TFn [[x :variance :covariant]]
-                                    x)
-                               #_(TFn [[x :variance :covariant]]
-                                    (ASeq x)))
+      {IPersistentCollection (IPersistentCollection a)
        Seqable (Seqable a)
        ISeq (ISeq a)
-       IMeta (IMeta Any)}]
+       }]
 
 APersistentMap [[[a :variance :covariant] 
                  [b :variance :covariant]]
                 :replace
-                {IPersistentCollection (IPersistentCollection 
-                                         (U '[a b] (IMapEntry a b))
-                                         #_(TFn [[x :variance :covariant
-                                                :< (U nil (IMapEntry Any Any))]]
-                                              x)
-                                         #_(All [a1 b1]
-                                           (TFn [[x :variance :covariant
-                                                  :< (U nil (IMapEntry a1 b1))]]
-                                             (APersistentMap a1 b1))))
+                {IPersistentCollection (IPersistentCollection (AMapEntry a b))
                  IPersistentMap (IPersistentMap a b)
-                 Seqable (Seqable (U '[a b] (IMapEntry a b)))
-                 IFn (All [d]
-                          (Fn [Any -> (U nil b)]
-                              [Any d -> (U b d)]))
+                 Seqable (Seqable (AMapEntry a b))
                  ILookup (ILookup a b)
-                 Associative (Associative a b)}]
+                 Associative (Associative a b)}
+                :unchecked-ancestors
+                #{(All [d]
+                          (Fn [Any -> (U nil b)]
+                              [Any d -> (U b d)]))}]
 
 
 PersistentHashMap [[[a :variance :covariant] 
                     [b :variance :covariant]]
                    :replace
-                   {IPersistentCollection (IPersistentCollection 
-                                            (U '[a b] (IMapEntry a b))
-                                            #_(TFn [[x :variance :covariant
-                                                   :< (U nil (IMapEntry Any Any))]]
-                                                 x)
-                                            #_(All [a1 b1]
-                                                 (TFn [[x :variance :covariant
-                                                        :< (U nil (IMapEntry a1 b1))]]
-                                                      (PersistentHashMap a1 b1))))
+                   {IPersistentCollection (IPersistentCollection (AMapEntry a b))
                     IPersistentMap (IPersistentMap a b)
                     APersistentMap (APersistentMap a b)
-                    Seqable (Seqable (U '[a b] (IMapEntry a b)))
-                    IFn (All [d]
-                             (Fn [Any -> (U nil b)]
-                                 [Any d -> (U b d)]))
+                    Seqable (Seqable (AMapEntry a b))
                     ILookup (ILookup a b)
-                    IMeta (IMeta Any)
                     Associative (Associative a b)
-                    #_IEditableCollection #_(IEditableCollection (ITransientMap a b a b))}]
+                    #_IEditableCollection #_(IEditableCollection (ITransientMap a b a b))}
+                   :unchecked-ancestors
+                   #{(All [d]
+                             (Fn [Any -> (U nil b)]
+                                 [Any d -> (U b d)]))}]
 
 Cons [[[a :variance :covariant]]
       :replace
-      {IPersistentCollection (IPersistentCollection 
-                               a
-                               #_(TFn [[x :variance :covariant]] x)
-                               #_(TFn [[x :variance :covariant]] (Cons x)))
+      {IPersistentCollection (IPersistentCollection a)
        ASeq (ASeq a)
        Seqable (Seqable a)
        ISeq (ISeq a)
-       IMeta (IMeta Any)}]
+       }]
 
 IPersistentList [[[a :variance :covariant]]
                  :replace
-                 {IPersistentCollection (IPersistentCollection
-                                          a
-                                          #_(TFn [[x :variance :covariant]] x)
-                                          #_(TFn [[x :variance :covariant]] (IPersistentList x)))
+                 {IPersistentCollection (IPersistentCollection a)
                   Seqable (Seqable a)
                   IPersistentStack (IPersistentStack a)}]
 
 PersistentList [[[a :variance :covariant]]
                 :replace
-                {IPersistentCollection (IPersistentCollection
-                                          a
-                                          #_(TFn [[x :variance :covariant]] x)
-                                          #_(TFn [[x :variance :covariant]] (PersistentList x)))
+                {IPersistentCollection (IPersistentCollection a)
                  ASeq (ASeq a)
                  Seqable (Seqable a)
                  IPersistentList (IPersistentList a)
                  ISeq (ISeq a)
                  IPersistentStack (IPersistentStack a)
-                 IMeta (IMeta Any)}]
-
-Symbol [[]
-             :replace
-             {IMeta (IMeta Any)}]
+                 }]
 
 Keyword [[]
-         :replace
-         {IFn (All [x] 
+         :unchecked-ancestors
+         #{(All [x] 
                 (Fn [(U nil (IPersistentMap Any x)) -> (U nil x)]
                     [Any -> Any]))}]
 
 IDeref [[[r :variance :covariant]]]
+IBlockingDeref [[[r :variance :covariant]]]
 
 
 IRef [[[w :variance :contravariant]
@@ -409,60 +321,46 @@ IRef [[[w :variance :contravariant]
       :replace
       {IDeref (IDeref r)}]
 
-IReference [[[w :variance :contravariant]
-             [r :variance :covariant]]
-            :replace
-            {IMeta (IMeta Any)}]
-
-AReference [[[w :variance :contravariant]
-             [r :variance :covariant]]
-            :replace
-            {IMeta (IMeta Any)
-             IReference (IReference w r)}]
-
 ARef [[[w :variance :contravariant]
        [r :variance :covariant]]
       :replace
       {IRef (IRef w r)
-       IMeta (IMeta Any)
-       AReference (AReference Any Any)
-       IDeref (IDeref r)
-       IReference (IReference w r)}]
+       IDeref (IDeref r)}]
+
+clojure.lang.Agent 
+      [[[w :variance :contravariant]
+        [r :variance :covariant]]
+       :replace
+       {IRef (IRef w r)
+        IDeref (IDeref r)
+        }]
+
 
 Delay [[[r :variance :covariant]]
        :replace
        {IDeref (IDeref r)}]
 
-Var [[[w :variance :contravariant]
+;invoking Var as IFn is a special case in the checker
+clojure.lang.Var 
+    [[[w :variance :contravariant]
       [r :variance :covariant]]
      :replace
-     {AReference (AReference Any Any)
-      IReference (IReference Any Any)
-      IFn r
-      IRef (IRef w r)
-      ARef (ARef w r)
-      IDeref (IDeref r)
-      IMeta (IMeta Any)}]
+     {IRef (IRef w r)
+      IDeref (IDeref r)}]
 
-Atom [[[w :variance :contravariant]
+clojure.lang.Atom 
+     [[[w :variance :contravariant]
        [r :variance :covariant]]
       :replace
-      {IRef (IRef w r)
-       IMeta (IMeta Any)
-       AReference (AReference Any Any)
-       ARef (ARef w r)
-       IDeref (IDeref r)
-       IReference (IReference w r)}]
+      {ARef (ARef w r)
+       IRef (IRef w r)
+       IDeref (IDeref r)}]
 
 LazySeq [[[a :variance :covariant]]
          :replace
          {Seqable (Seqable a)
           ISeq (ISeq a)
-          IMeta (IMeta Any)
-          IPersistentCollection (IPersistentCollection
-                                  a
-                                  #_(TFn [[x :variance :covariant]] x)
-                                  #_(TFn [[x :variance :covariant]] (LazySeq x)))}]
+          IPersistentCollection (IPersistentCollection a)}]
 
 Reduced [[[a :variance :covariant]]
          :replace
@@ -514,17 +412,47 @@ clojure.core.typed/Keyword clojure.lang.Keyword
         :forms [Symbol]}
 clojure.core.typed/Symbol clojure.lang.Symbol
 
-;clojure.core.typed/AnyPrimitive (U char int short boolean byte short long float double)
+      ^{:doc "A namespace"
+        :forms [Namespace]}
+clojure.core.typed/Namespace clojure.lang.Namespace
 
     ^{:doc "An atom that can read and write type x."
       :forms [(Atom1 t)]}
-clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] (Atom x x))
+clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] 
+                              (clojure.lang.Atom x x))
+    ^{:doc "An atom that can write type w and read type r."
+      :forms [(Atom2 t)]}
+clojure.core.typed/Atom2 (TFn [[w :variance :contravariant]
+                               [r :variance :covariant]] 
+                              (clojure.lang.Atom w r))
     ^{:doc "An var that can read and write type x."
       :forms [(Var1 t)]}
-clojure.core.typed/Var1 (TFn [[x :variance :invariant]] (Var x x))
+clojure.core.typed/Var1 
+    (TFn [[x :variance :invariant]] 
+         (clojure.lang.Var x x))
+    ^{:doc "An var that can write type w and read type r."
+      :forms [(Var2 w r)]}
+clojure.core.typed/Var2 
+    (TFn [[w :variance :contravariant]
+          [r :variance :covariant]] 
+         (clojure.lang.Var w r))
     ^{:doc "A ref that can read and write type x."
       :forms [(Ref1 t)]}
 clojure.core.typed/Ref1 (TFn [[x :variance :invariant]] (IRef x x))
+    ^{:doc "A ref that can write type w and read type r."
+      :forms [(Ref2 w r)]}
+clojure.core.typed/Ref2 (TFn [[w :variance :contravariant]
+                              [r :variance :covariant]] 
+                             (IRef w r))
+    ^{:doc "An agent that can read and write type x."
+      :forms [(Agent1 t)]}
+clojure.core.typed/Agent1 (TFn [[x :variance :invariant]] 
+                               (clojure.lang.Agent x x))
+    ^{:doc "An agent that can write type w and read type r."
+      :forms [(Agent2 t t)]}
+clojure.core.typed/Agent2 (TFn [[w :variance :contravariant]
+                                [r :variance :covariant]] 
+                               (clojure.lang.Agent w r))
 
     ^{:doc "A union of x and nil."
       :forms [(Option t)]}
@@ -541,14 +469,7 @@ clojure.core.typed/Id (TFn [[x :variance :covariant]] x)
       ^{:doc "A persistent collection with member type x."
         :forms [(Coll t)]}
 clojure.core.typed/Coll (TFn [[x :variance :covariant]]
-                             (IPersistentCollection x 
-                                                    #_(TFn [[x :variance :covariant]] x)
-                                                    #_(Rec [c]
-                                                      (TFn [[x :variance :covariant]] 
-                                                         (IPersistentCollection 
-                                                           Any 
-                                                           (TFn [[x :variance :covariant]] Any) 
-                                                           c)))))
+                             (IPersistentCollection x))
     ^{:doc "A persistent collection with member type x and count greater than 0."
       :forms [(NonEmptyColl t)]}
 clojure.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
@@ -623,6 +544,26 @@ clojure.core.typed/NonEmptyCount (CountRange 1)
 clojure.core.typed/Hierarchy '{:parents (IPersistentMap Any Any)
                                :ancestors (IPersistentMap Any Any)
                                :descendants (IPersistentMap Any Any)}
+
+    ^{:doc "A Clojure future (see clojure.core/{future-call,future})."
+      :forms [(Future x)]}
+clojure.core.typed/Future 
+                      (TFn [[x :variance :covariant]]
+                       (Extends [(IDeref x)
+                                 (IBlockingDeref x)
+                                 clojure.lang.IPending
+                                 java.util.concurrent.Future]))
+
+    ^{:doc "A Clojure promise (see clojure.core/{promise,deliver})."
+      :forms [(Promise x)]}
+clojure.core.typed/Promise 
+              (TFn [[x :variance :covariant #_:invariant]]
+               (Rec [p]
+                (I (Extends [(IDeref x)
+                             (IBlockingDeref x)
+                             clojure.lang.IPending])
+                   ;TODO this causes stack overflows
+                   #_[x -> (U nil p)])))
     ))
 
 (defn reset-alias-env! []
@@ -642,6 +583,28 @@ clojure.core.typed/Hierarchy '{:parents (IPersistentMap Any Any)
                                  (set (keys alias-env)))))
     (nme-env/reset-name-env! alias-env)))
 
+(delay-and-cache-env ^:private init-protocol-env 
+                     {}
+   #_(protocol-mappings
+clojure.java.io/IOFactory 
+     [[]
+      :methods
+      {
+       make-reader
+       [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedReader]
+
+       make-writer 
+       [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedWriter]
+
+       make-input-stream 
+       [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedInputStream]
+
+       make-output-stream
+       [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedOutputStream]
+       }]
+
+     ))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type annotations
 
@@ -650,7 +613,8 @@ clojure.core.typed/Hierarchy '{:parents (IPersistentMap Any Any)
 (let [interns '[Option AnyInteger Id Coll Seq NonEmptySeq EmptySeqable
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
-                Hierarchy Nilable Int Var1]]
+                Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
+                Symbol Namespace Atom2]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -698,21 +662,48 @@ clojure.core.typed/override-method* [Any Any -> Any]
 clojure.core.typed/typed-deps* [Any -> Any]
 clojure.core.typed/load-if-needed [-> Any]
 ; should always be special cased
-;clojure.core.typed/var>* [Any -> (Var Any)]
+;clojure.core.typed/var>* [Any -> (Var2 Nothing Any)]
 
 ;; core annotations
 
 clojure.core/*ns* Namespace
-clojure.core/*out* java.io.Writer
-clojure.core/*err* java.io.Writer
-clojure.core/*warn-on-reflection* Any
 clojure.core/pop-thread-bindings [-> Any]
 clojure.core/load [String * -> Any]
 clojure.core/read-string [String -> Any]
+clojure.core/read (Fn [-> Any]
+                      [java.io.Reader -> Any]
+                      [java.io.Reader Boolean Any -> Any]
+                      [java.io.Reader Boolean Any Boolean -> Any])
+clojure.core/read-line [-> Any]
+
+clojure.core/alength [(ReadOnlyArray Any) -> AnyInteger]
+clojure.core/aclone (All [x] [(ReadOnlyArray x) -> (Array x)])
+clojure.core/aget (All [x] (Fn [(ReadOnlyArray x) 
+                                AnyInteger -> x]
+                               [(ReadOnlyArray (ReadOnlyArray x)) 
+                                AnyInteger AnyInteger -> x]
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))) 
+                                AnyInteger AnyInteger AnyInteger -> x]
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))) 
+                                AnyInteger AnyInteger AnyInteger AnyInteger -> x]
+                               ; unsound
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray Any)))))
+                                AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger * -> Any]))
+
+clojure.core/macroexpand-1 [Any -> Any]
+clojure.core/macroexpand [Any -> Any]
+
+clojure.core/create-struct [Any * -> (Map Any Any)]
+
+clojure.core/find-ns [Symbol -> Namespace]
+clojure.core/create-ns [Symbol -> Namespace]
+clojure.core/remove-ns [Symbol -> Namespace]
 
 clojure.core/namespace [(U Symbol String Keyword) -> (Option String)]
-clojure.core/ns-name [Namespace -> Symbol]
+clojure.core/ns-name [(U Symbol Namespace) -> Symbol]
+clojure.core/ns-map [(U Symbol Namespace) -> Symbol]
 clojure.core/name [(U String Named) -> String]
+clojure.core/the-ns [(U Symbol Namespace) -> Namespace]
 clojure.core/in-ns [Symbol -> nil]
 clojure.core/import [Any * -> nil]
 clojure.core/identity (All [x] [x -> x
@@ -721,8 +712,8 @@ clojure.core/identity (All [x] [x -> x
                                 :object {:id 0}])
 clojure.core/gensym (Fn [-> Symbol]
                         [(U Symbol String) -> Symbol])
-clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> (Var Nothing Any)]
-                        [(U Symbol Namespace) Symbol Any -> (Var Nothing Any)])
+clojure.core/intern (Fn [(U Symbol Namespace) Symbol -> (Var2 Nothing Any)]
+                        [(U Symbol Namespace) Symbol Any -> (Var2 Nothing Any)])
 
 
 clojure.core/doall (All [[c :< (U nil (Seqable Any))]]
@@ -737,6 +728,8 @@ clojure.core/memoize (All [x y ...]
 
 clojure.core/key (All [x]
                            [(IMapEntry x Any) -> x])
+clojure.core/val (All [x]
+                           [(IMapEntry Any x) -> x])
 
 ;TODO flip filters
 clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]])
@@ -801,8 +794,85 @@ clojure.core/repeatedly
 
 clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)])
 
-clojure.core/some-fn [[Any -> Any] [Any -> Any] * -> [Any -> Any]]
-clojure.core/every-pred [[Any -> Any] [Any -> Any] * -> [Any -> Any]]
+; Unions need to support dots for this to work:
+;
+; (All [t0 b ...]
+;    (Fn [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}] 
+;         [Any -> Any :filters {:then (is b 0) :else (! b 0)}] ... b
+;         -> (Fn [Any -> Any :filters {:then (is (U t0 b ... b) 0) :else (! (U t0 b ... b) 0)}]
+;                [Any * -> Any])]))
+clojure.core/some-fn 
+  (All [t0 t1 t2 t3 t4 t5]
+    (Fn [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         -> (Fn [Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (U t0 t1) 0) :else (! (U t0 t1) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (U t0 t1 t2) 0) :else (! (U t0 t1 t2) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (U t0 t1 t2 t3) 0) :else (! (U t0 t1 t2 t3) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
+         [Any -> Boolean :filters {:then (is t4 0) :else (! t4 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (U t0 t1 t2 t3 t4) 0) :else (! (U t0 t1 t2 t3 t4) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
+         [Any -> Boolean :filters {:then (is t4 0) :else (! t4 0)}]
+         [Any -> Boolean :filters {:then (is t5 0) :else (! t5 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (U t0 t1 t2 t3 t4 t5) 0) :else (! (U t0 t1 t2 t3 t4 t5) 0)}]
+                [Any * -> Any])]
+        [[Any -> Any] [Any -> Any] * -> [Any * -> Any]]))
+clojure.core/every-pred
+  (All [t0 t1 t2 t3 t4 t5]
+    (Fn [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         -> (Fn [Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (I t0 t1) 0) :else (! (I t0 t1) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (I t0 t1 t2) 0) :else (! (I t0 t1 t2) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3) 0) :else (! (I t0 t1 t2 t3) 0)}]
+                [Any * -> Any])]
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
+         [Any -> Boolean :filters {:then (is t4 0) :else (! t4 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3 t4) 0) :else (! (I t0 t1 t2 t3 t4) 0)}]
+                [Any * -> Any])]
+        [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}] 
+         [Any -> Any :filters {:then (is t1 0) :else (! t1 0)}]
+         [Any -> Any :filters {:then (is t2 0) :else (! t2 0)}]
+         [Any -> Any :filters {:then (is t3 0) :else (! t3 0)}]
+         [Any -> Any :filters {:then (is t4 0) :else (! t4 0)}]
+         [Any -> Any :filters {:then (is t5 0) :else (! t5 0)}]
+         -> (Fn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3 t4 t5) 0) :else (! (I t0 t1 t2 t3 t4 t5) 0)}]
+                [Any * -> Any])]
+        [[Any -> Any] [Any -> Any] * -> [Any * -> Any]]))
 
 clojure.core/concat (All [x] [(Option (Seqable x)) * -> (Seq x)])
 
@@ -826,8 +896,8 @@ clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
 clojure.core/not [Any -> boolean]
 clojure.core/constantly (All [x y] [x -> [y * -> x]])
 
-clojure.core/bound? [(Var Nothing Any) * -> Boolean]
-clojure.core/thread-bound? [(Var Nothing Any) * -> Boolean]
+clojure.core/bound? [(Var2 Nothing Any) * -> Boolean]
+clojure.core/thread-bound? [(Var2 Nothing Any) * -> Boolean]
 clojure.core/bases [(Nilable Class) -> (NilableNonEmptySeq Class)]
 
 clojure.core/make-hierarchy [-> Hierarchy]
@@ -889,13 +959,28 @@ clojure.core/partial
 clojure.core/str [Any * -> String]
 clojure.core/prn-str [Any * -> String]
 clojure.core/pr-str [Any * -> String]
+clojure.core/newline [-> nil]
 
 clojure.core/print [Any * -> nil]
 clojure.core/println [Any * -> nil]
 clojure.core/pr [Any * -> nil]
 clojure.core/prn [Any * -> nil]
 clojure.core/flush [-> nil]
+clojure.core/*print-length* (U nil false AnyInteger)
+clojure.core/*print-level* (U nil false AnyInteger)
+clojure.core/*verbose-defrecords* Boolean
+clojure.core/print-ctor [Object [Object java.io.Writer -> Any] java.io.Writer -> nil]
 
+clojure.core/prefer-method [clojure.lang.MultiFn Any Any -> Any]
+clojure.core/print-simple [Any java.io.Writer -> nil]
+clojure.core/char-escape-string (Map Character String)
+clojure.core/char-name-string (Map Character String)
+clojure.core/primitives-classnames (Map Class String)
+
+clojure.core/namespace-munge [(U Symbol Namespace) -> String]
+
+;clojure.core/find-protocol-impl ['{:on-interface Class
+;                                   :impls ?}]
 
 clojure.core/format [String Any * -> String]
 
@@ -909,33 +994,67 @@ clojure.core/re-seq [java.util.regex.Pattern String -> (Seq (U nil String (Vec (
 clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String])
 
-clojure.core/future-call (All [x] [[-> x] -> (Extends [(IDeref x)
-                                                       java.util.concurrent.Future])])
+;TODO
+;clojure.core/spit [java.io.Writer Any
+
+clojure.core/future-call (All [x] [[-> x] -> (Future x)])
 
 clojure.core/atom (All [x]
-                       [x & :optional {:validator (U nil [x -> Any]) :meta Any}-> (Atom x x)])
+                       [x & :optional {:validator (U nil [x -> Any]) :meta Any} -> (Atom2 x x)])
 
 clojure.core/set-validator! (All [x]
                                  [(clojure.lang.IRef Any x) [x -> Any] -> nil])
 
 clojure.core/deref (All [x y]
-                             (Fn [(IDeref x) -> x]
-                                 [(IDeref x) AnyInteger y -> (U x y)]))
+                     (Fn [(IDeref x) -> x]
+                         [(U (IDeref Any) java.util.concurrent.Future) -> Any]
+                         [(IBlockingDeref x) AnyInteger y -> (U x y)]
+                         [(U java.util.concurrent.Future (IBlockingDeref Any)) AnyInteger Any -> Any]))
 
 clojure.core/delay? (predicate (Delay Any))
 
+clojure.core/future-cancelled? [java.util.concurrent.Future -> Boolean]
+
+clojure.core/future-cancel [java.util.concurrent.Future -> Any]
+
+clojure.core/future? (predicate java.util.concurrent.Future)
+
+clojure.core/future-done? [java.util.concurrent.Future -> Boolean]
+
 clojure.core/force (All [x]
                         (Fn [(Delay x) -> x]
-                            [x -> x]))
+                            [Any -> Any]))
 
 clojure.core/reset! (All [w r]
-                              [(Atom w r) w -> w])
+                              [(Atom2 w r) w -> w])
 
 clojure.core/swap! (All [w r b ...] 
-                             [(Atom w r) [r b ... b -> w] b ... b -> w])
+                             [(Atom2 w r) [r b ... b -> w] b ... b -> w])
+
+clojure.core/compare-and-set!
+                   (All [w]
+                     [(Atom2 w Any) Any w -> Boolean])
+
+clojure.core/set-validator!
+                   (All [w]
+                     [(clojure.lang.IRef w Any) (U nil [w -> Any]) -> Any])
+
+clojure.core/get-validator
+                   (All [w]
+                     [(clojure.lang.IRef w Any) -> (U nil [w -> Any])])
 
 clojure.core/alter-var-root (All [w r b ...] 
-                              [(Var w r) [r b ... b -> w] b ... b -> w])
+                              [(Var2 w r) [r b ... b -> w] b ... b -> w])
+
+clojure.core/method-sig [java.lang.reflect.Method -> '[Any (U nil (NonEmptySeqable Any)) Any]]
+clojure.core/proxy-name [Class (U nil (Seqable Class)) -> String]
+clojure.core/get-proxy-class [Class * -> Class]
+clojure.core/construct-proxy [Class Any * -> Any]
+clojure.core/init-proxy [clojure.lang.IProxy (Map String Any) -> clojure.lang.IProxy]
+clojure.core/update-proxy [clojure.lang.IProxy (Map String Any) -> clojure.lang.IProxy]
+clojure.core/proxy-mappings [clojure.lang.IProxy -> (Map String Any)]
+clojure.core/proxy-call-with-super (All [x] [[-> x] clojure.lang.IProxy String -> x])
+clojure.core/bean [Object -> (Map Any Any)]
 
 clojure.core/fnil (All [x y z a b ...]
                     (Fn [[x b ... b -> a] x -> [(U nil x) b ... b -> a]]
@@ -944,7 +1063,7 @@ clojure.core/fnil (All [x y z a b ...]
 
 clojure.core/symbol
      (Fn [(U Symbol String) -> Symbol]
-         [String String -> Symbol])
+         [(U nil String) String -> Symbol])
 
 clojure.core/keyword
      (Fn [(U Keyword Symbol String) -> Keyword]
@@ -975,11 +1094,16 @@ clojure.core/map? (predicate (Map Any Any))
     (h/var-mappings
 
 clojure.core/coll? (predicate (Coll Any))
-clojure.core/meta (All [x]
-                            (Fn [(IMeta x) -> x]
-                                [Any -> nil]))
-clojure.core/with-meta (All [[x :< clojure.lang.IObj] y]
-                              [x y -> (I x (IMeta y))])
+clojure.core/meta [Any -> (U nil (Map Any Any))]
+clojure.core/with-meta (All [[x :< clojure.lang.IObj]]
+                            [x (U nil (Map Any Any)) -> x])
+clojure.core/vary-meta (All [[x :< clojure.lang.IObj] b ...]
+                            [x [(U nil (Map Any Any)) b ... b -> (U nil (Map Any Any))] b ... b -> x])
+
+clojure.core/reset-meta! [clojure.lang.IReference (U nil (Map Any Any)) -> (U nil (Map Any Any))]
+clojure.core/alter-meta! 
+      (All [b ...]
+      [clojure.lang.IReference [(U nil (Map Any Any)) b ... b -> (U nil (Map Any Any))] b ... b -> (U nil (Map Any Any))])
 
 clojure.core/string? (predicate String)
 clojure.core/char? (predicate Character)
@@ -1050,7 +1174,7 @@ clojure.core/seq (All [x]
 ;                        [sfn :kind [* -> *]]
 ;                    (Fn
 ;                      [(Seqable x :count (CountRange 1) :to-seq sfn) -> (sfn x)]
-;                      [(Seqable x :count AnyCountRange :to-seq sfn) -> (U nil (sfn x))]
+;                      [(Seqable x :count AnyCountRange :to-seq sfn) -> (U nil (sfn x))]))
 
 clojure.core/empty? (Fn [(Option (Coll Any)) -> boolean
                           :filters {:then (| (is EmptyCount 0)
@@ -1070,6 +1194,33 @@ clojure.core/mapv
 clojure.core/mapcat
      (All [c b ...]
           [[b ... b -> (Option (Seqable c))] (Option (Seqable b)) ... b -> (Seq c)])
+
+clojure.core/pmap
+     (All [c a b ...]
+          (Fn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable b) ... b -> (NonEmptySeq c)]
+              [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (Seq c)]))
+
+clojure.core/pcalls
+      (All [r]
+           [[-> r] * -> (Seq r)])
+
+clojure.core/*clojure-version* '{:major Any
+                                 :minor Any
+                                 :incremental Any
+                                 :qualifier Any}
+
+clojure.core/clojure-version [-> String]
+
+clojure.core/promise
+        (All [x]
+           [-> (Promise x)])
+
+clojure.core/deliver (All [x] [(Promise x) x -> (U nil (Promise x))])
+
+clojure.core/flatten [Any -> Any]
+
+;TODO review
+;clojure.core/group-by (All [x y] [[x -> y] (U nil (Seqable x)) -> (Map y (Vec x))])
 
 clojure.core/map-indexed
      (All [x y] [[AnyInteger x -> y] (Option (Seqable x)) -> (Seqable y)])
@@ -1091,6 +1242,10 @@ clojure.core/reduce
             ; default
             ; (reduce + 3 my-coll)
             [[a c -> (U (Reduced a) a)] a (Option (Seqable c)) -> a]))
+
+clojure.core/reduce-kv
+    (All [a c k v]
+      [[a k v -> (U (Reduced a) a)] a (Option (Associative k v)) -> a])
 
 clojure.core/reduced (All [x] [x -> (Reduced x)])
 clojure.core/reduced? (predicate (Reduced Any))
@@ -1126,14 +1281,14 @@ clojure.core/not= [Any Any * -> boolean]
 
 clojure.core/first
      (All [x]
-          (Fn [(U (IMapEntry x Any) '[x Any *]) -> x]
+          (Fn ['[x Any *] -> x]
               [(Option (EmptySeqable x)) -> nil]
               [(NonEmptySeqable x) -> x]
               [(Option (Seqable x)) -> (Option x)]))
 
 clojure.core/second
      (All [x]
-          (Fn [(U (IMapEntry Any x) '[Any x Any *]) -> x]
+          (Fn ['[Any x Any *] -> x]
               [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
               [(I (Seqable x) (CountRange 2)) -> x]
               [(Option (Seqable x)) -> (Option x)]))
@@ -1181,9 +1336,10 @@ clojure.core/next
 
 clojure.core/into
       (All [x y]
-           (Fn [(IPersistentMap x y) (U nil (Seqable (U nil (IMapEntry x y) '[x y]))) -> (IPersistentMap x y)]
-               [(IPersistentVector x) (U nil (Seqable x)) -> (IPersistentVector x)]
-               [(IPersistentSet x) (U nil (Seqable x)) -> (IPersistentSet x)]))
+           (Fn [(Map x y) (U nil (Seqable (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) '[x y]))) -> (Map x y)]
+               [(Vec x) (U nil (Seqable x)) -> (Vec x)]
+               [(Set x) (U nil (Seqable x)) -> (Set x)]
+               [(Coll Any) (U nil (Seqable Any)) -> (Coll Any)]))
 
 clojure.core/conj
 ;     (All [e
@@ -1197,11 +1353,12 @@ clojure.core/conj
      (All [x y]
           (Fn [(IPersistentVector x) x x * -> (IPersistentVector x)]
               [(APersistentMap x y)
-               (U nil (IMapEntry x y) (Vector* x y))
-               (U nil (IMapEntry x y) (Vector* x y)) * -> (APersistentMap x y)]
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y))
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y)) *
+               -> (APersistentMap x y)]
               [(IPersistentMap x y)
-               (U nil (IMapEntry x y) (Vector* x y))
-               (U nil (IMapEntry x y) (Vector* x y)) * -> (IPersistentMap x y)]
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y))
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y)) * -> (IPersistentMap x y)]
               [(IPersistentSet x) x x * -> (IPersistentSet x)]
               [(Seq x) x x * -> (ASeq x)]
               [nil x x * -> (clojure.lang.PersistentList x)]
@@ -1226,25 +1383,28 @@ clojure.core/conj
 
 clojure.core/find
      (All [x y]
-          [(IPersistentMap x y) Any -> (Option (Vector* x y))])
+          [(U nil (Associative x y)) Any -> (U nil (HVec [x y]))])
 
 ; same as clojure.lang.RT/get
 clojure.core/get
      (All [x y]
           (Fn 
             ;no default
-            [(IPersistentSet x) Any -> (Option x)]
-            [nil Any -> nil]
-            [(Option (ILookup Any x)) Any -> (Option x)]
-            [java.util.Map Any -> (Option Any)]
-            [String Any -> (Option Character)]
+            [(U nil (Set x) (ILookup Any x)) Any -> (Option x)]
+            [(Option java.util.Map) Any -> Any]
+            [(Option String) Any -> (Option Character)]
             ;default
-            [(IPersistentSet x) Any y -> (U y x)]
-            [nil Any y -> y]
-            [(Option (ILookup Any x)) Any y -> (U y x)]
-            [java.util.Map Any y -> (U y Any)]
-            [String Any y -> (U y Character)]
+            [(U nil (Set x) (ILookup Any x)) Any y -> (U y x)]
+            [(Option java.util.Map) Any y -> (U y Any)]
+            [(Option String) Any y -> (U y Character)]
             ))
+
+clojure.core/get-in
+    (Fn [Any (U nil (Seqable Any)) -> Any]
+        [Any (U nil (Seqable Any)) Any -> Any])
+
+clojure.core/assoc-in
+    [(U nil (Associative Any Any)) (Seqable Any) Any -> Any]
 
 ;FIXME maps after the first can always be nil
 clojure.core/merge 
@@ -1261,16 +1421,16 @@ clojure.core/= [Any Any * -> (U true false)]
 
 clojure.core/integer? (predicate AnyInteger)
 clojure.core/number? (predicate Number)
-clojure.core/var? (predicate (clojure.lang.Var Nothing Any))
+clojure.core/var? (predicate (Var2 Nothing Any))
 clojure.core/class? (predicate Class)
 
-clojure.core/resolve (Fn [Symbol -> (U (Var Nothing Any) Class nil)]
+clojure.core/resolve (Fn [Symbol -> (U (Var2 Nothing Any) Class nil)]
                          ; should &env arg be more accurate?
-                         [Any Symbol -> (U (Var Nothing Any) Class nil)])
+                         [Any Symbol -> (U (Var2 Nothing Any) Class nil)])
 
-clojure.core/ns-resolve (Fn [(U Symbol Namespace) Symbol -> (U (Var Nothing Any) Class nil)]
+clojure.core/ns-resolve (Fn [(U Symbol Namespace) Symbol -> (U (Var2 Nothing Any) Class nil)]
                             ; should &env arg be more accurate?
-                            [(U Symbol Namespace) Any Symbol -> (U (Var Nothing Any) Class nil)])
+                            [(U Symbol Namespace) Any Symbol -> (U (Var2 Nothing Any) Class nil)])
 
 clojure.core/extenders [Any -> (U nil (Seqable (U Class nil)))]
 
@@ -1289,6 +1449,22 @@ clojure.core/-' (Fn [AnyInteger AnyInteger * -> AnyInteger]
 clojure.core/*' (Fn [AnyInteger * -> AnyInteger]
                     [Number * -> Number])
 
+clojure.core/unchecked-inc (Fn [AnyInteger -> AnyInteger]
+                               [Number -> Number])
+clojure.core/unchecked-inc-int [Number -> AnyInteger]
+clojure.core/unchecked-dec (Fn [AnyInteger -> AnyInteger]
+                               [Number -> Number])
+clojure.core/unchecked-dec-int [Number -> AnyInteger]
+clojure.core/unchecked-negate (Fn [AnyInteger -> AnyInteger]
+                               [Number -> Number])
+clojure.core/unchecked-negate-int [Number -> AnyInteger]
+clojure.core/unchecked-add (Fn [AnyInteger AnyInteger -> AnyInteger]
+                               [Number Number -> Number])
+clojure.core/unchecked-multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
+                                    [Number Number -> Number])
+clojure.core/unchecked-multiply-int [Number Number -> AnyInteger]
+clojure.core/unchecked-divide-int [Number Number -> AnyInteger]
+clojure.core/unchecked-remainder-int [Number Number -> AnyInteger]
 clojure.core/inc (Fn [AnyInteger -> AnyInteger]
                           [Number -> Number])
 clojure.core/dec (Fn [AnyInteger -> AnyInteger]
@@ -1297,8 +1473,102 @@ clojure.core/dec (Fn [AnyInteger -> AnyInteger]
 clojure.core/inc' (Fn [AnyInteger -> AnyInteger]
                           [Number -> Number])
 
+clojure.core/rationalize [Number -> Number]
+
+clojure.core/bit-not [AnyInteger -> AnyInteger]
+clojure.core/bit-and [AnyInteger AnyInteger AnyInteger * -> AnyInteger]
+clojure.core/bit-or [AnyInteger AnyInteger AnyInteger * -> AnyInteger]
+clojure.core/bit-xor [AnyInteger AnyInteger AnyInteger * -> AnyInteger]
+clojure.core/bit-and-not [AnyInteger AnyInteger AnyInteger * -> AnyInteger]
+clojure.core/bit-clear [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/bit-set [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/bit-flip [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/bit-test [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/bit-shift-left [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/bit-shift-right [AnyInteger AnyInteger -> AnyInteger]
+clojure.core/unsigned-bit-shift-right [AnyInteger AnyInteger -> AnyInteger]
+
 clojure.core/even? [AnyInteger -> boolean]
 clojure.core/odd? [AnyInteger -> boolean]
+
+clojure.core/peek (All [x]
+                       (Fn [(I NonEmptyCount (IPersistentStack x)) -> x]
+                           [(IPersistentStack x) -> x]))
+clojure.core/pop (All [x]
+                      (Fn
+                        [(IPersistentList x) -> (IPersistentList x)]
+                        [(Vec x) -> (Vec x)]
+                        [(IPersistentStack x) -> (IPersistentStack x)]))
+
+clojure.core/get-thread-bindings
+    [-> (Map (Var2 Nothing Any) Any)]
+clojure.core/bound-fn*
+    (All [r b ...]
+         [[b ... b -> r] -> [b ... b -> r]])
+
+clojure.core/find-var
+    [Symbol -> (Var2 Nothing Any)]
+
+clojure.core/agent
+    (All [x] [x & :optional {:validator (U nil [x -> Any]) :meta Any
+                             :error-handler (U nil [(Agent1 x) Throwable -> Any])
+                             :error-mode (U ':continue ':fail)} 
+              -> (Agent1 x)])
+
+clojure.core/set-agent-send-executor!
+    [java.util.concurrent.ExecutorService -> Any]
+
+clojure.core/set-agent-send-off-executor!
+    [java.util.concurrent.ExecutorService -> Any]
+
+clojure.core/send-via (All [w r b ...] 
+                           [(Agent2 w r) [r b ... b -> w] b ... b -> (Agent2 w r)])
+
+clojure.core/send (All [w r b ...] 
+                           [(Agent2 w r) [r b ... b -> w] b ... b -> (Agent2 w r)])
+
+clojure.core/send-off (All [w r b ...] 
+                           [(Agent2 w r) [r b ... b -> w] b ... b -> (Agent2 w r)])
+
+clojure.core/release-pending-sends [-> AnyInteger]
+
+clojure.core/add-watch
+        (All [x [a :< (IRef Nothing x)]]
+             (Fn 
+               ; this arity remembers the type of reference we pass to the function
+               [a Any [Any a x x -> Any] -> Any]
+               ; if the above cannot be inferred, 
+               [(IRef Nothing x) Any [Any (IRef Nothing x) x x -> Any] -> Any]))
+
+clojure.core/remove-watch [(IRef Nothing Any) Any -> Any]
+
+clojure.core/agent-error [(Agent2 Nothing Any) -> (U nil Throwable)]
+
+clojure.core/restart-agent
+(All [w]
+     ; w is invariant
+     [(Agent2 w Any) w & :optional {:clear-actions Any} -> Any])
+
+clojure.core/set-error-handler!
+(All [w r]
+    [(Agent2 w r) [(Agent2 w r) Throwable -> Any] -> Any])
+
+clojure.core/error-handler
+(All [w r]
+    [(Agent2 w r) -> (U nil [(Agent2 w r) Throwable -> Any])])
+
+clojure.core/set-error-mode!
+    [(Agent2 Nothing Any) (U ':fail ':continue) -> Any]
+
+clojure.core/error-mode
+    [(Agent2 Nothing Any) -> Any]
+
+clojure.core/agent-errors
+    [(Agent2 Nothing Any) -> (U nil (Seq Throwable))]
+clojure.core/clear-agent-errors
+    [(Agent2 Nothing Any) -> Any]
+
+clojure.core/shutdown-agents [-> Any]
 
 clojure.core/take
      (All [x]
@@ -1340,7 +1610,8 @@ clojure.core/short-array (Fn [(U nil Number (Seqable Short)) -> (Array short)]
 clojure.core/char-array (Fn [(U nil Number (Seqable Character)) -> (Array char)]
                             [Number (U Number (Seqable Character)) -> (Array char)])
 
-
+clojure.core/max-key (All [x] 
+                          [[x -> Number] x x x * -> x])
 
 clojure.core/< [Number Number * -> boolean]
 
@@ -1355,7 +1626,10 @@ clojure.core/== [Number Number * -> boolean]
 clojure.core/max [Number Number * -> Number]
 clojure.core/min [Number Number * -> Number]
 
-clojure.core/ref (All [x] [x -> (clojure.lang.ARef x x)])
+clojure.core/ref (All [x] [x & :optional {:validator (U nil [x -> Any]) :meta (U nil (Map Any Any))
+                                          :min-history (U nil AnyInteger)
+                                          :max-history (U nil AnyInteger)}
+                           -> (clojure.lang.ARef x x)])
 
 clojure.core/rand (Fn [-> Number]
                       [Number -> Number])
@@ -1395,12 +1669,27 @@ clojure.core/chunk-append
 
 
 clojure.core/subvec (All [x] 
-                     (Fn [(IPersistentVector x) AnyInteger -> (IPersistentVector x)]
-                         [(IPersistentVector x) AnyInteger AnyInteger -> (IPersistentVector x)]))
+                     (Fn [(Vec x) AnyInteger -> (Vec x)]
+                         [(Vec x) AnyInteger AnyInteger -> (Vec x)]))
 
 clojure.core/alias [Symbol Symbol -> nil]
-clojure.core/all-ns [-> (Coll Namespace)]
+clojure.core/all-ns [-> (NilableNonEmptySeq Namespace)]
 
+clojure.core/*file* String
+clojure.core/*command-line-args* (U nil (NonEmptySeq String))
+clojure.core/*warn-on-reflection* Boolean
+clojure.core/*compile-path* String
+clojure.core/*compile-files* Boolean
+clojure.core/*unchecked-math* Boolean
+clojure.core/*compiler-options* (Map Any Any)
+clojure.core/*in* java.io.Reader
+clojure.core/*out* java.io.Writer
+clojure.core/*err* java.io.Writer
+clojure.core/*flush-on-newline* Boolean
+clojure.core/*print-meta* Boolean
+clojure.core/*print-dup* Boolean
+clojure.core/*print-readably* Boolean
+clojure.core/*read-eval* (U ':unknown Boolean)
 
 ;; math.numeric-tower
 
@@ -1627,14 +1916,44 @@ clojure.lang.Numbers/inc (Fn [AnyInteger -> AnyInteger]
                                               [Number -> Number])
 clojure.lang.Numbers/dec (Fn [AnyInteger -> AnyInteger]
                              [Number -> Number])
+clojure.lang.Numbers/unchecked_inc (Fn [AnyInteger -> AnyInteger]
+                                              [Number -> Number])
+clojure.lang.Numbers/unchecked_dec (Fn [AnyInteger -> AnyInteger]
+                                              [Number -> Number])
+clojure.lang.Numbers/unchecked_int_inc [Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_int_dec [Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_int_negate [Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_minus (Fn ; negate
+                                         [AnyInteger -> AnyInteger]
+                                         [Number -> Number]
+                                         ; subtract
+                                         [AnyInteger AnyInteger -> AnyInteger]
+                                         [Number Number -> Number])
 clojure.lang.Numbers/minus (Fn 
                              [AnyInteger -> AnyInteger]
                              [Number -> Number]
                              [AnyInteger AnyInteger -> AnyInteger]
                              [Number Number -> Number])
+clojure.lang.Numbers/unchecked_multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
+                                            [Number Number -> Number])
+clojure.lang.Numbers/unchecked_int_multiply [Number Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_int_divide [Number Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_int_remainder [Number Number -> AnyInteger]
 clojure.lang.Numbers/multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
                                   [Number Number -> Number])
 clojure.lang.Numbers/divide [Number Number -> Number]
+      ;bit-not
+clojure.lang.Numbers/not [AnyInteger -> AnyInteger]
+;bit-and
+clojure.lang.Numbers/and [AnyInteger AnyInteger -> AnyInteger]
+;bit-or
+clojure.lang.Numbers/or [AnyInteger AnyInteger -> AnyInteger]
+;bit-xor
+clojure.lang.Numbers/xor [AnyInteger AnyInteger -> AnyInteger]
+;bit-and-not
+clojure.lang.Numbers/andNot [AnyInteger AnyInteger -> AnyInteger]
+; unsigned-bit-shift-right 
+clojure.lang.Numbers/unsignedShiftRight [AnyInteger AnyInteger -> AnyInteger]
 
 clojure.lang.Numbers/max [Number Number * -> Number]
 clojure.lang.Numbers/min [Number Number * -> Number]
@@ -1686,8 +2005,6 @@ clojure.lang.LazySeq (All [x]
 clojure.lang.Delay (All [x]
                         [[-> x] -> (Delay x)])
     ))
-
-(delay-and-cache-env ^:private init-protocol-env {})
 
 (delay-and-cache-env ^:private init-declared-kinds {})
 

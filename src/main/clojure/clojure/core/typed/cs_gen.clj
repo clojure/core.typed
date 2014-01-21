@@ -608,6 +608,15 @@
             ;output covariant
             [(.input-type T) (.output-type S)]
             [(.input-type S) (.output-type T)]))
+
+        ; some RClass's have heterogeneous vector ancestors (in "unchecked ancestors")
+        (and (r/RClass? S)
+             (r/HeterogeneousVector? T))
+        (if-let [[Sv] (seq
+                        (filter r/HeterogeneousVector?
+                                (map c/fully-resolve-type (c/RClass-supers* S))))]
+          (cs-gen V X Y Sv T)
+          (fail! S T))
         
         (and (r/HeterogeneousMap? S)
              (r/RClass? T)

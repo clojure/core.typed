@@ -1,3 +1,193 @@
+# 0.2.22-SNAPSHOT
+
+## BREAKING CHANGES
+
+- Erase type arguments for:
+  - clojure.lang.IMeta
+  - clojure.lang.IReference
+  - clojure.lang.AReference
+- Less accurate type for:
+  - `clojure.core/meta` and `clojure.core/with-meta`
+    - see note on metadata support below
+
+## New Aliases
+
+- `clojure.core.typed/Namespace`
+- `clojure.core.typed/Atom2`
+- `clojure.core.typed/Var2`
+- `clojure.core.typed/Ref2`
+- `clojure.core.typed/Agent1`
+- `clojure.core.typed/Agent2`
+- `clojure.core.typed/Future`
+- `clojure.core.typed/Promise`
+
+## New class annotations
+
+- `clojure.lang.IBlockingDeref`
+- `clojure.lang.Agent`
+
+## New var annotations (and inlinings)
+
+```
+clojure.core/read
+clojure.core/read-line
+clojure.core/alength
+clojure.core/aclone
+clojure.core/aget
+clojure.core/macroexpand-1
+clojure.core/macroexpand
+clojure.core/create-struct
+clojure.core/find-ns
+clojure.core/create-ns
+clojure.core/remove-ns
+clojure.core/ns-map
+clojure.core/the-ns
+clojure.core/val
+clojure.core/newline
+clojure.core/*print-length*
+clojure.core/*print-level*
+clojure.core/*verbose-defrecords*
+clojure.core/print-ctor
+clojure.core/prefer-method
+clojure.core/print-simple
+clojure.core/char-escape-string
+clojure.core/char-name-string
+clojure.core/primitives-classnames
+clojure.core/namespace-munge
+clojure.core/future-call
+clojure.core/future-cancelled?
+clojure.core/future-cancel
+clojure.core/future?
+clojure.core/future-done?
+clojure.core/compare-and-set!
+clojure.core/set-validator!
+clojure.core/get-validator
+clojure.core/method-sig
+clojure.core/proxy-name
+clojure.core/get-proxy-class
+clojure.core/construct-proxy
+clojure.core/init-proxy
+clojure.core/update-proxy
+clojure.core/proxy-mappings
+clojure.core/proxy-call-with-super
+clojure.core/bean
+clojure.core/pmap
+clojure.core/pcalls
+clojure.core/*clojure-version*
+clojure.core/clojure-version
+clojure.core/promise
+clojure.core/deliver
+clojure.core/flatten
+clojure.core/reduce-kv
+clojure.core/get-in
+clojure.core/assoc-in
+clojure.core/unchecked-inc
+clojure.core/unchecked-inc-int
+clojure.core/unchecked-dec
+clojure.core/unchecked-dec-int
+clojure.core/unchecked-negate
+clojure.core/unchecked-negate-int
+clojure.core/unchecked-add
+clojure.core/unchecked-multiply
+clojure.core/unchecked-multiply-int
+clojure.core/unchecked-divide-int
+clojure.core/unchecked-remainder-int
+clojure.core/rationalize
+clojure.core/bit-not
+clojure.core/bit-and
+clojure.core/bit-or
+clojure.core/bit-xor
+clojure.core/bit-and-not
+clojure.core/bit-clear
+clojure.core/bit-set
+clojure.core/bit-flip
+clojure.core/bit-test
+clojure.core/bit-shift-left
+clojure.core/bit-shift-right
+clojure.core/unsigned-bit-shift-right
+clojure.core/peek
+clojure.core/pop
+clojure.core/get-thread-bindings
+clojure.core/bound-fn*
+clojure.core/agent
+clojure.core/set-agent-send-executor!
+clojure.core/set-agent-send-off-executor!
+clojure.core/send-via
+clojure.core/send
+clojure.core/send-off
+clojure.core/release-pending-sends
+clojure.core/add-watch
+clojure.core/remove-watch
+clojure.core/agent-error
+clojure.core/restart-agent
+clojure.core/set-error-handler!
+clojure.core/error-handler
+clojure.core/set-error-mode!
+clojure.core/error-mode
+clojure.core/agent-errors
+clojure.core/clear-agent-errors
+clojure.core/shutdown-agents
+clojure.core/max-key
+clojure.core/*file*
+clojure.core/*command-line-args*
+clojure.core/*compile-path*
+clojure.core/*compile-files*
+clojure.core/*unchecked-math*
+clojure.core/*compiler-options*
+clojure.core/*in*
+clojure.core/*flush-on-newline*
+clojure.core/*print-meta*
+clojure.core/*print-dup*
+clojure.core/*print-readably*
+clojure.core/*read-eval*
+clojure.core/vary-meta
+clojure.core/reset-meta!
+clojure.core/alter-meta!
+```
+
+# Var annotation changes
+
+- `clojure.core/ns-name`
+  - now accepts a symbol
+- `clojure.core/some-fn`
+  - more special cases for predicates
+- `clojure.core/every-pred`
+  - more special cases for predicates
+- `clojure.core/deref`
+  - supports Java futures
+  - supports 3 arg IBlockingDeref usage
+- `clojure.core/force`
+  - returns `Any` if argument isn't a delay
+- `clojure.core/symbol`
+  - namespace can be `nil` in 2-arity usage
+- `clojure.core/into`
+  - added base case for `IPersistentCollection`s
+  - conjing maps together is the same as `merge`
+- `clojure.core/conj`
+  - conjing maps together is the same as `merge`
+- `clojure.core/find
+  - first arg can be `nil`
+  - supports `Associative`s instead of just `IPersistentMap`s
+- `clojure.core/get
+  - rearrange arities, semantics should be preserved
+- `clojure.core/ref`
+  - supports keyword arguments
+- `clojure.core/all-ns`
+  - return value is now nilable, or a non-empty seq
+
+## Abandoning static metadata support
+
+- Adds too much complexity to the type system
+  - `meta` now returns `Any`
+  - `with-meta` simply returns its first argument
+    - this is probably sound, since a correct implementation of IObj
+      always recreates the same instance, the only difference being metadata
+      which we don't track at all statically
+    - same with `vary-meta`
+  - `reset-meta! just requires an IReference argument
+    - ditto with `alter-meta!`
+  - planning to improve runtime casting to make metadata somewhat useable
+
 # 0.2.21 - Released 30 December 2013
 
 ## BREAKING CHANGES
