@@ -747,7 +747,8 @@
             f/-top)))
 
 (defmulti parse-filter* 
-  (every-pred coll? first))
+  #(when (coll? %)
+     (first %)))
 
 (defmethod parse-filter* :default
   [syn]
