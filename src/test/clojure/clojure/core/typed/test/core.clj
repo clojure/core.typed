@@ -2788,6 +2788,9 @@
   (is-cf (first (first {1 2}))
          Number))
 
+(deftest CTYP-101-mapentry-test
+  (is (check-ns 'clojure.core.typed.test.CTYP-101-mapentry)))
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))
