@@ -622,7 +622,7 @@
                          (for [ks kss]
                            (r/HeterogeneousSeq-maker (mapcat #(find m %) ks)))))))))
 
-(declare unparse-type)
+(declare unparse-type deprecated-list)
 
 (defmethod parse-type-list :default 
   [[n & args :as syn]]
@@ -686,6 +686,7 @@
        (resolve-type-clj op)))))
 
 (defmethod deprecated-clj-list :default [_] nil)
+
 ;[Any -> (U nil Type)]
 (defn deprecated-list [lst]
   {:post [((some-fn nil? r/Type?) %)]}
