@@ -179,6 +179,19 @@ clojure.core/instance?
 clojure.core/min-key
 clojure.core/cast
 clojure.core/associative?
+clojure.core/*1
+clojure.core/*2
+clojure.core/*3
+clojure.core/*e
+clojure.core/*agent*
+clojure.core/*allow-unresolved-vars*
+clojure.core/*assert*
+clojure.core/*data-readers*
+clojure.core/*default-data-reader-fn*
+clojure.core/*fn-loader*
+clojure.core/*math-context*
+clojure.core/*source-path*
+clojure.core/*use-context-classloader*
 ```
 
 # Var annotation changes

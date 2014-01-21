@@ -685,6 +685,20 @@ clojure.core/read (Fn [-> Any]
                       [java.io.Reader Boolean Any Boolean -> Any])
 clojure.core/read-line [-> Any]
 
+clojure.core/*1 Any
+clojure.core/*2 Any
+clojure.core/*3 Any
+clojure.core/*e Throwable
+clojure.core/*agent* (U nil (Agent2 Nothing Any))
+clojure.core/*allow-unresolved-vars* Any
+clojure.core/*assert* Any
+clojure.core/*data-readers* (Map Symbol (Var2 Nothing Any))
+clojure.core/*default-data-reader-fn* (U nil [Any Any -> Any])
+clojure.core/*fn-loader* Any
+clojure.core/*math-context* Any
+clojure.core/*source-path* String
+clojure.core/*use-context-classloader* Any
+
 clojure.core/alength [(ReadOnlyArray Any) -> AnyInteger]
 clojure.core/aclone (All [x] [(ReadOnlyArray x) -> (Array x)])
 clojure.core/aget (All [x] (Fn [(ReadOnlyArray x) 
