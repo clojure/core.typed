@@ -804,7 +804,7 @@ Number</pre>
 </pre>
     <pre id="var-docstr">A ref that can read and write type x.
 
-(TFn [[x :variance :invariant]] (IRef x x))</pre>
+(TFn [[x :variance :invariant]] (clojure.lang.Ref x x))</pre>
     
     
     
@@ -817,7 +817,9 @@ Number</pre>
 </pre>
     <pre id="var-docstr">A ref that can write type w and read type r.
 
-(TFn [[w :variance :contravariant] [r :variance :covariant]] (IRef w r))</pre>
+(TFn
+ [[w :variance :contravariant] [r :variance :covariant]]
+ (clojure.lang.Ref w r))</pre>
     
     
     

@@ -354,7 +354,7 @@
    :forms [(Ref1 t)],
    :var-type "type alias",
    :doc
-   "A ref that can read and write type x.\n\n(TFn [[x :variance :invariant]] (IRef x x))",
+   "A ref that can read and write type x.\n\n(TFn [[x :variance :invariant]] (clojure.lang.Ref x x))",
    :name "Ref1"}
   {:file nil,
    :raw-source-url nil,
@@ -365,7 +365,7 @@
    :forms [(Ref2 w r)],
    :var-type "type alias",
    :doc
-   "A ref that can write type w and read type r.\n\n(TFn [[w :variance :contravariant] [r :variance :covariant]] (IRef w r))",
+   "A ref that can write type w and read type r.\n\n(TFn\n [[w :variance :contravariant] [r :variance :covariant]]\n (clojure.lang.Ref w r))",
    :name "Ref2"}
   {:file nil,
    :raw-source-url nil,
