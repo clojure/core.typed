@@ -31,6 +31,8 @@
 
 ## New var annotations (and inlinings)
 
+[List of unannotated clojure.core vars](https://github.com/clojure/core.typed/wiki/clojure.core-Annotations)
+
 ```
 clojure.core/*1
 clojure.core/*2
