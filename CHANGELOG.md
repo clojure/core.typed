@@ -188,6 +188,13 @@ clojure.core/alter-meta!
     - ditto with `alter-meta!`
   - planning to improve runtime casting to make metadata somewhat useable
 
+## Fix Map's Seqable ancestor
+
+- This was changed in 0.2.20
+  - reverting back to previous behaviour
+  - See [CTYP-101](http://dev.clojure.org/jira/browse/CTYP-101)
+
+
 # 0.2.21 - Released 30 December 2013
 
 ## BREAKING CHANGES
