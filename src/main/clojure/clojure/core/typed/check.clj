@@ -1519,28 +1519,161 @@
                           (fo/-FS fs- fs+)
                           obj/-empty))))
 
+
+(defn invoke-get* [[target kw default] expected]
+  {:pre [(r/TCResult? target)
+         (r/TCResult? kw)
+         ((some-fn nil? r/TCResult?) 
+          default 
+          expected)]
+   :post [((some-fn r/TCResult? #{::not-special}) %)]}
+  (let []
+    (cond
+      (c/keyword-value? (ret-t kw))
+        (invoke-keyword kw
+                        target 
+                        default
+                        expected)
+
+      ;((every-pred r/Value? (comp integer? :val)) (ret-t kw))
+      ;  (u/nyi-error (str "get lookup of vector (like nth) NYI"))
+
+      :else ::not-special)))
+
 (defn invoke-get [{:keys [args] :as expr} expected & {:keys [cargs]}]
   {:post [((some-fn 
              #(-> % expr-type TCResult?)
              #{::not-special})
            %)]}
   (assert cargs)
-  (assert (#{2 3} (count args)) "Wrong number of args to clojure.core/get")
+  (when-not (#{2 3} (count args)) 
+    (u/int-error (str "Wrong number of args to clojure.core/get")))
   (let [[ctarget ckw cdefault] cargs
-        kwr (expr-type ckw)]
-    (cond
-      (c/keyword-value? (ret-t kwr))
+        kwr (expr-type ckw)
+        aret (invoke-get* [(-> ctarget expr-type)
+                           (-> ckw expr-type)
+                           (when cdefault
+                             (-> cdefault expr-type))]
+                          expected)]
+    (if (#{::not-special} aret)
+      ::not-special
       (assoc expr
-             expr-type (invoke-keyword kwr
-                                       (expr-type ctarget)
-                                       (when cdefault
-                                         (expr-type cdefault))
-                                       expected))
+             expr-type aret))))
 
-      ((every-pred r/Value? (comp integer? :val)) (ret-t kwr))
-      (u/nyi-error (str "get lookup of vector (like nth) NYI"))
+; get-in with a heterogeneous vector of keyword Values as second argument
+; are special, otherwise returns ::not-special
+(defn invoke-get-in [target-ret path-ret default-ret expected]
+  {:pre [(TCResult? target-ret)
+         (TCResult? path-ret)
+         ((some-fn nil? TCResult?) default-ret expected)]
+   :post [(TCResult? %)]}
+  (assert (not default-ret))
+  (let [_ (assert (r/TCResult? target-ret))
+        actual-path-ty (c/fully-resolve-type (ret-t path-ret))
+        hpath-tys (when (r/HeterogeneousVector? actual-path-ty)
+                    (let [ts (mapv c/fully-resolve-type (:types actual-path-ty))]
+                      (when (every? c/keyword-value? ts)
+                        ts)))]
+    (letfn [(calc-ret []
+              {:post [(r/TCResult? %)]}
+              (cond
+                ;heterogeneous path
+                (and hpath-tys
+                     ;default NYI
+                     (not default-ret))
+                  (let [assoc-in-ret (reduce 
+                                       (fn [result kw-ret]
+                                         {:pre [(TCResult? result)]}
+                                         (invoke-keyword
+                                           kw-ret
+                                           result
+                                           nil nil))
+                                       target-ret
+                                       (map ret hpath-tys))]
+                    assoc-in-ret)
+                :else (ret r/-any)))]
+      (calc-ret))))
 
-      :else ::not-special)))
+(defn invoke-assoc-in [target-ret path-ret val-ret expected]
+  {:pre [(TCResult? target-ret)
+         (TCResult? path-ret)
+         (TCResult? val-ret)
+         ((some-fn nil? TCResult?) expected)]
+   :post [(-> % TCResult?)]}
+  (let [_ (assert (r/TCResult? target-ret))
+        actual-path-ty (c/fully-resolve-type (-> path-ret ret-t))
+        hpath-tys (when (r/HeterogeneousVector? actual-path-ty)
+                    (let [ts (mapv c/fully-resolve-type (:types actual-path-ty))]
+                      (when (every? c/keyword-value? ts)
+                        ts)))]
+    (cond
+      ; non-empty heterogeneous path
+      (seq hpath-tys)
+        (let [special? (atom true)]
+          (letfn [(not-special! [] (reset! special? false))
+                  (assoc-in* [target [k & ks] v]
+                    {:pre [((some-fn nil? r/Type?) target)
+                           (every? r/Type? (cons k ks))
+                           (r/Type? v)]
+                     :post [(r/Type? %)]}
+                    (cond
+                      (nil? target) 
+                        (do (not-special!)
+                            r/-any)
+
+                      ks
+                        (let [inner (invoke-get*
+                                      [(ret target) (ret k)] nil)]
+                          (if (#{::not-special} inner)
+                            (do (not-special!)
+                              r/-any)
+                            (c/assoc-pairs-noret
+                              target
+                              [k (assoc-in*
+                                   (ret-t inner)
+                                   ks v)])))
+                      :else
+                        (or
+                          (c/assoc-pairs-noret
+                            target
+                            [k v])
+                          (do (not-special!)
+                              r/-any))))]
+            (or (when @special?
+                  (let [r (assoc-in* (ret-t target-ret)
+                                     hpath-tys
+                                     (-> val-ret ret-t))]
+                    (ret r)))
+              (ret r/-any))))
+        
+      :else 
+        (ret r/-any))))
+
+(defn invoke-update-in [{:keys [args] :as expr} expected & {:keys [cargs]}]
+  {:post [(TCResult? %)]}
+  (when-not (<= 3 (count args)) 
+    (u/int-error (str "Wrong number of args to clojure.core/update-in, expected at least 3, given " (count args))))
+  (let [[ctarget cpath cfexpr & cextra-args] cargs
+        target-ret (-> ctarget expr-type)
+        _ (assert (r/TCResult? target-ret))
+        actual-path-ty (c/fully-resolve-type (-> cpath expr-type ret-t))
+        hpath-tys (when (r/HeterogeneousVector? actual-path-ty)
+                    (let [ts (mapv c/fully-resolve-type (:types actual-path-ty))]
+                      (when (every? c/keyword-value? ts)
+                        ts)))]
+    (cond
+      ; non-empty heterogeneous path
+      (seq hpath-tys)
+        (let [old-val (invoke-get-in target-ret (ret actual-path-ty) nil nil)
+              new-val (check-funapp cfexpr nil (expr-type cfexpr) (cons old-val (map expr-type cextra-args))
+                                    nil)
+              new-map (invoke-assoc-in target-ret (ret actual-path-ty) new-val nil)]
+          new-map)
+      :else
+      (let [old-val (ret r/-any)]
+        (check-funapp cfexpr nil (expr-type cfexpr) (cons old-val (map expr-type cextra-args))
+                      nil)
+        (ret r/-any)))))
 
 ;get
 (add-invoke-special-method 'clojure.core/get
@@ -1565,11 +1698,63 @@
       (check-invoke-method expr expected false
                            :cargs cargs))))
 
+(add-invoke-special-method 'clojure.core/get-in
+  [{:keys [args target] :as expr} & [expected]]
+  {:post [(or (-> % expr-type TCResult?)
+              (#{:default} %))]}
+  (let [_ (when-not (#{2 3} (count args))
+            (u/int-error "Wrong number of arguments to get-in: " (count args)))
+        cargs (mapv check args)
+        ; default-ret is nil on 2 arg case
+        [target-ret path-ret default-ret]
+          (map expr-type cargs)
+        r (invoke-get-in target-ret path-ret default-ret expected)
+        actual-t (ret-t r)]
+    (when expected
+      (when-not (sub/subtype? actual-t (ret-t expected))
+        (expected-error actual-t (ret-t expected))))
+    (assoc expr
+           expr-type r)))
+
+(add-invoke-special-method 'clojure.core/assoc-in
+  [{:keys [args target] :as expr} & [expected]]
+  {:post [(or (-> % expr-type TCResult?)
+              (#{:default} %))]}
+  (let [[ctarget cpath cval :as cargs] (mapv check args)]
+    (if-not (= 3 (count cargs))
+      (do (u/tc-delayed-error
+            (str "Wrong number of arguments to assoc-in (expected 3): " (count cargs)))
+          (assoc expr
+                 expr-type (ret r/-any)))
+      (let [r (invoke-assoc-in (expr-type ctarget) (expr-type cpath) (expr-type cval)
+                               expected)]
+        (let [actual-t (-> r ret-t)]
+          (when expected
+            (when-not (sub/subtype? actual-t (ret-t expected))
+              (expected-error actual-t (ret-t expected))))
+          (assoc expr
+                 expr-type r))))))
+
+(add-invoke-special-method 'clojure.core/update-in
+  [{:keys [args target] :as expr} & [expected]]
+  {:post [(or (-> % expr-type TCResult?)
+              (#{:default} %))]}
+  (let [cargs (mapv check args)
+        r (invoke-update-in expr expected :cargs cargs)]
+    (let [actual-t (-> r ret-t)]
+      (when expected
+        (when-not (sub/subtype? actual-t (ret-t expected))
+          (expected-error actual-t (ret-t expected))))
+      (assoc expr
+             expr-type r))))
+
 ;FIXME should be the same as (apply hash-map ..) in invoke-apply
 (defmethod static-method-special 'clojure.lang.PersistentHashMap/create
   [{:keys [args] :as expr} & [expected]]
   (binding [vs/*current-expr* expr]
-    (let [_ (assert (#{1} (count args)) (u/error-msg "Incorrect number of arguments to clojure.lang.PersistentHashMap/create"))
+    (let [_ (when-not (#{1} (count args))
+              (u/int-error 
+                (str "Incorrect number of arguments to clojure.lang.PersistentHashMap/create")))
           targett (-> (first args) check expr-type ret-t)]
       (cond
         (r/KwArgsSeq? targett)
@@ -1689,7 +1874,7 @@
          ((some-fn nil? TCResult?) expected-ret)]
    :post [(TCResult? %)]}
   (u/p :check/invoke-keyword
-  (let [targett (c/-resolve (ret-t target-ret))
+  (let [targett (c/fully-resolve-type (ret-t target-ret))
         kwt (ret-t kw-ret)
         defaultt (when default-ret
                    (ret-t default-ret))]
@@ -1960,7 +2145,8 @@
 ;manual instantiation
 (add-invoke-special-method 'clojure.core.typed/inst-poly
   [{[pexpr targs-exprs :as args] :args :as expr} & [expected]]
-  (assert (#{2} (count args)) "Wrong arguments to inst")
+  (when-not (#{2} (count args)) 
+    (u/int-error (str "Wrong number of arguments to inst, expected 2, found " (count args))))
   (let [ptype (let [t (-> (check pexpr) expr-type ret-t)]
                 (if (r/Name? t)
                   (c/resolve-Name t)
@@ -2350,30 +2536,6 @@
       (normal-invoke expr fexpr args expected
                      :cargs all-cargs))))
 
-#_(add-invoke-special-method 'clojure.core/update-in
-  [{:keys [fexpr args env] :as expr} & [expected]]
-  {:post [(-> % expr-type TCResult?)]}
-  (binding [vs/*current-expr* expr
-            vs/*current-env* env]
-    (let [error-expr (assoc expr expr-type (ret (r/TCError-maker)))]
-      (cond
-        (not (< 3 (count args))) (u/tc-delayed-error (str "update-in takes at least 3 arguments"
-                                                          ", actual " (count args))
-                                                     :return error-expr)
-
-        :else
-        (let [[ctarget-expr cpath-expr cfn-expr & more-exprs] (doall (map check args))
-              path-type (-> cpath-expr expr-type ret-t c/fully-resolve-type)]
-          (if (not (HeterogeneousVector? path-type))
-            (u/tc-delayed-error (str "Can only check update-in with vector as second argument")
-                                :return error-expr)
-            (let [path (:types path-type)
-                  follow-path (reduce (fn [t pth]
-                                        (when t
-                                          ))
-                                      (-> ctarget-expr expr-type ret-t)
-                                      path)])))))))
-        
 
 (comment
   (method-expected-type (prs/parse-type '[Any -> Any])
@@ -3146,7 +3308,7 @@
         ; eg. Checking against this function type:
         ;      [Any Any
         ;       -> (HVec [(U nil Class) (U nil Class)]
-        ;                :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]))
+        ;                :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]
         ;     means we need to instantiate the HVec type to the actual argument
         ;     names with open-Result.
         ;

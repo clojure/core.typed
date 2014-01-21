@@ -2778,6 +2778,56 @@
 (deftest swap!-special-test
   (is (check-ns 'clojure.core.typed.test.swap-bang)))
 
+(deftest get-in-and-update-in-test
+  (is (check-ns 'clojure.core.typed.test.update-in))
+  ;defaults not supported, returns Any
+  (is (u/top-level-error-thrown?
+        (cf 
+          (get-in {:a 1} [:a] 2)
+          (Value 1))))
+  ;we permit garbage first arguments. Enforcing a nested associative
+  ;structure in a way that's useable is too hard.
+  (is-cf 
+    (fn []
+      (get-in 'a [:a] 2)))
+  ;second arg must be a (U nil (Seqable Any))
+  (is (u/top-level-error-thrown?
+        (cf 
+          (fn []
+            (get-in {} 'a)))))
+  (is-cf
+    (fn [] (assoc-in 'a [:a] 'a)))
+  (is-cf
+    (assoc-in {} [:a] 1)
+    '{:a Number})
+  (is-cf
+    (assoc-in {} [:a :b] 1)
+    '{:a '{:b Number}})
+  (is-cf
+    (fn [] (update-in {:a {:b 1}} [:a :b] inc))
+    [-> '{:a '{:b clojure.core.typed/AnyInteger}}])
+  (is-cf
+    (fn [] (update-in {:a {:b 1}} nil identity)))
+  (is
+    (u/top-level-error-thrown?
+      (cf
+        (fn [] (update-in {:a {:b 1}} nil inc)))))
+  (is-cf
+    (let [m {:a {:b 2}}]
+      (when (number? (get-in m [:a :b]))
+        'a))
+    (Value a))
+  (is-cf
+    (let [m (clojure.core.typed/ann-form 
+              {:a {:b 2}}
+              '{:a '{:b (U nil Number)}})]
+      (when (number? (get-in m [:a :b]))
+        (clojure.core.typed/ann-form 
+          m
+          '{:a '{:b Number}})
+        (update-in m [:a :b] inc))))
+  )
+
 (deftest seqable-map-test
   (is-cf (map (clojure.core.typed/fn> 
                 [[a b] :- '[Number Number]]
