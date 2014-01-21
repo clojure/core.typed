@@ -7,7 +7,7 @@
                          IPersistentList IRef ARef Delay Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
                          ITransientVector PersistentHashMap Reduced)
-           (java.util Comparator))
+           (java.util Comparator Collection))
   (:require [clojure.core.typed.base-env-helper :as h]
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.parse-unparse :as prs]
