@@ -192,6 +192,25 @@ clojure.core/*fn-loader*
 clojure.core/*math-context*
 clojure.core/*source-path*
 clojure.core/*use-context-classloader*
+clojure.core/identical?
+clojure.core/distinct?
+clojure.core/decimal?
+clojure.core/denominator
+clojure.core/mod
+clojure.core/var-get
+clojure.core/var-set
+clojure.core/supers
+clojure.core/take-nth
+clojure.core/shuffle
+clojure.core/special-symbol?
+clojure.core/unchecked-subtract
+clojure.core/unchecked-subtract-int
+clojure.core/unchecked-add-int
+
+
+
+
+
 ```
 
 # Var annotation changes

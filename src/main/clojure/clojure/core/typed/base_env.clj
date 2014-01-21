@@ -1515,7 +1515,28 @@ clojure.core/merge
 clojure.core/contains? [(Option (Seqable Any)) Any -> boolean]
 
 clojure.core/= [Any Any * -> (U true false)]
+clojure.core/identical? [Any Any -> Boolean]
+clojure.core/distinct? [Any Any * -> Boolean]
 
+clojure.core/decimal? (predicate BigDecimal)
+
+clojure.core/denominator [clojure.lang.Ratio -> Number]
+
+clojure.core/mod (Fn [AnyInteger AnyInteger -> AnyInteger]
+                     [Number Number -> Number])
+
+clojure.core/var-get (All [r] [(Var2 Nothing r) -> r])
+clojure.core/var-set (All [w] [(Var2 w Any) w -> w])
+
+clojure.core/supers [Class -> (U nil (I NonEmptyCount (Set Class)))]
+
+clojure.core/take-nth (All [x] [AnyInteger (U nil (Seqable x)) -> (Seq x)])
+
+clojure.core/shuffle (All [x] 
+                          (Fn [(I Collection (Seqable x)) -> (Vec x)]
+                              [Collection -> (Vec Any)]))
+
+clojure.core/special-symbol? [Any -> Boolean]
 
 clojure.core/integer? (predicate AnyInteger)
 clojure.core/number? (predicate Number)
@@ -1553,11 +1574,15 @@ clojure.core/unchecked-inc-int [Number -> AnyInteger]
 clojure.core/unchecked-dec (Fn [AnyInteger -> AnyInteger]
                                [Number -> Number])
 clojure.core/unchecked-dec-int [Number -> AnyInteger]
+clojure.core/unchecked-subtract (Fn [AnyInteger AnyInteger -> AnyInteger]
+                               [Number Number -> Number])
+clojure.core/unchecked-subtract-int [Number Number -> AnyInteger]
 clojure.core/unchecked-negate (Fn [AnyInteger -> AnyInteger]
                                [Number -> Number])
 clojure.core/unchecked-negate-int [Number -> AnyInteger]
 clojure.core/unchecked-add (Fn [AnyInteger AnyInteger -> AnyInteger]
                                [Number Number -> Number])
+clojure.core/unchecked-add-int [Number Number -> AnyInteger]
 clojure.core/unchecked-multiply (Fn [AnyInteger AnyInteger -> AnyInteger]
                                     [Number Number -> Number])
 clojure.core/unchecked-multiply-int [Number Number -> AnyInteger]
@@ -2048,6 +2073,8 @@ clojure.lang.Numbers/unchecked_dec (Fn [AnyInteger -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_inc [Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_dec [Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_negate [Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_int_subtract [Number Number -> AnyInteger]
+clojure.lang.Numbers/unchecked_int_add [Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_minus (Fn ; negate
                                          [AnyInteger -> AnyInteger]
                                          [Number -> Number]
