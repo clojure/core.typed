@@ -2410,7 +2410,7 @@
   (is (check-ns 'clojure.core.typed.test.non-literal-val-fn)))
 
 (deftest CTYP-74-malformed-TApp-test
-  (is (u/tc-error-thrown? (parse-type '([Any -> Any])))))
+  (is-clj (u/tc-error-thrown? (parse-type '([Any -> Any])))))
 
 (deftest CTYP-73-reduced-test
   (is-cf (reduced 1) (clojure.lang.Reduced Number))
