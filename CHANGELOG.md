@@ -9,6 +9,8 @@
 - Less accurate type for:
   - `clojure.core/meta` and `clojure.core/with-meta`
     - see note on metadata support below
+- `clojure.core.typed/Ref{1,2}` aliases now alias an instance
+  of `clojure.lang.Ref`, not `clojure.lang.IRef`
 
 ## New Aliases
 
@@ -25,6 +27,7 @@
 
 - `clojure.lang.IBlockingDeref`
 - `clojure.lang.Agent`
+- `clojure.lang.Ref`
 
 ## New var annotations (and inlinings)
 
@@ -143,6 +146,39 @@ clojure.core/*read-eval*
 clojure.core/vary-meta
 clojure.core/reset-meta!
 clojure.core/alter-meta!
+clojure.core/list*
+clojure.core/list?
+clojure.core/load-reader
+clojure.core/methods
+clojure.core/munge
+clojure.core/pos?
+clojure.core/neg?
+clojure.core/nthrest
+clojure.core/print-str
+clojure.core/println-str
+clojure.core/printf
+clojure.core/format
+clojure.core/realized?
+clojure.core/select-keys
+clojure.core/sort
+clojure.core/commute
+clojure.core/alter
+clojure.core/cycle
+clojure.core/compile
+clojure.core/comparator
+clojure.core/destructure
+clojure.core/distinct
+clojure.core/dec'
+clojure.core/drop
+clojure.core/take-last
+clojure.core/drop-last
+clojure.core/hash
+clojure.core/hash-combine
+clojure.core/ifn?
+clojure.core/instance?
+clojure.core/min-key
+clojure.core/cast
+clojure.core/associative?
 ```
 
 # Var annotation changes
@@ -173,7 +209,10 @@ clojure.core/alter-meta!
 - `clojure.core/ref`
   - supports keyword arguments
 - `clojure.core/all-ns`
-  - return value is now nilable, or a non-empty seq
+  - return value is now nil, or a non-empty seq
+  - previously a seq
+- `clojure.core/compare`
+  - fix first argument to be `Any`, previously `Comparable`
 
 ## Abandoning static metadata support
 

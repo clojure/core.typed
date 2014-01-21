@@ -6,7 +6,8 @@
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
                          IPersistentList IRef ARef Delay Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
-                         ITransientVector PersistentHashMap Reduced))
+                         ITransientVector PersistentHashMap Reduced)
+           (java.util Comparator))
   (:require [clojure.core.typed.base-env-helper :as h]
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.parse-unparse :as prs]
@@ -327,6 +328,14 @@ ARef [[[w :variance :contravariant]
       {IRef (IRef w r)
        IDeref (IDeref r)}]
 
+clojure.lang.Ref 
+     [[[w :variance :contravariant]
+       [r :variance :covariant]]
+      :replace
+      {IRef (IRef w r)
+       ARef (ARef w r)
+       IDeref (IDeref r)}]
+
 clojure.lang.Agent 
       [[[w :variance :contravariant]
         [r :variance :covariant]]
@@ -438,12 +447,12 @@ clojure.core.typed/Var2
          (clojure.lang.Var w r))
     ^{:doc "A ref that can read and write type x."
       :forms [(Ref1 t)]}
-clojure.core.typed/Ref1 (TFn [[x :variance :invariant]] (IRef x x))
+clojure.core.typed/Ref1 (TFn [[x :variance :invariant]] (clojure.lang.Ref x x))
     ^{:doc "A ref that can write type w and read type r."
       :forms [(Ref2 w r)]}
 clojure.core.typed/Ref2 (TFn [[w :variance :contravariant]
                               [r :variance :covariant]] 
-                             (IRef w r))
+                             (clojure.lang.Ref w r))
     ^{:doc "An agent that can read and write type x."
       :forms [(Agent1 t)]}
 clojure.core.typed/Agent1 (TFn [[x :variance :invariant]] 
@@ -614,7 +623,7 @@ clojure.java.io/IOFactory
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
                 Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
-                Symbol Namespace Atom2]]
+                Symbol Namespace Atom2 Ref2]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -881,6 +890,34 @@ clojure.core/hash-set (All [x] [x * -> (PersistentHashSet x)])
 clojure.core/sorted-set (All [x] [x * -> (PersistentTreeSet x)])
 clojure.core/sorted-set-by (All [x] [[x x -> AnyInteger] x * -> (PersistentTreeSet x)])
 clojure.core/list (All [x] [x * -> (PersistentList x)])
+clojure.core/list* (All [x] 
+                        (Fn [(U nil (Seqable x)) -> (NilableNonEmptySeq x)]
+                            [x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
+                            [x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
+                            [x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
+                            [x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
+                            [x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
+                            [x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
+                            [x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
+                            [x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
+                            [x x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
+                            [x x x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]))
+
+clojure.core/list? (predicate (clojure.lang.IPersistentList Any))
+
+clojure.core/load-reader [java.io.Reader -> Any]
+
+clojure.core/methods [clojure.lang.MultiFn -> (Map Any Any)]
+
+clojure.core/munge (Fn [Symbol -> Symbol]
+                       [Any -> Any])
+
+clojure.core/pos? (Fn [Number -> Boolean])
+clojure.core/neg? (Fn [Number -> Boolean])
+
+clojure.core/nthrest (All [x] [(U nil (Seqable x)) AnyInteger 
+                               -> (NilableNonEmptySeq x)])
+
 clojure.core/vector (All [x y z a b c] 
                          (Fn
                            [-> '[]]
@@ -919,6 +956,8 @@ clojure.core/assoc
 clojure.core/dissoc
      (All [k v]
        (Fn [(Map k v) Any * -> (Map k v)]))
+)
+    (h/var-mappings
 
 clojure.core/zipmap
      (All [k v]
@@ -963,6 +1002,10 @@ clojure.core/newline [-> nil]
 
 clojure.core/print [Any * -> nil]
 clojure.core/println [Any * -> nil]
+clojure.core/print-str [Any * -> String]
+clojure.core/println-str [Any * -> String]
+clojure.core/printf [String Any * -> String]
+clojure.core/format [String Any  * -> String]
 clojure.core/pr [Any * -> nil]
 clojure.core/prn [Any * -> nil]
 clojure.core/flush [-> nil]
@@ -1025,6 +1068,20 @@ clojure.core/force (All [x]
                         (Fn [(Delay x) -> x]
                             [Any -> Any]))
 
+clojure.core/realized? [clojure.lang.IPending -> Boolean]
+
+clojure.core/select-keys (All [k v] [(Map k v) (U nil (Seqable Any))
+                                     -> (Map k v)])
+
+; could possibly return nil in some insane mutable situtation
+clojure.core/sort (All [x] 
+                       (Fn [(U nil (Seqable x)) -> (U nil (Seq x))]
+                           [(I Comparator [x x -> AnyInteger]) 
+                            (U nil (Seqable x)) -> (U nil (Seq x))]))
+
+; this is insane
+;clojure.core/test
+
 clojure.core/reset! (All [w r]
                               [(Atom2 w r) w -> w])
 
@@ -1076,7 +1133,7 @@ clojure.core/find-keyword
 clojure.core/derive (Fn [(U Symbol Keyword Class) (U Symbol Keyword) -> nil]
                         [Hierarchy (U Symbol Keyword Class) (U Symbol Keyword) -> Hierarchy])
 
-clojure.core/compare [Comparable Any -> Number]
+clojure.core/compare [Any Any -> Number]
 
 clojure.core/require [Any * -> nil]
 
@@ -1093,6 +1150,9 @@ clojure.core/map? (predicate (Map Any Any))
 )
     (h/var-mappings
 
+clojure.core/cast (All [x] [Class x -> x])
+
+clojure.core/associative? (predicate (clojure.lang.Associative Any Any))
 clojure.core/coll? (predicate (Coll Any))
 clojure.core/meta [Any -> (U nil (Map Any Any))]
 clojure.core/with-meta (All [[x :< clojure.lang.IObj]]
@@ -1104,6 +1164,28 @@ clojure.core/reset-meta! [clojure.lang.IReference (U nil (Map Any Any)) -> (U ni
 clojure.core/alter-meta! 
       (All [b ...]
       [clojure.lang.IReference [(U nil (Map Any Any)) b ... b -> (U nil (Map Any Any))] b ... b -> (U nil (Map Any Any))])
+
+clojure.core/commute
+      (All [w r b ...] 
+           [(Ref2 w r) [r b ... b -> w] b ... b -> w])
+
+clojure.core/alter
+      (All [w r b ...] 
+           [(Ref2 w r) [r b ... b -> w] b ... b -> w])
+
+clojure.core/cycle
+      (All [x]
+           [x -> (Seq x)])
+
+clojure.core/compile [Symbol -> Symbol]
+
+clojure.core/comparator
+      (All [x y]
+           [[x y -> Any] -> (I Comparator [x y -> AnyInteger])])
+
+clojure.core/destructure [Any -> Any]
+
+clojure.core/distinct (All [x] [(U nil (Seqable x)) -> (Seq x)])
 
 clojure.core/string? (predicate String)
 clojure.core/char? (predicate Character)
@@ -1398,6 +1480,8 @@ clojure.core/get
             [(Option java.util.Map) Any y -> (U y Any)]
             [(Option String) Any y -> (U y Character)]
             ))
+)
+    (h/var-mappings
 
 clojure.core/get-in
     (Fn [Any (U nil (Seqable Any)) -> Any]
@@ -1471,6 +1555,8 @@ clojure.core/dec (Fn [AnyInteger -> AnyInteger]
                           [Number -> Number])
 
 clojure.core/inc' (Fn [AnyInteger -> AnyInteger]
+                          [Number -> Number])
+clojure.core/dec' (Fn [AnyInteger -> AnyInteger]
                           [Number -> Number])
 
 clojure.core/rationalize [Number -> Number]
@@ -1574,6 +1660,25 @@ clojure.core/take
      (All [x]
        [AnyInteger (Seqable x) -> (Seq x)])
 
+clojure.core/drop
+     (All [x]
+       [AnyInteger (Seqable x) -> (Seq x)])
+
+clojure.core/take-last
+     (All [x]
+       [AnyInteger (Seqable x) -> (NilableNonEmptySeq x)])
+
+clojure.core/drop-last
+     (All [x]
+       [AnyInteger (Seqable x) -> (NilableNonEmptySeq x)])
+
+clojure.core/hash [Any -> AnyInteger]
+clojure.core/hash-combine [AnyInteger Any -> AnyInteger]
+
+clojure.core/ifn? (predicate clojure.lang.IFn)
+
+clojure.core/instance? [Class Any -> Boolean]
+
 clojure.core/cons
      (All [x]
        [x (Option (Seqable x)) -> (ASeq x)])
@@ -1611,6 +1716,8 @@ clojure.core/char-array (Fn [(U nil Number (Seqable Character)) -> (Array char)]
                             [Number (U Number (Seqable Character)) -> (Array char)])
 
 clojure.core/max-key (All [x] 
+                          [[x -> Number] x x x * -> x])
+clojure.core/min-key (All [x] 
                           [[x -> Number] x x x * -> x])
 
 clojure.core/< [Number Number * -> boolean]
@@ -1915,6 +2022,10 @@ clojure.lang.Numbers/add (Fn [AnyInteger AnyInteger -> AnyInteger]
 clojure.lang.Numbers/inc (Fn [AnyInteger -> AnyInteger]
                                               [Number -> Number])
 clojure.lang.Numbers/dec (Fn [AnyInteger -> AnyInteger]
+                             [Number -> Number])
+clojure.lang.Numbers/incP (Fn [AnyInteger -> AnyInteger]
+                                              [Number -> Number])
+clojure.lang.Numbers/decP (Fn [AnyInteger -> AnyInteger]
                              [Number -> Number])
 clojure.lang.Numbers/unchecked_inc (Fn [AnyInteger -> AnyInteger]
                                               [Number -> Number])
