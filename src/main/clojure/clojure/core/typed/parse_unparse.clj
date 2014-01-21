@@ -626,12 +626,14 @@
 
 (defmethod parse-type-list :default 
   [[n & args :as syn]]
-  (let [op (parse-type n)]
-    (when-not ((some-fn r/Name? r/TypeFn? r/F? r/B? r/Poly?) op)
-      (u/int-error (str "Invalid operator to type application: " syn)))
-    (with-meta (r/TApp-maker op (mapv parse-type args))
-               {:syn syn
-                :env vs/*current-env*})))
+  (if-let [d (deprecated-list syn)]
+    d
+    (let [op (parse-type n)]
+      (when-not ((some-fn r/Name? r/TypeFn? r/F? r/B? r/Poly?) op)
+        (u/int-error (str "Invalid operator to type application: " syn)))
+      (with-meta (r/TApp-maker op (mapv parse-type args))
+                 {:syn syn
+                  :env vs/*current-env*}))))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] (parse-type-list l))
@@ -660,6 +662,37 @@
    'object (r/ObjectCLJS-maker)
    'string (r/StringCLJS-maker)})
 
+;[Any -> (U nil Type)]
+(defmulti deprecated-clj-symbol identity)
+
+(defmethod deprecated-clj-symbol :default [_] nil)
+
+;[Any -> (U nil Type)]
+(defn deprecated-symbol [sym]
+  {:post [((some-fn nil? r/Type?) %)]}
+  (impl/impl-case
+    :clojure (deprecated-clj-symbol sym)
+    :cljs nil))
+
+;[Any -> (U nil Type)]
+(defmulti deprecated-clj-list 
+  (fn [[op]]
+    (when (symbol? op)
+      ((some-fn
+         (every-pred
+           class? u/Class->symbol)
+         (every-pred
+           var? u/var->symbol))
+       (resolve-type-clj op)))))
+
+(defmethod deprecated-clj-list :default [_] nil)
+;[Any -> (U nil Type)]
+(defn deprecated-list [lst]
+  {:post [((some-fn nil? r/Type?) %)]}
+  (impl/impl-case
+    :clojure (deprecated-clj-list sym)
+    :cljs nil))
+
 (defmethod parse-type-symbol :default
   [sym]
   (let [primitives (impl/impl-case
@@ -680,7 +713,7 @@
     (cond
       free free
       (primitives sym) (primitives sym)
-      rsym (r/Name-maker rsym)
+      rsym ((some-fn deprecated-symbol r/Name-maker) rsym)
       :else (u/tc-error (str "Cannot resolve type: " (pr-str sym)
                              "\nHint: Is " (pr-str sym) " in scope?"
                              "\nHint: Has " (pr-str sym) "'s annotation been"
@@ -712,7 +745,12 @@
             (parse-filter else)
             f/-top)))
 
-(defmulti parse-filter* first)
+(defmulti parse-filter* 
+  (every-pred coll? first))
+
+(defmethod parse-filter* :default
+  [syn]
+  (u/int-error (str "Malformed filter expression: " (pr-str syn))))
 
 (defmethod parse-filter* 'is
   [[_ & [tsyn nme psyns :as all]]]
@@ -746,9 +784,16 @@
     (u/int-error (str "Wrong number of arguments to when: " all)))
   (fl/-imp (parse-filter a) (parse-filter c)))
 
-(defmulti parse-path-elem #(cond
-                             (symbol? %) %
-                             :else (first %)))
+;FIXME clean up the magic. eg. handle (Class foo bar) as an error
+(defmulti parse-path-elem 
+  #(cond
+     (symbol? %) %
+     (coll? %) (first %)
+     :else 
+       (u/int-error (str "Malformed path element: " (pr-str %)))))
+
+(defmethod parse-path-elem :default [syn]
+  (u/int-error (str "Malformed path element: " (pr-str syn))))
 
 (defmethod parse-path-elem 'Class [_] (pthrep/->ClassPE))
 (defmethod parse-path-elem 'Count [_] (pthrep/->CountPE))
