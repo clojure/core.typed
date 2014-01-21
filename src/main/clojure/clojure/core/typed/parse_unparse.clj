@@ -691,7 +691,7 @@
 (defn deprecated-list [lst]
   {:post [((some-fn nil? r/Type?) %)]}
   (impl/impl-case
-    :clojure (deprecated-clj-list sym)
+    :clojure (deprecated-clj-list lst)
     :cljs nil))
 
 (defmethod parse-type-symbol :default
