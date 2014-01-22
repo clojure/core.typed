@@ -2791,6 +2791,9 @@
 (deftest CTYP-101-mapentry-test
   (is (check-ns 'clojure.core.typed.test.CTYP-101-mapentry)))
 
+(deftest demunged-protocol-method-test
+  (is (check-ns 'clojure.core.typed.test.protocol-munge)))
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))

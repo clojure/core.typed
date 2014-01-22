@@ -4746,10 +4746,24 @@
 
 (declare check-new-instance-method)
 
+(defn get-demunged-protocol-method [unwrapped-p mungedsym]
+  {:pre [(symbol? mungedsym)
+         (r/Protocol? unwrapped-p)]
+   :post [(Type? %)]}
+  (let [munged-methods (zipmap 
+                         (->> (keys (:methods unwrapped-p))
+                              (map munge))
+                         (vals (:methods unwrapped-p)))
+        mth (get munged-methods mungedsym)
+        _ (when-not mth
+            (u/int-error (str "No matching annotation for protocol method implementation: "
+                              mungedsym)))]
+    mth))
+
 (defn protocol-implementation-type [datatype {:keys [declaring-class] :as method-sig}]
   (let [pvar (c/Protocol-interface->on-var declaring-class)
         ptype (pcl-env/get-protocol pvar)
-        demunged-msym (symbol (repl/demunge (str (:name method-sig))))
+        mungedsym (symbol (:name method-sig))
         ans (doall (map c/fully-resolve-type (sub/datatype-ancestors datatype)))
         ;_ (prn "datatype" datatype)
         ;_ (prn "ancestors" (pr-str ans))
@@ -4778,10 +4792,7 @@
                           ptype
                           (c/instantiate-typefn ptype pargs))
             _ (assert (r/Protocol? unwrapped-p))
-            mth (get (:methods unwrapped-p) demunged-msym)
-            _ (when-not mth
-                (u/int-error (str "No matching annotation for protocol method implementation: "
-                                  demunged-msym)))]
+            mth (get-demunged-protocol-method unwrapped-p mungedsym)]
         (extend-method-expected datatype mth)))))
 
 (defn datatype-method-expected [datatype method-sig]

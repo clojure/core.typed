@@ -25,6 +25,7 @@
             [clojure.core.typed.method-param-nilables :as param-nil]
             [clojure.core.typed.subtype :as sub]
             [clojure.repl :as repl]
+            [clojure.math.combinatorics :as comb]
             [clojure.tools.namespace.track :as track]
             [clojure.tools.namespace.dir :as dir]
             [clojure.tools.namespace.dependency :as ndep]))
@@ -501,6 +502,14 @@
         bnds (when parsed-binder
                (map :bnd parsed-binder))
         _ (assert (= (count fs) (count bnds)))
+        _ (assert ((some-fn nil? map?) mths))
+        _ (when-let [[m] (seq (remove symbol? (keys mths)))]
+            (u/int-error (str "Method names to ann-protocol must be symbols: " m)))
+        _ (doseq [[n1 n2] (comb/combinations (keys mths) 2)]
+            (when (= (munge n1) (munge n2))
+              (u/int-error 
+                (str "Protocol methods for " vsym " must have distinct representations: "
+                     "both " n1 " and " n2 " compile to " (munge n1)))))
         ms (into {} (for [[knq v] mths]
                       (let [_ (when (namespace knq)
                                 (u/int-error "Protocol method should be unqualified"))

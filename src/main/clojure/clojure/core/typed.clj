@@ -1138,6 +1138,8 @@ for checking namespaces, cf for checking individual forms."}
               (println (str "WARNING: Duplicate method annotations in ann-protocol (" varsym 
                             "): " (str/join ", " (map first dups))))
               (flush)))
+        ; duplicates are checked above.
+        ; duplicate munged methods are checked in collect-phase
         {:as mth} mth]
     `(ann-protocol* '~vbnd '~varsym '~mth)))
 
