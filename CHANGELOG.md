@@ -1,3 +1,12 @@
+# 0.2.23 - Released 22 January 2014
+
+## Correctly munge Protocol methods
+
+In cases where protocol methods are munged (eg. - turns into _)
+core.typed now follows the munging correctly and picks the right annotations.
+There is a new restriction that the set of munged method names must
+not contain duplicates (already enforced by defprotocol).
+
 # 0.2.22 - Released 21 January 2014
 
 ## BREAKING CHANGES
