@@ -1646,23 +1646,26 @@ for checking namespaces, cf for checking individual forms."}
 (defn ^:skip-wiki ^:private 
   ann-collect-eval [qsym typesyn check?]
   (when-not *compile-files*
-    (load-if-needed)
-    (collect-eval-form 
-      `(ann* '~qsym '~typesyn '~check?))))
+    (when *collect-on-eval*
+      (load-if-needed)
+      (collect-eval-form 
+        `(ann* '~qsym '~typesyn '~check?)))))
 
 (defn ^:skip-wiki ^:private 
   ann-record-collect-eval [dname fields opt]
   (when-not *compile-files*
-    (load-if-needed)
-    (collect-eval-form
-      `(ann-record* '~dname '~fields '~opt))))
+    (when *collect-on-eval*
+      (load-if-needed)
+      (collect-eval-form
+        `(ann-record* '~dname '~fields '~opt)))))
 
 (defn ^:skip-wiki ^:private 
   ann-datatype-collect-eval [vbnd dname fields opts]
   (when-not *compile-files*
-    (load-if-needed)
-    (collect-eval-form
-      `(ann-datatype* '~vbnd '~dname '~fields '~opts))))
+    (when *collect-on-eval*
+      (load-if-needed)
+      (collect-eval-form
+        `(ann-datatype* '~vbnd '~dname '~fields '~opts)))))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)
