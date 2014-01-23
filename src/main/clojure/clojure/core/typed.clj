@@ -933,7 +933,7 @@ for checking namespaces, cf for checking individual forms."}
   "If a true value, global annotations are collected by the
   type checker when their respective forms are evaluated (eg. ann)."}
   *collect-on-eval* 
-  true)
+  false)
 
 (defn ^:skip-wiki
   ann-datatype*
