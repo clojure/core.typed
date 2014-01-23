@@ -1,3 +1,11 @@
+# 0.2.24 - Released 22 January 2014
+
+## Turn off *collect-on-eval* by default
+
+The type checker no longer loads by default when evaluating global
+annotations. Bind clojure.core/*collect-on-eval* to true to re-enable
+this feature.
+
 # 0.2.23 - Released 22 January 2014
 
 ## Correctly munge Protocol methods
