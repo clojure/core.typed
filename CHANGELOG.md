@@ -1,4 +1,4 @@
-# 0.2.24 - Released 22 January 2014
+# 0.2.25 - Released 23 January 2014 (0.2.24 is broken)
 
 ## Turn off *collect-on-eval* by default
 
