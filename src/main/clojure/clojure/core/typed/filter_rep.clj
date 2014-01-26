@@ -24,7 +24,8 @@
   (U Symbol Number))
 
 (t/ann ^:no-check name-ref? (predicate NameRef))
-(def name-ref? (some-fn symbol? integer?))
+(def name-ref? (some-fn symbol? (every-pred integer?
+                                            (complement neg?))))
 
 (t/ann ^:no-check Filter? (predicate Filter))
 (defn Filter? [a]

@@ -20,6 +20,7 @@
            (clojure.lang Symbol IPersistentMap IPersistentSet Seqable IPersistentVector
                          Atom ISeq)))
 
+(comment
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def-alias NsEntry
@@ -1984,3 +1985,4 @@
                  ns-info (compile-file cljs-file output-file)]
              (recur (rest cljs-files) (conj output-files (assoc ns-info :file-name (.getPath output-file)))))
            output-files)))))
+)

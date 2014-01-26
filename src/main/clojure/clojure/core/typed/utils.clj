@@ -159,7 +159,7 @@
     (throw (ex-info (str "Internal Error "
                          "(" (-> env :ns :name) ":" (or (:line env) "<NO LINE>")
                          (when-let [col (:column env)]
-                           (str ":"col))
+                           (str ":" col))
                          ") "
                          estr)
                     {:type-error int-error-kw}))))

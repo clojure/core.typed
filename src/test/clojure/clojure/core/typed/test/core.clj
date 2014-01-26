@@ -36,7 +36,7 @@
          '[clojure.core.typed.cs-gen :refer :all]
          '[clojure.core.typed.cs-rep :refer :all]
          '[clojure.core.typed.subst :refer [subst-all]]
-         '[clojure.core.typed.test.rbt]
+         #_'[clojure.core.typed.test.rbt]
          '[clojure.core.typed.test.person]
          '[clojure.tools.trace :refer [trace-vars untrace-vars
                                        trace-ns untrace-ns]])
@@ -2793,6 +2793,14 @@
 
 (deftest demunged-protocol-method-test
   (is (check-ns 'clojure.core.typed.test.protocol-munge)))
+
+(deftest pred-test
+  (let [p (pred Number)]
+    (is (p 1))
+    (is (not (p 'a))))
+  (let [p (pred AnyInteger)]
+    (is (p 1))
+    (is (not (p 1.1)))))
 
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)

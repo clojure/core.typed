@@ -2,6 +2,8 @@
 (ns clojure.core.typed.current-impl
   (:require [clojure.core.typed.profiling :as p]))
 
+(defonce alias-env (atom {}))
+
 (defn v [vsym]
   {:pre [(symbol? vsym)
          (namespace vsym)]}

@@ -1,6 +1,7 @@
 (ns clojure.core.typed.test.rbt-types
   (:require [clojure.core.typed :as t :refer [def-alias declare-names]]))
 
+(comment
 ;-------------------------------
 ; 'Normal' types
 ;-------------------------------
@@ -79,3 +80,4 @@
    (Black rbt rbt)
    (Red bt bt)
    (Black rbt badRoot)))
+  )

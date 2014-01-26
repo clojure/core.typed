@@ -18,7 +18,7 @@
 
 (t/def-alias DTAncestorEnv
   "Environment mapping datatype names to sets of ancestor types."
-  (t/Map Symbol (t/Set (U r/Type r/Scope))))
+  (t/Map Symbol (t/Set (U r/Type r/ScopedType))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Predicates
