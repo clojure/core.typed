@@ -44,10 +44,10 @@
 )
 
 (deftest update-nested-hmap-test
-  (is-check-rbt (= (update (-hmap {(-val :left) (Name-maker 'clojure.core.typed.test.rbt-types/rbt)})
+  (is-check-rbt (= (update (make-HMap :mandatory {(-val :left) (Name-maker 'clojure.core.typed.test.rbt-types/rbt)})
                            (-filter (-val :Red) 'id [(->KeyPE :left) (->KeyPE :tree)]))
-                   (-hmap {(-val :left) 
-                           (-hmap {(-val :tree) (-val :Red) 
+                   (make-HMap :mandatory {(-val :left) 
+                           (make-HMap :mandatory {(-val :tree) (-val :Red) 
                                    (-val :entry) (Name-maker 'clojure.core.typed.test.rbt-types/EntryT) 
                                    (-val :left) (Name-maker 'clojure.core.typed.test.rbt-types/bt) 
                                    (-val :right) (Name-maker 'clojure.core.typed.test.rbt-types/bt)})}))))

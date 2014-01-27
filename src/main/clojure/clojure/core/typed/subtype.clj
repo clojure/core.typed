@@ -874,8 +874,7 @@
       (pth-rep/KeyPE? fpth)
       (simplify-type-filter
         (fops/-filter 
-          (c/make-HMap {(r/-val (:val fpth)) (:type f)}
-                       {})
+          (c/make-HMap :mandatory {(r/-val (:val fpth)) (:type f)})
           (:id f)
           rstpth))
       :else f)))
@@ -901,8 +900,7 @@
         (fops/-not-filter 
           ; keys is optional
           (c/make-HMap 
-            {}
-            {(r/-val (:val fpth)) (:type f)})
+            :optional {(r/-val (:val fpth)) (:type f)})
           (:id f)
           rstpth))
       :else f)))

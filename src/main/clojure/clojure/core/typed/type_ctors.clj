@@ -89,7 +89,7 @@
 (t/ann ^:no-check -hmap (Fn [(Seqable r/Type) -> r/Type]
                            [(Seqable r/Type) Boolean -> r/Type]
                            [(Seqable r/Type) (IPersistentSet r/Type) Boolean -> r/Type]))
-(defn -hmap 
+(defn ^:private -hmap 
   ([types] (-hmap types #{} true))
   ([types other-keys?] (-hmap types #{} other-keys?))
   ([types absent-keys other-keys?]
@@ -100,15 +100,21 @@
      bottom
      (r/HeterogeneousMap-maker types absent-keys other-keys?))))
 
-(t/ann -complete-hmap [(Seqable r/Type) -> r/Type])
-(defn -complete-hmap [types]
-  (-hmap types false))
+(declare make-HMap)
 
-(t/ann -partial-hmap (Fn [(Seqable r/Type) -> r/Type]
-                         [(Seqable r/Type) (IPersistentSet r/Type) -> r/Type]))
+(t/ann -complete-hmap [(t/Map r/Type r/Type) -> r/Type])
+(defn -complete-hmap [types]
+  (make-HMap
+    :mandatory types 
+    :complete? true))
+
+(t/ann -partial-hmap (Fn [(t/Map r/Type r/Type) -> r/Type]
+                         [(t/Map r/Type r/Type) (t/Set r/Type) -> r/Type]))
 (defn -partial-hmap 
   ([types] (-partial-hmap types #{}))
-  ([types absent-keys] (-hmap types absent-keys true)))
+  ([types absent-keys] (make-HMap 
+                         :mandatory types 
+                         :absent-keys absent-keys)))
 
 (t/ann hmap-present-key? [HeterogeneousMap r/Type -> Boolean])
 (defn hmap-present-key? 
@@ -133,42 +139,59 @@
 
 (t/def-alias TypeMap
   "A regular map with types as keys and vals."
-  (IPersistentMap r/Type r/Type))
+  (t/Map r/Type r/Type))
 
-(t/ann ^:no-check make-HMap (Fn [TypeMap TypeMap -> r/Type]
-                               [TypeMap TypeMap Any -> r/Type]))
+(t/ann ^:no-check make-HMap [& :optional {:mandatory (t/Map r/Type r/Type) :optional (t/Map r/Type r/Type)
+                                          :absent-keys (t/Set r/Type) :complete? Boolean} 
+                             -> r/Type])
 (defn make-HMap 
-  "Generate a type which is every possible combination of mandatory
-  and optional key entries. Takes an optional third parameter which
-  is true if the entries are complete (ie. we know there are no more entries),
-  and false otherwise. Defaults to false.
+  "Make a heterogeneous map type for the given options.
   
   Options:
-  - :absent-keys  a set of types that are not keys this/these maps"
-  ([mandatory optional]
-   (make-HMap mandatory optional false))
-  ([mandatory optional complete? & {:keys [absent-keys]}]
-   ; simplifies to bottom with contradictory options
-   (if (seq (set/intersection (-> mandatory keys set)
-                              (-> optional keys set)
-                              (set absent-keys)))
-     (make-Union [])
-     (make-Union 
-            (remove
-              #{(make-Union [])}
-              (for [ss (map #(into {} %) (comb/subsets optional))]
-                (let [new-mandatory (merge mandatory ss)
-                      ;other optional keys cannot appear...
-                      new-absent (set/union
-                                   (set/difference (set (keys optional))
-                                                   (set (keys ss)))
-                                   (set absent-keys))
-                      ;...but we don't know about other keys
-                      new-other-keys? (not complete?)]
-                  (-hmap new-mandatory new-absent new-other-keys?))))))))
+  - :mandatory    a map of mandatory entries
+                  Default: {}
+  - :optional     a map of optional entries
+                  Default: {}
+  - :absent-keys  a set of types that are not keys this/these maps
+                  Default: #{}
+  - :complete?    creates a complete map if true, or a partial map if false
+                  Default: false"
+  [& {:keys [mandatory optional complete? absent-keys]
+      :or {mandatory {} optional {} complete? false absent-keys #{}}
+      :as opt}]
+  {:post [(r/Type? %)]}
+  (assert (set/subset? (set (keys opt))
+                       #{:mandatory :optional :complete? :absent-keys})
+          (set (keys opt)))
+  (assert ((u/hash-c? r/Type? r/Type?) mandatory)
+          (pr-str mandatory))
+  (assert ((u/hash-c? r/Type? r/Type?) optional)
+          (pr-str optional))
+  (assert ((u/set-c? r/Type?) absent-keys)
+          (pr-str absent-keys))
+  (assert (u/boolean? complete?)
+          (pr-str complete?))
+  ; simplifies to bottom with contradictory options
+  (if (seq (set/intersection (-> mandatory keys set)
+                             (-> optional keys set)
+                             (set absent-keys)))
+    (make-Union [])
+    (make-Union 
+      (remove
+        #{(make-Union [])}
+        (for [ss (map #(into {} %) (comb/subsets optional))]
+          (let [new-mandatory (merge mandatory ss)
+                ;other optional keys cannot appear...
+                new-absent (set/union
+                             (set/difference (set (keys optional))
+                                             (set (keys ss)))
+                             (set absent-keys))
+                ;...but we don't know about other keys
+                new-other-keys? (not complete?)]
+            (-hmap new-mandatory new-absent new-other-keys?)))))))
 
 ;TODO to type check this, need to un-munge instance field names
-(t/ann complete-hmap? [HeterogeneousMap -> Any])
+(t/ann complete-hmap? [HeterogeneousMap -> Boolean])
 (defn complete-hmap? [^HeterogeneousMap hmap]
   {:pre [(r/HeterogeneousMap? hmap)]}
   (not (.other-keys? hmap)))
@@ -292,14 +315,18 @@
             t (cond
                 (and (r/HeterogeneousMap? t1)
                      (r/HeterogeneousMap? t2))
-                (-hmap
-                  (merge-with In
-                              (:types t1)
-                              (:types t2))
-                  (set/union (:absent-keys t1)
-                             (:absent-keys t2))
-                  (or (:other-keys? t1)
-                      (:other-keys? t2)))
+                (make-HMap
+                  :mandatory
+                    (merge-with In
+                                (:types t1)
+                                (:types t2))
+                  :absent-keys
+                    (set/union (:absent-keys t1)
+                               (:absent-keys t2))
+                  :complete?
+                    (not
+                      (or (:other-keys? t1)
+                          (:other-keys? t2))))
 
                 ;RClass's with the same base, intersect args pairwise
                 (and (r/RClass? t1)
@@ -609,7 +636,7 @@
    :post [(r/Type? %)]}
   (let [kf (zipmap (map (comp r/-val keyword) (keys (.fields r)))
                    (vals (.fields r)))]
-    (-hmap kf)))
+    (make-HMap :mandatory kf)))
 
 (t/ann RClass-of-cache (t/Atom1 (t/Map Any r/Type)))
 (defonce ^:private RClass-of-cache (atom {}))
@@ -640,10 +667,11 @@
          (let [rc ((some-fn dtenv/get-datatype rcls/get-rclass) 
                    sym)
                _ (assert ((some-fn r/TypeFn? r/RClass? r/DataType? nil?) rc))
-               _ (assert (or (r/TypeFn? rc) (empty? args))
-                         (str "Cannot instantiate non-polymorphic RClass " sym
-                              (when *current-RClass-super*
-                                (str " when checking supertypes of RClass " *current-RClass-super*))))
+               _ (when-not (or (r/TypeFn? rc) (empty? args))
+                   (u/int-error
+                     (str "Cannot instantiate non-polymorphic RClass " sym
+                          (when *current-RClass-super*
+                            (str " when checking supertypes of RClass " *current-RClass-super*)))))
                res (cond 
                      (r/TypeFn? rc) (instantiate-typefn rc args)
                      ((some-fn r/DataType? r/RClass?) rc) rc
@@ -1778,13 +1806,13 @@
          [r/no-bounds]
          (r/make-FnIntersection
            (r/make-Function
-             [(-hmap {(r/-val kw) (r/make-F 'x)})]
+             [(-partial-hmap {(r/-val kw) (r/make-F 'x)})]
              (r/make-F 'x)
              nil nil
              :object (or/->Path [(path/->KeyPE kw)] 0))
            (r/make-Function
-             [(Un (-hmap {(r/-val kw) (r/make-F 'x)})
-                  (-hmap {} #{(r/-val kw)} true)
+             [(Un (make-HMap
+                    :optional {(r/-val kw) (r/make-F 'x)})
                   r/-nil)]
              (Un r/-nil (r/make-F 'x))
              nil nil
@@ -1824,7 +1852,8 @@
 (defn KwArgsSeq->HMap [^KwArgsSeq kws]
   {:pre [(r/KwArgsSeq? kws)]
    :post [(r/Type? %)]}
-  (make-HMap (.mandatory kws) (.optional kws)))
+  (make-HMap :mandatory (.mandatory kws) 
+             :optional (.optional kws)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Heterogenous type ops

@@ -491,7 +491,8 @@
           optional (mapt optional)
           _ (when-not (every? keyword? absent-keys) (u/int-error "HMap's absent keys must be keywords"))
           absent-keys (set (map r/-val absent-keys))]
-      (c/make-HMap mandatory optional complete? :absent-keys absent-keys))))
+      (c/make-HMap :mandatory mandatory :optional optional 
+                   :complete? complete? :absent-keys absent-keys))))
 
 (defn parse-quoted-hvec [syn]
   (let [{:keys [fixed drest rest]} (parse-hvec-types syn)]

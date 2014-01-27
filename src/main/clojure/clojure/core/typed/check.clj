@@ -1465,8 +1465,8 @@
                             (let [protocol (do (when-not (= :var (:op prcl-expr))
                                                  (u/int-error  "Must reference protocol directly with var in extend"))
                                                (ptl-env/resolve-protocol (u/var->symbol (:var prcl-expr))))
-                                  expected-mmap (c/make-HMap {}
-                                                             ;get all combinations
+                                  expected-mmap (c/make-HMap ;get all combinations
+                                                             :optional
                                                              (into {}
                                                                    (for [[msym mtype] (:methods protocol)]
                                                                      [(r/-val (keyword (name msym))) 
@@ -1705,7 +1705,7 @@
                          (fo/-filter val-type id-hm (concat path-hm [this-pelem]))
                          fl/-top)
                        (if (obj/Path? o)
-                         (fo/-or (fo/-filter (c/-hmap {} #{kwt} true) id-hm path-hm) ; this map doesn't have a kwt key or...
+                         (fo/-or (fo/-filter (c/make-HMap :absent-keys #{kwt}) id-hm path-hm) ; this map doesn't have a kwt key or...
                                  (fo/-filter (c/Un r/-nil r/-false) id-hm (concat path-hm [this-pelem]))) ; this map has a false kwt key
                          fl/-top))
                (if (obj/Path? o)
@@ -4252,25 +4252,28 @@
         (cond
           present?
           ; -hmap simplifies to bottom if an entry is bottom
-          (c/-hmap (update-in (:types t) [fpth] update next-filter)
-                   (:absent-keys t)
-                   (:other-keys? t))
+          (c/make-HMap
+            :mandatory (update-in (:types t) [fpth] update next-filter)
+            :absent-keys (:absent-keys t)
+            :complete? (not (:other-keys? t)))
           absent?
           t
 
           ; key not declared present or absent
           :else
           (c/Un
-            (c/-hmap (assoc-in (:types t) [fpth] (update r/-any next-filter))
-                     (:absent-keys t)
-                     (:other-keys? t))
+            (c/make-HMap 
+              :mandatory (assoc-in (:types t) [fpth] (update r/-any next-filter))
+              :absent-keys (:absent-keys t)
+              :complete? (not (:other-keys? t)))
             ; if we can prove we only ever update this path to nil,
             ; we can ignore the absent case.
             (let [updated-nil (update r/-nil next-filter)]
               (if-not (r/Bottom? updated-nil)
-                (c/-hmap (:types t)
-                         (conj (:absent-keys t) fpth)
-                         (:other-keys? t))
+                (c/make-HMap 
+                  :mandatory (:types t)
+                  :absent-keys (conj (:absent-keys t) fpth)
+                  :complete? (not (:other-keys? t)))
                 r/-nothing)))))
 
       ; nil returns nil on keyword lookups

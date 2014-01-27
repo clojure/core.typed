@@ -577,8 +577,8 @@
                   (fail! S T))
               ;; Isolate the entries of Assoc in a new HMap, with a corresponding expected HMap.
               ; keys on the right overwrite those on the left.
-              assoc-args-hmap (c/-hmap (into {} entries))
-              expected-assoc-args-hmap (c/-hmap (select-keys (:types assoc-args-hmap) (set Assoc-keys)))
+              assoc-args-hmap (c/make-HMap :mandatory (into {} entries))
+              expected-assoc-args-hmap (c/make-HMap :mandatory (select-keys (:types assoc-args-hmap) (set Assoc-keys)))
               
               ;; The target of the Assoc needs all the keys not explicitly Assoc'ed.
               expected-target-hmap 
