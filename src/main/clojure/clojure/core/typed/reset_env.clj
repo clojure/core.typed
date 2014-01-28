@@ -11,7 +11,9 @@
 
 (defn load-cljs? []
   (load/load-cljs)
-  (boolean (find-ns 'cljs.analyzer)))
+  ;completely disable CLJS until we can support later versions
+  false
+  #_(boolean (find-ns 'cljs.analyzer)))
 
 (defn reset-envs! 
   "Reset all environments for all implementations. Cannot be called
