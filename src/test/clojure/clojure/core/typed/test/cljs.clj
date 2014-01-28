@@ -10,6 +10,8 @@
   (:import (clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
                          Keyword ExceptionInfo Symbol Var)))
 
+; Disable tests for now
+(comment
 (defmacro cljs [& body]
   `(impl/with-cljs-impl
      ~@body))
@@ -129,6 +131,7 @@
   (is-cf 1.1 number)
   (is-cf 1 number)
   (is-cf true boolean))
+)
 
 ;(t/check-ns 'cljs.core.typed.test.dnolen.utils.dom)
 ;(t/check-ns 'cljs.core.typed.test.dnolen.utils.reactive)
