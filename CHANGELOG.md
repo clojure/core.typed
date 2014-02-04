@@ -1,3 +1,14 @@
+# 0.2.26 - Released 28 January 2014
+
+## Completely disable ClojureScript Integration
+
+There is a conflict with the latest Clojurescript versions. Since
+Clojurescript checking support is not working anyway, we temporarily
+disable Clojurescript support.
+
+This should enable Clojurescript 0.0-2138 and core.typed to work
+together.
+
 # 0.2.25 - Released 23 January 2014 (0.2.24 is broken)
 
 ## Turn off *collect-on-eval* by default
