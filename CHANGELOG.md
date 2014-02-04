@@ -1,3 +1,7 @@
+# 0.2.27 - Released 5 February 2014
+
+- Properly handle variance checks for DataType's
+
 # 0.2.26 - Released 28 January 2014
 
 ## Completely disable ClojureScript Integration
