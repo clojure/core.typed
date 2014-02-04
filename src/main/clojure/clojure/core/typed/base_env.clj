@@ -670,6 +670,7 @@ clojure.core.typed/override-constructor* [Any Any -> Any]
 clojure.core.typed/override-method* [Any Any -> Any]
 clojure.core.typed/typed-deps* [Any -> Any]
 clojure.core.typed/load-if-needed [-> Any]
+clojure.core.typed/*collect-on-eval* Any
 ; should always be special cased
 ;clojure.core.typed/var>* [Any -> (Var2 Nothing Any)]
 
