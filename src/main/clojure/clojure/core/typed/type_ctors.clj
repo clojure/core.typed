@@ -86,20 +86,6 @@
 
 ;; Heterogeneous maps
 
-(t/ann ^:no-check -hmap (Fn [(Seqable r/Type) -> r/Type]
-                           [(Seqable r/Type) Boolean -> r/Type]
-                           [(Seqable r/Type) (IPersistentSet r/Type) Boolean -> r/Type]))
-(defn ^:private -hmap 
-  ([types] (-hmap types #{} true))
-  ([types other-keys?] (-hmap types #{} other-keys?))
-  ([types absent-keys other-keys?]
-   (if (or ; simplify to bottom if an entry is bottom
-           (some #{bottom} (concat (keys types) (vals types) absent-keys))
-           ; contradictory overlap in present/absent keys
-           (seq (set/intersection (set (keys types)) (set absent-keys))))
-     bottom
-     (r/HeterogeneousMap-maker types absent-keys other-keys?))))
-
 (declare make-HMap)
 
 (t/ann -complete-hmap [(t/Map r/Type r/Type) -> r/Type])
@@ -141,11 +127,14 @@
   "A regular map with types as keys and vals."
   (t/Map r/Type r/Type))
 
+(declare In)
+
 (t/ann ^:no-check make-HMap [& :optional {:mandatory (t/Map r/Type r/Type) :optional (t/Map r/Type r/Type)
                                           :absent-keys (t/Set r/Type) :complete? Boolean} 
                              -> r/Type])
 (defn make-HMap 
   "Make a heterogeneous map type for the given options.
+  Handles duplicate keys between map properties.
   
   Options:
   - :mandatory    a map of mandatory entries
@@ -171,24 +160,28 @@
           (pr-str absent-keys))
   (assert (u/boolean? complete?)
           (pr-str complete?))
-  ; simplifies to bottom with contradictory options
-  (if (seq (set/intersection (-> mandatory keys set)
-                             (-> optional keys set)
-                             (set absent-keys)))
-    (make-Union [])
-    (make-Union 
-      (remove
-        #{(make-Union [])}
-        (for [ss (map #(into {} %) (comb/subsets optional))]
-          (let [new-mandatory (merge mandatory ss)
-                ;other optional keys cannot appear...
-                new-absent (set/union
-                             (set/difference (set (keys optional))
-                                             (set (keys ss)))
-                             (set absent-keys))
-                ;...but we don't know about other keys
-                new-other-keys? (not complete?)]
-            (-hmap new-mandatory new-absent new-other-keys?)))))))
+  ; simplifies to bottom with contradictory keys
+  (if-not (empty? (set/intersection (set (keys mandatory))
+                                    (set absent-keys)))
+    bottom
+    (let [optional-now-mandatory (set/intersection
+                                   (set (keys optional))
+                                   (set (keys mandatory)))
+          optional-now-absent (set/intersection
+                                (set (keys optional))
+                                absent-keys)
+          _ (assert (empty? 
+                      (set/intersection optional-now-mandatory
+                                        optional-now-absent)))]
+      (r/HeterogeneousMap-maker 
+        (merge-with In mandatory (select-keys optional optional-now-mandatory))
+        (apply dissoc optional (set/union optional-now-absent
+                                          optional-now-mandatory))
+        ; throw away absents if complete
+        (if complete?
+          #{}
+          (set/union absent-keys optional-now-absent))
+        (not complete?)))))
 
 ;TODO to type check this, need to un-munge instance field names
 (t/ann complete-hmap? [HeterogeneousMap -> Boolean])
@@ -302,6 +295,32 @@
 
 (declare RClass-of)
 
+(defn HMap-with-Value-keys? [& args]
+  {:pre [(every? HeterogeneousMap? args)]}
+  (every? r/Value? 
+          (apply concat 
+                 (mapcat (juxt (comp keys :types)
+                               (comp keys :optional)
+                               :absent-keys) 
+                         args))))
+
+(defn ^:private intersect-HMap
+  [t1 t2]
+  {:pre [(r/HeterogeneousMap? t1)
+         (r/HeterogeneousMap? t2)
+         (HMap-with-Value-keys? t1 t2)]
+   :post [(r/Type? %)]}
+  ; make-HMap handles duplicates
+  (make-HMap
+    :mandatory
+      (apply merge-with In (map :types [t1 t2]))
+    :optional
+      (apply merge-with In (map :optional [t1 t2]))
+    :absent-keys
+      (apply set/union (map :absent-keys [t1 t2]))
+    :complete?
+      (not-any? :other-keys? [t1 t2])))
+
 (t/ann ^:no-check intersect [r/Type r/Type -> r/Type])
 (defn intersect [t1 t2]
   {:pre [(r/Type? t1)
@@ -320,18 +339,7 @@
             t (cond
                 (and (r/HeterogeneousMap? t1)
                      (r/HeterogeneousMap? t2))
-                (make-HMap
-                  :mandatory
-                    (merge-with In
-                                (:types t1)
-                                (:types t2))
-                  :absent-keys
-                    (set/union (:absent-keys t1)
-                               (:absent-keys t2))
-                  :complete?
-                    (not
-                      (or (:other-keys? t1)
-                          (:other-keys? t2))))
+                  (intersect-HMap t1 t2)
 
                 ;RClass's with the same base, intersect args pairwise
                 (and (r/RClass? t1)
@@ -1376,14 +1384,22 @@
         t2 (fully-resolve-type t2)
         eq (= t1 t2)
         hmap-and-seq? (fn [h s] (and (r/HeterogeneousMap? h)
-                                     (r/RClass? s)
-                                     (= (u/Class->symbol clojure.lang.ISeq) (:the-class s))))
+                                     (impl/impl-case
+                                       :clojure (and (r/RClass? s)
+                                                     ('#{clojure.lang.ISeq} (:the-class s)))
+                                       :cljs (and (r/Protocol? s)
+                                                  ('#{cljs.core/ISeq} (:the-var s))))))
         hvec-and-seq? (fn [h s] (and (r/HeterogeneousVector? h)
-                                     (r/RClass? s)
-                                     (= (u/Class->symbol clojure.lang.ISeq) (:the-class s))))
+                                     (impl/impl-case
+                                       :clojure (and (r/RClass? s)
+                                                     ('#{clojure.lang.ISeq} (:the-class s)))
+                                       :cljs (and (r/Protocol? s)
+                                                  ('#{cljs.core/ISeq} (:the-var s))))))
         record-and-iseq? (fn [r s]
                            (and (r/Record? r)
-                                (subtype? s (RClass-of clojure.lang.ISeq [r/-any]))))]
+                                (subtype? s (impl/impl-case
+                                              :clojure (RClass-of clojure.lang.ISeq [r/-any])
+                                              :cljs (Protocol-of 'cljs.core/ISeq [r-any])))))]
     (cond 
       eq eq
 
@@ -1432,7 +1448,8 @@
 ;          (subtype? t2 t1))
       (and (r/RClass? t1)
            (r/RClass? t2))
-      (let [{t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
+      (let [_ (impl/assert-clojure)
+            {t1-flags :flags} (reflect/type-reflect (r/RClass->Class t1))
             {t2-flags :flags} (reflect/type-reflect (r/RClass->Class t2))]
         ; there is only an overlap if a class could have both classes as parents
         (or (subtype? t1 t2)
@@ -1924,7 +1941,9 @@
     (let [bnd (free-ops/free-with-name-bnds name)
           _ (when-not bnd
               (u/int-error (str "No bounds for type variable: " name bnds/*current-tvar-bnds*)))]
-      (when (subtype? (:upper-bound bnd) (RClass-of IPersistentMap [r/-any r/-any]))
+      (when (subtype? (:upper-bound bnd) (impl/impl-case
+                                           :clojure (RClass-of IPersistentMap [r/-any r/-any])
+                                           :cljs (Protocol-of 'cljs.core/IMap [r/-any r/-any])))
         (r/AssocType-maker f [(mapv r/ret-t assoc-entry)] nil))))
 
   Value
@@ -1934,17 +1953,19 @@
      (let [rkt (-> kt :t fully-resolve-type)]
        (if (keyword-value? rkt)
          (-complete-hmap {rkt (:t vt)})
-         (RClass-of IPersistentMap [rkt (:t vt)])
-         ))))
+         (impl/impl-case
+           :clojure (RClass-of IPersistentMap [rkt (:t vt)])
+           :cljs (Protocol-of 'cljs.core/IMap [rkt (:t vt)]))))))
   
   RClass
   (-assoc-pair
    [rc [kt vt]]
-   (let [rkt (-> kt :t fully-resolve-type)]
+   (let [_ (impl/assert-clojure)
+         rkt (-> kt :t fully-resolve-type)]
      (cond
       (= (:the-class rc) 'clojure.lang.IPersistentMap)
       (RClass-of IPersistentMap [(Un (:t kt) (nth (:poly? rc) 0))
-                                   (Un (:t vt) (nth (:poly? rc) 1))])
+                                 (Un (:t vt) (nth (:poly? rc) 1))])
       
       (and (= (:the-class rc) 'clojure.lang.IPersistentVector)
            (r/Value? rkt))
@@ -1962,17 +1983,18 @@
            (update-in [:absent-keys] disj rkt))
        ; devolve the map
        ;; todo: probably some machinery I can reuse here?
-       (RClass-of IPersistentMap [(apply Un (concat [rkt] (keys (:types hmap))))
-                                  (apply Un (concat [(:t vt)] (vals (:types hmap))))])
-       )))
+       (let [args [(apply Un (concat [rkt] (keys (:types hmap))))
+                   (apply Un (concat [(:t vt)] (vals (:types hmap))))]]
+         (impl/impl-case
+           :clojure (RClass-of IPersistentMap args)
+           :cljs (partial Protocol-of 'cljs.core/IMap args))))))
   
   HeterogeneousVector
   (-assoc-pair
    [v [kt vt]]
    (let [rkt (-> kt :t fully-resolve-type)]
      (when (r/Value? rkt)
-       (let [^Value kt rkt
-             k (.val kt)] 
+       (let [k (:val kt)] 
          (when (and (integer? k) (<= k (count (:types v))))
            (r/-hvec (assoc (:types v) k (:t vt))
                     :filters (assoc (:fs v) k (:fl vt))
@@ -2022,12 +2044,14 @@
       t
       
       (and (r/HeterogeneousMap? t) (keyword-value? rtype))
-      (if (:other-keys? t)
+      (if-not (complete-hmap? t)
         (-> (update-in t [:types] dissoc rtype)
             (update-in [:absent-keys] conj rtype))
         (update-in t [:types] dissoc rtype))
       
-      (subtype? t (RClass-of IPersistentMap [r/-any r/-any]))
+      (subtype? t (impl/impl-case
+                    :clojure (RClass-of IPersistentMap [r/-any r/-any])
+                    :cljs (Protocol-of 'cljs.core/IMap [r/-any r/-any])))
       t
       ))))
 
@@ -2051,6 +2075,8 @@
   {:pre [(r/HeterogeneousMap? left)
          (r/HeterogeneousMap? right)]}
   
+  (assert (every? empty? (map :optional [left right]))
+          "TODO optional keys")
   (let [; update lhs with known types
         first-pass (apply assoc-type-pairs left (map (fn [[k t]]
                                                        [(r/ret k) (r/ret t)])
@@ -2080,9 +2106,12 @@
   {:pre [(r/Type? left)
          (r/TCResult? right)]
    :post [((some-fn nil? r/Type?) %)]}
-  (let [sub-class? #(subtype? %1 (RClass-of %2 %3))
-        left-map (sub-class? left IPersistentMap [r/-any r/-any])
-        right-map (sub-class? (ret-t right) IPersistentMap [r/-any r/-any])]
+  (let [left-map (subtype? left (impl/impl-case
+                                  :clojure (RClass-of IPersistentMap [r/-any r/-any])
+                                  :cljs (Protocol-of 'cljs.core/IMap [r/-any r/-any])))
+        right-map (subtype? (ret-t right) (impl/impl-case
+                                            :clojure (RClass-of IPersistentMap [r/-any r/-any])
+                                            :cljs (Protocol-of 'cljs.core/IMap [r/-any r/-any])))]
     (cond
      ; preserve the rhand alias when possible
      (and (r/Nil? left) right-map)
@@ -2094,20 +2123,29 @@
         (cond
          (and (or left-map (r/Nil? left))
               (r/Nil? rtype))
-         left
+           left
          
-         (and (r/Nil? left) (sub-class? rtype IPersistentMap [r/-any r/-any]))
-         rtype
+         (and (r/Nil? left) 
+              (subtype? rtype (impl/impl-case
+                                :clojure (RClass-of IPersistentMap [r/-any r/-any])
+                                :cljs (Protocol-of 'cljs.core/IMap [r/-any r/-any]))))
+           rtype
          
          (and (r/HeterogeneousMap? left) (r/HeterogeneousMap? rtype))
-         (merge-hmaps left rtype)
+           (merge-hmaps left rtype)
          
-         (and (not (sub-class? left IPersistentVector [r/-any]))
+         (and (not (subtype? left (impl/impl-case
+                                    :clojure (RClass-of IPersistentVector [r/-any])
+                                    :cljs (Protocol-of 'cljs.core/IVector [r/-any]))))
               (satisfies? AssocableType left)
               (r/HeterogeneousMap? rtype))
-         (apply assoc-type-pairs left (map (fn [[k t]]
-                                             [(r/ret k) (r/ret t)])
-                                           (:types rtype)))
+          (do
+            ;TODO
+            (assert (empty? (:optional rtype)))
+             (apply assoc-type-pairs left (map (fn [[k t]]
+                                                 [(r/ret k) (r/ret t)])
+                                               (:types rtype)))
+            )
          ))))))
 
 (defn merge-types [left & r-tcresults]
@@ -2207,7 +2245,4 @@
                                 ;no bounds provided, default to Nothing <: Any
                                 :else {:upper r/-any :lower r/-nothing})]
     (r/Bounds-maker upper lower nil)))
-
-(defn -any-meta []
-  (Un r/-nil (RClass-of clojure.lang.IPersistentMap r/-any r/-any)))
 )

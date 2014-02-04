@@ -529,19 +529,61 @@
 
         (and (r/HeterogeneousMap? S)
              (r/HeterogeneousMap? T))
+    ; assumes optional/mandatory/absent keys are disjoint
         (let [Skeys (set (keys (:types S)))
-              Tkeys (set (keys (:types T)))]
+              Tkeys (set (keys (:types T)))
+              Soptk (set (keys (:optional S)))
+              Toptk (set (keys (:optional T)))
+              Sabsk (:absent-keys S)
+              Tabsk (:absent-keys T)]
           ; All keys must be values
-          (when-not (every? r/Value? (set/union Skeys Tkeys))
+          (when-not (every? r/Value? 
+                            (concat
+                              Skeys Tkeys
+                              Soptk Toptk
+                              Sabsk Tabsk))
             (fail! S T))
-          ; All keys on the left must appear on the right
-          (when-not (empty? (set/difference Skeys Tkeys))
+          ; If the right is complete, the left must also be complete
+          (when (c/complete-hmap? T)
+            (when-not (c/complete-hmap? S)
+              (fail! S T)))
+          ; check mandatory keys
+          (if (c/complete-hmap? T)
+            ; If right is complete, mandatory keys must be identical
+            (when-not (= Tkeys Skeys)
+              (fail! S T))
+            ; If right is partial, all mandatory keys on the right must also appear mandatory on the left
+            (when-not (empty? (set/difference Tkeys 
+                                Skeys))
+              (fail! S T)))
+          ; All optional keys on the right must appear either absent, mandatory or optional
+          ; on the left
+          (when-not (empty? (set/difference Toptk 
+                              (set/union Skeys 
+                                         Soptk 
+                                         Sabsk)))
             (fail! S T))
-          (let [nocheck-keys (set/difference Tkeys Skeys)
-                STvals (vals (merge-with vector (:types S) (apply dissoc (:types T) nocheck-keys)))
-                Svals (map first STvals)
-                Tvals (map second STvals)]
-            (cs-gen-list V X Y Svals Tvals)))
+          ; All absent keys on the right must appear absent on the left
+          (when-not (empty? (set/difference Tabsk
+                              Sabsk))
+            (fail! S T))
+          ; now check the values with cs-gen
+          (let [;only check mandatory entries that appear on the right
+                check-mandatory-keys Tkeys
+                Svals (map (:types S) check-mandatory-keys)
+                Tvals (map (:types T) check-mandatory-keys)
+                _ (assert (every? r/Type? Svals))
+                _ (assert (every? r/Type? Tvals))
+                ;only check optional entries that appear on the right
+                ; and also appear as mandatory or optional on the left
+                check-optional-keys (set/intersection
+                                      Toptk (set/union Skeys Soptk))
+                Sopts (map (some-fn (:types S) (:optional S)) check-optional-keys)
+                Topts (map (:optional S) check-optional-keys)
+                _ (assert (every? r/Type? Sopts))
+                _ (assert (every? r/Type? Topts))]
+            (cset-meet* [(cs-gen-list V X Y Svals Tvals)
+                         (cs-gen-list V X Y Sopts Topts)])))
 
 
 ; Completeness matters:
@@ -624,11 +666,12 @@
         (let [^HeterogeneousMap S S]
           ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
           (let [new-S (if (c/complete-hmap? S)
-                        (impl/impl-case
-                          :clojure (c/RClass-of APersistentMap [(apply c/Un (keys (.types S)))
-                                                                (apply c/Un (vals (.types S)))])
-                          :cljs (c/Protocol-of 'cljs.core/IMap [(apply c/Un (keys (.types S)))
-                                                                (apply c/Un (vals (.types S)))]))
+                        (let [kt (apply c/Un (mapcat keys [(.types S) (.optional S)]))
+                              vt (apply c/Un (mapcat vals [(.types S) (.optional S)]))]
+                          (impl/impl-case
+                            :clojure 
+                              (c/RClass-of APersistentMap [kt vt])
+                            :cljs (c/Protocol-of 'cljs.core/IMap [kt vt])))
 
                         (impl/impl-case
                           :clojure (c/RClass-of APersistentMap [r/-any r/-any])
