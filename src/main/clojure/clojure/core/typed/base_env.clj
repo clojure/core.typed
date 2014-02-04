@@ -709,9 +709,9 @@ clojure.core/aget (All [x] (Fn [(ReadOnlyArray x)
                                 AnyInteger AnyInteger AnyInteger -> x]
                                [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))) 
                                 AnyInteger AnyInteger AnyInteger AnyInteger -> x]
-                               ; unsound
-                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray Any)))))
-                                AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger * -> Any]))
+                               ; don't support unsound cases
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))))
+                                AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger -> x]))
 
 clojure.core/macroexpand-1 [Any -> Any]
 clojure.core/macroexpand [Any -> Any]
