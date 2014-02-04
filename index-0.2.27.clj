@@ -6,7 +6,7 @@
    :name "clojure.core.typed",
    :doc nil}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj",
+   "https://github.com/clojure/core.typed/blob/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.async-api.html",
    :name "clojure.core.typed.async",
@@ -1210,71 +1210,71 @@
    :name "buffer>",
    :namespace "clojure.core.typed.async",
    :source-url
-   "https://github.com/clojure/core.typed/blob/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj#L207",
+   "https://github.com/clojure/core.typed/blob/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj#L203",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj",
+   "https://github.com/clojure/core.typed/raw/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.async/buffer>",
    :doc
    "A statically typed core.async buffer. \n\n(buffer> t ...) creates a buffer that can read and write type t.\nSubsequent arguments are passed directly to clojure.core.async/buffer.\n\nNote: (buffer> t ...) is the same as ((inst buffer t) ...)",
    :var-type "macro",
-   :line 207,
+   :line 203,
    :file "src/main/clojure/clojure/core/typed/async.clj"}
   {:arglists ([t & args]),
    :name "chan>",
    :namespace "clojure.core.typed.async",
    :source-url
-   "https://github.com/clojure/core.typed/blob/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj#L196",
+   "https://github.com/clojure/core.typed/blob/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj#L192",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj",
+   "https://github.com/clojure/core.typed/raw/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.async/chan>",
    :doc
    "A statically typed core.async channel. \n\n(chan> t ...) creates a buffer that can read and write type t.\nSubsequent arguments are passed directly to clojure.core.async/chan.\n\nNote: \n(chan> t ...) is the same as ((inst chan t) ...)",
    :var-type "macro",
-   :line 196,
+   :line 192,
    :file "src/main/clojure/clojure/core/typed/async.clj"}
   {:arglists ([t & args]),
    :name "dropping-buffer>",
    :namespace "clojure.core.typed.async",
    :source-url
-   "https://github.com/clojure/core.typed/blob/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj#L227",
+   "https://github.com/clojure/core.typed/blob/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj#L223",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj",
+   "https://github.com/clojure/core.typed/raw/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.async/dropping-buffer>",
    :doc
    "A statically typed core.async dropping buffer. \n\n(dropping-buffer> t ...) creates a dropping buffer that can read and write type t.\nSubsequent arguments are passed directly to clojure.core.async/dropping-buffer.\n\nNote: (dropping-buffer> t ...) is the same as ((inst dropping-buffer t) ...)",
    :var-type "macro",
-   :line 227,
+   :line 223,
    :file "src/main/clojure/clojure/core/typed/async.clj"}
   {:arglists ([& body]),
    :name "go>",
    :namespace "clojure.core.typed.async",
    :source-url
-   "https://github.com/clojure/core.typed/blob/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj#L170",
+   "https://github.com/clojure/core.typed/blob/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj#L166",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj",
+   "https://github.com/clojure/core.typed/raw/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.async/go>",
    :doc
    "Asynchronously executes the body, returning immediately to the\ncalling thread. Additionally, any visible calls to <!, >! and alt!/alts!\nchannel operations within the body will block (if necessary) by\n'parking' the calling thread rather than tying up an OS thread (or\nthe only JS thread when in ClojureScript). Upon completion of the\noperation, the body will be resumed.\n\nReturns a channel which will receive the result of the body when\ncompleted",
    :var-type "macro",
-   :line 170,
+   :line 166,
    :file "src/main/clojure/clojure/core/typed/async.clj"}
   {:arglists ([t & args]),
    :name "sliding-buffer>",
    :namespace "clojure.core.typed.async",
    :source-url
-   "https://github.com/clojure/core.typed/blob/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj#L217",
+   "https://github.com/clojure/core.typed/blob/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj#L213",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/async.clj",
+   "https://github.com/clojure/core.typed/raw/e391191dbbd80e1ea31d1025cc3dc637be8476eb/src/main/clojure/clojure/core/typed/async.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.async/sliding-buffer>",
    :doc
    "A statically typed core.async sliding buffer. \n\n(sliding-buffer> t ...) creates a sliding buffer that can read and write type t.\nSubsequent arguments are passed directly to clojure.core.async/sliding-buffer.\n\nNote: (sliding-buffer> t ...) is the same as ((inst sliding-buffer t) ...)",
    :var-type "macro",
-   :line 217,
+   :line 213,
    :file "src/main/clojure/clojure/core/typed/async.clj"}
   {:arglists ([]),
    :name "->NoisyHole",
