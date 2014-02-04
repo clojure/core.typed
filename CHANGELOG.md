@@ -1,6 +1,17 @@
 # 0.2.27 - Released 5 February 2014
 
 - Properly handle variance checks for DataType's
+- Add annotation for 
+  - clojure.core.typed/*collect-on-eval*
+  - clojure.core/ns-aliases
+- Only support aget up to 6 arguments
+  - This may change back in the future to any arguments
+
+## Clojurescript-specific
+
+- cljs.c.t/{check-ns,cf} are both macros to facilitate calling from CLJS REPL
+- cljs.c.t/{check-ns*,cf*} are Clojure functions for checking of
+  Clojurescript code from Clojure
 
 # 0.2.26 - Released 28 January 2014
 
