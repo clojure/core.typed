@@ -10,26 +10,25 @@
 (alter-meta! *ns* assoc :skip-wiki true)
 
 (defn load-cljs? []
-  (load/load-cljs)
-  ;completely disable CLJS until we can support later versions
-  false
-  #_(boolean (find-ns 'cljs.analyzer)))
+  ((impl/v 'clojure.core.typed.init/cljs?)))
 
 (defn reset-envs! 
   "Reset all environments for all implementations. Cannot be called
   if a specific implementation is currently bound"
   []
   (let [cljs? (load-cljs?)]
-    (bse-clj/reset-clojure-envs!)
-    (mmenv/reset-mm-dispatch-env!)
-    (when cljs?
-      (bse-cljs/reset-cljs-envs!))
-    (impl/with-clojure-impl
-      (deps/reset-deps!)
-      (ns-opts/reset-ns-opts!))
-    (when cljs?
-      (impl/with-cljs-impl
-        (deps/reset-deps!)
-        (ns-opts/reset-ns-opts!)))
+    (impl/impl-case
+      :clojure
+      (do (bse-clj/reset-clojure-envs!)
+          (mmenv/reset-mm-dispatch-env!)
+          (deps/reset-deps!)
+          (ns-opts/reset-ns-opts!))
+      :cljs
+      (do
+        (assert cljs? "No ClojureScript dependency")
+        (when cljs?
+          (bse-cljs/reset-cljs-envs!)
+          (deps/reset-deps!)
+          (ns-opts/reset-ns-opts!))))
     nil))
 

@@ -3,14 +3,14 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :dependencies [[org.clojure/jvm.tools.analyzer "0.6.0"
+  :dependencies [[org.clojure/jvm.tools.analyzer "0.6.1-SNAPSHOT"
                   :exclusions [org.clojure/clojure
                                org.clojure/clojurescript]]
                  [org.clojure/core.contracts "0.0.4"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.0.2"
                   :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojurescript "0.0-2138"]
+                 [org.clojure/clojurescript "0.0-SNAPSHOT"]
                  [org.clojure/tools.trace "0.7.5"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/clojure "1.5.1"]
@@ -41,7 +41,7 @@
   :test-paths ["src/test/clojure"
                "src/test/cljs"]
 
-  :profiles {:dev {:repl-options {:port 64394}}}
+  :profiles {:dev {:repl-options {:port 64456}}}
 
   :cljsbuild {:builds {}}
 

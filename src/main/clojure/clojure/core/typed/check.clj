@@ -166,7 +166,9 @@
                    ns (find-ns nsym)
                    _ (assert ns)]
                (ns-name ns))
-    :cljs (-> expr :env :ns :name)))
+    :cljs (or (-> expr :env :ns :name)
+              (do (prn "WARNING: No associated ns for ClojureScript expr, defaulting to cljs.user")
+                  'cljs.user))))
 
 (def expr-type ::expr-type)
 

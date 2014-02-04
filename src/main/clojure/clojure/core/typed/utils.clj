@@ -7,7 +7,6 @@
             [clojure.core.contracts]
             [clojure.jvm.tools.analyzer :as analyze]
             [clojure.jvm.tools.analyzer.hygienic :as hygienic]
-            [clojure.core.typed.util-cljs :as util-cljs]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.profiling :as profiling]
@@ -270,7 +269,9 @@
 (defn emit-form-fn [expr]
   (impl/impl-case
     :clojure (hygienic/emit-hy expr)
-    :cljs (util-cljs/emit-form expr)))
+    :cljs (do
+            (require '[clojure.core.typed.util-cljs])
+            ((impl/v 'clojure.core.typed.util-cljs/emit-form) expr))))
 
 (defn constant-expr [expr]
   (case (:op expr)

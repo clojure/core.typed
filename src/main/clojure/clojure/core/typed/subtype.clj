@@ -627,8 +627,8 @@
                     (integer? (.val s)) (subtype (r/IntegerCLJS-maker) t)
                     (number? (.val s)) (subtype (r/NumberCLJS-maker) t)
                     (u/boolean? (.val s)) (subtype (r/BooleanCLJS-maker) t)
-                    (symbol? (.val s)) (subtype (c/Protocol-of 'cljs.core/Symbol) t)
-                    (keyword? (.val s)) (subtype (c/Protocol-of 'cljs.core/Keyword) t)
+                    (symbol? (.val s)) (subtype (c/DataType-of 'cljs.core/Symbol) t)
+                    (keyword? (.val s)) (subtype (c/DataType-of 'cljs.core/Keyword) t)
                     :else (fail! s t))))
 
         (and (r/Result? s)

@@ -1487,8 +1487,8 @@ for checking namespaces, cf for checking individual forms."}
                    *already-checked* (atom #{})
                    *trace-checker* trace
                    *collect-on-eval* false]
-           (reset-envs!)
            (impl/with-clojure-impl
+             (reset-envs!)
              ;; collect
              (let [collect-start (. System (nanoTime))
                    _ (doseq [nsym nsym-coll]
