@@ -19,7 +19,12 @@
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha"]
                  [org.clojure/core.cache "0.6.3"]
+                 ; CLJS fireplace REPL
+                 [com.cemerick/piggieback "0.1.2"]
                  ]
+
+  ; fireplace repl middleware
+  :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
 
   :plugins [[lein-typed "0.3.1"]]
   :core.typed {:check [clojure.core.typed.test.records]
