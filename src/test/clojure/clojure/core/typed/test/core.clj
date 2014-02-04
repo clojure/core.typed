@@ -2794,6 +2794,24 @@
 (deftest demunged-protocol-method-test
   (is (check-ns 'clojure.core.typed.test.protocol-munge)))
 
+(deftest csgen-hmap-test
+  ; (HMap :mandatory {:a Number :b Number} :complete? true) :!< (HMap :mandatory {:a x} :complete? true)
+  (is
+    (u/top-level-error-thrown?
+      (cf (clojure.core.typed/letfn>
+            [take-map :- (All [x] [(HMap :mandatory {:a x} :complete? true) -> x])
+             (take-map [a] (:a a))]
+            (take-map {:a 1 :b 2})))))
+  ; (HMap :mandatory {:a Number}) :!< (HMap :mandatory {:a x} :complete? true)
+  (is
+    (u/top-level-error-thrown?
+      (cf (clojure.core.typed/letfn>
+            [take-map :- (All [x] [(HMap :mandatory {:a x} :complete? true) -> x])
+             (take-map [a] (:a a))]
+            (take-map (clojure.core.typed/ann-form 
+                        {:a 1}
+                        '{:a Number})))))))
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))
