@@ -120,7 +120,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojurescript</artifactId>
-      <version>0.0-1859</version>
+      <version>0.0-2138</version>
       <optional>true</optional>
     </dependency>
     <dependency>
