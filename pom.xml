@@ -37,6 +37,7 @@
             <namespace>clojure.core.typed.*</namespace>
             <namespace>clojure.core.typed.test.*</namespace>
             <namespace>!clojure.core.typed.test.core</namespace>
+            <namespace>!clojure.core.typed.test.cljs</namespace>
             <namespace>cljs.core.typed.*</namespace>
           </namespaces>
           <testNamespaces>
