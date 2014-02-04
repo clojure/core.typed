@@ -196,6 +196,11 @@
   {:pre [(r/HeterogeneousMap? hmap)]}
   (not (.other-keys? hmap)))
 
+(t/ann partial-hmap? [HeterogeneousMap -> Boolean])
+(defn partial-hmap? [^HeterogeneousMap hmap]
+  {:pre [(r/HeterogeneousMap? hmap)]}
+  (.other-keys? hmap))
+
 ;; Unions
 
 (t/tc-ignore
