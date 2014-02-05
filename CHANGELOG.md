@@ -1,3 +1,8 @@
+# 0.2.28 - Released 5 February 2014
+
+- Don't unfold recursive types while compacting union types
+  - avoids infinite unfolding in some cases
+
 # 0.2.27 - Released 5 February 2014
 
 - Properly handle variance checks for DataType's
