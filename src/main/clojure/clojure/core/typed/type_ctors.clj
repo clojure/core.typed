@@ -68,7 +68,7 @@
    :post [(symbol? %)]}
   (with-meta (gensym s) {:original-name s}))
 
-(declare Un make-Union fully-resolve-type)
+(declare Un make-Union fully-resolve-type fully-resolve-non-rec-type)
 
 (t/ann ^:no-check make-Union [(U nil (Seqable r/Type)) -> r/Type])
 (defn make-Union
@@ -347,7 +347,7 @@
             result :- (Seqable r/Type), []]
     (if (empty? work)
       result
-      (let [resolved (doall (map fully-resolve-type work))
+      (let [resolved (doall (map fully-resolve-non-rec-type work))
             {intersections true non-intersections false} (group-by r/Union? resolved)]
         (recur (doall (mapcat :types intersections))
                (doall (concat result non-intersections)))))))
@@ -1198,6 +1198,19 @@
        (recur (-resolve t) seen)
        t)))
   ([t] (u/p :ctors/fully-resolve-type (fully-resolve-type t #{}))))
+
+(t/ann fully-resolve-non-rec-type 
+       (Fn [r/Type -> r/Type]
+           [r/Type (IPersistentSet r/Type) -> r/Type]))
+(defn fully-resolve-non-rec-type 
+  ([t seen]
+   (let [_ (assert (not (seen t)) "Infinite non-Rec type detected")
+         seen (conj seen t)]
+     (if (and (not (r/Mu? t))
+              (requires-resolving? t))
+       (recur (-resolve t) seen)
+       t)))
+  ([t] (fully-resolve-non-rec-type t #{})))
 
 ;; Mu
 
