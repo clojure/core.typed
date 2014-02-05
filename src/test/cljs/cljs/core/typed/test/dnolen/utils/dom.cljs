@@ -3,7 +3,7 @@
   (:require [goog.style :as style]
             [goog.dom :as dom]
             [goog.dom.classes :as classes])
-  (:require-macros [cljs.core.typed :as t :refer [ann]]))
+  (:require [cljs.core.typed :as t :refer-macros [ann]]))
 
 (ann by-id [string -> (U nil js/HTMLElement)])
 (defn by-id [id]

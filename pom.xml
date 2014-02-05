@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <artifactId>core.typed</artifactId>
-  <version>0.2.26-SNAPSHOT</version>
+  <version>0.2.29-SNAPSHOT</version>
   <name>${artifactId}</name>
   <description>An optional type system for Clojure</description>
 
@@ -37,6 +37,7 @@
             <namespace>clojure.core.typed.*</namespace>
             <namespace>clojure.core.typed.test.*</namespace>
             <namespace>!clojure.core.typed.test.core</namespace>
+            <namespace>!clojure.core.typed.test.cljs</namespace>
             <namespace>cljs.core.typed.*</namespace>
           </namespaces>
           <testNamespaces>
@@ -120,7 +121,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojurescript</artifactId>
-      <version>0.0-1859</version>
+      <version>0.0-2138</version>
       <optional>true</optional>
     </dependency>
     <dependency>
