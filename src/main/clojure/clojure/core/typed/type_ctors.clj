@@ -296,7 +296,7 @@
 (declare RClass-of)
 
 (defn HMap-with-Value-keys? [& args]
-  {:pre [(every? HeterogeneousMap? args)]}
+  {:pre [(every? r/HeterogeneousMap? args)]}
   (every? r/Value? 
           (apply concat 
                  (mapcat (juxt (comp keys :types)
@@ -1399,7 +1399,7 @@
                            (and (r/Record? r)
                                 (subtype? s (impl/impl-case
                                               :clojure (RClass-of clojure.lang.ISeq [r/-any])
-                                              :cljs (Protocol-of 'cljs.core/ISeq [r-any])))))]
+                                              :cljs (Protocol-of 'cljs.core/ISeq [r/-any])))))]
     (cond 
       eq eq
 
