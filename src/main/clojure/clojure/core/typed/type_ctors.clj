@@ -1994,7 +1994,8 @@
    [v [kt vt]]
    (let [rkt (-> kt :t fully-resolve-type)]
      (when (r/Value? rkt)
-       (let [k (:val kt)] 
+       (let [kt rkt
+             k (:val kt)] 
          (when (and (integer? k) (<= k (count (:types v))))
            (r/-hvec (assoc (:types v) k (:t vt))
                     :filters (assoc (:fs v) k (:fl vt))
