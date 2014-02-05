@@ -1235,6 +1235,8 @@
   (list* 'HMap 
          (concat
            [:mandatory (unparse-map-of-types (.types v))]
+           (when (seq (:optional v))
+             [:optional (unparse-map-of-types (:optional v))])
            (when-let [ks (and (not (c/complete-hmap? v))
                               (seq (.absent-keys v)))]
              [:absent-keys (set (map :val ks))])
