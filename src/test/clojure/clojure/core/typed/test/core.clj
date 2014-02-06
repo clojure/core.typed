@@ -2816,6 +2816,35 @@
               (Rec [x] (clojure.core.typed/Vec (U ':a x))))))
   (is (check-ns 'clojure.core.typed.test.rec-type)))
 
+(deftest poly-rec-type-test
+  ; without Rec type
+  (is-cf
+    (clojure.core.typed/letfn> 
+      [pfoo :- (All [x] [(clojure.core.typed/Map Any x) -> (clojure.core.typed/Seq x)])
+       (pfoo [a] (vals a))]
+      (pfoo
+        (clojure.core.typed/ann-form
+          {}
+          (clojure.core.typed/Map Any Number )))))
+  ; with Rec type, but non-polymorphic function
+  (is-cf
+    (clojure.core.typed/letfn> 
+      [pfoo :- [(clojure.core.typed/Map Any Any) -> (clojure.core.typed/Seq Any)]
+       (pfoo [a] (vals a))]
+      (pfoo
+        (clojure.core.typed/ann-form
+          {}
+          (Rec [x] (clojure.core.typed/Map Any (U Number x)))))))
+  ; with Rec type, polymorphic function
+  (is-cf
+    (clojure.core.typed/letfn> 
+      [pfoo :- (All [x] [(clojure.core.typed/Map Any x) -> (clojure.core.typed/Seq x)])
+       (pfoo [a] (vals a))]
+      (pfoo
+        (clojure.core.typed/ann-form
+          {}
+          (Rec [x] (clojure.core.typed/Map Any (U Number x)))))))
+  )
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))

@@ -376,6 +376,18 @@
         (r/Name? T)
         (cs-gen V X Y S (c/resolve-Name T))
 
+        ; copied from TR's infer-unit
+        ;; if we have two mu's, we rename them to have the same variable
+        ;; and then compare the bodies
+        ;; This relies on (B 0) only unifying with itself, and thus only hitting the first case of this `match'
+        (and (r/Mu? S)
+             (r/Mu? T))
+        (cs-gen V X Y (r/Mu-body-unsafe S) (r/Mu-body-unsafe T))
+
+        ;; other mu's just get unfolded
+        (r/Mu? S) (cs-gen V X Y (c/unfold S) T)
+        (r/Mu? T) (cs-gen V X Y S (c/unfold T))
+
         (and (r/TApp? S)
              (not (r/F? (.rator ^TApp S))))
         (cs-gen V X Y (c/resolve-TApp S) T)
