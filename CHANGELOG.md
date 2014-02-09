@@ -1,3 +1,9 @@
+# 0.2.29 - Released 9 February 2014
+
+- Don't try and aggressively eliminate nested intersections and unions
+- check-ns and friends now cleanly catch more type errors (like int-error
+  and tc-error) as "delayed" errors instead of letting them propagate
+
 # 0.2.28 - Released 5 February 2014
 
 - Don't unfold recursive types while compacting union types
