@@ -62,6 +62,10 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 [lein-typed](https://github.com/frenchy64/lein-typed)
 
+## Vim Plugin
+
+[vim-typedclojure](https://github.com/typedclojure/vim-typedclojure)
+
 ## Quickstart
 
 `(clojure.core.typed/ann v t)` gives var `v` the static type `t`.
