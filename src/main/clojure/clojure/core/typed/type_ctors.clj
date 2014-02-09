@@ -278,8 +278,8 @@
 (defn intersect [t1 t2]
   {:pre [(r/Type? t1)
          (r/Type? t2)
-         (not (r/Union? t1))
-         (not (r/Union? t2))]
+         #_(not (r/Union? t1))
+         #_(not (r/Union? t2))]
    :post [(r/Type? %)]}
   (let [subtype? @(subtype?-var)]
     ;(prn "intersect" (map unparse-type [t1 t2]))
