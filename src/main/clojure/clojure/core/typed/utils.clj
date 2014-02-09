@@ -140,7 +140,10 @@
                            (str ":"col))
                          ") "
                          estr)
-                    {:type-error tc-error-parent}))))
+                    (merge
+                      {:type-error tc-error-parent}
+                      (when [env *current-env*]
+                        {:env env}))))))
 
 (defn deprecated-warn
   [msg]
@@ -162,7 +165,10 @@
                            (str ":"col))
                          ") "
                          estr)
-                    {:type-error int-error-kw}))))
+                    (merge
+                      {:type-error int-error-kw}
+                      (when-let [env *current-env*]
+                        {:env env}))))))
 
 (defn nyi-error
   [estr]
