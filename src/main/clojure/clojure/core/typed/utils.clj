@@ -48,6 +48,7 @@
 
 (declare emit-form-fn)
 
+(t/ann ^:no-check env-for-error [Any -> Any])
 (defn env-for-error [env]
   env)
 
