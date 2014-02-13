@@ -1645,11 +1645,14 @@
                                         " in heterogeneous map type " (prs/unparse-type t)
                                         " that declares the key always absent.")
                                       (or default r/-nil))
-                                    ; otherwise result is Any
-                                    (do #_(tc-warning "Looking up key " (prs/unparse-type k)
-                                                    " in heterogeneous map type " (prs/unparse-type t)
-                                                    " which does not declare the key absent ")
-                                        r/-any))))
+                                    ; if key is optional the result is the val or the default
+                                    (if-let [opt (get (:optional t) k)]
+                                      (c/Un opt (or default r/-nil))
+                                      ; otherwise result is Any
+                                      (do #_(tc-warning "Looking up key " (prs/unparse-type k)
+                                                        " in heterogeneous map type " (prs/unparse-type t)
+                                                        " which does not declare the key absent ")
+                                          r/-any)))))
 
       (r/Record? t) (find-val-type (c/Record->HMap t) k default)
 
