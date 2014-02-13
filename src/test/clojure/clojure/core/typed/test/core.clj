@@ -2864,6 +2864,15 @@
           (clojure.lang.IPersistentMap Any Number))))
   )
 
+(deftest hmap-expecteds-infer-test
+  (is-cf {:a (fn [a] (+ a 1))}
+         (HMap :mandatory {:a [Number -> Number]}))
+  (is-cf {:a (fn [a] (+ a 1))}
+         (HMap :optional {:a [Number -> Number]}))
+  (is-cf {:a (fn [a] (+ a 1))}
+         (clojure.lang.IPersistentMap Any [Number -> Number]))
+  )
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))

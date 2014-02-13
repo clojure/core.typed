@@ -265,20 +265,21 @@
                     ;{:post [(every? (some-fn nil? r/TCResult?) %)]}
 
                     (let [; find the ktype key in each hmap.
-                          ; - If ktype is present in :types then we either use the entry's val type 
-                          ; - if ktype is explicitly forbidden via :absent-keys or :other-keys
+                          ; - If ktype is present in mandatory or optional then we either use the entry's val type 
+                          ; - otherwise if ktype is explicitly forbidden via :absent-keys or completeness
                           ;   we skip the entry.
                           ; - otherwise we give up and don't check this as a hmap, return nil
                           ;   that gets propagated up
                           corresponding-vals 
-                          (reduce (fn [corresponding-vals {:keys [types absent-keys other-keys?] :as hmap}]
-                                    (if-let [v (get types ktype)]
+                          (reduce (fn [corresponding-vals {:keys [types absent-keys optional] :as hmap}]
+                                    (if-let [v (some #(get % ktype) [types optional])]
                                       (conj corresponding-vals v)
                                       (cond
                                         (or (contains? absent-keys ktype)
-                                            (not other-keys?)) 
-                                        corresponding-vals
-                                        :else (reduced nil))))
+                                            (c/complete-hmap? hmap))
+                                          corresponding-vals
+                                        :else 
+                                          (reduced nil))))
                                   #{} hmaps)
                           val-expect (when (= 1 (count corresponding-vals))
                                        (ret (first corresponding-vals)))]
