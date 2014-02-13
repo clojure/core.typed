@@ -1700,6 +1700,9 @@
       (let [{{path-hm :path id-hm :id :as o} :o} target-ret
             this-pelem (pe/->KeyPE (:val kwt))
             val-type (find-val-type targett kwt defaultt)]
+        (when expected-ret
+          (when-not (sub/subtype? val-type (ret-t expected-ret))
+            (expected-error val-type (ret-t expected-ret))))
         (if (not= (c/Un) val-type)
           (ret val-type
                (fo/-FS (if (obj/Path? o)
