@@ -4250,38 +4250,43 @@
             ; use this filter to update the right hand side value
             next-filter ((if polarity fo/-filter fo/-not-filter) 
                          update-to-type id rstpth)
-            present? (c/hmap-present-key? t fpth)
-            absent? (c/hmap-absent-key? t fpth)]
+            present? (contains? (:types t) fpth)
+            optional? (contains? (:optional t) fpth)
+            absent? (contains? (:absent-keys t) fpth)]
         ;updating a KeyPE should consider 3 cases:
         ; 1. the key is declared present
         ; 2. the key is declared absent
         ; 3. the key is not declared present, and is not declared absent
         (cond
           present?
-          ; -hmap simplifies to bottom if an entry is bottom
-          (c/make-HMap
-            :mandatory (update-in (:types t) [fpth] update next-filter)
-            :absent-keys (:absent-keys t)
-            :complete? (not (:other-keys? t)))
+            ; -hmap simplifies to bottom if an entry is bottom
+            (c/make-HMap
+              :mandatory (update-in (:types t) [fpth] update next-filter)
+              :optional (:optional t)
+              :absent-keys (:absent-keys t)
+              :complete? (c/complete-hmap? t))
           absent?
-          t
+            t
 
           ; key not declared present or absent
           :else
-          (c/Un
-            (c/make-HMap 
-              :mandatory (assoc-in (:types t) [fpth] (update r/-any next-filter))
-              :absent-keys (:absent-keys t)
-              :complete? (not (:other-keys? t)))
-            ; if we can prove we only ever update this path to nil,
-            ; we can ignore the absent case.
-            (let [updated-nil (update r/-nil next-filter)]
-              (if-not (r/Bottom? updated-nil)
-                (c/make-HMap 
-                  :mandatory (:types t)
-                  :absent-keys (conj (:absent-keys t) fpth)
-                  :complete? (not (:other-keys? t)))
-                r/-nothing)))))
+          (let [; KeyPE are only used for `get` operations where `nil` is the
+                ; not-found value. If the filter does not hold when updating
+                ; it to nil, then we can assume this key path is present.
+                update-to-mandatory? (r/Bottom? (update r/-nil next-filter))]
+            (if update-to-mandatory?
+              (c/make-HMap 
+                :mandatory (assoc-in (:types t) [fpth] (update r/-any next-filter))
+                :optional (:optional t)
+                :absent-keys (:absent-keys t)
+                :complete? (c/complete-hmap? t))
+              (c/make-HMap 
+                :mandatory (:types t)
+                :optional (if optional?
+                            (update-in (:optional t) [fpth] update next-filter)
+                            (assoc-in (:optional t) [fpth] (update r/-any next-filter)))
+                :absent-keys (:absent-keys t)
+                :complete? (c/complete-hmap? t))))))
 
       ; nil returns nil on keyword lookups
       (and (fl/NotTypeFilter? lo)
