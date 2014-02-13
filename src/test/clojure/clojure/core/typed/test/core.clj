@@ -2812,6 +2812,58 @@
                         {:a 1}
                         '{:a Number})))))))
 
+(deftest subtype-hmap-optional-test
+  (is (sub? 
+        (HMap :mandatory {:a Number})
+        (U (HMap :mandatory {:a Number})
+           (HMap :absent-keys [:a]))))
+  (is (sub? 
+        (HMap :mandatory {:a Number})
+        (HMap :optional {:a Number})))
+  (is (not
+        (sub? 
+          (HMap :complete? true :mandatory {:a Number :b Any})
+          (HMap :complete? true :mandatory {:a Number}))))
+  (is (sub? 
+        (HMap :complete? true :optional {:a Number :b Any})
+        (HMap :complete? true :optional {:a Number})))
+  (is (not
+        (sub? 
+          (HMap :optional {:a Number})
+          (HMap :mandatory {:a Number}))))
+  (is (not
+        (sub? 
+          (HMap :optional {:b Number})
+          (HMap :optional {:a Number}))))
+  (is (not
+        (sub? 
+          (HMap :optional {:a Any})
+          (HMap :optional {:a Number}))))
+  (is (not
+        (sub? 
+          (HMap :mandatory {:a Number})
+          (ExactCount 1))))
+  (is (sub? 
+        (HMap :complete? true :mandatory {:a Number})
+        (ExactCount 1)))
+  (is (not
+        (sub? 
+          (HMap :complete? true 
+                :mandatory {:foo Any}
+                :optional {:a Number})
+          (ExactCount 1))))
+  (is (sub?
+        (HMap :complete? true
+              :mandatory {:foo Number})
+        (clojure.lang.IPersistentMap Any Number)))
+  (is (not
+        (sub?
+          (HMap :complete? true
+                :mandatory {:foo Number}
+                :optional {:bar Any})
+          (clojure.lang.IPersistentMap Any Number))))
+  )
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))

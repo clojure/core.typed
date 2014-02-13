@@ -476,10 +476,15 @@
         (let [; convention: prefix things on left with l, right with r
               {ltypes :types labsent :absent-keys :as s} s
               {rtypes :types rabsent :absent-keys :as t} t]
-          (if (and ; if t is complete, s must be complete with the same keys
+          (if (and ; if t is complete, s must be complete ..
                    (if (c/complete-hmap? t)
                      (if (c/complete-hmap? s)
+                       ; mandatory key keys must be identical
                        (= (set (keys ltypes)) (set (keys rtypes)))
+                            ;Note:
+                            ; optional key keys on t must be 
+                            ; optional or mandatory or absent in s,
+                            ; which is always the case so we don't need to check.
                        false)
                      true)
                    ; all absent keys in t should be absent in s
@@ -496,26 +501,63 @@
                            (map (fn [[k v]]
                                   (when-let [t (get ltypes k)]
                                     (subtype? t v)))
-                                rtypes)))
+                                rtypes))
+                   ; all optional keys in t should match optional/mandatory entries in s
+                   (every? identity
+                           (map (fn [[k v]]
+                                  (let [matches-entry?
+                                        (if-let [actual-vs (seq
+                                                             (filter
+                                                               identity
+                                                               (map #(get % k)
+                                                                    (:types s)
+                                                                    (:optional s))))]
+                                          ; if any entries match, at least one should be a
+                                          ; subtype (treat them like an intersection). Only
+                                          ; one or zero of mandatory/optional should ever match in practice.
+                                          (some identity
+                                                (map subtype? actual-vs (repeat v)))
+                                          ; 
+                                          (c/complete-hmap? s))]
+                                  (cond
+                                    (c/partial-hmap? s)
+                                      (and (contains? (:absent-keys s) k)
+                                           matches-entry?))
+                                    :else matches-entry?))
+                                (:optional t)))
+                   )
             *sub-current-seen*
             (fail! s t)))
 
         (r/HeterogeneousMap? s)
-        (let [^HeterogeneousMap s s]
-          ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
-          (if (c/complete-hmap? s)
-            (subtype (c/In (impl/impl-case
-                             :clojure (c/RClass-of APersistentMap [(apply c/Un (keys (.types s)))
-                                                                   (apply c/Un (vals (.types s)))])
-                             :cljs (c/Protocol-of 'cljs.core/IMap [(apply c/Un (keys (.types s)))
-                                                                   (apply c/Un (vals (.types s)))]))
-                           (r/make-ExactCountRange (count (:types s))))
-                     t)
-            (subtype (c/In (impl/impl-case
-                             :clojure (c/RClass-of APersistentMap [r/-any r/-any])
-                             :cljs (c/Protocol-of 'cljs.core/IMap [r/-any r/-any]))
-                           (r/make-CountRange (count (:types s))))
-                     t)))
+        ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
+        (if (c/complete-hmap? s)
+          (subtype (c/In (let [tmaps (map #(get s %) [:types :optional])
+                               ks (apply c/Un (mapcat keys tmaps))
+                               vs (apply c/Un (mapcat vals tmaps))]
+                           (impl/impl-case
+                             :clojure (c/RClass-of APersistentMap [ks vs])
+                             :cljs (c/Protocol-of 'cljs.core/IMap [ks vs])))
+                         (r/make-CountRange 
+                           ; assume all optional entries are absent
+                           #_:lower
+                           (count (:types s))
+                           ; assume all optional entries are present
+                           #_:upper
+                           (+ (count (:types s))
+                              (count (:optional s)))))
+                   t)
+          (subtype (c/In (impl/impl-case
+                           :clojure (c/RClass-of APersistentMap [r/-any r/-any])
+                           :cljs (c/Protocol-of 'cljs.core/IMap [r/-any r/-any]))
+                         (r/make-CountRange 
+                           ; assume all optional entries are absent
+                           #_:lower
+                           (count (:types s))
+                           ; partial hmap can be infinite count
+                           #_:upper
+                           nil))
+                   t))
 
         (r/KwArgsSeq? s)
         (subtype (c/Un r/-nil 
