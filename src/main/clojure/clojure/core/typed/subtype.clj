@@ -479,11 +479,22 @@
           (if (and ; if t is complete, s must be complete ..
                    (if (c/complete-hmap? t)
                      (if (c/complete-hmap? s)
-                       ; mandatory key keys must be identical
-                       (= (set (keys ltypes)) (set (keys rtypes)))
+                       ; mandatory keys on the right must appear as
+                       ; mandatory on the left, but extra keys may appear
+                       ; on the left
+                       (and (let [right-mkeys (set (keys rtypes))
+                                  left-mkeys (set (keys ltypes))]
+                              (set/subset? right-mkeys
+                                           left-mkeys))
+                            ; extra mandatory keys on the left must appear
+                            ; as optional on the right
+                            (let [left-extra-mkeys (set/difference (set (keys ltypes))
+                                                                       (set (keys rtypes)))
+                                  right-optional-keys (set (keys (:optional t)))]
+                              (set/subset? left-extra-mkeys
+                                           right-optional-keys)))
                             ;Note:
-                            ; optional key keys on t must be 
-                            ; optional or mandatory or absent in s,
+                            ; optional key keys on t must be optional or mandatory or absent in s,
                             ; which is always the case so we don't need to check.
                        false)
                      true)
@@ -506,18 +517,12 @@
                    (every? identity
                            (map (fn [[k v]]
                                   (let [matches-entry?
-                                        (if-let [actual-vs (seq
-                                                             (filter
-                                                               identity
-                                                               (map #(get % k)
-                                                                    (:types s)
-                                                                    (:optional s))))]
-                                          ; if any entries match, at least one should be a
-                                          ; subtype (treat them like an intersection). Only
-                                          ; one or zero of mandatory/optional should ever match in practice.
-                                          (some identity
-                                                (map subtype? actual-vs (repeat v)))
-                                          ; 
+                                        (if-let [actual-v 
+                                                 ((merge-with c/In
+                                                    (:types s)
+                                                    (:optional s))
+                                                  k)]
+                                          (subtype? actual-v v)
                                           (c/complete-hmap? s))]
                                   (cond
                                     (c/partial-hmap? s)

@@ -102,27 +102,6 @@
                          :mandatory types 
                          :absent-keys absent-keys)))
 
-(t/ann hmap-present-key? [HeterogeneousMap r/Type -> Boolean])
-(defn hmap-present-key? 
-  "Returns true if hmap always has a keyt entry."
-  [hmap keyt]
-  {:pre [(r/HeterogeneousMap? hmap)
-         (r/Type? keyt)]}
-  (contains? (:types hmap) keyt))
-
-(t/ann hmap-absent-key? [HeterogeneousMap r/Type -> Boolean])
-(defn hmap-absent-key?
-  "Returns true if hmap never has a keyt entry."
-  [hmap keyt]
-  {:pre [(r/HeterogeneousMap? hmap)
-         (r/Type? keyt)]}
-  (boolean
-    (when-not (hmap-present-key? hmap keyt)
-      (or ; absent if in :absent-keys
-          (contains? (:absent-keys hmap) keyt)
-          ; absent if no other keys
-          (not (:other-keys? hmap))))))
-
 (t/def-alias TypeMap
   "A regular map with types as keys and vals."
   (t/Map r/Type r/Type))
@@ -161,8 +140,11 @@
   (assert (u/boolean? complete?)
           (pr-str complete?))
   ; simplifies to bottom with contradictory keys
-  (if-not (empty? (set/intersection (set (keys mandatory))
-                                    (set absent-keys)))
+  (if (or
+        (seq (set/intersection (set (keys mandatory))
+                               (set absent-keys)))
+        (some #{bottom} (concat (vals mandatory)
+                                (vals optional))))
     bottom
     (let [optional-now-mandatory (set/intersection
                                    (set (keys optional))
@@ -295,6 +277,7 @@
 
 (declare RClass-of)
 
+(t/ann ^:no-check HMap-with-Value-keys? [HeterogeneousMap * -> Boolean])
 (defn HMap-with-Value-keys? [& args]
   {:pre [(every? r/HeterogeneousMap? args)]}
   (every? r/Value? 
@@ -304,6 +287,7 @@
                                :absent-keys) 
                          args))))
 
+(t/ann ^:no-check intersect-HMap [HeterogeneousMap HeterogeneousMap -> r/Type])
 (defn ^:private intersect-HMap
   [t1 t2]
   {:pre [(r/HeterogeneousMap? t1)
@@ -1485,12 +1469,20 @@
 
       (and (r/HeterogeneousMap? t1)
            (r/HeterogeneousMap? t2)) 
-      (and (= (set (-> t1 :types keys))
-              (set (-> t2 :types keys)))
-           (every? true?
-                   (for [[k1 v1] (:types t1)]
-                     (let [v2 ((:types t2) k1)]
-                       (overlap v1 v2)))))
+        (let [common-mkeys (set/intersection 
+                             (set (-> t1 :types keys))
+                             (set (-> t2 :types keys)))]
+          (cond 
+            ; if there is an intersection in the mandatory keys
+            ; each entry in common should overlap
+            (not (empty? common-mkeys))
+              (every? identity
+                      (for [[k1 v1] (select-keys (:types t1) common-mkeys)]
+                        (let [v2 ((:types t2) k1)]
+                          (assert v2)
+                          (overlap v1 v2))))
+            ;TODO more cases. incorporate completeness
+            :else true))
 
       ;for map destructuring mexpansion
       (or (hmap-and-seq? t1 t2)
@@ -1979,15 +1971,19 @@
    [hmap [kt vt]]
    (let [rkt (-> kt :t fully-resolve-type)]
      (if (keyword-value? rkt)
-       (-> (assoc-in hmap [:types rkt] (:t vt))
-           (update-in [:absent-keys] disj rkt))
+       (make-HMap
+         :mandatory (assoc-in (:types hmap) [rkt] (:t vt))
+         :optional (:optional hmap)
+         :absent-keys (-> (:absent-keys hmap) 
+                          (disj rkt))
+         :complete? (complete-hmap? hmap))
        ; devolve the map
        ;; todo: probably some machinery I can reuse here?
-       (let [args [(apply Un (concat [rkt] (keys (:types hmap))))
-                   (apply Un (concat [(:t vt)] (vals (:types hmap))))]]
+       (let [ks (apply Un (concat [rkt] (mapcat keys [(:types hmap) (:optional hmap)])))
+             vs (apply Un (concat [(:t vt)] (mapcat vals [(:types hmap) (:optional hmap)])))]
          (impl/impl-case
-           :clojure (RClass-of IPersistentMap args)
-           :cljs (partial Protocol-of 'cljs.core/IMap args))))))
+           :clojure (RClass-of IPersistentMap [ks vs])
+           :cljs (Protocol-of 'cljs.core/IMap [ks vs]))))))
   
   HeterogeneousVector
   (-assoc-pair
@@ -2045,10 +2041,14 @@
       t
       
       (and (r/HeterogeneousMap? t) (keyword-value? rtype))
-      (if-not (complete-hmap? t)
-        (-> (update-in t [:types] dissoc rtype)
-            (update-in [:absent-keys] conj rtype))
-        (update-in t [:types] dissoc rtype))
+       (make-HMap
+         :mandatory
+           (dissoc (:types t) rtype)
+         :optional
+           (dissoc (:optional t) rtype)
+         :absent-keys
+           (conj (:absent-keys t) rtype)
+         :complete? (complete-hmap? t))
       
       (subtype? t (impl/impl-case
                     :clojure (RClass-of IPersistentMap [r/-any r/-any])
@@ -2071,36 +2071,121 @@
   down to an IPersistentMap.
   
   For example:
-  (merge {:a 4 :b 6} '{:b 5}) -> '{:a Any :b 5}"
+  (merge '{:a 4 :b 6} '{:b 5}) -> '{:a Any :b 5}"
   [left right]
   {:pre [(r/HeterogeneousMap? left)
          (r/HeterogeneousMap? right)]}
-  
-  (assert (every? empty? (map :optional [left right]))
-          "TODO optional keys")
-  (let [; update lhs with known types
-        first-pass (apply assoc-type-pairs left (map (fn [[k t]]
-                                                       [(r/ret k) (r/ret t)])
-                                                     (:types right)))
-        ; clear missing types when incomplete rhs and lhs still hmap
-        second-pass (if (and (r/HeterogeneousMap? first-pass) (:other-keys? right))
-                      (reduce
-                       (fn [t [lk lv]]
-                         (if (and t
-                                  ; left type not in right and not absent
-                                  (not (get (:types right) lk))
-                                  (not (get (:absent-keys right) lk)))
-                           (assoc-type-pairs t [(r/ret lk)
-                                                (r/ret r/-any)])
-                           t))
-                       first-pass
-                       (:types left))
-                      first-pass)
-        ; ensure :other-keys? updated appropriately
-        final-pass (when (r/HeterogeneousMap? second-pass)
-                     (update-in second-pass [:other-keys?]
-                                #(or % (:other-keys? right))))]
-    final-pass))
+  (make-HMap
+    :mandatory
+      (let [m (:types left)
+            ; optional keys on the right may or may not overwrite mandatory
+            ; entries, so we union the common mandatory and optional val types together.
+            ;
+            ; eg. (merge (HMap :mandatory {:a Number}) (HMap :optional {:a Symbol}))
+            ;     => (HMap :mandatory {:a (U Number Symbol)})
+            m (merge-with t/Un 
+                          m 
+                          (select-keys (:optional right) (keys (:types left))))
+
+            ; combine left+right mandatory entries. 
+            ; If right is partial, we can only update the entries common to both
+            ; and give any entries type Any.
+            ;
+            ; eg. (merge (HMap :mandatory {:a Number}) (HMap :mandatory {:b Number}))
+            ;     ;=> (HMap :mandatory {:a Any :b Number})
+            ;
+            ; If right is complete, it's safe to merge both mandatory maps.
+            ; right-most wins on duplicates.
+            m (merge m 
+                     (cond
+                       (partial-hmap? right)
+                         (merge (:types right)
+                                (zipmap (set/difference 
+                                          (set (keys (:types left)))
+                                          (set (keys (:types right)))
+                                          (set (keys (:optional right)))
+                                          (:absent-keys right))
+                                        (repeat r/-any)))
+                       :else
+                        (:types right)))]
+        m)
+    :optional
+      (let [o (:optional left)
+            ; dissoc keys that end up in the mandatory map
+            o (apply dissoc (keys (:types right)))
+            ; union any duplicates
+            o (merge-with t/Un 
+                          o
+                          ; if the left is partial then we only add optional entries
+                          ; common to both maps.
+                          ; if left is complete, we are safe to merge both maps.
+                          ;
+                          ; (merge (HMap :optional {:a Number}) 
+                          ;        (HMap :optional {:b Number}))
+                          ; => (HMap)
+                          ;
+                          ; (merge (HMap :optional {:a Number}) 
+                          ;        (HMap :optional {:a Symbol}))
+                          ; => (HMap :optional {:a (U Number Symbol)})
+                          ;
+                          ; (merge (HMap :optional {:a Number}) 
+                          ;        (HMap :optional {:b Number} :complete? true))
+                          ; => (HMap :optional {:a Number :b Number})
+                          ;
+                          ; (merge (HMap :optional {:a Number} :complete? true) 
+                          ;        (HMap :optional {:b Number}))
+                          ; => (HMap :optional {:a Number :b Number})
+                          ;
+                          ; (merge (HMap :optional {:a Number} :complete? true) 
+                          ;        (HMap :optional {:b Number} :complete? true))
+                          ; => (HMap :optional {:a Number :b Number})
+                          (cond 
+                            (partial-hmap? left)
+                              (select-keys (:optional right) (keys o))
+                            :else
+                              (:optional right)))
+            ]
+        o)
+    :absent-keys
+      (cond 
+        ; (merge (HMap :absent-keys [:a :b :c]) (HMap :optional {:a Foo} :mandatory {:b Bar} :absent-keys [:c]))
+        ; => (HMap :absent-keys [:c] :optional {:a Foo} :mandatory {:b Bar})
+        ; (merge (HMap :absent-keys [:a :b :c]) (HMap :optional {:a Foo} :mandatory {:b Bar}))
+        ; => (HMap :absent-keys [] :optional {:a Foo} :mandatory {:b Bar})
+        (and (partial-hmap? left) 
+             (partial-hmap? right))
+          (set/intersection
+            (set/difference (:absent-keys left)
+                            (set (keys (:optional right)))
+                            (set (keys (:mandatory right))))
+            (:absent-keys right))
+
+        ; (merge (HMap :absent-keys [:a :b :c]) 
+        ;        (HMap :optional {:a Foo} :mandatory {:b Bar} :complete? true))
+        ; => (HMap :absent-keys [:c] :optional {:a Foo} :mandatory {:b Bar})
+        (and (partial-hmap? left) 
+             (complete-hmap? right))
+          (set/difference (:absent-keys left)
+                          (set (keys (:optional right)))
+                          (set (keys (:mandatory right))))
+
+        ; (merge (HMap :complete? true)
+        ;        (HMap :absent-keys [:c] :optional {:a Foo} :mandatory {:b Bar}))
+        ; => (HMap :absent-keys [:c] :optional {:a Foo} :mandatory {:b Bar})
+        (and (complete-hmap? left)
+             (partial-hmap? right))
+          (:absent-keys right)
+
+        ; (merge (HMap :absent-keys [:a :b :c] :complete? true) 
+        ;        (HMap :optional {:a Foo} :mandatory {:b Bar} :absent-keys [:c] :complete? true))
+        ; => (HMap :optional {:a Foo} :mandatory {:b Bar} :complete? true)
+        (and (complete-hmap? left) 
+             (complete-hmap? right))
+          #{}
+        :else (throw (Exception. "should never get here")))
+    :complete?
+      (and (complete-hmap? left)
+           (complete-hmap? left))))
 
 (defn- merge-pair
   [left right]

@@ -2242,7 +2242,8 @@
                       (clojure.core.typed/ann-form {} (U nil (HMap :optional {:b String} :complete? true))))
                (U nil (HMap :optional {:a Number :b String} :complete? true)))
   
-  ; this merge doesn't actually give us any information about :b
+  ; this merge doesn't actually give us any information about :b because
+  ; the second map might not have a :b key, and the first map is partial.
   (equal-types (merge (clojure.core.typed/ann-form {} (HMap :optional {:a Number} :complete? false))
                       (clojure.core.typed/ann-form {} (HMap :optional {:b String} :complete? true)))
                (HMap :optional {:a Number}))
@@ -2862,6 +2863,37 @@
                 :mandatory {:foo Number}
                 :optional {:bar Any})
           (clojure.lang.IPersistentMap Any Number))))
+
+  (is (sub? (U (HMap :mandatory {:foo Number}
+                     :complete? true)
+               (HMap :complete? true))
+            (HMap :optional {:foo Number})))
+  (is (sub? (U (HMap :mandatory {:c Number}
+                     :optional {:b Number :a Number}
+                     :complete? true)
+               (HMap :optional {:b Number :c Number}
+                     :complete? true))
+            (HMap :optional {:a Number :b Number :c Number})))
+  (is (sub? 
+        (U (HMap :mandatory {:c (Value 5)} 
+                 :complete? true) 
+           (HMap :complete? true))
+        (HMap :optional {:c (Value 5)} :complete? true)))
+  (is (sub? 
+        (U (HMap :mandatory {:c (Value 5)} 
+                 :optional {:b java.lang.String, :a java.lang.Number} 
+                 :complete? true) 
+           (HMap :mandatory {} 
+                 :optional {:b java.lang.String, :a java.lang.Number} 
+                 :complete? true))
+        (HMap :optional {:a Number :b String :c (Value 5)} :complete? true)))
+  (is (sub?
+        (HMap :optional {:b String :a Number})
+        (HMap :optional {:a Number})))
+  (is (not
+        (sub?
+          (HMap :optional {:a Number})
+          (HMap :optional {:b String :a Number}))))
   )
 
 (deftest hmap-expecteds-infer-test
@@ -2886,6 +2918,27 @@
                 (HMap :optional {:a Number}))
               :a)
          (U nil Number)))
+
+(defmacro overlap-prs [s1 s2]
+  `(clj
+     (overlap (parse-type '~s1) (parse-type '~s2))))
+
+(deftest hmap-overlap-test
+  (is-clj 
+    (not (overlap-prs Integer clojure.lang.Keyword)))
+  (is-clj 
+    (not 
+      (overlap-prs
+        (HMap :mandatory {:a Integer})
+        (HMap :mandatory {:a clojure.lang.Keyword}))))
+  (is-clj 
+    (overlap-prs
+      (HMap :optional {:a Integer})
+      (HMap :optional {:a clojure.lang.Keyword})))
+  (is-clj 
+    (overlap-prs
+      (HMap :complete? true :optional {:a Integer})
+      (HMap :complete? true :optional {:a clojure.lang.Keyword}))))
 
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)

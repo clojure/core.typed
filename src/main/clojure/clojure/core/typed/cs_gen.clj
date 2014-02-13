@@ -669,8 +669,7 @@
                         (let [kt (apply c/Un (mapcat keys [(.types S) (.optional S)]))
                               vt (apply c/Un (mapcat vals [(.types S) (.optional S)]))]
                           (impl/impl-case
-                            :clojure 
-                              (c/RClass-of APersistentMap [kt vt])
+                            :clojure (c/RClass-of APersistentMap [kt vt])
                             :cljs (c/Protocol-of 'cljs.core/IMap [kt vt])))
 
                         (impl/impl-case
