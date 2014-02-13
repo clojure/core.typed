@@ -2873,6 +2873,20 @@
          (clojure.lang.IPersistentMap Any [Number -> Number]))
   )
 
+(deftest hmap-optional-get-test
+  (is
+    (u/top-level-error-thrown?
+      (cf (get (clojure.core.typed/ann-form
+                 {:a 1}
+                 (HMap :optional {:a Number}))
+               :a)
+          Number)))
+  (is-cf (get (clojure.core.typed/ann-form
+                {:a 1}
+                (HMap :optional {:a Number}))
+              :a)
+         (U nil Number)))
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))
