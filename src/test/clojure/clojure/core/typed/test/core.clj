@@ -2987,6 +2987,10 @@
           (Rec [x] (clojure.core.typed/Map Any (U Number x)))))))
   )
 
+(deftest profile-fail-test
+  ; ensure check-ns still runs even if timbre isn't loaded
+  (is (check-ns-info 'clojure.core.typed.test.destructure
+                     :profile true)))
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))

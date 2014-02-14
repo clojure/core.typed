@@ -1,3 +1,8 @@
+# 0.2.32-SNAPSHOT
+
+- check-ns and friends support :profile keyword argument that uses
+  Timbre to profile the current type checking run
+
 # 0.2.31 - Released 14 February 2014
 
 ## Breaking Changes
