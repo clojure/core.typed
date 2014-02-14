@@ -1234,7 +1234,12 @@
   [^HeterogeneousMap v]
   (list* 'HMap 
          (concat
-           [:mandatory (unparse-map-of-types (.types v))]
+           ; only elide if other information is present
+           (when (or (seq (:types v))
+                     (not (or (seq (:optional v))
+                              (seq (:absent-keys v))
+                              (c/complete-hmap? v))))
+             [:mandatory (unparse-map-of-types (.types v))])
            (when (seq (:optional v))
              [:optional (unparse-map-of-types (:optional v))])
            (when-let [ks (and (not (c/complete-hmap? v))
