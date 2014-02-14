@@ -25,6 +25,8 @@ This subtyping relationship now holds:
 (U (HMap :mandatory {:foo Number}) (HMap :absent-keys #{:foo}))
 ```
 
+You should prefer the :optional syntax where possible.
+
 ## Changes
 
 - Changed the representation of :optional keys on HMap 
