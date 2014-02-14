@@ -32,8 +32,7 @@
 
 (t/typed-deps clojure.core.typed.name-env)
 
-(t/ann ^:no-check with-original-names [r/Type (U Symbol (Seqable Symbol))
-                                       -> r/Type])
+(t/ann ^:no-check with-original-names [r/Type (U Symbol (Seqable Symbol)) -> r/Type])
 (defn- with-original-names [t names]
   (with-meta t {::names names}))
 
@@ -108,6 +107,9 @@
 
 (declare In keyword-value? RClass-of Protocol-of complete-hmap?)
 
+(t/ann ^:no-check allowed-hmap-key? [r/Type -> Boolean])
+(defn allowed-hmap-key? [k]
+  (keyword-value? k))
 
 ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
 (t/ann ^:no-check upcast-hmap* 
@@ -179,30 +181,39 @@
   (assert (u/boolean? complete?)
           (pr-str complete?))
   ; simplifies to bottom with contradictory keys
-  (if (or
-        (seq (set/intersection (set (keys mandatory))
+  (cond 
+    (or (seq (set/intersection (set (keys mandatory))
                                (set absent-keys)))
         (some #{bottom} (concat (vals mandatory)
                                 (vals optional))))
-    bottom
-    (let [optional-now-mandatory (set/intersection
-                                   (set (keys optional))
-                                   (set (keys mandatory)))
-          optional-now-absent (set/intersection
-                                (set (keys optional))
-                                absent-keys)
-          _ (assert (empty? 
-                      (set/intersection optional-now-mandatory
-                                        optional-now-absent)))]
-      (r/HeterogeneousMap-maker 
-        (merge-with In mandatory (select-keys optional optional-now-mandatory))
-        (apply dissoc optional (set/union optional-now-absent
-                                          optional-now-mandatory))
-        ; throw away absents if complete
-        (if complete?
-          #{}
-          (set/union absent-keys optional-now-absent))
-        (not complete?)))))
+      bottom
+
+    (not
+      (every? allowed-hmap-key?
+              (concat (keys mandatory)
+                      (keys optional)
+                      absent-keys)))
+      (upcast-hmap* mandatory optional absent-keys complete?)
+
+    :else
+      (let [optional-now-mandatory (set/intersection
+                                     (set (keys optional))
+                                     (set (keys mandatory)))
+            optional-now-absent (set/intersection
+                                  (set (keys optional))
+                                  absent-keys)
+            _ (assert (empty? 
+                        (set/intersection optional-now-mandatory
+                                          optional-now-absent)))]
+        (r/HeterogeneousMap-maker 
+          (merge-with In mandatory (select-keys optional optional-now-mandatory))
+          (apply dissoc optional (set/union optional-now-absent
+                                            optional-now-mandatory))
+          ; throw away absents if complete
+          (if complete?
+            #{}
+            (set/union absent-keys optional-now-absent))
+          (not complete?)))))
 
 ;TODO to type check this, need to un-munge instance field names
 (t/ann complete-hmap? [HeterogeneousMap -> Boolean])
@@ -2122,9 +2133,10 @@
             ;
             ; eg. (merge (HMap :mandatory {:a Number}) (HMap :optional {:a Symbol}))
             ;     => (HMap :mandatory {:a (U Number Symbol)})
-            m (merge-with t/Un 
+            m (merge-with Un 
                           m 
                           (select-keys (:optional right) (keys (:types left))))
+            ;_ (prn "after first mandatory pass" m)
 
             ; combine left+right mandatory entries. 
             ; If right is partial, we can only update the entries common to both
@@ -2147,13 +2159,22 @@
                                         (repeat r/-any)))
                        :else
                         (:types right)))]
+        ;(prn "after final mandatory pass" m)
         m)
     :optional
       (let [o (:optional left)
+            ;_ (prn "before first optional pass" o)
             ; dissoc keys that end up in the mandatory map
-            o (apply dissoc (keys (:types right)))
-            ; union any duplicates
-            o (merge-with t/Un 
+            o (apply dissoc o 
+                     (concat (keys (:types right))
+                             ; entries mandatory on the left and optional
+                             ; on the right are always in the mandatory map
+                             (set/intersection 
+                               (set (keys (:optional right)))
+                               (set (keys (:types left))))))
+            ;_ (prn "after first optional pass" o)
+            ; now we merge any new :optional entries
+            o (merge-with Un 
                           o
                           ; if the left is partial then we only add optional entries
                           ; common to both maps.
@@ -2162,6 +2183,10 @@
                           ; (merge (HMap :optional {:a Number}) 
                           ;        (HMap :optional {:b Number}))
                           ; => (HMap)
+                          ;
+                          ; (merge (HMap :mandatory {:a '5})
+                          ;        (HMap :optional {:a '10}))
+                          ; => (HMap :mandatory {:a (U '5 '10)})
                           ;
                           ; (merge (HMap :optional {:a Number}) 
                           ;        (HMap :optional {:a Symbol}))
@@ -2178,12 +2203,22 @@
                           ; (merge (HMap :optional {:a Number} :complete? true) 
                           ;        (HMap :optional {:b Number} :complete? true))
                           ; => (HMap :optional {:a Number :b Number})
-                          (cond 
-                            (partial-hmap? left)
-                              (select-keys (:optional right) (keys o))
-                            :else
-                              (:optional right)))
-            ]
+                          (select-keys (:optional right) 
+                                       (set/difference 
+                                         (set (keys (:optional right)))
+                                         ;remove keys that will be mandatory in the result
+                                         (set (keys (:types left)))
+                                         (if (partial-hmap? left)
+                                           ; remove keys that give no new information.
+                                           ; If left is partial, we remove optional
+                                           ; keys in right that are not mentioned in left.
+                                           (set/difference
+                                             (set (keys (:optional right)))
+                                             (set (keys (:types left)))
+                                             (set (keys (:optional left)))
+                                             (:absent-keys left))
+                                           #{}))))]
+        ;(prn "after final optional pass" o)
         o)
     :absent-keys
       (cond 
@@ -2196,7 +2231,7 @@
           (set/intersection
             (set/difference (:absent-keys left)
                             (set (keys (:optional right)))
-                            (set (keys (:mandatory right))))
+                            (set (keys (:types right))))
             (:absent-keys right))
 
         ; (merge (HMap :absent-keys [:a :b :c]) 
@@ -2206,7 +2241,7 @@
              (complete-hmap? right))
           (set/difference (:absent-keys left)
                           (set (keys (:optional right)))
-                          (set (keys (:mandatory right))))
+                          (set (keys (:types right))))
 
         ; (merge (HMap :complete? true)
         ;        (HMap :absent-keys [:c] :optional {:a Foo} :mandatory {:b Bar}))
@@ -2224,7 +2259,7 @@
         :else (throw (Exception. "should never get here")))
     :complete?
       (and (complete-hmap? left)
-           (complete-hmap? left))))
+           (complete-hmap? right))))
 
 (defn- merge-pair
   [left right]

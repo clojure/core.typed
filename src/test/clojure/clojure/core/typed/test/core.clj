@@ -2016,9 +2016,8 @@
             (assert (nil? (:foo m)))
             m))
         (parse-clj '[(HMap :mandatory {:bar Any}) -> 
-                     (U (HMap :mandatory {:bar Any, :foo nil})
-                        (HMap :mandatory {:bar Any}
-                              :absent-keys #{:foo}))
+                     (HMap :mandatory {:bar Any}
+                           :optional {:foo nil})
                      :filters {:then (! (U nil false) 0)
                                :else (is (U nil false) 0)}
                      :object {:id 0}])))
@@ -2031,8 +2030,7 @@
           m))
       (parse-clj '[(HMap) -> 
                    ; not sure if this should simplify to (HMap)
-                   (U (HMap :mandatory {:foo Any})
-                      (HMap :absent-keys #{:foo}))
+                   (HMap :optional {:foo Any})
                    :filters {:then (! (U nil false) 0)
                              :else (is (U nil false) 0)}
                    :object {:id 0}])))
@@ -2278,16 +2276,13 @@
   ; incomplete covering optional
   (equal-types (merge {:a 5}
                       (clojure.core.typed/ann-form {} (HMap :optional {:a (Value 10)})))
-               (U '{:a (Value 5)}
-                  '{:a (Value 10)}))
+               '{:a (U (Value 5) (Value 10))})
   
   
   ; both incomplete optionals
   (equal-types (merge (clojure.core.typed/ann-form {} (HMap :optional {:a '5}))
                       (clojure.core.typed/ann-form {} (HMap :optional {:a '10})))
-               (U '{:a '5}
-                  '{:a '10}
-                  (HMap :mandatory {} :absent-keys #{:a} :complete? false)))
+               (HMap :optional {:a (U '5 '10)}))
   
   ; (Option HMap) first argument incomplete
   (equal-types (merge (clojure.core.typed/ann-form {:a 5} (U nil '{:a '5}))
