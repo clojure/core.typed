@@ -1,4 +1,4 @@
-# 0.2.31-SNAPSHOT
+# 0.2.31 - Released 14 February 2014
 
 ## Breaking Changes
 
