@@ -1314,7 +1314,7 @@ for checking namespaces, cf for checking individual forms."}
     (doseq [^Exception e errors]
       (let [{{:keys [source line column] :as env} :env :as data} (ex-data e)]
         (print "Type Error ")
-        (print (str "(" (or source "NO_SOURCE_FILE") 
+        (print (str "(" (or source (-> env :ns :name) "NO_SOURCE_FILE")
                     (when line
                       (str ":" line
                            (when column
