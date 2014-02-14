@@ -5,7 +5,7 @@
 ### HMap optional keys
 
 There is a subtle change that isn't likely to affect many. Essentially,
-these types are no longer interchangable:
+these types are no longer interchangeable:
 
 ```clojure
 (HMap :optional {:foo Number})
