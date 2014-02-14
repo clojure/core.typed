@@ -4,6 +4,12 @@
     [clojure.core.typed.bootstrap-cljs :as boot]))
 
 (defn ^:skip-wiki
+  ann* 
+  "Internal use only. Use ann."
+  [varsym typesyn]
+  nil)
+
+(defn ^:skip-wiki
   ann-form* 
   "Internal use only. Use ann-form."
   [form ty]

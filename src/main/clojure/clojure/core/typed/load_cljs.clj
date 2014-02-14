@@ -6,7 +6,8 @@
 (def ^:private tried-loading-cljs? (atom false))
 
 (defn load-cljs []
-  (when-not *compile-files*
+  ;completely disable CLJS until we can support later versions
+  #_(when-not *compile-files*
     (assert (not *compile-files*))
     (when-not @tried-loading-cljs?
       (do

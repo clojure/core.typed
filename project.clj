@@ -10,16 +10,21 @@
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.0.2"
                   :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojurescript "0.0-1859"]
+                 [org.clojure/clojurescript "0.0-2138"]
                  [org.clojure/tools.trace "0.7.5"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/clojure "1.5.1"]
                  [org.clojure/tools.namespace "0.2.4"]
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
-                 [org.clojure/core.async "0.1.222.0-83d0c2-alpha"]
+                 [org.clojure/core.async "0.1.267.0-0d7780-alpha"]
                  [org.clojure/core.cache "0.6.3"]
+                 ; CLJS fireplace REPL
+                 [com.cemerick/piggieback "0.1.2"]
                  ]
+
+  ; fireplace repl middleware
+  :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
 
   :plugins [[lein-typed "0.3.1"]]
   :core.typed {:check [clojure.core.typed.test.records]

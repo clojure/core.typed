@@ -317,9 +317,9 @@
 
 (defmethod parse-type-list 'Array3
   [[_ jsyn isyn osyn & none]]
+  (impl/assert-clojure)
   (when-not (empty? none) 
     (u/int-error "Expected 3 arguments to Array3"))
-  (impl/assert-clojure)
   (let [jrclass (c/fully-resolve-type (parse-type jsyn))
         _ (when-not (r/RClass? jrclass) 
             (u/int-error "First argument to Array3 must be a Class"))]

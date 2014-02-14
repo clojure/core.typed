@@ -1312,11 +1312,13 @@ for checking namespaces, cf for checking individual forms."}
          (every? #(instance? clojure.lang.ExceptionInfo %) errors)]}
   (binding [*out* *err*]
     (doseq [^Exception e errors]
-      (let [{:keys [env] :as data} (ex-data e)]
+      (let [{{:keys [source line column] :as env} :env :as data} (ex-data e)]
         (print "Type Error ")
-        (print (str "(" (-> env :ns :name) ":" (:line env) 
-                    (when-let [col (:column env)]
-                      (str ":" col))
+        (print (str "(" (or source "NO_SOURCE_FILE") 
+                    (when line
+                      (str ":" line
+                           (when column
+                             (str ":" column))))
                     ") "))
         (print (.getMessage e))
         (println)
@@ -1487,39 +1489,56 @@ for checking namespaces, cf for checking individual forms."}
                    *already-checked* (atom #{})
                    *trace-checker* trace
                    *collect-on-eval* false]
-           (reset-envs!)
-           (impl/with-clojure-impl
-             ;; collect
-             (let [collect-start (. System (nanoTime))
-                   _ (doseq [nsym nsym-coll]
-                       (collect-ns nsym))
-                   ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                   collected @*already-collected*]
-               (println "Collected" (count collected) "namespaces in" ms "msecs")
-               (flush))
-             ;(reset-caches)
-             ;
-             ;; check 
-             (when-not collect-only
-               (doseq [nsym nsym-coll]
-                 (check-ns-and-deps nsym)))
-             (let [vs (vars-with-unchecked-defs)]
-               (binding [*out* *err*]
-                 (doseq [v vs]
-                   (println "WARNING: Type Checker: Definition missing:" v 
-                            "\nHint: Use :no-check metadata with ann if this is an unchecked var")
-                   (flush))))
-             ;             (when-let [errors (seq @*delayed-errors*)]
-             ;               (print-errors! errors))
-             (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                   checked @*already-checked*
-                   nlines (p/p :typed/line-count
-                               (apply + (for [nsym checked]
-                                          (with-open [rdr (io/reader (uri-for-ns nsym))]
-                                            (count (line-seq rdr))))))]
-               (println "Checked" (count checked) "namespaces (approx." nlines "lines) in" ms "msecs")
-               (flush))
-             {:delayed-errors @*delayed-errors*})))))))
+           (let [terminal-error (atom nil)]
+             (reset-envs!)
+             (impl/with-clojure-impl
+               ;; collect
+               (let [collect-start (. System (nanoTime))
+                     _ (try
+                         (doseq [nsym nsym-coll]
+                           (collect-ns nsym))
+                         (catch clojure.lang.ExceptionInfo e
+                           (if (-> e ex-data :type-error)
+                             (reset! terminal-error e)
+                             (throw e))))]
+                 (when-not @terminal-error
+                   (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
+                         collected @*already-collected*]
+                     (println "Collected" (count collected) "namespaces in" ms "msecs")
+                     (flush))))
+               ;(reset-caches)
+               ;
+               ;; check 
+               (let [_
+                     (when-not @terminal-error
+                       (try
+                         (when-not collect-only
+                           (doseq [nsym nsym-coll]
+                             (check-ns-and-deps nsym)))
+                         (catch clojure.lang.ExceptionInfo e
+                           (if (-> e ex-data :type-error)
+                             (reset! terminal-error e)
+                             (throw e)))))]
+                 (when-not @terminal-error
+                   (let [vs (vars-with-unchecked-defs)]
+                     (binding [*out* *err*]
+                       (doseq [v vs]
+                         (println "WARNING: Type Checker: Definition missing:" v 
+                                  "\nHint: Use :no-check metadata with ann if this is an unchecked var")
+                         (flush)))))
+                 (when-not @terminal-error
+                   (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
+                         checked @*already-checked*
+                         nlines (p/p :typed/line-count
+                                     (apply + (for [nsym checked]
+                                                (with-open [rdr (io/reader (uri-for-ns nsym))]
+                                                  (count (line-seq rdr))))))]
+                     (println "Checked" (count checked) "namespaces (approx." nlines "lines) in" ms "msecs")
+                     (flush)))
+                 {:delayed-errors (vec (concat (when-let [es *delayed-errors*]
+                                                 @es)
+                                               (when-let [e @terminal-error]
+                                                 [e])))})))))))))
 
 (defn check-ns
   "Type check a namespace/s (a symbol or Namespace, or collection).

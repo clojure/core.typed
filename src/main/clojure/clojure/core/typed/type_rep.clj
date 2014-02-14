@@ -394,6 +394,12 @@
    p/IMu
    (mu-scope [_] scope)])
 
+(t/ann Mu-body-unsafe [Mu -> Type])
+(defn Mu-body-unsafe [mu]
+  {:pre [(Mu? mu)]
+   :post [(Type? %)]}
+  (-> mu :scope :body))
+
 (u/ann-record Value [val :- Any])
 (u/def-type Value [val]
   "A Clojure value"

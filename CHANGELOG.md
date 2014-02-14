@@ -1,3 +1,44 @@
+# 0.2.30 - Released 9 February 2014
+
+- Don't try and aggressively eliminate nested intersections and unions
+- check-ns and friends now cleanly catch more type errors (like int-error
+  and tc-error) as "delayed" errors instead of letting them propagate
+
+# 0.2.29 - Released 7 February 2014
+
+- Add support for recursive types in the constraint resolution algorithm
+
+# 0.2.28 - Released 5 February 2014
+
+- Don't unfold recursive types while compacting union types
+  - avoids infinite unfolding in some cases
+
+# 0.2.27 - Released 5 February 2014
+
+- Properly handle variance checks for DataType's
+- Add annotation for 
+  - clojure.core.typed/*collect-on-eval*
+  - clojure.core/ns-aliases
+- Only support aget up to 6 arguments
+  - This may change back in the future to any arguments
+
+## Clojurescript-specific
+
+- cljs.c.t/{check-ns,cf} are both macros to facilitate calling from CLJS REPL
+- cljs.c.t/{check-ns*,cf*} are Clojure functions for checking of
+  Clojurescript code from Clojure
+
+# 0.2.26 - Released 28 January 2014
+
+## Completely disable ClojureScript Integration
+
+There is a conflict with the latest Clojurescript versions. Since
+Clojurescript checking support is not working anyway, we temporarily
+disable Clojurescript support.
+
+This should enable Clojurescript 0.0-2138 and core.typed to work
+together.
+
 # 0.2.25 - Released 23 January 2014 (0.2.24 is broken)
 
 ## Turn off *collect-on-eval* by default

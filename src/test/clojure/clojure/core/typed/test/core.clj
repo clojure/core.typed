@@ -35,7 +35,7 @@
          '[clojure.core.typed.dvar-env :refer :all]
          '[clojure.core.typed.cs-gen :refer :all]
          '[clojure.core.typed.cs-rep :refer :all]
-         '[clojure.core.typed.subst :refer [subst-all]]
+         '[clojure.core.typed.subst :refer [subst-all] :as subst]
          '[clojure.core.typed.test.rbt]
          '[clojure.core.typed.test.person]
          '[clojure.tools.trace :refer [trace-vars untrace-vars
@@ -2934,6 +2934,58 @@
     (overlap-prs
       (HMap :complete? true :optional {:a Integer})
       (HMap :complete? true :optional {:a clojure.lang.Keyword}))))
+
+(deftest datatype-variance-test
+  (is (check-ns 'clojure.core.typed.test.variance-test)))
+
+(deftest rec-type-test
+  (is-clj (sub? 
+            (HMap :mandatory {:a [Any -> Any]} :complete? true)
+            (Rec [x] (clojure.core.typed/Map Any (U [Any -> Any] x)))))
+  (is-clj (sub? 
+            '[[Any -> Any]]
+            (Rec [x] (clojure.core.typed/Vec (U [Any -> Any] x)))))
+  (is-clj (sub? 
+            (clojure.core.typed/Vec [Any -> Any])
+            (Rec [x] (clojure.core.typed/Vec (U [Any -> Any] x)))))
+  (is-clj (sub? 
+            (clojure.core.typed/Vec ':a)
+            (Rec [x] (clojure.core.typed/Vec (U ':a x)))))
+  (is-clj (not
+            (sub? 
+              nil
+              (Rec [x] (clojure.core.typed/Vec (U ':a x))))))
+  (is (check-ns 'clojure.core.typed.test.rec-type)))
+
+(deftest poly-rec-type-test
+  ; without Rec type
+  (is-cf
+    (clojure.core.typed/letfn> 
+      [pfoo :- (All [x] [(clojure.core.typed/Map Any x) -> (clojure.core.typed/Seq x)])
+       (pfoo [a] (vals a))]
+      (pfoo
+        (clojure.core.typed/ann-form
+          {}
+          (clojure.core.typed/Map Any Number )))))
+  ; with Rec type, but non-polymorphic function
+  (is-cf
+    (clojure.core.typed/letfn> 
+      [pfoo :- [(clojure.core.typed/Map Any Any) -> (clojure.core.typed/Seq Any)]
+       (pfoo [a] (vals a))]
+      (pfoo
+        (clojure.core.typed/ann-form
+          {}
+          (Rec [x] (clojure.core.typed/Map Any (U Number x)))))))
+  ; with Rec type, polymorphic function
+  (is-cf
+    (clojure.core.typed/letfn> 
+      [pfoo :- (All [x] [(clojure.core.typed/Map Any x) -> (clojure.core.typed/Seq x)])
+       (pfoo [a] (vals a))]
+      (pfoo
+        (clojure.core.typed/ann-form
+          {}
+          (Rec [x] (clojure.core.typed/Map Any (U Number x)))))))
+  )
 
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)

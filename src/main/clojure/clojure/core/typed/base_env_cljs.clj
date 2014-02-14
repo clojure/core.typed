@@ -8,16 +8,58 @@
 (delay-and-cache-env ^:private init-protocol-env 
   (h/protocol-mappings
     
+cljs.core/Fn [[]]
+cljs.core/IFn [[]]
+cljs.core/ICloneable [[]]
+cljs.core/ICounted [[]]
+cljs.core/IEmptyableCollection [[]]
+cljs.core/ICollection [[[x :variance :covariant]]]
+cljs.core/IIndexed [[]]
+cljs.core/ASeq [[]]
 cljs.core/ISeqable [[[x :variance :covariant]]]
 cljs.core/ISeq [[[x :variance :covariant]]]
+cljs.core/INext [[[x :variance :covariant]]]
+cljs.core/ILookup [[[maxk :variance :covariant]
+                    [v :variance :covariant]]]
+cljs.core/Associative [[[k :variance :covariant]
+                        [v :variance :covariant]]]
 cljs.core/IMap [[[k :variance :covariant]
                  [v :variance :covariant]]]
+cljs.core/IMapEntry [[[k :variance :covariant]
+                      [v :variance :covariant]]]
 cljs.core/ISet [[[x :variance :covariant]]]
+cljs.core/IStack [[[x :variance :covariant]]]
 cljs.core/IVector [[[x :variance :covariant]]]
+cljs.core/IDeref [[[x :variance :covariant]]]
+cljs.core/IDerefWithTimeout [[[x :variance :covariant]]]
+cljs.core/IMeta [[]]
+cljs.core/IWithMeta [[]]
+    ;TODO
+;cljs.core/IReduce [[]]
+;cljs.core/IKVReduce [[]]
 cljs.core/IList [[[x :variance :covariant]]]
 cljs.core/IEquiv [[]]
-cljs.core/Symbol [[]]
-cljs.core/Keyword [[]]
+cljs.core/IHash [[]]
+cljs.core/ISequential [[]]
+cljs.core/Record [[]]
+cljs.core/Reversible [[]]
+cljs.core/ISorted [[]]
+cljs.core/IWriter [[]]
+cljs.core/IPrintWithWriter [[]]
+cljs.core/IPending [[]]
+    ;TODO
+;cljs.core/IWatchable [[]]
+    ;cljs.core/IEditableCollection [[]]
+    ;cljs.core/ITransientCollection [[]]
+    ;cljs.core/ITransientAssociative [[]]
+    ;cljs.core/ITransientMap [[]]
+    ;cljs.core/ITransientVector [[]]
+    ;cljs.core/ITransientSet [[]]
+cljs.core/IComparable [[]]
+    ;cljs.core/IChunk [[]]
+    ;cljs.core/IChunkedSeq [[]]
+    ;cljs.core/IChunkedNext [[]]
+cljs.core/INamed [[]]
 
     ))
 
@@ -89,6 +131,94 @@ cljs.core/number? (predicate number)
 cljs.core/nth (All [x y] 
                 (Fn [(U nil (cljs.core/ISeqable x)) int -> x]
                     [(U nil (cljs.core/ISeqable x)) int y -> (U y x)]))
+
+cljs.core/*flush-on-newline* boolean
+cljs.core/*print-newline* boolean
+cljs.core/*print-readably* boolean
+cljs.core/*print-meta* boolean
+cljs.core/*print-dup* boolean
+cljs.core/*print-length* (U nil int)
+
+cljs.core/enable-console-print! [-> Any]
+
+cljs.core/*1 Any
+cljs.core/*2 Any
+cljs.core/*3 Any
+
+cljs.core/truth_ [Any -> Any]
+
+cljs.core/nil? (predicate nil)
+
+cljs.core/array? (ReadOnlyArray Any)
+
+cljs.core/not [Any -> boolean]
+
+cljs.core/object? [Any -> boolean]
+
+cljs.core/string? (predicate string)
+
+cljs.core/native-satisfies? [Any Any -> Any]
+
+cljs.core/is_proto_ [Any -> Any]
+
+cljs.core/*main-cli-fn* (U nil [Any * -> Any])
+
+cljs.core/type [Any -> Any]
+
+cljs.core/missing-protocol [Any Any -> Any]
+cljs.core/type->str [Any -> string]
+
+cljs.core/make-array (All [r] 
+                          (Fn [int -> (Array r)]
+                              [Any int -> (Array r)]))
+
+cljs.core/aclone (All [r]
+                      [(ReadOnlyArray r) -> (Array r)])
+
+cljs.core/array (All [r]
+                     [r * -> (Array r)])
+
+cljs.core/aget (All [x] (Fn [(ReadOnlyArray x) 
+                             int -> x]
+                            [(ReadOnlyArray (ReadOnlyArray x)) 
+                             int int -> x]
+                            [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))) 
+                             int int int -> x]
+                            [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))) 
+                             int int int int -> x]
+                            ; don't support unsound cases
+                            [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))))
+                             int int int int int -> x]))
+
+;TODO aset
+
+cljs.core/alength [(ReadOnlyArray Any) -> int]
+
+cljs.core/into-array (All [x] 
+                          (Fn [(U nil (cljs.core/ISeqable x)) -> (Array x)]
+                              [Any (U nil (cljs.core/ISeqable x)) -> (Array x)]))
+
+cljs.core/pr-str* [Any -> string]
+
+cljs.core/symbol (Fn [(U string cljs.core/Symbol) -> cljs.core/Symbol]
+                     [(U string nil) string -> cljs.core/Symbol])
+
+
+cljs.core/clone [Any -> Any]
+
+cljs.core/cloneable? (predicate cljs.core/ICloneable)
+
+      ;TODO aliases
+;cljs.core/seq (All [x]
+;                   (Fn 
+;                     [(NonEmptyColl x) -> (NonEmptySeq x)]
+;                     [(Option (Coll x)) -> (Option (NonEmptySeq x))
+;                      :filters {:then (& (is NonEmptyCount 0)
+;                                         (! nil 0))
+;                                :else (| (is nil 0)
+;                                         (is EmptyCount 0))}]
+;                     [(Option (Seqable x)) -> (Option (NonEmptySeq x))]))
+
 cljs.core/count
       ; TODO also accepts Counted
       ; FIXME should return integer
@@ -181,6 +311,8 @@ cljs.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
     
 cljs.core/Atom [[[w :variance :contravariant]
                  [r :variance :covariant]]]
+cljs.core/Symbol [[]]
+cljs.core/Keyword [[]]
     ))
 
 (defn reset-cljs-envs! []

@@ -1,11 +1,11 @@
-; from David Nolen's blogk
+; from David Nolen's blog
 (ns cljs.core.typed.test.csp
   (:refer-clojure :exclude [map])
   (:require [cljs.core.async :as async
               :refer [<! >! chan put! timeout]]
             [clojure.string :as string]
-            [cljs.core.typed.test.dom :refer [by-id set-html! offset]]
-            [blog.utils.reactive :refer [listen map]])
+            [cljs.core.typed.test.dnolen.utils.dom :refer [by-id set-html! offset]]
+            [cljs.core.typed.test.dnolen.utils.reactive :refer [listen map]])
   (:require-macros [cljs.core.async.macros :refer [go alt!]]))
 
 (def c (chan))
@@ -15,9 +15,9 @@
     (for [p (reverse q)]
       (str "<div class='proc-" p "'>Process " p "</div>"))))
 
-(go (while true (<! (timeout 250)) (>! c 1)))
-(go (while true (<! (timeout 1000)) (>! c 2)))
-(go (while true (<! (timeout 1500)) (>! c 3)))
+#_(go (while true (<! (timeout 250)) (>! c 1)))
+#_(go (while true (<! (timeout 1000)) (>! c 2)))
+#_(go (while true (<! (timeout 1500)) (>! c 3)))
 
 (defn peekn
   "Returns vector of (up to) n items from the end of vector v"

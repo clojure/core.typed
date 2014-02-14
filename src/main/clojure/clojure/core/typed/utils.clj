@@ -48,6 +48,10 @@
 
 (declare emit-form-fn)
 
+(t/ann ^:no-check env-for-error [Any -> Any])
+(defn env-for-error [env]
+  env)
+
 (t/ann ^:no-check nat? (predicate t/AnyInteger))
 (t/ann ^:no-check hash-c? [[Any -> Any] [Any -> Any] -> [Any -> Any]])
 ;can't express the alternating args
@@ -106,8 +110,7 @@
                                 {:form (if (contains? opt :form)
                                          form
                                          (emit-form-fn uvs/*current-expr*))})
-                              (when-let [env *current-env*]
-                                {:env env})))]
+                              {:env (env-for-error *current-env*)}))]
     (cond
       ;can't delay here
       (not (bound? #'clojure.core.typed/*delayed-errors*))
@@ -140,7 +143,9 @@
                            (str ":"col))
                          ") "
                          estr)
-                    {:type-error tc-error-parent}))))
+                    (merge
+                      {:type-error tc-error-parent}
+                      {:env (env-for-error env)})))))
 
 (defn deprecated-warn
   [msg]
@@ -153,16 +158,14 @@
              msg)
     (flush)))
 
+
 (defn int-error
   [estr]
   (let [env *current-env*]
-    (throw (ex-info (str "Internal Error "
-                         "(" (-> env :ns :name) ":" (or (:line env) "<NO LINE>")
-                         (when-let [col (:column env)]
-                           (str ":"col))
-                         ") "
-                         estr)
-                    {:type-error int-error-kw}))))
+    (throw (ex-info estr
+                    (merge
+                      {:type-error int-error-kw}
+                      {:env (env-for-error env)})))))
 
 (defn nyi-error
   [estr]
@@ -173,7 +176,8 @@
                              (str ":"col))
                            ") "
                            estr)
-                    {:type-error nyi-error-kw}))))
+                    (merge {:type-error nyi-error-kw}
+                           {:env (env-for-error env)})))))
 
 (defmacro with-ex-info-handlers 
   "Handle an ExceptionInfo e thrown in body. The first handler whos left hand

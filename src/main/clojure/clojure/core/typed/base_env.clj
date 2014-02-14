@@ -670,6 +670,7 @@ clojure.core.typed/override-constructor* [Any Any -> Any]
 clojure.core.typed/override-method* [Any Any -> Any]
 clojure.core.typed/typed-deps* [Any -> Any]
 clojure.core.typed/load-if-needed [-> Any]
+clojure.core.typed/*collect-on-eval* Any
 ; should always be special cased
 ;clojure.core.typed/var>* [Any -> (Var2 Nothing Any)]
 
@@ -709,9 +710,9 @@ clojure.core/aget (All [x] (Fn [(ReadOnlyArray x)
                                 AnyInteger AnyInteger AnyInteger -> x]
                                [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))) 
                                 AnyInteger AnyInteger AnyInteger AnyInteger -> x]
-                               ; unsound
-                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray Any)))))
-                                AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger * -> Any]))
+                               ; don't support unsound cases
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))))
+                                AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger -> x]))
 
 clojure.core/macroexpand-1 [Any -> Any]
 clojure.core/macroexpand [Any -> Any]
@@ -725,6 +726,7 @@ clojure.core/remove-ns [Symbol -> Namespace]
 clojure.core/namespace [(U Symbol String Keyword) -> (Option String)]
 clojure.core/ns-name [(U Symbol Namespace) -> Symbol]
 clojure.core/ns-map [(U Symbol Namespace) -> Symbol]
+clojure.core/ns-aliases [(U Symbol Namespace) -> (Map Symbol Namespace)]
 clojure.core/name [(U String Named) -> String]
 clojure.core/the-ns [(U Symbol Namespace) -> Namespace]
 clojure.core/in-ns [Symbol -> nil]

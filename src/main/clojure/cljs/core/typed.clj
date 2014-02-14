@@ -219,7 +219,11 @@
                                       (instance? clojure.lang.ExceptionInfo a))
                                     %))))
 
-(defn cf* [form expected expected-provided?]
+(defn cf* 
+  "Check a single form with an optional expected type.
+  Intended to be called from Clojure. For evaluation at the Clojurescript
+  REPL see cf."
+  [form expected expected-provided?]
   (t/load-if-needed)
   (t/reset-caches)
   (u/with-core-cljs
@@ -248,10 +252,14 @@
   ([form] `(cf* '~form nil nil))
   ([form expected] `(cf* '~form '~expected true)))
 
-(defn check-ns
-  "Check a Clojurescript namespace, or the current namespace."
-  ([] (check-ns (u/cljs-ns)))
+(defn check-ns*
+  "Check a Clojurescript namespace, or the current namespace.
+  Intended to be called from Clojure. For evaluation at the Clojurescript
+  REPL see check-ns."
+  ([] (check-ns* (u/cljs-ns)))
   ([nsym]
+   (assert (symbol? nsym)
+           "Checked namespace must be symbol")
    (t/load-if-needed)
    (t/reset-caches)
    ((v 'clojure.core.typed.reset-env/reset-envs!))
@@ -270,3 +278,11 @@
                (if-let [errors (seq @t/*delayed-errors*)]
                  (t/print-errors! errors)
                  :ok)))))))))
+
+(defmacro check-ns
+  "Check a Clojurescript namespace, or the current namespace. This macro
+  is intended to be called at the Clojurescript REPL. For the equivalent function see
+  check-ns*."
+  [& args]
+  `~(apply check-ns* args))
+
