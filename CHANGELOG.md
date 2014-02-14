@@ -1,3 +1,38 @@
+# 0.2.31-SNAPSHOT
+
+## Breaking Changes
+
+### HMap optional keys
+
+There is a subtle change that isn't likely to affect many. Essentially,
+these types are no longer interchangable:
+
+```clojure
+(HMap :optional {:foo Number})
+!=
+(U (HMap :mandatory {:foo Number}) (HMap :absent-keys #{:foo}))
+```
+
+This subtyping relationship now holds:
+
+```clojure
+(U (HMap :mandatory {:foo Number}) (HMap :absent-keys #{:foo}))
+<:
+(HMap :optional {:foo Number})
+    
+(HMap :optional {:foo Number})
+<!:
+(U (HMap :mandatory {:foo Number}) (HMap :absent-keys #{:foo}))
+```
+
+## Changes
+
+- Changed the representation of :optional keys on HMap 
+  - previously expanded into a combination of :mandatory and :absent-keys
+  - now is an explicit field
+- Type errors show the name of the source file where possible, falls back
+  on the current namespace, or NO_SOURCE_FILE if neither are available
+
 # 0.2.30 - Released 9 February 2014
 
 - Don't try and aggressively eliminate nested intersections and unions
