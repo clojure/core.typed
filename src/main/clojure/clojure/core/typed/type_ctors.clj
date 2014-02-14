@@ -106,7 +106,46 @@
   "A regular map with types as keys and vals."
   (t/Map r/Type r/Type))
 
-(declare In)
+(declare In keyword-value? RClass-of Protocol-of complete-hmap?)
+
+
+; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
+(t/ann ^:no-check upcast-hmap* 
+       [(t/Map r/Type r/Type) (t/Map r/Type r/Type) (t/Set r/Type) Boolean -> r/Type])
+(defn upcast-hmap* [mandatory optional absent-keys complete?]
+  (if complete?
+    (In (let [ks (apply Un (mapcat keys [mandatory optional]))
+              vs (apply Un (mapcat vals [mandatory optional]))]
+          (impl/impl-case
+            :clojure (RClass-of 'clojure.lang.APersistentMap [ks vs])
+            :cljs (Protocol-of 'cljs.core/IMap [ks vs])))
+        (r/make-CountRange 
+          ; assume all optional entries are absent
+          #_:lower
+          (count mandatory)
+          ; assume all optional entries are present
+          #_:upper
+          (+ (count mandatory)
+             (count optional))))
+    (In (impl/impl-case
+          :clojure (RClass-of 'clojure.lang.APersistentMap [r/-any r/-any])
+          :cljs (Protocol-of 'cljs.core/IMap [r/-any r/-any]))
+        (r/make-CountRange 
+          ; assume all optional entries are absent
+          #_:lower
+          (count mandatory)
+          ; partial hmap can be infinite count
+          #_:upper
+          nil))))
+
+(t/ann ^:no-check upcast-hmap [HeterogeneousMap -> r/Type])
+(defn upcast-hmap [hmap]
+  {:pre [(r/HeterogeneousMap? hmap)]
+   :post [(r/Type? %)]}
+  (upcast-hmap* (:types hmap)
+                (:optional hmap)
+                (:absent-keys hmap)
+                (complete-hmap? hmap)))
 
 (t/ann ^:no-check make-HMap [& :optional {:mandatory (t/Map r/Type r/Type) :optional (t/Map r/Type r/Type)
                                           :absent-keys (t/Set r/Type) :complete? Boolean} 

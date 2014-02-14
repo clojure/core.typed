@@ -535,34 +535,7 @@
             (fail! s t)))
 
         (r/HeterogeneousMap? s)
-        ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
-        (if (c/complete-hmap? s)
-          (subtype (c/In (let [tmaps (map #(get s %) [:types :optional])
-                               ks (apply c/Un (mapcat keys tmaps))
-                               vs (apply c/Un (mapcat vals tmaps))]
-                           (impl/impl-case
-                             :clojure (c/RClass-of APersistentMap [ks vs])
-                             :cljs (c/Protocol-of 'cljs.core/IMap [ks vs])))
-                         (r/make-CountRange 
-                           ; assume all optional entries are absent
-                           #_:lower
-                           (count (:types s))
-                           ; assume all optional entries are present
-                           #_:upper
-                           (+ (count (:types s))
-                              (count (:optional s)))))
-                   t)
-          (subtype (c/In (impl/impl-case
-                           :clojure (c/RClass-of APersistentMap [r/-any r/-any])
-                           :cljs (c/Protocol-of 'cljs.core/IMap [r/-any r/-any]))
-                         (r/make-CountRange 
-                           ; assume all optional entries are absent
-                           #_:lower
-                           (count (:types s))
-                           ; partial hmap can be infinite count
-                           #_:upper
-                           nil))
-                   t))
+        (subtype (c/upcast-hmap s) t)
 
         (r/KwArgsSeq? s)
         (subtype (c/Un r/-nil 
