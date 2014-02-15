@@ -1077,8 +1077,7 @@
 (defn unparse-result [{:keys [t fl o] :as rng}]
   {:pre [(r/Result? rng)]}
   (concat [(unparse-type t)]
-          (when (not (and ((some-fn f/TopFilter? f/BotFilter?) (:then fl))
-                          ((some-fn f/TopFilter? f/BotFilter?) (:else fl))))
+          (when-not (every? f/TopFilter? [(:then fl) (:else fl)])
             [:filters (unparse-filter-set fl)])
           (when (not ((some-fn orep/NoObject? orep/EmptyObject?) o))
             [:object (unparse-object o)])))

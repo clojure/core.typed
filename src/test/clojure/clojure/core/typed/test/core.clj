@@ -2612,7 +2612,8 @@
 
   (is (= (clj (unparse-type (parse-type '(TFn [[a :variance :covariant]] a))))
          (quote (TFn [[a :variance :covariant]] a))))
-  (is (= '[(All [a b] (Fn [Any Any -> (Fn [a b -> nil])])) {:then tt, :else ff}]
+  (is (= '[(All [a b] (Fn [Any Any -> (Fn [a b -> nil :filters {:then ff :else tt}])
+                           :filters {:then tt :else ff}])) {:then tt, :else ff}]
          (cf
            (fn [f coll]
              (clojure.core.typed/fn> 
