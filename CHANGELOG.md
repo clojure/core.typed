@@ -1,7 +1,11 @@
-# 0.2.32-SNAPSHOT
+# 0.2.32 - Released 19 February 2014
 
 - check-ns and friends support :profile keyword argument that uses
   Timbre to profile the current type checking run
+- pretty printing a `Fn` type now always prints the `:filters`,
+  unless they are equal to `{:then tt :else tt}`
+- Fix CTYP-105
+  - subtyping fix for HMap optional keys
 
 # 0.2.31 - Released 14 February 2014
 
