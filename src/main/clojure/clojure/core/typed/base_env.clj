@@ -1214,6 +1214,9 @@ clojure.string/join
      (Fn [(Option (Seqable Any)) -> String]
          [Any (Option (Seqable Any)) -> String])
 
+clojure.string/upper-case
+      [CharSequence -> String]
+
 clojure.core/interpose (All [x] (Fn [x (Option (Seqable x)) -> (Seq x)]))
 clojure.core/interleave (All [x] [(Option (Seqable x)) (Option (Seqable x)) (Option (Seqable x)) * -> (Seq x)])
 

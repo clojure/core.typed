@@ -2992,6 +2992,13 @@
   ; ensure check-ns still runs even if timbre isn't loaded
   (is (check-ns-info 'clojure.core.typed.test.destructure
                      :profile true)))
+
+; CTYP-105
+(deftest hmap-absent-and-optional-subtype-test
+  (is (sub? (HMap :absent-keys #{:a})
+            (HMap :optional {:a Any})))
+  (is (check-ns 'clojure.core.typed.test.ctyp105)))
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))
