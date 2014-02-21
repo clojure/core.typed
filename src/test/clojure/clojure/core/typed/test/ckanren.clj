@@ -8,8 +8,7 @@
                                         tc-ignore check-ns ann-datatype cf
                                         fn> AnyInteger
                                         print-env defprotocol>]]
-            [clojure.repl :refer [pst]]
-            [clojure.jvm.tools.analyzer :refer [ast]])
+            [clojure.repl :refer [pst]])
   (:import [java.io Writer]
            [clojure.lang Symbol Sequential IPersistentMap APersistentSet Sorted]))
 

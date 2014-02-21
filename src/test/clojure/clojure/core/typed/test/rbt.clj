@@ -10,8 +10,7 @@
             #_[clojure.core.typed.parse-unparse :as prs]
             #_[clojure.core.typed.filter-ops :as fo]
             [clojure.repl :refer [pst]]
-            [clojure.math.combinatorics :as comb]
-            [clojure.jvm.tools.analyzer :refer [ast]]))
+            [clojure.math.combinatorics :as comb]))
 
 (defmacro and
   "Scheme's and. Returns false on a false case."

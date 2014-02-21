@@ -1,6 +1,5 @@
 (ns clojure.core.typed.test.records
   (:require [clojure.core.typed :refer [check-ns ann-record ann-form cf]]
-            [clojure.jvm.tools.analyzer :refer [ast]]
             [clojure.repl :refer [pst]]))
 
 (set! *warn-on-reflection* true)

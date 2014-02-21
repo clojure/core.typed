@@ -5,8 +5,7 @@
             [clojure.core.contracts.constraints :as contracts]
             [clojure.repl :as repl]
             [clojure.core.contracts]
-            [clojure.jvm.tools.analyzer :as analyze]
-            [clojure.jvm.tools.analyzer.hygienic :as hygienic]
+            [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.core.typed.util-cljs :as util-cljs]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]
@@ -230,12 +229,6 @@
 ;              {:contract ~chk})))
 ;       ~name)))
 
-(comment
-  (defconstrainedrecord A [] "" [])
-  (-> (clojure.jvm.tools.analyzer/ast (defconstrainedrecord A [] "" []))
-      :exprs second clojure.pprint/pprint)
-  )
-
 (defmacro defrecord [name slots inv-description invariants & etc]
   ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
   (when-not (resolve name)
@@ -273,13 +266,13 @@
 ;(ann emit-form-fn [Any -> Any])
 (defn emit-form-fn [expr]
   (impl/impl-case
-    :clojure (hygienic/emit-hy expr)
+    :clojure (emit-form/emit-form expr)
     :cljs (util-cljs/emit-form expr)))
 
 (defn constant-expr [expr]
-  (case (:op expr)
-    (:constant :keyword :number :string :nil :boolean) (:val expr)
-    :empty-expr (:coll expr)))
+  {:pre [(#{:quote} (:op expr))
+         (#{:const} (:op (:expr expr)))]}
+  (-> expr :expr :val))
 
 (defn constant-exprs [exprs]
   (map constant-expr exprs))

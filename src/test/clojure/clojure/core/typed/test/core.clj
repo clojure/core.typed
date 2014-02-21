@@ -7,8 +7,9 @@
 (load-if-needed)
 
 (require '[clojure.test :refer :all]
-         '[clojure.jvm.tools.analyzer :refer [ast analyze-form]]
+         '[clojure.jvm.tools.analyzer :refer [ast]]
          '[clojure.jvm.tools.analyzer.hygienic :refer [ast-hy]]
+         '[clojure.core.typed.analyze-clj :as ana]
          '[clojure.repl :refer [pst]]
          '[clojure.pprint :refer [pprint]]
          '[clojure.data :refer [diff]]
@@ -815,7 +816,12 @@
          (tc-t (:a {:a 1}))
          (ret (-val 1)
               (-FS -top -top)
-              -empty))))
+              -empty)))
+  ;keyword-invoke with default
+  (is-cf (:a (clojure.core.typed/ann-form {} (HMap :optional {:a Number}))
+             'a)
+         (U Number clojure.core.typed/Symbol))
+  )
 
 (defn print-cset [cs]
   (into {} (doall

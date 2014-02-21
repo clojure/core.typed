@@ -10,8 +10,7 @@
                                         declare-protocols declare-datatypes
                                         ann-datatype loop> check-ns non-nil-return
                                         cf defprotocol>]
-             :as t]
-            [clojure.jvm.tools.analyzer :refer [ast]]))
+             :as t]))
 
 (comment
 (binding [t/*collect-on-eval* false]

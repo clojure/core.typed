@@ -15,7 +15,6 @@
             [clojure.core.typed.parse-unparse :refer :all]
             [clojure.core.typed.check :as chk :refer [update tc-t]]
             [clojure.repl :refer [pst]]
-            [clojure.jvm.tools.analyzer :refer [ast]]
             [clojure.test :refer :all]))
 
 (defmacro check-rbt [& body]
