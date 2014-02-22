@@ -1,3 +1,9 @@
+# 0.2.33 - Released 22 February 2014
+
+- add clojure.core/trampoline annotation
+- Fix pretty printing of dotted vars in polymorphic
+  binders
+
 # 0.2.32 - Released 19 February 2014
 
 - check-ns and friends support :profile keyword argument that uses
