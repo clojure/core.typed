@@ -1842,6 +1842,12 @@ clojure.core/*print-dup* Boolean
 clojure.core/*print-readably* Boolean
 clojure.core/*read-eval* (U ':unknown Boolean)
 
+clojure.core/trampoline 
+       (All [r b ...]
+         [[b ... b -> (Rec [f] (U r [-> (U f r)]))]
+          b ... b -> r])
+
+
 ;; math.numeric-tower
 
 clojure.math.numeric-tower/floor

@@ -2999,6 +2999,9 @@
             (HMap :optional {:a Any})))
   (is (check-ns 'clojure.core.typed.test.ctyp105)))
 
+(deftest trampoline-test
+  (is (check-ns 'clojure.core.typed.test.trampoline)))
+
 (deftest polydots-unparse-test
   (is-clj (= '[a b ...]
              (second
