@@ -2999,6 +2999,13 @@
             (HMap :optional {:a Any})))
   (is (check-ns 'clojure.core.typed.test.ctyp105)))
 
+(deftest polydots-unparse-test
+  (is-clj (= '[a b ...]
+             (second
+               (unparse-type
+                 (parse-type
+                   '(All [a b ...])))))))
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))

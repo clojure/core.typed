@@ -1170,7 +1170,9 @@
         binder (vec (concat (map unparse-poly-bounds-entry 
                                  (butlast free-and-dotted-names) 
                                  bbnds)
-                            [(last free-and-dotted-names) '...]))
+                            [(-> (last free-and-dotted-names)
+                                 r/make-F r/F-original-name) 
+                             '...]))
         body (c/PolyDots-body* free-and-dotted-names p)]
     (list 'All binder (unparse-type body))))
 
