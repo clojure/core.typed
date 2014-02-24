@@ -35,10 +35,6 @@ Maven dependency information:
 The default jars contain AOT files for faster loading. If jar size is a concern, consider
 using the slim jar in production.
 
-## Crowdfunding
-
-[Support full-time core.typed development](http://www.indiegogo.com/projects/typed-clojure/)
-
 ## [Talk] Clojure Conj 2012
 
 [Video](http://www.youtube.com/watch?v=wNhK8t3uLJU)
@@ -109,6 +105,74 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 * Andrew Brehaut (brehaut)
 * Christopher Spencer (cspencer)
 * Reid McKenzie (arrdem)
+
+## Sponsors
+
+Development is sponsored (via [crowdfunding](http://www.indiegogo.com/projects/typed-clojure)) by
+
+<div>
+  <div>
+    <a href="http://brickalloy.com/">
+      <img src="http://typedclojure.org/images/sponsors/brick_alloy_2_37.png" alt="Brick Alloy">
+    </a>
+  </div>
+  <div class="col-md-2">
+    <a href="http://cognitect.com/">
+      <img src="http://typedclojure.org/images/sponsors/cognitect_black_1_27.png" alt="Cognitect">
+    </a>
+  </div>
+  <div>
+    <a href="http://www.circleci.com/">
+      <img src="http://typedclojure.org/images/sponsors/circleci_logoweb.jpg" alt="CircleCI">
+    </a>
+  </div>
+  <div class="col-md-2">
+    <a href="https://www.hackerschool.com/">
+      <img src="http://typedclojure.org/images/sponsors/hackerschool.png" alt="Hacker School">
+    </a>
+  </div>
+</div>
+<div>
+  <div>
+    <a href="http://snowplowanalytics.com/">
+      <img src="http://typedclojure.org/images/sponsors/snowplow-logo.png" alt="Snowplow Analytics">
+    </a>
+  </div>
+  <div>
+    <a href="http://leonidasoy.fi/">
+      <img src="http://typedclojure.org/images/sponsors/leonidas.png" alt="Leonidas">
+    </a>
+  </div>
+  <div>
+    <a href="http://getprismatic.com/">
+      <img src="http://typedclojure.org/images/sponsors/prismatic-logo.png" alt="Prismatic">
+    </a>
+  </div>
+</div>
+<div>
+  <div style="background-color: #555;">
+    <a href="http://www.thortech-solutions.com/">
+      <img src="http://typedclojure.org/images/sponsors/thortech.png" alt="ThorTech Solutions">
+    </a>
+  </div>
+  <div>
+    <a href="http://sonian.com/">
+      <img src="http://typedclojure.org/images/sponsors/sonian.png" alt="Sonian">
+    </a>
+  </div>
+  <div>
+    <a href="https://twitter.com/srseverance">Shannon Severance</a>
+  </div>
+</div>
+<div>
+  <div>
+    <a href="http://cursiveclojure.com/">
+      <img src="http://typedclojure.org/images/sponsors/cursive.png" alt="Cursive Clojure">
+    </a>
+  </div>
+</div>
+</div>
+
 
 ## YourKit
 
