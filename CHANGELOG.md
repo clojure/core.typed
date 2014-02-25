@@ -1,3 +1,10 @@
+# 0.2.34 - Released 25 February 2014
+
+- add clojure.core.typed/pred
+  - generates a flat predicate based on the give type
+  - understood by the type checker
+  - eg. ((t/pred '{:a Number}) {:a 1}) ;=> true
+
 # 0.2.33 - Released 22 February 2014
 
 - add clojure.core/trampoline annotation
