@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.atom
-  (:require [clojure.core.typed :refer [ann ann-form check-ns cf Atom1 fn> def-alias]]
+  (:require [clojure.core.typed :as t :refer [ann ann-form check-ns cf Atom1 fn> def-alias]]
             [clojure.repl :refer [pst]])
   (:import (clojure.lang IPersistentMap Symbol)))
 

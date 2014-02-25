@@ -1,3 +1,65 @@
+# 0.2.33 - Released 22 February 2014
+
+- add clojure.core/trampoline annotation
+- Fix pretty printing of dotted vars in polymorphic
+  binders
+
+# 0.2.32 - Released 19 February 2014
+
+- check-ns and friends support :profile keyword argument that uses
+  Timbre to profile the current type checking run
+- pretty printing a `Fn` type now always prints the `:filters`,
+  unless they are equal to `{:then tt :else tt}`
+- Fix CTYP-105
+  - subtyping fix for HMap optional keys
+
+# 0.2.31 - Released 14 February 2014
+
+## Breaking Changes
+
+### HMap optional keys
+
+There is a subtle change that isn't likely to affect many. Essentially,
+these types are no longer interchangeable:
+
+```clojure
+(HMap :optional {:foo Number})
+!=
+(U (HMap :mandatory {:foo Number}) (HMap :absent-keys #{:foo}))
+```
+
+This subtyping relationship now holds:
+
+```clojure
+(U (HMap :mandatory {:foo Number}) (HMap :absent-keys #{:foo}))
+<:
+(HMap :optional {:foo Number})
+    
+(HMap :optional {:foo Number})
+<!:
+(U (HMap :mandatory {:foo Number}) (HMap :absent-keys #{:foo}))
+```
+
+You should prefer the :optional syntax where possible.
+
+## Changes
+
+- Changed the representation of :optional keys on HMap 
+  - previously expanded into a combination of :mandatory and :absent-keys
+  - now is an explicit field
+- Type errors show the name of the source file where possible, falls back
+  on the current namespace, or NO_SOURCE_FILE if neither are available
+
+# 0.2.30 - Released 9 February 2014
+
+- Don't try and aggressively eliminate nested intersections and unions
+- check-ns and friends now cleanly catch more type errors (like int-error
+  and tc-error) as "delayed" errors instead of letting them propagate
+
+# 0.2.29 - Released 7 February 2014
+
+- Add support for recursive types in the constraint resolution algorithm
+
 # 0.2.28 - Released 5 February 2014
 
 - Don't unfold recursive types while compacting union types

@@ -1213,6 +1213,9 @@ clojure.string/join
      (Fn [(Option (Seqable Any)) -> String]
          [Any (Option (Seqable Any)) -> String])
 
+clojure.string/upper-case
+      [CharSequence -> String]
+
 clojure.core/interpose (All [x] (Fn [x (Option (Seqable x)) -> (Seq x)]))
 clojure.core/interleave (All [x] [(Option (Seqable x)) (Option (Seqable x)) (Option (Seqable x)) * -> (Seq x)])
 
@@ -1837,6 +1840,12 @@ clojure.core/*print-meta* Boolean
 clojure.core/*print-dup* Boolean
 clojure.core/*print-readably* Boolean
 clojure.core/*read-eval* (U ':unknown Boolean)
+
+clojure.core/trampoline 
+       (All [r b ...]
+         [[b ... b -> (Rec [f] (U r [-> (U f r)]))]
+          b ... b -> r])
+
 
 ;; math.numeric-tower
 

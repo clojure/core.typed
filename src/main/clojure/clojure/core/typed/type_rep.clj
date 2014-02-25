@@ -394,6 +394,12 @@
    p/IMu
    (mu-scope [_] scope)])
 
+(t/ann Mu-body-unsafe [Mu -> Type])
+(defn Mu-body-unsafe [mu]
+  {:pre [(Mu? mu)]
+   :post [(Type? %)]}
+  (-> mu :scope :body))
+
 (u/ann-record Value [val :- Any])
 (u/def-type Value [val]
   "A Clojure value"
@@ -426,13 +432,20 @@
 (declare Result?)
 
 (u/ann-record HeterogeneousMap [types :- (t/Map Type Type),
+                                optional :- (t/Map Type Type),
                                 absent-keys :- (t/Set Type),
                                 other-keys? :- Boolean])
-(u/def-type HeterogeneousMap [types absent-keys other-keys?]
+(u/def-type HeterogeneousMap [types optional absent-keys other-keys?]
   "A constant map, clojure.lang.IPersistentMap"
   [((u/hash-c? Value? (some-fn Type? Result?))
      types)
+   ((u/hash-c? Value? (some-fn Type? Result?))
+     optional)
    ((u/set-c? Value?) absent-keys)
+   (empty? (set/intersection
+             (set (keys types))
+             (set (keys optional))
+             absent-keys))
    (u/boolean? other-keys?)]
   :methods
   [p/TCType])

@@ -9,9 +9,12 @@
 ;; only available with lein (development time). Needs a few helpers
 ;; to achieve this.
 
-(try 
-  (require '[taoensso.timbre.profiling])
-  (catch Exception e))
+(def loaded-timbre?
+  (try 
+    (require '[taoensso.timbre.profiling])
+    true
+    (catch Throwable e
+      false)))
 
 ; use our own version of pspy that can be type checked
 (defmacro p [name & body]
@@ -44,5 +47,16 @@
 
 (defmacro profile 
   "Usage: (profile :info :foo ...)"
-  [& body]
-  `(taoensso.timbre.profiling/profile ~@body))
+  [a1 a2 & body]
+  (if (find-ns 'taoensso.timbre.profiling)
+    `(taoensso.timbre.profiling/profile ~a1 ~a2 ~@body)
+    `(do (prn "WARNING: Cannot profile, timbre must be added as a dependency") 
+         nil
+         ~@body)))
+
+(defmacro profile-if
+  "Usage (profile-if p? :info :foo)"
+  [p? & body]
+  `(if ~p?
+     (profile :info :foo ~@body)
+     (do ~@body)))

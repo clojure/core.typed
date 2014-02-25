@@ -493,7 +493,8 @@
           optional (mapt optional)
           _ (when-not (every? keyword? absent-keys) (u/int-error "HMap's absent keys must be keywords"))
           absent-keys (set (map r/-val absent-keys))]
-      (c/make-HMap mandatory optional complete? :absent-keys absent-keys))))
+      (c/make-HMap :mandatory mandatory :optional optional 
+                   :complete? complete? :absent-keys absent-keys))))
 
 (defn parse-quoted-hvec [syn]
   (let [{:keys [fixed drest rest]} (parse-hvec-types syn)]
@@ -1078,8 +1079,7 @@
 (defn unparse-result [{:keys [t fl o] :as rng}]
   {:pre [(r/Result? rng)]}
   (concat [(unparse-type t)]
-          (when (not (and ((some-fn f/TopFilter? f/BotFilter?) (:then fl))
-                          ((some-fn f/TopFilter? f/BotFilter?) (:else fl))))
+          (when-not (every? f/TopFilter? [(:then fl) (:else fl)])
             [:filters (unparse-filter-set fl)])
           (when (not ((some-fn orep/NoObject? orep/EmptyObject?) o))
             [:object (unparse-object o)])))
@@ -1172,7 +1172,9 @@
         binder (vec (concat (map unparse-poly-bounds-entry 
                                  (butlast free-and-dotted-names) 
                                  bbnds)
-                            [(last free-and-dotted-names) '...]))
+                            [(-> (last free-and-dotted-names)
+                                 r/make-F r/F-original-name) 
+                             '...]))
         body (c/PolyDots-body* free-and-dotted-names p)]
     (list 'All binder (unparse-type body))))
 
@@ -1235,7 +1237,14 @@
   [^HeterogeneousMap v]
   (list* 'HMap 
          (concat
-           [:mandatory (unparse-map-of-types (.types v))]
+           ; only elide if other information is present
+           (when (or (seq (:types v))
+                     (not (or (seq (:optional v))
+                              (seq (:absent-keys v))
+                              (c/complete-hmap? v))))
+             [:mandatory (unparse-map-of-types (.types v))])
+           (when (seq (:optional v))
+             [:optional (unparse-map-of-types (:optional v))])
            (when-let [ks (and (not (c/complete-hmap? v))
                               (seq (.absent-keys v)))]
              [:absent-keys (set (map :val ks))])

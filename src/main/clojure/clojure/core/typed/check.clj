@@ -265,20 +265,21 @@
                     ;{:post [(every? (some-fn nil? r/TCResult?) %)]}
 
                     (let [; find the ktype key in each hmap.
-                          ; - If ktype is present in :types then we either use the entry's val type 
-                          ; - if ktype is explicitly forbidden via :absent-keys or :other-keys
+                          ; - If ktype is present in mandatory or optional then we either use the entry's val type 
+                          ; - otherwise if ktype is explicitly forbidden via :absent-keys or completeness
                           ;   we skip the entry.
                           ; - otherwise we give up and don't check this as a hmap, return nil
                           ;   that gets propagated up
                           corresponding-vals 
-                          (reduce (fn [corresponding-vals {:keys [types absent-keys other-keys?] :as hmap}]
-                                    (if-let [v (get types ktype)]
+                          (reduce (fn [corresponding-vals {:keys [types absent-keys optional] :as hmap}]
+                                    (if-let [v (some #(get % ktype) [types optional])]
                                       (conj corresponding-vals v)
                                       (cond
                                         (or (contains? absent-keys ktype)
-                                            (not other-keys?)) 
-                                        corresponding-vals
-                                        :else (reduced nil))))
+                                            (c/complete-hmap? hmap))
+                                          corresponding-vals
+                                        :else 
+                                          (reduced nil))))
                                   #{} hmaps)
                           val-expect (when (= 1 (count corresponding-vals))
                                        (ret (first corresponding-vals)))]
@@ -1465,8 +1466,8 @@
                             (let [protocol (do (when-not (= :var (:op prcl-expr))
                                                  (u/int-error  "Must reference protocol directly with var in extend"))
                                                (ptl-env/resolve-protocol (u/var->symbol (:var prcl-expr))))
-                                  expected-mmap (c/make-HMap {}
-                                                             ;get all combinations
+                                  expected-mmap (c/make-HMap ;get all combinations
+                                                             :optional
                                                              (into {}
                                                                    (for [[msym mtype] (:methods protocol)]
                                                                      [(r/-val (keyword (name msym))) 
@@ -1644,11 +1645,14 @@
                                         " in heterogeneous map type " (prs/unparse-type t)
                                         " that declares the key always absent.")
                                       (or default r/-nil))
-                                    ; otherwise result is Any
-                                    (do #_(tc-warning "Looking up key " (prs/unparse-type k)
-                                                    " in heterogeneous map type " (prs/unparse-type t)
-                                                    " which does not declare the key absent ")
-                                        r/-any))))
+                                    ; if key is optional the result is the val or the default
+                                    (if-let [opt (get (:optional t) k)]
+                                      (c/Un opt (or default r/-nil))
+                                      ; otherwise result is Any
+                                      (do #_(tc-warning "Looking up key " (prs/unparse-type k)
+                                                        " in heterogeneous map type " (prs/unparse-type t)
+                                                        " which does not declare the key absent ")
+                                          r/-any)))))
 
       (r/Record? t) (find-val-type (c/Record->HMap t) k default)
 
@@ -1699,13 +1703,16 @@
       (let [{{path-hm :path id-hm :id :as o} :o} target-ret
             this-pelem (pe/->KeyPE (:val kwt))
             val-type (find-val-type targett kwt defaultt)]
+        (when expected-ret
+          (when-not (sub/subtype? val-type (ret-t expected-ret))
+            (expected-error val-type (ret-t expected-ret))))
         (if (not= (c/Un) val-type)
           (ret val-type
                (fo/-FS (if (obj/Path? o)
                          (fo/-filter val-type id-hm (concat path-hm [this-pelem]))
                          fl/-top)
                        (if (obj/Path? o)
-                         (fo/-or (fo/-filter (c/-hmap {} #{kwt} true) id-hm path-hm) ; this map doesn't have a kwt key or...
+                         (fo/-or (fo/-filter (c/make-HMap :absent-keys #{kwt}) id-hm path-hm) ; this map doesn't have a kwt key or...
                                  (fo/-filter (c/Un r/-nil r/-false) id-hm (concat path-hm [this-pelem]))) ; this map has a false kwt key
                          fl/-top))
                (if (obj/Path? o)
@@ -4256,35 +4263,43 @@
             ; use this filter to update the right hand side value
             next-filter ((if polarity fo/-filter fo/-not-filter) 
                          update-to-type id rstpth)
-            present? (c/hmap-present-key? t fpth)
-            absent? (c/hmap-absent-key? t fpth)]
+            present? (contains? (:types t) fpth)
+            optional? (contains? (:optional t) fpth)
+            absent? (contains? (:absent-keys t) fpth)]
         ;updating a KeyPE should consider 3 cases:
         ; 1. the key is declared present
         ; 2. the key is declared absent
         ; 3. the key is not declared present, and is not declared absent
         (cond
           present?
-          ; -hmap simplifies to bottom if an entry is bottom
-          (c/-hmap (update-in (:types t) [fpth] update next-filter)
-                   (:absent-keys t)
-                   (:other-keys? t))
+            ; -hmap simplifies to bottom if an entry is bottom
+            (c/make-HMap
+              :mandatory (update-in (:types t) [fpth] update next-filter)
+              :optional (:optional t)
+              :absent-keys (:absent-keys t)
+              :complete? (c/complete-hmap? t))
           absent?
-          t
+            t
 
           ; key not declared present or absent
           :else
-          (c/Un
-            (c/-hmap (assoc-in (:types t) [fpth] (update r/-any next-filter))
-                     (:absent-keys t)
-                     (:other-keys? t))
-            ; if we can prove we only ever update this path to nil,
-            ; we can ignore the absent case.
-            (let [updated-nil (update r/-nil next-filter)]
-              (if-not (r/Bottom? updated-nil)
-                (c/-hmap (:types t)
-                         (conj (:absent-keys t) fpth)
-                         (:other-keys? t))
-                r/-nothing)))))
+          (let [; KeyPE are only used for `get` operations where `nil` is the
+                ; not-found value. If the filter does not hold when updating
+                ; it to nil, then we can assume this key path is present.
+                update-to-mandatory? (r/Bottom? (update r/-nil next-filter))]
+            (if update-to-mandatory?
+              (c/make-HMap 
+                :mandatory (assoc-in (:types t) [fpth] (update r/-any next-filter))
+                :optional (:optional t)
+                :absent-keys (:absent-keys t)
+                :complete? (c/complete-hmap? t))
+              (c/make-HMap 
+                :mandatory (:types t)
+                :optional (if optional?
+                            (update-in (:optional t) [fpth] update next-filter)
+                            (assoc-in (:optional t) [fpth] (update r/-any next-filter)))
+                :absent-keys (:absent-keys t)
+                :complete? (c/complete-hmap? t))))))
 
       ; nil returns nil on keyword lookups
       (and (fl/NotTypeFilter? lo)
