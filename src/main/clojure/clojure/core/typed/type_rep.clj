@@ -437,7 +437,26 @@
   :methods
   [p/TCType])
 
-(declare DottedPretype?)
+(u/ann-record DottedPretype [pre-type :- Type,
+                             name :- (U Symbol Number)
+                             partition-count :- Number])
+(u/def-type DottedPretype [pre-type name partition-count]
+  "A dotted pre-type. Not a type"
+  [(Type? pre-type)
+   ((some-fn symbol? u/nat?) name)
+   (u/nat? partition-count)]
+  :methods
+  [p/TCAnyType])
+
+(t/ann-many [Type (U Symbol Number) -> DottedPretype]
+            DottedPretype1-maker
+            DottedPretype2-maker)
+
+(defn DottedPretype1-maker [pre-type name]
+  (DottedPretype-maker pre-type name 1))
+
+(defn DottedPretype2-maker [pre-type name]
+  (DottedPretype-maker pre-type name 2))
 
 (u/ann-record HeterogeneousVector [;fixed members
                                    types :- (t/Vec Type)
@@ -565,27 +584,6 @@
   (GetType-maker target key (or not-found -nil) 
                  (or target-fs ((-FS-var) @(-top-var) @(-top-var)))
                  (or target-object @(-empty-var))))
-
-(u/ann-record DottedPretype [pre-type :- Type,
-                             name :- (U Symbol Number)
-                             partition-count :- Number])
-(u/def-type DottedPretype [pre-type name partition-count]
-  "A dotted pre-type. Not a type"
-  [(Type? pre-type)
-   ((some-fn symbol? u/nat?) name)
-   (u/nat? partition-count)]
-  :methods
-  [p/TCAnyType])
-
-(t/ann-many [Type (U Symbol Number) -> DottedPretype]
-            DottedPretype1-maker
-            DottedPretype2-maker)
-
-(defn DottedPretype1-maker [pre-type name]
-  (DottedPretype-maker pre-type name 1))
-
-(defn DottedPretype2-maker [pre-type name]
-  (DottedPretype-maker pre-type name 2))
 
 ;not a type, see KwArgsSeq
 (u/ann-record KwArgs [mandatory :- (t/Map Type Type)

@@ -1,7 +1,6 @@
 (ns clojure.core.typed.test.rbt-types
   (:require [clojure.core.typed :as t :refer [def-alias declare-names]]))
 
-(comment
 ;-------------------------------
 ; 'Normal' types
 ;-------------------------------
@@ -38,20 +37,35 @@
 ; 'Refinement' types
 ;-------------------------------
 
-(declare-names rbt bt)
-
 (def-alias rbt 
   "Trees with only black children for red nodes"
-  (U 
-    Empty
-    (Black rbt rbt)
-    (Red bt bt)))
+  (Rec [rbt]
+    (U 
+      Empty
+      (Black rbt rbt)
+      ;(Red bt bt)
+      (Red (U 
+             Empty
+             (Black rbt rbt))
+           (U 
+             Empty
+             (Black rbt rbt))))))
 
 (def-alias bt 
   "Like rbt but additionally the root node is black"
-  (U 
-    Empty
-    (Black rbt rbt)))
+  (Rec [bt]
+       (U 
+         Empty
+         ;(Black rbt rbt)
+         (Black 
+           (U 
+             Empty
+             (Black rbt rbt)
+             (Red bt bt))
+           (U 
+             Empty
+             (Black rbt rbt)
+             (Red bt bt))))))
 
 (def-alias red 
   "Trees with a red root"
@@ -80,4 +94,3 @@
    (Black rbt rbt)
    (Red bt bt)
    (Black rbt badRoot)))
-  )

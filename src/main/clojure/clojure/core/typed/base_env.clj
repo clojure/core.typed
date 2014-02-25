@@ -40,8 +40,7 @@ Seqable [[[a :variance :covariant]]
 Reversible [[[a :variance :covariant]]
             ]
 
-IPersistentCollection [[[a :variance :covariant]
-                        ]
+IPersistentCollection [[[a :variance :covariant]]
                        :replace
                        {Seqable (Seqable a)}]
 

@@ -10,7 +10,6 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.util-vars :as uvars]
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.parse-ast :as ast]
-            [clojure.core.typed.type-contract :as tcontract]
             [clojure.java.io :as io])
   (:refer-clojure :exclude [type]))
 
@@ -760,14 +759,16 @@ for checking namespaces, cf for checking individual forms."}
                 (symbol (-> *ns* ns-name str) (str sym)))
          m (-> (meta sym)
              (update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t)))))]
-     (swap! impl/alias-env assoc qsym 
-            (impl/with-impl impl/clojure
-              (binding [uvars/*current-env* {:ns {:name (ns-name *ns*)}
-                                             :line (-> &form meta :line)
-                                             :column (-> &form meta :column)}]
-                (ast/parse t))))
-     `(let [v# (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))]
-        (tc-ignore (alter-meta! v# merge '~m))
+     `(do
+        (tc-ignore
+          (swap! impl/alias-env assoc '~qsym 
+                 (impl/with-impl impl/clojure
+                   (binding [uvars/*current-env* {:ns {:name ~'(ns-name *ns*)}
+                                                  :line '~(-> &form meta :line)
+                                                  :column '~(-> &form meta :column)}]
+                     (ast/parse '~t)))))
+        (let [v# (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))]
+          (tc-ignore (alter-meta! v# merge '~m)))
         (def-alias* '~qsym '~t)))))
 
 ;(ann tc-ignore-forms* [Any -> Any])
@@ -782,7 +783,6 @@ for checking namespaces, cf for checking individual forms."}
   "Ignore forms in body during type checking"
   [& body]
   `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
-
 
 (defmacro ^:private def-alias-many [& args]
   `(do
@@ -960,6 +960,120 @@ clojure.core.typed/Promise
                    ;TODO this causes stack overflows
                    #_[x -> (U nil p)]))))
 
+(defn ^:private rclass-pred [rcls opts]
+  (swap! impl/rclass-env assoc (impl/Class->symbol rcls) opts))
+
+(defmacro ^:private rclass-preds [& args]
+  `(do
+     ~@(for [[k v] (partition 2 args)]
+         `(rclass-pred ~k ~v))))
+
+(rclass-preds
+;  clojure.lang.Seqable 
+;  {:pred (fn [this a?]
+;           (cond 
+;             (string? this) (every? a? this)
+;             (coll? this) (every? a? this)))}
+  clojure.lang.IPersistentCollection
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.ISeq
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IPersistentSet
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.APersistentSet
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentHashSet
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentTreeSet
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.Associative
+  {:args #{2}
+   :pred (fn [this a? b?]
+           `(cond
+              (vector? ~this) (and (every? ~a? (range (count ~this)))
+                                   (every? ~b? ~this))
+              (map? ~this) (and (every? ~a? (keys ~this))
+                                (every? ~b? (vals ~this)))))}
+  clojure.lang.IPersistentStack
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IPersistentVector
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.APersistentVector
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentVector
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IMapEntry
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (~a? (key ~this)) (~b? (val ~this))))}
+  clojure.lang.AMapEntry
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (~a? (key ~this)) (~b? (val ~this))))}
+  clojure.lang.MapEntry
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (~a? (key ~this)) (~b? (val ~this))))}
+  clojure.lang.IPersistentMap
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (every? ~a? (keys ~this))
+                 (every? ~b? (vals ~this))))}
+  clojure.lang.ASeq
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.APersistentMap
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (every? ~a? (keys ~this))
+                 (every? ~b? (vals ~this))))}
+  clojure.lang.PersistentHashMap
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (every? ~a? (keys ~this))
+                 (every? ~b? (vals ~this))))}
+  clojure.lang.Cons
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IPersistentList
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentList
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.LazySeq
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.Reduced
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(~a? (deref ~this)))})
+
 (defn ^:skip-wiki
   ann-form* 
   "Internal use only. Use ann-form."
@@ -1100,7 +1214,9 @@ clojure.core.typed/Promise
                             (contains? opts :no-check)))
                   "Cannot provide both :nocheck and :no-check metadata to ann")
         check? (not (or (:no-check opts)
-                        (:nocheck opts)))]
+                        (:nocheck opts)))
+        ast (ast/parse-clj typesyn)]
+    (swap! impl/var-env assoc qsym ast)
     `(ann* '~qsym '~typesyn '~check?)))
 
 (defmacro ann-many
@@ -1183,6 +1299,16 @@ clojure.core.typed/Promise
     (assert (not rplc) "Replace NYI")
     (assert (symbol? dname)
             (str "Must provide name symbol: " dname))
+    (let [qname (if (some #{\.} (str dname))
+                  dname
+                  (symbol (str (namespace-munge *ns*) "." dname)))]
+      (swap! impl/datatype-env 
+             assoc 
+             qname
+             {:record? false
+              :name qname
+              :fields fields
+              :bnd vbnd}))
     `(ann-datatype* '~vbnd '~dname '~fields '~opts)))
 
 (defn ^:skip-wiki
@@ -1262,6 +1388,16 @@ clojure.core.typed/Promise
         (if bnd-provided?
           (next args)
           args)]
+    (let [qname (if (some #{\.} (str dname))
+                  dname
+                  (symbol (str (namespace-munge *ns*) "." dname)))]
+      (swap! impl/datatype-env 
+             assoc 
+             qname
+             {:record? true
+              :name qname
+              :fields fields
+              :bnd vbnd}))
     (if bnd-provided?
       ;reuse ann-precord for now
       `(ann-precord ~dname ~vbnd ~fields ~@opt)
@@ -1325,7 +1461,15 @@ clojure.core.typed/Promise
               (flush)))
         ; duplicates are checked above.
         ; duplicate munged methods are checked in collect-phase
-        {:as mth} mth]
+        {:as mth} mth
+        qualsym (if (namespace varsym)
+                  varsym
+                  (symbol (str (ns-name *ns*)) (name varsym)))]
+    (swap! impl/protocol-env
+           assoc qualsym
+           {:name qualsym
+            :methods mth
+            :bnds vbnd})
     `(ann-protocol* '~vbnd '~varsym '~mth)))
 
 (defn ^:skip-wiki
@@ -1614,7 +1758,7 @@ clojure.core.typed/Promise
   (let [check (impl/v 'clojure.core.typed.check/check)
         expr-type (impl/v 'clojure.core.typed.check/expr-type)
         ast-for-form (impl/v 'clojure.core.typed.analyze-clj/ast-for-form)
-        collect (impl/v 'clojure.core.typed.collect-phase/collect)
+        collect-ast (impl/v 'clojure.core.typed.collect-phase/collect-ast)
         ret (impl/v 'clojure.core.typed.type-rep/ret)
         parse-type (impl/v 'clojure.core.typed.parse-unparse/parse-type)]
     (if *currently-checking-clj*
@@ -1626,7 +1770,7 @@ clojure.core.typed/Promise
           (let [expected (when type-provided?
                            (ret (parse-type expected)))
                 ast (ast-for-form form)
-                _ (collect ast)
+                _ (collect-ast ast)
                 _ (reset-caches)
                 c-ast (check ast expected)
                 res (expr-type c-ast)]
@@ -1856,11 +2000,17 @@ clojure.core.typed/Promise
   pred)
 
 (defmacro pred 
-  "Generate a flat predicate for type."
+  "Generate a flat (runtime) predicate for type that returns true if the
+  argument is a subtype of the type, otherwise false.
+
+  The current type variable and dotted type variable scope is cleared before parsing.
+  
+  eg. ((pred Number) 1)
+      ;=> true"
   [t]
+  (require '[clojure.core.typed.type-contract])
   `(pred* '~t
-          ~(impl/with-impl impl/clojure
-             (tcontract/type-syntax->pred t))))
+          ~((impl/v 'clojure.core.typed.type-contract/type-syntax->pred) t)))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)

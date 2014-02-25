@@ -2086,6 +2086,19 @@
     (assoc expr
            expr-type (ret parsed-ty))))
 
+;pred
+(add-invoke-special-method 'clojure.core.typed/pred*
+  [{[{tsyn :val} _pred-fn_ :as args] :args, :keys [env], :as expr} & [expected]]
+  {:pre [(#{2} (count args))]}
+  (let [ptype 
+        ; frees are not scoped when pred's are parsed at runtime,
+        ; so we simulate the same here.
+        (binding [tvar-env/*current-tvars* {}
+                  dvar-env/*dotted-scope* {}]
+          (prs/parse-type tsyn))]
+    (assoc expr
+           expr-type (ret (prs/predicate-for ptype)))))
+
 ;fn literal
 (add-invoke-special-method 'clojure.core.typed/fn>-ann
   [{:keys [fexpr args] :as expr} & [expected]]

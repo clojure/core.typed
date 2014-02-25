@@ -175,14 +175,16 @@
     (assert (var? v) "RClass-of unbound")
     v))
 
-(defmethod parse-type-list 'predicate
-  [[_ t-syn]]
-  (let [RClass-of @(RClass-of-var)
-        on-type (parse-type t-syn)]
+(defn predicate-for [on-type]
+  (let [RClass-of @(RClass-of-var)]
     (r/make-FnIntersection
       (r/make-Function [r/-any] (RClass-of Boolean) nil nil
                        :filter (fl/-FS (fl/-filter on-type 0)
                                        (fl/-not-filter on-type 0))))))
+
+(defmethod parse-type-list 'predicate
+  [[_ t-syn]]
+  (predicate-for (parse-type t-syn)))
 
 (defmethod parse-type-list 'Not
   [[_ tsyn :as all]]

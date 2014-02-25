@@ -1,5 +1,7 @@
-(ns clojure.core.typed.errors
+(ns ^:skip-wiki clojure.core.typed.errors
   (:require [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 (def int-error-kw ::internal-error)
 
