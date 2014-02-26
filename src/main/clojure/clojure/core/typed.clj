@@ -1343,6 +1343,7 @@ for checking namespaces, cf for checking individual forms."}
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-checked* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *currently-checking-clj* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors* nil)
+(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *analyze-ns-cache* nil)
 
 (defonce ^:dynamic 
   ^{:doc 
@@ -1442,7 +1443,8 @@ for checking namespaces, cf for checking individual forms."}
         (impl/with-clojure-impl
           (binding [*currently-checking-clj* true
                     *delayed-errors* (-init-delayed-errors)
-                    *collect-on-eval* false]
+                    *collect-on-eval* false
+                    *analyze-ns-cache* (atom {})]
             (let [expected (when type-provided?
                              (ret (parse-type expected)))
                   ast (ast-for-form form)
@@ -1492,7 +1494,8 @@ for checking namespaces, cf for checking individual forms."}
                      *already-collected* (atom #{})
                      *already-checked* (atom #{})
                      *trace-checker* trace
-                     *collect-on-eval* false]
+                     *collect-on-eval* false
+                     *analyze-ns-cache* (atom {})]
              (let [terminal-error (atom nil)]
                (reset-envs!)
                (impl/with-clojure-impl

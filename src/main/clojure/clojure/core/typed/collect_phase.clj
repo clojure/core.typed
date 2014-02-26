@@ -131,7 +131,7 @@
     (collect-ns nsym)))
 
 (defn visit-do [{:keys [statements ret] :as expr} f]
-  (doseq [expr (concat statements (when ret [ret]))]
+  (doseq [expr (concat statements [ret])]
     (f expr)))
 
 (defn assert-expr-args [{:keys [args] :as expr} cnts]

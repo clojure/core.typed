@@ -1523,11 +1523,12 @@
                           obj/-empty))))
 
 (defn invoke-get [{:keys [args] :as expr} expected & {:keys [cargs]}]
-  {:pre [(#{:invoke} (:op expr))]
+  {:pre []
    :post [((some-fn 
              #(-> % expr-type TCResult?)
              #{::not-special})
            %)]}
+  (assert (#{:invoke :static-call} (:op expr)) (:op expr))
   (assert cargs)
   (assert (#{2 3} (count args)) "Wrong number of args to clojure.core/get")
   (let [[ctarget ckw cdefault] cargs
@@ -2049,8 +2050,10 @@
 ;debug printing
 (add-invoke-special-method 'clojure.core.typed/print-env
   [{[debug-string :as args] :args :as expr} & [expected]]
-  (assert (#{1} (count args)) (str "Wrong arguments to print-env, Expected 1, found " (count args)))
-  (assert (= :string (:op debug-string)) "Must pass print-env a string literal")
+  (when-not (#{1} (count args)) 
+    (u/int-error (str "Wrong arguments to print-env, Expected 1, found " (count args))))
+  (when-not (= :const (:op debug-string))
+    (u/int-error "Must pass print-env a string literal"))
   ;DO NOT REMOVE
   (println (:val debug-string))
   (flush)
@@ -2062,11 +2065,12 @@
 ;filter printing
 (add-invoke-special-method 'clojure.core.typed/print-filterset
   [{[debug-string form :as args] :args :as expr} & [expected]]
-  (assert (#{2} (count args)) (str "Wrong arguments to print-filterset. Expected 2, found " (count args)))
-  (assert (= :string (:op debug-string)) "Must pass print-filterset a string literal as the first argument.")
+  (when-not (#{2} (count args)) 
+    (u/int-error (str "Wrong arguments to print-filterset. Expected 2, found " (count args))))
+  (when-not (= :const (:op debug-string)) 
+    (u/int-error "Must pass print-filterset a string literal as the first argument."))
   (let [cform (check form expected)
         t (expr-type cform)]
-    (assert (= :string (:op debug-string)))
     ;DO NOT REMOVE
     (println (:val debug-string))
     (flush)
@@ -3074,6 +3078,13 @@
         pfni (rewrap-poly inferred-fni inst-frees bnds poly?)]
     pfni))
 
+(defn fn-self-name [{:keys [op] :as fexpr}]
+  (impl/impl-case
+    :clojure (do (assert (#{:fn} op))
+                 (-> fexpr :local :name))
+    :cljs (do (assert (#{:fn-expr} op))
+              (-> fexpr :name :name))))
+
 ; Can take a CLJ or CLJS function expression.
 ;
 ;[FnExpr (Option Type) -> Expr]
@@ -3082,16 +3093,14 @@
   [{:keys [methods] :as fexpr} expected]
   {:pre [(TCResult? expected)]
    :post [(TCResult? %)]}
-  (prn 'self-name (:name fexpr))
+  ;(prn 'self-name (:name fexpr))
   (ret (check-fn-methods methods (ret-t expected)
-                         :self-name (impl/impl-case
-                                      :clojure (:name fexpr)
-                                      :cljs (-> fexpr :name :name)))
+                         :self-name (fn-self-name fexpr))
        (fo/-FS fl/-top fl/-bot) 
        obj/-empty))
 
 (defn method-required-params [method]
-  {:pre [(#{:fn-method} (:op method))]}
+  {:pre [(#{:fn-method :method} (:op method))]}
   (impl/impl-case
     ; :variadic? in tools.analyzer
     :clojure ((if (:variadic? method) butlast identity)
@@ -3101,7 +3110,7 @@
            (:params method))))
 
 (defn method-rest-param [method]
-  {:pre [(#{:fn-method} (:op method))]}
+  {:pre [(#{:fn-method :method} (:op method))]}
   (impl/impl-case
     ; :variadic? in tools.analyzer
     :clojure ((if (:variadic? method) last (constantly nil))
@@ -3143,7 +3152,7 @@
 (declare env+ ->RecurTarget RecurTarget?)
 
 (defn method-body [method]
-  {:pre [(#{:fn-method} (:op method))]}
+  {:pre [(#{:fn-method :method} (:op method))]}
   (impl/impl-case
     :clojure (:body method)
     :cljs (:expr method)))
@@ -3168,7 +3177,7 @@
 ;[MethodExpr Function -> Function]
 (defn check-fn-method1 [method {:keys [dom rest drest kws] :as expected}
                         & {:keys [recur-target-fn]}]
-  {:pre [(#{:fn-method} (:op method))
+  {:pre [(#{:fn-method :method} (:op method))
          (r/Function? expected)]
    :post [(r/Function? %)]}
   #_(prn "checking syntax:" (u/emit-form-fn method))
@@ -3235,8 +3244,8 @@
                                  (repeat (or rest (:pre-type drest)))))
         ;_ (prn "checking function:" (prs/unparse-type expected))
         check-fn-method1-rest-type *check-fn-method1-rest-type*
-        _ (assert check-fn-method1-rest-type "No check-fn bound for rest type")
         rest-entry (when rest-param
+                     (assert check-fn-method1-rest-type "No check-fn bound for rest type")
                      [[(method-param-name rest-param)
                        (check-fn-method1-rest-type rest drest kws)]])
         ;_ (prn "rest entry" rest-entry)
@@ -3533,14 +3542,22 @@
                                            (map Java-symbol->Type parameter-types)))))
                        members))))))
 
-(defn MethodExpr->Method [{c :class method-name :method :keys [op] :as expr}]
+(defn reflect-friendly-sym [cls]
+  (-> (reflect/typename cls)
+      (str/replace "[]" "<>")
+      symbol))
+
+(defn MethodExpr->Method [{c :class method-name :method :keys [op args] :as expr}]
   {:pre [(#{:static-call :instance-call} op)]
    :post [(instance? clojure.reflect.Method %)]}
-  (->> (reflect/reflect c)
-       :members
-       (filter #(instance? clojure.reflect.Method %))
-       (filter #(#{method-name} (:name %)))
-       first))
+  (let [ms (->> (reflect/reflect c)
+                :members
+                (filter #(instance? clojure.reflect.Method %))
+                (filter #(#{method-name} (:name %)))
+                (filter (fn [{:keys [parameter-types]}]
+                          (#{(map (comp reflect-friendly-sym :tag) args)} parameter-types))))]
+    ;(prn "MethodExpr->Method" c ms (map :tag args))
+    (first ms)))
 
 ;[MethodExpr Type Any -> Expr]
 (defn check-invoke-method [{c :class method-name :name :keys [args env] :as expr} expected inst?
@@ -3611,11 +3628,12 @@
 (defn FieldExpr->Field [{c :class field-name :field :keys [op] :as expr}]
   {:pre [(#{:static-field :instance-field} op)]
    :post [(instance? clojure.reflect.Field %)]}
-  (->> (reflect/reflect c)
-       :members
-       (filter #(instance? clojure.reflect.Method %))
-       (filter #(#{field-name} (:name %)))
-       first))
+  (let [fs (->> (reflect/reflect c)
+                :members
+                (filter #(instance? clojure.reflect.Field %))
+                (filter #(#{field-name} (:name %))))]
+    (assert (#{1} (count fs)))
+    (first fs)))
 
 (add-check-method :static-field
   [expr & [expected]]
@@ -3637,7 +3655,10 @@
                         (symbol field-name)
                         " requires type hints.")))
     (let [fsym (symbol field-name)
-          hinted-cls (u/symbol->Class target-class)
+          hinted-cls (if (class? target-class)
+                       target-class
+                       (u/symbol->Class target-class))
+          _ (assert (class? hinted-cls))
           cexpr (check target)
           ; check that the hinted class at least matches the runtime class we expect
           _ (let [expr-ty (c/fully-resolve-type (-> cexpr expr-type ret-t))
@@ -3750,12 +3771,14 @@
 
 (defn NewExpr->Ctor [{c :class :keys [op args] :as expr}]
   {:pre [(#{:new} op)]
-   :post [(instance? clojure.reflect.Constructor %)]}
-  (->> (reflect/reflect c)
-       :members
-       (filter #(instance? clojure.reflect.Constructor %))
-       (filter #(= (count args) (count (:parameter-types %))))
-       first))
+   :post [(or (instance? clojure.reflect.Constructor %)
+              (nil? %))]}
+  (let [cs (->> (reflect/reflect c)
+                :members
+                (filter #(instance? clojure.reflect.Constructor %))
+                (filter #(#{(map (comp reflect-friendly-sym :tag) args)} (:parameter-types %))))]
+    ;(prn "NewExpr->Ctor" cs)
+    (first cs)))
 
 (add-check-method :new
   [{cls :class :keys [args env] :as expr} & [expected]]
@@ -4875,16 +4898,22 @@
   {:pre [(class? cls)]
    :post [(every? (fn [m] (instance? clojure.reflect.Method m)) %)]}
   (->> (reflect/reflect cls)
+       :members
        (filter #(instance? clojure.reflect.Method %))))
 
 (add-check-method :deftype
-  [{nme :name :keys [fields methods env] :as expr} & [expected]]
+  [{:keys [class-name fields methods env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   ;TODO check fields match, handle extra fields in records
   #_(prn "Checking deftype definition:" nme)
   (binding [vs/*current-env* env]
-    (let [compiled-class (u/symbol->Class (:class-name expr))
+    (let [compiled-class (if (class? class-name)
+                           class-name
+                           (u/symbol->Class class-name))
+          _ (assert (class? compiled-class))
+          nme (u/Class->symbol compiled-class)
           reflect-methods (deftype-method-members compiled-class)
+          ;_ (prn "reflect-methods" reflect-methods)
           field-syms (map :name fields)
           _ (assert (every? symbol? field-syms))
           ; unannotated datatypes are handled below
@@ -4925,7 +4954,11 @@
                                    "See ann-datatype and ann-record")
                               :return ret-expr))
 
-        (not= expected-field-syms field-syms)
+        (not= expected-field-syms 
+              ; remove implicit __meta and __extmap fields
+              (if (c/isa-Record? compiled-class)
+                (drop-last 2 field-syms)
+                field-syms))
         (u/tc-delayed-error (str "deftype " nme " fields do not match annotation. "
                                  " Expected: " (vec expected-field-syms)
                                  ", Actual: " (vec field-syms))
@@ -4935,53 +4968,57 @@
         (let [check-method? (fn [inst-method]
                               (not (and (r/Record? dt)
                                         (record-implicits (symbol (:name inst-method))))))
-              _ (doseq [{:keys [env] :as inst-method} methods
-                        :when (check-method? inst-method)]
-                  (when t/*trace-checker*
-                    (println "Checking deftype* method: " (:name inst-method))
-                    (flush))
-                  (binding [vs/*current-env* env]
-                    (let [method-nme (:name inst-method)
-                          _ (assert (symbol? method-nme))
-                          ; minus the target arg
-                          method-sig (first (filter 
-                                              (fn [{:keys [name required-params]}]
-                                                (and (= (count (:required-params inst-method))
-                                                        (count required-params))
-                                                     (#{method-nme} name)))
-                                              reflect-methods))]
-                      (if-not (instance? clojure.reflect.Method method-sig)
-                        (u/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme
-                                                 ". Available methods: " (pr-str (map :name reflect-methods))))
-                        (let [expected-ifn (datatype-method-expected dt method-sig)]
-                          ;(prn "method expected type" (prs/unparse-type expected-ifn))
-                          ;(prn "names" nms)
-                          (lex/with-locals expected-fields
-                            (free-ops/with-free-mappings 
-                              (zipmap (map (comp r/F-original-name r/make-F) nms) 
-                                      (map (fn [nm bnd] {:F (r/make-F nm) :bnds bnd}) nms bbnds))
-                              ;(prn "lexical env when checking method" method-nme lex/*lexical-env*)
-                              ;(prn "frees when checking method" 
-                              ;     (into {} (for [[k {:keys [name]}] clojure.core.typed.tvar-env/*current-tvars*]
-                              ;                [k name])))
-                              ;(prn "bnds when checking method" 
-                              ;     clojure.core.typed.tvar-bnds/*current-tvar-bnds*)
-                              ;(prn "expected-ifn" expected-ifn)
-                              (check-fn-methods
-                                [inst-method]
-                                expected-ifn
-                                :recur-target-fn
+              _ (binding [*check-fn-method1-checkfn* check]
+                  (doseq [{:keys [env] :as inst-method} methods
+                          :when (check-method? inst-method)]
+                    (assert (#{:method} (:op inst-method)))
+                    (when t/*trace-checker*
+                      (println "Checking deftype* method: " (:name inst-method))
+                      (flush))
+                    (binding [vs/*current-env* env]
+                      (let [method-nme (:name inst-method)
+                            _ (assert (symbol? method-nme))
+                            _ (prn "method-nme" method-nme)
+                            _ (prn "inst-method" inst-method)
+                            ; minus the target arg
+                            method-sig (first (filter 
+                                                (fn [{:keys [name required-params]}]
+                                                  (and (= (count (:parameter-types inst-method))
+                                                          (count required-params))
+                                                       (#{method-nme} name)))
+                                                reflect-methods))]
+                        (if-not (instance? clojure.reflect.Method method-sig)
+                          (u/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme
+                                                   ". Available methods: " (pr-str (map :name reflect-methods))))
+                          (let [expected-ifn (datatype-method-expected dt method-sig)]
+                            ;(prn "method expected type" (prs/unparse-type expected-ifn))
+                            ;(prn "names" nms)
+                            (lex/with-locals expected-fields
+                              (free-ops/with-free-mappings 
+                                (zipmap (map (comp r/F-original-name r/make-F) nms) 
+                                        (map (fn [nm bnd] {:F (r/make-F nm) :bnds bnd}) nms bbnds))
+                                ;(prn "lexical env when checking method" method-nme lex/*lexical-env*)
+                                ;(prn "frees when checking method" 
+                                ;     (into {} (for [[k {:keys [name]}] clojure.core.typed.tvar-env/*current-tvars*]
+                                ;                [k name])))
+                                ;(prn "bnds when checking method" 
+                                ;     clojure.core.typed.tvar-bnds/*current-tvar-bnds*)
+                                ;(prn "expected-ifn" expected-ifn)
+                                (check-fn-methods
+                                  [inst-method]
+                                  expected-ifn
+                                  :recur-target-fn
                                   (fn [{:keys [dom] :as f}]
                                     {:pre [(r/Function? f)]
                                      :post [(RecurTarget? %)]}
                                     (->RecurTarget (rest dom) nil nil nil))
-                                :validate-expected-fn
+                                  :validate-expected-fn
                                   (fn [fin]
                                     {:pre [(r/FnIntersection? fin)]}
                                     (when (some #{:rest :drest :kws} (:types fin))
                                       (u/int-error
                                         (str "Cannot provide rest arguments to deftype method: "
-                                             (prs/unparse-type fin)))))))))))))]
+                                             (prs/unparse-type fin))))))))))))))]
           ret-expr)))))
 
 (add-check-method :import

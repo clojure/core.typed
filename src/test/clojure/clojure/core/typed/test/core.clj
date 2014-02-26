@@ -1443,9 +1443,9 @@
            (java.io.File. a)))
   (is (throws-tc-error?
         (cf (fn [& {:keys [path] :or {path "foo"}}]
-            (clojure.core.typed/print-env "a")
-            (java.io.File. path))
-          [& :optional {:path String} -> java.io.File]))))
+              (clojure.core.typed/print-env "a")
+              (java.io.File. path))
+            [& :optional {:path String} -> java.io.File]))))
 
 ;(fn> [a :- (U (Extends Number :without [(IPerVec Any)])
 ;              (Extends (IPV Any) :without [Number])

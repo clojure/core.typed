@@ -6,11 +6,13 @@
             [clojure.tools.reader.reader-types :as readers]
             [clojure.string :as str]
             [clojure.java.io :as io]
-            [clojure.core.typed.utils :as u]))
+            [clojure.core.typed.utils :as u]
+            [clojure.core.typed :as t]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
 (defn ^:private analyze1 [form env]
+  ; hopefully expand macros only once
   (let [a (taj/analyze form env)]
     (eval (emit-form/emit-form a))
     a))
@@ -34,20 +36,26 @@
   [nsym]
   {:pre [(symbol? nsym)]}
   (u/p :analyze/ast-for-ns
-   ;copied basic approach from tools.emitter.jvm
-   (let [res (munge nsym)
-         p    (str (str/replace res #"\." "/") ".clj")
-         eof  (reify)
-         p (if (.startsWith p "/") (subs p 1) p)
-         pres (io/resource p)
-         _ (assert pres (str "Cannot find file for " nsym ": " p))
-         file (-> pres io/reader slurp)
-         reader (readers/indexing-push-back-reader file)]
-     (binding [*ns* (or (find-ns nsym)
-                        *ns*)]
-       (loop [asts []]
-         (let [form (tr/read reader false eof)]
-           (if (not= eof form)
-             (let [a (analyze1 form (taj/empty-env))]
-               (recur (conj asts a)))
-             asts)))))))
+   (let [cache @t/*analyze-ns-cache*]
+     (if (contains? cache nsym)
+       (cache nsym)
+       ;copied basic approach from tools.emitter.jvm
+       (let [res (munge nsym)
+             p    (str (str/replace res #"\." "/") ".clj")
+             eof  (reify)
+             p (if (.startsWith p "/") (subs p 1) p)
+             pres (io/resource p)
+             _ (assert pres (str "Cannot find file for " nsym ": " p))
+             file (-> pres io/reader slurp)
+             reader (readers/indexing-push-back-reader file)
+             asts (binding [*ns* (or (find-ns nsym)
+                                     *ns*)]
+                    (loop [asts []]
+                      (let [form (tr/read reader false eof)]
+                        (if (not= eof form)
+                          (let [a (analyze1 form (taj/empty-env))]
+                            (recur (conj asts a)))
+                          asts))))]
+         (when t/*analyze-ns-cache*
+           (swap! t/*analyze-ns-cache* assoc nsym asts))
+         asts)))))
