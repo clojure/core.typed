@@ -175,14 +175,16 @@
     (assert (var? v) "RClass-of unbound")
     v))
 
-(defmethod parse-type-list 'predicate
-  [[_ t-syn]]
-  (let [RClass-of @(RClass-of-var)
-        on-type (parse-type t-syn)]
+(defn predicate-for [on-type]
+  (let [RClass-of @(RClass-of-var)]
     (r/make-FnIntersection
       (r/make-Function [r/-any] (RClass-of Boolean) nil nil
                        :filter (fl/-FS (fl/-filter on-type 0)
                                        (fl/-not-filter on-type 0))))))
+
+(defmethod parse-type-list 'predicate
+  [[_ t-syn]]
+  (predicate-for (parse-type t-syn)))
 
 (defmethod parse-type-list 'Not
   [[_ tsyn :as all]]
@@ -1077,8 +1079,7 @@
 (defn unparse-result [{:keys [t fl o] :as rng}]
   {:pre [(r/Result? rng)]}
   (concat [(unparse-type t)]
-          (when (not (and ((some-fn f/TopFilter? f/BotFilter?) (:then fl))
-                          ((some-fn f/TopFilter? f/BotFilter?) (:else fl))))
+          (when-not (every? f/TopFilter? [(:then fl) (:else fl)])
             [:filters (unparse-filter-set fl)])
           (when (not ((some-fn orep/NoObject? orep/EmptyObject?) o))
             [:object (unparse-object o)])))
@@ -1171,7 +1172,9 @@
         binder (vec (concat (map unparse-poly-bounds-entry 
                                  (butlast free-and-dotted-names) 
                                  bbnds)
-                            [(last free-and-dotted-names) '...]))
+                            [(-> (last free-and-dotted-names)
+                                 r/make-F r/F-original-name) 
+                             '...]))
         body (c/PolyDots-body* free-and-dotted-names p)]
     (list 'All binder (unparse-type body))))
 

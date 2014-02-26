@@ -68,20 +68,14 @@
   `(impl/with-clojure-impl ~@body))
 
 ;Aliases used in unit tests
-(defmacro declare-map-aliases []
-  `(do
-     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MyName ~'(HMap :mandatory {:a (Value 1)})))
-     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapName ~'(HMap :mandatory {:a clojure.core.typed.test.core/MyName})))
-     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapStruct1 ~'(HMap :mandatory {:type (Value :MapStruct1) 
-                                                                                        :a clojure.core.typed.test.core/MyName})))
-     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/MapStruct2 ~'(HMap :mandatory {:type (Value :MapStruct2) 
-                                                                                        :b clojure.core.typed.test.core/MyName})))
-     (cf (clojure.core.typed/def-alias clojure.core.typed.test.core/UnionName ~'(U clojure.core.typed.test.core/MapStruct1 
-                                                                                   clojure.core.typed.test.core/MapStruct2)))))
-
 (defmacro is-with-aliases [& body]
-  `(is-clj (do (declare-map-aliases)
-           (impl/with-clojure-impl ~@body))))
+  `(is-clj (do (check-ns '~'clojure.core.typed.test.util-aliases)
+               ~@body)))
+
+(defmacro is-cf-with-aliases [& body]
+  `(is-clj (do (check-ns '~'clojure.core.typed.test.util-aliases)
+               (cf ~@body)
+               true)))
 
 ;(check-ns 'clojure.core.typed.test.deftype)
 
@@ -511,7 +505,7 @@
                   (-filter -true 'b)}))))
   ; more complex impfilter
   (is-with-aliases (= (env+ (-PropEnv {'and1 (Un -false -true)
-                                       'tmap (Name-maker 'clojure.core.typed.test.core/UnionName)}
+                                       'tmap (Name-maker 'clojure.core.typed.test.util-aliases/UnionName)}
                                       [(->ImpFilter (-filter (Un -nil -false) 'and1)
                                                     (-not-filter (-val :MapStruct1)
                                                                  'tmap
@@ -557,11 +551,11 @@
               (-FS -top -bot)
               -empty)))
   ;FIXME inferred filters are bit messy, but should be (-FS -bot (! Seq 0))
-  #_(is-with-aliases (= (-> (tc-t (clojure.core.typed/fn> [a :- clojure.core.typed.test.core/UnionName]
+  #_(is-with-aliases (= (-> (tc-t (clojure.core.typed/fn> [a :- clojure.core.typed.test.util-aliases/UnionName]
                                    (seq? a)))
            ret-t)
          (make-FnIntersection
-           (Function-maker [(Name-maker 'clojure.core.typed.test.core/UnionName)]
+           (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/UnionName)]
                          (make-Result -false 
                                       ;FIXME why isn't this (-FS -bot (-not-filter (RClass-of ISeq [-any]) 0)) ?
                                       (-FS -bot -top)
@@ -619,19 +613,19 @@
                           (Un (-val 1) -any))))))
 
 (deftest Name-resolve-test
-  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/MyName]
+  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/MyName]
                                                     ;call to (apply hash-map tmap) should be eliminated
                                                     (let [{e :a} tmap]
                                                       e)))
                       (ret (make-FnIntersection 
-                             (Function-maker [(Name-maker 'clojure.core.typed.test.core/MyName)]
+                             (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/MyName)]
                                          (make-Result (-val 1) (-FS -top -top) -empty)
                                          nil nil nil))
                            (-FS -top -bot) -empty)))
-  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/MapName]
+  (is-with-aliases (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/MapName]
                                                     (let [{e :a} tmap]
                                                       (assoc e :c :b))))
-                      (ret (make-FnIntersection (Function-maker [(Name-maker 'clojure.core.typed.test.core/MapName)]
+                      (ret (make-FnIntersection (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/MapName)]
                                                             (make-Result (make-HMap :mandatory {(-val :a) (-val 1)
                                                                                  (-val :c) (-val :b)})
                                                                          (-FS -top -bot) -empty)
@@ -639,40 +633,40 @@
                            (-FS -top -bot) -empty)))
   ; Name representing union of two maps, both with :type key
   (is-with-aliases (subtype? 
-                     (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/UnionName]
+                     (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/UnionName]
                                                        (:type tmap)))
                          ret-t)
-                     (parse-type '[clojure.core.typed.test.core/UnionName -> (U (Value :MapStruct2)
+                     (parse-type '[clojure.core.typed.test.util-aliases/UnionName -> (U (Value :MapStruct2)
                                                                                 (Value :MapStruct1))])))
   ; using = to derive paths
   (is-with-aliases (subtype? 
-                     (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/UnionName]
+                     (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/UnionName]
                                                        (= :MapStruct1 (:type tmap))))
                          ret-t)
                      (make-FnIntersection 
                        (make-Function 
-                         [(Name-maker 'clojure.core.typed.test.core/UnionName)]
+                         [(Name-maker 'clojure.core.typed.test.util-aliases/UnionName)]
                          (Un -false -true)
                          nil nil
                          :filter (let [t (-val :MapStruct1)
                                        path [(->KeyPE :type)]]
                                    (-FS (-and 
                                           (-filter (make-HMap :mandatory {(-val :type) (-val :MapStruct1)
-                                                           (-val :a) (Name-maker 'clojure.core.typed.test.core/MyName)})
+                                                           (-val :a) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)})
                                                    0)
                                           (-filter (-val :MapStruct1) 0 path)
                                           (-filter t 0 path))
                                         (-not-filter t 0 path)))))))
   ; using filters derived by =
-  (is-with-aliases (subtype? (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/UnionName]
+  (is-with-aliases (subtype? (-> (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/UnionName]
                                                                (if (= :MapStruct1 (:type tmap))
                                                                  (:a tmap)
                                                                  (:b tmap))))
                                  ret-t)
-                             (parse-type '[clojure.core.typed.test.core/UnionName -> clojure.core.typed.test.core/MyName])))
+                             (parse-type '[clojure.core.typed.test.util-aliases/UnionName -> clojure.core.typed.test.util-aliases/MyName])))
   ; following paths with test of conjuncts
   ;FIXME
-  #_(is-clj (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.core/UnionName]
+  #_(is-clj (= (tc-t (clojure.core.typed/fn> [tmap :- clojure.core.typed.test.util-aliases/UnionName]
                                          ; (and (= :MapStruct1 (-> tmap :type))
                                ;      (= 1 1))
                                (if (clojure.core.typed/print-filterset "final filters"
@@ -691,11 +685,11 @@
                                  (do (clojure.core.typed/print-env "follow then")
                                    (assoc tmap :c :d))
                                  1)))
-         (ret (make-FnIntersection (Function-maker [(Name-maker 'clojure.core.typed.test.core/UnionName)]
+         (ret (make-FnIntersection (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/UnionName)]
                               (let [t (Un (-val 1)
                                           (make-HMap :mandatory {(-val :type) (-val :MapStruct1)
                                                                (-val :c) (-val :d)
-                                                               (-val :a) (Name-maker 'clojure.core.typed.test.core/MyName)}))]
+                                                               (-val :a) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)}))]
                                 (make-Result t (-FS -top -bot) -empty))
                               nil nil nil))
               (-FS -top -bot) -empty))))
@@ -745,20 +739,20 @@
                      (-filter (-val :Map1) 'tmap [(->KeyPE :type)]))
              (make-HMap :mandatory {(-val :type) (-val :Map1)})))
   ;test that update resolves Names properly
-  (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.core/MapStruct2)
+  (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.util-aliases/MapStruct2)
                               (-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
                       (Un)))
   ;test that update resolves Names properly
   ; here we refine the type of tmap with the equivalent of following the then branch 
   ; with test (= :MapStruct1 (:type tmap))
-  (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.core/UnionName)
+  (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.util-aliases/UnionName)
                               (-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
                       (make-HMap :mandatory {(-val :type) (-val :MapStruct1) 
-                              (-val :a) (Name-maker 'clojure.core.typed.test.core/MyName)})))
-  (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.core/UnionName)
+                              (-val :a) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)})))
+  (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.util-aliases/UnionName)
                               (-not-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
                       (make-HMap :mandatory {(-val :type) (-val :MapStruct2) 
-                              (-val :b) (Name-maker 'clojure.core.typed.test.core/MyName)})))
+                              (-val :b) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)})))
   (is-clj (= (update (Un -true -false) (-filter (Un -false -nil) 'a nil)) 
              -false)))
 
@@ -2618,7 +2612,8 @@
 
   (is (= (clj (unparse-type (parse-type '(TFn [[a :variance :covariant]] a))))
          (quote (TFn [[a :variance :covariant]] a))))
-  (is (= '[(All [a b] (Fn [Any Any -> (Fn [a b -> nil])])) {:then tt, :else ff}]
+  (is (= '[(All [a b] (Fn [Any Any -> (Fn [a b -> nil :filters {:then ff :else tt}])
+                           :filters {:then tt :else ff}])) {:then tt, :else ff}]
          (cf
            (fn [f coll]
              (clojure.core.typed/fn> 
@@ -2703,14 +2698,13 @@
   (is-cf {:a 1 :b 2} (I '{:b Number} '{:a Number}))
   (is-cf {:foo 3 :bar "hi"} (I '{:foo clojure.core.typed/Int} '{:bar String}))
   (is-cf {:a 1 :b 2} (I '{:b Number} '{:a Number}))
-  (is-cf (do (clojure.core.typed/def-alias HMapAlias1 '{:a Number})
-             (clojure.core.typed/def-alias HMapAlias2 '{:b Number})
-             (clojure.core.typed/ann-form {:a 1 :b 2}
-                                          (I HMapAlias1 HMapAlias2))))
-  (is-cf (do (clojure.core.typed/def-alias HMapAliasInt1 '{:foo clojure.core.typed/Int})
-             (clojure.core.typed/def-alias HMapAliasStr2 '{:bar String})
-             (clojure.core.typed/ann-form {:foo 3 :bar "hi"}
-                                          (I HMapAliasInt1 HMapAliasStr2)))))
+  (is-cf-with-aliases 
+    {:a 1 :b 2} (I clojure.core.typed.test.util-aliases/HMapAlias1 
+                   clojure.core.typed.test.util-aliases/HMapAlias2))
+  (is-cf-with-aliases
+    {:foo 3 :bar "hi"}
+    (I clojure.core.typed.test.util-aliases/HMapAliasInt1 
+       clojure.core.typed.test.util-aliases/HMapAliasStr2)))
 
 (deftest rclass-invariant-test
   (is-clj
@@ -2997,6 +2991,23 @@
   ; ensure check-ns still runs even if timbre isn't loaded
   (is (check-ns-info 'clojure.core.typed.test.destructure
                      :profile true)))
+
+; CTYP-105
+(deftest hmap-absent-and-optional-subtype-test
+  (is (sub? (HMap :absent-keys #{:a})
+            (HMap :optional {:a Any})))
+  (is (check-ns 'clojure.core.typed.test.ctyp105)))
+
+(deftest trampoline-test
+  (is (check-ns 'clojure.core.typed.test.trampoline)))
+
+(deftest polydots-unparse-test
+  (is-clj (= '[a b ...]
+             (second
+               (unparse-type
+                 (parse-type
+                   '(All [a b ...])))))))
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))

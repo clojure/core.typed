@@ -17,7 +17,7 @@
   (:require [clojure.core.typed :refer [ann ann-datatype def-alias inst ann-protocol
                                         AnyInteger tc-ignore Seqable]
              :as t]
-            #_[clojure.core.async]
+            [clojure.core.async]
             )
   (:import (java.util.concurrent Executor)
            (java.util.concurrent.atomic AtomicReferenceArray)))

@@ -9,13 +9,8 @@
 (reset! my-atom 1)
 (swap! my-atom (fn> [x :- Number] (+ x 2 3)))
 
-(def-alias InnerEntry (HMap {:c 
-                             (HMap {:d 
-                                    String})}))
-(def-alias Entry (HMap {:a 
-                        (HMap {:b 
-                               (IPersistentMap Symbol 
-                                               (Atom1 InnerEntry))})}))
+(def-alias InnerEntry '{:c '{:d String}})
+(def-alias Entry '{:a '{:b (IPersistentMap Symbol (Atom1 InnerEntry))}})
 
 (ann complicated (Atom1 Entry))
 (def complicated (atom {:a {:b {}}}))

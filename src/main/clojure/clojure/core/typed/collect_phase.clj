@@ -565,5 +565,5 @@
 
 
 (defmethod invoke-special-collect :default
-  [_]
+  [expr]
   nil)

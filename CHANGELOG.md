@@ -1,7 +1,24 @@
-# 0.2.32-SNAPSHOT
+# 0.2.34 - Released 25 February 2014
+
+- add clojure.core.typed/pred
+  - generates a flat predicate based on the give type
+  - understood by the type checker
+  - eg. ((t/pred '{:a Number}) {:a 1}) ;=> true
+
+# 0.2.33 - Released 22 February 2014
+
+- add clojure.core/trampoline annotation
+- Fix pretty printing of dotted vars in polymorphic
+  binders
+
+# 0.2.32 - Released 19 February 2014
 
 - check-ns and friends support :profile keyword argument that uses
   Timbre to profile the current type checking run
+- pretty printing a `Fn` type now always prints the `:filters`,
+  unless they are equal to `{:then tt :else tt}`
+- Fix CTYP-105
+  - subtyping fix for HMap optional keys
 
 # 0.2.31 - Released 14 February 2014
 

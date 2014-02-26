@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <artifactId>core.typed</artifactId>
-  <version>0.2.32-SNAPSHOT</version>
+  <version>0.2.35-SNAPSHOT</version>
   <name>${artifactId}</name>
   <description>An optional type system for Clojure</description>
 
@@ -33,9 +33,11 @@
           <namespaces>
             <!-- depends on core.async -->
             <namespace>!cljs.core.typed.async</namespace>
+            <namespace>!clojure.core.typed.async</namespace>
             <namespace>!clojure.core.typed.util-cljs</namespace>
             <namespace>clojure.core.typed.*</namespace>
             <namespace>clojure.core.typed.test.*</namespace>
+            <namespace>clojure.core.typed.test.pred</namespace>
             <namespace>!clojure.core.typed.test.core</namespace>
             <namespace>!clojure.core.typed.test.cljs</namespace>
             <namespace>cljs.core.typed.*</namespace>

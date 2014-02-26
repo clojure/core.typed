@@ -526,9 +526,9 @@
                                           (c/complete-hmap? s))]
                                   (cond
                                     (c/partial-hmap? s)
-                                      (and (contains? (:absent-keys s) k)
-                                           matches-entry?))
-                                    :else matches-entry?))
+                                      (or (contains? (:absent-keys s) k)
+                                          matches-entry?)
+                                    :else matches-entry?)))
                                 (:optional t)))
                    )
             *sub-current-seen*
