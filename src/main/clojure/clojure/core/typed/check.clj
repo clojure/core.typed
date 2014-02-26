@@ -1538,8 +1538,8 @@
                                          (expr-type cdefault))
                                        expected))
 
-      ((every-pred r/Value? (comp integer? :val)) (ret-t kwr))
-      (u/nyi-error (str "get lookup of vector (like nth) NYI"))
+;      ((every-pred r/Value? (comp integer? :val)) (ret-t kwr))
+;      (u/nyi-error (str "get lookup of vector (like nth) NYI"))
 
       :else ::not-special)))
 
