@@ -30,7 +30,7 @@
 (t/ann initial-tvar-env TVarEnv)
 (def initial-tvar-env {})
 
-(t/ann ^:no-check *current-tvar* TVarEnv)
+(t/ann ^:no-check *current-tvars* TVarEnv)
 (defonce ^:dynamic *current-tvars* initial-tvar-env)
 (t/tc-ignore
 (set-validator! #'*current-tvars* tvar-env?)

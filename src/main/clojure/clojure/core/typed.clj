@@ -7,7 +7,9 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.util-vars :as uvars]
             [clojure.core.typed.profiling :as p]
+            [clojure.core.typed.parse-ast :as ast]
             [clojure.java.io :as io])
   (:refer-clojure :exclude [type]))
 
@@ -758,9 +760,319 @@ for checking namespaces, cf for checking individual forms."}
          m (-> (meta sym)
              (update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t)))))]
      `(do
-        (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))
-        (tc-ignore (alter-meta! (resolve '~qsym) merge '~m))
+        (tc-ignore
+          (swap! impl/alias-env assoc '~qsym 
+                 (impl/with-impl impl/clojure
+                   (binding [uvars/*current-env* {:ns {:name ~'(ns-name *ns*)}
+                                                  :line '~(-> &form meta :line)
+                                                  :column '~(-> &form meta :column)}]
+                     (ast/parse '~t)))))
+        (let [v# (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))]
+          (tc-ignore (alter-meta! v# merge '~m)))
         (def-alias* '~qsym '~t)))))
+
+;(ann tc-ignore-forms* [Any -> Any])
+(defn ^:skip-wiki
+  tc-ignore-forms* 
+  "Internal use only. Use tc-ignore"
+  [r]
+  r)
+
+;; `do` is special at the top level
+(defmacro tc-ignore 
+  "Ignore forms in body during type checking"
+  [& body]
+  `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
+
+(defmacro ^:private def-alias-many [& args]
+  `(do
+     ~@(for [[k v] (partition 2 args)]
+         `(def-alias ~k ~v))))
+
+(def-alias-many
+  ^{:doc "A type that returns true for clojure.core/integer?"
+    :forms [AnyInteger]}
+clojure.core.typed/AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
+
+    ^{:doc "A type that returns true for clojure.core/integer?"
+      :forms [Int]}
+clojure.core.typed/Int (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
+      ^{:doc "A type that returns true for clojure.core/number?"
+        :forms [Num]}
+clojure.core.typed/Num Number
+      ^{:doc "A keyword"
+        :forms [Keyword]}
+clojure.core.typed/Keyword clojure.lang.Keyword
+      ^{:doc "A symbol"
+        :forms [Symbol]}
+clojure.core.typed/Symbol clojure.lang.Symbol
+
+      ^{:doc "A namespace"
+        :forms [Namespace]}
+clojure.core.typed/Namespace clojure.lang.Namespace
+
+    ^{:doc "An atom that can read and write type x."
+      :forms [(Atom1 t)]}
+clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] 
+                              (clojure.lang.Atom x x))
+    ^{:doc "An atom that can write type w and read type r."
+      :forms [(Atom2 t)]}
+clojure.core.typed/Atom2 (TFn [[w :variance :contravariant]
+                               [r :variance :covariant]] 
+                              (clojure.lang.Atom w r))
+    ^{:doc "An var that can read and write type x."
+      :forms [(Var1 t)]}
+clojure.core.typed/Var1 
+    (TFn [[x :variance :invariant]] 
+         (clojure.lang.Var x x))
+    ^{:doc "An var that can write type w and read type r."
+      :forms [(Var2 w r)]}
+clojure.core.typed/Var2 
+    (TFn [[w :variance :contravariant]
+          [r :variance :covariant]] 
+         (clojure.lang.Var w r))
+    ^{:doc "A ref that can read and write type x."
+      :forms [(Ref1 t)]}
+clojure.core.typed/Ref1 (TFn [[x :variance :invariant]] (clojure.lang.Ref x x))
+    ^{:doc "A ref that can write type w and read type r."
+      :forms [(Ref2 w r)]}
+clojure.core.typed/Ref2 (TFn [[w :variance :contravariant]
+                              [r :variance :covariant]] 
+                             (clojure.lang.Ref w r))
+    ^{:doc "An agent that can read and write type x."
+      :forms [(Agent1 t)]}
+clojure.core.typed/Agent1 (TFn [[x :variance :invariant]] 
+                               (clojure.lang.Agent x x))
+    ^{:doc "An agent that can write type w and read type r."
+      :forms [(Agent2 t t)]}
+clojure.core.typed/Agent2 (TFn [[w :variance :contravariant]
+                                [r :variance :covariant]] 
+                               (clojure.lang.Agent w r))
+
+    ^{:doc "A union of x and nil."
+      :forms [(Option t)]}
+clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
+
+    ^{:doc "A union of x and nil."
+      :forms [(Nilable t)]}
+clojure.core.typed/Nilable (TFn [[x :variance :covariant]] (U nil x))
+
+      ^{:doc "The identity function at the type level."
+        :forms [Id]}
+clojure.core.typed/Id (TFn [[x :variance :covariant]] x)
+
+      ^{:doc "A persistent collection with member type x."
+        :forms [(Coll t)]}
+clojure.core.typed/Coll (TFn [[x :variance :covariant]]
+                             (clojure.lang.IPersistentCollection x))
+    ^{:doc "A persistent collection with member type x and count greater than 0."
+      :forms [(NonEmptyColl t)]}
+clojure.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
+                                      (I (clojure.lang.IPersistentCollection x) (CountRange 1)))
+    ^{:doc "A persistent vector with member type x."
+      :forms [(Vec t)]}
+clojure.core.typed/Vec (TFn [[x :variance :covariant]]
+                            (clojure.lang.IPersistentVector x))
+    ^{:doc "A persistent vector with member type x and count greater than 0."
+      :forms [(NonEmptyVec t)]}
+clojure.core.typed/NonEmptyVec (TFn [[x :variance :covariant]]
+                                     (I (clojure.lang.IPersistentVector x) (CountRange 1)))
+    ^{:doc "A non-empty lazy sequence of type t"
+      :forms [(NonEmptyLazySeq t)]}
+clojure.core.typed/NonEmptyLazySeq (TFn [[t :variance :covariant]]
+                                        (I (clojure.lang.LazySeq t) (CountRange 1)))
+    ^{:doc "A persistent map with keys k and vals v."
+      :forms [(Map t t)]}
+clojure.core.typed/Map (TFn [[k :variance :covariant]
+                             [v :variance :covariant]]
+                            (clojure.lang.IPersistentMap k v))
+    ^{:doc "A persistent set with member type x"
+      :forms [(Set t)]}
+clojure.core.typed/Set (TFn [[x :variance :covariant]]
+                            (clojure.lang.IPersistentSet x))
+    ^{:doc "A sorted persistent set with member type x"
+      :forms [(SortedSet t)]}
+clojure.core.typed/SortedSet (TFn [[x :variance :covariant]]
+                               (Extends [(clojure.lang.IPersistentSet x) clojure.lang.Sorted]))
+    ^{:doc "A type that can be used to create a sequence of member type x."
+      :forms [(Seqable t)]}
+clojure.core.typed/Seqable (TFn [[x :variance :covariant]]
+                                (clojure.lang.Seqable x))
+    ^{:doc "A type that can be used to create a sequence of member type x
+with count greater than 0."
+      :forms [(NonEmptySeqable t)]}
+
+clojure.core.typed/NonEmptySeqable (TFn [[x :variance :covariant]]
+                                         (I (clojure.lang.Seqable x) (CountRange 1)))
+    ^{:doc "A type that can be used to create a sequence of member type x
+with count 0."
+      :forms [(EmptySeqable t)]}
+clojure.core.typed/EmptySeqable (TFn [[x :variance :covariant]]
+                                  (I (clojure.lang.Seqable x) (ExactCount 0)))
+      ^{:doc "A persistent sequence of member type x."
+        :forms [(Seq t)]}
+clojure.core.typed/Seq (TFn [[x :variance :covariant]]
+                            (clojure.lang.ISeq x))
+
+    ^{:doc "A persistent sequence of member type x with count greater than 0."
+      :forms [(NonEmptySeq t)]}
+clojure.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
+                                     (I (clojure.lang.ISeq x) (CountRange 1)))
+
+    ^{:doc "A persistent sequence of member type x with count greater than 0, or nil."
+      :forms [(NilableNonEmptySeq t)]}
+clojure.core.typed/NilableNonEmptySeq (TFn [[x :variance :covariant]]
+                                         (U nil (I (clojure.lang.ISeq x) (CountRange 1))))
+
+    ^{:doc "The type of all things with count 0. Use as part of an intersection.
+eg. See EmptySeqable."
+      :forms [EmptyCount]}
+
+clojure.core.typed/EmptyCount (ExactCount 0)
+    ^{:doc "The type of all things with count greater than 0. Use as part of an intersection.
+eg. See NonEmptySeq"
+      :forms [NonEmptyCount]}
+clojure.core.typed/NonEmptyCount (CountRange 1)
+
+    ^{:doc "A hierarchy for use with derive, isa? etc."
+      :forms [Hierarchy]}
+clojure.core.typed/Hierarchy '{:parents (clojure.lang.IPersistentMap Any Any)
+                               :ancestors (clojure.lang.IPersistentMap Any Any)
+                               :descendants (clojure.lang.IPersistentMap Any Any)}
+
+    ^{:doc "A Clojure future (see clojure.core/{future-call,future})."
+      :forms [(Future x)]}
+clojure.core.typed/Future 
+                      (TFn [[x :variance :covariant]]
+                       (Extends [(clojure.lang.IDeref x)
+                                 (clojure.lang.IBlockingDeref x)
+                                 clojure.lang.IPending
+                                 java.util.concurrent.Future]))
+
+    ^{:doc "A Clojure promise (see clojure.core/{promise,deliver})."
+      :forms [(Promise x)]}
+clojure.core.typed/Promise 
+              (TFn [[x :variance :covariant #_:invariant]]
+               (Rec [p]
+                (I (Extends [(clojure.lang.IDeref x)
+                             (clojure.lang.IBlockingDeref x)
+                             clojure.lang.IPending])
+                   ;TODO this causes stack overflows
+                   #_[x -> (U nil p)]))))
+
+(defn ^:private rclass-pred [rcls opts]
+  (swap! impl/rclass-env assoc (impl/Class->symbol rcls) opts))
+
+(defmacro ^:private rclass-preds [& args]
+  `(do
+     ~@(for [[k v] (partition 2 args)]
+         `(rclass-pred ~k ~v))))
+
+(rclass-preds
+;  clojure.lang.Seqable 
+;  {:pred (fn [this a?]
+;           (cond 
+;             (string? this) (every? a? this)
+;             (coll? this) (every? a? this)))}
+  clojure.lang.IPersistentCollection
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.ISeq
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IPersistentSet
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.APersistentSet
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentHashSet
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentTreeSet
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.Associative
+  {:args #{2}
+   :pred (fn [this a? b?]
+           `(cond
+              (vector? ~this) (and (every? ~a? (range (count ~this)))
+                                   (every? ~b? ~this))
+              (map? ~this) (and (every? ~a? (keys ~this))
+                                (every? ~b? (vals ~this)))))}
+  clojure.lang.IPersistentStack
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IPersistentVector
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.APersistentVector
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentVector
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IMapEntry
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (~a? (key ~this)) (~b? (val ~this))))}
+  clojure.lang.AMapEntry
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (~a? (key ~this)) (~b? (val ~this))))}
+  clojure.lang.MapEntry
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (~a? (key ~this)) (~b? (val ~this))))}
+  clojure.lang.IPersistentMap
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (every? ~a? (keys ~this))
+                 (every? ~b? (vals ~this))))}
+  clojure.lang.ASeq
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.APersistentMap
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (every? ~a? (keys ~this))
+                 (every? ~b? (vals ~this))))}
+  clojure.lang.PersistentHashMap
+  {:args #{2}
+   :pred (fn [this a? b?] 
+           `(and (every? ~a? (keys ~this))
+                 (every? ~b? (vals ~this))))}
+  clojure.lang.Cons
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.IPersistentList
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.PersistentList
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.LazySeq
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(every? ~a? ~this))}
+  clojure.lang.Reduced
+  {:args #{1}
+   :pred (fn [this a?] 
+           `(~a? (deref ~this)))})
 
 (defn ^:skip-wiki
   ann-form* 
@@ -779,19 +1091,6 @@ for checking namespaces, cf for checking individual forms."}
 
 (defmacro ^:private unsafe-ann-form [form ty]
   `(unsafe-ann-form* ~form '~ty))
-
-;(ann tc-ignore-forms* [Any -> Any])
-(defn ^:skip-wiki
-  tc-ignore-forms* 
-  "Internal use only. Use tc-ignore"
-  [r]
-  r)
-
-;; `do` is special at the top level
-(defmacro tc-ignore 
-  "Ignore forms in body during type checking"
-  [& body]
-  `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
 
 ;(ann into-array>* [Any Any -> Any])
 (defn ^:skip-wiki
@@ -915,7 +1214,9 @@ for checking namespaces, cf for checking individual forms."}
                             (contains? opts :no-check)))
                   "Cannot provide both :nocheck and :no-check metadata to ann")
         check? (not (or (:no-check opts)
-                        (:nocheck opts)))]
+                        (:nocheck opts)))
+        ast (ast/parse-clj typesyn)]
+    (swap! impl/var-env assoc qsym ast)
     `(ann* '~qsym '~typesyn '~check?)))
 
 (defmacro ann-many
@@ -998,6 +1299,16 @@ for checking namespaces, cf for checking individual forms."}
     (assert (not rplc) "Replace NYI")
     (assert (symbol? dname)
             (str "Must provide name symbol: " dname))
+    (let [qname (if (some #{\.} (str dname))
+                  dname
+                  (symbol (str (namespace-munge *ns*) "." dname)))]
+      (swap! impl/datatype-env 
+             assoc 
+             qname
+             {:record? false
+              :name qname
+              :fields fields
+              :bnd vbnd}))
     `(ann-datatype* '~vbnd '~dname '~fields '~opts)))
 
 (defn ^:skip-wiki
@@ -1077,6 +1388,16 @@ for checking namespaces, cf for checking individual forms."}
         (if bnd-provided?
           (next args)
           args)]
+    (let [qname (if (some #{\.} (str dname))
+                  dname
+                  (symbol (str (namespace-munge *ns*) "." dname)))]
+      (swap! impl/datatype-env 
+             assoc 
+             qname
+             {:record? true
+              :name qname
+              :fields fields
+              :bnd vbnd}))
     (if bnd-provided?
       ;reuse ann-precord for now
       `(ann-precord ~dname ~vbnd ~fields ~@opt)
@@ -1140,7 +1461,15 @@ for checking namespaces, cf for checking individual forms."}
               (flush)))
         ; duplicates are checked above.
         ; duplicate munged methods are checked in collect-phase
-        {:as mth} mth]
+        {:as mth} mth
+        qualsym (if (namespace varsym)
+                  varsym
+                  (symbol (str (ns-name *ns*)) (name varsym)))]
+    (swap! impl/protocol-env
+           assoc qualsym
+           {:name qualsym
+            :methods mth
+            :bnds vbnd})
     `(ann-protocol* '~vbnd '~varsym '~mth)))
 
 (defn ^:skip-wiki
@@ -1312,11 +1641,13 @@ for checking namespaces, cf for checking individual forms."}
          (every? #(instance? clojure.lang.ExceptionInfo %) errors)]}
   (binding [*out* *err*]
     (doseq [^Exception e errors]
-      (let [{:keys [env] :as data} (ex-data e)]
+      (let [{{:keys [source line column] :as env} :env :as data} (ex-data e)]
         (print "Type Error ")
-        (print (str "(" (-> env :ns :name) ":" (:line env) 
-                    (when-let [col (:column env)]
-                      (str ":" col))
+        (print (str "(" (or source (-> env :ns :name) "NO_SOURCE_FILE")
+                    (when line
+                      (str ":" line
+                           (when column
+                             (str ":" column))))
                     ") "))
         (print (.getMessage e))
         (println)
@@ -1422,31 +1753,34 @@ for checking namespaces, cf for checking individual forms."}
   Options
   - :expected        Type syntax representing the expected type for this form
                      type-provided? option must be true to utilise the type.
-  - :type-provided?  If true, use the expected type to check the form"
-  [form & {:keys [expected type-provided?]}]
-  (load-if-needed)
-  (reset-caches)
-  (let [check (impl/v 'clojure.core.typed.check/check)
-        expr-type (impl/v 'clojure.core.typed.check/expr-type)
-        ast-for-form (impl/v 'clojure.core.typed.analyze-clj/ast-for-form)
-        collect (impl/v 'clojure.core.typed.collect-phase/collect)
-        ret (impl/v 'clojure.core.typed.type-rep/ret)
-        parse-type (impl/v 'clojure.core.typed.parse-unparse/parse-type)]
-    (if *currently-checking-clj*
-      (throw (Exception. "Found inner call to check-ns or cf"))
-      (impl/with-clojure-impl
-        (binding [*currently-checking-clj* true
-                  *delayed-errors* (-init-delayed-errors)
-                  *collect-on-eval* false]
-          (let [expected (when type-provided?
-                           (ret (parse-type expected)))
-                ast (ast-for-form form)
-                _ (collect ast)
-                _ (reset-caches)
-                c-ast (check ast expected)
-                res (expr-type c-ast)]
-            {:delayed-errors @*delayed-errors*
-             :ret res}))))))
+  - :type-provided?  If true, use the expected type to check the form
+  - :profile         Use Timbre to profile the type checker. Timbre must be
+                     added as a dependency."
+  [form & {:keys [expected type-provided? profile]}]
+  (p/profile-if profile
+    (load-if-needed)
+    (reset-caches)
+    (let [check (impl/v 'clojure.core.typed.check/check)
+          expr-type (impl/v 'clojure.core.typed.check/expr-type)
+          ast-for-form (impl/v 'clojure.core.typed.analyze-clj/ast-for-form)
+          collect-ast (impl/v 'clojure.core.typed.collect-phase/collect-ast)
+          ret (impl/v 'clojure.core.typed.type-rep/ret)
+          parse-type (impl/v 'clojure.core.typed.parse-unparse/parse-type)]
+      (if *currently-checking-clj*
+        (throw (Exception. "Found inner call to check-ns or cf"))
+        (impl/with-clojure-impl
+          (binding [*currently-checking-clj* true
+                    *delayed-errors* (-init-delayed-errors)
+                    *collect-on-eval* false]
+            (let [expected (when type-provided?
+                             (ret (parse-type expected)))
+                  ast (ast-for-form form)
+                  _ (collect-ast ast)
+                  _ (reset-caches)
+                  c-ast (check ast expected)
+                  res (expr-type c-ast)]
+              {:delayed-errors @*delayed-errors*
+               :ret res})))))))
 
 (defn check-ns-info
   "Alpha - subject to change
@@ -1454,72 +1788,90 @@ for checking namespaces, cf for checking individual forms."}
   Same as check-ns, but returns a map of results from type checking the
   namespace."
   ([] (check-ns-info *ns*))
-  ([ns-or-syms & {:keys [collect-only trace]}]
-   (let [start (. System (nanoTime))]
-     (load-if-needed)
-     (reset-caches)
-     (let [reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
-                                    'reset-envs!)
-           collect-ns @(ns-resolve (find-ns 'clojure.core.typed.collect-phase)
-                                   'collect-ns)
-           check-ns-and-deps @(ns-resolve (find-ns 'clojure.core.typed.check)
-                                          'check-ns-and-deps)
-           vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
-                                                 'vars-with-unchecked-defs)
-           uri-for-ns (impl/v 'clojure.jvm.tools.analyzer/uri-for-ns)
-           
-           nsym-coll (map #(if (symbol? %)
-                             ; namespace might not exist yet, so ns-name is not appropriate
-                             ; to convert to symbol
-                             %
-                             (ns-name %))
-                          (if ((some-fn symbol? #(instance? clojure.lang.Namespace %))
-                               ns-or-syms)
-                            [ns-or-syms]
-                            ns-or-syms))]
-       (cond
-         *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
+  ([ns-or-syms & {:keys [collect-only trace profile]}]
+   (p/profile-if profile
+     (let [start (. System (nanoTime))]
+       (load-if-needed)
+       (reset-caches)
+       (let [reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
+                                      'reset-envs!)
+             collect-ns @(ns-resolve (find-ns 'clojure.core.typed.collect-phase)
+                                     'collect-ns)
+             check-ns-and-deps @(ns-resolve (find-ns 'clojure.core.typed.check)
+                                            'check-ns-and-deps)
+             vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
+                                                   'vars-with-unchecked-defs)
+             uri-for-ns (impl/v 'clojure.jvm.tools.analyzer/uri-for-ns)
+             
+             nsym-coll (map #(if (symbol? %)
+                               ; namespace might not exist yet, so ns-name is not appropriate
+                               ; to convert to symbol
+                               %
+                               (ns-name %))
+                            (if ((some-fn symbol? #(instance? clojure.lang.Namespace %))
+                                 ns-or-syms)
+                              [ns-or-syms]
+                              ns-or-syms))]
+         (cond
+           *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
 
-         :else
-         (binding [*currently-checking-clj* true
-                   *delayed-errors* (-init-delayed-errors)
-                   *already-collected* (atom #{})
-                   *already-checked* (atom #{})
-                   *trace-checker* trace
-                   *collect-on-eval* false]
-           (impl/with-clojure-impl
-             (reset-envs!)
-             ;; collect
-             (let [collect-start (. System (nanoTime))
-                   _ (doseq [nsym nsym-coll]
-                       (collect-ns nsym))
-                   ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                   collected @*already-collected*]
-               (println "Collected" (count collected) "namespaces in" ms "msecs")
-               (flush))
-             ;(reset-caches)
-             ;
-             ;; check 
-             (when-not collect-only
-               (doseq [nsym nsym-coll]
-                 (check-ns-and-deps nsym)))
-             (let [vs (vars-with-unchecked-defs)]
-               (binding [*out* *err*]
-                 (doseq [v vs]
-                   (println "WARNING: Type Checker: Definition missing:" v 
-                            "\nHint: Use :no-check metadata with ann if this is an unchecked var")
-                   (flush))))
-             ;             (when-let [errors (seq @*delayed-errors*)]
-             ;               (print-errors! errors))
-             (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                   checked @*already-checked*
-                   nlines (p/p :typed/line-count
-                               (apply + (for [nsym checked]
-                                          (with-open [rdr (io/reader (uri-for-ns nsym))]
-                                            (count (line-seq rdr))))))]
-               (println "Checked" (count checked) "namespaces (approx." nlines "lines) in" ms "msecs")
-               (flush))
-             {:delayed-errors @*delayed-errors*})))))))
+           :else
+           (binding [*currently-checking-clj* true
+                     *delayed-errors* (-init-delayed-errors)
+                     *already-collected* (atom #{})
+                     *already-checked* (atom #{})
+                     *trace-checker* trace
+                     *collect-on-eval* false]
+             (let [terminal-error (atom nil)]
+               (reset-envs!)
+               (impl/with-clojure-impl
+                 ;; collect
+                 (let [collect-start (. System (nanoTime))
+                       _ (try
+                           (doseq [nsym nsym-coll]
+                             (collect-ns nsym))
+                           (catch clojure.lang.ExceptionInfo e
+                             (if (-> e ex-data :type-error)
+                               (reset! terminal-error e)
+                               (throw e))))]
+                   (when-not @terminal-error
+                     (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
+                           collected @*already-collected*]
+                       (println "Collected" (count collected) "namespaces in" ms "msecs")
+                       (flush))))
+                 ;(reset-caches)
+                 ;
+                 ;; check 
+                 (let [_
+                       (when-not @terminal-error
+                         (try
+                           (when-not collect-only
+                             (doseq [nsym nsym-coll]
+                               (check-ns-and-deps nsym)))
+                           (catch clojure.lang.ExceptionInfo e
+                             (if (-> e ex-data :type-error)
+                               (reset! terminal-error e)
+                               (throw e)))))]
+                   (when-not @terminal-error
+                     (let [vs (vars-with-unchecked-defs)]
+                       (binding [*out* *err*]
+                         (doseq [v vs]
+                           (println "WARNING: Type Checker: Definition missing:" v 
+                                    "\nHint: Use :no-check metadata with ann if this is an unchecked var")
+                           (flush)))))
+                   (when-not @terminal-error
+                     (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
+                           checked @*already-checked*
+                           nlines (p/p :typed/line-count
+                                       (apply + (for [nsym checked]
+                                                  (with-open [rdr (io/reader (uri-for-ns nsym))]
+                                                    (count (line-seq rdr))))))]
+                       (println "Checked" (count checked) "namespaces (approx." nlines "lines) in" ms "msecs")
+                       (flush)))
+                   {:delayed-errors (vec (concat (when-let [es *delayed-errors*]
+                                                   @es)
+                                                 (when-let [e @terminal-error]
+                                                   [e])))}))))))))))
 
 (defn check-ns
   "Type check a namespace/s (a symbol or Namespace, or collection).
@@ -1538,6 +1890,9 @@ for checking namespaces, cf for checking individual forms."}
   Keyword arguments:
   - :collect-only  if true, collect type annotations but don't type check code.
                    Useful for debugging purposes.
+  - :trace         if true, print some basic tracing of the type checker
+  - :profile       if true, use Timbre to profile type checking. Must include
+                   Timbre as a dependency.
 
   If providing keyword arguments, the namespace to check must be provided
   as the first argument.
@@ -1555,7 +1910,7 @@ for checking namespaces, cf for checking individual forms."}
       ; collect but don't check the current namespace
       (check-ns *ns* :collect-only true)"
   ([] (check-ns (ns-name *ns*)))
-  ([ns-or-syms & {:keys [collect-only trace] :as kw}]
+  ([ns-or-syms & {:keys [collect-only trace profile] :as kw}]
    (let [{:keys [delayed-errors]} (apply check-ns-info ns-or-syms (apply concat kw))]
      (if-let [errors (seq delayed-errors)]
        (print-errors! errors)
@@ -1666,6 +2021,22 @@ for checking namespaces, cf for checking individual forms."}
       (load-if-needed)
       (collect-eval-form
         `(ann-datatype* '~vbnd '~dname '~fields '~opts)))))
+
+(defn pred* [tsyn pred]
+  pred)
+
+(defmacro pred 
+  "Generate a flat (runtime) predicate for type that returns true if the
+  argument is a subtype of the type, otherwise false.
+
+  The current type variable and dotted type variable scope is cleared before parsing.
+  
+  eg. ((pred Number) 1)
+      ;=> true"
+  [t]
+  (require '[clojure.core.typed.type-contract])
+  `(pred* '~t
+          ~((impl/v 'clojure.core.typed.type-contract/type-syntax->pred) t)))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)

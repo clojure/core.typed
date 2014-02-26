@@ -189,7 +189,7 @@
                        (r/make-FnIntersection
                          (r/make-Function (vec (vals fs)) (c/DataType-of s))))
             map-ctor (when record?
-                       (let [hmap-arg (c/-hmap (zipmap (map (comp r/-val keyword) (keys fs))
+                       (let [hmap-arg (c/make-HMap :mandatory (zipmap (map (comp r/-val keyword) (keys fs))
                                                        (vals fs)))]
                          (if args
                            (c/Poly* args bnds

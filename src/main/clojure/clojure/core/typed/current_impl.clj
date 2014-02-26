@@ -1,6 +1,13 @@
 ; untyped, clojure.core.typed depends on this namespace
 (ns clojure.core.typed.current-impl
-  (:require [clojure.core.typed.profiling :as p]))
+  (:require [clojure.core.typed.profiling :as p]
+            [clojure.set :as set]))
+
+(defonce var-env (atom {}))
+(defonce alias-env (atom {}))
+(defonce protocol-env (atom {}))
+(defonce rclass-env (atom {}))
+(defonce datatype-env (atom {}))
 
 (defn v [vsym]
   {:pre [(symbol? vsym)
@@ -131,3 +138,42 @@
      clojure ~clojure
      clojurescript ~cljs
      (assert nil "No case matched for impl-case")))
+
+(defn var->symbol [^clojure.lang.Var var]
+  {:pre [(var? var)]
+   :post [(symbol? %)
+          (namespace %)]}
+  (symbol (str (ns-name (.ns var)))
+          (str (.sym var))))
+
+(defn Class->symbol [^Class cls]
+  {:pre [(class? cls)]
+   :post [(symbol? %)]}
+  (symbol (.getName cls)))
+
+; for type-contract
+(defn hmap-c? [& {:keys [mandatory optional absent-keys complete?]}]
+  (every-pred map?
+              #(cond
+                 complete? (set/subset? (set (keys %))
+                                        (set (mapcat keys [mandatory optional])))
+                 :else
+                 (let [actual-ks (set (keys %))]
+                   (and 
+                     ;required keys is a subset of actual keys
+                     (set/subset? 
+                       (set (keys mandatory))
+                       actual-ks)
+                     ;no absent-keys are present
+                     (empty?
+                       (set/intersection
+                         absent-keys
+                         actual-ks)))))
+              #(every? identity 
+                       (for [[k vc] mandatory]
+                         (and (contains? % k)
+                              (vc (get % k)))))
+              #(every? identity 
+                       (for [[k vc] optional]
+                         (or (not (contains? % k))
+                             (vc (get % k)))))))

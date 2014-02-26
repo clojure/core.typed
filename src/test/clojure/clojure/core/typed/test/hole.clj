@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.hole
   (:require [clojure.repl :refer [pst]]
-            [clojure.core.typed :refer [ann ann-form ann-datatype check-ns typed-deps]]
+            [clojure.core.typed :as t :refer [ann ann-form ann-datatype check-ns typed-deps]]
             [clojure.core.typed.hole :refer [noisy-hole silent-hole]]
             #_[clojure.core.typed.test.monads :refer [;types 
                                                     AnyMonad 

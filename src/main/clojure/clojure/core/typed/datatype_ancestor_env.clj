@@ -8,7 +8,9 @@
   (:import (clojure.lang Symbol)
            (clojure.core.typed.type_rep DataType)))
 
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
+  )
 
 (t/typed-deps clojure.core.typed.type-ctors
               clojure.core.typed.subst)
@@ -18,7 +20,7 @@
 
 (t/def-alias DTAncestorEnv
   "Environment mapping datatype names to sets of ancestor types."
-  (t/Map Symbol (t/Set (U r/Type r/Scope))))
+  (t/Map Symbol (t/Set r/ScopedType)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Predicates
@@ -46,14 +48,14 @@
   assert-dt-ancestors []
   (assert *current-dt-ancestors* "No datatype ancestor environment bound"))
 
-(defn ^:private ^{:ann '[DataType (U nil (t/Seqable Symbol)) -> (t/Set r/Type)]}
+(defn ^:private ^{:ann '[DataType (U nil (t/Seqable r/Type)) -> (t/Set r/Type)]}
   inst-ancestors
   "Given a datatype, return its instantiated ancestors"
   [{poly :poly? :as dt} anctrs]
   {:pre [(r/DataType? dt)]
    :post [((u/set-c? r/Type?) %)]}
   (set (t/for> :- r/Type
-         [u :- Symbol, anctrs]
+         [u :- r/Type, anctrs]
          (c/inst-and-subst u poly))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

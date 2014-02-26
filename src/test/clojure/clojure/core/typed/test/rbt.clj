@@ -1,18 +1,20 @@
 (ns clojure.core.typed.test.rbt
-  (:refer-clojure :exclude [and])
-  (:require [clojure.core.typed :refer [ann inst cf fn> pfn> def-alias declare-names
-                                        print-env print-filterset check-ns typed-deps
-                                        ann-form]]
-            [clojure.core.typed.test.rbt-types :refer [badRight rbt EntryT Empty
-                                                       Red Black bt]]
-            #_[clojure.core.typed.subtype :as sub]
-            #_[clojure.core.typed.check :as chk]
-            #_[clojure.core.typed.parse-unparse :as prs]
-            #_[clojure.core.typed.filter-ops :as fo]
-            [clojure.repl :refer [pst]]
-            [clojure.math.combinatorics :as comb]
-            [clojure.jvm.tools.analyzer :refer [ast]]))
+;  (:refer-clojure :exclude [and])
+;  (:require [clojure.core.typed :refer [ann inst cf fn> pfn> def-alias declare-names
+;                                        print-env print-filterset check-ns typed-deps
+;                                        ann-form]]
+;            [clojure.core.typed.test.rbt-types :refer [badRight rbt EntryT Empty
+;                                                       Red Black bt]]
+;            #_[clojure.core.typed.subtype :as sub]
+;            #_[clojure.core.typed.check :as chk]
+;            #_[clojure.core.typed.parse-unparse :as prs]
+;            #_[clojure.core.typed.filter-ops :as fo]
+;            [clojure.repl :refer [pst]]
+;            [clojure.math.combinatorics :as comb]
+;            [clojure.jvm.tools.analyzer :refer [ast]]))
+  )
 
+(comment
 (defmacro and
   "Scheme's and. Returns false on a false case."
   {:added "1.0"}
@@ -353,4 +355,5 @@
           [(:else fs)]
           (atom true))
     :l (get 'tmap)))
+)
 )

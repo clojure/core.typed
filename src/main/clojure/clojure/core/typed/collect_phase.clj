@@ -247,8 +247,8 @@
                        (r/make-FnIntersection
                          (r/make-Function (vec (vals fs)) (c/DataType-of s))))
             map-ctor (when record?
-                       (let [hmap-arg (c/-hmap (zipmap (map (comp r/-val keyword) (keys fs))
-                                                       (vals fs)))]
+                       (let [hmap-arg (c/-partial-hmap (zipmap (map (comp r/-val keyword) (keys fs))
+                                                               (vals fs)))]
                          (if args
                            (c/Poly* args bnds
                                     (r/make-FnIntersection
@@ -566,5 +566,5 @@
 
 
 (defmethod invoke-special-collect :default
-  [_]
+  [expr]
   nil)
