@@ -18,7 +18,9 @@
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha"]
-                 [org.clojure/core.cache "0.6.3"]
+                 [org.clojure/core.cache "0.6.3"
+                  :exclusions [org.clojure/data.priority-map]]
+                 [org.clojure/data.priority-map "0.0.4"]
                  ; CLJS fireplace REPL
                  [com.cemerick/piggieback "0.1.2"]
                  ]
