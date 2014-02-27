@@ -1393,16 +1393,18 @@
 (declare normal-invoke)
 
 (defn quote-expr-val [{:keys [op expr] :as q}]
-  {:pre [(#{:quote} op)
-         (#{:const} (:op expr))]}
-  (:val expr))
+  {:pre [(or (and (#{:quote} op)
+                  (#{:const} (:op expr)))
+             (#{:const} op))]}
+  (if (#{:quote} op)
+    (:val expr)
+    (:val q)))
 
 (add-invoke-special-method 'clojure.core.typed/var>*
   [{[sym-expr] :args fexpr :fn :keys [args] :as expr} & [expected]]
   (when-not (#{1} (count args))
     (u/int-error (str "Wrong number of arguments to clojure.core.typed/var>,"
                       " expected 1, given " (count args))))
-  (assert (#{:const} (:op sym-expr)))
   (let [sym (quote-expr-val sym-expr)
         _ (assert (symbol? sym))
         t (var-env/lookup-Var-nofail sym)
@@ -1618,6 +1620,10 @@
   [expr & [expected]]
   (check (assoc expr :op :invoke)))
 
+(add-check-method :protocol-invoke ; protocol methods
+  [expr & [expected]]
+  (check (assoc expr :op :invoke)))
+
 ;TODO pass fexpr and args for better errors
 ;[Type Type (Option Type) -> Type]
 (defn find-val-type [t k default]
@@ -1782,18 +1788,10 @@
    :methods (vec (concat methods (when variadic-method [variadic-method])))
    :variadic? (boolean variadic-method)})
 
-(defn dummy-local-binding* [sym env]
-  (assert nil "TODO")
-  {:op :local-binding
-   :env env
-   :sym sym
-   hygienic/hsym-key sym})
-
 (defn dummy-local-binding-expr [sym env]
-  (assert nil "TODO")
-  {:op :local-binding-expr
+  {:op :local
    :env env
-   :local-binding (dummy-local-binding* sym env)})
+   :name sym})
 
 (defn dummy-var-expr [vsym env]
   (let [v (resolve vsym)]
@@ -1825,7 +1823,7 @@
                                               (concat [derefed-param]
                                                       args)
                                               env)
-                           [(dummy-local-binding* sym env)]
+                           [(dummy-local-binding-expr sym env)]
                            nil
                            env)]
                         nil
@@ -3113,21 +3111,25 @@
        obj/-empty))
 
 (defn method-required-params [method]
-  {:pre [(#{:fn-method :method} (:op method))]}
   (impl/impl-case
     ; :variadic? in tools.analyzer
-    :clojure ((if (:variadic? method) butlast identity)
-              (:params method))
+    :clojure (case (:op method)
+               (:fn-method) ((if (:variadic? method) butlast identity)
+                             (:params method))
+               ;include deftype's 'this' param
+               (:method) (concat [(:this method)] (:params method)))
     ; :variadic in CLJS
     :cljs ((if (:variadic method) butlast identity)
            (:params method))))
 
 (defn method-rest-param [method]
-  {:pre [(#{:fn-method :method} (:op method))]}
   (impl/impl-case
     ; :variadic? in tools.analyzer
-    :clojure ((if (:variadic? method) last (constantly nil))
-              (:params method))
+    :clojure (case (:op method)
+               ;deftype methods are never variadic
+               (:method) nil
+               (:fn-method) ((if (:variadic? method) last (constantly nil))
+                             (:params method)))
     ; :variadic in CLJS
     :cljs ((if (:variadic method) last (constantly nil))
            (:params method))))
@@ -3363,53 +3365,60 @@
 (add-check-method :do
   [expr & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (let [exprs (vec (concat (:statements expr) [(:ret expr)]))
-        nexprs (count exprs)
-        [env actual-types]
-        (reduce (fn [[env actual-rets] [n expr]]
-                  {:pre [(lex/PropEnv? env)
-                         (integer? n)
-                         (< n nexprs)]
-                   :post [(u/hvector-c? lex/PropEnv? (every-pred vector? (u/every-c? r/TCResult?)))]}
-                  (let [res (u/p :check/do-inner-check
-                            (binding [; always prefer envs with :line information, even if inaccurate
-                                        vs/*current-env* (if (:line (:env expr))
-                                                           (:env expr)
-                                                           vs/*current-env*)
-                                        vs/*current-expr* expr]
-                                (var-env/with-lexical-env env
-                                  (-> (check expr 
-                                             ;propagate expected type only to final expression
-                                             (when (= (inc n) nexprs)
-                                               expected))
-                                      expr-type))))
-                        flow (-> res r/ret-flow r/flow-normal)
-                        flow-atom (atom true)
-                        ;_ (prn flow)
-                        ;add normal flow filter
-                        nenv (env+ env [flow] flow-atom)
-                        ;_ (prn nenv)
-                        ]
-;                        _ (when-not @flow-atom 
-;                            (binding [; always prefer envs with :line information, even if inaccurate
-;                                                  vs/*current-env* (if (:line (:env expr))
-;                                                                     (:env expr)
-;                                                                     vs/*current-env*)
-;                                      vs/*current-expr* expr]
-;                              (u/int-error (str "Applying flow filter resulted in local being bottom"
-;                                                "\n"
-;                                                (with-out-str (print-env* nenv))
-;                                                "\nOld: "
-;                                                (with-out-str (print-env* env))))))]
-                    (if @flow-atom
-                      ;reachable
-                      [nenv (conj actual-rets res)]
-                      ;unreachable
-                      (do ;(prn "Detected unreachable code")
-                        (reduced [nenv (conj actual-rets (ret (r/Bottom)))])))))
-                [lex/*lexical-env* []] (map-indexed vector exprs))]
+  (cond
+    (= ::t/tc-ignore
+       (:val (first (:statements expr))))
     (assoc expr
-           expr-type (last actual-types)))) ;should be a ret already
+           expr-type (ret r/-any))
+
+    :else
+    (let [exprs (vec (concat (:statements expr) [(:ret expr)]))
+          nexprs (count exprs)
+          [env actual-types]
+          (reduce (fn [[env actual-rets] [n expr]]
+                    {:pre [(lex/PropEnv? env)
+                           (integer? n)
+                           (< n nexprs)]
+                     :post [(u/hvector-c? lex/PropEnv? (every-pred vector? (u/every-c? r/TCResult?)))]}
+                    (let [res (u/p :check/do-inner-check
+                              (binding [; always prefer envs with :line information, even if inaccurate
+                                          vs/*current-env* (if (:line (:env expr))
+                                                             (:env expr)
+                                                             vs/*current-env*)
+                                          vs/*current-expr* expr]
+                                  (var-env/with-lexical-env env
+                                    (-> (check expr 
+                                               ;propagate expected type only to final expression
+                                               (when (= (inc n) nexprs)
+                                                 expected))
+                                        expr-type))))
+                          flow (-> res r/ret-flow r/flow-normal)
+                          flow-atom (atom true)
+                          ;_ (prn flow)
+                          ;add normal flow filter
+                          nenv (env+ env [flow] flow-atom)
+                          ;_ (prn nenv)
+                          ]
+  ;                        _ (when-not @flow-atom 
+  ;                            (binding [; always prefer envs with :line information, even if inaccurate
+  ;                                                  vs/*current-env* (if (:line (:env expr))
+  ;                                                                     (:env expr)
+  ;                                                                     vs/*current-env*)
+  ;                                      vs/*current-expr* expr]
+  ;                              (u/int-error (str "Applying flow filter resulted in local being bottom"
+  ;                                                "\n"
+  ;                                                (with-out-str (print-env* nenv))
+  ;                                                "\nOld: "
+  ;                                                (with-out-str (print-env* env))))))]
+                      (if @flow-atom
+                        ;reachable
+                        [nenv (conj actual-rets res)]
+                        ;unreachable
+                        (do ;(prn "Detected unreachable code")
+                          (reduced [nenv (conj actual-rets (ret (r/Bottom)))])))))
+                  [lex/*lexical-env* []] (map-indexed vector exprs))]
+      (assoc expr
+             expr-type (last actual-types))))) ;should be a ret already
 
 (add-check-method :local
   [{sym :name :as expr} & [expected]]
@@ -4123,7 +4132,8 @@
                                    (-> body :statements first :vals))]
                           [(-> lb-expr :info :name)
                            (binding [prs/*parse-type-in-ns* (expr-ns letfn-expr)]
-                             (prs/parse-type (:form type-syn-expr)))]))))]
+                             (prs/parse-type (:form type-syn-expr)))]))))
+        _ (prn "letfn inits-expected" inits-expected)]
     (if-not inits-expected
       (u/tc-delayed-error (str "letfn requires annotation, see: "
                                (impl/impl-case :clojure 'clojure :cljs 'cljs) ".core.letfn>")
@@ -4991,8 +5001,10 @@
                     (binding [vs/*current-env* env]
                       (let [method-nme (:name inst-method)
                             _ (assert (symbol? method-nme))
-                            _ (prn "method-nme" method-nme)
-                            _ (prn "inst-method" inst-method)
+                            ;_ (prn "method-nme" method-nme)
+                            ;_ (prn "inst-method" inst-method)
+                            _ (assert (:this inst-method))
+                            _ (assert (:params inst-method))
                             ; minus the target arg
                             method-sig (first (filter 
                                                 (fn [{:keys [name required-params]}]

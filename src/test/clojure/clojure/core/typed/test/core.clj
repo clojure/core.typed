@@ -7,8 +7,6 @@
 (load-if-needed)
 
 (require '[clojure.test :refer :all]
-         '[clojure.jvm.tools.analyzer :refer [ast]]
-         '[clojure.jvm.tools.analyzer.hygienic :refer [ast-hy]]
          '[clojure.core.typed.analyze-clj :as ana]
          '[clojure.repl :refer [pst]]
          '[clojure.pprint :refer [pprint]]
@@ -1066,8 +1064,8 @@
         (= (with-bounded-frees {(make-F 'm) (-bounds (parse-type '(TFn [[x :variance :covariant]] Any))
                                                      (parse-type '(TFn [[x :variance :covariant]] Nothing)) )}
              (check-funapp
-               (-> (ast 'a) ast-hy) ;dummy
-               [(-> (ast 1) ast-hy)];dummy
+               (ana/ast-for-form ''a) ;dummy
+               [(ana/ast-for-form 1)];dummy
                (ret (parse-type '(All [x]
                                       [x -> (m x)])))
                [(ret -nil)]
@@ -1295,9 +1293,13 @@
 
 (deftest letfn>-test
   (is-cf (clojure.core.typed/letfn> [a :- [Number -> Number]
-                                     (a [b] b)]
+                                     (a [b] (inc b))]
            (a 1))
          Number)
+  ; annotation needed
+  (is (u/top-level-error-thrown?
+        (cf (clojure.core.typed/letfn> [(a [b] (inc b))]
+              (a 1)))))
   ;interdependent functions
   (is-cf (clojure.core.typed/letfn> [a :- [Number -> Number]
                                      (a [c] (b c))

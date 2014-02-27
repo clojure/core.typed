@@ -635,8 +635,7 @@ for checking namespaces, cf for checking individual forms."}
        ;unquoted to allow bindings to resolve with hygiene
        ~init-syn
        ;preserve letfn empty body
-       nil
-       ~@body)))
+       ~@(or body [nil]))))
 
 
 (defmacro defprotocol> [& body]
@@ -782,7 +781,8 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro tc-ignore 
   "Ignore forms in body during type checking"
   [& body]
-  `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
+  `(do ::tc-ignore
+       ~@(or body [nil])))
 
 (defmacro ^:private def-alias-many [& args]
   `(do

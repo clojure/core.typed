@@ -379,115 +379,124 @@
         _ (inc-sequence-number)]
     id)))
 
-(defmacro mk [name fields invariants & {:keys [methods intern]}]
-  (let [classname (with-meta (symbol (str (namespace-munge *ns*) "." name)) (meta name))
-        ->ctor (symbol (str "->" name))
-        maker (symbol (str name "-maker"))
+(defn ^:private inner-deftype [fields intern-id meta-field that name-sym type-hash gs
+                               maker methods*]
+  `(deftype ~name-sym [~@fields ~intern-id ~meta-field]
+     clojure.lang.IHashEq
+     (equals [_# ~that]
+       (boolean
+         (when (instance? ~name-sym ~that)
+           (== ~intern-id (.intern-id ~(with-meta that {:tag name-sym}))))))
+     (hasheq [this#] (bit-xor ~type-hash ~intern-id))
+     (hashCode [this#] (bit-xor ~type-hash ~intern-id))
+
+     clojure.lang.IObj
+     (meta [this#] ~meta-field)
+     (withMeta [this# ~gs] (~maker ~@fields :meta ~gs))
+
+
+     clojure.lang.ILookup
+     (valAt [this# k# else#]
+       (case k# ~@(mapcat (fn [fld] [(keyword fld) fld]) 
+                          fields)
+         (throw (UnsupportedOperationException. (str "lookup on " '~name-sym k#)))))
+     (valAt [this# k#]
+       (case k# ~@(mapcat (fn [fld] [(keyword fld) fld]) 
+                          fields)
+         (throw (UnsupportedOperationException. (str "lookup on " '~name-sym k#)))))
+
+     clojure.lang.IKeywordLookup
+     (getLookupThunk [this# k#]
+       (let [~'gclass (class this#)]              
+         (case k#
+           ~@(let [hinted-target (with-meta 'gtarget {:tag name-sym})] 
+               (mapcat 
+                 (fn [fld]
+                   [(keyword fld)
+                    `(reify clojure.lang.ILookupThunk
+                       (get [~'thunk ~'gtarget]
+                         (if (identical? (class ~'gtarget) ~'gclass)
+                           (. ~hinted-target ~(symbol (str "-" fld)))
+                           ~'thunk)))])
+                 fields))
+           (throw (UnsupportedOperationException. (str "lookup on " '~name-sym k#))))))
+
+     clojure.lang.IPersistentMap
+     (assoc [this# k# ~gs]
+       (condp identical? k#
+         ~@(mapcat (fn [fld]
+                     [(keyword fld) `(~maker ~@(replace {fld gs} fields) :meta ~meta-field)])
+                   fields)
+         (throw (UnsupportedOperationException. (str "assoc on " '~name-sym k#)))))
+     (entryAt [this# k#] (throw (UnsupportedOperationException. (str "entryAt on " '~name-sym k#))))
+     (count [this#] (throw (UnsupportedOperationException. (str "count on " '~name-sym))))
+     (empty [this#] (throw (UnsupportedOperationException. (str "Can't create empty: " ~(str name-sym)))))
+     (cons [this# e#] (throw (UnsupportedOperationException. (str "cons on " '~name-sym))))
+     (equiv [_# ~that]
+       (boolean
+         (when (instance? ~name-sym ~that)
+           (== ~intern-id (.intern-id ~(with-meta that {:tag name-sym}))))))
+     (containsKey [this# k#] (throw (UnsupportedOperationException. (str "containsKey on " '~name-sym))))
+     (seq [this#] (seq [~@(map #(list `new `clojure.lang.MapEntry (keyword %) %) (concat fields [#_intern-id #_meta-field]))]))
+
+     (iterator [this#] (throw (UnsupportedOperationException. (str "iterator on " '~name-sym))))
+     (without [this# k#] (throw (UnsupportedOperationException. (str "without on " '~name-sym))))
+
+     clojure.core.typed.type-rep/TypeId
+     (type-id [_#] ~intern-id)
+
+     ~@methods*))
+
+(defn emit-deftype [name-sym fields invariants methods* intern*]
+  (let [classname (with-meta (symbol (str (namespace-munge *ns*) "." name-sym)) (meta name-sym))
+        ->ctor (symbol (str "->" name-sym))
+        maker (symbol (str name-sym "-maker"))
         that (gensym)
         intern-id 'intern-id
-        interns (symbol (str name "-interns"))
+        interns (symbol (str name-sym "-interns"))
         gs (gensym)
         type-hash (hash classname)
         meta-field '_meta]
-    (when-not (resolve name)
-    `(t/tc-ignore
+    `(do
        (declare ~maker)
-       (deftype ~name [~@fields ~intern-id ~meta-field]
-         clojure.lang.IHashEq
-         (equals [_# ~that]
-           (boolean
-             (when (instance? ~name ~that)
-               (== ~intern-id (.intern-id ~(with-meta that {:tag name}))))))
-         (hasheq [this#] (bit-xor ~type-hash ~intern-id))
-         (hashCode [this#] (bit-xor ~type-hash ~intern-id))
-
-         clojure.lang.IObj
-         (meta [this#] ~meta-field)
-         (withMeta [this# ~gs] (~maker ~@fields :meta ~gs))
-
-
-         clojure.lang.ILookup
-         (valAt [this# k# else#]
-           (case k# ~@(mapcat (fn [fld] [(keyword fld) fld]) 
-                              fields)
-             (throw (UnsupportedOperationException. (str "lookup on " '~name k#)))))
-         (valAt [this# k#]
-           (case k# ~@(mapcat (fn [fld] [(keyword fld) fld]) 
-                              fields)
-             (throw (UnsupportedOperationException. (str "lookup on " '~name k#)))))
-
-         clojure.lang.IKeywordLookup
-         (getLookupThunk [this# k#]
-           (let [~'gclass (class this#)]              
-             (case k#
-               ~@(let [hinted-target (with-meta 'gtarget {:tag name})] 
-                   (mapcat 
-                     (fn [fld]
-                       [(keyword fld)
-                        `(reify clojure.lang.ILookupThunk
-                           (get [~'thunk ~'gtarget]
-                             (if (identical? (class ~'gtarget) ~'gclass)
-                               (. ~hinted-target ~(symbol (str "-" fld)))
-                               ~'thunk)))])
-                     fields))
-               (throw (UnsupportedOperationException. (str "lookup on " '~name k#))))))
-
-         clojure.lang.IPersistentMap
-         (assoc [this# k# ~gs]
-           (condp identical? k#
-             ~@(mapcat (fn [fld]
-                         [(keyword fld) `(~maker ~@(replace {fld gs} fields) :meta ~meta-field)])
-                       fields)
-             (throw (UnsupportedOperationException. (str "assoc on " '~name k#)))))
-         (entryAt [this# k#] (throw (UnsupportedOperationException. (str "entryAt on " '~name k#))))
-         (count [this#] (throw (UnsupportedOperationException. (str "count on " '~name))))
-         (empty [this#] (throw (UnsupportedOperationException. (str "Can't create empty: " ~(str name)))))
-         (cons [this# e#] (throw (UnsupportedOperationException. (str "cons on " '~name))))
-         (equiv [_# ~that]
-           (boolean
-             (when (instance? ~name ~that)
-               (== ~intern-id (.intern-id ~(with-meta that {:tag name}))))))
-         (containsKey [this# k#] (throw (UnsupportedOperationException. (str "containsKey on " '~name))))
-         (seq [this#] (seq [~@(map #(list `new `clojure.lang.MapEntry (keyword %) %) (concat fields [#_intern-id #_meta-field]))]))
-
-         (iterator [this#] (throw (UnsupportedOperationException. (str "iterator on " '~name))))
-         (without [this# k#] (throw (UnsupportedOperationException. (str "without on " '~name))))
-
-         clojure.core.typed.type-rep/TypeId
-         (type-id [_#] ~intern-id)
-
-         ~@methods)
+       ~(inner-deftype fields intern-id meta-field that name-sym type-hash gs
+                       maker methods*)
 
        (alter-meta! (var ~->ctor) assoc :private true)
 
-       (defn ~(symbol (str name "?")) [a#]
-         (instance? ~name a#))
+       (defn ~(symbol (str name-sym "?")) [a#]
+         (instance? ~name-sym a#))
 
        ; (Atom1 (Map Any Number))
        (defonce ~interns (atom {}))
        (defn ~maker [~@fields & {meta# :meta :as opt#}]
          {:pre ~invariants}
-         (profiling/p ~(keyword "maker" (str name))
-         (profiling/p ~(keyword "maker" (str name "-meta-check"))
+         (profiling/p ~(keyword "maker" (str name-sym))
+         (profiling/p ~(keyword "maker" (str name-sym "-meta-check"))
          (let [extra# (set/difference (set (keys opt#)) #{:meta})]
            (assert (empty? extra#) (str "Extra arguments:" extra#))))
          (let [; the intern-fn uses ~@fields that are in scope above
-               intern-fn# ~(when intern
-                             `(fn [] ~intern))
-               interns# (profiling/p ~(keyword "maker" (str name "-intern-fields-total"))
+               intern-fn# ~(when intern*
+                             `(fn [] ~intern*))
+               interns# (profiling/p ~(keyword "maker" (str name-sym "-intern-fields-total"))
                           (or (when intern-fn#
-                                (profiling/p ~(keyword "maker" (str name "-intern-fields-custom"))
+                                (profiling/p ~(keyword "maker" (str name-sym "-intern-fields-custom"))
                                   (intern-fn#)))
-                              (profiling/p ~(keyword "maker" (str name "-intern-fields-default"))
+                              (profiling/p ~(keyword "maker" (str name-sym "-intern-fields-default"))
                                 [~@fields])))
                id# (or (profiling/p :utils/intern-lookup 
-                         (profiling/p ~(keyword "maker" (str name "-intern-lookup"))
+                         (profiling/p ~(keyword "maker" (str name-sym "-intern-lookup"))
                             ((deref ~interns) interns#)))
                        (let [nxt# (get-and-inc-id)]
                          (profiling/p :utils/intern-miss)
                          (swap! ~interns assoc interns# nxt#)
                          nxt#))]
-           (~->ctor ~@fields id# meta#))))))))
+           (~->ctor ~@fields id# meta#)))))))
+
+(defmacro mk [name-sym fields invariants & {:keys [methods intern]}]
+  (when-not (resolve name-sym)
+    `(t/tc-ignore
+       ~(emit-deftype name-sym fields invariants methods intern))))
 
 (defmacro def-type
   [name fields doc invariants & opts]

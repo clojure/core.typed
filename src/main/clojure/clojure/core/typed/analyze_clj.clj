@@ -13,8 +13,9 @@
 
 (defn ^:private analyze1 [form env]
   ; hopefully expand macros only once
-  (let [a (taj/analyze form env)]
-    (eval (emit-form/emit-form a))
+  (let [a (taj/analyze form env)
+        frm (emit-form/emit-form a)]
+    (eval frm)
     a))
 
 (defn ast-for-form-in-ns
@@ -34,10 +35,13 @@
   "Returns a vector of AST nodes contained
   in the given namespace symbol nsym"
   [nsym]
-  {:pre [(symbol? nsym)]}
+  {:pre [((some-fn symbol? #(instance? clojure.lang.Namespace %)) 
+          nsym)]}
   (u/p :analyze/ast-for-ns
-   (let [cache @t/*analyze-ns-cache*]
-     (if (contains? cache nsym)
+   (let [nsym (ns-name nsym)
+         cache (when-let [cache t/*analyze-ns-cache*]
+                 @cache)]
+     (if (and cache (contains? cache nsym))
        (cache nsym)
        ;copied basic approach from tools.emitter.jvm
        (let [res (munge nsym)
@@ -56,6 +60,6 @@
                           (let [a (analyze1 form (taj/empty-env))]
                             (recur (conj asts a)))
                           asts))))]
-         (when t/*analyze-ns-cache*
-           (swap! t/*analyze-ns-cache* assoc nsym asts))
+         (when-let [cache t/*analyze-ns-cache*]
+           (swap! cache assoc nsym asts))
          asts)))))
