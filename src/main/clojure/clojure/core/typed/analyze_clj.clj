@@ -12,11 +12,24 @@
 (alter-meta! *ns* assoc :skip-wiki true)
 
 (defn ^:private analyze1 [form env]
-  ; hopefully expand macros only once
-  (let [a (taj/analyze form env)
-        frm (emit-form/emit-form a)]
-    (eval frm)
-    a))
+  (let [mform (binding [ta/macroexpand-1 taj/macroexpand-1]
+                (ta/macroexpand form (taj/empty-env)))]
+    (if (and (seq? mform) (= 'do (first mform)) (next mform))
+      (let [[statements ret] (loop [statements [] [e & exprs] (rest mform)]
+                               (if exprs
+                                 (recur (conj statements e) exprs)
+                                 [statements e]))
+            statements-expr  (mapv (fn [s] (analyze1 s (assoc (taj/empty-env) :context :statement))) statements)
+            ret-expr         (analyze1 ret (taj/empty-env))]
+        {:op         :do
+         :form       mform
+         :statements statements-expr
+         :ret        ret-expr
+         :children   [:statements :ret]})
+      (let [a (taj/analyze mform env)
+            frm (emit-form/emit-form a)]
+        (eval frm)
+        a))))
 
 (defn ast-for-form-in-ns
   "Returns an AST node for the form 
@@ -38,7 +51,12 @@
   {:pre [((some-fn symbol? #(instance? clojure.lang.Namespace %)) 
           nsym)]}
   (u/p :analyze/ast-for-ns
-   (let [nsym (ns-name nsym)
+   (let [nsym (or (when (instance? clojure.lang.Namespace nsym)
+                    (ns-name nsym))
+                  ; don't call ns-name on symbols in case the namespace
+                  ; doesn't exist yet
+                  nsym)
+         _ (assert (symbol? nsym))
          cache (when-let [cache t/*analyze-ns-cache*]
                  @cache)]
      (if (and cache (contains? cache nsym))
