@@ -6,12 +6,6 @@
    :name "clojure.core.typed",
    :doc nil}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.ast-ops-api.html",
-   :name "clojure.core.typed.ast-ops",
-   :doc nil}
-  {:source-url
    "https://github.com/clojure/core.typed/blob/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/async.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.async-api.html",
@@ -1151,74 +1145,6 @@
    :var-type "macro",
    :line 495,
    :file "src/main/clojure/clojure/core/typed.clj"}
-  {:arglists ([{:keys [children], :as ast}]),
-   :name "children*",
-   :namespace "clojure.core.typed.ast-ops",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj#L13",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ast-ops/children*",
-   :doc
-   "Return a vector of the children expression of the AST node, if it has any.\nThe returned vector returns the childrens in the order as they appear in the\n:children field of the AST, and may be either a node or a vector of nodes.",
-   :var-type "function",
-   :line 13,
-   :file "src/main/clojure/clojure/core/typed/ast_ops.clj"}
-  {:arglists ([ast f] [ast f reversed?]),
-   :name "postwalk",
-   :namespace "clojure.core.typed.ast-ops",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj#L61",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ast-ops/postwalk",
-   :doc "Shorthand for (walk ast identity f reversed?)",
-   :var-type "function",
-   :line 61,
-   :file "src/main/clojure/clojure/core/typed/ast_ops.clj"}
-  {:arglists ([ast f]),
-   :name "prewalk",
-   :namespace "clojure.core.typed.ast-ops",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj#L55",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ast-ops/prewalk",
-   :doc "Shorthand for (walk ast f identity)",
-   :var-type "function",
-   :line 55,
-   :file "src/main/clojure/clojure/core/typed/ast_ops.clj"}
-  {:arglists ([ast f] [ast f fix]),
-   :name "update-children",
-   :namespace "clojure.core.typed.ast-ops",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj#L22",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ast-ops/update-children",
-   :doc
-   "Applies `f` to the nodes in the AST nodes children.\nOptionally applies `fix` to the children before applying `f` to the\nchildren nodes and then applies `fix` to the update children.\nAn example of a useful `fix` function is `rseq`.",
-   :var-type "function",
-   :line 22,
-   :file "src/main/clojure/clojure/core/typed/ast_ops.clj"}
-  {:arglists ([ast pre post] [ast pre post reversed?]),
-   :name "walk",
-   :namespace "clojure.core.typed.ast-ops",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj#L43",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/185c52a5636ae00eb978de9477e1b666b3c18974/src/main/clojure/clojure/core/typed/ast_ops.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ast-ops/walk",
-   :doc
-   "Walk the ast applying pre when entering the nodes, and post when exiting.\nIf reversed? is not-nil, pre and post will be applied starting from the last\nchildren of the AST node to the first one.",
-   :var-type "function",
-   :line 43,
-   :file "src/main/clojure/clojure/core/typed/ast_ops.clj"}
   {:arglists ([]),
    :name "->NoisyHole",
    :namespace "clojure.core.typed.hole",
