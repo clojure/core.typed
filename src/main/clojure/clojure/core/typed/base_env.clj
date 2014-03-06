@@ -1190,7 +1190,7 @@ clojure.core/alter
 
 clojure.core/cycle
       (All [x]
-           [x -> (Seq x)])
+           [(U nil (Seqable x)) -> (Seq x)])
 
 clojure.core/compile [Symbol -> Symbol]
 
