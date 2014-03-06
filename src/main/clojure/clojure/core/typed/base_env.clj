@@ -1571,6 +1571,8 @@ clojure.core/-' (Fn [AnyInteger AnyInteger * -> AnyInteger]
                     [Number Number * -> Number])
 clojure.core/*' (Fn [AnyInteger * -> AnyInteger]
                     [Number * -> Number])
+clojure.core/quot (Fn [AnyInteger AnyInteger -> AnyInteger] 
+                      [Number Number -> Number])
 
 clojure.core/unchecked-inc (Fn [AnyInteger -> AnyInteger]
                                [Number -> Number])
@@ -2072,6 +2074,8 @@ clojure.lang.Numbers/inc (Fn [AnyInteger -> AnyInteger]
                                               [Number -> Number])
 clojure.lang.Numbers/dec (Fn [AnyInteger -> AnyInteger]
                              [Number -> Number])
+clojure.lang.Numbers/quotient (Fn [AnyInteger AnyInteger -> AnyInteger]
+                                  [Number Number -> Number])
 clojure.lang.Numbers/incP (Fn [AnyInteger -> AnyInteger]
                                               [Number -> Number])
 clojure.lang.Numbers/decP (Fn [AnyInteger -> AnyInteger]
