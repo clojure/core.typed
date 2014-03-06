@@ -1,3 +1,7 @@
+# 0.2.35-SNAPSHOT
+
+- Fix clojure.core/cycle annotation
+
 # 0.2.34 - Released 25 February 2014
 
 - add clojure.core.typed/pred

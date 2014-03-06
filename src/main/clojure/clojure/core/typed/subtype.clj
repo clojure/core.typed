@@ -374,6 +374,14 @@
           *sub-current-seen*
           (fail! s t))
 
+        (and (r/GetType? s)
+             (not (r/F? (:target s))))
+        (subtype (c/-resolve s) t)
+
+        (and (r/GetType? t)
+             (not (r/F? (:target t))))
+        (subtype s (c/-resolve t))
+
         (and (r/AssocType? s)
              (r/AssocType? t)
              (r/F? (:target s))

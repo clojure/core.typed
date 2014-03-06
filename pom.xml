@@ -92,6 +92,17 @@
       <groupId>org.clojure</groupId>
       <artifactId>core.cache</artifactId>
       <version>0.6.3</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.clojure</groupId>
+          <artifactId>data.priority-map</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>data.priority-map</artifactId>
+      <version>0.0.4</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

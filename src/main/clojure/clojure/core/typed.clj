@@ -1086,10 +1086,16 @@ clojure.core.typed/Promise
   `(ann-form* ~form '~ty))
 
 ;(ann unsafe-ann-form* [Any Any -> Any])
-(defn- unsafe-ann-form* [form ty]
+(defn ^:skip-wiki unsafe-ann-form* [form ty]
   form)
 
-(defmacro ^:private unsafe-ann-form [form ty]
+(defmacro unsafe-ann-form 
+  "Assumes the form is well typed and annotates it with the provided
+  type without verifying.
+
+  WARNING: Only use this if you completely understand all the implications and
+  you know what you're doing."
+  [form ty]
   `(unsafe-ann-form* ~form '~ty))
 
 ;(ann into-array>* [Any Any -> Any])

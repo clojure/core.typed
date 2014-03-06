@@ -1349,7 +1349,7 @@
 (u/add-defmethod-generator invoke-special)
 
 (defmulti invoke-apply (fn [expr & args]
-                         (when-let [var (-> expr :fexpr :var)]
+                         (when-let [var (-> expr :args first :var)]
                            (u/var->symbol var))))
 (u/add-defmethod-generator invoke-apply)
 
@@ -1607,86 +1607,6 @@
                                    nil 
                                    expected)))
 
-;TODO pass fexpr and args for better errors
-;[Type Type (Option Type) -> Type]
-(defn find-val-type [t k default]
-  {:pre [(Type? t)
-         (Type? k)
-         ((some-fn nil? Type?) default)]
-   :post [(Type? %)]}
-  (let [t (c/fully-resolve-type t)]
-    (cond
-      ; propagate the error
-      (r/TCError? t) t
-      (r/Nil? t) (or default r/-nil)
-      (r/AssocType? t) (let [t* (apply c/assoc-pairs-noret (:target t) (:entries t))]
-                         (cond
-                           (:dentries t) (do
-                                           (prn "dentries NYI")
-                                           r/-any)
-                           (r/HeterogeneousMap? t*) (find-val-type t* k default)
-
-                           (and (not t*)
-                                (r/F? (:target t))
-                                (every? c/keyword-value? (map first (:entries t))))
-                           (let [hmap (apply c/assoc-pairs-noret (c/-partial-hmap {}) (:entries t))]
-                             (if (r/HeterogeneousMap? hmap)
-                               (find-val-type hmap k default)
-                               r/-any))
-                           :else r/-any))
-      (r/HeterogeneousMap? t) (let [^HeterogeneousMap t t]
-                                ; normal case, we have the key declared present
-                                (if-let [v (get (.types t) k)]
-                                  v
-                                  ; if key is known absent, or we have a complete map, we know precisely the result.
-                                  (if (or (contains? (.absent-keys t) k)
-                                          (c/complete-hmap? t))
-                                    (do
-                                      #_(tc-warning
-                                        "Looking up key " (prs/unparse-type k) 
-                                        " in heterogeneous map type " (prs/unparse-type t)
-                                        " that declares the key always absent.")
-                                      (or default r/-nil))
-                                    ; if key is optional the result is the val or the default
-                                    (if-let [opt (get (:optional t) k)]
-                                      (c/Un opt (or default r/-nil))
-                                      ; otherwise result is Any
-                                      (do #_(tc-warning "Looking up key " (prs/unparse-type k)
-                                                        " in heterogeneous map type " (prs/unparse-type t)
-                                                        " which does not declare the key absent ")
-                                          r/-any)))))
-
-      (r/Record? t) (find-val-type (c/Record->HMap t) k default)
-
-      (r/Intersection? t) (apply c/In 
-                               (for [t* (:types t)]
-                                 (find-val-type t* k default)))
-      (r/Union? t) (apply c/Un
-                        (for [t* (:types t)]
-                          (find-val-type t* k default)))
-      (r/RClass? t)
-      (->
-        (check-funapp nil nil (ret (prs/parse-type 
-                                     ;same as clojure.core/get
-                                     '(All [x y]
-                                           (Fn 
-                                             ;no default
-                                             [(clojure.lang.IPersistentSet x) Any -> (clojure.core.typed/Option x)]
-                                             [nil Any -> nil]
-                                             [(U nil (clojure.lang.ILookup Any x)) Any -> (U nil x)]
-                                             [java.util.Map Any -> (U nil Any)]
-                                             [String Any -> (U nil Character)]
-                                             ;default
-                                             [(clojure.lang.IPersistentSet x) Any y -> (U y x)]
-                                             [nil Any y -> y]
-                                             [(U nil (clojure.lang.ILookup Any x)) Any y -> (U y x)]
-                                             [java.util.Map Any y -> (U y Any)]
-                                             [String Any y -> (U y Character)]
-                                             ))))
-                      [(ret t) (ret (or default r/-nil))] nil)
-        ret-t)
-      :else r/-any)))
-
 ;[TCResult TCResult (Option TCResult) (Option TCResult) -> TCResult]
 (defn invoke-keyword [kw-ret target-ret default-ret expected-ret]
   {:pre [(TCResult? kw-ret)
@@ -1704,7 +1624,7 @@
       (c/keyword-value? kwt)
       (let [{{path-hm :path id-hm :id :as o} :o} target-ret
             this-pelem (pe/->KeyPE (:val kwt))
-            val-type (find-val-type targett kwt defaultt)]
+            val-type (c/find-val-type targett kwt defaultt)]
         (when expected-ret
           (when-not (sub/subtype? val-type (ret-t expected-ret))
             (expected-error val-type (ret-t expected-ret))))
@@ -2211,23 +2131,23 @@
 (add-invoke-apply-method 'clojure.core/hash-map
   [{[_ & args] :args :as expr} & [expected]]
   (let [cargs (mapv check args)]
-    #_(prn "apply special (hash-map): "
-           (map (comp prs/unparse-type ret-t expr-type) cargs))
+    ;(prn "apply special (hash-map): ")
     (cond
       (and (#{1} (count cargs))
            (r/KwArgsSeq? (expr-type (last cargs))))
       (assoc expr
              expr-type (ret (c/KwArgsSeq->HMap (-> (expr-type (last cargs)) ret-t))))
 
-      (and ((some-fn r/HeterogeneousVector? r/HeterogeneousList? r/HeterogeneousSeq?) 
-            (expr-type (last cargs)))
+      (and (seq cargs)
+           ((some-fn r/HeterogeneousVector? r/HeterogeneousList? r/HeterogeneousSeq?) 
+            (ret-t (expr-type (last cargs))))
            ;; every key must be a Value
-           (every? r/Value? (keys (apply hash-map (concat (map expr-type (butlast cargs))
-                                                        (mapcat vector (:types (expr-type (last cargs)))))))))
+           (every? r/Value? (keys (apply hash-map (concat (map (comp ret-t expr-type) (butlast cargs))
+                                                          (mapcat vector (:types (ret-t (expr-type (last cargs))))))))))
       (assoc expr
              expr-type (ret (c/-complete-hmap
-                              (apply hash-map (concat (map expr-type (butlast cargs))
-                                                      (mapcat vector (:types (expr-type (last cargs)))))))))
+                              (apply hash-map (concat (map (comp ret-t expr-type) (butlast cargs))
+                                                      (mapcat vector (:types (ret-t (expr-type (last cargs))))))))))
       :else ::not-special)))
 
 (defn invoke-nth [{:keys [args] :as expr} expected & {:keys [cargs]}]

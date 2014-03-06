@@ -597,6 +597,13 @@
             (cset-meet* [(cs-gen-list V X Y Svals Tvals)
                          (cs-gen-list V X Y Sopts Topts)])))
 
+        (and (r/GetType? S)
+             (not (r/F? (:target S))))
+        (cs-gen V X Y (c/-resolve S) T)
+
+        (and (r/GetType? T)
+             (not (r/F? (:target T))))
+        (cs-gen V X Y S (c/-resolve T))
 
 ; Completeness matters:
 ;
