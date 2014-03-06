@@ -1799,14 +1799,10 @@ clojure.core.typed/Promise
      (let [start (. System (nanoTime))]
        (load-if-needed)
        (reset-caches)
-       (let [reset-envs! @(ns-resolve (find-ns 'clojure.core.typed.reset-env)
-                                      'reset-envs!)
-             collect-ns @(ns-resolve (find-ns 'clojure.core.typed.collect-phase)
-                                     'collect-ns)
-             check-ns-and-deps @(ns-resolve (find-ns 'clojure.core.typed.check)
-                                            'check-ns-and-deps)
-             vars-with-unchecked-defs @(ns-resolve (find-ns 'clojure.core.typed.var-env)
-                                                   'vars-with-unchecked-defs)
+       (let [reset-envs! (impl/v 'clojure.core.typed.reset-env/reset-envs!)
+             collect-ns (impl/v 'clojure.core.typed.collect-phase/collect-ns)
+             check-ns-and-deps (impl/v 'clojure.core.typed.check/check-ns-and-deps)
+             vars-with-unchecked-defs (impl/v 'clojure.core.typed.var-env/vars-with-unchecked-defs)
              uri-for-ns (impl/v 'clojure.jvm.tools.analyzer/uri-for-ns)
              
              nsym-coll (map #(if (symbol? %)
@@ -1829,8 +1825,8 @@ clojure.core.typed/Promise
                      *trace-checker* trace
                      *collect-on-eval* false]
              (let [terminal-error (atom nil)]
-               (reset-envs!)
                (impl/with-clojure-impl
+                 (reset-envs!)
                  ;; collect
                  (let [collect-start (. System (nanoTime))
                        _ (try

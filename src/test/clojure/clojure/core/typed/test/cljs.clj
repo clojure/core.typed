@@ -143,7 +143,7 @@
   (is-cf 1 number)
   (is-cf true boolean))
 
-;(t/check-ns 'cljs.core.typed.test.dnolen.utils.dom)
-;(t/check-ns 'cljs.core.typed.test.dnolen.utils.reactive)
-;(t/check-ns 'cljs.core.typed.test.dnolen.utils.helpers)
-;(t/check-ns 'cljs.core.typed.async)
+;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.dom)
+;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)
+;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.helpers)
+;(t/check-ns* 'cljs.core.typed.async)

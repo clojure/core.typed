@@ -134,7 +134,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojurescript</artifactId>
-      <version>0.0-SNAPSHOT</version>
+      <version>0.0-2173</version>
       <optional>true</optional>
     </dependency>
     <dependency>
