@@ -1347,7 +1347,7 @@
 (u/add-defmethod-generator invoke-special)
 
 (defmulti invoke-apply (fn [expr & args]
-                         (when-let [var (-> expr :fexpr :var)]
+                         (when-let [var (-> expr :args first :var)]
                            (u/var->symbol var))))
 (u/add-defmethod-generator invoke-apply)
 
@@ -2217,15 +2217,16 @@
       (assoc expr
              expr-type (ret (c/KwArgsSeq->HMap (-> (expr-type (last cargs)) ret-t))))
 
-      (and ((some-fn r/HeterogeneousVector? r/HeterogeneousList? r/HeterogeneousSeq?) 
-            (expr-type (last cargs)))
+      (and (seq cargs)
+           ((some-fn r/HeterogeneousVector? r/HeterogeneousList? r/HeterogeneousSeq?) 
+            (ret-t (expr-type (last cargs))))
            ;; every key must be a Value
-           (every? r/Value? (keys (apply hash-map (concat (map expr-type (butlast cargs))
-                                                        (mapcat vector (:types (expr-type (last cargs)))))))))
+           (every? r/Value? (keys (apply hash-map (concat (map (comp ret-t expr-type) (butlast cargs))
+                                                          (mapcat vector (:types (ret-t (expr-type (last cargs))))))))))
       (assoc expr
              expr-type (ret (c/-complete-hmap
-                              (apply hash-map (concat (map expr-type (butlast cargs))
-                                                      (mapcat vector (:types (expr-type (last cargs)))))))))
+                              (apply hash-map (concat (map (comp ret-t expr-type) (butlast cargs))
+                                                      (mapcat vector (:types (ret-t (expr-type (last cargs))))))))))
       :else ::not-special)))
 
 (defn invoke-nth [{:keys [args] :as expr} expected & {:keys [cargs]}]

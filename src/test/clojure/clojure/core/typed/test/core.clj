@@ -3008,6 +3008,13 @@
            String)
          String))
 
+(deftest apply-hmap-test
+  (is-cf (apply hash-map [:a 1 :b 2])
+         (HMap :mandatory {:a Number
+                           :b Number}
+               :complete? true)))
+
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))
