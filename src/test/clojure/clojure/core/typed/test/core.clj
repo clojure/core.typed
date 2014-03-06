@@ -51,6 +51,10 @@
   (and (subtype? s t)
        (subtype? t s)))
 
+(defmacro both-sub? [s t]
+  `(both-subtype? (parse-type '~s)
+                  (parse-type '~t)))
+
 (defn check [& as]
   (impl/with-clojure-impl
     (apply chk/check as)))
@@ -2445,9 +2449,6 @@
             (Assoc '{} ':b Number)
             (Assoc '{} ':a Number ':b Number))))
 
-;(deftest Get-test
-;  (is-cf 1 (Get '{:a Number} ':a)))
-
 ;(clj
 ;  (parse-filter 
 ;    '(&
@@ -3007,6 +3008,20 @@
            (fn [] (+ 'a 1))
            String)
          String))
+
+(deftest Get-test
+  ;resolve
+  (is-clj (= (fully-resolve-type (parse-clj '(Get '{:a Number} ':a)))
+             (fully-resolve-type (parse-clj 'Number))))
+  (is-clj (both-sub? Number
+                     (Get '{:a Number} ':a)))
+  (is-cf 1 (Get '{:a Number} ':a))
+  (is-cf (fn [a] (inc a)) 
+         (Get '{:a [Number -> Number]} ':a))
+  (is-cf (fn [a] (deref a))
+         [(Get '{:a (clojure.core.typed/Atom1 Number)} ':a)
+          -> Number])
+  )
 
 (deftest apply-hmap-test
   (is-cf (apply hash-map [:a 1 :b 2])

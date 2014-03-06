@@ -26,7 +26,7 @@
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
                                         Bounds Name Scope CountRange Intersection DataType Extends
-                                        JSNominal Protocol HeterogeneousVector)
+                                        JSNominal Protocol HeterogeneousVector GetType)
            (clojure.lang Seqable IPersistentSet IPersistentMap IPersistentVector Symbol Keyword
                          Atom Var)))
 
@@ -59,6 +59,10 @@
 
   (defn- unparse-type [t]
     (@(unparse-type-var) t))
+  (defn- parse-type [t]
+    ((impl/v 'clojure.core.typed.parse-unparse/parse-type) t))
+  (defn- check-funapp [& args]
+    (apply (impl/v 'clojure.core.typed.check/check-funapp) args))
   )
 
 (t/ann fresh-symbol [Symbol -> Symbol])
@@ -1232,7 +1236,13 @@
                                       (str (:line vs/*current-env*) ": "))
                                     "Cannot apply non-polymorphic type " (unparse-type rator)))))))
 
-(declare resolve-Name unfold fully-resolve-type)
+(declare resolve-Name unfold fully-resolve-type find-val-type)
+
+(t/ann ^:no-check resolve-Get [GetType -> r/Type])
+(defn resolve-Get [{:keys [target key not-found] :as t}]
+  {:pre [(r/GetType? t)]
+   :post [(r/Type? %)]}
+  (find-val-type target key not-found))
 
 (t/ann -resolve [r/Type -> r/Type])
 (defn -resolve [ty]
@@ -1244,6 +1254,7 @@
     (r/Mu? ty) (unfold ty)
     (r/App? ty) (resolve-App ty)
     (r/TApp? ty) (resolve-TApp ty)
+    (r/GetType? ty) (resolve-Get ty)
     :else ty)))
 
 (t/ann requires-resolving? [r/Type -> Any])
@@ -1254,6 +1265,8 @@
       (r/App? ty)
       (and (r/TApp? ty)
            (not (r/F? (fully-resolve-type (.rator ^TApp ty)))))
+      (and (r/GetType? ty)
+           (not (r/F? (fully-resolve-type (:target ty)))))
       (r/Mu? ty))))
 
 (t/ann resolve-Name [Name -> r/Type])
@@ -2418,4 +2431,82 @@
                                 ;no bounds provided, default to Nothing <: Any
                                 :else {:upper r/-any :lower r/-nothing})]
     (r/Bounds-maker upper lower nil)))
+
+(defn find-val-type [t k default]
+  {:pre [(r/Type? t)
+         (r/Type? k)
+         ((some-fn nil? r/Type?) default)]
+   :post [(r/Type? %)]}
+  (let [t (fully-resolve-type t)]
+    (cond
+      ; propagate the error
+      (r/TCError? t) t
+      (r/Nil? t) (or default r/-nil)
+      (r/AssocType? t) (let [t* (apply assoc-pairs-noret (:target t) (:entries t))]
+                         (cond
+                           (:dentries t) (do
+                                           ;(prn "dentries NYI")
+                                           r/-any)
+                           (r/HeterogeneousMap? t*) (find-val-type t* k default)
+
+                           (and (not t*)
+                                (r/F? (:target t))
+                                (every? keyword-value? (map first (:entries t))))
+                           (let [hmap (apply assoc-pairs-noret (-partial-hmap {}) (:entries t))]
+                             (if (r/HeterogeneousMap? hmap)
+                               (find-val-type hmap k default)
+                               r/-any))
+                           :else r/-any))
+      (r/HeterogeneousMap? t) (let [^HeterogeneousMap t t]
+                                ; normal case, we have the key declared present
+                                (if-let [v (get (.types t) k)]
+                                  v
+                                  ; if key is known absent, or we have a complete map, we know precisely the result.
+                                  (if (or (contains? (.absent-keys t) k)
+                                          (complete-hmap? t))
+                                    (do
+                                      #_(tc-warning
+                                        "Looking up key " (unparse-type k) 
+                                        " in heterogeneous map type " (unparse-type t)
+                                        " that declares the key always absent.")
+                                      (or default r/-nil))
+                                    ; if key is optional the result is the val or the default
+                                    (if-let [opt (get (:optional t) k)]
+                                      (Un opt (or default r/-nil))
+                                      ; otherwise result is Any
+                                      (do #_(tc-warning "Looking up key " (unparse-type k)
+                                                        " in heterogeneous map type " (unparse-type t)
+                                                        " which does not declare the key absent ")
+                                          r/-any)))))
+
+      (r/Record? t) (find-val-type (Record->HMap t) k default)
+
+      (r/Intersection? t) (apply In 
+                               (for [t* (:types t)]
+                                 (find-val-type t* k default)))
+      (r/Union? t) (apply Un
+                        (for [t* (:types t)]
+                          (find-val-type t* k default)))
+      (r/RClass? t)
+      (->
+        (check-funapp nil nil (r/ret (parse-type 
+                                     ;same as clojure.core/get
+                                     '(All [x y]
+                                           (Fn 
+                                             ;no default
+                                             [(clojure.lang.IPersistentSet x) Any -> (clojure.core.typed/Option x)]
+                                             [nil Any -> nil]
+                                             [(U nil (clojure.lang.ILookup Any x)) Any -> (U nil x)]
+                                             [java.util.Map Any -> (U nil Any)]
+                                             [String Any -> (U nil Character)]
+                                             ;default
+                                             [(clojure.lang.IPersistentSet x) Any y -> (U y x)]
+                                             [nil Any y -> y]
+                                             [(U nil (clojure.lang.ILookup Any x)) Any y -> (U y x)]
+                                             [java.util.Map Any y -> (U y Any)]
+                                             [String Any y -> (U y Character)]
+                                             ))))
+                      [(r/ret t) (r/ret (or default r/-nil))] nil)
+        r/ret-t)
+      :else r/-any)))
 )
