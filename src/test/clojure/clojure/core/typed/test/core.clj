@@ -3002,6 +3002,12 @@
                  (parse-type
                    '(All [a b ...])))))))
 
+(deftest unsafe-ann-form-test
+  (is-cf (clojure.core.typed/unsafe-ann-form
+           (fn [] (+ 'a 1))
+           String)
+         String))
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))
