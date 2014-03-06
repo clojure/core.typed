@@ -12,7 +12,6 @@
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.datatype-ancestor-env :as ancest]
-            [clojure.core.typed.analyze-cljs :as cljs-util]
             [clojure.core.typed.path-rep :as pth-rep]
             [clojure.set :as set]
             [clojure.repl :as repl])
@@ -747,7 +746,7 @@
     (= "js" (namespace sym)) (c/JSNominal-with-unknown-params sym)
     (= "default" sym) (assert nil "FIXME what is default?")
     (base-type sym) (base-type sym)
-    :else (let [{{:keys [protocol-symbol name]} :info} (cljs-util/analyze-qualified-symbol sym)]
+    :else (let [{{:keys [protocol-symbol name]} :info} ((impl/v 'clojure.core.typed.analyze-cljs/analyze-qualified-symbol) sym)]
             (if protocol-symbol
               (c/Protocol-with-unknown-params name)
               (c/DataType-with-unknown-params name)))))
@@ -764,7 +763,7 @@
                    (class? ext) (c/RClass-of-with-unknown-params ext)
                    (nil? ext) r/-nil
                    :else (throw (Exception. (str "What is this?" ext))))))
-    :cljs (let [exts (cljs-util/extenders (:the-var p))]
+    :cljs (let [exts ((impl/v 'clojure.core.typed.analyze-cljs/extenders) (:the-var p))]
             (for [ext exts]
               (cond
                 (symbol? ext) (resolve-JS-reference ext)

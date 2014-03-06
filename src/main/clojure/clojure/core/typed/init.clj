@@ -76,7 +76,7 @@
         (when (try
                 (require 'cljs.analyzer)
                 true
-                (catch Exception e))
+                (catch Throwable _))
           (do
             (println "Found ClojureScript, loading ...")
             (flush)
