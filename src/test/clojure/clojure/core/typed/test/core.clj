@@ -3014,6 +3014,8 @@
                            :b Number}
                :complete? true)))
 
+(deftest HVec-parse-ast-test
+  (is (clojure.core.typed.parse-ast/parse-clj '(HVec [Number]))))
 
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)

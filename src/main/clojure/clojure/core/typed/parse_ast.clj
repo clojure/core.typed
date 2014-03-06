@@ -136,7 +136,7 @@
     (when path
       {:path-elems (mapv parse-path-elem path)})))
 
-(defn parse-HVec [fixed & {:keys [filter-sets objects]}]
+(defn parse-HVec [[_ fixed & {:keys [filter-sets objects]} :as syn]]
   (merge
     {:op :HVec
      :types (mapv parse fixed)
