@@ -1,6 +1,13 @@
-# 0.2.35-SNAPSHOT
+# 0.2.35 - SNAPSHOT
 
 - Fix clojure.core/cycle annotation
+- Re-enable CLJS checking
+  - Note changes in 0.2.27
+- Bump to latest CLJS
+- Bump data.priority-map dependency
+- Fix runtime parsing of `HVec`
+- (apply hash-map ...) now checks properly
+- Get type is more useful
 
 # 0.2.34 - Released 25 February 2014
 
