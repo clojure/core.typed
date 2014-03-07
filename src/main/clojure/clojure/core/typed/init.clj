@@ -1,6 +1,7 @@
 (ns clojure.core.typed.init
   (:require [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.profiling :as p]))
+            [clojure.core.typed.profiling :as p]
+            [clojure.java.io :as io]))
 
 (defonce ^:private attempted-loading? (atom false))
 (defonce ^:private successfully-loaded? (atom false))
@@ -73,14 +74,12 @@
                  '[clojure.core.typed.tvar-bnds]
                  '[clojure.core.typed.rclass-ancestor-env]
                  '[clojure.reflect])
-        (when (try
-                (require 'cljs.analyzer)
-                true
-                (catch Throwable _))
+        (when (io/resource "cljs/analyzer.clj")
           (do
             (println "Found ClojureScript, loading ...")
             (flush)
             (require
+              '[cljs.analyzer]
               '[clojure.core.typed.collect-cljs]
               '[clojure.core.typed.check-cljs]
               '[clojure.core.typed.jsnominal-env]
