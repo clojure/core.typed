@@ -394,6 +394,25 @@ java.lang.Iterable [[]
 (defn reset-rclass-env! []
   (rcls/reset-rclass-env! (init-altered-env)))
 
+(defn- aset-*-type [t]
+  (impl/with-clojure-impl
+    (let [arr-t (prs/parse-type `(~'Array ~t))
+          rtn-type (prs/parse-type t)
+          num-t (prs/parse-type 'Number)]
+      (apply r/make-FnIntersection
+             (map r/make-Function
+                  (loop [num 1
+                         result []
+                         dom [arr-t num-t]]
+                    (if (> num 10)
+                      result
+                      (recur (inc num)
+                             (conj result (conj dom rtn-type))
+                             (conj dom num-t))))
+                  (repeat rtn-type)
+                  (repeat nil)
+                  (repeat nil))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Initial type aliases
 
@@ -685,6 +704,8 @@ clojure.core/read (Fn [-> Any]
                       [java.io.Reader Boolean Any Boolean -> Any])
 clojure.core/read-line [-> Any]
 
+clojure.core/add-classpath [(U String java.net.URL) -> nil]
+
 clojure.core/*1 Any
 clojure.core/*2 Any
 clojure.core/*3 Any
@@ -712,6 +733,20 @@ clojure.core/aget (All [x] (Fn [(ReadOnlyArray x)
                                ; don't support unsound cases
                                [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))))
                                 AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger -> x]))
+
+clojure.core/aset
+(All [x]
+  (Fn
+    [(Array x) AnyInteger x -> x]
+    [(Array x) AnyInteger AnyInteger x -> x]
+    [(Array x) AnyInteger AnyInteger AnyInteger x -> x]
+    [(Array x) AnyInteger AnyInteger AnyInteger AnyInteger x -> x]
+    [(Array x) AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger x -> x]
+    [(Array x) AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger x -> x]
+    [(Array x) AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger x -> x]
+    [(Array x) AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger x -> x]
+    [(Array x) AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger x -> x]
+    [(Array x) AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger AnyInteger x -> x]))
 
 clojure.core/macroexpand-1 [Any -> Any]
 clojure.core/macroexpand [Any -> Any]
@@ -1661,6 +1696,10 @@ clojure.core/send (All [w r b ...]
 clojure.core/send-off (All [w r b ...] 
                            [(Agent2 w r) [r b ... b -> w] b ... b -> (Agent2 w r)])
 
+clojure.core/await [(Agent2 Nothing Any) * -> nil]
+clojure.core/await-for [AnyInteger (Agent2 Nothing Any) * -> Boolean]
+clojure.core/await1 (All [w r] [(Agent2 w r) -> (Agent2 w r)])
+
 clojure.core/release-pending-sends [-> AnyInteger]
 
 clojure.core/add-watch
@@ -1737,8 +1776,10 @@ clojure.core/rseq
        [(Reversible x) -> (Option (NonEmptySeq x))])
 
 ;coercions
+;TODO maybe these argument type shouldn't be Any
 clojure.core/bigdec [Any -> BigDecimal]
 clojure.core/bigint [Any -> clojure.lang.BigInt]
+clojure.core/biginteger [Any -> java.math.BigInteger]
 clojure.core/boolean [Any -> boolean]
 clojure.core/byte [Any -> byte]
 clojure.core/char [Any -> char]
@@ -1750,15 +1791,28 @@ clojure.core/num [Any -> Number]
 clojure.core/short [Any -> short]
 
 ;array ctors
-clojure.core/int-array (Fn [(U nil Number (Seqable Number)) -> (Array int)]
-                                [Number (U Number (Seqable Number)) -> (Array int)])
-clojure.core/double-array (Fn [(U nil Number (Seqable Number)) -> (Array double)]
-                                   [Number (U Number (Seqable Number)) -> (Array double)])
-clojure.core/short-array (Fn [(U nil Number (Seqable Short)) -> (Array short)]
-                                  [Number (U Short (Seqable Short)) -> (Array short)])
-
+clojure.core/boolean-array (Fn [(U nil Number (Seqable Boolean)) -> (Array boolean)]
+                                    [Number (U nil Boolean (Seqable Boolean)) -> (Array boolean)])
+clojure.core/byte-array (Fn [(U nil Number (Seqable Byte)) -> (Array byte)]
+                                 [Number (U nil Byte (Seqable Byte)) -> (Array byte)])
 clojure.core/char-array (Fn [(U nil Number (Seqable Character)) -> (Array char)]
-                            [Number (U Number (Seqable Character)) -> (Array char)])
+                            [Number (U nil Number (Seqable Character)) -> (Array char)])
+clojure.core/short-array (Fn [(U nil Number (Seqable Short)) -> (Array short)]
+                                  [Number (U nil Short (Seqable Short)) -> (Array short)])
+clojure.core/int-array (Fn [(U nil Number (Seqable Number)) -> (Array int)]
+                                [Number (U nil Number (Seqable Number)) -> (Array int)])
+clojure.core/double-array (Fn [(U nil Number (Seqable Number)) -> (Array double)]
+                                   [Number (U nil Number (Seqable Number)) -> (Array double)])
+
+;cast to java array
+clojure.core/booleans [Any -> (Array boolean)]
+clojure.core/bytes [Any -> (Array byte)]
+clojure.core/chars [Any -> (Array char)]
+clojure.core/shorts [Any -> (Array short)]
+clojure.core/ints [Any -> (Array int)]
+clojure.core/longs [Any -> (Array long)]
+clojure.core/floats [Any -> (Array float)]
+clojure.core/doubles [Any -> (Array double)]
 
 clojure.core/max-key (All [x] 
                           [[x -> Number] x x x * -> x])
@@ -1862,9 +1916,17 @@ clojure.math.numeric-tower/abs
 ;; core.match
 
 clojure.core.match/backtrack Exception
-
       )
-    {'clojure.core/count (count-type)}
+    {'clojure.core/count (count-type)
+     'clojure.core/aset-boolean (aset-*-type 'boolean)
+     'clojure.core/aset-byte (aset-*-type 'byte)
+     'clojure.core/aset-char (aset-*-type 'char)
+     'clojure.core/aset-short (aset-*-type 'short)
+     'clojure.core/aset-int (aset-*-type 'int)
+     'clojure.core/aset-long (aset-*-type 'long)
+     'clojure.core/aset-float (aset-*-type 'float)
+     'clojure.core/aset-double (aset-*-type 'double)
+     }
 ))
 
 
