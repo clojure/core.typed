@@ -1,4 +1,6 @@
-# 0.2.35 - SNAPSHOT
+# 0.2.36 - Released 7 March 2014 
+
+- 0.2.35 did not load CLJS properly
 
 - Fix clojure.core/cycle annotation
 - Re-enable CLJS checking
