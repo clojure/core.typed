@@ -264,10 +264,10 @@
   ([nsym]
    (assert (symbol? nsym)
            "Checked namespace must be symbol")
+   (t/load-if-needed)
    (env/ensure
      (comp/with-core-cljs
        (impl/with-cljs-impl
-         (t/load-if-needed)
          (t/reset-caches)
          ((v 'clojure.core.typed.reset-env/reset-envs!))
          (if *currently-checking-cljs*
