@@ -12,6 +12,7 @@
          '[clojure.repl :refer [pst]]
          '[clojure.pprint :refer [pprint]]
          '[clojure.data :refer [diff]]
+         '[clojure.core.typed.unsafe]
          '[clojure.core.typed.init]
          '[clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error?]]
          '[clojure.core.typed.current-impl :as impl]
@@ -3003,8 +3004,8 @@
                  (parse-type
                    '(All [a b ...])))))))
 
-(deftest unsafe-ann-form-test
-  (is-cf (clojure.core.typed/unsafe-ann-form
+(deftest ignore-unsafe-cast-test
+  (is-cf (clojure.core.typed.unsafe/ignore-with-unchecked-cast
            (fn [] (+ 'a 1))
            String)
          String))

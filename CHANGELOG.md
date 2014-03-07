@@ -8,6 +8,7 @@
 - Fix runtime parsing of `HVec`
 - (apply hash-map ...) now checks properly
 - Get type is more useful
+- add clojure.core.typed.unsafe namespace
 
 # 0.2.34 - Released 25 February 2014
 

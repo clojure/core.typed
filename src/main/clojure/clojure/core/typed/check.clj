@@ -1988,8 +1988,8 @@
     (assoc expr
            expr-type t)))
 
-;unsafe form annotation
-(add-invoke-special-method 'clojure.core.typed/unsafe-ann-form*
+;unchecked casting
+(add-invoke-special-method 'clojure.core.typed.unsafe/ignore-with-unchecked-cast*
   [{[frm {tsyn :val}] :args, :keys [env], :as expr} & [expected]]
   (let [parsed-ty (binding [vs/*current-env* env
                             prs/*parse-type-in-ns* (expr-ns expr)]
