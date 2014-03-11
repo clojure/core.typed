@@ -1,5 +1,7 @@
 # 0.2.36 - Released 7 March 2014 
 
+Thanks to Di Xu who contributed patches for this release.
+
 - 0.2.35 did not load CLJS properly
 
 - Fix clojure.core/cycle annotation
@@ -11,6 +13,16 @@
 - (apply hash-map ...) now checks properly
 - Get type is more useful
 - add clojure.core.typed.unsafe namespace
+
+- annotations (contributed by Di Xu)
+  - clojure.core/aset-{boolean,byte,char,short,int,long,float,double}
+  - clojure.core/aset
+  - clojure.core/await
+  - clojure.core/await1
+  - clojure.core/await-for
+  - clojure.core/biginteger
+  - clojure.core/{boolean,byte,char,short}-array
+  - clojure.core/{booleans,bytes,chars,shorts,ints,longs,floats,doubles}
 
 # 0.2.34 - Released 25 February 2014
 
