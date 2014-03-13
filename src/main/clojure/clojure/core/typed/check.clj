@@ -3455,7 +3455,7 @@
                                 (when c
                                   (str (u/Class->symbol c) "/"))
                                 method-name 
-                                ".\n\nHint: add type hints."
+                                ".\n\nHint: add type hints http://clojure.org/java_interop#Java%20Interop-Type%20Hints"
                                 "\n\nin: " (u/emit-form-fn expr))))
           _ (when inst?
               (let [ctarget (or ctarget (check (:target expr)))
@@ -3662,7 +3662,7 @@
                           (u/int-error (str "Unresolved constructor invocation " 
                                             (when cls
                                               (u/Class->symbol cls))
-                                            ".\n\nHint: add type hints."
+                                            ".\n\nHint: add type hints http://clojure.org/java_interop#Java%20Interop-Type%20Hints"
                                             "\n\nin: " (u/emit-form-fn expr))))
                       ctor-fn (if inst-types
                                 (inst/manual-inst ctor-fn inst-types)
