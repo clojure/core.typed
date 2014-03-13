@@ -1395,6 +1395,24 @@
                    body))
     :else (u/int-error (str "Expected Function type, found " (prs/unparse-type expected)))))
 
+; only handle special case that the first argument is literal class
+(add-invoke-special-method 'clojure.core/cast
+  [{:keys [args] :as expr} & [expected]]
+  (when-not (#{2} (count args))
+    (u/int-error (str "Wrong number of arguments to clojure.core/cast,"
+                      " expected 2, given " (count args))))
+  (let [ct (-> (check (first args)) expr-type ret-t c/fully-resolve-type)]
+    (if (and (r/Value? ct) (class? (:val ct)))
+      (let [t (c/RClass-of-with-unknown-params (:val ct))
+            _ (when (and t expected)
+                (when-not (sub/subtype? t (ret-t expected))
+                  (expected-error t (ret-t expected))))
+            v-t (-> (check (second args)) expr-type ret-t)]
+        (if (and t v-t)
+          (assoc expr expr-type (ret (c/In t v-t)))
+          :default))
+      :default)))
+
 (declare normal-invoke)
 
 (add-invoke-special-method 'clojure.core.typed/var>*
