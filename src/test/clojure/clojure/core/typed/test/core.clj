@@ -1229,7 +1229,7 @@
 
 (deftest new-instance-method-return-test
   (is (check-ns 'clojure.core.typed.test.protocol))
-  (is (caught-top-level-errors #{2}
+  (is (u/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.protocol-fail))))
 ;;;;
 
@@ -1391,7 +1391,7 @@
 
 (deftest instance-field-test
   (is-cf (.ns ^clojure.lang.Var #'clojure.core/map))
-  (is (caught-top-level-errors #{2}
+  (is (u/top-level-error-thrown?
         (cf (fn [] (.ns ^clojure.lang.Var 'a))))))
 
 (deftest HMap-syntax-test
@@ -1967,7 +1967,8 @@
           [-> clojure.lang.IFn]))
 
 (deftest plain-defprotocol-test
-  (is (u/top-level-error-thrown? (cf (defprotocol Foo (bar [this])))))
+  (is (u/top-level-error-thrown? 
+        (check-ns 'clojure.core.typed.test.fail.plain-defprotocol)))
   (is (u/top-level-error-thrown? 
         (check-ns 'clojure.core.typed.test.fail.CTYP-45))))
 
@@ -2060,8 +2061,7 @@
          (HMap :mandatory {:a (Value "v")})))
 
 (deftest CTYP-37-defprotocol-better-error
-  (is (u/top-level-error-thrown?
-        (check-ns 'clojure.core.typed.test.fail.CTYP-37))))
+  (is (check-ns 'clojure.core.typed.test.CTYP-37)))
 
 (defmacro equal-types-noparse [l r]
   `(clj (is (let [l# (ety ~l)
@@ -2368,7 +2368,7 @@
 
 (deftest unannotated-record-test
   (is (u/top-level-error-thrown?
-        (cf (defrecord Unannotated [])))))
+        (check-ns 'clojure.core.typed.test.fail.unannotated-record))))
 
 (deftest datatype-method-recur-test
   (is (check-ns 'clojure.core.typed.test.datatype-recur)))
@@ -2376,12 +2376,10 @@
 (deftest record-annotated-as-datatype-test
   ; record annotated as datatype
   (is (u/top-level-error-thrown?
-        (cf (do (clojure.core.typed/ann-datatype IncorrectRec [])
-                (defrecord IncorrectRec [])))))
+        (check-ns 'clojure.core.typed.test.fail.record-as-datatype)))
   ; datatype annotated as record
   (is (u/top-level-error-thrown?
-        (cf (do (clojure.core.typed/ann-record IncorrectDt [])
-                (deftype IncorrectDt []))))))
+        (check-ns 'clojure.core.typed.test.fail.datatype-as-record))))
 
 (deftest recursive-ann-test
   (is (check-ns 'clojure.core.typed.test.recursive)))

@@ -29,7 +29,7 @@
   )
 
 ;; records
-;(deftype FooDT [])
-;(assert (cast FooDT (->FooDT)))
+(deftype FooDT3 [])
+(assert (cast FooDT3 (->FooDT3)))
 ;(assert (instance? FooDT (->FooDT)))
 ;(.normal ^FooDT (->FooDT 2 1))

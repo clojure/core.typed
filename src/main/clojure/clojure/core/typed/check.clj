@@ -2578,9 +2578,12 @@
 
 ; FIXME this needs a line number from somewhere!
 (defmethod instance-method-special 'clojure.lang.MultiFn/addMethod
-  [{[dispatch-val-expr method-expr :as args] :args :keys [target env] :as expr} & [expected]]
+  [{[dispatch-val-expr method-expr :as args] :args target :instance :keys [env] :as expr} & [expected]]
   (assert (= 2 (count args)))
+  (when-not (#{:var} (:op target))
+    (u/int-error "Must call addMethod with a literal var"))
   (let [var (:var target)
+        _ (assert (var? var))
         mmsym (u/var->symbol var)
         ret-expr (assoc expr
                         expr-type (ret (c/RClass-of clojure.lang.MultiFn)))
@@ -3676,11 +3679,8 @@
       (u/int-error (str "Call to instance field "
                         (symbol field-name)
                         " requires type hints.")))
+    (assert (class? target-class))
     (let [fsym (symbol field-name)
-          hinted-cls (if (class? target-class)
-                       target-class
-                       (u/symbol->Class target-class))
-          _ (assert (class? hinted-cls))
           cexpr (check target)
           ; check that the hinted class at least matches the runtime class we expect
           _ (let [expr-ty (c/fully-resolve-type (-> cexpr expr-type ret-t))
@@ -3688,20 +3688,22 @@
                          (r/DataType? expr-ty) (u/symbol->Class (:the-class expr-ty))
                          (r/RClass? expr-ty) (u/symbol->Class (:the-class expr-ty)))]
               (when-not (and cls
-                             (sub/class-isa? cls hinted-cls))
+                             ; in case target-class has been redefined
+                             (sub/class-isa? cls (-> target-class u/Class->symbol u/symbol->Class)))
                 (u/tc-delayed-error (str "Instance field " fsym " expected "
-                                         (pr-str hinted-cls)
+                                         (pr-str target-class)
                                          ", actual " (pr-str (prs/unparse-type expr-ty)))
                                     :form (u/emit-form-fn expr))))
           
                             ; datatype fields are special
-          result-t (if-let [override (when-let [dtp (dt-env/get-datatype target-class)]
+          result-t (if-let [override (when-let [dtp (dt-env/get-datatype (u/Class->symbol target-class))]
                                        (let [dt (if (r/Poly? dtp)
                                                   ;generate new names
                                                   (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
                                                   dtp)
-                                             _ (assert ((some-fn r/DataType? r/Record?) dt))]
-                                         (-> (c/DataType-fields* dt) (get (symbol (repl/demunge (str fsym)))))))]
+                                             _ (assert ((some-fn r/DataType? r/Record?) dt))
+                                             demunged (symbol (repl/demunge (str fsym)))]
+                                         (-> (c/DataType-fields* dt) (get demunged))))]
                      override
                      ; if not a datatype field, convert as normal
                      (if field
@@ -4132,8 +4134,7 @@
                                    (-> body :statements first :vals))]
                           [(-> lb-expr :info :name)
                            (binding [prs/*parse-type-in-ns* (expr-ns letfn-expr)]
-                             (prs/parse-type (:form type-syn-expr)))]))))
-        _ (prn "letfn inits-expected" inits-expected)]
+                             (prs/parse-type (:form type-syn-expr)))]))))]
     (if-not inits-expected
       (u/tc-delayed-error (str "letfn requires annotation, see: "
                                (impl/impl-case :clojure 'clojure :cljs 'cljs) ".core.letfn>")
@@ -4797,6 +4798,8 @@
                (not t)))
       (do (println (when-let [line (-> expr :env :line)] 
                      (str line ": ")) 
+                   expr
+                   env
                    "Not checking" vsym "definition")
           (flush)
           (assoc expr
@@ -5003,6 +5006,7 @@
                             _ (assert (symbol? method-nme))
                             ;_ (prn "method-nme" method-nme)
                             ;_ (prn "inst-method" inst-method)
+                            ;_ (prn "reflect names" (map :name reflect-methods))
                             _ (assert (:this inst-method))
                             _ (assert (:params inst-method))
                             ; minus the target arg
@@ -5010,11 +5014,12 @@
                                                 (fn [{:keys [name required-params]}]
                                                   (and (= (count (:parameter-types inst-method))
                                                           (count required-params))
-                                                       (#{method-nme} name)))
+                                                       (#{(munge method-nme)} name)))
                                                 reflect-methods))]
                         (if-not (instance? clojure.reflect.Method method-sig)
                           (u/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme
-                                                   ". Available methods: " (pr-str (map :name reflect-methods))))
+                                                   ". Available methods: " (pr-str (map :name reflect-methods))
+                                                   " Method sig: " method-sig))
                           (let [expected-ifn (datatype-method-expected dt method-sig)]
                             ;(prn "method expected type" (prs/unparse-type expected-ifn))
                             ;(prn "names" nms)
