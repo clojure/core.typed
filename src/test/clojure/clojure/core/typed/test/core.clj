@@ -3053,7 +3053,7 @@
   (is (check-ns 'clojure.core.typed.test.CTYP-118-cast))
   (is (u/top-level-error-thrown?
         (cf (fn [] (cast "a" "a")))))
-  (is (thrown? Exception
+  (is (throws-tc-error?
         (cf (fn [] (cast String "a" 1)))))
   (is (u/top-level-error-thrown?
         (cf (fn [] (cast #('ok) 2))))))
