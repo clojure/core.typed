@@ -1,3 +1,16 @@
+# 0.2.37 - Released 14 March 2014
+
+Thanks to Di Xu who contributed patches for this release.
+
+## Enhancements
+
+- [CTYP-118](http://dev.clojure.org/jira/browse/CTYP-118) Support clojure.core/cast (contributed by Di Xu)
+- Type error from reflection now links to clojure.org for type hints
+
+## Fixes
+
+- [CTYP-120](http://dev.clojure.org/jira/browse/CTYP-120) Fix bad error
+
 # 0.2.36 - Released 7 March 2014 
 
 Thanks to Di Xu who contributed patches for this release.
