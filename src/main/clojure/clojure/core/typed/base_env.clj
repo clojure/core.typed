@@ -1842,8 +1842,11 @@ clojure.core/rand (Fn [-> Number]
 
 clojure.core/rand-int [Int -> Int]
 
-clojure.core/ex-info (Fn [String (Map Any Any) -> clojure.lang.ExceptionInfo]
-                         [String (Map Any Any) (U nil Throwable) -> clojure.lang.ExceptionInfo])
+clojure.core/ex-info (Fn [(U nil String) (Map Any Any) -> clojure.lang.ExceptionInfo]
+                         [(U nil String) (Map Any Any) (U nil Throwable) -> clojure.lang.ExceptionInfo])
+
+clojure.core/ex-data (Fn [clojure.lang.ExceptionInfo -> (Map Any Any)]
+                         [Any -> (U nil (Map Any Any))])
 
 
 ;; START CHUNK HACKS
