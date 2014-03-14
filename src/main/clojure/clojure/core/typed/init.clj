@@ -1,12 +1,18 @@
 (ns clojure.core.typed.init
   (:require [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.profiling :as p]))
+            [clojure.core.typed.profiling :as p]
+            [clojure.java.io :as io]))
 
 (defonce ^:private attempted-loading? (atom false))
 (defonce ^:private successfully-loaded? (atom false))
 
+(defonce ^:private cljs-present? (atom false))
+
 (defn loaded? []
   @successfully-loaded?)
+
+(defn cljs? []
+  @cljs-present?)
 
 (defn load-impl []
   (cond 
@@ -67,16 +73,32 @@
                  '[clojure.core.typed.tvar-env]
                  '[clojure.core.typed.tvar-bnds]
                  '[clojure.core.typed.rclass-ancestor-env]
-                 '[clojure.reflect]
-                 ;cljs
-                 '[clojure.core.typed.collect-cljs]
-                 '[clojure.core.typed.check-cljs]
-                 '[clojure.core.typed.jsnominal-env]
-                 '[clojure.core.typed.base-env-cljs]
-                 '[clojure.core.typed.base-env-helper-cljs])
+                 '[clojure.reflect])
+        (when (io/resource "cljs/analyzer.clj")
+          (do
+            (println "Found ClojureScript, loading ...")
+            (flush)
+            (require
+              '[cljs.analyzer]
+              '[clojure.core.typed.collect-cljs]
+              '[clojure.core.typed.check-cljs]
+              '[clojure.core.typed.jsnominal-env]
+              '[clojure.core.typed.base-env-cljs]
+              '[clojure.core.typed.base-env-helper-cljs])
+            (reset! cljs-present? true)
+            (println "Finished loading ClojureScript")
+            (flush)))
         (catch Exception e
           (reset! successfully-loaded? false)
           (throw e)))
       (reset! successfully-loaded? true)
-      (@(ns-resolve (find-ns 'clojure.core.typed.reset-env) 'reset-envs!))
+      (println "Building core.typed base environments ...")
+      (flush)
+      (impl/with-clojure-impl
+        ((impl/v 'clojure.core.typed.reset-env/reset-envs!)))
+      (when (cljs?)
+        (impl/with-cljs-impl
+          ((impl/v 'clojure.core.typed.reset-env/reset-envs!))))
+      (println "Finished building base environments")
+      (flush)
       nil)))

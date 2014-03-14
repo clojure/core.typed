@@ -11,6 +11,7 @@
          '[clojure.repl :refer [pst]]
          '[clojure.pprint :refer [pprint]]
          '[clojure.data :refer [diff]]
+         '[clojure.core.typed.unsafe]
          '[clojure.core.typed.init]
          '[clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error?]]
          '[clojure.core.typed.current-impl :as impl]
@@ -49,6 +50,10 @@
 (defn both-subtype? [s t]
   (and (subtype? s t)
        (subtype? t s)))
+
+(defmacro both-sub? [s t]
+  `(both-subtype? (parse-type '~s)
+                  (parse-type '~t)))
 
 (defn check [& as]
   (impl/with-clojure-impl
@@ -2451,9 +2456,6 @@
             (Assoc '{} ':b Number)
             (Assoc '{} ':a Number ':b Number))))
 
-;(deftest Get-test
-;  (is-cf 1 (Get '{:a Number} ':a)))
-
 ;(clj
 ;  (parse-filter 
 ;    '(&
@@ -3007,6 +3009,35 @@
                (unparse-type
                  (parse-type
                    '(All [a b ...])))))))
+
+(deftest ignore-unsafe-cast-test
+  (is-cf (clojure.core.typed.unsafe/ignore-with-unchecked-cast
+           (fn [] (+ 'a 1))
+           String)
+         String))
+
+(deftest Get-test
+  ;resolve
+  (is-clj (= (fully-resolve-type (parse-clj '(Get '{:a Number} ':a)))
+             (fully-resolve-type (parse-clj 'Number))))
+  (is-clj (both-sub? Number
+                     (Get '{:a Number} ':a)))
+  (is-cf 1 (Get '{:a Number} ':a))
+  (is-cf (fn [a] (inc a)) 
+         (Get '{:a [Number -> Number]} ':a))
+  (is-cf (fn [a] (deref a))
+         [(Get '{:a (clojure.core.typed/Atom1 Number)} ':a)
+          -> Number])
+  )
+
+(deftest apply-hmap-test
+  (is-cf (apply hash-map [:a 1 :b 2])
+         (HMap :mandatory {:a Number
+                           :b Number}
+               :complete? true)))
+
+(deftest HVec-parse-ast-test
+  (is (clojure.core.typed.parse-ast/parse-clj '(HVec [Number]))))
 
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)

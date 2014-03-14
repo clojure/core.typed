@@ -6,7 +6,6 @@
             [clojure.repl :as repl]
             [clojure.core.contracts]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
-            [clojure.core.typed.util-cljs :as util-cljs]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.profiling :as profiling]
@@ -267,7 +266,9 @@
 (defn emit-form-fn [expr]
   (impl/impl-case
     :clojure (emit-form/emit-form expr)
-    :cljs (util-cljs/emit-form expr)))
+    :cljs (do
+            (require '[clojure.core.typed.util-cljs])
+            ((impl/v 'clojure.core.typed.util-cljs/emit-form) expr))))
 
 (defn constant-expr [expr]
   {:pre [(#{:quote} (:op expr))

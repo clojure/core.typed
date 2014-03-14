@@ -105,6 +105,7 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 * Andrew Brehaut (brehaut)
 * Christopher Spencer (cspencer)
 * Reid McKenzie (arrdem)
+* Di Xu (xudifsd)
 
 ## Sponsors
 

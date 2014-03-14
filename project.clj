@@ -1,9 +1,9 @@
-(defproject org.clojure/core.typed "0.2.26-SNAPSHOT"
+(defproject org.clojure/core.typed "0.2.35-SNAPSHOT"
   :description "Gradual typing for Clojure"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :dependencies [[org.clojure/jvm.tools.analyzer "0.6.0"
+  :dependencies [[org.clojure/jvm.tools.analyzer "0.6.1"
                   :exclusions [org.clojure/clojure
                                org.clojure/clojurescript]]
                  [org.clojure/tools.analyzer.jvm "0.1.0-beta8"]
@@ -12,7 +12,7 @@
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.0.2"
                   :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojurescript "0.0-2138"]
+                 [org.clojure/clojurescript "0.0-2173"]
                  [org.clojure/tools.trace "0.7.5"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/clojure "1.5.1"]
@@ -20,7 +20,9 @@
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha"]
-                 [org.clojure/core.cache "0.6.3"]
+                 [org.clojure/core.cache "0.6.3"
+                  :exclusions [org.clojure/data.priority-map]]
+                 [org.clojure/data.priority-map "0.0.4"]
                  ; CLJS fireplace REPL
                  [com.cemerick/piggieback "0.1.2"]
                  ]

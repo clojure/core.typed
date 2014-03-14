@@ -164,7 +164,9 @@
                    _ (assert (symbol? nsym) (str "Bug! " (:op expr) " expr has no associated namespace"
                                                  nsym))]
                (ns-name nsym))
-    :cljs (-> expr :env :ns :name)))
+    :cljs (or (-> expr :env :ns :name)
+              (do (prn "WARNING: No associated ns for ClojureScript expr, defaulting to cljs.user")
+                  'cljs.user))))
 
 (def expr-type ::expr-type)
 
@@ -1337,8 +1339,7 @@
                                (u/var->symbol var)))))
 (u/add-defmethod-generator invoke-special)
 
-;FIXME this should dispatch on the first arg
-(defmulti invoke-apply (fn [{fexpr :fn :keys [op] :as expr} & args]
+(defmulti invoke-apply (fn [{[fexpr] :args :keys [op] :as expr} & args]
                          {:pre [(#{:invoke} op)]
                           :post [((some-fn nil? symbol?) %)]}
                          (when (#{:var} (:op fexpr))
@@ -1721,7 +1722,7 @@
       (c/keyword-value? kwt)
       (let [{{path-hm :path id-hm :id :as o} :o} target-ret
             this-pelem (pe/->KeyPE (:val kwt))
-            val-type (find-val-type targett kwt defaultt)]
+            val-type (c/find-val-type targett kwt defaultt)]
         (when expected-ret
           (when-not (sub/subtype? val-type (ret-t expected-ret))
             (expected-error val-type (ret-t expected-ret))))
@@ -2083,8 +2084,8 @@
     (assoc expr
            expr-type t)))
 
-;unsafe form annotation
-(add-invoke-special-method 'clojure.core.typed/unsafe-ann-form*
+;unchecked casting
+(add-invoke-special-method 'clojure.core.typed.unsafe/ignore-with-unchecked-cast*
   [{[frm quote-expr] :args, :keys [env], :as expr} & [expected]]
   (let [tsyn (quote-expr-val quote-expr)
         parsed-ty (binding [vs/*current-env* env
@@ -2231,23 +2232,23 @@
 (add-invoke-apply-method 'clojure.core/hash-map
   [{[_ & args] :args :as expr} & [expected]]
   (let [cargs (mapv check args)]
-    #_(prn "apply special (hash-map): "
-           (map (comp prs/unparse-type ret-t expr-type) cargs))
+    ;(prn "apply special (hash-map): ")
     (cond
       (and (#{1} (count cargs))
            (r/KwArgsSeq? (expr-type (last cargs))))
       (assoc expr
              expr-type (ret (c/KwArgsSeq->HMap (-> (expr-type (last cargs)) ret-t))))
 
-      (and ((some-fn r/HeterogeneousVector? r/HeterogeneousList? r/HeterogeneousSeq?) 
-            (expr-type (last cargs)))
+      (and (seq cargs)
+           ((some-fn r/HeterogeneousVector? r/HeterogeneousList? r/HeterogeneousSeq?) 
+            (ret-t (expr-type (last cargs))))
            ;; every key must be a Value
-           (every? r/Value? (keys (apply hash-map (concat (map expr-type (butlast cargs))
-                                                        (mapcat vector (:types (expr-type (last cargs)))))))))
+           (every? r/Value? (keys (apply hash-map (concat (map (comp ret-t expr-type) (butlast cargs))
+                                                          (mapcat vector (:types (ret-t (expr-type (last cargs))))))))))
       (assoc expr
              expr-type (ret (c/-complete-hmap
-                              (apply hash-map (concat (map expr-type (butlast cargs))
-                                                      (mapcat vector (:types (expr-type (last cargs)))))))))
+                              (apply hash-map (concat (map (comp ret-t expr-type) (butlast cargs))
+                                                      (mapcat vector (:types (ret-t (expr-type (last cargs))))))))))
       :else ::not-special)))
 
 (defn invoke-nth [{:keys [args] :as expr} expected & {:keys [cargs]}]
@@ -3603,7 +3604,7 @@
                                 (when c
                                   (str (u/Class->symbol c) "/"))
                                 method-name 
-                                ".\n\nHint: add type hints."
+                                ".\n\nHint: add type hints http://clojure.org/java_interop#Java%20Interop-Type%20Hints"
                                 "\n\nin: " (u/emit-form-fn expr))))
           _ (when inst?
               (let [ctarget (or ctarget (check (:instance expr)))
@@ -3824,7 +3825,7 @@
                             (u/int-error (str "Unresolved constructor invocation " 
                                               (when cls
                                                 (u/Class->symbol cls))
-                                              ".\n\nHint: add type hints."
+                                              ".\n\nHint: add type hints http://clojure.org/java_interop#Java%20Interop-Type%20Hints"
                                               "\n\nin: " (u/emit-form-fn expr))))
                         ctor-fn (if inst-types
                                   (inst/manual-inst ctor-fn inst-types)

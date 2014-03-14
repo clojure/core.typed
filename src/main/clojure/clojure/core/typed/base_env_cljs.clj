@@ -3,8 +3,10 @@
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.bootstrap-cljs :as boot]
+            [cljs.env :as env]
             [clojure.set :as set]))
 
+(env/ensure
 (delay-and-cache-env ^:private init-protocol-env 
   (h/protocol-mappings
     
@@ -314,18 +316,20 @@ cljs.core/Atom [[[w :variance :contravariant]
 cljs.core/Symbol [[]]
 cljs.core/Keyword [[]]
     ))
+)
 
 (defn reset-cljs-envs! []
-  (impl/with-cljs-impl
-    (reset-alias-env!)
-    ((impl/v 'clojure.core.typed.var-env/reset-var-type-env!)
-     (init-var-env) (init-var-nochecks))
-    ((impl/v 'clojure.core.typed.var-env/reset-jsvar-type-env!)
-     (init-jsvar-env))
-    (reset-protocol-env!)
-    ((impl/v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
-     (init-declared-kinds))
-    (reset-jsnominal-env!)
-    ((impl/v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
-     (init-datatype-env)))
+  (env/ensure
+    (impl/with-cljs-impl
+      (reset-alias-env!)
+      ((impl/v 'clojure.core.typed.var-env/reset-var-type-env!)
+       (init-var-env) (init-var-nochecks))
+      ((impl/v 'clojure.core.typed.var-env/reset-jsvar-type-env!)
+       (init-jsvar-env))
+      (reset-protocol-env!)
+      ((impl/v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
+       (init-declared-kinds))
+      (reset-jsnominal-env!)
+      ((impl/v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
+       (init-datatype-env))))
   nil)

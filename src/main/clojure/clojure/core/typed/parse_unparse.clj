@@ -5,7 +5,6 @@
             [clojure.core.typed.path-rep :as pthrep]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
-            [clojure.core.typed.util-cljs :as ucljs]
             [clojure.core.typed.dvar-env :as dvar]
             [clojure.core.typed.filter-rep :as f]
             [clojure.core.typed.filter-ops :as fl]
@@ -567,7 +566,9 @@
   (or *parse-type-in-ns* 
       (impl/impl-case
         :clojure (ns-name *ns*)
-        :cljs (ucljs/cljs-ns))))
+        :cljs (do
+                (require '[clojure.core.typed.util-cljs])
+                ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))))
 
 (defn- resolve-type-clj 
   "Returns a var, class or nil"
@@ -585,7 +586,8 @@
   {:pre [(symbol? sym)]}
   (impl/assert-cljs)
   (let [nsym (parse-in-ns)]
-    (ucljs/resolve-var nsym sym)))
+    (require '[clojure.core.typed.util-cljs])
+    ((impl/v 'clojure.core.typed.util-cljs/resolve-var) nsym sym)))
 
 (defn parse-RClass [cls-sym params-syn]
   (impl/assert-clojure)
@@ -602,7 +604,10 @@
                       ", expected 2: " all)))
   (impl/impl-case
     :clojure (const/constant-type syn)
-    :cljs (assert nil "FIXME CLJS parse Value")))
+    :cljs (cond
+            ((some-fn symbol? keyword?) syn)
+              (r/-val syn)
+            :else (assert nil "FIXME CLJS parse Value"))))
 
 (defmethod parse-type-list 'KeywordArgs
   [[_KeywordArgs_ & {:keys [optional mandatory]}]]
@@ -1002,7 +1007,7 @@
 
 (defmethod unparse-type* DottedPretype
   [{:keys [pre-type name]}]
-  (list 'DottedPretype (unparse-type pre-type) name))
+  (list 'DottedPretype (unparse-type pre-type) (-> name r/make-F r/F-original-name)))
 
 (defmethod unparse-type* CountRange [{:keys [lower upper]}]
   (cond

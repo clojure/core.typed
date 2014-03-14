@@ -1,5 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.mm-env
   (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.parse-unparse :as prs]))
 
@@ -26,6 +27,7 @@
   [mmsym dtype]
   {:pre [(symbol? mmsym)
          (r/Type? dtype)]}
+  (impl/assert-clojure)
   (when-let [old (@MULTIMETHOD-DISPATCH-ENV mmsym)]
     (assert (= old dtype)
             (str "Inconsistent dispatch type inferred for multimethod: " mmsym
@@ -38,11 +40,13 @@
   [mmsym]
   {:pre [(symbol? mmsym)]
    :post [((some-fn nil? r/Type?) %)]}
+  (impl/assert-clojure)
   (@MULTIMETHOD-DISPATCH-ENV mmsym))
 
 (defn get-multimethod-dispatch-type [mmsym]
   {:pre [(symbol? mmsym)]
    :post [(r/Type? %)]}
+  (impl/assert-clojure)
   (let [t (@MULTIMETHOD-DISPATCH-ENV mmsym)]
     (assert t (str "Multimethod requires dispatch type: " mmsym))
     t))
