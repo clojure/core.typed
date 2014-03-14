@@ -1,3 +1,11 @@
+# 0.2.38-SNAPSHOT
+
+## Enhancements
+
+- [CTYP-121](http://dev.clojure.org/jira/browse/CTYP-121)
+  - add `clojure.core/ex-data` annotation
+  - `clojure.core/ex-info` is nilable
+
 # 0.2.37 - Released 14 March 2014
 
 Thanks to Di Xu who contributed patches for this release.
