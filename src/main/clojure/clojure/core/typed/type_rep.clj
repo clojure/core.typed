@@ -748,7 +748,7 @@
 (declare ret TCResult?)
 
 (u/ann-record TCResult [t :- Type
-                        fl :- p/IFilterSet?
+                        fl :- p/IFilterSet
                         o :- p/IRObject
                         flow :- FlowSet])
 
