@@ -3057,3 +3057,10 @@
         (cf (fn [] (cast String "a" 1)))))
   (is (u/top-level-error-thrown?
         (cf (fn [] (cast #('ok) 2))))))
+
+(deftest optional-record-keys-test
+  (is (check-ns 'clojure.core.typed.test.record-optional-key))
+  (is (u/top-level-error-thrown?
+        (check-ns 'clojure.core.typed.test.fail.record-no-nil)))
+  (is (u/top-level-error-thrown?
+        (check-ns 'clojure.core.typed.test.fail.record-poly-no-optional))))

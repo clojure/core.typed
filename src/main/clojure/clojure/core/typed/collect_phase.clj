@@ -247,8 +247,17 @@
                        (r/make-FnIntersection
                          (r/make-Function (vec (vals fs)) (c/DataType-of s))))
             map-ctor (when record?
-                       (let [hmap-arg (c/-partial-hmap (zipmap (map (comp r/-val keyword) (keys fs))
-                                                               (vals fs)))]
+                       (let [hmap-arg (if args
+                                        (c/-partial-hmap (zipmap (map (comp r/-val keyword) (keys fs))
+                                                                 (vals fs)))
+                                        ; allow omission of keys if nil is allowed
+                                        (let [tmap (zipmap (map (comp r/-val keyword) (keys fs))
+                                                           (vals fs))
+                                              {optional true mandatory false} (group-by 
+                                                                                (fn [[_ t]] (sub/subtype? r/-nil t))
+                                                                                tmap)]
+                                          (c/make-HMap :optional (into {} optional)
+                                                       :mandatory (into {} mandatory))))]
                          (if args
                            (c/Poly* args bnds
                                     (r/make-FnIntersection
