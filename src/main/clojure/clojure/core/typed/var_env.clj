@@ -131,8 +131,8 @@
    :post [(r/Type? %)]}
   (if-let [t (type-of-nofail sym)]
     t
-    (throw (Exception. (str (when vs/*current-env*
-                              (str (:line vs/*current-env*) ": "))
-                            "Reference to untyped binding: " sym
-                            "\nHint: Add the annotation for " sym
-                            " via check-ns or cf")))))
+    (u/int-error (str (when vs/*current-env*
+                        (str (:line vs/*current-env*) ": "))
+                      "Reference to untyped binding: " sym
+                      "\nHint: Add the annotation for " sym
+                      " via check-ns or cf"))))
