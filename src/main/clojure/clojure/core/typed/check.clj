@@ -3737,9 +3737,11 @@
           rest-arg (when rest
                      (last args))
           rest-arg-type (when rest-arg
-                          [(impl/impl-case
-                             :clojure (c/RClass-of Seqable [rest])
-                             :cljs (c/Protocol-of 'cljs.core/ISeqable [rest]))])
+                          (impl/impl-case
+                             :clojure (c/Un r/-nil (c/In (c/RClass-of clojure.lang.ISeq [rest])
+                                                         (r/make-CountRange 1)))
+                             :cljs (c/Un r/-nil (c/In (c/Protocol-of 'cljs.core/ISeq [rest])
+                                                      (r/make-CountRange 1)))))
           cargs (mapv check args (map ret 
                                       (concat dom 
                                               (when rest-arg-type

@@ -3064,3 +3064,10 @@
         (check-ns 'clojure.core.typed.test.fail.record-no-nil)))
   (is (u/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.record-poly-no-optional))))
+
+(deftest recur-rest-args-test
+  (is (check-ns 'clojure.core.typed.test.recur-rest-arg))
+  (is (u/top-level-error-thrown?
+        (check-ns 'clojure.core.typed.test.fail.recur-non-seq-rest)))
+  (is (u/top-level-error-thrown?
+        (check-ns 'clojure.core.typed.test.fail.recur-empty-seq))))
