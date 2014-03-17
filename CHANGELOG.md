@@ -1,4 +1,4 @@
-# 0.2.38-SNAPSHOT
+# 0.2.38 - Released 17 Mach 2014
 
 ## Enhancements
 
@@ -7,6 +7,11 @@
   - `clojure.core/ex-info` is nilable
 - fields can be omitted to a record's `map->Foo` constructor
   if the field is nilable and does not contain type variables
+- Better error for untyped var reference
+
+## Fixes
+
+- fix typo in cs-gen related to HMap's with optional keys
 
 # 0.2.37 - Released 14 March 2014
 
