@@ -1,10 +1,10 @@
 (ns clojure.core.typed.test.poly-record
   (:require [clojure.core.typed :as t]))
 
-;; TODO
-
 (t/ann-record [[foo :variance :invariant]] Foo [b :- (U nil Number)])
+(t/tc-ignore
 (defrecord Foo [b])
+  )
 
 (comment
 (defmacro defrecord> 

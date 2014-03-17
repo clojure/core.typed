@@ -3062,8 +3062,7 @@
   (is (check-ns 'clojure.core.typed.test.record-optional-key))
   (is (u/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.record-no-nil)))
-  (is (u/top-level-error-thrown?
-        (check-ns 'clojure.core.typed.test.fail.record-poly-no-optional))))
+  (is (check-ns 'clojure.core.typed.test.record-poly-map-ctor)))
 
 (deftest recur-rest-args-test
   (is (check-ns 'clojure.core.typed.test.recur-rest-arg))
@@ -3074,3 +3073,13 @@
 
 (deftest poly-record-test
   (is (check-ns 'clojure.core.typed.test.poly-record)))
+
+(deftest polymorphic-hmap-test
+  (is-cf (clojure.core.typed/letfn>
+           [f :- (All [m]
+                      [(HMap 
+                         :mandatory {:m m}
+                         :optional {:o Number}) 
+                       -> Any])
+            (f [a])]
+           (f {:m 1 :o 2}))))
