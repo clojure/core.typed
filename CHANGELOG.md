@@ -5,7 +5,8 @@
 - [CTYP-121](http://dev.clojure.org/jira/browse/CTYP-121)
   - add `clojure.core/ex-data` annotation
   - `clojure.core/ex-info` is nilable
-- A non-polymorphic record's nilable fields can be omitted to map->* constructor
+- fields can be omitted to a record's `map->Foo` constructor
+  if the field is nilable and does not contain type variables
 
 # 0.2.37 - Released 14 March 2014
 
