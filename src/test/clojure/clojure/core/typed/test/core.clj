@@ -3071,3 +3071,6 @@
         (check-ns 'clojure.core.typed.test.fail.recur-non-seq-rest)))
   (is (u/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.recur-empty-seq))))
+
+(deftest poly-record-test
+  (is (check-ns 'clojure.core.typed.test.poly-record)))

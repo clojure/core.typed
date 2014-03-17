@@ -15,6 +15,7 @@
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.frees :as frees]
             [clojure.core.typed.datatype-ancestor-env :as ancest]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.datatype-env :as dt-env]
@@ -247,17 +248,15 @@
                        (r/make-FnIntersection
                          (r/make-Function (vec (vals fs)) (c/DataType-of s))))
             map-ctor (when record?
-                       (let [hmap-arg (if args
-                                        (c/-partial-hmap (zipmap (map (comp r/-val keyword) (keys fs))
-                                                                 (vals fs)))
-                                        ; allow omission of keys if nil is allowed
-                                        (let [tmap (zipmap (map (comp r/-val keyword) (keys fs))
-                                                           (vals fs))
-                                              {optional true mandatory false} (group-by 
-                                                                                (fn [[_ t]] (sub/subtype? r/-nil t))
-                                                                                tmap)]
-                                          (c/make-HMap :optional (into {} optional)
-                                                       :mandatory (into {} mandatory))))]
+                       (let [hmap-arg ; allow omission of keys if nil is allowed and field is monomorphic
+                             (let [{optional true mandatory false} 
+                                   (group-by (fn [[_ t]] (and (empty? (frees/fv t))
+                                                              (empty? (frees/fi t))
+                                                              (sub/subtype? r/-nil t)))
+                                             (zipmap (map (comp r/-val keyword) (keys fs))
+                                                     (vals fs)))]
+                               (c/make-HMap :optional (into {} optional)
+                                            :mandatory (into {} mandatory)))]
                          (if args
                            (c/Poly* args bnds
                                     (r/make-FnIntersection
@@ -296,9 +295,9 @@
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-record*
   [{:keys [args env] :as expr}]
-  (assert-expr-args expr #{3})
-  (let [[dname fields opt] (constant-exprs args)]
-    (gen-datatype* env (chk/expr-ns expr) dname fields nil opt true)))
+  (assert-expr-args expr #{4})
+  (let [[binder dname fields opt] (constant-exprs args)]
+    (gen-datatype* env (chk/expr-ns expr) dname fields binder opt true)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/warn-on-unannotated-vars*
   [{:as expr}]

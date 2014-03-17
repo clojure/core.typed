@@ -1169,13 +1169,10 @@ clojure.core.typed/Promise
   [debug-str]
   nil)
 
-(declare ann-collect-eval)
-
 (defn ^:skip-wiki
   ann* 
   "Internal use only. Use ann."
   [varsym typesyn check?]
-  (ann-collect-eval varsym typesyn check?)
   nil)
 
 (defmacro ann 
@@ -1220,12 +1217,11 @@ clojure.core.typed/Promise
   [t & vs]
   `(do ~@(map #(list `ann % t) vs)))
 
-(declare ann-datatype-collect-eval)
-
 (defonce ^:dynamic 
-  ^{:doc 
-  "If a true value, global annotations are collected by the
-  type checker when their respective forms are evaluated (eg. ann)."}
+  ^{:deprecated true
+    :doc 
+    "If a true value, global annotations are collected by the
+    type checker when their respective forms are evaluated (eg. ann)."}
   *collect-on-eval* 
   false)
 
@@ -1233,9 +1229,6 @@ clojure.core.typed/Promise
   ann-datatype*
   "Internal use only. Use ann-datatype."
   [vbnd dname fields opts]
-  ; ensure that ann-datatype-collect-eval isn't called during the bootstrap
-  (when *collect-on-eval*
-    (ann-datatype-collect-eval vbnd dname fields opts))
   nil)
 
 (defmacro
@@ -1319,15 +1312,10 @@ clojure.core.typed/Promise
           (str "Must provide local symbol: " dname))
   `(ann-pdatatype* '~dname '~vbnd '~fields '~opt))
 
-(declare ann-record-collect-eval)
-
 (defn ^:skip-wiki
   ann-record* 
   "Internal use only. Use ann-record"
-  [dname fields opt]
-  ; ensure that ann-record-collect-eval isn't called during the bootstrap
-  (when *collect-on-eval*
-    (ann-record-collect-eval dname fields opt))
+  [vbnd dname fields opt]
   nil)
 
 (defmacro 
@@ -1391,10 +1379,8 @@ clojure.core.typed/Promise
               :name qname
               :fields fields
               :bnd vbnd}))
-    (if bnd-provided?
-      ;reuse ann-precord for now
-      `(ann-precord ~dname ~vbnd ~fields ~@opt)
-      `(ann-record* '~dname '~fields '~opt))))
+    `(ann-record* '~vbnd '~dname '~fields '~opt)))
+
 
 (defn ^:skip-wiki
   ann-precord* 
@@ -1406,6 +1392,8 @@ clojure.core.typed/Promise
   "Annotate record Class name dname with a polymorphic binder and expected fields.
   If unqualified, qualify in the current namespace."
   [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
+  (println "WARNING: ann-precord is deprecated, use ann-record")
+  (flush)
   `(ann-precord* '~dname '~vbnd '~fields '~opt))
 
 (defn ^:skip-wiki
@@ -1977,39 +1965,6 @@ clojure.core.typed/Promise
      (println (str "Found " nannotated-vars " annotated vars out of " nall-vars " vars"))
      (println (str perc "% var annotation coverage"))
      (flush))))
-
-
-(defn ^:private ^:skip-wiki collect-eval-form [frm]
-  (load-if-needed)
-  (when *collect-on-eval*
-    (impl/with-clojure-impl
-      (binding [*collect-on-eval* false]
-        ((impl/v 'clojure.core.typed.collect-phase/collect-form)
-         frm)))))
-
-(defn ^:skip-wiki ^:private 
-  ann-collect-eval [qsym typesyn check?]
-  (when-not *compile-files*
-    (when *collect-on-eval*
-      (load-if-needed)
-      (collect-eval-form 
-        `(ann* '~qsym '~typesyn '~check?)))))
-
-(defn ^:skip-wiki ^:private 
-  ann-record-collect-eval [dname fields opt]
-  (when-not *compile-files*
-    (when *collect-on-eval*
-      (load-if-needed)
-      (collect-eval-form
-        `(ann-record* '~dname '~fields '~opt)))))
-
-(defn ^:skip-wiki ^:private 
-  ann-datatype-collect-eval [vbnd dname fields opts]
-  (when-not *compile-files*
-    (when *collect-on-eval*
-      (load-if-needed)
-      (collect-eval-form
-        `(ann-datatype* '~vbnd '~dname '~fields '~opts)))))
 
 (defn pred* [tsyn pred]
   pred)

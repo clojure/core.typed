@@ -5,3 +5,8 @@
 (defrecord Foo [a])
 
 (map->Foo {})
+
+(t/ann-record FooP [a :- (U nil Number)])
+(defrecord FooP [a])
+
+(map->FooP {})
