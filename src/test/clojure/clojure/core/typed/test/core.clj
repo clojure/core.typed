@@ -3104,3 +3104,10 @@
 
 (deftest pred-scoping-test
   (is (check-ns 'clojure.core.typed.test.pred-scoping)))
+
+(deftest annotate-user-defined-ploydot
+  (is-cf (fn [x & y] x) (All [x y ...] [x y ... y -> x]))
+  (is-cf (fn [& y] (if (empty? y) nil (first y))) (All [x y ...] [x y ... y -> Any]))
+  ; FIXME replace Any above with (U x nil) when implemented HSequential and fixed code for *check-fn-method1-rest-type*
+  (is (u/top-level-error-thrown?
+        (cf (fn [x c & y] x) (All [x y ...] [x y ... y -> x])))))

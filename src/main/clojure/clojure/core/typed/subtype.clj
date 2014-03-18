@@ -727,6 +727,23 @@
              (r/NumberCLJS? t))
         *sub-current-seen*
 
+        (and (r/PolyDots? s)
+             (r/PolyDots? t)
+             (= (:nbound s) (:nbound t)))
+        (let [;instantiate both sides with the same fresh variables
+              names (repeatedly (:nbound s) gensym)
+              bbnds1 (c/PolyDots-bbnds* names s)
+              bbnds2 (c/PolyDots-bbnds* names t)
+              b1 (c/PolyDots-body* names s)
+              b2 (c/PolyDots-body* names t)]
+          (if (and (= bbnds1 bbnds2)
+                   (free-ops/with-bounded-frees (zipmap (map r/F-maker names) bbnds1)
+                     (subtype? b1 b2)))
+            *sub-current-seen*
+            (fail! s t)))
+
+        ; TODO if s is (All [r x ...] [x ... x -> r]) and t is (All [r x] [x * -> r]) then we should say yes?
+
         :else (fail! s t)))))
 
 (def base-type

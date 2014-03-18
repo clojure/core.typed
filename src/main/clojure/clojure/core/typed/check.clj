@@ -2670,7 +2670,7 @@
    (every? Type? (map second args))
    ((some-fn nil? (u/hvector-c? symbol? r/KwArgs?)) kws)
    ((some-fn nil? (u/hvector-c? symbol? Type?)) rest)
-   (nil? drest)
+   ((some-fn nil? (u/hvector-c? symbol? r/DottedPretype?)) drest)
    (TCResult? body)])
 
 (defn- KwArgs-minimum-args [^KwArgs kws]
@@ -2691,15 +2691,14 @@
   [required-params rest-param fin]
   {:pre [(r/FnIntersection? fin)]
    :post [(every? r/Function? %)]}
-  (assert (not (some :drest (:types fin))))
   (let [nreq (count required-params)]
     ;(prn "nreq" nreq)
     ;(prn "rest-param" rest-param)
-    (filter (fn [{:keys [dom rest kws]}]
+    (filter (fn [{:keys [dom rest drest kws]}]
               (let [ndom (count dom)]
                 (if rest-param 
                   (or ; required parameters can flow into the rest type
-                      (when rest
+                      (when (or rest drest)
                         (<= nreq ndom))
                       ; kw functions must have exact fixed domain match
                       (when kws
@@ -2722,21 +2721,23 @@
   (binding [vs/*current-env* env
             vs/*current-expr* expr
             *check-fn-method1-checkfn* check
-            *check-fn-method1-rest-type* (fn [rest drest kws]
-                                           {:pre [(or (Type? rest)
-                                                      (r/DottedPretype? drest)
-                                                      (r/KwArgs? kws))
-                                                  (#{1} (count (filter identity [rest drest kws])))]
-                                            :post [(Type? %)]}
-                                           ;(prn "rest" rest)
-                                           ;(prn "drest" drest)
-                                           ;(prn "kws" kws)
-                                           (cond
-                                             (or rest drest)
-                                             (c/Un r/-nil 
-                                                   (r/TApp-maker (r/Name-maker 'clojure.core.typed/NonEmptySeq)
-                                                                 [(or rest (.pre-type ^DottedPretype drest))]))
-                                             :else (c/KwArgs->Type kws)))]
+            *check-fn-method1-rest-type*
+              (fn [remain-dom rest drest kws]
+                {:pre [(or (Type? rest)
+                           (r/DottedPretype? drest)
+                           (r/KwArgs? kws))
+                       (#{1} (count (filter identity [rest drest kws])))
+                       (every? r/Type? remain-dom)]
+                 :post [(Type? %)]}
+                (cond
+                  (or rest drest)
+                  (c/Un
+                    r/-nil
+                    (r/TApp-maker (r/Name-maker 'clojure.core.typed/NonEmptySeq)
+                                  [(apply c/Un (or rest (.pre-type ^DottedPretype drest)) remain-dom)]))
+                  ;FIXME fix code above when we've supported HSequential as discussed in CTYP-126
+
+                  :else (c/KwArgs->Type kws)))]
     (let [type (check-fn expr (let [default-ret (ret (r/make-FnIntersection
                                                        (r/make-Function [] r/-any r/-any)))]
                                 (cond (and expected (not= r/-any (ret-t expected))) expected
@@ -3121,7 +3122,7 @@
         ; eg. Checking against this function type:
         ;      [Any Any
         ;       -> (HVec [(U nil Class) (U nil Class)]
-        ;                :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]))
+        ;                :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]
         ;     means we need to instantiate the HVec type to the actual argument
         ;     names with open-Result.
         ;
@@ -3172,7 +3173,7 @@
         _ (assert check-fn-method1-rest-type "No check-fn bound for rest type")
         rest-entry (when rest-param
                      [[(param-name rest-param)
-                       (check-fn-method1-rest-type rest drest kws)]])
+                       (check-fn-method1-rest-type (drop (count required-params) dom) rest drest kws)]])
         ;_ (prn "rest entry" rest-entry)
         _ (assert ((u/hash-c? symbol? Type?) (into {} fixed-entry))
                   (into {} fixed-entry))
@@ -3727,7 +3728,7 @@
   "A target for recur"
   [(every? Type? dom)
    ((some-fn nil? Type?) rest)
-   (nil? drest) ;TODO
+   ((some-fn nil? r/DottedPretype?) drest)
    (nil? kws)]) ;TODO
 
 (defmacro set-validator-doc! [var val-fn]
