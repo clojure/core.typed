@@ -3083,3 +3083,6 @@
                        -> Any])
             (f [a])]
            (f {:m 1 :o 2}))))
+
+(deftest ctyp97-tvar-scoping-test
+  (is (check-ns 'clojure.core.typed.test.ctyp97-tvar-scoping)))
