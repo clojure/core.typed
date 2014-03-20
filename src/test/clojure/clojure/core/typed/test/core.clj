@@ -3033,6 +3033,12 @@
 (deftest HVec-parse-ast-test
   (is (clojure.core.typed.parse-ast/parse-clj '(HVec [Number]))))
 
+(deftest hetergeoneous-parse-ast-test
+  (is (clojure.core.typed.parse-ast/parse-clj '(List* Number)))
+  (is (clojure.core.typed.parse-ast/parse-clj '(Seq* Number)))
+  (is (clojure.core.typed.parse-ast/parse-clj '(Vector* Number)))
+  )
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))

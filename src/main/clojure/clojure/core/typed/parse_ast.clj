@@ -197,6 +197,18 @@
       (when rest
         {:rest rest}))))
 
+(defn parse-quoted-hseq [syn]
+  (let [types (mapv parse syn)]
+    {:op :HSeq
+     :types types
+     :children [:types]}))
+
+(defn parse-quoted-hlist [syn]
+  (let [types (mapv parse syn)]
+    {:op :HList
+     :types types
+     :children [:types]}))
+
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]
   (when mandatory
     (when-not (map? mandatory)
@@ -535,6 +547,8 @@
     ('#{Fn} f) (parse-Fn syn)
     ('#{HMap} f) (parse-HMap syn)
     ('#{Vector*} f) (parse-quoted-hvec (vec (rest syn)))
+    ('#{Seq*} f) (parse-quoted-hseq (rest syn))
+    ('#{List*} f) (parse-quoted-hlist (rest syn))
     ('#{HVec} f) (parse-HVec syn)
     :else {:op :TApp
            :rator (parse f)
