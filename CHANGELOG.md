@@ -1,4 +1,8 @@
-# 0.2.38 - Released 17 Mach 2014
+# 0.2.39 - Released 21 March 2014
+
+- Add `Seq*` and `List*` cases to runtime type parsing
+
+# 0.2.38 - Released 17 March 2014
 
 ## Enhancements
 
