@@ -3989,7 +3989,7 @@
                              (prs/parse-type (:form type-syn-expr)))]))))]
     (if-not inits-expected
       (u/tc-delayed-error (str "letfn requires annotation, see: "
-                               (impl/impl-case :clojure 'clojure :cljs 'cljs) ".core.letfn>")
+                               (impl/impl-case :clojure 'clojure :cljs 'cljs) ".core.typed/letfn>")
                           :return (assoc letfn-expr
                                          expr-type (error-ret expected)))
 
