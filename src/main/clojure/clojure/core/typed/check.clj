@@ -1019,6 +1019,20 @@
                    (c/Un)
                    (:types fexpr-type)))
 
+      ; try the first thing that looks like a Fn.
+      ; FIXME This should probably try and invoke every Fn it can
+      ; find, need to figure out how to clean up properly
+      ; after a failed invocation.
+      (r/Intersection? fexpr-type)
+      (let [a-fntype (first (filter
+                              (fn [t]
+                                (or (r/FnIntersection? t)
+                                    (r/Poly? t)))
+                              (map c/fully-resolve-type (:types fexpr-type))))]
+        (if a-fntype
+          (check-funapp fexpr args (ret a-fntype) arg-ret-types expected)
+          (u/int-error (str "Cannot invoke type: " fexpr-type))))
+
       (ifn-ancestor fexpr-type)
       (check-funapp fexpr args (ret (ifn-ancestor fexpr-type)) arg-ret-types expected)
 

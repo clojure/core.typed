@@ -3095,3 +3095,6 @@
 
 (deftest get-bounded-tvar-test
   (is (check-ns 'clojure.core.typed.test.get-bounded-tvar)))
+
+(deftest promise-test
+  (is (check-ns 'clojure.core.typed.test.promise)))
