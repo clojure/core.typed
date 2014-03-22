@@ -262,6 +262,8 @@
 
 (t/ann ^:no-check Un [r/Type * -> r/Type])
 (defn Un [& types]
+  {:pre [(every? r/Type? types)]
+   :post [(r/Type? %)]}
   ;(prn "Un" (map @(unparse-type-var) types))
   (if-let [hit (p :Union-cache-lookup (get @Un-cache (p :Union-calc-hash (set (map r/type-id types)))))]
     (do (p :Un-cache-hit)
