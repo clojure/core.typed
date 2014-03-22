@@ -2443,6 +2443,10 @@
     (cond
       ; propagate the error
       (r/TCError? t) t
+      (r/F? t) (let [bnd (free-ops/free-with-name-bnds (:name t))
+                     _ (when-not bnd
+                         (u/int-error (str "No bounds for type variable: " name bnds/*current-tvar-bnds*)))]
+                 (find-val-type (:upper-bound bnd) k default))
       (r/Nil? t) (or default r/-nil)
       (r/AssocType? t) (let [t* (apply assoc-pairs-noret (:target t) (:entries t))]
                          (cond

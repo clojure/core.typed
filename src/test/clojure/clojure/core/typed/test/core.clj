@@ -3092,3 +3092,6 @@
 
 (deftest ctyp97-tvar-scoping-test
   (is (check-ns 'clojure.core.typed.test.ctyp97-tvar-scoping)))
+
+(deftest get-bounded-tvar-test
+  (is (check-ns 'clojure.core.typed.test.get-bounded-tvar)))
