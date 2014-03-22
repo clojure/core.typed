@@ -3,8 +3,7 @@
 
 ; all map->* keys are mandatory in polymorphic records
 
-(t/ann-precord Foo [[foo :variance :invariant]] [b :- (U nil Number)])
-; FIXME ann-precord needs to be migrated to ann-record
+(t/ann-record [[foo :variance :invariant]] Foo [b :- (U nil Number)])
 (t/tc-ignore
 (defrecord Foo [b])
   )
