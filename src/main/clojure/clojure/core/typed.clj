@@ -1272,7 +1272,8 @@ clojure.core.typed/Promise
       (ann-datatype [[a :variance :covariant]]
                     MyPolyDatatype
                     [str :- String,
-                     vec :- (Vec Number)])"
+                     vec :- (Vec Number)
+                     ply :- (Set a)])"
   [& args]
   ;[dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
   (let [bnd-provided? (vector? (first args))
@@ -1357,9 +1358,10 @@ clojure.core.typed/Promise
 
       ; a record, polymorphic in a
       (ann-record [[a :variance :covariant]]
-                    MyPolyRecord
-                    [str :- String,
-                     vec :- (Vec Number)])"
+                  MyPolyRecord
+                  [str :- String,
+                   vec :- (Vec Number)
+                   ply :- (Set a)])"
   [& args]
   ;[dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   (let [bnd-provided? (vector? (first args))
