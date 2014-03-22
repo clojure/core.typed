@@ -4926,8 +4926,9 @@
           cthe-expr (check (:the-expr expr))
           etype (expr-type cthe-expr)
           ctests (mapv check (:tests expr))
+          tst-rets (map expr-type ctests)
           cthens-and-envs (doall
-                            (for [[tst-ret thn] (map vector (map expr-type ctests) (:thens expr))]
+                            (for [[tst-ret thn] (map vector tst-rets (:thens expr))]
                               (let [{{fs+ :then} :fl :as rslt} (tc-equiv := etype tst-ret)
                                     flag+ (atom true)
                                     env-thn (env+ lex/*lexical-env* [fs+] flag+)
@@ -4936,8 +4937,16 @@
                                 [(assoc thn
                                         expr-type (expr-type then-ret))
                                  env-thn])))
-          ;TODO consider tests that failed to refine env
-          cdefault (check (:default expr) expected)
+          cdefault (let [flag+ (atom true)
+                         neg-tst-fl (if (every? r/Value? (map (comp c/fully-resolve-type ret-t) tst-rets))
+                                      (fo/-not-filter-at (apply c/Un (map ret-t tst-rets))
+                                                         (ret-o etype))
+                                      fl/-top)
+                         _ (prn "neg-tst-fl" neg-tst-fl)
+                         env-default (env+ lex/*lexical-env* [neg-tst-fl] flag+)]
+                     (prn "env-default" env-default)
+                     (var-env/with-lexical-env env-default
+                       (check (:default expr) expected)))
           case-result (let [type (apply c/Un (map (comp :t expr-type) (cons cdefault (map first cthens-and-envs))))
                             ; TODO
                             filter (fo/-FS fl/-top fl/-top)
