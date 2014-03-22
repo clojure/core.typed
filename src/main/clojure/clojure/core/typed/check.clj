@@ -1034,7 +1034,7 @@
            (isa? (u/symbol->Class (.the-class ^RClass fexpr-type)) IPersistentSet))
       (do
         (when-not (#{1} (count args))
-          (u/tc-delayed-error "Wrong number of arguments to set function (" (count args)")"))
+          (u/tc-delayed-error (str "Wrong number of arguments to set function (" (count args)")")))
         (ret r/-any))
 
       ;FIXME same as IPersistentSet case
