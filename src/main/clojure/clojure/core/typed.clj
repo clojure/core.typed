@@ -1774,7 +1774,7 @@ for checking namespaces, cf for checking individual forms."}
      (println (str perc "% var annotation coverage"))
      (flush))))
 
-(defn pred* [tsyn pred]
+(defn pred* [tsyn nsym pred]
   pred)
 
 (defmacro pred 
@@ -1788,6 +1788,7 @@ for checking namespaces, cf for checking individual forms."}
   [t]
   (require '[clojure.core.typed.type-contract])
   `(pred* '~t
+          '~(ns-name *ns*)
           ~((impl/v 'clojure.core.typed.type-contract/type-syntax->pred) t)))
 
 (comment 

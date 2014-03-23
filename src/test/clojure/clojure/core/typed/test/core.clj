@@ -3101,3 +3101,6 @@
 
 (deftest promise-test
   (is (check-ns 'clojure.core.typed.test.promise)))
+
+(deftest pred-scoping-test
+  (is (check-ns 'clojure.core.typed.test.pred-scoping)))
