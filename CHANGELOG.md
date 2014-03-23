@@ -1,3 +1,33 @@
+# 0.2.40 - Released 24 March 2014
+
+## Fixes
+
+- Fix `pred` bug where types did not resolve in the current namespace
+
+## Enhancements
+
+- c.c.t/Promise alias is now invokable 
+- Add type aliases
+  - Delay
+  - Deref
+  - BlockingDeref
+  - List
+  - ExInfo
+  - Proxy
+  - Stack
+  - Reversible
+  - Multi
+- Partial fix to CTYP-124
+  - we now propagate negative information related to a `case` expression's 
+    target expression in the default branch. However the `case` macro aliases
+    the target expression with a fresh local, so core.typed isn't smart enough
+    actually use this information. Need equality/aliasing filters.
+- Various error message & documentation improvements
+
+## Internal
+
+- Base type aliases are now in c.c.t/current-impl
+
 # 0.2.39 - Released 21 March 2014
 
 - Add `Seq*` and `List*` cases to runtime type parsing
