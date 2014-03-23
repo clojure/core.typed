@@ -78,13 +78,25 @@ namespace.
       <a class="toc-entry-anchor" href="#clojure.core.typed/Atom2">Atom2</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/BlockingDeref">BlockingDeref</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/Coll">Coll</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Delay">Delay</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Deref">Deref</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/EmptyCount">EmptyCount</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/EmptySeqable">EmptySeqable</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/ExInfo">ExInfo</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/Future">Future</a>
@@ -102,7 +114,13 @@ namespace.
       <a class="toc-entry-anchor" href="#clojure.core.typed/Keyword">Keyword</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/List">List</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/Map">Map</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Multi">Multi</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/Namespace">Namespace</a>
@@ -141,10 +159,16 @@ namespace.
       <a class="toc-entry-anchor" href="#clojure.core.typed/Promise">Promise</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Proxy">Proxy</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/Ref1">Ref1</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/Ref2">Ref2</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Reversible">Reversible</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/Seq">Seq</a>
@@ -157,6 +181,9 @@ namespace.
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/SortedSet">SortedSet</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Stack">Stack</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/Symbol">Symbol</a>
@@ -364,7 +391,7 @@ namespace.
 type checker when their respective forms are evaluated (eg. ann).</pre>
     
     <span class="var-deprecated"><span id="content">Deprecated since Gradual Typing version true</span><br /></span>
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1220" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1026" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -380,7 +407,7 @@ eg.
 ;=&gt; &lt;full form in error&gt;</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1670" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1478" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -397,7 +424,7 @@ eg.
 ;=&gt; java.lang.Number</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1657" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1465" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -470,6 +497,19 @@ eg.
   </div><div id="var-entry">
     <br />
     <hr />
+    <h2 id="clojure.core.typed/BlockingDeref">BlockingDeref</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: (BlockingDeref t)
+</pre>
+    <pre id="var-docstr">A Clojure blocking derefable (see clojure.core/deref).
+
+(TFn [[x :variance :covariant]] (clojure.lang.IBlockingDeref x))</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
     <h2 id="clojure.core.typed/Coll">Coll</h2>
     <span id="var-type">type alias</span><br />
     <pre id="var-usage">Usage: (Coll t)
@@ -477,6 +517,32 @@ eg.
     <pre id="var-docstr">A persistent collection with member type x.
 
 (TFn [[x :variance :covariant]] (clojure.lang.IPersistentCollection x))</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Delay">Delay</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: (Delay t)
+</pre>
+    <pre id="var-docstr">A Clojure delay (see clojure.core/{delay,force}).
+
+(TFn [[x :variance :covariant]] (clojure.lang.Delay x))</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Deref">Deref</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: (Deref t)
+</pre>
+    <pre id="var-docstr">A Clojure derefable (see clojure.core/deref).
+
+(TFn [[x :variance :covariant]] (clojure.lang.IDeref x))</pre>
     
     
     
@@ -513,9 +579,22 @@ with count 0.
   </div><div id="var-entry">
     <br />
     <hr />
+    <h2 id="clojure.core.typed/ExInfo">ExInfo</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: ExInfo
+</pre>
+    <pre id="var-docstr">A Clojure custom exception type.
+
+(I clojure.lang.IExceptionInfo RuntimeException)</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
     <h2 id="clojure.core.typed/Future">Future</h2>
     <span id="var-type">type alias</span><br />
-    <pre id="var-usage">Usage: (Future x)
+    <pre id="var-usage">Usage: (Future t)
 </pre>
     <pre id="var-docstr">A Clojure future (see clojure.core/{future-call,future}).
 
@@ -586,6 +665,19 @@ clojure.lang.Keyword</pre>
   </div><div id="var-entry">
     <br />
     <hr />
+    <h2 id="clojure.core.typed/List">List</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: (List t)
+</pre>
+    <pre id="var-docstr">A Clojure persistent list.
+
+(TFn [[x :variance :covariant]] (clojure.lang.IPersistentList x))</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
     <h2 id="clojure.core.typed/Map">Map</h2>
     <span id="var-type">type alias</span><br />
     <pre id="var-usage">Usage: (Map t t)
@@ -595,6 +687,19 @@ clojure.lang.Keyword</pre>
 (TFn
  [[k :variance :covariant] [v :variance :covariant]]
  (clojure.lang.IPersistentMap k v))</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Multi">Multi</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: Multi
+</pre>
+    <pre id="var-docstr">A Clojure multimethod.
+
+clojure.lang.MultiFn</pre>
     
     
     
@@ -760,19 +865,33 @@ Number</pre>
     <hr />
     <h2 id="clojure.core.typed/Promise">Promise</h2>
     <span id="var-type">type alias</span><br />
-    <pre id="var-usage">Usage: (Promise x)
+    <pre id="var-usage">Usage: (Promise t)
 </pre>
     <pre id="var-docstr">A Clojure promise (see clojure.core/{promise,deliver}).
 
 (TFn
- [[x :variance :covariant]]
+ [[x :variance :invariant]]
  (Rec
   [p]
   (I
    (Extends
     [(clojure.lang.IDeref x)
      (clojure.lang.IBlockingDeref x)
-     clojure.lang.IPending]))))</pre>
+     clojure.lang.IPending])
+   [x -&gt; (U nil p)])))</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Proxy">Proxy</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: Proxy
+</pre>
+    <pre id="var-docstr">A Clojure proxy.
+
+clojure.lang.IProxy</pre>
     
     
     
@@ -801,6 +920,19 @@ Number</pre>
 (TFn
  [[w :variance :contravariant] [r :variance :covariant]]
  (clojure.lang.Ref w r))</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Reversible">Reversible</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: (Reversible t)
+</pre>
+    <pre id="var-docstr">A Clojure reversible collection.
+
+(TFn [[x :variance :covariant]] (clojure.lang.Reversible x))</pre>
     
     
     
@@ -855,6 +987,19 @@ Number</pre>
 (TFn
  [[x :variance :covariant]]
  (Extends [(clojure.lang.IPersistentSet x) clojure.lang.Sorted]))</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Stack">Stack</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: (Stack t)
+</pre>
+    <pre id="var-docstr">A Clojure stack.
+
+(TFn [[x :variance :covariant]] (clojure.lang.IPersistentStack x))</pre>
     
     
     
@@ -937,7 +1082,7 @@ eg. ; annotate the var foo in this namespace
     (ann ^:no-check foobar [Integer -&gt; String])</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1178" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L984" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -983,10 +1128,11 @@ eg. ; a datatype in the current namespace
     (ann-datatype [[a :variance :covariant]]
                   MyPolyDatatype
                   [str :- String,
-                   vec :- (Vec Number)])</pre>
+                   vec :- (Vec Number)
+                   ply :- (Set a)])</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1234" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1040" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -997,7 +1143,7 @@ eg. ; a datatype in the current namespace
     <pre id="var-docstr">Annotate a form with an expected type.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1083" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L889" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1011,7 +1157,7 @@ eg. (ann-many FakeSearch
               web1 web2 image1 image2 video1 video2)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1212" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1018" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1023,7 +1169,7 @@ eg. (ann-many FakeSearch
 If unqualified, qualify in the current namespace.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1391" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1199" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1056,7 +1202,7 @@ eg. (ann-protocol IFoo
       (baz [this]))</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1405" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1213" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1100,12 +1246,13 @@ eg. ; a record in the current namespace
 
     ; a record, polymorphic in a
     (ann-record [[a :variance :covariant]]
-                  MyPolyRecord
-                  [str :- String,
-                   vec :- (Vec Number)])</pre>
+                MyPolyRecord
+                [str :- String,
+                 vec :- (Vec Number)
+                 ply :- (Set a)])</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1321" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1128" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1121,7 +1268,7 @@ eg. (atom&gt; Number 1)
     (atom&gt; (Vec Any) [])</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1522" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1330" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1151,7 +1298,7 @@ eg. (cf 1)
     ;=&gt; [Number -&gt; Number]</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1592" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1400" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1166,7 +1313,7 @@ type checks the form. If expected is provided, type-provided?
 must be true.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1572" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1380" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1187,7 +1334,7 @@ Options
                    added as a dependency.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1728" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1536" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1233,7 +1380,7 @@ eg. (check-ns 'myns.typed)
     (check-ns *ns* :collect-only true)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1853" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1661" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1248,7 +1395,7 @@ Same as check-ns, but returns a map of results from type checking the
 namespace.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1766" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1574" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1259,7 +1406,7 @@ namespace.</pre>
     <pre id="var-docstr">Declare a kind for an alias, similar to declare but on the kind level.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L719" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L690" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1270,7 +1417,7 @@ namespace.</pre>
     <pre id="var-docstr">Declare datatypes, similar to declare but on the type level.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L697" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L668" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1281,7 +1428,7 @@ namespace.</pre>
     <pre id="var-docstr">Declare names, similar to declare but on the type level.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L732" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L703" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1292,7 +1439,7 @@ namespace.</pre>
     <pre id="var-docstr">Declare protocols, similar to declare but on the type level.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L708" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L679" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1311,7 +1458,7 @@ eg. (def-alias MyAlias
       (U nil String))</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L743" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L714" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1330,7 +1477,7 @@ eg. (def&gt; vname :- Long 1)
   1)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L574" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L545" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1356,7 +1503,7 @@ eg. (defn&gt; fname :- Integer [a :- Number, b :- (U Symbol nil)] ...)
   (:- Long   [a :- String, b :- Number] ...))</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L546" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L517" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1373,7 +1520,7 @@ eg.
    (inc a))</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L300" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L271" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1387,7 +1534,7 @@ eg. (dotimes&gt; [_ 100]
       (println "like normal"))</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L158" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L129" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1416,7 +1563,7 @@ eg. (fn&gt; [a :- Number, b :- (U Symbol nil)] ...)
       (:- Long   [a :- String, b :- Number] ...))</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L502" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L473" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1433,7 +1580,7 @@ eg. (for&gt; :- Number
       (inc a))</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L175" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L146" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1446,7 +1593,7 @@ eg. (for&gt; :- Number
 eg. (inst foo-fn t1 t2 t3 ...)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L123" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L94" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1462,7 +1609,7 @@ eg. (inst-ctor (PolyCtor. a b c)
                t1 t2 ...)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L130" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L101" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1481,7 +1628,7 @@ into-array-syn is exactly the syntax to put as the first argument to into-array.
 Calling resolve on this syntax should give the correct class.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1113" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L919" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1499,7 +1646,7 @@ eg. (letfn&gt; [a :- [Number -&gt; Number]
       ...)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L598" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L569" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1510,7 +1657,7 @@ eg. (letfn&gt; [a :- [Number -&gt; Number]
     <pre id="var-docstr">Load and initialize all of core.typed if not already</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1697" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1505" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1528,7 +1675,7 @@ eg. (loop&gt; [a :- Number, 1
       ...)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L651" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L622" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1540,7 +1687,7 @@ eg. (loop&gt; [a :- Number, 1
 Intended for use at the REPL.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L76" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L47" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1557,7 +1704,7 @@ positions (integers). If the map contains the key :all then this overrides
 other entries. The key can also be :all, which declares all parameters nilable.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1152" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L958" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1574,7 +1721,7 @@ eg. ; must use full class name
     (non-nil-return java.lang.Class/getDeclaredMethod :all)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1135" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L941" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1585,7 +1732,7 @@ eg. ; must use full class name
     <pre id="var-docstr">Override all constructors for Class ctorsym with type.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1475" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1283" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1596,7 +1743,7 @@ eg. ; must use full class name
     <pre id="var-docstr">Override type for qualified method methodsym.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1486" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1294" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1609,7 +1756,7 @@ eg. ; must use full class name
 (pfn&gt; name? [binder+] (:- type? [[param :- type]* &amp; [param :- type *]?] exprs*)+)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L486" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L457" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1626,7 +1773,7 @@ eg. ((pred Number) 1)
     ;=&gt; true</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1972" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1780" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1638,7 +1785,7 @@ eg. ((pred Number) 1)
 preceeded by literal string debug-str.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1166" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L972" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1654,7 +1801,7 @@ eg. (let [s (seq (get-a-seqable))]
       (print-filterset "Here now" s))</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L101" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L72" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1670,7 +1817,7 @@ eg. (ref&gt; Number 1)
     (ref&gt; (Vec Any) [])</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1532" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1340" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1681,7 +1828,7 @@ eg. (ref&gt; Number 1)
     <pre id="var-docstr">Reset internal type caches.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1715" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1523" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1693,7 +1840,7 @@ eg. (ref&gt; Number 1)
 symbols to a map of data</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1909" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1717" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1704,7 +1851,7 @@ symbols to a map of data</pre>
     <pre id="var-docstr">Ignore forms in body during type checking</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L782" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L753" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1719,7 +1866,7 @@ eg. (typed-deps clojure.core.typed.holes
                 myns.types)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1497" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1305" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1733,7 +1880,7 @@ for namespaces nsyms, a collection of symbols or a symbol/namespace.
 Defaults to the current namespace if no argument provided.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1936" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1744" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1747,7 +1894,7 @@ the type checker. sym must be fully qualified (without aliases).
 eg. (var&gt; clojure.core/+)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1546" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1354" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1763,7 +1910,7 @@ a def without a corresponding expected type.
 eg. (warn-on-unannotated-vars)</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L1560" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L1368" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -1774,7 +1921,7 @@ eg. (warn-on-unannotated-vars)</pre>
     <pre id="var-docstr">Like when-let, but fails if the binding yields a false value.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/f3cc20c8ccfb0d712f94fb24a5f987652b6328da/src/main/clojure/clojure/core/typed.clj#L495" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/200a0d151c88346fd962d771fcd6deb8488c9740/src/main/clojure/clojure/core/typed.clj#L466" id="var-source">Source</a>
   </div>
 </div>
 <br />
