@@ -3487,7 +3487,7 @@
                                 (when c
                                   (str (u/Class->symbol c) "/"))
                                 method-name 
-                                ".\n\nHint: add type hints http://clojure.org/java_interop#Java%20Interop-Type%20Hints"
+                                ".\n\nHint: use *warn-on-reflection* to identify reflective calls"
                                 "\n\nin: " (u/emit-form-fn expr))))
           _ (when inst?
               (let [ctarget (or ctarget (check (:target expr)))
