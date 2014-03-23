@@ -1,10 +1,10 @@
 (ns clojure.core.typed.base-env
   (:import (clojure.lang Keyword Named IMapEntry AMapEntry Seqable
                          LazySeq PersistentHashSet PersistentTreeSet PersistentList APersistentVector
-                         APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
-                         APersistentMap IDeref IBlockingDeref ISeq ASeq IPersistentCollection
+                         APersistentSet IPersistentSet IPersistentMap IPersistentVector
+                         APersistentMap IDeref ISeq ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
-                         IPersistentList IRef ARef Delay Reversible
+                         IPersistentList IRef ARef Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
                          ITransientVector PersistentHashMap Reduced)
            (java.util Comparator Collection))
@@ -313,7 +313,7 @@ Keyword [[]
                     [Any -> Any]))}]
 
 IDeref [[[r :variance :covariant]]]
-IBlockingDeref [[[r :variance :covariant]]]
+clojure.lang.IBlockingDeref [[[r :variance :covariant]]]
 
 
 IRef [[[w :variance :contravariant]
@@ -344,9 +344,9 @@ clojure.lang.Agent
         }]
 
 
-Delay [[[r :variance :covariant]]
-       :replace
-       {IDeref (IDeref r)}]
+clojure.lang.Delay [[[r :variance :covariant]]
+                    :replace
+                    {IDeref (IDeref r)}]
 
 ;invoking Var as IFn is a special case in the checker
 clojure.lang.Var 
@@ -460,7 +460,8 @@ clojure.java.io/IOFactory
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
                 Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
-                Symbol Namespace Atom2 Ref2]]
+                Symbol Namespace Atom2 Ref2 Delay Proxy List Stack ExInfo
+                Multi Deref BlockingDeref]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -470,7 +471,7 @@ clojure.java.io/IOFactory
   (impl/with-clojure-impl
     (r/make-FnIntersection
       (r/make-Function 
-        [(c/Un r/-nil (c/RClass-of Seqable [r/-any]) (c/RClass-of clojure.lang.Counted))]
+        [(prs/parse-type '(U nil (clojure.core.typed/Seqable Any) clojure.core.typed/Counted))]
         (prs/parse-type '(U java.lang.Integer java.lang.Long))
         nil nil
         :object (obj/->Path [(pe/->CountPE)] 0)))))
@@ -772,11 +773,11 @@ clojure.core/list* (All [x]
                             [x x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
                             [x x x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]))
 
-clojure.core/list? (predicate (clojure.lang.IPersistentList Any))
+clojure.core/list? (predicate (List Any))
 
 clojure.core/load-reader [java.io.Reader -> Any]
 
-clojure.core/methods [clojure.lang.MultiFn -> (Map Any Any)]
+clojure.core/methods [Multi -> (Map Any Any)]
 
 clojure.core/munge (Fn [Symbol -> Symbol]
                        [Any -> Any])
@@ -810,7 +811,7 @@ clojure.core/make-hierarchy [-> Hierarchy]
 clojure.core/isa? (Fn [Any Any -> Boolean]
                       [Hierarchy Any Any -> Boolean])
 
-;TODO make extensible via IPersisentSet
+;TODO make extensible via IPersistentSet
 clojure.core/disj
      (All [x]
           (Fn [(SortedSet x) Any Any * -> (SortedSet x)]
@@ -883,7 +884,7 @@ clojure.core/*print-level* (U nil false AnyInteger)
 clojure.core/*verbose-defrecords* Boolean
 clojure.core/print-ctor [Object [Object java.io.Writer -> Any] java.io.Writer -> nil]
 
-clojure.core/prefer-method [clojure.lang.MultiFn Any Any -> Any]
+clojure.core/prefer-method [Multi Any Any -> Any]
 clojure.core/print-simple [Any java.io.Writer -> nil]
 clojure.core/char-escape-string (Map Character String)
 clojure.core/char-name-string (Map Character String)
@@ -907,7 +908,7 @@ clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String])
 
 ;TODO
-;clojure.core/spit [java.io.Writer Any
+;clojure.core/spit [java.io.Writer Any]
 
 clojure.core/future-call (All [x] [[-> x] -> (Future x)])
 
@@ -918,10 +919,10 @@ clojure.core/set-validator! (All [x]
                                  [(clojure.lang.IRef Any x) [x -> Any] -> nil])
 
 clojure.core/deref (All [x y]
-                     (Fn [(IDeref x) -> x]
-                         [(U (IDeref Any) java.util.concurrent.Future) -> Any]
-                         [(IBlockingDeref x) AnyInteger y -> (U x y)]
-                         [(U java.util.concurrent.Future (IBlockingDeref Any)) AnyInteger Any -> Any]))
+                     (Fn [(Deref x) -> x]
+                         [(U (Deref Any) java.util.concurrent.Future) -> Any]
+                         [(BlockingDeref x) AnyInteger y -> (U x y)]
+                         [(U java.util.concurrent.Future (BlockingDeref Any)) AnyInteger Any -> Any]))
 
 clojure.core/delay? (predicate (Delay Any))
 
@@ -976,10 +977,10 @@ clojure.core/method-sig [java.lang.reflect.Method -> '[Any (U nil (NonEmptySeqab
 clojure.core/proxy-name [Class (U nil (Seqable Class)) -> String]
 clojure.core/get-proxy-class [Class * -> Class]
 clojure.core/construct-proxy [Class Any * -> Any]
-clojure.core/init-proxy [clojure.lang.IProxy (Map String Any) -> clojure.lang.IProxy]
-clojure.core/update-proxy [clojure.lang.IProxy (Map String Any) -> clojure.lang.IProxy]
-clojure.core/proxy-mappings [clojure.lang.IProxy -> (Map String Any)]
-clojure.core/proxy-call-with-super (All [x] [[-> x] clojure.lang.IProxy String -> x])
+clojure.core/init-proxy [Proxy (Map String Any) -> Proxy]
+clojure.core/update-proxy [Proxy (Map String Any) -> Proxy]
+clojure.core/proxy-mappings [Proxy -> (Map String Any)]
+clojure.core/proxy-call-with-super (All [x] [[-> x] Proxy String -> x])
 clojure.core/bean [Object -> (Map Any Any)]
 
 clojure.core/fnil (All [x y z a b ...]
@@ -1023,6 +1024,9 @@ clojure.core/cast (All [x] [Class x -> x])
 
 clojure.core/associative? (predicate (clojure.lang.Associative Any Any))
 clojure.core/coll? (predicate (Coll Any))
+      ;TODO should these be parameterised?
+;clojure.core/sequential? (predicate Sequential)
+;clojure.core/sorted? (predicate Sorted)
 clojure.core/meta [Any -> (U nil (Map Any Any))]
 clojure.core/with-meta (All [[x :< clojure.lang.IObj]]
                             [x (U nil (Map Any Any)) -> x])
@@ -1477,13 +1481,13 @@ clojure.core/even? [AnyInteger -> boolean]
 clojure.core/odd? [AnyInteger -> boolean]
 
 clojure.core/peek (All [x]
-                       (Fn [(I NonEmptyCount (IPersistentStack x)) -> x]
-                           [(IPersistentStack x) -> x]))
+                       (Fn [(I NonEmptyCount (Stack x)) -> x]
+                           [(Stack x) -> x]))
 clojure.core/pop (All [x]
                       (Fn
-                        [(IPersistentList x) -> (IPersistentList x)]
+                        [(List x) -> (List x)]
                         [(Vec x) -> (Vec x)]
-                        [(IPersistentStack x) -> (IPersistentStack x)]))
+                        [(Stack x) -> (Stack x)]))
 
 clojure.core/get-thread-bindings
     [-> (Map (Var2 Nothing Any) Any)]
@@ -1592,7 +1596,7 @@ clojure.core/reverse
 
 clojure.core/rseq
      (All [x]
-       [(Reversible x) -> (Option (NonEmptySeq x))])
+       [(clojure.core.typed/Reversible x) -> (Option (NonEmptySeq x))])
 
 ;coercions
 ;TODO maybe these argument type shouldn't be Any
@@ -1661,10 +1665,10 @@ clojure.core/rand (Fn [-> Number]
 
 clojure.core/rand-int [Int -> Int]
 
-clojure.core/ex-info (Fn [(U nil String) (Map Any Any) -> clojure.lang.ExceptionInfo]
-                         [(U nil String) (Map Any Any) (U nil Throwable) -> clojure.lang.ExceptionInfo])
+clojure.core/ex-info (Fn [(U nil String) (Map Any Any) -> ExInfo]
+                         [(U nil String) (Map Any Any) (U nil Throwable) -> ExInfo])
 
-clojure.core/ex-data (Fn [clojure.lang.ExceptionInfo -> (Map Any Any)]
+clojure.core/ex-data (Fn [ExInfo -> (Map Any Any)]
                          [Any -> (U nil (Map Any Any))])
 
 
@@ -2053,7 +2057,7 @@ clojure.lang.Util/compare [Any Any -> Number]
 clojure.lang.LazySeq (All [x]
                           [[-> (Option (Seqable x))] -> (LazySeq x)])
 clojure.lang.Delay (All [x]
-                        [[-> x] -> (Delay x)])
+                        [[-> x] -> (clojure.lang.Delay x)])
     ))
 
 (delay-and-cache-env ^:private init-declared-kinds {})
