@@ -331,7 +331,7 @@ clojure.core.typed/Hierarchy '{:parents (clojure.lang.IPersistentMap Any Any)
                                :descendants (clojure.lang.IPersistentMap Any Any)}
 
     ^{:doc "A Clojure future (see clojure.core/{future-call,future})."
-      :forms [(Future x)]}
+      :forms [(Future t)]}
 clojure.core.typed/Future 
                       (TFn [[x :variance :covariant]]
                        (Extends [(clojure.lang.IDeref x)
@@ -340,7 +340,7 @@ clojure.core.typed/Future
                                  java.util.concurrent.Future]))
 
     ^{:doc "A Clojure promise (see clojure.core/{promise,deliver})."
-      :forms [(Promise x)]}
+      :forms [(Promise t)]}
 clojure.core.typed/Promise 
               (TFn [[x :variance :invariant]]
                (Rec [p]
@@ -348,6 +348,71 @@ clojure.core.typed/Promise
                              (clojure.lang.IBlockingDeref x)
                              clojure.lang.IPending])
                    [x -> (U nil p)])))
+
+    ^{:doc "A Clojure delay (see clojure.core/{delay,force})."
+      :forms [(Delay t)]}
+clojure.core.typed/Delay
+              (TFn [[x :variance :covariant]]
+                   (clojure.lang.Delay x))
+
+    ^{:doc "A Clojure derefable (see clojure.core/deref)."
+      :forms [(Deref t)]}
+clojure.core.typed/Deref
+              (TFn [[x :variance :covariant]]
+                   (clojure.lang.IDeref x))
+
+    ^{:doc "A Clojure blocking derefable (see clojure.core/deref)."
+      :forms [(BlockingDeref t)]}
+clojure.core.typed/BlockingDeref
+              (TFn [[x :variance :covariant]]
+                   (clojure.lang.IBlockingDeref x))
+
+    ^{:doc "A Clojure persistent list."
+      :forms [(List t)]}
+clojure.core.typed/List
+              (TFn [[x :variance :covariant]]
+                   (clojure.lang.IPersistentList x))
+
+    ^{:doc "A Clojure custom exception type."
+      :forms [ExInfo]}
+clojure.core.typed/ExInfo
+              clojure.lang.IExceptionInfo
+
+    ^{:doc "A Clojure proxy."
+      :forms [Proxy]}
+clojure.core.typed/Proxy
+              clojure.lang.IProxy
+
+; Should c.l.Sorted be parameterised? Is it immutable?
+;    ^{:doc "A sorted Clojure collection."
+;      :forms [Sorted]}
+;clojure.core.typed/Sorted
+;              clojure.lang.Sorted
+
+    ^{:doc "A Clojure stack."
+      :forms [(Stack t)]}
+clojure.core.typed/Stack
+              (TFn [[x :variance :covariant]]
+                   (clojure.lang.IPersistentStack x))
+
+    ^{:doc "A Clojure reversible collection."
+      :forms [(Reversible t)]}
+clojure.core.typed/Reversible
+              (TFn [[x :variance :covariant]]
+                   (clojure.lang.Reversible x))
+
+; TODO should this be parameterised?
+;    ^{:doc "A Clojure sequential collection."
+;      :forms [(Sequential t)]}
+;clojure.core.typed/Sequential
+;             clojure.lang.Sequential
+
+
+    ^{:doc "A Clojure multimethod."
+      :forms [Multi]}
+clojure.core.typed/Multi
+              clojure.lang.MultiFn
 ])
 
 (assert (even? (count init-aliases)))
+(assert (apply distinct? (map first (partition 2 init-aliases))))
