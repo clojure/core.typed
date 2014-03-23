@@ -1,23 +1,23 @@
-# 0.2.40 - Released 24 March 2014
+# 0.2.40 - SNAPSHOT
 
 ## Fixes
 
-- Fix `pred` bug where types did not resolve in the current namespace
+- Fix [pred](http://clojure.github.io/core.typed/#clojure.core.typed/pred) bug where types did not resolve in the current namespace
 
 ## Enhancements
 
-- c.c.t/Promise alias is now invokable 
+- [Promise](http://clojure.github.io/core.typed/#clojure.core.typed/Promise) alias is now invokable 
 - Add type aliases
-  - Delay
-  - Deref
-  - BlockingDeref
-  - List
-  - ExInfo
-  - Proxy
-  - Stack
-  - Reversible
-  - Multi
-- Partial fix to CTYP-124
+  - [Delay](http://clojure.github.io/core.typed/#clojure.core.typed/Delay) (fixes [CTYP-125](http://dev.clojure.org/jira/browse/CTYP-125))
+  - [Deref](http://clojure.github.io/core.typed/#clojure.core.typed/Deref)
+  - [BlockingDeref](http://clojure.github.io/core.typed/#clojure.core.typed/BlockingDeref)
+  - [List](http://clojure.github.io/core.typed/#clojure.core.typed/List)
+  - [ExInfo](http://clojure.github.io/core.typed/#clojure.core.typed/ExInfo)
+  - [Proxy](http://clojure.github.io/core.typed/#clojure.core.typed/Proxy)
+  - [Stack](http://clojure.github.io/core.typed/#clojure.core.typed/Stack)
+  - [Reversible](http://clojure.github.io/core.typed/#clojure.core.typed/Reversible)
+  - [Multi](http://clojure.github.io/core.typed/#clojure.core.typed/Multi)
+- Partial fix to [CTYP-124](http://dev.clojure.org/jira/browse/CTYP-124)
   - we now propagate negative information related to a `case` expression's 
     target expression in the default branch. However the `case` macro aliases
     the target expression with a fresh local, so core.typed isn't smart enough
@@ -26,7 +26,7 @@
 
 ## Internal
 
-- Base type aliases are now in c.c.t/current-impl
+- Base type aliases are now in `c.c.t/current-impl`
 
 # 0.2.39 - Released 21 March 2014
 
