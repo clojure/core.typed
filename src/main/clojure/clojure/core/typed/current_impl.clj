@@ -376,7 +376,8 @@ clojure.core.typed/List
     ^{:doc "A Clojure custom exception type."
       :forms [ExInfo]}
 clojure.core.typed/ExInfo
-              clojure.lang.IExceptionInfo
+              (I clojure.lang.IExceptionInfo
+                 RuntimeException)
 
     ^{:doc "A Clojure proxy."
       :forms [Proxy]}
