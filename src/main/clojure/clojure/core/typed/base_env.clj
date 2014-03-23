@@ -471,7 +471,7 @@ clojure.java.io/IOFactory
   (impl/with-clojure-impl
     (r/make-FnIntersection
       (r/make-Function 
-        [(prs/parse-type '(U nil (clojure.core.typed/Seqable Any) clojure.core.typed/Counted))]
+        [(prs/parse-type '(U nil (clojure.core.typed/Seqable Any) clojure.lang.Counted))]
         (prs/parse-type '(U java.lang.Integer java.lang.Long))
         nil nil
         :object (obj/->Path [(pe/->CountPE)] 0)))))
