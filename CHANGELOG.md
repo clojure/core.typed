@@ -1,4 +1,4 @@
-# 0.2.40 - SNAPSHOT
+# 0.2.40 - 24 March 2014
 
 ## Fixes
 
