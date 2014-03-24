@@ -23,6 +23,8 @@
     the target expression with a fresh local, so core.typed isn't smart enough
     actually use this information. Need equality/aliasing filters.
 - Various error message & documentation improvements
+- Fix [CTYP-127](http://dev.clojure.org/jira/browse/CTYP-127)
+  - support keyword lookups on bounded type variables
 
 ## Internal
 
