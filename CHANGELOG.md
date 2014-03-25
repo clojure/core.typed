@@ -1,3 +1,12 @@
+# 0.2.41 - SNAPSHOT
+
+Thanks to Di Xu who contributed patches.
+
+## Enhancements
+
+- Fix [CTYP-126](http://dev.clojure.org/jira/browse/CTYP-126) Better support for checking
+  dotted functions
+
 # 0.2.40 - 24 March 2014
 
 ## Fixes
