@@ -1,10 +1,10 @@
 (ns clojure.core.typed.base-env
   (:import (clojure.lang Keyword Named IMapEntry AMapEntry Seqable
                          LazySeq PersistentHashSet PersistentTreeSet PersistentList APersistentVector
-                         APersistentSet Sorted IPersistentSet IPersistentMap IPersistentVector
-                         APersistentMap IDeref IBlockingDeref ISeq ASeq IPersistentCollection
+                         APersistentSet IPersistentSet IPersistentMap IPersistentVector
+                         APersistentMap IDeref ISeq ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
-                         IPersistentList IRef ARef Delay Reversible
+                         IPersistentList IRef ARef Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
                          ITransientVector PersistentHashMap Reduced)
            (java.util Comparator Collection))
@@ -313,7 +313,7 @@ Keyword [[]
                     [Any -> Any]))}]
 
 IDeref [[[r :variance :covariant]]]
-IBlockingDeref [[[r :variance :covariant]]]
+clojure.lang.IBlockingDeref [[[r :variance :covariant]]]
 
 
 IRef [[[w :variance :contravariant]
@@ -344,9 +344,9 @@ clojure.lang.Agent
         }]
 
 
-Delay [[[r :variance :covariant]]
-       :replace
-       {IDeref (IDeref r)}]
+clojure.lang.Delay [[[r :variance :covariant]]
+                    :replace
+                    {IDeref (IDeref r)}]
 
 ;invoking Var as IFn is a special case in the checker
 clojure.lang.Var 
@@ -416,198 +416,17 @@ java.lang.Iterable [[]
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Initial type aliases
 
-; Note: All mappings here *must* be in set c.c.t/-base-aliases
+(defmacro insert-aliases []
+  `(delay-and-cache-env ~'init-alias-env
+    (reset-rclass-env!)
+    (h/alias-mappings
+      ~@impl/init-aliases)))
 
-(delay-and-cache-env init-alias-env
-  (reset-rclass-env!)
-  (h/alias-mappings
-
-  ^{:doc "A type that returns true for clojure.core/integer?"
-    :forms [AnyInteger]}
-clojure.core.typed/AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
-
-    ^{:doc "A type that returns true for clojure.core/integer?"
-      :forms [Int]}
-clojure.core.typed/Int (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
-      ^{:doc "A type that returns true for clojure.core/number?"
-        :forms [Num]}
-clojure.core.typed/Num Number
-      ^{:doc "A keyword"
-        :forms [Keyword]}
-clojure.core.typed/Keyword clojure.lang.Keyword
-      ^{:doc "A symbol"
-        :forms [Symbol]}
-clojure.core.typed/Symbol clojure.lang.Symbol
-
-      ^{:doc "A namespace"
-        :forms [Namespace]}
-clojure.core.typed/Namespace clojure.lang.Namespace
-
-    ^{:doc "An atom that can read and write type x."
-      :forms [(Atom1 t)]}
-clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] 
-                              (clojure.lang.Atom x x))
-    ^{:doc "An atom that can write type w and read type r."
-      :forms [(Atom2 t)]}
-clojure.core.typed/Atom2 (TFn [[w :variance :contravariant]
-                               [r :variance :covariant]] 
-                              (clojure.lang.Atom w r))
-    ^{:doc "An var that can read and write type x."
-      :forms [(Var1 t)]}
-clojure.core.typed/Var1 
-    (TFn [[x :variance :invariant]] 
-         (clojure.lang.Var x x))
-    ^{:doc "An var that can write type w and read type r."
-      :forms [(Var2 w r)]}
-clojure.core.typed/Var2 
-    (TFn [[w :variance :contravariant]
-          [r :variance :covariant]] 
-         (clojure.lang.Var w r))
-    ^{:doc "A ref that can read and write type x."
-      :forms [(Ref1 t)]}
-clojure.core.typed/Ref1 (TFn [[x :variance :invariant]] (clojure.lang.Ref x x))
-    ^{:doc "A ref that can write type w and read type r."
-      :forms [(Ref2 w r)]}
-clojure.core.typed/Ref2 (TFn [[w :variance :contravariant]
-                              [r :variance :covariant]] 
-                             (clojure.lang.Ref w r))
-    ^{:doc "An agent that can read and write type x."
-      :forms [(Agent1 t)]}
-clojure.core.typed/Agent1 (TFn [[x :variance :invariant]] 
-                               (clojure.lang.Agent x x))
-    ^{:doc "An agent that can write type w and read type r."
-      :forms [(Agent2 t t)]}
-clojure.core.typed/Agent2 (TFn [[w :variance :contravariant]
-                                [r :variance :covariant]] 
-                               (clojure.lang.Agent w r))
-
-    ^{:doc "A union of x and nil."
-      :forms [(Option t)]}
-clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
-
-    ^{:doc "A union of x and nil."
-      :forms [(Nilable t)]}
-clojure.core.typed/Nilable (TFn [[x :variance :covariant]] (U nil x))
-
-      ^{:doc "The identity function at the type level."
-        :forms [Id]}
-clojure.core.typed/Id (TFn [[x :variance :covariant]] x)
-
-      ^{:doc "A persistent collection with member type x."
-        :forms [(Coll t)]}
-clojure.core.typed/Coll (TFn [[x :variance :covariant]]
-                             (IPersistentCollection x))
-    ^{:doc "A persistent collection with member type x and count greater than 0."
-      :forms [(NonEmptyColl t)]}
-clojure.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
-                                      (I (IPersistentCollection x) (CountRange 1)))
-    ^{:doc "A persistent vector with member type x."
-      :forms [(Vec t)]}
-clojure.core.typed/Vec (TFn [[x :variance :covariant]]
-                            (IPersistentVector x))
-    ^{:doc "A persistent vector with member type x and count greater than 0."
-      :forms [(NonEmptyVec t)]}
-clojure.core.typed/NonEmptyVec (TFn [[x :variance :covariant]]
-                                     (I (IPersistentVector x) (CountRange 1)))
-    ^{:doc "A non-empty lazy sequence of type t"
-      :forms [(NonEmptyLazySeq t)]}
-clojure.core.typed/NonEmptyLazySeq (TFn [[t :variance :covariant]]
-                                        (I (LazySeq t) (CountRange 1)))
-    ^{:doc "A persistent map with keys k and vals v."
-      :forms [(Map t t)]}
-clojure.core.typed/Map (TFn [[k :variance :covariant]
-                             [v :variance :covariant]]
-                            (IPersistentMap k v))
-    ^{:doc "A persistent set with member type x"
-      :forms [(Set t)]}
-clojure.core.typed/Set (TFn [[x :variance :covariant]]
-                            (IPersistentSet x))
-    ^{:doc "A sorted persistent set with member type x"
-      :forms [(SortedSet t)]}
-clojure.core.typed/SortedSet (TFn [[x :variance :covariant]]
-                               (Extends [(IPersistentSet x) Sorted]))
-    ^{:doc "A type that can be used to create a sequence of member type x."
-      :forms [(Seqable t)]}
-clojure.core.typed/Seqable (TFn [[x :variance :covariant]]
-                                (Seqable x))
-    ^{:doc "A type that can be used to create a sequence of member type x
-with count greater than 0."
-      :forms [(NonEmptySeqable t)]}
-
-clojure.core.typed/NonEmptySeqable (TFn [[x :variance :covariant]]
-                                         (I (Seqable x) (CountRange 1)))
-    ^{:doc "A type that can be used to create a sequence of member type x
-with count 0."
-      :forms [(EmptySeqable t)]}
-clojure.core.typed/EmptySeqable (TFn [[x :variance :covariant]]
-                                  (I (Seqable x) (ExactCount 0)))
-      ^{:doc "A persistent sequence of member type x."
-        :forms [(Seq t)]}
-clojure.core.typed/Seq (TFn [[x :variance :covariant]]
-                            (ISeq x))
-
-    ^{:doc "A persistent sequence of member type x with count greater than 0."
-      :forms [(NonEmptySeq t)]}
-clojure.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
-                                     (I (ISeq x) (CountRange 1)))
-
-    ^{:doc "A persistent sequence of member type x with count greater than 0, or nil."
-      :forms [(NilableNonEmptySeq t)]}
-clojure.core.typed/NilableNonEmptySeq (TFn [[x :variance :covariant]]
-                                         (U nil (I (ISeq x) (CountRange 1))))
-
-    ^{:doc "The type of all things with count 0. Use as part of an intersection.
-eg. See EmptySeqable."
-      :forms [EmptyCount]}
-
-clojure.core.typed/EmptyCount (ExactCount 0)
-    ^{:doc "The type of all things with count greater than 0. Use as part of an intersection.
-eg. See NonEmptySeq"
-      :forms [NonEmptyCount]}
-clojure.core.typed/NonEmptyCount (CountRange 1)
-
-    ^{:doc "A hierarchy for use with derive, isa? etc."
-      :forms [Hierarchy]}
-clojure.core.typed/Hierarchy '{:parents (IPersistentMap Any Any)
-                               :ancestors (IPersistentMap Any Any)
-                               :descendants (IPersistentMap Any Any)}
-
-    ^{:doc "A Clojure future (see clojure.core/{future-call,future})."
-      :forms [(Future x)]}
-clojure.core.typed/Future 
-                      (TFn [[x :variance :covariant]]
-                       (Extends [(IDeref x)
-                                 (IBlockingDeref x)
-                                 clojure.lang.IPending
-                                 java.util.concurrent.Future]))
-
-    ^{:doc "A Clojure promise (see clojure.core/{promise,deliver})."
-      :forms [(Promise x)]}
-clojure.core.typed/Promise 
-              (TFn [[x :variance :covariant #_:invariant]]
-               (Rec [p]
-                (I (Extends [(IDeref x)
-                             (IBlockingDeref x)
-                             clojure.lang.IPending])
-                   ;TODO this causes stack overflows
-                   #_[x -> (U nil p)])))
-    ))
+;defines init-alias-env
+(insert-aliases)
 
 (defn reset-alias-env! []
   (let [alias-env (init-alias-env)]
-    ; Ensure init-alias-env agrees with the -base-aliases
-    (assert (= (set (keys alias-env))
-               (set (map #(symbol "clojure.core.typed" (str %))
-                         clojure.core.typed/-base-aliases)))
-            (str "core.typed Bug! Base aliases do not agree with base environment."
-                 " Missing from core.typed ns: "
-                 (set/difference (set (keys alias-env))
-                                 (set (map #(symbol "clojure.core.typed" (str %))
-                                           clojure.core.typed/-base-aliases)))
-                 " Missing from base-env ns "
-                 (set/difference (set (map #(symbol "clojure.core.typed" (str %))
-                                           clojure.core.typed/-base-aliases))
-                                 (set (keys alias-env)))))
     (nme-env/reset-name-env! alias-env)))
 
 (delay-and-cache-env ^:private init-protocol-env 
@@ -641,7 +460,8 @@ clojure.java.io/IOFactory
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
                 Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
-                Symbol Namespace Atom2 Ref2]]
+                Symbol Namespace Atom2 Ref2 Delay Proxy List Stack ExInfo
+                Multi Deref BlockingDeref]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -651,7 +471,7 @@ clojure.java.io/IOFactory
   (impl/with-clojure-impl
     (r/make-FnIntersection
       (r/make-Function 
-        [(c/Un r/-nil (c/RClass-of Seqable [r/-any]) (c/RClass-of clojure.lang.Counted))]
+        [(prs/parse-type '(U nil (clojure.core.typed/Seqable Any) clojure.lang.Counted))]
         (prs/parse-type '(U java.lang.Integer java.lang.Long))
         nil nil
         :object (obj/->Path [(pe/->CountPE)] 0)))))
@@ -677,7 +497,7 @@ clojure.core.typed/ann-datatype* [Any Any Any Any -> Any]
 clojure.core.typed/ann-protocol* [Any Any Any -> Any]
       ; REMOVED
 clojure.core.typed/ann-pprotocol* [Any Any Any -> Any]
-clojure.core.typed/ann-record* [Any Any Any -> Any]
+clojure.core.typed/ann-record* [Any Any Any Any -> Any]
 clojure.core.typed/ann-pdatatype* [Any Any Any Any -> Any]
 clojure.core.typed/ann-precord* [Any Any Any Any -> Any]
 clojure.core.typed/declare-datatypes* [Any -> Any]
@@ -953,11 +773,11 @@ clojure.core/list* (All [x]
                             [x x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
                             [x x x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]))
 
-clojure.core/list? (predicate (clojure.lang.IPersistentList Any))
+clojure.core/list? (predicate (List Any))
 
 clojure.core/load-reader [java.io.Reader -> Any]
 
-clojure.core/methods [clojure.lang.MultiFn -> (Map Any Any)]
+clojure.core/methods [Multi -> (Map Any Any)]
 
 clojure.core/munge (Fn [Symbol -> Symbol]
                        [Any -> Any])
@@ -991,7 +811,7 @@ clojure.core/make-hierarchy [-> Hierarchy]
 clojure.core/isa? (Fn [Any Any -> Boolean]
                       [Hierarchy Any Any -> Boolean])
 
-;TODO make extensible via IPersisentSet
+;TODO make extensible via IPersistentSet
 clojure.core/disj
      (All [x]
           (Fn [(SortedSet x) Any Any * -> (SortedSet x)]
@@ -1064,7 +884,7 @@ clojure.core/*print-level* (U nil false AnyInteger)
 clojure.core/*verbose-defrecords* Boolean
 clojure.core/print-ctor [Object [Object java.io.Writer -> Any] java.io.Writer -> nil]
 
-clojure.core/prefer-method [clojure.lang.MultiFn Any Any -> Any]
+clojure.core/prefer-method [Multi Any Any -> Any]
 clojure.core/print-simple [Any java.io.Writer -> nil]
 clojure.core/char-escape-string (Map Character String)
 clojure.core/char-name-string (Map Character String)
@@ -1088,7 +908,7 @@ clojure.core/subs (Fn [String AnyInteger -> String]
                            [String AnyInteger AnyInteger -> String])
 
 ;TODO
-;clojure.core/spit [java.io.Writer Any
+;clojure.core/spit [java.io.Writer Any]
 
 clojure.core/future-call (All [x] [[-> x] -> (Future x)])
 
@@ -1099,10 +919,10 @@ clojure.core/set-validator! (All [x]
                                  [(clojure.lang.IRef Any x) [x -> Any] -> nil])
 
 clojure.core/deref (All [x y]
-                     (Fn [(IDeref x) -> x]
-                         [(U (IDeref Any) java.util.concurrent.Future) -> Any]
-                         [(IBlockingDeref x) AnyInteger y -> (U x y)]
-                         [(U java.util.concurrent.Future (IBlockingDeref Any)) AnyInteger Any -> Any]))
+                     (Fn [(Deref x) -> x]
+                         [(U (Deref Any) java.util.concurrent.Future) -> Any]
+                         [(BlockingDeref x) AnyInteger y -> (U x y)]
+                         [(U java.util.concurrent.Future (BlockingDeref Any)) AnyInteger Any -> Any]))
 
 clojure.core/delay? (predicate (Delay Any))
 
@@ -1157,10 +977,10 @@ clojure.core/method-sig [java.lang.reflect.Method -> '[Any (U nil (NonEmptySeqab
 clojure.core/proxy-name [Class (U nil (Seqable Class)) -> String]
 clojure.core/get-proxy-class [Class * -> Class]
 clojure.core/construct-proxy [Class Any * -> Any]
-clojure.core/init-proxy [clojure.lang.IProxy (Map String Any) -> clojure.lang.IProxy]
-clojure.core/update-proxy [clojure.lang.IProxy (Map String Any) -> clojure.lang.IProxy]
-clojure.core/proxy-mappings [clojure.lang.IProxy -> (Map String Any)]
-clojure.core/proxy-call-with-super (All [x] [[-> x] clojure.lang.IProxy String -> x])
+clojure.core/init-proxy [Proxy (Map String Any) -> Proxy]
+clojure.core/update-proxy [Proxy (Map String Any) -> Proxy]
+clojure.core/proxy-mappings [Proxy -> (Map String Any)]
+clojure.core/proxy-call-with-super (All [x] [[-> x] Proxy String -> x])
 clojure.core/bean [Object -> (Map Any Any)]
 
 clojure.core/fnil (All [x y z a b ...]
@@ -1204,6 +1024,9 @@ clojure.core/cast (All [x] [Class x -> x])
 
 clojure.core/associative? (predicate (clojure.lang.Associative Any Any))
 clojure.core/coll? (predicate (Coll Any))
+      ;TODO should these be parameterised?
+;clojure.core/sequential? (predicate Sequential)
+;clojure.core/sorted? (predicate Sorted)
 clojure.core/meta [Any -> (U nil (Map Any Any))]
 clojure.core/with-meta (All [[x :< clojure.lang.IObj]]
                             [x (U nil (Map Any Any)) -> x])
@@ -1658,13 +1481,13 @@ clojure.core/even? [AnyInteger -> boolean]
 clojure.core/odd? [AnyInteger -> boolean]
 
 clojure.core/peek (All [x]
-                       (Fn [(I NonEmptyCount (IPersistentStack x)) -> x]
-                           [(IPersistentStack x) -> x]))
+                       (Fn [(I NonEmptyCount (Stack x)) -> x]
+                           [(Stack x) -> x]))
 clojure.core/pop (All [x]
                       (Fn
-                        [(IPersistentList x) -> (IPersistentList x)]
+                        [(List x) -> (List x)]
                         [(Vec x) -> (Vec x)]
-                        [(IPersistentStack x) -> (IPersistentStack x)]))
+                        [(Stack x) -> (Stack x)]))
 
 clojure.core/get-thread-bindings
     [-> (Map (Var2 Nothing Any) Any)]
@@ -1773,7 +1596,7 @@ clojure.core/reverse
 
 clojure.core/rseq
      (All [x]
-       [(Reversible x) -> (Option (NonEmptySeq x))])
+       [(clojure.core.typed/Reversible x) -> (Option (NonEmptySeq x))])
 
 ;coercions
 ;TODO maybe these argument type shouldn't be Any
@@ -1842,8 +1665,11 @@ clojure.core/rand (Fn [-> Number]
 
 clojure.core/rand-int [Int -> Int]
 
-clojure.core/ex-info (Fn [String (Map Any Any) -> clojure.lang.ExceptionInfo]
-                         [String (Map Any Any) (U nil Throwable) -> clojure.lang.ExceptionInfo])
+clojure.core/ex-info (Fn [(U nil String) (Map Any Any) -> ExInfo]
+                         [(U nil String) (Map Any Any) (U nil Throwable) -> ExInfo])
+
+clojure.core/ex-data (Fn [ExInfo -> (Map Any Any)]
+                         [Any -> (U nil (Map Any Any))])
 
 
 ;; START CHUNK HACKS
@@ -2231,7 +2057,7 @@ clojure.lang.Util/compare [Any Any -> Number]
 clojure.lang.LazySeq (All [x]
                           [[-> (Option (Seqable x))] -> (LazySeq x)])
 clojure.lang.Delay (All [x]
-                        [[-> x] -> (Delay x)])
+                        [[-> x] -> (clojure.lang.Delay x)])
     ))
 
 (delay-and-cache-env ^:private init-declared-kinds {})

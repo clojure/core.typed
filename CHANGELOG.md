@@ -1,3 +1,76 @@
+# 0.2.41 - SNAPSHOT
+
+Thanks to Di Xu who contributed patches.
+
+## Enhancements
+
+- Fix [CTYP-126](http://dev.clojure.org/jira/browse/CTYP-126) Better support for checking
+  dotted functions
+
+# 0.2.40 - 24 March 2014
+
+## Fixes
+
+- Fix [pred](http://clojure.github.io/core.typed/#clojure.core.typed/pred) bug where types did not resolve in the current namespace
+
+## Enhancements
+
+- [Promise](http://clojure.github.io/core.typed/#clojure.core.typed/Promise) alias is now invokable 
+- Add type aliases
+  - [Delay](http://clojure.github.io/core.typed/#clojure.core.typed/Delay) (fixes [CTYP-125](http://dev.clojure.org/jira/browse/CTYP-125))
+  - [Deref](http://clojure.github.io/core.typed/#clojure.core.typed/Deref)
+  - [BlockingDeref](http://clojure.github.io/core.typed/#clojure.core.typed/BlockingDeref)
+  - [List](http://clojure.github.io/core.typed/#clojure.core.typed/List)
+  - [ExInfo](http://clojure.github.io/core.typed/#clojure.core.typed/ExInfo)
+  - [Proxy](http://clojure.github.io/core.typed/#clojure.core.typed/Proxy)
+  - [Stack](http://clojure.github.io/core.typed/#clojure.core.typed/Stack)
+  - [Reversible](http://clojure.github.io/core.typed/#clojure.core.typed/Reversible)
+  - [Multi](http://clojure.github.io/core.typed/#clojure.core.typed/Multi)
+- Partial fix to [CTYP-124](http://dev.clojure.org/jira/browse/CTYP-124)
+  - we now propagate negative information related to a `case` expression's 
+    target expression in the default branch. However the `case` macro aliases
+    the target expression with a fresh local, so core.typed isn't smart enough
+    actually use this information. Need equality/aliasing filters.
+- Various error message & documentation improvements
+- Fix [CTYP-127](http://dev.clojure.org/jira/browse/CTYP-127)
+  - support keyword lookups on bounded type variables
+
+## Internal
+
+- Base type aliases are now in `c.c.t/current-impl`
+
+# 0.2.39 - Released 21 March 2014
+
+- Add `Seq*` and `List*` cases to runtime type parsing
+
+# 0.2.38 - Released 17 March 2014
+
+## Enhancements
+
+- [CTYP-121](http://dev.clojure.org/jira/browse/CTYP-121)
+  - add `clojure.core/ex-data` annotation
+  - `clojure.core/ex-info` is nilable
+- fields can be omitted to a record's `map->Foo` constructor
+  if the field is nilable and does not contain type variables
+- Better error for untyped var reference
+
+## Fixes
+
+- fix typo in cs-gen related to HMap's with optional keys
+
+# 0.2.37 - Released 14 March 2014
+
+Thanks to Di Xu who contributed patches for this release.
+
+## Enhancements
+
+- [CTYP-118](http://dev.clojure.org/jira/browse/CTYP-118) Support clojure.core/cast (contributed by Di Xu)
+- Type error from reflection now links to clojure.org for type hints
+
+## Fixes
+
+- [CTYP-120](http://dev.clojure.org/jira/browse/CTYP-120) Fix bad error
+
 # 0.2.36 - Released 7 March 2014 
 
 Thanks to Di Xu who contributed patches for this release.

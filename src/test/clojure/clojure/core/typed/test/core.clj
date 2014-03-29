@@ -3039,6 +3039,12 @@
 (deftest HVec-parse-ast-test
   (is (clojure.core.typed.parse-ast/parse-clj '(HVec [Number]))))
 
+(deftest hetergeoneous-parse-ast-test
+  (is (clojure.core.typed.parse-ast/parse-clj '(List* Number)))
+  (is (clojure.core.typed.parse-ast/parse-clj '(Seq* Number)))
+  (is (clojure.core.typed.parse-ast/parse-clj '(Vector* Number)))
+  )
+
 ;(deftest collect-on-eval-test
 ;  (is (do (ann foo-bar Number)
 ;          (cf (def foo-bar 1))
@@ -3053,3 +3059,61 @@
 ;                     (TFn [[x :variance :covariant]]
 ;                       (Rec [c]
 ;                         (IColl max-arg m c))))
+
+; test cast CTYP-118
+(deftest cast-test
+  (is (check-ns 'clojure.core.typed.test.CTYP-118-cast))
+  (is (u/top-level-error-thrown?
+        (cf (fn [] (cast "a" "a")))))
+  (is (throws-tc-error?
+        (cf (fn [] (cast String "a" 1)))))
+  (is (u/top-level-error-thrown?
+        (cf (fn [] (cast #('ok) 2))))))
+
+(deftest optional-record-keys-test
+  (is (check-ns 'clojure.core.typed.test.record-optional-key))
+  (is (u/top-level-error-thrown?
+        (check-ns 'clojure.core.typed.test.fail.record-no-nil)))
+  (is (check-ns 'clojure.core.typed.test.record-poly-map-ctor)))
+
+(deftest recur-rest-args-test
+  (is (check-ns 'clojure.core.typed.test.recur-rest-arg))
+  (is (u/top-level-error-thrown?
+        (check-ns 'clojure.core.typed.test.fail.recur-non-seq-rest)))
+  (is (u/top-level-error-thrown?
+        (check-ns 'clojure.core.typed.test.fail.recur-empty-seq))))
+
+(deftest poly-record-test
+  (is (check-ns 'clojure.core.typed.test.poly-record)))
+
+(deftest polymorphic-hmap-test
+  (is-cf (clojure.core.typed/letfn>
+           [f :- (All [m]
+                      [(HMap 
+                         :mandatory {:m m}
+                         :optional {:o Number}) 
+                       -> Any])
+            (f [a])]
+           (f {:m 1 :o 2}))))
+
+(deftest ctyp97-tvar-scoping-test
+  (is (check-ns 'clojure.core.typed.test.ctyp97-tvar-scoping)))
+
+;TODO
+;(deftest ctyp124)
+
+(deftest get-bounded-tvar-test
+  (is (check-ns 'clojure.core.typed.test.get-bounded-tvar)))
+
+(deftest promise-test
+  (is (check-ns 'clojure.core.typed.test.promise)))
+
+(deftest pred-scoping-test
+  (is (check-ns 'clojure.core.typed.test.pred-scoping)))
+
+(deftest annotate-user-defined-ploydot
+  (is-cf (fn [x & y] x) (All [x y ...] [x y ... y -> x]))
+  (is-cf (fn [& y] (if (empty? y) nil (first y))) (All [x y ...] [x y ... y -> Any]))
+  ; FIXME replace Any above with (U x nil) when implemented HSequential and fixed code for *check-fn-method1-rest-type*
+  (is (u/top-level-error-thrown?
+        (cf (fn [x c & y] x) (All [x y ...] [x y ... y -> x])))))

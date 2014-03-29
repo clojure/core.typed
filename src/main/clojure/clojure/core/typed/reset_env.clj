@@ -1,6 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.reset-env
   (:require [clojure.core.typed.base-env :as bse-clj]
-            [clojure.core.typed.base-env-cljs :as bse-cljs]
             [clojure.core.typed.ns-deps :as deps]
             [clojure.core.typed.ns-options :as ns-opts]
             [clojure.core.typed.current-impl :as impl]
@@ -26,7 +25,7 @@
       (do
         (assert cljs? "No ClojureScript dependency")
         (when cljs?
-          (bse-cljs/reset-cljs-envs!)
+          ((impl/v 'clojure.core.typed.base-env-cljs/reset-cljs-envs!))
           (deps/reset-deps!)
           (ns-opts/reset-ns-opts!))))
     nil))

@@ -1006,6 +1006,20 @@
                    (c/Un)
                    (:types fexpr-type)))
 
+      ; try the first thing that looks like a Fn.
+      ; FIXME This should probably try and invoke every Fn it can
+      ; find, need to figure out how to clean up properly
+      ; after a failed invocation.
+      (r/Intersection? fexpr-type)
+      (let [a-fntype (first (filter
+                              (fn [t]
+                                (or (r/FnIntersection? t)
+                                    (r/Poly? t)))
+                              (map c/fully-resolve-type (:types fexpr-type))))]
+        (if a-fntype
+          (check-funapp fexpr args (ret a-fntype) arg-ret-types expected)
+          (u/int-error (str "Cannot invoke type: " fexpr-type))))
+
       (ifn-ancestor fexpr-type)
       (check-funapp fexpr args (ret (ifn-ancestor fexpr-type)) arg-ret-types expected)
 
@@ -1021,7 +1035,7 @@
            (isa? (u/symbol->Class (.the-class ^RClass fexpr-type)) IPersistentSet))
       (do
         (when-not (#{1} (count args))
-          (u/tc-delayed-error "Wrong number of arguments to set function (" (count args)")"))
+          (u/tc-delayed-error (str "Wrong number of arguments to set function (" (count args)")")))
         (ret r/-any))
 
       ;FIXME same as IPersistentSet case
@@ -1390,6 +1404,24 @@
                    (c/PolyDots-bbnds* names expected)
                    body))
     :else (u/int-error (str "Expected Function type, found " (prs/unparse-type expected)))))
+
+; only handle special case that the first argument is literal class
+(add-invoke-special-method 'clojure.core/cast
+  [{:keys [args] :as expr} & [expected]]
+  (when-not (#{2} (count args))
+    (u/int-error (str "Wrong number of arguments to clojure.core/cast,"
+                      " expected 2, given " (count args))))
+  (let [ct (-> (check (first args)) expr-type ret-t c/fully-resolve-type)]
+    (if (and (r/Value? ct) (class? (:val ct)))
+      (let [t (c/RClass-of-with-unknown-params (:val ct))
+            _ (when (and t expected)
+                (when-not (sub/subtype? t (ret-t expected))
+                  (expected-error t (ret-t expected))))
+            v-t (-> (check (second args)) expr-type ret-t)]
+        (if (and t v-t)
+          (assoc expr expr-type (ret (c/In t v-t)))
+          :default))
+      :default)))
 
 (declare normal-invoke)
 
@@ -2115,14 +2147,15 @@
 
 ;pred
 (add-invoke-special-method 'clojure.core.typed/pred*
-  [{[{tsyn :val} _pred-fn_ :as args] :args, :keys [env], :as expr} & [expected]]
-  {:pre [(#{2} (count args))]}
+  [{[{tsyn :val} {nsym :val} _pred-fn_ :as args] :args, :keys [env], :as expr} & [expected]]
+  {:pre [(#{3} (count args))]}
   (let [ptype 
         ; frees are not scoped when pred's are parsed at runtime,
         ; so we simulate the same here.
         (binding [tvar-env/*current-tvars* {}
                   dvar-env/*dotted-scope* {}]
-          (prs/parse-type tsyn))]
+          (prs/with-parse-ns nsym
+            (prs/parse-type tsyn)))]
     (assoc expr
            expr-type (ret (prs/predicate-for ptype)))))
 
@@ -2741,7 +2774,7 @@
    (every? Type? (map second args))
    ((some-fn nil? (u/hvector-c? symbol? r/KwArgs?)) kws)
    ((some-fn nil? (u/hvector-c? symbol? Type?)) rest)
-   (nil? drest)
+   ((some-fn nil? (u/hvector-c? symbol? r/DottedPretype?)) drest)
    (TCResult? body)])
 
 (defn- KwArgs-minimum-args [^KwArgs kws]
@@ -2762,15 +2795,14 @@
   [required-params rest-param fin]
   {:pre [(r/FnIntersection? fin)]
    :post [(every? r/Function? %)]}
-  (assert (not (some :drest (:types fin))))
   (let [nreq (count required-params)]
     ;(prn "nreq" nreq)
     ;(prn "rest-param" rest-param)
-    (filter (fn [{:keys [dom rest kws]}]
+    (filter (fn [{:keys [dom rest drest kws]}]
               (let [ndom (count dom)]
                 (if rest-param 
                   (or ; required parameters can flow into the rest type
-                      (when rest
+                      (when (or rest drest)
                         (<= nreq ndom))
                       ; kw functions must have exact fixed domain match
                       (when kws
@@ -2792,21 +2824,23 @@
   (binding [vs/*current-env* (if (:line env) env vs/*current-env*)
             vs/*current-expr* expr
             *check-fn-method1-checkfn* check
-            *check-fn-method1-rest-type* (fn [rest drest kws]
-                                           {:pre [(or (Type? rest)
-                                                      (r/DottedPretype? drest)
-                                                      (r/KwArgs? kws))
-                                                  (#{1} (count (filter identity [rest drest kws])))]
-                                            :post [(Type? %)]}
-                                           ;(prn "rest" rest)
-                                           ;(prn "drest" drest)
-                                           ;(prn "kws" kws)
-                                           (cond
-                                             (or rest drest)
-                                             (c/Un r/-nil 
-                                                   (r/TApp-maker (r/Name-maker 'clojure.core.typed/NonEmptySeq)
-                                                                 [(or rest (.pre-type ^DottedPretype drest))]))
-                                             :else (c/KwArgs->Type kws)))]
+            *check-fn-method1-rest-type*
+              (fn [remain-dom rest drest kws]
+                {:pre [(or (Type? rest)
+                           (r/DottedPretype? drest)
+                           (r/KwArgs? kws))
+                       (#{1} (count (filter identity [rest drest kws])))
+                       (every? r/Type? remain-dom)]
+                 :post [(Type? %)]}
+                (cond
+                  (or rest drest)
+                  (c/Un
+                    r/-nil
+                    (r/TApp-maker (r/Name-maker 'clojure.core.typed/NonEmptySeq)
+                                  [(apply c/Un (or rest (.pre-type ^DottedPretype drest)) remain-dom)]))
+                  ;FIXME fix code above when we've supported HSequential as discussed in CTYP-126
+
+                  :else (c/KwArgs->Type kws)))]
     (let [type (check-fn expr (let [default-ret (ret (r/make-FnIntersection
                                                        (r/make-Function [] r/-any r/-any)))]
                                 (cond (and expected (not= r/-any (ret-t expected))) expected
@@ -3222,7 +3256,7 @@
         ; eg. Checking against this function type:
         ;      [Any Any
         ;       -> (HVec [(U nil Class) (U nil Class)]
-        ;                :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]))
+        ;                :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]
         ;     means we need to instantiate the HVec type to the actual argument
         ;     names with open-Result.
         ;
@@ -3270,10 +3304,10 @@
                                  (repeat (or rest (:pre-type drest)))))
         ;_ (prn "checking function:" (prs/unparse-type expected))
         check-fn-method1-rest-type *check-fn-method1-rest-type*
+        _ (assert check-fn-method1-rest-type "No check-fn bound for rest type")
         rest-entry (when rest-param
-                     (assert check-fn-method1-rest-type "No check-fn bound for rest type")
                      [[(method-param-name rest-param)
-                       (check-fn-method1-rest-type rest drest kws)]])
+                       (check-fn-method1-rest-type (drop (count required-params) dom) rest drest kws)]])
         ;_ (prn "rest entry" rest-entry)
         _ (assert ((u/hash-c? symbol? Type?) (into {} fixed-entry))
                   (into {} fixed-entry))
@@ -3611,7 +3645,7 @@
                                 (when c
                                   (str (u/Class->symbol c) "/"))
                                 method-name 
-                                ".\n\nHint: add type hints http://clojure.org/java_interop#Java%20Interop-Type%20Hints"
+                                ".\n\nHint: use *warn-on-reflection* to identify reflective calls"
                                 "\n\nin: " (u/emit-form-fn expr))))
           _ (when inst?
               (let [ctarget (or ctarget (check (:instance expr)))
@@ -3864,7 +3898,7 @@
   "A target for recur"
   [(every? Type? dom)
    ((some-fn nil? Type?) rest)
-   (nil? drest) ;TODO
+   ((some-fn nil? r/DottedPretype?) drest)
    (nil? kws)]) ;TODO
 
 (defmacro set-validator-doc! [var val-fn]
@@ -3889,9 +3923,11 @@
           rest-arg (when rest
                      (last args))
           rest-arg-type (when rest-arg
-                          [(impl/impl-case
-                             :clojure (c/RClass-of Seqable [rest])
-                             :cljs (c/Protocol-of 'cljs.core/ISeqable [rest]))])
+                          (impl/impl-case
+                             :clojure (c/Un r/-nil (c/In (c/RClass-of clojure.lang.ISeq [rest])
+                                                         (r/make-CountRange 1)))
+                             :cljs (c/Un r/-nil (c/In (c/Protocol-of 'cljs.core/ISeq [rest])
+                                                      (r/make-CountRange 1)))))
           cargs (mapv check args (map ret 
                                       (concat dom 
                                               (when rest-arg-type
@@ -4145,7 +4181,7 @@
                              (prs/parse-type (:form type-syn-expr)))]))))]
     (if-not inits-expected
       (u/tc-delayed-error (str "letfn requires annotation, see: "
-                               (impl/impl-case :clojure 'clojure :cljs 'cljs) ".core.letfn>")
+                               (impl/impl-case :clojure 'clojure :cljs 'cljs) ".core.typed/letfn>")
                           :return (assoc letfn-expr
                                          expr-type (error-ret expected)))
 
@@ -5072,8 +5108,9 @@
           cthe-expr (check (:test expr))
           etype (expr-type cthe-expr)
           ctests (mapv check (map :test (:tests expr)))
+          tst-rets (map expr-type ctests)
           cthens-and-envs (doall
-                            (for [[tst-ret thn] (map vector (map expr-type ctests) (map :then (:thens expr)))]
+                            (for [[tst-ret thn] (map vector tst-rets (map :then (:thens expr)))]
                               (let [{{fs+ :then} :fl :as rslt} (tc-equiv := etype tst-ret)
                                     flag+ (atom true)
                                     env-thn (env+ lex/*lexical-env* [fs+] flag+)
@@ -5082,8 +5119,16 @@
                                 [(assoc thn
                                         expr-type (expr-type then-ret))
                                  env-thn])))
-          ;TODO consider tests that failed to refine env
-          cdefault (check (:default expr) expected)
+          cdefault (let [flag+ (atom true)
+                         neg-tst-fl (if (every? r/Value? (map (comp c/fully-resolve-type ret-t) tst-rets))
+                                      (fo/-not-filter-at (apply c/Un (map ret-t tst-rets))
+                                                         (ret-o etype))
+                                      fl/-top)
+                         ;_ (prn "neg-tst-fl" neg-tst-fl)
+                         env-default (env+ lex/*lexical-env* [neg-tst-fl] flag+)]
+                     ;(prn "env-default" env-default)
+                     (var-env/with-lexical-env env-default
+                       (check (:default expr) expected)))
           case-result (let [type (apply c/Un (map (comp :t expr-type) (cons cdefault (map first cthens-and-envs))))
                             ; TODO
                             filter (fo/-FS fl/-top fl/-top)

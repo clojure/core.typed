@@ -34,35 +34,6 @@ for checking namespaces, cf for checking individual forms."}
 ; c.c.typed.cs-gen
 ;   Polymorphic local type inference algorithm.
 
-; ## Base alias vars
-;
-; Type aliases are resolved using possibly-unbound Vars. We get around
-; having to load c.c.typed.base-env by interning each alias' Var in c.c.typed
-; here. This way the user can refer the base alias Vars without necessarily loading
-; all of core.typed.
-;
-; ### Consistency
-;
-; `-base-aliases` is ensured not to get out of date.
-; c.c.typed.base-env asserts that -base-aliases is kept in sync with the
-; actual set of aliases defined in the c.c.typed namespace. ie. adding
-; a new alias in c.c.typed.base-env without updating `-base-aliases` throws an internal error.
-;
-; ### Visibility level
-;
-; `-base-aliases` is not private because it is used from c.c.typed.base-env.
-
-(def ^:skip-wiki
-  -base-aliases
-  "Internal use only."
-  '#{Option AnyInteger Int Num Atom1 Id Coll NonEmptyColl Vec NonEmptyVec
-     Map Set SortedSet Seqable NonEmptySeqable EmptySeqable Seq NonEmptySeq EmptyCount NonEmptyCount
-     NonEmptyLazySeq Hierarchy NilableNonEmptySeq Nilable Var1 Ref1 Keyword Symbol
-     Future Promise Agent1 Agent2 Namespace Var2 Ref2 Atom2})
-
-(doseq [v -base-aliases]
-  (intern 'clojure.core.typed v))
-
 ;=============================================================
 ; Query functions
 
@@ -784,181 +755,16 @@ for checking namespaces, cf for checking individual forms."}
   `(do ::tc-ignore
        ~@(or body [nil])))
 
-(defmacro ^:private def-alias-many [& args]
-  `(do
-     ~@(for [[k v] (partition 2 args)]
-         `(def-alias ~k ~v))))
+(defmacro init-aliases []
+  (letfn [(def-alias-many [vinit]
+            `(do
+               ~@(for [[k v] (partition 2 vinit)]
+                   `(def-alias ~k ~v))))]
+    (def-alias-many 
+      impl/init-aliases)))
 
-(def-alias-many
-  ^{:doc "A type that returns true for clojure.core/integer?"
-    :forms [AnyInteger]}
-clojure.core.typed/AnyInteger (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
-
-    ^{:doc "A type that returns true for clojure.core/integer?"
-      :forms [Int]}
-clojure.core.typed/Int (U Integer Long clojure.lang.BigInt BigInteger Short Byte)
-      ^{:doc "A type that returns true for clojure.core/number?"
-        :forms [Num]}
-clojure.core.typed/Num Number
-      ^{:doc "A keyword"
-        :forms [Keyword]}
-clojure.core.typed/Keyword clojure.lang.Keyword
-      ^{:doc "A symbol"
-        :forms [Symbol]}
-clojure.core.typed/Symbol clojure.lang.Symbol
-
-      ^{:doc "A namespace"
-        :forms [Namespace]}
-clojure.core.typed/Namespace clojure.lang.Namespace
-
-    ^{:doc "An atom that can read and write type x."
-      :forms [(Atom1 t)]}
-clojure.core.typed/Atom1 (TFn [[x :variance :invariant]] 
-                              (clojure.lang.Atom x x))
-    ^{:doc "An atom that can write type w and read type r."
-      :forms [(Atom2 t)]}
-clojure.core.typed/Atom2 (TFn [[w :variance :contravariant]
-                               [r :variance :covariant]] 
-                              (clojure.lang.Atom w r))
-    ^{:doc "An var that can read and write type x."
-      :forms [(Var1 t)]}
-clojure.core.typed/Var1 
-    (TFn [[x :variance :invariant]] 
-         (clojure.lang.Var x x))
-    ^{:doc "An var that can write type w and read type r."
-      :forms [(Var2 w r)]}
-clojure.core.typed/Var2 
-    (TFn [[w :variance :contravariant]
-          [r :variance :covariant]] 
-         (clojure.lang.Var w r))
-    ^{:doc "A ref that can read and write type x."
-      :forms [(Ref1 t)]}
-clojure.core.typed/Ref1 (TFn [[x :variance :invariant]] (clojure.lang.Ref x x))
-    ^{:doc "A ref that can write type w and read type r."
-      :forms [(Ref2 w r)]}
-clojure.core.typed/Ref2 (TFn [[w :variance :contravariant]
-                              [r :variance :covariant]] 
-                             (clojure.lang.Ref w r))
-    ^{:doc "An agent that can read and write type x."
-      :forms [(Agent1 t)]}
-clojure.core.typed/Agent1 (TFn [[x :variance :invariant]] 
-                               (clojure.lang.Agent x x))
-    ^{:doc "An agent that can write type w and read type r."
-      :forms [(Agent2 t t)]}
-clojure.core.typed/Agent2 (TFn [[w :variance :contravariant]
-                                [r :variance :covariant]] 
-                               (clojure.lang.Agent w r))
-
-    ^{:doc "A union of x and nil."
-      :forms [(Option t)]}
-clojure.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
-
-    ^{:doc "A union of x and nil."
-      :forms [(Nilable t)]}
-clojure.core.typed/Nilable (TFn [[x :variance :covariant]] (U nil x))
-
-      ^{:doc "The identity function at the type level."
-        :forms [Id]}
-clojure.core.typed/Id (TFn [[x :variance :covariant]] x)
-
-      ^{:doc "A persistent collection with member type x."
-        :forms [(Coll t)]}
-clojure.core.typed/Coll (TFn [[x :variance :covariant]]
-                             (clojure.lang.IPersistentCollection x))
-    ^{:doc "A persistent collection with member type x and count greater than 0."
-      :forms [(NonEmptyColl t)]}
-clojure.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
-                                      (I (clojure.lang.IPersistentCollection x) (CountRange 1)))
-    ^{:doc "A persistent vector with member type x."
-      :forms [(Vec t)]}
-clojure.core.typed/Vec (TFn [[x :variance :covariant]]
-                            (clojure.lang.IPersistentVector x))
-    ^{:doc "A persistent vector with member type x and count greater than 0."
-      :forms [(NonEmptyVec t)]}
-clojure.core.typed/NonEmptyVec (TFn [[x :variance :covariant]]
-                                     (I (clojure.lang.IPersistentVector x) (CountRange 1)))
-    ^{:doc "A non-empty lazy sequence of type t"
-      :forms [(NonEmptyLazySeq t)]}
-clojure.core.typed/NonEmptyLazySeq (TFn [[t :variance :covariant]]
-                                        (I (clojure.lang.LazySeq t) (CountRange 1)))
-    ^{:doc "A persistent map with keys k and vals v."
-      :forms [(Map t t)]}
-clojure.core.typed/Map (TFn [[k :variance :covariant]
-                             [v :variance :covariant]]
-                            (clojure.lang.IPersistentMap k v))
-    ^{:doc "A persistent set with member type x"
-      :forms [(Set t)]}
-clojure.core.typed/Set (TFn [[x :variance :covariant]]
-                            (clojure.lang.IPersistentSet x))
-    ^{:doc "A sorted persistent set with member type x"
-      :forms [(SortedSet t)]}
-clojure.core.typed/SortedSet (TFn [[x :variance :covariant]]
-                               (Extends [(clojure.lang.IPersistentSet x) clojure.lang.Sorted]))
-    ^{:doc "A type that can be used to create a sequence of member type x."
-      :forms [(Seqable t)]}
-clojure.core.typed/Seqable (TFn [[x :variance :covariant]]
-                                (clojure.lang.Seqable x))
-    ^{:doc "A type that can be used to create a sequence of member type x
-with count greater than 0."
-      :forms [(NonEmptySeqable t)]}
-
-clojure.core.typed/NonEmptySeqable (TFn [[x :variance :covariant]]
-                                         (I (clojure.lang.Seqable x) (CountRange 1)))
-    ^{:doc "A type that can be used to create a sequence of member type x
-with count 0."
-      :forms [(EmptySeqable t)]}
-clojure.core.typed/EmptySeqable (TFn [[x :variance :covariant]]
-                                  (I (clojure.lang.Seqable x) (ExactCount 0)))
-      ^{:doc "A persistent sequence of member type x."
-        :forms [(Seq t)]}
-clojure.core.typed/Seq (TFn [[x :variance :covariant]]
-                            (clojure.lang.ISeq x))
-
-    ^{:doc "A persistent sequence of member type x with count greater than 0."
-      :forms [(NonEmptySeq t)]}
-clojure.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
-                                     (I (clojure.lang.ISeq x) (CountRange 1)))
-
-    ^{:doc "A persistent sequence of member type x with count greater than 0, or nil."
-      :forms [(NilableNonEmptySeq t)]}
-clojure.core.typed/NilableNonEmptySeq (TFn [[x :variance :covariant]]
-                                         (U nil (I (clojure.lang.ISeq x) (CountRange 1))))
-
-    ^{:doc "The type of all things with count 0. Use as part of an intersection.
-eg. See EmptySeqable."
-      :forms [EmptyCount]}
-
-clojure.core.typed/EmptyCount (ExactCount 0)
-    ^{:doc "The type of all things with count greater than 0. Use as part of an intersection.
-eg. See NonEmptySeq"
-      :forms [NonEmptyCount]}
-clojure.core.typed/NonEmptyCount (CountRange 1)
-
-    ^{:doc "A hierarchy for use with derive, isa? etc."
-      :forms [Hierarchy]}
-clojure.core.typed/Hierarchy '{:parents (clojure.lang.IPersistentMap Any Any)
-                               :ancestors (clojure.lang.IPersistentMap Any Any)
-                               :descendants (clojure.lang.IPersistentMap Any Any)}
-
-    ^{:doc "A Clojure future (see clojure.core/{future-call,future})."
-      :forms [(Future x)]}
-clojure.core.typed/Future 
-                      (TFn [[x :variance :covariant]]
-                       (Extends [(clojure.lang.IDeref x)
-                                 (clojure.lang.IBlockingDeref x)
-                                 clojure.lang.IPending
-                                 java.util.concurrent.Future]))
-
-    ^{:doc "A Clojure promise (see clojure.core/{promise,deliver})."
-      :forms [(Promise x)]}
-clojure.core.typed/Promise 
-              (TFn [[x :variance :covariant #_:invariant]]
-               (Rec [p]
-                (I (Extends [(clojure.lang.IDeref x)
-                             (clojure.lang.IBlockingDeref x)
-                             clojure.lang.IPending])
-                   ;TODO this causes stack overflows
-                   #_[x -> (U nil p)]))))
+; defines base aliases
+(init-aliases)
 
 (defn ^:private rclass-pred [rcls opts]
   (swap! impl/rclass-env assoc (impl/Class->symbol rcls) opts))
@@ -1169,13 +975,10 @@ clojure.core.typed/Promise
   [debug-str]
   nil)
 
-(declare ann-collect-eval)
-
 (defn ^:skip-wiki
   ann* 
   "Internal use only. Use ann."
   [varsym typesyn check?]
-  (ann-collect-eval varsym typesyn check?)
   nil)
 
 (defmacro ann 
@@ -1220,12 +1023,11 @@ clojure.core.typed/Promise
   [t & vs]
   `(do ~@(map #(list `ann % t) vs)))
 
-(declare ann-datatype-collect-eval)
-
 (defonce ^:dynamic 
-  ^{:doc 
-  "If a true value, global annotations are collected by the
-  type checker when their respective forms are evaluated (eg. ann)."}
+  ^{:deprecated true
+    :doc 
+    "If a true value, global annotations are collected by the
+    type checker when their respective forms are evaluated (eg. ann)."}
   *collect-on-eval* 
   false)
 
@@ -1233,9 +1035,6 @@ clojure.core.typed/Promise
   ann-datatype*
   "Internal use only. Use ann-datatype."
   [vbnd dname fields opts]
-  ; ensure that ann-datatype-collect-eval isn't called during the bootstrap
-  (when *collect-on-eval*
-    (ann-datatype-collect-eval vbnd dname fields opts))
   nil)
 
 (defmacro
@@ -1279,7 +1078,8 @@ clojure.core.typed/Promise
       (ann-datatype [[a :variance :covariant]]
                     MyPolyDatatype
                     [str :- String,
-                     vec :- (Vec Number)])"
+                     vec :- (Vec Number)
+                     ply :- (Set a)])"
   [& args]
   ;[dname fields & {ancests :unchecked-ancestors rplc :replace :as opts}]
   (let [bnd-provided? (vector? (first args))
@@ -1319,15 +1119,10 @@ clojure.core.typed/Promise
           (str "Must provide local symbol: " dname))
   `(ann-pdatatype* '~dname '~vbnd '~fields '~opt))
 
-(declare ann-record-collect-eval)
-
 (defn ^:skip-wiki
   ann-record* 
   "Internal use only. Use ann-record"
-  [dname fields opt]
-  ; ensure that ann-record-collect-eval isn't called during the bootstrap
-  (when *collect-on-eval*
-    (ann-record-collect-eval dname fields opt))
+  [vbnd dname fields opt]
   nil)
 
 (defmacro 
@@ -1369,9 +1164,10 @@ clojure.core.typed/Promise
 
       ; a record, polymorphic in a
       (ann-record [[a :variance :covariant]]
-                    MyPolyRecord
-                    [str :- String,
-                     vec :- (Vec Number)])"
+                  MyPolyRecord
+                  [str :- String,
+                   vec :- (Vec Number)
+                   ply :- (Set a)])"
   [& args]
   ;[dname fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
   (let [bnd-provided? (vector? (first args))
@@ -1391,10 +1187,8 @@ clojure.core.typed/Promise
               :name qname
               :fields fields
               :bnd vbnd}))
-    (if bnd-provided?
-      ;reuse ann-precord for now
-      `(ann-precord ~dname ~vbnd ~fields ~@opt)
-      `(ann-record* '~dname '~fields '~opt))))
+    `(ann-record* '~vbnd '~dname '~fields '~opt)))
+
 
 (defn ^:skip-wiki
   ann-precord* 
@@ -1406,6 +1200,8 @@ clojure.core.typed/Promise
   "Annotate record Class name dname with a polymorphic binder and expected fields.
   If unqualified, qualify in the current namespace."
   [dname vbnd fields & {ancests :unchecked-ancestors rplc :replace :as opt}]
+  (println "WARNING: ann-precord is deprecated, use ann-record")
+  (flush)
   `(ann-precord* '~dname '~vbnd '~fields '~opt))
 
 (defn ^:skip-wiki
@@ -1981,40 +1777,7 @@ clojure.core.typed/Promise
      (println (str perc "% var annotation coverage"))
      (flush))))
 
-
-(defn ^:private ^:skip-wiki collect-eval-form [frm]
-  (load-if-needed)
-  (when *collect-on-eval*
-    (impl/with-clojure-impl
-      (binding [*collect-on-eval* false]
-        ((impl/v 'clojure.core.typed.collect-phase/collect-form)
-         frm)))))
-
-(defn ^:skip-wiki ^:private 
-  ann-collect-eval [qsym typesyn check?]
-  (when-not *compile-files*
-    (when *collect-on-eval*
-      (load-if-needed)
-      (collect-eval-form 
-        `(ann* '~qsym '~typesyn '~check?)))))
-
-(defn ^:skip-wiki ^:private 
-  ann-record-collect-eval [dname fields opt]
-  (when-not *compile-files*
-    (when *collect-on-eval*
-      (load-if-needed)
-      (collect-eval-form
-        `(ann-record* '~dname '~fields '~opt)))))
-
-(defn ^:skip-wiki ^:private 
-  ann-datatype-collect-eval [vbnd dname fields opts]
-  (when-not *compile-files*
-    (when *collect-on-eval*
-      (load-if-needed)
-      (collect-eval-form
-        `(ann-datatype* '~vbnd '~dname '~fields '~opts)))))
-
-(defn pred* [tsyn pred]
+(defn pred* [tsyn nsym pred]
   pred)
 
 (defmacro pred 
@@ -2028,6 +1791,7 @@ clojure.core.typed/Promise
   [t]
   (require '[clojure.core.typed.type-contract])
   `(pred* '~t
+          '~(ns-name *ns*)
           ~((impl/v 'clojure.core.typed.type-contract/type-syntax->pred) t)))
 
 (comment 

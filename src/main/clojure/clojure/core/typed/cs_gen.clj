@@ -591,7 +591,7 @@
                 check-optional-keys (set/intersection
                                       Toptk (set/union Skeys Soptk))
                 Sopts (map (some-fn (:types S) (:optional S)) check-optional-keys)
-                Topts (map (:optional S) check-optional-keys)
+                Topts (map (:optional T) check-optional-keys)
                 _ (assert (every? r/Type? Sopts))
                 _ (assert (every? r/Type? Topts))]
             (cset-meet* [(cs-gen-list V X Y Svals Tvals)
