@@ -3097,7 +3097,7 @@
   (impl/impl-case
     :clojure (do (assert (#{:fn} op))
                  (-> fexpr :local :name))
-    :cljs (do (assert (#{:fn-expr} op))
+    :cljs (do (assert (#{:fn} op))
               (-> fexpr :name :name))))
 
 ; Can take a CLJ or CLJS function expression.
@@ -3171,7 +3171,10 @@
 (declare env+ ->RecurTarget RecurTarget?)
 
 (defn method-body [method]
-  {:pre [(#{:fn-method :method} (:op method))]}
+  {:pre [(impl/impl-case 
+           :clojure (#{:fn-method :method} (:op method))
+           ; is there a better test?
+           :cljs method)]}
   (impl/impl-case
     :clojure (:body method)
     :cljs (:expr method)))
@@ -3196,9 +3199,13 @@
 ;[MethodExpr Function -> Function]
 (defn check-fn-method1 [method {:keys [dom rest drest kws] :as expected}
                         & {:keys [recur-target-fn]}]
-  {:pre [(#{:fn-method :method} (:op method))
-         (r/Function? expected)]
+  {:pre [(r/Function? expected)]
    :post [(r/Function? %)]}
+  (impl/impl-case
+    :clojure (assert (#{:fn-method :method} (:op method))
+                     (:op method))
+    ; is there a better :op check here?
+    :cljs (assert method))
   #_(prn "checking syntax:" (u/emit-form-fn method))
   (u/p :check/check-fn-method1
   (let [body (method-body method)
@@ -4799,8 +4806,6 @@
                (not t)))
       (do (println (when-let [line (-> expr :env :line)] 
                      (str line ": ")) 
-                   expr
-                   env
                    "Not checking" vsym "definition")
           (flush)
           (assoc expr
