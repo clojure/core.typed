@@ -65,7 +65,7 @@
                  '[clojure.core.typed.chk.common.subtype]
                  '[clojure.core.typed.impl.jvm.array-ops]
                  '[clojure.core.typed.chk.jvm.check]
-                 '[clojure.core.typed.chk.common.collect-phase]
+                 '[clojure.core.typed.chk.jvm.collect-phase]
                  '[clojure.core.typed.impl.jvm.base-env]
                  '[clojure.core.typed.chk.common.ns-deps]
                  '[clojure.core.typed.chk.common.reset-env]

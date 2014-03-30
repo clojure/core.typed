@@ -1552,7 +1552,7 @@ for checking namespaces, cf for checking individual forms."}
     (let [check (impl/v 'clojure.core.typed.chk.jvm.check/check)
           expr-type (impl/v 'clojure.core.typed.chk.jvm.check/expr-type)
           ast-for-form (impl/v 'clojure.core.typed.impl.jvm.analyze-clj/ast-for-form)
-          collect-ast (impl/v 'clojure.core.typed.chk.common.collect-phase/collect-ast)
+          collect-ast (impl/v 'clojure.core.typed.chk.jvm.collect-phase/collect-ast)
           ret (impl/v 'clojure.core.typed.chk.common.type-rep/ret)
           parse-type (impl/v 'clojure.core.typed.chk.common.parse-unparse/parse-type)]
       (if *currently-checking-clj*
@@ -1583,7 +1583,7 @@ for checking namespaces, cf for checking individual forms."}
        (load-if-needed)
        (reset-caches)
        (let [reset-envs! (impl/v 'clojure.core.typed.chk.common.reset-env/reset-envs!)
-             collect-ns (impl/v 'clojure.core.typed.chk.common.collect-phase/collect-ns)
+             collect-ns (impl/v 'clojure.core.typed.chk.jvm.collect-phase/collect-ns)
              check-ns-and-deps (impl/v 'clojure.core.typed.chk.jvm.check/check-ns-and-deps)
              vars-with-unchecked-defs (impl/v 'clojure.core.typed.chk.common.var-env/vars-with-unchecked-defs)
              uri-for-ns (impl/v 'clojure.jvm.tools.analyzer/uri-for-ns)

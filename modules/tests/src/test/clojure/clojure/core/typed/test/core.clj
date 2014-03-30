@@ -18,7 +18,7 @@
          '[clojure.core.typed.chk.common.current-impl :as impl]
          '[clojure.core.typed.chk.jvm.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp
                                                     tc-equiv]]
-         '[clojure.core.typed.chk.common.collect-phase :as collect]
+         '[clojure.core.typed.chk.jvm.collect-phase :as collect]
          '[clojure.core.typed.chk.common.inst :as inst]
          '[clojure.core.typed.chk.common.subtype :as sub]
          '[clojure.core.typed.chk.common.type-rep :refer :all]

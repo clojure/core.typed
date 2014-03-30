@@ -1,4 +1,4 @@
-(ns ^:skip-wiki clojure.core.typed.chk.common.collect-phase
+(ns ^:skip-wiki clojure.core.typed.chk.jvm.collect-phase
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.chk.common.type-rep :as r]
             [clojure.core.typed.chk.common.type-ctors :as c]

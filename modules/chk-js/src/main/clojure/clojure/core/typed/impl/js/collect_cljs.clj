@@ -14,7 +14,7 @@
             [clojure.core.typed.chk.common.declared-kind-env :as decl]
             [clojure.core.typed.chk.common.subtype :as sub]
             [clojure.core.typed.rt.common.current-impl :as impl]
-            [clojure.core.typed.chk.common.collect-phase :as coll-clj]
+            [clojure.core.typed.chk.jvm.collect-phase :as coll-clj]
             [clojure.core.typed.chk.common.datatype-ancestor-env :as ancest]
             [clojure.core.typed.chk.common.datatype-env :as dt-env]
             [clojure.repl :as repl]

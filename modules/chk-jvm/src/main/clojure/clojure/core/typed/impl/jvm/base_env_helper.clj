@@ -11,7 +11,7 @@
             [clojure.core.typed.chk.common.name-env]
             [clojure.core.typed.chk.common.var-env]
             [clojure.core.typed.chk.common.ns-deps]
-            [clojure.core.typed.chk.common.collect-phase :as coll]
+            [clojure.core.typed.chk.jvm.collect-phase :as coll]
             [clojure.pprint :as pprint]))
 
 (defmacro alias-mappings [& args]
