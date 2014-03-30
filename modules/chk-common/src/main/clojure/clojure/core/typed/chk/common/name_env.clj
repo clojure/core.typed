@@ -3,8 +3,8 @@
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed.chk.common.datatype-env :as dtenv]
-            [clojure.core.typed.impl.jvm.rclass-env :as rcls]
-            [clojure.core.typed.impl.js.jsnominal-env :as jsnom]
+            ;[clojure.core.typed.impl.jvm.rclass-env :as rcls]
+            ;[clojure.core.typed.impl.js.jsnominal-env :as jsnom]
             [clojure.core.typed.chk.common.protocol-env :as prenv]
             [clojure.core.typed.chk.common.declared-kind-env :as kinds]
             [clojure.core.typed.rt.common.current-impl :as impl]
@@ -136,10 +136,14 @@
   (let [t (get-type-name sym)
         tfn ((some-fn dtenv/get-datatype 
                       prenv/get-protocol
-                      (impl/impl-case :clojure #(or (rcls/get-rclass %)
-                                                    (when (class? (resolve %))
-                                                      (c/RClass-of-with-unknown-params %)))
-                                      :cljs jsnom/get-jsnominal)
+                      (impl/impl-case :clojure (do (throw (Exception. "TODO extension point for resolve-name* JVM"))
+                                               ;#(or (rcls/get-rclass %)
+                                               ;     (when (class? (resolve %))
+                                               ;       (c/RClass-of-with-unknown-params %)))
+                                                   )
+                                      :cljs (do (throw (Exception. "TODO extension point for resolve-name* JS"))
+                                              ;jsnom/get-jsnominal
+                                              ))
                       ; during the definition of RClass's that reference
                       ; themselves in their definition, a temporary TFn is
                       ; added to the declared kind env which is enough to determine

@@ -23,7 +23,7 @@
 (set-validator! #'*lexical-env* (fn [a]
                                   (or (PropEnv? a)
                                       ;work around for recompilation issues with AOT
-                                      (= "clojure.core.typed.lex_env.PropEnv"
+                                      (= "clojure.core.typed.chk.common.lex_env.PropEnv"
                                          (.getName (class a))))))
 
 (defn lookup-local [sym]

@@ -7,7 +7,7 @@
             [clojure.core.typed.chk.common.utils :as u]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set])
-  (:import (clojure.core.typed.filter_rep BotFilter TopFilter NoFilter AndFilter 
+  (:import (clojure.core.typed.chk.common.filter_rep BotFilter TopFilter NoFilter AndFilter 
                                           OrFilter TypeFilter NotTypeFilter ImpFilter)))
 
 (alter-meta! *ns* assoc :skip-wiki true)

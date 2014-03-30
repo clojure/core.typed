@@ -16,9 +16,9 @@
                                         HeterogeneousSeq TCError Extends JSNominal
                                         StringCLJS BooleanCLJS NumberCLJS IntegerCLJS ObjectCLJS
                                         ArrayCLJS FunctionCLJS KwArgsSeq)
-           (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
+           (clojure.core.typed.chk.common.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
-           (clojure.core.typed.object_rep NoObject EmptyObject Path)
+           (clojure.core.typed.chk.common.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.chk.common.path_rep KeyPE CountPE ClassPE)
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 

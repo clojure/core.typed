@@ -8,7 +8,7 @@
             [clojure.core.typed.chk.common.dvar-env :as dvar]
             [clojure.core.typed.chk.common.filter-rep :as f]
             [clojure.core.typed.chk.common.filter-ops :as fl]
-            [clojure.core.typed.impl.jvm.constant-type :as const]
+            ;[clojure.core.typed.impl.jvm.constant-type :as const]
             [clojure.core.typed.chk.common.free-ops :as free-ops]
             [clojure.core.typed.rt.common.current-impl :as impl]
             [clojure.core.typed.chk.common.name-env :as name-env]
@@ -22,9 +22,9 @@
                                         HeterogeneousSeq KwArgsSeq TCError Extends NumberCLJS BooleanCLJS
                                         IntegerCLJS ArrayCLJS JSNominal StringCLJS TCResult AssocType
                                         GetType)
-           (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
+           (clojure.core.typed.chk.common.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
-           (clojure.core.typed.object_rep NoObject EmptyObject Path)
+           (clojure.core.typed.chk.common.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.chk.common.path_rep KeyPE CountPE ClassPE KeysPE ValsPE)
            (clojure.lang ISeq Cons IPersistentList Symbol IPersistentVector PersistentHashMap)))
 
@@ -603,7 +603,10 @@
     (u/int-error (str "Incorrect number of arguments to Value, " (count all)
                       ", expected 2: " all)))
   (impl/impl-case
-    :clojure (const/constant-type syn)
+    :clojure (do 
+               (throw (Exception. "TODO extension point for constant-type for JVM"))
+               ;(const/constant-type syn)
+               )
     :cljs (cond
             ((some-fn symbol? keyword?) syn)
               (r/-val syn)

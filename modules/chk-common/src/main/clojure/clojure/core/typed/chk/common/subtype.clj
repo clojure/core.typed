@@ -20,7 +20,7 @@
                                         PrimitiveArray DataType RClass HeterogeneousMap
                                         HeterogeneousList HeterogeneousSeq CountRange KwArgs
                                         Extends)
-           (clojure.core.typed.filter_rep FilterSet)
+           (clojure.core.typed.chk.common.filter_rep FilterSet)
            (clojure.lang APersistentMap APersistentVector PersistentList ASeq Seqable)))
 
 (alter-meta! *ns* assoc :skip-wiki true)

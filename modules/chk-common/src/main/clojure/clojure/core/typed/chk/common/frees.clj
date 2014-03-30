@@ -17,9 +17,9 @@
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
                                         HeterogeneousSeq Scope TCError Extends AssocType)
-           (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
+           (clojure.core.typed.chk.common.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
-           (clojure.core.typed.object_rep Path EmptyObject NoObject)
+           (clojure.core.typed.chk.common.object_rep Path EmptyObject NoObject)
            (clojure.core.typed.chk.common.path_rep KeyPE)
            (clojure.lang Keyword Symbol)))
 

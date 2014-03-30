@@ -15,9 +15,9 @@
                                         HeterogeneousSeq TCResult TCError FlowSet Extends
                                         NumberCLJS IntegerCLJS ObjectCLJS StringCLJS ArrayCLJS
                                         BooleanCLJS AssocType KwArgsSeq)
-           (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
+           (clojure.core.typed.chk.common.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
-           (clojure.core.typed.object_rep NoObject EmptyObject Path)
+           (clojure.core.typed.chk.common.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.chk.common.path_rep KeyPE KeysPE ValsPE ClassPE)))
 
 (add-default-fold-case NotType

@@ -53,8 +53,8 @@
            (clojure.core.typed.chk.common.type_rep Function FnIntersection RClass Poly DottedPretype HeterogeneousSeq
                                         Value KwArgs HeterogeneousMap DataType TCResult HeterogeneousVector
                                         FlowSet Union)
-           (clojure.core.typed.object_rep Path)
-           (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet AndFilter OrFilter)
+           (clojure.core.typed.chk.common.object_rep Path)
+           (clojure.core.typed.chk.common.filter_rep NotTypeFilter TypeFilter FilterSet AndFilter OrFilter)
            (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector
                          Reflector PersistentHashSet Symbol)))
 
