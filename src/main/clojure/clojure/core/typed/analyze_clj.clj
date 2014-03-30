@@ -12,24 +12,7 @@
 (alter-meta! *ns* assoc :skip-wiki true)
 
 (defn ^:private analyze1 [form env]
-  (let [mform (binding [ta/macroexpand-1 taj/macroexpand-1]
-                (ta/macroexpand form (taj/empty-env)))]
-    (if (and (seq? mform) (= 'do (first mform)) (next mform))
-      (let [[statements ret] (loop [statements [] [e & exprs] (rest mform)]
-                               (if exprs
-                                 (recur (conj statements e) exprs)
-                                 [statements e]))
-            statements-expr  (mapv (fn [s] (analyze1 s (assoc (taj/empty-env) :context :statement))) statements)
-            ret-expr         (analyze1 ret (taj/empty-env))]
-        {:op         :do
-         :form       mform
-         :statements statements-expr
-         :ret        ret-expr
-         :children   [:statements :ret]})
-      (let [a (taj/analyze mform env)
-            frm (emit-form/emit-form a)]
-        (eval frm)
-        a))))
+  (taj/analyze+eval form env))
 
 (defn ast-for-form-in-ns
   "Returns an AST node for the form 
