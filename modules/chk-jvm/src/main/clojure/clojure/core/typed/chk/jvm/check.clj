@@ -49,7 +49,7 @@
             [clojure.string :as str]
             [clojure.set :as set]
             [clojure.reflect :as reflect])
-  (:import (clojure.core.typed.lex_env PropEnv)
+  (:import (clojure.core.typed.chk.common.lex_env PropEnv)
            (clojure.core.typed.chk.common.type_rep Function FnIntersection RClass Poly DottedPretype HeterogeneousSeq
                                         Value KwArgs HeterogeneousMap DataType TCResult HeterogeneousVector
                                         FlowSet Union)

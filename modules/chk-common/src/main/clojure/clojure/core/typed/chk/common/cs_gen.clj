@@ -22,7 +22,7 @@
                                         Result AnyValue Top HeterogeneousSeq RClass HeterogeneousList
                                         HeterogeneousVector DataType HeterogeneousMap PrimitiveArray
                                         Function Protocol Bounds FlowSet TCResult)
-           (clojure.core.typed.cs_rep c cset dcon dmap cset-entry)
+           (clojure.core.typed.chk.common.cs_rep c cset dcon dmap cset-entry)
            (clojure.core.typed.chk.common.filter_rep TypeFilter)
            (clojure.lang Symbol ISeq IPersistentList APersistentVector APersistentMap)))
 
