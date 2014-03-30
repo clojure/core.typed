@@ -9,7 +9,7 @@
             [clojure.core.typed.chk.common.subtype :as sub]
             [clojure.core.typed.chk.common.parse-unparse :as prs]
             [clojure.core.typed.chk.common.cs-rep :as cr]
-            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.util-vars :as vs]
             [clojure.core.typed.chk.common.dvar-env :as denv]
             [clojure.core.typed.chk.common.frees :as frees]
@@ -33,9 +33,9 @@
 
 (t/ann ^:no-check clojure.core.typed.chk.common.subtype/subtype? [r/AnyType r/AnyType -> Boolean])
 (t/ann ^:no-check clojure.set/union (All [x] [(t/Set x) * -> (t/Set x)]))
-(t/ann ^:no-check clojure.core.typed.chk.common.current-impl/current-impl [-> Any])
-(t/ann ^:no-check clojure.core.typed.chk.common.current-impl/any-impl Any)
-(t/ann ^:no-check clojure.core.typed.chk.common.current-impl/checking-clojure? [-> Any])
+(t/ann ^:no-check clojure.core.typed.rt.jvm.current-impl/current-impl [-> Any])
+(t/ann ^:no-check clojure.core.typed.rt.jvm.current-impl/any-impl Any)
+(t/ann ^:no-check clojure.core.typed.rt.jvm.current-impl/checking-clojure? [-> Any])
 
 (t/ann subtype? [r/AnyType r/AnyType -> Boolean])
 (defn ^:private subtype? [s t]

@@ -1,5 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.rt.jvm.ast-ops
-  (:require [clojure.core.typed.chk.common.current-impl :as impl]
+  (:require [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.errors :as err]))
 
 (alter-meta! *ns* assoc :skip-wiki true)

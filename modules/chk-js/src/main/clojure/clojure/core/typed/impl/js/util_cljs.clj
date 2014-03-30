@@ -1,5 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.impl.js.util-cljs
-  (:require [clojure.core.typed.chk.common.current-impl :as impl]
+  (:require [clojure.core.typed.rt.jvm.current-impl :as impl]
             [cljs.analyzer :as ana]
             [cljs.jvm.tools.analyzer.emit-form :as emit-form]
             [cljs.compiler :as comp]

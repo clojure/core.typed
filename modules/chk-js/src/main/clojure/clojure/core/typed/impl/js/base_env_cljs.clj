@@ -1,7 +1,7 @@
 (ns clojure.core.typed.impl.js.base-env-cljs
   (:require [clojure.core.typed.impl.js.base-env-helper-cljs :as h]
             [clojure.core.typed.chk.common.base-env-common :refer [delay-and-cache-env]]
-            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.rt.js.bootstrap-cljs :as boot]
             [cljs.env :as env]
             [clojure.set :as set]))

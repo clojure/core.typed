@@ -1,5 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.chk.common.subtype
-  (:require [clojure.core.typed.chk.common.current-impl :as impl]
+  (:require [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.type-protocols :as tp]
             [clojure.core.typed.chk.common.type-rep :as r]
             [clojure.core.typed.chk.common.type-ctors :as c]

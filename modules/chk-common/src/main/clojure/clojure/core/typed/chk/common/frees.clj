@@ -3,7 +3,7 @@
   clojure.core.typed.chk.common.frees
   (:require [clojure.core.typed :as t :refer [for> fn>]]
             [clojure.core.typed.chk.common.type-rep :as r]
-            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.object-rep]
             [clojure.core.typed.chk.common.utils :as u]

@@ -19,7 +19,7 @@
             [clojure.core.typed.chk.common.name-env :as nme-env]
             [clojure.core.typed.chk.common.subst]
             [clojure.core.typed.impl.jvm.rclass-env :as rcls]
-            [clojure.core.typed.chk.common.current-impl :as impl :refer [v]]
+            [clojure.core.typed.rt.jvm.current-impl :as impl :refer [v]]
             [clojure.set :as set]))
 
 
@@ -485,9 +485,9 @@ clojure.core.typed.chk.common.check-ns (Fn [Symbol -> Any]
                                 [-> Any])
 ;; Internal annotations
 
-clojure.core.typed.chk.common.current-impl/*current-impl* Any
-clojure.core.typed.chk.common.current-impl/clojure Any
-clojure.core.typed.chk.common.current-impl/clojurescript Any
+clojure.core.typed.rt.jvm.current-impl/*current-impl* Any
+clojure.core.typed.rt.jvm.current-impl/clojure Any
+clojure.core.typed.rt.jvm.current-impl/clojurescript Any
 clojure.core.typed/ann* [Any Any Any -> Any]
 clojure.core.typed/def-alias* [Any Any -> Any]
 clojure.core.typed/declare-names* [Any -> Any]

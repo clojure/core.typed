@@ -5,7 +5,7 @@
   (:require [clojure.core.typed :as t :refer [*already-checked* letfn>]]
             [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed.chk.common.parse-unparse :as prs]
-            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.type-rep :as r :refer [ret-t ret-f ret-o ret TCResult? Type?]]
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.object-rep :as obj]

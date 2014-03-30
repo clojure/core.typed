@@ -10,7 +10,7 @@
             [clojure.core.typed.chk.common.filter-ops :as fl]
             [clojure.core.typed.impl.jvm.constant-type :as const]
             [clojure.core.typed.chk.common.free-ops :as free-ops]
-            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.name-env :as name-env]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])

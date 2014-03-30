@@ -2,7 +2,7 @@
 (ns ^:skip-wiki clojure.core.typed.rt.jvm.type-contract
   (:require [clojure.core.typed.chk.common.parse-ast :as ast]
             [clojure.core.typed.chk.common.errors :as err]
-            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.rt.jvm.ast-ops :as ops]
             ;used in contracts
             [clojure.set :as set]))

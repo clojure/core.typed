@@ -2,7 +2,7 @@
   (:require [clojure.core.typed.impl.jvm.base-env :as bse-clj]
             [clojure.core.typed.chk.common.ns-deps :as deps]
             [clojure.core.typed.chk.common.ns-options :as ns-opts]
-            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.mm-env :as mmenv]))
 
 (alter-meta! *ns* assoc :skip-wiki true)

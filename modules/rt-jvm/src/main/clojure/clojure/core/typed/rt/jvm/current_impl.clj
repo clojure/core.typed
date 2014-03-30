@@ -1,5 +1,5 @@
 ; untyped, clojure.core.typed depends on this namespace
-(ns clojure.core.typed.chk.common.current-impl
+(ns clojure.core.typed.rt.jvm.current-impl
   (:require [clojure.core.typed.chk.common.profiling :as p]
             [clojure.set :as set]))
 

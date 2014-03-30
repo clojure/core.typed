@@ -1,7 +1,7 @@
 (ns cljs.core.typed
   "Macros for Clojurescript type checking"
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.chk.common.current-impl :as impl :refer [v]]
+            [clojure.core.typed.rt.jvm.current-impl :as impl :refer [v]]
             [clojure.core.typed.impl.js.util-cljs :as u]
             [cljs.analyzer :as ana]
             [cljs.compiler :as comp]

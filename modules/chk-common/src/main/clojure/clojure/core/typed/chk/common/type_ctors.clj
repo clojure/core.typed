@@ -12,7 +12,7 @@
             [clojure.core.typed.chk.common.fold-rep :as f]
             [clojure.core.typed.chk.common.datatype-env :as dtenv]
             [clojure.core.typed.chk.common.protocol-env :as prenv]
-            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.free-ops :as free-ops]
             [clojure.core.typed.chk.common.tvar-bnds :as bnds]
             [clojure.core.typed :as t :refer [fn>]]

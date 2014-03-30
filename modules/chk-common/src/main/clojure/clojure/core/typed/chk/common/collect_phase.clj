@@ -13,7 +13,7 @@
             [clojure.core.typed.chk.common.util-vars :as uvar]
             [clojure.core.typed.chk.common.check :as chk]
             [clojure.core.typed.impl.jvm.analyze-clj :as ana-clj]
-            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.free-ops :as free-ops]
             [clojure.core.typed.chk.common.frees :as frees]
             [clojure.core.typed.chk.common.datatype-ancestor-env :as ancest]

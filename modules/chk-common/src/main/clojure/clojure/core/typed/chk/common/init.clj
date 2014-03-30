@@ -1,5 +1,5 @@
 (ns clojure.core.typed.chk.common.init
-  (:require [clojure.core.typed.chk.common.current-impl :as impl]
+  (:require [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.profiling :as p]
             [clojure.java.io :as io]))
 
@@ -43,7 +43,7 @@
                  '[clojure.core.typed.chk.common.lex-env]
                  '[clojure.core.typed.chk.common.var-env]
                  '[clojure.core.typed.chk.common.parse-unparse]
-                 '[clojure.core.typed.chk.common.current-impl]
+                 '[clojure.core.typed.rt.jvm.current-impl]
                  '[clojure.core.typed.chk.common.dvar-env]
                  '[clojure.core.typed.chk.common.datatype-ancestor-env]
                  '[clojure.core.typed.chk.common.datatype-env]

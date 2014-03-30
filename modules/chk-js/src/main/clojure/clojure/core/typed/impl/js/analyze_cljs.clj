@@ -1,7 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.impl.js.analyze-cljs
   (:refer-clojure :exclude [extenders])
-  (:require [clojure.core.typed.chk.common.current-impl :as impl]
-            [cljs.analyzer :as ana]
+  (:require [cljs.analyzer :as ana]
             [cljs.jvm.tools.analyzer :as jana]
             [cljs.jvm.tools.analyzer.hygienic :as hyg]
             ))

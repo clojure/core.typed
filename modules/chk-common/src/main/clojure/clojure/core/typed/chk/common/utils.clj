@@ -8,7 +8,7 @@
             [clojure.jvm.tools.analyzer :as analyze]
             [clojure.jvm.tools.analyzer.hygienic :as hygienic]
             [clojure.set :as set]
-            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.profiling :as profiling]
             [clojure.pprint :as pprint])
   (:import (clojure.lang PersistentArrayMap Var Symbol)))
@@ -19,7 +19,7 @@
 
 (t/ann ^:no-check taoensso.timbre/logging-enabled? [Any -> Any])
 (t/ann ^:no-check taoensso.timbre.profiling/*pdata* (t/Atom1 Any))
-(t/ann ^:no-check clojure.core.typed.chk.common.current-impl/assert-clojure [-> Any])
+(t/ann ^:no-check clojure.core.typed.rt.jvm.current-impl/assert-clojure [-> Any])
 
 (t/ann ^:no-check deprecated-warn [String -> nil])
 (t/ann ^:no-check int-error [String -> Nothing])
