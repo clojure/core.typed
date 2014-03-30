@@ -9,7 +9,7 @@
             [clojure.jvm.tools.analyzer.hygienic :as hygienic]
             [clojure.set :as set]
             [clojure.core.typed.rt.jvm.current-impl :as impl]
-            [clojure.core.typed.chk.common.profiling :as profiling]
+            [clojure.core.typed.rt.jvm.profiling :as profiling]
             [clojure.pprint :as pprint])
   (:import (clojure.lang PersistentArrayMap Var Symbol)))
 

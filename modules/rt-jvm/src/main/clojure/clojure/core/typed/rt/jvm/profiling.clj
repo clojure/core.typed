@@ -1,4 +1,4 @@
-(ns ^:skip-wiki clojure.core.typed.chk.common.profiling)
+(ns ^:skip-wiki clojure.core.typed.rt.jvm.profiling)
 
 (alter-meta! *ns* assoc :skip-wiki true)
 

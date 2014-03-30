@@ -8,7 +8,7 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.string :as str]
             [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.chk.common.util-vars :as uvars]
-            [clojure.core.typed.chk.common.profiling :as p]
+            [clojure.core.typed.rt.jvm.profiling :as p]
             [clojure.core.typed.chk.common.parse-ast :as ast]
             [clojure.java.io :as io])
   (:refer-clojure :exclude [type]))

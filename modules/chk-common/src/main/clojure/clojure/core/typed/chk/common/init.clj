@@ -1,6 +1,5 @@
 (ns clojure.core.typed.chk.common.init
   (:require [clojure.core.typed.rt.jvm.current-impl :as impl]
-            [clojure.core.typed.chk.common.profiling :as p]
             [clojure.java.io :as io]))
 
 (defonce ^:private attempted-loading? (atom false))
