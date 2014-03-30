@@ -20,6 +20,14 @@
     <version>0.1.2</version>
   </parent>
 
+  <dependencies>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>clojure</artifactId>
+      <version>1.5.1</version>
+    </dependency>
+  </dependencies>
+
   <developers>
     <developer>
       <id>frenchy64</id>
