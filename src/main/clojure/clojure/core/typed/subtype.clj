@@ -421,6 +421,51 @@
             *sub-current-seen*
             (fail! s t)))
 
+        (and (r/HSequential? s)
+             (r/HSequential? t))
+        (if (and (cond
+                   ; simple case, no rest types
+                   (and (not-any? :rest [s t])
+                        (not-any? :drest [s t]))
+                   (let []
+                     (and (= (count (:types s))
+                             (count (:types t)))
+                          (every? identity (map subtype? (:types s) (:types t)))))
+
+                   ; rest on right
+                   (and (:rest t)
+                        (not (:drest s)))
+                   (and (>= (count (:types s))
+                            (count (:types t)))
+                        (if (:rest s)
+                          (subtype? (:rest s) (:rest t))
+                          true)
+                        ;pad t to the right
+                        (every? identity (map subtype?
+                                              (:types s)
+                                              (concat (:types t)
+                                                      (repeat (- (count (:types s)) (count (:types t)))
+                                                              (:rest t))))))
+
+                   ;TODO other cases
+                   :else nil
+                   )
+                 ; ignore interesting results
+                 (every? (fn hvec1 [[f1 f2]] (or (= (fops/-FS fr/-top fr/-top) f2)
+                                                 (= f1 f2)))
+                         (map vector (:fs s) (:fs t)))
+                 ; ignore interesting results
+                 (every? (fn hvec2 [[o1 o2]] (or (orep/EmptyObject? o2)
+                                                 (= o1 o2)))
+                         (map vector (:objects s) (:objects t))))
+          *sub-current-seen*
+          (fail! s t))
+
+        (r/HSequential? t)
+        (if-let [casted-s (c/upcast-to-HSequential s)]
+          (subtype casted-s t)
+          (fail! s t))
+
         (and (r/HeterogeneousVector? s)
              (r/HeterogeneousVector? t))
         (if (and (cond 

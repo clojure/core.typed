@@ -3113,7 +3113,7 @@
 
 (deftest annotate-user-defined-ploydot
   (is-cf (fn [x & y] x) (All [x y ...] [x y ... y -> x]))
-  (is-cf (fn [& y] (if (empty? y) nil (first y))) (All [x y ...] [x y ... y -> Any]))
+  (is-cf (fn [& y] (if (empty? y) nil (first y))) (All [x y ...] [x y ... y -> (U x nil)]))
   ; FIXME replace Any above with (U x nil) when implemented HSequential and fixed code for *check-fn-method1-rest-type*
   (is (u/top-level-error-thrown?
         (cf (fn [x c & y] x) (All [x y ...] [x y ... y -> x])))))
@@ -3128,3 +3128,8 @@
   (is (subtype? (-kw-args-seq :mandatory {(-val :a) (-val 1)}
                               :complete? true)
                 (parse-clj '(clojure.core.typed/Seq (U clojure.core.typed/Keyword Number))))))
+
+(deftest add-HSequential
+  (is-cf [1 2 3] (HSequential [Number *]))
+  (is-cf '(1 2 3) (HSequential [Number *]))
+  (is-cf '(1 2 3) (HSequential [(Value 1) (Value 2) (Value 3)])))

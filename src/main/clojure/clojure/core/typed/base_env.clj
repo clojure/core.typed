@@ -1138,6 +1138,10 @@ clojure.core/empty? (Fn [(Option (Coll Any)) -> boolean
                           :filters {:then (| (is EmptyCount 0)
                                              (is nil 0))
                                     :else (is NonEmptyCount 0)}]
+                        [(Option (HSequential [Any *])) -> boolean
+                          :filters {:then (| (is EmptyCount 0)
+                                             (is nil 0))
+                                    :else (is NonEmptyCount 0)}]
                         [(Option (Seqable Any)) -> boolean])
 
 clojure.core/map
@@ -1239,14 +1243,14 @@ clojure.core/not= [Any Any * -> boolean]
 
 clojure.core/first
      (All [x]
-          (Fn ['[x Any *] -> x]
+          (Fn [(HSequential [x Any *]) -> x]
               [(Option (EmptySeqable x)) -> nil]
               [(NonEmptySeqable x) -> x]
               [(Option (Seqable x)) -> (Option x)]))
 
 clojure.core/second
      (All [x]
-          (Fn ['[Any x Any *] -> x]
+          (Fn [(HSequential [Any x Any *]) -> x]
               [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
               [(I (Seqable x) (CountRange 2)) -> x]
               [(Option (Seqable x)) -> (Option x)]))

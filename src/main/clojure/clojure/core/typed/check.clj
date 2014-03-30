@@ -2855,10 +2855,10 @@
                  :post [(Type? %)]}
                 (cond
                   (or rest drest)
-                  (c/Un
-                    r/-nil
-                    (r/TApp-maker (r/Name-maker 'clojure.core.typed/NonEmptySeq)
-                                  [(apply c/Un (or rest (.pre-type ^DottedPretype drest)) remain-dom)]))
+                  (c/Un r/-nil
+                        (r/-hvec (vec remain-dom)
+                                        :rest rest
+                                        :drest drest))
                   ;FIXME fix code above when we've supported HSequential as discussed in CTYP-126
 
                   :else (c/KwArgs->Type kws)))]

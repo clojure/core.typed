@@ -21,7 +21,7 @@
                                         CountRange Name Value Top TopFunction B F Result AnyValue
                                         HeterogeneousSeq KwArgsSeq TCError Extends NumberCLJS BooleanCLJS
                                         IntegerCLJS ArrayCLJS JSNominal StringCLJS TCResult AssocType
-                                        GetType)
+                                        GetType HSequential)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -464,7 +464,44 @@
      :rest rest
      :drest drest}))
 
+(defn parse-hsequential-type [syns]
+  (let [rest? (#{'*} (last syns))
+        dotted? (#{'...} (-> syns butlast last))
+        _ (when (and rest? dotted?)
+            (u/int-error (str "Invalid heterogeneous sequential syntax:" syns)))
+        {:keys [fixed rest drest]}
+        (cond
+          rest?
+          (let [fixed (mapv parse-type (drop-last 2 syns))
+                rest (parse-type (-> syns butlast last))]
+            {:fixed fixed
+             :rest rest})
+          dotted?
+          (let [fixed (mapv parse-type (drop-last 3 syns))
+                [drest-bnd _dots_ drest-type] (take-last 3 syns)
+                bnd (dvar/*dotted-scope* drest-bnd)
+                _ (when-not bnd
+                    (u/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
+            {:fixed fixed
+             :drest (r/DottedPretype1-maker
+                      (free-ops/with-frees [bnd] ;with dotted bound in scope as free
+                                           (parse-type drest-type))
+                      (:name bnd))})
+          :else {:fixed (mapv parse-type syns)})]
+    {:fixed fixed
+     :rest rest
+     :drest drest}))
 
+(defmethod parse-type-list 'HSequential
+  [[_ syn & {:keys [filter-sets objects]}]]
+  (let [{:keys [fixed drest rest]} (parse-hsequential-type syn)]
+    (r/-hsequential fixed
+                    :filters (when filter-sets
+                               (mapv parse-filter-set filter-sets))
+                    :objects (when objects
+                               (mapv parse-object objects))
+                    :drest drest
+                    :rest rest)))
 
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]
   (when mandatory
@@ -1261,6 +1298,20 @@
 (defmethod unparse-type* HeterogeneousSeq
   [v]
   (list* 'Seq* (doall (map unparse-type (:types v)))))
+
+(defmethod unparse-type* HSequential
+  [{:keys [types rest drest fs objects] :as v}]
+  (list* 'HSequential
+         (vec
+           (concat
+             (map unparse-type (:types v))
+             (when rest [(unparse-type rest) '*])
+             (when drest [(:name drest) '... (unparse-type (:pre-type drest))])))
+         (concat
+           (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
+             [:filter-sets (mapv unparse-filter-set fs)])
+           (when-not (every? #{orep/-empty} objects)
+             [:objects (mapv unparse-object objects)]))))
 
 (defmethod unparse-type* KwArgsSeq
   [^KwArgsSeq v]

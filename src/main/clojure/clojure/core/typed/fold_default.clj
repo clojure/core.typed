@@ -14,7 +14,7 @@
                                         CountRange Name Value Top TopFunction B F Result
                                         HeterogeneousSeq TCResult TCError FlowSet Extends
                                         NumberCLJS IntegerCLJS ObjectCLJS StringCLJS ArrayCLJS
-                                        BooleanCLJS AssocType KwArgsSeq)
+                                        BooleanCLJS AssocType KwArgsSeq HSequential)
            (clojure.core.typed.filter_rep NoFilter TopFilter BotFilter TypeFilter NotTypeFilter
                                           ImpFilter AndFilter OrFilter FilterSet)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -170,6 +170,15 @@
 (add-default-fold-case HeterogeneousVector
                        (fn [{:keys [types fs objects rest drest] :as ty} _]
                          (r/-hvec
+                           (mapv type-rec (:types ty))
+                           :filters (mapv filter-rec (:fs ty))
+                           :objects (mapv object-rec (:objects ty))
+                           :rest (when rest (type-rec rest))
+                           :drest (when drest (update-in drest [:pre-type] type-rec)))))
+
+(add-default-fold-case HSequential
+                       (fn [{:keys [types rest drest] :as ty} _]
+                         (r/-hsequential
                            (mapv type-rec (:types ty))
                            :filters (mapv filter-rec (:fs ty))
                            :objects (mapv object-rec (:objects ty))

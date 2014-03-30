@@ -151,6 +151,21 @@
     (when objects
       {:objects (mapv parse-object filter-sets)})))
 
+(defn parse-HSequential [[_ fixed & {:keys [filter-sets objects]} :as syn]]
+  (merge
+    {:op :HSequential
+     :types (mapv parse fixed)
+     :children (vec (concat
+                      [:types]
+                      (when filter-sets
+                        [:filter-sets])
+                      (when objects
+                        [:objects])))}
+    (when filter-sets
+      {:filter-sets (mapv parse-filter-set filter-sets)})
+    (when objects
+      {:objects (mapv parse-object filter-sets)})))
+
 (defn parse-hvec-types [syns]
   (let [rest? (#{'*} (last syns))
         dotted? (#{'...} (-> syns butlast last))
@@ -550,6 +565,7 @@
     ('#{Seq*} f) (parse-quoted-hseq (rest syn))
     ('#{List*} f) (parse-quoted-hlist (rest syn))
     ('#{HVec} f) (parse-HVec syn)
+    ('#{HSequential} f) (parse-HSequential syn)
     :else {:op :TApp
            :rator (parse f)
            :rands (mapv parse args)
