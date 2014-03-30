@@ -3,7 +3,7 @@
             [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed :as t])
   (:import [clojure.lang Symbol]
-           [clojure.core.typed.type_rep F]))
+           [clojure.core.typed.chk.common.type_rep F]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dotted Variable Environment

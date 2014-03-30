@@ -7,7 +7,7 @@
             [clojure.core.typed.chk.common.object-rep]
             [clojure.core.typed.chk.common.free-ops :as free-ops]
             [clojure.core.typed.chk.common.path-rep])
-  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.chk.common.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass JSNominal App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap

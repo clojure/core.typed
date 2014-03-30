@@ -9,7 +9,7 @@
             [clojure.core.typed.chk.common.filter-ops :as fo]
             [clojure.core.typed.chk.common.object-rep :as orep]
             [clojure.core.typed :as t :refer [ann Seqable]])
-  (:import (clojure.core.typed.type_rep F Function HeterogeneousVector)
+  (:import (clojure.core.typed.chk.common.type_rep F Function HeterogeneousVector)
            (clojure.lang Symbol)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

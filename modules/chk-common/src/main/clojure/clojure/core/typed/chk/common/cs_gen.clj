@@ -18,7 +18,7 @@
             [clojure.core.typed.chk.common.subst :as subst]
             [clojure.core.typed :as t :refer [for> fn> letfn> doseq>]]
             [clojure.set :as set])
-  (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
+  (:import (clojure.core.typed.chk.common.type_rep F Value Poly TApp Union FnIntersection
                                         Result AnyValue Top HeterogeneousSeq RClass HeterogeneousList
                                         HeterogeneousVector DataType HeterogeneousMap PrimitiveArray
                                         Function Protocol Bounds FlowSet TCResult)

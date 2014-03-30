@@ -4,7 +4,7 @@
   (:require [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed.chk.common.type-rep :as r]
             [clojure.core.typed :as t :refer [fn>]])
-  (:import (clojure.core.typed.type_rep F)
+  (:import (clojure.core.typed.chk.common.type_rep F)
            (clojure.lang Symbol)))
 
 (alter-meta! *ns* assoc :skip-wiki true

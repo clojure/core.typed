@@ -14,7 +14,7 @@
             [clojure.core.typed.chk.common.name-env :as name-env]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
-  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.chk.common.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap

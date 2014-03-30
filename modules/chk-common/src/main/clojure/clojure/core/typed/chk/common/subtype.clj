@@ -15,7 +15,7 @@
             [clojure.core.typed.chk.common.path-rep :as pth-rep]
             [clojure.set :as set]
             [clojure.repl :as repl])
-  (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
+  (:import (clojure.core.typed.chk.common.type_rep Poly TApp Union Intersection Value Function
                                         Result Protocol TypeFn Name F Bounds
                                         PrimitiveArray DataType RClass HeterogeneousMap
                                         HeterogeneousList HeterogeneousSeq CountRange KwArgs

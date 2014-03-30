@@ -9,7 +9,7 @@
             [clojure.core.typed.chk.common.trans :as trans]
             [clojure.string :as string]
             [clojure.pprint :as pprint])
-  (:import (clojure.core.typed.type_rep Poly Bounds PolyDots F)))
+  (:import (clojure.core.typed.chk.common.type_rep Poly Bounds PolyDots F)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 

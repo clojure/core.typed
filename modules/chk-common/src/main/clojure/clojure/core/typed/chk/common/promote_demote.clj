@@ -8,7 +8,7 @@
             [clojure.core.typed.chk.common.frees :as frees]
             [clojure.core.typed :as t]
             [clojure.set :as set])
-  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.chk.common.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap

@@ -17,7 +17,7 @@
             [clojure.core.typed.chk.common.filter-ops :as fo]
             [clojure.core.typed.chk.common.object-rep :a obj]
             [clojure.core.typed.impl.js.analyze-cljs :as ana])
-  (:import (clojure.core.typed.type_rep Value DottedPretype)))
+  (:import (clojure.core.typed.chk.common.type_rep Value DottedPretype)))
 
 (declare check)
 

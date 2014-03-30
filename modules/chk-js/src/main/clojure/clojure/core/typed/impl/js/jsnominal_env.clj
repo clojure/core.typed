@@ -4,7 +4,7 @@
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed :as t :refer [ann def-alias]])
-  (:import [clojure.core.typed.type_rep Scope]
+  (:import [clojure.core.typed.chk.common.type_rep Scope]
            [clojure.lang Symbol]))
 
 (t/tc-ignore

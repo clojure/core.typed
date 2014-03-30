@@ -3,7 +3,7 @@
             [clojure.core.typed.chk.common.type-rep :as r]
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.subst :as subst])
-  (:import (clojure.core.typed.type_rep Name F Value RClass Union FnIntersection
+  (:import (clojure.core.typed.chk.common.type_rep Name F Value RClass Union FnIntersection
                                         Intersection Union Function TApp Top)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

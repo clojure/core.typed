@@ -6,7 +6,7 @@
             [clojure.core.typed :as t :refer [when-let-fail inst]]
             [clojure.set :as set])
   (:import (clojure.lang Symbol)
-           (clojure.core.typed.type_rep DataType)))
+           (clojure.core.typed.chk.common.type_rep DataType)))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)

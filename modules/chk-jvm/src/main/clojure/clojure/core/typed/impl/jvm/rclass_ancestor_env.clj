@@ -6,7 +6,7 @@
             [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.set :as set])
-  (:import [clojure.core.typed.type_rep RClass]))
+  (:import [clojure.core.typed.chk.common.type_rep RClass]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 

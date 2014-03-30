@@ -11,7 +11,7 @@
             [clojure.core.typed.chk.common.free-ops :as free-ops]
             [clojure.core.typed.chk.common.name-env :as nmenv]
             [clojure.core.typed.chk.common.declared-kind-env :as kinds])
-  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.chk.common.type_rep NotType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap

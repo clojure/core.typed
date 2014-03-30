@@ -6,7 +6,7 @@
             [clojure.core.typed :as t :refer [fn>]]
             [clojure.core.typed.chk.common.tvar-env :as tvar]
             [clojure.core.typed.chk.common.tvar-bnds :as bnds])
-  (:import (clojure.core.typed.type_rep F Bounds)
+  (:import (clojure.core.typed.chk.common.type_rep F Bounds)
            (clojure.lang Symbol)))
 
 (alter-meta! *ns* assoc :skip-wiki true
