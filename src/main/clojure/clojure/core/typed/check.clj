@@ -1413,14 +1413,12 @@
                       " expected 2, given " (count args))))
   (let [ct (-> (check (first args)) expr-type ret-t c/fully-resolve-type)]
     (if (and (r/Value? ct) (class? (:val ct)))
-      (let [t (c/RClass-of-with-unknown-params (:val ct))
+      (let [v-t (-> (check (second args)) expr-type ret-t)
+            t (c/In v-t (c/RClass-of-with-unknown-params (:val ct)))
             _ (when (and t expected)
                 (when-not (sub/subtype? t (ret-t expected))
-                  (expected-error t (ret-t expected))))
-            v-t (-> (check (second args)) expr-type ret-t)]
-        (if (and t v-t)
-          (assoc expr expr-type (ret (c/In t v-t)))
-          :default))
+                  (expected-error t (ret-t expected))))]
+        (assoc expr expr-type (ret t)))
       :default)))
 
 (declare normal-invoke)
