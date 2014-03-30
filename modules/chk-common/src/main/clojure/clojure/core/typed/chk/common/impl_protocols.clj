@@ -27,7 +27,7 @@
 
 (t/ann ^:no-check IScope? (predicate IScope))
 (defn IScope? [a]
-  (instance? clojure.core.typed.impl_protocols.IScope a))
+  (instance? clojure.core.typed.chk.common.impl_protocols.IScope a))
 
 (t/ann-protocol IMu
                 mu-scope
@@ -42,7 +42,7 @@
 
 (t/ann ^:no-check IFilter? (predicate IFilter))
 (defn IFilter? [a]
-  (instance? clojure.core.typed.impl_protocols.IFilter a))
+  (instance? clojure.core.typed.chk.common.impl_protocols.IFilter a))
 
 (t/ann-protocol IFilterSet
                 then-filter
@@ -55,7 +55,7 @@
 
 (t/ann ^:no-check IFilterSet? (predicate IFilterSet))
 (defn IFilterSet? [a]
-  (instance? clojure.core.typed.impl_protocols.IFilterSet a))
+  (instance? clojure.core.typed.chk.common.impl_protocols.IFilterSet a))
 
 ;; Object protocols
 
@@ -64,5 +64,5 @@
 
 (t/ann ^:no-check IRObject? (predicate IRObject))
 (defn IRObject? [a]
-  (instance? clojure.core.typed.impl_protocols.IRObject a))
+  (instance? clojure.core.typed.chk.common.impl_protocols.IRObject a))
 

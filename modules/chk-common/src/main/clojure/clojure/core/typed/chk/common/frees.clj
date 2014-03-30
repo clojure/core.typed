@@ -20,7 +20,7 @@
            (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
-           (clojure.core.typed.path_rep KeyPE)
+           (clojure.core.typed.chk.common.path_rep KeyPE)
            (clojure.lang Keyword Symbol)))
 
 (alter-meta! *ns* assoc :skip-wiki true

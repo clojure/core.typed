@@ -25,7 +25,7 @@
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE)
+           (clojure.core.typed.chk.common.path_rep KeyPE CountPE ClassPE KeysPE ValsPE)
            (clojure.lang ISeq Cons IPersistentList Symbol IPersistentVector PersistentHashMap)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -36,26 +36,26 @@
 (declare unparse-type unparse-filter unparse-filter-set unparse-flow-set)
 
 ; Types print by unparsing them
-(do (defmethod print-method clojure.core.typed.impl_protocols.TCType [s writer]
+(do (defmethod print-method clojure.core.typed.chk.common.impl_protocols.TCType [s writer]
       (print-method (unparse-type s) writer))
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCType clojure.lang.IRecord)
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCType java.util.Map)
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCType clojure.lang.IPersistentMap)
+    (prefer-method print-method clojure.core.typed.chk.common.impl_protocols.TCType clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.chk.common.impl_protocols.TCType java.util.Map)
+    (prefer-method print-method clojure.core.typed.chk.common.impl_protocols.TCType clojure.lang.IPersistentMap)
 
-    (defmethod print-method clojure.core.typed.impl_protocols.TCAnyType [s writer]
+    (defmethod print-method clojure.core.typed.chk.common.impl_protocols.TCAnyType [s writer]
       (print-method (unparse-type s) writer))
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IRecord)
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType java.util.Map)
-    (prefer-method print-method clojure.core.typed.impl_protocols.TCAnyType clojure.lang.IPersistentMap)
+    (prefer-method print-method clojure.core.typed.chk.common.impl_protocols.TCAnyType clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.chk.common.impl_protocols.TCAnyType java.util.Map)
+    (prefer-method print-method clojure.core.typed.chk.common.impl_protocols.TCAnyType clojure.lang.IPersistentMap)
 
-    (defmethod print-method clojure.core.typed.impl_protocols.IFilter [s writer]
+    (defmethod print-method clojure.core.typed.chk.common.impl_protocols.IFilter [s writer]
       (cond 
         (f/FilterSet? s) (print-method (unparse-filter-set s) writer)
         (r/FlowSet? s) (print-method (unparse-flow-set s) writer)
         :else (print-method (unparse-filter s) writer)))
-    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IRecord)
-    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter java.util.Map)
-    (prefer-method print-method clojure.core.typed.impl_protocols.IFilter clojure.lang.IPersistentMap))
+    (prefer-method print-method clojure.core.typed.chk.common.impl_protocols.IFilter clojure.lang.IRecord)
+    (prefer-method print-method clojure.core.typed.chk.common.impl_protocols.IFilter java.util.Map)
+    (prefer-method print-method clojure.core.typed.chk.common.impl_protocols.IFilter clojure.lang.IPersistentMap))
 
 (defmacro with-parse-ns [sym & body]
   `(binding [*parse-type-in-ns* ~sym]

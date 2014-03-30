@@ -4,7 +4,7 @@
             [clojure.core.typed.chk.common.type-rep :as r]
             [clojure.core.typed :as t])
   (:import (clojure.lang IPersistentMap IPersistentSet Symbol Seqable)
-           (clojure.core.typed.type_rep Bounds F)))
+           (clojure.core.typed.chk.common.type_rep Bounds F)))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)

@@ -6,7 +6,6 @@
             [clojure.core.typed.chk.common.filter-rep :as fr]
             [clojure.core.typed.chk.common.object-rep :as or]
             [clojure.core.typed.chk.common.path-rep :as path]
-            [clojure.core.typed.impl.jvm.rclass-env :as rcls]
             [clojure.core.typed.chk.common.cs-rep :as crep]
             [clojure.core.typed.rt.common.util-vars :as vs]
             [clojure.core.typed.chk.common.fold-rep :as f]
@@ -717,7 +716,7 @@
        (u/p :ctors/RClass-of-cache-hit
             cache-hit)
        (u/p :ctors/RClass-of-cache-miss
-         (let [rc ((some-fn dtenv/get-datatype rcls/get-rclass) 
+         (let [rc ((some-fn dtenv/get-datatype (impl/v 'clojure.core.typed.impl.jvm.rclass-env/get-rclass))
                    sym)
                _ (assert ((some-fn r/TypeFn? r/RClass? r/DataType? nil?) rc))
                _ (when-not (or (r/TypeFn? rc) (empty? args))
@@ -763,7 +762,7 @@
    (let [sym (if (class? sym-or-cls)
                (u/Class->symbol sym-or-cls)
                sym-or-cls)
-         rc ((some-fn dtenv/get-datatype rcls/get-rclass) sym)
+         rc ((some-fn dtenv/get-datatype (impl/v 'clojure.core.typed.impl.jvm.rclass-env/get-rclass)) sym)
          args (when (r/TypeFn? rc)
                 (let [syms (TypeFn-fresh-symbols* rc)]
                   (most-general-on-variance (:variances rc)

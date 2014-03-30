@@ -53,13 +53,13 @@
 ; interface for speed, so it's sufficient.
 (t/ann ^:no-check Type? (predicate Type))
 (defn Type? [a]
-  (instance? clojure.core.typed.impl_protocols.TCType a))
+  (instance? clojure.core.typed.chk.common.impl_protocols.TCType a))
 
 ; similar for AnyType
 (t/ann ^:no-check AnyType? (predicate AnyType))
 (defn AnyType? [a]
   (or (Type? a)
-      (instance? clojure.core.typed.impl_protocols.TCAnyType a)))
+      (instance? clojure.core.typed.chk.common.impl_protocols.TCAnyType a)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types

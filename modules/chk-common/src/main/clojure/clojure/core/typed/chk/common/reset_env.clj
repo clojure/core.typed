@@ -1,5 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.chk.common.reset-env
-  (:require [clojure.core.typed.impl.jvm.base-env :as bse-clj]
+  (:require ;[clojure.core.typed.impl.jvm.base-env :as bse-clj]
             [clojure.core.typed.chk.common.ns-deps :as deps]
             [clojure.core.typed.chk.common.ns-options :as ns-opts]
             [clojure.core.typed.rt.common.current-impl :as impl]
@@ -17,7 +17,8 @@
   (let [cljs? (load-cljs?)]
     (impl/impl-case
       :clojure
-      (do (bse-clj/reset-clojure-envs!)
+      (do (throw (Exception. "TODO custom reset-env for jvm"))
+          ;(bse-clj/reset-clojure-envs!)
           (mmenv/reset-mm-dispatch-env!)
           (deps/reset-deps!)
           (ns-opts/reset-ns-opts!))

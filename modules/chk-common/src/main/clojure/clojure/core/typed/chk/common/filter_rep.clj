@@ -6,7 +6,7 @@
             [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed :as t])
   (:import (clojure.lang Symbol Seqable IPersistentSet)
-           (clojure.core.typed.path_rep IPathElem)))
+           (clojure.core.typed.chk.common.path_rep IPathElem)))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)

@@ -21,7 +21,7 @@
 
 (t/ann ^:no-check RObject? (predicate p/IRObject))
 (defn RObject? [a]
-  (instance? clojure.core.typed.impl_protocols.IRObject a))
+  (instance? clojure.core.typed.chk.common.impl_protocols.IRObject a))
 
 (t/ann-record EmptyObject [])
 (u/defrecord EmptyObject []
