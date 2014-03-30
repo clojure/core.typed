@@ -3118,11 +3118,12 @@
                                                           :PolyDots {(-> inst-frees last r/F-original-name) (last inst-frees)}
                                                           {})
                            (apply r/make-FnIntersection
-                                  (mapcat (fn [method]
-                                            (let [fnt (check-fn-method method fin
-                                                                       :recur-target-fn recur-target-fn)]
-                                              fnt))
-                                          methods)))))
+                                  (doall
+                                    (mapcat (fn [method]
+                                              (let [fnt (check-fn-method method fin
+                                                                         :recur-target-fn recur-target-fn)]
+                                                fnt))
+                                            methods))))))
         ;rewrap in Poly or PolyDots if needed
         pfni (rewrap-poly inferred-fni inst-frees bnds poly?)]
     pfni))
@@ -5036,7 +5037,10 @@
         (let [check-method? (fn [inst-method]
                               (not (and (r/Record? dt)
                                         (record-implicits (symbol (:name inst-method))))))
-              _ (binding [*check-fn-method1-checkfn* check]
+              _ (binding [*check-fn-method1-checkfn* check
+                          *check-fn-method1-rest-type* 
+                          (fn [& args] 
+                            (u/int-error "deftype method cannot have rest parameter"))]
                   (doseq [{:keys [env] :as inst-method} methods
                           :when (check-method? inst-method)]
                     (assert (#{:method} (:op inst-method)))
