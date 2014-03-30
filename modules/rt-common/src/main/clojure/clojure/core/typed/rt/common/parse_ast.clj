@@ -1,4 +1,4 @@
-(ns ^:skip-wiki clojure.core.typed.chk.common.parse-ast
+(ns ^:skip-wiki clojure.core.typed.rt.common.parse-ast
   (:require [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.rt.common.errors :as err]
             [clojure.set :as set]))

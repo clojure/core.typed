@@ -1,6 +1,6 @@
 ;flat contracts only
 (ns ^:skip-wiki clojure.core.typed.rt.jvm.type-contract
-  (:require [clojure.core.typed.chk.common.parse-ast :as ast]
+  (:require [clojure.core.typed.rt.common.parse-ast :as ast]
             [clojure.core.typed.rt.common.errors :as err]
             [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed.rt.jvm.ast-ops :as ops]
