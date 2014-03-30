@@ -28,7 +28,7 @@
             [clojure.core.typed.chk.common.dvar-env :as dvar-env]
             [clojure.core.typed.chk.common.var-env :as var-env]
             [clojure.core.typed.chk.common.protocol-env :as ptl-env]
-            [clojure.core.typed.rt.jvm.array-ops :as arr-ops]
+            [clojure.core.typed.impl.jvm.array-ops :as arr-ops]
             [clojure.core.typed.chk.common.datatype-ancestor-env :as ancest]
             [clojure.core.typed.chk.common.datatype-env :as dt-env]
             [clojure.core.typed.chk.common.inst :as inst]

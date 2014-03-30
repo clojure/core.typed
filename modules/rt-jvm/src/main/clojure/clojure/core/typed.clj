@@ -899,7 +899,7 @@ for checking namespaces, cf for checking individual forms."}
    (load-if-needed)
    (let [parse-type @(ns-resolve (find-ns 'clojure.core.typed.chk.common.parse-unparse)
                                  'parse-type)
-         amc @(ns-resolve (find-ns 'clojure.core.typed.rt.jvm.array-ops)
+         amc @(ns-resolve (find-ns 'clojure.core.typed.impl.jvm.array-ops)
                           'Type->array-member-Class)]
      (impl/with-clojure-impl
        (into-array (-> cljt parse-type amc) coll))))
@@ -907,7 +907,7 @@ for checking namespaces, cf for checking individual forms."}
    (load-if-needed)
    (let [parse-type @(ns-resolve (find-ns 'clojure.core.typed.chk.common.parse-unparse)
                                  'parse-type)
-         amc @(ns-resolve (find-ns 'clojure.core.typed.rt.jvm.array-ops)
+         amc @(ns-resolve (find-ns 'clojure.core.typed.impl.jvm.array-ops)
                           'Type->array-member-Class)]
      (impl/with-clojure-impl
        (into-array (-> javat parse-type amc) coll))))

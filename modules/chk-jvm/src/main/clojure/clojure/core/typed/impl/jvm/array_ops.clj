@@ -1,4 +1,4 @@
-(ns clojure.core.typed.rt.jvm.array-ops
+(ns clojure.core.typed.impl.jvm.array-ops
   (:require [clojure.core.typed.chk.common.type-rep :as r]
             [clojure.core.typed.chk.common.type-ctors :as c]))
 

@@ -63,7 +63,7 @@
                  '[clojure.core.typed.chk.common.trans]
                  '[clojure.core.typed.chk.common.inst]
                  '[clojure.core.typed.chk.common.subtype]
-                 '[clojure.core.typed.rt.jvm.array-ops]
+                 '[clojure.core.typed.impl.jvm.array-ops]
                  '[clojure.core.typed.chk.common.check]
                  '[clojure.core.typed.chk.common.collect-phase]
                  '[clojure.core.typed.impl.jvm.base-env]
