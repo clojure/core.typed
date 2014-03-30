@@ -15,7 +15,7 @@
             [clojure.core.typed.chk.common.path-rep :as pe]
             [clojure.core.typed.chk.common.lex-env :as lex]
             [clojure.core.typed.impl.jvm.constant-type :as const]
-            [clojure.core.typed.chk.common.util-vars :as vs]
+            [clojure.core.typed.rt.common.util-vars :as vs]
             [clojure.core.typed.chk.common.subtype :as sub]
             [clojure.core.typed.chk.common.fold-rep :as fold]
             [clojure.core.typed.chk.common.cs-rep :as crep]

@@ -10,7 +10,7 @@
             [clojure.core.typed.chk.common.parse-unparse :as prs]
             [clojure.core.typed.chk.common.cs-rep :as cr]
             [clojure.core.typed.rt.jvm.current-impl :as impl]
-            [clojure.core.typed.chk.common.util-vars :as vs]
+            [clojure.core.typed.rt.common.util-vars :as vs]
             [clojure.core.typed.chk.common.dvar-env :as denv]
             [clojure.core.typed.chk.common.frees :as frees]
             [clojure.core.typed.chk.common.free-ops :as free-ops]

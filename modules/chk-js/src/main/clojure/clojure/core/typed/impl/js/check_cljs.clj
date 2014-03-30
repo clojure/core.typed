@@ -5,7 +5,7 @@
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.subtype :as sub]
             [clojure.core.typed.chk.common.utils :as u :refer [def-type]]
-            [clojure.core.typed.chk.common.util-vars :as vs]
+            [clojure.core.typed.rt.common.util-vars :as vs]
             [clojure.core.typed.chk.common.var-env :as var-env]
             [clojure.core.typed.chk.common.parse-unparse :as prs]
             [clojure.core.typed.chk.common.lex-env :as lex]

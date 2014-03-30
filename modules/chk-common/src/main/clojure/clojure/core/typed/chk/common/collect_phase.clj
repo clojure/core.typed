@@ -10,7 +10,7 @@
             [clojure.core.typed.chk.common.ns-deps :as dep]
             [clojure.core.typed.chk.common.ns-options :as ns-opts]
             [clojure.core.typed.chk.common.utils :as u]
-            [clojure.core.typed.chk.common.util-vars :as uvar]
+            [clojure.core.typed.rt.common.util-vars :as uvar]
             [clojure.core.typed.chk.common.check :as chk]
             [clojure.core.typed.impl.jvm.analyze-clj :as ana-clj]
             [clojure.core.typed.rt.jvm.current-impl :as impl]

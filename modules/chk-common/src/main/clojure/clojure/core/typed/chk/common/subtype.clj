@@ -4,7 +4,7 @@
             [clojure.core.typed.chk.common.type-rep :as r]
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.utils :as u]
-            [clojure.core.typed.chk.common.util-vars :as vs]
+            [clojure.core.typed.rt.common.util-vars :as vs]
             [clojure.core.typed.chk.common.parse-unparse :as prs]
             [clojure.core.typed.chk.common.filter-rep :as fr]
             [clojure.core.typed.chk.common.filter-ops :as fops]

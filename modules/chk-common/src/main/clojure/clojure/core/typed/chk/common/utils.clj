@@ -1,7 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.chk.common.utils
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.chk.common.util-vars :refer [*current-env*] :as uvs]
+            [clojure.core.typed.rt.common.util-vars :refer [*current-env*] :as uvs]
             [clojure.core.contracts.constraints :as contracts]
             [clojure.repl :as repl]
             [clojure.core.contracts]

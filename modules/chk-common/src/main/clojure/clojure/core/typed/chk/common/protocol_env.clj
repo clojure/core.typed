@@ -1,6 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.chk.common.protocol-env
   (:require [clojure.core.typed.chk.common.utils :as u]
-            [clojure.core.typed.chk.common.util-vars :as vs]
+            [clojure.core.typed.rt.common.util-vars :as vs]
             [clojure.core.typed.chk.common.type-rep :as r]
             [clojure.core.typed :as t :refer [fn> ann def-alias when-let-fail]])
   (:import (clojure.lang IPersistentMap Symbol)))

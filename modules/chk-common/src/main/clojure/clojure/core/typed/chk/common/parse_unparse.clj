@@ -4,7 +4,7 @@
             [clojure.core.typed.chk.common.object-rep :as orep]
             [clojure.core.typed.chk.common.path-rep :as pthrep]
             [clojure.core.typed.chk.common.utils :as u]
-            [clojure.core.typed.chk.common.util-vars :as vs]
+            [clojure.core.typed.rt.common.util-vars :as vs]
             [clojure.core.typed.chk.common.dvar-env :as dvar]
             [clojure.core.typed.chk.common.filter-rep :as f]
             [clojure.core.typed.chk.common.filter-ops :as fl]

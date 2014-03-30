@@ -8,7 +8,7 @@
             [clojure.core.typed.chk.common.path-rep :as path]
             [clojure.core.typed.impl.jvm.rclass-env :as rcls]
             [clojure.core.typed.chk.common.cs-rep :as crep]
-            [clojure.core.typed.chk.common.util-vars :as vs]
+            [clojure.core.typed.rt.common.util-vars :as vs]
             [clojure.core.typed.chk.common.fold-rep :as f]
             [clojure.core.typed.chk.common.datatype-env :as dtenv]
             [clojure.core.typed.chk.common.protocol-env :as prenv]

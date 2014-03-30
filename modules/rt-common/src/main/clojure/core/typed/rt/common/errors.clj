@@ -1,5 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.rt.common.errors
-  (:require [clojure.core.typed.chk.common.util-vars :refer [*current-env*] :as uvs]))
+  (:require [clojure.core.typed.rt.common.util-vars :refer [*current-env*] :as uvs]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 

@@ -2,7 +2,7 @@
   (:require [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed.chk.common.type-rep :as r]
             [clojure.core.typed.chk.common.lex-env :as lex]
-            [clojure.core.typed.chk.common.util-vars :as vs]
+            [clojure.core.typed.rt.common.util-vars :as vs]
             [clojure.core.typed.rt.jvm.current-impl :as impl]
             [clojure.core.typed :as t]
             [clojure.set :as set]))

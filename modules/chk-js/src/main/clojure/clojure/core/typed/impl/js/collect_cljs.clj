@@ -5,7 +5,7 @@
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.check :as chk]
             [clojure.core.typed.chk.common.parse-unparse :as prs]
-            [clojure.core.typed.chk.common.util-vars :as uvar]
+            [clojure.core.typed.rt.common.util-vars :as uvar]
             [clojure.core.typed.chk.common.name-env :as nme-env]
             [clojure.core.typed.chk.common.free-ops :as free-ops]
             [clojure.core.typed.chk.common.protocol-env :as ptl-env]
@@ -18,7 +18,7 @@
             [clojure.core.typed.chk.common.datatype-ancestor-env :as ancest]
             [clojure.core.typed.chk.common.datatype-env :as dt-env]
             [clojure.repl :as repl]
-            [clojure.core.typed.chk.common.util-vars :as vs]))
+            [clojure.core.typed.rt.common.util-vars :as vs]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
