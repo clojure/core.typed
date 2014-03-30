@@ -3,8 +3,8 @@
             [clojure.core.typed :refer [check-ns]]))
 
 (deftest check-tc
-  (is (check-ns '[clojure.core.typed.utils
-                  clojure.core.typed.type-rep
-                  clojure.core.typed.cs-rep
-                  clojure.core.typed.name-env
-                  clojure.core.typed.type-ctors])))
+  (is (check-ns '[clojure.core.typed.chk.common.utils
+                  clojure.core.typed.chk.common.type-rep
+                  clojure.core.typed.chk.common.cs-rep
+                  clojure.core.typed.chk.common.name-env
+                  clojure.core.typed.chk.common.type-ctors])))

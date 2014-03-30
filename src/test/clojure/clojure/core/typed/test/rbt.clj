@@ -5,10 +5,10 @@
 ;                                        ann-form]]
 ;            [clojure.core.typed.test.rbt-types :refer [badRight rbt EntryT Empty
 ;                                                       Red Black bt]]
-;            #_[clojure.core.typed.subtype :as sub]
-;            #_[clojure.core.typed.check :as chk]
-;            #_[clojure.core.typed.parse-unparse :as prs]
-;            #_[clojure.core.typed.filter-ops :as fo]
+;            #_[clojure.core.typed.chk.common.subtype :as sub]
+;            #_[clojure.core.typed.chk.common.check :as chk]
+;            #_[clojure.core.typed.chk.common.parse-unparse :as prs]
+;            #_[clojure.core.typed.chk.common.filter-ops :as fo]
 ;            [clojure.repl :refer [pst]]
 ;            [clojure.math.combinatorics :as comb]
 ;            [clojure.jvm.tools.analyzer :refer [ast]]))

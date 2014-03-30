@@ -1,8 +1,8 @@
 (ns clojure.core.typed.test.extend-record
   (:require [clojure.core.typed :as t :refer [ann-protocol ann-record]]
-            [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.parse-unparse :as prs]
-            [clojure.core.typed.current-impl :as impl]))
+            [clojure.core.typed.chk.common.subtype :as sub]
+            [clojure.core.typed.chk.common.parse-unparse :as prs]
+            [clojure.core.typed.chk.common.current-impl :as impl]))
 
 (ann-protocol PMaths
               mult-by-two [PMaths -> PMaths])
@@ -44,7 +44,7 @@
 ;(ancestors SpecialNumber)
 ;(prs/parse-clj 'PMaths)
 ;(impl/with-clojure-impl
-;  (clojure.core.typed.datatype-ancestor-env/get-datatype-ancestors  (prs/parse-clj 'SpecialNumber)))
+;  (clojure.core.typed.chk.common.datatype-ancestor-env/get-datatype-ancestors  (prs/parse-clj 'SpecialNumber)))
 
 ;(sub/sub-clj? SpecialNumber PMathsExtend)
 ;(not (sub/sub-clj? PMathsExtend SpecialNumber))

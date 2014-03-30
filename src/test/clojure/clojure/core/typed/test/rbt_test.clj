@@ -4,16 +4,16 @@
                                         print-env print-filterset check-ns typed-deps
                                         ann-form]]
             [clojure.core.typed.test.rbt-types]
-            [clojure.core.typed.utils :as u]
-            [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.type-rep :refer :all]
-            [clojure.core.typed.type-ctors :refer :all]
-            [clojure.core.typed.filter-rep :refer :all]
-            [clojure.core.typed.filter-ops :refer :all]
-            [clojure.core.typed.object-rep :refer :all]
-            [clojure.core.typed.path-rep :refer :all]
-            [clojure.core.typed.parse-unparse :refer :all]
-            [clojure.core.typed.check :as chk :refer [update tc-t]]
+            [clojure.core.typed.chk.common.utils :as u]
+            [clojure.core.typed.chk.common.current-impl :as impl]
+            [clojure.core.typed.chk.common.type-rep :refer :all]
+            [clojure.core.typed.chk.common.type-ctors :refer :all]
+            [clojure.core.typed.chk.common.filter-rep :refer :all]
+            [clojure.core.typed.chk.common.filter-ops :refer :all]
+            [clojure.core.typed.chk.common.object-rep :refer :all]
+            [clojure.core.typed.chk.common.path-rep :refer :all]
+            [clojure.core.typed.chk.common.parse-unparse :refer :all]
+            [clojure.core.typed.chk.common.check :as chk :refer [update tc-t]]
             [clojure.repl :refer [pst]]
             [clojure.jvm.tools.analyzer :refer [ast]]
             [clojure.test :refer :all]))
@@ -118,7 +118,7 @@
 
 (defmacro update-badRight-tmap [fl]
   `(check-rbt
-     (-> (clojure.core.typed.check/update-composite
+     (-> (clojure.core.typed.chk.common.check/update-composite
            {'~'tmap (parse-type '~'clojure.core.typed.test.rbt-types/badRight)}
            (parse-filter
              '~fl))
@@ -197,7 +197,7 @@
     (hash t))))
 ;
 ;(u/profile :info :foo
-;(clojure.core.typed.subtype/subtype?
+;(clojure.core.typed.chk.common.subtype/subtype?
 ;    (parse-type 
 ;      (update-badRight-tmap
 ;       (&
@@ -239,7 +239,7 @@
 ;
 ;(def res-last (parse-type '(U (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/bt, :right clojure.core.typed.test.rbt-types/bt}), :right clojure.core.typed.test.rbt-types/rbt})}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/bt, :right clojure.core.typed.test.rbt-types/bt}), :right (U (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/bt}) (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/bt, :right clojure.core.typed.test.rbt-types/rbt}))}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left (U (HMap :mandatory {:tree (Value :Empty)}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/rbt})), :right (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/bt, :right clojure.core.typed.test.rbt-types/bt})})}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right (U (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/bt}) (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left (U (HMap :mandatory {:tree (Value :Empty)}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/rbt})), :right clojure.core.typed.test.rbt-types/rbt}))}) clojure.core.typed.test.rbt-types/badRight (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/bt, :right clojure.core.typed.test.rbt-types/bt}), :right (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/rbt})}) (HMap :mandatory {:tree (Value :Black), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right (HMap :mandatory {:tree (Value :Red), :entry clojure.core.typed.test.rbt-types/EntryT, :left clojure.core.typed.test.rbt-types/rbt, :right clojure.core.typed.test.rbt-types/rbt})})))))
 ;
-;(clojure.core.typed.subtype/subtype? res-last (parse-type 'clojure.core.typed.test.rbt-types/rbt))
+;(clojure.core.typed.chk.common.subtype/subtype? res-last (parse-type 'clojure.core.typed.test.rbt-types/rbt))
 ;
 
 (comment

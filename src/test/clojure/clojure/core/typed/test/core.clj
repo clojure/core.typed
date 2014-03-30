@@ -13,30 +13,30 @@
          '[clojure.pprint :refer [pprint]]
          '[clojure.data :refer [diff]]
          '[clojure.core.typed.unsafe]
-         '[clojure.core.typed.init]
-         '[clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error?]]
-         '[clojure.core.typed.current-impl :as impl]
-         '[clojure.core.typed.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp
+         '[clojure.core.typed.chk.common.init]
+         '[clojure.core.typed.chk.common.utils :as u :refer [with-ex-info-handlers top-level-error?]]
+         '[clojure.core.typed.chk.common.current-impl :as impl]
+         '[clojure.core.typed.chk.common.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp
                                                     tc-equiv]]
-         '[clojure.core.typed.collect-phase :as collect]
-         '[clojure.core.typed.inst :as inst]
-         '[clojure.core.typed.subtype :as sub]
-         '[clojure.core.typed.type-rep :refer :all]
-         '[clojure.core.typed.type-ctors :refer :all]
-         '[clojure.core.typed.filter-rep :refer :all]
-         '[clojure.core.typed.filter-ops :refer :all]
-         '[clojure.core.typed.object-rep :refer :all]
-         '[clojure.core.typed.path-rep :refer :all]
-         '[clojure.core.typed.parse-unparse :refer :all]
-         '[clojure.core.typed.constant-type :refer [constant-type]]
-         '[clojure.core.typed.lex-env :refer :all]
-         '[clojure.core.typed.promote-demote :refer :all]
-         '[clojure.core.typed.frees :refer :all]
-         '[clojure.core.typed.free-ops :refer :all]
-         '[clojure.core.typed.dvar-env :refer :all]
-         '[clojure.core.typed.cs-gen :refer :all]
-         '[clojure.core.typed.cs-rep :refer :all]
-         '[clojure.core.typed.subst :refer [subst-all] :as subst]
+         '[clojure.core.typed.chk.common.collect-phase :as collect]
+         '[clojure.core.typed.chk.common.inst :as inst]
+         '[clojure.core.typed.chk.common.subtype :as sub]
+         '[clojure.core.typed.chk.common.type-rep :refer :all]
+         '[clojure.core.typed.chk.common.type-ctors :refer :all]
+         '[clojure.core.typed.chk.common.filter-rep :refer :all]
+         '[clojure.core.typed.chk.common.filter-ops :refer :all]
+         '[clojure.core.typed.chk.common.object-rep :refer :all]
+         '[clojure.core.typed.chk.common.path-rep :refer :all]
+         '[clojure.core.typed.chk.common.parse-unparse :refer :all]
+         '[clojure.core.typed.impl.jvm.constant-type :refer [constant-type]]
+         '[clojure.core.typed.chk.common.lex-env :refer :all]
+         '[clojure.core.typed.chk.common.promote-demote :refer :all]
+         '[clojure.core.typed.chk.common.frees :refer :all]
+         '[clojure.core.typed.chk.common.free-ops :refer :all]
+         '[clojure.core.typed.chk.common.dvar-env :refer :all]
+         '[clojure.core.typed.chk.common.cs-gen :refer :all]
+         '[clojure.core.typed.chk.common.cs-rep :refer :all]
+         '[clojure.core.typed.chk.common.subst :refer [subst-all] :as subst]
          '[clojure.core.typed.test.rbt]
          '[clojure.core.typed.test.person]
          '[clojure.tools.trace :refer [trace-vars untrace-vars
@@ -259,7 +259,7 @@
   ; manual instantiation "seq"
   (is-clj (subtype? (ety
                       ((clojure.core.typed/fn> [a :- (clojure.lang.Seqable Number), b :- Number] 
-                                               ((clojure.core.typed/inst seq Number) a))
+                                               ((clojure.core.typed.chk.common.inst seq Number) a))
                        [1 2 1.2] 1))
                     (parse-type '(clojure.core.typed/Option (I (clojure.lang.ISeq java.lang.Number) (CountRange 1))))))
   ; inferred "seq"
@@ -298,7 +298,7 @@
                     (parse-type '(U nil (I (CountRange 1) (clojure.lang.ISeq Number))))))
   (is-clj (subtype? (ety
                       ((clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap Any Number), b :- Number] 
-                                               ((clojure.core.typed/inst get Number Nothing) a b))
+                                               ((clojure.core.typed.chk.common.inst get Number Nothing) a b))
                        (zipmap [1] [2]) 1))
                     (parse-type '(U nil Number)))))
 
@@ -1050,7 +1050,7 @@
 (deftest vararg-subtyping-test
   (is-clj (subtype? (parse-type '[nil * -> nil])
                 (parse-type '[nil -> nil])))
-  (is-cf (clojure.core.typed/ann-form (clojure.core.typed/inst merge Any Any) [nil -> nil])))
+  (is-cf (clojure.core.typed/ann-form (clojure.core.typed.chk.common.inst merge Any Any) [nil -> nil])))
 
 (deftest poly-filter-test
   (is-clj (both-subtype? 
@@ -1288,7 +1288,7 @@
         (cf (clojure.core.typed/loop> [a :- String, 1] a)))))
 
 (deftest map-indexed-test
-  (is-cf (map-indexed (clojure.core.typed/inst vector clojure.core.typed/AnyInteger Long Any Any Any Any) 
+  (is-cf (map-indexed (clojure.core.typed.chk.common.inst vector clojure.core.typed/AnyInteger Long Any Any Any Any) 
                       [1 2])
          (clojure.lang.Seqable '[clojure.core.typed/AnyInteger Long])))
 
@@ -1609,13 +1609,13 @@
   ;  TODO possible extension for filter
 ;  (is (cf (filter :a (clojure.core.typed/ann-form [] (clojure.lang.Seqable '{:b Number})))
 ;          (clojure.lang.Seqable '{:b Number :a Any})))
-  (is-cf (filter (clojure.core.typed/inst identity (U nil Number)) [1 nil])
+  (is-cf (filter (clojure.core.typed.chk.common.inst identity (U nil Number)) [1 nil])
          (clojure.lang.Seqable Number))
   (is-cf (let [filter (clojure.core.typed/ann-form filter
                         (All [x y]
                              [[x -> Any :filters {:then (! y 0)}] 
                               (U nil (clojure.lang.Seqable x)) -> (clojure.core.typed/Seq (I x (Not y)))]))]
-           (filter (clojure.core.typed/inst identity (U nil Number)) [1 nil]))
+           (filter (clojure.core.typed.chk.common.inst identity (U nil Number)) [1 nil]))
          (clojure.lang.Seqable Number))
   (is-cf (let [filter (clojure.core.typed/ann-form filter
                         (All [x y]
@@ -1626,7 +1626,7 @@
 
 ; keeping if we decide to use more expressive type for conj
 ;(deftest extensible-conj-test
-;  (is (cf ((clojure.core.typed/inst conj Number (TFn [[x :variance :covariant]] x)
+;  (is (cf ((clojure.core.typed.chk.common.inst conj Number (TFn [[x :variance :covariant]] x)
 ;                 (TFn [[x :variance :covariant]] (clojure.lang.PersistentHashSet x)))
 ;            (clojure.core.typed/ann-form #{} (clojure.lang.PersistentHashSet Number)) 1)
 ;          (clojure.lang.PersistentHashSet Number)))
@@ -1677,7 +1677,7 @@
                                                    [[x -> Any :filters {:then (! y 0)}]
                                                     (U nil (clojure.lang.Seqable x)) -> (clojure.core.typed/Seq (I x (Not y)))]))]
            ;need to instantiate negative types for now
-           (fn [] (a (clojure.core.typed/inst identity (U nil Number)) [1 nil])))
+           (fn [] (a (clojure.core.typed.chk.common.inst identity (U nil Number)) [1 nil])))
          [-> (clojure.lang.Seqable Number)]))
 
 
@@ -1829,7 +1829,7 @@
 ;              (parse-type '(clojure.core.async.impl.protocols/ReadPort Any))
 ;              (with-bounded-frees {(make-F 'x) no-bounds}
 ;                (parse-type '(clojure.core.async.impl.protocols/ReadPort x)))))
-;  (is-clj (cf ((clojure.core.typed/inst identity  (Extends [(clojure.core.async.impl.protocols/ReadPort Any)]))
+;  (is-clj (cf ((clojure.core.typed.chk.common.inst identity  (Extends [(clojure.core.async.impl.protocols/ReadPort Any)]))
 ;           (clojure.core.typed/ann-form (clojure.core.typed.async/chan> Any) 
 ;                              (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
 ;          (Extends [(clojure.core.async.impl.protocols/ReadPort Any)])))
@@ -1857,7 +1857,7 @@
 ;  (is-clj (cf [1] (Extends [(clojure.lang.IPersistentVector Number)])))
 ;  (is-clj (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(clojure.lang.Seqable Number) 
 ;                                                             (clojure.lang.IPersistentVector Number)]))]
-;            ((clojure.core.typed/inst first Number) x))
+;            ((clojure.core.typed.chk.common.inst first Number) x))
 ;          (U nil Number)))
 ;  (is-clj (cf (let [x (clojure.core.typed/ann-form [1] (Extends [(clojure.lang.Seqable Number) 
 ;                                                             (clojure.lang.IPersistentVector Number)]))]
@@ -1915,12 +1915,12 @@
 (deftest csgen-combine-test
   (is-cf (map inc [0 1.1])
          (clojure.lang.Seqable Number))
-  (is-cf (map (clojure.core.typed/inst vector Number Number Any Any Any Any) [1] [2])
+  (is-cf (map (clojure.core.typed.chk.common.inst vector Number Number Any Any Any Any) [1] [2])
          (clojure.lang.Seqable '[Number Number])))
 
 ;FIXME uncomment after core.typed internals are being checked
 ;(deftest subtype-explosion-test
-;  (is (sub? nil clojure.core.typed.type-rep/TCType)))
+;  (is (sub? nil clojure.core.typed.chk.common.type-rep/TCType)))
 
 (deftest var-as-function-test
   (is-cf #'+ [Number * -> Number])
@@ -2593,7 +2593,7 @@
 
 
 (deftest poly-inst-scoping-test
-  (is-cf (fn [a] (clojure.core.typed/inst identity foo))
+  (is-cf (fn [a] (clojure.core.typed.chk.common.inst identity foo))
          (All [foo] [Any -> Any]))
   (is-cf
     (fn [f coll]
@@ -3031,12 +3031,12 @@
                :complete? true)))
 
 (deftest HVec-parse-ast-test
-  (is (clojure.core.typed.parse-ast/parse-clj '(HVec [Number]))))
+  (is (clojure.core.typed.chk.common.parse-ast/parse-clj '(HVec [Number]))))
 
 (deftest hetergeoneous-parse-ast-test
-  (is (clojure.core.typed.parse-ast/parse-clj '(List* Number)))
-  (is (clojure.core.typed.parse-ast/parse-clj '(Seq* Number)))
-  (is (clojure.core.typed.parse-ast/parse-clj '(Vector* Number)))
+  (is (clojure.core.typed.chk.common.parse-ast/parse-clj '(List* Number)))
+  (is (clojure.core.typed.chk.common.parse-ast/parse-clj '(Seq* Number)))
+  (is (clojure.core.typed.chk.common.parse-ast/parse-clj '(Vector* Number)))
   )
 
 ;(deftest collect-on-eval-test

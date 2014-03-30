@@ -5,12 +5,12 @@
 
 (require '[clojure.test :refer :all]
          '[cljs.core.typed :as t]
-         '[clojure.core.typed.type-ctors :as c]
-         '[clojure.core.typed.type-rep :as r]
-         '[clojure.core.typed.current-impl :as impl]
-         '[clojure.core.typed.parse-unparse :as prs]
-         '[clojure.core.typed.subtype :as sub]
-         '[clojure.core.typed.util-cljs :as ucljs]
+         '[clojure.core.typed.chk.common.type-ctors :as c]
+         '[clojure.core.typed.chk.common.type-rep :as r]
+         '[clojure.core.typed.chk.common.current-impl :as impl]
+         '[clojure.core.typed.chk.common.parse-unparse :as prs]
+         '[clojure.core.typed.chk.common.subtype :as sub]
+         '[clojure.core.typed.impl.js.util-cljs :as ucljs]
          '[cljs.env :as env])
 (import '(clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
                        Keyword ExceptionInfo Symbol Var))
@@ -130,7 +130,7 @@
               (recur (inc i)))
             -1))))))
 
-#_(clojure.core.typed.analyze-cljs/ast-for-form '(fn [x] (instance? Atom x)))
+#_(clojure.core.typed.impl.js.analyze-cljs/ast-for-form '(fn [x] (instance? Atom x)))
 
 (deftest simple-polymorphic-test
   (is-cljs (t/check-ns* 'cljs.core.typed.test.identity)))
