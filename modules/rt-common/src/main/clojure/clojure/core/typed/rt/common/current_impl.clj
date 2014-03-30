@@ -1,6 +1,6 @@
 ; untyped, clojure.core.typed depends on this namespace
-(ns clojure.core.typed.rt.jvm.current-impl
-  (:require [clojure.core.typed.rt.jvm.profiling :as p]
+(ns clojure.core.typed.rt.common.current-impl
+  (:require [clojure.core.typed.rt.common.profiling :as p]
             [clojure.set :as set]))
 
 (defonce var-env (atom {}))
@@ -48,7 +48,7 @@
 
 (defmacro with-clojure-impl [& body]
   `(with-impl clojure
-     (clojure.core.typed.rt.jvm.profiling/p :current-impl/push-thread-bindings
+     (clojure.core.typed.rt.common.profiling/p :current-impl/push-thread-bindings
      (push-thread-bindings {(the-var '~'clojure.core.typed.chk.common.name-env/*current-name-env*)
                              (v '~'clojure.core.typed.chk.common.name-env/CLJ-TYPE-NAME-ENV)
                             (the-var '~'clojure.core.typed.chk.common.protocol-env/*current-protocol-env*)
@@ -74,7 +74,7 @@
                             }))
      (try 
        ~@body
-       (finally (clojure.core.typed.rt.jvm.profiling/p :current-impl/pop-thread-bindings 
+       (finally (clojure.core.typed.rt.common.profiling/p :current-impl/pop-thread-bindings 
                      (pop-thread-bindings))))))
 
 (defmacro with-cljs-impl [& body]

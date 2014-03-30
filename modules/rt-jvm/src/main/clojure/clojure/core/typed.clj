@@ -6,9 +6,9 @@ for checking namespaces, cf for checking individual forms."}
   (:require [clojure.pprint :as pprint]
             [clojure.set :as set]
             [clojure.string :as str]
-            [clojure.core.typed.rt.jvm.current-impl :as impl]
+            [clojure.core.typed.rt.common.current-impl :as impl]
             [clojure.core.typed.rt.common.util-vars :as uvars]
-            [clojure.core.typed.rt.jvm.profiling :as p]
+            [clojure.core.typed.rt.common.profiling :as p]
             [clojure.core.typed.rt.common.parse-ast :as ast]
             [clojure.java.io :as io])
   (:refer-clojure :exclude [type]))

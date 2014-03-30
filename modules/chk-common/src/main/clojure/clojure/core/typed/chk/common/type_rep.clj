@@ -5,7 +5,7 @@
             [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed :as t]
             [clojure.set :as set]
-            [clojure.core.typed.rt.jvm.current-impl :as impl])
+            [clojure.core.typed.rt.common.current-impl :as impl])
   (:import (clojure.lang Seqable Symbol Keyword Var)))
 
 (t/tc-ignore

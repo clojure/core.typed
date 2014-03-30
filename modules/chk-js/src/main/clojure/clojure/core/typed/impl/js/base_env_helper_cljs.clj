@@ -7,7 +7,7 @@
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.declared-kind-env :as decl-env]
             [clojure.core.typed.impl.jvm.rclass-env :as rcls]
-            [clojure.core.typed.rt.jvm.current-impl :as impl]
+            [clojure.core.typed.rt.common.current-impl :as impl]
             [clojure.core.typed.chk.common.name-env :as nme-env]
             [clojure.core.typed.impl.js.jsnominal-env :as jsnom]
             [clojure.core.typed.chk.common.datatype-env :as dtenv]

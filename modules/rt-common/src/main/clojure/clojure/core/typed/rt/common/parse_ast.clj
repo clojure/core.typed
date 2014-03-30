@@ -1,5 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.rt.common.parse-ast
-  (:require [clojure.core.typed.rt.jvm.current-impl :as impl]
+  (:require [clojure.core.typed.rt.common.current-impl :as impl]
             [clojure.core.typed.rt.common.errors :as err]
             [clojure.set :as set]))
 

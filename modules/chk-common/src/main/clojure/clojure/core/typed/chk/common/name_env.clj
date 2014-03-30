@@ -7,7 +7,7 @@
             [clojure.core.typed.impl.js.jsnominal-env :as jsnom]
             [clojure.core.typed.chk.common.protocol-env :as prenv]
             [clojure.core.typed.chk.common.declared-kind-env :as kinds]
-            [clojure.core.typed.rt.jvm.current-impl :as impl]
+            [clojure.core.typed.rt.common.current-impl :as impl]
             [clojure.core.typed :as t :refer [fn> ann when-let-fail def-alias ann-many]])
   (:import (clojure.lang Symbol IPersistentMap Keyword)))
 
