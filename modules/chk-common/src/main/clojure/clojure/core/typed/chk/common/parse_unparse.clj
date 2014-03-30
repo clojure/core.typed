@@ -567,8 +567,8 @@
       (impl/impl-case
         :clojure (ns-name *ns*)
         :cljs (do
-                (require '[clojure.core.typed.impl.js.util-cljs])
-                ((impl/v 'clojure.core.typed.impl.js.util-cljs/cljs-ns))))))
+                (require '[clojure.core.typed.rt.js.util-cljs])
+                ((impl/v 'clojure.core.typed.rt.js.util-cljs/cljs-ns))))))
 
 (defn- resolve-type-clj 
   "Returns a var, class or nil"
@@ -586,8 +586,8 @@
   {:pre [(symbol? sym)]}
   (impl/assert-cljs)
   (let [nsym (parse-in-ns)]
-    (require '[clojure.core.typed.impl.js.util-cljs])
-    ((impl/v 'clojure.core.typed.impl.js.util-cljs/resolve-var) nsym sym)))
+    (require '[clojure.core.typed.rt.js.util-cljs])
+    ((impl/v 'clojure.core.typed.rt.js.util-cljs/resolve-var) nsym sym)))
 
 (defn parse-RClass [cls-sym params-syn]
   (impl/assert-clojure)

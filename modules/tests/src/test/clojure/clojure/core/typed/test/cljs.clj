@@ -10,7 +10,7 @@
          '[clojure.core.typed.chk.common.current-impl :as impl]
          '[clojure.core.typed.chk.common.parse-unparse :as prs]
          '[clojure.core.typed.chk.common.subtype :as sub]
-         '[clojure.core.typed.impl.js.util-cljs :as ucljs]
+         '[clojure.core.typed.rt.js.util-cljs :as ucljs]
          '[cljs.env :as env])
 (import '(clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
                        Keyword ExceptionInfo Symbol Var))

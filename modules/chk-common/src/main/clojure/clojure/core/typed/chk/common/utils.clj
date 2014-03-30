@@ -274,8 +274,8 @@
   (impl/impl-case
     :clojure (hygienic/emit-hy expr)
     :cljs (do
-            (require '[clojure.core.typed.impl.js.util-cljs])
-            ((impl/v 'clojure.core.typed.impl.js.util-cljs/emit-form) expr))))
+            (require '[clojure.core.typed.rt.js.util-cljs])
+            ((impl/v 'clojure.core.typed.rt.js.util-cljs/emit-form) expr))))
 
 (defn constant-expr [expr]
   (case (:op expr)

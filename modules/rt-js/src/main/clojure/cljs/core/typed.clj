@@ -2,7 +2,7 @@
   "Macros for Clojurescript type checking"
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.rt.common.current-impl :as impl :refer [v]]
-            [clojure.core.typed.impl.js.util-cljs :as u]
+            [clojure.core.typed.rt.js.util-cljs :as u]
             [cljs.analyzer :as ana]
             [cljs.compiler :as comp]
             [cljs.env :as env]

@@ -1,4 +1,4 @@
-(ns ^:skip-wiki clojure.core.typed.impl.js.util-cljs
+(ns ^:skip-wiki clojure.core.typed.rt.js.util-cljs
   (:require [clojure.core.typed.rt.common.current-impl :as impl]
             [cljs.analyzer :as ana]
             [cljs.jvm.tools.analyzer.emit-form :as emit-form]
