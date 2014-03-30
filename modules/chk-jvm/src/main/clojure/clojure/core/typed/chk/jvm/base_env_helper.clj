@@ -1,4 +1,4 @@
-(ns clojure.core.typed.impl.jvm.base-env-helper
+(ns clojure.core.typed.chk.jvm.base-env-helper
   (:refer-clojure :exclude [type])
   (:require [clojure.core.typed.chk.common.type-rep :as r]
             [clojure.core.typed.chk.common.parse-unparse :as prs]
@@ -6,7 +6,7 @@
             [clojure.core.typed.chk.common.free-ops :as free-ops]
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.declared-kind-env :as decl-env]
-            [clojure.core.typed.impl.jvm.rclass-env :as rcls]
+            [clojure.core.typed.chk.jvm.rclass-env :as rcls]
             [clojure.core.typed.rt.common.current-impl :as impl]
             [clojure.core.typed.chk.common.name-env]
             [clojure.core.typed.chk.common.var-env]

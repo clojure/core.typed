@@ -1,5 +1,5 @@
 (ns ^:skip-wiki 
-  clojure.core.typed.impl.jvm.rclass-ancestor-env
+  clojure.core.typed.chk.jvm.rclass-ancestor-env
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.chk.common.subst :as subst]
             [clojure.core.typed.chk.common.type-rep :as r]

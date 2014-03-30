@@ -1,5 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.chk.common.reset-env
-  (:require ;[clojure.core.typed.impl.jvm.base-env :as bse-clj]
+  (:require ;[clojure.core.typed.chk.jvm.base-env :as bse-clj]
             [clojure.core.typed.chk.common.ns-deps :as deps]
             [clojure.core.typed.chk.common.ns-options :as ns-opts]
             [clojure.core.typed.rt.common.current-impl :as impl]

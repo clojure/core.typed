@@ -3,7 +3,7 @@
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed.chk.common.datatype-env :as dtenv]
-            ;[clojure.core.typed.impl.jvm.rclass-env :as rcls]
+            ;[clojure.core.typed.chk.jvm.rclass-env :as rcls]
             ;[clojure.core.typed.impl.js.jsnominal-env :as jsnom]
             [clojure.core.typed.chk.common.protocol-env :as prenv]
             [clojure.core.typed.chk.common.declared-kind-env :as kinds]

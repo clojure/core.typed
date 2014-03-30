@@ -1,4 +1,4 @@
-(ns clojure.core.typed.impl.jvm.constant-type
+(ns clojure.core.typed.chk.jvm.constant-type
   (:require [clojure.core.typed.chk.common.type-rep :as r :refer [ret]]
             [clojure.core.typed.chk.common.type-ctors :as c])
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection

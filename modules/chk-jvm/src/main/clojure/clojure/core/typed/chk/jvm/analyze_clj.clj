@@ -1,4 +1,4 @@
-(ns ^:skip-wiki clojure.core.typed.impl.jvm.analyze-clj
+(ns ^:skip-wiki clojure.core.typed.chk.jvm.analyze-clj
   (:require [clojure.jvm.tools.analyzer :as analyze]
             [clojure.jvm.tools.analyzer.hygienic :as hygienic]
             [clojure.core.typed.chk.common.utils :as u]))

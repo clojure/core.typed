@@ -899,7 +899,7 @@ for checking namespaces, cf for checking individual forms."}
    (load-if-needed)
    (let [parse-type @(ns-resolve (find-ns 'clojure.core.typed.chk.common.parse-unparse)
                                  'parse-type)
-         amc @(ns-resolve (find-ns 'clojure.core.typed.impl.jvm.array-ops)
+         amc @(ns-resolve (find-ns 'clojure.core.typed.chk.jvm.array-ops)
                           'Type->array-member-Class)]
      (impl/with-clojure-impl
        (into-array (-> cljt parse-type amc) coll))))
@@ -907,7 +907,7 @@ for checking namespaces, cf for checking individual forms."}
    (load-if-needed)
    (let [parse-type @(ns-resolve (find-ns 'clojure.core.typed.chk.common.parse-unparse)
                                  'parse-type)
-         amc @(ns-resolve (find-ns 'clojure.core.typed.impl.jvm.array-ops)
+         amc @(ns-resolve (find-ns 'clojure.core.typed.chk.jvm.array-ops)
                           'Type->array-member-Class)]
      (impl/with-clojure-impl
        (into-array (-> javat parse-type amc) coll))))
@@ -1551,7 +1551,7 @@ for checking namespaces, cf for checking individual forms."}
     (reset-caches)
     (let [check (impl/v 'clojure.core.typed.chk.jvm.check/check)
           expr-type (impl/v 'clojure.core.typed.chk.jvm.check/expr-type)
-          ast-for-form (impl/v 'clojure.core.typed.impl.jvm.analyze-clj/ast-for-form)
+          ast-for-form (impl/v 'clojure.core.typed.chk.jvm.analyze-clj/ast-for-form)
           collect-ast (impl/v 'clojure.core.typed.chk.jvm.collect-phase/collect-ast)
           ret (impl/v 'clojure.core.typed.chk.common.type-rep/ret)
           parse-type (impl/v 'clojure.core.typed.chk.common.parse-unparse/parse-type)]

@@ -656,9 +656,9 @@
          (every? r/Bounds? bnds)
          (symbol? the-class)]
    :post [((some-fn r/TypeFn? r/RClass?) %)]}
-   (let [_ ((impl/v 'clojure.core.typed.impl.jvm.rclass-ancestor-env/add-rclass-replacements)
+   (let [_ ((impl/v 'clojure.core.typed.chk.jvm.rclass-ancestor-env/add-rclass-replacements)
             the-class names replacements)
-         _ ((impl/v 'clojure.core.typed.impl.jvm.rclass-ancestor-env/add-rclass-ancestors)
+         _ ((impl/v 'clojure.core.typed.chk.jvm.rclass-ancestor-env/add-rclass-ancestors)
             the-class names unchecked-ancestors)]
      (if (seq variances)
        (TypeFn* names variances bnds (r/RClass-maker variances poly? the-class))
@@ -716,7 +716,7 @@
        (u/p :ctors/RClass-of-cache-hit
             cache-hit)
        (u/p :ctors/RClass-of-cache-miss
-         (let [rc ((some-fn dtenv/get-datatype (impl/v 'clojure.core.typed.impl.jvm.rclass-env/get-rclass))
+         (let [rc ((some-fn dtenv/get-datatype (impl/v 'clojure.core.typed.chk.jvm.rclass-env/get-rclass))
                    sym)
                _ (assert ((some-fn r/TypeFn? r/RClass? r/DataType? nil?) rc))
                _ (when-not (or (r/TypeFn? rc) (empty? args))
@@ -762,7 +762,7 @@
    (let [sym (if (class? sym-or-cls)
                (u/Class->symbol sym-or-cls)
                sym-or-cls)
-         rc ((some-fn dtenv/get-datatype (impl/v 'clojure.core.typed.impl.jvm.rclass-env/get-rclass)) sym)
+         rc ((some-fn dtenv/get-datatype (impl/v 'clojure.core.typed.chk.jvm.rclass-env/get-rclass)) sym)
          args (when (r/TypeFn? rc)
                 (let [syms (TypeFn-fresh-symbols* rc)]
                   (most-general-on-variance (:variances rc)
@@ -878,7 +878,7 @@
   [rcls]
   {:pre [(r/RClass? rcls)]
    :post [((u/hash-c? symbol? r/Type?) %)]}
-  ((impl/v 'clojure.core.typed.impl.jvm.rclass-ancestor-env/rclass-replacements)
+  ((impl/v 'clojure.core.typed.chk.jvm.rclass-ancestor-env/rclass-replacements)
    rcls))
 
 (t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (IPersistentSet r/Type)])
@@ -886,7 +886,7 @@
   [rcls]
   {:pre [(r/RClass? rcls)]
    :post [((u/set-c? r/Type?) %)]}
-  ((impl/v 'clojure.core.typed.impl.jvm.rclass-ancestor-env/rclass-ancestors)
+  ((impl/v 'clojure.core.typed.chk.jvm.rclass-ancestor-env/rclass-ancestors)
    rcls))
 
 (t/ann supers-cache (t/Atom1 (t/Map Number (t/Map Symbol r/Type))))

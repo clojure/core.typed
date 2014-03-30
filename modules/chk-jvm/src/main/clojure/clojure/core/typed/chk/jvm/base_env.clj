@@ -1,4 +1,4 @@
-(ns clojure.core.typed.impl.jvm.base-env
+(ns clojure.core.typed.chk.jvm.base-env
   (:import (clojure.lang Keyword Named IMapEntry AMapEntry Seqable
                          LazySeq PersistentHashSet PersistentTreeSet PersistentList APersistentVector
                          APersistentSet IPersistentSet IPersistentMap IPersistentVector
@@ -8,7 +8,7 @@
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
                          ITransientVector PersistentHashMap Reduced)
            (java.util Comparator Collection))
-  (:require [clojure.core.typed.impl.jvm.base-env-helper :as h]
+  (:require [clojure.core.typed.chk.jvm.base-env-helper :as h]
             [clojure.core.typed.chk.common.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.chk.common.parse-unparse :as prs]
             [clojure.core.typed.chk.common.type-rep :as r]
@@ -18,7 +18,7 @@
             [clojure.core.typed.chk.common.fold-default]
             [clojure.core.typed.chk.common.name-env :as nme-env]
             [clojure.core.typed.chk.common.subst]
-            [clojure.core.typed.impl.jvm.rclass-env :as rcls]
+            [clojure.core.typed.chk.jvm.rclass-env :as rcls]
             [clojure.core.typed.rt.common.current-impl :as impl :refer [v]]
             [clojure.set :as set]))
 
@@ -2072,13 +2072,13 @@ clojure.lang.Delay (All [x]
     ((v 'clojure.core.typed.chk.common.var-env/reset-var-type-env!)
      (init-var-env) 
      (init-var-nochecks))
-    ((v 'clojure.core.typed.impl.jvm.method-return-nilables/reset-nonnilable-method-return-env!) 
+    ((v 'clojure.core.typed.chk.jvm.method-return-nilables/reset-nonnilable-method-return-env!) 
      (init-method-nonnilable-return-env))
-    ((v 'clojure.core.typed.impl.jvm.method-param-nilables/reset-method-nilable-param-env!)
+    ((v 'clojure.core.typed.chk.jvm.method-param-nilables/reset-method-nilable-param-env!)
      (init-method-nilable-param-env))
-    ((v 'clojure.core.typed.impl.jvm.method-override-env/reset-method-override-env!)
+    ((v 'clojure.core.typed.chk.jvm.method-override-env/reset-method-override-env!)
      (init-method-override-env))
-    ((v 'clojure.core.typed.impl.jvm.ctor-override-env/reset-constructor-override-env!) 
+    ((v 'clojure.core.typed.chk.jvm.ctor-override-env/reset-constructor-override-env!) 
      (init-ctor-override-env))
     ((v 'clojure.core.typed.chk.common.protocol-env/reset-protocol-env!) 
      (init-protocol-env))

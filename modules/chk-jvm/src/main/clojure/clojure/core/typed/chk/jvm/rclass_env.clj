@@ -1,4 +1,4 @@
-(ns ^:skip-wiki clojure.core.typed.impl.jvm.rclass-env
+(ns ^:skip-wiki clojure.core.typed.chk.jvm.rclass-env
   (:require [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed.chk.common.free-ops :as free-ops]
             [clojure.core.typed.chk.common.type-rep :as r]))

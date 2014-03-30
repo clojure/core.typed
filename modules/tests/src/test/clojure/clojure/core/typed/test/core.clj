@@ -28,7 +28,7 @@
          '[clojure.core.typed.chk.common.object-rep :refer :all]
          '[clojure.core.typed.chk.common.path-rep :refer :all]
          '[clojure.core.typed.chk.common.parse-unparse :refer :all]
-         '[clojure.core.typed.impl.jvm.constant-type :refer [constant-type]]
+         '[clojure.core.typed.chk.jvm.constant-type :refer [constant-type]]
          '[clojure.core.typed.chk.common.lex-env :refer :all]
          '[clojure.core.typed.chk.common.promote-demote :refer :all]
          '[clojure.core.typed.chk.common.frees :refer :all]

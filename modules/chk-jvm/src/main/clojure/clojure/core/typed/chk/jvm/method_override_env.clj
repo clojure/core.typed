@@ -1,4 +1,4 @@
-(ns clojure.core.typed.impl.jvm.method-override-env
+(ns clojure.core.typed.chk.jvm.method-override-env
   (:require [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed.chk.common.type-rep :as r]))
 

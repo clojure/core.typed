@@ -1,4 +1,4 @@
-(ns clojure.core.typed.impl.jvm.method-return-nilables
+(ns clojure.core.typed.chk.jvm.method-return-nilables
   (:require [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed.chk.common.type-rep :as r]))
 

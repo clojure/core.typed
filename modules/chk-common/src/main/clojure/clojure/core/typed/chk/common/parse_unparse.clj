@@ -8,7 +8,7 @@
             [clojure.core.typed.chk.common.dvar-env :as dvar]
             [clojure.core.typed.chk.common.filter-rep :as f]
             [clojure.core.typed.chk.common.filter-ops :as fl]
-            ;[clojure.core.typed.impl.jvm.constant-type :as const]
+            ;[clojure.core.typed.chk.jvm.constant-type :as const]
             [clojure.core.typed.chk.common.free-ops :as free-ops]
             [clojure.core.typed.rt.common.current-impl :as impl]
             [clojure.core.typed.chk.common.name-env :as name-env]
