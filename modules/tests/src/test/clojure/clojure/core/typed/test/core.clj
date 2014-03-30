@@ -16,7 +16,7 @@
          '[clojure.core.typed.chk.common.init]
          '[clojure.core.typed.chk.common.utils :as u :refer [with-ex-info-handlers top-level-error?]]
          '[clojure.core.typed.chk.common.current-impl :as impl]
-         '[clojure.core.typed.chk.common.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp
+         '[clojure.core.typed.chk.jvm.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp
                                                     tc-equiv]]
          '[clojure.core.typed.chk.common.collect-phase :as collect]
          '[clojure.core.typed.chk.common.inst :as inst]

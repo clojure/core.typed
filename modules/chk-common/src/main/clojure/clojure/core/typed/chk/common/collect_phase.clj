@@ -11,7 +11,7 @@
             [clojure.core.typed.chk.common.ns-options :as ns-opts]
             [clojure.core.typed.chk.common.utils :as u]
             [clojure.core.typed.rt.common.util-vars :as uvar]
-            [clojure.core.typed.chk.common.check :as chk]
+            [clojure.core.typed.chk.jvm.check :as chk]
             [clojure.core.typed.impl.jvm.analyze-clj :as ana-clj]
             [clojure.core.typed.rt.common.current-impl :as impl]
             [clojure.core.typed.chk.common.free-ops :as free-ops]

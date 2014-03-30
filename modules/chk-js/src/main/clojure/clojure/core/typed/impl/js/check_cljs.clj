@@ -1,6 +1,6 @@
-(ns clojure.core.typed.chk.common.check-cljs
+(ns clojure.core.typed.impl.js.check-cljs
   (:require [clojure.core.typed]
-            [clojure.core.typed.chk.common.check :as chk :refer [expr-type]]
+            [clojure.core.typed.chk.jvm.check :as chk :refer [expr-type]]
             [clojure.core.typed.chk.common.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.chk.common.type-ctors :as c]
             [clojure.core.typed.chk.common.subtype :as sub]

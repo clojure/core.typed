@@ -6,7 +6,7 @@
 ;            [clojure.core.typed.test.rbt-types :refer [badRight rbt EntryT Empty
 ;                                                       Red Black bt]]
 ;            #_[clojure.core.typed.chk.common.subtype :as sub]
-;            #_[clojure.core.typed.chk.common.check :as chk]
+;            #_[clojure.core.typed.chk.jvm.check :as chk]
 ;            #_[clojure.core.typed.chk.common.parse-unparse :as prs]
 ;            #_[clojure.core.typed.chk.common.filter-ops :as fo]
 ;            [clojure.repl :refer [pst]]

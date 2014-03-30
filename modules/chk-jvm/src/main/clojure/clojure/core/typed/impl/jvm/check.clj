@@ -1,6 +1,6 @@
 (ns ^:skip-wiki 
   ^{:core.typed {:collect-only true}}
-  clojure.core.typed.chk.common.check
+  clojure.core.typed.chk.jvm.check
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t :refer [*already-checked* letfn>]]
             [clojure.core.typed.chk.common.utils :as u]

@@ -13,7 +13,7 @@
             [clojure.core.typed.chk.common.object-rep :refer :all]
             [clojure.core.typed.chk.common.path-rep :refer :all]
             [clojure.core.typed.chk.common.parse-unparse :refer :all]
-            [clojure.core.typed.chk.common.check :as chk :refer [update tc-t]]
+            [clojure.core.typed.chk.jvm.check :as chk :refer [update tc-t]]
             [clojure.repl :refer [pst]]
             [clojure.jvm.tools.analyzer :refer [ast]]
             [clojure.test :refer :all]))
@@ -118,7 +118,7 @@
 
 (defmacro update-badRight-tmap [fl]
   `(check-rbt
-     (-> (clojure.core.typed.chk.common.check/update-composite
+     (-> (clojure.core.typed.chk.jvm.check/update-composite
            {'~'tmap (parse-type '~'clojure.core.typed.test.rbt-types/badRight)}
            (parse-filter
              '~fl))

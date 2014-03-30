@@ -64,7 +64,7 @@
                  '[clojure.core.typed.chk.common.inst]
                  '[clojure.core.typed.chk.common.subtype]
                  '[clojure.core.typed.impl.jvm.array-ops]
-                 '[clojure.core.typed.chk.common.check]
+                 '[clojure.core.typed.chk.jvm.check]
                  '[clojure.core.typed.chk.common.collect-phase]
                  '[clojure.core.typed.impl.jvm.base-env]
                  '[clojure.core.typed.chk.common.ns-deps]
@@ -80,7 +80,7 @@
             (require
               '[cljs.analyzer]
               '[clojure.core.typed.impl.js.collect-cljs]
-              '[clojure.core.typed.chk.common.check-cljs]
+              '[clojure.core.typed.impl.js.check-cljs]
               '[clojure.core.typed.impl.js.jsnominal-env]
               '[clojure.core.typed.impl.js.base-env-cljs]
               '[clojure.core.typed.impl.js.base-env-helper-cljs])

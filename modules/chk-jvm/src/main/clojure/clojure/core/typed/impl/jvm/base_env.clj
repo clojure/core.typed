@@ -481,7 +481,7 @@ clojure.java.io/IOFactory
   (merge
     (h/var-mappings
 
-clojure.core.typed.chk.common.check-ns (Fn [Symbol -> Any]
+clojure.core.typed/check-ns (Fn [Symbol -> Any]
                                 [-> Any])
 ;; Internal annotations
 

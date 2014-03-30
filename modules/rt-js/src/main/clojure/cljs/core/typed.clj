@@ -240,7 +240,7 @@
                   ;collect
                   _ ((v 'clojure.core.typed.impl.js.collect-cljs/collect) ast)
                   ;check
-                  c-ast ((v 'clojure.core.typed.chk.common.check-cljs/check) ast
+                  c-ast ((v 'clojure.core.typed.impl.js.check-cljs/check) ast
                          (when expected-provided?
                            ((v 'clojure.core.typed.chk.common.type-rep/ret)
                             ((v 'clojure.core.typed.chk.common.parse-unparse/parse-type) expected))))]
@@ -248,7 +248,7 @@
               (if-let [errors (seq @t/*delayed-errors*)]
                 (t/print-errors! errors)
                 (-> c-ast 
-                    ((v 'clojure.core.typed.chk.common.check/expr-type))
+                    ((v 'clojure.core.typed.chk.jvm.check/expr-type))
                     ((v 'clojure.core.typed.chk.common.parse-unparse/unparse-TCResult-in-ns) (u/cljs-ns)))))))))))
 
 (defmacro cf
@@ -278,7 +278,7 @@
                        *already-collected* (atom #{})
                        t/*delayed-errors* (-init-delayed-errors)]
                (let [_ ((v 'clojure.core.typed.impl.js.collect-cljs/collect-ns) nsym)
-                     _ ((v 'clojure.core.typed.chk.common.check-cljs/check-ns) nsym)]
+                     _ ((v 'clojure.core.typed.impl.js.check-cljs/check-ns) nsym)]
                  ;handle errors
                  (if-let [errors (seq @t/*delayed-errors*)]
                    (t/print-errors! errors)
