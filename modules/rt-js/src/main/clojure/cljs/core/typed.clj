@@ -1,8 +1,8 @@
 (ns cljs.core.typed
   "Macros for Clojurescript type checking"
   (:require [clojure.core.typed :as t]
-            [clojure.core.typed.current-impl :as impl :refer [v]]
-            [clojure.core.typed.util-cljs :as u]
+            [clojure.core.typed.chk.common.current-impl :as impl :refer [v]]
+            [clojure.core.typed.impl.js.util-cljs :as u]
             [cljs.analyzer :as ana]
             [cljs.compiler :as comp]
             [cljs.env :as env]
@@ -236,20 +236,20 @@
         (binding [*currently-checking-cljs* true
                   t/*delayed-errors* (-init-delayed-errors)]
           (impl/with-cljs-impl
-            (let [ast ((v 'clojure.core.typed.analyze-cljs/ast-for-form) form)
+            (let [ast ((v 'clojure.core.typed.impl.js.analyze-cljs/ast-for-form) form)
                   ;collect
-                  _ ((v 'clojure.core.typed.collect-cljs/collect) ast)
+                  _ ((v 'clojure.core.typed.impl.js.collect-cljs/collect) ast)
                   ;check
-                  c-ast ((v 'clojure.core.typed.check-cljs/check) ast
+                  c-ast ((v 'clojure.core.typed.chk.common.check-cljs/check) ast
                          (when expected-provided?
-                           ((v 'clojure.core.typed.type-rep/ret)
-                            ((v 'clojure.core.typed.parse-unparse/parse-type) expected))))]
+                           ((v 'clojure.core.typed.chk.common.type-rep/ret)
+                            ((v 'clojure.core.typed.chk.common.parse-unparse/parse-type) expected))))]
               ;handle errors
               (if-let [errors (seq @t/*delayed-errors*)]
                 (t/print-errors! errors)
                 (-> c-ast 
-                    ((v 'clojure.core.typed.check/expr-type))
-                    ((v 'clojure.core.typed.parse-unparse/unparse-TCResult-in-ns) (u/cljs-ns)))))))))))
+                    ((v 'clojure.core.typed.chk.common.check/expr-type))
+                    ((v 'clojure.core.typed.chk.common.parse-unparse/unparse-TCResult-in-ns) (u/cljs-ns)))))))))))
 
 (defmacro cf
   "Check a single form with an optional expected type."
@@ -269,7 +269,7 @@
      (comp/with-core-cljs
        (impl/with-cljs-impl
          (t/reset-caches)
-         ((v 'clojure.core.typed.reset-env/reset-envs!))
+         ((v 'clojure.core.typed.chk.common.reset-env/reset-envs!))
          (if *currently-checking-cljs*
            (throw (Exception. "Found inner call to check-ns or cf"))
            (do
@@ -277,8 +277,8 @@
              (binding [*currently-checking-cljs* true
                        *already-collected* (atom #{})
                        t/*delayed-errors* (-init-delayed-errors)]
-               (let [_ ((v 'clojure.core.typed.collect-cljs/collect-ns) nsym)
-                     _ ((v 'clojure.core.typed.check-cljs/check-ns) nsym)]
+               (let [_ ((v 'clojure.core.typed.impl.js.collect-cljs/collect-ns) nsym)
+                     _ ((v 'clojure.core.typed.chk.common.check-cljs/check-ns) nsym)]
                  ;handle errors
                  (if-let [errors (seq @t/*delayed-errors*)]
                    (t/print-errors! errors)
