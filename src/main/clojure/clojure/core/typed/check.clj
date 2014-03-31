@@ -2160,6 +2160,23 @@
                               (apply hash-map (mapv (comp ret-t expr-type) cargs)))))
       :else (normal-invoke expr fexpr args expected :cargs cargs))))
 
+;(apply concat hmap)
+(add-invoke-apply-method 'clojure.core/concat
+  [{[_ & args] :args :as expr} & [expected]]
+  (let [cargs (mapv check args)
+        tmap (when (#{1} (count cargs))
+               (c/fully-resolve-type (ret-t (expr-type (last cargs)))))]
+    (binding [vs/*current-expr* expr]
+      (cond
+        tmap
+        (let [r (c/HMap->KwArgsSeq tmap false)
+              _ (when expected
+                  (when-not (sub/subtype? r (ret-t expected))
+                    (expected-error r (ret-t expected))))]
+          (assoc expr
+                 expr-type (ret r)))
+        :else ::not-special))))
+
 ;apply hash-map
 (add-invoke-apply-method 'clojure.core/hash-map
   [{[_ & args] :args :as expr} & [expected]]
@@ -2553,6 +2570,7 @@
 (defn check-apply
   [{[fexpr & args] :args :as expr} expected]
   {:post [((some-fn TCResult? #{::not-special}) %)]}
+  (binding [vs/*current-expr* expr]
   (let [ftype (ret-t (expr-type (check fexpr)))
         [fixed-args tail] [(butlast args) (last args)]]
     (cond
@@ -2618,7 +2636,7 @@
               (ret (subst/subst-all substitution (r/Result-type* rng)))
               (recur (next fs))))))
 
-      :else ::not-special)))
+      :else ::not-special))))
 
 ;convert apply to normal function application
 (add-invoke-apply-method :default 
