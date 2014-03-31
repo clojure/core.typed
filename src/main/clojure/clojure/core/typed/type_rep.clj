@@ -608,14 +608,37 @@
                             (set (keys optional))))])
 
 (u/ann-record KwArgsSeq [mandatory :- (t/Map Type Type)
-                         optional  :- (t/Map Type Type)])
-(u/def-type KwArgsSeq [mandatory optional]
+                         optional  :- (t/Map Type Type)
+                         nilable-non-empty? :- Boolean
+                         complete? :- Boolean])
+(u/def-type KwArgsSeq [mandatory optional nilable-non-empty? complete?]
   "A sequential seq representing a flattened map (for keyword arguments)."
   [(every? (u/hash-c? Value? Type?) [mandatory optional])
    (= #{} (set/intersection (set (keys mandatory)) 
-                            (set (keys optional))))]
+                            (set (keys optional))))
+   (u/boolean? nilable-non-empty?)
+   (u/boolean? complete?)]
   :methods
   [p/TCType])
+
+(t/ann -kw-args [& :optional {:mandatory (t/Map Type Type)
+                              :optional (t/Map Type Type)}
+                 -> KwArgs])
+(defn -kw-args [& {:keys [mandatory optional]
+                   :or {mandatory {} optional {}}}]
+  {:post [(KwArgs? %)]}
+  (KwArgs-maker mandatory optional))
+
+(t/ann -kw-args-seq [& :optional {:mandatory (t/Map Type Type)
+                                  :optional (t/Map Type Type)
+                                  :nilable-non-empty? Boolean
+                                  :complete? Boolean}
+                     -> KwArgsSeq])
+(defn -kw-args-seq [& {:keys [mandatory optional nilable-non-empty? complete?]
+                       :or {mandatory {} optional {} complete? false
+                            nilable-non-empty? false}}]
+  {:post [(KwArgsSeq? %)]}
+  (KwArgsSeq-maker mandatory optional nilable-non-empty? complete?))
 
 ; must go before Result
 (u/ann-record FlowSet [normal :- p/IFilter])
@@ -928,8 +951,8 @@
          -empty @(-empty-var)]
      (Function-maker dom (make-Result rng filter object flow)
                      rest drest (when (or mandatory-kws optional-kws)
-                                  (KwArgs-maker (or mandatory-kws {})
-                                            (or optional-kws {})))))))
+                                  (-kw-args :mandatory (or mandatory-kws {})
+                                            :optional (or optional-kws {})))))))
 
 
 ;;;;;;;;;;;;;;;;;

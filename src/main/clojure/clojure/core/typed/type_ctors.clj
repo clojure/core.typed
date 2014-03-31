@@ -1933,19 +1933,30 @@
 ;;; KwArgs
 
 (t/ann KwArgs->Type [KwArgs -> r/Type])
-(defn KwArgs->Type [^KwArgs kws]
+(defn KwArgs->Type [kws]
   {:pre [(r/KwArgs? kws)]
    :post [(r/Type? %)]}
   (impl/assert-clojure)
-  (r/KwArgsSeq-maker (.mandatory kws)
-                 (.optional kws)))
+  (r/-kw-args-seq :mandatory (:mandatory kws)
+                  :optional (:optional kws)
+                  :nilable-non-empty? true
+                  :complete? false))
 
 (t/ann KwArgsSeq->HMap [KwArgsSeq -> r/Type])
-(defn KwArgsSeq->HMap [^KwArgsSeq kws]
+(defn KwArgsSeq->HMap [kws]
   {:pre [(r/KwArgsSeq? kws)]
    :post [(r/Type? %)]}
-  (make-HMap :mandatory (.mandatory kws) 
-             :optional (.optional kws)))
+  (make-HMap :mandatory (:mandatory kws) 
+             :optional (:optional kws)))
+
+(t/ann HMap->KwArgsSeq [HeterogeneousMap Boolean -> r/Type])
+(defn HMap->KwArgsSeq [kws nilable-non-empty?]
+  {:pre [(r/HeterogeneousMap? kws)]
+   :post [(r/Type? %)]}
+  (r/-kw-args-seq :mandatory (:types kws)
+                  :optional (:optional kws)
+                  :nilable-non-empty? nilable-non-empty?
+                  :complete? (complete-hmap? kws)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Heterogenous type ops

@@ -1102,9 +1102,11 @@
                (when kws
                  (let [{:keys [optional mandatory]} kws]
                    (list* '& 
-                          (unparse-kw-map optional)
-                          (when (seq mandatory) 
-                            [:mandatory (unparse-kw-map mandatory)]))))
+                          (concat
+                            (when (seq mandatory) 
+                              [:mandatory (unparse-kw-map mandatory)])
+                            (when (seq optional)
+                              [:optional (unparse-kw-map optional)])))))
                ['->]
                (unparse-result rng))))
 
@@ -1267,7 +1269,11 @@
            (when (seq (.optional v))
              [:optional (unparse-map-of-types (.optional v))])
            (when (seq (.mandatory v))
-             [:mandatory (unparse-map-of-types (.mandatory v))]))))
+             [:mandatory (unparse-map-of-types (.mandatory v))])
+           (when (:complete? v)
+             [:complete? (:complete? v)])
+           (when (:nilable-non-empty? v)
+             [:nilable-non-empty? (:nilable-non-empty? v)]))))
 
 (defmethod unparse-type* HeterogeneousVector
   [{:keys [types rest drest fs objects] :as v}]

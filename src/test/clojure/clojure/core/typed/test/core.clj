@@ -3117,3 +3117,14 @@
   ; FIXME replace Any above with (U x nil) when implemented HSequential and fixed code for *check-fn-method1-rest-type*
   (is (u/top-level-error-thrown?
         (cf (fn [x c & y] x) (All [x y ...] [x y ... y -> x])))))
+
+(deftest kw-args-seq-complete-test
+  (is 
+    (u/top-level-error-thrown?
+      (cf (apply concat {:a 1 :b 2})
+          (clojure.core.typed/Seq clojure.core.typed/Keyword))))
+  (is-cf (apply concat {:a 1 :b 2})
+         (clojure.core.typed/Seq (U clojure.core.typed/Keyword Number)))
+  (is (subtype? (-kw-args-seq :mandatory {(-val :a) (-val 1)}
+                              :complete? true)
+                (parse-clj '(clojure.core.typed/Seq (U clojure.core.typed/Keyword Number))))))

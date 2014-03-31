@@ -127,6 +127,7 @@
   {:pre [(r/AnyType? s)
          (r/AnyType? t)]
    :post [(set? %)]}
+  ;(prn "subtypeA*" s t)
   (if (or (u/p :subtype/query-current-seen
             (contains? A [s t]))
           (= s t)
@@ -545,11 +546,31 @@
         (subtype (c/upcast-hmap s) t)
 
         (r/KwArgsSeq? s)
-        (subtype (c/Un r/-nil 
-                       (impl/impl-case
-                         :clojure (c/RClass-of Seqable [r/-any])
-                         :cljs (c/Protocol-of 'cljs.core/ISeqable [r/-any])))
-                 t)
+        (let [ss (if (:complete? s)
+                   (apply c/Un
+                          (concat
+                            (apply concat (:mandatory s))
+                            (apply concat (:optional s))))
+                   r/-any)
+              min-count (* 2 (count (:mandatory s)))
+              max-count (when (:complete? s)
+                          (+ min-count
+                             (* 2 (count (:optional s)))))]
+          (subtype (apply c/Un 
+                          (concat
+                            (when (and (:nilable-non-empty? s)
+                                       (not (zero? min-count)))
+                              [r/-nil])
+                            [(c/In (r/make-CountRange 
+                                     (max (if (:nilable-non-empty? s) 
+                                            2 
+                                            0)
+                                          min-count) 
+                                     max-count)
+                                   (impl/impl-case
+                                     :clojure (c/RClass-of ASeq [ss])
+                                     :cljs (c/Protocol-of 'cljs.core/ISeq [ss])))]))
+                   t))
 
         (r/HeterogeneousVector? s)
         (let [ss (apply c/Un (:types s))]
