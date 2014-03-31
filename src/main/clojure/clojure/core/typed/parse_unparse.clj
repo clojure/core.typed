@@ -1102,9 +1102,11 @@
                (when kws
                  (let [{:keys [optional mandatory]} kws]
                    (list* '& 
-                          (unparse-kw-map optional)
-                          (when (seq mandatory) 
-                            [:mandatory (unparse-kw-map mandatory)]))))
+                          (concat
+                            (when (seq mandatory) 
+                              [:mandatory (unparse-kw-map mandatory)])
+                            (when (seq optional)
+                              [:optional (unparse-kw-map optional)])))))
                ['->]
                (unparse-result rng))))
 
