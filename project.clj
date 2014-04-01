@@ -6,7 +6,7 @@
   :dependencies [[org.clojure/jvm.tools.analyzer "0.6.1"
                   :exclusions [org.clojure/clojure
                                org.clojure/clojurescript]]
-                 [org.clojure/tools.analyzer.jvm "0.1.0-20140401.080205-181"]
+                 [org.clojure/tools.analyzer.jvm "0.1.0-beta10"]
                  [org.clojure/tools.reader "0.8.3"]
                  [org.clojure/core.contracts "0.0.4"
                   :exclusions [org.clojure/clojure]]
