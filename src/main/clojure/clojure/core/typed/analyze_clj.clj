@@ -54,7 +54,8 @@
              file (-> pres io/reader slurp)
              reader (readers/indexing-push-back-reader file)
              asts (binding [*ns* (or (find-ns nsym)
-                                     *ns*)]
+                                     *ns*)
+                            *file* p]
                     (loop [asts []]
                       (let [form (tr/read reader false eof)]
                         (if (not= eof form)
