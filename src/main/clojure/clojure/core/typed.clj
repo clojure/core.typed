@@ -1430,9 +1430,9 @@ for checking namespaces, cf for checking individual forms."}
          (every? #(instance? clojure.lang.ExceptionInfo %) errors)]}
   (binding [*out* *err*]
     (doseq [^Exception e errors]
-      (let [{{:keys [source line column] :as env} :env :as data} (ex-data e)]
+      (let [{{:keys [file line column] :as env} :env :as data} (ex-data e)]
         (print "Type Error ")
-        (print (str "(" (or source (-> env :ns :name) "NO_SOURCE_FILE")
+        (print (str "(" (or file (-> env :ns) "NO_SOURCE_FILE")
                     (when line
                       (str ":" line
                            (when column

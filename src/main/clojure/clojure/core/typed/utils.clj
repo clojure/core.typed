@@ -108,7 +108,9 @@
                                 {:form (if (contains? opt :form)
                                          form
                                          (emit-form-fn uvs/*current-expr*))})
-                              {:env (env-for-error *current-env*)}))]
+                              {:env (or (when uvs/*current-expr*
+                                          (:env uvs/*current-expr*))
+                                        (env-for-error *current-env*))}))]
     (cond
       ;can't delay here
       (not (bound? #'clojure.core.typed/*delayed-errors*))
