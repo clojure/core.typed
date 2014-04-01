@@ -11,7 +11,7 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
-(defn ^:private analyze1 [form env]
+(defn analyze1 [form env]
   (taj/analyze+eval form env))
 
 (defn ast-for-form-in-ns
