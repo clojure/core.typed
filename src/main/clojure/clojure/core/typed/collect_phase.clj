@@ -131,15 +131,14 @@
   (binding [t/*already-collected* (atom #{})]
     (collect-ns nsym)))
 
-(defn visit-do [{:keys [exprs] :as expr} f]
-  (doseq [expr exprs]
+(defn visit-do [{:keys [statements ret] :as expr} f]
+  (doseq [expr (concat statements [ret])]
     (f expr)))
 
 (defn assert-expr-args [{:keys [args] :as expr} cnts]
   {:pre [(set? cnts)]}
   (assert (cnts (count args)))
-  (assert (every? #{:constant :keyword :number :string :nil :boolean :empty-expr}
-                  (map :op args))
+  (assert (every? #{:quote} (map :op args))
           (mapv :op args)))
 
 ;; Phase 1
@@ -175,7 +174,7 @@
 (defmulti collect (fn [expr] (:op expr)))
 (u/add-defmethod-generator collect)
 (defmulti invoke-special-collect (fn [expr]
-                                   (when-let [var (-> expr :fexpr :var)]
+                                   (when-let [var (-> expr :fn :var)]
                                      (u/var->symbol var))))
 
 (add-collect-method :do [expr] (visit-do expr collect))

@@ -6,6 +6,8 @@
   :dependencies [[org.clojure/jvm.tools.analyzer "0.6.1"
                   :exclusions [org.clojure/clojure
                                org.clojure/clojurescript]]
+                 [org.clojure/tools.analyzer.jvm "0.1.0-beta10"]
+                 [org.clojure/tools.reader "0.8.3"]
                  [org.clojure/core.contracts "0.0.4"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.0.2"
@@ -43,7 +45,7 @@
   :test-paths ["src/test/clojure"
                "src/test/cljs"]
 
-  :profiles {:dev {:repl-options {:port 64456}}}
+  :profiles {:dev {:repl-options {:port 64464}}}
 
   :cljsbuild {:builds {}}
 

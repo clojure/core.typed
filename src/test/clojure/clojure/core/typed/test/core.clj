@@ -7,8 +7,7 @@
 (load-if-needed)
 
 (require '[clojure.test :refer :all]
-         '[clojure.jvm.tools.analyzer :refer [ast analyze-form]]
-         '[clojure.jvm.tools.analyzer.hygienic :refer [ast-hy]]
+         '[clojure.core.typed.analyze-clj :as ana]
          '[clojure.repl :refer [pst]]
          '[clojure.pprint :refer [pprint]]
          '[clojure.data :refer [diff]]
@@ -814,7 +813,12 @@
          (tc-t (:a {:a 1}))
          (ret (-val 1)
               (-FS -top -top)
-              -empty))))
+              -empty)))
+  ;keyword-invoke with default
+  (is-cf (:a (clojure.core.typed/ann-form {} (HMap :optional {:a Number}))
+             'a)
+         (U Number clojure.core.typed/Symbol))
+  )
 
 (defn print-cset [cs]
   (into {} (doall
@@ -1065,8 +1069,8 @@
         (= (with-bounded-frees {(make-F 'm) (-bounds (parse-type '(TFn [[x :variance :covariant]] Any))
                                                      (parse-type '(TFn [[x :variance :covariant]] Nothing)) )}
              (check-funapp
-               (-> (ast 'a) ast-hy) ;dummy
-               [(-> (ast 1) ast-hy)];dummy
+               (ana/ast-for-form ''a) ;dummy
+               [(ana/ast-for-form 1)];dummy
                (ret (parse-type '(All [x]
                                       [x -> (m x)])))
                [(ret -nil)]
@@ -1230,7 +1234,7 @@
 
 (deftest new-instance-method-return-test
   (is (check-ns 'clojure.core.typed.test.protocol))
-  (is (caught-top-level-errors #{2}
+  (is (u/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.protocol-fail))))
 ;;;;
 
@@ -1294,9 +1298,13 @@
 
 (deftest letfn>-test
   (is-cf (clojure.core.typed/letfn> [a :- [Number -> Number]
-                                     (a [b] b)]
+                                     (a [b] (inc b))]
            (a 1))
          Number)
+  ; annotation needed
+  (is (u/top-level-error-thrown?
+        (cf (clojure.core.typed/letfn> [(a [b] (inc b))]
+              (a 1)))))
   ;interdependent functions
   (is-cf (clojure.core.typed/letfn> [a :- [Number -> Number]
                                      (a [c] (b c))
@@ -1388,7 +1396,7 @@
 
 (deftest instance-field-test
   (is-cf (.ns ^clojure.lang.Var #'clojure.core/map))
-  (is (caught-top-level-errors #{2}
+  (is (u/top-level-error-thrown?
         (cf (fn [] (.ns ^clojure.lang.Var 'a))))))
 
 (deftest HMap-syntax-test
@@ -1436,9 +1444,9 @@
            (java.io.File. a)))
   (is (throws-tc-error?
         (cf (fn [& {:keys [path] :or {path "foo"}}]
-            (clojure.core.typed/print-env "a")
-            (java.io.File. path))
-          [& :optional {:path String} -> java.io.File]))))
+              (clojure.core.typed/print-env "a")
+              (java.io.File. path))
+            [& :optional {:path String} -> java.io.File]))))
 
 ;(fn> [a :- (U (Extends Number :without [(IPerVec Any)])
 ;              (Extends (IPV Any) :without [Number])
@@ -1964,7 +1972,8 @@
           [-> clojure.lang.IFn]))
 
 (deftest plain-defprotocol-test
-  (is (u/top-level-error-thrown? (cf (defprotocol Foo (bar [this])))))
+  (is (u/top-level-error-thrown? 
+        (check-ns 'clojure.core.typed.test.fail.plain-defprotocol)))
   (is (u/top-level-error-thrown? 
         (check-ns 'clojure.core.typed.test.fail.CTYP-45))))
 
@@ -2057,8 +2066,7 @@
          (HMap :mandatory {:a (Value "v")})))
 
 (deftest CTYP-37-defprotocol-better-error
-  (is (u/top-level-error-thrown?
-        (check-ns 'clojure.core.typed.test.fail.CTYP-37))))
+  (is (check-ns 'clojure.core.typed.test.CTYP-37)))
 
 (defmacro equal-types-noparse [l r]
   `(clj (is (let [l# (ety ~l)
@@ -2365,7 +2373,7 @@
 
 (deftest unannotated-record-test
   (is (u/top-level-error-thrown?
-        (cf (defrecord Unannotated [])))))
+        (check-ns 'clojure.core.typed.test.fail.unannotated-record))))
 
 (deftest datatype-method-recur-test
   (is (check-ns 'clojure.core.typed.test.datatype-recur)))
@@ -2373,12 +2381,10 @@
 (deftest record-annotated-as-datatype-test
   ; record annotated as datatype
   (is (u/top-level-error-thrown?
-        (cf (do (clojure.core.typed/ann-datatype IncorrectRec [])
-                (defrecord IncorrectRec [])))))
+        (check-ns 'clojure.core.typed.test.fail.record-as-datatype)))
   ; datatype annotated as record
   (is (u/top-level-error-thrown?
-        (cf (do (clojure.core.typed/ann-record IncorrectDt [])
-                (deftype IncorrectDt []))))))
+        (check-ns 'clojure.core.typed.test.fail.datatype-as-record))))
 
 (deftest recursive-ann-test
   (is (check-ns 'clojure.core.typed.test.recursive)))
@@ -2644,7 +2650,7 @@
 
 ; just a sanity check so keyword arguments don't accidentally break
 (deftest check-ns-kw-args-test
-  (is (check-ns 'clojure.core.typed.test.protocol :collect-only true)))
+  (is (check-ns 'clojure.core.typed.test.interop :collect-only true)))
 
 ;(sub? (All [x] (TFn [[a :variance :covariant]] Any))
 ;      (Rec [m] (TFn [[a :variance :covariant]] m)))

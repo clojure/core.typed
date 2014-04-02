@@ -24,7 +24,8 @@
 (defn takes-IFoo [f]
   (bar f))
 
-(takes-IFoo (->Bar))
+; don't eval; see CLJ-979
+(fn [] (takes-IFoo (->Bar)))
 
 ;; Annotate protocol in another ns
 
@@ -40,7 +41,9 @@
 (defn takes-AnotherNs [a]
   (baz a))
 
-(takes-AnotherNs (->Bar))
+; don't eval; see CLJ-979
+(fn []
+  (takes-AnotherNs (->Bar)))
 
 ;; A protocol that extends
 

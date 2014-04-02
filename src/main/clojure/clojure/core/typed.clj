@@ -606,8 +606,7 @@ for checking namespaces, cf for checking individual forms."}
        ;unquoted to allow bindings to resolve with hygiene
        ~init-syn
        ;preserve letfn empty body
-       nil
-       ~@body)))
+       ~@(or body [nil]))))
 
 
 (defmacro defprotocol> [& body]
@@ -753,7 +752,8 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro tc-ignore 
   "Ignore forms in body during type checking"
   [& body]
-  `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
+  `(do ::tc-ignore
+       ~@(or body [nil])))
 
 (defmacro init-aliases []
   (letfn [(def-alias-many [vinit]
@@ -1430,9 +1430,9 @@ for checking namespaces, cf for checking individual forms."}
          (every? #(instance? clojure.lang.ExceptionInfo %) errors)]}
   (binding [*out* *err*]
     (doseq [^Exception e errors]
-      (let [{{:keys [source line column] :as env} :env :as data} (ex-data e)]
+      (let [{{:keys [file line column] :as env} :env :as data} (ex-data e)]
         (print "Type Error ")
-        (print (str "(" (or source (-> env :ns :name) "NO_SOURCE_FILE")
+        (print (str "(" (or file (-> env :ns) "NO_SOURCE_FILE")
                     (when line
                       (str ":" line
                            (when column
@@ -1461,6 +1461,7 @@ for checking namespaces, cf for checking individual forms."}
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-checked* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *currently-checking-clj* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors* nil)
+(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *analyze-ns-cache* nil)
 
 (defonce ^:dynamic 
   ^{:doc 
@@ -1560,7 +1561,8 @@ for checking namespaces, cf for checking individual forms."}
         (impl/with-clojure-impl
           (binding [*currently-checking-clj* true
                     *delayed-errors* (-init-delayed-errors)
-                    *collect-on-eval* false]
+                    *collect-on-eval* false
+                    *analyze-ns-cache* (atom {})]
             (let [expected (when type-provided?
                              (ret (parse-type expected)))
                   ast (ast-for-form form)
@@ -1606,7 +1608,8 @@ for checking namespaces, cf for checking individual forms."}
                      *already-collected* (atom #{})
                      *already-checked* (atom #{})
                      *trace-checker* trace
-                     *collect-on-eval* false]
+                     *collect-on-eval* false
+                     *analyze-ns-cache* (atom {})]
              (let [terminal-error (atom nil)]
                (impl/with-clojure-impl
                  (reset-envs!)

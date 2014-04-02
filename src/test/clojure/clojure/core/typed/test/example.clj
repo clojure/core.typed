@@ -3,8 +3,7 @@
   (:import (clojure.lang Seqable PersistentHashSet Symbol)
            (java.io File))
   (:require [clojure.core.typed :refer [ann inst cf fn> pfn> check-ns ann-form]]
-            [clojure.repl :refer [pst]]
-            [clojure.jvm.tools.analyzer :refer [ast]]))
+            [clojure.repl :refer [pst]]))
 
 (ann test1 (All [x y] [x y -> x]))
 (defn test1 [a b]

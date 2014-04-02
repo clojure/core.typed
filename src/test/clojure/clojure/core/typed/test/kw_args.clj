@@ -1,7 +1,5 @@
 (ns clojure.core.typed.test.kw-args
-  (:require [clojure.core.typed :refer [ann check-ns ann-form cf] :as t]
-            [clojure.jvm.tools.analyzer :refer [ast]]
-            [clojure.jvm.tools.analyzer.emit-form :refer [emit-form]]))
+  (:require [clojure.core.typed :refer [ann check-ns ann-form cf] :as t]))
 
 (ann empty-kw [& :optional {} -> nil])
 (defn empty-kw [& {:as opts}]
