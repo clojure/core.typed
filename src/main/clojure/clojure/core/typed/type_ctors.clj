@@ -153,29 +153,6 @@
                 (:absent-keys hmap)
                 (complete-hmap? hmap)))
 
-(t/ann ^:no-check upcast-to-HSequential [r/Type -> (U nil HSequential)])
-(defn upcast-to-HSequential [t]
-  {:pre [(r/Type? t)]
-   :post [(or (r/HSequential? %) (nil? %))]}
-  (cond
-    (r/HeterogeneousVector? t)
-    (r/-hsequential (:types t)
-                    :filters (:fs t)
-                    :objects (:objects t)
-                    :rest (:rest t)
-                    :drest (:drest t))
-
-    (r/HeterogeneousList? t)
-    (r/-hsequential (:types t))
-
-    ; ISeq is not necessarily Sequential, but most ISeq is also Sequential
-    (r/HeterogeneousSeq? t)
-    (r/-hsequential (:types t))
-
-    ;TODO
-    :else nil
-    ))
-
 (t/ann ^:no-check make-HMap [& :optional {:mandatory (t/Map r/Type r/Type) :optional (t/Map r/Type r/Type)
                                           :absent-keys (t/Set r/Type) :complete? Boolean} 
                              -> r/Type])

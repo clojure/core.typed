@@ -2856,7 +2856,7 @@
                 (cond
                   (or rest drest)
                   (c/Un r/-nil
-                        (r/-hvec (vec remain-dom)
+                        (r/-hsequential remain-dom
                                         :rest rest
                                         :drest drest))
                   ;FIXME fix code above when we've supported HSequential as discussed in CTYP-126

@@ -1134,11 +1134,11 @@ clojure.core/seq (All [x]
 ;                      [(Seqable x :count (CountRange 1) :to-seq sfn) -> (sfn x)]
 ;                      [(Seqable x :count AnyCountRange :to-seq sfn) -> (U nil (sfn x))]))
 
-clojure.core/empty? (Fn [(Option (Coll Any)) -> boolean
+clojure.core/empty? (Fn [(Option (HSequential [Any *])) -> boolean
                           :filters {:then (| (is EmptyCount 0)
                                              (is nil 0))
                                     :else (is NonEmptyCount 0)}]
-                        [(Option (HSequential [Any *])) -> boolean
+                        [(Option (Coll Any)) -> boolean
                           :filters {:then (| (is EmptyCount 0)
                                              (is nil 0))
                                     :else (is NonEmptyCount 0)}]

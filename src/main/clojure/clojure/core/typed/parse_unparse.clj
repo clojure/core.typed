@@ -1306,7 +1306,7 @@
            (concat
              (map unparse-type (:types v))
              (when rest [(unparse-type rest) '*])
-             (when drest [(:name drest) '... (unparse-type (:pre-type drest))])))
+             (when drest [(unparse-type (:pre-type drest)) '... (:name drest)])))
          (concat
            (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
              [:filter-sets (mapv unparse-filter-set fs)])
@@ -1333,7 +1333,7 @@
            (concat
              (map unparse-type (:types v))
              (when rest [(unparse-type rest) '*])
-             (when drest [(:name drest) '... (unparse-type (:pre-type drest))])))
+             (when drest [(unparse-type (:pre-type drest)) '... (:name drest)])))
          (concat
            (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
              [:filter-sets (mapv unparse-filter-set fs)])

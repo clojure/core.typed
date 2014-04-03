@@ -461,11 +461,6 @@
           *sub-current-seen*
           (fail! s t))
 
-        (r/HSequential? t)
-        (if-let [casted-s (c/upcast-to-HSequential s)]
-          (subtype casted-s t)
-          (fail! s t))
-
         (and (r/HeterogeneousVector? s)
              (r/HeterogeneousVector? t))
         (if (and (cond 
@@ -617,19 +612,51 @@
                                      :cljs (c/Protocol-of 'cljs.core/ISeq [ss])))]))
                    t))
 
+        (r/HSequential? s)
+        (let [ss (apply c/Un 
+                        (concat 
+                          (:types s)
+                          (when-let [rest (:rest s)]
+                            [rest])
+                          (when (:drest s)
+                            [r/-any])))]
+          (subtype (c/In (impl/impl-case
+                           :clojure (c/In (c/RClass-of clojure.lang.IPersistentCollection [ss])
+                                          (c/RClass-of clojure.lang.Sequential))
+                           :cljs (throw (Exception. "TODO cljs HSequential")))
+                         ((if (or (:rest s)
+                                  (:drest s))
+                            r/make-CountRange 
+                            r/make-ExactCountRange)
+                          (count (:types s))))
+                   t))
+
         (r/HeterogeneousVector? s)
-        (let [ss (apply c/Un (:types s))]
+        (let [ss (apply c/Un 
+                        (concat 
+                          (:types s)
+                          (when-let [rest (:rest s)]
+                            [rest])
+                          (when (:drest s)
+                            [r/-any])))]
           (subtype (c/In (impl/impl-case
                            :clojure (c/RClass-of APersistentVector [ss])
                            :cljs (c/Protocol-of 'cljs.core/IVector [ss]))
-                         ((if (some #{:rest :drest} s) 
+                         ((if (or (:rest s)
+                                  (:drest s))
                             r/make-CountRange 
                             r/make-ExactCountRange)
                           (count (:types s))))
                    t))
 
         (r/HeterogeneousList? s)
-        (let [ss (apply c/Un (:types s))]
+        (let [ss (apply c/Un 
+                        (concat 
+                          (:types s)
+                          #_(when-let [rest (:rest s)]
+                            [rest])
+                          #_(when (:drest s)
+                            [r/-any])))]
           (subtype (c/In (impl/impl-case
                            :clojure (c/RClass-of PersistentList [ss])
                            :cljs (c/Protocol-of 'cljs.core/IList [ss]))
@@ -637,7 +664,13 @@
                    t))
 
         (r/HeterogeneousSeq? s)
-        (let [ss (apply c/Un (:types s))]
+        (let [ss (apply c/Un 
+                        (concat 
+                          (:types s)
+                          #_(when-let [rest (:rest s)]
+                            [rest])
+                          #_(when (:drest s)
+                            [r/-any])))]
           (subtype (c/In (impl/impl-case
                            :clojure (c/RClass-of ASeq [ss])
                            :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))

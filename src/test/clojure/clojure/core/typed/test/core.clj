@@ -3111,9 +3111,21 @@
 (deftest pred-scoping-test
   (is (check-ns 'clojure.core.typed.test.pred-scoping)))
 
+(deftest hvec-count-test
+  (is (not 
+        (sub? (I (CountRange 1) (HVec [Any *]))
+              (CountRange 0 0)))))
+
 (deftest annotate-user-defined-ploydot
   (is-cf (fn [x & y] x) (All [x y ...] [x y ... y -> x]))
-  (is-cf (fn [& y] (if (empty? y) nil (first y))) (All [x y ...] [x y ... y -> (U x nil)]))
+  (is-cf (fn [f a] (f a)) 
+         [(All [x] 
+               [(HSequential [x *]) -> x])
+          (HSequential [Any *]) -> Any])
+  (cf (fn [a] (first a)) [(I (CountRange 1) (HVec [Any *])) -> Any])
+  (cf (fn [a] (first a)) [(I (CountRange 1) (HSequential [Any *])) -> Any])
+  (is-cf (fn [& y] (when-not (empty? y) (first y))) (All [x y] [y * -> (U nil y)]))
+  (is-cf (fn [& y] (when-not (empty? y) (first y))) (All [x y ...] [x y ... y -> (U nil x)]))
   ; FIXME replace Any above with (U x nil) when implemented HSequential and fixed code for *check-fn-method1-rest-type*
   (is (u/top-level-error-thrown?
         (cf (fn [x c & y] x) (All [x y ...] [x y ... y -> x])))))

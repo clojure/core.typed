@@ -21,7 +21,7 @@
   (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
                                         Result AnyValue Top HeterogeneousSeq RClass HeterogeneousList
                                         HeterogeneousVector DataType HeterogeneousMap PrimitiveArray
-                                        Function Protocol Bounds FlowSet TCResult)
+                                        Function Protocol Bounds FlowSet TCResult HSequential)
            (clojure.core.typed.cs_rep c cset dcon dmap cset-entry)
            (clojure.core.typed.filter_rep TypeFilter)
            (clojure.lang Symbol ISeq IPersistentList APersistentVector APersistentMap)))
@@ -870,6 +870,7 @@
   [V X Y S T] 
   (cr/empty-cset X Y))
 
+; must remember to update these if HeterogeneousSeq gets rest/drest
 (add-cs-gen*-method [HeterogeneousSeq RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y 
@@ -879,6 +880,7 @@
                 (r/make-ExactCountRange (count (:types S))))
           T))
 
+; must remember to update these if HeterogeneousList gets rest/drest
 (add-cs-gen*-method [HeterogeneousList RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y 
@@ -888,13 +890,39 @@
                 (r/make-ExactCountRange (count (:types S))))
           T))
 
+(add-cs-gen*-method [HSequential RClass impl/clojure]
+  [V X Y S T]
+  (cs-gen V X Y 
+          (let [ss (apply c/Un 
+                          (concat
+                            (:types S)
+                            (when-let [rest (:rest S)]
+                              [rest])
+                            (when (:drest S)
+                              [r/-any])))]
+            (c/In (impl/impl-case
+                    :clojure (c/In (c/RClass-of clojure.lang.IPersistentCollection [ss])
+                                   (c/RClass-of clojure.lang.Sequential))
+                    :cljs (throw (Exception. "TODO CLJS HSequential cs-gen")))
+                  ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange) 
+                   (count (:types S)))))
+          T))
+
 (add-cs-gen*-method [HeterogeneousVector RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y 
-          (c/In (impl/impl-case
-                  :clojure (c/RClass-of APersistentVector [(apply c/Un (:types S))]) 
-                  :cljs (c/Protocol-of 'cljs.core/IVector [(apply c/Un (:types S))]))
-                (r/make-ExactCountRange (count (:types S))))
+          (let [ss (apply c/Un 
+                          (concat
+                            (:types S)
+                            (when-let [rest (:rest S)]
+                              [rest])
+                            (when (:drest S)
+                              [r/-any])))]
+            (c/In (impl/impl-case
+                    :clojure (c/RClass-of APersistentVector [ss])
+                    :cljs (c/Protocol-of 'cljs.core/IVector [ss]))
+                  ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange) 
+                   (count (:types S)))))
           T))
 
 (t/ann cs-gen-datatypes-or-records

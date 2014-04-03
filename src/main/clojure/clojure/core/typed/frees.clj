@@ -16,7 +16,7 @@
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
                                         CountRange Name Value Top TopFunction B F Result AnyValue
-                                        HeterogeneousSeq Scope TCError Extends AssocType)
+                                        HeterogeneousSeq Scope TCError Extends AssocType HSequential)
            (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
@@ -262,6 +262,14 @@
   (apply combine-frees (mapv frees (concat (keys types) (vals types)))))
 
 (add-frees-method [::any-var HeterogeneousVector]
+  [{:keys [types fs objects rest drest]}] 
+  (apply combine-frees (concat (mapv frees (concat types fs objects))
+                               (when rest [(frees rest)])
+                               (when drest
+                                 [(dissoc (-> (:pre-type drest) frees)
+                                          (:name drest))]))))
+
+(add-frees-method [::any-var HSequential]
   [{:keys [types fs objects rest drest]}] 
   (apply combine-frees (concat (mapv frees (concat types fs objects))
                                (when rest [(frees rest)])
