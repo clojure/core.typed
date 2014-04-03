@@ -1,12 +1,12 @@
-# 0.2.43 - 2 April 2014
+# 0.2.44 - 3 April 2014
 
 0.2.42 did not bind *file* correctly and gives useless tmp files
 with type errors.
 
+0.2.43 attempted to clean up the AOT jar, 0.2.44 reverted that.
+
 ## Enhancements
 
-- Clean up release jar
-  - remove external AOT files and test files
 - move Clojure AST checking to `tools.analyzer.jvm`
 
 # 0.2.41 - 26 March 2014
