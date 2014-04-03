@@ -59,7 +59,7 @@
         <version>2.4</version>
         <executions>
           <!-- FIXME this causes a maven warning by overwriting the jar -->
-          <execution>
+          <!--<execution>
             <id>default-jar</id>
             <phase>package</phase>
             <goals>
@@ -71,7 +71,7 @@
                 <descriptor>src/assembly/filter-aot.xml</descriptor>
               </descriptors>
             </configuration>
-          </execution>
+          </execution>-->
           <execution>
             <id>core-typed-slim-jar</id>
             <phase>package</phase>
