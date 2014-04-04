@@ -4987,14 +4987,14 @@
        (filter #(instance? clojure.reflect.Method %))))
 
 (add-check-method :deftype
-  [{:keys [class-name fields methods env] :as expr} & [expected]]
-  {:post [(-> % expr-type TCResult?)]}
+  [{expired-class :class-name :keys [fields methods env] :as expr} & [expected]]
+  {:pre [(class? expired-class)]
+   :post [(-> % expr-type TCResult?)]}
   ;TODO check fields match, handle extra fields in records
   #_(prn "Checking deftype definition:" nme)
   (binding [vs/*current-env* env]
-    (let [compiled-class (if (class? class-name)
-                           class-name
-                           (u/symbol->Class class-name))
+    (let [compiled-class 
+          (-> expired-class u/Class->symbol u/symbol->Class)
           _ (assert (class? compiled-class))
           nme (u/Class->symbol compiled-class)
           reflect-methods (deftype-method-members compiled-class)
