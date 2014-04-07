@@ -270,7 +270,7 @@
                                           (:name drest))]))))
 
 (add-frees-method [::any-var HSequential]
-  [{:keys [types fs objects rest drest]}] 
+  [{:keys [types fs objects rest drest]}]
   (apply combine-frees (concat (mapv frees (concat types fs objects))
                                (when rest [(frees rest)])
                                (when drest

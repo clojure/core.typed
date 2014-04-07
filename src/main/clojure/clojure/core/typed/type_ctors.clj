@@ -26,7 +26,8 @@
   (:import (clojure.core.typed.type_rep HeterogeneousMap Poly TypeFn PolyDots TApp App Value
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
                                         Bounds Name Scope CountRange Intersection DataType Extends
-                                        JSNominal Protocol HeterogeneousVector GetType HSequential)
+                                        JSNominal Protocol HeterogeneousVector GetType HSequential
+                                        HeterogeneousList HeterogeneousSeq)
            (clojure.lang Seqable IPersistentSet IPersistentMap IPersistentVector Symbol Keyword
                          Atom Var)))
 
@@ -86,6 +87,30 @@
 
 (t/ann bottom r/Type)
 (def ^:private bottom (make-Union []))
+
+;; {HVec,HList,HSeq}->HSequential
+
+(t/ann ^:no-check HVec->HSequential [HeterogeneousVector -> HSequential])
+(defn HVec->HSequential [v]
+  {:pre [(r/HeterogeneousVector? v)]
+   :post [(r/HSequential? %)]}
+  (r/-hsequential (:types v)
+                  :filters (:fs v)
+                  :objects (:objects v)
+                  :rest (:rest v)
+                  :drest (:drest v)))
+
+(t/ann ^:no-check HList->HSequential [HeterogeneousList -> HSequential])
+(defn HList->HSequential [l]
+  {:pre [(r/HeterogeneousList? l)]
+   :post [(r/HSequential? %)]}
+  (r/-hsequential (:types l)))
+
+(t/ann ^:no-check HSeq->HSequential [HeterogeneousSeq -> HSequential])
+(defn HSeq->HSequential [s]
+  {:pre [(r/HeterogeneousSeq? s)]
+   :post [(r/HSequential? %)]}
+  (r/-hsequential (:types s)))
 
 ;; Heterogeneous maps
 

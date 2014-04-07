@@ -447,6 +447,16 @@
                                                       (repeat (- (count (:types s)) (count (:types t)))
                                                               (:rest t))))))
 
+                   (and (:drest s)
+                        (:rest t))
+                   (and
+                     (every? identity (map subtype?
+                                           (:types s)
+                                           (concat (:types t)
+                                                   (repeat (- (count (:types s)) (count (:types t)))
+                                                           (:rest t)))))
+                     (r/Top? (:rest t)))
+
                    ;TODO other cases
                    :else nil
                    )
@@ -463,59 +473,45 @@
 
         (and (r/HeterogeneousVector? s)
              (r/HeterogeneousVector? t))
-        (if (and (cond 
-                   ; simple case, no rest types
-                   (and (not-any? :rest [s t])
-                        (not-any? :drest [s t]))
-                   (let []
-                     (and (= (count (:types s))
-                             (count (:types t)))
-                          (every? identity (map subtype? (:types s) (:types t)))))
-
-                   ; rest on right
-                   (and (:rest t)
-                        (not (:drest s)))
-                   (and (>= (count (:types s))
-                            (count (:types t)))
-                        (if (:rest s)
-                          (subtype? (:rest s) (:rest t))
-                          true)
-                        ;pad t to the right
-                        (every? identity (map subtype? 
-                                              (:types s)
-                                              (concat (:types t) 
-                                                      (repeat (- (count (:types s)) (count (:types t)))
-                                                              (:rest t))))))
-
-                   ;TODO other cases
-                   :else nil
-                   )
-                 ; ignore interesting results
-                 (every? (fn hvec1 [[f1 f2]] (or (= (fops/-FS fr/-top fr/-top) f2)
-                                                 (= f1 f2)))
-                         (map vector (:fs s) (:fs t)))
-                 ; ignore interesting results
-                 (every? (fn hvec2 [[o1 o2]] (or (orep/EmptyObject? o2)
-                                                 (= o1 o2)))
-                         (map vector (:objects s) (:objects t))))
-          *sub-current-seen*
-          (fail! s t))
+        (subtype (c/HVec->HSequential s) (c/HVec->HSequential t))
 
         (and (r/HeterogeneousList? s)
              (r/HeterogeneousList? t))
-        (if (= (count (:types s))
-               (count (:types t)))
-          (or (last (map subtype (:types s) (:types t)))
-              #{})
-          (fail! s t))
+        (subtype (c/HList->HSequential s) (c/HList->HSequential t))
 
         (and (r/HeterogeneousSeq? s)
              (r/HeterogeneousSeq? t))
-        (if (= (count (:types s))
-               (count (:types t)))
-          (or (last (map subtype (:types s) (:types t)))
-              #{})
-          (fail! s t))
+        (subtype (c/HSeq->HSequential s) (c/HSeq->HSequential t))
+
+        (and (or (r/HeterogeneousVector? s)
+                 (r/HeterogeneousList? s)
+                 (r/HeterogeneousSeq? s))
+             (r/HSequential? t))
+        (subtype (cond
+                   (r/HeterogeneousVector? s)
+                   (c/HVec->HSequential s)
+
+                   (r/HeterogeneousList? s)
+                   (c/HList->HSequential s)
+
+                   (r/HeterogeneousSeq? s)
+                   (c/HSeq->HSequential s))
+                 t)
+
+        (and (or (r/HeterogeneousVector? t)
+                 (r/HeterogeneousList? t)
+                 (r/HeterogeneousSeq? t))
+             (r/HSequential? s))
+        (subtype s
+                 (cond
+                   (r/HeterogeneousVector? t)
+                   (c/HVec->HSequential t)
+
+                   (r/HeterogeneousList? t)
+                   (c/HList->HSequential t)
+
+                   (r/HeterogeneousSeq? t)
+                   (c/HSeq->HSequential t)))
 
         ;every rtype entry must be in ltypes
         ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
@@ -613,8 +609,8 @@
                    t))
 
         (r/HSequential? s)
-        (let [ss (apply c/Un 
-                        (concat 
+        (let [ss (apply c/Un
+                        (concat
                           (:types s)
                           (when-let [rest (:rest s)]
                             [rest])
@@ -626,14 +622,14 @@
                            :cljs (throw (Exception. "TODO cljs HSequential")))
                          ((if (or (:rest s)
                                   (:drest s))
-                            r/make-CountRange 
+                            r/make-CountRange
                             r/make-ExactCountRange)
                           (count (:types s))))
                    t))
 
         (r/HeterogeneousVector? s)
-        (let [ss (apply c/Un 
-                        (concat 
+        (let [ss (apply c/Un
+                        (concat
                           (:types s)
                           (when-let [rest (:rest s)]
                             [rest])
@@ -644,14 +640,14 @@
                            :cljs (c/Protocol-of 'cljs.core/IVector [ss]))
                          ((if (or (:rest s)
                                   (:drest s))
-                            r/make-CountRange 
+                            r/make-CountRange
                             r/make-ExactCountRange)
                           (count (:types s))))
                    t))
 
         (r/HeterogeneousList? s)
-        (let [ss (apply c/Un 
-                        (concat 
+        (let [ss (apply c/Un
+                        (concat
                           (:types s)
                           #_(when-let [rest (:rest s)]
                             [rest])
@@ -664,8 +660,8 @@
                    t))
 
         (r/HeterogeneousSeq? s)
-        (let [ss (apply c/Un 
-                        (concat 
+        (let [ss (apply c/Un
+                        (concat
                           (:types s)
                           #_(when-let [rest (:rest s)]
                             [rest])

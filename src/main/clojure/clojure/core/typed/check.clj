@@ -2859,7 +2859,6 @@
                         (r/-hsequential remain-dom
                                         :rest rest
                                         :drest drest))
-                  ;FIXME fix code above when we've supported HSequential as discussed in CTYP-126
 
                   :else (c/KwArgs->Type kws)))]
     (let [type (check-fn expr (let [default-ret (ret (r/make-FnIntersection

@@ -892,8 +892,8 @@
 
 (add-cs-gen*-method [HSequential RClass impl/clojure]
   [V X Y S T]
-  (cs-gen V X Y 
-          (let [ss (apply c/Un 
+  (cs-gen V X Y
+          (let [ss (apply c/Un
                           (concat
                             (:types S)
                             (when-let [rest (:rest S)]
@@ -904,13 +904,13 @@
                     :clojure (c/In (c/RClass-of clojure.lang.IPersistentCollection [ss])
                                    (c/RClass-of clojure.lang.Sequential))
                     :cljs (throw (Exception. "TODO CLJS HSequential cs-gen")))
-                  ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange) 
+                  ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
                    (count (:types S)))))
           T))
 
 (add-cs-gen*-method [HeterogeneousVector RClass impl/clojure]
   [V X Y S T]
-  (cs-gen V X Y 
+  (cs-gen V X Y
           (let [ss (apply c/Un 
                           (concat
                             (:types S)
@@ -921,7 +921,7 @@
             (c/In (impl/impl-case
                     :clojure (c/RClass-of APersistentVector [ss])
                     :cljs (c/Protocol-of 'cljs.core/IVector [ss]))
-                  ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange) 
+                  ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
                    (count (:types S)))))
           T))
 

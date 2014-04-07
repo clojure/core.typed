@@ -3112,26 +3112,28 @@
   (is (check-ns 'clojure.core.typed.test.pred-scoping)))
 
 (deftest hvec-count-test
-  (is (not 
+  (is (not
         (sub? (I (CountRange 1) (HVec [Any *]))
               (CountRange 0 0)))))
 
 (deftest annotate-user-defined-ploydot
   (is-cf (fn [x & y] x) (All [x y ...] [x y ... y -> x]))
-  (is-cf (fn [f a] (f a)) 
-         [(All [x] 
+  (is-cf (fn [f a] (f a))
+         [(All [x]
                [(HSequential [x *]) -> x])
           (HSequential [Any *]) -> Any])
-  (cf (fn [a] (first a)) [(I (CountRange 1) (HVec [Any *])) -> Any])
-  (cf (fn [a] (first a)) [(I (CountRange 1) (HSequential [Any *])) -> Any])
+  (is-cf (fn [a] (first a)) [(I (CountRange 1) (HVec [Any *])) -> Any])
+  (is-cf (fn [a] (first a)) [(I (CountRange 1) (HSequential [Any *])) -> Any])
   (is-cf (fn [& y] (when-not (empty? y) (first y))) (All [x y] [y * -> (U nil y)]))
-  (is-cf (fn [& y] (when-not (empty? y) (first y))) (All [x y ...] [x y ... y -> (U nil x)]))
-  ; FIXME replace Any above with (U x nil) when implemented HSequential and fixed code for *check-fn-method1-rest-type*
+  (is-cf (fn [x & y] x) (All [a b ...] [a b ... b -> a]))
+
+  (is (check-ns 'clojure.core.typed.test.hsequential))
+
   (is (u/top-level-error-thrown?
         (cf (fn [x c & y] x) (All [x y ...] [x y ... y -> x])))))
 
 (deftest kw-args-seq-complete-test
-  (is 
+  (is
     (u/top-level-error-thrown?
       (cf (apply concat {:a 1 :b 2})
           (clojure.core.typed/Seq clojure.core.typed/Keyword))))
