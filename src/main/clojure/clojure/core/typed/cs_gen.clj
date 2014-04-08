@@ -309,7 +309,7 @@
 ; Add methods to cs-gen*, but always call cs-gen
 
 (declare cs-gen-right-F cs-gen-left-F cs-gen-datatypes-or-records cs-gen-list
-         cs-gen-filter-set cs-gen-object)
+         cs-gen-filter-set cs-gen-object cs-gen-HSequential)
 
 (t/ann ^:no-check cs-gen 
        [(t/Set Symbol) 
@@ -513,43 +513,37 @@
 
         (and (r/HeterogeneousVector? S)
              (r/HeterogeneousVector? T))
-        (cs-gen V X Y (c/HVec->HSequential S) (c/HVec->HSequential T))
+        (cs-gen-HSequential V X Y (c/HVec->HSequential S) (c/HVec->HSequential T))
 
         (and (r/HeterogeneousSeq? S)
              (r/HeterogeneousSeq? T))
-        (cs-gen V X Y (c/HSeq->HSequential S) (c/HSeq->HSequential T))
+        (cs-gen-HSequential V X Y (c/HSeq->HSequential S) (c/HSeq->HSequential T))
 
         (and (r/HeterogeneousList? S)
              (r/HeterogeneousList? T))
-        (cs-gen V X Y (c/HList->HSequential S) (c/HList->HSequential T))
+        (cs-gen-HSequential V X Y (c/HList->HSequential S) (c/HList->HSequential T))
+
+        ; HList/HSeq/HVector are HSequential
+        (and ((some-fn r/HeterogeneousList?
+                       r/HeterogeneousSeq?
+                       r/HeterogeneousVector?)
+              S)
+             (r/HSequential? T))
+        (cs-gen-HSequential V X Y 
+                (cond
+                  (r/HeterogeneousList? S) (c/HList->HSequential S) 
+                  (r/HeterogeneousVector? S) (c/HVec->HSequential S) 
+                  :else (c/HSeq->HSequential S))
+                T)
+
+        ; HList is a HSeq
+        (and (r/HeterogeneousList? S)
+             (r/HeterogeneousSeq? T))
+        (cs-gen-HSequential V X Y (c/HList->HSequential S) (c/HSeq->HSequential T))
 
         (and (r/HSequential? S)
              (r/HSequential? T))
-        (cset-meet* (concat
-                        (cond
-                          ;simple case
-                          (and (not-any? :rest [S T])
-                               (not-any? :drest [S T]))
-                          [(cs-gen-list V X Y (:types S) (:types T))]
-
-                          ;rest on right, optionally on left
-                          (and (:rest T)
-                               (not (:drest S)))
-                          (concat [(cs-gen-list V X Y (:types S) (concat (:types T)
-                                                                         (repeat (- (count (:types S))
-                                                                                    (count (:types T)))
-                                                                                 (:rest T))))]
-                                  (when (:rest S)
-                                    [(cs-gen V X Y (:rest S) (:rest T))]))
-
-                          ;TODO cases
-                          :else (fail! S T))
-                        (map (fn [fs1 fs2]
-                               (cs-gen-filter-set V X Y fs1 fs2))
-                             (:fs S) (:fs T))
-                        (map (fn [o1 o2]
-                               (cs-gen-object V X Y o1 o2))
-                             (:objects S) (:objects T))))
+        (cs-gen-HSequential V X Y S T)
 
         (and (r/HeterogeneousMap? S)
              (r/HeterogeneousMap? T))
@@ -683,10 +677,12 @@
             [(.input-type S) (.output-type T)]))
 
         ; some RClass's have heterogeneous vector ancestors (in "unchecked ancestors")
+        ; It's useful to also trigger this case with HSequential, as that's more likely
+        ; to be on the right.
         (and (r/RClass? S)
-             (r/HeterogeneousVector? T))
+             ((some-fn r/HeterogeneousVector? r/HSequential?) T))
         (if-let [[Sv] (seq
-                        (filter r/HeterogeneousVector?
+                        (filter (some-fn r/HeterogeneousVector? r/HSequential?)
                                 (map c/fully-resolve-type (c/RClass-supers* S))))]
           (cs-gen V X Y Sv T)
           (fail! S T))
@@ -710,6 +706,39 @@
 
         :else
         (cs-gen* V X Y S T))))))
+
+(t/ann cs-gen-HSequential [NoMentions ConstrainVars ConstrainVars HSequential HSequential
+                           -> cset])
+(defn cs-gen-HSequential
+  [V X Y S T]
+  {:pre [(r/HSequential? S)
+         (r/HSequential? T)]
+   :post [(cr/cset? %)]}
+  (cset-meet* (concat
+                (cond
+                  ;simple case
+                  (and (not-any? :rest [S T])
+                       (not-any? :drest [S T]))
+                  [(cs-gen-list V X Y (:types S) (:types T))]
+
+                  ;rest on right, optionally on left
+                  (and (:rest T)
+                       (not (:drest S)))
+                  (concat [(cs-gen-list V X Y (:types S) (concat (:types T)
+                                                                 (repeat (- (count (:types S))
+                                                                            (count (:types T)))
+                                                                         (:rest T))))]
+                          (when (:rest S)
+                            [(cs-gen V X Y (:rest S) (:rest T))]))
+
+                  ;TODO cases
+                  :else (fail! S T))
+                (map (fn [fs1 fs2]
+                       (cs-gen-filter-set V X Y fs1 fs2))
+                     (:fs S) (:fs T))
+                (map (fn [o1 o2]
+                       (cs-gen-object V X Y o1 o2))
+                     (:objects S) (:objects T)))))
 
 ;; FIXME - anything else to say about And and OrFilters?
 (t/ann cs-gen-filter [NoMentions ConstrainVars ConstrainVars fr/Filter fr/Filter
