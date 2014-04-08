@@ -483,6 +483,12 @@
              (r/HeterogeneousSeq? t))
         (subtype (c/HSeq->HSequential s) (c/HSeq->HSequential t))
 
+        ; HList is a HSeq
+        (and (r/HeterogeneousList? s)
+             (r/HeterogeneousSeq? t))
+        (subtype (c/HList->HSequential s) (c/HSeq->HSequential t))
+
+        ; HVec/HList/HSeq are HSequential's
         (and (or (r/HeterogeneousVector? s)
                  (r/HeterogeneousList? s)
                  (r/HeterogeneousSeq? s))
@@ -494,49 +500,10 @@
                    (r/HeterogeneousList? s)
                    (c/HList->HSequential s)
 
-                   (r/HeterogeneousSeq? s)
+                   :else
                    (c/HSeq->HSequential s))
                  t)
 
-        (and (or (r/HeterogeneousVector? t)
-                 (r/HeterogeneousList? t)
-                 (r/HeterogeneousSeq? t))
-             (r/HSequential? s))
-        (subtype s
-                 (cond
-                   (r/HeterogeneousVector? t)
-                   (c/HVec->HSequential t)
-
-                   (r/HeterogeneousList? t)
-                   (c/HList->HSequential t)
-
-                   (r/HeterogeneousSeq? t)
-                   (c/HSeq->HSequential t)))
-
-        (and (or (r/HeterogeneousVector? s)
-                 (r/HeterogeneousList? s)
-                 (r/HeterogeneousSeq? s))
-             (or (r/HeterogeneousVector? t)
-                 (r/HeterogeneousList? t)
-                 (r/HeterogeneousSeq? t)))
-        (subtype (cond
-                   (r/HeterogeneousVector? s)
-                   (c/HVec->HSequential s)
-
-                   (r/HeterogeneousList? s)
-                   (c/HList->HSequential s)
-
-                   (r/HeterogeneousSeq? s)
-                   (c/HSeq->HSequential s))
-                 (cond
-                   (r/HeterogeneousVector? t)
-                   (c/HVec->HSequential t)
-
-                   (r/HeterogeneousList? t)
-                   (c/HList->HSequential t)
-
-                   (r/HeterogeneousSeq? t)
-                   (c/HSeq->HSequential t)))
 
         ;every rtype entry must be in ltypes
         ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
