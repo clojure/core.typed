@@ -136,35 +136,25 @@
     (when path
       {:path-elems (mapv parse-path-elem path)})))
 
-(defn parse-HVec [[_ fixed & {:keys [filter-sets objects]} :as syn]]
-  (merge
-    {:op :HVec
-     :types (mapv parse fixed)
-     :children (vec (concat
-                      [:types]
-                      (when filter-sets
-                        [:filter-sets])
-                      (when objects
-                        [:objects])))}
-    (when filter-sets
-      {:filter-sets (mapv parse-filter-set filter-sets)})
-    (when objects
-      {:objects (mapv parse-object filter-sets)})))
+(defn parse-with-rest-drest [op]
+  (fn [[_ fixed & {:keys [filter-sets objects]} :as syn]]
+    (merge
+      {:op op
+       :types (mapv parse fixed)
+       :children (vec (concat
+                        [:types]
+                        (when filter-sets
+                          [:filter-sets])
+                        (when objects
+                          [:objects])))}
+      (when filter-sets
+        {:filter-sets (mapv parse-filter-set filter-sets)})
+      (when objects
+        {:objects (mapv parse-object filter-sets)}))))
 
-(defn parse-HSequential [[_ fixed & {:keys [filter-sets objects]} :as syn]]
-  (merge
-    {:op :HSequential
-     :types (mapv parse fixed)
-     :children (vec (concat
-                      [:types]
-                      (when filter-sets
-                        [:filter-sets])
-                      (when objects
-                        [:objects])))}
-    (when filter-sets
-      {:filter-sets (mapv parse-filter-set filter-sets)})
-    (when objects
-      {:objects (mapv parse-object filter-sets)})))
+(def parse-HVec (parse-with-rest-drest :HVec))
+(def parse-HSequential (parse-with-rest-drest :HSequential))
+(def parse-HSeq (parse-with-rest-drest :HSeq))
 
 (defn parse-hvec-types [syns]
   (let [rest? (#{'*} (last syns))
@@ -566,6 +556,7 @@
     ('#{List*} f) (parse-quoted-hlist (rest syn))
     ('#{HVec} f) (parse-HVec syn)
     ('#{HSequential} f) (parse-HSequential syn)
+    ('#{HSeq} f) (parse-HSeq syn)
     :else {:op :TApp
            :rator (parse f)
            :rands (mapv parse args)

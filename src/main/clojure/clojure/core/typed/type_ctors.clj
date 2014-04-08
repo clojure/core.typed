@@ -110,7 +110,11 @@
 (defn HSeq->HSequential [s]
   {:pre [(r/HeterogeneousSeq? s)]
    :post [(r/HSequential? %)]}
-  (r/-hsequential (:types s)))
+  (r/-hsequential (:types s)
+                  :filters (:fs s)
+                  :objects (:objects s)
+                  :rest (:rest s)
+                  :drest (:drest s)))
 
 ;; Heterogeneous maps
 

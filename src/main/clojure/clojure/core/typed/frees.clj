@@ -254,8 +254,12 @@
                  (frees output-type)))
 
 (add-frees-method [::any-var HeterogeneousSeq]
-  [{:keys [types]}] 
-  (apply combine-frees (mapv frees types)))
+  [{:keys [types fs objects rest drest]}]
+  (apply combine-frees (concat (mapv frees (concat types fs objects))
+                               (when rest [(frees rest)])
+                               (when drest
+                                 [(dissoc (-> (:pre-type drest) frees)
+                                          (:name drest))]))))
 
 (add-frees-method [::any-var HeterogeneousMap]
   [{:keys [types]}] 

@@ -513,6 +513,31 @@
                    (r/HeterogeneousSeq? t)
                    (c/HSeq->HSequential t)))
 
+        (and (or (r/HeterogeneousVector? s)
+                 (r/HeterogeneousList? s)
+                 (r/HeterogeneousSeq? s))
+             (or (r/HeterogeneousVector? t)
+                 (r/HeterogeneousList? t)
+                 (r/HeterogeneousSeq? t)))
+        (subtype (cond
+                   (r/HeterogeneousVector? s)
+                   (c/HVec->HSequential s)
+
+                   (r/HeterogeneousList? s)
+                   (c/HList->HSequential s)
+
+                   (r/HeterogeneousSeq? s)
+                   (c/HSeq->HSequential s))
+                 (cond
+                   (r/HeterogeneousVector? t)
+                   (c/HVec->HSequential t)
+
+                   (r/HeterogeneousList? t)
+                   (c/HList->HSequential t)
+
+                   (r/HeterogeneousSeq? t)
+                   (c/HSeq->HSequential t)))
+
         ;every rtype entry must be in ltypes
         ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}
         (and (r/HeterogeneousMap? s)
@@ -663,14 +688,18 @@
         (let [ss (apply c/Un
                         (concat
                           (:types s)
-                          #_(when-let [rest (:rest s)]
+                          (when-let [rest (:rest s)]
                             [rest])
-                          #_(when (:drest s)
+                          (when (:drest s)
                             [r/-any])))]
           (subtype (c/In (impl/impl-case
                            :clojure (c/RClass-of ASeq [ss])
                            :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))
-                         (r/make-ExactCountRange (count (:types s))))
+                         ((if (or (:rest s)
+                                  (:drest s))
+                            r/make-CountRange
+                            r/make-ExactCountRange)
+                          (count (:types s))))
                    t))
 
 ; The order of checking protocols and datatypes is subtle.

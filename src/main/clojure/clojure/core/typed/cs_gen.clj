@@ -513,31 +513,15 @@
 
         (and (r/HeterogeneousVector? S)
              (r/HeterogeneousVector? T))
-        (cset-meet* (concat
-                        (cond
-                          ;simple case
-                          (and (not-any? :rest [S T])
-                               (not-any? :drest [S T]))
-                          [(cs-gen-list V X Y (:types S) (:types T))]
+        (cs-gen V X Y (c/HVec->HSequential S) (c/HVec->HSequential T))
 
-                          ;rest on right, optionally on left
-                          (and (:rest T)
-                               (not (:drest S)))
-                          (concat [(cs-gen-list V X Y (:types S) (concat (:types T)
-                                                                         (repeat (- (count (:types S))
-                                                                                    (count (:types T)))
-                                                                                 (:rest T))))]
-                                  (when (:rest S)
-                                    [(cs-gen V X Y (:rest S) (:rest T))]))
+        (and (r/HeterogeneousSeq? S)
+             (r/HeterogeneousSeq? T))
+        (cs-gen V X Y (c/HSeq->HSequential S) (c/HSeq->HSequential T))
 
-                          ;TODO cases
-                          :else (fail! S T))
-                        (map (fn [fs1 fs2]
-                               (cs-gen-filter-set V X Y fs1 fs2))
-                             (:fs S) (:fs T))
-                        (map (fn [o1 o2]
-                               (cs-gen-object V X Y o1 o2))
-                             (:objects S) (:objects T))))
+        (and (r/HeterogeneousList? S)
+             (r/HeterogeneousList? T))
+        (cs-gen V X Y (c/HList->HSequential S) (c/HList->HSequential T))
 
         (and (r/HSequential? S)
              (r/HSequential? T))
@@ -870,14 +854,21 @@
   [V X Y S T] 
   (cr/empty-cset X Y))
 
-; must remember to update these if HeterogeneousSeq gets rest/drest
 (add-cs-gen*-method [HeterogeneousSeq RClass impl/clojure]
   [V X Y S T]
-  (cs-gen V X Y 
-          (c/In (impl/impl-case
-                  :clojure (c/RClass-of ISeq [(apply c/Un (:types S))]) 
-                  :cljs (c/Protocol-of 'cljs.core/ISeq [(apply c/Un (:types S))]))
-                (r/make-ExactCountRange (count (:types S))))
+  (cs-gen V X Y
+          (let [ss (apply c/Un
+                          (concat
+                            (:types S)
+                            (when-let [rest (:rest S)]
+                              [rest])
+                            (when (:drest S)
+                              [r/-any])))]
+            (c/In (impl/impl-case
+                    :clojure (c/RClass-of ISeq [ss])
+                    :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))
+                  ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
+                     (count (:types S)))))
           T))
 
 ; must remember to update these if HeterogeneousList gets rest/drest

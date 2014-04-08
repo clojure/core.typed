@@ -521,15 +521,50 @@
   :methods
   [p/TCType])
 
-(u/ann-record HeterogeneousSeq [types :- (Seqable Type)])
-(u/def-type HeterogeneousSeq [types]
+(u/ann-record HeterogeneousSeq [types :- (Seqable Type)
+                                fs :- (t/Vec p/IFilterSet)
+                                objects :- (t/Vec p/IRObject)
+                                ;variable members to the right of fixed
+                                rest :- (U nil Type)
+                                drest :- (U nil DottedPretype)])
+(u/def-type HeterogeneousSeq [types fs objects rest drest]
   "A constant seq, clojure.lang.ISeq"
   [(sequential? types)
-   (every? Type? types)]
+   (every? Type? types)
+   (vector? fs)
+   (every? p/IFilterSet? fs)
+   (vector? objects)
+   (every? p/IRObject? objects)
+   (apply = (map count [types fs objects]))
+   (#{0 1} (count (filter identity [rest drest])))
+   ((some-fn nil? Type?) rest)
+   ((some-fn nil? DottedPretype?) drest)]
   :methods
   [p/TCType])
 
-(u/ann-record HSequential [types :- (t/Vec Type)
+(t/ann ^:no-check -hseq
+       [(Seqable Type) & :optional {:filters (Seqable p/IFilterSet) :objects (Seqable p/IRObject)
+                                  :rest (U nil Type) :drest (U nil DottedPretype)} -> Type])
+(defn -hseq
+  [types & {:keys [filters objects rest drest]}]
+  (let [-FS @(-FS-var)
+        -top @(-top-var)
+        -empty @(-empty-var)]
+    (if (some Bottom? types)
+      (Bottom)
+      (HeterogeneousSeq-maker types
+                              (if filters
+                                (vec filters)
+                                (vec (repeat (count types) (-FS -top -top))))
+                              (if objects
+                                (vec objects)
+                                (vec (repeat (count types) -empty)))
+                              rest
+                              drest))))
+
+(u/ann-record HSequential [types :- (Seqable Type)
+                           fs :- (t/Vec p/IFilterSet)
+                           objects :- (t/Vec p/IRObject)
                            ;variable members to the right of fixed
                            rest :- (U nil Type)
                            drest :- (U nil DottedPretype)])
@@ -549,7 +584,7 @@
   [p/TCType])
 
 (t/ann ^:no-check -hsequential
-       [(t/Vec Type) & :optional {:filters (Seqable p/IFilterSet) :objects (Seqable p/IRObject)
+       [(Seqable Type) & :optional {:filters (Seqable p/IFilterSet) :objects (Seqable p/IRObject)
                                   :rest (U nil Type) :drest (U nil DottedPretype)} -> Type])
 (defn -hsequential
   [types & {:keys [filters objects rest drest]}]

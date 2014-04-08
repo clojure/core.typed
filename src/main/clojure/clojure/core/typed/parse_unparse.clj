@@ -419,11 +419,11 @@
 
 (declare parse-quoted-hvec)
 
-(defmethod parse-type-list 'Seq* [syn] (r/HeterogeneousSeq-maker (mapv parse-type (rest syn))))
+(defmethod parse-type-list 'Seq* [syn] (r/-hseq (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'List* [syn] (r/HeterogeneousList-maker (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'Vector* [syn] (parse-quoted-hvec (rest syn)))
 
-(declare parse-hvec-types parse-object parse-filter-set)
+(declare parse-hvec-types parse-object parse-filter-set parse-hvec-types)
 
 (defmethod parse-type-list 'HVec 
   [[_ syn & {:keys [filter-sets objects]}]]
@@ -436,61 +436,40 @@
              :drest drest
              :rest rest)))
 
-(defn parse-hvec-types [syns]
-  (let [rest? (#{'*} (last syns))
-        dotted? (#{'...} (-> syns butlast last))
-        _ (when (and rest? dotted?)
-            (u/int-error (str "Invalid heterogeneous vector syntax:" syns)))
-        {:keys [fixed rest drest]}
-        (cond
-          rest?
-          (let [fixed (mapv parse-type (drop-last 2 syns))
-                rest (parse-type (-> syns butlast last))]
-            {:fixed fixed
-             :rest rest})
-          dotted?
-          (let [fixed (mapv parse-type (drop-last 3 syns))
-                [drest-bnd _dots_ drest-type] (take-last 3 syns)
-                bnd (dvar/*dotted-scope* drest-bnd)
-                _ (when-not bnd 
-                    (u/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
-            {:fixed fixed
-             :drest (r/DottedPretype1-maker
-                      (free-ops/with-frees [bnd] ;with dotted bound in scope as free
-                        (parse-type drest-type))
-                      (:name bnd))})
-          :else {:fixed (mapv parse-type syns)})]
-    {:fixed fixed
-     :rest rest
-     :drest drest}))
+(defn parse-types-with-rest-drest [err-msg]
+  (fn [syns]
+    (let [rest? (#{'*} (last syns))
+          dotted? (#{'...} (-> syns butlast last))
+          _ (when (and rest? dotted?)
+              (u/int-error (str err-msg syns)))
+          {:keys [fixed rest drest]}
+          (cond
+            rest?
+            (let [fixed (mapv parse-type (drop-last 2 syns))
+                  rest (parse-type (-> syns butlast last))]
+              {:fixed fixed
+               :rest rest})
+            dotted?
+            (let [fixed (mapv parse-type (drop-last 3 syns))
+                  [drest-bnd _dots_ drest-type] (take-last 3 syns)
+                  bnd (dvar/*dotted-scope* drest-bnd)
+                  _ (when-not bnd
+                      (u/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
+              {:fixed fixed
+               :drest (r/DottedPretype1-maker
+                        (free-ops/with-frees [bnd] ;with dotted bound in scope as free
+                                             (parse-type drest-type))
+                        (:name bnd))})
+            :else {:fixed (mapv parse-type syns)})]
+      {:fixed fixed
+       :rest rest
+       :drest drest})))
 
-(defn parse-hsequential-type [syns]
-  (let [rest? (#{'*} (last syns))
-        dotted? (#{'...} (-> syns butlast last))
-        _ (when (and rest? dotted?)
-            (u/int-error (str "Invalid heterogeneous sequential syntax:" syns)))
-        {:keys [fixed rest drest]}
-        (cond
-          rest?
-          (let [fixed (mapv parse-type (drop-last 2 syns))
-                rest (parse-type (-> syns butlast last))]
-            {:fixed fixed
-             :rest rest})
-          dotted?
-          (let [fixed (mapv parse-type (drop-last 3 syns))
-                [drest-bnd _dots_ drest-type] (take-last 3 syns)
-                bnd (dvar/*dotted-scope* drest-bnd)
-                _ (when-not bnd
-                    (u/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
-            {:fixed fixed
-             :drest (r/DottedPretype1-maker
-                      (free-ops/with-frees [bnd] ;with dotted bound in scope as free
-                                           (parse-type drest-type))
-                      (:name bnd))})
-          :else {:fixed (mapv parse-type syns)})]
-    {:fixed fixed
-     :rest rest
-     :drest drest}))
+(def parse-hvec-types (parse-types-with-rest-drest
+                        "Invalid heterogeneous vector syntax:"))
+
+(def parse-hsequential-type (parse-types-with-rest-drest
+                              "Invalid heterogeneous sequential syntax:"))
 
 (defmethod parse-type-list 'HSequential
   [[_ syn & {:keys [filter-sets objects]}]]
@@ -502,6 +481,20 @@
                                (mapv parse-object objects))
                     :drest drest
                     :rest rest)))
+
+(def parse-hseq-type (parse-types-with-rest-drest
+                      "Invalid heterogeneous seq syntax:"))
+
+(defmethod parse-type-list 'HSeq
+  [[_ syn & {:keys [filter-sets objects]}]]
+  (let [{:keys [fixed drest rest]} (parse-hseq-type syn)]
+    (r/-hseq fixed
+             :filters (when filter-sets
+                        (mapv parse-filter-set filter-sets))
+             :objects (when objects
+                        (mapv parse-object objects))
+             :drest drest
+             :rest rest)))
 
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]
   (when mandatory
@@ -665,7 +658,7 @@
                        (let [m (merge mandatory opts)
                              kss (comb/permutations (keys m))]
                          (for [ks kss]
-                           (r/HeterogeneousSeq-maker (mapcat #(find m %) ks)))))))))
+                           (r/-hseq (mapcat #(find m %) ks)))))))))
 
 (declare unparse-type deprecated-list)
 
@@ -1296,8 +1289,17 @@
              [:complete? true]))))
 
 (defmethod unparse-type* HeterogeneousSeq
-  [v]
-  (list* 'Seq* (doall (map unparse-type (:types v)))))
+  [{:keys [types rest drest fs objects] :as v}]
+  (list* 'HSeq
+         (concat
+           (map unparse-type (:types v))
+           (when rest [(unparse-type rest) '*])
+           (when drest [(unparse-type (:pre-type drest)) '... (:name drest)]))
+         (concat
+           (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
+             [:filter-sets (mapv unparse-filter-set fs)])
+           (when-not (every? #{orep/-empty} objects)
+             [:objects (mapv unparse-object objects)]))))
 
 (defmethod unparse-type* HSequential
   [{:keys [types rest drest fs objects] :as v}]

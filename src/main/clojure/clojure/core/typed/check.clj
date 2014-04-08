@@ -2240,7 +2240,7 @@
        (expr-type ccoll))
       (assoc expr
              expr-type (ret (if-let [ts (seq (:types (expr-type ccoll)))]
-                              (r/HeterogeneousSeq-maker ts)
+                              (r/-hseq ts)
                               r/-nil)))
       :else (normal-invoke expr fexpr args expected :cargs cargs))))
 
@@ -2855,8 +2855,7 @@
                  :post [(Type? %)]}
                 (cond
                   (or rest drest)
-                  (c/Un r/-nil
-                        (r/-hsequential remain-dom
+                  (c/Un r/-nil (r/-hseq remain-dom
                                         :rest rest
                                         :drest drest))
 
@@ -3945,11 +3944,10 @@
                      (last args))
           rest-arg-type (when rest-arg
                           (impl/impl-case
-                             :clojure (c/Un r/-nil (c/In (c/RClass-of clojure.lang.ISeq [rest])
-                                                         (r/make-CountRange 1)))
+                             :clojure (c/Un r/-nil (r/-hseq [] :rest rest))
                              :cljs (c/Un r/-nil (c/In (c/Protocol-of 'cljs.core/ISeq [rest])
                                                       (r/make-CountRange 1)))))
-          cargs (mapv check args (map ret 
+          cargs (mapv check args (map ret
                                       (concat dom 
                                               (when rest-arg-type
                                                 [rest-arg-type]))))
