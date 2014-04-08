@@ -2855,9 +2855,14 @@
                  :post [(Type? %)]}
                 (cond
                   (or rest drest)
-                  (c/Un r/-nil (r/-hseq remain-dom
-                                        :rest rest
-                                        :drest drest))
+                  ; rest argument is always a nilable non-empty seq. Could
+                  ; be slightly more clever here if we have a `rest`, but what about
+                  ; `drest`?
+                  (c/Un r/-nil 
+                        (c/In (r/-hseq remain-dom
+                                       :rest rest
+                                       :drest drest)
+                              (r/make-CountRange 1)))
 
                   :else (c/KwArgs->Type kws)))]
     (let [type (check-fn expr (let [default-ret (ret (r/make-FnIntersection
@@ -3944,7 +3949,8 @@
                      (last args))
           rest-arg-type (when rest-arg
                           (impl/impl-case
-                             :clojure (c/Un r/-nil (r/-hseq [] :rest rest))
+                            :clojure (c/Un r/-nil (c/In (c/RClass-of clojure.lang.ISeq [rest])
+                                                        (r/make-CountRange 1)))
                              :cljs (c/Un r/-nil (c/In (c/Protocol-of 'cljs.core/ISeq [rest])
                                                       (r/make-CountRange 1)))))
           cargs (mapv check args (map ret

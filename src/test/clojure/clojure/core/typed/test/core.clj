@@ -3116,7 +3116,7 @@
         (sub? (I (CountRange 1) (HVec [Any *]))
               (CountRange 0 0)))))
 
-(deftest annotate-user-defined-ploydot
+(deftest annotate-user-defined-polydot
   (is-cf (fn [x & y] x) (All [x y ...] [x y ... y -> x]))
   (is-cf (fn [f a] (f a))
          [(All [x]
@@ -3147,3 +3147,8 @@
   (is-cf [1 2 3] (HSequential [Number *]))
   (is-cf '(1 2 3) (HSequential [Number *]))
   (is-cf '(1 2 3) (HSequential [(Value 1) (Value 2) (Value 3)])))
+
+(deftest nilable-non-empty-rest-args-test
+  (is-cf (fn [& args]
+           (clojure.core.typed/ann-form args
+                                        (U nil (clojure.core.typed/NonEmptySeq Any))))))
