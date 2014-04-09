@@ -106,6 +106,7 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 * Christopher Spencer (cspencer)
 * Reid McKenzie (arrdem)
 * Di Xu (xudifsd)
+* Nicola Mometto (Bronsa)
 
 ## Sponsors
 
