@@ -56,8 +56,13 @@
            (clojure.core.typed.object_rep Path)
            (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet AndFilter OrFilter)
            (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector
-                         Reflector PersistentHashSet Symbol)))
+                         Reflector PersistentHashSet Symbol RT)))
 
+(defn reflect
+  [obj & options]
+  (apply reflect/type-reflect (if (class? obj) obj (class obj))
+         :reflector (reflect/->JavaReflector (RT/baseLoader))
+         options))
 (alter-meta! *ns* assoc :skip-wiki true)
 
 (set! *warn-on-reflection* true)
@@ -3611,7 +3616,7 @@
   (let [cs (remove nil? (Type->Classes t))]
     (apply concat 
            (for [c cs]
-             (let [{:keys [members]} (reflect/reflect c)]
+             (let [{:keys [members]} (reflect c)]
                (filter (fn [{:keys [flags parameter-types name] :as m}]
                          (and (instance? clojure.reflect.Method m)
                               (= (contains? flags :static)
@@ -3634,7 +3639,7 @@
 (defn MethodExpr->Method [{c :class method-name :method :keys [op args] :as expr}]
   {:pre [(#{:static-call :instance-call} op)]
    :post [(instance? clojure.reflect.Method %)]}
-  (let [ms (->> (reflect/reflect c)
+  (let [ms (->> (reflect c)
                 :members
                 (filter #(instance? clojure.reflect.Method %))
                 (filter #(#{method-name} (:name %)))
@@ -3712,7 +3717,7 @@
 (defn FieldExpr->Field [{c :class field-name :field :keys [op] :as expr}]
   {:pre [(#{:static-field :instance-field} op)]
    :post [(instance? clojure.reflect.Field %)]}
-  (let [fs (->> (reflect/reflect c)
+  (let [fs (->> (reflect c)
                 :members
                 (filter #(instance? clojure.reflect.Field %))
                 (filter #(#{field-name} (:name %))))]
@@ -3856,7 +3861,7 @@
   {:pre [(#{:new} op)]
    :post [(or (instance? clojure.reflect.Constructor %)
               (nil? %))]}
-  (let [cs (->> (reflect/reflect c)
+  (let [cs (->> (reflect c)
                 :members
                 (filter #(instance? clojure.reflect.Constructor %))
                 (filter #(#{(map (comp reflect-friendly-sym :tag) args)} (:parameter-types %))))]
@@ -4982,7 +4987,7 @@
 (defn deftype-method-members [cls]
   {:pre [(class? cls)]
    :post [(every? (fn [m] (instance? clojure.reflect.Method m)) %)]}
-  (->> (reflect/reflect cls)
+  (->> (reflect cls)
        :members
        (filter #(instance? clojure.reflect.Method %))))
 
