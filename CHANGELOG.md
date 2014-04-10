@@ -1,3 +1,20 @@
+# 0.2.45-SNAPSHOT
+
+Thanks to Di Xu and Nicola Mometto who contributed patches.
+
+## Enhancements
+
+- [CTYP-130](http://dev.clojure.org/jira/browse/CTYP-130) Add HSequential which abstracts over HSeq/HVec/HList/HSeq
+  - Contributed by Di Xu + Ambrose
+
+## Fixes
+
+- Use correct classloader to reflect on analyzed class
+  - Contributed by Nicola Mometto
+- Fix a bunch of bogus cs-gen/subtype cases with hetereogeneous collection types
+  that have rest/drest
+  - part of CTYP-130
+
 # 0.2.44 - 3 April 2014
 
 0.2.42 did not bind *file* correctly and gives useless tmp files
