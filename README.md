@@ -35,6 +35,10 @@ Maven dependency information:
 The default jars contain AOT files for faster loading. If jar size is a concern, consider
 using the slim jar in production.
 
+## Compatibility
+
+`core.typed` supports Clojure 1.5.1.
+
 ## [Talk] Clojure Conj 2012
 
 [Video](http://www.youtube.com/watch?v=wNhK8t3uLJU)
