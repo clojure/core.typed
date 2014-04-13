@@ -3152,3 +3152,6 @@
   (is-cf (fn [& args]
            (clojure.core.typed/ann-form args
                                         (U nil (clojure.core.typed/NonEmptySeq Any))))))
+
+(deftest fail-on-reflection-test
+  (is (u/top-level-error-thrown? (check-ns 'clojure.core.typed.test.fail.reflection))))

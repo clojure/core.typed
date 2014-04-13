@@ -3698,6 +3698,15 @@
       (assoc expr
              expr-type result-type))))
 
+(add-check-method :host-interop
+  [{:keys [m-or-f] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)]}
+  (u/tc-delayed-error (str "Unresolved host interop: " m-or-f
+                           ".\n\nHint: use *warn-on-reflection* to identify reflective calls"
+                           "\n\nin: " (u/emit-form-fn expr)))
+  (assoc expr 
+         expr-type (or expected (ret r/-any))))
+
 (add-check-method :static-call
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
