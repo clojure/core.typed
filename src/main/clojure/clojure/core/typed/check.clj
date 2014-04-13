@@ -1367,10 +1367,10 @@
 (u/add-defmethod-generator invoke-apply)
 
 (defmulti static-method-special (fn [expr & args]
-                                  {:post [(symbol? %)]}
+                                  {:post [((some-fn nil? symbol?) %)]}
                                   (MethodExpr->qualsym expr)))
 (defmulti instance-method-special (fn [expr & args]
-                                    {:post [(symbol? %)]}
+                                    {:post [((some-fn nil? symbol?) %)]}
                                     (MethodExpr->qualsym expr)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -3596,11 +3596,12 @@
 
 ;[MethodExpr -> (U nil NamespacedSymbol)]
 (defn MethodExpr->qualsym [{c :class :keys [op method] :as expr}]
-  {:pre [(#{:static-call :instance-call} op)
-         (class? c)
-         (symbol? method)]
-   :post [(symbol? %)]}
-  (symbol (str (u/Class->symbol c)) (str method)))
+  {:pre [(#{:static-call :instance-call} op)]
+   :post [((some-fn nil? symbol?) %)]}
+  (when c
+    (assert (class? c))
+    (assert (symbol? method))
+    (symbol (str (u/Class->symbol c)) (str method))))
 
 (defn Type->Classes [t]
   {:post [(every? (some-fn class? nil?) %)]}
@@ -3640,25 +3641,26 @@
       symbol))
 
 (defn MethodExpr->Method [{c :class method-name :method :keys [op args] :as expr}]
-  {:pre [(#{:static-call :instance-call} op)]
-   :post [(instance? clojure.reflect.Method %)]}
-  (let [ms (->> (reflect c)
-                :members
-                (filter #(instance? clojure.reflect.Method %))
-                (filter #(#{method-name} (:name %)))
-                (filter (fn [{:keys [parameter-types]}]
-                          (#{(map (comp reflect-friendly-sym :tag) args)} parameter-types))))]
-    ;(prn "MethodExpr->Method" c ms (map :tag args))
-    (first ms)))
+  {:pre []
+   :post [(or (nil? %) (instance? clojure.reflect.Method %))]}
+  (when (and c 
+             (#{:static-call :instance-call} op))
+    (let [ms (->> (reflect c)
+                  :members
+                  (filter #(instance? clojure.reflect.Method %))
+                  (filter #(#{method-name} (:name %)))
+                  (filter (fn [{:keys [parameter-types]}]
+                            (#{(map (comp reflect-friendly-sym :tag) args)} parameter-types))))]
+      ;(prn "MethodExpr->Method" c ms (map :tag args))
+      (first ms))))
 
 ;[MethodExpr Type Any -> Expr]
-(defn check-invoke-method [{c :class method-name :name :keys [args env] :as expr} expected inst?
+(defn check-invoke-method [{c :class method-name :method :keys [args env] :as expr} expected inst?
                            & {:keys [ctarget cargs]}]
   {:pre [((some-fn nil? TCResult?) expected)]
    :post [(-> % expr-type TCResult?)]}
   (binding [vs/*current-env* env]
-    (let [method (when (#{:static-call :instance-call} (:op expr))
-                   (MethodExpr->Method expr))
+    (let [method (MethodExpr->Method expr)
           msym (MethodExpr->qualsym expr)
           rfin-type (or (when msym
                           (@mth-override/METHOD-OVERRIDE-ENV msym))
@@ -3724,22 +3726,23 @@
       spec
       (check-invoke-method expr expected true))))
 
-(def COMPILE-STUB-PREFIX "compile__stub")
-
 (defn FieldExpr->Field [{c :class field-name :field :keys [op] :as expr}]
-  {:pre [(#{:static-field :instance-field} op)]
+  {:pre []
    :post [(instance? clojure.reflect.Field %)]}
-  (let [fs (->> (reflect c)
-                :members
-                (filter #(instance? clojure.reflect.Field %))
-                (filter #(#{field-name} (:name %))))]
-    (assert (#{1} (count fs)))
-    (first fs)))
+  (when (and c 
+             (#{:static-field :instance-field} op))
+    (let [fs (->> (reflect c)
+                  :members
+                  (filter #(instance? clojure.reflect.Field %))
+                  (filter #(#{field-name} (:name %))))]
+      (assert (#{1} (count fs)))
+      (first fs))))
 
 (add-check-method :static-field
   [expr & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (let [field (FieldExpr->Field expr)]
+    (assert field)
     (assoc expr
            expr-type (ret (Field->Type field)))))
 
