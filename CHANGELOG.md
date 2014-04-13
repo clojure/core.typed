@@ -14,6 +14,8 @@ Thanks to Di Xu and Nicola Mometto who contributed patches.
 - Fix a bunch of bogus cs-gen/subtype cases with hetereogeneous collection types
   that have rest/drest
   - part of CTYP-130
+- Be more robust in handling reflection calls
+  - [CTYP-132](http://dev.clojure.org/jira/browse/CTYP-132)
 
 # 0.2.44 - 3 April 2014
 
