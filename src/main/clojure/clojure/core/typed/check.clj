@@ -3654,6 +3654,86 @@
       ;(prn "MethodExpr->Method" c ms (map :tag args))
       (first ms))))
 
+(defn suggest-type-hints [m-or-f targett argtys & {:keys [constructor-call]}]
+  {:pre [((some-fn nil? Type?) targett)
+         (every? Type? argtys)]}
+  (let [targett (when targett
+                  (c/fully-resolve-type targett))
+        cls (cond
+              constructor-call (u/symbol->Class constructor-call)
+              (r/RClass? targett) (r/RClass->Class targett))]
+    (when cls
+      (let [r (reflect cls)
+            {methods clojure.reflect.Method
+             fields clojure.reflect.Field
+             ctors clojure.reflect.Constructor
+             :as members}
+            (group-by
+              class
+              (filter (fn [{:keys [name] :as m}] 
+                        (if constructor-call
+                          (instance? clojure.reflect.Constructor m)
+                          (= m-or-f name)))
+                      (:members r)))]
+        (cond
+          (empty? members) (str "\n\nTarget " (u/Class->symbol cls) " has no member " m-or-f)
+          (seq members) (str "\n\nAdd type hints to resolve the host call."
+                             (when (seq ctors)
+                               (str "\n\nSuggested constructors:\n"
+                                    (apply str
+                                           (map 
+                                             (fn [{ctor-name :name 
+                                                   :keys [parameter-types flags] :as field}]
+                                               (str "\n  "
+                                                    (apply str (interpose " " (map name flags)))
+                                                    (when (seq flags) " ")
+                                                    (reflect-friendly-sym ctor-name) " "
+                                                    "("
+                                                    (apply str (interpose ", " (map reflect-friendly-sym parameter-types)))
+                                                    ")"))
+                                             ctors))))
+                             (when (seq fields)
+                               (str "\n\nSuggested fields:\n"
+                                    (apply str
+                                           (map 
+                                             (fn [[clssym cls-fields]]
+                                               (apply str
+                                                      "\n " (reflect-friendly-sym clssym)
+                                                      "\n \\"
+                                                      (map
+                                                        (fn [{field-name :name 
+                                                              :keys [flags type] :as field}]
+                                                          (str "\n  "
+                                                               (apply str (interpose " " (map name flags)))
+                                                               (when (seq flags) " ")
+                                                               (reflect-friendly-sym type) " "
+                                                               field-name))
+                                                        cls-fields)))
+                                             (group-by :declaring-class fields)))))
+                             (when (seq methods)
+                               (let [methods-by-class (group-by :declaring-class methods)]
+                                 (str "\n\nSuggested methods:\n"
+                                      (apply str
+                                             (map
+                                               (fn [[clsym cls-methods]]
+                                                 (apply str
+                                                        "\n " (reflect-friendly-sym clsym)
+                                                        "\n \\"
+                                                        (map 
+                                                          (fn [{method-name :name 
+                                                                :keys [return-type parameter-types flags] :as method}] 
+                                                            (str 
+                                                              "\n  "
+                                                              (apply str (interpose " " (map name flags)))
+                                                              (when (seq flags) " ")
+                                                              (reflect-friendly-sym return-type) " "
+                                                              method-name 
+                                                              "(" 
+                                                              (apply str (interpose ", " (map reflect-friendly-sym parameter-types))) 
+                                                              ")"))
+                                                          cls-methods)))
+                                               methods-by-class)))))))))))
+
 ;[MethodExpr Type Any -> Expr]
 (defn check-invoke-method [{c :class method-name :method :keys [args env] :as expr} expected inst?
                            & {:keys [ctarget cargs]}]
@@ -3666,48 +3746,55 @@
                           (@mth-override/METHOD-OVERRIDE-ENV msym))
                         (when method
                           (Method->Type method)))
-          _ (when-not rfin-type 
-              (u/int-error (str "Unresolved " (if inst? "instance" "static") 
-                                " method invocation " 
-                                (when c
-                                  (str (u/Class->symbol c) "/"))
-                                method-name 
-                                ".\n\nHint: use *warn-on-reflection* to identify reflective calls"
-                                "\n\nin: " (u/emit-form-fn expr))))
-          _ (when inst?
-              (let [ctarget (or ctarget (check (:instance expr)))
-                    target-class (resolve (:declaring-class method))
-                    _ (assert (class? target-class))]
-                ;                (prn "check target" (prs/unparse-type (ret-t (expr-type ctarget)))
-                ;                     (prs/unparse-type (c/RClass-of (u/Class->symbol (resolve (:declaring-class method))) nil)))
-                (when-not (sub/subtype? (ret-t (expr-type ctarget)) (c/RClass-of-with-unknown-params target-class))
-                  (u/tc-delayed-error (str "Cannot call instance method " (Method->symbol method)
-                                           " on type " (pr-str (prs/unparse-type (ret-t (expr-type ctarget)))))
-                                      :form (u/emit-form-fn expr)))))
-          cargs (or cargs (doall (map check args)))
-          result-type (check-funapp expr args (ret rfin-type) (map expr-type cargs) expected)
-          _ (when expected
-              (when-not (sub/subtype? (ret-t result-type) (ret-t expected))
-                (u/tc-delayed-error (str "Return type of " (if inst? "instance" "static")
-                                         " method " (Method->symbol method)
-                                         " is " (prs/unparse-type (ret-t result-type))
-                                         ", expected " (prs/unparse-type (ret-t expected)) "."
-                                         (when (sub/subtype? r/-nil (ret-t result-type))
-                                           (str "\n\nHint: Use `non-nil-return` and `nilable-param` to configure "
-                                                "where `nil` is allowed in a Java method call. `method-type` "
-                                                "prints the current type of a method.")))
-                                    :form (u/emit-form-fn expr))))]
-      (assoc expr
-             expr-type result-type))))
+          ctarget (when inst?
+                    (assert (:instance expr))
+                    (or ctarget (check (:instance expr))))
+          cargs (or cargs (doall (map check args)))]
+      (if-not rfin-type
+        (u/tc-delayed-error (str "Unresolved " (if inst? "instance" "static") 
+                                 " method invocation " 
+                                 (suggest-type-hints method-name 
+                                                     (when ctarget
+                                                       (-> ctarget expr-type ret-t))
+                                                     (map (comp ret-t expr-type) cargs))
+                                 ".\n\nHint: use *warn-on-reflection* to identify reflective calls")
+                            :form (u/emit-form-fn expr)
+                            :return (assoc expr 
+                                           expr-type (error-ret expected)))
+        (let [_ (when inst?
+                  (let [target-class (resolve (:declaring-class method))
+                        _ (assert (class? target-class))]
+                    ;                (prn "check target" (prs/unparse-type (ret-t (expr-type ctarget)))
+                    ;                     (prs/unparse-type (c/RClass-of (u/Class->symbol (resolve (:declaring-class method))) nil)))
+                    (when-not (sub/subtype? (ret-t (expr-type ctarget)) (c/RClass-of-with-unknown-params target-class))
+                      (u/tc-delayed-error (str "Cannot call instance method " (Method->symbol method)
+                                               " on type " (pr-str (prs/unparse-type (ret-t (expr-type ctarget)))))
+                                          :form (u/emit-form-fn expr)))))
+              result-type (check-funapp expr args (ret rfin-type) (map expr-type cargs) expected)
+              _ (when expected
+                  (when-not (sub/subtype? (ret-t result-type) (ret-t expected))
+                    (u/tc-delayed-error (str "Return type of " (if inst? "instance" "static")
+                                             " method " (Method->symbol method)
+                                             " is " (prs/unparse-type (ret-t result-type))
+                                             ", expected " (prs/unparse-type (ret-t expected)) "."
+                                             (when (sub/subtype? r/-nil (ret-t result-type))
+                                               (str "\n\nHint: Use `non-nil-return` and `nilable-param` to configure "
+                                                    "where `nil` is allowed in a Java method call. `method-type` "
+                                                    "prints the current type of a method.")))
+                                        :form (u/emit-form-fn expr))))]
+          (assoc expr
+                 expr-type result-type))))))
 
 (add-check-method :host-interop
-  [{:keys [m-or-f] :as expr} & [expected]]
+  [{:keys [m-or-f target] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
-  (u/tc-delayed-error (str "Unresolved host interop: " m-or-f
-                           ".\n\nHint: use *warn-on-reflection* to identify reflective calls"
-                           "\n\nin: " (u/emit-form-fn expr)))
-  (assoc expr 
-         expr-type (or expected (ret r/-any))))
+  (let [ctarget (check target)]
+    (u/tc-delayed-error (str "Unresolved host interop: " m-or-f
+                             (suggest-type-hints m-or-f (-> ctarget expr-type ret-t) [])
+                             "\n\nHint: use *warn-on-reflection* to identify reflective calls"
+                             "\n\nin: " (u/emit-form-fn expr)))
+    (assoc expr 
+           expr-type (error-ret expected))))
 
 (add-check-method :static-call
   [expr & [expected]]
@@ -3753,45 +3840,51 @@
   {:post [(-> % expr-type TCResult?)]}
   #_(prn "instance-field:" expr)
   (binding [vs/*current-expr* expr]
-   (let [field (FieldExpr->Field expr)]
-    (when-not target-class
-      (u/int-error (str "Call to instance field "
-                        (symbol field-name)
-                        " requires type hints.")))
-    (assert (class? target-class))
-    (let [fsym (symbol field-name)
-          cexpr (check target)
-          ; check that the hinted class at least matches the runtime class we expect
-          _ (let [expr-ty (c/fully-resolve-type (-> cexpr expr-type ret-t))
-                  cls (cond
-                         (r/DataType? expr-ty) (u/symbol->Class (:the-class expr-ty))
-                         (r/RClass? expr-ty) (u/symbol->Class (:the-class expr-ty)))]
-              (when-not (and cls
-                             ; in case target-class has been redefined
-                             (sub/class-isa? cls (-> target-class u/Class->symbol u/symbol->Class)))
-                (u/tc-delayed-error (str "Instance field " fsym " expected "
-                                         (pr-str target-class)
-                                         ", actual " (pr-str (prs/unparse-type expr-ty)))
-                                    :form (u/emit-form-fn expr))))
-          
-                            ; datatype fields are special
-          result-t (if-let [override (when-let [dtp (dt-env/get-datatype (u/Class->symbol target-class))]
-                                       (let [dt (if (r/Poly? dtp)
-                                                  ;generate new names
-                                                  (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
-                                                  dtp)
-                                             _ (assert ((some-fn r/DataType? r/Record?) dt))
-                                             demunged (symbol (repl/demunge (str fsym)))]
-                                         (-> (c/DataType-fields* dt) (get demunged))))]
-                     override
-                     ; if not a datatype field, convert as normal
-                     (if field
-                       (Field->Type field)
-                       (u/tc-delayed-error (str "Instance field " fsym " needs type hints")
-                                           :form (u/emit-form-fn expr)
-                                           :return (r/TCError-maker))))] 
-      (assoc expr
-             expr-type (ret result-t))))))
+   (let [field (FieldExpr->Field expr)
+         cexpr (check target)]
+    (if-not target-class
+      ; I think this is unreachable
+      (u/tc-delayed-error (str "Call to instance field "
+                               (symbol field-name)
+                               " requires type hints."
+                               (suggest-type-hints field-name (-> cexpr expr-type ret-t)
+                                                   []))
+                          :form (u/emit-form-fn expr)
+                          :return (assoc expr
+                                         expr-type (error-ret expected)))
+      (let [_ (assert (class? target-class))
+            fsym (symbol field-name)
+            ; check that the hinted class at least matches the runtime class we expect
+            _ (let [expr-ty (c/fully-resolve-type (-> cexpr expr-type ret-t))
+                    cls (cond
+                          (r/DataType? expr-ty) (u/symbol->Class (:the-class expr-ty))
+                          (r/RClass? expr-ty) (u/symbol->Class (:the-class expr-ty)))]
+                (when-not (and cls
+                               ; in case target-class has been redefined
+                               (sub/class-isa? cls (-> target-class u/Class->symbol u/symbol->Class)))
+                  (u/tc-delayed-error (str "Instance field " fsym " expected "
+                                           (pr-str target-class)
+                                           ", actual " (pr-str (prs/unparse-type expr-ty)))
+                                      :form (u/emit-form-fn expr))))
+
+            ; datatype fields are special
+            result-t (if-let [override (when-let [dtp (dt-env/get-datatype (u/Class->symbol target-class))]
+                                         (let [dt (if (r/Poly? dtp)
+                                                    ;generate new names
+                                                    (unwrap-datatype dtp (repeatedly (:nbound dtp) gensym))
+                                                    dtp)
+                                               _ (assert ((some-fn r/DataType? r/Record?) dt))
+                                               demunged (symbol (repl/demunge (str fsym)))]
+                                           (-> (c/DataType-fields* dt) (get demunged))))]
+                       override
+                       ; if not a datatype field, convert as normal
+                       (if field
+                         (Field->Type field)
+                         (u/tc-delayed-error (str "Instance field " fsym " needs type hints")
+                                             :form (u/emit-form-fn expr)
+                                             :return (r/TCError-maker))))] 
+        (assoc expr
+               expr-type (ret result-t)))))))
 
 ;[Symbol -> Type]
 (defn DataType-ctor-type [sym]
@@ -3894,28 +3987,31 @@
         :else
         (let [inst-types *inst-ctor-types*
               clssym (ctor-Class->symbol cls)
-              ifn (let [ctor-fn (or (@ctor-override/CONSTRUCTOR-OVERRIDE-ENV clssym)
-                                    (and (dt-env/get-datatype clssym)
-                                         (DataType-ctor-type clssym))
-                                    (when ctor
-                                      (Constructor->Function ctor)))
-                        _ (when-not ctor-fn 
-                            (u/int-error (str "Unresolved constructor invocation " 
-                                              (when cls
-                                                (u/Class->symbol cls))
-                                              ".\n\nHint: add type hints http://clojure.org/java_interop#Java%20Interop-Type%20Hints"
-                                              "\n\nin: " (u/emit-form-fn expr))))
-                        ctor-fn (if inst-types
-                                  (inst/manual-inst ctor-fn inst-types)
-                                  ctor-fn)]
-                    (ret ctor-fn))
-              ;_ (prn "Expected constructor" (prs/unparse-type (ret-t ifn)))
               cargs (mapv check args)
-              res-type (check-funapp expr args ifn (map expr-type cargs) nil)
-              _ (when (and expected (not (sub/subtype? (ret-t res-type) (ret-t expected))))
-                  (expected-error (ret-t res-type) (ret-t expected)))]
-          (assoc expr
-                 expr-type res-type))))))
+              ctor-fn (or (@ctor-override/CONSTRUCTOR-OVERRIDE-ENV clssym)
+                          (and (dt-env/get-datatype clssym)
+                               (DataType-ctor-type clssym))
+                          (when ctor
+                            (Constructor->Function ctor)))]
+          (if-not ctor-fn
+            (u/tc-delayed-error (str "Unresolved constructor invocation " 
+                                     (suggest-type-hints nil nil (map (comp ret-t expr-type) cargs)
+                                                         :constructor-call clssym)
+                                     ".\n\nHint: add type hints"
+                                     "\n\nin: " (u/emit-form-fn expr))
+                                :form (u/emit-form-fn expr)
+                                :return (assoc expr
+                                               expr-type (error-ret expected)))
+            (let [ctor-fn (if inst-types
+                            (inst/manual-inst ctor-fn inst-types)
+                            ctor-fn)
+                  ifn (ret ctor-fn)
+                  ;_ (prn "Expected constructor" (prs/unparse-type (ret-t ifn)))
+                  res-type (check-funapp expr args ifn (map expr-type cargs) nil)
+                  _ (when (and expected (not (sub/subtype? (ret-t res-type) (ret-t expected))))
+                      (expected-error (ret-t res-type) (ret-t expected)))]
+              (assoc expr
+                     expr-type res-type))))))))
 
 (add-check-method :throw
   [{:keys [exception] :as expr} & [expected]]

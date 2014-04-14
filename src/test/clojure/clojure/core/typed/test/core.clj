@@ -1442,7 +1442,7 @@
   (is-cf (java.io.File. "a"))
   (is-cf (let [a (or "a" "b")]
            (java.io.File. a)))
-  (is (throws-tc-error?
+  (is (u/top-level-error-thrown?
         (cf (fn [& {:keys [path] :or {path "foo"}}]
               (clojure.core.typed/print-env "a")
               (java.io.File. path))
@@ -3154,4 +3154,5 @@
                                         (U nil (clojure.core.typed/NonEmptySeq Any))))))
 
 (deftest fail-on-reflection-test
-  (is (u/top-level-error-thrown? (check-ns 'clojure.core.typed.test.fail.reflection))))
+  (is (caught-top-level-errors #{3} 
+        (check-ns 'clojure.core.typed.test.fail.reflection))))
