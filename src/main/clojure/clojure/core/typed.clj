@@ -752,7 +752,8 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro tc-ignore 
   "Ignore forms in body during type checking"
   [& body]
-  `(do ::tc-ignore
+  `(do ::special-form
+       ::tc-ignore
        ~@(or body [nil])))
 
 (defmacro init-aliases []

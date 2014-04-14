@@ -3431,15 +3431,37 @@
                       [rest-param-name drest])
                     (expr-type crng))))))
 
+(defn internal-dispatch-val [expr]
+  (:val (second (:statements expr))))
+
+(defn enforce-do-folding [{:keys [statements] :as expr}]
+  (when-not (#{0 1} (count 
+                      (filter #{::t/special-form} 
+                              (map :val statements))))
+    (u/int-error (str "Folded special-forms detected " (u/emit-form-fn expr)))))
+
+;(ann internal-special-form [Expr (U nil TCResult) -> Expr])
+(defmulti internal-special-form (fn [expr expected] (#'internal-dispatch-val expr)))
+
+(defmethod internal-special-form ::t/tc-ignore
+  [expr expected]
+  (assoc expr
+         expr-type (ret r/-any)))
+
+(defmethod internal-special-form :default
+  [expr expected]
+  (u/int-error (str "No such internal form: " (u/emit-form-fn expr))))
+
+(defn internal-form? [expr]
+  (= ::t/special-form (:val (first (:statements expr)))))
 
 (add-check-method :do
   [expr & [expected]]
   {:post [(TCResult? (expr-type %))]}
+  (enforce-do-folding expr)
   (cond
-    (= ::t/tc-ignore
-       (:val (first (:statements expr))))
-    (assoc expr
-           expr-type (ret r/-any))
+    (internal-form? expr)
+    (internal-special-form expr expected)
 
     :else
     (let [exprs (vec (concat (:statements expr) [(:ret expr)]))

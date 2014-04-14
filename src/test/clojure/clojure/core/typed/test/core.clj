@@ -3156,3 +3156,6 @@
 (deftest fail-on-reflection-test
   (is (caught-top-level-errors #{3} 
         (check-ns 'clojure.core.typed.test.fail.reflection))))
+
+(deftest tc-ignore-test
+  (is-cf (fn [] (clojure.core.typed/tc-ignore (+ 'a 1)))))
