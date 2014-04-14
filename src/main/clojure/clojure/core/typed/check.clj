@@ -1068,15 +1068,17 @@
       (r/TCError? fexpr-type)
       (ret r/Err)
 
+  ; FIXME error messages are worse here because we don't use line numbers for
+  ; specific arguments
       ;ordinary Function, single case, special cased for improved error msgs
-      (and (r/FnIntersection? fexpr-type)
-           (let [[{:keys [drest] :as ft} :as ts] (:types fexpr-type)]
-             (and (= 1 (count ts))
-                  (not drest))))
-      (u/p :check/funapp-single-arity-nopoly-nodots
-      (let [argtys arg-ret-types
-            {[t] :types} fexpr-type]
-        (check-funapp1 fexpr args t argtys expected)))
+;      (and (r/FnIntersection? fexpr-type)
+;           (let [[{:keys [drest] :as ft} :as ts] (:types fexpr-type)]
+;             (and (= 1 (count ts))
+;                  (not drest))))
+;      (u/p :check/funapp-single-arity-nopoly-nodots
+;      (let [argtys arg-ret-types
+;            {[t] :types} fexpr-type]
+;        (check-funapp1 fexpr args t argtys expected)))
 
       ;ordinary Function, multiple cases
       (r/FnIntersection? fexpr-type)
