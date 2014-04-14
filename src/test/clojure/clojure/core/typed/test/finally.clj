@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.finally
-  (:require [clojure.core.typed :refer :all]))
+  (:require [clojure.core.typed :as t]))
 
-(ann f [-> String])
+(t/ann f [-> String])
 (defn f []
   (try
     "a"
