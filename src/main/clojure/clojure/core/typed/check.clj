@@ -1458,7 +1458,7 @@
   (when-not (#{1} (count args))
     (u/int-error (str "Wrong number of arguments to clojure.core/seq?,"
                       " expected 1, given " (count args))))
-  (let [[ctarget :as cargs] (map check args)]
+  (let [[ctarget :as cargs] (doall (map check args))]
     (cond 
       ; handle keyword args macroexpansion
       (r/KwArgsSeq? (-> ctarget expr-type ret-t))
