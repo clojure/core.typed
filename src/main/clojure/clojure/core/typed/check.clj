@@ -3430,6 +3430,30 @@
   (assoc expr
          expr-type (ret r/-any)))
 
+(defmethod internal-special-form ::t/fn
+  [{[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :as expr} expected]
+  {:pre [(#{3} (count statements))]}
+  (let [ann-expected
+        (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+          (apply
+            r/make-FnIntersection
+            (doall
+              (for [{:keys [dom rest drest ret-type]} fn-anns]
+                (r/make-Function (mapv (comp prs/parse-type :type) dom)
+                                 (prs/parse-type (:type ret-type))
+                                 (when rest
+                                   (prs/parse-type (:type rest)))
+                                 (when drest
+                                   (r/DottedPretype1-maker
+                                     (prs/parse-type (:pretype drest))
+                                     (:bound drest))))))))
+        cfexpr (check fexpr (ret ann-expected))
+        _ (when expected
+            (when-not (sub/subtype? (-> cfexpr expr-type ret-t) (ret-t expected))
+              (expected-error (-> cfexpr expr-type ret-t) (ret-t expected))))]
+    (assoc expr
+           expr-type (expr-type cfexpr))))
+
 (defmethod internal-special-form ::t/ann-form
   [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
   {:pre [(#{3} (count statements))]}

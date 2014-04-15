@@ -3,15 +3,53 @@
 and functions for type checking Clojure code. check-ns is the interface
 for checking namespaces, cf for checking individual forms."}
   clojure.core.typed
-  (:require [clojure.pprint :as pprint]
+  (:refer-clojure :exclude [type #_defprotocol #_letfn fn])
+  (:require [clojure.core :as core]
+            [clojure.pprint :as pprint]
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.util-vars :as uvars]
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.parse-ast :as ast]
-            [clojure.java.io :as io])
-  (:refer-clojure :exclude [type]))
+            [clojure.core.typed.internal :as internal]
+            [clojure.java.io :as io]))
+
+;at the top because the rest of this namespace uses this macro
+(defmacro 
+  ^{:forms '[(fn name? :- type? [param :- type* & param :- type * ?] exprs*)
+             (fn name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
+  fn
+  "Like clojure.core/fn, but with optional annotations.
+
+  eg. ;these forms are equivalent
+      (fn [a] b)
+      (fn [a :- Any] b)
+      (fn [a :- Any] :- Any b)
+      (fn [a] :- Any b)
+
+      ;annotate return
+      (fn [a :- String] :- String body)
+
+      ;named fn
+      (fn fname [a :- String] :- String body)
+
+      ;rest parameter
+      (fn [a :- String & b :- Number *] body)
+
+      ;dotted rest parameter
+      (fn [a :- String & b :- Number ... x] body)
+
+      ;multi-arity
+      (fn fname 
+        ([a :- String] :- String ...)
+        ([a :- String, b :- Number] :- String ...))"
+  [& forms]
+  (let [{:keys [fn ann]} (internal/parse-fn* false forms)]
+    `(do ::special-form
+         ::fn
+         {:ann '~ann}
+         ~fn)))
 
 ;=============================================================
 ; # core.typed
@@ -365,101 +403,14 @@ for checking namespaces, cf for checking individual forms."}
                                    ~@(when needrec [recform]))))))])))))]
     (nth (step nil (seq seq-exprs)) 1)))
 
-;(ann parse-fn> [Any (Seqable Any) ->
-;                '{:poly Any
-;                  :fn Any ;Form
-;                  :parsed-methods (Seqable '{:dom-syntax (Seqable Any)
-;                                             :dom-lhs (Seqable Any)
-;                                             :rng-syntax Any
-;                                             :has-rng? Any
-;                                             :body Any})}])
-;for
-(defn- parse-fn>
-  "(fn> name? :- type? [[param :- type]* & [param :- type *]?] exprs*)
-  (fn> name? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
-  [is-poly forms]
-  (let [name (when (symbol? (first forms))
-               (first forms))
-        forms (if name (rest forms) forms)
-        poly (when is-poly
-               (first forms))
-        forms (if poly (rest forms) forms)
-        methods (if ((some-fn vector? keyword?) (first forms))
-                  (list forms)
-                  forms)
-        ; turn [param :- type* & param :- type *?]
-        ; into [[param :- type]* & [param :- type *]?]
-        normalise-args
-        (fn [arg-anns]
-          (loop [flat-result ()
-                 seq-exprs arg-anns]
-            (cond
-              (empty? seq-exprs) flat-result
-              (and (#{'&} (first seq-exprs))
-                   ; new syntax
-                   (#{:-} (nth seq-exprs 2)))
-              (do
-                (assert (#{'*} (nth seq-exprs 4)))
-                (assert (#{:-} (nth seq-exprs 2)))
-                (assert (empty? (drop 5 seq-exprs)))
-                (recur (concat flat-result ['& (vec (take 4 (next seq-exprs)))])
-                       (drop 4 seq-exprs)))
-              ;old syntax
-              (#{'&} (first seq-exprs))
-              (do 
-                (assert (#{2} (count seq-exprs)))
-                (prn "DEPRECATED WARNING: fn> syntax has changed, use [& b :- t i *] for rest arguments"
-                     "ns: " *ns*)
-                (recur (concat flat-result ['& (second seq-exprs)])
-                       (drop 1 seq-exprs)))
-              (and (vector? (first seq-exprs))
-                   (#{:-} (-> seq-exprs first second))) (do
-                                                          (prn "DEPRECATED WARNING: fn> syntax has changed, use [b :- t i] for clauses"
-                                                               "ns: " *ns*)
-                                                          (recur (concat flat-result (take 1 seq-exprs))
-                                                                 (drop 1 seq-exprs)))
-              :else (do (assert (#{:-} (second seq-exprs))
-                                "Incorrect syntax in fn>.")
-                        (recur (concat flat-result [(vec (take 3 seq-exprs))])
-                               (drop 3 seq-exprs))))))
-        ;(fn> name? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
-        ; (HMap {:dom (Seqable TypeSyntax)
-        ;        :rng (U nil TypeSyntax)
-        ;        :body Any})
-        parsed-methods (doall 
-                         (for [method methods]
-                           (let [[ret has-ret?] (when (not (vector? (first method)))
-                                                  (assert (= :- (first method))
-                                                          "Return type for fn> must be prefixed by :-")
-                                                  [(second method) true])
-                                 method (if ret 
-                                          (nnext method)
-                                          method)
-                                 body (rest method)
-                                 arg-anns (normalise-args (first method))
-                                 [required-params _ [rest-param]] (split-with #(not= '& %) arg-anns)]
-                             (assert (sequential? required-params)
-                                     "Must provide a sequence of typed parameters to fn>")
-                             (assert (not rest-param) "fn> doesn't support rest parameters yet")
-                             {:dom-syntax (doall (map (comp second next) required-params))
-                              :dom-lhs (doall (map first required-params))
-                              :rng-syntax ret
-                              :has-rng? has-ret?
-                              :body body})))]
-    {:poly poly
-     :fn `(fn ~@(concat
-                  (when name
-                    [name])
-                  (for [{:keys [body dom-lhs]} parsed-methods]
-                    (apply list (vec dom-lhs) body))))
-     :parsed-methods parsed-methods}))
+
 
 (defmacro pfn> 
   "Define a polymorphic typed anonymous function.
   (pfn> name? [binder+] :- type? [[param :- type]* & [param :- type *]?] exprs*)
   (pfn> name? [binder+] (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)"
   [& forms]
-  (let [{:keys [poly fn parsed-methods]} (parse-fn> true forms)]
+  (let [{:keys [poly fn parsed-methods]} (internal/parse-fn> true forms)]
     `(pfn>-ann ~fn '~poly '~parsed-methods)))
 
 
@@ -473,8 +424,11 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro 
   ^{:forms '[(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
              (fn> name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
+  ^:deprecated
   fn> 
-  "Like fn, but with annotations. Annotations are mandatory
+  "DEPRECATED: use clojure.core.typed/fn
+
+  Like fn, but with annotations. Annotations are mandatory
   for parameters, with optional annotations for return type.
   If fn is named, return type annotation is mandatory.
 
@@ -493,8 +447,9 @@ for checking namespaces, cf for checking individual forms."}
         (:- String [a :- String] ...)
         (:- Long   [a :- String, b :- Number] ...))"
   [& forms]
-  (let [{:keys [fn parsed-methods]} (parse-fn> false forms)]
+  (let [{:keys [fn parsed-methods]} (internal/parse-fn> false forms)]
     `(fn>-ann ~fn '~parsed-methods)))
+
 
 (defn- defn>-parse-typesig 
   "Helper for parsing type signatures out of defn> forms"

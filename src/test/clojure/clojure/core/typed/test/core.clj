@@ -38,6 +38,7 @@
          '[clojure.core.typed.subst :refer [subst-all] :as subst]
          '[clojure.core.typed.test.rbt]
          '[clojure.core.typed.test.person]
+         '[clojure.core.typed.internal :as internal]
          '[clojure.tools.trace :refer [trace-vars untrace-vars
                                        trace-ns untrace-ns]])
 (import '(clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
@@ -3159,3 +3160,62 @@
 
 (deftest tc-ignore-test
   (is-cf (fn [] (clojure.core.typed/tc-ignore (+ 'a 1)))))
+
+(deftest parse-fn-test
+  (is (= (internal/parse-fn* false '([a b c] a))
+         (internal/parse-fn* false '([a :- Any b c] a))
+         (internal/parse-fn* false '([a :- Any b :- Any c] a))
+         (internal/parse-fn* false '([a :- Any b c :- Any] a))
+         (internal/parse-fn* false '([a :- Any b :- Any c :- Any] a))
+         (internal/parse-fn* false '([a :- Any b :- Any c :- Any] :- Any a))
+         {:fn '(clojure.core/fn ([a b c] a))
+          :ann [{:dom [{:type 'Any} {:type 'Any} {:type 'Any}]
+                 :ret-type {:type 'Any}}]}))
+  (is (= (internal/parse-fn* false '([a] a))
+         (internal/parse-fn* false '([a :- Any] a))
+         (internal/parse-fn* false '([a :- Any] :- Any a))
+         (internal/parse-fn* false '([a] :- Any a))
+         {:fn '(clojure.core/fn ([a] a))
+          :ann [{:dom [{:type 'Any}]
+                 :ret-type {:type 'Any}}]}))
+  (is (= (internal/parse-fn* false '(name [a] :- Any a))
+         {:fn '(clojure.core/fn name ([a] a))
+          :ann [{:dom [{:type 'Any}]
+                 :ret-type {:type 'Any}}]}))
+  (is (= (internal/parse-fn* false '([a :- Number] a))
+         (internal/parse-fn* false '([a :- Number] :- Any a))
+         {:fn '(clojure.core/fn ([a] a))
+          :ann [{:dom [{:type 'Number}]
+                 :ret-type {:type 'Any}}]}))
+  (is (= (internal/parse-fn* false '(name [a :- Number] :- Any a))
+         {:fn '(clojure.core/fn name ([a] a))
+          :ann [{:dom [{:type 'Number}]
+                 :ret-type {:type 'Any}}]}))
+  (is (= (internal/parse-fn* false '([a :- Number] :- Number a))
+         {:fn '(clojure.core/fn ([a] a))
+          :ann [{:dom [{:type 'Number}]
+                 :ret-type {:type 'Number}}]}))
+  (is (= (internal/parse-fn* false '([a & b] a))
+         (internal/parse-fn* false '([a :- Any & b] a))
+         (internal/parse-fn* false '([a :- Any & b :- Any *] :- Any a))
+         (internal/parse-fn* false '([a :- Any & b] :- Any a))
+         (internal/parse-fn* false '([a :- Any & b] :- Any a))
+         (internal/parse-fn* false '([a :- Any & b] :- Any a))
+         {:fn '(clojure.core/fn ([a & b] a))
+          :ann [{:dom [{:type 'Any}]
+                 :rest {:type 'Any}
+                 :ret-type {:type 'Any}}]}))
+  (is (= (internal/parse-fn* false '([a :- Number & b :- Number *] :- Number b))
+         {:fn '(clojure.core/fn ([a & b] b))
+          :ann [{:dom [{:type 'Number}]
+                 :rest {:type 'Number}
+                 :ret-type {:type 'Number}}]}))
+  (is (= (internal/parse-fn* false '([a & b :- Number ... x] a))
+         (internal/parse-fn* false '([a :- Any & b :- Number ... x] a))
+         (internal/parse-fn* false '([a :- Any & b :- Number ... x] :- Any a))
+         {:fn '(clojure.core/fn ([a & b] a))
+          :ann [{:dom [{:type 'Any}]
+                 :drest {:bound 'x
+                         :pretype {:type 'Number}}
+                 :ret-type {:type 'Any}}]}))
+  )
