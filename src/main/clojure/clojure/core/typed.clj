@@ -836,16 +836,13 @@ for checking namespaces, cf for checking individual forms."}
    :pred (fn [this a?] 
            `(~a? (deref ~this)))})
 
-(defn ^:skip-wiki
-  ann-form* 
-  "Internal use only. Use ann-form."
-  [form ty]
-  form)
-
 (defmacro ann-form 
   "Annotate a form with an expected type."
   [form ty]
-  `(ann-form* ~form '~ty))
+  `(do ::special-form
+       ::ann-form
+       {:type '~ty}
+       ~form))
 
 ;(ann into-array>* [Any Any -> Any])
 (defn ^:skip-wiki
