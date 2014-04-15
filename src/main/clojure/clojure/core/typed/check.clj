@@ -3681,6 +3681,11 @@
       (str/replace "[]" "<>")
       symbol))
 
+(defn pprint-reflection-sym [cls]
+  (-> (reflect/typename cls)
+      (str/replace "<>" "[]")
+      symbol))
+
 (defn MethodExpr->Method [{c :class method-name :method :keys [op args] :as expr}]
   {:pre []
    :post [(or (nil? %) (instance? clojure.reflect.Method %))]}
@@ -3716,21 +3721,21 @@
                           (instance? clojure.reflect.Constructor m)
                           (= m-or-f name)))
                       (:members r)))]
-        (cond
-          (empty? members) (str "\n\nTarget " (u/Class->symbol cls) " has no member " m-or-f)
-          (seq members) (str "\n\nAdd type hints to resolve the host call."
-                             (when (seq ctors)
-                               (str "\n\nSuggested constructors:\n"
-                                    (apply str
+      (cond
+        (empty? members) (str "\n\nTarget " (u/Class->symbol cls) " has no member " m-or-f)
+        (seq members) (str "\n\nAdd type hints to resolve the host call."
+                           (when (seq ctors)
+                             (str "\n\nSuggested constructors:\n"
+                                  (apply str
                                            (map 
                                              (fn [{ctor-name :name 
                                                    :keys [parameter-types flags] :as field}]
                                                (str "\n  "
                                                     (apply str (interpose " " (map name flags)))
                                                     (when (seq flags) " ")
-                                                    (reflect-friendly-sym ctor-name) " "
+                                                    (pprint-reflection-sym ctor-name) " "
                                                     "("
-                                                    (apply str (interpose ", " (map reflect-friendly-sym parameter-types)))
+                                                    (apply str (interpose ", " (map pprint-reflection-sym parameter-types)))
                                                     ")"))
                                              ctors))))
                              (when (seq fields)
@@ -3739,7 +3744,7 @@
                                            (map 
                                              (fn [[clssym cls-fields]]
                                                (apply str
-                                                      "\n " (reflect-friendly-sym clssym)
+                                                      "\n " (pprint-reflection-sym clssym)
                                                       "\n \\"
                                                       (map
                                                         (fn [{field-name :name 
@@ -3747,7 +3752,7 @@
                                                           (str "\n  "
                                                                (apply str (interpose " " (map name flags)))
                                                                (when (seq flags) " ")
-                                                               (reflect-friendly-sym type) " "
+                                                               (pprint-reflection-sym type) " "
                                                                field-name))
                                                         cls-fields)))
                                              (group-by :declaring-class fields)))))
@@ -3758,7 +3763,7 @@
                                              (map
                                                (fn [[clsym cls-methods]]
                                                  (apply str
-                                                        "\n " (reflect-friendly-sym clsym)
+                                                        "\n " (pprint-reflection-sym clsym)
                                                         "\n \\"
                                                         (map 
                                                           (fn [{method-name :name 
@@ -3767,10 +3772,10 @@
                                                               "\n  "
                                                               (apply str (interpose " " (map name flags)))
                                                               (when (seq flags) " ")
-                                                              (reflect-friendly-sym return-type) " "
+                                                              (pprint-reflection-sym return-type) " "
                                                               method-name 
                                                               "(" 
-                                                              (apply str (interpose ", " (map reflect-friendly-sym parameter-types))) 
+                                                              (apply str (interpose ", " (map pprint-reflection-sym parameter-types))) 
                                                               ")"))
                                                           cls-methods)))
                                                methods-by-class)))))))))))
