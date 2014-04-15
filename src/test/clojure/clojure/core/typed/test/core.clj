@@ -3155,7 +3155,7 @@
                                         (U nil (clojure.core.typed/NonEmptySeq Any))))))
 
 (deftest fail-on-reflection-test
-  (is (caught-top-level-errors #{3} 
+  (is (caught-top-level-errors #{4} 
         (check-ns 'clojure.core.typed.test.fail.reflection))))
 
 (deftest tc-ignore-test
