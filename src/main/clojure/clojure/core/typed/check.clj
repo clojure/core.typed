@@ -2136,25 +2136,6 @@
     (assoc expr
            expr-type (ret parsed-ty))))
 
-;form annotation
-(add-invoke-special-method 'clojure.core.typed/ann-form*
-  [{[frm quote-expr] :args, :keys [env], :as expr} & [expected]]
-  (let [tsyn (quote-expr-val quote-expr)
-        parsed-ty (binding [vs/*current-env* env
-                            prs/*parse-type-in-ns* (expr-ns expr)]
-                    (prs/parse-type tsyn))
-        cty (check frm (ret parsed-ty))
-        checked-type (ret-t (expr-type cty))
-        _ (binding [vs/*current-expr* frm]
-            (when (not (sub/subtype? checked-type parsed-ty))
-              (expected-error checked-type parsed-ty)))
-        _ (when (and expected (not (sub/subtype? checked-type (ret-t expected))))
-            (binding [vs/*current-expr* frm
-                      vs/*current-env* env]
-              (expected-error checked-type (ret-t expected))))]
-    (assoc expr
-           expr-type (ret parsed-ty))))
-
 ;pred
 (add-invoke-special-method 'clojure.core.typed/pred*
   [{[{tsyn :val} {nsym :val} _pred-fn_ :as args] :args, :keys [env], :as expr} & [expected]]
