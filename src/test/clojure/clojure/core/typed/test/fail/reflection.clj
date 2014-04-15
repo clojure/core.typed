@@ -9,3 +9,9 @@
 
 (fn [a]
   (java.io.File. a))
+
+(t/ann write-lines [java.io.Writer (t/Option (t/Coll String)) -> nil])
+(defn write-lines [writer lines]
+  (t/doseq> [l :- String lines]
+    (.write writer "testing")
+    (println l)))
