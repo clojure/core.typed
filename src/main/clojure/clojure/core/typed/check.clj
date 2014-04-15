@@ -3447,10 +3447,20 @@
                                    (r/DottedPretype1-maker
                                      (prs/parse-type (:pretype drest))
                                      (:bound drest))))))))
-        cfexpr (check fexpr (ret ann-expected))
+
+        ; if the t/fn statement looks unannotated, use the expected type if possible
+        use-expected (if (every? (fn [{:keys [dom rest drest rng]}]
+                                   (and (every? #{r/-any} dom)
+                                        ((some-fn nil? #{r/-any}) rest)
+                                        (#{r/-any} (:t rng))))
+                                 (:types ann-expected))
+                       (or (when expected (ret-t expected)) ann-expected)
+                       ann-expected)
+        cfexpr (check fexpr (ret use-expected))
         _ (when expected
-            (when-not (sub/subtype? (-> cfexpr expr-type ret-t) (ret-t expected))
-              (expected-error (-> cfexpr expr-type ret-t) (ret-t expected))))]
+            (let [actual (-> cfexpr expr-type ret-t)]
+              (when-not (sub/subtype? actual (ret-t expected))
+                (expected-error actual (ret-t expected)))))]
     (assoc expr
            expr-type (expr-type cfexpr))))
 
