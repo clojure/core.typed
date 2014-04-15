@@ -1838,11 +1838,6 @@
      :env env
      :var v}))
 
-(defn dummy-constant-expr [c env]
-  {:op :const
-   :env env
-   :val c})
-
 (defn swap!-dummy-arg-expr [env [target-expr & [f-expr & args]]]
   (assert f-expr)
   (assert target-expr)
@@ -1868,17 +1863,27 @@
                         env)]
     dummy-fn-expr))
 
+(defn dummy-do-expr [statements ret env]
+  {:op :do
+   :statements statements
+   :ret ret
+   :env env})
+
+(defn dummy-const-expr [val env]
+  {:op :const
+   :val val
+   :env env})
+
 ; Any Type Env -> Expr
 (defn dummy-ann-form-expr [expr t env]
-  (dummy-invoke-expr
-    (dummy-var-expr
-      'clojure.core.typed/ann-form*
-      env)
-    [expr
-     (dummy-constant-expr
-       (binding [t/*verbose-types* true]
-         (prs/unparse-type t))
+  (dummy-do-expr
+    [(dummy-const-expr ::t/special-form env)
+     (dummy-const-expr ::t/ann-form env)
+     (dummy-const-expr 
+       {:type (binding [t/*verbose-types* true]
+                (prs/unparse-type t))}
        env)]
+    expr
     env))
 
 ;swap!
@@ -2216,12 +2221,6 @@
     ;loop may be nested, type the first loop found
     (binding [*loop-bnd-anns* expected-bnds]
       (check expr expected))))
-
-;don't type check
-(add-invoke-special-method 'clojure.core.typed/tc-ignore-forms*
-  [{:keys [args] :as expr} & [expected]]
-  (assoc expr
-         expr-type (ret r/-any)))
 
 ;seq
 (add-invoke-special-method 'clojure.core/seq
@@ -3449,6 +3448,24 @@
   [expr expected]
   (assoc expr
          expr-type (ret r/-any)))
+
+(defmethod internal-special-form ::t/ann-form
+  [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
+  {:pre [(#{3} (count statements))]}
+  (let [parsed-ty (binding [vs/*current-env* env
+                            prs/*parse-type-in-ns* (expr-ns expr)]
+                    (prs/parse-type tsyn))
+        cty (check frm (ret parsed-ty))
+        checked-type (ret-t (expr-type cty))
+        _ (binding [vs/*current-expr* frm]
+            (when (not (sub/subtype? checked-type parsed-ty))
+              (expected-error checked-type parsed-ty)))
+        _ (when (and expected (not (sub/subtype? checked-type (ret-t expected))))
+            (binding [vs/*current-expr* frm
+                      vs/*current-env* env]
+              (expected-error checked-type (ret-t expected))))]
+    (assoc expr
+           expr-type (ret parsed-ty))))
 
 (defmethod internal-special-form :default
   [expr expected]
