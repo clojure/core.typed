@@ -49,9 +49,9 @@
 ;[(Seqable Type) (Seqable Type) Type -> Boolean]
 (defn subtypes-varargs?
   "True if argtys are under dom"
-  [argtys dom rst]
+  [argtys dom rst kws]
   (handle-failure
-    (subtypes*-varargs #{} argtys dom rst)
+    (subtypes*-varargs #{} argtys dom rst kws)
     true))
 
 ;subtype and subtype? use *sub-current-seen* for remembering types (for Rec)
@@ -892,24 +892,46 @@
 
 ;[(IPersistentSet '[Type Type]) (Seqable Type) (Seqable Type) (Option Type)
 ;  -> (IPersistentSet '[Type Type])]
-(defn subtypes*-varargs [A0 argtys dom rst]
-  (loop [dom dom
-         argtys argtys
-         A A0]
-    (cond
-      (and (empty? dom) (empty? argtys)) A
-      (empty? argtys) (fail! argtys dom)
-      (and (empty? dom) rst)
-      (if-let [A (subtypeA* A (first argtys) rst)]
-        (recur dom (next argtys) A)
-        (fail! (first argtys) rst))
+(defn subtypes*-varargs [A0 argtys dom rst kws]
+  {:pre [((some-fn nil? r/Type?) rst)
+         ((some-fn nil? r/KwArgs?) kws)]}
+  (letfn [(all-mandatory-kws? [found-kws]
+            {:pre [(set? found-kws)]}
+            (empty? (set/difference (set (keys (:mandatory kws)))
+                                    found-kws)))]
+    (loop [dom dom
+           argtys argtys
+           A A0
+           found-kws #{}]
+      (cond
+        (and (empty? dom) (empty? argtys)) 
+        (if (all-mandatory-kws? found-kws)
+          A
+          (fail! argtys dom))
 
-      (empty? dom) (fail! argtys dom)
-      :else
-      (if-let [A (subtypeA* A0 (first argtys) (first dom))]
-        (recur (next dom) (next argtys) A)
-        (fail! (first argtys) (first dom))))))
+        (empty? argtys) (fail! argtys dom)
 
+        (and (empty? dom) rst)
+        (if-let [A (subtypeA* A (first argtys) rst)]
+          (recur dom (next argtys) A found-kws)
+          (fail! (first argtys) rst))
+
+        (and (empty? dom) (<= 2 (count argtys)) kws)
+        (let [kw (c/fully-resolve-type (first argtys))
+              val (second argtys)
+              expected-val ((some-fn (:mandatory kws) (:optional kws))
+                            kw)]
+          (if (and expected-val (subtype? val expected-val))
+            (recur dom (drop 2 argtys) A (conj found-kws kw))
+            (fail! (take 2 argtys) kws)))
+
+        (empty? dom) (fail! argtys dom)
+        :else
+        (if-let [A (subtypeA* A0 (first argtys) (first dom))]
+          (recur (next dom) (next argtys) A found-kws)
+          (fail! (first argtys) (first dom)))))))
+
+;FIXME
 (defn subtype-kwargs* [^KwArgs s ^KwArgs t]
   {:pre [((some-fn r/KwArgs? nil?) s)
          ((some-fn r/KwArgs? nil?) t)]}
@@ -950,19 +972,19 @@
       (subtype-kwargs* (.kws t) (.kws s)))
 
     (and (:rest s)
-         (not ((some-fn :rest :drest) t)))
+         (not ((some-fn :rest :drest :kws) t)))
     (-> *sub-current-seen*
-      (subtypes*-varargs (.dom t) (.dom s) (.rest s))
+      (subtypes*-varargs (.dom t) (.dom s) (.rest s) nil)
       (subtypeA* (.rng s) (.rng t)))
 
-    (and (not ((some-fn :rest :drest) s))
+    (and (not ((some-fn :rest :drest :kws) s))
          (:rest t))
     (fail! s t)
 
     (and (.rest s)
          (.rest t))
     (-> *sub-current-seen*
-      (subtypes*-varargs (:dom t) (:dom s) (:rest s))
+      (subtypes*-varargs (:dom t) (:dom s) (:rest s) nil)
       (subtypeA* (:rest t) (:rest s))
       (subtypeA* (:rng s) (:rng t)))
 

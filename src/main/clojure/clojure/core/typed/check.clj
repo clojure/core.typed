@@ -1084,9 +1084,9 @@
       (r/FnIntersection? fexpr-type)
       (u/p :check/funapp-nopoly-nodots
       (let [ftypes (:types fexpr-type)
-            matching-fns (filter (fn [{:keys [dom rest] :as f}]
+            matching-fns (filter (fn [{:keys [dom rest kws] :as f}]
                                    {:pre [(r/Function? f)]}
-                                   (sub/subtypes-varargs? arg-types dom rest))
+                                   (sub/subtypes-varargs? arg-types dom rest kws))
                                  ftypes)
             success-ret-type (when-let [f (first matching-fns)]
                                (check-funapp1 fexpr args f arg-ret-types expected :check? false))]
