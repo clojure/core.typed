@@ -170,7 +170,7 @@ for checking namespaces, cf for checking individual forms."}
   eg. (dotimes> [_ 100]
         (println \"like normal\"))"
   [bindings & body]
-  (@#'clojure.core/assert-args
+  (@#'core/assert-args
      (vector? bindings) "a vector for its binding"
      (= 2 (count bindings)) "exactly 2 forms in binding vector")
   (let [i (first bindings)
@@ -190,7 +190,7 @@ for checking namespaces, cf for checking individual forms."}
          :when a]
         (inc a))"
   [tk ret-ann seq-exprs body-expr]
-  (@#'clojure.core/assert-args
+  (@#'core/assert-args
      (vector? seq-exprs) "a vector for its binding"
      (even? (count seq-exprs)) "an even number of forms in binding vector")
   (assert (#{:-} tk) "Must provide return type annotation for for>.")
@@ -218,7 +218,7 @@ for checking namespaces, cf for checking individual forms."}
         seq-exprs (normalise-args seq-exprs)
 
         to-groups (fn [seq-exprs]
-                    (@#'clojure.core/reduce1 (fn [groups [k v]]
+                    (@#'core/reduce1 (fn [groups [k v]]
                                                (if (keyword? k)
                                                  (conj (pop groups) (conj (peek groups) [k v]))
                                                  (conj groups [k v])))
@@ -315,7 +315,7 @@ for checking namespaces, cf for checking individual forms."}
            :when a]
      (inc a))"
   [seq-exprs & body]
-  (@#'clojure.core/assert-args
+  (@#'core/assert-args
      (vector? seq-exprs) "a vector for its binding"
      (even? (count seq-exprs)) "an even number of forms in binding vector")
   (let [normalise-args
