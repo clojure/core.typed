@@ -136,31 +136,26 @@
     (when path
       {:path-elems (mapv parse-path-elem path)})))
 
-(defn parse-with-rest-drest [op]
-  (fn [[_ fixed & {:keys [filter-sets objects]} :as syn]]
-    (merge
-      {:op op
-       :types (mapv parse fixed)
-       :children (vec (concat
-                        [:types]
-                        (when filter-sets
-                          [:filter-sets])
-                        (when objects
-                          [:objects])))}
-      (when filter-sets
-        {:filter-sets (mapv parse-filter-set filter-sets)})
-      (when objects
-        {:objects (mapv parse-object filter-sets)}))))
+(defn parse-HVec [[_ fixed & {:keys [filter-sets objects]} :as syn]]
+  (merge
+    {:op :HVec
+     :types (mapv parse fixed)
+     :children (vec (concat
+                      [:types]
+                      (when filter-sets
+                        [:filter-sets])
+                      (when objects
+                        [:objects])))}
+    (when filter-sets
+      {:filter-sets (mapv parse-filter-set filter-sets)})
+    (when objects
+      {:objects (mapv parse-object filter-sets)})))
 
-(def parse-HVec (parse-with-rest-drest :HVec))
-(def parse-HSequential (parse-with-rest-drest :HSequential))
-(def parse-HSeq (parse-with-rest-drest :HSeq))
-
-(defn parse-hvec-types [syns]
+(defn parse-with-rest-drest [msg syns]
   (let [rest? (#{'*} (last syns))
         dotted? (#{'...} (-> syns butlast last))
         _ (when (and rest? dotted?)
-            (err/int-error (str "Invalid heterogeneous vector syntax:" syns)))
+            (err/int-error (str msg syns)))
         {:keys [types rest drest]}
         (cond
           rest?
@@ -190,21 +185,29 @@
      :rest rest
      :drest drest}))
 
-(defn parse-quoted-hvec [syn]
-  (let [{:keys [types drest rest]} (parse-hvec-types syn)]
-    (merge
-      {:op :HVec
-       :types types
-       :children (vec (concat
-                        [:types]
-                        (when drest
-                          [:drest])
-                        (when rest
-                          [:rest])))}
-      (when drest
-        {:drest drest})
-      (when rest
-        {:rest rest}))))
+(defn parse-h* [op msg]
+  (fn [[_ syn]]
+    (let [{:keys [types drest rest]}
+          (parse-with-rest-drest msg syn)]
+      (merge
+        {:op op
+         :types types
+         :children (vec (concat
+                          [:types]
+                          (when drest
+                            [:drest])
+                          (when rest
+                            [:rest])))}
+        (when drest
+          {:drest drest})
+        (when rest
+          {:rest rest})))))
+
+(def parse-HSequential (parse-h* :HSequential "Invalid HSeqnential syntax:"))
+(def parse-HSeq (parse-h* :HSeq "Invalid HSeq syntax:"))
+
+(def parse-quoted-hvec (fn [syn]
+                         ((parse-h* :HVec "Invalid heterogeneous vector syntax:") [nil syn])))
 
 (defn parse-quoted-hseq [syn]
   (let [types (mapv parse syn)]
