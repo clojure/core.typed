@@ -2,7 +2,8 @@
 ; we want clojure.lang.Seqable to be scoped here. 
 ; There :refer :all of clojure.core.typed adds another Seqable which
 ; is less useful here.
-  (:use [clojure.core.typed :as tc :exclude [Seqable]]))
+  (:use [clojure.core.typed :as tc :exclude [Seqable loop fn defprotocol let dotimes
+                                             for doseq def]]))
 
 (load-if-needed)
 
@@ -3162,31 +3163,25 @@
   (is-cf (fn [] (clojure.core.typed/tc-ignore (+ 'a 1)))))
 
 (deftest parse-fn-test
-  (is (= (internal/parse-fn* false '([a b c] a))
-         (internal/parse-fn* false '([a :- Any b c] a))
-         (internal/parse-fn* false '([a :- Any b :- Any c] a))
-         (internal/parse-fn* false '([a :- Any b c :- Any] a))
-         (internal/parse-fn* false '([a :- Any b :- Any c :- Any] a))
-         (internal/parse-fn* false '([a :- Any b :- Any c :- Any] :- Any a))
-         {:fn '(clojure.core/fn ([a b c] a))
-          :ann [{:dom [{:type 'Any} {:type 'Any} {:type 'Any}]
-                 :ret-type {:type 'Any}}]}))
-  (is (= (internal/parse-fn* false '([a] a))
-         (internal/parse-fn* false '([a :- Any] a))
-         (internal/parse-fn* false '([a :- Any] :- Any a))
-         (internal/parse-fn* false '([a] :- Any a))
-         {:fn '(clojure.core/fn ([a] a))
-          :ann [{:dom [{:type 'Any}]
-                 :ret-type {:type 'Any}}]}))
+  (is (= (:fn (internal/parse-fn* false '([a b c] a)))
+         (:fn (internal/parse-fn* false '([a :- Any b c] a)))
+         (:fn (internal/parse-fn* false '([a :- Any b :- Any c] a)))
+         (:fn (internal/parse-fn* false '([a :- Any b c :- Any] a)))
+         (:fn (internal/parse-fn* false '([a :- Any b :- Any c :- Any] a)))
+         (:fn (internal/parse-fn* false '([a :- Any b :- Any c :- Any] :- Any a)))
+         '(clojure.core/fn ([a b c] a))))
+  (is (= (:fn (internal/parse-fn* false '([a] a)))
+         (:fn (internal/parse-fn* false '([a :- Any] a)))
+         (:fn (internal/parse-fn* false '([a :- Any] :- Any a)))
+         (:fn (internal/parse-fn* false '([a] :- Any a)))
+         '(clojure.core/fn ([a] a))))
   (is (= (internal/parse-fn* false '(name [a] :- Any a))
          {:fn '(clojure.core/fn name ([a] a))
-          :ann [{:dom [{:type 'Any}]
+          :ann [{:dom [{:default true :type 'Any}]
                  :ret-type {:type 'Any}}]}))
-  (is (= (internal/parse-fn* false '([a :- Number] a))
-         (internal/parse-fn* false '([a :- Number] :- Any a))
-         {:fn '(clojure.core/fn ([a] a))
-          :ann [{:dom [{:type 'Number}]
-                 :ret-type {:type 'Any}}]}))
+  (is (= (:fn (internal/parse-fn* false '([a :- Number] a)))
+         (:fn (internal/parse-fn* false '([a :- Number] :- Any a)))
+         '(clojure.core/fn ([a] a))))
   (is (= (internal/parse-fn* false '(name [a :- Number] :- Any a))
          {:fn '(clojure.core/fn name ([a] a))
           :ann [{:dom [{:type 'Number}]
@@ -3195,27 +3190,137 @@
          {:fn '(clojure.core/fn ([a] a))
           :ann [{:dom [{:type 'Number}]
                  :ret-type {:type 'Number}}]}))
-  (is (= (internal/parse-fn* false '([a & b] a))
-         (internal/parse-fn* false '([a :- Any & b] a))
-         (internal/parse-fn* false '([a :- Any & b :- Any *] :- Any a))
-         (internal/parse-fn* false '([a :- Any & b] :- Any a))
-         (internal/parse-fn* false '([a :- Any & b] :- Any a))
-         (internal/parse-fn* false '([a :- Any & b] :- Any a))
-         {:fn '(clojure.core/fn ([a & b] a))
-          :ann [{:dom [{:type 'Any}]
-                 :rest {:type 'Any}
-                 :ret-type {:type 'Any}}]}))
+  (is (= (:fn (internal/parse-fn* false '([a & b] a)))
+         (:fn (internal/parse-fn* false '([a :- Any & b] a)))
+         (:fn (internal/parse-fn* false '([a :- Any & b :- Any *] :- Any a)))
+         (:fn (internal/parse-fn* false '([a :- Any & b] :- Any a)))
+         (:fn (internal/parse-fn* false '([a :- Any & b] :- Any a)))
+         (:fn (internal/parse-fn* false '([a :- Any & b] :- Any a)))
+         '(clojure.core/fn ([a & b] a))))
   (is (= (internal/parse-fn* false '([a :- Number & b :- Number *] :- Number b))
          {:fn '(clojure.core/fn ([a & b] b))
           :ann [{:dom [{:type 'Number}]
                  :rest {:type 'Number}
                  :ret-type {:type 'Number}}]}))
   (is (= (internal/parse-fn* false '([a & b :- Number ... x] a))
-         (internal/parse-fn* false '([a :- Any & b :- Number ... x] a))
-         (internal/parse-fn* false '([a :- Any & b :- Number ... x] :- Any a))
+         {:fn '(clojure.core/fn ([a & b] a))
+          :ann [{:dom [{:default true :type 'Any}]
+                 :drest {:bound 'x
+                         :pretype {:type 'Number}}
+                 :ret-type {:default true :type 'Any}}]}))
+
+  (is (= (internal/parse-fn* false '([a :- Any & b :- Number ... x] a))
          {:fn '(clojure.core/fn ([a & b] a))
           :ann [{:dom [{:type 'Any}]
                  :drest {:bound 'x
                          :pretype {:type 'Number}}
-                 :ret-type {:type 'Any}}]}))
+                 :ret-type {:default true :type 'Any}}]}))
+  (is (= (internal/parse-fn* false '([a :- Any & b :- Number ... x] :- Any a))
+         {:fn '(clojure.core/fn ([a & b] a))
+          :ann [{:dom [{:type 'Any}]
+                 :drest {:bound 'x
+                         :pretype {:type 'Number}}
+                 :ret-type {:type 'Any}}]})))
+
+(deftest parse-loop-test
+  (is (= (internal/parse-loop* '([a []] a))
+         {:loop '(clojure.core/loop [a []] a)
+          :ann {:params [{:default true :type 'Any}]}}))
+  (is (= (internal/parse-loop* '([a :- Any []] a))
+         {:loop '(clojure.core/loop [a []] a)
+          :ann {:params [{:type 'Any}]}})))
+
+(deftest loop-macro-test
+  (is-cf (fn [] (clojure.core.typed/loop [a 1] (recur a))))
+  (is-cf (fn [] (clojure.core.typed/loop [a :- Number 1] (recur a))))
+  (is (u/top-level-error-thrown?
+        (cf (fn [] (clojure.core.typed/loop [a :- clojure.lang.Symbol 1] (recur a)))))))
+
+
+(deftest parse-defprotocol-test
+  ;cannot shadow tvars
+  (is (thrown? AssertionError
+               (internal/parse-defprotocol*
+                 '([[x :variance :covariant]] Name ([x] m1 [this t])))))
+  ;unannotated
+  (is (= (internal/parse-defprotocol*
+           '(Name (m1 [this t])
+                  (m2 [this t] [this t y])))
+         {:defprotocol '(clojure.core/defprotocol Name
+                          (m1 [this t])
+                          (m2 [this t] [this t y]))
+          :ann-protocol '(clojure.core.typed/ann-protocol Name
+                           m1
+                           (Fn [Name Any -> Any])
+                           m2
+                           (Fn [Name Any -> Any]
+                               [Name Any Any -> Any]))}))
+  ; fully annotated, no poly
+  (is (= (internal/parse-defprotocol*
+           '(Name (m1 [this t :- Foo] :- Bar)
+                  (m2 [this t :- Number] :- Baz
+                      [this t :- Number, y :- Blah] :- Bar)))
+         {:defprotocol '(clojure.core/defprotocol Name
+                          (m1 [this t])
+                          (m2 [this t] [this t y]))
+          :ann-protocol '(clojure.core.typed/ann-protocol Name
+                           m1
+                           (Fn [Name Foo -> Bar])
+                           m2
+                           (Fn [Name Number -> Baz]
+                               [Name Number Blah -> Bar]))}))
+  ; method intersections
+  (is (= (internal/parse-defprotocol*
+           '(Name (m1 [this t :- Foo] :- Bar
+                      [this t :- Foo1] :- Bar1
+                      [this e :- Foo2] :- Bar2)))
+         {:defprotocol '(clojure.core/defprotocol Name
+                          (m1 [this t]))
+          :ann-protocol '(clojure.core.typed/ann-protocol Name
+                           m1
+                           (Fn [Name Foo -> Bar]
+                               [Name Foo1 -> Bar1]
+                               [Name Foo2 -> Bar2]))}))
+  ;polymorphic protocols with doc
+  (is (= (internal/parse-defprotocol*
+           '([[x :variance :covariant]]
+             Name (m1 [this t :- Foo] :- Bar
+                      [this t :- Foo1] :- Bar1
+                      [this e :- Foo2] :- Bar2
+                      "Doc")))
+         {:defprotocol '(clojure.core/defprotocol Name
+                          (m1 [this t] "Doc"))
+          :ann-protocol '(clojure.core.typed/ann-protocol 
+                           [[x :variance :covariant]]
+                           Name
+                           m1
+                           (Fn [(Name x) Foo -> Bar]
+                               [(Name x) Foo1 -> Bar1]
+                               [(Name x) Foo2 -> Bar2]))}))
+  ; polymorphic method
+  (is (= (internal/parse-defprotocol*
+           '([[x :variance :covariant]]
+             Name ([y] 
+                   m1 
+                   [this t :- Foo] :- Bar
+                   [this t :- Foo1] :- Bar1
+                   [this e :- Foo2] :- Bar2)))
+         {:defprotocol '(clojure.core/defprotocol Name
+                          (m1 [this t]))
+          :ann-protocol '(clojure.core.typed/ann-protocol 
+                           [[x :variance :covariant]]
+                           Name
+                           m1
+                           (All [y]
+                                (Fn [(Name x) Foo -> Bar]
+                                    [(Name x) Foo1 -> Bar1]
+                                    [(Name x) Foo2 -> Bar2])))}))
   )
+
+(deftest parse-let-test
+  (is (= (internal/parse-let* '([a b c d] 1 2 3 4))
+         {:let '(clojure.core/let [a b c d] 1 2 3 4)}))
+  (is (= (internal/parse-let* '([a :- Foo b c :- Baz d] 1 2 3 4))
+         {:let '(clojure.core/let [a (clojure.core.typed/ann-form b Foo) 
+                                   c (clojure.core.typed/ann-form d Baz)] 
+                  1 2 3 4)})))

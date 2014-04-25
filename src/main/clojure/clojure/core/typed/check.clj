@@ -3482,6 +3482,17 @@
     (assoc expr
            expr-type (ret parsed-ty))))
 
+(defmethod internal-special-form ::t/loop
+  [{[_ _ {{tsyns :ann} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
+  {:pre [(#{3} (count statements))]}
+  (let [tbindings (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+                    (mapv (comp prs/parse-type :type) (:params tsyns)))
+        cfrm ;loop may be nested, type the first loop found
+        (binding [*loop-bnd-anns* tbindings]
+          (check frm expected))]
+    (assoc expr
+           expr-type (expr-type cfrm))))
+
 (defmethod internal-special-form :default
   [expr expected]
   (u/int-error (str "No such internal form: " (u/emit-form-fn expr))))

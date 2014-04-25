@@ -3,7 +3,8 @@
 and functions for type checking Clojure code. check-ns is the interface
 for checking namespaces, cf for checking individual forms."}
   clojure.core.typed
-  (:refer-clojure :exclude [type #_defprotocol #_letfn fn])
+  (:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
+                            def])
   (:require [clojure.core :as core]
             [clojure.pprint :as pprint]
             [clojure.set :as set]
@@ -14,6 +15,43 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.parse-ast :as ast]
             [clojure.core.typed.internal :as internal]
             [clojure.java.io :as io]))
+
+(defmacro
+  ^{:forms '[(def name docstring? :- type? expr)]}
+  def
+  "Like clojure.core/def with optional type annotations
+
+  If an annotation is provided, a corresponding `ann` form
+  is generated, otherwise it expands identically to clojure.core/def
+
+  eg. ;same as clojure.core/def
+      (def vname 1)
+      
+      ;with Number `ann`
+      (def vname :- Number 1)
+
+      ;doc
+      (def vname
+        \"Docstring\"
+        :- Long
+        1)"
+  [name & fdecl]
+  (core/let [[docstring fdecl] (internal/take-when string? fdecl)
+             [provided? t body] (if (#{:-} (first fdecl))
+                                  (core/let [_ (assert (#{3} (count fdecl))
+                                                       "Bad arguments to clojure.core.typed/def")
+                                             [colon t body] fdecl]
+                                    [true t body])
+                                  (core/let [_ (assert (#{1} (count fdecl))
+                                                       "Bad arguments to clojure.core.typed/def")
+                                             [body] fdecl]
+                                    [false nil body]))]
+    `(do ~@(when provided?
+             [`(ann ~name ~t)])
+         ~(list* 'def name 
+                 (concat
+                   (when docstring [docstring])
+                   [body])))))
 
 ;at the top because the rest of this namespace uses this macro
 (defmacro 
@@ -45,11 +83,47 @@ for checking namespaces, cf for checking individual forms."}
         ([a :- String] :- String ...)
         ([a :- String, b :- Number] :- String ...))"
   [& forms]
-  (let [{:keys [fn ann]} (internal/parse-fn* false forms)]
+  (core/let [{:keys [fn ann]} (internal/parse-fn* false forms)]
     `(do ::special-form
          ::fn
          {:ann '~ann}
          ~fn)))
+
+(defmacro 
+  ^{:forms '[(loop [binding :- type?, init*] exprs*)]}
+  loop
+  "Like clojure.core/loop, and supports optional type annotations.
+  Arguments default to a generalised type based on the initial value.
+
+  eg. (loop [a :- Number 1
+             b :- (U nil Number) nil]
+        ...)"
+  [bindings & exprs]
+  (core/let [{:keys [ann loop]} (internal/parse-loop* `(~bindings ~@exprs))]
+    `(do ::special-form
+         ::loop
+         {:ann '~ann}
+         ~loop)))
+
+(defmacro 
+  ^{:forms '[(let [binding :- type?, init*] exprs*)]}
+  let
+  "Like clojure.core/let but supports optional type annotations.
+
+  eg. (let [a :- Type, b
+            a2 1.2]
+        body)"
+  [bvec & forms]
+  (core/let [{:keys [let]} (internal/parse-let* (cons bvec forms))]
+    let))
+
+(defmacro ann-form 
+  "Annotate a form with an expected type."
+  [form ty]
+  `(do ::special-form
+       ::ann-form
+       {:type '~ty}
+       ~form))
 
 ;=============================================================
 ; # core.typed
@@ -98,7 +172,7 @@ for checking namespaces, cf for checking individual forms."}
         _ (assert (seq ms) (str "Method " mname " not found"))]
     (println "Method name:" mname)
     (flush)
-    (doseq [m ms]
+    (core/doseq [m ms]
       (println (unparse-type
                  (Method->Type m)))
       (flush))))
@@ -164,8 +238,10 @@ for checking namespaces, cf for checking individual forms."}
   [loop-of bnding-types]
   loop-of)
 
-(defmacro dotimes>
-  "Like dotimes.
+(defmacro ^:deprecated dotimes>
+  "DEPRECATED: Use clojure.core.typed/dotimes
+
+  Like dotimes.
   
   eg. (dotimes> [_ 100]
         (println \"like normal\"))"
@@ -181,8 +257,32 @@ for checking namespaces, cf for checking individual forms."}
            ~@body
            (recur (unchecked-inc ~i)))))))
 
-(defmacro for>
-  "Like for but requires annotation for each loop variable: [a [1 2]] becomes [a :- Long [1 2]]
+(defmacro dotimes
+  "Like clojure.core/dotimes, but with optional annotations.
+
+  If annotation for binding is omitted, defaults to Int.
+  
+  eg. (dotimes [_ 100]
+        (println \"like normal\"))
+
+      (dotimes [x :- Number, 100.123]
+        (println \"like normal\" x))"
+  [bindings & body]
+  (@#'core/assert-args
+     (vector? bindings) "a vector for its binding"
+     (= 2 (count bindings)) "exactly 2 forms in binding vector")
+  (let [i (first bindings)
+        n (second bindings)]
+    `(let [n# (long ~n)]
+       (loop [~i :- ~'clojure.core.typed/Int 0]
+         (when (< ~i n#)
+           ~@body
+           (recur (unchecked-inc ~i)))))))
+
+(defmacro ^:deprecated for>
+  "DEPRECATED: use clojure.core.typed/for
+
+  Like for but requires annotation for each loop variable: [a [1 2]] becomes [a :- Long [1 2]]
   Also requires annotation for return type.
   
   eg. (for> :- Number
@@ -236,15 +336,15 @@ for checking namespaces, cf for checking individual forms."}
                           gxs (gensym "s__")
                           do-mod (fn do-mod [[[k v :as pair] & etc]]
                                    (cond
-                                     (= k :let) `(let ~v ~(do-mod etc))
+                                     (= k :let) `(core/let ~v ~(do-mod etc))
                                      (= k :while) `(when ~v ~(do-mod etc))
                                      (= k :when) `(if ~v
                                                     ~(do-mod etc)
                                                     (recur (rest ~gxs)))
                                      (keyword? k) (err "Invalid 'for' keyword " k)
                                      next-groups
-                                      `(let [iterys# ~(emit-bind next-groups)
-                                             fs# (seq (iterys# ~next-expr))]
+                                      `(core/let [iterys# ~(emit-bind next-groups)
+                                                  fs# (seq (iterys# ~next-expr))]
                                          (if fs#
                                            (concat fs# (~giter (rest ~gxs)))
                                            (recur (rest ~gxs))))
@@ -264,7 +364,7 @@ for checking namespaces, cf for checking individual forms."}
                               gb (gensym "b__")
                               do-cmod (fn do-cmod [[[k v :as pair] & etc]]
                                         (cond
-                                          (= k :let) `(let ~v ~(do-cmod etc))
+                                          (= k :let) `(core/let ~v ~(do-cmod etc))
                                           (= k :while) `(when ~v ~(do-cmod etc))
                                           (= k :when) `(if ~v
                                                          ~(do-cmod etc)
@@ -285,29 +385,172 @@ for checking namespaces, cf for checking individual forms."}
                                  (loop> [~gxs :- (~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~gxs]
                                         (when-let [~gxs (seq ~gxs)]
                                           (if (chunked-seq? ~gxs)
-                                            (let [c# (chunk-first ~gxs)
-                                                  size# (int (count c#))
-                                                  ~gb (ann-form (chunk-buffer size#)
-                                                                (~'clojure.lang.ChunkBuffer ~ret-ann))]
+                                            (core/let [c# (chunk-first ~gxs)
+                                                       size# (int (count c#))
+                                                       ~gb (ann-form (chunk-buffer size#)
+                                                                     (~'clojure.lang.ChunkBuffer ~ret-ann))]
                                               (if (loop> [~gi :- ~'clojure.core.typed/AnyInteger, (int 0)]
                                                          (if (< ~gi size#)
-                                                           (let [;~bind (.nth c# ~gi)]
-                                                                 ~bind (nth c# ~gi)]
+                                                           (core/let [;~bind (.nth c# ~gi)]
+                                                                      ~bind (nth c# ~gi)]
                                                              ~(do-cmod mod-pairs))
                                                            true))
                                                 (chunk-cons
                                                   (chunk ~gb)
                                                   (~giter (chunk-rest ~gxs)))
                                                 (chunk-cons (chunk ~gb) nil)))
-                                            (let [~bind (first ~gxs)]
+                                            (core/let [~bind (first ~gxs)]
                                               ~(do-mod mod-pairs)))))))
                              [(~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~'->
                               (~'clojure.core.typed/Seq ~ret-ann)])))))]
+    `(core/let [iter# ~(emit-bind (to-groups seq-exprs))]
+        (iter# ~(second seq-exprs)))))
+
+(defmacro for
+  "Like clojure.core/for with optional type annotations.
+
+  All types default to Any.
+
+  The :let option uses clojure.core.typed/let.
+  
+  eg. (for [a :- (U nil AnyInteger) [1 nil 2 3]
+            :when a]
+        :- Number
+        (inc a))"
+  [seq-exprs & maybe-ann-body-expr]
+  (@#'core/assert-args
+     (vector? seq-exprs) "a vector for its binding"
+     (even? (count seq-exprs)) "an even number of forms in binding vector")
+  (let [[ret-ann body-expr] (if (#{:-} (first maybe-ann-body-expr))
+                              (let [_ (assert (#{3} (count maybe-ann-body-expr))
+                                              (str "Wrong arguments to for: " maybe-ann-body-expr))
+                                    [colon t body] maybe-ann-body-expr]
+                                [t body])
+                              (let [_ (assert (#{1} (count maybe-ann-body-expr))
+                                              (str "Wrong arguments to for: " maybe-ann-body-expr))
+                                    [body] maybe-ann-body-expr]
+                                ['Any body]))
+        normalise-args
+        ; change [a :- b c] to [[a :- b] c]
+        (fn [seq-exprs]
+          (loop [flat-result []
+                 seq-exprs seq-exprs]
+            (cond
+              (empty? seq-exprs) flat-result
+
+              ;for options (:let, :while etc)
+              (keyword? (first seq-exprs)) (let [_ (assert (#{2} (count (take 2 seq-exprs)))
+                                                           (str "for option missing " (first seq-exprs)))
+                                                 [k v & rst] seq-exprs]
+                                             (recur (conj flat-result k v)
+                                                    rst))
+              :else (if (#{:-} (second seq-exprs))
+                      (let [_ (assert (#{4} (count (take 4 seq-exprs)))
+                                      (str "for parameter missing after ':-'"))
+                            [b colon t init & rst] seq-exprs]
+                        (recur (conj flat-result [b colon t] init)
+                               rst))
+                      (let [_ (assert (#{2} (count (take 2 seq-exprs)))
+                                      (str "for binding needs initial values"))
+                            [b init & rst] seq-exprs]
+                        (recur (conj flat-result [b :- 'Any] init)
+                               rst))))))
+
+        ; normalise seq-exprs to be flat pairs
+        seq-exprs (normalise-args seq-exprs)
+
+        to-groups (fn [seq-exprs]
+                    (reduce (fn [groups [k v]]
+                              (if (keyword? k)
+                                (conj (pop groups) (conj (peek groups) [k v]))
+                                (conj groups [k v])))
+                            [] (partition 2 seq-exprs)))
+        err (fn [& msg] (throw (IllegalArgumentException. ^String (apply str msg))))
+        emit-bind (fn emit-bind [[[bind expr & mod-pairs]
+                                  & [[_ next-expr] :as next-groups]]]
+                    (let [_ (assert (and (vector? bind)
+                                         (#{3} (count bind))
+                                         (#{:-} (second bind))) 
+                                    "Binder must be of the form [lhs :- type]")
+                          bind-ann (nth bind 2)
+                          bind (nth bind 0)
+                          giter (gensym "iter__")
+                          gxs (gensym "s__")
+                          do-mod (fn do-mod [[[k v :as pair] & etc]]
+                                   (cond
+                                     ;typed let
+                                     (= k :let) `(let ~v ~(do-mod etc))
+                                     (= k :while) `(when ~v ~(do-mod etc))
+                                     (= k :when) `(if ~v
+                                                    ~(do-mod etc)
+                                                    (recur (rest ~gxs)))
+                                     (keyword? k) (err "Invalid 'for' keyword " k)
+                                     next-groups
+                                      `(let [iterys# ~(emit-bind next-groups)
+                                             fs# (seq (iterys# ~next-expr))]
+                                         (if fs#
+                                           (concat fs# (~giter (rest ~gxs)))
+                                           (recur (rest ~gxs))))
+                                     :else `(cons ~body-expr
+                                                  (~giter (rest ~gxs)))))]
+                      (if next-groups
+                        #_"not the inner-most loop"
+                        `(fn ~giter [~gxs :- (Option (Seqable ~bind-ann))]
+                           :- (Seq ~ret-ann)
+                           (lazy-seq
+                             (loop [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
+                               (when-first [~bind ~gxs]
+                                 ~(do-mod mod-pairs)))))
+                        #_"inner-most loop"
+                        (let [gi (gensym "i__")
+                              gb (gensym "b__")
+                              do-cmod (fn do-cmod [[[k v :as pair] & etc]]
+                                        (cond
+                                          ; typed let
+                                          (= k :let) `(let ~v ~(do-cmod etc))
+                                          (= k :while) `(when ~v ~(do-cmod etc))
+                                          (= k :when) `(if ~v
+                                                         ~(do-cmod etc)
+                                                         (recur
+                                                           (unchecked-inc ~gi)))
+                                          (keyword? k)
+                                            (err "Invalid 'for' keyword " k)
+                                          :else
+                                            `(do (chunk-append ~gb 
+                                                               ; put an ann-form here so at least one error message
+                                                               ; points to code the user can recognise.
+                                                               (ann-form ~body-expr
+                                                                         ~ret-ann))
+                                                 (recur (unchecked-inc ~gi)))))]
+                          `(fn ~giter [~gxs :- (Option (Seqable ~bind-ann))]
+                             :- (Seq ~ret-ann)
+                             (lazy-seq
+                               (loop [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
+                                 (when-let [~gxs (seq ~gxs)]
+                                   (if (chunked-seq? ~gxs)
+                                     (let [c# (chunk-first ~gxs)
+                                           size# (int (count c#))
+                                           ~gb (ann-form (chunk-buffer size#)
+                                                         (~'clojure.lang.ChunkBuffer ~ret-ann))]
+                                       (if (loop [~gi :- Int, (int 0)]
+                                             (if (< ~gi size#)
+                                               (let [;~bind (.nth c# ~gi)]
+                                                     ~bind (nth c# ~gi)]
+                                                 ~(do-cmod mod-pairs))
+                                               true))
+                                         (chunk-cons
+                                           (chunk ~gb)
+                                           (~giter (chunk-rest ~gxs)))
+                                         (chunk-cons (chunk ~gb) nil)))
+                                     (let [~bind (first ~gxs)]
+                                       ~(do-mod mod-pairs)))))))))))]
     `(let [iter# ~(emit-bind (to-groups seq-exprs))]
         (iter# ~(second seq-exprs)))))
 
-(defmacro doseq>
-  "Like doseq but requires annotation for each loop variable: 
+(defmacro ^:deprecated doseq>
+  "DEPRECATED: use clojure.core.typed/doseq
+
+  Like doseq but requires annotation for each loop variable: 
   [a [1 2]] becomes [a :- Long [1 2]]
   
   eg.
@@ -350,7 +593,7 @@ for checking namespaces, cf for checking individual forms."}
                            needrec (steppair 0)
                            subform (steppair 1)]
                        (cond
-                         (= k :let) [needrec `(let ~v ~subform)]
+                         (= k :let) [needrec `(core/let ~v ~subform)]
                          (= k :while) [false `(when ~v
                                                 ~subform
                                                 ~@(when needrec [recform]))]
@@ -385,6 +628,111 @@ for checking namespaces, cf for checking individual forms."}
                                  ~chunk- :- (~'U nil (~'clojure.lang.IChunk ~k-ann)) nil
                                  ~count- :- ~'(U Integer Long) 0,
                                  ~i- :- ~'(U Integer Long) 0]
+                           (if (and (< ~i- ~count-)
+                                    ;; FIXME review this
+                                    ;; core.typed thinks chunk- could be nil here
+                                    ~chunk-)
+                             (core/let [;~k (.nth ~chunk- ~i-)
+                                   ~k (nth ~chunk- ~i-)]
+                               ~subform-chunk
+                               ~@(when needrec [recform-chunk]))
+                             (when-let [~seq- (seq ~seq-)]
+                               (if (chunked-seq? ~seq-)
+                                 (core/let [c# (chunk-first ~seq-)]
+                                   (recur (chunk-rest ~seq-) c#
+                                          (int (count c#)) (int 0)))
+                                 (core/let [~k (first ~seq-)]
+                                   ~subform
+                                   ~@(when needrec [recform]))))))])))))]
+    (nth (step nil (seq seq-exprs)) 1)))
+
+(defmacro doseq
+  "Like clojure.core/doseq with optional annotations.
+
+  :let option uses clojure.core.typed/let
+  
+  eg.
+  (doseq> [a :- (U nil AnyInteger) [1 nil 2 3]
+           :when a]
+     (inc a))"
+  [seq-exprs & body]
+  (@#'core/assert-args
+     (vector? seq-exprs) "a vector for its binding"
+     (even? (count seq-exprs)) "an even number of forms in binding vector")
+  (let [normalise-args
+        ; change [a :- b c] to [[a :- b] c]
+        (fn [seq-exprs]
+          (loop [flat-result []
+                 seq-exprs seq-exprs]
+            (cond
+              (empty? seq-exprs) flat-result
+
+              ;for options (:let, :while etc)
+              (keyword? (first seq-exprs)) (let [_ (assert (#{2} (count (take 2 seq-exprs)))
+                                                           (str "for option missing " (first seq-exprs)))
+                                                 [k v & rst] seq-exprs]
+                                             (recur (conj flat-result k v)
+                                                    rst))
+              :else (if (#{:-} (second seq-exprs))
+                      (let [_ (assert (#{4} (count (take 4 seq-exprs)))
+                                      (str "for parameter missing after ':-'"))
+                            [b colon t init & rst] seq-exprs]
+                        (recur (conj flat-result [b colon t] init)
+                               rst))
+                      (let [_ (assert (#{2} (count (take 2 seq-exprs)))
+                                      (str "for binding needs initial values"))
+                            [b init & rst] seq-exprs]
+                        (recur (conj flat-result [b :- 'Any] init)
+                               rst))))))
+
+        ; normalise seq-exprs to be flat pairs
+        seq-exprs (normalise-args seq-exprs)
+        step (fn step [recform exprs]
+               (if-not exprs
+                 [true `(do ~@body)]
+                 (let [k (first exprs)
+                       v (second exprs)]
+                   (if (keyword? k)
+                     (let [steppair (step recform (nnext exprs))
+                           needrec (steppair 0)
+                           subform (steppair 1)]
+                       (cond
+                         ;typed let
+                         (= k :let) [needrec `(let ~v ~subform)]
+                         (= k :while) [false `(when ~v
+                                                ~subform
+                                                ~@(when needrec [recform]))]
+                         (= k :when) [false `(if ~v
+                                               (do
+                                                 ~subform
+                                                 ~@(when needrec [recform]))
+                                               ~recform)]))
+                     ;; k is [k :- k-ann]
+                     (let [_ (assert (and (vector? k)
+                                          (#{3} (count k))
+                                          (#{:-} (second k))) 
+                                     "Binder must be of the form [lhs :- type]")
+                           k-ann (nth k 2)
+                           k (nth k 0)
+                           ; k is the lhs binding
+                           seq- (gensym "seq_")
+                           chunk- (with-meta (gensym "chunk_")
+                                             {:tag 'clojure.lang.IChunk})
+                           count- (gensym "count_")
+                           i- (gensym "i_")
+                           recform `(recur (next ~seq-) nil 0 0)
+                           steppair (step recform (nnext exprs))
+                           needrec (steppair 0)
+                           subform (steppair 1)
+                           recform-chunk 
+                             `(recur ~seq- ~chunk- ~count- (unchecked-inc ~i-))
+                           steppair-chunk (step recform-chunk (nnext exprs))
+                           subform-chunk (steppair-chunk 1)]
+                       [true
+                        `(loop [~seq- :- (~'U nil (Seq ~k-ann)) (seq ~v), 
+                                ~chunk- :- (~'U nil (~'clojure.lang.IChunk ~k-ann)) nil
+                                ~count- :- (~'U Integer Long) 0,
+                                ~i- :- (~'U Integer Long) 0]
                            (if (and (< ~i- ~count-)
                                     ;; FIXME review this
                                     ;; core.typed thinks chunk- could be nil here
@@ -460,15 +808,6 @@ for checking namespaces, cf for checking individual forms."}
       `[~@args ~'-> ~ret])
     `(~'Fn ~@(map defn>-parse-typesig forms))))
 
-(defn- take-when
-  "When pred is true of the head of seq, return [head tail]. Otherwise
-  [nil seq]. Used as a helper for parsing optinal typed elements out
-  of sequences. Say docstrings out of argument seqs."
-  [pred seq]
-  (if (pred (first seq))
-    ((juxt first rest) seq)
-    [nil seq]))
-
 (defmacro
   ^{:forms '[(defn> name docstring? :- type [param :- type *] exprs*)
              (defn> name docstring? (:- type [param :- type *] exprs*)+)]}
@@ -479,9 +818,6 @@ for checking namespaces, cf for checking individual forms."}
   eg. (defn> fname :- Integer [a :- Number, b :- (U Symbol nil)] ...)
 
   ;annotate return
-  (defn> :- String [a :- String] ...)
-
-  ;named fn
   (defn> fname :- String [a :- String] ...)
 
   ;multi-arity
@@ -489,7 +825,7 @@ for checking namespaces, cf for checking individual forms."}
     (:- String [a :- String] ...)
     (:- Long   [a :- String, b :- Number] ...))"
   [name & fdecl]
-  (let [[docstring fdecl] (take-when string? fdecl)
+  (let [[docstring fdecl] (internal/take-when string? fdecl)
         signature (defn>-parse-typesig fdecl)]
     `(do (ann ~name ~signature)
          ~(list* 'def name 
@@ -499,8 +835,11 @@ for checking namespaces, cf for checking individual forms."}
 
 (defmacro
   ^{:forms '[(def> name docstring? :- type expr)]}
+  ^:deprecated
   def>
-  "Like def, but with annotations.
+  "DEPRECATED: use clojure.core.typed/def
+
+  Like def, but with annotations.
 
   eg. (def> vname :- Long 1)
 
@@ -510,7 +849,7 @@ for checking namespaces, cf for checking individual forms."}
     :- Long
     1)"
   [name & fdecl]
-  (let [[docstring fdecl] (take-when string? fdecl)
+  (let [[docstring fdecl] (internal/take-when string? fdecl)
         _ (assert (and (#{3} (count fdecl))
                        (#{:-} (first fdecl)))
                   (str "Bad def> syntax: " fdecl))
@@ -520,6 +859,7 @@ for checking namespaces, cf for checking individual forms."}
                  (concat
                    (when docstring [docstring])
                    [body])))))
+
 
 (defmacro 
   ^{:forms '[(letfn> [fn-spec-or-annotation*] expr*)]}
@@ -557,21 +897,156 @@ for checking namespaces, cf for checking individual forms."}
         init-syn (into {}
                    (for [[lb type] anns]
                      [lb `'~type]))]
-    `(letfn ~(vec inits)
+    `(core/letfn ~(vec inits)
        ;unquoted to allow bindings to resolve with hygiene
        ~init-syn
        ;preserve letfn empty body
        ~@(or body [nil]))))
 
+(comment
+  (letfn :- Type
+    [(a (:- RetType [b :- Type] b)
+        (:- Any [b :- Type, c :- Type] c))]
+    )
+  (let :- Type
+    [f :- Type, foo]
+    (f 1))
+  (do :- Type
+      )
 
-(defmacro defprotocol> [& body]
-  "Like defprotocol, but required for type checking
+  (fn ([a :- Type & r Type ... a] :- Type))
+
+  (pfn [x] 
+    (:- Type [a :- Type & r Type ... a]))
+
+  (for :- Type
+    [a :- Type, init]
+    )
+
+  (dotimes
+    [a :- Type, init]
+    )
+
+  (loop :- Type
+    [a :- Type, init]
+    )
+
+  (doseq
+    [a :- Type, init]
+    )
+
+  (deftype [[x :variance :covariant]]
+    Name 
+    [x :- Foo, y :- Bar]
+    )
+
+  (defrecord [[x :variance :covariant]]
+    Name 
+    [x :- Foo, y :- Bar]
+    )
+
+  (definterface Name)
+
+  (reify)
+)
+
+#_(defmacro 
+  ^{:forms '[(letfn [fn-spec-or-annotation*] expr*)]}
+  letfn
+  "Like letfn, but each function spec must be annotated.
+
+  eg. (letfn [a :- [Number -> Number]
+              (a [b] 2)
+
+              c :- [Symbol -> nil]
+              (c [s] nil)]
+        ...)"
+  [fn-specs-and-annotations & body]
+  (let [bindings fn-specs-and-annotations
+        ; (Vector (U '[Symbol TypeSyn] LetFnInit))
+        normalised-bindings
+        (loop [[fbnd :as bindings] bindings
+               norm []]
+          (cond
+            (empty? bindings) norm
+            (symbol? fbnd) (do
+                             (assert (#{:-} (second bindings))
+                                     "letfn annotations require :- separator")
+                             (assert (<= 3 (count bindings)))
+                             (recur 
+                               (drop 3 bindings)
+                               (conj norm [(nth bindings 0)
+                                           (nth bindings 2)])))
+            (list? fbnd) (recur
+                           (next bindings)
+                           (conj norm fbnd))
+            :else (throw (Exception. (str "Unknown syntax to letfn: " fbnd)))))
+        {anns false inits true} (group-by list? normalised-bindings)
+        ; init-syn unquotes local binding references to be compatible with hygienic expansion
+        init-syn (into {}
+                   (for [[lb type] anns]
+                     [lb `{:full '~type}]))]
+    `(core/letfn ~(vec inits)
+       ;unquoted to allow bindings to resolve with hygiene
+       ~init-syn
+       ;preserve letfn empty body
+       ~@(or body [nil]))))
+
+(defmacro ^:deprecated defprotocol> [& body]
+  "DEPRECATED: use clojure.core.typed/defprotocol
+
+  Like defprotocol, but required for type checking
   its macroexpansion.
   
   eg. (defprotocol> MyProtocol
         (a [this]))"
   `(tc-ignore
-     (defprotocol ~@body)))
+     (core/defprotocol ~@body)))
+
+(defmacro defprotocol [& body]
+  "Like defprotocol, but with optional type annotations.
+
+  Omitted annotations default to Any. The first argument
+  of a protocol cannot be annotated.
+
+  Add a binder before the protocol name to define a polymorphic
+  protocol. A binder before the method name defines a polymorphic
+  method, however a method binder must not shadow type variables
+  introduced by a protocol binder.
+
+  Return types for each method arity can be annotated.
+
+  Unlike clojure.core/defprotocol, successive methods can
+  have the same arity. Semantically, providing multiple successive
+  methods of the same arity is the same as just providing the left-most
+  method. However the types for these methods will be accumulated into
+  a Fn type.
+  
+  eg. ;annotate single method
+  (defprotocol MyProtocol
+    (a [this a :- Integer] :- Number))
+
+  ;polymorphic protocol
+  (defprotocol [[x :variance :covariant]]
+    MyProtocol
+    (a [this a :- Integer] :- Number))
+
+  ;multiple types for the same method
+  (defprotocol [[x :variance :covariant]]
+    MyProtocol
+    (a [this a :- Integer] :- Integer
+       [this a :- Long] :- Long
+       [this a :- Number] :- Number))
+
+  ;polymorphic method+protocol
+  (defprotocol [[x :variance :covariant]]
+    MyProtocol
+    ([y] a [this a :- x, b :- y] :- y))
+  "
+  (let [{:keys [ann-protocol defprotocol]} (internal/parse-defprotocol* body)]
+    `(do ~ann-protocol
+         (tc-ignore
+           ~defprotocol))))
 
 (defmacro 
   ^{:forms '[(loop> [binding :- type, init*] exprs*)]}
@@ -588,7 +1063,7 @@ for checking namespaces, cf for checking individual forms."}
   (let [normalise-args
         (fn [seq-exprs]
           (loop [flat-result ()
-                 seq-exprs seq-exprs]
+                      seq-exprs seq-exprs]
             (cond
               (empty? seq-exprs) flat-result
               (and (vector? (first seq-exprs))
@@ -612,6 +1087,7 @@ for checking namespaces, cf for checking individual forms."}
     `(loop>-ann (loop ~(vec (mapcat vector lhs rhs))
                   ~@forms)
                 '~bnd-anns)))
+
 
 (defn ^:skip-wiki
   declare-datatypes* 
@@ -696,13 +1172,6 @@ for checking namespaces, cf for checking individual forms."}
           (tc-ignore (alter-meta! v# merge '~m)))
         (def-alias* '~qsym '~t)))))
 
-;(ann tc-ignore-forms* [Any -> Any])
-(defn ^:skip-wiki
-  tc-ignore-forms* 
-  "Internal use only. Use tc-ignore"
-  [r]
-  r)
-
 ;; `do` is special at the top level
 (defmacro tc-ignore 
   "Ignore forms in body during type checking"
@@ -712,10 +1181,10 @@ for checking namespaces, cf for checking individual forms."}
        ~@(or body [nil])))
 
 (defmacro init-aliases []
-  (letfn [(def-alias-many [vinit]
-            `(do
-               ~@(for [[k v] (partition 2 vinit)]
-                   `(def-alias ~k ~v))))]
+  (core/letfn [(def-alias-many [vinit]
+                `(do
+                   ~@(for [[k v] (partition 2 vinit)]
+                       `(def-alias ~k ~v))))]
     (def-alias-many 
       impl/init-aliases)))
 
@@ -836,13 +1305,6 @@ for checking namespaces, cf for checking individual forms."}
    :pred (fn [this a?] 
            `(~a? (deref ~this)))})
 
-(defmacro ann-form 
-  "Annotate a form with an expected type."
-  [form ty]
-  `(do ::special-form
-       ::ann-form
-       {:type '~ty}
-       ~form))
 
 ;(ann into-array>* [Any Any -> Any])
 (defn ^:skip-wiki
@@ -1171,24 +1633,26 @@ for checking namespaces, cf for checking individual forms."}
   
   eg. (ann-protocol IFoo
         bar
-        [IFoo -> Any]
+        (Fn [IFoo -> Any]
+            [IFoo Number Symbol -> Any])
         baz
-        [IFoo -> Number])
+        [IFoo Number -> Number])
       (defprotocol> IFoo
-        (bar [this])
-        (baz [this]))
+        (bar [this] [this n s])
+        (baz [this n]))
 
       ; polymorphic protocol
       ; x is scoped in the methods
       (ann-protocol [[x :variance :covariant]]
         IFooPoly
         bar
-        [(IFooPoly x) -> Any]
+        (Fn [(IFooPoly x) -> Any]
+            [(IFooPoly x) Number Symbol -> Any])
         baz
-        [(IFooPoly x) -> Number])
+        [(IFooPoly x) Number -> Number])
       (defprotocol> IFooPoly
-        (bar [this])
-        (baz [this]))"
+        (bar [this] [this n s])
+        (baz [this n]))"
   [& args]
   (let [bnd-provided? (vector? (first args))
         vbnd (when bnd-provided?
@@ -1213,6 +1677,62 @@ for checking namespaces, cf for checking individual forms."}
             :methods mth
             :bnds vbnd})
     `(ann-protocol* '~vbnd '~varsym '~mth)))
+
+(defn ^:skip-wiki
+  ann-interface* 
+  "Internal use only. Use ann-interface."
+  [vbnd clsym mth]
+  nil)
+
+(defmacro 
+  ^{:forms '[(ann-interface vbnd varsym & methods)
+             (ann-interface varsym & methods)]}
+  ann-interface 
+  "Annotate a possibly polymorphic interface (created with definterface) with method types.
+
+  Note: Unlike ann-protocol, omit the target ('this') argument in the method signatures.
+  
+  eg. (ann-interface IFoo
+        bar
+        (Fn [-> Any]
+            [Number Symbol -> Any])
+        baz
+        [Number -> Number])
+      (definterface IFoo
+        (bar [] [n s])
+        (baz [n]))
+
+      ; polymorphic protocol
+      ; x is scoped in the methods
+      (ann-protocol [[x :variance :covariant]]
+        IFooPoly
+        bar
+        (Fn [-> Any]
+            [Number Symbol -> Any])
+        baz
+        [Number -> Number])
+      (definterface IFooPoly
+        (bar [] [n s])
+        (baz [n]))"
+  [& args]
+  (let [bnd-provided? (vector? (first args))
+        vbnd (when bnd-provided?
+               (first args))
+        [clsym & mth] (if bnd-provided?
+                         (next args)
+                         args)
+        _ (let [fs (frequencies (map first (partition 2 mth)))]
+            (when-let [dups (seq (filter (fn [[_ freq]] (< 1 freq)) fs))]
+              (println (str "WARNING: Duplicate method annotations in ann-interface (" clsym 
+                            "): " (str/join ", " (map first dups))))
+              (flush)))
+        ; duplicates are checked above.
+        ; duplicate munged methods are checked in collect-phase
+        {:as mth} mth
+        qualsym (if (namespace clsym)
+                  clsym
+                  (symbol (munge (str (ns-name *ns*))) (name clsym)))]
+    `(ann-interface* '~vbnd '~clsym '~mth)))
 
 (defn ^:skip-wiki
   ann-pprotocol* 
