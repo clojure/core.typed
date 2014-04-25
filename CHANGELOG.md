@@ -16,6 +16,8 @@ Thanks to Di Xu and Nicola Mometto who contributed patches.
   - part of CTYP-130
 - Be more robust in handling reflection calls
   - [CTYP-132](http://dev.clojure.org/jira/browse/CTYP-132)
+- Fix type annotation for `nth` inlining
+  - collection argument must be Sequential or Indexed
 
 ## Internal
 
