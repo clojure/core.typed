@@ -217,6 +217,31 @@
           (when (#{3} (count (next all)))
             (parse-type not-foundsyn))))
 
+; convert flattened kw arguments to vectors
+(defn normalise-binder [bnds]
+  (loop [bnds bnds
+         out []]
+    (cond
+      (empty? bnds) out
+
+      (vector? (first bnds)) (let [[s & rst] bnds]
+                               (recur rst
+                                      (conj out s)))
+      :else
+      (let [[sym & rst] bnds
+            [group rst] (loop [bnds rst
+                               out [sym]]
+                          (if (keyword? (second bnds))
+                            (let [_ (when-not (#{2} (count (take 2 bnds)))
+                                      (u/int-error (str "Keyword option " (second bnds)
+                                                        " has no associated value")))
+                                  [k v & rst] bnds]
+                              (recur rst
+                                     (conj out k v)))
+                            [bnds out]))]
+        (recur rst
+               (conj out group))))))
+
 ;dispatch on last element of syntax in binder
 (defmulti parse-all-type (fn [bnds type] (last bnds)))
 
