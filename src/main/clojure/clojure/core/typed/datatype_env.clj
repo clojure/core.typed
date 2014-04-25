@@ -22,10 +22,10 @@
 (defn ^:private assert-datatype-env []
   (assert *current-datatype-env* "No datatype env bound"))
 
-(t/ann datatype-env? [Any -> Any])
+(t/ann ^:no-check datatype-env? [Any -> Any])
 (def ^:private datatype-env? 
   (u/hash-c? (every-pred symbol? 
-                         (fn [k] (some #(= \. %) (str k)))) 
+                         (fn [k] (some #{\.} (str k)))) 
              (some-fn r/DataType? r/TypeFn?)))
 
 (t/ann CLJ-DATATYPE-ENV (t/Atom1 DataTypeEnv))
