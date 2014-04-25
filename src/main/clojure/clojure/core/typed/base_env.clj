@@ -1896,9 +1896,9 @@ java.lang.String/toUpperCase :all
     (h/method-override-mappings
 
 clojure.lang.RT/nth (All [x y]
-                         (Fn [(U (Indexed x) (Seqable x)) AnyInteger -> x]
-                             [(U (Indexed x) (Seqable x) nil) AnyInteger y -> (U x y)]
-                             [(U (Indexed x) (Seqable x) nil) AnyInteger -> (U x nil)]))
+                         (Fn [(U (Indexed x) (I clojure.lang.Sequential (Seqable x))) AnyInteger -> x]
+                             [(U (Indexed x) (I clojure.lang.Sequential (Seqable x)) nil) AnyInteger y -> (U x y)]
+                             [(U (Indexed x) (I clojure.lang.Sequential (Seqable x)) nil) AnyInteger -> (U x nil)]))
 
 clojure.lang.Indexed/nth
   (All [x y]
