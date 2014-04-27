@@ -784,16 +784,8 @@ clojure.core/neg? (Fn [Number -> Boolean])
 clojure.core/nthrest (All [x] [(U nil (Seqable x)) AnyInteger 
                                -> (NilableNonEmptySeq x)])
 
-clojure.core/vector (All [x y z a b c] 
-                         (Fn
-                           [-> '[]]
-                           [x -> '[x]]
-                           [x y -> '[x y]]
-                           [x y z -> '[x y z]]
-                           [x y z a -> '[x y z a]]
-                           [x y z a b -> '[x y z a b]]
-                           [x y z a b c -> '[x y z a b c]]
-                           [x * -> (APersistentVector x)]))
+clojure.core/vector (All [b ...]
+                         [b ... b -> '[b ... b]])
 clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
 
 clojure.core/not [Any -> boolean]
