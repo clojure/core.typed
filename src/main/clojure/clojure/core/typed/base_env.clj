@@ -624,28 +624,15 @@ clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]])
 ; should preserve filters
 clojure.core/boolean [Any -> boolean]
 
-;clojure.core/filter (All [x y]
-;                           (Fn
-;                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seq (I x y))]
-;                             [[x -> Any] (Option (Seqable x)) -> (Seq x)]))
 clojure.core/filter (All [x y]
                            (Fn
                              [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (Seq y)]
                              [[x -> Any :filters {:then (! y 0)}] (Option (Seqable x)) -> (Seq (I x (Not y)))]
                              [[x -> Any] (Option (Seqable x)) -> (Seq x)]))
-;clojure.core/filterv (All [x y]
-;                          (Fn
-;                            [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (APersistentVector (I x y))]
-;                            [[x -> Any] (Option (Seqable x)) -> (APersistentVector x)]))
 clojure.core/filterv (All [x y]
                           (Fn
                             [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (APersistentVector y)]
                             [[x -> Any] (Option (Seqable x)) -> (APersistentVector x)]))
-;clojure.core/remove (All [x y]
-;                           (Fn
-;                             [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seq (I x y))]
-;                             [[x -> Any] (Option (Seqable x)) -> (Seq x)]
-;                             ))
 clojure.core/remove (All [x y]
                            (Fn
                              [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seq y)]
