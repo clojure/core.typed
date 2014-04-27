@@ -60,7 +60,7 @@
               (and (crep/i-subst-dotted? r)
                    (empty? (:types r))) (substitute-dotted (:dty r) (:name (:dbound r)) v t)
               (crep/i-subst-dotted? r) (throw (Exception. "i-subst-dotted nyi"))
-              :else (throw (Exception. "Other substitutions NYI"))))
+              :else (u/nyi-error (str "Other substitutions NYI"))))
           t s)))
 
 ;; Substitute dots
@@ -71,7 +71,7 @@
 (f/add-fold-case ::substitute-dots
   Function
   (fn [{:keys [dom rng rest drest kws] :as ftype} {{:keys [name sb images rimage]} :locals}]
-   (assert (not kws) "TODO substitute keyword args")
+   (when kws (u/nyi-error "substitute keyword args"))
    (if (and drest
             (= name (:name drest)))
      (r/Function-maker (doall
