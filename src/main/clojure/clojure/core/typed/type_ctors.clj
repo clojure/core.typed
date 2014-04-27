@@ -1714,6 +1714,23 @@
                                                                (+ count outer)
                                                                %)))))))
 
+(f/add-fold-case ::abstract-many
+                 HSequential
+                 (fn [ty {{:keys [name count outer sb]} :locals}]
+                   (r/-hsequential 
+                            (vec (map sb (:types ty)))
+                            :filters (mapv sb (:fs ty))
+                            :objects (mapv sb (:objects ty))
+                            :rest (when-let [rest (:rest ty)]
+                                    (sb rest))
+                            :drest (when-let [drest (:drest ty)]
+                                     (-> drest
+                                         (update-in [:pre-type] sb)
+                                         (update-in [:name] #(if (= % name)
+                                                               (+ count outer)
+                                                               %)))))))
+
+(f/add-fold-case ::abstract-many
                  Mu
                  (fn [{:keys [scope] :as mu} {{:keys [name count type outer name-to]} :locals}]
                    (let [body (remove-scopes 1 scope)]
