@@ -850,11 +850,11 @@ clojure.core/comp
 
 clojure.core/apply
      (All [y a b c d r z ...]
-          (Fn [[z ... z -> y] (U nil (HSequential [z ... z])) -> y]
-              [[a z ... z -> y] a (U nil (HSequential [z ... z])) -> y]
-              [[a b z ... z -> y] a b (U nil (HSequential [z ... z])) -> y]
-              [[a b c z ... z -> y] a b c (U nil (HSequential [z ... z])) -> y]
-              [[a b c d z ... z -> y] a b c d (U nil (HSequential [z ... z])) -> y]
+          (Fn [[z ... z -> y] (HSequential [z ... z]) -> y]
+              [[a z ... z -> y] a (HSequential [z ... z]) -> y]
+              [[a b z ... z -> y] a b (HSequential [z ... z]) -> y]
+              [[a b c z ... z -> y] a b c (HSequential [z ... z]) -> y]
+              [[a b c d z ... z -> y] a b c d (HSequential [z ... z]) -> y]
               [[r * -> y] (U nil (Seqable r)) -> y]
               [[a r * -> y] a (U nil (Seqable r)) -> y]
               [[a b r * -> y] a b (U nil (Seqable r)) -> y]
