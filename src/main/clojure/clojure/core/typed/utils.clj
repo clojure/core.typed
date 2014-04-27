@@ -138,9 +138,9 @@
     (prn "Internal core.typed BUG! No *current-env* with tc-error"))
   (let [env *current-env*]
     (throw (ex-info (str "Type Error "
-                         "(" (-> env :ns :name) ":" (or (:line env) "<NO LINE>")
+                         "(" (:file env) ":" (or (:line env) "<NO LINE>")
                          (when-let [col (:column env)]
-                           (str ":"col))
+                           (str ":" col))
                          ") "
                          estr)
                     (merge
@@ -151,9 +151,9 @@
   [msg]
   (let [env *current-env*]
     (println "DEPRECATED SYNTAX "
-             "(" (-> env :ns :name) ":" (or (:line env) "<NO LINE>")
+             "(" (:file env) ":" (or (:line env) "<NO LINE>")
              (when-let [col (:column env)]
-               (str ":"col))
+               (str ":" col))
              ") :"
              msg)
     (flush)))
@@ -171,7 +171,7 @@
   [estr]
   (let [env *current-env*]
     (throw (ex-info (str "core.typed Not Yet Implemented Error:"
-                           "(" (-> env :ns :name) ":" (or (:line env) "<NO LINE>")
+                           "(" (:file env) ":" (or (:line env) "<NO LINE>")
                            (when-let [col (:column env)]
                              (str ":"col))
                            ") "
