@@ -848,6 +848,19 @@ clojure.core/comp
      (All [x y b ...]
           [[x -> y] [b ... b -> x] -> [b ... b -> y]])
 
+clojure.core/apply
+     (All [y a b c d r z ...]
+          (Fn [[z ... z -> y] (U nil (HSequential [z ... z])) -> y]
+              [[a z ... z -> y] a (U nil (HSequential [z ... z])) -> y]
+              [[a b z ... z -> y] a b (U nil (HSequential [z ... z])) -> y]
+              [[a b c z ... z -> y] a b c (U nil (HSequential [z ... z])) -> y]
+              [[a b c d z ... z -> y] a b c d (U nil (HSequential [z ... z])) -> y]
+              [[r * -> y] (U nil (Seqable r)) -> y]
+              [[a r * -> y] a (U nil (Seqable r)) -> y]
+              [[a b r * -> y] a b (U nil (Seqable r)) -> y]
+              [[a b c r * -> y] a b c (U nil (Seqable r)) -> y]
+              [[a b c d r * -> y] a b c d (U nil (Seqable r)) -> y]))
+
 clojure.core/partial 
      (All [y a b c d e f g h i j k l m n o p z ...]
           (Fn [[a z ... z -> y] a -> [z ... z -> y]]
