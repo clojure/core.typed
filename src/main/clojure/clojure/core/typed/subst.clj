@@ -9,7 +9,8 @@
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed :as t :refer [ann Seqable]])
-  (:import (clojure.core.typed.type_rep F Function HeterogeneousVector)
+  (:import (clojure.core.typed.type_rep F Function HeterogeneousVector
+                                        HSequential)
            (clojure.lang Symbol)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -108,6 +109,25 @@
               :rest (when rest (sb rest))
               :drest (when drest (r/DottedPretype1-maker (sb (:pre-type drest))
                                                          (:name drest)))))))
+
+(f/add-fold-case ::substitute-dots
+  HSequential
+  (fn [{:keys [types fs objects rest drest] :as ftype} {{:keys [name sb images rimage]} :locals}]
+   (if (and drest
+            (= name (:name drest)))
+     (r/-hsequential 
+              (vec
+                (concat (map sb types)
+                        ;; We need to recur first, just to expand out any dotted usages of this.
+                        (let [expanded (sb (:pre-type drest))]
+                          ;(prn "expanded" (unparse-type expanded))
+                          (map (fn [img] (substitute img name expanded)) images))))
+              :filters (vec (concat (map sb fs) (repeat (count images) (fo/-FS fl/-top fl/-top))))
+              :objects (vec (concat (map sb objects) (repeat (count images) orep/-empty))))
+     (r/-hsequential 
+              (vec (map sb types))
+              :filters (vec (map sb fs))
+              :objects (vec (map sb objects))
               :rest (when rest (sb rest))
               :drest (when drest (r/DottedPretype1-maker (sb (:pre-type drest))
                                                          (:name drest)))))))
