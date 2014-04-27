@@ -378,17 +378,24 @@ Reduced [[[a :variance :covariant]]
 
 java.lang.CharSequence [[]
                         :unchecked-ancestors
-                        #{(Seqable Character)}]
+                        #{(Seqable Character)
+                          (Indexed Character)}]
 
 ;FIXME Need to correctly check ancestors, this shouldn't be necessary because String is a CharSequence
 ; CTYP-15
 java.lang.String [[]
                   :unchecked-ancestors
-                  #{(Seqable Character)}]
+                  #{(Seqable Character)
+                    (Indexed Character)}]
 
 java.lang.Iterable [[]
                   :unchecked-ancestors
                   #{(Seqable Any)}]
+
+java.util.RandomAccess [[]
+                        :unchecked-ancestors
+                        #{(Indexed Any)}]
+
 ))
 
 (defn reset-rclass-env! []
@@ -1745,6 +1752,7 @@ clojure.core.match/backtrack Exception
      'clojure.core/aset-long (aset-*-type 'long)
      'clojure.core/aset-float (aset-*-type 'float)
      'clojure.core/aset-double (aset-*-type 'double)
+     'clojure.core/nth (nth-type)
      }
 ))
 
@@ -1882,12 +1890,8 @@ java.lang.String/toUpperCase :all
 (delay-and-cache-env ^:private init-method-override-env
   (reset-alias-env!)
   (merge
+    {'clojure.lang.RT/nth (nth-type)}
     (h/method-override-mappings
-
-clojure.lang.RT/nth (All [x y]
-                         (Fn [(U (Indexed x) (I clojure.lang.Sequential (Seqable x))) AnyInteger -> x]
-                             [(U (Indexed x) (I clojure.lang.Sequential (Seqable x)) nil) AnyInteger y -> (U x y)]
-                             [(U (Indexed x) (I clojure.lang.Sequential (Seqable x)) nil) AnyInteger -> (U x nil)]))
 
 clojure.lang.Indexed/nth
   (All [x y]

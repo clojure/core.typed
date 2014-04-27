@@ -3341,6 +3341,49 @@
                                    c (clojure.core.typed/ann-form d Baz)] 
                   1 2 3 4)})))
 
+(deftest nth-test
+  (is (u/top-level-error-thrown?
+        (cf (fn []
+              (nth #{1 2} 0)))))
+  (is (u/top-level-error-thrown?
+        (cf (fn []
+              (nth (clojure.core.typed/ann-form #{1 2} (clojure.core.typed/Seqable Any)) 
+                   0)))))
+  (is (u/top-level-error-thrown?
+        (cf (fn []
+              (nth (clojure.core.typed/ann-form [1 2] (clojure.core.typed/Seqable Any)) 
+                   0)))))
+  (is (u/top-level-error-thrown?
+        (cf (fn [] (nth {1 0} 0)))))
+  (is-cf (nth [1] 0))
+  (is-cf (nth '(1) 0))
+  (is-cf (nth "a" 0))
+  (is-cf (let [nth (ann-form nth (All [x y] [(U (clojure.lang.Indexed x) (I clojure.lang.Sequential (Seqable x))) AnyInteger -> Any]))]
+           (nth "a" 0)))
+  (is-cf (nth (ann-form (java.util.ArrayList. [1 2 3]) java.util.RandomAccess) 0))
+  (is-cf (nth (java.util.ArrayList. [1 2 3]) 0))
+  ; this fails randomly
+  (is (do (dotimes [n 20]
+            (with-out-str
+              (cf (let [nth (clojure.core.typed/ann-form 
+                              nth (All [x y] 
+                                       [(U (clojure.lang.Indexed x) 
+                                           (I clojure.lang.Sequential (Seqable x))) 
+                                        AnyInteger -> Any]))]
+                    (nth "a" 0)))))
+          true))
+  (is (do (dotimes [n 20]
+            (with-out-str
+              (clj
+                (cs-gen #{}
+                        {'x no-bounds
+                         'y no-bounds}
+                        {}
+                        (parse-clj '(Value "a") )
+                        (with-bounded-frees {(make-F 'x) no-bounds}
+                          (parse-clj '(U (I clojure.lang.Sequential (clojure.lang.Seqable x)) (clojure.lang.Indexed x))))))))
+          true)))
+
 (deftest nested-poly-test
   (is (Poly* ['a] [no-bounds]
              (Poly* ['x] [no-bounds] -any)))
