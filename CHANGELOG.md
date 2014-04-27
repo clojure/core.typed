@@ -6,11 +6,14 @@ Thanks to Di Xu and Nicola Mometto who contributed patches.
 
 - Annotation for clojure.core/vector now uses dotted variables
   - `inst`ing the new type will give a different type
+- Changed `partial` type
 
 ## Enhancements
 
 - [CTYP-130](http://dev.clojure.org/jira/browse/CTYP-130) Add HSequential which abstracts over HSeq/HVec/HList/HSeq
   - Contributed by Di Xu + Ambrose
+- Recognise Java types that work with `nth`, like CharSequence
+  - achieved by pretending they extend clojure.lang.Indexed
 
 ## Fixes
 
