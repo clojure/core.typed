@@ -862,23 +862,12 @@ clojure.core/apply
               [[a b c d r * -> y] a b c d (U nil (Seqable r)) -> y]))
 
 clojure.core/partial 
-     (All [y a b c d e f g h i j k l m n o p z ...]
+     (All [y a b c d z ...]
           (Fn [[a z ... z -> y] a -> [z ... z -> y]]
               [[a b z ... z -> y] a b -> [z ... z -> y]]
               [[a b c z ... z -> y] a b c -> [z ... z -> y]]
               [[a b c d z ... z -> y] a b c d -> [z ... z -> y]]
-              [[a b c d e z ... z -> y] a b c d e -> [z ... z -> y]]
-              [[a b c d e f z ... z -> y] a b c d e f -> [z ... z -> y]]
-              [[a b c d e f g z ... z -> y] a b c d e f g -> [z ... z -> y]]
-              [[a b c d e f g h z ... z -> y] a b c d e f g h -> [z ... z -> y]]
-              [[a b c d e f g h i z ... z -> y] a b c d e f g h i -> [z ... z -> y]]
-              [[a b c d e f g h i j z ... z -> y] a b c d e f g h i j -> [z ... z -> y]]
-              [[a b c d e f g h i j k z ... z -> y] a b c d e f g h i j k -> [z ... z -> y]]
-              [[a b c d e f g h i j k l z ... z -> y] a b c d e f g h i j k l -> [z ... z -> y]]
-              [[a b c d e f g h i j k l m z ... z -> y] a b c d e f g h i j k l m -> [z ... z -> y]]
-              [[a b c d e f g h i j k l m n z ... z -> y] a b c d e f g h i j k l m n -> [z ... z -> y]]
-              [[a b c d e f g h i j k l m n o z ... z -> y] a b c d e f g h i j k l m n o -> [z ... z -> y]]
-              [[a b c d e f g h i j k l m n o p z ... z -> y] a b c d e f g h i j k l m n o p -> [z ... z -> y]]))
+              [[a * -> y] a * -> [a * -> y]]))
 
 clojure.core/str [Any * -> String]
 clojure.core/prn-str [Any * -> String]
