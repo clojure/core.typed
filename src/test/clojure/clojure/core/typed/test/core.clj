@@ -240,7 +240,20 @@
   (is-clj (= (inst/manual-inst (parse-type '(All [c a b ...]
                                                  [[a b ... b -> c] (clojure.lang.Seqable a) (clojure.lang.Seqable b) ... b -> (clojure.lang.Seqable c)]))
                                (map parse-type '(Integer Double Float)))
-             (parse-type '[[Double Float -> Integer] (clojure.lang.Seqable Double) (clojure.lang.Seqable Float) -> (clojure.lang.Seqable Integer)]))))
+             (parse-type '[[Double Float -> Integer] (clojure.lang.Seqable Double) (clojure.lang.Seqable Float) -> (clojure.lang.Seqable Integer)])))
+  (is-clj (= (clj (inst/manual-inst (parse-type '(All [x b ...]
+                                                      ['[x b] ... b -> '['[x b] ... b]]))
+                                    (map parse-type '(Integer Double Float))))
+             (parse-type '['[Integer Double] '[Integer Float] 
+                           -> '['[Integer Double] '[Integer Float]]])))
+  ;TODO HSequential
+  (is-clj (= (inst/manual-inst (parse-type '(All [x b ...]
+                                                 [x ... b -> (HSequential [x ... b])]))
+                               (map parse-type '(Integer Double Float)))
+             (parse-type '(HSequential [Integer Integer Integer]))))
+  ; completeness check
+  (is (check-ns 'clojure.core.typed.test.trans-dots))
+  )
 
 ;return ret for an expression f
 (defmacro eret [f]
