@@ -148,7 +148,7 @@
 (f/add-fold-case ::substitute-dotted
   Function
   (fn [{:keys [dom rng rest drest kws]} {{:keys [sb name image]} :locals}]
-   (assert (not kws))
+   (when kws (u/nyi-error "substitute-dotted with kw arguments"))
    (r/Function-maker (doall (map sb dom))
                      (sb rng)
                      (and rest (sb rest))
