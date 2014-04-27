@@ -2,59 +2,90 @@
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.subst :as subst])
-  (:import (clojure.core.typed.type_rep Name F Value RClass Union FnIntersection
-                                        Intersection Union Function TApp Top)))
+            [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.fold-rep :as fold]
+            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.object-rep :as or])
+  (:import (clojure.core.typed.type_rep HSequential HeterogeneousVector
+                                        Function)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dotted pre-type expansion
 
+(derive ::trans-dots fold/fold-rhs-default)
+
 ;tdr from Practical Variable-Arity Polymorphism paper
 ; Expand out dotted pretypes to fixed domain, using types bm, if (:name bound) = b
-(defmulti trans-dots (fn [t b bm]
-                       {:pre [(r/AnyType? t)
-                              (symbol? b)
-                              (every? r/Type? bm)]}
-                       (class t)))
+(defn trans-dots [t b bm]
+  (fold/fold-rhs ::trans-dots
+                 {:type-rec #(trans-dots % b bm)
+                  :locals {:b b :bm bm}}
+                 t))
 
-(defmethod trans-dots Name [t b bm] t)
-(defmethod trans-dots F [t b bm] t)
-(defmethod trans-dots Value [t b bm] t)
-(defmethod trans-dots RClass [t b bm] t)
-(defmethod trans-dots Top [t b bm] t)
+(fold/add-fold-case ::trans-dots
+  HSequential
+  (fn
+    [t _]
+    (u/nyi-error "HSequential trans-dots")))
 
-(defmethod trans-dots TApp
-  [^TApp t b bm]
-  (let [tfn #(trans-dots % b bm)]
-    (r/TApp-maker (tfn (.rator t)) (mapv tfn (.rands t)))))
+(fold/add-fold-case ::trans-dots
+  HeterogeneousVector
+  (fn 
+    [t {{:keys [b bm]} :locals}]
+    (let [tfn #(trans-dots % b bm)]
+      (cond
+        (:drest t)
+        (let [{:keys [pre-type name]} (:drest t)]
+          (assert (symbol? name))
+          (if (= b name) ;identical bounds
+            (let [fixed (vec
+                          (concat 
+                            ;keep fixed entries
+                            (doall (map tfn (:types t)))
+                            ;expand dotted type to fixed entries
+                            (doall (map (fn [bk]
+                                          {:post [(r/Type? %)]}
+                                          ;replace free occurences of bound with bk
+                                          (-> (subst/substitute bk b pre-type)
+                                              tfn))
+                                        bm))))
+                  extra-fixed (- (count fixed)
+                                 (count (:types t)))]
+              (r/-hvec fixed
+                       :filters (vec
+                                  (concat (map tfn (:fs t))
+                                          (repeat extra-fixed
+                                                  (fo/-simple-filter))))
+                       :objects (vec
+                                  (concat (map tfn (:objects t))
+                                          (repeat extra-fixed
+                                                  or/-empty)))
+                       ;drest is expanded into fixed
+                       ))
+            (r/-hvec (mapv tfn (:types t))
+                     :filters (mapv tfn (:fs t))
+                     :objects (mapv tfn (:objects t))
+                     :drest (when-let [drest (:drest t)]
+                              (-> drest
+                                  (update-in [:pre-type] tfn)))))) ;translate pre-type
+        :else
+        (r/-hvec (mapv tfn (:types t))
+                 :filters (mapv tfn (:fs t))
+                 :objects (mapv tfn (:objects t))
+                 :rest (when-let [r (:rest t)]
+                         (tfn r)))))))
 
-(defmethod trans-dots Union
-  [t b bm]
-  (let [tfn #(trans-dots % b bm)]
-    (apply c/Un (doall (map tfn (:types t))))))
-
-(defmethod trans-dots FnIntersection
-  [t b bm]
-  (let [tfn #(trans-dots % b bm)]
-    (r/FnIntersection-maker (doall (map tfn (:types t))))))
-
-(defmethod trans-dots Intersection
-  [t b bm]
-  (let [tfn #(trans-dots % b bm)]
-    (apply c/In (doall (map tfn (:types t))))))
-
-(defmethod trans-dots Function
-  [t b bm]
-  ;TODO how to handle filters?
-;  (assert (NoFilter? (-> t :rng :fl)))
-;  (assert (NoObject? (-> t :rng :o)))
-  (let [tfn #(trans-dots % b bm)]
-    (cond
-      (:drest t)
-      (let [{:keys [pre-type name]} (:drest t)]
-        (assert (symbol? name))
-        (if (= b name) ;identical bounds
-          (let [dom (concat 
+(fold/add-fold-case ::trans-dots
+  Function
+  (fn 
+    [t {{:keys [b bm]} :locals}]
+    (let [tfn #(trans-dots % b bm)]
+      (cond
+        (:drest t)
+        (let [{:keys [pre-type name]} (:drest t)]
+          (assert (symbol? name))
+          (if (= b name) ;identical bounds
+            (let [dom (concat 
                         ;keep fixed domain
                         (doall (map tfn (:dom t)))
                         ;expand dotted type to fixed domain
@@ -62,24 +93,23 @@
                                       {:post [(r/Type? %)]}
                                       ;replace free occurences of bound with bk
                                       (-> (subst/substitute bk b pre-type)
-                                        tfn))
+                                          tfn))
                                     bm)))]
-            (r/Function-maker dom
-                        (update-in (:rng t) [:t] tfn)
-                        nil
-                        nil ;dotted pretype now expanded to fixed domain
-                        nil))
-          (-> t
+              (r/Function-maker dom
+                                (tfn (:rng t))
+                                nil
+                                nil ;dotted pretype now expanded to fixed domain
+                                nil))
+            (-> t
+                (update-in [:dom] #(doall (map tfn %)))
+                (update-in [:rng] tfn)
+                (update-in [:drest] (fn [drest]
+                                      (when drest
+                                        (-> drest
+                                            (update-in [:pre-type] tfn)))))))) ;translate pre-type
+        :else
+        (-> t
             (update-in [:dom] #(doall (map tfn %)))
-            (update-in [:rng :t] tfn)
-            (update-in [:drest] (fn [drest]
-                                  (when drest
-                                    (-> drest
-                                      (update-in [:pre-type] tfn)))))))) ;translate pre-type
-      :else
-      (-> t
-        (update-in [:dom] #(doall (map tfn %)))
-        (update-in [:rng] tfn)
-        (update-in [:rest] #(when %
-                              (tfn %)))))))
-
+            (update-in [:rng] tfn)
+            (update-in [:rest] #(when %
+                                  (tfn %))))))))
