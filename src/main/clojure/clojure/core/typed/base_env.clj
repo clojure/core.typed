@@ -805,7 +805,7 @@ clojure.core/vector (All [r b ...]
 clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
 
 clojure.core/not [Any -> boolean]
-clojure.core/constantly (All [x y] [x -> [y * -> x]])
+clojure.core/constantly (All [x] [x -> [Any * -> x]])
 
 clojure.core/bound? [(Var2 Nothing Any) * -> Boolean]
 clojure.core/thread-bound? [(Var2 Nothing Any) * -> Boolean]
