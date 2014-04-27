@@ -2025,10 +2025,7 @@
 (add-invoke-special-method 'clojure.core.typed/inst-poly
   [{[pexpr targs-exprs :as args] :args :as expr} & [expected]]
   (assert (#{2} (count args)) "Wrong arguments to inst")
-  (let [ptype (let [t (-> (check pexpr) expr-type ret-t)]
-                (if (r/Name? t)
-                  (c/resolve-Name t)
-                  t))
+  (let [ptype (c/fully-resolve-type (-> (check pexpr) expr-type ret-t))
         ; support (inst :kw ...)
         ptype (if (c/keyword-value? ptype)
                 (c/KeywordValue->Fn ptype)
