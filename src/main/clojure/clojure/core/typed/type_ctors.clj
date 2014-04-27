@@ -1714,7 +1714,7 @@
                          bbnds (mapv #(r/visit-bounds % rs) bbnds*)
                          as #(add-scopes n (name-to name count type (+ n outer) %))]
                      (r/PolyDots-maker n 
-                                       (mapv #(r/visit-bounds % rs) bbnds)
+                                       (mapv #(r/visit-bounds % as) bbnds)
                                        (as body)
                                        :meta (meta ty)))))
 

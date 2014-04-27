@@ -3324,3 +3324,15 @@
          {:let '(clojure.core/let [a (clojure.core.typed/ann-form b Foo) 
                                    c (clojure.core.typed/ann-form d Baz)] 
                   1 2 3 4)})))
+
+(deftest nested-poly-test
+  (is (Poly* ['a] [no-bounds]
+             (Poly* ['x] [no-bounds] -any)))
+  (is (Poly* ['a] [no-bounds]
+             (PolyDots* ['x] [no-bounds] -any)))
+  (is (PolyDots* ['a] [no-bounds]
+             (Poly* ['x] [no-bounds] -any)))
+  (is (parse-clj '(All [b] [Any -> (All [b ...] [Any -> Any])])))
+  (is (parse-clj '(All [b] [b -> (All [b ...] [b ... b -> Any])])))
+  (is (parse-clj '(All [b ...] [b ... b -> (All [b ...] [b ... b -> Any])])))
+  (is (parse-clj '(All [b ...] [b ... b -> (All [b ...] '[])]))))
