@@ -1843,6 +1843,41 @@
                                    (update-in [:optional] instantiate-kw-map)))))))
 
 (f/add-fold-case ::instantiate-many
+                 HeterogeneousVector
+                 (fn [ty {{:keys [count outer image sb]} :locals}]
+                   (r/-hvec (mapv sb (:types ty))
+                            :filters (mapv sb (:fs ty))
+                            :objects (mapv sb (:objects ty))
+                            :rest (when-let [rest (:rest ty)]
+                                    (sb rest))
+                            :drest (when-let [drest (:drest ty)]
+                                     (-> drest
+                                         (update-in [:pre-type] sb)
+                                         (update-in [:name] #(do
+                                                               (assert (u/nat? %) %)
+                                                               (if (= (+ count outer) %)
+                                                                 image
+                                                                 %))))))))
+
+(f/add-fold-case ::instantiate-many
+                 HSequential
+                 (fn [ty {{:keys [count outer image sb]} :locals}]
+                   (r/-hsequential 
+                            (mapv sb (:types ty))
+                            :filters (mapv sb (:fs ty))
+                            :objects (mapv sb (:objects ty))
+                            :rest (when-let [rest (:rest ty)]
+                                    (sb rest))
+                            :drest (when-let [drest (:drest ty)]
+                                     (-> drest
+                                         (update-in [:pre-type] sb)
+                                         (update-in [:name] #(do
+                                                               (assert (u/nat? %) %)
+                                                               (if (= (+ count outer) %)
+                                                                 image
+                                                                 %))))))))
+
+(f/add-fold-case ::instantiate-many
                Mu
                (fn [{:keys [scope] :as mu} {{:keys [replace count outer image sb type]} :locals}]
                  (let [body (remove-scopes 1 scope)]
