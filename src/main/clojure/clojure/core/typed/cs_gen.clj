@@ -421,7 +421,7 @@
             (let [ss (sub/simplify-In S)]
               (for [t* (sub/simplify-In T)]
                 (if-let [results (doall
-                                   (seq (filter (t/inst identity (U false r/Type))
+                                   (seq (filter (t/inst identity (U false cset))
                                                 (map (fn> [s* :- r/Type]
                                                        (handle-failure
                                                          (cs-gen V X Y s* t*)))
