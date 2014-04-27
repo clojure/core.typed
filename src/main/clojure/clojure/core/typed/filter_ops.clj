@@ -415,6 +415,7 @@
 ; functions to get around compilation issues
 (defn -true-filter [] (-FS fr/-top fr/-bot))
 (defn -false-filter [] (-FS fr/-bot fr/-top))
+(defn -simple-filter [] (-FS fr/-top fr/-top))
 
 (defn implied-atomic? [f1 f2]
   (let [subtype? @(subtype?-var)]
