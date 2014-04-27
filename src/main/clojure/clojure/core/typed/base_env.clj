@@ -815,13 +815,11 @@ clojure.core/make-hierarchy [-> Hierarchy]
 clojure.core/isa? (Fn [Any Any -> Boolean]
                       [Hierarchy Any Any -> Boolean])
 
-;TODO make extensible via IPersistentSet
 clojure.core/disj
      (All [x]
           (Fn [(SortedSet x) Any Any * -> (SortedSet x)]
               [(Set x) Any Any * -> (Set x)]))
 
-;TODO make extensible via IPersistentMap
 clojure.core/assoc
      (All [b c d]
        (Fn [(Map b c) b c -> (Map b c)]
