@@ -476,7 +476,11 @@
                :rest rest})
             dotted?
             (let [fixed (mapv parse-type (drop-last 3 syns))
-                  [drest-bnd _dots_ drest-type] (take-last 3 syns)
+                  [drest-type _dots_ drest-bnd :as dot-syntax] (take-last 3 syns)
+                  ; should never fail, if the logic changes above it's probably
+                  ; useful to keep around.
+                  _ (when-not (#{3} (count dot-syntax))
+                      (u/int-error (str "Bad vector syntax: " dot-syntax)))
                   bnd (dvar/*dotted-scope* drest-bnd)
                   _ (when-not bnd
                       (u/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
