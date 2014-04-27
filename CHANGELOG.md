@@ -2,6 +2,11 @@
 
 Thanks to Di Xu and Nicola Mometto who contributed patches.
 
+## Breaking Changes
+
+- Annotation for clojure.core/vector now uses dotted variables
+  - `inst`ing the new type will give a different type
+
 ## Enhancements
 
 - [CTYP-130](http://dev.clojure.org/jira/browse/CTYP-130) Add HSequential which abstracts over HSeq/HVec/HList/HSeq

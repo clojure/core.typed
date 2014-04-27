@@ -1307,7 +1307,7 @@
         (cf (clojure.core.typed/loop> [a :- String, 1] a)))))
 
 (deftest map-indexed-test
-  (is-cf (map-indexed (clojure.core.typed/inst vector clojure.core.typed/AnyInteger Long Any Any Any Any) 
+  (is-cf (map-indexed (clojure.core.typed/inst vector Any clojure.core.typed/AnyInteger Long) 
                       [1 2])
          (clojure.lang.Seqable '[clojure.core.typed/AnyInteger Long])))
 
@@ -1938,7 +1938,7 @@
 (deftest csgen-combine-test
   (is-cf (map inc [0 1.1])
          (clojure.lang.Seqable Number))
-  (is-cf (map (clojure.core.typed/inst vector Number Number Any Any Any Any) [1] [2])
+  (is-cf (map (clojure.core.typed/inst vector Any Number Number) [1] [2])
          (clojure.lang.Seqable '[Number Number])))
 
 ;FIXME uncomment after core.typed internals are being checked
@@ -2621,7 +2621,10 @@
       (clojure.core.typed/fn> 
         [x :- a
          y :- (clojure.core.typed/Seqable b)]))
-    (All [a b] [Any Any -> Any])))
+    (All [a b] [Any Any -> Any]))
+  ;zero args is fine for dotted vars
+  (is-cf (fn [a] (clojure.core.typed/inst a))
+         [(All [b ...] [b ... b -> Any]) -> Any]))
 
 (deftest unparse-free-scoping-test
   (is (= (unparse-type (parse-type '(All [a b] (Fn [Any Any -> Any]))))
