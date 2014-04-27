@@ -483,6 +483,14 @@ clojure.java.io/IOFactory
         nil nil
         :object (obj/->Path [(pe/->CountPE)] 0)))))
 
+(defn ^:private nth-type []
+  (impl/with-clojure-impl
+    (prs/parse-type
+      '(All [x y]
+            (Fn [(U (Indexed x) (I clojure.lang.Sequential (Seqable x))) AnyInteger -> x]
+                [(U (Indexed x) (I clojure.lang.Sequential (Seqable x)) nil) AnyInteger y -> (U x y)]
+                [(U (Indexed x) (I clojure.lang.Sequential (Seqable x)) nil) AnyInteger -> (U x nil)])))))
+
 (delay-and-cache-env ^:private init-var-env
   (reset-alias-env!)
   (merge
