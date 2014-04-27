@@ -191,6 +191,20 @@
                                               (if (= name (:name drest))
                                                 name
                                                 (:name drest)))))))
+
+(f/add-fold-case ::substitute-dotted
+  HSequential
+  (fn [{:keys [types fs objects rest drest]} {{:keys [sb name image]} :locals}]
+    (r/-hsequential 
+             (doall (map sb types))
+             :filters (doall (map sb fs))
+             :objects (doall (map sb objects))
+             :rest (when rest (sb rest))
+             :drest (when drest
+                      (r/DottedPretype1-maker (substitute image (:name drest) (sb (:pretype drest)))
+                                              (if (= name (:name drest))
+                                                name
+                                                (:name drest)))))))
   )
 
 ;; implements curly brace substitution from the formalism
