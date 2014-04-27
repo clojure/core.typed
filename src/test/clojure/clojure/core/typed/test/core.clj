@@ -3395,3 +3395,25 @@
   (is (parse-clj '(All [b] [b -> (All [b ...] [b ... b -> Any])])))
   (is (parse-clj '(All [b ...] [b ... b -> (All [b ...] [b ... b -> Any])])))
   (is (parse-clj '(All [b ...] [b ... b -> (All [b ...] '[])]))))
+
+(deftest instantiate-polydots-test
+  (is (let [sym (gensym)]
+        (= sym
+           (-> (PolyDots-body* [sym] (parse-clj '(All [b ...] ['[b ... b] -> Any])))
+               :types
+               first
+               :dom
+               first
+               :drest
+               :name))))
+  (is (= (-> (parse-clj '(All [b ...] ['[b ... b] -> Any]))
+             :scope
+             :body
+             :types
+             first
+             :dom
+             first
+             :drest
+             :name)
+         0)))
+
