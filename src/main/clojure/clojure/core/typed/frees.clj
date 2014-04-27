@@ -386,8 +386,8 @@
 
 (add-frees-method [::any-var Poly]
   [{:keys [scope bbnds]}]
-  (let [_ (assert (every? empty? (map frees bbnds))
-                  "NYI Handle frees in bounds")]
+  (let [_ (when-not (every? empty? (map frees bbnds))
+            (u/nyi-error "NYI Handle frees in bounds"))]
     (frees scope)))
 
 (add-frees-method [::any-var Mu]
@@ -396,8 +396,8 @@
 
 (add-frees-method [::any-var PolyDots]
   [{:keys [scope bbnds]}]
-  (let [_ (assert (every? empty? (map frees bbnds))
-                  "NYI Handle frees in bounds")]
+  (let [_ (when-not (every? empty? (map frees bbnds))
+            (u/nyi-error "NYI Handle frees in bounds"))]
     (frees scope)))
 
 
