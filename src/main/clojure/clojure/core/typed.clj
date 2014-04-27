@@ -4,7 +4,7 @@ and functions for type checking Clojure code. check-ns is the interface
 for checking namespaces, cf for checking individual forms."}
   clojure.core.typed
   (:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
-                            def])
+                            #_def])
   (:require [clojure.core :as core]
             [clojure.pprint :as pprint]
             [clojure.set :as set]
@@ -16,7 +16,7 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.internal :as internal]
             [clojure.java.io :as io]))
 
-(defmacro
+#_(defmacro
   ^{:forms '[(def name docstring? :- type? expr)]}
   def
   "Like clojure.core/def with optional type annotations
