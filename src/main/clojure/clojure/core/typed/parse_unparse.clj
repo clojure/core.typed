@@ -1148,6 +1148,12 @@
           (when (not ((some-fn orep/NoObject? orep/EmptyObject?) o))
             [:object (unparse-object o)])))
 
+(defn unparse-bound [name]
+  {:pre [((some-fn symbol? u/nat?) name)]}
+  (if (symbol? name)
+    (-> name r/make-F r/F-original-name)
+    `(~'B ~name)))
+
 (defmethod unparse-type* Function
   [{:keys [dom rng kws rest drest]}]
   (vec (concat (doall (map unparse-type dom))
@@ -1157,7 +1163,7 @@
                  (let [{:keys [pre-type name]} drest]
                    [(unparse-type pre-type) 
                     '... 
-                    (-> name r/make-F r/F-original-name)]))
+                    (unparse-bound name)]))
                (when kws
                  (let [{:keys [optional mandatory]} kws]
                    (list* '& 
@@ -1323,7 +1329,7 @@
          (concat
            (map unparse-type (:types v))
            (when rest [(unparse-type rest) '*])
-           (when drest [(unparse-type (:pre-type drest)) '... (:name drest)]))
+           (when drest [(unparse-type (:pre-type drest)) '... (unparse-bound (:name drest))]))
          (concat
            (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
              [:filter-sets (mapv unparse-filter-set fs)])
@@ -1337,7 +1343,7 @@
            (concat
              (map unparse-type (:types v))
              (when rest [(unparse-type rest) '*])
-             (when drest [(unparse-type (:pre-type drest)) '... (:name drest)])))
+             (when drest [(unparse-type (:pre-type drest)) '... (unparse-bound (:name drest))])))
          (concat
            (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
              [:filter-sets (mapv unparse-filter-set fs)])
@@ -1364,7 +1370,7 @@
            (concat
              (map unparse-type (:types v))
              (when rest [(unparse-type rest) '*])
-             (when drest [(unparse-type (:pre-type drest)) '... (:name drest)])))
+             (when drest [(unparse-type (:pre-type drest)) '... (unparse-bound (:name drest))])))
          (concat
            (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
              [:filter-sets (mapv unparse-filter-set fs)])
