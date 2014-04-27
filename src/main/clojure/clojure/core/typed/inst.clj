@@ -42,8 +42,6 @@
   {:pre [((some-fn r/Poly? r/PolyDots?) ptype)
          (every? r/Type? argtys)]
    :post [(r/Type? %)]}
-  (when-not (seq argtys)
-    (u/int-error (str "Must provide arguments to inst")))
   (cond
     (r/Poly? ptype)
     (let [_ (when-not (= (:nbound ptype) (count argtys)) 
