@@ -27,6 +27,25 @@
   [form]
   (analyze1 form (taj/empty-env)))
 
+(defn ast-for-file
+  "Returns a vector of AST nodes contained
+  in the given file"
+  [p]
+  (let [pres (io/resource p)
+        _ (assert pres (str "Cannot find file: " p))
+        file (-> pres io/reader slurp)
+        reader (readers/indexing-push-back-reader file)
+        eof  (reify)
+        asts (binding [*ns* *ns*
+                       *file* p]
+               (loop [asts []]
+                 (let [form (tr/read reader false eof)]
+                   (if (not= eof form)
+                     (let [a (analyze1 form (taj/empty-env))]
+                       (recur (conj asts a)))
+                     asts))))]
+    asts))
+
 (defn ast-for-ns 
   "Returns a vector of AST nodes contained
   in the given namespace symbol nsym"
@@ -47,21 +66,8 @@
        ;copied basic approach from tools.emitter.jvm
        (let [res (munge nsym)
              p    (str (str/replace res #"\." "/") ".clj")
-             eof  (reify)
              p (if (.startsWith p "/") (subs p 1) p)
-             pres (io/resource p)
-             _ (assert pres (str "Cannot find file for " nsym ": " p))
-             file (-> pres io/reader slurp)
-             reader (readers/indexing-push-back-reader file)
-             asts (binding [*ns* (or (find-ns nsym)
-                                     *ns*)
-                            *file* p]
-                    (loop [asts []]
-                      (let [form (tr/read reader false eof)]
-                        (if (not= eof form)
-                          (let [a (analyze1 form (taj/empty-env))]
-                            (recur (conj asts a)))
-                          asts))))]
+             asts (ast-for-file p)]
          (when-let [cache t/*analyze-ns-cache*]
            (swap! cache assoc nsym asts))
          asts)))))
