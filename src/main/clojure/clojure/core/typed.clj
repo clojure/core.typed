@@ -652,8 +652,8 @@ for checking namespaces, cf for checking individual forms."}
   :let option uses clojure.core.typed/let
   
   eg.
-  (doseq> [a :- (U nil AnyInteger) [1 nil 2 3]
-           :when a]
+  (doseq [a :- (U nil AnyInteger) [1 nil 2 3]
+          :when a]
      (inc a))"
   [seq-exprs & body]
   (@#'core/assert-args
