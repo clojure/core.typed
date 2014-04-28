@@ -25,8 +25,49 @@
 (fold/add-fold-case ::trans-dots
   HSequential
   (fn
-    [t _]
-    (u/nyi-error "HSequential trans-dots")))
+    [t {{:keys [b bm]} :locals}]
+    (let [tfn #(trans-dots % b bm)]
+      (cond
+        (:drest t)
+        (let [{:keys [pre-type name]} (:drest t)]
+          (assert (symbol? name))
+          (if (= b name) ;identical bounds
+            (let [fixed (vec
+                          (concat 
+                            ;keep fixed entries
+                            (doall (map tfn (:types t)))
+                            ;expand dotted type to fixed entries
+                            (doall (map (fn [bk]
+                                          {:post [(r/Type? %)]}
+                                          ;replace free occurences of bound with bk
+                                          (-> (subst/substitute bk b pre-type)
+                                              tfn))
+                                        bm))))
+                  extra-fixed (- (count fixed)
+                                 (count (:types t)))]
+              (r/-hsequential fixed
+                       :filters (vec
+                                  (concat (map tfn (:fs t))
+                                          (repeat extra-fixed
+                                                  (fo/-simple-filter))))
+                       :objects (vec
+                                  (concat (map tfn (:objects t))
+                                          (repeat extra-fixed
+                                                  or/-empty)))
+                       ;drest is expanded into fixed
+                       ))
+            (r/-hsequential (mapv tfn (:types t))
+                     :filters (mapv tfn (:fs t))
+                     :objects (mapv tfn (:objects t))
+                     :drest (when-let [drest (:drest t)]
+                              (-> drest
+                                  (update-in [:pre-type] tfn)))))) ;translate pre-type
+        :else
+        (r/-hsequential (mapv tfn (:types t))
+                 :filters (mapv tfn (:fs t))
+                 :objects (mapv tfn (:objects t))
+                 :rest (when-let [r (:rest t)]
+                         (tfn r)))))))
 
 (fold/add-fold-case ::trans-dots
   HeterogeneousVector
