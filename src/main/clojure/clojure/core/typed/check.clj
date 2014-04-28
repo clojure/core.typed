@@ -869,7 +869,23 @@
          (or (not poly?)
              ((some-fn r/Poly? r/PolyDots?) poly?))]
    :post [(r/TCResult? %)]}
-  (let [static-method? (= :static-call (:op fexpr))
+  (let [fin (apply r/make-FnIntersection
+                   ;try and prune some of the arities
+                   ; Lots more improvements we can port from Typed Racket:
+                   ;  typecheck/tc-app-helper.rkt
+                   (or
+                     (seq
+                       (remove (fn [{:keys [dom rest drest kws rng]}]
+                                 ;remove arities that have a differing
+                                 ; number of fixed parameters than what we
+                                 ; require
+                                 (and (not rest) (not drest) (not kws)
+                                      (not= (count dom)
+                                            (count arg-ret-types))))
+                               (:types fin)))
+                     ;if we remove all the arities, default to all of them
+                     (:types fin)))
+        static-method? (= :static-call (:op fexpr))
         instance-method? (= :instance-call (:op fexpr))
         method-sym (when (or static-method? instance-method?)
                      (MethodExpr->qualsym fexpr))]
