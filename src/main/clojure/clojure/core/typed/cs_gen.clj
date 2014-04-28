@@ -707,6 +707,8 @@
         :else
         (cs-gen* V X Y S T))))))
 
+(declare var-store-take move-vars-to-dmap)
+
 (t/ann cs-gen-HSequential [NoMentions ConstrainVars ConstrainVars HSequential HSequential
                            -> cset])
 (defn cs-gen-HSequential
@@ -717,8 +719,7 @@
   (cset-meet* (concat
                 (cond
                   ;simple case
-                  (and (not-any? :rest [S T])
-                       (not-any? :drest [S T]))
+                  (not-any? (some-fn :rest :drest) [S T])
                   [(cs-gen-list V X Y (:types S) (:types T))]
 
                   ;rest on right, optionally on left
@@ -731,8 +732,46 @@
                           (when (:rest S)
                             [(cs-gen V X Y (:rest S) (:rest T))]))
 
+                  ;; dotted on the left, nothing on the right
+                  (and (:drest S)
+                       (not-any? (some-fn :rest :drest) [T]))
+                  (let [{dty :pre-type dbound :name} (:drest S)]
+                    (when-not (Y dbound)
+                      (fail! S T))
+                    (when-not (<= (count (:types S)) (count (:types T)))
+                      (fail! S T))
+                    (let [vars (var-store-take dbound dty (- (count (:types T))
+                                                             (count (:types S))))
+                          new-tys (doall (for> :- r/AnyType
+                                           [var :- Symbol, vars]
+                                           (subst/substitute (r/make-F var) dbound dty)))
+                          new-s-hsequential (r/-hsequential (concat (:types S) new-tys))
+                          new-cset (cs-gen-HSequential V 
+                                                    ;move dotted lower/upper bounds to vars
+                                                    (merge X (zipmap vars (repeat (Y dbound)))) Y new-s-hsequential T)]
+                      [(move-vars-to-dmap new-cset dbound vars)]))
+
+                  ;; dotted on the right, nothing on the left
+                  (and (not-any? (some-fn :rest :drest) [S])
+                       (:drest T))
+                  (let [{dty :pre-type dbound :name} (:drest T)]
+                    (when-not (Y dbound)
+                      (fail! S T))
+                    (when-not (<= (count (:types T)) (count (:types S)))
+                      (fail! S T))
+                    (let [vars (var-store-take dbound dty (- (count (:types S)) (count (:types T))))
+                          new-tys (doall
+                                    (for> :- r/AnyType
+                                       [var :- Symbol, vars]
+                                       (subst/substitute (r/make-F var) dbound dty)))
+                          new-t-hsequential (r/-hsequential (concat (:types T) new-tys))
+                          new-cset (cs-gen-HSequential V 
+                                                       ;move dotted lower/upper bounds to vars
+                                                       (merge X (zipmap vars (repeat (Y dbound)))) Y S new-t-hsequential)]
+                      [(move-vars-to-dmap new-cset dbound vars)]))
+
                   ;TODO cases
-                  :else (fail! S T))
+                  :else (u/nyi-error (pr-str "NYI HSequential inference " S T)))
                 (map (fn [fs1 fs2]
                        (cs-gen-filter-set V X Y fs1 fs2))
                      (:fs S) (:fs T))
