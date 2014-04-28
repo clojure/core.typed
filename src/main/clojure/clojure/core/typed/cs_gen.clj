@@ -1295,6 +1295,17 @@
           (swap!' DOTTED-VAR-STORE assoc' key all))
         all))))
 
+(defn pad-right
+  "Returns a sequence of length cnt that is s padded to the right with copies
+  of v."
+  [^long cnt s v]
+  {:pre [(integer? cnt)
+         (<= (count s) cnt)]
+   ;careful not to shadow cnt here
+   :post [(== cnt (count %))]}
+  (concat s
+          (repeat (- cnt (count s)) v)))
+
 (t/ann cs-gen-Function
        [NoMentions ConstrainVars ConstrainVars Function Function -> cset])
 (defn cs-gen-Function
@@ -1310,12 +1321,7 @@
            (cg [S T] (cs-gen V X Y S T))]
     (cond
       ;easy case - no rests, drests, kws
-      (and (not (:rest S))
-           (not (:rest T))
-           (not (:drest S))
-           (not (:drest T))
-           (not (:kws S))
-           (not (:kws T)))
+      (not-any? (some-fn :rest :drest :kws) [S T])
       ; contravariant
       (u/p :cs-gen/cs-gen-Function-easy-case
       (let [;_ (prn "easy case")
@@ -1325,28 +1331,18 @@
                      (cg (:rng S) (:rng T))])))
 
       ;just a rest arg, no drest, no keywords
-      (and (or (:rest S)
-               (:rest T))
-           (not (:drest S))
-           (not (:drest T))
-           (not (:kws S))
-           (not (:kws T)))
+      (and (some-fn :rest [S T])
+           (not-any? (some-fn :drest :kws) [S T]))
       (u/p :cs-gen/cs-gen-Function-just-rests
       (let [arg-mapping (cond
                           ;both rest args are present, so make them the same length
                           (and (:rest S) (:rest T))
                           (cs-gen-list V X Y 
-                                       (cons (:rest T) (concat (:dom T) (repeat (- (count (:dom S))
-                                                                                   (count (:dom T)))
-                                                                                (:rest T))))
-                                       (cons (:rest S) (concat (:dom S) (repeat (- (count (:dom T))
-                                                                                   (count (:dom S)))
-                                                                                (:rest S)))))
+                                       (cons (:rest T) (pad-right (count (:dom S)) (:dom T) (:rest T)))
+                                       (cons (:rest S) (pad-right (count (:dom T)) (:dom S) (:rest S))))
                           ;no rest arg on the right, so just pad left and forget the rest arg
                           (and (:rest S) (not (:rest T)))
-                          (let [new-S (concat (:dom S) (repeat (- (count (:dom T))
-                                                                  (count (:dom S)))
-                                                               (:rest S)))]
+                          (let [new-S (pad-right (count (:dom T)) (:dom S) (:rest S))]
                             ;                            (prn "infer rest arg on left")
                             ;                            (prn "left dom" (map prs/unparse-type (:dom S)))
                             ;                            (prn "right dom" (map prs/unparse-type (:dom T)))
@@ -1358,12 +1354,8 @@
         (cset-meet* [arg-mapping ret-mapping])))
 
       ;; dotted on the left, nothing on the right
-      (and (not (:rest S))
-           (not (:rest T))
-           (:drest S)
-           (not (:drest T))
-           (not (:kws S))
-           (not (:kws T)))
+      (and (:drest S)
+           (not-any? (some-fn :rest :drest :kws) [T]))
       (u/p :cs-gen/cs-gen-Function-dotted-left-nothing-right
       (let [{dty :pre-type dbound :name} (:drest S)]
         (when-not (Y dbound)
@@ -1382,7 +1374,7 @@
           (move-vars-to-dmap new-cset dbound vars))))
 
       ;; dotted on the right, nothing on the left
-      (and (not ((some-fn :rest :drest) S))
+      (and (not-any? (some-fn :rest :drest :kws) [S])
            (:drest T))
       (u/p :cs-gen/cs-gen-Function-dotted-right-nothing-left
       (let [{dty :pre-type dbound :name} (:drest T)]
@@ -1414,7 +1406,7 @@
           (fail! S T))
         (if (<= (count (:dom S)) (count (:dom T)))
           ;; the simple case
-          (let [arg-mapping (cs-gen-list V X Y (:dom T) (concat (:dom S) (repeat (- (count (:dom T)) (count (:dom S))) (:rest S))))
+          (let [arg-mapping (cs-gen-list V X Y (:dom T) (pad-right (count (:dom T)) (:dom S) (:rest S)))
                 darg-mapping (move-rest-to-dmap (cs-gen V (merge X {dbound (Y dbound)}) Y t-dty (:rest S)) dbound)
                 ret-mapping (cg (:rng S) (:rng T))]
             (cset-meet* [arg-mapping darg-mapping ret-mapping]))
