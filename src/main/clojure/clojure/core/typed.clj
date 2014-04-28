@@ -624,16 +624,16 @@ for checking namespaces, cf for checking individual forms."}
                            steppair-chunk (step recform-chunk (nnext exprs))
                            subform-chunk (steppair-chunk 1)]
                        [true
-                        `(loop> [~seq- :- (~'U nil (~'clojure.core.typed/Seq ~k-ann)) (seq ~v), 
+                        `(loop> [~seq- :- (~'U nil (Seq ~k-ann)) (seq ~v), 
                                  ~chunk- :- (~'U nil (~'clojure.lang.IChunk ~k-ann)) nil
-                                 ~count- :- ~'(U Integer Long) 0,
-                                 ~i- :- ~'(U Integer Long) 0]
+                                 ~count- :- (~'U Integer Long) 0,
+                                 ~i- :- (~'U Integer Long) 0]
                            (if (and (< ~i- ~count-)
                                     ;; FIXME review this
                                     ;; core.typed thinks chunk- could be nil here
                                     ~chunk-)
                              (core/let [;~k (.nth ~chunk- ~i-)
-                                   ~k (nth ~chunk- ~i-)]
+                                        ~k (nth ~chunk- ~i-)]
                                ~subform-chunk
                                ~@(when needrec [recform-chunk]))
                              (when-let [~seq- (seq ~seq-)]
