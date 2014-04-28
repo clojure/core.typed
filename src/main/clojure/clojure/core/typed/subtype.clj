@@ -99,14 +99,14 @@
     (assert (var? v) "infer unbound")
     v))
 
-;[(IPersistentMap Symbol Bounds) (Seqable Type) (Seqable Type)
+;[(Map Symbol Bounds) (Map Symbol Bounds) (Seqable Type) (Seqable Type)
 ;  -> Boolean]
-(defn unify [X S T]
+(defn unify [X Y S T R]
   (u/p :subtype/unify
   (let [infer @(infer-var)]
     (boolean 
       (u/handle-cs-gen-failure
-        (infer X {} S T r/-any))))))
+        (infer X Y S T R))))))
 
 (declare subtype-TApp? protocol-extenders
          subtype-datatypes-or-records subtype-Result subtype-PrimitiveArray
@@ -188,15 +188,21 @@
                    bnds (c/Poly-bbnds* names s)
                    b1 (c/Poly-body* names s)
                    ;_ (prn "try unify on left")
-                   u (unify (zipmap names bnds) [b1] [t])]
+                   u (unify (zipmap names bnds) {} [b1] [t] r/-any)]
                ;(prn "unified on left")
                u))
-        (let [names (c/Poly-fresh-symbols* s)
-              bnds (c/Poly-bbnds* names s)
-              b1 (c/Poly-body* names s)]
-          (if (unify (zipmap names bnds) [b1] [t])
-            *sub-current-seen*
-            (fail! s t)))
+        *sub-current-seen*
+
+        (and (r/PolyDots? s)
+             (let [names (c/PolyDots-fresh-symbols* s)
+                   bnds (c/PolyDots-bbnds* names s)
+                   b1 (c/PolyDots-body* names s)
+                   ;_ (prn "try PolyDots unify on left")
+                   u (unify (zipmap (butlast names) (butlast bnds)) {(last names) (last bnds)} 
+                            [b1] [t] r/-any)]
+               ;(prn "unified on left" u)
+               u))
+        *sub-current-seen*
 
         (and (r/Poly? t)
              (let [names (c/Poly-fresh-symbols* t)
