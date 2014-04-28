@@ -3358,9 +3358,12 @@
   (is-cf (nth [1] 0))
   (is-cf (nth '(1) 0))
   (is-cf (nth "a" 0))
-  (is-cf (let [nth (ann-form nth (All [x y] [(U (clojure.lang.Indexed x) (I clojure.lang.Sequential (Seqable x))) AnyInteger -> Any]))]
+  (is-cf (let [nth (clojure.core.typed/ann-form 
+                     nth (All [x y] [(U (clojure.lang.Indexed x) 
+                                        (I clojure.lang.Sequential (clojure.core.typed/Seqable x))) 
+                                     clojure.core.typed/AnyInteger -> Any]))]
            (nth "a" 0)))
-  (is-cf (nth (ann-form (java.util.ArrayList. [1 2 3]) java.util.RandomAccess) 0))
+  (is-cf (nth (clojure.core.typed/ann-form (java.util.ArrayList. [1 2 3]) java.util.RandomAccess) 0))
   (is-cf (nth (java.util.ArrayList. [1 2 3]) 0))
   ; this fails randomly
   (is (do (dotimes [n 20]
@@ -3368,8 +3371,8 @@
               (cf (let [nth (clojure.core.typed/ann-form 
                               nth (All [x y] 
                                        [(U (clojure.lang.Indexed x) 
-                                           (I clojure.lang.Sequential (Seqable x))) 
-                                        AnyInteger -> Any]))]
+                                           (I clojure.lang.Sequential (clojure.core.typed/Seqable x))) 
+                                        clojure.core.typed/AnyInteger -> Any]))]
                     (nth "a" 0)))))
           true))
   (is (do (dotimes [n 20]
