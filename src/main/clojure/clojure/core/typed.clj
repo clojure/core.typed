@@ -1050,8 +1050,11 @@ for checking namespaces, cf for checking individual forms."}
 
 (defmacro 
   ^{:forms '[(loop> [binding :- type, init*] exprs*)]}
+  ^:deprecated
   loop>
-  "Like loop, except loop variables require annotation.
+  "DEPRECATED: use clojure.core.typed/loop
+  
+  Like loop, except loop variables require annotation.
 
   Suggested idiom: use a comma between the type and the initial
   expression.
