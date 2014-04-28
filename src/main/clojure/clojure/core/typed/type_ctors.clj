@@ -1828,11 +1828,9 @@
                              (when drest
                                (-> drest
                                  (update-in [:pre-type] sb)
-                                 (update-in [:name] #(do
-                                                       (assert (u/nat? %))
-                                                       (if (= (+ count outer) %)
-                                                         image
-                                                         %)))))
+                                 (update-in [:name] #(if (= (+ count outer) %)
+                                                       image
+                                                       %))))
                              (when kws
                                (letfn [(instantiate-kw-map [m]
                                          {:pre [(map? m)]}
@@ -1853,11 +1851,9 @@
                             :drest (when-let [drest (:drest ty)]
                                      (-> drest
                                          (update-in [:pre-type] sb)
-                                         (update-in [:name] #(do
-                                                               (assert (u/nat? %) %)
-                                                               (if (= (+ count outer) %)
-                                                                 image
-                                                                 %))))))))
+                                         (update-in [:name] #(if (= (+ count outer) %)
+                                                               image
+                                                               %)))))))
 
 (f/add-fold-case ::instantiate-many
                  HSequential
@@ -1871,11 +1867,9 @@
                             :drest (when-let [drest (:drest ty)]
                                      (-> drest
                                          (update-in [:pre-type] sb)
-                                         (update-in [:name] #(do
-                                                               (assert (u/nat? %) %)
-                                                               (if (= (+ count outer) %)
-                                                                 image
-                                                                 %))))))))
+                                         (update-in [:name] #(if (= (+ count outer) %)
+                                                               image
+                                                               %)))))))
 
 (f/add-fold-case ::instantiate-many
                Mu
