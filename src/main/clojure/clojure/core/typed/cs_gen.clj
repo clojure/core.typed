@@ -1419,6 +1419,33 @@
                 new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y S new-t-arr)]
             (move-vars+rest-to-dmap new-cset dbound vars)))))
 
+      ;; ... <: *
+      ; Typed Racket notes that this might not be a correct subtyping case?
+      (and (:drest S)
+           (:rest T))
+      (let [{s-dty :pre-type dbound :name} (-> S :drest)]
+        (when-not (Y dbound)
+          (fail! S T))
+        (cond 
+          (< (count (:dom S)) (count (:dom T)))
+          ;; the hard case
+          (let [vars (var-store-take dbound s-dty (- (count (:dom T)) (count (:dom S))))
+                new-tys (doall (for> :- r/AnyType
+                                 [var :- Symbol, vars]
+                                 (subst/substitute (r/make-F var) dbound s-dty)))
+                new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil (r/DottedPretype1-maker s-dty dbound) nil)
+                new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y new-s-arr T)]
+            (move-vars+rest-to-dmap new-cset dbound vars :exact true))
+
+          (== (count (:dom S)) (count (:dom T)))
+          ;the simple case
+          (let [arg-mapping (cs-gen-list V X Y (pad-right (count (:dom S)) (:dom T) (:rest T)) (:dom S))
+                darg-mapping (move-rest-to-dmap (cs-gen V (merge X {dbound (Y dbound)}) Y (:rest T) s-dty) dbound :exact true)
+                ret-mapping (cg (:rng S) (:rng T))]
+            (cset-meet* [arg-mapping darg-mapping ret-mapping]))
+
+          :else (fail! S T)))
+
 :else 
 (u/nyi-error (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T)))))))
 
