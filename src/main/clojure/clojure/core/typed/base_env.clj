@@ -868,9 +868,15 @@ clojure.core/apply
               [[a b c r * -> y] a b c (U nil (Seqable r)) -> y]
               [[a b c d r * -> y] a b c d (U nil (Seqable r)) -> y]))
 
-clojure.core/partial 
+;partial: wishful thinking (replaces the first 4 arities
+; (All [b1 ...]
+; (All [r b2 ...]
+;    [[b1 ... b1 b2 ... b2 -> r] b1 ... b1 -> [b2 ... b2 -> r]]))
+
+clojure.core/partial
      (All [y a b c d z ...]
-          (Fn [[a z ... z -> y] a -> [z ... z -> y]]
+          (Fn [[z ... z -> y] -> [z ... z -> y]]
+              [[a z ... z -> y] a -> [z ... z -> y]]
               [[a b z ... z -> y] a b -> [z ... z -> y]]
               [[a b c z ... z -> y] a b c -> [z ... z -> y]]
               [[a b c d z ... z -> y] a b c d -> [z ... z -> y]]
