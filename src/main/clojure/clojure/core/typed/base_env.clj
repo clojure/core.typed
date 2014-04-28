@@ -625,14 +625,14 @@ clojure.core/key (All [x]
 clojure.core/val (All [x]
                            [(IMapEntry Any x) -> x])
 
-clojure.core/juxt
-(All [x y z a c r b ...]
-     (Fn [[x -> r] ... b -> [x -> '[r ... b]]]
-         [[x y -> r] ... b -> [x y -> '[r ... b]]]
-         [[x y z -> r] ... b -> [x y z -> '[r ... b]]]
-         [[x y z a -> r] ... b -> [x y z a -> '[r ... b]]]
-         [[x y z a c -> r] ... b -> [x y z a c -> '[r ... b]]]
-         [[b ... b -> r] * -> [b ... b -> (Vec r)]]))
+;clojure.core/juxt
+;(All [b1 ...]
+;(All [x r b2 ...]
+;     (Fn [[b1 ... b1 -> b2] ... b2 -> [b1 ... b1 -> '[b2 ... b2]]]
+;         [[b1 ... b1 -> r] * -> [b1 ... b1 -> (Vec r)]]
+;         [[x * -> b2] ... b2 -> [x * -> '[b2 ... b2]]]
+;         [[x * -> r] * -> [x * -> (Vec r)]])))
+
 
 ;TODO flip filters
 clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]])
