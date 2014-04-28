@@ -848,6 +848,13 @@ clojure.core/comp
      (All [x y b ...]
           [[x -> y] [b ... b -> x] -> [b ... b -> y]])
 
+
+;apply: wishful thinking
+;     (All [b1 ...]
+;     (All [y b2 ...]
+;          (Fn [[b1 ... b1 b2 ... b2 -> y] b1 ... b1 (HSequential [b2 ... b2]) -> y]
+;              [[b1 ... b1 r * -> y] b1 ... b1 (U nil (Seqable r)) -> y])))
+
 clojure.core/apply
      (All [y a b c d r z ...]
           (Fn [[z ... z -> y] (HSequential [z ... z]) -> y]
