@@ -6,7 +6,9 @@ Thanks to Di Xu and Nicola Mometto who contributed patches.
 
 - Annotation for clojure.core/vector now uses dotted variables
   - `inst`ing the new type will give a different type
-- Changed `partial` type
+- Changed `partial` annotation
+- Changed `complement` annotation
+  - remove unused type variable
 
 ## Enhancements
 
