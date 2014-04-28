@@ -1218,53 +1218,76 @@
           (polyapp-type-error fexpr args fexpr-type arg-ret-types expected))))
 
       :else ;; any kind of dotted polymorphic function without mandatory or optional keyword args
-      (if-let [[pbody fixed-vars fixed-bnds dotted-var dotted-bnd]
-               (and (r/PolyDots? fexpr-type)
-                    (let [vars (vec (c/PolyDots-fresh-symbols* fexpr-type))
-                          bbnds (c/PolyDots-bbnds* vars fexpr-type)
-                          [fixed-bnds dotted-bnd] [(butlast bbnds) (last bbnds)]
-                          [fixed-vars dotted-var] [(butlast vars) (last vars)]
-                          pbody (c/PolyDots-body* vars fexpr-type)]
-                      (and (r/FnIntersection? pbody)
-                           (seq (:types pbody))
-                           (not (some :kws (:types pbody)))
-                           [pbody fixed-vars fixed-bnds dotted-var dotted-bnd])))]
+      (if-let [[pbody fixed-map dotted-map]
+               (letfn [(should-infer? [t]
+                         (and (r/PolyDots? t)
+                              (r/FnIntersection?
+                                (c/PolyDots-body* (c/PolyDots-fresh-symbols* t)
+                                                  t))))
+                       (collect-polydots [t]
+                         {:post [((u/hvector-c? r/Type?
+                                               (u/hash-c? symbol? r/Bounds?)
+                                               (u/hash-c? symbol? r/Bounds?))
+                                  %)]}
+                         (loop [pbody (c/fully-resolve-type t)
+                                fixed {}
+                                dotted {}]
+                           (cond 
+                             (r/PolyDots? pbody)
+                             (let [vars (vec (c/PolyDots-fresh-symbols* pbody))
+                                   bbnds (c/PolyDots-bbnds* vars pbody)
+                                   fixed* (apply zipmap (map butlast [vars bbnds]))
+                                   dotted* (apply hash-map (map last [vars bbnds]))
+                                   pbody (c/PolyDots-body* vars pbody)]
+                               (recur (c/fully-resolve-type pbody)
+                                      (merge fixed fixed*)
+                                      (merge dotted dotted*)))
+
+                             (and (r/FnIntersection? pbody)
+                                  (seq (:types pbody))
+                                  (not (some :kws (:types pbody))))
+                             [pbody fixed dotted])))]
+                 ; don't support nested PolyDots yet
+                 (when (should-infer? fexpr-type)
+                   (collect-polydots fexpr-type)))]
         (let [;_ (prn "polydots, no kw args")
+              _ (assert (#{1} (count dotted-map)))
               inferred-rng 
-              (free-ops/with-bounded-frees (zipmap (map r/F-maker fixed-vars) fixed-bnds)
-                           (some identity
-                                 (for [{:keys [dom rest ^DottedPretype drest rng] :as ftype} (:types pbody)
-                                       ;only try inference if argument types match
-                                       :when (cond
-                                               rest (<= (count dom) (count arg-types))
-                                               drest (and (<= (count dom) (count arg-types))
-                                                          (= dotted-var (-> drest :name)))
-                                               :else (= (count dom) (count arg-types)))]
-                                   (cgen/handle-failure
-                                     ;(prn "Inferring dotted fn" (prs/unparse-type ftype))
-                                     ;; Only try to infer the free vars of the rng (which includes the vars
-                                     ;; in filters/objects).
-                                     (let [substitution (cond
-                                                          drest (cgen/infer-dots (zipmap fixed-vars fixed-bnds) dotted-var dotted-bnd
-                                                                                 arg-types dom (.pre-type drest) (r/Result-type* rng) 
-                                                                                 (frees/fv rng)
-                                                                                 :expected (and expected (ret-t expected)))
-                                                          rest (cgen/infer-vararg (zipmap fixed-vars fixed-bnds) {dotted-var dotted-bnd}
-                                                                                  arg-types dom rest (r/Result-type* rng)
-                                                                                  (and expected (ret-t expected)))
-                                                          :else (cgen/infer (zipmap fixed-vars fixed-bnds) {dotted-var dotted-bnd} 
-                                                                            arg-types dom (r/Result-type* rng)
-                                                                            (and expected (ret-t expected))))
-                                           ;_ (prn "substitution:" substitution)
-                                           substituted-type (subst/subst-all substitution ftype)
-                                           ;_ (prn "substituted-type" (prs/unparse-type substituted-type))
-                                           ;_ (prn "args" (map prs/unparse-type arg-types))
-                                           ]
-                                       (or (and substitution
-                                                (check-funapp1 fexpr args 
-                                                               substituted-type arg-ret-types expected :check? false))
-                                           (u/tc-delayed-error "Error applying dotted type")
-                                           nil))))))]
+              (free-ops/with-bounded-frees (zipmap (map r/make-F (keys fixed-map)) (vals fixed-map))
+                ;(dvar-env/with-dotted-mappings (zipmap (keys dotted-map) (map r/make-F (vals dotted-map)))
+                 (some identity
+                       (for [{:keys [dom rest drest rng] :as ftype} (:types pbody)
+                             ;only try inference if argument types match
+                             :when (cond
+                                     rest (<= (count dom) (count arg-types))
+                                     drest (and (<= (count dom) (count arg-types))
+                                                (contains? (set (keys dotted-map)) (-> drest :name)))
+                                     :else (= (count dom) (count arg-types)))]
+                         (cgen/handle-failure
+                           ;(prn "Inferring dotted fn" (prs/unparse-type ftype))
+                           ;; Only try to infer the free vars of the rng (which includes the vars
+                           ;; in filters/objects).
+                           (let [substitution (cond
+                                                drest (cgen/infer-dots fixed-map (key (first dotted-map)) (val (first dotted-map))
+                                                                       arg-types dom (:pre-type drest) (r/Result-type* rng) 
+                                                                       (frees/fv rng)
+                                                                       :expected (and expected (ret-t expected)))
+                                                rest (cgen/infer-vararg fixed-map dotted-map
+                                                                        arg-types dom rest (r/Result-type* rng)
+                                                                        (and expected (ret-t expected)))
+                                                :else (cgen/infer fixed-map dotted-map
+                                                                  arg-types dom (r/Result-type* rng)
+                                                                  (and expected (ret-t expected))))
+                                 ;_ (prn "substitution:" substitution)
+                                 substituted-type (subst/subst-all substitution ftype)
+                                 ;_ (prn "substituted-type" (prs/unparse-type substituted-type))
+                                 ;_ (prn "args" (map prs/unparse-type arg-types))
+                                 ]
+                             (or (and substitution
+                                      (check-funapp1 fexpr args 
+                                                     substituted-type arg-ret-types expected :check? false))
+                                 (u/tc-delayed-error "Error applying dotted type")
+                                 nil))))))]
           ;(prn "inferred-rng"inferred-rng)
           (if inferred-rng
             inferred-rng
