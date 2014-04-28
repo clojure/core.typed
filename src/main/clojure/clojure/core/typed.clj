@@ -1084,7 +1084,7 @@ for checking namespaces, cf for checking individual forms."}
         lhs (map ffirst bnds)
         rhs (map second bnds)
         bnd-anns (map #(-> % first next second) bnds)]
-    `(loop>-ann (loop ~(vec (mapcat vector lhs rhs))
+    `(loop>-ann (core/loop ~(vec (mapcat vector lhs rhs))
                   ~@forms)
                 '~bnd-anns)))
 
