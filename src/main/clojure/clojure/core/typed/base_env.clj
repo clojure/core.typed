@@ -354,7 +354,8 @@ clojure.lang.Var
       [r :variance :covariant]]
      :replace
      {IRef (IRef w r)
-      IDeref (IDeref r)}]
+      IDeref (IDeref r)
+      ARef (ARef w r)}]
 
 clojure.lang.Atom 
      [[[w :variance :contravariant]

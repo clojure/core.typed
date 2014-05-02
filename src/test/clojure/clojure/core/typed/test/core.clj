@@ -3420,3 +3420,8 @@
              :name)
          0)))
 
+
+(deftest deref-var-test
+  (is-cf @#'+ 
+         [Number -> Number]))
+
