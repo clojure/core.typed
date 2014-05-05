@@ -8,7 +8,7 @@
 
 (t/def-alias DepMap
   "A map declaring possibly-circular namespace dependencies."
-  (IPersistentMap Symbol (IPersistentSet Symbol)))
+  (t/Map Symbol (t/Set Symbol)))
 
 (t/ann init-deps [-> DepMap])
 (defn init-deps [] 
@@ -36,17 +36,17 @@
 (t/ann ^:no-check CLJS-TYPED-DEPS (t/Atom1 DepMap))
 (defonce CLJS-TYPED-DEPS (atom (init-deps) :validator dep-map?))
 
-(t/ann ^:no-check add-ns-deps [Symbol (IPersistentSet Symbol) -> DepMap])
+(t/ann ^:no-check add-ns-deps [Symbol (t/Set Symbol) -> DepMap])
 (defn add-ns-deps [nsym deps]
   (assert-dep-map)
   (swap! (current-deps) update-in [nsym] u/set-union deps))
 
-(t/ann ^:no-check remove-ns-deps [Symbol (IPersistentSet Symbol) -> DepMap])
+(t/ann ^:no-check remove-ns-deps [Symbol (t/Set Symbol) -> DepMap])
 (defn remove-ns-deps [nsym deps]
   (assert-dep-map)
   (swap! (current-deps) update-in [nsym] u/set-difference deps))
 
-(t/ann ^:no-check immediate-deps [Symbol -> (IPersistentSet Symbol)])
+(t/ann ^:no-check immediate-deps [Symbol -> (t/Set Symbol)])
 (defn immediate-deps [target-ns]
   {:pre [(symbol? target-ns)]
    :post [((u/set-c? symbol?) %)]}
