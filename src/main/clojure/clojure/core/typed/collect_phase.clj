@@ -29,19 +29,35 @@
             [clojure.math.combinatorics :as comb]
             [clojure.tools.namespace.track :as track]
             [clojure.tools.namespace.dir :as dir]
-            [clojure.tools.namespace.dependency :as ndep]))
+            [clojure.tools.namespace.dependency :as ndep]
+            [clojure.tools.namespace.parse :as ns-parse]
+            [clojure.tools.namespace.file :as ns-file]
+            [clojure.core :as core]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
 (defonce ns-deps-tracker (atom (track/tracker)))
 
-(defn update-ns-deps! []
+(defn scan-ns-deps! []
+  {:post [(nil? %)]}
   (p :collect/update-ns-deps!
   (try
     (swap! ns-deps-tracker dir/scan)
     (catch StackOverflowError e
       (prn "ERROR COLLECTING DEPENDENCIES: caught StackOverflowError from tools.namespace")))
+  nil
   ))
+
+(defn update-ns-deps! [nsyms]
+  {:pre [(every? (some-fn symbol? u/ns?) nsyms)]
+   :post [(nil? %)]}
+  (let [ps (map (fn [nsym]
+                  (let [url (u/ns->URL nsym)]
+                    (assert url (str "Cannot find file for " nsym))
+                    url))
+                nsyms)]
+    (swap! ns-deps-tracker ns-file/add-files ps)
+    nil))
 
 (defn parse-field [[n _ t]]
   [n (prs/parse-type t)])
@@ -54,12 +70,15 @@
     (assert nil "Type system is not set up for namespace collection")))
 
 (defn- already-collected? [nsym]
+  {:post [(u/boolean? %)]}
   (if-let [a t/*already-collected*]
     (boolean (@a nsym))
     (assert nil "Type system is not set up for namespace collection")))
 
 (defn immediate-deps [nsym]
-  (ndep/immediate-dependencies (-> @ns-deps-tracker ::track/deps) nsym))
+  (let [graph (-> @ns-deps-tracker ::track/deps)]
+    (assert graph (str "Cannot get immediate dependencies for " nsym))
+    (ndep/immediate-dependencies graph nsym)))
 
 (defn directly-depends? [nsym another-nsym]
   (contains? (immediate-deps nsym) another-nsym))
@@ -78,7 +97,8 @@
   "Automatically find other namespaces that are likely to
   be typed dependencies to the current ns."
   [nsym]
-  (update-ns-deps!)
+  {:pre [(symbol? nsym)]}
+  (scan-ns-deps!)
   (let [all-deps (immediate-deps nsym)
         new-deps (set (filter probably-typed? all-deps))]
     (dep/add-ns-deps nsym new-deps)))
@@ -90,6 +110,7 @@
   for namespace symbol nsym, and recursively check 
   declared typed namespace dependencies."
   ([nsym]
+   {:pre [(symbol? nsym)]}
    (p :collect-phase/collect-ns
    (if (already-collected? nsym)
      (do #_(println (str "Already collected " nsym ", skipping"))
@@ -128,12 +149,36 @@
     (collect ast)))
 
 (defn collect-ns-setup [nsym]
+  {:pre [(symbol? nsym)]}
   (binding [t/*already-collected* (atom #{})]
     (collect-ns nsym)))
 
+(defn internal-form? [expr]
+  (u/internal-form? expr ::t/special-collect))
+
+(u/special-do-op ::t/special-collect internal-collect-expr)
+
 (defn visit-do [{:keys [statements ret] :as expr} f]
+  (when (internal-form? expr)
+    (internal-collect-expr expr))
   (doseq [expr (concat statements [ret])]
     (f expr)))
+
+(defmethod internal-collect-expr ::core/ns
+  [{[_ _ {{ns-form :form} :val :as third-arg} :as statements] :statements fexpr :ret :as expr}]
+  {:pre [ns-form
+         ('#{clojure.core/ns ns} (first ns-form))]}
+  (let [prs-ns (second ns-form)
+        _ (assert (symbol? prs-ns))
+        _ (assert (find-ns prs-ns))
+        ; add all deps to `ns-deps-tracker` so we can use `probably-typed?`
+        all-deps (ns-parse/deps-from-ns-decl ns-form)
+        _ (swap! ns-deps-tracker track/add {prs-ns all-deps})
+        deps (filter probably-typed? all-deps)]
+    (dep/add-ns-deps prs-ns deps)
+    (update-ns-deps! deps)
+    (doseq [dep deps]
+      (collect-ns dep))))
 
 (defn assert-expr-args [{:keys [args] :as expr} cnts]
   {:pre [(set? cnts)]}
@@ -314,7 +359,9 @@
     (if t/*already-collected*
       (do (dep/add-ns-deps prs-ns (set deps))
           (doseq [dep deps]
-            (collect-ns dep)))
+            (if (u/ns->URL dep)
+              (collect-ns dep)
+              (u/int-error (str "Cannot find dependency declared with typed-deps: " dep)))))
       (do (println "WARNING: Not collecting namespaces, must call typed-deps via check-ns")
           (flush)))
     nil))
