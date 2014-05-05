@@ -247,10 +247,11 @@
              (parse-type '['[Integer Double] '[Integer Float] 
                            -> '['[Integer Double] '[Integer Float]]])))
   ;TODO HSequential
-  (is-clj (= (inst/manual-inst (parse-type '(All [x b ...]
-                                                 [x ... b -> (HSequential [x ... b])]))
-                               (map parse-type '(Integer Double Float)))
-             (parse-type '(HSequential [Integer Integer Integer]))))
+  (is-clj (= (clj
+               (inst/manual-inst (parse-type '(All [x b ...]
+                                                   [x ... b -> (HSequential [x ... b])]))
+                                 (map parse-type '(Integer Double Float))))
+             (parse-type '(Fn [Integer Integer -> (HSequential [Integer Integer])]))))
   ; completeness check
   (is (check-ns 'clojure.core.typed.test.trans-dots))
   )
