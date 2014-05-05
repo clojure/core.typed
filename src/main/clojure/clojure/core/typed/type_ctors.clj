@@ -786,7 +786,7 @@
 ;FIXME rename to RClass-with-unknown-params
 (t/ann ^:no-check RClass-of-with-unknown-params [(U Symbol Class) -> r/Type])
 (defn RClass-of-with-unknown-params
-  ([sym-or-cls]
+  ([sym-or-cls & {:keys [warn-msg]}]
    {:pre [((some-fn class? symbol?) sym-or-cls)]
     :post [((some-fn r/RClass? r/DataType?) %)]}
    (let [sym (if (class? sym-or-cls)
@@ -794,6 +794,8 @@
                sym-or-cls)
          rc ((some-fn dtenv/get-datatype rcls/get-rclass) sym)
          args (when (r/TypeFn? rc)
+                (when warn-msg
+                  (println "WARNING: " warn-msg ": " sym))
                 (let [syms (TypeFn-fresh-symbols* rc)]
                   (most-general-on-variance (:variances rc)
                                             (TypeFn-bbnds* syms rc))))]
@@ -952,12 +954,16 @@
                                            (set (keys replacements)))
               ;(prn "not-replaced" not-replaced)
               res (set/union (binding [*current-RClass-super* the-class]
-                       (set (doall 
-                              (for [csym not-replaced]
-                                (RClass-of-with-unknown-params csym)))))
-                     (set (vals replacements))
-                     #{(RClass-of Object)}
-                     unchecked-ancestors)]
+                               (let [rs (for [csym not-replaced]
+                                          (RClass-of-with-unknown-params 
+                                            csym
+                                            :warn-msg (str "RClass ancestor defaulting "
+                                                           "to most general parameters")))]
+                                 (apply set/union (set rs) (map RClass-supers* rs))))
+                             (set (vals replacements))
+                             #{(RClass-of Object)}
+                             unchecked-ancestors)]
+          ;(prn "supers" the-class res)
           (assert (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
                       1)
                   (str "Found more than one function supertype for RClass " (unparse-type rcls) ": \n"
