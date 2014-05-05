@@ -181,6 +181,7 @@
                        :filter (fl/-FS (fl/-filter on-type 0)
                                        (fl/-not-filter on-type 0))))))
 
+; possibly should be called Pred
 (defmethod parse-type-list 'predicate
   [[_ t-syn]]
   (predicate-for (parse-type t-syn)))
