@@ -387,9 +387,9 @@
   `(deftype ~name-sym [~@fields ~intern-id ~meta-field]
      clojure.lang.IHashEq
      (equals [_# ~that]
-       (boolean
-         (when (instance? ~name-sym ~that)
-           (== ~intern-id (.intern-id ~(with-meta that {:tag name-sym}))))))
+       (if (instance? ~name-sym ~that)
+         (== ~intern-id (.intern-id ~(with-meta that {:tag name-sym})))
+         false))
      (hasheq [this#] (bit-xor ~type-hash ~intern-id))
      (hashCode [this#] (bit-xor ~type-hash ~intern-id))
 
@@ -436,9 +436,9 @@
      (empty [this#] (throw (UnsupportedOperationException. (str "Can't create empty: " ~(str name-sym)))))
      (cons [this# e#] (throw (UnsupportedOperationException. (str "cons on " '~name-sym))))
      (equiv [_# ~that]
-       (boolean
-         (when (instance? ~name-sym ~that)
-           (== ~intern-id (.intern-id ~(with-meta that {:tag name-sym}))))))
+       (if (instance? ~name-sym ~that)
+         (== ~intern-id (.intern-id ~(with-meta that {:tag name-sym})))
+         false))
      (containsKey [this# k#] (throw (UnsupportedOperationException. (str "containsKey on " '~name-sym))))
      (seq [this#] (seq [~@(map #(list `new `clojure.lang.MapEntry (keyword %) %) (concat fields [#_intern-id #_meta-field]))]))
 
