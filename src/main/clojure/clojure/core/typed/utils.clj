@@ -9,7 +9,9 @@
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.profiling :as profiling]
-            [clojure.pprint :as pprint])
+            [clojure.pprint :as pprint]
+            [clojure.string :as str]
+            [clojure.java.io :as io])
   (:import (clojure.lang PersistentArrayMap Var Symbol)))
 
 (t/tc-ignore
@@ -571,3 +573,44 @@
              (pprint-str x#))
      (flush)
      x#))
+
+(t/tc-ignore
+;; multimethods for dispatching on special forms like (do ::special-form ::foobar ...)
+(defn internal-dispatch-val [expr]
+  (:val (second (:statements expr))))
+
+(defn enforce-do-folding [{:keys [statements] :as expr} kw]
+  (when-not (#{0 1} (count 
+                      (filter #{kw} 
+                              (map :val statements))))
+    (int-error (str "Folded special-forms detected " (emit-form-fn expr)))))
+
+(defmacro special-do-op
+  "Define a multimethod that takes an expr and an expected type
+  and dispatches on the second statement"
+  [kw nme]
+  `(defmulti ~nme (fn [expr# & _#] (internal-dispatch-val expr#))))
+
+(defn internal-form? [expr kw]
+  (= kw (:val (first (:statements expr)))))
+
+(defn ns? [n]
+  (instance? clojure.lang.Namespace n))
+
+(defn ns->file [nsym]
+  {:pre [(symbol? nsym)]
+   :post [(string? %)]}
+  ;copied basic approach from tools.emitter.jvm
+  (let [res (munge nsym)
+        p    (str (str/replace res #"\." "/") ".clj")
+        p (if (.startsWith p "/") (subs p 1) p)]
+    p))
+
+(defn ns->URL [nsym]
+  {:pre [(symbol? nsym)]
+   :post [((some-fn #(instance? java.net.URL %)
+                    nil?) 
+           %)]}
+  (let [p (ns->file nsym)]
+    (io/resource p)))
+)
