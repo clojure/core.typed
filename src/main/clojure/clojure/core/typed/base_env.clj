@@ -1686,7 +1686,7 @@ clojure.core/min [Number Number * -> Number]
 clojure.core/ref (All [x] [x & :optional {:validator (U nil [x -> Any]) :meta (U nil (Map Any Any))
                                           :min-history (U nil AnyInteger)
                                           :max-history (U nil AnyInteger)}
-                           -> (clojure.lang.ARef x x)])
+                           -> (clojure.lang.Ref x x)])
 
 clojure.core/rand (Fn [-> Number]
                       [Number -> Number])
