@@ -984,12 +984,11 @@
   (cset-meet*
     (cons (cr/empty-cset X Y)
           (doall
-            (for> :- cset
-              [[variance si ti] :- '[r/Variance r/AnyType r/AnyType]
-              , (map (-> vector 
-                         (t/inst r/Variance r/AnyType r/AnyType Any Any Any))
-                     variances ss ts)]
-              (cs-gen-with-variance V X Y variance si ti))))))
+            (map (t/fn [variance :- r/Variance
+                        si :- r/AnyType 
+                        ti :- r/AnyType]
+                   (cs-gen-with-variance V X Y variance si ti))
+                 variances ss ts)))))
 
 ;(add-cs-gen*-method [RClass RClass impl/clojure]
 ;  [V X Y S T]
@@ -1030,18 +1029,13 @@
       (cset-meet*
         (cons (cr/empty-cset X Y)
               (doall
-                (for> :- cset
-                  [[vari si ti] :- '[r/Variance r/Type r/Type]
-                       (map (-> vector
-                                (t/inst r/Variance r/Type r/Type Any Any Any))
-                            (:variances T)
-                            (:poly? relevant-S)
-                            (:poly? T))]
-                  (case vari
-                    (:covariant :constant) (cs-gen V X Y si ti)
-                    :contravariant (cs-gen V X Y ti si)
-                    :invariant (cset-meet (cs-gen V X Y si ti)
-                                          (cs-gen V X Y ti si)))))))
+                (map (t/fn [vari :- r/Variance 
+                            si :- r/Type 
+                            ti :- r/Type]
+                       (cs-gen-with-variance V X Y vari si ti))
+                     (:variances T)
+                     (:poly? relevant-S)
+                     (:poly? T)))))
       :else (fail! S T))))
 
 (add-cs-gen*-method [Protocol Protocol impl/any-impl]
