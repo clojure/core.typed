@@ -1049,11 +1049,11 @@
 
 (deftest destructuring-test
   ;Vector destructuring with :as
-  (is-clj (subtype? (ret-t (tc-t (let [[a b :as c] (clojure.core.typed/ann-form [1 2] (clojure.lang.Seqable Number))] 
-                        [a b c])))
-                (-hvec [(Un -nil (RClass-of Number))
-                        (Un -nil (RClass-of Number))
-                        (RClass-of Seqable [(RClass-of Number)])])))
+  (is-clj (subtype? (ret-t (tc-t (let [[a b :as c] (clojure.core.typed/ann-form [1 2] (clojure.core.typed/Vec Number))] 
+                                   [a b c])))
+                    (-hvec [(Un -nil (RClass-of Number))
+                            (Un -nil (RClass-of Number))
+                            (RClass-of Seqable [(RClass-of Number)])])))
   (is-clj (= (ret-t (tc-t (let [[a b :as c] [1 2]] 
                         [a b c])))
          (-hvec [(-val 1)
