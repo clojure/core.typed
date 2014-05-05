@@ -2176,9 +2176,12 @@
 
 ;pred
 (add-invoke-special-method 'clojure.core.typed/pred*
-  [{[{tsyn :val} {nsym :val} _pred-fn_ :as args] :args, :keys [env], :as expr} & [expected]]
+  [{[tsyn-expr nsym-expr _pred-fn_ :as args] 
+    :args, :keys [env], :as expr} & [expected]]
   {:pre [(#{3} (count args))]}
-  (let [ptype 
+  (let [tsyn (quote-expr-val tsyn-expr)
+        nsym (quote-expr-val nsym-expr)
+        ptype 
         ; frees are not scoped when pred's are parsed at runtime,
         ; so we simulate the same here.
         (binding [tvar-env/*current-tvars* {}
