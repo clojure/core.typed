@@ -1,18 +1,144 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-clj
+  (:refer-clojure :exclude [macroexpand-1])
   (:require [clojure.tools.analyzer :as ta]
             [clojure.tools.analyzer.jvm :as taj]
+            [clojure.tools.analyzer.utils :as taj-utils]
+            [clojure.tools.analyzer.passes.source-info :as source-info]
+            [clojure.tools.analyzer.passes.cleanup :as cleanup]
             [clojure.tools.analyzer.passes.jvm.emit-form :as emit-form]
             [clojure.tools.reader :as tr]
             [clojure.tools.reader.reader-types :as readers]
-            [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.core.typed.utils :as u]
-            [clojure.core.typed :as t]))
+            [clojure.core.typed :as T]
+            [clojure.core :as core]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
+(def typed-macros
+  {#'clojure.core/ns 
+   (fn [&form &env name & references]
+     (let [process-reference
+           (fn [[kname & args]]
+             `(~(symbol "clojure.core" (clojure.core/name kname))
+                        ~@(map #(list 'quote %) args)))
+           docstring  (when (string? (first references)) (first references))
+           references (if docstring (next references) references)
+           name (if docstring
+                  (vary-meta name assoc :doc docstring)
+                  name)
+           metadata   (when (map? (first references)) (first references))
+           references (if metadata (next references) references)
+           name (if metadata
+                  (vary-meta name merge metadata)
+                  name)
+           gen-class-clause (first (filter #(= :gen-class (first %)) references))
+           gen-class-call
+           (when gen-class-clause
+             (list* `gen-class :name (.replace (str name) \- \_) :impl-ns name :main true (next gen-class-clause)))
+           references (remove #(= :gen-class (first %)) references)
+           ;ns-effect (clojure.core/in-ns name)
+           ]
+       `(do
+          ::T/special-collect
+          ::core/ns
+          {:form '~&form}
+          (clojure.core/in-ns '~name)
+          (with-loading-context
+            ~@(when gen-class-call (list gen-class-call))
+            ~@(when (and (not= name 'clojure.core) (not-any? #(= :refer-clojure (first %)) references))
+                `((clojure.core/refer '~'clojure.core)))
+            ~@(map process-reference references))
+          (if (.equals '~name 'clojure.core) 
+            nil
+            (do (dosync (commute @#'clojure.core/*loaded-libs* (T/inst conj T/Symbol ~'Any) '~name)) nil)))))
+   })
+
+(defn macroexpand-1
+  "If form represents a macro form or an inlineable function,
+   returns its expansion, else returns form."
+  [form env]
+  (if (seq? form)
+    (let [[op & args] form]
+      (if (taj/specials op)
+        form
+        (let [v (taj-utils/resolve-var op env)
+              m (meta v)
+              local? (-> env :locals (get op))
+              macro? (and (not local?) (:macro m)) ;; locals shadow macros
+              inline-arities-f (:inline-arities m)
+              inline? (and (not local?)
+                           (or (not inline-arities-f)
+                               (inline-arities-f (count args)))
+                           (:inline m))
+              t (:tag m)]
+          (cond
+
+           macro?
+           (let [res (apply (typed-macros v v) form (:locals env) (rest form))] ; (m &form &env & args)
+             (taj/update-ns-map! env)
+             (if (taj-utils/obj? res)
+               (vary-meta res merge (meta form))
+               res))
+
+           inline?
+           (let [res (apply inline? args)]
+             (taj/update-ns-map! env)
+             (if (taj-utils/obj? res)
+               (vary-meta res merge
+                          (and t {:tag t})
+                          (meta form))
+               res))
+
+           :else
+           (taj/desugar-host-expr form env)))))
+    (taj/desugar-host-expr form env)))
+
+(defn analyze
+  "Returns an AST for the form that's compatible with what tools.emitter.jvm requires.
+
+   Binds tools.analyzer/{macroexpand-1,create-var,parse} to
+   tools.analyzer.jvm/{macroexpand-1,create-var,parse} and calls
+   tools.analyzer/analyzer on form.
+
+   Calls `run-passes` on the AST."
+  [form env]
+  (with-bindings {clojure.lang.Compiler/LOADER (clojure.lang.RT/makeClassLoader)
+                  #'ta/macroexpand-1           macroexpand-1
+                  #'ta/create-var              taj/create-var
+                  #'ta/parse                   taj/parse
+                  #'ta/var?                    var?}
+    (taj/run-passes (ta/analyze form env))))
+
+(defn analyze+eval
+  "Like analyze but evals the form after the analysis.
+   Useful when analyzing whole files/namespaces."
+  [form env]
+  (let [mform (binding [ta/macroexpand-1 macroexpand-1]
+                (ta/macroexpand form env))]
+    (if (and (seq? mform) (= 'do (first mform)) (next mform))
+      ;; handle the Gilardi scenario
+      (let [[statements ret] (loop [statements [] [e & exprs] (rest mform)]
+                               (if exprs
+                                 (recur (conj statements e) exprs)
+                                 [statements e]))
+            statements-expr (mapv (fn [s] (analyze+eval s (-> env (taj-utils/ctx :statement) taj/update-ns-map!))) statements)
+            ret-expr (analyze+eval ret (taj/update-ns-map! env))]
+        (-> {:op         :do
+            :form       mform
+            :statements statements-expr
+            :ret        ret-expr
+            :children   [:statements :ret]
+            :env        env}
+          source-info/source-info
+          cleanup/cleanup))
+      (let [a (analyze mform (taj/update-ns-map! env))
+            frm (emit-form/emit-form a)]
+        (eval frm) ;; eval the emitted form rather than directly the form to avoid double macroexpansion
+        a))))
+
 (defn analyze1 [form env]
-  (taj/analyze+eval form env))
+  (analyze+eval form env))
 
 (defn ast-for-form-in-ns
   "Returns an AST node for the form 
@@ -31,8 +157,9 @@
   "Returns a vector of AST nodes contained
   in the given file"
   [p]
+  {:pre [(string? p)]}
   (let [pres (io/resource p)
-        _ (assert pres (str "Cannot find file: " p))
+        _ (assert (instance? java.net.URL pres) (str "Cannot find file: " p))
         file (-> pres io/reader slurp)
         reader (readers/indexing-push-back-reader file)
         eof  (reify)
@@ -59,15 +186,13 @@
                   ; doesn't exist yet
                   nsym)
          _ (assert (symbol? nsym))
-         cache (when-let [cache t/*analyze-ns-cache*]
+         cache (when-let [cache T/*analyze-ns-cache*]
                  @cache)]
      (if (and cache (contains? cache nsym))
        (cache nsym)
        ;copied basic approach from tools.emitter.jvm
-       (let [res (munge nsym)
-             p    (str (str/replace res #"\." "/") ".clj")
-             p (if (.startsWith p "/") (subs p 1) p)
+       (let [p (u/ns->file nsym)
              asts (ast-for-file p)]
-         (when-let [cache t/*analyze-ns-cache*]
+         (when-let [cache T/*analyze-ns-cache*]
            (swap! cache assoc nsym asts))
          asts)))))
