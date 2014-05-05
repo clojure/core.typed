@@ -944,7 +944,7 @@
        cache-hit)
       (u/p :ctors/RClass-supers-cache-miss
         (let [unchecked-ancestors (RClass-unchecked-ancestors* rcls)
-              ;_ (prn "unchecked-ancestors" (map @(unparse-type-var) unchecked-ancestors))
+              ;_ (prn "unchecked-ancestors" unchecked-ancestors)
               replacements (RClass-replacements* rcls)
               ;_ (prn "replacements" (map @(unparse-type-var) (vals replacements)))
               ;set of symbols of Classes we haven't explicitly replaced
