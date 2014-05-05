@@ -1212,6 +1212,9 @@
   (is-cf (first "a") Character)
   (is-cf (first (clojure.core.typed/ann-form "a" String)) (clojure.core.typed/Option Character)))
 
+(deftest string-as-indexed-test
+  (is (sub? String (clojure.lang.Indexed Any))))
+
 (deftest recursive-cf-test
   (is (thrown? Exception
                (cf (clojure.core.typed/cf 1 Number)
