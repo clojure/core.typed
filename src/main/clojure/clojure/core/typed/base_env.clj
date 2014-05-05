@@ -468,7 +468,7 @@ clojure.java.io/IOFactory
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
                 Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
-                Symbol Namespace Atom2 Ref2 Delay Proxy List Stack ExInfo
+                Symbol Namespace Atom2 Ref1 Ref2 Delay Proxy List Stack ExInfo
                 Multi Deref BlockingDeref]]
   (when (some resolve interns)
     (doseq [i interns]
