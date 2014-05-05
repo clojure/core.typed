@@ -118,31 +118,19 @@
   in a dmap constructor."
   dmap)
 
-;  Delayed checks are subtype relationships t1 <: t2 that should be instantiated
-;  at the same time as bounds checking. t1 should be a subtype of t2 after instantiating
-;  them with the current substitution, otherwise constraint generation should fail.
-;  This is useful for types like (I a (Not b)) where it's too hard to use the expression
-;  to constrain the type variables.
 (u/ann-record cset-entry [fixed :- CMap
-                          dmap :- DMap,
-                          delayed-checks :- (t/Set DelayedCheck)])
-(u/defrecord cset-entry [fixed dmap delayed-checks]
+                          dmap :- DMap])
+(u/defrecord cset-entry [fixed dmap]
   ""
   [((u/hash-c? symbol? c?) fixed)
-   (dmap? dmap)
-   ((u/set-c? (u/hvector-c? r/Type? r/Type?))
-     delayed-checks)])
+   (dmap? dmap)])
 
 (t/ann make-cset-entry (Fn [(IPersistentMap Symbol c) -> cset-entry]
-                           [(IPersistentMap Symbol c) (U nil dmap) -> cset-entry]
-                           [(IPersistentMap Symbol c) (U nil dmap) 
-                            (U nil (IPersistentSet DelayedCheck)) -> cset-entry]))
+                           [(IPersistentMap Symbol c) (U nil dmap) -> cset-entry]))
 (defn make-cset-entry
   ([fixed] (make-cset-entry fixed nil nil))
-  ([fixed dmap] (make-cset-entry fixed dmap nil))
-  ([fixed dmap delayed-checks] (->cset-entry fixed
-                                             (or dmap (->dmap {}))
-                                             (or delayed-checks #{}))))
+  ([fixed dmap] (->cset-entry fixed
+                              (or dmap (->dmap {})))))
 
 ;; maps is a list of cset-entries, consisting of
 ;;    - functional maps from vars to c's
@@ -175,5 +163,4 @@
   {:pre [(every? (u/hash-c? symbol? r/Bounds?) [X Y])]
    :post [(cset? %)]}
   (->cset [(->cset-entry (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
-                         (->dmap {})
-                         #{})]))
+                         (->dmap {}))]))

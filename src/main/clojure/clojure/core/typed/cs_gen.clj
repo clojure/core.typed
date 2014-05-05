@@ -100,12 +100,11 @@
   (u/p :cs-gen/cset-meet
   (let [maps (filter (t/inst identity (U false cset-entry))
                      (doall (t/for> :- (U false cset-entry)
-                              [{map1 :fixed dmap1 :dmap delay1 :delayed-checks} :- cset-entry, maps1
-                               {map2 :fixed dmap2 :dmap delay2 :delayed-checks} :- cset-entry, maps2]
+                              [{map1 :fixed dmap1 :dmap} :- cset-entry, maps1
+                               {map2 :fixed dmap2 :dmap} :- cset-entry, maps2]
                               (handle-failure
                                 (cr/->cset-entry (merge-with c-meet map1 map2)
-                                                 (dmap-meet dmap1 dmap2)
-                                                 (set/union delay1 delay2))))))]
+                                                 (dmap-meet dmap1 dmap2))))))]
     (when (empty? maps)
       (fail! maps1 maps2))
     (cr/->cset maps))))
@@ -116,7 +115,7 @@
    :post [(cr/cset? %)]}
   (u/p :cs-gen/cset-meet*
   (reduce cset-meet
-          (cr/->cset [(cr/->cset-entry {} (cr/->dmap {}) #{})])
+          (cr/->cset [(cr/->cset-entry {} (cr/->dmap {}))])
           args)))
 
 (t/ann cset-combine [(U nil (t/Seqable cset)) -> cset])
@@ -140,22 +139,9 @@
    :post [(cr/cset? %)]}
   (cr/->cset (doall
                (for> :- cset-entry
-                 [{fmap :fixed dmap :dmap :keys [delayed-checks]} :- cset-entry, (:maps cs)]
+                 [{fmap :fixed dmap :dmap} :- cset-entry, (:maps cs)]
                  (cr/->cset-entry (assoc fmap var (cr/->c S var T bnds))
-                                  dmap
-                                  delayed-checks)))))
-
-(t/ann insert-delayed-constraint [cset r/Type r/Type -> cset])
-(defn insert-delayed-constraint [cs S T]
-  {:pre [(cr/cset? cs)
-         (r/Type? S)
-         (r/Type? T)]
-   :post [(cr/cset? %)]}
-  (cr/->cset
-    (doall
-      (for> :- cset-entry
-        [{fmap :fixed dmap :dmap :keys [delayed-checks]} :- cset-entry, (:maps cs)]
-        (cr/->cset-entry fmap dmap (conj delayed-checks [S T]))))))
+                                  dmap)))))
 
 ; FIXME no-checked because of massive performance issues. revisit
 (t/ann ^:no-check dcon-meet [cr/DCon cr/DCon -> cr/DCon])
@@ -427,26 +413,16 @@
                                                          (cs-gen V X Y s* t*)))
                                                      ss))))]
                   (cset-combine results)
-                  ; check this invariant after instantiation, and don't use this
-                  ; relationship to constrain any variables.
-                  (do
-                    ;(prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
-                    (-> (cr/empty-cset X Y)
-                        (insert-delayed-constraint S T))))))))
+                  (fail! S T))))))
 
         ;; find *an* element of S which can be made a subtype of T
         (r/Intersection? S)
         (let [ss (sub/simplify-In S)]
-          (if (some r/F? ss) 
-            ; same as Intersection <: Intersection case
-            (do ;(prn "adding delayed constraint" (pr-str (map prs/unparse-type [S T])))
-                (-> (cr/empty-cset X Y)
-                    (insert-delayed-constraint S T)))
-            (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
-                              ss)]
-              (do ;(prn "intersection S normal case" (map prs/unparse-type [S T]))
-                  cs)
-              (fail! S T))))
+          (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
+                            ss)]
+            (do ;(prn "intersection S normal case" (map prs/unparse-type [S T]))
+                cs)
+            (fail! S T)))
 
         ;constrain *every* element of T to be above S, and then meet the constraints
         ; we meet instead of cset-combine because we want all elements of T to be under
@@ -1178,14 +1154,13 @@
          (every? symbol? vars)]
    :post [(cr/cset? %)]}
   (cr/->cset (map
-               (fn> [{cmap :fixed dmap :dmap :keys [delayed-checks]} :- cset-entry]
+               (fn> [{cmap :fixed dmap :dmap} :- cset-entry]
                  (cr/->cset-entry (apply dissoc cmap dbound vars)
                                   (dmap-meet 
                                     (singleton-dmap 
                                       dbound
                                       (f cmap dmap))
-                                    (cr/->dmap (dissoc (:map dmap) dbound)))
-                                  delayed-checks))
+                                    (cr/->dmap (dissoc (:map dmap) dbound)))))
                (:maps cset))))
 
 ;; dbound : index variable
