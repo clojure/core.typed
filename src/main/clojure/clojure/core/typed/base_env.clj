@@ -1024,6 +1024,12 @@ clojure.core/derive (Fn [(U Symbol Keyword Class) (U Symbol Keyword) -> nil]
 clojure.core/compare [Any Any -> Number]
 
 clojure.core/require [Any * -> nil]
+clojure.core/refer [Symbol & :optional {:exclude (Seqable Symbol)
+                                        :only (Seqable Symbol)
+                                        :rename (Map Symbol Symbol)}
+                    -> nil]
+
+clojure.core/*loaded-libs* (Ref1 (Set Symbol))
 
 clojure.core/seq? (predicate (Seq Any))
 clojure.core/set? (predicate (Set Any))
