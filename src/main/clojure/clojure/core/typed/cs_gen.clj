@@ -400,10 +400,6 @@
         (cset-meet*
           (doall
             ; for each element of T, we need at least one element of S that works
-            ; FIXME I don't think this is sound if there are type variables in more
-            ; than one member of the intersection. eg. (I x y)
-            ; The current implementation is useful for types like (I (Seqable Any) (CountRange 1))
-            ; so we want to preserve the current behaviour while handling the other cases intelligently.
             (let [ss (sub/simplify-In S)]
               (for [t* (sub/simplify-In T)]
                 (if-let [results (doall
