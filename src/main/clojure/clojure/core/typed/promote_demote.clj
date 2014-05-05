@@ -341,13 +341,11 @@
 
 (defmethod promote Union 
   [T V]
-  (-> T
-    (update-in [:types] #(set (mapv promote % (repeat V))))))
+  (apply c/Un (map promote (:types T) (repeat V))))
 
 (defmethod demote Union 
   [T V] 
-  (-> T
-    (update-in [:types] #(set (mapv demote % (repeat V))))))
+  (apply c/Un (map demote (:types T) (repeat V))))
 
 ; FIXME is this correct? Promoting NotType should make the inner type smaller,
 ; and demoting should make inner type bigger?
@@ -376,13 +374,11 @@
 
 (defmethod promote Intersection
   [T V] 
-  (-> T
-    (update-in [:types] #(mapv promote % (repeat V)))))
+  (apply c/In (map promote (:types T) (repeat V))))
 
 (defmethod demote Intersection
   [T V] 
-  (-> T
-    (update-in [:types] #(mapv demote % (repeat V)))))
+  (apply c/In (map demote (:types T) (repeat V))))
 
 (defmethod promote FnIntersection
   [T V] 
