@@ -2197,7 +2197,7 @@ for checking namespaces, cf for checking individual forms."}
            (set (keys (ns-refers ns))) 
            (set (keys (ns-imports ns)))))))
 
-;(ann statistics [(U Symbol (Coll Symbol)) -> (Map Symbol Stats)])
+;(ann statistics [(Coll Symbol) -> (Map Symbol Stats)])
 (defn statistics 
   "Takes a collection of namespace symbols and returns a map mapping the namespace
   symbols to a map of data"
