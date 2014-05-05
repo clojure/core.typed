@@ -24,7 +24,7 @@
                                                        (ASeq (U a b)))]))
 (defn append_
   [coll1 coll2]
-  (reduce_ cons coll2 coll1))
+  (reduce_ (t/inst cons (U a b)) coll2 coll1))
 
 
 ; -------- main
