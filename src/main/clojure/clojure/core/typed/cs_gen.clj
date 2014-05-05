@@ -659,22 +659,9 @@
           (cs-gen V X Y Sv T)
           (fail! S T))
         
-        (and (r/HeterogeneousMap? S)
-             (r/RClass? T)
-             (impl/checking-clojure?))
-        (let [^HeterogeneousMap S S]
-          ; Partial HMaps do not record absence of fields, only subtype to (APersistentMap Any Any)
-          (let [new-S (if (c/complete-hmap? S)
-                        (let [kt (apply c/Un (mapcat keys [(.types S) (.optional S)]))
-                              vt (apply c/Un (mapcat vals [(.types S) (.optional S)]))]
-                          (impl/impl-case
-                            :clojure (c/RClass-of APersistentMap [kt vt])
-                            :cljs (c/Protocol-of 'cljs.core/IMap [kt vt])))
-
-                        (impl/impl-case
-                          :clojure (c/RClass-of APersistentMap [r/-any r/-any])
-                          :cljs (c/Protocol-of 'cljs.core/IMap [r/-any r/-any])))]
-            (cs-gen V X Y new-S T)))
+        (r/HeterogeneousMap? S)
+        (let [new-S (c/upcast-hmap S)]
+          (cs-gen V X Y new-S T))
 
         :else
         (cs-gen* V X Y S T))))))
