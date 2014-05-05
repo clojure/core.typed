@@ -2178,7 +2178,7 @@ for checking namespaces, cf for checking individual forms."}
   
       ; collect but don't check the current namespace
       (check-ns *ns* :collect-only true)"
-  ([] (check-ns (ns-name *ns*)))
+  ([] (check-ns *ns*))
   ([ns-or-syms & {:keys [collect-only trace profile] :as kw}]
    (let [{:keys [delayed-errors]} (apply check-ns-info ns-or-syms (apply concat kw))]
      (if-let [errors (seq delayed-errors)]
