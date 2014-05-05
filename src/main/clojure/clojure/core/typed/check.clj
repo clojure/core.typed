@@ -129,6 +129,8 @@
   Assumes type annotations in each namespace
   has already been collected."
   ([nsym]
+   {:pre [(symbol? nsym)]
+    :post [(nil? %)]}
    (u/p :check/check-ns-and-deps
    (let [ns (find-ns nsym)
          _ (assert ns (str "Namespace " nsym " not found during type checking"))]
@@ -150,7 +152,7 @@
              (do (println (str "Not checking " nsym " (tagged :collect-only in ns metadata)"))
                  (flush))
              (let [start (. System (nanoTime))
-                   [_ns-decl_ & asts] (u/p :check/gen-analysis (ana-clj/ast-for-ns nsym))]
+                   asts (u/p :check/gen-analysis (ana-clj/ast-for-ns nsym))]
                (println "Start checking" nsym)
                (flush)
                (doseq [ast asts]
