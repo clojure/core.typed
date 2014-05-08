@@ -3454,17 +3454,8 @@
                       [rest-param-name drest])
                     (expr-type crng))))))
 
-(defn internal-dispatch-val [expr]
-  (:val (second (:statements expr))))
-
-(defn enforce-do-folding [{:keys [statements] :as expr}]
-  (when-not (#{0 1} (count 
-                      (filter #{::t/special-form} 
-                              (map :val statements))))
-    (u/int-error (str "Folded special-forms detected " (u/emit-form-fn expr)))))
-
 ;(ann internal-special-form [Expr (U nil TCResult) -> Expr])
-(defmulti internal-special-form (fn [expr expected] (#'internal-dispatch-val expr)))
+(u/special-do-op ::t/special-form internal-special-form)
 
 (defmethod internal-special-form ::t/tc-ignore
   [expr expected]
@@ -3490,7 +3481,8 @@
                                      (:bound drest))))))))
 
         ; if the t/fn statement looks unannotated, use the expected type if possible
-        use-expected (if (every? (fn [{:keys [dom rest drest rng]}]
+        use-expected (if (every? (fn [{:keys [dom rest drest rng] :as f}]
+                                   {:pre [(r/Function? f)]}
                                    (and (every? #{r/-any} dom)
                                         ((some-fn nil? #{r/-any}) rest)
                                         (#{r/-any} (:t rng))))
@@ -3539,12 +3531,12 @@
   (u/int-error (str "No such internal form: " (u/emit-form-fn expr))))
 
 (defn internal-form? [expr]
-  (= ::t/special-form (:val (first (:statements expr)))))
+  (u/internal-form? expr ::t/special-form))
 
 (add-check-method :do
   [expr & [expected]]
   {:post [(TCResult? (expr-type %))]}
-  (enforce-do-folding expr)
+  (u/enforce-do-folding expr ::t/special-form)
   (cond
     (internal-form? expr)
     (internal-special-form expr expected)
@@ -3553,23 +3545,24 @@
     (let [exprs (vec (concat (:statements expr) [(:ret expr)]))
           nexprs (count exprs)
           [env actual-types]
-          (reduce (fn [[env actual-rets] [n expr]]
+          (reduce (fn [[env actual-rets] [^long n expr]]
                     {:pre [(lex/PropEnv? env)
                            (integer? n)
                            (< n nexprs)]
-                     :post [(u/hvector-c? lex/PropEnv? (every-pred vector? (u/every-c? r/TCResult?)))]}
+                     ; :post checked after the reduce
+                     }
                     (let [res (u/p :check/do-inner-check
-                              (binding [; always prefer envs with :line information, even if inaccurate
-                                          vs/*current-env* (if (:line (:env expr))
-                                                             (:env expr)
-                                                             vs/*current-env*)
-                                          vs/*current-expr* expr]
-                                  (var-env/with-lexical-env env
-                                    (-> (check expr 
-                                               ;propagate expected type only to final expression
-                                               (when (= (inc n) nexprs)
-                                                 expected))
-                                        expr-type))))
+                               (binding [; always prefer envs with :line information, even if inaccurate
+                                         vs/*current-env* (if (:line (:env expr))
+                                                            (:env expr)
+                                                            vs/*current-env*)
+                                         vs/*current-expr* expr]
+                                 (var-env/with-lexical-env env
+                                   (-> (check expr 
+                                              ;propagate expected type only to final expression
+                                              (when (= (inc n) nexprs)
+                                                expected))
+                                       expr-type))))
                           flow (-> res r/ret-flow r/flow-normal)
                           flow-atom (atom true)
                           ;_ (prn flow)
@@ -3594,7 +3587,9 @@
                         ;unreachable
                         (do ;(prn "Detected unreachable code")
                           (reduced [nenv (conj actual-rets (ret (r/Bottom)))])))))
-                  [lex/*lexical-env* []] (map-indexed vector exprs))]
+                  [lex/*lexical-env* []] (map-indexed vector exprs))
+          _ (assert (lex/PropEnv? env))
+          _ (assert ((every-pred vector? (u/every-c? r/TCResult?) seq) actual-types))]
       (assoc expr
              expr-type (last actual-types))))) ;should be a ret already
 
@@ -3700,8 +3695,10 @@
             (u/tc-delayed-error (str "Constructor for unresolvable class " (:class ctor))))]
     (r/make-FnIntersection (r/make-Function (doall (map #(Java-symbol->Type % false) parameter-types))
                                             (c/RClass-of-with-unknown-params cls)
-                                            nil nil
-                                            :filter (fo/-true-filter))))) ;always a true value
+                                            nil nil 
+                                            ;always a true value. Cannot construct nil
+                                            ; or primitive false
+                                            :filter (fo/-true-filter)))))
 
 ;[MethodExpr -> (U nil NamespacedSymbol)]
 (defn MethodExpr->qualsym [{c :class :keys [op method] :as expr}]
@@ -3957,7 +3954,7 @@
    (let [field (FieldExpr->Field expr)
          cexpr (check target)]
     (if-not target-class
-      ; I think this is unreachable
+      ; I think target-class will never be false
       (u/tc-delayed-error (str "Call to instance field "
                                (symbol field-name)
                                " requires type hints."
@@ -4267,7 +4264,8 @@
                                                 (assert (= (r/-flow fl/-top) flow))
                                                 (-> env
                                                     ;no propositions to add, just update binding type
-                                                    (assoc-in [:l sym] t))))))
+                                                    (assoc-in [:l sym] t)))
+                            :else (u/int-error (str "What is this?" fl)))))
                       lex/*lexical-env* (map vector binding-inits (or expected-bnds
                                                                       (repeat nil))))
 
@@ -5074,6 +5072,7 @@
         t (var-env/lookup-Var-nofail vsym)
         check? (var-env/check-var? vsym)]
     (cond
+      ; check against an expected type
       (and check? t)
       (let [cinit (when init-provided
                     (check init (ret t)))
@@ -5084,6 +5083,9 @@
                 (var-env/add-checked-var-def vsym))]
         (assoc expr
                expr-type (ret (c/RClass-of Var [t t]))))
+
+      ; if warn-if-unannotated?, don't try and infer this var,
+      ; just skip it
       (or (not check?) 
           (and warn-if-unannotated?
                (not t)))
@@ -5093,11 +5095,21 @@
           (flush)
           (assoc expr
                  expr-type (ret (c/RClass-of Var [(or t r/-nothing) (or t r/-any)]))))
-      :else (u/tc-delayed-error (str "Found untyped var definition: " vsym
-                                     "\nHint: Add the annotation for " vsym
-                                     " via check-ns or cf")
-                                :return (assoc expr
-                                               expr-type (ret (r/TCError-maker)))))))
+
+      ;otherwise try and infer a type
+      :else
+      (let [_ (assert (not t))
+            cinit (when init-provided
+                    (check init))
+            inferred (ret-t (expr-type cinit))
+            _ (assert (r/Type? inferred))
+            _ (when cinit
+                ; now consider this var as checked
+                (var-env/add-checked-var-def vsym)
+                ; and add the inferred static type (might be Error)
+                (var-env/add-var-type vsym inferred))]
+        (assoc expr
+               expr-type (ret (c/RClass-of Var [inferred inferred])))))))
 
 ;TODO print a hint that `ann` forms must be wrapping in `cf` at the REPL
 (add-check-method :def
