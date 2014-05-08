@@ -1890,6 +1890,8 @@ for checking namespaces, cf for checking individual forms."}
   
   Emits a warning instead of a type error when checking
   a def without a corresponding expected type.
+
+  Disables automatic inference of `def` expressions.
   
   eg. (warn-on-unannotated-vars)"
   []
