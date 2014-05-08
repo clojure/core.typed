@@ -1159,8 +1159,12 @@ for checking namespaces, cf for checking individual forms."}
              (ast/parse-clj t))))
   nil)
 
-(defmacro def-alias 
-  "Define a type alias. Takes an optional doc-string as a second
+(defmacro 
+  ^:deprecated
+  def-alias 
+  "DEPRECATED: use defalias
+  
+  Define a type alias. Takes an optional doc-string as a second
   argument.
 
   Updates the corresponding var with documentation.
@@ -1173,6 +1177,31 @@ for checking namespaces, cf for checking individual forms."}
    `(def-alias ~(vary-meta sym assoc :doc doc-str) ~t))
   ([sym t]
    (assert (symbol? sym) (str "First argument to def-alias must be a symbol: " sym))
+   (let [qsym (if (namespace sym)
+                sym
+                (symbol (-> *ns* ns-name str) (str sym)))
+         m (-> (meta sym)
+             (update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t)))))]
+     `(do
+        (tc-ignore (add-to-alias-env '~&form '~qsym '~t))
+        (let [v# (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))]
+          (tc-ignore (alter-meta! v# merge '~m)))
+        (def-alias* '~qsym '~t)))))
+
+(defmacro defalias 
+  "Define a type alias. Takes an optional doc-string as a second
+  argument.
+
+  Updates the corresponding var with documentation.
+  
+  eg. (defalias MyAlias
+        \"Here is my alias\"
+        (U nil String))"
+  ([sym doc-str t]
+   (assert (string? doc-str) "Doc-string passed to defalias must be a string")
+   `(defalias ~(vary-meta sym assoc :doc doc-str) ~t))
+  ([sym t]
+   (assert (symbol? sym) (str "First argument to defalias must be a symbol: " sym))
    (let [qsym (if (namespace sym)
                 sym
                 (symbol (-> *ns* ns-name str) (str sym)))
