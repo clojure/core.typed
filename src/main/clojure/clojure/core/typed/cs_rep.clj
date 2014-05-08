@@ -128,7 +128,7 @@
 (t/ann make-cset-entry (Fn [(IPersistentMap Symbol c) -> cset-entry]
                            [(IPersistentMap Symbol c) (U nil dmap) -> cset-entry]))
 (defn make-cset-entry
-  ([fixed] (make-cset-entry fixed nil nil))
+  ([fixed] (make-cset-entry fixed nil))
   ([fixed dmap] (->cset-entry fixed
                               (or dmap (->dmap {})))))
 
