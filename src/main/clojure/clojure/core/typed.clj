@@ -16,10 +16,13 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.internal :as internal]
             [clojure.java.io :as io]))
 
-#_(defmacro
+(defmacro
   ^{:forms '[(def name docstring? :- type? expr)]}
   def
   "Like clojure.core/def with optional type annotations
+
+  NB: it is impossible to refer a var called `def` as it is a
+  special form. Use an alias prefix (eg. `t/def`).
 
   If an annotation is provided, a corresponding `ann` form
   is generated, otherwise it expands identically to clojure.core/def
