@@ -953,6 +953,63 @@ for checking namespaces, cf for checking individual forms."}
   (reify)
 )
 
+(defmacro filter-identity 
+  "Semantically the same as (filter identity coll).
+
+  Expands out to the equivalent of
+ 
+    ((inst filter t (U nil false)) 
+     (inst identity t) 
+     coll)
+
+  The type t is the member type of the collection argument.
+  
+  eg. 
+      (filter-identity :- (U nil Number) [1 2 nil 3])
+      ; (Seq Number)
+
+      (filter-identity :- (U nil Number false) [1 2 nil 3 false])
+      ; (Seq Number)"
+  [colon t coll]
+  (assert (#{:-} colon))
+  `((inst filter ~t ~'(U nil false)) (inst identity ~t) 
+    ; better error message
+    (ann-form ~coll ~`(~'U nil (Seqable ~t)))))
+
+(defmacro remove-nil 
+  "Semantically the same as (remove nil? coll)
+
+  Expands to the equivalent of
+ 
+    ((inst remove t)
+     nil?
+     coll)
+
+  eg. (remove-nil :- (U nil Number) [1 2 nil 3])
+      ; (Seq Number)
+      (remove-nil :- (U nil Number false) [1 2 nil 3 false])
+      ; (Seq (U Number false))"
+  [colon t coll]
+  (assert (#{:-} colon))
+  `((inst remove ~t nil) nil? ~coll))
+
+(defmacro remove-false 
+  "Semantically the same as (remove false? coll)
+
+  Expands to the equivalent of
+ 
+    ((inst remove t)
+     false?
+     coll)
+
+  eg. (remove-false :- (U false Number) [1 2 false 3])
+      ; (Seq Number)
+      (remove-false :- (U nil Number false) [1 2 nil 3 false])
+      ; (Seq (U Number nil))"
+  [colon t coll]
+  (assert (#{:-} colon))
+  `((inst remove ~t false) false? ~coll))
+
 #_(defmacro 
   ^{:forms '[(letfn [fn-spec-or-annotation*] expr*)]}
   letfn

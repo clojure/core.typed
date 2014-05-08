@@ -1483,20 +1483,68 @@
   ;  TODO possible extension for filter
 ;  (is (cf (filter :a (clojure.core.typed/ann-form [] (clojure.lang.Seqable '{:b Number})))
 ;          (clojure.lang.Seqable '{:b Number :a Any})))
-  (is-cf (filter (clojure.core.typed/inst identity (U nil Number)) [1 nil])
-         (clojure.lang.Seqable Number))
-  (is-tc-e (let [filter (ann-form filter
-                                  (All [x y]
-                                       [[x -> Any :filters {:then (! y 0)}] 
-                                        (U nil (Seqable x)) -> (Seq (Difference x y))]))]
-             (filter (inst identity (U nil Number)) [1 nil]))
-           :expected (Seqable Number))
+  (is-tc-err (filter (inst identity (U nil Number)) [1 nil])
+             :expected
+             (Seqable Number))
+  (is-tc-e ((inst filter (U nil Number) nil) (inst identity (U nil Number)) [1 nil])
+           :expected
+           (Seqable Number))
+  (is-tc-e ((inst filter (U nil Number) nil) identity [1 nil])
+           :expected
+           (Seqable Number))
+
+  (is-tc-e (filter-identity :- (U nil Number) [1 nil])
+           :expected
+           (Seqable Number))
+  (is (= (filter-identity :- (U nil Number) [1 nil])
+         [1]))
+
+  (is-tc-e (filter-identity :- (U false nil Number) [1 nil])
+           :expected
+           (Seqable Number))
+  (is (= (filter-identity :- (U false nil Number) [1 nil])
+         [1]))
+
+  (is-tc-err (filter-identity :- Number [1 nil])
+             :expected
+             (Seqable Number))
+  (is (= (filter-identity :- Number [1 nil])
+         [1]))
+
   (is-tc-e (let [filter (ann-form filter
                                   (All [x y]
                                        [[x -> Any :filters {:then (is y 0)}] 
                                         (U nil (Seqable x)) -> (Seq y)]))]
              (filter number? [1 nil]))
            :expected (Seqable Number)))
+
+(deftest remove-nil-test
+  (is-tc-e (remove-nil :- Number [1 2 3])
+           :expected
+           (Seqable Number))
+  (is (= (remove-nil :- Number [1 2 3])
+         [1 2 3]))
+
+  (is-tc-e (remove-nil :- (U nil Number) [1 2 3])
+           :expected
+           (Seqable Number))
+  (is-tc-e (remove-nil :- (U false nil Number) [1 2 3])
+           :expected
+           (Seqable (U false Number))))
+
+(deftest remove-false-test
+  (is-tc-e (remove-false :- Number [1 2 3])
+           :expected
+           (Seqable Number))
+  (is (= (remove-false :- Number [1 2 3])
+         [1 2 3]))
+
+  (is-tc-e (remove-false :- (U false Number) [1 2 3])
+           :expected
+           (Seqable Number))
+  (is-tc-e (remove-false :- (U false nil Number) [1 2 3])
+           :expected
+           (Seqable (U nil Number))))
 
 ; keeping if we decide to use more expressive type for conj
 ;(deftest extensible-conj-test

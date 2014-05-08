@@ -35,6 +35,7 @@ Thanks to Di Xu and Nicola Mometto who contributed patches.
 - Unannotated `def` forms now attempts to infer a type based on the initial expression instead
   of failing with an "Unannotated var" type error
   - `warn-on-unannotated-vars` disables this inference
+- Add `clojure.core.typed/{filter-identity, remove-nil, remove-false}
 
 ## Fixes
 

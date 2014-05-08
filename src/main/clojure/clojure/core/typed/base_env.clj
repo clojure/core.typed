@@ -733,6 +733,7 @@ clojure.core/filterv (All [x y]
 clojure.core/remove (All [x y]
                            (Fn
                              [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (Seq y)]
+                             [[x -> Any :filters {:else (! y 0)}] (Option (Seqable x)) -> (Seq (I x (Not y)))]
                              [[x -> Any] (Option (Seqable x)) -> (Seq x)]
                              ))
 

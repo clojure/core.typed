@@ -186,11 +186,12 @@
   [[_ t-syn]]
   (predicate-for (parse-type t-syn)))
 
-;(defmethod parse-type-list 'Not
-;  [[_ tsyn :as all]]
-;  (when-not (= (count all) 2) 
-;    (u/int-error (str "Wrong arguments to Not (expected 1): " all)))
-;  (r/NotType-maker (parse-type tsyn)))
+; Only base-env can use this, eventually replace with Difference
+(defmethod parse-type-list 'Not
+  [[_ tsyn :as all]]
+  (when-not (= (count all) 2) 
+    (u/int-error (str "Wrong arguments to Not (expected 1): " all)))
+  (r/NotType-maker (parse-type tsyn)))
 
 (defmethod parse-type-list 'Difference
   [[_ tsyn & dsyns :as all]]
