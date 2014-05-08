@@ -9,6 +9,18 @@ Thanks to Di Xu and Nicola Mometto who contributed patches.
 - Changed `partial` annotation
 - Changed `complement` annotation
   - remove unused type variable
+- Parameterise several Java interfaces
+  - java.util.{List,Collection,Set,RandomAccess}
+  - java.lang.{Iterable}
+
+## Deprecations
+
+- `clojure.core.typed/{fn>, loop>, defprotocol>, dotimes>, doseq>, for>, def>}`
+  - use more flexible forms without `>` suffix
+  - note syntax changes in docstrings
+- `clojure.core.typed/def-alias`
+  - prefer `clojure.core.typed/defalias`
+  - renamed for consistency with core Clojure
 
 ## Enhancements
 
@@ -16,6 +28,13 @@ Thanks to Di Xu and Nicola Mometto who contributed patches.
   - Contributed by Di Xu + Ambrose
 - Recognise Java types that work with `nth`, like CharSequence
   - achieved by pretending they extend clojure.lang.Indexed
+- Annotate `PersistentHashMap`
+- Wrapping in forms like `tc-ignore` or `ann-form` no longer interfere with type hint inference
+- Add `clojure.core.typed/{def, defn, let, fn, loop, dotimes, for, doseq, defprotocol}`
+- Add `clojure.core.typed/defalias`
+- Unannotated `def` forms now attempts to infer a type based on the initial expression instead
+  of failing with an "Unannotated var" type error
+  - `warn-on-unannotated-vars` disables this inference
 
 ## Fixes
 
