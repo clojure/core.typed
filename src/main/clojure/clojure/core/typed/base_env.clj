@@ -1,13 +1,13 @@
 (ns clojure.core.typed.base-env
   (:import (clojure.lang Keyword Named IMapEntry AMapEntry Seqable
-                         LazySeq PersistentHashSet PersistentTreeSet PersistentList APersistentVector
+                         LazySeq PersistentHashSet PersistentTreeSet PersistentTreeMap PersistentList APersistentVector
                          APersistentSet IPersistentSet IPersistentMap IPersistentVector
                          APersistentMap IDeref ISeq ASeq IPersistentCollection
                          ILookup Indexed Associative IPersistentStack PersistentVector Cons
                          IPersistentList IRef ARef Reversible
                          ITransientCollection ITransientSet ITransientAssociative ITransientMap
                          ITransientVector PersistentHashMap Reduced)
-           (java.util Comparator Collection))
+           (java.util Comparator Collection RandomAccess))
   (:require [clojure.core.typed.base-env-helper :as h]
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.parse-unparse :as prs]
@@ -74,6 +74,9 @@ IPersistentSet [[[a :variance :covariant]]
 APersistentSet [[[a :variance :covariant]]
                 :replace
                 {Seqable (Seqable a)
+                 java.util.Set (java.util.Set a)
+                 Collection (Collection a)
+                 Iterable (Iterable a)
                  IPersistentCollection (IPersistentCollection a)
                  IPersistentSet (IPersistentSet a)}
                 :unchecked-ancestors
@@ -83,6 +86,9 @@ APersistentSet [[[a :variance :covariant]]
 PersistentHashSet [[[a :variance :covariant]]
                    :replace
                    {Seqable (Seqable a)
+                    java.util.Set (java.util.Set a)
+                    Iterable (Iterable a)
+                    Collection (Collection a)
                     APersistentSet (APersistentSet a)
                     IPersistentSet (IPersistentSet a)
                     IPersistentCollection (IPersistentCollection a)}
@@ -92,6 +98,9 @@ PersistentHashSet [[[a :variance :covariant]]
 PersistentTreeSet [[[a :variance :covariant]]
                    :replace
                    {Seqable (Seqable a)
+                    java.util.Set (java.util.Set a)
+                    Iterable (Iterable a)
+                    Collection (Collection a)
                     Reversible (Reversible a)
                     APersistentSet (APersistentSet a)
                     IPersistentSet (IPersistentSet a)
@@ -173,6 +182,10 @@ APersistentVector [[[a :variance :covariant]]
                    :replace
                    {IPersistentCollection (IPersistentCollection a)
                     Seqable (Seqable a)
+                    Iterable (Iterable a)
+                    Collection (Collection a)
+                    java.util.List (java.util.List a)
+                    RandomAccess (RandomAccess a)
                     IPersistentVector (IPersistentVector a)
                     Reversible (Reversible a)
                     IPersistentStack (IPersistentStack a)
@@ -186,6 +199,10 @@ PersistentVector [[[a :variance :covariant]]
                   :replace
                   {APersistentVector (APersistentVector a)
                    IPersistentCollection (IPersistentCollection a)
+                   Iterable (Iterable a)
+                   Collection (Collection a)
+                   java.util.List (java.util.List a)
+                   RandomAccess (RandomAccess a)
                    Seqable (Seqable a)
                    IPersistentVector (IPersistentVector a)
                    Reversible (Reversible a)
@@ -205,8 +222,12 @@ clojure.lang.AMapEntry
             [b :variance :covariant]]
            :replace
            {IMapEntry (IMapEntry a b)
+            Iterable (Iterable (U a b))
+            RandomAccess (RandomAccess (U a b))
             IPersistentCollection (IPersistentCollection 
                                     (U a b))
+            java.util.List (java.util.List (U a b))
+            Collection (Collection (U a b))
             Seqable (Seqable (U a b))
             IPersistentVector (IPersistentVector (U a b))
             Reversible (Reversible (U a b))
@@ -224,6 +245,10 @@ clojure.lang.MapEntry
             [b :variance :covariant]]
            :replace
            {IMapEntry (IMapEntry a b)
+            Iterable (Iterable (U a b))
+            RandomAccess (RandomAccess (U a b))
+            java.util.List (java.util.List (U a b))
+            Collection (Collection (U a b))
             AMapEntry (AMapEntry a b)
             IPersistentCollection (IPersistentCollection (U a b))
             Seqable (Seqable (U a b))
@@ -242,6 +267,7 @@ IPersistentMap [[[a :variance :covariant]
                  [b :variance :covariant]]
                 :replace
                 {IPersistentCollection (IPersistentCollection (AMapEntry a b))
+                 Iterable (Iterable (AMapEntry a b))
                  Seqable (Seqable (AMapEntry a b))
                  ILookup (ILookup a b)
                  Associative (Associative a b)}]
@@ -249,6 +275,9 @@ IPersistentMap [[[a :variance :covariant]
 ASeq [[[a :variance :covariant]]
       :replace
       {IPersistentCollection (IPersistentCollection a)
+       Iterable (Iterable a)
+       Collection (Collection a)
+       java.util.List (Collection a)
        Seqable (Seqable a)
        ISeq (ISeq a)
        }]
@@ -257,6 +286,7 @@ APersistentMap [[[a :variance :covariant]
                  [b :variance :covariant]]
                 :replace
                 {IPersistentCollection (IPersistentCollection (AMapEntry a b))
+                 Iterable (Iterable (AMapEntry a b))
                  IPersistentMap (IPersistentMap a b)
                  Seqable (Seqable (AMapEntry a b))
                  ILookup (ILookup a b)
@@ -267,10 +297,28 @@ APersistentMap [[[a :variance :covariant]
                               [Any d -> (U b d)]))}]
 
 
+PersistentTreeMap [[[a :variance :covariant] 
+                    [b :variance :covariant]]
+                   :replace
+                   {IPersistentCollection (IPersistentCollection (AMapEntry a b))
+                    Iterable (Iterable (AMapEntry a b))
+                    IPersistentMap (IPersistentMap a b)
+                    APersistentMap (APersistentMap a b)
+                    Seqable (Seqable (AMapEntry a b))
+                    ILookup (ILookup a b)
+                    Associative (Associative a b)
+                    Reversible (Reversible (AMapEntry a b))
+                    #_IEditableCollection #_(IEditableCollection (ITransientMap a b a b))}
+                   :unchecked-ancestors
+                   #{(All [d]
+                             (Fn [Any -> (U nil b)]
+                                 [Any d -> (U b d)]))}]
+
 PersistentHashMap [[[a :variance :covariant] 
                     [b :variance :covariant]]
                    :replace
                    {IPersistentCollection (IPersistentCollection (AMapEntry a b))
+                    Iterable (Iterable (AMapEntry a b))
                     IPersistentMap (IPersistentMap a b)
                     APersistentMap (APersistentMap a b)
                     Seqable (Seqable (AMapEntry a b))
@@ -285,6 +333,9 @@ PersistentHashMap [[[a :variance :covariant]
 Cons [[[a :variance :covariant]]
       :replace
       {IPersistentCollection (IPersistentCollection a)
+       Iterable (Iterable a)
+       Collection (Collection a)
+       java.util.List (java.util.List a)
        ASeq (ASeq a)
        Seqable (Seqable a)
        ISeq (ISeq a)
@@ -299,6 +350,9 @@ IPersistentList [[[a :variance :covariant]]
 PersistentList [[[a :variance :covariant]]
                 :replace
                 {IPersistentCollection (IPersistentCollection a)
+                 Iterable (Iterable a)
+                 Collection (Collection a)
+                 java.util.List (java.util.List a)
                  ASeq (ASeq a)
                  Seqable (Seqable a)
                  IPersistentList (IPersistentList a)
@@ -368,12 +422,18 @@ clojure.lang.Atom
 LazySeq [[[a :variance :covariant]]
          :replace
          {Seqable (Seqable a)
+          Collection (Collection a)
+          java.util.List (Collection a)
+          Iterable (Iterable a)
           ISeq (ISeq a)
           IPersistentCollection (IPersistentCollection a)}]
 
 Reduced [[[a :variance :covariant]]
          :replace
          {IDeref (IDeref a)}]
+
+;;; We override the internal Java classes that clojure.lang.* classes use
+;;; and simulate some of them extending Clojure interfaces as if they were protocols
 
 ; Hack for Seqable things. Not needed if Seqable was a protocol.
 
@@ -389,13 +449,34 @@ java.lang.String [[]
                   #{(Seqable Character)
                     (Indexed Character)}]
 
-java.lang.Iterable [[]
-                  :unchecked-ancestors
-                  #{(Seqable Any)}]
+java.lang.Iterable [[[a :variance :covariant]]
+                    :unchecked-ancestors
+                    #{(Seqable a)}]
 
-java.util.RandomAccess [[]
+java.util.Set [[[a :variance :covariant]]
+               :replace
+               {Iterable (Iterable a)
+                Collection (Collection a)}
+               :unchecked-ancestors
+               #{(Seqable a)}]
+
+
+java.util.List [[[a :variance :covariant]]
+                :replace
+                {Iterable (Iterable a)
+                 Collection (Collection a)}
+                :unchecked-ancestors
+                #{(Seqable a)}]
+
+java.util.Collection [[[a :variance :covariant]]
+                      :replace
+                      {Iterable (Iterable a)}
+                      :unchecked-ancestors
+                      #{(Seqable a)}]
+
+java.util.RandomAccess [[[a :variance :covariant]]
                         :unchecked-ancestors
-                        #{(Indexed Any)}]
+                        #{(Indexed a)}]
 
 ))
 
