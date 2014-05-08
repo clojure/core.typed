@@ -248,10 +248,13 @@
   "Like ann-record, but also adds an unchecked annotation for core.contract's generated
   nme? predicate."
   [nme & args]
-  `(do (clojure.core.typed/ann-record ~nme ~@args)
-       (clojure.core.typed/ann ~(with-meta (symbol (str nme "-maker")) {:no-check true})
-                               [~@(map #(nth % 2) (partition 3 (first args))) ~'-> ~nme])
-       (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list 'predicate nme))))
+  `(do ~(-> `(clojure.core.typed/ann-record ~nme ~@args)
+            (with-meta (meta &form)))
+       ~(-> `(clojure.core.typed/ann ~(with-meta (symbol (str nme "-maker")) {:no-check true})
+                                     [~@(map #(nth % 2) (partition 3 (first args))) ~'-> ~nme])
+            (with-meta (meta &form)))
+       ~(-> `(clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list 'predicate nme))
+            (with-meta (meta &form)))))
 
 (defmacro ann-precord 
   "Like ann-precord, but also adds an unchecked annotation for core.contract's generated
