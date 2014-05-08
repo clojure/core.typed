@@ -11,7 +11,7 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.name-env :as nmenv]
             [clojure.core.typed.declared-kind-env :as kinds])
-  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
@@ -290,6 +290,7 @@
   (apply combine-frees (frees target)
          (mapv frees (apply concat entries))))
 
+; are negative types covariant?
 (add-frees-method [::any-var NotType]
   [{:keys [type]}] 
   (frees type))
@@ -297,6 +298,11 @@
 (add-frees-method [::any-var Intersection]
   [{:keys [types]}] 
   (apply combine-frees (mapv frees types)))
+
+; are negative types covariant?
+(add-frees-method [::any-var DifferenceType]
+  [{:keys [type without]}] 
+  (apply combine-frees (frees type) (mapv frees without)))
 
 (add-frees-method [::any-var Union]
   [{:keys [types]}]

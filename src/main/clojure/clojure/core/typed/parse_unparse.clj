@@ -14,7 +14,7 @@
             [clojure.core.typed.name-env :as name-env]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
-  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
@@ -186,11 +186,17 @@
   [[_ t-syn]]
   (predicate-for (parse-type t-syn)))
 
-(defmethod parse-type-list 'Not
-  [[_ tsyn :as all]]
-  (when-not (= (count all) 2) 
-    (u/int-error (str "Wrong arguments to Not (expected 1): " all)))
-  (r/NotType-maker (parse-type tsyn)))
+;(defmethod parse-type-list 'Not
+;  [[_ tsyn :as all]]
+;  (when-not (= (count all) 2) 
+;    (u/int-error (str "Wrong arguments to Not (expected 1): " all)))
+;  (r/NotType-maker (parse-type tsyn)))
+
+(defmethod parse-type-list 'Difference
+  [[_ tsyn & dsyns :as all]]
+  (when-not (<= 3 (count all))
+    (u/int-error (str "Wrong arguments to Difference (expected at least 2): " all)))
+  (apply r/-difference (parse-type tsyn) (mapv parse-type dsyns)))
 
 (defmethod parse-type-list 'Rec
   [syn]
@@ -1129,6 +1135,11 @@
 (defmethod unparse-type* Intersection
   [{types :types}]
   (list* 'I (doall (map unparse-type types))))
+
+(defmethod unparse-type* DifferenceType
+  [{:keys [type without]}]
+  (list* 'Difference (unparse-type* type)
+         (doall (map unparse-type without))))
 
 (defmethod unparse-type* NotType
   [{:keys [type]}]

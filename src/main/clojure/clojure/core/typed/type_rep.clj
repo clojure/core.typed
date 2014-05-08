@@ -43,6 +43,7 @@
   "A type or a scope"
   (U Type p/IScope))
 
+; consider making this a definterface
 (t/ann-protocol TypeId
                 type-id [TypeId -> Long])
 
@@ -811,6 +812,20 @@
   [(Type? type)]
   :methods
   [p/TCType])
+
+(u/ann-record DifferenceType [type :- Type
+                              without :- (t/Coll Type)])
+(u/def-type DifferenceType [type without]
+  "A type that does not include type"
+  [(Type? type)
+   (every? Type? without)]
+  :methods
+  [p/TCType])
+
+(t/ann -difference [Type Type * -> DifferenceType])
+(defn -difference [t & without]
+  {:pre [without]}
+  (DifferenceType-maker t without))
 
 (u/ann-record ListDots [pre-type :- Type,
                         bound :- (U F B)])

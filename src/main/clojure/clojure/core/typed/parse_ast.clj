@@ -463,11 +463,18 @@
                       (err/int-error (str "Wrong arguments to Value: " syn)))
                     {:op :singleton
                      :val (first args)})
-    ('#{Not} f) (let [_ (when-not (#{1} (count args))
-                           (err/int-error "Wrong arguments to Not"))]
-                  {:op :Not
-                   :type (parse (first args))
-                   :children [:type]})
+;    ('#{Not} f) (let [_ (when-not (#{1} (count args))
+;                           (err/int-error "Wrong arguments to Not"))]
+;                  {:op :Not
+;                   :type (parse (first args))
+;                   :children [:type]})
+    ('#{Difference} f) (let [_ (when-not (<= 2 (count args))
+                                 (err/int-error "Wrong arguments to Difference"))
+                             [t & without] args]
+                         {:op :Difference
+                          :type (parse t)
+                          :without (mapv parse without)
+                          :children [:type :without]})
     ('#{Rec} f) (let [_ (when-not (#{2} (count args))
                            (err/int-error "Wrong arguments to Rec"))
                       [[sym :as binder] t] args

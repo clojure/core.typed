@@ -7,7 +7,7 @@
             [clojure.core.typed.object-rep]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.path-rep])
-  (:import (clojure.core.typed.type_rep NotType Intersection Union FnIntersection Bounds
+  (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass JSNominal App TApp
                                         PrimitiveArray DataType Protocol TypeFn Poly PolyDots
                                         Mu HeterogeneousVector HeterogeneousList HeterogeneousMap
@@ -24,6 +24,12 @@
                        (fn [ty _]
                          (-> ty
                            (update-in [:type] type-rec))))
+
+(add-default-fold-case DifferenceType
+                       (fn [ty _]
+                         (-> ty
+                           (update-in [:type] type-rec)
+                           (update-in [:without] #(mapv type-rec %)))))
 
 (add-default-fold-case Intersection
                        (fn [ty _]

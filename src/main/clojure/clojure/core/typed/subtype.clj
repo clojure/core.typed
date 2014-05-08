@@ -380,6 +380,15 @@
           *sub-current-seen*
           (fail! s t))
 
+; delegate to NotType
+        (r/DifferenceType? s)
+        (subtype (apply c/In (:type s) (map r/NotType-maker (:without s)))
+                 t)
+
+        (r/DifferenceType? t)
+        (subtype s
+                 (apply c/In (:type t) (map r/NotType-maker (:without t))))
+
         (and (r/GetType? s)
              (not (r/F? (:target s))))
         (subtype (c/-resolve s) t)
