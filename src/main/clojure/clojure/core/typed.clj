@@ -1144,6 +1144,18 @@ for checking namespaces, cf for checking individual forms."}
   [sym type]
   nil)
 
+(defn ^:skip-wiki add-to-alias-env [&form qsym t]
+  (swap! impl/alias-env assoc qsym 
+         (impl/with-impl impl/clojure
+           (binding [uvars/*current-env* {:ns {:name (ns-name *ns*)}
+                                          :file *file*
+                                          :line (or (-> &form meta :line)
+                                                    @clojure.lang.Compiler/LINE)
+                                          :column (or (-> &form meta :column)
+                                                      @clojure.lang.Compiler/COLUMN)}]
+             (ast/parse-clj t))))
+  nil)
+
 (defmacro def-alias 
   "Define a type alias. Takes an optional doc-string as a second
   argument.
@@ -1164,13 +1176,7 @@ for checking namespaces, cf for checking individual forms."}
          m (-> (meta sym)
              (update-in [:doc] #(str #_"Type Alias\n\n" % "\n\n" (with-out-str (pprint/pprint t)))))]
      `(do
-        (tc-ignore
-          (swap! impl/alias-env assoc '~qsym 
-                 (impl/with-impl impl/clojure
-                   (binding [uvars/*current-env* {:ns {:name ~'(ns-name *ns*)}
-                                                  :line '~(-> &form meta :line)
-                                                  :column '~(-> &form meta :column)}]
-                     (ast/parse '~t)))))
+        (tc-ignore (add-to-alias-env '~&form '~qsym '~t))
         (let [v# (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))]
           (tc-ignore (alter-meta! v# merge '~m)))
         (def-alias* '~qsym '~t)))))
@@ -1429,7 +1435,13 @@ for checking namespaces, cf for checking individual forms."}
                   "Cannot provide both :nocheck and :no-check metadata to ann")
         check? (not (or (:no-check opts)
                         (:nocheck opts)))
-        ast (ast/parse-clj typesyn)]
+        ast (binding [uvars/*current-env* {:ns {:name (ns-name *ns*)}
+                                           :file *file*
+                                           :line (or (-> &form meta :line)
+                                                     @clojure.lang.Compiler/LINE)
+                                           :column (or (-> &form meta :column)
+                                                       @clojure.lang.Compiler/COLUMN)}]
+              (ast/parse-clj typesyn))]
     (swap! impl/var-env assoc qsym ast)
     `(ann* '~qsym '~typesyn '~check?)))
 
@@ -2271,9 +2283,15 @@ for checking namespaces, cf for checking individual forms."}
       ;=> true"
   [t]
   (require '[clojure.core.typed.type-contract])
-  `(pred* '~t
-          '~(ns-name *ns*)
-          ~((impl/v 'clojure.core.typed.type-contract/type-syntax->pred) t)))
+  (binding [uvars/*current-env* {:ns {:name (ns-name *ns*)}
+                                 :file *file*
+                                 :line (or (-> &form meta :line)
+                                           @clojure.lang.Compiler/LINE)
+                                 :column (or (-> &form meta :column)
+                                             @clojure.lang.Compiler/COLUMN)}]
+    `(pred* '~t
+            '~(ns-name *ns*)
+            ~((impl/v 'clojure.core.typed.type-contract/type-syntax->pred) t))))
 
 (comment 
   (check-ns 'clojure.core.typed.test.example)
