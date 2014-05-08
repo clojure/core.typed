@@ -950,29 +950,37 @@
               replacements (RClass-replacements* rcls)
               ;_ (prn "replacements" (map @(unparse-type-var) (vals replacements)))
               ;set of symbols of Classes we haven't explicitly replaced
-              not-replaced (set/difference (set (map u/Class->symbol (-> the-class u/symbol->Class supers)))
-                                           (set (keys replacements)))
+              java-supers (set (map u/Class->symbol (-> the-class u/symbol->Class supers)))
+              replace-keys (set (keys replacements))
+              not-replaced (set/difference java-supers
+                                           replace-keys)
               ;(prn "not-replaced" not-replaced)
+              bad-replacements (set/difference replace-keys
+                                               java-supers)
+              _ (when (seq bad-replacements)
+                  (u/int-error (str "Bad RClass replacements for " the-class ": " bad-replacements)))
               res (set/union (binding [*current-RClass-super* the-class]
                                (let [rs (for [csym not-replaced]
                                           (RClass-of-with-unknown-params 
                                             csym
-                                            :warn-msg (str "RClass ancestor defaulting "
-                                                           "to most general parameters")))]
+                                            :warn-msg (when (.contains (str the-class) "clojure.lang")
+                                                        (str "RClass ancestor for " the-class " defaulting "
+                                                           "to most general parameters"))))]
                                  (apply set/union (set rs) (map RClass-supers* rs))))
                              (set (vals replacements))
                              #{(RClass-of Object)}
                              unchecked-ancestors)]
           ;(prn "supers" the-class res)
-          (assert (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
-                      1)
-                  (str "Found more than one function supertype for RClass " (unparse-type rcls) ": \n"
-                       (mapv unparse-type (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
-                       "\nReplacements:" (into {} (map (fn [[k v]] [k (unparse-type v)]) replacements))
-                       "\nNot replaced:" not-replaced
-                       (try (throw (Exception. ""))
-                            (catch Exception e
-                              (with-out-str (clojure.repl/pst e 40))))))
+          (when-not (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
+                        1)
+            (u/int-error 
+              (str "Found more than one function supertype for RClass " (unparse-type rcls) ": \n"
+                   (mapv unparse-type (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
+                   "\nReplacements:" (into {} (map (fn [[k v]] [k (unparse-type v)]) replacements))
+                   "\nNot replaced:" not-replaced
+                   (try (throw (Exception. ""))
+                        (catch Exception e
+                          (with-out-str (clojure.repl/pst e 40)))))))
           (swap! supers-cache assoc cache-key res)
           res))))))
 
