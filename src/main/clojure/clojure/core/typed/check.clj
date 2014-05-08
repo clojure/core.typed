@@ -3667,10 +3667,11 @@
 
 ;[clojure.reflect.Field - Type]
 (defn- Field->Type [{:keys [type flags] :as field}]
-  {:pre [(instance? clojure.reflect.Field field)]
+  {:pre [(instance? clojure.reflect.Field field)
+         flags]
    :post [(Type? %)]}
   (cond
-    (flags :enum) (Java-symbol->Type type false)
+    (:enum flags) (Java-symbol->Type type false)
     :else (Java-symbol->Type type true)))
 
 ;[clojure.reflect.Method -> Type]
