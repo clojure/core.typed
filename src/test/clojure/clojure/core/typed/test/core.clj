@@ -3293,28 +3293,3 @@
               rest :- [(Seq Number) -> (Seq Number)]))
 
 ;(All [b ...] [b ... b -> (HVec [b ... b])]) <: [java.lang.Number * -> (HVec [java.lang.Number])]
-
-
-
-
-(every?
-  true?
-  (for [_ (range 4)]
-    (do (clojure.core.typed/reset-caches)
-        (sub? String (U nil (I (clojure.lang.Seqable Character) clojure.lang.Sequential)
-                        (clojure.lang.Indexed Character))))))
-
-(every? true?
-        (for [_ (range 4)]
-          (do (clojure.core.typed/reset-caches)
-              (sub? String (U nil (I (clojure.lang.Seqable Character) clojure.lang.Sequential)
-                              (clojure.lang.Indexed Character))))))
-
-(doall
-(for [_ (range 4)]
-  (do (clojure.core.typed/reset-caches)
-(clj 
-      (cs-gen #{} {} {} 
-              (parse-clj 'String) 
-              (parse-clj '(U nil (I (clojure.lang.Seqable Character) clojure.lang.Sequential)
-                      (clojure.lang.Indexed Character))))))))
