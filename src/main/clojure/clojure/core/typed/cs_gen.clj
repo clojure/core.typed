@@ -1172,8 +1172,7 @@
    :post [(cr/cset? %)]}
   (mover cset dbound vars
          (fn [cmap dmap]
-           (cr/->dcon (doall (for> :- c
-                               [v :- Symbol, vars]
+           (cr/->dcon (doall (t/for [v :- Symbol, vars] :- c
                                (if-let [c (cmap v)]
                                  c
                                  (u/int-error (str "No constraint for new var " v)))))
@@ -1602,12 +1601,11 @@
     ;; constraint explosion.
     (cons
       (cr/empty-cset X Y)
-      (let [vector' (t/inst vector r/Type r/Type Any Any Any Any)
-            map' (t/inst map '[r/Type r/Type] r/Type r/Type)]
+      (let [vector' (t/inst vector Any r/Type r/Type)]
         (u/p :cs-gen/cs-gen-list-gen-csets
         (doall 
-          (for> :- cset
-            [[s t] :- '[r/Type r/Type], (map' vector' S T)]
+          (t/for [[s t] :- '[r/Type r/Type], (map vector' S T)] 
+            :- cset
             (let [c (cs-gen V X Y s t)
                   ;_ (prn "csgen-list 1")
                   ;_ (prn "V" V)
