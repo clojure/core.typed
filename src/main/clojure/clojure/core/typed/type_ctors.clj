@@ -319,7 +319,8 @@
                                     (some (some-fn r/Name? r/TApp?) (conj b a)) (conj b a)
                                     (subtype? a b*) b
                                     (subtype? b* a) #{a}
-                                    :else (conj b a))]
+                                    :else (set (cons a 
+                                                     (remove #(subtype? % a) b))))]
                           ;(prn "res" res)
                           res))]
                 (let [types (set types)]
