@@ -4,7 +4,7 @@ and functions for type checking Clojure code. check-ns is the interface
 for checking namespaces, cf for checking individual forms."}
   clojure.core.typed
   (:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
-                            #_def])
+                            #_def #_filter #_remove])
   (:require [clojure.core :as core]
             [clojure.pprint :as pprint]
             [clojure.set :as set]
@@ -169,7 +169,7 @@ for checking namespaces, cf for checking individual forms."}
         Method->Type (impl/v 'clojure.core.typed.check/Method->Type)
         ms (->> (type-reflect (Class/forName (namespace mname)))
              :members
-             (filter #(and (instance? clojure.reflect.Method %)
+             (core/filter #(and (instance? clojure.reflect.Method %)
                            (= (str (:name %)) (name mname))))
              set)
         _ (assert (seq ms) (str "Method " mname " not found"))]
@@ -953,62 +953,146 @@ for checking namespaces, cf for checking individual forms."}
   (reify)
 )
 
-(defmacro filter-identity 
-  "Semantically the same as (filter identity coll).
-
-  Expands out to the equivalent of
- 
-    ((inst filter t (U nil false)) 
-     (inst identity t) 
-     coll)
-
-  The type t is the member type of the collection argument.
-  
-  eg. 
-      (filter-identity :- (U nil Number) [1 2 nil 3])
-      ; (Seq Number)
-
-      (filter-identity :- (U nil Number false) [1 2 nil 3 false])
-      ; (Seq Number)"
-  [colon t coll]
-  (assert (#{:-} colon))
-  `((inst filter ~t ~'(U nil false)) (inst identity ~t) 
-    ; better error message
-    (ann-form ~coll ~`(~'U nil (Seqable ~t)))))
-
-(defmacro remove-nil 
-  "Semantically the same as (remove nil? coll)
-
-  Expands to the equivalent of
- 
-    ((inst remove t)
-     nil?
-     coll)
-
-  eg. (remove-nil :- (U nil Number) [1 2 nil 3])
-      ; (Seq Number)
-      (remove-nil :- (U nil Number false) [1 2 nil 3 false])
-      ; (Seq (U Number false))"
-  [colon t coll]
-  (assert (#{:-} colon))
-  `((inst remove ~t nil) nil? ~coll))
-
-(defmacro remove-false 
-  "Semantically the same as (remove false? coll)
-
-  Expands to the equivalent of
- 
-    ((inst remove t)
-     false?
-     coll)
-
-  eg. (remove-false :- (U false Number) [1 2 false 3])
-      ; (Seq Number)
-      (remove-false :- (U nil Number false) [1 2 nil 3 false])
-      ; (Seq (U Number nil))"
-  [colon t coll]
-  (assert (#{:-} colon))
-  `((inst remove ~t false) false? ~coll))
+;(defmacro 
+;  ^{:see-also '[filter-identity]}
+;  filter 
+;  "The same as clojure.core/filter, but supports inline annotations
+;  to help instantiate negative predicates.
+;
+;  # Positive predicates
+;  
+;  Simple positive predicates like `number?` or `symbol?` that have a
+;  :then filter of the form `(is x 0) do not require annotation:
+;    
+;    (filter number? [1 2 3 nil 'a])
+;    ; (Seq Number)
+;
+;  # Negative predicates
+;
+;  If the predicate's :then filter has the form `(! x 0)`, like 
+;  for example `identity`, this macro can help instantiate the expression.
+;
+;  2 type annotations are needed:
+;   :in      the member type of the input
+;   :remove  a type the predicate removes from the input collection
+;
+;    (filter :in (U nil Number), :remove nil
+;            identity [1 2 nil])
+;    ; Number"
+;  [& args]
+;  (let [[flat-opt tail] (split-at (- (count args) 2) args)
+;        _ (assert (even? (count flat-opt)) (str "Uneven keyword arguments to filter"))
+;        _ (assert (#{2} (count tail)) "Wrong arguments to filter")
+;        {:as opt} flat-opt
+;        extra (seq (set/difference (set (keys opt)) #{:in :remove}))
+;        _ (assert (not extra) (str "Unsupported options to filter: " (set extra)))
+;        has-in (contains? opt :in)
+;        has-remove (contains? opt :remove)
+;        _ (assert (or (and has-in has-remove)
+;                      (and (not has-in)
+;                           (not has-remove)))
+;                  "Must provide both :in and :remove if supplying one.")]
+;    (if (and has-in has-remove)
+;      `((inst core/filter ~(:in opt) ~(:remove opt)) ~@tail)
+;      `(core/filter ~@tail))))
+;
+;(defmacro filter-identity 
+;  "Semantically the same as (filter identity coll).
+;
+;  Expands out to the equivalent of
+; 
+;    ((inst filter t (U nil false)) 
+;     (inst identity t) 
+;     coll)
+;
+;  The type t is the member type of the collection argument.
+;  
+;  eg. 
+;      (filter-identity :- (U nil Number) [1 2 nil 3])
+;      ; (Seq Number)
+;
+;      (filter-identity :- (U nil Number false) [1 2 nil 3 false])
+;      ; (Seq Number)"
+;  [colon t coll]
+;  (assert (#{:in} colon)
+;          (str "Must provide :in option to filter-identity"))
+;  `(filter :in ~t :remove ~'(U nil false) 
+;           (inst identity ~t) 
+;           ; better error message
+;           (ann-form ~coll ~`(~'U nil (Seqable ~t)))))
+;
+;(defmacro 
+;  ^{:see-also '[remove-nil remove-false]}
+;  remove 
+;  "The same as clojure.core/remove, but supports inline annotations
+;  to help instantiate positive predicates.
+;
+;  # Negative predicates
+;  
+;  Simple negative predicates like `number?` or `symbol?` that have a
+;  :else filter of the form `(is x 0) do not require annotation:
+;    
+;    (filter number? [1 2 3 nil 'a])
+;    ; (Seq Number)
+;
+;  # Negative predicates
+;
+;  If the predicate's :then filter has the form `(! x 0)`, like 
+;  for example `identity`, this macro can help instantiate the expression.
+;
+;  2 type annotations are needed:
+;   :in      the member type of the input
+;   :remove  a type the predicate removes from the input collection
+;
+;    (filter :in (U nil Number), :remove nil
+;            identity [1 2 nil])
+;    ; Number"
+;  [& args]
+;  (let [[flat-opt tail] (split-at (- (count args) 2) args)
+;        _ (assert (even? (count flat-opt)) (str "Uneven keyword arguments to filter"))
+;        _ (assert (#{2} (count tail)) "Wrong arguments to filter")
+;        {:as opt} flat-opt
+;        extra (seq (set/difference #{:in :remove} (set (keys opt))))
+;        _ (assert (not extra) (str "Unsupported options to filter: " (set extra)))
+;        has-in (contains? opt :in)
+;        has-remove (contains? opt :remove)
+;        _ (assert (or (and has-in has-remove)
+;                      (and (not has-in)
+;                           (not has-remove)))
+;                  "Must provide both :in and :remove if supplying one.")]
+;    (if (and has-in has-remove)
+;      `((inst core/filter ~(:in opt) ~(:remove opt)) ~@tail)
+;      `(filter ~@tail))))
+;
+;(defmacro remove-nil 
+;  "Semantically the same as (remove nil? coll)
+;
+;  eg. (remove-nil :in (U nil Number) [1 2 nil 3])
+;      ; (Seq Number)
+;      (remove-nil :in (U nil Number false) [1 2 nil 3 false])
+;      ; (Seq (U Number false))"
+;  [colon t coll]
+;  (assert (#{:in} colon)
+;          "Must provide :in option to remove-nil")
+;  `(remove :in ~t :remove nil nil? ~coll))
+;
+;(defmacro remove-false 
+;  "Semantically the same as (remove false? coll)
+;
+;  Expands to the equivalent of
+; 
+;    ((inst remove t false)
+;     false?
+;     coll)
+;
+;  eg. (remove-false :- (U false Number) [1 2 false 3])
+;      ; (Seq Number)
+;      (remove-false :- (U nil Number false) [1 2 nil 3 false])
+;      ; (Seq (U Number nil))"
+;  [colon t coll]
+;  (assert (#{:in} colon)
+;          "Must provide :in option to remove-false")
+;  `(remove :in ~t :remove false false? ~coll))
 
 #_(defmacro 
   ^{:forms '[(letfn [fn-spec-or-annotation*] expr*)]}

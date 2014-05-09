@@ -28,7 +28,7 @@
              *file* *file*]
      (ns ~(gensym 'clojure.core.typed.test.temp)
        ~'(:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
-                                   #_def])
+                                   #_def filter remove])
        ~'(:require [clojure.core.typed :refer :all]
                    [clojure.core :as core]))
      (t/check-form-info 
@@ -38,8 +38,9 @@
             :type-provided? true])))))
 
 (defmacro tc-e [frm & opts]
-  `(let [{delayed-errors# :delayed-errors} ~(tc-common* frm opts)]
-     (or (empty? delayed-errors#)
+  `(let [{ret# :ret delayed-errors# :delayed-errors} ~(tc-common* frm opts)]
+     (or (when (empty? delayed-errors#)
+           ret#)
          (t/print-errors! delayed-errors#))))
 
 (defmacro tc-err [frm & opts]
@@ -50,7 +51,8 @@
          (seq delayed-errors#)))))
 
 (defmacro is-tc-e [& body]
-  `(test/is (tc-e ~@body)))
+  `(test/is (do (tc-e ~@body)
+                true)))
 
 (defmacro is-tc-err [& body]
   `(test/is (tc-err ~@body)))
