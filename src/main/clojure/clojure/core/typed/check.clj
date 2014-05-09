@@ -188,7 +188,13 @@
     (println "Checking line:" (-> expr :env :line))
     (flush))
   (u/p :check/check-expr
-  (check expr expected)))
+  (let [expr (check expr expected)]
+    (when expected
+      (when-not (sub/subtype? (-> expr expr-type ret-t)
+                              (-> expected ret-t))
+        (expected-error (-> expr expr-type ret-t)
+                        (-> expected ret-t))))
+    expr)))
 
 (defmacro tc-t [form]
   `(let [{delayed-errors# :delayed-errors ret# :ret}
@@ -1208,9 +1214,11 @@
                                               (concat dom kw-val-expected-tys) 
                                               (r/Result-type* rng)
                                               (and expected (ret-t expected))))))]
-                           (do #_(prn "subst:" substitution)
-                               (check-funapp1 fexpr args (subst/subst-all substitution ftype)
-                                              arg-ret-types expected :check? false))
+                           (let [;_ (prn "subst:" substitution)
+                                 new-ftype (subst/subst-all substitution ftype)]
+                             ;(prn "substituted type" new-ftype)
+                             (check-funapp1 fexpr args new-ftype
+                                            arg-ret-types expected :check? false))
                            (if drest
                              (do (u/tc-delayed-error (str "Cannot infer arguments to polymorphic functions with dotted rest"))
                                  nil)

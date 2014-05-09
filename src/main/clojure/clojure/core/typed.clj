@@ -2213,7 +2213,7 @@ for checking namespaces, cf for checking individual forms."}
   (p/profile-if profile
     (load-if-needed)
     (reset-caches)
-    (let [check (impl/v 'clojure.core.typed.check/check)
+    (let [check-expr (impl/v 'clojure.core.typed.check/check-expr)
           expr-type (impl/v 'clojure.core.typed.check/expr-type)
           ast-for-form (impl/v 'clojure.core.typed.analyze-clj/ast-for-form)
           collect-ast (impl/v 'clojure.core.typed.collect-phase/collect-ast)
@@ -2233,7 +2233,7 @@ for checking namespaces, cf for checking individual forms."}
                   ast (ast-for-form form)
                   _ (collect-ast ast)
                   _ (reset-caches)
-                  c-ast (check ast expected)
+                  c-ast (check-expr ast expected)
                   res (expr-type c-ast)]
               {:delayed-errors @*delayed-errors*
                :ret res})))))))
