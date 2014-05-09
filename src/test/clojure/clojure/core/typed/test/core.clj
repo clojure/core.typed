@@ -3285,7 +3285,8 @@
 
 #_(cf @((inst ref Number) 1))
 
-(deftest first-class-poly-test
+;FIXME
+#_(deftest first-class-poly-test
   (is-tc-err
     (fn [f] (second (f [1 2])))
     :expected
@@ -3297,6 +3298,54 @@
           [(All [b ...]
                 [-> [b ... b -> Any]])
            -> Any]))
+  (is
+    (tc-e 
+      (do (ann ^:no-check foo (All [a b ...] [-> '[a *]]))
+          (def foo)
+          (fn []
+            (foo)))))
+  (is
+    (tc-e 
+      (do (ann ^:no-check foo (All [b] [-> '[b *]]))
+          (def foo)
+          (fn []
+            (foo)))))
+  (is
+    (tc-e 
+      (do (ann ^:no-check foo (All [b] [-> [b * -> Any]]))
+          (def foo)
+          (fn []
+            (foo)))
+      :expected [-> [Any * -> Any]]))
+  (is
+    (tc-e 
+      (do (ann ^:no-check foo (All [b ...] [-> [b ... b -> Any]]))
+          (def foo)
+          (fn []
+            (foo)))
+      :expected [-> [Any * -> Any]]))
+  (is
+    (= 
+      (tc-e 
+        (do (ann ^:no-check foo (All [b ...] [-> '[b ... b]]))
+            (def foo)
+            (fn []
+              (foo))))
+      (ret (parse-type '[-> '[Any *]])
+           (-true-filter)
+           -empty)))
+  (is
+    (tc-e 
+      (do (ann ^:no-check foo (All [b ...] [-> (HSequential [b ... b])]))
+          (def foo)
+          (fn []
+            (foo)))))
+  (is
+    (tc-e 
+      (do (ann ^:no-check foo (All [b ...] [-> '[b ... b]]))
+          (def foo)
+          (fn []
+            (foo)))))
   (is (cf (fn [f] (f))
           [(All [b ...]
                 [-> '[b ... b]])
