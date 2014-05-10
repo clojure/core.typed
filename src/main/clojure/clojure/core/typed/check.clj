@@ -2064,9 +2064,7 @@
   ;(prn "special apply:")
   (let [e (invoke-apply expr expected)]
     (if (= e ::not-special)
-      (u/tc-delayed-error (str "apply must be special: " (u/emit-form-fn expr))
-                          :return (assoc expr
-                                         expr-type (error-ret expected)))
+      :default
       e)))
 
 
