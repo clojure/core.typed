@@ -1208,13 +1208,6 @@
 
 (defmulti unparse-RClass :the-class)
 
-(defmethod unparse-RClass 'clojure.lang.Atom
-  [{:keys [the-class poly?]}]
-  (let [[w r] poly?]
-    (list* (unparse-Class-symbol-in-ns the-class) (map unparse-type (concat [w]
-                                               (when (not= w r)
-                                                 [r]))))))
-
 (defmethod unparse-RClass :default
   [{:keys [the-class poly?]}]
   (list* (unparse-Class-symbol-in-ns the-class) (doall (map unparse-type poly?))))
