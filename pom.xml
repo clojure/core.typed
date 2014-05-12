@@ -106,7 +106,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.analyzer.jvm</artifactId>
-      <version>0.1.0-beta10</version>
+      <version>0.1.0-beta13</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>

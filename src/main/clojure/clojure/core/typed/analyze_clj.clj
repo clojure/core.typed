@@ -94,51 +94,8 @@
            (taj/desugar-host-expr form env)))))
     (taj/desugar-host-expr form env)))
 
-(defn analyze
-  "Returns an AST for the form that's compatible with what tools.emitter.jvm requires.
-
-   Binds tools.analyzer/{macroexpand-1,create-var,parse} to
-   tools.analyzer.jvm/{macroexpand-1,create-var,parse} and calls
-   tools.analyzer/analyzer on form.
-
-   Calls `run-passes` on the AST."
-  [form env]
-  (with-bindings {clojure.lang.Compiler/LOADER (clojure.lang.RT/makeClassLoader)
-                  #'ta/macroexpand-1           macroexpand-1
-                  #'ta/create-var              taj/create-var
-                  #'ta/parse                   taj/parse
-                  #'ta/var?                    var?}
-    (taj/run-passes (ta/analyze form env))))
-
-(defn analyze+eval
-  "Like analyze but evals the form after the analysis.
-   Useful when analyzing whole files/namespaces."
-  [form env]
-  (let [mform (binding [ta/macroexpand-1 macroexpand-1]
-                (ta/macroexpand form env))]
-    (if (and (seq? mform) (= 'do (first mform)) (next mform))
-      ;; handle the Gilardi scenario
-      (let [[statements ret] (loop [statements [] [e & exprs] (rest mform)]
-                               (if exprs
-                                 (recur (conj statements e) exprs)
-                                 [statements e]))
-            statements-expr (mapv (fn [s] (analyze+eval s (-> env (taj-utils/ctx :statement) taj/update-ns-map!))) statements)
-            ret-expr (analyze+eval ret (taj/update-ns-map! env))]
-        (-> {:op         :do
-            :form       mform
-            :statements statements-expr
-            :ret        ret-expr
-            :children   [:statements :ret]
-            :env        env}
-          source-info/source-info
-          cleanup/cleanup))
-      (let [a (analyze mform (taj/update-ns-map! env))
-            frm (emit-form/emit-form a)]
-        (eval frm) ;; eval the emitted form rather than directly the form to avoid double macroexpansion
-        a))))
-
 (defn analyze1 [form env]
-  (analyze+eval form env))
+  (taj/analyze+eval form env {:bindings {#'ta/macroexpand-1 macroexpand-1}}))
 
 (defn ast-for-form-in-ns
   "Returns an AST node for the form 
