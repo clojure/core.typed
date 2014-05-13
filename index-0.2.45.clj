@@ -259,6 +259,16 @@
    :raw-source-url nil,
    :source-url nil,
    :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Kw",
+   :namespace "clojure.core.typed",
+   :forms [Kw],
+   :var-type "type alias",
+   :doc "A keyword\n\nclojure.lang.Keyword",
+   :name "Kw"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/List",
    :namespace "clojure.core.typed",
    :forms [(List t)],
@@ -515,6 +525,16 @@
    :doc
    "A Clojure stack.\n\n(TFn [[x :variance :covariant]] (clojure.lang.IPersistentStack x))",
    :name "Stack"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Sym",
+   :namespace "clojure.core.typed",
+   :forms [Sym],
+   :var-type "type alias",
+   :doc "A symbol\n\nclojure.lang.Symbol",
+   :name "Sym"}
   {:file nil,
    :raw-source-url nil,
    :source-url nil,
