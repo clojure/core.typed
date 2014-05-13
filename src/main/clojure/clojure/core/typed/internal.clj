@@ -1,6 +1,8 @@
 (ns ^:skip-wiki clojure.core.typed.internal
   (:require [clojure.set :as set]))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 (defn parse-fn*
   "(fn name? [[param :- type]* & [param :- type *]?] :- type? exprs*)
   (fn name? ([[param :- type]* & [param :- type *]?] :- type? exprs*)+)"
