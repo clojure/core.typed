@@ -2,11 +2,26 @@
 
 Thanks to Di Xu and Nicola Mometto who contributed patches.
 
+This release deprecates most of the > suffixed annotation macros
+and replaces them with nicer named versions. In some cases the
+syntaxes are different (return type in `for` goes after the binding vector),
+so check the respective docstrings. The old versions are kept for backwards
+compatibility.
+
+Some big usability enhancements: 
+- vars are now inferred from their `def`s
+- macros like `ann-form` don't interfere with normal type hint inference
+- failed interop calls now display a list of possible annotations
+
 ## Breaking Changes
 
-- Annotation for clojure.core/vector now uses dotted variables
+- Annotation for `clojure.core/vector` now uses dotted variables
   - `inst`ing the new type will give a different type
+  - The first type variable is for the "rest" type that delegates to
+    `Vec`, second onwards instantiate the HVec positions.
+  - eg. `(map (inst vector Any Num Sym) [1 2 3] ['a 'b 'c])`
 - Changed `partial` annotation
+  - removed some arities
 - Changed `complement` annotation
   - remove unused type variable
 - Parameterise several Java interfaces
@@ -27,15 +42,16 @@ Thanks to Di Xu and Nicola Mometto who contributed patches.
 - [CTYP-130](http://dev.clojure.org/jira/browse/CTYP-130) Add HSequential which abstracts over HSeq/HVec/HList/HSeq
   - Contributed by Di Xu + Ambrose
 - Recognise Java types that work with `nth`, like CharSequence
-  - achieved by pretending they extend clojure.lang.Indexed
-- Annotate `PersistentHashMap`
-- Wrapping in forms like `tc-ignore` or `ann-form` no longer interfere with type hint inference
+  - achieved by pretending they extend `clojure.lang.Indexed`
+- Annotate `clojure.lang.PersistentHashMap`
+- Wrapping in forms like `tc-ignore` or `ann-form` no longer interfere with normal type hint inference
 - Add `clojure.core.typed/{def, defn, let, fn, loop, dotimes, for, doseq, defprotocol}`
 - Add `clojure.core.typed/defalias`
 - Unannotated `def` forms now attempts to infer a type based on the initial expression instead
   of failing with an "Unannotated var" type error
   - `warn-on-unannotated-vars` disables this inference
-- Add `clojure.core.typed/{filter-identity, remove-nil, remove-false}
+- Add aliases
+  - `clojure.core.typed/{Sym,Kw}`
 
 ## Fixes
 
@@ -54,6 +70,10 @@ Thanks to Di Xu and Nicola Mometto who contributed patches.
 - remove `tc-ignore-forms*`
 - special typed forms use a `do` expression tagged with `:clojure.core.typed/special-form`
   instead of special functions
+
+## Dependencies
+
+- Move to `tools.analyzer.jvm` 0.1.0-beta13
 
 # 0.2.44 - 3 April 2014
 
