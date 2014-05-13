@@ -1,4 +1,6 @@
-# 0.2.45-SNAPSHOT
+# 0.2.46-SNAPSHOT
+
+# 0.2.45 - Released 13 May 2014
 
 Thanks to Di Xu and Nicola Mometto who contributed patches.
 
