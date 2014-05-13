@@ -241,7 +241,7 @@ for checking namespaces, cf for checking individual forms."}
   [loop-of bnding-types]
   loop-of)
 
-(defmacro ^:deprecated dotimes>
+(defmacro ^{:deprecated "0.2.45"} dotimes>
   "DEPRECATED: Use clojure.core.typed/dotimes
 
   Like dotimes.
@@ -282,7 +282,7 @@ for checking namespaces, cf for checking individual forms."}
            ~@body
            (recur (unchecked-inc ~i)))))))
 
-(defmacro ^:deprecated for>
+(defmacro ^{:deprecated "0.2.45"} for>
   "DEPRECATED: use clojure.core.typed/for
 
   Like for but requires annotation for each loop variable: [a [1 2]] becomes [a :- Long [1 2]]
@@ -416,7 +416,7 @@ for checking namespaces, cf for checking individual forms."}
 
   The :let option uses clojure.core.typed/let.
   
-  eg. (for [a :- (U nil AnyInteger) [1 nil 2 3]
+  eg. (for [a :- (U nil Int) [1 nil 2 3]
             :when a]
         :- Number
         (inc a))"
@@ -550,7 +550,7 @@ for checking namespaces, cf for checking individual forms."}
     `(let [iter# ~(emit-bind (to-groups seq-exprs))]
         (iter# ~(second seq-exprs)))))
 
-(defmacro ^:deprecated doseq>
+(defmacro ^{:deprecated "0.2.45"} doseq>
   "DEPRECATED: use clojure.core.typed/doseq
 
   Like doseq but requires annotation for each loop variable: 
@@ -775,7 +775,7 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro 
   ^{:forms '[(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
              (fn> name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
-  ^:deprecated
+  ^{:deprecated "0.2.45"}
   fn> 
   "DEPRECATED: use clojure.core.typed/fn
 
@@ -838,7 +838,7 @@ for checking namespaces, cf for checking individual forms."}
 
 (defmacro
   ^{:forms '[(def> name docstring? :- type expr)]}
-  ^:deprecated
+  ^{:deprecated "0.2.45"}
   def>
   "DEPRECATED: use clojure.core.typed/def
 
@@ -1136,7 +1136,7 @@ for checking namespaces, cf for checking individual forms."}
        ;preserve letfn empty body
        ~@(or body [nil]))))
 
-(defmacro ^:deprecated defprotocol> [& body]
+(defmacro ^{:deprecated "0.2.45"} defprotocol> [& body]
   "DEPRECATED: use clojure.core.typed/defprotocol
 
   Like defprotocol, but required for type checking
@@ -1194,7 +1194,7 @@ for checking namespaces, cf for checking individual forms."}
 
 (defmacro 
   ^{:forms '[(loop> [binding :- type, init*] exprs*)]}
-  ^:deprecated
+  ^{:deprecated "0.2.45"}
   loop>
   "DEPRECATED: use clojure.core.typed/loop
   
@@ -1301,7 +1301,7 @@ for checking namespaces, cf for checking individual forms."}
   nil)
 
 (defmacro 
-  ^:deprecated
+  ^{:deprecated "0.2.45"}
   def-alias 
   "DEPRECATED: use defalias
   
@@ -1627,7 +1627,7 @@ for checking namespaces, cf for checking individual forms."}
   `(do ~@(map #(list `ann % t) vs)))
 
 (defonce ^:dynamic 
-  ^{:deprecated true
+  ^{:deprecated "0.2.45"
     :doc 
     "If a true value, global annotations are collected by the
     type checker when their respective forms are evaluated (eg. ann)."}
