@@ -193,9 +193,15 @@ clojure.core.typed/Num Number
       ^{:doc "A keyword"
         :forms [Keyword]}
 clojure.core.typed/Keyword clojure.lang.Keyword
+      ^{:doc "A keyword"
+        :forms [Kw]}
+clojure.core.typed/Kw clojure.lang.Keyword
       ^{:doc "A symbol"
         :forms [Symbol]}
 clojure.core.typed/Symbol clojure.lang.Symbol
+      ^{:doc "A symbol"
+        :forms [Sym]}
+clojure.core.typed/Sym clojure.lang.Symbol
 
       ^{:doc "A namespace"
         :forms [Namespace]}
@@ -287,7 +293,7 @@ clojure.core.typed/SortedSet (TFn [[x :variance :covariant]]
     ^{:doc "A type that can be used to create a sequence of member type x."
       :forms [(Seqable t)]}
 clojure.core.typed/Seqable (TFn [[x :variance :covariant]]
-                                (clojure.lang.Seqable x))
+                                (clojure.lang.Seqable x))`
     ^{:doc "A type that can be used to create a sequence of member type x
 with count greater than 0."
       :forms [(NonEmptySeqable t)]}
