@@ -393,18 +393,6 @@ namespace.
       <a class="toc-entry-anchor" href="#clojure.core.typed.hole/silent-hole">silent-hole</a>
       
     </div>
-  </div><div style="margin-left: 1em;" class="toc-section">
-    <a href="#clojure.core.typed.internal" style="margin-top: 3px;">clojure.core.typed.internal</a>
-    <div style="margin-left: 1em;" class="toc-entry">
-      <a class="toc-entry-anchor" href="#clojure.core.typed.internal/parse-fn*">parse-fn*</a>
-      
-    </div><div style="margin-left: 1em;" class="toc-entry">
-      <a class="toc-entry-anchor" href="#clojure.core.typed.internal/parse-fn&gt;">parse-fn&gt;</a>
-      
-    </div><div style="margin-left: 1em;" class="toc-entry">
-      <a class="toc-entry-anchor" href="#clojure.core.typed.internal/take-when">take-when</a>
-      
-    </div>
   </div>
 </div>
 </div>
@@ -2307,56 +2295,6 @@ Throws an exception when evaluted.</pre>
     
     
     <a href="https://github.com/clojure/core.typed/blob/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/hole.clj#L9" id="var-source">Source</a>
-  </div>
-</div>
-<br />
-<h2 id="clojure.core.typed.internal">clojure.core.typed.internal</h2>
-<pre id="namespace-docstr"></pre>
-
-
-<br />
-
-
-<div id="var-section">
-  <p></p>
-  <h2>Public Variables and Functions</h2>
-  <div id="var-entry">
-    <br />
-    <hr />
-    <h2 id="clojure.core.typed.internal/parse-fn*">parse-fn*</h2>
-    <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (parse-fn* is-poly forms)
-</pre>
-    <pre id="var-docstr">(fn name? [[param :- type]* &amp; [param :- type *]?] :- type? exprs*)
-(fn name? ([[param :- type]* &amp; [param :- type *]?] :- type? exprs*)+)</pre>
-    
-    
-    <a href="https://github.com/clojure/core.typed/blob/db88615fca6153fb468d48b9064ad1c0cfee1dcf/src/main/clojure/clojure/core/typed/internal.clj#L4" id="var-source">Source</a>
-  </div><div id="var-entry">
-    <br />
-    <hr />
-    <h2 id="clojure.core.typed.internal/parse-fn&gt;">parse-fn&gt;</h2>
-    <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (parse-fn&gt; is-poly forms)
-</pre>
-    <pre id="var-docstr">(fn&gt; name? poly? :- type? [[param :- type]* &amp; [param :- type *]?] exprs*)
-(fn&gt; name? poly? (:- type? [[param :- type]* &amp; [param :- type *]?] exprs*)+)</pre>
-    
-    
-    <a href="https://github.com/clojure/core.typed/blob/db88615fca6153fb468d48b9064ad1c0cfee1dcf/src/main/clojure/clojure/core/typed/internal.clj#L97" id="var-source">Source</a>
-  </div><div id="var-entry">
-    <br />
-    <hr />
-    <h2 id="clojure.core.typed.internal/take-when">take-when</h2>
-    <span id="var-type">function</span><br />
-    <pre id="var-usage">Usage: (take-when pred seq)
-</pre>
-    <pre id="var-docstr">When pred is true of the head of seq, return [head tail]. Otherwise
-[nil seq]. Used as a helper for parsing optinal typed elements out
-of sequences. Say docstrings out of argument seqs.</pre>
-    
-    
-    <a href="https://github.com/clojure/core.typed/blob/db88615fca6153fb468d48b9064ad1c0cfee1dcf/src/main/clojure/clojure/core/typed/internal.clj#L190" id="var-source">Source</a>
   </div>
 </div>
 

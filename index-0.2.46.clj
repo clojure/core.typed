@@ -18,13 +18,7 @@
    "http://clojure.github.com/core.typed/clojure.core.typed.hole-api.html",
    :name "clojure.core.typed.hole",
    :doc
-   "This namespace contains easy tools for hole driven development"}
-  {:source-url
-   "https://github.com/clojure/core.typed/blob/db88615fca6153fb468d48b9064ad1c0cfee1dcf/src/main/clojure/clojure/core/typed/internal.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed/clojure.core.typed.internal-api.html",
-   :name "clojure.core.typed.internal",
-   :doc nil}),
+   "This namespace contains easy tools for hole driven development"}),
  :vars
  ({:name "*collect-on-eval*",
    :namespace "clojure.core.typed",
@@ -1463,46 +1457,4 @@
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.hole/NoisyHole",
    :namespace "clojure.core.typed.hole",
    :var-type "type",
-   :name "NoisyHole"}
-  {:arglists ([is-poly forms]),
-   :name "parse-fn*",
-   :namespace "clojure.core.typed.internal",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/db88615fca6153fb468d48b9064ad1c0cfee1dcf/src/main/clojure/clojure/core/typed/internal.clj#L4",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/db88615fca6153fb468d48b9064ad1c0cfee1dcf/src/main/clojure/clojure/core/typed/internal.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.internal/parse-fn*",
-   :doc
-   "(fn name? [[param :- type]* & [param :- type *]?] :- type? exprs*)\n(fn name? ([[param :- type]* & [param :- type *]?] :- type? exprs*)+)",
-   :var-type "function",
-   :line 4,
-   :file "src/main/clojure/clojure/core/typed/internal.clj"}
-  {:arglists ([is-poly forms]),
-   :name "parse-fn>",
-   :namespace "clojure.core.typed.internal",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/db88615fca6153fb468d48b9064ad1c0cfee1dcf/src/main/clojure/clojure/core/typed/internal.clj#L97",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/db88615fca6153fb468d48b9064ad1c0cfee1dcf/src/main/clojure/clojure/core/typed/internal.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.internal/parse-fn>",
-   :doc
-   "(fn> name? poly? :- type? [[param :- type]* & [param :- type *]?] exprs*)\n(fn> name? poly? (:- type? [[param :- type]* & [param :- type *]?] exprs*)+)",
-   :var-type "function",
-   :line 97,
-   :file "src/main/clojure/clojure/core/typed/internal.clj"}
-  {:arglists ([pred seq]),
-   :name "take-when",
-   :namespace "clojure.core.typed.internal",
-   :source-url
-   "https://github.com/clojure/core.typed/blob/db88615fca6153fb468d48b9064ad1c0cfee1dcf/src/main/clojure/clojure/core/typed/internal.clj#L190",
-   :raw-source-url
-   "https://github.com/clojure/core.typed/raw/db88615fca6153fb468d48b9064ad1c0cfee1dcf/src/main/clojure/clojure/core/typed/internal.clj",
-   :wiki-url
-   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.internal/take-when",
-   :doc
-   "When pred is true of the head of seq, return [head tail]. Otherwise\n[nil seq]. Used as a helper for parsing optinal typed elements out\nof sequences. Say docstrings out of argument seqs.",
-   :var-type "function",
-   :line 190,
-   :file "src/main/clojure/clojure/core/typed/internal.clj"})}
+   :name "NoisyHole"})}
