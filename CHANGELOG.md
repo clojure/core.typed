@@ -74,6 +74,7 @@ Some big usability enhancements:
 ## Dependencies
 
 - Move to `tools.analyzer.jvm` 0.1.0-beta13
+- Move to ClojureScript 0.0-2202
 
 # 0.2.44 - 3 April 2014
 
