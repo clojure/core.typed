@@ -293,7 +293,7 @@ clojure.core.typed/SortedSet (TFn [[x :variance :covariant]]
     ^{:doc "A type that can be used to create a sequence of member type x."
       :forms [(Seqable t)]}
 clojure.core.typed/Seqable (TFn [[x :variance :covariant]]
-                                (clojure.lang.Seqable x))`
+                                (clojure.lang.Seqable x))
     ^{:doc "A type that can be used to create a sequence of member type x
 with count greater than 0."
       :forms [(NonEmptySeqable t)]}
