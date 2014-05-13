@@ -3381,6 +3381,18 @@
                (b a))
            :expected Symbol))
 
+(deftest for-test
+  (is-tc-e (for [a :- Num [1 2 3]]
+             (inc a))
+           :expected
+           (Seq Any))
+  (is-tc-e (for [a :- Num [1 2 3]] :- Num
+             (inc a))
+           :expected
+           (Seq Num))
+  (is-tc-err (for [a [1 2 3]]
+               (inc a))))
+
 (ann-form vector [Number * -> '[Number]])
 #_(cf (inst vector Number Number))
 #_(is (cf (juxt (inst vector Any))))
