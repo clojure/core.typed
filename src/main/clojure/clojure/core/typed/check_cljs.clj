@@ -405,10 +405,10 @@
 
 (defmethod check :if
   [{:keys [test then else] :as expr} & [expected]]
+  {:post [(-> % expr-type r/TCResult?)]}
   (let [ctest (check test)]
-    (assoc expr
-           expr-type (binding [chk/*check-if-checkfn* check]
-                       (chk/check-if (expr-type ctest) then else expected)))))
+    (binding [chk/*check-if-checkfn* check]
+      (chk/check-if expr ctest then else expected))))
 
 (defmethod check :let
   [{:keys [bindings expr env] :as let-expr} & [expected]]
