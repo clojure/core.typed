@@ -199,7 +199,9 @@
 
 ; possibly should be called Pred
 (defmethod parse-type-list 'predicate
-  [[_ t-syn]]
+  [[_ & [t-syn :as args]]]
+  (when-not (== 1 (count args))
+    (u/int-error "Wrong arguments to predicate"))
   (predicate-for (parse-type t-syn)))
 
 ; Only base-env can use this, eventually replace with Difference
