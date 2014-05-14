@@ -167,11 +167,22 @@
 ;                       (:name (dvar/*dotted-scope* bsyn)))))
 
 (defmethod parse-type-list 'CountRange
-  [[_ n u]]
+  [[_ & [n u :as args]]]
+  (when-not (#{1 2} (count args))
+    (u/int-error "Wrong arguments to CountRange"))
+  (when-not (integer? n)
+    (u/int-error "First argument to CountRange must be an integer"))
+  (when-not (or (#{1} (count args))
+                (integer? u))
+    (u/int-error "Second argument to CountRange must be an integer"))
   (r/make-CountRange n u))
 
 (defmethod parse-type-list 'ExactCount
-  [[_ n]]
+  [[_ & [n :as args]]]
+  (when-not (#{1} (count args))
+    (u/int-error "Wrong arguments to ExactCount"))
+  (when-not (integer? n)
+    (u/int-error "First argument to ExactCount must be an integer"))
   (r/make-ExactCountRange n))
 
 (defn- RClass-of-var []
