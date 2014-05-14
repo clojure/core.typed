@@ -142,7 +142,12 @@
     (assert (var? v) "Mu* unbound")
     v))
 
-(defn parse-rec-type [[rec [free-symbol :as bnder] type]]
+(defn parse-rec-type [[rec & [[free-symbol :as bnder] type 
+                              :as args]]]
+  (when-not (== 1 (count bnder))
+    (u/int-error "Rec type requires exactly one entry in binder"))
+  (when-not (== 2 (count args))
+    (u/int-error "Wrong arguments to Rec"))
   (let [Mu* @(Mu*-var)
         _ (when-not (= 1 (count bnder)) 
             (u/int-error "Only one variable allowed: Rec"))
