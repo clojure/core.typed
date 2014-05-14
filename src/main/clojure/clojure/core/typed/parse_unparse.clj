@@ -470,9 +470,13 @@
 
 (declare parse-quoted-hvec)
 
-(defmethod parse-type-list 'Seq* [syn] (r/-hseq (mapv parse-type (rest syn))))
+(defmethod parse-type-list 'Seq* [syn] 
+  (u/deprecated-warn "Seq* is deprecated, see clojure.core.typed/HSeq")
+  (r/-hseq (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'List* [syn] (r/HeterogeneousList-maker (mapv parse-type (rest syn))))
-(defmethod parse-type-list 'Vector* [syn] (parse-quoted-hvec (rest syn)))
+(defmethod parse-type-list 'Vector* [syn] 
+  (u/deprecated-warn "Vector* is deprecated, see clojure.core.typed/HVec")
+  (parse-quoted-hvec (rest syn)))
 
 (declare parse-hvec-types parse-object parse-filter-set parse-hvec-types)
 
