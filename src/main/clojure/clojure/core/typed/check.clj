@@ -1,7 +1,7 @@
 (ns ^:skip-wiki 
   ^{:core.typed {:collect-only true}}
   clojure.core.typed.check
-  (:refer-clojure :exclude [defrecord])
+  (:refer-clojure :exclude [defrecord update])
   (:require [clojure.core.typed :as t :refer [*already-checked* letfn>]]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.parse-unparse :as prs]
