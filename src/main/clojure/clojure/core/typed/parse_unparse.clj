@@ -87,7 +87,7 @@
      :variance :invariant}
     (let [[n & {:keys [< > variance] :as opts}] f]
       (when (contains? opts :kind)
-        (prn "DEPRECATED: kind annotation for TFn parameters"))
+        (u/deprecated-warn "Kind annotation for TFn parameters"))
       (when-not (r/variance? variance)
         (u/int-error (str "Invalid variance " (pr-str variance) " in free binder: " f)))
       {:fname n 
@@ -119,7 +119,7 @@
     [f r/no-bounds]
     (let [[n & {:keys [< >] :as opts}] f]
       (when (contains? opts :kind)
-        (prn "DEPRECATED: kind annotation for TFn parameters"))
+        (u/deprecated-warn "Kind annotation for TFn parameters"))
       (when (:variance opts) 
         (u/int-error "Variance not supported for variables introduced with All"))
       [n (let [upper-or-nil (when (contains? opts :<)
@@ -142,7 +142,12 @@
     (assert (var? v) "Mu* unbound")
     v))
 
-(defn parse-rec-type [[rec [free-symbol :as bnder] type]]
+(defn parse-rec-type [[rec & [[free-symbol :as bnder] type 
+                              :as args]]]
+  (when-not (== 1 (count bnder))
+    (u/int-error "Rec type requires exactly one entry in binder"))
+  (when-not (== 2 (count args))
+    (u/int-error "Wrong arguments to Rec"))
   (let [Mu* @(Mu*-var)
         _ (when-not (= 1 (count bnder)) 
             (u/int-error "Only one variable allowed: Rec"))
@@ -162,11 +167,22 @@
 ;                       (:name (dvar/*dotted-scope* bsyn)))))
 
 (defmethod parse-type-list 'CountRange
-  [[_ n u]]
+  [[_ & [n u :as args]]]
+  (when-not (#{1 2} (count args))
+    (u/int-error "Wrong arguments to CountRange"))
+  (when-not (integer? n)
+    (u/int-error "First argument to CountRange must be an integer"))
+  (when-not (or (#{1} (count args))
+                (integer? u))
+    (u/int-error "Second argument to CountRange must be an integer"))
   (r/make-CountRange n u))
 
 (defmethod parse-type-list 'ExactCount
-  [[_ n]]
+  [[_ & [n :as args]]]
+  (when-not (#{1} (count args))
+    (u/int-error "Wrong arguments to ExactCount"))
+  (when-not (integer? n)
+    (u/int-error "First argument to ExactCount must be an integer"))
   (r/make-ExactCountRange n))
 
 (defn- RClass-of-var []
@@ -183,7 +199,9 @@
 
 ; possibly should be called Pred
 (defmethod parse-type-list 'predicate
-  [[_ t-syn]]
+  [[_ & [t-syn :as args]]]
+  (when-not (== 1 (count args))
+    (u/int-error "Wrong arguments to predicate"))
   (predicate-for (parse-type t-syn)))
 
 ; Only base-env can use this, eventually replace with Difference
@@ -452,9 +470,13 @@
 
 (declare parse-quoted-hvec)
 
-(defmethod parse-type-list 'Seq* [syn] (r/-hseq (mapv parse-type (rest syn))))
+(defmethod parse-type-list 'Seq* [syn] 
+  (u/deprecated-warn "Seq* is deprecated, see clojure.core.typed/HSeq")
+  (r/-hseq (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'List* [syn] (r/HeterogeneousList-maker (mapv parse-type (rest syn))))
-(defmethod parse-type-list 'Vector* [syn] (parse-quoted-hvec (rest syn)))
+(defmethod parse-type-list 'Vector* [syn] 
+  (u/deprecated-warn "Vector* is deprecated, see clojure.core.typed/HVec")
+  (parse-quoted-hvec (rest syn)))
 
 (declare parse-hvec-types parse-object parse-filter-set parse-hvec-types)
 
@@ -595,10 +617,8 @@
   (let [supported-options #{:optional :mandatory :absent-keys :complete?}
         ; support deprecated syntax (HMap {}), which is now (HMap :mandatory {})
         deprecated-mandatory (when (map? (first flat-opts))
-                               (println 
-                                 (parse-in-ns)
-                                 ": DEPRECATED: HMap syntax changed. Use :mandatory keyword argument instead of initial map")
-                               (flush)
+                               (u/deprecated-warn
+                                 "HMap syntax changed. Use :mandatory keyword argument instead of initial map")
                                (first flat-opts))
         flat-opts (if deprecated-mandatory
                     (next flat-opts)
@@ -944,7 +964,7 @@
           ; support deprecated syntax [& {} -> ] to be equivalent to [& :optional {} -> ]
           (if (and kwsyn
                    (map? (first kwsyn)))
-            (do (prn "DEPRECATED: implicit optional parameters for Fn arity. Use :optional keyword argument beteween & and ->.")
+            (do (u/deprecated-warn "Implicit optional parameters for Fn arity. Use :optional keyword argument beteween & and ->.")
                 (cons :optional kwsyn))
             kwsyn))
 

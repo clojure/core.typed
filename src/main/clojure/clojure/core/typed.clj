@@ -1362,6 +1362,139 @@ for checking namespaces, cf for checking individual forms."}
        ::tc-ignore
        ~@(or body [nil])))
 
+(def ^{:doc "Any is the top type that contains all types."
+       :forms '[Any]
+       ::special-type true}
+  Any)
+
+(def ^{:doc "U represents a union of types"
+       :forms '[(U type*)]
+       ::special-type true}
+  U)
+
+(def ^{:doc "Nothing is the bottom type that inhabits no types
+            except itself."
+       :forms '[Nothing]
+       ::special-type true}
+  Nothing)
+
+(def ^{:doc "I represents an intersection of types"
+       :forms '[(I type*)]
+       ::special-type true}
+  I)
+
+(def ^{:doc "A singleton type for a constant value."
+       :forms '[(Value Constant)
+                'Constant]
+       ::special-type true}
+  Value)
+
+(def ^{:doc "A type representing a range of counts for a collection"
+       :forms '[(CountRange Integer)
+                (CountRange Integer Integer)]
+       ::special-type true}
+  CountRange)
+
+(def ^{:doc "A type representing a precise count for a collection"
+       :forms '[(ExactCount Integer)]
+       ::special-type true}
+  ExactCount)
+
+(def ^{:doc "Difference represents a difference of types.
+            
+            (Difference t s) is the same as type t with type s removed.
+            
+            eg. (Difference (U Int Long) Int) => Long
+                (Difference (U Num nil) nil)  => Num
+            "
+       :forms '[(Difference type type type*)]
+       ::special-type true}
+  Difference)
+
+(def ^{:doc "HVec is a type for heterogeneous vectors.
+            It extends clojure.core.typed/Vec and is a subtype
+            of clojure.core.typed/HSequential."
+       :forms '[(HVec [fixed*] :filter-sets [FS*] :objects [obj*])
+                (HVec [fixed* type *] :filter-sets [FS*] :objects [obj*])
+                (HVec [fixed* type ... bound] :filter-sets [FS*] :objects [obj*])
+                '[fixed*]
+                '[fixed* type *]
+                '[fixed* type ... bound]]
+       ::special-type true}
+  HVec)
+
+(def ^{:doc "HMap is a type for heterogeneous maps."
+       :forms '[(HMap :mandatory {Constant Type*}
+                      :optional  {Constant Type*}
+                      :absent-keys #{Constant*}
+                      :complete? Boolean)
+                '{Constant Type*}]
+       ::special-type true}
+  HMap)
+
+(def ^{:doc "HSequential is a type for heterogeneous sequential collections"
+       :forms '[(HSequential [fixed*] :filter-sets [FS*] :objects [obj*])
+                (HSequential [fixed* rest *] :filter-sets [FS*] :objects [obj*])
+                (HSequential [fixed* drest ... bound] :filter-sets [FS*] :objects [obj*])]
+       ::special-type true}
+  HSequential)
+
+(def ^{:doc "HSeq is a type for heterogeneous seqs"
+       :forms '[(HSeq [fixed*] :filter-sets [FS*] :objects [obj*])
+                (HSeq [fixed* rest *] :filter-sets [FS*] :objects [obj*])
+                (HSeq [fixed* drest ... bound] :filter-sets [FS*] :objects [obj*])]
+       ::special-type true}
+  HSeq)
+
+(def ^{:doc "An ordered intersection type of function arities."
+       :forms '[(FnCase ArityVec+)
+                [fixed* -> ret :filters {:then fl :else fl} :object {:id Foo :path Bar}]
+                [fixed* rest * -> ret :filters {:then fl :else fl} :object {:id Foo :path Bar}]
+                [fixed* drest ... bound -> ret :filters {:then fl :else fl} :object {:id Foo :path Bar}]]
+       ::special-type true}
+  FnCase)
+
+(def ^{:doc "A predicate for the given type."
+       :forms '[(Pred type)]
+       ::special-type true}
+  Pred)
+
+(def ^{:doc "A type representing an assoc operation"
+       :forms '[(Assoc type type-pairs*)]
+       ::special-type true}
+  Assoc)
+
+(def ^{:doc "A type representing a dissoc operation"
+       :forms '[(Dissoc type type*)]
+       ::special-type true}
+  Dissoc)
+
+(def ^{:doc "A type representing a get operation"
+       :forms '[(Get type type)
+                (Get type type type)]
+       ::special-type true}
+  Get)
+
+(def ^{:doc "A recursive type"
+       :forms '[(Rec binder type)]
+       ::special-type true}
+  Rec)
+
+(def ^{:doc "A polymorphic binder"
+       :forms '[(All binder type)]
+       ::special-type true}
+  All)
+
+(def ^{:doc "A type function"
+       :forms '[(TFn binder type)]
+       ::special-type true}
+  TFn)
+
+;(def ^{:doc "A polymorphic binder"
+;       :forms '[(All binder type)]
+;       ::special-type true}
+;  Array)
+
 (defmacro init-aliases []
   (core/letfn [(def-alias-many [vinit]
                 `(do

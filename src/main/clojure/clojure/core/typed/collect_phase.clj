@@ -594,6 +594,9 @@
         t (c/Protocol* (map :name fs) (map :variance parsed-binder) 
                        fs s on-class ms (map :bnd parsed-binder))]
     (ptl-env/add-protocol s t)
+    ; annotate protocol var as Any
+    (var-env/add-nocheck-var s)
+    (var-env/add-var-type s r/-any)
     (doseq [[kuq mt] ms]
       (assert (not (namespace kuq))
               "Protocol method names should be unqualified")
