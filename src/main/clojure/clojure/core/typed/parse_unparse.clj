@@ -87,7 +87,7 @@
      :variance :invariant}
     (let [[n & {:keys [< > variance] :as opts}] f]
       (when (contains? opts :kind)
-        (prn "DEPRECATED: kind annotation for TFn parameters"))
+        (u/deprecated-warn "Kind annotation for TFn parameters"))
       (when-not (r/variance? variance)
         (u/int-error (str "Invalid variance " (pr-str variance) " in free binder: " f)))
       {:fname n 
@@ -119,7 +119,7 @@
     [f r/no-bounds]
     (let [[n & {:keys [< >] :as opts}] f]
       (when (contains? opts :kind)
-        (prn "DEPRECATED: kind annotation for TFn parameters"))
+        (u/deprecated-warn "Kind annotation for TFn parameters"))
       (when (:variance opts) 
         (u/int-error "Variance not supported for variables introduced with All"))
       [n (let [upper-or-nil (when (contains? opts :<)
@@ -595,10 +595,8 @@
   (let [supported-options #{:optional :mandatory :absent-keys :complete?}
         ; support deprecated syntax (HMap {}), which is now (HMap :mandatory {})
         deprecated-mandatory (when (map? (first flat-opts))
-                               (println 
-                                 (parse-in-ns)
-                                 ": DEPRECATED: HMap syntax changed. Use :mandatory keyword argument instead of initial map")
-                               (flush)
+                               (u/deprecated-warn
+                                 "HMap syntax changed. Use :mandatory keyword argument instead of initial map")
                                (first flat-opts))
         flat-opts (if deprecated-mandatory
                     (next flat-opts)
@@ -944,7 +942,7 @@
           ; support deprecated syntax [& {} -> ] to be equivalent to [& :optional {} -> ]
           (if (and kwsyn
                    (map? (first kwsyn)))
-            (do (prn "DEPRECATED: implicit optional parameters for Fn arity. Use :optional keyword argument beteween & and ->.")
+            (do (u/deprecated-warn "Implicit optional parameters for Fn arity. Use :optional keyword argument beteween & and ->.")
                 (cons :optional kwsyn))
             kwsyn))
 
