@@ -3022,7 +3022,8 @@
 ;TODO attach type information to AST in the presence of fn intersections
 (add-check-method :fn
   [{:keys [env] :as expr} & [expected]]
-  {:post [(-> % expr-type TCResult?)]}
+  {:post [(-> % expr-type TCResult?)
+          (vector? (:methods %))]}
   (binding [vs/*current-env* (if (:line env) env vs/*current-env*)
             vs/*current-expr* expr
             *check-fn-method1-checkfn* check
@@ -3046,15 +3047,15 @@
                               (r/make-CountRange 1)))
 
                   :else (c/KwArgs->Type kws)))]
-    (let [type (check-fn expr (let [default-ret (ret (r/make-FnIntersection
-                                                       (r/make-Function [] r/-any r/-any)))]
-                                (cond (and expected (not= r/-any (ret-t expected))) expected
-                                      :else default-ret)))
+    (let [cexpr (check-fn expr (let [default-ret (ret (r/make-FnIntersection
+                                                        (r/make-Function [] r/-any r/-any)))]
+                                 (cond (and expected (not= r/-any (ret-t expected))) expected
+                                       :else default-ret)))
           _ (when expected
-              (when-not (sub/subtype? (ret-t type) (ret-t expected))
-               (expected-error (ret-t type) (ret-t expected))))]
-      (assoc expr
-             expr-type type))))
+              (let [actual (ret-t (expr-type cexpr))]
+                (when-not (sub/subtype? actual (ret-t expected))
+                  (expected-error actual (ret-t expected)))))]
+      cexpr)))
 
 (declare abstract-object abstract-filter abstract-type abo)
 
@@ -3290,7 +3291,7 @@
                                   self-name]}]
   {:pre [(r/Type? expected)
          ((some-fn nil? symbol?) self-name)]
-   :post [(r/Type? %)]}
+   :post [(-> % :fni r/Type?)]}
   ; FIXME Unions of functions are not supported yet
   (let [;; FIXME This is trying to be too smart, should be a simple cond with Poly/PolyDots cases
 
@@ -3307,7 +3308,8 @@
         _ (when validate-expected-fn
             (validate-expected-fn fin))
         ;collect all inferred Functions
-        inferred-fni (lex/with-locals (when-let [name self-name] ;self calls
+        {:keys [inferred-fni cmethods]}
+                     (lex/with-locals (when-let [name self-name] ;self calls
                                         (when-not expected 
                                           (u/int-error (str "Recursive functions require full annotation")))
                                         (assert (symbol? name) name)
@@ -3322,16 +3324,18 @@
                          (dvar-env/with-dotted-mappings (case poly?
                                                           :PolyDots {(-> inst-frees last r/F-original-name) (last inst-frees)}
                                                           {})
-                           (apply r/make-FnIntersection
-                                  (doall
-                                    (mapcat (fn [method]
-                                              (let [fnt (check-fn-method method fin
-                                                                         :recur-target-fn recur-target-fn)]
-                                                fnt))
-                                            methods))))))
+                           (let [method-infos (mapv (fn [method]
+                                                      {:post [(seq %)]}
+                                                      (check-fn-method method fin
+                                                                       :recur-target-fn recur-target-fn))
+                                                    methods)]
+                             {:cmethods (vec (mapcat #(map :cmethod %) method-infos))
+                              :inferred-fni (apply r/make-FnIntersection (mapcat #(map :ftype %) method-infos))}))))
+        _ (assert (r/Type? inferred-fni))
         ;rewrap in Poly or PolyDots if needed
         pfni (rewrap-poly inferred-fni inst-frees bnds poly?)]
-    pfni))
+    {:cmethods cmethods
+     :fni pfni}))
 
 (defn fn-self-name [{:keys [op] :as fexpr}]
   (impl/impl-case
@@ -3347,12 +3351,15 @@
   "Check a fn to be under expected and annotate the inferred type"
   [{:keys [methods] :as fexpr} expected]
   {:pre [(TCResult? expected)]
-   :post [(TCResult? %)]}
-  ;(prn 'self-name (:name fexpr))
-  (ret (check-fn-methods methods (ret-t expected)
-                         :self-name (fn-self-name fexpr))
-       (fo/-FS fl/-top fl/-bot) 
-       obj/-empty))
+   :post [(-> % expr-type TCResult?)
+          (vector? (::t/cmethods %))]}
+  (let [{:keys [cmethods fni]} (check-fn-methods methods (ret-t expected)
+                                                 :self-name (fn-self-name fexpr))]
+    (assoc fexpr
+           ::t/cmethods cmethods
+           expr-type  (ret fni
+                           (fo/-FS fl/-top fl/-bot) 
+                           obj/-empty))))
 
 (defn method-required-params [method]
   (impl/impl-case
@@ -3379,11 +3386,12 @@
            (:params method))))
 
 ;[MethodExpr FnIntersection & :optional {:recur-target-fn (U nil [Function -> RecurTarget])}
-;   -> (Seq Function)]
+;   -> (Seq {:ftype Function :cmethod Expr})]
 (defn check-fn-method [method fin & {:keys [recur-target-fn]}]
   {:pre [(r/FnIntersection? fin)]
    :post [(seq %)
-          (every? r/Function? %)]}
+          (every? (comp r/Function? :ftype) %)
+          (every? :cmethod %)]}
   (u/p :check/check-fn-method
   (let [required-params (method-required-params method)
         rest-param (method-rest-param method)
@@ -3397,7 +3405,7 @@
                                                         (when rest-param ;rest
                                                           r/-any))
                                        :recur-target-fn recur-target-fn)]
-      :else (doall
+      :else (vec
               (for [f mfns]
                 (check-fn-method1 method f
                                   :recur-target-fn recur-target-fn)))))))
@@ -3410,17 +3418,10 @@
 
 (declare env+ ->RecurTarget RecurTarget?)
 
-(defn method-body [method]
-  {:pre [(impl/impl-case 
-           :clojure (#{:fn-method :method} (:op method))
-           ; is there a better test?
-           :cljs method)]}
+(defn method-body-kw []
   (impl/impl-case
-    :clojure (:body method)
-    :cljs (:expr method)))
-
-(defn method-param-name [bexpr]
-  (:name bexpr))
+    :clojure :body
+    :cljs :expr))
 
 ;check method is under a particular Function, and return inferred Function
 ;
@@ -3436,11 +3437,12 @@
 ; The behaviour of generating a RecurTarget type for recurs is exposed via the :recur-target-fn
 ;
 ;
-;[MethodExpr Function -> Function]
+;[MethodExpr Function -> {:ftype Function :cmethod Expr}]
 (defn check-fn-method1 [method {:keys [dom rest drest kws] :as expected}
                         & {:keys [recur-target-fn]}]
   {:pre [(r/Function? expected)]
-   :post [(r/Function? %)]}
+   :post [(r/Function? (:ftype %))
+          (:cmethod %)]}
   (impl/impl-case
     :clojure (assert (#{:fn-method :method} (:op method))
                      (:op method))
@@ -3448,12 +3450,12 @@
     :cljs (assert method))
   #_(prn "checking syntax:" (u/emit-form-fn method))
   (u/p :check/check-fn-method1
-  (let [body (method-body method)
+  (let [body ((method-body-kw) method)
         required-params (method-required-params method)
         rest-param (method-rest-param method)
 
         param-obj (comp #(obj/->Path nil %)
-                        method-param-name)
+                        :name)
         ; Difference from Typed Racket:
         ;
         ; Because types can contain abstracted names, we instantiate
@@ -3502,14 +3504,14 @@
 
         props (:props lex/*lexical-env*)
         fixed-entry (map vector 
-                         (map method-param-name required-params)
+                         (map :name required-params)
                          (concat dom 
                                  (repeat (or rest (:pre-type drest)))))
         ;_ (prn "checking function:" (prs/unparse-type expected))
         check-fn-method1-rest-type *check-fn-method1-rest-type*
         _ (assert check-fn-method1-rest-type "No check-fn bound for rest type")
         rest-entry (when rest-param
-                     [[(method-param-name rest-param)
+                     [[(:name rest-param)
                        (check-fn-method1-rest-type (drop (count required-params) dom) rest drest kws)]])
         ;_ (prn "rest entry" rest-entry)
         _ (assert ((u/hash-c? symbol? Type?) (into {} fixed-entry))
@@ -3575,7 +3577,7 @@
         ; changes to the lexical env as new filters, and conjoin with existing filters.
 
         ;_ (prn "crng-nopass" crng-nopass)
-        {:keys [then else]} (-> crng-nopass expr-type ret-f)
+        {:keys [then]} (-> crng-nopass expr-type ret-f)
         then-env (u/p :check/check-fn-method1-env+-rng
                    (env+ env [then] (atom true)))
         new-then-props (reduce (fn [fs [sym t]]
@@ -3599,16 +3601,22 @@
             (when (not (sub/subtype? (-> crng expr-type ret-t) (ret-t expected-rng)))
               (expected-error (-> crng expr-type ret-t) (ret-t expected-rng))))
         rest-param-name (when rest-param
-                          (method-param-name rest-param))]
-      (FnResult->Function 
-        (->FnResult fixed-entry 
-                    (when (and kws rest-param)
-                      [rest-param-name kws])
-                    (when (and rest rest-param)
-                      [rest-param-name rest])
-                    (when (and drest rest-param) 
-                      [rest-param-name drest])
-                    (expr-type crng))))))
+                          (:name rest-param))
+        
+        ftype (FnResult->Function 
+                (->FnResult fixed-entry 
+                            (when (and kws rest-param)
+                              [rest-param-name kws])
+                            (when (and rest rest-param)
+                              [rest-param-name rest])
+                            (when (and drest rest-param) 
+                              [rest-param-name drest])
+                            (expr-type crng)))
+        cmethod (assoc method
+                       (method-body-kw) crng
+                       ::ftype ftype)]
+     {:ftype ftype
+      :cmethod cmethod})))
 
 ;(ann internal-special-form [Expr (U nil TCResult) -> Expr])
 (u/special-do-op ::t/special-form internal-special-form)

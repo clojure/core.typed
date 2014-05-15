@@ -322,14 +322,13 @@
                                                        (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
                                                                      [(or rest (.pre-type ^DottedPretype drest))]))
                                                  :else (c/KwArgs->Type kws)))]
-    (assoc expr
-           expr-type (chk/check-fn 
-                       expr
-                       (or (when @found-meta?
-                             manual-annot)
-                           expected
-                           (ret (r/make-FnIntersection
-                                  (r/make-Function [] r/-any r/-any)))))))))
+    (chk/check-fn 
+      expr
+      (or (when @found-meta?
+            manual-annot)
+          expected
+          (ret (r/make-FnIntersection
+                 (r/make-Function [] r/-any r/-any))))))))
 
 (defmethod check :deftype*
   [expr & [expected]]

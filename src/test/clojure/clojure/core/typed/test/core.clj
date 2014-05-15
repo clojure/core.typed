@@ -1130,13 +1130,6 @@
 (deftest map-literal-containing-funapp-test
   (is-cf {:bar (identity 1)}))
 
-(:form
-(clojure.core.typed.analyze-clj/ast-for-form
-'(clojure.core.typed/doseq> [a :- (U clojure.core.typed/AnyInteger nil), [1 nil 2 3]
-                   :when a]
-            (inc a)))
-)
-
 (deftest doseq>-test
   (is-cf (clojure.core.typed/doseq> [a :- (U clojure.core.typed/AnyInteger nil), [1 nil 2 3]
                    :when a]
