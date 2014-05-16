@@ -1,5 +1,12 @@
 # 0.2.46 - Released 17 May 2014
 
+## Deprecations
+
+- `Seq*` is deprecated, use `HSeq`
+- `Vector*` is deprecated, use `HVec`
+
+## Enhancements
+
 - Add `:file-mapping` option for `check-{ns,form}-info`
   - eg. 
 ```clojure
