@@ -1421,12 +1421,12 @@ clojure.core/conj
      (All [x y]
           (Fn [(IPersistentVector x) x x * -> (IPersistentVector x)]
               [(APersistentMap x y)
-               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y))
-               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y)) *
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) '[x y])
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) '[x y]) *
                -> (APersistentMap x y)]
               [(IPersistentMap x y)
-               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y))
-               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) (Vector* x y)) * -> (IPersistentMap x y)]
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) '[x y])
+               (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) '[x y]) * -> (IPersistentMap x y)]
               [(IPersistentSet x) x x * -> (IPersistentSet x)]
               [(Seq x) x x * -> (ASeq x)]
               [nil x x * -> (clojure.lang.PersistentList x)]
