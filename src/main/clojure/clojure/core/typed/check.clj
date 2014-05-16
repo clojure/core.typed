@@ -226,10 +226,6 @@
                          (let [{:keys [expr]} (first v)
                                r (expr-type expr)]
                            (prs/with-parse-ns (expr-ns expr)
-                             (prn (:op expr) (when (r/TCResult? r)
-                                               (prs/unparse-type (ret-t r)))
-                                  (:method expr)
-                                  (:val expr))
                              (when (r/TCResult? r)
                                (pr-str (prs/unparse-type (ret-t r)))))))]
                (when msg
