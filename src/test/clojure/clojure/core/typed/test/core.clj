@@ -1277,8 +1277,8 @@
         (cf (fn [] (.ns ^clojure.lang.Var 'a))))))
 
 (deftest HMap-syntax-test
-  (is (= (parse-type '(HMap :absent-keys #{:op}))
-         (make-HMap :absent-keys #{(-val :op)} :complete? false))))
+  (is-clj (= (parse-type '(HMap :absent-keys #{:op}))
+             (make-HMap :absent-keys #{(-val :op)} :complete? false))))
 
 (deftest map-filter-test
   (is-cf (clojure.core.typed/ann-form (fn [a] (:op a))
@@ -2454,19 +2454,19 @@
          [(All [b ...] [b ... b -> Any]) -> Any]))
 
 (deftest unparse-free-scoping-test
-  (is (= (unparse-type (parse-type '(All [a b] (Fn [Any Any -> Any]))))
-         (quote (All [a b] (Fn [Any Any -> Any])))))
+  (is-clj (= (unparse-type (parse-type '(All [a b] (Fn [Any Any -> Any]))))
+             (quote (All [a b] (Fn [Any Any -> Any])))))
 
-  (is (= (clj (unparse-type (parse-type '(TFn [[a :variance :covariant]] a))))
-         (quote (TFn [[a :variance :covariant]] a))))
-  (is (= '[(All [a b] (Fn [Any Any -> (Fn [a b -> nil :filters {:then ff :else tt}])
-                           :filters {:then tt :else ff}])) {:then tt, :else ff}]
-         (cf
-           (fn [f coll]
-             (clojure.core.typed/fn> 
-               [x :- a
-                y :- b]))
-           (All [a b] [Any Any -> Any])))))
+  (is-clj (= (clj (unparse-type (parse-type '(TFn [[a :variance :covariant]] a))))
+             (quote (TFn [[a :variance :covariant]] a))))
+  (is-clj (= '[(All [a b] (Fn [Any Any -> (Fn [a b -> nil :filters {:then ff :else tt}])
+                               :filters {:then tt :else ff}])) {:then tt, :else ff}]
+             (cf
+               (fn [f coll]
+                 (clojure.core.typed/fn> 
+                   [x :- a
+                    y :- b]))
+               (All [a b] [Any Any -> Any])))))
 
 (deftest infer-bounds-test
   (is (= (infer-bounds -any nil)
