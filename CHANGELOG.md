@@ -1,4 +1,17 @@
-# 0.2.46-SNAPSHOT
+# 0.2.46 - Released 17 May 2014
+
+- Add `:file-mapping` option for `check-{ns,form}-info`
+  - eg. 
+```clojure
+(-> (check-ns-info *ns* :file-mapping true)
+    :file-mapping)
+;=> {{:line 1 :column 1 :file "current/file.clj"} "Int"
+;    {:line 2 :column 4 :file "current/file.clj"} "Any"
+;    ...}
+```
+
+- Add namespaced versions of special forms like [HMap](http://clojure.github.io/core.typed/#clojure.core.typed/HMap)
+  - non-namespaced versions will be deprecated soon, but will still work
 
 # 0.2.45 - Released 13 May 2014
 
