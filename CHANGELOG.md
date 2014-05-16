@@ -1,4 +1,6 @@
-# 0.2.46 - Released 17 May 2014
+# 0.2.47 - Released 17 May 2014
+
+0.2.46 doesn't work with :file-mapping
 
 ## Deprecations
 
