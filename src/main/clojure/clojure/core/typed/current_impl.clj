@@ -203,6 +203,10 @@ clojure.core.typed/Symbol clojure.lang.Symbol
         :forms [Sym]}
 clojure.core.typed/Sym clojure.lang.Symbol
 
+      ^{:doc "A string"
+        :forms [Str]}
+clojure.core.typed/Str java.lang.String
+
       ^{:doc "A namespace"
         :forms [Namespace]}
 clojure.core.typed/Namespace clojure.lang.Namespace
