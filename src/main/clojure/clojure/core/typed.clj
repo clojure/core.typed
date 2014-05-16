@@ -2480,7 +2480,8 @@ for checking namespaces, cf for checking individual forms."}
                    (when (and file-mapping
                               (== 1 (count nsym-coll)))
                      {:file-mapping (apply merge
-                                           (map ast->file-mapping
+                                           (map #(impl/with-clojure-impl
+                                                   (ast->file-mapping %))
                                                 (get @*checked-asts* (first nsym-coll))))})))))))))))
 
 (defn check-ns
