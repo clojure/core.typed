@@ -40,6 +40,7 @@
             [clojure.core.typed.method-override-env :as mth-override]
             [clojure.core.typed.ctor-override-env :as ctor-override]
             [clojure.core.typed.analyze-clj :as ana-clj]
+            [clojure.tools.analyzer.ast :as ast-ops]
             [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.core.typed.ns-options :as ns-opts]
             [clojure.jvm.tools.analyzer.hygienic :as hygienic]
@@ -152,13 +153,90 @@
              (do (println (str "Not checking " nsym " (tagged :collect-only in ns metadata)"))
                  (flush))
              (let [start (. System (nanoTime))
-                   asts (u/p :check/gen-analysis (ana-clj/ast-for-ns nsym))]
-               (println "Start checking" nsym)
-               (flush)
-               (doseq [ast asts]
-                 (check-expr ast))
-               (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs"))))
-         (flush)))))))
+                   asts (u/p :check/gen-analysis (ana-clj/ast-for-ns nsym))
+                   _ (println "Start checking" nsym)
+                   _ (flush)
+                   casts (doall
+                           (for [ast asts]
+                             (check-expr ast)))
+                   _ (when-let [checked-asts t/*checked-asts*]
+                       (swap! checked-asts assoc nsym casts))
+                   _ (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs")
+                   _ (flush)
+                   ]
+         nil)))))))))
+
+(def expr-type ::expr-type)
+
+; (Vec '{:ftype Type :fn-expr Expr})
+(def ^:private ^:dynamic *fn-stack* [])
+
+(declare fn-self-name method-body-kw)
+
+;(def-alias MappingInfo '{:msg String :fn-stack (Vec {:ftype Type :fn-expr Expr})}
+
+;[Expr -> (Map '{:line Int :column Int :file Str} (Vec MappingInfo))]
+(defn ast->info-map 
+  [ast]
+  (letfn [(mapping-key [{:keys [env] :as ast}]
+            (when ((every-pred :line :column :file) env)
+              (select-keys 
+                (:env ast)
+                [:line :column :file])))]
+    (case (:op ast)
+      ; Functions can be checked any number of times. Each
+      ; check is stored in the ::t/cmethods entry.
+      :fn (let [method-mappings (for [method (::t/cmethods ast)]
+                                  (let [ftype (::t/ftype method)
+                                        _ (assert (r/Function? ftype))]
+                                    (binding [*fn-stack* (conj *fn-stack* {:ftype ftype
+                                                                           :fn-expr ast})]
+                                      (ast->info-map ((method-body-kw) method)))))]
+            (merge
+              (apply merge-with
+                     (fn [a b] (vec (concat a b)))
+                     method-mappings)
+              (when-let [k (mapping-key ast)]
+                {k [{:expr ast
+                     :fn-stack *fn-stack*}]})))
+      (apply merge 
+             (concat (map ast->info-map (ast-ops/children ast))
+                     (when-let [k (mapping-key ast)]
+                       [{k [{:expr ast
+                             :fn-stack *fn-stack*}]}]))))))
+
+(declare expr-ns)
+
+(defn info-map->msg-map [info-map]
+  (into {} (for [[k v] info-map]
+             (let [msg (if (< 1 (count v))
+                         (let [ms (seq
+                                    (filter identity
+                                            (map (fn [{:keys [expr fn-stack]}]
+                                                   (let [r (expr-type expr)]
+                                                     (when (r/TCResult? r)
+                                                       (prs/with-parse-ns (expr-ns expr)
+                                                         (str
+                                                           "In context size " (count fn-stack) ":\n"
+                                                           (pr-str (prs/unparse-type (ret-t r)))
+                                                           "\n")))))
+                                                 v)))]
+                           (when ms
+                             (apply str ms)))
+                         (let [{:keys [expr]} (first v)
+                               r (expr-type expr)]
+                           (prs/with-parse-ns (expr-ns expr)
+                             (prn (:op expr) (when (r/TCResult? r)
+                                               (prs/unparse-type (ret-t r)))
+                                  (:method expr)
+                                  (:val expr))
+                             (when (r/TCResult? r)
+                               (pr-str (prs/unparse-type (ret-t r)))))))]
+               (when msg
+                 [k msg])))))
+
+(defn ast->file-mapping [ast]
+  (-> ast ast->info-map info-map->msg-map))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
@@ -174,8 +252,6 @@
     :cljs (or (-> expr :env :ns :name)
               (do (prn "WARNING: No associated ns for ClojureScript expr, defaulting to cljs.user")
                   'cljs.user))))
-
-(def expr-type ::expr-type)
 
 (defmulti check (fn [expr & [expected]]
                   {:pre [((some-fn nil? TCResult?) expected)]}
@@ -215,7 +291,8 @@
 
 (defn check-value
   [{:keys [val] :as expr} & [expected]]
-  {:pre [(#{:const} (:op expr))]}
+  {:pre [(#{:const} (:op expr))]
+   :post [(-> % expr-type TCResult?)]}
   (let [actual-type (const/constant-type val)
         _ (when (and expected (not (sub/subtype? actual-type (ret-t expected))))
             (binding [vs/*current-expr* expr]
@@ -234,9 +311,8 @@
 
 (add-check-method :const [& args] (apply check-value args))
 (add-check-method :quote [{:keys [expr] :as quote-expr} & [expected]] 
-  (let [r (expr-type (check-value expr expected))]
-    (assoc quote-expr
-           expr-type r)))
+  (assoc (check-value expr expected)
+         :op :quote))
 
 ;(ann expected-vals [(Coll Type) (Nilable TCResult) -> (Coll (Nilable TCResult))])
 (defn expected-vals
@@ -311,6 +387,9 @@
 
 (add-check-method :map
   [{keyexprs :keys valexprs :vals :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)
+          (vector? (:keys %))
+          (vector? (:vals %))]}
   (let [ckeyexprs (mapv check keyexprs)
         key-types (map (comp ret-t expr-type) ckeyexprs)
 
@@ -329,19 +408,26 @@
             (when-not (sub/subtype? actual (ret-t expected))
               (expected-error actual (ret-t expected))))]
     (assoc expr
+           :keys ckeyexprs
+           :vals cvalexprs
            expr-type (ret actual (fo/-true-filter)))))
 
 (add-check-method :set
   [{:keys [items] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)
+          (vector? (:args %))]}
   (let [cargs (mapv check items)
         res-type (c/RClass-of PersistentHashSet [(apply c/Un (mapv (comp ret-t expr-type) cargs))])
         _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
             (expected-error res-type (ret-t expected)))]
     (assoc expr
+           :args cargs
            expr-type (ret res-type (fo/-true-filter)))))
 
 (add-check-method :vector
   [{:keys [items] :as expr} & [expected]]
+  {:post [(-> % expr-type TCResult?)
+          (vector? (:args %))]}
   (let [cargs (mapv check items)
         res-type (r/-hvec (mapv (comp ret-t expr-type) cargs)
                           :filters (mapv (comp ret-f expr-type) cargs)
@@ -349,6 +435,7 @@
         _ (when (and expected (not (sub/subtype? res-type (ret-t expected))))
             (expected-error res-type (ret-t expected)))]
     (assoc expr
+           :args cargs
            expr-type (ret res-type (fo/-true-filter)))))
 
 ;; check-below : (/\ (Results Type -> Result)
@@ -3019,7 +3106,6 @@
 
 (declare check-fn)
 
-;TODO attach type information to AST in the presence of fn intersections
 (add-check-method :fn
   [{:keys [env] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)
@@ -3442,6 +3528,7 @@
                         & {:keys [recur-target-fn]}]
   {:pre [(r/Function? expected)]
    :post [(r/Function? (:ftype %))
+          (-> % :cmethod ::t/ftype r/Function?)
           (:cmethod %)]}
   (impl/impl-case
     :clojure (assert (#{:fn-method :method} (:op method))
@@ -3614,7 +3701,7 @@
                             (expr-type crng)))
         cmethod (assoc method
                        (method-body-kw) crng
-                       ::ftype ftype)]
+                       ::t/ftype ftype)]
      {:ftype ftype
       :cmethod cmethod})))
 
@@ -4023,7 +4110,8 @@
 (defn check-invoke-method [{c :class method-name :method :keys [args env] :as expr} expected inst?
                            & {:keys [ctarget cargs]}]
   {:pre [((some-fn nil? TCResult?) expected)]
-   :post [(-> % expr-type TCResult?)]}
+   :post [(-> % expr-type TCResult?)
+          (vector? (:args %))]}
   (binding [vs/*current-env* env]
     (let [method (MethodExpr->Method expr)
           msym (MethodExpr->qualsym expr)

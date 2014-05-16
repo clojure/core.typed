@@ -82,7 +82,7 @@
 
 (defn check [& as]
   (impl/with-clojure-impl
-    (apply chk/check as)))
+    (apply chk/check-expr as)))
 
 (defmacro is-cf [& args]
   `(is (do

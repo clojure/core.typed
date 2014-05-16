@@ -105,6 +105,8 @@
                      *ns*)]
     (analyze1 form (taj/empty-env))))
 
+#_(def reread-with-tr (comp tr/read readers/indexing-push-back-reader print-str))
+
 (defn ast-for-form
   "Returns an AST node for the form"
   [form]

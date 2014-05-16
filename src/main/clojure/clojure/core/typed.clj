@@ -2258,6 +2258,7 @@ for checking namespaces, cf for checking individual forms."}
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *currently-checking-clj* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *analyze-ns-cache* nil)
+(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *checked-asts* nil)
 
 (defonce ^:dynamic 
   ^{:doc 
@@ -2331,9 +2332,7 @@ for checking namespaces, cf for checking individual forms."}
   nil))
 
 (defn check-form-info 
-  "Alpha - subject to change
-
-  Type checks a (quoted) form and returns a map of results from type checking the
+  "Type checks a (quoted) form and returns a map of results from type checking the
   form.
   
   Options
@@ -2341,13 +2340,16 @@ for checking namespaces, cf for checking individual forms."}
                      type-provided? option must be true to utilise the type.
   - :type-provided?  If true, use the expected type to check the form
   - :profile         Use Timbre to profile the type checker. Timbre must be
-                     added as a dependency."
-  [form & {:keys [expected type-provided? profile]}]
+                     added as a dependency.
+  - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
+                     of (Map '{:line Int :column Int :file Str} Str)."
+  [form & {:keys [expected type-provided? profile file-mapping]}]
   (p/profile-if profile
     (load-if-needed)
     (reset-caches)
     (let [check-expr (impl/v 'clojure.core.typed.check/check-expr)
           expr-type (impl/v 'clojure.core.typed.check/expr-type)
+          ast->file-mapping (impl/v 'clojure.core.typed.check/ast->file-mapping)
           ast-for-form (impl/v 'clojure.core.typed.analyze-clj/ast-for-form)
           collect-ast (impl/v 'clojure.core.typed.collect-phase/collect-ast)
           ret (impl/v 'clojure.core.typed.type-rep/ret)
@@ -2368,16 +2370,26 @@ for checking namespaces, cf for checking individual forms."}
                   _ (reset-caches)
                   c-ast (check-expr ast expected)
                   res (expr-type c-ast)]
-              {:delayed-errors @*delayed-errors*
-               :ret res})))))))
+              (merge
+                {:delayed-errors @*delayed-errors*
+                 :ret res}
+                (when file-mapping
+                  {:file-mapping (ast->file-mapping c-ast)})))))))))
 
 (defn check-ns-info
-  "Alpha - subject to change
+  "Same as check-ns, but returns a map of results from type checking the
+  namespace.
 
-  Same as check-ns, but returns a map of results from type checking the
-  namespace."
+  Options
+  - :collect-only    Don't type check the given namespace/s, but collect the 
+                     top level type annotations like ann, ann-record.
+  - :type-provided?  If true, use the expected type to check the form
+  - :profile         Use Timbre to profile the type checker. Timbre must be
+                     added as a dependency.
+  - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
+                     of (Map '{:line Int :column Int :file Str} Str)."
   ([] (check-ns-info *ns*))
-  ([ns-or-syms & {:keys [collect-only trace profile]}]
+  ([ns-or-syms & {:keys [collect-only trace profile file-mapping]}]
    (p/profile-if profile
      (let [start (. System (nanoTime))]
        (load-if-needed)
@@ -2385,6 +2397,7 @@ for checking namespaces, cf for checking individual forms."}
        (let [reset-envs! (impl/v 'clojure.core.typed.reset-env/reset-envs!)
              collect-ns (impl/v 'clojure.core.typed.collect-phase/collect-ns)
              check-ns-and-deps (impl/v 'clojure.core.typed.check/check-ns-and-deps)
+             ast->file-mapping (impl/v 'clojure.core.typed.check/ast->file-mapping)
              vars-with-unchecked-defs (impl/v 'clojure.core.typed.var-env/vars-with-unchecked-defs)
              uri-for-ns (impl/v 'clojure.jvm.tools.analyzer/uri-for-ns)
              
@@ -2407,8 +2420,10 @@ for checking namespaces, cf for checking individual forms."}
                      *already-checked* (atom #{})
                      *trace-checker* trace
                      *collect-on-eval* false
-                     *analyze-ns-cache* (atom {})]
-             (let [terminal-error (atom nil)]
+                     *analyze-ns-cache* (atom {})
+                     *checked-asts* (atom {})]
+             (let [terminal-error (atom nil)
+                   typed-asts (atom {})]
                (letfn [(do-collect []
                          (doseq [nsym nsym-coll]
                            (collect-ns nsym)))
@@ -2457,10 +2472,16 @@ for checking namespaces, cf for checking individual forms."}
                                  (reset! terminal-error e)
                                  (throw e))))))]
                  (do-check-ns)
-                 {:delayed-errors (vec (concat (when-let [es *delayed-errors*]
+                 (merge
+                   {:delayed-errors (vec (concat (when-let [es *delayed-errors*]
                                                  @es)
                                                (when-let [e @terminal-error]
-                                                 [e])))})))))))))
+                                                 [e])))}
+                   (when (and file-mapping
+                              (== 1 (count nsym-coll)))
+                     {:file-mapping (apply merge
+                                           (map ast->file-mapping
+                                                (get @*checked-asts* (first nsym-coll))))})))))))))))
 
 (defn check-ns
   "Type check a namespace/s (a symbol or Namespace, or collection).
