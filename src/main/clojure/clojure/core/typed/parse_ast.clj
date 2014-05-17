@@ -136,21 +136,6 @@
     (when path
       {:path-elems (mapv parse-path-elem path)})))
 
-(defn parse-HVec [[_ fixed & {:keys [filter-sets objects]} :as syn]]
-  (merge
-    {:op :HVec
-     :types (mapv parse fixed)
-     :children (vec (concat
-                      [:types]
-                      (when filter-sets
-                        [:filter-sets])
-                      (when objects
-                        [:objects])))}
-    (when filter-sets
-      {:filter-sets (mapv parse-filter-set filter-sets)})
-    (when objects
-      {:objects (mapv parse-object filter-sets)})))
-
 (defn parse-with-rest-drest [msg syns]
   (let [rest? (#{'*} (last syns))
         dotted? (#{'...} (-> syns butlast last))
@@ -186,9 +171,9 @@
      :drest drest}))
 
 (defn parse-h* [op msg]
-  (fn [[_ syn]]
+  (fn [[_ fixed & {:keys [filter-sets objects repeat]}]]
     (let [{:keys [types drest rest]}
-          (parse-with-rest-drest msg syn)]
+          (parse-with-rest-drest msg fixed)]
       (merge
         {:op op
          :types types
@@ -197,17 +182,28 @@
                           (when drest
                             [:drest])
                           (when rest
-                            [:rest])))}
+                            [:rest])
+                          (when filter-sets
+                            [:filter-sets])
+                          (when objects
+                            [:objects])
+                          (when (true? repeat) [:repeat])))}
         (when drest
           {:drest drest})
         (when rest
-          {:rest rest})))))
+          {:rest rest})
+        (when filter-sets
+          {:filter-sets (mapv parse-filter-set filter-sets)})
+        (when objects
+          {:objects (mapv parse-object filter-sets)})
+        (when (true? repeat) {:repeat true})))))
 
+(def parse-HVec (parse-h* :HVec "Invalid heterogeneous vector syntax:"))
 (def parse-HSequential (parse-h* :HSequential "Invalid HSeqnential syntax:"))
 (def parse-HSeq (parse-h* :HSeq "Invalid HSeq syntax:"))
 
 (def parse-quoted-hvec (fn [syn]
-                         ((parse-h* :HVec "Invalid heterogeneous vector syntax:") [nil syn])))
+                         (parse-HVec [nil syn])))
 
 (defn parse-quoted-hseq [syn]
   (let [types (mapv parse syn)]
