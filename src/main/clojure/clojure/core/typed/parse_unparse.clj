@@ -544,7 +544,7 @@
 (declare parse-object parse-filter-set)
 
 (defn parse-heterogeneous* [parse-h*-types constructor]
-  (fn [[_ syn & {:keys [filter-sets objects]}]]
+  (fn [[_ syn & {:keys [filter-sets objects repeat]}]]
     (let [{:keys [fixed drest rest]} (parse-h*-types syn)]
       (constructor fixed
                    :filters (when filter-sets
@@ -552,7 +552,9 @@
                    :objects (when objects
                               (mapv parse-object objects))
                    :drest drest
-                   :rest rest))))
+                   :rest rest
+                   :repeat (when (true? repeat)
+                             true)))))
 
 (def parse-HVec (parse-heterogeneous* parse-hvec-types r/-hvec))
 (def parse-HSequential (parse-heterogeneous* parse-hsequential-types r/-hsequential))
@@ -1381,7 +1383,7 @@
              [:complete? true]))))
 
 (defn unparse-heterogeneous* [sym vec?]
-  (fn [{:keys [types rest drest fs objects] :as v}]
+  (fn [{:keys [types rest drest fs objects repeat] :as v}]
     (let [first-part (concat
                        (map unparse-type (:types v))
                        (when rest [(unparse-type rest) '*])
@@ -1393,6 +1395,8 @@
              (vec first-part)
              first-part)
            (concat
+             (when repeat
+               [:repeat true])
              (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
                [:filter-sets (mapv unparse-filter-set fs)])
              (when-not (every? #{orep/-empty} objects)
