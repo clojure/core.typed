@@ -243,35 +243,6 @@
       (when path
         {:path-elems (mapv parse-path-elem path)}))))
 
-(t/ann parse-HVec [(t/I (t/Seq t/Any) t/Sequential) -> Type])
-(defn parse-HVec [[_ fixed & opts :as syn]]
-  (let [_ (when-not (vector? fixed)
-            (err/int-error "First argument to HVec must be a vector"))
-        _ (when-not (even? (count opts))
-            (err/int-error "Uneven keyword arguments to HVec"))
-        {:keys [filter-sets objects]} opts]
-    (when (contains? opts :filter-sets)
-      (when-not (vector? filter-sets)
-        (err/int-error ":filter-sets must be a vector")))
-    (when (contains? opts :objects)
-      (when-not (vector? objects)
-        (err/int-error ":objects must be a vector")))
-    (merge
-      {:op :HVec
-       :types (mapv parse fixed)
-       :children (vec (concat
-                        [:types]
-                        (when filter-sets
-                          [:filter-sets])
-                        (when objects
-                          [:objects])))}
-      (when filter-sets
-        (assert (vector? filter-sets))
-        {:filter-sets (mapv parse-filter-set filter-sets)})
-      (when objects
-        (assert (vector? objects))
-        {:objects (mapv parse-object objects)}))))
-
 (t/defalias RestDrest
   (HMap :mandatory {:types (t/U nil (t/Coll Type))}
         :optional {:rest (t/U nil Type)
@@ -302,14 +273,14 @@
                 bnd (*dotted-scope* drest-bnd)
                 _ (when-not bnd 
                     (err/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))
-                gdrest-bnd (gensym drest-bnd)]
+                gdrest-bnd (gensym bnd)]
             {:types fixed
              :drest (t/ann-form
                       {:op :dotted-pretype
                        :f {:op :F :name gdrest-bnd}
                        :drest (with-frees {drest-bnd gdrest-bnd} ;with dotted bound in scope as free
                                 (parse drest-type))
-                       :name bnd}
+                       :name gdrest-bnd}
                       DottedPretype)})
           :else {:types (mapv parse syns)})]
     {:types types
@@ -319,9 +290,9 @@
 (t/tc-ignore
 
 (defn parse-h* [op msg]
-  (fn [[_ syn]]
+  (fn [[_ fixed & {:keys [filter-sets objects repeat]}]]
     (let [{:keys [types drest rest]}
-          (parse-with-rest-drest msg syn)]
+          (parse-with-rest-drest msg fixed)]
       (merge
         {:op op
          :types types
@@ -330,17 +301,28 @@
                           (when drest
                             [:drest])
                           (when rest
-                            [:rest])))}
+                            [:rest])
+                          (when filter-sets
+                            [:filter-sets])
+                          (when objects
+                            [:objects])
+                          (when (true? repeat) [:repeat])))}
         (when drest
           {:drest drest})
         (when rest
-          {:rest rest})))))
+          {:rest rest})
+        (when filter-sets
+          {:filter-sets (mapv parse-filter-set filter-sets)})
+        (when objects
+          {:objects (mapv parse-object filter-sets)})
+        (when (true? repeat) {:repeat true})))))
 
+(def parse-HVec (parse-h* :HVec "Invalid heterogeneous vector syntax:"))
 (def parse-HSequential (parse-h* :HSequential "Invalid HSeqnential syntax:"))
 (def parse-HSeq (parse-h* :HSeq "Invalid HSeq syntax:"))
 
 (def parse-quoted-hvec (fn [syn]
-                         ((parse-h* :HVec "Invalid heterogeneous vector syntax:") [nil syn])))
+                         (parse-HVec [nil syn])))
 
 (defn parse-quoted-hseq [syn]
   (let [types (mapv parse syn)]
@@ -691,12 +673,42 @@
   (let [_ (when-not (<= 1 (count args))
             (err/int-error "Wrong arguments to Assoc"))
         [t & entries] args
-        _ (when-not (even? (count entries))
-            (err/int-error "Uneven arguments to Assoc"))]
+        {ellipsis-pos '...}
+        (zipmap entries (range))
+
+        [entries dentries] (split-at (if ellipsis-pos
+                                       (dec ellipsis-pos)
+                                       (count entries))
+                                     entries)
+        _ (when-not (-> entries count even?)
+            (err/int-error (str "Incorrect Assoc syntax: "
+                                syn
+                                " , must have even number of key/val pair.")))
+        _ (when-not (or (not ellipsis-pos)
+                        (= (count dentries) 3))
+            (err/int-error (str "Incorrect Assoc syntax: "
+                                syn
+                                " , must have even number of key/val pair.")))
+        [drest-type _ drest-bnd] (when ellipsis-pos
+                                   dentries)
+        _ (when-not (or (not ellipsis-pos) (symbol? drest-bnd))
+            (err/int-error "Dotted bound must be symbol"))]
     {:op :Assoc
      :type (parse t)
      :entries (mapv parse entries)
-     :children [:type :entries]}))
+     :dentries (when ellipsis-pos
+                 (let [bnd (*dotted-scope* drest-bnd)
+                       _ (when-not (symbol? bnd)
+                           (err/int-error (str (pr-str drest-bnd)
+                                               " is not in scope as a dotted variable")))
+                       gbnd (gensym bnd)]
+                   {:drest
+                    {:op :dotted-pretype
+                     :f {:op :F :name gbnd}
+                     :drest (with-frees {drest-bnd gbnd} ;with dotted bound in scope as free
+                              (parse drest-type))
+                     :name gbnd}}))
+     :children (concat [:type :entries] (when ellipsis-pos [:dentries]))}))
 
 (defmethod parse-seq* 'Assoc [syn] 
   (err/deprecated-plain-op 'Assoc)
@@ -846,11 +858,13 @@
 
         {ellipsis-pos '...
          asterix-pos '*
-         ampersand-pos '&}
+         ampersand-pos '&
+         push-rest-pos '<*
+         push-dot-pos '<...}
         (zipmap all-dom (range))
 
-        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos])))
-            (err/int-error "Can only provide one rest argument option: & ... or *"))
+        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos push-rest-pos push-dot-pos])))
+            (err/int-error "Can only provide one rest argument option: & ... * or <*"))
 
         _ (when-let [ks (seq (remove #{:filters :object :flow} (keys opts)))]
             (err/int-error (str "Invalid function keyword option/s: " ks)))
@@ -868,6 +882,8 @@
                     asterix-pos (take (dec asterix-pos) all-dom)
                     ellipsis-pos (take (dec ellipsis-pos) all-dom)
                     ampersand-pos (take ampersand-pos all-dom)
+                    push-rest-pos (take (dec push-rest-pos) all-dom)
+                    push-dot-pos (take (dec push-dot-pos) all-dom)
                     :else all-dom)
 
         rest-type (when asterix-pos
@@ -881,6 +897,12 @@
             (err/int-error "Dotted rest entry must be 3 entries"))
         _ (when-not (or (not ellipsis-pos) (symbol? drest-bnd))
             (err/int-error "Dotted bound must be symbol"))
+        [pdot-type _ pdot-bnd :as pdot-seq] (when push-dot-pos
+                                                 (drop (dec push-dot-pos) all-dom))
+        _ (when-not (or (not push-dot-pos) (= 3 (count pdot-seq)))
+            (err/int-error "push dotted rest entry must be 3 entries"))
+        _ (when-not (or (not push-dot-pos) (symbol? pdot-bnd))
+            (err/int-error "push dotted bound must be symbol"))
         [& {optional-kws :optional mandatory-kws :mandatory} :as kws-seq]
         (let [kwsyn (when ampersand-pos
                       (drop (inc ampersand-pos) all-dom))]
@@ -892,7 +914,13 @@
             kwsyn))
 
         _ (when-not (or (not ampersand-pos) (seq kws-seq)) 
-            (err/int-error "Must provide syntax after &"))]
+            (err/int-error "Must provide syntax after &"))
+
+        prest-type (when push-rest-pos
+                     (nth all-dom (dec push-rest-pos)))
+        _ (when-not (or (not push-rest-pos)
+                        (= (count all-dom) (inc push-rest-pos)))
+            (err/int-error (str "Trailing syntax after push-rest parameter: " (pr-str (drop (inc push-rest-pos) all-dom)))))]
     (merge
       {:op :Fn-method
        :dom (mapv parse fixed-dom)
@@ -904,7 +932,11 @@
                               (when asterix-pos
                                 [:rest])
                               (when ellipsis-pos
-                                [:drest])))}
+                                [:drest])
+                              (when push-rest-pos
+                                [:prest])
+                              (when push-dot-pos
+                                [:pdot])))}
       (when asterix-pos
         {:rest (parse rest-type)})
       (when ellipsis-pos
@@ -917,6 +949,19 @@
             :f {:op :F :name gbnd}
             :drest (with-frees {drest-bnd gbnd} ;with dotted bound in scope as free
                      (parse drest-type))
+            :name gbnd}}))
+      (when push-rest-pos
+        {:prest (parse prest-type)})
+      (when push-dot-pos
+        (let [bnd (*dotted-scope* pdot-bnd)
+              _ (when-not (symbol? bnd)
+                  (err/int-error (str (pr-str pdot-bnd) " is not in scope as a dotted variable")))
+              gbnd (gensym bnd)]
+          {:pdot
+           {:op :dotted-pretype
+            :f {:op :F :name gbnd}
+            :drest (with-frees {pdot-bnd gbnd} ;with dotted bound in scope as free
+                     (parse pdot-type))
             :name gbnd}})))))
 
 (defn parse-Fn [[_ & args :as syn]]
