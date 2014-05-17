@@ -230,11 +230,12 @@
   [expr expected]
   (tc-ignore/check-tc-ignore check expr expected))
 
-(defn check-fn-rest [rest drest kws]
+(defn check-fn-rest [remain-dom & {:keys [rest drest kws prest]}]
   {:pre [(or (r/Type? rest)
+             (r/Type? prest)
              (r/DottedPretype? drest)
              (r/KwArgs? kws))
-         (#{1} (count (filter identity [rest drest kws])))]
+         (#{1} (count (filter identity [rest drest kws prest])))]
    :post [(r/Type? %)]}
   ;(prn "rest" rest)
   ;(prn "drest" drest)
@@ -245,6 +246,8 @@
           ; only difference to Clojure impl
           (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
                         [(or rest (:pre-type drest))]))
+
+    prest (err/nyi-error "NYI handle prest in CLJS")
     :else (c/KwArgs->Type kws)))
 
 (defmacro prepare-check-fn [& body]
@@ -295,6 +298,7 @@
         ;                              (last params))]
         ;                   (r/make-Function (mapv parse-meta (map meta fixed))
         ;                                    r/-any
+        ;                                    :rest
         ;                                    (when variadic
         ;                                      (parse-meta rest))))))
         ]

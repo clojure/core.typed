@@ -7,7 +7,7 @@
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as or])
   (:import (clojure.core.typed.type_rep HSequential HeterogeneousVector
-                                        Function)))
+                                        Function AssocType)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dotted pre-type expansion
@@ -67,7 +67,8 @@
                  :filters (mapv tfn (:fs t))
                  :objects (mapv tfn (:objects t))
                  :rest (when-let [r (:rest t)]
-                         (tfn r)))))))
+                         (tfn r))
+                 :repeat (:repeat t))))))
 
 (fold/add-fold-case ::trans-dots
   HeterogeneousVector
@@ -117,6 +118,31 @@
                          (tfn r)))))))
 
 (fold/add-fold-case ::trans-dots
+  AssocType
+  (fn [{:keys [target entries dentries]} {{:keys [b bm]} :locals}]
+    (let [tfn #(trans-dots % b bm)
+          t-target (tfn target)
+          t-entries (map (fn [ent]
+                           [(tfn (first ent)) (tfn (second ent))])
+                         entries)]
+      (if (and dentries
+               (= b (:name dentries)))
+        (r/AssocType-maker t-target
+                           (concat t-entries
+                                   (->> bm
+                                     (map (fn [bk]
+                                            {:post [(r/Type? %)]}
+                                            (-> (subst/substitute bk b (:pre-type dentries))
+                                              tfn)))
+                                     (partition 2)
+                                     (map vec)))
+                           nil)
+        (r/AssocType-maker t-target
+                           t-entries
+                           (when dentries
+                             (update-in dentries [:pre-type] tfn)))))))
+
+(fold/add-fold-case ::trans-dots
   Function
   (fn 
     [t {{:keys [b bm]} :locals}]
@@ -139,7 +165,9 @@
               (r/Function-maker dom
                                 (tfn (:rng t))
                                 nil
+                                nil
                                 nil ;dotted pretype now expanded to fixed domain
+                                nil
                                 nil))
             (-> t
                 (update-in [:dom] #(doall (map tfn %)))
@@ -153,4 +181,6 @@
             (update-in [:dom] #(doall (map tfn %)))
             (update-in [:rng] tfn)
             (update-in [:rest] #(when %
-                                  (tfn %))))))))
+                                  (tfn %)))
+            (update-in [:prest] #(when %
+                                   (tfn %))))))))

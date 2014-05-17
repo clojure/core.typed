@@ -11,7 +11,7 @@
 
 ;Function TCResult^n (or nil TCResult) -> TCResult
 (defn check-funapp1 [fexpr arg-exprs {{optional-kw :optional mandatory-kw :mandatory :as kws} :kws
-                                      :keys [dom rng rest drest] :as ftype0}
+                                      :keys [dom rng rest drest prest pdot] :as ftype0}
                      argtys expected & {:keys [check?] :or {check? true}}]
   {:pre [(r/Function? ftype0)
          (every? r/TCResult? argtys)
@@ -31,6 +31,9 @@
                       (= (count dom) (count argtys)))
                     (when rest
                       (<= (count dom) nactual))
+                    (when prest
+                      (and (<= (count dom) nactual)
+                           (zero? (rem (- nactual dom) (count (-> prest :types))))))
                     (when kws
                       (let [nexpected (+ (count dom)
                                          (* 2 (count mandatory-kw)))]
@@ -42,24 +45,26 @@
                                  (cond
                                    rest " and a rest parameter "
                                    drest " and a dotted rest parameter "
+                                   prest " and a push rest parameter"
                                    kws (cond
                                          (and (seq mandatory-kw) (seq optional-kw))
                                          (str ", some optional keyword arguments and " (count mandatory-kw) 
                                               " mandatory keyword arguments")
 
                                          (seq mandatory-kw) (str "and " (count mandatory-kw) "  mandatory keyword arguments")
-                                         (seq optional-kw) " and some optional keyword arguments"))
+                                         (seq optional-kw) " and some optional keyword arguments"
+                                         :else (str " with unknow ftype " ftype0)))
                                  ", and got " nactual
                                  " for function " (pr-str (prs/unparse-type ftype0))
                                  " and arguments " (pr-str (mapv (comp prs/unparse-type r/ret-t) argtys)))))
       (cond
         ; case for regular rest argument, or no rest parameter
-        (or rest (empty? (remove nil? [rest drest kws])))
-        (doseq [[arg-t dom-t] (map vector 
-                                   (map r/ret-t argtys) 
+        (or rest (empty? (remove nil? [rest drest kws prest])))
+        (doseq [[arg-t dom-t] (map vector
+                                   (map r/ret-t argtys)
                                    (concat dom (when rest (repeat rest))))]
           (below/check-below arg-t dom-t))
-        
+
         ; case for mandatory or optional keyword arguments
         kws
         (do

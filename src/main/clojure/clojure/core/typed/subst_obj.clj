@@ -129,7 +129,7 @@
 
 (fold/add-fold-case ::subst-type
                     Function
-                    (fn [{:keys [dom rng rest drest kws] :as ty} {{:keys [st k o polarity]} :locals}]
+                    (fn [{:keys [dom rng rest drest kws prest pdot] :as ty} {{:keys [st k o polarity]} :locals}]
                       ;; here we have to increment the count for the domain, where the new bindings are in scope
                       (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (:mandatory kws)) (count (:optional kws)))
                             st* (if (integer? k)
@@ -148,7 +148,11 @@
                                             (update-in [:mandatory] #(into {} (for [[k v] %]
                                                                                 [(st k) (st v)])))
                                             (update-in [:optional] #(into {} (for [[k v] %]
-                                                                               [(st k) (st v)])))))))))
+                                                                               [(st k) (st v)])))))
+                                      (and prest (st prest))
+                                      (when pdot
+                                        (-> pdot
+                                            (update-in [:pre-type] st)))))))
 
 
 ;[Type (U t/Sym Number) RObject Boolean -> Type]

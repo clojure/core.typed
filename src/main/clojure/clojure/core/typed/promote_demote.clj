@@ -161,7 +161,8 @@
                :rest (when-let [rest (:rest T)]
                        (pmt rest))
                :drest (when-let [drest (:drest T)]
-                        (update-in drest [:pre-type] pmt))))))
+                        (update-in drest [:pre-type] pmt))
+               :repeat (:repeat T)))))
 
 (promote-demote HeterogeneousSeq
   [T V]
@@ -187,7 +188,8 @@
                :rest (when-let [rest (:rest T)]
                        (pmt rest))
                :drest (when-let [drest (:drest T)]
-                        (update-in drest [:pre-type] pmt))))))
+                        (update-in drest [:pre-type] pmt))
+               :repeat (:repeat T)))))
 
 (promote-demote HeterogeneousVector
   [T V]

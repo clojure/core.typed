@@ -184,9 +184,11 @@
       (r/FnIntersection? fexpr-type)
       (u/p :check/funapp-nopoly-nodots
       (let [ftypes (:types fexpr-type)
-            matching-fns (filter (fn [{:keys [dom rest kws] :as f}]
+            matching-fns (filter (fn [{:keys [dom rest kws prest] :as f}]
                                    {:pre [(r/Function? f)]}
-                                   (sub/subtypes-varargs? arg-types dom rest kws))
+                                   (if prest
+                                     (sub/subtypes-prest? arg-types dom prest)
+                                     (sub/subtypes-varargs? arg-types dom rest kws)))
                                  ftypes)
             success-ret-type (when-let [f (first matching-fns)]
                                (funapp1/check-funapp1 fexpr args f arg-ret-types expected :check? false))]
@@ -207,25 +209,31 @@
             bbnds (c/Poly-bbnds* fs-names fexpr-type)
             _ (assert (r/FnIntersection? fin))
             ;; Only infer free variables in the return type
-            ret-type 
+            ret-type
             (free-ops/with-bounded-frees (zipmap (map r/F-maker fs-names) bbnds)
-                     (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types fin)]
+                     (loop [[{:keys [dom rng rest drest kws prest] :as ftype} & ftypes] (:types fin)]
                        (when ftype
                          #_(prn "infer poly fn" (prs/unparse-type ftype) (map prs/unparse-type arg-types)
                                 (count dom) (count arg-types))
                          #_(prn ftype)
                          #_(when rest (prn "rest" (prs/unparse-type rest)))
                          ;; only try inference if argument types are appropriate
-                         (if-let 
-                           [substitution 
+                         (if-let
+                           [substitution
                             (cgen/handle-failure
                               (cond
                                 ;possibly present rest argument, or no rest parameter
-                                (and (not (or drest kws))
+                                (and (not (or drest kws prest))
                                      ((if rest <= =) (count dom) (count arg-types)))
-                                (cgen/infer-vararg (zipmap fs-names bbnds) {} 
+                                (cgen/infer-vararg (zipmap fs-names bbnds) {}
                                                    arg-types dom rest (r/Result-type* rng)
                                                    (and expected (r/ret-t expected)))
+
+                                (and prest
+                                     (<= (count dom) (count arg-types)))
+                                (cgen/infer-prest (zipmap fs-names bbnds) {}
+                                                  arg-types dom prest (r/Result-type* rng)
+                                                  (and expected (r/ret-t expected)))
 
                                 ;keyword parameters
                                 kws
@@ -346,12 +354,15 @@
               (free-ops/with-bounded-frees (zipmap (map r/make-F (keys fixed-map)) (vals fixed-map))
                 ;(dvar-env/with-dotted-mappings (zipmap (keys dotted-map) (map r/make-F (vals dotted-map)))
                  (some identity
-                       (for [{:keys [dom rest drest rng] :as ftype} (:types pbody)
+                       (for [{:keys [dom rest drest rng prest pdot] :as ftype} (:types pbody)
                              ;only try inference if argument types match
                              :when (cond
                                      rest (<= (count dom) (count arg-types))
                                      drest (and (<= (count dom) (count arg-types))
                                                 (contains? (set (keys dotted-map)) (-> drest :name)))
+                                     prest (<= (count dom) (count arg-types))
+                                     pdot (and (<= (count dom) (count arg-types))
+                                               (contains? (set (keys dotted-map)) (-> pdot :name)))
                                      :else (= (count dom) (count arg-types)))]
                          (cgen/handle-failure
                            ;(prn "Inferring dotted fn" (prs/unparse-type ftype))
@@ -362,9 +373,23 @@
                                                                        arg-types dom (:pre-type drest) (r/Result-type* rng) 
                                                                        (frees/fv rng)
                                                                        :expected (and expected (r/ret-t expected)))
+
                                                 rest (cgen/infer-vararg fixed-map dotted-map
                                                                         arg-types dom rest (r/Result-type* rng)
                                                                         (and expected (r/ret-t expected)))
+
+                                                (and prest
+                                                     (<= (count dom) (count arg-types)))
+                                                (cgen/infer-prest fixed-map dotted-map
+                                                                  arg-types dom prest (r/Result-type* rng)
+                                                                  (and expected (r/ret-t expected)))
+
+                                                pdot (cgen/infer-pdot fixed-map (key (first dotted-map))
+                                                                      (val (first dotted-map))
+                                                                      arg-types dom (:pre-type pdot) (r/Result-type* rng)
+                                                                      (frees/fv rng)
+                                                                      :expected (and expected (r/ret-t expected)))
+
                                                 :else (cgen/infer fixed-map dotted-map
                                                                   arg-types dom (r/Result-type* rng)
                                                                   (and expected (r/ret-t expected))))

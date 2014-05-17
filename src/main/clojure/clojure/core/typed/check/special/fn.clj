@@ -62,7 +62,9 @@
                 method 
                 (r/make-Function dom (or (when (r/Result? rng)
                                            (r/Result-type* rng))
-                                         r/-any) rest drest
+                                         r/-any) 
+                                 :rest rest 
+                                 :drest drest
                                  :filter (when (r/Result? rng)
                                            (r/Result-filter* rng))
                                  :object (when (r/Result? rng)
@@ -161,7 +163,8 @@
                        ((some-fn nil? r/DottedPretype?) drest)
                        (every? r/Type? dom)]
                  :post [(r/Function? %)]}
-                (r/make-Function dom (or (when rng (r/Result-type* rng)) r/-any) rest drest))
+                (r/make-Function dom (or (when rng (r/Result-type* rng)) r/-any) 
+                                 :rest rest :drest drest))
               doms rngs rests drests)))
 
 (defn parse-poly [bnds]
