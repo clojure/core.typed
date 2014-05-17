@@ -1,3 +1,8 @@
+# 0.2.48 - Released 17 May 2014
+
+- Improvements to local file mapping
+  - vim-typedclojure now uses it for mouseovers
+
 # 0.2.47 - Released 17 May 2014
 
 0.2.46 doesn't work with :file-mapping
