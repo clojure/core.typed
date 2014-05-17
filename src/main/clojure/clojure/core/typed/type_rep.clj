@@ -489,7 +489,7 @@
    (vector? objects)
    (every? p/IRObject? objects)
    (apply = (map count [types fs objects]))
-   (#{0 1} (count (filter identity [rest drest])))
+   (#{0 1} (count (filter identity [rest drest repeat])))
    ((some-fn nil? Type?) rest)
    ((some-fn nil? DottedPretype?) drest)
    ((some-fn true? false?) repeat)]
@@ -541,7 +541,7 @@
    (vector? objects)
    (every? p/IRObject? objects)
    (apply = (map count [types fs objects]))
-   (#{0 1} (count (filter identity [rest drest])))
+   (#{0 1} (count (filter identity [rest drest repeat])))
    ((some-fn nil? Type?) rest)
    ((some-fn nil? DottedPretype?) drest)
    ((some-fn true? false?) repeat)]
@@ -585,7 +585,7 @@
    (vector? objects)
    (every? p/IRObject? objects)
    (apply = (map count [types fs objects]))
-   (#{0 1} (count (filter identity [rest drest])))
+   (#{0 1} (count (filter identity [rest drest repeat])))
    ((some-fn nil? Type?) rest)
    ((some-fn nil? DottedPretype?) drest)
    ((some-fn true? false?) repeat)]
