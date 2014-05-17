@@ -2421,7 +2421,9 @@ for checking namespaces, cf for checking individual forms."}
                      *trace-checker* trace
                      *collect-on-eval* false
                      *analyze-ns-cache* (atom {})
-                     *checked-asts* (atom {})]
+                     ; we only use this if we have exactly one namespace passed
+                     *checked-asts* (when (== 1 (count nsym-coll))
+                                      (atom {}))]
              (let [terminal-error (atom nil)
                    typed-asts (atom {})]
                (letfn [(do-collect []
