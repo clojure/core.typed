@@ -191,9 +191,10 @@
       :fn (let [method-mappings (for [method (::t/cmethods ast)]
                                   (let [ftype (::t/ftype method)
                                         _ (assert (r/Function? ftype))
-                                        floc (mapping-key ast)
-                                        _ (assert floc)]
-                                    (binding [*fn-stack* (conj *fn-stack* {:loc floc
+                                        ;floc (mapping-key ast)
+                                        ;_ (assert floc (select-keys (:env ast) [:line :file :column]))
+                                        ]
+                                    (binding [*fn-stack* (conj *fn-stack* {;:loc floc
                                                                            :name (fn-self-name ast)
                                                                            :ftype ftype})]
                                       (ast->info-map ((method-body-kw) method)))))]
