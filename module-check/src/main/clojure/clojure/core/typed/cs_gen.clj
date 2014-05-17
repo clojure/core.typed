@@ -43,6 +43,30 @@
 (t/ann ^:no-check clojure.core.typed.current-impl/current-impl [-> t/Any])
 (t/ann ^:no-check clojure.core.typed.current-impl/checking-clojure? [-> t/Any])
 
+(t/ann gen-repeat [Number (t/Seqable Any) -> (t/Seqable Any)])
+(defn ^:private gen-repeat [times repeated]
+  (reduce (fn [acc cur]
+            (concat acc cur))
+          []
+          (repeat times repeated)))
+
+; (partition-by-nth 2 [1 2 3 4 5 6]) -> ((1 3 5) (2 4 6))
+; (partition-by-nth 3 [1 2 3 4 5 6]) -> ((1 4) (2 5) (3 6))
+; util for infer-pdot
+(t/ann partition-by-nth (All [a] [Number (t/Seqable a) -> (t/Seq (t/Seq a))]))
+(defn partition-by-nth [n lst]
+  {:pre [(zero? (rem (count lst) n))]}
+  (let [lst-count (count lst)
+        keep-rem-of (t/fn keep-rem-of [i :- Number]
+                        (keep-indexed (t/fn [index :- Number
+                                             item :- a]
+                                        (when (= (rem index n) i)
+                                          item))
+                                      lst))]
+    (t/for [i :- Number, (range n)]
+      :- (t/Seq a)
+      (keep-rem-of i))))
+
 (t/ann subtype? [r/AnyType r/AnyType -> Boolean])
 (defn ^:private subtype? [s t]
   (u/p :cs-gen/subtype-via-csgen
@@ -260,7 +284,62 @@
          (cr/dcon? dc2))
     (fail! dc1 dc2)
 
-    :else (err/int-error (str "Got non-dcons" dc1 dc2)))))
+    (and (cr/dcon-repeat? dc1)
+         (cr/dcon? dc2)
+         (not (:rest dc2)))
+    (let [{fixed1 :fixed repeated :repeat} dc1
+          {fixed2 :fixed} dc2
+          fixed1-count (count fixed1)
+          fixed2-count (count fixed2)
+          repeat-count (count repeated)
+          diff (- fixed2-count fixed1-count)]
+      (assert repeated)
+      (when-not (and (>= fixed2-count fixed1-count)
+                    (zero? (rem diff repeat-count)))
+        (fail! fixed1 fixed2))
+      (cr/dcon-repeat-maker
+        (let [vector' (t/inst vector c c Any Any Any Any)]
+          (doall
+            (t/for 
+              [[c1 c2] :- '[c c], (map vector'
+                                       fixed2
+                                       (concat fixed1
+                                               (gen-repeat (quot diff repeat-count) repeated)))]
+              :- c
+              (c-meet c1 c2 (:X c1)))))
+        repeated))
+    (and (cr/dcon-repeat? dc2)
+         (cr/dcon? dc1)
+         (not (:rest dc1)))
+    (dcon-meet dc2 dc1)
+
+    (every? cr/dcon-repeat? [dc1 dc2])
+    (let [[{short-fixed :fixed short-repeat :repeat}
+           {long-fixed :fixed long-repeat :repeat}]
+          (sort-by (fn [x] (-> x :fixed count)) [dc1 dc2])
+          s-fixed-count (count short-fixed)
+          l-fixed-count (count long-fixed)
+          s-repeat-count (count short-repeat)
+          l-repeat-count (count long-repeat)
+          diff (- l-fixed-count s-fixed-count)
+          _ (assert (= s-repeat-count l-repeat-count))
+          vector' (t/inst vector c c Any Any Any Any)
+          merged-repeat (t/for [[c1 c2] :- '[c c], (map vector' short-repeat long-repeat)]
+                              :- c
+                              (c-meet c1 c2 (:X c1)))]
+      (assert (zero? (rem diff s-repeat-count)))
+      (cr/dcon-repeat-maker
+        (doall
+          (t/for 
+            [[c1 c2] :- '[c c], (map vector'
+                                     long-fixed
+                                     (concat short-fixed
+                                             (gen-repeat (quot diff s-repeat-count) short-repeat)))]
+            :- c
+            (c-meet c1 c2 (:X c1))))
+        merged-repeat))
+
+    :else (err/nyi-error (str "NYI dcon-meet " dc1 dc2)))))
 
 (t/ann dmap-meet [dmap dmap -> dmap])
 (defn dmap-meet [dm1 dm2]
@@ -295,7 +374,7 @@
 (declare cs-gen-right-F cs-gen-left-F cs-gen-datatypes-or-records cs-gen-list
          cs-gen-filter-set cs-gen-object cs-gen-HSequential cs-gen-TApp
          cs-gen-Function cs-gen-FnIntersection cs-gen-Result cs-gen-RClass
-         cs-gen-Protocol)
+         cs-gen-Protocol get-c-from-cmap)
 
 (t/ann ^:no-check cs-gen 
        [(t/Set t/Sym) 
@@ -358,8 +437,10 @@
         ;; constrain body to be below T, but don't mention the new vars
         (r/Poly? S)
         (let [nms (c/Poly-fresh-symbols* S)
-              body (c/Poly-body* nms S)]
-          (cs-gen (set/union (set nms) V) X Y body T))
+              body (c/Poly-body* nms S)
+              bbnds (c/Poly-bbnds* nms S)]
+          (free-ops/with-bounded-frees (zipmap (map r/F-maker nms) bbnds)
+                   (cs-gen (set/union (set nms) V) X Y body T)))
 
         (r/Name? S)
         (cs-gen V X Y (c/resolve-Name S) T)
@@ -574,6 +655,63 @@
              (not (r/F? (:target T))))
         (cs-gen V X Y S (c/-resolve T))
 
+        (and (r/AssocType? S)
+             (r/AssocType? T))
+        (let [{S-target :target S-entries :entries S-dentries :dentries} S
+              {T-target :target T-entries :entries T-dentries :dentries} T
+              cg #(cs-gen V X Y %1 %2)
+              target-cset (cg S-target T-target)
+              S-entries (reduce concat S-entries)
+              T-entries (reduce concat T-entries)
+              entries-cset (cs-gen-list V X Y S-entries T-entries)
+              _ (when (and S-dentries T-dentries)
+                  (err/nyi-error "NYI dentries of Assoc in cs-gen"))
+              ]
+          (cset-meet* [target-cset entries-cset]))
+
+        (and (r/AssocType? S)
+             (r/RClass? T)
+             ; (Map xx yy)
+             (= 'clojure.lang.IPersistentMap (:the-class T)))
+        (let [{:keys [target entries dentries]} S
+              {:keys [poly? the-class]} T
+              dentries-cset (when-let [{dty :pre-type dbound :name} dentries]
+                              (when (and dbound (not (Y dbound)))
+                                (fail! S T))
+                              ;(println "passed when")
+                              (let [merged-X (merge X {dbound (Y dbound)})
+                                    get-list-of-c (fn get-list-of-c [t-list]
+                                                    (mapv #(get-c-from-cmap % dbound)
+                                                          (t/for [t :- r/Type, t-list]
+                                                                :- cset
+                                                                (cs-gen V merged-X Y dty t))))
+                                    repeat-c (get-list-of-c poly?)]
+                                (assoc-in (cr/empty-cset X Y)
+                                          [:maps 0 :dmap :map dbound]
+                                          ; don't constrain on fixed, otherwise will fail
+                                          ; on (assoc m x y)
+                                          (cr/dcon-repeat-maker [] repeat-c))))
+              ;_ (println "dentries-cset" dentries-cset)
+
+              ; if it's nil, we also accept it
+              map-cset (when-not (r/Nil? target)
+                         (cs-gen V X Y target T))
+              entries-keys (map first entries)
+              entries-vals (map second entries)
+              cg #(cs-gen V X Y %1 %2)
+              key-cset (map cg entries-keys (repeat (first poly?)))
+              val-cset (map cg entries-vals (repeat (second poly?)))]
+          (cset-meet* (concat (when map-cset [map-cset]) key-cset val-cset)))
+
+        ; transform Record to HMap, this is not so useful until we can do
+        ; cs-gen Assoc with dentries with HMap
+        (and (r/AssocType? S)
+             (r/Record? T))
+        (let [{:keys [target]} S
+              target-cset (cs-gen V X Y target T)
+              cset (cs-gen V X Y S (c/Record->HMap T))]
+          (cset-meet* [target cset]))
+
 ; Completeness matters:
 ;
 ; (Assoc x ':a Number ':b Long) <: (HMap {:a Number :b Long} :complete? true)
@@ -581,8 +719,9 @@
         (and (r/AssocType? S)
              (r/HeterogeneousMap? T))
         (let [;_ (prn "cs-gen Assoc HMap")
-              {:keys [target entries]} S
+              {:keys [target entries dentries]} S
               {:keys [types absent-keys]} T
+              _ (when-not (nil? dentries) (err/nyi-error (pr-str "NYI cs-gen of dentries AssocType with HMap " S T)))
               Assoc-keys (map first entries)
               Tkeys (keys types)
               ; All keys must be keyword values
@@ -626,6 +765,46 @@
                         (:target S)]
                        [expected-assoc-args-hmap
                         expected-target-hmap]))
+
+        (and (r/AssocType? S)
+             (r/HeterogeneousVector? T))
+        (let [elem-type (apply c/Un
+                               (concat
+                                 (:types T)
+                                 (when-let [rest (:rest T)]
+                                   [rest])
+                                 (when (:drest T)
+                                   [r/-any])))
+              vec-any (r/-hvec [] :rest r/-any)
+              num-type (c/RClass-of 'java.lang.Number)
+              target-cset (cs-gen V X Y (:target S) vec-any)
+              entries-key (map first (:entries S))
+              entries-val (map second (:entries S))
+              key-cset (cs-gen-list V X Y entries-key (repeat (count entries-key)
+                                                              num-type))
+              ;_ (println "key-cset" key-cset)
+              val-cset (cs-gen-list V X Y entries-val (repeat (count entries-val)
+                                                              elem-type))
+              ;_ (println "val-cset" val-cset)
+              dentries-cset (when-let [{dty :pre-type dbound :name} (:dentries S)]
+                              (when (and dbound (not (Y dbound)))
+                                (fail! S T))
+                              ;(println "passed when")
+                              (let [merged-X (merge X {dbound (Y dbound)})
+                                    get-list-of-c (fn get-list-of-c [t-list]
+                                                    (mapv #(get-c-from-cmap % dbound)
+                                                          (t/for [t :- r/Type, t-list]
+                                                            :- cset
+                                                            (cs-gen V merged-X Y dty t))))
+                                    repeat-c (get-list-of-c [num-type elem-type])]
+                                (assoc-in (cr/empty-cset X Y)
+                                          [:maps 0 :dmap :map dbound]
+                                          ; don't constrain on fixed, otherwise will fail
+                                          ; on (assoc m x y)
+                                          (cr/dcon-repeat-maker [] repeat-c))))
+              ]
+          (cset-meet* (concat [target-cset key-cset val-cset]
+                              (when dentries-cset [dentries-cset]))))
 
         (and (r/PrimitiveArray? S)
              (r/PrimitiveArray? T)
@@ -698,6 +877,7 @@
                       (r/make-ExactCountRange (count (:types S))))
                 T)
 
+        ; TODO add :repeat support
         (and (r/HSequential? S)
              (r/RClass? T))
         (cs-gen V X Y
@@ -716,6 +896,7 @@
                          (count (:types S)))))
                 T)
 
+        ; TODO add :repeat support
         (and (r/HeterogeneousVector? S)
              (r/RClass? T))
         (cs-gen V X Y
@@ -752,6 +933,10 @@
         (r/HeterogeneousVector? S)
         (cs-gen V X Y (c/upcast-hvec S) T)
 
+        (and (r/AssocType? S)
+             (r/Protocol? T))
+        (cs-gen V X Y (:target S) T)
+
         :else
         (do (when-not (subtype? S T) 
               (fail! S T))
@@ -769,12 +954,12 @@
   (cset-meet* (concat
                 (cond
                   ;simple case
-                  (not-any? (some-fn :rest :drest) [S T])
+                  (not-any? (some-fn :rest :drest :repeat) [S T])
                   [(cs-gen-list V X Y (:types S) (:types T))]
 
                   ;rest on right, optionally on left
                   (and (:rest T)
-                       (not (:drest S)))
+                       (not-any? (some-fn :drest :repeat) [S]))
                   (concat [(cs-gen-list V X Y (:types S) (concat (:types T)
                                                                  (repeat (- (count (:types S))
                                                                             (count (:types T)))
@@ -782,9 +967,52 @@
                           (when (:rest S)
                             [(cs-gen V X Y (:rest S) (:rest T))]))
 
+                  ; repeat on right, nothing on left
+                  (and (:repeat T)
+                       (not-any? (some-fn :rest :drest :repeat) [S]))
+                  (let [s-types (:types S)
+                        t-types (:types T)
+                        s-types-count (count s-types)
+                        t-types-count (count t-types)]
+                    (if (and (>= s-types-count t-types-count)
+                             (zero? (rem s-types-count t-types-count)))
+                      [(cs-gen-list V X Y s-types (gen-repeat (/ s-types-count
+                                                                 t-types-count)
+                                                              t-types))]
+                      (fail! S T)))
+
+                  ; repeat on left, rest on right
+                  (and (:repeat S)
+                       (:rest T))
+                  (let [s-types (:types S)
+                        t-types (:types T)
+                        s-types-count (count s-types)
+                        t-types-count (count t-types)]
+                    (if (>= s-types-count t-types-count)
+                      [(cs-gen-list V X Y s-types (concat t-types
+                                                          (repeat (- s-types-count
+                                                                     t-types-count)
+                                                                  (:rest T))))]
+                      (err/nyi-error (pr-str "NYI HSequential inference " S T))))
+
+                  ; repeat on left, drest on right
+                  (and (:repeat S)
+                       (:drest T))
+                  (let [{t-dty :pre-type dbound :name} (:drest T)
+                        _ (when-not (Y dbound)
+                            (fail! S T))
+                        merged-X (merge X {dbound (Y dbound)})
+                        get-list-of-c (fn get-list-of-c [S-list]
+                                        (mapv #(get-c-from-cmap % dbound)
+                                              (t/for [s :- r/Type, S-list]
+                                                    :- cset
+                                                    (cs-gen V merged-X Y s t-dty))))
+                        repeat-c (get-list-of-c (:types S))]
+                    [(assoc-in (cr/empty-cset X Y) [:maps 0 :dmap :map dbound] (cr/dcon-repeat-maker [] repeat-c))])
+
                   ;; dotted on the left, nothing on the right
                   (and (:drest S)
-                       (not-any? (some-fn :rest :drest) [T]))
+                       (not-any? (some-fn :rest :drest :repeat) [T]))
                   (let [{dty :pre-type dbound :name} (:drest S)]
                     (when-not (Y dbound)
                       (fail! S T))
@@ -802,7 +1030,7 @@
                       [(move-vars-to-dmap new-cset dbound vars)]))
 
                   ;; dotted on the right, nothing on the left
-                  (and (not-any? (some-fn :rest :drest) [S])
+                  (and (not-any? (some-fn :rest :drest :repeat) [S])
                        (:drest T))
                   (let [{dty :pre-type dbound :name} (:drest T)]
                     (when-not (Y dbound)
@@ -1163,6 +1391,15 @@
                 c
                 (err/int-error (str "No constraint for bound " dbound)))))))
 
+; FIXME why we need a list of cset-entry?
+(t/ann get-c-from-cmap [cset t/Sym -> c])
+(defn get-c-from-cmap [cset dbound]
+  {:pre [(cr/cset? cset)
+         (symbol? dbound)]
+   :post [(cr/c? %)]}
+  (if-let [result ((-> cset :maps first :fixed) dbound)]
+    result
+    (err/int-error (str "No constraint for bound " dbound))))
 
 ;; dbound : index variable
 ;; vars : listof[type variable] - temporary variables
@@ -1252,7 +1489,234 @@
           (swap!' DOTTED-VAR-STORE assoc' key all))
         all))))
 
-(t/ann cs-gen-Function
+(defn pad-right
+  "Returns a sequence of length cnt that is s padded to the right with copies
+  of v."
+  [^long cnt s v]
+  {:pre [(integer? cnt)
+         (<= (count s) cnt)]
+   ;careful not to shadow cnt here
+   :post [(== cnt (count %))]}
+  (concat s
+          (repeat (- cnt (count s)) v)))
+
+(defn cs-gen-Function-just-rests [V X Y S T]
+  ;just a rest arg, no drest, no keywords, no prest
+  {:pre [(and (some-fn :rest [S T])
+              (not-any? (some-fn :drest :kws :prest) [S T]))]}
+  (let [arg-mapping (cond
+                      ;both rest args are present, so make them the same length
+                      (and (:rest S) (:rest T))
+                      (cs-gen-list V X Y 
+                                   (cons (:rest T) (u/pad-right (count (:dom S)) (:dom T) (:rest T)))
+                                   (cons (:rest S) (u/pad-right (count (:dom T)) (:dom S) (:rest S))))
+                      ;no rest arg on the right, so just pad left and forget the rest arg
+                      (and (:rest S) (not (:rest T)))
+                      (let [new-S (u/pad-right (count (:dom T)) (:dom S) (:rest S))]
+                        ;                            (prn "infer rest arg on left")
+                        ;                            (prn "left dom" (map prs/unparse-type (:dom S)))
+                        ;                            (prn "right dom" (map prs/unparse-type (:dom T)))
+                        ;                            (prn "new left dom" (map prs/unparse-type new-S))
+                        (cs-gen-list V X Y (:dom T) new-S))
+                      ;no rest arg on left, or wrong number = fail
+                      :else (fail! S T))
+        ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
+    (cset-meet* [arg-mapping ret-mapping])))
+
+(defn cs-gen-Function-rest-prest [cg V X Y S T]
+  {:pre [(and (:rest S)
+              (:prest T))]}
+  (let [S-dom (:dom S)
+        S-dom-count (count S-dom)
+        T-dom (:dom T)
+        T-dom-count (count T-dom)
+        S-rest (:rest S)
+        T-prest-types (-> T :prest :types)
+        T-prest-types-count (count T-prest-types)
+        ret-mapping (cg (:rng S) (:rng T))
+        rest-prest-mapping (cs-gen-list V X Y T-prest-types (repeat T-prest-types-count S-rest))]
+    (if (> S-dom-count T-dom-count)
+      ; hard mode
+      (let [[S-dom-short S-dom-rest] (split-at T-dom-count S-dom)
+            ;_ (println "in hard-mode of rest prest")
+            arg-mapping (cs-gen-list V X Y T-dom S-dom-short)
+            remain-repeat-count (rem (count S-dom-rest) T-prest-types-count)
+            ceiling (fn [up low]
+                      {:pre [(every? integer? [up low])]}
+                      (let [result (quot up low)]
+                        (if (zero? (rem up low))
+                          result
+                          (inc result))))
+            repeat-times (if (empty? S-dom-rest)
+                           0
+                           (ceiling (count S-dom-rest) T-prest-types-count))
+            repeat-mapping (cs-gen-list V X Y
+                                        (concat S-dom-rest
+                                                (repeat remain-repeat-count S-rest))
+                                        (gen-repeat repeat-times T-prest-types))]
+        (cset-meet* [arg-mapping repeat-mapping rest-prest-mapping ret-mapping]))
+      ; easy mode
+      (let [[T-dom-short T-dom-rest] (split-at S-dom-count T-dom)
+            arg-mapping (cs-gen-list V X Y T-dom-short S-dom)
+            rest-mapping (cs-gen-list V X Y T-dom-rest (repeat (count T-dom-rest) S-rest))]
+        (cset-meet* [arg-mapping rest-mapping rest-prest-mapping ret-mapping])))))
+
+(defn cs-gen-Function-prest-on-left [V X Y S T]
+  ; prest on left, nothing on right
+  {:pre [(and (:prest S)
+              (not-any? (some-fn :rest :drest :kws :prest) [T]))]}
+  (let [s-dom (:dom S)
+        t-dom (:dom T)
+        s-dom-count (count s-dom)
+        t-dom-count (count t-dom)]
+    (if (and (<= t-dom-count s-dom-count)
+             (not (zero? (rem (- t-dom-count s-dom-count)
+                              (count (-> S :prest :types))))))
+      (fail! S T)
+      (let [[short-T rest-T] (split-at s-dom-count t-dom)
+            short-cs (cs-gen-list V X Y short-T s-dom)
+            s-prest-types (-> S :prest :types)
+            rest-S (gen-repeat (/ (count rest-T) (count s-prest-types)) s-prest-types)
+            rest-cs (cs-gen-list V X Y rest-T rest-S)
+            ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
+        (cset-meet* [short-cs rest-cs ret-mapping])))))
+
+(defn cs-gen-Function-prest-drest [cg V X Y S T]
+  (let [{t-dty :pre-type dbound :name} (:drest T)
+        _ (when-not (Y dbound)
+            (fail! S T))
+        S-dom (:dom S)
+        S-dom-count (count S-dom)
+        T-dom (:dom T)
+        T-dom-count (count T-dom)
+        S-prest-types (-> S :prest :types)
+        S-prest-types-count (count S-prest-types)
+        merged-X (merge X {dbound (Y dbound)})
+        get-list-of-c (fn get-list-of-c [S-list]
+                        (mapv #(get-c-from-cmap % dbound)
+                              (map
+                                (fn [s] (cs-gen V merged-X Y t-dty s))
+                                S-list)))
+        repeat-c (get-list-of-c S-prest-types)
+        ret-mapping (cg (:rng S) (:rng T))]
+    (if (<= S-dom-count T-dom-count)
+      ; hard mode
+      (let [T-rest-count (- T-dom-count S-dom-count)
+            [arg-S-prest remain-S-prest] (split-at (rem T-rest-count
+                                                        S-prest-types-count) S-prest-types)
+            new-S (concat S-dom
+                          (gen-repeat (quot T-rest-count S-prest-types-count) S-prest-types)
+                          arg-S-prest)
+            arg-mapping (cs-gen-list V X Y T-dom new-S)
+            fixed-c (if (= (count arg-S-prest) 0)
+                      []
+                      (get-list-of-c remain-S-prest))
+            darg-mapping (assoc-in (cr/empty-cset X Y)
+                                   [:maps 0 :dmap :map dbound]
+                                   (cr/dcon-repeat-maker fixed-c repeat-c))]
+        (cset-meet* [arg-mapping darg-mapping ret-mapping]))
+      ; easy mode
+      (let [[arg-S rest-S] (split-at T-dom-count S-dom)
+            arg-mapping (cs-gen-list V X Y T-dom arg-S)
+            fixed-c (get-list-of-c rest-S)
+            darg-mapping (assoc-in (cr/empty-cset X Y)
+                                   [:maps 0 :dmap :map dbound]
+                                   (cr/dcon-repeat-maker fixed-c repeat-c))]
+        (cset-meet* [arg-mapping darg-mapping ret-mapping])))))
+
+(defn cs-gen-Function-dotted-left-nothing-right [V X Y S T]
+  {:pre [(and (:drest S)
+              (not-any? (some-fn :rest :drest :kws :prest) [T]))]}
+  (let [{dty :pre-type dbound :name} (:drest S)]
+    (when-not (Y dbound)
+      (fail! S T))
+    (when-not (<= (count (:dom S)) (count (:dom T)))
+      (fail! S T))
+    (let [vars (var-store-take dbound dty (- (count (:dom T))
+                                             (count (:dom S))))
+          new-tys (mapv (fn [var]
+                          (subst/substitute (r/make-F var) dbound dty))
+                        vars)
+          new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil nil nil nil nil)
+          new-cset (cs-gen-Function V 
+                                    ;move dotted lower/upper bounds to vars
+                                    (merge X (zipmap vars (repeat (Y dbound)))) Y new-s-arr T)]
+      (move-vars-to-dmap new-cset dbound vars))))
+
+(defn cs-gen-Function-dotted-right-nothing-left [V X Y S T]
+  {:pre [(and (not-any? (some-fn :rest :drest :kws :prest) [S])
+              (:drest T))]}
+  (let [{dty :pre-type dbound :name} (:drest T)]
+    (when-not (Y dbound)
+      (fail! S T))
+    (when-not (<= (count (:dom T)) (count (:dom S)))
+      (fail! S T))
+    (let [vars (var-store-take dbound dty (- (count (:dom S)) (count (:dom T))))
+          new-tys (mapv
+                    (fn [var]
+                      (subst/substitute (r/make-F var) dbound dty))
+                    vars)
+          ;_ (prn "dotted on the right, nothing on the left")
+          ;_ (prn "vars" vars)
+          new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil nil nil nil nil)
+          ;_ (prn "S" (prs/unparse-type S))
+          ;_ (prn "new-t-arr" (prs/unparse-type new-t-arr))
+          new-cset (cs-gen-Function V 
+                                    ;move dotted lower/upper bounds to vars
+                                    (merge X (zipmap vars (repeat (Y dbound)))) Y S new-t-arr)]
+      (move-vars-to-dmap new-cset dbound vars))))
+
+;; * <: ...
+(defn cs-gen-Function-star-<-dots [cg V X Y S T]
+  {:pre [(and (:rest S)
+              (:drest T))]}
+  (let [{t-dty :pre-type dbound :name} (-> T :drest)]
+    (when-not (Y dbound)
+      (fail! S T))
+    (if (<= (count (:dom S)) (count (:dom T)))
+      ;; the simple case
+      (let [arg-mapping (cs-gen-list V X Y (:dom T) (u/pad-right (count (:dom T)) (:dom S) (:rest S)))
+            darg-mapping (move-rest-to-dmap (cs-gen V (merge X {dbound (Y dbound)}) Y t-dty (:rest S)) dbound)
+            ret-mapping (cg (:rng S) (:rng T))]
+        (cset-meet* [arg-mapping darg-mapping ret-mapping]))
+      ;; the hard case
+      (let [vars (var-store-take dbound t-dty (- (count (:dom S)) (count (:dom T))))
+            new-tys (mapv (fn [var]
+                            (subst/substitute (r/make-F var) dbound t-dty))
+                          vars)
+            new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil (r/DottedPretype1-maker t-dty dbound) nil nil nil)
+            new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y S new-t-arr)]
+        (move-vars+rest-to-dmap new-cset dbound vars)))))
+
+;; ... <: *
+; Typed Racket notes that this might not be a correct subtyping case?
+(defn cs-gen-Function-dots-<-star [cg V X Y S T]
+  {:pre [(and (:drest S)
+              (:rest T))]}
+  (let [{s-dty :pre-type dbound :name} (-> S :drest)]
+    (when-not (Y dbound)
+      (fail! S T))
+    (cond 
+      (< (count (:dom S)) (count (:dom T)))
+      ;; the hard case
+      (let [vars (var-store-take dbound s-dty (- (count (:dom T)) (count (:dom S))))
+            new-tys (mapv (fn [var]
+                            (subst/substitute (r/make-F var) dbound s-dty))
+                          vars)
+            new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil (r/DottedPretype1-maker s-dty dbound) nil nil nil)
+            new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y new-s-arr T)]
+        (move-vars+rest-to-dmap new-cset dbound vars :exact true))
+
+      (== (count (:dom S)) (count (:dom T)))
+      ;the simple case
+      (let [arg-mapping (cs-gen-list V X Y (u/pad-right (count (:dom S)) (:dom T) (:rest T)) (:dom S))
+            darg-mapping (move-rest-to-dmap (cs-gen V (merge X {dbound (Y dbound)}) Y (:rest T) s-dty) dbound :exact true)
+            ret-mapping (cg (:rng S) (:rng T))]
+        (cset-meet* [arg-mapping darg-mapping ret-mapping]))
+
+      :else (fail! S T))))
+
+(t/ann ^:no-check cs-gen-Function
        [NoMentions ConstrainVars ConstrainVars Function Function -> cset])
 (defn cs-gen-Function
   [V X Y S T]
@@ -1266,8 +1730,8 @@
   (letfn> [cg :- [r/AnyType r/AnyType -> cset]
            (cg [S T] (cs-gen V X Y S T))]
     (cond
-      ;easy case - no rests, drests, kws
-      (not-any? (some-fn :rest :drest :kws) [S T])
+      ;easy case - no rests, drests, kws, prest
+      (not-any? (some-fn :rest :drest :kws :prest) [S T])
       ; contravariant
       (u/p :cs-gen/cs-gen-Function-easy-case
       (let [;_ (prn "easy case")
@@ -1276,124 +1740,54 @@
                      ; covariant
                      (cg (:rng S) (:rng T))])))
 
-      ;just a rest arg, no drest, no keywords
+      ;just a rest arg, no drest, no keywords, no prest
       (and (some-fn :rest [S T])
-           (not-any? (some-fn :drest :kws) [S T]))
-      (u/p :cs-gen/cs-gen-Function-just-rests
-      (let [arg-mapping (cond
-                          ;both rest args are present, so make them the same length
-                          (and (:rest S) (:rest T))
-                          (cs-gen-list V X Y 
-                                       (cons (:rest T) (u/pad-right (count (:dom S)) (:dom T) (:rest T)))
-                                       (cons (:rest S) (u/pad-right (count (:dom T)) (:dom S) (:rest S))))
-                          ;no rest arg on the right, so just pad left and forget the rest arg
-                          (and (:rest S) (not (:rest T)))
-                          (let [new-S (u/pad-right (count (:dom T)) (:dom S) (:rest S))]
-                            ;                            (prn "infer rest arg on left")
-                            ;                            (prn "left dom" (map prs/unparse-type (:dom S)))
-                            ;                            (prn "right dom" (map prs/unparse-type (:dom T)))
-                            ;                            (prn "new left dom" (map prs/unparse-type new-S))
-                            (cs-gen-list V X Y (:dom T) new-S))
-                          ;no rest arg on left, or wrong number = fail
-                          :else (fail! S T))
-            ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
-        (cset-meet* [arg-mapping ret-mapping])))
+           (not-any? (some-fn :drest :kws :prest) [S T]))
+      (cs-gen-Function-just-rests V X Y S T)
+
+      ; :rest is less restricted than :prest
+      (and (:prest S)
+           (:rest T)
+           (> (-> S :prest :types count) 1))
+      (fail! S T)
+
+      (and (:rest S)
+           (:prest T))
+      (cs-gen-Function-just-rests cg V X Y S T)
+
+      ; prest on left, nothing on right
+      (and (:prest S)
+           (not-any? (some-fn :rest :drest :kws :prest) [T]))
+      (cs-gen-Function-prest-on-left V X Y S T)
+
+      ; prest on left, drest on right
+      (and (:prest S)
+           (:drest T))
+      (cs-gen-Function-prest-drest cg V X Y S T)
 
       ;; dotted on the left, nothing on the right
       (and (:drest S)
-           (not-any? (some-fn :rest :drest :kws) [T]))
-      (u/p :cs-gen/cs-gen-Function-dotted-left-nothing-right
-      (let [{dty :pre-type dbound :name} (:drest S)]
-        (when-not (Y dbound)
-          (fail! S T))
-        (when-not (<= (count (:dom S)) (count (:dom T)))
-          (fail! S T))
-        (let [vars (var-store-take dbound dty (- (count (:dom T))
-                                                 (count (:dom S))))
-              new-tys (doall (t/for
-                               [var :- t/Sym, vars] :- r/AnyType
-                               (subst/substitute (r/make-F var) dbound dty)))
-              new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil nil nil)
-              new-cset (cs-gen-Function V 
-                                        ;move dotted lower/upper bounds to vars
-                                        (merge X (zipmap vars (repeat (Y dbound)))) Y new-s-arr T)]
-          (move-vars-to-dmap new-cset dbound vars))))
+           (not-any? (some-fn :rest :drest :kws :prest) [T]))
+      (cs-gen-Function-dotted-left-nothing-right V X Y S T)
 
       ;; dotted on the right, nothing on the left
-      (and (not-any? (some-fn :rest :drest :kws) [S])
+      (and (not-any? (some-fn :rest :drest :kws :prest) [S])
            (:drest T))
-      (u/p :cs-gen/cs-gen-Function-dotted-right-nothing-left
-      (let [{dty :pre-type dbound :name} (:drest T)]
-        (when-not (Y dbound)
-          (fail! S T))
-        (when-not (<= (count (:dom T)) (count (:dom S)))
-          (fail! S T))
-        (let [vars (var-store-take dbound dty (- (count (:dom S)) (count (:dom T))))
-              new-tys (doall
-                        (t/for
-                          [var :- t/Sym, vars] :- r/AnyType
-                          (subst/substitute (r/make-F var) dbound dty)))
-              ;_ (prn "dotted on the right, nothing on the left")
-              ;_ (prn "vars" vars)
-              new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil nil nil)
-              ;_ (prn "S" (prs/unparse-type S))
-              ;_ (prn "new-t-arr" (prs/unparse-type new-t-arr))
-              new-cset (cs-gen-Function V 
-                                        ;move dotted lower/upper bounds to vars
-                                        (merge X (zipmap vars (repeat (Y dbound)))) Y S new-t-arr)]
-          (move-vars-to-dmap new-cset dbound vars))))
+      (cs-gen-Function-dotted-right-nothing-left V X Y S T)
 
       ;; * <: ...
       (and (:rest S)
            (:drest T))
-      (u/p :cs-gen/cs-gen-Function-*-<-...
-      (let [{t-dty :pre-type dbound :name} (-> T :drest)]
-        (when-not (Y dbound)
-          (fail! S T))
-        (if (<= (count (:dom S)) (count (:dom T)))
-          ;; the simple case
-          (let [arg-mapping (cs-gen-list V X Y (:dom T) (u/pad-right (count (:dom T)) (:dom S) (:rest S)))
-                darg-mapping (move-rest-to-dmap (cs-gen V (merge X {dbound (Y dbound)}) Y t-dty (:rest S)) dbound)
-                ret-mapping (cg (:rng S) (:rng T))]
-            (cset-meet* [arg-mapping darg-mapping ret-mapping]))
-          ;; the hard case
-          (let [vars (var-store-take dbound t-dty (- (count (:dom S)) (count (:dom T))))
-                new-tys (doall (t/for
-                                 [var :- t/Sym, vars] :- r/AnyType
-                                 (subst/substitute (r/make-F var) dbound t-dty)))
-                new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil (r/DottedPretype1-maker t-dty dbound) nil)
-                new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y S new-t-arr)]
-            (move-vars+rest-to-dmap new-cset dbound vars)))))
+      (cs-gen-Function-star-<-dots cg V X Y S T)
 
       ;; ... <: *
       ; Typed Racket notes that this might not be a correct subtyping case?
       (and (:drest S)
            (:rest T))
-      (let [{s-dty :pre-type dbound :name} (-> S :drest)]
-        (when-not (Y dbound)
-          (fail! S T))
-        (cond 
-          (< (count (:dom S)) (count (:dom T)))
-          ;; the hard case
-          (let [vars (var-store-take dbound s-dty (- (count (:dom T)) (count (:dom S))))
-                new-tys (doall (t/for
-                                 [var :- t/Sym, vars] :- r/AnyType
-                                 (subst/substitute (r/make-F var) dbound s-dty)))
-                new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil (r/DottedPretype1-maker s-dty dbound) nil)
-                new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y new-s-arr T)]
-            (move-vars+rest-to-dmap new-cset dbound vars :exact true))
+      (cs-gen-Function-dots-<-star cg V X Y S T)
 
-          (== (count (:dom S)) (count (:dom T)))
-          ;the simple case
-          (let [arg-mapping (cs-gen-list V X Y (u/pad-right (count (:dom S)) (:dom T) (:rest T)) (:dom S))
-                darg-mapping (move-rest-to-dmap (cs-gen V (merge X {dbound (Y dbound)}) Y (:rest T) s-dty) dbound :exact true)
-                ret-mapping (cg (:rng S) (:rng T))]
-            (cset-meet* [arg-mapping darg-mapping ret-mapping]))
-
-          :else (fail! S T)))
-
-:else 
-(err/nyi-error (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T)))))))
+      :else 
+      (err/nyi-error (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T)))))))
 
 ;; C : cset? - set of constraints found by the inference engine
 ;; Y : (setof symbol?) - index variables that must have entries
@@ -1463,20 +1857,21 @@
                                     (cond
                                       (false? no-entry) no-entry
                                       (not entry) (cons v no-entry)
-                                      (or (cr/i-subst? entry) 
+                                      (or (cr/i-subst? entry)
                                           (cr/i-subst-starred? entry)
                                           (cr/i-subst-dotted? entry)) no-entry
                                       :else false)))
                                 [] Y)]
                     (and absent-entries
                          (merge (into {}
-                                      (t/for
-                                        [missing :- t/Sym, absent-entries] :- '[t/Sym r/Variance]
-                                        (let [var (idx-hash missing :constant)]
-                                          [missing
-                                           (case var
-                                             (:constant :covariant :invariant) (demote-check-free missing)
-                                             :contravariant (cr/i-subst-starred-maker nil r/-any))])))
+                                      (map
+                                        (fn [missing]
+                                          (let [var (idx-hash missing :constant)]
+                                            [missing
+                                             (case var
+                                               (:constant :covariant :invariant) (demote-check-free missing)
+                                               :contravariant (cr/i-subst-starred-maker nil r/-any))]))
+                                        absent-entries))
                                 S))))))]
 
       (let [{cmap :fixed dmap* :dmap} (if-let [c (-> C :maps first)]
@@ -1489,43 +1884,58 @@
             dm (:map dmap*)
             subst (merge 
                     (into {}
-                      (t/for
-                        [[k dc] :- '[t/Sym cr/DCon], dm] :- '[t/Sym cr/SubstRHS]
-                        (cond
-                          (and (cr/dcon? dc) (not (:rest dc)))
-                          [k (cr/i-subst-maker (doall
-                                          (for [f (:fixed dc)]
-                                            (constraint->type f idx-hash :variable k))))]
-                          (and (cr/dcon? dc) (:rest dc))
-                          [k (cr/i-subst-starred-maker 
-                               (doall
-                                 (for [f (:fixed dc)]
-                                   (constraint->type f idx-hash :variable k)))
-                               (constraint->type (:rest dc) idx-hash))]
-                          (cr/dcon-exact? dc)
-                          [k (cr/i-subst-starred-maker 
-                               (doall
-                                 (for [f (:fixed dc)]
-                                   (constraint->type f idx-hash :variable k)))
-                               (constraint->type (:rest dc) idx-hash))]
-                          (cr/dcon-dotted? dc)
-                          [k (cr/i-subst-dotted-maker
-                               (doall
-                                 (for [f (:fixed dc)]
-                                   (constraint->type f idx-hash :variable k)))
-                               (constraint->type (:dc dc) idx-hash :variable k)
-                               (:dbound dc))]
-                          :else (err/int-error (prn-str "What is this? " dc)))))
+                          (map
+                            (fn [[k dc]]
+                              (cond
+                                (and (cr/dcon? dc) (not (:rest dc)))
+                                [k (cr/i-subst-maker 
+                                     (mapv
+                                       (fn [f]
+                                         (constraint->type f idx-hash :variable k))
+                                       (:fixed dc)))]
+                                (and (cr/dcon? dc) (:rest dc))
+                                [k (cr/i-subst-starred-maker 
+                                     (mapv
+                                       (fn [f]
+                                         (constraint->type f idx-hash :variable k))
+                                       (:fixed dc))
+                                     (constraint->type (:rest dc) idx-hash))]
+                                (cr/dcon-exact? dc)
+                                [k (cr/i-subst-starred-maker 
+                                     (mapv
+                                       (fn [f]
+                                         (constraint->type f idx-hash :variable k))
+                                       (:fixed dc))
+                                     (constraint->type (:rest dc) idx-hash))]
+                                (cr/dcon-dotted? dc)
+                                [k (cr/i-subst-dotted-maker
+                                     (mapv
+                                       (fn [f]
+                                         (constraint->type f idx-hash :variable k))
+                                       (:fixed dc))
+                                     (constraint->type (:dc dc) idx-hash :variable k)
+                                     (:dbound dc))]
+
+                                (cr/dcon-repeat? dc)
+                                [k (cr/i-subst-maker
+                                     (mapv
+                                       (fn [f]
+                                         (constraint->type f idx-hash :variable k))
+                                       (:fixed dc)))]
+
+                                :else (err/int-error (prn-str "What is this? " dc)))))
+                          dm)
 
                     (into {}
-                      (t/for
-                        [[k v] :- '[t/Sym c], cmap] :- '[t/Sym cr/SubstRHS]
-                        [k (cr/t-subst-maker
-                             (constraint->type v var-hash)
-                             (:bnds v))])))
+                          (map
+                            (fn [[k v]]
+                              [k (cr/t-subst-maker
+                                   (constraint->type v var-hash)
+                                   (:bnds v))]))
+                          cmap))
             ;check delayed constraints and type variable bounds
             _ (let [t-substs (into {} (filter (t/fn [[_ v] :- '[t/Sym cr/SubstRHS]]
-                                                (cr/t-subst? v)) 
+                                                (cr/t-subst? v))
                                               subst))
                     [names images] (let [s (seq t-substs)]
                                      [(map first s)
@@ -1538,7 +1948,6 @@
                       (not (subtype? lower-bound upper-bound))
                       (fail! lower-bound upper-bound)
 
-
                       (not (subtype? inferred upper-bound))
                       (fail! inferred upper-bound)
 
@@ -1546,10 +1955,11 @@
                       (fail! lower-bound inferred)))))]
         ;; verify that we got all the important variables
         (when-let [r (and (every? identity
-                                  (t/for
-                                    [v :- t/Sym, (frees/fv R)] :- t/Any
-                                    (let [entry (subst v)]
-                                      (and entry (cr/t-subst? entry)))))
+                                  (map
+                                    (fn [v]
+                                      (let [entry (subst v)]
+                                        (and entry (cr/t-subst? entry))))
+                                    (frees/fv R)))
                           (extend-idxs subst))]
           r))))))
 
@@ -1667,6 +2077,104 @@
 
 (declare infer)
 
+;; like infer-dot, but for infering pdot function
+;; T-dotted is the one with `:repeat true`
+;; FIXME dotted-bnd seems not that useful, cause it can't constrain on serveral pretypes
+;; on pdot
+(t/ann infer-pdot
+  (Fn [ConstrainVars
+       t/Sym
+       Bounds
+       (U nil (t/Seqable r/Type))
+       (U nil (t/Seqable r/Type))
+       r/Type
+       (U nil r/AnyType)
+       (t/Set t/Sym)
+       & :optional {:expected (U nil r/Type)} -> cr/SubstMap]))
+(defn infer-pdot [X dotted-var dotted-bnd S T T-dotted R must-vars & {:keys [expected]}]
+  {:pre [((con/hash-c? symbol? r/Bounds?) X)
+         (symbol? dotted-var)
+         (r/Bounds? dotted-bnd)
+         (every? (con/every-c? r/Type?) [S T])
+         (and (r/Type? T-dotted) (:repeat T-dotted) (:types T-dotted))
+         (r/AnyType? R)
+         ((con/set-c? symbol?) must-vars)
+         ((some-fn nil? r/Type?) expected)]
+   :post [(cr/substitution-c? %)]}
+  ;(prn "infer-pdot")
+  (u/p :cs-gen/infer-pdot
+  (let [[short-S rest-S] (split-at (count T) S)
+        _ (when-not (zero? (rem (- (count S) (count T))
+                                (-> T-dotted :types count)))
+            (fail! S T))
+        ;_ (prn "short-S" (map prs/unparse-type short-S))
+        ;_ (prn "T" (map prs/unparse-type T))
+        ;_ (prn "rest-S" (map prs/unparse-type rest-S))
+        ;_ (prn "R" R)
+        ;_ (prn "expected" expected)
+        expected-cset (if expected
+                        (cs-gen #{} X {dotted-var dotted-bnd} R expected)
+                        (cr/empty-cset {} {}))
+        ;_ (prn "expected-cset" expected-cset)
+        cs-short (cs-gen-list #{} X {dotted-var dotted-bnd} short-S T
+                              :expected-cset expected-cset)
+        ;_ (prn "cs-short" cs-short)
+        new-vars (var-store-take dotted-var T-dotted (count rest-S))
+        new-Ts (doall
+                 (let [list-of-vars (partition-by-nth (-> T-dotted :types count) new-vars)
+                       ;_ (println "list-of-vars" list-of-vars)
+                       list-of-result (map (fn [vars pre-type]
+                                             (for [v vars]
+                                               (let [target (subst/substitute-dots
+                                                              (map r/make-F vars)
+                                                              nil dotted-var pre-type)]
+                                                 (subst/substitute (r/make-F v) dotted-var target))))
+                                           list-of-vars
+                                           (:types T-dotted))]
+                   (apply interleave list-of-result)))
+        cs-dotted (cs-gen-list #{} (merge X (zipmap new-vars (repeat dotted-bnd)))
+                               {dotted-var dotted-bnd} rest-S new-Ts
+                               :expected-cset expected-cset)
+        ;_ (prn "cs-dotted" cs-dotted)
+        cs-dotted (move-vars-to-dmap cs-dotted dotted-var new-vars)
+        ;_ (prn "cs-dotted" cs-dotted)
+        cs (cset-meet cs-short cs-dotted)
+        ;_ (prn "cs" cs)
+        ]
+    (subst-gen (cset-meet cs expected-cset) #{dotted-var} R))))
+
+;; like infer-vararg, but T-var is the prest type:
+(t/ann infer-prest
+  [ConstrainVars ConstrainVars
+   (U nil (t/Seqable r/Type)) (U nil (t/Seqable r/Type))
+   r/Type (U nil r/AnyType) (U nil TCResult)
+   -> (U nil true false cr/SubstMap)])
+(defn infer-prest
+  [X Y S T T-var R expected]
+  {:pre [(every? (con/hash-c? symbol? r/Bounds?) [X Y])
+         (every? r/Type? S)
+         (every? r/Type? T)
+         (r/Type? T-var)
+         (r/AnyType? R)
+         ((some-fn nil? r/AnyType?) expected)]
+   :post [(or (nil? %)
+              (cr/substitution-c? %))]}
+  #_(println "infer-prest\n"
+           "X" X "\n"
+           "Y" Y "\n"
+           "S" S "\n"
+           "T" T "\n"
+           "T-var" T-var "\n"
+           )
+  (u/p :cs-gen/infer-prest
+  (and (>= (count S) (count T))
+       (let [[short-S rest-S] (split-at (count T) S)
+             ; wrap rest-S into HeterogeneousVector, this is semantic meaning of <*
+             new-rest-S (r/-hvec (vec rest-S))
+             new-S (concat short-S [new-rest-S])
+             new-T (concat T [T-var])]
+         (infer X Y new-S new-T R expected)))))
+
 ;; like infer, but T-var is the vararg type:
 (t/ann infer-vararg
   (t/IFn [ConstrainVars ConstrainVars 
@@ -1743,7 +2251,7 @@
                          (cs-gen #{} X Y R expected)
                          (cr/empty-cset {} {}))
          ;_ (prn "expected cset" expected-cset)
-         cs (u/p :cs-gen/infer-inner-csgen 
+         cs (u/p :cs-gen/infer-inner-csgen
               (cs-gen-list #{} X Y S T :expected-cset expected-cset))
          cs* (u/p :cs-gen/infer-inner-cset-meet
                (cset-meet cs expected-cset))]

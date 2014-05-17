@@ -41,7 +41,7 @@
   and returns the Function if the :method node should be checked
   against the Function, otherwise returns nil."
   [{:keys [fixed-arity] :as method}
-   {:keys [dom rest drest kws] :as f}]
+   {:keys [dom rest drest kws pdot prest] :as f}]
   {:pre [(method? method)
          (r/Function? f)]
    :post [((some-fn nil? r/Function?) %)]}
@@ -51,7 +51,7 @@
         variadic?   (ast-u/variadic-method? method)
         fixed-arity (ast-u/fixed-arity method)]
     (cond
-      (or rest drest)
+      (or rest drest pdot prest)
       (cond
         (not variadic?) nil
 
@@ -69,7 +69,7 @@
         :else nil)
 
       ; no variable arity
-      (= nil rest drest kws)
+      (= nil rest drest kws pdot prest)
       (cond
         variadic? nil
         (== ndom fixed-arity) f

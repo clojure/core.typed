@@ -12,6 +12,7 @@
             [clojure.core.typed.subst :as subst])
   (:import (clojure.lang Seqable)))
 
+; we should be able to remove check-apply completely, but we should also instantiate all poly function in test case
 (defn check-apply
   [check-fn {[fexpr & args] :args :as expr} expected]
   {:post [((some-fn r/TCResult? #{cu/not-special}) %)]}
@@ -21,13 +22,14 @@
       (cond
         ;apply of a simple function
         (r/FnIntersection? ftype)
-        (do 
+        cu/not-special
+        #_(do
           (when (empty? (:types ftype))
             (err/int-error (str "Empty function intersection given as argument to apply")))
           (let [arg-tres (mapv check-fn fixed-args)
                 arg-tys (mapv (comp r/ret-t u/expr-type) arg-tres)
                 tail-ty (r/ret-t (u/expr-type (check-fn tail)))]
-            (loop [[{:keys [dom rng rest drest]} :as fs] (:types ftype)]
+            (loop [[{:keys [dom rng rest drest prest]} :as fs] (:types ftype)]
               (cond
                 ;we've run out of cases to try, so error out
                 (empty? fs)
@@ -62,13 +64,16 @@
               arg-tys (mapv (comp r/ret-t u/expr-type) arg-tres)
               tail-bound nil
               tail-ty (r/ret-t (u/expr-type (check-fn tail)))]
-          (loop [[{:keys [dom rng rest drest] :as ftype0} :as fs] (:types body)]
+          (loop [[{:keys [dom rng rest drest prest] :as ftype0} :as fs] (:types body)]
             ;          (when (seq fs)
             ;            (prn "checking fn" (prs/unparse-type (first fs))
             ;                 (mapv prs/unparse-type arg-tys)))
             (cond
               (empty? fs) (err/tc-delayed-error (str "Bad arguments to polymorphic function in apply")
                                                 :return (cu/error-ret expected))
+
+              prest cu/not-special
+
               ;the actual work, when we have a * function and a list final argument
               :else 
               (if-let [substitution (cgen/handle-failure

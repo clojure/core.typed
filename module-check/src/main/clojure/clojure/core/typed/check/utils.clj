@@ -372,21 +372,22 @@
   (p/p :check.method/inside-Method->Type)
   (let [msym (Method->symbol method)
         nparams (count parameter-types)]
-    (r/make-FnIntersection (r/make-Function (doall (map (fn [[n tsym]] 
-                                                          (Java-symbol->Type 
-                                                            tsym 
-                                                            (method-nilable-param? msym nparams n)))
-                                                      (map-indexed vector
-                                                                   (if (:varargs flags)
-                                                                     (butlast parameter-types)
-                                                                     parameter-types))))
-                                          (Java-symbol->Type 
-                                            return-type 
-                                            (not (method-nonnilable-return? msym nparams)))
-                                          (when (:varargs flags)
-                                            (Java-symbol->Type 
-                                              (last parameter-types) 
-                                              (method-nilable-param? msym nparams (dec nparams))))))))
+    (r/make-FnIntersection (r/make-Function (mapv (fn [[n tsym]]
+                                                    (Java-symbol->Type
+                                                      tsym
+                                                      (mtd-param-nil/nilable-param? msym nparams n)))
+                                                  (map-indexed vector
+                                                               (if (:varargs flags)
+                                                                 (butlast parameter-types)
+                                                                 parameter-types)))
+                                            (Java-symbol->Type
+                                              return-type
+                                              (not (mtd-ret-nil/nonnilable-return? msym nparams)))
+                                            :rest
+                                            (when (:varargs flags)
+                                              (Java-symbol->Type
+                                                (last parameter-types)
+                                                (mtd-param-nil/nilable-param? msym nparams (dec nparams))))))))
 
 ;[clojure.reflect.Constructor -> Type]
 (defn Constructor->Function [{:keys [declaring-class parameter-types] :as ctor}]
@@ -397,7 +398,6 @@
             (err/tc-delayed-error (str "Constructor for unresolvable class " (:class ctor))))]
     (r/make-FnIntersection (r/make-Function (doall (map #(Java-symbol->Type % false) parameter-types))
                                             (c/RClass-of-with-unknown-params cls)
-                                            nil nil 
                                             ;always a true value. Cannot construct nil
                                             ; or primitive false
                                             :filter (fo/-true-filter)))))
@@ -413,11 +413,11 @@
   (let [nreq (count required-params)]
     ;(prn "nreq" nreq)
     ;(prn "rest-param" rest-param)
-    (filter (fn [{:keys [dom rest drest kws]}]
+    (filter (fn [{:keys [dom rest drest kws prest pdot]}]
               (let [ndom (count dom)]
                 (if rest-param 
                   (or ; required parameters can flow into the rest type
-                      (when (or rest drest)
+                      (when (or rest drest prest pdot)
                         (<= nreq ndom))
                       ; kw functions must have exact fixed domain match
                       (when kws

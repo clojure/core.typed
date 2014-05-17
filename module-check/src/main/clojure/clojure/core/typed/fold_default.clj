@@ -6,6 +6,7 @@
             [clojure.core.typed.filter-ops :as fops]
             [clojure.core.typed.object-rep]
             [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.assoc-utils :as assoc-u]
             [clojure.core.typed.path-rep])
   (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
                                         DottedPretype Function RClass JSNominal App TApp
@@ -67,7 +68,9 @@
                                                  (type-rec %)))
                            (update-in [:drest] #(when %
                                                   (-> %
-                                                    (update-in [:pre-type] type-rec)))))))
+                                                    (update-in [:pre-type] type-rec))))
+                           (update-in [:prest] #(when %
+                                                  (type-rec %))))))
 
 (add-default-fold-case JSNominal
                        (fn [ty _]
@@ -173,33 +176,30 @@
                                body (c/Mu-body* name ty)]
                            (c/Mu* name (type-rec body)))))
 
+(defn- fold-Heterogeneous* [constructor type-rec filter-rec object-rec]
+  (fn [{:keys [types rest drest repeat] :as ty} _]
+    (constructor
+      (mapv type-rec (:types ty))
+      :filters (mapv filter-rec (:fs ty))
+      :objects (mapv object-rec (:objects ty))
+      :rest (when rest (type-rec rest))
+      :drest (when drest (update-in drest [:pre-type] type-rec))
+      :repeat repeat)))
+
 (add-default-fold-case HeterogeneousVector
-                       (fn [{:keys [types fs objects rest drest] :as ty} _]
-                         (r/-hvec
-                           (mapv type-rec (:types ty))
-                           :filters (mapv filter-rec (:fs ty))
-                           :objects (mapv object-rec (:objects ty))
-                           :rest (when rest (type-rec rest))
-                           :drest (when drest (update-in drest [:pre-type] type-rec)))))
+                       (fold-Heterogeneous* r/-hvec type-rec filter-rec object-rec))
+
+(add-default-fold-case HeterogeneousSeq
+                       (fold-Heterogeneous* r/-hseq type-rec filter-rec object-rec))
 
 (add-default-fold-case HSequential
-                       (fn [{:keys [types rest drest] :as ty} _]
-                         (r/-hsequential
-                           (mapv type-rec (:types ty))
-                           :filters (mapv filter-rec (:fs ty))
-                           :objects (mapv object-rec (:objects ty))
-                           :rest (when rest (type-rec rest))
-                           :drest (when drest (update-in drest [:pre-type] type-rec)))))
+                       (fold-Heterogeneous* r/-hsequential type-rec filter-rec object-rec))
 
 (add-default-fold-case HSet
                        (fn [{:keys [fixed] :as ty} _]
                          (r/-hset (set (map type-rec fixed)))))
 
-(add-default-fold-case HeterogeneousList 
-                       (fn [ty _]
-                         (-> ty (update-in [:types] #(mapv type-rec %)))))
-
-(add-default-fold-case HeterogeneousSeq
+(add-default-fold-case HeterogeneousList
                        (fn [ty _]
                          (-> ty (update-in [:types] #(mapv type-rec %)))))
 
@@ -236,13 +236,20 @@
 
 (add-default-fold-case AssocType
                        (fn [{:keys [target entries dentries] :as ty} _]
-                         (-> ty
-                           (update-in [:target] type-rec)
-                           (update-in [:entries] (fn [es]
-                                                   (doall
-                                                     (for [[k v] es]
-                                                       [(type-rec k) (type-rec v)]))))
-                           (update-in [:dentries] #(when % (type-rec %))))))
+                         (let [s-target (type-rec target)
+                               s-entries (doall
+                                           (for [[k v] entries]
+                                             [(type-rec k) (type-rec v)]))
+                               s-dentries (when dentries (type-rec dentries))
+                               fallback-r (-> ty
+                                            (assoc-in [:target] s-target)
+                                            (assoc-in [:entries] s-entries)
+                                            (assoc-in [:dentries] s-dentries))]
+                           (if dentries
+                             fallback-r
+                             (if-let [assoced (apply assoc-u/assoc-pairs-noret s-target s-entries)]
+                               assoced
+                               fallback-r)))))
 
 (def ret-first (fn [a & rest] a))
 

@@ -263,34 +263,30 @@
   (combine-frees (flip-variances (frees input-type))
                  (frees output-type)))
 
-(add-frees-method [::any-var HeterogeneousSeq]
-  [{:keys [types fs objects rest drest]}]
-  (apply combine-frees (concat (mapv frees (concat types fs objects))
-                               (when rest [(frees rest)])
-                               (when drest
-                                 [(dissoc (-> (:pre-type drest) frees)
-                                          (:name drest))]))))
-
 (add-frees-method [::any-var HeterogeneousMap]
   [{:keys [types optional]}]
   (apply combine-frees (mapv frees (concat (keys types) (vals types)
                                            (keys optional) (vals optional)))))
 
-(add-frees-method [::any-var HeterogeneousVector]
-  [{:keys [types fs objects rest drest]}] 
-  (apply combine-frees (concat (mapv frees (concat types fs objects))
-                               (when rest [(frees rest)])
-                               (when drest
-                                 [(dissoc (-> (:pre-type drest) frees)
-                                          (:name drest))]))))
-
-(add-frees-method [::any-var HSequential]
+(defn heterogeneous*-frees-any-var
   [{:keys [types fs objects rest drest]}]
   (apply combine-frees (concat (mapv frees (concat types fs objects))
                                (when rest [(frees rest)])
                                (when drest
                                  [(dissoc (-> (:pre-type drest) frees)
                                           (:name drest))]))))
+
+(add-frees-method [::any-var HeterogeneousSeq]
+  [t]
+  (heterogeneous*-frees-any-var t))
+
+(add-frees-method [::any-var HeterogeneousVector]
+  [t]
+  (heterogeneous*-frees-any-var t))
+
+(add-frees-method [::any-var HSequential]
+  [t]
+  (heterogeneous*-frees-any-var t))
 
 (add-frees-method [::any-var HSet]
   [{:keys [fixed]}]
@@ -300,10 +296,22 @@
   [{:keys [extends without]}] 
   (apply combine-frees (mapv frees (concat extends without))))
 
-(add-frees-method [::any-var AssocType]
-  [{:keys [target entries]}] 
-  (apply combine-frees (frees target)
-         (mapv frees (apply concat entries))))
+(add-frees-method [::frees AssocType]
+  [{:keys [target entries dentries]}]
+  (apply combine-frees (concat [(frees target)]
+                               (mapv frees (apply concat entries))
+                               (when dentries
+                                 [(dissoc (-> (:pre-type dentries) frees)
+                                          (:name dentries))]))))
+
+(add-frees-method [::idxs AssocType]
+  [{:keys [target entries dentries]}]
+  (apply combine-frees (concat [(frees target)]
+                               (mapv frees (apply concat entries))
+                               (when-let [{:keys [name pre-type]} dentries]
+                                   (assert (symbol? name))
+                                   [(t/ann-form {name :covariant} VarianceMap)
+                                    (frees pre-type)]))))
 
 ; are negative types covariant?
 (add-frees-method [::any-var NotType]
@@ -328,29 +336,42 @@
   (apply combine-frees (mapv frees types)))
 
 (add-frees-method [::frees Function]
-  [{:keys [dom rng rest drest kws]}]
+  [{:keys [dom rng rest drest kws prest pdot]}]
   (apply combine-frees (concat (mapv (comp flip-variances frees)
                                      (concat dom
                                              (when rest
                                                [rest])
                                              (when kws
-                                               [(vals kws)])))
+                                               [(vals kws)])
+                                             (when prest
+                                               [prest])))
                                [(frees rng)]
                                (when drest
                                  [(dissoc (-> (:pre-type drest) frees flip-variances)
-                                          (:name drest))]))))
+                                          (:name drest))])
+                               (when pdot
+                                 [(dissoc (-> (:pre-type pdot) frees flip-variances)
+                                          (:name pdot))]))))
 
 (add-frees-method [::idxs Function]
-  [{:keys [dom rng rest drest kws]}]
+  [{:keys [dom rng rest drest kws prest pdot]}]
   (apply combine-frees (concat (mapv #(-> % frees flip-variances)
                                      (concat dom
                                              (when rest
                                                [rest])
                                              (when kws
-                                               (vals kws))))
+                                               (vals kws))
+                                             (when prest
+                                               [prest])))
                                [(frees rng)]
                                (when drest
                                  (let [{:keys [name pre-type]} drest]
+                                   (assert (symbol? name))
+                                   [(t/ann-form {name :contravariant} VarianceMap)
+                                    (-> pre-type
+                                      frees flip-variances)]))
+                               (when pdot
+                                 (let [{:keys [name pre-type]} pdot]
                                    (assert (symbol? name))
                                    [(t/ann-form {name :contravariant} VarianceMap)
                                     (-> pre-type

@@ -239,13 +239,11 @@
 (defn predicate-for [on-type]
   (let [RClass-of @(RClass-of-var)]
     (r/make-FnIntersection
-      (r/make-Function [r/-any] 
-        (impl/impl-case
-          :clojure (RClass-of Boolean)
-          :cljs    (r/BooleanCLJS-maker))
-        nil nil
-        :filter (fl/-FS (fl/-filter on-type 0)
-                        (fl/-not-filter on-type 0))))))
+      (r/make-Function [r/-any] (impl/impl-case
+                                  :clojure (RClass-of Boolean)
+                                  :cljs    (r/BooleanCLJS-maker))
+                       :filter (fl/-FS (fl/-filter on-type 0)
+                                       (fl/-not-filter on-type 0))))))
 
 (defn parse-Pred [[_ & [t-syn :as args]]]
   (when-not (== 1 (count args))
@@ -282,15 +280,41 @@
 (defmethod parse-type-list 'clojure.core.typed/Rec [syn] (parse-rec-type syn))
 
 (defn parse-Assoc [[_ tsyn & entries :as all]]
-  (when-not (and (<= 1 (count (next all)))
-                 (even? (count entries)))
+  (when-not (<= 1 (count (next all)))
     (err/int-error (str "Wrong arguments to Assoc: " all)))
+  (let [{ellipsis-pos '...}
+        (zipmap entries (range))
+
+        [entries dentries] (split-at (if ellipsis-pos
+                                       (dec ellipsis-pos)
+                                       (count entries))
+                                     entries)
+
+        [drest-type _ drest-bnd] (when ellipsis-pos
+                                   dentries)
+
+        _ (when-not (-> entries count even?)
+            (err/int-error (str "Incorrect Assoc syntax: " all " , must have even number of key/val pair.")))
+
+        _ (when-not (or (not ellipsis-pos)
+                        (= (count dentries) 3))
+            (err/int-error (str "Incorrect Assoc syntax: " all " , Dotted rest entry must be 3 entries")))
+
+        _ (when-not (or (not ellipsis-pos) (symbol? drest-bnd))
+            (err/int-error "Dotted bound must be symbol"))]
   (r/AssocType-maker (parse-type tsyn)
-                     (doall (->> entries 
+                     (doall (->> entries
                                  (map parse-type)
                                  (partition 2)
                                  (map vec)))
-                     nil))
+                     (when ellipsis-pos
+                       (let [bnd (dvar/*dotted-scope* drest-bnd)
+                             _ (when-not bnd
+                                 (err/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
+                         (r/DottedPretype1-maker
+                           (free-ops/with-frees [bnd] ;with dotted bound in scope as free
+                             (parse-type drest-type))
+                           (:name bnd)))))))
 
 (defmethod parse-type-list 'Assoc [t] (parse-Assoc t))
 (defmethod parse-type-list 'clojure.core.typed/Assoc [t] (parse-Assoc t))
@@ -576,29 +600,8 @@
   (err/deprecated-plain-op 'Vector* 'HVec)
   (parse-quoted-hvec (rest syn)))
 
-(declare parse-hvec-types parse-object parse-filter-set parse-hvec-types)
-
-(defn parse-HVec [[_ syn & opts]]
-  (let [_ (when-not (vector? syn)
-            (err/int-error "First argument to HVec must be a vector"))
-        _ (when-not (even? (count opts))
-            (err/int-error "Uneven keyword arguments to HVec"))
-        {:keys [filter-sets objects]} opts
-        {:keys [fixed drest rest]} (parse-hvec-types syn)]
-    (r/-hvec fixed
-             :filters (when filter-sets
-                        (mapv parse-filter-set filter-sets))
-             :objects (when objects
-                        (mapv parse-object objects))
-             :drest drest
-             :rest rest)))
-
-(defmethod parse-type-list 'HVec [t] 
-  (err/deprecated-plain-op 'HVec)
-  (parse-HVec t))
-(defmethod parse-type-list 'clojure.core.typed/HVec [t] (parse-HVec t))
-(defmethod parse-type-list 'cljs.core.typed/HVec [t] (parse-HVec t))
-
+;; parse-HVec, parse-HSequential and parse-HSeq have many common patterns
+;; so we reuse them
 (defn parse-types-with-rest-drest [err-msg]
   (fn [syns]
     (let [rest? (#{'*} (last syns))
@@ -635,42 +638,36 @@
 (def parse-hvec-types (parse-types-with-rest-drest
                         "Invalid heterogeneous vector syntax:"))
 
-(def parse-hsequential-type (parse-types-with-rest-drest
+(def parse-hsequential-types (parse-types-with-rest-drest
                               "Invalid heterogeneous sequential syntax:"))
 
-(defn parse-HSequential [[_ syn & {:keys [filter-sets objects]}]]
-  (let [{:keys [fixed drest rest]} (parse-hsequential-type syn)]
-    (r/-hsequential fixed
-                    :filters (when filter-sets
-                               (mapv parse-filter-set filter-sets))
-                    :objects (when objects
-                               (mapv parse-object objects))
-                    :drest drest
-                    :rest rest)))
-
-(defmethod parse-type-list 'HSequential [t] 
-  (err/deprecated-plain-op 'HSequential)
-  (parse-HSequential t))
-(defmethod parse-type-list 'clojure.core.typed/HSequential [t] (parse-HSequential t))
-(defmethod parse-type-list 'cljs.core.typed/HSequential [t] (parse-HSequential t))
-
-(def parse-hseq-type (parse-types-with-rest-drest
+(def parse-hseq-types (parse-types-with-rest-drest
                       "Invalid heterogeneous seq syntax:"))
 
-(defn parse-HSeq [[_ syn & opts]]
-  (let [{:keys [fixed drest rest]} (parse-hseq-type syn)
-        _ (when-not (even? (count opts))
-            (err/int-error "Wrong number of keyword arguments to HSeq"))
-        {:keys [filter-sets objects] :as opt-map} opts
-        _ (when-not (every? keyword? (keys opt-map))
-            (err/int-error "Given non-keyword keyword arguments to HSeq"))]
-    (r/-hseq fixed
-             :filters (when filter-sets
-                        (mapv parse-filter-set filter-sets))
-             :objects (when objects
-                        (mapv parse-object objects))
-             :drest drest
-             :rest rest)))
+(declare parse-object parse-filter-set)
+
+(defn parse-heterogeneous* [parse-h*-types constructor]
+  (fn [[_ syn & {:keys [filter-sets objects repeat]}]]
+    (let [{:keys [fixed drest rest]} (parse-h*-types syn)]
+      (constructor fixed
+                   :filters (when filter-sets
+                              (mapv parse-filter-set filter-sets))
+                   :objects (when objects
+                              (mapv parse-object objects))
+                   :drest drest
+                   :rest rest
+                   :repeat (when (true? repeat)
+                             true)))))
+
+(def parse-HVec (parse-heterogeneous* parse-hvec-types r/-hvec))
+(def parse-HSequential (parse-heterogeneous* parse-hsequential-types r/-hsequential))
+(def parse-HSeq (parse-heterogeneous* parse-hseq-types r/-hseq))
+
+(defmethod parse-type-list 'HVec [t] (parse-HVec t))
+(defmethod parse-type-list 'clojure.core.typed/HVec [t] (parse-HVec t))
+
+(defmethod parse-type-list 'HSequential [t] (parse-HSequential t))
+(defmethod parse-type-list 'clojure.core.typed/HSequential [t] (parse-HSequential t))
 
 (defmethod parse-type-list 'HSeq [t] 
   (err/deprecated-plain-op 'HSeq)
@@ -1123,10 +1120,10 @@
         _ (when ('#{->} the-arrow)
             ;TODO deprecate
             )
-        _ (when-not (<= 2 (count chk)) 
+        _ (when-not (<= 2 (count chk))
             (err/int-error (str "Incorrect function syntax: " f)))
 
-        _ (when-not (even? (count opts-flat)) 
+        _ (when-not (even? (count opts-flat))
             (err/int-error (str "Incorrect function syntax, must have even number of keyword parameters: " f)))
 
         opts (apply hash-map opts-flat)
@@ -1134,12 +1131,14 @@
         {ellipsis-pos '...
          asterix-pos '*
          kw-asterix-pos :*
-         ampersand-pos '&}
+         ampersand-pos '&
+         push-rest-pos '<*
+         push-dot-pos '<...}
         (zipmap all-dom (range))
 
-        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos
-                                                     kw-asterix-pos])))
-            (err/int-error "Can only provide one rest argument option: & ... or *"))
+        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos 
+                                                     kw-asterix-pos push-rest-pos])))
+            (err/int-error "Can only provide one rest argument option: & ... * or <*"))
 
         asterix-pos (or asterix-pos kw-asterix-pos)
 
@@ -1155,10 +1154,12 @@
         flow (when-let [[_ obj] (find opts :flow)]
                (r/-flow (parse-filter obj)))
 
-        fixed-dom (cond 
+        fixed-dom (cond
                     asterix-pos (take (dec asterix-pos) all-dom)
                     ellipsis-pos (take (dec ellipsis-pos) all-dom)
                     ampersand-pos (take ampersand-pos all-dom)
+                    push-rest-pos (take (dec push-rest-pos) all-dom)
+                    push-dot-pos (take (dec push-dot-pos) all-dom)
                     :else all-dom)
 
         rest-type (when asterix-pos
@@ -1168,11 +1169,16 @@
             (err/int-error (str "Trailing syntax after rest parameter: " (pr-str (drop (inc asterix-pos) all-dom)))))
         [drest-type _ drest-bnd :as drest-seq] (when ellipsis-pos
                                                  (drop (dec ellipsis-pos) all-dom))
-        _ (when-not (or (not ellipsis-pos) (= 3 (count drest-seq))) 
+        _ (when-not (or (not ellipsis-pos) (= 3 (count drest-seq)))
             (err/int-error "Dotted rest entry must be 3 entries"))
         _ (when-not (or (not ellipsis-pos) (symbol? drest-bnd))
             (err/int-error "Dotted bound must be symbol"))
-        ;TODO check for duplicate entries
+        [pdot-type _ pdot-bnd :as pdot-seq] (when push-dot-pos
+                                              (drop (dec push-dot-pos) all-dom))
+        _ (when-not (or (not push-dot-pos) (= 3 (count pdot-seq)))
+            (err/int-error "push dotted rest entry must be 3 entries"))
+        _ (when-not (or (not push-dot-pos) (symbol? pdot-bnd))
+            (err/int-error "push dotted bound must be symbol"))
         [& {optional-kws :optional mandatory-kws :mandatory} :as kws-seq]
         (let [kwsyn (when ampersand-pos
                       (drop (inc ampersand-pos) all-dom))]
@@ -1183,12 +1189,20 @@
                 (cons :optional kwsyn))
             kwsyn))
 
-        _ (when-not (or (not ampersand-pos) (seq kws-seq)) 
-            (err/int-error "Must provide syntax after &"))]
+        _ (when-not (or (not ampersand-pos) (seq kws-seq))
+            (err/int-error "Must provide syntax after &"))
+
+        prest-type (when push-rest-pos
+                     (nth all-dom (dec push-rest-pos)))
+        _ (when-not (or (not push-rest-pos)
+                        (= (count all-dom) (inc push-rest-pos)))
+            (err/int-error (str "Trailing syntax after pust-rest parameter: " (pr-str (drop (inc push-rest-pos) all-dom)))))]
     (r/make-Function (mapv parse-type fixed-dom)
                      (parse-type rng)
+                     :rest
                      (when asterix-pos
                        (parse-type rest-type))
+                     :drest
                      (when ellipsis-pos
                        (let [bnd (dvar/*dotted-scope* drest-bnd)
                              _ (when-not bnd 
@@ -1196,6 +1210,18 @@
                          (r/DottedPretype1-maker
                            (free-ops/with-frees [bnd] ;with dotted bound in scope as free
                              (parse-type drest-type))
+                           (:name bnd))))
+                     :prest
+                     (when push-rest-pos
+                       (parse-type prest-type))
+                     :pdot
+                     (when push-dot-pos
+                       (let [bnd (dvar/*dotted-scope* pdot-bnd)
+                             _ (when-not bnd
+                                 (err/int-error (str (pr-str pdot-bnd) " is not in scope as a dotted variable")))]
+                         (r/DottedPretype1-maker
+                           (free-ops/with-frees [bnd] ;with dotted bound in scope as free
+                             (parse-type pdot-type))
                            (:name bnd))))
                      :filter filters
                      :object object
@@ -1441,23 +1467,30 @@
     `(~'B ~name)))
 
 (defmethod unparse-type* Function
-  [{:keys [dom rng kws rest drest]}]
+  [{:keys [dom rng kws rest drest prest pdot]}]
   (vec (concat (doall (map unparse-type dom))
                (when rest
                  [(unparse-type rest) '*])
                (when drest
                  (let [{:keys [pre-type name]} drest]
-                   [(unparse-type pre-type) 
-                    '... 
+                   [(unparse-type pre-type)
+                    '...
                     (unparse-bound name)]))
                (when kws
                  (let [{:keys [optional mandatory]} kws]
-                   (list* '& 
+                   (list* '&
                           (concat
-                            (when (seq mandatory) 
+                            (when (seq mandatory)
                               [:mandatory (unparse-kw-map mandatory)])
                             (when (seq optional)
                               [:optional (unparse-kw-map optional)])))))
+               (when prest
+                 [(unparse-type prest) '<*])
+               (when pdot
+                 (let [{:keys [pre-type name]} pdot]
+                   [(unparse-type pre-type)
+                    '<...
+                    (unparse-bound name)]))
                ['->]
                (unparse-result rng))))
 
@@ -1595,32 +1628,34 @@
            (when (c/complete-hmap? v)
              [:complete? true]))))
 
-(defmethod unparse-type* HeterogeneousSeq
-  [{:keys [types rest drest fs objects] :as v}]
-  (list* (unparse-Name-symbol-in-ns `t/HSeq)
-         (concat
-           (map unparse-type (:types v))
-           (when rest [(unparse-type rest) '*])
-           (when drest [(unparse-type (:pre-type drest)) '... (unparse-bound (:name drest))]))
-         (concat
-           (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
-             [:filter-sets (mapv unparse-filter-set fs)])
-           (when-not (every? #{orep/-empty} objects)
-             [:objects (mapv unparse-object objects)]))))
-
-(defmethod unparse-type* HSequential
-  [{:keys [types rest drest fs objects] :as v}]
-  (list* (unparse-Name-symbol-in-ns `t/HSequential)
-         (vec
+(defn unparse-heterogeneous* [sym vec?]
+  (fn [{:keys [types rest drest fs objects repeat] :as v}]
+    (let [first-part (concat
+                       (map unparse-type (:types v))
+                       (when rest [(unparse-type rest) '*])
+                       (when drest [(unparse-type (:pre-type drest))
+                                    '...
+                                    (unparse-bound (:name drest))]))]
+    (list* sym
+           (if vec?
+             (vec first-part)
+             first-part)
            (concat
-             (map unparse-type (:types v))
-             (when rest [(unparse-type rest) '*])
-             (when drest [(unparse-type (:pre-type drest)) '... (unparse-bound (:name drest))])))
-         (concat
-           (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
-             [:filter-sets (mapv unparse-filter-set fs)])
-           (when-not (every? #{orep/-empty} objects)
-             [:objects (mapv unparse-object objects)]))))
+             (when repeat
+               [:repeat true])
+             (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
+               [:filter-sets (mapv unparse-filter-set fs)])
+             (when-not (every? #{orep/-empty} objects)
+               [:objects (mapv unparse-object objects)]))))))
+
+(defmethod unparse-type* HeterogeneousVector [v]
+  ((unparse-heterogeneous* 'HVec true) v))
+
+(defmethod unparse-type* HeterogeneousSeq [v]
+  ((unparse-heterogeneous* 'HSeq false) v))
+
+(defmethod unparse-type* HSequential [v]
+  ((unparse-heterogeneous* 'HSequential true) v))
 
 (defmethod unparse-type* HSet
   [{:keys [fixed] :as v}]
@@ -1640,31 +1675,19 @@
            (when (:nilable-non-empty? v)
              [:nilable-non-empty? (:nilable-non-empty? v)]))))
 
-(defmethod unparse-type* HeterogeneousVector
-  [{:keys [types rest drest fs objects] :as v}]
-  (list* (unparse-Name-symbol-in-ns `t/HVec)
-         (vec
-           (concat
-             (map unparse-type (:types v))
-             (when rest [(unparse-type rest) '*])
-             (when drest [(unparse-type (:pre-type drest)) '... (unparse-bound (:name drest))])))
-         (when vs/*verbose-types*
-           (concat
-             (when-not (every? #{(fl/-FS f/-top f/-top)} fs)
-               [:filter-sets (mapv unparse-filter-set fs)])
-             (when-not (every? #{orep/-empty} objects)
-               [:objects (mapv unparse-object objects)])))))
-
 (defmethod unparse-type* HeterogeneousList
   [v]
   (list* 'List* (doall (map unparse-type (:types v)))))
 
 (defmethod unparse-type* AssocType
   [{:keys [target entries dentries]}]
-  (assert (not dentries) "dentries for Assoc NYI")
   (list* (unparse-Name-symbol-in-ns `t/Assoc)
          (unparse-type target)
-         (doall (map unparse-type (apply concat entries)))))
+         (concat
+           (doall (map unparse-type (apply concat entries)))
+           (when dentries [(unparse-type (:pre-type dentries))
+                           '...
+                           (unparse-bound (:name dentries))]))))
 
 (defmethod unparse-type* GetType
   [{:keys [target key not-found]}]
