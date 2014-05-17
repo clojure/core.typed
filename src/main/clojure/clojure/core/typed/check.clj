@@ -170,27 +170,32 @@
 
 ; (Vec '{:ftype Type :fn-expr Expr})
 (def ^:private ^:dynamic *fn-stack* [])
+(set-validator! *fn-stack* vector?)
 
 (declare fn-self-name method-body-kw)
 
-;(def-alias MappingInfo '{:msg String :fn-stack (Vec {:ftype Type :fn-expr Expr})}
+;(defalias InfoEntry '{:msg String :fn-stack (Vec {:ftype Type :fn-expr Expr})}
+;(defalias MappingKey '{:line Int :column Int :file Str})
+;(defalias InfoMap (Map MappingKey (Vec InfoEntry))
 
-;[Expr -> (Map '{:line Int :column Int :file Str} (Vec MappingInfo))]
+;[Expr -> InfoMap]
 (defn ast->info-map 
   [ast]
   (letfn [(mapping-key [{:keys [env] :as ast}]
-            (when ((every-pred :line :column :file) env)
-              (select-keys 
-                (:env ast)
-                [:line :column :file])))]
+            (let [ks [:line :column :file]]
+              (when ((apply every-pred ks) env)
+                (select-keys env ks))))]
     (case (:op ast)
       ; Functions can be checked any number of times. Each
       ; check is stored in the ::t/cmethods entry.
       :fn (let [method-mappings (for [method (::t/cmethods ast)]
                                   (let [ftype (::t/ftype method)
-                                        _ (assert (r/Function? ftype))]
-                                    (binding [*fn-stack* (conj *fn-stack* {:ftype ftype
-                                                                           :fn-expr ast})]
+                                        _ (assert (r/Function? ftype))
+                                        floc (mapping-key ast)
+                                        _ (assert floc)]
+                                    (binding [*fn-stack* (conj *fn-stack* {:loc floc
+                                                                           :name (fn-self-name ast)
+                                                                           :ftype ftype})]
                                       (ast->info-map ((method-body-kw) method)))))]
             (merge
               (apply merge-with
@@ -207,6 +212,9 @@
 
 (declare expr-ns)
 
+;(defalias MsgMap (Map MappingKey Str))
+
+;[InfoMap -> MsgMap]
 (defn info-map->msg-map [info-map]
   (into {} (for [[k v] info-map]
              (let [msg (if (< 1 (count v))
@@ -215,9 +223,9 @@
                                             (map (fn [{:keys [expr fn-stack]}]
                                                    (let [r (expr-type expr)]
                                                      (when (r/TCResult? r)
-                                                       (prs/with-parse-ns (expr-ns expr)
+                                                       (prs/with-unparse-ns (expr-ns expr)
                                                          (str
-                                                           "In context size " (count fn-stack) ":\n"
+                                                           "In context size " (count fn-stack) ":\n\t"
                                                            (pr-str (prs/unparse-type (ret-t r)))
                                                            "\n")))))
                                                  v)))]
@@ -225,7 +233,7 @@
                              (apply str ms)))
                          (let [{:keys [expr]} (first v)
                                r (expr-type expr)]
-                           (prs/with-parse-ns (expr-ns expr)
+                           (prs/with-unparse-ns (expr-ns expr)
                              (when (r/TCResult? r)
                                (pr-str (prs/unparse-type (ret-t r)))))))]
                (when msg
