@@ -58,8 +58,8 @@ for checking namespaces, cf for checking individual forms."}
 
 ;at the top because the rest of this namespace uses this macro
 (defmacro 
-  ^{:forms '[(fn name? :- type? [param :- type* & param :- type * ?] exprs*)
-             (fn name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
+  ^{:forms '[(fn name? [param :- type* & param :- type * ?] :- type? exprs*)
+             (fn name? ([param :- type* & param :- type * ?] :- type? exprs*)+)]}
   fn
   "Like clojure.core/fn, but with optional annotations.
 
