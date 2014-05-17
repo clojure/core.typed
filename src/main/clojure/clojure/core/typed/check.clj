@@ -170,7 +170,7 @@
 
 ; (Vec '{:ftype Type :fn-expr Expr})
 (def ^:private ^:dynamic *fn-stack* [])
-(set-validator! *fn-stack* vector?)
+(set-validator! #'*fn-stack* vector?)
 
 (declare fn-self-name method-body-kw)
 
