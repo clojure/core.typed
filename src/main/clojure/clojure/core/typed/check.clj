@@ -2315,7 +2315,8 @@
   ;DO NOT REMOVE
   (println (:val debug-string))
   (flush)
-  (print-env*)
+  (prs/with-unparse-ns (expr-ns expr)
+    (print-env*))
   ;DO NOT REMOVE
   (assoc expr
          expr-type (ret r/-nil (fo/-false-filter) obj/-empty)))
@@ -2334,12 +2335,13 @@
     (println (:val debug-string))
     (flush)
     ;(prn (:fl t))
-    (if (fl/FilterSet? (:fl t))
-      (do (pprint/pprint (prs/unparse-filter-set (:fl t)))
-          (flush))
-      (prn (:fl t)))
-    (prn (prs/unparse-object (:o t)))
-    (prn 'Flow (prs/unparse-filter (-> t :flow r/flow-normal)))
+    (prs/with-unparse-ns (expr-ns expr)
+      (if (fl/FilterSet? (:fl t))
+        (do (pprint/pprint (prs/unparse-filter-set (:fl t)))
+            (flush))
+        (prn (:fl t)))
+      (prn (prs/unparse-object (:o t)))
+      (prn 'Flow (prs/unparse-filter (-> t :flow r/flow-normal))))
     ;DO NOT REMOVE
     (assoc expr
            :args cargs
