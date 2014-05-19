@@ -2782,7 +2782,7 @@
               (and rest
                    ;; check that the tail expression is a subtype of the rest argument
                    (sub/subtype? tail-ty (c/Un r/-nil (c/RClass-of Seqable [rest])))
-                   (sub/subtypes-varargs? arg-tys dom rest))
+                   (sub/subtypes-varargs? arg-tys dom rest nil))
               (ret (r/Result-type* rng)
                    (r/Result-filter* rng)
                    (r/Result-object* rng))

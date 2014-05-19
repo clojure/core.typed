@@ -1,12 +1,11 @@
 (ns clojure.core.typed.contract-utils
+  {:skip-wiki true
+   :core.typed {:collect-only true}}
   (:require [clojure.set :as set]))
 
-;(t/ann ^:no-check nat? (predicate t/AnyInteger))
-;(t/ann ^:no-check hash-c? [[Any -> Any] [Any -> Any] -> [Any -> Any]])
-;;can't express the alternating args
-;(t/ann ^:no-check hmap-c? [Any * -> [Any -> Any]])
-;(t/ann ^:no-check set-c? [[Any -> Any] -> [Any -> Any]])
-;(t/ann ^:no-check every-c? [[Any -> Any] -> [(U nil (t/Seqable Any)) -> Any]])
+(alter-meta! *ns* assoc :skip-wiki true
+             :core.typed {:collect-only true})
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -9,6 +9,9 @@
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]))
 
+(t/typed-deps clojure.core.typed.coerce-utils
+              clojure.core.typed.contract-utils)
+
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
   )

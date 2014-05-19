@@ -1,12 +1,11 @@
-(ns ^:skip-wiki clojure.core.typed.errors
+(ns clojure.core.typed.errors
+  {:skip-wiki true
+   :core.typed {:collect-only true}}
   (:require [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.ast-utils :as ast-u]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
-
-;(t/ann ^:no-check deprecated-warn [String -> nil])
-;(t/ann ^:no-check int-error [String -> Nothing])
 
 (def int-error-kw ::internal-error)
 
@@ -16,15 +15,18 @@
 
 (defn int-error
   [estr]
-  (let [env *current-env*]
+  (let [{:keys [line column file] :as env} *current-env*]
     (throw (ex-info (str "Internal Error "
-                         "(" (or (:file env) (-> env :ns :name)) ":" 
-                         (or (:line env) "<NO LINE>")
-                         (when-let [col (:column env)]
-                           (str ":" col))
+                         "(" (or file (-> env :ns :name)) ":" 
+                         (or line "<NO LINE>")
+                         (when column
+                           (str ":" column))
                          ") "
                          estr)
-                    {:type-error int-error-kw}))))
+                    {:type-error int-error-kw
+                     :env (or (when uvs/*current-expr*
+                                (:env uvs/*current-expr*))
+                              (env-for-error *current-env*))}))))
 
 ;[Any * -> String]
 (defn ^String error-msg 

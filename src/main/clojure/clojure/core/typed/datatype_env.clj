@@ -4,6 +4,9 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed :as t]))
 
+(t/ann ^:no-check clojure.core.typed.errors/deprecated-warn [String -> nil])
+(t/ann ^:no-check clojure.core.typed.errors/int-error [String -> Nothing])
+
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
   )
