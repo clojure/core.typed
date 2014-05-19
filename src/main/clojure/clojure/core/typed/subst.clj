@@ -1,6 +1,7 @@
 (ns clojure.core.typed.subst
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.fold-rep :as f]
             [clojure.core.typed.type-ctors :as tc]
             [clojure.core.typed.frees :as frees]
@@ -60,8 +61,8 @@
               (crep/i-subst-starred? r) (substitute-dots (:types r) (:starred r) v t)
               (and (crep/i-subst-dotted? r)
                    (empty? (:types r))) (substitute-dotted (:dty r) (:name (:dbound r)) v t)
-              (crep/i-subst-dotted? r) (throw (Exception. "i-subst-dotted nyi"))
-              :else (u/nyi-error (str "Other substitutions NYI"))))
+              (crep/i-subst-dotted? r) (err/nyi-error "i-subst-dotted nyi")
+              :else (err/nyi-error (str "Other substitutions NYI"))))
           t s)))
 
 ;; Substitute dots
@@ -72,7 +73,7 @@
 (f/add-fold-case ::substitute-dots
   Function
   (fn [{:keys [dom rng rest drest kws] :as ftype} {{:keys [name sb images rimage]} :locals}]
-   (when kws (u/nyi-error "substitute keyword args"))
+   (when kws (err/nyi-error "substitute keyword args"))
    (if (and drest
             (= name (:name drest)))
      (r/Function-maker (doall
@@ -168,7 +169,7 @@
 (f/add-fold-case ::substitute-dotted
   Function
   (fn [{:keys [dom rng rest drest kws]} {{:keys [sb name image]} :locals}]
-   (when kws (u/nyi-error "substitute-dotted with kw arguments"))
+   (when kws (err/nyi-error "substitute-dotted with kw arguments"))
    (r/Function-maker (doall (map sb dom))
                      (sb rng)
                      (and rest (sb rest))

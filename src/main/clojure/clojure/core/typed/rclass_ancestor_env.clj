@@ -4,6 +4,7 @@
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-ctors :as c]
             [clojure.set :as set])
   (:import [clojure.core.typed.type_rep RClass]))
@@ -16,8 +17,8 @@
 
 (t/ann ^:no-check rclass-ancestor-env? (predicate RClassAncestorEnv))
 (def rclass-ancestor-env? 
-  (u/hash-c? symbol? (u/hmap-c? :replacements (u/hash-c? symbol? r/scoped-Type?)
-                                :ancestors (u/set-c? r/scoped-Type?))))
+  (con/hash-c? symbol? (con/hmap-c? :replacements (con/hash-c? symbol? r/scoped-Type?)
+                                    :ancestors (con/set-c? r/scoped-Type?))))
 
 (t/ann initial-class-ancestors-env RClassAncestorEnv)
 (def initial-class-ancestors-env {})
@@ -48,7 +49,7 @@
 (t/ann ^:no-check rclass-replacements [RClass -> (t/Seqable t/Symbol r/Type)])
 (defn rclass-replacements [{poly :poly?, rsym :the-class, :as rcls}]
   {:pre [(r/RClass? rcls)]
-   :post [((u/hash-c? symbol? r/Type?) %)]}
+   :post [((con/hash-c? symbol? r/Type?) %)]}
   (let [abstract-repls (get-in @RCLASS-ANCESTORS-ENV [rsym :replacements])]
     (into {} (for [[k v] abstract-repls]
                [k (c/inst-and-subst v poly)]))))

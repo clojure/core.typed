@@ -1,6 +1,7 @@
 (ns clojure.core.typed.check.case
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.update :as update]
@@ -12,7 +13,7 @@
          (== (count tst-rets)
              (count case-thens))]
    :post [((every-pred vector?
-                       (u/every-c? (comp #{:case-then} :op)))
+                       (con/every-c? (comp #{:case-then} :op)))
            %)]}
   (letfn [(check-case-then [tst-ret {:keys [then] :as case-then}]
             (let [{{fs+ :then} :fl :as rslt} (equiv/tc-equiv := target-ret tst-ret)

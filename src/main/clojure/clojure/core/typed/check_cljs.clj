@@ -2,6 +2,7 @@
   (:require [clojure.core.typed]
             [clojure.core.typed.check :as chk]
             [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
@@ -44,7 +45,7 @@
         _ (binding [vs/*current-env* env]
             (when expected
               (when-not (sub/subtype? t (ret-t expected))
-                (chk/expected-error t (ret-t expected)))))]
+                (cu/expected-error t (ret-t expected)))))]
     (assoc expr
            expr-type (ret t))))
 
@@ -55,7 +56,7 @@
         _ (binding [vs/*current-env* (:env expr)]
             (when expected 
               (when-not (sub/subtype? actual (ret-t expected))
-                (chk/expected-error actual (ret-t expected)))))]
+                (cu/expected-error actual (ret-t expected)))))]
     (assoc expr
            expr-type (ret actual))))
 
@@ -66,7 +67,7 @@
         _ (binding [vs/*current-env* (:env expr)]
             (when expected 
               (when-not (sub/subtype? actual (ret-t expected))
-                (chk/expected-error actual (ret-t expected)))))]
+                (cu/expected-error actual (ret-t expected)))))]
     (assoc expr
            expr-type (ret actual))))
 
@@ -77,7 +78,7 @@
         _ (binding [vs/*current-env* (:env expr)]
             (when expected 
               (when-not (sub/subtype? actual (ret-t expected))
-                (chk/expected-error actual (ret-t expected)))))]
+                (cu/expected-error actual (ret-t expected)))))]
     (assoc expr
            expr-type (ret actual))))
 
@@ -98,7 +99,7 @@
         _ (binding [vs/*current-env* (:env expr)]
             (when expected
               (when-not (sub/subtype? actual (ret-t expected))
-                (chk/expected-error actual (ret-t expected)))))]
+                (cu/expected-error actual (ret-t expected)))))]
     (assoc expr
            expr-type (ret actual))))
 
@@ -119,11 +120,11 @@
         (let [ cinit (check init (ret ann-type))
               _ (when-not (sub/subtype? (-> cinit expr-type ret-t)
                                         ann-type)
-                  (u/tc-delayed-error (str "Var definition did not match annotation."
+                  (err/tc-delayed-error (str "Var definition did not match annotation."
                                            " Expected: " (prs/unparse-type ann-type)
                                            ", Actual: " (prs/unparse-type (-> cinit expr-type ret-t)))))]
           res-expr)
-        :else (u/tc-delayed-error (str "Found untyped var definition: " vname
+        :else (err/tc-delayed-error (str "Found untyped var definition: " vname
                                        "\nHint: Add the annotation for " vname
                                        " via check-ns or cf")
                                   :return res-expr)))))
@@ -198,7 +199,7 @@
                        (prs/parse-type typ-syn))
           cform (check the-expr (ret given-type))
           _ (when-not (sub/subtype? (-> cform expr-type ret-t) given-type)
-              (u/tc-delayed-error 
+              (err/tc-delayed-error 
                 (prs/with-unparse-ns current-ns
                   (str "Annotation does not match actual type:\n"
                        "Expected: " (prs/unparse-type given-type)"\n"
@@ -229,7 +230,7 @@
           varsym (when (#{:var} (:op inst-of-expr))
                    (-> inst-of-expr :info :name))
           _ (when-not varsym
-              (u/int-error (str "First argument to instance? must be a datatype var "
+              (err/int-error (str "First argument to instance? must be a datatype var "
                                 (:op inst-of-expr))))
           inst-of (c/DataType-with-unknown-params varsym)
           cexpr (check target-expr)
@@ -262,7 +263,7 @@
                           (let [t (var-env/type-of-nofail vname)]
                             (if t
                               t
-                              (u/tc-delayed-error (str "Found untyped var: " vname)
+                              (err/tc-delayed-error (str "Found untyped var: " vname)
                                                   :return (or (when expected
                                                                 (ret-t expected))
                                                               (r/TCError-maker))))))
@@ -345,9 +346,9 @@
           target-expected (-> ctarget expr-type ret-t)
           val-type (-> cval expr-type ret-t)
           _ (when-not (sub/subtype? val-type target-expected)
-              (chk/expected-error val-type target-expected))
+              (cu/expected-error val-type target-expected))
           _ (when-not (and expected (sub/subtype? target-expected (ret-t expected)))
-              (chk/expected-error target-expected (ret-t expected)))]
+              (cu/expected-error target-expected (ret-t expected)))]
       (assoc expr
              expr-type (ret val-type)))))
 
@@ -385,7 +386,7 @@
                                        expected)]
           (assoc dot-expr
                  expr-type actual)))
-      (u/tc-delayed-error (str "Don't know how to use type " (prs/unparse-type target-t)
+      (err/tc-delayed-error (str "Don't know how to use type " (prs/unparse-type target-t)
                                " with "
                                (if field (str "field " field)
                                  (str "method " method)))

@@ -2,6 +2,8 @@
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]
+            [clojure.core.typed.ast-utils :as au]
+            [clojure.core.typed.errors :as err]
             [clojure.core.contracts.constraints :as contracts]
             [clojure.repl :as repl]
             [clojure.core.contracts]
@@ -23,9 +25,6 @@
 (t/ann ^:no-check taoensso.timbre.profiling/*pdata* (t/Atom1 Any))
 (t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure [-> Any])
 
-(t/ann ^:no-check deprecated-warn [String -> nil])
-(t/ann ^:no-check int-error [String -> Nothing])
-
 (t/ann subtype-exn Exception)
 (def subtype-exn (Exception. "Subtyping failed."))
 (t/ann cs-gen-exn Exception)
@@ -46,159 +45,6 @@
        (if (identical? cs-gen-exn e#)
          false
          (throw e#)))))
-
-(declare emit-form-fn)
-
-(t/ann ^:no-check env-for-error [Any -> Any])
-(defn env-for-error [env]
-  env)
-
-(t/ann ^:no-check nat? (predicate t/AnyInteger))
-(t/ann ^:no-check hash-c? [[Any -> Any] [Any -> Any] -> [Any -> Any]])
-;can't express the alternating args
-(t/ann ^:no-check hmap-c? [Any * -> [Any -> Any]])
-(t/ann ^:no-check set-c? [[Any -> Any] -> [Any -> Any]])
-(t/ann ^:no-check every-c? [[Any -> Any] -> [(U nil (t/Seqable Any)) -> Any]])
-
-(t/tc-ignore
-(defn every-c? [c]
-  #(every? c %))
-
-;[Any * -> String]
-(defn ^String error-msg 
-  [& msg]
-  (apply str (when *current-env*
-               (str (:line *current-env*) ":"
-                    (:col *current-env*)
-                    " "))
-         (concat msg)))
-
-;errors from check-ns or cf
-(defn top-level-error? [{:keys [type-error] :as exdata}]
-  (boolean (#{:top-level-error} type-error)))
-
-(defmacro top-level-error-thrown? [& body]
-  `(with-ex-info-handlers
-     [top-level-error? (constantly true)]
-     ~@body
-     false))
-
-(defmacro tc-error-thrown? [& body]
-  `(with-ex-info-handlers
-     [tc-error? (constantly true)]
-     ~@body
-     false))
-
-(def tc-error-parent ::tc-error-parent)
-
-(defn tc-error? [exdata]
-  (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
-  (isa? (:type-error exdata) tc-error-parent))
-
-(defn tc-delayed-error [msg & {:keys [return form] :as opt}]
-  (when-not (:line *current-env*)
-    #_(try (throw (Exception. ""))
-      (catch Exception e
-        (prn "core.typed Internal BUG! Delayed error without line number, "
-             (when (contains? opt :form) (str "in form " form)))
-        (prn "with env:" (pr-str *current-env*))
-        #_(binding [*err* *out*] 
-          (repl/pst e)))))
-  (let [e (ex-info msg (merge {:type-error tc-error-parent}
-                              (when (or (contains? opt :form)
-                                        (and (bound? #'uvs/*current-expr*)
-                                             uvs/*current-expr*))
-                                {:form (if (contains? opt :form)
-                                         form
-                                         (emit-form-fn uvs/*current-expr*))})
-                              {:env (or (when uvs/*current-expr*
-                                          (:env uvs/*current-expr*))
-                                        (env-for-error *current-env*))}))]
-    (cond
-      ;can't delay here
-      (not (bound? #'clojure.core.typed/*delayed-errors*))
-      (throw e)
-
-      :else
-      (do
-        (if-let [delayed-errors clojure.core.typed/*delayed-errors*]
-          (swap! delayed-errors conj e)
-          (throw (Exception. (str "*delayed-errors* not rebound"))))
-        (or return @(ns-resolve (find-ns 'clojure.core.typed.type-rep) '-nothing))))))
-
-(defn derive-error [kw]
-  (derive kw tc-error-parent))
-
-(def int-error-kw ::internal-error)
-(def nyi-error-kw ::nyi-error)
-
-(derive-error int-error-kw)
-(derive-error nyi-error-kw)
-
-(defn tc-error
-  [estr]
-  #_(when-not *current-env*
-    (prn "Internal core.typed BUG! No *current-env* with tc-error"))
-  (let [env *current-env*]
-    (throw (ex-info (str "Type Error "
-                         "(" (:file env) ":" (or (:line env) "<NO LINE>")
-                         (when-let [col (:column env)]
-                           (str ":" col))
-                         ") "
-                         estr)
-                    (merge
-                      {:type-error tc-error-parent}
-                      {:env (env-for-error env)})))))
-
-(defn deprecated-warn
-  [msg]
-  (let [env *current-env*]
-    (println "DEPRECATED SYNTAX "
-             "(" (:file env) ":" (or (:line env) "<NO LINE>")
-             (when-let [col (:column env)]
-               (str ":" col))
-             ") :"
-             msg)
-    (flush)))
-
-
-(defn int-error
-  [estr]
-  (let [env *current-env*]
-    (throw (ex-info estr
-                    (merge
-                      {:type-error int-error-kw}
-                      {:env (env-for-error env)})))))
-
-(defn nyi-error
-  [estr]
-  (let [env *current-env*]
-    (throw (ex-info (str "core.typed Not Yet Implemented Error:"
-                           "(" (:file env) ":" (or (:line env) "<NO LINE>")
-                           (when-let [col (:column env)]
-                             (str ":"col))
-                           ") "
-                           estr)
-                    (merge {:type-error nyi-error-kw}
-                           {:env (env-for-error env)})))))
-
-(defmacro with-ex-info-handlers 
-  "Handle an ExceptionInfo e thrown in body. The first handler whos left hand
-  side returns true, then the right hand side is called passing (ex-info e) and e."
-  [handlers & body]
-  `(try
-     ~@body
-     (catch clojure.lang.ExceptionInfo e#
-       (let [found?# (atom false)
-             result# (reduce (fn [_# [h?# hfn#]]
-                               (when (h?# (ex-data e#))
-                                 (reset! found?# true)
-                                 (reduced (hfn# (ex-data e#) e#))))
-                             nil
-                             ~(mapv vec (partition 2 handlers)))]
-         (if @found?#
-           result#
-           (throw e#))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utils
@@ -243,7 +89,9 @@
   (when-not (resolve name)
     `(clojure.core/defprotocol ~name ~@args)))
 
+(t/tc-ignore
 (def third (comp second next))
+)
 
 (defmacro ann-record 
   "Like ann-record, but also adds an unchecked annotation for core.contract's generated
@@ -265,112 +113,7 @@
        (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list 'predicate nme))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; AST ops
 
-
-;AnalysisExpr -> Form
-;(ann emit-form-fn [Any -> Any])
-(defn emit-form-fn [expr]
-  (impl/impl-case
-    :clojure (emit-form/emit-form expr)
-    :cljs (do
-            (require '[clojure.core.typed.util-cljs])
-            ((impl/v 'clojure.core.typed.util-cljs/emit-form) expr))))
-
-(defn constant-expr [expr]
-  {:pre [(#{:quote} (:op expr))
-         (#{:const} (:op (:expr expr)))]}
-  (-> expr :expr :val))
-
-(defn constant-exprs [exprs]
-  (map constant-expr exprs))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Constraint shorthands
-
-(def nat? (every-pred integer? (complement neg?)))
-
-(def boolean? (some-fn true? false?))
-
-(def namespace? #(instance? clojure.lang.Namespace %))
-
-(defn =-c? [& as]
-  #(apply = (concat as %&)))
-
-(defn hvector-c? [& ps]
-  (apply every-pred vector?
-         (map (fn [p i] #(p (nth % i false))) ps (range))))
-
-(defn array-map-c? [ks-c? vs-c?]
-  (every-pred #(instance? PersistentArrayMap %)
-              #(every? ks-c? (keys %))
-              #(every? vs-c? (vals %))))
-
-(defn hmap-c? [& key-vals]
-  (every-pred map?
-              #(every? identity 
-                       (for [[k vc] (partition 2 key-vals)]
-                         (and (contains? % k)
-                              (vc (get % k)))))))
-
-(defn hash-c? [ks-c? vs-c?]
-  (every-pred map?
-              #(every? ks-c? (keys %))
-              #(every? vs-c? (vals %))))
-
-(defn set-c? [c?]
-  (every-pred set?
-              #(every? c? %)))
-
-(defn sequential-c? [c?]
-  (every-pred sequential?
-              (every-c? c?)))
-
-(def set-union (fnil set/union #{}))
-(def set-difference (fnil set/difference #{}))
-
-;(defn- comp-mm [mm disps]
-;  (set/difference disps (set (keys (methods mm)))))
-;
-;(comp-mm replace-image (disj kinds :scope))
-;(comp-mm replace-image (disj kinds :scope))
-
-) ;end tc-ignore
-
-;TODO to check, needs support for instance field
-(t/ann ^:no-check var->symbol [(Var Nothing Any) -> Symbol])
-(defn var->symbol [^Var var]
-  {:pre [(var? var)]
-   :post [(symbol? %)
-          (namespace %)]}
-  (symbol (str (ns-name (.ns var)))
-          (str (.sym var))))
-
-(t/ann symbol->Class [Symbol -> Class])
-(defn symbol->Class 
-  "Returns the Class represented by the symbol. Works for
-  primitives (eg. byte, int). Does not further resolve the symbol."
-  [sym]
-  {:pre [(symbol? sym)]
-   :post [(class? %)]}
-  (profiling/p :utils/symbols->Class
-  (case sym
-    byte Byte/TYPE
-    short Short/TYPE
-    int Integer/TYPE
-    long Long/TYPE
-    float Float/TYPE
-    double Double/TYPE
-    boolean Boolean/TYPE
-    char Character/TYPE
-    (RT/classForName (str sym)))))
-
-(t/ann Class->symbol [Class -> Symbol])
-(defn Class->symbol [^Class cls]
-  {:pre [(class? cls)]
-   :post [(symbol? %)]}
-  (symbol (.getName cls)))
 
 (t/tc-ignore
 ;(t/ann next-sequence-number (t/Atom1 SeqNumber))
@@ -587,7 +330,7 @@
   (when-not (#{0 1} (count 
                       (filter #{kw} 
                               (map :val statements))))
-    (int-error (str "Folded special-forms detected " (emit-form-fn expr)))))
+    (err/int-error (str "Folded special-forms detected " (au/emit-form-fn expr)))))
 
 (defmacro special-do-op
   "Define a multimethod that takes an expr and an expected type
@@ -648,18 +391,5 @@
              ss)
       (flush))))
 
-(defn ctor-Class->symbol 
-  "Returns a symbol representing this constructor's Class, removing any compiler stubs."
-  [cls]
-  (Class->symbol cls))
-
-;[MethodExpr -> (U nil NamespacedSymbol)]
-(defn MethodExpr->qualsym [{c :class :keys [op method] :as expr}]
-  {:pre [(#{:static-call :instance-call} op)]
-   :post [((some-fn nil? symbol?) %)]}
-  (when c
-    (assert (class? c))
-    (assert (symbol? method))
-    (symbol (str (Class->symbol c)) (str method))))
 
 )

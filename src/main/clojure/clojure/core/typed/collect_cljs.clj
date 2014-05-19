@@ -6,10 +6,12 @@
             [clojure.core.typed.check.utils :as chk]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.util-vars :as uvar]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.protocol-env :as ptl-env]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.declared-kind-env :as decl]
             [clojure.core.typed.subtype :as sub]
@@ -17,8 +19,7 @@
             [clojure.core.typed.collect-phase :as coll-clj]
             [clojure.core.typed.datatype-ancestor-env :as ancest]
             [clojure.core.typed.datatype-env :as dt-env]
-            [clojure.repl :as repl]
-            [clojure.core.typed.util-vars :as vs]))
+            [clojure.repl :as repl]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
@@ -227,8 +228,9 @@
                      (prs/parse-type typesyn))]
     (nme-env/add-type-name qsym alias-type)
     (when-let [tfn (decl/declared-kind-or-nil qsym)]
-      (assert (sub/subtype? alias-type tfn) (u/error-msg "Declared kind " (prs/unparse-type tfn)
-                                                         " does not match actual kind " (prs/unparse-type alias-type))))
+      (when-not (sub/subtype? alias-type tfn) 
+        (err/int-error (str "Declared kind " (prs/unparse-type tfn)
+                            " does not match actual kind " (prs/unparse-type alias-type)))))
     nil))
 
 ; only collect invocations in arbitrarily nested `do` blocks

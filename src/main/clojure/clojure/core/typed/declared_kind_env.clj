@@ -1,5 +1,6 @@
 (ns clojure.core.typed.declared-kind-env
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -11,10 +12,10 @@
   (assert *current-declared-kinds* "No declared kinds bound"))
 
 (defonce CLJ-DECLARED-KIND-ENV (atom {}))
-(set-validator! CLJ-DECLARED-KIND-ENV (u/hash-c? symbol? r/TypeFn?))
+(set-validator! CLJ-DECLARED-KIND-ENV (con/hash-c? symbol? r/TypeFn?))
 
 (defonce CLJS-DECLARED-KIND-ENV (atom {}))
-(set-validator! CLJS-DECLARED-KIND-ENV (u/hash-c? symbol? r/TypeFn?))
+(set-validator! CLJS-DECLARED-KIND-ENV (con/hash-c? symbol? r/TypeFn?))
 
 (defn reset-declared-kinds! [m]
   (assert-declared-kinds)
@@ -35,7 +36,7 @@
   (assert-declared-kinds)
   (if-let [tfn (declared-kind-or-nil sym)]
     tfn
-    (throw (Exception. (u/error-msg "No declared kind for Name " sym)))))
+    (err/int-error (str "No declared kind for Name " sym))))
 
 (defn has-declared-kind? [sym]
   (assert-declared-kinds)

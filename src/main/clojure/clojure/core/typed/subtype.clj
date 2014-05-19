@@ -4,6 +4,9 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.coerce-utils :as coerce]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.filter-rep :as fr]
@@ -21,7 +24,7 @@
                                         HeterogeneousList HeterogeneousSeq CountRange KwArgs
                                         Extends)
            (clojure.core.typed.filter_rep FilterSet)
-           (clojure.lang APersistentMap APersistentVector PersistentList ASeq Seqable)))
+           (clojure.lang APersistentVector PersistentList ASeq)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
@@ -46,7 +49,7 @@
 
 (declare subtypes*-varargs)
 
-;[(Seqable Type) (Seqable Type) Type -> Boolean]
+;[(t/Seqable Type) (t/Seqable Type) Type -> Boolean]
 (defn subtypes-varargs?
   "True if argtys are under dom"
   [argtys dom rst kws]
@@ -70,7 +73,7 @@
 
 ;[Type Type -> Boolean]
 (defn subtype? [s t]
-  {:post [(u/boolean? %)]}
+  {:post [(con/boolean? %)]}
   (letfn [(do-subtype []
             (u/p :subtype/subtype?
                (boolean
@@ -87,7 +90,7 @@
 
 (declare subtypeA*)
 
-;[(IPersistentSet '[Type Type]) Type Type -> Boolean]
+;[(t/Set '[Type Type]) Type Type -> Boolean]
 (defn subtypeA*? [A s t]
   (handle-failure
     (subtypeA* A s t)))
@@ -99,7 +102,7 @@
     (assert (var? v) "infer unbound")
     v))
 
-;[(Map Symbol Bounds) (Map Symbol Bounds) (Seqable Type) (Seqable Type)
+;[(Map Symbol Bounds) (Map Symbol Bounds) (t/Seqable Type) (t/Seqable Type)
 ;  -> Boolean]
 (defn unify [X Y S T R]
   (u/p :subtype/unify
@@ -122,7 +125,7 @@
       [mi])))
 
 ;TODO replace hardcoding cases for unfolding Mu? etc. with a single case for unresolved types.
-;[(IPersistentSet '[Type Type]) Type Type -> (IPersistentSet '[Type Type])]
+;[(t/Set '[Type Type]) Type Type -> (t/Set '[Type Type])]
 (defn subtypeA* [A s t]
   {:pre [(r/AnyType? s)
          (r/AnyType? t)]
@@ -147,7 +150,7 @@
         (and (r/F? s)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name s))]
                (if-not bnd 
-                 (do #_(u/int-error (str "No bounds for " (:name s)))
+                 (do #_(err/int-error (str "No bounds for " (:name s)))
                      nil)
                  (and (subtype? upper-bound t)
                       (subtype? lower-bound t)))))
@@ -156,7 +159,7 @@
         (and (r/F? t)
              (let [{:keys [upper-bound lower-bound] :as bnd} (free-ops/free-with-name-bnds (:name t))]
                (if-not bnd 
-                 (do #_(u/int-error (str "No bounds for " (:name t)))
+                 (do #_(err/int-error (str "No bounds for " (:name t)))
                      nil)
                  (and (subtype? s upper-bound)
                       (subtype? s lower-bound)))))
@@ -246,7 +249,7 @@
                 *sub-current-seen*
                 (fail! s t)))
 
-            :else (u/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
+            :else (err/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
 
         (r/TApp? t)
         (let [{:keys [rands]} t
@@ -261,7 +264,7 @@
                 *sub-current-seen*
                 (fail! s t)))
 
-            :else (u/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
+            :else (err/int-error (str "First argument to TApp must be TFn, actual: " (prs/unparse-type rator)))))
 
         (r/App? s)
         (subtypeA* *sub-current-seen* (c/resolve-App s) t)
@@ -734,7 +737,7 @@
                        ; this is after the nil <: Protocol case, so we fail
                        (nil? sval) (fail! s t)
                        ; this is a faster path than the final case
-                       (r/RClass? t) (let [cls (let [cls (u/symbol->Class (:the-class t))]
+                       (r/RClass? t) (let [cls (let [cls (coerce/symbol->Class (:the-class t))]
                                                  (or (boxed-primitives cls)
                                                      cls))]
                                        (cond
@@ -759,7 +762,7 @@
             :cljs (cond
                     (integer? (.val s)) (subtype (r/IntegerCLJS-maker) t)
                     (number? (.val s)) (subtype (r/NumberCLJS-maker) t)
-                    (u/boolean? (.val s)) (subtype (r/BooleanCLJS-maker) t)
+                    (con/boolean? (.val s)) (subtype (r/BooleanCLJS-maker) t)
                     (symbol? (.val s)) (subtype (c/DataType-of 'cljs.core/Symbol) t)
                     (keyword? (.val s)) (subtype (c/DataType-of 'cljs.core/Keyword) t)
                     :else (fail! s t))))
@@ -797,7 +800,7 @@
              (:the-class s))
             (let [[_ read-type :as poly] (:poly? s)
                   _ (when-not (#{2} (count (:poly? s)))
-                      (u/int-error
+                      (err/int-error
                         (str "Assuming Var takes 2 arguments, "
                              "given " (count (:poly? s)))))]
               (if (subtype? read-type t)
@@ -905,7 +908,7 @@
       ;(swap! subtype-cache assoc (set [s t]) res)
       res))
 
-;[(IPersistentSet '[Type Type]) (Seqable Type) (Seqable Type) (Option Type)
+;[(IPersistentSet '[Type Type]) (t/Seqable Type) (t/Seqable Type) (Option Type)
 ;  -> (IPersistentSet '[Type Type])]
 (defn subtypes*-varargs [A0 argtys dom rst kws]
   {:pre [((some-fn nil? r/Type?) rst)
@@ -952,7 +955,7 @@
          ((some-fn r/KwArgs? nil?) t)]}
   (if (= s t)
     *sub-current-seen*
-    (u/nyi-error "subtype kwargs")))
+    (err/nyi-error "subtype kwargs")))
 
 ;; simple co/contra-variance for ->
 ;[(IPersistentSet '[Type Type]) Function Function -> (IPersistentSet '[Type Type])]
@@ -1017,7 +1020,7 @@
       (subtypeA* (:rng s) (:rng t)))
     :else (fail! s t)))
 
-;[(IPersistentSet '[Type Type]) Function (Seqable Function) -> (Option (IPersistentSet '[Type Type]))]
+;[(IPersistentSet '[Type Type]) Function (t/Seqable Function) -> (Option (IPersistentSet '[Type Type]))]
 (defn supertype-of-one-arr [A s ts]
   (some #(handle-failure 
            (arr-subtype A % s))
@@ -1280,9 +1283,9 @@
         ; the classes that this datatype extends.
         ; No vars should occur here because protocol are extend via
         ; their interface.
-        normal-asyms (->> (ancestors (u/symbol->Class the-class))
+        normal-asyms (->> (ancestors (coerce/symbol->Class the-class))
                           (filter class?)
-                          (map u/Class->symbol))
+                          (map coerce/Class->symbol))
         ;_ (prn "normal-asyms" normal-asyms)
         post-override (set
                         (for [sym normal-asyms]
@@ -1303,7 +1306,7 @@
          (r/Protocol? t)]}
   (impl/assert-clojure)
   (let [;first try and find the datatype in the protocol's extenders
-        p-cls-extenders (map u/Class->symbol (filter class? (c/Protocol-normal-extenders t)))
+        p-cls-extenders (map coerce/Class->symbol (filter class? (c/Protocol-normal-extenders t)))
         in-protocol-extenders? (some #{(:the-class s)} p-cls-extenders)
         relevant-rclass-ancestor (some (fn [p] 
                                          (when (and (r/Protocol? p)
@@ -1346,7 +1349,7 @@
          (r/Protocol? t)]}
   (impl/impl-case
     :clojure (let [;first try and find the datatype in the protocol's extenders
-                   p-cls-extenders (map u/Class->symbol (filter class? (c/Protocol-normal-extenders t)))
+                   p-cls-extenders (map coerce/Class->symbol (filter class? (c/Protocol-normal-extenders t)))
                    in-protocol-extenders? (some #{(:the-class s)} p-cls-extenders)
                    relevant-datatype-ancestor (some (fn [p] 
                                                       (when (and (r/Protocol? p)
@@ -1423,7 +1426,7 @@
    Boolean/TYPE Boolean})
 
 ;[RClass RClass -> Boolean]
-(defn coerse-RClass-primitive
+(defn coerce-RClass-primitive
   [s t]
   (impl/assert-clojure)
   (cond
@@ -1434,8 +1437,8 @@
     true
 
     :else
-    (let [spcls (u/symbol->Class (:the-class s))
-          tpcls (u/symbol->Class (:the-class t))
+    (let [spcls (coerce/symbol->Class (:the-class s))
+          tpcls (coerce/symbol->Class (:the-class t))
           scls (or (boxed-primitives spcls)
                    spcls)
           tcls (or (boxed-primitives tpcls)
@@ -1460,10 +1463,10 @@
         (and (= scls tcls)
              (subtype-RClass-common-base s t))
 
-        ;one is a primitive, coerse
+        ;one is a primitive, coerce
         (and (or (.isPrimitive scls)
                  (.isPrimitive tcls))
-             (coerse-RClass-primitive s t))
+             (coerce-RClass-primitive s t))
 
         ;find a supertype of s that is the same base as t, and subtype of it
         (some #(when (r/RClass? %)

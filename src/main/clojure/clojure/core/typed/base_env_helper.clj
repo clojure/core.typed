@@ -3,6 +3,8 @@
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.coerce-utils :as coerce]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.declared-kind-env :as decl-env]
@@ -115,7 +117,7 @@
      (into {} (doall
                 (for [[k# v#] ~m]
                   [(if-let [c# (resolve k#)] 
-                     (and (class? c#) (u/Class->symbol c#))
+                     (and (class? c#) (coerce/Class->symbol c#))
                      k#)
                    (prs/parse-type v#)])))))
 
@@ -125,7 +127,7 @@
                   (when (class? c#)
                     c#))]
        (assert cls# (str "Cannot resolve class " ~the-class))
-       (or (and cls# (u/Class->symbol cls#))
+       (or (and cls# (coerce/Class->symbol cls#))
            ~the-class))))
 
 (defn make-RClass-syn [the-class frees-syn opts]
@@ -151,7 +153,7 @@
              frees# (map r/make-F nmes#)
              csym# ~(resolve-class-symbol the-class)
              frees-and-bnds# (zipmap frees# bnds#)]
-         (assert ((u/hash-c? r/F? r/Bounds?) frees-and-bnds#) frees-and-bnds#)
+         (assert ((con/hash-c? r/F? r/Bounds?) frees-and-bnds#) frees-and-bnds#)
          (c/RClass* nmes# variances# frees# csym#
                     (free-ops/with-bounded-frees frees-and-bnds#
                       ~(build-replacement-syntax replacements-syn))

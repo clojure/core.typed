@@ -10,7 +10,8 @@
             [clojure.data :refer [diff]]
             [clojure.core.typed.unsafe]
             [clojure.core.typed.init]
-            [clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error? expr-type]]
+            [clojure.core.typed.utils :as u :refer [expr-type]]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.check :as chk :refer [check-funapp]]
             [clojure.core.typed.check.utils :as cu]
@@ -330,7 +331,7 @@
 
 (deftest check-invoke
   ; wrap in thunk to prevent evaluation (analyzer currently evaluates forms)
-  (is (u/top-level-error-thrown? (cf (fn [] (symbol "a" 'b)))))
+  (is (err/top-level-error-thrown? (cf (fn [] (symbol "a" 'b)))))
   (is (both-subtype? (ety (symbol "a" "a"))
                      (clj (RClass-of clojure.lang.Symbol)))))
 
@@ -833,9 +834,9 @@
   (is-clj (subtype? (:t (tc-t (+ 1 2)))
                 (RClass-of Number)))
   ;wrap in thunks to prevent evaluation
-  (is (u/top-level-error-thrown? (cf (fn [] (+ 1 2 "a")))))
-  (is (u/top-level-error-thrown? (cf (fn [] (-)))))
-  (is (u/top-level-error-thrown? (cf (fn [] (/))))))
+  (is (err/top-level-error-thrown? (cf (fn [] (+ 1 2 "a")))))
+  (is (err/top-level-error-thrown? (cf (fn [] (-)))))
+  (is (err/top-level-error-thrown? (cf (fn [] (/))))))
 
 (deftest tc-constructor-test
   (is-clj (= (tc-t (Exception. "a"))
@@ -908,8 +909,8 @@
                 (RClass-of Seqable [(RClass-of Number)])))
   (is-clj (subtype? (ret-t (tc-t (map + [1 2] [1 2] [4 5] [6 7] [4 4] [3 4])))
                 (RClass-of Seqable [(RClass-of Number)])))
-  (is (u/top-level-error-thrown? (cf (map + [1 2] [1 2] [4 5] [6 7] [4 4] {3 4}))))
-  (is (u/top-level-error-thrown? (cf (map + [1 2] [1 2] [4 5] [6 7] [4 4] #{'a 4})))))
+  (is (err/top-level-error-thrown? (cf (map + [1 2] [1 2] [4 5] [6 7] [4 4] {3 4}))))
+  (is (err/top-level-error-thrown? (cf (map + [1 2] [1 2] [4 5] [6 7] [4 4] #{'a 4})))))
 
 (deftest ann-form-test
   (is-clj (= (ret-t (tc-t 
@@ -1119,7 +1120,7 @@
 
 (deftest new-instance-method-return-test
   (is (check-ns 'clojure.core.typed.test.protocol))
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.protocol-fail))))
 ;;;;
 
@@ -1137,7 +1138,7 @@
                    :when a]
             (inc a)))
   ;wrap in thunk to prevent evaluation
-  (is-clj (u/top-level-error-thrown?
+  (is-clj (err/top-level-error-thrown?
                (cf (fn []
                      (clojure.core.typed/doseq> [a :- (U clojure.core.typed/AnyInteger nil), [1 nil 2 3]]
                                                 (inc a)))))))
@@ -1150,7 +1151,7 @@
                               :when a]
                              (+ a b))
     (clojure.core.typed/Seq Number))
-  (is-clj (u/top-level-error-thrown?
+  (is-clj (err/top-level-error-thrown?
         (cf
           (clojure.core.typed/for> :- Number
                                    [a :- (U clojure.lang.Symbol nil Number), [1 nil 2 3]
@@ -1187,7 +1188,7 @@
            (a 1))
          Number)
   ; annotation needed
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (cf (clojure.core.typed/letfn> [(a [b] (inc b))]
               (a 1)))))
   ;interdependent functions
@@ -1275,7 +1276,7 @@
 
 (deftest instance-field-test
   (is-cf (.ns ^clojure.lang.Var #'clojure.core/map))
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (cf (fn [] (.ns ^clojure.lang.Var 'a))))))
 
 (deftest HMap-syntax-test
@@ -1321,7 +1322,7 @@
   (is-cf (java.io.File. "a"))
   (is-cf (let [a (or "a" "b")]
            (java.io.File. a)))
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (cf (fn [& {:keys [path] :or {path "foo"}}]
               (clojure.core.typed/print-env "a")
               (java.io.File. path))
@@ -1349,7 +1350,7 @@
 (deftest extends-test
   ; without extends: never returns a (IPV Number) because we can have
   ; a type (I (IPM Any Any) (IPV Any))
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (cf (fn [a]
               (if (vector? a)
                 a
@@ -1723,7 +1724,7 @@
   (is (check-ns 'clojure.core.typed.test.mm-warn-on-unannotated)))
 
 (deftest HMap-parse-fail-test
-  (is (u/tc-error-thrown? (clj (parse-type '(HMap :mandatory {:a Any} :absent-keys #{:a}))))))
+  (is (err/tc-error-thrown? (clj (parse-type '(HMap :mandatory {:a Any} :absent-keys #{:a}))))))
 
 (deftest HMap-absent-complete-test
   (is-clj (not (sub? (HMap :mandatory {:a Any}) (HMap :absent-keys #{:a}))))
@@ -1804,9 +1805,9 @@
           [-> clojure.lang.IFn]))
 
 (deftest plain-defprotocol-test
-  (is (u/top-level-error-thrown? 
+  (is (err/top-level-error-thrown? 
         (check-ns 'clojure.core.typed.test.fail.plain-defprotocol)))
-  (is (u/top-level-error-thrown? 
+  (is (err/top-level-error-thrown? 
         (check-ns 'clojure.core.typed.test.fail.CTYP-45))))
 
 (deftest HMap-absent-key-update-test
@@ -1887,7 +1888,7 @@
                        :complete? true)
                  (HMap :absent-keys #{:a}))))
   (is 
-    (u/top-level-error-thrown?
+    (err/top-level-error-thrown?
       (cf {:a "a"} (HMap :absent-keys #{:a})))))
 
 ;CTYP-61
@@ -2192,7 +2193,7 @@
   )
 
 (deftest unannotated-record-test
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.unannotated-record))))
 
 (deftest datatype-method-recur-test
@@ -2200,10 +2201,10 @@
 
 (deftest record-annotated-as-datatype-test
   ; record annotated as datatype
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.record-as-datatype)))
   ; datatype annotated as record
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.datatype-as-record))))
 
 (deftest recursive-ann-test
@@ -2231,7 +2232,7 @@
   (is (check-ns 'clojure.core.typed.test.non-literal-val-fn)))
 
 (deftest CTYP-74-malformed-TApp-test
-  (is-clj (u/tc-error-thrown? (parse-type '([Any -> Any])))))
+  (is-clj (err/tc-error-thrown? (parse-type '([Any -> Any])))))
 
 (deftest CTYP-73-reduced-test
   (is-cf (reduced 1) (clojure.lang.Reduced Number))
@@ -2640,14 +2641,14 @@
 (deftest csgen-hmap-test
   ; (HMap :mandatory {:a Number :b Number} :complete? true) :!< (HMap :mandatory {:a x} :complete? true)
   (is
-    (u/top-level-error-thrown?
+    (err/top-level-error-thrown?
       (cf (clojure.core.typed/letfn>
             [take-map :- (All [x] [(HMap :mandatory {:a x} :complete? true) -> x])
              (take-map [a] (:a a))]
             (take-map {:a 1 :b 2})))))
   ; (HMap :mandatory {:a Number}) :!< (HMap :mandatory {:a x} :complete? true)
   (is
-    (u/top-level-error-thrown?
+    (err/top-level-error-thrown?
       (cf (clojure.core.typed/letfn>
             [take-map :- (All [x] [(HMap :mandatory {:a x} :complete? true) -> x])
              (take-map [a] (:a a))]
@@ -2749,7 +2750,7 @@
 
 (deftest hmap-optional-get-test
   (is
-    (u/top-level-error-thrown?
+    (err/top-level-error-thrown?
       (cf (get (clojure.core.typed/ann-form
                  {:a 1}
                  (HMap :optional {:a Number}))
@@ -2904,24 +2905,24 @@
 ; test cast CTYP-118
 (deftest cast-test
   (is (check-ns 'clojure.core.typed.test.CTYP-118-cast))
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (cf (fn [] (cast "a" "a")))))
   (is (throws-tc-error?
         (cf (fn [] (cast String "a" 1)))))
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (cf (fn [] (cast #('ok) 2))))))
 
 (deftest optional-record-keys-test
   (is (check-ns 'clojure.core.typed.test.record-optional-key))
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.record-no-nil)))
   (is (check-ns 'clojure.core.typed.test.record-poly-map-ctor)))
 
 (deftest recur-rest-args-test
   (is (check-ns 'clojure.core.typed.test.recur-rest-arg))
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.recur-non-seq-rest)))
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (check-ns 'clojure.core.typed.test.fail.recur-empty-seq))))
 
 (deftest poly-record-test
@@ -2970,12 +2971,12 @@
 
   (is (check-ns 'clojure.core.typed.test.hsequential))
 
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (cf (fn [x c & y] x) (All [x y ...] [x y ... y -> x])))))
 
 (deftest kw-args-seq-complete-test
   (is
-    (u/top-level-error-thrown?
+    (err/top-level-error-thrown?
       (cf (apply concat {:a 1 :b 2})
           (clojure.core.typed/Seq clojure.core.typed/Keyword))))
   (is-cf (apply concat {:a 1 :b 2})
@@ -3072,7 +3073,7 @@
 (deftest loop-macro-test
   (is-cf (fn [] (clojure.core.typed/loop [a 1] (recur a))))
   (is-cf (fn [] (clojure.core.typed/loop [a :- Number 1] (recur a))))
-  (is (u/top-level-error-thrown?
+  (is (err/top-level-error-thrown?
         (cf (fn [] (clojure.core.typed/loop [a :- clojure.lang.Symbol 1] (recur a)))))))
 
 

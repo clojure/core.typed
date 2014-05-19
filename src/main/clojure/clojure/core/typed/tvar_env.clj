@@ -1,11 +1,10 @@
 (ns ^:skip-wiki
   ^{:core.typed {:collect-only true}}
   clojure.core.typed.tvar-env
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed :as t :refer [fn>]])
-  (:import (clojure.core.typed.type_rep F)
-           (clojure.lang Symbol)))
+            [clojure.core.typed :as t])
+  (:import (clojure.core.typed.type_rep F)))
 
 (alter-meta! *ns* assoc :skip-wiki true
              :core.typed {:collect-only true})
@@ -19,13 +18,13 @@
 ;; The mapped-to type is used to distinguish type variables bound
 ;; at different scopes
 
-(t/def-alias TVarEnv
+(t/defalias TVarEnv
   "Map from scoped symbols to the actual free
   variables they represent"
-  (t/Map Symbol F))
+  (t/Map t/Sym F))
 
 (t/ann ^:no-check tvar-env? (predicate TVarEnv))
-(def tvar-env? (u/hash-c? symbol? r/F?))
+(def tvar-env? (con/hash-c? symbol? r/F?))
 
 (t/ann initial-tvar-env TVarEnv)
 (def initial-tvar-env {})
@@ -48,20 +47,20 @@
   `(binding [*current-tvars* (extend-many *current-tvars* ~vars ~fresh-vars)]
      ~@body))
 
-(t/ann bound-tvar? [Symbol -> Boolean])
+(t/ann bound-tvar? [t/Sym -> Boolean])
 (defn bound-tvar?
   "Returns true if the current type variable is bound"
   [var]
   (contains? *current-tvars* var))
 
-(t/ann lookup-tvar [Symbol -> (t/Nilable r/Type)])
+(t/ann lookup-tvar [t/Sym -> (t/Nilable r/Type)])
 (defn lookup-tvar
   "Returns the mapped-to type, or nil"
   [var]
   (*current-tvars* var))
 
-(t/ann extend-one (Fn [TVarEnv Symbol -> TVarEnv]
-                      [TVarEnv Symbol (t/Nilable Symbol) -> TVarEnv]))
+(t/ann extend-one (Fn [TVarEnv t/Sym -> TVarEnv]
+                      [TVarEnv t/Sym (t/Nilable t/Sym) -> TVarEnv]))
 (defn extend-one
   "Extend a tvar environment. Adds an entry mapping var to itself,
   or if fresh-var is provided, mapping var to fresh-var"
@@ -73,7 +72,7 @@
     :post [(tvar-env? %)]}
    (assoc env var (r/make-F (or fresh-var var)))))
 
-(t/ann extend-many [TVarEnv (t/Coll Symbol) (t/Nilable (t/Coll Symbol)) -> TVarEnv])
+(t/ann extend-many [TVarEnv (t/Coll t/Sym) (t/Nilable (t/Coll t/Sym)) -> TVarEnv])
 (defn extend-many
   "Extends env with vars. If fresh-vars are provided, the vars will map to them
   pairwise in the resulting environment."

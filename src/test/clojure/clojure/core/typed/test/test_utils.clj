@@ -7,6 +7,7 @@
 (t/load-if-needed)
 
 (require '[clojure.core.typed.utils :as u]
+         '[clojure.core.typed.errors :as err]
          '[clojure.core.typed.parse-unparse :refer [parse-type]]
          '[clojure.core.typed.current-impl :as impl]
          '[clojure.core.typed.type-ctors :as c]
@@ -44,8 +45,8 @@
          (t/print-errors! delayed-errors#))))
 
 (defmacro tc-err [frm & opts]
-  `(u/with-ex-info-handlers
-     [u/tc-error? (constantly true)]
+  `(err/with-ex-info-handlers
+     [err/tc-error? (constantly true)]
      (let [{delayed-errors# :delayed-errors} ~(tc-common* frm opts)]
        (boolean
          (seq delayed-errors#)))))
@@ -58,8 +59,8 @@
   `(test/is (tc-err ~@body)))
 
 (defmacro throws-tc-error? [& body]
-  `(u/with-ex-info-handlers
-     [u/tc-error? (constantly true)]
+  `(err/with-ex-info-handlers
+     [err/tc-error? (constantly true)]
      ~@body
      false))
 
@@ -106,8 +107,8 @@
   `(-> (eret ~f) r/ret-t))
 
 (defmacro caught-top-level-errors [nfn & body]
-  `(u/with-ex-info-handlers
-     [u/top-level-error? (fn [data# _#]
+  `(err/with-ex-info-handlers
+     [err/top-level-error? (fn [data# _#]
                            (~nfn (count (:errors data#))))]
      ~@body
      false))

@@ -3,10 +3,11 @@
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed :as t]
             [clojure.set :as set]
-            [clojure.core.typed.current-impl :as impl])
-  (:import (clojure.lang Seqable Symbol Keyword Var)))
+            [clojure.core.typed.current-impl :as impl]))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -25,21 +26,21 @@
 (defn -empty-var []
   (impl/the-var 'clojure.core.typed.object-rep/-empty))
 
-(t/def-alias SeqNumber Long)
+(t/defalias SeqNumber Long)
 
 ;(set! *warn-on-reflection* true)
 
 ;;; Type rep predicates
 
-(t/def-alias Type
+(t/defalias Type
   "A normal type"
   p/TCType)
 
-(t/def-alias AnyType
+(t/defalias AnyType
   "A normal type or special type like Function."
   (U Type p/TCAnyType))
 
-(t/def-alias MaybeScopedType
+(t/defalias MaybeScopedType
   "A type or a scope"
   (U Type p/IScope))
 
@@ -124,7 +125,7 @@
   :methods 
   [p/TCType])
 
-(t/def-alias Variance
+(t/defalias Variance
   "Keywords that represent a certain variance"
   (U ':constant ':covariant ':contravariant ':invariant ':dotted))
 
@@ -146,8 +147,8 @@
 ; otherwise it will resolve to an RClass, instead of a DataType.
 ; DataType should be combined with RClass in the future.
 (u/ann-record TypeFn [nbound :- Number,
-                      variances :- (U nil (Seqable Variance))
-                      bbnds :- (U nil (Seqable Bounds)),
+                      variances :- (U nil (t/Seqable Variance))
+                      bbnds :- (U nil (t/Seqable Bounds)),
                       scope :- p/IScope])
 (u/def-type Bounds [upper-bound lower-bound higher-kind]
   "A type bound or higher-kind bound on a variable"
@@ -159,7 +160,7 @@
 (u/def-type B [idx]
   "de Bruijn indexes - should never appear outside of this file.
   Bound type variables"
-  [(u/nat? idx)]
+  [(con/nat? idx)]
   :methods
   [p/TCType])
 
@@ -177,19 +178,19 @@
 ; Because of the way we check function return values, we cache this result.
 
 ; Same with bounds.
-(u/ann-record F [name :- Symbol])
+(u/ann-record F [name :- t/Sym])
 (u/def-type F [name]
   "A named free variable"
   [(symbol? name)]
   :methods
   [p/TCType])
 
-(t/ann make-F [Symbol -> F])
+(t/ann make-F [t/Sym -> F])
 (defn make-F
   "Make a free variable "
   [name] (F-maker name))
 
-(t/ann F-original-name [F -> Symbol])
+(t/ann F-original-name [F -> t/Sym])
 (defn F-original-name 
   "Get the printable name of a free variable.
   
@@ -209,7 +210,7 @@
   [p/IScope
    (scope-body [this] body)])
 
-(t/def-alias ScopedType
+(t/defalias ScopedType
   (U Type Scope))
 
 (t/ann ^:no-check scoped-Type? (predicate (U Scope Type)))
@@ -220,14 +221,14 @@
   "True if scope is has depth number of scopes nested"
   [scope depth]
   {:pre [(Scope? scope)
-         (u/nat? depth)]}
+         (con/nat? depth)]}
   (Type? (last (take (inc depth) (iterate #(and (Scope? %)
                                                 (:body %))
                                           scope)))))
 
 (u/ann-record RClass [variances :- (U nil (t/NonEmptySeqable Variance))
                       poly? :- (U nil (t/NonEmptySeqable Type))
-                      the-class :- Symbol])
+                      the-class :- t/Sym])
 (u/def-type RClass [variances poly? the-class]
   "A restricted class, where ancestors are
   (replace replacements (ancestors the-class))"
@@ -249,11 +250,11 @@
 
 (t/ann ^:no-check RClass->Class [RClass -> Class])
 (defn ^Class RClass->Class [^RClass rcls]
-  (u/symbol->Class (.the-class rcls)))
+  (coerce/symbol->Class (.the-class rcls)))
 
 (u/ann-record JSNominal [variances :- (U nil (t/NonEmptySeqable Variance))
                          poly? :- (U nil (t/NonEmptySeqable Type))
-                         name :- Symbol])
+                         name :- t/Sym])
 (u/def-type JSNominal [variances poly? name]
   "A Javascript nominal type"
   [(or (nil? variances)
@@ -269,10 +270,10 @@
   :methods
   [p/TCType])
 
-(u/ann-record DataType [the-class :- Symbol,
+(u/ann-record DataType [the-class :- t/Sym,
                         variances :- (U nil (t/NonEmptySeqable Variance)),
                         poly? :- (U nil (t/NonEmptySeqable Type)),
-                        fields :- (t/Map Symbol MaybeScopedType)
+                        fields :- (t/Map t/Sym MaybeScopedType)
                         record? :- Boolean])
 (u/def-type DataType [the-class variances poly? fields record?]
   "A Clojure datatype"
@@ -284,14 +285,14 @@
             (every? Type? poly?)))
    (= (count variances) (count poly?))
    (symbol? the-class)
-   ((u/array-map-c? symbol? (some-fn Scope? Type?)) fields)
-   (u/boolean? record?)]
+   ((con/array-map-c? symbol? (some-fn Scope? Type?)) fields)
+   (con/boolean? record?)]
   :methods
   [p/TCType])
 
 (t/ann DataType->Class [DataType -> Class])
 (defn ^Class DataType->Class [^DataType dt]
-  (u/symbol->Class (.the-class dt)))
+  (coerce/symbol->Class (.the-class dt)))
 
 (t/ann Record? [Any -> Boolean])
 (defn Record? [^DataType a]
@@ -299,11 +300,11 @@
     (when (DataType? a)
       (.record? a))))
 
-(u/ann-record Protocol [the-var :- Symbol,
+(u/ann-record Protocol [the-var :- t/Sym,
                         variances :- (U nil (t/NonEmptySeqable Variance)),
                         poly? :- (U nil (t/NonEmptySeqable Type)),
-                        on-class :- Symbol,
-                        methods :- (t/Map Symbol Type)
+                        on-class :- t/Sym,
+                        methods :- (t/Map t/Sym Type)
                         declared? :- Boolean])
 (u/def-type Protocol [the-var variances poly? on-class methods declared?]
   "A Clojure Protocol"
@@ -316,15 +317,15 @@
             (every? (some-fn Scope? Type?) poly?)))
    (= (count poly?) (count variances))
    (symbol? on-class)
-   ((u/hash-c? (every-pred symbol? (complement namespace)) (some-fn Scope? Type?)) methods)
-   (u/boolean? declared?)]
+   ((con/hash-c? (every-pred symbol? (complement namespace)) (some-fn Scope? Type?)) methods)
+   (con/boolean? declared?)]
   :methods
   [p/TCType])
 
 (u/def-type TypeFn [nbound variances bbnds scope]
   "A type function containing n bound variables with variances.
   It is of a higher kind"
-  [(u/nat? nbound)
+  [(con/nat? nbound)
    (every? variance? variances)
    (every? Bounds? bbnds)
    (apply = nbound (map count [variances bbnds]))
@@ -334,11 +335,11 @@
   [p/TCType])
 
 (u/ann-record Poly [nbound :- Number,
-                    bbnds :- (U nil (Seqable Bounds)),
+                    bbnds :- (U nil (t/Seqable Bounds)),
                     scope :- p/IScope,])
 (u/def-type Poly [nbound bbnds scope]
   "A polymorphic type containing n bound variables"
-  [(u/nat? nbound)
+  [(con/nat? nbound)
    (every? Bounds? bbnds)
    (apply = nbound (map count [bbnds]))
    (scope-depth? scope nbound)
@@ -347,11 +348,11 @@
   [p/TCType])
 
 (u/ann-record PolyDots [nbound :- Number,
-                        bbnds :- (U nil (Seqable Bounds)),
+                        bbnds :- (U nil (t/Seqable Bounds)),
                         scope :- p/IScope])
 (u/def-type PolyDots [nbound bbnds scope]
   "A polymorphic type containing n-1 bound variables and 1 ... variable"
-  [(u/nat? nbound)
+  [(con/nat? nbound)
    (every? Bounds? bbnds)
    (= nbound (count bbnds))
    (scope-depth? scope nbound)
@@ -359,7 +360,7 @@
   :methods
   [p/TCType])
 
-(u/ann-record Name [id :- Symbol])
+(u/ann-record Name [id :- t/Sym])
 (u/def-type Name [id]
   "A late bound name"
   [((every-pred symbol?
@@ -369,7 +370,7 @@
   [p/TCType])
 
 (u/ann-record TApp [rator :- Type,
-                    rands :- (Seqable Type)])
+                    rands :- (t/Seqable Type)])
 (u/def-type TApp [rator rands]
   "An application of a type function to arguments."
   [(Type? rator)
@@ -378,7 +379,7 @@
   [p/TCType])
 
 (u/ann-record App [rator :- Type,
-                   rands :- (Seqable Type)])
+                   rands :- (t/Seqable Type)])
 (u/def-type App [rator rands]
   "An application of a polymorphic type to type arguments"
   [(Type? rator)
@@ -438,31 +439,31 @@
                                 other-keys? :- Boolean])
 (u/def-type HeterogeneousMap [types optional absent-keys other-keys?]
   "A constant map, clojure.lang.IPersistentMap"
-  [((u/hash-c? Value? (some-fn Type? Result?))
+  [((con/hash-c? Value? (some-fn Type? Result?))
      types)
-   ((u/hash-c? Value? (some-fn Type? Result?))
+   ((con/hash-c? Value? (some-fn Type? Result?))
      optional)
-   ((u/set-c? Value?) absent-keys)
+   ((con/set-c? Value?) absent-keys)
    (empty? (set/intersection
              (set (keys types))
              (set (keys optional))
              absent-keys))
-   (u/boolean? other-keys?)]
+   (con/boolean? other-keys?)]
   :methods
   [p/TCType])
 
 (u/ann-record DottedPretype [pre-type :- Type,
-                             name :- (U Symbol Number)
+                             name :- (U t/Sym Number)
                              partition-count :- Number])
 (u/def-type DottedPretype [pre-type name partition-count]
   "A dotted pre-type. Not a type"
   [(Type? pre-type)
-   ((some-fn symbol? u/nat?) name)
-   (u/nat? partition-count)]
+   ((some-fn symbol? con/nat?) name)
+   (con/nat? partition-count)]
   :methods
   [p/TCAnyType])
 
-(t/ann-many [Type (U Symbol Number) -> DottedPretype]
+(t/ann-many [Type (U t/Sym Number) -> DottedPretype]
             DottedPretype1-maker
             DottedPretype2-maker)
 
@@ -495,7 +496,7 @@
   [p/TCType])
 
 (t/ann ^:no-check -hvec 
-       [(t/Vec Type) & :optional {:filters (Seqable p/IFilterSet) :objects (Seqable p/IRObject)
+       [(t/Vec Type) & :optional {:filters (t/Seqable p/IFilterSet) :objects (t/Seqable p/IRObject)
                                   :rest (U nil Type) :drest (U nil DottedPretype)} -> Type])
 (defn -hvec 
   [types & {:keys [filters objects rest drest]}]
@@ -514,7 +515,7 @@
                                  rest
                                  drest))))
 
-(u/ann-record HeterogeneousList [types :- (Seqable Type)])
+(u/ann-record HeterogeneousList [types :- (t/Seqable Type)])
 (u/def-type HeterogeneousList [types]
   "A constant list, clojure.lang.IPersistentList"
   [(sequential? types)
@@ -522,7 +523,7 @@
   :methods
   [p/TCType])
 
-(u/ann-record HeterogeneousSeq [types :- (Seqable Type)
+(u/ann-record HeterogeneousSeq [types :- (t/Seqable Type)
                                 fs :- (t/Vec p/IFilterSet)
                                 objects :- (t/Vec p/IRObject)
                                 ;variable members to the right of fixed
@@ -544,7 +545,7 @@
   [p/TCType])
 
 (t/ann ^:no-check -hseq
-       [(Seqable Type) & :optional {:filters (Seqable p/IFilterSet) :objects (Seqable p/IRObject)
+       [(t/Seqable Type) & :optional {:filters (t/Seqable p/IFilterSet) :objects (t/Seqable p/IRObject)
                                   :rest (U nil Type) :drest (U nil DottedPretype)} -> Type])
 (defn -hseq
   [types & {:keys [filters objects rest drest]}]
@@ -563,7 +564,7 @@
                               rest
                               drest))))
 
-(u/ann-record HSequential [types :- (Seqable Type)
+(u/ann-record HSequential [types :- (t/Seqable Type)
                            fs :- (t/Vec p/IFilterSet)
                            objects :- (t/Vec p/IRObject)
                            ;variable members to the right of fixed
@@ -585,7 +586,7 @@
   [p/TCType])
 
 (t/ann ^:no-check -hsequential
-       [(Seqable Type) & :optional {:filters (Seqable p/IFilterSet) :objects (Seqable p/IRObject)
+       [(t/Seqable Type) & :optional {:filters (t/Seqable p/IFilterSet) :objects (t/Seqable p/IRObject)
                                   :rest (U nil Type) :drest (U nil DottedPretype)} -> Type])
 (defn -hsequential
   [types & {:keys [filters objects rest drest]}]
@@ -627,7 +628,7 @@
   [(Type? target)
    (or (DottedPretype? dentries)
        (nil? dentries))
-   (and (every? (u/hvector-c? Type? Type?) entries)
+   (and (every? (con/hvector-c? Type? Type?) entries)
         (sequential? entries))
    (not (and entries dentries))]
   :methods
@@ -678,7 +679,7 @@
                       optional  :- (t/Map Type Type)])
 (u/def-type KwArgs [mandatory optional]
   "A set of mandatory and optional keywords"
-  [(every? (u/hash-c? Value? Type?) [mandatory optional])
+  [(every? (con/hash-c? Value? Type?) [mandatory optional])
    (= #{} (set/intersection (set (keys mandatory)) 
                             (set (keys optional))))])
 
@@ -688,11 +689,11 @@
                          complete? :- Boolean])
 (u/def-type KwArgsSeq [mandatory optional nilable-non-empty? complete?]
   "A sequential seq representing a flattened map (for keyword arguments)."
-  [(every? (u/hash-c? Value? Type?) [mandatory optional])
+  [(every? (con/hash-c? Value? Type?) [mandatory optional])
    (= #{} (set/intersection (set (keys mandatory)) 
                             (set (keys optional))))
-   (u/boolean? nilable-non-empty?)
-   (u/boolean? complete?)]
+   (con/boolean? nilable-non-empty?)
+   (con/boolean? complete?)]
   :methods
   [p/TCType])
 
@@ -724,7 +725,7 @@
                       o :- p/IRObject
                       flow :- FlowSet])
 
-(u/ann-record Function [dom :- (U nil (Seqable Type)),
+(u/ann-record Function [dom :- (U nil (t/Seqable Type)),
                         rng :- Result,
                         rest :- (U nil Type)
                         drest :- (U nil DottedPretype)
@@ -767,9 +768,9 @@
 (u/def-type CountRange [lower upper]
   "A sequence of count between lower (inclusive) and upper (inclusive).
   If upper is nil, between lower and infinity."
-  [(u/nat? lower)
+  [(con/nat? lower)
    (or (nil? upper)
-       (and (u/nat? upper)
+       (and (con/nat? upper)
             (<= lower upper)))]
   :methods
   [p/TCType])
@@ -796,7 +797,7 @@
 
 (t/ann make-ExactCountRange (Fn [Number -> CountRange]))
 (defn make-ExactCountRange [c]
-  {:pre [(u/nat? c)]}
+  {:pre [(con/nat? c)]}
   (make-CountRange c c))
 
 (declare Result-maker)
@@ -837,7 +838,7 @@
   [p/TCType])
 
 (u/ann-record Extends [extends :- (t/NonEmptySeqable Type)
-                       without :- (U nil (Seqable Type))])
+                       without :- (U nil (t/Seqable Type))])
 (u/def-type Extends [extends without]
   "A set of ancestors that always and never occur."
   [(every? Type? extends)
@@ -1019,9 +1020,9 @@
      (Result-maker t (or f (-FS -top -top)) (or o -empty) (or flow (-flow -top))))))
 
 (t/ann ^:no-check make-Function
-       (Fn [(U nil (Seqable Type)) Type -> Function]
-           [(U nil (Seqable Type)) Type (U nil Type) -> Function]
-           [(U nil (Seqable Type)) Type (U nil Type) (U nil Type) 
+       (Fn [(U nil (t/Seqable Type)) Type -> Function]
+           [(U nil (t/Seqable Type)) Type (U nil Type) -> Function]
+           [(U nil (t/Seqable Type)) Type (U nil Type) (U nil Type) 
             & :optional 
               {:filter (U nil p/IFilterSet) :object (U nil p/IRObject)
                :flow (U nil FlowSet)

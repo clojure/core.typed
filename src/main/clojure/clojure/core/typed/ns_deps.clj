@@ -1,14 +1,14 @@
 (ns ^:skip-wiki clojure.core.typed.ns-deps
-  (:require [clojure.core.typed :as t :refer [fn>]]
-            [clojure.core.typed.utils :as u]
-            [clojure.set :as set])
-  (:import (clojure.lang IPersistentMap Symbol IPersistentSet)))
+  (:require [clojure.core.typed :as t]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.nilsafe-utils :as nilsafe]
+            [clojure.set :as set]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
-(t/def-alias DepMap
+(t/defalias DepMap
   "A map declaring possibly-circular namespace dependencies."
-  (t/Map Symbol (t/Set Symbol)))
+  (t/Map t/Sym (t/Set t/Sym)))
 
 (t/ann init-deps [-> DepMap])
 (defn init-deps [] 
@@ -28,7 +28,7 @@
   *current-deps*)
 
 (t/ann ^:no-check dep-map? [Any -> Any])
-(def dep-map? (u/hash-c? symbol? (u/set-c? symbol?)))
+(def dep-map? (con/hash-c? symbol? (con/set-c? symbol?)))
 
 (t/ann ^:no-check CLJ-TYPED-DEPS (t/Atom1 DepMap))
 (defonce CLJ-TYPED-DEPS (atom (init-deps) :validator dep-map?))
@@ -36,20 +36,20 @@
 (t/ann ^:no-check CLJS-TYPED-DEPS (t/Atom1 DepMap))
 (defonce CLJS-TYPED-DEPS (atom (init-deps) :validator dep-map?))
 
-(t/ann ^:no-check add-ns-deps [Symbol (t/Set Symbol) -> DepMap])
+(t/ann ^:no-check add-ns-deps [t/Sym (t/Set t/Sym) -> DepMap])
 (defn add-ns-deps [nsym deps]
   (assert-dep-map)
-  (swap! (current-deps) update-in [nsym] u/set-union deps))
+  (swap! (current-deps) update-in [nsym] nilsafe/set-union deps))
 
-(t/ann ^:no-check remove-ns-deps [Symbol (t/Set Symbol) -> DepMap])
+(t/ann ^:no-check remove-ns-deps [t/Sym (t/Set t/Sym) -> DepMap])
 (defn remove-ns-deps [nsym deps]
   (assert-dep-map)
-  (swap! (current-deps) update-in [nsym] u/set-difference deps))
+  (swap! (current-deps) update-in [nsym] nilsafe/set-difference deps))
 
-(t/ann ^:no-check immediate-deps [Symbol -> (t/Set Symbol)])
+(t/ann ^:no-check immediate-deps [t/Sym -> (t/Set t/Sym)])
 (defn immediate-deps [target-ns]
   {:pre [(symbol? target-ns)]
-   :post [((u/set-c? symbol?) %)]}
+   :post [((con/set-c? symbol?) %)]}
   (assert-dep-map)
   (or (@(current-deps) target-ns)
       #{}))

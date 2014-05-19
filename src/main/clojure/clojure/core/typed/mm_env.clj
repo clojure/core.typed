@@ -1,5 +1,6 @@
 (ns ^:skip-wiki clojure.core.typed.mm-env
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.parse-unparse :as prs]))
@@ -12,7 +13,7 @@
 
 ; (Atom (Seqable (IPersistentMap Symbol '{:fn-type Type, :dispatch-result (U nil Type)})))
 (defonce MULTIMETHOD-DISPATCH-ENV (atom initial-mm-dispatch-env
-                                        :validator (u/hash-c?
+                                        :validator (con/hash-c?
                                                      (every-pred symbol? namespace)
                                                      r/Type?)))
 
@@ -29,9 +30,10 @@
          (r/Type? dtype)]}
   (impl/assert-clojure)
   (when-let [old (@MULTIMETHOD-DISPATCH-ENV mmsym)]
-    (assert (= old dtype)
-            (str "Inconsistent dispatch type inferred for multimethod: " mmsym
-                 ".  JVM process restart probably necessary.")))
+    (when-not (= old dtype)
+      (err/int-error 
+        (str "Inconsistent dispatch type inferred for multimethod: " mmsym
+             ".  JVM process restart probably necessary."))))
   (swap! MULTIMETHOD-DISPATCH-ENV assoc mmsym dtype)
   nil)
 
@@ -48,5 +50,6 @@
    :post [(r/Type? %)]}
   (impl/assert-clojure)
   (let [t (@MULTIMETHOD-DISPATCH-ENV mmsym)]
-    (assert t (str "Multimethod requires dispatch type: " mmsym))
+    (when-not t 
+      (err/int-error (str "Multimethod requires dispatch type: " mmsym)))
     t))

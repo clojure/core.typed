@@ -1,12 +1,13 @@
 (ns ^:skip-wiki clojure.core.typed.lex-env
   (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.filter-rep :as fr]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
 ;(ann (predicate (APersistentMap Symbol Any)))
-(def lex-env? (u/hash-c? (every-pred symbol? (complement namespace)) r/Type?))
+(def lex-env? (con/hash-c? (every-pred symbol? (complement namespace)) r/Type?))
 
 (u/defrecord PropEnv [l props]
   "A lexical environment l, props is a list of known propositions"

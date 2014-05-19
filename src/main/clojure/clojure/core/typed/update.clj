@@ -2,6 +2,8 @@
   (:require [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.parse-unparse :as prs]
@@ -51,7 +53,7 @@
 (defn combine-props [new-props old-props flag]
   {:pre [(every? fl/Filter? (concat new-props old-props))
          (instance? clojure.lang.Atom flag)
-         (u/boolean? @flag)]
+         (con/boolean? @flag)]
    :post [(let [[derived-props derived-atoms] %]
             (and (every? (some-fn fl/ImpFilter? fl/OrFilter? fl/AndFilter?) derived-props)
                  (every? (some-fn fl/TypeFilter? fl/NotTypeFilter?) derived-atoms)))]}
@@ -278,7 +280,7 @@
                                   r/-any)))
             ;_ (prn "subst for Keys/Vals" subst)
             _ (when-not subst
-                (u/int-error (str "Cannot update " (if (pe/KeysPE? fstpth) "keys" "vals") " of an "
+                (err/int-error (str "Cannot update " (if (pe/KeysPE? fstpth) "keys" "vals") " of an "
                                   "IPersistentMap with type: " (pr-str (prs/unparse-type u)))))
             element-t-subst (get subst x)
             _ (assert (crep/t-subst? element-t-subst))
@@ -296,7 +298,7 @@
           t))
 
 
-      :else (u/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (with-out-str (pr lo))))))))
+      :else (err/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (with-out-str (pr lo))))))))
 
 ; f can be a composite filter. bnd-env is a the :l of a PropEnv
 ; ie. a map of symbols to types
@@ -407,9 +409,9 @@
 (defn env+ [env fs flag]
   {:pre [(lex/PropEnv? env)
          (every? fl/Filter? fs)
-         (u/boolean? @flag)]
+         (con/boolean? @flag)]
    :post [(lex/PropEnv? %)
-          (u/boolean? @flag)]}
+          (con/boolean? @flag)]}
   #_(prn 'env+ fs)
   (let [[props atoms] (combine-props fs (:props env) flag)]
     (reduce (fn [env f]
