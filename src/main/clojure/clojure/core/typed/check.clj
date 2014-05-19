@@ -3457,6 +3457,24 @@
                            (fo/-FS fl/-top fl/-bot) 
                            obj/-empty))))
 
+(defn reconstruct-arglist [method required-params rest-param]
+  (impl/impl-case
+    :clojure (case (:op method) 
+               :fn-method (assoc method
+                                 :params (vec (concat required-params
+                                                      (when rest-param
+                                                        [rest-param]))))
+               :method (do (assert (nil? rest-param))
+                           (assert (seq required-params))
+                           (assoc method
+                                  :this (first required-params)
+                                  :params (vec (rest required-params)))))
+    :cljs (assoc method
+                 :params (vec (concat required-params
+                                      (when rest-param
+                                        [rest-param]))))))
+
+
 (defn method-required-params [method]
   (impl/impl-case
     ; :variadic? in tools.analyzer
@@ -3600,16 +3618,20 @@
         ;                    (:props lex/*lexical-env*))
 
         props (:props lex/*lexical-env*)
-        fixed-entry (map vector 
-                         (map :name required-params)
-                         (concat dom 
-                                 (repeat (or rest (:pre-type drest)))))
+        crequired-params (map (fn [p t] (assoc p expr-type (ret t)))
+                              required-params
+                              (concat dom 
+                                      (repeat (or rest (:pre-type drest)))))
+        _ (assert (every? (comp TCResult? expr-type) crequired-params))
+        fixed-entry (map (juxt :name (comp ret-t expr-type)) crequired-params)
         ;_ (prn "checking function:" (prs/unparse-type expected))
         check-fn-method1-rest-type *check-fn-method1-rest-type*
         _ (assert check-fn-method1-rest-type "No check-fn bound for rest type")
-        rest-entry (when rest-param
-                     [[(:name rest-param)
-                       (check-fn-method1-rest-type (drop (count required-params) dom) rest drest kws)]])
+        crest-param (when rest-param
+                      (assoc rest-param
+                             expr-type (check-fn-method1-rest-type (drop (count crequired-params) dom) rest drest kws)))
+        rest-entry (when crest-param
+                     [[(:name crest-param) (ret-t (expr-type crest-param))]])
         ;_ (prn "rest entry" rest-entry)
         _ (assert ((u/hash-c? symbol? Type?) (into {} fixed-entry))
                   (into {} fixed-entry))
@@ -3709,9 +3731,12 @@
                             (when (and drest rest-param) 
                               [rest-param-name drest])
                             (expr-type crng)))
-        cmethod (assoc method
-                       (method-body-kw) crng
-                       ::t/ftype ftype)]
+        cmethod (-> (assoc method
+                           (method-body-kw) crng
+                           ::t/ftype ftype)
+                    (reconstruct-arglist crequired-params crest-param))
+        _ (assert (vector? (:params cmethod)))
+        _ (assert (every? (comp TCResult? expr-type) (:params cmethod)))]
      {:ftype ftype
       :cmethod cmethod})))
 
