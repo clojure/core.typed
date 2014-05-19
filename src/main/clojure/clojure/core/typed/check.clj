@@ -295,7 +295,7 @@
     flow))
 
 (defn check-value
-  [{:keys [val] :as expr} & [expected]]
+  [{:keys [val] :as expr} expected]
   {:pre [(#{:const} (:op expr))]
    :post [(-> % expr-type TCResult?)]}
   (let [actual-type (const/constant-type val)
@@ -314,10 +314,13 @@
                             obj/-empty
                             flow)))))
 
-(add-check-method :const [& args] (apply check-value args))
+(add-check-method :const [expr & [expected]] (check-value expr expected))
+
 (add-check-method :quote [{:keys [expr] :as quote-expr} & [expected]] 
-  (assoc (check-value expr expected)
-         :op :quote))
+  (let [cexpr (check expr expected)]
+    (assoc quote-expr
+           :expr cexpr
+           expr-type (expr-type cexpr))))
 
 ;(ann expected-vals [(Coll Type) (Nilable TCResult) -> (Coll (Nilable TCResult))])
 (defn expected-vals
