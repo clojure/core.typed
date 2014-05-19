@@ -128,3 +128,15 @@
   `(clj
      (c/overlap (parse-type '~s1) (parse-type '~s2))))
 
+(defmacro tc-t [form]
+  `(let [{delayed-errors# :delayed-errors ret# :ret}
+         (impl/with-clojure-impl
+           (t/check-form-info '~form))]
+     (if-let [errors# (seq delayed-errors#)]
+       (t/print-errors! errors#)
+       ret#)))
+
+(defmacro tc [form]
+  `(impl/with-clojure-impl
+     (t/check-form* '~form)))
+

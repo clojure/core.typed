@@ -3,7 +3,7 @@
             [clojure.core.typed.analyze-cljs :as ana]
             [clojure.core.typed.type-rep :as r :refer [ret]]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.check :as chk]
+            [clojure.core.typed.check.utils :as chk]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.util-vars :as uvar]
             [clojure.core.typed.name-env :as nme-env]

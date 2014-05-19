@@ -1,6 +1,7 @@
 (ns clojure.core.typed.test.rbt-test
   (:refer-clojure :exclude [and])
-  (:require [clojure.core.typed :refer [ann inst cf fn> pfn> def-alias declare-names
+  (:require [clojure.core.typed.test.test-utils :refer :all]
+            [clojure.core.typed :refer [ann inst cf fn> pfn> def-alias declare-names
                                         print-env print-filterset check-ns typed-deps
                                         ann-form]]
             [clojure.core.typed.test.rbt-types]
@@ -13,7 +14,8 @@
             [clojure.core.typed.object-rep :refer :all]
             [clojure.core.typed.path-rep :refer :all]
             [clojure.core.typed.parse-unparse :refer :all]
-            [clojure.core.typed.check :as chk :refer [update tc-t]]
+            [clojure.core.typed.check :as chk]
+            [clojure.core.typed.update :as update]
             [clojure.repl :refer [pst]]
             [clojure.test :refer :all]))
 
@@ -43,7 +45,7 @@
 )
 
 (deftest update-nested-hmap-test
-  #_(is-check-rbt (= (update (-hmap {(-val :left) (Name-maker 'clojure.core.typed.test.rbt-types/rbt)})
+  #_(is-check-rbt (= (update/update (-hmap {(-val :left) (Name-maker 'clojure.core.typed.test.rbt-types/rbt)})
                              (-filter (-val :Red) 'id [(->KeyPE :left) (->KeyPE :tree)]))
                    (-hmap {(-val :left) 
                            (-hmap {(-val :tree) (-val :Red) 
@@ -117,7 +119,7 @@
 
 (defmacro update-badRight-tmap [fl]
   `(check-rbt
-     (-> (clojure.core.typed.check/update-composite
+     (-> (update/update-composite
            {'~'tmap (parse-type '~'clojure.core.typed.test.rbt-types/badRight)}
            (parse-filter
              '~fl))

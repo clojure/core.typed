@@ -11,7 +11,7 @@
             [clojure.core.typed.ns-options :as ns-opts]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as uvar]
-            [clojure.core.typed.check :as chk]
+            [clojure.core.typed.check.utils :as chk]
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.free-ops :as free-ops]

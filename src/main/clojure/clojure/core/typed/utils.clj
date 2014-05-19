@@ -11,8 +11,9 @@
             [clojure.core.typed.profiling :as profiling]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
-            [clojure.java.io :as io])
-  (:import (clojure.lang PersistentArrayMap Var Symbol)))
+            [clojure.java.io :as io]
+            [clojure.reflect :as reflect])
+  (:import (clojure.lang PersistentArrayMap Var Symbol RT)))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -363,7 +364,7 @@
     double Double/TYPE
     boolean Boolean/TYPE
     char Character/TYPE
-    (clojure.lang.RT/classForName (str sym)))))
+    (RT/classForName (str sym)))))
 
 (t/ann Class->symbol [Class -> Symbol])
 (defn Class->symbol [^Class cls]
@@ -616,4 +617,49 @@
            %)]}
   (let [p (ns->file nsym)]
     (io/resource p)))
+
+(defn reflect
+  [obj & options]
+  (apply reflect/type-reflect (if (class? obj) obj (class obj))
+         :reflector (reflect/->JavaReflector (RT/baseLoader))
+         options))
+
+(defn reflect-friendly-sym [cls]
+  (-> (reflect/typename cls)
+      (str/replace "[]" "<>")
+      symbol))
+
+(defn pprint-reflection-sym [cls]
+  (-> (reflect/typename cls)
+      (str/replace "<>" "[]")
+      symbol))
+
+(def expr-type :clojure.core.typed.check/expr-type)
+
+;(t/ann tc-warning [Any * -> nil])
+(defn tc-warning [& ss]
+  (let [env uvs/*current-env*]
+    (binding [*out* *err*]
+      (apply println "WARNING: Type Checker: "
+             (str "(" (-> env :ns :name) ":" (:line env) 
+                  (when-let [col (:column env)]
+                    (str ":"col))
+                  ") ")
+             ss)
+      (flush))))
+
+(defn ctor-Class->symbol 
+  "Returns a symbol representing this constructor's Class, removing any compiler stubs."
+  [cls]
+  (Class->symbol cls))
+
+;[MethodExpr -> (U nil NamespacedSymbol)]
+(defn MethodExpr->qualsym [{c :class :keys [op method] :as expr}]
+  {:pre [(#{:static-call :instance-call} op)]
+   :post [((some-fn nil? symbol?) %)]}
+  (when c
+    (assert (class? c))
+    (assert (symbol? method))
+    (symbol (str (Class->symbol c)) (str method))))
+
 )

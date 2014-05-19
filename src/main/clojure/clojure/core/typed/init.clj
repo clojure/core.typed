@@ -66,6 +66,7 @@
                  '[clojure.core.typed.subtype]
                  '[clojure.core.typed.array-ops]
                  '[clojure.core.typed.check]
+                 '[clojure.core.typed.file-mapping]
                  '[clojure.core.typed.collect-phase]
                  '[clojure.core.typed.base-env]
                  '[clojure.core.typed.ns-deps]

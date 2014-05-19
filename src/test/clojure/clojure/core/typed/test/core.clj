@@ -10,10 +10,12 @@
             [clojure.data :refer [diff]]
             [clojure.core.typed.unsafe]
             [clojure.core.typed.init]
-            [clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error?]]
+            [clojure.core.typed.utils :as u :refer [with-ex-info-handlers top-level-error? expr-type]]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.check :as chk :refer [expr-type tc-t combine-props env+ update check-funapp
-                                                      tc-equiv]]
+            [clojure.core.typed.check :as chk :refer [check-funapp]]
+            [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.update :as update :refer [env+ update]]
+            [clojure.core.typed.tc-equiv :refer [tc-equiv]]
             [clojure.core.typed.collect-phase :as collect]
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.subtype :as sub]
@@ -371,7 +373,7 @@
   (is-clj (implied-atomic? (-not-filter -false 'a)(-not-filter (Un -nil -false) 'a))))
 
 (deftest combine-props-test
-  (is-clj (= (map set (combine-props [(->ImpFilter (-not-filter -false 'a)
+  (is-clj (= (map set (update/combine-props [(->ImpFilter (-not-filter -false 'a)
                                                (-filter -true 'b))]
                                  [(-not-filter (Un -nil -false) 'a)]
                                  (atom true)))

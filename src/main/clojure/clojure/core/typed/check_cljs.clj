@@ -1,10 +1,11 @@
 (ns clojure.core.typed.check-cljs
   (:require [clojure.core.typed]
-            [clojure.core.typed.check :as chk :refer [expr-type]]
+            [clojure.core.typed.check :as chk]
+            [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.utils :as u :refer [def-type]]
+            [clojure.core.typed.utils :as u :refer [def-type expr-type]]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.parse-unparse :as prs]
@@ -182,7 +183,7 @@
                   (c/resolve-Name t)
                   t))
         _ (assert ((some-fn r/Poly? r/PolyDots?) ptype))
-        targs (binding [prs/*parse-type-in-ns* (chk/expr-ns expr)]
+        targs (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                 (doall (map prs/parse-type (:form targs-expr))))]
     (assoc expr
            expr-type (ret (inst/manual-inst ptype targs)))))
@@ -192,7 +193,7 @@
   (assert (= (count args) 2))
   (binding [vs/*current-expr* expr
             vs/*current-env* (:env expr)]
-    (let [current-ns (chk/expr-ns expr)
+    (let [current-ns (cu/expr-ns expr)
           given-type (prs/with-parse-ns current-ns
                        (prs/parse-type typ-syn))
           cform (check the-expr (ret given-type))
@@ -209,7 +210,7 @@
 
 (defmethod invoke-special 'cljs.core.typed/loop>-ann
   [{[expr {expected-bnds-syn :form}] :args :as dummy-expr} & [expected]]
-  (let [expected-bnds (binding [prs/*parse-type-in-ns* (chk/expr-ns dummy-expr)]
+  (let [expected-bnds (binding [prs/*parse-type-in-ns* (cu/expr-ns dummy-expr)]
                         (mapv prs/parse-type expected-bnds-syn))]
     ;loop may be nested, type the first loop found
     (binding [chk/*loop-bnd-anns* expected-bnds]
@@ -290,7 +291,7 @@
                            (assert ((some-fn list? seq?) ann) 
                                    (str "Annotations must be quoted: " m))
                            (reset! found-meta? true)
-                           (prs/with-parse-ns (chk/expr-ns expr)
+                           (prs/with-parse-ns (cu/expr-ns expr)
                              (prs/parse-type ann)))
                          r/-any))
         manual-annot (doall

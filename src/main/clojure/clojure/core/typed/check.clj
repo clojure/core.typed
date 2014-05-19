@@ -1,9 +1,12 @@
 (ns ^:skip-wiki 
   ^{:core.typed {:collect-only true}}
   clojure.core.typed.check
-  (:refer-clojure :exclude [defrecord update])
+  (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed :as t :refer [*already-checked* letfn>]]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.utils :as u :refer [expr-type]]
+            [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.check.case :as case]
+            [clojure.core.typed.update :as update]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-rep :as r :refer [ret-t ret-f ret-o ret TCResult? Type?]]
@@ -40,6 +43,7 @@
             [clojure.core.typed.method-override-env :as mth-override]
             [clojure.core.typed.ctor-override-env :as ctor-override]
             [clojure.core.typed.analyze-clj :as ana-clj]
+            [clojure.core.typed.tc-equiv :as equiv]
             [clojure.tools.analyzer.ast :as ast-ops]
             [clojure.core.typed.ns-deps :as ns-deps]
             [clojure.core.typed.ns-options :as ns-opts]
@@ -48,45 +52,25 @@
             [clojure.math.combinatorics :as comb]
             [clojure.repl :as repl]
             [clojure.string :as str]
-            [clojure.set :as set]
-            [clojure.reflect :as reflect])
+            [clojure.set :as set])
   (:import (clojure.core.typed.lex_env PropEnv)
            (clojure.core.typed.type_rep Function FnIntersection RClass Poly DottedPretype HeterogeneousSeq
                                         Value KwArgs HeterogeneousMap DataType TCResult HeterogeneousVector
                                         FlowSet Union)
            (clojure.core.typed.object_rep Path)
            (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet AndFilter OrFilter)
-           (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq IPersistentVector
-                         Reflector PersistentHashSet Symbol RT)))
+           (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq
+                         PersistentHashSet)))
 
-(defn reflect
-  [obj & options]
-  (apply reflect/type-reflect (if (class? obj) obj (class obj))
-         :reflector (reflect/->JavaReflector (RT/baseLoader))
-         options))
 (alter-meta! *ns* assoc :skip-wiki true)
 
-(set! *warn-on-reflection* true)
-
-(t/ann ^:no-check clojure.core.typed.parse-unparse/*unparse-type-in-ns* (U nil Symbol))
-(t/ann ^:no-check clojure.core.typed/*already-checked* (U nil (t/Atom1 (t/Vec Symbol))))
+(t/ann ^:no-check clojure.core.typed.parse-unparse/*unparse-type-in-ns* (U nil t/Sym))
+(t/ann ^:no-check clojure.core.typed/*already-checked* (U nil (t/Atom1 (t/Vec t/Sym))))
 
 ;==========================================================
 ; # Type Checker
 ;
 ; The type checker is implemented here.
-
-(t/ann tc-warning [Any * -> nil])
-(defn tc-warning [& ss]
-  (let [env vs/*current-env*]
-    (binding [*out* *err*]
-      (apply println "WARNING: Type Checker: "
-             (str "(" (-> env :ns :name) ":" (:line env) 
-                  (when-let [col (:column env)]
-                    (str ":"col))
-                  ") ")
-             ss)
-      (flush))))
 
 (t/ann error-ret [(U nil TCResult) -> TCResult])
 (defn error-ret 
@@ -99,32 +83,30 @@
              (ret-t expected))
            (r/TCError-maker))))
 
-(declare expr-ns)
-
 ;(t/ann expected-error [r/Type r/Type -> nil])
 (defn expected-error [actual expected]
   (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
                            (when vs/*current-expr*
-                             (expr-ns vs/*current-expr*)))
+                             (cu/expr-ns vs/*current-expr*)))
     (u/tc-delayed-error (str "Type mismatch:"
                              "\n\nExpected: \t" (pr-str (prs/unparse-type expected))
                              "\n\nActual: \t" (pr-str (prs/unparse-type actual))))))
 
 (declare check-expr)
 
-(t/ann checked-ns! [Symbol -> nil])
+(t/ann checked-ns! [t/Sym -> nil])
 (defn- checked-ns! [nsym]
   (t/when-let-fail [a *already-checked*]
     (swap! a conj nsym))
   nil)
 
-(t/ann already-checked? [Symbol -> Boolean])
+(t/ann already-checked? [t/Sym -> Boolean])
 (defn- already-checked? [nsym]
   (t/when-let-fail [a *already-checked*]
     (boolean (@a nsym))))
 
 
-(t/ann check-ns-and-deps [Symbol -> nil])
+(t/ann check-ns-and-deps [t/Sym -> nil])
 (defn check-ns-and-deps 
   "Type check a namespace and its dependencies.
   Assumes type annotations in each namespace
@@ -166,97 +148,8 @@
                    ]
          nil)))))))))
 
-(def expr-type ::expr-type)
-
-; (Vec '{:ftype Type :fn-expr Expr})
-(def ^:private ^:dynamic *fn-stack* [])
-(set-validator! #'*fn-stack* vector?)
-
-(declare fn-self-name method-body-kw)
-
-;(defalias InfoEntry '{:msg String :fn-stack (Vec {:ftype Type :fn-expr Expr})}
-;(defalias MappingKey '{:line Int :column Int :file Str})
-;(defalias InfoMap (Map MappingKey (Vec InfoEntry))
-
-;[Expr -> InfoMap]
-(defn ast->info-map 
-  [ast]
-  (letfn [(mapping-key [{:keys [env] :as ast}]
-            (let [ks [:line :column :file]]
-              (when ((apply every-pred ks) env)
-                (select-keys env ks))))]
-    (case (:op ast)
-      ; Functions can be checked any number of times. Each
-      ; check is stored in the ::t/cmethods entry.
-      :fn (let [method-mappings (for [method (::t/cmethods ast)]
-                                  (let [ftype (::t/ftype method)
-                                        _ (assert (r/Function? ftype))
-                                        ;floc (mapping-key ast)
-                                        ;_ (assert floc (select-keys (:env ast) [:line :file :column]))
-                                        ]
-                                    (binding [*fn-stack* (conj *fn-stack* {;:loc floc
-                                                                           :name (fn-self-name ast)
-                                                                           :ftype ftype})]
-                                      (ast->info-map ((method-body-kw) method)))))]
-            (merge
-              (apply merge-with
-                     (fn [a b] (vec (concat a b)))
-                     method-mappings)
-              (when-let [k (mapping-key ast)]
-                {k [{:expr ast
-                     :fn-stack *fn-stack*}]})))
-      (apply merge 
-             (concat (map ast->info-map (ast-ops/children ast))
-                     (when-let [k (mapping-key ast)]
-                       [{k [{:expr ast
-                             :fn-stack *fn-stack*}]}]))))))
-
-(declare expr-ns)
-
-;(defalias MsgMap (Map MappingKey Str))
-
-;[InfoMap -> MsgMap]
-(defn info-map->msg-map [info-map]
-  (into {} (for [[k v] info-map]
-             (let [msg (if (< 1 (count v))
-                         (let [ms (seq
-                                    (filter identity
-                                            (map (fn [{:keys [expr fn-stack]}]
-                                                   (let [r (expr-type expr)]
-                                                     (when (r/TCResult? r)
-                                                       (prs/with-unparse-ns (expr-ns expr)
-                                                         (str
-                                                           "In context size " (count fn-stack) ":\n\t"
-                                                           (pr-str (prs/unparse-type (ret-t r)))
-                                                           "\n")))))
-                                                 v)))]
-                           (when ms
-                             (apply str ms)))
-                         (let [{:keys [expr]} (first v)
-                               r (expr-type expr)]
-                           (prs/with-unparse-ns (expr-ns expr)
-                             (when (r/TCResult? r)
-                               (pr-str (prs/unparse-type (ret-t r)))))))]
-               (when msg
-                 [k msg])))))
-
-(defn ast->file-mapping [ast]
-  (-> ast ast->info-map info-map->msg-map))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker
-
-(t/ann expr-ns [Any -> Symbol])
-(defn expr-ns [expr]
-  {:post [(symbol? %)]}
-  (impl/impl-case
-    :clojure (let [nsym (get-in expr [:env :ns])
-                   _ (assert (symbol? nsym) (str "Bug! " (:op expr) " expr has no associated namespace"
-                                                 nsym))]
-               (ns-name nsym))
-    :cljs (or (-> expr :env :ns :name)
-              (do (prn "WARNING: No associated ns for ClojureScript expr, defaulting to cljs.user")
-                  'cljs.user))))
 
 (defmulti check (fn [expr & [expected]]
                   {:pre [((some-fn nil? TCResult?) expected)]}
@@ -276,18 +169,6 @@
         (expected-error (-> expr expr-type ret-t)
                         (-> expected ret-t))))
     expr)))
-
-(defmacro tc-t [form]
-  `(let [{delayed-errors# :delayed-errors ret# :ret}
-         (impl/with-clojure-impl
-           (t/check-form-info '~form))]
-     (if-let [errors# (seq delayed-errors#)]
-       (t/print-errors! errors#)
-       ret#)))
-
-(defmacro tc [form]
-  `(impl/with-clojure-impl
-     (t/check-form* '~form)))
 
 (defn flow-for-value []
   (let [props (.props ^PropEnv lex/*lexical-env*)
@@ -637,7 +518,7 @@
 
 (declare subst-type)
 
-;[Filter (U Number Symbol) RObject Boolean -> Filter]
+;[Filter (U Number t/Sym) RObject Boolean -> Filter]
 (defn subst-filter [f k o polarity]
   {:pre [(fl/Filter? f)
          (fl/name-ref? k)
@@ -774,7 +655,7 @@
                                                                                [(st k) (st v)])))))))))
 
 
-;[Type (U Symbol Number) RObject Boolean -> Type]
+;[Type (U t/Sym Number) RObject Boolean -> Type]
 (defn subst-type [t k o polarity]
   {:pre [(r/AnyType? t)
          (fl/name-ref? k)
@@ -963,8 +844,6 @@
         [t-r f-r o-r flow-r] (open-Result rng o-a t-a)]
     (ret t-r f-r o-r flow-r)))
 
-(declare MethodExpr->qualsym)
-
 ;[Expr (Seqable Expr) (Seqable TCResult) (Option TCResult) Boolean
 ; -> Any]
 (defn ^String app-type-error [fexpr args ^FnIntersection fin arg-ret-types expected poly?]
@@ -991,12 +870,12 @@
         static-method? (= :static-call (:op fexpr))
         instance-method? (= :instance-call (:op fexpr))
         method-sym (when (or static-method? instance-method?)
-                     (MethodExpr->qualsym fexpr))]
+                     (u/MethodExpr->qualsym fexpr))]
     (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
                              (or (when fexpr
-                                   (expr-ns fexpr))
+                                   (cu/expr-ns fexpr))
                                  (when vs/*current-expr*
-                                   (expr-ns vs/*current-expr*))))
+                                   (cu/expr-ns vs/*current-expr*))))
       (u/tc-delayed-error
         (str
           (if poly?
@@ -1117,7 +996,7 @@
         arg-types (mapv ret-t arg-ret-types)]
     (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
                              (when fexpr
-                               (expr-ns fexpr)))
+                               (cu/expr-ns fexpr)))
     ;(prn "check-funapp" (prs/unparse-type fexpr-type) (map prs/unparse-type arg-types))
     (cond
       ;; a union of functions can be applied if we can apply all of the elements
@@ -1447,50 +1326,9 @@
                           (fo/-true-filter)
                           obj/-empty))))
 
-;[Any TCResult * -> TCResult]
-(defn tc-equiv [comparator & vs]
-  {:pre [(every? TCResult? vs)]
-   :post [(TCResult? %)]}
-  (assert (#{:=} comparator))
-  (assert (seq vs))
-  (let [; TODO sequence behaviour is subtle
-        ; conservative for now
-        equiv-able (fn [t]
-                     (boolean
-                       (when (r/Value? t)
-                         ((some-fn number? symbol? keyword? nil? true? false? class?) (.val ^Value t)))))
-        vs-combinations (comb/combinations vs 2)
-        ;_ (prn vs-combinations)
-        then-filter (apply fo/-and (apply concat
-                                          (for [[{t1 :t fl1 :fl o1 :o}
-                                                 {t2 :t fl2 :fl o2 :o}] vs-combinations]
-                                            (concat
-                                              (when (equiv-able t1) 
-                                                [(fo/-filter-at t1 o2)])
-                                              (when (equiv-able t2) 
-                                                [(fo/-filter-at t2 o1)])))))
-        ;_ (prn then-filter)
-        else-filter (apply fo/-or 
-                           (if-let [fs (seq (apply concat
-                                                   (for [[{t1 :t fl1 :fl o1 :o}
-                                                          {t2 :t fl2 :fl o2 :o}] vs-combinations]
-                                                     (concat
-                                                       (when (equiv-able t1) 
-                                                         [(fo/-not-filter-at t1 o2)])
-                                                       (when (equiv-able t2) 
-                                                         [(fo/-not-filter-at t2 o1)])))))]
-                             fs
-                             ; ensure we don't simplify to ff if we have more than one
-                             ; argument to = (1 arg is always a true value)
-                             (when (< 1 (count vs))
-                               [fl/-top])))
-        ;_ (prn else-filter)
-        ]
-    (ret (c/Un r/-false r/-true)
-         (fo/-FS then-filter else-filter))))
 
 (comment
-  (tc-equiv (ret (r/-val :if))
+  (equiv/tc-equiv (ret (r/-val :if))
             (ret (prs/parse-type '(U ':if ':case))
                  ))
 
@@ -1514,10 +1352,10 @@
 
 (defmulti static-method-special (fn [expr & args]
                                   {:post [((some-fn nil? symbol?) %)]}
-                                  (MethodExpr->qualsym expr)))
+                                  (u/MethodExpr->qualsym expr)))
 (defmulti instance-method-special (fn [expr & args]
                                     {:post [((some-fn nil? symbol?) %)]}
-                                    (MethodExpr->qualsym expr)))
+                                    (u/MethodExpr->qualsym expr)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Keyword lookups
@@ -1716,12 +1554,12 @@
         javat (let [syn (or (when has-java-syn? (quote-expr-val javat-syn))  ; generalise javat-syn if provided, otherwise cljt-syn
                             (quote-expr-val cljt-syn))
                     c (-> 
-                        (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+                        (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                           (prs/parse-type syn))
                         arr-ops/Type->array-member-Class)]
                 (assert (class? c))
                 c)
-        cljt (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+        cljt (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                (prs/parse-type (quote-expr-val cljt-syn)))
         ccoll (check coll-expr (ret (c/Un r/-nil (c/RClass-of Seqable [cljt]))))]
     (-> expr
@@ -1895,7 +1733,7 @@
                                   (if (or (contains? (.absent-keys t) k)
                                           (c/complete-hmap? t))
                                     (do
-                                      #_(tc-warning
+                                      #_(u/tc-warning
                                         "Looking up key " (prs/unparse-type k) 
                                         " in heterogeneous map type " (prs/unparse-type t)
                                         " that declares the key always absent.")
@@ -1904,7 +1742,7 @@
                                     (if-let [opt (get (:optional t) k)]
                                       (c/Un opt (or default r/-nil))
                                       ; otherwise result is Any
-                                      (do #_(tc-warning "Looking up key " (prs/unparse-type k)
+                                      (do #_(u/tc-warning "Looking up key " (prs/unparse-type k)
                                                         " in heterogeneous map type " (prs/unparse-type t)
                                                         " which does not declare the key absent ")
                                           r/-any)))))
@@ -1973,7 +1811,7 @@
                (if (obj/Path? o)
                  (update-in o [:path] #(seq (concat % [this-pelem])))
                  o))
-          (do (tc-warning (str "Keyword lookup gave bottom type: "
+          (do (u/tc-warning (str "Keyword lookup gave bottom type: "
                                (:val kwt) " " (prs/unparse-type targett)))
               (ret r/-any))))
 
@@ -2157,7 +1995,7 @@
     (-> expr
         (update-in [:fn] check)
         (assoc :args cargs
-               expr-type (apply tc-equiv := (map expr-type cargs))))))
+               expr-type (apply equiv/tc-equiv := (map expr-type cargs))))))
 
 ;identical
 (defmethod static-method-special 'clojure.lang.Util/identical
@@ -2167,7 +2005,7 @@
   (let [cargs (mapv check args)]
     (assoc expr
            :args cargs
-           expr-type (apply tc-equiv := (map expr-type cargs)))))
+           expr-type (apply equiv/tc-equiv := (map expr-type cargs)))))
 
 ;equiv
 (defmethod static-method-special 'clojure.lang.Util/equiv
@@ -2175,7 +2013,7 @@
   (let [cargs (mapv check args)]
     (assoc expr
            :args cargs
-           expr-type (apply tc-equiv := (map expr-type cargs)))))
+           expr-type (apply equiv/tc-equiv := (map expr-type cargs)))))
 
 (t/ann hvec->rets [HeterogeneousVector -> (Seqable TCResult)])
 (defn hvec->rets [v]
@@ -2257,7 +2095,7 @@
         (u/tc-delayed-error (str "Cannot instantiate non-polymorphic type: " (prs/unparse-type ptype))
                             :return (assoc expr
                                            expr-type (error-ret expected))))
-      (let [targs (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+      (let [targs (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                     (doall (map prs/parse-type (quote-expr-val targs-exprs))))]
         (assoc expr
                expr-type (ret (inst/manual-inst ptype targs)))))))
@@ -2269,7 +2107,7 @@
 ;manual instantiation for calls to polymorphic constructors
 (add-invoke-special-method 'clojure.core.typed/inst-poly-ctor
   [{[ctor-expr targs-exprs] :args :as expr} & [expected]]
-  (let [targs (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+  (let [targs (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                 (mapv prs/parse-type (quote-expr-val targs-exprs)))
         cexpr (binding [*inst-ctor-types* targs]
                 (check ctor-expr))]
@@ -2296,7 +2134,7 @@
                            [k (prs/unparse-type v)]))
            :props (map prs/unparse-filter (:props e))
            ;:frees (map (t/fn> 
-           ;              [nme :- Symbol, bnd :- (U nil Bounds)]
+           ;              [nme :- t/Sym, bnd :- (U nil Bounds)]
            ;              {:pre [(symbol? nme)
            ;                     ((some-fn nil? r/Bounds?) bnd)]}
            ;              (if bnd
@@ -2318,7 +2156,7 @@
   ;DO NOT REMOVE
   (println (:val debug-string))
   (flush)
-  (prs/with-unparse-ns (expr-ns expr)
+  (prs/with-unparse-ns (cu/expr-ns expr)
     (print-env*))
   ;DO NOT REMOVE
   (assoc expr
@@ -2338,7 +2176,7 @@
     (println (:val debug-string))
     (flush)
     ;(prn (:fl t))
-    (prs/with-unparse-ns (expr-ns expr)
+    (prs/with-unparse-ns (cu/expr-ns expr)
       (if (fl/FilterSet? (:fl t))
         (do (pprint/pprint (prs/unparse-filter-set (:fl t)))
             (flush))
@@ -2355,7 +2193,7 @@
   [{[frm quote-expr] :args, :keys [env], :as expr} & [expected]]
   (let [tsyn (quote-expr-val quote-expr)
         parsed-ty (binding [vs/*current-env* env
-                            prs/*parse-type-in-ns* (expr-ns expr)]
+                            prs/*parse-type-in-ns* (cu/expr-ns expr)]
                     (prs/parse-type tsyn))]
     (assoc expr
            expr-type (ret parsed-ty))))
@@ -2383,7 +2221,7 @@
   (let [[fexpr quote-expr] args
         type-syns (quote-expr-val quote-expr)
         expected
-        (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+        (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
           (apply
             r/make-FnIntersection
             (doall
@@ -2406,7 +2244,7 @@
   #_(let [[fexpr {poly-decl :val} {method-types-syn :val}] args
         frees-with-bounds (map prs/parse-free poly-decl)
         method-types (free-ops/with-bounded-frees frees-with-bounds
-                       (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+                       (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                          (doall 
                            (for [{:keys [dom-syntax has-rng? rng-syntax]} method-types-syn]
                              {:dom (doall (map prs/parse-type dom-syntax))
@@ -2430,7 +2268,7 @@
           (vector? (:args %))]}
   (let [[loop-expr expected-quote-expr] args
         expected-bnds-syn (quote-expr-val expected-quote-expr)
-        expected-bnds (binding [prs/*parse-type-in-ns* (expr-ns loop-expr)]
+        expected-bnds (binding [prs/*parse-type-in-ns* (cu/expr-ns loop-expr)]
                         (mapv prs/parse-type expected-bnds-syn))
         cloop-expr
         ;loop may be nested, type the first loop found
@@ -2910,7 +2748,7 @@
         default? (default-defmethod? var (u/emit-form-fn dispatch-val-expr))]
     (cond
       ;skip if warn-on-unannotated-vars is in effect
-      (or (and (ns-opts/warn-on-unannotated-vars? (expr-ns expr))
+      (or (and (ns-opts/warn-on-unannotated-vars? (cu/expr-ns expr))
                (not (var-env/lookup-Var-nofail mmsym)))
           (not (var-env/check-var? mmsym)))
       (do (println "<NO LINE NUMBER>: Not checking defmethod" mmsym "with dispatch value" (u/emit-form-fn dispatch-val-expr))
@@ -3162,7 +3000,7 @@
 ; appear in arbitrary positions. The combination of these means
 ; we need to abstract and instantiate all types at function boundaries.
 
-;[TCResult (Seqable Symbol) -> Result]
+;[TCResult (Seqable t/Sym) -> Result]
 (defn abstract-result [result arg-names]
   {:pre [(TCResult? result)
          (every? symbol? arg-names)]
@@ -3175,7 +3013,7 @@
       (abstract-filter arg-names keys (ret-f result))
       (abstract-object arg-names keys (ret-o result))))))
 
-;[Type (Seqable Symbol) -> Type]
+;[Type (Seqable t/Sym) -> Type]
 (defn abstract-type [ids keys t]
   {:pre [(every? symbol? ids)
          (every? integer? keys)
@@ -3191,7 +3029,7 @@
         :object-rec sb-o}
       t)))
 
-;[(Seqable Symbol) (Seqable AnyInteger) RObject -> RObject]
+;[(Seqable t/Sym) (Seqable AnyInteger) RObject -> RObject]
 (defn abstract-object [ids keys o]
   {:pre [(every? symbol? ids)
          (every? integer? keys)
@@ -3218,7 +3056,7 @@
            (lookup (:id o))) (update-in o [:id] lookup)
       :else obj/-empty)))
 
-;[(Seqable Symbol) (Seqable AnyInteger) (U NoFilter FilterSet) 
+;[(Seqable t/Sym) (Seqable AnyInteger) (U NoFilter FilterSet) 
 ;  -> (U NoFilter FilterSet)]
 (defn abstract-filter [ids keys fs]
   {:pre [(every? symbol? ids)
@@ -3251,7 +3089,7 @@
                         (fo/-not-filter type scoped path)
                         fl/-top)))
 
-;[(Seqable Symbol) (Seqable AnyInteger) Filter -> Filter]
+;[(Seqable t/Sym) (Seqable AnyInteger) Filter -> Filter]
 (defn abo [xs idxs f]
   {:pre [(every? symbol? xs)
          (every? integer? idxs)
@@ -3341,7 +3179,7 @@
       (assoc expr
              expr-type (ret ftype (fo/-true-filter) obj/-empty)))))
 
-;[Type -> '[Type (Option (Seqable Symbol)) (Option (Seqable F)) (Option (Seqable Bounds)) (Option (U :Poly :PolyDots))]
+;[Type -> '[Type (Option (Seqable t/Sym)) (Option (Seqable F)) (Option (Seqable Bounds)) (Option (U :Poly :PolyDots))]
 ; -> Type]
 (defn unwrap-poly
   "Return a pair vector of the instantiated body of the possibly polymorphic
@@ -3361,7 +3199,7 @@
                       [(c/PolyDots-body* new-nmes t) new-frees (c/PolyDots-bbnds* new-nmes t) :PolyDots])
     :else [t nil nil nil]))
 
-;[Type (Seqable Symbol) (Seqable F) (U :Poly :Polydots nil) -> Type]
+;[Type (Seqable t/Sym) (Seqable F) (U :Poly :Polydots nil) -> Type]
 (defn rewrap-poly [body inst-frees bnds poly?]
   {:pre [(Type? body)
          (every? r/F? inst-frees)
@@ -3433,13 +3271,6 @@
     {:cmethods cmethods
      :fni pfni}))
 
-(defn fn-self-name [{:keys [op] :as fexpr}]
-  (impl/impl-case
-    :clojure (do (assert (#{:fn} op))
-                 (-> fexpr :local :name))
-    :cljs (do (assert (#{:fn} op))
-              (-> fexpr :name :name))))
-
 ; Can take a CLJ or CLJS function expression.
 ;
 ;[FnExpr (Option Type) -> Expr]
@@ -3450,7 +3281,7 @@
    :post [(-> % expr-type TCResult?)
           (vector? (::t/cmethods %))]}
   (let [{:keys [cmethods fni]} (check-fn-methods methods (ret-t expected)
-                                                 :self-name (fn-self-name fexpr))]
+                                                 :self-name (cu/fn-self-name fexpr))]
     (assoc fexpr
            ::t/cmethods cmethods
            expr-type  (ret fni
@@ -3530,7 +3361,7 @@
   `(binding [*recur-target* ~tgt]
      ~@body))
 
-(declare env+ ->RecurTarget RecurTarget?)
+(declare ->RecurTarget RecurTarget?)
 
 (defn method-body-kw []
   (impl/impl-case
@@ -3629,7 +3460,7 @@
         _ (assert check-fn-method1-rest-type "No check-fn bound for rest type")
         crest-param (when rest-param
                       (assoc rest-param
-                             expr-type (check-fn-method1-rest-type (drop (count crequired-params) dom) rest drest kws)))
+                             expr-type (ret (check-fn-method1-rest-type (drop (count crequired-params) dom) rest drest kws))))
         rest-entry (when crest-param
                      [[(:name crest-param) (ret-t (expr-type crest-param))]])
         ;_ (prn "rest entry" rest-entry)
@@ -3668,7 +3499,7 @@
                           (update-in [:l] merge (into {} fixed-entry) (into {} rest-entry)))
                   flag (atom true :validator u/boolean?)
                   env (if mm-filter
-                        (let [t (env+ env [mm-filter] flag)]
+                        (let [t (update/env+ env [mm-filter] flag)]
                           t)
                         env)]
               (when-not @flag
@@ -3698,7 +3529,7 @@
         ;_ (prn "crng-nopass" crng-nopass)
         {:keys [then]} (-> crng-nopass expr-type ret-f)
         then-env (u/p :check/check-fn-method1-env+-rng
-                   (env+ env [then] (atom true)))
+                   (update/env+ env [then] (atom true)))
         new-then-props (reduce (fn [fs [sym t]]
                                  {:pre [((u/set-c? fl/Filter?) fs)]}
                                  (if (= t (get-in env [:l sym]))
@@ -3753,7 +3584,7 @@
   [{[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :as expr} expected]
   {:pre [(#{3} (count statements))]}
   (let [ann-expected
-        (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+        (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
           (apply
             r/make-FnIntersection
             (doall
@@ -3789,7 +3620,7 @@
   [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
   {:pre [(#{3} (count statements))]}
   (let [parsed-ty (binding [vs/*current-env* env
-                            prs/*parse-type-in-ns* (expr-ns expr)]
+                            prs/*parse-type-in-ns* (cu/expr-ns expr)]
                     (prs/parse-type tsyn))
         cty (check frm (ret parsed-ty))
         checked-type (ret-t (expr-type cty))
@@ -3807,7 +3638,7 @@
 (defmethod internal-special-form ::t/loop
   [{[_ _ {{tsyns :ann} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
   {:pre [(#{3} (count statements))]}
-  (let [tbindings (binding [prs/*parse-type-in-ns* (expr-ns expr)]
+  (let [tbindings (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                     (mapv (comp prs/parse-type :type) (:params tsyns)))
         cfrm ;loop may be nested, type the first loop found
         (binding [*loop-bnd-anns* tbindings]
@@ -3857,7 +3688,7 @@
                           flow-atom (atom true)
                           ;_ (prn flow)
                           ;add normal flow filter
-                          nenv (env+ env [flow] flow-atom)
+                          nenv (update/env+ env [flow] flow-atom)
                           ;_ (prn nenv)
                           ]
   ;                        _ (when-not @flow-atom 
@@ -3895,7 +3726,7 @@
     (let [t (var-env/type-of sym)
           _ (when (and expected
                        (not (sub/subtype? t (ret-t expected))))
-              (prs/with-unparse-ns (expr-ns expr)
+              (prs/with-unparse-ns (cu/expr-ns expr)
                 (u/tc-delayed-error 
                   (str "Local binding " sym " expected type " (pr-str (prs/unparse-type (ret-t expected)))
                        ", but actual type " (pr-str (prs/unparse-type t)))
@@ -3907,7 +3738,7 @@
                             (obj/->Path nil sym))))))
 
 
-;[Method -> Symbol]
+;[Method -> t/Sym]
 (defn Method->symbol [{name-sym :name :keys [declaring-class] :as method}]
   {:pre [(instance? clojure.reflect.Method method)]
    :post [((every-pred namespace symbol?) %)]}
@@ -3915,7 +3746,7 @@
 
 (declare Java-symbol->Type)
 
-;[Symbol Boolean -> (Option Type)]
+;[t/Sym Boolean -> (Option Type)]
 (defn symbol->PArray [sym nilable?]
   {:pre [(symbol? sym)
          (u/boolean? nilable?)]
@@ -3933,7 +3764,7 @@
                   c)]
           (r/PrimitiveArray-maker c t t))))))
 
-;[Symbol Boolean -> Type]
+;[t/Sym Boolean -> Type]
 (defn Java-symbol->Type [sym nilable?]
   {:pre [(symbol? sym)
          (u/boolean? nilable?)]
@@ -3996,15 +3827,6 @@
                                             ; or primitive false
                                             :filter (fo/-true-filter)))))
 
-;[MethodExpr -> (U nil NamespacedSymbol)]
-(defn MethodExpr->qualsym [{c :class :keys [op method] :as expr}]
-  {:pre [(#{:static-call :instance-call} op)]
-   :post [((some-fn nil? symbol?) %)]}
-  (when c
-    (assert (class? c))
-    (assert (symbol? method))
-    (symbol (str (u/Class->symbol c)) (str method))))
-
 (defn Type->Classes [t]
   {:post [(every? (some-fn class? nil?) %)]}
   (let [t (c/fully-resolve-type t)]
@@ -4022,7 +3844,7 @@
   (let [cs (remove nil? (Type->Classes t))]
     (apply concat 
            (for [c cs]
-             (let [{:keys [members]} (reflect c)]
+             (let [{:keys [members]} (u/reflect c)]
                (filter (fn [{:keys [flags parameter-types name] :as m}]
                          (and (instance? clojure.reflect.Method m)
                               (= (contains? flags :static)
@@ -4037,27 +3859,17 @@
                                            (map Java-symbol->Type parameter-types)))))
                        members))))))
 
-(defn reflect-friendly-sym [cls]
-  (-> (reflect/typename cls)
-      (str/replace "[]" "<>")
-      symbol))
-
-(defn pprint-reflection-sym [cls]
-  (-> (reflect/typename cls)
-      (str/replace "<>" "[]")
-      symbol))
-
 (defn MethodExpr->Method [{c :class method-name :method :keys [op args] :as expr}]
   {:pre []
    :post [(or (nil? %) (instance? clojure.reflect.Method %))]}
   (when (and c 
              (#{:static-call :instance-call} op))
-    (let [ms (->> (reflect c)
+    (let [ms (->> (u/reflect c)
                   :members
                   (filter #(instance? clojure.reflect.Method %))
                   (filter #(#{method-name} (:name %)))
                   (filter (fn [{:keys [parameter-types]}]
-                            (#{(map (comp reflect-friendly-sym :tag) args)} parameter-types))))]
+                            (#{(map (comp u/reflect-friendly-sym :tag) args)} parameter-types))))]
       ;(prn "MethodExpr->Method" c ms (map :tag args))
       (first ms))))
 
@@ -4070,7 +3882,7 @@
               constructor-call (u/symbol->Class constructor-call)
               (r/RClass? targett) (r/RClass->Class targett))]
     (when cls
-      (let [r (reflect cls)
+      (let [r (u/reflect cls)
             {methods clojure.reflect.Method
              fields clojure.reflect.Field
              ctors clojure.reflect.Constructor
@@ -4094,9 +3906,9 @@
                                                (str "\n  "
                                                     (apply str (interpose " " (map name flags)))
                                                     (when (seq flags) " ")
-                                                    (pprint-reflection-sym ctor-name) " "
+                                                    (u/pprint-reflection-sym ctor-name) " "
                                                     "("
-                                                    (apply str (interpose ", " (map pprint-reflection-sym parameter-types)))
+                                                    (apply str (interpose ", " (map u/pprint-reflection-sym parameter-types)))
                                                     ")"))
                                              ctors))))
                              (when (seq fields)
@@ -4105,7 +3917,7 @@
                                            (map 
                                              (fn [[clssym cls-fields]]
                                                (apply str
-                                                      "\n " (pprint-reflection-sym clssym)
+                                                      "\n " (u/pprint-reflection-sym clssym)
                                                       "\n \\"
                                                       (map
                                                         (fn [{field-name :name 
@@ -4113,7 +3925,7 @@
                                                           (str "\n  "
                                                                (apply str (interpose " " (map name flags)))
                                                                (when (seq flags) " ")
-                                                               (pprint-reflection-sym type) " "
+                                                               (u/pprint-reflection-sym type) " "
                                                                field-name))
                                                         cls-fields)))
                                              (group-by :declaring-class fields)))))
@@ -4124,7 +3936,7 @@
                                              (map
                                                (fn [[clsym cls-methods]]
                                                  (apply str
-                                                        "\n " (pprint-reflection-sym clsym)
+                                                        "\n " (u/pprint-reflection-sym clsym)
                                                         "\n \\"
                                                         (map 
                                                           (fn [{method-name :name 
@@ -4133,10 +3945,10 @@
                                                               "\n  "
                                                               (apply str (interpose " " (map name flags)))
                                                               (when (seq flags) " ")
-                                                              (pprint-reflection-sym return-type) " "
+                                                              (u/pprint-reflection-sym return-type) " "
                                                               method-name 
                                                               "(" 
-                                                              (apply str (interpose ", " (map pprint-reflection-sym parameter-types))) 
+                                                              (apply str (interpose ", " (map u/pprint-reflection-sym parameter-types))) 
                                                               ")"))
                                                           cls-methods)))
                                                methods-by-class)))))))))))
@@ -4149,7 +3961,7 @@
           (vector? (:args %))]}
   (binding [vs/*current-env* env]
     (let [method (MethodExpr->Method expr)
-          msym (MethodExpr->qualsym expr)
+          msym (u/MethodExpr->qualsym expr)
           rfin-type (or (when msym
                           (@mth-override/METHOD-OVERRIDE-ENV msym))
                         (when method
@@ -4236,7 +4048,7 @@
    :post [(instance? clojure.reflect.Field %)]}
   (when (and c 
              (#{:static-field :instance-field} op))
-    (let [fs (->> (reflect c)
+    (let [fs (->> (u/reflect c)
                   :members
                   (filter #(instance? clojure.reflect.Field %))
                   (filter #(#{field-name} (:name %))))]
@@ -4306,7 +4118,7 @@
                :instance cexpr
                expr-type (ret result-t)))))))
 
-;[Symbol -> Type]
+;[t/Sym -> Type]
 (defn DataType-ctor-type [sym]
   (letfn [(resolve-ctor [dtp]
             (cond
@@ -4339,12 +4151,7 @@
                                   (fo/-not-filter-at inst-of (ret-o expr-tr)))
                           obj/-empty))))
 
-(defn ctor-Class->symbol 
-  "Returns a symbol representing this constructor's Class, removing any compiler stubs."
-  [cls]
-  (u/Class->symbol cls))
-
-(defmulti new-special (fn [{:keys [class] :as expr} & [expected]] (ctor-Class->symbol class)))
+(defmulti new-special (fn [{:keys [class] :as expr} & [expected]] (u/ctor-Class->symbol class)))
 
 ;; Multimethod definition
 
@@ -4377,7 +4184,7 @@
   (let [mm-name (:val nme-expr)
         _ (when-not (string? mm-name)
             (u/int-error "MultiFn name must be a literal string"))
-        mm-qual (symbol (str (expr-ns expr)) mm-name)
+        mm-qual (symbol (str (cu/expr-ns expr)) mm-name)
         ;_ (prn "mm-qual" mm-qual)
         ;_ (prn "expected ret-t" (prs/unparse-type (ret-t expected)))
         ;_ (prn "expected ret-t class" (class (ret-t expected)))
@@ -4399,10 +4206,10 @@
   {:pre [(#{:new} op)]
    :post [(or (instance? clojure.reflect.Constructor %)
               (nil? %))]}
-  (let [cs (->> (reflect c)
+  (let [cs (->> (u/reflect c)
                 :members
                 (filter #(instance? clojure.reflect.Constructor %))
-                (filter #(#{(map (comp reflect-friendly-sym :tag) args)} (:parameter-types %))))]
+                (filter #(#{(map (comp u/reflect-friendly-sym :tag) args)} (:parameter-types %))))]
     ;(prn "NewExpr->Ctor" cs)
     (first cs)))
 
@@ -4418,7 +4225,7 @@
         (not= ::not-special spec) spec
         :else
         (let [inst-types *inst-ctor-types*
-              clssym (ctor-Class->symbol cls)
+              clssym (u/ctor-Class->symbol cls)
               cargs (mapv check args)
               ctor-fn (or (@ctor-override/CONSTRUCTOR-OVERRIDE-ENV clssym)
                           (and (dt-env/get-datatype clssym)
@@ -4519,8 +4326,6 @@
   {:post [(vector? (:exprs %))]}
   (check-recur args env expr expected check))
 
-(declare combine-props)
-
 (defn check-let [bindings body expr is-loop expected & {:keys [expected-bnds check-let-checkfn]}]
   (assert check-let-checkfn "No checkfn bound for let")
   (u/p :check/check-let
@@ -4570,8 +4375,8 @@
                                          ;update props
                                          (update-in [:props] #(set 
                                                                 (apply concat 
-                                                                       (combine-props p* % (atom true)))))
-                                         (env+ [(if (= fl/-bot flow-f) fl/-top flow-f)] flow-atom))
+                                                                       (update/combine-props p* % (atom true)))))
+                                         (update/env+ [(if (= fl/-bot flow-f) fl/-top flow-f)] flow-atom))
                              _ (when-not @flow-atom 
                                  (binding [vs/*current-expr* init]
                                    (u/int-error
@@ -4677,7 +4482,7 @@
 ;                                          (assoc-in [:l sym] t)
 ;                                          ;update props
 ;                                          (update-in [:props] #(apply concat 
-;                                                                      (combine-props p* % (atom true)))))]
+;                                                                      (update/combine-props p* % (atom true)))))]
 ;                            new-env)
 ;
 ;                          (fl/NoFilter? fl) (-> env
@@ -4737,10 +4542,10 @@
                     :clojure (do
                                (assert (#{:local} (:op lb-expr)))
                                [(-> lb-expr :name)
-                                (binding [prs/*parse-type-in-ns* (expr-ns letfn-expr)]
+                                (binding [prs/*parse-type-in-ns* (cu/expr-ns letfn-expr)]
                                   (prs/parse-type (u/constant-expr type-syn-expr)))])
                     :cljs [(-> lb-expr :info :name)
-                           (binding [prs/*parse-type-in-ns* (expr-ns letfn-expr)]
+                           (binding [prs/*parse-type-in-ns* (cu/expr-ns letfn-expr)]
                              (prs/parse-type (:form type-syn-expr)))]))))]
     (if-not inits-expected
       (u/tc-delayed-error (str "letfn requires annotation, see: "
@@ -4783,462 +4588,6 @@
            :meta cmeta
            expr-type (expr-type cexpr))))
 
-;[(Seqable Filter) Filter -> Filter]
-(defn resolve* [atoms prop]
-  {:pre [(every? fl/Filter? atoms)
-         (fl/Filter? prop)]
-   :post [(fl/Filter? %)]}
-  (reduce (fn [prop a]
-            (cond
-              (fl/AndFilter? a)
-              (loop [ps (:fs a)
-                     result []]
-                (if (empty? ps)
-                  (apply fo/-and result)
-                  (let [p (first ps)]
-                    (cond
-                      (fo/opposite? a p) fl/-bot
-                      (fo/implied-atomic? p a) (recur (next ps) result)
-                      :else (recur (next ps) (cons p result))))))
-              :else prop))
-          prop
-          atoms))
-
-;[(Seqable Filter) -> (Seqable Filter)]
-(defn flatten-props [ps]
-  {:post [(every? fl/Filter? %)]}
-  (loop [acc #{}
-         ps ps]
-    (cond
-      (empty? ps) acc
-      (fl/AndFilter? (first ps)) (recur acc (concat (-> ps first :fs) (next ps)))
-      :else (recur (conj acc (first ps)) (next ps)))))
-
-(def type-equal? =)
-
-;[(Seqable Filter) (Seqable Filter) (Atom Boolean) 
-;  -> '[(Seqable (U ImpFilter fl/OrFilter AndFilter))
-;       (Seqable (U TypeFilter NotTypeFilter))]]
-(defn combine-props [new-props old-props flag]
-  {:pre [(every? fl/Filter? (concat new-props old-props))
-         (instance? clojure.lang.Atom flag)
-         (u/boolean? @flag)]
-   :post [(let [[derived-props derived-atoms] %]
-            (and (every? (some-fn fl/ImpFilter? fl/OrFilter? fl/AndFilter?) derived-props)
-                 (every? (some-fn fl/TypeFilter? fl/NotTypeFilter?) derived-atoms)))]}
-  (let [atomic-prop? (some-fn fl/TypeFilter? fl/NotTypeFilter?)
-        {new-atoms true new-formulas false} (group-by (comp boolean atomic-prop?) (flatten-props new-props))]
-    (loop [derived-props []
-           derived-atoms new-atoms
-           worklist (concat old-props new-formulas)]
-      (if (empty? worklist)
-        [derived-props derived-atoms]
-        (let [p (first worklist)
-              p (resolve* derived-atoms p)]
-          (cond
-            (fl/AndFilter? p) (recur derived-props derived-atoms (concat (:fs p) (next worklist)))
-            (fl/ImpFilter? p) 
-            (let [{:keys [a c]} p
-                  implied? (some (fn [p] (fo/implied-atomic? a p)) (concat derived-props derived-atoms))]
-              #_(prn "combining " (unparse-filter p) " with " (map unparse-filter (concat derived-props
-                                                                                          derived-atoms))
-                     " and implied:" implied?)
-              (if implied?
-                (recur derived-props derived-atoms (cons c (rest worklist)))
-                (recur (cons p derived-props) derived-atoms (next worklist))))
-            (fl/OrFilter? p)
-            (let [ps (:fs p)
-                  new-or (loop [ps ps
-                                result []]
-                           (cond
-                             (empty? ps) (apply fo/-or result)
-                             (some (fn [other-p] (fo/opposite? (first ps) other-p))
-                                   (concat derived-props derived-atoms))
-                             (recur (next ps) result)
-                             (some (fn [other-p] (fo/implied-atomic? (first ps) other-p))
-                                   derived-atoms)
-                             fl/-top
-                             :else (recur (next ps) (cons (first ps) result))))]
-              (if (fl/OrFilter? new-or)
-                (recur (cons new-or derived-props) derived-atoms (next worklist))
-                (recur derived-props derived-atoms (cons new-or (next worklist)))))
-            (and (fl/TypeFilter? p)
-                 (type-equal? (c/Un) (:type p)))
-            (do 
-              ;(prn "Variable set to bottom:" (unparse-filter p))
-              (reset! flag false)
-              [derived-props derived-atoms])
-            (fl/TypeFilter? p) (recur derived-props (cons p derived-atoms) (next worklist))
-            (and (fl/NotTypeFilter? p)
-                 (type-equal? r/-any (:type p)))
-            (do 
-              ;(prn "Variable set to bottom:" (unparse-filter p))
-              (reset! flag false)
-              [derived-props derived-atoms])
-            (fl/NotTypeFilter? p) (recur derived-props (cons p derived-atoms) (next worklist))
-            (fl/TopFilter? p) (recur derived-props derived-atoms (next worklist))
-            (fl/BotFilter? p) (do 
-                                ;(prn "Bot filter found")
-                                (reset! flag false)
-                                [derived-props derived-atoms])
-            :else (recur (cons p derived-props) derived-atoms (next worklist))))))))
-
-;; also not yet correct
-;; produces old without the contents of rem
-;[Type Type -> Type]
-(defn remove* [old rem]
-  (let [old (c/fully-resolve-type old)
-        rem (c/fully-resolve-type rem)
-        initial (if (sub/subtype? old rem)
-                  (c/Un) ;the empty type
-                  (cond
-                    ;FIXME TR also tests for App? here. ie (or (r/Name? old) (App? old))
-                    (r/Name? old) ;; must be different, since they're not subtypes 
-                    ;; and n must refer to a distinct struct type
-                    old
-                    (r/Union? old) (let [l (:types old)]
-                                   (apply c/Un (map (fn [e] (remove* e rem)) l)))
-                    (r/Mu? old) (remove* (c/unfold old) rem)
-                    (r/Poly? old) (let [vs (c/Poly-fresh-symbols* old)
-                                        b (c/Poly-body* vs old)]
-                                    (c/Poly* vs 
-                                             (c/Poly-bbnds* vs old)
-                                             (remove* b rem)))
-                    :else old))]
-    (if (sub/subtype? old initial) old initial)))
-
-(defn KeyPE->Type [k]
-  {:pre [(pe/KeyPE? k)]
-   :post [(r/Type? %)]}
-  (r/-val (:val k)))
-
-; This is where filters are applied to existing types to generate more specific ones
-;[Type Filter -> Type]
-(defn update [t lo]
-  {:pre [((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)]
-   :post [(r/Type? %)]}
-  (u/p :check/update
-  (let [t (c/fully-resolve-type t)]
-    (cond
-      ; The easy cases: we have a filter without a further path to travel down.
-      ; Just update t with the correct polarity.
-
-      (and (fl/TypeFilter? lo)
-           (empty? (:path lo))) 
-      (let [u (:type lo)
-            _ (assert (Type? u))
-            r (c/restrict u t)]
-        r)
-
-      (and (fl/NotTypeFilter? lo)
-           (empty? (:path lo))) 
-      (let [u (:type lo)]
-        (assert (Type? u))
-        (remove* t u))
-
-      ; unwrap unions and intersections to update their members
-
-      (r/Union? t) (let [ts (:types t)
-                       new-ts (mapv (fn [t] 
-                                      (let [n (update t lo)]
-                                        n))
-                                    ts)]
-                   (apply c/Un new-ts))
-      (r/Intersection? t) (let [ts (:types t)]
-                          (apply c/In (doall (map (fn [t] (update t lo)) ts))))
-
-      ;from here, t is fully resolved and is not a Union or Intersection
-
-      ;heterogeneous map ops
-      ; Positive and negative information down a keyword path
-      ; eg. (number? (-> hmap :a :b))
-      (and ((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)
-           (pe/KeyPE? (first (:path lo)))
-           (r/HeterogeneousMap? t))
-      (let [polarity (fl/TypeFilter? lo)
-            {update-to-type :type :keys [path id]} lo
-            [fkeype & rstpth] path
-            fpth (KeyPE->Type fkeype)
-            ; use this filter to update the right hand side value
-            next-filter ((if polarity fo/-filter fo/-not-filter) 
-                         update-to-type id rstpth)
-            present? (contains? (:types t) fpth)
-            optional? (contains? (:optional t) fpth)
-            absent? (contains? (:absent-keys t) fpth)]
-        ;updating a KeyPE should consider 3 cases:
-        ; 1. the key is declared present
-        ; 2. the key is declared absent
-        ; 3. the key is not declared present, and is not declared absent
-        (cond
-          present?
-            ; -hmap simplifies to bottom if an entry is bottom
-            (c/make-HMap
-              :mandatory (update-in (:types t) [fpth] update next-filter)
-              :optional (:optional t)
-              :absent-keys (:absent-keys t)
-              :complete? (c/complete-hmap? t))
-          absent?
-            t
-
-          ; key not declared present or absent
-          :else
-          (let [; KeyPE are only used for `get` operations where `nil` is the
-                ; not-found value. If the filter does not hold when updating
-                ; it to nil, then we can assume this key path is present.
-                update-to-mandatory? (r/Bottom? (update r/-nil next-filter))]
-            (if update-to-mandatory?
-              (c/make-HMap 
-                :mandatory (assoc-in (:types t) [fpth] (update r/-any next-filter))
-                :optional (:optional t)
-                :absent-keys (:absent-keys t)
-                :complete? (c/complete-hmap? t))
-              (c/make-HMap 
-                :mandatory (:types t)
-                :optional (if optional?
-                            (update-in (:optional t) [fpth] update next-filter)
-                            (assoc-in (:optional t) [fpth] (update r/-any next-filter)))
-                :absent-keys (:absent-keys t)
-                :complete? (c/complete-hmap? t))))))
-
-      ; nil returns nil on keyword lookups
-      (and (fl/NotTypeFilter? lo)
-           (pe/KeyPE? (first (:path lo)))
-           (r/Nil? t))
-      (update r/-nil (update-in lo [:path] rest))
-
-      ; update count information based on a call to `count`
-      ; eg. (= 1 (count a))
-      (and (fl/TypeFilter? lo)
-           (pe/CountPE? (first (:path lo))))
-      (let [u (:type lo)]
-        (if-let [cnt (when (and (r/Value? u) (integer? (:val u)))
-                       (r/make-ExactCountRange (:val u)))]
-          (c/restrict cnt t)
-          (do (tc-warning "Cannot infer Count from type " (prs/unparse-type u))
-              t)))
-
-      ;can't do much without a NotCountRange type or difference type
-      (and (fl/NotTypeFilter? lo)
-           (pe/CountPE? (first (:path lo))))
-      t
-
-      ; Update class information based on a call to `class`
-      ; eg. (= java.lang.Integer (class a))
-      (and (fl/TypeFilter? lo)
-           (pe/ClassPE? (-> lo :path first)))
-      (let [_ (assert (empty? (rest (:path lo))))
-            u (:type lo)]
-        (cond 
-          ;restrict the obvious case where the path is the same as a Class Value
-          ; eg. #(= (class %) Number)
-          (and (r/Value? u)
-               (class? (:val u)))
-          (c/restrict (c/RClass-of-with-unknown-params (:val u)) t)
-
-          ; handle (class nil) => nil
-          (r/Nil? u)
-          (c/restrict r/-nil t)
-
-          :else
-          (do (tc-warning "Cannot infer type via ClassPE from type " (prs/unparse-type u))
-              t)))
-
-      ; Does not tell us anything.
-      ; eg. (= Number (class x)) ;=> false
-      ;     does not reveal whether x is a subtype of Number, eg. (= Integer (class %))
-      (and (fl/NotTypeFilter? lo)
-           (pe/ClassPE? (-> lo :path first)))
-      t
-
-      ; keyword invoke of non-hmaps
-      ; (let [a (ann-form {} (Map Any Any))]
-      ;   (number? (-> a :a :b)))
-      ; 
-      ; I don't think there's anything interesting worth encoding:
-      ; use HMap for accurate updating.
-      (and (or (fl/TypeFilter? lo)
-               (fl/NotTypeFilter? lo))
-           (pe/KeyPE? (first (:path lo))))
-      t
-
-      ; calls to `keys` and `vals`
-      (and ((some-fn fl/TypeFilter? fl/NotTypeFilter?) lo)
-           ((some-fn pe/KeysPE? pe/ValsPE?) (first (:path lo))))
-      (let [[fstpth & rstpth] (:path lo)
-            u (:type lo)
-            ;_ (prn "u" (prs/unparse-type u))
-
-            ; solve for x:  t <: (Seqable x)
-            x (gensym)
-            subst (free-ops/with-bounded-frees {(r/make-F x) r/no-bounds}
-                    (u/handle-cs-gen-failure
-                      (cgen/infer {x r/no-bounds} {} 
-                                  [u]
-                                  [(c/RClass-of clojure.lang.Seqable [(r/make-F x)])]
-                                  r/-any)))
-            ;_ (prn "subst for Keys/Vals" subst)
-            _ (when-not subst
-                (u/int-error (str "Cannot update " (if (pe/KeysPE? fstpth) "keys" "vals") " of an "
-                                  "IPersistentMap with type: " (pr-str (prs/unparse-type u)))))
-            element-t-subst (get subst x)
-            _ (assert (crep/t-subst? element-t-subst))
-            ; the updated 'keys/vals' type
-            element-t (:type element-t-subst)
-            ;_ (prn "element-t" (prs/unparse-type element-t))
-            _ (assert element-t)]
-        (assert (empty? rstpth) (str "Further path NYI keys/vals"))
-        (if (fl/TypeFilter? lo)
-          (c/restrict (if (pe/KeysPE? fstpth)
-                        (c/RClass-of IPersistentMap [element-t r/-any])
-                        (c/RClass-of IPersistentMap [r/-any element-t]))
-                      t)
-          ; can we do anything for a NotTypeFilter?
-          t))
-
-
-      :else (u/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (with-out-str (pr lo))))))))
-
-; f can be a composite filter. bnd-env is a the :l of a PropEnv
-; ie. a map of symbols to types
-;[(IPersistentMap Symbol Type) Filter -> PropEnv]
-(defn update-composite [bnd-env f]
-  {:pre [(lex/lex-env? bnd-env)
-         (fl/Filter? f)]
-   :post [(lex/lex-env? %)]}
-  #_(prn "update-composite" #_bnd-env #_f)
-  (cond
-    ; At this point, the OrFilter will be simplified. To update
-    ; the types we need to make explicit the fact
-    ; (| (! ... a) (! ... b))  is shorthand for
-    ;
-    ; (| (& (! ... a) (is ... b))
-    ;    (& (is ... a) (! ... b))
-    ;    (& (! ... a) (! ... b)))
-    ;
-    ;  then use the verbose representation to update the types.
-;    ((some-fn fl/AndFilter? fl/OrFilter?) f)
-;    (let [; normalise filters to a set of AndFilters, which are disjuncts
-;          disjuncts (if (fl/AndFilter? f)
-;                      #{f}
-;                      (.fs ^OrFilter f))
-;          _ (assert (not-any? fl/OrFilter? disjuncts)
-;                    disjuncts)
-;          ; each disjunct expands can be expanded to more filters
-;          ; this is a list of the new, expanded disjuncts
-;          expanded-disjucts (mapcat
-;                              (fn [inner-f]
-;                                (assert (not (fl/OrFilter? inner-f)) inner-f)
-;                                (let [conjuncts (if (fl/AndFilter? inner-f)
-;                                                  (.fs ^AndFilter inner-f)
-;                                                  #{inner-f})]
-;                                  (assert (every? fo/atomic-filter? conjuncts)
-;                                          (pr-str inner-f))
-;                                  (map (fn [positive-filters]
-;                                         (let [negative-filters (map fo/negate (set/difference conjuncts positive-filters))
-;                                               combination-filter (apply fo/-and (concat positive-filters negative-filters))]
-;                                           combination-filter))
-;                                       (map set (remove empty? (comb/subsets conjuncts))))))
-;                              disjuncts)
-;          update-and (fn [init-env ^AndFilter and-f]
-;                       {:pre [(fl/AndFilter? and-f)]}
-;                       (reduce (fn [env a]
-;                                 {:pre [(fo/atomic-filter? a)]}
-;                                 ;eagerly merge
-;                                 (merge-with c/In env (update-composite env a)))
-;                               init-env (.fs ^AndFilter f)))]
-;      ;update env with each disjunct. If variables change, capture both old and new types with Un.
-;      ; first time around is special. At least 1 of disjuncts must be applied to the
-;      ; environment, so we throw away the initial environment instead of merging it.
-;      (let [first-time? (atom true)]
-;        (reduce (fn [env fl]
-;                  (let [updated-env (cond
-;                                      (fl/AndFilter? fl) (update-and env fl)
-;                                      (fo/atomic-filter? fl) (update-composite env fl)
-;                                      :else (throw (Exception. "shouldn't get here")))]
-;                    (if @first-time?
-;                      (do (reset! first-time? false)
-;                          updated-env)
-;                      (merge-with c/Un env updated-env))))
-;                bnd-env
-;                expanded-disjucts)))
-
-;    (fl/AndFilter? f)
-;    (reduce (fn [env a]
-;              #_(prn "And filter")
-;              ;eagerly merge
-;              (merge-with c/In env (update-composite env a)))
-;            bnd-env (.fs ^AndFilter f))
-;
-;    (fl/OrFilter? f)
-;    (let [fs (.fs ^OrFilter f)]
-;      (reduce (fn [env positive-filters]
-;                #_(prn "inside orfilter")
-;                (let [negative-filters (map fo/negate (set/difference fs positive-filters))
-;                      combination-filter (apply fo/-and (concat positive-filters negative-filters))]
-;                  (merge-with c/Un env (update-composite env combination-filter))))
-;              bnd-env 
-;              (map set (remove empty? (comb/subsets fs)))))
-;
-    (fl/BotFilter? f)
-    (do ;(prn "update-composite: found bottom, unreachable")
-      (zipmap (keys bnd-env) (repeat (c/Un))))
-
-    (or (fl/TypeFilter? f)
-        (fl/NotTypeFilter? f))
-    (let [x (:id f)]
-      (if-not (bnd-env x)
-        bnd-env
-        (update-in bnd-env [x] (fn [t]
-                                 ;check if var is ever a target of a set!
-                                 ; or not currently in scope
-                                 (if (or (nil? t)
-                                         (r/is-var-mutated? x))
-                                   ; if it is, we do nothing
-                                   t
-                                   ;otherwise, refine the type
-                                   (let [t (or t r/-any)
-                                         new-t (update t f)]
-                                     new-t))))))
-    :else bnd-env))
-
-;; sets the flag box to #f if anything becomes (U)
-;[PropEnv (Seqable Filter) (Atom Boolean) -> PropEnv]
-(defn env+ [env fs flag]
-  {:pre [(lex/PropEnv? env)
-         (every? fl/Filter? fs)
-         (u/boolean? @flag)]
-   :post [(lex/PropEnv? %)
-          (u/boolean? @flag)]}
-  #_(prn 'env+ fs)
-  (let [[props atoms] (combine-props fs (:props env) flag)]
-    (reduce (fn [env f]
-              {:pre [(lex/PropEnv? env)
-                     (fl/Filter? f)]}
-              (let [new-env (update-in env [:l] update-composite f)]
-                ; update flag if a variable is now bottom
-                (when-let [bs (seq (filter (comp #{(c/Un)} val) (:l new-env)))]
-                  ;(prn "variables are now bottom: " (map key bs))
-                  (reset! flag false))
-                new-env))
-            (assoc env :props (set (concat atoms props)))
-            (concat atoms props))))
-;  (letfn [(update-env [env f]
-;            {:pre [(lex/PropEnv? env)
-;                   (fl/Filter? f)]}
-;            (let [new-env (update-in env [:l] update-composite f)]
-;              ; update flag if a variable is now bottom
-;              (when-let [bs (seq (filter (comp #{(c/Un)} val) (:l new-env)))]
-;                ;(prn "variables are now bottom: " (map key bs))
-;                (reset! flag false))
-;              new-env))]
-;    (let [[props atoms] (combine-props fs (:props env) flag)
-;          all-filters (apply fo/-and (concat props atoms))]
-;      (-> env
-;          (update-env all-filters)
-;          (assoc :props (set (concat atoms props)))))))
-
-(def object-equal? =)
-
 (defonce ^:dynamic *check-if-checkfn* nil)
 
 ;[TCResult Expr Expr (Option Type) -> TCResult]
@@ -5277,10 +4626,10 @@
 
             ;_ (print-env)
             ;idsym (gensym)
-            env-thn (env+ lex/*lexical-env* [fs+] flag+)
+            env-thn (update/env+ lex/*lexical-env* [fs+] flag+)
             ;          _ (do (pr "check-if: env-thn")
             ;              (print-env* env-thn))
-            env-els (env+ lex/*lexical-env* [fs-] flag-)
+            env-els (update/env+ lex/*lexical-env* [fs-] flag-)
             ;          _ (do (pr "check-if: env-els")
             ;              (print-env* env-els))
             ;          new-thn-props (set
@@ -5322,8 +4671,8 @@
         (let [if-ret 
               (cond
                 ;both branches reachable
-                (and (not (type-equal? (c/Un) ts))
-                     (not (type-equal? (c/Un) us)))
+                (and (not (= (c/Un) ts))
+                     (not (= (c/Un) us)))
                 (let [;_ (prn "both branches reachable")
                       r (let [filter (cond
                                        (or (fl/NoFilter? fs2)
@@ -5357,7 +4706,7 @@
                                          fs)
                                        :else (u/int-error (str "What are these?" fs2 fs3)))
                               type (c/Un ts us)
-                              object (if (object-equal? os2 os3) os2 (obj/->EmptyObject))
+                              object (if (= os2 os3) os2 (obj/->EmptyObject))
 
                               ;only bother with something interesting if a branch is unreachable (the next two cond cases)
                               ;Should be enough for `assert`
@@ -5372,9 +4721,9 @@
                      (= ts (c/Un)))
                 (ret (c/Un) (fo/-FS fl/-top fl/-top) obj/-empty (r/-flow fl/-bot))
                 ;; special case if one of the branches is unreachable
-                (type-equal? us (c/Un))
+                (= us (c/Un))
                 (if expected (check-below (ret ts fs2 os2 flow2) expected) (ret ts fs2 os2 flow2))
-                (type-equal? ts (c/Un))
+                (= ts (c/Un))
                 (if expected (check-below (ret us fs3 os3 flow3) expected) (ret us fs3 os3 flow3))
                 :else (u/int-error "Something happened"))
               _ (assert (r/TCResult? if-ret))]
@@ -5402,7 +4751,7 @@
   (let [init-provided (contains? expr :init)
         _ (assert init-provided)
         vsym (u/var->symbol var)
-        warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (expr-ns expr))
+        warn-if-unannotated? (ns-opts/warn-on-unannotated-vars? (cu/expr-ns expr))
         t (var-env/lookup-Var-nofail vsym)
         check? (var-env/check-var? vsym)]
     (cond
@@ -5467,21 +4816,8 @@
 
         :else (check-normal-def expr expected)))))
 
-(defn unwrap-tfn
-  "Get the instantiated type wrapped by this TFn"
-  ([dt nms]
-   {:pre [(r/Type? dt)
-          (every? symbol? nms)]
-    :post [(r/Type? %)]}
-   (if (r/TypeFn? dt)
-     (c/TypeFn-body* nms dt)
-     dt))
-  ([dt] (let [nms (when (r/TypeFn? dt)
-                    (c/TypeFn-fresh-symbols* dt))]
-          (unwrap-tfn dt nms))))
-
 ;FIXME I think this hurts more than it helps
-;[Type (Seqable Symbol) -> Type]
+;[Type (Seqable t/Sym) -> Type]
 ;[Type -> Type]
 (defn unwrap-datatype
   "Takes a DataType that might be wrapped in a TypeFn and returns the 
@@ -5560,7 +4896,7 @@
 (defn deftype-method-members [cls]
   {:pre [(class? cls)]
    :post [(every? (fn [m] (instance? clojure.reflect.Method m)) %)]}
-  (->> (reflect cls)
+  (->> (u/reflect cls)
        :members
        (filter #(instance? clojure.reflect.Method %))))
 
@@ -5703,29 +5039,6 @@
            :test ctest
            expr-type (expr-type ctest))))
 
-(defn check-case-thens [target-ret tst-rets case-thens expected]
-  {:pre [(r/TCResult? target-ret)
-         (every? r/TCResult? tst-rets)
-         (== (count tst-rets)
-             (count case-thens))]
-   :post [((every-pred vector?
-                       (u/every-c? (comp #{:case-then} :op)))
-           %)]}
-  (letfn [(check-case-then [tst-ret {:keys [then] :as case-then}]
-            (let [{{fs+ :then} :fl :as rslt} (tc-equiv := target-ret tst-ret)
-                  flag+ (atom true)
-                  env-thn (env+ lex/*lexical-env* [fs+] flag+)
-                  _ (when-not @flag+
-                      ;; FIXME should we ignore this branch?
-                      (tc-warning "Local became bottom when checking case then"))
-                  cthen (var-env/with-lexical-env env-thn
-                          (check then expected))]
-              (assoc case-then
-                     :then cthen
-                     expr-type (expr-type cthen))))]
-    (mapv check-case-then
-          tst-rets 
-          case-thens)))
 
 (add-check-method :case
   [{target :test :keys [tests thens default] :as expr} & [expected]]
@@ -5750,17 +5063,17 @@
           tests-rets (map expr-type ctests)
           ; Can we derive extra information from 'failed'
           ; tests? Delegate to check-case-thens for future enhancements.
-          cthens (check-case-thens target-ret tests-rets thens expected)
+          cthens (case/check-case-thens check target-ret tests-rets thens expected)
           cdefault (let [flag+ (atom true :validator u/boolean?)
                          neg-tst-fl (let [val-ts (map (comp c/fully-resolve-type ret-t) tests-rets)]
                                       (if (every? r/Value? val-ts)
                                         (fo/-not-filter-at (apply c/Un val-ts)
                                                            (ret-o target-ret))
                                         fl/-top))
-                         env-default (env+ lex/*lexical-env* [neg-tst-fl] flag+)
+                         env-default (update/env+ lex/*lexical-env* [neg-tst-fl] flag+)
                          _ (when-not @flag+
                              ;; FIXME should we ignore this branch?
-                             (tc-warning "Local became bottom when checking case default"))]
+                             (u/tc-warning "Local became bottom when checking case default"))]
                      ;(prn "neg-tst-fl" neg-tst-fl)
                      ;(prn "env-default" env-default)
                      (var-env/with-lexical-env env-default
