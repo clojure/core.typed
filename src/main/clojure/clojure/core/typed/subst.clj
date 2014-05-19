@@ -123,14 +123,16 @@
                           ;(prn "expanded" (unparse-type expanded))
                           (map (fn [img] (substitute img name expanded)) images))))
               :filters (vec (concat (map sb fs) (repeat (count images) (fo/-FS fl/-top fl/-top))))
-              :objects (vec (concat (map sb objects) (repeat (count images) orep/-empty))))
+              :objects (vec (concat (map sb objects) (repeat (count images) orep/-empty)))
+              :repeat (:repeat ftype))
      (r/-hsequential 
               (vec (map sb types))
               :filters (vec (map sb fs))
               :objects (vec (map sb objects))
               :rest (when rest (sb rest))
               :drest (when drest (r/DottedPretype1-maker (sb (:pre-type drest))
-                                                         (:name drest)))))))
+                                                         (:name drest)))
+              :repeat (:repeat ftype)))))
   )
 
 ;; implements angle bracket substitution from the formalism
@@ -194,7 +196,7 @@
 
 (f/add-fold-case ::substitute-dotted
   HSequential
-  (fn [{:keys [types fs objects rest drest]} {{:keys [sb name image]} :locals}]
+  (fn [{:keys [types fs objects rest drest repeat]} {{:keys [sb name image]} :locals}]
     (r/-hsequential 
              (doall (map sb types))
              :filters (doall (map sb fs))
@@ -204,7 +206,8 @@
                       (r/DottedPretype1-maker (substitute image (:name drest) (sb (:pretype drest)))
                                               (if (= name (:name drest))
                                                 name
-                                                (:name drest)))))))
+                                                (:name drest))))
+             :repeat repeat)))
   )
 
 ;; implements curly brace substitution from the formalism

@@ -161,11 +161,12 @@
                :rest (when-let [rest (:rest T)]
                        (pmt rest))
                :drest (when-let [drest (:drest T)]
-                        (update-in drest [:pre-type] pmt))))))
+                        (update-in drest [:pre-type] pmt))
+               :repeat (:repeat T)))))
 
 (defmethod demote HSequential
   [T V]
-  (let [dmt #(promote % V)
+  (let [dmt #(demote % V)
         latent-filter-vs (set/intersection (set (mapcat frees/fv (:fs T)))
                                            (set (mapcat frees/fi (:fs T))))]
     (cond
@@ -188,7 +189,8 @@
                :rest (when-let [rest (:rest T)]
                        (dmt rest))
                :drest (when-let [drest (:drest T)]
-                        (update-in drest [:pre-type] dmt))))))
+                        (update-in drest [:pre-type] dmt))
+               :repeat (:repeat T)))))
 
 (defmethod promote HeterogeneousVector
   [T V]

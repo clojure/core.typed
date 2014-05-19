@@ -67,7 +67,8 @@
                  :filters (mapv tfn (:fs t))
                  :objects (mapv tfn (:objects t))
                  :rest (when-let [r (:rest t)]
-                         (tfn r)))))))
+                         (tfn r))
+                 :repeat (:repeat t))))))
 
 (fold/add-fold-case ::trans-dots
   HeterogeneousVector

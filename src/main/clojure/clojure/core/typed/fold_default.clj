@@ -183,13 +183,14 @@
                            :drest (when drest (update-in drest [:pre-type] type-rec)))))
 
 (add-default-fold-case HSequential
-                       (fn [{:keys [types rest drest] :as ty} _]
+                       (fn [{:keys [types rest drest repeat] :as ty} _]
                          (r/-hsequential
                            (mapv type-rec (:types ty))
                            :filters (mapv filter-rec (:fs ty))
                            :objects (mapv object-rec (:objects ty))
                            :rest (when rest (type-rec rest))
-                           :drest (when drest (update-in drest [:pre-type] type-rec)))))
+                           :drest (when drest (update-in drest [:pre-type] type-rec))
+                           :repeat repeat)))
 
 (add-default-fold-case HeterogeneousList 
                        (fn [ty _]

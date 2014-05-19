@@ -1745,7 +1745,8 @@
                                          (update-in [:pre-type] sb)
                                          (update-in [:name] #(if (= % name)
                                                                (+ count outer)
-                                                               %)))))))
+                                                               %))))
+                            :repeat (:repeat ty))))
 
 (f/add-fold-case ::abstract-many
                  Mu
@@ -1886,7 +1887,8 @@
                                          (update-in [:pre-type] sb)
                                          (update-in [:name] #(if (= (+ count outer) %)
                                                                image
-                                                               %)))))))
+                                                               %))))
+                            :repeat (:repeat ty))))
 
 (f/add-fold-case ::instantiate-many
                Mu
