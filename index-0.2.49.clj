@@ -13,6 +13,18 @@
    :doc
    "This namespace contains annotations and helper macros for type\nchecking core.async code. Ensure clojure.core.async is require'd\nbefore performing type checking.\n\ngo\n  use go>\n\nchan\n  use chan>\n\nbuffer\n  use buffer> (similar for other buffer constructors)\n"}
   {:source-url
+   "https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/funapp.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.funapp-api.html",
+   :name "clojure.core.typed.check.funapp",
+   :doc nil}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/map.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.map-api.html",
+   :name "clojure.core.typed.check.map",
+   :doc nil}
+  {:source-url
    "https://github.com/clojure/core.typed/blob/3aa23baeee6cc53b0ab5109b3c6c515b76abf613/src/main/clojure/clojure/core/typed/coerce_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.coerce-utils-api.html",
@@ -24,7 +36,13 @@
    "http://clojure.github.com/core.typed/clojure.core.typed.hole-api.html",
    :name "clojure.core.typed.hole",
    :doc
-   "This namespace contains easy tools for hole driven development"}),
+   "This namespace contains easy tools for hole driven development"}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/open_result.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.open-result-api.html",
+   :name "clojure.core.typed.open-result",
+   :doc nil}),
  :vars
  ({:name "*collect-on-eval*",
    :namespace "clojure.core.typed",
@@ -1750,6 +1768,34 @@
    :var-type "macro",
    :line 768,
    :file "src/main/clojure/clojure/core/typed.clj"}
+  {:arglists ([t]),
+   :name "ifn-ancestor",
+   :namespace "clojure.core.typed.check.funapp",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/funapp.clj#L20",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/funapp.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.funapp/ifn-ancestor",
+   :doc
+   "If this type can be treated like a function, return one of its\npossibly polymorphic function ancestors.\n\nAssumes the type is not a union",
+   :var-type "function",
+   :line 20,
+   :file "src/main/clojure/clojure/core/typed/check/funapp.clj"}
+  {:arglists ([key-types expected]),
+   :name "expected-vals",
+   :namespace "clojure.core.typed.check.map",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/map.clj#L6",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/map.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.map/expected-vals",
+   :doc
+   "Returns a sequence of (Nilable TCResults) to use as expected types for type\nchecking the values of a literal map expression",
+   :var-type "function",
+   :line 6,
+   :file "src/main/clojure/clojure/core/typed/check/map.clj"}
   {:arglists ([cls]),
    :name "ctor-Class->symbol",
    :namespace "clojure.core.typed.coerce-utils",
@@ -1827,4 +1873,18 @@
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.hole/NoisyHole",
    :namespace "clojure.core.typed.hole",
    :var-type "type",
-   :name "NoisyHole"})}
+   :name "NoisyHole"}
+  {:arglists
+   ([{t :t, fs :fl, old-obj :o, :keys [flow], :as r} objs & [ts]]),
+   :name "open-Result",
+   :namespace "clojure.core.typed.open-result",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/open_result.clj#L32",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/open_result.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.open-result/open-Result",
+   :doc "Substitute ids for objs in Result t",
+   :var-type "function",
+   :line 32,
+   :file "src/main/clojure/clojure/core/typed/open_result.clj"})}

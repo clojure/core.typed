@@ -442,6 +442,18 @@ namespace.
     <a href="#clojure.core.typed.async" style="margin-top: 3px;">clojure.core.typed.async</a>
     
   </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.check.funapp" style="margin-top: 3px;">clojure.core.typed.check.funapp</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.funapp/ifn-ancestor">ifn-ancestor</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.check.map" style="margin-top: 3px;">clojure.core.typed.check.map</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.map/expected-vals">expected-vals</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
     <a href="#clojure.core.typed.coerce-utils" style="margin-top: 3px;">clojure.core.typed.coerce-utils</a>
     <div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.coerce-utils/ctor-Class-&gt;symbol">ctor-Class-&gt;symbol</a>
@@ -463,6 +475,12 @@ namespace.
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.hole/silent-hole">silent-hole</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.open-result" style="margin-top: 3px;">clojure.core.typed.open-result</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.open-result/open-Result">open-Result</a>
       
     </div>
   </div>
@@ -2565,6 +2583,58 @@ buffer
 
 
 <br />
+<h2 id="clojure.core.typed.check.funapp">clojure.core.typed.check.funapp</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.funapp/ifn-ancestor">ifn-ancestor</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (ifn-ancestor t)
+</pre>
+    <pre id="var-docstr">If this type can be treated like a function, return one of its
+possibly polymorphic function ancestors.
+
+Assumes the type is not a union</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/funapp.clj#L20" id="var-source">Source</a>
+  </div>
+</div>
+<br />
+<h2 id="clojure.core.typed.check.map">clojure.core.typed.check.map</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.map/expected-vals">expected-vals</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (expected-vals key-types expected)
+</pre>
+    <pre id="var-docstr">Returns a sequence of (Nilable TCResults) to use as expected types for type
+checking the values of a literal map expression</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/map.clj#L6" id="var-source">Source</a>
+  </div>
+</div>
+<br />
 <h2 id="clojure.core.typed.coerce-utils">clojure.core.typed.coerce-utils</h2>
 <pre id="namespace-docstr"></pre>
 
@@ -2668,6 +2738,30 @@ Throws an exception when evaluted.</pre>
     
     
     <a href="https://github.com/clojure/core.typed/blob/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/hole.clj#L9" id="var-source">Source</a>
+  </div>
+</div>
+<br />
+<h2 id="clojure.core.typed.open-result">clojure.core.typed.open-result</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.open-result/open-Result">open-Result</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (open-Result {t :t, fs :fl, old-obj :o, :keys [flow], :as r} objs &amp; [ts])
+</pre>
+    <pre id="var-docstr">Substitute ids for objs in Result t</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/open_result.clj#L32" id="var-source">Source</a>
   </div>
 </div>
 
