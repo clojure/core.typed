@@ -13,9 +13,7 @@
             [clojure.core.typed.profiling :as profiling]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
-            [clojure.java.io :as io]
-            [clojure.reflect :as reflect])
-  (:import (clojure.lang PersistentArrayMap Var Symbol RT)))
+            [clojure.java.io :as io]))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -299,7 +297,7 @@
 (defn typed-ns-opts [ns]
   (-> ns meta :core.typed))
 
-(t/ann ^:no-check demunge-ns [(U Symbol String) -> Symbol])
+(t/ann ^:no-check demunge-ns [(U t/Sym String) -> t/Sym])
 (defn demunge-ns [nsym]
   (symbol (clojure.repl/demunge (str nsym))))
 
@@ -360,22 +358,6 @@
            %)]}
   (let [p (ns->file nsym)]
     (io/resource p)))
-
-(defn reflect
-  [obj & options]
-  (apply reflect/type-reflect (if (class? obj) obj (class obj))
-         :reflector (reflect/->JavaReflector (RT/baseLoader))
-         options))
-
-(defn reflect-friendly-sym [cls]
-  (-> (reflect/typename cls)
-      (str/replace "[]" "<>")
-      symbol))
-
-(defn pprint-reflection-sym [cls]
-  (-> (reflect/typename cls)
-      (str/replace "<>" "[]")
-      symbol))
 
 (def expr-type :clojure.core.typed.check/expr-type)
 
