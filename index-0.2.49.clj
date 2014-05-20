@@ -19,10 +19,22 @@
    :name "clojure.core.typed.check.funapp",
    :doc nil}
   {:source-url
+   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/isa.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.isa-api.html",
+   :name "clojure.core.typed.check.isa",
+   :doc nil}
+  {:source-url
    "https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/map.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.check.map-api.html",
    :name "clojure.core.typed.check.map",
+   :doc nil}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.utils-api.html",
+   :name "clojure.core.typed.check.utils",
    :doc nil}
   {:source-url
    "https://github.com/clojure/core.typed/blob/3aa23baeee6cc53b0ab5109b3c6c515b76abf613/src/main/clojure/clojure/core/typed/coerce_utils.clj",
@@ -1782,6 +1794,20 @@
    :var-type "function",
    :line 20,
    :file "src/main/clojure/clojure/core/typed/check/funapp.clj"}
+  {:arglists ([child-ret parent-ret]),
+   :name "tc-isa?",
+   :namespace "clojure.core.typed.check.isa",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/isa.clj#L14",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/isa.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.isa/tc-isa?",
+   :doc
+   "Type check a call to isa?. Assumes global hierarchy.\nAlso supports the case where both elements are vectors, but not recursively.",
+   :var-type "function",
+   :line 14,
+   :file "src/main/clojure/clojure/core/typed/check/isa.clj"}
   {:arglists ([key-types expected]),
    :name "expected-vals",
    :namespace "clojure.core.typed.check.map",
@@ -1796,6 +1822,62 @@
    :var-type "function",
    :line 6,
    :file "src/main/clojure/clojure/core/typed/check/map.clj"}
+  {:arglists ([expected]),
+   :name "error-ret",
+   :namespace "clojure.core.typed.check.utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L59",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/error-ret",
+   :doc
+   "Return a TCResult appropriate for when a type\nerror occurs, with expected type expected.\n\nUse *only* in case of a type error.",
+   :var-type "function",
+   :line 59,
+   :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
+  {:arglists ([target-type expected]),
+   :name "extend-method-expected",
+   :namespace "clojure.core.typed.check.utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L187",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/extend-method-expected",
+   :doc
+   "Returns the expected type with target-type intersected with the first argument",
+   :var-type "function",
+   :line 187,
+   :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
+  {:arglists ([dt nms] [dt]),
+   :name "unwrap-datatype",
+   :namespace "clojure.core.typed.check.utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L296",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/unwrap-datatype",
+   :doc
+   "Takes a DataType that might be wrapped in a TypeFn and returns the \nDataType after instantiating it",
+   :var-type "function",
+   :line 296,
+   :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
+  {:arglists ([t]),
+   :name "unwrap-poly",
+   :namespace "clojure.core.typed.check.utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L72",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/unwrap-poly",
+   :doc
+   "Return a pair vector of the instantiated body of the possibly polymorphic\ntype and the names used",
+   :var-type "function",
+   :line 72,
+   :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
   {:arglists ([cls]),
    :name "ctor-Class->symbol",
    :namespace "clojure.core.typed.coerce-utils",

@@ -448,9 +448,30 @@ namespace.
       
     </div>
   </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.check.isa" style="margin-top: 3px;">clojure.core.typed.check.isa</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.isa/tc-isa?">tc-isa?</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
     <a href="#clojure.core.typed.check.map" style="margin-top: 3px;">clojure.core.typed.check.map</a>
     <div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.check.map/expected-vals">expected-vals</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.check.utils" style="margin-top: 3px;">clojure.core.typed.check.utils</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.utils/error-ret">error-ret</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.utils/extend-method-expected">extend-method-expected</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.utils/unwrap-datatype">unwrap-datatype</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.utils/unwrap-poly">unwrap-poly</a>
       
     </div>
   </div><div style="margin-left: 1em;" class="toc-section">
@@ -2610,6 +2631,31 @@ Assumes the type is not a union</pre>
   </div>
 </div>
 <br />
+<h2 id="clojure.core.typed.check.isa">clojure.core.typed.check.isa</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.isa/tc-isa?">tc-isa?</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (tc-isa? child-ret parent-ret)
+</pre>
+    <pre id="var-docstr">Type check a call to isa?. Assumes global hierarchy.
+Also supports the case where both elements are vectors, but not recursively.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/isa.clj#L14" id="var-source">Source</a>
+  </div>
+</div>
+<br />
 <h2 id="clojure.core.typed.check.map">clojure.core.typed.check.map</h2>
 <pre id="namespace-docstr"></pre>
 
@@ -2632,6 +2678,69 @@ checking the values of a literal map expression</pre>
     
     
     <a href="https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/map.clj#L6" id="var-source">Source</a>
+  </div>
+</div>
+<br />
+<h2 id="clojure.core.typed.check.utils">clojure.core.typed.check.utils</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.utils/error-ret">error-ret</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (error-ret expected)
+</pre>
+    <pre id="var-docstr">Return a TCResult appropriate for when a type
+error occurs, with expected type expected.
+
+Use *only* in case of a type error.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L59" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.utils/extend-method-expected">extend-method-expected</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (extend-method-expected target-type expected)
+</pre>
+    <pre id="var-docstr">Returns the expected type with target-type intersected with the first argument</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L187" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.utils/unwrap-datatype">unwrap-datatype</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (unwrap-datatype dt nms)
+       (unwrap-datatype dt)
+</pre>
+    <pre id="var-docstr">Takes a DataType that might be wrapped in a TypeFn and returns the 
+DataType after instantiating it</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L296" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.utils/unwrap-poly">unwrap-poly</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (unwrap-poly t)
+</pre>
+    <pre id="var-docstr">Return a pair vector of the instantiated body of the possibly polymorphic
+type and the names used</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L72" id="var-source">Source</a>
   </div>
 </div>
 <br />
