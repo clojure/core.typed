@@ -678,7 +678,7 @@
   (cset-meet* (concat
                 (cond
                   ;simple case
-                  (not-any? (some-fn :rest :drest) [S T])
+                  (not-any? (some-fn :rest :drest :repeat) [S T])
                   [(cs-gen-list V X Y (:types S) (:types T))]
 
                   ;rest on right, optionally on left
@@ -908,6 +908,7 @@
                 (r/make-ExactCountRange (count (:types S))))
           T))
 
+; TODO add :repeat support
 (add-cs-gen*-method [HSequential RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y
@@ -926,6 +927,7 @@
                    (count (:types S)))))
           T))
 
+; TODO add :repeat support
 (add-cs-gen*-method [HeterogeneousVector RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y
