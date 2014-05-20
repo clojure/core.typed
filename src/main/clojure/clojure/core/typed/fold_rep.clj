@@ -6,6 +6,10 @@
 
 (def fold-rhs-default ::fold-rhs)
 
+(defn derive-default [& kws]
+  (doseq [kw kws]
+    (derive kw fold-rhs-default)))
+
 ;1. fold-rhs calls sends
 ; a. Type to type-rec
 ; b. Filter to filter-rec

@@ -13,7 +13,8 @@
             [clojure.core.typed.utils :as u :refer [expr-type]]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.check :as chk :refer [check-funapp]]
+            [clojure.core.typed.check :as chk]
+            [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.update :as update :refer [env+ update]]
             [clojure.core.typed.tc-equiv :refer [tc-equiv]]
@@ -969,7 +970,7 @@
   (is-clj (clj
         (= (with-bounded-frees {(make-F 'm) (-bounds (parse-type '(TFn [[x :variance :covariant]] Any))
                                                      (parse-type '(TFn [[x :variance :covariant]] Nothing)) )}
-             (check-funapp
+             (funapp/check-funapp
                (ana/ast-for-form ''a) ;dummy
                [(ana/ast-for-form 1)];dummy
                (ret (parse-type '(All [x]

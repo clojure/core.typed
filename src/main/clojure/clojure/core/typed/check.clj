@@ -11,6 +11,11 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.case :as case]
             [clojure.core.typed.check.value :as value]
+            [clojure.core.typed.check.map :as map]
+            [clojure.core.typed.check.if :as if]
+            [clojure.core.typed.check.funapp :as funapp]
+            [clojure.core.typed.check.invoke-kw :as invoke-kw]
+            [clojure.core.typed.open-result :as open-result]
             [clojure.core.typed.update :as update]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.current-impl :as impl]
@@ -29,6 +34,7 @@
             [clojure.core.typed.cs-rep :as crep]
             [clojure.core.typed.cs-gen :as cgen]
             [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.subst-obj :as subst-obj]
             [clojure.core.typed.frees :as frees]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.tvar-env :as tvar-env]
@@ -174,77 +180,6 @@
            :expr cexpr
            expr-type (expr-type cexpr))))
 
-;(ann expected-vals [(Coll Type) (Nilable TCResult) -> (Coll (Nilable TCResult))])
-(defn expected-vals
-  "Returns a sequence of (Nilable TCResults) to use as expected types for type
-  checking the values of a literal map expression"
-  [key-types expected]
-  {:pre [(every? r/Type? key-types)
-         ((some-fn r/TCResult? nil?) expected)]
-   :post [(every? (some-fn nil? r/TCResult?) %)
-          (= (count %)
-             (count key-types))]}
-  (let [expected (when expected 
-                   (c/fully-resolve-type (ret-t expected)))
-        flat-expecteds (when expected
-                         (mapv c/fully-resolve-type
-                               (if (r/Union? expected)
-                                 (:types expected)
-                                 [expected])))
-        no-expecteds (repeat (count key-types) nil)]
-    (cond 
-      ; If every key in this map expression is a Value, let's try and
-      ; make use of our expected type for each individual entry. This is
-      ; most useful for `extend`, where we have HMaps of functions, and
-      ; we want to forward the expected types to each val, a function.
-      ;
-      ; The expected type also needs to be an expected shape:
-      ; - a HMap or union of just HMaps
-      ; - each key must have exactly one possible type if it is
-      ;   present
-      ; - if a key is absent in a HMap type, it must be explicitly
-      ;   absent
-      (and expected 
-           (every? r/Value? key-types)
-           (every? r/HeterogeneousMap? flat-expecteds))
-        (let [hmaps flat-expecteds]
-          (reduce (fn [val-expecteds ktype]
-                    ; also includes this contract wrapped in a Reduced
-                    ; The post-condition for `expected-vals` catches this anyway
-                    ;{:post [(every? (some-fn nil? r/TCResult?) %)]}
-
-                    (let [; find the ktype key in each hmap.
-                          ; - If ktype is present in mandatory or optional then we either use the entry's val type 
-                          ; - otherwise if ktype is explicitly forbidden via :absent-keys or completeness
-                          ;   we skip the entry.
-                          ; - otherwise we give up and don't check this as a hmap, return nil
-                          ;   that gets propagated up
-                          corresponding-vals 
-                          (reduce (fn [corresponding-vals {:keys [types absent-keys optional] :as hmap}]
-                                    (if-let [v (some #(get % ktype) [types optional])]
-                                      (conj corresponding-vals v)
-                                      (cond
-                                        (or (contains? absent-keys ktype)
-                                            (c/complete-hmap? hmap))
-                                          corresponding-vals
-                                        :else 
-                                          (reduced nil))))
-                                  #{} hmaps)
-                          val-expect (when (= 1 (count corresponding-vals))
-                                       (ret (first corresponding-vals)))]
-                      (if val-expect
-                        (conj val-expecteds val-expect)
-                        (reduced no-expecteds))))
-                  [] key-types))
-
-      ; If we expect an (IPersistentMap k v), just use the v as the expected val types
-      (and (r/RClass? expected)
-           (= (:the-class expected) 'clojure.lang.IPersistentMap))
-        (let [{[_ vt] :poly?} expected]
-          (map ret (repeat (count key-types) vt)))
-      ; otherwise we don't give expected types
-      :else no-expecteds)))
-
 (add-check-method :map
   [{keyexprs :keys valexprs :vals :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)
@@ -254,7 +189,7 @@
         key-types (map (comp ret-t expr-type) ckeyexprs)
 
         val-rets
-        (expected-vals key-types expected)
+        (map/expected-vals key-types expected)
 
         cvalexprs (mapv check valexprs val-rets)
         val-types (map (comp ret-t expr-type) cvalexprs)
@@ -297,960 +232,6 @@
     (assoc expr
            :args cargs
            expr-type (ret res-type (fo/-true-filter)))))
-
-;; check-below : (/\ (Results Type -> Result)
-;;                   (Results Results -> Result)
-;;                   (Type Results -> Type)
-;;                   (Type Type -> Type))
-
-;check that arg type tr1 is under expected
-(defn check-below [tr1 expected]
-  {:pre [((some-fn TCResult? Type?) tr1)
-         ((some-fn TCResult? Type?) expected)]
-   :post [((some-fn TCResult? Type?) %)]}
-  (letfn [(filter-better? [{f1+ :then f1- :else :as f1}
-                           {f2+ :then f2- :else :as f2}]
-            {:pre [(fl/Filter? f1)
-                   (fl/Filter? f2)]
-             :post [(con/boolean? %)]}
-            (cond
-              (= f1 f2) true
-              (and (fo/implied-atomic? f2+ f1+)
-                   (fo/implied-atomic? f2- f1-)) true
-              :else false))
-          (object-better? [o1 o2]
-            {:pre [(obj/RObject? o1)
-                   (obj/RObject? o2)]
-             :post [(con/boolean? %)]}
-            (cond
-              (= o1 o2) true
-              ((some-fn obj/NoObject? obj/EmptyObject?) o2) true
-              :else false))]
-    ;tr1 = arg
-    ;expected = dom
-    ; Omitted some cases dealing with multiple return values
-    (cond
-      (and (TCResult? tr1)
-           (TCResult? expected)
-           (= (c/Un) (ret-t tr1))
-           (fl/NoFilter? (ret-f expected))
-           (obj/NoObject? (ret-o expected)))
-      (let [ts2 (:t tr1)]
-        (ret ts2))
-
-      (and (TCResult? tr1)
-           (= (c/Un) (ret-t tr1)))
-      expected
-
-      (and (TCResult? tr1)
-           (TCResult? expected)
-           (= (fo/-FS fl/-top fl/-top)
-              (ret-f expected))
-           (obj/EmptyObject? (ret-o expected)))
-      (let [{t1 :t f1 :fl o1 :o} tr1
-            {t2 :t} expected]
-        (when-not (sub/subtype? t1 t2)
-          (cu/expected-error t1 t2))
-        expected)
-
-      (and (TCResult? tr1)
-           (TCResult? expected))
-      (let [{t1 :t f1 :fl o1 :o} tr1
-            {t2 :t f2 :fl o2 :o} expected]
-        (cond
-          (not (sub/subtype? t1 t2)) (cu/expected-error t1 t2)
-
-          (and (not (filter-better? f1 f2))
-               (object-better? o1 o2))
-          (err/tc-delayed-error (str "Expected result with filter " f2 ", got filter"  f1))
-
-          (and (filter-better? f1 f2)
-               (not (object-better? o1 o2)))
-          (err/tc-delayed-error (str "Expected result with object " o2 ", got object"  o1))
-
-          (and (not (filter-better? f1 f2))
-               (not (object-better? o1 o2)))
-          (err/tc-delayed-error (str "Expected result with object " o2 ", got object"  o1 " and filter "
-                                   f2 " got filter " f1)))
-        expected)
-
-      (and (TCResult? tr1)
-           (Type? expected))
-      (let [{t1 :t f :fl o :o} tr1
-            t2 expected]
-        (when-not (sub/subtype? t1 t2)
-          (cu/expected-error t1 t2))
-        (ret t2 f o))
-
-      ;FIXME
-      ;; erm.. ? What is (FilterSet: (list) (list))
-      ;; TODO this case goes here, but not sure what it means 
-      ;
-      ;[((? Type? t1) (tc-result1: t2 (FilterSet: (list) (list)) (Empty:)))
-      ; (unless (sub/subtype t1 t2)
-      ;   (tc-error/expr "Expected ~a, but got ~a" t2 t1))
-      ; t1]
-
-      (and (Type? tr1)
-           (TCResult? expected))
-      (let [t1 tr1
-            {t2 :t f :fl o :o} expected]
-        (if (sub/subtype? t1 t2)
-          (err/tc-delayed-error (str "Expected result with filter " f " and " o ", got " t1))
-          (cu/expected-error t1 t2))
-        t1)
-
-      (and (Type? tr1)
-           (Type? expected))
-      (let [t1 tr1
-            t2 expected]
-        (when-not (sub/subtype? t1 t2)
-          (cu/expected-error t1 t2))
-        expected)
-
-      :else (let [a tr1
-                  b expected]
-              (err/int-error (str "Unexpected input for check-below " a b))))))
-
-(derive ::free-in-for-object fold/fold-rhs-default)
-
-(fold/add-fold-case ::free-in-for-object
-                    Path
-                    (fn [{p :path i :id :as o} {{:keys [free-in? k]} :locals}]
-                      (if (= i k)
-                        (reset! free-in? true)
-                        o)))
-
-(derive ::free-in-for-filter fold/fold-rhs-default)
-
-(fold/add-fold-case ::free-in-for-filter
-                    NotTypeFilter
-                    (fn [{t :type p :path i :id :as t} {{:keys [k free-in?]} :locals}]
-                      (if (= i k)
-                        (reset! free-in? true)
-                        t)))
-
-(fold/add-fold-case ::free-in-for-filter
-                    TypeFilter
-                    (fn [{t :type p :path i :id :as t} {{:keys [k free-in?]} :locals}]
-                      (if (= i k)
-                        (reset! free-in? true)
-                        t)))
-
-(derive ::free-in-for-type fold/fold-rhs-default)
-
-(declare index-free-in?)
-
-(fold/add-fold-case ::free-in-for-type
-                    Function
-                    (fn [{:keys [dom rng rest drest kws]} {{:keys [k free-in? for-type]} :locals}]
-                      ;; here we have to increment the count for the domain, where the new bindings are in scope
-                      (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (concat (:mandatory kws)
-                                                                                                 (:optional kws))))
-                            st* (fn [t] (index-free-in? (if (number? k) (+ arg-count k) k) t))]
-                        (doseq [d dom]
-                          (for-type d))
-                        (st* rng)
-                        (and rest (for-type rest))
-                        (and rest (for-type (:pre-type drest)))
-                        (doseq [[_ v] (concat (:mandatory kws)
-                                              (:optional kws))]
-                          (for-type v))
-                        ;dummy return value
-                        (r/make-Function [] r/-any))))
-
-;[AnyInteger Type -> Boolean]
-(defn index-free-in? [k type]
-  (let [free-in? (atom false :validator con/boolean?)]
-    (letfn [(for-object [o]
-              (fold/fold-rhs ::free-in-for-object
-                             {:type-rec for-type
-                              :locals {:free-in? free-in?
-                                       :k k}}
-                             o))
-            (for-filter [o]
-              (fold/fold-rhs ::free-in-for-filter
-                             {:type-rec for-type
-                              :filter-rec for-filter
-                              :locals {:free-in? free-in?
-                                       :k k}}
-                             o))
-            (for-type [t]
-              (fold/fold-rhs ::free-in-for-type
-                             {:type-rec for-type
-                              :filter-rec for-filter
-                              :object-rec for-object
-                              :locals {:free-in? free-in?
-                                       :k k
-                                       :for-type for-type}}
-                             t))]
-      (for-type type)
-      @free-in?)))
-
-(declare subst-type)
-
-;[Filter (U Number t/Sym) RObject Boolean -> Filter]
-(defn subst-filter [f k o polarity]
-  {:pre [(fl/Filter? f)
-         (fl/name-ref? k)
-         (obj/RObject? o)
-         (con/boolean? polarity)]
-   :post [(fl/Filter? %)]}
-  (letfn [(ap [f] (subst-filter f k o polarity))
-          (tf-matcher [t p i k o polarity maker]
-            {:pre [(Type? t)
-                   ((some-fn obj/EmptyObject? obj/NoObject? obj/Path?) o)]
-             :post [(fl/Filter? %)]}
-            (cond
-              ((some-fn obj/EmptyObject? obj/NoObject?)
-               o)
-              (cond 
-                (= i k) (if polarity fl/-top fl/-bot)
-                (index-free-in? k t) (if polarity fl/-top fl/-bot)
-                :else f)
-
-              (obj/Path? o) (let [{p* :path i* :id} o]
-                              (cond
-                                (= i k) (maker 
-                                          (subst-type t k o polarity)
-                                          i*
-                                          (concat p p*))
-                                (index-free-in? k t) (if polarity fl/-top fl/-bot)
-                                :else f))
-              :else (err/int-error (str "what is this? " o))))]
-    (cond
-      (fl/ImpFilter? f) (let [{ant :a consq :c} f]
-                          (fo/-imp (subst-filter ant k o (not polarity)) (ap consq)))
-      (fl/AndFilter? f) (let [fs (:fs f)] 
-                          (apply fo/-and (map ap fs)))
-      (fl/OrFilter? f) (let [fs (:fs f)]
-                         (apply fo/-or (map ap fs)))
-      (fl/BotFilter? f) fl/-bot
-      (fl/TopFilter? f) fl/-top
-
-      (fl/TypeFilter? f) 
-      (let [{t :type p :path i :id} f]
-        (tf-matcher t p i k o polarity fo/-filter))
-
-      (fl/NotTypeFilter? f) 
-      (let [{t :type p :path i :id} f]
-        (tf-matcher t p i k o polarity fo/-not-filter)))))
-
-(defn- add-extra-filter
-  "If provided a type t, then add the filter (is t k).
-  Helper function."
-  [fl k t]
-  {:pre [(fl/Filter? fl)
-         (fl/name-ref? k)
-         ((some-fn false? nil? Type?) t)]
-   :post [(fl/Filter? %)]}
-  (let [extra-filter (if t (fl/->TypeFilter t nil k) fl/-top)]
-    (letfn [(add-extra-filter [f]
-              {:pre [(fl/Filter? f)]
-               :post [(fl/Filter? %)]}
-              (let [f* (fo/-and extra-filter f)]
-                (if (fl/BotFilter? f*)
-                  f*
-                  f)))]
-      (add-extra-filter fl))))
-
-(defn subst-flow-set [^FlowSet fs k o polarity & [t]]
-  {:pre [(r/FlowSet? fs)
-         (fl/name-ref? k)
-         (obj/RObject? o)
-         ((some-fn false? nil? Type?) t)]
-   :post [(r/FlowSet? %)]}
-  (r/-flow (subst-filter (add-extra-filter (.normal fs) k t) k o polarity)))
-
-;[FilterSet Number RObject Boolean (Option Type) -> FilterSet]
-(defn subst-filter-set [fs k o polarity & [t]]
-  {:pre [((some-fn fl/FilterSet? fl/NoFilter?) fs)
-         (fl/name-ref? k)
-         (obj/RObject? o)
-         ((some-fn false? nil? Type?) t)]
-   :post [(fl/FilterSet? %)]}
-  ;  (prn "subst-filter-set")
-  ;  (prn "fs" (prs/unparse-filter-set fs))
-  ;  (prn "k" k) 
-  ;  (prn "o" o)
-  ;  (prn "polarity" polarity) 
-  ;  (prn "t" (when t (prs/unparse-type t)))
-  (cond
-    (fl/FilterSet? fs) (let [^FilterSet fs fs]
-                         (fo/-FS (subst-filter (add-extra-filter (.then fs) k t) k o polarity)
-                                 (subst-filter (add-extra-filter (.else fs) k t) k o polarity)))
-    :else (fo/-FS fl/-top fl/-top)))
-
-;[Type Number RObject Boolean -> RObject]
-(defn subst-object [t k o polarity]
-  {:pre [(obj/RObject? t)
-         (fl/name-ref? k)
-         (obj/RObject? o)
-         (con/boolean? polarity)]
-   :post [(obj/RObject? %)]}
-  (cond
-    ((some-fn obj/NoObject? obj/EmptyObject?) t) t
-    (obj/Path? t) (let [{p :path i :id} t]
-                    (if (= i k)
-                      (cond
-                        (obj/EmptyObject? o) (obj/->EmptyObject)
-                        ;; the result is not from an annotation, so it isn't a NoObject
-                        (obj/NoObject? o) (obj/->EmptyObject)
-                        (obj/Path? o) (let [{p* :path i* :id} o]
-                                        (obj/->Path (seq (concat p p*)) i*)))
-                      t))))
-
-(derive ::subst-type fold/fold-rhs-default)
-
-(fold/add-fold-case ::subst-type
-                    Function
-                    (fn [{:keys [dom rng rest drest kws] :as ty} {{:keys [st k o polarity]} :locals}]
-                      ;; here we have to increment the count for the domain, where the new bindings are in scope
-                      (let [arg-count (+ (count dom) (if rest 1 0) (if drest 1 0) (count (:mandatory kws)) (count (:optional kws)))
-                            st* (if (integer? k)
-                                  (fn [t] 
-                                    {:pre [(r/AnyType? t)]}
-                                    (subst-type t (if (number? k) (+ arg-count k) k) o polarity))
-                                  st)]
-                        (r/Function-maker (map st dom)
-                                      (st* rng)
-                                      (and rest (st rest))
-                                      (when drest
-                                        (-> drest
-                                            (update-in [:pre-type] st)))
-                                      (when kws
-                                        (-> kws
-                                            (update-in [:mandatory] #(into {} (for [[k v] %]
-                                                                                [(st k) (st v)])))
-                                            (update-in [:optional] #(into {} (for [[k v] %]
-                                                                               [(st k) (st v)])))))))))
-
-
-;[Type (U t/Sym Number) RObject Boolean -> Type]
-(defn subst-type [t k o polarity]
-  {:pre [(r/AnyType? t)
-         (fl/name-ref? k)
-         (obj/RObject? o)
-         (con/boolean? polarity)]
-   :post [(r/AnyType? %)]}
-  ;(prn "subst-type" (prs/unparse-type t))
-  (letfn [(st [t*]
-            (subst-type t* k o polarity))
-          (sf [fs] 
-            {:pre [((some-fn fl/FilterSet? r/FlowSet?) fs)] 
-             :post [((some-fn fl/FilterSet? r/FlowSet?) %)]}
-            ((if (fl/FilterSet? fs) subst-filter-set subst-flow-set) 
-             fs k o polarity))]
-    (fold/fold-rhs ::subst-type
-      {:type-rec st
-       :filter-rec sf
-       :object-rec (fn [f] (subst-object f k o polarity))
-       :locals {:st st
-                :k k
-                :o o
-                :polarity polarity}}
-      t)))
-
-;; Used to "instantiate" a Result from a function call.
-;; eg. (let [a (ann-form [1] (U nil (Seqable Number)))]
-;;       (if (seq a)
-;;         ...
-;;
-;; Here we want to instantiate the result of (seq a).
-;; objs is each of the arguments' objects, ie. [obj/-empty]
-;; ts is each of the arugments' types, ie. [(U nil (Seqable Number))]
-;;
-;; The latent result:
-; (Option (ISeq x))
-; :filters {:then (is (CountRange 1) 0)
-;           :else (| (is nil 0)
-;                    (is (ExactCount 0) 0))}]))
-;; instantiates to 
-; (Option (ISeq x))
-; :filters {:then (is (CountRange 1) a)
-;           :else (| (is nil a)
-;                    (is (ExactCount 0) a))}]))
-;;
-;; Notice the objects are instantiated from 0 -> a
-;
-;[Result (Seqable RObject) (Option (Seqable Type)) 
-;  -> '[Type FilterSet RObject]]
-(defn open-Result 
-  "Substitute ids for objs in Result t"
-  [{t :t fs :fl old-obj :o :keys [flow] :as r} objs & [ts]]
-  {:pre [(r/Result? r)
-         (every? obj/RObject? objs)
-         ((some-fn fl/FilterSet? fl/NoFilter?) fs)
-         (obj/RObject? old-obj)
-         (r/FlowSet? flow)
-         ((some-fn nil? (con/every-c? Type?)) ts)]
-   :post [((con/hvector-c? Type? fl/FilterSet? obj/RObject? r/FlowSet?) %)]}
-  ;  (prn "open-result")
-  ;  (prn "result type" (prs/unparse-type t))
-  ;  (prn "result filterset" (prs/unparse-filter-set fs))
-  ;  (prn "result (old) object" old-obj)
-  ;  (prn "objs" objs)
-  ;  (prn "ts" (mapv prs/unparse-type ts))
-  (reduce (fn [[t fs old-obj flow] [[o k] arg-ty]]
-            {:pre [(Type? t)
-                   ((some-fn fl/FilterSet? fl/NoFilter?) fs)
-                   (obj/RObject? old-obj)
-                   (integer? k)
-                   (obj/RObject? o)
-                   (r/FlowSet? flow)
-                   ((some-fn false? Type?) arg-ty)]
-             :post [((con/hvector-c? Type? fl/FilterSet? obj/RObject? r/FlowSet?) %)]}
-            (let [r [(subst-type t k o true)
-                     (subst-filter-set fs k o true arg-ty)
-                     (subst-object old-obj k o true)
-                     (subst-flow-set flow k o true arg-ty)]]
-              ;              (prn [(prs/unparse-type t) (prs/unparse-filter-set fs) old-obj])
-              ;              (prn "r" r)
-              r))
-          [t fs old-obj flow]
-          ; this is just a sequence of pairs of [nat? RObject] and Type?
-          ; Represents the object and type of each argument, and its position
-          (map vector 
-               (map-indexed #(vector %2 %1) ;racket's is opposite..
-                            objs)
-               (if ts
-                 ts
-                 (repeat false)))))
-
-
-;Function TCResult^n (or nil TCResult) -> TCResult
-(defn check-funapp1 [fexpr arg-exprs {{optional-kw :optional mandatory-kw :mandatory :as kws} :kws
-                                      :keys [dom rng rest drest] :as ftype0}
-                     argtys expected & {:keys [check?] :or {check? true}}]
-  {:pre [(r/Function? ftype0)
-         (every? TCResult? argtys)
-         ((some-fn nil? TCResult?) expected)
-         (con/boolean? check?)]
-   :post [(TCResult? %)]}
-  (when drest 
-    (err/nyi-error "funapp with drest args NYI"))
-  ;  (prn "check-funapp1")
-  ;  (prn "argtys objects" (map ret-o argtys))
-  ;checking
-  (when check?
-    (let [nactual (count argtys)]
-      (when-not (or (when (and (not rest)
-                               (empty? optional-kw)
-                               (empty? mandatory-kw))
-                      (= (count dom) (count argtys)))
-                    (when rest
-                      (<= (count dom) nactual))
-                    (when kws
-                      (let [nexpected (+ (count dom)
-                                         (* 2 (count mandatory-kw)))]
-                        (and (even? (- nactual (count dom)))
-                             ((if (seq optional-kw) <= =)
-                              nexpected
-                              nactual)))))
-        (err/tc-delayed-error (str "Wrong number of arguments, expected " (count dom) " fixed parameters"
-                                 (cond
-                                   rest " and a rest parameter "
-                                   drest " and a dotted rest parameter "
-                                   kws (cond
-                                         (and (seq mandatory-kw) (seq optional-kw))
-                                         (str ", some optional keyword arguments and " (count mandatory-kw) 
-                                              " mandatory keyword arguments")
-
-                                         (seq mandatory-kw) (str "and " (count mandatory-kw) "  mandatory keyword arguments")
-                                         (seq optional-kw) " and some optional keyword arguments"))
-                                 ", and got " nactual
-                                 " for function " (pr-str (prs/unparse-type ftype0))
-                                 " and arguments " (pr-str (mapv (comp prs/unparse-type ret-t) argtys)))))
-      (cond
-        ; case for regular rest argument, or no rest parameter
-        (or rest (empty? (remove nil? [rest drest kws])))
-        (doseq [[arg-t dom-t] (map vector 
-                                   (map ret-t argtys) 
-                                   (concat dom (when rest (repeat rest))))]
-          (check-below arg-t dom-t))
-        
-        ; case for mandatory or optional keyword arguments
-        kws
-        (do
-          ;check regular args
-          (doseq [[arg-t dom-t] (map vector (map ret-t (take (count dom) argtys)) dom)]
-            (check-below arg-t dom-t))
-          ;check keyword args
-          (let [flat-kw-argtys (drop (count dom) argtys)]
-            (when-not (even? (count flat-kw-argtys))
-              (err/tc-delayed-error  
-                (str "Uneven number of arguments to function expecting keyword arguments")))
-            (let [kw-args-paired-t (apply hash-map (map ret-t flat-kw-argtys))]
-              ;make sure all mandatory keys are present
-              (when-let [missing-ks (seq 
-                                      (set/difference (set (keys mandatory-kw))
-                                                      (set (keys kw-args-paired-t))))]
-                (err/tc-delayed-error (str "Missing mandatory keyword keys: "
-                                         (pr-str (interpose ", " (map prs/unparse-type missing-ks))))))
-              ;check each keyword argument is correctly typed
-              (doseq [[kw-key-t kw-val-t] kw-args-paired-t]
-                (when-not (r/Value? kw-key-t)
-                  (err/tc-delayed-error (str "Can only check keyword arguments with Value keys, found"
-                                           (pr-str (prs/unparse-type kw-key-t)))))
-                (let [expected-val-t ((some-fn optional-kw mandatory-kw) kw-key-t)]
-                  (if expected-val-t
-                    (check-below kw-val-t expected-val-t)
-                    ; It is an error to use an undeclared keyword arg because we want to treat the rest parameter
-                    ; as a complete hash-map.
-                    (err/tc-delayed-error (str "Undeclared keyword parameter " 
-                                             (pr-str (prs/unparse-type kw-key-t)))))))))))))
-  (let [dom-count (count dom)
-        arg-count (+ dom-count (if rest 1 0) (count optional-kw))
-        o-a (map ret-o argtys)
-        _ (assert (every? obj/RObject? o-a))
-        t-a (map ret-t argtys)
-        _ (assert (every? Type? t-a))
-        [o-a t-a] (let [rs (for [[nm oa ta] (map vector 
-                                                 (range arg-count) 
-                                                 (concat o-a (repeatedly obj/->EmptyObject))
-                                                 (concat t-a (repeatedly c/Un)))]
-                             [(if (>= nm dom-count) (obj/->EmptyObject) oa)
-                              ta])]
-                    [(map first rs) (map second rs)])
-        [t-r f-r o-r flow-r] (open-Result rng o-a t-a)]
-    (ret t-r f-r o-r flow-r)))
-
-;[Expr (Seqable Expr) (Seqable TCResult) (Option TCResult) Boolean
-; -> Any]
-(defn ^String app-type-error [fexpr args ^FnIntersection fin arg-ret-types expected poly?]
-  {:pre [(r/FnIntersection? fin)
-         (or (not poly?)
-             ((some-fn r/Poly? r/PolyDots?) poly?))]
-   :post [(r/TCResult? %)]}
-  (let [fin (apply r/make-FnIntersection
-                   ;try and prune some of the arities
-                   ; Lots more improvements we can port from Typed Racket:
-                   ;  typecheck/tc-app-helper.rkt
-                   (or
-                     (seq
-                       (remove (fn [{:keys [dom rest drest kws rng]}]
-                                 ;remove arities that have a differing
-                                 ; number of fixed parameters than what we
-                                 ; require
-                                 (and (not rest) (not drest) (not kws)
-                                      (not= (count dom)
-                                            (count arg-ret-types))))
-                               (:types fin)))
-                     ;if we remove all the arities, default to all of them
-                     (:types fin)))
-        static-method? (= :static-call (:op fexpr))
-        instance-method? (= :instance-call (:op fexpr))
-        method-sym (when (or static-method? instance-method?)
-                     (cu/MethodExpr->qualsym fexpr))]
-    (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
-                             (or (when fexpr
-                                   (cu/expr-ns fexpr))
-                                 (when vs/*current-expr*
-                                   (cu/expr-ns vs/*current-expr*))))
-      (err/tc-delayed-error
-        (str
-          (if poly?
-            (str "Polymorphic " 
-                 (cond static-method? "static method "
-                       instance-method? "instance method "
-                       :else "function "))
-            (cond static-method? "Static method "
-                  instance-method? "Instance method "
-                  :else "Function "))
-          (if (or static-method?
-                  instance-method?)  
-            method-sym
-            (if fexpr
-              (ast-u/emit-form-fn fexpr)
-              "<NO FORM>"))
-          " could not be applied to arguments:\n"
-          (when poly?
-            (let [names (cond 
-                          (r/Poly? poly?) (c/Poly-fresh-symbols* poly?)
-                          ;PolyDots
-                          :else (c/PolyDots-fresh-symbols* poly?))
-                  bnds (if (r/Poly? poly?)
-                         (c/Poly-bbnds* names poly?)
-                         (c/PolyDots-bbnds* names poly?))
-                  dotted (when (r/PolyDots? poly?)
-                           (last names))]
-              (str "Polymorphic Variables:\n\t"
-                   (clojure.string/join "\n\t" 
-                                        (map (partial apply pr-str)
-                                             (map (fn [{:keys [lower-bound upper-bound] :as bnd} nme]
-                                                    {:pre [(r/Bounds? bnd)
-                                                           (symbol? nme)]}
-                                                    (cond
-                                                      (= nme dotted) [nme '...]
-                                                      :else (concat [nme]
-                                                                    (when-not (= r/-nothing lower-bound)
-                                                                      [:> (prs/unparse-type lower-bound)])
-                                                                    (when-not (= r/-any upper-bound)
-                                                                      [:< (prs/unparse-type upper-bound)]))))
-                                                  bnds (map (comp r/F-original-name r/make-F) names)))))))
-          "\n\nDomains:\n\t" 
-          (clojure.string/join "\n\t" 
-                               (map (partial apply pr-str) 
-                                    (map (fn [{:keys [dom rest drest kws]}]
-                                           (concat (map prs/unparse-type dom)
-                                                   (when rest
-                                                     [(prs/unparse-type rest) '*])
-                                                   (when-let [{:keys [pre-type name]} drest]
-                                                     [(prs/unparse-type pre-type) 
-                                                      '... 
-                                                      (-> name r/make-F r/F-original-name)])
-                                                   (letfn [(readable-kw-map [m]
-                                                             (into {} (for [[k v] m]
-                                                                        (do (assert (r/Value? k))
-                                                                            [(:val k) (prs/unparse-type v)]))))]
-                                                     (when-let [{:keys [mandatory optional]} kws]
-                                                       (concat ['&]
-                                                               (when (seq mandatory)
-                                                                 [:mandatory (readable-kw-map mandatory)])
-                                                               (when (seq optional)
-                                                                 [:optional (readable-kw-map optional)]))))))
-                                         (:types fin))))
-          "\n\n"
-          "Arguments:\n\t" (apply prn-str (map (comp prs/unparse-type ret-t) arg-ret-types))
-          "\n"
-          "Ranges:\n\t"
-          (clojure.string/join "\n\t" 
-                               (map (partial apply pr-str) (map (comp prs/unparse-result :rng) (:types fin))))
-          "\n\n"
-          (when expected (str "with expected type:\n\t" (pr-str (prs/unparse-type (ret-t expected))) "\n\n"))
-          "in: " (if fexpr
-                   (if (or static-method? instance-method?)
-                     (ast-u/emit-form-fn fexpr)
-                     (list* (ast-u/emit-form-fn fexpr)
-                            (map ast-u/emit-form-fn args)))
-                   "<NO FORM>"))
-        :return (or expected (ret r/Err))))))
-
-(defn ^String polyapp-type-error [fexpr args fexpr-type arg-ret-types expected]
-  {:pre [((some-fn r/Poly? r/PolyDots?) fexpr-type)]
-   :post [(r/TCResult? %)]}
-  (let [fin (if (r/Poly? fexpr-type)
-              (c/Poly-body* (c/Poly-fresh-symbols* fexpr-type) fexpr-type)
-              (c/PolyDots-body* (c/PolyDots-fresh-symbols* fexpr-type) fexpr-type))]
-    (app-type-error fexpr args fin arg-ret-types expected fexpr-type)))
-
-(defn ^String plainapp-type-error [fexpr args fexpr-type arg-ret-types expected]
-  {:pre [(r/FnIntersection? fexpr-type)]
-   :post [(r/TCResult? %)]}
-  (app-type-error fexpr args fexpr-type arg-ret-types expected false))
-
-(declare invoke-keyword)
-
-(defn ifn-ancestor 
-  "If this type can be treated like a function, return one of its
-  possibly polymorphic function ancestors.
-  
-  Assumes the type is not a union"
-  [t]
-  {:pre [(r/Type? t)]
-   :post [((some-fn nil? r/Type?) %)]}
-  (let [t (c/fully-resolve-type t)]
-    (cond
-      (r/RClass? t)
-      (first (filter (some-fn r/Poly? r/FnIntersection?) (c/RClass-supers* t)))
-      ;handle other types here
-      )))
-
-; Expr Expr^n TCResult TCResult^n (U nil TCResult) -> TCResult
-(defn check-funapp [fexpr args fexpr-ret-type arg-ret-types expected]
-  {:pre [(TCResult? fexpr-ret-type)
-         (every? TCResult? arg-ret-types)
-         ((some-fn nil? TCResult?) expected)]
-   :post [(TCResult? %)]}
-  (u/p :check/check-funapp
-  (let [fexpr-type (c/fully-resolve-type (ret-t fexpr-ret-type))
-        arg-types (mapv ret-t arg-ret-types)]
-    (prs/with-unparse-ns (or prs/*unparse-type-in-ns*
-                             (when fexpr
-                               (cu/expr-ns fexpr)))
-    ;(prn "check-funapp" (prs/unparse-type fexpr-type) (map prs/unparse-type arg-types))
-    (cond
-      ;; a union of functions can be applied if we can apply all of the elements
-      (r/Union? fexpr-type)
-      (ret (reduce (fn [t ftype]
-                     {:pre [(r/Type? t)
-                            (r/Type? ftype)]
-                      :post [(r/Type? %)]}
-                     (c/Un t (ret-t (check-funapp fexpr args (ret ftype) arg-ret-types expected))))
-                   (c/Un)
-                   (:types fexpr-type)))
-
-      ; try the first thing that looks like a Fn.
-      ; FIXME This should probably try and invoke every Fn it can
-      ; find, need to figure out how to clean up properly
-      ; after a failed invocation.
-      (r/Intersection? fexpr-type)
-      (let [a-fntype (first (filter
-                              (fn [t]
-                                (or (r/FnIntersection? t)
-                                    (r/Poly? t)))
-                              (map c/fully-resolve-type (:types fexpr-type))))]
-        (if a-fntype
-          (check-funapp fexpr args (ret a-fntype) arg-ret-types expected)
-          (err/int-error (str "Cannot invoke type: " fexpr-type))))
-
-      (ifn-ancestor fexpr-type)
-      (check-funapp fexpr args (ret (ifn-ancestor fexpr-type)) arg-ret-types expected)
-
-      ;keyword function
-      (c/keyword-value? fexpr-type)
-      (let [[target-ret default-ret & more-args] arg-ret-types]
-        (assert (empty? more-args))
-        (invoke-keyword fexpr-ret-type target-ret default-ret expected))
-
-      ;set function
-      ;FIXME yuck. Also this is wrong, should be APersistentSet or something that *actually* extends IFn
-      (and (r/RClass? fexpr-type)
-           (isa? (coerce/symbol->Class (.the-class ^RClass fexpr-type)) IPersistentSet))
-      (do
-        (when-not (#{1} (count args))
-          (err/tc-delayed-error (str "Wrong number of arguments to set function (" (count args)")")))
-        (ret r/-any))
-
-      ;FIXME same as IPersistentSet case
-      (and (r/RClass? fexpr-type)
-           (isa? (coerce/symbol->Class (.the-class ^RClass fexpr-type)) IPersistentMap))
-      ;rewrite ({..} x) as (f {..} x), where f is some dummy fn
-      (let [mapfn (prs/parse-type '(All [x] [(clojure.lang.IPersistentMap Any x) Any -> (U nil x)]))]
-        (check-funapp fexpr args (ret mapfn) (concat [fexpr-ret-type] arg-ret-types) expected))
-
-      ;Symbol function
-      (and (r/RClass? fexpr-type)
-           ('#{clojure.lang.Symbol} (.the-class ^RClass fexpr-type)))
-      (let [symfn (prs/parse-type '(All [x] [(U (clojure.lang.IPersistentMap Any x) Any) -> (U x nil)]))]
-        (check-funapp fexpr args (ret symfn) arg-ret-types expected))
-      
-      ;Var function
-      (and (r/RClass? fexpr-type)
-           ('#{clojure.lang.Var} (:the-class ^RClass fexpr-type)))
-      (let [{[_ ftype :as poly?] :poly?} fexpr-type
-            _ (assert (#{2} (count poly?))
-                      "Assuming clojure.lang.Var only takes 1 argument")]
-        (check-funapp fexpr args (ret ftype) arg-ret-types expected))
-
-      ;Error is perfectly good fn type
-      (r/TCError? fexpr-type)
-      (ret r/Err)
-
-  ; FIXME error messages are worse here because we don't use line numbers for
-  ; specific arguments
-      ;ordinary Function, single case, special cased for improved error msgs
-;      (and (r/FnIntersection? fexpr-type)
-;           (let [[{:keys [drest] :as ft} :as ts] (:types fexpr-type)]
-;             (and (= 1 (count ts))
-;                  (not drest))))
-;      (u/p :check/funapp-single-arity-nopoly-nodots
-;      (let [argtys arg-ret-types
-;            {[t] :types} fexpr-type]
-;        (check-funapp1 fexpr args t argtys expected)))
-
-      ;ordinary Function, multiple cases
-      (r/FnIntersection? fexpr-type)
-      (u/p :check/funapp-nopoly-nodots
-      (let [ftypes (:types fexpr-type)
-            matching-fns (filter (fn [{:keys [dom rest kws] :as f}]
-                                   {:pre [(r/Function? f)]}
-                                   (sub/subtypes-varargs? arg-types dom rest kws))
-                                 ftypes)
-            success-ret-type (when-let [f (first matching-fns)]
-                               (check-funapp1 fexpr args f arg-ret-types expected :check? false))]
-        (if success-ret-type
-          success-ret-type
-          (plainapp-type-error fexpr args fexpr-type arg-ret-types expected))))
-
-      ;ordinary polymorphic function without dotted rest
-      (when (r/Poly? fexpr-type)
-        (let [names (c/Poly-fresh-symbols* fexpr-type)
-              body (c/Poly-body* names fexpr-type)]
-          (when (r/FnIntersection? body)
-            (every? (complement :drest) (:types body)))))
-      (u/p :check/funapp-poly-nodots
-      (let [fs-names (c/Poly-fresh-symbols* fexpr-type)
-            _ (assert (every? symbol? fs-names))
-            ^FnIntersection fin (c/Poly-body* fs-names fexpr-type)
-            bbnds (c/Poly-bbnds* fs-names fexpr-type)
-            _ (assert (r/FnIntersection? fin))
-            ;; Only infer free variables in the return type
-            ret-type 
-            (free-ops/with-bounded-frees (zipmap (map r/F-maker fs-names) bbnds)
-                     (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (.types fin)]
-                       (when ftype
-                         #_(prn "infer poly fn" (prs/unparse-type ftype) (map prs/unparse-type arg-types)
-                                (count dom) (count arg-types))
-                         #_(prn ftype)
-                         #_(when rest (prn "rest" (prs/unparse-type rest)))
-                         ;; only try inference if argument types are appropriate
-                         (if-let 
-                           [substitution 
-                            (cgen/handle-failure
-                              (cond
-                                ;possibly present rest argument, or no rest parameter
-                                (and (not (or drest kws))
-                                     ((if rest <= =) (count dom) (count arg-types)))
-                                (cgen/infer-vararg (zipmap fs-names bbnds) {} 
-                                                   arg-types dom rest (r/Result-type* rng)
-                                                   (and expected (ret-t expected)))
-
-                                ;keyword parameters
-                                kws
-                                (let [{:keys [mandatory optional]} kws
-                                      [normal-argtys flat-kw-argtys] (split-at (count dom) arg-types)
-                                      _ (when-not (even? (count flat-kw-argtys))
-                                          (err/int-error (str "Uneven number of keyword arguments "
-                                                            "provided to polymorphic function "
-                                                            "with keyword parameters.")))
-                                      paired-kw-argtys (apply hash-map flat-kw-argtys)
-
-                                      ;generate two vectors identical in length with actual kw val types
-                                      ;on the left, and expected kw val types on the right.
-
-                                      [kw-val-actual-tys kw-val-expected-tys]
-                                      (reduce (fn [[kw-val-actual-tys kw-val-expected-tys]
-                                                   [kw-key-t kw-val-t]]
-                                                {:pre [(vector? kw-val-actual-tys)
-                                                       (vector? kw-val-expected-tys)
-                                                       (Type? kw-key-t)
-                                                       (Type? kw-val-t)]
-                                                 :post [((con/hvector-c? (every-pred vector? (con/every-c? Type?)) 
-                                                                       (every-pred vector? (con/every-c? Type?)))
-                                                         %)]}
-                                                (when-not (r/Value? kw-key-t)
-                                                  (err/int-error 
-                                                    (str "Can only check keyword arguments with Value keys, found"
-                                                         (pr-str (prs/unparse-type kw-key-t)))))
-                                                (let [expected-val-t ((some-fn optional mandatory) kw-key-t)]
-                                                  (if expected-val-t
-                                                    [(conj kw-val-actual-tys kw-val-t)
-                                                     (conj kw-val-expected-tys expected-val-t)]
-                                                    (do 
-                                                      ; Using undeclared keyword keys is an error because we want to treat
-                                                      ; the rest param as a complete hash map when checking 
-                                                      ; fn bodies.
-                                                      (err/tc-delayed-error (str "Undeclared keyword parameter " 
-                                                                               (pr-str (prs/unparse-type kw-key-t))))
-                                                      [(conj kw-val-actual-tys kw-val-t)
-                                                       (conj kw-val-expected-tys r/-any)]))))
-                                              [[] []]
-                                              paired-kw-argtys)]
-                                  ;make sure all mandatory keys are present
-                                  (when-let [missing-ks (seq 
-                                                          (set/difference (set (keys mandatory))
-                                                                          (set (keys paired-kw-argtys))))]
-                                    ; move to next arity
-                                    (cgen/fail! nil nil))
-                                    ;(err/tc-delayed-error (str "Missing mandatory keyword keys: "
-                                    ;                         (pr-str (vec (interpose ", "
-                                    ;                                                 (map prs/unparse-type missing-ks))))))
-                                  ;; it's probably a bug to not infer for unused optional args, revisit this
-                                  ;(when-let [missing-optional-ks (seq
-                                  ;                                 (set/difference (set (keys optional))
-                                  ;                                                 (set (keys paired-kw-argtys))))]
-                                  ;  (err/nyi-error (str "NYI POSSIBLE BUG?! Unused optional parameters"
-                                  ;                    (pr-str (interpose ", " (map prs/unparse-type missing-optional-ks)))))
-                                  ;  )
-                                  ; infer keyword and fixed parameters all at once
-                                  (cgen/infer (zipmap fs-names bbnds) {}
-                                              (concat normal-argtys kw-val-actual-tys)
-                                              (concat dom kw-val-expected-tys) 
-                                              (r/Result-type* rng)
-                                              (and expected (ret-t expected))))))]
-                           (let [;_ (prn "subst:" substitution)
-                                 new-ftype (subst/subst-all substitution ftype)]
-                             ;(prn "substituted type" new-ftype)
-                             (check-funapp1 fexpr args new-ftype
-                                            arg-ret-types expected :check? false))
-                           (if drest
-                             (do (err/tc-delayed-error (str "Cannot infer arguments to polymorphic functions with dotted rest"))
-                                 nil)
-                             (recur ftypes))))))]
-        (if ret-type
-          ret-type
-          (polyapp-type-error fexpr args fexpr-type arg-ret-types expected))))
-
-      :else ;; any kind of dotted polymorphic function without mandatory or optional keyword args
-      (if-let [[pbody fixed-map dotted-map]
-               (letfn [(should-infer? [t]
-                         (and (r/PolyDots? t)
-                              (r/FnIntersection?
-                                (c/PolyDots-body* (c/PolyDots-fresh-symbols* t)
-                                                  t))))
-                       (collect-polydots [t]
-                         {:post [((con/hvector-c? r/Type?
-                                                  (con/hash-c? symbol? r/Bounds?)
-                                                  (con/hash-c? symbol? r/Bounds?))
-                                  %)]}
-                         (loop [pbody (c/fully-resolve-type t)
-                                fixed {}
-                                dotted {}]
-                           (cond 
-                             (r/PolyDots? pbody)
-                             (let [vars (vec (c/PolyDots-fresh-symbols* pbody))
-                                   bbnds (c/PolyDots-bbnds* vars pbody)
-                                   fixed* (apply zipmap (map butlast [vars bbnds]))
-                                   dotted* (apply hash-map (map last [vars bbnds]))
-                                   pbody (c/PolyDots-body* vars pbody)]
-                               (recur (c/fully-resolve-type pbody)
-                                      (merge fixed fixed*)
-                                      (merge dotted dotted*)))
-
-                             (and (r/FnIntersection? pbody)
-                                  (seq (:types pbody))
-                                  (not (some :kws (:types pbody))))
-                             [pbody fixed dotted])))]
-                 ; don't support nested PolyDots yet
-                 (when (should-infer? fexpr-type)
-                   (collect-polydots fexpr-type)))]
-        (let [;_ (prn "polydots, no kw args")
-              _ (assert (#{1} (count dotted-map)))
-              inferred-rng 
-              (free-ops/with-bounded-frees (zipmap (map r/make-F (keys fixed-map)) (vals fixed-map))
-                ;(dvar-env/with-dotted-mappings (zipmap (keys dotted-map) (map r/make-F (vals dotted-map)))
-                 (some identity
-                       (for [{:keys [dom rest drest rng] :as ftype} (:types pbody)
-                             ;only try inference if argument types match
-                             :when (cond
-                                     rest (<= (count dom) (count arg-types))
-                                     drest (and (<= (count dom) (count arg-types))
-                                                (contains? (set (keys dotted-map)) (-> drest :name)))
-                                     :else (= (count dom) (count arg-types)))]
-                         (cgen/handle-failure
-                           ;(prn "Inferring dotted fn" (prs/unparse-type ftype))
-                           ;; Only try to infer the free vars of the rng (which includes the vars
-                           ;; in filters/objects).
-                           (let [substitution (cond
-                                                drest (cgen/infer-dots fixed-map (key (first dotted-map)) (val (first dotted-map))
-                                                                       arg-types dom (:pre-type drest) (r/Result-type* rng) 
-                                                                       (frees/fv rng)
-                                                                       :expected (and expected (ret-t expected)))
-                                                rest (cgen/infer-vararg fixed-map dotted-map
-                                                                        arg-types dom rest (r/Result-type* rng)
-                                                                        (and expected (ret-t expected)))
-                                                :else (cgen/infer fixed-map dotted-map
-                                                                  arg-types dom (r/Result-type* rng)
-                                                                  (and expected (ret-t expected))))
-                                 ;_ (prn "substitution:" substitution)
-                                 substituted-type (subst/subst-all substitution ftype)
-                                 ;_ (prn "substituted-type" (prs/unparse-type substituted-type))
-                                 ;_ (prn "args" (map prs/unparse-type arg-types))
-                                 ]
-                             (or (and substitution
-                                      (check-funapp1 fexpr args 
-                                                     substituted-type arg-ret-types expected :check? false))
-                                 (err/tc-delayed-error "Error applying dotted type")
-                                 nil))))))]
-          ;(prn "inferred-rng"inferred-rng)
-          (if inferred-rng
-            inferred-rng
-            (polyapp-type-error fexpr args fexpr-type arg-ret-types expected)))
-
-        (err/tc-delayed-error (str
-                              "Cannot invoke type: " (pr-str (prs/unparse-type fexpr-type)))
-                            :return (or expected (ret (c/Un))))))))))
 
 (add-check-method :var
   [{:keys [var] :as expr} & [expected]]
@@ -1571,11 +552,12 @@
       (c/keyword-value? (ret-t kwr))
       (assoc expr
              :args cargs
-             expr-type (invoke-keyword kwr
-                                       (expr-type ctarget)
-                                       (when cdefault
-                                         (expr-type cdefault))
-                                       expected))
+             expr-type (invoke-kw/invoke-keyword 
+                         kwr
+                         (expr-type ctarget)
+                         (when cdefault
+                           (expr-type cdefault))
+                         expected))
 
 ;      ((every-pred r/Value? (comp integer? :val)) (ret-t kwr))
 ;      (err/nyi-error (str "get lookup of vector (like nth) NYI"))
@@ -1655,11 +637,12 @@
     (assoc expr
            :fn ckw
            :args cargs
-           expr-type (invoke-keyword (expr-type ckw)
-                                     (expr-type (first cargs))
-                                     (when (#{2} (count cargs))
-                                       (expr-type (second cargs)))
-                                     expected))))
+           expr-type (invoke-kw/invoke-keyword 
+                       (expr-type ckw)
+                       (expr-type (first cargs))
+                       (when (#{2} (count cargs))
+                         (expr-type (second cargs)))
+                       expected))))
 
 ; Will this play nicely with file mapping?
 (add-check-method :prim-invoke ; protocol methods
@@ -1729,7 +712,7 @@
                           (find-val-type t* k default)))
       (r/RClass? t)
       (->
-        (check-funapp nil nil (ret (prs/parse-type 
+        (funapp/check-funapp nil nil (ret (prs/parse-type 
                                      ;same as clojure.core/get
                                      '(All [x y]
                                            (Fn 
@@ -1750,45 +733,6 @@
         ret-t)
       :else r/-any)))
 
-;[TCResult TCResult (Option TCResult) (Option TCResult) -> TCResult]
-(defn invoke-keyword [kw-ret target-ret default-ret expected-ret]
-  {:pre [(TCResult? kw-ret)
-         (TCResult? target-ret)
-         ((some-fn nil? TCResult?) default-ret)
-         ((some-fn nil? TCResult?) expected-ret)]
-   :post [(TCResult? %)]}
-  (u/p :check/invoke-keyword
-  (let [targett (c/-resolve (ret-t target-ret))
-        kwt (ret-t kw-ret)
-        defaultt (when default-ret
-                   (ret-t default-ret))]
-    (cond
-      ;Keyword must be a singleton with no default
-      (c/keyword-value? kwt)
-      (let [{{path-hm :path id-hm :id :as o} :o} target-ret
-            this-pelem (pe/->KeyPE (:val kwt))
-            val-type (c/find-val-type targett kwt defaultt)]
-        (when expected-ret
-          (when-not (sub/subtype? val-type (ret-t expected-ret))
-            (cu/expected-error val-type (ret-t expected-ret))))
-        (if (not= (c/Un) val-type)
-          (ret val-type
-               (fo/-FS (if (obj/Path? o)
-                         (fo/-filter val-type id-hm (concat path-hm [this-pelem]))
-                         fl/-top)
-                       (if (obj/Path? o)
-                         (fo/-or (fo/-filter (c/make-HMap :absent-keys #{kwt}) id-hm path-hm) ; this map doesn't have a kwt key or...
-                                 (fo/-filter (c/Un r/-nil r/-false) id-hm (concat path-hm [this-pelem]))) ; this map has a false kwt key
-                         fl/-top))
-               (if (obj/Path? o)
-                 (update-in o [:path] #(seq (concat % [this-pelem])))
-                 o))
-          (do (u/tc-warning (str "Keyword lookup gave bottom type: "
-                               (:val kwt) " " (prs/unparse-type targett)))
-              (ret r/-any))))
-
-      :else (err/int-error (str "keyword-invoke only supports keyword lookup, no default. Found " 
-                              (prs/unparse-type kwt)))))))
 
 ;binding
 ;FIXME use `check-normal-def`
@@ -2843,7 +1787,7 @@
                   (mapv check args))
         ftype (expr-type cfexpr)
         argtys (map expr-type cargs)
-        actual (check-funapp fexpr args ftype argtys expected)]
+        actual (funapp/check-funapp fexpr args ftype argtys expected)]
     (assoc expr
            :fn cfexpr
            :args cargs
@@ -2867,11 +1811,12 @@
               (assoc expr
                      :fn cfexpr
                      :args cargs
-                     expr-type (invoke-keyword (expr-type cfexpr)
-                                               (expr-type ctarget)
-                                               (when cdefault
-                                                 (expr-type cdefault)) 
-                                               expected)))
+                     expr-type (invoke-kw/invoke-keyword 
+                                 (expr-type cfexpr)
+                                 (expr-type ctarget)
+                                 (when cdefault
+                                   (expr-type cdefault)) 
+                                 expected)))
 
             :else (normal-invoke expr fexpr args expected :cfexpr cfexpr)))))))
 
@@ -3391,10 +2336,11 @@
         ;       (HVec [(U nil Class) (U nil Class)]
         ;              :objects [{:path [Class], :id a} {:path [Class], :id b}])
         expected-rng (apply ret
-                       (open-Result (:rng expected)
-                                    (map param-obj
-                                         (concat required-params 
-                                                 (when rest-param [rest-param])))))
+                            (open-result/open-Result 
+                              (:rng expected)
+                              (map param-obj
+                                   (concat required-params 
+                                           (when rest-param [rest-param])))))
         ;ensure Function fits method
         _ (when-not ((if (or rest drest kws) <= =) (count required-params) (count dom))
             (err/int-error (str "Checking method with incorrect number of expected parameters"
@@ -3447,7 +2393,7 @@
                     (u/p :check/check-fn-method1-inner-mm-filter-calc
                     (assert (and dispatch-fn-type dispatch-val-ret))
                     (assert (not (or drest rest rest-param)))
-                    (let [disp-app-ret (check-funapp nil nil 
+                    (let [disp-app-ret (funapp/check-funapp nil nil 
                                                      (ret dispatch-fn-type)
                                                      (map ret dom (repeat (fo/-FS fl/-top fl/-top)) 
                                                           (map param-obj required-params))
@@ -3965,7 +2911,7 @@
                       (err/tc-delayed-error (str "Cannot call instance method " (Method->symbol method)
                                                " on type " (pr-str (prs/unparse-type (ret-t (expr-type ctarget)))))
                                           :form (ast-u/emit-form-fn expr)))))
-              result-type (check-funapp expr args (ret rfin-type) (map expr-type cargs) expected)
+              result-type (funapp/check-funapp expr args (ret rfin-type) (map expr-type cargs) expected)
               _ (when expected
                   (when-not (sub/subtype? (ret-t result-type) (ret-t expected))
                     (err/tc-delayed-error (str "Return type of " (if inst? "instance" "static")
@@ -4219,7 +3165,7 @@
                             ctor-fn)
                   ifn (ret ctor-fn)
                   ;_ (prn "Expected constructor" (prs/unparse-type (ret-t ifn)))
-                  res-type (check-funapp expr args ifn (map expr-type cargs) nil)
+                  res-type (funapp/check-funapp expr args ifn (map expr-type cargs) nil)
                   _ (when (and expected (not (sub/subtype? (ret-t res-type) (ret-t expected))))
                       (cu/expected-error (ret-t res-type) (ret-t expected)))]
               (assoc expr
@@ -4382,10 +3328,10 @@
                          {:pre [(TCResult? ty)
                                 (symbol? sym)]}
                          (-> ty
-                             (update-in [:t] subst-type sym obj/-empty true)
-                             (update-in [:fl] subst-filter-set sym obj/-empty true)
-                             (update-in [:o] subst-object sym obj/-empty true)
-                             (update-in [:flow :normal] subst-filter sym obj/-empty true)))
+                             (update-in [:t] subst-obj/subst-type sym obj/-empty true)
+                             (update-in [:fl] subst-obj/subst-filter-set sym obj/-empty true)
+                             (update-in [:o] subst-obj/subst-object sym obj/-empty true)
+                             (update-in [:flow :normal] subst-obj/subst-filter sym obj/-empty true)))
                        (expr-type cbody)
                        (map :name bindings))]
            (assoc expr
@@ -4560,159 +3506,13 @@
            :meta cmeta
            expr-type (expr-type cexpr))))
 
-(defonce ^:dynamic *check-if-checkfn* nil)
 
-;[TCResult Expr Expr (Option Type) -> TCResult]
-(defn check-if [expr ctest thn els & [expected]]
-  {:pre [(-> ctest expr-type r/TCResult?)
-         ((some-fn r/TCResult? nil?) expected)]
-   :post [(-> % expr-type r/TCResult?)]}
-  (let [check-if-checkfn (if-let [c *check-if-checkfn*]
-                           c
-                           (assert nil "No checkfn bound for if"))]
-    (letfn [(tc [expr reachable?]
-              {:post [(-> % expr-type TCResult?)]}
-              (when-not reachable?
-                #_(prn "Unreachable code found.. " expr))
-              (cond
-                ;; if reachable? is #f, then we don't want to verify that this branch has the appropriate type
-                ;; in particular, it might be (void)
-                (and expected reachable?)
-                (check-if-checkfn expr (-> expected
-                                                 (assoc :fl (fo/-FS fl/-top fl/-top))
-                                                 (assoc :o obj/-empty)
-                                                 (assoc :flow (r/-flow fl/-top))))
-                ;; this code is reachable, but we have no expected type
-                reachable? (check-if-checkfn expr)
-                ;; otherwise, this code is unreachable
-                ;; and the resulting type should be the empty type
-                :else (do ;(prn "Not checking unreachable code")
-                          (assoc expr 
-                                 expr-type (ret (c/Un))))))]
-      (let [tst (expr-type ctest)
-            {fs+ :then fs- :else :as f1} (ret-f tst)
-            ;          _ (prn "check-if: fs+" (prs/unparse-filter fs+))
-            ;          _ (prn "check-if: fs-" (prs/unparse-filter fs-))
-            flag+ (atom true :validator con/boolean?)
-            flag- (atom true :validator con/boolean?)
-
-            ;_ (print-env)
-            ;idsym (gensym)
-            env-thn (update/env+ lex/*lexical-env* [fs+] flag+)
-            ;          _ (do (pr "check-if: env-thn")
-            ;              (print-env* env-thn))
-            env-els (update/env+ lex/*lexical-env* [fs-] flag-)
-            ;          _ (do (pr "check-if: env-els")
-            ;              (print-env* env-els))
-            ;          new-thn-props (set
-            ;                          (filter atomic-filter?
-            ;                                  (set/difference
-            ;                                    (set (:props lex/*lexical-env*))
-            ;                                    (set (:props env-thn)))))
-            ;_ (prn idsym"env+: new-thn-props" (map unparse-filter new-thn-props))
-            ;          new-els-props (set
-            ;                          (filter atomic-filter?
-            ;                                  (set/difference
-            ;                                    (set (:props lex/*lexical-env*))
-            ;                                    (set (:props env-els)))))
-            ;_ (prn idsym"env+: new-els-props" (map unparse-filter new-els-props))
-            cthen
-            (binding [vs/*current-expr* thn]
-              (var-env/with-lexical-env env-thn
-                (tc thn @flag+)))
-
-            {ts :t fs2 :fl os2 :o flow2 :flow :as then-ret}
-            (expr-type cthen)
-
-            celse
-            (binding [vs/*current-expr* els]
-              (var-env/with-lexical-env env-els
-                (tc els @flag-)))
-
-            {us :t fs3 :fl os3 :o flow3 :flow :as else-ret} 
-            (expr-type celse)
-
-            ;_ (prn "flow2" (prs/unparse-flow-set flow2))
-            ;_ (prn "flow3" (prs/unparse-flow-set flow3))
-            ]
-
-        ;some optimization code here, contraditions etc? omitted
-
-        ;      (prn "check-if: then branch:" (prs/unparse-TCResult then-ret))
-        ;      (prn "check-if: else branch:" (prs/unparse-TCResult else-ret))
-        (let [if-ret 
-              (cond
-                ;both branches reachable
-                (and (not (= (c/Un) ts))
-                     (not (= (c/Un) us)))
-                (let [;_ (prn "both branches reachable")
-                      r (let [filter (cond
-                                       (or (fl/NoFilter? fs2)
-                                           (fl/NoFilter? fs3)) (fo/-FS fl/-top fl/-top)
-                                       (and (fl/FilterSet? fs2)
-                                            (fl/FilterSet? fs3))
-                                       (let [{f2+ :then f2- :else} fs2
-                                             {f3+ :then f3- :else} fs3
-                                             ; +ve test, +ve then
-                                             new-thn-props (:props env-thn)
-                                             ;_ (prn "new-thn-props" (map prs/unparse-filter new-thn-props))
-                                             new-els-props (:props env-els)
-                                             ;_ (prn "new-els-props" (map prs/unparse-filter new-els-props))
-                                             +t+t (apply fo/-and fs+ f2+ new-thn-props)
-                                             ;_ (prn "+t+t" (prs/unparse-filter +t+t))
-                                             ; -ve test, +ve else
-                                             -t+e (apply fo/-and fs- f3+ new-els-props)
-                                             ;_ (prn "-t+e" (prs/unparse-filter -t+e))
-                                             ; +ve test, -ve then
-                                             +t-t (apply fo/-and fs+ f2- new-thn-props)
-                                             ;_ (prn "+t-t" (prs/unparse-filter +t-t))
-                                             ; -ve test, -ve else
-                                             -t-e (apply fo/-and fs- f3- new-els-props)
-                                             ;_ (prn "-t-e" (prs/unparse-filter -t-e))
-
-                                             final-thn-prop (fo/-or +t+t -t+e)
-                                             ;_ (prn "final-thn-prop" (prs/unparse-filter final-thn-prop))
-                                             final-els-prop (fo/-or +t-t -t-e)
-                                             ;_ (prn "final-els-prop" (prs/unparse-filter final-els-prop))
-                                             fs (fo/-FS final-thn-prop final-els-prop)]
-                                         fs)
-                                       :else (err/int-error (str "What are these?" fs2 fs3)))
-                              type (c/Un ts us)
-                              object (if (= os2 os3) os2 (obj/->EmptyObject))
-
-                              ;only bother with something interesting if a branch is unreachable (the next two cond cases)
-                              ;Should be enough for `assert`
-                              ;flow (r/-flow (fo/-or flow2 flow3))
-                              flow (r/-flow fl/-top)
-                              ]
-                          (ret type filter object flow))]
-                  ;(prn "check if:" "both branches reachable, with combined result" (prs/unparse-TCResult r))
-                  (if expected (check-below r expected) r))
-                ;; both branches unreachable, flow-set is ff
-                (and (= us (c/Un))
-                     (= ts (c/Un)))
-                (ret (c/Un) (fo/-FS fl/-top fl/-top) obj/-empty (r/-flow fl/-bot))
-                ;; special case if one of the branches is unreachable
-                (= us (c/Un))
-                (if expected (check-below (ret ts fs2 os2 flow2) expected) (ret ts fs2 os2 flow2))
-                (= ts (c/Un))
-                (if expected (check-below (ret us fs3 os3 flow3) expected) (ret us fs3 os3 flow3))
-                :else (err/int-error "Something happened"))
-              _ (assert (r/TCResult? if-ret))]
-          (assoc expr
-                 :test ctest
-                 :then cthen
-                 :else celse
-                 expr-type if-ret))))))
-
-;FIXME attach checked :then and :else
 (add-check-method :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type TCResult?)]}
   (let [ctest (binding [vs/*current-expr* test]
                 (check test))]
-    (binding [*check-if-checkfn* check]
-      (check-if expr ctest then else))))
+    (if/check-if check expr ctest then else)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Multimethods

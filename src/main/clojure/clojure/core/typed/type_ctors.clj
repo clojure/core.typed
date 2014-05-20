@@ -63,7 +63,7 @@
   (defn- parse-type [t]
     ((impl/v 'clojure.core.typed.parse-unparse/parse-type) t))
   (defn- check-funapp [& args]
-    (apply (impl/v 'clojure.core.typed.check/check-funapp) args))
+    (apply (impl/v 'clojure.core.typed.check.funapp/check-funapp) args))
   )
 
 (t/ann fresh-symbol [t/Sym -> t/Sym])

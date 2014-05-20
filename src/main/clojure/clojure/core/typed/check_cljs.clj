@@ -2,6 +2,8 @@
   (:require [clojure.core.typed]
             [clojure.core.typed.check :as chk]
             [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.check.if :as if]
+            [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
@@ -251,7 +253,7 @@
             cargs (mapv check args)
             ftype (expr-type cfexpr)
             argtys (map expr-type cargs)
-            actual (chk/check-funapp cfexpr cargs ftype argtys expected)]
+            actual (funapp/check-funapp cfexpr cargs ftype argtys expected)]
         (assoc expr
                expr-type actual)))))
 
@@ -382,7 +384,7 @@
               _ (assert method-type (str "Don't know how to call method " method
                                          " from " (prs/unparse-type resolved)))
               cargs (mapv check args)
-              actual (chk/check-funapp nil cargs (ret method-type) (map expr-type cargs)
+              actual (funapp/check-funapp nil cargs (ret method-type) (map expr-type cargs)
                                        expected)]
           (assoc dot-expr
                  expr-type actual)))
@@ -408,8 +410,7 @@
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type r/TCResult?)]}
   (let [ctest (check test)]
-    (binding [chk/*check-if-checkfn* check]
-      (chk/check-if expr ctest then else expected))))
+    (if/check-if check expr ctest then else expected)))
 
 (defmethod check :let
   [{:keys [bindings expr env] :as let-expr} & [expected]]
