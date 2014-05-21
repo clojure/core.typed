@@ -683,7 +683,7 @@
 
                   ;rest on right, optionally on left
                   (and (:rest T)
-                       (not (:drest S)))
+                       (not-any? (some-fn :drest :repeat) [S]))
                   (concat [(cs-gen-list V X Y (:types S) (concat (:types T)
                                                                  (repeat (- (count (:types S))
                                                                             (count (:types T)))
@@ -691,9 +691,25 @@
                           (when (:rest S)
                             [(cs-gen V X Y (:rest S) (:rest T))]))
 
+                  ; repeat on right, nothing on left
+                  (and (:repeat T)
+                       (not-any? (some-fn :rest :drest :repeat) [S]))
+                  (let [s-types (:types S)
+                        t-types (:types T)
+                        s-types-count (count s-types)
+                        t-types-count (count t-types)]
+                    (if (and (>= s-types-count t-types-count)
+                             (zero? (rem s-types-count t-types-count)))
+                      (cs-gen-HSequential V X Y S (reduce (fn [acc cur]
+                                                            (concat acc cur))
+                                                          []
+                                                          (take (/ s-types-count
+                                                                   t-types-count) (repeat t-types))))
+                      (fail! S T)))
+
                   ;; dotted on the left, nothing on the right
                   (and (:drest S)
-                       (not-any? (some-fn :rest :drest) [T]))
+                       (not-any? (some-fn :rest :drest :repeat) [T]))
                   (let [{dty :pre-type dbound :name} (:drest S)]
                     (when-not (Y dbound)
                       (fail! S T))
@@ -711,7 +727,7 @@
                       [(move-vars-to-dmap new-cset dbound vars)]))
 
                   ;; dotted on the right, nothing on the left
-                  (and (not-any? (some-fn :rest :drest) [S])
+                  (and (not-any? (some-fn :rest :drest :repeat) [S])
                        (:drest T))
                   (let [{dty :pre-type dbound :name} (:drest T)]
                     (when-not (Y dbound)
