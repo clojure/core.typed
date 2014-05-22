@@ -700,11 +700,11 @@
                         t-types-count (count t-types)]
                     (if (and (>= s-types-count t-types-count)
                              (zero? (rem s-types-count t-types-count)))
-                      (cs-gen-HSequential V X Y S (reduce (fn [acc cur]
+                      [(cs-gen-list V X Y s-types (reduce (fn [acc cur]
                                                             (concat acc cur))
                                                           []
                                                           (take (/ s-types-count
-                                                                   t-types-count) (repeat t-types))))
+                                                                   t-types-count) (repeat t-types))))]
                       (fail! S T)))
 
                   ;; dotted on the left, nothing on the right
