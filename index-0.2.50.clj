@@ -49,7 +49,7 @@
    :name "clojure.core.typed.check.recur-utils",
    :doc nil}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/blob/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.check.utils-api.html",
    :name "clojure.core.typed.check.utils",
@@ -1935,71 +1935,71 @@
    :name "error-ret",
    :namespace "clojure.core.typed.check.utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L65",
+   "https://github.com/clojure/core.typed/blob/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj#L66",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/raw/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/error-ret",
    :doc
    "Return a TCResult appropriate for when a type\nerror occurs, with expected type expected.\n\nUse *only* in case of a type error.",
    :var-type "function",
-   :line 65,
+   :line 66,
    :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
   {:arglists ([target-type expected]),
    :name "extend-method-expected",
    :namespace "clojure.core.typed.check.utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L193",
+   "https://github.com/clojure/core.typed/blob/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj#L201",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/raw/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/extend-method-expected",
    :doc
    "Returns the expected type with target-type intersected with the first argument",
    :var-type "function",
-   :line 193,
+   :line 201,
    :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
   {:arglists ([required-params rest-param fin]),
    :name "relevant-Fns",
    :namespace "clojure.core.typed.check.utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L392",
+   "https://github.com/clojure/core.typed/blob/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj#L390",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/raw/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/relevant-Fns",
    :doc
    "Given a set of required-param exprs, rest-param expr, and a FnIntersection,\nreturns a seq of Functions containing Function types\nwhos arities could be a subtype to the method with the fixed and rest parameters given",
    :var-type "function",
-   :line 392,
+   :line 390,
    :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
   {:arglists ([dt nms] [dt]),
    :name "unwrap-datatype",
    :namespace "clojure.core.typed.check.utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L313",
+   "https://github.com/clojure/core.typed/blob/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj#L311",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/raw/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/unwrap-datatype",
    :doc
    "Takes a DataType that might be wrapped in a TypeFn and returns the \nDataType after instantiating it",
    :var-type "function",
-   :line 313,
+   :line 311,
    :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
   {:arglists ([t]),
    :name "unwrap-poly",
    :namespace "clojure.core.typed.check.utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L78",
+   "https://github.com/clojure/core.typed/blob/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj#L79",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/raw/203e0f2787fcb481a67e7e03c5a97a64f89e488b/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/unwrap-poly",
    :doc
    "Return a pair vector of the instantiated body of the possibly polymorphic\ntype and the names used",
    :var-type "function",
-   :line 78,
+   :line 79,
    :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
   {:arglists ([cls]),
    :name "ctor-Class->symbol",
