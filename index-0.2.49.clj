@@ -13,6 +13,18 @@
    :doc
    "This namespace contains annotations and helper macros for type\nchecking core.async code. Ensure clojure.core.async is require'd\nbefore performing type checking.\n\ngo\n  use go>\n\nchan\n  use chan>\n\nbuffer\n  use buffer> (similar for other buffer constructors)\n"}
   {:source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.fn-api.html",
+   :name "clojure.core.typed.check.fn",
+   :doc nil}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn_method_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.fn-method-utils-api.html",
+   :name "clojure.core.typed.check.fn-method-utils",
+   :doc nil}
+  {:source-url
    "https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/check/funapp.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.check.funapp-api.html",
@@ -31,13 +43,19 @@
    :name "clojure.core.typed.check.map",
    :doc nil}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/recur_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.check.recur-utils-api.html",
+   :name "clojure.core.typed.check.recur-utils",
+   :doc nil}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.check.utils-api.html",
    :name "clojure.core.typed.check.utils",
    :doc nil}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/3aa23baeee6cc53b0ab5109b3c6c515b76abf613/src/main/clojure/clojure/core/typed/coerce_utils.clj",
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/coerce_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.coerce-utils-api.html",
    :name "clojure.core.typed.coerce-utils",
@@ -49,6 +67,12 @@
    :name "clojure.core.typed.hole",
    :doc
    "This namespace contains easy tools for hole driven development"}
+  {:source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed/clojure.core.typed.ns-deps-utils-api.html",
+   :name "clojure.core.typed.ns-deps-utils",
+   :doc nil}
   {:source-url
    "https://github.com/clojure/core.typed/blob/92198b007bfdbddb537b13e8a7f829d4eae625fd/src/main/clojure/clojure/core/typed/open_result.clj",
    :wiki-url
@@ -1780,6 +1804,57 @@
    :var-type "macro",
    :line 768,
    :file "src/main/clojure/clojure/core/typed.clj"}
+  {:arglists ([{:keys [methods], :as fexpr} expected]),
+   :name "check-fn",
+   :namespace "clojure.core.typed.check.fn",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn.clj#L14",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.fn/check-fn",
+   :doc
+   "Check a fn to be under expected and annotate the inferred type",
+   :var-type "function",
+   :line 14,
+   :file "src/main/clojure/clojure/core/typed/check/fn.clj"}
+  {:arglists ([args kws rest drest body]),
+   :name "->FnResult",
+   :namespace "clojure.core.typed.check.fn-method-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn_method_utils.clj#L14",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn_method_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.fn-method-utils/->FnResult",
+   :doc "",
+   :var-type "function",
+   :line 14,
+   :file
+   "src/main/clojure/clojure/core/typed/check/fn_method_utils.clj"}
+  {:arglists
+   ([{:as m__2097__auto__, :keys [args kws rest drest body]}]),
+   :name "map->FnResult",
+   :namespace "clojure.core.typed.check.fn-method-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn_method_utils.clj#L14",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn_method_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.fn-method-utils/map->FnResult",
+   :doc "",
+   :var-type "function",
+   :line 14,
+   :file
+   "src/main/clojure/clojure/core/typed/check/fn_method_utils.clj"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.fn-method-utils/FnResult",
+   :namespace "clojure.core.typed.check.fn-method-utils",
+   :var-type "record",
+   :name "FnResult"}
   {:arglists ([t]),
    :name "ifn-ancestor",
    :namespace "clojure.core.typed.check.funapp",
@@ -1822,89 +1897,137 @@
    :var-type "function",
    :line 6,
    :file "src/main/clojure/clojure/core/typed/check/map.clj"}
+  {:arglists ([dom rest drest kws]),
+   :name "->RecurTarget",
+   :namespace "clojure.core.typed.check.recur-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/recur_utils.clj#L5",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/recur_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.recur-utils/->RecurTarget",
+   :doc "",
+   :var-type "function",
+   :line 5,
+   :file "src/main/clojure/clojure/core/typed/check/recur_utils.clj"}
+  {:arglists ([{:as m__2097__auto__, :keys [dom rest drest kws]}]),
+   :name "map->RecurTarget",
+   :namespace "clojure.core.typed.check.recur-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/recur_utils.clj#L5",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/recur_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.recur-utils/map->RecurTarget",
+   :doc "",
+   :var-type "function",
+   :line 5,
+   :file "src/main/clojure/clojure/core/typed/check/recur_utils.clj"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.recur-utils/RecurTarget",
+   :namespace "clojure.core.typed.check.recur-utils",
+   :var-type "record",
+   :name "RecurTarget"}
   {:arglists ([expected]),
    :name "error-ret",
    :namespace "clojure.core.typed.check.utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L59",
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L65",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/error-ret",
    :doc
    "Return a TCResult appropriate for when a type\nerror occurs, with expected type expected.\n\nUse *only* in case of a type error.",
    :var-type "function",
-   :line 59,
+   :line 65,
    :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
   {:arglists ([target-type expected]),
    :name "extend-method-expected",
    :namespace "clojure.core.typed.check.utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L187",
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L193",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/extend-method-expected",
    :doc
    "Returns the expected type with target-type intersected with the first argument",
    :var-type "function",
-   :line 187,
+   :line 193,
+   :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
+  {:arglists ([required-params rest-param fin]),
+   :name "relevant-Fns",
+   :namespace "clojure.core.typed.check.utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L392",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/relevant-Fns",
+   :doc
+   "Given a set of required-param exprs, rest-param expr, and a FnIntersection,\nreturns a seq of Functions containing Function types\nwhos arities could be a subtype to the method with the fixed and rest parameters given",
+   :var-type "function",
+   :line 392,
    :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
   {:arglists ([dt nms] [dt]),
    :name "unwrap-datatype",
    :namespace "clojure.core.typed.check.utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L296",
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L313",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/unwrap-datatype",
    :doc
    "Takes a DataType that might be wrapped in a TypeFn and returns the \nDataType after instantiating it",
    :var-type "function",
-   :line 296,
+   :line 313,
    :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
   {:arglists ([t]),
    :name "unwrap-poly",
    :namespace "clojure.core.typed.check.utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L72",
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L78",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj",
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.check.utils/unwrap-poly",
    :doc
    "Return a pair vector of the instantiated body of the possibly polymorphic\ntype and the names used",
    :var-type "function",
-   :line 72,
+   :line 78,
    :file "src/main/clojure/clojure/core/typed/check/utils.clj"}
   {:arglists ([cls]),
    :name "ctor-Class->symbol",
    :namespace "clojure.core.typed.coerce-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/3aa23baeee6cc53b0ab5109b3c6c515b76abf613/src/main/clojure/clojure/core/typed/coerce_utils.clj#L38",
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/coerce_utils.clj#L40",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/3aa23baeee6cc53b0ab5109b3c6c515b76abf613/src/main/clojure/clojure/core/typed/coerce_utils.clj",
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/coerce_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.coerce-utils/ctor-Class->symbol",
    :doc
    "Returns a symbol representing this constructor's Class, removing any compiler stubs.",
    :var-type "function",
-   :line 38,
+   :line 40,
    :file "src/main/clojure/clojure/core/typed/coerce_utils.clj"}
   {:arglists ([sym]),
    :name "symbol->Class",
    :namespace "clojure.core.typed.coerce-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/3aa23baeee6cc53b0ab5109b3c6c515b76abf613/src/main/clojure/clojure/core/typed/coerce_utils.clj#L5",
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/coerce_utils.clj#L7",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/3aa23baeee6cc53b0ab5109b3c6c515b76abf613/src/main/clojure/clojure/core/typed/coerce_utils.clj",
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/coerce_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.coerce-utils/symbol->Class",
    :doc
    "Returns the Class represented by the symbol. Works for\nprimitives (eg. byte, int). Does not further resolve the symbol.",
    :var-type "function",
-   :line 5,
+   :line 7,
    :file "src/main/clojure/clojure/core/typed/coerce_utils.clj"}
   {:arglists ([]),
    :name "->NoisyHole",
@@ -1956,6 +2079,113 @@
    :namespace "clojure.core.typed.hole",
    :var-type "type",
    :name "NoisyHole"}
+  {:arglists ([ns-form]),
+   :name "collect-only-ns?",
+   :namespace "clojure.core.typed.ns-deps-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L64",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/collect-only-ns?",
+   :doc "Returns true if the ns-form has collect-only metadata.",
+   :var-type "function",
+   :line 64,
+   :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
+  {:arglists ([nsym]),
+   :name "deps-for-ns",
+   :namespace "clojure.core.typed.ns-deps-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L34",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/deps-for-ns",
+   :doc "Returns the dependencies for a namespace",
+   :var-type "function",
+   :line 34,
+   :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
+  {:arglists ([ns-form]),
+   :name "ns-form-deps",
+   :namespace "clojure.core.typed.ns-deps-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L26",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/ns-form-deps",
+   :doc "Given a ns-form, returns a set of dependencies",
+   :var-type "function",
+   :line 26,
+   :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
+  {:arglists ([file]),
+   :name "ns-form-for-file",
+   :namespace "clojure.core.typed.ns-deps-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L10",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/ns-form-for-file",
+   :doc
+   "Returns the namespace declaration for the file, or\nnil if not found",
+   :var-type "function",
+   :line 10,
+   :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
+  {:arglists ([nsym]),
+   :name "ns-form-for-ns",
+   :namespace "clojure.core.typed.ns-deps-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L17",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/ns-form-for-ns",
+   :doc
+   "Returns the namespace declaration for the namespace, or\nnil if not found",
+   :var-type "function",
+   :line 17,
+   :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
+  {:arglists ([ns-form]),
+   :name "ns-form-name",
+   :namespace "clojure.core.typed.ns-deps-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L51",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/ns-form-name",
+   :doc
+   "Returns the symbol naming this namespace, with any\nmetadata attached.",
+   :var-type "function",
+   :line 51,
+   :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
+  {:arglists ([ns-form]),
+   :name "requires-tc?",
+   :namespace "clojure.core.typed.ns-deps-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L43",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/requires-tc?",
+   :doc "Returns true if the ns-form refers to clojure.core.typed",
+   :var-type "function",
+   :line 43,
+   :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
+  {:arglists ([nsym]),
+   :name "should-check-ns?",
+   :namespace "clojure.core.typed.ns-deps-utils",
+   :source-url
+   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L72",
+   :raw-source-url
+   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/should-check-ns?",
+   :doc "Returns true if the given namespace should be type checked",
+   :var-type "function",
+   :line 72,
+   :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
   {:arglists
    ([{t :t, fs :fl, old-obj :o, :keys [flow], :as r} objs & [ts]]),
    :name "open-Result",

@@ -442,6 +442,24 @@ namespace.
     <a href="#clojure.core.typed.async" style="margin-top: 3px;">clojure.core.typed.async</a>
     
   </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.check.fn" style="margin-top: 3px;">clojure.core.typed.check.fn</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.fn/check-fn">check-fn</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.check.fn-method-utils" style="margin-top: 3px;">clojure.core.typed.check.fn-method-utils</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.fn-method-utils/FnResult">FnResult</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.fn-method-utils/-&gt;FnResult">-&gt;FnResult</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.fn-method-utils/map-&gt;FnResult">map-&gt;FnResult</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
     <a href="#clojure.core.typed.check.funapp" style="margin-top: 3px;">clojure.core.typed.check.funapp</a>
     <div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.check.funapp/ifn-ancestor">ifn-ancestor</a>
@@ -460,12 +478,27 @@ namespace.
       
     </div>
   </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.check.recur-utils" style="margin-top: 3px;">clojure.core.typed.check.recur-utils</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.recur-utils/RecurTarget">RecurTarget</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.recur-utils/-&gt;RecurTarget">-&gt;RecurTarget</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.recur-utils/map-&gt;RecurTarget">map-&gt;RecurTarget</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
     <a href="#clojure.core.typed.check.utils" style="margin-top: 3px;">clojure.core.typed.check.utils</a>
     <div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.check.utils/error-ret">error-ret</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.check.utils/extend-method-expected">extend-method-expected</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.check.utils/relevant-Fns">relevant-Fns</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.check.utils/unwrap-datatype">unwrap-datatype</a>
@@ -496,6 +529,33 @@ namespace.
       
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed.hole/silent-hole">silent-hole</a>
+      
+    </div>
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#clojure.core.typed.ns-deps-utils" style="margin-top: 3px;">clojure.core.typed.ns-deps-utils</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.ns-deps-utils/collect-only-ns?">collect-only-ns?</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.ns-deps-utils/deps-for-ns">deps-for-ns</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.ns-deps-utils/ns-form-deps">ns-form-deps</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.ns-deps-utils/ns-form-for-file">ns-form-for-file</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.ns-deps-utils/ns-form-for-ns">ns-form-for-ns</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.ns-deps-utils/ns-form-name">ns-form-name</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.ns-deps-utils/requires-tc?">requires-tc?</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed.ns-deps-utils/should-check-ns?">should-check-ns?</a>
       
     </div>
   </div><div style="margin-left: 1em;" class="toc-section">
@@ -2604,6 +2664,78 @@ buffer
 
 
 <br />
+<h2 id="clojure.core.typed.check.fn">clojure.core.typed.check.fn</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.fn/check-fn">check-fn</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (check-fn {:keys [methods], :as fexpr} expected)
+</pre>
+    <pre id="var-docstr">Check a fn to be under expected and annotate the inferred type</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn.clj#L14" id="var-source">Source</a>
+  </div>
+</div>
+<br />
+<h2 id="clojure.core.typed.check.fn-method-utils">clojure.core.typed.check.fn-method-utils</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+<div id="type-section">
+  <p></p>
+  <h2>Types</h2>
+  <div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.fn-method-utils/FnResult">FnResult</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[args kws rest drest body]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div>
+</div>
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.fn-method-utils/-&gt;FnResult">-&gt;FnResult</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;FnResult args kws rest drest body)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn_method_utils.clj#L14" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.fn-method-utils/map-&gt;FnResult">map-&gt;FnResult</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;FnResult {:as m#, :keys [args kws rest drest body]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/fn_method_utils.clj#L14" id="var-source">Source</a>
+  </div>
+</div>
+<br />
 <h2 id="clojure.core.typed.check.funapp">clojure.core.typed.check.funapp</h2>
 <pre id="namespace-docstr"></pre>
 
@@ -2681,6 +2813,54 @@ checking the values of a literal map expression</pre>
   </div>
 </div>
 <br />
+<h2 id="clojure.core.typed.check.recur-utils">clojure.core.typed.check.recur-utils</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+<div id="type-section">
+  <p></p>
+  <h2>Types</h2>
+  <div id="type-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.recur-utils/RecurTarget">RecurTarget</h2>
+    <span id="type-type">record</span><br />
+    <pre id="type-docstr"></pre>
+    Fields: <span id="type-fields">[dom rest drest kws]</span><br />
+    Protocols: <span id="type-protocols"></span><br />
+    Interfaces: <span id="type-interfaces">clojure.lang.IHashEq, clojure.lang.IKeywordLookup, clojure.lang.ILookup, clojure.lang.IObj, clojure.lang.IPersistentMap, java.io.Serializable, java.util.Map</span><br />
+  </div>
+</div>
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.recur-utils/-&gt;RecurTarget">-&gt;RecurTarget</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (-&gt;RecurTarget dom rest drest kws)
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/recur_utils.clj#L5" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.recur-utils/map-&gt;RecurTarget">map-&gt;RecurTarget</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (map-&gt;RecurTarget {:as m#, :keys [dom rest drest kws]})
+</pre>
+    <pre id="var-docstr"></pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/recur_utils.clj#L5" id="var-source">Source</a>
+  </div>
+</div>
+<br />
 <h2 id="clojure.core.typed.check.utils">clojure.core.typed.check.utils</h2>
 <pre id="namespace-docstr"></pre>
 
@@ -2704,7 +2884,7 @@ error occurs, with expected type expected.
 Use *only* in case of a type error.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L59" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L65" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -2715,7 +2895,20 @@ Use *only* in case of a type error.</pre>
     <pre id="var-docstr">Returns the expected type with target-type intersected with the first argument</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L187" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L193" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.check.utils/relevant-Fns">relevant-Fns</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (relevant-Fns required-params rest-param fin)
+</pre>
+    <pre id="var-docstr">Given a set of required-param exprs, rest-param expr, and a FnIntersection,
+returns a seq of Functions containing Function types
+whos arities could be a subtype to the method with the fixed and rest parameters given</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L392" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -2728,7 +2921,7 @@ Use *only* in case of a type error.</pre>
 DataType after instantiating it</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L296" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L313" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -2740,7 +2933,7 @@ DataType after instantiating it</pre>
 type and the names used</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/bb656efa6372db3ffcb5a1edce5b38d9ac4aee8f/src/main/clojure/clojure/core/typed/check/utils.clj#L72" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/check/utils.clj#L78" id="var-source">Source</a>
   </div>
 </div>
 <br />
@@ -2764,7 +2957,7 @@ type and the names used</pre>
     <pre id="var-docstr">Returns a symbol representing this constructor's Class, removing any compiler stubs.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/3aa23baeee6cc53b0ab5109b3c6c515b76abf613/src/main/clojure/clojure/core/typed/coerce_utils.clj#L38" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/coerce_utils.clj#L40" id="var-source">Source</a>
   </div><div id="var-entry">
     <br />
     <hr />
@@ -2776,7 +2969,7 @@ type and the names used</pre>
 primitives (eg. byte, int). Does not further resolve the symbol.</pre>
     
     
-    <a href="https://github.com/clojure/core.typed/blob/3aa23baeee6cc53b0ab5109b3c6c515b76abf613/src/main/clojure/clojure/core/typed/coerce_utils.clj#L5" id="var-source">Source</a>
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/coerce_utils.clj#L7" id="var-source">Source</a>
   </div>
 </div>
 <br />
@@ -2847,6 +3040,110 @@ Throws an exception when evaluted.</pre>
     
     
     <a href="https://github.com/clojure/core.typed/blob/1e09597531e797ead73a0bbbfc570499361a8f6b/src/main/clojure/clojure/core/typed/hole.clj#L9" id="var-source">Source</a>
+  </div>
+</div>
+<br />
+<h2 id="clojure.core.typed.ns-deps-utils">clojure.core.typed.ns-deps-utils</h2>
+<pre id="namespace-docstr"></pre>
+
+
+<br />
+
+
+<div id="var-section">
+  <p></p>
+  <h2>Public Variables and Functions</h2>
+  <div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.ns-deps-utils/collect-only-ns?">collect-only-ns?</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (collect-only-ns? ns-form)
+</pre>
+    <pre id="var-docstr">Returns true if the ns-form has collect-only metadata.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L64" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.ns-deps-utils/deps-for-ns">deps-for-ns</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (deps-for-ns nsym)
+</pre>
+    <pre id="var-docstr">Returns the dependencies for a namespace</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L34" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.ns-deps-utils/ns-form-deps">ns-form-deps</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (ns-form-deps ns-form)
+</pre>
+    <pre id="var-docstr">Given a ns-form, returns a set of dependencies</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L26" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.ns-deps-utils/ns-form-for-file">ns-form-for-file</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (ns-form-for-file file)
+</pre>
+    <pre id="var-docstr">Returns the namespace declaration for the file, or
+nil if not found</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L10" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.ns-deps-utils/ns-form-for-ns">ns-form-for-ns</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (ns-form-for-ns nsym)
+</pre>
+    <pre id="var-docstr">Returns the namespace declaration for the namespace, or
+nil if not found</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L17" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.ns-deps-utils/ns-form-name">ns-form-name</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (ns-form-name ns-form)
+</pre>
+    <pre id="var-docstr">Returns the symbol naming this namespace, with any
+metadata attached.</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L51" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.ns-deps-utils/requires-tc?">requires-tc?</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (requires-tc? ns-form)
+</pre>
+    <pre id="var-docstr">Returns true if the ns-form refers to clojure.core.typed</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L43" id="var-source">Source</a>
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed.ns-deps-utils/should-check-ns?">should-check-ns?</h2>
+    <span id="var-type">function</span><br />
+    <pre id="var-usage">Usage: (should-check-ns? nsym)
+</pre>
+    <pre id="var-docstr">Returns true if the given namespace should be type checked</pre>
+    
+    
+    <a href="https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L72" id="var-source">Source</a>
   </div>
 </div>
 <br />
