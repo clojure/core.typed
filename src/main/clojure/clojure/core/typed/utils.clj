@@ -342,23 +342,6 @@
 (defn ns? [n]
   (instance? clojure.lang.Namespace n))
 
-(defn ns->file [nsym]
-  {:pre [(symbol? nsym)]
-   :post [(string? %)]}
-  ;copied basic approach from tools.emitter.jvm
-  (let [res (munge nsym)
-        p    (str (str/replace res #"\." "/") ".clj")
-        p (if (.startsWith p "/") (subs p 1) p)]
-    p))
-
-(defn ns->URL [nsym]
-  {:pre [(symbol? nsym)]
-   :post [((some-fn #(instance? java.net.URL %)
-                    nil?) 
-           %)]}
-  (let [p (ns->file nsym)]
-    (io/resource p)))
-
 (def expr-type :clojure.core.typed.check/expr-type)
 
 ;(t/ann tc-warning [Any * -> nil])

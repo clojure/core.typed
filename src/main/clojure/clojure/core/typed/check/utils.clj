@@ -2,6 +2,8 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.reflect-utils :as reflect-u]
             [clojure.core.typed.errors :as err]
+            [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.datatype-env :as dt-env]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.current-impl :as impl]
@@ -11,7 +13,11 @@
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.protocol-env :as pcl-env]
-            [clojure.core.typed.subtype :as sub]))
+            [clojure.core.typed.method-param-nilables :as mtd-param-nil]
+            [clojure.core.typed.method-return-nilables :as mtd-ret-nil]
+            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.subtype :as sub])
+  (:import (clojure.lang MultiFn)))
 
 ;(t/ann expr-ns [Any -> t/Sym])
 (defn expr-ns [expr]
@@ -290,6 +296,17 @@
       ;(prn "MethodExpr->Method" c ms (map :tag args))
       (first ms))))
 
+(defn NewExpr->Ctor [{c :class :keys [op args] :as expr}]
+  {:pre [(#{:new} op)]
+   :post [(or (instance? clojure.reflect.Constructor %)
+              (nil? %))]}
+  (let [cs (->> (reflect-u/reflect c)
+                :members
+                (filter #(instance? clojure.reflect.Constructor %))
+                (filter #(#{(map (comp reflect-u/reflect-friendly-sym :tag) args)} (:parameter-types %))))]
+    ;(prn "NewExpr->Ctor" cs)
+    (first cs)))
+
 ;FIXME I think this hurts more than it helps
 ;[Type (Seqable t/Sym) -> Type]
 ;[Type -> Type]
@@ -306,3 +323,97 @@
   ([dt] (let [nms (when (r/TypeFn? dt)
                     (c/TypeFn-fresh-symbols* dt))]
           (unwrap-datatype dt nms))))
+
+;[t/Sym -> Type]
+(defn DataType-ctor-type [sym]
+  (letfn [(resolve-ctor [dtp]
+            (cond
+              ((some-fn r/DataType? r/Record?) dtp) 
+              (let [dt dtp]
+                (r/make-FnIntersection 
+                  (r/make-Function (-> (c/DataType-fields* dt) vals) dt)))
+
+              (r/TypeFn? dtp) (let [nms (c/TypeFn-fresh-symbols* dtp)
+                                    bbnds (c/TypeFn-bbnds* nms dtp)
+                                    body (c/TypeFn-body* nms dtp)]
+                                (c/Poly* nms
+                                         bbnds
+                                         (free-ops/with-bounded-frees (zipmap (map r/make-F nms) bbnds)
+                                           (resolve-ctor body))))
+
+              :else (err/tc-delayed-error (str "Cannot generate constructor type for: " sym)
+                                        :return r/Err)))]
+    (resolve-ctor (dt-env/get-datatype sym))))
+
+;[Method -> t/Sym]
+(defn Method->symbol [{name-sym :name :keys [declaring-class] :as method}]
+  {:pre [(instance? clojure.reflect.Method method)]
+   :post [((every-pred namespace symbol?) %)]}
+  (symbol (name declaring-class) (name name-sym)))
+
+
+;[clojure.reflect.Method -> Type]
+(defn Method->Type [{:keys [parameter-types return-type flags] :as method}]
+  {:pre [(instance? clojure.reflect.Method method)]
+   :post [(r/FnIntersection? %)]}
+  (let [msym (Method->symbol method)
+        nparams (count parameter-types)]
+    (r/make-FnIntersection (r/make-Function (doall (map (fn [[n tsym]] 
+                                                          (Java-symbol->Type 
+                                                            tsym 
+                                                            (mtd-param-nil/nilable-param? msym nparams n)))
+                                                      (map-indexed vector
+                                                                   (if (:varargs flags)
+                                                                     (butlast parameter-types)
+                                                                     parameter-types))))
+                                          (Java-symbol->Type 
+                                            return-type 
+                                            (not (mtd-ret-nil/nonnilable-return? msym nparams)))
+                                          (when (:varargs flags)
+                                            (Java-symbol->Type 
+                                              (last parameter-types) 
+                                              (mtd-param-nil/nilable-param? msym nparams (dec nparams))))))))
+
+;[clojure.reflect.Constructor -> Type]
+(defn Constructor->Function [{:keys [declaring-class parameter-types] :as ctor}]
+  {:pre [(instance? clojure.reflect.Constructor ctor)]
+   :post [(r/FnIntersection? %)]}
+  (let [cls (resolve declaring-class)
+        _ (when-not (class? cls)
+            (err/tc-delayed-error (str "Constructor for unresolvable class " (:class ctor))))]
+    (r/make-FnIntersection (r/make-Function (doall (map #(Java-symbol->Type % false) parameter-types))
+                                            (c/RClass-of-with-unknown-params cls)
+                                            nil nil 
+                                            ;always a true value. Cannot construct nil
+                                            ; or primitive false
+                                            :filter (fo/-true-filter)))))
+
+;[(Seqable Expr) (Option Expr) FnIntersection -> (Seqable Function)]
+(defn relevant-Fns
+  "Given a set of required-param exprs, rest-param expr, and a FnIntersection,
+  returns a seq of Functions containing Function types
+  whos arities could be a subtype to the method with the fixed and rest parameters given"
+  [required-params rest-param fin]
+  {:pre [(r/FnIntersection? fin)]
+   :post [(every? r/Function? %)]}
+  (let [nreq (count required-params)]
+    ;(prn "nreq" nreq)
+    ;(prn "rest-param" rest-param)
+    (filter (fn [{:keys [dom rest drest kws]}]
+              (let [ndom (count dom)]
+                (if rest-param 
+                  (or ; required parameters can flow into the rest type
+                      (when (or rest drest)
+                        (<= nreq ndom))
+                      ; kw functions must have exact fixed domain match
+                      (when kws
+                        (= nreq ndom)))
+                  (and (not rest) (= nreq ndom)))))
+            (:types fin))))
+
+(defn default-defmethod? [var dispatch-val]
+  {:pre [(var? var)]}
+  (let [^MultiFn multifn @var
+        _ (assert (instance? clojure.lang.MultiFn multifn))
+        default-val (.defaultDispatchVal multifn)]
+    (= default-val dispatch-val)))

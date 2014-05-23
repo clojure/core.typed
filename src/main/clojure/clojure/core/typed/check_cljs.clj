@@ -1,9 +1,15 @@
 (ns clojure.core.typed.check-cljs
   (:require [clojure.core.typed]
             [clojure.core.typed.check :as chk]
+            [clojure.core.typed.check.let :as let]
+            [clojure.core.typed.check.letfn :as letfn]
+            [clojure.core.typed.check.recur :as recur]
+            [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.if :as if]
             [clojure.core.typed.check.funapp :as funapp]
+            [clojure.core.typed.check.fn :as fn]
+            [clojure.core.typed.check.fn-method-utils :as fn-method-u]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
@@ -216,7 +222,7 @@
   (let [expected-bnds (binding [prs/*parse-type-in-ns* (cu/expr-ns dummy-expr)]
                         (mapv prs/parse-type expected-bnds-syn))]
     ;loop may be nested, type the first loop found
-    (binding [chk/*loop-bnd-anns* expected-bnds]
+    (binding [recur-u/*loop-bnd-anns* expected-bnds]
       (check expr expected))))
 
 ; args are backwards if from inlining
@@ -309,24 +315,25 @@
                                             (when variadic
                                               (parse-meta rest))))))]
 
-  (binding [chk/*check-fn-method1-checkfn* check
+  (binding [fn-method-u/*check-fn-method1-checkfn* check
             ;this is identical to the Clojure implementation
-            chk/*check-fn-method1-rest-type* (fn [rest drest kws]
-                                               {:pre [(or (r/Type? rest)
-                                                          (r/DottedPretype? drest)
-                                                          (r/KwArgs? kws))
-                                                      (#{1} (count (filter identity [rest drest kws])))]
-                                                :post [(r/Type? %)]}
-                                               ;(prn "rest" rest)
-                                               ;(prn "drest" drest)
-                                               ;(prn "kws" kws)
-                                               (cond
-                                                 (or rest drest)
-                                                 (c/Un r/-nil 
-                                                       (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
-                                                                     [(or rest (.pre-type ^DottedPretype drest))]))
-                                                 :else (c/KwArgs->Type kws)))]
-    (chk/check-fn 
+            fn-method-u/*check-fn-method1-rest-type* 
+            (fn [rest drest kws]
+              {:pre [(or (r/Type? rest)
+                         (r/DottedPretype? drest)
+                         (r/KwArgs? kws))
+                     (#{1} (count (filter identity [rest drest kws])))]
+               :post [(r/Type? %)]}
+              ;(prn "rest" rest)
+              ;(prn "drest" drest)
+              ;(prn "kws" kws)
+              (cond
+                (or rest drest)
+                (c/Un r/-nil 
+                      (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
+                                    [(or rest (.pre-type ^DottedPretype drest))]))
+                :else (c/KwArgs->Type kws)))]
+    (fn/check-fn 
       expr
       (or (when @found-meta?
             manual-annot)
@@ -414,21 +421,21 @@
 
 (defmethod check :let
   [{:keys [bindings expr env] :as let-expr} & [expected]]
-  (chk/check-let bindings expr let-expr false expected :check-let-checkfn check))
+  (let/check-let bindings expr let-expr false expected :check-let-checkfn check))
 
 (defmethod check :letfn
   [{:keys [bindings expr env] :as letfn-expr} & [expected]]
-  (chk/check-letfn bindings expr letfn-expr expected check))
+  (letfn/check-letfn bindings expr letfn-expr expected check))
 
 (defmethod check :recur
   [{:keys [exprs env] :as recur-expr} & [expected]]
-  (chk/check-recur exprs env recur-expr expected check))
+  (recur/check-recur exprs env recur-expr expected check))
 
 (defmethod check :loop
   [{:keys [bindings expr env] :as loop-expr} & [expected]]
-  (let [loop-bnd-anns chk/*loop-bnd-anns*]
-    (binding [chk/*loop-bnd-anns* nil]
-      (chk/check-let bindings expr loop-expr true expected :expected-bnds loop-bnd-anns
+  (let [loop-bnd-anns recur-u/*loop-bnd-anns*]
+    (binding [recur-u/*loop-bnd-anns* nil]
+      (let/check-let bindings expr loop-expr true expected :expected-bnds loop-bnd-anns
                      :check-let-checkfn check))))
 
 (defmethod check :ns

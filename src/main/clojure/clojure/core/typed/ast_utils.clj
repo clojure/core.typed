@@ -72,3 +72,49 @@
   {:op :const
    :val val
    :env env})
+
+(defn method-body-kw []
+  (impl/impl-case
+    :clojure :body
+    :cljs :expr))
+
+(defn method-required-params [method]
+  (impl/impl-case
+    ; :variadic? in tools.analyzer
+    :clojure (case (:op method)
+               (:fn-method) ((if (:variadic? method) butlast identity)
+                             (:params method))
+               ;include deftype's 'this' param
+               (:method) (concat [(:this method)] (:params method)))
+    ; :variadic in CLJS
+    :cljs ((if (:variadic method) butlast identity)
+           (:params method))))
+
+(defn method-rest-param [method]
+  (impl/impl-case
+    ; :variadic? in tools.analyzer
+    :clojure (case (:op method)
+               ;deftype methods are never variadic
+               (:method) nil
+               (:fn-method) ((if (:variadic? method) last (constantly nil))
+                             (:params method)))
+    ; :variadic in CLJS
+    :cljs ((if (:variadic method) last (constantly nil))
+           (:params method))))
+
+(defn reconstruct-arglist [method required-params rest-param]
+  (impl/impl-case
+    :clojure (case (:op method) 
+               :fn-method (assoc method
+                                 :params (vec (concat required-params
+                                                      (when rest-param
+                                                        [rest-param]))))
+               :method (do (assert (nil? rest-param))
+                           (assert (seq required-params))
+                           (assoc method
+                                  :this (first required-params)
+                                  :params (vec (rest required-params)))))
+    :cljs (assoc method
+                 :params (vec (concat required-params
+                                      (when rest-param
+                                        [rest-param]))))))

@@ -4,12 +4,13 @@
   (:require [clojure.core.typed.impl-protocols :as p]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
+            clojure.core.typed.contract-ann
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]))
 
-(t/typed-deps clojure.core.typed.coerce-utils
+#_(t/typed-deps clojure.core.typed.coerce-utils
               clojure.core.typed.contract-utils)
 
 (t/tc-ignore
@@ -293,7 +294,7 @@
   :methods
   [p/TCType])
 
-(t/ann DataType->Class [DataType -> Class])
+(t/ann ^:no-check DataType->Class [DataType -> Class])
 (defn ^Class DataType->Class [^DataType dt]
   (coerce/symbol->Class (.the-class dt)))
 

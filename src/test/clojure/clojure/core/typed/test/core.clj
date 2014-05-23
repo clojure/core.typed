@@ -50,7 +50,8 @@
   (:import (clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
                          ExceptionInfo Var Seqable)))
 
-
+(check-ns 'clojure.core.typed.test.util-aliases
+          :profile true)
 ;Aliases used in unit tests
 (defmacro is-with-aliases [& body]
   `(is-clj (do (check-ns '~'clojure.core.typed.test.util-aliases)

@@ -7,4 +7,5 @@
                   clojure.core.typed.type-rep
                   clojure.core.typed.cs-rep
                   clojure.core.typed.name-env
-                  clojure.core.typed.type-ctors])))
+                  clojure.core.typed.type-ctors]
+                :profile true)))

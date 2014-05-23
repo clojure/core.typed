@@ -10,6 +10,7 @@
             [clojure.tools.reader.reader-types :as readers]
             [clojure.java.io :as io]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed :as T]
             [clojure.core :as core]))
 
@@ -122,6 +123,7 @@
   [form]
   (analyze1 form (taj/empty-env)))
 
+
 (defn ast-for-file
   "Returns a vector of AST nodes contained
   in the given file"
@@ -160,7 +162,7 @@
      (if (and cache (contains? cache nsym))
        (cache nsym)
        ;copied basic approach from tools.emitter.jvm
-       (let [p (u/ns->file nsym)
+       (let [p (coerce/ns->file nsym)
              asts (ast-for-file p)]
          (when-let [cache T/*analyze-ns-cache*]
            (swap! cache assoc nsym asts))

@@ -1,4 +1,6 @@
 (ns clojure.core.typed.coerce-utils
+  (:require [clojure.string :as str]
+            [clojure.java.io :as io])
   (:import (clojure.lang RT Var)))
 
 ;(t/ann symbol->Class [Symbol -> Class])
@@ -39,3 +41,20 @@
   "Returns a symbol representing this constructor's Class, removing any compiler stubs."
   [cls]
   (Class->symbol cls))
+
+(defn ns->file [nsym]
+  {:pre [(symbol? nsym)]
+   :post [(string? %)]}
+  ;copied basic approach from tools.emitter.jvm
+  (let [res (munge nsym)
+        p    (str (str/replace res #"\." "/") ".clj")
+        p (if (.startsWith p "/") (subs p 1) p)]
+    p))
+
+(defn ns->URL [nsym]
+  {:pre [(symbol? nsym)]
+   :post [((some-fn #(instance? java.net.URL %)
+                    nil?) 
+           %)]}
+  (let [p (ns->file nsym)]
+    (io/resource p)))

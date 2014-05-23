@@ -1853,6 +1853,11 @@ clojure.math.numeric-tower/abs
 
 clojure.core.match/backtrack Exception
       )
+(h/var-mappings
+clojure.set/union (All [x] [(Set x) * -> (Set x)])
+clojure.set/intersection (All [x] [(Set x) (Set x) * -> (Set x)])
+clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
+  )
     {'clojure.core/count (count-type)
      'clojure.core/aset-boolean (aset-*-type 'boolean)
      'clojure.core/aset-byte (aset-*-type 'byte)

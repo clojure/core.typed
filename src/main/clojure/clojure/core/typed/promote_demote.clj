@@ -165,7 +165,7 @@
 
 (defmethod demote HSequential
   [T V]
-  (let [dmt #(promote % V)
+  (let [dmt #(demote % V)
         latent-filter-vs (set/intersection (set (mapcat frees/fv (:fs T)))
                                            (set (mapcat frees/fi (:fs T))))]
     (cond

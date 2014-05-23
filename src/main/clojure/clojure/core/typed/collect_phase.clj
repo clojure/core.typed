@@ -12,6 +12,7 @@
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.declared-kind-env :as decl]
             [clojure.core.typed.ns-deps :as dep]
+            [clojure.core.typed.ns-deps-utils :as dep-u]
             [clojure.core.typed.ns-options :as ns-opts]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as uvar]
@@ -38,77 +39,34 @@
             [clojure.tools.namespace.file :as ns-file]
             [clojure.core :as core]))
 
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
-
-(defonce ns-deps-tracker (atom (track/tracker)))
-
-(defn scan-ns-deps! []
-  {:post [(nil? %)]}
-  (p :collect/update-ns-deps!
-  (try
-    (swap! ns-deps-tracker dir/scan)
-    (catch StackOverflowError e
-      (prn "ERROR COLLECTING DEPENDENCIES: caught StackOverflowError from tools.namespace")))
-  nil
-  ))
-
-(defn update-ns-deps! [nsyms]
-  {:pre [(every? (some-fn symbol? u/ns?) nsyms)]
-   :post [(nil? %)]}
-  (let [ps (map (fn [nsym]
-                  (let [url (u/ns->URL nsym)]
-                    (assert url (str "Cannot find file for " nsym))
-                    url))
-                nsyms)]
-    (swap! ns-deps-tracker ns-file/add-files ps)
-    nil))
+)
 
 (defn parse-field [[n _ t]]
   [n (prs/parse-type t)])
 
 (declare collect)
 
+(t/ann collected-ns! [t/Sym -> nil])
 (defn- collected-ns! [nsym]
+  {:pre [(symbol? nsym)]}
   (if-let [a t/*already-collected*]
     (swap! a conj nsym)
-    (assert nil "Type system is not set up for namespace collection")))
+    (assert nil "Type system is not set up for namespace collection"))
+  nil)
 
+(t/ann already-collected? [t/Sym -> Boolean])
 (defn- already-collected? [nsym]
-  {:post [(con/boolean? %)]}
+  {:pre [(symbol? nsym)]
+   :post [(con/boolean? %)]}
   (if-let [a t/*already-collected*]
     (boolean (@a nsym))
     (assert nil "Type system is not set up for namespace collection")))
 
-(defn immediate-deps [nsym]
-  (let [graph (-> @ns-deps-tracker ::track/deps)]
-    (assert graph (str "Cannot get immediate dependencies for " nsym))
-    (ndep/immediate-dependencies graph nsym)))
-
-(defn directly-depends? [nsym another-nsym]
-  (contains? (immediate-deps nsym) another-nsym))
-
-(defn probably-typed? [nsym]
-  (let [demunged (u/demunge-ns nsym)
-        ns (or (find-ns demunged)
-               (do (require demunged)
-                   (find-ns demunged)))
-        _ (assert ns (str "Namespace " nsym " not found"))
-        {:keys [check] :as opts} (u/typed-ns-opts ns)]
-    (or check
-        (directly-depends? nsym 'clojure.core.typed))))
-
-(defn infer-typed-ns-deps!
-  "Automatically find other namespaces that are likely to
-  be typed dependencies to the current ns."
-  [nsym]
-  {:pre [(symbol? nsym)]}
-  (scan-ns-deps!)
-  (let [all-deps (immediate-deps nsym)
-        new-deps (set (filter probably-typed? all-deps))]
-    (dep/add-ns-deps nsym new-deps)))
-
 (declare collect-asts)
 
+(t/ann collect-ns [t/Sym -> nil])
 (defn collect-ns
   "Collect type annotations and dependency information
   for namespace symbol nsym, and recursively check 
@@ -120,18 +78,20 @@
      (do #_(println (str "Already collected " nsym ", skipping"))
          #_(flush)
          nil)
+     ; assume we're collecting this namespace, but only collect
+     ; dependencies if they appear to refer to clojure.core.tyoed
      (do (collected-ns! nsym)
          (println (str "Start collecting " nsym))
          (flush)
-         (infer-typed-ns-deps! nsym)
-         (let [deps (dep/immediate-deps nsym)]
-           ;(prn "collecting immediate deps for " nsym deps)
-           (doseq [dep deps]
-             ;(prn "collect:" dep)
+         ;collect dependencies
+         (let [deps (dep-u/deps-for-ns nsym)]
+           (doseq [dep deps
+                   :when (dep-u/should-check-ns? dep)]
              (collect-ns dep)))
+         ;collect this namespace
          (let [asts (p :collect-phase/get-clj-analysis (ana-clj/ast-for-ns nsym))]
            (p :collect/collect-form
-             (collect-asts asts)))
+              (collect-asts asts)))
          (println (str "Finished collecting " nsym))
          (flush))))))
 
@@ -162,6 +122,8 @@
 
 (u/special-do-op ::t/special-collect internal-collect-expr)
 
+(defmethod internal-collect-expr :default [& _])
+
 (defn visit-do [{:keys [statements ret] :as expr} f]
   (when (internal-form? expr)
     (internal-collect-expr expr))
@@ -172,16 +134,11 @@
   [{[_ _ {{ns-form :form} :val :as third-arg} :as statements] :statements fexpr :ret :as expr}]
   {:pre [ns-form
          ('#{clojure.core/ns ns} (first ns-form))]}
-  (let [prs-ns (second ns-form)
-        _ (assert (symbol? prs-ns))
-        _ (assert (find-ns prs-ns))
-        ; add all deps to `ns-deps-tracker` so we can use `probably-typed?`
-        all-deps (ns-parse/deps-from-ns-decl ns-form)
-        _ (swap! ns-deps-tracker track/add {prs-ns all-deps})
-        deps (filter probably-typed? all-deps)]
-    (dep/add-ns-deps prs-ns deps)
-    (update-ns-deps! deps)
-    (doseq [dep deps]
+  (let [prs-ns (dep-u/ns-form-name ns-form)
+        deps   (dep-u/ns-form-deps ns-form)
+        tdeps (set (filter dep-u/should-check-ns? deps))]
+    (dep/add-ns-deps prs-ns tdeps)
+    (doseq [dep tdeps]
       (collect-ns dep))))
 
 (defn assert-expr-args [{:keys [args] :as expr} cnts]
@@ -189,36 +146,6 @@
   (assert (cnts (count args)))
   (assert (every? #{:quote} (map :op args))
           (mapv :op args)))
-
-;; Phase 1
-
-;(defmulti collect-declares :op)
-;(u/add-defmethod-generator collect-declares)
-;
-;(defmulti invoke-special-collect-declares 
-;  (fn [expr]
-;    (when-let [var (-> expr :fexpr :var)]
-;      (coerce/var->symbol var))))
-;
-;(defn declare-protocol [current-env current-ns vsym binder mths]
-;  {:pre [(symbol? current-ns)]}
-;  (let [s (if (namespace vsym)
-;            (symbol vsym)
-;            (symbol (str current-ns) (name vsym)))
-;        on-class (c/Protocol-var->on-class s)
-;        variances (when binder
-;                    (map (fn [[_ & {:keys [variance]}]] variance) binder))
-;
-;(defmethod invoke-special-collect-declares 'clojure.core.typed/ann-protocol*
-;  [{:keys [args env] :as expr}]
-;  (assert-expr-args expr #{3})
-;  (let [[binder varsym mth] (constant-exprs args)]
-;    (declare-protocol env (chk/expr-ns expr) varsym binder mth)))
-;
-;
-;(add-collect-method :do [expr] (visit-do expr collect))
-
-;; Phase 2
 
 (defmulti collect (fn [expr] (:op expr)))
 (u/add-defmethod-generator collect)
@@ -363,7 +290,7 @@
     (if t/*already-collected*
       (do (dep/add-ns-deps prs-ns (set deps))
           (doseq [dep deps]
-            (if (u/ns->URL dep)
+            (if (coerce/ns->URL dep)
               (collect-ns dep)
               (err/int-error (str "Cannot find dependency declared with typed-deps: " dep)))))
       (do (println "WARNING: Not collecting namespaces, must call typed-deps via check-ns")
