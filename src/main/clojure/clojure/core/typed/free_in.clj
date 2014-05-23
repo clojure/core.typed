@@ -1,5 +1,7 @@
 (ns clojure.core.typed.free-in
   (:require [clojure.core.typed.fold-rep :as fold]
+            clojure.core.typed.object-rep
+            clojure.core.typed.filter-rep
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.contract-utils :as con])
   (:import (clojure.core.typed.object_rep Path)
