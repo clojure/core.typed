@@ -248,7 +248,7 @@
               (if-let [errors (seq @t/*delayed-errors*)]
                 (t/print-errors! errors)
                 (-> c-ast 
-                    ((v 'clojure.core.typed.check/expr-type))
+                    ((v 'clojure.core.typed.utils/expr-type))
                     ((v 'clojure.core.typed.parse-unparse/unparse-TCResult-in-ns) (u/cljs-ns)))))))))))
 
 (defmacro cf

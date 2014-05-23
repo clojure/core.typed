@@ -1,5 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.inst
   (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
@@ -21,7 +23,7 @@
   [bounds arg-bounds]
   {:pre [(r/Bounds? bounds)
          (r/Bounds? arg-bounds)]
-   :post [(u/boolean? %)]}
+   :post [(con/boolean? %)]}
   (and (sub/subtype? (:lower-bound bounds) (:lower-bound arg-bounds))
        (sub/subtype? (:upper-bound arg-bounds) (:upper-bound bounds))
        ; make sure bounds make sense
@@ -45,7 +47,7 @@
   (cond
     (r/Poly? ptype)
     (let [_ (when-not (= (:nbound ptype) (count argtys)) 
-              (u/int-error
+              (err/int-error
                 (str "Wrong number of arguments to instantiate polymorphic type (expected " (:nbound ptype)
                      ", actual " (count argtys)
                      "\n\nTarget:\n" (with-out-str (pprint/pprint (prs/unparse-type ptype)))
@@ -59,12 +61,12 @@
           (let [lower-bound (subst/substitute-many (:lower-bound bnds) argtys names)
                 upper-bound (subst/substitute-many (:upper-bound bnds) argtys names)]
             (when-not (sub/subtype? lower-bound upper-bound)
-              (u/int-error
+              (err/int-error
                 (str "Lower-bound " (prs/unparse-type lower-bound)
                      " is not below upper-bound " (prs/unparse-type upper-bound))))
             (when-not (and (sub/subtype? ty upper-bound)
                            (sub/subtype? lower-bound ty))
-              (u/int-error
+              (err/int-error
                 (str "Manually instantiated type " (prs/unparse-type ty)
                      " is not between bounds " (prs/unparse-type lower-bound)
                      " and " (prs/unparse-type upper-bound))))))
@@ -73,7 +75,7 @@
     (r/PolyDots? ptype)
     (let [nrequired-types (dec (:nbound ptype))
           _ (when-not (<= nrequired-types (count argtys)) 
-              (u/int-error
+              (err/int-error
                 (str "Insufficient arguments to instantiate dotted polymorphic type")))
           names (c/PolyDots-fresh-symbols* ptype)
           body (c/PolyDots-body* names ptype)
@@ -83,12 +85,12 @@
           (let [lower-bound (subst/substitute-many (:lower-bound bnds) argtys names)
                 upper-bound (subst/substitute-many (:upper-bound bnds) argtys names)]
             (when-not (sub/subtype? lower-bound upper-bound)
-              (u/int-error
+              (err/int-error
                 (str "Lower-bound " (prs/unparse-type lower-bound)
                      " is not below upper-bound " (prs/unparse-type upper-bound))))
             (when-not (and (sub/subtype? ty upper-bound)
                            (sub/subtype? lower-bound ty))
-              (u/int-error
+              (err/int-error
                 (str "Manually instantiated type " (prs/unparse-type ty)
                      " is not between bounds " (prs/unparse-type lower-bound)
                      " and " (prs/unparse-type upper-bound))))))

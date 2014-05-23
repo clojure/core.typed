@@ -1,5 +1,6 @@
 (ns clojure.core.typed.var-env
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.lex-env :as lex]
             [clojure.core.typed.util-vars :as vs]
@@ -12,17 +13,17 @@
 (defonce ^:dynamic *current-used-vars* nil)
 (defonce ^:dynamic *current-checked-var-defs* nil)
 
-(defonce CLJ-VAR-ANNOTATIONS (atom {} :validator (u/hash-c? (every-pred symbol? namespace) r/Type?)))
-(defonce CLJ-NOCHECK-VAR? (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
-(defonce CLJ-USED-VARS (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
-(defonce CLJ-CHECKED-VAR-DEFS (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
+(defonce CLJ-VAR-ANNOTATIONS (atom {} :validator (con/hash-c? (every-pred symbol? namespace) r/Type?)))
+(defonce CLJ-NOCHECK-VAR? (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
+(defonce CLJ-USED-VARS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
+(defonce CLJ-CHECKED-VAR-DEFS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
 
-(defonce CLJS-VAR-ANNOTATIONS (atom {} :validator (u/hash-c? (every-pred symbol? namespace) r/Type?)))
-(defonce CLJS-NOCHECK-VAR? (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
-(defonce CLJS-USED-VARS (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
-(defonce CLJS-CHECKED-VAR-DEFS (atom #{} :validator (u/set-c? (every-pred symbol? namespace))))
+(defonce CLJS-VAR-ANNOTATIONS (atom {} :validator (con/hash-c? (every-pred symbol? namespace) r/Type?)))
+(defonce CLJS-NOCHECK-VAR? (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
+(defonce CLJS-USED-VARS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
+(defonce CLJS-CHECKED-VAR-DEFS (atom #{} :validator (con/set-c? (every-pred symbol? namespace))))
 
-(defonce CLJS-JSVAR-ANNOTATIONS (atom {} :validator (u/hash-c? symbol? r/Type?)))
+(defonce CLJS-JSVAR-ANNOTATIONS (atom {} :validator (con/hash-c? symbol? r/Type?)))
 
 (defmacro with-lexical-env [env & body]
   `(binding [lex/*lexical-env* ~env]
@@ -115,7 +116,7 @@
   (assert-var-env)
   (if-let [t (lookup-Var-nofail nsym)]
     t
-    (u/int-error
+    (err/int-error
       (str "Untyped var reference: " nsym))))
 
 (defn type-of-nofail [sym]
@@ -131,8 +132,8 @@
    :post [(r/Type? %)]}
   (if-let [t (type-of-nofail sym)]
     t
-    (u/int-error (str (when vs/*current-env*
-                        (str (:line vs/*current-env*) ": "))
-                      "Reference to untyped binding: " sym
-                      "\nHint: Add the annotation for " sym
-                      " via check-ns or cf"))))
+    (err/int-error (str (when vs/*current-env*
+                          (str (:line vs/*current-env*) ": "))
+                        "Reference to untyped binding: " sym
+                        "\nHint: Add the annotation for " sym
+                        " via check-ns or cf"))))

@@ -1,14 +1,15 @@
 (ns clojure.core.typed.method-param-nilables
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Param nilables
 
-(defonce METHOD-PARAM-NILABLE-ENV (atom {}))
-(set-validator! METHOD-PARAM-NILABLE-ENV (u/hash-c? (every-pred namespace symbol?)
-                                                    (u/hash-c? (some-fn #{:all} u/nat?)
-                                                               (some-fn #{:all} (u/set-c? u/nat?)))))
+(defonce METHOD-PARAM-NILABLE-ENV 
+  (atom {}
+        :validator (con/hash-c? (every-pred namespace symbol?)
+                                (con/hash-c? (some-fn #{:all} con/nat?)
+                                             (some-fn #{:all} (con/set-c? con/nat?))))))
 
 (defn reset-method-nilable-param-env! [m]
   (reset! METHOD-PARAM-NILABLE-ENV m)

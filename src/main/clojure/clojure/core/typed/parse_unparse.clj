@@ -4,6 +4,9 @@
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed.path-rep :as pthrep]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.coerce-utils :as coerce]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.dvar-env :as dvar]
             [clojure.core.typed.filter-rep :as f]
@@ -26,7 +29,7 @@
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
            (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE)
-           (clojure.lang ISeq Cons IPersistentList Symbol IPersistentVector PersistentHashMap)))
+           (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
@@ -78,13 +81,13 @@
       (or (impl/impl-case
             :clojure (let [r (resolve-type-clj n)]
                        (when (var? r)
-                         (u/var->symbol r)))
+                         (coerce/var->symbol r)))
             :cljs n)
           n))))
 
-(def parsed-free-map? (u/hmap-c? :fname symbol?
-                                 :bnd r/Bounds?
-                                 :variance r/variance?))
+(def parsed-free-map? (con/hmap-c? :fname symbol?
+                                   :bnd r/Bounds?
+                                   :variance r/variance?))
 
 ; parsing TFn, protocol, RClass binders
 (defn ^:private parse-free-with-variance [f]
@@ -95,9 +98,9 @@
      :variance :invariant}
     (let [[n & {:keys [< > variance] :as opts}] f]
       (when (contains? opts :kind)
-        (u/deprecated-warn "Kind annotation for TFn parameters"))
+        (err/deprecated-warn "Kind annotation for TFn parameters"))
       (when-not (r/variance? variance)
-        (u/int-error (str "Invalid variance " (pr-str variance) " in free binder: " f)))
+        (err/int-error (str "Invalid variance " (pr-str variance) " in free binder: " f)))
       {:fname n 
        :bnd (let [upper-or-nil (when (contains? opts :<)
                                  (parse-type <))
@@ -122,14 +125,14 @@
 ; parsing All binders
 ;return a vector of [name bnds]
 (defn parse-free [f]
-  {:post [((u/hvector-c? symbol? r/Bounds?) %)]}
+  {:post [((con/hvector-c? symbol? r/Bounds?) %)]}
   (if (symbol? f)
     [f r/no-bounds]
     (let [[n & {:keys [< >] :as opts}] f]
       (when (contains? opts :kind)
-        (u/deprecated-warn "Kind annotation for TFn parameters"))
+        (err/deprecated-warn "Kind annotation for TFn parameters"))
       (when (:variance opts) 
-        (u/int-error "Variance not supported for variables introduced with All"))
+        (err/int-error "Variance not supported for variables introduced with All"))
       [n (let [upper-or-nil (when (contains? opts :<)
                               (parse-type <))
                lower-or-nil (when (contains? opts :>)
@@ -143,7 +146,7 @@
                    (every? well-formed? (:types t))
                    true)))]
     (when-not (well-formed? tbody)
-      (u/int-error (str "Recursive type not allowed here")))))
+      (err/int-error (str "Recursive type not allowed here")))))
 
 (defn- Mu*-var []
   (let [v (ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'Mu*)]
@@ -153,12 +156,12 @@
 (defn parse-rec-type [[rec & [[free-symbol :as bnder] type 
                               :as args]]]
   (when-not (== 1 (count bnder))
-    (u/int-error "Rec type requires exactly one entry in binder"))
+    (err/int-error "Rec type requires exactly one entry in binder"))
   (when-not (== 2 (count args))
-    (u/int-error "Wrong arguments to Rec"))
+    (err/int-error "Wrong arguments to Rec"))
   (let [Mu* @(Mu*-var)
         _ (when-not (= 1 (count bnder)) 
-            (u/int-error "Only one variable allowed: Rec"))
+            (err/int-error "Only one variable allowed: Rec"))
         f (r/make-F free-symbol)
         body (free-ops/with-frees [f]
                (parse-type type))
@@ -176,12 +179,12 @@
 
 (defn parse-CountRange [[_ & [n u :as args]]]
   (when-not (#{1 2} (count args))
-    (u/int-error "Wrong arguments to CountRange"))
+    (err/int-error "Wrong arguments to CountRange"))
   (when-not (integer? n)
-    (u/int-error "First argument to CountRange must be an integer"))
+    (err/int-error "First argument to CountRange must be an integer"))
   (when-not (or (#{1} (count args))
                 (integer? u))
-    (u/int-error "Second argument to CountRange must be an integer"))
+    (err/int-error "Second argument to CountRange must be an integer"))
   (r/make-CountRange n u))
 
 (defmethod parse-type-list 'CountRange [t] (parse-CountRange t))
@@ -189,9 +192,9 @@
 
 (defn parse-ExactCount [[_ & [n :as args]]]
   (when-not (#{1} (count args))
-    (u/int-error "Wrong arguments to ExactCount"))
+    (err/int-error "Wrong arguments to ExactCount"))
   (when-not (integer? n)
-    (u/int-error "First argument to ExactCount must be an integer"))
+    (err/int-error "First argument to ExactCount must be an integer"))
   (r/make-ExactCountRange n))
 
 (defmethod parse-type-list 'ExactCount [t] (parse-ExactCount t))
@@ -213,19 +216,19 @@
 (defmethod parse-type-list 'predicate
   [[_ & [t-syn :as args]]]
   (when-not (== 1 (count args))
-    (u/int-error "Wrong arguments to predicate"))
+    (err/int-error "Wrong arguments to predicate"))
   (predicate-for (parse-type t-syn)))
 
 ; Only base-env can use this, eventually replace with Difference
 (defmethod parse-type-list 'Not
   [[_ tsyn :as all]]
   (when-not (= (count all) 2) 
-    (u/int-error (str "Wrong arguments to Not (expected 1): " all)))
+    (err/int-error (str "Wrong arguments to Not (expected 1): " all)))
   (r/NotType-maker (parse-type tsyn)))
 
 (defn parse-Difference [[_ tsyn & dsyns :as all]]
   (when-not (<= 3 (count all))
-    (u/int-error (str "Wrong arguments to Difference (expected at least 2): " all)))
+    (err/int-error (str "Wrong arguments to Difference (expected at least 2): " all)))
   (apply r/-difference (parse-type tsyn) (mapv parse-type dsyns)))
 
 (defmethod parse-type-list 'Difference [t] (parse-Difference t))
@@ -237,7 +240,7 @@
 (defn parse-Assoc [[_ tsyn & entries :as all]]
   (when-not (and (<= 1 (count (next all)))
                  (even? (count entries)))
-    (u/int-error (str "Wrong arguments to Assoc: " all)))
+    (err/int-error (str "Wrong arguments to Assoc: " all)))
   (r/AssocType-maker (parse-type tsyn)
                      (doall (->> entries 
                                  (map parse-type)
@@ -250,7 +253,7 @@
 
 (defn parse-Get [[_ tsyn keysyn & not-foundsyn :as all]]
   (when-not (#{2 3} (count (next all)))
-    (u/int-error (str "Wrong arguments to Get: " all)))
+    (err/int-error (str "Wrong arguments to Get: " all)))
   (r/-get (parse-type tsyn)
           (parse-type keysyn)
           :not-found
@@ -276,7 +279,7 @@
                                out [sym]]
                           (if (keyword? (second bnds))
                             (let [_ (when-not (#{2} (count (take 2 bnds)))
-                                      (u/int-error (str "Keyword option " (second bnds)
+                                      (err/int-error (str "Keyword option " (second bnds)
                                                         " has no associated value")))
                                   [k v & rst] bnds]
                               (recur rst
@@ -293,7 +296,7 @@
   [bnds type]
   (let [frees-with-bnds (reduce (fn [fs fsyn]
                                   {:pre [(vector? fs)]
-                                   :post [(every? (u/hvector-c? symbol? r/Bounds?) %)]}
+                                   :post [(every? (con/hvector-c? symbol? r/Bounds?) %)]}
                                   (conj fs
                                         (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) fs))
                                           (parse-free fsyn))))
@@ -311,7 +314,7 @@
   (let [frees-with-bnds
         (reduce (fn [fs fsyn]
                   {:pre [(vector? fs)]
-                   :post [(every? (u/hvector-c? symbol? r/Bounds?) %)]}
+                   :post [(every? (con/hvector-c? symbol? r/Bounds?) %)]}
                   (conj fs
                         (free-ops/with-bounded-frees (into {} (map (fn [[n bnd]] [(r/make-F n) bnd]) fs))
                           (parse-free fsyn))))
@@ -324,16 +327,16 @@
 (defmethod parse-type-list 'Extends
   [[_ extends & {:keys [without] :as opts} :as syn]]
   (when-not (empty? (set/difference (set (keys opts)) #{:without}))
-    (u/int-error (str "Invalid options to Extends:" (keys opts))))
+    (err/int-error (str "Invalid options to Extends:" (keys opts))))
   (when-not (vector? extends) 
-    (u/int-error (str "Extends takes a vector of types: " (pr-str syn))))
+    (err/int-error (str "Extends takes a vector of types: " (pr-str syn))))
   (c/-extends (doall (map parse-type extends))
               :without (doall (map parse-type without))))
 
 (defn parse-All [[_All_ bnds syn & more :as all]]
   ;(prn "All syntax" all)
   (when-not (not more) 
-    (u/int-error (str "Bad All syntax: " all)))
+    (err/int-error (str "Bad All syntax: " all)))
   (parse-all-type bnds syn))
 
 (defmethod parse-type-list 'All [t] (parse-All t))
@@ -356,7 +359,7 @@
 (defmethod parse-type-list 'Array
   [[_ syn & none]]
   (when-not (empty? none) 
-    (u/int-error "Expected 1 argument to Array"))
+    (err/int-error "Expected 1 argument to Array"))
   (let [t (parse-type syn)]
     (impl/impl-case
       :clojure (let [jtype (if (r/RClass? t)
@@ -368,7 +371,7 @@
 (defmethod parse-type-list 'ReadOnlyArray
   [[_ osyn & none]]
   (when-not (empty? none) 
-    (u/int-error "Expected 1 argument to ReadOnlyArray"))
+    (err/int-error "Expected 1 argument to ReadOnlyArray"))
   (let [o (parse-type osyn)]
     (impl/impl-case
       :clojure (r/PrimitiveArray-maker Object (r/Bottom) o)
@@ -377,7 +380,7 @@
 (defmethod parse-type-list 'Array2
   [[_ isyn osyn & none]]
   (when-not (empty? none) 
-    (u/int-error "Expected 2 arguments to Array2"))
+    (err/int-error "Expected 2 arguments to Array2"))
   (let [i (parse-type isyn)
         o (parse-type osyn)]
     (impl/impl-case
@@ -388,10 +391,10 @@
   [[_ jsyn isyn osyn & none]]
   (impl/assert-clojure)
   (when-not (empty? none) 
-    (u/int-error "Expected 3 arguments to Array3"))
+    (err/int-error "Expected 3 arguments to Array3"))
   (let [jrclass (c/fully-resolve-type (parse-type jsyn))
         _ (when-not (r/RClass? jrclass) 
-            (u/int-error "First argument to Array3 must be a Class"))]
+            (err/int-error "First argument to Array3 must be a Class"))]
     (r/PrimitiveArray-maker (r/RClass->Class jrclass) (parse-type isyn) (parse-type osyn))))
 
 (declare parse-function)
@@ -401,9 +404,9 @@
 
 (defn parse-FnCase [[_ & types :as syn]]
   (when-not (seq types) 
-    (u/int-error "Must pass at least one arity to Fn: " (pr-str syn)))
+    (err/int-error "Must pass at least one arity to Fn: " (pr-str syn)))
   (when-not (every? vector? types) 
-    (u/int-error (str "Fn accepts vectors, given: " (pr-str syn))))
+    (err/int-error (str "Fn accepts vectors, given: " (pr-str syn))))
   (parse-fn-intersection-type syn))
 
 (defmethod parse-type-list 'Fn [t] (parse-FnCase t))
@@ -411,7 +414,7 @@
 
 (defn parse-free-binder [[nme & {:keys [variance < > kind] :as opts}]]
   (when-not (symbol? nme)
-    (u/int-error "First entry in free binder should be a name symbol"))
+    (err/int-error "First entry in free binder should be a name symbol"))
   {:nme nme :variance (or variance :invariant)
    :bound (r/Bounds-maker
             ;upper
@@ -430,21 +433,22 @@
 
 (defn parse-tfn-binder [[nme & opts-flat :as all]]
   {:pre [(vector? all)]
-   :post [((u/hmap-c? :nme symbol? :variance r/variance?
-                      :bound r/Bounds?) %)]}
+   :post [((con/hmap-c? :nme symbol? :variance r/variance?
+                        :bound r/Bounds?)
+           %)]}
   (let [_ (when-not (even? (count opts-flat))
-            (u/int-error (str "Uneven arguments passed to TFn binder: "
+            (err/int-error (str "Uneven arguments passed to TFn binder: "
                               (pr-str all))))
         {:keys [variance < >] 
          :or {variance :inferred}
          :as opts} 
         (apply hash-map opts-flat)]
     (when-not (symbol? nme)
-      (u/int-error "Must provide a name symbol to TFn"))
+      (err/int-error "Must provide a name symbol to TFn"))
     (when (contains? opts :kind)
-      (u/int-error "DEPRECATED: kind annotation for TFn parameters"))
+      (err/int-error "DEPRECATED: kind annotation for TFn parameters"))
     (when-not (r/variance? variance)
-      (u/int-error (str "Invalid variance: " (pr-str variance))))
+      (err/int-error (str "Invalid variance: " (pr-str variance))))
     {:nme nme :variance variance
      :bound (let [upper-or-nil (when (contains? opts :<)
                                  (parse-type <))
@@ -455,9 +459,9 @@
 (defn parse-type-fn 
   [[_ binder bodysyn :as tfn]]
   (when-not (= 3 (count tfn))
-    (u/int-error "Wrong number of arguments to TFn: " (pr-str tfn)))
+    (err/int-error "Wrong number of arguments to TFn: " (pr-str tfn)))
   (when-not (every? vector? binder)
-    (u/int-error "TFn binder should be vector of vectors: " (pr-str tfn)))
+    (err/int-error "TFn binder should be vector of vectors: " (pr-str tfn)))
   (let [; don't scope a free in its own bounds. Should review this decision
         free-maps (free-ops/with-free-symbols (map (fn [s]
                                                      {:pre [(vector? s)]
@@ -477,7 +481,7 @@
         ;_ (doseq [{:keys [nme variance]} free-maps]
         ;    (when-let [actual-v (vs nme)]
         ;      (when-not (= (vs nme) variance)
-        ;        (u/int-error (str "Type variable " nme " appears in " (name actual-v) " position "
+        ;        (err/int-error (str "Type variable " nme " appears in " (name actual-v) " position "
         ;                          "when declared " (name variance))))))
         ]
     (c/TypeFn* (map :nme free-maps) (map :variance free-maps)
@@ -489,11 +493,11 @@
 (declare parse-quoted-hvec)
 
 (defmethod parse-type-list 'Seq* [syn] 
-  (u/deprecated-warn "Seq* is deprecated, see clojure.core.typed/HSeq")
+  (err/deprecated-warn "Seq* is deprecated, see clojure.core.typed/HSeq")
   (r/-hseq (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'List* [syn] (r/HeterogeneousList-maker (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'Vector* [syn] 
-  (u/deprecated-warn "Vector* is deprecated, see clojure.core.typed/HVec")
+  (err/deprecated-warn "Vector* is deprecated, see clojure.core.typed/HVec")
   (parse-quoted-hvec (rest syn)))
 
 
@@ -504,7 +508,7 @@
     (let [rest? (#{'*} (last syns))
           dotted? (#{'...} (-> syns butlast last))
           _ (when (and rest? dotted?)
-              (u/int-error (str err-msg syns)))
+              (err/int-error (str err-msg syns)))
           {:keys [fixed rest drest]}
           (cond
             rest?
@@ -518,10 +522,10 @@
                   ; should never fail, if the logic changes above it's probably
                   ; useful to keep around.
                   _ (when-not (#{3} (count dot-syntax))
-                      (u/int-error (str "Bad vector syntax: " dot-syntax)))
+                      (err/int-error (str "Bad vector syntax: " dot-syntax)))
                   bnd (dvar/*dotted-scope* drest-bnd)
                   _ (when-not bnd
-                      (u/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
+                      (err/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
               {:fixed fixed
                :drest (r/DottedPretype1-maker
                         (free-ops/with-frees [bnd] ;with dotted bound in scope as free
@@ -572,10 +576,10 @@
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]
   (when mandatory
     (when-not (map? mandatory)
-      (u/int-error (str "Mandatory entries to HMap must be a map: " mandatory))))
+      (err/int-error (str "Mandatory entries to HMap must be a map: " mandatory))))
   (when optional
     (when-not (map? optional)
-      (u/int-error (str "Optional entries to HMap must be a map: " optional))))
+      (err/int-error (str "Optional entries to HMap must be a map: " optional))))
   (letfn [(mapt [m]
             (into {} (for [[k v] m]
                        [(r/-val k)
@@ -586,14 +590,14 @@
                                                         (set absent-keys))
                                       (set/intersection (set (keys optional))
                                                         (set absent-keys))])
-              (u/int-error (str "HMap options contain duplicate key entries: "
+              (err/int-error (str "HMap options contain duplicate key entries: "
                                 "Mandatory: " (into {} mandatory) ", Optional: " (into {} optional) 
                                 ", Absent: " (set absent-keys))))
-          _ (when-not (every? keyword? (keys mandatory)) (u/int-error "HMap's mandatory keys must be keywords"))
+          _ (when-not (every? keyword? (keys mandatory)) (err/int-error "HMap's mandatory keys must be keywords"))
           mandatory (mapt mandatory)
-          _ (when-not (every? keyword? (keys optional)) (u/int-error "HMap's optional keys must be keywords"))
+          _ (when-not (every? keyword? (keys optional)) (err/int-error "HMap's optional keys must be keywords"))
           optional (mapt optional)
-          _ (when-not (every? keyword? absent-keys) (u/int-error "HMap's absent keys must be keywords"))
+          _ (when-not (every? keyword? absent-keys) (err/int-error "HMap's absent keys must be keywords"))
           absent-keys (set (map r/-val absent-keys))]
       (c/make-HMap :mandatory mandatory :optional optional 
                    :complete? complete? :absent-keys absent-keys))))
@@ -611,7 +615,7 @@
     (vector? syn) (parse-quoted-hvec syn)
     ; quoted map is a partial map with mandatory keys
     (map? syn) (syn-to-hmap syn nil nil false)
-    :else (u/int-error (str "Invalid use of quote:" (pr-str syn)))))
+    :else (err/int-error (str "Invalid use of quote:" (pr-str syn)))))
 
 (declare parse-in-ns)
 
@@ -630,34 +634,34 @@
   (let [supported-options #{:optional :mandatory :absent-keys :complete?}
         ; support deprecated syntax (HMap {}), which is now (HMap :mandatory {})
         deprecated-mandatory (when (map? (first flat-opts))
-                               (u/deprecated-warn
+                               (err/deprecated-warn
                                  "HMap syntax changed. Use :mandatory keyword argument instead of initial map")
                                (first flat-opts))
         flat-opts (if deprecated-mandatory
                     (next flat-opts)
                     flat-opts)
         _ (when-not (even? (count flat-opts))
-            (u/int-error (str "Uneven keyword arguments to HMap: " (pr-str all))))
+            (err/int-error (str "Uneven keyword arguments to HMap: " (pr-str all))))
         flat-keys (->> flat-opts
                        (partition 2)
                        (map first))
         _ (when-not (every? keyword? flat-keys)
-            (u/int-error (str "HMap requires keyword arguments, given " (pr-str (first flat-keys))
+            (err/int-error (str "HMap requires keyword arguments, given " (pr-str (first flat-keys))
                               " in: " (pr-str all))))
         _ (let [kf (->> flat-keys
                         multi-frequencies
                         (map first)
                         seq)]
             (when-let [[k] kf]
-              (u/int-error (str "Repeated keyword argument to HMap: " (pr-str k)))))
+              (err/int-error (str "Repeated keyword argument to HMap: " (pr-str k)))))
 
         {:keys [optional mandatory absent-keys complete?]
          :or {complete? false}
          :as others} (apply hash-map flat-opts)
         _ (when-let [[k] (seq (set/difference (set (keys others)) supported-options))]
-            (u/int-error (str "Unsupported HMap keyword argument: " (pr-str k))))
+            (err/int-error (str "Unsupported HMap keyword argument: " (pr-str k))))
         _ (when (and deprecated-mandatory mandatory)
-            (u/int-error (str "Cannot provide both deprecated initial map syntax and :mandatory option to HMap")))
+            (err/int-error (str "Cannot provide both deprecated initial map syntax and :mandatory option to HMap")))
         mandatory (or deprecated-mandatory mandatory)]
     (syn-to-hmap mandatory optional absent-keys complete?)))
 
@@ -681,7 +685,7 @@
   (let [nsym (parse-in-ns)]
     (if-let [ns (find-ns nsym)]
       (ns-resolve ns sym)
-      (u/int-error (str "Cannot find namespace: " sym)))))
+      (err/int-error (str "Cannot find namespace: " sym)))))
 
 (defn- resolve-type-cljs 
   "Returns a var map of {:ns sym :name sym} or nil"
@@ -696,13 +700,13 @@
   (impl/assert-clojure)
   (let [RClass-of @(RClass-of-var)
         cls (resolve-type-clj cls-sym)
-        _ (when-not (class? cls) (u/int-error (str (pr-str cls-sym) " cannot be resolved")))
+        _ (when-not (class? cls) (err/int-error (str (pr-str cls-sym) " cannot be resolved")))
         tparams (doall (map parse-type params-syn))]
     (RClass-of cls tparams)))
 
 (defn parse-Value [[_Value_ syn :as all]]
   (when-not (#{2} (count all))
-    (u/int-error (str "Incorrect number of arguments to Value, " (count all)
+    (err/int-error (str "Incorrect number of arguments to Value, " (count all)
                       ", expected 2: " all)))
   (impl/impl-case
     :clojure (const/constant-type syn)
@@ -719,14 +723,14 @@
   (when-not (= #{}
                (set/intersection (set (keys optional))
                                  (set (keys mandatory))))
-    (u/int-error (str "Optional and mandatory keyword arguments should be disjoint: "
+    (err/int-error (str "Optional and mandatory keyword arguments should be disjoint: "
                       (set/intersection (set (keys optional))
                                         (set (keys mandatory))))))
   (let [optional (into {} (for [[k v] optional]
-                            (do (when-not (keyword? k) (u/int-error (str "Keyword argument keys must be keywords: " (pr-str k))))
+                            (do (when-not (keyword? k) (err/int-error (str "Keyword argument keys must be keywords: " (pr-str k))))
                               [(r/-val k) (parse-type v)])))
         mandatory (into {} (for [[k v] mandatory]
-                             (do (when-not (keyword? k)) (u/int-error (str "Keyword argument keys must be keywords: " (pr-str k)))
+                             (do (when-not (keyword? k)) (err/int-error (str "Keyword argument keys must be keywords: " (pr-str k)))
                                [(r/-val k) (parse-type v)])))]
     (apply c/Un (apply concat
                      (for [opts (map #(into {} %) (comb/subsets optional))]
@@ -743,7 +747,7 @@
     d
     (let [op (parse-type n)]
       (when-not ((some-fn r/Name? r/TypeFn? r/F? r/B? r/Poly?) op)
-        (u/int-error (str "Invalid operator to type application: " syn)))
+        (err/int-error (str "Invalid operator to type application: " syn)))
       (with-meta (r/TApp-maker op (mapv parse-type args))
                  {:syn syn
                   :env vs/*current-env*}))))
@@ -758,7 +762,7 @@
     (or (impl/impl-case
                      :clojure (let [r (resolve-type-clj n)]
                                 (when (var? r)
-                                  (u/var->symbol r)))
+                                  (coerce/var->symbol r)))
                      ;TODO
                      :cljs n)
                    n)))
@@ -808,9 +812,9 @@
     (when (symbol? op)
       ((some-fn
          (every-pred
-           class? u/Class->symbol)
+           class? coerce/Class->symbol)
          (every-pred
-           var? u/var->symbol))
+           var? coerce/var->symbol))
        (resolve-type-clj op)))))
 
 (defmethod deprecated-clj-list :default [_] nil)
@@ -831,8 +835,8 @@
                :clojure (when-let [res (when (symbol? sym)
                                          (resolve-type-clj sym))]
                           (cond 
-                            (class? res) (u/Class->symbol res)
-                            (var? res) (u/var->symbol res)))
+                            (class? res) (coerce/Class->symbol res)
+                            (var? res) (coerce/var->symbol res)))
                :cljs (when-let [res (when (symbol? sym)
                                       (resolve-type-cljs sym))]
                        (:name res)))
@@ -843,10 +847,10 @@
       free free
       (primitives sym) (primitives sym)
       rsym ((some-fn deprecated-symbol r/Name-maker) rsym)
-      :else (u/tc-error (str "Cannot resolve type: " (pr-str sym)
-                             "\nHint: Is " (pr-str sym) " in scope?"
-                             "\nHint: Has " (pr-str sym) "'s annotation been"
-                             " found via check-ns, cf or typed-deps?")))))
+      :else (err/int-error (str "Cannot resolve type: " (pr-str sym)
+                                "\nHint: Is " (pr-str sym) " in scope?"
+                                "\nHint: Has " (pr-str sym) "'s annotation been"
+                                " found via check-ns, cf or typed-deps?")))))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
@@ -858,12 +862,12 @@
   (cond
     (= 'tt f) f/-top
     (= 'ff f) f/-bot
-    (not ((some-fn seq? list?) f)) (u/int-error (str "Malformed filter expression: " (pr-str f)))
+    (not ((some-fn seq? list?) f)) (err/int-error (str "Malformed filter expression: " (pr-str f)))
     :else (parse-filter* f)))
 
 (defn parse-object [{:keys [id path]}]
   (when-not (f/name-ref? id)
-    (u/int-error (str "Must pass natural number or symbol as id: " (pr-str id))))
+    (err/int-error (str "Must pass natural number or symbol as id: " (pr-str id))))
   (orep/->Path (when path (mapv parse-path-elem path)) id))
 
 (defn parse-filter-set [{:keys [then else] :as fsyn}]
@@ -880,12 +884,12 @@
 
 (defmethod parse-filter* :default
   [syn]
-  (u/int-error (str "Malformed filter expression: " (pr-str syn))))
+  (err/int-error (str "Malformed filter expression: " (pr-str syn))))
 
 (defmethod parse-filter* 'is
   [[_ & [tsyn nme psyns :as all]]]
   (when-not (#{2 3} (count all))
-    (u/int-error (str "Wrong number of arguments to is")))
+    (err/int-error (str "Wrong number of arguments to is")))
   (let [t (parse-type tsyn)
         p (when (= 3 (count all))
             (mapv parse-path-elem psyns))]
@@ -894,7 +898,7 @@
 (defmethod parse-filter* '!
   [[_ & [tsyn nme psyns :as all]]]
   (when-not (#{2 3} (count all))
-    (u/int-error (str "Wrong number of arguments to !")))
+    (err/int-error (str "Wrong number of arguments to !")))
   (let [t (parse-type tsyn)
         p (when (= 3 (count all))
             (mapv parse-path-elem psyns))]
@@ -911,7 +915,7 @@
 (defmethod parse-filter* 'when
   [[_ & [a c :as args] :as all]]
   (when-not (#{2} (count args))
-    (u/int-error (str "Wrong number of arguments to when: " all)))
+    (err/int-error (str "Wrong number of arguments to when: " all)))
   (fl/-imp (parse-filter a) (parse-filter c)))
 
 ;FIXME clean up the magic. eg. handle (Class foo bar) as an error
@@ -920,10 +924,10 @@
      (symbol? %) %
      (coll? %) (first %)
      :else 
-       (u/int-error (str "Malformed path element: " (pr-str %)))))
+       (err/int-error (str "Malformed path element: " (pr-str %)))))
 
 (defmethod parse-path-elem :default [syn]
-  (u/int-error (str "Malformed path element: " (pr-str syn))))
+  (err/int-error (str "Malformed path element: " (pr-str syn))))
 
 (defmethod parse-path-elem 'Class [_] (pthrep/->ClassPE))
 (defmethod parse-path-elem 'Count [_] (pthrep/->CountPE))
@@ -934,11 +938,11 @@
 (defmethod parse-path-elem 'Key
   [[_ & [ksyn :as all]]]
   (when-not (= 1 (count all))
-    (u/int-error "Wrong arguments to Key"))
+    (err/int-error "Wrong arguments to Key"))
   (pthrep/->KeyPE ksyn))
 
 (defn- parse-kw-map [m]
-  {:post [((u/hash-c? r/Value? r/Type?) %)]}
+  {:post [((con/hash-c? r/Value? r/Type?) %)]}
   (into {} (for [[k v] m]
              [(r/-val k) (parse-type v)])))
 
@@ -947,10 +951,10 @@
   (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
         _ (when-not (<= 2 (count chk)) 
-            (u/int-error (str "Incorrect function syntax: " f)))
+            (err/int-error (str "Incorrect function syntax: " f)))
 
         _ (when-not (even? (count opts-flat)) 
-            (u/int-error (str "Incorrect function syntax, must have even number of keyword parameters: " f)))
+            (err/int-error (str "Incorrect function syntax, must have even number of keyword parameters: " f)))
 
         opts (apply hash-map opts-flat)
 
@@ -960,10 +964,10 @@
         (zipmap all-dom (range))
 
         _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos])))
-            (u/int-error "Can only provide one rest argument option: & ... or *"))
+            (err/int-error "Can only provide one rest argument option: & ... or *"))
 
         _ (when-let [ks (seq (remove #{:filters :object :flow} (keys opts)))]
-            (u/int-error (str "Invalid function keyword option/s: " ks)))
+            (err/int-error (str "Invalid function keyword option/s: " ks)))
 
         filters (when-let [[_ fsyn] (find opts :filters)]
                   (parse-filter-set fsyn))
@@ -984,25 +988,25 @@
                     (nth all-dom (dec asterix-pos)))
         _ (when-not (or (not asterix-pos)
                         (= (count all-dom) (inc asterix-pos)))
-            (u/int-error (str "Trailing syntax after rest parameter: " (pr-str (drop (inc asterix-pos) all-dom)))))
+            (err/int-error (str "Trailing syntax after rest parameter: " (pr-str (drop (inc asterix-pos) all-dom)))))
         [drest-type _ drest-bnd :as drest-seq] (when ellipsis-pos
                                                  (drop (dec ellipsis-pos) all-dom))
         _ (when-not (or (not ellipsis-pos) (= 3 (count drest-seq))) 
-            (u/int-error "Dotted rest entry must be 3 entries"))
+            (err/int-error "Dotted rest entry must be 3 entries"))
         _ (when-not (or (not ellipsis-pos) (symbol? drest-bnd))
-            (u/int-error "Dotted bound must be symbol"))
+            (err/int-error "Dotted bound must be symbol"))
         [& {optional-kws :optional mandatory-kws :mandatory} :as kws-seq]
         (let [kwsyn (when ampersand-pos
                       (drop (inc ampersand-pos) all-dom))]
           ; support deprecated syntax [& {} -> ] to be equivalent to [& :optional {} -> ]
           (if (and kwsyn
                    (map? (first kwsyn)))
-            (do (u/deprecated-warn "Implicit optional parameters for Fn arity. Use :optional keyword argument beteween & and ->.")
+            (do (err/deprecated-warn "Implicit optional parameters for Fn arity. Use :optional keyword argument beteween & and ->.")
                 (cons :optional kwsyn))
             kwsyn))
 
         _ (when-not (or (not ampersand-pos) (seq kws-seq)) 
-            (u/int-error "Must provide syntax after &"))]
+            (err/int-error "Must provide syntax after &"))]
     (r/make-Function (mapv parse-type fixed-dom)
                      (parse-type rng)
                      (when asterix-pos
@@ -1010,7 +1014,7 @@
                      (when ellipsis-pos
                        (let [bnd (dvar/*dotted-scope* drest-bnd)
                              _ (when-not bnd 
-                                 (u/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
+                                 (err/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
                          (r/DottedPretype1-maker
                            (free-ops/with-frees [bnd] ;with dotted bound in scope as free
                              (parse-type drest-type))
@@ -1029,10 +1033,10 @@
 
 (defmethod parse-type :default
   [k]
-  (u/tc-error (str "Bad type syntax: " (pr-str k)
-                   (when ((some-fn symbol? keyword?) k)
-                     (str "\n\nHint: Value types should be preceded by a quote or wrapped in the Value constructor."  
-                          " eg. '" (pr-str k) " or (Value " (pr-str k)")")))))
+  (err/int-error (str "Bad type syntax: " (pr-str k)
+                      (when ((some-fn symbol? keyword?) k)
+                        (str "\n\nHint: Value types should be preceded by a quote or wrapped in the Value constructor."  
+                             " eg. '" (pr-str k) " or (Value " (pr-str k)")")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unparse
@@ -1058,9 +1062,9 @@
     (symbol (.getSimpleName (Class/forName (str clsym))))))
 
 (defn Class-symbol-intern [clsym ns]
-  {:pre [(u/namespace? ns)]}
+  {:pre [(con/namespace? ns)]}
   (some (fn [[isym cls]]
-          (when (= (str clsym) (str (u/Class->symbol cls)))
+          (when (= (str clsym) (str (coerce/Class->symbol cls)))
             isym))
         (ns-imports ns)))
 
@@ -1073,10 +1077,10 @@
   ;=> nil"
   [sym ns]
   {:pre [(symbol? sym)
-         (u/namespace? ns)]
+         (con/namespace? ns)]
    :post [((some-fn nil? symbol?) %)]}
   (some (fn [[isym var]]
-          (when (= (str sym) (str (u/var->symbol var)))
+          (when (= (str sym) (str (coerce/var->symbol var)))
             isym))
         (merge (ns-interns ns)
                (ns-refers ns))))
@@ -1167,7 +1171,7 @@
     (list 'Array2 (unparse-type input-type) (unparse-type output-type))
 
     :else
-    (list 'Array3 (u/Class->symbol jtype)
+    (list 'Array3 (coerce/Class->symbol jtype)
           (unparse-type input-type) (unparse-type output-type))))
 
 (defmethod unparse-type* B
@@ -1202,7 +1206,7 @@
 (defmethod unparse-type* TopFunction [_] 'AnyFunction)
 
 (defn- unparse-kw-map [m]
-  {:pre [((u/hash-c? r/Value? r/Type?) m)]}
+  {:pre [((con/hash-c? r/Value? r/Type?) m)]}
   (into {} (for [[^Value k v] m] 
              [(.val k) (unparse-type v)])))
 
@@ -1215,7 +1219,7 @@
             [:object (unparse-object o)])))
 
 (defn unparse-bound [name]
-  {:pre [((some-fn symbol? u/nat?) name)]}
+  {:pre [((some-fn symbol? con/nat?) name)]}
   (if (symbol? name)
     (-> name r/make-F r/F-original-name)
     `(~'B ~name)))
@@ -1325,7 +1329,7 @@
         body (c/Poly-body* free-names p)]
     (list 'All binder (unparse-type body))))
 
-;(ann unparse-typefn-bounds-entry [Symbol Bounds Variance -> Any])
+;(ann unparse-typefn-bounds-entry [t/Sym Bounds Variance -> Any])
 (defn unparse-typefn-bounds-entry [name {:keys [upper-bound lower-bound higher-kind]} v]
   (let [name (-> name r/make-F r/F-original-name)
         u (when upper-bound 
@@ -1530,7 +1534,7 @@
         [t fs o]))))
 
 (defn unparse-TCResult-in-ns [r ns]
-  {:pre [((some-fn u/namespace? symbol?) ns)]}
+  {:pre [((some-fn con/namespace? symbol?) ns)]}
   (binding [*unparse-type-in-ns* (if (symbol? ns)
                                    ns
                                    (ns-name ns))]

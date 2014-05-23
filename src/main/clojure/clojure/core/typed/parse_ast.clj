@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.parse-ast
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.errors :as err]
+            [clojure.core.typed.coerce-utils :as coerce]
             [clojure.set :as set]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -664,18 +665,6 @@
    :form syn
    :children [:arities]})
 
-(defn Class->symbol [^Class cls]
-  {:pre [(class? cls)]
-   :post [(symbol? %)]}
-  (symbol (.getName cls)))
-
-(defn var->symbol [^clojure.lang.Var var]
-  {:pre [(var? var)]
-   :post [(symbol? %)
-          (namespace %)]}
-  (symbol (str (ns-name (.ns var)))
-          (str (.sym var))))
-
 (defn parse-symbol
   [sym]
   (let [primitives (impl/impl-case
@@ -692,10 +681,10 @@
               :clojure (let [res (when (symbol? sym)
                                    (resolve-type-clj sym))]
                          (cond 
-                           (class? res) (let [csym (Class->symbol res)
+                           (class? res) (let [csym (coerce/Class->symbol res)
                                               dt? (contains? @impl/datatype-env csym)]
                                           {:op (if dt? :DataType :Class) :name csym})
-                           (var? res) (let [vsym (var->symbol res)]
+                           (var? res) (let [vsym (coerce/var->symbol res)]
                                         (if (contains? @impl/alias-env vsym)
                                           {:op :Name :name vsym}
                                           {:op :Protocol :name vsym}))

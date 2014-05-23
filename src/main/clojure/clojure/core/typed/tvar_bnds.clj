@@ -1,9 +1,9 @@
 (ns ^:skip-wiki 
   ^{:core.typed {:collect-only true}}
   clojure.core.typed.tvar-bnds
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed :as t :refer [fn>]])
+            [clojure.core.typed :as t])
   (:import (clojure.core.typed.type_rep Bounds)))
 
 (alter-meta! *ns* assoc :skip-wiki true
@@ -15,13 +15,13 @@
 ;; Intended to be equivalent to a field on F or B, but without the bloat
 ;; of adding it to every instance
 
-(t/def-alias TVarBndsEnv
+(t/defalias TVarBndsEnv
   "A map from (fresh) type variable names (symbols) to
   their bounds."
   (t/Map t/Symbol Bounds))
 
 (t/ann ^:no-check tvar-bnds-env? (predicate TVarBndsEnv))
-(def tvar-bnds-env? (u/hash-c? symbol? r/Bounds?))
+(def tvar-bnds-env? (con/hash-c? symbol? r/Bounds?))
 
 (t/ann initial-tvar-bnds-env TVarBndsEnv)
 (def initial-tvar-bnds-env {})

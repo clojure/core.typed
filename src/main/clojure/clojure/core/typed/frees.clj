@@ -1,12 +1,14 @@
 (ns ^:skip-wiki 
   ^{:core.typed {:collect-only true}}
   clojure.core.typed.frees
-  (:require [clojure.core.typed :as t :refer [for> fn>]]
+  (:require [clojure.core.typed :as t :refer [for>]]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.name-env :as nmenv]
@@ -20,8 +22,7 @@
            (clojure.core.typed.filter_rep FilterSet TypeFilter NotTypeFilter ImpFilter
                                           AndFilter OrFilter TopFilter BotFilter)
            (clojure.core.typed.object_rep Path EmptyObject NoObject)
-           (clojure.core.typed.path_rep KeyPE)
-           (clojure.lang Keyword Symbol)))
+           (clojure.core.typed.path_rep KeyPE)))
 
 (alter-meta! *ns* assoc :skip-wiki true
              :core.typed {:collect-only true})
@@ -29,7 +30,7 @@
 ;(t/typed-deps clojure.core.typed.type-rep)
 
 ;TODO make this an argument
-(t/ann *frees-mode* (U nil Keyword))
+(t/ann *frees-mode* (U nil t/Kw))
 (defonce ^:dynamic *frees-mode* nil)
 (t/tc-ignore
 (set-validator! #'*frees-mode* (some-fn #{::frees ::idxs} nil?))
@@ -40,14 +41,14 @@
 
 (t/def-alias VarianceEntry
   "A map entry of a VarianceMap."
-  '[Symbol r/Variance])
+  '[t/Sym r/Variance])
 
 (t/def-alias VarianceMap
   "A map of free names (symbols) to their variances"
-  (t/Map Symbol r/Variance))
+  (t/Map t/Sym r/Variance))
 
 (t/ann ^:no-check variance-map? (predicate VarianceMap))
-(def variance-map? (u/hash-c? symbol? r/variance?))
+(def variance-map? (con/hash-c? symbol? r/variance?))
 
 (declare frees-in)
 
@@ -67,25 +68,25 @@
   (binding [*frees-mode* ::idxs]
     (frees-in t)))
 
-(t/ann fv [r/AnyType -> (t/Set Symbol)])
+(t/ann fv [r/AnyType -> (t/Set t/Sym)])
 (defn fv 
   "All frees in type"
   [t]
-  {:post [((u/set-c? symbol?) %)]}
+  {:post [((con/set-c? symbol?) %)]}
   (set (keys (fv-variances t))))
 
-(t/ann fi [r/AnyType -> (t/Set Symbol)])
+(t/ann fi [r/AnyType -> (t/Set t/Sym)])
 (defn fi
   "All index variables in type (dotted bounds, etc.)"
   [t]
-  {:post [((u/set-c? symbol?) %)]}
+  {:post [((con/set-c? symbol?) %)]}
   (set (keys (idx-variances t))))
 
 (t/ann flip-variances [VarianceMap -> VarianceMap])
 (defn flip-variances [vs]
   {:pre [(variance-map? vs)]}
   (zipmap (keys vs) 
-          (map (fn> [vari :- r/Variance]
+          (map (t/fn [vari :- r/Variance]
                  (case vari
                    :covariant :contravariant
                    :contravariant :covariant
@@ -234,11 +235,11 @@
                                            :else
                                            (recur (c/resolve-Name rator))))
                        (r/TypeFn? rator) rator
-                       :else (u/int-error (str "Invalid operator to type application: "
+                       :else (err/int-error (str "Invalid operator to type application: "
                                                ((impl/v 'clojure.core.typed.parse-unparse/unparse-type)
                                                 tapp)))))
                _ (when-not (r/TypeFn? tfn) 
-                   (u/int-error (str "First argument to TApp must be TypeFn")))]
+                   (err/int-error (str "First argument to TApp must be TypeFn")))]
            (mapv (fn [[v arg-vs]]
                    (case v
                      :covariant arg-vs
@@ -393,7 +394,7 @@
 (add-frees-method [::any-var Poly]
   [{:keys [scope bbnds]}]
   (let [_ (when-not (every? empty? (map frees bbnds))
-            (u/nyi-error "NYI Handle frees in bounds"))]
+            (err/nyi-error "NYI Handle frees in bounds"))]
     (frees scope)))
 
 (add-frees-method [::any-var Mu]
@@ -403,7 +404,7 @@
 (add-frees-method [::any-var PolyDots]
   [{:keys [scope bbnds]}]
   (let [_ (when-not (every? empty? (map frees bbnds))
-            (u/nyi-error "NYI Handle frees in bounds"))]
+            (err/nyi-error "NYI Handle frees in bounds"))]
     (frees scope)))
 
 

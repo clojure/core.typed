@@ -97,4 +97,3 @@
 (defn rseqv [v]
     "Same as (comp vec rseq)"
     (vec (rseq v)))
-

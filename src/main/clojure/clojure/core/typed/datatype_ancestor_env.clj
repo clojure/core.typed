@@ -1,12 +1,12 @@
 (ns ^:skip-wiki clojure.core.typed.datatype-ancestor-env
   (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subst :as subst]
-            [clojure.core.typed :as t :refer [when-let-fail inst]]
+            [clojure.core.typed :as t]
             [clojure.set :as set])
-  (:import (clojure.lang Symbol)
-           (clojure.core.typed.type_rep DataType)))
+  (:import (clojure.core.typed.type_rep DataType)))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -20,19 +20,19 @@
 
 (t/def-alias DTAncestorEnv
   "Environment mapping datatype names to sets of ancestor types."
-  (t/Map Symbol (t/Set r/ScopedType)))
+  (t/Map t/Sym (t/Set r/ScopedType)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Predicates
 
 (def ^:no-check ^{:ann '[Any -> Any]}
-  dt-ancestor-env? (u/hash-c? symbol? (u/set-c? (some-fn r/Scope? r/Type?))))
+  dt-ancestor-env? (con/hash-c? symbol? (con/set-c? (some-fn r/Scope? r/Type?))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation specific global state
 
 (t/ann CLJ-DT-ANCESTOR-ENV (t/Atom1 DTAncestorEnv))
-(defonce ^:private CLJ-DT-ANCESTOR-ENV ((inst atom DTAncestorEnv) {} :validator dt-ancestor-env?))
+(defonce ^:private CLJ-DT-ANCESTOR-ENV ((t/inst atom DTAncestorEnv) {} :validator dt-ancestor-env?))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation agnostic state
@@ -53,7 +53,7 @@
   "Given a datatype, return its instantiated ancestors"
   [{poly :poly? :as dt} anctrs]
   {:pre [(r/DataType? dt)]
-   :post [((u/set-c? r/Type?) %)]}
+   :post [((con/set-c? r/Type?) %)]}
   (set (t/for> :- r/Type
          [u :- r/Type, anctrs]
          (c/inst-and-subst u poly))))
@@ -67,15 +67,15 @@
   [{:keys [poly? the-class] :as dt}]
   {:pre [(r/DataType? dt)]}
   (assert-dt-ancestors)
-  (when-let-fail [a *current-dt-ancestors*]
+  (t/when-let-fail [a *current-dt-ancestors*]
     (inst-ancestors dt (@a the-class))))
 
-(defn ^:no-check ^{:ann '[Symbol (t/Set r/Type) -> nil]}
+(defn ^:no-check ^{:ann '[t/Sym (t/Set r/Type) -> nil]}
   add-datatype-ancestors 
   "Add a set of ancestor overrides for the datatype named sym."
   [sym tset]
   (assert-dt-ancestors)
-  (when-let-fail [a *current-dt-ancestors*]
+  (t/when-let-fail [a *current-dt-ancestors*]
     (swap! a update-in [sym] #(set/union (or % #{}) tset)))
   nil)
 
@@ -84,6 +84,6 @@
   "Reset the current ancestor map."
   [aenv]
   (assert-dt-ancestors)
-  (when-let-fail [a *current-dt-ancestors*]
+  (t/when-let-fail [a *current-dt-ancestors*]
     (reset! a aenv))
   nil)

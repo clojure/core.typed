@@ -10,6 +10,7 @@
             [clojure.tools.reader.reader-types :as readers]
             [clojure.java.io :as io]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed :as T]
             [clojure.core :as core]))
 
@@ -58,12 +59,14 @@
   "If form represents a macro form or an inlineable function,
    returns its expansion, else returns form."
   [form env]
+  ;(prn "macroexpand-1" form (meta form))
   (if (seq? form)
     (let [[op & args] form]
       (if (taj/specials op)
         form
         (let [v (taj-utils/resolve-var op env)
               m (meta v)
+              ;_ (prn "op" (meta op)  m)
               local? (-> env :locals (get op))
               macro? (and (not local?) (:macro m)) ;; locals shadow macros
               inline-arities-f (:inline-arities m)
@@ -87,6 +90,9 @@
              (if (taj-utils/obj? res)
                (vary-meta res merge
                           (and t {:tag t})
+                          ; we want the top-most inlining op
+                          {::inline-op op
+                           ::inline-var v}
                           (meta form))
                res))
 
@@ -105,12 +111,18 @@
                      *ns*)]
     (analyze1 form (taj/empty-env))))
 
-#_(def reread-with-tr (comp tr/read readers/indexing-push-back-reader print-str))
+(def reread-with-tr (comp tr/read readers/indexing-push-back-reader print-str))
+
+(defn ast-for-str
+  "Returns an AST node for the string, using tools.reader."
+  [form-str]
+  (analyze1 (-> form-str readers/indexing-push-back-reader tr/read) (taj/empty-env)))
 
 (defn ast-for-form
   "Returns an AST node for the form"
   [form]
   (analyze1 form (taj/empty-env)))
+
 
 (defn ast-for-file
   "Returns a vector of AST nodes contained
@@ -150,7 +162,7 @@
      (if (and cache (contains? cache nsym))
        (cache nsym)
        ;copied basic approach from tools.emitter.jvm
-       (let [p (u/ns->file nsym)
+       (let [p (coerce/ns->file nsym)
              asts (ast-for-file p)]
          (when-let [cache T/*analyze-ns-cache*]
            (swap! cache assoc nsym asts))

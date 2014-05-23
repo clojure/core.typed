@@ -1,10 +1,10 @@
 (ns ^:skip-wiki clojure.core.typed.cs-rep
   (:refer-clojure :exclude [defrecord])
   (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed :as t])
-  (:import (clojure.lang IPersistentMap IPersistentSet Symbol Seqable)
-           (clojure.core.typed.type_rep Bounds F)))
+  (:import (clojure.core.typed.type_rep Bounds F)))
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -17,19 +17,19 @@
   [(r/Type? type)
    (r/Bounds? bnds)])
 
-(u/ann-record i-subst [types :- (U nil (Seqable r/Type))])
+(u/ann-record i-subst [types :- (U nil (t/Seqable r/Type))])
 (u/defrecord i-subst [types]
   ""
   [(every? r/Type? types)])
 
-(u/ann-record i-subst-starred [types :- (U nil (Seqable r/Type)),
+(u/ann-record i-subst-starred [types :- (U nil (t/Seqable r/Type)),
                                starred :- r/Type])
 (u/defrecord i-subst-starred [types starred]
   ""
   [(every? r/Type? types)
    (r/Type? starred)])
 
-(u/ann-record i-subst-dotted [types :- (U nil (Seqable r/Type)),
+(u/ann-record i-subst-dotted [types :- (U nil (t/Seqable r/Type)),
                               dty :- r/Type,
                               dbound :- F])
 (u/defrecord i-subst-dotted [types dty dbound]
@@ -39,20 +39,20 @@
    (r/Type? dty)
    (r/F? dbound)])
 
-(t/def-alias SubstRHS
+(t/defalias SubstRHS
   "The substitution records."
   (U t-subst i-subst i-subst-starred i-subst-dotted))
 
-(t/def-alias SubstMap
+(t/defalias SubstMap
   "A substutition map of symbols naming frees to types
   to instantitate them with."
-  (IPersistentMap Symbol SubstRHS))
+  (t/Map t/Sym SubstRHS))
 
 (t/ann ^:no-check subst-rhs? (predicate SubstRHS))
 (def subst-rhs? (some-fn t-subst? i-subst? i-subst-starred? i-subst-dotted?))
 
 (t/ann ^:no-check substitution-c? (predicate SubstMap))
-(def substitution-c? (u/hash-c? symbol? subst-rhs?))
+(def substitution-c? (con/hash-c? symbol? subst-rhs?))
 
 (u/ann-record c [S :- r/Type,
                  X :- clojure.lang.Symbol,
@@ -70,21 +70,21 @@
 ;; a constraint on an index variable
 ;; the index variable must be instantiated with |fixed| arguments, each meeting the appropriate constraint
 ;; and further instantions of the index variable must respect the rest constraint, if it exists
-(u/ann-record dcon [fixed :- (U nil (Seqable c))
+(u/ann-record dcon [fixed :- (U nil (t/Seqable c))
                     rest :- (U nil c)])
 (u/defrecord dcon [fixed rest]
   ""
   [(every? c? fixed)
    ((some-fn nil? c?) rest)])
 
-(u/ann-record dcon-exact [fixed :- (U nil (Seqable c)),
+(u/ann-record dcon-exact [fixed :- (U nil (t/Seqable c)),
                           rest :- c])
 (u/defrecord dcon-exact [fixed rest]
   ""
   [(every? c? fixed)
    (c? rest)])
 
-(u/ann-record dcon-dotted [fixed :- (U nil (Seqable c)),
+(u/ann-record dcon-dotted [fixed :- (U nil (t/Seqable c)),
                            dc :- c,
                            dbound :- F])
 (u/defrecord dcon-dotted [fixed dc dbound]
@@ -93,27 +93,27 @@
    (c? dc)
    (r/F? dbound)])
 
-(t/def-alias DCon (U dcon dcon-exact dcon-dotted))
+(t/defalias DCon (U dcon dcon-exact dcon-dotted))
 
 (t/ann ^:no-check dcon-c? (predicate DCon))
 (def dcon-c? (some-fn dcon? dcon-exact? dcon-dotted?))
 
 ;; map : hash mapping index variables to dcons
-(u/ann-record dmap [map :- (IPersistentMap Symbol DCon)])
+(u/ann-record dmap [map :- (t/Map t/Sym DCon)])
 (u/defrecord dmap [map]
   ""
-  [((u/hash-c? symbol? dcon-c?) map)])
+  [((con/hash-c? symbol? dcon-c?) map)])
 
-(t/def-alias DelayedCheck
+(t/defalias DelayedCheck
   "A pair of types. The left type must be a subtype
   to the right type at instantiation time."
   '[r/Type r/Type])
 
-(t/def-alias CMap
+(t/defalias CMap
   "Map of free symbols to constraints"
-  (t/Map Symbol c))
+  (t/Map t/Sym c))
 
-(t/def-alias DMap
+(t/defalias DMap
   "Map of dotted free symbols to constraints, wrapped
   in a dmap constructor."
   dmap)
@@ -122,11 +122,11 @@
                           dmap :- DMap])
 (u/defrecord cset-entry [fixed dmap]
   ""
-  [((u/hash-c? symbol? c?) fixed)
+  [((con/hash-c? symbol? c?) fixed)
    (dmap? dmap)])
 
-(t/ann make-cset-entry (Fn [(IPersistentMap Symbol c) -> cset-entry]
-                           [(IPersistentMap Symbol c) (U nil dmap) -> cset-entry]))
+(t/ann make-cset-entry (Fn [(t/Map t/Sym c) -> cset-entry]
+                           [(t/Map t/Sym c) (U nil dmap) -> cset-entry]))
 (defn make-cset-entry
   ([fixed] (make-cset-entry fixed nil))
   ([fixed dmap] (->cset-entry fixed
@@ -138,29 +138,29 @@
 ;; we need a bunch of mappings for each cset to handle case-lambda
 ;; because case-lambda can generate multiple possible solutions, and we
 ;; don't want to rule them out too early
-(u/ann-record cset [maps :- (U nil (Seqable cset-entry))])
+(u/ann-record cset [maps :- (U nil (t/Seqable cset-entry))])
 (u/defrecord cset [maps]
   ""
   [(every? cset-entry? maps)])
 
 
 ;widest constraint possible
-(t/ann no-constraint [Symbol Bounds -> c])
+(t/ann no-constraint [t/Sym Bounds -> c])
 (defn no-constraint [v bnds]
   {:pre [(symbol? v)
          (r/Bounds? bnds)]}
   (->c (r/Union-maker #{}) v r/-any bnds))
 
-(t/def-alias FreeBnds 
+(t/defalias FreeBnds 
   "A map of free variable names to their bounds."
-  (IPersistentMap Symbol Bounds))
+  (t/Map t/Sym Bounds))
 
 ;; Create an empty constraint map from a set of type variables X and
 ;; index variables Y.  For now, we add the widest constraints for
 ;; variables in X to the cmap and create an empty dmap.
 (t/ann ^:no-check empty-cset [FreeBnds FreeBnds -> cset])
 (defn empty-cset [X Y]
-  {:pre [(every? (u/hash-c? symbol? r/Bounds?) [X Y])]
+  {:pre [(every? (con/hash-c? symbol? r/Bounds?) [X Y])]
    :post [(cset? %)]}
   (->cset [(->cset-entry (into {} (for [[x bnds] X] [x (no-constraint x bnds)]))
                          (->dmap {}))]))

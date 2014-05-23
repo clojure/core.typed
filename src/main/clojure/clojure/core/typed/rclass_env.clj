@@ -1,5 +1,5 @@
 (ns ^:skip-wiki clojure.core.typed.rclass-env
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.type-rep :as r]))
 
@@ -10,7 +10,7 @@
 
 ;Class -> RClass
 (defonce RESTRICTED-CLASS (atom {}))
-(set-validator! RESTRICTED-CLASS (u/hash-c? symbol? r/Type?))
+(set-validator! RESTRICTED-CLASS (con/hash-c? symbol? r/Type?))
 
 (defn get-rclass 
   "Returns the RClass with class symbol csym.

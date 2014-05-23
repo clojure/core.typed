@@ -4,7 +4,7 @@
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.object-rep :as or]
-            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set])
   (:import (clojure.core.typed.filter_rep BotFilter TopFilter NoFilter AndFilter 
@@ -49,7 +49,7 @@
 (defn opposite? [f1 f2]
   {:pre [(fr/Filter? f1)
          (fr/Filter? f2)]
-   :post [(u/boolean? %)]}
+   :post [(con/boolean? %)]}
   (let [subtype? @(subtype?-var)]
     (cond
       (and (fr/TypeFilter? f1)
@@ -75,7 +75,7 @@
 ;; or? : is this an OrFilter (alternative is AndFilter)
 (defn compact [props or?]
   {:pre [(every? fr/Filter? props)
-         (u/boolean? or?)]
+         (con/boolean? or?)]
    :post [(every? fr/Filter? %)]}
 ;  (prn "compact")
 ;  (prn "props" (map clojure.core.typed.parse-unparse/unparse-filter props))
@@ -230,8 +230,8 @@
 ;         atoms #{}
 ;         last-props #{} ;stop iteration when (= (set/union new-props atoms) last-props)
 ;         ]
-;    (assert ((u/set-c? atomic-filter?) atoms))
-;    (assert (every? (u/set-c? fr/Filter?) [new-props last-props]))
+;    (assert ((con/set-c? atomic-filter?) atoms))
+;    (assert (every? (con/set-c? fr/Filter?) [new-props last-props]))
 ;    (cond
 ;      ;reached fixed point
 ;      (= (set/union new-props atoms) last-props)

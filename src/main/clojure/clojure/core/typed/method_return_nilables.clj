@@ -1,14 +1,15 @@
 (ns clojure.core.typed.method-return-nilables
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Method Return non-nilables
 
-(defonce METHOD-RETURN-NONNILABLE-ENV (atom {}))
-(set-validator! METHOD-RETURN-NONNILABLE-ENV (u/hash-c? (every-pred namespace symbol?)
-                                                        (some-fn #(= :all %)
-                                                                 (u/set-c? u/nat?))))
+(defonce METHOD-RETURN-NONNILABLE-ENV 
+  (atom {}
+        :validator (con/hash-c? (every-pred namespace symbol?)
+                                (some-fn #(= :all %)
+                                         (con/set-c? con/nat?)))))
 
 (defn add-nonnilable-method-return [sym m]
   (swap! METHOD-RETURN-NONNILABLE-ENV assoc sym m)

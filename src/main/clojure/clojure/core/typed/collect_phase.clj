@@ -2,16 +2,21 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.utils :as u :refer [constant-exprs p profile]]
+            [clojure.core.typed.utils :as u :refer [p profile]]
+            [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.coerce-utils :as coerce]
+            [clojure.core.typed.errors :as err]
+            [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.declared-kind-env :as decl]
             [clojure.core.typed.ns-deps :as dep]
+            [clojure.core.typed.ns-deps-utils :as dep-u]
             [clojure.core.typed.ns-options :as ns-opts]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as uvar]
-            [clojure.core.typed.check :as chk]
+            [clojure.core.typed.check.utils :as chk]
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.free-ops :as free-ops]
@@ -34,77 +39,34 @@
             [clojure.tools.namespace.file :as ns-file]
             [clojure.core :as core]))
 
+(t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
-
-(defonce ns-deps-tracker (atom (track/tracker)))
-
-(defn scan-ns-deps! []
-  {:post [(nil? %)]}
-  (p :collect/update-ns-deps!
-  (try
-    (swap! ns-deps-tracker dir/scan)
-    (catch StackOverflowError e
-      (prn "ERROR COLLECTING DEPENDENCIES: caught StackOverflowError from tools.namespace")))
-  nil
-  ))
-
-(defn update-ns-deps! [nsyms]
-  {:pre [(every? (some-fn symbol? u/ns?) nsyms)]
-   :post [(nil? %)]}
-  (let [ps (map (fn [nsym]
-                  (let [url (u/ns->URL nsym)]
-                    (assert url (str "Cannot find file for " nsym))
-                    url))
-                nsyms)]
-    (swap! ns-deps-tracker ns-file/add-files ps)
-    nil))
+)
 
 (defn parse-field [[n _ t]]
   [n (prs/parse-type t)])
 
 (declare collect)
 
+(t/ann collected-ns! [t/Sym -> nil])
 (defn- collected-ns! [nsym]
+  {:pre [(symbol? nsym)]}
   (if-let [a t/*already-collected*]
     (swap! a conj nsym)
-    (assert nil "Type system is not set up for namespace collection")))
+    (assert nil "Type system is not set up for namespace collection"))
+  nil)
 
+(t/ann already-collected? [t/Sym -> Boolean])
 (defn- already-collected? [nsym]
-  {:post [(u/boolean? %)]}
+  {:pre [(symbol? nsym)]
+   :post [(con/boolean? %)]}
   (if-let [a t/*already-collected*]
     (boolean (@a nsym))
     (assert nil "Type system is not set up for namespace collection")))
 
-(defn immediate-deps [nsym]
-  (let [graph (-> @ns-deps-tracker ::track/deps)]
-    (assert graph (str "Cannot get immediate dependencies for " nsym))
-    (ndep/immediate-dependencies graph nsym)))
-
-(defn directly-depends? [nsym another-nsym]
-  (contains? (immediate-deps nsym) another-nsym))
-
-(defn probably-typed? [nsym]
-  (let [demunged (u/demunge-ns nsym)
-        ns (or (find-ns demunged)
-               (do (require demunged)
-                   (find-ns demunged)))
-        _ (assert ns (str "Namespace " nsym " not found"))
-        {:keys [check] :as opts} (u/typed-ns-opts ns)]
-    (or check
-        (directly-depends? nsym 'clojure.core.typed))))
-
-(defn infer-typed-ns-deps!
-  "Automatically find other namespaces that are likely to
-  be typed dependencies to the current ns."
-  [nsym]
-  {:pre [(symbol? nsym)]}
-  (scan-ns-deps!)
-  (let [all-deps (immediate-deps nsym)
-        new-deps (set (filter probably-typed? all-deps))]
-    (dep/add-ns-deps nsym new-deps)))
-
 (declare collect-asts)
 
+(t/ann collect-ns [t/Sym -> nil])
 (defn collect-ns
   "Collect type annotations and dependency information
   for namespace symbol nsym, and recursively check 
@@ -116,18 +78,20 @@
      (do #_(println (str "Already collected " nsym ", skipping"))
          #_(flush)
          nil)
+     ; assume we're collecting this namespace, but only collect
+     ; dependencies if they appear to refer to clojure.core.tyoed
      (do (collected-ns! nsym)
          (println (str "Start collecting " nsym))
          (flush)
-         (infer-typed-ns-deps! nsym)
-         (let [deps (dep/immediate-deps nsym)]
-           ;(prn "collecting immediate deps for " nsym deps)
-           (doseq [dep deps]
-             ;(prn "collect:" dep)
+         ;collect dependencies
+         (let [deps (dep-u/deps-for-ns nsym)]
+           (doseq [dep deps
+                   :when (dep-u/should-check-ns? dep)]
              (collect-ns dep)))
+         ;collect this namespace
          (let [asts (p :collect-phase/get-clj-analysis (ana-clj/ast-for-ns nsym))]
            (p :collect/collect-form
-             (collect-asts asts)))
+              (collect-asts asts)))
          (println (str "Finished collecting " nsym))
          (flush))))))
 
@@ -158,6 +122,8 @@
 
 (u/special-do-op ::t/special-collect internal-collect-expr)
 
+(defmethod internal-collect-expr :default [& _])
+
 (defn visit-do [{:keys [statements ret] :as expr} f]
   (when (internal-form? expr)
     (internal-collect-expr expr))
@@ -168,16 +134,11 @@
   [{[_ _ {{ns-form :form} :val :as third-arg} :as statements] :statements fexpr :ret :as expr}]
   {:pre [ns-form
          ('#{clojure.core/ns ns} (first ns-form))]}
-  (let [prs-ns (second ns-form)
-        _ (assert (symbol? prs-ns))
-        _ (assert (find-ns prs-ns))
-        ; add all deps to `ns-deps-tracker` so we can use `probably-typed?`
-        all-deps (ns-parse/deps-from-ns-decl ns-form)
-        _ (swap! ns-deps-tracker track/add {prs-ns all-deps})
-        deps (filter probably-typed? all-deps)]
-    (dep/add-ns-deps prs-ns deps)
-    (update-ns-deps! deps)
-    (doseq [dep deps]
+  (let [prs-ns (dep-u/ns-form-name ns-form)
+        deps   (dep-u/ns-form-deps ns-form)
+        tdeps (set (filter dep-u/should-check-ns? deps))]
+    (dep/add-ns-deps prs-ns tdeps)
+    (doseq [dep tdeps]
       (collect-ns dep))))
 
 (defn assert-expr-args [{:keys [args] :as expr} cnts]
@@ -186,41 +147,11 @@
   (assert (every? #{:quote} (map :op args))
           (mapv :op args)))
 
-;; Phase 1
-
-;(defmulti collect-declares :op)
-;(u/add-defmethod-generator collect-declares)
-;
-;(defmulti invoke-special-collect-declares 
-;  (fn [expr]
-;    (when-let [var (-> expr :fexpr :var)]
-;      (u/var->symbol var))))
-;
-;(defn declare-protocol [current-env current-ns vsym binder mths]
-;  {:pre [(symbol? current-ns)]}
-;  (let [s (if (namespace vsym)
-;            (symbol vsym)
-;            (symbol (str current-ns) (name vsym)))
-;        on-class (c/Protocol-var->on-class s)
-;        variances (when binder
-;                    (map (fn [[_ & {:keys [variance]}]] variance) binder))
-;
-;(defmethod invoke-special-collect-declares 'clojure.core.typed/ann-protocol*
-;  [{:keys [args env] :as expr}]
-;  (assert-expr-args expr #{3})
-;  (let [[binder varsym mth] (constant-exprs args)]
-;    (declare-protocol env (chk/expr-ns expr) varsym binder mth)))
-;
-;
-;(add-collect-method :do [expr] (visit-do expr collect))
-
-;; Phase 2
-
 (defmulti collect (fn [expr] (:op expr)))
 (u/add-defmethod-generator collect)
 (defmulti invoke-special-collect (fn [expr]
                                    (when-let [var (-> expr :fn :var)]
-                                     (u/var->symbol var))))
+                                     (coerce/var->symbol var))))
 
 (add-collect-method :do [expr] (visit-do expr collect))
 
@@ -228,7 +159,7 @@
   [{:keys [var env] :as expr}]
   (let [prs-ns (chk/expr-ns expr)]
     (let [mvar (meta var)
-          qsym (u/var->symbol var)]
+          qsym (coerce/var->symbol var)]
       (when-let [[_ tsyn] (find mvar :ann)]
         (let [ann-type (binding [uvar/*current-env* env
                                  prs/*parse-type-in-ns* prs-ns]
@@ -321,26 +252,26 @@
 (defmethod invoke-special-collect 'clojure.core.typed/ann-precord*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{4})
-  (let [[dname vbnd fields opt] (constant-exprs args)]
+  (let [[dname vbnd fields opt] (ast-u/constant-exprs args)]
     (gen-datatype* env (chk/expr-ns expr) dname fields vbnd opt true)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-pdatatype*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{4})
-  (let [[dname vbnd fields opt] (constant-exprs args)]
+  (let [[dname vbnd fields opt] (ast-u/constant-exprs args)]
     (assert nil "REMOVED OPERATION: ann-pdatatype, use ann-datatype with binder as first argument, ie. before datatype name")
     #_(gen-datatype* env (chk/expr-ns expr) dname fields vbnd opt false)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-datatype*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{4})
-  (let [[binder dname fields opt] (constant-exprs args)]
+  (let [[binder dname fields opt] (ast-u/constant-exprs args)]
     (gen-datatype* env (chk/expr-ns expr) dname fields binder opt false)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-record*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{4})
-  (let [[binder dname fields opt] (constant-exprs args)]
+  (let [[binder dname fields opt] (ast-u/constant-exprs args)]
     (gen-datatype* env (chk/expr-ns expr) dname fields binder opt true)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/warn-on-unannotated-vars*
@@ -354,14 +285,14 @@
   [{:keys [args] :as expr}]
   (assert-expr-args expr #{1})
   (let [prs-ns (chk/expr-ns expr)
-        [deps] (constant-exprs args)
+        [deps] (ast-u/constant-exprs args)
         _ (assert (and deps (seq deps) (every? symbol? deps)))]
     (if t/*already-collected*
       (do (dep/add-ns-deps prs-ns (set deps))
           (doseq [dep deps]
-            (if (u/ns->URL dep)
+            (if (coerce/ns->URL dep)
               (collect-ns dep)
-              (u/int-error (str "Cannot find dependency declared with typed-deps: " dep)))))
+              (err/int-error (str "Cannot find dependency declared with typed-deps: " dep)))))
       (do (println "WARNING: Not collecting namespaces, must call typed-deps via check-ns")
           (flush)))
     nil))
@@ -369,7 +300,7 @@
 (defmethod invoke-special-collect 'clojure.core.typed/declare-datatypes*
   [{:keys [args] :as expr}]
   (assert-expr-args expr #{1})
-  (let [[syms] (constant-exprs args)]
+  (let [[syms] (ast-u/constant-exprs args)]
     (doseq [sym syms]
       (assert (not (or (some #(= \. %) (str sym))
                        (namespace sym)))
@@ -380,7 +311,7 @@
 ;(defmethod invoke-special-collect 'clojure.core.typed/declare-protocols*
 ;  [{:keys [args] :as expr}]
 ;  (assert-expr-args expr #{1})
-;  (let [[syms] (constant-exprs args)]
+;  (let [[syms] (ast-u/constant-exprs args)]
 ;    (doseq [sym syms]
 ;      (let [qsym (if (namespace sym)
 ;                   sym
@@ -391,7 +322,7 @@
 ;  [{:keys [args env] :as expr}]
 ;  (assert-expr-args expr #{2})
 ;  (let [prs-ns (chk/expr-ns expr)
-;        [sym tsyn] (constant-exprs args)
+;        [sym tsyn] (ast-u/constant-exprs args)
 ;        _ (assert ((every-pred symbol? (complement namespace)) sym))
 ;        ty (binding [uvar/*current-env* env
 ;                     prs/*parse-type-in-ns* prs-ns]
@@ -405,7 +336,7 @@
   [{:keys [args] :as expr}]
   (assert-expr-args expr #{1})
   (let [nsym (chk/expr-ns expr)
-        [syms] (constant-exprs args)
+        [syms] (ast-u/constant-exprs args)
         _ (assert (every? (every-pred symbol? (complement namespace)) syms)
                   "declare-names only accepts unqualified symbols")]
     (doseq [sym syms]
@@ -415,7 +346,7 @@
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{3})
   (let [prs-ns (chk/expr-ns expr)
-        [qsym typesyn check?] (constant-exprs args)
+        [qsym typesyn check?] (ast-u/constant-exprs args)
         ;macroexpansion provides qualified symbols
         _ (assert ((every-pred symbol? namespace) qsym))
         expected-type (binding [uvar/*current-env* env
@@ -431,7 +362,7 @@
   (assert-expr-args expr #{2})
   (let [prs-ns (chk/expr-ns expr)
         _ (assert (symbol? prs-ns))
-        [qsym typesyn] (constant-exprs args)
+        [qsym typesyn] (ast-u/constant-exprs args)
         ;FIXME this is too complicated, should just work out qualification here
         ;macroexpansion provides qualified symbols
         _ (assert ((every-pred symbol? namespace) qsym))
@@ -441,21 +372,22 @@
     ;var already interned via macroexpansion
     (nme-env/add-type-name qsym alias-type)
     (when-let [tfn (decl/declared-kind-or-nil qsym)]
-      (assert (sub/subtype? alias-type tfn) (u/error-msg "Declared kind " (prs/unparse-type tfn)
-                                                         " does not match actual kind " (prs/unparse-type alias-type))))
+      (when-not (sub/subtype? alias-type tfn) 
+        (err/int-error (str "Declared kind " (prs/unparse-type tfn)
+                            " does not match actual kind " (prs/unparse-type alias-type)))))
     nil))
 
 (defmethod invoke-special-collect 'clojure.core.typed/non-nil-return*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{2})
-  (let [[msym arities] (constant-exprs args)]
+  (let [[msym arities] (ast-u/constant-exprs args)]
     (ret-nil/add-nonnilable-method-return msym arities)
     nil))
 
 (defmethod invoke-special-collect 'clojure.core.typed/nilable-param*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{2})
-  (let [[msym mmap] (constant-exprs args)]
+  (let [[msym mmap] (ast-u/constant-exprs args)]
     (param-nil/add-method-nilable-param msym mmap)
     nil))
 
@@ -463,7 +395,7 @@
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{2})
   (let [prs-ns (chk/expr-ns expr)
-        [msym tsyn] (constant-exprs args)
+        [msym tsyn] (ast-u/constant-exprs args)
         _ (assert (namespace msym) "Method symbol must be a qualified symbol")
         ty (binding [uvar/*current-env* env
                      prs/*parse-type-in-ns* prs-ns]
@@ -475,7 +407,7 @@
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{2})
   (let [prs-ns (chk/expr-ns expr)
-        [msym tsyn] (constant-exprs args)
+        [msym tsyn] (ast-u/constant-exprs args)
         ty (binding [uvar/*current-env* env
                      prs/*parse-type-in-ns* prs-ns]
              (prs/parse-type tsyn))]
@@ -503,7 +435,7 @@
 #_(defn parse-protocol-methods [mths]
   (into {} (for [[knq v] mths]
              (let [_ (when (namespace knq)
-                       (u/int-error "Protocol method should be unqualified"))
+                       (err/int-error "Protocol method should be unqualified"))
                    mtype (free-ops/with-bounded-frees (zipmap fs bnds)
                            (binding [uvar/*current-env* current-env
                                      prs/*parse-type-in-ns* current-ns]
@@ -523,7 +455,7 @@
                      (when (r/PolyDots? rt) 
                        (let [names (c/PolyDots-fresh-symbols* rt)]
                          (fin? (c/PolyDots-body* names rt)))))
-                   (u/int-error (str "Protocol method " knq " should be a possibly-polymorphic function intersection"
+                   (err/int-error (str "Protocol method " knq " should be a possibly-polymorphic function intersection"
                                      " taking at least one fixed argument: "
                                      (prs/unparse-type mtype)))))
                [knq mtype]))))
@@ -536,7 +468,7 @@
 (defn gen-protocol* [current-env current-ns vsym binder mths]
   {:pre [(symbol? current-ns)]}
   (let [_ (when-not (symbol? vsym)
-            (u/int-error
+            (err/int-error
               (str "First argument to ann-protocol must be a symbol: " vsym)))
         s (if (namespace vsym)
             (symbol vsym)
@@ -558,15 +490,15 @@
         _ (assert (= (count fs) (count bnds)))
         _ (assert ((some-fn nil? map?) mths))
         _ (when-let [[m] (seq (remove symbol? (keys mths)))]
-            (u/int-error (str "Method names to ann-protocol must be symbols: " m)))
+            (err/int-error (str "Method names to ann-protocol must be symbols: " m)))
         _ (doseq [[n1 n2] (comb/combinations (keys mths) 2)]
             (when (= (munge n1) (munge n2))
-              (u/int-error 
+              (err/int-error 
                 (str "Protocol methods for " vsym " must have distinct representations: "
                      "both " n1 " and " n2 " compile to " (munge n1)))))
         ms (into {} (for [[knq v] mths]
                       (let [_ (when (namespace knq)
-                                (u/int-error "Protocol method should be unqualified"))
+                                (err/int-error "Protocol method should be unqualified"))
                             mtype (free-ops/with-bounded-frees (zipmap fs bnds)
                                     (binding [uvar/*current-env* current-env
                                               prs/*parse-type-in-ns* current-ns]
@@ -586,7 +518,7 @@
                                (when (r/PolyDots? rt) 
                                  (let [names (c/PolyDots-fresh-symbols* rt)]
                                    (fin? (c/PolyDots-body* names rt)))))
-                             (u/int-error (str "Protocol method " knq " should be a possibly-polymorphic function intersection"
+                             (err/int-error (str "Protocol method " knq " should be a possibly-polymorphic function intersection"
                                                " taking at least one fixed argument: "
                                                (prs/unparse-type mtype)))))
                          [knq mtype])))
@@ -611,13 +543,13 @@
 (defmethod invoke-special-collect 'clojure.core.typed/ann-protocol*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{3})
-  (let [[binder varsym mth] (constant-exprs args)]
+  (let [[binder varsym mth] (ast-u/constant-exprs args)]
     (gen-protocol* env (chk/expr-ns expr) varsym binder mth)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-pprotocol*
   [{:keys [args env] :as expr}]
   (assert-expr-args expr #{3})
-  (let [[varsym binder mth] (constant-exprs args)]
+  (let [[varsym binder mth] (ast-u/constant-exprs args)]
     (assert nil "UNSUPPPORTED OPERATION: ann-pprotocol, use ann-protocol with binder as first argument, ie. before protocol name")
     #_(gen-protocol* env (chk/expr-ns expr) varsym binder mth)))
 

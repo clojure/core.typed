@@ -1,10 +1,20 @@
 (ns clojure.core.typed.check-cljs
   (:require [clojure.core.typed]
-            [clojure.core.typed.check :as chk :refer [expr-type]]
+            [clojure.core.typed.check :as chk]
+            [clojure.core.typed.check.let :as let]
+            [clojure.core.typed.check.letfn :as letfn]
+            [clojure.core.typed.check.recur :as recur]
+            [clojure.core.typed.check.recur-utils :as recur-u]
+            [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.check.if :as if]
+            [clojure.core.typed.check.funapp :as funapp]
+            [clojure.core.typed.check.fn :as fn]
+            [clojure.core.typed.check.fn-method-utils :as fn-method-u]
+            [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.utils :as u :refer [def-type]]
+            [clojure.core.typed.utils :as u :refer [def-type expr-type]]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.parse-unparse :as prs]
@@ -43,7 +53,7 @@
         _ (binding [vs/*current-env* env]
             (when expected
               (when-not (sub/subtype? t (ret-t expected))
-                (chk/expected-error t (ret-t expected)))))]
+                (cu/expected-error t (ret-t expected)))))]
     (assoc expr
            expr-type (ret t))))
 
@@ -54,7 +64,7 @@
         _ (binding [vs/*current-env* (:env expr)]
             (when expected 
               (when-not (sub/subtype? actual (ret-t expected))
-                (chk/expected-error actual (ret-t expected)))))]
+                (cu/expected-error actual (ret-t expected)))))]
     (assoc expr
            expr-type (ret actual))))
 
@@ -65,7 +75,7 @@
         _ (binding [vs/*current-env* (:env expr)]
             (when expected 
               (when-not (sub/subtype? actual (ret-t expected))
-                (chk/expected-error actual (ret-t expected)))))]
+                (cu/expected-error actual (ret-t expected)))))]
     (assoc expr
            expr-type (ret actual))))
 
@@ -76,7 +86,7 @@
         _ (binding [vs/*current-env* (:env expr)]
             (when expected 
               (when-not (sub/subtype? actual (ret-t expected))
-                (chk/expected-error actual (ret-t expected)))))]
+                (cu/expected-error actual (ret-t expected)))))]
     (assoc expr
            expr-type (ret actual))))
 
@@ -97,7 +107,7 @@
         _ (binding [vs/*current-env* (:env expr)]
             (when expected
               (when-not (sub/subtype? actual (ret-t expected))
-                (chk/expected-error actual (ret-t expected)))))]
+                (cu/expected-error actual (ret-t expected)))))]
     (assoc expr
            expr-type (ret actual))))
 
@@ -118,11 +128,11 @@
         (let [ cinit (check init (ret ann-type))
               _ (when-not (sub/subtype? (-> cinit expr-type ret-t)
                                         ann-type)
-                  (u/tc-delayed-error (str "Var definition did not match annotation."
+                  (err/tc-delayed-error (str "Var definition did not match annotation."
                                            " Expected: " (prs/unparse-type ann-type)
                                            ", Actual: " (prs/unparse-type (-> cinit expr-type ret-t)))))]
           res-expr)
-        :else (u/tc-delayed-error (str "Found untyped var definition: " vname
+        :else (err/tc-delayed-error (str "Found untyped var definition: " vname
                                        "\nHint: Add the annotation for " vname
                                        " via check-ns or cf")
                                   :return res-expr)))))
@@ -182,7 +192,7 @@
                   (c/resolve-Name t)
                   t))
         _ (assert ((some-fn r/Poly? r/PolyDots?) ptype))
-        targs (binding [prs/*parse-type-in-ns* (chk/expr-ns expr)]
+        targs (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
                 (doall (map prs/parse-type (:form targs-expr))))]
     (assoc expr
            expr-type (ret (inst/manual-inst ptype targs)))))
@@ -192,12 +202,12 @@
   (assert (= (count args) 2))
   (binding [vs/*current-expr* expr
             vs/*current-env* (:env expr)]
-    (let [current-ns (chk/expr-ns expr)
+    (let [current-ns (cu/expr-ns expr)
           given-type (prs/with-parse-ns current-ns
                        (prs/parse-type typ-syn))
           cform (check the-expr (ret given-type))
           _ (when-not (sub/subtype? (-> cform expr-type ret-t) given-type)
-              (u/tc-delayed-error 
+              (err/tc-delayed-error 
                 (prs/with-unparse-ns current-ns
                   (str "Annotation does not match actual type:\n"
                        "Expected: " (prs/unparse-type given-type)"\n"
@@ -209,10 +219,10 @@
 
 (defmethod invoke-special 'cljs.core.typed/loop>-ann
   [{[expr {expected-bnds-syn :form}] :args :as dummy-expr} & [expected]]
-  (let [expected-bnds (binding [prs/*parse-type-in-ns* (chk/expr-ns dummy-expr)]
+  (let [expected-bnds (binding [prs/*parse-type-in-ns* (cu/expr-ns dummy-expr)]
                         (mapv prs/parse-type expected-bnds-syn))]
     ;loop may be nested, type the first loop found
-    (binding [chk/*loop-bnd-anns* expected-bnds]
+    (binding [recur-u/*loop-bnd-anns* expected-bnds]
       (check expr expected))))
 
 ; args are backwards if from inlining
@@ -228,7 +238,7 @@
           varsym (when (#{:var} (:op inst-of-expr))
                    (-> inst-of-expr :info :name))
           _ (when-not varsym
-              (u/int-error (str "First argument to instance? must be a datatype var "
+              (err/int-error (str "First argument to instance? must be a datatype var "
                                 (:op inst-of-expr))))
           inst-of (c/DataType-with-unknown-params varsym)
           cexpr (check target-expr)
@@ -249,7 +259,7 @@
             cargs (mapv check args)
             ftype (expr-type cfexpr)
             argtys (map expr-type cargs)
-            actual (chk/check-funapp cfexpr cargs ftype argtys expected)]
+            actual (funapp/check-funapp cfexpr cargs ftype argtys expected)]
         (assoc expr
                expr-type actual)))))
 
@@ -261,7 +271,7 @@
                           (let [t (var-env/type-of-nofail vname)]
                             (if t
                               t
-                              (u/tc-delayed-error (str "Found untyped var: " vname)
+                              (err/tc-delayed-error (str "Found untyped var: " vname)
                                                   :return (or (when expected
                                                                 (ret-t expected))
                                                               (r/TCError-maker))))))
@@ -290,7 +300,7 @@
                            (assert ((some-fn list? seq?) ann) 
                                    (str "Annotations must be quoted: " m))
                            (reset! found-meta? true)
-                           (prs/with-parse-ns (chk/expr-ns expr)
+                           (prs/with-parse-ns (cu/expr-ns expr)
                              (prs/parse-type ann)))
                          r/-any))
         manual-annot (doall
@@ -305,24 +315,25 @@
                                             (when variadic
                                               (parse-meta rest))))))]
 
-  (binding [chk/*check-fn-method1-checkfn* check
+  (binding [fn-method-u/*check-fn-method1-checkfn* check
             ;this is identical to the Clojure implementation
-            chk/*check-fn-method1-rest-type* (fn [rest drest kws]
-                                               {:pre [(or (r/Type? rest)
-                                                          (r/DottedPretype? drest)
-                                                          (r/KwArgs? kws))
-                                                      (#{1} (count (filter identity [rest drest kws])))]
-                                                :post [(r/Type? %)]}
-                                               ;(prn "rest" rest)
-                                               ;(prn "drest" drest)
-                                               ;(prn "kws" kws)
-                                               (cond
-                                                 (or rest drest)
-                                                 (c/Un r/-nil 
-                                                       (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
-                                                                     [(or rest (.pre-type ^DottedPretype drest))]))
-                                                 :else (c/KwArgs->Type kws)))]
-    (chk/check-fn 
+            fn-method-u/*check-fn-method1-rest-type* 
+            (fn [rest drest kws]
+              {:pre [(or (r/Type? rest)
+                         (r/DottedPretype? drest)
+                         (r/KwArgs? kws))
+                     (#{1} (count (filter identity [rest drest kws])))]
+               :post [(r/Type? %)]}
+              ;(prn "rest" rest)
+              ;(prn "drest" drest)
+              ;(prn "kws" kws)
+              (cond
+                (or rest drest)
+                (c/Un r/-nil 
+                      (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
+                                    [(or rest (.pre-type ^DottedPretype drest))]))
+                :else (c/KwArgs->Type kws)))]
+    (fn/check-fn 
       expr
       (or (when @found-meta?
             manual-annot)
@@ -344,9 +355,9 @@
           target-expected (-> ctarget expr-type ret-t)
           val-type (-> cval expr-type ret-t)
           _ (when-not (sub/subtype? val-type target-expected)
-              (chk/expected-error val-type target-expected))
+              (cu/expected-error val-type target-expected))
           _ (when-not (and expected (sub/subtype? target-expected (ret-t expected)))
-              (chk/expected-error target-expected (ret-t expected)))]
+              (cu/expected-error target-expected (ret-t expected)))]
       (assoc expr
              expr-type (ret val-type)))))
 
@@ -380,11 +391,11 @@
               _ (assert method-type (str "Don't know how to call method " method
                                          " from " (prs/unparse-type resolved)))
               cargs (mapv check args)
-              actual (chk/check-funapp nil cargs (ret method-type) (map expr-type cargs)
+              actual (funapp/check-funapp nil cargs (ret method-type) (map expr-type cargs)
                                        expected)]
           (assoc dot-expr
                  expr-type actual)))
-      (u/tc-delayed-error (str "Don't know how to use type " (prs/unparse-type target-t)
+      (err/tc-delayed-error (str "Don't know how to use type " (prs/unparse-type target-t)
                                " with "
                                (if field (str "field " field)
                                  (str "method " method)))
@@ -406,26 +417,25 @@
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type r/TCResult?)]}
   (let [ctest (check test)]
-    (binding [chk/*check-if-checkfn* check]
-      (chk/check-if expr ctest then else expected))))
+    (if/check-if check expr ctest then else expected)))
 
 (defmethod check :let
   [{:keys [bindings expr env] :as let-expr} & [expected]]
-  (chk/check-let bindings expr let-expr false expected :check-let-checkfn check))
+  (let/check-let bindings expr let-expr false expected :check-let-checkfn check))
 
 (defmethod check :letfn
   [{:keys [bindings expr env] :as letfn-expr} & [expected]]
-  (chk/check-letfn bindings expr letfn-expr expected check))
+  (letfn/check-letfn bindings expr letfn-expr expected check))
 
 (defmethod check :recur
   [{:keys [exprs env] :as recur-expr} & [expected]]
-  (chk/check-recur exprs env recur-expr expected check))
+  (recur/check-recur exprs env recur-expr expected check))
 
 (defmethod check :loop
   [{:keys [bindings expr env] :as loop-expr} & [expected]]
-  (let [loop-bnd-anns chk/*loop-bnd-anns*]
-    (binding [chk/*loop-bnd-anns* nil]
-      (chk/check-let bindings expr loop-expr true expected :expected-bnds loop-bnd-anns
+  (let [loop-bnd-anns recur-u/*loop-bnd-anns*]
+    (binding [recur-u/*loop-bnd-anns* nil]
+      (let/check-let bindings expr loop-expr true expected :expected-bnds loop-bnd-anns
                      :check-let-checkfn check))))
 
 (defmethod check :ns

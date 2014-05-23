@@ -58,8 +58,8 @@ for checking namespaces, cf for checking individual forms."}
 
 ;at the top because the rest of this namespace uses this macro
 (defmacro 
-  ^{:forms '[(fn name? :- type? [param :- type* & param :- type * ?] exprs*)
-             (fn name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
+  ^{:forms '[(fn name? [param :- type* & param :- type * ?] :- type? exprs*)
+             (fn name? ([param :- type* & param :- type * ?] :- type? exprs*)+)]}
   fn
   "Like clojure.core/fn, but with optional annotations.
 
@@ -2348,8 +2348,8 @@ for checking namespaces, cf for checking individual forms."}
     (load-if-needed)
     (reset-caches)
     (let [check-expr (impl/v 'clojure.core.typed.check/check-expr)
-          expr-type (impl/v 'clojure.core.typed.check/expr-type)
-          ast->file-mapping (impl/v 'clojure.core.typed.check/ast->file-mapping)
+          expr-type (impl/v 'clojure.core.typed.utils/expr-type)
+          ast->file-mapping (impl/v 'clojure.core.typed.file-mapping/ast->file-mapping)
           ast-for-form (impl/v 'clojure.core.typed.analyze-clj/ast-for-form)
           collect-ast (impl/v 'clojure.core.typed.collect-phase/collect-ast)
           ret (impl/v 'clojure.core.typed.type-rep/ret)
@@ -2397,7 +2397,7 @@ for checking namespaces, cf for checking individual forms."}
        (let [reset-envs! (impl/v 'clojure.core.typed.reset-env/reset-envs!)
              collect-ns (impl/v 'clojure.core.typed.collect-phase/collect-ns)
              check-ns-and-deps (impl/v 'clojure.core.typed.check/check-ns-and-deps)
-             ast->file-mapping (impl/v 'clojure.core.typed.check/ast->file-mapping)
+             ast->file-mapping (impl/v 'clojure.core.typed.file-mapping/ast->file-mapping)
              vars-with-unchecked-defs (impl/v 'clojure.core.typed.var-env/vars-with-unchecked-defs)
              uri-for-ns (impl/v 'clojure.jvm.tools.analyzer/uri-for-ns)
              
@@ -2421,7 +2421,9 @@ for checking namespaces, cf for checking individual forms."}
                      *trace-checker* trace
                      *collect-on-eval* false
                      *analyze-ns-cache* (atom {})
-                     *checked-asts* (atom {})]
+                     ; we only use this if we have exactly one namespace passed
+                     *checked-asts* (when (== 1 (count nsym-coll))
+                                      (atom {}))]
              (let [terminal-error (atom nil)
                    typed-asts (atom {})]
                (letfn [(do-collect []
