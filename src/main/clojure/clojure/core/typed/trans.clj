@@ -140,6 +140,7 @@
               (r/Function-maker dom
                                 (tfn (:rng t))
                                 nil
+                                nil
                                 nil ;dotted pretype now expanded to fixed domain
                                 nil))
             (-> t

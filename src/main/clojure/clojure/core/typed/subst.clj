@@ -83,13 +83,13 @@
                                    ;(prn "expanded" (unparse-type expanded))
                                    (map (fn [img] (substitute img name expanded)) images))))
                        (sb rng)
-                       rimage nil nil)
+                       rimage nil nil nil)
      (r/Function-maker (doall (map sb dom))
                        (sb rng)
                        (and rest (sb rest))
                        (and drest (r/DottedPretype1-maker (sb (:pre-type drest))
                                                           (:name drest)))
-                       nil))))
+                       nil nil))))
 
 (f/add-fold-case ::substitute-dots
   HeterogeneousVector
@@ -180,7 +180,7 @@
                                                   (if (= name (:name drest))
                                                     name
                                                     (:name drest))))
-                     nil)))
+                     nil nil)))
 
 (f/add-fold-case ::substitute-dotted
   HeterogeneousVector

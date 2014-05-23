@@ -1325,7 +1325,7 @@
     (let [cexpr (fn/check-fn 
                   expr 
                   (let [default-ret (r/ret (r/make-FnIntersection
-                                             (r/make-Function [] r/-any r/-any)))]
+                                             (r/make-Function [] r/-any :rest r/-any)))]
                     (cond (and expected (not= r/-any (r/ret-t expected))) expected
                           :else default-ret)))
           _ (when expected
@@ -1355,8 +1355,10 @@
               (for [{:keys [dom rest drest ret-type]} fn-anns]
                 (r/make-Function (mapv (comp prs/parse-type :type) dom)
                                  (prs/parse-type (:type ret-type))
+                                 :rest
                                  (when rest
                                    (prs/parse-type (:type rest)))
+                                 :drest
                                  (when drest
                                    (r/DottedPretype1-maker
                                      (prs/parse-type (:pretype drest))

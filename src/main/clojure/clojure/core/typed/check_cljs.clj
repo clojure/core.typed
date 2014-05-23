@@ -312,6 +312,7 @@
                                       (last params))]
                            (r/make-Function (mapv parse-meta (map meta fixed))
                                             r/-any
+                                            :rest
                                             (when variadic
                                               (parse-meta rest))))))]
 
@@ -339,7 +340,7 @@
             manual-annot)
           expected
           (ret (r/make-FnIntersection
-                 (r/make-Function [] r/-any r/-any))))))))
+                 (r/make-Function [] r/-any :rest r/-any))))))))
 
 (defmethod check :deftype*
   [expr & [expected]]

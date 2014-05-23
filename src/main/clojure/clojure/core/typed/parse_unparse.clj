@@ -208,7 +208,7 @@
 (defn predicate-for [on-type]
   (let [RClass-of @(RClass-of-var)]
     (r/make-FnIntersection
-      (r/make-Function [r/-any] (RClass-of Boolean) nil nil
+      (r/make-Function [r/-any] (RClass-of Boolean)
                        :filter (fl/-FS (fl/-filter on-type 0)
                                        (fl/-not-filter on-type 0))))))
 
@@ -1009,8 +1009,10 @@
             (err/int-error "Must provide syntax after &"))]
     (r/make-Function (mapv parse-type fixed-dom)
                      (parse-type rng)
+                     :rest
                      (when asterix-pos
                        (parse-type rest-type))
+                     :drest
                      (when ellipsis-pos
                        (let [bnd (dvar/*dotted-scope* drest-bnd)
                              _ (when-not bnd 

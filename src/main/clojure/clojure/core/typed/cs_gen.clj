@@ -1339,7 +1339,7 @@
               new-tys (doall (for> :- r/AnyType
                                [var :- t/Sym, vars]
                                (subst/substitute (r/make-F var) dbound dty)))
-              new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil nil nil)
+              new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil nil nil nil)
               new-cset (cs-gen-Function V 
                                         ;move dotted lower/upper bounds to vars
                                         (merge X (zipmap vars (repeat (Y dbound)))) Y new-s-arr T)]
@@ -1361,7 +1361,7 @@
                           (subst/substitute (r/make-F var) dbound dty)))
               ;_ (prn "dotted on the right, nothing on the left")
               ;_ (prn "vars" vars)
-              new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil nil nil)
+              new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil nil nil nil)
               ;_ (prn "S" (prs/unparse-type S))
               ;_ (prn "new-t-arr" (prs/unparse-type new-t-arr))
               new-cset (cs-gen-Function V 
@@ -1387,7 +1387,7 @@
                 new-tys (doall (for> :- r/AnyType
                                  [var :- t/Sym, vars]
                                  (subst/substitute (r/make-F var) dbound t-dty)))
-                new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil (r/DottedPretype1-maker t-dty dbound) nil)
+                new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil (r/DottedPretype1-maker t-dty dbound) nil nil)
                 new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y S new-t-arr)]
             (move-vars+rest-to-dmap new-cset dbound vars)))))
 
@@ -1405,7 +1405,7 @@
                 new-tys (doall (for> :- r/AnyType
                                  [var :- t/Sym, vars]
                                  (subst/substitute (r/make-F var) dbound s-dty)))
-                new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil (r/DottedPretype1-maker s-dty dbound) nil)
+                new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil (r/DottedPretype1-maker s-dty dbound) nil nil)
                 new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y new-s-arr T)]
             (move-vars+rest-to-dmap new-cset dbound vars :exact true))
 
