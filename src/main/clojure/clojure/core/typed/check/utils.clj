@@ -2,6 +2,7 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.reflect-utils :as reflect-u]
             [clojure.core.typed.errors :as err]
+            [clojure.core.typed.debug :as d]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.datatype-env :as dt-env]
             [clojure.core.typed.coerce-utils :as coerce]
@@ -179,9 +180,16 @@
     (:enum flags) (Java-symbol->Type type false)
     :else (Java-symbol->Type type true)))
 
-;[clojure.reflect.Method -> Type]
+(def method-map?
+  (con/hmap-c? :declaring-class symbol?
+               :return-type symbol?
+               :name symbol?
+               :parameter-types (con/every-c? symbol?)
+               :flags (con/set-c? keyword?)))
+
+;[MethodMap -> Type]
 (defn- instance-method->Function [{:keys [parameter-types declaring-class return-type] :as method}]
-  {:pre [(instance? clojure.reflect.Method method)]
+  {:pre [(method-map? method)]
    :post [(r/FnIntersection? %)]}
   (assert (class? (resolve declaring-class)))
   (r/make-FnIntersection (r/make-Function (concat [(c/RClass-of-with-unknown-params declaring-class)]
@@ -223,14 +231,11 @@
                    body))
     :else (err/int-error (str "Expected Function type, found " (prs/unparse-type expected)))))
 
-(defn- protocol-implementation-type [datatype {:keys [declaring-class] :as method-sig}]
+(defn protocol-implementation-type [datatype {:keys [declaring-class] :as method-sig}]
   (let [pvar (c/Protocol-interface->on-var declaring-class)
         ptype (pcl-env/get-protocol pvar)
         mungedsym (symbol (:name method-sig))
-        ans (doall (map c/fully-resolve-type (sub/datatype-ancestors datatype)))
-        ;_ (prn "datatype" datatype)
-        ;_ (prn "ancestors" (pr-str ans))
-        ]
+        ans (map c/fully-resolve-type (sub/datatype-ancestors datatype))]
     (when ptype
       (let [pancestor (if (r/Protocol? ptype)
                         ptype
@@ -262,13 +267,6 @@
   {:post [(r/Type? %)]}
   (or (protocol-implementation-type datatype method-sig)
       (extend-method-expected datatype (instance-method->Function method-sig))))
-
-(defn deftype-method-members [cls]
-  {:pre [(class? cls)]
-   :post [(every? (fn [m] (instance? clojure.reflect.Method m)) %)]}
-  (->> (reflect-u/reflect cls)
-       :members
-       (filter #(instance? clojure.reflect.Method %))))
 
 (defn FieldExpr->Field [{c :class field-name :field :keys [op] :as expr}]
   {:pre []

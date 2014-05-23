@@ -1,5 +1,4 @@
-(ns 
-  clojure.core.typed.check
+(ns clojure.core.typed.check
   {:skip-wiki true
    :core.typed {:collect-only true}}
   (:refer-clojure :exclude [defrecord])
@@ -1795,8 +1794,6 @@
           (-> expired-class coerce/Class->symbol coerce/symbol->Class)
           _ (assert (class? compiled-class))
           nme (coerce/Class->symbol compiled-class)
-          reflect-methods (cu/deftype-method-members compiled-class)
-          ;_ (prn "reflect-methods" reflect-methods)
           field-syms (map :name fields)
           _ (assert (every? symbol? field-syms))
           ; unannotated datatypes are handled below
@@ -1866,7 +1863,6 @@
                             _ (assert (symbol? method-nme))
                             ;_ (prn "method-nme" method-nme)
                             ;_ (prn "inst-method" inst-method)
-                            ;_ (prn "reflect names" (map :name reflect-methods))
                             _ (assert (:this inst-method))
                             _ (assert (:params inst-method))
                             ; minus the target arg
@@ -1875,13 +1871,11 @@
                                                   (and (= (count (:parameter-types inst-method))
                                                           (count required-params))
                                                        (#{(munge method-nme)} name)))
-                                                reflect-methods))]
-                        (if-not (instance? clojure.reflect.Method method-sig)
-                          (err/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme
-                                                   ". Available methods: " (pr-str (map :name reflect-methods))
-                                                   " Method sig: " method-sig))
+                                                (:methods inst-method)))]
+                        (if-not method-sig
+                            (err/tc-delayed-error (str "Internal error checking deftype " nme " method: " method-nme))
                           (let [expected-ifn (cu/datatype-method-expected dt method-sig)]
-                            ;(prn "method expected type" (prs/unparse-type expected-ifn))
+                            ;(prn "method expected type" expected-ifn)
                             ;(prn "names" nms)
                             (lex/with-locals expected-fields
                               (free-ops/with-free-mappings 
