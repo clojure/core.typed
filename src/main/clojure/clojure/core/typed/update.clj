@@ -224,6 +224,18 @@
            (pe/CountPE? (first (:path lo))))
       t
 
+      (and (fl/TypeFilter? lo)
+           (pe/FirstPE? (-> lo :path first))
+           (c/AnyHSequential? t))
+      (let [type (:type lo)
+            restriction-type (r/-hsequential [type] :rest r/-any)]
+        (c/restrict restriction-type t))
+
+      (and (fl/NotTypeFilter? lo)
+           (pe/FirstPE? (-> lo :path first))
+           (c/AnyHSequential? t))
+      t
+
       ; Update class information based on a call to `class`
       ; eg. (= java.lang.Integer (class a))
       (and (fl/TypeFilter? lo)

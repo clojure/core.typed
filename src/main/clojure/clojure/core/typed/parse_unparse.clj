@@ -29,7 +29,7 @@
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE)
+           (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE FirstPE)
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -1019,6 +1019,7 @@
 
 (defmethod parse-path-elem 'Class [_] (pthrep/->ClassPE))
 (defmethod parse-path-elem 'Count [_] (pthrep/->CountPE))
+(defmethod parse-path-elem 'First [_] (pthrep/->FirstPE))
 
 (defmethod parse-path-elem 'Keys [_] (pthrep/->KeysPE))
 (defmethod parse-path-elem 'Vals [_] (pthrep/->ValsPE))
@@ -1593,6 +1594,7 @@
 (defmethod unparse-path-elem KeyPE [t] (list 'Key (:val t)))
 (defmethod unparse-path-elem CountPE [t] 'Count)
 (defmethod unparse-path-elem ClassPE [t] 'Class)
+(defmethod unparse-path-elem FirstPE [t] 'First)
 (defmethod unparse-path-elem KeysPE [t] 'Keys)
 (defmethod unparse-path-elem ValsPE [t] 'Vals)
 

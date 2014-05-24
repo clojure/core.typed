@@ -34,3 +34,99 @@
     (overlap-prs
       (HMap :complete? true :optional {:a Integer})
       (HMap :complete? true :optional {:a clojure.lang.Keyword}))))
+
+(deftest hvec-overlap-test
+  (testing "without rest types"
+    (testing "when the fixed types match"
+      (is-clj
+       (overlap-prs
+        (HVec [Number])
+        (HVec [Number]))))
+
+    (testing "when the fixed types differ"
+      (is-clj
+       (not
+        (overlap-prs
+         (HVec [Number])
+         (HVec [String])))))
+
+    (testing "with a differing number of fixed types"
+      (is-clj
+       (not
+        (overlap-prs
+         (HVec [Number])
+         (HVec [Number String]))))))
+
+  (testing "with one rest type"
+    (testing "when fixed types match"
+      (is-clj
+       (overlap-prs
+        (HVec [Number])
+        (HVec [Number String *]))))
+
+    (testing "when fixed types differ"
+      (is-clj
+       (not
+        (overlap-prs
+         (HVec [Number])
+         (HVec [String String *])))))
+
+    (testing "when the extra fixed types match the rest type"
+      (is-clj
+       (overlap-prs
+        (HVec [Number *])
+        (HVec [Number]))))
+
+    (testing "when the extra fixed types differ from the rest type"
+      (is-clj
+       (not
+        (overlap-prs
+         (HVec [Number *])
+         (HVec [String])))))
+
+    (testing "when the extra fixed types come from type with the rest type"
+      (is-clj
+       (not
+        (overlap-prs
+         (HVec [String String String *])
+         (HVec [String]))))))
+
+  (testing "with two rest types"
+    (testing "when the rest types match"
+      (is-clj
+       (overlap-prs
+        (HVec [Number *])
+        (HVec [Number *]))))
+
+    (testing "when the rest types differ"
+      (is-clj
+       (not
+        (overlap-prs
+         (HVec [Number *])
+         (HVec [String *])))))
+
+    (testing "when the extra fixed types match the rest type of shorter"
+      (is-clj
+       (overlap-prs
+        (HVec [Number *])
+        (HVec [Number Number *]))))
+
+    (testing "when the extra fixed types differ from the rest type of shorter"
+      (is-clj
+       (not
+        (overlap-prs
+         (HVec [Number *])
+         (HVec [String Number *])))))
+
+    (testing "when the fixed types match"
+      (is-clj
+       (overlap-prs
+        (HVec [Number String *])
+        (HVec [Number String *]))))
+
+    (testing "when the fixed types differ"
+      (is-clj
+       (not
+        (overlap-prs
+         (HVec [Number String *])
+         (HVec [String String *])))))))

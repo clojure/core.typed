@@ -109,6 +109,7 @@
 (defn parse-path-elem [syn]
   (cond
     ('#{Class} syn) {:op :ClassPE}
+    ('#{First} syn) {:op :FirstPE}
     ('#{Count} syn) {:op :CountPE}
     ('#{Keys} syn) {:op :KeysPE}
     ('#{Vals} syn) {:op :ValsPE}
