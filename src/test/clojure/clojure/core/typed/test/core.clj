@@ -675,16 +675,6 @@
   (is-clj (= (update (Un -true -false) (-filter (Un -false -nil) 'a nil)) 
              -false)))
 
-(deftest overlap-test
-  (is-clj (not (overlap -false -true)))
-  (is-clj (not (overlap (-val :a) (-val :b))))
-  (is-clj (overlap (RClass-of Number) (RClass-of Integer)))
-  (is-clj (not (overlap (RClass-of Number) (RClass-of clojure.lang.Symbol))))
-  (is-clj (not (overlap (RClass-of Number) (RClass-of String))))
-  (is-clj (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.IMeta)))
-  (is-clj (overlap (RClass-of clojure.lang.Seqable [-any]) (RClass-of clojure.lang.PersistentVector [-any])))
-  )
-
 #_(def-alias SomeMap (U (HMap :mandatory {:a (Value :b)})
                       (HMap :mandatory {:b (Value :c)})))
 
@@ -2735,23 +2725,6 @@
                 (HMap :optional {:a Number}))
               :a)
          (U nil Number)))
-
-(deftest hmap-overlap-test
-  (is-clj 
-    (not (overlap-prs Integer clojure.lang.Keyword)))
-  (is-clj 
-    (not 
-      (overlap-prs
-        (HMap :mandatory {:a Integer})
-        (HMap :mandatory {:a clojure.lang.Keyword}))))
-  (is-clj 
-    (overlap-prs
-      (HMap :optional {:a Integer})
-      (HMap :optional {:a clojure.lang.Keyword})))
-  (is-clj 
-    (overlap-prs
-      (HMap :complete? true :optional {:a Integer})
-      (HMap :complete? true :optional {:a clojure.lang.Keyword}))))
 
 (deftest datatype-variance-test
   (is (check-ns 'clojure.core.typed.test.variance-test)))

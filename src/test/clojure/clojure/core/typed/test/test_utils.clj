@@ -152,10 +152,6 @@
 (defmacro equal-types [l r]
   `(equal-types-noparse ~l (parse-type (quote ~r))))
 
-(defmacro overlap-prs [s1 s2]
-  `(clj
-     (c/overlap (parse-type '~s1) (parse-type '~s2))))
-
 (defmacro tc-t [form]
   `(let [{delayed-errors# :delayed-errors ret# :ret}
          (impl/with-clojure-impl
