@@ -11,9 +11,9 @@
             [clojure.core.typed.check.utils :as cu])
   (:import (clojure.lang ISeq Seqable)))
 
-(defn ^:private nth-type [types idx-t default-t]
+(defn ^:private nth-type [types idx default-t]
   {:pre [(every? r/Type? types)
-         (r/Type? idx-t)
+         (con/nat? idx)
          ((some-fn nil? r/Type?) default-t)]
    :post [(r/Type? %)]}
   (apply c/Un
@@ -22,9 +22,9 @@
             (if-let [res-t (cond
                             (r/Nil? t) (or default-t r/-nil)
                             ;; nil on out-of-bounds and no default-t
-                            :else (nth (:types t) (:val idx-t) default-t))]
+                            :else (nth (:types t) idx default-t))]
               res-t
-              (err/int-error (str "Cannot get index " (:val idx-t)
+              (err/int-error (str "Cannot get index " idx
                                   " from type " (prs/unparse-type t))))))))
 
 (defn ^:private nth-positive-filter-default-truthy [target-o default-o]
@@ -63,14 +63,13 @@
                        (r/make-CountRange (inc idx)))
                  target-o))
 
-(defn ^:private nth-filter [target-expr default-expr idx-t default-t]
+(defn ^:private nth-filter [target-expr default-expr idx default-t]
   {:pre [(r/TCResult? (u/expr-type target-expr))
          ((some-fn nil? r/TCResult?) (u/expr-type default-expr))
-         (r/Type? idx-t)
+         (con/nat? idx)
          ((some-fn nil? r/Type?) default-t)]
    :post [(fl/Filter? %)]}
-  (let [idx (:val idx-t)
-        target-o (r/ret-o (u/expr-type target-expr))
+  (let [target-o (r/ret-o (u/expr-type target-expr))
         default-o (when default-expr
                     (r/ret-o (u/expr-type default-expr)))
 
@@ -100,8 +99,9 @@
                             r/HeterogeneousList?
                             r/HeterogeneousSeq?)
                    types))
-      (assoc expr
-             :args cargs
-             u/expr-type (r/ret (nth-type types num-t default-t)
-                                (nth-filter te de num-t default-t)))
+      (let [idx (:val num-t)]
+        (assoc expr
+          :args cargs
+          u/expr-type (r/ret (nth-type types idx default-t)
+                             (nth-filter te de idx default-t))))
       :else cu/not-special)))
