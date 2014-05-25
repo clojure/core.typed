@@ -39,7 +39,7 @@
 ;
 ;
 ;[MethodExpr Function -> {:ftype Function :cmethod Expr}]
-(defn check-fn-method1 [method {:keys [dom rest drest kws] :as expected}
+(defn check-fn-method1 [method {:keys [dom rest drest kws prest] :as expected}
                         & {:keys [recur-target-fn]}]
   {:pre [(r/Function? expected)]
    :post [(r/Function? (:ftype %))
@@ -81,7 +81,7 @@
                                    (concat required-params 
                                            (when rest-param [rest-param])))))
         ;ensure Function fits method
-        _ (when-not ((if (or rest drest kws) <= =) (count required-params) (count dom))
+        _ (when-not ((if (or rest drest kws prest) <= =) (count required-params) (count dom))
             (err/int-error (str "Checking method with incorrect number of expected parameters"
                               ", expected " (count dom) " required parameter(s) with"
                               (if rest " a " " no ") "rest parameter, found " (count required-params)
@@ -89,7 +89,7 @@
                               "rest parameter.")))
 
         _ (when-not (or (not rest-param)
-                        (some identity [drest rest kws]))
+                        (some identity [drest rest kws prest]))
             (err/int-error (str "No type for rest parameter")))
 
         ;;unhygienic version
@@ -109,7 +109,7 @@
         crequired-params (map (fn [p t] (assoc p u/expr-type (r/ret t)))
                               required-params
                               (concat dom 
-                                      (repeat (or rest (:pre-type drest)))))
+                                      (repeat (or rest (:pre-type drest) prest))))
         _ (assert (every? (comp r/TCResult? u/expr-type) crequired-params))
         fixed-entry (map (juxt :name (comp r/ret-t u/expr-type)) crequired-params)
         ;_ (prn "checking function:" (prs/unparse-type expected))
@@ -117,7 +117,11 @@
         _ (assert check-fn-method1-rest-type "No check-fn bound for rest type")
         crest-param (when rest-param
                       (assoc rest-param
-                             u/expr-type (r/ret (check-fn-method1-rest-type (drop (count crequired-params) dom) rest drest kws))))
+                             u/expr-type (r/ret (check-fn-method1-rest-type (drop (count crequired-params) dom)
+                                                                            :rest rest
+                                                                            :drest drest
+                                                                            :kws kws
+                                                                            :prest prest))))
         rest-entry (when crest-param
                      [[(:name crest-param) (r/ret-t (u/expr-type crest-param))]])
         ;_ (prn "rest entry" rest-entry)
@@ -209,16 +213,18 @@
               (cu/expected-error (-> crng u/expr-type r/ret-t) (r/ret-t expected-rng))))
         rest-param-name (when rest-param
                           (:name rest-param))
-        
-        ftype (fn-method-u/FnResult->Function 
-                (fn-method-u/->FnResult 
-                  fixed-entry 
+
+        ftype (fn-method-u/FnResult->Function
+                (fn-method-u/->FnResult
+                  fixed-entry
                   (when (and kws rest-param)
                     [rest-param-name kws])
                   (when (and rest rest-param)
                     [rest-param-name rest])
-                  (when (and drest rest-param) 
+                  (when (and drest rest-param)
                     [rest-param-name drest])
+                  (when (and prest rest-param)
+                    [rest-param-name prest])
                   (u/expr-type crng)))
         cmethod (-> (assoc method
                            (ast-u/method-body-kw) crng
