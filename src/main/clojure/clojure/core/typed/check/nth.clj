@@ -11,6 +11,15 @@
             [clojure.core.typed.check.utils :as cu])
   (:import (clojure.lang ISeq Seqable)))
 
+(defn ^:private expr->type [expr]
+  (if expr (-> expr u/expr-type r/ret-t)))
+
+(defn ^:private expr->object [expr]
+  (if expr (-> expr u/expr-type r/ret-o)))
+
+(defn ^:private expression? [expr]
+  (r/TCResult? (u/expr-type expr)))
+
 (defn ^:private nth-type [types idx default-t]
   {:pre [(every? r/Type? types)
          (con/nat? idx)
@@ -64,14 +73,13 @@
                  target-o))
 
 (defn ^:private nth-filter [target-expr default-expr idx default-t]
-  {:pre [(r/TCResult? (u/expr-type target-expr))
-         ((some-fn nil? r/TCResult?) (u/expr-type default-expr))
+  {:pre [(expression? target-expr)
+         ((some-fn nil? expression?) default-expr)
          (con/nat? idx)
          ((some-fn nil? r/Type?) default-t)]
    :post [(fl/Filter? %)]}
-  (let [target-o (r/ret-o (u/expr-type target-expr))
-        default-o (when default-expr
-                    (r/ret-o (u/expr-type default-expr)))
+  (let [target-o (expr->object target-expr)
+        default-o (expr->object default-expr)
 
         filter+ (if default-t
                   (nth-positive-filter-default target-o default-o idx)
@@ -84,13 +92,12 @@
   {:pre [((some-fn nil? vector?) cargs)]}
   (let [_ (assert (#{2 3} (count args)) (str "nth takes 2 or 3 arguments, actual " (count args)))
         [te ne de :as cargs] (or cargs (mapv check-fn args))
-        types (let [ts (c/fully-resolve-type (r/ret-t (u/expr-type te)))]
+        types (let [ts (c/fully-resolve-type (expr->type te))]
                 (if (r/Union? ts)
                   (:types ts)
                   [ts]))
-        num-t (r/ret-t (u/expr-type ne))
-        default-t (when de
-                    (r/ret-t (u/expr-type de)))]
+        num-t (expr->type ne)
+        default-t (expr->type de)]
     (cond
       (and (r/Value? num-t)
            (integer? (:val num-t))
