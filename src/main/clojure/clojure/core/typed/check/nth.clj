@@ -11,8 +11,23 @@
             [clojure.core.typed.check.utils :as cu])
   (:import (clojure.lang ISeq Seqable)))
 
-(defn ^:private nth-positive-filter-default-truthy
-  [target-o default-o]
+(defn ^:private nth-type [types num-t default-t]
+  {:pre [(every? r/Type? types)
+         (r/Type? num-t)
+         ((some-fn nil? r/Type?) default-t)]
+   :post [(r/Type? %)]}
+  (apply c/Un
+         (doall
+          (for [t types]
+            (if-let [res-t (cond
+                            (r/Nil? t) (or default-t r/-nil)
+                            ;; nil on out-of-bounds and no default-t
+                            :else (nth (:types t) (:val num-t) default-t))]
+              res-t
+              (err/int-error (str "Cannot get index " (:val num-t)
+                                  " from type " (prs/unparse-type t))))))))
+
+(defn ^:private nth-positive-filter-default-truthy [target-o default-o]
   {:pre [(obj/RObject? target-o)
          (obj/RObject? default-o)]
    :post [(fl/Filter? %)]}
@@ -48,6 +63,24 @@
                        (r/make-CountRange (inc nnth)))
                  target-o))
 
+(defn ^:private nth-filter [te de num-t default-t]
+  {:pre [(r/TCResult? (u/expr-type te))
+         ((some-fn nil? r/TCResult?) (u/expr-type de))
+         (r/Type? num-t)
+         ((some-fn nil? r/Type?) default-t)]
+   :post [(fl/Filter? %)]}
+  (let [nnth (:val num-t)
+        target-o (r/ret-o (u/expr-type te))
+        default-o (when de
+                    (r/ret-o (u/expr-type de)))
+
+        filter+ (if default-t
+                  (nth-positive-filter-default target-o default-o nnth)
+                  (nth-positive-filter-no-default target-o nnth))]
+    (fo/-FS filter+
+            ;; not sure if there's anything worth encoding here
+            fl/-top)))
+
 (defn invoke-nth [check-fn {:keys [args] :as expr} expected & {:keys [cargs]}]
   {:pre [((some-fn nil? vector?) cargs)]}
   (let [_ (assert (#{2 3} (count args)) (str "nth takes 2 or 3 arguments, actual " (count args)))
@@ -69,25 +102,6 @@
                    types))
       (assoc expr
              :args cargs
-             u/expr-type (r/ret (apply c/Un
-                                   (doall
-                                     (for [t types]
-                                       (if-let [res-t (cond
-                                                        (r/Nil? t) (or default-t r/-nil)
-                                                        ; nil on out-of-bounds and no default-t
-                                                        :else (nth (:types t) (:val num-t) default-t))]
-                                         res-t
-                                         (err/int-error (str "Cannot get index " (:val num-t)
-                                                           " from type " (prs/unparse-type t)))))))
-                            (let [nnth (:val num-t)
-                                  target-o (r/ret-o (u/expr-type te))
-                                  default-o (when de
-                                              (r/ret-o (u/expr-type de)))
-
-                                  filter+ (if default-t
-                                            (nth-positive-filter-default target-o default-o nnth)
-                                            (nth-positive-filter-no-default target-o nnth))]
-                              (fo/-FS filter+
-                                      ; not sure if there's anything worth encoding here
-                                      fl/-top))))
+             u/expr-type (r/ret (nth-type types num-t default-t)
+                                (nth-filter te de num-t default-t)))
       :else cu/not-special)))
