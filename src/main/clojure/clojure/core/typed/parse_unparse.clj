@@ -950,21 +950,22 @@
   {:post [(r/Function? %)]}
   (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
-        _ (when-not (<= 2 (count chk)) 
+        _ (when-not (<= 2 (count chk))
             (err/int-error (str "Incorrect function syntax: " f)))
 
-        _ (when-not (even? (count opts-flat)) 
+        _ (when-not (even? (count opts-flat))
             (err/int-error (str "Incorrect function syntax, must have even number of keyword parameters: " f)))
 
         opts (apply hash-map opts-flat)
 
         {ellipsis-pos '...
          asterix-pos '*
-         ampersand-pos '&}
+         ampersand-pos '&
+         push-rest-pos '<*}
         (zipmap all-dom (range))
 
-        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos])))
-            (err/int-error "Can only provide one rest argument option: & ... or *"))
+        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos push-rest-pos])))
+            (err/int-error "Can only provide one rest argument option: & ... * or <*"))
 
         _ (when-let [ks (seq (remove #{:filters :object :flow} (keys opts)))]
             (err/int-error (str "Invalid function keyword option/s: " ks)))
@@ -978,10 +979,11 @@
         flow (when-let [[_ obj] (find opts :flow)]
                (r/-flow (parse-filter obj)))
 
-        fixed-dom (cond 
+        fixed-dom (cond
                     asterix-pos (take (dec asterix-pos) all-dom)
                     ellipsis-pos (take (dec ellipsis-pos) all-dom)
                     ampersand-pos (take ampersand-pos all-dom)
+                    push-rest-pos (take (dec push-rest-pos) all-dom)
                     :else all-dom)
 
         rest-type (when asterix-pos
@@ -1005,8 +1007,14 @@
                 (cons :optional kwsyn))
             kwsyn))
 
-        _ (when-not (or (not ampersand-pos) (seq kws-seq)) 
-            (err/int-error "Must provide syntax after &"))]
+        _ (when-not (or (not ampersand-pos) (seq kws-seq))
+            (err/int-error "Must provide syntax after &"))
+
+        prest-type (when push-rest-pos
+                     (nth all-dom (dec push-rest-pos)))
+        _ (when-not (or (not push-rest-pos)
+                        (= (count all-dom) (inc push-rest-pos)))
+            (err/int-error (str "Trailing syntax after pust-rest parameter: " (pr-str (drop (inc push-rest-pos) all-dom)))))]
     (r/make-Function (mapv parse-type fixed-dom)
                      (parse-type rng)
                      :rest
@@ -1021,6 +1029,9 @@
                            (free-ops/with-frees [bnd] ;with dotted bound in scope as free
                              (parse-type drest-type))
                            (:name bnd))))
+                     :prest
+                     (when push-rest-pos
+                       (parse-type prest-type))
                      :filter filters
                      :object object
                      :flow flow
@@ -1227,23 +1238,25 @@
     `(~'B ~name)))
 
 (defmethod unparse-type* Function
-  [{:keys [dom rng kws rest drest]}]
+  [{:keys [dom rng kws rest drest prest]}]
   (vec (concat (doall (map unparse-type dom))
                (when rest
                  [(unparse-type rest) '*])
                (when drest
                  (let [{:keys [pre-type name]} drest]
-                   [(unparse-type pre-type) 
-                    '... 
+                   [(unparse-type pre-type)
+                    '...
                     (unparse-bound name)]))
                (when kws
                  (let [{:keys [optional mandatory]} kws]
-                   (list* '& 
+                   (list* '&
                           (concat
-                            (when (seq mandatory) 
+                            (when (seq mandatory)
                               [:mandatory (unparse-kw-map mandatory)])
                             (when (seq optional)
                               [:optional (unparse-kw-map optional)])))))
+               (when prest
+                 [(unparse-type prest) '<*])
                ['->]
                (unparse-result rng))))
 
