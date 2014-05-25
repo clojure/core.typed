@@ -8,6 +8,8 @@
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.filter-rep :as fl]
+            [clojure.core.typed.path-rep :as pe]
+            [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.check.utils :as cu])
   (:import (clojure.lang ISeq Seqable)))
 
@@ -88,13 +90,22 @@
             ;; not sure if there's anything worth encoding here
             fl/-top)))
 
+(defn ^:private nth-object [target-expr idx]
+  {:pre [(expression? target-expr)
+         (con/nat? idx)]
+   :post [(obj/RObject? %)]}
+  (let [target-o (expr->object target-expr)]
+    (if (obj/Path? target-o)
+      (update-in target-o [:path] concat [(pe/->NthPE idx)])
+      target-o)))
+
 (defn invoke-nth [check-fn {:keys [args] :as expr} expected & {:keys [cargs]}]
   {:pre [((some-fn nil? vector?) cargs)]}
   (let [_ (assert (#{2 3} (count args)) (str "nth takes 2 or 3 arguments, actual " (count args)))
         [te ne de :as cargs] (or cargs (mapv check-fn args))
         types (let [ts (c/fully-resolve-type (expr->type te))]
                 (if (r/Union? ts)
-                  (:types ts)
+                  (map c/fully-resolve-type (:types ts))
                   [ts]))
         num-t (expr->type ne)
         default-t (expr->type de)]
@@ -110,5 +121,6 @@
         (assoc expr
           :args cargs
           u/expr-type (r/ret (nth-type types idx default-t)
-                             (nth-filter te de idx default-t))))
+                             (nth-filter te de idx default-t)
+                             (nth-object te idx))))
       :else cu/not-special)))

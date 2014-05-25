@@ -38,6 +38,44 @@
            (let [param (nth stmt 2)]
              (ann-form param Number))))))))
 
+(deftest nth-path-elem-test-nth
+  (is-tc-e
+   (do
+     (defalias StatementA '[':params String])
+     (defalias StatementB '[':no-params])
+     (defalias Statement (U StatementA StatementB))
+     (fn [stmt :- Statement] :- Any
+       (if (= :params (nth stmt 0))
+         (let [param (nth stmt 1)]
+           (ann-form param String)))))))
+
+(deftest nth-path-elem-test-existing-path
+  (is-tc-e
+   (do
+     (defalias StatementA '[':a '[':params String]])
+     (defalias StatementB '[':b '[':no-params]])
+     (defalias Statement (U StatementA StatementB))
+     (fn [stmt :- Statement] :- Any
+       (if (= :params (nth (nth stmt 1) 0))
+         (let [param (nth (nth stmt 1) 1)]
+           (ann-form param String)))))))
+
+(deftest nth-path-elem-test-multimethod
+  (is-tc-e
+   (do
+     (defalias StatementA '[':params String])
+     (defalias StatementB '[':no-params])
+     (defalias Statement (U StatementA StatementB))
+
+     (ann nth-path-multimethod [Statement -> Any])
+     (defmulti nth-path-multimethod first)
+
+     (defmethod nth-path-multimethod :params [stmt]
+       (ann-form stmt StatementA))
+
+     (defmethod nth-path-multimethod :no-params [stmt]
+       (ann-form stmt StatementB)))))
+
 (deftest nth-path-elem-test-types
   (testing "HVec"
     (is-tc-e
