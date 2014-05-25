@@ -1303,11 +1303,12 @@
             vs/*current-expr* expr
             fn-method-u/*check-fn-method1-checkfn* check
             fn-method-u/*check-fn-method1-rest-type*
-              (fn [remain-dom rest drest kws]
+              (fn [remain-dom & {:keys [rest drest kws prest]}]
                 {:pre [(or (r/Type? rest)
+                           (r/Type? prest)
                            (r/DottedPretype? drest)
                            (r/KwArgs? kws))
-                       (#{1} (count (filter identity [rest drest kws])))
+                       (#{1} (count (filter identity [rest drest kws prest])))
                        (every? r/Type? remain-dom)]
                  :post [(r/Type? %)]}
                 (cond
@@ -1321,11 +1322,13 @@
                                        :drest drest)
                               (r/make-CountRange 1)))
 
+                  prest (c/Un r/-nil prest)
+
                   :else (c/KwArgs->Type kws)))]
     (let [cexpr (fn/check-fn 
                   expr 
                   (let [default-ret (r/ret (r/make-FnIntersection
-                                             (r/make-Function [] r/-any r/-any)))]
+                                             (r/make-Function [] r/-any :rest r/-any)))]
                     (cond (and expected (not= r/-any (r/ret-t expected))) expected
                           :else default-ret)))
           _ (when expected
@@ -1355,8 +1358,10 @@
               (for [{:keys [dom rest drest ret-type]} fn-anns]
                 (r/make-Function (mapv (comp prs/parse-type :type) dom)
                                  (prs/parse-type (:type ret-type))
+                                 :rest
                                  (when rest
                                    (prs/parse-type (:type rest)))
+                                 :drest
                                  (when drest
                                    (r/DottedPretype1-maker
                                      (prs/parse-type (:pretype drest))

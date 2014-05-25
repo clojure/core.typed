@@ -161,7 +161,8 @@
                :rest (when-let [rest (:rest T)]
                        (pmt rest))
                :drest (when-let [drest (:drest T)]
-                        (update-in drest [:pre-type] pmt))))))
+                        (update-in drest [:pre-type] pmt))
+               :repeat (:repeat T)))))
 
 (defmethod demote HSequential
   [T V]
@@ -188,7 +189,8 @@
                :rest (when-let [rest (:rest T)]
                        (dmt rest))
                :drest (when-let [drest (:drest T)]
-                        (update-in drest [:pre-type] dmt))))))
+                        (update-in drest [:pre-type] dmt))
+               :repeat (:repeat T)))))
 
 (defmethod promote HeterogeneousVector
   [T V]

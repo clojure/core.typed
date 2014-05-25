@@ -98,7 +98,8 @@
                   :filters (:fs v)
                   :objects (:objects v)
                   :rest (:rest v)
-                  :drest (:drest v)))
+                  :drest (:drest v)
+                  :repeat (:repeat v)))
 
 (t/ann ^:no-check HList->HSequential [HeterogeneousList -> HSequential])
 (defn HList->HSequential [l]
@@ -114,7 +115,8 @@
                   :filters (:fs s)
                   :objects (:objects s)
                   :rest (:rest s)
-                  :drest (:drest s)))
+                  :drest (:drest s)
+                  :repeat (:repeat s)))
 
 ;; Heterogeneous maps
 
@@ -1714,7 +1716,7 @@
                                                         [k (sb v)])))]
                                      (-> kws
                                        (update-in [:mandatory] abstract-kw-map)
-                                       (update-in [:optional] abstract-kw-map)))))))
+                                       (update-in [:optional] abstract-kw-map)))) nil)))
 
 (f/add-fold-case ::abstract-many
                  HeterogeneousVector
@@ -1745,7 +1747,8 @@
                                          (update-in [:pre-type] sb)
                                          (update-in [:name] #(if (= % name)
                                                                (+ count outer)
-                                                               %)))))))
+                                                               %))))
+                            :repeat (:repeat ty))))
 
 (f/add-fold-case ::abstract-many
                  Mu
@@ -1855,7 +1858,7 @@
                                                     [k (sb v)])))]
                                  (-> kws
                                    (update-in [:mandatory] instantiate-kw-map)
-                                   (update-in [:optional] instantiate-kw-map)))))))
+                                   (update-in [:optional] instantiate-kw-map)))) nil)))
 
 (f/add-fold-case ::instantiate-many
                  HeterogeneousVector
@@ -1886,7 +1889,8 @@
                                          (update-in [:pre-type] sb)
                                          (update-in [:name] #(if (= (+ count outer) %)
                                                                image
-                                                               %)))))))
+                                                               %))))
+                            :repeat (:repeat ty))))
 
 (f/add-fold-case ::instantiate-many
                Mu
@@ -2006,19 +2010,16 @@
            (r/make-Function
              [(-partial-hmap {(r/-val kw) (r/make-F 'x)})]
              (r/make-F 'x)
-             nil nil
              :object (or/->Path [(path/->KeyPE kw)] 0))
            (r/make-Function
              [(Un (make-HMap
                     :optional {(r/-val kw) (r/make-F 'x)})
                   r/-nil)]
              (Un r/-nil (r/make-F 'x))
-             nil nil
              :object (or/->Path [(path/->KeyPE kw)] 0))
            (r/make-Function
              [r/-any]
              r/-any
-             nil nil
              :object (or/->Path [(path/->KeyPE kw)] 0)))))
 
 (t/ann KeywordValue->Fn [Value -> r/Type])

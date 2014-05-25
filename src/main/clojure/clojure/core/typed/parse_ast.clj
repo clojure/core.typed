@@ -137,21 +137,6 @@
     (when path
       {:path-elems (mapv parse-path-elem path)})))
 
-(defn parse-HVec [[_ fixed & {:keys [filter-sets objects]} :as syn]]
-  (merge
-    {:op :HVec
-     :types (mapv parse fixed)
-     :children (vec (concat
-                      [:types]
-                      (when filter-sets
-                        [:filter-sets])
-                      (when objects
-                        [:objects])))}
-    (when filter-sets
-      {:filter-sets (mapv parse-filter-set filter-sets)})
-    (when objects
-      {:objects (mapv parse-object filter-sets)})))
-
 (defn parse-with-rest-drest [msg syns]
   (let [rest? (#{'*} (last syns))
         dotted? (#{'...} (-> syns butlast last))
@@ -187,9 +172,9 @@
      :drest drest}))
 
 (defn parse-h* [op msg]
-  (fn [[_ syn]]
+  (fn [[_ fixed & {:keys [filter-sets objects repeat]}]]
     (let [{:keys [types drest rest]}
-          (parse-with-rest-drest msg syn)]
+          (parse-with-rest-drest msg fixed)]
       (merge
         {:op op
          :types types
@@ -198,17 +183,28 @@
                           (when drest
                             [:drest])
                           (when rest
-                            [:rest])))}
+                            [:rest])
+                          (when filter-sets
+                            [:filter-sets])
+                          (when objects
+                            [:objects])
+                          (when (true? repeat) [:repeat])))}
         (when drest
           {:drest drest})
         (when rest
-          {:rest rest})))))
+          {:rest rest})
+        (when filter-sets
+          {:filter-sets (mapv parse-filter-set filter-sets)})
+        (when objects
+          {:objects (mapv parse-object filter-sets)})
+        (when (true? repeat) {:repeat true})))))
 
+(def parse-HVec (parse-h* :HVec "Invalid heterogeneous vector syntax:"))
 (def parse-HSequential (parse-h* :HSequential "Invalid HSeqnential syntax:"))
 (def parse-HSeq (parse-h* :HSeq "Invalid HSeq syntax:"))
 
 (def parse-quoted-hvec (fn [syn]
-                         ((parse-h* :HVec "Invalid heterogeneous vector syntax:") [nil syn])))
+                         (parse-HVec [nil syn])))
 
 (defn parse-quoted-hseq [syn]
   (let [types (mapv parse syn)]
@@ -580,21 +576,22 @@
 (defn parse-function [f]
   (let [all-dom (take-while #(not= '-> %) f)
         [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
-        _ (when-not (<= 2 (count chk)) 
+        _ (when-not (<= 2 (count chk))
             (err/int-error (str "Incorrect function syntax: " f)))
 
-        _ (when-not (even? (count opts-flat)) 
+        _ (when-not (even? (count opts-flat))
             (err/int-error (str "Incorrect function syntax, must have even number of keyword parameters: " f)))
 
         opts (apply hash-map opts-flat)
 
         {ellipsis-pos '...
          asterix-pos '*
-         ampersand-pos '&}
+         ampersand-pos '&
+         push-rest-pos '<*}
         (zipmap all-dom (range))
 
-        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos])))
-            (err/int-error "Can only provide one rest argument option: & ... or *"))
+        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos push-rest-pos])))
+            (err/int-error "Can only provide one rest argument option: & ... * or <*"))
 
         _ (when-let [ks (seq (remove #{:filters :object :flow} (keys opts)))]
             (err/int-error (str "Invalid function keyword option/s: " ks)))
@@ -608,10 +605,11 @@
         flow (when-let [[_ obj] (find opts :flow)]
                (parse-filter obj))
 
-        fixed-dom (cond 
+        fixed-dom (cond
                     asterix-pos (take (dec asterix-pos) all-dom)
                     ellipsis-pos (take (dec ellipsis-pos) all-dom)
                     ampersand-pos (take ampersand-pos all-dom)
+                    push-rest-pos (take (dec push-rest-pos) all-dom)
                     :else all-dom)
 
         rest-type (when asterix-pos
@@ -635,8 +633,14 @@
                 (cons :optional kwsyn))
             kwsyn))
 
-        _ (when-not (or (not ampersand-pos) (seq kws-seq)) 
-            (err/int-error "Must provide syntax after &"))]
+        _ (when-not (or (not ampersand-pos) (seq kws-seq))
+            (err/int-error "Must provide syntax after &"))
+
+        prest-type (when push-rest-pos
+                     (nth all-dom (dec push-rest-pos)))
+        _ (when-not (or (not push-rest-pos)
+                        (= (count all-dom) (inc push-rest-pos)))
+            (err/int-error (str "Trailing syntax after pust-rest parameter: " (pr-str (drop (inc push-rest-pos) all-dom)))))]
     (merge
       {:op :Fn-method
        :dom (mapv parse fixed-dom)
@@ -648,7 +652,9 @@
                               (when asterix-pos
                                 [:rest])
                               (when ellipsis-pos
-                                [:drest])))}
+                                [:drest])
+                              (when push-rest-pos
+                                [:prest])))}
       (when asterix-pos
         {:rest (parse rest-type)})
       (when ellipsis-pos
@@ -661,7 +667,9 @@
             :f {:op :F :name gbnd}
             :drest (with-frees {drest-bnd gbnd} ;with dotted bound in scope as free
                      (parse drest-type))
-            :name gbnd}})))))
+            :name gbnd}}))
+      (when push-rest-pos
+        {:prest (parse prest-type)}))))
 
 (defn parse-Fn [[_ & args :as syn]]
   {:op :Fn

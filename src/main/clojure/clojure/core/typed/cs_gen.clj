@@ -681,12 +681,12 @@
   (cset-meet* (concat
                 (cond
                   ;simple case
-                  (not-any? (some-fn :rest :drest) [S T])
+                  (not-any? (some-fn :rest :drest :repeat) [S T])
                   [(cs-gen-list V X Y (:types S) (:types T))]
 
                   ;rest on right, optionally on left
                   (and (:rest T)
-                       (not (:drest S)))
+                       (not-any? (some-fn :drest :repeat) [S]))
                   (concat [(cs-gen-list V X Y (:types S) (concat (:types T)
                                                                  (repeat (- (count (:types S))
                                                                             (count (:types T)))
@@ -694,9 +694,25 @@
                           (when (:rest S)
                             [(cs-gen V X Y (:rest S) (:rest T))]))
 
+                  ; repeat on right, nothing on left
+                  (and (:repeat T)
+                       (not-any? (some-fn :rest :drest :repeat) [S]))
+                  (let [s-types (:types S)
+                        t-types (:types T)
+                        s-types-count (count s-types)
+                        t-types-count (count t-types)]
+                    (if (and (>= s-types-count t-types-count)
+                             (zero? (rem s-types-count t-types-count)))
+                      [(cs-gen-list V X Y s-types (reduce (fn [acc cur]
+                                                            (concat acc cur))
+                                                          []
+                                                          (take (/ s-types-count
+                                                                   t-types-count) (repeat t-types))))]
+                      (fail! S T)))
+
                   ;; dotted on the left, nothing on the right
                   (and (:drest S)
-                       (not-any? (some-fn :rest :drest) [T]))
+                       (not-any? (some-fn :rest :drest :repeat) [T]))
                   (let [{dty :pre-type dbound :name} (:drest S)]
                     (when-not (Y dbound)
                       (fail! S T))
@@ -714,7 +730,7 @@
                       [(move-vars-to-dmap new-cset dbound vars)]))
 
                   ;; dotted on the right, nothing on the left
-                  (and (not-any? (some-fn :rest :drest) [S])
+                  (and (not-any? (some-fn :rest :drest :repeat) [S])
                        (:drest T))
                   (let [{dty :pre-type dbound :name} (:drest T)]
                     (when-not (Y dbound)
@@ -911,6 +927,7 @@
                 (r/make-ExactCountRange (count (:types S))))
           T))
 
+; TODO add :repeat support
 (add-cs-gen*-method [HSequential RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y
@@ -929,6 +946,7 @@
                    (count (:types S)))))
           T))
 
+; TODO add :repeat support
 (add-cs-gen*-method [HeterogeneousVector RClass impl/clojure]
   [V X Y S T]
   (cs-gen V X Y
@@ -1321,7 +1339,7 @@
               new-tys (doall (for> :- r/AnyType
                                [var :- t/Sym, vars]
                                (subst/substitute (r/make-F var) dbound dty)))
-              new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil nil nil)
+              new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil nil nil nil)
               new-cset (cs-gen-Function V 
                                         ;move dotted lower/upper bounds to vars
                                         (merge X (zipmap vars (repeat (Y dbound)))) Y new-s-arr T)]
@@ -1343,7 +1361,7 @@
                           (subst/substitute (r/make-F var) dbound dty)))
               ;_ (prn "dotted on the right, nothing on the left")
               ;_ (prn "vars" vars)
-              new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil nil nil)
+              new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil nil nil nil)
               ;_ (prn "S" (prs/unparse-type S))
               ;_ (prn "new-t-arr" (prs/unparse-type new-t-arr))
               new-cset (cs-gen-Function V 
@@ -1369,7 +1387,7 @@
                 new-tys (doall (for> :- r/AnyType
                                  [var :- t/Sym, vars]
                                  (subst/substitute (r/make-F var) dbound t-dty)))
-                new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil (r/DottedPretype1-maker t-dty dbound) nil)
+                new-t-arr (r/Function-maker (concat (:dom T) new-tys) (:rng T) nil (r/DottedPretype1-maker t-dty dbound) nil nil)
                 new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y S new-t-arr)]
             (move-vars+rest-to-dmap new-cset dbound vars)))))
 
@@ -1387,7 +1405,7 @@
                 new-tys (doall (for> :- r/AnyType
                                  [var :- t/Sym, vars]
                                  (subst/substitute (r/make-F var) dbound s-dty)))
-                new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil (r/DottedPretype1-maker s-dty dbound) nil)
+                new-s-arr (r/Function-maker (concat (:dom S) new-tys) (:rng S) nil (r/DottedPretype1-maker s-dty dbound) nil nil)
                 new-cset (cs-gen-Function V (merge X (zipmap vars (repeat (Y dbound))) X) Y new-s-arr T)]
             (move-vars+rest-to-dmap new-cset dbound vars :exact true))
 

@@ -442,17 +442,84 @@
         (and (r/HSequential? s)
              (r/HSequential? t))
         (if (and (cond
-                   ; simple case, no rest types
+                   ; simple case, no rest, drest, repeat types
                    (and (not-any? :rest [s t])
-                        (not-any? :drest [s t]))
+                        (not-any? :drest [s t])
+                        (not-any? :repeat [s t]))
                    (let []
                      (and (= (count (:types s))
                              (count (:types t)))
                           (every? identity (map subtype? (:types s) (:types t)))))
 
+                   ; repeat on left
+                   (and (:repeat s)
+                        (not (:drest t)))
+                   (let [s-types (:types s)
+                         t-types (:types t)
+                         s-types-count (count s-types)
+                         t-types-count (count t-types)
+                         gen-repeat (fn gen-repeat [small big]
+                                      (reduce
+                                        (fn [acc cur]
+                                          (concat acc cur))
+                                        []
+                                        (take (/ (count big)
+                                                 (count small)) (repeat small))))]
+                     (cond
+                       (:rest t)
+                       (and (= 1 s-types-count)
+                            (every? identity (map subtype?
+                                                  (repeat (first s-types))
+                                                  t-types))
+                            (subtype? (first s-types) (:rest t)))
+
+                       ; both s & t have :repeat
+                       (:repeat t)
+                       (if (and (<= t-types-count
+                                    s-types-count)
+                                (zero? (rem s-types-count
+                                            t-types-count)))
+                         (every? identity (map subtype?
+                                               s-types
+                                               (gen-repeat t-types s-types)))
+                         false)
+
+                       ; nothing on right
+                       :else
+                       false))
+
+                   ; repeat on right
+                   (and (:repeat t)
+                        (not (:drest s)))
+                   (let [s-types (:types s)
+                         t-types (:types t)
+                         s-types-count (count s-types)
+                         t-types-count (count t-types)]
+                     (if (:rest s)
+                       (and (= 1 t-types-count)
+                            (every? identity (map subtype?
+                                                  s-types
+                                                  (repeat (first t-types))))
+                            (subtype? (:rest s) (first t-types)))
+
+                       ; nothing on left
+                       (and (<= t-types-count
+                                s-types-count)
+                            (if (zero? (rem s-types-count
+                                            t-types-count))
+                              (every? identity (map subtype?
+                                                    s-types
+                                                    (reduce
+                                                      (fn [acc cur]
+                                                        (concat acc cur))
+                                                      []
+                                                      (take (/ t-types-count
+                                                               s-types-count) (repeat s-types)))))
+                              false))))
+
                    ; rest on right
                    (and (:rest t)
-                        (not (:drest s)))
+                        (not ((some-fn :drest :repeat) s)))
                    (and (>= (count (:types s))
                             (count (:types t)))
                         (if (:rest s)
@@ -618,6 +685,7 @@
                                      :cljs (c/Protocol-of 'cljs.core/ISeq [ss])))]))
                    t))
 
+        ; TODO add repeat support
         (r/HSequential? s)
         (let [ss (apply c/Un
                         (concat
@@ -637,6 +705,7 @@
                           (count (:types s))))
                    t))
 
+        ; TODO add repeat support
         (r/HeterogeneousVector? s)
         (let [ss (apply c/Un
                         (concat
@@ -669,6 +738,7 @@
                          (r/make-ExactCountRange (count (:types s))))
                    t))
 
+        ; TODO add repeat support
         (r/HeterogeneousSeq? s)
         (let [ss (apply c/Un
                         (concat

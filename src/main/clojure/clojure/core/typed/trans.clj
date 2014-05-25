@@ -67,7 +67,8 @@
                  :filters (mapv tfn (:fs t))
                  :objects (mapv tfn (:objects t))
                  :rest (when-let [r (:rest t)]
-                         (tfn r)))))))
+                         (tfn r))
+                 :repeat (:repeat t))))))
 
 (fold/add-fold-case ::trans-dots
   HeterogeneousVector
@@ -138,6 +139,7 @@
                                     bm)))]
               (r/Function-maker dom
                                 (tfn (:rng t))
+                                nil
                                 nil
                                 nil ;dotted pretype now expanded to fixed domain
                                 nil))

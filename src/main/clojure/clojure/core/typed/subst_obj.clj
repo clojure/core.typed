@@ -144,7 +144,7 @@
                                             (update-in [:mandatory] #(into {} (for [[k v] %]
                                                                                 [(st k) (st v)])))
                                             (update-in [:optional] #(into {} (for [[k v] %]
-                                                                               [(st k) (st v)])))))))))
+                                                                               [(st k) (st v)]))))) nil))))
 
 
 ;[Type (U t/Sym Number) RObject Boolean -> Type]

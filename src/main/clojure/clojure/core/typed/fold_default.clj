@@ -173,29 +173,26 @@
                                body (c/Mu-body* name ty)]
                            (c/Mu* name (type-rec body)))))
 
+(defn- fold-Heterogeneous* [constructor type-rec filter-rec object-rec]
+  (fn [{:keys [types rest drest repeat] :as ty} _]
+    (constructor
+      (mapv type-rec (:types ty))
+      :filters (mapv filter-rec (:fs ty))
+      :objects (mapv object-rec (:objects ty))
+      :rest (when rest (type-rec rest))
+      :drest (when drest (update-in drest [:pre-type] type-rec))
+      :repeat repeat)))
+
 (add-default-fold-case HeterogeneousVector
-                       (fn [{:keys [types fs objects rest drest] :as ty} _]
-                         (r/-hvec
-                           (mapv type-rec (:types ty))
-                           :filters (mapv filter-rec (:fs ty))
-                           :objects (mapv object-rec (:objects ty))
-                           :rest (when rest (type-rec rest))
-                           :drest (when drest (update-in drest [:pre-type] type-rec)))))
-
-(add-default-fold-case HSequential
-                       (fn [{:keys [types rest drest] :as ty} _]
-                         (r/-hsequential
-                           (mapv type-rec (:types ty))
-                           :filters (mapv filter-rec (:fs ty))
-                           :objects (mapv object-rec (:objects ty))
-                           :rest (when rest (type-rec rest))
-                           :drest (when drest (update-in drest [:pre-type] type-rec)))))
-
-(add-default-fold-case HeterogeneousList 
-                       (fn [ty _]
-                         (-> ty (update-in [:types] #(mapv type-rec %)))))
+                       (fold-Heterogeneous* r/-hvec type-rec filter-rec object-rec))
 
 (add-default-fold-case HeterogeneousSeq
+                       (fold-Heterogeneous* r/-hseq type-rec filter-rec object-rec))
+
+(add-default-fold-case HSequential
+                       (fold-Heterogeneous* r/-hsequential type-rec filter-rec object-rec))
+
+(add-default-fold-case HeterogeneousList
                        (fn [ty _]
                          (-> ty (update-in [:types] #(mapv type-rec %)))))
 

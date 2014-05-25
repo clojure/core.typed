@@ -312,17 +312,20 @@
                                       (last params))]
                            (r/make-Function (mapv parse-meta (map meta fixed))
                                             r/-any
+                                            :rest
                                             (when variadic
                                               (parse-meta rest))))))]
 
   (binding [fn-method-u/*check-fn-method1-checkfn* check
             ;this is identical to the Clojure implementation
             fn-method-u/*check-fn-method1-rest-type* 
-            (fn [rest drest kws]
+            (fn [remain-dom & {:keys [rest drest kws prest]}]
               {:pre [(or (r/Type? rest)
+                         (r/Type? prest)
                          (r/DottedPretype? drest)
                          (r/KwArgs? kws))
-                     (#{1} (count (filter identity [rest drest kws])))]
+                     (#{1} (count (filter identity [rest drest kws prest])))
+                     (every? r/Type? remain-dom)]
                :post [(r/Type? %)]}
               ;(prn "rest" rest)
               ;(prn "drest" drest)
@@ -332,6 +335,7 @@
                 (c/Un r/-nil 
                       (r/TApp-maker (r/Name-maker 'cljs.core.typed/NonEmptySeq)
                                     [(or rest (.pre-type ^DottedPretype drest))]))
+                prest (err/nyi-error "NYI handle prest in CLJS")
                 :else (c/KwArgs->Type kws)))]
     (fn/check-fn 
       expr
@@ -339,7 +343,7 @@
             manual-annot)
           expected
           (ret (r/make-FnIntersection
-                 (r/make-Function [] r/-any r/-any))))))))
+                 (r/make-Function [] r/-any :rest r/-any))))))))
 
 (defmethod check :deftype*
   [expr & [expected]]

@@ -11,7 +11,7 @@
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed :as t :refer [ann Seqable]])
   (:import (clojure.core.typed.type_rep F Function HeterogeneousVector
-                                        HSequential)
+                                        HSequential HeterogeneousSeq)
            (clojure.lang Symbol)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -83,55 +83,46 @@
                                    ;(prn "expanded" (unparse-type expanded))
                                    (map (fn [img] (substitute img name expanded)) images))))
                        (sb rng)
-                       rimage nil nil)
+                       rimage nil nil nil)
      (r/Function-maker (doall (map sb dom))
                        (sb rng)
                        (and rest (sb rest))
                        (and drest (r/DottedPretype1-maker (sb (:pre-type drest))
                                                           (:name drest)))
-                       nil))))
+                       nil nil))))
 
-(f/add-fold-case ::substitute-dots
-  HeterogeneousVector
+(defn substitute-dots-for-heterogeneous* [constructor]
   (fn [{:keys [types fs objects rest drest] :as ftype} {{:keys [name sb images rimage]} :locals}]
    (if (and drest
             (= name (:name drest)))
-     (r/-hvec (vec
-                (concat (map sb types)
-                        ;; We need to recur first, just to expand out any dotted usages of this.
-                        (let [expanded (sb (:pre-type drest))]
-                          ;(prn "expanded" (unparse-type expanded))
-                          (map (fn [img] (substitute img name expanded)) images))))
-              :filters (vec (concat (map sb fs) (repeat (count images) (fo/-FS fl/-top fl/-top))))
-              :objects (vec (concat (map sb objects) (repeat (count images) orep/-empty))))
-     (r/-hvec (vec (map sb types))
-              :filters (vec (map sb fs))
-              :objects (vec (map sb objects))
-              :rest (when rest (sb rest))
-              :drest (when drest (r/DottedPretype1-maker (sb (:pre-type drest))
-                                                         (:name drest)))))))
-
-(f/add-fold-case ::substitute-dots
-  HSequential
-  (fn [{:keys [types fs objects rest drest] :as ftype} {{:keys [name sb images rimage]} :locals}]
-   (if (and drest
-            (= name (:name drest)))
-     (r/-hsequential 
+     (constructor
               (vec
                 (concat (map sb types)
                         ;; We need to recur first, just to expand out any dotted usages of this.
                         (let [expanded (sb (:pre-type drest))]
-                          ;(prn "expanded" (unparse-type expanded))
                           (map (fn [img] (substitute img name expanded)) images))))
               :filters (vec (concat (map sb fs) (repeat (count images) (fo/-FS fl/-top fl/-top))))
               :objects (vec (concat (map sb objects) (repeat (count images) orep/-empty))))
-     (r/-hsequential 
+     (constructor
               (vec (map sb types))
               :filters (vec (map sb fs))
               :objects (vec (map sb objects))
               :rest (when rest (sb rest))
               :drest (when drest (r/DottedPretype1-maker (sb (:pre-type drest))
-                                                         (:name drest)))))))
+                                                         (:name drest)))
+              :repeat (:repeat ftype)))))
+
+(f/add-fold-case ::substitute-dots
+  HeterogeneousVector
+  (substitute-dots-for-heterogeneous* r/-hvec))
+
+(f/add-fold-case ::substitute-dots
+  HSequential
+  (substitute-dots-for-heterogeneous* r/-hsequential))
+
+(f/add-fold-case ::substitute-dots
+  HeterogeneousSeq
+  (substitute-dots-for-heterogeneous* r/-hseq))
   )
 
 ;; implements angle bracket substitution from the formalism
@@ -178,25 +169,11 @@
                                                   (if (= name (:name drest))
                                                     name
                                                     (:name drest))))
-                     nil)))
+                     nil nil)))
 
-(f/add-fold-case ::substitute-dotted
-  HeterogeneousVector
-  (fn [{:keys [types fs objects rest drest]} {{:keys [sb name image]} :locals}]
-    (r/-hvec (doall (map sb types))
-             :filters (doall (map sb fs))
-             :objects (doall (map sb objects))
-             :rest (when rest (sb rest))
-             :drest (when drest
-                      (r/DottedPretype1-maker (substitute image (:name drest) (sb (:pretype drest)))
-                                              (if (= name (:name drest))
-                                                name
-                                                (:name drest)))))))
-
-(f/add-fold-case ::substitute-dotted
-  HSequential
-  (fn [{:keys [types fs objects rest drest]} {{:keys [sb name image]} :locals}]
-    (r/-hsequential 
+(defn substitute-dotted-for-heterogeneous* [constructor]
+  (fn [{:keys [types fs objects rest drest repeat]} {{:keys [sb name image]} :locals}]
+    (constructor
              (doall (map sb types))
              :filters (doall (map sb fs))
              :objects (doall (map sb objects))
@@ -205,7 +182,20 @@
                       (r/DottedPretype1-maker (substitute image (:name drest) (sb (:pretype drest)))
                                               (if (= name (:name drest))
                                                 name
-                                                (:name drest)))))))
+                                                (:name drest))))
+             :repeat repeat)))
+
+(f/add-fold-case ::substitute-dotted
+  HeterogeneousVector
+  (substitute-dotted-for-heterogeneous* r/-hvec))
+
+(f/add-fold-case ::substitute-dotted
+  HSequential
+  (substitute-dotted-for-heterogeneous* r/-hsequential))
+
+(f/add-fold-case ::substitute-dotted
+  HeterogeneousSeq
+  (substitute-dotted-for-heterogeneous* r/-hseq))
   )
 
 ;; implements curly brace substitution from the formalism
