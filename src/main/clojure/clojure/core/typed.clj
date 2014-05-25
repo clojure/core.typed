@@ -1318,6 +1318,13 @@ for checking namespaces, cf for checking individual forms."}
    `(def-alias ~(vary-meta sym assoc :doc doc-str) ~t))
   ([sym t]
    (assert (symbol? sym) (str "First argument to def-alias must be a symbol: " sym))
+   (println (str
+              "DEPRECATED SYNTAX (" 
+              (or (-> &form meta :file) (ns-name *ns*)) ":" 
+              (-> &form meta :line) ":" 
+              (-> &form meta :column) ")"
+              " def-alias: use clojure.core.typed/defalias"))
+   (flush)
    (let [qsym (if (namespace sym)
                 sym
                 (symbol (-> *ns* ns-name str) (str sym)))
