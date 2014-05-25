@@ -1359,7 +1359,7 @@ clojure.core/not= [Any Any * -> Boolean]
 clojure.core/first
      (All [x]
           (IFn [(HSequential [x Any *]) -> x
-                :object {:id 0 :path [First]}]
+                :object {:id 0 :path [(Nth 0)]}]
                [(Option (EmptySeqable x)) -> nil]
                [(NonEmptySeqable x) -> x]
                [(Option (Seqable x)) -> (Option x)]))

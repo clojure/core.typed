@@ -109,7 +109,6 @@
 (defn parse-path-elem [syn]
   (cond
     ('#{Class} syn) {:op :ClassPE}
-    ('#{First} syn) {:op :FirstPE}
     ('#{Count} syn) {:op :CountPE}
     ('#{Keys} syn) {:op :KeysPE}
     ('#{Vals} syn) {:op :ValsPE}
@@ -117,6 +116,11 @@
       (let [m (when (seq? syn)
                 (let [[f & args] syn]
                   (cond
+                    ('#{Nth} f) (do
+                                  (when-not (#{1} (count args))
+                                    (err/int-error (str "Wrong arguments to Nth: " syn)))
+                                  {:op :NthPE
+                                   :idx (first args)})
                     ('#{Key} f) (do
                                   (when-not (#{1} (count args))
                                     (err/int-error (str "Wrong arguments to Key: " syn)))

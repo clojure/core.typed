@@ -225,14 +225,14 @@
       t
 
       (and (fl/TypeFilter? lo)
-           (pe/FirstPE? (-> lo :path first))
+           (pe/NthPE? (-> lo :path first))
            (c/AnyHSequential? t))
       (let [type (:type lo)
             restriction-type (r/-hsequential [type] :rest r/-any)]
         (c/restrict restriction-type t))
 
       (and (fl/NotTypeFilter? lo)
-           (pe/FirstPE? (-> lo :path first))
+           (pe/NthPE? (-> lo :path first))
            (c/AnyHSequential? t))
       t
 

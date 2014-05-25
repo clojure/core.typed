@@ -22,10 +22,11 @@
 (defn declare-path-elem [c]
   (extend c IPathElem {}))
 
-(t/ann-record FirstPE [])
-(u/defrecord FirstPE []
-  "A path calling clojure.core/first"
-  [])
+(t/ann-record NthPE [idx :- Number]) ;; More specific?
+(u/defrecord NthPE [idx]
+  "A path accessing an indexed member, as by clojure.core/first, second, nth"
+  [(integer? idx)
+   (not (neg? idx))])
 
 (t/ann-record NextPE [])
 (u/defrecord NextPE []
@@ -60,7 +61,7 @@
   "Calling clojure.core/vals"
   [])
 
-(declare-path-elem FirstPE)
+(declare-path-elem NthPE)
 (declare-path-elem NextPE)
 (declare-path-elem ClassPE)
 (declare-path-elem CountPE)
