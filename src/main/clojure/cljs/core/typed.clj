@@ -1,12 +1,51 @@
 (ns cljs.core.typed
   "Macros for Clojurescript type checking"
+  (:refer-clojure :exclude [fn])
   (:require [clojure.core.typed :as t]
+            [clojure.core :as core]
             [clojure.core.typed.current-impl :as impl :refer [v]]
             [clojure.core.typed.util-cljs :as u]
+            [clojure.core.typed.internal :as internal]
             [cljs.analyzer :as ana]
             [cljs.compiler :as comp]
             [cljs.env :as env]
             [clojure.pprint :as pprint]))
+
+;at the top because the rest of this namespace uses this macro
+(defmacro 
+  ^{:forms '[(fn name? [param :- type* & param :- type * ?] :- type? exprs*)
+             (fn name? ([param :- type* & param :- type * ?] :- type? exprs*)+)]}
+  fn
+  "Like clojure.core/fn, but with optional annotations.
+
+  eg. ;these forms are equivalent
+      (fn [a] b)
+      (fn [a :- Any] b)
+      (fn [a :- Any] :- Any b)
+      (fn [a] :- Any b)
+
+      ;annotate return
+      (fn [a :- String] :- String body)
+
+      ;named fn
+      (fn fname [a :- String] :- String body)
+
+      ;rest parameter
+      (fn [a :- String & b :- Number *] body)
+
+      ;dotted rest parameter
+      (fn [a :- String & b :- Number ... x] body)
+
+      ;multi-arity
+      (fn fname 
+        ([a :- String] :- String ...)
+        ([a :- String, b :- Number] :- String ...))"
+  [& forms]
+  (core/let [{:keys [fn ann]} (internal/parse-fn* false forms)]
+    `(do ::special-form
+         ::fn
+         {:ann '~ann}
+         ~fn)))
 
 ; many of these macros resolve to CLJS functions in 
 ; the CLJS ns cljs.core.typed
