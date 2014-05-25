@@ -228,7 +228,10 @@
            (pe/NthPE? (-> lo :path first))
            (c/AnyHSequential? t))
       (let [type (:type lo)
-            restriction-type (r/-hsequential [type] :rest r/-any)]
+            path-expr (-> lo :path first)
+            idx (:idx path-expr)
+            fixed-types (conj (vec (repeat idx r/-any)) type)
+            restriction-type (r/-hsequential fixed-types :rest r/-any)]
         (c/restrict restriction-type t))
 
       (and (fl/NotTypeFilter? lo)

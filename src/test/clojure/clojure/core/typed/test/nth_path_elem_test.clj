@@ -15,6 +15,29 @@
          (let [param (nth stmt 1)]
            (ann-form param String)))))))
 
+(deftest nth-path-elem-test-second
+  (is-tc-e
+   (do
+     (defalias StatementA '[Number ':params String])
+     (defalias StatementB '[Number ':no-params])
+     (defalias Statement (U StatementA StatementB))
+     (fn [stmt :- Statement] :- Any
+       (if (= :params (second stmt))
+         (let [param (nth stmt 2)]
+           (ann-form param String))))))
+
+  (testing "we actually do typechecking at the innermost form"
+    ;; If `second` incorrectly uses an index of 0, this test fails
+    (is-tc-err
+     (do
+       (defalias StatementA '[Number ':params String])
+       (defalias StatementB '[Number ':no-params])
+       (defalias Statement (U StatementA StatementB))
+       (fn [stmt :- Statement] :- Any
+         (if (= :params (second stmt))
+           (let [param (nth stmt 2)]
+             (ann-form param Number))))))))
+
 (deftest nth-path-elem-test-types
   (testing "HVec"
     (is-tc-e
