@@ -11,9 +11,9 @@
             [clojure.core.typed.check.utils :as cu])
   (:import (clojure.lang ISeq Seqable)))
 
-(defn ^:private nth-type [types num-t default-t]
+(defn ^:private nth-type [types idx-t default-t]
   {:pre [(every? r/Type? types)
-         (r/Type? num-t)
+         (r/Type? idx-t)
          ((some-fn nil? r/Type?) default-t)]
    :post [(r/Type? %)]}
   (apply c/Un
@@ -22,9 +22,9 @@
             (if-let [res-t (cond
                             (r/Nil? t) (or default-t r/-nil)
                             ;; nil on out-of-bounds and no default-t
-                            :else (nth (:types t) (:val num-t) default-t))]
+                            :else (nth (:types t) (:val idx-t) default-t))]
               res-t
-              (err/int-error (str "Cannot get index " (:val num-t)
+              (err/int-error (str "Cannot get index " (:val idx-t)
                                   " from type " (prs/unparse-type t))))))))
 
 (defn ^:private nth-positive-filter-default-truthy [target-o default-o]
@@ -36,47 +36,47 @@
            (fo/-not-filter-at (c/Un r/-false r/-nil)
                               default-o)))
 
-(defn ^:private nth-positive-filter-default-falsy [target-o default-o nnth]
+(defn ^:private nth-positive-filter-default-falsy [target-o default-o idx]
   {:pre [(obj/RObject? target-o)
          (obj/RObject? default-o)
-         (con/nat? nnth)]
+         (con/nat? idx)]
    :post [(fl/Filter? %)]}
   (fo/-and (fo/-filter-at (c/In (c/RClass-of Seqable [r/-any])
-                                (r/make-CountRange (inc nnth)))
+                                (r/make-CountRange (inc idx)))
                           target-o)
            (fo/-filter-at (c/Un r/-false r/-nil)
                           default-o)))
 
-(defn ^:private nth-positive-filter-default [target-o default-o nnth]
+(defn ^:private nth-positive-filter-default [target-o default-o idx]
   {:pre [(obj/RObject? target-o)
          (obj/RObject? default-o)
-         (con/nat? nnth)]
+         (con/nat? idx)]
    :post [(fl/Filter? %)]}
   (fo/-or (nth-positive-filter-default-truthy target-o default-o)
-          (nth-positive-filter-default-falsy target-o default-o nnth)))
+          (nth-positive-filter-default-falsy target-o default-o idx)))
 
-(defn ^:private nth-positive-filter-no-default [target-o nnth]
+(defn ^:private nth-positive-filter-no-default [target-o idx]
   {:pre [(obj/RObject? target-o)
-         (con/nat? nnth)]
+         (con/nat? idx)]
    :post [(fl/Filter? %)]}
   (fo/-filter-at (c/In (c/RClass-of Seqable [r/-any])
-                       (r/make-CountRange (inc nnth)))
+                       (r/make-CountRange (inc idx)))
                  target-o))
 
-(defn ^:private nth-filter [te de num-t default-t]
-  {:pre [(r/TCResult? (u/expr-type te))
-         ((some-fn nil? r/TCResult?) (u/expr-type de))
-         (r/Type? num-t)
+(defn ^:private nth-filter [target-expr default-expr idx-t default-t]
+  {:pre [(r/TCResult? (u/expr-type target-expr))
+         ((some-fn nil? r/TCResult?) (u/expr-type default-expr))
+         (r/Type? idx-t)
          ((some-fn nil? r/Type?) default-t)]
    :post [(fl/Filter? %)]}
-  (let [nnth (:val num-t)
-        target-o (r/ret-o (u/expr-type te))
-        default-o (when de
-                    (r/ret-o (u/expr-type de)))
+  (let [idx (:val idx-t)
+        target-o (r/ret-o (u/expr-type target-expr))
+        default-o (when default-expr
+                    (r/ret-o (u/expr-type default-expr)))
 
         filter+ (if default-t
-                  (nth-positive-filter-default target-o default-o nnth)
-                  (nth-positive-filter-no-default target-o nnth))]
+                  (nth-positive-filter-default target-o default-o idx)
+                  (nth-positive-filter-no-default target-o idx))]
     (fo/-FS filter+
             ;; not sure if there's anything worth encoding here
             fl/-top)))
