@@ -1503,11 +1503,11 @@ for checking namespaces, cf for checking individual forms."}
 ;  Array)
 
 (defmacro init-aliases []
-  (core/letfn [(def-alias-many [vinit]
+  (core/letfn [(defalias-many [vinit]
                 `(do
                    ~@(for [[k v] (partition 2 vinit)]
-                       `(def-alias ~k ~v))))]
-    (def-alias-many 
+                       `(defalias ~k ~v))))]
+    (defalias-many 
       impl/init-aliases)))
 
 ; defines base aliases
