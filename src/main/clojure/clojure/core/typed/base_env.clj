@@ -1396,7 +1396,8 @@ clojure.core/rest
 
 clojure.core/last
      (All [x]
-          [(Option (Seqable x)) -> (U nil x)])
+          (IFn [(NonEmptySeqable x) -> x]
+               [(Option (Seqable x)) -> (U nil x)]))
 
 clojure.core/butlast
      (All [x]
