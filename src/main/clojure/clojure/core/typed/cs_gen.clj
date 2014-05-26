@@ -710,6 +710,20 @@
                                                                    t-types-count) (repeat t-types))))]
                       (fail! S T)))
 
+                  ; repeat on left, rest on right
+                  (and (:repeat S)
+                       (:rest T))
+                  (let [s-types (:types S)
+                        t-types (:types T)
+                        s-types-count (count s-types)
+                        t-types-count (count t-types)]
+                    (if (>= s-types-count t-types-count)
+                      [(cs-gen-list V X Y s-types (concat t-types
+                                                          (repeat (- s-types-count
+                                                                     t-types-count)
+                                                                  (:rest T))))]
+                      (err/nyi-error (pr-str "NYI HSequential inference " S T))))
+
                   ;; dotted on the left, nothing on the right
                   (and (:drest S)
                        (not-any? (some-fn :rest :drest :repeat) [T]))

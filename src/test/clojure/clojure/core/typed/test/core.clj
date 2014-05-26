@@ -3447,4 +3447,8 @@
                     (parse-type '(HSequential [Number String] :repeat true)))))
 
 (deftest function-prest
-  (is-cf (fn [a & rst] 1) [Number (HSeq [Number String] :repeat true) <* -> Number]))
+  (is-cf (fn [a & rst] 1) [Number (HSeq [Number String] :repeat true) <* -> Number])
+  (is-cf (fn [a & rst]
+           (when-not (empty? rst) (first rst)))
+         [Number (HSeq [Number String] :repeat true) <* -> (U nil Number)])
+  )
