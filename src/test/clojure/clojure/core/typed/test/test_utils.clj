@@ -69,6 +69,11 @@
      (subtype? (parse-type '~s)
                (parse-type '~t))))
 
+(defmacro sub?-q [s t]
+  `(impl/with-clojure-impl
+     (subtype? (parse-type ~s)
+               (parse-type ~t))))
+
 (defn subtype? [& rs]
   (impl/with-clojure-impl
     (apply sub/subtype? rs)))

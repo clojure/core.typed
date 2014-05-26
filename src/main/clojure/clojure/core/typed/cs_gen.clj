@@ -48,7 +48,7 @@
           :append true)
   (clojure.core.typed.subtype/subtype? s t)))
 
-(t/ann fail! [t/Any t/Any -> Nothing])
+(t/ann fail! [t/Any t/Any -> t/Nothing])
 (defn fail! [s t]
 ;  (try (throw (Exception. ""))
 ;       (catch Exception e 

@@ -221,7 +221,9 @@
   (predicate-for (parse-type t-syn)))
 
 ; possibly should be called Pred
-(defmethod parse-type-list 'predicate [t] (parse-Pred t))
+(defmethod parse-type-list 'predicate [t] 
+  (err/deprecated-plain-op 'predicate 'Pred)
+  (parse-Pred t))
 (defmethod parse-type-list 'clojure.core.typed/Pred [t] (parse-Pred t))
 
 ; Only base-env can use this, eventually replace with Difference
@@ -236,10 +238,14 @@
     (err/int-error (str "Wrong arguments to Difference (expected at least 2): " all)))
   (apply r/-difference (parse-type tsyn) (mapv parse-type dsyns)))
 
-(defmethod parse-type-list 'Difference [t] (parse-Difference t))
+(defmethod parse-type-list 'Difference [t] 
+  (err/deprecated-plain-op 'Difference)
+  (parse-Difference t))
 (defmethod parse-type-list 'clojure.core.typed/Difference [t] (parse-Difference t))
 
-(defmethod parse-type-list 'Rec [syn] (parse-rec-type syn))
+(defmethod parse-type-list 'Rec [syn] 
+  (err/deprecated-plain-op 'Rec)
+  (parse-rec-type syn))
 (defmethod parse-type-list 'clojure.core.typed/Rec [syn] (parse-rec-type syn))
 
 (defn parse-Assoc [[_ tsyn & entries :as all]]
@@ -492,7 +498,9 @@
     (c/TypeFn* (map :nme free-maps) (map :variance free-maps)
                (map :bound free-maps) bodyt)))
 
-(defmethod parse-type-list 'TFn [syn] (parse-type-fn syn))
+(defmethod parse-type-list 'TFn [syn] 
+  (err/deprecated-plain-op 'TFn)
+  (parse-type-fn syn))
 (defmethod parse-type-list 'clojure.core.typed/TFn [syn] (parse-type-fn syn))
 
 (declare parse-quoted-hvec)

@@ -1,5 +1,6 @@
 (ns clojure.core.typed.test.subtype
   (:require [clojure.core.typed :as tc :refer []]
+            [clojure.core.typed :as t]
             [clojure.core.typed.test.test-utils :refer :all]
             [clojure.core.typed.type-ctors :refer :all]
             [clojure.core.typed.type-rep :refer :all]
@@ -31,69 +32,68 @@
 
 (deftest subtype-intersection
   (is-clj (not (subtype? (RClass-of Seqable [-any])
-                     (In (RClass-of Seqable [-any])
-                         (make-CountRange 1))))))
+                         (In (RClass-of Seqable [-any])
+                             (make-CountRange 1))))))
 
 (deftest subtype-Object
   (is-clj (subtype? (RClass-of clojure.lang.IPersistentList [-any]) (RClass-of Object nil))))
 
 (deftest subtype-hmap
-  (is (sub? (HMap :mandatory {:a '1} :complete? true)
-            (HMap :mandatory {:a Number} :complete? true)))
-  (is (sub? (HMap :mandatory {:a '1} :complete? true)
-            (HMap :mandatory {} :complete? false)))
-  (is (sub? (HMap :mandatory {:a '1 :b '2 :c '3} :complete? true)
-            (HMap :mandatory {:a '1 :b '2} :complete? false)))
-  (is (not (sub? '{:a nil}
-                 '{:a '1})))
-  (is (not (sub? (HMap :mandatory {:a '1} :complete? true)
-                 (HMap :mandatory {} :complete? true))))
-  (is (not (sub? (HMap :mandatory {:a '1 :b '2} :complete? true)
-                 (HMap :mandatory {:a '1 :b '2 :c '3} :complete? false)))))
+  (is (sub?-q `(t/HMap :mandatory {:a '1} :complete? true)
+              `(t/HMap :mandatory {:a Number} :complete? true)))
+  (is (sub?-q `(t/HMap :mandatory {:a '1} :complete? true)
+              `(t/HMap :mandatory {} :complete? false)))
+  (is (sub?-q `(t/HMap :mandatory {:a '1 :b '2 :c '3} :complete? true)
+              `(t/HMap :mandatory {:a '1 :b '2} :complete? false)))
+  (is (not (sub?-q `'{:a nil}
+                   `'{:a '1})))
+  (is (not (sub?-q `(t/HMap :mandatory {:a '1} :complete? true)
+                   `(t/HMap :mandatory {} :complete? true))))
+  (is (not (sub?-q `(t/HMap :mandatory {:a '1 :b '2} :complete? true)
+                   `(t/HMap :mandatory {:a '1 :b '2 :c '3} :complete? false)))))
 
 (deftest subtype-poly
-  (is-clj (subtype? (parse-type '(clojure.core.typed/All [x] (clojure.lang.ASeq x)))
-                    (parse-type '(clojure.core.typed/All [y] (clojure.lang.Seqable y))))))
+  (is-clj (sub?-q `(t/All [x#] (clojure.lang.ASeq x#))
+                  `(t/All [y#] (clojure.lang.Seqable y#)))))
 
 (deftest subtype-rec
-  (is-clj (subtype? (parse-type 'Integer)
-                    (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
-  (is-clj (subtype? (parse-type '(clojure.lang.Seqable (clojure.lang.Seqable Integer)))
-                    (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x))))))
-  (is-clj (not (subtype? (parse-type 'Number)
-                         (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x)))))))
-  (is-clj (sub? (HMap :mandatory {:op (Value :if)
-                  :test (HMap :mandatory {:op (Value :var)
-                               :var (clojure.lang.Var Nothing clojure.core.typed/Any)})
-                  :then (HMap :mandatory {:op (Value :nil)})
-                  :else (HMap :mandatory {:op (Value :false)})})
-            (Rec [x] 
-                 (U (HMap :mandatory {:op (Value :if)
-                           :test x
-                           :then x
-                           :else x})
-                    (HMap :mandatory {:op (Value :var)
-                           :var (clojure.lang.Var Nothing clojure.core.typed/Any)})
-                    (HMap :mandatory {:op (Value :nil)})
-                    (HMap :mandatory {:op (Value :false)})))))
+  (is-clj (sub?-q `t/Int
+                  `(t/Rec [x#] (t/U t/Int (t/Seqable x#)))))
+  (is-clj (sub?-q `(t/Seqable (t/Seqable t/Int))
+                  `(t/Rec [x#] (t/U t/Int (t/Seqable x#)))))
+  (is-clj (not (sub?-q `t/Num
+                       `(t/Rec [x#] (t/U t/Int (t/Seqable x#))))))
+  (is-clj (sub?-q `'{:op ':if
+                     :test '{:op ':var
+                             :var (clojure.lang.Var t/Nothing t/Any)}
+                     :then '{:op ':nil}
+                     :else '{:op ':false}}
+                  `(t/Rec [x#] 
+                          (t/U '{:op ':if
+                                 :test x#
+                                 :then x#
+                                 :else x#}
+                               '{:op ':var
+                                 :var (clojure.lang.Var clojure.core.typed/Nothing clojure.core.typed/Any)}
+                               '{:op ':nil}
+                               '{:op ':false}))))
 
-  (is-clj (sub? (Rec [x] (U Integer (clojure.lang.ILookup x x)))
-            (Rec [x] (U Number (clojure.lang.ILookup x x))))))
+  (is-clj (sub?-q `(t/Rec [x#] (t/U Integer (clojure.lang.ILookup x# x#)))
+                  `(t/Rec [x#] (t/U Number (clojure.lang.ILookup x# x#))))))
 
 (deftest count-subtype-test
   (is-clj (subtype? (make-CountRange 1)
-                (make-CountRange 1)))
+                    (make-CountRange 1)))
   (is-clj (not (subtype? (make-CountRange 1)
-                     (make-ExactCountRange 1))))
+                         (make-ExactCountRange 1))))
   (is-clj (subtype? (make-ExactCountRange 1)
-                (make-CountRange 1)))
+                    (make-CountRange 1)))
   (is-clj (subtype? (make-ExactCountRange 4)
-                (make-CountRange 1)))
+                    (make-CountRange 1)))
   (is-clj (subtype? (make-ExactCountRange 4)
-                (make-CountRange 0)))
+                    (make-CountRange 0)))
   (is-clj (subtype? (make-CountRange 2)
-                (make-CountRange 1)))
-  )
+                    (make-CountRange 1))))
 
 (deftest array-subtype-test
   (is-clj (sub? (Array int) (Array int)))
@@ -104,21 +104,22 @@
   (is-clj (not (sub? (ReadOnlyArray int) (Array int)))))
 
 (deftest top-function-subtype-test
-  (is-clj (subtype? (parse-type '[clojure.core.typed/Any -> clojure.core.typed/Any])
-                (parse-type 'AnyFunction))))
+  (is-clj (subtype? (parse-type `[t/Any ~'-> t/Any])
+                    (parse-type 'AnyFunction))))
 
 (deftest complete-hash-subtype-test
-  (is-clj (sub? (HMap :optional {} :complete? true)
-            (clojure.lang.IPersistentMap Integer Long))))
+  (is-clj (sub? (clojure.core.typed/HMap :complete? true)
+                (clojure.core.typed/Map Integer Long))))
 
 (deftest latent-filter-subtype-test 
-  (is-clj (not (subtype? (parse-type '(Fn [clojure.core.typed/Any -> clojure.core.typed/Any :filters {:then (is Number 0)}]))
-                         (parse-type '(Fn [clojure.core.typed/Any -> clojure.core.typed/Any :filters {:then (is Nothing 0)}]))))))
+  (is-clj (not (sub?-q `(t/FnCase [t/Any ~'-> t/Any :filters {:then (~'is Number 0)}])
+                       `(t/FnCase [t/Any ~'-> t/Any :filters {:then (~'is t/Nothing 0)}])))))
 
 (deftest subtype-tfn-test
-  (is-clj (sub? (TFn [[x :variance :covariant]] Number)
-            (TFn [[x :variance :covariant]] clojure.core.typed/Any)))
-  (is-clj (not (sub? (TFn [[x :variance :covariant]] clojure.core.typed/Any)
-                 (TFn [[x :variance :covariant]] Number))))
-  (is-clj (sub? (clojure.lang.IPersistentMap clojure.core.typed/Any clojure.core.typed/Any)
-            ((TFn [[x :variance :covariant]] (clojure.lang.IPersistentMap clojure.core.typed/Any clojure.core.typed/Any)) clojure.core.typed/Any))))
+  (is-clj (sub?-q `(t/TFn [[x# :variance :covariant]] Number)
+                  `(t/TFn [[x# :variance :covariant]] t/Any)))
+  (is-clj (not (sub?-q `(t/TFn [[x# :variance :covariant]] t/Any)
+                       `(t/TFn [[x# :variance :covariant]] Number))))
+  (is-clj (sub?-q 
+            `(t/Map t/Any t/Any)
+            `((t/TFn [[x# :variance :covariant]] (t/Map t/Any t/Any)) t/Any))))
