@@ -12,14 +12,14 @@
 (alter-meta! *ns* assoc :skip-wiki true)
   )
 
-(t/def-alias RObject
+(t/defalias RObject
   "An object with a path."
   p/IRObject)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Runtime Objects
 
-(t/ann ^:no-check RObject? (predicate p/IRObject))
+(t/ann ^:no-check RObject? (t/Pred p/IRObject))
 (defn RObject? [a]
   (instance? clojure.core.typed.impl_protocols.IRObject a))
 

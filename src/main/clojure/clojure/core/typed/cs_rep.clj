@@ -17,19 +17,19 @@
   [(r/Type? type)
    (r/Bounds? bnds)])
 
-(u/ann-record i-subst [types :- (U nil (t/Seqable r/Type))])
+(u/ann-record i-subst [types :- (t/U nil (t/Seqable r/Type))])
 (u/defrecord i-subst [types]
   ""
   [(every? r/Type? types)])
 
-(u/ann-record i-subst-starred [types :- (U nil (t/Seqable r/Type)),
+(u/ann-record i-subst-starred [types :- (t/U nil (t/Seqable r/Type)),
                                starred :- r/Type])
 (u/defrecord i-subst-starred [types starred]
   ""
   [(every? r/Type? types)
    (r/Type? starred)])
 
-(u/ann-record i-subst-dotted [types :- (U nil (t/Seqable r/Type)),
+(u/ann-record i-subst-dotted [types :- (t/U nil (t/Seqable r/Type)),
                               dty :- r/Type,
                               dbound :- F])
 (u/defrecord i-subst-dotted [types dty dbound]
@@ -41,17 +41,17 @@
 
 (t/defalias SubstRHS
   "The substitution records."
-  (U t-subst i-subst i-subst-starred i-subst-dotted))
+  (t/U t-subst i-subst i-subst-starred i-subst-dotted))
 
 (t/defalias SubstMap
   "A substutition map of symbols naming frees to types
   to instantitate them with."
   (t/Map t/Sym SubstRHS))
 
-(t/ann ^:no-check subst-rhs? (predicate SubstRHS))
+(t/ann ^:no-check subst-rhs? (t/Pred SubstRHS))
 (def subst-rhs? (some-fn t-subst? i-subst? i-subst-starred? i-subst-dotted?))
 
-(t/ann ^:no-check substitution-c? (predicate SubstMap))
+(t/ann ^:no-check substitution-c? (t/Pred SubstMap))
 (def substitution-c? (con/hash-c? symbol? subst-rhs?))
 
 (u/ann-record c [S :- r/Type,
@@ -70,21 +70,21 @@
 ;; a constraint on an index variable
 ;; the index variable must be instantiated with |fixed| arguments, each meeting the appropriate constraint
 ;; and further instantions of the index variable must respect the rest constraint, if it exists
-(u/ann-record dcon [fixed :- (U nil (t/Seqable c))
-                    rest :- (U nil c)])
+(u/ann-record dcon [fixed :- (t/U nil (t/Seqable c))
+                    rest :- (t/U nil c)])
 (u/defrecord dcon [fixed rest]
   ""
   [(every? c? fixed)
    ((some-fn nil? c?) rest)])
 
-(u/ann-record dcon-exact [fixed :- (U nil (t/Seqable c)),
+(u/ann-record dcon-exact [fixed :- (t/U nil (t/Seqable c)),
                           rest :- c])
 (u/defrecord dcon-exact [fixed rest]
   ""
   [(every? c? fixed)
    (c? rest)])
 
-(u/ann-record dcon-dotted [fixed :- (U nil (t/Seqable c)),
+(u/ann-record dcon-dotted [fixed :- (t/U nil (t/Seqable c)),
                            dc :- c,
                            dbound :- F])
 (u/defrecord dcon-dotted [fixed dc dbound]
@@ -93,9 +93,9 @@
    (c? dc)
    (r/F? dbound)])
 
-(t/defalias DCon (U dcon dcon-exact dcon-dotted))
+(t/defalias DCon (t/U dcon dcon-exact dcon-dotted))
 
-(t/ann ^:no-check dcon-c? (predicate DCon))
+(t/ann ^:no-check dcon-c? (t/Pred DCon))
 (def dcon-c? (some-fn dcon? dcon-exact? dcon-dotted?))
 
 ;; map : hash mapping index variables to dcons
@@ -125,8 +125,8 @@
   [((con/hash-c? symbol? c?) fixed)
    (dmap? dmap)])
 
-(t/ann make-cset-entry (Fn [(t/Map t/Sym c) -> cset-entry]
-                           [(t/Map t/Sym c) (U nil dmap) -> cset-entry]))
+(t/ann make-cset-entry (t/FnCase [(t/Map t/Sym c) -> cset-entry]
+                           [(t/Map t/Sym c) (t/U nil dmap) -> cset-entry]))
 (defn make-cset-entry
   ([fixed] (make-cset-entry fixed nil))
   ([fixed dmap] (->cset-entry fixed
@@ -138,7 +138,7 @@
 ;; we need a bunch of mappings for each cset to handle case-lambda
 ;; because case-lambda can generate multiple possible solutions, and we
 ;; don't want to rule them out too early
-(u/ann-record cset [maps :- (U nil (t/Seqable cset-entry))])
+(u/ann-record cset [maps :- (t/U nil (t/Seqable cset-entry))])
 (u/defrecord cset [maps]
   ""
   [(every? cset-entry? maps)])

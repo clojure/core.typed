@@ -4,8 +4,7 @@
   clojure.core.typed.hole
   (:require [clojure.core.typed :refer [ann ann-datatype] :as t]))
 
-(binding [t/*collect-on-eval* false]
-  (ann silent-hole [-> Nothing]))
+(ann silent-hole [-> t/Nothing])
 (defn silent-hole
   "A silent hole. (silent-hole) passes for any other type
   when type checking.
@@ -14,12 +13,10 @@
   [] 
   (throw (Exception. "silent hole")))
 
-(binding [t/*collect-on-eval* false]
-  (ann-datatype NoisyHole []))
+(ann-datatype NoisyHole [])
 (deftype NoisyHole [])
 
-(binding [t/*collect-on-eval* false]
-  (ann noisy-hole [-> NoisyHole]))
+(ann noisy-hole [-> NoisyHole])
 (defn noisy-hole
   "A noisy hole. The type system will complain when
   (noisy-hole) is used in positions that expect a type

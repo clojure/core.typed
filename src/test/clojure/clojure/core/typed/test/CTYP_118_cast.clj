@@ -4,16 +4,16 @@
 (t/ann i1 String)
 (def i1 (cast String "a"))
 
-(t/ann i2 (I String (Value "a")))
+(t/ann i2 (t/I String (t/Value "a")))
 (def i2 (let [x String] (cast x "a")))
 
-(t/ann i3 (I String (Value "c")))
-(def i3 ((t/fn> [x :- Class y :- (Value "c")] (cast x y)) String "c"))
+(t/ann i3 (t/I String (t/Value "c")))
+(def i3 ((t/fn [x :- Class y :- (t/Value "c")] (cast x y)) String "c"))
 
 (t/ann foo Class)
 (def foo String)
 
-(t/ann v (I String (Value "b")))
+(t/ann v (t/I String (t/Value "b")))
 (def v (cast foo "b"))
 
 (t/ann v1 Class)

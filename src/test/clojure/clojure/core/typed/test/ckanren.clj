@@ -2,12 +2,13 @@
   (:refer-clojure :exclude [==])
   (:use [clojure.walk :only [postwalk]])
   (:require [clojure.set :as set]
-            [clojure.core.typed :refer [ann def-alias declare-protocols ann-protocol
+            [clojure.core.typed :refer [ann defalias declare-protocols ann-protocol
                                         declare-datatypes
                                         ann-form
                                         tc-ignore check-ns ann-datatype cf
                                         fn> AnyInteger
-                                        print-env defprotocol>]]
+                                        print-env defprotocol>]
+             :as t]
             [clojure.repl :refer [pst]])
   (:import [java.io Writer]
            [clojure.lang Symbol Sequential IPersistentMap APersistentSet Sorted]))
@@ -30,7 +31,7 @@
 ;; -----------------------------------------------------------------------------
 ;; miniKanren Protocols
 
-(def-alias Fail false)
+(defalias Fail false)
 
 (declare-protocols ISubstitutions
                    IUnifyTerms 
@@ -45,7 +46,7 @@
                    IOccursCheckTerm
                    IBuildTerm)
 
-(def-alias Term (I IUnifyTerms 
+(defalias Term (t/I IUnifyTerms 
                    IUnifyWithNil
                    IUnifyWithObject
                    IUnifyWithLVar
@@ -413,7 +414,7 @@
 
 (ann domain [Number * -> (U nil Number FiniteDomain)])
 
-(ann-datatype FiniteDomain [s :- (I Sorted (APersistentSet Number))
+(ann-datatype FiniteDomain [s :- (t/I Sorted (APersistentSet Number))
                             min :- Number
                             max :- Number])
 

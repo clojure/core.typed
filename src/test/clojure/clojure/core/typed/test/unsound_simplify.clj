@@ -1,5 +1,6 @@
 (ns clojure.core.typed.test.unsound-simplify
-  (:require [clojure.core.typed :refer [ann-protocol ann ann-datatype check-ns cf defprotocol>]])
+  (:require [clojure.core.typed :refer [ann-protocol ann ann-datatype check-ns cf defprotocol>]
+             :as t])
   (:import (clojure.lang Symbol)))
 
 (ann-protocol [[a :variance :covariant]]
@@ -14,15 +15,15 @@
 (defprotocol> P2
   (get-p2 [this]))
 
-(ann ^:no-check P1? (predicate (P1 Any)))
+(ann ^:no-check P1? (t/Pred (P1 t/Any)))
 (defn P1? [a]
   (satisfies? P1 a))
 
-(ann ^:no-check P2? (predicate (P2 Any)))
+(ann ^:no-check P2? (t/Pred (P2 t/Any)))
 (defn P2? [a]
   (satisfies? P2 a))
 
-(ann foo [(U (P1 Number) (P2 Number)) -> (U nil Number)])
+(ann foo [(t/U (P1 Number) (P2 Number)) -> (t/U nil Number)])
 (defn foo [p]
   (when (P1? p)
     (get-p1 p)))

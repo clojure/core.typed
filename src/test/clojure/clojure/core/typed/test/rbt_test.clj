@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.rbt-test
   (:refer-clojure :exclude [and])
   (:require [clojure.core.typed.test.test-utils :refer :all]
-            [clojure.core.typed :refer [ann inst cf fn> pfn> def-alias declare-names
+            [clojure.core.typed :refer [ann inst cf fn> pfn> defalias declare-names
                                         print-env print-filterset check-ns typed-deps
                                         ann-form]]
             [clojure.core.typed.test.rbt-types]
@@ -60,7 +60,7 @@
                             (if (= :Red (-> tmap :right :tree))
                               (= :Red (-> tmap :right :left :tree))
                               false)))
-                        [clojure.core.typed.test.rbt-types/badRight -> Any
+                        [clojure.core.typed.test.rbt-types/badRight -> clojure.core.typed/Any
                          :filters {:then (& (is ':Red 0 [(Key :right) (Key :tree)])
                                             (is ':Red 0 [(Key :right) (Key :left) (Key :tree)]))
                                    :else (| (! ':Red 0 [(Key :right) (Key :tree)])
@@ -77,7 +77,7 @@
                                     false))
                                 false))
                             false)))
-                        [clojure.core.typed.test.rbt-types/badRight -> Any
+                        [clojure.core.typed.test.rbt-types/badRight -> clojure.core.typed/Any
                          :filters {:then (& (is ':Black tmap [(Key :tree)])
                                             (is ':Red tmap [(Key :left) (Key :tree)])
                                             (is ':Red tmap [(Key :right) (Key :tree)])
@@ -97,7 +97,7 @@
                                     false))
                                 false))
                             false))
-                        [clojure.core.typed.test.rbt-types/badRight -> Any
+                        [clojure.core.typed.test.rbt-types/badRight -> clojure.core.typed/Any
                          :filters {:then (& (is ':Black tmap [(Key :tree)])
                                             (is ':Red tmap [(Key :left) (Key :tree)])
                                             (is ':Red tmap [(Key :right) (Key :tree)])
@@ -244,17 +244,17 @@
 ;
 
 (comment
-(cf (def-alias Env
+(cf (defalias Env
   "An environment"
   (HMap :optional {:line AnyInteger,
                    :column AnyInteger,
-                   :source Any}))
+                   :source clojure.core.typed/Any}))
     )
 
   (cf
-(def-alias Children 
+(defalias Children 
   "A children API exists, but not checked yet"
-  Any)
+  clojure.core.typed/Any)
     )
            (import '(clojure.lang RT LineNumberingPushbackReader Compiler$DefExpr Compiler$LocalBinding Compiler$BindingInit Compiler$LetExpr
                          Compiler$LetFnExpr Compiler$StaticMethodExpr Compiler$InstanceMethodExpr Compiler$StaticFieldExpr
@@ -279,7 +279,7 @@
        :val Keyword}
      '{:op ':constant
        :env Env
-       :val Any}
+       :val clojure.core.typed/Any}
      '{:op ':number
        :env Env
        :val Number}
@@ -300,8 +300,8 @@
             :var Var
             :meta (U nil Expr)
             :init Expr
-            :init-provided Any
-            :is-dynamic Any}
+            :init-provided clojure.core.typed/Any
+            :is-dynamic clojure.core.typed/Any}
            :optional
            {:children Children
             :Expr-obj Compiler$DefExpr})
@@ -333,7 +333,7 @@
             :env Env
             :binding-inits (Seqable Expr)
             :body Expr
-            :is-loop Any}
+            :is-loop clojure.core.typed/Any}
            :optional
            {:children Children
              :Expr-obj Compiler$LetExpr})
@@ -489,10 +489,10 @@
            :fexpr Expr
            :tag (U nil Symbol)
            :args (Seqable Expr)
-           :is-protocol Any
-           :is-direct Any
-           :site-index Any
-           :protocol-on Any}
+           :is-protocol clojure.core.typed/Any
+           :is-direct clojure.core.typed/Any
+           :site-index clojure.core.typed/Any
+           :protocol-on clojure.core.typed/Any}
           :optional
           {:method Nothing
            :children Children
@@ -582,12 +582,12 @@
            :name Symbol
            :env Env
            :methods (Seqable Expr)
-           :mmap Any
+           :mmap clojure.core.typed/Any
            :compiled-class Class
            :internal-name Symbol
            :this-name Symbol
            :fields (IPersistentSet Expr)
-           :covariants Any
+           :covariants clojure.core.typed/Any
            :tag (U nil Symbol)}
           :optional
           {:children Children
@@ -641,12 +641,12 @@
            :tests (Seqable Expr)
            :thens (Seqable Expr)
            :default Expr
-           :tests-hashes Any
-           :shift Any
-           :mask Any
-           :test-type Any
-           :switch-type Any
-           :skip-check Any}
+           :tests-hashes clojure.core.typed/Any
+           :shift clojure.core.typed/Any
+           :mask clojure.core.typed/Any
+           :test-type clojure.core.typed/Any
+           :switch-type clojure.core.typed/Any
+           :skip-check clojure.core.typed/Any}
           :optional
           {:children Children
            :Expr-obj Compiler$CaseExpr})
@@ -687,8 +687,8 @@
            :try-expr Expr
            :finally-expr (U nil Expr)
            :catch-exprs (Seqable Expr)
-           :ret-local Any
-           :finally-local Any}
+           :ret-local clojure.core.typed/Any
+           :finally-local clojure.core.typed/Any}
           :optional
           {:children Children
            :Expr-obj Compiler$TryExpr})
@@ -708,7 +708,7 @@
           {:op ':method-param
            :env Env
            :class Class
-           :can-emit-primitive Any}
+           :can-emit-primitive clojure.core.typed/Any}
           :optional
           {:Expr-obj Compiler$MethodParamExpr}))))
       ))

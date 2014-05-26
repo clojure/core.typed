@@ -7,12 +7,12 @@
 (t/ann-datatype [x] Bar [])
 (deftype Bar [])
 
-(t/ann foo (All [x b ...]
-             [(U x (Foo x) (Bar x)) ... b -> Any]))
+(t/ann foo (t/All [x b ...]
+             [(t/U x (Foo x) (Bar x)) ... b -> t/Any]))
 (defn foo [& args])
 
 ;(defn [x b ...] foo 
-;  [& args :- (U x Foo) ... b] :- Any)
+;  [& args :- (U x Foo) ... b] :- t/Any)
 
-(inst foo Any)
-(inst foo Any Any)
+(inst foo t/Any)
+(inst foo t/Any t/Any)

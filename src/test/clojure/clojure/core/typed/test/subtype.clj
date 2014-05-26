@@ -52,8 +52,8 @@
                  (HMap :mandatory {:a '1 :b '2 :c '3} :complete? false)))))
 
 (deftest subtype-poly
-  (is-clj (subtype? (parse-type '(All [x] (clojure.lang.ASeq x)))
-                    (parse-type '(All [y] (clojure.lang.Seqable y))))))
+  (is-clj (subtype? (parse-type '(clojure.core.typed/All [x] (clojure.lang.ASeq x)))
+                    (parse-type '(clojure.core.typed/All [y] (clojure.lang.Seqable y))))))
 
 (deftest subtype-rec
   (is-clj (subtype? (parse-type 'Integer)
@@ -64,7 +64,7 @@
                          (parse-type '(Rec [x] (U Integer (clojure.lang.Seqable x)))))))
   (is-clj (sub? (HMap :mandatory {:op (Value :if)
                   :test (HMap :mandatory {:op (Value :var)
-                               :var (clojure.lang.Var Nothing Any)})
+                               :var (clojure.lang.Var Nothing clojure.core.typed/Any)})
                   :then (HMap :mandatory {:op (Value :nil)})
                   :else (HMap :mandatory {:op (Value :false)})})
             (Rec [x] 
@@ -73,7 +73,7 @@
                            :then x
                            :else x})
                     (HMap :mandatory {:op (Value :var)
-                           :var (clojure.lang.Var Nothing Any)})
+                           :var (clojure.lang.Var Nothing clojure.core.typed/Any)})
                     (HMap :mandatory {:op (Value :nil)})
                     (HMap :mandatory {:op (Value :false)})))))
 
@@ -104,7 +104,7 @@
   (is-clj (not (sub? (ReadOnlyArray int) (Array int)))))
 
 (deftest top-function-subtype-test
-  (is-clj (subtype? (parse-type '[Any -> Any])
+  (is-clj (subtype? (parse-type '[clojure.core.typed/Any -> clojure.core.typed/Any])
                 (parse-type 'AnyFunction))))
 
 (deftest complete-hash-subtype-test
@@ -112,13 +112,13 @@
             (clojure.lang.IPersistentMap Integer Long))))
 
 (deftest latent-filter-subtype-test 
-  (is-clj (not (subtype? (parse-type '(Fn [Any -> Any :filters {:then (is Number 0)}]))
-                         (parse-type '(Fn [Any -> Any :filters {:then (is Nothing 0)}]))))))
+  (is-clj (not (subtype? (parse-type '(Fn [clojure.core.typed/Any -> clojure.core.typed/Any :filters {:then (is Number 0)}]))
+                         (parse-type '(Fn [clojure.core.typed/Any -> clojure.core.typed/Any :filters {:then (is Nothing 0)}]))))))
 
 (deftest subtype-tfn-test
   (is-clj (sub? (TFn [[x :variance :covariant]] Number)
-            (TFn [[x :variance :covariant]] Any)))
-  (is-clj (not (sub? (TFn [[x :variance :covariant]] Any)
+            (TFn [[x :variance :covariant]] clojure.core.typed/Any)))
+  (is-clj (not (sub? (TFn [[x :variance :covariant]] clojure.core.typed/Any)
                  (TFn [[x :variance :covariant]] Number))))
-  (is-clj (sub? (clojure.lang.IPersistentMap Any Any)
-            ((TFn [[x :variance :covariant]] (clojure.lang.IPersistentMap Any Any)) Any))))
+  (is-clj (sub? (clojure.lang.IPersistentMap clojure.core.typed/Any clojure.core.typed/Any)
+            ((TFn [[x :variance :covariant]] (clojure.lang.IPersistentMap clojure.core.typed/Any clojure.core.typed/Any)) clojure.core.typed/Any))))

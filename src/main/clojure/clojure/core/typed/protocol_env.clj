@@ -18,10 +18,10 @@
   "A map mapping protocol symbols their types."
   (t/Map t/Sym r/Type))
 
-(t/ann *current-protocol-env* (U nil (t/Atom1 ProtocolEnv)))
+(t/ann *current-protocol-env* (t/U nil (t/Atom1 ProtocolEnv)))
 (defonce ^:dynamic *current-protocol-env* nil)
 
-(t/ann protocol-env? [Any -> Any])
+(t/ann protocol-env? [t/Any -> t/Any])
 (def protocol-env? (con/hash-c? #(when (symbol? %)
                                    (namespace %)) 
                                 (some-fn r/Protocol? r/TypeFn?)))
@@ -32,7 +32,7 @@
 (t/ann CLJS-PROTOCOL-ENV (t/Atom1 ProtocolEnv))
 (defonce CLJS-PROTOCOL-ENV (atom {} :validator protocol-env?))
 
-(t/ann assert-protocol-env [-> Any])
+(t/ann assert-protocol-env [-> t/Any])
 (defn assert-protocol-env []
   (assert *current-protocol-env* "No current protocol env"))
 
@@ -48,11 +48,11 @@
   (assert-protocol-env)
   (t/when-let-fail [e *current-protocol-env*]
     (let [swap!' (t/inst swap! ProtocolEnv ProtocolEnv t/Sym r/Type)
-          assoc' (t/inst assoc t/Sym r/Type Any)]
+          assoc' (t/inst assoc t/Sym r/Type t/Any)]
       (swap!' e assoc' sym t)))
   nil)
 
-(t/ann get-protocol [t/Sym -> (U nil r/Type)])
+(t/ann get-protocol [t/Sym -> (t/U nil r/Type)])
 (defn get-protocol 
   "Returns the protocol with var symbol sym.
   Returns nil if not found."

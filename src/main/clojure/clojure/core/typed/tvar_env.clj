@@ -23,7 +23,7 @@
   variables they represent"
   (t/Map t/Sym F))
 
-(t/ann ^:no-check tvar-env? (predicate TVarEnv))
+(t/ann ^:no-check tvar-env? (t/Pred TVarEnv))
 (def tvar-env? (con/hash-c? symbol? r/F?))
 
 (t/ann initial-tvar-env TVarEnv)
@@ -59,8 +59,9 @@
   [var]
   (*current-tvars* var))
 
-(t/ann extend-one (Fn [TVarEnv t/Sym -> TVarEnv]
-                      [TVarEnv t/Sym (t/Nilable t/Sym) -> TVarEnv]))
+(t/ann extend-one (t/FnCase 
+                    [TVarEnv t/Sym -> TVarEnv]
+                    [TVarEnv t/Sym (t/Nilable t/Sym) -> TVarEnv]))
 (defn extend-one
   "Extend a tvar environment. Adds an entry mapping var to itself,
   or if fresh-var is provided, mapping var to fresh-var"

@@ -11,7 +11,7 @@
   (:require [clojure.java.io :as io]
             [clojure.repl :refer [pst]]
             [clojure.string :as string]
-            [clojure.core.typed :refer [def-alias ann declare-names check-ns ann-form tc-ignore
+            [clojure.core.typed :refer [defalias ann declare-names check-ns ann-form tc-ignore
                                         fn> cf print-env doseq> dotimes>
                                         ;types
                                         Atom1 AnyInteger Option]])
@@ -23,7 +23,7 @@
 (comment
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def-alias NsEntry
+(defalias NsEntry
   (HMap :mandatory {:name Symbol
          ;these should really be optional
          :requires (IPersistentMap Symbol Symbol)
@@ -33,13 +33,13 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def-alias Context (U ':statement
+(defalias Context (U ':statement
                       ':expr
                       ':return))
 
-(def-alias LocalBinding (HMap :mandatory {:name Symbol}))
+(defalias LocalBinding (HMap :mandatory {:name Symbol}))
 
-(def-alias Env
+(defalias Env
   (HMap :mandatory {:locals (IPersistentMap Symbol LocalBinding)
          :context Context
          :line (U nil Number)
@@ -47,9 +47,9 @@
 
 (declare-names Expr)
 ;syntax
-(def-alias Form Any)
+(defalias Form Any)
 
-(def-alias FnMethod (HMap :mandatory {:env Env
+(defalias FnMethod (HMap :mandatory {:env Env
                            :variadic (U nil Expr)
                            :params (Seqable Any)
                            :max-fixed-arity Number
@@ -59,7 +59,7 @@
                            :ret Expr}))
 
 
-(def-alias
+(defalias
   Expr
   (Rec [x]
        (U ;; if
@@ -237,7 +237,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def-alias NsAnalysis
+(defalias NsAnalysis
   (HMap :mandatory {:ns Symbol
          :provides (IPersistentVector Symbol)
          :requires (IPersistentSet Symbol)
@@ -1150,12 +1150,12 @@
 (ann specials (IPersistentSet Symbol))
 (def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns deftype* defrecord* . js* & quote})
 
-(def-alias RecurFrame (HMap :mandatory {:names (Seqable Symbol)
+(defalias RecurFrame (HMap :mandatory {:names (Seqable Symbol)
                              :flag (Atom1 Any)}))
 (ann *recur-frames* (U nil (Seqable RecurFrame)))
 (def ^:dynamic *recur-frames* nil)
 
-(def-alias LoopLet (HMap :mandatory {:names (Seqable Symbol)}))
+(defalias LoopLet (HMap :mandatory {:names (Seqable Symbol)}))
 
 (ann *loop-lets* (U nil (Seqable LoopLet)))
 (def ^:dynamic *loop-lets* nil)

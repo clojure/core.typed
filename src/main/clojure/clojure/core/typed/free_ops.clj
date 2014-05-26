@@ -14,7 +14,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parse Type syntax
 
-;(t/ann free-with-name [t/Sym -> (U nil F)])
+;(t/ann free-with-name [t/Sym -> (t/U nil F)])
 ;(defn free-with-name
 ;  "Find the free with the actual name name, as opposed to
 ;  the alias used for scoping"
@@ -27,7 +27,7 @@
 ;            f))
 ;        *free-scope*))
 
-(t/ann free-with-name-bnds [t/Sym -> (U nil Bounds)])
+(t/ann free-with-name-bnds [t/Sym -> (t/U nil Bounds)])
 (defn ^Bounds
   free-with-name-bnds
   "Find the bounds for the free with the actual name name, as opposed to
@@ -37,7 +37,7 @@
    :post [((some-fn nil? r/Bounds?) %)]}
   (bnds/lookup-tvar-bnds name))
 
-(t/ann free-in-scope [t/Sym -> (U nil F)])
+(t/ann free-in-scope [t/Sym -> (t/U nil F)])
 (defn free-in-scope
   "Find the free scoped as name"
   [name]
@@ -45,7 +45,7 @@
    :post [((some-fn nil? r/F?) %)]}
   (tvar/*current-tvars* name))
 
-(t/ann free-in-scope-bnds [t/Sym -> (U nil Bounds)])
+(t/ann free-in-scope-bnds [t/Sym -> (t/U nil Bounds)])
 (defn free-in-scope-bnds
   "Find the bounds for the free scoped as name"
   ^Bounds

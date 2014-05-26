@@ -1,32 +1,32 @@
 (ns clojure.core.typed.test.rbt-types
-  (:require [clojure.core.typed :as t :refer [def-alias declare-names]]))
+  (:require [clojure.core.typed :as t :refer [defalias declare-names Rec U]]))
 
 ;-------------------------------
 ; 'Normal' types
 ;-------------------------------
 
-(def-alias EntryT 
+(defalias EntryT 
   "The payload"
   '{:key Number
     :datum Number})
 
-(def-alias Empty
+(defalias Empty
   "A terminating node."
   '{:tree ':Empty})
 
-(def-alias Red
+(defalias Red
   "A red node"
-  (TFn [[l :variance :covariant]
-        [r :variance :covariant]]
+  (t/TFn [[l :variance :covariant]
+          [r :variance :covariant]]
     '{:tree ':Red
       :entry EntryT
       :left l
       :right r}))
 
-(def-alias Black
+(defalias Black
   "A black node"
-  (TFn [[l :variance :covariant]
-        [r :variance :covariant]]
+  (t/TFn [[l :variance :covariant]
+          [r :variance :covariant]]
     '{:tree ':Black
       :entry EntryT
       :left l
@@ -37,7 +37,7 @@
 ; 'Refinement' types
 ;-------------------------------
 
-(def-alias rbt 
+(defalias rbt 
   "Trees with only black children for red nodes"
   (Rec [rbt]
     (U 
@@ -51,7 +51,7 @@
              Empty
              (Black rbt rbt))))))
 
-(def-alias bt 
+(defalias bt 
   "Like rbt but additionally the root node is black"
   (Rec [bt]
        (U 
@@ -67,11 +67,11 @@
              (Black rbt rbt)
              (Red bt bt))))))
 
-(def-alias red 
+(defalias red 
   "Trees with a red root"
   (Red bt bt))
 
-(def-alias badRoot 
+(defalias badRoot 
   "Invariant possibly violated at the root"
   (U 
     Empty
@@ -79,7 +79,7 @@
     (Red rbt bt)
     (Red bt rbt)))
 
-(def-alias badLeft 
+(defalias badLeft 
   "Invariant possibly violated at the left child"
   (U
    Empty
@@ -87,7 +87,7 @@
    (Red bt bt)
    (Black badRoot rbt)))
 
-(def-alias badRight 
+(defalias badRight 
   "Invariant possibly violated at the right child"
   (U
    Empty

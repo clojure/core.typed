@@ -5,7 +5,7 @@
             [clojure.core.typed :as t]))
 
 (t/ann ^:no-check clojure.core.typed.errors/deprecated-warn [String -> nil])
-(t/ann ^:no-check clojure.core.typed.errors/int-error [String -> Nothing])
+(t/ann ^:no-check clojure.core.typed.errors/int-error [String -> t/Nothing])
 
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -18,14 +18,14 @@
   "An Environment mapping datatype symbols to types."
   (t/Map t/Sym r/Type))
 
-(t/ann *current-datatype-env* (U nil (t/Atom1 DataTypeEnv)))
+(t/ann *current-datatype-env* (t/U nil (t/Atom1 DataTypeEnv)))
 (defonce ^:dynamic *current-datatype-env* nil)
 
-(t/ann assert-datatype-env [-> Any])
+(t/ann assert-datatype-env [-> t/Any])
 (defn ^:private assert-datatype-env []
   (assert *current-datatype-env* "No datatype env bound"))
 
-(t/ann ^:no-check datatype-env? [Any -> Any])
+(t/ann ^:no-check datatype-env? [t/Any -> t/Any])
 (def ^:private datatype-env? 
   (con/hash-c? (every-pred symbol? 
                            (fn [k] (some #{\.} (str k)))) 
@@ -42,11 +42,11 @@
   (assert-datatype-env)
   (t/when-let-fail [env *current-datatype-env*]
     (let [swap!' (t/inst swap! DataTypeEnv DataTypeEnv t/Sym r/Type)
-          assoc' (t/inst assoc t/Sym r/Type Any)]
+          assoc' (t/inst assoc t/Sym r/Type t/Any)]
       (swap!' env assoc' sym t)))
   nil)
 
-(t/ann get-datatype [t/Sym -> (U nil r/Type)])
+(t/ann get-datatype [t/Sym -> (t/U nil r/Type)])
 (defn get-datatype 
   "Get the datatype with class symbol sym.
   Returns nil if not found."

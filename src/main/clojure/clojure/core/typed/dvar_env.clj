@@ -13,7 +13,7 @@
 (defonce ^:dynamic *dotted-scope* {})
 (set-validator! #'*dotted-scope* (con/hash-c? symbol? r/F?))
 
-(t/ann bound-index? [Any -> Any])
+(t/ann bound-index? [t/Any -> t/Any])
 (defn bound-index? [n]
   (contains? *dotted-scope* n))
 

@@ -106,13 +106,23 @@
 
 (defn deprecated-warn
   [msg]
-  (let [env *current-env*]
-    (println "DEPRECATED SYNTAX "
-             "(" (:file env) ":" (or (:line env) "<NO LINE>")
-             (when-let [col (:column env)]
-               (str ":" col))
-             ") :"
-             msg)
+  (let [env *current-env*
+        file (:file env)]
+    (println 
+      (str
+        "DEPRECATED SYNTAX "
+        "(" 
+        (cond
+          (and file
+               (not= "NO_SOURCE_PATH" file))
+          (str (:file env)
+               (when-let [line (:line env)]
+                 (str ":" (:line env)
+                      (when-let [col (:column env)]
+                        (str ":" col)))))
+          :else "NO_SOURCE_PATH")
+        "): "
+        msg))
     (flush)))
 
 (defn nyi-error
@@ -144,3 +154,17 @@
          (if @found?#
            result#
            (throw e#))))))
+
+(defn var-for-impl [sym]
+  {:pre [((some-fn string? symbol?) sym)]
+   :post [(symbol? %)]}
+  (symbol
+    (impl/impl-case
+      :clojure "clojure.core.typed"
+      :cljs "cljs.core.typed")
+    (str sym)))
+
+(defn deprecated-plain-op [old & [new]]
+  {:pre [(symbol? old)
+         ((some-fn symbol? nil?) new)]}
+  (deprecated-warn (str old " syntax is deprecated, use " (var-for-impl (or new old)))))

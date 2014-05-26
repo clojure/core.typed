@@ -4,4 +4,4 @@
 (t/ann-record Top [])
 (defrecord Top [])
 
-(t/def-alias A Top)
+(t/defalias A Top)

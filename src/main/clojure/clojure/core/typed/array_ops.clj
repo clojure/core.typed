@@ -10,7 +10,7 @@
 ; (Type->array-member-Class (parse-type '(Array (U nil Number)))) =~> (Array Number)
 
 ;(ann Type->array-member-Class (Fn [Type -> (Option Class)]
-;                                  [Type Any -> (Option Class)]))
+;                                  [Type t/Any -> (Option Class)]))
 (defn Type->array-member-Class 
   ([ty] (Type->array-member-Class ty false))
   ([ty nilok?]

@@ -4,10 +4,10 @@
   (:import [clojure.core.typed.type_rep Result]
            [clojure.lang Keyword]))
 
-(t/ann *frees-mode* (U nil Keyword))
+(t/ann *frees-mode* (t/U nil t/Kw))
 (def ^:dynamic *frees-mode* nil)
 
-(t/ann frees [Any -> Any])
+(t/ann frees [t/Any -> t/Any])
 (defmulti ^:private frees (fn [t] [*frees-mode* (class t)]))
 
 (defmethod frees [::any-var Result]

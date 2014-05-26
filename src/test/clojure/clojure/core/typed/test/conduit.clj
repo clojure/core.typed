@@ -1,19 +1,19 @@
 (ns clojure.core.typed.test.conduit
   (:import (clojure.lang Seqable IMeta IPersistentMap LazySeq ISeq))
-  (:require [clojure.core.typed :refer [check-ns ann fn> def-alias tc-ignore ann-form declare-names inst
+  (:require [clojure.core.typed :refer [check-ns ann fn> defalias tc-ignore ann-form declare-names inst
                                         print-env inst-ctor cf Option declare-alias-kind AnyInteger]]
             [clojure.repl :refer [pst]]
             #_[arrows.core :refer [defarrow]]))
 
 (comment
-(def-alias Result
+(defalias Result
   (TFn [[x :variance :covariant]]
     (U nil ;stream is closed
        '[] ;abort/skip
        '[x];consume/continue
        )))
 
-(def-alias Cont
+(defalias Cont
   (TFn [[in :variance :covariant]
         [out :variance :invariant]]
     [(Option [(Result in) -> (Result out)]) -> (Result out)]))
@@ -21,7 +21,7 @@
 (declare-alias-kind ==> (TFn [[in :variance :contravariant]
                               [out :variance :invariant]] Any))
 
-(def-alias ==>
+(defalias ==>
   (TFn [[in :variance :contravariant] 
         [out :variance :invariant]]
     [in -> '[(U nil (==> in out)) (Cont out out)]]))
@@ -178,33 +178,33 @@
                   (c y)))])))))))
   )
 
-(def-alias AArrCtor 
+(defalias AArrCtor 
   (All [x y]
     [[x -> y] -> (==> x y)]))
 
-(def-alias ACompCtor
+(defalias ACompCtor
   (All [x y z]
     [(==> x y) (==> y z) -> (==> x z)]))
 
 ; second arg is an arrow updating the entry named by the first argument
-(def-alias ANthCtor
+(defalias ANthCtor
   (All [x y z]
     (Fn ['0 (==> x z) -> (==> '[x y] '[z y])]
         ['1 (==> y z) -> (==> '[x y] '[x z])])))
 
-(def-alias AParCtor
+(defalias AParCtor
   (All [x y z a]
     [(==> x z) (==> y a) -> (==> '[x y] '[z a])]))
 
-(def-alias AAllCtor
+(defalias AAllCtor
   (All [x y z]
        [(==> x y) (==> x z) -> (==> x '[y z])]))
 
-(def-alias ASelectCtor
+(defalias ASelectCtor
   (All [x y z]
        [(IPersistentMap x (==> y z)) -> (==> '[x y] (==> y z))]))
 
-(def-alias ALoopCtor
+(defalias ALoopCtor
   (All [state in]
        [(==> '[state in] state) state -> (==> in state)]))
 

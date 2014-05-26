@@ -1,9 +1,10 @@
 (ns clojure.core.typed.test.set
-  (:require [clojure.core.typed :refer [check-ns ann cf tc-ignore print-env ann-form]])
-  (:import (clojure.lang Seqable APersistentSet IPersistentSet IPersistentMap)))
+  (:require [clojure.core.typed :refer [check-ns ann cf tc-ignore print-env ann-form]
+             :as t])
+  (:import (clojure.lang APersistentSet)))
 
-(ann bubble-max-key (All [x]
-                      [[x -> Number] (I (Seqable x) (CountRange 2)) -> (Seqable x)]))
+(ann bubble-max-key (t/All [x]
+                      [[x -> Number] (t/I (t/Seqable x) (t/CountRange 2)) -> (t/Seqable x)]))
 (tc-ignore
 (defn- bubble-max-key [k coll]
   "Move a maximal element of coll according to fn k (which returns a number) 
@@ -12,8 +13,8 @@
     (cons max (remove #(identical? max %) coll))))
   )
 
-(ann union (All [x]
-             (Fn [ -> (APersistentSet x)]
+(ann union (t/All [x]
+             (t/FnCase [ -> (APersistentSet x)]
                  [(APersistentSet x) -> (APersistentSet x)]
                  [(APersistentSet x) (APersistentSet x) -> (APersistentSet x)]
                  [(APersistentSet x) (APersistentSet x) (APersistentSet x) * -> (APersistentSet x)])))
@@ -66,8 +67,8 @@
      (reduce difference s1 (conj sets s2))))
 )
 
-(ann select (All [x]
-              [[x -> Any] (IPersistentSet x) -> (IPersistentSet x)]))
+(ann select (t/All [x]
+              [[x -> t/Any] (t/Set x) -> (t/Set x)]))
 (tc-ignore
 (defn select
   "Returns a set of the elements for which pred is true"
@@ -75,7 +76,7 @@
   [pred xset]
     (reduce (ann-form
               (fn [s k] (if (pred k) s (disj s k)))
-              [(IPersistentSet x) x -> (IPersistentSet x)])
+              [(t/Set x) x -> (t/Set x)])
             xset xset))
 
 (defn project
@@ -117,8 +118,8 @@
 (check-ns)
 )
 
-(ann map-invert (All [x y]
-                  [(IPersistentMap x y) -> (IPersistentMap y x)]))
+(ann map-invert (t/All [x y]
+                  [(t/Map x y) -> (t/Map y x)]))
 (defn map-invert
   "Returns the map with the vals mapped to the keys."
   {:added "1.0"}
@@ -126,7 +127,7 @@
   (reduce (ann-form
             (fn [m [k v]] 
               (assoc m v k)) 
-            [(IPersistentMap y x) '[x y] -> (IPersistentMap y x)])
+            [(t/Map y x) '[x y] -> (t/Map y x)])
           {} m))
 
 (defn join

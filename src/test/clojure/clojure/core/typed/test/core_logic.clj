@@ -6,7 +6,7 @@
             IPersistentVector IPersistentList Sequential])
   (:require [clojure.set :as set]
             [clojure.repl :refer [pst]]
-            [clojure.core.typed :refer [ann-protocol ann tc-ignore def-alias
+            [clojure.core.typed :refer [ann-protocol ann tc-ignore defalias
                                         declare-protocols declare-datatypes
                                         ann-datatype loop> check-ns non-nil-return
                                         cf defprotocol>]
@@ -23,7 +23,7 @@
 (def ^{:dynamic true} *reify-vars* true)
 (def ^{:dynamic true} *locals*)
 
-(def-alias Fail false)
+(defalias Fail false)
 
 (declare-protocols ISubstitutions
                    IUnifyTerms 
@@ -38,7 +38,7 @@
                    IOccursCheckTerm
                    IBuildTerm)
 
-(def-alias Term (I IUnifyTerms 
+(defalias Term (I IUnifyTerms 
                    IUnifyWithNil
                    IUnifyWithObject
                    IUnifyWithLVar

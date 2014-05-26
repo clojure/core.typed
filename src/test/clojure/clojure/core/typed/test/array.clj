@@ -1,5 +1,6 @@
 (ns clojure.core.typed.test.array
-  (:require [clojure.core.typed :refer [ann check-ns into-array> cf loop> print-env ann-form]]
+  (:require [clojure.core.typed :refer [ann check-ns into-array> cf loop> print-env ann-form]
+             :as t]
             [clojure.repl :refer [pst]]))
 
 (ann my-integer-array [-> (Array Integer)])
@@ -20,12 +21,12 @@
 
 (fn [] (sum (my-integer-array)))
 
-(ann write-integer-to-zero [(Array2 Integer Any) -> nil])
+(ann write-integer-to-zero [(Array2 Integer t/Any) -> nil])
 (defn write-integer-to-zero [arr]
   (aset arr 0 (int 12))
   nil)
 
-(ann write-int-to-zero [(Array2 int Any) -> nil])
+(ann write-int-to-zero [(Array2 int t/Any) -> nil])
 (defn write-int-to-zero [arr]
   (aset arr 0 (int 12))
   nil)

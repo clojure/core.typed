@@ -1,17 +1,11 @@
 (ns clojure.core.typed.test.pomegranate
-  (:import (clojure.lang DynamicClassLoader Named Seqable IPersistentVector)
-           (java.net URL URLClassLoader))
+  (:import (clojure.lang Named))
+  (:require [clojure.core.typed :as t]))
 
-  (:require #_[clojure.java.io :as io]
-            #_[cemerick.pomegranate.aether :as aether]
-            [clojure.core.typed :refer [ann check-ns non-nil-return nilable-param into-array>]]
-            [clojure.repl :refer [pst]])
-  (:refer-clojure :exclude (add-classpath)))
+#_(t/non-nil-return java.lang.Class/getDeclaredMethod :all)
+#_(t/nilable-param java.lang.reflect.Method/invoke {2 #{0}})
 
-#_(non-nil-return java.lang.Class/getDeclaredMethod :all)
-#_(nilable-param java.lang.reflect.Method/invoke {2 #{0}})
-
-(ann call-method [Class Named (IPersistentVector Class) (U nil Object) (U nil Object) * -> (U nil Object)])
+(t/ann call-method [Class Named (t/Vec Class) (t/U nil Object) (t/U nil Object) * -> (t/U nil Object)])
 
 ;; call-method pulled from clojure.contrib.reflect, (c) 2010 Stuart Halloway & Contributors
 (defn call-method
@@ -26,6 +20,6 @@
   [^Class klass method-name params obj & args]
   (let [method (doto (.getDeclaredMethod klass 
                                          (name method-name)
-                                         (into-array> Class params))
+                                         (t/into-array> Class params))
                  (.setAccessible true))]
-    (.invoke method obj (into-array> (U nil Object) args))))
+    (.invoke method obj (t/into-array> (t/U nil Object) args))))

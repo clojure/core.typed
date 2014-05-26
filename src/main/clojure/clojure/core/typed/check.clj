@@ -94,8 +94,8 @@
 (alter-meta! *ns* assoc :skip-wiki true
              :core.typed {:collect-only true})
 
-(t/ann ^:no-check clojure.core.typed.parse-unparse/*unparse-type-in-ns* (U nil t/Sym))
-(t/ann ^:no-check clojure.core.typed/*already-checked* (U nil (t/Atom1 (t/Vec t/Sym))))
+(t/ann ^:no-check clojure.core.typed.parse-unparse/*unparse-type-in-ns* (t/U nil t/Sym))
+(t/ann ^:no-check clojure.core.typed/*already-checked* (t/U nil (t/Atom1 (t/Vec t/Sym))))
 
 ;==========================================================
 ; # Type Checker
@@ -1173,7 +1173,7 @@
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:args %))]}
   (binding [vs/*current-env* env]
-    (let [args-expected-ty (prs/parse-type '(U nil (clojure.lang.Seqable String)))
+    (let [args-expected-ty (prs/parse-type `(t/U nil (clojure.lang.Seqable String)))
           cargs-expr (binding [vs/*current-env* (:env args-expr)]
                        (check args-expr))
           _ (when-not (sub/subtype? 
@@ -1195,8 +1195,8 @@
                               specs-exprs)
 
           actual (r/-hvec [spec-map-ty 
-                           (prs/parse-type '(clojure.lang.Seqable String))
-                           (prs/parse-type 'String)])
+                           (prs/parse-type `(clojure.lang.Seqable String))
+                           (prs/parse-type `String)])
           _ (when expected
               (when-not (sub/subtype? actual (r/ret-t expected))
                 (cu/expected-error 

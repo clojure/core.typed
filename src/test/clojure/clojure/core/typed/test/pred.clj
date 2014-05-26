@@ -5,7 +5,7 @@
 
 (def Number? (t/pred Number))
 
-(t/def-alias NumberAlias 
+(t/defalias NumberAlias 
   Number)
 
 (deftest class-pred-test
@@ -15,30 +15,30 @@
 (deftest hmap-pred-test
   (is ((every-pred
          (t/pred 
-           (HMap)))
+           (t/HMap)))
        {}
        {:a 'blah}))
   (is ((complement
           (t/pred 
-            (HMap :mandatory {:a Number})))
+            (t/HMap :mandatory {:a Number})))
         {}))
   (is ((t/pred 
-         (HMap :mandatory {:a Number})) 
+         (t/HMap :mandatory {:a Number})) 
        {:a 1}))
   (is ((every-pred
          (t/pred 
-           (HMap :optional {:a Number})))
+           (t/HMap :optional {:a Number})))
        {:a 1}
        {}
        {:b 'a}))
   (is ((every-pred
          (t/pred 
-           (HMap :absent-keys #{:a})))
+           (t/HMap :absent-keys #{:a})))
        {:b 'a}))
   (is (not
         ((every-pred
            (t/pred 
-             (HMap :absent-keys #{:a})))
+             (t/HMap :absent-keys #{:a})))
          {:a 'a})))
   )
 
@@ -69,43 +69,43 @@
 
 (deftest rec-pred-test
   (is ((every-pred
-         (t/pred (Rec [x] (U '[x] Number))))
+         (t/pred (t/Rec [x] (t/U '[x] Number))))
        1
        '[1]
        '[[1]]
        '[[[[[2.2]]]]]))
   (is ((every-pred
-         (t/pred (Rec [x] (U '{:a x} Number))))
+         (t/pred (t/Rec [x] (t/U '{:a x} Number))))
        1
        '{:a 1}
        '{:a {:a 1}}
        '{:a {:a {:a {:a {:a 1}}}}}))
   (is ((every-pred
          (complement
-           (t/pred (Rec [x] (U '[x] Number)))))
+           (t/pred (t/Rec [x] (t/U '[x] Number)))))
        '[1 1]
        '[[1] [1]])))
 
 (deftest singleton-pred-test
   (is ((t/pred true)
        true))
-  (is ((t/pred (Value true))
+  (is ((t/pred (t/Value true))
        true))
   (is ((t/pred false)
        false))
-  (is ((t/pred (Value false))
+  (is ((t/pred (t/Value false))
        false))
   (is ((t/pred 'sym)
        'sym))
-  (is ((t/pred (Value sym))
+  (is ((t/pred (t/Value sym))
        'sym))
   (is ((t/pred ':sym)
        ':sym))
-  (is ((t/pred (Value :sym))
+  (is ((t/pred (t/Value :sym))
        ':sym))
   (is ((t/pred nil)
        nil))
-  (is ((t/pred (Value nil))
+  (is ((t/pred (t/Value nil))
        nil))
   (is ((t/pred '1)
        1))
@@ -113,50 +113,50 @@
          (complement
            (t/pred '1)))
        1.0))
-  (is ((t/pred (Value 1))
+  (is ((t/pred (t/Value 1))
        1)))
 
 (deftest countrange-pred-test
   (is ((every-pred
-         (t/pred (CountRange 0)))
+         (t/pred (t/CountRange 0)))
        nil
        []
        {}
        '()))
   (is ((every-pred
          (complement 
-           (t/pred (CountRange 0))))
+           (t/pred (t/CountRange 0))))
        ; only supports clojure collections
        (into-array [])
        )))
 
 (deftest intersect-pred-test
   (is ((every-pred
-         (t/pred (I Number Long)))
+         (t/pred (t/I Number Long)))
        1))
   (is ((every-pred
          (complement
-           (t/pred (I Number Long))))
+           (t/pred (t/I Number Long))))
        1.1))
   (is ((every-pred
          (complement
-           (t/pred (I Number Long))))
+           (t/pred (t/I Number Long))))
        1.1)))
        
 (deftest union-pred-test
   (is ((every-pred
-         (t/pred (U Number Long)))
+         (t/pred (t/U Number Long)))
        1
        1.1))
   (is ((every-pred
          (complement
-           (t/pred (U Number Long))))
+           (t/pred (t/U Number Long))))
        'a))
   (is ((every-pred
          (complement
-           (t/pred Nothing))
+           (t/pred t/Nothing))
          (complement
-           (t/pred (U))))
+           (t/pred (t/U))))
        'a)))
 
 (deftest tfn-name-test
@@ -177,5 +177,5 @@
 
 (deftest any-pred-test
   (is ((every-pred
-         (t/pred Any))
+         (t/pred t/Any))
        1 2 nil [1])))

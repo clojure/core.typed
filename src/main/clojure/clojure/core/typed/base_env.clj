@@ -20,7 +20,8 @@
             [clojure.core.typed.subst]
             [clojure.core.typed.rclass-env :as rcls]
             [clojure.core.typed.current-impl :as impl :refer [v]]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            [clojure.core.typed :refer [Any Nothing]]))
 
 
 

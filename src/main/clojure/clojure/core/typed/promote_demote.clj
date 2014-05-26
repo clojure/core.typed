@@ -30,7 +30,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Variable Elimination
 
-(t/def-alias ElimVars
+(t/defalias ElimVars
   "A set of variables to be eliminated via promotion
   or demotion."
   (t/Set clojure.lang.Symbol))

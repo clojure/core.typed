@@ -14,7 +14,7 @@
       use buffer> (similar for other buffer constructors)
     "}
   clojure.core.typed.async
-  (:require [clojure.core.typed :refer [ann ann-datatype def-alias inst ann-protocol
+  (:require [clojure.core.typed :refer [ann ann-datatype defalias inst ann-protocol
                                         AnyInteger tc-ignore Seqable]
              :as t]
             [clojure.core.async]
@@ -35,13 +35,13 @@
               clojure.core.async.impl.protocols/ReadPort
               take! [(clojure.core.async.impl.protocols/ReadPort r)
                      java.util.concurrent.locks.Lock
-                     -> (U nil (clojure.lang.IDeref (U nil r)))])
+                     -> (t/U nil (clojure.lang.IDeref (t/U nil r)))])
 
 (ann-protocol [[w :variance :contravariant]]
               clojure.core.async.impl.protocols/WritePort
               put! [(clojure.core.async.impl.protocols/WritePort w) w 
                      java.util.concurrent.locks.Lock
-                     -> (U nil (clojure.lang.IDeref nil))])
+                     -> (t/U nil (clojure.lang.IDeref nil))])
 
 (ann-protocol [[x :variance :invariant]]
                clojure.core.async.impl.protocols/Buffer)
@@ -57,16 +57,16 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;; Aliases
 
-(def-alias 
+(defalias 
   ^{:forms '[(ReadOnlyChan t)]}
   ReadOnlyChan
   "A core.async channel that statically disallows writes."
   (TFn [[r :variance :covariant]]
-    (Extends [(clojure.core.async.impl.protocols/WritePort Nothing)
+    (Extends [(clojure.core.async.impl.protocols/WritePort t/Nothing)
               (clojure.core.async.impl.protocols/ReadPort r)
               clojure.core.async.impl.protocols/Channel])))
 
-(def-alias 
+(defalias 
   ^{:forms '[(Chan t)]}
   Chan
   "A core.async channel"
@@ -75,28 +75,28 @@
               (clojure.core.async.impl.protocols/ReadPort x)
               clojure.core.async.impl.protocols/Channel])))
 
-(def-alias 
+(defalias 
   ^{:forms [TimeoutChan]}
   TimeoutChan
   "A timeout channel"
   (Chan Any))
 
-(def-alias 
+(defalias 
   ^{:forms [(Buffer t)]}
   Buffer
   "A buffer of type x."
   (TFn [[x :variance :invariant]]
     (clojure.core.async.impl.protocols/Buffer x)))
 
-(def-alias 
+(defalias 
   ^{:forms [(ReadOnlyPort t)]}
   ReadOnlyPort
   "A read-only port that can read type x"
   (TFn [[r :variance :covariant]]
     (Extends [(clojure.core.async.impl.protocols/ReadPort r) 
-              (clojure.core.async.impl.protocols/WritePort Nothing)])))
+              (clojure.core.async.impl.protocols/WritePort t/Nothing)])))
 
-(def-alias 
+(defalias 
   ^{:forms [(WriteOnlyPort t)]}
   WriteOnlyPort
   "A write-only port that can write type x"
@@ -104,7 +104,7 @@
     (Extends [(clojure.core.async.impl.protocols/ReadPort x) 
               (clojure.core.async.impl.protocols/WritePort x)])))
 
-(def-alias 
+(defalias 
   ^{:forms [(Port t)]}
   Port
   "A port that can read and write type x"
@@ -115,34 +115,34 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;; Var annotations
 
-(ann ^:no-check clojure.core.async/buffer (All [x] [AnyInteger -> (Buffer x)]))
-(ann ^:no-check clojure.core.async/dropping-buffer (All [x] [AnyInteger -> (Buffer x)]))
-(ann ^:no-check clojure.core.async/sliding-buffer (All [x] [AnyInteger -> (Buffer x)]))
+(ann ^:no-check clojure.core.async/buffer (t/All [x] [AnyInteger -> (Buffer x)]))
+(ann ^:no-check clojure.core.async/dropping-buffer (t/All [x] [AnyInteger -> (Buffer x)]))
+(ann ^:no-check clojure.core.async/sliding-buffer (t/All [x] [AnyInteger -> (Buffer x)]))
 
-(ann ^:no-check clojure.core.async/thread-call (All [x] [[-> x] -> (Chan x)]))
+(ann ^:no-check clojure.core.async/thread-call (t/All [x] [[-> x] -> (Chan x)]))
 
 (ann ^:no-check clojure.core.async/timeout [AnyInteger -> TimeoutChan])
 
-(ann ^:no-check clojure.core.async/chan (All [x] 
+(ann ^:no-check clojure.core.async/chan (t/All [x] 
                                             (Fn [-> (Chan x)]
-                                                [(U (Buffer x) AnyInteger) -> (Chan x)])))
-;(ann clojure.core.async/>! (All [x] [(Chan x) -> (Chan x)]))
+                                                [(t/U (Buffer x) AnyInteger) -> (Chan x)])))
+;(ann clojure.core.async/>! (t/All [x] [(Chan x) -> (Chan x)]))
 
 (ann ^:no-check clojure.core.async.impl.ioc-macros/aget-object [AtomicReferenceArray AnyInteger -> Any])
 (ann ^:no-check clojure.core.async.impl.ioc-macros/aset-object [AtomicReferenceArray Any -> nil])
 (ann ^:no-check clojure.core.async.impl.ioc-macros/run-state-machine [AtomicReferenceArray -> Any])
 
 ;FIXME what is 2nd arg?
-(ann ^:no-check clojure.core.async.impl.ioc-macros/put! (All [x] [AnyInteger Any (Chan x) x -> Any]))
-(ann ^:no-check clojure.core.async.impl.ioc-macros/return-chan (All [x] [AtomicReferenceArray x -> (Chan x)]))
+(ann ^:no-check clojure.core.async.impl.ioc-macros/put! (t/All [x] [AnyInteger Any (Chan x) x -> Any]))
+(ann ^:no-check clojure.core.async.impl.ioc-macros/return-chan (t/All [x] [AtomicReferenceArray x -> (Chan x)]))
 
-(ann ^:no-check clojure.core.async/<!! (All [x] [(ReadOnlyPort x) -> (U nil x)]))
-(ann ^:no-check clojure.core.async/>!! (All [x] [(WriteOnlyPort x) x -> nil]))
+(ann ^:no-check clojure.core.async/<!! (t/All [x] [(ReadOnlyPort x) -> (t/U nil x)]))
+(ann ^:no-check clojure.core.async/>!! (t/All [x] [(WriteOnlyPort x) x -> nil]))
 (ann ^:no-check clojure.core.async/alts!! 
-     (All [x d]
-          (Fn [(Seqable (U (Port x) '[(Port x) x])) (Seqable (Port x)) & :mandatory {:default d} :optional {:priority (U nil true)} -> 
-               (U '[d ':default] '[(U nil x) (Port x)])]
-              [(Seqable (U (Port x) '[(Port x) x])) & :optional {:priority (U nil true)} -> '[(U nil x) (Port x)]])))
+     (t/All [x d]
+          (Fn [(Seqable (t/U (Port x) '[(Port x) x])) (Seqable (Port x)) & :mandatory {:default d} :optional {:priority (t/U nil true)} -> 
+               (t/U '[d ':default] '[(t/U nil x) (Port x)])]
+              [(Seqable (t/U (Port x) '[(Port x) x])) & :optional {:priority (t/U nil true)} -> '[(t/U nil x) (Port x)]])))
 
 (ann ^:no-check clojure.core.async/close! [(ReadOnlyChan Any) -> nil])
 

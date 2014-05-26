@@ -32,12 +32,26 @@
               #(every? ks-c? (keys %))
               #(every? vs-c? (vals %))))
 
+(defrecord OptionalKey [k])
+
+(defn optional [k]
+  (->OptionalKey k))
+
 (defn hmap-c? [& key-vals]
+  {:pre [(even? (count key-vals))]}
   (every-pred map?
-              #(every? identity 
-                       (for [[k vc] (partition 2 key-vals)]
-                         (and (contains? % k)
-                              (vc (get % k)))))))
+              (fn [m]
+                (letfn [(mandatory-check [m k vc]
+                          (and (contains? m k)
+                               (vc (get m k))))
+                        (optional-check [m k vc]
+                          (or (not (contains? m k))
+                              (mandatory-check m k vc)))]
+                  (every? identity 
+                    (for [[k vc] (partition 2 key-vals)]
+                      (cond
+                        (instance? OptionalKey k) (optional-check m (:k k) vc)
+                        :else (mandatory-check m k vc))))))))
 
 (defn hash-c? [ks-c? vs-c?]
   (every-pred map?

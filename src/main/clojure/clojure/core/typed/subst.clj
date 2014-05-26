@@ -39,7 +39,7 @@
                         :image image}}
               target))
 
-(ann ^:no-check substitute-many [r/Type (U nil (Seqable r/Type)) (U nil (Seqable Symbol))
+(ann ^:no-check substitute-many [r/Type (t/U nil (Seqable r/Type)) (t/U nil (Seqable Symbol))
                                  -> r/Type])
 (defn substitute-many [target images names]
   (reduce (fn [t [im nme]] (substitute im nme t))
@@ -136,7 +136,7 @@
 
 ;; implements angle bracket substitution from the formalism
 ;; substitute-dots : Listof[Type] Option[type] Name Type -> Type
-(ann ^:no-check substitute-dots [(U nil (Seqable r/Type)) (U nil r/Type) Symbol r/Type -> r/Type])
+(ann ^:no-check substitute-dots [(t/U nil (Seqable r/Type)) (t/U nil r/Type) Symbol r/Type -> r/Type])
 (defn substitute-dots [images rimage name target]
   {:pre [(every? r/AnyType? images)
          ((some-fn nil? r/AnyType?) rimage)

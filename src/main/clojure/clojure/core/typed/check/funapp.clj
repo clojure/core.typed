@@ -14,6 +14,8 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.contract-utils :as con]
             [clojure.set :as set]
+            [clojure.core.typed :as t]
+            [clojure.core.typed.subst :as subst]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.frees :as frees]))
 
@@ -93,13 +95,13 @@
       (and (r/RClass? fexpr-type)
            (isa? (coerce/symbol->Class (:the-class fexpr-type)) clojure.lang.IPersistentMap))
       ;rewrite ({..} x) as (f {..} x), where f is some dummy fn
-      (let [mapfn (prs/parse-type '(All [x] [(clojure.lang.IPersistentMap Any x) Any -> (U nil x)]))]
+      (let [mapfn (prs/parse-type `(t/All [x#] [(t/Map t/Any x#) t/Any ~'-> (t/U nil x#)]))]
         (check-funapp fexpr args (r/ret mapfn) (concat [fexpr-ret-type] arg-ret-types) expected))
 
       ;Symbol function
       (and (r/RClass? fexpr-type)
            ('#{clojure.lang.Symbol} (:the-class fexpr-type)))
-      (let [symfn (prs/parse-type '(All [x] [(U (clojure.lang.IPersistentMap Any x) Any) -> (U x nil)]))]
+      (let [symfn (prs/parse-type `(t/All [x#] [(t/U (t/Map t/Any x#) t/Any) ~'-> (t/U x# nil)]))]
         (check-funapp fexpr args (r/ret symfn) arg-ret-types expected))
       
       ;Var function

@@ -7,14 +7,14 @@
 )
 
 (t/ann ^:no-check set-union 
-       (All [x] 
-            (Fn [-> (t/Set x)]
-                [(t/U nil (t/Set x)) -> (t/Set x)]
-                [(t/U nil (t/Set x)) (t/Set x) * -> (t/Set x)])))
+       (t/All [x] 
+              (t/FnCase [-> (t/Set x)]
+                        [(t/U nil (t/Set x)) -> (t/Set x)]
+                        [(t/U nil (t/Set x)) (t/Set x) * -> (t/Set x)])))
 (def set-union (fnil set/union #{}))
 
 (t/ann ^:no-check set-difference 
-       (All [x] 
-            (Fn [(t/U nil (t/Set x)) -> (t/Set x)]
-                [(t/U nil (t/Set x)) (t/Set Any) * -> (t/Set x)])))
+       (t/All [x] 
+              (t/FnCase [(t/U nil (t/Set x)) -> (t/Set x)]
+                        [(t/U nil (t/Set x)) (t/Set t/Any) * -> (t/Set x)])))
 (def set-difference (fnil set/difference #{}))

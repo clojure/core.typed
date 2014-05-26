@@ -30,7 +30,7 @@
      (ns ~(gensym 'clojure.core.typed.test.temp)
        ~'(:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
                                    #_def filter remove])
-       ~'(:require [clojure.core.typed :refer :all]
+       ~'(:require [clojure.core.typed :refer :all :as t]
                    [clojure.core :as core]))
      (t/check-form-info 
        '~frm

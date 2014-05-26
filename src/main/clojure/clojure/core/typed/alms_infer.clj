@@ -3,8 +3,8 @@
 ;  (:require [clojure.core.typed :refer :all]
 ;            [clojure.core.typed.utils :refer [defrecord]]))
 ;
-;#_(def-alias DirectedGraph (IPersistentMap Symbol (IPersistentSet Symbol)))
-;#_(def-alias Substitution (IPersistentMap Symbol Type))
+;#_(defalias DirectedGraph (IPersistentMap Symbol (IPersistentSet Symbol)))
+;#_(defalias Substitution (IPersistentMap Symbol Type))
 ;
 ;#_(ann subtyping-graph? (predicate DirectedGraph))
 ;(def subtyping-graph? (hash-c? symbol? (set-c? symbol)))

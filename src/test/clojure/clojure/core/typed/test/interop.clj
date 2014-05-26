@@ -1,13 +1,13 @@
 (ns clojure.core.typed.test.interop
   (:import (java.io File))
-  (:require [clojure.core.typed :as t :refer [ann non-nil-return check-ns cf]]))
+  (:require [clojure.core.typed :as t]))
 
-(ann f File)
+(t/ann f File)
 (def f (File. "a"))
 
-(ann prt (U nil String))
+(t/ann prt (t/U nil String))
 (def prt (.getParent ^File f))
 
-(non-nil-return java.io.File/getName :all)
-(ann nme String)
+(t/non-nil-return java.io.File/getName :all)
+(t/ann nme String)
 (def nme (.getName ^File f))

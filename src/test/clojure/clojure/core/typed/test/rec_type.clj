@@ -1,44 +1,38 @@
 (ns clojure.core.typed.test.rec-type
-  (:require [clojure.core.typed :as t 
-             :refer [def-alias ann-form ann]])
+  (:require [clojure.core.typed :as t])
   (:import (clojure.lang IMapEntry)))
 
-;(t/def-alias RuleSet (Rec [x] (t/Map Any (U [Any -> Any] x))))
+;(t/defalias RuleSet (Rec [x] (t/Map Any (U [Any -> Any] x))))
 ;
 ;(t/ann-form {:a (t/ann-form (fn [a] a)
 ;                            [Any -> Any])}
 ;            RuleSet)
 
+(t/defalias Rule [t/Any -> (t/Option t/Keyword)])
 
+(t/defalias RuleSet
+  (t/Rec [x]
+       (t/Map t/Any (t/U Rule x))))
 
+(t/defalias Report
+  (t/Rec [x]
+       (t/Map t/Any (t/U t/Keyword x))))
 
+(t/defalias Data
+  (t/Map t/Any t/Any))
 
-
-(def-alias Rule [Any -> (t/Option t/Keyword)])
-
-(def-alias RuleSet
-  (Rec [x]
-       (t/Map Any (U Rule x))))
-
-(def-alias Report
-  (Rec [x]
-       (t/Map Any (U t/Keyword x))))
-
-(def-alias Data
-  (t/Map Any Any))
-
-(ann clean [RuleSet Data -> Data])
+(t/ann clean [RuleSet Data -> Data])
 (defn clean [rules data]
-  (reduce (ann-form (fn [cleaned-up kv]
+  (reduce (t/ann-form (fn [cleaned-up kv]
                       (let [rule-path (key kv)
                             datum (val kv)]
                         (if-let [rule (get rules rule-path)]
                           (assoc cleaned-up rule-path datum)
                           cleaned-up)))
-                    [Data (IMapEntry Any Any) -> Data])
+                    [Data (IMapEntry t/Any t/Any) -> Data])
           {} data))
 
-;(ann enforce [RuleSet Data -> (t/Option Report)])
+;(t/ann enforce [RuleSet Data -> (t/Option Report)])
 ;(defn enforce [ruleset data]
 ;  (let [result (reduce (ann-form (fn [report kv]
 ;                                   (let [rule-path (key kv)
@@ -59,7 +53,7 @@
 ;      result)))
 
 
-#_(ann enforce [RuleSet Data -> (t/Option Report)])
+#_(t/ann enforce [RuleSet Data -> (t/Option Report)])
 #_(defn enforce [ruleset data]
   (let [result (reduce (ann-form (fn [report kv]
                                    (let [rule-path (key kv)
@@ -74,12 +68,12 @@
                                        (if-let [message (sub datum)]
                                          (assoc report rule-path message)
                                          report))))
-                                 [Report (IMapEntry Any (U Rule RuleSet)) -> Report])
+                                 [Report (IMapEntry t/Any (t/U Rule RuleSet)) -> Report])
                        (reduce (ann-form (fn [total k]
                                            (if (not (contains? ruleset k))
                                              (assoc total k ::not-in-schema)
                                              total))
-                                         [Report Any -> Report])
+                                         [Report t/Any -> Report])
                                {} (keys data))
                        (seq ruleset))]
     (if (not (empty? result))

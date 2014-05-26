@@ -3,16 +3,11 @@
   (:require [clojure.core.typed :as t
              :refer [ann Seqable fn>]]))
 
-(ann reduce_ (All [a b] (Fn [[a b
-                              -> b]
-                             b
-                             (Seqable a)
-                             -> b]
-                            [[a (Seqable (U a b))
-                              -> (Seqable (U a b))]
-                             (Seqable (U a b))
-                             (Seqable a)
-                             -> (Seqable (U a b))])))
+(ann reduce_ (t/All [a b] 
+               (t/FnCase 
+                 [[a b -> b] b (Seqable a) -> b]
+                 [[a (Seqable (t/U a b)) -> (Seqable (t/U a b))]
+                  (Seqable (t/U a b)) (Seqable a) -> (Seqable (t/U a b))])))
 (defn reduce_
   [f zero coll]
   (if-let [s (seq coll)]
@@ -20,17 +15,17 @@
        (reduce_ f zero (rest s)))
     zero))
 
-(ann append_ (All [a b] [(Seqable a) (Seqable b) -> (U (Seqable (U a b))
-                                                       (ASeq (U a b)))]))
+(ann append_ (t/All [a b] [(Seqable a) (Seqable b) -> (t/U (Seqable (t/U a b))
+                                                           (ASeq (t/U a b)))]))
 (defn append_
   [coll1 coll2]
-  (reduce_ (t/inst cons (U a b)) coll2 coll1))
+  (reduce_ (t/inst cons (t/U a b)) coll2 coll1))
 
 
 ; -------- main
 
 ; if you comment out this function, you will get :ok
-(ann map-1 (All [a b] [[a -> b] (Seqable a)
+(ann map-1 (t/All [a b] [[a -> b] (Seqable a)
                        -> (LazySeq b)]))
 (defn map-1 [f coll]
   (lazy-seq
@@ -38,7 +33,7 @@
      (cons (f (first s))
            (map-1 f (rest s))))))
 
-(ann map-2 (All [a b] [[a -> b] (Seqable a) -> (LazySeq b)]))
+(ann map-2 (t/All [a b] [[a -> b] (Seqable a) -> (LazySeq b)]))
 (defn map-2
   [f coll]
   (lazy-seq

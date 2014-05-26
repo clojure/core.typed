@@ -30,7 +30,7 @@
 ;(t/typed-deps clojure.core.typed.type-rep)
 
 ;TODO make this an argument
-(t/ann *frees-mode* (U nil t/Kw))
+(t/ann *frees-mode* (t/U nil t/Kw))
 (defonce ^:dynamic *frees-mode* nil)
 (t/tc-ignore
 (set-validator! #'*frees-mode* (some-fn #{::frees ::idxs} nil?))
@@ -39,15 +39,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Collecting frees
 
-(t/def-alias VarianceEntry
+(t/defalias VarianceEntry
   "A map entry of a VarianceMap."
   '[t/Sym r/Variance])
 
-(t/def-alias VarianceMap
+(t/defalias VarianceMap
   "A map of free names (symbols) to their variances"
   (t/Map t/Sym r/Variance))
 
-(t/ann ^:no-check variance-map? (predicate VarianceMap))
+(t/ann ^:no-check variance-map? (t/Pred VarianceMap))
 (def variance-map? (con/hash-c? symbol? r/variance?))
 
 (declare frees-in)
@@ -119,7 +119,7 @@
   (u/p :frees/frees-in
   (frees t)))
 
-(t/ann frees [Any -> VarianceMap])
+(t/ann frees [t/Any -> VarianceMap])
 (defmulti ^:private frees (fn [t] [*frees-mode* (class t)]))
 
 (u/add-defmethod-generator frees)
@@ -192,8 +192,8 @@
   [{varis :variances args :poly? :as t}]
   (assert (= (count args) (count varis)))
   (apply combine-frees (for> :- VarianceMap
-                             [[arg va] :- '[Any r/Variance], (map (-> vector 
-                                                                      (t/inst Any r/Variance Any Any Any Any))
+                             [[arg va] :- '[t/Any r/Variance], (map (-> vector 
+                                                                      (t/inst t/Any r/Variance t/Any t/Any t/Any t/Any))
                                                                   args varis)]
                              (case va
                                :covariant (frees arg)
@@ -350,8 +350,8 @@
         args (:poly? t)]
     (assert (= (count args) (count varis)))
     (apply combine-frees (for> :- VarianceMap
-                           [[arg va] :- '[Any r/Variance], (map (-> vector 
-                                                                    (t/inst Any r/Variance Any Any Any Any))
+                           [[arg va] :- '[t/Any r/Variance], (map (-> vector 
+                                                                    (t/inst t/Any r/Variance t/Any t/Any t/Any t/Any))
                                                                 args varis)]
                            (case va
                              :covariant (frees arg)
@@ -365,8 +365,8 @@
   [{varis :variances, args :poly?, :as t}]
   (assert (= (count args) (count varis)))
   (apply combine-frees (for> :- VarianceMap
-                             [[arg va] :- '[Any r/Variance], (map (-> vector 
-                                                                      (t/inst Any r/Variance Any Any Any Any))
+                             [[arg va] :- '[t/Any r/Variance], (map (-> vector 
+                                                                      (t/inst t/Any r/Variance t/Any t/Any t/Any t/Any))
                                                                   args varis)]
                              (case va
                                :covariant (frees arg)

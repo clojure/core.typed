@@ -2,5 +2,5 @@
   (:require [clojure.core.typed :as t]))
 
 (t/ann ^:no-check clojure.core.typed.errors/deprecated-warn [String -> nil])
-(t/ann ^:no-check clojure.core.typed.errors/int-error [String -> Nothing])
+(t/ann ^:no-check clojure.core.typed.errors/int-error [String -> t/Nothing])
 

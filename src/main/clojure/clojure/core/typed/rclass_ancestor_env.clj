@@ -11,11 +11,11 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
-(t/def-alias RClassAncestorEnv 
+(t/defalias RClassAncestorEnv 
   (t/Map t/Symbol '{:replacements (t/Map t/Symbol r/MaybeScopedType)
                     :ancestors (t/Set r/ScopedType)}))
 
-(t/ann ^:no-check rclass-ancestor-env? (predicate RClassAncestorEnv))
+(t/ann ^:no-check rclass-ancestor-env? (t/Pred RClassAncestorEnv))
 (def rclass-ancestor-env? 
   (con/hash-c? symbol? (con/hmap-c? :replacements (con/hash-c? symbol? r/scoped-Type?)
                                     :ancestors (con/set-c? r/scoped-Type?))))

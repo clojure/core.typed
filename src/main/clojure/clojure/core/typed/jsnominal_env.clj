@@ -16,10 +16,10 @@
 (t/defalias JSNominalEntry
   "A map entry for a JSNominal type."
   '{:jsnominal r/Type
-    :fields (t/Map t/Sym (U Scope r/Type))
-    :methods (t/Map t/Sym (U Scope r/Type))
-    :ctors (U Scope r/Type nil)
-    :ancestors (t/Set (U Scope r/Type))})
+    :fields (t/Map t/Sym (t/U Scope r/Type))
+    :methods (t/Map t/Sym (t/U Scope r/Type))
+    :ctors (t/U Scope r/Type nil)
+    :ancestors (t/Set (t/U Scope r/Type))})
 
 (t/defalias JSNominalEnv
   "A map of symbols of JSNomainalEntry's"
@@ -44,14 +44,14 @@
    :ctors nil
    :ancestors #{}})
 
-(t/ann get-jsnominal [Any -> (t/Nilable r/Type)])
+(t/ann get-jsnominal [t/Any -> (t/Nilable r/Type)])
 (defn get-jsnominal
   "Returns the nomainal JS type with class symbol csym.
   Returns nil if not found."
   [csym]
   (-> (@JSNOMINAL-ENV csym) :jsnominal))
 
-(t/ann contains-jsnominal? [Any -> boolean])
+(t/ann contains-jsnominal? [t/Any -> boolean])
 (defn contains-jsnominal?
   [csym]
   (boolean (get-jsnominal csym)))
@@ -64,7 +64,7 @@
 ;  (swap! JSNOMINAL-ENV assoc-in [csym] (init-jsnominal-entry type))
 ;  nil)
 ;
-;(t/ann add-method [t/Sym JSNominal (U Scope r/Type) -> nil])
+;(t/ann add-method [t/Sym JSNominal (t/U Scope r/Type) -> nil])
 ;(defn add-method 
 ;  "Add a new method to the JS nominal type csym. Assumes
 ;  the method type is properly Scope'd"
@@ -72,14 +72,14 @@
 ;  (swap! JSNOMINAL-ENV assoc-in [csym :methods method-sym] type)
 ;  nil)
 ;
-;(t/ann add-field [t/Sym JSNominal (U Scope r/Type) -> nil])
+;(t/ann add-field [t/Sym JSNominal (t/U Scope r/Type) -> nil])
 ;(defn add-field 
 ;  "Add a new field to the JS nominal type csym. Assumes
 ;  the field type is properly Scope'd"
 ;  [csym field-sym type]
 ;  (swap! JSNOMINAL-ENV update-in [csym :fields field-sym] (constantly type)))
 
-(t/ann ^:no-check get-method [t/Sym (U nil (t/Seqable r/Type)) t/Sym -> (U nil r/Type)])
+(t/ann ^:no-check get-method [t/Sym (t/U nil (t/Seqable r/Type)) t/Sym -> (t/U nil r/Type)])
 (defn get-method 
   "Returns the instantiated method type named method-sym on nominal csym."
   [csym args method-sym]
@@ -90,7 +90,7 @@
   (when-let [tscope (get-in @JSNOMINAL-ENV [csym :methods method-sym])]
     (c/inst-and-subst tscope args)))
 
-(t/ann ^:no-check get-field [t/Sym (U nil (t/Seqable r/Type)) t/Sym -> (U nil r/Type)])
+(t/ann ^:no-check get-field [t/Sym (t/U nil (t/Seqable r/Type)) t/Sym -> (t/U nil r/Type)])
 (defn get-field 
   "Returns the instantiated field type named field-sym on nominal csym."
   [csym args field-sym]
@@ -101,7 +101,7 @@
   (when-let [tscope (get-in @JSNOMINAL-ENV [csym :fields field-sym])]
     (c/inst-and-subst tscope args)))
 
-(t/ann ^:no-check get-ctor [t/Sym (U nil (t/Seqable r/Type)) -> (U nil r/Type)])
+(t/ann ^:no-check get-ctor [t/Sym (t/U nil (t/Seqable r/Type)) -> (t/U nil r/Type)])
 (defn get-ctor
   "Returns the instantiated constructor type on nominal csym."
   [csym args]

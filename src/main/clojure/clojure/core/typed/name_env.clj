@@ -18,7 +18,7 @@
 
 (t/defalias NameEnv
   "Environment mapping names to types. Keyword values are special."
-  (t/Map t/Sym (U t/Kw r/Type)))
+  (t/Map t/Sym (t/U t/Kw r/Type)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Name Env
@@ -48,14 +48,14 @@
   `(binding [*current-name-env* CLJS-TYPE-NAME-ENV]
      ~@body))
 
-(t/ann ^:no-check name-env? [Any -> Any])
+(t/ann ^:no-check name-env? [t/Any -> t/Any])
 (def name-env? (con/hash-c? (every-pred (some-fn namespace 
                                                  #(some #{\.} (str %)))
                                         symbol?)
                             (some-fn r/Type? #(isa? % temp-binding))))
 
 
-(t/ann *current-name-env* (U nil (t/Atom1 NameEnv)))
+(t/ann *current-name-env* (t/U nil (t/Atom1 NameEnv)))
 (defonce ^:dynamic *current-name-env* nil)
 
 (t/tc-ignore
@@ -87,7 +87,7 @@
     (reset! e nme-env))
   nil)
 
-(t/ann get-type-name [Any -> (U nil t/Kw r/Type)])
+(t/ann get-type-name [t/Any -> (t/U nil t/Kw r/Type)])
 (defn get-type-name 
   "Return the name with var symbol sym.
   Returns nil if not found."
@@ -96,7 +96,7 @@
   (t/when-let-fail [e *current-name-env*]
     (@e sym)))
 
-(t/ann ^:no-check add-type-name [t/Sym (U t/Kw r/Type) -> nil])
+(t/ann ^:no-check add-type-name [t/Sym (t/U t/Kw r/Type) -> nil])
 (defn add-type-name [sym ty]
   (assert-name-env)
   (t/when-let-fail [e *current-name-env*]
@@ -114,7 +114,7 @@
   (add-type-name sym declared-name-type)
   nil)
 
-(t/ann declared-name? [Any -> Any])
+(t/ann declared-name? [t/Any -> t/Any])
 (defn declared-name? [sym]
   (= declared-name-type (get-type-name sym)))
 

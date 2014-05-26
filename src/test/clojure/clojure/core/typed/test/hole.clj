@@ -15,7 +15,7 @@
 
 ;; ## Compose
 
-(ann compose (All [a b c] [[b -> c] [a -> b] a -> c]))
+(ann compose (t/All [a b c] [[b -> c] [a -> b] a -> c]))
 #_(defn compose [f g x]
   (let [_ (ann-form f [b -> c])
         _ (ann-form g [a -> b])
@@ -114,7 +114,7 @@
 
 #_(ann-monadfn mapply 
              m
-             (All [a b]
+             (t/All [a b]
                   [(m [a -> b]) (m a) -> (m b)]))
 
 #_(defmonadfn mapply [mf ma]

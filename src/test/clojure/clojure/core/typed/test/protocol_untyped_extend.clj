@@ -1,12 +1,13 @@
 (ns clojure.core.typed.test.protocol-untyped-extend
   (:require [clojure.core.typed :refer [ann-protocol defprotocol> tc-ignore
-                                        ann-datatype ann check-ns]]
+                                        ann-datatype ann check-ns]
+             :as t]
             [clojure.core.typed.test.protocol-in-another-ns
              :refer [AnotherNs baz]]))
 
 (ann-protocol IFoo
               bar
-              [IFoo -> Any])
+              [IFoo -> t/Any])
 (defprotocol> IFoo
   (bar [this]))
 
@@ -20,7 +21,7 @@
   nil
   (bar [c] 'd))
 
-(ann takes-IFoo [IFoo -> Any])
+(ann takes-IFoo [IFoo -> t/Any])
 (defn takes-IFoo [f]
   (bar f))
 
@@ -31,13 +32,13 @@
 
 (ann-protocol clojure.core.typed.test.protocol-in-another-ns/AnotherNs
               baz
-              [AnotherNs -> Any])
+              [AnotherNs -> t/Any])
 
 (extend-protocol AnotherNs
   Bar
   (baz [this] nil))
 
-(ann takes-AnotherNs [AnotherNs -> Any])
+(ann takes-AnotherNs [AnotherNs -> t/Any])
 (defn takes-AnotherNs [a]
   (baz a))
 

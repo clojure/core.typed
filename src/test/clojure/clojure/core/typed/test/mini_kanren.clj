@@ -17,7 +17,7 @@
   (:require #_[clojure.core.typed.test.monads :refer [defmonad with-monad m-chain]]
             [clojure.pprint :refer [pprint]]
             [clojure.repl :refer [pst]]
-            [clojure.core.typed :refer [ann inst def-alias check-ns declare-names
+            [clojure.core.typed :refer [ann inst defalias check-ns declare-names
                                         tc-ignore]]))
 (comment
 
@@ -52,7 +52,7 @@
 (def _ '_)
 (def | '|)
 
-(def-alias LVar String)
+(defalias LVar String)
 
 ; working with logic variables
 (ann lvar [-> LVar])
@@ -84,17 +84,17 @@
 
 (declare-names Expr)
 
-(def-alias ImproperSeq 
+(defalias ImproperSeq 
   (I (Seqable Expr)
      (IMeta '{:tail Expr})))
 
-(def-alias LSeq 
+(defalias LSeq 
   (U ImproperSeq
      (clojure.lang.ISeq Expr)
      (clojure.lang.IPersistentSet Expr)
      (clojure.lang.IPersistentVector Expr)))
 
-(def-alias Expr (U LSeq
+(defalias Expr (U LSeq
                    nil
                    LVar
                    Symbol 
@@ -170,7 +170,7 @@
 ;   a keyword (may or may not be a key in the substitution)
 ;   a literal list
 
-(def-alias Substitution (IPersistentMap Keyword Expr))
+(defalias Substitution (IPersistentMap Keyword Expr))
 
 (ann lget [Substitution Any -> (U LVar Expr)])
 (defn lget [s v]

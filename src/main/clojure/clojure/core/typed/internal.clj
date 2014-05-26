@@ -57,7 +57,7 @@
                                      (let [[p & after-rst] ann-params]
                                        (recur after-rst
                                               (conj pvec amp p)
-                                              (conj ann-info amp {:rest {:type 'Any
+                                              (conj ann-info amp {:rest {:type 'clojure.core.typed/Any
                                                                          :default true}})))))
 
                                  ;fixed param
@@ -70,7 +70,7 @@
                                    (let [[p & rest-params] ann-params]
                                      (recur rest-params
                                             (conj pvec p)
-                                            (conj ann-info {:type 'Any
+                                            (conj ann-info {:type 'clojure.core.typed/Any
                                                             :default true}))))))
                              (if (#{:-} (second method))
                                (let [[param colon t & body] method]
@@ -78,7 +78,7 @@
                                   :ann {:ret-type {:type t}}})
                                (let [[param & body] method]
                                  {:body body
-                                  :ann {:ret-type {:type 'Any
+                                  :ann {:ret-type {:type 'clojure.core.typed/Any
                                                    :default true}}})))))]
     {:fn `(fn ~@(concat
                   (when name
@@ -183,7 +183,7 @@
                             (let [[p init & rest-params] ann-params]
                               (recur rest-params
                                      (conj pvec p init)
-                                     (conj ann-info {:type 'Any
+                                     (conj ann-info {:type 'clojure.core.typed/Any
                                                      :default true}))))))
                       {:body (next forms)})]
     {:loop `(clojure.core/loop ~(:pvec parsed-loop) ~@(:body parsed-loop))
@@ -227,11 +227,12 @@
                        _ (assert (empty? (set/intersection localtvars
                                                            tvars))
                                  "Shadowing a protocol type variable in a method is disallowed")
-                       fn-type `(~'Fn ~@(map (fn [{:keys [ptypes ret]}]
-                                               `[~@(concat [this-type] (map :type (rest ptypes))) ~'-> ~(:type ret)])
-                                             arities))]
+                       fn-type `(clojure.core.typed/FnCase
+                                  ~@(map (fn [{:keys [ptypes ret]}]
+                                           `[~@(concat [this-type] (map :type (rest ptypes))) ~'-> ~(:type ret)])
+                                         arities))]
                    [name (if poly
-                           `(~'All ~poly ~fn-type)
+                           `(clojure.core.typed/All ~poly ~fn-type)
                            fn-type)]))
                methods))))
 
@@ -264,7 +265,7 @@
                                        [b & rst] pvec]
                                    (recur rst 
                                           (conj actual b)
-                                          (conj ptypes {:type 'Any
+                                          (conj ptypes {:type 'clojure.core.typed/Any
                                                         :default true})))))))
         actual-decl-methods (for [m typed-decl-methods]
                               (let [[poly rst] (take-when vector? m)
@@ -294,7 +295,7 @@
                                                   [v & rst] dvecs
                                                   {:keys [ptypes actual]} (parse-pvec v)]
                                               (recur rst
-                                                     (conj arities {:ret {:type 'Any
+                                                     (conj arities {:ret {:type 'clojure.core.typed/Any
                                                                           :default true}
                                                                     :ptypes ptypes
                                                                     :actual actual}))))))))

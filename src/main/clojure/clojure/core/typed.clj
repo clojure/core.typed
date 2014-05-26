@@ -432,7 +432,7 @@ for checking namespaces, cf for checking individual forms."}
                               (let [_ (assert (#{1} (count maybe-ann-body-expr))
                                               (str "Wrong arguments to for: " maybe-ann-body-expr))
                                     [body] maybe-ann-body-expr]
-                                ['Any body]))
+                                [`Any body]))
         normalise-args
         ; change [a :- b c] to [[a :- b] c]
         (fn [seq-exprs]
@@ -456,7 +456,7 @@ for checking namespaces, cf for checking individual forms."}
                       (let [_ (assert (#{2} (count (take 2 seq-exprs)))
                                       (str "for binding needs initial values"))
                             [b init & rst] seq-exprs]
-                        (recur (conj flat-result [b :- 'Any] init)
+                        (recur (conj flat-result [b :- `Any] init)
                                rst))))))
 
         ; normalise seq-exprs to be flat pairs
@@ -685,7 +685,7 @@ for checking namespaces, cf for checking individual forms."}
                       (let [_ (assert (#{2} (count (take 2 seq-exprs)))
                                       (str "for binding needs initial values"))
                             [b init & rst] seq-exprs]
-                        (recur (conj flat-result [b :- 'Any] init)
+                        (recur (conj flat-result [b :- `Any] init)
                                rst))))))
 
         ; normalise seq-exprs to be flat pairs
@@ -732,10 +732,10 @@ for checking namespaces, cf for checking individual forms."}
                            steppair-chunk (step recform-chunk (nnext exprs))
                            subform-chunk (steppair-chunk 1)]
                        [true
-                        `(loop [~seq- :- (~'U nil (Seq ~k-ann)) (seq ~v), 
-                                ~chunk- :- (~'U nil (~'clojure.lang.IChunk ~k-ann)) nil
-                                ~count- :- (~'U Integer Long) 0,
-                                ~i- :- (~'U Integer Long) 0]
+                        `(loop [~seq- :- (U nil (Seq ~k-ann)) (seq ~v), 
+                                ~chunk- :- (U nil (clojure.lang.IChunk ~k-ann)) nil
+                                ~count- :- (U Integer Long) 0,
+                                ~i- :- (U Integer Long) 0]
                            (if (and (< ~i- ~count-)
                                     ;; FIXME review this
                                     ;; core.typed thinks chunk- could be nil here
@@ -1147,6 +1147,7 @@ for checking namespaces, cf for checking individual forms."}
   `(tc-ignore
      (core/defprotocol ~@body)))
 
+;TODO filter/object support
 (defmacro defprotocol [& body]
   "Like defprotocol, but with optional type annotations.
 

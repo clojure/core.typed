@@ -11,39 +11,34 @@
                          Compiler$CaseExpr Compiler$Expr Compiler$SetExpr Compiler$MethodParamExpr Compiler$KeywordExpr
                          Compiler$ConstantExpr Compiler$NumberExpr Compiler$NilExpr Compiler$BooleanExpr Compiler$StringExpr
                          Compiler$ObjMethod Compiler$Expr
-                         Keyword Seqable Var Symbol IPersistentSet))
-  (:require [clojure.core.typed :refer [def-alias declare-names check-ns AnyInteger ann
-                                        warn-on-unannotated-vars]]
-            (clojure.core.typed
-              [parse-unparse :refer [parse-type]]
-              [type-ctors :refer [Un]]
-              [utils :refer [profile]])))
+                         Var))
+  (:require [clojure.core.typed :as t]))
 
-(warn-on-unannotated-vars)
+(t/warn-on-unannotated-vars)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types
 
-(def-alias Env
+(t/defalias Env
   "An environment"
-  (HMap :optional {:line AnyInteger,
-                   :column AnyInteger,
-                   :source Any}))
+  (t/HMap :optional {:line t/Int,
+                     :column t/Int,
+                     :source t/Any}))
 
-(def-alias Children 
+(t/defalias Children 
   "A children API exists, but not checked yet"
-  Any)
+  t/Any)
 
-(def-alias Expr
+(t/defalias Expr
   "An AST node"
-  (Rec [Expr]
-  (U ;; values
+  (t/Rec [Expr]
+  (t/U ;; values
      '{:op ':keyword
        :env Env
-       :val Keyword}
+       :val t/Kw}
      '{:op ':constant
        :env Env
-       :val Any}
+       :val t/Any}
      '{:op ':number
        :env Env
        :val Number}
@@ -58,31 +53,31 @@
        :val Boolean}
      
      ;; def
-     (HMap :mandatory
+     (t/HMap :mandatory
            {:op ':def
             :env Env
-            :var Var
-            :meta (U nil Expr)
+            :var (t/Var2 t/Nothing t/Any)
+            :meta (t/U nil Expr)
             :init Expr
-            :init-provided Any
-            :is-dynamic Any}
+            :init-provided t/Any
+            :is-dynamic t/Any}
            :optional
            {:children Children
             :Expr-obj Compiler$DefExpr})
 
      ;; local binding
-     (HMap :mandatory
+     (t/HMap :mandatory
            {:op ':local-binding
             :env Env
-            :sym Symbol
-            :tag (U nil Symbol)
+            :sym t/Sym
+            :tag (t/U nil t/Sym)
             :init Expr}
            :optional
            {:children Children
              :LocalBinding-obj Compiler$LocalBinding})
 
      ;binding init
-     (HMap :mandatory
+     (t/HMap :mandatory
            {:op ':binding-init
             :env Env
             :local-binding Expr
@@ -92,135 +87,135 @@
             :BindingInit-obj Compiler$BindingInit})
 
      ; let
-     (HMap :mandatory
+     (t/HMap :mandatory
            {:op ':let
             :env Env
-            :binding-inits (Seqable Expr)
+            :binding-inits (t/Seqable Expr)
             :body Expr
-            :is-loop Any}
+            :is-loop t/Any}
            :optional
            {:children Children
              :Expr-obj Compiler$LetExpr})
 
      ;letfn
-     (HMap :mandatory
+     (t/HMap :mandatory
            {:op ':letfn
             :env Env
             :body Expr
-            :binding-inits (Seqable Expr)}
+            :binding-inits (t/Seqable Expr)}
            :optional
            {:children Children
              :Expr-obj Compiler$LetFnExpr})
 
      ;local binding expr
-     (HMap :mandatory
+     (t/HMap :mandatory
            {:op ':local-binding-expr
             :env Env
             :local-binding Expr
-            :tag (U nil Symbol)}
+            :tag (t/U nil t/Sym)}
            :optional
            {:children Children
              :Expr-obj Compiler$LocalBindingExpr})
 
      ;static method
-     (HMap :mandatory
+     (t/HMap :mandatory
            {:op ':static-method
             :env Env
             :class Class
-            :method-name Symbol
+            :method-name t/Sym
             ; probably need to type clojure.reflect
-            :method Nothing
-            :args (Seqable Expr)
-            :tag (U nil Symbol)}
+            :method t/Nothing
+            :args (t/Seqable Expr)
+            :tag (t/U nil t/Sym)}
            :optional
            {:children Children
              :Expr-obj Compiler$StaticMethodExpr})
 
      ;instance method
-     (HMap :mandatory
+     (t/HMap :mandatory
            {:op ':instance-method
             :env Env
             :target Expr
-            :method-name Symbol
-            :method Nothing
-            :args (Seqable Expr)
-            :tag (U nil Symbol)}
+            :method-name t/Sym
+            :method t/Nothing
+            :args (t/Seqable Expr)
+            :tag (t/U nil t/Sym)}
            :optional
            {:children Children
              :Expr-obj Compiler$InstanceMethodExpr})
 
     ;static field
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':static-field
            :env Env
            :class Class
-           :field-name Symbol
-           :field Nothing
-           :tag (U nil Symbol)}
+           :field-name t/Sym
+           :field t/Nothing
+           :tag (t/U nil t/Sym)}
           :optional
           {:Expr-obj Compiler$StaticFieldExpr})
 
     ;instance field
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':instance-field
            :env Env
            :target Expr
            :target-class Class
-           :field Nothing
-           :field-name Symbol
-           :tag (U nil Symbol)}
+           :field t/Nothing
+           :field-name t/Sym
+           :tag (t/U nil t/Sym)}
           :optional
           {:children Children
            :Expr-obj Compiler$InstanceFieldExpr})
 
     ;new
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':new
            :env Env
-           :ctor Nothing
+           :ctor t/Nothing
            :class Class
-           :args (Seqable Expr)}
+           :args (t/Seqable Expr)}
           :optional
           {:children Children
            :Expr-obj Compiler$NewExpr})
 
     ;empty
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':empty-expr
            :env Env
-           :coll (I (Seqable Nothing) (ExactCount 0))}
+           :coll (t/I (t/Seqable t/Nothing) (t/ExactCount 0))}
           :optional
           {:Expr-obj Compiler$EmptyExpr})
 
     ;set
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':set
            :env Env
-           :keys (Seqable Expr)}
+           :keys (t/Seqable Expr)}
           :optional
           {:children Children
            :Expr-obj Compiler$SetExpr})
 
     ;vector
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':vector
            :env Env
-           :args (Seqable Expr)}
+           :args (t/Seqable Expr)}
           :optional
           {:children Children
            :Expr-obj Compiler$VectorExpr})
 
     ;map
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':map
            :env Env
-           :keyvals (Seqable Expr)}
+           :keyvals (t/Seqable Expr)}
           :optional
           {:children Children
            :Expr-obj Compiler$MapExpr})
 
     ;monitor enter
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':monitor-enter
            :env Env
            :target Expr}
@@ -229,7 +224,7 @@
            :Expr-obj Compiler$MonitorEnterExpr})
 
     ;monitor exit
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':monitor-exit
            :env Env
            :target Expr}
@@ -238,7 +233,7 @@
            :Expr-obj Compiler$MonitorExitExpr})
 
     ;throw
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':throw
            :env Env
            :exception Expr}
@@ -247,34 +242,34 @@
            :Expr-obj Compiler$ThrowExpr})
 
     ;invoke
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':invoke
            :env Env
            :fexpr Expr
-           :tag (U nil Symbol)
-           :args (Seqable Expr)
-           :is-protocol Any
-           :is-direct Any
-           :site-index Any
-           :protocol-on Any}
+           :tag (t/U nil t/Sym)
+           :args (t/Seqable Expr)
+           :is-protocol t/Any
+           :is-direct t/Any
+           :site-index t/Any
+           :protocol-on t/Any}
           :optional
-          {:method Nothing
+          {:method t/Nothing
            :children Children
            :Expr-obj Compiler$InvokeExpr})
 
     ;keyword invoke
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':keyword-invoke
            :env Env
            :kw Expr
-           :tag (U nil Symbol)
+           :tag (t/U nil t/Sym)
            :target Expr}
           :optional
           {:children Children
            :Expr-obj Compiler$KeywordInvokeExpr})
 
     ;the var
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':the-var
            :env Env
            :var Var}
@@ -282,83 +277,83 @@
           {:Expr-obj Compiler$TheVarExpr})
 
     ;var
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':var
            :env Env
            :var Var
-           :tag (U nil Symbol)}
+           :tag (t/U nil t/Sym)}
           :optional
           {:Expr-obj Compiler$VarExpr})
 
     ;unresolved var
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':unresolved-var
            :env Env
-           :sym Symbol}
+           :sym t/Sym}
           :optional
           {:Expr-obj Compiler$UnresolvedVarExpr})
 
     ;objexpr
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':obj-expr
            :env Env
-           :tag (U nil Symbol)}
+           :tag (t/U nil t/Sym)}
           :optional
           {:Expr-obj Compiler$ObjExpr})
 
     ;new instance method
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':new-instance-method
            :env Env
-           :name Symbol
-           :required-params (Seqable Expr)
+           :name t/Sym
+           :required-params (t/Seqable Expr)
            :body Expr}
           :optional
           {:children Children
            :ObjMethod-obj Compiler$NewInstanceMethod})
 
     ;fn method
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':fn-method
            :env Env
            :body Expr
-           :required-params (Seqable Expr)
-           :rest-param (U nil Expr)}
+           :required-params (t/Seqable Expr)
+           :rest-param (t/U nil Expr)}
           :optional
           {:children Children
            :ObjMethod-obj Compiler$FnMethod})
 
     ;fn expr
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':fn-expr
            :env Env
-           :methods (Seqable Expr)
-           :variadic-method (U nil Expr)
-           :tag (U nil Symbol)}
+           :methods (t/Seqable Expr)
+           :variadic-method (t/U nil Expr)
+           :tag (t/U nil t/Sym)}
           :optional
-          {:name Symbol
+          {:name t/Sym
            :children Children
            :Expr-obj Compiler$FnExpr})
 
     ;new instance expr
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':deftype*
-           :name Symbol
+           :name t/Sym
            :env Env
-           :methods (Seqable Expr)
-           :mmap Any
+           :methods (t/Seqable Expr)
+           :mmap t/Any
            :compiled-class Class
-           :internal-name Symbol
-           :this-name Symbol
-           :fields (IPersistentSet Expr)
-           :covariants Any
-           :tag (U nil Symbol)}
+           :internal-name t/Sym
+           :this-name t/Sym
+           :fields (t/Set Expr)
+           :covariants t/Any
+           :tag (t/U nil t/Sym)}
           :optional
           {:children Children
            :Expr-obj Compiler$NewInstanceExpr})
 
     ;instanceof
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':instance-of
            :env Env
            :class Class
@@ -368,7 +363,7 @@
            :Expr-obj Compiler$InstanceOfExpr})
 
     ;meta
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':meta
            :env Env
            :meta Expr
@@ -378,16 +373,16 @@
            :Expr-obj Compiler$MetaExpr})
 
     ;do
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':do
            :env Env
-           :exprs (Seqable Expr)}
+           :exprs (t/Seqable Expr)}
           :optional
           {:children Children
            :Expr-obj Compiler$BodyExpr})
 
     ;if
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':if
            :env Env
            :test Expr
@@ -398,25 +393,25 @@
            :Expr-obj Compiler$IfExpr})
 
     ;case
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':case*
            :env Env
            :the-expr Expr
-           :tests (Seqable Expr)
-           :thens (Seqable Expr)
+           :tests (t/Seqable Expr)
+           :thens (t/Seqable Expr)
            :default Expr
-           :tests-hashes Any
-           :shift Any
-           :mask Any
-           :test-type Any
-           :switch-type Any
-           :skip-check Any}
+           :tests-hashes t/Any
+           :shift t/Any
+           :mask t/Any
+           :test-type t/Any
+           :switch-type t/Any
+           :skip-check t/Any}
           :optional
           {:children Children
            :Expr-obj Compiler$CaseExpr})
 
     ;import
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':import*
            :env Env
            :class-str String}
@@ -424,7 +419,7 @@
           {:Expr-obj Compiler$ImportExpr})
 
     ;set!
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':set!
            :env Env
            :target Expr
@@ -434,7 +429,7 @@
            :Expr-obj Compiler$AssignExpr})
 
     ;catch
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':catch
            :env Env
            :class Class
@@ -445,41 +440,41 @@
            :CatchClause-obj Compiler$TryExpr$CatchClause})
 
     ;try
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':try
            :env Env
            :try-expr Expr
-           :finally-expr (U nil Expr)
-           :catch-exprs (Seqable Expr)
-           :ret-local Any
-           :finally-local Any}
+           :finally-expr (t/U nil Expr)
+           :catch-exprs (t/Seqable Expr)
+           :ret-local t/Any
+           :finally-local t/Any}
           :optional
           {:children Children
            :Expr-obj Compiler$TryExpr})
 
     ;recur
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':recur
            :env Env
-           :loop-locals (Seqable Expr)
-           :args (Seqable Expr)}
+           :loop-locals (t/Seqable Expr)
+           :args (t/Seqable Expr)}
           :optional
           {:children Children
            :Expr-Obj Compiler$RecurExpr})
 
     ;method param
-    (HMap :mandatory
+    (t/HMap :mandatory
           {:op ':method-param
            :env Env
            :class Class
-           :can-emit-primitive Any}
+           :can-emit-primitive t/Any}
           :optional
           {:Expr-obj Compiler$MethodParamExpr}))))
 
-(def-alias AnalyzeOpt
+(t/defalias AnalyzeOpt
   "Options for analysis"
   '{})
 
-(ann test1 [Expr -> Any])
+(t/ann test1 [Expr -> t/Any])
 (defn test1 [a]
   (:op a))

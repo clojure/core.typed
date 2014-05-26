@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.assoc
-  (:require [clojure.core.typed :refer [ann-form def-alias check-ns] :as t])
+  (:require [clojure.core.typed :refer [ann-form check-ns] :as t])
   (:import (clojure.lang Symbol)))
 
 (ann-form (assoc {:a 1} :b 2)

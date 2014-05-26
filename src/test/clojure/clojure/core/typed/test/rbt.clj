@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.rbt
 ;  (:refer-clojure :exclude [and])
-;  (:require [clojure.core.typed :refer [ann inst cf fn> pfn> def-alias declare-names
+;  (:require [clojure.core.typed :refer [ann inst cf fn> pfn> defalias declare-names
 ;                                        print-env print-filterset check-ns typed-deps
 ;                                        ann-form]]
 ;            [clojure.core.typed.test.rbt-types :refer [badRight rbt EntryT Empty

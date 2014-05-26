@@ -19,9 +19,9 @@
 (alter-meta! *ns* assoc :skip-wiki true)
   )
 
-(t/ann ^:no-check taoensso.timbre/logging-enabled? [Any -> Any])
-(t/ann ^:no-check taoensso.timbre.profiling/*pdata* (t/Atom1 Any))
-(t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure [-> Any])
+(t/ann ^:no-check taoensso.timbre/logging-enabled? [t/Any -> t/Any])
+(t/ann ^:no-check taoensso.timbre.profiling/*pdata* (t/Atom1 t/Any))
+(t/ann ^:no-check clojure.core.typed.current-impl/assert-clojure [-> t/Any])
 
 (t/ann subtype-exn Exception)
 (def subtype-exn (Exception. "Subtyping failed."))
@@ -100,7 +100,7 @@
        ~(-> `(clojure.core.typed/ann ~(with-meta (symbol (str nme "-maker")) {:no-check true})
                                      [~@(map #(nth % 2) (partition 3 (first args))) ~'-> ~nme])
             (with-meta (meta &form)))
-       ~(-> `(clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list 'predicate nme))
+       ~(-> `(clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list `t/Pred nme))
             (with-meta (meta &form)))))
 
 (defmacro ann-precord 
@@ -108,7 +108,7 @@
   nme? predicate."
   [nme & args]
   `(do (clojure.core.typed/ann-precord ~nme ~@args)
-       (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list 'predicate nme))))
+       (clojure.core.typed/ann ~(with-meta (symbol (str nme "?")) {:no-check true}) ~(list `t/Pred nme))))
 
 
 
@@ -217,7 +217,7 @@
        (defn ~(symbol (str name-sym "?")) [a#]
          (instance? ~name-sym a#))
 
-       ; (Atom1 (Map Any Number))
+       ; (Atom1 (Map t/Any Number))
        (defonce ~interns (atom {}))
        (defn ~maker [~@fields & {meta# :meta :as opt#}]
          {:pre ~invariants}
@@ -293,17 +293,17 @@
 (defmacro profile [& args]
   `(profiling/profile ~@args))
 
-(t/ann typed-ns-opts [Any -> Any])
+(t/ann typed-ns-opts [t/Any -> t/Any])
 (defn typed-ns-opts [ns]
   (-> ns meta :core.typed))
 
-(t/ann ^:no-check demunge-ns [(U t/Sym String) -> t/Sym])
+(t/ann ^:no-check demunge-ns [(t/U t/Sym String) -> t/Sym])
 (defn demunge-ns [nsym]
   (symbol (clojure.repl/demunge (str nsym))))
 
 
 ; debug code from https://groups.google.com/d/msg/clojure/cOXClow1Wn4/UkvtICjvgrIJ
-(t/ann ^:no-check pprint-str [Any -> Any])
+(t/ann ^:no-check pprint-str [t/Any -> t/Any])
 (defn pprint-str
   [x]
   (with-out-str (pprint/pprint x)))
@@ -344,7 +344,7 @@
 
 (def expr-type :clojure.core.typed.check/expr-type)
 
-;(t/ann tc-warning [Any * -> nil])
+;(t/ann tc-warning [t/Any * -> nil])
 (defn tc-warning [& ss]
   (let [env uvs/*current-env*]
     (binding [*out* *err*]

@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.parse-ast
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.errors :as err]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.set :as set]))
 
@@ -18,7 +19,8 @@
 (defn- resolve-type-clj 
   "Returns a var, class or nil"
   [sym]
-  {:pre [(symbol? sym)]}
+  {:pre [(symbol? sym)]
+   :post [((some-fn var? class? nil?) %)]}
   (impl/assert-clojure)
   (let [nsym (parse-in-ns)]
     (if-let [ns (find-ns nsym)]
@@ -450,132 +452,224 @@
 
 (defn parse-I 
   [[_I_ & args]]
-  {:op (if (empty? args) :U :I) ; Nothing is always (U)
+  {:op (if (empty? args) :U :I) ; normalise (I) to (U)
    :types (mapv parse args)
    :children [:types]})
 
-(declare parse-Fn)
+(defmulti parse-seq*
+  (fn [[n]]
+    {:post [((some-fn nil? symbol?) %)]}
+    (when (symbol? n)
+      (or (impl/impl-case
+            :clojure (cond
+                       (special-symbol? n) n
+                       :else (let [r (resolve-type-clj n)]
+                               (when (var? r)
+                                 (coerce/var->symbol r))))
+            :cljs n)
+          n))))
 
-(defn parse-seq [[f & args :as syn]]
-  (cond
-    ('#{quote} f) (parse-quote syn)
-    ('#{Value} f) (let []
-                    (when-not (#{1} (count args))
-                      (err/int-error (str "Wrong arguments to Value: " syn)))
-                    {:op :singleton
-                     :val (first args)})
-;    ('#{Not} f) (let [_ (when-not (#{1} (count args))
-;                           (err/int-error "Wrong arguments to Not"))]
-;                  {:op :Not
-;                   :type (parse (first args))
-;                   :children [:type]})
-    ('#{Difference} f) (let [_ (when-not (<= 2 (count args))
-                                 (err/int-error "Wrong arguments to Difference"))
-                             [t & without] args]
-                         {:op :Difference
-                          :type (parse t)
-                          :without (mapv parse without)
-                          :children [:type :without]})
-    ('#{Rec} f) (let [_ (when-not (#{2} (count args))
-                           (err/int-error "Wrong arguments to Rec"))
-                      [[sym :as binder] t] args
-                      gsym (gensym sym)]
-                  {:op :Rec
-                   :f {:op :F :name gsym}
-                   :type (with-frees {sym gsym}
-                           (parse t))
-                   :children [:type]})
-    ('#{CountRange} f) (let [_ (when-not (#{1 2} (count args))
-                                 (err/int-error "Wrong arguments to CountRange"))
-                             [l u] args]
-                         {:op :CountRange
-                          :upper u
-                          :lower l})
-    ('#{ExactCount} f) (let [_ (when-not (#{1} (count args))
-                                 (err/int-error "Wrong arguments to ExactCount"))
-                             [n] args]
-                         {:op :CountRange
-                          :upper n
-                          :lower n})
-    ('#{predicate} f) (let [_ (when-not (#{1} (count args))
-                                 (err/int-error "Wrong arguments to predicate"))
-                            [t] args]
-                         {:op :predicate
-                          :type (parse t)
-                          :children [:type]})
-    ('#{Assoc} f) (let [_ (when-not (<= 1 (count args))
-                            (err/int-error "Wrong arguments to Assoc"))
-                        [t & entries] args
-                        _ (when-not (even? (count entries))
-                            (err/int-error "Uneven arguments to Assoc"))]
-                    {:op :Assoc
-                     :type (parse t)
-                     :entries (mapv parse entries)
-                     :children [:type :entries]})
-    ('#{Get} f) (let [_ (when-not (#{2 3} (count args))
-                          (err/int-error "Wrong arguments to Get"))
-                        [t ksyn not-foundsyn] args]
-                    (merge 
-                      {:op :Get
-                       :type (parse t)
-                       :key (parse ksyn)
-                       :children [:type :key]}
-                      (when (#{3} (count args))
-                        {:not-found (parse not-foundsyn)
-                         :children [:type :key :not-found]})))
-    ('#{All} f) (parse-All syn)
-    ('#{Extends} f) (parse-Extends syn)
-    ('#{U} f) (parse-U syn)
-    ('#{I} f) (parse-I syn)
-    ('#{Array} f) (let [_ (when-not (#{1} (count args))
-                            (err/int-error "Expected 1 argument to Array"))
-                        [syn] args
-                        t (parse syn)]
-                    {:op :Array
-                     :read t
-                     :write t
-                     :children [:read :write]})
-    ('#{Array2} f) (let [_ (when-not (#{2} (count args))
-                            (err/int-error "Expected 2 argument to Array2"))
-                         [wsyn rsyn] args
-                         w (parse wsyn)
-                         r (parse rsyn)]
-                     {:op :Array
-                      :read r
-                      :write w
-                      :children [:read :write]})
-    ('#{ReadOnlyArray} f) (let [_ (when-not (#{1} (count args))
-                                    (err/int-error "Expected 1 arguments to ReadOnlyArray"))
-                                [rsyn] args
-                                r (parse rsyn)]
-                            {:op :Array
-                             :read r
-                             :write {:op :U :types []}
-                             :children [:read :write]})
-    ('#{Array3} f) (let [_ (when-not (#{3} (count args))
-                                    (err/int-error "Expected 3 arguments to Array3"))
-                         [wsyn rsyn jsyn] args
-                         w (parse wsyn)
-                         r (parse rsyn)]
-                     {:op :Array
-                      :read r
-                      :write {:op :U :types []
-                              :children [:types]}
-                      :java-syntax jsyn
-                      :children [:read :write]})
-    ('#{TFn} f) (parse-TFn syn)
-    ('#{Fn} f) (parse-Fn syn)
-    ('#{HMap} f) (parse-HMap syn)
-    ('#{Vector*} f) (parse-quoted-hvec (vec (rest syn)))
-    ('#{Seq*} f) (parse-quoted-hseq (rest syn))
-    ('#{List*} f) (parse-quoted-hlist (rest syn))
-    ('#{HVec} f) (parse-HVec syn)
-    ('#{HSequential} f) (parse-HSequential syn)
-    ('#{HSeq} f) (parse-HSeq syn)
-    :else {:op :TApp
-           :rator (parse f)
-           :rands (mapv parse args)
-           :children [:rator :rands]}))
+(defmethod parse-seq* 'quote [syn] (parse-quote syn))
+
+(defn parse-Value [[f & args :as syn]]
+  (when-not (#{1} (count args))
+    (err/int-error (str "Wrong arguments to Value: " syn)))
+  {:op :singleton
+   :val (first args)})
+
+(defmethod parse-seq* 'Value [syn] 
+  (err/deprecated-plain-op 'Value)
+  (parse-Value syn))
+(defmethod parse-seq* 'clojure.core.typed/Value [syn] (parse-Value syn))
+(defmethod parse-seq* 'cljs.core.typed/Value [syn] (parse-Value syn))
+
+(defn parse-Difference [[f & args :as syn]]
+  (let [_ (when-not (<= 2 (count args))
+            (err/int-error "Wrong arguments to Difference"))
+        [t & without] args]
+    {:op :Difference
+     :type (parse t)
+     :without (mapv parse without)
+     :children [:type :without]}))
+
+(defmethod parse-seq* 'Difference [syn] 
+  (err/deprecated-plain-op 'Difference)
+  (parse-Difference syn))
+(defmethod parse-seq* 'clojure.core.typed/Difference [syn] (parse-Difference syn))
+(defmethod parse-seq* 'cljs.core.typed/Difference [syn] (parse-Difference syn))
+
+(defn parse-Rec [[f & args :as syn]]
+  (let [_ (when-not (#{2} (count args))
+            (err/int-error "Wrong arguments to Rec"))
+        [[sym :as binder] t] args
+        gsym (gensym sym)]
+    {:op :Rec
+     :f {:op :F :name gsym}
+     :type (with-frees {sym gsym}
+             (parse t))
+     :children [:type]}))
+
+(defmethod parse-seq* 'Rec [syn] 
+  (err/deprecated-plain-op 'Rec)
+  (parse-Rec syn))
+(defmethod parse-seq* 'clojure.core.typed/Rec [syn] (parse-Rec syn))
+(defmethod parse-seq* 'cljs.core.typed/Rec [syn] (parse-Rec syn))
+
+(defn parse-CountRange [[f & args :as syn]]
+  (let [_ (when-not (#{1 2} (count args))
+            (err/int-error "Wrong arguments to CountRange"))
+        [l u] args]
+    {:op :CountRange
+     :upper u
+     :lower l}))
+
+(defmethod parse-seq* 'CountRange [syn] 
+  (err/deprecated-plain-op 'CountRange)
+  (parse-CountRange syn))
+(defmethod parse-seq* 'clojure.core.typed/CountRange [syn] (parse-CountRange syn))
+(defmethod parse-seq* 'cljs.core.typed/CountRange [syn] (parse-CountRange syn))
+
+(defn parse-ExactCount [[f & args :as syn]]
+  (let [_ (when-not (#{1} (count args))
+            (err/int-error "Wrong arguments to ExactCount"))
+        [n] args]
+    {:op :CountRange
+     :upper n
+     :lower n}))
+
+(defmethod parse-seq* 'ExactCount [syn] 
+  (err/deprecated-plain-op 'ExactCount)
+  (parse-ExactCount syn))
+(defmethod parse-seq* 'clojure.core.typed/ExactCount [syn] (parse-ExactCount syn))
+(defmethod parse-seq* 'cljs.core.typed/ExactCount [syn] (parse-ExactCount syn))
+
+(defn parse-Pred [[f & args :as syn]]
+  (let [_ (when-not (#{1} (count args))
+            (err/int-error (str "Wrong arguments to " f)))
+        [t] args]
+    {:op :predicate
+     :type (parse t)
+     :children [:type]}))
+
+(defmethod parse-seq* 'predicate [syn] 
+  (err/deprecated-plain-op 'predicate 'Pred)
+  (parse-Pred syn))
+(defmethod parse-seq* 'clojure.core.typed/Pred [syn] (parse-Pred syn))
+(defmethod parse-seq* 'cljs.core.typed/Pred [syn] (parse-Pred syn))
+
+(defn parse-Assoc [[f & args :as syn]]
+  (let [_ (when-not (<= 1 (count args))
+            (err/int-error "Wrong arguments to Assoc"))
+        [t & entries] args
+        _ (when-not (even? (count entries))
+            (err/int-error "Uneven arguments to Assoc"))]
+    {:op :Assoc
+     :type (parse t)
+     :entries (mapv parse entries)
+     :children [:type :entries]}))
+
+(defmethod parse-seq* 'Assoc [syn] 
+  (err/deprecated-plain-op 'Assoc)
+  (parse-Assoc syn))
+(defmethod parse-seq* 'clojure.core.typed/Assoc [syn] (parse-Assoc syn))
+(defmethod parse-seq* 'cljs.core.typed/Assoc [syn] (parse-Assoc syn))
+
+(defn parse-Get [[f & args :as syn]]
+  (let [_ (when-not (#{2 3} (count args))
+            (err/int-error "Wrong arguments to Get"))
+        [t ksyn not-foundsyn] args]
+    (merge 
+      {:op :Get
+       :type (parse t)
+       :key (parse ksyn)
+       :children [:type :key]}
+      (when (#{3} (count args))
+        {:not-found (parse not-foundsyn)
+         :children [:type :key :not-found]}))))
+
+(defmethod parse-seq* 'Get [syn] 
+  (err/deprecated-plain-op 'Get)
+  (parse-Get syn))
+(defmethod parse-seq* 'clojure.core.typed/Get [syn] (parse-Get syn))
+(defmethod parse-seq* 'cljs.core.typed/Get [syn] (parse-Get syn))
+
+(defmethod parse-seq* 'All [syn] 
+  (err/deprecated-plain-op 'All)
+  (parse-All syn))
+(defmethod parse-seq* 'clojure.core.typed/All [syn] (parse-All syn))
+(defmethod parse-seq* 'cljs.core.typed/All [syn] (parse-All syn))
+
+(defmethod parse-seq* 'Extends [syn] (parse-Extends syn))
+
+(defmethod parse-seq* 'U [syn] 
+  (err/deprecated-plain-op 'U)
+  (parse-U syn))
+(defmethod parse-seq* 'clojure.core.typed/U [syn] (parse-U syn))
+(defmethod parse-seq* 'cljs.core.typed/U [syn] (parse-U syn))
+
+(defmethod parse-seq* 'I [syn] 
+  (err/deprecated-plain-op 'I)
+  (parse-I syn))
+(defmethod parse-seq* 'clojure.core.typed/I [syn] (parse-I syn))
+(defmethod parse-seq* 'cljs.core.typed/I [syn] (parse-I syn))
+
+(defn parse-Array [[f & args :as syn]]
+  (let [_ (when-not (#{1} (count args))
+            (err/int-error "Expected 1 argument to Array"))
+        [syn] args
+        t (parse syn)]
+    {:op :Array
+     :read t
+     :write t
+     :children [:read :write]}))
+
+(defmethod parse-seq* 'Array [syn] (parse-Array syn))
+
+(defn parse-Array2 [[f & args :as syn]]
+  (let [_ (when-not (#{2} (count args))
+            (err/int-error "Expected 2 arguments to Array2"))
+        [wsyn rsyn] args
+        w (parse wsyn)
+        r (parse rsyn)]
+    {:op :Array
+     :read r
+     :write w
+     :children [:read :write]}))
+
+(defmethod parse-seq* 'Array2 [syn] (parse-Array2 syn))
+
+(defn parse-ReadOnlyArray [[f & args :as syn]]
+  (let [_ (when-not (#{1} (count args))
+            (err/int-error "Expected 1 arguments to ReadOnlyArray"))
+        [rsyn] args
+        r (parse rsyn)]
+    {:op :Array
+     :read r
+     :write {:op :U :types []}
+     :children [:read :write]}))
+
+(defmethod parse-seq* 'ReadOnlyArray [syn] (parse-ReadOnlyArray syn))
+
+(defn parse-Array3 [[f & args :as syn]]
+  (let [_ (when-not (#{3} (count args))
+            (err/int-error "Expected 3 arguments to Array3"))
+        [wsyn rsyn jsyn] args
+        w (parse wsyn)
+        r (parse rsyn)]
+    {:op :Array
+     :read r
+     :write {:op :U :types []
+             :children [:types]}
+     :java-syntax jsyn
+     :children [:read :write]}))
+
+(defmethod parse-seq* 'Array3 [syn] (parse-Array3 syn))
+
+(defmethod parse-seq* 'TFn [syn] 
+  (err/deprecated-plain-op 'TFn)
+  (parse-TFn syn))
+(defmethod parse-seq* 'clojure.core.typed/TFn [syn] (parse-TFn syn))
+(defmethod parse-seq* 'cljs.core.typed/TFn [syn] (parse-TFn syn))
 
 (defn parse-function [f]
   (let [all-dom (take-while #(not= '-> %) f)
@@ -669,7 +763,98 @@
    :form syn
    :children [:arities]})
 
-(defn parse-symbol
+(defmethod parse-seq* 'Fn [syn] 
+  (err/deprecated-plain-op 'Fn 'FnCase)
+  (parse-Fn syn))
+(defmethod parse-seq* 'clojure.core.typed/FnCase [syn] (parse-Fn syn))
+(defmethod parse-seq* 'cljs.core.typed/FnCase [syn] (parse-Fn syn))
+
+(defmethod parse-seq* 'HMap [syn] 
+  (err/deprecated-plain-op 'HMap)
+  (parse-HMap syn))
+(defmethod parse-seq* 'clojure.core.typed/HMap [syn] (parse-HMap syn))
+(defmethod parse-seq* 'cljs.core.typed/HMap [syn] (parse-HMap syn))
+
+(defmethod parse-seq* 'Vector* [syn] 
+  (err/deprecated-plain-op 'Vector* 'HVec)
+  (parse-quoted-hvec (vec (rest syn))))
+(defmethod parse-seq* 'Seq* [syn] 
+  (err/deprecated-plain-op 'Seq* 'HSeq)
+  (parse-quoted-hseq (rest syn)))
+(defmethod parse-seq* 'List* [syn] 
+  (err/deprecated-plain-op 'List* 'HList)
+  (parse-quoted-hlist (rest syn)))
+
+(defmethod parse-seq* 'HVec [syn] 
+  (err/deprecated-plain-op 'HVec)
+  (parse-HVec syn))
+(defmethod parse-seq* 'clojure.core.typed/HVec [syn] (parse-HVec syn))
+(defmethod parse-seq* 'cljs.core.typed/HVec [syn] (parse-HVec syn))
+
+(defmethod parse-seq* 'HSequential [syn] 
+  (err/deprecated-plain-op 'HSequential)
+  (parse-HSequential syn))
+(defmethod parse-seq* 'clojure.core.typed/HSequential [syn] (parse-HSequential syn))
+(defmethod parse-seq* 'cljs.core.typed/HSequential [syn] (parse-HSequential syn))
+
+(defmethod parse-seq* 'HSeq [syn] 
+  (err/deprecated-plain-op 'HSeq)
+  (parse-HSeq syn))
+(defmethod parse-seq* 'clojure.core.typed/HSeq [syn] (parse-HSeq syn))
+(defmethod parse-seq* 'cljs.core.typed/HSeq [syn] (parse-HSeq syn))
+
+(defmethod parse-seq* :default [[f & args :as syn]]
+  {:op :TApp
+   :rator (parse f)
+   :rands (mapv parse args)
+   :children [:rator :rands]})
+
+;(defn parse-Not [[f & args :as syn]]
+;  (let [_ (when-not (#{1} (count args))
+;            (err/int-error "Wrong arguments to Not"))]
+;    {:op :Not
+;     :type (parse (first args))}))
+;
+;(defmethod parse-seq* 'Not [syn] (parse-Not syn))
+
+(defn parse-seq [syn]
+  (parse-seq* syn))
+
+(defmulti parse-symbol*
+  (fn [n] 
+    {:pre [(symbol? n)]}
+    (or (impl/impl-case
+          :clojure (let [r (resolve-type-clj n)]
+                     (when (var? r)
+                       (coerce/var->symbol r)))
+          ;TODO
+          :cljs n)
+        n)))
+
+(defn parse-Any [s] {:op :Any :form s})
+(defn parse-Nothing [s]
+  (parse-U `(clojure.core.typed/U)))
+
+(defmethod parse-symbol* 'Any [s] 
+  (impl/impl-case
+    :clojure (err/deprecated-warn "Any syntax is deprecated, use clojure.core.typed/Any")
+    :cljs nil)
+  (parse-Any s))
+(defmethod parse-symbol* 'clojure.core.typed/Any [s] (parse-Any s))
+
+(defmethod parse-symbol* 'Nothing [s] 
+  (impl/impl-case
+    :clojure (err/deprecated-warn "Nothing syntax is deprecated, use clojure.core.typed/Nothing")
+    :cljs nil)
+  (parse-Nothing s))
+(defmethod parse-symbol* 'clojure.core.typed/Nothing [s] (parse-Nothing s))
+
+(defn parse-AnyFunction [s]
+  {:op :AnyFunction :form s})
+
+(defmethod parse-symbol* 'AnyFunction [s] (parse-AnyFunction s))
+
+(defmethod parse-symbol* :default
   [sym]
   (let [primitives (impl/impl-case
                      :clojure clj-primitives
@@ -709,24 +894,28 @@
                                 "\nHint: Has " (pr-str sym) "'s annotation been"
                                 " found via check-ns, cf or typed-deps?"))))))
 
+(defn parse-symbol [s]
+  (parse-symbol* s))
+
 (defn parse [syn]
-  (cond
-    (nil? syn) {:op :singleton :val nil :form syn}
-    (true? syn) {:op :singleton :val true :form syn}
-    (false? syn) {:op :singleton :val false :form syn}
-    ('#{Any} syn) {:op :Any :form syn}
-    ('#{Nothing} syn) {:op :U :types [] :form syn :children [:types]}
-    ('#{AnyFunction} syn) {:op :AnyFunction :form syn}
-    (vector? syn) {:op :Fn 
-                   :arities [(parse-function syn)]
-                   :form syn
-                   :children [:arities]}
-    (symbol? syn) (assoc (parse-symbol syn)
-                         :form syn)
-    (seq? syn) (assoc (parse-seq syn)
-                      :form syn)
-    :else (err/int-error (str "Bad type syntax: " syn))
-  ))
+  (binding [vs/*current-env* (let [ne (when-let [m (meta syn)]
+                                        (select-keys m [:file :line :column :end-line :end-column]))]
+                               (or (when ((every-pred :file :line :column) ne)
+                                     ne)
+                                   vs/*current-env*))]
+    (cond
+      (nil? syn) {:op :singleton :val nil :form syn}
+      (true? syn) {:op :singleton :val true :form syn}
+      (false? syn) {:op :singleton :val false :form syn}
+      (vector? syn) {:op :Fn 
+                     :arities [(parse-function syn)]
+                     :form syn
+                     :children [:arities]}
+      (symbol? syn) (assoc (parse-symbol syn)
+                           :form syn)
+      (seq? syn) (assoc (parse-seq syn)
+                        :form syn)
+      :else (err/int-error (str "Bad type syntax: " syn)))))
 
 (defn parse-clj [syn]
   (impl/with-impl impl/clojure

@@ -1,22 +1,22 @@
 (ns clojure.core.typed.test.example
   (:refer-clojure :exclude [< not=])
-  (:import (clojure.lang Seqable PersistentHashSet Symbol)
-           (java.io File))
-  (:require [clojure.core.typed :refer [ann inst cf fn> pfn> check-ns ann-form]]
+  (:import (java.io File))
+  (:require [clojure.core.typed :refer [ann inst cf fn> pfn> check-ns ann-form]
+             :as t]
             [clojure.repl :refer [pst]]))
 
-(ann test1 (All [x y] [x y -> x]))
+(ann test1 (t/All [x y] [x y -> x]))
 (defn test1 [a b]
   a)
 
 (test1 1 2)
 
-(ann test2 (All [y] 
-                [(Seqable y) -> (Seqable Number)]))
+(ann test2 (t/All [y] 
+                [(t/Seqable y) -> (t/Seqable Number)]))
 ;(defn test2 [a]
 ;  (map + [1 2]))
 
-(ann use-map [(HMap :mandatory {:a Number}) -> Number])
+(ann use-map [(t/HMap :mandatory {:a Number}) -> Number])
 (defn use-map [a]
   (get a :a))
 
@@ -46,23 +46,23 @@
     :else (collatz (inc (* 3 n)))))
   )
 
-(ann to-set (All [x]
-                 [(U nil (Seqable x)) -> (PersistentHashSet x)]))
+(ann to-set (t/All [x]
+                 [(t/U nil (t/Seqable x)) -> (t/Set x)]))
 (defn to-set [a]
   (set a))
 
 (ann config
-     (HMap :mandatory {:file String
-                       :ns Symbol}))
+     (t/HMap :mandatory {:file String
+                       :ns t/Sym}))
 (def config
   {:file "clojure/core.clj"
    :ns 'clojure.core})
 
 (comment
-(ann add-or-zero [(U nil Number) * -> Number])
+(ann add-or-zero [(t/U nil Number) * -> Number])
 (defn add-or-zero [& nzs]
   (reduce (fn> [[acc :- Number]
-                [n :- (U nil Number)]]
+                [n :- (t/U nil Number)]]
             (+ acc (if n
                      n
                      0)))
@@ -71,13 +71,14 @@
 (add-or-zero 1 2 3 nil)
 )
 
-(ann num-vec2 [(U nil Number) (U nil Number) -> (Vector* Number Number)])
+(ann num-vec2 [(t/U nil Number) (t/U nil Number) -> '[Number Number]])
 (defn num-vec2 [a b]
   [(if a a 0) (if b b 0)])
 
-(ann < (Fn [Number -> boolean]
-           [Number Number -> boolean]
-           [Number Number Number * -> boolean]))
+(ann < (t/FnCase 
+         [Number -> boolean]
+         [Number Number -> boolean]
+         [Number Number Number * -> boolean]))
 #_(defn <
   "Returns non-nil if nums are in monotonically increasing order,
   otherwise false."
@@ -90,9 +91,10 @@
        (< y (first more)))
      false)))
 
-(ann not= (Fn [Any -> boolean]
-              [Any Any -> boolean]
-              [Any Any Any * -> boolean]))
+(ann not= (t/FnCase 
+            [t/Any -> boolean]
+            [t/Any t/Any -> boolean]
+            [t/Any t/Any t/Any * -> boolean]))
 (defn not=
   ([x] false)
   ([x y] (not (= x y)))

@@ -18,7 +18,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Type Aliases
 
-(t/def-alias DTAncestorEnv
+(t/defalias DTAncestorEnv
   "Environment mapping datatype names to sets of ancestor types."
   (t/Map t/Sym (t/Set r/ScopedType)))
 
@@ -37,7 +37,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation agnostic state
 
-(t/ann ^:no-check *current-dt-ancestors* (U nil (t/Atom1 DTAncestorEnv)))
+(t/ann ^:no-check *current-dt-ancestors* (t/U nil (t/Atom1 DTAncestorEnv)))
 (defonce ^:dynamic 
   *current-dt-ancestors* nil)
 
@@ -48,7 +48,7 @@
   assert-dt-ancestors []
   (assert *current-dt-ancestors* "No datatype ancestor environment bound"))
 
-(defn ^:private ^{:ann '[DataType (U nil (t/Seqable r/Type)) -> (t/Set r/Type)]}
+(defn ^:private ^{:ann '[DataType (t/U nil (t/Seqable r/Type)) -> (t/Set r/Type)]}
   inst-ancestors
   "Given a datatype, return its instantiated ancestors"
   [{poly :poly? :as dt} anctrs]

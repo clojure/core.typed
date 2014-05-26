@@ -20,7 +20,7 @@
   their bounds."
   (t/Map t/Symbol Bounds))
 
-(t/ann ^:no-check tvar-bnds-env? (predicate TVarBndsEnv))
+(t/ann ^:no-check tvar-bnds-env? (t/Pred TVarBndsEnv))
 (def tvar-bnds-env? (con/hash-c? symbol? r/Bounds?))
 
 (t/ann initial-tvar-bnds-env TVarBndsEnv)

@@ -2,33 +2,28 @@
   "Tools for loading runtime settings."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.core.typed :refer [;types
-                                        Atom1
-                                        ;vars
-                                        cf ann ann-form tc-ignore def-alias check-ns]])
-  (:import [java.io PushbackReader
-            Reader]
-           (clojure.lang Keyword APersistentMap)))
+            [clojure.core.typed :as t])
+  (:import (java.io PushbackReader Reader)))
 
 
-(ann clojure.java.io/reader [Any -> Reader])
+(t/ann clojure.java.io/reader [t/Any -> Reader])
 ;FIXME needs more cases
-(ann clojure.edn/read [PushbackReader -> Any])
+(t/ann clojure.edn/read [PushbackReader -> t/Any])
 
-(def-alias Settings (APersistentMap Keyword Any))
+(t/defalias Settings (t/Map t/Kw t/Any))
 
-(ann defaults Settings)
+(t/ann defaults Settings)
 (def ^:private defaults
   "A set of default settings values"
   {})
 
-(ann settings (Atom1 (U Settings nil)))
+(t/ann settings (t/Atom1 (t/U Settings nil)))
 (def ^:private settings
   "This atom hosts the loaded settings."
   (atom nil))
 
-(ann typed-read [PushbackReader -> Settings])
-(tc-ignore
+(t/ann typed-read [PushbackReader -> Settings])
+(t/tc-ignore
 (defn typed-read [r]
   (edn/read r))
   )
@@ -42,9 +37,9 @@
                               "settings.edn")))]    
     (reset! settings (typed-read r))))
 
-(ann load-settings [-> Any])
+(t/ann load-settings [-> t/Any])
 
-(ann read-setting [clojure.lang.Keyword -> Any])
+(t/ann read-setting [clojure.lang.Keyword -> t/Any])
 (defn read-setting
   "reads a setting from the configuration file (defined by the environment
    variable KODIAK_SETTINGS), loading it if necessary."

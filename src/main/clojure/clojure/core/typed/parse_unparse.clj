@@ -77,11 +77,14 @@
 (defmulti parse-type class)
 (defmulti parse-type-list 
   (fn [[n]] 
+    {:post [((some-fn nil? symbol?) %)]}
     (when (symbol? n)
       (or (impl/impl-case
-            :clojure (let [r (resolve-type-clj n)]
-                       (when (var? r)
-                         (coerce/var->symbol r)))
+            :clojure (cond
+                       (special-symbol? n) n
+                       :else (let [r (resolve-type-clj n)]
+                               (when (var? r)
+                                 (coerce/var->symbol r))))
             :cljs n)
           n))))
 
@@ -212,12 +215,14 @@
                        :filter (fl/-FS (fl/-filter on-type 0)
                                        (fl/-not-filter on-type 0))))))
 
-; possibly should be called Pred
-(defmethod parse-type-list 'predicate
-  [[_ & [t-syn :as args]]]
+(defn parse-Pred [[_ & [t-syn :as args]]]
   (when-not (== 1 (count args))
     (err/int-error "Wrong arguments to predicate"))
   (predicate-for (parse-type t-syn)))
+
+; possibly should be called Pred
+(defmethod parse-type-list 'predicate [t] (parse-Pred t))
+(defmethod parse-type-list 'clojure.core.typed/Pred [t] (parse-Pred t))
 
 ; Only base-env can use this, eventually replace with Difference
 (defmethod parse-type-list 'Not
@@ -493,11 +498,11 @@
 (declare parse-quoted-hvec)
 
 (defmethod parse-type-list 'Seq* [syn] 
-  (err/deprecated-warn "Seq* is deprecated, see clojure.core.typed/HSeq")
+  (err/deprecated-plain-op 'Seq* 'HSeq)
   (r/-hseq (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'List* [syn] (r/HeterogeneousList-maker (mapv parse-type (rest syn))))
 (defmethod parse-type-list 'Vector* [syn] 
-  (err/deprecated-warn "Vector* is deprecated, see clojure.core.typed/HVec")
+  (err/deprecated-plain-op 'Vector* 'HVec)
   (parse-quoted-hvec (rest syn)))
 
 (declare parse-hvec-types parse-object parse-filter-set parse-hvec-types)
@@ -690,7 +695,8 @@
 (defn- resolve-type-clj 
   "Returns a var, class or nil"
   [sym]
-  {:pre [(symbol? sym)]}
+  {:pre [(symbol? sym)]
+   :post [((some-fn var? class? nil?) %)]}
   (impl/assert-clojure)
   (let [nsym (parse-in-ns)]
     (if-let [ns (find-ns nsym)]
@@ -698,9 +704,13 @@
       (err/int-error (str "Cannot find namespace: " sym)))))
 
 (defn- resolve-type-cljs 
-  "Returns a var map of {:ns sym :name sym} or nil"
+  "Returns a var map of {:ns (U nil sym) :name sym} or nil"
   [sym]
-  {:pre [(symbol? sym)]}
+  {:pre [(symbol? sym)]
+   :post [((some-fn (con/hmap-c? (con/optional :ns) (some-fn nil? symbol? )
+                                 :name symbol?)
+                    nil?)
+           %)]}
   (impl/assert-cljs)
   (let [nsym (parse-in-ns)]
     (require '[clojure.core.typed.util-cljs])
@@ -770,17 +780,25 @@
   (fn [n] 
     {:pre [(symbol? n)]}
     (or (impl/impl-case
-                     :clojure (let [r (resolve-type-clj n)]
-                                (when (var? r)
-                                  (coerce/var->symbol r)))
-                     ;TODO
-                     :cljs n)
-                   n)))
+          :clojure (let [r (resolve-type-clj n)]
+                     (when (var? r)
+                       (coerce/var->symbol r)))
+          ;TODO
+          :cljs n)
+        n)))
 
-(defmethod parse-type-symbol 'Any [_] r/-any)
+(defmethod parse-type-symbol 'Any [_] 
+  (impl/impl-case
+    :clojure (err/deprecated-warn "Any syntax is deprecated, use clojure.core.typed/Any")
+    :cljs nil)
+  r/-any)
 (defmethod parse-type-symbol 'clojure.core.typed/Any [_] r/-any)
 
-(defmethod parse-type-symbol 'Nothing [_] (r/Bottom))
+(defmethod parse-type-symbol 'Nothing [_] 
+  (impl/impl-case
+    :clojure (err/deprecated-warn "Nothing syntax is deprecated, use clojure.core.typed/Nothing")
+    :cljs nil)
+  (r/Bottom))
 (defmethod parse-type-symbol 'clojure.core.typed/Nothing [_] (r/Bottom))
 
 (defmethod parse-type-symbol 'AnyFunction [_] (r/TopFunction-maker))

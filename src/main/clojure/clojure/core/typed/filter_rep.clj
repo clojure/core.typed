@@ -12,22 +12,22 @@
 (alter-meta! *ns* assoc :skip-wiki true)
   )
 
-(t/def-alias Filter
+(t/defalias Filter
   "A filter"
   p/IFilter)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filters
 
-(t/def-alias NameRef
+(t/defalias NameRef
   "A name for a type variable, either a symbol or a number."
-  (U Symbol Number))
+  (t/U Symbol Number))
 
-(t/ann ^:no-check name-ref? (predicate NameRef))
+(t/ann ^:no-check name-ref? (t/Pred NameRef))
 (def name-ref? (some-fn symbol? (every-pred integer?
                                             (complement neg?))))
 
-(t/ann ^:no-check Filter? (predicate Filter))
+(t/ann ^:no-check Filter? (t/Pred Filter))
 (defn Filter? [a]
   (p/IFilter? a))
 
@@ -55,7 +55,7 @@
   p/IFilter)
 
 (u/ann-record TypeFilter [type :- r/Type,
-                          path :- (U nil (Seqable IPathElem))
+                          path :- (t/U nil (Seqable IPathElem))
                           id :- NameRef])
 (u/defrecord TypeFilter [type path id]
   "A filter claiming looking up id, down the given path, is of given type"

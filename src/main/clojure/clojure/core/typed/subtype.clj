@@ -28,7 +28,7 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
-;(def-alias Seen Any)
+;(defalias Seen Any)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Subtype

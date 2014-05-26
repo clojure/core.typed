@@ -25,7 +25,7 @@
 (u/defprotocol IScope
   (scope-body [this]))
 
-(t/ann ^:no-check IScope? (predicate IScope))
+(t/ann ^:no-check IScope? (t/Pred IScope))
 (defn IScope? [a]
   (instance? clojure.core.typed.impl_protocols.IScope a))
 
@@ -40,7 +40,7 @@
 (t/ann-protocol IFilter)
 (u/defprotocol IFilter)
 
-(t/ann ^:no-check IFilter? (predicate IFilter))
+(t/ann ^:no-check IFilter? (t/Pred IFilter))
 (defn IFilter? [a]
   (instance? clojure.core.typed.impl_protocols.IFilter a))
 
@@ -53,7 +53,7 @@
   (then-filter [this])
   (else-filter [this]))
 
-(t/ann ^:no-check IFilterSet? (predicate IFilterSet))
+(t/ann ^:no-check IFilterSet? (t/Pred IFilterSet))
 (defn IFilterSet? [a]
   (instance? clojure.core.typed.impl_protocols.IFilterSet a))
 
@@ -62,7 +62,7 @@
 (t/ann-protocol IRObject)
 (u/defprotocol IRObject)
 
-(t/ann ^:no-check IRObject? (predicate IRObject))
+(t/ann ^:no-check IRObject? (t/Pred IRObject))
 (defn IRObject? [a]
   (instance? clojure.core.typed.impl_protocols.IRObject a))
 

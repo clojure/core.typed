@@ -297,7 +297,7 @@
 ; A function intersection describes 
 ; 
 
-(t/def-alias MapLike
+(t/defalias MapLike
   (TFn [[kv :variance :covariant]
         [meta :variance :covariant]]
     (I (IColl (U nil '[Any Any] (IMapEntry Any Any))
@@ -394,7 +394,7 @@
 ;  (conj 
 
 ;
-;(def-alias Map 
+;(defalias Map 
 ;  (TFn [[a :variance :covariant]
 ;        [b :variance :covariant]]
 ;    (I (IPersistentCollection (U nil (IMapEntry a b))
@@ -414,7 +414,7 @@
                 Dummy)
 (t/defprotocol> Dummy)
 
-(t/def-alias DummyAlias
+(t/defalias DummyAlias
   (TFn [[k :variance :covariant]]
        (All [a]
             [-> (DummyAlias (U k a))])))

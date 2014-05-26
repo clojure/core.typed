@@ -3,8 +3,8 @@
 
 (declare funb)
 
-(t/ann-many [Number -> (Rec [f]
-                         (U Number [-> (U Number f)]))]
+(t/ann-many [Number -> (t/Rec [f]
+                         (t/U Number [-> (t/U t/Num f)]))]
             funa funb)
 (defn funa [n]
   (if (= n 0)
