@@ -1833,7 +1833,7 @@
    :file
    "src/main/clojure/clojure/core/typed/check/fn_method_utils.clj"}
   {:arglists
-   ([{:as m__2332__auto__, :keys [args kws rest drest body]}]),
+   ([{:as m__2025__auto__, :keys [args kws rest drest body]}]),
    :name "map->FnResult",
    :namespace "clojure.core.typed.check.fn-method-utils",
    :source-url
@@ -1910,7 +1910,7 @@
    :var-type "function",
    :line 5,
    :file "src/main/clojure/clojure/core/typed/check/recur_utils.clj"}
-  {:arglists ([{:as m__2332__auto__, :keys [dom rest drest kws]}]),
+  {:arglists ([{:as m__2025__auto__, :keys [dom rest drest kws]}]),
    :name "map->RecurTarget",
    :namespace "clojure.core.typed.check.recur-utils",
    :source-url
