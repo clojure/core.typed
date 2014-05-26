@@ -116,6 +116,13 @@
                   :rest (:rest s)
                   :drest (:drest s)))
 
+(t/tc-ignore
+(def AnyHSequential?
+  "Predicate for any type that fully supports the HSequential interface."
+  ;; HeterogeneousList does not currently support :rest and others
+  (some-fn r/HSequential? r/HeterogeneousSeq? r/HeterogeneousVector?))
+)
+
 ;; Heterogeneous maps
 
 (declare make-HMap)

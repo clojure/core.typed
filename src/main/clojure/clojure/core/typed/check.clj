@@ -16,6 +16,7 @@
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.get :as get]
             [clojure.core.typed.check.nth :as nth]
+            [clojure.core.typed.check.nthnext :as nthnext]
             [clojure.core.typed.check.fn :as fn]
             [clojure.core.typed.check.fn-methods :as fn-methods]
             [clojure.core.typed.check.fn-method-utils :as fn-method-u]
@@ -1010,6 +1011,16 @@
       r
       (method/check-invoke-method check expr expected false
                                   :cargs cargs))))
+
+;nthnext
+(add-invoke-special-method 'clojure.core/nthnext
+  [{fexpr :fn :keys [args] :as expr} & [expected]]
+  {:post [(-> % u/expr-type r/TCResult?)]}
+  (let [cargs (mapv check args)
+        r (nthnext/check-nthnext check expr expected :cargs cargs)]
+    (if-not (#{cu/not-special} r)
+      r
+      (invoke/normal-invoke check expr fexpr args expected :cargs cargs))))
 
 ;assoc
 (add-invoke-special-method 'clojure.core/assoc
