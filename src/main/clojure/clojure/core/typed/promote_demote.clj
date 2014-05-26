@@ -190,6 +190,58 @@
                :drest (when-let [drest (:drest T)]
                         (update-in drest [:pre-type] dmt))))))
 
+(defmethod promote HeterogeneousSeq
+  [T V]
+  (let [pmt #(promote % V)
+        latent-filter-vs (set/intersection (set (mapcat frees/fv (:fs T)))
+                                           (set (mapcat frees/fi (:fs T))))]
+    (cond
+      ;if filter contains V, give up
+      (seq (set/intersection V latent-filter-vs)) (c/RClass-of clojure.lang.ISeq [r/-any])
+
+      ;if dotted bound is in V, transfer to rest args
+      (and (:drest T) (V (-> T :drest :name)))
+      (r/-hseq (mapv pmt (:types T))
+               :filters (:fs T)
+               :objects (:objects T)
+               :rest (pmt (-> T :drest :pre-type)))
+
+      :else
+      (r/-hseq (mapv pmt (:types T))
+               ; we know no filters contain V
+               :filters (:fs T)
+               :objects (:objects T)
+               :rest (when-let [rest (:rest T)]
+                       (pmt rest))
+               :drest (when-let [drest (:drest T)]
+                        (update-in drest [:pre-type] pmt))))))
+
+(defmethod demote HeterogeneousSeq
+  [T V]
+  (let [dmt #(demote % V)
+        latent-filter-vs (set/intersection (set (mapcat frees/fv (:fs T)))
+                                           (set (mapcat frees/fi (:fs T))))]
+    (cond
+      ;if filter contains V, give up
+      (seq (set/intersection V latent-filter-vs)) (c/RClass-of clojure.lang.ISeq [r/-any])
+
+      ;if dotted bound is in V, transfer to rest args
+      (and (:drest T) (V (-> T :drest :name)))
+      (r/-hseq (mapv dmt (:types T))
+               :filters (:fs T)
+               :objects (:objects T)
+               :rest (dmt (-> T :drest :pre-type)))
+
+      :else
+      (r/-hseq (mapv dmt (:types T))
+               ; we know no filters contain V
+               :filters (:fs T)
+               :objects (:objects T)
+               :rest (when-let [rest (:rest T)]
+                       (dmt rest))
+               :drest (when-let [drest (:drest T)]
+                        (update-in drest [:pre-type] dmt))))))
+
 (defmethod promote HeterogeneousVector
   [T V]
   (let [pmt #(promote % V)
