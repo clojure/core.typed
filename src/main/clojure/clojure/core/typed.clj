@@ -268,7 +268,7 @@ for checking namespaces, cf for checking individual forms."}
   eg. (dotimes [_ 100]
         (println \"like normal\"))
 
-      (dotimes [x :- Number, 100.123]
+      (dotimes [x :- Num, 100.123]
         (println \"like normal\" x))"
   [bindings & body]
   (@#'core/assert-args
