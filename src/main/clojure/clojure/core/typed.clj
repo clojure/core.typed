@@ -14,6 +14,7 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.parse-ast :as ast]
             [clojure.core.typed.internal :as internal]
+            [clojure.core.typed.errors :as err]
             [clojure.java.io :as io]))
 
 (defmacro
@@ -2314,6 +2315,8 @@ for checking namespaces, cf for checking individual forms."}
   (when-not *currently-loading*
     (binding [*collect-on-eval* false
               *currently-loading* true]
+      (when-not (io/resource "clojure/core/typed/init.clj")
+        (err/int-error "core.typed checker is not found on classpath"))
       (when-not (find-ns 'clojure.core.typed.init)
         (require 'clojure.core.typed.init))
       (let [init-ns (find-ns 'clojure.core.typed.init)]
