@@ -68,7 +68,7 @@
    :doc
    "This namespace contains easy tools for hole driven development"}
   {:source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   "https://github.com/clojure/core.typed/blob/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed/clojure.core.typed.ns-deps-utils-api.html",
    :name "clojure.core.typed.ns-deps-utils",
@@ -2083,48 +2083,48 @@
    :name "collect-only-ns?",
    :namespace "clojure.core.typed.ns-deps-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L64",
+   "https://github.com/clojure/core.typed/blob/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L67",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   "https://github.com/clojure/core.typed/raw/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/collect-only-ns?",
    :doc "Returns true if the ns-form has collect-only metadata.",
    :var-type "function",
-   :line 64,
+   :line 67,
    :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
   {:arglists ([nsym]),
    :name "deps-for-ns",
    :namespace "clojure.core.typed.ns-deps-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L34",
+   "https://github.com/clojure/core.typed/blob/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L37",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   "https://github.com/clojure/core.typed/raw/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/deps-for-ns",
    :doc "Returns the dependencies for a namespace",
    :var-type "function",
-   :line 34,
+   :line 37,
    :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
   {:arglists ([ns-form]),
    :name "ns-form-deps",
    :namespace "clojure.core.typed.ns-deps-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L26",
+   "https://github.com/clojure/core.typed/blob/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L29",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   "https://github.com/clojure/core.typed/raw/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/ns-form-deps",
    :doc "Given a ns-form, returns a set of dependencies",
    :var-type "function",
-   :line 26,
+   :line 29,
    :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
   {:arglists ([file]),
    :name "ns-form-for-file",
    :namespace "clojure.core.typed.ns-deps-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L10",
+   "https://github.com/clojure/core.typed/blob/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L10",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   "https://github.com/clojure/core.typed/raw/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/ns-form-for-file",
    :doc
@@ -2136,13 +2136,13 @@
    :name "ns-form-for-ns",
    :namespace "clojure.core.typed.ns-deps-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L17",
+   "https://github.com/clojure/core.typed/blob/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L17",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   "https://github.com/clojure/core.typed/raw/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/ns-form-for-ns",
    :doc
-   "Returns the namespace declaration for the namespace, or\nnil if not found",
+   "Returns the namespace declaration for the namespace, or\nnil if not found. Throws an int-error if file cannot be\nfound for namespace.",
    :var-type "function",
    :line 17,
    :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
@@ -2150,41 +2150,41 @@
    :name "ns-form-name",
    :namespace "clojure.core.typed.ns-deps-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L51",
+   "https://github.com/clojure/core.typed/blob/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L54",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   "https://github.com/clojure/core.typed/raw/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/ns-form-name",
    :doc
    "Returns the symbol naming this namespace, with any\nmetadata attached.",
    :var-type "function",
-   :line 51,
+   :line 54,
    :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
   {:arglists ([ns-form]),
    :name "requires-tc?",
    :namespace "clojure.core.typed.ns-deps-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L43",
+   "https://github.com/clojure/core.typed/blob/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L46",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   "https://github.com/clojure/core.typed/raw/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/requires-tc?",
    :doc "Returns true if the ns-form refers to clojure.core.typed",
    :var-type "function",
-   :line 43,
+   :line 46,
    :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
   {:arglists ([nsym]),
    :name "should-check-ns?",
    :namespace "clojure.core.typed.ns-deps-utils",
    :source-url
-   "https://github.com/clojure/core.typed/blob/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L72",
+   "https://github.com/clojure/core.typed/blob/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj#L75",
    :raw-source-url
-   "https://github.com/clojure/core.typed/raw/d5d99338adef66b0a69d5baedcb001d8baa2ea1c/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
+   "https://github.com/clojure/core.typed/raw/1d8bf964a580ae2a0099e81fe73cf21ca297af12/src/main/clojure/clojure/core/typed/ns_deps_utils.clj",
    :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed.ns-deps-utils/should-check-ns?",
    :doc "Returns true if the given namespace should be type checked",
    :var-type "function",
-   :line 72,
+   :line 75,
    :file "src/main/clojure/clojure/core/typed/ns_deps_utils.clj"}
   {:arglists
    ([{t :t, fs :fl, old-obj :o, :keys [flow], :as r} objs & [ts]]),
