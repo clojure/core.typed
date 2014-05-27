@@ -3229,6 +3229,9 @@
   (is-tc-err (for [a [1 2 3]]
                (inc a))))
 
+(deftest CTYP146-test
+  (is (check-ns 'clojure.core.typed.test.CTYP146)))
+
 (ann-form vector [Number * -> '[Number]])
 #_(cf (inst vector Number Number))
 #_(is (cf (juxt (inst vector clojure.core.typed/Any))))
