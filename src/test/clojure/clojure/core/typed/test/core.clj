@@ -3229,6 +3229,10 @@
   (is-tc-err (for [a [1 2 3]]
                (inc a))))
 
+(deftest file-not-found-error-test
+  (is (err/top-level-error-thrown?
+        (check-ns 'this.doesnt-exist))))
+
 (deftest CTYP146-test
   (is (check-ns 'clojure.core.typed.test.CTYP146)))
 

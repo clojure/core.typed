@@ -16,11 +16,14 @@
 
 (defn ns-form-for-ns
   "Returns the namespace declaration for the namespace, or
-  nil if not found"
+  nil if not found. Throws an int-error if file cannot be
+  found for namespace."
   [nsym]
   {:pre [(symbol? nsym)]}
-  (let [res (-> nsym coerce/ns->file io/resource)
-        _ (assert res)]
+  (let [f (-> nsym coerce/ns->file)
+        res (io/resource f)
+        _ (when-not res
+            (err/int-error (str "File for " nsym " not found on classpath: " f)))]
     (ns-form-for-file res)))
 
 (defn ns-form-deps
