@@ -834,6 +834,38 @@
    :raw-source-url nil,
    :source-url nil,
    :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Sequential",
+   :namespace "clojure.core.typed",
+   :forms [Sequential],
+   :var-type "type alias",
+   :doc "A sequential collection.\n\nclojure.lang.Sequential",
+   :name "Sequential"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/SequentialSeq",
+   :namespace "clojure.core.typed",
+   :forms [(SequentialSeq t)],
+   :var-type "type alias",
+   :doc
+   "A Clojure sequential sequence. Seq's aren't always Sequential.\n\n(TFn\n [[x :variance :covariant]]\n (I clojure.lang.Sequential (clojure.lang.ISeq x)))",
+   :name "SequentialSeq"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
+   "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/SequentialSeqable",
+   :namespace "clojure.core.typed",
+   :forms [(SequentialSeqable t)],
+   :var-type "type alias",
+   :doc
+   "A sequential, seqable collection. Seq's aren't always Sequential.\n\n(TFn\n [[x :variance :covariant]]\n (I clojure.lang.Sequential (clojure.lang.Seqable x)))",
+   :name "SequentialSeqable"}
+  {:file nil,
+   :raw-source-url nil,
+   :source-url nil,
+   :wiki-url
    "http://clojure.github.com/core.typed//clojure.core.typed-api.html#clojure.core.typed/Set",
    :namespace "clojure.core.typed",
    :forms [(Set t)],
@@ -1833,7 +1865,7 @@
    :file
    "src/main/clojure/clojure/core/typed/check/fn_method_utils.clj"}
   {:arglists
-   ([{:as m__2025__auto__, :keys [args kws rest drest body]}]),
+   ([{:as m__2036__auto__, :keys [args kws rest drest body]}]),
    :name "map->FnResult",
    :namespace "clojure.core.typed.check.fn-method-utils",
    :source-url
@@ -1910,7 +1942,7 @@
    :var-type "function",
    :line 5,
    :file "src/main/clojure/clojure/core/typed/check/recur_utils.clj"}
-  {:arglists ([{:as m__2025__auto__, :keys [dom rest drest kws]}]),
+  {:arglists ([{:as m__2036__auto__, :keys [dom rest drest kws]}]),
    :name "map->RecurTarget",
    :namespace "clojure.core.typed.check.recur-utils",
    :source-url

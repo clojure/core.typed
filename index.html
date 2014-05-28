@@ -231,6 +231,15 @@ namespace.
       <a class="toc-entry-anchor" href="#clojure.core.typed/Seqable">Seqable</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/Sequential">Sequential</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/SequentialSeq">SequentialSeq</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a class="toc-entry-anchor" href="#clojure.core.typed/SequentialSeqable">SequentialSeqable</a>
+      
+    </div><div style="margin-left: 1em;" class="toc-entry">
       <a class="toc-entry-anchor" href="#clojure.core.typed/Set">Set</a>
       
     </div><div style="margin-left: 1em;" class="toc-entry">
@@ -1387,6 +1396,49 @@ clojure.lang.IProxy</pre>
     <pre id="var-docstr">A type that can be used to create a sequence of member type x.
 
 (TFn [[x :variance :covariant]] (clojure.lang.Seqable x))</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/Sequential">Sequential</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: Sequential
+</pre>
+    <pre id="var-docstr">A sequential collection.
+
+clojure.lang.Sequential</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/SequentialSeq">SequentialSeq</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: (SequentialSeq t)
+</pre>
+    <pre id="var-docstr">A Clojure sequential sequence. Seq's aren't always Sequential.
+
+(TFn
+ [[x :variance :covariant]]
+ (I clojure.lang.Sequential (clojure.lang.ISeq x)))</pre>
+    
+    
+    
+  </div><div id="var-entry">
+    <br />
+    <hr />
+    <h2 id="clojure.core.typed/SequentialSeqable">SequentialSeqable</h2>
+    <span id="var-type">type alias</span><br />
+    <pre id="var-usage">Usage: (SequentialSeqable t)
+</pre>
+    <pre id="var-docstr">A sequential, seqable collection. Seq's aren't always Sequential.
+
+(TFn
+ [[x :variance :covariant]]
+ (I clojure.lang.Sequential (clojure.lang.Seqable x)))</pre>
     
     
     
