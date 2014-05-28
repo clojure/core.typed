@@ -118,3 +118,8 @@
                  :params (vec (concat required-params
                                       (when rest-param
                                         [rest-param]))))))
+
+(defn let-body-kw []
+  (impl/impl-case
+    :clojure :body
+    :cljs :expr))

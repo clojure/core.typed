@@ -23,6 +23,7 @@
             [clojure.core.typed.check.invoke-kw :as invoke-kw]
             [clojure.core.typed.check.isa :as isa]
             [clojure.core.typed.check.let :as let]
+            [clojure.core.typed.check.loop :as loop]
             [clojure.core.typed.check.letfn :as letfn]
             [clojure.core.typed.check.map :as map]
             [clojure.core.typed.check.multi :as multi]
@@ -1715,28 +1716,13 @@
   [{binding-inits :bindings :keys [body] :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:bindings %))]}
-  (let [loop-bnd-anns recur-u/*loop-bnd-anns*]
-    (binding [recur-u/*loop-bnd-anns* nil]
-      (let/check-let 
-        binding-inits 
-        body 
-        expr 
-        true 
-        expected 
-        :expected-bnds loop-bnd-anns
-        :check-let-checkfn check))))
+  (loop/check-loop check expr expected))
 
 (add-check-method :let
   [{bindings :bindings :keys [body] :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:bindings %))]}
-  (let/check-let 
-    bindings 
-    body 
-    expr 
-    false 
-    expected 
-    :check-let-checkfn check))
+  (let/check-let check expr expected))
 
 (add-check-method :letfn
   [{bindings :bindings :keys [body] :as expr} & [expected]]

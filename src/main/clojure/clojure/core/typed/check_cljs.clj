@@ -2,6 +2,7 @@
   (:require [clojure.core.typed]
             [clojure.core.typed.check :as chk]
             [clojure.core.typed.check.let :as let]
+            [clojure.core.typed.check.loop :as loop]
             [clojure.core.typed.check.letfn :as letfn]
             [clojure.core.typed.check.recur :as recur]
             [clojure.core.typed.check.recur-utils :as recur-u]
@@ -411,8 +412,10 @@
     (if/check-if check expr ctest then else expected)))
 
 (defmethod check :let
-  [{:keys [bindings expr env] :as let-expr} & [expected]]
-  (let/check-let bindings expr let-expr false expected :check-let-checkfn check))
+  [{:keys [bindings #_expr env] :as let-expr} & [expected]]
+  {:post [(-> % u/expr-type r/TCResult?)
+          (vector? (:bindings %))]}
+  (let/check-let check let-expr expected))
 
 (defmethod check :letfn
   [{:keys [bindings expr env] :as letfn-expr} & [expected]]
@@ -423,131 +426,10 @@
   (recur/check-recur exprs env recur-expr expected check))
 
 (defmethod check :loop
-  [{:keys [bindings expr env] :as loop-expr} & [expected]]
-  (let [loop-bnd-anns recur-u/*loop-bnd-anns*]
-    (binding [recur-u/*loop-bnd-anns* nil]
-      (let/check-let bindings expr loop-expr true expected :expected-bnds loop-bnd-anns
-                     :check-let-checkfn check))))
+  [{:keys [bindings #_expr env] :as loop-expr} & [expected]]
+  (loop/check-loop check loop-expr expected))
 
 (defmethod check :ns
   [expr & [expected]]
   (assoc expr
          expr-type (ret r/-any)))
-
-;; Debug
-
-;(defn ana-cljs [env form]
-;  (with-altered-specials
-;    (binding [cljs/*cljs-ns* cljs/*cljs-ns*]
-;      (cljs/analyze env form))))
-
-;(comment
-;  ;; TODO there's a bug in the docstring for cljs.analyzer/analyze: it says :ns is a symbol, when instead it's {:name nsym}
-;  (def denv {:locals {} :context :statement :ns {:name 'cljs.user}})
-;
-;(cljs/analyze denv 1)
-;  (cf-cljs 1)
-;
-;(cljs/analyze denv [1])
-;  (cf-cljs [1])
-;
-;(cljs/analyze denv {:a 1})
-;(cf-cljs {:a 1})
-;
-;(cljs/analyze denv (cljs-ann cljs.user/a Any))
-;  (@CLJS-VAR-ENV 'cljs.user/a)
-;
-;(cljs/analyze denv '(def a 1))
-;(cf-cljs (def a 1))
-;
-;; defprotocol doesn't macroexpand because we've added 'defprotocol as a special
-;  (with-altered-specials
-;    (prn cljs/specials)
-;    (cljs/macroexpand-1 {} '(defprotocol A)))
-;(cljs/analyze (cljs/empty-env) '(defprotocol A))
-;(cf-cljs (defprotocol A))
-;
-;
-;(ana-cljs denv '(ns cljs.user (:require-macros [clojure.core.typed :as typ])))
-;(cljs/macroexpand-1 {} '(ann-form-cljs 'a SymbolCLJS))
-;(cf-cljs (clojure.core.typed/ann-form-cljs 'a SymbolCLJS))
-;
-;  ;occurrence typing
-;(cljs-ann cljs.core/symbol? (predicate-cljs SymbolCLJS))
-;(ana-cljs denv 'cljs.core/symbol?)
-;(cf-cljs (cljs.core/symbol? 'a))
-;
-;; do                                         
-;(ana-cljs denv '(do 1 2 ))
-;
-;; fn
-;(ana-cljs denv '(fn [a] 12 1 ))
-;(cf-cljs (fn []))
-;(cf-cljs (fn [a]))
-;(cf-cljs (fn [a b c]))
-;(cf-cljs (fn [a b c]) [BooleanCLJS BooleanCLJS Any -> nil])
-;
-;(cf-cljs (fn [a] (if a (a) true)) [(U nil [-> BooleanCLJS]) -> BooleanCLJS])
-;
-;  (ana-cljs {:locals {} :context :expr :ns {:name cljs/*cljs-ns*}}
-;            (list `ann-form-cljs 1 'Any))
-;
-;(ana-cljs denv '(fn [a] a))
-;(cf-cljs (fn [a b c] a) [BooleanCLJS BooleanCLJS Any -> BooleanCLJS])
-;
-;; deftype
-;(ana-cljs denv '(deftype A [b] cljs.core/ASeq))
-;  (cljs/macroexpand-1 (cljs/empty-env)
-;                      '(deftype A [b] 
-;                         cljs.core/ASeq 
-;                         cljs.core/IFn
-;                         (invoke [this a b] a)))
-;  (cljs/macroexpand-1 (cljs/empty-env)
-;                      '(cljs.core/extend-type A 
-;                                              cljs.core/ASeq 
-;                                              cljs.core/ISeq 
-;                                              (first [this] this)
-;                                              #_cljs.core/IFn #_(invoke ([this a b] a))))
-;(cljs/analyze (cljs/empty-env) '(deftype A [b] 
-;                  cljs.core/ASeq 
-;                  cljs.core/ISeq
-;                  (invoke [this a b] a)))
-;  (ana-cljs '(deftype A [b] 
-;               cljs.core/ASeq 
-;               cljs.core/IFn
-;               (invoke [this a b] a)))
-;(ana-cljs denv '(set! o -a 1))
-;(ana-cljs denv '(set! o 1))
-;(cf-cljs (set! o -a 1))
-;(ana-cljs denv '(.-cljs$lang$type 1))
-;(cf-cljs (.-cljs$lang$type 1))
-;(ana-cljs denv '(.-cljs$lang$type 1))
-;(cf-cljs (set! cljs.core/symbol? 1))
-;
-;
-;  (ana-cljs denv '(if 1 2 3))
-;  (cf-cljs (if 1 2 3))
-;
-;  (ana-cljs denv '(let [a 2] a))
-;  (cf-cljs (let [a 2] a))
-;
-;
-;  ;ns
-;  (cf-cljs (ns my-ns (:require [cljs.core :as s])))
-;
-;  (check-ns clojure.core.typed.test.logic)
-;
-;  (cljs/analyze (cljs/empty-env) '(typed.internal/print-env "start"))
-;  (cf-cljs (typed.internal/print-env "start"))
-;
-;  (cljs-ann foo [(U nil [-> BooleanCLJS]) -> BooleanCLJS])
-;  (cf-cljs
-;    (defn foo [x]
-;      (typed.internal/print-env "top-of-foo")
-;      (if x
-;        (x)
-;        false)))
-;
-;
-;
-;  )
