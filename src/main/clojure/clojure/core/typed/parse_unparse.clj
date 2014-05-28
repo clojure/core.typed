@@ -350,13 +350,17 @@
     (err/int-error (str "Bad All syntax: " all)))
   (parse-all-type bnds syn))
 
-(defmethod parse-type-list 'All [t] (parse-All t))
+(defmethod parse-type-list 'All [t] 
+  (err/deprecated-plain-op 'All)
+  (parse-All t))
 (defmethod parse-type-list 'clojure.core.typed/All [t] (parse-All t))
 
 (defn parse-union-type [[u & types]]
   (c/make-Union (doall (map parse-type types))))
 
-(defmethod parse-type-list 'U [syn] (parse-union-type syn))
+(defmethod parse-type-list 'U [syn] 
+  (err/deprecated-plain-op 'U)
+  (parse-union-type syn))
 (defmethod parse-type-list 'clojure.core.typed/U [syn] (parse-union-type syn))
 
 ; don't do any simplification of the intersection because some types might
@@ -364,7 +368,9 @@
 (defn parse-intersection-type [[i & types]]
   (c/make-Intersection (doall (map parse-type types))))
 
-(defmethod parse-type-list 'I [syn] (parse-intersection-type syn))
+(defmethod parse-type-list 'I [syn] 
+  (err/deprecated-plain-op 'I)
+  (parse-intersection-type syn))
 (defmethod parse-type-list 'clojure.core.typed/I [syn] (parse-intersection-type syn))
 
 (defmethod parse-type-list 'Array
@@ -420,7 +426,9 @@
     (err/int-error (str "Fn accepts vectors, given: " (pr-str syn))))
   (parse-fn-intersection-type syn))
 
-(defmethod parse-type-list 'Fn [t] (parse-FnCase t))
+(defmethod parse-type-list 'Fn [t] 
+  ;(err/deprecated-plain-op 'Fn 'FnCase)
+  (parse-FnCase t))
 (defmethod parse-type-list 'clojure.core.typed/FnCase [t] (parse-FnCase t))
 
 (defn parse-free-binder [[nme & {:keys [variance < > kind] :as opts}]]
@@ -525,7 +533,9 @@
              :drest drest
              :rest rest)))
 
-(defmethod parse-type-list 'HVec [t] (parse-HVec t))
+(defmethod parse-type-list 'HVec [t] 
+  (err/deprecated-plain-op 'HVec)
+  (parse-HVec t))
 (defmethod parse-type-list 'clojure.core.typed/HVec [t] (parse-HVec t))
 
 (defn parse-types-with-rest-drest [err-msg]
@@ -577,7 +587,9 @@
                     :drest drest
                     :rest rest)))
 
-(defmethod parse-type-list 'HSequential [t] (parse-HSequential t))
+(defmethod parse-type-list 'HSequential [t] 
+  (err/deprecated-plain-op 'HSequential)
+  (parse-HSequential t))
 (defmethod parse-type-list 'clojure.core.typed/HSequential [t] (parse-HSequential t))
 
 (def parse-hseq-type (parse-types-with-rest-drest
@@ -593,7 +605,9 @@
              :drest drest
              :rest rest)))
 
-(defmethod parse-type-list 'HSeq [t] (parse-HSeq t))
+(defmethod parse-type-list 'HSeq [t] 
+  (err/deprecated-plain-op 'HSequential)
+  (parse-HSeq t))
 (defmethod parse-type-list 'clojure.core.typed/HSeq [t] (parse-HSeq t))
 
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]

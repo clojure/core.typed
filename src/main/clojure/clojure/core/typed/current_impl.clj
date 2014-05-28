@@ -414,12 +414,24 @@ clojure.core.typed/Reversible
               (TFn [[x :variance :covariant]]
                    (clojure.lang.Reversible x))
 
-; TODO should this be parameterised?
-;    ^{:doc "A Clojure sequential collection."
-;      :forms [(Sequential t)]}
-;clojure.core.typed/Sequential
-;             clojure.lang.Sequential
+    ^{:doc "A sequential collection."
+      :forms [Sequential]}
+clojure.core.typed/Sequential
+             clojure.lang.Sequential
 
+    ^{:doc "A sequential, seqable collection. Seq's aren't always Sequential."
+      :forms [(SequentialSeqable t)]}
+clojure.core.typed/SequentialSeqable
+      (TFn [[x :variance :covariant]]
+             (I clojure.lang.Sequential
+                (clojure.lang.Seqable x)))
+
+    ^{:doc "A Clojure sequential sequence. Seq's aren't always Sequential."
+      :forms [(SequentialSeq t)]}
+clojure.core.typed/SequentialSeq
+      (TFn [[x :variance :covariant]]
+             (I clojure.lang.Sequential
+                (clojure.lang.ISeq x)))
 
     ^{:doc "A Clojure multimethod."
       :forms [Multi]}
