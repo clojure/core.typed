@@ -51,7 +51,7 @@
 (t/ann collected-ns! [t/Sym -> nil])
 (defn- collected-ns! [nsym]
   {:pre [(symbol? nsym)]}
-  (if-let [a t/*already-collected*]
+  (if-let [a uvar/*already-collected*]
     (swap! a conj nsym)
     (assert nil "Type system is not set up for namespace collection"))
   nil)
@@ -60,7 +60,7 @@
 (defn- already-collected? [nsym]
   {:pre [(symbol? nsym)]
    :post [(con/boolean? %)]}
-  (if-let [a t/*already-collected*]
+  (if-let [a uvar/*already-collected*]
     (boolean (@a nsym))
     (assert nil "Type system is not set up for namespace collection")))
 
@@ -114,7 +114,7 @@
 
 (defn collect-ns-setup [nsym]
   {:pre [(symbol? nsym)]}
-  (binding [t/*already-collected* (atom #{})]
+  (binding [uvar/*already-collected* (atom #{})]
     (collect-ns nsym)))
 
 (defn internal-form? [expr]
@@ -287,7 +287,7 @@
   (let [prs-ns (chk/expr-ns expr)
         [deps] (ast-u/constant-exprs args)
         _ (assert (and deps (seq deps) (every? symbol? deps)))]
-    (if t/*already-collected*
+    (if uvar/*already-collected*
       (do (dep/add-ns-deps prs-ns (set deps))
           (doseq [dep deps]
             (if (coerce/ns->URL dep)

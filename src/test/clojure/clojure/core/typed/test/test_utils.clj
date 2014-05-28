@@ -42,7 +42,7 @@
   `(let [{ret# :ret delayed-errors# :delayed-errors} ~(tc-common* frm opts)]
      (or (when (empty? delayed-errors#)
            ret#)
-         (t/print-errors! delayed-errors#))))
+         (err/print-errors! delayed-errors#))))
 
 (defmacro tc-err [frm & opts]
   `(err/with-ex-info-handlers
@@ -139,7 +139,7 @@
          (impl/with-clojure-impl
            (t/check-form-info '~form))]
      (if-let [errors# (seq delayed-errors#)]
-       (t/print-errors! errors#)
+       (err/print-errors! errors#)
        ret#)))
 
 (defmacro tc [form]

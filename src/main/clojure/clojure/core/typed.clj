@@ -10,7 +10,8 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.core.typed.current-impl :as impl]
-            [clojure.core.typed.util-vars :as uvars]
+            [clojure.core.typed.load-if-needed :as load]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.parse-ast :as ast]
             [clojure.core.typed.internal :as internal]
@@ -150,14 +151,16 @@ for checking namespaces, cf for checking individual forms."}
 ; c.c.typed.cs-gen
 ;   Polymorphic local type inference algorithm.
 
-;=============================================================
-; Query functions
+(defn load-if-needed
+  "Load and initialize all of core.typed if not already"
+  []
+  (load/load-if-needed))
 
-; Usually query functions need to force core.typed to fully load.
-; To be as lazy as possible, we use `ns-resolve` to grab the Vars
-; we need.
-
-(declare load-if-needed)
+(defn reset-caches
+  "Reset internal type caches."
+  []
+  (load-if-needed)
+  ((impl/v 'clojure.core.typed.reset-caches/reset-caches)))
 
 ;(ann method-type [Symbol -> nil])
 (defn method-type
@@ -1293,7 +1296,7 @@ for checking namespaces, cf for checking individual forms."}
 (defn ^:skip-wiki add-to-alias-env [&form qsym t]
   (swap! impl/alias-env assoc qsym 
          (impl/with-impl impl/clojure
-           (binding [uvars/*current-env* {:ns {:name (ns-name *ns*)}
+           (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
                                           :file *file*
                                           :line (or (-> &form meta :line)
                                                     @clojure.lang.Compiler/LINE)
@@ -1750,7 +1753,7 @@ for checking namespaces, cf for checking individual forms."}
                   "Cannot provide both :nocheck and :no-check metadata to ann")
         check? (not (or (:no-check opts)
                         (:nocheck opts)))
-        ast (binding [uvars/*current-env* {:ns {:name (ns-name *ns*)}
+        ast (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
                                            :file *file*
                                            :line (or (-> &form meta :line)
                                                      @clojure.lang.Compiler/LINE)
@@ -1767,14 +1770,6 @@ for checking namespaces, cf for checking individual forms."}
                 web1 web2 image1 image2 video1 video2)"
   [t & vs]
   `(do ~@(map #(list `ann % t) vs)))
-
-(defonce ^:dynamic 
-  ^{:deprecated "0.2.45"
-    :doc 
-    "If a true value, global annotations are collected by the
-    type checker when their respective forms are evaluated (eg. ann)."}
-  *collect-on-eval* 
-  false)
 
 (defn ^:skip-wiki
   ann-datatype*
@@ -2180,7 +2175,49 @@ for checking namespaces, cf for checking individual forms."}
   []
   `(warn-on-unannotated-vars*))
 
-(declare check-form-info print-errors! ^:dynamic *currently-checking-clj*)
+(defn check-form-info 
+  "Type checks a (quoted) form and returns a map of results from type checking the
+  form.
+  
+  Options
+  - :expected        Type syntax representing the expected type for this form
+                     type-provided? option must be true to utilise the type.
+  - :type-provided?  If true, use the expected type to check the form
+  - :profile         Use Timbre to profile the type checker. Timbre must be
+                     added as a dependency.
+  - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
+                     of (Map '{:line Int :column Int :file Str} Str)."
+  [form & {:keys [expected type-provided? profile file-mapping]}]
+  (p/profile-if profile
+    (load-if-needed)
+    (reset-caches)
+    (let [check-expr (impl/v 'clojure.core.typed.check/check-expr)
+          expr-type (impl/v 'clojure.core.typed.utils/expr-type)
+          ast->file-mapping (impl/v 'clojure.core.typed.file-mapping/ast->file-mapping)
+          ast-for-form (impl/v 'clojure.core.typed.analyze-clj/ast-for-form)
+          collect-ast (impl/v 'clojure.core.typed.collect-phase/collect-ast)
+          ret (impl/v 'clojure.core.typed.type-rep/ret)
+          parse-type (impl/v 'clojure.core.typed.parse-unparse/parse-type)]
+      (if vs/*currently-checking-clj*
+        (throw (Exception. "Found inner call to check-ns or cf"))
+        (impl/with-clojure-impl
+          (binding [vs/*currently-checking-clj* true
+                    vs/*already-collected* (atom #{})
+                    vs/*already-checked* (atom #{})
+                    vs/*delayed-errors* (err/-init-delayed-errors)
+                    vs/*analyze-ns-cache* (atom {})]
+            (let [expected (when type-provided?
+                             (ret (parse-type expected)))
+                  ast (ast-for-form form)
+                  _ (collect-ast ast)
+                  _ (reset-caches)
+                  c-ast (check-expr ast expected)
+                  res (expr-type c-ast)]
+              (merge
+                {:delayed-errors @vs/*delayed-errors*
+                 :ret res}
+                (when file-mapping
+                  {:file-mapping (ast->file-mapping c-ast)})))))))))
 
 (defn check-form*
   "Takes a (quoted) form and optional expected type syntax and
@@ -2195,9 +2232,9 @@ for checking namespaces, cf for checking individual forms."}
                                                        :expected expected 
                                                        :type-provided? type-provided?)]
      (if-let [errors (seq delayed-errors)]
-       (print-errors! errors)
+       (err/print-errors! errors)
        (impl/with-clojure-impl
-         (binding [*currently-checking-clj* true]
+         (binding [vs/*currently-checking-clj* true]
            (unparse-TCResult-in-ns ret *ns*)))))))
 
 ; cf can pollute current type environment to allow REPL experimentation, 
@@ -2225,167 +2262,13 @@ for checking namespaces, cf for checking individual forms."}
    ([form] `(check-form* '~form))
    ([form expected] `(check-form* '~form '~expected)))
 
-(declare ^:dynamic *verbose-forms*)
-
-(defn ^:skip-wiki
-  print-errors! 
-  "Internal use only"
-  [errors]
-  {:pre [(seq errors)
-         (every? #(instance? clojure.lang.ExceptionInfo %) errors)]}
-  (binding [*out* *err*]
-    (doseq [^Exception e errors]
-      (let [{{:keys [file line column] :as env} :env :as data} (ex-data e)]
-        (print "Type Error ")
-        (print (str "(" (or file (-> env :ns) "NO_SOURCE_FILE")
-                    (when line
-                      (str ":" line
-                           (when column
-                             (str ":" column))))
-                    ") "))
-        (print (.getMessage e))
-        (println)
-        (flush)
-        (let [[_ form :as has-form?] (find data :form)]
-          (when has-form?
-            (print "in: ")
-            (binding [*print-length* (when-not *verbose-forms*
-                                       6)
-                      *print-level* (when-not *verbose-forms*
-                                      4)]
-              (println form))
-            (println)
-            (println)
-            (flush)))
-        (flush))))
-  (throw (ex-info (str "Type Checker: Found " (count errors) " error" (when (< 1 (count errors)) "s"))
-                  {:type-error :top-level-error
-                   :errors errors})))
-
-(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-collected* nil)
-(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-checked* nil)
-(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *currently-checking-clj* nil)
-(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors* nil)
-(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *analyze-ns-cache* nil)
-(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *checked-asts* nil)
-
-(defonce ^:dynamic 
-  ^{:doc 
-  "If true, print fully qualified types in error messages
-  and return values. Bind around a type checking form like 
-  cf or check-ns.
-  
-  eg. 
-  (binding [*verbose-types* true] 
-    (cf 1 Number))
-  ;=> java.lang.Number"}
-  *verbose-types* 
-  nil)
-
-(defonce ^:dynamic 
-  ^{:doc 
-  "If true, print complete forms in error messages. Bind
-  around a type checking form like cf or check-ns.
-  
-  eg.
-  (binding [*verbose-forms* true]
-    (cf ['deep ['deep ['deep ['deep]]]] Number))
-  ;=> <full form in error>"}
-  *verbose-forms* 
-  nil)
-
-(defonce ^:dynamic
-  *trace-checker*
-  nil)
-
-(defn ^:skip-wiki
-  -init-delayed-errors 
-  "Internal use only"
-  []
-  (atom [] :validator #(and (vector? %)
-                            (every? (fn [a] 
-                                      (instance? clojure.lang.ExceptionInfo a))
-                                    %))))
-
-(def ^:skip-wiki ^:private ^:dynamic *currently-loading* false)
-
-(defn load-if-needed 
-  "Load and initialize all of core.typed if not already"
-  []
-  (when-not *currently-loading*
-    (binding [*collect-on-eval* false
-              *currently-loading* true]
-      (when-not (io/resource "clojure/core/typed/init.clj")
-        (err/int-error "core.typed checker is not found on classpath"))
-      (when-not (find-ns 'clojure.core.typed.init)
-        (require 'clojure.core.typed.init))
-      (let [init-ns (find-ns 'clojure.core.typed.init)]
-        (assert init-ns)
-        (when-not (@(ns-resolve init-ns 'loaded?))
-          (println "Initializing core.typed ...")
-          (flush)
-          (time (@(ns-resolve init-ns 'load-impl)))
-          (println "core.typed initialized.")
-          (flush))))))
-
-
 (defn reset-caches 
   "Reset internal type caches."
   []
-  (p/p :typed/reset-caches
   (load-if-needed)
-  (@(ns-resolve (find-ns 'clojure.core.typed.subtype) 'reset-subtype-cache))
-  (@(ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'reset-Un-cache))
-  (@(ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'reset-In-cache))
-  (@(ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'reset-supers-cache!))
-  (@(ns-resolve (find-ns 'clojure.core.typed.type-ctors) 'reset-RClass-of-cache!))
-  (@(ns-resolve (find-ns 'clojure.core.typed.cs-gen) 'reset-dotted-var-store!))
-  nil))
+  ((impl/v 'clojure.core.typed.reset-caches/reset-caches))
+  nil)
 
-(defn check-form-info 
-  "Type checks a (quoted) form and returns a map of results from type checking the
-  form.
-  
-  Options
-  - :expected        Type syntax representing the expected type for this form
-                     type-provided? option must be true to utilise the type.
-  - :type-provided?  If true, use the expected type to check the form
-  - :profile         Use Timbre to profile the type checker. Timbre must be
-                     added as a dependency.
-  - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
-                     of (Map '{:line Int :column Int :file Str} Str)."
-  [form & {:keys [expected type-provided? profile file-mapping]}]
-  (p/profile-if profile
-    (load-if-needed)
-    (reset-caches)
-    (let [check-expr (impl/v 'clojure.core.typed.check/check-expr)
-          expr-type (impl/v 'clojure.core.typed.utils/expr-type)
-          ast->file-mapping (impl/v 'clojure.core.typed.file-mapping/ast->file-mapping)
-          ast-for-form (impl/v 'clojure.core.typed.analyze-clj/ast-for-form)
-          collect-ast (impl/v 'clojure.core.typed.collect-phase/collect-ast)
-          ret (impl/v 'clojure.core.typed.type-rep/ret)
-          parse-type (impl/v 'clojure.core.typed.parse-unparse/parse-type)]
-      (if *currently-checking-clj*
-        (throw (Exception. "Found inner call to check-ns or cf"))
-        (impl/with-clojure-impl
-          (binding [*currently-checking-clj* true
-                    *already-collected* (atom #{})
-                    *already-checked* (atom #{})
-                    *delayed-errors* (-init-delayed-errors)
-                    *collect-on-eval* false
-                    *analyze-ns-cache* (atom {})]
-            (let [expected (when type-provided?
-                             (ret (parse-type expected)))
-                  ast (ast-for-form form)
-                  _ (collect-ast ast)
-                  _ (reset-caches)
-                  c-ast (check-expr ast expected)
-                  res (expr-type c-ast)]
-              (merge
-                {:delayed-errors @*delayed-errors*
-                 :ret res}
-                (when file-mapping
-                  {:file-mapping (ast->file-mapping c-ast)})))))))))
 
 (defn check-ns-info
   "Same as check-ns, but returns a map of results from type checking the
@@ -2422,18 +2305,17 @@ for checking namespaces, cf for checking individual forms."}
                               [ns-or-syms]
                               ns-or-syms))]
          (cond
-           *currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
+           vs/*currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
 
            :else
-           (binding [*currently-checking-clj* true
-                     *delayed-errors* (-init-delayed-errors)
-                     *already-collected* (atom #{})
-                     *already-checked* (atom #{})
-                     *trace-checker* trace
-                     *collect-on-eval* false
-                     *analyze-ns-cache* (atom {})
+           (binding [vs/*currently-checking-clj* true
+                     vs/*delayed-errors* (err/-init-delayed-errors)
+                     vs/*already-collected* (atom #{})
+                     vs/*already-checked* (atom #{})
+                     vs/*trace-checker* trace
+                     vs/*analyze-ns-cache* (atom {})
                      ; we only use this if we have exactly one namespace passed
-                     *checked-asts* (when (== 1 (count nsym-coll))
+                     vs/*checked-asts* (when (== 1 (count nsym-coll))
                                       (atom {}))]
              (let [terminal-error (atom nil)
                    typed-asts (atom {})]
@@ -2442,7 +2324,7 @@ for checking namespaces, cf for checking individual forms."}
                            (collect-ns nsym)))
                        (print-collect-summary []
                          (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                               collected @*already-collected*]
+                               collected @vs/*already-collected*]
                            (println "Collected" (count collected) "namespaces in" ms "msecs")
                            (flush)))
                        (do-check []
@@ -2458,7 +2340,7 @@ for checking namespaces, cf for checking individual forms."}
                                (flush)))))
                        (print-check-summary []
                          (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                               checked @*already-checked*
+                               checked @vs/*already-checked*
                                nlines (p/p :typed/line-count
                                            (apply + (for [nsym checked]
                                                       (with-open [rdr (io/reader (uri-for-ns nsym))]
@@ -2486,16 +2368,16 @@ for checking namespaces, cf for checking individual forms."}
                                  (throw e))))))]
                  (do-check-ns)
                  (merge
-                   {:delayed-errors (vec (concat (when-let [es *delayed-errors*]
-                                                 @es)
-                                               (when-let [e @terminal-error]
-                                                 [e])))}
+                   {:delayed-errors (vec (concat (when-let [es vs/*delayed-errors*]
+                                                   @es)
+                                                 (when-let [e @terminal-error]
+                                                   [e])))}
                    (when (and file-mapping
                               (== 1 (count nsym-coll)))
                      {:file-mapping (apply merge
                                            (map #(impl/with-clojure-impl
                                                    (ast->file-mapping %))
-                                                (get @*checked-asts* (first nsym-coll))))})))))))))))
+                                                (get @vs/*checked-asts* (first nsym-coll))))})))))))))))
 
 (defn check-ns
   "Type check a namespace/s (a symbol or Namespace, or collection).
@@ -2521,8 +2403,8 @@ for checking namespaces, cf for checking individual forms."}
   If providing keyword arguments, the namespace to check must be provided
   as the first argument.
 
-  Bind *verbose-types* to true to print fully qualified types.
-  Bind *verbose-forms* to print full forms in error messages.
+  Bind clojure.core.typed.util-vars/*verbose-types* to true to print fully qualified types.
+  Bind clojure.core.typed.util-vars/*verbose-forms* to print full forms in error messages.
   
   eg. (check-ns 'myns.typed)
       ;=> :ok
@@ -2537,7 +2419,7 @@ for checking namespaces, cf for checking individual forms."}
   ([ns-or-syms & {:keys [collect-only trace profile] :as kw}]
    (let [{:keys [delayed-errors]} (apply check-ns-info ns-or-syms (apply concat kw))]
      (if-let [errors (seq delayed-errors)]
-       (print-errors! errors)
+       (err/print-errors! errors)
        :ok))))
 
 ; (ann all-defs-in-ns [Namespace -> (Set Symbol)])
@@ -2573,7 +2455,7 @@ for checking namespaces, cf for checking individual forms."}
                                                     annots @(impl/v 'clojure.core.typed.var-env/CLJ-VAR-ANNOTATIONS)]
                                                 (->> annots
                                                      (filter (fn [[k v]] (= (namespace k) (str nsym))))
-                                                     (map (fn [[k v]] [k (binding [*verbose-types* true]
+                                                     (map (fn [[k v]] [k (binding [vs/*verbose-types* true]
                                                                            ((impl/v 'clojure.core.typed.parse-unparse/unparse-type)
                                                                             v))]))
                                                      (into {})))}}])))
@@ -2626,12 +2508,12 @@ for checking namespaces, cf for checking individual forms."}
       ;=> true"
   [t]
   (require '[clojure.core.typed.type-contract])
-  (binding [uvars/*current-env* {:ns {:name (ns-name *ns*)}
-                                 :file *file*
-                                 :line (or (-> &form meta :line)
-                                           @clojure.lang.Compiler/LINE)
-                                 :column (or (-> &form meta :column)
-                                             @clojure.lang.Compiler/COLUMN)}]
+  (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
+                              :file *file*
+                              :line (or (-> &form meta :line)
+                                        @clojure.lang.Compiler/LINE)
+                              :column (or (-> &form meta :column)
+                                          @clojure.lang.Compiler/COLUMN)}]
     `(pred* '~t
             '~(ns-name *ns*)
             ~((impl/v 'clojure.core.typed.type-contract/type-syntax->pred) t))))

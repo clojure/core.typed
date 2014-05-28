@@ -66,6 +66,7 @@
                  '[clojure.core.typed.subtype]
                  '[clojure.core.typed.array-ops]
                  '[clojure.core.typed.check]
+                 '[clojure.core.typed.reset-caches]
                  ; used by check-ns-info
                  '[clojure.jvm.tools.analyzer]
 

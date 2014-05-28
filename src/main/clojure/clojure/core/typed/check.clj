@@ -95,7 +95,7 @@
              :core.typed {:collect-only true})
 
 (t/ann ^:no-check clojure.core.typed.parse-unparse/*unparse-type-in-ns* (t/U nil t/Sym))
-(t/ann ^:no-check clojure.core.typed/*already-checked* (t/U nil (t/Atom1 (t/Vec t/Sym))))
+(t/ann ^:no-check clojure.core.typed.util-vars/*already-checked* (t/U nil (t/Atom1 (t/Vec t/Sym))))
 
 ;==========================================================
 ; # Type Checker
@@ -104,13 +104,13 @@
 
 (t/ann checked-ns! [t/Sym -> nil])
 (defn- checked-ns! [nsym]
-  (t/when-let-fail [a t/*already-checked*]
+  (t/when-let-fail [a vs/*already-checked*]
     (swap! a conj nsym))
   nil)
 
 (t/ann already-checked? [t/Sym -> Boolean])
 (defn- already-checked? [nsym]
-  (t/when-let-fail [a t/*already-checked*]
+  (t/when-let-fail [a vs/*already-checked*]
     (boolean (@a nsym))))
 
 (declare check-expr)
@@ -150,7 +150,7 @@
                    casts (doall
                            (for [ast asts]
                              (check-expr ast)))
-                   _ (when-let [checked-asts t/*checked-asts*]
+                   _ (when-let [checked-asts vs/*checked-asts*]
                        (swap! checked-asts assoc nsym casts))
                    _ (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs")
                    _ (flush)
@@ -167,7 +167,7 @@
 (u/add-defmethod-generator check)
 
 (defn check-expr [expr & [expected]]
-  (when t/*trace-checker*
+  (when vs/*trace-checker*
     (println "Checking line:" (-> expr :env :line))
     (flush))
   (u/p :check/check-expr
@@ -658,7 +658,7 @@
     [(ast-u/dummy-const-expr ::t/special-form env)
      (ast-u/dummy-const-expr ::t/ann-form env)
      (ast-u/dummy-const-expr 
-       {:type (binding [t/*verbose-types* true]
+       {:type (binding [vs/*verbose-types* true]
                 (prs/unparse-type t))}
        env)]
     expr
@@ -691,9 +691,9 @@
                                          (r/make-Function
                                            [deref-type]
                                            deref-type))
-                delayed-errors (t/-init-delayed-errors)
+                delayed-errors (err/-init-delayed-errors)
                 actual-dummy-fn-type 
-                (binding [t/*delayed-errors* delayed-errors]
+                (binding [vs/*delayed-errors* delayed-errors]
                   (-> (invoke/normal-invoke check 
                                      expr
                                      (ast-u/dummy-var-expr
@@ -1443,7 +1443,7 @@
                                                              vs/*current-env*)
                                           vs/*current-expr* expr]
                                   (var-env/with-lexical-env env
-                                    (check expr 
+                                    (check expr
                                            ;propagate expected type only to final expression
                                            (when (= (inc n) nexprs)
                                              expected))))
@@ -1855,7 +1855,7 @@
                   (doseq [{:keys [env] :as inst-method} methods
                           :when (check-method? inst-method)]
                     (assert (#{:method} (:op inst-method)))
-                    (when t/*trace-checker*
+                    (when vs/*trace-checker*
                       (println "Checking deftype* method: " (:name inst-method))
                       (flush))
                     (binding [vs/*current-env* env]

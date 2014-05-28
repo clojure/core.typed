@@ -15,10 +15,10 @@
 ;   :rank [* * -> *]])
 ;
 
-(binding [t/*collect-on-eval* false]
-(t/ann-datatype [[x :variance :covariant
-                  :< (Foo Any Any)]]
-                Bar)
-
-(t/ann-datatype Foo)
-)
+;(binding [t/*collect-on-eval* false]
+;(t/ann-datatype [[x :variance :covariant
+;                  :< (Foo Any Any)]]
+;                Bar)
+;
+;(t/ann-datatype Foo)
+;)

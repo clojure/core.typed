@@ -1136,7 +1136,7 @@
                (ns-refers ns))))
 
 (defn unparse-Class-symbol-in-ns [sym]
-  (if-let [ns (and (not clojure.core.typed/*verbose-types*)
+  (if-let [ns (and (not vs/*verbose-types*)
                    (when-let [nsym *unparse-type-in-ns*]
                      (find-ns *unparse-type-in-ns*)))]
         ; use an import name
@@ -1149,7 +1149,7 @@
 
 (defn unparse-var-symbol-in-ns [sym]
   {:pre [(namespace sym)]}
-  (if-let [ns (and (not clojure.core.typed/*verbose-types*)
+  (if-let [ns (and (not vs/*verbose-types*)
                    (when-let [nsym *unparse-type-in-ns*]
                      (find-ns nsym)))]
         ; use unqualified name if interned

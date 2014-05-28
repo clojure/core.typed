@@ -62,8 +62,7 @@
 (defn tc-delayed-error [msg & {:keys [return form] :as opt}]
   (let [e (ex-info msg (merge {:type-error tc-error-parent}
                               (when (or (contains? opt :form)
-                                        (and (bound? #'uvs/*current-expr*)
-                                             uvs/*current-expr*))
+                                        uvs/*current-expr*)
                                 {:form (if (contains? opt :form)
                                          form
                                          (ast-u/emit-form-fn uvs/*current-expr*))})
@@ -72,12 +71,12 @@
                                         (env-for-error *current-env*))}))]
     (cond
       ;can't delay here
-      (not (bound? (impl/the-var 'clojure.core.typed/*delayed-errors*)))
+      (not uvs/*delayed-errors*)
       (throw e)
 
       :else
       (do
-        (if-let [delayed-errors (impl/v 'clojure.core.typed/*delayed-errors*)]
+        (if-let [delayed-errors uvs/*delayed-errors*]
           (swap! delayed-errors conj e)
           (throw (Exception. (str "*delayed-errors* not rebound"))))
         (or return (impl/v 'clojure.core.typed.type-rep/-nothing))))))
@@ -168,3 +167,47 @@
   {:pre [(symbol? old)
          ((some-fn symbol? nil?) new)]}
   (deprecated-warn (str old " syntax is deprecated, use " (var-for-impl (or new old)))))
+
+(defn
+  print-errors! 
+  "Internal use only"
+  [errors]
+  {:pre [(seq errors)
+         (every? #(instance? clojure.lang.ExceptionInfo %) errors)]}
+  (binding [*out* *err*]
+    (doseq [^Exception e errors]
+      (let [{{:keys [file line column] :as env} :env :as data} (ex-data e)]
+        (print "Type Error ")
+        (print (str "(" (or file (-> env :ns) "NO_SOURCE_FILE")
+                    (when line
+                      (str ":" line
+                           (when column
+                             (str ":" column))))
+                    ") "))
+        (print (.getMessage e))
+        (println)
+        (flush)
+        (let [[_ form :as has-form?] (find data :form)]
+          (when has-form?
+            (print "in: ")
+            (binding [*print-length* (when-not uvs/*verbose-forms*
+                                       6)
+                      *print-level* (when-not uvs/*verbose-forms*
+                                      4)]
+              (println form))
+            (println)
+            (println)
+            (flush)))
+        (flush))))
+  (throw (ex-info (str "Type Checker: Found " (count errors) " error" (when (< 1 (count errors)) "s"))
+                  {:type-error :top-level-error
+                   :errors errors})))
+
+(defn ^:skip-wiki
+  -init-delayed-errors 
+  "Internal use only"
+  []
+  (atom [] :validator #(and (vector? %)
+                            (every? (fn [a] 
+                                      (instance? clojure.lang.ExceptionInfo a))
+                                    %))))

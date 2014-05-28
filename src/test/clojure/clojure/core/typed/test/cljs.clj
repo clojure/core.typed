@@ -1,35 +1,12 @@
 (ns clojure.core.typed.test.cljs
-  (:require [clojure.core.typed :as clj-t]))
-
-(clj-t/load-if-needed)
-
-(require '[clojure.test :refer :all]
-         '[cljs.core.typed :as t]
-         '[clojure.core.typed.type-ctors :as c]
-         '[clojure.core.typed.type-rep :as r]
-         '[clojure.core.typed.current-impl :as impl]
-         '[clojure.core.typed.parse-unparse :as prs]
-         '[clojure.core.typed.subtype :as sub]
-         '[clojure.core.typed.util-cljs :as ucljs]
-         '[cljs.env :as env])
-(import '(clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
-                       Keyword ExceptionInfo Symbol Var))
-
-; just to improve test performance
-(def cljs-env (env/default-compiler-env))
-
-; Disable tests for now
-(defmacro cljs [& body]
-  `(impl/with-cljs-impl
-     (env/with-compiler-env (or env/*compiler*
-                                cljs-env)
-       ~@body)))
-
-(defmacro is-cljs [& body]
-  `(is (cljs ~@body)))
-
-(defmacro is-cf [& body]
-  `(is-cljs (t/cf ~@body) true))
+  (:require [clojure.core.typed.test.cljs-utils :refer :all]
+            [clojure.test :refer :all]
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.subtype :as sub]
+            [cljs.core.typed :as t]
+            [clojure.core.typed.util-cljs :as ucljs]
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.parse-unparse :as prs]))
 
 (deftest parse-prims-cljs-test
   (is-cljs (= (prs/parse-cljs 'number)
