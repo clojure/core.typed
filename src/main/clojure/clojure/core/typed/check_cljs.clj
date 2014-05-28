@@ -10,6 +10,7 @@
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.fn :as fn]
             [clojure.core.typed.check.fn-method-utils :as fn-method-u]
+            [clojure.core.typed.check.set-bang :as set!]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
@@ -349,17 +350,7 @@
 
 (defmethod check :set!
   [{:keys [target val] :as expr} & [expected]]
-  (binding [vs/*current-expr* expr]
-    (let [ctarget (check target)
-          cval (check val)
-          target-expected (-> ctarget expr-type ret-t)
-          val-type (-> cval expr-type ret-t)
-          _ (when-not (sub/subtype? val-type target-expected)
-              (cu/expected-error val-type target-expected))
-          _ (when-not (and expected (sub/subtype? target-expected (ret-t expected)))
-              (cu/expected-error target-expected (ret-t expected)))]
-      (assoc expr
-             expr-type (ret val-type)))))
+  (set!/check-set! check expr expected))
 
 (defn check-dot [{:keys [target field method args] :as dot-expr} expected]
   (let [ctarget (check target)
