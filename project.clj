@@ -24,7 +24,9 @@
                   :exclusions [org.clojure/data.priority-map]]
                  [org.clojure/data.priority-map "0.0.4"]
                  ; CLJS fireplace REPL
-                 [com.cemerick/piggieback "0.1.2"]
+                 [com.cemerick/piggieback "0.1.3"
+                  :exclusions [org.clojure/tools.reader
+                               org.clojure/clojurescript]]
                  ]
 
   ; fireplace repl middleware
