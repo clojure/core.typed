@@ -9,6 +9,7 @@
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.check.apply :as apply]
             [clojure.core.typed.check.case :as case]
+            [clojure.core.typed.check.set-bang :as set!]
             [clojure.core.typed.check.cli :as cli]
             [clojure.core.typed.check.def :as def]
             [clojure.core.typed.check.funapp :as funapp]
@@ -1997,16 +1998,4 @@
 
 (add-check-method :set!
   [{:keys [target val env] :as expr} & [expected]]
-  (binding [vs/*current-expr* expr
-            vs/*current-env* env]
-    (let [ctarget (check target)
-          cval (check val (u/expr-type ctarget))
-          _ (when-not (sub/subtype? 
-                        (-> cval u/expr-type r/ret-t)
-                        (-> ctarget u/expr-type r/ret-t))
-              (err/tc-delayed-error (str "Cannot set! " (-> ctarget u/expr-type r/ret-t prs/unparse-type pr-str)
-                                       " to " (-> cval u/expr-type r/ret-t prs/unparse-type pr-str))))]
-      (assoc expr
-             u/expr-type (u/expr-type cval)
-             :target ctarget
-             :val cval))))
+  (set!/check-set! check expr expected))
