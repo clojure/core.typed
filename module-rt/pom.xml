@@ -3,6 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>core.typed.rt</artifactId>
   <description>An optional type system for Clojure — zero-dependency artifact for annotations only.</description>
+  <name>${project.artifactId}</name>
 
   <parent>
     <groupId>org.clojure</groupId>
