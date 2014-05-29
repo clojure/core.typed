@@ -966,19 +966,19 @@
                                   :objects (mapv (comp r/ret-o u/expr-type) cargs)))))))
 
 ;make hash-map
-(add-invoke-special-method 'clojure.core/hash-map
-  [{fexpr :fn :keys [args] :as expr} & [expected]]
-  {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:args %))]}
-  (let [cargs (mapv check args)]
-    (cond
-      (every? r/Value? (keys (apply hash-map (mapv (comp r/ret-t u/expr-type) cargs))))
-      (-> expr
-        (update-in [:fn] check)
-        (assoc :args cargs
-               u/expr-type (r/ret (c/-complete-hmap
-                                (apply hash-map (mapv (comp r/ret-t u/expr-type) cargs))))))
-      :else (invoke/normal-invoke check expr fexpr args expected :cargs cargs))))
+;(add-invoke-special-method 'clojure.core/hash-map
+;  [{fexpr :fn :keys [args] :as expr} & [expected]]
+;  {:post [(-> % u/expr-type r/TCResult?)
+;          (vector? (:args %))]}
+;  (let [cargs (mapv check args)]
+;    (cond
+;      (every? r/Value? (keys (apply hash-map (mapv (comp r/ret-t u/expr-type) cargs))))
+;      (-> expr
+;        (update-in [:fn] check)
+;        (assoc :args cargs
+;               u/expr-type (r/ret (c/-complete-hmap
+;                                (apply hash-map (mapv (comp r/ret-t u/expr-type) cargs))))))
+;      :else (invoke/normal-invoke check expr fexpr args expected :cargs cargs))))
 
 ;(apply concat hmap)
 (add-invoke-apply-method 'clojure.core/concat

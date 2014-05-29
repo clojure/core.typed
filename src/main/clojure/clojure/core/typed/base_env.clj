@@ -848,6 +848,7 @@ clojure.core/concat (All [x] [(Option (Seqable x)) * -> (Seq x)])
 
 clojure.core/set (All [x] [(Option (Seqable x)) -> (PersistentHashSet x)])
 clojure.core/hash-set (All [x] [x * -> (PersistentHashSet x)])
+clojure.core/hash-map (All [x y] [(HSequential [x y] :repeat true) <* -> (Map x y)])
 clojure.core/sorted-set (All [x] [x * -> (PersistentTreeSet x)])
 clojure.core/sorted-set-by (All [x] [[x x -> AnyInteger] x * -> (PersistentTreeSet x)])
 clojure.core/list (All [x] [x * -> (PersistentList x)])

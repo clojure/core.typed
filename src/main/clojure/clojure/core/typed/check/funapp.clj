@@ -153,25 +153,31 @@
             bbnds (c/Poly-bbnds* fs-names fexpr-type)
             _ (assert (r/FnIntersection? fin))
             ;; Only infer free variables in the return type
-            ret-type 
+            ret-type
             (free-ops/with-bounded-frees (zipmap (map r/F-maker fs-names) bbnds)
-                     (loop [[{:keys [dom rng rest drest kws] :as ftype} & ftypes] (:types fin)]
+                     (loop [[{:keys [dom rng rest drest kws prest] :as ftype} & ftypes] (:types fin)]
                        (when ftype
                          #_(prn "infer poly fn" (prs/unparse-type ftype) (map prs/unparse-type arg-types)
                                 (count dom) (count arg-types))
                          #_(prn ftype)
                          #_(when rest (prn "rest" (prs/unparse-type rest)))
                          ;; only try inference if argument types are appropriate
-                         (if-let 
-                           [substitution 
+                         (if-let
+                           [substitution
                             (cgen/handle-failure
                               (cond
                                 ;possibly present rest argument, or no rest parameter
-                                (and (not (or drest kws))
+                                (and (not (or drest kws prest))
                                      ((if rest <= =) (count dom) (count arg-types)))
-                                (cgen/infer-vararg (zipmap fs-names bbnds) {} 
+                                (cgen/infer-vararg (zipmap fs-names bbnds) {}
                                                    arg-types dom rest (r/Result-type* rng)
                                                    (and expected (r/ret-t expected)))
+
+                                (and prest
+                                     (<= (count dom) (count arg-types)))
+                                (cgen/infer-prest (zipmap fs-names bbnds) {}
+                                                  arg-types dom prest (r/Result-type* rng)
+                                                  (and expected (r/ret-t expected)))
 
                                 ;keyword parameters
                                 kws

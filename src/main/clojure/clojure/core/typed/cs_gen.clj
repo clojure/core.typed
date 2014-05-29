@@ -1717,6 +1717,32 @@
 
 (declare infer)
 
+;; like infer-vararg, but T-var is the prest type:
+(t/ann infer-prest
+  [ConstrainVars ConstrainVars
+   (U nil (t/Seqable r/Type)) (U nil (t/Seqable r/Type))
+   r/Type (U nil r/AnyType) (U nil TCResult)
+   -> (U nil true false cr/SubstMap)])
+(defn infer-prest
+  [X Y S T T-var R expected]
+  {:pre [(every? (con/hash-c? symbol? r/Bounds?) [X Y])
+         (every? r/Type? S)
+         (every? r/Type? T)
+         (r/Type? T-var)
+         (r/AnyType? R)
+         ((some-fn nil? r/AnyType?) expected)]
+   :post [(or (nil? %)
+              (cr/substitution-c? %))]}
+  #_(prn "infer-prest" "X:" X)
+  (u/p :cs-gen/infer-prest
+  (and (>= (count S) (count T))
+       (let [[short-S rest-S] (split-at (count T) S)
+             ; wrap rest-S into HeterogeneousVector, this is semantic meaning of <*
+             new-rest-S (r/-hvec (vec rest-S))
+             new-S (concat short-S [new-rest-S])
+             new-T (concat T [T-var])]
+         (infer X Y new-S new-T R expected)))))
+
 ;; like infer, but T-var is the vararg type:
 (t/ann infer-vararg
   (Fn [ConstrainVars ConstrainVars 

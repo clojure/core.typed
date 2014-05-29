@@ -514,7 +514,7 @@
                                                         (concat acc cur))
                                                       []
                                                       (take (/ t-types-count
-                                                               s-types-count) (repeat s-types)))))
+                                                               s-types-count) (repeat t-types)))))
                               false))))
 
                    ; rest on right
