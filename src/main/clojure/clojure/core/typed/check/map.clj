@@ -1,6 +1,12 @@
 (ns clojure.core.typed.check.map
   (:require [clojure.core.typed.type-rep :as r]
-            [clojure.core.typed.type-ctors :as c]))
+            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.subtype :as sub]
+            [clojure.core.typed.check.utils :as cu]
+            [clojure.core.typed.filter-ops :as fo]
+            [clojure.core.typed.type-ctors :as c])
+  (:import (clojure.lang APersistentMap)))
 
 ;(ann expected-vals [(Coll Type) (Nilable TCResult) -> (Coll (Nilable TCResult))])
 (defn expected-vals
@@ -72,3 +78,30 @@
           (map r/ret (repeat (count key-types) vt)))
       ; otherwise we don't give expected types
       :else no-expecteds)))
+
+(defn check-map [check {keyexprs :keys valexprs :vals :as expr} expected]
+  (let [ckeyexprs (mapv check keyexprs)
+        key-types (map (comp r/ret-t u/expr-type) ckeyexprs)
+
+        val-rets
+        (expected-vals key-types expected)
+
+        cvalexprs (mapv check valexprs val-rets)
+        val-types (map (comp r/ret-t u/expr-type) cvalexprs)
+
+        ts (zipmap key-types val-types)
+        actual (if (every? c/keyword-value? (keys ts))
+                 (c/-complete-hmap ts)
+                 (impl/impl-case
+                   :clojure (c/RClass-of APersistentMap [(apply c/Un (keys ts))
+                                                         (apply c/Un (vals ts))])
+                   :cljs (c/Protocol-of 'cljs.core/IMap
+                                        [(apply c/Un (keys ts))
+                                         (apply c/Un (vals ts))]) ))
+        _ (when expected
+            (when-not (sub/subtype? actual (r/ret-t expected))
+              (cu/expected-error actual (r/ret-t expected))))]
+    (assoc expr
+           :keys ckeyexprs
+           :vals cvalexprs
+           u/expr-type (r/ret actual (fo/-true-filter)))))

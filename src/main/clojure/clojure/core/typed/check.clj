@@ -190,49 +190,30 @@
            :expr cexpr
            u/expr-type (u/expr-type cexpr))))
 
+
 (add-check-method :map
-  [{keyexprs :keys valexprs :vals :as expr} & [expected]]
+  [expr & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:keys %))
           (vector? (:vals %))]}
-  (let [ckeyexprs (mapv check keyexprs)
-        key-types (map (comp r/ret-t u/expr-type) ckeyexprs)
-
-        val-rets
-        (map/expected-vals key-types expected)
-
-        cvalexprs (mapv check valexprs val-rets)
-        val-types (map (comp r/ret-t u/expr-type) cvalexprs)
-
-        ts (zipmap key-types val-types)
-        actual (if (every? c/keyword-value? (keys ts))
-                 (c/-complete-hmap ts)
-                 (c/RClass-of APersistentMap [(apply c/Un (keys ts))
-                                              (apply c/Un (vals ts))]))
-        _ (when expected
-            (when-not (sub/subtype? actual (r/ret-t expected))
-              (cu/expected-error actual (r/ret-t expected))))]
-    (assoc expr
-           :keys ckeyexprs
-           :vals cvalexprs
-           u/expr-type (r/ret actual (fo/-true-filter)))))
+  (map/check-map check expr expected))
 
 (add-check-method :set
   [{:keys [items] :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:args %))]}
+          (vector? (:items %))]}
   (let [cargs (mapv check items)
         res-type (c/RClass-of PersistentHashSet [(apply c/Un (mapv (comp r/ret-t u/expr-type) cargs))])
         _ (when (and expected (not (sub/subtype? res-type (r/ret-t expected))))
             (cu/expected-error res-type (r/ret-t expected)))]
     (assoc expr
-           :args cargs
+           :items cargs
            u/expr-type (r/ret res-type (fo/-true-filter)))))
 
 (add-check-method :vector
   [{:keys [items] :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)
-          (vector? (:args %))]}
+          (vector? (:items %))]}
   (let [cargs (mapv check items)
         res-type (r/-hvec (mapv (comp r/ret-t u/expr-type) cargs)
                           :filters (mapv (comp r/ret-f u/expr-type) cargs)
@@ -240,7 +221,7 @@
         _ (when (and expected (not (sub/subtype? res-type (r/ret-t expected))))
             (cu/expected-error res-type (r/ret-t expected)))]
     (assoc expr
-           :args cargs
+           :items cargs
            u/expr-type (r/ret res-type (fo/-true-filter)))))
 
 (add-check-method :var

@@ -10,6 +10,7 @@
             [clojure.core.typed.check.if :as if]
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.fn :as fn]
+            [clojure.core.typed.check.map :as map]
             [clojure.core.typed.check.fn-method-utils :as fn-method-u]
             [clojure.core.typed.check.set-bang :as set!]
             [clojure.core.typed.errors :as err]
@@ -94,24 +95,7 @@
 
 (defmethod check :map
   [{mkeys :keys mvals :vals :as expr} & [expected]]
-  (let [ckeys (mapv check mkeys)
-        cvals (mapv check mvals)
-        keyts (map (comp ret-t expr-type) ckeys)
-        valts (map (comp ret-t expr-type) cvals)
-        ; use heterogeneous version if all keys are keywords
-        actual (if (every? #(when (r/Value? %)
-                              (keyword? (:val %)))
-                           keyts)
-                 (c/-complete-hmap (zipmap keyts valts))
-                 (c/Protocol-of 'cljs.core/IMap
-                                [(apply c/Un keyts)
-                                 (apply c/Un valts)]))
-        _ (binding [vs/*current-env* (:env expr)]
-            (when expected
-              (when-not (sub/subtype? actual (ret-t expected))
-                (cu/expected-error actual (ret-t expected)))))]
-    (assoc expr
-           expr-type (ret actual))))
+  (map/check-map check expr expected))
 
 (defmethod check :def
   [{:keys [init env] vname :name :as expr} & [expected]]
