@@ -28,6 +28,12 @@
           <include>clojure/core/typed/ast_utils.clj</include>
           <include>clojure/core/typed/load_if_needed.clj</include>
           <include>clojure/core/typed/ast_ops.clj</include>
+          <include>clojure/core/typed/async.clj</include>
+          <!-- cljs -->
+          <!--<include>cljs/core/typed.clj</include>
+          <include>cljs/core/typed.cljs</include>
+          <include>cljs/core/typed/async.clj</include>
+          <include>cljs/core/typed/async.cljs</include>-->
         </includes>
       </resource>
     </resources>
