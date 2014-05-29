@@ -14,6 +14,7 @@
             [clojure.core.typed.check.fn-method-utils :as fn-method-u]
             [clojure.core.typed.check.set-bang :as set!]
             [clojure.core.typed.check.set :as set]
+            [clojure.core.typed.check.vector :as vec]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
@@ -74,14 +75,7 @@
 
 (defmethod check :vector
   [{:keys [items] :as expr} & [expected]]
-  (let [citems (mapv check items)
-        actual (r/-hvec (mapv (comp ret-t expr-type) citems))
-        _ (binding [vs/*current-env* (:env expr)]
-            (when expected 
-              (when-not (sub/subtype? actual (ret-t expected))
-                (cu/expected-error actual (ret-t expected)))))]
-    (assoc expr
-           expr-type (ret actual))))
+  (vec/check-vector check expr expected))
 
 (defmethod check :set
   [{:keys [items] :as expr} & [expected]]

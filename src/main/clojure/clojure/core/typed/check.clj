@@ -26,6 +26,7 @@
             [clojure.core.typed.check.loop :as loop]
             [clojure.core.typed.check.letfn :as letfn]
             [clojure.core.typed.check.set :as set]
+            [clojure.core.typed.check.vector :as vec]
             [clojure.core.typed.check.map :as map]
             [clojure.core.typed.check.multi :as multi]
             [clojure.core.typed.check.multi-utils :as multi-u]
@@ -208,15 +209,7 @@
   [{:keys [items] :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:items %))]}
-  (let [cargs (mapv check items)
-        res-type (r/-hvec (mapv (comp r/ret-t u/expr-type) cargs)
-                          :filters (mapv (comp r/ret-f u/expr-type) cargs)
-                          :objects (mapv (comp r/ret-o u/expr-type) cargs))
-        _ (when (and expected (not (sub/subtype? res-type (r/ret-t expected))))
-            (cu/expected-error res-type (r/ret-t expected)))]
-    (assoc expr
-           :items cargs
-           u/expr-type (r/ret res-type (fo/-true-filter)))))
+  (vec/check-vector check expr expected))
 
 (add-check-method :var
   [{:keys [var] :as expr} & [expected]]
