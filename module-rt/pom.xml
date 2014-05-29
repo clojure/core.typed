@@ -27,6 +27,7 @@
           <include>clojure/core/typed/coerce_utils.clj</include>
           <include>clojure/core/typed/ast_utils.clj</include>
           <include>clojure/core/typed/load_if_needed.clj</include>
+          <include>clojure/core/typed/ast_ops.clj</include>
         </includes>
       </resource>
     </resources>
