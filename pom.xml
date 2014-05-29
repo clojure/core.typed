@@ -60,9 +60,6 @@
       <plugin>
         <groupId>com.theoryinpractise</groupId>
         <artifactId>clojure-maven-plugin</artifactId>
-        <configuration>
-          <vmargs>-Xmx256m</vmargs>
-        </configuration>
         <executions>
           <execution>
             <id>clojure-compile</id>
