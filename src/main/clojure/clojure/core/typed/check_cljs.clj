@@ -11,6 +11,7 @@
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.fn :as fn]
             [clojure.core.typed.check.map :as map]
+            [clojure.core.typed.check.dot-cljs :as dot]
             [clojure.core.typed.check.fn-method-utils :as fn-method-u]
             [clojure.core.typed.check.set-bang :as set!]
             [clojure.core.typed.check.set :as set]
@@ -47,12 +48,14 @@
 (defmulti check (fn [expr & [expected]] 
                   (:op expr)))
 
-(defmethod check :no-op
+(u/add-defmethod-generator check)
+
+(add-check-method :no-op
   [expr & [expected]]
   (assoc expr
          expr-type (ret r/-any)))
 
-(defmethod check :constant
+(add-check-method :constant
   [{:keys [form env] :as expr} & [expected]]
   (let [t (r/-val form)
         _ (binding [vs/*current-env* env]
@@ -62,7 +65,7 @@
     (assoc expr
            expr-type (ret t))))
 
-(defmethod check :list
+(add-check-method :list
   [{:keys [items] :as expr} & [expected]]
   (let [citems (mapv check items)
         actual (r/HeterogeneousList-maker (mapv (comp ret-t expr-type) citems))
@@ -73,19 +76,19 @@
     (assoc expr
            expr-type (ret actual))))
 
-(defmethod check :vector
+(add-check-method :vector
   [{:keys [items] :as expr} & [expected]]
   (vec/check-vector check expr expected))
 
-(defmethod check :set
+(add-check-method :set
   [{:keys [items] :as expr} & [expected]]
   (set/check-set check expr expected))
 
-(defmethod check :map
+(add-check-method :map
   [{mkeys :keys mvals :vals :as expr} & [expected]]
   (map/check-map check expr expected))
 
-(defmethod check :def
+(add-check-method :def
   [{:keys [init env] vname :name :as expr} & [expected]]
   (assert (not expected))
   (binding [vs/*current-env* env
@@ -111,7 +114,7 @@
                                        " via check-ns or cf")
                                   :return res-expr)))))
 
-(defmethod check :js
+(add-check-method :js
   [{:keys [js-op args env] :as expr} & [expected]]
   (assert js-op "js-op missing")
   (let [res (expr-type (check {:op :invoke
@@ -223,7 +226,7 @@
       (assoc expr
              expr-type final-ret))))
 
-(defmethod check :invoke
+(add-check-method :invoke
   [{fexpr :f :keys [args] :as expr} & [expected]]
   (let [e (invoke-special expr)]
     (cond
@@ -237,7 +240,7 @@
         (assoc expr
                expr-type actual)))))
 
-(defmethod check :var
+(add-check-method :var
   [{{vname :name} :info :keys [env] :as expr} & [expected]]
   (assoc expr
          expr-type (ret (binding [vs/*current-env* env
@@ -258,15 +261,14 @@
                           (o/->Path nil vname)
                           o/-empty))))
 
-(defmethod check :do
+(add-check-method :do
   [{:keys [ret statements] :as expr} & [expected]]
   (let [cstatements (mapv check statements)
         cret (check ret expected)]
     (assoc expr
            expr-type (expr-type cret))))
-           
 
-(defmethod check :fn
+(add-check-method :fn
   [{:keys [methods] :as expr} & [expected]]
   (let [found-meta? (atom nil)
         parse-meta (fn [{:keys [ann] :as m}] 
@@ -315,93 +317,49 @@
           (ret (r/make-FnIntersection
                  (r/make-Function [] r/-any r/-any))))))))
 
-(defmethod check :deftype*
+(add-check-method :deftype*
   [expr & [expected]]
   (assert (not expected))
   (assoc expr
          expr-type (ret r/-any)))
 
-(defmethod check :set!
+(add-check-method :set!
   [{:keys [target val] :as expr} & [expected]]
   (set!/check-set! check expr expected))
 
-(defn check-dot [{:keys [target field method args] :as dot-expr} expected]
-  (let [ctarget (check target)
-        target-t (-> ctarget expr-type ret-t)
-        resolved (let [t (c/fully-resolve-type target-t)]
-                   ;TODO DataType
-                   (when ((some-fn r/JSNominal? 
-                                   r/StringCLJS?
-                                   #_r/DataType?) t)
-                     t))]
-    (if resolved
-      (cond
-        field
-        (let [field-type (cond
-                           (r/StringCLJS? resolved)
-                           (jsnom/get-field 'string nil field)
-                           (r/JSNominal? resolved)
-                           (jsnom/get-field (:name resolved) (:poly? resolved) field))
-              _ (assert field-type (str "Don't know how to get field " field
-                                        " from " (prs/unparse-type resolved)))]
-          (assoc dot-expr
-                 expr-type (ret field-type)))
-        :else
-        (let [method-type (cond
-                            (r/StringCLJS? resolved)
-                            (jsnom/get-method 'string nil method)
-                            (r/JSNominal? resolved)
-                            (jsnom/get-method (:name resolved) (:poly? resolved) method))
-              _ (assert method-type (str "Don't know how to call method " method
-                                         " from " (prs/unparse-type resolved)))
-              cargs (mapv check args)
-              actual (funapp/check-funapp nil cargs (ret method-type) (map expr-type cargs)
-                                       expected)]
-          (assoc dot-expr
-                 expr-type actual)))
-      (err/tc-delayed-error (str "Don't know how to use type " (prs/unparse-type target-t)
-                               " with "
-                               (if field (str "field " field)
-                                 (str "method " method)))
-                          :return 
-                          (assoc dot-expr
-                                 expr-type (ret (or (when expected
-                                                      (ret-t expected))
-                                                    (r/TCError-maker))))))))
-
-(defmethod check :dot
+(add-check-method :dot
   [expr & [expected]]
-  (check-dot expr expected))
+  (dot/check-dot check expr expected))
 
-(defmethod check :new
+(add-check-method :new
   [{:keys [ctor args] :as expr} & [expected]]
   (assert nil ctor))
 
-(defmethod check :if
+(add-check-method :if
   [{:keys [test then else] :as expr} & [expected]]
   {:post [(-> % expr-type r/TCResult?)]}
   (let [ctest (check test)]
     (if/check-if check expr ctest then else expected)))
 
-(defmethod check :let
+(add-check-method :let
   [{:keys [bindings #_expr env] :as let-expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:bindings %))]}
   (let/check-let check let-expr expected))
 
-(defmethod check :letfn
+(add-check-method :letfn
   [{:keys [bindings expr env] :as letfn-expr} & [expected]]
   (letfn/check-letfn bindings expr letfn-expr expected check))
 
-(defmethod check :recur
+(add-check-method :recur
   [{:keys [exprs env] :as recur-expr} & [expected]]
   (recur/check-recur exprs env recur-expr expected check))
 
-(defmethod check :loop
+(add-check-method :loop
   [{:keys [bindings #_expr env] :as loop-expr} & [expected]]
   (loop/check-loop check loop-expr expected))
 
-(defmethod check :ns
+(add-check-method :ns
   [expr & [expected]]
   (assoc expr
          expr-type (ret r/-any)))
