@@ -8,7 +8,6 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.internal :as internal]
             [clojure.core.typed.errors :as err]
-            [cljs.analyzer :as ana]
             [cljs.compiler :as comp]
             [cljs.env :as env]
             [clojure.pprint :as pprint]))
