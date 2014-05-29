@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <artifactId>core.typed.rt</artifactId>
+  <description>An optional type system for Clojure — zero-dependency artifact for annotations only.</description>
+
+  <parent>
+    <groupId>org.clojure</groupId>
+    <artifactId>core.typed-pom</artifactId>
+    <version>0.2.51-SNAPSHOT</version>
+  </parent>
+
+  <build>
+    <plugins>
+        <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <includes>
+            <include>clojure/core/typed.clj</include>
+            <include>clojure/core/typed/internal.clj</include>
+            <include>clojure/core/typed/current_impl.clj</include>
+            <include>clojure/core/typed/profiling.clj</include>
+            <include>clojure/core/typed/parse_ast.clj</include>
+            <include>clojure/core/typed/type_contract.clj</include>
+            <include>clojure/core/typed/util_vars.clj</include>
+            <include>clojure/core/typed/errors.clj</include>
+            <include>clojure/core/typed/coerce_utils.clj</include>
+            <include>clojure/core/typed/ast_utils.clj</include>
+          </includes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+
