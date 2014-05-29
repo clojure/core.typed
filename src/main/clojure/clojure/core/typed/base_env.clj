@@ -1111,6 +1111,7 @@ clojure.core/derive (FnCase [(U Symbol Keyword Class) (U Symbol Keyword) -> nil]
 clojure.core/compare [Any Any -> Number]
 
 clojure.core/require [Any * -> nil]
+clojure.core/use [Any * -> nil]
 clojure.core/refer [Symbol & :optional {:exclude (Seqable Symbol)
                                         :only (Seqable Symbol)
                                         :rename (Map Symbol Symbol)}
