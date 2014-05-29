@@ -12,6 +12,7 @@
             [clojure.core.typed.check.set-bang :as set!]
             [clojure.core.typed.check.cli :as cli]
             [clojure.core.typed.check.def :as def]
+            [clojure.core.typed.check.do :as do]
             [clojure.core.typed.check.funapp :as funapp]
             [clojure.core.typed.check.get :as get]
             [clojure.core.typed.check.nth :as nth]
@@ -1385,74 +1386,11 @@
   [expr expected]
   (err/int-error (str "No such internal form: " (ast-u/emit-form-fn expr))))
 
-(defn internal-form? [expr]
-  (u/internal-form? expr ::t/special-form))
-
 (add-check-method :do
   [expr & [expected]]
   {:post [(r/TCResult? (u/expr-type %))
           (vector? (:statements %))]}
-  (u/enforce-do-folding expr ::t/special-form)
-  (cond
-    (internal-form? expr)
-    (internal-special-form expr expected)
-
-    :else
-    (let [exprs (vec (concat (:statements expr) [(:ret expr)]))
-          nexprs (count exprs)
-          [env cexprs]
-          (reduce (fn [[env cexprs] [^long n expr]]
-                    {:pre [(lex/PropEnv? env)
-                           (integer? n)
-                           (< n nexprs)]
-                     ; :post checked after the reduce
-                     }
-                    (let [cexpr (binding [; always prefer envs with :line information, even if inaccurate
-                                          vs/*current-env* (if (:line (:env expr))
-                                                             (:env expr)
-                                                             vs/*current-env*)
-                                          vs/*current-expr* expr]
-                                  (var-env/with-lexical-env env
-                                    (check expr
-                                           ;propagate expected type only to final expression
-                                           (when (= (inc n) nexprs)
-                                             expected))))
-                          res (u/expr-type cexpr)
-                          flow (-> res r/ret-flow r/flow-normal)
-                          flow-atom (atom true)
-                          ;_ (prn flow)
-                          ;add normal flow filter
-                          nenv (update/env+ env [flow] flow-atom)
-                          ;_ (prn nenv)
-                          ]
-  ;                        _ (when-not @flow-atom 
-  ;                            (binding [; always prefer envs with :line information, even if inaccurate
-  ;                                                  vs/*current-env* (if (:line (:env expr))
-  ;                                                                     (:env expr)
-  ;                                                                     vs/*current-env*)
-  ;                                      vs/*current-expr* expr]
-  ;                              (err/int-error (str "Applying flow filter resulted in local being bottom"
-  ;                                                "\n"
-  ;                                                (with-out-str (print-env* nenv))
-  ;                                                "\nOld: "
-  ;                                                (with-out-str (print-env* env))))))]
-                      (if @flow-atom
-                        ;reachable
-                        [nenv (conj cexprs cexpr)]
-                        ;unreachable
-                        (do ;(prn "Detected unreachable code")
-                          (reduced [nenv (conj cexprs 
-                                               (assoc cexpr 
-                                                      u/expr-type (r/ret (r/Bottom))))])))))
-                  [lex/*lexical-env* []] (map-indexed vector exprs))
-          actual-types (map u/expr-type cexprs)
-          _ (assert (lex/PropEnv? env))
-          _ (assert ((every-pred vector? seq) cexprs)) ; make sure we conj'ed in the right order
-          _ (assert ((every-pred (con/every-c? r/TCResult?) seq) actual-types))]
-      (assoc expr
-             :statements (vec (butlast cexprs))
-             :ret (last cexprs)
-             u/expr-type (last actual-types))))) ;should be a r/ret already
+  (do/check-do check internal-special-form expr expected))
 
 (add-check-method :local
   [{sym :name :as expr} & [expected]]

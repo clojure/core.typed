@@ -1,0 +1,78 @@
+(ns clojure.core.typed.check.do
+  (:require [clojure.core.typed.utils :as u]
+            [clojure.core.typed.errors :as err]
+            [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.var-env :as var-env]
+            [clojure.core.typed.type-rep :as r]
+            [clojure.core.typed.update :as update]
+            [clojure.core.typed.contract-utils :as con]))
+
+(defn special-kw []
+  (-> (err/var-for-impl 'special-form) str keyword))
+
+(defn internal-form? [expr]
+  (u/internal-form? expr (special-kw)))
+
+(defn check-do [check internal-special-form expr expected]
+  (u/enforce-do-folding expr (special-kw))
+  (cond
+    (internal-form? expr)
+    (internal-special-form expr expected)
+
+    :else
+    (let [exprs (vec (concat (:statements expr) [(:ret expr)]))
+          nexprs (count exprs)
+          [env cexprs]
+          (reduce (fn [[env cexprs] [^long n expr]]
+                    {:pre [(lex/PropEnv? env)
+                           (integer? n)
+                           (< n nexprs)]
+                     ; :post checked after the reduce
+                     }
+                    (let [cexpr (binding [; always prefer envs with :line information, even if inaccurate
+                                          vs/*current-env* (if (:line (:env expr))
+                                                             (:env expr)
+                                                             vs/*current-env*)
+                                          vs/*current-expr* expr]
+                                  (var-env/with-lexical-env env
+                                    (check expr
+                                           ;propagate expected type only to final expression
+                                           (when (= (inc n) nexprs)
+                                             expected))))
+                          res (u/expr-type cexpr)
+                          flow (-> res r/ret-flow r/flow-normal)
+                          flow-atom (atom true)
+                          ;_ (prn flow)
+                          ;add normal flow filter
+                          nenv (update/env+ env [flow] flow-atom)
+                          ;_ (prn nenv)
+                          ]
+  ;                        _ (when-not @flow-atom 
+  ;                            (binding [; always prefer envs with :line information, even if inaccurate
+  ;                                                  vs/*current-env* (if (:line (:env expr))
+  ;                                                                     (:env expr)
+  ;                                                                     vs/*current-env*)
+  ;                                      vs/*current-expr* expr]
+  ;                              (err/int-error (str "Applying flow filter resulted in local being bottom"
+  ;                                                "\n"
+  ;                                                (with-out-str (print-env* nenv))
+  ;                                                "\nOld: "
+  ;                                                (with-out-str (print-env* env))))))]
+                      (if @flow-atom
+                        ;reachable
+                        [nenv (conj cexprs cexpr)]
+                        ;unreachable
+                        (do ;(prn "Detected unreachable code")
+                          (reduced [nenv (conj cexprs 
+                                               (assoc cexpr 
+                                                      u/expr-type (r/ret (r/Bottom))))])))))
+                  [lex/*lexical-env* []] (map-indexed vector exprs))
+          actual-types (map u/expr-type cexprs)
+          _ (assert (lex/PropEnv? env))
+          _ (assert ((every-pred vector? seq) cexprs)) ; make sure we conj'ed in the right order
+          _ (assert ((every-pred (con/every-c? r/TCResult?) seq) actual-types))]
+      (assoc expr
+             :statements (vec (butlast cexprs))
+             :ret (last cexprs)
+             u/expr-type (last actual-types))))) ;should be a r/ret already
