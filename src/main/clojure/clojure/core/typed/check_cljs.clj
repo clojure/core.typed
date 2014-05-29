@@ -13,11 +13,12 @@
             [clojure.core.typed.check.map :as map]
             [clojure.core.typed.check.fn-method-utils :as fn-method-u]
             [clojure.core.typed.check.set-bang :as set!]
+            [clojure.core.typed.check.set :as set]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.utils :as u :refer [def-type expr-type]]
+            [clojure.core.typed.utils :as u :refer [expr-type]]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.parse-unparse :as prs]
@@ -84,14 +85,7 @@
 
 (defmethod check :set
   [{:keys [items] :as expr} & [expected]]
-  (let [citems (mapv check items)
-        actual (c/Protocol-of 'cljs.core/ISet [(apply c/Un (map (comp ret-t expr-type) citems))])
-        _ (binding [vs/*current-env* (:env expr)]
-            (when expected 
-              (when-not (sub/subtype? actual (ret-t expected))
-                (cu/expected-error actual (ret-t expected)))))]
-    (assoc expr
-           expr-type (ret actual))))
+  (set/check-set check expr expected))
 
 (defmethod check :map
   [{mkeys :keys mvals :vals :as expr} & [expected]]

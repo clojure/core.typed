@@ -25,6 +25,7 @@
             [clojure.core.typed.check.let :as let]
             [clojure.core.typed.check.loop :as loop]
             [clojure.core.typed.check.letfn :as letfn]
+            [clojure.core.typed.check.set :as set]
             [clojure.core.typed.check.map :as map]
             [clojure.core.typed.check.multi :as multi]
             [clojure.core.typed.check.multi-utils :as multi-u]
@@ -82,7 +83,6 @@
             [clojure.math.combinatorics :as comb]
             [clojure.pprint :as pprint]
             [clojure.repl :as repl]
-            [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.analyzer.ast :as ast-ops])
   (:import (clojure.core.typed.type_rep Function FnIntersection RClass Poly DottedPretype HeterogeneousSeq
@@ -202,13 +202,7 @@
   [{:keys [items] :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:items %))]}
-  (let [cargs (mapv check items)
-        res-type (c/RClass-of PersistentHashSet [(apply c/Un (mapv (comp r/ret-t u/expr-type) cargs))])
-        _ (when (and expected (not (sub/subtype? res-type (r/ret-t expected))))
-            (cu/expected-error res-type (r/ret-t expected)))]
-    (assoc expr
-           :items cargs
-           u/expr-type (r/ret res-type (fo/-true-filter)))))
+  (set/check-set check expr expected))
 
 (add-check-method :vector
   [{:keys [items] :as expr} & [expected]]
