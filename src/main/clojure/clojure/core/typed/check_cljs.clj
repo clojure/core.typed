@@ -16,6 +16,7 @@
             [clojure.core.typed.check.set-bang :as set!]
             [clojure.core.typed.check.set :as set]
             [clojure.core.typed.check.vector :as vec]
+            [clojure.core.typed.check.print-env :as pr-env]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
@@ -134,22 +135,12 @@
 
 (defmethod invoke-special :default [& _] ::not-special)
 
-; copied from Clojure impl
-(defn- print-env*
-  ([] (print-env* lex/*lexical-env*))
-  ([e]
-   {:pre [(lex/PropEnv? e)]}
-   ;; DO NOT REMOVE
-   (prn {:env (into {} (for [[k v] (:l e)]
-                         [k (prs/unparse-type v)]))
-         :props (map prs/unparse-filter (:props e))})))
-
 (defmethod invoke-special 'cljs.core.typed/print-env
   [{[{debug-string :form :as texpr} :as args] :args :as expr} & [expected]]
   (assert (= 1 (count args)))
   (assert (string? debug-string))
   ;DO NOT REMOVE
-  (print-env*)
+  (pr-env/print-env*)
   ;DO NOT REMOVE
   (assoc expr
          expr-type (ret r/-any)))
