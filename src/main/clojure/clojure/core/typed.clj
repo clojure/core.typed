@@ -2441,6 +2441,7 @@ for checking namespaces, cf for checking individual forms."}
   [nsyms]
   (assert (and (coll? nsyms) (every? symbol? nsyms))
           "Must pass a collection of symbols to statistics")
+  (load-if-needed)
   (reduce (fn [stats nsym]
             (let [_ (check-ns nsym :collect-only true)
                   ns (find-ns nsym)
@@ -2472,6 +2473,7 @@ for checking namespaces, cf for checking individual forms."}
                (symbol? nsyms-or-nsym)
                (and (coll? nsyms-or-nsym) (every? symbol? nsyms-or-nsym)))
            "Must pass a collection of symbols or a symbol/namespace to var-coverage")
+   (load-if-needed)
    (let [nsyms (if ((some-fn symbol? #(instance? clojure.lang.Namespace %))
                     nsyms-or-nsym)
                  [(ns-name nsyms-or-nsym)]
