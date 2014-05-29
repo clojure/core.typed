@@ -36,6 +36,8 @@
             [clojure.core.typed.check.recur :as recur]
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.check.type-hints :as type-hints]
+            [clojure.core.typed.check.try :as try]
+            [clojure.core.typed.check.catch :as catch]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.value :as value]
             [clojure.core.typed.coerce-utils :as coerce]
@@ -82,18 +84,9 @@
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.var-env :as var-env]
-            [clojure.math.combinatorics :as comb]
             [clojure.pprint :as pprint]
-            [clojure.repl :as repl]
-            [clojure.string :as str]
-            [clojure.tools.analyzer.ast :as ast-ops])
-  (:import (clojure.core.typed.type_rep Function FnIntersection RClass Poly DottedPretype HeterogeneousSeq
-                                        Value KwArgs HeterogeneousMap DataType TCResult HeterogeneousVector
-                                        FlowSet Union)
-           (clojure.core.typed.object_rep Path)
-           (clojure.core.typed.filter_rep NotTypeFilter TypeFilter FilterSet AndFilter OrFilter)
-           (clojure.lang APersistentMap IPersistentMap IPersistentSet Var Seqable ISeq
-                         PersistentHashSet)))
+            [clojure.repl :as repl])
+  (:import (clojure.lang IPersistentMap Var Seqable)))
 
 (alter-meta! *ns* assoc :skip-wiki true
              :core.typed {:collect-only true})
@@ -527,7 +520,7 @@
                               vt
                               (do (assert (r/HeterogeneousMap? t))
                                   (assoc-in [:types kt] vt))))
-                          (c/-complete-hmap {}) (.types ^HeterogeneousSeq targett))]
+                          (c/-complete-hmap {}) (:types targett))]
           (assoc expr
                  :args cargs
                  u/expr-type (r/ret res)))))))
@@ -1863,30 +1856,13 @@
 
 (add-check-method :catch
   [{ecls :class, handler :body :keys [local] :as expr} & [expected]]
-  (let [local-sym (:name local)
-        local-type (c/RClass-of-with-unknown-params ecls)
-        chandler (lex/with-locals {local-sym local-type}
-                   (check handler expected))]
-    (assoc expr
-           u/expr-type (u/expr-type chandler))))
+  (catch/check-catch check expr expected))
 
-; filters don't propagate between components of a `try`, nor outside of it.
 (add-check-method :try
   [{:keys [body catches finally] :as expr} & [expected]]
   {:post [(vector? (:catches %))
           (-> % u/expr-type r/TCResult?)]}
-  (let [chk #(check % expected)
-        cbody (chk body)
-        ccatches (mapv chk catches)
-        ; finally result is thrown away
-        cfinally (when finally
-                   (check finally))]
-    (assoc expr
-           :body cbody
-           :catches ccatches
-           :finally cfinally
-           u/expr-type (r/ret (apply c/Un (-> cbody u/expr-type r/ret-t) 
-                                 (map (comp r/ret-t u/expr-type) ccatches))))))
+  (try/check-try check expr expected))
 
 (add-check-method :set!
   [{:keys [target val env] :as expr} & [expected]]
