@@ -111,6 +111,7 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 * Reid McKenzie (arrdem)
 * Di Xu (xudifsd)
 * Nicola Mometto (Bronsa)
+* Chas Emerick (cemerick)
 
 ## Sponsors
 

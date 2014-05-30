@@ -207,7 +207,11 @@ clojure.core.typed/Sym clojure.lang.Symbol
         :forms [Str]}
 clojure.core.typed/Str java.lang.String
 
-; TODO: IMapEntry, Sequential, Boolean
+      ^{:doc "A boolean"
+        :forms [Bool]}
+clojure.core.typed/Bool java.lang.Boolean
+
+; TODO: IMapEntry
 
       ^{:doc "A namespace"
         :forms [Namespace]}
@@ -432,6 +436,47 @@ clojure.core.typed/SequentialSeq
       (TFn [[x :variance :covariant]]
              (I clojure.lang.Sequential
                 (clojure.lang.ISeq x)))
+
+    ^{:doc "A sequential seq returned from clojure.core/seq"
+      :forms [(ASeq t)]}
+clojure.core.typed/ASeq
+      (TFn [[x :variance :covariant]]
+           (I (clojure.lang.ISeq x)
+              clojure.lang.Sequential
+              (Iterable x)
+              (java.util.Collection x)
+              (java.util.List x)
+              clojure.lang.IObj))
+
+    ^{:doc "A sequential non-empty seq retured from clojure.core/seq"
+      :forms [(NonEmptyASeq t)]}
+clojure.core.typed/NonEmptyASeq
+      (TFn [[x :variance :covariant]]
+           (I (clojure.lang.ISeq x)
+              clojure.lang.Sequential
+              (Iterable x)
+              (java.util.Collection x)
+              (java.util.List x)
+              clojure.lang.IObj
+              (CountRange 1)))
+
+    ^{:doc "The result of clojure.core/seq."
+      :forms [(NilableNonEmptyASeq t)]}
+clojure.core.typed/NilableNonEmptyASeq
+      (TFn [[x :variance :covariant]]
+           (U nil
+              (I (clojure.lang.ISeq x)
+                 clojure.lang.Sequential
+                 (Iterable x)
+                 (java.util.Collection x)
+                 (java.util.List x)
+                 clojure.lang.IObj
+                 (CountRange 1))))
+
+    ^{:doc "A type that returns true for clojure.core/fn?"
+      :forms [Fn]}
+clojure.core.typed/Fn
+              clojure.lang.Fn
 
     ^{:doc "A Clojure multimethod."
       :forms [Multi]}

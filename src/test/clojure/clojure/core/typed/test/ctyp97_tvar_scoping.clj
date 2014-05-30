@@ -4,7 +4,7 @@
              :refer [ann Seqable fn>]]))
 
 (ann reduce_ (t/All [a b] 
-               (t/FnCase 
+               (t/IFn 
                  [[a b -> b] b (Seqable a) -> b]
                  [[a (Seqable (t/U a b)) -> (Seqable (t/U a b))]
                   (Seqable (t/U a b)) (Seqable a) -> (Seqable (t/U a b))])))

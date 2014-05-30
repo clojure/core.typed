@@ -75,7 +75,7 @@
 (defn num-vec2 [a b]
   [(if a a 0) (if b b 0)])
 
-(ann < (t/FnCase 
+(ann < (t/IFn 
          [Number -> boolean]
          [Number Number -> boolean]
          [Number Number Number * -> boolean]))
@@ -91,7 +91,7 @@
        (< y (first more)))
      false)))
 
-(ann not= (t/FnCase 
+(ann not= (t/IFn 
             [t/Any -> boolean]
             [t/Any t/Any -> boolean]
             [t/Any t/Any t/Any * -> boolean]))

@@ -87,9 +87,9 @@
                           (m2 [this t] [this t y]))
           :ann-protocol '(clojure.core.typed/ann-protocol Name
                            m1
-                           (clojure.core.typed/FnCase [Name clojure.core.typed/Any -> clojure.core.typed/Any])
+                           (clojure.core.typed/IFn [Name clojure.core.typed/Any -> clojure.core.typed/Any])
                            m2
-                           (clojure.core.typed/FnCase [Name clojure.core.typed/Any -> clojure.core.typed/Any]
+                           (clojure.core.typed/IFn [Name clojure.core.typed/Any -> clojure.core.typed/Any]
                                [Name clojure.core.typed/Any clojure.core.typed/Any -> clojure.core.typed/Any]))}))
   ; fully annotated, no poly
   (is (= (internal/parse-defprotocol*
@@ -101,9 +101,9 @@
                           (m2 [this t] [this t y]))
           :ann-protocol '(clojure.core.typed/ann-protocol Name
                            m1
-                           (clojure.core.typed/FnCase [Name Foo -> Bar])
+                           (clojure.core.typed/IFn [Name Foo -> Bar])
                            m2
-                           (clojure.core.typed/FnCase [Name Number -> Baz]
+                           (clojure.core.typed/IFn [Name Number -> Baz]
                                [Name Number Blah -> Bar]))}))
   ; method intersections
   (is (= (internal/parse-defprotocol*
@@ -114,7 +114,7 @@
                           (m1 [this t]))
           :ann-protocol '(clojure.core.typed/ann-protocol Name
                            m1
-                           (clojure.core.typed/FnCase [Name Foo -> Bar]
+                           (clojure.core.typed/IFn [Name Foo -> Bar]
                                [Name Foo1 -> Bar1]
                                [Name Foo2 -> Bar2]))}))
   ;polymorphic protocols with doc
@@ -130,7 +130,7 @@
                            [[x :variance :covariant]]
                            Name
                            m1
-                           (clojure.core.typed/FnCase [(Name x) Foo -> Bar]
+                           (clojure.core.typed/IFn [(Name x) Foo -> Bar]
                                [(Name x) Foo1 -> Bar1]
                                [(Name x) Foo2 -> Bar2]))}))
   ; polymorphic method
@@ -148,7 +148,7 @@
                            Name
                            m1
                            (clojure.core.typed/All [y]
-                                (clojure.core.typed/FnCase
+                                (clojure.core.typed/IFn
                                   [(Name x) Foo -> Bar]
                                   [(Name x) Foo1 -> Bar1]
                                   [(Name x) Foo2 -> Bar2])))}))

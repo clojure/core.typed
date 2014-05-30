@@ -227,7 +227,7 @@
                        _ (assert (empty? (set/intersection localtvars
                                                            tvars))
                                  "Shadowing a protocol type variable in a method is disallowed")
-                       fn-type `(clojure.core.typed/FnCase
+                       fn-type `(clojure.core.typed/IFn
                                   ~@(map (fn [{:keys [ptypes ret]}]
                                            `[~@(concat [this-type] (map :type (rest ptypes))) ~'-> ~(:type ret)])
                                          arities))]

@@ -33,7 +33,11 @@
 (deftest subtype-intersection
   (is-clj (not (subtype? (RClass-of Seqable [-any])
                          (In (RClass-of Seqable [-any])
-                             (make-CountRange 1))))))
+                             (make-CountRange 1)))))
+  (is-clj (sub?-q `(t/NonEmptyASeq t/Num)
+                  `(t/NonEmptySeq t/Num)))
+  (is-clj (sub?-q `(t/NonEmptyASeq (t/Val 1))
+                  `(t/NonEmptySeq t/Num))))
 
 (deftest subtype-Object
   (is-clj (subtype? (RClass-of clojure.lang.IPersistentList [-any]) (RClass-of Object nil))))
@@ -112,8 +116,8 @@
                 (clojure.core.typed/Map Integer Long))))
 
 (deftest latent-filter-subtype-test 
-  (is-clj (not (sub?-q `(t/FnCase [t/Any ~'-> t/Any :filters {:then (~'is Number 0)}])
-                       `(t/FnCase [t/Any ~'-> t/Any :filters {:then (~'is t/Nothing 0)}])))))
+  (is-clj (not (sub?-q `(t/IFn [t/Any ~'-> t/Any :filters {:then (~'is Number 0)}])
+                       `(t/IFn [t/Any ~'-> t/Any :filters {:then (~'is t/Nothing 0)}])))))
 
 (deftest subtype-tfn-test
   (is-clj (sub?-q `(t/TFn [[x# :variance :covariant]] Number)
