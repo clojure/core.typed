@@ -550,7 +550,7 @@ clojure.java.io/IOFactory
 ; must be after init-alias-env def as vars are interned there
 (let [interns '[Option AnyInteger Id Coll Seq EmptySeqable
                 NonEmptySeqable Map EmptyCount NonEmptyCount SortedSet Set
-                Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptySeq
+                Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptyASeq
                 Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
                 Symbol Namespace Atom2 Ref1 Ref2 Delay Proxy List Stack ExInfo
                 Multi Deref BlockingDeref SequentialSeqable ASeq NonEmptyASeq]]
@@ -859,17 +859,17 @@ clojure.core/sorted-set (All [x] [x * -> (PersistentTreeSet x)])
 clojure.core/sorted-set-by (All [x] [[x x -> AnyInteger] x * -> (PersistentTreeSet x)])
 clojure.core/list (All [x] [x * -> (PersistentList x)])
 clojure.core/list* (All [x] 
-                        (FnCase [(U nil (Seqable x)) -> (NilableNonEmptySeq x)]
-                            [x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
-                            [x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
-                            [x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
-                            [x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
-                            [x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
-                            [x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
-                            [x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
-                            [x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
-                            [x x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]
-                            [x x x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptySeq x)]))
+                        (FnCase [(U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
+                            [x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
+                            [x x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
+                            [x x x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
+                            [x x x x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
+                            [x x x x x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
+                            [x x x x x x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
+                            [x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
+                            [x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
+                            [x x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
+                            [x x x x x x x x x x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]))
 
 clojure.core/list? (Pred (List Any))
 
@@ -884,7 +884,7 @@ clojure.core/pos? (FnCase [Number -> Boolean])
 clojure.core/neg? (FnCase [Number -> Boolean])
 
 clojure.core/nthrest (All [x] [(U nil (Seqable x)) AnyInteger 
-                               -> (NilableNonEmptySeq x)])
+                               -> (ASeq x)])
 
 clojure.core/vector (All [r b ...]
                          (FnCase [b ... b -> '[b ... b]]
@@ -896,7 +896,7 @@ clojure.core/constantly (All [x] [x -> [Any * -> x]])
 
 clojure.core/bound? [(Var2 Nothing Any) * -> Boolean]
 clojure.core/thread-bound? [(Var2 Nothing Any) * -> Boolean]
-clojure.core/bases [(Nilable Class) -> (NilableNonEmptySeq Class)]
+clojure.core/bases [(Nilable Class) -> (NilableNonEmptyASeq Class)]
 
 clojure.core/make-hierarchy [-> Hierarchy]
 clojure.core/isa? (FnCase [Any Any -> Boolean]
@@ -1689,11 +1689,11 @@ clojure.core/drop
 
 clojure.core/take-last
      (All [x]
-       [AnyInteger (Seqable x) -> (NilableNonEmptySeq x)])
+       [AnyInteger (Seqable x) -> (NilableNonEmptyASeq x)])
 
 clojure.core/drop-last
      (All [x]
-       [AnyInteger (Seqable x) -> (NilableNonEmptySeq x)])
+       [AnyInteger (Seqable x) -> (NilableNonEmptyASeq x)])
 
 clojure.core/hash [Any -> AnyInteger]
 clojure.core/hash-combine [AnyInteger Any -> AnyInteger]
@@ -1821,7 +1821,7 @@ clojure.core/subvec (All [x]
                          [(Vec x) AnyInteger AnyInteger -> (Vec x)]))
 
 clojure.core/alias [Symbol Symbol -> nil]
-clojure.core/all-ns [-> (NilableNonEmptySeq Namespace)]
+clojure.core/all-ns [-> (Nilable (NonEmptyASeq Namespace))]
 
 clojure.core/*file* String
 clojure.core/*command-line-args* (U nil (NonEmptyASeq String))

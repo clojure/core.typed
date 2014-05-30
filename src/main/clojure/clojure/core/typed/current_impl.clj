@@ -444,7 +444,7 @@ clojure.core.typed/ASeq
               (java.util.List x)
               clojure.lang.IObj))
 
-    ^{:doc "The result of clojure.core/seq."
+    ^{:doc "A sequential non-empty seq retured from clojure.core/seq"
       :forms [(NonEmptyASeq t)]}
 clojure.core.typed/NonEmptyASeq
       (TFn [[x :variance :covariant]]
@@ -455,6 +455,20 @@ clojure.core.typed/NonEmptyASeq
               (java.util.List x)
               clojure.lang.IObj
               (CountRange 1)))
+
+    ^{:doc "The result of clojure.core/seq."
+      :forms [(NilableNonEmptyASeq t)]}
+clojure.core.typed/NilableNonEmptyASeq
+      (TFn [[x :variance :covariant]]
+           (U nil
+              (I (clojure.lang.ISeq x)
+                 clojure.lang.Sequential
+                 (Iterable x)
+                 (java.util.Collection x)
+                 (java.util.List x)
+                 clojure.lang.IObj
+                 (CountRange 1))))
+
 
     ^{:doc "A Clojure multimethod."
       :forms [Multi]}
