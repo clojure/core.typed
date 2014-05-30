@@ -16,6 +16,7 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.core.typed.parse-ast :as ast]
             [clojure.core.typed.internal :as internal]
             [clojure.core.typed.errors :as err]
+            [clojure.core.typed.special-form :as spec]
             [clojure.java.io :as io]))
 
 (defmacro
@@ -89,7 +90,7 @@ for checking namespaces, cf for checking individual forms."}
         ([a :- String, b :- Number] :- String ...))"
   [& forms]
   (core/let [{:keys [fn ann]} (internal/parse-fn* false forms)]
-    `(do ::special-form
+    `(do ~spec/special-form
          ::fn
          {:ann '~ann}
          ~fn)))
@@ -105,7 +106,7 @@ for checking namespaces, cf for checking individual forms."}
         ...)"
   [bindings & exprs]
   (core/let [{:keys [ann loop]} (internal/parse-loop* `(~bindings ~@exprs))]
-    `(do ::special-form
+    `(do ~spec/special-form
          ::loop
          {:ann '~ann}
          ~loop)))
@@ -125,7 +126,7 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro ann-form 
   "Annotate a form with an expected type."
   [form ty]
-  `(do ::special-form
+  `(do ~spec/special-form
        ::ann-form
        {:type '~ty}
        ~form))
@@ -1371,7 +1372,7 @@ for checking namespaces, cf for checking individual forms."}
   "Ignore forms in body during type checking"
   [& body]
   (if vs/*currently-checking-clj*
-    `(do ::special-form
+    `(do ~spec/special-form
          ::tc-ignore
          ~@(or body [nil]))
     (case (count body)
@@ -1388,7 +1389,7 @@ for checking namespaces, cf for checking individual forms."}
            long)"
   [form tag]
   (if vs/*currently-checking-clj*
-    `(do ::special-form
+    `(do ~spec/special-form
          ::tag
          {:tag '~tag}
          ~form)

@@ -43,6 +43,7 @@
             [clojure.core.typed.check.value :as value]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.cs-gen :as cgen]
             [clojure.core.typed.cs-rep :as crep]
             [clojure.core.typed.ctor-override-env :as ctor-override]
@@ -620,7 +621,7 @@
 ; Any Type Env -> Expr
 (defn dummy-ann-form-expr [expr t env]
   (ast-u/dummy-do-expr
-    [(ast-u/dummy-const-expr ::t/special-form env)
+    [(ast-u/dummy-const-expr spec/special-form env)
      (ast-u/dummy-const-expr ::t/ann-form env)
      (ast-u/dummy-const-expr 
        {:type (binding [vs/*verbose-types* true]
@@ -1301,7 +1302,7 @@
 
 
 ;(ann internal-special-form [Expr (U nil TCResult) -> Expr])
-(u/special-do-op ::t/special-form internal-special-form)
+(u/special-do-op spec/special-form internal-special-form)
 
 (defmethod internal-special-form ::t/tc-ignore
   [expr expected]

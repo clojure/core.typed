@@ -8,6 +8,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.internal :as internal]
             [clojure.core.typed.errors :as err]
+            [clojure.core.typed.special-form :as spec]
             [cljs.compiler :as comp]
             [cljs.env :as env]
             [clojure.pprint :as pprint]))
@@ -55,7 +56,7 @@
         ([a :- String, b :- Number] :- String ...))"
   [& forms]
   (core/let [{:keys [fn ann]} (internal/parse-fn* false forms)]
-    `(do ::special-form
+    `(do ~spec/special-form
          ::fn
          {:ann '~ann}
          ~fn)))

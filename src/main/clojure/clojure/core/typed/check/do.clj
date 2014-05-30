@@ -6,16 +6,14 @@
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.update :as update]
+            [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.contract-utils :as con]))
 
-(defn special-kw []
-  (-> (err/var-for-impl 'special-form) str keyword))
-
 (defn internal-form? [expr]
-  (u/internal-form? expr (special-kw)))
+  (u/internal-form? expr spec/special-form))
 
 (defn check-do [check internal-special-form expr expected]
-  (u/enforce-do-folding expr (special-kw))
+  (u/enforce-do-folding expr spec/special-form)
   (cond
     (internal-form? expr)
     (internal-special-form expr expected)
