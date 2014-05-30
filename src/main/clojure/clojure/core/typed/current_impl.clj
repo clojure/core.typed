@@ -469,6 +469,10 @@ clojure.core.typed/NilableNonEmptyASeq
                  clojure.lang.IObj
                  (CountRange 1))))
 
+    ^{:doc "A type that returns true for clojure.core/fn?"
+      :forms [Fn]}
+clojure.core.typed/Fn
+              clojure.lang.Fn
 
     ^{:doc "A Clojure multimethod."
       :forms [Multi]}

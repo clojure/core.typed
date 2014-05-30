@@ -23,7 +23,8 @@
             [clojure.set :as set]
             [clojure.core.typed :refer [Any Nothing TFn Rec
                                         Pred U I All IFn
-                                        HVec HSequential]]))
+                                        HVec HSequential]
+             :as t]))
 
 
 
@@ -1699,6 +1700,7 @@ clojure.core/hash [Any -> AnyInteger]
 clojure.core/hash-combine [AnyInteger Any -> AnyInteger]
 
 clojure.core/ifn? (Pred clojure.lang.IFn)
+clojure.core/fn? (Pred t/Fn)
 
 clojure.core/instance? [Class Any -> Boolean]
 
