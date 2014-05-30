@@ -758,6 +758,7 @@
             :else (assert nil "FIXME CLJS parse Value"))))
 
 (defmethod parse-type-list 'Value [t] (parse-Value t))
+(defmethod parse-type-list 'clojure.core.typed/Val [t] (parse-Value t))
 (defmethod parse-type-list 'clojure.core.typed/Value [t] (parse-Value t))
 
 (defmethod parse-type-list 'KeywordArgs

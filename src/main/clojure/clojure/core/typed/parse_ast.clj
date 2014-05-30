@@ -478,9 +478,10 @@
    :val (first args)})
 
 (defmethod parse-seq* 'Value [syn] 
-  (err/deprecated-plain-op 'Value)
+  (err/deprecated-plain-op 'Value 'Val)
   (parse-Value syn))
 (defmethod parse-seq* 'clojure.core.typed/Value [syn] (parse-Value syn))
+(defmethod parse-seq* 'clojure.core.typed/Val [syn] (parse-Value syn))
 (defmethod parse-seq* 'cljs.core.typed/Value [syn] (parse-Value syn))
 
 (defn parse-Difference [[f & args :as syn]]

@@ -1416,6 +1416,12 @@ for checking namespaces, cf for checking individual forms."}
   I)
 
 (def ^{:doc "A singleton type for a constant value."
+       :forms '[(Val Constant)
+                'Constant]
+       ::special-type true}
+  Val)
+
+(def ^{:doc "A singleton type for a constant value."
        :forms '[(Value Constant)
                 'Constant]
        ::special-type true}
