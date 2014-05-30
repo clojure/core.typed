@@ -22,21 +22,9 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.java.io :as io]))
 
 (import-m/import-macros clojure.core.typed.macros
-  [def fn loop])
+  [def fn loop let])
 
 ;at the top because the rest of this namespace uses this macro
-(defmacro 
-  ^{:forms '[(let [binding :- type?, init*] exprs*)]}
-  let
-  "Like clojure.core/let but supports optional type annotations.
-
-  eg. (let [a :- Type, b
-            a2 1.2]
-        body)"
-  [bvec & forms]
-  (core/let [{:keys [let]} (internal/parse-let* (cons bvec forms))]
-    let))
-
 (defmacro ann-form 
   "Annotate a form with an expected type."
   [form ty]

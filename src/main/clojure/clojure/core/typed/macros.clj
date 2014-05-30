@@ -96,3 +96,15 @@
          ::t/loop
          {:ann '~ann}
          ~loop)))
+
+(defmacro 
+  ^{:forms '[(let [binding :- type?, init*] exprs*)]}
+  let
+  "Like clojure.core/let but supports optional type annotations.
+
+  eg. (let [a :- Type, b
+            a2 1.2]
+        body)"
+  [bvec & forms]
+  (core/let [{:keys [let]} (internal/parse-let* (cons bvec forms))]
+    let))
