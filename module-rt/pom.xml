@@ -30,6 +30,8 @@
           <include>clojure/core/typed/ast_ops.clj</include>
           <include>clojure/core/typed/async.clj</include>
           <include>clojure/core/typed/special_form.clj</include>
+          <include>clojure/core/typed/import_macros.clj</include>
+          <include>clojure/core/typed/macros.clj</include>
           <!-- cljs -->
           <!--<include>cljs/core/typed.clj</include>
           <include>cljs/core/typed.cljs</include>
