@@ -433,6 +433,29 @@ clojure.core.typed/SequentialSeq
              (I clojure.lang.Sequential
                 (clojure.lang.ISeq x)))
 
+    ^{:doc "A sequential seq returned from clojure.core/seq"
+      :forms [(ASeq t)]}
+clojure.core.typed/ASeq
+      (TFn [[x :variance :covariant]]
+           (I (clojure.lang.ISeq x)
+              clojure.lang.Sequential
+              (Iterable x)
+              (java.util.Collection x)
+              (java.util.List x)
+              clojure.lang.IObj))
+
+    ^{:doc "The result of clojure.core/seq."
+      :forms [(NonEmptyASeq t)]}
+clojure.core.typed/NonEmptyASeq
+      (TFn [[x :variance :covariant]]
+           (I (clojure.lang.ISeq x)
+              clojure.lang.Sequential
+              (Iterable x)
+              (java.util.Collection x)
+              (java.util.List x)
+              clojure.lang.IObj
+              (CountRange 1)))
+
     ^{:doc "A Clojure multimethod."
       :forms [Multi]}
 clojure.core.typed/Multi

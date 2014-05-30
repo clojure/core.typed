@@ -47,7 +47,7 @@
 ; is less useful here.
   (:use [clojure.core.typed :as tc :exclude [Seqable loop fn defprotocol let dotimes
                                              for doseq def remove filter]])
-  (:import (clojure.lang ISeq ASeq IPersistentVector Atom IPersistentMap
+  (:import (clojure.lang ISeq IPersistentVector Atom IPersistentMap
                          ExceptionInfo Var Seqable)))
 
 ;Aliases used in unit tests
@@ -820,13 +820,13 @@
                   {}
                   [(RClass-of IPersistentVector [(Un (-val 1) (-val 2) (-val 3))])] ;actual
                   [(RClass-of Seqable [(make-F 'x)])] ;expected
-                  (RClass-of ASeq [(make-F 'x)]))))) ;result
+                  (RClass-of clojure.lang.ASeq [(make-F 'x)]))))) ;result
   (is-clj (clj
         (= (infer {'x no-bounds} ;tv env
                   {}
                   [(-hvec [(-val 1) (-val 2) (-val 3)])] ;actual
                   [(RClass-of Seqable [(make-F 'x)])] ;expected
-                  (RClass-of ASeq [(make-F 'x)])))))) ;result
+                  (RClass-of clojure.lang.ASeq [(make-F 'x)])))))) ;result
 
 (deftest arith-test
   (is-clj (subtype? (:t (tc-t (+)))
