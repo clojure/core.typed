@@ -793,13 +793,13 @@
   :methods
   [p/TCType])
 
-(t/ann make-CountRange (t/FnCase [Number -> CountRange]
+(t/ann make-CountRange (t/IFn [Number -> CountRange]
                            [Number (t/U nil Number) -> CountRange]))
 (defn make-CountRange
   ([lower] (make-CountRange lower nil))
   ([lower upper] (CountRange-maker lower upper)))
 
-(t/ann make-ExactCountRange (t/FnCase [Number -> CountRange]))
+(t/ann make-ExactCountRange (t/IFn [Number -> CountRange]))
 (defn make-ExactCountRange [c]
   {:pre [(con/nat? c)]}
   (make-CountRange c c))
@@ -935,7 +935,7 @@
   (FlowSet-maker normal))
 
 (t/ann ^:no-check ret
-       (t/FnCase [Type -> TCResult]
+       (t/IFn [Type -> TCResult]
            [Type p/IFilterSet -> TCResult]
            [Type p/IFilterSet p/IRObject -> TCResult]
            [Type p/IFilterSet p/IRObject FlowSet -> TCResult]))
@@ -1008,7 +1008,7 @@
                                  (f %)))))
 
 (t/ann ^:no-check make-Result
-       (t/FnCase [Type -> Result]
+       (t/IFn [Type -> Result]
            [Type (t/U nil p/IFilter) -> Result]
            [Type (t/U nil p/IFilter) (t/U nil p/IRObject) -> Result]
            [Type (t/U nil p/IFilter) (t/U nil p/IRObject) (t/U nil FlowSet) -> Result]))
@@ -1024,7 +1024,7 @@
      (Result-maker t (or f (-FS -top -top)) (or o -empty) (or flow (-flow -top))))))
 
 (t/ann ^:no-check make-Function
-       (t/FnCase [(t/U nil (t/Seqable Type)) Type -> Function]
+       (t/IFn [(t/U nil (t/Seqable Type)) Type -> Function]
            [(t/U nil (t/Seqable Type)) Type (t/U nil Type) -> Function]
            [(t/U nil (t/Seqable Type)) Type (t/U nil Type) (t/U nil Type) 
             & :optional 

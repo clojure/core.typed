@@ -126,7 +126,7 @@
     :mandatory types 
     :complete? true))
 
-(t/ann -partial-hmap (t/FnCase [(t/Map r/Type r/Type) -> r/Type]
+(t/ann -partial-hmap (t/IFn [(t/Map r/Type r/Type) -> r/Type]
                          [(t/Map r/Type r/Type) (t/Set r/Type) -> r/Type]))
 (defn -partial-hmap 
   ([types] (-partial-hmap types #{}))
@@ -515,7 +515,7 @@
 ;; JS Nominal
 
 (t/ann ^:no-check JSNominal*
-  (t/FnCase [t/Sym -> r/Type]
+  (t/IFn [t/Sym -> r/Type]
       [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym (t/Seqable Bounds) -> r/Type]))
 (defn JSNominal* 
   ([name] (JSNominal* nil nil nil name nil))
@@ -534,7 +534,7 @@
 
 (declare TypeFn-fresh-symbols*)
 
-(t/ann ^:no-check JSNominal-of (t/FnCase [t/Sym -> r/Type]
+(t/ann ^:no-check JSNominal-of (t/IFn [t/Sym -> r/Type]
                                    [t/Sym (t/U nil (t/Seqable r/Type)) -> r/Type]))
 (defn JSNominal-of
   ([sym] (JSNominal-of sym nil))
@@ -570,7 +570,7 @@
       (TypeFn* names variances bnds p)
       p)))
 
-(t/ann ^:no-check DataType-of (t/FnCase [t/Sym -> r/Type]
+(t/ann ^:no-check DataType-of (t/IFn [t/Sym -> r/Type]
                                   [t/Sym (t/U nil (t/Seqable r/Type)) -> r/Type]))
 (defn DataType-of
   ([sym] (DataType-of sym nil))
@@ -645,7 +645,7 @@
   [p]
   (set (extenders @(resolve-Protocol p))))
 
-(t/ann ^:no-check Protocol-of (t/FnCase [t/Sym -> r/Type]
+(t/ann ^:no-check Protocol-of (t/IFn [t/Sym -> r/Type]
                                   [t/Sym (t/U nil (t/Seqable r/Type)) -> r/Type]))
 (defn Protocol-of 
   ([sym] (Protocol-of sym nil))
@@ -671,7 +671,7 @@
 
 ;smart constructor
 (t/ann ^:no-check RClass* 
-  (t/FnCase [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym (t/Map t/Sym r/Type) -> r/Type]
+  (t/IFn [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym (t/Map t/Sym r/Type) -> r/Type]
       [(t/Seqable t/Sym) (t/Seqable r/Variance) (t/Seqable r/Type) t/Sym 
        (t/Map t/Sym r/Type) (t/Set r/Type) -> r/Type]))
 (defn RClass* 
@@ -729,7 +729,7 @@
   (reset! RClass-of-cache {})
   nil)
 
-(t/ann ^:no-check RClass-of (t/FnCase [(t/U t/Sym Class) -> r/Type]
+(t/ann ^:no-check RClass-of (t/IFn [(t/U t/Sym Class) -> r/Type]
                                [(t/U t/Sym Class) (t/U nil (t/Seqable r/Type)) -> r/Type]))
 (defn RClass-of 
   ([sym-or-cls] (RClass-of sym-or-cls nil))
@@ -1324,7 +1324,7 @@
     (resolve-name* (:id nme))))
 
 (t/ann fully-resolve-type 
-       (t/FnCase [r/Type -> r/Type]
+       (t/IFn [r/Type -> r/Type]
            [r/Type (t/Set r/Type) -> r/Type]))
 (defn fully-resolve-type 
   ([t seen]
@@ -1336,7 +1336,7 @@
   ([t] (u/p :ctors/fully-resolve-type (fully-resolve-type t #{}))))
 
 (t/ann fully-resolve-non-rec-type 
-       (t/FnCase [r/Type -> r/Type]
+       (t/IFn [r/Type -> r/Type]
            [r/Type (t/Set r/Type) -> r/Type]))
 (defn fully-resolve-non-rec-type 
   ([t seen]
@@ -1993,7 +1993,7 @@
 
 ;TODO not sure why this fails to type check
 ;(t/All [x]
-;  (t/FnCase ['{kw x} -> x :object {:id 0, :path [Key]}]
+;  (t/IFn ['{kw x} -> x :object {:id 0, :path [Key]}]
 ;      [(t/U '{kw x} (HMap :without [(Value kw)]) nil) -> (t/U x nil) :object {:id 0, :path [Key]}]
 ;      [t/Any -> t/Any :object {:id 0, :path [Key]}]))
 (t/ann ^:no-check keyword->Fn [t/Kw -> r/Type])
@@ -2615,7 +2615,7 @@
         (check-funapp nil nil (r/ret (parse-type 
                                      ;same as clojure.core/get
                                      `(t/All [x# y#]
-                                           (t/FnCase 
+                                           (t/IFn 
                                              ;no default
                                              [(t/Set x#) t/Any ~'-> (t/Option x#)]
                                              [nil t/Any ~'-> nil]

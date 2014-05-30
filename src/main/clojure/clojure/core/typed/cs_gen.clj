@@ -72,7 +72,7 @@
 (t/ann join [r/Type r/Type -> r/Type])
 (defn join [s t] (c/Un s t))
 
-(t/ann c-meet (t/FnCase [c c (t/U nil t/Sym) -> c]
+(t/ann c-meet (t/IFn [c c (t/U nil t/Sym) -> c]
                   [c c -> c]))
 (defn c-meet 
   ([c1 c2] (c-meet c1 c2 nil))
@@ -1629,7 +1629,7 @@
 ;; like infer, but dotted-var is the bound on the ...
 ;; and T-dotted is the repeated type
 (t/ann infer-dots
-  (t/FnCase [ConstrainVars 
+  (t/IFn [ConstrainVars 
        t/Sym 
        Bounds
        (t/U nil (t/Seqable r/Type)) 
@@ -1684,7 +1684,7 @@
 
 ;; like infer, but T-var is the vararg type:
 (t/ann infer-vararg
-  (t/FnCase [ConstrainVars ConstrainVars 
+  (t/IFn [ConstrainVars ConstrainVars 
        (t/U nil (t/Seqable r/Type)) (t/U nil (t/Seqable r/Type))
        (t/U nil r/Type)
        (t/U nil r/AnyType) -> (t/U nil true false cr/SubstMap)]
@@ -1726,7 +1726,7 @@
 ;; if R is nil, we don't care about the substituion
 ;; just return a boolean result
 (t/ann infer
-  (t/FnCase [ConstrainVars ConstrainVars 
+  (t/IFn [ConstrainVars ConstrainVars 
        (t/U nil (t/Seqable r/Type)) (t/U nil (t/Seqable r/Type))
        (t/U nil r/AnyType) -> (t/U nil true cr/SubstMap)]
       [ConstrainVars ConstrainVars 

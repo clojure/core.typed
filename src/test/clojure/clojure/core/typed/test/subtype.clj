@@ -112,8 +112,8 @@
                 (clojure.core.typed/Map Integer Long))))
 
 (deftest latent-filter-subtype-test 
-  (is-clj (not (sub?-q `(t/FnCase [t/Any ~'-> t/Any :filters {:then (~'is Number 0)}])
-                       `(t/FnCase [t/Any ~'-> t/Any :filters {:then (~'is t/Nothing 0)}])))))
+  (is-clj (not (sub?-q `(t/IFn [t/Any ~'-> t/Any :filters {:then (~'is Number 0)}])
+                       `(t/IFn [t/Any ~'-> t/Any :filters {:then (~'is t/Nothing 0)}])))))
 
 (deftest subtype-tfn-test
   (is-clj (sub?-q `(t/TFn [[x# :variance :covariant]] Number)

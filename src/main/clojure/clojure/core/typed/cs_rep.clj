@@ -125,7 +125,7 @@
   [((con/hash-c? symbol? c?) fixed)
    (dmap? dmap)])
 
-(t/ann make-cset-entry (t/FnCase [(t/Map t/Sym c) -> cset-entry]
+(t/ann make-cset-entry (t/IFn [(t/Map t/Sym c) -> cset-entry]
                            [(t/Map t/Sym c) (t/U nil dmap) -> cset-entry]))
 (defn make-cset-entry
   ([fixed] (make-cset-entry fixed nil))

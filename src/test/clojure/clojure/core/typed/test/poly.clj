@@ -3,7 +3,7 @@
 
 (t/ann repeatedly'
      (t/All [x]
-       (t/FnCase 
+       (t/IFn 
          [[-> x] -> (t/Seqable x)]
          [t/Int [-> x] -> (t/Seqable x)])))
 (defn repeatedly'

@@ -764,10 +764,10 @@
    :children [:arities]})
 
 (defmethod parse-seq* 'Fn [syn] 
-  ;(err/deprecated-plain-op 'Fn 'FnCase)
+  (err/deprecated-plain-op 'Fn 'IFn)
   (parse-Fn syn))
-(defmethod parse-seq* 'clojure.core.typed/FnCase [syn] (parse-Fn syn))
-(defmethod parse-seq* 'cljs.core.typed/FnCase [syn] (parse-Fn syn))
+(defmethod parse-seq* 'clojure.core.typed/IFn [syn] (parse-Fn syn))
+(defmethod parse-seq* 'cljs.core.typed/IFn [syn] (parse-Fn syn))
 
 (defmethod parse-seq* 'HMap [syn] 
   (err/deprecated-plain-op 'HMap)

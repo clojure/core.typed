@@ -1459,12 +1459,12 @@ for checking namespaces, cf for checking individual forms."}
   HSeq)
 
 (def ^{:doc "An ordered intersection type of function arities."
-       :forms '[(FnCase ArityVec+)
+       :forms '[(IFn ArityVec+)
                 [fixed* -> ret :filters {:then fl :else fl} :object {:id Foo :path Bar}]
                 [fixed* rest * -> ret :filters {:then fl :else fl} :object {:id Foo :path Bar}]
                 [fixed* drest ... bound -> ret :filters {:then fl :else fl} :object {:id Foo :path Bar}]]
        ::special-type true}
-  FnCase)
+  IFn)
 
 (def ^{:doc "A predicate for the given type."
        :forms '[(Pred type)]

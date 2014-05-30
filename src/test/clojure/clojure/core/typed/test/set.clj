@@ -14,7 +14,7 @@
   )
 
 (ann union (t/All [x]
-             (t/FnCase [ -> (APersistentSet x)]
+             (t/IFn [ -> (APersistentSet x)]
                  [(APersistentSet x) -> (APersistentSet x)]
                  [(APersistentSet x) (APersistentSet x) -> (APersistentSet x)]
                  [(APersistentSet x) (APersistentSet x) (APersistentSet x) * -> (APersistentSet x)])))

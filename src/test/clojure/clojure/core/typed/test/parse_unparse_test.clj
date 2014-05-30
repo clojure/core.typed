@@ -9,7 +9,7 @@
   (is-clj (= (second
                (unparse-type 
                  (parse-type 
-                   `(t/All ~'[a b] (t/FnCase [t/Any t/Any ~'-> t/Any])))))
+                   `(t/All ~'[a b] (t/IFn [t/Any t/Any ~'-> t/Any])))))
              '[a b]))
   (is-clj (= (clj (-> (unparse-type (parse-type `(t/TFn ~'[[a :variance :covariant]] ~'a)))
                       next)

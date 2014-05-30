@@ -59,7 +59,7 @@
   [var]
   (*current-tvars* var))
 
-(t/ann extend-one (t/FnCase 
+(t/ann extend-one (t/IFn 
                     [TVarEnv t/Sym -> TVarEnv]
                     [TVarEnv t/Sym (t/Nilable t/Sym) -> TVarEnv]))
 (defn extend-one

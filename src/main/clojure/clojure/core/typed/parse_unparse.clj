@@ -419,7 +419,7 @@
 (defn parse-fn-intersection-type [[Fn & types]]
   (apply r/make-FnIntersection (mapv parse-function types)))
 
-(defn parse-FnCase [[_ & types :as syn]]
+(defn parse-Fn [[_ & types :as syn]]
   (when-not (seq types) 
     (err/int-error "Must pass at least one arity to Fn: " (pr-str syn)))
   (when-not (every? vector? types) 
@@ -427,9 +427,9 @@
   (parse-fn-intersection-type syn))
 
 (defmethod parse-type-list 'Fn [t] 
-  ;(err/deprecated-plain-op 'Fn 'FnCase)
-  (parse-FnCase t))
-(defmethod parse-type-list 'clojure.core.typed/FnCase [t] (parse-FnCase t))
+  (err/deprecated-plain-op 'Fn 'IFn)
+  (parse-Fn t))
+(defmethod parse-type-list 'clojure.core.typed/IFn [t] (parse-Fn t))
 
 (defn parse-free-binder [[nme & {:keys [variance < > kind] :as opts}]]
   (when-not (symbol? nme)
