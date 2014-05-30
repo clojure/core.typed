@@ -1,7 +1,10 @@
 (ns clojure.core.typed.macros
   (:refer-clojure :exclude [type defprotocol fn loop dotimes let for doseq])
   (:require [clojure.core :as core]
-            [clojure.core.typed.internal :as internal]))
+            [clojure.core.typed.internal :as internal]
+            [clojure.core.typed.special-form :as spec]))
+
+(alias 't 'clojure.core.typed)
 
 (defmacro
   ^{:forms '[(def name docstring? :- type? expr)]}
@@ -42,3 +45,38 @@
                  (concat
                    (when docstring [docstring])
                    [body])))))
+
+(defmacro 
+  ^{:forms '[(fn name? [param :- type* & param :- type * ?] :- type? exprs*)
+             (fn name? ([param :- type* & param :- type * ?] :- type? exprs*)+)]}
+  fn
+  "Like clojure.core/fn, but with optional annotations.
+
+  eg. ;these forms are equivalent
+      (fn [a] b)
+      (fn [a :- Any] b)
+      (fn [a :- Any] :- Any b)
+      (fn [a] :- Any b)
+
+      ;annotate return
+      (fn [a :- String] :- String body)
+
+      ;named fn
+      (fn fname [a :- String] :- String body)
+
+      ;rest parameter
+      (fn [a :- String & b :- Number *] body)
+
+      ;dotted rest parameter
+      (fn [a :- String & b :- Number ... x] body)
+
+      ;multi-arity
+      (fn fname 
+        ([a :- String] :- String ...)
+        ([a :- String, b :- Number] :- String ...))"
+  [& forms]
+  (core/let [{:keys [fn ann]} (internal/parse-fn* false forms)]
+    `(do ~spec/special-form
+         ::t/fn
+         {:ann '~ann}
+         ~fn)))
