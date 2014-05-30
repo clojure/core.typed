@@ -22,7 +22,8 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.java.io :as io]))
 
 (import-m/import-macros clojure.core.typed.macros
-  [def fn loop let ann-form])
+  [def fn loop let ann-form tc-ignore defprotocol
+   when-let-fail atom> ref>])
 
 ;=============================================================
 ; # core.typed
@@ -175,7 +176,7 @@ for checking namespaces, cf for checking individual forms."}
   (let [i (first bindings)
         n (second bindings)]
     `(let [n# (long ~n)]
-       (loop [~i :- ~'clojure.core.typed/Int 0]
+       (loop [~i :- Int 0]
          (when (< ~i n#)
            ~@body
            (recur (unchecked-inc ~i)))))))
@@ -663,13 +664,6 @@ for checking namespaces, cf for checking individual forms."}
     `(pfn>-ann ~fn '~poly '~parsed-methods)))
 
 
-(defmacro when-let-fail 
-  "Like when-let, but fails if the binding yields a false value."
-  [b & body]
-  `(if-let ~b
-     (do ~@body)
-     (throw (ex-info (str "Expression was nil or false") {:form '~(second b)}))))
-
 (defmacro 
   ^{:forms '[(fn> name? :- type? [param :- type* & param :- type * ?] exprs*)
              (fn> name? (:- type? [param :- type* & param :- type * ?] exprs*)+)]}
@@ -1046,50 +1040,6 @@ for checking namespaces, cf for checking individual forms."}
      (core/defprotocol ~@body)))
 
 ;TODO filter/object support
-(defmacro defprotocol [& body]
-  "Like defprotocol, but with optional type annotations.
-
-  Omitted annotations default to Any. The first argument
-  of a protocol cannot be annotated.
-
-  Add a binder before the protocol name to define a polymorphic
-  protocol. A binder before the method name defines a polymorphic
-  method, however a method binder must not shadow type variables
-  introduced by a protocol binder.
-
-  Return types for each method arity can be annotated.
-
-  Unlike clojure.core/defprotocol, successive methods can
-  have the same arity. Semantically, providing multiple successive
-  methods of the same arity is the same as just providing the left-most
-  method. However the types for these methods will be accumulated into
-  a Fn type.
-  
-  eg. ;annotate single method
-  (defprotocol MyProtocol
-    (a [this a :- Integer] :- Number))
-
-  ;polymorphic protocol
-  (defprotocol [[x :variance :covariant]]
-    MyProtocol
-    (a [this a :- Integer] :- Number))
-
-  ;multiple types for the same method
-  (defprotocol [[x :variance :covariant]]
-    MyProtocol
-    (a [this a :- Integer] :- Integer
-       [this a :- Long] :- Long
-       [this a :- Number] :- Number))
-
-  ;polymorphic method+protocol
-  (defprotocol [[x :variance :covariant]]
-    MyProtocol
-    ([y] a [this a :- x, b :- y] :- y))
-  "
-  (let [{:keys [ann-protocol defprotocol]} (internal/parse-defprotocol* body)]
-    `(do ~ann-protocol
-         (tc-ignore
-           ~defprotocol))))
 
 (defmacro 
   ^{:forms '[(loop> [binding :- type, init*] exprs*)]}
@@ -1259,19 +1209,6 @@ for checking namespaces, cf for checking individual forms."}
         (let [v# (intern '~(symbol (namespace qsym)) '~(symbol (name qsym)))]
           (tc-ignore (alter-meta! v# merge '~m)))
         (def-alias* '~qsym '~t)))))
-
-;; `do` is special at the top level
-(defmacro tc-ignore 
-  "Ignore forms in body during type checking"
-  [& body]
-  (if vs/*currently-checking-clj*
-    `(do ~spec/special-form
-         ::tc-ignore
-         ~@(or body [nil]))
-    (case (count body)
-      0 nil
-      1 (first body)
-      `(do ~@body))))
 
 #_(defmacro tag
   "Statically assert tag information on a form. Can be
@@ -2044,26 +1981,6 @@ for checking namespaces, cf for checking individual forms."}
 ;  eg. (unchecked-ns)"
 ;  []
 ;  `(unchecked-ns*))
-
-(defmacro atom>
-  "Like atom, but creates an Atom1 of type t.
-  
-  Same as (atom (ann-form init t) args*)
-  
-  eg. (atom> Number 1)
-      (atom> (Vec Any) [])"
-  [t init & args]
-  `(atom (ann-form ~init ~t) ~@args))
-
-(defmacro ref>
-  "Like ref, but creates a Ref1 of type t.
-  
-  Same as (ref (ann-form init t) args*)
-  
-  eg. (ref> Number 1)
-      (ref> (Vec Any) [])"
-  [t init & args]
-  `(ref (ann-form ~init ~t) ~@args))
 
 
 (defn ^:skip-wiki var>* [sym]
