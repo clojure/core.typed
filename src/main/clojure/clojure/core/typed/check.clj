@@ -43,6 +43,8 @@
             [clojure.core.typed.check.value :as value]
             [clojure.core.typed.check.special.ann-form :as ann-form]
             [clojure.core.typed.check.special.fn :as special-fn]
+            [clojure.core.typed.check.special.tc-ignore :as tc-ignore]
+            [clojure.core.typed.check.special.loop :as special-loop]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.special-form :as spec]
@@ -1308,9 +1310,7 @@
 
 (defmethod internal-special-form ::t/tc-ignore
   [expr expected]
-  (assoc expr
-         ::t/tc-ignore true
-         u/expr-type (r/ret r/-any)))
+  (tc-ignore/check-tc-ignore check expr expected))
 
 (defmethod internal-special-form ::t/tag
   [{[_ _ {{tag :tag} :val} :as statements] :statements :keys [ret] :as expr} expected]
@@ -1334,15 +1334,7 @@
 
 (defmethod internal-special-form ::t/loop
   [{[_ _ {{tsyns :ann} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
-  {:pre [(#{3} (count statements))]}
-  (let [tbindings (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
-                    (mapv (comp prs/parse-type :type) (:params tsyns)))
-        cfrm ;loop may be nested, type the first loop found
-        (binding [recur-u/*loop-bnd-anns* tbindings]
-          (check frm expected))]
-    (assoc expr
-           :ret cfrm
-           u/expr-type (u/expr-type cfrm))))
+  (special-loop/check-special-loop check expr expected))
 
 (defmethod internal-special-form :default
   [expr expected]
