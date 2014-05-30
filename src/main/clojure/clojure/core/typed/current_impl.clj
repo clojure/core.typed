@@ -207,7 +207,11 @@ clojure.core.typed/Sym clojure.lang.Symbol
         :forms [Str]}
 clojure.core.typed/Str java.lang.String
 
-; TODO: IMapEntry, Sequential, Boolean
+      ^{:doc "A boolean"
+        :forms [Bool]}
+clojure.core.typed/Bool java.lang.Boolean
+
+; TODO: IMapEntry
 
       ^{:doc "A namespace"
         :forms [Namespace]}
