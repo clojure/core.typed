@@ -41,6 +41,7 @@
             [clojure.core.typed.check.catch :as catch]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.value :as value]
+            [clojure.core.typed.check.special.ann-form :as ann-form]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.special-form :as spec]
@@ -1360,22 +1361,7 @@
 
 (defmethod internal-special-form ::t/ann-form
   [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
-  {:pre [(#{3} (count statements))]}
-  (let [parsed-ty (binding [vs/*current-env* env
-                            prs/*parse-type-in-ns* (cu/expr-ns expr)]
-                    (prs/parse-type tsyn))
-        cty (check frm (r/ret parsed-ty))
-        checked-type (r/ret-t (u/expr-type cty))
-        _ (binding [vs/*current-expr* frm]
-            (when (not (sub/subtype? checked-type parsed-ty))
-              (cu/expected-error checked-type parsed-ty)))
-        _ (when (and expected (not (sub/subtype? checked-type (r/ret-t expected))))
-            (binding [vs/*current-expr* frm
-                      vs/*current-env* env]
-              (cu/expected-error checked-type (r/ret-t expected))))]
-    (assoc expr
-           :ret cty
-           u/expr-type (r/ret parsed-ty))))
+  (ann-form/check-ann-form check expr expected))
 
 (defmethod internal-special-form ::t/loop
   [{[_ _ {{tsyns :ann} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
