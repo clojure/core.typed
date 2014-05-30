@@ -22,16 +22,7 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.java.io :as io]))
 
 (import-m/import-macros clojure.core.typed.macros
-  [def fn loop let])
-
-;at the top because the rest of this namespace uses this macro
-(defmacro ann-form 
-  "Annotate a form with an expected type."
-  [form ty]
-  `(do ~spec/special-form
-       ::ann-form
-       {:type '~ty}
-       ~form))
+  [def fn loop let ann-form])
 
 ;=============================================================
 ; # core.typed

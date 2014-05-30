@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [type defprotocol fn loop dotimes let for doseq])
   (:require [clojure.core :as core]
             [clojure.core.typed.internal :as internal]
+            [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.special-form :as spec]))
 
 (alias 't 'clojure.core.typed)
@@ -38,13 +39,16 @@
                                   (core/let [_ (assert (#{1} (count fdecl))
                                                        "Bad arguments to clojure.core.typed/def")
                                              [body] fdecl]
-                                    [false nil body]))]
-    `(do ~@(when provided?
-             [`(ann ~name ~t)])
-         ~(list* 'def name 
-                 (concat
-                   (when docstring [docstring])
-                   [body])))))
+                                    [false nil body]))
+             def (list* 'def name 
+                        (concat
+                          (when docstring [docstring])
+                          [body]))]
+    (if vs/*currently-checking-clj*
+      `(do ~@(when provided?
+               [`(ann ~name ~t)])
+           ~def)
+      def)))
 
 (defmacro 
   ^{:forms '[(fn name? [param :- type* & param :- type * ?] :- type? exprs*)
@@ -76,10 +80,12 @@
         ([a :- String, b :- Number] :- String ...))"
   [& forms]
   (core/let [{:keys [fn ann]} (internal/parse-fn* false forms)]
-    `(do ~spec/special-form
-         ::t/fn
-         {:ann '~ann}
-         ~fn)))
+    (if vs/*currently-checking-clj*
+      `(do ~spec/special-form
+           ::t/fn
+           {:ann '~ann}
+           ~fn)
+      fn)))
 
 (defmacro 
   ^{:forms '[(loop [binding :- type?, init*] exprs*)]}
@@ -92,10 +98,12 @@
         ...)"
   [bindings & exprs]
   (core/let [{:keys [ann loop]} (internal/parse-loop* `(~bindings ~@exprs))]
-    `(do ~spec/special-form
-         ::t/loop
-         {:ann '~ann}
-         ~loop)))
+    (if vs/*currently-checking-clj*
+      `(do ~spec/special-form
+           ::t/loop
+           {:ann '~ann}
+           ~loop)
+      loop)))
 
 (defmacro 
   ^{:forms '[(let [binding :- type?, init*] exprs*)]}
@@ -108,3 +116,13 @@
   [bvec & forms]
   (core/let [{:keys [let]} (internal/parse-let* (cons bvec forms))]
     let))
+
+(defmacro ann-form 
+  "Annotate a form with an expected type."
+  [form ty]
+  (if vs/*currently-checking-clj*
+    `(do ~spec/special-form
+         ::t/ann-form
+         {:type '~ty}
+         ~form)
+    form))
