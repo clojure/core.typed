@@ -2213,37 +2213,9 @@ for checking namespaces, cf for checking individual forms."}
                      added as a dependency.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
                      of (Map '{:line Int :column Int :file Str} Str)."
-  [form & {:keys [expected type-provided? profile file-mapping]}]
-  (p/profile-if profile
-    (load-if-needed)
-    (reset-caches)
-    (let [check-expr (impl/v 'clojure.core.typed.check/check-expr)
-          expr-type (impl/v 'clojure.core.typed.utils/expr-type)
-          ast->file-mapping (impl/v 'clojure.core.typed.file-mapping/ast->file-mapping)
-          ast-for-form (impl/v 'clojure.core.typed.analyze-clj/ast-for-form)
-          collect-ast (impl/v 'clojure.core.typed.collect-phase/collect-ast)
-          ret (impl/v 'clojure.core.typed.type-rep/ret)
-          parse-type (impl/v 'clojure.core.typed.parse-unparse/parse-type)]
-      (if vs/*currently-checking-clj*
-        (throw (Exception. "Found inner call to check-ns or cf"))
-        (impl/with-clojure-impl
-          (binding [vs/*currently-checking-clj* true
-                    vs/*already-collected* (atom #{})
-                    vs/*already-checked* (atom #{})
-                    vs/*delayed-errors* (err/-init-delayed-errors)
-                    vs/*analyze-ns-cache* (atom {})]
-            (let [expected (when type-provided?
-                             (ret (parse-type expected)))
-                  ast (ast-for-form form)
-                  _ (collect-ast ast)
-                  _ (reset-caches)
-                  c-ast (check-expr ast expected)
-                  res (expr-type c-ast)]
-              (merge
-                {:delayed-errors @vs/*delayed-errors*
-                 :ret res}
-                (when file-mapping
-                  {:file-mapping (ast->file-mapping c-ast)})))))))))
+  [form & opt]
+  (load-if-needed)
+  (apply (impl/v 'clojure.core.typed.check-form/check-form-info) form opt))
 
 (defn check-form*
   "Takes a (quoted) form and optional expected type syntax and
@@ -2253,15 +2225,7 @@ for checking namespaces, cf for checking individual forms."}
   ([form expected] (check-form* form expected true))
   ([form expected type-provided?]
    (load-if-needed)
-   (let [unparse-TCResult-in-ns (impl/v 'clojure.core.typed.parse-unparse/unparse-TCResult-in-ns)
-         {:keys [delayed-errors ret]} (check-form-info form 
-                                                       :expected expected 
-                                                       :type-provided? type-provided?)]
-     (if-let [errors (seq delayed-errors)]
-       (err/print-errors! errors)
-       (impl/with-clojure-impl
-         (binding [vs/*currently-checking-clj* true]
-           (unparse-TCResult-in-ns ret *ns*)))))))
+   ((impl/v 'clojure.core.typed.check-form/check-form*) form expected type-provided?)))
 
 ; cf can pollute current type environment to allow REPL experimentation, 
 ; which is ok because check-ns resets it when called.
@@ -2295,7 +2259,6 @@ for checking namespaces, cf for checking individual forms."}
   ((impl/v 'clojure.core.typed.reset-caches/reset-caches))
   nil)
 
-
 (defn check-ns-info
   "Same as check-ns, but returns a map of results from type checking the
   namespace.
@@ -2309,101 +2272,9 @@ for checking namespaces, cf for checking individual forms."}
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
                      of (Map '{:line Int :column Int :file Str} Str)."
   ([] (check-ns-info *ns*))
-  ([ns-or-syms & {:keys [collect-only trace profile file-mapping]}]
-   (p/profile-if profile
-     (let [start (. System (nanoTime))]
-       (load-if-needed)
-       (reset-caches)
-       (let [reset-envs! (impl/v 'clojure.core.typed.reset-env/reset-envs!)
-             collect-ns (impl/v 'clojure.core.typed.collect-phase/collect-ns)
-             check-ns-and-deps (impl/v 'clojure.core.typed.check/check-ns-and-deps)
-             ast->file-mapping (impl/v 'clojure.core.typed.file-mapping/ast->file-mapping)
-             vars-with-unchecked-defs (impl/v 'clojure.core.typed.var-env/vars-with-unchecked-defs)
-             uri-for-ns (impl/v 'clojure.jvm.tools.analyzer/uri-for-ns)
-             
-             nsym-coll (map #(if (symbol? %)
-                               ; namespace might not exist yet, so ns-name is not appropriate
-                               ; to convert to symbol
-                               %
-                               (ns-name %))
-                            (if ((some-fn symbol? #(instance? clojure.lang.Namespace %))
-                                 ns-or-syms)
-                              [ns-or-syms]
-                              ns-or-syms))]
-         (cond
-           vs/*currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
-
-           :else
-           (binding [vs/*currently-checking-clj* true
-                     vs/*delayed-errors* (err/-init-delayed-errors)
-                     vs/*already-collected* (atom #{})
-                     vs/*already-checked* (atom #{})
-                     vs/*trace-checker* trace
-                     vs/*analyze-ns-cache* (atom {})
-                     ; we only use this if we have exactly one namespace passed
-                     vs/*checked-asts* (when (== 1 (count nsym-coll))
-                                      (atom {}))]
-             (let [terminal-error (atom nil)
-                   typed-asts (atom {})]
-               (letfn [(do-collect []
-                         (doseq [nsym nsym-coll]
-                           (collect-ns nsym)))
-                       (print-collect-summary []
-                         (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                               collected @vs/*already-collected*]
-                           (println "Collected" (count collected) "namespaces in" ms "msecs")
-                           (flush)))
-                       (do-check []
-                         (when-not collect-only
-                           (doseq [nsym nsym-coll]
-                             (check-ns-and-deps nsym))))
-                       (warn-unchecked-defs []
-                         (let [vs (vars-with-unchecked-defs)]
-                           (binding [*out* *err*]
-                             (doseq [v vs]
-                               (println "WARNING: Type Checker: Definition missing:" v 
-                                        "\nHint: Use :no-check metadata with ann if this is an unchecked var")
-                               (flush)))))
-                       (print-check-summary []
-                         (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                               checked @vs/*already-checked*
-                               nlines (p/p :typed/line-count
-                                           (apply + (for [nsym checked]
-                                                      (with-open [rdr (io/reader (uri-for-ns nsym))]
-                                                        (count (line-seq rdr))))))]
-                           (println "Checked" (count checked) "namespaces (approx." nlines "lines) in" ms "msecs")
-                           (flush)))
-                       (do-check-ns 
-                         ; Handles a terminal type error
-                         []
-                         (impl/with-clojure-impl
-                           (reset-envs!)
-                           ;(reset-caches)
-                           (try
-                             ;collect
-                             (do-collect)
-                             (print-collect-summary)
-
-                             ;check
-                             (do-check)
-                             (warn-unchecked-defs)
-                             (print-check-summary)
-                             (catch clojure.lang.ExceptionInfo e
-                               (if (-> e ex-data :type-error)
-                                 (reset! terminal-error e)
-                                 (throw e))))))]
-                 (do-check-ns)
-                 (merge
-                   {:delayed-errors (vec (concat (when-let [es vs/*delayed-errors*]
-                                                   @es)
-                                                 (when-let [e @terminal-error]
-                                                   [e])))}
-                   (when (and file-mapping
-                              (== 1 (count nsym-coll)))
-                     {:file-mapping (apply merge
-                                           (map #(impl/with-clojure-impl
-                                                   (ast->file-mapping %))
-                                                (get @vs/*checked-asts* (first nsym-coll))))})))))))))))
+  ([ns-or-syms & opt]
+   (load-if-needed)
+   (apply (impl/v 'clojure.core.typed.check-ns/check-ns-info) ns-or-syms opt)))
 
 (defn check-ns
   "Type check a namespace/s (a symbol or Namespace, or collection).
@@ -2442,51 +2313,18 @@ for checking namespaces, cf for checking individual forms."}
       ; collect but don't check the current namespace
       (check-ns *ns* :collect-only true)"
   ([] (check-ns *ns*))
-  ([ns-or-syms & {:keys [collect-only trace profile] :as kw}]
-   (let [{:keys [delayed-errors]} (apply check-ns-info ns-or-syms (apply concat kw))]
-     (if-let [errors (seq delayed-errors)]
-       (err/print-errors! errors)
-       :ok))))
+  ([ns-or-syms & opt]
+   (load-if-needed)
+   (apply (impl/v 'clojure.core.typed.check-ns/check-ns) ns-or-syms opt)))
 
-; (ann all-defs-in-ns [Namespace -> (Set Symbol)])
-(defn ^:private ^:no-wiki 
-  all-defs-in-ns
-  [ns]
-  {:pre [(instance? clojure.lang.Namespace ns)]}
-  (set
-    (map #(symbol (str (ns-name ns)) (str %))
-         (clojure.set/difference 
-           (set (keys (ns-map ns))) 
-           (set (keys (ns-refers ns))) 
-           (set (keys (ns-imports ns)))))))
 
 ;(ann statistics [(Coll Symbol) -> (Map Symbol Stats)])
 (defn statistics 
   "Takes a collection of namespace symbols and returns a map mapping the namespace
   symbols to a map of data"
   [nsyms]
-  (assert (and (coll? nsyms) (every? symbol? nsyms))
-          "Must pass a collection of symbols to statistics")
   (load-if-needed)
-  (reduce (fn [stats nsym]
-            (let [_ (check-ns nsym :collect-only true)
-                  ns (find-ns nsym)
-                  _ (assert ns (str "Namespace " nsym " not found"))]
-              (conj stats
-                    [nsym
-                     {:vars {:all-vars (all-defs-in-ns ns)
-                             :no-checks (let [; deref the atom
-                                              all-no-checks @(impl/v 'clojure.core.typed.var-env/CLJ-NOCHECK-VAR?)]
-                                          (filter (fn [s] (= (namespace s) nsym)) all-no-checks))
-                             :var-annotations (let [; deref the atom
-                                                    annots @(impl/v 'clojure.core.typed.var-env/CLJ-VAR-ANNOTATIONS)]
-                                                (->> annots
-                                                     (filter (fn [[k v]] (= (namespace k) (str nsym))))
-                                                     (map (fn [[k v]] [k (binding [vs/*verbose-types* true]
-                                                                           ((impl/v 'clojure.core.typed.parse-unparse/unparse-type)
-                                                                            v))]))
-                                                     (into {})))}}])))
-          {} nsyms))
+  ((impl/v 'clojure.core.typed.statistics/statistics) nsyms))
 
 ; (ann var-coverage [(Coll Symbol) -> nil])
 (defn var-coverage 
@@ -2495,33 +2333,8 @@ for checking namespaces, cf for checking individual forms."}
   Defaults to the current namespace if no argument provided."
   ([] (var-coverage *ns*))
   ([nsyms-or-nsym]
-   (assert (or (instance? clojure.lang.Namespace nsyms-or-nsym)
-               (symbol? nsyms-or-nsym)
-               (and (coll? nsyms-or-nsym) (every? symbol? nsyms-or-nsym)))
-           "Must pass a collection of symbols or a symbol/namespace to var-coverage")
    (load-if-needed)
-   (let [nsyms (if ((some-fn symbol? #(instance? clojure.lang.Namespace %))
-                    nsyms-or-nsym)
-                 [(ns-name nsyms-or-nsym)]
-                 nsyms-or-nsym)
-         stats (statistics nsyms)
-         nall-vars (->> (vals stats) 
-                        (map :vars) 
-                        (map :all-vars)
-                        (apply set/union)
-                        set
-                        count)
-         nannotated-vars (->> (vals stats) 
-                              (map :vars) 
-                              (map :var-annotations) 
-                              (map count)
-                              (apply +))
-         perc (if (zero? nall-vars)
-                0
-                (long (* (/ nannotated-vars nall-vars) 100)))]
-     (println (str "Found " nannotated-vars " annotated vars out of " nall-vars " vars"))
-     (println (str perc "% var annotation coverage"))
-     (flush))))
+   ((impl/v 'clojure.core.typed.statistics/var-coverage) nsyms-or-nsym)))
 
 (defn pred* [tsyn nsym pred]
   pred)

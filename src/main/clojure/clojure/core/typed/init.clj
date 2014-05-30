@@ -67,6 +67,9 @@
                  '[clojure.core.typed.array-ops]
                  '[clojure.core.typed.check]
                  '[clojure.core.typed.reset-caches]
+                 '[clojure.core.typed.check-ns]
+                 '[clojure.core.typed.check-form]
+                 '[clojure.core.typed.statistics]
                  ; used by check-ns-info
                  '[clojure.jvm.tools.analyzer]
 
