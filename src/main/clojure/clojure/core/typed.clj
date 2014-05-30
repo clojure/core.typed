@@ -22,25 +22,9 @@ for checking namespaces, cf for checking individual forms."}
             [clojure.java.io :as io]))
 
 (import-m/import-macros clojure.core.typed.macros
-  [def fn])
+  [def fn loop])
 
 ;at the top because the rest of this namespace uses this macro
-(defmacro 
-  ^{:forms '[(loop [binding :- type?, init*] exprs*)]}
-  loop
-  "Like clojure.core/loop, and supports optional type annotations.
-  Arguments default to a generalised type based on the initial value.
-
-  eg. (loop [a :- Number 1
-             b :- (U nil Number) nil]
-        ...)"
-  [bindings & exprs]
-  (core/let [{:keys [ann loop]} (internal/parse-loop* `(~bindings ~@exprs))]
-    `(do ~spec/special-form
-         ::loop
-         {:ann '~ann}
-         ~loop)))
-
 (defmacro 
   ^{:forms '[(let [binding :- type?, init*] exprs*)]}
   let

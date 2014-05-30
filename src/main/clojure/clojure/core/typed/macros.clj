@@ -80,3 +80,19 @@
          ::t/fn
          {:ann '~ann}
          ~fn)))
+
+(defmacro 
+  ^{:forms '[(loop [binding :- type?, init*] exprs*)]}
+  loop
+  "Like clojure.core/loop, and supports optional type annotations.
+  Arguments default to a generalised type based on the initial value.
+
+  eg. (loop [a :- Number 1
+             b :- (U nil Number) nil]
+        ...)"
+  [bindings & exprs]
+  (core/let [{:keys [ann loop]} (internal/parse-loop* `(~bindings ~@exprs))]
+    `(do ~spec/special-form
+         ::t/loop
+         {:ann '~ann}
+         ~loop)))
