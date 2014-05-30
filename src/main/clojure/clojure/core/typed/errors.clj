@@ -11,7 +11,7 @@
 
 ;(t/ann ^:no-check env-for-error [Any -> Any])
 (defn env-for-error [env]
-  env)
+  (select-keys env [:line :column :file]))
 
 (defn int-error
   [estr]
@@ -66,9 +66,10 @@
                                 {:form (if (contains? opt :form)
                                          form
                                          (ast-u/emit-form-fn uvs/*current-expr*))})
-                              {:env (or (when uvs/*current-expr*
-                                          (:env uvs/*current-expr*))
-                                        (env-for-error *current-env*))}))]
+                              {:env (env-for-error
+                                      (or (when uvs/*current-expr*
+                                            (:env uvs/*current-expr*))
+                                          *current-env*))}))]
     (cond
       ;can't delay here
       (not uvs/*delayed-errors*)
