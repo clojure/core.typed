@@ -1379,7 +1379,7 @@ for checking namespaces, cf for checking individual forms."}
       1 (first body)
       `(do ~@body))))
 
-(defmacro tag
+#_(defmacro tag
   "Statically assert tag information on a form. Can be
   used to check unboxed operations.
   
