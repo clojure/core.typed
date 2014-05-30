@@ -1370,9 +1370,29 @@ for checking namespaces, cf for checking individual forms."}
 (defmacro tc-ignore 
   "Ignore forms in body during type checking"
   [& body]
-  `(do ::special-form
-       ::tc-ignore
-       ~@(or body [nil])))
+  (if vs/*currently-checking-clj*
+    `(do ::special-form
+         ::tc-ignore
+         ~@(or body [nil]))
+    (case (count body)
+      0 nil
+      1 (first body)
+      `(do ~@body))))
+
+(defmacro tag
+  "Statically assert tag information on a form. Can be
+  used to check unboxed operations.
+  
+  eg. (tag 1 long)
+      (tag (+ (tag a long) (tag b long))
+           long)"
+  [form tag]
+  (if vs/*currently-checking-clj*
+    `(do ::special-form
+         ::tag
+         {:tag '~tag}
+         ~form)
+    form))
 
 (def ^{:doc "Any is the top type that contains all types."
        :forms '[Any]

@@ -2224,7 +2224,8 @@
 ;              false))
 
 (deftest CTYP-84-hlist-ancestor-test
-  (is-cf (seq '(1)) (clojure.core.typed/NonEmptySeq Number)))
+  (is-tc-e (seq '(1)) 
+           :expected (NonEmptySeq Num)))
 
 (deftest CTYP-78-finally-expected-test
   (is (check-ns 'clojure.core.typed.test.finally)))

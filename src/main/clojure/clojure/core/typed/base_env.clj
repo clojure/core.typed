@@ -722,9 +722,9 @@ clojure.core/val (All [x]
 
 
 ;TODO flip filters
-clojure.core/complement (All [x] [[x -> Any] -> [x -> boolean]])
+clojure.core/complement (All [x] [[x -> Any] -> [x -> Boolean]])
 ; should preserve filters
-clojure.core/boolean [Any -> boolean]
+clojure.core/boolean [Any -> Boolean]
 
 clojure.core/filter (All [x y]
                            (IFn
@@ -892,7 +892,7 @@ clojure.core/vector (All [r b ...]
                              [r * -> (APersistentVector r)]))
 clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
 
-clojure.core/not [Any -> boolean]
+clojure.core/not [Any -> Boolean]
 clojure.core/constantly (All [x] [x -> [Any * -> x]])
 
 clojure.core/bound? [(Var2 Nothing Any) * -> Boolean]
@@ -956,7 +956,7 @@ clojure.core/apply
               [[a b c r * -> y] a b c (U nil (Seqable r)) -> y]
               [[a b c d r * -> y] a b c d (U nil (Seqable r)) -> y]))
 
-;partial: wishful thinking (replaces the first 4 arities
+;partial: wishful thinking (replaces the first 4 arities)
 ; (All [b1 ...]
 ; (All [r b2 ...]
 ;    [[b1 ... b1 b2 ... b2 -> r] b1 ... b1 -> [b2 ... b2 -> r]]))
@@ -1247,15 +1247,15 @@ clojure.core/seq (All [x]
 ;                      [(Seqable x :count (CountRange 1) :to-seq sfn) -> (sfn x)]
 ;                      [(Seqable x :count AnyCountRange :to-seq sfn) -> (U nil (sfn x))]))
 
-clojure.core/empty? (IFn [(Option (HSequential [Any *])) -> boolean
+clojure.core/empty? (IFn [(Option (HSequential [Any *])) -> Boolean
                           :filters {:then (| (is EmptyCount 0)
                                              (is nil 0))
                                     :else (is NonEmptyCount 0)}]
-                        [(Option (Coll Any)) -> boolean
+                        [(Option (Coll Any)) -> Boolean
                           :filters {:then (| (is EmptyCount 0)
                                              (is nil 0))
                                     :else (is NonEmptyCount 0)}]
-                        [(Option (Seqable Any)) -> boolean])
+                        [(Option (Seqable Any)) -> Boolean])
 
 clojure.core/map
      (All [c a b ...]
@@ -1352,7 +1352,7 @@ clojure.core/reduced? (Pred (Reduced Any))
   )
 
 ;should be special cased
-clojure.core/not= [Any Any * -> boolean]
+clojure.core/not= [Any Any * -> Boolean]
 
 clojure.core/first
      (All [x]
@@ -1491,7 +1491,7 @@ clojure.core/merge
               [(Option (IPersistentMap k v)) * -> (Option (IPersistentMap k v))]))
 
 ;more to be said here?
-clojure.core/contains? [(Option (Seqable Any)) Any -> boolean]
+clojure.core/contains? [(Option (Seqable Any)) Any -> Boolean]
 
 clojure.core/= [Any Any * -> (U true false)]
 clojure.core/identical? [Any Any -> Boolean]
@@ -1532,50 +1532,63 @@ clojure.core/ns-resolve (IFn [(U Symbol Namespace) Symbol -> (U (Var2 Nothing An
 
 clojure.core/extenders [Any -> (U nil (Seqable (U Class nil)))]
 
-clojure.core/+ (IFn [AnyInteger * -> AnyInteger]
-                        [Number * -> Number])
-clojure.core/- (IFn [AnyInteger AnyInteger * -> AnyInteger]
-                   [Number Number * -> Number])
-clojure.core/* (IFn [AnyInteger * -> AnyInteger]
-                        [Number * -> Number])
-clojure.core// [Number Number * -> Number]
+clojure.core/+ (IFn [Long * -> Long]
+                    [Double * -> Double]
+                    [AnyInteger * -> AnyInteger]
+                    [Number * -> Number])
+clojure.core/- (IFn [Long Long * -> Long]
+                    [Double Double * -> Double]
+                    [AnyInteger AnyInteger * -> AnyInteger]
+                    [Number Number * -> Number])
+clojure.core/* (IFn [Long * -> Long]
+                    [Double * -> Double]
+                    [AnyInteger * -> AnyInteger]
+                    [Number * -> Number])
+clojure.core// (IFn [Double Double * -> Double]
+                    [Number Number * -> Number])
 
 clojure.core/+' (IFn [AnyInteger * -> AnyInteger]
-                    [Number * -> Number])
+                     [Number * -> Number])
 clojure.core/-' (IFn [AnyInteger AnyInteger * -> AnyInteger]
-                    [Number Number * -> Number])
+                     [Number Number * -> Number])
 clojure.core/*' (IFn [AnyInteger * -> AnyInteger]
                     [Number * -> Number])
-clojure.core/quot (IFn [AnyInteger AnyInteger -> AnyInteger] 
-                      [Number Number -> Number])
+clojure.core/quot (IFn [Long Long -> Long]
+                       [(U Long Double) (U Long Double) -> Double]
+                       [AnyInteger AnyInteger -> AnyInteger] 
+                       [Number Number -> Number])
 
 clojure.core/unchecked-inc (IFn [AnyInteger -> AnyInteger]
-                               [Number -> Number])
+                                [Number -> Number])
 clojure.core/unchecked-inc-int [Number -> AnyInteger]
 clojure.core/unchecked-dec (IFn [AnyInteger -> AnyInteger]
-                               [Number -> Number])
+                                [Number -> Number])
 clojure.core/unchecked-dec-int [Number -> AnyInteger]
 clojure.core/unchecked-subtract (IFn [AnyInteger AnyInteger -> AnyInteger]
-                               [Number Number -> Number])
+                                     [Number Number -> Number])
 clojure.core/unchecked-subtract-int [Number Number -> AnyInteger]
 clojure.core/unchecked-negate (IFn [AnyInteger -> AnyInteger]
-                               [Number -> Number])
+                                   [Number -> Number])
 clojure.core/unchecked-negate-int [Number -> AnyInteger]
 clojure.core/unchecked-add (IFn [AnyInteger AnyInteger -> AnyInteger]
-                               [Number Number -> Number])
+                                [Number Number -> Number])
 clojure.core/unchecked-add-int [Number Number -> AnyInteger]
 clojure.core/unchecked-multiply (IFn [AnyInteger AnyInteger -> AnyInteger]
-                                    [Number Number -> Number])
+                                     [Number Number -> Number])
 clojure.core/unchecked-multiply-int [Number Number -> AnyInteger]
 clojure.core/unchecked-divide-int [Number Number -> AnyInteger]
 clojure.core/unchecked-remainder-int [Number Number -> AnyInteger]
-clojure.core/inc (IFn [AnyInteger -> AnyInteger]
-                          [Number -> Number])
-clojure.core/dec (IFn [AnyInteger -> AnyInteger]
-                          [Number -> Number])
+clojure.core/inc (IFn [Long -> Long]
+                      [Double -> Double]
+                      [AnyInteger -> AnyInteger]
+                      [Number -> Number])
+clojure.core/dec (IFn [Long -> Long]
+                      [Double -> Double]
+                      [AnyInteger -> AnyInteger]
+                      [Number -> Number])
 
 clojure.core/inc' (IFn [AnyInteger -> AnyInteger]
-                          [Number -> Number])
+                       [Number -> Number])
 clojure.core/dec' (IFn [AnyInteger -> AnyInteger]
                           [Number -> Number])
 
@@ -1594,8 +1607,8 @@ clojure.core/bit-shift-left [AnyInteger AnyInteger -> AnyInteger]
 clojure.core/bit-shift-right [AnyInteger AnyInteger -> AnyInteger]
 clojure.core/unsigned-bit-shift-right [AnyInteger AnyInteger -> AnyInteger]
 
-clojure.core/even? [AnyInteger -> boolean]
-clojure.core/odd? [AnyInteger -> boolean]
+clojure.core/even? [AnyInteger -> Boolean]
+clojure.core/odd? [AnyInteger -> Boolean]
 
 clojure.core/peek (All [x]
                        (IFn [(I NonEmptyCount (Stack x)) -> x]
@@ -1718,18 +1731,18 @@ clojure.core/rseq
 
 ;coercions
 ;TODO maybe these argument type shouldn't be Any
-clojure.core/bigdec [Any -> BigDecimal]
-clojure.core/bigint [Any -> clojure.lang.BigInt]
-clojure.core/biginteger [Any -> java.math.BigInteger]
-clojure.core/boolean [Any -> boolean]
-clojure.core/byte [Any -> byte]
-clojure.core/char [Any -> char]
-clojure.core/double [Any -> double]
-clojure.core/float [Any -> float]
-clojure.core/int [Any -> int]
-clojure.core/long [Any -> long]
+clojure.core/bigdec [Number -> BigDecimal]
+clojure.core/bigint [Number -> clojure.lang.BigInt]
+clojure.core/biginteger [Number -> java.math.BigInteger]
+clojure.core/boolean [Any -> Boolean]
+clojure.core/byte [Any -> Byte]
+clojure.core/char [Any -> Character]
+clojure.core/double [Any -> Double]
+clojure.core/float [Any -> Float]
+clojure.core/int [Any -> Integer]
+clojure.core/long [Any -> Long]
 clojure.core/num [Any -> Number]
-clojure.core/short [Any -> short]
+clojure.core/short [Any -> Short]
 
 ;array ctors
 clojure.core/boolean-array (IFn [(U nil Number (Seqable Boolean)) -> (Array boolean)]
@@ -1760,15 +1773,15 @@ clojure.core/max-key (All [x]
 clojure.core/min-key (All [x] 
                           [[x -> Number] x x x * -> x])
 
-clojure.core/< [Number Number * -> boolean]
+clojure.core/< [Number Number * -> Boolean]
 
-clojure.core/<= [Number Number * -> boolean]
+clojure.core/<= [Number Number * -> Boolean]
 
-clojure.core/> [Number Number * -> boolean]
+clojure.core/> [Number Number * -> Boolean]
 
-clojure.core/>= [Number Number * -> boolean]
+clojure.core/>= [Number Number * -> Boolean]
 
-clojure.core/== [Number Number * -> boolean]
+clojure.core/== [Number Number * -> Boolean]
 
 clojure.core/max [Number Number * -> Number]
 clojure.core/min [Number Number * -> Number]
@@ -2024,22 +2037,21 @@ clojure.lang.Indexed/nth
 
 ;what about combinations of references and primitives?
 clojure.lang.RT/box
-(All [[x :< (U nil Object)]]
-     (IFn [char -> Character]
-         [int -> Integer]
-         [short -> Short]
-         [boolean -> Boolean]
-         [byte -> Byte]
-         [short -> Short]
-         [long -> Long]
-         [float -> Float]
-         [double -> Double]
-         [(U byte short int long) -> AnyInteger]
-         [(U float double) -> Number]
-         [nil -> nil]
-         [x -> x]))
+(All [x]
+     (IFn [Character -> Character]
+          [Integer -> Integer]
+          [Short -> Short]
+          [Boolean -> Boolean]
+          [Byte -> Byte]
+          [Long -> Long]
+          [Float -> Float]
+          [Double -> Double]
+          [(U Byte Short Integer Long) -> AnyInteger]
+          [(U Float Double) -> Number]
+          [nil -> nil]
+          [x -> x]))
 
-clojure.lang.RT/booleanCast [Any -> boolean]
+clojure.lang.RT/booleanCast [Any -> Boolean]
 
 clojure.lang.Numbers/char_array (IFn [(U nil Number (Seqable Character)) -> (Array char)]
                                     [Number (U Number (Seqable Character)) -> (Array char)])
@@ -2050,10 +2062,10 @@ clojure.lang.LockingTransaction/runInTransaction
                    [[-> x] -> x])
 
 ;array ops
-clojure.lang.RT/alength [(ReadOnlyArray Any) -> int]
+clojure.lang.RT/alength [(ReadOnlyArray Any) -> Integer]
 
 clojure.lang.RT/aget (All [o]
-                        [(ReadOnlyArray o) int -> o])
+                        [(ReadOnlyArray o) Integer -> o])
 
 clojure.lang.RT/aset (All [i o]
                           [(Array2 i o) AnyInteger i -> o])
@@ -2076,67 +2088,106 @@ clojure.lang.RT/get (All [x y]
                            [String Any y -> (U y Character)]))
 
 ;numbers
-clojure.lang.Numbers/add (IFn [AnyInteger AnyInteger -> AnyInteger]
-                             [Number Number -> Number])
-clojure.lang.Numbers/inc (IFn [AnyInteger -> AnyInteger]
-                                              [Number -> Number])
-clojure.lang.Numbers/dec (IFn [AnyInteger -> AnyInteger]
-                             [Number -> Number])
-clojure.lang.Numbers/quotient (IFn [AnyInteger AnyInteger -> AnyInteger]
-                                  [Number Number -> Number])
-clojure.lang.Numbers/incP (IFn [AnyInteger -> AnyInteger]
-                                              [Number -> Number])
-clojure.lang.Numbers/decP (IFn [AnyInteger -> AnyInteger]
-                             [Number -> Number])
-clojure.lang.Numbers/unchecked_inc (IFn [AnyInteger -> AnyInteger]
-                                              [Number -> Number])
-clojure.lang.Numbers/unchecked_dec (IFn [AnyInteger -> AnyInteger]
-                                              [Number -> Number])
+clojure.lang.Numbers/add (IFn [Long Long -> Long]
+                              [Double Double -> Double]
+                              [AnyInteger AnyInteger -> AnyInteger]
+                              [Number Number -> Number])
+clojure.lang.Numbers/inc (IFn [Long -> Long]
+                              [Double -> Double]
+                              [AnyInteger -> AnyInteger]
+                              [Number -> Number])
+clojure.lang.Numbers/dec (IFn [Long -> Long]
+                              [Double -> Double]
+                              [AnyInteger -> AnyInteger]
+                              [Number -> Number])
+clojure.lang.Numbers/quotient (IFn [Long Long -> Long]
+                                   [(U Long Double) (U Long Double) -> Double]
+                                   [AnyInteger AnyInteger -> AnyInteger]
+                                   [Number Number -> Number])
+clojure.lang.Numbers/incP (IFn [Long -> (U clojure.lang.BigInt Long)]
+                               [Double -> Double]
+                               [AnyInteger -> AnyInteger]
+                               [Number -> Number])
+clojure.lang.Numbers/decP (IFn [Long -> (U clojure.lang.BigInt Long)]
+                               [Double -> Double]
+                               [AnyInteger -> AnyInteger]
+                               [Number -> Number])
+clojure.lang.Numbers/unchecked_inc (IFn [Long -> Long]
+                                        [Double -> Double]
+                                        [AnyInteger -> AnyInteger]
+                                        [Number -> Number])
+clojure.lang.Numbers/unchecked_dec (IFn [Long -> Long]
+                                        [Double -> Double]
+                                        [AnyInteger -> AnyInteger]
+                                        [Number -> Number])
 clojure.lang.Numbers/unchecked_int_inc [Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_dec [Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_negate [Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_subtract [Number Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_add [Number -> AnyInteger]
-clojure.lang.Numbers/unchecked_minus (IFn ; negate
-                                         [AnyInteger -> AnyInteger]
-                                         [Number -> Number]
-                                         ; subtract
-                                         [AnyInteger AnyInteger -> AnyInteger]
-                                         [Number Number -> Number])
-clojure.lang.Numbers/minus (IFn 
+clojure.lang.Numbers/unchecked_minus (IFn 
+                                       ; negate
+                                       [Long -> Long]
+                                       [Double -> Double]
+                                       [AnyInteger AnyInteger -> AnyInteger]
+                                       [Number Number -> Number]
+                                       ; subtract
+                                       [Long Long -> Long]
+                                       [(U Long Double) (U Long Double) -> Double]
+                                       [AnyInteger -> AnyInteger]
+                                       [Number -> Number])
+clojure.lang.Numbers/minus (IFn
+                             ; negate
+                             [Long -> Long]
+                             [Double -> Double]
                              [AnyInteger -> AnyInteger]
                              [Number -> Number]
+                             ;minus
+                             [Long Long -> Long]
+                             [(U Double Long) (U Double Long) -> Long]
                              [AnyInteger AnyInteger -> AnyInteger]
                              [Number Number -> Number])
-clojure.lang.Numbers/unchecked_multiply (IFn [AnyInteger AnyInteger -> AnyInteger]
-                                            [Number Number -> Number])
+clojure.lang.Numbers/unchecked_multiply (IFn [Long Long -> Long]
+                                             [(U Long Double) (U Long Double) -> Double]
+                                             [AnyInteger AnyInteger -> AnyInteger]
+                                             [Number Number -> Number])
 clojure.lang.Numbers/unchecked_int_multiply [Number Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_divide [Number Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_remainder [Number Number -> AnyInteger]
-clojure.lang.Numbers/multiply (IFn [AnyInteger AnyInteger -> AnyInteger]
-                                  [Number Number -> Number])
-clojure.lang.Numbers/divide [Number Number -> Number]
+clojure.lang.Numbers/multiply (IFn [Long Long -> Long]
+                                   [(U Double Long) (U Double Long) -> Long]
+                                   [AnyInteger AnyInteger -> AnyInteger]
+                                   [Number Number -> Number])
+clojure.lang.Numbers/divide (IFn [Long Long -> Long]
+                                   [(U Double Long) (U Double Long) -> Long]
+                                   [AnyInteger AnyInteger -> AnyInteger]
+                                   [Number Number -> Number])
       ;bit-not
-clojure.lang.Numbers/not [AnyInteger -> AnyInteger]
+clojure.lang.Numbers/not [AnyInteger -> Long]
 ;bit-and
-clojure.lang.Numbers/and [AnyInteger AnyInteger -> AnyInteger]
+clojure.lang.Numbers/and [AnyInteger AnyInteger -> Long]
 ;bit-or
-clojure.lang.Numbers/or [AnyInteger AnyInteger -> AnyInteger]
+clojure.lang.Numbers/or [AnyInteger AnyInteger -> Long]
 ;bit-xor
-clojure.lang.Numbers/xor [AnyInteger AnyInteger -> AnyInteger]
+clojure.lang.Numbers/xor [AnyInteger AnyInteger -> Long]
 ;bit-and-not
-clojure.lang.Numbers/andNot [AnyInteger AnyInteger -> AnyInteger]
+clojure.lang.Numbers/andNot [AnyInteger AnyInteger -> Long]
 ; unsigned-bit-shift-right 
-clojure.lang.Numbers/unsignedShiftRight [AnyInteger AnyInteger -> AnyInteger]
+clojure.lang.Numbers/unsignedShiftRight [AnyInteger AnyInteger -> Long]
 
-clojure.lang.Numbers/max [Number Number * -> Number]
-clojure.lang.Numbers/min [Number Number * -> Number]
+clojure.lang.Numbers/max (IFn 
+                           [Long Long -> Long]
+                           [Double Double -> Double]
+                           [Number Number -> Number])
+clojure.lang.Numbers/min (IFn 
+                           [Long Long -> Long]
+                           [Double Double -> Double]
+                           [Number Number -> Number])
 
-
-clojure.lang.Numbers/lt [Number Number -> boolean]
-clojure.lang.Numbers/lte [Number Number -> boolean]
-clojure.lang.Numbers/gt [Number Number -> boolean]
-clojure.lang.Numbers/gte [Number Number -> boolean]
+clojure.lang.Numbers/lt [Number Number -> Boolean]
+clojure.lang.Numbers/lte [Number Number -> Boolean]
+clojure.lang.Numbers/gt [Number Number -> Boolean]
+clojure.lang.Numbers/gte [Number Number -> Boolean]
 
 clojure.lang.Numbers/isZero (Pred (Value 0))
 

@@ -33,7 +33,11 @@
 (deftest subtype-intersection
   (is-clj (not (subtype? (RClass-of Seqable [-any])
                          (In (RClass-of Seqable [-any])
-                             (make-CountRange 1))))))
+                             (make-CountRange 1)))))
+  (is-clj (sub?-q `(t/NonEmptyASeq t/Num)
+                  `(t/NonEmptySeq t/Num)))
+  (is-clj (sub?-q `(t/NonEmptyASeq (t/Val 1))
+                  `(t/NonEmptySeq t/Num))))
 
 (deftest subtype-Object
   (is-clj (subtype? (RClass-of clojure.lang.IPersistentList [-any]) (RClass-of Object nil))))

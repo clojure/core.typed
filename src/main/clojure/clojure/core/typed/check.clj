@@ -32,6 +32,7 @@
             [clojure.core.typed.check.print-env :as print-env]
             [clojure.core.typed.check.recur :as recur]
             [clojure.core.typed.check.recur-utils :as recur-u]
+            [clojure.core.typed.check.tag :as tag]
             [clojure.core.typed.check.type-hints :as type-hints]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.value :as value]
@@ -1345,6 +1346,18 @@
   (assoc expr
          ::t/tc-ignore true
          u/expr-type (r/ret r/-any)))
+
+(defmethod internal-special-form ::t/tag
+  [{[_ _ {{tag :tag} :val} :as statements] :statements :keys [ret] :as expr} expected]
+  {:pre [(#{3} (count statements))]
+   :post [(-> % u/expr-type r/TCResult?)]}
+  (let [cret (binding [vs/*current-expr* ret]
+               (check ret expected))
+        _ (binding [vs/*current-expr* expr] ;check-tag overrides current-expr when needed
+            (tag/check-tag ret tag))]
+    (assoc expr
+           :ret cret
+           u/expr-type (u/expr-type cret))))
 
 (defmethod internal-special-form ::t/fn
   [{[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :as expr} expected]
