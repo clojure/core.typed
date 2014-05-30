@@ -3451,5 +3451,5 @@
   (is-cf (fn [a & rst]
            (when-not (empty? rst) (first rst)))
          [Number (HSeq [Number String] :repeat true) <* -> (U nil Number)])
-  (is-cf (hash-map 1 "a" 2 "c" 3 "d") (clojure.core.typed/Map Number String))
+  (is-tc-e (hash-map 1 "a" 2 "c" 3 "d") :expected (Map Number String))
   )

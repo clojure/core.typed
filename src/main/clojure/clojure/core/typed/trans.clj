@@ -155,4 +155,6 @@
             (update-in [:dom] #(doall (map tfn %)))
             (update-in [:rng] tfn)
             (update-in [:rest] #(when %
-                                  (tfn %))))))))
+                                  (tfn %)))
+            (update-in [:prest] #(when %
+                                   (tfn %))))))))

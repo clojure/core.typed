@@ -1306,8 +1306,8 @@
   (letfn> [cg :- [r/AnyType r/AnyType -> cset]
            (cg [S T] (cs-gen V X Y S T))]
     (cond
-      ;easy case - no rests, drests, kws
-      (not-any? (some-fn :rest :drest :kws) [S T])
+      ;easy case - no rests, drests, kws, prest
+      (not-any? (some-fn :rest :drest :kws :prest) [S T])
       ; contravariant
       (u/p :cs-gen/cs-gen-Function-easy-case
       (let [;_ (prn "easy case")
@@ -1316,9 +1316,9 @@
                      ; covariant
                      (cg (:rng S) (:rng T))])))
 
-      ;just a rest arg, no drest, no keywords
+      ;just a rest arg, no drest, no keywords, no prest
       (and (some-fn :rest [S T])
-           (not-any? (some-fn :drest :kws) [S T]))
+           (not-any? (some-fn :drest :kws :prest) [S T]))
       (u/p :cs-gen/cs-gen-Function-just-rests
       (let [arg-mapping (cond
                           ;both rest args are present, so make them the same length
@@ -1341,7 +1341,7 @@
 
       ;; dotted on the left, nothing on the right
       (and (:drest S)
-           (not-any? (some-fn :rest :drest :kws) [T]))
+           (not-any? (some-fn :rest :drest :kws :prest) [T]))
       (u/p :cs-gen/cs-gen-Function-dotted-left-nothing-right
       (let [{dty :pre-type dbound :name} (:drest S)]
         (when-not (Y dbound)
@@ -1360,7 +1360,7 @@
           (move-vars-to-dmap new-cset dbound vars))))
 
       ;; dotted on the right, nothing on the left
-      (and (not-any? (some-fn :rest :drest :kws) [S])
+      (and (not-any? (some-fn :rest :drest :kws :prest) [S])
            (:drest T))
       (u/p :cs-gen/cs-gen-Function-dotted-right-nothing-left
       (let [{dty :pre-type dbound :name} (:drest T)]

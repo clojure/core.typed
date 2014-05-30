@@ -72,7 +72,7 @@
 (derive ::substitute-dots f/fold-rhs-default)
 (f/add-fold-case ::substitute-dots
   Function
-  (fn [{:keys [dom rng rest drest kws] :as ftype} {{:keys [name sb images rimage]} :locals}]
+  (fn [{:keys [dom rng rest drest kws prest] :as ftype} {{:keys [name sb images rimage]} :locals}]
    (when kws (err/nyi-error "substitute keyword args"))
    (if (and drest
             (= name (:name drest)))
@@ -89,7 +89,8 @@
                        (and rest (sb rest))
                        (and drest (r/DottedPretype1-maker (sb (:pre-type drest))
                                                           (:name drest)))
-                       nil nil))))
+                       nil
+                       (and prest (sb prest))))))
 
 (defn substitute-dots-for-heterogeneous* [constructor]
   (fn [{:keys [types fs objects rest drest] :as ftype} {{:keys [name sb images rimage]} :locals}]
@@ -159,7 +160,7 @@
 
 (f/add-fold-case ::substitute-dotted
   Function
-  (fn [{:keys [dom rng rest drest kws]} {{:keys [sb name image]} :locals}]
+  (fn [{:keys [dom rng rest drest kws prest]} {{:keys [sb name image]} :locals}]
    (when kws (err/nyi-error "substitute-dotted with kw arguments"))
    (r/Function-maker (doall (map sb dom))
                      (sb rng)
@@ -169,7 +170,8 @@
                                                   (if (= name (:name drest))
                                                     name
                                                     (:name drest))))
-                     nil nil)))
+                     nil
+                     (and prest (sb prest)))))
 
 (defn substitute-dotted-for-heterogeneous* [constructor]
   (fn [{:keys [types fs objects rest drest repeat]} {{:keys [sb name image]} :locals}]
