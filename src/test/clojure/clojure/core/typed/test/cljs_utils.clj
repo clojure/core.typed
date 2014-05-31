@@ -1,5 +1,8 @@
 (ns clojure.core.typed.test.cljs-utils
   (:require [clojure.core.typed :as clj-t]
+            [cljs.repl.rhino :as rhino]
+            [cljs.repl :as repl]
+            [cljs.analyzer :as ana]
             [clojure.set :as set]))
 
 (clj-t/load-if-needed)
@@ -35,15 +38,16 @@
 #_(defn tc-common* [frm flat-opt]
   (let [_ (assert (even? (count flat-opt))
                   "Uneven arguments to tc-e/tc-err")
-        {:keys [expected] :as opt} flat-opt]
+        {:keys [expected] :as opt} flat-opt
+        nsym (gensym 'clojure.core.typed.test.temp)]
     (check-opt opt)
-  `(binding [*ns* *ns*
-             *file* *file*]
-     (ns ~(gensym 'clojure.core.typed.test.temp)
-       ~'(:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
-                                   #_def filter remove])
-       ~'(:require [clojure.core.typed :refer :all :as t]
-                   [clojure.core :as core]))
+  `(let [repl-env# (rhino/repl-env)
+         _ (rhino/rhino-setup repl-env#)
+         ns-form# '(ns ~nsym
+                     ~'(:refer-clojure :exclude [fn])
+                     ~'(:require [cljs.core.typed :refer :all :as t]
+                                 [cljs.core :as core]))
+         _ (repl/evaluate repl-env# (ana/empty-env) ns-form#)]
      (t/check-form-info 
        '~frm
        ~@(when (contains? opt :expected)

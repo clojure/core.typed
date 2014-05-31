@@ -157,3 +157,8 @@
          (println (str "Finished collecting " nsym))
          (flush))))))
 
+(defn assert-expr-args [{:keys [args] :as expr} cnts]
+  {:pre [(set? cnts)]}
+  (assert (cnts (count args)))
+  (assert (every? #{:quote} (map :op args))
+          (mapv :op args)))
