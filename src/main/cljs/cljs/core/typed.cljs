@@ -10,12 +10,6 @@
   nil)
 
 (defn ^:skip-wiki
-  ann-form* 
-  "Internal use only. Use ann-form."
-  [form ty]
-  form)
-
-(defn ^:skip-wiki
   ann-protocol* 
   "Internal use only. Use ann-protocol."
   [vbnd varsym mth]
@@ -50,12 +44,6 @@
   "Internal use only. Use typed-deps."
   [args]
   nil)
-
-(defn ^:skip-wiki
-  tc-ignore-forms* 
-  "Internal use only. Use tc-ignore"
-  [r]
-  r)
 
 ; populate this namespace with core aliases
 (boot/base-aliases)
