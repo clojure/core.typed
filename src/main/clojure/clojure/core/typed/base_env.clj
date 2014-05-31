@@ -554,7 +554,8 @@ clojure.java.io/IOFactory
                 Vec NonEmptyColl NonEmptyLazySeq NilableNonEmptyASeq
                 Hierarchy Nilable Int Var1 Var2 Future Promise Agent1 Agent2
                 Symbol Namespace Atom2 Ref1 Ref2 Delay Proxy List Stack ExInfo
-                Multi Deref BlockingDeref SequentialSeqable ASeq NonEmptyASeq]]
+                Multi Deref BlockingDeref SequentialSeqable ASeq NonEmptyASeq
+                AVec NonEmptyAVec]]
   (when (some resolve interns)
     (doseq [i interns]
       (ns-unmap *ns* i)))
@@ -733,8 +734,8 @@ clojure.core/filter (All [x y]
                              [[x -> Any] (Option (Seqable x)) -> (ASeq x)]))
 clojure.core/filterv (All [x y]
                           (IFn
-                            [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (APersistentVector y)]
-                            [[x -> Any] (Option (Seqable x)) -> (APersistentVector x)]))
+                            [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (AVec y)]
+                            [[x -> Any] (Option (Seqable x)) -> (AVec x)]))
 clojure.core/remove (All [x y]
                            (IFn
                              [[x -> Any :filters {:else (is y 0)}] (Option (Seqable x)) -> (ASeq y)]
@@ -889,8 +890,8 @@ clojure.core/nthrest (All [x] [(U nil (Seqable x)) AnyInteger
 
 clojure.core/vector (All [r b ...]
                          (IFn [b ... b -> '[b ... b]]
-                             [r * -> (APersistentVector r)]))
-clojure.core/vec (All [x] [(Option (Seqable x)) -> (APersistentVector x)])
+                             [r * -> (AVec r)]))
+clojure.core/vec (All [x] [(Option (Seqable x)) -> (AVec x)])
 
 clojure.core/not [Any -> Boolean]
 clojure.core/constantly (All [x] [x -> [Any * -> x]])
@@ -1177,8 +1178,8 @@ clojure.core/string? (Pred String)
 clojure.core/char? (Pred Character)
 
 clojure.string/split
-     (IFn [String java.util.regex.Pattern -> (APersistentVector String)]
-         [String java.util.regex.Pattern AnyInteger -> (APersistentVector String)])
+     (IFn [String java.util.regex.Pattern -> (AVec String)]
+         [String java.util.regex.Pattern AnyInteger -> (AVec String)])
 
 clojure.string/join
      (IFn [(Option (Seqable Any)) -> String]
@@ -1264,7 +1265,7 @@ clojure.core/map
 
 clojure.core/mapv
      (All [c a b ...]
-          [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (APersistentVector c)])
+          [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (AVec c)])
 
 clojure.core/mapcat
      (All [c b ...]

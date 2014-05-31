@@ -289,6 +289,23 @@ clojure.core.typed/Vec (TFn [[x :variance :covariant]]
       :forms [(NonEmptyVec t)]}
 clojure.core.typed/NonEmptyVec (TFn [[x :variance :covariant]]
                                      (I (clojure.lang.IPersistentVector x) (CountRange 1)))
+    ^{:doc "A persistent vector returned from clojure.core/vector (and others)"
+      :forms [(AVec t)]}
+clojure.core.typed/AVec (TFn [[x :variance :covariant]]
+                             (I (clojure.lang.IPersistentVector x)
+                                (java.lang.Iterable x)
+                                (java.util.Collection x)
+                                (java.util.List x)
+                                clojure.lang.IObj))
+    ^{:doc "A persistent vector returned from clojure.core/vector (and others) and count greater than 0."
+      :forms [(NonEmptyAVec t)]}
+clojure.core.typed/NonEmptyAVec (TFn [[x :variance :covariant]]
+                                     (I (clojure.lang.IPersistentVector x)
+                                        (java.lang.Iterable x)
+                                        (java.util.Collection x)
+                                        (java.util.List x)
+                                        clojure.lang.IObj
+                                        (CountRange 1)))
     ^{:doc "A non-empty lazy sequence of type t"
       :forms [(NonEmptyLazySeq t)]}
 clojure.core.typed/NonEmptyLazySeq (TFn [[t :variance :covariant]]
