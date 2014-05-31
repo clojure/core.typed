@@ -44,7 +44,7 @@
                         (concat
                           (when docstring [docstring])
                           [body]))]
-    (if vs/*currently-checking-clj*
+    (if vs/*checking*
       `(do ~@(when provided?
                [`(ann ~name ~t)])
            ~def)
@@ -80,7 +80,7 @@
         ([a :- String, b :- Number] :- String ...))"
   [& forms]
   (core/let [{:keys [fn ann]} (internal/parse-fn* false forms)]
-    (if vs/*currently-checking-clj*
+    (if vs/*checking*
       `(do ~spec/special-form
            ::t/fn
            {:ann '~ann}
@@ -98,7 +98,7 @@
         ...)"
   [bindings & exprs]
   (core/let [{:keys [ann loop]} (internal/parse-loop* `(~bindings ~@exprs))]
-    (if vs/*currently-checking-clj*
+    (if vs/*checking*
       `(do ~spec/special-form
            ::t/loop
            {:ann '~ann}
@@ -120,7 +120,7 @@
 (defmacro ann-form 
   "Annotate a form with an expected type."
   [form ty]
-  (if vs/*currently-checking-clj*
+  (if vs/*checking*
     `(do ~spec/special-form
          ::t/ann-form
          {:type '~ty}
@@ -175,7 +175,7 @@
 (defmacro tc-ignore 
   "Ignore forms in body during type checking"
   [& body]
-  (if vs/*currently-checking-clj*
+  (if vs/*checking*
     `(do ~spec/special-form
          ::t/tc-ignore
          ~@(or body [nil]))

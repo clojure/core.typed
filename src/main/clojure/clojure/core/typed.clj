@@ -1218,7 +1218,7 @@ for checking namespaces, cf for checking individual forms."}
       (tag (+ (tag a long) (tag b long))
            long)"
   [form tag]
-  (if vs/*currently-checking-clj*
+  (if vs/*checking*
     `(do ~spec/special-form
          ::tag
          {:tag '~tag}

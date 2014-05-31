@@ -39,10 +39,10 @@
                               [ns-or-syms]
                               ns-or-syms))]
          (cond
-           vs/*currently-checking-clj* (throw (Exception. "Found inner call to check-ns or cf"))
+           vs/*checking* (throw (Exception. "Found inner call to check-ns or cf"))
 
            :else
-           (binding [vs/*currently-checking-clj* true
+           (binding [vs/*checking* true
                      vs/*delayed-errors* (err/-init-delayed-errors)
                      vs/*already-collected* (atom #{})
                      vs/*already-checked* (atom #{})

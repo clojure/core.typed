@@ -16,10 +16,10 @@
   [form & {:keys [expected type-provided? profile file-mapping]}]
   (p/profile-if profile
     (reset-caches/reset-caches)
-    (if vs/*currently-checking-clj*
+    (if vs/*checking*
       (throw (Exception. "Found inner call to check-ns or cf"))
       (impl/with-clojure-impl
-        (binding [vs/*currently-checking-clj* true
+        (binding [vs/*checking* true
                   vs/*already-collected* (atom #{})
                   vs/*already-checked* (atom #{})
                   vs/*delayed-errors* (err/-init-delayed-errors)
@@ -45,5 +45,5 @@
      (if-let [errors (seq delayed-errors)]
        (err/print-errors! errors)
        (impl/with-clojure-impl
-         (binding [vs/*currently-checking-clj* true]
+         (binding [vs/*checking* true]
            (prs/unparse-TCResult-in-ns ret *ns*)))))))

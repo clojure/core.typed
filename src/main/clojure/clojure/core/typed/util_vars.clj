@@ -33,7 +33,7 @@
   nil)
 
 (def ^:skip-wiki ^:dynamic *currently-loading* false)
-(defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *currently-checking-clj* nil)
+(defonce ^{:doc "True during type checking."} ^:dynamic *checking* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-collected* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *already-checked* nil)
 (defonce ^{:doc "Internal use only"} ^:skip-wiki ^:dynamic *delayed-errors* nil)

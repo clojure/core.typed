@@ -14,6 +14,8 @@
 (defn every-c? [c]
   #(every? c %))
 
+(def nne-seq? (some-fn nil? (every-pred seq seq?)))
+
 (def nat? (every-pred integer? (complement neg?)))
 
 (def boolean? (some-fn true? false?))

@@ -263,7 +263,6 @@
   [& args]
   `(typed-deps* '~args))
 
-(defonce ^:dynamic *currently-checking-cljs* nil)
 (defonce ^:dynamic *already-collected* nil)
 
 (defn ^:skip-wiki
@@ -284,9 +283,9 @@
   (reset-caches)
   (env/ensure
     (comp/with-core-cljs
-      (if *currently-checking-cljs*
+      (if vs/*checking*
         (throw (Exception. "Found inner call to check-ns or cf"))
-        (binding [*currently-checking-cljs* true
+        (binding [vs/*checking* true
                   vs/*delayed-errors* (-init-delayed-errors)]
           (impl/with-cljs-impl
             (let [ast ((v 'clojure.core.typed.analyze-cljs/ast-for-form) form)
@@ -323,11 +322,11 @@
        (impl/with-cljs-impl
          (reset-caches)
          ((v 'clojure.core.typed.reset-env/reset-envs!))
-         (if *currently-checking-cljs*
+         (if vs/*checking*
            (throw (Exception. "Found inner call to check-ns or cf"))
            (do
              (load-if-needed)
-             (binding [*currently-checking-cljs* true
+             (binding [vs/*checking* true
                        *already-collected* (atom #{})
                        vs/*delayed-errors* (-init-delayed-errors)]
                (let [_ ((v 'clojure.core.typed.collect-cljs/collect-ns) nsym)
