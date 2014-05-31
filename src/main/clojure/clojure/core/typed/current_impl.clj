@@ -46,63 +46,70 @@
      (binding [*current-impl* ~impl]
        ~@body)))
 
+(defn clj-bindings []
+  {(the-var 'clojure.core.typed.name-env/*current-name-env*)
+   (v 'clojure.core.typed.name-env/CLJ-TYPE-NAME-ENV)
+   (the-var 'clojure.core.typed.protocol-env/*current-protocol-env*)
+   (v 'clojure.core.typed.protocol-env/CLJ-PROTOCOL-ENV)
+   (the-var 'clojure.core.typed.ns-deps/*current-deps*)
+   (v 'clojure.core.typed.ns-deps/CLJ-TYPED-DEPS)
+   ; var env
+   (the-var 'clojure.core.typed.var-env/*current-var-annotations*)
+   (v 'clojure.core.typed.var-env/CLJ-VAR-ANNOTATIONS)
+   (the-var 'clojure.core.typed.var-env/*current-nocheck-var?*)
+   (v 'clojure.core.typed.var-env/CLJ-NOCHECK-VAR?)
+   (the-var 'clojure.core.typed.var-env/*current-used-vars*)
+   (v 'clojure.core.typed.var-env/CLJ-USED-VARS)
+   (the-var 'clojure.core.typed.var-env/*current-checked-var-defs*)
+   (v 'clojure.core.typed.var-env/CLJ-CHECKED-VAR-DEFS) 
+
+   (the-var 'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
+   (v 'clojure.core.typed.declared-kind-env/CLJ-DECLARED-KIND-ENV) 
+   (the-var 'clojure.core.typed.datatype-env/*current-datatype-env*)
+   (v 'clojure.core.typed.datatype-env/CLJ-DATATYPE-ENV) 
+   (the-var 'clojure.core.typed.datatype-ancestor-env/*current-dt-ancestors*)
+   (v 'clojure.core.typed.datatype-ancestor-env/CLJ-DT-ANCESTOR-ENV)})
+
 (defmacro with-clojure-impl [& body]
   `(with-impl clojure
-     (clojure.core.typed.profiling/p :current-impl/push-thread-bindings
-     (push-thread-bindings {(the-var '~'clojure.core.typed.name-env/*current-name-env*)
-                             (v '~'clojure.core.typed.name-env/CLJ-TYPE-NAME-ENV)
-                            (the-var '~'clojure.core.typed.protocol-env/*current-protocol-env*)
-                             (v '~'clojure.core.typed.protocol-env/CLJ-PROTOCOL-ENV)
-                            (the-var '~'clojure.core.typed.ns-deps/*current-deps*)
-                             (v '~'clojure.core.typed.ns-deps/CLJ-TYPED-DEPS)
-                            ; var env
-                            (the-var '~'clojure.core.typed.var-env/*current-var-annotations*)
-                             (v '~'clojure.core.typed.var-env/CLJ-VAR-ANNOTATIONS)
-                            (the-var '~'clojure.core.typed.var-env/*current-nocheck-var?*)
-                             (v '~'clojure.core.typed.var-env/CLJ-NOCHECK-VAR?)
-                            (the-var '~'clojure.core.typed.var-env/*current-used-vars*)
-                             (v '~'clojure.core.typed.var-env/CLJ-USED-VARS)
-                            (the-var '~'clojure.core.typed.var-env/*current-checked-var-defs*)
-                             (v '~'clojure.core.typed.var-env/CLJ-CHECKED-VAR-DEFS) 
+     (with-bindings (clj-bindings)
+       ~@body)))
 
-                            (the-var '~'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
-                             (v '~'clojure.core.typed.declared-kind-env/CLJ-DECLARED-KIND-ENV) 
-                            (the-var '~'clojure.core.typed.datatype-env/*current-datatype-env*)
-                             (v '~'clojure.core.typed.datatype-env/CLJ-DATATYPE-ENV) 
-                            (the-var '~'clojure.core.typed.datatype-ancestor-env/*current-dt-ancestors*)
-                             (v '~'clojure.core.typed.datatype-ancestor-env/CLJ-DT-ANCESTOR-ENV) 
-                            }))
-     (try 
-       ~@body
-       (finally (clojure.core.typed.profiling/p :current-impl/pop-thread-bindings 
-                     (pop-thread-bindings))))))
+(defn cljs-bindings []
+  {(the-var 'clojure.core.typed.name-env/*current-name-env*)
+   (v 'clojure.core.typed.name-env/CLJS-TYPE-NAME-ENV)
+   (the-var 'clojure.core.typed.protocol-env/*current-protocol-env*)
+   (v 'clojure.core.typed.protocol-env/CLJS-PROTOCOL-ENV)
+   (the-var 'clojure.core.typed.ns-deps/*current-deps*)
+   (v 'clojure.core.typed.ns-deps/CLJS-TYPED-DEPS)
+   ; var env
+   (the-var 'clojure.core.typed.var-env/*current-var-annotations*)
+   (v 'clojure.core.typed.var-env/CLJS-VAR-ANNOTATIONS)
+   (the-var 'clojure.core.typed.var-env/*current-nocheck-var?*)
+   (v 'clojure.core.typed.var-env/CLJS-NOCHECK-VAR?)
+   (the-var 'clojure.core.typed.var-env/*current-used-vars*)
+   (v 'clojure.core.typed.var-env/CLJS-USED-VARS)
+   (the-var 'clojure.core.typed.var-env/*current-checked-var-defs*)
+   (v 'clojure.core.typed.var-env/CLJS-CHECKED-VAR-DEFS) 
+
+   (the-var 'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
+   (v 'clojure.core.typed.declared-kind-env/CLJS-DECLARED-KIND-ENV) 
+   (the-var 'clojure.core.typed.datatype-env/*current-datatype-env*)
+   (v 'clojure.core.typed.datatype-env/CLJS-DATATYPE-ENV)})
 
 (defmacro with-cljs-impl [& body]
   `(with-impl clojurescript
-     (push-thread-bindings {(the-var '~'clojure.core.typed.name-env/*current-name-env*)
-                             (v '~'clojure.core.typed.name-env/CLJS-TYPE-NAME-ENV)
-                            (the-var '~'clojure.core.typed.protocol-env/*current-protocol-env*)
-                             (v '~'clojure.core.typed.protocol-env/CLJS-PROTOCOL-ENV)
-                            (the-var '~'clojure.core.typed.ns-deps/*current-deps*)
-                             (v '~'clojure.core.typed.ns-deps/CLJS-TYPED-DEPS)
-                            ; var env
-                            (the-var '~'clojure.core.typed.var-env/*current-var-annotations*)
-                             (v '~'clojure.core.typed.var-env/CLJS-VAR-ANNOTATIONS)
-                            (the-var '~'clojure.core.typed.var-env/*current-nocheck-var?*)
-                             (v '~'clojure.core.typed.var-env/CLJS-NOCHECK-VAR?)
-                            (the-var '~'clojure.core.typed.var-env/*current-used-vars*)
-                             (v '~'clojure.core.typed.var-env/CLJS-USED-VARS)
-                            (the-var '~'clojure.core.typed.var-env/*current-checked-var-defs*)
-                             (v '~'clojure.core.typed.var-env/CLJS-CHECKED-VAR-DEFS) 
+     (with-bindings (cljs-bindings)
+       ~@body)))
 
-                            (the-var '~'clojure.core.typed.declared-kind-env/*current-declared-kinds*)
-                             (v '~'clojure.core.typed.declared-kind-env/CLJS-DECLARED-KIND-ENV) 
-                            (the-var '~'clojure.core.typed.datatype-env/*current-datatype-env*)
-                             (v '~'clojure.core.typed.datatype-env/CLJS-DATATYPE-ENV) 
-                            })
-     (try 
-       ~@body
-       (finally (pop-thread-bindings)))))
+(defmacro with-full-impl [impl & body]
+  `(with-impl ~impl
+     (with-bindings (impl-case
+                      :clojure (clj-bindings)
+                      :cljs (cljs-bindings))
+       (prn *current-impl*)
+       ~@body)))
+
 
 (defn implementation-specified? []
   (boolean *current-impl*))
@@ -131,13 +138,13 @@
 (defn assert-cljs []
   (assert (= clojurescript *current-impl*) "Clojurescript implementation only"))
 
-(defmacro impl-case [& {:keys [clojure cljs] :as opts}]
+(defmacro impl-case [& {clj-case :clojure cljs-case :cljs :as opts}]
   (assert (= #{:clojure :cljs} (set (keys opts)))
           "Incorrect cases to impl-case")
-  `(condp = (current-impl)
-     clojure ~clojure
-     clojurescript ~cljs
-     (assert nil "No case matched for impl-case")))
+  `(case (current-impl)
+     ~clojure ~clj-case
+     ~clojurescript ~cljs-case
+     (assert nil (str "No case matched for impl-case" (current-impl)))))
 
 (defn var->symbol [^clojure.lang.Var var]
   {:pre [(var? var)]

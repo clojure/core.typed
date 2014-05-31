@@ -8,12 +8,11 @@
             [clojure.core.typed.reset-env :as reset-env]
             [clojure.core.typed.collect-cljs :as clt-cljs]
             [clojure.core.typed.check-cljs :as chk-cljs]
+            [clojure.core.typed.check-ns :as check-ns]
             [clojure.core.typed.errors :as err]))
 
 (defn check-ns-cljs
-  [nsym]
-  (assert (symbol? nsym)
-          "Checked namespace must be symbol")
+  [nsym & opt]
   (env/ensure
     (comp/with-core-cljs
       (impl/with-cljs-impl
