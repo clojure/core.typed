@@ -107,7 +107,6 @@
      (with-bindings (impl-case
                       :clojure (clj-bindings)
                       :cljs (cljs-bindings))
-       (prn *current-impl*)
        ~@body)))
 
 

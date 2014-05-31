@@ -10,7 +10,6 @@
 (defn check-ann-form
   [check {:keys [statements env] frm :ret :as expr} expected]
   {:pre [(#{3} (count statements))]}
-  (prn 'check-ann-form)
   (let [[_ _ texpr] statements
         tsyn (ast-u/map-expr-at texpr :type)
         parsed-ty (binding [vs/*current-env* env
