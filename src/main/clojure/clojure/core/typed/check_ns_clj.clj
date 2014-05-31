@@ -1,4 +1,4 @@
-(ns clojure.core.typed.check-ns
+(ns clojure.core.typed.check-ns-clj
   (:require [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.check-ns-common :as chk-ns]))
