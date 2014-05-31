@@ -15,6 +15,7 @@
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.declared-kind-env :as decl]
             [clojure.core.typed.collect-utils :as clt-u]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.collect-phase :as coll-clj]
@@ -52,11 +53,12 @@
              (collect ast)))))))
 
 (defmulti collect (fn [expr] (:op expr)))
+(u/add-defmethod-generator collect)
 (defmulti invoke-special-collect (fn [expr]
                                    (when (#{:var} (-> expr :f :op))
                                      (-> expr :f :info :name))))
 
-(defmethod collect :def
+(add-collect-method :def
   [{:keys [name form env] :as expr}]
   (let [mvar (-> form second meta)
         prs-ns (chk/expr-ns expr)]
@@ -200,17 +202,17 @@
     nil))
 
 ; only collect invocations in arbitrarily nested `do` blocks
-(defmethod collect :do
+(add-collect-method :do
   [{:keys [statements ret]}]
   (doall (map collect (concat statements [ret])))
   nil)
 
-(defmethod collect :invoke
+(add-collect-method :invoke
   [expr]
   (binding [uvar/*current-env* (:env expr)]
     (invoke-special-collect expr)))
 
-(defmethod collect :default
+(add-collect-method :default
   [expr]
   nil)
 
