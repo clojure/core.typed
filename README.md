@@ -105,6 +105,8 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 
 ## Contributors
 
+Thanks to the following people for contributing to core.typed:
+
 * Stephen Compall (S11001001)
 * Andrew Brehaut (brehaut)
 * Christopher Spencer (cspencer)
