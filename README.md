@@ -112,6 +112,7 @@ See [wiki](https://github.com/clojure/core.typed/wiki).
 * Di Xu (xudifsd)
 * Nicola Mometto (Bronsa)
 * Chas Emerick (cemerick)
+* Jake Goulding (shepmaster)
 
 ## Sponsors
 
