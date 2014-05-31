@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.collect-phase
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.collect.typed-deps :as typed-deps]
+            [clojure.core.typed.collect.gen-datatype :as gen-datatype]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
@@ -44,9 +45,6 @@
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
 )
-
-(defn parse-field [[n _ t]]
-  [n (prs/parse-type t)])
 
 (declare collect)
 
@@ -132,102 +130,31 @@
   [_]
   nil)
 
-(defn gen-datatype* [current-env current-ns provided-name fields vbnd opt record?]
-  {:pre [(symbol? current-ns)]}
-  (impl/with-clojure-impl
-    (let [{ancests :unchecked-ancestors} opt
-          ancests (or ancests (:extends opt))
-          parsed-binders (when vbnd
-                           (binding [prs/*parse-type-in-ns* current-ns]
-                             (prs/parse-free-binder-with-variance vbnd)))
-          ;variances
-          vs (seq (map :variance parsed-binders))
-          args (seq (map :fname parsed-binders))
-          bnds (seq (map :bnd parsed-binders))]
-      (let [provided-name-str (str provided-name)
-            ;_ (prn "provided-name-str" provided-name-str)
-            munged-ns-str (if (some #(= \. %) provided-name-str)
-                            (apply str (butlast (apply concat (butlast (partition-by #(= \. %) provided-name-str)))))
-                            (str (munge current-ns)))
-            ;_ (prn "munged-ns-str" munged-ns-str)
-            demunged-ns-str (str (repl/demunge munged-ns-str))
-            ;_ (prn "demunged-ns-str" demunged-ns-str)
-            local-name (if (some #(= \. %) provided-name-str)
-                         (symbol (apply str (last (partition-by #(= \. %) (str provided-name-str)))))
-                         provided-name-str)
-            ;_ (prn "local-name" local-name)
-            s (symbol (str munged-ns-str \. local-name))
-            fs (apply array-map (apply concat (free-ops/with-frees (mapv r/make-F args)
-                                                (binding [vs/*current-env* current-env
-                                                          prs/*parse-type-in-ns* current-ns]
-                                                  (mapv parse-field (partition 3 fields))))))
-            as (set (free-ops/with-frees (mapv r/make-F args)
-                      (binding [vs/*current-env* current-env
-                                prs/*parse-type-in-ns* current-ns]
-                        (mapv (comp #(c/abstract-many args %) prs/parse-type) ancests))))
-            ;_ (prn "collected ancestors" as)
-            _ (ancest/add-datatype-ancestors s as)
-            pos-ctor-name (symbol demunged-ns-str (str "->" local-name))
-            map-ctor-name (symbol demunged-ns-str (str "map->" local-name))
-            dt (c/DataType* args vs (map r/make-F args) s bnds fs record?)
-            _ (dt-env/add-datatype s dt)
-            pos-ctor (if args
-                       (c/Poly* args bnds
-                                (r/make-FnIntersection
-                                  (r/make-Function (vec (vals fs)) (c/DataType-of s (map r/make-F args)))))
-                       (r/make-FnIntersection
-                         (r/make-Function (vec (vals fs)) (c/DataType-of s))))
-            map-ctor (when record?
-                       (let [hmap-arg ; allow omission of keys if nil is allowed and field is monomorphic
-                             (let [{optional true mandatory false} 
-                                   (group-by (fn [[_ t]] (and (empty? (frees/fv t))
-                                                              (empty? (frees/fi t))
-                                                              (sub/subtype? r/-nil t)))
-                                             (zipmap (map (comp r/-val keyword) (keys fs))
-                                                     (vals fs)))]
-                               (c/make-HMap :optional (into {} optional)
-                                            :mandatory (into {} mandatory)))]
-                         (if args
-                           (c/Poly* args bnds
-                                    (r/make-FnIntersection
-                                      (r/make-Function [hmap-arg] (c/DataType-of s (map r/make-F args)))))
-                           (r/make-FnIntersection
-                             (r/make-Function [hmap-arg] (c/DataType-of s))))))]
-        (do 
-          ;(when vs
-          ;  (let [f (mapv r/make-F (repeatedly (count vs) gensym))]
-          ;    ;TODO replacements and unchecked-ancestors go here
-          ;    (rcls/alter-class* s (c/RClass* (map :name f) vs f s {} {} bnds))))
-          (var-env/add-var-type pos-ctor-name pos-ctor)
-          (var-env/add-nocheck-var pos-ctor-name)
-          (when record?
-            (override/add-method-override (symbol (str s) "create") map-ctor)
-            (var-env/add-var-type map-ctor-name map-ctor)))))))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-precord*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{4})
   (let [[dname vbnd fields opt] (ast-u/constant-exprs args)]
-    (gen-datatype* env (chk-u/expr-ns expr) dname fields vbnd opt true)))
+    (gen-datatype/gen-datatype* env (chk-u/expr-ns expr) dname fields vbnd opt true)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-pdatatype*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{4})
   (let [[dname vbnd fields opt] (ast-u/constant-exprs args)]
     (assert nil "REMOVED OPERATION: ann-pdatatype, use ann-datatype with binder as first argument, ie. before datatype name")
-    #_(gen-datatype* env (chk-u/expr-ns expr) dname fields vbnd opt false)))
+    #_(gen-datatype/gen-datatype* env (chk-u/expr-ns expr) dname fields vbnd opt false)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-datatype*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{4})
   (let [[binder dname fields opt] (ast-u/constant-exprs args)]
-    (gen-datatype* env (chk-u/expr-ns expr) dname fields binder opt false)))
+    (gen-datatype/gen-datatype* env (chk-u/expr-ns expr) dname fields binder opt false)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/ann-record*
   [{:keys [args env] :as expr}]
   (clt-u/assert-expr-args expr #{4})
   (let [[binder dname fields opt] (ast-u/constant-exprs args)]
-    (gen-datatype* env (chk-u/expr-ns expr) dname fields binder opt true)))
+    (gen-datatype/gen-datatype* env (chk-u/expr-ns expr) dname fields binder opt true)))
 
 (defmethod invoke-special-collect 'clojure.core.typed/warn-on-unannotated-vars*
   [{:as expr}]
