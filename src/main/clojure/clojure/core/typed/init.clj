@@ -67,7 +67,8 @@
                  '[clojure.core.typed.array-ops]
                  '[clojure.core.typed.check]
                  '[clojure.core.typed.reset-caches]
-                 '[clojure.core.typed.check-ns]
+                 '[clojure.core.typed.check-ns-common]
+                 '[clojure.core.typed.check-ns-clj]
                  '[clojure.core.typed.check-form]
                  '[clojure.core.typed.statistics]
                  ; used by check-ns-info
@@ -94,6 +95,7 @@
               '[clojure.core.typed.base-env-cljs]
               '[clojure.core.typed.check-ns-cljs]
               '[clojure.core.typed.check-form-cljs]
+              '[clojure.core.typed.check-ns-cljs]
               '[clojure.core.typed.base-env-helper-cljs])
             (reset! cljs-present? true)
             (println "Finished loading ClojureScript")

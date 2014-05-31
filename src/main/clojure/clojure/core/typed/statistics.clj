@@ -1,6 +1,6 @@
 (ns clojure.core.typed.statistics
   (:require [clojure.core.typed.var-env :as var-env]
-            [clojure.core.typed.check-ns :as chk-ns]
+            [clojure.core.typed.check-ns-clj :as chk-ns-clj]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.parse-unparse :as prs]
@@ -26,7 +26,7 @@
   (assert (and (coll? nsyms) (every? symbol? nsyms))
           "Must pass a collection of symbols to statistics")
   (reduce (fn [stats nsym]
-            (let [_ (chk-ns/check-ns nsym :collect-only true)
+            (let [_ (chk-ns-clj/check-ns nsym :collect-only true)
                   ns (find-ns nsym)
                   _ (assert ns (str "Namespace " nsym " not found"))]
               (conj stats

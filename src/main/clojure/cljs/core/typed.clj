@@ -233,6 +233,18 @@
   ([form] `(cf* '~form nil nil))
   ([form expected] `(cf* '~form '~expected true)))
 
+(defn check-ns-info
+  "Check a Clojurescript namespace, or the current namespace.
+  Intended to be called from Clojure. For evaluation at the Clojurescript
+  REPL see check-ns."
+  ([]
+   (load-if-needed)
+   (check-ns-info ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))
+  ([ns-or-syms & opt]
+   (load-if-needed)
+   (apply (impl/v 'clojure.core.typed.check-ns-cljs/check-ns-info)
+          ns-or-syms opt)))
+
 (defn check-ns*
   "Check a Clojurescript namespace, or the current namespace.
   Intended to be called from Clojure. For evaluation at the Clojurescript
@@ -240,9 +252,10 @@
   ([] 
    (load-if-needed)
    (check-ns* ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))
-  ([nsym]
+  ([ns-or-syms & opt]
    (load-if-needed)
-   ((impl/v 'clojure.core.typed.check-ns-cljs/check-ns-cljs) nsym)))
+   (apply (impl/v 'clojure.core.typed.check-ns-cljs/check-ns) 
+          ns-or-syms opt)))
 
 (defmacro check-ns
   "Check a Clojurescript namespace, or the current namespace. This macro

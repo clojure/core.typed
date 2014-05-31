@@ -8,31 +8,17 @@
             [clojure.core.typed.reset-env :as reset-env]
             [clojure.core.typed.collect-cljs :as clt-cljs]
             [clojure.core.typed.check-cljs :as chk-cljs]
-            [clojure.core.typed.check-ns :as check-ns]
+            [clojure.core.typed.check-ns-common :as chk-ns]
             [clojure.core.typed.errors :as err]))
 
-(defn check-ns-cljs
-  [nsym & opt]
+(defn check-ns-info
+  [ns-or-syms & opt]
   (env/ensure
     (comp/with-core-cljs
-      (impl/with-cljs-impl
-        (reset-caches/reset-caches)
-        (reset-env/reset-envs!)
-        (if vs/*checking*
-          (throw (Exception. "Found inner call to check-ns or cf"))
-          (binding [vs/*checking* true
-                    cljs.core.typed/*already-collected* (atom #{})
-                    vs/*already-checked* (atom #{})
-                    ;vs/*trace-checker* trace
-                    vs/*analyze-ns-cache* (atom {})
-                    vs/*delayed-errors* (err/-init-delayed-errors)
-                    ;vs/*checked-asts* (when (== 1 (count nsym-coll))
-                    ;                    (atom {}))]
-                    ]
-            (let [_ (clt-cljs/collect-ns nsym)
-                  _ (chk-cljs/check-ns nsym)]
-              ;handle errors
-              (if-let [errors (seq @vs/*delayed-errors*)]
-                (err/print-errors! errors)
-                :ok))))))))
+      (apply chk-ns/check-ns-info impl/clojurescript ns-or-syms opt))))
 
+(defn check-ns
+  [ns-or-syms & opt]
+  (env/ensure
+    (comp/with-core-cljs
+      (apply chk-ns/check-ns impl/clojurescript ns-or-syms opt))))

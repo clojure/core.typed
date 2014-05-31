@@ -2085,7 +2085,7 @@ for checking namespaces, cf for checking individual forms."}
   ([] (check-ns-info *ns*))
   ([ns-or-syms & opt]
    (load-if-needed)
-   (apply (impl/v 'clojure.core.typed.check-ns/check-ns-info) ns-or-syms opt)))
+   (apply (impl/v 'clojure.core.typed.check-ns-clj/check-ns-info) ns-or-syms opt)))
 
 (defn check-ns
   "Type check a namespace/s (a symbol or Namespace, or collection).
@@ -2126,7 +2126,7 @@ for checking namespaces, cf for checking individual forms."}
   ([] (check-ns *ns*))
   ([ns-or-syms & opt]
    (load-if-needed)
-   (apply (impl/v 'clojure.core.typed.check-ns/check-ns) ns-or-syms opt)))
+   (apply (impl/v 'clojure.core.typed.check-ns-clj/check-ns) ns-or-syms opt)))
 
 
 ;(ann statistics [(Coll Symbol) -> (Map Symbol Stats)])
