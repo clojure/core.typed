@@ -1037,8 +1037,8 @@
     ;; top for functions is above everything
     (r/TopFunction? t) A0
     ;; the really simple case
-    (and (not ((some-fn :rest :drest :kws) s))
-         (not ((some-fn :rest :drest :kws) t)))
+    (and (not ((some-fn :rest :drest :kws :prest) s))
+         (not ((some-fn :rest :drest :kws :prest) t)))
     (do
       (when-not (= (count (.dom s))
                    (count (.dom t)))
@@ -1051,6 +1051,21 @@
                    (map vector (.dom t) (.dom s)))))
         (subtypeA* (.rng s) (.rng t))))
 
+    (and (:prest s)
+         (:prest t))
+    (if (and (= (count (.dom s))
+                (count (.dom t)))
+             (-> *sub-current-seen*
+               ((fn [A0]
+                  (reduce (fn [A* [s t]]
+                            (subtypeA* A* s t))
+                          A0
+                          (map vector (.dom t) (.dom s)))))
+               (subtypeA* (.rng s) (.rng t)))
+             (subtype (.prest s) (.prest t)))
+      *sub-current-seen*
+      (fail! s t))
+
     ;kw args
     (and (.kws s)
          (.kws t))
@@ -1060,12 +1075,12 @@
       (subtype-kwargs* (.kws t) (.kws s)))
 
     (and (:rest s)
-         (not ((some-fn :rest :drest :kws) t)))
+         (not ((some-fn :rest :drest :kws :prest) t)))
     (-> *sub-current-seen*
       (subtypes*-varargs (.dom t) (.dom s) (.rest s) nil)
       (subtypeA* (.rng s) (.rng t)))
 
-    (and (not ((some-fn :rest :drest :kws) s))
+    (and (not ((some-fn :rest :drest :kws :prest) s))
          (:rest t))
     (fail! s t)
 
