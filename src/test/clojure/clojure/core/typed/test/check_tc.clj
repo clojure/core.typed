@@ -10,6 +10,7 @@
                     clojure.core.typed.name-env
                     clojure.core.typed.type-ctors])
         ;fails in hudson
-        (catch OutOfMemoryError e
-          (prn "OutOfMemoryError")
-          true))))
+        (catch clojure.lang.Compiler$CompilerException e
+          (if (= (str e) "PermGen space")
+            true
+            (throw e))))))
