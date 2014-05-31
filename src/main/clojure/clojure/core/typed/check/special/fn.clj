@@ -3,12 +3,14 @@
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.subtype :as sub]))
 
 (defn check-special-fn 
-  [check {[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :as expr} expected]
+  [check {[_ _ fn-ann-expr :as statements] :statements fexpr :ret :as expr} expected]
   {:pre [(#{3} (count statements))]}
-  (let [ann-expected
+  (let [fn-anns (ast-u/map-expr-at fn-ann-expr :ann)
+        ann-expected
         (binding [prs/*parse-type-in-ns* (cu/expr-ns expr)]
           (apply
             r/make-FnIntersection

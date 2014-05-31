@@ -20,6 +20,25 @@
          (#{:const} (:op (:expr expr)))]}
   (-> expr :expr :val))
 
+(defn do-statements-value [cexprs]
+  ((impl/impl-case
+     :clojure vec
+     :cljs seq)
+   (butlast cexprs)))
+
+(defn map-expr-at [expr key]
+  (impl/impl-case
+    :clojure (let [_ (assert (#{:const} (:op expr)))
+                   v (:val expr)]
+               (assert (contains? v key) key)
+               (get v key))
+    :cljs (let [_ (assert (#{:map} (:op expr)))
+                m (zipmap (map :form (:keys expr))
+                          (:vals expr))
+                _ (assert (contains? m key))
+                vexpr (get m key)]
+            (:form vexpr))))
+
 (defn constant-exprs [exprs]
   (map constant-expr exprs))
 
@@ -71,7 +90,8 @@
 (defn dummy-const-expr [val env]
   {:op :const
    :val val
-   :env env})
+   :env env
+   :form val})
 
 (defn method-body-kw []
   (impl/impl-case

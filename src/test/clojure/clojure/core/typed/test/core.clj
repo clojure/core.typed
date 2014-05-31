@@ -19,6 +19,7 @@
             [clojure.core.typed.update :as update :refer [env+ update]]
             [clojure.core.typed.tc-equiv :refer [tc-equiv]]
             [clojure.core.typed.collect-phase :as collect]
+            [clojure.core.typed.collect-utils :as collect-u]
             [clojure.core.typed.inst :as inst]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.type-ctors :refer :all]
@@ -2564,7 +2565,7 @@
                                                bnds)
                      (parse-type '(clojure.core.typed/All [m1]
                                     [clojure.core.typed/Any x1 m1 -> x2])))]
-            (both-subtype? (collect/protocol-method-var-ann
+            (both-subtype? (collect-u/protocol-method-var-ann
                              mt names bnds)
                            (parse-type 
                              '(clojure.core.typed/All [x1 x2 m1]

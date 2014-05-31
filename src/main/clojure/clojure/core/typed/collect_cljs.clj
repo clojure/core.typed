@@ -14,6 +14,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.var-env :as var-env]
             [clojure.core.typed.declared-kind-env :as decl]
+            [clojure.core.typed.collect-utils :as clt-u]
             [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.collect-phase :as coll-clj]
@@ -108,41 +109,6 @@
         (var-env/add-nocheck-var qsym))
       (var-env/add-var-type qsym t))))
 
-;copied from CLJ implementation, should be identical
-(defn gen-protocol* [current-env current-ns vsym binder mths]
-  {:pre [(symbol? current-ns)]}
-  (let [s (if (namespace vsym)
-            (symbol vsym)
-            (symbol (str current-ns) (name vsym)))
-        protocol-defined-in-nstr (namespace s)
-        on-class (c/Protocol-var->on-class s)
-        ; add a Name so the methods can be parsed
-        _ (nme-env/declare-protocol* s)
-        parsed-binder (when binder 
-                        (binding [prs/*parse-type-in-ns* current-ns]
-                          (prs/parse-free-binder-with-variance binder)))
-        fs (when parsed-binder
-             (map (comp r/make-F :fname) parsed-binder))
-        ms (into {} (for [[knq v] mths]
-                       (do
-                         (assert (not (namespace knq))
-                                  "Protocol method should be unqualified")
-                          [knq (free-ops/with-frees fs 
-                                 (binding [uvar/*current-env* current-env
-                                           prs/*parse-type-in-ns* current-ns]
-                                   (prs/parse-type v)))])))
-        t (c/Protocol* (map :name fs) (map :variance parsed-binder) 
-                       fs s on-class ms (map :bnd parsed-binder))]
-    (ptl-env/add-protocol s t)
-    (doseq [[kuq mt] ms]
-      (assert (not (namespace kuq))
-              "Protocol method names should be unqualified")
-      ;qualify method names when adding methods as vars
-      (let [kq (symbol protocol-defined-in-nstr (name kuq))]
-        (var-env/add-nocheck-var kq)
-        (var-env/add-var-type kq mt)))
-    nil))
-
 (defn gen-datatype* [current-env current-ns provided-name fields vbnd opt record?]
   {:pre [(symbol? current-ns)]}
   (impl/with-cljs-impl
@@ -213,7 +179,7 @@
 (defmethod invoke-special-collect 'cljs.core.typed/ann-protocol*
   [{[{vbnd :form} {varsym :form} {mth :form} :as args] :args :keys [env] :as expr}]
   (assert (= (count args) 3) "Wrong arguments to ann-protocol")
-  (gen-protocol* env (chk/expr-ns expr) varsym vbnd mth))
+  (clt-u/gen-protocol* env (chk/expr-ns expr) varsym vbnd mth))
   
 (defmethod invoke-special-collect 'cljs.core.typed/def-alias*
   [{:keys [args env] :as expr}]

@@ -1,10 +1,12 @@
 (ns clojure.core.typed.check-cljs
   (:require [clojure.core.typed]
+            [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.check :as chk]
             [clojure.core.typed.check.let :as let]
             [clojure.core.typed.check.loop :as loop]
             [clojure.core.typed.check.letfn :as letfn]
             [clojure.core.typed.check.recur :as recur]
+            [clojure.core.typed.check.do :as do]
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.check.if :as if]
@@ -17,7 +19,12 @@
             [clojure.core.typed.check.set :as set]
             [clojure.core.typed.check.vector :as vec]
             [clojure.core.typed.check.print-env :as pr-env]
+            [clojure.core.typed.check.special.fn :as special-fn]
+            [clojure.core.typed.check.special.ann-form :as ann-form]
+            [clojure.core.typed.check.special.tc-ignore :as tc-ignore]
+            [clojure.core.typed.check.special.loop :as special-loop]
             [clojure.core.typed.errors :as err]
+            [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.type-rep :as r :refer [ret ret-t ret-o]]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.subtype :as sub]
@@ -35,6 +42,8 @@
             [clojure.core.typed.object-rep :a obj]
             [clojure.core.typed.analyze-cljs :as ana])
   (:import (clojure.core.typed.type_rep Value DottedPretype)))
+
+(alias 't 'clojure.core.typed)
 
 (declare check)
 
@@ -145,13 +154,6 @@
   (assoc expr
          expr-type (ret r/-any)))
 
-;don't type check
-(defmethod invoke-special 'cljs.core.typed/tc-ignore-forms*
-  [{:keys [] :as expr} & [expected]]
-  (assoc expr
-         expr-type (ret r/-any)))
-
-
 (defmethod invoke-special 'cljs.core.typed/inst-poly
   [{[pexpr targs-expr :as args] :args :as expr} & [expected]]
   (assert (#{2} (count args)) "Wrong arguments to inst")
@@ -164,26 +166,6 @@
                 (doall (map prs/parse-type (:form targs-expr))))]
     (assoc expr
            expr-type (ret (inst/manual-inst ptype targs)))))
-
-(defmethod invoke-special 'cljs.core.typed/ann-form*
-  [{[the-expr {typ-syn :form :as texpr} :as args] :args :as expr} & [expected]]
-  (assert (= (count args) 2))
-  (binding [vs/*current-expr* expr
-            vs/*current-env* (:env expr)]
-    (let [current-ns (cu/expr-ns expr)
-          given-type (prs/with-parse-ns current-ns
-                       (prs/parse-type typ-syn))
-          cform (check the-expr (ret given-type))
-          _ (when-not (sub/subtype? (-> cform expr-type ret-t) given-type)
-              (err/tc-delayed-error 
-                (prs/with-unparse-ns current-ns
-                  (str "Annotation does not match actual type:\n"
-                       "Expected: " (prs/unparse-type given-type)"\n"
-                       "Actual: " (prs/unparse-type (-> cform expr-type ret-t))))))
-          _ (when expected
-              (assert (sub/subtype? given-type (ret-t expected))))]
-      (assoc expr
-             expr-type (ret given-type)))))
 
 (defmethod invoke-special 'cljs.core.typed/loop>-ann
   [{[expr {expected-bnds-syn :form}] :args :as dummy-expr} & [expected]]
@@ -252,12 +234,34 @@
                           (o/->Path nil vname)
                           o/-empty))))
 
+;(ann internal-special-form [Expr (U nil TCResult) -> Expr])
+(u/special-do-op spec/special-form internal-special-form)
+
+(defmethod internal-special-form ::t/tc-ignore
+  [expr expected]
+  (tc-ignore/check-tc-ignore check expr expected))
+
+(defmethod internal-special-form ::t/fn
+  [{[_ _ {{fn-anns :ann} :val} :as statements] :statements fexpr :ret :as expr} expected]
+  (special-fn/check-special-fn check expr expected))
+
+(defmethod internal-special-form ::t/ann-form
+  [{[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
+  (ann-form/check-ann-form check expr expected))
+
+(defmethod internal-special-form ::t/loop
+  [{[_ _ {{tsyns :ann} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
+  (special-loop/check-special-loop check expr expected))
+
+(defmethod internal-special-form :default
+  [expr expected]
+  (err/int-error (str "No such internal form: " (ast-u/emit-form-fn expr))))
+
 (add-check-method :do
   [{:keys [ret statements] :as expr} & [expected]]
-  (let [cstatements (mapv check statements)
-        cret (check ret expected)]
-    (assoc expr
-           expr-type (expr-type cret))))
+  {:post [(-> % u/expr-type r/TCResult?)
+          (con/nne-seq? (:statements %))]}
+  (do/check-do check internal-special-form expr expected))
 
 (add-check-method :fn
   [{:keys [methods] :as expr} & [expected]]

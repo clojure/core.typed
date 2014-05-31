@@ -2,9 +2,10 @@
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.utils :as u :refer [p profile]]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.coerce-utils :as coerce]
+            [clojure.core.typed.collect-utils :as clt-u]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.parse-unparse :as prs]
@@ -48,52 +49,21 @@
 
 (declare collect)
 
-(t/ann collected-ns! [t/Sym -> nil])
-(defn- collected-ns! [nsym]
-  {:pre [(symbol? nsym)]}
-  (if-let [a uvar/*already-collected*]
-    (swap! a conj nsym)
-    (assert nil "Type system is not set up for namespace collection"))
-  nil)
-
-(t/ann already-collected? [t/Sym -> Boolean])
-(defn- already-collected? [nsym]
-  {:pre [(symbol? nsym)]
-   :post [(con/boolean? %)]}
-  (if-let [a uvar/*already-collected*]
-    (boolean (@a nsym))
-    (assert nil "Type system is not set up for namespace collection")))
-
-(declare collect-asts)
+(defn collect-asts [asts]
+  (doseq [ast asts]
+    (collect ast)))
 
 (t/ann collect-ns [t/Sym -> nil])
 (defn collect-ns
   "Collect type annotations and dependency information
   for namespace symbol nsym, and recursively check 
   declared typed namespace dependencies."
-  ([nsym]
-   {:pre [(symbol? nsym)]}
-   (p :collect-phase/collect-ns
-   (if (already-collected? nsym)
-     (do #_(println (str "Already collected " nsym ", skipping"))
-         #_(flush)
-         nil)
-     ; assume we're collecting this namespace, but only collect
-     ; dependencies if they appear to refer to clojure.core.tyoed
-     (do (collected-ns! nsym)
-         (println (str "Start collecting " nsym))
-         (flush)
-         ;collect dependencies
-         (let [deps (dep-u/deps-for-ns nsym)]
-           (doseq [dep deps
-                   :when (dep-u/should-check-ns? dep)]
-             (collect-ns dep)))
-         ;collect this namespace
-         (let [asts (p :collect-phase/get-clj-analysis (ana-clj/ast-for-ns nsym))]
-           (p :collect/collect-form
-              (collect-asts asts)))
-         (println (str "Finished collecting " nsym))
-         (flush))))))
+  [nsym]
+  {:pre [(symbol? nsym)]}
+  (clt-u/collect-ns* nsym 
+                     {:ast-for-ns ana-clj/ast-for-ns
+                      :collect-asts collect-asts
+                      :collect-ns collect-ns}))
 
 (defn collect-ast [expr]
   (collect expr))
@@ -101,16 +71,6 @@
 (defn collect-form [form]
   (let [ast (ana-clj/ast-for-form form)]
     (collect-ast ast)))
-
-(defn collect-asts [asts]
-  ; phase 1
-  ; declare all protocols and datatypes
-;  (doseq [ast asts]
-;    (collect-declares ast))
-  ; phase 2
-  ; collect type annotations
-  (doseq [ast asts]
-    (collect ast)))
 
 (defn collect-ns-setup [nsym]
   {:pre [(symbol? nsym)]}
@@ -414,23 +374,6 @@
     (override/add-method-override msym ty)
     nil))
 
-(defn protocol-method-var-ann [mt names bnds]
-  (cond
-    (r/Poly? mt) (let [outer-names names
-                       inner-names (concat (c/Poly-fresh-symbols* mt))]
-                   (c/Poly* (concat outer-names inner-names)
-                            (concat bnds (c/Poly-bbnds* inner-names mt))
-                            (c/Poly-body* inner-names mt)))
-
-    (r/PolyDots? mt) (let [outer-names names
-                           inner-names (concat (c/PolyDots-fresh-symbols* mt))]
-                       (c/PolyDots* (concat outer-names inner-names)
-                                    (concat bnds (c/PolyDots-bbnds* inner-names mt))
-                                    (c/PolyDots-body* inner-names mt)))
-    :else (let [outer-names names]
-            (c/Poly* outer-names
-                     bnds
-                     mt))))
 
 #_(defn parse-protocol-methods [mths]
   (into {} (for [[knq v] mths]
@@ -534,7 +477,7 @@
               "Protocol method names should be unqualified")
       ;qualify method names when adding methods as vars
       (let [kq (symbol protocol-defined-in-nstr (name kuq))
-            mt-ann (protocol-method-var-ann mt (map :name fs) bnds)]
+            mt-ann (clt-u/protocol-method-var-ann mt (map :name fs) bnds)]
         (var-env/add-nocheck-var kq)
         (var-env/add-var-type kq mt-ann)))
     ;(prn "end gen-protocol" s)

@@ -322,7 +322,7 @@
 (t/tc-ignore
 ;; multimethods for dispatching on special forms like (do ::special-form ::foobar ...)
 (defn internal-dispatch-val [expr]
-  (:val (second (:statements expr))))
+  (:form (second (:statements expr))))
 
 (defn enforce-do-folding [{:keys [statements] :as expr} kw]
   (when-not (#{0 1} (count 
@@ -337,7 +337,7 @@
   `(defmulti ~nme (fn [expr# & _#] (internal-dispatch-val expr#))))
 
 (defn internal-form? [expr kw]
-  (= kw (:val (first (:statements expr)))))
+  (= kw (:form (first (:statements expr)))))
 
 (defn ns? [n]
   (instance? clojure.lang.Namespace n))

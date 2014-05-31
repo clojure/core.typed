@@ -1,5 +1,6 @@
 (ns clojure.core.typed.check.special.ann-form
   (:require [clojure.core.typed.util-vars :as vs]
+            [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.check.utils :as cu]
             [clojure.core.typed.type-rep :as r]
@@ -7,9 +8,12 @@
             [clojure.core.typed.subtype :as sub]))
 
 (defn check-ann-form
-  [check {[_ _ {{tsyn :type} :val} :as statements] :statements frm :ret, :keys [env], :as expr} expected]
+  [check {:keys [statements env] frm :ret :as expr} expected]
   {:pre [(#{3} (count statements))]}
-  (let [parsed-ty (binding [vs/*current-env* env
+  (prn 'check-ann-form)
+  (let [[_ _ texpr] statements
+        tsyn (ast-u/map-expr-at texpr :type)
+        parsed-ty (binding [vs/*current-env* env
                             prs/*parse-type-in-ns* (cu/expr-ns expr)]
                     (prs/parse-type tsyn))
         cty (check frm (r/ret parsed-ty))

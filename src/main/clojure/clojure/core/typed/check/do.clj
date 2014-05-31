@@ -7,6 +7,7 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.update :as update]
             [clojure.core.typed.special-form :as spec]
+            [clojure.core.typed.ast-utils :as ast-u]
             [clojure.core.typed.contract-utils :as con]))
 
 (defn internal-form? [expr]
@@ -71,6 +72,6 @@
           _ (assert ((every-pred vector? seq) cexprs)) ; make sure we conj'ed in the right order
           _ (assert ((every-pred (con/every-c? r/TCResult?) seq) actual-types))]
       (assoc expr
-             :statements (vec (butlast cexprs))
+             :statements (ast-u/do-statements-value cexprs)
              :ret (last cexprs)
              u/expr-type (last actual-types))))) ;should be a r/ret already
