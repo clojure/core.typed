@@ -1,5 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.collect-cljs
   (:require [cljs.core.typed :as t]
+            [clojure.core.typed.collect.gen-protocol :as gen-protocol]
+            [clojure.core.typed.collect.gen-datatype :as gen-datatype]
             [clojure.core.typed.analyze-cljs :as ana]
             [clojure.core.typed.type-rep :as r :refer [ret]]
             [clojure.core.typed.type-ctors :as c]
@@ -140,7 +142,7 @@
             fs (apply array-map (apply concat (free-ops/with-frees (mapv r/make-F args)
                                                 (binding [uvar/*current-env* current-env
                                                           prs/*parse-type-in-ns* current-ns]
-                                                  (mapv coll-clj/parse-field (partition 3 fields))))))
+                                                  (mapv gen-datatype/parse-field (partition 3 fields))))))
             ;FIXME unchecked ancestors
             ;as (set (free-ops/with-frees (mapv r/make-F args)
             ;          (binding [uvar/*current-env* current-env
@@ -181,7 +183,7 @@
 (defmethod invoke-special-collect 'cljs.core.typed/ann-protocol*
   [{[{vbnd :form} {varsym :form} {mth :form} :as args] :args :keys [env] :as expr}]
   (assert (= (count args) 3) "Wrong arguments to ann-protocol")
-  (clt-u/gen-protocol* env (chk/expr-ns expr) varsym vbnd mth))
+  (gen-protocol/gen-protocol* env (chk/expr-ns expr) varsym vbnd mth))
   
 (defmethod invoke-special-collect 'cljs.core.typed/def-alias*
   [{:keys [args env] :as expr}]
