@@ -9,9 +9,14 @@
             [clojure.core.typed.internal :as internal]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.special-form :as spec]
+            [clojure.core.typed.import-macros :as import-m]
+            [clojure.core.typed.macros :as macros]
             [cljs.compiler :as comp]
             [cljs.env :as env]
             [clojure.pprint :as pprint]))
+
+(import-m/import-macros clojure.core.typed.macros
+  [fn tc-ignore ann-form])
 
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
@@ -25,49 +30,8 @@
   ((impl/v 'clojure.core.typed.reset-caches/reset-caches)))
 
 
-;at the top because the rest of this namespace uses this macro
-(defmacro 
-  ^{:forms '[(fn name? [param :- type* & param :- type * ?] :- type? exprs*)
-             (fn name? ([param :- type* & param :- type * ?] :- type? exprs*)+)]}
-  fn
-  "Like clojure.core/fn, but with optional annotations.
-
-  eg. ;these forms are equivalent
-      (fn [a] b)
-      (fn [a :- Any] b)
-      (fn [a :- Any] :- Any b)
-      (fn [a] :- Any b)
-
-      ;annotate return
-      (fn [a :- String] :- String body)
-
-      ;named fn
-      (fn fname [a :- String] :- String body)
-
-      ;rest parameter
-      (fn [a :- String & b :- Number *] body)
-
-      ;dotted rest parameter
-      (fn [a :- String & b :- Number ... x] body)
-
-      ;multi-arity
-      (fn fname 
-        ([a :- String] :- String ...)
-        ([a :- String, b :- Number] :- String ...))"
-  [& forms]
-  (core/let [{:keys [fn ann]} (internal/parse-fn* false forms)]
-    `(do ~spec/special-form
-         ::fn
-         {:ann '~ann}
-         ~fn)))
-
 ; many of these macros resolve to CLJS functions in 
 ; the CLJS ns cljs.core.typed
-
-(defmacro ann-form 
-  "Annotate a form with an expected type."
-  [form ty]
-  `(ann-form* ~form '~ty))
 
 (defmacro ann 
   "Annotate varsym with type. If unqualified, qualify in the current namespace.
@@ -247,12 +211,6 @@
     `(loop>-ann (cljs.core/loop ~(vec (mapcat vector lhs rhs))
                   ~@forms)
                 '~bnd-anns)))
-
-;; `do` is special at the top level in Clojure, same in CLJS?
-(defmacro tc-ignore 
-  "Ignore forms in body during type checking"
-  [& body]
-  `(do ~@(map (fn [b] `(tc-ignore-forms* ~b)) body)))
 
 (defmacro typed-deps 
   "Declare namespaces which should be checked before the current namespace.
