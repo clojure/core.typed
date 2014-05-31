@@ -55,6 +55,15 @@
        (let [body (nthnext stmt 100)]
          (ann-form body nil))))))
 
+(deftest nthnext-test-union
+  (testing "a union of types is also refined"
+    (is-tc-e
+     (fn [stmt :- (U '[Any String]
+                     '[Any Long])]
+       (let [body (nthnext stmt 1)]
+         (ann-form body (U (HSeq [String])
+                           (HSeq [Long]))))))))
+
 (deftest nthnext-test-destructuring
   (testing "implicitly used via destructuring"
     (is-tc-e

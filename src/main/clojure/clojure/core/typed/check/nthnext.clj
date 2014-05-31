@@ -12,7 +12,7 @@
              :rest (:rest target-t)
              :drest (:drest target-t))))
 
-(defn ^:private nthnext-type [target-t num-t]
+(defn ^:private nthnext-type [num-t target-t]
   (let [num (:val num-t)
         no-more-fixed-types (>= num (count (:types target-t)))]
     (cond
@@ -30,13 +30,16 @@
     (if-not (#{2} (count cargs))
       cu/not-special
       (let [target-t (c/fully-resolve-type (-> ctarget u/expr-type r/ret-t))
+            target-types (if (r/Union? target-t)
+                           (:types target-t)
+                           [target-t])
             num-t (-> cn u/expr-type r/ret-t)]
-        (if (and (c/AnyHSequential? target-t)
+        (if (and (every? c/AnyHSequential? target-types)
                  (r/Value? num-t)
                  (integer? (:val num-t)))
           (-> expr
               (update-in [:fn] check-fn)
               (assoc
                   :args cargs
-                  u/expr-type (r/ret (nthnext-type target-t num-t))))
+                  u/expr-type (r/ret (apply c/Un (map (partial nthnext-type num-t) target-types)))))
           cu/not-special)))))
