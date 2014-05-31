@@ -93,6 +93,7 @@
               '[clojure.core.typed.jsnominal-env]
               '[clojure.core.typed.base-env-cljs]
               '[clojure.core.typed.check-ns-cljs]
+              '[clojure.core.typed.check-form-cljs]
               '[clojure.core.typed.base-env-helper-cljs])
             (reset! cljs-present? true)
             (println "Finished loading ClojureScript")

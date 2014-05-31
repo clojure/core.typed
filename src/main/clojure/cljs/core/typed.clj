@@ -4,15 +4,12 @@
   (:require [clojure.core.typed.load-if-needed :as load]
             [clojure.core :as core]
             [clojure.core.typed.current-impl :as impl :refer [v]]
-            [clojure.core.typed.util-cljs :as u]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.internal :as internal]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.special-form :as spec]
             [clojure.core.typed.import-macros :as import-m]
             [clojure.core.typed.macros :as macros]
-            [cljs.env :as env]
-            [cljs.compiler :as comp]
             [clojure.pprint :as pprint]))
 
 (import-m/import-macros clojure.core.typed.macros
@@ -28,7 +25,6 @@
   []
   (load-if-needed)
   ((impl/v 'clojure.core.typed.reset-caches/reset-caches)))
-
 
 ; many of these macros resolve to CLJS functions in 
 ; the CLJS ns cljs.core.typed
@@ -229,28 +225,8 @@
   REPL see cf."
   [form expected expected-provided?]
   (load-if-needed)
-  (reset-caches)
-  (env/ensure
-    (comp/with-core-cljs
-      (if vs/*checking*
-        (throw (Exception. "Found inner call to check-ns or cf"))
-        (binding [vs/*checking* true
-                  vs/*delayed-errors* (err/-init-delayed-errors)]
-          (impl/with-cljs-impl
-            (let [ast ((v 'clojure.core.typed.analyze-cljs/ast-for-form) form)
-                  ;collect
-                  _ ((v 'clojure.core.typed.collect-cljs/collect) ast)
-                  ;check
-                  c-ast ((v 'clojure.core.typed.check-cljs/check) ast
-                         (when expected-provided?
-                           ((v 'clojure.core.typed.type-rep/ret)
-                            ((v 'clojure.core.typed.parse-unparse/parse-type) expected))))]
-              ;handle errors
-              (if-let [errors (seq @vs/*delayed-errors*)]
-                (err/print-errors! errors)
-                (-> c-ast 
-                    ((v 'clojure.core.typed.utils/expr-type))
-                    ((v 'clojure.core.typed.parse-unparse/unparse-TCResult-in-ns) (u/cljs-ns)))))))))))
+  ((impl/v 'clojure.core.typed.check-form-cljs/check-form-cljs)
+   form expected expected-provided?))
 
 (defmacro cf
   "Check a single form with an optional expected type."
@@ -263,7 +239,7 @@
   REPL see check-ns."
   ([] 
    (load-if-needed)
-   (check-ns* ((impl/v clojure.core.typed.util-cljs/cljs-ns))))
+   (check-ns* ((impl/v 'clojure.core.typed.util-cljs/cljs-ns))))
   ([nsym]
    (load-if-needed)
    ((impl/v 'clojure.core.typed.check-ns-cljs/check-ns-cljs) nsym)))
