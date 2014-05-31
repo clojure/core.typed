@@ -1265,7 +1265,8 @@ clojure.core/map
 
 clojure.core/mapv
      (All [c a b ...]
-          [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (AVec c)])
+          (IFn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable b) ... b -> (NonEmptyAVec c)]
+               [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (AVec c)]))
 
 clojure.core/mapcat
      (All [c b ...]
