@@ -67,7 +67,9 @@
                                                  (type-rec %)))
                            (update-in [:drest] #(when %
                                                   (-> %
-                                                    (update-in [:pre-type] type-rec)))))))
+                                                    (update-in [:pre-type] type-rec))))
+                           (update-in [:prest] #(when %
+                                                  (type-rec %))))))
 
 (add-default-fold-case JSNominal
                        (fn [ty _]
