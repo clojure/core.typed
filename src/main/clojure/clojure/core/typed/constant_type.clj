@@ -1,6 +1,7 @@
 (ns clojure.core.typed.constant-type
   (:require [clojure.core.typed.type-rep :as r :refer [ret]]
-            [clojure.core.typed.type-ctors :as c])
+            [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.hset-utils :as hset])
   (:import (clojure.lang IPersistentList IPersistentVector Symbol Cons Seqable IPersistentCollection
                          ISeq ASeq ILookup Var Namespace PersistentVector APersistentVector
                          IFn IPersistentStack Associative IPersistentSet IPersistentMap IMapEntry
@@ -32,7 +33,11 @@
   (constant-ret [v] (ret (c/RClass-of java.util.regex.Pattern)))
 
   PersistentHashSet
-  (constant-ret [v] (ret (c/RClass-of PersistentHashSet [(apply c/Un (map constant-type v))])))
+  (constant-ret [v] 
+    (ret
+      (if (every? hset/valid-fixed? v)
+        (r/-hset (set (map r/-val v)))
+        (c/RClass-of PersistentHashSet [(apply c/Un (map constant-type v))]))))
 
   ;nothing specific, Cons seems like an implementation detail
   Cons

@@ -804,6 +804,13 @@
 (defmethod parse-seq* 'clojure.core.typed/HSeq [syn] (parse-HSeq syn))
 (defmethod parse-seq* 'cljs.core.typed/HSeq [syn] (parse-HSeq syn))
 
+(defn parse-HSet [[_ ts & {:keys [complete?] :or {complete? true}} :as args]]
+  {:op :HSet
+   :fixed ts
+   :complete? complete?})
+
+(defmethod parse-seq* 'clojure.core.typed/HSet [syn] (parse-HSet syn))
+
 (defmethod parse-seq* :default [[f & args :as syn]]
   {:op :TApp
    :rator (parse f)

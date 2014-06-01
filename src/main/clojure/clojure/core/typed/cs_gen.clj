@@ -666,6 +666,10 @@
         (let [new-S (c/upcast-hmap S)]
           (cs-gen V X Y new-S T))
 
+        (r/HSet? S)
+        (let [new-S (c/upcast-hset S)]
+          (cs-gen V X Y new-S T))
+
         :else
         (cs-gen* V X Y S T))))))
 

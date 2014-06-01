@@ -117,6 +117,15 @@
          subtype-datatype-and-protocol subtype-rclass-protocol
          boxed-primitives subtype-datatype-rclass)
 
+(defn subtype-HSet [s t]
+  {:pre [(r/HSet? s)
+         (r/HSet? t)]}
+  (if (and (= (:fixed s) (:fixed t))
+           (:complete? s)
+           (:complete? t))
+    *sub-current-seen*
+    (fail! s t)))
+
 (defn simplify-In [t]
   {:pre [(r/Intersection? t)]}
   (let [mi (apply c/In (:types t))]
@@ -590,6 +599,13 @@
 
         (r/HeterogeneousMap? s)
         (subtype (c/upcast-hmap s) t)
+
+        (and (r/HSet? s)
+             (r/HSet? t))
+        (subtype-HSet s t)
+
+        (and (r/HSet? s))
+        (subtype (c/upcast-hset s) t)
 
         (r/KwArgsSeq? s)
         (let [ss (if (:complete? s)

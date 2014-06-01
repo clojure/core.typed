@@ -10,10 +10,12 @@
 
 (defn check-set [check {:keys [items] :as expr} & [expected]]
   (let [cargs (mapv check items)
-        ts (map (comp r/ret-t u/expr-type) cargs)
-        res-type (impl/impl-case
-                   :clojure (c/RClass-of PersistentHashSet [(apply c/Un ts)])
-                   :cljs (c/Protocol-of 'cljs.core/ISet [(apply c/Un ts)]))
+        ts (map (comp c/fully-resolve-type r/ret-t u/expr-type) cargs)
+        res-type (if (every? r/Value? ts)
+                   (r/-hset (set ts))
+                   (impl/impl-case
+                     :clojure (c/RClass-of PersistentHashSet [(apply c/Un ts)])
+                     :cljs (c/Protocol-of 'cljs.core/ISet [(apply c/Un ts)])))
         _ (when (and expected (not (sub/subtype? res-type (r/ret-t expected))))
             (cu/expected-error res-type (r/ret-t expected)))]
     (assoc expr

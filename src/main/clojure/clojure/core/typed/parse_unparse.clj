@@ -15,6 +15,7 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.name-env :as name-env]
+            [clojure.core.typed.hset-utils :as hset]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
   (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
@@ -24,7 +25,7 @@
                                         CountRange Name Value Top TopFunction B F Result AnyValue
                                         HeterogeneousSeq KwArgsSeq TCError Extends NumberCLJS BooleanCLJS
                                         IntegerCLJS ArrayCLJS JSNominal StringCLJS TCResult AssocType
-                                        GetType HSequential)
+                                        GetType HSequential HSet)
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
@@ -609,6 +610,14 @@
   (err/deprecated-plain-op 'HSequential)
   (parse-HSeq t))
 (defmethod parse-type-list 'clojure.core.typed/HSeq [t] (parse-HSeq t))
+
+(defn parse-HSet [[_ ts & {:keys [complete?] :or {complete? true}} :as args]]
+  (let [bad (seq (remove hset/valid-fixed? ts))]
+    (when bad
+      (err/int-error (str "Bad arguments to HSet: " (pr-str bad))))
+    (r/-hset (set (map r/-val ts)) :complete? complete?)))
+
+(defmethod parse-type-list 'clojure.core.typed/HSet [t] (parse-HSet t))
 
 (defn- syn-to-hmap [mandatory optional absent-keys complete?]
   (when mandatory
@@ -1463,6 +1472,11 @@
              [:filter-sets (mapv unparse-filter-set fs)])
            (when-not (every? #{orep/-empty} objects)
              [:objects (mapv unparse-object objects)]))))
+
+(defmethod unparse-type* HSet
+  [{:keys [fixed] :as v}]
+  {:pre [(every? r/Value? fixed)]}
+  (list 'HSet (set (map :val fixed))))
 
 (defmethod unparse-type* KwArgsSeq
   [^KwArgsSeq v]

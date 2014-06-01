@@ -28,7 +28,7 @@
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
                                         Bounds Name Scope CountRange Intersection DataType Extends
                                         JSNominal Protocol HeterogeneousVector GetType HSequential
-                                        HeterogeneousList HeterogeneousSeq)
+                                        HeterogeneousList HeterogeneousSeq HSet)
            (clojure.lang IPersistentMap IPersistentVector Var)))
 
 (t/typed-deps clojure.core.typed.name-env)
@@ -258,6 +258,17 @@
 (defn partial-hmap? [^HeterogeneousMap hmap]
   {:pre [(r/HeterogeneousMap? hmap)]}
   (.other-keys? hmap))
+
+(t/ann ^:no-check upcast-hset [HSet -> r/Type])
+(defn upcast-hset [{:keys [fixed complete?] :as hset}]
+  {:pre [(r/HSet? hset)]
+   :post [(r/Type? %)]}
+  (let [tp (if complete?
+             (apply Un (:fixed hset))
+             r/-any)]
+    (impl/impl-case
+      :clojure (RClass-of 'clojure.lang.APersistentSet [tp])
+      :cljs    (Protocol-of 'cljs.core/ISet [tp]))))
 
 ;; Unions
 

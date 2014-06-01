@@ -609,6 +609,20 @@
                          rest
                          drest))))
 
+(u/ann-record HSet [fixed :- (t/Set Type)
+                    complete? :- Boolean])
+(u/def-type HSet [fixed complete?]
+  "A constant set"
+  [(every? Type? fixed)
+   (set? fixed)
+   (con/boolean? complete?)]
+  :methods
+  [p/TCType])
+
+(t/ann -hset [(t/Set Type) & :optional {:complete? Boolean} -> HSet])
+(defn -hset [fixed & {:keys [complete?] :or {complete? true}}]
+  (HSet-maker fixed complete?))
+
 (u/ann-record PrimitiveArray [jtype :- Class,
                               input-type :- Type
                               output-type :- Type])

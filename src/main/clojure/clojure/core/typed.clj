@@ -1315,6 +1315,15 @@ for checking namespaces, cf for checking individual forms."}
        ::special-type true}
   HSeq)
 
+(def ^{:doc "HSet is a type for heterogeneous sets.
+            Takes a set of simple values. By default
+            :complete? is true.
+            
+            eg. (HSet #{:a :b :c} :complete? true)"
+       :forms '[(HSet #{fixed*} :complete? Boolean)]
+       ::special-type true}
+  HSet)
+
 (def ^{:doc "An ordered intersection type of function arities."
        :forms '[(IFn ArityVec+)
                 [fixed* -> ret :filters {:then fl :else fl} :object {:id Foo :path Bar}]
@@ -1323,7 +1332,9 @@ for checking namespaces, cf for checking individual forms."}
        ::special-type true}
   IFn)
 
-(def ^{:doc "A predicate for the given type."
+(def ^{:doc "A predicate for the given type.
+            
+            eg. Type for integer?: (Pred Int)"
        :forms '[(Pred type)]
        ::special-type true}
   Pred)
