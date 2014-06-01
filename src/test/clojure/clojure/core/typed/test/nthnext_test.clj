@@ -8,7 +8,10 @@
   (is-tc-e
    (fn [stmt :- '[Any Long]]
      (let [body (nthnext stmt 1)]
-       (ann-form body (HSeq [Long]))))))
+       (ann-form body (HSeq [Long])))))
+
+  (is-tc-e
+   (ann-form (nthnext nil 1) nil)))
 
 (deftest nthnext-test-input-types
   (testing "HVec"

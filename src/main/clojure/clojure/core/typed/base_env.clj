@@ -1388,7 +1388,8 @@ clojure.core/nnext
 
 clojure.core/nthnext
 (All [x]
-     [(Option (Seqable x)) AnyInteger -> (Option (NonEmptyASeq x))])
+     (IFn [nil AnyInteger -> nil]
+          [(Option (Seqable x)) AnyInteger -> (Option (NonEmptyASeq x))]))
 
 clojure.core/rest
      (All [x]
