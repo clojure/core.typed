@@ -314,26 +314,30 @@
   (apply combine-frees (mapv frees types)))
 
 (add-frees-method [::frees Function]
-  [{:keys [dom rng rest drest kws]}]
+  [{:keys [dom rng rest drest kws prest]}]
   (apply combine-frees (concat (mapv (comp flip-variances frees)
                                      (concat dom
                                              (when rest
                                                [rest])
                                              (when kws
-                                               [(vals kws)])))
+                                               [(vals kws)])
+                                             (when prest
+                                               [prest])))
                                [(frees rng)]
                                (when drest
                                  [(dissoc (-> (:pre-type drest) frees flip-variances)
                                           (:name drest))]))))
 
 (add-frees-method [::idxs Function]
-  [{:keys [dom rng rest drest kws]}]
+  [{:keys [dom rng rest drest kws prest]}]
   (apply combine-frees (concat (mapv #(-> % frees flip-variances)
                                      (concat dom
                                              (when rest
                                                [rest])
                                              (when kws
-                                               (vals kws))))
+                                               (vals kws))
+                                             (when prest
+                                               [prest])))
                                [(frees rng)]
                                (when drest
                                  (let [{:keys [name pre-type]} drest]
