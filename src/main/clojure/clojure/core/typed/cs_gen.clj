@@ -1339,6 +1339,35 @@
             ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
         (cset-meet* [arg-mapping ret-mapping])))
 
+      ; prest on left, nothing on right
+      (and (:prest S)
+           (not-any? (some-fn :rest :drest :kws :prest) [T]))
+      (u/p :cs-gen/cs-gen-Function-prest-on-left
+      (let [s-dom (:dom S)
+            t-dom (:dom T)
+            s-dom-count (count s-dom)
+            t-dom-count (count t-dom)]
+      (if (and (<= t-dom-count s-dom-count)
+               (not (zero? (rem (- t-dom-count s-dom-count)
+                                (count (-> S :prest :types))))))
+        (fail! S T)
+        (let [[short-T rest-T] (split-at s-dom-count t-dom)
+              short-cs (cs-gen-list V X Y s-dom short-T)
+              gen-repeat (fn gen-repeat [small big]
+                           (reduce
+                             (fn [acc cur]
+                               (concat acc cur))
+                             []
+                             (take (/ (count big)
+                                      (count small)) (repeat small))))
+              rest-S (gen-repeat (-> S :prest :types) rest-T)
+              rest-cs (cs-gen-list V X Y rest-S rest-T)
+              ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
+          (cset-meet* [short-cs rest-cs ret-mapping])))))
+
+      (every? :prest [S T])
+      (err/nyi-error (pr-str "NYI Function inference" (prs/unparse-type S) (prs/unparse-type T)))
+
       ;; dotted on the left, nothing on the right
       (and (:drest S)
            (not-any? (some-fn :rest :drest :kws :prest) [T]))
