@@ -3455,4 +3455,6 @@
   (is-clj (not (subtype? (parse-type `[(HSeq [String Number] :repeat true) ~'<* ~'-> String])
                          (parse-type `[(HSeq [String Number String] :repeat true) ~'<* ~'-> String]))))
   (is (check-ns 'clojure.core.typed.test.prest-cs-gen))
+  #_(is-tc-e (map (inst hash-map Number String) [1 2 3] ["a b c"])
+           :expected (NonEmptySeq (Map Number String)))
   )
