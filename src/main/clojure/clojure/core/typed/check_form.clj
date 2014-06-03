@@ -10,10 +10,12 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.errors :as err]
-            [clojure.core.typed.parse-unparse :as prs]))
+            [clojure.core.typed.parse-unparse :as prs])
+  (:import (clojure.lang ExceptionInfo)))
 
 (defn check-form-info
-  [form & {:keys [expected type-provided? profile file-mapping]}]
+  [form & {:keys [expected-ret expected type-provided? profile file-mapping]}]
+  (assert (not (and expected-ret type-provided?)))
   (p/profile-if profile
     (reset-caches/reset-caches)
     (if vs/*checking*
@@ -24,16 +26,26 @@
                   vs/*already-checked* (atom #{})
                   vs/*delayed-errors* (err/-init-delayed-errors)
                   vs/*analyze-ns-cache* (atom {})]
-          (let [expected (when type-provided?
-                           (r/ret (prs/parse-type expected)))
+          (let [terminal-error? (atom nil)
+                expected (or
+                           expected-ret
+                           (when type-provided?
+                             (r/ret (prs/parse-type expected))))
                 ast (ana-clj/ast-for-form form)
-                _ (collect/collect-ast ast)
-                _ (reset-caches/reset-caches)
-                c-ast (chk/check-expr ast expected)
+                c-ast (try
+                        (do (collect/collect-ast ast)
+                            (reset-caches/reset-caches)
+                            (chk/check-expr ast expected))
+                        (catch ExceptionInfo e
+                          (when (err/tc-error? (ex-data e))
+                            (reset! terminal-error? e))
+                          nil))
                 res (u/expr-type c-ast)]
             (merge
-              {:delayed-errors @vs/*delayed-errors*
-               :ret res}
+              {:delayed-errors (concat @vs/*delayed-errors*
+                                       (when-let [e @terminal-error?]
+                                         [e]))
+               :ret (or res (r/ret r/-error))}
               (when file-mapping
                 {:file-mapping (file-map/ast->file-mapping c-ast)}))))))))
 

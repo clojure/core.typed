@@ -118,7 +118,7 @@
 
 (t/ann Err Type)
 (def Err (TCError-maker))
-
+(def -error Err)
 
 ;should probably be ordered
 (u/ann-record Intersection [types :- (t/NonEmptySeqable Type)])

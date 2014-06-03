@@ -701,7 +701,7 @@ for checking namespaces, cf for checking individual forms."}
     (let [ret (second forms)
           args (take-nth 3 (drop 2 (first (drop 2 forms))))]
       `[~@args ~'-> ~ret])
-    `(~'Fn ~@(map defn>-parse-typesig forms))))
+    `(IFn ~@(map defn>-parse-typesig forms))))
 
 (defmacro
   ^{:forms '[(defn> name docstring? :- type [param :- type *] exprs*)

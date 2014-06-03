@@ -210,12 +210,12 @@
                       ((clojure.core.typed/fn> [a :- (clojure.lang.Seqable Number), b :- Number] 
                                                (seq a))
                        [1 2 1.2] 1))
-                    (parse-type '(U nil (I (CountRange 1) (clojure.lang.ISeq Number))))))
+                    (parse-type `(U nil (I (CountRange 1) (clojure.lang.ISeq Number))))))
   (is-clj (subtype? (ety
                       ((clojure.core.typed/fn> [a :- (clojure.lang.IPersistentMap clojure.core.typed/Any Number), b :- Number] 
                                                ((clojure.core.typed/inst get Number clojure.core.typed/Nothing) a b))
                        (zipmap [1] [2]) 1))
-                    (parse-type '(U nil Number)))))
+                    (parse-type `(U nil Number)))))
 
 ;FIXME
 ;(deftest get-special-test
@@ -1111,7 +1111,6 @@
 
 (deftest get-APersistentMap-test
   (is-tc-e (get (ann-form {} (clojure.lang.APersistentMap Num Num)) :a)
-           :expected
            (U nil Num)))
 
 (deftest enum-field-non-nilable-test
@@ -1483,29 +1482,23 @@
 ;  (is (cf (filter :a (clojure.core.typed/ann-form [] (clojure.lang.Seqable '{:b Number})))
 ;          (clojure.lang.Seqable '{:b Number :a clojure.core.typed/Any})))
   (is-tc-err (core/filter (inst identity (U nil Number)) [1 nil])
-             :expected
              (Seqable Number))
   (is-tc-e ((inst core/filter (U nil Number) nil) (inst identity (U nil Number)) [1 nil])
-           :expected
            (Seqable Number))
   (is-tc-e ((inst core/filter (U nil Number) nil) identity [1 nil])
-           :expected
            (Seqable Number))
 
   (is-tc-e (filter-identity :in (U nil Number) [1 nil])
-           :expected
            (Seqable Number))
   (is (= (filter-identity :in (U nil Number) [1 nil])
          [1]))
 
   (is-tc-e (filter-identity :in (U false nil Number) [1 nil])
-           :expected
            (Seqable Number))
   (is (= (filter-identity :in (U false nil Number) [1 nil])
          [1]))
 
   (is-tc-err (filter-identity :in Number [1 nil])
-             :expected
              (Seqable Number))
   (is (= (filter-identity :in Number [1 nil])
          [1]))
@@ -1515,36 +1508,30 @@
                                        [[x -> clojure.core.typed/Any :filters {:then (is y 0)}] 
                                         (U nil (Seqable x)) -> (Seq y)]))]
              (filter number? [1 nil]))
-           :expected (Seqable Number)))
+           (Seqable Number)))
 
 #_(deftest remove-nil-test
   (is-tc-e (remove-nil :in Number [1 2 3])
-           :expected
            (Seqable Number))
   (is (= (remove-nil :in Number [1 2 3])
          [1 2 3]))
 
   (is-tc-e (remove-nil :in (U nil Number) [1 2 3])
-           :expected
            (Seqable Number))
   (is-tc-e (remove-nil :in (U false nil Number) [1 2 3])
-           :expected
            (Seqable (U false Number))))
 
 #_(deftest remove-false-test
   (is-tc-e (remove-false :in Number [1 2 3])
-           :expected
            (Seqable Number))
   (is (= (remove-false :in Number [1 2 3])
          [1 2 3]))
 
   (is-tc-e (remove-false :in (U false Number) [1 2 3])
-           :expected
            (Seqable Number))
   (is-tc-e (remove-false :in (U false nil Number) [1 2 3])
-           :expected
            (Seqable (U nil Number)))
-  (is-tc-err ((inst core/remove (U nil Number) nil) nil? [1 2 3 nil]) :expected (Seq Number)))
+  (is-tc-err ((inst core/remove (U nil Number) nil) nil? [1 2 3 nil]) (Seq Number)))
 
 ; keeping if we decide to use more expressive type for conj
 ;(deftest extensible-conj-test
@@ -1792,12 +1779,12 @@
   (is (check-ns 'clojure.core.typed.test.succeed.CTYP-42-record-extend-protocol)))
 
 (deftest atom>-test
-  (is-cf (clojure.core.typed/atom> (clojure.core.typed/Vec clojure.core.typed/Any) [])
-         (clojure.core.typed/Atom1 (clojure.core.typed/Vec clojure.core.typed/Any))))
+  (is-tc-e (atom> (Vec Any) [])
+           (Atom1 (Vec Any))))
 
 (deftest CTYP-48
-  (is-cf (fn [a] (:a a))
-         [clojure.core.typed/Nothing -> clojure.core.typed/Any]))
+  (is-tc-e (fn [a] (:a a))
+           [Nothing -> Any]))
 
 (deftest CTYP-49 
   (is (check-ns 'clojure.core.typed.test.succeed.CTYP49-unreachable)))
@@ -1814,18 +1801,19 @@
 
 (deftest HMap-absent-key-update-test
   ;ensure absent keys are preserved when passed through occurrence typing's `update`
-  (is-cf
-    (let [a (clojure.core.typed/ann-form {:a 1} (HMap :mandatory {:a Number}
-                                                      :optional {:b Number,
-                                                                 :c Number}))]
+  (is-tc-e
+    (let [a :- (HMap :mandatory {:a Num}
+                     :optional {:b Num,
+                                :c Num})
+          {:a 1}]
       (when (:b a)
-        (clojure.core.typed/ann-form a (HMap :mandatory {:a Number}
-                                             :optional {:b Number,
-                                                        :c Number}))))))
+        (ann-form a (HMap :mandatory {:a Num}
+                          :optional {:b Num,
+                                     :c Num}))))))
 
 (deftest non-empty-map-test
-  (is-cf (map inc [1 2 3])
-         (clojure.core.typed/NonEmptySeq Number)))
+  (is-tc-e (map inc [1 2 3])
+           (NonEmptySeq Num)))
 
 ;CTYP-53
 (deftest hmap-cast-test
@@ -1886,19 +1874,20 @@
 
 ;CTYP-60
 (deftest absent-keys-test
-  (is (not (sub? (HMap :mandatory {:a String}
-                       :complete? true)
-                 (HMap :absent-keys #{:a}))))
-  (is 
-    (err/top-level-error-thrown?
-      (cf {:a "a"} (HMap :absent-keys #{:a})))))
+  (is (not (sub?-q `(HMap :mandatory {:a String}
+                          :complete? true)
+                   `(HMap :absent-keys #{:a}))))
+  (is-tc-err {:a "a"} (HMap :absent-keys #{:a})))
 
 ;CTYP-61
 (deftest hmap-assoc-test
-  (is-cf (assoc (clojure.core.typed/ann-form {} (HMap :optional {:a clojure.core.typed/Any})) :b "v")
-         (HMap :mandatory {:b (Value "v")} :optional {:a clojure.core.typed/Any}))
-  (is-cf (assoc (clojure.core.typed/ann-form {} (HMap :optional {:a clojure.core.typed/Any})) :a "v")
-         (HMap :mandatory {:a (Value "v")})))
+  (is-tc-e (assoc (ann-form {} (HMap :optional {:a Any})) 
+                  :b "v")
+           (HMap :mandatory {:b (Value "v")} 
+                 :optional {:a Any}))
+  (is-tc-e (assoc (ann-form {} (HMap :optional {:a Any})) 
+                  :a "v")
+           (HMap :mandatory {:a (Value "v")})))
 
 (deftest CTYP-37-defprotocol-better-error
   (is (check-ns 'clojure.core.typed.test.CTYP-37)))
@@ -2226,7 +2215,7 @@
 
 (deftest CTYP-84-hlist-ancestor-test
   (is-tc-e (seq '(1)) 
-           :expected (NonEmptySeq Num)))
+           (NonEmptySeq Num)))
 
 (deftest CTYP-78-finally-expected-test
   (is (check-ns 'clojure.core.typed.test.finally)))
@@ -2238,47 +2227,41 @@
   (is-clj (err/tc-error-thrown? (parse-type '([clojure.core.typed/Any -> clojure.core.typed/Any])))))
 
 (deftest CTYP-73-reduced-test
-  (is-cf (reduced 1) (clojure.lang.Reduced Number))
-  (is-cf @(reduced 1) Number)
-  (is-cf (reduce (clojure.core.typed/ann-form
-                   (fn [a b] (if (= a b) 1 (reduced 1)))
-                   [Number Number -> (U (clojure.lang.Reduced Number) Number)])
+  (is-tc-e (reduced 1) (clojure.lang.Reduced Num))
+  (is-tc-e @(reduced 1) Num)
+  (is-tc-e (reduce (ann-form
+                     (fn [a b] (if (= a b) 1 (reduced 1)))
+                     [Number Number -> (U (clojure.lang.Reduced Number) Number)])
                  1 [1 2 3])
-         Number))
+           Num))
 
 (deftest Assoc-test
-  (is-cf {:a 1} (Assoc '{} ':a Number))
-  (is-cf {:a 1} (Assoc (U '{:a Number} '{:a Double}) ':a Long))
-  (is-cf (fn [a] (assoc a 1 2))
-         (clojure.core.typed/All [[x :> (clojure.core.typed/Map clojure.core.typed/Nothing clojure.core.typed/Nothing) :< (clojure.core.typed/Map Number Number)]]
-              [x -> (clojure.core.typed/Map Number Number)]))
-  (is-cf (fn [a] (assoc a :a 1)) 
-         (clojure.core.typed/All [[x :> (clojure.core.typed/Map clojure.core.typed/Nothing clojure.core.typed/Nothing) :< (clojure.core.typed/Map clojure.core.typed/Any clojure.core.typed/Any)]] 
-              [x -> (Assoc x ':a Number)]))
-  (is-cf (let [f (clojure.core.typed/ann-form 
-                   (fn [a] (assoc a :a 1)) 
-                   (clojure.core.typed/All [[x :< (clojure.core.typed/Map clojure.core.typed/Any clojure.core.typed/Any)]] 
-                        [x -> (Assoc x ':a Number)]))]
-           (clojure.core.typed/ann-form 
-             (f {:b 1})
-             '{:b Number :a Number})))
-  (is-cf (fn [a] (assoc a :a 1)) 
-         (clojure.core.typed/All [[x :< (clojure.core.typed/Map clojure.core.typed/Any clojure.core.typed/Any)]] [x -> (Assoc x ':a Number)]))
-
-  (is-cf (let [add-a (-> #(assoc % :a 1)
-                         (clojure.core.typed/ann-form
-                           (clojure.core.typed/All [[x :< (clojure.core.typed/Map clojure.core.typed/Any clojure.core.typed/Any)]]
-                                [x -> (Assoc x ':a Number)])))]
-           (clojure.core.typed/ann-form
-             (add-a {})
-             '{:a Number})
-           (clojure.core.typed/ann-form
-             (-> (add-a {}) :a)
-             Number)))
-  (is-cf {:a 1 :b 2}
-         (U (Assoc '{} ':a Number)
-            (Assoc '{} ':b Number)
-            (Assoc '{} ':a Number ':b Number))))
+  (is-tc-e {:a 1} (Assoc '{} ':a Number))
+  (is-tc-e {:a 1} (Assoc (U '{:a Number} '{:a Double}) ':a Long))
+  (is-tc-e (fn [a] (assoc a 1 2))
+           (All [[x :> (Map Nothing Nothing) 
+                  :< (Map Num Num)]]
+              [x -> (Map Num Num)]))
+  (is-tc-e (fn [a] (assoc a :a 1)) 
+           (All [[x :> (Map Nothing Nothing) :< (Map Any Any)]] 
+              [x -> (Assoc x ':a Num)]))
+  (is-tc-e (let [f :- (All [[x :< (Map Any Any)]] 
+                           [x -> (Assoc x ':a Number)])
+                     (fn [a] (assoc a :a 1))]
+             (f {:b 1}))
+           '{:b Num :a Num})
+  (is-tc-e (fn [a] (assoc a :a 1)) 
+           (All [[x :< (Map Any Any)]] 
+             [x -> (Assoc x ':a Number)]))
+  (is-tc-e (let [add-a :- (All [[x :< (Map Any Any)]]
+                               [x -> (Assoc x ':a Number)])
+                 #(assoc % :a 1)
+                 _ :- '{:a Num}, (add-a {})
+                 _ :- Num, (-> (add-a {}) :a)]))
+  (is-tc-e {:a 1 :b 2}
+           (U (Assoc '{} ':a Num)
+              (Assoc '{} ':b Num)
+              (Assoc '{} ':a Num ':b Num))))
 
 ;(clj
 ;  (parse-filter 
@@ -2313,58 +2296,58 @@
 
 (deftest hvec-ops
   (is-tc-e (first [1 'a]) 
-           :expected Number)
+           Number)
   (is-tc-e {:a 1} 
-           :expected (Map Keyword Number))
+           (Map Keyword Number))
   (is-tc-e {:a 1} 
-           :expected (I (Map Keyword Number)
+           (I (Map Keyword Number)
                         (ExactCount 1)))
   (is-tc-e {:a 1} 
-           :expected (NonEmptySeqable '[Keyword Number]))
+           (NonEmptySeqable '[Keyword Number]))
   (is-tc-e ((inst first '[Keyword Number]) {:a 1})
-           :expected '[Keyword Number])
+           '[Keyword Number])
   (is-tc-e (let [first (ann-form first
                                 (clojure.core.typed/All [x]
                                   [(NonEmptySeqable x) -> x]))]
              (first {:a 1}))
-           :expected '[Keyword Number])
+           '[Keyword Number])
   (is-tc-e (first (ann-form {:a 1} (NonEmptySeqable '[Keyword Number])))
-           :expected '[Keyword Number])
+           '[Keyword Number])
   (is-tc-e (first (ann-form {:a 1} (I (ExactCount 1) (Map Keyword Number))))
-           :expected '[Keyword Number])
+           '[Keyword Number])
   (is-tc-e (first (ann-form {:a 1} (I (ExactCount 1) (clojure.lang.APersistentMap Keyword Number))))
-           :expected '[Keyword Number])
+           '[Keyword Number])
   (is-tc-e (first {:a 1})
-           :expected '[Keyword Number])
+           '[Keyword Number])
   (is-cf (-> {:a 1} first second) Number)
   )
 
 (deftest variable-hvec-test
-  (is (sub? '[Number Number Number] '[Number Number *]))
-  (is (sub? '[Number Number Number] '[Number Number *]))
+  (is (sub?-q `'[Num Num Num] `'[Num Num ~'*]))
+  (is (sub?-q `'[Num Num Num] `'[Num Num ~'*]))
   (is (sub? '[Number Number Integer *] '[Number Number *]))
   (is (not (sub? '[Number Number clojure.lang.Symbol *] '[Number Number *])))
-  (is-cf [1 2 3] '[Number Number *])
-  (is-cf [1 2 3] '[Number Number Number Number *])
-  (is-cf (first [1 'a 2]) Number)
-  (is-cf (second [1 2 3]) Number))
+  (is-tc-e [1 2 3] '[Num Num *])
+  (is-tc-e [1 2 3] '[Num Num Num Num *])
+  (is-tc-e (first [1 'a 2]) Num)
+  (is-tc-e (second [1 2 3]) Num))
 
 (deftest CTYP-85-abo-test
-  (is-cf (fn [] (fn [b] b))
-         [-> [clojure.core.typed/Any -> clojure.core.typed/Any]]))
+  (is-tc-e (fn [] (fn [b] b))
+           [-> [Any -> Any]]))
 
 (deftest array-reflection-test
-  (is-cf (fn make-process [script]
-           {:post [%]}
-           (let [^Runtime r (Runtime/getRuntime)
-                 _ (assert r)
-                 ^"[Ljava.lang.String;" arr (clojure.core.typed/into-array> String ["echo 'hello'"])]
-             (.exec r arr)))
-         [String -> java.lang.Process]))
+  (is-tc-e (fn make-process [script]
+             {:post [%]}
+             (let [^Runtime r (Runtime/getRuntime)
+                   _ (assert r)
+                   ^"[Ljava.lang.String;" arr (into-array> String ["echo 'hello'"])]
+               (.exec r arr)))
+           [String -> java.lang.Process]))
 
 (deftest expected-IPersistentMap-test
-  (is-cf {:a #(+ %1 %2)}
-         (clojure.core.typed/Map clojure.core.typed/Any [Number Number -> Number])))
+  (is-tc-e {:a #(+ %1 %2)}
+           (Map Any [Num Num -> Num])))
 
 ;(reset-caches)
 
@@ -2384,36 +2367,35 @@
 ;TODO tests for inferring upper/lower bounds
 
 (deftest defn>-test
-  (is-cf (clojure.core.typed/defn> add-two :- clojure.core.typed/AnyInteger [a :- clojure.core.typed/AnyInteger]
-           (+ a 2))
-         (clojure.core.typed/Var1 [clojure.core.typed/AnyInteger -> clojure.core.typed/AnyInteger]))
-  (is-cf (clojure.core.typed/defn> add-three 
-           (:- clojure.core.typed/AnyInteger [a :- clojure.core.typed/AnyInteger]
-               (+ a 3)))
-         (clojure.core.typed/Var1 [clojure.core.typed/AnyInteger -> clojure.core.typed/AnyInteger])))
+  (is-tc-e (defn> add-two :- Int [a :- Int]
+             (+ a 2))
+           (Var1 [Int -> Int]))
+  (is-tc-e (defn> add-three 
+             (:- Int 
+              [a :- Int]
+              (+ a 3)))
+           #_(Var1 [Int -> Int])))
 
 (deftest def>-test
   (is (check-ns 'clojure.core.typed.test.def-arrow))
-  (is-cf (clojure.core.typed/def> a :- Number 1)
-         (clojure.core.typed/Var1 Number)))
+  (is-tc-e (def> a :- Num 1)
+           (Var1 Num)))
 
 (deftest nested-keyword-update-test
   ; ordinary IPersistentMap does not get updated
   (is-tc-e (fn []
-             (let [a :- (Map clojure.core.typed/Any clojure.core.typed/Any) {}]
+             (let [a :- (Map Any Any) {}]
                (if (number? (-> a :a :b))
                  a
                  (assert nil))))
-           :expected
-           [-> (Map clojure.core.typed/Any clojure.core.typed/Any)])
+           [-> (Map Any Any)])
   ; HMaps can gain "one level" of known entries.
   (is-tc-e (fn []
              (let [a :- '{} {}]
                (if (number? (-> a :a :b))
                  a
                  (assert nil))))
-           :expected
-           [-> (HMap :optional {:a clojure.core.typed/Any})])
+           [-> (HMap :optional {:a Any})])
   ; update a (HMap) with (is clojure.core.typed/Any a [(Key :a) (Key :b)])
   ; returns a (HMap :optional {:a clojure.core.typed/Any})
   ; Only one level is updated, we can't say any more about the inner
@@ -2422,71 +2404,65 @@
                  path [(->KeyPE :a) (->KeyPE :b)]
                  lo+ (-filter (parse-clj 'Number) 'a path)
                  lo- (-not-filter (parse-clj 'Number) 'a path)
-                 expected+ (parse-clj '(HMap :optional {:a clojure.core.typed/Any}))
-                 expected- (parse-clj '(HMap :optional {:a clojure.core.typed/Any}))]
+                 expected+ (parse-clj `(HMap :optional {:a Any}))
+                 expected- (parse-clj `(HMap :optional {:a Any}))]
              (and (both-subtype? (update t lo+) expected+)
                   (both-subtype? (update t lo-) expected+))))
   ; negative absent keys. The absent entry :a is not a Number (KeyPE does not support defaults), so we
   ; just return the original type
-  (is-clj (let [t (parse-type '(HMap :absent-keys #{:a}))]
+  (is-clj (let [t (parse-type `(HMap :absent-keys #{:a}))]
             (= t
-               (update t (-not-filter (parse-clj 'Number) 'a [(->KeyPE :a) (->KeyPE :b)])))))
+               (update t (-not-filter (RClass-of Number) 'a [(->KeyPE :a) (->KeyPE :b)])))))
 
   ; When we update a (HMap) that has no information about an :a key, sometimes we can prove
   ; the updated type always has an :a key.
   ;
   ; Here we restrict to a '{:a Number} because the path is a Number, which is never nil. We assume
   ; nil is the not-found type.
-  (is-clj (let [t (parse-type '(HMap))]
-            (both-subtype? (parse-type '(HMap :mandatory {:a Number}))
+  (is-clj (let [t (parse-type `(HMap))]
+            (both-subtype? (parse-type `(HMap :mandatory {:a Num}))
                            (update t (-filter (RClass-of Number) 'a [(->KeyPE :a)])))))
 
   ; We restrict (HMap) to (HMap :optional {:a clojure.core.typed/Any}), which is slightly less accurate, because
   ; we can't prove that the HMap :a entry is never nil. 
   (is-clj (let [t (parse-type '(HMap))]
-            (both-subtype? (parse-type '(HMap :optional {:a clojure.core.typed/Any}))
+            (both-subtype? (parse-type `(HMap :optional {:a Any}))
                            (update t (-not-filter (RClass-of Number) 'a [(->KeyPE :a)]))))))
 
 
 (deftest poly-inst-scoping-test
   (is-tc-e (fn [a] (inst identity foo))
-           :expected
-           (clojure.core.typed/All [foo] [clojure.core.typed/Any -> clojure.core.typed/Any]))
+           (All [foo] [Any -> Any]))
   (is-tc-e
     (fn [f coll]
       (fn
         [x :- a
          y :- (Seqable b)]))
-    :expected
-    (clojure.core.typed/All [a b] [clojure.core.typed/Any clojure.core.typed/Any -> clojure.core.typed/Any]))
+    (All [a b] [Any Any -> Any]))
   ;zero args is fine for dotted vars
   (is-tc-e (fn [a] (inst a))
-           :expected
-           [(clojure.core.typed/All [b ...] [b ... b -> clojure.core.typed/Any]) -> clojure.core.typed/Any]))
+           [(All [b ...] [b ... b -> Any]) -> Any]))
 
 (deftest infer-bounds-test
   (is (= (infer-bounds -any nil)
          (infer-bounds -any -nothing)
          (infer-bounds nil nil)
          (-bounds -any -nothing)))
-  (is-clj (let [t (parse-type '(clojure.core.typed/Seq Number))]
+  (is-clj (let [t (parse-type `(Seq Num))]
             (= (infer-bounds t nil)
                (-bounds t -nothing)))))
 
 (deftest consistent-variance-test
-  (is-clj (let [t (parse-type '(TFn [[x :variance :covariant]]
-                                    x))]
+  (is-clj (let [t (parse-type `(TFn [[x# :variance :covariant]] x#))]
             (TypeFn-body* (TypeFn-fresh-symbols* t) t)
             true))
-  (is-clj (let [t (parse-type '(TFn [[x :variance :contravariant]]
-                                    clojure.core.typed/Any))]
+  (is-clj (let [t (parse-type `(TFn [[x# :variance :contravariant]] Any))]
             (TypeFn-body* (TypeFn-fresh-symbols* t) t)
             true)))
 
 (deftest hvec-abstract-test
   (is-tc-e (fn [a b] [(class a) (class b)])
-           :expected
-           [clojure.core.typed/Any clojure.core.typed/Any
+           [Any Any
             -> (HVec [(U nil Class) (U nil Class)]
                      :objects [{:path [Class], :id 0} {:path [Class], :id 1}])]))
 
@@ -2502,21 +2478,21 @@
 
 (deftest parse-forbidden-rec-test
   (is-clj (throws-tc-error?
-            (parse-type '(Rec [x] x))))
+            (parse-type `(Rec [x#] x#))))
   (is-clj (throws-tc-error?
-            (parse-type '(Rec [x] (I x Number)))))
+            (parse-type `(Rec [x#] (I x# Number)))))
   (is-clj (throws-tc-error?
-            (parse-type '(Rec [x] (U x Number)))))
+            (parse-type `(Rec [x#] (U x# Number)))))
   (is-clj (throws-tc-error?
-            (parse-type '(Rec [x] (U (I x Number) Double))))))
+            (parse-type `(Rec [x#] (U (I x# Number) Double))))))
 
 (deftest parse-value-test
   (is-clj (throws-tc-error?
-            (parse-type '(Value))))
+            (parse-type `(Value))))
   (is-clj (throws-tc-error?
-            (parse-type '(Value 1 2 3))))
+            (parse-type `(Value 1 2 3))))
   (is-clj (throws-tc-error?
-            (parse-type 'a)))
+            (parse-type `a)))
   (is-clj (throws-tc-error?
             (parse-type ':a)))
   (is-clj (throws-tc-error?
@@ -2524,24 +2500,29 @@
 
 (deftest parse-TFn-bad-args-test
   (is-clj (throws-tc-error?
-            (parse-type '(TFn [[x :variance :covariant :argh]]
-                              clojure.core.typed/Any)))))
+            (parse-type `(TFn [[x# :variance :covariant :argh]] Any)))))
 
 (deftest parse-HMap-bad-args-test
   (is-clj (throws-tc-error?
-            (parse-type '(HMap :foo))))
+            (parse-type `(HMap :foo))))
   (is-clj (throws-tc-error?
-            (parse-type '(HMap :foo :foo))))
+            (parse-type `(HMap :foo :foo))))
   (is-clj (throws-tc-error?
-            (parse-type '(HMap :mandatory {} :mandatory {}))))
+            (parse-type `(HMap :mandatory {} :mandatory {}))))
   (is-clj (throws-tc-error?
-            (parse-type '(HMap mandatory {})))))
+            (parse-type `(HMap ~'mandatory {})))))
 
 (deftest hmap-intersection-test
-  (is-cf {:a 1} (I '{} '{:a Number}))
-  (is-cf {:a 1 :b 2} (I '{:b Number} '{:a Number}))
-  (is-cf {:foo 3 :bar "hi"} (I '{:foo clojure.core.typed/Int} '{:bar String}))
-  (is-cf {:a 1 :b 2} (I '{:b Number} '{:a Number}))
+  (is-tc-e {:a 1} 
+           (I '{} '{:a Num}))
+  (is-tc-e {:a 1 :b 2} 
+           (I '{:b Num} '{:a Num}))
+  (is-tc-e {:foo 3 :bar "hi"} 
+           (I '{:foo Int} 
+              '{:bar Str}))
+  (is-tc-e {:a 1 :b 2} 
+           (I '{:b Num} 
+              '{:a Num}))
   (is-cf-with-aliases 
     {:a 1 :b 2} (I clojure.core.typed.test.util-aliases/HMapAlias1 
                    clojure.core.typed.test.util-aliases/HMapAlias2))
@@ -2559,54 +2540,54 @@
                  [(Name-maker 'java.lang.Number)]))))
 
 (deftest protocol-method-ann-test
-  (is-clj (let [names '[x1 x2]
+  (is-clj (let [x1 (gensym 'x1)
+                x2 (gensym 'x2)
+                names [x1 x2]
                 bnds [no-bounds no-bounds]
                 mt (with-bounded-frees (zipmap (map make-F names)
                                                bnds)
-                     (parse-type '(clojure.core.typed/All [m1]
-                                    [clojure.core.typed/Any x1 m1 -> x2])))]
+                     (parse-type `(All [m1#]
+                                    [Any ~x1 m1# ~'-> ~x2])))]
             (both-subtype? (collect-u/protocol-method-var-ann
                              mt names bnds)
                            (parse-type 
-                             '(clojure.core.typed/All [x1 x2 m1]
-                                [clojure.core.typed/Any x1 m1 -> x2]))))))
+                             `(All [x1# x2# m1#]
+                                [Any x1# m1# ~'-> x2#]))))))
 
 (deftest deftype-poly-ancestor-test
   (is (check-ns 'clojure.core.typed.test.protocol-scoping)))
 
 (deftest map-predicate-test
-  (is-cf (fn [a] (number? (:k a)))
-         (predicate (HMap :mandatory {:k Number})))
+  (is-tc-e (fn [a] (number? (:k a)))
+           (Pred (HMap :mandatory {:k Number})))
   (is-tc-err (fn [a] (integer? (:k a)))
-             :expected
-             (predicate (HMap :mandatory {:k Number})))
+             (Pred (HMap :mandatory {:k Number})))
   (is-tc-err (fn [a] (number? (:wrong-key a)))
-             :expected
-             (predicate (HMap :mandatory {:k Number})))
+             (Pred (HMap :mandatory {:k Number})))
   (is 
-    (sub?
-      (Fn [clojure.core.typed/Any -> boolean 
-           :filters {:then (is Number 0 [(Key :k)]), 
-                     :else (! Number 0 [(Key :k)])}])
-      (predicate (HMap :mandatory {:k Number}))))
+    (sub?-q
+      `(IFn [Any ~'-> Boolean 
+             :filters {:then (~'is Number 0 [(~'Key :k)]), 
+                       :else (~'! Number 0 [(~'Key :k)])}])
+      `(Pred (HMap :mandatory {:k Number}))))
 
   (is 
     (not
-      (sub?
-        (Fn [clojure.core.typed/Any -> boolean 
-             :filters {:then (is Long 0 [(Key :k)]), 
-                       :else (! Long 0 [(Key :k)])}])
-        (predicate (HMap :mandatory {:k Number})))))
+      (sub?-q
+        `(IFn [Any ~'-> Boolean 
+               :filters {:then (~'is Long 0 [(~'Key :k)]), 
+                         :else (~'! Long 0 [(~'Key :k)])}])
+        `(Pred (HMap :mandatory {:k Number})))))
 
   (is-clj 
     (sub/subtype-type-filter?
-      (parse-filter '(is Number 0 [(Key :k)]))
-      (parse-filter '(is (HMap :mandatory {:k Number}) 0))))
+      (parse-filter `(~'is Number 0 [(~'Key :k)]))
+      (parse-filter `(~'is (HMap :mandatory {:k Number}) 0))))
 
   (is-clj 
     (sub/subtype-not-type-filter?
-      (parse-filter '(! Number 0 [(Key :k)]))
-      (parse-filter '(! (HMap :mandatory {:k Number}) 0)))))
+      (parse-filter `(~'! Number 0 [(~'Key :k)]))
+      (parse-filter `(~'! (HMap :mandatory {:k Number}) 0)))))
 
 (deftest function-as-ifn-test
   (is (sub? [-> nil] clojure.lang.IFn))
@@ -2617,14 +2598,13 @@
   (is (check-ns 'clojure.core.typed.test.swap-bang)))
 
 (deftest seqable-map-test
-  (is-cf (map (clojure.core.typed/fn> 
-                [[a b] :- '[Number Number]]
-                (+ a b))
-              {1 2 3 4 5 6})))
+  (is-tc-e (map (fn [[a b] :- '[Number Number]]
+                  (+ a b))
+                {1 2 3 4 5 6})))
 
 (deftest mapentry-first-test
-  (is-cf (first (first {1 2}))
-         Number))
+  (is-tc-e (first (first {1 2}))
+           Num))
 
 (deftest CTYP-101-mapentry-test
   (is (check-ns 'clojure.core.typed.test.CTYP-101-mapentry)))
@@ -2634,122 +2614,122 @@
 
 (deftest csgen-hmap-test
   ; (HMap :mandatory {:a Number :b Number} :complete? true) :!< (HMap :mandatory {:a x} :complete? true)
-  (is
-    (err/top-level-error-thrown?
-      (cf (clojure.core.typed/letfn>
-            [take-map :- (clojure.core.typed/All [x] [(HMap :mandatory {:a x} :complete? true) -> x])
-             (take-map [a] (:a a))]
-            (take-map {:a 1 :b 2})))))
+  (is-tc-err
+    (letfn>
+      [take-map :- (All [x] [(HMap :mandatory {:a x} :complete? true) -> x])
+       (take-map [a] (:a a))]
+      (take-map {:a 1 :b 2})))
   ; (HMap :mandatory {:a Number}) :!< (HMap :mandatory {:a x} :complete? true)
-  (is
-    (err/top-level-error-thrown?
-      (cf (clojure.core.typed/letfn>
-            [take-map :- (clojure.core.typed/All [x] [(HMap :mandatory {:a x} :complete? true) -> x])
-             (take-map [a] (:a a))]
-            (take-map (clojure.core.typed/ann-form 
-                        {:a 1}
-                        '{:a Number})))))))
+  (is-tc-err
+    (letfn>
+      [take-map :- (All [x] [(HMap :mandatory {:a x} :complete? true) -> x])
+       (take-map [a] (:a a))]
+      (take-map (ann-form 
+                  {:a 1}
+                  '{:a Number})))))
 
 (deftest subtype-hmap-optional-test
-  (is (sub? 
-        (HMap :mandatory {:a Number})
-        (U (HMap :mandatory {:a Number})
-           (HMap :absent-keys [:a]))))
-  (is (sub? 
-        (HMap :mandatory {:a Number})
-        (HMap :optional {:a Number})))
+  (is (sub?-q
+        `(HMap :mandatory {:a Number})
+        `(U (HMap :mandatory {:a Number})
+            (HMap :absent-keys [:a]))))
+  (is (sub?-q
+        `(HMap :mandatory {:a Number})
+        `(HMap :optional {:a Number})))
   (is (not
-        (sub? 
-          (HMap :complete? true :mandatory {:a Number :b clojure.core.typed/Any})
-          (HMap :complete? true :mandatory {:a Number}))))
-  (is (sub? 
-        (HMap :complete? true :optional {:a Number :b clojure.core.typed/Any})
-        (HMap :complete? true :optional {:a Number})))
+        (sub?-q
+          `(HMap :complete? true :mandatory {:a Number :b Any})
+          `(HMap :complete? true :mandatory {:a Number}))))
+  (is (sub?-q
+        `(HMap :complete? true :optional {:a Number :b Any})
+        `(HMap :complete? true :optional {:a Number})))
   (is (not
-        (sub? 
-          (HMap :optional {:a Number})
-          (HMap :mandatory {:a Number}))))
+        (sub?-q
+          `(HMap :optional {:a Number})
+          `(HMap :mandatory {:a Number}))))
   (is (not
-        (sub? 
-          (HMap :optional {:b Number})
-          (HMap :optional {:a Number}))))
+        (sub?-q
+          `(HMap :optional {:b Number})
+          `(HMap :optional {:a Number}))))
   (is (not
-        (sub? 
-          (HMap :optional {:a clojure.core.typed/Any})
-          (HMap :optional {:a Number}))))
+        (sub?-q
+          `(HMap :optional {:a Any})
+          `(HMap :optional {:a Number}))))
   (is (not
-        (sub? 
-          (HMap :mandatory {:a Number})
-          (ExactCount 1))))
-  (is (sub? 
-        (HMap :complete? true :mandatory {:a Number})
-        (ExactCount 1)))
+        (sub?-q
+          `(HMap :mandatory {:a Number})
+          `(ExactCount 1))))
+  (is (sub?-q
+        `(HMap :complete? true :mandatory {:a Number})
+        `(ExactCount 1)))
   (is (not
-        (sub? 
-          (HMap :complete? true 
-                :mandatory {:foo clojure.core.typed/Any}
-                :optional {:a Number})
-          (ExactCount 1))))
-  (is (sub?
-        (HMap :complete? true
-              :mandatory {:foo Number})
-        (clojure.lang.IPersistentMap clojure.core.typed/Any Number)))
+        (sub?-q
+          `(HMap :complete? true 
+                 :mandatory {:foo Any}
+                 :optional {:a Number})
+          `(ExactCount 1))))
+  (is (sub?-q
+        `(HMap :complete? true
+               :mandatory {:foo Number})
+        `(Map Any Num)))
   (is (not
-        (sub?
-          (HMap :complete? true
-                :mandatory {:foo Number}
-                :optional {:bar clojure.core.typed/Any})
-          (clojure.lang.IPersistentMap clojure.core.typed/Any Number))))
+        (sub?-q
+          `(HMap :complete? true
+                 :mandatory {:foo Number}
+                 :optional {:bar Any})
+          `(Map Any Num))))
 
-  (is (sub? (U (HMap :mandatory {:foo Number}
-                     :complete? true)
-               (HMap :complete? true))
-            (HMap :optional {:foo Number})))
-  (is (sub? (U (HMap :mandatory {:c Number}
-                     :optional {:b Number :a Number}
-                     :complete? true)
-               (HMap :optional {:b Number :c Number}
-                     :complete? true))
-            (HMap :optional {:a Number :b Number :c Number})))
-  (is (sub? 
-        (U (HMap :mandatory {:c (Value 5)} 
-                 :complete? true) 
+  (is (sub?-q 
+        `(U (HMap :mandatory {:foo Number}
+                 :complete? true)
            (HMap :complete? true))
-        (HMap :optional {:c (Value 5)} :complete? true)))
-  (is (sub? 
-        (U (HMap :mandatory {:c (Value 5)} 
-                 :optional {:b java.lang.String, :a java.lang.Number} 
+        `(HMap :optional {:foo Number})))
+  (is (sub?-q
+        `(U (HMap :mandatory {:c Number}
+                  :optional {:b Number :a Number}
+                  :complete? true)
+            (HMap :optional {:b Number :c Number}
+                  :complete? true))
+        `(HMap :optional {:a Number :b Number :c Number})))
+  (is (sub?-q
+        `(U (HMap :mandatory {:c (Value 5)} 
+                  :complete? true) 
+            (HMap :complete? true))
+        `(HMap :optional {:c (Value 5)} :complete? true)))
+  (is (sub?-q
+        `(U (HMap :mandatory {:c (Value 5)} 
+                 :optional {:b Str :a Num} 
                  :complete? true) 
            (HMap :mandatory {} 
-                 :optional {:b java.lang.String, :a java.lang.Number} 
+                 :optional {:b Str :a Num} 
                  :complete? true))
-        (HMap :optional {:a Number :b String :c (Value 5)} :complete? true)))
-  (is (sub?
-        (HMap :optional {:b String :a Number})
-        (HMap :optional {:a Number})))
+        `(HMap :optional {:a Num :b Str :c (Value 5)} 
+               :complete? true)))
+  (is (sub?-q
+        `(HMap :optional {:b Str :a Num})
+        `(HMap :optional {:a Num})))
   (is (not
-        (sub?
-          (HMap :optional {:a Number})
-          (HMap :optional {:b String :a Number}))))
+        (sub?-q
+          `(HMap :optional {:a Number})
+          `(HMap :optional {:b String :a Number}))))
   )
 
 (deftest hmap-expecteds-infer-test
-  (is-cf {:a (fn [a] (+ a 1))}
-         (HMap :mandatory {:a [Number -> Number]}))
-  (is-cf {:a (fn [a] (+ a 1))}
-         (HMap :optional {:a [Number -> Number]}))
-  (is-cf {:a (fn [a] (+ a 1))}
-         (clojure.lang.IPersistentMap clojure.core.typed/Any [Number -> Number]))
+  (is-tc-e {:a (fn [a] (+ a 1))}
+           (HMap :mandatory {:a [Number -> Number]}))
+  (is-tc-e {:a (fn [a] (+ a 1))}
+           (HMap :optional {:a [Number -> Number]}))
+  (is-tc-e {:a (fn [a] (+ a 1))}
+           (Map Any [Number -> Number]))
   )
 
 (deftest hmap-optional-get-test
-  (is
-    (err/top-level-error-thrown?
-      (cf (get (clojure.core.typed/ann-form
-                 {:a 1}
-                 (HMap :optional {:a Number}))
-               :a)
-          Number)))
+  (is-tc-err (let [m :- (HMap :optional {:a Number})
+                   {:a 1}]
+               (get m :a))
+             Num
+             ;:ret (ret (Un (-name `Num) -nil))
+             )
   (is-cf (get (clojure.core.typed/ann-form
                 {:a 1}
                 (HMap :optional {:a Number}))
@@ -2900,12 +2880,9 @@
 ; test cast CTYP-118
 (deftest cast-test
   (is (check-ns 'clojure.core.typed.test.CTYP-118-cast))
-  (is (err/top-level-error-thrown?
-        (cf (fn [] (cast "a" "a")))))
-  (is (throws-tc-error?
-        (cf (fn [] (cast String "a" 1)))))
-  (is (err/top-level-error-thrown?
-        (cf (fn [] (cast #('ok) 2))))))
+  (is-tc-err (fn [] (cast "a" "a")))
+  (is-tc-err (fn [] (cast String "a" 1)))
+  (is-tc-err (fn [] (cast #('ok) 2))))
 
 (deftest optional-record-keys-test
   (is (check-ns 'clojure.core.typed.test.record-optional-key))
@@ -3126,7 +3103,6 @@
 #_(deftest first-class-poly-test
   (is-tc-err
     (fn [f] (second (f [1 2])))
-    :expected
     [(clojure.core.typed/All [b]
           [b -> b])
      -> '1])
@@ -3153,14 +3129,14 @@
           (def foo)
           (fn []
             (foo)))
-      :expected [-> [clojure.core.typed/Any * -> clojure.core.typed/Any]]))
+      [-> [clojure.core.typed/Any * -> clojure.core.typed/Any]]))
   (is
     (tc-e 
       (do (ann ^:no-check foo (clojure.core.typed/All [b ...] [-> [b ... b -> clojure.core.typed/Any]]))
           (def foo)
           (fn []
             (foo)))
-      :expected [-> [clojure.core.typed/Any * -> clojure.core.typed/Any]]))
+      [-> [clojure.core.typed/Any * -> clojure.core.typed/Any]]))
   (is
     (= 
       (tc-e 
@@ -3201,7 +3177,6 @@
            -> clojure.core.typed/Any #_['1 '2 -> clojure.core.typed/Any]]))
   (is-tc-err
     (fn [f] (second (f [1 2])))
-    :expected
     [(clojure.core.typed/All [b ...]
           ['[b ... b] -> '[b ... b]])
      -> '1]))
@@ -3217,16 +3192,14 @@
   (is-tc-e (do (def a 1)
                (defn b [_] 'a)
                (b a))
-           :expected Symbol))
+           Symbol))
 
 (deftest for-test
   (is-tc-e (for [a :- Num [1 2 3]]
              (inc a))
-           :expected
-           (Seq clojure.core.typed/Any))
+           (Seq Any))
   (is-tc-e (for [a :- Num [1 2 3]] :- Num
              (inc a))
-           :expected
            (Seq Num))
   (is-tc-err (for [a [1 2 3]]
                (inc a))))
