@@ -48,7 +48,7 @@
                       vs/*trace-checker* trace
                       vs/*analyze-ns-cache* (atom {})
                       ; we only use this if we have exactly one namespace passed
-                      vs/*checked-asts* (when (#{:clojure} impl)
+                      vs/*checked-asts* (when (#{impl/clojure} impl)
                                           (when (== 1 (count nsym-coll))
                                             (atom {})))]
               (with-bindings {(impl/impl-case
@@ -108,7 +108,7 @@
                                                     @es)
                                                   (when-let [e @terminal-error]
                                                     [e])))}
-                    (when (#{:clojure} impl)
+                    (when (#{impl/clojure} impl)
                       (when (and file-mapping
                                  (== 1 (count nsym-coll)))
                         {:file-mapping (apply merge
