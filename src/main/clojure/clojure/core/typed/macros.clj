@@ -5,7 +5,9 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.special-form :as spec]))
 
-(alias 't 'clojure.core.typed)
+(defn core-kw [kw]
+  (keyword "clojure.core.typed"
+           (str kw)))
 
 (defmacro
   ^{:forms '[(def name docstring? :- type? expr)]}
@@ -82,7 +84,7 @@
   (core/let [{:keys [fn ann]} (internal/parse-fn* false forms)]
     (if vs/*checking*
       `(do ~spec/special-form
-           ::t/fn
+           ~(core-kw :fn)
            {:ann '~ann}
            ~fn)
       fn)))
@@ -100,7 +102,7 @@
   (core/let [{:keys [ann loop]} (internal/parse-loop* `(~bindings ~@exprs))]
     (if vs/*checking*
       `(do ~spec/special-form
-           ::t/loop
+           ~(core-kw :loop)
            {:ann '~ann}
            ~loop)
       loop)))
@@ -122,7 +124,7 @@
   [form ty]
   (if vs/*checking*
     `(do ~spec/special-form
-         ::t/ann-form
+         ~(core-kw :ann-form)
          {:type '~ty}
          ~form)
     form))
@@ -177,7 +179,7 @@
   [& body]
   (if vs/*checking*
     `(do ~spec/special-form
-         ::t/tc-ignore
+         ~(core-kw :tc-ignore)
          ~@(or body [nil]))
     (case (count body)
       0 nil
