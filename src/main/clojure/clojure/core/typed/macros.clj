@@ -7,7 +7,7 @@
 
 (defn core-kw [kw]
   (keyword "clojure.core.typed"
-           (str kw)))
+           (name kw)))
 
 (defmacro
   ^{:forms '[(def name docstring? :- type? expr)]}
