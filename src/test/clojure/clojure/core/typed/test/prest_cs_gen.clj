@@ -19,5 +19,6 @@
 (defn map1 [f a b & rst]
   (apply map f a b rst))
 
-;(def bar (map1 (t/inst hash-map Number String) [1 2 3] ["a" "b" "c"]))
-;(def bar (map1 (t/inst hash-map Number String) [1 2 3] ["a" "b" "c"] [4 5 6] ["d" "e" "f"]))
+(t/ann bar1 (t/Seqable (t/Map Number String)))
+(def bar1 (map1 (t/inst hash-map Number String) [1 2 3] ["a" "b" "c"]))
+(def bar1 (map1 (t/inst hash-map Number String) [1 2 3] ["a" "b" "c"] [4 5 6] ["d" "e" "f"]))

@@ -249,7 +249,7 @@
     (and (cr/dcon-repeat? dc1)
          (cr/dcon? dc2)
          (not (:rest dc2)))
-    (let [{fixed1 :remain repeated :repeat} dc1
+    (let [{fixed1 :fixed repeated :repeat} dc1
           {fixed2 :fixed} dc2
           fixed1-count (count fixed1)
           fixed2-count (count fixed2)
@@ -1438,13 +1438,13 @@
                                       (repeat (quot T-rest-count S-prest-types-count) S-prest-types))
                               arg-S-prest)
                 arg-mapping (cs-gen-list V X Y T-dom new-S)
-                remain-c (if (= (count arg-S-prest) 0)
+                fixed-c (if (= (count arg-S-prest) 0)
                            []
                            (mapv #(get-c-from-cmap % dbound)
                                  (for> :- cset
                                        [s :- r/Type, remain-S-prest]
                                        (cs-gen V merged-X Y t-dty s))))
-                darg-mapping (assoc-in (cr/empty-cset X Y) [:maps 0 :dmap :map dbound] (cr/->dcon-repeat remain-c repeat-c))
+                darg-mapping (assoc-in (cr/empty-cset X Y) [:maps 0 :dmap :map dbound] (cr/->dcon-repeat fixed-c repeat-c))
                 ret-mapping (cs-gen V X Y (:rng S) (:rng T))
 ;                _ (println
 ;                    "arg-mapping" arg-mapping "\n"
@@ -1626,9 +1626,10 @@
                                     (cond
                                       (false? no-entry) no-entry
                                       (not entry) (cons v no-entry)
-                                      (or (cr/i-subst? entry) 
+                                      (or (cr/i-subst? entry)
                                           (cr/i-subst-starred? entry)
-                                          (cr/i-subst-dotted? entry)) no-entry
+                                          (cr/i-subst-dotted? entry)
+                                          (cr/i-subst-repeat? entry)) no-entry
                                       :else false)))
                                 [] Y)]
                     (and absent-entries
@@ -1675,6 +1676,18 @@
                                                    (constraint->type f idx-hash :variable k)))
                                                (constraint->type (:dc dc) idx-hash :variable k)
                                                (:dbound dc))]
+
+                          (cr/dcon-repeat? dc)
+                          [k (cr/->i-subst (doall
+                                             (for [f (:fixed dc)]
+                                               (constraint->type f idx-hash :variable k))))]
+;                          [k (cr/->i-subst-repeat (doall
+;                                                    (for [f (:fixed dc)]
+;                                                      (constraint->type f idx-hash :variable k)))
+;                                                  (doall
+;                                                    (for [f (:repeat dc)]
+;                                                      (constraint->type f idx-hash :variable k))))]
+
                           :else (err/int-error (prn-str "What is this? " dc)))))
 
                     (into {}
@@ -1684,7 +1697,7 @@
                                          (:bnds v))])))
             ;check delayed constraints and type variable bounds
             _ (let [t-substs (into {} (filter (t/fn [[_ v] :- '[t/Sym cr/SubstRHS]]
-                                                (cr/t-subst? v)) 
+                                                (cr/t-subst? v))
                                               subst))
                     [names images] (let [s (seq t-substs)]
                                      [(map first s)
@@ -1705,7 +1718,6 @@
                     (cond
                       (not (subtype? lower-bound upper-bound))
                       (fail! lower-bound upper-bound)
-
 
                       (not (subtype? inferred upper-bound))
                       (fail! inferred upper-bound)
