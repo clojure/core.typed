@@ -2037,7 +2037,7 @@ for checking namespaces, cf for checking individual forms."}
                      of (Map '{:line Int :column Int :file Str} Str)."
   [form & opt]
   (load-if-needed)
-  (apply (impl/v 'clojure.core.typed.check-form/check-form-info) form opt))
+  (apply (impl/v 'clojure.core.typed.check-form-clj/check-form-info) form opt))
 
 (defn check-form*
   "Takes a (quoted) form and optional expected type syntax and
@@ -2047,7 +2047,7 @@ for checking namespaces, cf for checking individual forms."}
   ([form expected] (check-form* form expected true))
   ([form expected type-provided?]
    (load-if-needed)
-   ((impl/v 'clojure.core.typed.check-form/check-form*) form expected type-provided?)))
+   ((impl/v 'clojure.core.typed.check-form-clj/check-form*) form expected type-provided?)))
 
 ; cf can pollute current type environment to allow REPL experimentation, 
 ; which is ok because check-ns resets it when called.

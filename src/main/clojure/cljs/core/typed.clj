@@ -228,6 +228,12 @@
   ((impl/v 'clojure.core.typed.check-form-cljs/check-form-cljs)
    form expected expected-provided?))
 
+(defn check-form-info 
+  [form & opts]
+  (load-if-needed)
+  (apply (impl/v 'clojure.core.typed.check-form-cljs/check-form-info)
+         form opts))
+
 (defmacro cf
   "Check a single form with an optional expected type."
   ([form] `(cf* '~form nil nil))

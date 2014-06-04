@@ -1,11 +1,9 @@
-(ns clojure.core.typed.check-form
+(ns clojure.core.typed.check-form-common
   (:require [clojure.core.typed.profiling :as p]
             [clojure.core.typed.check :as chk]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.reset-caches :as reset-caches]
             [clojure.core.typed.file-mapping :as file-map]
-            [clojure.core.typed.analyze-clj :as ana-clj]
-            [clojure.core.typed.collect-phase :as collect]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.current-impl :as impl]
@@ -14,13 +12,15 @@
   (:import (clojure.lang ExceptionInfo)))
 
 (defn check-form-info
-  [form & {:keys [expected-ret expected type-provided? profile file-mapping]}]
+  [{:keys [impl ast-for-form unparse-ns
+           check-expr collect-expr]} 
+   form & {:keys [expected-ret expected type-provided? profile file-mapping]}]
   (assert (not (and expected-ret type-provided?)))
   (p/profile-if profile
     (reset-caches/reset-caches)
     (if vs/*checking*
       (throw (Exception. "Found inner call to check-ns or cf"))
-      (impl/with-clojure-impl
+      (impl/with-full-impl impl
         (binding [vs/*checking* true
                   vs/*already-collected* (atom #{})
                   vs/*already-checked* (atom #{})
@@ -31,11 +31,11 @@
                            expected-ret
                            (when type-provided?
                              (r/ret (prs/parse-type expected))))
-                ast (ana-clj/ast-for-form form)
+                ast (ast-for-form form)
                 c-ast (try
-                        (do (collect/collect-ast ast)
+                        (do (collect-expr ast)
                             (reset-caches/reset-caches)
-                            (chk/check-expr ast expected))
+                            (check-expr ast expected))
                         (catch ExceptionInfo e
                           (when (err/tc-error? (ex-data e))
                             (reset! terminal-error? e))
@@ -46,16 +46,17 @@
                                        (when-let [e @terminal-error?]
                                          [e]))
                :ret (or res (r/ret r/-error))}
-              (when file-mapping
-                {:file-mapping (file-map/ast->file-mapping c-ast)}))))))))
+              (when (#{impl/clojure} impl)
+                (when file-mapping
+                  {:file-mapping (file-map/ast->file-mapping c-ast)})))))))))
 
 (defn check-form*
-  ([form expected type-provided?]
-   (let [{:keys [delayed-errors ret]} (check-form-info form 
-                                                       :expected expected 
-                                                       :type-provided? type-provided?)]
-     (if-let [errors (seq delayed-errors)]
-       (err/print-errors! errors)
-       (impl/with-clojure-impl
-         (binding [vs/*checking* true]
-           (prs/unparse-TCResult-in-ns ret *ns*)))))))
+  [{:keys [impl unparse-ns] :as config} form expected type-provided?]
+  (let [{:keys [delayed-errors ret]} (check-form-info config form
+                                                      :expected expected 
+                                                      :type-provided? type-provided?)]
+    (impl/with-full-impl impl
+      (if-let [errors (seq delayed-errors)]
+        (err/print-errors! errors)
+        (binding [vs/*checking* true]
+          (prs/unparse-TCResult-in-ns ret unparse-ns))))))

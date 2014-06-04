@@ -69,7 +69,8 @@
                  '[clojure.core.typed.reset-caches]
                  '[clojure.core.typed.check-ns-common]
                  '[clojure.core.typed.check-ns-clj]
-                 '[clojure.core.typed.check-form]
+                 '[clojure.core.typed.check-form-common]
+                 '[clojure.core.typed.check-form-clj]
                  '[clojure.core.typed.statistics]
                  ; used by check-ns-info
                  '[clojure.jvm.tools.analyzer]
