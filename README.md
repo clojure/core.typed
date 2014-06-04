@@ -115,6 +115,7 @@ Thanks to the following people for contributing to core.typed:
 * Nicola Mometto (Bronsa)
 * Chas Emerick (cemerick)
 * Jake Goulding (shepmaster)
+* Andy Fingerhut
 
 ## Sponsors
 
