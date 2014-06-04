@@ -99,9 +99,9 @@
                            repeat :- (t/NonEmptySeq c)])
 (u/defrecord dcon-repeat [remain repeat]
   ""
-  [(every? c remain)
+  [(every? c? remain)
    (not-empty repeat)
-   (every? c repeat)])
+   (every? c? repeat)])
 
 (t/defalias DCon (U dcon dcon-exact dcon-dotted dcon-repeat))
 
