@@ -1,7 +1,9 @@
-(ns clojure.core.typed.reset-caches
+(ns ^:skip-wiki clojure.core.typed.reset-caches
   (:require [clojure.core.typed.subtype :as sub]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.cs-gen :as cgen]))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 (defn reset-caches 
   "Reset internal type caches."

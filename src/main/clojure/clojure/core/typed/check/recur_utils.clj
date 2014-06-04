@@ -1,6 +1,8 @@
-(ns clojure.core.typed.check.recur-utils
+(ns ^:skip-wiki clojure.core.typed.check.recur-utils
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.type-rep :as r]))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 (u/defrecord RecurTarget [dom rest drest kws]
   "A target for recur"

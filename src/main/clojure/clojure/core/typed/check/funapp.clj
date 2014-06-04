@@ -1,4 +1,4 @@
-(ns clojure.core.typed.check.funapp
+(ns ^:skip-wiki clojure.core.typed.check.funapp
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.subtype :as sub]
@@ -18,6 +18,8 @@
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.subst :as subst]
             [clojure.core.typed.frees :as frees]))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 (defn ifn-ancestor 
   "If this type can be treated like a function, return one of its

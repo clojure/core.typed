@@ -1,4 +1,4 @@
-(ns clojure.core.typed.check.fn
+(ns ^:skip-wiki clojure.core.typed.check.fn
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
@@ -7,6 +7,8 @@
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.check.fn-methods :as fn-methods]
             [clojure.core.typed.check.utils :as cu]))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 ; Can take a CLJ or CLJS function expression.
 ;

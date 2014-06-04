@@ -1,7 +1,7 @@
 (ns clojure.core.typed.util-vars)
 
-(defonce ^:dynamic *current-env* nil)
-(defonce ^:dynamic *current-expr* nil)
+(defonce ^:skip-wiki ^:dynamic *current-env* nil)
+(defonce ^:skip-wiki ^:dynamic *current-expr* nil)
 
 (defonce ^:dynamic 
   ^{:doc 
@@ -29,6 +29,7 @@
   nil)
 
 (defonce ^:dynamic
+  ^{:doc "If true, print tracing information during type checking."}
   *trace-checker*
   nil)
 

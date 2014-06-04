@@ -1,4 +1,4 @@
-(ns clojure.core.typed.check.isa
+(ns ^:skip-wiki clojure.core.typed.check.isa
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed :as t]
             [clojure.core.typed.filter-protocols :as fprotocol]
@@ -9,6 +9,8 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.object-rep :as obj])
   (:import (clojure.core.typed.type_rep TCResult)))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 ;(t/ann tc-isa? [TCResult TCResult -> TCResult])
 (defn tc-isa? 

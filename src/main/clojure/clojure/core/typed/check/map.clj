@@ -1,4 +1,4 @@
-(ns clojure.core.typed.check.map
+(ns ^:skip-wiki clojure.core.typed.check.map
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.utils :as u]
             [clojure.core.typed.current-impl :as impl]
@@ -7,6 +7,8 @@
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.type-ctors :as c])
   (:import (clojure.lang APersistentMap)))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 ;(ann expected-vals [(Coll Type) (Nilable TCResult) -> (Coll (Nilable TCResult))])
 (defn expected-vals

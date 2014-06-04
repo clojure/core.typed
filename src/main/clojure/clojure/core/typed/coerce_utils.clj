@@ -1,7 +1,9 @@
-(ns clojure.core.typed.coerce-utils
+(ns ^:skip-wiki clojure.core.typed.coerce-utils
   (:require [clojure.string :as str]
             [clojure.java.io :as io])
   (:import (clojure.lang RT Var)))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 ;(t/ann symbol->Class [Symbol -> Class])
 (defn symbol->Class 

@@ -20,6 +20,8 @@
             [clojure.core.typed.subtype :as sub])
   (:import (clojure.lang MultiFn)))
 
+(alter-meta! *ns* assoc :skip-wiki true)
+
 ;(t/ann expr-ns [Any -> t/Sym])
 (defn expr-ns [expr]
   {:post [(symbol? %)]}

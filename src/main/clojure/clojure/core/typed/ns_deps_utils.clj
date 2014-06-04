@@ -1,4 +1,4 @@
-(ns clojure.core.typed.ns-deps-utils
+(ns ^:skip-wiki clojure.core.typed.ns-deps-utils
   (:require [clojure.tools.namespace.parse :as ns-parse]
             [clojure.tools.namespace.file :as ns-file]
             [clojure.core.typed.coerce-utils :as coerce]
@@ -6,6 +6,8 @@
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
             [clojure.java.io :as io]))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 (defn ns-form-for-file
   "Returns the namespace declaration for the file, or

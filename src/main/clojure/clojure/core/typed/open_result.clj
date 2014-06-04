@@ -1,9 +1,11 @@
-(ns clojure.core.typed.open-result
+(ns ^:skip-wiki clojure.core.typed.open-result
   (:require [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.object-rep :as obj]
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.subst-obj :as subst-obj]))
+
+(alter-meta! *ns* assoc :skip-wiki true)
 
 ;; Used to "instantiate" a Result from a function call.
 ;; eg. (let [a (ann-form [1] (U nil (Seqable Number)))]
