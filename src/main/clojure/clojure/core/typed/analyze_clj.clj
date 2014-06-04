@@ -80,14 +80,14 @@
 
            macro?
            (let [res (apply (typed-macros v v) form (:locals env) (rest form))] ; (m &form &env & args)
-             (taj/update-ns-map! env)
+             (taj/update-ns-map!)
              (if (taj-utils/obj? res)
                (vary-meta res merge (meta form))
                res))
 
            inline?
            (let [res (apply inline? args)]
-             (taj/update-ns-map! env)
+             (taj/update-ns-map!)
              (if (taj-utils/obj? res)
                (vary-meta res merge
                           (and t {:tag t})

@@ -47,6 +47,8 @@
                                          [e]))
                :ret (or res (r/ret r/-error))}
               (when (#{impl/clojure} impl)
+                {:result (:result ast)})
+              (when (#{impl/clojure} impl)
                 (when file-mapping
                   {:file-mapping (file-map/ast->file-mapping c-ast)})))))))))
 
