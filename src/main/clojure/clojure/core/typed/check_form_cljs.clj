@@ -8,14 +8,16 @@
             [cljs.compiler :as comp]
             [clojure.core.typed.current-impl :as impl]))
 
+(defn config-map []
+  {:impl impl/clojurescript 
+   :unparse-ns (ucljs/cljs-ns)
+   :ast-for-form ana-cljs/ast-for-form
+   :collect-expr collect-cljs/collect
+   :check-expr chk-cljs/check})
+
 (defn check-form-info
   [form & opt]
-  (apply chk-form/check-form-info 
-         {:impl impl/clojurescript 
-          :unparse-ns (ucljs/cljs-ns)
-          :ast-for-form ana-cljs/ast-for-form
-          :collect-expr collect-cljs/collect
-          :check-expr chk-cljs/check}
+  (apply chk-form/check-form-info (config-map)
          form opt))
 
 (defn check-form-cljs
@@ -25,10 +27,5 @@
   [form expected expected-provided?]
   (env/ensure
     (comp/with-core-cljs
-      (chk-form/check-form*
-         {:impl impl/clojurescript 
-          :unparse-ns (ucljs/cljs-ns)
-          :ast-for-form ana-cljs/ast-for-form
-          :collect-expr collect-cljs/collect
-          :check-expr chk-cljs/check}
+      (chk-form/check-form* (config-map)
          form expected expected-provided?))))

@@ -5,7 +5,7 @@
             [clojure.core.typed.collect-phase :as collect-clj]
             [clojure.core.typed.current-impl :as impl])) 
 
-(def config 
+(defn config-map []
   {:impl impl/clojure
    :ast-for-form ana-clj/ast-for-form
    :unparse-ns *ns*
@@ -14,10 +14,10 @@
 
 (defn check-form-info
   [form & opt]
-  (apply chk-form/check-form-info config
+  (apply chk-form/check-form-info (config-map)
          form opt))
 
 (defn check-form*
   [form expected type-provided?]
-  (chk-form/check-form* config
+  (chk-form/check-form* (config-map)
     form expected type-provided?))
