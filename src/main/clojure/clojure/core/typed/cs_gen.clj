@@ -246,7 +246,38 @@
          (cr/dcon? dc2))
     (fail! dc1 dc2)
 
-    :else (err/int-error (str "Got non-dcons" dc1 dc2)))))
+    (and (cr/dcon-repeat? dc1)
+         (cr/dcon? dc2)
+         (not (:rest dc2)))
+    (let [{fixed1 :remain repeated :repeat} dc1
+          {fixed2 :fixed} dc2
+          fixed1-count (count fixed1)
+          fixed2-count (count fixed2)
+          repeat-count (count repeated)
+          diff (- fixed2-count fixed1-count)]
+      (assert repeated)
+      (when-not (and (>= fixed2-count fixed1-count)
+                    (zero? (rem diff repeat-count)))
+        (fail! fixed1 fixed2))
+      (cr/->dcon-repeat
+        (let [vector' (t/inst vector c c Any Any Any Any)]
+          (doall
+            (for> :- c
+              [[c1 c2] :- '[c c], (map vector'
+                                       fixed2
+                                       (concat fixed1
+                                               (reduce (fn [acc cur]
+                                                         (concat acc cur))
+                                                       []
+                                                       (repeat (quot diff repeat-count) repeated))))]
+              (c-meet c1 c2 (:X c1)))))
+        repeated))
+    (and (cr/dcon-repeat? dc2)
+         (cr/dcon? dc1)
+         (not (:rest dc1)))
+    (dcon-meet dc2 dc1)
+
+    :else (err/nyi-error (str "NYI dcon-meet " dc1 dc2)))))
 
 (t/ann dmap-meet [dmap dmap -> dmap])
 (defn dmap-meet [dm1 dm2]
@@ -1192,21 +1223,15 @@
                 c
                 (err/int-error (str "No constraint for bound " dbound)))))))
 
-; FIXME remove :no-check
-(t/ann ^:no-check move-prest-to-dmap [cset t/Sym (HMap :mandatory {:mode (U (Value :remain) (Value :repeat))}) -> cset])
-(defn move-prest-to-dmap [cset dbound {:keys [mode]}]
+; FIXME why we need a list of cset-entry?
+(t/ann get-c-from-cmap [cset t/Sym -> c])
+(defn get-c-from-cmap [cset dbound]
   {:pre [(cr/cset? cset)
-         (symbol? dbound)
-         (or (= :remain mode) (= :repeat mode))]
-   :post [(cr/cset? %)]}
-  (mover cset dbound nil
-         (fn [cmap dmap]
-           (if-let [c (cmap dbound)]
-             (let [{:keys [remain repeat]} (dmap dbound)]
-               (cr/->dcon-repeat
-                 (if (= :remain mode) (conj remain c) (if (nil? remain) [] remain))
-                 (if (= :repeat mode) (conj repeat c) (if (nil? repeat) [] repeat))))
-             (err/int-error (str "No constraint for bound " dbound))))))
+         (symbol? dbound)]
+   :post [(cr/c? %)]}
+  (if-let [result ((-> cset :maps first :fixed) dbound)]
+    result
+    (err/int-error (str "No constraint for bound " dbound))))
 
 ;; dbound : index variable
 ;; vars : listof[type variable] - temporary variables
@@ -1307,7 +1332,7 @@
   (concat s
           (repeat (- cnt (count s)) v)))
 
-(t/ann cs-gen-Function
+(t/ann ^:no-check cs-gen-Function
        [NoMentions ConstrainVars ConstrainVars Function Function -> cset])
 (defn cs-gen-Function
   [V X Y S T]
@@ -1380,8 +1405,57 @@
               ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
           (cset-meet* [short-cs rest-cs ret-mapping])))))
 
-      (every? :prest [S T])
-      (err/nyi-error (pr-str "NYI Function inference" (prs/unparse-type S) (prs/unparse-type T)))
+      ; prest on left, drest on right
+      (and (:prest S)
+           (:drest T))
+      (u/p :cs-gen/cs-gen-Function-prest-drest
+      (let [{t-dty :pre-type dbound :name} (:drest T)
+            _ (when-not (Y dbound)
+                (fail! S T))
+            S-dom (:dom S)
+            S-dom-count (count S-dom)
+            T-dom (:dom T)
+            T-dom-count (count T-dom)
+            S-prest-types (-> S :prest :types)
+            S-prest-types-count (count S-prest-types)
+            merged-X (merge X {dbound (Y dbound)})
+            repeat-c (mapv #(get-c-from-cmap % dbound)
+                           (for> :- cset
+                                 [s :- r/Type, S-prest-types]
+                             (cs-gen V merged-X Y t-dty s)))
+            ;_ (println "repeat-c" repeat-c)
+            ]
+        (if (<= (+ S-dom-count S-prest-types-count)
+                T-dom-count)
+          ; easy mode
+          (let [T-rest-count (- T-dom-count S-dom-count)
+                [arg-S-prest remain-S-prest] (split-at (rem T-rest-count
+                                                            S-prest-types-count) S-prest-types)
+                new-S (concat S-dom
+                              (reduce (fn [acc cur]
+                                        (concat acc cur))
+                                      []
+                                      (repeat (quot T-rest-count S-prest-types-count) S-prest-types))
+                              arg-S-prest)
+                arg-mapping (cs-gen-list V X Y T-dom new-S)
+                remain-c (if (= (count arg-S-prest) 0)
+                           []
+                           (mapv #(get-c-from-cmap % dbound)
+                                 (for> :- cset
+                                       [s :- r/Type, remain-S-prest]
+                                       (cs-gen V merged-X Y t-dty s))))
+                darg-mapping (assoc-in (cr/empty-cset X Y) [:maps 0 :dmap :map dbound] (cr/->dcon-repeat remain-c repeat-c))
+                ret-mapping (cs-gen V X Y (:rng S) (:rng T))
+;                _ (println
+;                    "arg-mapping" arg-mapping "\n"
+;                    "darg-mapping" darg-mapping "\n"
+;                    "ret-mapping" ret-mapping "\n"
+;                    "cset-met* above is" (cset-meet* [arg-mapping darg-mapping ret-mapping]) "\n"
+;                    )
+                ]
+            (cset-meet* [arg-mapping darg-mapping ret-mapping]))
+          ; hard mode
+          (err/nyi-error (pr-str "NYI Function inference" (prs/unparse-type S) (prs/unparse-type T))))))
 
       ;; dotted on the left, nothing on the right
       (and (:drest S)

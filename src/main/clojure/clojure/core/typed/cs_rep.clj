@@ -95,15 +95,12 @@
 
 ; this dcon is used for check prest with drest, because prest will
 ; have repeat in it, then the dcon must contains it for future check
-; NOTE, although completed dcon-repeat have repeat as (r/NonEmptySeq c)
-; but we'll not build dcon-repeat at once, and intermediate state of dcon
-; will have empty repeat
 (u/ann-record dcon-repeat [remain :- (t/Seqable c)
-                           repeat :- (t/Seqable c)])
+                           repeat :- (t/NonEmptySeq c)])
 (u/defrecord dcon-repeat [remain repeat]
   ""
   [(every? c remain)
-   ;(not-empty repeat)
+   (not-empty repeat)
    (every? c repeat)])
 
 (t/defalias DCon (U dcon dcon-exact dcon-dotted dcon-repeat))
