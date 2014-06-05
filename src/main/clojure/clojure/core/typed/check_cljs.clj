@@ -6,6 +6,7 @@
             [clojure.core.typed.check.loop :as loop]
             [clojure.core.typed.check.letfn :as letfn]
             [clojure.core.typed.check.recur :as recur]
+            [clojure.core.typed.check.def :as def]
             [clojure.core.typed.check.do :as do]
             [clojure.core.typed.check.recur-utils :as recur-u]
             [clojure.core.typed.check.utils :as cu]
@@ -100,29 +101,10 @@
 
 (add-check-method :def
   [{:keys [init env] vname :name :as expr} & [expected]]
-  (assert (not expected))
-  (binding [vs/*current-env* env
-            vs/*current-expr* expr]
-    (let [ann-type (var-env/lookup-Var-nofail vname)
-          check? (var-env/check-var? vname)
-          res-expr (assoc expr
-                          ;FIXME should really be Var, change when Var is annotated
-                          expr-type (ret r/-any))]
-      (cond
-        (or (not check?)
-            (not init)) res-expr
-        ann-type
-        (let [ cinit (check init (ret ann-type))
-              _ (when-not (sub/subtype? (-> cinit expr-type ret-t)
-                                        ann-type)
-                  (err/tc-delayed-error (str "Var definition did not match annotation."
-                                           " Expected: " (prs/unparse-type ann-type)
-                                           ", Actual: " (prs/unparse-type (-> cinit expr-type ret-t)))))]
-          res-expr)
-        :else (err/tc-delayed-error (str "Found untyped var definition: " vname
-                                       "\nHint: Add the annotation for " vname
-                                       " via check-ns or cf")
-                                  :return res-expr)))))
+  (if init
+    (def/check-normal-def check expr expected)
+    (assoc expr
+           u/expr-type (ret r/-any))))
 
 (add-check-method :js
   [{:keys [js-op args env] :as expr} & [expected]]

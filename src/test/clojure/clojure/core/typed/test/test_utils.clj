@@ -2,7 +2,7 @@
   (:require [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.test :as test :refer [is]]
-            ))
+            [clojure.core.typed.test.common-utils :as common-test]))
 
 (t/load-if-needed)
 
@@ -54,33 +54,12 @@
   Keyword Options:
 
     :expected-ret An expected ret, evaluated in the current namespace (not the new
-                  one that refers c.c.t. Cannot be provided in combination with the implicit
+                  one that refers c.c.t). Cannot be provided in combination with the implicit
                   first option as a type, as above.
     :ret          Check the return TCResult of this expression against this ret. Evaluated
                   in the current namespace."
   [frm & opts]
-  (let [[opts t has-t?] (if (and opts (not (keyword? (first opts))))
-                          [(rest opts) (first opts) true]
-                          [opts])
-        _ (assert (even? (count opts))
-                  "Uneven arguments to tc-e")
-        {:as opts} opts
-        _ (assert (not (and has-t? (contains? opts :expected)))
-                  "Can't provide both implicit expected type and :expected kw to tc-e")
-        has-t? (or has-t? (contains? opts :expected))
-        t (or t (:expected opts))
-        has-ret? (contains? opts :ret)
-        _ (assert (not (and has-t? (contains? opts :expected-ret)))
-                  "Can't provide both expected type and expected ret")
-        actual-ret (gensym 'ret)]
-    `(let [{~actual-ret :ret delayed-errors# :delayed-errors} ~(tc-common* frm (assoc opts
-                                                                               :expected-syntax {:provided? has-t?
-                                                                                                 :syn t}))]
-       (or (when (empty? delayed-errors#)
-             ~(when has-ret?
-                `(assert (= ~actual-ret ~(:ret opts))))
-             ~actual-ret)
-           (err/print-errors! delayed-errors#)))))
+  (apply common-test/tc-e tc-common* frm opts))
 
 (comment
   (tc-e 1)
@@ -92,32 +71,7 @@
   )
 
 (defmacro tc-err [frm & opts]
-  (let [[opts t has-t?] (if (and opts (not (keyword? (first opts))))
-                          [(rest opts) (first opts) true]
-                          [opts])
-        _ (assert (even? (count opts))
-                  "Uneven arguments to tc-e")
-        {:as opts} opts
-        _ (assert (not (and has-t? (contains? opts :expected)))
-                  "Can't provide both implicit expected type and :expected kw to tc-err")
-        has-t? (or has-t? (contains? opts :expected))
-        t (or t (:expected opts))
-        has-ret? (contains? opts :ret)
-        _ (assert (not (and has-t? (contains? opts :expected-ret)))
-                  "Can't provide both expected type and expected ret")
-        actual-ret (gensym 'ret)]
-    `(err/with-ex-info-handlers
-       [err/tc-error? (constantly true)]
-       (let [{~actual-ret :ret delayed-errors# :delayed-errors} 
-             ~(tc-common* frm 
-                          (assoc 
-                            opts
-                            :expected-syntax {:provided? has-t?
-                                              :syn t}))]
-         ~(when has-ret?
-            `(assert (= ~actual-ret ~(:ret opts))))
-         (boolean
-           (seq delayed-errors#))))))
+  (apply common-test/tc-err tc-common* frm opts))
 
 (defmacro is-tc-e [& body]
   `(test/is (do (tc-e ~@body)

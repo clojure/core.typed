@@ -1,5 +1,6 @@
 (ns clojure.core.typed.ast-utils
-  (:require [clojure.core.typed.current-impl :as impl]))
+  (:require [clojure.core.typed.current-impl :as impl]
+            [clojure.core.typed.coerce-utils :as coerce]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; AST ops
@@ -143,3 +144,9 @@
   (impl/impl-case
     :clojure :body
     :cljs :expr))
+
+(defn def-var-name [expr]
+  {:post [(symbol? %)]}
+  (impl/impl-case
+    :clojure (coerce/var->symbol (:var expr))
+    :cljs (:name expr)))

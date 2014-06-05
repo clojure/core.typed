@@ -3,6 +3,7 @@
             [cljs.repl.rhino :as rhino]
             [cljs.repl :as repl]
             [cljs.analyzer :as ana]
+            [clojure.core.typed.errors :as err]
             [clojure.set :as set]))
 
 (clj-t/load-if-needed)
@@ -15,14 +16,22 @@
          '[clojure.core.typed.parse-unparse :as prs]
          '[clojure.core.typed.subtype :as sub]
          '[clojure.core.typed.util-cljs :as ucljs]
+         '[clojure.core.typed.coerce-utils :as coerce]
+         '[clojure.core.typed.test.common-utils :as common-test]
          '[cljs.env :as env])
 
 (def cljs-env (env/default-compiler-env))
+(def repl-env (env/with-compiler-env @cljs-env
+                (rhino/repl-env)))
+
+(env/with-compiler-env @cljs-env
+  (rhino/rhino-setup repl-env))
 
 (defmacro cljs [& body]
   `(impl/with-cljs-impl
-     (env/with-compiler-env (or env/*compiler*
-                                cljs-env)
+     (env/with-compiler-env (or (when-let [e# env/*compiler*]
+                                  @e#)
+                                @cljs-env)
        ~@body)))
 
 (defmacro is-cljs [& body]
@@ -32,31 +41,49 @@
   `(is-cljs (t/cf ~@body) true))
 
 (defn check-opt [opt]
-  (assert (empty? (set/difference (set (keys opt))
+  #_(assert (empty? (set/difference (set (keys opt))
                                   #{:expected :ret}))))
 
-#_(defn tc-common* [frm flat-opt]
-  (let [_ (assert (even? (count flat-opt))
-                  "Uneven arguments to tc-e/tc-err")
-        {:keys [expected] :as opt} flat-opt
-        nsym (gensym 'clojure.core.typed.test.temp)]
+(defn tc-common* [frm {{:keys [syn provided?]} :expected-syntax :keys [expected-ret] :as opt}]
+  (let [nsym (gensym 'clojure.core.typed.test.temp)]
     (check-opt opt)
-  `(let [repl-env# (rhino/repl-env)
-         _ (rhino/rhino-setup repl-env#)
-         ns-form# '(ns ~nsym
-                     ~'(:refer-clojure :exclude [fn])
-                     ~'(:require [cljs.core.typed :refer :all :as t]
-                                 [cljs.core :as core]))
-         _ (repl/evaluate repl-env# (ana/empty-env) ns-form#)]
-     (t/check-form-info 
-       '~frm
-       ~@(when (contains? opt :expected)
-           [:expected `'~expected
-            :type-provided? true])))))
+    `(env/with-compiler-env
+       (or (when-let [e# env/*compiler*]
+             @e#)
+           @cljs-env)
+       (let [expected-ret# ~expected-ret
+             ns-form# '(~'ns ~nsym
+                         ;~'(:refer-clojure :exclude [fn])
+                         ~'(:require [cljs.core.typed :as t]
+                                     [cljs.core :as core]))
+             _# (repl/evaluate-form repl-env @cljs-env "NO_SOURCE" ns-form#)]
+         (t/check-form-info 
+           '~frm
+           :expected-ret expected-ret#
+           :expected '~syn
+           :type-provided? ~provided?)))))
 
-#_(defmacro tc-e [frm & opts]
-  `(let [{ret# :ret delayed-errors# :delayed-errors} ~(tc-common* frm opts)]
-     (or (when (empty? delayed-errors#)
-           ret#)
-         (err/print-errors! delayed-errors#))))
+(defmacro tc-e 
+  "Type check an an expression in namespace that :refer's
+  all of clojure.core.typed (aliased to t) and aliases clojure.core
+  to core.
 
+  Takes one form and then options, and returns true if the form checks
+  with the expected input/output types according to the provided options.
+  
+  The first form in the options can be a static type syntax scoped
+  in the new namespace. This is disambiguated with a call to keyword?
+  (literal keywords aren't valid type syntax).
+  
+  eg. (tc-e (+ 1 1) Num)
+      ;=> Num
+
+  Keyword Options:
+
+    :expected-ret An expected ret, evaluated in the current namespace (not the new
+                  one that refers c.c.t). Cannot be provided in combination with the implicit
+                  first option as a type, as above.
+    :ret          Check the return TCResult of this expression against this ret. Evaluated
+                  in the current namespace."
+  [frm & opts]
+  (apply common-test/tc-e tc-common* frm opts))
