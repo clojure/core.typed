@@ -1419,14 +1419,13 @@
             S-prest-types (-> S :prest :types)
             S-prest-types-count (count S-prest-types)
             merged-X (merge X {dbound (Y dbound)})
-            repeat-c (mapv #(get-c-from-cmap % dbound)
-                           (for> :- cset
-                                 [s :- r/Type, S-prest-types]
-                             (cs-gen V merged-X Y t-dty s)))
-            ;_ (println "repeat-c" repeat-c)
-            ]
-        (if (<= (+ S-dom-count S-prest-types-count)
-                T-dom-count)
+            get-list-of-c (fn [S-list]
+                            (mapv #(get-c-from-cmap % dbound)
+                                  (for> :- cset
+                                        [s :- r/Type, S-list]
+                                        (cs-gen V merged-X Y t-dty s))))
+            repeat-c (get-list-of-c S-prest-types)]
+        (if (<= S-dom-count T-dom-count)
           ; easy mode
           (let [T-rest-count (- T-dom-count S-dom-count)
                 [arg-S-prest remain-S-prest] (split-at (rem T-rest-count
@@ -1439,20 +1438,10 @@
                               arg-S-prest)
                 arg-mapping (cs-gen-list V X Y T-dom new-S)
                 fixed-c (if (= (count arg-S-prest) 0)
-                           []
-                           (mapv #(get-c-from-cmap % dbound)
-                                 (for> :- cset
-                                       [s :- r/Type, remain-S-prest]
-                                       (cs-gen V merged-X Y t-dty s))))
+                          []
+                          (get-list-of-c remain-S-prest))
                 darg-mapping (assoc-in (cr/empty-cset X Y) [:maps 0 :dmap :map dbound] (cr/->dcon-repeat fixed-c repeat-c))
-                ret-mapping (cs-gen V X Y (:rng S) (:rng T))
-;                _ (println
-;                    "arg-mapping" arg-mapping "\n"
-;                    "darg-mapping" darg-mapping "\n"
-;                    "ret-mapping" ret-mapping "\n"
-;                    "cset-met* above is" (cset-meet* [arg-mapping darg-mapping ret-mapping]) "\n"
-;                    )
-                ]
+                ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
             (cset-meet* [arg-mapping darg-mapping ret-mapping]))
           ; hard mode
           (err/nyi-error (pr-str "NYI Function inference" (prs/unparse-type S) (prs/unparse-type T))))))
