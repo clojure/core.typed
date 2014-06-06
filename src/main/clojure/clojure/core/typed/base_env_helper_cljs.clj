@@ -11,6 +11,9 @@
             [clojure.core.typed.name-env :as nme-env]
             [clojure.core.typed.jsnominal-env :as jsnom]
             [clojure.core.typed.datatype-env :as dtenv]
+            [clojure.core.typed.util-cljs :as ucljs]
+            [cljs.analyzer :as ana]
+            [cljs.compiler :as comp]
             [clojure.pprint :as pprint]))
 
 (defmacro alias-mappings [& args]

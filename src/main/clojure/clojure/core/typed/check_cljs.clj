@@ -48,10 +48,19 @@
 
 (declare check)
 
-(defn check-ns [nsym]
-  (let [asts (ana/ast-for-ns nsym)]
-    (doseq [ast asts]
+(defn check-asts [asts]
+  (doall
+    (for [ast asts]
       (check ast))))
+
+(defn check-ns [nsym]
+  {:pre [(symbol? nsym)]
+   :post [(nil? %)]}
+  (cu/check-ns-and-deps*
+    nsym
+    {:ast-for-ns ana/ast-for-ns
+     :check-asts check-asts
+     :check-ns check-ns}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Check CLJS AST

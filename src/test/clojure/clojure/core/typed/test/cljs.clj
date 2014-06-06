@@ -41,15 +41,10 @@
   (is-cljs (sub/subtype? (r/-val 1) (prs/parse-cljs 'number))))
 
 (deftest ann-test
-  (is-cf (cljs.core.typed/ann foo number)))
+  (is-tc-e (t/ann foo number)))
 
 (deftest check-ns-test
   (is-cljs (t/check-ns* 'cljs.core.typed.test.ann)))
-
-(deftest resolve-type-test
-  (is-cljs 
-    (= (:name (ucljs/resolve-var 'cljs.user 'cljs.core/IMap))
-       'cljs.core/IMap)))
 
 (deftest parse-protocol-test 
   (is-cljs (prs/parse-cljs '(cljs.core/IMap number number))))
@@ -59,47 +54,47 @@
                                            (r/NumberCLJS-maker)])))
 
 (deftest heterogeneous-ds-test
-  (is-cf [1 2]
-         '[number number])
-  (is-cf [1 2]
-         (cljs.core/IVector number))
-  (is-cf {:a 1}
-         '{:a number})
-  (is-cf {1 1}
-         (cljs.core/IMap number number))
-  (is-cf #{1}
-         (cljs.core/ISet number))
-  (is-cf (let [a 1] #{1 a})
-         (cljs.core/ISet number)))
+  (is-tc-e [1 2]
+           '[number number])
+  (is-tc-e [1 2]
+           (IVector number))
+  (is-tc-e {:a 1}
+           '{:a number})
+  (is-tc-e {1 1}
+           (IMap number number))
+  (is-tc-e #{1}
+           (ISet number))
+  (is-tc-e (let [a 1] #{1 a})
+           (ISet number)))
 
 (deftest js*-test
-  (is-cf (+ 1 1)))
+  (is-tc-e (+ 1 1)))
 
 (deftest fn-test
-  (is-cf (fn a [b] a))
-  (is-cf (fn [a] a)
-         (All [x] [x -> x])))
+  (is-tc-e (fn a [b] a))
+  (is-tc-e (fn [a] a)
+           (t/All [x] [x -> x])))
 
 (deftest inst-test
-  (is-cf (let [f (-> (fn [a] a)
-                     (cljs.core.typed/ann-form (All [x] [x -> x])))]
-           ((cljs.core.typed/inst f number) 1))))
+  (is-tc-e (let [f (-> (fn [a] a)
+                       (t/ann-form (t/All [x] [x -> x])))]
+             ((t/inst f number) 1))))
 
 (deftest letfn-test
-  (is-cf (cljs.core.typed/letfn> [a :- (All [x] [x -> x])
-                                  (a [b] b)]
-           (a 1))))
+  (is-tc-e (t/letfn> [a :- (t/All [x] [x -> x])
+                      (a [b] b)]
+             (a 1))))
 
-(deftest async-test
+#_(deftest async-test
   (is-cljs (t/check-ns* 'cljs.core.typed.async)))
 
 (deftest inline-annotation-test
   ; code from David Nolen's blog
-  (is-cf 
-    (defn ^{:ann '[(U nil (cljs.core/ISeqable Any)) Any -> int]}
+  (is-tc-e
+    (defn ^{:ann '[(t/U nil (ISeqable t/Any)) t/Any -> int]}
       index-of [xs x]
       (let [len (count xs)]
-        (cljs.core.typed/loop> 
+        (t/loop> 
           [i :- int, 0]
           (if (< i len)
             (if (= (nth xs i) x)
@@ -113,12 +108,12 @@
   (is-cljs (t/check-ns* 'cljs.core.typed.test.identity)))
 
 (deftest value-supertype-test
-  (is-cf 'a cljs.core/Symbol)
-  (is-cf :a cljs.core/Keyword)
-  (is-cf 1 int)
-  (is-cf 1.1 number)
-  (is-cf 1 number)
-  (is-cf true boolean))
+  (is-tc-e 'a Symbol)
+  (is-tc-e :a Keyword)
+  (is-tc-e 1 int)
+  (is-tc-e 1.1 number)
+  (is-tc-e 1 number)
+  (is-tc-e true boolean))
 
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.dom)
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)

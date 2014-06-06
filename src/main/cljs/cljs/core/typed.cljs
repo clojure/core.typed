@@ -1,5 +1,6 @@
 (ns cljs.core.typed
   "Internal functions for CLJS"
+  (:refer-clojure :exclude [IFn])
   (:require-macros 
     [clojure.core.typed.bootstrap-cljs :as boot]))
 

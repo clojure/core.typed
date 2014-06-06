@@ -27,32 +27,22 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
-(defn- collected-ns! [nsym]
-  (if-let [a t/*already-collected*]
-    (swap! a conj nsym)
-    (assert nil "Type system is not set up for namespace collection")))
-
-(defn- already-collected? [nsym]
-  (if-let [a t/*already-collected*]
-    (boolean (@a nsym))
-    (assert nil "Type system is not set up for namespace collection")))
-
 (declare collect)
+
+(defn collect-asts [asts]
+  (doseq [ast asts]
+    (collect ast)))
 
 (defn collect-ns
   "Collect type annotations and dependency information
   for namespace symbol nsym, and recursively check 
   declared typed namespace dependencies."
-  ([nsym]
-   (if (already-collected? nsym)
-     (do #_(println (str "Already collected " nsym ", skipping"))
-         #_(flush)
-         nil)
-     (do (collected-ns! nsym)
-         (prn "Collecting " nsym)
-         (let [asts (ana/ast-for-ns nsym)]
-           (doseq [ast asts]
-             (collect ast)))))))
+  [nsym]
+  (clt-u/collect-ns*
+    nsym
+    {:ast-for-ns ana/ast-for-ns
+     :collect-asts collect-asts
+     :collect-ns collect-ns}))
 
 (defmulti collect (fn [expr] (:op expr)))
 (u/add-defmethod-generator collect)

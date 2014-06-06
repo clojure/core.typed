@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.ns-deps
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.nilsafe-utils :as nilsafe]
             [clojure.set :as set]))
 
@@ -70,6 +71,8 @@
 (defn typed-deps [nsym]
   (let [deps (immediate-deps nsym)]
     (set (t/for [d :- t/Sym deps
-                 :when (get (immediate-deps d) 'clojure.core.typed)]
+                 :when (get (immediate-deps d) (impl/impl-case
+                                                 :clojure 'clojure.core.typed
+                                                 :cljs 'cljs.core.typed))]
            :- t/Sym
            d))))

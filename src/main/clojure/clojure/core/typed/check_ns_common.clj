@@ -50,10 +50,7 @@
                       vs/*checked-asts* (when (#{impl/clojure} impl)
                                           (when (== 1 (count nsym-coll))
                                             (atom {})))]
-              (with-bindings {(impl/impl-case
-                                :clojure #'vs/*already-collected*
-                                :cljs (impl/the-var 'cljs.core.typed/*already-collected*))
-                              (atom #{})}
+              (binding [vs/*already-collected* (atom #{})]
                 (let [terminal-error (atom nil)]
                   (reset-env/reset-envs!)
                   ;(reset-caches)
@@ -67,9 +64,9 @@
                         :clojure (collect-clj/collect-ns  nsym)
                         :cljs    (collect-cljs/collect-ns nsym)))
                     (let [ms (/ (double (- (. System (nanoTime)) start)) 1000000.0)
-                          collected @(impl/impl-case
-                                       :clojure vs/*already-collected*
-                                       :cljs (impl/v 'cljs.core.typed/*already-collected*))]
+                          collected @(if-let [c vs/*already-collected*]
+                                       c
+                                       (err/int-error "*already-collected* unbound"))]
                       (println "Collected" (count collected) "namespaces in" ms "msecs")
                       (flush))
 

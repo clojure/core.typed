@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.coerce-utils
   (:require [clojure.string :as str]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.core.typed.current-impl :as impl])
   (:import (clojure.lang RT Var)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -49,7 +50,10 @@
    :post [(string? %)]}
   ;copied basic approach from tools.emitter.jvm
   (let [res (munge nsym)
-        p    (str (str/replace res #"\." "/") ".clj")
+        p    (str (str/replace res #"\." "/") 
+                  (impl/impl-case
+                    :clojure ".clj"
+                    :cljs ".cljs"))
         p (if (.startsWith p "/") (subs p 1) p)]
     p))
 

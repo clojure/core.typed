@@ -49,7 +49,7 @@
     (boolean (@a nsym))
     (assert nil "Type system is not set up for namespace collection")))
 
-;(t/ann collect-ns [t/Sym -> nil])
+;(t/ann collect-ns* [t/Sym -> nil])
 (defn collect-ns*
   "Collect type annotations and dependency information
   for namespace symbol nsym, and recursively check 

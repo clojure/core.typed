@@ -266,7 +266,19 @@
 (defmacro check-ns
   "Check a Clojurescript namespace, or the current namespace. This macro
   is intended to be called at the Clojurescript REPL. For the equivalent function see
-  check-ns*."
-  [& args]
-  `~(apply check-ns* args))
-
+  check-ns*.
+  
+  The symbols *ns* and clojure.core/*ns* are special and refer to the current namespace. Useful if
+  providing options for the current namespace."
+  ([] 
+   (load-if-needed)
+   `(check-ns *ns*))
+  ([ns-or-syms & args]
+   (load-if-needed)
+   (let [_ (when (and (list? ns-or-syms)
+                      (#{'quote} (first ns-or-syms)))
+             (err/int-error "check-ns is a macro, do not quote the first argument"))
+         ns-or-syms (if ('#{*ns* clojure.core/*ns*} ns-or-syms)
+                      (impl/v 'cljs.analyzer/*cljs-ns*)
+                      ns-or-syms)]
+     `~(apply check-ns* ns-or-syms args))))

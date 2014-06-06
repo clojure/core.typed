@@ -3,10 +3,14 @@
             [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.bootstrap-cljs :as boot]
+            [cljs.analyzer :as ana]
+            [clojure.core.typed.util-cljs :as ucljs]
             [cljs.env :as env]
             [clojure.set :as set]))
 
 (env/ensure
+(ucljs/with-core-cljs-typed
+(binding [ana/*cljs-ns* 'cljs.core.typed]
 (delay-and-cache-env ^:private init-protocol-env 
   (h/protocol-mappings
     
@@ -123,16 +127,16 @@ cljs.core.typed/ann-datatype* [Any Any Any Any -> Any]
 cljs.core.typed/def-alias* [Any Any -> Any]
 cljs.core.typed/typed-deps* [Any -> Any]
 
-cljs.core/+ (Fn [int * -> int]
-                [number * -> number])
+cljs.core/+ (IFn [int * -> int]
+                  [number * -> number])
 cljs.core/> [number number * -> boolean]
 cljs.core/< [number number * -> boolean]
 cljs.core/= [Any * -> boolean]
 cljs.core/identical? [Any Any -> boolean]
 cljs.core/number? (predicate number)
 cljs.core/nth (All [x y] 
-                (Fn [(U nil (cljs.core/ISeqable x)) int -> x]
-                    [(U nil (cljs.core/ISeqable x)) int y -> (U y x)]))
+                (IFn [(U nil (cljs.core/ISeqable x)) int -> x]
+                      [(U nil (cljs.core/ISeqable x)) int y -> (U y x)]))
 
 cljs.core/*flush-on-newline* boolean
 cljs.core/*print-newline* boolean
@@ -171,8 +175,8 @@ cljs.core/missing-protocol [Any Any -> Any]
 cljs.core/type->str [Any -> string]
 
 cljs.core/make-array (All [r] 
-                          (Fn [int -> (Array r)]
-                              [Any int -> (Array r)]))
+                          (IFn [int -> (Array r)]
+                                [Any int -> (Array r)]))
 
 cljs.core/aclone (All [r]
                       [(ReadOnlyArray r) -> (Array r)])
@@ -180,29 +184,29 @@ cljs.core/aclone (All [r]
 cljs.core/array (All [r]
                      [r * -> (Array r)])
 
-cljs.core/aget (All [x] (Fn [(ReadOnlyArray x) 
-                             int -> x]
-                            [(ReadOnlyArray (ReadOnlyArray x)) 
-                             int int -> x]
-                            [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))) 
-                             int int int -> x]
-                            [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))) 
-                             int int int int -> x]
-                            ; don't support unsound cases
-                            [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))))
-                             int int int int int -> x]))
+cljs.core/aget (All [x] (IFn [(ReadOnlyArray x) 
+                               int -> x]
+                              [(ReadOnlyArray (ReadOnlyArray x)) 
+                               int int -> x]
+                              [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))) 
+                               int int int -> x]
+                              [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))) 
+                               int int int int -> x]
+                              ; don't support unsound cases
+                              [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))))
+                               int int int int int -> x]))
 
 ;TODO aset
 
 cljs.core/alength [(ReadOnlyArray Any) -> int]
 
 cljs.core/into-array (All [x] 
-                          (Fn [(U nil (cljs.core/ISeqable x)) -> (Array x)]
+                          (IFn [(U nil (cljs.core/ISeqable x)) -> (Array x)]
                               [Any (U nil (cljs.core/ISeqable x)) -> (Array x)]))
 
 cljs.core/pr-str* [Any -> string]
 
-cljs.core/symbol (Fn [(U string cljs.core/Symbol) -> cljs.core/Symbol]
+cljs.core/symbol (IFn [(U string cljs.core/Symbol) -> cljs.core/Symbol]
                      [(U string nil) string -> cljs.core/Symbol])
 
 
@@ -212,7 +216,7 @@ cljs.core/cloneable? (predicate cljs.core/ICloneable)
 
       ;TODO aliases
 ;cljs.core/seq (All [x]
-;                   (Fn 
+;                   (IFn 
 ;                     [(NonEmptyColl x) -> (NonEmptySeq x)]
 ;                     [(Option (Coll x)) -> (Option (NonEmptySeq x))
 ;                      :filters {:then (& (is NonEmptyCount 0)
@@ -332,4 +336,4 @@ cljs.core/Keyword [[]]
       (reset-jsnominal-env!)
       ((impl/v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
        (init-datatype-env))))
-  nil)
+  nil)))

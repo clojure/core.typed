@@ -8,7 +8,7 @@
 
 (clj-t/load-if-needed)
 
-(require '[clojure.test :refer :all]
+(require '[clojure.test :refer :all :as test]
          '[cljs.core.typed :as t]
          '[clojure.core.typed.type-ctors :as c]
          '[clojure.core.typed.type-rep :as r]
@@ -47,21 +47,22 @@
 (defn tc-common* [frm {{:keys [syn provided?]} :expected-syntax :keys [expected-ret] :as opt}]
   (let [nsym (gensym 'clojure.core.typed.test.temp)]
     (check-opt opt)
-    `(env/with-compiler-env
-       (or (when-let [e# env/*compiler*]
-             @e#)
-           @cljs-env)
-       (let [expected-ret# ~expected-ret
-             ns-form# '(~'ns ~nsym
-                         ;~'(:refer-clojure :exclude [fn])
-                         ~'(:require [cljs.core.typed :as t]
-                                     [cljs.core :as core]))
-             _# (repl/evaluate-form repl-env @cljs-env "NO_SOURCE" ns-form#)]
-         (t/check-form-info 
-           '~frm
-           :expected-ret expected-ret#
-           :expected '~syn
-           :type-provided? ~provided?)))))
+    `(binding [ana/*cljs-ns* ana/*cljs-ns*]
+       (env/with-compiler-env
+         (or (when-let [e# env/*compiler*]
+               @e#)
+             @cljs-env)
+         (let [expected-ret# ~expected-ret
+               ns-form# '(~'ns ~nsym
+                           ;~'(:refer-clojure :exclude [fn])
+                           ~'(:require [cljs.core.typed :as t :include-macros true]
+                                       [cljs.core :as core]))
+               _# (repl/evaluate-form repl-env @cljs-env "NO_SOURCE" ns-form#)]
+           (t/check-form-info 
+             '~frm
+             :expected-ret expected-ret#
+             :expected '~syn
+             :type-provided? ~provided?))))))
 
 (defmacro tc-e 
   "Type check an an expression in namespace that :refer's
@@ -87,3 +88,10 @@
                   in the current namespace."
   [frm & opts]
   (apply common-test/tc-e tc-common* frm opts))
+
+(defmacro is-tc-e [& body]
+  `(test/is (do (tc-e ~@body)
+                true)))
+
+(defmacro is-tc-err [& body]
+  `(test/is (tc-err ~@body)))

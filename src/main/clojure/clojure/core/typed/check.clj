@@ -106,18 +106,12 @@
 ;
 ; The type checker is implemented here.
 
-(t/ann checked-ns! [t/Sym -> nil])
-(defn- checked-ns! [nsym]
-  (t/when-let-fail [a vs/*already-checked*]
-    (swap! a conj nsym))
-  nil)
-
-(t/ann already-checked? [t/Sym -> Boolean])
-(defn- already-checked? [nsym]
-  (t/when-let-fail [a vs/*already-checked*]
-    (boolean (@a nsym))))
-
 (declare check-expr)
+
+(defn check-asts [asts]
+  (doall
+    (for [ast asts]
+      (check-expr ast))))
 
 (t/ann check-ns-and-deps [t/Sym -> nil])
 (defn check-ns-and-deps 
@@ -127,39 +121,11 @@
   ([nsym]
    {:pre [(symbol? nsym)]
     :post [(nil? %)]}
-   (u/p :check/check-ns-and-deps
-   (let [ns (find-ns nsym)
-         _ (assert ns (str "Namespace " nsym " not found during type checking"))]
-     (cond 
-       (already-checked? nsym) (do
-                                 ;(println (str "Already checked " nsym ", skipping"))
-                                 ;(flush)
-                                 nil)
-       :else
-       ; check deps
-       (let [deps (u/p :check/ns-immediate-deps 
-                    (ns-deps/typed-deps nsym))]
-         (checked-ns! nsym)
-         (doseq [dep deps]
-           (check-ns-and-deps dep))
-         ; ignore ns declaration
-         (let [check? (not (-> ns meta :core.typed :collect-only))]
-           (if-not check?
-             (do (println (str "Not checking " nsym " (tagged :collect-only in ns metadata)"))
-                 (flush))
-             (let [start (. System (nanoTime))
-                   asts (u/p :check/gen-analysis (ana-clj/ast-for-ns nsym))
-                   _ (println "Start checking" nsym)
-                   _ (flush)
-                   casts (doall
-                           (for [ast asts]
-                             (check-expr ast)))
-                   _ (when-let [checked-asts vs/*checked-asts*]
-                       (swap! checked-asts assoc nsym casts))
-                   _ (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs")
-                   _ (flush)
-                   ]
-         nil)))))))))
+   (cu/check-ns-and-deps*
+     nsym
+     {:ast-for-ns ana-clj/ast-for-ns
+      :check-asts check-asts
+      :check-ns check-ns-and-deps})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Checker

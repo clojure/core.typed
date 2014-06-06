@@ -1,5 +1,8 @@
 (ns ^:skip-wiki clojure.core.typed.check.utils
   (:require [clojure.core.typed :as t]
+            [clojure.core.typed.utils :as u]
+            [clojure.core.typed.ns-deps :as ns-deps]
+            [clojure.core.typed.ns-deps-utils :as ns-depsu]
             [clojure.core.typed.reflect-utils :as reflect-u]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.debug :as d]
@@ -417,3 +420,55 @@
         _ (assert (instance? clojure.lang.MultiFn multifn))
         default-val (.defaultDispatchVal multifn)]
     (= default-val dispatch-val)))
+
+(t/ann checked-ns! [t/Sym -> nil])
+(defn- checked-ns! [nsym]
+  (t/when-let-fail [a vs/*already-checked*]
+    (swap! a conj nsym))
+  nil)
+
+(t/ann already-checked? [t/Sym -> Boolean])
+(defn already-checked? [nsym]
+  (t/when-let-fail [a vs/*already-checked*]
+    (boolean (@a nsym))))
+
+(defn check-ns-and-deps*
+  "Type check a namespace and its dependencies.
+  Assumes type annotations in each namespace
+  has already been collected."
+  ([nsym {:keys [ast-for-ns
+                 check-asts
+                 check-ns]}]
+   {:pre [(symbol? nsym)]
+    :post [(nil? %)]}
+   (u/p :check/check-ns-and-deps
+   (let []
+     (cond 
+       (already-checked? nsym) (do
+                                 ;(println (str "Already checked " nsym ", skipping"))
+                                 ;(flush)
+                                 nil)
+       :else
+       ; check deps
+       (let [deps (u/p :check/ns-immediate-deps 
+                    (ns-deps/typed-deps nsym))]
+         (checked-ns! nsym)
+         (doseq [dep deps]
+           (check-ns dep))
+         ; ignore ns declaration
+         (let [check? (ns-depsu/should-check-ns? nsym)]
+           (if-not check?
+             (do (println (str "Not checking " nsym " (tagged :collect-only in ns metadata)"))
+                 (flush))
+             (let [start (. System (nanoTime))
+                   asts (u/p :check/gen-analysis (ast-for-ns nsym))
+                   _ (println "Start checking" nsym)
+                   _ (flush)
+                   casts (check-asts asts)
+                   _ (assert (== (count casts) (count asts)))
+                   _ (when-let [checked-asts vs/*checked-asts*]
+                       (swap! checked-asts assoc nsym casts))
+                   _ (println "Checked" nsym "in" (/ (double (- (. System (nanoTime)) start)) 1000000.0) "msecs")
+                   _ (flush)
+                   ]
+         nil)))))))))

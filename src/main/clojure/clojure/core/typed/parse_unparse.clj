@@ -77,7 +77,7 @@
 
 (defmulti parse-type class)
 (defmulti parse-type-list 
-  (fn [[n]] 
+  (fn [[n]]
     {:post [((some-fn nil? symbol?) %)]}
     (when (symbol? n)
       (or (impl/impl-case
@@ -86,7 +86,7 @@
                        :else (let [r (resolve-type-clj n)]
                                (when (var? r)
                                  (coerce/var->symbol r))))
-            :cljs n)
+            :cljs (resolve-type-cljs n))
           n))))
 
 (def parsed-free-map? (con/hmap-c? :fname symbol?
@@ -355,6 +355,7 @@
   (err/deprecated-plain-op 'All)
   (parse-All t))
 (defmethod parse-type-list 'clojure.core.typed/All [t] (parse-All t))
+(defmethod parse-type-list 'cljs.core.typed/All [t] (parse-All t))
 
 (defn parse-union-type [[u & types]]
   (c/make-Union (doall (map parse-type types))))
@@ -363,6 +364,7 @@
   (err/deprecated-plain-op 'U)
   (parse-union-type syn))
 (defmethod parse-type-list 'clojure.core.typed/U [syn] (parse-union-type syn))
+(defmethod parse-type-list 'cljs.core.typed/U [syn] (parse-union-type syn))
 
 ; don't do any simplification of the intersection because some types might
 ; not be resolved
@@ -374,7 +376,7 @@
   (parse-intersection-type syn))
 (defmethod parse-type-list 'clojure.core.typed/I [syn] (parse-intersection-type syn))
 
-(defmethod parse-type-list 'Array
+(defn parse-Array 
   [[_ syn & none]]
   (when-not (empty? none) 
     (err/int-error "Expected 1 argument to Array"))
@@ -386,7 +388,10 @@
                  (r/PrimitiveArray-maker jtype t t))
       :cljs (r/ArrayCLJS-maker t t))))
 
-(defmethod parse-type-list 'ReadOnlyArray
+(defmethod parse-type-list 'Array [syn] (parse-Array syn))
+(defmethod parse-type-list 'cljs.core.typed/Array [syn] (parse-Array syn))
+
+(defn parse-ReadOnlyArray
   [[_ osyn & none]]
   (when-not (empty? none) 
     (err/int-error "Expected 1 argument to ReadOnlyArray"))
@@ -394,6 +399,9 @@
     (impl/impl-case
       :clojure (r/PrimitiveArray-maker Object (r/Bottom) o)
       :cljs (r/ArrayCLJS-maker (r/Bottom) o))))
+
+(defmethod parse-type-list 'ReadOnlyArray [syn] (parse-ReadOnlyArray syn))
+(defmethod parse-type-list 'cljs.core.typed/ReadOnlyArray [syn] (parse-ReadOnlyArray syn))
 
 (defmethod parse-type-list 'Array2
   [[_ isyn osyn & none]]
@@ -431,6 +439,7 @@
   (err/deprecated-plain-op 'Fn 'IFn)
   (parse-Fn t))
 (defmethod parse-type-list 'clojure.core.typed/IFn [t] (parse-Fn t))
+(defmethod parse-type-list 'cljs.core.typed/IFn [t] (parse-Fn t))
 
 (defn parse-free-binder [[nme & {:keys [variance < > kind] :as opts}]]
   (when-not (symbol? nme)
@@ -735,17 +744,18 @@
       (err/int-error (str "Cannot find namespace: " sym)))))
 
 (defn- resolve-type-cljs 
-  "Returns a var map of {:ns (U nil sym) :name sym} or nil"
+  "Returns a qualified symbol or nil"
   [sym]
   {:pre [(symbol? sym)]
-   :post [((some-fn (con/hmap-c? (con/optional :ns) (some-fn nil? symbol? )
-                                 :name symbol?)
+   :post [((some-fn symbol?
                     nil?)
            %)]}
   (impl/assert-cljs)
-  (let [nsym (parse-in-ns)]
-    (require '[clojure.core.typed.util-cljs])
-    ((impl/v 'clojure.core.typed.util-cljs/resolve-var) nsym sym)))
+  (let [nsym (parse-in-ns)
+        _ (require '[clojure.core.typed.util-cljs])
+        res ((impl/v 'clojure.core.typed.util-cljs/resolve-var) nsym sym)]
+    ;(prn "res" res)
+    res))
 
 (defn parse-RClass [cls-sym params-syn]
   (impl/assert-clojure)
@@ -793,16 +803,21 @@
 
 (declare unparse-type deprecated-list)
 
-(defmethod parse-type-list :default 
+(defn parse-type-list-default 
   [[n & args :as syn]]
   (if-let [d (deprecated-list syn)]
     d
     (let [op (parse-type n)]
+      ;(prn "tapp op" op)
       (when-not ((some-fn r/Name? r/TypeFn? r/F? r/B? r/Poly?) op)
         (err/int-error (str "Invalid operator to type application: " syn)))
       (with-meta (r/TApp-maker op (mapv parse-type args))
                  {:syn syn
                   :env vs/*current-env*}))))
+
+(defmethod parse-type-list :default 
+  [[n & args :as syn]]
+  (parse-type-list-default syn))
 
 (defmethod parse-type Cons [l] (parse-type-list l))
 (defmethod parse-type IPersistentList [l] 
@@ -816,7 +831,7 @@
                      (when (var? r)
                        (coerce/var->symbol r)))
           ;TODO
-          :cljs n)
+          :cljs (resolve-type-cljs n))
         n)))
 
 (defmethod parse-type-symbol 'Any [_] 
@@ -825,6 +840,7 @@
     :cljs nil)
   r/-any)
 (defmethod parse-type-symbol 'clojure.core.typed/Any [_] r/-any)
+(defmethod parse-type-symbol 'cljs.core.typed/Any [_] r/-any)
 
 (defmethod parse-type-symbol 'Nothing [_] 
   (impl/impl-case
@@ -834,6 +850,12 @@
 (defmethod parse-type-symbol 'clojure.core.typed/Nothing [_] (r/Bottom))
 
 (defmethod parse-type-symbol 'AnyFunction [_] (r/TopFunction-maker))
+
+(defmethod parse-type-symbol 'cljs.core.typed/Int [_] (r/IntegerCLJS-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/Num [_] (r/NumberCLJS-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/Bool [_] (r/BooleanCLJS-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/Object [_] (r/ObjectCLJS-maker))
+(defmethod parse-type-symbol 'cljs.core.typed/Str [_] (r/StringCLJS-maker))
 
 (defn clj-primitives-fn []
   (let [RClass-of @(RClass-of-var)]
@@ -886,7 +908,7 @@
     :clojure (deprecated-clj-list lst)
     :cljs nil))
 
-(defmethod parse-type-symbol :default
+(defn parse-type-symbol-default
   [sym]
   (let [primitives (impl/impl-case
                      :clojure (clj-primitives-fn)
@@ -897,9 +919,8 @@
                           (cond 
                             (class? res) (coerce/Class->symbol res)
                             (var? res) (coerce/var->symbol res)))
-               :cljs (when-let [res (when (symbol? sym)
-                                      (resolve-type-cljs sym))]
-                       (:name res)))
+               :cljs (when (symbol? sym)
+                       (resolve-type-cljs sym)))
         free (when (symbol? sym) 
                (free-ops/free-in-scope sym))
         _ (assert ((some-fn symbol? nil?) rsym))]
@@ -911,6 +932,10 @@
                                 "\nHint: Is " (pr-str sym) " in scope?"
                                 "\nHint: Has " (pr-str sym) "'s annotation been"
                                 " found via check-ns, cf or typed-deps?")))))
+
+(defmethod parse-type-symbol :default
+  [sym]
+  (parse-type-symbol-default sym))
 
 (defmethod parse-type Symbol [l] (parse-type-symbol l))
 (defmethod parse-type Boolean [v] (if v r/-true r/-false)) 
@@ -1008,8 +1033,9 @@
 
 (defn parse-function [f]
   {:post [(r/Function? %)]}
-  (let [all-dom (take-while #(not= '-> %) f)
-        [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
+  (let [is-arrow '#{-> :->}
+        all-dom (take-while (complement is-arrow) f)
+        [_ rng & opts-flat :as chk] (drop-while (complement is-arrow) f) ;opts aren't used yet
         _ (when-not (<= 2 (count chk)) 
             (err/int-error (str "Incorrect function syntax: " f)))
 
@@ -1020,11 +1046,15 @@
 
         {ellipsis-pos '...
          asterix-pos '*
+         kw-asterix-pos :*
          ampersand-pos '&}
         (zipmap all-dom (range))
 
-        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos])))
+        _ (when-not (#{0 1} (count (filter identity [asterix-pos ellipsis-pos ampersand-pos
+                                                     kw-asterix-pos])))
             (err/int-error "Can only provide one rest argument option: & ... or *"))
+
+        asterix-pos (or asterix-pos kw-asterix-pos)
 
         _ (when-let [ks (seq (remove #{:filters :object :flow} (keys opts)))]
             (err/int-error (str "Invalid function keyword option/s: " ks)))
