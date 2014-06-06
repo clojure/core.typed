@@ -179,7 +179,11 @@
     (doseq [^Exception e errors]
       (let [{{:keys [file line column] :as env} :env :as data} (ex-data e)]
         (print "Type Error ")
-        (print (str "(" (or file (-> env :ns) "NO_SOURCE_FILE")
+        (print (str "(" (or file 
+                            (let [nsym (-> env :ns)]
+                              (when (symbol? nsym)
+                                nsym))
+                            "NO_SOURCE_FILE")
                     (when line
                       (str ":" line
                            (when column
