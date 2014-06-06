@@ -226,6 +226,7 @@
   (err/deprecated-plain-op 'predicate 'Pred)
   (parse-Pred t))
 (defmethod parse-type-list 'clojure.core.typed/Pred [t] (parse-Pred t))
+(defmethod parse-type-list 'cljs.core.typed/Pred [t] (parse-Pred t))
 
 ; Only base-env can use this, eventually replace with Difference
 (defmethod parse-type-list 'Not
@@ -375,6 +376,7 @@
   (err/deprecated-plain-op 'I)
   (parse-intersection-type syn))
 (defmethod parse-type-list 'clojure.core.typed/I [syn] (parse-intersection-type syn))
+(defmethod parse-type-list 'cljs.core.typed/I [syn] (parse-intersection-type syn))
 
 (defn parse-Array 
   [[_ syn & none]]
@@ -520,6 +522,7 @@
   (err/deprecated-plain-op 'TFn)
   (parse-type-fn syn))
 (defmethod parse-type-list 'clojure.core.typed/TFn [syn] (parse-type-fn syn))
+(defmethod parse-type-list 'cljs.core.typed/TFn [syn] (parse-type-fn syn))
 
 (declare parse-quoted-hvec)
 

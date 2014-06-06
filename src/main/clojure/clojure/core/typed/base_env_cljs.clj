@@ -127,13 +127,14 @@ cljs.core.typed/ann-datatype* [Any Any Any Any -> Any]
 cljs.core.typed/def-alias* [Any Any -> Any]
 cljs.core.typed/typed-deps* [Any -> Any]
 
+cljs.core/identity (All [x] [x -> x])
 cljs.core/+ (IFn [int * -> int]
                   [number * -> number])
 cljs.core/> [number number * -> boolean]
 cljs.core/< [number number * -> boolean]
 cljs.core/= [Any * -> boolean]
 cljs.core/identical? [Any Any -> boolean]
-cljs.core/number? (predicate number)
+cljs.core/number? (Pred number)
 cljs.core/nth (All [x y] 
                 (IFn [(U nil (cljs.core/ISeqable x)) int -> x]
                       [(U nil (cljs.core/ISeqable x)) int y -> (U y x)]))
@@ -153,7 +154,7 @@ cljs.core/*3 Any
 
 cljs.core/truth_ [Any -> Any]
 
-cljs.core/nil? (predicate nil)
+cljs.core/nil? (Pred nil)
 
 cljs.core/array? (ReadOnlyArray Any)
 
@@ -161,7 +162,7 @@ cljs.core/not [Any -> boolean]
 
 cljs.core/object? [Any -> boolean]
 
-cljs.core/string? (predicate string)
+cljs.core/string? (Pred string)
 
 cljs.core/native-satisfies? [Any Any -> Any]
 
@@ -212,7 +213,7 @@ cljs.core/symbol (IFn [(U string cljs.core/Symbol) -> cljs.core/Symbol]
 
 cljs.core/clone [Any -> Any]
 
-cljs.core/cloneable? (predicate cljs.core/ICloneable)
+cljs.core/cloneable? (Pred cljs.core/ICloneable)
 
       ;TODO aliases
 ;cljs.core/seq (All [x]

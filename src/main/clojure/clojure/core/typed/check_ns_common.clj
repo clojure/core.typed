@@ -115,6 +115,7 @@
 (defn check-ns
   ([impl ns-or-syms & opt]
    (let [{:keys [delayed-errors]} (apply check-ns-info impl ns-or-syms opt)]
-     (if-let [errors (seq delayed-errors)]
-       (err/print-errors! errors)
-       :ok))))
+     (impl/with-full-impl impl
+       (if-let [errors (seq delayed-errors)]
+         (err/print-errors! errors)
+         :ok)))))

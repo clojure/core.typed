@@ -453,7 +453,12 @@
        (let [deps (u/p :check/ns-immediate-deps 
                     (ns-deps/typed-deps nsym))]
          (checked-ns! nsym)
+         ;check deps added with typed-deps
          (doseq [dep deps]
+           (check-ns dep))
+         ;check normal dependencies
+         (doseq [dep (ns-depsu/deps-for-ns nsym)
+                 :when (ns-depsu/should-check-ns? nsym)]
            (check-ns dep))
          ; ignore ns declaration
          (let [check? (ns-depsu/should-check-ns? nsym)]

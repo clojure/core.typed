@@ -6,6 +6,7 @@
             [clojure.core.typed.profiling :as p]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.errors :as err]
+            [clojure.core.typed.current-impl :as impl]
             [clojure.java.io :as io]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -35,7 +36,9 @@
   {:pre [ns-form]
    :post [((con/set-c? symbol?) %)]}
   (p/p :ns-deps-utils/ns-form-deps
-    (ns-parse/deps-from-ns-decl ns-form)))
+   (let [ndeps (ns-parse/deps-from-ns-decl ns-form)]
+     ; tools.namespace can return nil here
+     (set ndeps))))
 
 (defn deps-for-ns
   "Returns the dependencies for a namespace"
@@ -52,7 +55,9 @@
   {:pre [ns-form]
    :post [(con/boolean? %)]}
   (let [deps (ns-parse/deps-from-ns-decl ns-form)]
-    (contains? deps 'clojure.core.typed)))
+    (contains? deps (impl/impl-case
+                      :clojure 'clojure.core.typed
+                      :cljs 'cljs.core.typed))))
 
 (defn ns-form-name
   "Returns the symbol naming this namespace, with any

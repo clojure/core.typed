@@ -115,6 +115,10 @@
   (is-tc-e 1 number)
   (is-tc-e true boolean))
 
+(deftest ns-deps-test
+  (is (t/check-ns* 'cljs.core.typed.test.dep-one))
+  (is (t/check-ns* 'cljs.core.typed.test.dep-two)))
+
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.dom)
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.helpers)

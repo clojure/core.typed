@@ -8,7 +8,7 @@
 
 (def -specials 
   '#{All U Any Pred Int Bool Num Str Object ReadOnlyArray
-     Array IFn})
+     Array IFn TFn I})
 
 (assert (empty? (set/intersection -base-aliases -specials)))
 

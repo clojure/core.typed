@@ -24,8 +24,9 @@
 (def repl-env (env/with-compiler-env @cljs-env
                 (rhino/repl-env)))
 
-(env/with-compiler-env @cljs-env
-  (rhino/rhino-setup repl-env))
+(binding [ana/*cljs-ns* ana/*cljs-ns*]
+  (env/with-compiler-env @cljs-env
+    (rhino/rhino-setup repl-env)))
 
 (defmacro cljs [& body]
   `(impl/with-cljs-impl
