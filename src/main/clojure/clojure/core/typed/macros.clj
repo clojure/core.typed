@@ -14,7 +14,7 @@
   def
   "Like clojure.core/def with optional type annotations
 
-  NB: it is impossible to refer a var called `def` as it is a
+  NB: in Clojure it is impossible to refer a var called `def` as it is a
   special form. Use an alias prefix (eg. `t/def`).
 
   If an annotation is provided, a corresponding `ann` form
