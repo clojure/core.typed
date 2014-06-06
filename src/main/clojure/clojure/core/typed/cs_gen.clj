@@ -1424,9 +1424,10 @@
                                   (for> :- cset
                                         [s :- r/Type, S-list]
                                         (cs-gen V merged-X Y t-dty s))))
-            repeat-c (get-list-of-c S-prest-types)]
+            repeat-c (get-list-of-c S-prest-types)
+            ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
         (if (<= S-dom-count T-dom-count)
-          ; easy mode
+          ; hard mode
           (let [T-rest-count (- T-dom-count S-dom-count)
                 [arg-S-prest remain-S-prest] (split-at (rem T-rest-count
                                                             S-prest-types-count) S-prest-types)
@@ -1440,11 +1441,18 @@
                 fixed-c (if (= (count arg-S-prest) 0)
                           []
                           (get-list-of-c remain-S-prest))
-                darg-mapping (assoc-in (cr/empty-cset X Y) [:maps 0 :dmap :map dbound] (cr/->dcon-repeat fixed-c repeat-c))
-                ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
+                darg-mapping (assoc-in (cr/empty-cset X Y)
+                                       [:maps 0 :dmap :map dbound]
+                                       (cr/->dcon-repeat fixed-c repeat-c))]
             (cset-meet* [arg-mapping darg-mapping ret-mapping]))
-          ; hard mode
-          (err/nyi-error (pr-str "NYI Function inference" (prs/unparse-type S) (prs/unparse-type T))))))
+          ; easy mode
+          (let [[arg-S rest-S] (split-at T-dom-count S-dom)
+                arg-mapping (cs-gen-list V X Y T-dom arg-S)
+                fixed-c (get-list-of-c rest-S)
+                darg-mapping (assoc-in (cr/empty-cset X Y)
+                                       [:maps 0 :dmap :map dbound]
+                                       (cr/->dcon-repeat fixed-c repeat-c))]
+            (cset-meet* [arg-mapping darg-mapping ret-mapping])))))
 
       ;; dotted on the left, nothing on the right
       (and (:drest S)

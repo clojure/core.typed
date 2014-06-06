@@ -13,7 +13,7 @@
 (def bar (foo1 (t/inst hash-map Number String) 1 "a" 2 "b"))
 
 ; FIXME remove no-check
-; this map1 must accept at least 2 list, this is correspond one case in our easy mode in cs-gen-Function
+; this map1 must accept at least 2 list, this is correspond one case in our hard mode in cs-gen-Function
 (t/ann ^:no-check map1 (All [a b r c ...]
                          [[a b c ... c -> r] (t/Seqable a) (t/Seqable b) (t/Seqable c) ... c -> (t/Seqable r)]))
 (defn map1 [f a b & rst]
@@ -25,3 +25,10 @@
 
 (def bar1 (map (t/inst hash-map Number String) [1 2 3] ["a b c"]))
 (def bar1 (map (t/inst hash-map Number String) [1 2 3] ["a" "b" "c"] [4 5 6] ["d" "e" "f"]))
+
+; this hash-map1 accept two dummy arguments, this is correspond to our easy mode in cs-gen-Function
+(t/ann ^:no-check hash-map1 (All [a b x y] [a b (HSequential [x y] :repeat true) <* -> (t/Map x y)]))
+(defn hash-map1 [_ _ & rst] (apply hash-map rst))
+
+(def bar1 (map (t/inst hash-map1 Any Any Number String) [1 "a" \a] [1 "c" \a] [1 2 3] ["a b c"]))
+(def bar1 (map (t/inst hash-map1 Any Any Number String) [1 "a" \a] [1 "c" \a] [1 2 3] ["a" "b" "c"] [4 5 6] ["d" "e" "f"]))
