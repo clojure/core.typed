@@ -1165,8 +1165,11 @@
         ; use unqualified name if interned
     (or (var-symbol-intern sym ns)
         ; use aliased ns if not interned, but ns is aliased
-        (when-let [alias (alias-in-ns (namespace sym) ns)]
-          (symbol (str alias) (name sym)))
+        (impl/impl-case
+          :clojure
+          (when-let [alias (alias-in-ns (namespace sym) ns)]
+            (symbol (str alias) (name sym)))
+          :cljs nil)
         ; otherwise use fully qualified name
         sym)
     sym))
