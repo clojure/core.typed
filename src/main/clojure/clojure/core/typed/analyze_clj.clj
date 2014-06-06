@@ -1,6 +1,7 @@
 (ns ^:skip-wiki clojure.core.typed.analyze-clj
   (:refer-clojure :exclude [macroexpand-1])
   (:require [clojure.tools.analyzer :as ta]
+            [clojure.tools.analyzer.env :as ta-env]
             [clojure.tools.analyzer.jvm :as taj]
             [clojure.tools.analyzer.utils :as taj-utils]
             [clojure.tools.analyzer.passes.source-info :as source-info]
@@ -61,45 +62,46 @@
    returns its expansion, else returns form."
   [form env]
   ;(prn "macroexpand-1" form (meta form))
-  (if (seq? form)
-    (let [[op & args] form]
-      (if (taj/specials op)
-        form
-        (let [v (taj-utils/resolve-var op env)
-              m (meta v)
-              ;_ (prn "op" (meta op)  m)
-              local? (-> env :locals (get op))
-              macro? (and (not local?) (:macro m)) ;; locals shadow macros
-              inline-arities-f (:inline-arities m)
-              inline? (and (not local?)
-                           (or (not inline-arities-f)
-                               (inline-arities-f (count args)))
-                           (:inline m))
-              t (:tag m)]
-          (cond
+    (ta-env/ensure (taj/global-env)
+    (if (seq? form)
+      (let [[op & args] form]
+        (if (taj/specials op)
+          form
+          (let [v (taj-utils/resolve-var op env)
+                m (meta v)
+                ;_ (prn "op" (meta op)  m)
+                local? (-> env :locals (get op))
+                macro? (and (not local?) (:macro m)) ;; locals shadow macros
+                inline-arities-f (:inline-arities m)
+                inline? (and (not local?)
+                             (or (not inline-arities-f)
+                                 (inline-arities-f (count args)))
+                             (:inline m))
+                t (:tag m)]
+            (cond
 
-           macro?
-           (let [res (apply (typed-macros v v) form (:locals env) (rest form))] ; (m &form &env & args)
-             (taj/update-ns-map!)
-             (if (taj-utils/obj? res)
-               (vary-meta res merge (meta form))
-               res))
+             macro?
+             (let [res (apply (typed-macros v v) form (:locals env) (rest form))] ; (m &form &env & args)
+               (taj/update-ns-map!)
+               (if (taj-utils/obj? res)
+                 (vary-meta res merge (meta form))
+                 res))
 
-           inline?
-           (let [res (apply inline? args)]
-             (taj/update-ns-map!)
-             (if (taj-utils/obj? res)
-               (vary-meta res merge
-                          (and t {:tag t})
-                          ; we want the top-most inlining op
-                          {::inline-op op
-                           ::inline-var v}
-                          (meta form))
-               res))
+             inline?
+             (let [res (apply inline? args)]
+               (taj/update-ns-map!)
+               (if (taj-utils/obj? res)
+                 (vary-meta res merge
+                            (and t {:tag t})
+                            ; we want the top-most inlining op
+                            {::inline-op op
+                             ::inline-var v}
+                            (meta form))
+                 res))
 
-           :else
-           (taj/desugar-host-expr form env)))))
-    (taj/desugar-host-expr form env)))
+             :else
+             (taj/desugar-host-expr form env)))))
+      (taj/desugar-host-expr form env))))
 
 (defn analyze1 [form env]
   (taj/analyze+eval form env {:bindings {#'ta/macroexpand-1 macroexpand-1}}))
