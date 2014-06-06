@@ -11,13 +11,23 @@
 
 ;(t/ann ^:no-check env-for-error [Any -> Any])
 (defn env-for-error [env]
-  (select-keys env [:line :column :file]))
+  ; impl-case probably can't be done here
+  (merge (select-keys env [:line :column])
+         ;clojure specific
+         (let [f (:file env)]
+           (when (string? f)
+             {:file f}))
+         ;cljs specific
+         ;FIXME filename?
+         (let [n (get-in env [:ns :name])]
+           (when (symbol? n)
+             {:ns n}))))
 
 (defn int-error
   [estr]
   (let [{:keys [line column file] :as env} *current-env*]
     (throw (ex-info (str "Internal Error "
-                         "(" (or file (-> env :ns :name)) ":" 
+                         "(" (or file (:ns env)) ":" 
                          (or line "<NO LINE>")
                          (when column
                            (str ":" column))
