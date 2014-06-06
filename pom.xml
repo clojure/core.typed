@@ -34,8 +34,13 @@
           <include>clojure/core/typed/macros.clj</include>
           <!-- cljs -->
           <include>cljs/core/typed.clj</include>
-          <include>cljs/core/typed.cljs</include>
           <include>cljs/core/typed/async.clj</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>src/main/cljs</directory>
+        <includes>
+          <include>cljs/core/typed.cljs</include>
           <include>cljs/core/typed/async.cljs</include>
         </includes>
       </resource>
