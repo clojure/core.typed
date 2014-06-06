@@ -1,6 +1,6 @@
 (ns cljs.core.typed
   "Macros for Clojurescript type checking"
-  (:refer-clojure :exclude [fn])
+  (:refer-clojure :exclude [fn def loop])
   (:require [clojure.core.typed.load-if-needed :as load]
             [clojure.core :as core]
             [clojure.core.typed.current-impl :as impl :refer [v]]
@@ -13,7 +13,7 @@
             [clojure.pprint :as pprint]))
 
 (import-m/import-macros clojure.core.typed.macros
-  [fn tc-ignore ann-form])
+  [fn tc-ignore ann-form def loop])
 
 (defn load-if-needed 
   "Load and initialize all of core.typed if not already"
