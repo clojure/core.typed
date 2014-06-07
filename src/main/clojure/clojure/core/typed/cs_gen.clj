@@ -1379,6 +1379,53 @@
             ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
         (cset-meet* [arg-mapping ret-mapping])))
 
+      ; :rest is less restricted than :prest
+      (and (:prest S)
+           (:rest T)
+           (> (-> S :prest :types count) 1))
+      (fail! S T)
+
+      (and (:rest S)
+           (:prest T))
+      (u/p :cs-gen/cs-gen-Function-rest-prest
+      (let [S-dom (:dom S)
+            S-dom-count (count S-dom)
+            T-dom (:dom T)
+            T-dom-count (count T-dom)
+            S-rest (:rest S)
+            T-prest-types (-> T :prest :types)
+            T-prest-types-count (count T-prest-types)
+            ret-mapping (cg (:rng S) (:rng T))
+            rest-prest-mapping (cs-gen-list V X Y T-prest-types (repeat T-prest-types-count S-rest))]
+        (if (> S-dom-count T-dom-count)
+          ; hard mode
+          (let [[S-dom-short S-dom-rest] (split-at T-dom-count S-dom)
+                ;_ (println "in hard-mode of rest prest")
+                arg-mapping (cs-gen-list V X Y T-dom S-dom-short)
+                remain-repeat-count (rem (count S-dom-rest) T-prest-types-count)
+                ceiling (fn [up low]
+                          {:pre [(every? integer? [up low])]}
+                          (let [result (quot up low)]
+                            (if (zero? (rem up low))
+                              result
+                              (inc result))))
+                repeat-times (if (empty? S-dom-rest)
+                               0
+                               (ceiling (count S-dom-rest) T-prest-types-count))
+                repeat-mapping (cs-gen-list V X Y
+                                            (concat S-dom-rest
+                                                    (repeat remain-repeat-count S-rest))
+                                            (reduce (fn [acc cur]
+                                                      (concat acc cur))
+                                                    []
+                                                    (repeat repeat-times T-prest-types)))]
+            (cset-meet* [arg-mapping repeat-mapping rest-prest-mapping ret-mapping]))
+          ; easy mode
+          (let [[T-dom-short T-dom-rest] (split-at S-dom-count T-dom)
+                arg-mapping (cs-gen-list V X Y T-dom-short S-dom)
+                rest-mapping (cs-gen-list V X Y T-dom-rest (repeat (count T-dom-rest) S-rest))]
+            (cset-meet* [arg-mapping rest-mapping rest-prest-mapping ret-mapping])))))
+
       ; prest on left, nothing on right
       (and (:prest S)
            (not-any? (some-fn :rest :drest :kws :prest) [T]))
@@ -1425,7 +1472,7 @@
                                         [s :- r/Type, S-list]
                                         (cs-gen V merged-X Y t-dty s))))
             repeat-c (get-list-of-c S-prest-types)
-            ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
+            ret-mapping (cg (:rng S) (:rng T))]
         (if (<= S-dom-count T-dom-count)
           ; hard mode
           (let [T-rest-count (- T-dom-count S-dom-count)
