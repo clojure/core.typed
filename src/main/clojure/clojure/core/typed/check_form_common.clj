@@ -14,7 +14,8 @@
 (defn check-form-info
   [{:keys [impl ast-for-form unparse-ns
            check-expr collect-expr]} 
-   form & {:keys [expected-ret expected type-provided? profile file-mapping]}]
+   form & {:keys [expected-ret expected type-provided? profile file-mapping
+                  checked-ast]}]
   (assert (not (and expected-ret type-provided?)))
   (p/profile-if profile
     (reset-caches/reset-caches)
@@ -46,6 +47,8 @@
                                        (when-let [e @terminal-error?]
                                          [e]))
                :ret (or res (r/ret r/-error))}
+              (when checked-ast
+                {:checked-ast c-ast})
               (when (#{impl/clojure} impl)
                 {:result (:result ast)})
               (when (#{impl/clojure} impl)
