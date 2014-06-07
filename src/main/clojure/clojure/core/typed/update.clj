@@ -129,7 +129,7 @@
            (empty? (:path lo))) 
       (let [u (:type lo)
             _ (assert (r/Type? u))
-            r (c/restrict u t)]
+            r (c/restrict t u)]
         r)
 
       (and (fl/NotTypeFilter? lo)
@@ -215,7 +215,7 @@
       (let [u (:type lo)]
         (if-let [cnt (when (and (r/Value? u) (integer? (:val u)))
                        (r/make-ExactCountRange (:val u)))]
-          (c/restrict cnt t)
+          (c/restrict t cnt)
           (do (u/tc-warning "Cannot infer Count from type " (prs/unparse-type u))
               t)))
 
@@ -232,7 +232,7 @@
             idx (:idx path-expr)
             fixed-types (conj (vec (repeat idx r/-any)) type)
             restriction-type (r/-hsequential fixed-types :rest r/-any)]
-        (c/restrict restriction-type t))
+        (c/restrict t restriction-type))
 
       (and (fl/NotTypeFilter? lo)
            (pe/NthPE? (-> lo :path first))
@@ -250,11 +250,11 @@
           ; eg. #(= (class %) Number)
           (and (r/Value? u)
                (class? (:val u)))
-          (c/restrict (c/RClass-of-with-unknown-params (:val u)) t)
+          (c/restrict t (c/RClass-of-with-unknown-params (:val u)))
 
           ; handle (class nil) => nil
           (r/Nil? u)
-          (c/restrict r/-nil t)
+          (c/restrict t r/-nil)
 
           :else
           (do (u/tc-warning "Cannot infer type via ClassPE from type " (prs/unparse-type u))
@@ -305,10 +305,10 @@
             _ (assert element-t)]
         (assert (empty? rstpth) (str "Further path NYI keys/vals"))
         (if (fl/TypeFilter? lo)
-          (c/restrict (if (pe/KeysPE? fstpth)
+          (c/restrict t
+                      (if (pe/KeysPE? fstpth)
                         (c/RClass-of IPersistentMap [element-t r/-any])
-                        (c/RClass-of IPersistentMap [r/-any element-t]))
-                      t)
+                        (c/RClass-of IPersistentMap [r/-any element-t])))
           ; can we do anything for a NotTypeFilter?
           t))
 
