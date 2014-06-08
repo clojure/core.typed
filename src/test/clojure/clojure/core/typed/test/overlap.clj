@@ -1,4 +1,4 @@
-(ns clojure.core.typed.test.type-ctors-test
+(ns clojure.core.typed.test.overlap
   (:require [clojure.test :refer :all]
             [clojure.core.typed.test.test-utils :refer :all]
             [clojure.core.typed.type-ctors :refer :all]
