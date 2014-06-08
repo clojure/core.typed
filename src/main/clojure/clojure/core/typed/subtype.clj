@@ -47,7 +47,7 @@
 (defn currently-subtyping? []
   (boolean (seq *sub-current-seen*)))
 
-(declare subtypes*-varargs)
+(declare subtypes*-varargs subtype?)
 
 ;[(t/Seqable Type) (t/Seqable Type) Type -> Boolean]
 (defn subtypes-varargs?
@@ -55,6 +55,15 @@
   [argtys dom rst kws]
   (handle-failure
     (subtypes*-varargs #{} argtys dom rst kws)
+    true))
+
+(defn subtypes-prest? [argtys dom prest]
+  "True if argtys are under dom and prest"
+  (handle-failure
+    (let [dom-count (count dom)
+          [argtys-dom argtys-rest] (split-at dom-count argtys)]
+      (subtypes*-varargs #{} argtys-dom dom nil nil)
+      (subtype? (r/-hvec (vec argtys-rest)) prest))
     true))
 
 ;subtype and subtype? use *sub-current-seen* for remembering types (for Rec)
