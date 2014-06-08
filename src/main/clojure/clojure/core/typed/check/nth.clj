@@ -111,7 +111,7 @@
         default-t (expr->type de)]
     (cond
       (and (r/Value? num-t)
-           (integer? (:val num-t))
+           (con/nat? (:val num-t))
            (every? (some-fn r/Nil?
                             r/HeterogeneousVector?
                             r/HeterogeneousList?
