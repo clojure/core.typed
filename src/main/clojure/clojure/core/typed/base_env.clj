@@ -1358,17 +1358,19 @@ clojure.core/not= [Any Any * -> Boolean]
 
 clojure.core/first
      (All [x]
-          (IFn [(HSequential [x Any *]) -> x]
-              [(Option (EmptySeqable x)) -> nil]
-              [(NonEmptySeqable x) -> x]
-              [(Option (Seqable x)) -> (Option x)]))
+          (IFn [(HSequential [x Any *]) -> x
+                :object {:id 0 :path [(Nth 0)]}]
+               [(Option (EmptySeqable x)) -> nil]
+               [(NonEmptySeqable x) -> x]
+               [(Option (Seqable x)) -> (Option x)]))
 
 clojure.core/second
      (All [x]
-          (IFn [(HSequential [Any x Any *]) -> x]
-              [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
-              [(I (Seqable x) (CountRange 2)) -> x]
-              [(Option (Seqable x)) -> (Option x)]))
+          (IFn [(HSequential [Any x Any *]) -> x
+                :object {:id 0 :path [(Nth 1)]}]
+               [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
+               [(I (Seqable x) (CountRange 2)) -> x]
+               [(Option (Seqable x)) -> (Option x)]))
 
 clojure.core/ffirst
      (All [x]

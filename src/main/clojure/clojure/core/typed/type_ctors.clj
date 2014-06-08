@@ -1641,6 +1641,29 @@
           (record-and-iseq? t2 t1))
       false
 
+      (and (AnyHSequential? t1)
+           (AnyHSequential? t2))
+      (let [rest-sub? (fn [t1 t2]
+                             ; punt on drest
+                        (and (not-any? :drest [t1 t2])
+                             (or (== (count (:types t1))
+                                     (count (:types t2)))
+                                 (and (<= (count (:types t1))
+                                          (count (:types t2)))
+                                      (:rest t1)))
+                             (every? identity
+                                     (map subtype?
+                                          ; rest type is non-nil if needed.
+                                          (u/pad-right (count (:types t2))
+                                                       (:types t1)
+                                                       (:rest t1))
+                                          (:types t2)))
+                             (if (every? :rest [t1 t2])
+                               (subtype? (:rest t1) (:rest t2))
+                               true)))]
+        (or (rest-sub? t1 t2)
+            (rest-sub? t2 t1)))
+
       :else true))) ;FIXME conservative result
 
 ; restrict t1 to be a subtype of t2

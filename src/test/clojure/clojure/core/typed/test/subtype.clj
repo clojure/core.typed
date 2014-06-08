@@ -30,7 +30,9 @@
   (is-clj (subtype? (RClass-of IndexOutOfBoundsException nil)
                     (RClass-of Exception nil))))
 
-(deftest subtype-intersection
+;TODO uncomment
+; See CTYP-150
+#_(deftest subtype-intersection
   (is-clj (not (subtype? (RClass-of Seqable [-any])
                          (In (RClass-of Seqable [-any])
                              (make-CountRange 1)))))

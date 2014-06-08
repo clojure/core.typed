@@ -19,7 +19,7 @@
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE CountPE ClassPE)
+           (clojure.core.typed.path_rep KeyPE CountPE ClassPE NthPE)
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 
 (alter-meta! *ns* assoc :skip-wiki true)

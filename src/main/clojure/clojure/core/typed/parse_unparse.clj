@@ -29,7 +29,7 @@
            (clojure.core.typed.filter_rep TopFilter BotFilter TypeFilter NotTypeFilter AndFilter OrFilter
                                           ImpFilter)
            (clojure.core.typed.object_rep NoObject EmptyObject Path)
-           (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE)
+           (clojure.core.typed.path_rep KeyPE CountPE ClassPE KeysPE ValsPE NthPE)
            (clojure.lang Cons IPersistentList Symbol IPersistentVector)))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -1029,6 +1029,12 @@
     (err/int-error "Wrong arguments to Key"))
   (pthrep/->KeyPE ksyn))
 
+(defmethod parse-path-elem 'Nth
+  [[_ & [idx :as all]]]
+  (when-not (= 1 (count all))
+    (err/int-error "Wrong arguments to Nth"))
+  (pthrep/->NthPE idx))
+
 (defn- parse-kw-map [m]
   {:post [((con/hash-c? r/Value? r/Type?) %)]}
   (into {} (for [[k v] m]
@@ -1593,6 +1599,7 @@
 (defmethod unparse-path-elem KeyPE [t] (list 'Key (:val t)))
 (defmethod unparse-path-elem CountPE [t] 'Count)
 (defmethod unparse-path-elem ClassPE [t] 'Class)
+(defmethod unparse-path-elem NthPE [t] (list 'Nth (:idx t)))
 (defmethod unparse-path-elem KeysPE [t] 'Keys)
 (defmethod unparse-path-elem ValsPE [t] 'Vals)
 

@@ -116,6 +116,11 @@
       (let [m (when (seq? syn)
                 (let [[f & args] syn]
                   (cond
+                    ('#{Nth} f) (do
+                                  (when-not (#{1} (count args))
+                                    (err/int-error (str "Wrong arguments to Nth: " syn)))
+                                  {:op :NthPE
+                                   :idx (first args)})
                     ('#{Key} f) (do
                                   (when-not (#{1} (count args))
                                     (err/int-error (str "Wrong arguments to Key: " syn)))
