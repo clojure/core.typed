@@ -357,4 +357,12 @@
       (flush))))
 
 
+(defn pad-right
+  "Returns a sequence of length cnt that is s padded to the right with copies
+  of v."
+  [^long cnt s v]
+  {:pre [(integer? cnt)]}
+  (concat s
+          (repeat (- cnt (count s)) v)))
+
 )

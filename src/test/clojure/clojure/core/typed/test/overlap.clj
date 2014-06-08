@@ -132,3 +132,7 @@
         (overlap-prs
          `(HVec [Num Str ~'*])
          `(HVec [Str Str ~'*])))))))
+
+(deftest hvec-complex-overlap
+  (is-clj (not (overlap-prs `(HVec [Int Num])
+                            `(HVec [Num Int])))))
