@@ -1,4 +1,5 @@
 (ns clojure.core.typed.update
+  (:refer-clojure :exclude [update])
   (:require [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.utils :as u]
@@ -300,110 +301,6 @@
 
       :else (err/int-error (str "update along ill-typed path " (pr-str (prs/unparse-type t)) " " (with-out-str (pr lo))))))))
 
-; f can be a composite filter. bnd-env is a the :l of a PropEnv
-; ie. a map of symbols to types
-;[(t/Map t/Sym Type) Filter -> PropEnv]
-(defn update-composite [bnd-env f]
-  {:pre [(lex/lex-env? bnd-env)
-         (fl/Filter? f)]
-   :post [(lex/lex-env? %)]}
-  #_(prn "update-composite" #_bnd-env #_f)
-  (cond
-    ; At this point, the OrFilter will be simplified. To update
-    ; the types we need to make explicit the fact
-    ; (| (! ... a) (! ... b))  is shorthand for
-    ;
-    ; (| (& (! ... a) (is ... b))
-    ;    (& (is ... a) (! ... b))
-    ;    (& (! ... a) (! ... b)))
-    ;
-    ;  then use the verbose representation to update the types.
-;    ((some-fn fl/AndFilter? fl/OrFilter?) f)
-;    (let [; normalise filters to a set of AndFilters, which are disjuncts
-;          disjuncts (if (fl/AndFilter? f)
-;                      #{f}
-;                      (.fs ^OrFilter f))
-;          _ (assert (not-any? fl/OrFilter? disjuncts)
-;                    disjuncts)
-;          ; each disjunct expands can be expanded to more filters
-;          ; this is a list of the new, expanded disjuncts
-;          expanded-disjucts (mapcat
-;                              (fn [inner-f]
-;                                (assert (not (fl/OrFilter? inner-f)) inner-f)
-;                                (let [conjuncts (if (fl/AndFilter? inner-f)
-;                                                  (.fs ^AndFilter inner-f)
-;                                                  #{inner-f})]
-;                                  (assert (every? fo/atomic-filter? conjuncts)
-;                                          (pr-str inner-f))
-;                                  (map (fn [positive-filters]
-;                                         (let [negative-filters (map fo/negate (set/difference conjuncts positive-filters))
-;                                               combination-filter (apply fo/-and (concat positive-filters negative-filters))]
-;                                           combination-filter))
-;                                       (map set (remove/remove empty? (comb/subsets conjuncts))))))
-;                              disjuncts)
-;          update-and (fn [init-env ^AndFilter and-f]
-;                       {:pre [(fl/AndFilter? and-f)]}
-;                       (reduce (fn [env a]
-;                                 {:pre [(fo/atomic-filter? a)]}
-;                                 ;eagerly merge
-;                                 (merge-with c/In env (update-composite env a)))
-;                               init-env (.fs ^AndFilter f)))]
-;      ;update env with each disjunct. If variables change, capture both old and new types with Un.
-;      ; first time around is special. At least 1 of disjuncts must be applied to the
-;      ; environment, so we throw away the initial environment instead of merging it.
-;      (let [first-time? (atom true)]
-;        (reduce (fn [env fl]
-;                  (let [updated-env (cond
-;                                      (fl/AndFilter? fl) (update-and env fl)
-;                                      (fo/atomic-filter? fl) (update-composite env fl)
-;                                      :else (throw (Exception. "shouldn't get here")))]
-;                    (if @first-time?
-;                      (do (reset! first-time? false)
-;                          updated-env)
-;                      (merge-with c/Un env updated-env))))
-;                bnd-env
-;                expanded-disjucts)))
-
-;    (fl/AndFilter? f)
-;    (reduce (fn [env a]
-;              #_(prn "And filter")
-;              ;eagerly merge
-;              (merge-with c/In env (update-composite env a)))
-;            bnd-env (.fs ^AndFilter f))
-;
-;    (fl/OrFilter? f)
-;    (let [fs (.fs ^OrFilter f)]
-;      (reduce (fn [env positive-filters]
-;                #_(prn "inside orfilter")
-;                (let [negative-filters (map fo/negate (set/difference fs positive-filters))
-;                      combination-filter (apply fo/-and (concat positive-filters negative-filters))]
-;                  (merge-with c/Un env (update-composite env combination-filter))))
-;              bnd-env 
-;              (map set (remove/remove empty? (comb/subsets fs)))))
-;
-    (fl/BotFilter? f)
-    (do ;(prn "update-composite: found bottom, unreachable")
-      (zipmap (keys bnd-env) (repeat (c/Un))))
-
-    (or (fl/TypeFilter? f)
-        (fl/NotTypeFilter? f))
-    (let [x (:id f)]
-      (if-not (bnd-env x)
-        bnd-env
-        (update-in bnd-env [x] (fn [t]
-                                 ;check if var is ever a target of a set!
-                                 ; or not currently in scope
-                                 (if (or (nil? t)
-                                         (r/is-var-mutated? x))
-                                   ; if it is, we do nothing
-                                   t
-                                   ;otherwise, refine the type
-                                   (let [t (or t r/-any)
-                                         new-t (update t f)]
-                                     new-t))))))
-    :else bnd-env))
-
-
 ;; sets the flag box to #f if anything becomes (U)
 ;[PropEnv (Seqable Filter) (Atom Boolean) -> PropEnv]
 (defn env+ [env fs flag]
@@ -411,31 +308,28 @@
          (every? fl/Filter? fs)
          (con/boolean? @flag)]
    :post [(lex/PropEnv? %)
+          ; flag should be updated by the time this function exits
           (con/boolean? @flag)]}
-  #_(prn 'env+ fs)
   (let [[props atoms] (combine-props fs (:props env) flag)]
     (reduce (fn [env f]
+              ;post-condition checked in env+
               {:pre [(lex/PropEnv? env)
                      (fl/Filter? f)]}
-              (let [new-env (update-in env [:l] update-composite f)]
-                ; update flag if a variable is now bottom
-                (when-let [bs (seq (filter (comp #{(c/Un)} val) (:l new-env)))]
-                  ;(prn "variables are now bottom: " (map key bs))
-                  (reset! flag false))
-                new-env))
+              (cond
+                (fl/BotFilter? f) (do (reset! flag false)
+                                      (update-in env [:l] (fn [l] 
+                                                            (zipmap (keys l)
+                                                                    (repeat r/-nothing)))))
+                ((some-fn fl/TypeFilter? fl/NotTypeFilter?) f)
+                (let [new-env (update-in env [:l (:id f)]
+                                         (fn [t]
+                                           (when-not t
+                                             (err/int-error (str "Updating local not in scope: " (:id f))))
+                                           (update t f)))]
+                  ; update flag if a variable is now bottom
+                  (when-let [bs (some #{(c/Un)} (vals (:l new-env)))]
+                    (reset! flag false))
+                  new-env)
+                :else env))
             (assoc env :props (set (concat atoms props)))
             (concat atoms props))))
-;  (letfn [(update-env [env f]
-;            {:pre [(lex/PropEnv? env)
-;                   (fl/Filter? f)]}
-;            (let [new-env (update-in env [:l] update-composite f)]
-;              ; update flag if a variable is now bottom
-;              (when-let [bs (seq (filter (comp #{(c/Un)} val) (:l new-env)))]
-;                ;(prn "variables are now bottom: " (map key bs))
-;                (reset! flag false))
-;              new-env))]
-;    (let [[props atoms] (combine-props fs (:props env) flag)
-;          all-filters (apply fo/-and (concat props atoms))]
-;      (-> env
-;          (update-env all-filters)
-;          (assoc :props (set (concat atoms props)))))))
