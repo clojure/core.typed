@@ -2203,7 +2203,9 @@
 ;               (-not-filter (Un -false -nil) 0)]
 ;              false))
 
-(deftest CTYP-84-hlist-ancestor-test
+;TODO uncomment
+; See CTYP-150
+#_(deftest CTYP-84-hlist-ancestor-test
   (is-tc-e (seq '(1)) 
            (NonEmptySeq Num)))
 
