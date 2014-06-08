@@ -2034,7 +2034,9 @@ for checking namespaces, cf for checking individual forms."}
   - :profile         Use Timbre to profile the type checker. Timbre must be
                      added as a dependency.
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
-                     of (Map '{:line Int :column Int :file Str} Str)."
+                     of (Map '{:line Int :column Int :file Str} Str).
+  - :checked-ast     Returns the entire AST for the given form as the :checked-ast entry,
+                     annotated with the static types inferred after checking."
   [form & opt]
   (load-if-needed)
   (apply (impl/v 'clojure.core.typed.check-form-clj/check-form-info) form opt))
