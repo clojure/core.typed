@@ -5,6 +5,8 @@
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.object-rep :as or]
             [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.indirect-utils :as ind-u]
+            [clojure.core.typed.indirect-ops :as ind]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set])
   (:import (clojure.core.typed.filter_rep BotFilter TopFilter NoFilter AndFilter 
@@ -405,6 +407,8 @@
     (fr/BotFilter? +) (fr/->FilterSet fr/-bot fr/-top)
     (fr/BotFilter? -) (fr/->FilterSet fr/-top fr/-bot)
     :else (fr/->FilterSet + -)))
+
+(ind-u/add-indirection ind/-FS -FS)
 
 (defn atomic-filter? [a]
   (boolean 

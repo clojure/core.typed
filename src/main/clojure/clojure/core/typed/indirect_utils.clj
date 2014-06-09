@@ -12,7 +12,8 @@
                                 (when-not i#
                                   (throw (ex-info (str "Indirection for " 
                                                        '~(symbol (str (ns-name *ns*)) (str v))
-                                                       " not set"))))
+                                                       " not set")
+                                                  {})))
                                 (apply i# args#))))])))
             vs)))
 

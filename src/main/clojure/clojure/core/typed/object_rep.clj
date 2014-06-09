@@ -5,6 +5,8 @@
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.indirect-utils :as ind-u]
+            [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed :as t])
   (:import (clojure.lang Seqable)))
 
@@ -31,6 +33,11 @@
 
 (t/ann -empty EmptyObject)
 (def -empty (->EmptyObject))
+
+(defn -empty-fn []
+  -empty)
+
+(ind-u/add-indirection ind/-empty-fn -empty-fn)
 
 (t/ann-record Path [path :- (Seqable p/IRObject)
                     id :- fr/NameRef])

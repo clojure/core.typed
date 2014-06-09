@@ -5,4 +5,7 @@
                      parse-type
                      check-funapp
                      assoc-pairs-noret
-                     subtype?)
+                     subtype?
+                     -FS
+                     -top-fn
+                     -empty-fn)
