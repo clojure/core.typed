@@ -100,19 +100,13 @@
 
 (declare supertype-of-one-arr)
 
-(defn infer-var []
-  (let [v (ns-resolve (find-ns 'clojure.core.typed.cs-gen) 'infer)]
-    (assert (var? v) "infer unbound")
-    v))
-
 ;[(Map Symbol Bounds) (Map Symbol Bounds) (t/Seqable Type) (t/Seqable Type)
 ;  -> Boolean]
 (defn unify [X Y S T R]
   (u/p :subtype/unify
-  (let [infer @(infer-var)]
-    (boolean 
-      (u/handle-cs-gen-failure
-        (infer X Y S T R))))))
+   (boolean 
+     (u/handle-cs-gen-failure
+       (ind/infer X Y S T R)))))
 
 (declare subtype-TApp? protocol-extenders
          subtype-datatypes-or-records subtype-Result subtype-PrimitiveArray

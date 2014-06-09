@@ -19,6 +19,8 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.promote-demote :as prmt]
             [clojure.core.typed.subst :as subst]
+            [clojure.core.typed.indirect-ops :as ind]
+            [clojure.core.typed.indirect-utils :as ind-u]
             [clojure.core.typed :as t :refer [for> letfn> doseq>]]
             [clojure.set :as set])
   (:import (clojure.core.typed.type_rep F Value Poly TApp Union FnIntersection
@@ -1762,6 +1764,8 @@
        (u/p :cs-gen/infer-inner-subst-gen
          (subst-gen cs* (set (keys Y)) R))
        true)))))
+
+(ind-u/add-indirection ind/infer infer)
 
 (comment
          (let [x (gensym)]

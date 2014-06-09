@@ -8,4 +8,5 @@
                      subtype?
                      -FS
                      -top-fn
-                     -empty-fn)
+                     -empty-fn
+                     infer)
