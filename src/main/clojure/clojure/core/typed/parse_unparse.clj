@@ -13,6 +13,8 @@
             [clojure.core.typed.filter-ops :as fl]
             [clojure.core.typed.constant-type :as const]
             [clojure.core.typed.free-ops :as free-ops]
+            [clojure.core.typed.indirect-utils :as indu]
+            [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.name-env :as name-env]
             [clojure.core.typed.hset-utils :as hset]
@@ -1137,6 +1139,8 @@
                         (str "\n\nHint: Value types should be preceded by a quote or wrapped in the Value constructor."  
                              " eg. '" (pr-str k) " or (Value " (pr-str k)")")))))
 
+(indu/add-indirection ind/parse-type parse-type)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Unparse
 
@@ -1663,3 +1667,5 @@
 (defmethod unparse-type* TCResult
   [v]
   (unparse-TCResult v))
+
+(indu/add-indirection ind/unparse-type unparse-type)

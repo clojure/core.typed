@@ -13,6 +13,8 @@
             [clojure.core.typed.cs-gen :as cgen]
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.indirect-utils :as ind-u]
+            [clojure.core.typed.indirect-ops :as ind]
             [clojure.set :as set]
             [clojure.core.typed :as t]
             [clojure.core.typed.subst :as subst]
@@ -333,3 +335,4 @@
                               "Cannot invoke type: " (pr-str (prs/unparse-type fexpr-type)))
                             :return (or expected (r/ret (c/Un))))))))))
 
+(ind-u/add-indirection ind/check-funapp check-funapp)

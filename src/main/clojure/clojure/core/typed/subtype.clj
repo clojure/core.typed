@@ -16,6 +16,9 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.datatype-ancestor-env :as ancest]
             [clojure.core.typed.path-rep :as pth-rep]
+            [clojure.core.typed.indirect-ops :as ind]
+            [clojure.core.typed.indirect-utils :as ind-u]
+            [clojure.core.typed.assoc-utils :as assoc-u]
             [clojure.set :as set]
             [clojure.repl :as repl])
   (:import (clojure.core.typed.type_rep Poly TApp Union Intersection Value Function
@@ -415,8 +418,8 @@
              (r/F? (:target t))
              (not-any? :dentries [s t]))
         (if (and (= (:target s) (:target t))
-                 (subtype? (apply c/assoc-pairs-noret (c/-complete-hmap {}) (:entries s))
-                           (apply c/assoc-pairs-noret (c/-complete-hmap {}) (:entries t))))
+                 (subtype? (apply assoc-u/assoc-pairs-noret (c/-complete-hmap {}) (:entries s))
+                           (apply assoc-u/assoc-pairs-noret (c/-complete-hmap {}) (:entries t))))
           *sub-current-seen*
           (fail! s t))
 
@@ -427,7 +430,7 @@
               _ (assert bnds
                         (str "Bounds not found for free variable: " (-> s :target :name)))]
           (if (and (subtype? (:upper-bound bnds) t)
-                   (subtype? (apply c/assoc-pairs-noret (c/-complete-hmap {}) (:entries s))
+                   (subtype? (apply assoc-u/assoc-pairs-noret (c/-complete-hmap {}) (:entries s))
                              t))
             *sub-current-seen*
             (fail! s t)))
@@ -435,7 +438,7 @@
         ; avoids infinite expansion because associng an F is a fixed point
         (and (r/AssocType? s)
              (not (r/F? (:target s))))
-        (let [s-or-n (apply c/assoc-pairs-noret (:target s) (:entries s))]
+        (let [s-or-n (apply assoc-u/assoc-pairs-noret (:target s) (:entries s))]
           (if (and s-or-n (subtype? s-or-n t))
             *sub-current-seen*
             (fail! s t)))
@@ -443,7 +446,7 @@
         ; avoids infinite expansion because associng an F is a fixed point
         (and (r/AssocType? t)
              (not (r/F? (:target t))))
-        (let [t-or-n (apply c/assoc-pairs-noret (:target t) (:entries t))]
+        (let [t-or-n (apply assoc-u/assoc-pairs-noret (:target t) (:entries t))]
           (if (and t-or-n (subtype? s t-or-n))
             *sub-current-seen*
             (fail! s t)))
@@ -1511,3 +1514,5 @@
   `(impl/with-clojure-impl
      (subtype? (prs/parse-type '~s)
                (prs/parse-type '~t))))
+
+(ind-u/add-indirection ind/subtype? subtype?)
