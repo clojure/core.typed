@@ -434,7 +434,7 @@
 
 (defn parse-Fn [[_ & types :as syn]]
   (when-not (seq types) 
-    (err/int-error "Must pass at least one arity to Fn: " (pr-str syn)))
+    (err/int-error (str "Must pass at least one arity to Fn: " (pr-str syn))))
   (when-not (every? vector? types) 
     (err/int-error (str "Fn accepts vectors, given: " (pr-str syn))))
   (parse-fn-intersection-type syn))
@@ -492,9 +492,9 @@
 (defn parse-type-fn 
   [[_ binder bodysyn :as tfn]]
   (when-not (= 3 (count tfn))
-    (err/int-error "Wrong number of arguments to TFn: " (pr-str tfn)))
+    (err/int-error (str "Wrong number of arguments to TFn: " (pr-str tfn))))
   (when-not (every? vector? binder)
-    (err/int-error "TFn binder should be vector of vectors: " (pr-str tfn)))
+    (err/int-error (str "TFn binder should be vector of vectors: " (pr-str tfn))))
   (let [; don't scope a free in its own bounds. Should review this decision
         free-maps (free-ops/with-free-symbols (map (fn [s]
                                                      {:pre [(vector? s)]
@@ -797,7 +797,7 @@
                             (do (when-not (keyword? k) (err/int-error (str "Keyword argument keys must be keywords: " (pr-str k))))
                               [(r/-val k) (parse-type v)])))
         mandatory (into {} (for [[k v] mandatory]
-                             (do (when-not (keyword? k)) (err/int-error (str "Keyword argument keys must be keywords: " (pr-str k)))
+                             (do (when-not (keyword? k) (err/int-error (str "Keyword argument keys must be keywords: " (pr-str k))))
                                [(r/-val k) (parse-type v)])))]
     (apply c/Un (apply concat
                      (for [opts (map #(into {} %) (comb/subsets optional))]

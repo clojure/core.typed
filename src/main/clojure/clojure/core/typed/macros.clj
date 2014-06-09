@@ -129,7 +129,7 @@
          ~form)
     form))
 
-(defmacro defprotocol [& body]
+(defmacro defprotocol
   "Like defprotocol, but with optional type annotations.
 
   Omitted annotations default to Any. The first argument
@@ -169,6 +169,7 @@
     MyProtocol
     ([y] a [this a :- x, b :- y] :- y))
   "
+  [& body]
   (let [{:keys [ann-protocol defprotocol]} (internal/parse-defprotocol* body)]
     `(do ~ann-protocol
          (tc-ignore

@@ -333,8 +333,8 @@
   {:post [(and (r/TCResult? (u/expr-type %))
                (vector? (:args %)))]}
   (when-not (and atype (even? (count protos))) 
-    (err/int-error "Wrong number of arguments to extend, expected at least one with an even "
-                 "number of variable arguments, given " (count args)))
+    (err/int-error (str "Wrong number of arguments to extend, expected at least one with an even "
+                 "number of variable arguments, given " (count args))))
   (let [catype (check atype)
         ret-expr (-> expr
                      ; don't check extend

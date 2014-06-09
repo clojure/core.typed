@@ -37,8 +37,9 @@
      ast)))
 
 ;copied from tools.analyzer
-(defn rseqv [v]
+(defn rseqv
   "Same as (comp vec rseq)"
+  [v]
   (vec (rseq v)))
 
 ;copied from tools.analyzer
@@ -93,7 +94,3 @@
   (let [names (map :name binder)]
     (replace-frees body
                    (zipmap names args))))
-
-(defn rseqv [v]
-    "Same as (comp vec rseq)"
-    (vec (rseq v)))
