@@ -27,7 +27,7 @@
           (let [arg-tres (mapv check-fn fixed-args)
                 arg-tys (mapv (comp r/ret-t u/expr-type) arg-tres)
                 tail-ty (r/ret-t (u/expr-type (check-fn tail)))]
-            (loop [[{:keys [dom rng rest drest]} :as fs] (:types ftype)]
+            (loop [[{:keys [dom rng rest drest prest]} :as fs] (:types ftype)]
               (cond
                 ;we've run out of cases to try, so error out
                 (empty? fs)
@@ -41,6 +41,12 @@
                      ;; check that the tail expression is a subtype of the rest argument
                      (sub/subtype? tail-ty (c/Un r/-nil (c/RClass-of Seqable [rest])))
                      (sub/subtypes-varargs? arg-tys dom rest nil))
+                (r/ret (r/Result-type* rng)
+                       (r/Result-filter* rng)
+                       (r/Result-object* rng))
+
+                (and prest
+                     (sub/subtypes-prest? (conj arg-tys tail-ty) dom prest))
                 (r/ret (r/Result-type* rng)
                        (r/Result-filter* rng)
                        (r/Result-object* rng))

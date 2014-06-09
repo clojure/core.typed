@@ -47,3 +47,8 @@
 (t/ann number Number)
 (def number (higher-level-func +))
 (def number (higher-level-func1 +))
+
+; FIXME remove no-check
+(t/ann ^:no-check foo2 [(HSequential [Number String] :repeat true) <* -> Number])
+(defn foo2 [& rst] (apply hash-map rst) 1)
+(def number (apply foo2 1 "2" [3 "4"]))
