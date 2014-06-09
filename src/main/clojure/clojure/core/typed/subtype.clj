@@ -1075,6 +1075,47 @@
       *sub-current-seen*
       (fail! s t))
 
+    (and (:rest s)
+         (:prest t))
+    (let [_ (subtypeA* *sub-current-seen* (.rng s) (.rng t))
+          subtype-list (fn [s t]
+                         (for [s s
+                               t t]
+                           (subtypeA* *sub-current-seen* s t)))
+          s-dom (.dom s)
+          s-dom-count (count s-dom)
+          t-dom (.dom t)
+          t-dom-count (count t-dom)
+          s-rest (.rest s)
+          t-prest-types (-> t :prest :types)
+          t-prest-types-count (count t-prest-types)
+          _ (subtype-list (repeat t-prest-types-count s-rest) t-prest-types)]
+      (if (> s-dom-count t-dom-count)
+        ; hard mode
+        (let [[s-dom-short s-dom-rest] (split-at t-dom-count s-dom)
+              _ (subtype-list t-dom s-dom-short)
+              remain-repeat-count (rem (count s-dom-rest) t-prest-types-count)
+              ceiling (fn [up low]
+                        {:pre [(every? integer? [up low])]}
+                        (let [result (quot up low)]
+                          (if (zero? (rem up low))
+                            result
+                            (inc result))))
+              repeat-times (if (empty? s-dom-rest)
+                             0
+                             (ceiling (count s-dom-rest) t-prest-types-count))
+              _ (subtype-list (concat s-dom-rest (repeat remain-repeat-count s-rest))
+                              (reduce (fn [acc cur]
+                                        (concat acc cur))
+                                      []
+                                      (repeat repeat-times t-prest-types)))]
+          *sub-current-seen*)
+        ; easy mode
+        (let [[t-dom-short t-dom-rest] (split-at s-dom-count t-dom)
+              _ (subtype-list t-dom-short s-dom)
+              _ (subtype-list t-dom-rest (repeat (count t-dom-rest) s-rest))]
+          *sub-current-seen*)))
+
     ;kw args
     (and (.kws s)
          (.kws t))

@@ -33,11 +33,17 @@
 (def bar1 (map (t/inst hash-map1 Any Any Number String) [1 "a" \a] [1 "c" \a] [1 2 3] ["a b c"]))
 (def bar1 (map (t/inst hash-map1 Any Any Number String) [1 "a" \a] [1 "c" \a] [1 2 3] ["a" "b" "c"] [4 5 6] ["d" "e" "f"]))
 
-; test prest <: rest, FIXME remove All
+; test prest <: rest, `All` just makes function a Poly function, poly function
+; and FnIntersection treated differently in Typed Clojure
 (t/ann higher-level-func (All [x y]
                            [[(HSequential [Number Number] :repeat true) <* -> Number] -> Number]))
 (defn higher-level-func [f]
   (f 1 2))
 
+(t/ann higher-level-func1 [[(HSequential [Number Number] :repeat true) <* -> Number] -> Number])
+(defn higher-level-func1 [f]
+  (f 1 2))
+
 (t/ann number Number)
 (def number (higher-level-func +))
+(def number (higher-level-func1 +))
