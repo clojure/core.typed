@@ -52,3 +52,8 @@
 (t/ann ^:no-check foo2 [(HSequential [Number String] :repeat true) <* -> Number])
 (defn foo2 [& rst] (apply hash-map rst) 1)
 (def number (apply foo2 1 "2" [3 "4"]))
+
+; check Poly func with prest in apply
+(t/ann ^:no-check foo3 (All [x] [(HSequential [Number String] :repeat true) <* -> Number]))
+(defn foo3 [& rst] (apply hash-map rst) 3)
+(def number (apply foo3 1 "2" [3 "4"]))

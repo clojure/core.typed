@@ -66,13 +66,16 @@
               arg-tys (mapv (comp r/ret-t u/expr-type) arg-tres)
               tail-bound nil
               tail-ty (r/ret-t (u/expr-type (check-fn tail)))]
-          (loop [[{:keys [dom rng rest drest] :as ftype0} :as fs] (:types body)]
+          (loop [[{:keys [dom rng rest drest prest] :as ftype0} :as fs] (:types body)]
             ;          (when (seq fs)
             ;            (prn "checking fn" (prs/unparse-type (first fs))
             ;                 (mapv prs/unparse-type arg-tys)))
             (cond
               (empty? fs) (err/tc-delayed-error (str "Bad arguments to polymorphic function in apply")
                                                 :return (cu/error-ret expected))
+
+              prest cu/not-special
+
               ;the actual work, when we have a * function and a list final argument
               :else 
               (if-let [substitution (cgen/handle-failure
