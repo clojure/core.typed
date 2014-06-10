@@ -300,7 +300,7 @@
 ; Add methods to cs-gen*, but always call cs-gen
 
 (declare cs-gen-right-F cs-gen-left-F cs-gen-datatypes-or-records cs-gen-list
-         cs-gen-filter-set cs-gen-object cs-gen-HSequential)
+         cs-gen-filter-set cs-gen-object cs-gen-HSequential cs-gen-TApp)
 
 (t/ann ^:no-check cs-gen 
        [(t/Set t/Sym) 
@@ -672,6 +672,10 @@
         (let [new-S (c/upcast-hset S)]
           (cs-gen V X Y new-S T))
 
+        (and (r/TApp? S)
+             (r/TApp? T))
+        (cs-gen-TApp V X Y S T)
+
         :else
         (cs-gen* V X Y S T))))))
 
@@ -844,8 +848,10 @@
 (declare cs-gen-Function)
 
 ;FIXME handle variance
-(add-cs-gen*-method [TApp TApp impl/any-impl]
+(defn cs-gen-TApp
   [V X Y ^TApp S ^TApp T]
+  {:pre [(r/TApp? S)
+         (r/TApp? T)]}
   (when-not (= (.rator S) (.rator T)) 
     (fail! S T))
   (cset-meet*
