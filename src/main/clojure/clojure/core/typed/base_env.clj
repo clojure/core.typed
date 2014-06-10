@@ -1053,8 +1053,8 @@ clojure.core/supers [Class -> (U nil (I NonEmptyCount (Set Class)))]
 clojure.core/take-nth (All [x] [AnyInteger (U nil (Seqable x)) -> (ASeq x)])
 
 clojure.core/shuffle (All [x] 
-                          (IFn [(I Collection (Seqable x)) -> (Vec x)]
-                              [Collection -> (Vec Any)]))
+                          (IFn [(I (Collection x) (Seqable x)) -> (Vec x)]
+                               [(Collection x) -> (Vec x)]))
 
 clojure.core/special-symbol? [Any -> Boolean]
 
