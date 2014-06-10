@@ -27,11 +27,11 @@
 (def bar1 (map (t/inst hash-map Number String) [1 2 3] ["a" "b" "c"] [4 5 6] ["d" "e" "f"]))
 
 ; this hash-map1 accept two dummy arguments, this is correspond to our easy mode in cs-gen-Function
-(t/ann ^:no-check hash-map1 (All [a b x y] [a b (HSequential [x y] :repeat true) <* -> (t/Map x y)]))
-(defn hash-map1 [_ _ & rst] (apply hash-map rst))
+(t/ann hash-map1 [Any Any (HSequential [Number String] :repeat true) <* -> (t/Map Number String)])
+(defn hash-map1 [_ _ & rst] (apply (t/inst hash-map Number String) rst))
 
-(def bar1 (map (t/inst hash-map1 Any Any Number String) [1 "a" \a] [1 "c" \a] [1 2 3] ["a b c"]))
-(def bar1 (map (t/inst hash-map1 Any Any Number String) [1 "a" \a] [1 "c" \a] [1 2 3] ["a" "b" "c"] [4 5 6] ["d" "e" "f"]))
+(def bar1 (map hash-map1 [1 "a" \a] [1 "c" \a] [1 2 3] ["a b c"]))
+(def bar1 (map hash-map1 [1 "a" \a] [1 "c" \a] [1 2 3] ["a" "b" "c"] [4 5 6] ["d" "e" "f"]))
 
 ; test prest <: rest, `All` just makes function a Poly function, poly function
 ; and FnIntersection treated differently in Typed Clojure
@@ -48,12 +48,13 @@
 (def number (higher-level-func +))
 (def number (higher-level-func1 +))
 
-; FIXME remove no-check
-(t/ann ^:no-check foo2 [(HSequential [Number String] :repeat true) <* -> Number])
-(defn foo2 [& rst] (apply hash-map rst) 1)
-(def number (apply foo2 1 "2" [3 "4"]))
+(t/ann foo2 [(HSequential [Number String] :repeat true) <* -> (U nil (t/Map Number String))])
+(defn foo2 [& rst] (when-not (nil? rst) (apply (t/inst hash-map Number String) rst)))
+
+(t/ann nsmap (U nil (t/Map Number String)))
+(def nsmap (apply foo2 1 "2" [3 "4"]))
 
 ; check Poly func with prest in apply
-(t/ann ^:no-check foo3 (All [x] [(HSequential [Number String] :repeat true) <* -> Number]))
-(defn foo3 [& rst] (apply hash-map rst) 3)
-(def number (apply foo3 1 "2" [3 "4"]))
+(t/ann foo3 (All [x] [(HSequential [Number String] :repeat true) <* -> (U nil (t/Map Number String))]))
+(defn foo3 [& rst] (when-not (nil? rst) (apply (t/inst hash-map Number String) rst)))
+(def nsmap (apply foo3 1 "2" [3 "4"]))

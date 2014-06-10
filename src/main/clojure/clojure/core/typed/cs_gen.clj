@@ -277,6 +277,31 @@
          (not (:rest dc1)))
     (dcon-meet dc2 dc1)
 
+    (and (every? cr/dcon-repeat? [dc1 dc2]))
+    (let [[{short-fixed :fixed short-repeat :repeat}
+           {long-fixed :fixed long-repeat :repeat}]
+          (sort-by (fn [x] (-> x :fixed count)) [dc1 dc2])
+          s-fixed-count (count short-fixed)
+          l-fixed-count (count long-fixed)
+          s-repeat-count (count short-repeat)
+          l-repeat-count (count long-repeat)
+          diff (- l-fixed-count s-fixed-count)]
+      (assert (and (= short-repeat long-repeat)
+                   (zero? (rem diff s-repeat-count))))
+      (cr/->dcon-repeat
+        (let [vector' (t/inst vector c c Any Any Any Any)]
+          (doall
+            (for> :- c
+              [[c1 c2] :- '[c c], (map vector'
+                                       long-fixed
+                                       (concat short-fixed
+                                               (reduce (fn [acc cur]
+                                                         (concat acc cur))
+                                                       []
+                                                       (repeat (quot diff s-repeat-count) short-repeat))))]
+              (c-meet c1 c2 (:X c1)))))
+        short-repeat))
+
     :else (err/nyi-error (str "NYI dcon-meet " dc1 dc2)))))
 
 (t/ann dmap-meet [dmap dmap -> dmap])
@@ -700,7 +725,7 @@
         :else
         (cs-gen* V X Y S T))))))
 
-(declare var-store-take move-vars-to-dmap)
+(declare var-store-take move-vars-to-dmap get-c-from-cmap)
 
 (t/ann cs-gen-HSequential [NoMentions ConstrainVars ConstrainVars HSequential HSequential
                            -> cset])
@@ -754,6 +779,21 @@
                                                                      t-types-count)
                                                                   (:rest T))))]
                       (err/nyi-error (pr-str "NYI HSequential inference " S T))))
+
+                  ; repeat on left, drest on right
+                  (and (:repeat S)
+                       (:drest T))
+                  (let [{t-dty :pre-type dbound :name} (:drest T)
+                        _ (when-not (Y dbound)
+                            (fail! S T))
+                        merged-X (merge X {dbound (Y dbound)})
+                        get-list-of-c (fn [S-list]
+                                        (mapv #(get-c-from-cmap % dbound)
+                                              (for> :- cset
+                                                    [s :- r/Type, S-list]
+                                                    (cs-gen V merged-X Y t-dty s))))
+                        repeat-c (get-list-of-c (:types S))]
+                    [(assoc-in (cr/empty-cset X Y) [:maps 0 :dmap :map dbound] (cr/->dcon-repeat [] repeat-c))])
 
                   ;; dotted on the left, nothing on the right
                   (and (:drest S)
