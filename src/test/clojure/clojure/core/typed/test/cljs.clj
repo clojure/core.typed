@@ -46,7 +46,7 @@
 (deftest check-ns-test
   (is-cljs (t/check-ns* 'cljs.core.typed.test.ann)))
 
-(deftest parse-protocol-test 
+(deftest parse-protocol-test
   (is-cljs (prs/parse-cljs '(cljs.core/IMap number number))))
 
 (deftest Protocol-of-test
@@ -94,7 +94,7 @@
     (defn ^{:ann '[(t/U nil (ISeqable t/Any)) t/Any -> int]}
       index-of [xs x]
       (let [len (count xs)]
-        (t/loop> 
+        (t/loop>
           [i :- int, 0]
           (if (< i len)
             (if (= (nth xs i) x)
@@ -133,3 +133,7 @@
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.helpers)
 ;(t/check-ns* 'cljs.core.typed.async)
+
+
+(deftest core-fns-test
+  (t/check-ns* 'cljs.core.typed.test.ympbyc.test-base-env))

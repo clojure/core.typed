@@ -11,9 +11,9 @@
 (env/ensure
 (ucljs/with-core-cljs-typed
 (binding [ana/*cljs-ns* 'cljs.core.typed]
-(delay-and-cache-env ^:private init-protocol-env 
+(delay-and-cache-env ^:private init-protocol-env
   (h/protocol-mappings
-    
+
 cljs.core/Fn [[]]
 cljs.core/IFn [[]]
 cljs.core/ICloneable [[]]
@@ -71,10 +71,10 @@ cljs.core/INamed [[]]
 
 (defn reset-protocol-env! []
   (impl/with-cljs-impl
-    ((impl/v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
+    ((impl/v 'clojure.core.typed.protocol-env/reset-protocol-env!)
      (init-protocol-env))))
 
-(delay-and-cache-env ^:private init-jsnominals 
+(delay-and-cache-env ^:private init-jsnominals
   (reset-protocol-env!)
   (h/jsnominal-mappings
 
@@ -84,7 +84,7 @@ string [[]
         {}
         :methods
         {toLowerCase [-> string]}]
-    
+
 js/Document [[]
           :fields
           {}
@@ -95,23 +95,23 @@ js/HTMLElement [[]
              :fields
              {innerHTML string
               tagName (U nil string)}]
-    
-    
+
+
 js/Event [[]
        :methods
        {preventDefault [-> nil]}]
-    
+
 
     ;http://dom.spec.whatwg.org/#interface-eventtarget
 js/EventTarget [[]]
-    
+
 goog.events.Listenable [[]]
 goog.events.EventTarget [[]]
     ))
 
 (defn reset-jsnominal-env! []
   (impl/with-cljs-impl
-    ((impl/v 'clojure.core.typed.jsnominal-env/reset-jsnominal!) 
+    ((impl/v 'clojure.core.typed.jsnominal-env/reset-jsnominal!)
      (init-jsnominals))))
 
 (delay-and-cache-env ^:private init-var-env
@@ -129,13 +129,19 @@ cljs.core.typed/typed-deps* [Any -> Any]
 
 cljs.core/identity (All [x] [x -> x])
 cljs.core/+ (IFn [int * -> int]
-                  [number * -> number])
+                 [number * -> number])
+cljs.core/+ (IFn [int * -> int]
+                 [number * -> number])
+cljs.core/- (IFn [int * -> int]
+                 [number * -> number])
+cljs.core/* (IFn [int * -> int]
+                 [number * -> number])
 cljs.core/> [number number * -> boolean]
 cljs.core/< [number number * -> boolean]
 cljs.core/= [Any * -> boolean]
 cljs.core/identical? [Any Any -> boolean]
 cljs.core/number? (Pred number)
-cljs.core/nth (All [x y] 
+cljs.core/nth (All [x y]
                 (IFn [(U nil (cljs.core/ISeqable x)) int -> x]
                       [(U nil (cljs.core/ISeqable x)) int y -> (U y x)]))
 
@@ -175,7 +181,7 @@ cljs.core/type [Any -> Any]
 cljs.core/missing-protocol [Any Any -> Any]
 cljs.core/type->str [Any -> string]
 
-cljs.core/make-array (All [r] 
+cljs.core/make-array (All [r]
                           (IFn [int -> (Array r)]
                                 [Any int -> (Array r)]))
 
@@ -185,13 +191,13 @@ cljs.core/aclone (All [r]
 cljs.core/array (All [r]
                      [r * -> (Array r)])
 
-cljs.core/aget (All [x] (IFn [(ReadOnlyArray x) 
+cljs.core/aget (All [x] (IFn [(ReadOnlyArray x)
                                int -> x]
-                              [(ReadOnlyArray (ReadOnlyArray x)) 
+                              [(ReadOnlyArray (ReadOnlyArray x))
                                int int -> x]
-                              [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))) 
+                              [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))
                                int int int -> x]
-                              [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))) 
+                              [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))))
                                int int int int -> x]
                               ; don't support unsound cases
                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))))
@@ -201,7 +207,7 @@ cljs.core/aget (All [x] (IFn [(ReadOnlyArray x)
 
 cljs.core/alength [(ReadOnlyArray Any) -> int]
 
-cljs.core/into-array (All [x] 
+cljs.core/into-array (All [x]
                           (IFn [(U nil (cljs.core/ISeqable x)) -> (Array x)]
                               [Any (U nil (cljs.core/ISeqable x)) -> (Array x)]))
 
@@ -217,14 +223,36 @@ cljs.core/cloneable? (Pred cljs.core/ICloneable)
 
       ;TODO aliases
 ;cljs.core/seq (All [x]
-;                   (IFn 
+;                   (IFn
 ;                     [(NonEmptyColl x) -> (NonEmptySeq x)]
 ;                     [(Option (Coll x)) -> (Option (NonEmptySeq x))
 ;                      :filters {:then (& (is NonEmptyCount 0)
 ;                                         (! nil 0))
 ;                                :else (| (is nil 0)
 ;                                         (is EmptyCount 0))}]
-;                     [(Option (Seqable x)) -> (Option (NonEmptySeq x))]))
+                                        ;                     [(Option (Seqable x)) -> (Option (NonEmptySeq x))]))
+
+;;;; sequencial fns. I think those are incomplete
+;;;; since Option, Coll, etc don't seem to work yet
+
+cljs.core/seq (All [x]
+                   [(U (ISeq x) (IVector x)) -> (ISeq x)])
+
+cljs.core/first (All [x]
+                     [(U (ISeq x) (IVector x)) -> (U nil x)])
+
+;;(ann cljs.core/second )
+
+cljs.core/rest (All [x]
+                        [(U (ISeq x) (IVector x)) -> (ISeq x)])
+
+cljs.core/last (All [x]
+                        [(U (ISeq x) (IVector x)) -> (U nil x)])
+
+cljs.core/butlast (All [x]
+                       [(U (ISeq x) (IVector x)) -> (ISeq x)])
+
+
 
 cljs.core/count
       ; TODO also accepts Counted
@@ -244,20 +272,20 @@ cljs.core/prim-seq
   (reset-jsnominal-env!)
   (h/js-var-mappings
 ;; js
-    
+
 js/document js/Document
 
 ;; goog.dom
 
 goog.dom/setTextContent [js/Element (U string number) -> js/Window]
-goog.dom/getElementsByTagNameAndClass 
+goog.dom/getElementsByTagNameAndClass
       [(U nil string) (U nil string) (U nil js/Document js/Element) -> (cljs.core/ISeqable js/Element)]
 goog.dom.classes/set [(U js/Node nil) string -> Any]
 goog.dom.classes/add [(U js/Node nil) (U nil string) * -> boolean]
 goog.dom.classes/remove [(U js/Node nil) (U nil string) * -> boolean]
 goog.style/getPageOffsetLeft [(U nil js/Element) -> number]
 goog.style/getPageOffsetTop [(U nil js/Element) -> number]
-goog.events/listen [(U nil js/EventTarget goog.events.EventTarget goog.events.Listenable) 
+goog.events/listen [(U nil js/EventTarget goog.events.EventTarget goog.events.Listenable)
                     (U nil string (ReadOnlyArray string)) -> number]
 
 goog.events.EventType.KEYUP   string
@@ -270,7 +298,7 @@ goog.events.EventType.MOUSEOUT string
 goog.events.EventType.MOUSEMOVE string
     ))
 
-(delay-and-cache-env init-alias-env 
+(delay-and-cache-env init-alias-env
   (reset-protocol-env!)
   (reset-jsnominal-env!)
   (h/alias-mappings
@@ -280,7 +308,7 @@ cljs.core.typed/AnyInteger int
 
   ^{:doc "A type that returns true for cljs.core/number?"}
 cljs.core.typed/Number number
-    
+
     ^{:doc "A type that can be used to create a sequence of member type x."}
 cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
                              (cljs.core/ISeqable x))
@@ -311,11 +339,11 @@ cljs.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
 
 (delay-and-cache-env init-declared-kinds {})
 
-(delay-and-cache-env init-datatype-env 
+(delay-and-cache-env init-datatype-env
   (reset-protocol-env!)
   (reset-jsnominal-env!)
   (h/datatype-mappings
-    
+
 cljs.core/Atom [[[w :variance :contravariant]
                  [r :variance :covariant]]]
 cljs.core/Symbol [[]]
@@ -332,9 +360,9 @@ cljs.core/Keyword [[]]
       ((impl/v 'clojure.core.typed.var-env/reset-jsvar-type-env!)
        (init-jsvar-env))
       (reset-protocol-env!)
-      ((impl/v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
+      ((impl/v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!)
        (init-declared-kinds))
       (reset-jsnominal-env!)
-      ((impl/v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
+      ((impl/v 'clojure.core.typed.datatype-env/reset-datatype-env!)
        (init-datatype-env))))
   nil)))
