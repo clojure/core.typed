@@ -7,6 +7,7 @@
             [clojure.core.typed.analyze-clj :as ana-clj]
             [clojure.core.typed.array-ops :as arr-ops]
             [clojure.core.typed.ast-utils :as ast-u]
+            [clojure.core.typed.assoc-utils :as assoc-u]
             [clojure.core.typed.check.apply :as apply]
             [clojure.core.typed.check.case :as case]
             [clojure.core.typed.check.set-bang :as set!]
@@ -332,8 +333,8 @@
   {:post [(and (r/TCResult? (u/expr-type %))
                (vector? (:args %)))]}
   (when-not (and atype (even? (count protos))) 
-    (err/int-error "Wrong number of arguments to extend, expected at least one with an even "
-                 "number of variable arguments, given " (count args)))
+    (err/int-error (str "Wrong number of arguments to extend, expected at least one with an even "
+                 "number of variable arguments, given " (count args))))
   (let [catype (check atype)
         ret-expr (-> expr
                      ; don't check extend
@@ -1005,7 +1006,7 @@
         ckeyvals (doall (map check keyvals))
         keypair-types (partition 2 (map u/expr-type ckeyvals))
         cargs (vec (cons ctarget ckeyvals))]
-    (if-let [new-hmaps (apply c/assoc-type-pairs targetun keypair-types)]
+    (if-let [new-hmaps (apply assoc-u/assoc-type-pairs targetun keypair-types)]
       (-> expr
         (update-in [:fn] check)
         (assoc
@@ -1035,7 +1036,7 @@
         [ctarget & cdissoc-args :as cargs] (mapv check args)
         ttarget (-> ctarget u/expr-type r/ret-t)
         targs (map u/expr-type cdissoc-args)]
-    (if-let [new-t (c/dissoc-keys ttarget targs)]
+    (if-let [new-t (assoc-u/dissoc-keys ttarget targs)]
       (-> expr
           (update-in [:fn] check)
           (assoc
@@ -1052,7 +1053,7 @@
   (let [[ctarget & cmerge-args :as cargs] (mapv check args)
         basemap (-> ctarget u/expr-type r/ret-t c/fully-resolve-type)
         targs (map u/expr-type cmerge-args)]
-    (if-let [merged (apply c/merge-types basemap targs)]
+    (if-let [merged (apply assoc-u/merge-types basemap targs)]
       (-> expr
           (update-in [:fn] check)
           (assoc :args cargs
@@ -1068,7 +1069,7 @@
   (let [[ctarget & cconj-args :as cargs] (mapv check args)
         ttarget (-> ctarget u/expr-type r/ret-t)
         targs (map u/expr-type cconj-args)]
-    (if-let [conjed (apply c/conj-types ttarget targs)]
+    (if-let [conjed (apply assoc-u/conj-types ttarget targs)]
       (-> expr
           (update-in [:fn] check)
           (assoc :args cargs

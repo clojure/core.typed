@@ -6,6 +6,7 @@
             [clojure.core.typed.contract-utils :as con]
             clojure.core.typed.contract-ann
             [clojure.core.typed.coerce-utils :as coerce]
+            [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.core.typed.current-impl :as impl]))
@@ -16,19 +17,6 @@
 (t/tc-ignore
 (alter-meta! *ns* assoc :skip-wiki true)
   )
-
-
-(t/ann ^:no-check -FS-var [-> (t/Var1 [p/IFilter p/IFilter -> p/IFilterSet])])
-(defn- -FS-var []
-  (impl/the-var 'clojure.core.typed.filter-ops/-FS))
-
-(t/ann ^:no-check -top-var [-> (t/Var1 p/IFilter)])
-(defn -top-var []
-  (impl/the-var 'clojure.core.typed.filter-rep/-top))
-
-(t/ann ^:no-check -empty-var [-> (t/Var1 p/IRObject)])
-(defn -empty-var []
-  (impl/the-var 'clojure.core.typed.object-rep/-empty))
 
 (t/defalias SeqNumber Long)
 
@@ -504,20 +492,18 @@
                                   :rest (t/U nil Type) :drest (t/U nil DottedPretype)} -> Type])
 (defn -hvec 
   [types & {:keys [filters objects rest drest]}]
-  (let [-FS @(-FS-var)
-        -top @(-top-var)
-        -empty @(-empty-var)]
-    (if (some Bottom? types)
-      (Bottom)
-      (HeterogeneousVector-maker types
-                                 (if filters
-                                   (vec filters)
-                                   (vec (repeat (count types) (-FS -top -top))))
-                                 (if objects
-                                   (vec objects)
-                                   (vec (repeat (count types) -empty)))
-                                 rest
-                                 drest))))
+  (if (some Bottom? types)
+    (Bottom)
+    (HeterogeneousVector-maker types
+                               (if filters
+                                 (vec filters)
+                                 (vec (repeat (count types) (ind/-FS (ind/-top-fn) 
+                                                                     (ind/-top-fn)))))
+                               (if objects
+                                 (vec objects)
+                                 (vec (repeat (count types) (ind/-empty-fn))))
+                               rest
+                               drest)))
 
 (u/ann-record HeterogeneousList [types :- (t/Seqable Type)])
 (u/def-type HeterogeneousList [types]
@@ -553,20 +539,18 @@
                                   :rest (t/U nil Type) :drest (t/U nil DottedPretype)} -> Type])
 (defn -hseq
   [types & {:keys [filters objects rest drest]}]
-  (let [-FS @(-FS-var)
-        -top @(-top-var)
-        -empty @(-empty-var)]
-    (if (some Bottom? types)
-      (Bottom)
-      (HeterogeneousSeq-maker types
-                              (if filters
-                                (vec filters)
-                                (vec (repeat (count types) (-FS -top -top))))
-                              (if objects
-                                (vec objects)
-                                (vec (repeat (count types) -empty)))
-                              rest
-                              drest))))
+  (if (some Bottom? types)
+    (Bottom)
+    (HeterogeneousSeq-maker types
+                            (if filters
+                              (vec filters)
+                              (vec (repeat (count types) (ind/-FS (ind/-top-fn) 
+                                                                  (ind/-top-fn)))))
+                            (if objects
+                              (vec objects)
+                              (vec (repeat (count types) (ind/-empty-fn))))
+                            rest
+                            drest)))
 
 (u/ann-record HSequential [types :- (t/Seqable Type)
                            fs :- (t/Vec p/IFilterSet)
@@ -594,20 +578,18 @@
                                   :rest (t/U nil Type) :drest (t/U nil DottedPretype)} -> Type])
 (defn -hsequential
   [types & {:keys [filters objects rest drest]}]
-  (let [-FS @(-FS-var)
-        -top @(-top-var)
-        -empty @(-empty-var)]
-    (if (some Bottom? types)
-      (Bottom)
-      (HSequential-maker types
-                         (if filters
-                           (vec filters)
-                           (vec (repeat (count types) (-FS -top -top))))
-                         (if objects
-                           (vec objects)
-                           (vec (repeat (count types) -empty)))
-                         rest
-                         drest))))
+  (if (some Bottom? types)
+    (Bottom)
+    (HSequential-maker types
+                       (if filters
+                         (vec filters)
+                         (vec (repeat (count types) (ind/-FS (ind/-top-fn)
+                                                             (ind/-top-fn)))))
+                       (if objects
+                         (vec objects)
+                         (vec (repeat (count types) (ind/-empty-fn))))
+                       rest
+                       drest)))
 
 (u/ann-record HSet [fixed :- (t/Set Type)
                     complete? :- Boolean])
@@ -689,8 +671,9 @@
 (defn -get 
   [target key & {:keys [not-found target-fs target-object]}]
   (GetType-maker target key (or not-found -nil) 
-                 (or target-fs ((-FS-var) @(-top-var) @(-top-var)))
-                 (or target-object @(-empty-var))))
+                 (or target-fs (ind/-FS (ind/-top-fn) 
+                                        (ind/-top-fn)))
+                 (or target-object (ind/-empty-fn))))
 
 ;not a type, see KwArgsSeq
 (u/ann-record KwArgs [mandatory :- (t/Map Type Type)
@@ -955,17 +938,12 @@
            [Type p/IFilterSet p/IRObject FlowSet -> TCResult]))
 (defn ret
   "Convenience function for returning the type of an expression"
-  ([t] (let [-FS @(-FS-var)
-             -top @(-top-var)
-             -empty @(-empty-var)]
-         (ret t (-FS -top -top) -empty (-flow -top))))
+  ([t] 
+   (ret t (ind/-FS (ind/-top-fn) (ind/-top-fn)) (ind/-empty-fn) (-flow (ind/-top-fn))))
   ([t f] 
-   (let [-top @(-top-var)
-         -empty @(-empty-var)]
-     (ret t f -empty (-flow -top))))
+   (ret t f (ind/-empty-fn) (-flow (ind/-top-fn))))
   ([t f o] 
-   (let [-top @(-top-var)]
-     (ret t f o (-flow -top))))
+   (ret t f o (-flow (ind/-top-fn))))
   ([t f o flow]
    {:pre [(AnyType? t)
           (p/IFilterSet? f)
@@ -1032,10 +1010,10 @@
   ([t f] (make-Result t f nil nil))
   ([t f o] (make-Result t f o nil))
   ([t f o flow]
-   (let [-FS @(-FS-var)
-         -top @(-top-var)
-         -empty @(-empty-var)]
-     (Result-maker t (or f (-FS -top -top)) (or o -empty) (or flow (-flow -top))))))
+   (Result-maker t 
+                 (or f (ind/-FS (ind/-top-fn) (ind/-top-fn))) 
+                 (or o (ind/-empty-fn)) 
+                 (or flow (-flow (ind/-top-fn))))))
 
 (t/ann ^:no-check make-Function
        (t/IFn [(t/U nil (t/Seqable Type)) Type -> Function]
@@ -1054,13 +1032,10 @@
   ([dom rng] (make-Function dom rng nil nil))
   ([dom rng rest] (make-Function dom rng rest nil))
   ([dom rng rest drest & {:keys [filter object mandatory-kws optional-kws flow]}]
-   (let [-FS @(-FS-var)
-         -top @(-top-var)
-         -empty @(-empty-var)]
-     (Function-maker dom (make-Result rng filter object flow)
-                     rest drest (when (or mandatory-kws optional-kws)
-                                  (-kw-args :mandatory (or mandatory-kws {})
-                                            :optional (or optional-kws {})))))))
+   (Function-maker dom (make-Result rng filter object flow)
+                   rest drest (when (or mandatory-kws optional-kws)
+                                (-kw-args :mandatory (or mandatory-kws {})
+                                          :optional (or optional-kws {}))))))
 
 
 ;;;;;;;;;;;;;;;;;

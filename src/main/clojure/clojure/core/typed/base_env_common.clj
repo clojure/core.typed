@@ -23,3 +23,7 @@
            hit#
            (let [calc# (~generator-sym)]
              (reset! ~cache-sym calc#)))))))
+
+;these annotations can be parsed in either {cljs,clojure}.core.typed
+; and have the same meaning.
+;(def common-var-annotations)

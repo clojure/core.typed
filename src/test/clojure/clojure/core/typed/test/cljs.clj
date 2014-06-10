@@ -119,6 +119,16 @@
   (is (t/check-ns* 'cljs.core.typed.test.dep-one))
   (is (t/check-ns* 'cljs.core.typed.test.dep-two)))
 
+(deftest hvec-infer
+  (is-tc-e (fn [a]
+             (a [1 2]))
+           [[(cljs.core/IVector Any) -> Any]
+            -> Any])
+  (is-tc-e (fn [a]
+             (a [1 2]))
+           [(t/All [x] [(cljs.core/IVector x) -> x])
+            -> Any]))
+
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.dom)
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.helpers)

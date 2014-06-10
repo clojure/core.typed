@@ -4,6 +4,8 @@
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.indirect-utils :as ind-u]
+            [clojure.core.typed.indirect-ops :as ind]
             [clojure.core.typed :as t])
   (:import (clojure.lang Symbol Seqable IPersistentSet)
            (clojure.core.typed.path_rep IPathElem)))
@@ -49,6 +51,11 @@
 (t/ann -bot Filter)
 (def -top (TopFilter-maker))
 (def -bot (BotFilter-maker))
+
+(defn -top-fn []
+  -top)
+
+(ind-u/add-indirection ind/-top-fn -top-fn)
 
 (u/ann-record NoFilter [])
 (u/def-filter NoFilter []
