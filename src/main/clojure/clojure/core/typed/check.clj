@@ -1001,7 +1001,7 @@
         :else cu/not-special))))
 
 ;apply hash-map
-(add-invoke-apply-method 'clojure.core/hash-map
+#_(add-invoke-apply-method 'clojure.core/hash-map
   [{[_ & args] :args :as expr} & [expected]]
   {:post [(-> % u/expr-type r/TCResult?)
           (vector? (:args %))]}
