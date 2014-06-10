@@ -1138,14 +1138,14 @@ for checking namespaces, cf for checking individual forms."}
   [sym type]
   nil)
 
-(defn ^:skip-wiki add-to-alias-env [&form qsym t]
+(defn ^:skip-wiki add-to-alias-env [form qsym t]
   (swap! impl/alias-env assoc qsym 
          (impl/with-impl impl/clojure
            (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
                                           :file *file*
-                                          :line (or (-> &form meta :line)
+                                          :line (or (-> form meta :line)
                                                     @clojure.lang.Compiler/LINE)
-                                          :column (or (-> &form meta :column)
+                                          :column (or (-> form meta :column)
                                                       @clojure.lang.Compiler/COLUMN)}]
              (ast/parse-clj t))))
   nil)
