@@ -279,29 +279,11 @@
 ;; produces a cset which determines a substitution that makes S a subtype of T
 ;; implements the V |-_X S <: T => C judgment from Pierce+Turner, extended with
 ;; the index variables from the TOPLAS paper
-(t/ann cs-gen* [NoMentions
-                ConstrainVars
-                ConstrainVars
-                r/AnyType
-                r/AnyType
-                -> cset])
-(defmulti cs-gen*
-  (fn [V X Y S T] 
-    {:pre [((con/set-c? symbol?) V)
-           (every? (con/hash-c? symbol? r/Bounds?) [X Y])
-           (r/AnyType? S)
-           (r/AnyType? T)]}
-    [(class S) (class T) (impl/current-impl)]))
-
-(u/add-defmethod-generator cs-gen*)
-
-; (see cs-gen*)
-;cs-gen calls cs-gen*, remembering the current subtype for recursive types
-; Add methods to cs-gen*, but always call cs-gen
 
 (declare cs-gen-right-F cs-gen-left-F cs-gen-datatypes-or-records cs-gen-list
          cs-gen-filter-set cs-gen-object cs-gen-HSequential cs-gen-TApp
-         cs-gen-Function cs-gen-FnIntersection)
+         cs-gen-Function cs-gen-FnIntersection cs-gen-Result cs-gen-RClass
+         cs-gen-Protocol)
 
 (t/ann ^:no-check cs-gen 
        [(t/Set t/Sym) 
@@ -685,8 +667,89 @@
              (r/Function? T))
         (cs-gen-Function V X Y S T)
 
+        (and (r/Result? S)
+             (r/Result? T))
+        (cs-gen-Result V X Y S T)
+
+        (and (r/Value? S)
+             (r/AnyValue? T))
+        (cr/empty-cset X Y)
+
+; must remember to update these if HeterogeneousList gets rest/drest
+        (and (r/HeterogeneousSeq? S)
+             (r/RClass? T))
+        (cs-gen V X Y
+                (let [ss (apply c/Un
+                                (concat
+                                  (:types S)
+                                  (when-let [rest (:rest S)]
+                                    [rest])
+                                  (when (:drest S)
+                                    [r/-any])))]
+                  (c/In (impl/impl-case
+                          :clojure (c/RClass-of ISeq [ss])
+                          :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))
+                        ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
+                           (count (:types S)))))
+                T)
+
+; must remember to update these if HeterogeneousList gets rest/drest
+        (and (r/HeterogeneousList? S)
+             (r/RClass? T))
+        (cs-gen V X Y 
+                (c/In (impl/impl-case
+                        :clojure (c/RClass-of IPersistentList [(apply c/Un (:types S))])
+                        :cljs (c/Protocol-of 'cljs.core/IList [(apply c/Un (:types S))]))
+                      (r/make-ExactCountRange (count (:types S))))
+                T)
+
+        (and (r/HSequential? S)
+             (r/RClass? T))
+        (cs-gen V X Y
+                (let [ss (apply c/Un
+                                (concat
+                                  (:types S)
+                                  (when-let [rest (:rest S)]
+                                    [rest])
+                                  (when (:drest S)
+                                    [r/-any])))]
+                  (c/In (impl/impl-case
+                          :clojure (c/In (c/RClass-of clojure.lang.IPersistentCollection [ss])
+                                         (c/RClass-of clojure.lang.Sequential))
+                          :cljs (throw (Exception. "TODO CLJS HSequential cs-gen")))
+                        ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
+                         (count (:types S)))))
+                T)
+
+        (and (r/HeterogeneousVector? S)
+             (r/RClass? T))
+        (cs-gen V X Y
+                (let [ss (apply c/Un 
+                                (concat
+                                  (:types S)
+                                  (when-let [rest (:rest S)]
+                                    [rest])
+                                  (when (:drest S)
+                                    [r/-any])))]
+                  (c/In (impl/impl-case
+                          :clojure (c/RClass-of APersistentVector [ss])
+                          :cljs (c/Protocol-of 'cljs.core/IVector [ss]))
+                        ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
+                         (count (:types S)))))
+                T)
+
+        (and (r/RClass? S)
+             (r/RClass? T))
+        (cs-gen-RClass V X Y S T)
+
+        (and (r/Protocol? S)
+             (r/Protocol? T))
+        (cs-gen-Protocol V X Y S T)
+
         :else
-        (cs-gen* V X Y S T))))))
+        (do (when-not (subtype? S T) 
+              (fail! S T))
+            (cr/empty-cset X Y)))))))
 
 (declare var-store-take move-vars-to-dmap)
 
@@ -844,16 +907,6 @@
     ;;FIXME do something here
     :else (fail! s t)))
 
-(add-cs-gen*-method :default
-  [V X Y S T]
-#_(prn "cs-gen* default" (class S) (class T))
-  #_(when (some r/Result? [S T])
-    (throw (IllegalArgumentException. (u/error-msg "Result on left or right "
-                                                   (pr-str S) " " (pr-str T)))))
-  (when-not (subtype? S T) 
-    (fail! S T))
-  (cr/empty-cset X Y))
-
 (declare cs-gen-Function)
 
 ;FIXME handle variance
@@ -896,78 +949,14 @@
           ;(prn "combined" comb)
           comb)))))
 
-(add-cs-gen*-method [Result Result impl/any-impl]
+(defn cs-gen-Result
   [V X Y S T] 
+  {:pre [(r/Result? S)
+         (r/Result? T)]}
   (cset-meet* [(cs-gen V X Y (r/Result-type* S) (r/Result-type* T))
                (cs-gen-filter-set V X Y (r/Result-filter* S) (r/Result-filter* T))
                (cs-gen-object V X Y (r/Result-object* S) (r/Result-object* T))
                (cs-gen-flow-set V X Y (r/Result-flow* S) (r/Result-flow* T))]))
-
-(add-cs-gen*-method [Value AnyValue impl/any-impl] 
-  [V X Y S T] 
-  (cr/empty-cset X Y))
-
-(add-cs-gen*-method [HeterogeneousSeq RClass impl/clojure]
-  [V X Y S T]
-  (cs-gen V X Y
-          (let [ss (apply c/Un
-                          (concat
-                            (:types S)
-                            (when-let [rest (:rest S)]
-                              [rest])
-                            (when (:drest S)
-                              [r/-any])))]
-            (c/In (impl/impl-case
-                    :clojure (c/RClass-of ISeq [ss])
-                    :cljs (c/Protocol-of 'cljs.core/ISeq [ss]))
-                  ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
-                     (count (:types S)))))
-          T))
-
-; must remember to update these if HeterogeneousList gets rest/drest
-(add-cs-gen*-method [HeterogeneousList RClass impl/clojure]
-  [V X Y S T]
-  (cs-gen V X Y 
-          (c/In (impl/impl-case
-                  :clojure (c/RClass-of IPersistentList [(apply c/Un (:types S))])
-                  :cljs (c/Protocol-of 'cljs.core/IList [(apply c/Un (:types S))]))
-                (r/make-ExactCountRange (count (:types S))))
-          T))
-
-(add-cs-gen*-method [HSequential RClass impl/clojure]
-  [V X Y S T]
-  (cs-gen V X Y
-          (let [ss (apply c/Un
-                          (concat
-                            (:types S)
-                            (when-let [rest (:rest S)]
-                              [rest])
-                            (when (:drest S)
-                              [r/-any])))]
-            (c/In (impl/impl-case
-                    :clojure (c/In (c/RClass-of clojure.lang.IPersistentCollection [ss])
-                                   (c/RClass-of clojure.lang.Sequential))
-                    :cljs (throw (Exception. "TODO CLJS HSequential cs-gen")))
-                  ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
-                   (count (:types S)))))
-          T))
-
-(add-cs-gen*-method [HeterogeneousVector RClass impl/clojure]
-  [V X Y S T]
-  (cs-gen V X Y
-          (let [ss (apply c/Un 
-                          (concat
-                            (:types S)
-                            (when-let [rest (:rest S)]
-                              [rest])
-                            (when (:drest S)
-                              [r/-any])))]
-            (c/In (impl/impl-case
-                    :clojure (c/RClass-of APersistentVector [ss])
-                    :cljs (c/Protocol-of 'cljs.core/IVector [ss]))
-                  ((if (or (:rest S) (:drest S)) r/make-CountRange r/make-ExactCountRange)
-                   (count (:types S)))))
-          T))
 
 (t/ann cs-gen-datatypes-or-records
        [NoMentions ConstrainVars ConstrainVars DataType DataType -> cset])
@@ -1016,30 +1005,10 @@
                    (cs-gen-with-variance V X Y variance si ti))
                  variances ss ts)))))
 
-;(add-cs-gen*-method [RClass RClass impl/clojure]
-;  [V X Y S T]
-;  ;(prn "cs-gen* RClass RClass")
-;  (let [rsupers (c/RClass-supers* S)
-;        relevant-S (some #(when (r/RClass? %)
-;                            (and (= (:the-class %) (:the-class T))
-;                                 %))
-;                         (map c/fully-resolve-type (conj rsupers S)))]
-;    (prn "S" (prs/unparse-type S))
-;    (prn "T" (prs/unparse-type T))
-;    (prn "supers" (map (juxt prs/unparse-type class) rsupers))
-;    (when relevant-S
-;      (prn "relevant-S" (prs/unparse-type relevant-S)))
-;    (cond
-;      relevant-S
-;      (cs-gen-list-with-variances V X Y
-;                                  (:variances T) 
-;                                  (:poly? relevant-S) 
-;                                  (:poly? T)))
-;      :else (fail! S T)))
-
-(add-cs-gen*-method [RClass RClass impl/clojure]
+(defn cs-gen-RClass
   [V X Y S T]
-  ;(prn "cs-gen* RClass RClass")
+  {:pre [(r/RClass? S)
+         (r/RClass? T)]}
   (let [rsupers (u/p :cs-gen*/cs-gen*-RClass-RClass-inner-RClass-supers (c/RClass-supers* S))
         relevant-S (some #(when (r/RClass? %)
                             (and (= (:the-class %) (:the-class T))
@@ -1064,8 +1033,10 @@
                      (:poly? T)))))
       :else (fail! S T))))
 
-(add-cs-gen*-method [Protocol Protocol impl/any-impl]
+(defn cs-gen-Protocol
   [V X Y S T]
+  {:pre [(r/Protocol? S)
+         (r/Protocol? T)]}
   (t/ann-form [S T] (t/Seqable Protocol))
   (if (= (:the-var S)
          (:the-var T))
