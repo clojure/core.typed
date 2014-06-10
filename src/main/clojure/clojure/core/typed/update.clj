@@ -1,5 +1,5 @@
 (ns clojure.core.typed.update
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update defn])
   (:require [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.path-rep :as pe]
             [clojure.core.typed.utils :as u]
@@ -14,6 +14,7 @@
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.lex-env :as lex]
+            [clojure.core.typed.profiling :as p :refer [defn]]
             [clojure.core.typed.remove :as remove])
   (:import (clojure.lang IPersistentMap)))
 

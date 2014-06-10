@@ -1,6 +1,128 @@
-(ns ^:skip-wiki clojure.core.typed.profiling)
+(ns ^:skip-wiki clojure.core.typed.profiling
+  (:refer-clojure :exclude [defn]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
+
+(defmacro
+ ^{:doc "Same as (def name (fn [params* ] exprs*)) or (def
+    name (fn ([params* ] exprs*)+)) with any doc-string or attrs added
+    to the var metadata. prepost-map defines a map with optional keys
+    :pre and :post that contain collections of pre or post conditions."
+   :arglists '([name doc-string? attr-map? [params*] prepost-map? body]
+                [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])
+   :added "1.0"}
+ defn [name & fdecl]
+        ;; Note: Cannot delegate this check to def because of the call to (with-meta name ..)
+        (if (instance? clojure.lang.Symbol name)
+          nil
+          (throw (IllegalArgumentException. "First argument to defn must be a symbol")))
+        (let [m (if (string? (first fdecl))
+                  {:doc (first fdecl)}
+                  {})
+              fdecl (if (string? (first fdecl))
+                      (next fdecl)
+                      fdecl)
+              m (if (map? (first fdecl))
+                  (conj m (first fdecl))
+                  m)
+              fdecl (if (map? (first fdecl))
+                      (next fdecl)
+                      fdecl)
+              fdecl (if (vector? (first fdecl))
+                      (list fdecl)
+                      fdecl)
+              m (if (map? (last fdecl))
+                  (conj m (last fdecl))
+                  m)
+              fdecl (if (map? (last fdecl))
+                      (butlast fdecl)
+                      fdecl)
+              m (conj {:arglists (list 'quote (#'clojure.core/sigs fdecl))} m)
+              m (let [inline (:inline m)
+                      ifn (first inline)
+                      iname (second inline)]
+                  ;; same as: (if (and (= 'fn ifn) (not (symbol? iname))) ...)
+                  (if (if (clojure.lang.Util/equiv 'fn ifn)
+                        (if (instance? clojure.lang.Symbol iname) false true))
+                    ;; inserts the same fn name to the inline fn if it does not have one
+                    (assoc m :inline (cons ifn (cons (clojure.lang.Symbol/intern (.concat (.getName ^clojure.lang.Symbol name) "__inliner"))
+                                                     (next inline))))
+                    m))
+              m (conj (if (meta name) (meta name) {}) m)]
+          (list 'def (with-meta name m)
+                ;;todo - restore propagation of fn name
+                ;;must figure out how to convey primitive hints to self calls first
+                (list* `fnprofile {:fake-name name} fdecl))))
+
+(defmacro fnprofile
+  "params => positional-params* , or positional-params* & next-param
+  positional-param => binding-form
+  next-param => binding-form
+  name => symbol
+
+  Defines a function"
+  {:added "1.0", :special-form true,
+   :forms '[(fn name? [params* ] exprs*) (fn name? ([params* ] exprs*)+)]}
+  [{:keys [fake-name]} & sigs]
+  (let [name (if (symbol? (first sigs)) (first sigs) nil)
+        sigs (if name (next sigs) sigs)
+        sigs (if (vector? (first sigs)) 
+               (list sigs) 
+               (if (seq? (first sigs))
+                 sigs
+                 ;; Assume single arity syntax
+                 (throw (IllegalArgumentException. 
+                          (if (seq sigs)
+                            (str "Parameter declaration " 
+                                 (first sigs)
+                                 " should be a vector")
+                            (str "Parameter declaration missing"))))))
+        psig (fn* [sig]
+                  ;; Ensure correct type before destructuring sig
+                  (when (not (seq? sig))
+                    (throw (IllegalArgumentException.
+                             (str "Invalid signature " sig
+                                  " should be a list"))))
+                  (let [[params & body] sig
+                        _ (when (not (vector? params))
+                            (throw (IllegalArgumentException. 
+                                     (if (seq? (first sigs))
+                                       (str "Parameter declaration " params
+                                            " should be a vector")
+                                       (str "Invalid signature " sig
+                                            " should be a list")))))
+                        conds (when (and (next body) (map? (first body))) 
+                                (first body))
+                        body (if conds (next body) body)
+                        conds (or conds (meta params))
+                        pre (:pre conds)
+                        post (:post conds)                       
+                        body (if post
+                               `((let [~'% ~(if (< 1 (count body)) 
+                                              `(do ~@body) 
+                                              (first body))]
+                                   ~@(map (fn* [c] `(assert ~c)) post)
+                                   ~'%))
+                               body)
+                        body (if pre
+                               (concat (map (fn* [c] `(assert ~c)) pre) 
+                                       body)
+                               body)]
+                    (#'clojure.core/maybe-destructured params body)))
+        new-sigs (map psig sigs)
+        add-profile (fn [name sigs]
+                      (map (fn [[a & body :as p]]
+                             (assert (seq? p) (pr-str sigs))
+                             (list a `(p ~(keyword (-> *ns* ns-name str)
+                                                     (str name))
+                                           ~@body)))
+                           sigs))]
+
+    (with-meta
+      (if name
+        (list* 'fn* name (add-profile name new-sigs))
+        (cons 'fn* (add-profile fake-name new-sigs)))
+      (meta &form))))
 
 ;;;;;;;;;;;;;;;;;
 ;; Timbre stuff

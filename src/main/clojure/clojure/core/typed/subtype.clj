@@ -1,9 +1,11 @@
 (ns ^:skip-wiki clojure.core.typed.subtype
+  (:refer-clojure :exclude [defn])
   (:require [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-protocols :as tp]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed.utils :as u]
+            [clojure.core.typed.profiling :refer [defn]]
             [clojure.core.typed.contract-utils :as con]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.errors :as err]

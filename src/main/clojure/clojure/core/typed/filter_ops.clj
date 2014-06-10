@@ -1,6 +1,8 @@
 (ns ^:skip-wiki clojure.core.typed.filter-ops
+  (:refer-clojure :exclude [defn])
   (:require [clojure.core.typed.type-rep :as r] 
             [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.profiling :refer [defn] :as p]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.path-rep :as pr]
             [clojure.core.typed.object-rep :as or]
