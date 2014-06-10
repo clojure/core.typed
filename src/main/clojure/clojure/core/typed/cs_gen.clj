@@ -647,14 +647,6 @@
           (cs-gen V X Y Sv T)
           (fail! S T))
         
-        (r/HeterogeneousMap? S)
-        (let [new-S (c/upcast-hmap S)]
-          (cs-gen V X Y new-S T))
-
-        (r/HSet? S)
-        (let [new-S (c/upcast-hset S)]
-          (cs-gen V X Y new-S T))
-
         (and (r/TApp? S)
              (r/TApp? T))
         (cs-gen-TApp V X Y S T)
@@ -745,6 +737,17 @@
         (and (r/Protocol? S)
              (r/Protocol? T))
         (cs-gen-Protocol V X Y S T)
+
+        (r/HeterogeneousMap? S)
+        (let [new-S (c/upcast-hmap S)]
+          (cs-gen V X Y new-S T))
+
+        (r/HSet? S)
+        (let [new-S (c/upcast-hset S)]
+          (cs-gen V X Y new-S T))
+
+        (r/HeterogeneousVector? S)
+        (cs-gen V X Y (c/upcast-hvec S) T)
 
         :else
         (do (when-not (subtype? S T) 

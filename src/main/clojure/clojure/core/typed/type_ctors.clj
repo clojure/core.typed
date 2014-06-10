@@ -257,6 +257,28 @@
       :clojure (RClass-of 'clojure.lang.APersistentSet [tp])
       :cljs    (Protocol-of 'cljs.core/ISet [tp]))))
 
+; Should update this with prest
+(t/ann ^:no-check upcast-hvec [HeterogeneousVector -> r/Type])
+(defn upcast-hvec [{:keys [types rest drest] :as hvec}]
+  {:pre [(r/HeterogeneousVector? hvec)]
+   :post [(r/Type? %)]}
+  (let [tp (if-not drest
+             (apply Un 
+                    (concat types
+                            (when rest
+                              [rest])))
+             r/-any)]
+    (apply
+      In 
+      (impl/impl-case
+        :clojure (RClass-of clojure.lang.APersistentVector [tp])
+        :cljs    (Protocol-of 'cljs.core/IVector [tp]))
+      (when-not drest
+        [(r/make-CountRange
+           (count types)
+           (when-not rest
+             (count types)))]))))
+
 ;; Unions
 
 (t/tc-ignore
