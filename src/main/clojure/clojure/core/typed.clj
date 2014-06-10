@@ -1028,7 +1028,7 @@ for checking namespaces, cf for checking individual forms."}
        ;preserve letfn empty body
        ~@(or body [nil]))))
 
-(defmacro ^{:deprecated "0.2.45"} defprotocol> [& body]
+(defmacro ^{:deprecated "0.2.45"} defprotocol>
   "DEPRECATED: use clojure.core.typed/defprotocol
 
   Like defprotocol, but required for type checking
@@ -1036,6 +1036,7 @@ for checking namespaces, cf for checking individual forms."}
   
   eg. (defprotocol> MyProtocol
         (a [this]))"
+  [& body]
   `(tc-ignore
      (core/defprotocol ~@body)))
 

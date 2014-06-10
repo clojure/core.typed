@@ -2170,7 +2170,7 @@
                       body (Mu-body* name t)
                       new-body (fnd-bnd body)]
                   (Mu* name new-body))
-      (r/Poly? t) (fnd-bnd (Poly-body* (Poly-fresh-symbols* t)) t)
+      (r/Poly? t) (fnd-bnd (Poly-body* (Poly-fresh-symbols* t) t))
       (r/TypeFn? t) (let [names (TypeFn-fresh-symbols* t)
                           body (TypeFn-body* names t)
                           bbnds (TypeFn-bbnds* names t)
