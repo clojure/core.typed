@@ -300,7 +300,8 @@
 ; Add methods to cs-gen*, but always call cs-gen
 
 (declare cs-gen-right-F cs-gen-left-F cs-gen-datatypes-or-records cs-gen-list
-         cs-gen-filter-set cs-gen-object cs-gen-HSequential cs-gen-TApp)
+         cs-gen-filter-set cs-gen-object cs-gen-HSequential cs-gen-TApp
+         cs-gen-Function cs-gen-FnIntersection)
 
 (t/ann ^:no-check cs-gen 
        [(t/Set t/Sym) 
@@ -676,6 +677,14 @@
              (r/TApp? T))
         (cs-gen-TApp V X Y S T)
 
+        (and (r/FnIntersection? S)
+             (r/FnIntersection? T))
+        (cs-gen-FnIntersection V X Y S T)
+
+        (and (r/Function? S)
+             (r/Function? T))
+        (cs-gen-Function V X Y S T)
+
         :else
         (cs-gen* V X Y S T))))))
 
@@ -860,8 +869,10 @@
             (cs-gen V X Y s1 t1)) 
           (.rands S) (.rands T))))
 
-(add-cs-gen*-method [FnIntersection FnIntersection impl/any-impl]
+(defn cs-gen-FnIntersection
   [V X Y ^FnIntersection S ^FnIntersection T] 
+  {:pre [(r/FnIntersection? S)
+         (r/FnIntersection? T)]}
   ;(prn "cs-gen FnIntersections")
   (cset-meet*
     (doall
@@ -1403,11 +1414,6 @@
 
 :else 
 (err/nyi-error (pr-str "NYI Function inference " (prs/unparse-type S) (prs/unparse-type T)))))))
-
-(add-cs-gen*-method [Function Function impl/any-impl]
-  [V X Y S T]
-  #_(prn "cs-gen* [Function Function]")
-  (cs-gen-Function V X Y S T))
 
 ;; C : cset? - set of constraints found by the inference engine
 ;; Y : (setof symbol?) - index variables that must have entries
