@@ -21,7 +21,7 @@
    :post [(fr/Filter? %)]}
   (if (or (= r/-any t) (and (symbol? i) (r/is-var-mutated? i)))
     fr/-top
-    (fr/->TypeFilter t p i)))
+    (fr/TypeFilter-maker t p i)))
 
 (defn -not-filter [t i & [p]]
   {:pre [(r/Type? t)
@@ -30,7 +30,7 @@
    :post [(fr/Filter? %)]}
   (if (or (= r/-any t) (and (symbol? i) (r/is-var-mutated? i)))
     fr/-top
-    (fr/->NotTypeFilter t p i)))
+    (fr/NotTypeFilter-maker t p i)))
 
 (defn -filter-at [t o]
   (if (or/Path? o)
@@ -278,18 +278,19 @@
   (letfn [(mk [& fs]
             {:pre [(every? fr/Filter? fs)]
              :post [(fr/Filter? %)]}
+            (p/p :filter-ops/-or-mk
             (cond
               (empty? fs) fr/-bot
               (= 1 (count fs)) (first fs)
-              :else (fr/->OrFilter (set fs))))
+              :else (fr/OrFilter-maker (set fs)))))
           (distribute [args]
-            ;(prn "distribute:" (map clojure.core.typed.parse-unparse/unparse-filter args))
+            (p/p :filter-ops/-or-distribute
             (let [{ands true others false} (group-by fr/AndFilter? args)]
               (if (empty? ands)
                 (apply mk others)
                 (let [{elems :fs} (first ands)] ;an AndFilter
                   (apply -and (for [a elems]
-                                (apply -or a (concat (next ands) others))))))))]
+                                (apply -or a (concat (next ands) others)))))))))]
     (loop [fs args
            result nil]
       (assert (every? fr/Filter? fs))
@@ -325,7 +326,7 @@
     (fr/TopFilter? a) c
     ;; P -> tt = tt for any P
     (fr/TopFilter? c) fr/-top
-    :else (fr/->ImpFilter a c)))
+    :else (fr/ImpFilter-maker a c)))
 
 
 
@@ -357,7 +358,7 @@
             (cond
               (empty? fs) fr/-top
               (= 1 (count fs)) (first fs)
-              :else (fr/->AndFilter (set fs))))]
+              :else (apply fr/make-AndFilter fs)))]
     (loop [fs (set args)
            result nil]
       (if (empty? fs)
@@ -375,6 +376,7 @@
           :else
            ;; first, remove anything implied by the atomic propositions
            ;; We commonly see: (And (Or P Q) (Or P R) (Or P S) ... P), which this fixes
+           (p/p :filter-ops/-and-base-case
           (let [{atomic true not-atomic false} (group-by atomic-filter? result)
                 ;_ (prn "not-atomic" (map clojure.core.typed.parse-unparse/unparse-filter not-atomic))
                 not-atomic* (for [p not-atomic
@@ -382,7 +384,7 @@
                               p)]
             ;(prn "not-atomic*" (map clojure.core.typed.parse-unparse/unparse-filter not-atomic*))
              ;; `compact' takes care of implications between atomic props
-            (apply mk (compact (concat not-atomic* atomic) false))))
+            (apply mk (compact (concat not-atomic* atomic) false)))))
         (let [ffs (first fs)]
           (cond
             (fr/BotFilter? ffs) ffs
@@ -404,9 +406,9 @@
          (fr/Filter? -)]
    :post [(fr/FilterSet? %)]}
   (cond
-    (fr/BotFilter? +) (fr/->FilterSet fr/-bot fr/-top)
-    (fr/BotFilter? -) (fr/->FilterSet fr/-top fr/-bot)
-    :else (fr/->FilterSet + -)))
+    (fr/BotFilter? +) (fr/FilterSet-maker fr/-bot fr/-top)
+    (fr/BotFilter? -) (fr/FilterSet-maker fr/-top fr/-bot)
+    :else (fr/FilterSet-maker + -)))
 
 (defn atomic-filter? [a]
   (boolean 
@@ -424,7 +426,8 @@
     (if (= f1 f2)
       true
       (cond
-        (fr/OrFilter? f1) (boolean (some #(= % f2) (:fs f1)))
+        (fr/OrFilter? f1) (boolean (some (fn [f1] (== (r/type-id f1) (r/type-id f2))) 
+                                         (:fs f1)))
         (and (fr/TypeFilter? f1)
              (fr/TypeFilter? f2)) (and (= (:id f1) (:id f2))
                                        (= (:path f1) (:path f2))
