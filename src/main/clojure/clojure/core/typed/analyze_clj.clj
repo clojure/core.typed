@@ -14,6 +14,7 @@
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed :as T]
+            [clojure.core.cache :as cache]
             [clojure.core :as core]))
 
 (alter-meta! *ns* assoc :skip-wiki true)
@@ -152,7 +153,8 @@
   in the given namespace symbol nsym"
   [nsym]
   {:pre [((some-fn symbol? #(instance? clojure.lang.Namespace %)) 
-          nsym)]}
+          nsym)]
+   :post [(vector? %)]}
   (u/p :analyze/ast-for-ns
    (let [nsym (or (when (instance? clojure.lang.Namespace nsym)
                     (ns-name nsym))
@@ -160,13 +162,14 @@
                   ; doesn't exist yet
                   nsym)
          _ (assert (symbol? nsym))
-         cache (when-let [cache vs/*analyze-ns-cache*]
-                 @cache)]
-     (if (and cache (contains? cache nsym))
-       (cache nsym)
+         cache vs/*analyze-ns-cache*]
+     (if (and cache (cache/has? cache nsym))
+       (-> cache
+           (cache/hit nsym)
+           (cache/lookup nsym))
        ;copied basic approach from tools.emitter.jvm
        (let [p (coerce/ns->file nsym)
              asts (ast-for-file p)]
-         (when-let [cache vs/*analyze-ns-cache*]
-           (swap! cache assoc nsym asts))
+         (when cache
+           (cache/miss cache nsym asts))
          asts)))))

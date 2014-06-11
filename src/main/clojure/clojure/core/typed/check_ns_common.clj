@@ -13,6 +13,7 @@
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.current-impl :as impl]
             [clojure.java.io :as io]
+            [clojure.core.cache :as cache]
             [clojure.jvm.tools.analyzer :as jta])
   (:import (clojure.lang ExceptionInfo)))
 
@@ -45,7 +46,7 @@
                       vs/*delayed-errors* (err/-init-delayed-errors)
                       vs/*already-checked* (atom #{})
                       vs/*trace-checker* trace
-                      vs/*analyze-ns-cache* (atom {})
+                      vs/*analyze-ns-cache* (cache/soft-cache-factory {})
                       ; we only use this if we have exactly one namespace passed
                       vs/*checked-asts* (when (#{impl/clojure} impl)
                                           (when (== 1 (count nsym-coll))
