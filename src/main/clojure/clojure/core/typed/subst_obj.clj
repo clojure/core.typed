@@ -66,7 +66,7 @@
          (fl/name-ref? k)
          ((some-fn false? nil? r/Type?) t)]
    :post [(fl/Filter? %)]}
-  (let [extra-filter (if t (fl/->TypeFilter t nil k) fl/-top)]
+  (let [extra-filter (if t (fl/TypeFilter-maker t nil k) fl/-top)]
     (letfn [(add-extra-filter [f]
               {:pre [(fl/Filter? f)]
                :post [(fl/Filter? %)]}

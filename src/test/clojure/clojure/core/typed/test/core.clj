@@ -375,7 +375,7 @@
   (is-clj (implied-atomic? (-not-filter -false 'a)(-not-filter (Un -nil -false) 'a))))
 
 (deftest combine-props-test
-  (is-clj (= (map set (update/combine-props [(->ImpFilter (-not-filter -false 'a)
+  (is-clj (= (map set (update/combine-props [(ImpFilter-maker (-not-filter -false 'a)
                                                (-filter -true 'b))]
                                  [(-not-filter (Un -nil -false) 'a)]
                                  (atom true)))
@@ -414,7 +414,7 @@
   ;test impfilter
   (is-clj (let [{:keys [l props]}
             (env+ (-PropEnv {'a (Un -false -true) 'b (Un -nil -true)}
-                             [(->ImpFilter (-not-filter -false 'a)
+                             [(ImpFilter-maker (-not-filter -false 'a)
                                            (-filter -true 'b))])
                   [(-not-filter (Un -nil -false) 'a)]
                   (atom true))]
@@ -425,11 +425,11 @@
   ; more complex impfilter
   (is-with-aliases (= (env+ (-PropEnv {'and1 (Un -false -true)
                                        'tmap (Name-maker 'clojure.core.typed.test.util-aliases/UnionName)}
-                                      [(->ImpFilter (-filter (Un -nil -false) 'and1)
+                                      [(ImpFilter-maker (-filter (Un -nil -false) 'and1)
                                                     (-not-filter (-val :MapStruct1)
                                                                  'tmap
                                                                  [(->KeyPE :type)]))
-                                       (->ImpFilter (-not-filter (Un -nil -false) 'and1)
+                                       (ImpFilter-maker (-not-filter (Un -nil -false) 'and1)
                                                     (-filter (-val :MapStruct1)
                                                              'tmap
                                                              [(->KeyPE :type)]))])

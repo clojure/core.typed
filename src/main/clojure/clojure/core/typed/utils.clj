@@ -251,6 +251,10 @@
 (defmacro def-type
   [name fields doc invariants & opts]
   `(mk ~name ~fields ~invariants ~@opts))
+
+(defmacro def-filter
+  [name fields doc invariants & opts]
+  `(mk ~name ~fields ~invariants ~@opts))
 )
 
 (defmacro add-defmethod-generator 

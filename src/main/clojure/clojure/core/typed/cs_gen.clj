@@ -1,6 +1,8 @@
 (ns ^:skip-wiki clojure.core.typed.cs-gen
+  (:refer-clojure :exclude [defn])
   (:require [clojure.core.typed.utils :as u]
             [clojure.core.typed.contract-utils :as con]
+            [clojure.core.typed.profiling :as p :refer [defn]]
             [clojure.core.typed.errors :as err]
             [clojure.core.typed.coerce-utils :as coerce]
             [clojure.core.typed.type-rep :as r :refer []]
@@ -60,7 +62,8 @@
 ;              (when (r/Type? t)
 ;                (prs/unparse-type t)))
 ;         (binding [*err* *out*] (clojure.repl/pst e 40))))
-  (throw u/cs-gen-exn))
+(p/p :cs-gen/fail!
+  (throw u/cs-gen-exn)))
 
 (defmacro handle-failure [& body]
   `(u/handle-cs-gen-failure ~@body))
