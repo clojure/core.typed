@@ -55,7 +55,8 @@ for checking namespaces, cf for checking individual forms."}
   "Reset internal type caches."
   []
   (load-if-needed)
-  ((impl/v 'clojure.core.typed.reset-caches/reset-caches)))
+  ((impl/v 'clojure.core.typed.reset-caches/reset-caches))
+  nil)
 
 ;(ann method-type [Symbol -> nil])
 (defn method-type
@@ -2076,13 +2077,6 @@ for checking namespaces, cf for checking individual forms."}
       ;=> [Number -> Number]"
    ([form] `(check-form* '~form))
    ([form expected] `(check-form* '~form '~expected)))
-
-(defn reset-caches 
-  "Reset internal type caches."
-  []
-  (load-if-needed)
-  ((impl/v 'clojure.core.typed.reset-caches/reset-caches))
-  nil)
 
 (defn check-ns-info
   "Same as check-ns, but returns a map of results from type checking the

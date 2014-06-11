@@ -603,7 +603,7 @@
              (r/HSet? t))
         (subtype-HSet s t)
 
-        (and (r/HSet? s))
+        (r/HSet? s)
         (subtype (c/upcast-hset s) t)
 
         (r/KwArgsSeq? s)

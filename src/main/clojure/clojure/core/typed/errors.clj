@@ -8,6 +8,15 @@
 (alter-meta! *ns* assoc :skip-wiki true)
 
 (def int-error-kw ::internal-error)
+(def nyi-error-kw ::nyi-error)
+
+(def tc-error-parent ::tc-error-parent)
+
+(defn derive-error [kw]
+  (derive kw tc-error-parent))
+
+(derive-error int-error-kw)
+(derive-error nyi-error-kw)
 
 ;(t/ann ^:no-check env-for-error [Any -> Any])
 (defn env-for-error [env]
@@ -63,8 +72,6 @@
      ~@body
      false))
 
-(def tc-error-parent ::tc-error-parent)
-
 (defn tc-error? [exdata]
   (assert (not (instance? clojure.lang.ExceptionInfo exdata)))
   (isa? (:type-error exdata) tc-error-parent))
@@ -91,15 +98,6 @@
           (swap! delayed-errors conj e)
           (throw (Exception. (str "*delayed-errors* not rebound"))))
         (or return (impl/v 'clojure.core.typed.type-rep/-nothing))))))
-
-(defn derive-error [kw]
-  (derive kw tc-error-parent))
-
-(def int-error-kw ::internal-error)
-(def nyi-error-kw ::nyi-error)
-
-(derive-error int-error-kw)
-(derive-error nyi-error-kw)
 
 (defn tc-error
   [estr]

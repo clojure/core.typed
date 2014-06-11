@@ -493,7 +493,7 @@
                             (if (= (c/Un) vt)
                               vt
                               (do (assert (r/HeterogeneousMap? t))
-                                  (assoc-in [:types kt] vt))))
+                                  (assoc-in t [:types kt] vt))))
                           (c/-complete-hmap {}) (:types targett))]
           (assoc expr
                  :args cargs
