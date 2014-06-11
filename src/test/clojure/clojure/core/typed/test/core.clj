@@ -3458,4 +3458,5 @@
   (is (check-ns 'clojure.core.typed.test.prest-cs-gen))
   (is-tc-e (map (inst hash-map Number String) [1 2 3] ["a b c"])
            :expected (NonEmptySeq (Map Number String)))
+  (is (err/top-level-error-thrown? (tc/cf (hash-map 1 "a" 2 \c) (clojure.core.typed/Map Number String))))
   )

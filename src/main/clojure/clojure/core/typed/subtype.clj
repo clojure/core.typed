@@ -59,12 +59,11 @@
 
 (defn subtypes-prest? [argtys dom prest]
   "True if argtys are under dom and prest"
-  (handle-failure
-    (let [dom-count (count dom)
-          [argtys-dom argtys-rest] (split-at dom-count argtys)]
+  (let [dom-count (count dom)
+        [argtys-dom argtys-rest] (split-at dom-count argtys)]
+    (handle-failure
       (subtypes*-varargs #{} argtys-dom dom nil nil)
-      (subtype? (r/-hvec (vec argtys-rest)) prest))
-    true))
+      (subtype? (r/-hvec (vec argtys-rest)) prest))))
 
 ;subtype and subtype? use *sub-current-seen* for remembering types (for Rec)
 ;subtypeA* takes an extra argument (the current-seen subtypes), called by subtype
@@ -522,8 +521,8 @@
                                                       (fn [acc cur]
                                                         (concat acc cur))
                                                       []
-                                                      (take (/ t-types-count
-                                                               s-types-count) (repeat t-types)))))
+                                                      (take (/ s-types-count
+                                                               t-types-count) (repeat t-types)))))
                               false))))
 
                    ; rest on right
