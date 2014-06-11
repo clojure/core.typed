@@ -29,8 +29,9 @@
         </executions>
         <configuration>
           <vmargs>-XX:MaxPermSize=128M</vmargs>
-          <vmargs>-XX:+TraceClassLoading</vmargs>
-          <vmargs>-XX:+TraceClassUnloading</vmargs>
+          <!--<vmargs>-XX:+TraceClassLoading</vmargs>-->
+          <vmargs>-verbose:class</vmargs>
+          <!--<vmargs>-XX:+TraceClassUnloading</vmargs>-->
           <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
           <testDeclareNamespacesOnly>true</testDeclareNamespacesOnly>
           <temporaryOutputDirectory>false</temporaryOutputDirectory>
