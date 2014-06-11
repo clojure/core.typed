@@ -958,7 +958,7 @@
 (defn parse-object [{:keys [id path]}]
   (when-not (f/name-ref? id)
     (err/int-error (str "Must pass natural number or symbol as id: " (pr-str id))))
-  (orep/->Path (when path (mapv parse-path-elem path)) id))
+  (orep/-path (when path (mapv parse-path-elem path)) id))
 
 (defn parse-filter-set [{:keys [then else] :as fsyn}]
   (fl/-FS (if then
@@ -1019,23 +1019,23 @@
 (defmethod parse-path-elem :default [syn]
   (err/int-error (str "Malformed path element: " (pr-str syn))))
 
-(defmethod parse-path-elem 'Class [_] (pthrep/->ClassPE))
-(defmethod parse-path-elem 'Count [_] (pthrep/->CountPE))
+(defmethod parse-path-elem 'Class [_] (pthrep/ClassPE-maker))
+(defmethod parse-path-elem 'Count [_] (pthrep/CountPE-maker))
 
-(defmethod parse-path-elem 'Keys [_] (pthrep/->KeysPE))
-(defmethod parse-path-elem 'Vals [_] (pthrep/->ValsPE))
+(defmethod parse-path-elem 'Keys [_] (pthrep/KeysPE-maker))
+(defmethod parse-path-elem 'Vals [_] (pthrep/ValsPE-maker))
 
 (defmethod parse-path-elem 'Key
   [[_ & [ksyn :as all]]]
   (when-not (= 1 (count all))
     (err/int-error "Wrong arguments to Key"))
-  (pthrep/->KeyPE ksyn))
+  (pthrep/-kpe ksyn))
 
 (defmethod parse-path-elem 'Nth
   [[_ & [idx :as all]]]
   (when-not (= 1 (count all))
     (err/int-error "Wrong arguments to Nth"))
-  (pthrep/->NthPE idx))
+  (pthrep/NthPE-maker idx))
 
 (defn- parse-kw-map [m]
   {:post [((con/hash-c? r/Value? r/Type?) %)]}

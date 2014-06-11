@@ -103,7 +103,7 @@ clojure.java.io/IOFactory
         [(prs/parse-type '(U nil (clojure.core.typed/Seqable Any) clojure.lang.Counted))]
         (prs/parse-type '(U java.lang.Integer java.lang.Long))
         nil nil
-        :object (obj/->Path [(pe/->CountPE)] 0)))))
+        :object (obj/-path [(pe/CountPE-maker)] 0)))))
 
 (defn ^:private nth-type []
   (impl/with-clojure-impl

@@ -233,31 +233,31 @@
 
 (deftest truth-false-values-test
   (is-clj (= (tc-t (if nil 1 2))
-         (ret (-val 2) (-FS -top -bot) (->EmptyObject))))
+         (ret (-val 2) (-FS -top -bot) (EmptyObject-maker))))
   (is-clj (= (tc-t (if false 1 2))
-         (ret (-val 2) (-FS -top -bot) (->EmptyObject))))
+         (ret (-val 2) (-FS -top -bot) (EmptyObject-maker))))
   (is-clj (= (tc-t (if 1 1 2))
-         (ret (-val 1) (-FS -top -bot) (->EmptyObject)))))
+         (ret (-val 1) (-FS -top -bot) (EmptyObject-maker)))))
 
 (deftest empty-fn-test
   (is-clj (= (tc-t (clojure.core/fn []))
          (ret (make-FnIntersection
                 (Function-maker [] (make-Result -nil
                                             (-FS -bot -top)
-                                            (->EmptyObject))
+                                            (EmptyObject-maker))
                             nil nil nil))
               (-FS -top -bot)
-              (->EmptyObject))))
+              (EmptyObject-maker))))
   (is-clj (= (tc-t (fn [] 1))
          (ret (make-FnIntersection
                 (Function-maker [] (make-Result (-val 1)
                                               (-FS -top -bot)
-                                              (->EmptyObject))
+                                              (EmptyObject-maker))
                               nil nil nil))
               (-FS -top -bot)
-              (->EmptyObject))))
+              (EmptyObject-maker))))
   (is-clj (= (tc-t (let []))
-         (ret -nil (-FS -bot -top) (->EmptyObject)))))
+         (ret -nil (-FS -bot -top) (EmptyObject-maker)))))
 
 (deftest path-test
   (is-clj (= (tc-t (fn [a] (let [a 1] a)))
@@ -314,13 +314,13 @@
                     [(Un (make-HMap :mandatory {(-val :op) (-val :if)})
                          (make-HMap :mandatory {(-val :op) (-val :var)}))]
                     (make-Result (Un -nil (make-HMap :mandatory {(-val :op) (-val :if)}))
-                                 (-FS (-and (-filter (-val :if) 0 [(->KeyPE :op)])
+                                 (-FS (-and (-filter (-val :if) 0 [(-kpe :op)])
                                             (-not-filter (Un -false -nil) 0)
                                             (-filter (make-HMap :mandatory {(-val :op) (-val :if)}) 0))
                                            ; what are these filters doing here?
-                                      (-or (-and (-filter (-val :if) 0 [(->KeyPE :op)])
+                                      (-or (-and (-filter (-val :if) 0 [(-kpe :op)])
                                                  (-filter (Un -false -nil) 0))
-                                           (-not-filter (-val :if) 0 [(->KeyPE :op)])))
+                                           (-not-filter (-val :if) 0 [(-kpe :op)])))
                                  -empty)
                     nil nil nil))
               (-FS -top -bot)
@@ -394,7 +394,7 @@
              @flag)))
   ;test positive KeyPE
   ;update a from (U (HMap :mandatory {:op :if}) (HMap :mandatory {:op :var})) => (HMap :mandatory {:op :if})
-  (is-clj (let [props [(-filter (-val :if) 'a [(->KeyPE :op)])]
+  (is-clj (let [props [(-filter (-val :if) 'a [(-kpe :op)])]
             flag (atom true)]
         (and (= (let [env {'a (Un (make-HMap :mandatory {(-val :op) (-val :if)})
                                   (make-HMap :mandatory {(-val :op) (-val :var)}))}
@@ -403,7 +403,7 @@
                 (-PropEnv {'a (make-HMap :mandatory {(-val :op) (-val :if)})} props))
              @flag)))
   ;test negative KeyPE
-  (is-clj (let [props [(-not-filter (-val :if) 'a [(->KeyPE :op)])]
+  (is-clj (let [props [(-not-filter (-val :if) 'a [(-kpe :op)])]
             flag (atom true)]
         (and (= (let [env {'a (Un (make-HMap :mandatory {(-val :op) (-val :if)})
                                   (make-HMap :mandatory {(-val :op) (-val :var)}))}
@@ -428,11 +428,11 @@
                                       [(ImpFilter-maker (-filter (Un -nil -false) 'and1)
                                                     (-not-filter (-val :MapStruct1)
                                                                  'tmap
-                                                                 [(->KeyPE :type)]))
+                                                                 [(-kpe :type)]))
                                        (ImpFilter-maker (-not-filter (Un -nil -false) 'and1)
                                                     (-filter (-val :MapStruct1)
                                                              'tmap
-                                                             [(->KeyPE :type)]))])
+                                                             [(-kpe :type)]))])
                             [(-filter (Un -nil -false) 'and1)]
                             (atom true))))
   ; refine a subtype
@@ -464,7 +464,7 @@
                 (Function-maker [(make-HMap :mandatory {(-val :a) (-val 1)})]
                               (make-Result (-val 1) 
                                            (-FS -top -top)  ; have to throw out filters whos id's go out of scope
-                                           ;(->Path [(->KeyPE :a)] 0) ; requires 'equivalence' filters
+                                           ;(-path [(-kpe :a)] 0) ; requires 'equivalence' filters
                                            -empty)
                               nil nil nil))
               (-FS -top -bot)
@@ -568,7 +568,7 @@
                          (Un -false -true)
                          nil nil
                          :filter (let [t (-val :MapStruct1)
-                                       path [(->KeyPE :type)]]
+                                       path [(-kpe :type)]]
                                    (-FS (-and 
                                           (-filter (make-HMap :mandatory {(-val :type) (-val :MapStruct1)
                                                            (-val :a) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)})
@@ -655,21 +655,21 @@
 (deftest update-test
   (is-clj (= (update (Un (make-HMap :mandatory {(-val :type) (-val :Map1)})
                          (make-HMap :mandatory {(-val :type) (-val :Map2)}))
-                     (-filter (-val :Map1) 'tmap [(->KeyPE :type)]))
+                     (-filter (-val :Map1) 'tmap [(-kpe :type)]))
              (make-HMap :mandatory {(-val :type) (-val :Map1)})))
   ;test that update resolves Names properly
   (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.util-aliases/MapStruct2)
-                              (-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
+                              (-filter (-val :MapStruct1) 'tmap [(-kpe :type)]))
                       (Un)))
   ;test that update resolves Names properly
   ; here we refine the type of tmap with the equivalent of following the then branch 
   ; with test (= :MapStruct1 (:type tmap))
   (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.util-aliases/UnionName)
-                              (-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
+                              (-filter (-val :MapStruct1) 'tmap [(-kpe :type)]))
                       (make-HMap :mandatory {(-val :type) (-val :MapStruct1) 
                               (-val :a) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)})))
   (is-with-aliases (= (update (Name-maker 'clojure.core.typed.test.util-aliases/UnionName)
-                              (-not-filter (-val :MapStruct1) 'tmap [(->KeyPE :type)]))
+                              (-not-filter (-val :MapStruct1) 'tmap [(-kpe :type)]))
                       (make-HMap :mandatory {(-val :type) (-val :MapStruct2) 
                               (-val :b) (Name-maker 'clojure.core.typed.test.util-aliases/MyName)})))
   (is-clj (= (update (Un -true -false) (-filter (Un -false -nil) 'a nil)) 
@@ -833,7 +833,7 @@
   (is-clj (= (tc-t (Exception. "a"))
          (ret (RClass-of Exception)
               (-FS -top -bot)
-              (->EmptyObject)))))
+              (EmptyObject-maker)))))
 
 (deftest tc-throw-test
   (is-clj (subtype? (:t (tc-t (fn [] (throw (Exception. "a")))))
@@ -999,7 +999,7 @@
 (deftest class-pathelem-test
   (is-clj (= (-> (tc-t #(class %))
            ret-t :types first :rng Result-object*)
-         (->Path [(->ClassPE)] 0)))
+         (-path [(ClassPE-maker)] 0)))
   (is-clj (subtype? (-> (tc-t 
                       #(= Number (class %)))
                   ret-t)
@@ -1008,10 +1008,10 @@
                      [-any]
                      (RClass-of 'boolean)
                      nil nil
-                     :filter (-FS (-and (-filter (-val Number) 0 [(->ClassPE)])
+                     :filter (-FS (-and (-filter (-val Number) 0 [(ClassPE-maker)])
                                         ;the important filter, updates first argument to be Number if predicate is true
                                         (-filter (RClass-of Number) 0))
-                                  (-not-filter (-val Number) 0 [(->ClassPE)])))]))))
+                                  (-not-filter (-val Number) 0 [(ClassPE-maker)])))]))))
 
 ;TODO ^--
 ;(-> (tc-t #(let [a (class %)]
@@ -1219,11 +1219,11 @@
   ; simplifies to
   ;(is (U T T') a pth)
   (is-clj 
-    (= (-or (-filter (RClass-of clojure.lang.Symbol) 'id [(->KeyPE :a)])
-            (-filter (RClass-of String) 'id [(->KeyPE :a)]))
+    (= (-or (-filter (RClass-of clojure.lang.Symbol) 'id [(-kpe :a)])
+            (-filter (RClass-of String) 'id [(-kpe :a)]))
        (-filter (Un (RClass-of clojure.lang.Symbol)
                     (RClass-of String))
-                'id [(->KeyPE :a)])))
+                'id [(-kpe :a)])))
   
   ;(& (is T a pth)
   ;   (when (is T a pth)
@@ -1233,11 +1233,11 @@
   ;   (is T' 'b))
   ;  FIXME
 ;  (is-clj 
-;    (= (-and (-filter (RClass-of clojure.lang.Symbol) 'id [(->KeyPE :a)])
-;             (-imp (-filter (RClass-of clojure.lang.Symbol) 'id [(->KeyPE :a)])
-;               (-filter (RClass-of String) 'id2 [(->KeyPE :a) (->KeyPE :b)])))
-;       (-and (-filter (RClass-of clojure.lang.Symbol) 'id [(->KeyPE :a)])
-;             (-filter (RClass-of String) 'id2 [(->KeyPE :a) (->KeyPE :b)]))))
+;    (= (-and (-filter (RClass-of clojure.lang.Symbol) 'id [(-kpe :a)])
+;             (-imp (-filter (RClass-of clojure.lang.Symbol) 'id [(-kpe :a)])
+;               (-filter (RClass-of String) 'id2 [(-kpe :a) (-kpe :b)])))
+;       (-and (-filter (RClass-of clojure.lang.Symbol) 'id [(-kpe :a)])
+;             (-filter (RClass-of String) 'id2 [(-kpe :a) (-kpe :b)]))))
   )
 
 (deftest or-filter-update-test
@@ -1251,15 +1251,15 @@
 (deftest path-update-test
   (is-clj 
     (both-subtype? (clj (update (Un -nil (make-HMap :mandatory {(-val :foo) (RClass-of Number)}))
-                                (-filter (Un -false -nil) 'id [(->KeyPE :foo)])))
+                                (-filter (Un -false -nil) 'id [(-kpe :foo)])))
                    -nil))
   (is-clj 
     (both-subtype? (update (Un -nil (make-HMap :mandatory {(-val :foo) (RClass-of Number)}))
-                           (-not-filter (Un -false -nil) 'id [(->KeyPE :foo)]))
+                           (-not-filter (Un -false -nil) 'id [(-kpe :foo)]))
                    (make-HMap :mandatory {(-val :foo) (RClass-of Number)})))
   ; if (:foo a) is nil, either a has a :foo entry with nil, or no :foo entry
   (is-clj (both-subtype? (update (make-HMap)
-                                 (-filter -nil 'id [(->KeyPE :foo)]))
+                                 (-filter -nil 'id [(-kpe :foo)]))
                          (make-HMap :optional {(-val :foo) -nil}))))
 
 (deftest multimethod-test
@@ -1405,7 +1405,7 @@
   (is-clj (both-subtype? 
             (update (RClass-of IPersistentMap [-any -any])
                     (-filter (RClass-of Seqable [(RClass-of Number)])
-                             'a [(->KeysPE)]))
+                             'a [(KeysPE-maker)]))
             (RClass-of IPersistentMap [(RClass-of Number) -any])))
   ; test with = instead of subtype to catch erroneous downcast to (IPersistentMap clojure.core.typed/Nothing clojure.core.typed/Any)
   (is-clj (both-subtype?
@@ -2393,7 +2393,7 @@
   ; Only one level is updated, we can't say any more about the inner
   ; :b key.
   (is-clj  (let [t (parse-clj '(HMap))
-                 path [(->KeyPE :a) (->KeyPE :b)]
+                 path [(-kpe :a) (-kpe :b)]
                  lo+ (-filter (parse-clj 'Number) 'a path)
                  lo- (-not-filter (parse-clj 'Number) 'a path)
                  expected+ (parse-clj `(HMap :optional {:a Any}))
@@ -2404,7 +2404,7 @@
   ; just return the original type
   (is-clj (let [t (parse-type `(HMap :absent-keys #{:a}))]
             (= t
-               (update t (-not-filter (RClass-of Number) 'a [(->KeyPE :a) (->KeyPE :b)])))))
+               (update t (-not-filter (RClass-of Number) 'a [(-kpe :a) (-kpe :b)])))))
 
   ; When we update a (HMap) that has no information about an :a key, sometimes we can prove
   ; the updated type always has an :a key.
@@ -2413,13 +2413,13 @@
   ; nil is the not-found type.
   (is-clj (let [t (parse-type `(HMap))]
             (both-subtype? (parse-type `(HMap :mandatory {:a Num}))
-                           (update t (-filter (RClass-of Number) 'a [(->KeyPE :a)])))))
+                           (update t (-filter (RClass-of Number) 'a [(-kpe :a)])))))
 
   ; We restrict (HMap) to (HMap :optional {:a clojure.core.typed/Any}), which is slightly less accurate, because
   ; we can't prove that the HMap :a entry is never nil. 
   (is-clj (let [t (parse-type '(HMap))]
             (both-subtype? (parse-type `(HMap :optional {:a Any}))
-                           (update t (-not-filter (RClass-of Number) 'a [(->KeyPE :a)]))))))
+                           (update t (-not-filter (RClass-of Number) 'a [(-kpe :a)]))))))
 
 
 (deftest poly-inst-scoping-test

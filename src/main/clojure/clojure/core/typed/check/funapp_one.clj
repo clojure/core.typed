@@ -98,9 +98,9 @@
         _ (assert (every? r/Type? t-a))
         [o-a t-a] (let [rs (for [[nm oa ta] (map vector 
                                                  (range arg-count) 
-                                                 (concat o-a (repeatedly obj/->EmptyObject))
+                                                 (concat o-a (repeatedly obj/EmptyObject-maker))
                                                  (concat t-a (repeatedly c/Un)))]
-                             [(if (>= nm dom-count) (obj/->EmptyObject) oa)
+                             [(if (>= nm dom-count) (obj/EmptyObject-maker) oa)
                               ta])]
                     [(map first rs) (map second rs)])
         [t-r f-r o-r flow-r] (open-result/open-Result rng o-a t-a)]

@@ -56,7 +56,7 @@
         required-params (ast-u/method-required-params method)
         rest-param (ast-u/method-rest-param method)
 
-        param-obj (comp #(obj/->Path nil %)
+        param-obj (comp #(obj/-path nil %)
                         :name)
         ; Difference from Typed Racket:
         ;

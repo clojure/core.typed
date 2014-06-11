@@ -26,13 +26,14 @@
   (instance? clojure.core.typed.impl_protocols.IRObject a))
 
 (t/ann-record EmptyObject [])
-(u/defrecord EmptyObject []
+(u/def-object EmptyObject []
   "No interesting information about this path/object"
   []
-  p/IRObject)
+  :methods
+  [p/IRObject])
 
 (t/ann -empty EmptyObject)
-(def -empty (->EmptyObject))
+(def -empty (EmptyObject-maker))
 
 (defn -empty-fn []
   -empty)
@@ -41,7 +42,7 @@
 
 (t/ann-record Path [path :- (Seqable p/IRObject)
                     id :- fr/NameRef])
-(u/defrecord Path [path id]
+(u/def-object Path [path id]
   "A path to a variable. Paths grow to the right, with leftmost
   pathelem being applied first (think of -> threading operator)."
   [(or (and (seq path)
@@ -49,11 +50,16 @@
        (nil? path))
    (every? pr/PathElem? path)
    (fr/name-ref? id)]
-  p/IRObject)
+  :methods
+  [p/IRObject])
+
+(defn -path [path id]
+  (Path-maker path id))
 
 (t/ann-record NoObject [])
-(u/defrecord NoObject []
+(u/def-object NoObject []
   "Represents no info about the object of this expression
   should only be used for parsing type annotations and expected types"
   []
-  p/IRObject)
+  :methods
+  [p/IRObject])

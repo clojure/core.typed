@@ -114,11 +114,11 @@
     (obj/Path? t) (let [{p :path i :id} t]
                     (if (= i k)
                       (cond
-                        (obj/EmptyObject? o) (obj/->EmptyObject)
+                        (obj/EmptyObject? o) (obj/EmptyObject-maker)
                         ;; the result is not from an annotation, so it isn't a NoObject
-                        (obj/NoObject? o) (obj/->EmptyObject)
+                        (obj/NoObject? o) (obj/EmptyObject-maker)
                         (obj/Path? o) (let [{p* :path i* :id} o]
-                                        (obj/->Path (seq (concat p p*)) i*)))
+                                        (obj/-path (seq (concat p p*)) i*)))
                       t))))
 
 (derive ::subst-type fold/fold-rhs-default)

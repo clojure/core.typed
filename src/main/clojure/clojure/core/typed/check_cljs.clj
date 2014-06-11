@@ -222,7 +222,7 @@
                                   (fl/-filter (c/Un r/-nil r/-false) vname))
                           (fl/-FS f/-top f/-top))
                         (if-not (namespace vname)
-                          (o/->Path nil vname)
+                          (o/-path nil vname)
                           o/-empty))))
 
 ;(ann internal-special-form [Expr (U nil TCResult) -> Expr])

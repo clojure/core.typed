@@ -36,13 +36,6 @@
   "A type or a scope"
   (t/U Type p/IScope))
 
-; consider making this a definterface
-(t/ann-protocol TypeId
-                type-id [TypeId -> Long])
-
-(u/defprotocol TypeId
-  (type-id [_]))
-
 ; not a real symmetric predicate, but we always extend Type with the
 ; interface for speed, so it's sufficient.
 (t/ann ^:no-check Type? (t/Pred Type))

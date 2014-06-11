@@ -1339,7 +1339,7 @@
              u/expr-type (r/ret t 
                             (fo/-FS (fo/-not-filter (c/Un r/-nil r/-false) sym)
                                     (fo/-filter (c/Un r/-nil r/-false) sym))
-                            (obj/->Path nil sym))))))
+                            (obj/-path nil sym))))))
 
 (add-check-method :host-interop
   [{:keys [m-or-f target] :as expr} & [expected]]

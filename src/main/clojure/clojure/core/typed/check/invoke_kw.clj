@@ -26,8 +26,11 @@
     (cond
       ;Keyword must be a singleton with no default
       (c/keyword-value? kwt)
-      (let [{{path-hm :path id-hm :id :as o} :o} target-ret
-            this-pelem (pe/->KeyPE (:val kwt))
+      (let [{path-hm :path id-hm :id :as o} (when (obj/Path? (r/ret-o target-ret))
+                                              (r/ret-o target-ret))
+            o (or o (r/ret-o target-ret))
+            _ (assert ((some-fn obj/Path? obj/EmptyObject?) o))
+            this-pelem (pe/-kpe (:val kwt))
             val-type (c/find-val-type targett kwt defaultt)]
         (when expected-ret
           (when-not (sub/subtype? val-type (r/ret-t expected-ret))

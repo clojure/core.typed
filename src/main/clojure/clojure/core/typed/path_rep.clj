@@ -23,41 +23,41 @@
   (extend c IPathElem {}))
 
 (t/ann-record NthPE [idx :- Number]) ;; More specific?
-(u/defrecord NthPE [idx]
+(u/def-object NthPE [idx]
   "A path accessing an indexed member, as by clojure.core/first, second, nth"
   [(integer? idx)
    (not (neg? idx))])
 
 (t/ann-record NextPE [])
-(u/defrecord NextPE []
+(u/def-object NextPE []
   "A path calling clojure.core/next"
   [])
 
 (t/ann-record ClassPE [])
-(u/defrecord ClassPE []
+(u/def-object ClassPE []
   "A path calling clojure.core/class"
   [])
 
 (t/ann-record CountPE [])
-(u/defrecord CountPE []
+(u/def-object CountPE []
   "A path calling clojure.core/count"
   [])
 
 (t/ann-record KeyPE [val :- Keyword])
-(u/defrecord KeyPE [val]
+(u/def-object KeyPE [val]
   "A key in a hash-map"
   [(keyword? val)])
 
 (t/ann -kpe [Keyword -> KeyPE])
-(def -kpe ->KeyPE)
+(def -kpe KeyPE-maker)
 
 (t/ann-record KeysPE [])
-(u/defrecord KeysPE []
+(u/def-object KeysPE []
   "Calling clojure.core/keys"
   [])
 
 (t/ann-record ValsPE [])
-(u/defrecord ValsPE []
+(u/def-object ValsPE []
   "Calling clojure.core/vals"
   [])
 

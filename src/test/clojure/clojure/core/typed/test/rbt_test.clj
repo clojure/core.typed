@@ -46,7 +46,7 @@
 ;
 ;(deftest update-nested-hmap-test
 ;  #_(is-check-rbt (= (update/update (-hmap {(-val :left) (Name-maker 'clojure.core.typed.test.rbt-types/rbt)})
-;                             (-filter (-val :Red) 'id [(->KeyPE :left) (->KeyPE :tree)]))
+;                             (-filter (-val :Red) 'id [(-kpe :left) (-kpe :tree)]))
 ;                   (-hmap {(-val :left) 
 ;                           (-hmap {(-val :tree) (-val :Red) 
 ;                                   (-val :entry) (Name-maker 'clojure.core.typed.test.rbt-types/EntryT) 

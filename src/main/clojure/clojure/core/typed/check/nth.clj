@@ -96,7 +96,7 @@
    :post [(obj/RObject? %)]}
   (let [target-o (expr->object target-expr)]
     (if (obj/Path? target-o)
-      (update-in target-o [:path] concat [(pe/->NthPE idx)])
+      (update-in target-o [:path] concat [(pe/NthPE-maker idx)])
       target-o)))
 
 (defn invoke-nth [check-fn {:keys [args] :as expr} expected & {:keys [cargs]}]

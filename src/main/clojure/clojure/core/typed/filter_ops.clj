@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [defn])
   (:require [clojure.core.typed.type-rep :as r] 
             [clojure.core.typed.type-ctors :as c]
+            [clojure.core.typed.utils :as u]
             [clojure.core.typed.profiling :refer [defn] :as p]
             [clojure.core.typed.filter-rep :as fr]
             [clojure.core.typed.path-rep :as pr]
@@ -430,8 +431,7 @@
     (if (= f1 f2)
       true
       (cond
-        (fr/OrFilter? f1) (boolean (some (fn [f1] (== (r/type-id f1) (r/type-id f2))) 
-                                         (:fs f1)))
+        (fr/OrFilter? f1) (boolean (some #(u/filter= % f2) (:fs f1)))
         (and (fr/TypeFilter? f1)
              (fr/TypeFilter? f2)) (and (= (:id f1) (:id f2))
                                        (= (:path f1) (:path f2))

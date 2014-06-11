@@ -129,7 +129,7 @@
                                          fs)
                                        :else (err/int-error (str "What are these?" fs2 fs3)))
                               type (c/Un ts us)
-                              object (if (= os2 os3) os2 (obj/->EmptyObject))
+                              object (if (= os2 os3) os2 (obj/EmptyObject-maker))
 
                               ;only bother with something interesting if a branch is unreachable (the next two cond cases)
                               ;Should be enough for `assert`

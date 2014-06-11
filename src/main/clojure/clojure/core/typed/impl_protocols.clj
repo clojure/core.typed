@@ -1,7 +1,7 @@
 (ns ^:skip-wiki 
   clojure.core.typed.impl-protocols
   (:refer-clojure :exclude [defrecord defprotocol])
-  (:require [clojure.core.typed.utils :as u]
+  (:require [clojure.core.typed.def-utils :as u]
             [clojure.core.typed :as t]))
 
 (t/tc-ignore
@@ -66,3 +66,10 @@
 (defn IRObject? [a]
   (instance? clojure.core.typed.impl_protocols.IRObject a))
 
+
+; consider making this a definterface
+(t/ann-protocol TypeId
+                type-id [TypeId -> Long])
+
+(u/defprotocol TypeId
+  (type-id [_]))

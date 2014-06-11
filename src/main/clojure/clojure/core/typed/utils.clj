@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [defrecord defprotocol])
   (:require [clojure.core.typed :as t]
             [clojure.core.typed.util-vars :refer [*current-env*] :as uvs]
+            [clojure.core.typed.impl-protocols :as ps]
             [clojure.core.typed.ast-utils :as au]
             [clojure.core.typed.errors :as err]
             [clojure.core.contracts.constraints :as contracts]
@@ -77,11 +78,13 @@
 ;              {:contract ~chk})))
 ;       ~name)))
 
+;FIXME prefer def-utils.clj version
 (defmacro defrecord [name slots inv-description invariants & etc]
   ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
   (when-not (resolve name)
     `(contracts/defconstrainedrecord ~name ~slots ~inv-description ~invariants ~@etc)))
 
+;FIXME prefer def-utils.clj version
 (defmacro defprotocol [name & args]
   ;only define record if symbol doesn't resolve, not completely sure if this behaves like defonce
   (when-not (resolve name)
@@ -192,18 +195,18 @@
      (iterator [this#] (throw (UnsupportedOperationException. (str "iterator on " '~name-sym))))
      (without [this# k#] (throw (UnsupportedOperationException. (str "without on " '~name-sym))))
 
-     clojure.core.typed.type-rep/TypeId
-     (type-id [_#] ~intern-id)
+     ps/TypeId
+     (ps/type-id [_#] ~intern-id)
 
      ~@methods*))
 
-(defn emit-deftype [name-sym fields invariants methods* intern*]
+(defn emit-deftype [name-sym intern-var fields invariants methods* intern*]
   (let [classname (with-meta (symbol (str (namespace-munge *ns*) "." name-sym)) (meta name-sym))
         ->ctor (symbol (str "->" name-sym))
         maker (symbol (str name-sym "-maker"))
         that (gensym)
         intern-id 'intern-id
-        interns (symbol (str name-sym "-interns"))
+        interns intern-var
         gs (gensym)
         type-hash (hash classname)
         meta-field '_meta]
@@ -218,7 +221,6 @@
          (instance? ~name-sym a#))
 
        ; (Atom1 (Map t/Any Number))
-       (defonce ~interns (atom {}))
        (defn ~maker [~@fields & {meta# :meta :as opt#}]
          {:pre ~invariants}
          (profiling/p ~(keyword "maker" (str name-sym))
@@ -231,9 +233,9 @@
                interns# (profiling/p ~(keyword "maker" (str name-sym "-intern-fields-total"))
                           (or (when intern-fn#
                                 (profiling/p ~(keyword "maker" (str name-sym "-intern-fields-custom"))
-                                  (intern-fn#)))
+                                  (vec (concat [~type-hash] (intern-fn#)))))
                               (profiling/p ~(keyword "maker" (str name-sym "-intern-fields-default"))
-                                [~@fields])))
+                                [~type-hash ~@fields])))
                id# (or (profiling/p :utils/intern-lookup 
                          (profiling/p ~(keyword "maker" (str name-sym "-intern-lookup"))
                             ((deref ~interns) interns#)))
@@ -243,18 +245,31 @@
                          nxt#))]
            (~->ctor ~@fields id# meta#)))))))
 
-(defmacro mk [name-sym fields invariants & {:keys [methods intern]}]
+(defmacro mk [name-sym intern-var fields invariants & {:keys [methods intern]}]
   (when-not (resolve name-sym)
     `(t/tc-ignore
-       ~(emit-deftype name-sym fields invariants methods intern))))
+       ~(emit-deftype name-sym intern-var fields invariants methods intern))))
 
-(defmacro def-type
-  [name fields doc invariants & opts]
-  `(mk ~name ~fields ~invariants ~@opts))
+(defmacro defspecial [name]
+  (let [interns (symbol (str name "-interns"))]
+    `(do (defonce ~interns (atom {}))
+         ;FIXME preconditions
+         (defn ~(symbol (str name "="))
+           [t1# t2#]
+           (== (ps/type-id t1#)
+               (ps/type-id t2#)))
+         (defmacro ~(symbol (str "def-" name))
+           [name# fields# doc# invariants# & opts#]
+           `(mk ~name# 
+                ~'~(symbol (-> *ns* ns-name str) (str interns)) 
+                ~fields# 
+                ~invariants# 
+                ~@opts#)))))
 
-(defmacro def-filter
-  [name fields doc invariants & opts]
-  `(mk ~name ~fields ~invariants ~@opts))
+(defspecial type)
+(defspecial filter)
+(defspecial object)
+(defspecial path)
 )
 
 (defmacro add-defmethod-generator 
