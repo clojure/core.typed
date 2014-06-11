@@ -60,9 +60,11 @@
       <plugin>
         <groupId>com.theoryinpractise</groupId>
         <artifactId>clojure-maven-plugin</artifactId>
-        <!--<configuration>
-          <vmargs>-Xmx512m</vmargs>
-        </configuration>-->
+        <configuration>
+          <vmargs>-XX:MaxPermSize=128M</vmargs>
+          <vmargs>-XX:+TraceClassLoading</vmargs>
+          <vmargs>-XX:+TraceClassUnloading</vmargs>
+        </configuration>
         <executions>
           <execution>
             <id>clojure-compile</id>
