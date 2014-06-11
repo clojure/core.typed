@@ -290,18 +290,19 @@
   ;a => 0
   (is-clj 
     (= (tc-t 
-           (clojure.core.typed/fn> [a :- (U (HMap :mandatory {:op (Value :if)})
-                                            (HMap :mandatory {:op (Value :var)}))] 
-                                   (:op a)))
+         (clojure.core.typed/fn> [a :- (U (HMap :mandatory {:op (Value :if)})
+                                          (HMap :mandatory {:op (Value :var)}))] 
+                                 (:op a)))
+       (clj
          (ret 
            (parse-type 
-             '(Fn [(U '{:op (Value :var)} '{:op (Value :if)}) -> (U ':var ':if) 
-                   :filters {:then (is (U (Value :var) (Value :if)) 0 [(Key :op)]), 
-                             :else (| (is (HMap :absent-keys #{:op}) 0) 
-                                      (is (U nil false) 0 [(Key :op)]))} 
-                   :object {:path [(Key :op)], :id 0}]))
+             `(IFn [(U '{:op (Value :var)} '{:op (Value :if)}) :-> (U ':var ':if) 
+                    :filters {:then (~'is (U (Value :var) (Value :if)) 0 [(~'Key :op)]), 
+                              :else (~'| (~'is (HMap :absent-keys #{:op}) 0) 
+                                         (~'is (U nil false) 0 [(~'Key :op)]))} 
+                    :object {:path [(~'Key :op)], :id 0}]))
            (-FS -top -bot)
-           -empty))))
+           -empty)))))
 
 (deftest refine-test
   (is-clj (= (tc-t 
@@ -2192,7 +2193,7 @@
   (is (check-ns 'clojure.core.typed.test.recursive)))
 
 (deftest comparable-inline-test
-  (is-cf (fn [v x] (compare v x)) (Fn [Comparable clojure.core.typed/Any -> Number])))
+  (is-tc-e (fn [v x] (compare v x)) (IFn [Comparable Any -> Num])))
 
 (deftest CTYP-71-simplify-test
                                               ; must be resolvable to trigger the bug
