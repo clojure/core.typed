@@ -12,6 +12,7 @@
             [clojure.core.typed.subst :as subst])
   (:import (clojure.lang Seqable)))
 
+; we should be able to remove check-apply completely, but we should also instantiate all poly function in test case
 (defn check-apply
   [check-fn {[fexpr & args] :args :as expr} expected]
   {:post [((some-fn r/TCResult? #{cu/not-special}) %)]}
@@ -21,7 +22,8 @@
       (cond
         ;apply of a simple function
         (r/FnIntersection? ftype)
-        (do 
+        cu/not-special
+        #_(do
           (when (empty? (:types ftype))
             (err/int-error (str "Empty function intersection given as argument to apply")))
           (let [arg-tres (mapv check-fn fixed-args)
@@ -41,12 +43,6 @@
                      ;; check that the tail expression is a subtype of the rest argument
                      (sub/subtype? tail-ty (c/Un r/-nil (c/RClass-of Seqable [rest])))
                      (sub/subtypes-varargs? arg-tys dom rest nil))
-                (r/ret (r/Result-type* rng)
-                       (r/Result-filter* rng)
-                       (r/Result-object* rng))
-
-                (and prest
-                     (sub/subtypes-prest? (conj arg-tys tail-ty) dom prest))
                 (r/ret (r/Result-type* rng)
                        (r/Result-filter* rng)
                        (r/Result-object* rng))

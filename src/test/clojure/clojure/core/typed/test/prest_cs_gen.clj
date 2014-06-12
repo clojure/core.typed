@@ -27,7 +27,8 @@
 (def bar1 (map (t/inst hash-map Number String) [1 2 3] ["a" "b" "c"] [4 5 6] ["d" "e" "f"]))
 
 ; this hash-map1 accept two dummy arguments, this is correspond to our easy mode in cs-gen-Function
-(t/ann hash-map1 [Any Any (HSequential [Number String] :repeat true) <* -> (t/Map Number String)])
+; FIXME remove no-check
+(t/ann ^:no-check hash-map1 [Any Any (HSequential [Number String] :repeat true) <* -> (t/Map Number String)])
 (defn hash-map1 [_ _ & rst] (apply (t/inst hash-map Number String) rst))
 
 (def bar1 (map hash-map1 [1 "a" \a] [1 "c" \a] [1 2 3] ["a b c"]))
@@ -53,6 +54,7 @@
 
 (t/ann nsmap (U nil (t/Map Number String)))
 (def nsmap (apply foo2 1 "2" [3 "4"]))
+(def nsmap (apply foo2 1 "2" 3 ["4"]))
 
 ; check Poly func with prest in apply
 (t/ann foo3 (All [x] [(HSequential [Number String] :repeat true) <* -> (U nil (t/Map Number String))]))
