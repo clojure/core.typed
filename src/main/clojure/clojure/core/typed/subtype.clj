@@ -28,6 +28,12 @@
 
 (alter-meta! *ns* assoc :skip-wiki true)
 
+(defn ^:private gen-repeat [times repeated]
+  (reduce (fn [acc cur]
+            (concat acc cur))
+          []
+          (repeat times repeated)))
+
 ;(def-alias Seen Any)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -465,14 +471,7 @@
                    (let [s-types (:types s)
                          t-types (:types t)
                          s-types-count (count s-types)
-                         t-types-count (count t-types)
-                         gen-repeat (fn gen-repeat [small big]
-                                      (reduce
-                                        (fn [acc cur]
-                                          (concat acc cur))
-                                        []
-                                        (take (/ (count big)
-                                                 (count small)) (repeat small))))]
+                         t-types-count (count t-types)]
                      (cond
                        (:rest t)
                        (and (= 1 s-types-count)
@@ -489,7 +488,8 @@
                                             t-types-count)))
                          (every? identity (map subtype?
                                                s-types
-                                               (gen-repeat t-types s-types)))
+                                               (gen-repeat (/ (count s-types)
+                                                              (count t-types)) t-types)))
                          false)
 
                        ; nothing on right
@@ -517,12 +517,8 @@
                                             t-types-count))
                               (every? identity (map subtype?
                                                     s-types
-                                                    (reduce
-                                                      (fn [acc cur]
-                                                        (concat acc cur))
-                                                      []
-                                                      (take (/ s-types-count
-                                                               t-types-count) (repeat t-types)))))
+                                                    (gen-repeat (/ s-types-count
+                                                                   t-types-count) t-types)))
                               false))))
 
                    ; rest on right
@@ -1104,10 +1100,7 @@
                              0
                              (ceiling (count s-dom-rest) t-prest-types-count))
               _ (subtype-list (concat s-dom-rest (repeat remain-repeat-count s-rest))
-                              (reduce (fn [acc cur]
-                                        (concat acc cur))
-                                      []
-                                      (repeat repeat-times t-prest-types)))]
+                              (gen-repeat repeat-times t-prest-types))]
           *sub-current-seen*)
         ; easy mode
         (let [[t-dom-short t-dom-rest] (split-at s-dom-count t-dom)

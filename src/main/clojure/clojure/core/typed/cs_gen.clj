@@ -40,6 +40,13 @@
 (t/ann ^:no-check clojure.core.typed.current-impl/any-impl Any)
 (t/ann ^:no-check clojure.core.typed.current-impl/checking-clojure? [-> Any])
 
+(t/ann gen-repeat [Number (t/Seqable Any) -> (t/Seqable Any)])
+(defn ^:private gen-repeat [times repeated]
+  (reduce (fn [acc cur]
+            (concat acc cur))
+          []
+          (repeat times repeated)))
+
 (t/ann subtype? [r/AnyType r/AnyType -> Boolean])
 (defn ^:private subtype? [s t]
   (u/p :cs-gen/subtype-via-csgen
@@ -266,10 +273,7 @@
               [[c1 c2] :- '[c c], (map vector'
                                        fixed2
                                        (concat fixed1
-                                               (reduce (fn [acc cur]
-                                                         (concat acc cur))
-                                                       []
-                                                       (repeat (quot diff repeat-count) repeated))))]
+                                               (gen-repeat (quot diff repeat-count) repeated)))]
               (c-meet c1 c2 (:X c1)))))
         repeated))
     (and (cr/dcon-repeat? dc2)
@@ -295,10 +299,7 @@
               [[c1 c2] :- '[c c], (map vector'
                                        long-fixed
                                        (concat short-fixed
-                                               (reduce (fn [acc cur]
-                                                         (concat acc cur))
-                                                       []
-                                                       (repeat (quot diff s-repeat-count) short-repeat))))]
+                                               (gen-repeat (quot diff s-repeat-count) short-repeat)))]
               (c-meet c1 c2 (:X c1)))))
         short-repeat))
 
@@ -759,11 +760,9 @@
                         t-types-count (count t-types)]
                     (if (and (>= s-types-count t-types-count)
                              (zero? (rem s-types-count t-types-count)))
-                      [(cs-gen-list V X Y s-types (reduce (fn [acc cur]
-                                                            (concat acc cur))
-                                                          []
-                                                          (take (/ s-types-count
-                                                                   t-types-count) (repeat t-types))))]
+                      [(cs-gen-list V X Y s-types (gen-repeat (/ s-types-count
+                                                                 t-types-count)
+                                                              t-types))]
                       (fail! S T)))
 
                   ; repeat on left, rest on right
@@ -1455,10 +1454,7 @@
                 repeat-mapping (cs-gen-list V X Y
                                             (concat S-dom-rest
                                                     (repeat remain-repeat-count S-rest))
-                                            (reduce (fn [acc cur]
-                                                      (concat acc cur))
-                                                    []
-                                                    (repeat repeat-times T-prest-types)))]
+                                            (gen-repeat repeat-times T-prest-types))]
             (cset-meet* [arg-mapping repeat-mapping rest-prest-mapping ret-mapping]))
           ; easy mode
           (let [[T-dom-short T-dom-rest] (split-at S-dom-count T-dom)
@@ -1480,14 +1476,8 @@
         (fail! S T)
         (let [[short-T rest-T] (split-at s-dom-count t-dom)
               short-cs (cs-gen-list V X Y short-T s-dom)
-              gen-repeat (fn gen-repeat [small big]
-                           (reduce
-                             (fn [acc cur]
-                               (concat acc cur))
-                             []
-                             (take (/ (count big)
-                                      (count small)) (repeat small))))
-              rest-S (gen-repeat (-> S :prest :types) rest-T)
+              s-prest-types (-> S :prest :types)
+              rest-S (gen-repeat (/ (count rest-T) (count s-prest-types)) s-prest-types)
               rest-cs (cs-gen-list V X Y rest-T rest-S)
               ret-mapping (cs-gen V X Y (:rng S) (:rng T))]
           (cset-meet* [short-cs rest-cs ret-mapping])))))
@@ -1519,10 +1509,7 @@
                 [arg-S-prest remain-S-prest] (split-at (rem T-rest-count
                                                             S-prest-types-count) S-prest-types)
                 new-S (concat S-dom
-                              (reduce (fn [acc cur]
-                                        (concat acc cur))
-                                      []
-                                      (repeat (quot T-rest-count S-prest-types-count) S-prest-types))
+                              (gen-repeat (quot T-rest-count S-prest-types-count) S-prest-types)
                               arg-S-prest)
                 arg-mapping (cs-gen-list V X Y T-dom new-S)
                 fixed-c (if (= (count arg-S-prest) 0)
