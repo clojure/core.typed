@@ -15,34 +15,9 @@
     <resources>
       <resource>
         <directory>src/main/clojure</directory>
-        <includes>
-          <include>clojure/core/typed.clj</include>
-          <include>clojure/core/typed/internal.clj</include>
-          <include>clojure/core/typed/current_impl.clj</include>
-          <include>clojure/core/typed/profiling.clj</include>
-          <include>clojure/core/typed/parse_ast.clj</include>
-          <include>clojure/core/typed/type_contract.clj</include>
-          <include>clojure/core/typed/util_vars.clj</include>
-          <include>clojure/core/typed/errors.clj</include>
-          <include>clojure/core/typed/coerce_utils.clj</include>
-          <include>clojure/core/typed/ast_utils.clj</include>
-          <include>clojure/core/typed/load_if_needed.clj</include>
-          <include>clojure/core/typed/ast_ops.clj</include>
-          <include>clojure/core/typed/async.clj</include>
-          <include>clojure/core/typed/special_form.clj</include>
-          <include>clojure/core/typed/import_macros.clj</include>
-          <include>clojure/core/typed/macros.clj</include>
-          <!-- cljs -->
-          <include>cljs/core/typed.clj</include>
-          <include>cljs/core/typed/async.clj</include>
-        </includes>
       </resource>
       <resource>
         <directory>src/main/cljs</directory>
-        <includes>
-          <include>cljs/core/typed.cljs</include>
-          <include>cljs/core/typed/async.cljs</include>
-        </includes>
       </resource>
     </resources>
 
