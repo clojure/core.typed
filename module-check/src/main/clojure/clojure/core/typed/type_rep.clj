@@ -102,6 +102,7 @@
 (def -error Err)
 
 ;should probably be ordered
+; TODO Uncomment tc-invoke-fn-test
 (u/ann-record Intersection [types :- (t/NonEmptySeqable Type)])
 (u/def-type Intersection [types]
   "An unordered intersection of types."
