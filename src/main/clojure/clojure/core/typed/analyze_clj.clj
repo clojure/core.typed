@@ -136,7 +136,7 @@
   (let [pres (io/resource p)
         _ (assert (instance? java.net.URL pres) (str "Cannot find file: " p))
         file (-> pres io/reader slurp)
-        reader (readers/indexing-push-back-reader file)
+        reader (readers/indexing-push-back-reader file 1 p)
         eof  (reify)
         asts (binding [*ns* *ns*
                        *file* p]
