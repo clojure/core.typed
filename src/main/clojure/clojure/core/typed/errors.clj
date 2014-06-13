@@ -33,19 +33,21 @@
              {:ns n}))))
 
 (defn int-error
-  [estr]
-  (let [{:keys [line column file] :as env} *current-env*]
-    (throw (ex-info (str "Internal Error "
-                         "(" (or file (:ns env)) ":" 
-                         (or line "<NO LINE>")
-                         (when column
-                           (str ":" column))
-                         ") "
-                         estr)
-                    {:type-error int-error-kw
-                     :env (or (when uvs/*current-expr*
-                                (:env uvs/*current-expr*))
-                              (env-for-error *current-env*))}))))
+  ([estr] (int-error estr {}))
+  ([estr {:keys [use-current-env] :as opt}]
+   (let [{:keys [line column file] :as env} *current-env*]
+     (throw (ex-info (str "Internal Error "
+                          "(" (or file (:ns env)) ":" 
+                          (or line "<NO LINE>")
+                          (when column
+                            (str ":" column))
+                          ") "
+                          estr)
+                     {:type-error int-error-kw
+                      :env (or (when (and uvs/*current-expr*
+                                          (not use-current-env))
+                                 (:env uvs/*current-expr*))
+                               (env-for-error *current-env*))})))))
 
 ;[Any * -> String]
 (defn ^String error-msg 

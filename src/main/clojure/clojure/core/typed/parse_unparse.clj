@@ -933,10 +933,15 @@
       free free
       (primitives sym) (primitives sym)
       rsym ((some-fn deprecated-symbol r/Name-maker) rsym)
-      :else (err/int-error (str "Cannot resolve type: " (pr-str sym)
-                                "\nHint: Is " (pr-str sym) " in scope?"
-                                "\nHint: Has " (pr-str sym) "'s annotation been"
-                                " found via check-ns, cf or typed-deps?")))))
+      :else (let [menv (let [m (meta sym)]
+                         (when ((every-pred :line :column :file) m)
+                           m))]
+              (binding [vs/*current-env* (or menv vs/*current-env*)]
+                (err/int-error (str "Cannot resolve type: " (pr-str sym)
+                                    "\nHint: Is " (pr-str sym) " in scope?"
+                                    "\nHint: Has " (pr-str sym) "'s annotation been"
+                                    " found via check-ns, cf or typed-deps?")
+                               {:use-current-env true}))))))
 
 (defmethod parse-type-symbol :default
   [sym]
