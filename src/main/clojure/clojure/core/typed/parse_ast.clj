@@ -678,8 +678,12 @@
 (defmethod parse-seq* 'cljs.core.typed/TFn [syn] (parse-TFn syn))
 
 (defn parse-function [f]
-  (let [all-dom (take-while #(not= '-> %) f)
-        [_ rng & opts-flat :as chk] (drop-while #(not= '-> %) f) ;opts aren't used yet
+  (let [is-arrow '#{-> :->}
+        all-dom (take-while (complement is-arrow) f)
+        [the-arrow rng & opts-flat :as chk] (drop-while (complement is-arrow) f) ;opts aren't used yet
+        _ (when ('#{->} the-arrow)
+            ;TODO deprecate
+            )
         _ (when-not (<= 2 (count chk)) 
             (err/int-error (str "Incorrect function syntax: " f)))
 
