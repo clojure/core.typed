@@ -106,6 +106,7 @@ for checking namespaces, cf for checking individual forms."}
   [inst-of types-syn]
   inst-of)
 
+;FIXME should be a special do-op
 (defmacro inst 
   "Instantiate a polymorphic type with a number of types.
   
@@ -113,6 +114,7 @@ for checking namespaces, cf for checking individual forms."}
   [inst-of & types]
   `(inst-poly ~inst-of '~types))
 
+;FIXME should be a special do-op
 (defmacro inst-ctor
   "Instantiate a call to a constructor with a number of types.
   First argument must be an immediate call to a constructor.
