@@ -904,7 +904,8 @@ clojure.core/disj
 clojure.core/assoc
      (All [b c d]
        (Fn [(Map b c) b c -> (Map b c)]
-           [(Vec d) AnyInteger d -> (Vec d)]))
+           [(Vec d) AnyInteger d -> (Vec d)]
+           [d b c (HSequential [b c] :repeat true) <* -> (Assoc d b c)]))
 
 clojure.core/dissoc
      (All [k v]

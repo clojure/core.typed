@@ -413,8 +413,10 @@
         ;; constrain body to be below T, but don't mention the new vars
         (r/Poly? S)
         (let [nms (c/Poly-fresh-symbols* S)
-              body (c/Poly-body* nms S)]
-          (cs-gen (set/union (set nms) V) X Y body T))
+              body (c/Poly-body* nms S)
+              bbnds (c/Poly-bbnds* nms S)]
+          (free-ops/with-bounded-frees (zipmap (map r/F-maker nms) bbnds)
+                   (cs-gen (set/union (set nms) V) X Y body T)))
 
         (r/Name? S)
         (cs-gen V X Y (c/resolve-Name S) T)
