@@ -22,7 +22,7 @@
   </parent>
 
   <modules>
-    <module>module-main</module>
+    <module>module-check</module>
     <module>module-rt</module>
   </modules>
 

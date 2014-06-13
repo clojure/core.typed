@@ -40,12 +40,16 @@
 
   :repositories {"sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
 
-  :source-paths ["src/main/clojure"
-                 "src/main/cljs"
+  :source-paths ["module-main/src/main/clojure"
+                 "module-main/src/main/cljs"
+                 "module-rt/src/main/clojure"
+                 "module-rt/src/main/cljs"
                  #_"../clojurescript/src/clj"
                  #_"../clojurescript/src/cljs"]
-  :test-paths ["src/test/clojure"
-               "src/test/cljs"]
+  :test-paths ["module-main/src/test/clojure"
+               "module-main/src/test/cljs"
+               "module-rt/src/test/clojure"
+               "module-rt/src/test/cljs"]
 
   :profiles {:dev {:repl-options {:port 64464}}}
 

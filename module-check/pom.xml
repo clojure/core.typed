@@ -98,6 +98,11 @@
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>
+      <artifactId>core.typed.rt</artifactId>
+      <version>0.2.52-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
       <artifactId>jvm.tools.analyzer</artifactId>
       <version>0.6.1</version>
       <exclusions>
