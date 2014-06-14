@@ -39,19 +39,9 @@
    (r/Type? dty)
    (r/F? dbound)])
 
-; FIXME do we really need this? After dcon, repeat information is not
-; really needed anymore.
-(u/ann-record i-subst-repeat [types :- (t/Seqable r/Type)
-                              repeat :- (t/NonEmptySeq r/Type)])
-(u/defrecord i-subst-repeat [types repeat]
-  ""
-  [(every? r/Type? types)
-   (not-empty repeat)
-   (every? r/Type? repeat)])
-
 (t/defalias SubstRHS
   "The substitution records."
-  (U t-subst i-subst i-subst-starred i-subst-dotted i-subst-repeat))
+  (U t-subst i-subst i-subst-starred i-subst-dotted))
 
 (t/defalias SubstMap
   "A substutition map of symbols naming frees to types
@@ -59,7 +49,7 @@
   (t/Map t/Sym SubstRHS))
 
 (t/ann ^:no-check subst-rhs? (predicate SubstRHS))
-(def subst-rhs? (some-fn t-subst? i-subst? i-subst-starred? i-subst-dotted? i-subst-repeat?))
+(def subst-rhs? (some-fn t-subst? i-subst? i-subst-starred? i-subst-dotted?))
 
 (t/ann ^:no-check substitution-c? (predicate SubstMap))
 (def substitution-c? (con/hash-c? symbol? subst-rhs?))
