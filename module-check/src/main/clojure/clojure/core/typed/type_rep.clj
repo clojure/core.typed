@@ -62,19 +62,23 @@
 (def -any (Top-maker))
 
 
-(u/ann-record Union [types :- (t/Set Type)])
+(u/ann-record Union [types :- (t/SortedSet Type)])
 (u/def-type Union [types]
-  "An flattened, unordered union of types"
+  "An flattened, sorted union of types"
   [(set? types)
+   (sorted? types)
    (every? Type? types)
    (not-any? Union? types)]
   :methods
   [p/TCType])
 
+(defn sorted-type-set [ts]
+  (apply sorted-set-by u/type-comparator ts))
+
 ;temporary union maker
 (t/ann Un [Type * -> Union])
 (defn- Un [& types]
-  (Union-maker (set types)))
+  (Union-maker (sorted-type-set types)))
 
 (t/ann empty-union Type)
 (def empty-union (Un))
@@ -101,12 +105,13 @@
 (def Err (TCError-maker))
 (def -error Err)
 
-;should probably be ordered
-; TODO Uncomment tc-invoke-fn-test
-(u/ann-record Intersection [types :- (t/NonEmptySeqable Type)])
+(u/ann-record Intersection [types :- (t/I t/NonEmptyCount 
+                                          (t/SortedSet Type))])
 (u/def-type Intersection [types]
   "An unordered intersection of types."
-  [(seq types)
+  [(sorted? types)
+   (set? types)
+   (seq types)
    (every? Type? types)]
   :methods 
   [p/TCType])
@@ -810,18 +815,20 @@
   [p/TCType])
 
 (u/ann-record DifferenceType [type :- Type
-                              without :- (t/Coll Type)])
+                              without :- (t/SortedSet Type)])
 (u/def-type DifferenceType [type without]
   "A type that does not include type"
   [(Type? type)
-   (every? Type? without)]
+   (every? Type? without)
+   (set? without)
+   (sorted? without)]
   :methods
   [p/TCType])
 
 (t/ann -difference [Type Type * -> DifferenceType])
 (defn -difference [t & without]
   {:pre [without]}
-  (DifferenceType-maker t without))
+  (DifferenceType-maker t (sorted-type-set without)))
 
 (u/ann-record ListDots [pre-type :- Type,
                         bound :- (t/U F B)])
@@ -832,13 +839,18 @@
   :methods
   [p/TCType])
 
-(u/ann-record Extends [extends :- (t/NonEmptySeqable Type)
-                       without :- (t/U nil (t/Seqable Type))])
+(u/ann-record Extends [extends :- (t/I (t/SortedSet Type)
+                                       t/NonEmptyCount)
+                       without :- (t/SortedSet Type)])
 (u/def-type Extends [extends without]
   "A set of ancestors that always and never occur."
   [(every? Type? extends)
+   (set? extends)
+   (sorted? extends)
    (seq extends)
-   (every? Type? without)]
+   (every? Type? without)
+   (set? without)
+   (sorted? without)]
   :methods
   [p/TCType])
 
