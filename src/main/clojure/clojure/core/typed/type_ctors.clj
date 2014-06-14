@@ -62,8 +62,9 @@
     (= 1 (count args)) (first args)
     :else 
     (let [{unions true non-unions false} (group-by r/Union? args)]
-      (r/Union-maker (set (concat (mapcat :types unions)
-                                  non-unions))))))
+      (r/Union-maker (r/sorted-type-set 
+                       (concat (mapcat :types unions)
+                               non-unions))))))
 
 (t/ann bottom r/Type)
 (def ^:private bottom (make-Union []))
@@ -379,7 +380,7 @@
     (cond
       (= 0 cnt) r/-nothing
       (= 1 cnt) (first types)
-      :else (r/Intersection-maker (set types)))))
+      :else (r/Intersection-maker (apply sorted-set-by u/type-comparator types)))))
 
 (declare RClass-of)
 
@@ -2072,7 +2073,7 @@
 
 (t/tc-ignore
 (defn -extends [clss & {:keys [without]}]
-  (r/Extends-maker clss without))
+  (r/Extends-maker (r/sorted-type-set clss) (r/sorted-type-set without)))
   )
 
 ;;; KwArgs

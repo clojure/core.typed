@@ -258,6 +258,14 @@
            [t1# t2#]
            (== (ps/type-id t1#)
                (ps/type-id t2#)))
+         (defn ~(symbol (str name "<"))
+           [t1# t2#]
+           (< (ps/type-id t1#)
+              (ps/type-id t2#)))
+         (defn ~(symbol (str name "-comparator"))
+           [t1# t2#]
+           (compare (ps/type-id t1#)
+                    (ps/type-id t2#)))
          (defmacro ~(symbol (str "def-" name))
            [name# fields# doc# invariants# & opts#]
            `(mk ~name# 
