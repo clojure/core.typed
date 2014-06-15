@@ -645,8 +645,7 @@
    (or (DottedPretype? dentries)
        (nil? dentries))
    (and (every? (con/hvector-c? Type? Type?) entries)
-        (sequential? entries))
-   (not (and entries dentries))]
+        (sequential? entries))]
   :methods
   [p/TCType])
 

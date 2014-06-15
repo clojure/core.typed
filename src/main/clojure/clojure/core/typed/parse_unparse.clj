@@ -238,15 +238,41 @@
 (defmethod parse-type-list 'clojure.core.typed/Rec [syn] (parse-rec-type syn))
 
 (defn parse-Assoc [[_ tsyn & entries :as all]]
-  (when-not (and (<= 1 (count (next all)))
-                 (even? (count entries)))
+  (when-not (<= 1 (count (next all)))
     (err/int-error (str "Wrong arguments to Assoc: " all)))
+  (let [{ellipsis-pos '...}
+        (zipmap entries (range))
+
+        [entries dentries] (split-at (if ellipsis-pos
+                                       (dec ellipsis-pos)
+                                       (count entries))
+                                     entries)
+
+        [drest-type _ drest-bnd] (when ellipsis-pos
+                                   dentries)
+
+        _ (when-not (-> entries count even?)
+            (err/int-error (str "Incorrect Assoc syntax: " all " , must have even number of key/val pair.")))
+
+        _ (when-not (or (not ellipsis-pos)
+                        (= (count dentries) 3))
+            (err/int-error (str "Incorrect Assoc syntax: " all " , Dotted rest entry must be 3 entries")))
+
+        _ (when-not (or (not ellipsis-pos) (symbol? drest-bnd))
+            (err/int-error "Dotted bound must be symbol"))]
   (r/AssocType-maker (parse-type tsyn)
-                     (doall (->> entries 
+                     (doall (->> entries
                                  (map parse-type)
                                  (partition 2)
                                  (map vec)))
-                     nil))
+                     (when ellipsis-pos
+                       (let [bnd (dvar/*dotted-scope* drest-bnd)
+                             _ (when-not bnd
+                                 (err/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))]
+                         (r/DottedPretype1-maker
+                           (free-ops/with-frees [bnd] ;with dotted bound in scope as free
+                             (parse-type drest-type))
+                           (:name bnd)))))))
 
 (defmethod parse-type-list 'Assoc [t] (parse-Assoc t))
 (defmethod parse-type-list 'clojure.core.typed/Assoc [t] (parse-Assoc t))
@@ -1449,9 +1475,12 @@
 
 (defmethod unparse-type* AssocType
   [{:keys [target entries dentries]}]
-  (assert (not dentries) "dentries for Assoc NYI")
-  (list* 'Assoc (unparse-type target) 
-         (doall (map unparse-type (apply concat entries)))))
+  (list* 'Assoc (unparse-type target)
+         (concat
+           (doall (map unparse-type (apply concat entries)))
+           (when dentries [(unparse-type (:pre-type dentries))
+                           '...
+                           (unparse-bound (:name dentries))]))))
 
 (defmethod unparse-type* GetType
   [{:keys [target key not-found]}]
