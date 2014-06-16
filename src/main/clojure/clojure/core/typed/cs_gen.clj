@@ -652,8 +652,9 @@
         (and (r/AssocType? S)
              (r/HeterogeneousMap? T))
         (let [;_ (prn "cs-gen Assoc HMap")
-              {:keys [target entries]} S
+              {:keys [target entries dentries]} S
               {:keys [types absent-keys]} T
+              _ (when (nil? dentries) (err/nyi-error (pr-str "NYI dentries in AssocType " S)))
               Assoc-keys (map first entries)
               Tkeys (keys types)
               ; All keys must be keyword values

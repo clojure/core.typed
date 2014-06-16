@@ -105,7 +105,11 @@
         (r/AssocType-maker sb-target
                            (merge sb-entries
                                   (let [expanded (sb (:pre-type dentries))]
-                                    (map (fn [img] (substitute img name expanded)) images)))
+                                    (->> images
+                                      (map (fn [img] (substitute img name expanded)))
+                                      (partition 2)
+                                      (map vec)
+                                      (into {}))))
                            nil)
         (r/AssocType-maker sb-target
                            sb-entries

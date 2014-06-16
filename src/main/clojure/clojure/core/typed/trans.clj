@@ -128,17 +128,20 @@
       (if (and dentries
                (= b (:name dentries)))
         (r/AssocType-maker t-target
-                       (merge t-entries
-                              (map (fn [bk]
-                                     {:post [(r/Type? %)]}
-                                     (-> (subst/substitute bk b (:pre-type dentries))
-                                       tfn))
-                                   bm))
-                       nil)
+                           (merge t-entries
+                                  (->> bm
+                                    (map (fn [bk]
+                                           {:post [(r/Type? %)]}
+                                           (-> (subst/substitute bk b (:pre-type dentries))
+                                             tfn)))
+                                    (partition 2)
+                                    (map vec)
+                                    (into {})))
+                           nil)
         (r/AssocType-maker t-target
-                       t-entries
-                       (when dentries
-                         (update-in dentries [:pre-type] tfn)))))))
+                           t-entries
+                           (when dentries
+                             (update-in dentries [:pre-type] tfn)))))))
 
 (fold/add-fold-case ::trans-dots
   Function
