@@ -287,9 +287,12 @@
   (apply combine-frees (mapv frees (concat extends without))))
 
 (add-frees-method [::any-var AssocType]
-  [{:keys [target entries]}] 
-  (apply combine-frees (frees target)
-         (mapv frees (apply concat entries))))
+  [{:keys [target entries dentries]}]
+  (apply combine-frees (concat [(frees target)]
+                               (mapv frees (apply concat entries))
+                               (when dentries
+                                 [(dissoc (-> (:pre-type dentries) frees)
+                                          (:name dentries))]))))
 
 ; are negative types covariant?
 (add-frees-method [::any-var NotType]

@@ -11,7 +11,8 @@
             [clojure.core.typed.object-rep :as orep]
             [clojure.core.typed :as t :refer [ann Seqable]])
   (:import (clojure.core.typed.type_rep F Function HeterogeneousVector
-                                        HSequential HeterogeneousSeq)
+                                        HSequential HeterogeneousSeq
+                                        AssocType)
            (clojure.lang Symbol)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -91,6 +92,25 @@
                                                           (:name drest)))
                        nil
                        (and prest (sb prest))))))
+
+(f/add-fold-case ::substitute-dots
+  AssocType
+  (fn [{:keys [target entries dentries] :as atype} {{:keys [name sb images rimage]} :locals}]
+    (let [sb-target (sb target)
+          sb-entries (into {} (map (fn [ent]
+                                     [(sb (first ent)) (sb (second ent))])
+                                   entries))]
+      (if (and dentries
+               (= name (:name dentries)))
+        (r/AssocType-maker sb-target
+                           (merge sb-entries
+                                  (let [expanded (sb (:pre-type dentries))]
+                                    (map (fn [img] (substitute img name expanded)) images)))
+                           nil)
+        (r/AssocType-maker sb-target
+                           sb-entries
+                           (and dentries (r/DottedPretype1-maker (sb (:pre-type dentries))
+                                                                 (:name dentries))))))))
 
 (defn substitute-dots-for-heterogeneous* [constructor]
   (fn [{:keys [types fs objects rest drest] :as ftype} {{:keys [name sb images rimage]} :locals}]
@@ -172,6 +192,19 @@
                                                     (:name drest))))
                      nil
                      (and prest (sb prest)))))
+
+(f/add-fold-case ::substitute-dotted
+  AssocType
+  (fn [{:keys [target entries dentries]} {{:keys [sb name image]} :locals}]
+   (r/AssocType-maker (sb target)
+                      (into {} (map (fn [ent]
+                                      [(sb (first ent)) (sb (second ent))])
+                                    entries))
+                      (and dentries
+                           (r/DottedPretype1-maker (substitute image (:name dentries) (sb (:pretype dentries)))
+                                                   (if (= name (:name dentries))
+                                                     name
+                                                     (:name dentries)))))))
 
 (defn substitute-dotted-for-heterogeneous* [constructor]
   (fn [{:keys [types fs objects rest drest repeat]} {{:keys [sb name image]} :locals}]
