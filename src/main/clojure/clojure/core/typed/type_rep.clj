@@ -745,17 +745,23 @@
                         rest :- (U nil Type)
                         drest :- (U nil DottedPretype)
                         kws :- (U nil KwArgs)
-                        prest :- (U nil Type)])
-(u/def-type Function [dom rng rest drest kws prest]
+                        prest :- (U nil Type)
+                        pdot :- (U nil DottedPretype)])
+(u/def-type Function [dom rng rest drest kws prest pdot]
   "A function arity, must be part of an intersection"
   [(or (nil? dom)
        (sequential? dom))
    (every? Type? dom)
    (Result? rng)
-   ;at most one of rest drest kws or prest can be provided
-   (#{0 1} (count (filter identity [rest drest kws prest])))
+   ;at most one of rest drest kws prest or pdot can be provided
+   (#{0 1} (count (filter identity [rest drest kws prest pdot])))
    ; we could have prest without repeat, but why would you do that
    (if prest (and (:repeat prest) (:types prest)) true)
+   ; we could have pdot without repeat, but why would you do that
+   (if pdot
+     (and (-> pdot :pre-type :repeat)
+          (-> pdot :pre-type :types))
+     true)
    (or (nil? rest)
        (Type? rest))
    (or (nil? drest)
@@ -763,7 +769,9 @@
    (or (nil? kws)
        (KwArgs? kws))
    (or (nil? prest)
-       (Type? prest))]
+       (Type? prest))
+   (or (nil? pdot)
+       (DottedPretype? pdot))]
   :methods
   [p/TCAnyType])
 
@@ -1053,14 +1061,14 @@
   "Make a function, wrap range type in a Result.
   Accepts optional :filter and :object parameters that default to the most general filter
   and EmptyObject"
-  [dom rng & {:keys [rest drest prest filter object mandatory-kws optional-kws flow]}]
+  [dom rng & {:keys [rest drest prest pdot filter object mandatory-kws optional-kws flow]}]
   (let [-FS @(-FS-var)
         -top @(-top-var)
         -empty @(-empty-var)]
     (Function-maker dom (make-Result rng filter object flow)
                     rest drest (when (or mandatory-kws optional-kws)
                                  (-kw-args :mandatory (or mandatory-kws {})
-                                           :optional (or optional-kws {}))) prest)))
+                                           :optional (or optional-kws {}))) prest pdot)))
 
 
 ;;;;;;;;;;;;;;;;;

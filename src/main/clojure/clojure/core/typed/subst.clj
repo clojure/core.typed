@@ -73,7 +73,7 @@
 (derive ::substitute-dots f/fold-rhs-default)
 (f/add-fold-case ::substitute-dots
   Function
-  (fn [{:keys [dom rng rest drest kws prest] :as ftype} {{:keys [name sb images rimage]} :locals}]
+  (fn [{:keys [dom rng rest drest kws prest pdot] :as ftype} {{:keys [name sb images rimage]} :locals}]
    (when kws (err/nyi-error "substitute keyword args"))
    (if (and drest
             (= name (:name drest)))
@@ -84,14 +84,16 @@
                                    ;(prn "expanded" (unparse-type expanded))
                                    (map (fn [img] (substitute img name expanded)) images))))
                        (sb rng)
-                       rimage nil nil nil)
+                       rimage nil nil nil nil)
      (r/Function-maker (doall (map sb dom))
                        (sb rng)
                        (and rest (sb rest))
                        (and drest (r/DottedPretype1-maker (sb (:pre-type drest))
                                                           (:name drest)))
                        nil
-                       (and prest (sb prest))))))
+                       (and prest (sb prest))
+                       (and pdot (r/DottedPretype1-maker (sb (:pre-type pdot))
+                                                         (:name pdot)))))))
 
 (f/add-fold-case ::substitute-dots
   AssocType
@@ -184,7 +186,7 @@
 
 (f/add-fold-case ::substitute-dotted
   Function
-  (fn [{:keys [dom rng rest drest kws prest]} {{:keys [sb name image]} :locals}]
+  (fn [{:keys [dom rng rest drest kws prest pdot]} {{:keys [sb name image]} :locals}]
    (when kws (err/nyi-error "substitute-dotted with kw arguments"))
    (r/Function-maker (doall (map sb dom))
                      (sb rng)
@@ -195,7 +197,13 @@
                                                     name
                                                     (:name drest))))
                      nil
-                     (and prest (sb prest)))))
+                     (and prest (sb prest))
+                     (and pdot
+                          (r/DottedPretype1-maker
+                            (substitute image (:name pdot) (sb (:pretype pdot)))
+                            (if (= name (:name pdot))
+                              name
+                              (:name pdot)))))))
 
 (f/add-fold-case ::substitute-dotted
   AssocType

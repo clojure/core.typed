@@ -168,6 +168,7 @@
                                 nil
                                 nil
                                 nil ;dotted pretype now expanded to fixed domain
+                                nil
                                 nil))
             (-> t
                 (update-in [:dom] #(doall (map tfn %)))
