@@ -86,7 +86,7 @@
           "\n\nDomains:\n\t" 
           (clojure.string/join "\n\t" 
                                (map (partial apply pr-str) 
-                                    (map (fn [{:keys [dom rest drest kws prest]}]
+                                    (map (fn [{:keys [dom rest drest kws prest pdot]}]
                                            (concat (map prs/unparse-type dom)
                                                    (when rest
                                                      [(prs/unparse-type rest) '*])
@@ -105,7 +105,11 @@
                                                                (when (seq optional)
                                                                  [:optional (readable-kw-map optional)]))))
                                                    (when prest
-                                                     [(prs/unparse-type prest) '<*])))
+                                                     [(prs/unparse-type prest) '<*])
+                                                   (when-let [{:keys [pre-type name]} pdot]
+                                                     [(prs/unparse-type pre-type)
+                                                      '<...
+                                                      (-> name r/make-F r/F-original-name)])))
                                          (:types fin))))
           "\n\n"
           "Arguments:\n\t" (apply prn-str (map (comp prs/unparse-type r/ret-t) arg-ret-types))
