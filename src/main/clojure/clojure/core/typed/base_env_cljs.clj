@@ -230,16 +230,26 @@ cljs.core/cloneable? (Pred cljs.core/ICloneable)
 ;                                         (! nil 0))
 ;                                :else (| (is nil 0)
 ;                                         (is EmptyCount 0))}]
-                                        ;                     [(Option (Seqable x)) -> (Option (NonEmptySeq x))]))
+;                     [(Option (Seqable x)) -> (Option (NonEmptySeq x))]))
 
 ;;;; sequencial fns. I think those are incomplete
 ;;;; since Option, Coll, etc don't seem to work yet
 
 cljs.core/seq (All [x]
-                   [(U (ISeq x) (IVector x)) -> (ISeq x)])
+                   (IFn [(NonEmptyColl x) -> (NonEmptySeqable x)]
+                        [(Option (Coll x)) -> (Option (NonEmptySeqable x))
+                         #_:filters #_{:then (& (is NonEmptyCount 0)
+                                            (! nil 0))
+                                   :else (| (is nil 0)
+                                            (is EmptyCount 0))}]
+                        [(Option (Seqable x)) -> (Option (NonEmptySeqable x))]))
 
 cljs.core/first (All [x]
-                     [(U (ISeq x) (IVector x)) -> (U nil x)])
+                     (IFn [(HSequential [x Any *]) -> x
+                           :object {:id 0 :path [(Nth 0)]}]
+                          [(Option (EmptySeqable x)) -> nil]
+                          [(NonEmptySeqable x) -> x]
+                          [(Option (Seqable x)) -> (Option x)]))
 
 ;;(ann cljs.core/second )
 
@@ -303,21 +313,56 @@ goog.events.EventType.MOUSEMOVE string
   (reset-jsnominal-env!)
   (h/alias-mappings
 
-  ^{:doc "A type that returns true for cljs.core/integer?"}
-cljs.core.typed/AnyInteger int
+   ^{:doc "A type that returns true for cljs.core/integer?"}
+   cljs.core.typed/AnyInteger int
 
-  ^{:doc "A type that returns true for cljs.core/number?"}
-cljs.core.typed/Number number
+   ^{:doc "A type that returns true for cljs.core/number?"}
+   cljs.core.typed/Number number
 
-    ^{:doc "A type that can be used to create a sequence of member type x."}
-cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
-                             (cljs.core/ISeqable x))
+   ^{:doc "A type that can be used to create a sequence of member type x."}
+   cljs.core.typed/Seqable (TFn [[x :variance :covariant]]
+                                (cljs.core/ISeqable x))
 
-    ^{:doc "A persistent sequence of member type x with count greater than 0."
-      :forms [(NonEmptySeq t)]}
-cljs.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
-                                 (I (cljs.core/ISeq x) (CountRange 1)))
-    ))
+   ^{:doc "A persistent sequence of member type x with count greater than 0."
+     :forms [(NonEmptySeq t)]}
+   cljs.core.typed/NonEmptySeq (TFn [[x :variance :covariant]]
+                                    (I (cljs.core/ISeq x) (CountRange 1)))
+
+
+
+
+   ;;copied from impl/init-aliases
+
+   ;;Seqables
+   ^{:doc "A type that can be used to create a sequence of member type x
+with count 0."
+     :forms [(EmptySeqable t)]}
+   cljs.core.typed/EmptySeqable (TFn [[x :variance :covariant]]
+                                        (I (cljs.core.typed/Seqable x) (ExactCount 0)))
+
+    ^{:doc "A type that can be used to create a sequence of member type x
+with count greater than 0."
+      :forms [(NonEmptySeqable t)]}
+    cljs.core.typed/NonEmptySeqable
+    (TFn [[x :variance :covariant]]
+         (I (cljs.core.typed/Seqable x) (CountRange 1)))
+
+    ;;Option
+   ^{:doc "A union of x and nil."
+     :forms [(Option t)]}
+   cljs.core.typed/Option (TFn [[x :variance :covariant]] (U nil x))
+
+
+   ^{:doc "A persistent collection with member type x."
+     :forms [(Coll t)]}
+   cljs.core.typed/Coll (TFn [[x :variance :covariant]]
+                             (cljs.core/ICollection x))
+
+   ^{:doc "A persistent collection with member type x and count greater than 0."
+     :forms [(NonEmptyColl t)]}
+   cljs.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
+                                     (I (cljs.core/ICollection x)
+                                        (CountRange 1)))))
 
 
 (defn reset-alias-env! []
