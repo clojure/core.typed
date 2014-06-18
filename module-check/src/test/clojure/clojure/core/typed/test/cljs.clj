@@ -129,6 +129,10 @@
            [(t/All [x] [(cljs.core/IVector x) -> x])
             -> Any]))
 
+(deftest hvec-is-coll
+  (is-tc-e [1 2 3] (cljs.core/ICollection int))
+  (is-tc-e [1 2 3] (NonEmptyColl int)))
+
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.dom)
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.helpers)

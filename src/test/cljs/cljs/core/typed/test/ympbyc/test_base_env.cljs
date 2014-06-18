@@ -5,14 +5,14 @@
 
 ;;fst
 
-(ann vec-fst (U nil number))
+(ann vec-fst number)
 (def vec-fst (first [8]))
 
-(ann seq-fst (U nil number))
+(ann seq-fst number)
 (def seq-fst (first (seq [1 2 3])))
 
-(ann fst-nil (U nil number))
-(def fst-nil (first []))
+(ann fst-nil nil)
+(def fst-nil (first nil))
 
 
 ;;rest
