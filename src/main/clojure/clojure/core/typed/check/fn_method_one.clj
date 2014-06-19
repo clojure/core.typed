@@ -39,7 +39,7 @@
 ;
 ;
 ;[MethodExpr Function -> {:ftype Function :cmethod Expr}]
-(defn check-fn-method1 [method {:keys [dom rest drest kws prest] :as expected}
+(defn check-fn-method1 [method {:keys [dom rest drest kws prest pdot] :as expected}
                         & {:keys [recur-target-fn]}]
   {:pre [(r/Function? expected)]
    :post [(r/Function? (:ftype %))
@@ -81,7 +81,7 @@
                                    (concat required-params 
                                            (when rest-param [rest-param])))))
         ;ensure Function fits method
-        _ (when-not ((if (or rest drest kws prest) <= =) (count required-params) (count dom))
+        _ (when-not ((if (or rest drest kws prest pdot) <= =) (count required-params) (count dom))
             (err/int-error (str "Checking method with incorrect number of expected parameters"
                               ", expected " (count dom) " required parameter(s) with"
                               (if rest " a " " no ") "rest parameter, found " (count required-params)
@@ -89,7 +89,7 @@
                               "rest parameter.")))
 
         _ (when-not (or (not rest-param)
-                        (some identity [drest rest kws prest]))
+                        (some identity [drest rest kws prest pdot]))
             (err/int-error (str "No type for rest parameter")))
 
         ;;unhygienic version
@@ -109,7 +109,7 @@
         crequired-params (map (fn [p t] (assoc p u/expr-type (r/ret t)))
                               required-params
                               (concat dom 
-                                      (repeat (or rest (:pre-type drest) prest))))
+                                      (repeat (or rest (:pre-type drest) prest (:pre-type pdot)))))
         _ (assert (every? (comp r/TCResult? u/expr-type) crequired-params))
         fixed-entry (map (juxt :name (comp r/ret-t u/expr-type)) crequired-params)
         ;_ (prn "checking function:" (prs/unparse-type expected))
@@ -121,7 +121,8 @@
                                                                             :rest rest
                                                                             :drest drest
                                                                             :kws kws
-                                                                            :prest prest))))
+                                                                            :prest prest
+                                                                            :pdot pdot))))
         rest-entry (when crest-param
                      [[(:name crest-param) (r/ret-t (u/expr-type crest-param))]])
         ;_ (prn "rest entry" rest-entry)
@@ -225,6 +226,8 @@
                     [rest-param-name drest])
                   (when (and prest rest-param)
                     [rest-param-name prest])
+                  (when (and pdot rest-param)
+                    [rest-param-name pdot])
                   (u/expr-type crng)))
         cmethod (-> (assoc method
                            (ast-u/method-body-kw) crng

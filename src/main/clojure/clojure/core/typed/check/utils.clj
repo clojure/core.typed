@@ -397,11 +397,11 @@
   (let [nreq (count required-params)]
     ;(prn "nreq" nreq)
     ;(prn "rest-param" rest-param)
-    (filter (fn [{:keys [dom rest drest kws prest]}]
+    (filter (fn [{:keys [dom rest drest kws prest pdot]}]
               (let [ndom (count dom)]
                 (if rest-param 
                   (or ; required parameters can flow into the rest type
-                      (when (or rest drest prest)
+                      (when (or rest drest prest pdot)
                         (<= nreq ndom))
                       ; kw functions must have exact fixed domain match
                       (when kws
