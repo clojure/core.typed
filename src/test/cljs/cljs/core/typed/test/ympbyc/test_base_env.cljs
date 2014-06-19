@@ -1,7 +1,7 @@
 (ns cljs.core.typed.test.ympbyc.test-base-env
   (:require-macros [cljs.core.typed :refer [ann] :as ct])
-  (:require [cljs.core.typed :refer [All U IFn]]
-            [cljs.core :refer [IVector ISeq]]))
+  (:require [cljs.core.typed :refer [All U IFn Option Any]]
+            [cljs.core :refer [IVector ISeq ASeq]]))
 
 ;;fst
 
@@ -17,35 +17,35 @@
 
 ;;rest
 
-(ann vec-rest (ISeq number))
+(ann vec-rest (ASeq number))
 (def vec-rest (rest [1 2 3]))
 
-(ann seq-rest (ISeq number))
+(ann seq-rest (ASeq number))
 (def seq-rest (rest (seq [1 2 3])))
 
-(ann rest-empty (ISeq nil))
+(ann rest-empty (ASeq nil))
 (def rest-empty (rest []))
 
 
 ;;last
 
-(ann vec-last (U nil number))
+(ann vec-last number)
 (def vec-last (last [1 2 3]))
 
-(ann seq-last (U nil number))
+(ann seq-last number)
 (def seq-last (last (seq [1 2 3])))
 
-(ann last-nil (U nil number))
+(ann last-nil (Option number))
 (def last-nil (last []))
 
 
 ;;butlast
 
-(ann vec-butlast (ISeq number))
+(ann vec-butlast (ASeq number))
 (def vec-butlast (butlast [1 2 3]))
 
-(ann seq-butlast (ISeq number))
+(ann seq-butlast (ASeq number))
 (def vec-butlast (butlast (seq [1 2 3])))
 
-(ann butlast-empty (ISeq nil))
+(ann butlast-empty (ASeq nil))
 (def butlast-empty (butlast []))

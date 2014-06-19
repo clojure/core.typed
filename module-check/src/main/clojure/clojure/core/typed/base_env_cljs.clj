@@ -21,7 +21,7 @@ cljs.core/ICounted [[]]
 cljs.core/IEmptyableCollection [[]]
 cljs.core/ICollection [[[x :variance :covariant]]]
 cljs.core/IIndexed [[]]
-cljs.core/ASeq [[]]
+cljs.core/ASeq [[[x :variance :covariant]]]
 cljs.core/ISeqable [[[x :variance :covariant]]]
 cljs.core/ISeq [[[x :variance :covariant]]]
 cljs.core/INext [[[x :variance :covariant]]]
@@ -254,13 +254,14 @@ cljs.core/first (All [x]
 ;;(ann cljs.core/second )
 
 cljs.core/rest (All [x]
-                        [(U (ISeq x) (IVector x)) -> (ISeq x)])
+                    [(Option (Seqable x)) -> (ASeq x)])
 
 cljs.core/last (All [x]
-                        [(U (ISeq x) (IVector x)) -> (U nil x)])
+                    (IFn [(NonEmptySeqable x) -> x]
+                         [(Option (Seqable x)) -> (Option x)]))
 
 cljs.core/butlast (All [x]
-                       [(U (ISeq x) (IVector x)) -> (ISeq x)])
+                       [(Option (Seqable x)) -> (ASeq x)])
 
 
 
