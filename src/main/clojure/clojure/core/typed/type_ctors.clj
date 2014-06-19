@@ -274,7 +274,8 @@
       (impl/impl-case
         :clojure (RClass-of clojure.lang.APersistentVector [tp])
         :cljs    (In (Protocol-of 'cljs.core/IVector [tp])
-                     (Protocol-of 'cljs.core/ICollection [tp])))
+                     (Protocol-of 'cljs.core/ICollection [tp])
+                     (Protocol-of 'cljs.core/ISeqable [tp])))
       (when-not drest
         [(r/make-CountRange
            (count types)
