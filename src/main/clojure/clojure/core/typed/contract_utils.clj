@@ -64,6 +64,10 @@
   (every-pred set?
               #(every? c? %)))
 
+(defn sorted-set-c? [c?]
+  (every-pred sorted?
+              (set-c? c?)))
+
 (defn sequential-c? [c?]
   (every-pred sequential?
               (every-c? c?)))

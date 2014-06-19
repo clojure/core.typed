@@ -935,16 +935,18 @@
   ((impl/v 'clojure.core.typed.rclass-ancestor-env/rclass-replacements)
    rcls))
 
-(t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (t/Set r/Type)])
+(t/ann ^:no-check RClass-unchecked-ancestors* [RClass -> (t/SortedSet r/Type)])
 (defn RClass-unchecked-ancestors*
   [rcls]
   {:pre [(r/RClass? rcls)]
-   :post [((con/set-c? r/Type?) %)]}
+   :post [((con/sorted-set-c? r/Type?) %)]}
   ((impl/v 'clojure.core.typed.rclass-ancestor-env/rclass-ancestors)
    rcls))
 
-(t/ann supers-cache (t/Atom1 (t/Map Number (t/Map t/Sym r/Type))))
-(defonce ^:private supers-cache (atom {}))
+(t/ann supers-cache (t/Atom1 (t/Map Number (t/SortedSet r/Type))))
+(defonce ^:private supers-cache (atom {}
+                                      :validator (con/hash-c? integer?
+                                                              (con/sorted-set-c? r/Type?))))
 
 (t/ann reset-supers-cache! [-> nil])
 (defn reset-supers-cache! []
@@ -952,13 +954,12 @@
   nil)
 
 ;TODO won't type check because records+destructuring
-(t/ann ^:no-check RClass-supers* [RClass -> (t/Set r/Type)])
+(t/ann ^:no-check RClass-supers* [RClass -> (t/SortedSet r/Type)])
 (defn RClass-supers* 
   "Return a set of ancestors to the RClass"
   [{:keys [the-class] :as rcls}]
   {:pre [(r/RClass? rcls)]
-   :post [((con/set-c? r/Type?) %)
-          ]}
+   :post [((con/sorted-set-c? r/Type?) %)]}
   (u/p :ctors/RClass-supers*
   ;(prn "RClass-supers*" the-class (ind/unparse-type rcls))
   (let [cache-key (p/type-id rcls)
@@ -981,17 +982,18 @@
                                                java-supers)
               _ (when (seq bad-replacements)
                   (err/int-error (str "Bad RClass replacements for " the-class ": " bad-replacements)))
-              res (set/union (binding [*current-RClass-super* the-class]
-                               (let [rs (for [csym not-replaced]
-                                          (RClass-of-with-unknown-params 
-                                            csym
-                                            :warn-msg (when (.contains (str the-class) "clojure.lang")
-                                                        (str "RClass ancestor for " the-class " defaulting "
-                                                           "to most general parameters"))))]
-                                 (apply set/union (set rs) (map RClass-supers* rs))))
-                             (set (vals replacements))
-                             #{(RClass-of Object)}
-                             unchecked-ancestors)]
+              res (r/sorted-type-set
+                    (set/union (binding [*current-RClass-super* the-class]
+                                 (let [rs (for [csym not-replaced]
+                                            (RClass-of-with-unknown-params 
+                                              csym
+                                              :warn-msg (when (.contains (str the-class) "clojure.lang")
+                                                          (str "RClass ancestor for " the-class " defaulting "
+                                                               "to most general parameters"))))]
+                                   (apply set/union (set rs) (map RClass-supers* rs))))
+                               (set (vals replacements))
+                               #{(RClass-of Object)}
+                               unchecked-ancestors))]
           ;(prn "supers" the-class res)
           (when-not (<= (count (filter (some-fn r/FnIntersection? r/Poly? r/PolyDots?) res))
                         1)

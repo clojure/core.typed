@@ -13,12 +13,12 @@
 
 (t/defalias RClassAncestorEnv 
   (t/Map t/Symbol '{:replacements (t/Map t/Symbol r/MaybeScopedType)
-                    :ancestors (t/Set r/ScopedType)}))
+                    :ancestors (t/SortedSet r/ScopedType)}))
 
 (t/ann ^:no-check rclass-ancestor-env? (t/Pred RClassAncestorEnv))
 (def rclass-ancestor-env? 
   (con/hash-c? symbol? (con/hmap-c? :replacements (con/hash-c? symbol? r/scoped-Type?)
-                                    :ancestors (con/set-c? r/scoped-Type?))))
+                                    :ancestors (con/sorted-set-c? r/scoped-Type?))))
 
 (t/ann initial-class-ancestors-env RClassAncestorEnv)
 (def initial-class-ancestors-env {})
@@ -34,13 +34,14 @@
 (defn reset-rclass-ancestors-env! []
   (reset! RCLASS-ANCESTORS-ENV initial-class-ancestors-env))
 
-(t/ann ^:no-check rclass-ancestors [RClass -> (t/Seqable r/Type)])
+(t/ann ^:no-check rclass-ancestors [RClass -> (t/SortedSet r/Type)])
 (defn rclass-ancestors [{poly :poly?, rsym :the-class, :as rcls}]
-  {:pre [(r/RClass? rcls)]}
+  {:pre [(r/RClass? rcls)]
+   :post [((con/sorted-set-c? r/Type?) %)]}
   (let [names (repeatedly (count poly) #(gensym "unchecked-ancestor"))
         fs (map r/make-F names)
         abstract-as (get-in @RCLASS-ANCESTORS-ENV [rsym :ancestors])]
-    (set
+    (r/sorted-type-set
       (for [u abstract-as]
         (let [t (c/instantiate-many names u)
               subst (c/make-simple-substitution names poly)]
@@ -57,14 +58,14 @@
 (t/ann ^:no-check add-rclass-ancestors [RClass (t/Seqable r/Type) -> nil])
 (defn add-rclass-ancestors [rsym names as]
   {:pre [(symbol? rsym)]}
-  (let [nas (set
+  (let [nas (r/sorted-type-set
               (for [u as]
                 (c/abstract-many names u)))]
     (swap! RCLASS-ANCESTORS-ENV
            (fn [env]
              (if (contains? env rsym)
                (update-in env [rsym :ancestors]
-                          #(set/union (or % #{}) nas))
+                          #(set/union nas (or % #{})))
                (assoc env rsym {:ancestors nas
                                 :replacements {}}))))
     nil))
@@ -80,6 +81,6 @@
              (if (contains? e rsym)
                (update-in e [rsym :replacements]
                           merge nrp)
-               (assoc e rsym {:ancestors #{}
+               (assoc e rsym {:ancestors (r/sorted-type-set #{})
                               :replacements nrp}))))
     nil))
