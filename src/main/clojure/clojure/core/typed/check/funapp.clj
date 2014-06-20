@@ -313,9 +313,17 @@
                                                                        arg-types dom (:pre-type drest) (r/Result-type* rng) 
                                                                        (frees/fv rng)
                                                                        :expected (and expected (r/ret-t expected)))
+
                                                 rest (cgen/infer-vararg fixed-map dotted-map
                                                                         arg-types dom rest (r/Result-type* rng)
                                                                         (and expected (r/ret-t expected)))
+
+                                                (and prest
+                                                     (<= (count dom) (count arg-types)))
+                                                (cgen/infer-prest fixed-map dotted-map
+                                                                  arg-types dom prest (r/Result-type* rng)
+                                                                  (and expected (r/ret-t expected)))
+
                                                 :else (cgen/infer fixed-map dotted-map
                                                                   arg-types dom (r/Result-type* rng)
                                                                   (and expected (r/ret-t expected))))
