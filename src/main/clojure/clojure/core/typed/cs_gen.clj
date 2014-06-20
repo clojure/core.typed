@@ -645,6 +645,23 @@
              (not (r/F? (:target T))))
         (cs-gen V X Y S (c/-resolve T))
 
+        (and (r/AssocType? S)
+             (r/RClass? T)
+             ; (Map xx yy)
+             (= 'clojure.lang.IPersistentMap (:the-class T)))
+        (let [{:keys [target entries dentries]} S
+              {:keys [poly? the-class]} T
+              _ (when-not (nil? dentries) (err/nyi-error (pr-str "NYI dentries in AssocType " S)))
+
+              ; this is too restricted, maybe user are using (assoc {} xx yy)
+              map-cset (cs-gen V X Y target T)
+              entries-keys (map first entries)
+              entries-vals (map second entries)
+              cg #(cs-gen V X Y %1 %2)
+              key-cset (map cg entries-keys (repeat (first poly?)))
+              val-cset (map cg entries-vals (repeat (second poly?)))]
+          (cset-meet* (concat [map-cset] key-cset val-cset)))
+
 ; Completeness matters:
 ;
 ; (Assoc x ':a Number ':b Long) <: (HMap {:a Number :b Long} :complete? true)
@@ -1930,7 +1947,13 @@
          ((some-fn nil? r/AnyType?) expected)]
    :post [(or (nil? %)
               (cr/substitution-c? %))]}
-  #_(prn "infer-prest" "X:" X)
+  #_(println "infer-prest\n"
+           "X" X "\n"
+           "Y" Y "\n"
+           "S" S "\n"
+           "T" T "\n"
+           "T-var" T-var "\n"
+           )
   (u/p :cs-gen/infer-prest
   (and (>= (count S) (count T))
        (let [[short-S rest-S] (split-at (count T) S)
@@ -2015,7 +2038,7 @@
                          (cs-gen #{} X Y R expected)
                          (cr/empty-cset {} {}))
          ;_ (prn "expected cset" expected-cset)
-         cs (u/p :cs-gen/infer-inner-csgen 
+         cs (u/p :cs-gen/infer-inner-csgen
               (cs-gen-list #{} X Y S T :expected-cset expected-cset))
          cs* (u/p :cs-gen/infer-inner-cset-meet
                (cset-meet cs expected-cset))]
