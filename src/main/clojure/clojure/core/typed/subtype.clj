@@ -511,8 +511,9 @@
                             (subtype? (:rest s) (first t-types)))
 
                        ; nothing on left
-                       (and (<= t-types-count
-                                s-types-count)
+                       (and (or (zero? s-types-count)
+                                (<= t-types-count
+                                    s-types-count))
                             (if (zero? (rem s-types-count
                                             t-types-count))
                               (every? identity (map subtype?
@@ -593,6 +594,13 @@
                    (c/HSeq->HSequential s))
                  t)
 
+        ; repeat Heterogeneous* can always accept nil
+        (and (r/Nil? s)
+             (or (r/HeterogeneousVector? t)
+                 (r/HeterogeneousSeq? t)
+                 (r/HSequential? t))
+             (:repeat t))
+          *sub-current-seen*
 
         ;every rtype entry must be in ltypes
         ;eg. {:a 1, :b 2, :c 3} <: {:a 1, :b 2}

@@ -3404,48 +3404,42 @@
 
 
 (deftest subtype-heterogeneous*-with-repeat
-  ; HVec, HSeq are all rely on HSequential to implement subtype
-  (is-clj (subtype? (parse-type '(HSequential [Number String]))
-                    (parse-type '(HSequential [Number String] :repeat true))))
+  (let [t (impl/with-clojure-impl
+            (parse-type '(HSequential [Number String] :repeat true)))]
+    ; HVec, HSeq are all rely on HSequential to implement subtype
+    (is-clj (subtype? (parse-type '(HSequential [Number String])) t))
 
-  (is-clj (subtype? (parse-type '(HSequential [Number String Number String]))
-                    (parse-type '(HSequential [Number String] :repeat true))))
+    (is-clj (subtype? (parse-type '(HSequential [Number String Number String])) t))
 
-  ; if both s and t have :repeat, then (count (:types t)) should <= (count (:types s))
-  (is-clj (subtype? (parse-type '(HSequential [Number String Number String] :repeat true))
-                    (parse-type '(HSequential [Number String] :repeat true))))
-  (is-clj (not (subtype? (parse-type '(HSequential [Number String] :repeat true))
-                         (parse-type '(HSequential [Number String Number String] :repeat true)))))
+    ; if both s and t have :repeat, then (count (:types t)) should <= (count (:types s))
+    (is-clj (subtype? (parse-type '(HSequential [Number String Number String] :repeat true)) t))
+    (is-clj (not (subtype? t (parse-type '(HSequential [Number String Number String] :repeat true)))))
 
-  (is-clj (not (subtype? (parse-type '(HSequential [Number]))
-                         (parse-type '(HSequential [Number String] :repeat true)))))
+    (is-clj (not (subtype? (parse-type '(HSequential [Number])) t)))
 
-  (is-clj (not (subtype? (parse-type '(HSequential [Number String Number]))
-                         (parse-type '(HSequential [Number String] :repeat true)))))
+    (is-clj (not (subtype? (parse-type '(HSequential [Number String Number])) t)))
 
-  ; they are same
-  (is-clj (subtype? (parse-type '(HSequential [Number] :repeat true))
-                    (parse-type '(HSequential [Number Number *]))))
-  (is-clj (subtype? (parse-type '(HSequential [Number Number *]))
-                    (parse-type '(HSequential [Number] :repeat true))))
+    ; they are same
+    (is-clj (subtype? (parse-type '(HSequential [Number] :repeat true))
+                      (parse-type '(HSequential [Number Number *]))))
+    (is-clj (subtype? (parse-type '(HSequential [Number Number *]))
+                      (parse-type '(HSequential [Number] :repeat true))))
 
-  (is-clj (subtype? (parse-type '(HSequential [Number] :repeat true))
-                    (parse-type '(HSequential [Number Number Number *]))))
+    (is-clj (subtype? (parse-type '(HSequential [Number] :repeat true))
+                      (parse-type '(HSequential [Number Number Number *]))))
 
-  (is-clj (not (subtype? (parse-type '(HSequential [Number] :repeat true))
-                         (parse-type '(HSequential [Number Number String *])))))
+    (is-clj (not (subtype? (parse-type '(HSequential [Number] :repeat true))
+                           (parse-type '(HSequential [Number Number String *])))))
 
-  (is-clj (not (subtype? (parse-type '(HSequential [Number] :repeat true))
-                         (parse-type '(HSequential [Number String Number *])))))
+    (is-clj (not (subtype? (parse-type '(HSequential [Number] :repeat true))
+                           (parse-type '(HSequential [Number String Number *])))))
 
-  (is-clj (subtype? (parse-type '(HVec [Number String Number String]))
-                    (parse-type '(HSequential [Number String] :repeat true))))
+    (is-clj (subtype? (parse-type '(HVec [Number String Number String])) t))
 
-  (is-clj (not (subtype? (parse-type '(HVec [Number String] :repeat true))
-                         (parse-type '(HSequential [Number String Number String])))))
+    (is-clj (not (subtype? (parse-type '(HVec [Number String] :repeat true))
+                           (parse-type '(HSequential [Number String Number String])))))
 
-  (is-clj (subtype? (parse-type '(HSeq [Number String Number String]))
-                    (parse-type '(HSequential [Number String] :repeat true)))))
+    (is-clj (subtype? (parse-type '(HSeq [Number String Number String])) t))))
 
 (deftest function-prest
   (is-cf (fn [a & rst] 1) [Number (HSeq [Number String] :repeat true) <* -> Number])
@@ -3474,3 +3468,26 @@
   (is-tc-err (apply (inst hash-map Number String) 1 "a" [2 \c]):expected (Map Number String))
   (is-tc-err (apply (inst hash-map Number String) 1 \a [2 \c]):expected (Map Number String))
   )
+
+(deftest nil-empty-with-repeat
+  (let [t (impl/with-clojure-impl
+            (parse-type '(HSequential [Number String] :repeat true)))
+        nil-t (impl/with-clojure-impl (parse-type nil))
+        tt (impl/with-clojure-impl
+             (parse-type '(All [k v] (HSequential [k v] :repeat true))))
+        cg #(cs-gen #{} ;V
+                    (zipmap '[k v] (repeat no-bounds)) ;X
+                    {} ;Y
+                    % ;S
+                    tt)]
+    (is-clj (subtype? (parse-type '(HSequential [])) t))
+    (is-clj (subtype? (parse-type '(HVec [])) t))
+    (is-clj (subtype? (parse-type '(HSeq [])) t))
+    (is-clj (subtype? nil-t t))
+    (is-clj (subtype? nil-t (parse-type '(HVec [Number String] :repeat true))))
+    (is-clj (subtype? nil-t (parse-type '(HSeq [Number String] :repeat true))))
+    (is-clj (do (cg (parse-type '(HSequential []))) true))
+    (is-clj (do (cg (parse-type '(HVec []))) true))
+    (is-clj (do (cg (parse-type '(HSeq []))) true))
+    (is-clj (do (cg nil-t) true))
+  ))
