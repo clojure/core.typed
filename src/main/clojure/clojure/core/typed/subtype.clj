@@ -415,6 +415,21 @@
         (subtype s (c/-resolve t))
 
         (and (r/AssocType? s)
+             (r/RClass? t)
+             ; (Map xx yy)
+             (= 'clojure.lang.IPersistentMap (:the-class t)))
+        (let [{:keys [target entries dentries]} s
+              {:keys [poly? the-class]} t
+              _ (when-not (nil? dentries) (err/nyi-error (pr-str "NYI dentries in AssocType " s)))
+              entries-keys (map first entries)
+              entries-vals (map second entries)]
+          (if (and (subtype? target t)
+                   (every? identity (map subtype? entries-keys (repeat (first poly?))))
+                   (every? identity (map subtype? entries-vals (repeat (second poly?)))))
+            *sub-current-seen*
+            (fail! s t)))
+
+        (and (r/AssocType? s)
              (r/AssocType? t)
              (r/F? (:target s))
              (r/F? (:target t))

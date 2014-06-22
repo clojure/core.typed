@@ -3491,3 +3491,7 @@
     (is-clj (do (cg (parse-type '(HSeq []))) true))
     (is-clj (do (cg nil-t) true))
   ))
+
+(deftest function-pdot
+  (is (check-ns 'clojure.core.typed.test.pdot-cs-gen))
+  )

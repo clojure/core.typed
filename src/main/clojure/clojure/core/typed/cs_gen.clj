@@ -652,8 +652,6 @@
         (let [{:keys [target entries dentries]} S
               {:keys [poly? the-class]} T
               _ (when-not (nil? dentries) (err/nyi-error (pr-str "NYI dentries in AssocType " S)))
-
-              ; this is too restricted, maybe user are using (assoc {} xx yy)
               map-cset (cs-gen V X Y target T)
               entries-keys (map first entries)
               entries-vals (map second entries)
