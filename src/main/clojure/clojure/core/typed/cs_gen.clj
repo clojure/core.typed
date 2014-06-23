@@ -358,7 +358,7 @@
 ; Add methods to cs-gen*, but always call cs-gen
 
 (declare cs-gen-right-F cs-gen-left-F cs-gen-datatypes-or-records cs-gen-list
-         cs-gen-filter-set cs-gen-object cs-gen-HSequential)
+         cs-gen-filter-set cs-gen-object cs-gen-HSequential get-c-from-cmap)
 
 (t/ann ^:no-check cs-gen 
        [(t/Set t/Sym) 
@@ -654,14 +654,28 @@
              (= 'clojure.lang.IPersistentMap (:the-class T)))
         (let [{:keys [target entries dentries]} S
               {:keys [poly? the-class]} T
-              _ (when-not (nil? dentries) (err/nyi-error (pr-str "NYI dentries in AssocType " S)))
+              dentries-cset (when-let [{dty :pre-type dbound :name} dentries]
+                              (when (and dbound (not (Y dbound)))
+                                (fail! S T))
+                              (println "passed when")
+                              (let [merged-X (merge X {dbound (Y dbound)})
+                                    get-list-of-c (fn get-list-of-c [t-list]
+                                                    (mapv #(get-c-from-cmap % dbound)
+                                                          (for> :- cset
+                                                                [t :- r/Type, t-list]
+                                                                (cs-gen V merged-X Y dty t))))
+                                    fixed-c (get-list-of-c poly?)]
+                                (assoc-in (cr/empty-cset X Y)
+                                          [:maps 0 :dmap :map dbound]
+                                          (cr/->dcon-repeat fixed-c fixed-c))))
+              _ (println "dentries-cset" dentries-cset)
               map-cset (cs-gen V X Y target T)
               entries-keys (map first entries)
               entries-vals (map second entries)
               cg #(cs-gen V X Y %1 %2)
               key-cset (map cg entries-keys (repeat (first poly?)))
               val-cset (map cg entries-vals (repeat (second poly?)))]
-          (cset-meet* (concat [map-cset] key-cset val-cset)))
+          (cset-meet* (concat [map-cset] key-cset val-cset (when dentries-cset [dentries-cset]))))
 
 ; Completeness matters:
 ;
@@ -672,7 +686,7 @@
         (let [;_ (prn "cs-gen Assoc HMap")
               {:keys [target entries dentries]} S
               {:keys [types absent-keys]} T
-              _ (when-not (nil? dentries) (err/nyi-error (pr-str "NYI dentries in AssocType " S)))
+              _ (when-not (nil? dentries) (err/nyi-error (pr-str "NYI cs-gen of dentries AssocType with HMap " S T)))
               Assoc-keys (map first entries)
               Tkeys (keys types)
               ; All keys must be keyword values
@@ -747,7 +761,7 @@
         :else
         (cs-gen* V X Y S T))))))
 
-(declare var-store-take move-vars-to-dmap get-c-from-cmap)
+(declare var-store-take move-vars-to-dmap)
 
 (t/ann cs-gen-HSequential [NoMentions ConstrainVars ConstrainVars HSequential HSequential
                            -> cset])

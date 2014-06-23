@@ -420,7 +420,8 @@
              (= 'clojure.lang.IPersistentMap (:the-class t)))
         (let [{:keys [target entries dentries]} s
               {:keys [poly? the-class]} t
-              _ (when-not (nil? dentries) (err/nyi-error (pr-str "NYI dentries in AssocType " s)))
+              ; _ (when-not (nil? dentries) (err/nyi-error (pr-str "NYI subtype of dentries AssocType " s)))
+              ; we assume its all right
               entries-keys (map first entries)
               entries-vals (map second entries)]
           (if (and (subtype? target t)

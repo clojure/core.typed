@@ -296,13 +296,16 @@
               (free-ops/with-bounded-frees (zipmap (map r/make-F (keys fixed-map)) (vals fixed-map))
                 ;(dvar-env/with-dotted-mappings (zipmap (keys dotted-map) (map r/make-F (vals dotted-map)))
                  (some identity
-                       (for [{:keys [dom rest drest rng prest] :as ftype} (:types pbody)
+                       (for [{:keys [dom rest drest rng prest pdot] :as ftype} (:types pbody)
                              ;only try inference if argument types match
                              :when (cond
                                      rest (<= (count dom) (count arg-types))
                                      drest (and (<= (count dom) (count arg-types))
                                                 (contains? (set (keys dotted-map)) (-> drest :name)))
                                      prest (<= (count dom) (count arg-types))
+                                     pdot (and (<= (count dom) (count arg-types))
+                                               (contains? (set (keys dotted-map)) (-> pdot :name))
+                                               (do (println "gotcha pdot") true))
                                      :else (= (count dom) (count arg-types)))]
                          (cgen/handle-failure
                            ;(prn "Inferring dotted fn" (prs/unparse-type ftype))
