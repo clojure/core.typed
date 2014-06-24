@@ -47,6 +47,17 @@
           []
           (repeat times repeated)))
 
+; (partition-by-nth 2 [1 2 3 4 5 6]) -> ((1 3 5) (2 4 6))
+; (partition-by-nth 3 [1 2 3 4 5 6]) -> ((1 4) (2 5) (3 6))
+; util for infer-pdot
+(defn partition-by-nth [n lst]
+  {:pre [(zero? (rem (count lst) n))]}
+  (let [lst-count (count lst)
+        keep-rem-of (fn keep-rem-of [i]
+                        (keep-indexed #(when (= (rem %1 n) i) %2) lst))]
+    (for [i (range n)]
+      (keep-rem-of i))))
+
 (t/ann subtype? [r/AnyType r/AnyType -> Boolean])
 (defn ^:private subtype? [s t]
   (u/p :cs-gen/subtype-via-csgen
