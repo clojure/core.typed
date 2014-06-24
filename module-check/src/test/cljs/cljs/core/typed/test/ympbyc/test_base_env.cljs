@@ -7,7 +7,7 @@
 (ann seq-vec (NonEmptySeqable number))
 (def seq-vec (seq [1 2 3]))
 
-(ann seq-empty nil)
+(ann seq-empty (Option (NonEmptyASeq nil)))
 (def seq-empty (seq []))
 
 ;;fst
@@ -82,5 +82,5 @@
 (ann second-nil nil)
 (def second-nil (second nil))
 
-(ann second-seq number)
+(ann second-seq (Option number))
 (def second-seq (second (seq [1 2 3])))
