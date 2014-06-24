@@ -386,30 +386,7 @@
           (cset-combine cs)
           (fail! S T))
 
-        (and (r/Intersection? S)
-             (r/Intersection? T))
-        (cset-meet*
-          (doall
-            ; for each element of T, we need at least one element of S that works
-            (let [ss (sub/simplify-In S)]
-              (for [t* (sub/simplify-In T)]
-                (if-let [results (doall
-                                   (seq (filter (t/inst identity (t/U false cset))
-                                                (map (t/fn [s* :- r/Type]
-                                                       (handle-failure
-                                                         (cs-gen V X Y s* t*)))
-                                                     ss))))]
-                  (cset-combine results)
-                  (fail! S T))))))
-
-        ;; find *an* element of S which can be made a subtype of T
-        (r/Intersection? S)
-        (let [ss (sub/simplify-In S)]
-          (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
-                            ss)]
-            (do ;(prn "intersection S normal case" (map prs/unparse-type [S T]))
-                cs)
-            (fail! S T)))
+        ; Does it matter which order the Intersection cases go?
 
         ;constrain *every* element of T to be above S, and then meet the constraints
         ; we meet instead of cset-combine because we want all elements of T to be under
@@ -419,6 +396,15 @@
           (cset-meet*
             (cons (cr/empty-cset X Y)
                   (mapv #(cs-gen V X Y S %) ts))))
+
+        ;; find *an* element of S which can be made a subtype of T
+        (r/Intersection? S)
+        (let [ss (sub/simplify-In S)]
+          (if-let [cs (some #(handle-failure (cs-gen V X Y % T))
+                            ss)]
+            (do ;(prn "intersection S normal case" (map prs/unparse-type [S T]))
+                cs)
+            (fail! S T)))
 
         (and (r/Extends? S)
              (r/Extends? T))
@@ -1740,7 +1726,8 @@
    ;  (when expected
    ;    (prn "expected:" (class expected) (prs/unparse-type expected)))
    (u/p :cs-gen/infer
-   (let [expected-cset (if expected
+   (let [;_ (prn "before expected cset" R expected)
+         expected-cset (if expected
                          (cs-gen #{} X Y R expected)
                          (cr/empty-cset {} {}))
          ;_ (prn "expected cset" expected-cset)
