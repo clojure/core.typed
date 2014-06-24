@@ -1,7 +1,14 @@
 (ns cljs.core.typed.test.ympbyc.test-base-env
   (:require-macros [cljs.core.typed :refer [ann] :as ct])
-  (:require [cljs.core.typed :refer [All U IFn Option Any]]
+  (:require [cljs.core.typed :refer [All U IFn Option I Any Seqable HSequential NonEmptyASeq NonEmptySeqable]]
             [cljs.core :refer [IVector ISeq ASeq]]))
+
+;;seq
+(ann seq-vec (NonEmptySeqable number))
+(def seq-vec (seq [1 2 3]))
+
+(ann seq-empty nil)
+(def seq-empty (seq []))
 
 ;;fst
 
@@ -49,3 +56,31 @@
 
 (ann butlast-empty (ASeq nil))
 (def butlast-empty (butlast []))
+
+
+;;utest if NonEmptySeqable is Seqable
+(ann nonemp (All [x] [(NonEmptySeqable x) -> number]))
+(defn foo [xs] 1)
+
+(foo (seq [1 2 3]))
+
+
+(ann cljs.core/second
+     (All [x]
+          (IFn [(HSequential [Any x Any *]) -> x
+                :object {:id 0 :path [(Nth 1)]}]
+               [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
+               [(I (Seqable x) (CountRange 2)) -> x]
+               [(Option (Seqable x)) -> (Option x)])))
+
+(ann second-vec number)
+(def second-vec (second [1 2 3]))
+
+(ann second-empty nil)
+(def second-empty (second []))
+
+(ann second-nil nil)
+(def second-nil (second nil))
+
+(ann second-seq number)
+(def second-seq (second (seq [1 2 3])))
