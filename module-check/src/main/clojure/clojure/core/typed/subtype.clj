@@ -310,25 +310,16 @@
                 (recur A (next arr2))
                 (fail! s t)))))
 
-        (and (r/Intersection? s)
-             (r/Intersection? t))
-        (let [ss (simplify-In s)
-              ts (simplify-In t)]
-          (if (every? (fn intersection-both [s*]
-                        (some (fn intersection-both-inner [t*] (subtype? s* t*)) ts))
-                      ss)
+;does it matter what order the Intersection cases are?
+        (r/Intersection? t)
+        (let [ts (simplify-In t)]
+          (if (every? #(subtype? s %) ts)
             *sub-current-seen*
             (fail! s t)))
 
         (r/Intersection? s)
         (let [ss (simplify-In s)]
           (if (some #(subtype? % t) ss)
-            *sub-current-seen*
-            (fail! s t)))
-
-        (r/Intersection? t)
-        (let [ts (simplify-In t)]
-          (if (every? #(subtype? s %) ts)
             *sub-current-seen*
             (fail! s t)))
 
