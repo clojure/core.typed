@@ -236,13 +236,13 @@ cljs.core/cloneable? (Pred cljs.core/ICloneable)
 ;;;; since Option, Coll, etc don't seem to work yet
 
 cljs.core/seq (All [x]
-                   (IFn [(NonEmptyColl x) -> (NonEmptySeqable x)]
-                        [(Option (Coll x)) -> (Option (NonEmptySeqable x))
+                   (IFn [(NonEmptyColl x) -> (NonEmptyASeq x)]
+                        [(Option (Coll x)) -> (Option (NonEmptyASeq x))
                          #_:filters #_{:then (& (is NonEmptyCount 0)
                                             (! nil 0))
                                    :else (| (is nil 0)
                                             (is EmptyCount 0))}]
-                        [(Option (Seqable x)) -> (Option (NonEmptySeqable x))]))
+                        [(Option (Seqable x)) -> (Option (NonEmptyASeq x))]))
 
 cljs.core/first (All [x]
                      (IFn [(HSequential [x Any *]) -> x
@@ -363,7 +363,20 @@ with count greater than 0."
      :forms [(NonEmptyColl t)]}
    cljs.core.typed/NonEmptyColl (TFn [[x :variance :covariant]]
                                      (I (cljs.core/ICollection x)
-                                        (CountRange 1)))))
+                                        (CountRange 1)))
+
+   ^{:doc "A sequential non-empty seq retured from clojure.core/seq"
+     :forms [(NonEmptyASeq t)]}
+   cljs.core.typed/NonEmptyASeq
+   (TFn [[x :variance :covariant]]
+        (I (cljs.core/ISeq x)
+           (cljs.core/ISeqable x)
+           cljs.core/ISequential
+           ;(Iterable x)
+           (cljs.core/ICollection x)
+           (cljs.core/IList x)
+           ;clojure.lang.IObj
+           (CountRange 1)))))
 
 
 (defn reset-alias-env! []

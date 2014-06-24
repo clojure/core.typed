@@ -129,8 +129,10 @@
            [(t/All [x] [(cljs.core/IVector x) -> x])
             -> Any]))
 
-(deftest hvec-is-coll
-  (is-tc-e [1 2 3] (cljs.core/ICollection int)))
+(deftest seq-test
+  (is-tc-e [1 2 3] (t/Coll int))
+  (is-tc-e [1 2 3] (t/Seqable int))  ;;not sure if it should be...
+  (is-tc-e (seq [1 2 3]) (t/NonEmptyASeq int)))
 
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.dom)
 ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)

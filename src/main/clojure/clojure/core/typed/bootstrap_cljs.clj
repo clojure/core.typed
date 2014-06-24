@@ -5,7 +5,7 @@
 
 (def -base-aliases
   '#{AnyInteger Seqable NonEmptySeq Number
-     EmptySeqable NonEmptySeqable Option Coll NonEmptyColl})
+     EmptySeqable NonEmptySeqable Option Coll NonEmptyColl NonEmptyASeq})
 
 (def -specials
   '#{All U Any Pred Int Bool Num Str Object ReadOnlyArray
