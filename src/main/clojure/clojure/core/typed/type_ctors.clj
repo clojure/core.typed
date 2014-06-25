@@ -28,7 +28,7 @@
                                         Union Intersection F Function Mu B KwArgs KwArgsSeq RClass
                                         Bounds Name Scope CountRange Intersection DataType Extends
                                         JSNominal Protocol HeterogeneousVector GetType HSequential
-                                        HeterogeneousList HeterogeneousSeq)
+                                        HeterogeneousList HeterogeneousSeq AssocType)
            (clojure.lang IPersistentMap IPersistentVector Var)))
 
 (t/typed-deps clojure.core.typed.name-env)
@@ -1759,6 +1759,18 @@
                             :repeat (:repeat ty))))
 
 (f/add-fold-case ::abstract-many
+                 AssocType
+                 (fn [{:keys [target entries dentries]} {{:keys [name count outer sb]} :locals}]
+                   (r/AssocType-maker (sb target)
+                                      (map (fn [[k v]] [(sb k) (sb v)]) entries)
+                                      (when dentries
+                                        (-> dentries
+                                          (update-in [:pre-type] sb)
+                                          (update-in [:name] #(if (= % name)
+                                                                (+ count outer)
+                                                                %)))))))
+
+(f/add-fold-case ::abstract-many
                  Mu
                  (fn [{:keys [scope] :as mu} {{:keys [name count type outer name-to]} :locals}]
                    (let [body (remove-scopes 1 scope)]
@@ -1907,6 +1919,18 @@
                                                                image
                                                                %))))
                             :repeat (:repeat ty))))
+
+(f/add-fold-case ::instantiate-many
+                 AssocType
+                 (fn [{:keys [target entries dentries]} {{:keys [count outer image sb]} :locals}]
+                   (r/AssocType-maker (sb target)
+                                      (map (fn [[k v]] [(sb k) (sb v)]) entries)
+                                      (when dentries
+                                        (-> dentries
+                                          (update-in [:pre-type] sb)
+                                          (update-in [:name] #(if (= (+ count outer) %)
+                                                                image
+                                                                %)))))))
 
 (f/add-fold-case ::instantiate-many
                Mu
