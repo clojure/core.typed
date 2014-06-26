@@ -251,7 +251,12 @@ cljs.core/first (All [x]
                           [(NonEmptySeqable x) -> x]
                           [(Option (Seqable x)) -> (Option x)]))
 
-;;(ann cljs.core/second )
+cljs.core/second (All [x]
+                      (IFn [(HSequential [Any x Any *]) -> x
+                            :object {:id 0 :path [(Nth 1)]}]
+                           [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
+                           [(I (Seqable x) (CountRange 2)) -> x]
+                           [(Option (Seqable x)) -> (Option x)]))
 
 cljs.core/rest (All [x]
                     [(Option (Seqable x)) -> (ASeq x)])
