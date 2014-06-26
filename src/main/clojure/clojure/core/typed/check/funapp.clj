@@ -304,8 +304,7 @@
                                                 (contains? (set (keys dotted-map)) (-> drest :name)))
                                      prest (<= (count dom) (count arg-types))
                                      pdot (and (<= (count dom) (count arg-types))
-                                               (contains? (set (keys dotted-map)) (-> pdot :name))
-                                               (do (println "gotcha pdot") true))
+                                               (contains? (set (keys dotted-map)) (-> pdot :name)))
                                      :else (= (count dom) (count arg-types)))]
                          (cgen/handle-failure
                            ;(prn "Inferring dotted fn" (prs/unparse-type ftype))
@@ -326,6 +325,12 @@
                                                 (cgen/infer-prest fixed-map dotted-map
                                                                   arg-types dom prest (r/Result-type* rng)
                                                                   (and expected (r/ret-t expected)))
+
+                                                pdot (cgen/infer-pdot fixed-map (key (first dotted-map))
+                                                                      (val (first dotted-map))
+                                                                      arg-types dom (:pre-type pdot) (r/Result-type* rng)
+                                                                      (frees/fv rng)
+                                                                      :expected (and expected (r/ret-t expected)))
 
                                                 :else (cgen/infer fixed-map dotted-map
                                                                   arg-types dom (r/Result-type* rng)

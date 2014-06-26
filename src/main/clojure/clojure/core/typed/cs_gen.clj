@@ -668,7 +668,7 @@
               dentries-cset (when-let [{dty :pre-type dbound :name} dentries]
                               (when (and dbound (not (Y dbound)))
                                 (fail! S T))
-                              (println "passed when")
+                              ;(println "passed when")
                               (let [merged-X (merge X {dbound (Y dbound)})
                                     get-list-of-c (fn get-list-of-c [t-list]
                                                     (mapv #(get-c-from-cmap % dbound)
@@ -679,7 +679,7 @@
                                 (assoc-in (cr/empty-cset X Y)
                                           [:maps 0 :dmap :map dbound]
                                           (cr/->dcon-repeat fixed-c fixed-c))))
-              _ (println "dentries-cset" dentries-cset)
+              ;_ (println "dentries-cset" dentries-cset)
               map-cset (cs-gen V X Y target T)
               entries-keys (map first entries)
               entries-vals (map second entries)
@@ -1956,6 +1956,70 @@
     (subst-gen (cset-meet cs expected-cset) #{dotted-var} R))))
 
 (declare infer)
+
+;; like infer-dot, but for infering pdot function
+;; T-dotted is the one with `:repeat true`
+;; FIXME dotted-bnd seems not that useful, cause it can't constrain on serveral pretypes
+;; on pdot
+(t/ann infer-pdot
+  (Fn [ConstrainVars
+       t/Sym
+       Bounds
+       (U nil (t/Seqable r/Type))
+       (U nil (t/Seqable r/Type))
+       r/Type
+       (U nil r/AnyType)
+       (t/Set t/Sym)
+       & :optional {:expected (U nil r/Type)} -> cr/SubstMap]))
+(defn infer-pdot [X dotted-var dotted-bnd S T T-dotted R must-vars & {:keys [expected]}]
+  {:pre [((con/hash-c? symbol? r/Bounds?) X)
+         (symbol? dotted-var)
+         (r/Bounds? dotted-bnd)
+         (every? (con/every-c? r/Type?) [S T])
+         (and (r/Type? T-dotted) (:repeat T-dotted) (:types T-dotted))
+         (r/AnyType? R)
+         ((con/set-c? symbol?) must-vars)
+         ((some-fn nil? r/Type?) expected)]
+   :post [(cr/substitution-c? %)]}
+  ;(prn "infer-pdot")
+  (u/p :cs-gen/infer-pdot
+  (let [[short-S rest-S] (split-at (count T) S)
+        _ (when-not (zero? (rem (- (count S) (count T))
+                                (-> T-dotted :types count)))
+            (fail! S T))
+        ;_ (prn "short-S" (map prs/unparse-type short-S))
+        ;_ (prn "T" (map prs/unparse-type T))
+        ;_ (prn "rest-S" (map prs/unparse-type rest-S))
+        expected-cset (if expected
+                        (cs-gen #{} X {dotted-var dotted-bnd} R expected)
+                        (cr/empty-cset {} {}))
+        ;_ (prn "expected-cset" expected-cset)
+        cs-short (cs-gen-list #{} X {dotted-var dotted-bnd} short-S T
+                              :expected-cset expected-cset)
+        ;_ (prn "cs-short" cs-short)
+        new-vars (var-store-take dotted-var T-dotted (count rest-S))
+        new-Ts (doall
+                 (let [list-of-vars (partition-by-nth (-> T-dotted :types count) new-vars)
+                       ;_ (println "list-of-vars" list-of-vars)
+                       list-of-result (map (fn [vars pre-type]
+                                             (for [v vars]
+                                               (let [target (subst/substitute-dots
+                                                              (map r/make-F vars)
+                                                              nil dotted-var pre-type)]
+                                                 (subst/substitute (r/make-F v) dotted-var target))))
+                                           list-of-vars
+                                           (:types T-dotted))]
+                   (apply interleave list-of-result)))
+        cs-dotted (cs-gen-list #{} (merge X (zipmap new-vars (repeat dotted-bnd)))
+                               {dotted-var dotted-bnd} rest-S new-Ts
+                               :expected-cset expected-cset)
+        ;_ (prn "cs-dotted" cs-dotted)
+        cs-dotted (move-vars-to-dmap cs-dotted dotted-var new-vars)
+        ;_ (prn "cs-dotted" cs-dotted)
+        cs (cset-meet cs-short cs-dotted)
+        ;_ (prn "cs" cs)
+        ]
+    (subst-gen (cset-meet cs expected-cset) #{dotted-var} R))))
 
 ;; like infer-vararg, but T-var is the prest type:
 (t/ann infer-prest

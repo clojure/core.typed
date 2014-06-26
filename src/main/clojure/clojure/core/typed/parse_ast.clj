@@ -159,13 +159,13 @@
                 bnd (*dotted-scope* drest-bnd)
                 _ (when-not bnd 
                     (err/int-error (str (pr-str drest-bnd) " is not in scope as a dotted variable")))
-                gdrest-bnd (gensym drest-bnd)]
+                gdrest-bnd (gensym bnd)]
             {:types fixed
              :drest {:op :dotted-pretype
                      :f {:op :F :name gdrest-bnd}
                      :drest (with-frees {drest-bnd gdrest-bnd} ;with dotted bound in scope as free
                               (parse drest-type))
-                     :name bnd}})
+                     :name gdrest-bnd}})
           :else {:types (mapv parse syns)})]
     {:types types
      :rest rest
