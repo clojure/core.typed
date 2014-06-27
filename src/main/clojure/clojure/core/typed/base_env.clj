@@ -1292,6 +1292,9 @@ clojure.core/flatten [Any -> Any]
 clojure.core/map-indexed
      (All [x y] [[AnyInteger x -> y] (Option (Seqable x)) -> (Seqable y)])
 
+clojure.core/keep-indexed
+     (All [a c] [[Number a -> (U nil c)] (Seqable a) -> (Seq c)])
+
 clojure.core/merge-with
      (All [k v]
           (Fn [[v v -> v] nil * -> nil]

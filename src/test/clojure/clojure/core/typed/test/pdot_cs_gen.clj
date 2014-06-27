@@ -7,8 +7,8 @@
                                 (Fn
                                   [m k v (HSequential [c c] :repeat true) <... c
                                    -> (Assoc m k v c ... c)]
-;                                  [m k v (HSequential [k v] :repeat true) <*
-;                                   -> (Assoc m k v)]
+                                  [m k v (HSequential [k v] :repeat true) <*
+                                   -> (Assoc m k v)]
                                   )))
 (defn dummy-assoc [m k v & rst] nil)
 
