@@ -11,7 +11,7 @@
 
 ;Function TCResult^n (or nil TCResult) -> TCResult
 (defn check-funapp1 [fexpr arg-exprs {{optional-kw :optional mandatory-kw :mandatory :as kws} :kws
-                                      :keys [dom rng rest drest prest] :as ftype0}
+                                      :keys [dom rng rest drest prest pdot] :as ftype0}
                      argtys expected & {:keys [check?] :or {check? true}}]
   {:pre [(r/Function? ftype0)
          (every? r/TCResult? argtys)
@@ -52,7 +52,8 @@
                                               " mandatory keyword arguments")
 
                                          (seq mandatory-kw) (str "and " (count mandatory-kw) "  mandatory keyword arguments")
-                                         (seq optional-kw) " and some optional keyword arguments"))
+                                         (seq optional-kw) " and some optional keyword arguments"
+                                         :else (str " with unknow ftype " ftype0)))
                                  ", and got " nactual
                                  " for function " (pr-str (prs/unparse-type ftype0))
                                  " and arguments " (pr-str (mapv (comp prs/unparse-type r/ret-t) argtys)))))
