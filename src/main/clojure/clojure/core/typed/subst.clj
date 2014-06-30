@@ -99,19 +99,18 @@
   AssocType
   (fn [{:keys [target entries dentries] :as atype} {{:keys [name sb images rimage]} :locals}]
     (let [sb-target (sb target)
-          sb-entries (into {} (map (fn [ent]
-                                     [(sb (first ent)) (sb (second ent))])
-                                   entries))]
+          sb-entries (map (fn [ent]
+                            [(sb (first ent)) (sb (second ent))])
+                          entries)]
       (if (and dentries
                (= name (:name dentries)))
         (r/AssocType-maker sb-target
-                           (merge sb-entries
+                           (concat sb-entries
                                   (let [expanded (sb (:pre-type dentries))]
                                     (->> images
                                       (map (fn [img] (substitute img name expanded)))
                                       (partition 2)
-                                      (map vec)
-                                      (into {}))))
+                                      (map vec))))
                            nil)
         (r/AssocType-maker sb-target
                            sb-entries
