@@ -25,6 +25,17 @@
              (reset! ~cache-sym calc#)))))))
 
 
+(defn clj-ann->cljs-ann
+  [ann-map]
+  (into {}
+        (map (fn [[k x]]
+               [(-> k
+                   str
+                   (clojure.string/replace ,,, #"clojure" "cljs")
+                   symbol)
+                x])
+             ann-map)))
+
 
 ;;these annotations can be parsed in either {cljs,clojure}.core.typed
 ;;and have the same meaning.
