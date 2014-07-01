@@ -24,8 +24,10 @@
            (let [calc# (~generator-sym)]
              (reset! ~cache-sym calc#)))))))
 
-                                        ;these annotations can be parsed in either {cljs,clojure}.core.typed
-                                        ; and have the same meaning.
+
+
+;;these annotations can be parsed in either {cljs,clojure}.core.typed
+;;and have the same meaning.
 (def common-var-annotations
   ;;ordered the same as in cljs.core
   '{clojure.core/*1 Any
@@ -235,7 +237,6 @@
     clojure.core/bit-test [AnyInteger AnyInteger -> AnyInteger]
     clojure.core/bit-shift-left [AnyInteger AnyInteger -> AnyInteger]
     clojure.core/bit-shift-right [AnyInteger AnyInteger -> AnyInteger]
-    clojure.core/== [Number Number * -> Boolean]
     clojure.core/pos? (IFn [Number -> Boolean])
     clojure.core/zero? (Pred (Value 0))
     clojure.core/neg? (IFn [Number -> Boolean])
@@ -379,51 +380,11 @@
                        [Any * -> Any])]
               [[Any -> Any] [Any -> Any] * -> [Any * -> Any]]))
 
-    clojure.core/every-pred
-    (All [t0 t1 t2 t3 t4 t5]
-         (IFn [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
-               -> (IFn [Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
-                       [Any * -> Any])]
-              [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
-               [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
-               -> (IFn [Any -> Boolean :filters {:then (is (I t0 t1) 0) :else (! (I t0 t1) 0)}]
-                       [Any * -> Any])]
-              [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
-               [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
-               [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
-               -> (IFn [Any -> Boolean :filters {:then (is (I t0 t1 t2) 0) :else (! (I t0 t1 t2) 0)}]
-                       [Any * -> Any])]
-              [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
-               [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
-               [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
-               [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
-               -> (IFn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3) 0) :else (! (I t0 t1 t2 t3) 0)}]
-                       [Any * -> Any])]
-              [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
-               [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
-               [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
-               [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
-               [Any -> Boolean :filters {:then (is t4 0) :else (! t4 0)}]
-               -> (IFn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3 t4) 0) :else (! (I t0 t1 t2 t3 t4) 0)}]
-                       [Any * -> Any])]
-              [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}]
-               [Any -> Any :filters {:then (is t1 0) :else (! t1 0)}]
-               [Any -> Any :filters {:then (is t2 0) :else (! t2 0)}]
-               [Any -> Any :filters {:then (is t3 0) :else (! t3 0)}]
-               [Any -> Any :filters {:then (is t4 0) :else (! t4 0)}]
-               [Any -> Any :filters {:then (is t5 0) :else (! t5 0)}]
-               -> (IFn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3 t4 t5) 0) :else (! (I t0 t1 t2 t3 t4 t5) 0)}]
-                       [Any * -> Any])]
-              [[Any -> Any] [Any -> Any] * -> [Any * -> Any]]))
+
     clojure.core/map
     (All [c a b ...]
          (IFn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable b) ... b -> (NonEmptyASeq c)]
               [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (ASeq c)]))
-
-    clojure.core/mapv
-    (All [c a b ...]
-         (IFn [[a b ... b -> c] (NonEmptySeqable a) (NonEmptySeqable b) ... b -> (NonEmptyAVec c)]
-              [[a b ... b -> c] (U nil (Seqable a)) (U nil (Seqable b)) ... b -> (AVec c)]))
 
     clojure.core/mapcat
     (All [c b ...]
@@ -459,9 +420,6 @@
                               [[x -> x] x -> (ASeq x)])
     clojure.core/interleave (All [x] [(Option (Seqable x)) (Option (Seqable x)) (Option (Seqable x)) * -> (ASeq x)])
     clojure.core/interpose (All [x] (IFn [x (Option (Seqable x)) -> (ASeq x)]))
-    clojure.core/mapcat
-    (All [c b ...]
-         [[b ... b -> (Option (Seqable c))] (Option (Seqable b)) ... b -> (ASeq c)])
     clojure.core/filter
     (All [x y]
          (IFn
@@ -623,9 +581,6 @@
     (All [r b ...]
          [[b ... b -> (Rec [f] (U r [-> (U f r)]))]
           b ... b -> r])
-    clojure.core/rand (IFn [-> Number]
-                           [Number -> Number])
-    clojure.core/rand-int [Int -> Int]
     clojure.core/make-hierarchy [-> Hierarchy]
     clojure.core/isa? (IFn [Any Any -> Boolean]
                            [Hierarchy Any Any -> Boolean])
