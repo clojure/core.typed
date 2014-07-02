@@ -167,18 +167,6 @@
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
-      <artifactId>core.async</artifactId>
-      <version>0.1.303.0-886421-alpha</version>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
-      <artifactId>clojurescript</artifactId>
-      <version>0.0-2227</version>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.clojure</groupId>
       <artifactId>tools.trace</artifactId>
       <version>0.7.5</version>
       <exclusions>
