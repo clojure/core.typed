@@ -1,3 +1,28 @@
+# 0.2.53
+
+## Deprecations
+
+- almost all unnamespaced type syntax are now namespaced under
+  clojure.core.typed
+  - Deprecation messages will direct what has changed
+  - eg. HMap -> clojure.core.typed/HMap
+  - Fn is now clojure.core.typed/IFn
+  - some exceptions: Array syntax is the same
+
+## core.async annotations
+
+- Deprecated chan>/{,sliding-,dropping-}buffer>
+  - use chan/{,sliding-,dropping-}buffer
+  - Note new syntax in docstrings
+- Type checking in go macro now actually works
+  - clojure.core.typed/go> is deprecated, use go
+
+## Packaging
+
+- Libraries should depend on `org.clojure/core.typed.rt`
+  - minimum dependency runtime support
+  - Thanks to Chas Emerick
+
 # 0.2.48 - Released 17 May 2014
 
 - Improvements to local file mapping
