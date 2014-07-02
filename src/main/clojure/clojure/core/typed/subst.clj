@@ -75,14 +75,26 @@
   Function
   (fn [{:keys [dom rng rest drest kws prest pdot] :as ftype} {{:keys [name sb images rimage]} :locals}]
    (when kws (err/nyi-error "substitute keyword args"))
-   (if (and drest
-            (= name (:name drest)))
+   (if (and (or drest pdot)
+            (= name (:name (or drest pdot))))
      (r/Function-maker (doall
                          (concat (map sb dom)
-                                 ;; We need to recur first, just to expand out any dotted usages of this.
-                                 (let [expanded (sb (:pre-type drest))]
-                                   ;(prn "expanded" (unparse-type expanded))
-                                   (map (fn [img] (substitute img name expanded)) images))))
+                                 (if drest
+                                   ;; We need to recur first, just to expand out any dotted usages of this.
+                                   (let [expanded (sb (:pre-type drest))]
+                                     ;(prn "expanded" (unparse-type expanded))
+                                     (map (fn [img] (substitute img name expanded)) images))
+                                   (let [expandeds (map sb (-> pdot :pre-type :types))
+                                         _ (assert (zero? (rem (count images) (count expandeds))))
+                                         list-of-images (partition (count expandeds) images)
+                                         list-of-result (map (fn [expandeds images]
+                                                               (map (fn [expanded img]
+                                                                      (substitute img name expanded))
+                                                                    expandeds
+                                                                    images))
+                                                             (repeat expandeds)
+                                                             list-of-images)]
+                                     (reduce concat list-of-result)))))
                        (sb rng)
                        rimage nil nil nil nil)
      (r/Function-maker (doall (map sb dom))
@@ -198,11 +210,7 @@
                      nil
                      (and prest (sb prest))
                      (and pdot
-                          (r/DottedPretype1-maker
-                            (substitute image (:name pdot) (sb (:pretype pdot)))
-                            (if (= name (:name pdot))
-                              name
-                              (:name pdot)))))))
+                          (err/nyi-error "NYI pdot of substitute-dotted for Function")))))
 
 (f/add-fold-case ::substitute-dotted
   AssocType
