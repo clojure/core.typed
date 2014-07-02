@@ -37,7 +37,7 @@ using the slim jar in production.
 
 ## Compatibility
 
-`core.typed` supports Clojure 1.5.1.
+`core.typed` supports Clojure 1.6.0.
 
 ## [Talk] Clojure Conj 2012
 
