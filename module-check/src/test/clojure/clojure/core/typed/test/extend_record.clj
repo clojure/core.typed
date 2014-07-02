@@ -1,8 +1,8 @@
 (ns clojure.core.typed.test.extend-record
   (:require [clojure.core.typed :as t :refer [ann-protocol ann-record]]
-            [clojure.core.typed.subtype :as sub]
-            [clojure.core.typed.parse-unparse :as prs]
-            [clojure.core.typed.current-impl :as impl]))
+            #_[clojure.core.typed.subtype :as sub]
+            #_[clojure.core.typed.parse-unparse :as prs]
+            #_[clojure.core.typed.current-impl :as impl]))
 
 (ann-protocol PMaths
               mult-by-two [PMaths -> PMaths])

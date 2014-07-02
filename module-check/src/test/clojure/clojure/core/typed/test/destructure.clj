@@ -1,6 +1,6 @@
 (ns clojure.core.typed.test.destructure
-  (:import (clojure.lang APersistentVector Seqable APersistentMap))
-  (:require [clojure.core.typed :refer [ann-form check-ns cf]]))
+  (:import (clojure.lang APersistentVector APersistentMap))
+  (:require [clojure.core.typed :as t :refer [ann-form check-ns cf]]))
 
 ;; map destructuring
 (let [{:keys [b] :or {b 3}} {}]
@@ -19,30 +19,30 @@
 
 ;; vector destructuring
 (let [[a b & c :as d] (ann-form [] (APersistentVector Number))]
-  (ann-form a (U nil Number))
-  (ann-form b (U nil Number))
-  (ann-form c (U nil (Seqable Number)))
-  (ann-form d (U nil (APersistentVector Number))))
+  (ann-form a (t/U nil Number))
+  (ann-form b (t/U nil Number))
+  (ann-form c (t/U nil (t/Seqable Number)))
+  (ann-form d (t/U nil (APersistentVector Number))))
 
 (let [[[x1 y1]
        [x2 y2]] [[1 2] [3 4]]]
   (ann-form [x1 y1 x2 y2]
-            (Seqable Number)))
+            (t/Seqable Number)))
 
 (let [[a b & c :as str] "asdjhhfdas"]
   ;could do a bit better there
-  (ann-form [a b] (Seqable (U nil Character)))
-  (ann-form c (U nil (Seqable Character)))
+  (ann-form [a b] (t/Seqable (t/U nil Character)))
+  (ann-form c (t/U nil (t/Seqable Character)))
   (ann-form str String))
 
 ;vectors
 (let [[a b c & d :as e] [1 2 3 4 5 6 7]]
-  (ann-form [a b c] (Seqable Number))
-  (ann-form d (U nil (Seqable Number)))
-  (ann-form e (Seqable Number)))
+  (ann-form [a b c] (t/Seqable Number))
+  (ann-form d (t/U nil (t/Seqable Number)))
+  (ann-form e (t/Seqable Number)))
 
 ;lists
 (let [[a b c & d :as e] '(1 2 3 4 5 6 7)]
-  (ann-form [a b c] (Seqable Number))
-  (ann-form d (U nil (Seqable Number)))
-  (ann-form e (Seqable Number)))
+  (ann-form [a b c] (t/Seqable Number))
+  (ann-form d (t/U nil (t/Seqable Number)))
+  (ann-form e (t/Seqable Number)))

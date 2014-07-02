@@ -55,7 +55,7 @@
             ~@(map process-reference references))
           (if (.equals '~name 'clojure.core) 
             nil
-            (do (dosync (commute @#'clojure.core/*loaded-libs* (T/inst conj T/Symbol ~'Any) '~name)) nil)))))
+            (do (dosync (commute @#'clojure.core/*loaded-libs* (T/inst conj T/Symbol T/Any) '~name)) nil)))))
    })
 
 (defn macroexpand-1

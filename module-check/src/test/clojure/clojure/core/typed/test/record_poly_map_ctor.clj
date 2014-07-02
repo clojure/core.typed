@@ -3,7 +3,7 @@
 
 ; can omit fields with ground types
 
-(t/ann-record [[foo :variance :invariant]] Foo [b :- (U nil Number)
+(t/ann-record [[foo :variance :invariant]] Foo [b :- (t/U nil Number)
                                                 c :- foo])
 ; FIXME need defrecord>
 (t/tc-ignore

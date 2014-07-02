@@ -4,7 +4,7 @@
 (t/ann-protocol NonPoly
 
                 nonpoly
-                [NonPoly -> Any])
+                [NonPoly -> t/Any])
 
 (t/defprotocol> NonPoly
   (nonpoly [this]))

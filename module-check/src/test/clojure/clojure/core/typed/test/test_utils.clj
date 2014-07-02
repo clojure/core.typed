@@ -29,6 +29,7 @@
          ~'(:refer-clojure :exclude [type defprotocol #_letfn fn loop dotimes let for doseq
                                      #_def filter remove])
          ~'(:require [clojure.core.typed :refer :all :as t]
+                     [clojure.core.typed.unsafe :as unsafe]
                      [clojure.core :as core]))
        (t/check-form-info 
          '~frm
@@ -125,7 +126,7 @@
 
 ;return ret for an expression f
 (defmacro eret [f]
-  `(let [ret# (-> (t/check-form-info '~f) :ret)]
+  `(let [ret# (-> ~(tc-common* f {}) :ret)]
      (assert (r/TCResult? ret#))
      ret#))
 
@@ -150,12 +151,11 @@
                       nil))))))
 
 (defmacro equal-types [l r]
-  `(equal-types-noparse ~l (parse-type (quote ~r))))
+  `(equal-types-noparse ~l (binding [*ns* (find-ns '~'clojure.core.typed)] (parse-type (quote ~r)))))
 
 (defmacro tc-t [form]
   `(let [{delayed-errors# :delayed-errors ret# :ret}
-         (impl/with-clojure-impl
-           (t/check-form-info '~form))]
+         ~(tc-common* form {})]
      (if-let [errors# (seq delayed-errors#)]
        (err/print-errors! errors#)
        ret#)))

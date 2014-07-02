@@ -21,7 +21,7 @@
 
 (t/ann-protocol IScope
                 scope-body
-                [IScope -> (U TCType IScope)])
+                [IScope -> (t/U TCType IScope)])
 (u/defprotocol IScope
   (scope-body [this]))
 

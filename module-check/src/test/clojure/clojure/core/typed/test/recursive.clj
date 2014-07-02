@@ -15,9 +15,9 @@
 (defrecord ValidationError [validator value])
  
 (ann-record ValidationResult
-            [status :- (U ':ok ':error)
+            [status :- (t/U ':ok ':error)
              result :- t/Any
-             errors :- (U nil (ISeq ValidationError))
+             errors :- (t/U nil (t/Seq ValidationError))
              input :- t/Any])
 (defrecord ValidationResult [status result errors input])
  

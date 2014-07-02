@@ -144,20 +144,25 @@
     (when path
       {:path-elems (mapv parse-path-elem path)})))
 
-(defn parse-HVec [[_ fixed & {:keys [filter-sets objects]} :as syn]]
-  (merge
-    {:op :HVec
-     :types (mapv parse fixed)
-     :children (vec (concat
-                      [:types]
-                      (when filter-sets
-                        [:filter-sets])
-                      (when objects
-                        [:objects])))}
-    (when filter-sets
-      {:filter-sets (mapv parse-filter-set filter-sets)})
-    (when objects
-      {:objects (mapv parse-object filter-sets)})))
+(defn parse-HVec [[_ fixed & opts :as syn]]
+  (let [_ (when-not (vector? fixed)
+            (err/int-error "First argument to HVec must be a vector"))
+        _ (when-not (even? (count opts))
+            (err/int-error "Uneven keyword arguments to HVec"))
+        {:keys [filter-sets objects]} opts]
+    (merge
+      {:op :HVec
+       :types (mapv parse fixed)
+       :children (vec (concat
+                        [:types]
+                        (when filter-sets
+                          [:filter-sets])
+                        (when objects
+                          [:objects])))}
+      (when filter-sets
+        {:filter-sets (mapv parse-filter-set filter-sets)})
+      (when objects
+        {:objects (mapv parse-object filter-sets)}))))
 
 (defn parse-with-rest-drest [msg syns]
   (let [rest? (#{'*} (last syns))
@@ -792,7 +797,7 @@
   (err/deprecated-plain-op 'Seq* 'HSeq)
   (parse-quoted-hseq (rest syn)))
 (defmethod parse-seq* 'List* [syn] 
-  (err/deprecated-plain-op 'List* 'HList)
+  #_(err/deprecated-plain-op 'List* 'HList)
   (parse-quoted-hlist (rest syn)))
 
 (defmethod parse-seq* 'HVec [syn] 

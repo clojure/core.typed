@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.protocol
-  (:require [clojure.core.typed :refer [ann-protocol ann-datatype defprotocol> check-ns]]))
+  (:require [clojure.core.typed :as t :refer [ann-protocol ann-datatype defprotocol> check-ns]]))
 
 (ann-protocol AddProtoc
               adder [AddProtoc Number -> Number])
@@ -18,7 +18,7 @@
 (ann-protocol [[x :variance :covariant]]
               IFoo
               bar [(IFoo x) -> Number]
-              baz [(IFoo x) -> Any])
+              baz [(IFoo x) -> t/Any])
 (defprotocol> IFoo
   (bar [this])
   (baz [this]))
