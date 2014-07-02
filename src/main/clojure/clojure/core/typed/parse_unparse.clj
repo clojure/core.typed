@@ -18,6 +18,7 @@
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.name-env :as name-env]
             [clojure.core.typed.hset-utils :as hset]
+            [clojure.core.typed :as t]
             [clojure.set :as set]
             [clojure.math.combinatorics :as comb])
   (:import (clojure.core.typed.type_rep NotType DifferenceType Intersection Union FnIntersection Bounds
@@ -538,8 +539,13 @@
 
 (declare parse-hvec-types parse-object parse-filter-set parse-hvec-types)
 
-(defn parse-HVec [[_ syn & {:keys [filter-sets objects]}]]
-  (let [{:keys [fixed drest rest]} (parse-hvec-types syn)]
+(defn parse-HVec [[_ syn & opts]]
+  (let [_ (when-not (vector? syn)
+            (err/int-error "First argument to HVec must be a vector"))
+        _ (when-not (even? (count opts))
+            (err/int-error "Uneven keyword arguments to HVec"))
+        {:keys [filter-sets objects]} opts
+        {:keys [fixed drest rest]} (parse-hvec-types syn)]
     (r/-hvec fixed
              :filters (when filter-sets
                         (mapv parse-filter-set filter-sets))
@@ -621,7 +627,7 @@
              :rest rest)))
 
 (defmethod parse-type-list 'HSeq [t] 
-  (err/deprecated-plain-op 'HSequential)
+  (err/deprecated-plain-op 'HSeq)
   (parse-HSeq t))
 (defmethod parse-type-list 'clojure.core.typed/HSeq [t] (parse-HSeq t))
 
@@ -1236,12 +1242,12 @@
 (defmulti unparse-type* class)
 (defn unp [t] (prn (unparse-type t)))
 
-(defmethod unparse-type* Top [_] 'Any)
+(defmethod unparse-type* Top [_] (unparse-var-symbol-in-ns `t/Any))
 (defmethod unparse-type* TCError [_] 'Error)
 (defmethod unparse-type* Name [{:keys [id]}] (if (namespace id)
                                                (unparse-var-symbol-in-ns id)
                                                id))
-(defmethod unparse-type* AnyValue [_] 'AnyValue)
+(defmethod unparse-type* AnyValue [_] (unparse-var-symbol-in-ns `t/AnyValue))
 
 (defmethod unparse-type* DottedPretype
   [{:keys [pre-type name]}]
@@ -1249,8 +1255,11 @@
 
 (defmethod unparse-type* CountRange [{:keys [lower upper]}]
   (cond
-    (= lower upper) (list 'ExactCount lower)
-    :else (list* 'CountRange lower (when upper [upper]))))
+    (= lower upper) (list (unparse-var-symbol-in-ns `t/ExactCount)
+                          lower)
+    :else (list* (unparse-var-symbol-in-ns `t/CountRange)
+                 lower
+                 (when upper [upper]))))
 
 (defmethod unparse-type* App 
   [{:keys [rator rands]}]
@@ -1297,20 +1306,24 @@
   (cond
     ; Prefer the user provided Name for this type. Needs more thinking?
     ;(-> u meta :from-name) (-> u meta :from-name)
-    (seq types) (list* 'U (doall (map unparse-type types)))
-    :else 'Nothing))
+    (seq types) (list* (unparse-var-symbol-in-ns `t/U)
+                       (doall (map unparse-type types)))
+    :else (unparse-var-symbol-in-ns `t/Nothing)))
 
 (defmethod unparse-type* FnIntersection
   [{types :types}]
-  (list* 'Fn (doall (map unparse-type types))))
+  (list* (unparse-var-symbol-in-ns `t/IFn)
+         (doall (map unparse-type types))))
 
 (defmethod unparse-type* Intersection
   [{types :types}]
-  (list* 'I (doall (map unparse-type types))))
+  (list* (unparse-var-symbol-in-ns `t/I)
+         (doall (map unparse-type types))))
 
 (defmethod unparse-type* DifferenceType
   [{:keys [type without]}]
-  (list* 'Difference (unparse-type* type)
+  (list* (unparse-var-symbol-in-ns `t/Difference)
+         (unparse-type* type)
          (doall (map unparse-type without))))
 
 (defmethod unparse-type* NotType
@@ -1393,7 +1406,7 @@
   [m]
   (let [nme (-> (c/Mu-fresh-symbol* m) r/make-F r/F-original-name)
         body (c/Mu-body* nme m)]
-    (list 'Rec [nme] (unparse-type body))))
+    (list (unparse-var-symbol-in-ns `t/Rec) [nme] (unparse-type body))))
 
 (defn unparse-poly-bounds-entry [name {:keys [upper-bound lower-bound higher-kind] :as bnds}]
   (let [name (-> name r/make-F r/F-original-name)
@@ -1441,7 +1454,7 @@
         bbnds (c/Poly-bbnds* free-names p)
         binder (mapv unparse-poly-bounds-entry free-names bbnds)
         body (c/Poly-body* free-names p)]
-    (list 'All binder (unparse-type body))))
+    (list (unparse-var-symbol-in-ns `t/All) binder (unparse-type body))))
 
 ;(ann unparse-typefn-bounds-entry [t/Sym Bounds Variance -> Any])
 (defn unparse-typefn-bounds-entry [name {:keys [upper-bound lower-bound higher-kind]} v]
@@ -1468,13 +1481,13 @@
         bbnds (c/TypeFn-bbnds* free-names p)
         binder (mapv unparse-typefn-bounds-entry free-names bbnds (:variances p))
         body (c/TypeFn-body* free-names p)]
-    (list 'TFn binder (unparse-type body))))
+    (list (unparse-var-symbol-in-ns `t/TFn) binder (unparse-type body))))
 
 (defmethod unparse-type* Value
   [v]
   (if ((some-fn r/Nil? r/True? r/False?) v)
     (:val v)
-    (list 'Value (:val v))))
+    (list (unparse-var-symbol-in-ns `t/Value) (:val v))))
 
 (defn- unparse-map-of-types [m]
   (into {} (map (fn [[k v]]
@@ -1484,7 +1497,7 @@
 
 (defmethod unparse-type* HeterogeneousMap
   [^HeterogeneousMap v]
-  (list* 'HMap 
+  (list* (unparse-var-symbol-in-ns `t/HMap)
          (concat
            ; only elide if other information is present
            (when (or (seq (:types v))
@@ -1502,7 +1515,7 @@
 
 (defmethod unparse-type* HeterogeneousSeq
   [{:keys [types rest drest fs objects] :as v}]
-  (list* 'HSeq
+  (list* (unparse-var-symbol-in-ns `t/HSeq)
          (concat
            (map unparse-type (:types v))
            (when rest [(unparse-type rest) '*])
@@ -1515,7 +1528,7 @@
 
 (defmethod unparse-type* HSequential
   [{:keys [types rest drest fs objects] :as v}]
-  (list* 'HSequential
+  (list* (unparse-var-symbol-in-ns `t/HSequential)
          (vec
            (concat
              (map unparse-type (:types v))
@@ -1530,7 +1543,7 @@
 (defmethod unparse-type* HSet
   [{:keys [fixed] :as v}]
   {:pre [(every? r/Value? fixed)]}
-  (list 'HSet (set (map :val fixed))))
+  (list (unparse-var-symbol-in-ns `t/HSet) (set (map :val fixed))))
 
 (defmethod unparse-type* KwArgsSeq
   [^KwArgsSeq v]
@@ -1547,7 +1560,7 @@
 
 (defmethod unparse-type* HeterogeneousVector
   [{:keys [types rest drest fs objects] :as v}]
-  (list* 'HVec 
+  (list* (unparse-var-symbol-in-ns `t/HVec)
          (vec
            (concat
              (map unparse-type (:types v))
@@ -1566,12 +1579,14 @@
 (defmethod unparse-type* AssocType
   [{:keys [target entries dentries]}]
   (assert (not dentries) "dentries for Assoc NYI")
-  (list* 'Assoc (unparse-type target) 
+  (list* (unparse-var-symbol-in-ns `t/Assoc)
+         (unparse-type target)
          (doall (map unparse-type (apply concat entries)))))
 
 (defmethod unparse-type* GetType
   [{:keys [target key not-found]}]
-  (list* 'Get (unparse-type target) 
+  (list* (unparse-var-symbol-in-ns `t/Get)
+         (unparse-type target)
          (unparse-type key)
          (when (not= r/-nil not-found)
            [(unparse-type not-found)])))

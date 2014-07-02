@@ -11,11 +11,10 @@
                  (parse-type 
                    `(t/All ~'[a b] (t/IFn [t/Any t/Any ~'-> t/Any])))))
              '[a b]))
-  (is-clj (= (clj (-> (unparse-type (parse-type `(t/TFn ~'[[a :variance :covariant]] ~'a)))
-                      next)
-             (quote ([[a :variance :covariant]] a)))))
-  (is-clj (= '(All [a b] (Fn [Any Any -> (Fn [a b -> nil :filters {:then ff :else tt}])
-                             :filters {:then tt :else ff}]))
+  (is-clj (= (unparse-type (parse-type `(t/TFn ~'[[a :variance :covariant]] ~'a)))
+             '(clojure.core.typed/TFn [[a :variance :covariant]] a)))
+  (is-clj (= `(t/All ~'[a b] (t/IFn [t/Any t/Any ~'-> (t/IFn [~'a ~'b ~'-> nil :filters {:then ~'ff :else ~'tt}])
+                                     :filters {:then ~'tt :else ~'ff}]))
              (->
                (tc-e
                  (fn [f coll]

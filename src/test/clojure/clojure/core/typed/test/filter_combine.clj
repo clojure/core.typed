@@ -1,17 +1,16 @@
 (ns clojure.core.typed.test.filter-combine
-  (:require [clojure.core.typed :refer [ann-form check-ns print-filterset fn>]])
-  (:import (clojure.lang Symbol)))
+  (:require [clojure.core.typed :as t :refer [ann-form check-ns print-filterset fn>]]))
 
 ; macroexpansion of `or` is understood
 (fn [a]
   (when (or (string? a)
             (symbol? a))
-    (ann-form a (U Symbol String))))
+    (ann-form a (t/U t/Sym String))))
 
 (fn [a]
   {:pre [(or (string? a)
              (symbol? a))]}
-  (ann-form a (U Symbol String)))
+  (ann-form a (t/U t/Sym String)))
 
 ;TODO
 (comment

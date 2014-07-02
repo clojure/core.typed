@@ -9,9 +9,9 @@
 (t/defprotocol> PProcess
   (stop [system] "Runs side effects to stop the process. Returns the process."))
 
-(t/ann-record Logger [in :- Any
-                      out-listener :- Any
-                      stop :- Any])
+(t/ann-record Logger [in :- t/Any
+                      out-listener :- t/Any
+                      stop :- t/Any])
 (defrecord Logger [in out-listener stop]
   PProcess
   (stop [{:keys [stop] :as logger}]
