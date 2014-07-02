@@ -11,7 +11,7 @@
       use chan
 
     buffer
-      use buffer> (similar for other buffer constructors)
+      use buffer (similar for other buffer constructors)
     "}
   clojure.core.typed.async
   (:require [clojure.core.typed :refer [ann ann-datatype defalias inst ann-protocol
@@ -19,7 +19,6 @@
              :as t]
             [clojure.core.typed.util-vars :as vs]
             [clojure.core.async :as async]
-            [clojure.tools.analyzer.jvm :as ana]
             [clojure.core.async.impl.protocols :as impl]
             [clojure.core.async.impl.channels :as channels]
             [clojure.core.async.impl.dispatch :as dispatch]
@@ -229,6 +228,23 @@
                (ioc/run-state-machine-wrapped state#)))))
        c#)))
 
+(defmacro go>
+  "DEPRECATED: use go"
+  [& body]
+  (prn "DEPRECATED: go>, use go")
+  `(let [c# (chan> ~'Any 1)
+         captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
+     (tc-ignore
+       (clojure.core.async.impl.dispatch/run
+         (fn []
+           (let [f# ~(ioc/state-machine body 1 &env ioc/async-custom-terminators)
+                 state# (-> (f#)
+                            (ioc/aset-all! 
+                              ioc/USER-START-IDX c#
+                              ioc/BINDINGS-IDX captured-bindings#))]
+             (ioc/run-state-machine state#)))))
+     c#))
+
 (comment
 (t/cf
   (let [c (chan )]
@@ -271,6 +287,11 @@
         a (or (when t? t) `t/Any)]
     `((inst async/chan ~a ~a) ~@args)))
 
+(defmacro chan>
+  "DEPRECATED: use chan"
+  [t & args]
+  `((inst async/chan ~t) ~@args))
+
 (defmacro buffer
   "Like buffer but with optional type annotations. Buffer annotation defaults to Any.
 
@@ -308,7 +329,31 @@
   (dropping-buffer ...) is the same as (dropping-buffer :- Any ....)
   
   Note: (dropping-buffer :- t ...) is the same as ((inst dropping-buffer t) ...)"
-  [t & args]
+  [& args]
   (let [[t? t args] (maybe-annotation args)
         a (or (when t? t) `t/Any)]
     `((inst async/dropping-buffer ~a ~a) ~@args)))
+
+(defmacro chan>
+  "DEPRECATED: use chan"
+  [t & args]
+  (prn "DEPRECATED: chan>, use chan")
+  `((inst async/chan ~t) ~@args))
+
+(defmacro buffer>
+  "DEPRECATED: use buffer"
+  [t & args]
+  (prn "DEPRECATED: buffer>, use buffer")
+  `((inst async/buffer ~t) ~@args))
+
+(defmacro sliding-buffer>
+  "DEPRECATED: use sliding-buffer"
+  [t & args]
+  (prn "DEPRECATED: sliding-buffer>, use sliding-buffer")
+  `((inst async/sliding-buffer ~t) ~@args))
+
+(defmacro dropping-buffer>
+  "DEPRECATED: use dropping-buffer"
+  [t & args]
+  (prn "DEPRECATED: dropping-buffer>, use dropping-buffer")
+  `((inst async/dropping-buffer ~t) ~@args))
