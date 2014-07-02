@@ -12,10 +12,10 @@
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/math.combinatorics "0.0.2"
                   :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojurescript "0.0-2261"]
+                 [org.clojure/clojurescript "0.0-2227"]
                  [org.clojure/tools.trace "0.7.5"
                   :exclusions [org.clojure/clojure]]
-                 [org.clojure/clojure "1.6.0"]
+                 [org.clojure/clojure "1.5.1"]
                  [org.clojure/tools.namespace "0.2.4"]
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
