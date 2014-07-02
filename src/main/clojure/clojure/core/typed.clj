@@ -260,7 +260,7 @@ for checking namespaces, cf for checking individual forms."}
                         `(ann-form
                            (fn ~giter [~gxs]
                              (lazy-seq
-                               (loop> [~gxs :- (~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~gxs]
+                               (loop> [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
                                  (when-first [~bind ~gxs]
                                    ~(do-mod mod-pairs)))))
                            [(~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~'-> (~'clojure.core.typed/Seq ~ret-ann)])
@@ -287,14 +287,14 @@ for checking namespaces, cf for checking individual forms."}
                           `(ann-form
                              (fn ~giter [~gxs]
                                (lazy-seq
-                                 (loop> [~gxs :- (~'clojure.core.typed/Option (~'clojure.lang.Seqable ~bind-ann)) ~gxs]
+                                 (loop> [~gxs :- (Option (Seqable ~bind-ann)) ~gxs]
                                         (when-let [~gxs (seq ~gxs)]
                                           (if (chunked-seq? ~gxs)
                                             (core/let [c# (chunk-first ~gxs)
                                                        size# (int (count c#))
                                                        ~gb (ann-form (chunk-buffer size#)
                                                                      (~'clojure.lang.ChunkBuffer ~ret-ann))]
-                                              (if (loop> [~gi :- ~'clojure.core.typed/AnyInteger, (int 0)]
+                                              (if (loop> [~gi :- AnyInteger, (int 0)]
                                                          (if (< ~gi size#)
                                                            (core/let [;~bind (.nth c# ~gi)]
                                                                       ~bind (nth c# ~gi)]
@@ -529,10 +529,10 @@ for checking namespaces, cf for checking individual forms."}
                            steppair-chunk (step recform-chunk (nnext exprs))
                            subform-chunk (steppair-chunk 1)]
                        [true
-                        `(loop> [~seq- :- (~'U nil (Seq ~k-ann)) (seq ~v), 
-                                 ~chunk- :- (~'U nil (~'clojure.lang.IChunk ~k-ann)) nil
-                                 ~count- :- (~'U Integer Long) 0,
-                                 ~i- :- (~'U Integer Long) 0]
+                        `(loop> [~seq- :- (U nil (Seq ~k-ann)) (seq ~v), 
+                                 ~chunk- :- (U nil (clojure.lang.IChunk ~k-ann)) nil
+                                 ~count- :- (U Integer Long) 0,
+                                 ~i- :- (U Integer Long) 0]
                            (if (and (< ~i- ~count-)
                                     ;; FIXME review this
                                     ;; core.typed thinks chunk- could be nil here
@@ -1233,6 +1233,11 @@ for checking namespaces, cf for checking individual forms."}
        :forms '[Any]
        ::special-type true}
   Any)
+
+(def ^{:doc "AnyValue contains all Value singleton types"
+       :forms '[AnyValue]
+       ::special-type true}
+  AnyValue)
 
 (def ^{:doc "U represents a union of types"
        :forms '[(U type*)]
@@ -2040,7 +2045,11 @@ for checking namespaces, cf for checking individual forms."}
   - :file-mapping    If true, return map provides entry :file-mapping, a hash-map
                      of (Map '{:line Int :column Int :file Str} Str).
   - :checked-ast     Returns the entire AST for the given form as the :checked-ast entry,
-                     annotated with the static types inferred after checking."
+                     annotated with the static types inferred after checking.
+  
+  Default return map
+  - :delayed-errors  A sequence of delayed errors (ex-info instances)
+  - :ret             TCResult inferred for the current form"
   [form & opt]
   (load-if-needed)
   (apply (impl/v 'clojure.core.typed.check-form-clj/check-form-info) form opt))
