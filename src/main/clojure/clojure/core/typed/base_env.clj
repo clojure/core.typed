@@ -902,10 +902,15 @@ clojure.core/disj
               [(Set x) Any Any * -> (Set x)]))
 
 clojure.core/assoc
-     (All [b c d]
-       (Fn [(Map b c) b c -> (Map b c)]
-           [(Vec d) AnyInteger d -> (Vec d)]
-           [d b c (HSequential [b c] :repeat true) <* -> (Assoc d b c)]))
+     (All [m k v c ...]
+          (Fn [m k v (HSeq [k v] :repeat true) <... c
+               -> (Assoc m k v c ... c)]
+            [m k v (HSeq [k v] :repeat true) <*
+             -> (Assoc m k v)]))
+;     (All [b c d]
+;       (Fn [(Map b c) b c -> (Map b c)]
+;           [(Vec d) AnyInteger d -> (Vec d)]
+;           [d b c (HSequential [b c] :repeat true) <* -> (Assoc d b c)]))
 
 clojure.core/dissoc
      (All [k v]
