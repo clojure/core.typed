@@ -9,6 +9,7 @@
             [clojure.core.typed.filter-rep :as fl]
             [clojure.core.typed.filter-ops :as fo]
             [clojure.core.typed.object-rep :as orep]
+            [clojure.core.typed.type-ctors :as c]
             [clojure.core.typed :as t :refer [ann Seqable]])
   (:import (clojure.core.typed.type_rep F Function HeterogeneousVector
                                         HSequential HeterogeneousSeq
@@ -116,14 +117,17 @@
                           entries)]
       (if (and dentries
                (= name (:name dentries)))
-        (r/AssocType-maker sb-target
-                           (concat sb-entries
-                                  (let [expanded (sb (:pre-type dentries))]
-                                    (->> images
-                                      (map (fn [img] (substitute img name expanded)))
-                                      (partition 2)
-                                      (map vec))))
-                           nil)
+        (let [entries (concat sb-entries
+                              (let [expanded (sb (:pre-type dentries))]
+                                (->> images
+                                  (map (fn [img] (substitute img name expanded)))
+                                  (partition 2)
+                                  (map vec))))]
+          ; try not to use AssocType, because subtype and cs-gen support for it
+          ; is not that mature
+          (if-let [assoced (apply c/assoc-pairs-noret sb-target entries)]
+            assoced
+            (r/AssocType-maker sb-target entries nil)))
         (r/AssocType-maker sb-target
                            sb-entries
                            (and dentries (r/DottedPretype1-maker (sb (:pre-type dentries))
