@@ -831,13 +831,13 @@
    :rands (mapv parse args)
    :children [:rator :rands]})
 
-;(defn parse-Not [[f & args :as syn]]
-;  (let [_ (when-not (#{1} (count args))
-;            (err/int-error "Wrong arguments to Not"))]
-;    {:op :Not
-;     :type (parse (first args))}))
-;
-;(defmethod parse-seq* 'Not [syn] (parse-Not syn))
+(defn parse-Not [[f & args :as syn]]
+  (let [_ (when-not (#{1} (count args))
+            (err/int-error "Wrong arguments to Not"))]
+    {:op :Not
+     :type (parse (first args))}))
+
+(defmethod parse-seq* 'Not [syn] (parse-Not syn))
 
 (defn parse-seq [syn]
   (parse-seq* syn))
