@@ -151,6 +151,10 @@ for checking namespaces, cf for checking individual forms."}
   eg. (dotimes> [_ 100]
         (println \"like normal\"))"
   [bindings & body]
+  (err/deprecated-renamed-macro
+    &form
+    'dotimes>
+    'dotimes)
   (@#'core/assert-args
      (vector? bindings) "a vector for its binding"
      (= 2 (count bindings)) "exactly 2 forms in binding vector")
@@ -195,6 +199,10 @@ for checking namespaces, cf for checking individual forms."}
          :when a]
         (inc a))"
   [tk ret-ann seq-exprs body-expr]
+  (err/deprecated-macro-syntax
+    &form
+    (str "clojure.core.typed/for> renamed to clojure.core.typed/for."
+         " Note the return type annotation has changed to after the binder: (for [a :- t, i] :- r, i)"))
   (@#'core/assert-args
      (vector? seq-exprs) "a vector for its binding"
      (even? (count seq-exprs)) "an even number of forms in binding vector")
@@ -210,7 +218,9 @@ for checking namespaces, cf for checking individual forms."}
                                                   (drop 2 seq-exprs))
               (and (vector? (first seq-exprs))
                    (#{:-} (-> seq-exprs first second))) (do
-                                                          (prn "DEPRECATED WARNING: for> syntax has changed, use [b :- t i] for clauses")
+                                                          (err/deprecated-macro-syntax 
+                                                            &form
+                                                            "for> syntax has changed, use [b :- t i] for clauses")
                                                           (recur (concat flat-result (take 2 seq-exprs))
                                                                  (drop 2 seq-exprs)))
               :else (do (assert (#{:-} (second seq-exprs))
@@ -463,6 +473,10 @@ for checking namespaces, cf for checking individual forms."}
            :when a]
      (inc a))"
   [seq-exprs & body]
+  (err/deprecated-renamed-macro
+    &form
+    'doseq>
+    'doseq)
   (@#'core/assert-args
      (vector? seq-exprs) "a vector for its binding"
      (even? (count seq-exprs)) "an even number of forms in binding vector")
@@ -477,7 +491,9 @@ for checking namespaces, cf for checking individual forms."}
                                                   (drop 2 seq-exprs))
               (and (vector? (first seq-exprs))
                    (#{:-} (-> seq-exprs first second))) (do
-                                                          (prn "DEPRECATED WARNING: doseq> syntax has changed, use [b :- t i] for clauses")
+                                                          (err/deprecated-macro-syntax
+                                                            &form
+                                                            "doseq> binder syntax [[b :- t] i] has changed, use [b :- t i]")
                                                           (recur (concat flat-result (take 2 seq-exprs))
                                                                  (drop 2 seq-exprs)))
               :else (do (assert (#{:-} (second seq-exprs))
@@ -693,6 +709,10 @@ for checking namespaces, cf for checking individual forms."}
         (:- String [a :- String] ...)
         (:- Long   [a :- String, b :- Number] ...))"
   [& forms]
+  (err/deprecated-macro-syntax
+    &form
+    (str "clojure.core.typed/fn> renamed to clojure.core.typed/fn. "
+         "Note return type annotation now goes after the binder: (fn [a :- t] :- r, b)"))
   (let [{:keys [fn parsed-methods]} (internal/parse-fn> false forms)]
     `(fn>-ann ~fn '~parsed-methods)))
 
@@ -747,6 +767,10 @@ for checking namespaces, cf for checking individual forms."}
     :- Long
     1)"
   [name & fdecl]
+  (err/deprecated-macro-syntax
+    &form
+    (str "clojure.core.typed/def> renamed to clojure.core.typed/def."
+         " Note that it is impossible to :refer to a var called def."))
   (let [[docstring fdecl] (internal/take-when string? fdecl)
         _ (assert (and (#{3} (count fdecl))
                        (#{:-} (first fdecl)))
@@ -1040,6 +1064,10 @@ for checking namespaces, cf for checking individual forms."}
   eg. (defprotocol> MyProtocol
         (a [this]))"
   [& body]
+  (err/deprecated-macro-syntax
+    &form
+    (str "clojure.core.typed/defprotocol> renamed to clojure.core.typed/defprotocol."
+         " Note the new syntax cannot be used with ann-protocol."))
   `(tc-ignore
      (core/defprotocol ~@body)))
 
@@ -1060,6 +1088,10 @@ for checking namespaces, cf for checking individual forms."}
               b :- (U nil Number), nil]
         ...)"
   [bndings* & forms]
+  (err/deprecated-renamed-macro
+    &form
+    'loop>
+    'loop)
   (let [normalise-args
         (fn [seq-exprs]
           (loop [flat-result ()
@@ -1068,8 +1100,10 @@ for checking namespaces, cf for checking individual forms."}
               (empty? seq-exprs) flat-result
               (and (vector? (first seq-exprs))
                    (#{:-} (-> seq-exprs first second))) (do
-                                                          (prn "DEPRECATED WARNING: loop> syntax has changed, use [b :- t i] for clauses"
-                                                               "ns: " *ns* " form:" &form)
+                                                          (err/deprecated-macro-syntax
+                                                            &form
+                                                            (str "loop> syntax has changed, use [b :- t i] for clauses"
+                                                                 "ns: " *ns* " form:" &form))
                                                           (recur (concat flat-result (take 2 seq-exprs))
                                                                  (drop 2 seq-exprs)))
               :else (do (assert (#{:-} (second seq-exprs))
@@ -1171,13 +1205,10 @@ for checking namespaces, cf for checking individual forms."}
    `(def-alias ~(vary-meta sym assoc :doc doc-str) ~t))
   ([sym t]
    (assert (symbol? sym) (str "First argument to def-alias must be a symbol: " sym))
-   (println (str
-              "DEPRECATED SYNTAX (" 
-              (or (-> &form meta :file) (ns-name *ns*)) ":" 
-              (-> &form meta :line) ":" 
-              (-> &form meta :column) ")"
-              " def-alias: use clojure.core.typed/defalias"))
-   (flush)
+   (err/deprecated-renamed-macro
+     &form
+     'def-alias
+     'defalias)
    (let [qsym (if (namespace sym)
                 sym
                 (symbol (-> *ns* ns-name str) (str sym)))
@@ -1622,8 +1653,9 @@ for checking namespaces, cf for checking individual forms."}
                varsym
                (symbol (-> *ns* ns-name str) (str varsym)))
         _ (when (contains? (meta varsym) :nocheck)
-            (println (str "DEPRECATED: :nocheck metadata for " varsym " ann. Use :no-check"))
-            (flush))
+            (err/deprecated-macro-syntax
+              &form 
+              (str ":nocheck metadata for ann is renamed :no-check")))
         opts (meta varsym)
         _ (assert (not (and (contains? opts :nocheck)
                             (contains? opts :no-check)))
@@ -1631,11 +1663,11 @@ for checking namespaces, cf for checking individual forms."}
         check? (not (or (:no-check opts)
                         (:nocheck opts)))
         ast (binding [vs/*current-env* {:ns {:name (ns-name *ns*)}
-                                           :file *file*
-                                           :line (or (-> &form meta :line)
-                                                     @clojure.lang.Compiler/LINE)
-                                           :column (or (-> &form meta :column)
-                                                       @clojure.lang.Compiler/COLUMN)}]
+                                        :file *file*
+                                        :line (or (-> &form meta :line)
+                                                  @clojure.lang.Compiler/LINE)
+                                        :column (or (-> &form meta :column)
+                                                    @clojure.lang.Compiler/COLUMN)}]
               (ast/parse-clj typesyn))]
     (swap! impl/var-env assoc qsym ast)
     `(ann* '~qsym '~typesyn '~check?)))

@@ -179,6 +179,18 @@
          ((some-fn symbol? nil?) new)]}
   (deprecated-warn (str old " syntax is deprecated, use " (var-for-impl (or new old)))))
 
+(defn deprecated-macro-syntax [form msg]
+  (binding [*current-env* {:file (or (-> form meta :file) (ns-name *ns*))
+                           :line (-> form meta :line)
+                           :colomn (-> form meta :column)}]
+    (deprecated-warn msg)))
+
+(defn deprecated-renamed-macro [form old new]
+  (deprecated-macro-syntax 
+    form
+    (str "Renamed macro: clojure.core.typed/" old
+         " -> clojure.core.typed/" new)))
+
 (defn
   print-errors! 
   "Internal use only"

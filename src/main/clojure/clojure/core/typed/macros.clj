@@ -48,7 +48,7 @@
                           [body]))]
     (if vs/*checking*
       `(do ~@(when provided?
-               [`(ann ~name ~t)])
+               [`(clojure.core.typed/ann ~name ~t)])
            ~def)
       def)))
 

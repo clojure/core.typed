@@ -241,6 +241,7 @@
   [forms]
   (let [[binder forms] (take-when vector? forms)
         [pname & typed-decl-methods] forms
+        [pdoc typed-decl-methods] (take-when string? typed-decl-methods)
         parse-pvec (fn [pvec] ; parse parameter vectors
                      {:pre [(vector? pvec)]
                       :post [((hmap-c? :actual vector?
@@ -302,18 +303,21 @@
         ann {:binder binder
              :name pname
              :methods (map #(dissoc % :doc) actual-decl-methods)}]
-    {:defprotocol `(clojure.core/defprotocol ~pname ~@(map (fn [{:keys [name arities doc]}] 
-                                                             `(~name ~@(concat ; prefer left-most arities if grouped duplicates
-                                                                               (reduce
-                                                                                 (fn [ret current]
-                                                                                   (if (= (count current) (count (last ret)))
-                                                                                     ret
-                                                                                     (conj ret current)))
-                                                                                 []
-                                                                                 (map :actual arities))
-                                                                               (when doc
-                                                                                 [doc]))))
-                                                           actual-decl-methods))
+    {:defprotocol `(clojure.core/defprotocol 
+                     ~pname 
+                     ~@(when pdoc [pdoc])
+                     ~@(map (fn [{:keys [name arities doc]}] 
+                              `(~name ~@(concat ; prefer left-most arities if grouped duplicates
+                                                (reduce
+                                                  (fn [ret current]
+                                                    (if (= (count current) (count (last ret)))
+                                                      ret
+                                                      (conj ret current)))
+                                                  []
+                                                  (map :actual arities))
+                                                (when doc
+                                                  [doc]))))
+                            actual-decl-methods))
      :ann-protocol (gen-ann-protocol ann)}))
 
 (defn parse-let*
