@@ -10,6 +10,11 @@
           [this, a :- Int, b :- Int] :- Int
           [this, a :- Int, b :- Int, c :- Int] :- Int))
 
+(defprotocol DocD
+  "This is a docstring"
+  (docd [this, a :- Num] :- Num
+        "trailing docstring"))
+
 (fn [a :- Foo]
   (is-foo a 1))
 
