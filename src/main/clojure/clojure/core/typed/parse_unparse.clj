@@ -616,8 +616,13 @@
 (def parse-hseq-type (parse-types-with-rest-drest
                       "Invalid heterogeneous seq syntax:"))
 
-(defn parse-HSeq [[_ syn & {:keys [filter-sets objects]}]]
-  (let [{:keys [fixed drest rest]} (parse-hseq-type syn)]
+(defn parse-HSeq [[_ syn & opts]]
+  (let [{:keys [fixed drest rest]} (parse-hseq-type syn)
+        _ (when-not (even? (count opts))
+            (err/int-error "Wrong number of keyword arguments to HSeq"))
+        {:keys [filter-sets objects] :as opt-map} opts
+        _ (when-not (every? keyword? (keys opt-map))
+            (err/int-error "Given non-keyword keyword arguments to HSeq"))]
     (r/-hseq fixed
              :filters (when filter-sets
                         (mapv parse-filter-set filter-sets))

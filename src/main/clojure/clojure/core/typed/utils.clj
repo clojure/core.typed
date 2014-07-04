@@ -378,7 +378,7 @@
       (apply println "WARNING: Type Checker: "
              (str "(" (-> env :ns :name) ":" (:line env) 
                   (when-let [col (:column env)]
-                    (str ":"col))
+                    (str ":" col))
                   ") ")
              ss)
       (flush))))
