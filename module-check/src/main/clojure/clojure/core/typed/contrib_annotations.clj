@@ -3,16 +3,16 @@
 
 (ann-protocol clojure.java.io/IOFactory 
               make-reader
-              [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedReader]
+              [clojure.java.io/IOFactory '{:append t/Any, :encoding (t/U nil String)} -> java.io.BufferedReader]
 
               make-writer 
-              [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedWriter]
+              [clojure.java.io/IOFactory '{:append t/Any, :encoding (t/U nil String)} -> java.io.BufferedWriter]
 
               make-input-stream 
-              [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedInputStream]
+              [clojure.java.io/IOFactory '{:append t/Any, :encoding (t/U nil String)} -> java.io.BufferedInputStream]
 
               make-output-stream
-              [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedOutputStream])
+              [clojure.java.io/IOFactory '{:append t/Any, :encoding (t/U nil String)} -> java.io.BufferedOutputStream])
 
 (ann ^:no-check clojure.java.io/reader
      [clojure.java.io/IOFactory -> java.io.BufferedReader])
