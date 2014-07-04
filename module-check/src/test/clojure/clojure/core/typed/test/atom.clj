@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.atom
-  (:require [clojure.core.typed :as t :refer [ann ann-form check-ns cf Atom1 fn> defalias]]
+  (:require [clojure.core.typed :as t :refer [ann ann-form check-ns cf Atom1 defalias]]
             [clojure.repl :refer [pst]])
   (:import (clojure.lang IPersistentMap Symbol)))
 
@@ -7,7 +7,7 @@
 (def my-atom (atom 2))
 
 (reset! my-atom 1)
-(swap! my-atom (fn> [x :- Number] (+ x 2 3)))
+(swap! my-atom (t/fn [x :- Number] (+ x 2 3)))
 
 (defalias InnerEntry '{:c '{:d String}})
 (defalias Entry '{:a '{:b (IPersistentMap Symbol (Atom1 InnerEntry))}})

@@ -1,10 +1,8 @@
 (ns clojure.core.typed.test.protocol-fail
-  (:require [clojure.core.typed :refer [ann-protocol typed-deps check-ns ann-datatype] :as t]))
+  (:require [clojure.core.typed :refer [ann-datatype] :as t]))
 
-(ann-protocol AddProtoc
-              adder [AddProtoc Number -> Number])
-(t/defprotocol> AddProtoc
-  (adder [this amount]))
+(t/defprotocol AddProtoc
+  (adder [this amount :- t/Num] :- t/Num))
 
 (ann-datatype Accumulator [t :- Number])
 (deftype Accumulator [t]

@@ -19,7 +19,7 @@
             [clojure.core.typed.free-ops :as free-ops]
             [clojure.core.typed.tvar-bnds :as bnds]
             [clojure.core.typed.indirect-ops :as ind]
-            [clojure.core.typed :as t :refer [fn>]]
+            [clojure.core.typed :as t]
             [clojure.math.combinatorics :as comb]
             [clojure.set :as set]
             [clojure.reflect :as reflect]
@@ -461,8 +461,8 @@
 (defn flatten-intersections [types]
   {:pre [(every? r/Type? types)]
    :post [(every? r/Type? %)]}
-  (t/loop> [work :- (t/Seqable r/Type), types
-            result :- (t/Seqable r/Type), []]
+  (t/loop [work :- (t/Seqable r/Type), types
+           result :- (t/Seqable r/Type), []]
     (if (empty? work)
       result
       (let [resolved (doall (map fully-resolve-type work))
@@ -474,8 +474,8 @@
 (defn flatten-unions [types]
   {:pre [(every? r/Type? types)]
    :post [(every? (every-pred r/Type? (complement r/Union?)) %)]}
-  (t/loop> [work :- (t/Seqable r/Type), types
-            result :- (t/Seqable r/Type), []]
+  (t/loop [work :- (t/Seqable r/Type), types
+           result :- (t/Seqable r/Type), []]
     (if (empty? work)
       result
       (let [resolved (doall (map fully-resolve-non-rec-type work))
@@ -1716,7 +1716,7 @@
              (r/Scope? sc))]
    :post [(or (r/Scope? %) (r/Type? %))]}
   (last
-    (take (inc n) (iterate (fn> [t :- Scope]
+    (take (inc n) (iterate (t/fn [t :- Scope]
                              (assert (r/Scope? t) "Tried to remove too many Scopes")
                              (:body t))
                            sc))))

@@ -4,10 +4,9 @@
 ; this used to fail with jvm.tools.analyzer, now seems
 ; to type check successfully with tools.analyzer.jvm
 
-(t/ann-protocol PProcess
-                stop [PProcess -> PProcess])
-(t/defprotocol> PProcess
-  (stop [system] "Runs side effects to stop the process. Returns the process."))
+(t/defprotocol PProcess
+  (stop [system] :- PProcess
+        "Runs side effects to stop the process. Returns the process."))
 
 (t/ann-record Logger [in :- t/Any
                       out-listener :- t/Any

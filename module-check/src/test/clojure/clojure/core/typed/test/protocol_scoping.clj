@@ -1,12 +1,7 @@
 (ns clojure.core.typed.test.protocol-scoping
   (:require [clojure.core.typed :as t]))
 
-(t/ann-protocol NonPoly
-
-                nonpoly
-                [NonPoly -> t/Any])
-
-(t/defprotocol> NonPoly
+(t/defprotocol NonPoly
   (nonpoly [this]))
 
 (t/ann-datatype DNP [])
@@ -14,14 +9,10 @@
   NonPoly
   (nonpoly [this] this))
 
-(t/ann-protocol [[foo :variance :covariant]]
-                Foo
-
-                bar-
-                [(Foo foo) -> foo])
-
-(t/defprotocol> Foo
-  (bar- [this]))
+(t/defprotocol
+  [[foo :variance :covariant]]
+  Foo
+  (bar- [this] :- foo))
 
 (t/ann-datatype FooD [t :- t/Symbol]
                 :extends

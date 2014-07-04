@@ -1,7 +1,7 @@
 (ns clojure.core.typed.test.ctyp97-tvar-scoping
   (:import (clojure.lang ASeq LazySeq))
   (:require [clojure.core.typed :as t
-             :refer [ann Seqable fn>]]))
+             :refer [ann Seqable]]))
 
 (ann reduce_ (t/All [a b] 
                (t/IFn 
@@ -37,8 +37,8 @@
 (defn map-2
   [f coll]
   (lazy-seq
-   (reduce_ (fn> [x :- a ; ERROR!! -- Cannot resolve type: a
-                  y :- (Seqable b)]
+   (reduce_ (t/fn [x :- a ; ERROR!! -- Cannot resolve type: a
+                   y :- (Seqable b)]
               (append_ [(f x)] y))
             []
             coll)))

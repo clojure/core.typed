@@ -2,11 +2,10 @@
   (:require [clojure.core.typed :as t :refer [ann-record ann-protocol defprotocol>]])
   (:import [clojure.lang ISeq]))
 
-(ann-protocol IValidator
-              validate- [IValidator t/Any -> ValidationResult])
-(defprotocol> IValidator
+(t/defprotocol IValidator
   "Validator abstraction"
-  (validate- [this value] "Evaluates the validator."))
+  (validate- [this value] :- ValidationResult
+             "Evaluates the validator."))
 
 (t/ann-form validate- [IValidator t/Any -> ValidationResult])
 

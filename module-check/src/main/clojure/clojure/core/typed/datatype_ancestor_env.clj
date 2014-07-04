@@ -54,8 +54,7 @@
   [{poly :poly? :as dt} anctrs]
   {:pre [(r/DataType? dt)]
    :post [((con/set-c? r/Type?) %)]}
-  (set (t/for> :- r/Type
-         [u :- r/Type, anctrs]
+  (set (t/for [u :- r/Type, anctrs] :- r/Type
          (c/inst-and-subst u poly))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
