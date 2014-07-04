@@ -1,4 +1,11 @@
-# 0.2.53
+# 0.2.54
+
+- Improve warning messages
+- Add UPGRADING.md
+- Fix defprotocol with docstring
+- Upgrade to tools.analyzer 0.3.0
+
+# 0.2.53 - 3rd July 2014
 
 ## Deprecations
 
