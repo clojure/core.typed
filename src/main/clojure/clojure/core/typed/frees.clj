@@ -1,7 +1,7 @@
 (ns ^:skip-wiki 
   ^{:core.typed {:collect-only true}}
   clojure.core.typed.frees
-  (:require [clojure.core.typed :as t :refer [for>]]
+  (:require [clojure.core.typed :as t]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.current-impl :as impl]
             [clojure.core.typed.type-ctors :as c]
@@ -191,15 +191,15 @@
 (add-frees-method [::any-var DataType]
   [{varis :variances args :poly? :as t}]
   (assert (= (count args) (count varis)))
-  (apply combine-frees (for> :- VarianceMap
-                             [[arg va] :- '[t/Any r/Variance], (map (-> vector 
-                                                                      (t/inst t/Any r/Variance t/Any t/Any t/Any t/Any))
-                                                                  args varis)]
-                             (case va
-                               :covariant (frees arg)
-                               :contravariant (flip-variances (frees arg))
-                               :invariant (let [fvs (frees arg)]
-                                            (zipmap (keys fvs) (repeat :invariant)))))))
+  (apply combine-frees (t/for [[arg va] :- '[t/Any r/Variance], (map (-> vector 
+                                                                         (t/inst t/Any r/Variance t/Any t/Any t/Any t/Any))
+                                                                     args varis)]
+                         :- VarianceMap
+                         (case va
+                           :covariant (frees arg)
+                           :contravariant (flip-variances (frees arg))
+                           :invariant (let [fvs (frees arg)]
+                                        (zipmap (keys fvs) (repeat :invariant)))))))
 
 (add-frees-method [::any-var HeterogeneousList]
   [{:keys [types]}] 
@@ -353,10 +353,11 @@
   (let [varis (:variances t)
         args (:poly? t)]
     (assert (= (count args) (count varis)))
-    (apply combine-frees (for> :- VarianceMap
+    (apply combine-frees (t/for
                            [[arg va] :- '[t/Any r/Variance], (map (-> vector 
                                                                     (t/inst t/Any r/Variance t/Any t/Any t/Any t/Any))
                                                                 args varis)]
+                           :- VarianceMap
                            (case va
                              :covariant (frees arg)
                              :contravariant (flip-variances (frees arg))
@@ -368,15 +369,16 @@
 (add-frees-method [::any-var Protocol]
   [{varis :variances, args :poly?, :as t}]
   (assert (= (count args) (count varis)))
-  (apply combine-frees (for> :- VarianceMap
-                             [[arg va] :- '[t/Any r/Variance], (map (-> vector 
-                                                                      (t/inst t/Any r/Variance t/Any t/Any t/Any t/Any))
-                                                                  args varis)]
-                             (case va
-                               :covariant (frees arg)
-                               :contravariant (flip-variances (frees arg))
-                               :invariant (let [fvs (frees arg)]
-                                            (zipmap (keys fvs) (repeat :invariant)))))))
+  (apply combine-frees (t/for
+                         [[arg va] :- '[t/Any r/Variance], (map (-> vector 
+                                                                    (t/inst t/Any r/Variance t/Any t/Any t/Any t/Any))
+                                                                args varis)]
+                         :- VarianceMap
+                         (case va
+                           :covariant (frees arg)
+                           :contravariant (flip-variances (frees arg))
+                           :invariant (let [fvs (frees arg)]
+                                        (zipmap (keys fvs) (repeat :invariant)))))))
   )
 
 (add-frees-method [::any-var Scope]

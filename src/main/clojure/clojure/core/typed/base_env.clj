@@ -1414,6 +1414,9 @@ clojure.math.numeric-tower/abs
 ;; core.match
 
 clojure.core.match/backtrack Exception
+
+clojure.core/eval [Any -> Any]
+
       )
 (h/var-mappings
 clojure.set/union (All [x] [(Set x) * -> (Set x)])

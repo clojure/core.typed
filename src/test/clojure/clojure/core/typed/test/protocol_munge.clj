@@ -1,10 +1,8 @@
 (ns clojure.core.typed.test.protocol-munge
   (:require [clojure.core.typed :as t]))
 
-(t/ann-protocol Foo
-                my_dash [Foo -> Number])
-(t/defprotocol> Foo
-  (my_dash [this]))
+(t/defprotocol Foo
+  (my_dash [this] :- t/Num))
 
 (t/ann-protocol Bar
                 my_dash_interface [Bar -> t/Symbol])

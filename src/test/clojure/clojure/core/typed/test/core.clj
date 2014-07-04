@@ -1296,11 +1296,11 @@
             :filters {:then (& (is '{:op (Value :if)} 0)
                                (is ':if 0 [(Key :op)]))
                       :else (! ':if 0 [(Key :op)])}])
-  (is-tc-e (fn> [a :- (U '{:op ':if} '{:op ':case})
-                 b :- (U '{:op ':if} '{:op ':case})]
-                (if (= :if (:op a))
-                  (= :case (:op b))
-                  false)))
+  (is-tc-e (fn [a :- (U '{:op ':if} '{:op ':case})
+                b :- (U '{:op ':if} '{:op ':case})]
+             (if (= :if (:op a))
+               (= :case (:op b))
+               false)))
   (is-tc-e (fn [a b] 
              (let [and__3941__auto__ (clojure.core/symbol? a)] 
                (if (print-filterset "test" and__3941__auto__)
@@ -1813,7 +1813,7 @@
 (deftest hmap-cast-test
   (is (both-subtype?
         (ety
-          (clojure.core.typed/fn> 
+          (fn
             [m :- (HMap)]
             (assert (:foo m))
             m))
@@ -1824,9 +1824,9 @@
                      :object {:id 0}])))
   (is (both-subtype? 
         (ety
-          (clojure.core.typed/fn> 
-            :- (HMap :mandatory {:foo (clojure.core.typed/Vec clojure.core.typed/Any)})
+          (fn
             [m :- (HMap)]
+            :- (HMap :mandatory {:foo (clojure.core.typed/Vec clojure.core.typed/Any)})
             (assert (vector? (:foo m)))
             m))
         (parse-clj `[(HMap) :-> 
@@ -1836,7 +1836,7 @@
                      :object {:id 0}])))
   (is (both-subtype? 
         (ety 
-          (fn> 
+          (fn
             [m :- (HMap :mandatory {:bar Any})]
             (assert (nil? (:foo m)))
             m))
@@ -1849,7 +1849,7 @@
   (is
     (both-subtype?
       (ety
-        (clojure.core.typed/fn> 
+        (fn
           [m :- '{}]
           (assert (not (vector? (:foo m))))
           m))
@@ -2200,7 +2200,7 @@
 
 (deftest CTYP-71-simplify-test
                                               ; must be resolvable to trigger the bug
-  (is-tc-e (clojure.core.typed/fn> [a :- (U nil (clojure.core.typed/Nilable java.util.Date))] 
+  (is-tc-e (clojure.core.typed/fn [a :- (U nil (clojure.core.typed/Nilable java.util.Date))] 
                                  (when a (clojure.core.typed/ann-form a java.util.Date)))))
 
 ;(clj (compact [(-filter (parse-type 'Number) 0)

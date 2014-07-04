@@ -1,10 +1,8 @@
 (ns clojure.core.typed.test.protocol
   (:require [clojure.core.typed :as t :refer [ann-protocol ann-datatype defprotocol> check-ns]]))
 
-(ann-protocol AddProtoc
-              adder [AddProtoc Number -> Number])
-(defprotocol> AddProtoc
-  (adder [this amount]))
+(t/defprotocol AddProtoc
+  (adder [this amount :- t/Num] :- t/Num))
 
 (ann-datatype Accumulator [t :- Number])
 (deftype Accumulator [t]
@@ -15,13 +13,11 @@
 
 ;; polymorphic protocols
 
-(ann-protocol [[x :variance :covariant]]
-              IFoo
-              bar [(IFoo x) -> Number]
-              baz [(IFoo x) -> t/Any])
-(defprotocol> IFoo
-  (bar [this])
-  (baz [this]))
+(t/defprotocol
+  [[x :variance :covariant]]
+  IFoo
+  (bar [this] :- t/Num)
+  (baz [this] :- t/Any))
 
 ;TODO
 ;(ann-datatype FooPoly []

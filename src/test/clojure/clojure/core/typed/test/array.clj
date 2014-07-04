@@ -1,5 +1,5 @@
 (ns clojure.core.typed.test.array
-  (:require [clojure.core.typed :refer [ann check-ns into-array> cf loop> print-env ann-form]
+  (:require [clojure.core.typed :refer [ann check-ns into-array> cf print-env ann-form]
              :as t]
             [clojure.repl :refer [pst]]))
 
@@ -11,13 +11,13 @@
 
 (ann sum [(ReadOnlyArray Number) -> Number])
 (defn sum [arr]
-  (loop> [idx :- long 0,
-          ret :- Number 0]
-         (if (< idx (alength arr))
-           (recur 
-             (unchecked-inc idx) 
-             (+ (aget arr idx) ret))
-           ret)))
+  (t/loop [idx :- long 0,
+           ret :- Number 0]
+    (if (< idx (alength arr))
+      (recur 
+        (unchecked-inc idx) 
+        (+ (aget arr idx) ret))
+      ret)))
 
 (fn [] (sum (my-integer-array)))
 

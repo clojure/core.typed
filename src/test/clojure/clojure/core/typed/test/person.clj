@@ -4,10 +4,8 @@
                                 ann-protocol AnyInteger defprotocol>]
      :as t]))
 
-(ann-protocol Age 
-  age [Age -> AnyInteger])
-(defprotocol> Age
-  (age [this]))
+(t/defprotocol Age
+  (age [this] :- Int))
 
 (ann-datatype Person 
   [name :- String 

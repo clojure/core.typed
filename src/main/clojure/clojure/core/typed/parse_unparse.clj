@@ -480,7 +480,7 @@
     (when-not (symbol? nme)
       (err/int-error "Must provide a name symbol to TFn"))
     (when (contains? opts :kind)
-      (err/int-error "DEPRECATED: kind annotation for TFn parameters"))
+      (err/deprecated-warn "kind annotation for TFn parameters"))
     (when-not (r/variance? variance)
       (err/int-error (str "Invalid variance: " (pr-str variance))))
     {:nme nme :variance variance
@@ -846,19 +846,16 @@
         n)))
 
 (defmethod parse-type-symbol 'Any [_] 
-  (impl/impl-case
-    :clojure (err/deprecated-warn "Any syntax is deprecated, use clojure.core.typed/Any")
-    :cljs nil)
+  (err/deprecated-plain-op 'Any)
   r/-any)
 (defmethod parse-type-symbol 'clojure.core.typed/Any [_] r/-any)
 (defmethod parse-type-symbol 'cljs.core.typed/Any [_] r/-any)
 
 (defmethod parse-type-symbol 'Nothing [_] 
-  (impl/impl-case
-    :clojure (err/deprecated-warn "Nothing syntax is deprecated, use clojure.core.typed/Nothing")
-    :cljs nil)
+  (err/deprecated-plain-op 'Nothing)
   (r/Bottom))
 (defmethod parse-type-symbol 'clojure.core.typed/Nothing [_] (r/Bottom))
+(defmethod parse-type-symbol 'cljs.core.typed/Nothing [_] (r/Bottom))
 
 (defmethod parse-type-symbol 'AnyFunction [_] (r/TopFunction-maker))
 
@@ -1116,7 +1113,7 @@
           ; support deprecated syntax [& {} -> ] to be equivalent to [& :optional {} -> ]
           (if (and kwsyn
                    (map? (first kwsyn)))
-            (do (err/deprecated-warn "Implicit optional parameters for Fn arity. Use :optional keyword argument beteween & and ->.")
+            (do (err/deprecated-warn "[& {} -> ] function syntax is deprecated. Use [& :optional {} -> ]")
                 (cons :optional kwsyn))
             kwsyn))
 

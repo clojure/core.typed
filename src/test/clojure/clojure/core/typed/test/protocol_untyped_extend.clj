@@ -1,14 +1,11 @@
 (ns clojure.core.typed.test.protocol-untyped-extend
-  (:require [clojure.core.typed :refer [ann-protocol defprotocol> tc-ignore
+  (:require [clojure.core.typed :refer [ann-protocol tc-ignore
                                         ann-datatype ann check-ns]
              :as t]
             [clojure.core.typed.test.protocol-in-another-ns
              :refer [AnotherNs baz]]))
 
-(ann-protocol IFoo
-              bar
-              [IFoo -> t/Any])
-(defprotocol> IFoo
+(t/defprotocol IFoo
   (bar [this]))
 
 (ann-datatype Bar [])

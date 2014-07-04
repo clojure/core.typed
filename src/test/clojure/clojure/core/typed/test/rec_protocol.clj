@@ -1,10 +1,8 @@
 (ns clojure.core.typed.test.rec-protocol
-  (:require [clojure.core.typed :as t :refer [ann-protocol ann-datatype defprotocol> check-ns]]))
+  (:require [clojure.core.typed :as t :refer [ann-protocol ann-datatype check-ns]]))
 
-(ann-protocol SelfProtocol
-              f1 [SelfProtocol -> (U nil SelfProtocol)])
-(defprotocol> SelfProtocol
-  (f1 [this]))
+(t/defprotocol SelfProtocol
+  (f1 [this] :- (U nil SelfProtocol)))
 
 ;(declare-protocol
 ;  [[f :variance :covariant]]

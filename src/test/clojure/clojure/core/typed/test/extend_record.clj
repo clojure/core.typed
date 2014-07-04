@@ -4,15 +4,11 @@
             #_[clojure.core.typed.parse-unparse :as prs]
             #_[clojure.core.typed.current-impl :as impl]))
 
-(ann-protocol PMaths
-              mult-by-two [PMaths -> PMaths])
-(t/defprotocol> PMaths
-  (mult-by-two [this]))
+(t/defprotocol PMaths
+  (mult-by-two [this] :- PMaths))
 
-(ann-protocol PMathsExtend
-              mult-extended [PMathsExtend -> PMathsExtend])
-(t/defprotocol> PMathsExtend
-  (mult-extended [this]))
+(t/defprotocol PMathsExtend
+  (mult-extended [this] :- PMathsExtend))
 
 (ann-record SpecialNumber [x :- Number])
 (defrecord SpecialNumber [x]
