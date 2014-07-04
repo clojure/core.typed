@@ -706,7 +706,7 @@
         ; support deprecated syntax (HMap {}), which is now (HMap :mandatory {})
         deprecated-mandatory (when (map? (first flat-opts))
                                (err/deprecated-warn
-                                 "HMap syntax changed. Use :mandatory keyword argument instead of initial map")
+                                 "(HMap {}) syntax has changed, use (HMap :mandatory {})")
                                (first flat-opts))
         flat-opts (if deprecated-mandatory
                     (next flat-opts)
@@ -1112,6 +1112,7 @@
             (err/int-error "Dotted rest entry must be 3 entries"))
         _ (when-not (or (not ellipsis-pos) (symbol? drest-bnd))
             (err/int-error "Dotted bound must be symbol"))
+        ;TODO check for duplicate entries
         [& {optional-kws :optional mandatory-kws :mandatory} :as kws-seq]
         (let [kwsyn (when ampersand-pos
                       (drop (inc ampersand-pos) all-dom))]
