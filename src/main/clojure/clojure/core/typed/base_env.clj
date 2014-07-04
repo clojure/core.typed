@@ -903,7 +903,7 @@ clojure.core/disj
 
 clojure.core/assoc
      (All [m k v c ...]
-          (Fn [m k v (HSeq [k v] :repeat true) <... c
+          (Fn [m k v (HSeq [c c] :repeat true) <... c
                -> (Assoc m k v c ... c)]
             [m k v (HSeq [k v] :repeat true) <*
              -> (Assoc m k v)]))
