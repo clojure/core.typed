@@ -1043,7 +1043,7 @@ clojure.core/decimal? (Pred BigDecimal)
 clojure.core/denominator [clojure.lang.Ratio -> Number]
 
 clojure.core/mod (IFn [AnyInteger AnyInteger -> AnyInteger]
-                     [Number Number -> Number])
+                      [Number Number -> Number])
 
 clojure.core/var-get (All [r] [(Var2 Nothing r) -> r])
 clojure.core/var-set (All [w] [(Var2 w Any) w -> w])

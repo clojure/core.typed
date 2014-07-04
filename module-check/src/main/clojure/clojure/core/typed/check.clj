@@ -1173,8 +1173,7 @@
       (or (and (ns-opts/warn-on-unannotated-vars? (cu/expr-ns expr))
                (not (var-env/lookup-Var-nofail mmsym)))
           (not (var-env/check-var? mmsym)))
-      (do (println "<NO LINE NUMBER>: Not checking defmethod" mmsym "with dispatch value" (ast-u/emit-form-fn dispatch-val-expr))
-          (flush)
+      (do (u/tc-warning (str "Not checking defmethod" mmsym "with dispatch value" (ast-u/emit-form-fn dispatch-val-expr)))
           ret-expr)
       :else
       (let [_ (assert (#{:var} (:op target)))
@@ -1186,8 +1185,8 @@
         (if-not dispatch-type
           (binding [vs/*current-env* env]
             (err/tc-delayed-error (str "Multimethod requires dispatch type: " mmsym
-                                     "\n\nHint: defmulti must be checked before its defmethods")
-                                :return (assoc ret-expr
+                                       "\n\nHint: defmulti must be checked before its defmethods")
+                                  :return (assoc ret-expr
                                                :instance ctarget)))
           (let [method-expected (var-env/type-of mmsym)
                 cmethod-expr 
