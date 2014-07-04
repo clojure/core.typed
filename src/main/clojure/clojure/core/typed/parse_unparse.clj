@@ -231,7 +231,7 @@
 (defmethod parse-type-list 'clojure.core.typed/Pred [t] (parse-Pred t))
 (defmethod parse-type-list 'cljs.core.typed/Pred [t] (parse-Pred t))
 
-; Only base-env can use this, eventually replace with Difference
+; FIXME deprecate
 (defmethod parse-type-list 'Not
   [[_ tsyn :as all]]
   (when-not (= (count all) 2) 
