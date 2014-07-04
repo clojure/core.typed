@@ -683,23 +683,24 @@
              (r/RClass? T)
              ; (Map xx yy)
              (= 'clojure.lang.IPersistentMap (:the-class T)))
-        (let [{:keys [target entries]} S
+        (let [{:keys [target entries dentries]} S
               {:keys [poly? the-class]} T
-              ; don't constrain on dentries, otherwise will fail on (assoc x y)
-              ;dentries-cset (when-let [{dty :pre-type dbound :name} dentries]
-              ;                (when (and dbound (not (Y dbound)))
-              ;                  (fail! S T))
-              ;                ;(println "passed when")
-              ;                (let [merged-X (merge X {dbound (Y dbound)})
-              ;                      get-list-of-c (fn get-list-of-c [t-list]
-              ;                                      (mapv #(get-c-from-cmap % dbound)
-              ;                                            (for> :- cset
-              ;                                                  [t :- r/Type, t-list]
-              ;                                                  (cs-gen V merged-X Y dty t))))
-              ;                      fixed-c (get-list-of-c poly?)]
-              ;                  (assoc-in (cr/empty-cset X Y)
-              ;                            [:maps 0 :dmap :map dbound]
-              ;                            (cr/->dcon-repeat fixed-c fixed-c))))
+              dentries-cset (when-let [{dty :pre-type dbound :name} dentries]
+                              (when (and dbound (not (Y dbound)))
+                                (fail! S T))
+                              ;(println "passed when")
+                              (let [merged-X (merge X {dbound (Y dbound)})
+                                    get-list-of-c (fn get-list-of-c [t-list]
+                                                    (mapv #(get-c-from-cmap % dbound)
+                                                          (for> :- cset
+                                                                [t :- r/Type, t-list]
+                                                                (cs-gen V merged-X Y dty t))))
+                                    repeat-c (get-list-of-c poly?)]
+                                (assoc-in (cr/empty-cset X Y)
+                                          [:maps 0 :dmap :map dbound]
+                                          ; don't constrain on fixed, otherwise will fail
+                                          ; on (assoc x y)
+                                          (cr/->dcon-repeat [] repeat-c))))
               ;_ (println "dentries-cset" dentries-cset)
               map-cset (cs-gen V X Y target T)
               entries-keys (map first entries)
