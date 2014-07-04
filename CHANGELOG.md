@@ -1,11 +1,4 @@
-# 0.2.54
-
-## Dependencies
-
-- Hard dependency on Clojure 1.6.0
-- Update ClojureScript to 0.0-2261
-
-# 0.2.53 - Released 2 July 2014
+# 0.2.53
 
 ## Deprecations
 
