@@ -1,5 +1,5 @@
 (ns clojure.core.typed.contrib-annotations
-  (:require [clojure.core.typed :refer [ann-protocol ann]]))
+  (:require [clojure.core.typed :as t :refer [ann-protocol ann]]))
 
 (ann-protocol clojure.java.io/IOFactory 
               make-reader
