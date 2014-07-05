@@ -1,4 +1,11 @@
-# 0.2.54
+# 0.2.55 - 5th July 2014
+
+- Fix bug where push-thread-bindings is checked, even though
+  it's special
+  - this broke `binding` checks
+- Update contrib-annotations to new namespaced syntax
+
+# 0.2.54 - 4th July 2014
 
 - Improve warning messages
 - Add UPGRADING.md
