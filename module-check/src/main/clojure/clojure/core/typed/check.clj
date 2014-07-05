@@ -561,7 +561,8 @@
                                                   ", Actual: " (prs/unparse-type actual))))
                        [cvar-expr cexpr])))))]
     (-> expr
-        (update-in [:fn] check)
+        ; push-thread-bindings is unannotated
+        #_(update-in [:fn] check)
         (assoc :args cargs
                u/expr-type (r/ret r/-nil)))))
 
