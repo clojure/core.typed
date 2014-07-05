@@ -699,16 +699,20 @@
                                 (assoc-in (cr/empty-cset X Y)
                                           [:maps 0 :dmap :map dbound]
                                           ; don't constrain on fixed, otherwise will fail
-                                          ; on (assoc x y)
+                                          ; on (assoc m x y)
                                           (cr/->dcon-repeat [] repeat-c))))
               ;_ (println "dentries-cset" dentries-cset)
-              map-cset (cs-gen V X Y target T)
+
+              ; if it's nil, we also accept it
+              map-cset (when-not (and (r/Value? target)
+                                      (-> target :val nil?))
+                         (cs-gen V X Y target T))
               entries-keys (map first entries)
               entries-vals (map second entries)
               cg #(cs-gen V X Y %1 %2)
               key-cset (map cg entries-keys (repeat (first poly?)))
               val-cset (map cg entries-vals (repeat (second poly?)))]
-          (cset-meet* (concat [map-cset] key-cset val-cset)))
+          (cset-meet* (concat (when map-cset [map-cset]) key-cset val-cset)))
 
 ; Completeness matters:
 ;

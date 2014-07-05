@@ -906,7 +906,11 @@ clojure.core/assoc
           (Fn [m k v (HSeq [c c] :repeat true) <... c
                -> (Assoc m k v c ... c)]
             [m k v (HSeq [k v] :repeat true) <*
-             -> (Assoc m k v)]))
+             -> (Assoc m k v)]
+            [nil k v (HSeq [c c] :repeat true) <... c
+             -> (Assoc nil k v c ... c)]
+            [nil k v (HSeq [k v] :repeat true) <*
+             -> (Map k v)]))
 ;     (All [b c d]
 ;       (Fn [(Map b c) b c -> (Map b c)]
 ;           [(Vec d) AnyInteger d -> (Vec d)]
