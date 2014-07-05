@@ -1,4 +1,6 @@
-# 0.2.55 - 5th July 2014
+# 0.2.56 - 5th July 2014
+
+- 0.2.55 is bad
 
 - Fix bug where push-thread-bindings is checked, even though
   it's special
