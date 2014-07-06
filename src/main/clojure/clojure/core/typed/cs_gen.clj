@@ -704,8 +704,7 @@
               ;_ (println "dentries-cset" dentries-cset)
 
               ; if it's nil, we also accept it
-              map-cset (when-not (and (r/Value? target)
-                                      (-> target :val nil?))
+              map-cset (when-not (r/Nil? target)
                          (cs-gen V X Y target T))
               entries-keys (map first entries)
               entries-vals (map second entries)
