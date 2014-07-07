@@ -767,6 +767,46 @@
                        [expected-assoc-args-hmap
                         expected-target-hmap]))
 
+        (and (r/AssocType? S)
+             (r/HeterogeneousVector? T))
+        (let [elem-type (apply c/Un
+                               (concat
+                                 (:types T)
+                                 (when-let [rest (:rest T)]
+                                   [rest])
+                                 (when (:drest T)
+                                   [r/-any])))
+              vec-any (r/-hvec [] :rest r/-any)
+              num-type (c/RClass-of 'java.lang.Number)
+              target-cset (cs-gen V X Y (:target S) vec-any)
+              entries-key (map first (:entries S))
+              entries-val (map second (:entries S))
+              key-cset (cs-gen-list V X Y entries-key (repeat (count entries-key)
+                                                              num-type))
+              ;_ (println "key-cset" key-cset)
+              val-cset (cs-gen-list V X Y entries-val (repeat (count entries-val)
+                                                              elem-type))
+              ;_ (println "val-cset" val-cset)
+              dentries-cset (when-let [{dty :pre-type dbound :name} (:dentries S)]
+                              (when (and dbound (not (Y dbound)))
+                                (fail! S T))
+                              ;(println "passed when")
+                              (let [merged-X (merge X {dbound (Y dbound)})
+                                    get-list-of-c (fn get-list-of-c [t-list]
+                                                    (mapv #(get-c-from-cmap % dbound)
+                                                          (for> :- cset
+                                                                [t :- r/Type, t-list]
+                                                                (cs-gen V merged-X Y dty t))))
+                                    repeat-c (get-list-of-c [num-type elem-type])]
+                                (assoc-in (cr/empty-cset X Y)
+                                          [:maps 0 :dmap :map dbound]
+                                          ; don't constrain on fixed, otherwise will fail
+                                          ; on (assoc m x y)
+                                          (cr/->dcon-repeat [] repeat-c))))
+              ]
+          (cset-meet* (concat [target-cset key-cset val-cset]
+                              (when dentries-cset [dentries-cset]))))
+
         (and (r/PrimitiveArray? S)
              (r/PrimitiveArray? T)
              (impl/checking-clojure?))
