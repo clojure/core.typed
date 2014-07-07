@@ -4,8 +4,10 @@
 (alter-meta! *ns* assoc :skip-wiki true)
 
 (def -base-aliases
-  '#{AnyInteger Seqable NonEmptySeq Number
-     EmptySeqable NonEmptySeqable Option Coll NonEmptyColl NonEmptyASeq})
+  '#{AnyInteger Integer Seqable NonEmptySeq Number String Boolean Seq
+     EmptySeqable NonEmptySeqable Option Coll NonEmptyColl NonEmptyASeq NonEmptyAVec
+     EmptyCount NonEmptyCount Vec Nilable AVec NilableNonEmptyASeq PersistentList Collection
+     IPersistentVector IPersistentMap APersistentMap Associative Map Atom2 Sequential})
 
 (def -specials
   '#{All U Any Pred Int Bool Num Str Object ReadOnlyArray
