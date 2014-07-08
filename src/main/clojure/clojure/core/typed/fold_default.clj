@@ -221,13 +221,20 @@
 
 (add-default-fold-case AssocType
                        (fn [{:keys [target entries dentries] :as ty} _]
-                         (-> ty
-                           (update-in [:target] type-rec)
-                           (update-in [:entries] (fn [es]
-                                                   (doall
-                                                     (for [[k v] es]
-                                                       [(type-rec k) (type-rec v)]))))
-                           (update-in [:dentries] #(when % (type-rec %))))))
+                         (let [s-target (type-rec target)
+                               s-entries (doall
+                                           (for [[k v] entries]
+                                             [(type-rec k) (type-rec v)]))
+                               s-dentries (when dentries (type-rec dentries))
+                               fallback-r (-> ty
+                                            (assoc-in [:target] s-target)
+                                            (assoc-in [:entries] s-entries)
+                                            (assoc-in [:dentries] s-dentries))]
+                           (if dentries
+                             fallback-r
+                             (if-let [assoced (apply c/assoc-pairs-noret s-target s-entries)]
+                               assoced
+                               fallback-r)))))
 
 (def ret-first (fn [a & rest] a))
 

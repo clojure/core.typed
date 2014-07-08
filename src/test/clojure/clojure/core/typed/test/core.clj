@@ -1965,26 +1965,16 @@
   
   ; HVecs
   (equal-types-noparse (assoc [] 0 1)
-                       (-hvec [(-val 1)]
-                              :filters [(-true-filter)]
-                              :objects [-empty]))
+                       (-hvec [(-val 1)]))
   
   (equal-types-noparse (assoc [3] 1 2)
-                       (-hvec [(-val 3) (-val 2)]
-                              :filters [(-FS -top -top) ; embedded literals dont get any
-                                                        ; filter information (yet)?
-                                        (-true-filter)]
-                              :objects [-empty -empty]))
+                       (-hvec [(-val 3) (-val 2)]))
   
   (equal-types-noparse (assoc [0] 0 1)
-                       (-hvec [(-val 1)]
-                              :filters [(-true-filter)]
-                              :objects [-empty]))
+                       (-hvec [(-val 1)]))
   
   (equal-types-noparse (assoc [0] 0 (if (clojure.core.typed/ann-form 1 Any) 1 2))
-                       (-hvec [(Un (-val 1) (-val 2))]
-                              :filters [(-true-filter)]
-                              :objects [-empty]))
+                       (-hvec [(Un (-val 1) (-val 2))]))
   
   ; Basic types
   (equal-types (assoc {} 'a 5)
