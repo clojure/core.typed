@@ -122,21 +122,20 @@
   (fn [{:keys [target entries dentries]} {{:keys [b bm]} :locals}]
     (let [tfn #(trans-dots % b bm)
           t-target (tfn target)
-          t-entries (into {} (map (fn [ent]
-                                    [(tfn (first ent)) (tfn (second ent))])
-                                  entries))]
+          t-entries (map (fn [ent]
+                           [(tfn (first ent)) (tfn (second ent))])
+                         entries)]
       (if (and dentries
                (= b (:name dentries)))
         (r/AssocType-maker t-target
-                           (merge t-entries
+                           (concat t-entries
                                   (->> bm
                                     (map (fn [bk]
                                            {:post [(r/Type? %)]}
                                            (-> (subst/substitute bk b (:pre-type dentries))
                                              tfn)))
                                     (partition 2)
-                                    (map vec)
-                                    (into {})))
+                                    (map vec)))
                            nil)
         (r/AssocType-maker t-target
                            t-entries
