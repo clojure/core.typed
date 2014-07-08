@@ -8,7 +8,8 @@
            (java.util Comparator Collection))
   (:require [clojure.core.typed.base-env-helper :as h]
             [clojure.core.typed.base-env-clj-rclass :as base-rclass]
-            [clojure.core.typed.base-env-common :refer [delay-and-cache-env]]
+            [clojure.core.typed.base-env-common :refer [delay-and-cache-env]
+             :as common]
             [clojure.core.typed.parse-unparse :as prs]
             [clojure.core.typed.type-rep :as r]
             [clojure.core.typed.path-rep :as pe]
@@ -57,20 +58,20 @@
   (let [alias-env (init-alias-env)]
     (nme-env/reset-name-env! alias-env)))
 
-(delay-and-cache-env ^:private init-protocol-env 
+(delay-and-cache-env ^:private init-protocol-env
                      {}
    #_(protocol-mappings
-clojure.java.io/IOFactory 
+clojure.java.io/IOFactory
      [[]
       :methods
       {
        make-reader
        [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedReader]
 
-       make-writer 
+       make-writer
        [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedWriter]
 
-       make-input-stream 
+       make-input-stream
        [clojure.java.io/IOFactory '{:append Any, :encoding (U nil String)} -> java.io.BufferedInputStream]
 
        make-output-stream
@@ -99,7 +100,7 @@ clojure.java.io/IOFactory
 (defn ^:private count-type []
   (impl/with-clojure-impl
     (r/make-FnIntersection
-      (r/make-Function 
+      (r/make-Function
         [(prs/parse-type '(U nil (clojure.core.typed/Seqable Any) clojure.lang.Counted))]
         (prs/parse-type '(U java.lang.Integer java.lang.Long))
         nil nil
@@ -109,7 +110,7 @@ clojure.java.io/IOFactory
   (impl/with-clojure-impl
     (prs/parse-type
       '(All [x y]
-            (IFn 
+            (IFn
               [(U (Indexed x) (SequentialSeqable x)) AnyInteger -> x]
               [(U (Indexed x) (SequentialSeqable x) nil) AnyInteger y -> (U x y)]
               [(U (Indexed x) (SequentialSeqable x) nil) AnyInteger -> (U x nil)])))))
@@ -117,7 +118,8 @@ clojure.java.io/IOFactory
 (delay-and-cache-env ^:private init-var-env
   (reset-alias-env!)
   (merge
-    (h/var-mappings
+   (common/parse-clj-ann-map common/common-var-annotations)
+   (h/var-mappings
 
 clojure.core.typed/check-ns (IFn [Symbol -> Any]
                                 [-> Any])
@@ -180,13 +182,13 @@ clojure.core/*use-context-classloader* Any
 
 clojure.core/alength [(ReadOnlyArray Any) -> AnyInteger]
 clojure.core/aclone (All [x] [(ReadOnlyArray x) -> (Array x)])
-clojure.core/aget (All [x] (IFn [(ReadOnlyArray x) 
+clojure.core/aget (All [x] (IFn [(ReadOnlyArray x)
                                 AnyInteger -> x]
-                               [(ReadOnlyArray (ReadOnlyArray x)) 
+                               [(ReadOnlyArray (ReadOnlyArray x))
                                 AnyInteger AnyInteger -> x]
-                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))) 
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))
                                 AnyInteger AnyInteger AnyInteger -> x]
-                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))) 
+                               [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))))
                                 AnyInteger AnyInteger AnyInteger AnyInteger -> x]
                                ; don't support unsound cases
                                [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))))
@@ -280,24 +282,24 @@ clojure.core/remove (All [x y]
 
 
 clojure.core/take-while (All [x y]
-                               (IFn 
+                               (IFn
                                  [[x -> Any :filters {:then (is y 0)}] (Option (Seqable x)) -> (ASeq y)]
                                  [[x -> Any] (Option (Seqable x)) -> (ASeq x)]))
 clojure.core/drop-while (All [x]
                                [[x -> Any] (Option (Seqable x)) -> (ASeq x)])
 
 clojure.core/split-with
-     (All [x y z] 
+     (All [x y z]
        (IFn
          [[x -> Any :filters {:then (is y 0), :else (is z 0)}] (Option (Seqable x)) -> '[(ASeq y) (ASeq z)]]
          [[x -> Any] (Option (Seqable x)) -> '[(ASeq x) (ASeq x)]]))
 
 clojure.core/split-at
-     (All [x y z] 
+     (All [x y z]
           [AnyInteger (Option (Seqable x)) -> '[(ASeq x) (ASeq x)]])
 
-clojure.core/partition-all (All [x] 
-                             (IFn [Int (Nilable (Seqable x)) -> (ASeq (ASeq x))] 
+clojure.core/partition-all (All [x]
+                             (IFn [Int (Nilable (Seqable x)) -> (ASeq (ASeq x))]
                                  [Int Int (Nilable (Seqable x)) -> (ASeq (ASeq x))]))
 
 clojure.core/repeatedly
@@ -311,38 +313,38 @@ clojure.core/some (All [x y] [[x -> y] (Option (Seqable x)) -> (Option y)])
 ; Unions need to support dots for this to work:
 ;
 ; (All [t0 b ...]
-;    (IFn [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}] 
+;    (IFn [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}]
 ;         [Any -> Any :filters {:then (is b 0) :else (! b 0)}] ... b
 ;         -> (IFn [Any -> Any :filters {:then (is (U t0 b ... b) 0) :else (! (U t0 b ... b) 0)}]
 ;                [Any * -> Any])]))
-clojure.core/some-fn 
+clojure.core/some-fn
   (All [t0 t1 t2 t3 t4 t5]
-    (IFn [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+    (IFn [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          -> (IFn [Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
                 [Any * -> Any])]
-        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
          -> (IFn [Any -> Boolean :filters {:then (is (U t0 t1) 0) :else (! (U t0 t1) 0)}]
                 [Any * -> Any])]
-        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
          [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
          -> (IFn [Any -> Boolean :filters {:then (is (U t0 t1 t2) 0) :else (! (U t0 t1 t2) 0)}]
                 [Any * -> Any])]
-        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
          [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
          [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
          -> (IFn [Any -> Boolean :filters {:then (is (U t0 t1 t2 t3) 0) :else (! (U t0 t1 t2 t3) 0)}]
                 [Any * -> Any])]
-        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
          [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
          [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
          [Any -> Boolean :filters {:then (is t4 0) :else (! t4 0)}]
          -> (IFn [Any -> Boolean :filters {:then (is (U t0 t1 t2 t3 t4) 0) :else (! (U t0 t1 t2 t3 t4) 0)}]
                 [Any * -> Any])]
-        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
          [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
          [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
@@ -353,32 +355,32 @@ clojure.core/some-fn
         [[Any -> Any] [Any -> Any] * -> [Any * -> Any]]))
 clojure.core/every-pred
   (All [t0 t1 t2 t3 t4 t5]
-    (IFn [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+    (IFn [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          -> (IFn [Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
                 [Any * -> Any])]
-        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
          -> (IFn [Any -> Boolean :filters {:then (is (I t0 t1) 0) :else (! (I t0 t1) 0)}]
                 [Any * -> Any])]
-        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
          [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
          -> (IFn [Any -> Boolean :filters {:then (is (I t0 t1 t2) 0) :else (! (I t0 t1 t2) 0)}]
                 [Any * -> Any])]
-        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
          [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
          [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
          -> (IFn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3) 0) :else (! (I t0 t1 t2 t3) 0)}]
                 [Any * -> Any])]
-        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}] 
+        [[Any -> Boolean :filters {:then (is t0 0) :else (! t0 0)}]
          [Any -> Boolean :filters {:then (is t1 0) :else (! t1 0)}]
          [Any -> Boolean :filters {:then (is t2 0) :else (! t2 0)}]
          [Any -> Boolean :filters {:then (is t3 0) :else (! t3 0)}]
          [Any -> Boolean :filters {:then (is t4 0) :else (! t4 0)}]
          -> (IFn [Any -> Boolean :filters {:then (is (I t0 t1 t2 t3 t4) 0) :else (! (I t0 t1 t2 t3 t4) 0)}]
                 [Any * -> Any])]
-        [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}] 
+        [[Any -> Any :filters {:then (is t0 0) :else (! t0 0)}]
          [Any -> Any :filters {:then (is t1 0) :else (! t1 0)}]
          [Any -> Any :filters {:then (is t2 0) :else (! t2 0)}]
          [Any -> Any :filters {:then (is t3 0) :else (! t3 0)}]
@@ -395,7 +397,7 @@ clojure.core/hash-set (All [x] [x * -> (PersistentHashSet x)])
 clojure.core/sorted-set (All [x] [x * -> (PersistentTreeSet x)])
 clojure.core/sorted-set-by (All [x] [[x x -> AnyInteger] x * -> (PersistentTreeSet x)])
 clojure.core/list (All [x] [x * -> (PersistentList x)])
-clojure.core/list* (All [x] 
+clojure.core/list* (All [x]
                         (IFn [(U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
                             [x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
                             [x x (U nil (Seqable x)) -> (NilableNonEmptyASeq x)]
@@ -420,7 +422,7 @@ clojure.core/munge (IFn [Symbol -> Symbol]
 clojure.core/pos? (IFn [Number -> Boolean])
 clojure.core/neg? (IFn [Number -> Boolean])
 
-clojure.core/nthrest (All [x] [(U nil (Seqable x)) AnyInteger 
+clojure.core/nthrest (All [x] [(U nil (Seqable x)) AnyInteger
                                -> (ASeq x)])
 
 clojure.core/vector (All [r b ...]
@@ -558,7 +560,7 @@ clojure.core/set-validator! (All [x]
                                  [(clojure.lang.IRef Any x) [x -> Any] -> nil])
 
 clojure.core/deref (All [x y]
-                     (IFn 
+                     (IFn
                          [(Deref x) -> x]
                          [(U (Deref Any) java.util.concurrent.Future) -> Any]
                          [(BlockingDeref x) AnyInteger y -> (U x y)]
@@ -584,9 +586,9 @@ clojure.core/select-keys (All [k v] [(Map k v) (U nil (Seqable Any))
                                      -> (Map k v)])
 
 ; could possibly return nil in some insane mutable situtation
-clojure.core/sort (All [x] 
+clojure.core/sort (All [x]
                        (IFn [(U nil (Seqable x)) -> (U nil (ASeq x))]
-                           [(I Comparator [x x -> AnyInteger]) 
+                           [(I Comparator [x x -> AnyInteger])
                             (U nil (Seqable x)) -> (U nil (ASeq x))]))
 
 ; this is insane
@@ -595,7 +597,7 @@ clojure.core/sort (All [x]
 clojure.core/reset! (All [w r]
                               [(Atom2 w r) w -> w])
 
-clojure.core/swap! (All [w r b ...] 
+clojure.core/swap! (All [w r b ...]
                              [(Atom2 w r) [r b ... b -> w] b ... b -> w])
 
 clojure.core/compare-and-set!
@@ -610,7 +612,7 @@ clojure.core/get-validator
                    (All [w]
                      [(clojure.lang.IRef w Any) -> (U nil [w -> Any])])
 
-clojure.core/alter-var-root (All [w r b ...] 
+clojure.core/alter-var-root (All [w r b ...]
                               [(Var2 w r) [r b ... b -> w] b ... b -> w])
 
 clojure.core/method-sig [java.lang.reflect.Method -> '[Any (U nil (NonEmptySeqable Any)) Any]]
@@ -681,16 +683,16 @@ clojure.core/vary-meta (All [[x :< clojure.lang.IObj] b ...]
                             [x [(U nil (Map Any Any)) b ... b -> (U nil (Map Any Any))] b ... b -> x])
 
 clojure.core/reset-meta! [clojure.lang.IReference (U nil (Map Any Any)) -> (U nil (Map Any Any))]
-clojure.core/alter-meta! 
+clojure.core/alter-meta!
       (All [b ...]
       [clojure.lang.IReference [(U nil (Map Any Any)) b ... b -> (U nil (Map Any Any))] b ... b -> (U nil (Map Any Any))])
 
 clojure.core/commute
-      (All [w r b ...] 
+      (All [w r b ...]
            [(Ref2 w r) [r b ... b -> w] b ... b -> w])
 
 clojure.core/alter
-      (All [w r b ...] 
+      (All [w r b ...]
            [(Ref2 w r) [r b ... b -> w] b ... b -> w])
 
 clojure.core/cycle
@@ -724,11 +726,11 @@ clojure.string/upper-case
 clojure.core/interpose (All [x] (IFn [x (Option (Seqable x)) -> (ASeq x)]))
 clojure.core/interleave (All [x] [(Option (Seqable x)) (Option (Seqable x)) (Option (Seqable x)) * -> (ASeq x)])
 
-clojure.core/repeat (All [x] 
+clojure.core/repeat (All [x]
                          (IFn [x -> (ASeq x)]
                              [AnyInteger x -> (ASeq x)]))
 
-;clojure.core/every? (All [x y] 
+;clojure.core/every? (All [x y]
 ;                         (IFn [[x -> Any :filters {:then (is y 0)}] (Coll x) -> Boolean
 ;                              :filters {:then (is (Coll (I x y)) 1)}]
 ;                             ; argument could be nil
@@ -760,7 +762,7 @@ clojure.core/class (IFn [nil -> nil :object {:id 0 :path [Class]}]
 clojure.core/type [Any -> Any]
 
 clojure.core/seq (All [x]
-                        (IFn 
+                        (IFn
                           [(NonEmptyColl x) -> (NonEmptyASeq x)]
                           [(Option (Coll x)) -> (Option (NonEmptyASeq x))
                            :filters {:then (& (is NonEmptyCount 0)
@@ -772,7 +774,7 @@ clojure.core/seq (All [x]
 ; Seqable [[x :variance :covariant]
 ;          :count [l :variance :covariant :< AnyCountRange]
 ;          :to-seq [sfn :kind (TFn [[x :variance :covariant]]
-;                               (I IWithMeta (IMeta nil) (ISeq x) (ICollection x) 
+;                               (I IWithMeta (IMeta nil) (ISeq x) (ICollection x)
 ;                                  IEmptyableCollection ISequential))]]
 
 ; clojure.core/seq (All [x
@@ -843,7 +845,7 @@ clojure.core/merge-with
 
 clojure.core/reduce
      (All [a c]
-          (IFn 
+          (IFn
             ;Without accumulator
             ; default
             ; (reduce + my-coll)
@@ -863,7 +865,7 @@ clojure.core/reduced? (Pred (Reduced Any))
 #_(comment
   clojure.core/reduce
        (All [a c d]
-            (IFn 
+            (IFn
               ;Without accumulator
               ; empty coll, f takes no args
               ; (reduce + []) => 0, (reduce + nil) => 0
@@ -1002,7 +1004,7 @@ clojure.core/find
 ; same as clojure.lang.RT/get
 clojure.core/get
      (All [x y]
-          (IFn 
+          (IFn
             ;no default
             [(U nil (Set x) (ILookup Any x)) Any -> (Option x)]
             [(Option java.util.Map) Any -> Any]
@@ -1023,7 +1025,7 @@ clojure.core/assoc-in
     [(U nil (Associative Any Any)) (Seqable Any) Any -> Any]
 
 ;FIXME maps after the first can always be nil
-clojure.core/merge 
+clojure.core/merge
      (All [k v]
           (IFn [nil * -> nil]
               [(IPersistentMap k v) (IPersistentMap k v) * -> (IPersistentMap k v)]
@@ -1050,7 +1052,7 @@ clojure.core/supers [Class -> (U nil (I NonEmptyCount (Set Class)))]
 
 clojure.core/take-nth (All [x] [AnyInteger (U nil (Seqable x)) -> (ASeq x)])
 
-clojure.core/shuffle (All [x] 
+clojure.core/shuffle (All [x]
                           (IFn [(I (Collection x) (Seqable x)) -> (Vec x)]
                                [(Collection x) -> (Vec x)]))
 
@@ -1094,7 +1096,7 @@ clojure.core/*' (IFn [AnyInteger * -> AnyInteger]
                     [Number * -> Number])
 clojure.core/quot (IFn [Long Long -> Long]
                        [(U Long Double) (U Long Double) -> Double]
-                       [AnyInteger AnyInteger -> AnyInteger] 
+                       [AnyInteger AnyInteger -> AnyInteger]
                        [Number Number -> Number])
 
 clojure.core/unchecked-inc (IFn [AnyInteger -> AnyInteger]
@@ -1170,7 +1172,7 @@ clojure.core/find-var
 clojure.core/agent
     (All [x] [x & :optional {:validator (U nil [x -> Any]) :meta Any
                              :error-handler (U nil [(Agent1 x) Throwable -> Any])
-                             :error-mode (U ':continue ':fail)} 
+                             :error-mode (U ':continue ':fail)}
               -> (Agent1 x)])
 
 clojure.core/set-agent-send-executor!
@@ -1179,13 +1181,13 @@ clojure.core/set-agent-send-executor!
 clojure.core/set-agent-send-off-executor!
     [java.util.concurrent.ExecutorService -> Any]
 
-clojure.core/send-via (All [w r b ...] 
+clojure.core/send-via (All [w r b ...]
                            [(Agent2 w r) [r b ... b -> w] b ... b -> (Agent2 w r)])
 
-clojure.core/send (All [w r b ...] 
+clojure.core/send (All [w r b ...]
                            [(Agent2 w r) [r b ... b -> w] b ... b -> (Agent2 w r)])
 
-clojure.core/send-off (All [w r b ...] 
+clojure.core/send-off (All [w r b ...]
                            [(Agent2 w r) [r b ... b -> w] b ... b -> (Agent2 w r)])
 
 clojure.core/await [(Agent2 Nothing Any) * -> nil]
@@ -1196,10 +1198,10 @@ clojure.core/release-pending-sends [-> AnyInteger]
 
 clojure.core/add-watch
         (All [x [a :< (IRef Nothing x)]]
-             (IFn 
+             (IFn
                ; this arity remembers the type of reference we pass to the function
                [a Any [Any a x x -> Any] -> Any]
-               ; if the above cannot be inferred, 
+               ; if the above cannot be inferred,
                [(IRef Nothing x) Any [Any (IRef Nothing x) x x -> Any] -> Any]))
 
 clojure.core/remove-watch [(IRef Nothing Any) Any -> Any]
@@ -1307,9 +1309,9 @@ clojure.core/longs [Any -> (Array long)]
 clojure.core/floats [Any -> (Array float)]
 clojure.core/doubles [Any -> (Array double)]
 
-clojure.core/max-key (All [x] 
+clojure.core/max-key (All [x]
                           [[x -> Number] x x x * -> x])
-clojure.core/min-key (All [x] 
+clojure.core/min-key (All [x]
                           [[x -> Number] x x x * -> x])
 
 clojure.core/< [Number Number * -> Boolean]
@@ -1344,10 +1346,10 @@ clojure.core/ex-data (IFn [ExInfo -> (Map Any Any)]
 
 ;; START CHUNK HACKS
 ;; These are hacks to get around the expansion of doseq>
-;; Basically, inference isn't good enough to narrow a (Seqable x) to 
+;; Basically, inference isn't good enough to narrow a (Seqable x) to
 ;; an (IChunk x), because chunked-seq? needs to be (Pred (IChunk Any)).
 clojure.core/chunked-seq? [Any -> Any]
-clojure.core/chunk-first 
+clojure.core/chunk-first
      (All [x]
           ;should be IChunkedSeq -> IChunk
           [(Seqable x) -> (clojure.lang.IChunk x)])
@@ -1370,7 +1372,7 @@ clojure.core/chunk-append
 ;;END CHUNK HACKS
 
 
-clojure.core/subvec (All [x] 
+clojure.core/subvec (All [x]
                      (IFn [(Vec x) AnyInteger -> (Vec x)]
                          [(Vec x) AnyInteger AnyInteger -> (Vec x)]))
 
@@ -1393,7 +1395,7 @@ clojure.core/*print-dup* Boolean
 clojure.core/*print-readably* Boolean
 clojure.core/*read-eval* (U ':unknown Boolean)
 
-clojure.core/trampoline 
+clojure.core/trampoline
        (All [r b ...]
          [[b ... b -> (Rec [f] (U r [-> (U f r)]))]
           b ... b -> r])
@@ -1460,15 +1462,15 @@ clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
 ;                   [(Array _ r) AnyInteger b ... b
 ;                    :recur (rec r b ... b)]))
 ;
-;  clojure.core/aget 
+;  clojure.core/aget
 ;       (Label [rec]
-;              (All [x :dotted [b]] 
+;              (All [x :dotted [b]]
 ;                   (IFn [(Array _ x) AnyInteger -> x]
 ;                       [(Array _ x) AnyInteger b ... b
-;                        :recur 
+;                        :recur
 ;                        (rec x b ... b)])))
 ;
-;  clojure.core/assoc 
+;  clojure.core/assoc
 ;       (All [[h <: (IPersistentMap Any Any)]
 ;             a b e ...2]
 ;         [h k ...2 a b -> (Assoc h k ...2 a b)])
@@ -1493,9 +1495,9 @@ clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
 ;                    (rec (I m (HMap {} :without [k])) b ... b)]))
 ;
 ;  (update-in {:a {:b 1}} [:a :b] inc)
-;  (update-in 
-;    (update-in {:a {:b 1}} [:a] inc) 
-;    [:b] 
+;  (update-in
+;    (update-in {:a {:b 1}} [:a] inc)
+;    [:b]
 ;    inc)
 ;
 ;  clojure.core/update-in
@@ -1507,7 +1509,7 @@ clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
 ;                   :recur
 ;                   [r (Vector* b ... b) [v a ... a -> e] a ... a]])))
 ;
-;  ;clojure.core/get-in 
+;  ;clojure.core/get-in
 ;  ;     (Label [rec]
 ;  ;       (All [[x :< (U nil (Associative Any Any))] k :dotted [b]]
 ;  ;            (IFn [x (Vector*) -> x]
@@ -1517,7 +1519,7 @@ clojure.set/difference (All [x] [(Set x) (Set Any) * -> (Set x)])
 ;  ;                [(U nil (Associative Any y)) (Vector* k) -> (U nil x)]
 ;  ;                    ))))
 ;
-;  clojure.core/partial 
+;  clojure.core/partial
 ;       (Label [rec]
 ;              (All [x [a :< x] r :dotted [b c]]
 ;                   (IFn [[x c ... c -> r] a -> [c ... c -> r]]
@@ -1616,7 +1618,7 @@ clojure.lang.RT/aset (All [i o]
 ;get
 ;same as clojure.core/get
 clojure.lang.RT/get (All [x y]
-                         (IFn 
+                         (IFn
                            ;no default
                            [(IPersistentSet x) Any -> (Option x)]
                            [nil Any -> nil]
@@ -1668,7 +1670,7 @@ clojure.lang.Numbers/unchecked_int_dec [Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_negate [Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_subtract [Number Number -> AnyInteger]
 clojure.lang.Numbers/unchecked_int_add [Number -> AnyInteger]
-clojure.lang.Numbers/unchecked_minus (IFn 
+clojure.lang.Numbers/unchecked_minus (IFn
                                        ; negate
                                        [Long -> Long]
                                        [Double -> Double]
@@ -1715,14 +1717,14 @@ clojure.lang.Numbers/or [AnyInteger AnyInteger -> Long]
 clojure.lang.Numbers/xor [AnyInteger AnyInteger -> Long]
 ;bit-and-not
 clojure.lang.Numbers/andNot [AnyInteger AnyInteger -> Long]
-; unsigned-bit-shift-right 
+; unsigned-bit-shift-right
 clojure.lang.Numbers/unsignedShiftRight [AnyInteger AnyInteger -> Long]
 
-clojure.lang.Numbers/max (IFn 
+clojure.lang.Numbers/max (IFn
                            [Long Long -> Long]
                            [Double Double -> Double]
                            [Number Number -> Number])
-clojure.lang.Numbers/min (IFn 
+clojure.lang.Numbers/min (IFn
                            [Long Long -> Long]
                            [Double Double -> Double]
                            [Number Number -> Number])
@@ -1784,22 +1786,22 @@ clojure.lang.Delay (All [x]
   (impl/with-clojure-impl
     (reset-alias-env!)
     ((v 'clojure.core.typed.var-env/reset-var-type-env!)
-     (init-var-env) 
+     (init-var-env)
      (init-var-nochecks))
-    ((v 'clojure.core.typed.method-return-nilables/reset-nonnilable-method-return-env!) 
+    ((v 'clojure.core.typed.method-return-nilables/reset-nonnilable-method-return-env!)
      (init-method-nonnilable-return-env))
     ((v 'clojure.core.typed.method-param-nilables/reset-method-nilable-param-env!)
      (init-method-nilable-param-env))
     ((v 'clojure.core.typed.method-override-env/reset-method-override-env!)
      (init-method-override-env))
-    ((v 'clojure.core.typed.ctor-override-env/reset-constructor-override-env!) 
+    ((v 'clojure.core.typed.ctor-override-env/reset-constructor-override-env!)
      (init-ctor-override-env))
-    ((v 'clojure.core.typed.protocol-env/reset-protocol-env!) 
+    ((v 'clojure.core.typed.protocol-env/reset-protocol-env!)
      (init-protocol-env))
     (base-rclass/reset-rclass-env!)
-    ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!) 
+    ((v 'clojure.core.typed.declared-kind-env/reset-declared-kinds!)
      (init-declared-kinds))
-    ((v 'clojure.core.typed.datatype-env/reset-datatype-env!) 
+    ((v 'clojure.core.typed.datatype-env/reset-datatype-env!)
      (init-datatype-env))
     ((v 'clojure.core.typed.datatype-ancestor-env/reset-datatype-ancestors!)
      (init-datatype-ancestor-env)))

@@ -84,3 +84,16 @@
 
 (ann second-seq (Option number))
 (def second-seq (second (seq [1 2 3])))
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; test vars in base-env-common
+
+(ann take-vec (ASeq int))
+(def take-vec (take 2 [1 2 3 4]))
+
+
+(ann drop-vec (ASeq int))
+(def drop-vec (drop 2 [1 2 3 4]))
