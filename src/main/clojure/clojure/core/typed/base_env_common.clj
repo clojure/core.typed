@@ -26,18 +26,20 @@
              (reset! ~cache-sym calc#)))))))
 
 
-
-(defn clj-ann->cljs-ann
+(defn parse-cljs-ann-map
   [ann-map]
   (into {}
-        (map (fn [[k x]]
-               [(-> k
-                    str
-                    (clojure.string/replace ,,, #"clojure" "cljs")
-                    symbol
-                    ;resolve
-                    )
-                (prs/parse-type x)])
+        (map (fn [[sym ann]]
+               [(symbol "cljs.core" (name sym))
+                (prs/parse-type ann)])
+             ann-map)))
+
+
+(defn parse-clj-ann-map
+  [ann-map]
+  (into {}
+        (map (fn [[sym ann]]
+               [sym (prs/parse-type ann)])
              ann-map)))
 
 
@@ -200,7 +202,7 @@
     clojure.core/coll? (Pred (Coll Any))
                                         ;clojure.core/set? (Pred (Set Any))
     clojure.core/associative? (Pred (clojure.lang.Associative Any Any))
-    clojure.core/sequential? (Pred Sequential)
+    clojure.core/sequential? (Pred clojure.lang.Sequential)
                                         ;clojure.core/sorted? (Pred Sorted)
     clojure.core/map? (Pred (Map Any Any))
     clojure.core/vector? (Pred (Vec Any))
