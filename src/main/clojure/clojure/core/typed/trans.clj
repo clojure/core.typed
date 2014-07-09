@@ -129,13 +129,13 @@
                (= b (:name dentries)))
         (r/AssocType-maker t-target
                            (concat t-entries
-                                  (->> bm
-                                    (map (fn [bk]
-                                           {:post [(r/Type? %)]}
-                                           (-> (subst/substitute bk b (:pre-type dentries))
-                                             tfn)))
-                                    (partition 2)
-                                    (map vec)))
+                                   (->> bm
+                                     (map (fn [bk]
+                                            {:post [(r/Type? %)]}
+                                            (-> (subst/substitute bk b (:pre-type dentries))
+                                              tfn)))
+                                     (partition 2)
+                                     (map vec)))
                            nil)
         (r/AssocType-maker t-target
                            t-entries
