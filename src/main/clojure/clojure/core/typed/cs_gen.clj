@@ -834,6 +834,10 @@
         (let [new-S (c/upcast-hmap S)]
           (cs-gen V X Y new-S T))
 
+        (and (r/AssocType? S)
+             (r/Protocol? T))
+        (cs-gen V X Y (:target S) T)
+
         :else
         (cs-gen* V X Y S T))))))
 
@@ -2055,6 +2059,8 @@
         ;_ (prn "short-S" (map prs/unparse-type short-S))
         ;_ (prn "T" (map prs/unparse-type T))
         ;_ (prn "rest-S" (map prs/unparse-type rest-S))
+        ;_ (prn "R" R)
+        ;_ (prn "expected" expected)
         expected-cset (if expected
                         (cs-gen #{} X {dotted-var dotted-bnd} R expected)
                         (cr/empty-cset {} {}))
