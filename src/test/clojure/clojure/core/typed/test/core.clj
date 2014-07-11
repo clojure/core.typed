@@ -547,8 +547,7 @@
                                                       (assoc e :c :b))))
                       (ret (make-FnIntersection (Function-maker [(Name-maker 'clojure.core.typed.test.util-aliases/MapName)]
                                                             (make-Result (make-HMap :mandatory {(-val :a) (-val 1)
-                                                                                 (-val :c) (-val :b)})
-                                                                         (-FS -top -bot) -empty)
+                                                                                 (-val :c) (-val :b)}))
                                                             nil nil nil nil nil))
                            (-FS -top -bot) -empty)))
   ; Name representing union of two maps, both with :type key
