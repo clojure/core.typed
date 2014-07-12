@@ -150,20 +150,20 @@
                                     (IMapEntry x y) '[x y])
                                  (U nil (Seqable (IMapEntry x y))
                                     (IMapEntry x y) '[x y]) * -> (IPersistentMap x y)]
-                                        ;[(IPersistentSet x) x x * -> (IPersistentSet x)]
+                                        [(IPersistentSet x) x x * -> (IPersistentSet x)]
                                 [(ASeq x) x x * -> (ASeq x)]
                                 [nil x x * -> (clojure.lang.PersistentList x)]
                                 [(Coll Any) Any Any * -> (Coll Any)]))
     clojure.core/get (All [x y]
                           (IFn
                            ;;no default
-                                        ;[(U nil (Set x) (ILookup Any x)) Any -> (Option x)]
+                           [(U nil (Set x) (ILookup Any x)) Any -> (Option x)]
                            [(Option java.util.Map) Any -> Any]
                                         ;[(Option String) Any -> (Option Character)]
                            ;;default
-                                        ;[(U nil (Set x) (ILookup Any x)) Any y -> (U y x)]
+                           [(U nil (Set x) (ILookup Any x)) Any y -> (U y x)]
                            [(Option java.util.Map) Any y -> (U y Any)]
-                                        ;[(Option String) Any y -> (U y Character)]
+                           ;[(Option String) Any y -> (U y Character)]
                            ))
     clojure.core/assoc (All [b c d]
                             (IFn [(Map b c) b c -> (Map b c)]
@@ -465,7 +465,7 @@
     (All [x y]
          (IFn [(Map x y) (U nil (Seqable (U nil (Seqable (IMapEntry x y)) (IMapEntry x y) '[x y]))) -> (Map x y)]
               [(Vec x) (U nil (Seqable x)) -> (Vec x)]
-                                        ;[(Set x) (U nil (Seqable x)) -> (Set x)]
+              [(Set x) (U nil (Seqable x)) -> (Set x)]
               [(Coll Any) (U nil (Seqable Any)) -> (Coll Any)]))
     clojure.core/mapv
     (All [c a b ...]

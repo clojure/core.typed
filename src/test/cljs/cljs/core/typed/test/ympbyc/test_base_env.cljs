@@ -97,3 +97,8 @@
 
 (ann drop-vec (ASeq int))
 (def drop-vec (drop 2 [1 2 3 4]))
+
+
+
+(ann get-set (Option int))
+(def get-set (get #{1 2 3} 2))
