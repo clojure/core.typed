@@ -362,6 +362,11 @@ goog.events.EventType.MOUSEMOVE string
    ^{:doc "sequential -- alias for common anns"}
    cljs.core.typed/Sequential ISequential
 
+   ^{:doc "set -- alias for common anns"}
+   cljs.core.typed/Set ISet
+
+   ^{:doc "set -- alias for common anns"}
+   cljs.core.typed/IPersistentSet ISet
 
 
    ^{:doc "A type that can be used to create a sequence of member type x."}
