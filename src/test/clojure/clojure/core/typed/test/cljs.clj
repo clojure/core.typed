@@ -6,7 +6,11 @@
             [cljs.core.typed :as t]
             [clojure.core.typed.util-cljs :as ucljs]
             [clojure.core.typed.type-ctors :as c]
-            [clojure.core.typed.parse-unparse :as prs]))
+            [clojure.core.typed.parse-unparse :as prs]
+
+            [clojure.core.typed.base-env-common :refer [delay-and-cache-env]
+             :as common]
+            [clojure.core.typed.var-env :as var-env]))
 
 (deftest parse-prims-cljs-test
   (is-cljs (= (prs/parse-cljs 'number)
@@ -83,24 +87,24 @@
 (deftest letfn-test
   (is-tc-e (t/letfn> [a :- (t/All [x] [x -> x])
                       (a [b] b)]
-             (a 1))))
+                     (a 1))))
 
 #_(deftest async-test
-  (is-cljs (t/check-ns* 'cljs.core.typed.async)))
+    (is-cljs (t/check-ns* 'cljs.core.typed.async)))
 
 (deftest inline-annotation-test
-  ; code from David Nolen's blog
+                                        ; code from David Nolen's blog
   (is-tc-e
-    (defn ^{:ann '[(t/U nil (ISeqable t/Any)) t/Any -> int]}
-      index-of [xs x]
-      (let [len (count xs)]
-        (t/loop>
-          [i :- int, 0]
-          (if (< i len)
-            (if (= (nth xs i) x)
-              i
-              (recur (inc i)))
-            -1))))))
+   (defn ^{:ann '[(t/U nil (ISeqable t/Any)) t/Any -> int]}
+     index-of [xs x]
+     (let [len (count xs)]
+       (t/loop>
+        [i :- int, 0]
+        (if (< i len)
+          (if (= (nth xs i) x)
+            i
+            (recur (inc i)))
+          -1))))))
 
 #_(clojure.core.typed.analyze-cljs/ast-for-form '(fn [x] (instance? Atom x)))
 
@@ -134,11 +138,31 @@
   (is-tc-e [1 2 3] (t/Seqable int))  ;;not sure if it should be...
   (is-tc-e (seq [1 2 3]) (t/NonEmptyASeq int)))
 
-;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.dom)
-;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)
-;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.helpers)
-;(t/check-ns* 'cljs.core.typed.async)
+                                        ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.dom)
+                                        ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.reactive)
+                                        ;(t/check-ns* 'cljs.core.typed.test.dnolen.utils.helpers)
+                                        ;(t/check-ns* 'cljs.core.typed.async)
 
 
 (deftest core-fns-test
   (t/check-ns* 'cljs.core.typed.test.ympbyc.test-base-env))
+
+
+(deftest annotation-coverage
+  (let [n-core-vars    (count (ns-map 'cljs.core))
+        n-common-anns  (count common/common-var-annotations)
+        n-cljs-anns    (count @var-env/CLJS-VAR-ANNOTATIONS)]
+    (or (= n-core-vars n-cljs-anns)
+        (do
+          (println (str "number of vars in cljs.core:       " n-core-vars))
+          (println (str "number of vars in base-env-common: " n-common-anns))
+          (println (str "number of specific cljs vars:      " (- n-cljs-anns
+                                                                 n-common-anns)))
+          (println (str "Coverage: "
+                        (* 100 (float (/ n-cljs-anns  n-core-vars)))
+                        "% ("
+                        (- n-core-vars n-cljs-anns)
+                        " vars are missing its annotations)"))
+          (println (clojure.set/difference (set (map name (keys (ns-map 'cljs.core))))
+                                           (set (map name (keys @var-env/CLJS-VAR-ANNOTATIONS)))))
+          false))))

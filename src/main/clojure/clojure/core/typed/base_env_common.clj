@@ -185,10 +185,10 @@
                            [(Vec x) -> (Vec x)]
                                         ;[(Stack x) -> (Stack x)]
                            ))
-    ;;clojure.core/disj
-    #_(All [x]
-           (IFn [(SortedSet x) Any Any * -> (SortedSet x)]
-                [(Set x) Any Any * -> (Set x)]))
+    clojure.core/disj
+    (All [x]
+         (IFn #_[(SortedSet x) Any Any * -> (SortedSet x)]
+              [(Set x) Any Any * -> (Set x)]))
     clojure.core/hash [Any -> AnyInteger]
     clojure.core/empty? (IFn [(Option (HSequential [Any *])) -> Boolean
                               :filters {:then (| (is EmptyCount 0)

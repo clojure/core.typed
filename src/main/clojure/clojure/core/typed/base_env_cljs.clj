@@ -115,6 +115,8 @@ goog.events.EventTarget [[]]
     ((impl/v 'clojure.core.typed.jsnominal-env/reset-jsnominal!)
      (init-jsnominals))))
 
+
+;;; vars specific to cljs
 (delay-and-cache-env ^:private init-var-env
   (reset-protocol-env!)
   (reset-jsnominal-env!)
@@ -129,7 +131,6 @@ cljs.core.typed/ann-datatype* [Any Any Any Any -> Any]
 cljs.core.typed/def-alias* [Any Any -> Any]
 cljs.core.typed/typed-deps* [Any -> Any]
 
-cljs.core/identity (All [x] [x -> x])
 cljs.core/+ (IFn [int * -> int]
                  [number * -> number])
 cljs.core/+ (IFn [int * -> int]
@@ -138,11 +139,6 @@ cljs.core/- (IFn [int * -> int]
                  [number * -> number])
 cljs.core/* (IFn [int * -> int]
                  [number * -> number])
-cljs.core/> [number number * -> boolean]
-cljs.core/< [number number * -> boolean]
-cljs.core/= [Any * -> boolean]
-cljs.core/identical? [Any Any -> boolean]
-cljs.core/number? (Pred number)
 cljs.core/nth (All [x y]
                 (IFn [(U nil (cljs.core/ISeqable x)) int -> x]
                       [(U nil (cljs.core/ISeqable x)) int y -> (U y x)]))
@@ -156,21 +152,13 @@ cljs.core/*print-length* (U nil int)
 
 cljs.core/enable-console-print! [-> Any]
 
-cljs.core/*1 Any
-cljs.core/*2 Any
-cljs.core/*3 Any
-
 cljs.core/truth_ [Any -> Any]
 
 cljs.core/nil? (Pred nil)
 
 cljs.core/array? (ReadOnlyArray Any)
 
-cljs.core/not [Any -> boolean]
-
 cljs.core/object? [Any -> boolean]
-
-cljs.core/string? (Pred string)
 
 cljs.core/native-satisfies? [Any Any -> Any]
 
@@ -178,34 +166,15 @@ cljs.core/is_proto_ [Any -> Any]
 
 cljs.core/*main-cli-fn* (U nil [Any * -> Any])
 
-cljs.core/type [Any -> Any]
-
 cljs.core/missing-protocol [Any Any -> Any]
 cljs.core/type->str [Any -> string]
 
 cljs.core/make-array (All [r]
                           (IFn [int -> (Array r)]
-                                [Any int -> (Array r)]))
-
-cljs.core/aclone (All [r]
-                      [(ReadOnlyArray r) -> (Array r)])
+                               [Any int -> (Array r)]))
 
 cljs.core/array (All [r]
                      [r * -> (Array r)])
-
-cljs.core/aget (All [x] (IFn [(ReadOnlyArray x)
-                               int -> x]
-                              [(ReadOnlyArray (ReadOnlyArray x))
-                               int int -> x]
-                              [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))
-                               int int int -> x]
-                              [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x))))
-                               int int int int -> x]
-                              ; don't support unsound cases
-                              [(ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray (ReadOnlyArray x)))))
-                               int int int int int -> x]))
-
-;TODO aset
 
 cljs.core/alength [(ReadOnlyArray Any) -> int]
 
@@ -215,61 +184,9 @@ cljs.core/into-array (All [x]
 
 cljs.core/pr-str* [Any -> string]
 
-cljs.core/symbol (IFn [(U string cljs.core/Symbol) -> cljs.core/Symbol]
-                     [(U string nil) string -> cljs.core/Symbol])
-
-
 cljs.core/clone [Any -> Any]
 
 cljs.core/cloneable? (Pred cljs.core/ICloneable)
-
-      ;TODO aliases
-;cljs.core/seq (All [x]
-;                   (IFn
-;                     [(NonEmptyColl x) -> (NonEmptySeq x)]
-;                     [(Option (Coll x)) -> (Option (NonEmptySeq x))
-;                      :filters {:then (& (is NonEmptyCount 0)
-;                                         (! nil 0))
-;                                :else (| (is nil 0)
-;                                         (is EmptyCount 0))}]
-;                     [(Option (Seqable x)) -> (Option (NonEmptySeq x))]))
-
-;;;; sequencial fns. I think those are incomplete
-;;;; since Option, Coll, etc don't seem to work yet
-
-cljs.core/seq (All [x]
-                   (IFn [(NonEmptyColl x) -> (NonEmptyASeq x)]
-                        [(Option (Coll x)) -> (Option (NonEmptyASeq x))
-                         #_:filters #_{:then (& (is NonEmptyCount 0)
-                                                (! nil 0))
-                                       :else (| (is nil 0)
-                                                (is EmptyCount 0))}]
-                        [(Option (Seqable x)) -> (Option (NonEmptyASeq x))]))
-
-cljs.core/first (All [x]
-                     (IFn [(HSequential [x Any *]) -> x
-                           :object {:id 0 :path [(Nth 0)]}]
-                          [(Option (EmptySeqable x)) -> nil]
-                          [(NonEmptySeqable x) -> x]
-                          [(Option (Seqable x)) -> (Option x)]))
-
-cljs.core/second (All [x]
-                      (IFn [(HSequential [Any x Any *]) -> x
-                            :object {:id 0 :path [(Nth 1)]}]
-                           [(Option (I (Seqable x) (CountRange 0 1))) -> nil]
-                           [(I (Seqable x) (CountRange 2)) -> x]
-                           [(Option (Seqable x)) -> (Option x)]))
-
-cljs.core/rest (All [x]
-                    [(Option (Seqable x)) -> (ASeq x)])
-
-cljs.core/last (All [x]
-                    (IFn [(NonEmptySeqable x) -> x]
-                         [(Option (Seqable x)) -> (Option x)]))
-
-cljs.core/butlast (All [x]
-                       [(Option (Seqable x)) -> (ASeq x)])
-
 
 
 cljs.core/count
@@ -278,9 +195,7 @@ cljs.core/count
       [(U nil (cljs.core/ISeqable Any)) -> int :object {:id 0, :path [Count]}]
 cljs.core/prim-seq
       (All [x]
-           [(cljs.core/ISeqable x) -> (U nil (cljs.core/ISeq x))])
-
-      )))
+           [(cljs.core/ISeqable x) -> (U nil (cljs.core/ISeq x))]))))
 
 (delay-and-cache-env ^:private init-var-nochecks
   (set (keys (init-var-env))))
