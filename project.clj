@@ -16,7 +16,7 @@
                  [org.clojure/tools.trace "0.7.5"
                   :exclusions [org.clojure/clojure]]
                  [org.clojure/clojure "1.5.1"]
-                 [org.clojure/tools.namespace "0.2.4"]
+                 [org.clojure/tools.namespace "0.2.5"]
                  [com.taoensso/timbre "2.1.2"]
                  [org.clojure/core.match "0.2.0-alpha12"]
                  [org.clojure/core.async "0.1.303.0-886421-alpha"]
