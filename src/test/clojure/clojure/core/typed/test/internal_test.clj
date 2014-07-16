@@ -62,8 +62,10 @@
           :ann [{:dom [{:type 'clojure.core.typed/Any}]
                  :drest {:bound 'x
                          :pretype {:type 'Number}}
-                 :ret-type {:type 'clojure.core.typed/Any}}]})))
-
+                 :ret-type {:type 'clojure.core.typed/Any}}]}))
+  (is (= (-> (internal/parse-fn* false '(^long [b]))
+             :fn second first meta)
+         '{:tag long})))
 
 (deftest parse-loop-test
   (is (= (internal/parse-loop* '([a []] a))
@@ -152,6 +154,13 @@
                                   [(Name x) Foo -> Bar]
                                   [(Name x) Foo1 -> Bar1]
                                   [(Name x) Foo2 -> Bar2])))}))
+  (is (= (-> (internal/parse-defprotocol*
+               '([[x :variance :covariant]]
+                 Name ([y] 
+                       m1 
+                       ^long [this t :- Foo] :- Bar)))
+             :defprotocol next next first second meta)
+         '{:tag long}))
   )
 
 (deftest parse-let-test
@@ -160,4 +169,7 @@
   (is (= (internal/parse-let* '([a :- Foo b c :- Baz d] 1 2 3 4))
          {:let '(clojure.core/let [a (clojure.core.typed/ann-form b Foo) 
                                    c (clojure.core.typed/ann-form d Baz)] 
-                  1 2 3 4)})))
+                  1 2 3 4)}))
+  (is (= (-> (internal/parse-let* '(^:test-meta [a :- Foo b c :- Baz d] 1 2 3 4))
+             :let second meta)
+         '{:test-meta true})))
