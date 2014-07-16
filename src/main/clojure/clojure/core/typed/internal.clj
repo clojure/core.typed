@@ -20,7 +20,7 @@
                          (for [method methods]
                            (merge-with merge
                              (loop [ann-params (first method)
-                                    pvec []
+                                    pvec (empty (first method)) ; an empty param vector with same metadata
                                     ann-info []]
                                (cond
                                  (empty? ann-params)
@@ -250,7 +250,7 @@
                      (assert (not (#{:-} (second pvec)))
                              "Annotating the first argument of a method is disallowed")
                      (loop [pvec pvec
-                            actual []
+                            actual (empty pvec) ; empty vector with same metadata as pvec
                             ptypes []]
                        (assert (every? vector? [actual ptypes]))
                        (cond
@@ -323,7 +323,8 @@
 (defn parse-let*
   [[bvec & forms]]
   (let [actual-bvec (loop [bvec bvec
-                           actual-bvec []]
+                           actual-bvec (empty bvec)] ; empty vector with same metadata as bvec
+                      (assert (vector? actual-bvec))
                       (cond
                         (empty? bvec) actual-bvec
                         :else (if (#{:-} (second bvec))
