@@ -67,7 +67,7 @@ cljs.core/IComparable [[]]
     ;cljs.core/IChunkedSeq [[]]
     ;cljs.core/IChunkedNext [[]]
 cljs.core/INamed [[]]
-
+cljs.core/Reduced [[[x :variance :covariant]]]
 ))
 
 (defn reset-protocol-env! []
@@ -195,7 +195,11 @@ cljs.core/count
       [(U nil (cljs.core/ISeqable Any)) -> int :object {:id 0, :path [Count]}]
 cljs.core/prim-seq
       (All [x]
-           [(cljs.core/ISeqable x) -> (U nil (cljs.core/ISeq x))]))))
+           [(cljs.core/ISeqable x) -> (U nil (cljs.core/ISeq x))])
+
+;;;;;;;
+cljs.core/key-test [Keyword Any -> boolean]
+      )))
 
 (delay-and-cache-env ^:private init-var-nochecks
   (set (keys (init-var-env))))

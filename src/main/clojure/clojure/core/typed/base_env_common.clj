@@ -225,8 +225,8 @@
     clojure.core/shuffle (All [x]
                               (IFn [(I (Collection x) (Seqable x)) -> (Vec x)]
                                    [(Collection x) -> (Vec x)]))
-    ;clojure.core/reduce
-    #_(All [a c]
+    clojure.core/reduce
+    (All [a c]
          (IFn
           ;;Without accumulator
           ;; default
@@ -626,4 +626,34 @@
                                         ;clojure.core/ex-data
     #_(IFn [ExInfo -> (Map Any Any)]
            [Any -> (U nil (Map Any Any))])
-    clojure.core/special-symbol? [Any -> Boolean]})
+    clojure.core/special-symbol? [Any -> Boolean]
+
+
+
+    ;;;;;;;; add-hook annotations just to improve coverage. correctness isn't assured
+    clojure.core/reductions (All [a b] (IFn [[a b -> a] (Seqable b) -> (ASeq a)]
+                                            [[a b -> a] a (Seqable b) -> (ASeq a)]))
+    clojure.core/reduced? [Any -> Boolean]
+    clojure.core/sequence (All [a] (IFn [(Seqable a) -> (ASeq a)]
+                                        [Any -> (EmptySeqable a)]))
+    clojure.core/dec [Number -> Number]
+    clojure.core/inc [Number -> Number]
+    clojure.core/set (All [a] [(Coll a) -> (Set a)])
+    clojure.core/nfirst (All [a b c] [(Seqable (Seqable a)) -> (ASeq a)])
+    clojure.core/group-by (All [a b] [[a -> b] (Coll a) -> (Map b a)])
+    clojure.core/keep (All [a b] [[a -> (Option b)] (Coll a) -> (Option (ASeq b))])
+    clojure.core/seqable? [Any -> Boolean]
+    clojure.core/sort-by (All [a] (IFn [(Coll a) -> (ASeq a)]
+                                       [[a -> Number] (Coll a) -> (ASeq a)]))
+    clojure.core/replicate (All [a] [Number a -> (ASeq a)])
+    clojure.core/quot [Number Number -> Number]
+    clojure.core/partition (All [a] (IFn [Number (Coll a) -> (ASeq (ASeq a))]
+                                         [Number Number (Coll a) -> (ASeq (ASeq a))]
+                                         [Number Number Number (Coll a) -> (ASeq (ASeq a))]))
+    clojure.core/name [(U Keyword String Symbol) -> String]
+    clojure.core/rseq (All [a] [(Seqable a) -> (ASeq a)])
+    clojure.core/second (All [a] [(Seqable a) -> a])
+    ;todo clojure.core/replace
+    clojure.core/fnext (All [a] [(Seqable a) -> a])
+    clojure.core/rem [Number Number -> Number]
+    })
