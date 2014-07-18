@@ -43,16 +43,14 @@
                                   (core/let [_ (assert (#{1} (count fdecl))
                                                        "Bad arguments to clojure.core.typed/def")
                                              [body] fdecl]
-                                    [false nil body]))
-             def (list* 'def name 
-                        (concat
-                          (when docstring [docstring])
-                          [body]))]
-    (if vs/*checking*
-      `(do ~@(when provided?
-               [`(clojure.core.typed/ann ~name ~t)])
-           ~def)
-      def)))
+                                    [false nil body]))]
+    `(def ~(vary-meta name #(merge
+                              %
+                              (when docstring
+                                {:doc docstring})))
+       ~(if provided?
+          `(ann-form ~body ~t)
+          body))))
 
 (defmacro 
   ^{:forms '[(fn name? [param :- type* & param :- type * ?] :- type? exprs*)
