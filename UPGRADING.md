@@ -19,6 +19,8 @@
   - Note it is impossible to refer to a var called `def`
 - `clojure.core.typed/defprotocol>` renamed `clojure.core.typed/defprotocol`
   - New syntax cannot be used in conjunction with `ann-protocol`
+- `clojure.core.typed/defn>` renamed `clojure.core.typed/defn`
+  - Return type now goes after the binder: `(defn name [a :- t] :- t, b)`
 
 ## Changed macros
 
