@@ -9,7 +9,10 @@
              defs (map (core/fn [sym var]
                          `(do (def ~sym (deref ~var))
                               ;for AOT compilation
-                              (alter-meta! (var ~sym) merge (meta ~var) {:macro true})))
+                              (alter-meta! (var ~sym) 
+                                           merge
+                                           (dissoc (meta ~var) :ns :name)
+                                           {:macro true})))
                        syms vars)]
     `(do ~@defs
          :imported)))
