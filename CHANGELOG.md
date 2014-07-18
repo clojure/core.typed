@@ -1,3 +1,11 @@
+# 0.2.58 - 17th July 2014
+
+- Add `clojure.core.typed/defn`
+- Deprecate `clojure.core.typed/defn>`
+- Fix docstrings for imported `clojure.core.typed` macros
+- `clojure.core.typed/def` uses `ann-form` to propagate expected type
+  instead of `ann`
+
 # 0.2.57 - 17th July 2014
 
 - clojure.core.typed/{fn,defprotocol} preserves metadata in parameter vector
