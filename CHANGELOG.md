@@ -1,4 +1,4 @@
-# 0.2.58 - 17th July 2014
+# 0.2.58 - SNAPSHOT
 
 - Add `clojure.core.typed/defn`
 - Deprecate `clojure.core.typed/defn>`
