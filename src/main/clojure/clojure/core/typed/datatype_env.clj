@@ -32,10 +32,10 @@
                (some-fn r/DataType? r/TypeFn?)))
 
 (t/ann CLJ-DATATYPE-ENV (t/Atom1 DataTypeEnv))
-(defonce ^:private CLJ-DATATYPE-ENV (t/atom> DataTypeEnv {} :validator datatype-env?))
+(defonce ^:private CLJ-DATATYPE-ENV (t/atom :- DataTypeEnv, {} :validator datatype-env?))
 
 (t/ann CLJS-DATATYPE-ENV (t/Atom1 DataTypeEnv))
-(defonce ^:private CLJS-DATATYPE-ENV (t/atom> DataTypeEnv {} :validator datatype-env?))
+(defonce ^:private CLJS-DATATYPE-ENV (t/atom :- DataTypeEnv, {} :validator datatype-env?))
 
 (t/ann add-datatype [t/Sym r/Type -> nil])
 (defn add-datatype [sym t]
